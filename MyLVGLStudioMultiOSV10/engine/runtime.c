@@ -355,7 +355,8 @@ int ml_create(int id, int type, int parent)
         case T_SWITCH: obj = lv_switch_create(host); break;
         case T_SLIDER: obj = lv_slider_create(host); break;
         case T_BAR: obj = lv_bar_create(host); break;
-        case T_ARC: obj = lv_arc_create(host); break;
+        /* Only the ring takes a press, not its whole square: rings inside rings each work. */
+        case T_ARC: obj = lv_arc_create(host); lv_obj_add_flag(obj, LV_OBJ_FLAG_ADV_HITTEST); break;
         case T_DROPDOWN: obj = lv_dropdown_create(host); break;
         case T_ROLLER: obj = lv_roller_create(host); break;
         case T_TEXTAREA: obj = lv_textarea_create(host); break;

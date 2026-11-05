@@ -17,6 +17,7 @@ void ui_Program_create(void)
     lv_obj_set_y(ui_label1, 16);
     lv_obj_set_style_text_font(ui_label1, &lv_font_montserrat_16, 0);
     ui_arc1 = lv_arc_create(ui_Program);
+    lv_obj_add_flag(ui_arc1, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc1, 0, 100);
     lv_obj_set_width(ui_arc1, 130);
     lv_obj_set_height(ui_arc1, 130);

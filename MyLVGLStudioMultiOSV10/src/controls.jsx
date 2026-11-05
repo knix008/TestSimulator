@@ -8,12 +8,14 @@ const LIST_MAX_HEIGHT = 240;
 /** The list opens below its button, or above when the window has more room there. */
 function listPlacement(button, count) {
   const rect = button.getBoundingClientRect();
+  // The window it is drawn in: a dialog may have its own.
+  const { innerHeight } = button.ownerDocument.defaultView;
   const wanted = Math.min(LIST_MAX_HEIGHT, count * 30 + 10);
-  const below = window.innerHeight - rect.bottom - 6;
+  const below = innerHeight - rect.bottom - 6;
   const above = rect.top - 6;
   const style = { position: "fixed", left: rect.left, minWidth: rect.width, width: "max-content", maxWidth: Math.max(rect.width, 320), right: "auto" };
   if (below >= wanted || below >= above) return { ...style, top: rect.bottom + 2, bottom: "auto", maxHeight: Math.min(LIST_MAX_HEIGHT, below) };
-  return { ...style, top: "auto", bottom: window.innerHeight - rect.top + 2, maxHeight: Math.min(LIST_MAX_HEIGHT, above) };
+  return { ...style, top: "auto", bottom: innerHeight - rect.top + 2, maxHeight: Math.min(LIST_MAX_HEIGHT, above) };
 }
 
 export function IconSelect({ value, options, onChange, title, id }) {
@@ -30,13 +32,14 @@ export function IconSelect({ value, options, onChange, title, id }) {
       if (!host.current?.contains(event.target)) setOpen(false);
     };
     const closeNow = () => setOpen(false);
-    window.addEventListener("pointerdown", close, true);
-    window.addEventListener("scroll", closeOnScroll, true);
-    window.addEventListener("resize", closeNow);
+    const win = host.current?.ownerDocument.defaultView ?? window;
+    win.addEventListener("pointerdown", close, true);
+    win.addEventListener("scroll", closeOnScroll, true);
+    win.addEventListener("resize", closeNow);
     return () => {
-      window.removeEventListener("pointerdown", close, true);
-      window.removeEventListener("scroll", closeOnScroll, true);
-      window.removeEventListener("resize", closeNow);
+      win.removeEventListener("pointerdown", close, true);
+      win.removeEventListener("scroll", closeOnScroll, true);
+      win.removeEventListener("resize", closeNow);
     };
   }, [open]);
   const selected = options.find((option) => option.value === value);
@@ -176,17 +179,27 @@ export function ColorField({ value, onChange, placeholder, clearLabel, id }) {
   );
 }
 
-export function Toggle({ checked, onChange, id }) {
+export function Toggle({ checked, onChange, id, label }) {
   return (
     <button
       type="button"
       role="switch"
       data-field={id}
+      aria-label={label}
       aria-checked={!!checked}
       className={checked ? "toggle on" : "toggle"}
       onClick={() => onChange(!checked)}
     >
       <i />
     </button>
+  );
+}
+
+/** The resize marker of every corner: dots in a triangle. */
+export function GripDots() {
+  return (
+    <svg viewBox="0 0 12 12" data-grip="">
+      {[[10, 2], [6, 6], [10, 6], [2, 10], [6, 10], [10, 10]].map(([x, y]) => <circle key={`${x},${y}`} cx={x} cy={y} r="1.15" />)}
+    </svg>
   );
 }

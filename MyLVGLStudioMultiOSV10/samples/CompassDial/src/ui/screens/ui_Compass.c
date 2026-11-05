@@ -8,6 +8,7 @@ void ui_Compass_create(void)
     lv_obj_set_style_bg_opa(ui_Compass, 255, 0);
     lv_obj_set_style_bg_color(ui_Compass, lv_color_hex(0x0d1b2a), 0);
     ui_arc1 = lv_arc_create(ui_Compass);
+    lv_obj_add_flag(ui_arc1, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc1, 0, 359);
     lv_obj_set_width(ui_arc1, 320);
     lv_obj_set_height(ui_arc1, 320);

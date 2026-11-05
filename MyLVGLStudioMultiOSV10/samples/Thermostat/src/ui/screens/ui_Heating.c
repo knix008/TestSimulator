@@ -8,6 +8,7 @@ void ui_Heating_create(void)
     lv_obj_set_style_bg_opa(ui_Heating, 255, 0);
     lv_obj_set_style_bg_color(ui_Heating, lv_color_hex(0x16181d), 0);
     ui_arc1 = lv_arc_create(ui_Heating);
+    lv_obj_add_flag(ui_arc1, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc1, 10, 30);
     lv_obj_set_width(ui_arc1, 320);
     lv_obj_set_height(ui_arc1, 320);

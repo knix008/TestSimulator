@@ -8,6 +8,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod lvgl;
+mod popout;
 mod native;
 
 use std::collections::BTreeMap;
@@ -18,7 +19,7 @@ use base64::Engine as _;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
-const MAIN: &str = "main";
+pub const MAIN: &str = "main";
 const RUN: &str = "run";
 const SETTINGS_FOLDER: &str = "MyLVGLStudio";
 const MIN_WIDTH: f64 = 1000.0;
@@ -301,7 +302,17 @@ fn open_main_window(app: &AppHandle) -> Result<(), String> {
     let settings = read_settings_value();
     let saved = &settings["window"];
     let num = |key: &str| saved[key].as_f64();
+    let dialogs = app.clone();
     let mut builder = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
+        // Every dialog opens as a window of its own.
+        .on_new_window(move |url, features| {
+            if url.scheme() == "about" {
+                if let Some(main) = dialogs.get_webview_window(MAIN) {
+                    return popout::new_window(&dialogs, &main, &url, features);
+                }
+            }
+            tauri::webview::NewWindowResponse::Deny
+        })
         .title("My LVGL Studio")
         .inner_size(num("width").unwrap_or(1440.0).max(MIN_WIDTH), num("height").unwrap_or(860.0).max(MIN_HEIGHT))
         .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
@@ -342,11 +353,15 @@ fn main() {
             tauri::WindowEvent::CloseRequested { .. } if window.label() == MAIN => {
                 remember_window(window);
                 native::stop_all(window.app_handle());
+                popout::close_all(window.app_handle());
                 if let Some(run) = window.app_handle().get_webview_window(RUN) {
                     let _ = run.destroy();
                 }
             }
             tauri::WindowEvent::Resized(_) if window.label() == MAIN => enforce_min_size(window),
+            tauri::WindowEvent::Destroyed if popout::is_dialog(window.label()) => {
+                popout::closed(window.app_handle(), window.label());
+            }
             tauri::WindowEvent::Destroyed if window.label() == RUN => {
                 let _ = window.app_handle().emit("run-closed", ());
             }
@@ -375,6 +390,13 @@ fn main() {
             native::native_stop,
             native::native_clean,
             samples_list,
+            popout::popout_show,
+            popout::popout_drag,
+            popout::popout_minimize,
+            popout::popout_focus,
+            popout::popout_close,
+            popout::popout_reset,
+            popout::popout_inline,
             native::tools_plan,
             native::tools_install,
         ])

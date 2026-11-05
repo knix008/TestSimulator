@@ -1,13 +1,133 @@
 // Project settings, the LVGL manager, and the small confirm / about dialogs.
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { canPopOut, fitPopout, openPopout, sizePopout } from "./popout.js";
 import { Icon } from "./icons.jsx";
-import { ColorField, IconSelect, Stepper, Toggle } from "./controls.jsx";
+import { ColorField, GripDots, IconSelect, Stepper, Toggle } from "./controls.jsx";
 import { host, isDesktop } from "./host.js";
 import { BUNDLED_ENGINES, DEFAULT_VERSION, KNOWN_VERSIONS, engineFor, sortReleases } from "./lvgl/versions.js";
 import { DEVICES, normalDevice, sameDevice } from "./lvgl/schema.js";
 import { joinPath, removeImageFromProject, validProjectName } from "./lvgl/project.js";
 
-export function Dialog({ title, icon, onClose, children, footer, width = 460, id }) {
+// The window a dialog is in, for what goes in its title bar.
+const PopContext = createContext(null);
+
+/** Minimize, a maximize that cannot be used, and close, for a dialog with a bar of its own. */
+export function WindowButtons({ t, onClose }) {
+  const pop = useContext(PopContext);
+  return (
+    <div className="window-controls" data-window-buttons="">
+      {pop?.standsFree && (
+        <>
+          <button type="button" data-command="window-minimize" aria-label={t("cmd.minimize")} title={t("cmd.minimize")} onClick={() => void host.popoutMinimize(pop.label)}><svg viewBox="0 0 10 10"><path d="M0 5h10" /></svg></button>
+          <button type="button" data-command="window-maximize" aria-label={t("cmd.maximize")} title={t("cmd.maximize")} disabled><svg viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" /></svg></button>
+        </>
+      )}
+      <button type="button" className="close" data-command="window-close" aria-label={t("cmd.close")} title={t("cmd.close")} onClick={onClose}><svg viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" /></svg></button>
+    </div>
+  );
+}
+
+function DialogPanel({ title, icon, onClose, children, footer, width, panel, bare, grip }) {
+  return (
+    <div className="dialog" ref={panel} style={{ width }}>
+      {!bare && (
+        <header>
+          <strong className="dialog-title" data-dialog-title=""><Icon name={icon} /><span>{title}</span></strong>
+          <button type="button" className="mini" aria-label="×" onClick={onClose}><Icon name="close" size={14} /></button>
+        </header>
+      )}
+      <div className="dialog-body">{children}</div>
+      {footer && <footer>{footer}</footer>}
+      {grip}
+    </div>
+  );
+}
+
+/** The dialog in a window of its own, which can go anywhere, also outside the program. */
+function WindowDialog({ pop, onClose, id, height, ...rest }) {
+  const panel = useRef(null);
+  const closing = useRef(onClose);
+  closing.current = onClose;
+
+  // Sized to the dialog once it has laid out, then shown; later it follows the content. One that
+  // stands free has the size it is given, and then the size the user gives it.
+  useEffect(() => {
+    if (pop.standsFree) {
+      const first = setTimeout(() => void sizePopout(pop, { width: rest.width, height }), 60);
+      return () => clearTimeout(first);
+    }
+    let last = "";
+    const key = () => {
+      const box = panel.current?.getBoundingClientRect();
+      return box ? `${Math.ceil(box.width)}x${Math.ceil(box.height)}` : "";
+    };
+    let shown = false;
+    const first = setTimeout(() => {
+      if (!panel.current) return;
+      last = key();
+      shown = true;
+      void fitPopout(pop, panel.current);
+    }, 60);
+    const Observer = pop.win.ResizeObserver ?? ResizeObserver;
+    const follow = new Observer(() => {
+      if (!shown || !panel.current || key() === last) return;
+      last = key();
+      void fitPopout(pop, panel.current, { resizeOnly: true });
+    });
+    if (panel.current) follow.observe(panel.current);
+    return () => {
+      clearTimeout(first);
+      follow.disconnect();
+    };
+    // Its size is read once, when it opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pop]);
+
+  useEffect(() => {
+    const key = (event) => {
+      if (event.key === "Escape") closing.current();
+    };
+    pop.win.addEventListener("keydown", key);
+    return () => pop.win.removeEventListener("keydown", key);
+  }, [pop]);
+
+  // The title bar moves the window, or the bar of a dialog that has its title in it.
+  const onDragDown = (event) => {
+    if (event.button !== 0 || !event.target.closest(".dialog > header, [data-window-drag]")) return;
+    if (!event.target.closest("button, input, select, textarea, a")) void host.popoutDrag(pop.label);
+  };
+  return createPortal(
+    <div
+      data-dialog={id}
+      role="dialog"
+      aria-modal="true"
+      aria-label={rest.title}
+      onPointerDown={onDragDown}
+      onContextMenu={(event) => {
+        // The app's own right-click menu belongs to the main window.
+        event.stopPropagation();
+        if (!event.target.closest("input, textarea")) event.preventDefault();
+      }}
+    >
+      <PopContext.Provider value={pop}>
+        <DialogPanel
+          {...rest}
+          onClose={onClose}
+          panel={panel}
+          grip={pop.standsFree && (
+            <button type="button" className="grip dialog-grip" aria-label="resize" onPointerDown={(event) => { event.preventDefault(); void host.popoutResize(pop.label); }}>
+              <GripDots />
+            </button>
+          )}
+        />
+      </PopContext.Provider>
+    </div>,
+    pop.root,
+  );
+}
+
+function InlineDialog({ id, onClose, ...rest }) {
   useEffect(() => {
     const key = (event) => {
       if (event.key === "Escape") onClose();
@@ -16,17 +136,46 @@ export function Dialog({ title, icon, onClose, children, footer, width = 460, id
     return () => window.removeEventListener("keydown", key);
   }, [onClose]);
   return (
-    <div className="overlay-dim" role="dialog" aria-modal="true" aria-label={title} data-dialog={id}>
-      <div className="dialog" style={{ width }}>
-        <header>
-          <strong className="dialog-title" data-dialog-title=""><Icon name={icon} /><span>{title}</span></strong>
-          <button type="button" className="mini" aria-label="×" onClick={onClose}><Icon name="close" size={14} /></button>
-        </header>
-        <div className="dialog-body">{children}</div>
-        {footer && <footer>{footer}</footer>}
-      </div>
+    <div className="overlay-dim" role="dialog" aria-modal="true" aria-label={rest.title} data-dialog={id}>
+      <DialogPanel {...rest} onClose={onClose} />
     </div>
   );
+}
+
+export function Dialog({ title, icon, onClose, children, footer, width = 460, id, bare = false, standsFree = false, height }) {
+  // undefined: the window is being opened. null: no window, so inside the page.
+  const [pop, setPop] = useState(canPopOut() ? undefined : null);
+  const closing = useRef(onClose);
+  closing.current = onClose;
+  useEffect(() => {
+    if (!canPopOut()) return undefined;
+    const opened = openPopout(id, title, typeof width === "number" ? width : 460, { standsFree });
+    if (!opened) {
+      setPop(null);
+      return undefined;
+    }
+    setPop(opened);
+    let ours = true;
+    // Alt+F4 or anything else closed the window: the dialog ends with it.
+    const off = host.on("popout-closed", (label) => {
+      if (ours && label === opened.label) closing.current();
+    });
+    return () => {
+      ours = false;
+      off?.();
+      opened.stop();
+      void host.popoutClose(opened.label).catch(() => {});
+    };
+    // The window lives as long as the dialog; its size and title are read when it opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+  useEffect(() => {
+    if (pop) pop.win.document.title = title;
+  }, [pop, title]);
+  const props = { title, icon, onClose, footer, width, id, bare };
+  if (pop === undefined) return null;
+  if (pop === null) return <InlineDialog {...props}>{children}</InlineDialog>;
+  return <WindowDialog pop={pop} height={height} {...props}>{children}</WindowDialog>;
 }
 
 export function ConfirmDialog({ t, title, message, onYes, onNo, yesLabel }) {
@@ -39,8 +188,8 @@ export function ConfirmDialog({ t, title, message, onYes, onNo, yesLabel }) {
       width={420}
       footer={(
         <>
-          <button type="button" className="primary" data-command="confirm-yes" onClick={onYes}>{yesLabel ?? t("dialog.ok")}</button>
-          <button type="button" data-command="confirm-no" onClick={onNo}>{t("dialog.cancel")}</button>
+          <button type="button" className="primary" data-command="confirm-yes" onClick={onYes}><Icon name="check" size={14} /> {yesLabel ?? t("dialog.ok")}</button>
+          <button type="button" data-command="confirm-no" onClick={onNo}><Icon name="close" size={14} /> {t("dialog.cancel")}</button>
         </>
       )}
     >
@@ -51,7 +200,7 @@ export function ConfirmDialog({ t, title, message, onYes, onNo, yesLabel }) {
 
 export function MessageDialog({ t, title, message, onClose }) {
   return (
-    <Dialog title={title} icon="about" onClose={onClose} id="message" width={420} footer={<button type="button" className="primary" onClick={onClose}>{t("dialog.ok")}</button>}>
+    <Dialog title={title} icon="about" onClose={onClose} id="message" width={420} footer={<button type="button" className="primary" onClick={onClose}><Icon name="check" size={14} /> {t("dialog.ok")}</button>}>
       <p className="dialog-message">{message}</p>
     </Dialog>
   );
@@ -78,7 +227,7 @@ export function AboutDialog({ t, onClose, runtime, iconSource }) {
     ["about.license", "MIT. LVGL © LVGL Kft, MIT"],
   ];
   return (
-    <Dialog title={t("about.window")} icon="about" onClose={onClose} id="about" width={520} footer={<button type="button" className="primary" onClick={onClose}>{t("dialog.close")}</button>}>
+    <Dialog title={t("about.window")} icon="about" onClose={onClose} id="about" width={520} footer={<button type="button" className="primary" onClick={onClose}><Icon name="close" size={14} /> {t("dialog.close")}</button>}>
       <div className="about-body">
         <img className="about-icon" src={iconSource} alt="" />
         <div className="about-copy">
@@ -110,7 +259,7 @@ export function useSamples() {
 export function SamplesDialog({ t, language, onOpen, onClose }) {
   const { dir, items } = useSamples();
   return (
-    <Dialog title={t("samples.title")} icon="samples" onClose={onClose} id="samples" width={560} footer={<button type="button" className="primary" onClick={onClose}>{t("dialog.close")}</button>}>
+    <Dialog title={t("samples.title")} icon="samples" onClose={onClose} id="samples" width={560} footer={<button type="button" className="primary" onClick={onClose}><Icon name="close" size={14} /> {t("dialog.close")}</button>}>
       {items.length === 0 && <p className="dialog-note">{t("samples.empty")}</p>}
       <div className="samples-list">
         {items.map((sample) => (
@@ -147,7 +296,7 @@ export function ProjectSettings({ t, store, onClose, onManager, onVersion, onCon
     { value: "custom", label: t("device.custom"), icon: "device" },
   ], [t]);
   return (
-    <Dialog title={t("settings.title")} icon="project" onClose={onClose} id="settings" width={500} footer={<button type="button" className="primary" data-command="settings-close" onClick={onClose}>{t("dialog.close")}</button>}>
+    <Dialog title={t("settings.title")} icon="project" onClose={onClose} id="settings" width={500} footer={<button type="button" className="primary" data-command="settings-close" onClick={onClose}><Icon name="close" size={14} /> {t("dialog.close")}</button>}>
       <div className="form-grid">
         <span>{t("settings.name")}</span>
         <input className="text-input" data-field="projectName" value={project.name} onChange={(event) => edit((draft) => { draft.name = event.target.value; }, "name")} />
@@ -243,8 +392,8 @@ export function NewProjectDialog({ t, saveOnly, initialName, initialLocation, in
       width={540}
       footer={(
         <>
-          <button type="button" className="primary" data-command="project-create" disabled={!ready} onClick={submit}>{t(saveOnly ? "cmd.save" : "project.create")}</button>
-          <button type="button" onClick={onClose}>{t("dialog.cancel")}</button>
+          <button type="button" className="primary" data-command="project-create" disabled={!ready} onClick={submit}><Icon name={saveOnly ? "save" : "new"} size={14} /> {t(saveOnly ? "cmd.save" : "project.create")}</button>
+          <button type="button" onClick={onClose}><Icon name="close" size={14} /> {t("dialog.cancel")}</button>
         </>
       )}
     >
@@ -380,7 +529,7 @@ export function LvglManager({ t, onClose, onInstalledChange, autoInstall }) {
   const versions = useMemo(() => sortReleases([...(releases ?? KNOWN_VERSIONS), ...installed.map((item) => item.version), ...BUNDLED_ENGINES]), [releases, installed]);
 
   return (
-    <Dialog title={t("manager.title")} icon="manager" onClose={onClose} id="manager" width={640} footer={<button type="button" className="primary" onClick={onClose}>{t("dialog.close")}</button>}>
+    <Dialog title={t("manager.title")} icon="manager" onClose={onClose} id="manager" width={640} footer={<button type="button" className="primary" onClick={onClose}><Icon name="close" size={14} /> {t("dialog.close")}</button>}>
       <p className="dialog-note">{t("manager.intro")}</p>
       {!isDesktop && <p className="form-note">{t("native.desktopOnly")}</p>}
       {offline && <p className="form-note" data-note="offline">{t("manager.offline")}</p>}

@@ -108,7 +108,7 @@ export function LvConfDialog({ t, store, installed, onVersion, onClose }) {
         <>
           <button type="button" data-command="conf-reset-all" disabled={!count} onClick={() => store.update((draft) => { delete draft.lvConf; })}><Icon name="undo" /> {t("conf.resetAll")}</button>
           <span className="conf-count" data-conf-count={count}>{t("conf.changed", { count })}</span>
-          <button type="button" className="primary" data-command="conf-close" onClick={onClose}>{t("dialog.close")}</button>
+          <button type="button" className="primary" data-command="conf-close" onClick={onClose}><Icon name="close" size={14} /> {t("dialog.close")}</button>
         </>
       )}
     >
@@ -129,7 +129,7 @@ export function LvConfDialog({ t, store, installed, onVersion, onClose }) {
             <button type="button" className="conf-link" data-command="conf-drop-unknown" onClick={() => store.update((draft) => {
               for (const name of unknown) delete draft.lvConf[name];
               if (!Object.keys(draft.lvConf).length) delete draft.lvConf;
-            })}>{t("conf.dropUnknown")}</button>
+            })}><Icon name="delete" size={14} /> {t("conf.dropUnknown")}</button>
           </p>
         )}
         <div className="conf-tools">
@@ -143,7 +143,7 @@ export function LvConfDialog({ t, store, installed, onVersion, onClose }) {
               const changed = changedIn(item);
               return (
                 <button type="button" key={item.title} data-conf-section={item.title} className={item.title === current && !query && !onlyChanged ? "active" : undefined} title={item.title} onClick={() => { setSection(item.title); setSearch(""); setOnlyChanged(false); }}>
-                  <span>{item.title}</span>
+                  <span className="conf-section-name"><Icon name="conf" size={14} /> {item.title}</span>
                   {changed > 0 && <b>{changed}</b>}
                 </button>
               );

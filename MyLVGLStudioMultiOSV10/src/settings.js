@@ -21,7 +21,7 @@ export const START_CARDS = ["hero", "actions", "recent", "samples", "theme", "ba
 
 export const SNAP_MIN = 1;
 export const SNAP_MAX = 50;
-export const DEFAULT_GENERAL = { reopenLast: false, newVersion: DEFAULT_VERSION, newDevice: DEVICES[0].id, snap: 1 };
+export const DEFAULT_GENERAL = { reopenLast: false, askTutorial: true, newVersion: DEFAULT_VERSION, newDevice: DEVICES[0].id, snap: 1 };
 
 /** The General tab: what a new project starts with, and how the editor behaves. */
 export function sanitizeGeneral(value) {
@@ -29,6 +29,7 @@ export function sanitizeGeneral(value) {
   const snap = Math.round(Number(v.snap));
   return {
     reopenLast: v.reopenLast === true,
+    askTutorial: v.askTutorial !== false,
     newVersion: isSupported(v.newVersion) ? String(v.newVersion) : DEFAULT_GENERAL.newVersion,
     newDevice: DEVICES.some((device) => device.id === v.newDevice) ? v.newDevice : DEFAULT_GENERAL.newDevice,
     snap: Number.isFinite(snap) ? Math.max(SNAP_MIN, Math.min(SNAP_MAX, snap)) : DEFAULT_GENERAL.snap,

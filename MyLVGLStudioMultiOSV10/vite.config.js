@@ -23,5 +23,12 @@ export default defineConfig({
     __BUILD_INFO__: JSON.stringify({ date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`, commit: commit() }),
   },
   build: { outDir: "dist", emptyOutDir: true, target: "es2022", chunkSizeWarningLimit: 2000 },
-  server: { strictPort: true },
+  // The folder also holds the LVGL sources and every build's output, tens of thousands of files.
+  // Left to itself the dev server looks through and watches all of them before serving the page:
+  // that took 46 seconds at each npm start.
+  optimizeDeps: { entries: ["index.html"] },
+  server: {
+    strictPort: true,
+    watch: { ignored: ["**/third_party/**", "**/src-tauri/**", "**/build/**", "**/dist/**", "**/test-results/**", "**/samples/**", "**/.git/**"] },
+  },
 });

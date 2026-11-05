@@ -85,6 +85,24 @@ App
   → 코드 보기가 열려 있으면: generateCode() → CodeView 갱신
 ```
 
+#### Arc의 입력 판정
+
+Arc는 `engine/runtime.c`와 `codegen.js` 양쪽에서 `LV_OBJ_FLAG_ADV_HITTEST`를 켭니다. 기본값이면 사각형 전체가 입력을 받아, 겹친 링 중 안쪽 링이 바깥 링의 입력을 가져갑니다. 두 곳은 항상 함께 바꿔야 합니다.
+
+#### 대화상자 창
+
+`Dialog`는 `window.open("about:blank#dialog-<이름>")`으로 자식 창을 열고 React 포털로 그 문서에 그립니다. 같은 렌더러이므로 상태와 처리기를 나누지 않으며, `popout.js`가 스타일시트와 `<html>` 속성을 복사해 맞춥니다. 창은 내용을 잰 뒤 그 크기로 보여 주고, 열려 있는 동안 메인 창을 비활성화합니다. 대화상자 안에서 창에 이벤트를 다는 코드는 `window` 대신 요소의 `ownerDocument.defaultView`를 써야 합니다. 웹판과 `MLS_INLINE_DIALOGS`를 켠 GUI 테스트는 창 안에 그립니다. 튜토리얼의 안내 카드는 창의 일부를 비춰야 하므로 메인 창 안에 있습니다.
+
+`standsFree` 대화상자(사용 설명서, 라벨 `dialog-free-*`)는 예외입니다. 소유자 없이 작업 표시줄에 나타나고, 크기를 바꿀 수 있고, 메인 창을 막지 않습니다. 메인 창이 닫힐 때 `popout::close_all`로 함께 닫습니다. 다시 열기 명령은 `focusPopout`으로 기존 창을 앞으로 가져옵니다.
+
+#### 값 연결과 애니메이션
+
+이벤트 동작 `setValue`, `showValue`는 원본 값을 대상의 범위로 환산해 전달합니다. 엔진의 `range_of`와 생성기의 `valueRange`가 같은 범위를 내야 설계 화면과 코드가 같게 동작합니다. `animate` 속성은 실행할 때만 동작하고, 값이 바뀔 때마다 VALUE_CHANGED를 보내 연결된 콘트롤도 함께 움직입니다.
+
+#### 개발 서버 범위
+
+프로젝트 폴더에는 LVGL 소스와 빌드 결과가 수만 개 들어 있습니다. `vite.config.js`가 의존성 검색을 `index.html`로 제한하고 이 폴더들을 감시에서 빼지 않으면 `npm start`의 페이지 표시가 46초까지 늘어납니다. 시험으로 고정해 두었습니다.
+
 #### 글꼴
 
 설계 화면(WASM 엔진)과 생성 코드 모두 LVGL의 TinyTTF로 그리므로 결과가 픽셀까지 같습니다(`test/run.mjs`가 gcc 빌드와 비교). 파일 내용은 문서 밖의 `fonts.js`에 두어 실행 취소 기록을 키우지 않습니다. 디코더는 글꼴 모음의 첫 면만 열기 때문에, 다른 면을 쓸 때는 모음 머리의 첫 항목이 그 면을 가리키도록 복사본을 고칩니다. 엔진은 (파일, 면, 크기)별로 디코더를 유지합니다. 파일에 없는 글자는 `fallback`으로 내장 글꼴에서 찾습니다.
@@ -167,6 +185,11 @@ Shift+F5 → native_check (도구 확인) → lvgl_installed (없으면 LVGL 관
 | `src/lvgl/confTemplates.js` | 내장 엔진 버전의 `lv_conf_template.h` (`npm run conf-templates`로 생성) |
 | `src/lvgl/fonts.js` | 글꼴 파일 해석(면, 이름, 문자표)과 글꼴 보관 |
 | `src/LvConfDialog.jsx`, `src/FontsDialog.jsx` | LVGL 설정 창과 글꼴 창 |
+| `src/Tutorial.jsx`, `src/lvgl/tutorial.js` | 튜토리얼: 스마트워치를 만드는 단계와 할 일(프로젝트를 보고 판단, `finishStep`으로 대신 수행), 아래 창을 그대로 쓰게 두는 안내 카드, 시작 시 묻는 창 |
+| `src/Guide.jsx`, `src/markdown.js` | `doc/`의 문서를 앱 안에서 보는 창. 마크다운을 데이터로 바꿔 요소로 그리며 HTML을 만들지 않음 |
+| `src/cursor.js` | 끄는 동안의 마우스 포인터 |
+| `src/popout.js`, `src-tauri/src/popout.rs` | 대화상자를 독립 OS 창으로 띄우기 |
+| `src-tauri/windows/hooks.nsh` | 설치 시 `.mylvgl` 파일 아이콘과 등록, 제거 시 정리 |
 | `src/lvgl/versions.js` | 지원 버전, 엔진 선택, v8과 v9의 API 이름 차이 |
 | `src/lvgl/lvConfText.js` | 생성 프로젝트용 `lv_conf.h` 문자열. 테스트가 `engine/lv_conf.h`와 같은지 확인합니다. |
 | `src/App.jsx` | 창 전체, 명령, 단축키 |

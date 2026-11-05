@@ -10,6 +10,8 @@ import { confActive, confDefault, confValue, evaluateCondition, generateLvConf, 
 import { CONF_TEMPLATES } from "../src/lvgl/confTemplates.js";
 import { FONT_LANGUAGES, addFont, clearFonts, faceForLanguage, fontBytesForFace, fontData, fontFiles, fontNameFor, markFontsWritten, readFontFile, removeFontFromProject } from "../src/lvgl/fonts.js";
 import { buildCollection, buildFont } from "./minifont.mjs";
+import { TUTORIAL_STEPS, finishStep, findRole, stepDone, stepSelection, taskStates, tasksOf, tutorialProject } from "../src/lvgl/tutorial.js";
+import { inlinePieces, parseMarkdown } from "../src/markdown.js";
 import { applyCodeEdit, isEditableCode } from "../src/lvgl/codeparse.js";
 import { GENERATED_DIRS, generateCode, projectFiles } from "../src/lvgl/codegen.js";
 import { addImage, clearImages, extensionOf, imageData, imageFiles, removeImage } from "../src/lvgl/images.js";
@@ -196,9 +198,9 @@ export function registerFeatureTests({ category, test, engines, versions }) {
       assert.equal(settings.projectsDir, "C:\\p");
     });
     await test("General settings are made valid", () => {
-      assert.deepEqual(sanitizeGeneral(undefined), { reopenLast: false, newVersion: "9.6.0", newDevice: "cyd", snap: 1 });
-      assert.deepEqual(sanitizeGeneral({ reopenLast: "yes", newVersion: "7.0.0", newDevice: "nope", snap: 900 }), { reopenLast: false, newVersion: "9.6.0", newDevice: "cyd", snap: 50 });
-      assert.deepEqual(sanitizeGeneral({ reopenLast: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 }), { reopenLast: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 });
+      assert.deepEqual(sanitizeGeneral(undefined), { reopenLast: false, askTutorial: true, newVersion: "9.6.0", newDevice: "cyd", snap: 1 });
+      assert.deepEqual(sanitizeGeneral({ reopenLast: "yes", newVersion: "7.0.0", newDevice: "nope", snap: 900 }), { reopenLast: false, askTutorial: true, newVersion: "9.6.0", newDevice: "cyd", snap: 50 });
+      assert.deepEqual(sanitizeGeneral({ reopenLast: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 }), { reopenLast: true, askTutorial: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 });
     });
     await test("A saved user theme stays selected", () => {
       const settings = sanitizeSettings({ theme: "custom-1", customThemes: [{ id: "custom-1", name: "A", mode: "dark", colors: {} }] });
@@ -1413,6 +1415,223 @@ export function registerFeatureTests({ category, test, engines, versions }) {
     await test("The round samples use the round screen", () => {
       assert.equal(sampleIndex.find((sample) => sample.id === "RoundGauge").device.shape, "round");
       assert.equal(sampleIndex.find((sample) => sample.id === "SmartWatch").device.shape, "round");
+    });
+
+    /* ---------------------------------------------------- tutorial and documents */
+    category("Tutorial and documents");
+    await test("The tutorial question can be turned off, and stays off", () => {
+      assert.equal(sanitizeGeneral({}).askTutorial, true);
+      assert.equal(sanitizeGeneral({ askTutorial: false }).askTutorial, false);
+      assert.equal(sanitizeGeneral({ askTutorial: "no" }).askTutorial, true);
+    });
+    await test("Every tutorial step and task has words in both languages", () => {
+      assert.ok(TUTORIAL_STEPS.length >= 10);
+      assert.equal(new Set(TUTORIAL_STEPS.map((step) => step.id)).size, TUTORIAL_STEPS.length);
+      for (const language of ["ko", "en"]) {
+        const say = translator(language);
+        for (const step of TUTORIAL_STEPS) {
+          for (const part of ["title", "text", ...tasksOf(step).map((task) => `task.${task.id}`)]) assert.notEqual(say(`tutorial.${step.id}.${part}`), `tutorial.${step.id}.${part}`, `${language} ${step.id}`);
+          // A task's words must not stand in for the step's own explanation.
+          assert.ok(say(`tutorial.${step.id}.text`).length > 30, `${language} ${step.id}: too short to explain anything`);
+        }
+        for (const word of ["tutorial.doIt", "tutorial.notYet"]) assert.notEqual(say(word), word);
+      }
+    });
+    const builtWatch = (version) => {
+      const project = tutorialProject();
+      if (version) project.lvgl = version;
+      for (const step of TUTORIAL_STEPS) finishStep(project, step, { ran: true });
+      return project;
+    };
+    await test("Tutorial: a task is open until it is done, also when done by hand", () => {
+      const project = tutorialProject();
+      assert.deepEqual(project.screens[0].children, []);
+      const round = TUTORIAL_STEPS.find((step) => step.id === "round");
+      assert.equal(stepDone(project, round), false);
+      project.device = { w: 360, h: 360, shape: "round" };
+      assert.equal(stepDone(project, round), true);
+      for (const step of TUTORIAL_STEPS) {
+        if (!tasksOf(step).length) {
+          assert.equal(stepDone(project, step), true, step.id);
+          continue;
+        }
+        if (step.id !== "round") assert.equal(stepDone(project, step), false, `${step.id} is done before it starts`);
+        const before = taskStates(project, step).filter((task) => !task.done).length;
+        assert.ok(before > 0 || step.id === "round", step.id);
+        finishStep(project, step);
+        if (tasksOf(step).some((task) => task.run)) assert.equal(stepDone(project, step, { ran: true }), true);
+        else assert.equal(stepDone(project, step), true, step.id);
+      }
+      // Colours in capitals and numbers as text count the same; a wrong value does not.
+      const ring = findRole(project, { screen: 0, type: "arc", nth: 0 });
+      const colour = TUTORIAL_STEPS.find((step) => step.id === "outer");
+      ring.props.indicatorColor = "#66BB6A";
+      ring.props.value = "68";
+      assert.equal(stepDone(project, colour), true);
+      ring.props.value = 67;
+      assert.equal(stepDone(project, colour), false);
+    });
+    await test("Tutorial: doing a step again adds nothing, and selection follows the step", () => {
+      const project = builtWatch();
+      const once = JSON.stringify(project);
+      for (const step of TUTORIAL_STEPS) finishStep(project, step, { ran: true });
+      assert.equal(JSON.stringify(project), once);
+      const heart = TUTORIAL_STEPS.find((step) => step.id === "heart");
+      assert.equal(stepSelection(project, heart), findRole(project, heart.focus).id);
+      const fresh = tutorialProject();
+      assert.equal(stepSelection(fresh, TUTORIAL_STEPS[1]), fresh.screens[0].id, "before its widget exists, a step selects its screen");
+    });
+    await test("Tutorial: the finished watch is round, has two screens and has no problems", () => {
+      const project = builtWatch();
+      assert.deepEqual(project.device, { w: 360, h: 360, shape: "round" });
+      assert.deepEqual(project.screens.map((screen) => screen.name), ["Face", "Workout"]);
+      assert.deepEqual(project.screens[0].children.map((node) => node.type), ["arc", "arc", "label", "label", "label", "bar", "button"]);
+      assert.deepEqual(project.screens[1].children.map((node) => node.type), ["arc", "label", "label", "button"]);
+      assert.deepEqual(findProblems(project).map((problem) => `${problem.code ?? problem.key}`), []);
+      assert.equal(findRole(project, { screen: 0, type: "label", nth: 0 }).props.text, "10:30", "the code step changes the time");
+      const code = generateCode(project);
+      assert.match(JSON.stringify(code), /ui_init/);
+    });
+    for (const [version, engine] of engines) {
+      await test(`LVGL ${version}: the tutorial's watch really works`, () => {
+        const project = builtWatch(version);
+        const [face, workout] = project.screens;
+        const ring = findRole(project, { screen: 0, type: "arc", nth: 0 });
+        const inner = findRole(project, { screen: 0, type: "arc", nth: 1 });
+        const go = findRole(project, { screen: 0, type: "button", nth: 0 });
+        engine.load(project, face.id, { events: true });
+        assert.deepEqual(engine.errors, []);
+        const ticks = (count) => { for (let i = 0; i < count; i++) engine.tick(20); };
+        // The inner ring sweeps by itself.
+        const at = engine.valueOf(inner.id);
+        ticks(30);
+        assert.notEqual(engine.valueOf(inner.id), at, "the inner ring stands still");
+        // Without the sweep the picture holds still, so what changes is what was done.
+        const still = structuredClone(project);
+        delete findRole(still, { screen: 0, type: "arc", nth: 1 }).props.animate;
+        engine.load(still, face.id, { events: true });
+        ticks(6);
+        // The outer ring follows a drag along its edge, over the top.
+        const box = engine.coords(ring.id);
+        const edge = (degrees) => [box.x + box.w / 2 + (Math.cos((degrees * Math.PI) / 180) * box.w * 0.47), box.y + box.h / 2 + (Math.sin((degrees * Math.PI) / 180) * box.h * 0.47)];
+        const start = engine.valueOf(ring.id);
+        const [fromX, fromY] = edge(300);
+        engine.pointer(fromX, fromY, false);
+        ticks(3);
+        engine.pointer(fromX, fromY, true);
+        ticks(3);
+        for (let degrees = 300; degrees >= 200; degrees -= 10) {
+          const [x, y] = edge(degrees);
+          engine.pointer(x, y, true);
+          ticks(3);
+        }
+        const [toX, toY] = edge(200);
+        engine.pointer(toX, toY, false);
+        ticks(5);
+        assert.ok(engine.valueOf(ring.id) < start, `the ring did not follow the drag: ${start} to ${engine.valueOf(ring.id)}`);
+        // The button leads to another picture.
+        const before = Buffer.from(engine.frame());
+        const button = engine.coords(go.id);
+        const [x, y] = [button.x + button.w / 2, button.y + button.h / 2];
+        engine.pointer(x, y, false);
+        ticks(3);
+        engine.pointer(x, y, true);
+        ticks(5);
+        engine.pointer(x, y, false);
+        ticks(30);
+        assert.ok(!before.equals(Buffer.from(engine.frame())), "the button did not change the screen");
+        assert.equal(workout.name, "Workout");
+        assert.deepEqual(engine.errors, []);
+      });
+    }
+    await test("Rings inside rings: the code says only the ring takes a press", () => {
+      const project = tutorialProject();
+      addNode(project, project.screens[0].id, createNode(project, "arc"));
+      assert.match(JSON.stringify(generateCode(project)), /lv_obj_add_flag\(ui_arc\d+, LV_OBJ_FLAG_ADV_HITTEST\);/);
+    });
+    for (const [version, engine] of engines) {
+      await test(`LVGL ${version}: each of three rings inside each other takes its own drag`, () => {
+        const project = tutorialProject();
+        project.device = { w: 480, h: 480, shape: "round" };
+        const screen = project.screens[0];
+        const rings = [420, 320, 220].map((size) => addNode(project, screen.id, createNode(project, "arc", { align: "CENTER", width: size, height: size, min: 0, max: 100, value: 70 })));
+        const ticks = (count) => { for (let i = 0; i < count; i++) engine.tick(20); };
+        for (const ring of rings) {
+          engine.load(project, screen.id, { events: true });
+          ticks(6);
+          const box = engine.coords(ring.id);
+          const at = (degrees) => [box.x + box.w / 2 + (Math.cos((degrees * Math.PI) / 180) * (box.w / 2 - 7)), box.y + box.h / 2 + (Math.sin((degrees * Math.PI) / 180) * (box.h / 2 - 7))];
+          const [startX, startY] = at(300);
+          engine.pointer(startX, startY, false);
+          ticks(3);
+          engine.pointer(startX, startY, true);
+          ticks(3);
+          for (let degrees = 300; degrees >= 200; degrees -= 10) {
+            const [x, y] = at(degrees);
+            engine.pointer(x, y, true);
+            ticks(3);
+          }
+          const [endX, endY] = at(200);
+          engine.pointer(endX, endY, false);
+          ticks(5);
+          for (const other of rings) {
+            const value = engine.valueOf(other.id);
+            if (other === ring) assert.ok(value < 70, `the ring of ${box.w} did not follow its drag: ${value}`);
+            else assert.equal(value, 70, `a drag on the ring of ${box.w} moved another ring`);
+          }
+        }
+        // A press in the empty middle moves nothing.
+        engine.load(project, screen.id, { events: true });
+        ticks(6);
+        engine.pointer(240, 240, false);
+        ticks(3);
+        engine.pointer(240, 240, true);
+        ticks(3);
+        engine.pointer(300, 200, true);
+        ticks(5);
+        engine.pointer(300, 200, false);
+        ticks(5);
+        for (const ring of rings) assert.equal(engine.valueOf(ring.id), 70);
+      });
+    }
+    await test("Markdown becomes plain data", () => {
+      const blocks = parseMarkdown("# Title\n\nSome **bold** and `code`.\nNext line.\n\n- one\n- two\n\n1. first\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n```\nint x;\n```\n");
+      assert.deepEqual(blocks.map((block) => block.type), ["heading", "paragraph", "list", "list", "table", "code"]);
+      assert.equal(blocks[1].text, "Some **bold** and `code`. Next line.");
+      assert.equal(blocks[3].ordered, true);
+      assert.deepEqual(blocks[4].rows, [["1", "2"]]);
+      assert.equal(blocks[5].text, "int x;");
+      assert.deepEqual(inlinePieces("a **b** `c` [d](e.md) ![f](g.png)"), [{ text: "a " }, { bold: "b" }, { text: " " }, { code: "c" }, { text: " " }, { link: "d", href: "e.md" }, { text: " " }, { image: "f", src: "g.png" }]);
+      assert.deepEqual(inlinePieces("<script>x</script>"), [{ text: "<script>x</script>" }], "markup stays text");
+    });
+    const docText = (name) => fs.readFileSync(new URL(`../${name}`, import.meta.url), "utf8");
+    await test("The documents are in doc/, and what they link to exists", () => {
+      assert.ok(!fs.existsSync(new URL("../UsersGuide.md", import.meta.url)), "the guide has moved");
+      for (const name of ["doc/UsersGuide.md", "doc/Tutorial.md"]) {
+        for (const { src, href } of parseMarkdown(docText(name)).flatMap((block) => inlinePieces(block.text ?? (block.items ?? []).join(" ")))) {
+          const target = src ?? href;
+          if (target && !/^https?:/.test(target) && !target.startsWith("../")) assert.ok(fs.existsSync(new URL(`../doc/${target}`, import.meta.url)), `${name}: ${target}`);
+        }
+      }
+      for (const link of docText("README.md").matchAll(/\]\((doc\/[^)]+)\)/g)) assert.ok(fs.existsSync(new URL(`../${link[1]}`, import.meta.url)), link[1]);
+    });
+    await test("Both languages of the documents match, block by block", () => {
+      const shape = (name) => parseMarkdown(docText(name)).map((block) => (block.type === "heading" ? `h${block.level}` : block.type === "table" ? `table:${block.head.length}x${block.rows.length}` : block.type === "list" ? `list:${block.items.length}` : block.type));
+      for (const [ko, en] of [["doc/UsersGuide.md", "doc/UsersGuide.en.md"], ["doc/Tutorial.md", "doc/Tutorial.en.md"]]) {
+        assert.deepEqual(shape(en), shape(ko), en);
+        assert.deepEqual([...docText(en).matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => m[1]), [...docText(ko).matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => m[1]), `${en}: images`);
+        assert.doesNotMatch(docText(en), /^(?!.*(한국어|시속)).*[\uAC00-\uD7A3]{2,}/m, `${en} still has Korean`);
+      }
+    });
+    await test("The guide names every sample, and the new features", () => {
+      const guide = docText("doc/UsersGuide.md");
+      for (const sample of sampleIndex) assert.ok(guide.includes(`\`${sample.id}\``), sample.id);
+      for (const word of ["튜토리얼", "탐색기", "원형 화면", "값 연결", "LVGL 설정", "글꼴", "자동 왕복"]) assert.ok(guide.includes(word), word);
+    });
+    await test("The dev server leaves the LVGL sources and the build output alone", () => {
+      const config = docText("vite.config.js");
+      assert.match(config, /entries: \["index\.html"\]/);
+      for (const folder of ["third_party", "src-tauri", "build", "test-results"]) assert.ok(config.includes(`**/${folder}/**`), folder);
     });
 
     /* ------------------------------------------------------ the project file */

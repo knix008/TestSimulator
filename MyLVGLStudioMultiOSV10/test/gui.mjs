@@ -29,8 +29,9 @@ const data = fs.mkdtempSync(path.join(os.tmpdir(), "mls-gui-"));
 let app = null;
 let page = null;
 let debugPort = 0;
+let pageTargetId = "";
 
-async function launch(args = []) {
+async function launch(args = [], { inlineDialogs = true } = {}) {
   const port = await freePort(9360);
   debugPort = port;
   app = spawn(exe, args, {
@@ -38,21 +39,24 @@ async function launch(args = []) {
     env: {
       ...process.env,
       MLS_SETTINGS_DIR: path.join(data, "settings"),
+      // One page to drive: dialogs stay in it, except in the step about their windows.
+      ...(inlineDialogs ? { MLS_INLINE_DIALOGS: "1" } : {}),
       WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
     },
   });
   const target = await waitForTarget(port, (item) => /index\.html|tauri\.localhost/.test(item.url), 40000);
+  pageTargetId = target.id;
   page = await connect(target);
   await page.send("Page.enable");
   await page.until("window.__mls && window.__mls.engine && window.__mls.canvas", 20000);
 }
 
-async function restart(args = []) {
+async function restart(args = [], options = {}) {
   page.close();
   app.kill();
   await sleep(1500);
-  await launch(args);
+  await launch(args, options);
 }
 
 const { category, test: step, summary } = createReporter({
@@ -61,10 +65,15 @@ const { category, test: step, summary } = createReporter({
   onFailure: async (number) => {
     try {
       fs.writeFileSync(path.join(shots, `failed-${number}.png`), await page.screenshot());
+      // A dialog left open would fail every step after this one too.
+      await page.evaluate("window.__mls?.showDialog?.(null);void 0");
     } catch { /* the window is gone */ }
   },
 });
 
+// Everything but the steps about it starts without the tutorial's question in the way.
+fs.mkdirSync(path.join(data, "settings"), { recursive: true });
+fs.writeFileSync(path.join(data, "settings", "settings.json"), JSON.stringify({ general: { askTutorial: false } }));
 await launch();
 
 const js = (expression) => page.evaluate(expression);
@@ -199,7 +208,9 @@ await step("It opens on the start screen with every card", async () => {
   await sleep(400);
   assert.equal(await js("!!document.querySelector('[data-title-file], [data-status=file], [data-status=device], [data-status=selection]')"), false, "the empty project must not show on the start screen");
   assert.ok(!(await js("document.querySelector('.app').textContent")).includes("Untitled"), "Untitled is visible on the start screen");
-  assert.equal(await js("document.querySelectorAll('[data-grip] circle').length"), 6, "the grip is a triangle of six dots");
+  assert.equal(await js("document.querySelectorAll('.status-end [data-grip] circle').length"), 6, "the grip is a triangle of six dots");
+  const markers = await js("Array.from(document.querySelectorAll('.card-resize')).map((e) => e.querySelectorAll('[data-grip] circle').length)");
+  assert.ok(markers.length > 0 && markers.every((dots) => dots === 6), `a panel's marker is not the six dots: ${markers}`);
   await shot("01-start");
 });
 
@@ -638,7 +649,13 @@ await step("Every palette widget can be added and is drawn", async () => {
   for (const type of types) {
     const before = await allNodes();
     await doubleClick(`[data-palette="${type}"]`);
-    const added = (await allNodes()).filter((node) => !before.some((old) => old.id === node.id));
+    let added = (await allNodes()).filter((node) => !before.some((old) => old.id === node.id));
+    // Thirty-six double clicks in a row: the input channel can drop one, and then nothing is added.
+    if (!added.length) {
+      await sleep(250);
+      await doubleClick(`[data-palette="${type}"]`);
+      added = (await allNodes()).filter((node) => !before.some((old) => old.id === node.id));
+    }
     assert.equal(added.length, 1, type);
     assert.equal(added[0].type, type);
     await sleep(60);
@@ -1331,9 +1348,16 @@ await step("A button's line stays soft under a nearly white accent", async () =>
   await js(`document.documentElement.dataset.theme = "dark-carbon"; document.documentElement.dataset.mode = "dark"; void 0`);
   await sleep(80);
   const palette = await center(".palette-item");
-  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: palette.x, y: palette.y, buttons: 0 });
-  await sleep(150);
-  const measured = await js(`(() => { const s = getComputedStyle(document.documentElement); const e = document.querySelector(".palette-item:hover"); return e ? { border: getComputedStyle(e).borderTopColor, wanted: s.getPropertyValue("--accent-line").trim(), raw: s.getPropertyValue("--accent").trim() } : null; })()`);
+  // A pointer move is sometimes lost, and a hover needs one to arrive after the page has settled.
+  let measured = null;
+  for (let attempt = 0; attempt < 8 && !measured; attempt++) {
+    await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: palette.x + attempt, y: palette.y, buttons: 0 });
+    await sleep(150);
+    measured = await js(`(() => { const s = getComputedStyle(document.documentElement); const e = document.querySelector(".palette-item:hover"); return e ? { border: getComputedStyle(e).borderTopColor, wanted: s.getPropertyValue("--accent-line").trim(), raw: s.getPropertyValue("--accent").trim() } : null; })()`);
+  }
+  if (!measured) {
+    await js(`document.documentElement.dataset.theme = "${before}"; document.documentElement.dataset.mode = "${mode}"; void 0`);
+  }
   assert.ok(measured, "the pointer did not reach the item");
   const hex = (text) => "#" + text.match(/\d+/g).slice(0, 3).map((v) => Number(v).toString(16).padStart(2, "0")).join("");
   assert.equal(hex(measured.border), measured.wanted);
@@ -1719,6 +1743,69 @@ await step("Explorer: the project's files as a tree, and each one opens", async 
   const back = await center('[data-splitter="explorer"]');
   await drag(back, { x: back.x, y: back.y - 40 });
   await sleep(60);
+});
+
+await step("Every button with words in a popup has an icon", async () => {
+  const missing = (scope) => js(`Array.from(document.querySelectorAll(${JSON.stringify(`${scope} button`)})).filter((b) => b.getClientRects().length && b.textContent.trim() && b.getAttribute("role") !== "switch" && !b.closest(".stepper") && !b.classList.contains("range-step") && !b.querySelector(".icon, .flag, .swatches, .swatch, .theme-swatch, .bg-chip")).map((b) => b.textContent.trim().slice(0, 24))`);
+  const dialogs = [
+    ["settings", '[data-command="settings"]', '[data-command="settings-close"]'],
+    ["fonts", '[data-command="fonts"]', '[data-command="fonts-close"]'],
+    ["lvconf", '[data-command="lvconf"]', '[data-command="conf-close"]'],
+  ];
+  for (const [id, open, close] of dialogs) {
+    await click(open);
+    await page.until(`document.querySelector("[data-dialog=${id}]")`, 3000);
+    await sleep(250);
+    assert.deepEqual(await missing(`[data-dialog=${id}]`), [], id);
+    await click(close);
+    await sleep(80);
+  }
+  await click('[data-command="preferences"]');
+  await page.until('document.querySelector("[data-dialog=preferences]")', 3000);
+  for (const tab of await js("Array.from(document.querySelectorAll('[data-pref-tab]')).map((e) => e.dataset.prefTab)")) {
+    await click(`[data-pref-tab="${tab}"]`);
+    await sleep(80);
+    assert.deepEqual(await missing("[data-dialog=preferences]"), [], tab);
+  }
+  await click('[data-command="preferences-close"]');
+  await sleep(80);
+  for (const [menu, command, id] of [["help", "about", "about"], ["file", "samples", "samples"], ["tools", "manager", "manager"]]) {
+    await click(`[data-menu="${menu}"] > button`);
+    await click(`[data-menu="${menu}"] [data-command="${command}"]`);
+    await page.until(`document.querySelector("[data-dialog=${id}]")`, 3000);
+    await sleep(200);
+    assert.deepEqual(await missing(`[data-dialog=${id}]`), [], id);
+    // The manager grows as its list of releases arrives, which moves the button: wait until it rests.
+    const closer = `[data-dialog="${id}"] footer button:last-child`;
+    let where = null;
+    for (let tries = 0; tries < 40; tries++) {
+      const now = JSON.stringify(await center(closer));
+      if (now === where) break;
+      where = now;
+      await sleep(300);
+    }
+    await click(closer);
+    await page.until(`!document.querySelector("[data-dialog=${id}]")`, 3000);
+  }
+  // These depend on what the project is doing, so they are asked for directly.
+  for (const [id, value] of [
+    ["new-project", '{kind:"project",saveOnly:false,location:"C:/x",name:"MyLVGLProject"}'],
+    ["confirm", '{kind:"confirm",message:"?",onYes(){}}'],
+    ["message", '{kind:"message",title:"T",message:"M"}'],
+  ]) {
+    await js(`window.__mls.showDialog(${value});void 0`);
+    await page.until(`document.querySelector("[data-dialog=${id}]")`, 3000);
+    assert.deepEqual(await missing(`[data-dialog=${id}]`), [], id);
+    await js("window.__mls.showDialog(null);void 0");
+    await page.until(`!document.querySelector("[data-dialog=${id}]")`, 3000);
+  }
+  // On the accent colour the icon has the text's colour.
+  await click('[data-command="settings"]');
+  await page.until('document.querySelector("[data-dialog=settings]")', 3000);
+  const colours = await js(`(() => { const b = document.querySelector('[data-command="settings-close"]'); return [getComputedStyle(b).color, getComputedStyle(b.querySelector(".icon")).color]; })()`);
+  assert.equal(colours[1], colours[0]);
+  await click('[data-command="settings-close"]');
+  await sleep(80);
 });
 
 await step("Panels can be resized by their splitters", async () => {
@@ -2250,7 +2337,7 @@ await step("Settings: the General tab has real settings, and they work", async (
   await choose("prefNewDevice", "wvga");
   await typeInto('[data-field="prefSnap"] input', "10");
   await click('[data-field="prefReopen"]');
-  assert.deepEqual(await js("window.__mls.general()"), { reopenLast: true, newVersion: "8.4.0", newDevice: "wvga", snap: 10 });
+  assert.deepEqual(await js("window.__mls.general()"), { reopenLast: true, askTutorial: false, newVersion: "8.4.0", newDevice: "wvga", snap: 10 });
   await click('[data-field="prefReopen"]');
   await click('[data-command="preferences-close"]');
   // New projects start with these defaults.
@@ -2509,6 +2596,265 @@ await step("A damaged project file is refused with a reason", async () => {
   assert.match(await js('document.querySelector("[data-dialog=message]").textContent'), /newer My LVGL Studio/);
   await shot("21-damaged-file");
   await click('[data-dialog="message"] footer button');
+});
+
+await step("Tutorial: a smart watch, done by hand or by the Do It button, step by step", async () => {
+  await click('[data-menu="help"] > button');
+  await click('[data-menu="help"] [data-command="tutorial"]');
+  await sleep(100);
+  if (await js('!!document.querySelector("[data-dialog=confirm]")')) await click('[data-command="confirm-yes"]');
+  await page.until('document.querySelector("[data-tutorial]")', 4000);
+  assert.equal((await project()).name, "MyWatch");
+  const total = Number((await js('document.querySelector("[data-tutorial-count]").textContent')).split("/")[1]);
+  assert.ok(total >= 20);
+  const seenSteps = [];
+  for (let i = 0; i < total; i++) {
+    await sleep(300);
+    const seen = await js(`(() => {
+      const root = document.querySelector("[data-tutorial]");
+      const spot = document.querySelector("[data-tutorial-spot]")?.getBoundingClientRect();
+      const card = document.querySelector(".tutorial-card").getBoundingClientRect();
+      const next = document.querySelector('[data-command="tutorial-next"]');
+      return { id: root.dataset.tutorial, spot: spot ? spot.width > 8 && spot.height > 8 : null, title: document.querySelector("[data-tutorial-title]").textContent.length, text: document.querySelector("[data-tutorial-text]").textContent.length, inWindow: card.left >= 0 && card.top >= 0 && card.right <= innerWidth && card.bottom <= innerHeight, tasks: document.querySelectorAll("[data-tutorial-task]").length, open: document.querySelectorAll("[data-tutorial-task]:not([data-done])").length, nextOff: next ? next.disabled : null, doIt: !!document.querySelector('[data-command="tutorial-do"]') };
+    })()`);
+    seenSteps.push(seen.id);
+    assert.ok(seen.title > 0 && seen.text > 0, seen.id);
+    assert.ok(seen.inWindow, `${seen.id}: the card leaves the window`);
+    if (seen.id !== "welcome" && seen.id !== "finish" && seen.id !== "firmware") assert.equal(seen.spot, true, `${seen.id}: nothing is lit`);
+    if (seen.id === "code") {
+      assert.equal(await js("!!document.querySelector('.code-view')"), true, "the code is not open");
+      assert.match(await js("document.querySelector('[data-code-tab].active').dataset.codeTab"), /Face/, "the code step opens the Face file");
+    }
+    if (seen.id === "time") await shot("11h-tutorial-time");
+    if (seen.tasks) {
+      assert.equal(seen.nextOff, true, `${seen.id}: Next before the tasks are done`);
+      assert.ok(seen.doIt, seen.id);
+    }
+    // The second step by hand: the window underneath takes clicks, and the task ticks itself off.
+    if (seen.id === "round") {
+      await click('[data-command="device-chip"]');
+      await page.until("document.querySelector('[data-device-menu]')", 2000);
+      await click('[data-device="circle360"]');
+      await page.until('document.querySelector("[data-tutorial-task=device][data-done]")', 2000);
+      assert.equal(await js('document.querySelector(\'[data-command="tutorial-next"]\').disabled'), false);
+    } else if (seen.tasks) {
+      await click('[data-command="tutorial-do"]');
+      await page.until('!document.querySelector("[data-tutorial-task]:not([data-done])")', 8000);
+      await sleep(120);
+    }
+    if (i < total - 1) await click('[data-command="tutorial-next"]');
+  }
+  assert.ok(seenSteps.includes("run") && seenSteps.includes("go"));
+  const watch = await project();
+  assert.deepEqual(watch.device, { w: 360, h: 360, shape: "round" });
+  assert.deepEqual(watch.screens.map((screen) => screen.name), ["Face", "Workout"]);
+  assert.equal(watch.screens[0].children.length, 7);
+  assert.equal(watch.screens[1].children.length, 4);
+  assert.equal(await js("window.__mls.runOpen()"), false, "the run window stayed open");
+  await shot("11h-tutorial-watch");
+  // The card can be moved out of the way.
+  const before = await js('document.querySelector(".tutorial-card").getBoundingClientRect().left');
+  const title = await center(".tutorial-card header strong");
+  await drag(title, { x: title.x - 120, y: title.y - 60 });
+  await sleep(100);
+  assert.ok(Math.abs((await js('document.querySelector(".tutorial-card").getBoundingClientRect().left')) - before + 120) < 4, "the card did not move");
+  // Back works, and adds nothing.
+  await click('[data-command="tutorial-prev"]');
+  await sleep(300);
+  assert.equal((await project()).screens[0].children.length, 7);
+  await click('[data-command="tutorial-next"]');
+  await sleep(300);
+  await click('[data-command="tutorial-done"]');
+  await sleep(120);
+  assert.equal(await js('!!document.querySelector("[data-tutorial]")'), false);
+  assert.equal(await js("!!document.querySelector('.code-view')"), false, "the code stayed open");
+});
+
+await step("User guide: F1 opens the documents in doc/", async () => {
+  // Earlier steps leave the window in English; this step reads the Korean labels.
+  if (await js("document.documentElement.lang") !== "ko") {
+    await click('[data-command="language"]');
+    await sleep(150);
+  }
+  await js("document.activeElement && document.activeElement.blur()");
+  await click('[data-menu="help"] > button');
+  await click('[data-menu="help"] [data-command="guide"]');
+  await page.until('document.querySelector("[data-guide-body] h1")', 5000);
+  assert.match(await js('document.querySelector("[data-guide-body] h1").textContent'), /사용 설명서/);
+  assert.ok((await js('document.querySelectorAll("[data-guide-heading]").length')) >= 8, "no table of contents");
+  assert.ok((await js('document.querySelectorAll("[data-guide-body] table").length')) >= 3, "no tables");
+  const images = await js(`(async () => { const list = Array.from(document.querySelectorAll("[data-guide-body] img")); await Promise.all(list.map((e) => e.decode().catch(() => {}))); return list.map((e) => e.naturalWidth); })()`);
+  assert.ok(images.length >= 3 && images.every((width) => width > 0), `images: ${images}`);
+  await shot("11i-guide");
+  // The text size, at the top: the text follows, and the limits hold.
+  const size = () => js(`parseFloat(getComputedStyle(document.querySelector("[data-guide-body] p")).fontSize)`);
+  const below = await js(`(() => { const b = document.querySelector(".guide-bar").getBoundingClientRect(); const a = document.querySelector("[data-guide-body]").getBoundingClientRect(); return b.bottom <= a.top + 1; })()`);
+  assert.ok(below, "the controls are not above the text");
+  assert.equal(await size(), 14);
+  await click('[data-field="guideFontSize"] button:last-child');
+  await click('[data-field="guideFontSize"] button:last-child');
+  await sleep(60);
+  assert.equal(await size(), 16);
+  // The language: another text, the same place, its own labels.
+  const place = `document.querySelectorAll("[data-guide-heading]")[4]`;
+  await js(`${place}.click();void 0`);
+  await sleep(120);
+  const headingAtTop = () => js(`(() => { const b = document.querySelector("[data-guide-body]"); const top = b.getBoundingClientRect().top + 8; let n = 0; b.querySelectorAll("h1,h2,h3,h4").forEach((h, i) => { if (h.getBoundingClientRect().top <= top) n = i; }); return n; })()`);
+  const before = await headingAtTop();
+  assert.ok(before > 0);
+  await click('[data-command="guide-language"]');
+  await page.until('document.querySelector("[data-guide-body]").lang === "en" && document.querySelector("[data-guide-body] h1").textContent.includes("User Guide")', 4000);
+  await sleep(120);
+  assert.equal(await headingAtTop(), before, "the reader lost their place");
+  assert.equal(await js('document.querySelector("[data-dialog=guide] [data-dialog-title]").textContent'), "User Guide");
+  assert.equal(await size(), 16, "the size must stay");
+  await shot("11l-guide-english");
+  await click('[data-guide-document="tutorial"]');
+  await page.until('document.querySelector("[data-guide-body] h1")?.textContent.includes("Tutorial")', 4000);
+  // Both are remembered.
+  await click('[data-command="guide-close"]');
+  await sleep(80);
+  await click('[data-menu="help"] > button');
+  await click('[data-menu="help"] [data-command="guide"]');
+  await page.until('document.querySelector("[data-guide-body] h1")?.textContent.includes("User Guide")', 5000);
+  assert.equal(await size(), 16);
+  assert.equal(await js('document.querySelector("[data-menu=help] > button").textContent.includes("도움말")'), true, "the app's own language must not change");
+  await click('[data-command="guide-language"]');
+  await page.until('document.querySelector("[data-guide-body] h1")?.textContent.includes("사용 설명서")', 4000);
+  await click('[data-field="guideFontSize"] button:first-child');
+  await click('[data-field="guideFontSize"] button:first-child');
+  await sleep(60);
+  await click('[data-guide-document="tutorial"]');
+  await page.until('document.querySelector("[data-guide-body] h1")?.textContent.includes("튜토리얼")', 4000);
+  await click('[data-command="guide-close"]');
+  await sleep(80);
+});
+
+await step("Tutorial question: asked at the start, and both places can turn it off", async () => {
+  // The General settings turn it on.
+  await click('[data-command="preferences"]');
+  await page.until('document.querySelector("[data-pref-tab=general]")', 3000);
+  await click('[data-pref-tab="general"]');
+  await sleep(100);
+  assert.equal(await js("window.__mls.general().askTutorial"), false);
+  await click('[data-field="prefAskTutorial"]');
+  await sleep(100);
+  assert.equal(await js("window.__mls.general().askTutorial"), true);
+  await shot("11j-general-tutorial");
+  await click('[data-command="preferences-close"]');
+  await sleep(300);
+  await restart();
+  await page.until('document.querySelector("[data-dialog=tutorial-ask]")', 15000);
+  await shot("11k-tutorial-ask");
+  // Later: nothing happens, and it asks again next time.
+  await click('[data-command="tutorial-later"]');
+  await sleep(100);
+  assert.equal(await js('!!document.querySelector("[data-tutorial]")'), false);
+  await restart();
+  // Leaving the start screen ends the question, and coming back does not ask again.
+  await page.until('document.querySelector("[data-dialog=tutorial-ask]")', 15000);
+  await js(`document.querySelector('[data-command="start"]').click();void 0`);
+  await sleep(200);
+  assert.equal(await js("window.__mls.showStart()"), false);
+  assert.equal(await js('!!document.querySelector("[data-dialog=tutorial-ask]")'), false, "the question stayed on another screen");
+  await js(`document.querySelector('[data-command="start"]').click();void 0`);
+  await sleep(200);
+  assert.equal(await js('!!document.querySelector("[data-dialog=tutorial-ask]")'), false, "asked twice in one run");
+  // Without a start screen nothing is asked.
+  const settingsPath = path.join(data, "settings", "settings.json");
+  page.close();
+  app.kill();
+  await sleep(1500);
+  const changed = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+  changed.startScreen = { ...changed.startScreen, showOnStartup: false };
+  fs.writeFileSync(settingsPath, JSON.stringify(changed));
+  await launch();
+  await sleep(1200);
+  assert.equal(await js("window.__mls.showStart()"), false);
+  assert.equal(await js('!!document.querySelector("[data-dialog=tutorial-ask]")'), false, "asked without a start screen");
+  page.close();
+  app.kill();
+  await sleep(1500);
+  changed.startScreen.showOnStartup = true;
+  fs.writeFileSync(settingsPath, JSON.stringify(changed));
+  await launch();
+  await page.until('document.querySelector("[data-dialog=tutorial-ask]")', 15000);
+  // Turned off in the question itself: it does not ask again.
+  await click('[data-field="tutorialAskAgain"]');
+  await sleep(100);
+  await click('[data-command="tutorial-start"]');
+  await page.until('document.querySelector("[data-tutorial]")', 5000);
+  await click('[data-command="tutorial-skip"]');
+  await sleep(300);
+  await restart();
+  await page.until("document.querySelector('[data-start-screen]')", 15000);
+  await sleep(800);
+  assert.equal(await js('!!document.querySelector("[data-dialog=tutorial-ask]")'), false, "it asked again");
+  assert.equal(await js("window.__mls.general().askTutorial"), false);
+  // The start screen has its own button for it.
+  await shot("11m-start-tutorial-button");
+  await click('[data-start="hero-tutorial"]');
+  await sleep(150);
+  if (await js('!!document.querySelector("[data-dialog=confirm]")')) await click('[data-command="confirm-yes"]');
+  await page.until('document.querySelector("[data-tutorial]")', 5000);
+  assert.equal(await js("window.__mls.showStart()"), false, "the start screen is in the way");
+  assert.equal((await project()).name, "MyWatch");
+  await click('[data-command="tutorial-skip"]');
+  await sleep(150);
+  await click('[data-command="start"]');
+  await sleep(150);
+});
+
+await step("Dialogs are windows of their own, fitted to what they hold", async () => {
+  await restart([], { inlineDialogs: false });
+  await page.until("window.__mls.showStart() !== undefined", 15000);
+  await sleep(500);
+  // The window holding a dialog of this name, found by what is in it.
+  const windowOf = async (id) => {
+    const deadline = Date.now() + 8000;
+    while (Date.now() < deadline) {
+      const targets = await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
+      for (const target of targets.filter((item) => item.type === "page" && item.id !== pageTargetId)) {
+        const child = await connect(target).catch(() => null);
+        if (!child) continue;
+        if (await child.evaluate(`!!document.querySelector('.popout-root [data-dialog="${id}"] .dialog')`).catch(() => false)) return child;
+        child.close();
+      }
+      await sleep(100);
+    }
+    throw new Error(`no window for the ${id} dialog`);
+  };
+  for (const id of ["preferences", "settings", "lvconf", "fonts", "about", "manager", "samples"]) {
+    await js(`window.__mls.command("${id === "lvconf" ? "lvConf" : id}");void 0`);
+    const child = await windowOf(id);
+    await sleep(500);
+    assert.equal(await js(`!!document.querySelector('[data-dialog="${id}"]')`), false, `${id} is still in the main window`);
+    const seen = await child.evaluate(`(() => {
+      const box = document.querySelector(".dialog").getBoundingClientRect();
+      return { fits: Math.abs(innerWidth - box.width) <= 2 && Math.abs(innerHeight - box.height) <= 2, width: box.width, height: box.height, inner: [innerWidth, innerHeight], themed: document.documentElement.dataset.theme === window.opener.document.documentElement.dataset.theme, styled: getComputedStyle(document.querySelector(".dialog")).display === "flex" };
+    })()`);
+    assert.ok(seen.fits, `${id}: the window is not the dialog's size: ${JSON.stringify(seen)}`);
+    assert.ok(seen.themed && seen.styled, `${id}: ${JSON.stringify(seen)}`);
+    fs.writeFileSync(path.join(shots, `11n-window-${id}.png`), await child.screenshot());
+    await child.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+    await page.until("!window.__mls.dialog()", 3000);
+    child.close();
+  }
+  // The guide stands free: its window fills as resized, with its own buttons and corner marker.
+  await js('window.__mls.command("guide");void 0');
+  const guide = await windowOf("guide");
+  await sleep(500);
+  const parts = await guide.evaluate(`(() => {
+    const maximize = document.querySelector('[data-command="window-maximize"]');
+    const box = document.querySelector(".dialog").getBoundingClientRect();
+    return { minimize: !!document.querySelector('[data-command="window-minimize"]'), maximizeOff: !!maximize && maximize.disabled, close: !!document.querySelector('[data-command="window-close"]'), dots: document.querySelectorAll(".dialog-grip circle").length, header: !!document.querySelector(".dialog > header"), fills: Math.abs(box.width - innerWidth) <= 1 && Math.abs(box.height - innerHeight) <= 1 };
+  })()`);
+  assert.deepEqual(parts, { minimize: true, maximizeOff: true, close: true, dots: 6, header: false, fills: true });
+  await guide.evaluate(`document.querySelector('[data-command="window-close"]').click();void 0`);
+  await page.until("!window.__mls.dialog()", 3000);
+  guide.close();
+  await restart();
+  await page.until("window.__mls.showStart() !== undefined", 15000);
 });
 
 await step("A recent project that is gone leaves the list", async () => {

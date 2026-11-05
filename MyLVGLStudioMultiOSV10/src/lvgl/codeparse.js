@@ -404,6 +404,8 @@ export function readScreenCode(text) {
         set(o, "x", 0, line);
         return set(o, "y", 0, line);
       case "lv_obj_add_flag": case "lv_obj_remove_flag": case "lv_obj_clear_flag": {
+        // Every arc has this from the generator; it is not a setting of the project.
+        if (args[1] === "LV_OBJ_FLAG_ADV_HITTEST") return undefined;
         const key = FLAGS[args[1]];
         if (!key) throw new CodeError("unknown", line, { text: body });
         return set(o, key, fn === "lv_obj_add_flag", line);

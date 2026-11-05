@@ -277,6 +277,60 @@ textarea.text-input { height: auto; resize: vertical; font-family: inherit; }
 .wide-button { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 4px; border: 1px dashed var(--line); border-radius: 4px; background: transparent; }
 .wide-button:hover { background: var(--hover); border-color: var(--accent-line); }
 
+/* ----------------------------------------------------------------- tutorial */
+.tutorial { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
+.tutorial.dim { background: var(--overlay); pointer-events: auto; }
+.tutorial-spot { position: fixed; border: 2px solid var(--accent-line); border-radius: 6px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55); pointer-events: none; transition: left 0.15s, top 0.15s, width 0.15s, height 0.15s; }
+.tutorial-card { position: fixed; display: grid; gap: 8px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); transition: left 0.15s, top 0.15s; }
+.tutorial-card { pointer-events: auto; }
+.tutorial-card.moved { transition: none; }
+.tutorial-spot.ring { box-shadow: none; animation: tutorial-ring 1.4s ease-in-out infinite; }
+@keyframes tutorial-ring { 50% { outline: 3px solid var(--accent-soft); outline-offset: 1px; } }
+.tutorial-tasks { display: grid; gap: 5px; margin: 0; padding: 8px 10px; list-style: none; border-radius: 6px; background: var(--header); max-height: 40vh; overflow: auto; }
+.tutorial-tasks li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 7px; align-items: start; line-height: 1.45; font-size: 12.5px; user-select: text; }
+.tutorial-tasks li .icon { margin-top: 2px; color: var(--muted); }
+.tutorial-tasks li.done { color: var(--muted); }
+.tutorial-tasks li.done .icon { color: var(--ok, #2e9e4f); }
+.tutorial-card header { display: flex; align-items: center; gap: 8px; cursor: move; }
+.tutorial-card header strong { flex: 1 1 auto; font-size: 14px; }
+.tutorial-count { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.tutorial-card p { margin: 0; line-height: 1.55; user-select: text; }
+.tutorial-progress { height: 4px; border-radius: 2px; background: var(--header); overflow: hidden; }
+.tutorial-progress i { display: block; height: 100%; background: var(--accent); transition: width 0.15s; }
+.tutorial-card footer { display: flex; align-items: center; gap: 6px; }
+.tutorial-card footer span { flex: 1 1 auto; }
+.tutorial-card footer button { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border: 1px solid var(--button-border); border-radius: 4px; background: var(--button); white-space: nowrap; }
+.tutorial-card footer button:hover:not(:disabled) { background: var(--hover); }
+.tutorial-card footer button:disabled { opacity: 0.5; cursor: default; }
+.tutorial-again { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.pref-tutorial { display: flex; align-items: center; gap: 10px; }
+/* ---------------------------------------------------------------- the guide */
+.dialog-body:has(.guide-window) { padding: 0; height: 640px; max-height: calc(100vh - 120px); overflow: hidden; }
+.guide-window { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.guide-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 0 0 14px; background: var(--header); border-bottom: 1px solid var(--line); }
+.guide-bar .window-controls { margin-left: 0; height: auto; }
+.window-controls button:disabled { opacity: 0.35; background: transparent; cursor: default; }
+.guide-bar-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; }
+.guide-bar-gap { flex: 1 1 auto; }
+.dialog button.guide-language { display: inline-flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 10px; white-space: nowrap; }
+.guide-font { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.guide-font .stepper { width: 124px; }
+.guide-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+.guide-window .conf-sections hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
+.guide-main .conf-sections { min-height: 0; }
+.dialog .guide-window .conf-sections button > span { display: inline-flex; align-items: center; gap: 6px; }
+.guide-body { min-height: 0; overflow: auto; padding: 8px 22px 24px; font-size: var(--guide-font, 14px); line-height: 1.6; user-select: text; }
+.guide-body h1 { font-size: 1.6em; margin: 10px 0; }
+.guide-body h2 { font-size: 1.25em; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.guide-body h3 { font-size: 1.05em; margin: 16px 0 6px; }
+.guide-body p { margin: 6px 0; }
+.guide-body img { display: block; max-width: 100%; margin: 10px 0; border: 1px solid var(--line); border-radius: 6px; }
+.guide-body code { padding: 0 4px; border-radius: 3px; background: var(--header); font: 0.9em Consolas, "Cascadia Mono", "Malgun Gothic", monospace; }
+.guide-body pre { padding: 8px 10px; border-radius: 4px; background: var(--header); overflow: auto; font: 0.9em/1.45 Consolas, "Cascadia Mono", "Malgun Gothic", monospace; }
+.guide-body table { border-collapse: collapse; margin: 8px 0; }
+.guide-body th, .guide-body td { padding: 4px 10px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.guide-body th { background: var(--header); }
+
 /* ------------------------------------------------------------ project fonts */
 .fonts-window { display: grid; gap: 10px; }
 .font-default { display: grid; grid-template-columns: max-content minmax(0, 1fr) 130px; align-items: center; gap: 8px; }
@@ -401,6 +455,21 @@ button.code-note { border: 0; padding: 0; background: transparent; font: inherit
 .samples-list small { color: var(--muted); font-size: 11px; line-height: 1.3; }
 
 /* ----------------------------------------------------------------- dialogs */
+/* A dialog in its own window: the window is the dialog's size, whatever that is. */
+html.popout-dialog body { background: var(--panel); color: var(--ink); user-select: none; }
+.popout-root { position: absolute; top: 0; left: 0; width: max-content; }
+html.popout-dialog .dialog { max-width: none; max-height: var(--popout-max, 900px); border-radius: 0; box-shadow: none; }
+html.popout-dialog .dialog-body { max-height: none !important; }
+html.popout-dialog .dialog > header, html.popout-dialog [data-window-drag] { cursor: move; }
+html.popout-dialog [data-window-drag] button, html.popout-dialog [data-window-drag] input { cursor: default; }
+html.popout-dialog .dialog-body:has(.samples-list) { max-height: 620px !important; }
+/* A window that stands free: the dialog fills whatever size the user gives it. */
+.popout-free { width: 100vw; height: 100vh; }
+.popout-free > [data-dialog] { height: 100%; }
+html.popout-dialog .popout-free .dialog { position: relative; width: 100% !important; height: 100%; max-height: none; }
+html.popout-dialog .popout-free .dialog-body { height: auto !important; }
+html.popout-dialog .popout-free .dialog > footer { padding-right: 26px; }
+.dialog-grip { position: absolute; right: 0; bottom: 0; width: 22px; height: 22px; }
 .overlay-dim { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: var(--overlay); }
 .dialog { max-width: calc(100vw - 40px); max-height: calc(100vh - 40px); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
 .dialog-title { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
@@ -410,11 +479,15 @@ button.code-note { border: 0; padding: 0; background: transparent; font: inherit
 .dialog > header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 8px 14px; background: var(--header); border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; }
 .dialog-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px 14px; }
 .dialog > footer { flex: 0 0 auto; display: flex; justify-content: flex-end; gap: 6px; padding: 8px 14px; border-top: 1px solid var(--line); }
-.dialog button:not(.mini):not(.toggle):not(.icon-select-button):not(.menu-pop button):not(.stepper button):not(.range-step):not(.bg-tile):not(.theme-row):not(.pref-tabs button):not(.conf-sections button) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 76px; height: 28px; padding: 0 10px; border: 1px solid var(--button-border); border-radius: 4px; background: var(--button); white-space: nowrap; }
-.dialog button:not(.mini):not(.toggle):not(.icon-select-button):not(.primary):not(.stepper button):not(.range-step):not(.bg-tile):not(.theme-row):not(.pref-tabs button):not(.conf-sections button):hover:not(:disabled) { background: var(--hover); }
+.dialog button:not(.mini):not(.toggle):not(.icon-select-button):not(.menu-pop button):not(.stepper button):not(.range-step):not(.bg-tile):not(.theme-row):not(.pref-tabs button):not(.conf-sections button):not(.samples-list button):not(.window-controls button):not(.grip) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 76px; height: 28px; padding: 0 10px; border: 1px solid var(--button-border); border-radius: 4px; background: var(--button); white-space: nowrap; }
+.dialog button:not(.mini):not(.toggle):not(.icon-select-button):not(.primary):not(.stepper button):not(.range-step):not(.bg-tile):not(.theme-row):not(.pref-tabs button):not(.conf-sections button):not(.samples-list button):not(.window-controls button):not(.grip):hover:not(:disabled) { background: var(--hover); }
 .dialog button:disabled { opacity: 0.5; cursor: default; }
 .dialog .icon-select-list button { display: flex; justify-content: flex-start; min-width: 0; height: auto; padding: 6px 8px; border: 0; background: transparent; }
 .dialog .icon-select-list button:hover { background: var(--accent-soft); }
+/* On the accent colour an icon takes the button's own text colour: its tone would not read. */
+button.primary .icon, button.primary .icon * { color: inherit !important; stroke: currentColor; }
+.conf-section-name { display: inline-flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.conf-section-name .icon { margin-top: 1px; }
 button.primary { background: var(--accent) !important; border-color: var(--accent) !important; color: var(--on-accent); }
 .dialog-message { margin: 0; white-space: pre-wrap; word-break: break-word; }
 .dialog-note { margin: 0 0 10px; color: var(--muted); line-height: 1.5; }

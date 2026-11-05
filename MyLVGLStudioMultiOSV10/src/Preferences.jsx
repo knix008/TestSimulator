@@ -40,7 +40,7 @@ function ThemeEditor({ t, theme, onChange, onDelete }) {
   );
 }
 
-export function PreferencesDialog({ t, initialTab, general, onGeneral, projectsDir, onProjectsDir, rulers, onRulers, recentCount, onClearRecent, language, onLanguage, themeId, onTheme, customThemes, onCustomThemes, start, onStart, onClose }) {
+export function PreferencesDialog({ t, initialTab, general, onGeneral, onStartTutorial, projectsDir, onProjectsDir, rulers, onRulers, recentCount, onClearRecent, language, onLanguage, themeId, onTheme, customThemes, onCustomThemes, start, onStart, onClose }) {
   const [tab, setTab] = useState(initialTab ?? "general");
   const [asking, setAsking] = useState(false);
   const label = (item) => (language === "en" ? item.nameEn : item.nameKo);
@@ -68,7 +68,7 @@ export function PreferencesDialog({ t, initialTab, general, onGeneral, projectsD
   ];
 
   return (
-    <Dialog title={t("cmd.preferences").replace("…", "")} icon="settings" onClose={onClose} id="preferences" width={960} footer={<button type="button" className="primary" data-command="preferences-close" onClick={onClose}>{t("dialog.close")}</button>}>
+    <Dialog title={t("cmd.preferences").replace("…", "")} icon="settings" onClose={onClose} id="preferences" width={960} footer={<button type="button" className="primary" data-command="preferences-close" onClick={onClose}><Icon name="close" size={14} /> {t("dialog.close")}</button>}>
       <div className="pref-layout">
         <nav className="pref-tabs">
           {tabs.map((item) => (
@@ -87,6 +87,11 @@ export function PreferencesDialog({ t, initialTab, general, onGeneral, projectsD
                   <Toggle id="prefShowStart" checked={start.showOnStartup} onChange={(showOnStartup) => onStart({ showOnStartup })} />
                   <span>{t("pref.reopenLast")}</span>
                   <Toggle id="prefReopen" checked={general.reopenLast} onChange={(reopenLast) => onGeneral({ reopenLast })} />
+                  <span>{t("pref.askTutorial")}</span>
+                  <div className="pref-tutorial">
+                    <Toggle id="prefAskTutorial" checked={general.askTutorial} onChange={(askTutorial) => onGeneral({ askTutorial })} />
+                    <button type="button" data-command="pref-tutorial" onClick={onStartTutorial}><Icon name="tutorial" /> {t("tutorial.start")}</button>
+                  </div>
                 </div>
               </section>
               <section>

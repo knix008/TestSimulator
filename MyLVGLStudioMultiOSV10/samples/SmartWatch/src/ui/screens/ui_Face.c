@@ -8,6 +8,7 @@ void ui_Face_create(void)
     lv_obj_set_style_bg_opa(ui_Face, 255, 0);
     lv_obj_set_style_bg_color(ui_Face, lv_color_hex(0x000000), 0);
     ui_arc1 = lv_arc_create(ui_Face);
+    lv_obj_add_flag(ui_arc1, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc1, 0, 100);
     lv_obj_set_width(ui_arc1, 220);
     lv_obj_set_height(ui_arc1, 220);

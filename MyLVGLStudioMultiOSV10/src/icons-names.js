@@ -21,6 +21,8 @@ export const PATHS = {
   panelProject: [["amber", '<path d="M3 7h6l2 2h10v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><rect x="8" y="12.5" width="8" height="4.5" rx="1"/>']],
   panelStructure: [["blue", '<path d="M6 4v15M6 8h4M6 19h4"/><rect x="10.5" y="5" width="10" height="6" rx="1"/><rect x="10.5" y="16" width="10" height="6" rx="1"/><circle cx="6" cy="4" r="1.5"/>']],
   projectFile: [["teal", '<path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/><rect x="9" y="12" width="7" height="5" rx="1"/>']],
+  tutorial: [["green", '<path d="M3 9l9-5 9 5-9 5z"/><path d="M7 11.5V16c0 1.5 2.5 3 5 3s5-1.5 5-3v-4.5"/><path d="M21 9v6"/>']],
+  guide: [["blue", '<path d="M12 6c-2-1.5-5-2-8-2v14c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2z"/><path d="M12 6v14"/>']],
   search: [["blue", '<circle cx="11" cy="11" r="6"/><path d="m16 16 4.5 4.5"/>']],
   project: [["teal", '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>']],
   attributes: [["blue", '<path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="18" r="2"/>']],
