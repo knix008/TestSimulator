@@ -1357,6 +1357,26 @@ await step("Downloading LVGL shows what, how far and how long in a window of its
   await js("window.__toolsRestore()");
 });
 
+await step("The x of a popup turns red under the mouse", async () => {
+  await click('[data-command="about"]');
+  await page.until('document.querySelector("[data-dialog=about]")', 3000);
+  const look = () => js(`(() => { const button = document.querySelector('[data-dialog="about"] [data-command="dialog-close"]'); const style = getComputedStyle(button); const probe = document.createElement("i"); probe.style.color = "var(--danger)"; document.body.append(probe); const danger = getComputedStyle(probe).color; probe.remove(); const icon = getComputedStyle(button.querySelector(".icon")); return { background: style.backgroundColor, icon: icon.color, danger }; })()`);
+  const before = await look();
+  assert.notEqual(before.background, before.danger, "it is red before the mouse is on it");
+  const point = await center('[data-dialog="about"] [data-command="dialog-close"]');
+  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: point.x, y: point.y, buttons: 0 });
+  await sleep(250);
+  const over = await look();
+  assert.equal(over.background, over.danger, "not red under the mouse");
+  assert.equal(over.icon, "rgb(255, 255, 255)", "the x cannot be seen on the red");
+  await shot("07-close-hover");
+  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 5, y: 400, buttons: 0 });
+  await sleep(250);
+  assert.notEqual((await look()).background, before.danger, "it stays red");
+  await click('[data-dialog="about"] footer button');
+  await page.until('!document.querySelector("[data-dialog=about]")', 3000);
+});
+
 await step("Settings: what was downloaded can be downloaded again, after asking", async () => {
   await js(`(() => {
     const host = window.__mls.host;
@@ -2728,7 +2748,7 @@ if (!skipNative) {
   });
 
   await step("It installs the private compiler in its own folder, and only that", async () => {
-    await js(`new Promise((resolve) => { window.__TAURI_INTERNALS__.invoke("tools_install").then(resolve); })`);
+    await js("window.__mls.host.toolsInstall()");
     const dir = path.join(data, "settings", "toolchain");
     const done = path.join(dir, "complete.txt");
     for (let wait = 0; wait < 1200 && !fs.existsSync(done); wait++) await sleep(500);

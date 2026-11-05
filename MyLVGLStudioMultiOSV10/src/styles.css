@@ -183,6 +183,8 @@ input, textarea, .log-list, .dialog-message { user-select: text; }
 .view-switch button.active { background: var(--accent-soft); }
 .mini { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 1px solid transparent; border-radius: 3px; background: transparent; flex: 0 0 auto; }
 .mini:hover:not(:disabled) { background: var(--hover); border-color: var(--button-border); }
+.mini.dialog-close:hover:not(:disabled) { background: var(--danger); border-color: var(--danger); color: #fff; }
+.mini.dialog-close:hover:not(:disabled) .icon { color: #fff; }
 .mini:disabled { cursor: default; }
 .mini:disabled .icon { opacity: 0.35; }
 .palette-item:not(:disabled) { cursor: grab; }

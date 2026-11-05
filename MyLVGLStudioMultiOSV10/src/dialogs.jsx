@@ -35,7 +35,7 @@ function DialogPanel({ title, icon, onClose, children, footer, width, panel, bar
       {!bare && (
         <header>
           <strong className="dialog-title" data-dialog-title=""><Icon name={icon} /><span>{title}</span></strong>
-          <button type="button" className="mini" aria-label="×" onClick={onClose}><Icon name="close" size={14} /></button>
+          <button type="button" className="mini dialog-close" data-command="dialog-close" aria-label="×" onClick={onClose}><Icon name="close" size={14} /></button>
         </header>
       )}
       <div className="dialog-body">{children}</div>
