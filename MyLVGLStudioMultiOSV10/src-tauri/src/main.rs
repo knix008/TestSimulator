@@ -59,7 +59,30 @@ fn write_settings_value(settings: &Value) -> Result<(), String> {
 
 #[tauri::command]
 fn load_settings() -> Value {
-    read_settings_value()
+    let mut settings = read_settings_value();
+    with_installer_language(&mut settings, installer_language());
+    settings
+}
+
+/// The language chosen in the installer, which leaves its Windows language id next to the program.
+fn installer_language() -> Option<&'static str> {
+    let file = std::env::current_exe().ok()?.parent()?.join("install-language.txt");
+    language_of_id(&std::fs::read_to_string(file).ok()?)
+}
+
+fn language_of_id(id: &str) -> Option<&'static str> {
+    match id.trim() {
+        "1042" => Some("ko"),
+        "1033" => Some("en"),
+        _ => None,
+    }
+}
+
+/// Only until a language has been chosen in the program: that choice stays, also after a reinstall.
+fn with_installer_language(settings: &mut Value, language: Option<&str>) {
+    if let (Some(object), Some(language)) = (settings.as_object_mut(), language) {
+        object.entry("language").or_insert_with(|| Value::from(language));
+    }
 }
 
 /// Merges `patch` into settings.json, so the page never overwrites the saved window bounds.
@@ -402,4 +425,25 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("the application failed to start");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn installer_language_is_only_a_first_default() {
+        assert_eq!(language_of_id("1042"), Some("ko"));
+        assert_eq!(language_of_id(" 1033\r\n"), Some("en"));
+        assert_eq!(language_of_id("1041"), None);
+        let mut empty = serde_json::json!({});
+        with_installer_language(&mut empty, Some("en"));
+        assert_eq!(empty["language"], "en");
+        let mut chosen = serde_json::json!({ "language": "ko" });
+        with_installer_language(&mut chosen, Some("en"));
+        assert_eq!(chosen["language"], "ko");
+        let mut none = serde_json::json!({});
+        with_installer_language(&mut none, None);
+        assert!(none.get("language").is_none());
+    }
 }

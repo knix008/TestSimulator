@@ -1594,6 +1594,20 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         for (const ring of rings) assert.equal(engine.valueOf(ring.id), 70);
       });
     }
+    await test("The installer asks for its language every time, in both languages", () => {
+      const conf = JSON.parse(fs.readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
+      assert.equal(conf.bundle.windows.nsis.displayLanguageSelector, true);
+      assert.deepEqual(conf.bundle.windows.nsis.languages, ["Korean", "English"]);
+      const bytes = fs.readFileSync(new URL("../src-tauri/windows/hooks.nsh", import.meta.url));
+      assert.deepEqual([...bytes.subarray(0, 3)], [0xef, 0xbb, 0xbf], "without the BOM NSIS garbles the Korean");
+      const hooks = bytes.toString("utf8");
+      assert.match(hooks, /^!define MUI_LANGDLL_ALWAYSSHOW/m);
+      // The program's first start uses it, and uninstalling leaves no file behind.
+      assert.match(hooks, /FileWrite \$R0 "\$LANGUAGE"/);
+      assert.match(hooks, /NSIS_HOOK_PREUNINSTALL\s+Delete "\$INSTDIR\\\$\{MLS_LANGUAGE_FILE\}"/);
+      assert.match(fs.readFileSync(new URL("../src-tauri/src/main.rs", import.meta.url), "utf8"), /install-language\.txt/);
+      assert.match(hooks, /MUI_LANGDLL_INFO ".*[\uAC00-\uD7A3].*Please select/);
+    });
     await test("Markdown becomes plain data", () => {
       const blocks = parseMarkdown("# Title\n\nSome **bold** and `code`.\nNext line.\n\n- one\n- two\n\n1. first\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n```\nint x;\n```\n");
       assert.deepEqual(blocks.map((block) => block.type), ["heading", "paragraph", "list", "list", "table", "code"]);

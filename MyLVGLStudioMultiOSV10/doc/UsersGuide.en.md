@@ -24,7 +24,7 @@ When the app starts, a window asks whether you want to take the tutorial. Press 
 | Location | Contents |
 |---|---|
 | Top | Menus (File, Edit, View, Run, Tools, Help) and the window buttons. Drag an empty area to move the window. |
-| Top right | Press the flag button to change the language. Korean shows the British flag and English shows the Korean flag. |
+| Top right | Press the flag button to change the language. Korean shows the British flag and English shows the Korean flag. The first start uses the language chosen in the installer. |
 | Toolbar | Frequently used commands. Hover over an icon to see its name and shortcut. |
 | Upper left | Explorer: the structure and files of the project folder |
 | Lower left | Controls: the LVGL widgets you can add |
