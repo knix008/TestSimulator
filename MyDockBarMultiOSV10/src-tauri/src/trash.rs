@@ -77,6 +77,15 @@ pub fn is_deleted_item(name: &str) -> bool {
   b.len() > 2 && b[0] == b'$' && (b[1] == b'R' || b[1] == b'r')
 }
 
+/// What the shell itself lists: a `$R…` copy whose `$I…` record still exists.
+/// A `$R…` left without its record - an empty folder that outlived an interrupted
+/// delete, say - is invisible to Explorer and survives emptying the bin, so
+/// counting it shows a full bin that nothing can ever empty.
+#[cfg_attr(not(any(test, windows)), allow(dead_code))]
+pub fn is_listed_item(bin: &Path, name: &str) -> bool {
+  is_deleted_item(name) && bin.join(format!("$I{}", &name[2..])).exists()
+}
+
 /// Finder's own bookkeeping files live in ~/.Trash and are not deleted items.
 #[cfg_attr(not(any(test, target_os = "macos")), allow(dead_code))]
 pub const MAC_IGNORED: [&str; 2] = [".DS_Store", ".localized"];
@@ -132,7 +141,7 @@ mod platform {
   pub fn state_with(rescan: bool) -> State {
     let mut answered = false;
     for bin in bins(rescan) {
-      match holds_item(&bin, &is_deleted_item) {
+      match holds_item(&bin, &|name| is_listed_item(&bin, name)) {
         // One full volume is enough; the rest cannot change the answer.
         Verdict::Yes => return State { empty: false, known: true },
         // `Denied` is what another account's folder looks like, so it only
@@ -366,6 +375,21 @@ mod tests {
     assert!(!is_deleted_item("desktop.ini"));
     assert!(!is_deleted_item("$R") && !is_deleted_item("$") && !is_deleted_item(""));
     assert!(!is_deleted_item("my$Rfile.txt"));
+  }
+
+  #[test]
+  fn a_copy_without_its_record_is_not_an_item() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = bin(tmp.path(), "bin", &["$IAAA.txt", "$RAAA.txt", "$RBBB.txt", "$ICCC.txt"]);
+    fs::create_dir(dir.join("$RDDD")).unwrap();
+    assert!(is_listed_item(&dir, "$RAAA.txt"));
+    assert!(!is_listed_item(&dir, "$RBBB.txt"), "no $I record");
+    assert!(!is_listed_item(&dir, "$RDDD"), "the leftover folder Explorer does not list");
+    assert!(!is_listed_item(&dir, "$ICCC.txt"), "a record without its copy");
+
+    let leftovers = bin(tmp.path(), "leftovers", &["$RBBB.txt", "$ICCC.txt", "desktop.ini"]);
+    fs::create_dir(leftovers.join("$RDDD")).unwrap();
+    assert_eq!(holds_item(&leftovers, &|n| is_listed_item(&leftovers, n)), Verdict::No);
   }
 
   #[test]
