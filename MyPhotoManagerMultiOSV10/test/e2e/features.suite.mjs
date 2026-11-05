@@ -1055,12 +1055,43 @@ export const cases = [
         assert.ok(drives.includes('C:\\'), `drives: ${drives}`);
         await app.main.eval(`${P}.dqa('.drive-button').find((b) => b.dataset.drive === 'C:\\\\').click(); 1`);
         await app.main.waitFor(`${P}.app.state.source.path === 'C:\\\\' && !${P}.app.state.loading`, { message: 'drive opened' });
-        const shown = await app.main.eval(`({ on: ${P}.dq('.drive-button.on')?.dataset.drive, roots: ${P}.dqa('.folders .tree > .tree-node > .tree-row').map((r) => r.dataset.path).filter((p) => /^[A-Z]:\\\\$/.test(p)), usage: ${P}.dqa('.drive-usage').length })`);
+        const shown = await app.main.eval(`({ on: ${P}.dq('.drive-button.on')?.dataset.drive, roots: ${P}.dqa('.folders .tree [data-block=explorer] > .tree-block-body > .tree-node > .tree-row').map((r) => r.dataset.path).filter((p) => /^[A-Z]:\\\\$/.test(p)), usage: ${P}.dqa('.drive-usage').length })`);
         assert.equal(shown.on, 'C:\\');
         assert.deepEqual(shown.roots, ['C:\\'], 'only the chosen drive in the tree');
         assert.ok(shown.usage === 1, 'free space shown');
         await open(app, dir(app, 'studio'), 6);
       }
+      // The tree's blocks: icon + title + fold arrow, a line between blocks, folding is remembered.
+      const blocks = await app.main.eval(`${P}.dqa('.folders .tree-block').map((b) => { const head = b.querySelector(':scope > .tree-section'); return { id: b.dataset.block, icon: Boolean(head.querySelector('.tree-section-icon svg')), arrow: Boolean(head.querySelector('.tree-block-arrow svg')), line: parseFloat(getComputedStyle(b).borderTopWidth) }; })`);
+      assert.deepEqual(blocks.slice(0, 2).map((b) => b.id), ['explorer', 'quick']);
+      assert.ok(blocks.every((b) => b.icon && b.arrow), JSON.stringify(blocks));
+      // The line between explorer and quick access moves, and stays where it was put.
+      const treeBox = () => app.main.eval(`(() => { const part = (q) => ${P}.dq(q).getBoundingClientRect(); const line = part('.folders .tree-splitter'); return { line: { x: line.left + line.width / 2, y: line.top + line.height / 2, h: line.height }, explorer: part('[data-block=explorer]').height, rest: part('.tree-rest').height, tree: part('.folders .tree').height }; })()`);
+      const before = await treeBox();
+      assert.ok(before.line.h > 0 && before.explorer > 100 && before.rest > 60, JSON.stringify(before));
+      await app.main.drag(before.line, { x: before.line.x, y: before.line.y - 70 });
+      const moved = await treeBox();
+      assert.ok(Math.abs(moved.explorer - (before.explorer - 70)) <= 2, `explorer ${before.explorer} → ${moved.explorer}`);
+      assert.ok(Math.abs(moved.rest - (before.rest + 70)) <= 2, `rest ${before.rest} → ${moved.rest}`);
+      assert.equal(await app.main.eval(`${P}.app.settings.panes.explorerHeight`), Math.round(moved.explorer));
+      // It stops short of hiding either part.
+      await app.main.drag(moved.line, { x: moved.line.x, y: moved.line.y + 2000 });
+      const low = await treeBox();
+      assert.ok(low.rest >= 60 && low.explorer + low.rest + low.line.h <= low.tree + 1, JSON.stringify(low));
+      await app.main.drag(low.line, { x: low.line.x, y: low.line.y - 2000 });
+      const high = await treeBox();
+      assert.ok(high.explorer >= 60, JSON.stringify(high));
+      await app.main.eval(`${P}.app.settings.panes.explorerHeight = null; ${P}.app.saveSettings(); ${P}.dq('.folders .tree').style.removeProperty('--explorer-height'); 1`);
+      const quickRows = `${P}.dq('[data-block=quick] > .tree-block-body').getBoundingClientRect().height`;
+      assert.ok(await app.main.eval(quickRows) > 0);
+      await app.main.eval(`${P}.dq('[data-section=quick]').click(); 1`);
+      assert.equal(await app.main.eval(quickRows), 0, 'quick access folded');
+      assert.equal(await app.main.eval(`${P}.app.settings.panes.foldedSections.includes('quick')`), true);
+      await app.main.eval(`${P}.dq('[data-section=explorer]').click(); 1`);
+      assert.equal(await app.main.eval(`${P}.dq('[data-block=explorer] > .tree-block-body').getBoundingClientRect().height`), 0, 'explorer folded');
+      await app.main.eval(`${P}.dq('[data-section=explorer]').click(); ${P}.dq('[data-section=quick]').click(); 1`);
+      assert.ok(await app.main.eval(quickRows) > 0, 'unfolded again');
+      assert.deepEqual(await app.main.eval(`${P}.app.settings.panes.foldedSections`), []);
       // The main window has a status bar with a visible resize grip in the bottom-right corner.
       const bar = await app.main.eval(`(() => { const b = ${P}.dq('footer.status-bar').getBoundingClientRect(); const g = ${P}.dq('footer.status-bar .resize-grip')?.getBoundingClientRect(); return { h: b.height, bottom: b.bottom - innerHeight, grip: g ? { w: g.width, right: innerWidth - g.right, bottom: innerHeight - g.bottom } : null }; })()`);
       assert.ok(bar.h >= 20 && Math.abs(bar.bottom) <= 1, JSON.stringify(bar));
@@ -1737,6 +1768,250 @@ export const cases = [
       }
       await app.main.eval(`${P}.app.settings.theme = 'dark'; ${P}.app.saveSettings(); 1`);
       assert.deepEqual(problems, []);
+    },
+  },
+
+  {
+    group: '화면', name: '대화 상자 창은 크기를 받기 전(0×0)에 재도 폭 0의 빈 기둥 창이 되지 않는다',
+    ids: ['BATCH-RESIZE'],
+    run: async (app) => {
+      if (process.platform !== 'win32') return { skipped: 'Windows 창 목록으로 확인' };
+      await open(app, dir(app, 'studio'), 6);
+      await select(app, 'beach.jpg');
+      // A new window really is 0×0 at first. Hold that phase and let the fonts report ready inside it.
+      await app.main.eval(`(() => {
+        const original = window.open;
+        window.__openPatch = () => { window.open = original; };
+        window.open = function (...args) {
+          const win = original.apply(this, args);
+          const real = ['innerWidth', 'innerHeight'].map((name) => [name, Object.getOwnPropertyDescriptor(win, name)]);
+          for (const [name] of real) Object.defineProperty(win, name, { configurable: true, get: () => 0 });
+          Object.defineProperty(win.document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } });
+          setTimeout(() => { for (const [name, descriptor] of real) Object.defineProperty(win, name, descriptor); }, 400);
+          return win;
+        };
+        return 1;
+      })()`);
+      await menu(app, 'tools', 'tools.batchResize');
+      await app.main.waitFor(`Boolean(${P}.topDialog()) && ${P}.topDialog().ownerDocument !== document`, { timeout: 8000 });
+      await sleep(900);
+      await app.main.eval('window.__openPatch(); 1');
+      const size = osWindows(app.process.pid).filter((w) => !w.endsWith('| 16x16'))[0].match(/(\d+)x(\d+)$/).slice(1).map(Number);
+      const box = await app.main.eval(`(() => { const d = ${P}.topDialog(); const w = d.ownerDocument.defaultView; return { iw: w.innerWidth, bw: d.offsetWidth }; })()`);
+      await app.main.eval(`${P}.closeAllDialogs(); 1`);
+      assert.ok(size[0] > 400 && size[1] < 800, `dialog window ${size.join('x')}`);
+      assert.ok(box.iw > 400 && box.bw > 400, JSON.stringify(box));
+    },
+  },
+
+  {
+    ids: ['BATCH-RESIZE'],
+    group: '화면', name: '사진을 실제로 우클릭해 일괄 처리 → 크기 조절을 누르면 창이 뜨고, 동영상·보관함에서는 사진 전용 명령이 꺼져 있다',
+    run: async (app) => {
+      await open(app, dir(app, 'studio'), 6);
+      const rightClick = async (name) => {
+        const p = await app.main.eval(`(() => { const e = [...document.querySelectorAll('.tile')].find((x) => x.textContent.includes(${js(name)})); e.scrollIntoView({ block: 'nearest' }); const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+        await app.main.mouse('mouseMoved', p.x, p.y, { button: 'none' });
+        await app.main.mouse('mousePressed', p.x, p.y, { button: 'right' });
+        await app.main.mouse('mouseReleased', p.x, p.y, { button: 'right' });
+        await app.main.waitFor(`Boolean(document.querySelector('.menu[data-level="0"]'))`);
+      };
+      const rowPoint = (level, key) => app.main.eval(`(() => { const label = ${P}.t(${js(key)}); const e = [...document.querySelectorAll('.menu[data-level="${level}"] > .menu-item')].find((x) => x.querySelector('.menu-label').textContent === label); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, disabled: e.disabled }; })()`);
+      const openSub = async (key) => {
+        const p = await rowPoint(0, key);
+        await app.main.mouse('mouseMoved', p.x - 2, p.y, { button: 'none' });
+        await app.main.mouse('mouseMoved', p.x, p.y, { button: 'none' });
+        await app.main.waitFor(`Boolean(document.querySelector('.menu[data-level="1"]'))`);
+      };
+      await rightClick('beach.jpg');
+      await openSub('menu.batch');
+      const resize = await rowPoint(1, 'tools.batchResize');
+      assert.equal(resize.disabled, false);
+      await app.main.mouse('mouseMoved', resize.x, resize.y, { button: 'none' });
+      await app.main.realClick(resize.x, resize.y);
+      await dialog(app, 'resize.how');
+      assert.equal(await app.main.eval(`${TOP}.ownerDocument !== document`), true, 'its own window');
+      await app.main.eval(`${P}.closeAllDialogs(); 1`);
+      await app.main.waitFor(`!${TOP}`);
+      // A video or an archive: nothing for pictures can be pressed by mistake.
+      copyDir(path.join(root, 'test', 'fixtures', 'formats'), dir(app, 'studio-media'));
+      await open(app, dir(app, 'studio-media'), 3);
+      for (const name of ['clip.webm', 'album.zip']) {
+        await rightClick(name);
+        await openSub('menu.batch');
+        assert.equal((await rowPoint(1, 'tools.batchResize')).disabled, true, `${name}: resize`);
+        assert.equal((await rowPoint(1, 'tools.batchRename')).disabled, false, `${name}: rename stays`);
+        assert.equal((await rowPoint(0, 'share.copyImage')).disabled, true, `${name}: copy image`);
+        await sleep(100);
+        await app.main.key('Escape');
+        await app.main.waitFor(`!document.querySelector('.menu')`);
+      }
+      await open(app, dir(app, 'studio'), 6);
+    },
+  },
+
+  {
+    ids: ['APP-PANELS'],
+    group: '화면', name: '시작 단추는 파일 메뉴 바로 앞에 있고 누를 때마다 시작 화면과 원래 화면을 오간다, 보기 메뉴에는 시작이 없다',
+    run: async (app) => {
+      const m = app.main;
+      await open(app, dir(app, 'studio'), 6);
+      // Directly before the File menu, on the same row.
+      const place = await m.eval(`(() => { const home = document.querySelector('#start-home').getBoundingClientRect(); const file = document.querySelector('.menubar-title[data-menu=file]').getBoundingClientRect(); const logo = document.querySelector('.app-brand').getBoundingClientRect(); return { homeLeft: home.left, homeRight: home.right, logoRight: logo.right, fileLeft: file.left, sameRow: Math.abs((home.top + home.bottom) - (file.top + file.bottom)) <= 4, inModes: Boolean(document.querySelector('.mode-cluster #start-home')), before: document.querySelector('#start-home').compareDocumentPosition(document.querySelector('.menubar-title[data-menu=file]')) === Node.DOCUMENT_POSITION_FOLLOWING }; })()`);
+      assert.ok(place.homeRight <= place.fileLeft && place.fileLeft - place.homeRight < 24 && place.homeLeft >= place.logoRight, JSON.stringify(place));
+      assert.ok(place.sameRow && !place.inModes && place.before, JSON.stringify(place));
+      const press = async () => { const home = await m.center('#start-home'); await m.realClick(home.x, home.y); await sleep(250); };
+      const state = () => m.eval(`({ mode: ${P}.app.state.mode, pressed: document.querySelector('#start-home').getAttribute('aria-pressed'), on: document.querySelector('#start-home').classList.contains('on'), start: Boolean(document.querySelector('.mode-host .start-board')), manage: Boolean(document.querySelector('.mode-host .filelist')) })`);
+      // From the manage page and back, twice.
+      for (let i = 0; i < 2; i++) {
+        await press();
+        assert.deepEqual(await state(), { mode: 'start', pressed: 'true', on: true, start: true, manage: false }, 'pressed: start page');
+        await press();
+        assert.deepEqual(await state(), { mode: 'manage', pressed: 'false', on: false, start: false, manage: true }, 'pressed again: main window');
+      }
+      // Comes back to the page it left: the viewer with the same picture.
+      const beach = await pathOf(app, 'beach.jpg');
+      await m.eval(`${P}.actions.viewItem(${js(beach)}); 1`);
+      await m.waitFor(`${P}.app.state.mode === 'view'`);
+      await press();
+      assert.equal((await state()).mode, 'start');
+      await press();
+      assert.equal((await state()).mode, 'view');
+      assert.equal(await m.eval(`${P}.app.state.viewPath`), beach);
+      await m.eval(`${P}.actions.setMode('manage'); 1`);
+      // Not back into the editor: the picture was closed on the way out.
+      await openEditor(app, beach);
+      await press();
+      assert.equal((await state()).mode, 'start');
+      await press();
+      assert.equal((await state()).mode, 'manage', 'from the editor: the main window');
+      // The View menu no longer lists it, and still lists the modes.
+      const viewFile = await m.center('.menubar-title[data-menu=view]');
+      await m.realClick(viewFile.x, viewFile.y);
+      await m.waitFor(`Boolean(document.querySelector('.menu[data-level="0"]'))`);
+      const labels = await m.eval(`[...document.querySelectorAll('.menu[data-level="0"] > .menu-item .menu-label')].map((e) => e.textContent)`);
+      await sleep(100);
+      await m.key('Escape');
+      await m.waitFor(`!document.querySelector('.menu')`);
+      const [homeLabel, manageLabel] = await m.eval(`[${P}.t('start.title'), ${P}.t('mode.manage')]`);
+      assert.ok(!labels.includes(homeLabel), `View menu: ${labels}`);
+      assert.ok(labels.includes(manageLabel), `View menu: ${labels}`);
+    },
+  },
+  {
+    ids: ['APP-PANELS'],
+    group: '화면', name: '시작 화면의 모든 카드와 메인 창의 크기 변경 마커는 같은 점 삼각형이고, 끌면 카드 크기가 바뀐다',
+    run: async (app) => {
+      const m = app.main;
+      await m.eval(`${P}.closeAllDialogs(); ${P}.actions.setMode('start'); 1`);
+      await m.waitFor(`document.querySelectorAll('.start-card .card-resize').length > 0`);
+      await sleep(300);
+      const marks = await m.eval(`(() => {
+        const look = (el) => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return { mask: s.webkitMaskImage || s.maskImage, image: s.backgroundImage, w: r.width, h: r.height, cursor: s.cursor }; };
+        return { cards: document.querySelectorAll('.start-card').length, grips: [...document.querySelectorAll('.start-card .card-resize')].map(look), window: document.querySelector('footer.status-bar .resize-grip') ? look(document.querySelector('footer.status-bar .resize-grip')) : null };
+      })()`);
+      assert.ok(marks.cards > 3 && marks.grips.length === marks.cards, `every card has one: ${marks.grips.length}/${marks.cards}`);
+      assert.ok(marks.window, 'the main window has one');
+      const dots = (mask) => (decodeURIComponent(mask).match(/<circle/g) ?? []).length;
+      for (const grip of [...marks.grips, marks.window]) {
+        assert.equal(dots(grip.mask), 6, 'six dots');
+        assert.equal(grip.mask, marks.window.mask, 'the same marker everywhere');
+        assert.equal(grip.image, 'none', 'no lines left');
+        assert.deepEqual([grip.w, grip.h, grip.cursor], [16, 16, 'nwse-resize']);
+      }
+      // The dots form a triangle in the bottom-right corner: each row one longer than the one above.
+      const points = [...decodeURIComponent(marks.window.mask).matchAll(/cx='([\d.]+)' cy='([\d.]+)'/g)].map((c) => [Number(c[1]), Number(c[2])]);
+      const rows = [...new Set(points.map((p) => p[1]))].sort((a, b) => a - b).map((y) => points.filter((p) => p[1] === y).map((p) => p[0]));
+      assert.deepEqual(rows.map((r) => r.length), [1, 2, 3]);
+      assert.ok(rows.every((r) => Math.max(...r) === Math.max(...points.map((p) => p[0]))), 'right-aligned');
+      // Dragging the marker still resizes its card (the whole 16 px square answers, not just the dots).
+      const size = () => m.eval(`(() => { const c = document.querySelector('.start-card'); const g = c.querySelector('.card-resize').getBoundingClientRect(); const r = c.getBoundingClientRect(); return { w: r.width, h: r.height, x: g.left + 2, y: g.top + 2 }; })()`);
+      const before = await size();
+      await m.drag({ x: before.x, y: before.y }, { x: before.x + 140, y: before.y + 120 });
+      await sleep(300);
+      const after = await size();
+      assert.ok(after.w !== before.w || after.h !== before.h, `card ${before.w}x${before.h} → ${after.w}x${after.h}`);
+      await m.drag({ x: after.x, y: after.y }, { x: before.x, y: before.y });
+      await m.eval(`${P}.actions.setMode('manage'); 1`);
+    },
+  },
+
+  {
+    ids: ['APP-PANELS'],
+    group: '화면', name: '사진을 볼 때도 좌우 패널이 항상 있고, 접고 펼 수 있으며, 툴바는 창 전체 폭이고 폴더를 누르면 그 폴더 사진으로 바뀐다',
+    run: async (app) => {
+      const m = app.main;
+      await open(app, dir(app, 'studio'), 6);
+      await m.eval(`Object.assign(${P}.app.settings.panes, { left: true, right: true, leftCollapsed: false, rightCollapsed: false, leftTab: 'folders', rightTab: 'properties' }); ${P}.actions.setMode('manage'); 1`);
+      const beach = await pathOf(app, 'beach.jpg');
+      const look = () => m.eval(`(() => {
+        const box = (q) => { const e = document.querySelector(q); if (!e || !e.offsetParent) return null; const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, w: r.width, h: r.height }; };
+        return { left: box('.side-pane.left'), right: box('.side-pane.right'), stage: box('.viewer-stage'), bar: box('.viewer-toolbar'), list: box('.filelist'), winW: innerWidth, leftFolded: document.querySelector('.side-pane.left').classList.contains('collapsed'), rightFolded: document.querySelector('.side-pane.right').classList.contains('collapsed') };
+      })()`);
+      const view = async () => { await m.eval(`${P}.actions.viewItem(${js(beach)}); 1`); await m.waitFor(`${P}.app.state.mode === 'view' && Boolean(document.querySelector('.viewer-holder .viewer-media:not(.placeholder)'))`, { timeout: 15000 }); await sleep(200); };
+      await view();
+      const shown = await look();
+      assert.ok(shown.left?.w > 100 && shown.right?.w > 100, `both panels: ${JSON.stringify(shown)}`);
+      assert.ok(shown.left.r <= shown.stage.l + 1 && shown.stage.r <= shown.right.l + 1, `picture between them: ${JSON.stringify(shown)}`);
+      assert.ok(shown.bar.l <= 1 && shown.bar.r >= shown.winW - 1, 'the toolbar keeps the whole width, so it is never cut');
+      assert.equal(shown.list, null, 'the file list is not there');
+      // The properties panel follows the picture.
+      await m.waitFor(`document.querySelector('.side-pane.right').textContent.includes('beach.jpg')`, { message: 'properties of the picture' });
+      await m.eval(`${P}.actions.viewItem(${js(await pathOf(app, 'city.jpg'))}); 1`);
+      await m.waitFor(`document.querySelector('.side-pane.right').textContent.includes('city.jpg')`, { message: 'properties follow' });
+      await view();
+      // Fold each one with its real button: the picture takes the room; unfold brings it back.
+      const fold = async (side) => { const p = await m.center(`.side-pane.${side} [data-fold]`); await m.realClick(p.x, p.y); await sleep(250); };
+      await fold('left');
+      const noLeft = await look();
+      assert.ok(noLeft.leftFolded && noLeft.left.w < 50 && noLeft.stage.w > shown.stage.w + 100, JSON.stringify(noLeft));
+      await fold('right');
+      const none = await look();
+      assert.ok(none.rightFolded && none.right.w < 50 && none.stage.w > noLeft.stage.w + 100, JSON.stringify(none));
+      await fold('left');
+      await fold('right');
+      const back = await look();
+      assert.ok(!back.leftFolded && !back.rightFolded && Math.abs(back.stage.w - shown.stage.w) <= 2, JSON.stringify(back));
+      // Dragging the line between a panel and the picture resizes the panel here too.
+      const line = await m.center('.splitter[data-side=left]');
+      await m.drag(line, { x: line.x + 60, y: line.y });
+      const wider = await look();
+      assert.ok(Math.abs(wider.left.w - back.left.w - 60) <= 2, `left ${back.left.w} → ${wider.left.w}`);
+      await m.drag({ x: line.x + 60, y: line.y }, line);
+      // Hidden with the toolbar button in the file list: still there when viewing, hidden again after.
+      await m.eval(`${P}.actions.setMode('manage'); 1`);
+      await m.waitFor(`Boolean(document.querySelector('.mode-host .filelist')?.offsetParent)`);
+      await m.eval(`${P}.app.settings.panes.left = false; ${P}.app.settings.panes.right = false; ${P}.actions.setMode('view', { path: ${js(beach)} }); 1`);
+      await m.waitFor(`${P}.app.state.mode === 'view'`);
+      await sleep(250);
+      const forced = await look();
+      assert.ok(forced.left?.w > 100 && forced.right?.w > 100, JSON.stringify(forced));
+      await m.eval(`${P}.actions.setMode('manage'); 1`);
+      await sleep(250);
+      const off = await look();
+      assert.ok(!off.left && !off.right && off.list, JSON.stringify(off));
+      await m.eval(`Object.assign(${P}.app.settings.panes, { left: true, right: true }); ${P}.app.saveSettings(); ${P}.actions.setMode('view', { path: ${js(beach)} }); 1`);
+      await m.waitFor(`${P}.app.state.mode === 'view'`);
+      // A folder clicked in the panel: stays in the viewer, on that folder's picture.
+      await sleep(250);
+      const album = path.join(dir(app, 'studio'), 'album');
+      fs.copyFileSync(path.join(fixtures, 'forest.jpg'), path.join(album, 'forest-in-album.jpg'));
+      await m.eval(`${P}.actions.openFolder(${js(album)}); 1`);
+      await m.waitFor(`${P}.viewer.currentPath?.endsWith('forest-in-album.jpg') === true`, { message: 'first picture of the folder', timeout: 15000 });
+      assert.equal(await m.eval(`${P}.app.state.mode`), 'view');
+      fs.rmSync(path.join(album, 'forest-in-album.jpg'));
+      // Full screen is only the picture.
+      await m.eval(`document.body.classList.add('immersive'); 1`);
+      await sleep(100);
+      const full = await look();
+      await m.eval(`document.body.classList.remove('immersive'); 1`);
+      assert.ok(!full.left && !full.right && !full.bar, JSON.stringify(full));
+      // Back in the file list everything is where it was.
+      await open(app, dir(app, 'studio'), 6);
+      await m.eval(`${P}.actions.setMode('manage'); 1`);
+      await m.waitFor(`Boolean(document.querySelector('.mode-host .filelist')?.offsetParent)`);
+      const manage = await look();
+      assert.ok(manage.left && manage.right && manage.list && !manage.stage && manage.list.l >= manage.left.r - 1 && manage.list.r <= manage.right.l + 1, JSON.stringify(manage));
     },
   },
 
@@ -2461,6 +2736,8 @@ export const cases = [
       assert.equal(await app.main.eval(`${P}.editor.dirty`), true);
       await app.main.key('z', 2);
       await app.main.waitFor(`${P}.editor.debug().edit.cuts.length === 0`);
+      // The preview redraws a moment after the undo.
+      for (let i = 0; i < 30 && await previewAlpha(app, 0.26, 0.19) !== 255; i++) await sleep(100);
       assert.equal(await previewAlpha(app, 0.26, 0.19), 255, 'undo restores the cut');
 
       await app.main.key('e');
@@ -3634,40 +3911,46 @@ export const cases = [
   },
   {
     ids: ['APP-STARTICONS', 'APP-STARTLAYOUT'],
-    group: '앱', name: '시작 화면: 배경 아이콘, 패널을 끌어 탭으로 묶고 새 열로 옮기며 폭·높이를 바꾸고 배치를 되돌린다',
+    group: '앱', name: '시작 화면: 배경 아이콘, 카드를 끌어 옮기고 모서리로 크기를 바꾸며, 배치는 유지되고 자동 정렬은 겹침 없이 모은다',
     run: async (app) => {
       const m = app.main;
-      const layout = async () => JSON.parse(await m.eval(`${P}.app.settings.startScreen.layout ?? 'null'`));
+      const layout = () => m.eval(`${P}.app.settings.startScreen.layout ?? null`);
       await m.eval(`${P}.closeAllDialogs(); ${P}.actions.setMode('start'); 1`);
       await m.waitFor(`document.querySelectorAll('.start-page .start-scene').length === 22`, { message: 'start page' });
       assert.equal(await m.eval(`[...document.querySelectorAll('.start-page .start-scene')].filter((b) => b.querySelector('.start-scene-icon svg') && b.querySelector('.start-scene-name').textContent).length`), 22, 'every background has an icon and a name');
-      await m.eval(`document.querySelector('#start-layout-reset').click(); 1`);
-      // Recent folders dropped on the header of Get started: one group with two tabs.
-      const to = await m.center('.start-tab[data-tab=begin]');
-      await m.drag(await m.center('.start-tab[data-tab=recent]'), { x: to.x + 40, y: to.y });
-      await m.waitFor(`document.querySelectorAll('.start-group.tabbed .start-tab').length === 2`, { message: 'grouped as tabs' });
-      assert.deepEqual((await layout()).columns[0].groups[0].panels, ['begin', 'recent']);
-      assert.ok(await m.eval(`document.querySelector('.start-panel[data-panel=begin]').hidden && !document.querySelector('.start-panel[data-panel=recent]').hidden`), 'the dropped panel is shown');
-      await m.eval(`document.querySelector('.start-tab[data-tab=begin]').click(); 1`);
-      await m.waitFor(`!document.querySelector('.start-panel[data-panel=begin]').hidden && document.querySelector('.start-panel[data-panel=recent]').hidden`, { message: 'a tab click shows its panel' });
-      // Tasks to the right edge: a third column.
-      const edge = await m.eval(`(() => { const r = document.querySelector('.start-board').getBoundingClientRect(); return { x: r.right - 6, y: r.top + 60 }; })()`);
-      await m.drag(await m.center('.start-tab[data-tab=tasks]'), edge);
-      await m.waitFor(`document.querySelectorAll('.start-column').length === 3`, { message: 'new column' });
-      assert.deepEqual((await layout()).columns[2].groups[0].panels, ['tasks']);
-      // Width of the first column, height of a group.
-      const split = await m.center('.start-col-split');
-      await m.drag(split, { x: split.x + 80, y: split.y });
-      const handle = await m.center('.start-column[data-column="1"] .start-group-resize');
-      await m.drag(handle, { x: handle.x, y: handle.y - 60 });
-      const sized = await layout();
-      assert.ok(sized.columns[0].width >= 420, `column width ${sized.columns[0].width}`);
-      assert.ok(sized.columns[1].groups[0].height > 0, 'group height kept');
-      // Kept over a new render, then reset.
+      await m.eval(`document.querySelector('#start-auto-arrange').click(); 1`);
+      await sleep(300);
+      const rect = (id) => m.eval(`(() => { const r = document.querySelector('.start-card[data-card=' + ${js(id)} + ']').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; })()`);
+      const ids = await m.eval(`[...document.querySelectorAll('.start-card')].map((c) => c.dataset.card)`);
+      assert.ok(ids.length > 3, `cards: ${ids}`);
+      const arranged = await layout();
+      // Move a card by its handle.
+      const handle = await m.center(`.start-card[data-card=${ids[0]}] .card-handle`);
+      const far = await rect(ids.at(-1)); // cards float up again, so drop it on another card
+      await m.drag(handle, { x: far.x + far.w / 2, y: far.y + far.h / 2 });
+      await sleep(300);
+      const moved = await layout();
+      assert.notEqual(moved, arranged, 'moving a card changes the layout');
+      // Resize one by its corner.
+      const before = await rect(ids[1]);
+      const corner = await m.center(`.start-card[data-card=${ids[1]}] .card-resize`);
+      await m.drag(corner, { x: corner.x + 150, y: corner.y + 130 });
+      await sleep(300);
+      const after = await rect(ids[1]);
+      assert.ok(after.w !== before.w || after.h !== before.h, `resized ${before.w}x${before.h} → ${after.w}x${after.h}`);
+      const changed = await layout();
+      assert.notEqual(changed, moved);
+      // Kept over a new render.
       await m.eval(`${P}.actions.setMode('manage'); ${P}.actions.setMode('start'); 1`);
-      await m.waitFor(`document.querySelectorAll('.start-column').length === 3`, { message: 'layout kept' });
-      await m.eval(`document.querySelector('#start-layout-reset').click(); 1`);
-      await m.waitFor(`document.querySelectorAll('.start-column').length === 2 && !document.querySelector('.start-group.tabbed')`, { message: 'layout reset' });
+      await m.waitFor(`document.querySelectorAll('.start-card').length === ${ids.length}`, { message: 'cards back' });
+      assert.equal(await layout(), changed, 'layout kept');
+      // Auto arrange: no two cards overlap.
+      await m.eval(`document.querySelector('#start-auto-arrange').click(); 1`);
+      await sleep(300);
+      const boxes = await Promise.all(ids.map(rect));
+      for (const [i, a] of boxes.entries()) for (const b of boxes.slice(i + 1)) {
+        assert.ok(a.x + a.w <= b.x + 1 || b.x + b.w <= a.x + 1 || a.y + a.h <= b.y + 1 || b.y + b.h <= a.y + 1, `overlap: ${JSON.stringify([a, b])}`);
+      }
     },
   },
   {
@@ -3685,6 +3968,7 @@ export const cases = [
       await m.waitFor(`Boolean(${P}.dq('#settings-show-start'))`, { message: 'in the settings' });
       assert.equal(await m.eval(`${P}.dq('#settings-show-start').checked`), false, 'the settings show the same choice');
       await m.eval(`${P}.closeAllDialogs(); 1`);
+      await sleep(700);
       await app.restart([]);
       await sleep(1500);
       assert.equal(await app.main.eval(`${P}.app.state.mode`), 'manage', 'opens in the manage view');

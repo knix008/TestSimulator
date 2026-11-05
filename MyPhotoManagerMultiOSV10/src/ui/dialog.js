@@ -98,9 +98,13 @@ function openWindow(box, title) {
   // content is taller than the window once it is there, grow the window to fit.
   const fit = () => {
     if (win.closed) return;
+    // A new window is 0×0 until the system has sized its webview. Measured then, everything
+    // wraps at zero width, and asking for that size leaves an empty 16 px wide column of a
+    // window that never recovers. The observer below runs again once the real size is in.
+    if (!win.innerWidth || !win.innerHeight) return;
     const need = Math.min(Math.max(box.scrollHeight, win.document.documentElement.scrollHeight), screen.availHeight - 80);
     if (need - win.innerHeight <= 1) return;
-    invoke('plugin:window|set_size', { label, value: { Logical: { width: win.innerWidth, height: need } } }).catch(() => win.resizeTo(win.outerWidth, win.outerHeight + need - win.innerHeight));
+    invoke('plugin:window|set_size', { label, value: { Logical: { width: w, height: need } } }).catch(() => win.resizeTo(win.outerWidth, win.outerHeight + need - win.innerHeight));
   };
   // Late layout (fonts, printer lists, images) can still make it taller: keep watching.
   new win.ResizeObserver(() => fit()).observe(box);

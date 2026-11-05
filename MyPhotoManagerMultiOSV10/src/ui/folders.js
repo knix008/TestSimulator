@@ -26,6 +26,10 @@ export function createFolderPane({ onOpenWebFolder, onOpenWebFiles, folderMenuIt
   const tree = h('div.tree', { role: 'tree' });
   const actions = h('div.folder-actions');
   el.append(actions, tree);
+  // The tree is two parts that scroll on their own: the explorer, and below the line that
+  // moves between them, the quick access and favorites.
+  const rest = h('div.tree-rest');
+  const splitter = h('div.tree-splitter', { role: 'separator', tabIndex: 0, 'aria-orientation': 'horizontal' });
   const nodes = new Map(); // path → { row, children, loaded, expanded, depth }
   // The drives are buttons on the pane's title row; the chosen one's folders are shown below.
   const driveBar = h('div.drive-buttons', { role: 'tablist' });
@@ -132,6 +136,73 @@ export function createFolderPane({ onOpenWebFolder, onOpenWebFiles, folderMenuIt
     if (expanded) await toggle(node, true);
   }
 
+  /** A titled block of the tree (icon, title, fold arrow); folding it is remembered. */
+  function block(id, title, iconName, parent) {
+    const folded = () => app.settings.panes.foldedSections ?? [];
+    const body = h('div.tree-block-body', { hidden: folded().includes(id) });
+    const arrow = h('span.tree-block-arrow');
+    const paint = () => { arrow.innerHTML = icon(body.hidden ? 'chevronDown' : 'chevronUp'); head.setAttribute('aria-expanded', String(!body.hidden)); };
+    const fold = () => {
+      body.hidden = !body.hidden;
+      app.settings.panes.foldedSections = body.hidden ? [...folded(), id] : folded().filter((entry) => entry !== id);
+      app.saveSettings();
+      paint();
+      syncTreeLayout();
+    };
+    const head = h('div.tree-section', { role: 'button', tabIndex: 0, dataset: { section: id }, onclick: fold, onkeydown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); fold(); } } },
+      h('span.tree-section-icon', { html: icon(iconName) }), h('span.tree-section-label', title), arrow);
+    paint();
+    parent.append(h('div.tree-block', { dataset: { block: id } }, head, body));
+    return body;
+  }
+
+  /** A folded side has nothing to share: the other side takes the room and the line stays put. */
+  function syncTreeLayout() {
+    const bodyOf = (el) => [...el.querySelectorAll(':scope > .tree-block > .tree-block-body')];
+    tree.classList.toggle('explorer-folded', bodyOf(tree).every((body) => body.hidden));
+    tree.classList.toggle('rest-folded', bodyOf(rest).every((body) => body.hidden));
+    tree.style.setProperty('--explorer-height', app.settings.panes.explorerHeight ? `${app.settings.panes.explorerHeight}px` : '');
+  }
+
+  const SIDE_MIN = 64; // the title row and a row of folders stay visible on both sides
+
+  function setExplorerHeight(height) {
+    const room = tree.clientHeight - splitter.offsetHeight;
+    const next = Math.round(Math.max(SIDE_MIN, Math.min(height, room - SIDE_MIN)));
+    app.settings.panes.explorerHeight = next;
+    tree.style.setProperty('--explorer-height', `${next}px`);
+    return next;
+  }
+
+  const splitterLocked = () => tree.classList.contains('explorer-folded') || tree.classList.contains('rest-folded');
+  const explorerHeight = () => tree.querySelector(':scope > [data-block=explorer]').getBoundingClientRect().height;
+
+  splitter.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || splitterLocked()) return;
+    event.preventDefault();
+    const startY = event.clientY;
+    const startHeight = explorerHeight();
+    splitter.setPointerCapture(event.pointerId);
+    splitter.classList.add('dragging');
+    const move = (e) => setExplorerHeight(startHeight + e.clientY - startY);
+    const up = () => {
+      splitter.removeEventListener('pointermove', move);
+      splitter.removeEventListener('pointerup', up);
+      splitter.removeEventListener('pointercancel', up);
+      splitter.classList.remove('dragging');
+      app.saveSettings();
+    };
+    splitter.addEventListener('pointermove', move);
+    splitter.addEventListener('pointerup', up);
+    splitter.addEventListener('pointercancel', up);
+  });
+  splitter.addEventListener('keydown', (event) => {
+    if ((event.key !== 'ArrowUp' && event.key !== 'ArrowDown') || splitterLocked()) return;
+    event.preventDefault();
+    setExplorerHeight(explorerHeight() + (event.key === 'ArrowUp' ? -20 : 20));
+    app.saveSettings();
+  });
+
   let renderToken = 0;
   async function render() {
     const mine = ++renderToken;
@@ -154,6 +225,9 @@ export function createFolderPane({ onOpenWebFolder, onOpenWebFiles, folderMenuIt
     // The chosen drive's folders, right under the drive buttons.
     const chosen = chosenDrive();
     if (chosen) {
+      const explorer = block('explorer', t('folders.explorer'), 'folder', tree);
+      splitter.title = t('folders.splitter');
+      tree.append(splitter);
       for (const place of [chosen]) {
         const node = row(place.path, driveName(place), 0, { iconName: place.media === 'cdrom' ? 'disc' : place.media === 'network' ? 'globe' : place.media === 'removable' ? 'usb' : PLACE_ICONS[place.kind] ?? 'drive', place });
         if (place.total > 0) {
@@ -162,21 +236,24 @@ export function createFolderPane({ onOpenWebFolder, onOpenWebFiles, folderMenuIt
             h('div.drive-bar', h('div.drive-fill', { className: used > 0.9 ? 'drive-fill full' : 'drive-fill', style: { width: `${Math.round(used * 100)}%` } })),
             h('span.drive-free', t('folders.free', { free: formatBytes(place.free), total: formatBytes(place.total) }))));
         }
-        tree.append(node);
+        explorer.append(node);
         toggle(nodes.get(place.path), true);
       }
     }
-    tree.append(h('div.tree-section', fs.kind === 'web' ? t('folders.opened') : t('folders.quick')));
-    if (!quick.length && fs.kind === 'web') tree.append(h('div.tree-hint', t('web.noFolders')));
+    clear(rest);
+    tree.append(rest);
+    const shortcuts = block('quick', fs.kind === 'web' ? t('folders.opened') : t('folders.quick'), fs.kind === 'web' ? 'folderOpen' : 'link', rest);
+    if (!quick.length && fs.kind === 'web') shortcuts.append(h('div.tree-hint', t('web.noFolders')));
     for (const place of quick) {
       const name = place.kind in QUICK ? t(`place.${place.kind}`, { name: place.name }) : place.name;
-      tree.append(row(place.path, name, 0, { iconName: PLACE_ICONS[place.kind] ?? 'folder', place }));
+      shortcuts.append(row(place.path, name, 0, { iconName: PLACE_ICONS[place.kind] ?? 'folder', place }));
     }
     const favorites = app.settings.favorites;
     if (favorites.length) {
-      tree.append(h('div.tree-section', t('folders.favorites')));
-      for (const path of favorites) tree.append(row(path, baseName(path) || path, 0, { iconName: 'starFill' }));
+      const starred = block('favorites', t('folders.favorites'), 'starFill', rest);
+      for (const path of favorites) starred.append(row(path, baseName(path) || path, 0, { iconName: 'starFill' }));
     }
+    syncTreeLayout();
     highlight();
   }
 

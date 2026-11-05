@@ -3,7 +3,7 @@
 // folders (desktop dialogs, web folder access, drag and drop) and start-up.
 import { joinPath, LABEL_COLORS, LABELS, parentOf } from './catalog/catalog.js';
 import { GROUP_KEYS, SORT_KEYS } from './catalog/listing.js';
-import { ARCHIVES, isArchive, isMedia, kindOf, MEDIA_EXTENSIONS } from './formats/types.js';
+import { ARCHIVES, isArchive, isImage, isMedia, kindOf, MEDIA_EXTENSIONS } from './formats/types.js';
 import { getLanguage, onLanguageChange, plural, setLanguage, t } from './i18n.js';
 import { filesFromDrop, fs, hasFolderAccess, webFs } from './platform/fs.js';
 import { chooseFiles, chooseFolder, errorText, invoke, isDesktop, listen, onCloseRequested, onFileDrop, openGuide, setWindowTheme, shareGuideAppearance, setWindowTitle, showWindow, startWindowResize } from './platform/native.js';
@@ -230,17 +230,21 @@ function showRightTab(id) {
 
 function layoutPanes() {
   const p = app.settings.panes;
-  leftPane.hidden = !p.left;
-  rightPane.hidden = !p.right;
-  manage.querySelector('[data-side=left]').hidden = !p.left;
-  manage.querySelector('[data-side=right]').hidden = !p.right;
+  // Viewing a picture always has both panels: there they fold, they do not go away.
+  const viewing = app.state.mode === 'view';
+  const left = p.left || viewing;
+  const right = p.right || viewing;
+  leftPane.hidden = !left;
+  rightPane.hidden = !right;
+  manage.querySelector('[data-side=left]').hidden = !left;
+  manage.querySelector('[data-side=right]').hidden = !right;
   leftPane.style.width = p.leftCollapsed ? '' : `${p.leftWidth}px`;
   rightPane.style.width = p.rightCollapsed ? '' : `${p.rightWidth}px`;
   // A folded panel cannot be resized.
-  if (p.left && p.leftCollapsed) manage.querySelector('[data-side=left]').hidden = true;
-  if (p.right && p.rightCollapsed) manage.querySelector('[data-side=right]').hidden = true;
-  if (p.left) tabs(leftPane, LEFT_TABS, p.leftTab, showLeftTab, 'left');
-  if (p.right) tabs(rightPane, RIGHT_TABS, p.rightTab, showRightTab, 'right');
+  if (left && p.leftCollapsed) manage.querySelector('[data-side=left]').hidden = true;
+  if (right && p.rightCollapsed) manage.querySelector('[data-side=right]').hidden = true;
+  if (left) tabs(leftPane, LEFT_TABS, p.leftTab, showLeftTab, 'left');
+  if (right) tabs(rightPane, RIGHT_TABS, p.rightTab, showRightTab, 'right');
   basketBar.hidden = !p.basket;
   renderBasket();
   renderToolbar();
@@ -280,7 +284,7 @@ function renderHeader() {
     { id: 'help', icon: 'help', label: t('menu.help'), items: helpMenu },
   ]);
   const home = h(`button.mode-button.start-home${app.state.mode === 'start' ? '.on' : ''}`, {
-    type: 'button', id: 'start-home', title: t('start.title'), 'aria-label': t('start.title'), 'aria-pressed': app.state.mode === 'start' ? 'true' : 'false', onclick: () => showStart(),
+    type: 'button', id: 'start-home', title: t('start.title'), 'aria-label': t('start.title'), 'aria-pressed': app.state.mode === 'start' ? 'true' : 'false', onclick: () => toggleStart(),
   }, h('span', { html: icon('home') }), h('span.mode-label', t('start.title')));
   const viewingClass = app.state.source.type === 'filter' && app.state.source.filters?.some((f) => f.type === 'analysis');
   const classify = h(`button.mode-button.classify-button${viewingClass ? '.on' : ''}`, {
@@ -294,7 +298,7 @@ function renderHeader() {
     ...MODES.filter(([id]) => id !== 'dashboard').map(modeButton),
     classify,
     modeButton(MODES.find(([id]) => id === 'dashboard')));
-  const modeCluster = h('div.mode-cluster', home, modes);
+  const modeCluster = h('div.mode-cluster', modes);
   const toEnglish = getLanguage() === 'ko';
   const right = h('div.header-right',
     h('button.tool', { type: 'button', id: 'theme-next', title: `${t('theme.next')} — ${shownTheme?.name ?? ''}`, html: PALETTE_ICON, onclick: cycleTheme }),
@@ -302,7 +306,7 @@ function renderHeader() {
     h('button.tool.lang-toggle', { type: 'button', id: 'language-toggle', title: toEnglish ? 'English' : '한국어', html: toEnglish ? FLAG_EN : FLAG_KO, onclick: toggleLanguage }),
     h('button.tool', { type: 'button', title: t('menu.settings'), html: icon('gear'), onclick: openSettings, id: 'open-settings' }),
     h('button.tool', { type: 'button', title: t('about.title'), html: icon('info'), onclick: aboutDialog, id: 'open-about' }));
-  header.append(h('div.app-brand', h('span.app-logo', { html: icon('images') }), h('span.app-name', t('app.name')), h('span.app-version', appVersion())), bar, modeCluster, right);
+  header.append(h('div.app-brand', h('span.app-logo', { html: icon('images') }), h('span.app-name', t('app.name')), h('span.app-version', appVersion())), h('div.header-nav', home, bar), modeCluster, right);
 }
 
 /** Categories the catalog already has, then the photos of the one the user picks. */
@@ -440,6 +444,16 @@ async function showStart() {
   setMode('start');
 }
 
+// The Home button is a toggle: pressed again, it goes back to the page it came from.
+// (Not to the editor: leaving for the start page has already closed the picture.)
+let mainMode = 'manage';
+app.on('mode', (mode) => { if (mode !== 'start') mainMode = mode === 'edit' ? 'manage' : mode; });
+
+function toggleStart() {
+  if (app.state.mode === 'start') setMode(mainMode);
+  else showStart();
+}
+
 // While the first folder is opened, stay on the start page.
 let keepStart = false;
 const startPage = createStartPage(() => {
@@ -484,11 +498,19 @@ app.on('mode', async (mode) => {
   if (mode !== 'view') viewer.exitFullscreen();
   clear(modeHost);
   document.body.dataset.mode = mode;
+  // The viewer borrows the panels; the file list gets them back in every other mode.
+  center.hidden = mode === 'view';
+  if (mode !== 'view') viewer.undock();
   // Panes skipped their updates while hidden: draw them for the current selection.
   if (mode === 'start') { modeHost.append(startPage.el); startPage.show(); }
   else startPage.hide();
   if (mode === 'manage') { modeHost.append(manage); if (app.settings.panes.right) RIGHT_TABS.find(([id]) => id === app.settings.panes.rightTab)?.[2].render(); fileList.rebuild(); if (app.state.focus) fileList.scrollIntoView(app.state.focus); fileList.focus(); }
-  if (mode === 'view') { modeHost.append(viewer.el); viewer.open(app.state.viewPath); }
+  if (mode === 'view') {
+    modeHost.append(viewer.el);
+    viewer.dock(manage, center.nextSibling);
+    layoutPanes();
+    viewer.open(app.state.viewPath);
+  } else if (mode === 'manage') layoutPanes();
   if (mode === 'edit') {
     modeHost.append(editor.el);
     const item = app.state.list.find((i) => i.path === app.state.viewPath) ?? { path: app.state.viewPath, name: app.state.viewPath.split(/[\\/]/).pop() };
@@ -782,7 +804,6 @@ function viewMenu() {
   return [
     { label: t('workspace.title'), icon: 'panelLeft', submenu: workspaceMenu() },
     'separator',
-    { label: t('start.title'), icon: 'home', checked: app.state.mode === 'start', action: () => showStart() },
     ...MODES.map(([id, iconName]) => ({ label: t(`mode.${id}`), icon: iconName, checked: app.state.mode === id, action: () => switchMode(id) })),
     'separator',
     { label: t('menu.viewStyle'), icon: 'grid', submenu: VIEW_STYLES.map(([id, iconName]) => ({ label: t(`viewStyle.${id}`), icon: iconName, checked: s.view === id, action: () => { s.view = id; app.saveSettings(); renderToolbar(); fileList.rebuild(); } })) },
@@ -883,6 +904,8 @@ function imageMenu(item) {
   const files = paths.length ? targetPaths({ filesOnly: true }) : [item.path];
   const shots = selectedFiles().some((entry) => entry.path === item.path) ? selectedFiles() : [item];
   const video = kindOf(item.name) === 'video';
+  // Videos and archives: the commands for pictures would do nothing, or fail.
+  const noImage = !shots.some((entry) => isImage(entry.name));
   const play = () => startSlideshow(shots.length > 1 ? shots : viewableList(), shots.length > 1 ? 0 : Math.max(0, viewableList().findIndex((entry) => entry.path === item.path)));
   return [
     isArchive(item.name) ? { label: t('create.openZip'), icon: 'folderOpen', action: () => openArchive(item.path) } : { label: t('mode.view'), icon: 'eye', shortcut: 'Enter', action: () => viewItem(item.path) },
@@ -901,34 +924,34 @@ function imageMenu(item) {
     app.state.source.type === 'collection' && !app.catalog.collection(app.state.source.id)?.smart ? { label: t('collection.removeFrom'), icon: 'close', action: () => app.catalog.removeFromCollection(app.state.source.id, files) } : null,
     'separator',
     { label: t('menu.adjust'), icon: 'rotateRight', submenu: [
-      { label: t('view.rotateLeft'), icon: 'rotateLeft', shortcut: 'Ctrl+[', action: () => rotateAndRefresh(files, -1) },
-      { label: t('view.rotateRight'), icon: 'rotateRight', shortcut: 'Ctrl+]', action: () => rotateAndRefresh(files, 1) },
-      { label: t('edit.flipH'), icon: 'flipH', action: () => rotateFiles(files, 0, 'h') },
-      { label: t('edit.flipV'), icon: 'flipV', action: () => rotateFiles(files, 0, 'v') },
-      { label: t('tools.autoRotate'), icon: 'rotateRight', action: () => autoRotate(files) },
+      { label: t('view.rotateLeft'), icon: 'rotateLeft', shortcut: 'Ctrl+[', disabled: noImage, action: () => rotateAndRefresh(files, -1) },
+      { label: t('view.rotateRight'), icon: 'rotateRight', shortcut: 'Ctrl+]', disabled: noImage, action: () => rotateAndRefresh(files, 1) },
+      { label: t('edit.flipH'), icon: 'flipH', disabled: noImage, action: () => rotateFiles(files, 0, 'h') },
+      { label: t('edit.flipV'), icon: 'flipV', disabled: noImage, action: () => rotateFiles(files, 0, 'v') },
+      { label: t('tools.autoRotate'), icon: 'rotateRight', disabled: noImage, action: () => autoRotate(files) },
       { label: t('edit.restoreOriginal'), icon: 'undo', disabled: !fs.caps.originals, action: restoreOriginals },
     ] },
     { label: t('menu.batch'), icon: 'layers', submenu: [
       { label: t('tools.batchRename'), icon: 'rename', disabled: !fs.caps.rename, action: () => batchRename(files) },
-      { label: t('tools.batchResize'), icon: 'fit', action: () => batchResize(files) },
-      { label: t('tools.convert'), icon: 'images', action: () => batchConvert(files) },
-      { label: t('tools.autoAdjust'), icon: 'wand', action: () => batchAdjust(files) },
+      { label: t('tools.batchResize'), icon: 'fit', disabled: noImage, action: () => batchResize(files) },
+      { label: t('tools.convert'), icon: 'images', disabled: noImage, action: () => batchConvert(files) },
+      { label: t('tools.autoAdjust'), icon: 'wand', disabled: noImage, action: () => batchAdjust(files) },
       { label: t('tools.dates'), icon: 'clock', action: () => adjustDates(files) },
       { label: t('tools.fileTime'), icon: 'clock', disabled: !fs.caps.setTime, action: () => fileTimeFromTaken(files) },
-      { label: t('tools.watermark'), icon: 'text', action: () => batchWatermark(files) },
-      { label: t('tools.applyPreset'), icon: 'bookmark', action: () => batchApplyPreset(files) },
-      { label: t('edit.pasteSettings'), icon: 'copy', disabled: !editClipboard.preset, action: () => batchApplyPreset(files, editClipboard.preset) },
+      { label: t('tools.watermark'), icon: 'text', disabled: noImage, action: () => batchWatermark(files) },
+      { label: t('tools.applyPreset'), icon: 'bookmark', disabled: noImage, action: () => batchApplyPreset(files) },
+      { label: t('edit.pasteSettings'), icon: 'copy', disabled: noImage || !editClipboard.preset, action: () => batchApplyPreset(files, editClipboard.preset) },
     ] },
     { label: t('menu.create'), icon: 'wand', submenu: [
-      { label: t('create.pdf'), icon: 'file', action: () => createPdf(shots) },
-      { label: t('create.gif'), icon: 'play', action: () => createGif(shots) },
-      { label: t('create.slideshow'), icon: 'video', action: () => exportSlideshow(shots) },
-      { label: t('create.panorama'), icon: 'images', disabled: shots.length < 2, action: () => createPanorama(shots) },
-      { label: t('create.hdr'), icon: 'sun', disabled: shots.length < 2, action: () => createHdr(shots) },
-      { label: t('create.focus'), icon: 'zoomIn', disabled: shots.length < 2, action: () => createFocusStack(shots) },
+      { label: t('create.pdf'), icon: 'file', disabled: noImage, action: () => createPdf(shots) },
+      { label: t('create.gif'), icon: 'play', disabled: noImage, action: () => createGif(shots) },
+      { label: t('create.slideshow'), icon: 'video', disabled: noImage, action: () => exportSlideshow(shots) },
+      { label: t('create.panorama'), icon: 'images', disabled: noImage || shots.length < 2, action: () => createPanorama(shots) },
+      { label: t('create.hdr'), icon: 'sun', disabled: noImage || shots.length < 2, action: () => createHdr(shots) },
+      { label: t('create.focus'), icon: 'zoomIn', disabled: noImage || shots.length < 2, action: () => createFocusStack(shots) },
       { label: t('create.zip'), icon: 'download', action: () => createZip(shots) },
-      { label: t('file.print'), icon: 'print', shortcut: 'Ctrl+P', action: () => printDialog(shots) },
-      { label: t('file.wallpaper'), icon: 'wallpaper', disabled: !fs.caps.wallpaper, action: setWallpaper },
+      { label: t('file.print'), icon: 'print', shortcut: 'Ctrl+P', disabled: !shots.some((entry) => isMedia(entry.name)), action: () => printDialog(shots) },
+      { label: t('file.wallpaper'), icon: 'wallpaper', disabled: noImage || !fs.caps.wallpaper, action: setWallpaper },
     ] },
     { label: t('menu.metadata'), icon: 'info', submenu: [
       { label: t('pane.properties'), icon: 'info', action: () => showRightTab('properties') },
@@ -940,14 +963,14 @@ function imageMenu(item) {
       { label: t('pane.map'), icon: 'map', action: () => showRightTab('map') },
       { label: t('people.scanList'), icon: 'user', action: () => scanFaces(shots) },
       { label: t('people.nameFaces'), icon: 'user', action: () => nameFacesDialog() },
-      { label: t('analysis.runFolder'), icon: 'wand', action: () => analysis.analyze(shots) },
-      { label: t('analysis.rerun'), icon: 'refresh', action: () => analysis.analyze(shots, { force: true }) },
+      { label: t('analysis.runFolder'), icon: 'wand', disabled: noImage, action: () => analysis.analyze(shots) },
+      { label: t('analysis.rerun'), icon: 'refresh', disabled: noImage, action: () => analysis.analyze(shots, { force: true }) },
       { label: t('analysis.toFolders'), icon: 'layers', action: async () => (await import('./ui/organize.js')).organizeDialog(shots) },
     ] },
     'separator',
     { label: t('edit.cut'), icon: 'scissors', shortcut: 'Ctrl+X', disabled: !fs.caps.move, action: () => copyToClipboard(true) },
     { label: t('edit.copy'), icon: 'copy', shortcut: 'Ctrl+C', disabled: !fs.caps.write, action: () => copyToClipboard(false) },
-    { label: t('share.copyImage'), icon: 'copy', shortcut: 'Ctrl+Shift+C', action: () => copyImageToClipboard(files[0]) },
+    { label: t('share.copyImage'), icon: 'copy', shortcut: 'Ctrl+Shift+C', disabled: noImage, action: () => copyImageToClipboard(files[0]) },
     { label: t('file.copyTo'), icon: 'copy', disabled: !fs.caps.write, action: () => copyMoveTo(false) },
     { label: t('file.moveTo'), icon: 'move', disabled: !fs.caps.move, action: () => copyMoveTo(true) },
     { label: t('file.rename'), icon: 'rename', shortcut: 'F2', disabled: !fs.caps.rename, action: renameSelection },

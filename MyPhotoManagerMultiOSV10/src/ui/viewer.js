@@ -1107,6 +1107,9 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
   layoutInfoPane();
 
   return {
+    /** Puts the picture between the side panels of `frame`, under the full-width toolbar. */
+    dock(frame, before) { el.insertBefore(frame, status); frame.insertBefore(viewerMain, before); },
+    undock() { el.insertBefore(viewerMain, status); },
     el, open, relabel, onKey, reloadCurrent, forgetDecoded, exitFullscreen: () => fullscreen && toggleFullscreen(false), get currentPath() { return current?.item?.path ?? null; },
     /** Test hooks. */
     debug: () => ({ zoom, fit, offset: { ...offset }, page, pages: current?.pages ?? 1, kind: current?.kind ?? null, width: current?.width ?? 0, height: current?.height ?? 0, loupeOn, pixelInfo, navigator: !navigator.hidden, faces: faceLayer.querySelectorAll('.face-box').length, anim: current?.anim ? { frame: current.anim.frame, count: current.anim.count, playing: current.anim.playing } : null }),

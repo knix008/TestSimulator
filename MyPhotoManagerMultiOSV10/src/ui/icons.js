@@ -62,6 +62,7 @@ const P = {
   last: '<path d="M7 5l7 7-7 7M18 5v14"/>',
   chevronDown: '<path d="M6 9l6 6 6-6"/>',
   chevronRight: '<path d="M9 6l6 6-6 6"/>',
+  chevronUp: '<path d="M6 15l6-6 6 6"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   minus: '<path d="M5 12h14"/>',

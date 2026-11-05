@@ -56,7 +56,7 @@ export const DEFAULTS = Object.freeze({
   luts: [], // imported colour LUTs [{ id, name }] (edit/lut.js; tables in the data folder)
   metadataTemplates: [], // [{ name, fields: { headline, copyright, … }, keywords }]
   favorites: [],
-  panes: { left: true, right: true, leftTab: 'folders', rightTab: 'properties', leftWidth: 260, rightWidth: 300, basket: false, leftCollapsed: false, rightCollapsed: false, drive: null },
+  panes: { left: true, right: true, leftTab: 'folders', rightTab: 'properties', leftWidth: 260, rightWidth: 300, basket: false, leftCollapsed: false, rightCollapsed: false, drive: null, foldedSections: [], explorerHeight: null },
   catalogMatch: 'all',
   renameTemplate: '{date:YYYYMMDD}_###',
 });

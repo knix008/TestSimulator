@@ -462,8 +462,11 @@ export const cases = [
     run: async (app) => {
       const trip = path.join(app.photos, 'trip_002.jpg');
       await app.main.eval(`${P}.app.catalog.setRating([${js(trip)}], 2); 1`);
-      await sleep(1500);
-      await app.quit();
+      // Closed the way a user closes it, at once: closing must save what the delayed save has not yet.
+      await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|close', { label: 'main' }).catch(() => 1); 1`).catch(() => {});
+      await Promise.race([app.exited, sleep(8000)]);
+      assert.notEqual(app.process.exitCode, null, 'the program ended with its window');
+      app.main.close();
       await app.launch([]);
       await app.main.waitFor(`${P}.app.state.source.path === ${js(app.photos)}`, { timeout: 20000 });
       const record = await app.main.eval(`${P}.app.catalog.get(${js(trip)})`);
