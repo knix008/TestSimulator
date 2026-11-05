@@ -18,7 +18,9 @@ extern lv_obj_t * ui_Settings;
 extern lv_obj_t * ui_tabview1;
 extern lv_obj_t * ui_list1;
 extern lv_obj_t * ui_spinbox1;
+extern lv_obj_t * ui_slider1;
 extern lv_obj_t * ui_buttonmatrix1;
+extern lv_obj_t * ui_spinner1;
 
 #ifdef __cplusplus
 }

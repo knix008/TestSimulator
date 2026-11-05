@@ -1,0 +1,477 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "AudioMixer",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 800,
+    "h": 480
+  },
+  "images": [],
+  "theme": {
+    "dark": true,
+    "primary": "#7e57c2",
+    "secondary": "#26a69a"
+  },
+  "nextId": 27,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Mixer",
+      "props": {
+        "bgColor": "#14131a",
+        "bgOpa": 255
+      },
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Drag the faders",
+            "x": 24,
+            "y": 14,
+            "font": 20,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "Vocal",
+            "x": 34,
+            "y": 56,
+            "textColor": "#d1c4e9"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 26,
+            "height": 310,
+            "min": 0,
+            "max": 100,
+            "value": 30,
+            "x": 40,
+            "y": 92
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n5",
+              "text": ""
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n6",
+              "text": "%d"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "bar",
+          "name": "bar1",
+          "props": {
+            "width": 14,
+            "height": 310,
+            "min": 0,
+            "max": 100,
+            "value": 30,
+            "x": 90,
+            "y": 92
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "30",
+            "x": 34,
+            "y": 420,
+            "font": 20,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "label",
+          "name": "label4",
+          "props": {
+            "text": "Guitar",
+            "x": 160,
+            "y": 56,
+            "textColor": "#d1c4e9"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n8",
+          "type": "slider",
+          "name": "slider2",
+          "props": {
+            "width": 26,
+            "height": 310,
+            "min": 0,
+            "max": 100,
+            "value": 41,
+            "x": 166,
+            "y": 92
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n9",
+              "text": ""
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n10",
+              "text": "%d"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n9",
+          "type": "bar",
+          "name": "bar2",
+          "props": {
+            "width": 14,
+            "height": 310,
+            "min": 0,
+            "max": 100,
+            "value": 41,
+            "x": 216,
+            "y": 92
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n10",
+          "type": "label",
+          "name": "label5",
+          "props": {
+            "text": "41",
+            "x": 160,
+            "y": 420,
+            "font": 20,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n11",
+          "type": "label",
+          "name": "label6",
+          "props": {
+            "text": "Bass",
+            "x": 286,
+            "y": 56,
+            "textColor": "#d1c4e9"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n12",
+          "type": "slider",
+          "name": "slider3",
+          "props": {
+            "width": 26,
+            "height": 310,
+            "min": 0,
+            "max": 100,
+            "value": 52,
+            "x": 292,
+            "y": 92
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n13",
+              "text": ""
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n14",
+              "text": "%d"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n13",
+          "type": "bar",
+          "name": "bar3",
+          "props": {
+            "width": 14,
+            "height": 310,
+            "min": 0,
+            "max": 100,
+            "value": 52,
+            "x": 342,
+            "y": 92
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n14",
+          "type": "label",
+          "name": "label7",
+          "props": {
+            "text": "52",
+            "x": 286,
+            "y": 420,
+            "font": 20,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n15",
+          "type": "label",
+          "name": "label8",
+          "props": {
+            "text": "Drums",
+            "x": 412,
+            "y": 56,
+            "textColor": "#d1c4e9"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n16",
+          "type": "slider",
+          "name": "slider4",
+          "props": {
+            "width": 26,
+            "height": 310,
+            "min": 0,
+            "max": 100,
+            "value": 63,
+            "x": 418,
+            "y": 92
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n17",
+              "text": ""
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n18",
+              "text": "%d"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n17",
+          "type": "bar",
+          "name": "bar4",
+          "props": {
+            "width": 14,
+            "height": 310,
+            "min": 0,
+            "max": 100,
+            "value": 63,
+            "x": 468,
+            "y": 92
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n18",
+          "type": "label",
+          "name": "label9",
+          "props": {
+            "text": "63",
+            "x": 412,
+            "y": 420,
+            "font": 20,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n19",
+          "type": "label",
+          "name": "label10",
+          "props": {
+            "text": "Keys",
+            "x": 538,
+            "y": 56,
+            "textColor": "#d1c4e9"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n20",
+          "type": "slider",
+          "name": "slider5",
+          "props": {
+            "width": 26,
+            "height": 310,
+            "min": 0,
+            "max": 100,
+            "value": 74,
+            "x": 544,
+            "y": 92
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n21",
+              "text": ""
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n22",
+              "text": "%d"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n21",
+          "type": "bar",
+          "name": "bar5",
+          "props": {
+            "width": 14,
+            "height": 310,
+            "min": 0,
+            "max": 100,
+            "value": 74,
+            "x": 594,
+            "y": 92
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n22",
+          "type": "label",
+          "name": "label11",
+          "props": {
+            "text": "74",
+            "x": 538,
+            "y": 420,
+            "font": 20,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n23",
+          "type": "label",
+          "name": "label12",
+          "props": {
+            "text": "Master",
+            "x": 664,
+            "y": 56,
+            "textColor": "#d1c4e9"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n24",
+          "type": "slider",
+          "name": "slider6",
+          "props": {
+            "width": 26,
+            "height": 310,
+            "min": 0,
+            "max": 100,
+            "value": 85,
+            "x": 670,
+            "y": 92
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n25",
+              "text": ""
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n26",
+              "text": "%d"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n25",
+          "type": "bar",
+          "name": "bar6",
+          "props": {
+            "width": 14,
+            "height": 310,
+            "min": 0,
+            "max": 100,
+            "value": 85,
+            "x": 720,
+            "y": 92
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n26",
+          "type": "label",
+          "name": "label13",
+          "props": {
+            "text": "85",
+            "x": 664,
+            "y": 420,
+            "font": 20,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

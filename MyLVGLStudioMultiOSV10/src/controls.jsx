@@ -79,27 +79,36 @@ const fitWidth = (text) => ({ width: `${Math.max(1, String(text ?? "").length) +
 /** − [value unit] +, the value and its unit centred. Empty means "not set" when `blank` allows it. */
 export function Stepper({ value, onChange, min, max, step = 1, placeholder, blank = false, id, unit }) {
   const clamp = (number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, number));
+  const [typing, setTyping] = useState(null);
   const nudge = (direction) => {
     const base = Number(value);
+    setTyping(null);
     onChange(clamp((Number.isFinite(base) ? base : (min ?? 0)) + direction * step));
   };
+  const shown = typing ?? value;
   return (
     <div className="stepper" data-field={id}>
       <button type="button" tabIndex={-1} aria-label="-" onClick={() => nudge(-1)}>−</button>
       <span className="stepper-value">
         <input
-          value={value ?? ""}
+          value={shown ?? ""}
           placeholder={placeholder}
           inputMode="numeric"
-          style={value === undefined || value === null || value === "" ? { width: "100%" } : fitWidth(value)}
+          style={shown === undefined || shown === null || shown === "" ? { width: "100%" } : fitWidth(shown)}
           onChange={(event) => {
             const text = event.target.value.trim();
+            setTyping(text);
             if (text === "") {
               if (blank) onChange(undefined);
               return;
             }
             const number = Number.parseInt(text, 10);
-            if (Number.isFinite(number)) onChange(clamp(number));
+            if (Number.isFinite(number) && number === clamp(number)) onChange(number);
+          }}
+          onBlur={() => {
+            const number = Number.parseInt(typing ?? "", 10);
+            if (typing !== null && typing !== "" && Number.isFinite(number) && number !== clamp(number)) onChange(clamp(number));
+            setTyping(null);
           }}
         />
         {unit && value !== undefined && value !== null && value !== "" && <span className="stepper-unit" data-unit="">{unit}</span>}

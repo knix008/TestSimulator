@@ -1,8 +1,24 @@
 // Turns a project into a flat list of operations. The engine replays them to draw the
 // design surface; the generator prints them as C. Having one list is what keeps the
 // design surface and the generated code from drifting apart.
-import { ALIGNS, CHART_TYPES, FLEX_FLOWS, SCALE_MODES, TRIGGERS, WIDGETS, availableIn } from "./schema.js";
+import { ALIGNS, CHART_TYPES, FLEX_FLOWS, FONT_SIZES, SCALE_MODES, TRIGGERS, WIDGETS, availableIn } from "./schema.js";
 import { sanitizeName, walk } from "./project.js";
+
+/** The size of a project font on a widget that names no size. */
+export const DEFAULT_FONT_SIZE = 16;
+
+/** A value's text format: one %d at most, and every other % shown as itself. */
+export function valueFormat(text) {
+  let used = false;
+  return String(text ?? "").replace(/%%|%d|%/g, (found) => {
+    if (found === "%%") return found;
+    if (found === "%d" && !used) {
+      used = true;
+      return found;
+    }
+    return found === "%d" ? "%%d" : "%%";
+  });
+}
 
 export const colorValue = (hex) => Number.parseInt(String(hex).replace("#", ""), 16) & 0xffffff;
 
@@ -31,6 +47,7 @@ function propOps(node) {
   for (const key of ["totalTicks", "majorEvery", "duration", "value", "selected", "ledBright", "lineWidth", "columnWidth", "bgOpa", "borderWidth", "radius", "pad", "shadowWidth", "opa", "gap", "font"]) {
     if (known.has(key) && props[key] !== undefined) add(key, Number(props[key]) || 0);
   }
+  if (known.has("animate") && Number(props.animate) > 0) add("animate", Number(props.animate));
   for (const key of ["bgColor", "borderColor", "textColor", "shadowColor", "indicatorColor", "lineColor"]) {
     if (known.has(key) && props[key] !== undefined) add(key, colorValue(props[key]));
   }
@@ -54,6 +71,7 @@ function propOps(node) {
  *   { op: "grid", id, columns, rows }        a Grid's tracks
  *   { op: "cell", id, column, columnSpan, row, rowSpan }   a Grid child's place
  *   { op: "link", id, target }               a keyboard's text area, after all objects exist
+ *   { op: "font", id, name, size }           a font of the project: its name and size
  *   { op: "event", id, trigger, action, target, text }
  * `ids` maps a node's string id to the small integer the engine uses.
  */
@@ -70,6 +88,10 @@ export function emit(project) {
     const id = ids.get(node.id);
     const known = new Set(WIDGETS[node.type].props.map((prop) => prop.key));
     ops.push({ op: "create", id, node, type: node.type, parent: parent ? ids.get(parent.id) : -1 });
+    // On the screen, so everything inside inherits it: the theme of LVGL 8 does not pass it on.
+    if (node.type === "screen" && (project.fonts ?? []).some((font) => font.name === project.defaultFont?.font)) {
+      ops.push({ op: "font", id, name: project.defaultFont.font, size: project.defaultFont.size });
+    }
     if (parent?.type === "grid") {
       const columns = Math.max(1, String(parent.props.gridColumns ?? "").split(",").length);
       const index = parent.children.indexOf(node);
@@ -115,7 +137,15 @@ export function emit(project) {
       const index = (project.images ?? []).findIndex((image) => image.name === node.props.src);
       if (index >= 0) ops.push({ op: "image", id, index, name: node.props.src });
     }
-    for (const item of propOps(node)) ops.push({ op: "int", id, prop: item.prop, value: item.value });
+    // A size alone keeps the project's default font: only the size of the text changes.
+    const familyName = node.props.fontFamily ?? (node.props.font !== undefined ? project.defaultFont?.font : undefined);
+    const family = known.has("fontFamily") ? (project.fonts ?? []).find((font) => font.name === familyName) : null;
+    for (const item of propOps(node)) {
+      // The built-in font exists only in its own sizes.
+      if (item.prop === "font" && (family || node.props.fontFamily !== undefined || !FONT_SIZES.includes(item.value))) continue;
+      ops.push({ op: "int", id, prop: item.prop, value: item.value });
+    }
+    if (family) ops.push({ op: "font", id, name: family.name, size: Number(node.props.font) || DEFAULT_FONT_SIZE });
     if (textLast && node.props.text) ops.push({ op: "str", id, prop: "text", value: String(node.props.text) });
   });
   walk(project, (node) => {
@@ -133,7 +163,7 @@ export function emit(project) {
         trigger: event.trigger,
         action: event.action,
         target: needsTarget ? ids.get(event.target) : -1,
-        text: String(event.text ?? ""),
+        text: event.action === "showValue" ? valueFormat(event.text) : String(event.text ?? ""),
       });
     }
   });

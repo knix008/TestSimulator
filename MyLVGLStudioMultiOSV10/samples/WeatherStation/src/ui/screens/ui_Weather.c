@@ -58,8 +58,15 @@ void ui_Weather_create(void)
     lv_table_set_cell_value(ui_table1, 3, 1, "17");
     lv_table_set_cell_value(ui_table1, 3, 2, "10");
     lv_obj_set_width(ui_table1, 444);
-    lv_obj_set_height(ui_table1, 140);
+    lv_obj_set_height(ui_table1, 134);
     lv_obj_set_x(ui_table1, 20);
     lv_obj_set_y(ui_table1, 160);
     for(uint32_t c = 0; c < lv_table_get_column_count(ui_table1); c++) lv_table_set_column_width(ui_table1, c, 148);
+    ui_slider1 = lv_slider_create(ui_Weather);
+    lv_slider_set_range(ui_slider1, -10, 40);
+    lv_obj_set_width(ui_slider1, 444);
+    lv_obj_set_height(ui_slider1, 10);
+    lv_obj_set_x(ui_slider1, 20);
+    lv_obj_set_y(ui_slider1, 302);
+    lv_slider_set_value(ui_slider1, 18, LV_ANIM_OFF);
 }

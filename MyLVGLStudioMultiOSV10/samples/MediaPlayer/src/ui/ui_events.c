@@ -6,17 +6,55 @@
 void ui_event_0(lv_event_t * e)
 {
     LV_UNUSED(e);
-    lv_label_set_text(ui_label3, "Previous");
+    char text[128];
+    lv_snprintf(text, sizeof(text), "%d %%", lv_slider_get_value(ui_slider1));
+    lv_label_set_text(ui_label3, text);
 }
 
 void ui_event_1(lv_event_t * e)
 {
     LV_UNUSED(e);
-    lv_label_set_text(ui_label3, "Playing");
+    lv_label_set_text(ui_label4, "Previous");
 }
 
 void ui_event_2(lv_event_t * e)
 {
     LV_UNUSED(e);
-    lv_label_set_text(ui_label3, "Next");
+    lv_label_set_text(ui_label4, "Playing");
+}
+
+void ui_event_3(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_label_set_text(ui_label4, "Next");
+}
+
+void ui_event_4(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    char text[128];
+    lv_snprintf(text, sizeof(text), "Volume %d %%", lv_slider_get_value(ui_slider2));
+    lv_label_set_text(ui_label5, text);
+}
+
+/* A value that sweeps back and forth, telling whoever listens, as if a hand moved it. */
+void ui_animate_value(lv_obj_t * obj, void (*set)(void *, int32_t), int32_t min, int32_t max, uint32_t duration)
+{
+    lv_anim_t anim;
+    lv_anim_init(&anim);
+    lv_anim_set_var(&anim, obj);
+    lv_anim_set_exec_cb(&anim, set);
+    lv_anim_set_values(&anim, min, max);
+    lv_anim_set_duration(&anim, duration);
+    lv_anim_set_playback_duration(&anim, duration);
+    lv_anim_set_repeat_count(&anim, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_path_cb(&anim, lv_anim_path_ease_in_out);
+    lv_anim_start(&anim);
+}
+
+void ui_slider1_set(void * obj, int32_t value)
+{
+    LV_UNUSED(obj);
+    lv_slider_set_value(ui_slider1, value, LV_ANIM_OFF);
+    lv_obj_send_event(ui_slider1, LV_EVENT_VALUE_CHANGED, NULL);
 }

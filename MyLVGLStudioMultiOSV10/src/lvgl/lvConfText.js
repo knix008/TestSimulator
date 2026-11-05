@@ -46,6 +46,11 @@ export default `/*
 #define LV_USE_BARCODE 1
 #define LV_USE_ARCLABEL 1
 
+/* TrueType fonts read at run time: the same decoder on the design surface and in the build. */
+#define LV_USE_TINY_TTF 1
+#define LV_TINY_TTF_FILE_SUPPORT 0
+#define LV_TINY_TTF_CACHE_GLYPH_CNT 256
+
 #define LV_BUILD_EXAMPLES 0
 #define LV_BUILD_DEMOS 0
 

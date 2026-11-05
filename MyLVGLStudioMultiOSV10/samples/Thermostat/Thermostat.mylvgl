@@ -1,0 +1,118 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "Thermostat",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 360,
+    "h": 360,
+    "shape": "round"
+  },
+  "images": [],
+  "theme": {
+    "dark": true,
+    "primary": "#ff7043",
+    "secondary": "#42a5f5"
+  },
+  "nextId": 7,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Heating",
+      "props": {
+        "bgColor": "#16181d",
+        "bgOpa": 255
+      },
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "arc",
+          "name": "arc1",
+          "props": {
+            "width": 320,
+            "height": 320,
+            "min": 10,
+            "max": 30,
+            "value": 21,
+            "align": "CENTER"
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n3",
+              "text": "%d C"
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n5",
+              "text": ""
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "21 C",
+            "align": "CENTER",
+            "y": -30,
+            "font": 48,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "Turn the ring",
+            "align": "CENTER",
+            "y": 14,
+            "textColor": "#ffccbc"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "led",
+          "name": "led1",
+          "props": {
+            "width": 22,
+            "height": 22,
+            "ledBright": 140,
+            "align": "CENTER",
+            "y": 46
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "bar",
+          "name": "bar1",
+          "props": {
+            "width": 140,
+            "height": 8,
+            "min": 0,
+            "max": 100,
+            "value": 45,
+            "align": "CENTER",
+            "y": 82,
+            "animate": 7000
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

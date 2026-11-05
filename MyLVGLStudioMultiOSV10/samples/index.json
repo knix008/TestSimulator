@@ -108,6 +108,24 @@
     ]
   },
   {
+    "id": "ScrollMenu",
+    "icon": "list",
+    "file": "ScrollMenu/ScrollMenu.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "수직 스크롤 메뉴",
+      "화면 아래로 이어지는 메뉴를 끌어서 스크롤"
+    ],
+    "en": [
+      "Vertical Scroll Menu",
+      "A menu that goes on below the display; drag to scroll"
+    ]
+  },
+  {
     "id": "MediaPlayer",
     "icon": "music",
     "file": "MediaPlayer/MediaPlayer.mylvgl",
@@ -154,11 +172,11 @@
     },
     "ko": [
       "자동차 계기판",
-      "Arc 속도계와 경고등 (800×480)"
+      "아래 슬라이더를 끌면 속도계와 숫자가 함께 움직임 (800×480)"
     ],
     "en": [
       "Car Dashboard",
-      "Arc gauges and warning lights (800×480)"
+      "Drag the sliders below: the gauges and numbers follow (800×480)"
     ]
   },
   {
@@ -204,15 +222,218 @@
     "lvgl": "9.6.0",
     "device": {
       "w": 240,
-      "h": 240
+      "h": 240,
+      "shape": "round"
     },
     "ko": [
       "스마트워치",
-      "작은 화면(240×240)의 시계 화면"
+      "원형 화면(240×240)의 시계, 링을 끌면 숫자가 바뀜"
     ],
     "en": [
       "Smart Watch",
-      "A watch face on a small display (240×240)"
+      "A watch face on a round display (240×240): drag the ring"
+    ]
+  },
+  {
+    "id": "RoundGauge",
+    "icon": "arc",
+    "file": "RoundGauge/RoundGauge.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 360,
+      "h": 360,
+      "shape": "round"
+    },
+    "ko": [
+      "원형 계기판",
+      "원형 화면(360×360), 슬라이더로 움직이는 링"
+    ],
+    "en": [
+      "Round Gauge",
+      "A round display (360×360) with a ring moved by a slider"
+    ]
+  },
+  {
+    "id": "Thermostat",
+    "icon": "colorwheel",
+    "file": "Thermostat/Thermostat.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 360,
+      "h": 360,
+      "shape": "round"
+    },
+    "ko": [
+      "온도 조절기",
+      "원형 화면(360×360), 링을 돌리면 온도와 표시등이 바뀜"
+    ],
+    "en": [
+      "Thermostat",
+      "A round display (360×360): turn the ring, the number and the light follow"
+    ]
+  },
+  {
+    "id": "FitnessRings",
+    "icon": "spinner",
+    "file": "FitnessRings/FitnessRings.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 466,
+      "h": 466,
+      "shape": "round"
+    },
+    "ko": [
+      "운동 링",
+      "원형 화면(466×466), 세 링을 각각 끌기"
+    ],
+    "en": [
+      "Fitness Rings",
+      "A round display (466×466): drag each of the three rings"
+    ]
+  },
+  {
+    "id": "CompassDial",
+    "icon": "imagebutton",
+    "file": "CompassDial/CompassDial.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 360,
+      "h": 360,
+      "shape": "round"
+    },
+    "ko": [
+      "나침반",
+      "원형 화면(360×360), 링을 끌면 바늘 그림이 회전"
+    ],
+    "en": [
+      "Compass",
+      "A round display (360×360): drag the ring, the needle's picture turns"
+    ]
+  },
+  {
+    "id": "AudioMixer",
+    "icon": "slider",
+    "file": "AudioMixer/AudioMixer.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 800,
+      "h": 480
+    },
+    "ko": [
+      "오디오 믹서",
+      "세로 페이더 6개, 끌면 레벨과 숫자가 움직임 (800×480)"
+    ],
+    "en": [
+      "Audio Mixer",
+      "Six vertical faders: drag them, levels and numbers follow (800×480)"
+    ]
+  },
+  {
+    "id": "BatteryMonitor",
+    "icon": "bar",
+    "file": "BatteryMonitor/BatteryMonitor.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "배터리 모니터",
+      "하나를 끌면 Bar, Arc, LED, 숫자가 함께 움직임"
+    ],
+    "en": [
+      "Battery Monitor",
+      "Drag one slider: bar, arc, LED and number move together"
+    ]
+  },
+  {
+    "id": "LightDimmer",
+    "icon": "led",
+    "file": "LightDimmer/LightDimmer.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "조명 조절",
+      "슬라이더로 LED 밝기 조절"
+    ],
+    "en": [
+      "Light Dimmer",
+      "Sliders that set the brightness of LEDs"
+    ]
+  },
+  {
+    "id": "WashingMachine",
+    "icon": "roller",
+    "file": "WashingMachine/WashingMachine.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "세탁기",
+      "Roller로 코스 선택, 시간 끌기, 저절로 도는 드럼"
+    ],
+    "en": [
+      "Washing Machine",
+      "Roll the program, drag the time, the drum turns by itself"
+    ]
+  },
+  {
+    "id": "Greenhouse",
+    "icon": "switch",
+    "file": "Greenhouse/Greenhouse.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 800,
+      "h": 480
+    },
+    "ko": [
+      "온실 제어",
+      "Arc와 슬라이더 연동, 스위치로 LED 켜기 (800×480)"
+    ],
+    "en": [
+      "Greenhouse",
+      "Arcs and sliders move together, switches light LEDs (800×480)"
+    ]
+  },
+  {
+    "id": "LoadingGallery",
+    "icon": "animimage",
+    "file": "LoadingGallery/LoadingGallery.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 800,
+      "h": 480
+    },
+    "ko": [
+      "애니메이션 모음",
+      "저절로 움직이는 Arc, Bar, Spinner (800×480)"
+    ],
+    "en": [
+      "Animation Gallery",
+      "Arcs, bars and spinners that move by themselves (800×480)"
+    ]
+  },
+  {
+    "id": "ElevatorPanel",
+    "icon": "spinbox",
+    "file": "ElevatorPanel/ElevatorPanel.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 480
+    },
+    "ko": [
+      "엘리베이터 패널",
+      "세로 슬라이더로 층 이동, Grid 버튼으로 호출"
+    ],
+    "en": [
+      "Elevator Panel",
+      "Drag the car between floors, call it with the Grid buttons"
     ]
   },
   {

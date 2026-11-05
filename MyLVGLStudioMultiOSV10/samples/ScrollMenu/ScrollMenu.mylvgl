@@ -1,0 +1,373 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "ScrollMenu",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 480,
+    "h": 320
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#2196f3",
+    "secondary": "#f44336"
+  },
+  "nextId": 21,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Menu",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Menu",
+            "x": 12,
+            "y": 10,
+            "font": 20
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "label",
+          "name": "status",
+          "props": {
+            "text": "Drag the menu up or down",
+            "x": 240,
+            "y": 14
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "container",
+          "name": "menu_list",
+          "props": {
+            "width": "100%",
+            "height": 276,
+            "x": 0,
+            "y": 44,
+            "flexFlow": "COLUMN",
+            "gap": 6,
+            "pad": 8,
+            "scrollable": true
+          },
+          "events": [],
+          "children": [
+            {
+              "id": "n7",
+              "type": "button",
+              "name": "button1",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Network"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Network"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n8",
+              "type": "button",
+              "name": "button2",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Wi-Fi"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Wi-Fi"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n9",
+              "type": "button",
+              "name": "button3",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Bluetooth"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Bluetooth"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n10",
+              "type": "button",
+              "name": "button4",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Display"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Display"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n11",
+              "type": "button",
+              "name": "button5",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Brightness"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Brightness"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n12",
+              "type": "button",
+              "name": "button6",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Sound"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Sound"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n13",
+              "type": "button",
+              "name": "button7",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Volume"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Volume"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n14",
+              "type": "button",
+              "name": "button8",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Language"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Language"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n15",
+              "type": "button",
+              "name": "button9",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Date and Time"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Date and Time"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n16",
+              "type": "button",
+              "name": "button10",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Storage"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Storage"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n17",
+              "type": "button",
+              "name": "button11",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Security"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Security"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n18",
+              "type": "button",
+              "name": "button12",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Updates"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Updates"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n19",
+              "type": "button",
+              "name": "button13",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "Backup"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: Backup"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n20",
+              "type": "button",
+              "name": "button14",
+              "props": {
+                "width": "100%",
+                "height": 52,
+                "text": "About"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "Selected: About"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "n5",
+          "type": "spinner",
+          "name": "spinner1",
+          "props": {
+            "width": 28,
+            "height": 28,
+            "x": 444,
+            "y": 8
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 140,
+            "height": 10,
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "x": 80,
+            "y": 18
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n3",
+              "text": "Level %d %%"
+            }
+          ],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

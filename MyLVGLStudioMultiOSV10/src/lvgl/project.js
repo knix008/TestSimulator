@@ -2,6 +2,7 @@
 // the same code runs in the app and in the tests.
 import { DEFAULT_VERSION, isSupported } from "./versions.js";
 import { CONTAINERS, DEVICES, WIDGETS } from "./schema.js";
+import { validConfName, validConfValue } from "./lvconf.js";
 
 export const FORMAT = "mylvgl";
 export const FILE_EXTENSION = "mylvgl";
@@ -77,6 +78,7 @@ export function parseProject(text) {
   if (!isSupported(data.lvgl)) throw new Error(`invalid project file: unsupported LVGL version "${data.lvgl}"`);
   const { w, h } = data.device ?? {};
   if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1) throw new Error("invalid project file: bad device size");
+  if (data.device.shape !== undefined && (data.device.shape !== "round" || w !== h)) throw new Error("invalid project file: bad device shape");
   if (!data.theme || !/^#[0-9a-f]{6}$/i.test(data.theme.primary) || !/^#[0-9a-f]{6}$/i.test(data.theme.secondary)) {
     throw new Error("invalid project file: bad theme");
   }
@@ -89,6 +91,26 @@ export function parseProject(text) {
     if (imageNames.has(image.name)) throw new Error(`invalid project file: duplicate image "${image.name}"`);
     imageNames.add(image.name);
     if (typeof image.file !== "string" || !safeRelativePath(image.file)) throw new Error(`invalid project file: bad image path "${image.file}"`);
+  }
+  if (data.fonts !== undefined) {
+    if (!Array.isArray(data.fonts)) throw new Error("invalid project file: fonts is not a list");
+    const fontNames = new Set();
+    for (const font of data.fonts) {
+      if (typeof font?.name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(font.name)) throw new Error("invalid project file: bad font name");
+      if (fontNames.has(font.name)) throw new Error(`invalid project file: duplicate font "${font.name}"`);
+      fontNames.add(font.name);
+      if (typeof font.file !== "string" || !safeRelativePath(font.file)) throw new Error(`invalid project file: bad font path "${font.file}"`);
+      if (!Number.isInteger(font.face) || font.face < 0) throw new Error(`invalid project file: bad font face "${font.name}"`);
+    }
+  }
+  if (data.defaultFont !== undefined && (typeof data.defaultFont?.font !== "string" || !Number.isInteger(data.defaultFont.size) || data.defaultFont.size < 1)) {
+    throw new Error("invalid project file: bad default font");
+  }
+  if (data.lvConf !== undefined) {
+    if (typeof data.lvConf !== "object" || data.lvConf === null || Array.isArray(data.lvConf)) throw new Error("invalid project file: lvConf is not an object");
+    for (const [name, value] of Object.entries(data.lvConf)) {
+      if (!validConfName(name) || !validConfValue(value)) throw new Error(`invalid project file: bad lvConf entry "${name}"`);
+    }
   }
   const ids = new Set();
   for (const screen of data.screens) checkNode(screen, ids, true);

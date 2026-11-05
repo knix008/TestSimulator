@@ -5,8 +5,11 @@
 
 lv_obj_t * ui_Gauges;
 lv_obj_t * ui_meter1;
-lv_obj_t * ui_colorwheel1;
+lv_meter_indicator_t * ui_meter1_needle;
+lv_obj_t * ui_slider1;
 lv_obj_t * ui_label1;
+lv_obj_t * ui_colorwheel1;
+lv_obj_t * ui_label2;
 
 void ui_init(void)
 {
@@ -15,6 +18,9 @@ void ui_init(void)
     lv_disp_set_theme(display, theme);
 
     ui_Gauges_create();
+
+    lv_obj_add_event_cb(ui_slider1, ui_event_0, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_slider1, ui_event_1, LV_EVENT_VALUE_CHANGED, NULL);
 
     lv_scr_load(ui_Gauges);
 }

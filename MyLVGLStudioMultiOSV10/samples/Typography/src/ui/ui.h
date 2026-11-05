@@ -18,10 +18,12 @@ extern lv_obj_t * ui_Text;
 extern lv_obj_t * ui_span1;
 extern lv_obj_t * ui_canvas1;
 extern lv_obj_t * ui_line1;
+extern lv_obj_t * ui_spinner1;
 extern lv_obj_t * ui_container1;
 extern lv_obj_t * ui_label1;
 extern lv_obj_t * ui_label2;
 extern lv_obj_t * ui_label3;
+extern lv_obj_t * ui_slider1;
 
 #ifdef __cplusplus
 }

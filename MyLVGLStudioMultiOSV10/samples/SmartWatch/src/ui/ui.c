@@ -17,5 +17,7 @@ void ui_init(void)
 
     ui_Face_create();
 
+    lv_obj_add_event_cb(ui_arc1, ui_event_0, LV_EVENT_VALUE_CHANGED, NULL);
+
     lv_screen_load(ui_Face);
 }

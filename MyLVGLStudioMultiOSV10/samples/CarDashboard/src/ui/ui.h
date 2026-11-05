@@ -14,6 +14,10 @@ void ui_init(void);
 /* One function per file in screens/. */
 void ui_Cluster_create(void);
 
+/* Values that sweep back and forth, from ui_events.c. */
+void ui_animate_value(lv_obj_t * obj, void (*set)(void *, int32_t), int32_t min, int32_t max, uint32_t duration);
+void ui_bar1_set(void * obj, int32_t value);
+
 extern lv_obj_t * ui_Cluster;
 extern lv_obj_t * ui_arc1;
 extern lv_obj_t * ui_label1;
@@ -24,6 +28,10 @@ extern lv_obj_t * ui_label4;
 extern lv_obj_t * ui_bar1;
 extern lv_obj_t * ui_led1;
 extern lv_obj_t * ui_led2;
+extern lv_obj_t * ui_label5;
+extern lv_obj_t * ui_slider1;
+extern lv_obj_t * ui_label6;
+extern lv_obj_t * ui_slider2;
 
 #ifdef __cplusplus
 }

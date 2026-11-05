@@ -5,6 +5,8 @@
 //   assets/icon.ico         Windows exe, taskbar, installer and uninstaller
 //   assets/icon.icns        macOS bundle
 //   assets/icons/*.png      the sizes the Tauri bundle and Linux want
+//   assets/file-icon.ico    the icon of a project file (.mylvgl) on Windows
+//   assets/file-icon.png    the same on Linux
 //
 // src-tauri/tauri.conf.json and the UI (src/appIcon.ts) read them from there. Run
 // `npm run icons` after changing the drawing; the results are committed.
@@ -286,6 +288,50 @@ function drawAppIcon(size) {
   return canvas;
 }
 
+/**
+ * The project file: a sheet of paper with a folded corner, carrying the app's display in the
+ * app's colours, so it reads as "a document of this program". Small sizes keep the display only.
+ */
+function drawFileIcon(size) {
+  const canvas = new Canvas(size);
+  const k = size / 256;
+  const s = (value) => value * k;
+  const small = size <= 32;
+
+  const left = small ? 36 : 40;
+  const right = 256 - left;
+  const top = small ? 8 : 12;
+  const bottom = small ? 248 : 244;
+  const fold = small ? 64 : 58;
+  const sheet = roundedRect(s(left), s(top), s(right - left), s(bottom - top), s(small ? 22 : 18));
+  // The corner is cut along the fold's diagonal.
+  const cut = (px, py) => ((px - s(right - fold)) - (py - s(top))) * Math.SQRT1_2;
+  const page = (px, py) => Math.max(sheet(px, py), cut(px, py));
+
+  if (!small) canvas.fill((px, py) => page(px, py - s(4)), solid(rgb(10, 30, 70, 0.2)));
+  canvas.fill(page, gradient(s(left), s(top), s(right - left), s(bottom - top), rgb(255, 255, 255), rgb(226, 234, 246), "vertical"));
+  canvas.stroke(page, Math.max(s(small ? 12 : 5), 1), solid(rgb(92, 112, 146, 1)));
+
+  // The fold, a darker triangle under the cut.
+  const flap = triangle(s(right - fold), s(top), s(right), s(top + fold), s(right - fold), s(top + fold));
+  canvas.fill(flap, solid(rgb(176, 194, 222, 1)));
+  canvas.stroke(flap, Math.max(s(small ? 10 : 4), 1), solid(rgb(92, 112, 146, 1)));
+
+  // The display.
+  const tile = { x: left + (small ? 14 : 18), y: small ? 90 : 96, w: right - left - (small ? 28 : 36), h: small ? 136 : 124, r: small ? 24 : 20 };
+  const body = roundedRect(s(tile.x), s(tile.y), s(tile.w), s(tile.h), s(tile.r));
+  canvas.fill(body, vivid(s(tile.x), s(tile.y), s(tile.w), s(tile.h)));
+  if (!small) canvas.fill(body, bevel(body, Math.max(s(8), 1.5), { lit: 0.35, shade: 0.3 }));
+  const cx = 128;
+  const middle = tile.y + tile.h * (small ? 0.4 : 0.38);
+  const line = capsule(s(cx - (small ? 40 : 44)), s(middle), s(cx + (small ? 40 : 44)), s(middle), s(small ? 22 : 12));
+  canvas.fill(line, solid(rgb(255, 255, 255, 1)));
+  canvas.fill(circle(s(cx + 10), s(middle), s(small ? 22 : 15)), solid(rgb(255, 214, 90, 1)));
+  const button = roundedRect(s(cx - (small ? 40 : 44)), s(tile.y + tile.h * 0.64), s(small ? 80 : 88), s(small ? 30 : 26), s(9));
+  canvas.fill(button, solid(rgb(255, 255, 255, 1)));
+  return canvas;
+}
+
 /* ---------------- PNG / ICO encoding ---------------- */
 
 function png(canvas) {
@@ -398,5 +444,7 @@ write("icon.icns", icns([
 ].map(({ type, size }) => ({ type, data: renderApp(size) }))));
 for (const size of LINUX_SIZES) write(path.join("icons", `${size}x${size}.png`), renderApp(size));
 write(path.join("icons", "128x128@2x.png"), renderApp(256));
+write("file-icon.ico", ico(ICO_SIZES.map((size) => ({ size, data: png(drawFileIcon(size)) }))));
+write("file-icon.png", png(drawFileIcon(256)));
 
 console.log(`icons  assets/icon.png (1024)  assets/icon.ico (${ICO_SIZES.join(", ")})  assets/icon.icns  assets/icons/ (${LINUX_SIZES.join(", ")})`);

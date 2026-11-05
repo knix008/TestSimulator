@@ -1,0 +1,140 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "RoundGauge",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 360,
+    "h": 360,
+    "shape": "round"
+  },
+  "images": [],
+  "theme": {
+    "dark": true,
+    "primary": "#29b6f6",
+    "secondary": "#ffa726"
+  },
+  "nextId": 8,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Gauge",
+      "props": {
+        "bgColor": "#0b1220",
+        "bgOpa": 255
+      },
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "arc",
+          "name": "arc1",
+          "props": {
+            "width": 330,
+            "height": 330,
+            "min": 0,
+            "max": 100,
+            "value": 40,
+            "align": "CENTER"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "arc",
+          "name": "arc2",
+          "props": {
+            "width": 240,
+            "height": 240,
+            "min": 0,
+            "max": 100,
+            "value": 40,
+            "align": "CENTER",
+            "animate": 4000,
+            "indicatorColor": "#ffa726"
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n6",
+              "text": "%d %%"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "40",
+            "align": "CENTER",
+            "y": -30,
+            "font": 48,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "Drag the slider",
+            "align": "CENTER",
+            "y": 14,
+            "textColor": "#90caf9"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "40 %",
+            "align": "CENTER",
+            "y": 88,
+            "textColor": "#ffcc80"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 150,
+            "height": 12,
+            "min": 0,
+            "max": 100,
+            "value": 40,
+            "align": "CENTER",
+            "y": 50
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n2",
+              "text": ""
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n4",
+              "text": "%d"
+            }
+          ],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

@@ -44,6 +44,8 @@ export function readable(color, backgrounds, minimum, fallback) {
 }
 const onAccent = (accent) => (contrast("#ffffff", accent) >= contrast("#1a1a1a", accent) ? "#ffffff" : "#1a1a1a");
 const MIN_TEXT = 4.5;
+/** A theme's accent can be nearly white. As a thin line around a button that glares, so lines stop here. */
+export const MAX_ACCENT_LINE = 5;
 /**
  * A theme's variables from its colours. The window has one text colour, so a theme whose
  * surfaces disagree (a user's dark panel under a still-light header) cannot be fixed by the
@@ -75,6 +77,7 @@ function theme(mode, id, nameKo, nameEn, rawBg, panel, rawInk, rawMuted, line, a
       "--muted": muted,
       "--line": line,
       "--accent": accent,
+      "--accent-line": approach(accent, panel, (candidate) => contrast(candidate, panel) <= MAX_ACCENT_LINE),
       "--accent-ink": readable(accent, [soft, panel], MIN_TEXT, ink),
       "--accent-soft": soft,
       "--header": header,

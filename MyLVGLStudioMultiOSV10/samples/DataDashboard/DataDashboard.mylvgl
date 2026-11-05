@@ -13,7 +13,7 @@
     "primary": "#2196f3",
     "secondary": "#f44336"
   },
-  "nextId": 8,
+  "nextId": 10,
   "screens": [
     {
       "id": "n1",
@@ -75,7 +75,7 @@
           "name": "table1",
           "props": {
             "width": 480,
-            "height": 170,
+            "height": 134,
             "cells": "Line,Output,State\nA,1204,Running\nB,987,Running\nC,0,Stopped",
             "columnWidth": 150,
             "x": 16,
@@ -102,6 +102,29 @@
         },
         {
           "id": "n7",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 480,
+            "height": 14,
+            "min": 0,
+            "max": 100,
+            "value": 72,
+            "x": 16,
+            "y": 450
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n6",
+              "text": ""
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n8",
           "type": "arc",
           "name": "arc1",
           "props": {
@@ -111,7 +134,27 @@
             "max": 100,
             "value": 40,
             "x": 590,
-            "y": 345
+            "y": 345,
+            "animate": 5000
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n9",
+              "text": "%d %%"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n9",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "40 %",
+            "x": 636,
+            "y": 396
           },
           "events": [],
           "children": []

@@ -55,9 +55,12 @@ My LVGL Studio 프로젝트 파일 형식 1판입니다. UTF-8 JSON 텍스트이
 | `formatVersion` | 정수 | 예 | 형식 버전. 1 이상 |
 | `name` | 문자열 | 예 | 프로젝트 이름 |
 | `lvgl` | 문자열 | 예 | LVGL 버전 `N.N.N`. 8.3 이상의 v8 또는 v9 |
-| `device` | 객체 | 예 | 화면 크기. `w`와 `h`는 1 이상의 정수 |
+| `device` | 객체 | 예 | 화면 크기. `w`와 `h`는 1 이상의 정수. `shape`가 `"round"`이면 원형 화면이며 `w`와 `h`가 같아야 합니다. |
 | `theme` | 객체 | 예 | LVGL 기본 테마. `dark`(논리값), `primary`와 `secondary`(`#rrggbb`) |
 | `images` | 배열 | 아니요 | 프로젝트의 이미지. 아래 설명 참고 |
+| `fonts` | 배열 | 아니요 | 프로젝트의 글꼴. 각 항목은 `name`(C 식별자), `file`(프로젝트 폴더 안의 경로, 보통 `assets/fonts/`), `face`(글꼴 모음의 면 번호, 0부터), `language`(선택: `ko`, `ja`, `zh-Hans`, `zh-Hant`, `zh-HK`, `latin`) |
+| `defaultFont` | 객체 | 아니요 | 기본 글꼴. `font`(`fonts`의 이름), `size`(픽셀) |
+| `lvConf` | 객체 | 아니요 | `config/lv_conf.h`에서 바꾼 값. 옵션 이름에서 그 값의 글자로 가는 대응표. 기본값과 같은 값은 넣지 않습니다. |
 | `nextId` | 정수 | 아니요 | 다음 노드 번호. 없거나 작으면 읽을 때 기존 id보다 크게 고칩니다. |
 | `screens` | 배열 | 예 | 화면 노드. 1개 이상이며 첫 화면이 시작 화면입니다. |
 

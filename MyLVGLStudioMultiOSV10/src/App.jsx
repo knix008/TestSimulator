@@ -1,7 +1,7 @@
 // The studio window, laid out like Android Studio's layout editor: the palette on the left, the
 // design surface with Design / Split / Code in the middle, the component tree above the attributes
 // on the right, log and build output below. Chrome and themes follow My Git Master.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import appIcon from "../assets/icons/32x32.png";
 import appIconLarge from "../assets/icons/128x128.png";
 import { Flag, Icon } from "./icons.jsx";
@@ -17,18 +17,24 @@ import { RULER_SIZE, Ruler } from "./Ruler.jsx";
 import { findProblems, locateInCode, parseBuildProblems } from "./lvgl/problems.js";
 import { cNames } from "./lvgl/emit.js";
 import { setTipTranslator } from "./tooltips.js";
-import { Attributes, CodeView, ProblemsView, ComponentTree, LogView, Palette, PanelTitle } from "./panels.jsx";
+import { Attributes, CodeView, Explorer, ProblemsView, ComponentTree, LogView, Palette, PanelTitle } from "./panels.jsx";
 import { AboutDialog, ConfirmDialog, LvglManager, MessageDialog, NewProjectDialog, ProjectSettings, SamplesDialog } from "./dialogs.jsx";
 import { useProjectStore } from "./store.js";
-import { FILE_EXTENSION, addNode, addScreen, cloneNode, createNode, findNode, findParent, newProject, parseProject, imageNameFor, removeNode, screenOf } from "./lvgl/project.js";
-import { CONTAINERS, PALETTE, WIDGETS, availableIn } from "./lvgl/schema.js";
+import { FILE_EXTENSION, serializeProject, addNode, addScreen, cloneNode, createNode, findNode, findParent, newProject, parseProject, imageNameFor, removeNode, screenOf } from "./lvgl/project.js";
+import { CONTAINERS, DEVICES, PALETTE, WIDGETS, availableIn, normalDevice, sameDevice } from "./lvgl/schema.js";
+import { Stepper } from "./controls.jsx";
+import { LvConfDialog } from "./LvConfDialog.jsx";
 import { GENERATED_DIRS, generateCode, projectFiles } from "./lvgl/codegen.js";
+import { applyCodeEdit } from "./lvgl/codeparse.js";
 import { addImage, clearImages, decodeImage, extensionOf, imageData, imageFiles } from "./lvgl/images.js";
+import { FONT_LANGUAGES, addFont, base64ToBytes, clearFonts, faceForLanguage, fontData, fontFiles, fontNameFor, markFontsWritten } from "./lvgl/fonts.js";
+import { FontsDialog } from "./FontsDialog.jsx";
+import { clearDragCursor, setDragCursor } from "./cursor.js";
 import { engineFor } from "./lvgl/versions.js";
 import { versionChoices } from "./dialogs.jsx";
 
 const MENU_ICONS = { file: "open", edit: "paste", view: "eye", run: "run", tools: "settings", help: "about" };
-const ZOOMS = [0.5, 0.75, 1, 1.5, 2, 3, 4];
+const ZOOMS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8];
 const clock = () => new Date().toTimeString().slice(0, 8);
 const LOG_LIMIT = 2000;
 const RUN_TITLE_HEIGHT = 32;
@@ -128,7 +134,7 @@ export function App({ initialSettings }) {
   const [installed, setInstalled] = useState([]);
   const [runtime, setRuntime] = useState(null);
   const [ghost, setGhost] = useState(null);
-  const [sizes, setSizes] = useState({ left: 250, right: 300, bottom: 170, tree: 240, ...initialSettings.panels });
+  const [sizes, setSizes] = useState({ left: 250, right: 300, bottom: 170, tree: 240, code: 480, explorer: 210, ...initialSettings.panels });
 
   const clipboard = useRef(null);
   const minimumWidth = useRef(0);
@@ -289,6 +295,16 @@ export function App({ initialSettings }) {
         log(t("image.missing", { file: image.file }), "error");
       }
     }
+    clearFonts();
+    for (const font of document.fonts ?? []) {
+      try {
+        const base64 = await host.readBase64(`${folder}${separator}${font.file.split("/").join(separator)}`);
+        addFont(font.name, { bytes: base64ToBytes(base64), base64 });
+        fontData(font.name).writtenTo.add(folder);
+      } catch {
+        log(t("font.fileGone", { file: font.file }), "error");
+      }
+    }
   };
 
   const openFile = async (file) => {
@@ -315,6 +331,7 @@ export function App({ initialSettings }) {
       await loadProjectImages(document, file);
       load(document, null);
       log(t("log.sampleOpened", { name: sample.id }));
+      log(t("log.sampleTip"));
       const list = (await host.lvglInstalled()).map((item) => item.version);
       setInstalled(list);
       if (!list.includes(document.lvgl)) {
@@ -348,7 +365,8 @@ export function App({ initialSettings }) {
 
   /** Writes the project file and all generated code into the project folder. */
   const writeFolder = async (folder, baseName, document) => {
-    await host.writeProject(folder, projectFiles(document, baseName), imageFiles(document), GENERATED_DIRS);
+    await host.writeProject(folder, projectFiles(document, baseName), { ...imageFiles(document), ...fontFiles(document, folder) }, GENERATED_DIRS);
+    markFontsWritten(document, folder);
     log(t("log.saved", { path: folder }));
   };
 
@@ -359,7 +377,10 @@ export function App({ initialSettings }) {
     const separator = folder.includes("\\") ? "\\" : "/";
     const file = `${folder}${separator}${name}.${FILE_EXTENSION}`;
     const document = saveOnly ? { ...store.get(), name } : { ...newProject(name), lvgl: version, device };
-    if (!saveOnly) clearImages();
+    if (!saveOnly) {
+      clearImages();
+      clearFonts();
+    }
     await writeFolder(folder, name, document);
     if (saveOnly) {
       store.update((draft) => {
@@ -411,6 +432,35 @@ export function App({ initialSettings }) {
     }
   };
 
+  /** Reads a font file into the project, set to the language of the window when it has one. */
+  const importFontFile = async (file) => {
+    const base64 = await host.readBase64(file);
+    const bytes = base64ToBytes(base64);
+    const name = fontNameFor(store.get(), file);
+    try {
+      addFont(name, { bytes, base64 });
+    } catch {
+      throw new Error(t("font.bad", { file }));
+    }
+    const { info } = fontData(name);
+    const wanted = FONT_LANGUAGES.find((item) => item.id === language)?.id;
+    const face = wanted ? faceForLanguage(info, wanted, 0) : 0;
+    store.update((draft) => {
+      draft.fonts = [...(draft.fonts ?? []), { name, file: `assets/fonts/${name}.${extensionOf(file)}`, face, ...(info.faces[face].languages.includes(wanted) ? { language: wanted } : {}) }];
+    });
+    log(t("font.added", { name: info.faces[face].full }));
+    return name;
+  };
+
+  const importFont = async () => {
+    try {
+      const file = await host.pickFont();
+      if (file) await importFontFile(file);
+    } catch (error) {
+      showError(error);
+    }
+  };
+
   const addImportedImage = (nodeId, file, decoded, base64) => {
     const name = imageNameFor(store.get(), file);
     addImage(name, { ...decoded, base64 });
@@ -449,11 +499,14 @@ export function App({ initialSettings }) {
     const move = (event) => {
       if (!moved && Math.hypot(event.clientX - start.clientX, event.clientY - start.clientY) < 4) return;
       moved = true;
+      // Over the screen it can be dropped; anywhere else it cannot.
+      setDragCursor(surface.current?.dropTarget(event.clientX, event.clientY) ? "copy" : "no-drop");
       setGhost({ type, x: event.clientX, y: event.clientY });
     };
     const up = (event) => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      clearDragCursor();
       setGhost(null);
       if (!moved) return;
       const target = surface.current?.dropTarget(event.clientX, event.clientY);
@@ -556,6 +609,8 @@ export function App({ initialSettings }) {
     });
   }, []);
 
+  const folds = useMemo(() => ({ collapsed, toggle: togglePanel }), [collapsed, togglePanel]);
+
   const toggleRulers = () => {
     setRulers((value) => {
       void host.saveSettings({ rulers: !value });
@@ -574,9 +629,13 @@ export function App({ initialSettings }) {
       const data = imageData(image.name);
       return data?.base64 ? [{ name: image.name, file: image.file, base64: data.base64 }] : [];
     });
+    const fontList = (document.fonts ?? []).flatMap((font) => {
+      const data = fontData(font.name);
+      return data?.base64 ? [{ name: font.name, base64: data.base64 }] : [];
+    });
     const scale = runScale(document.device.w);
     try {
-      await host.runOpen({ project: document, images }, Math.max(320, document.device.w * scale), document.device.h * scale + RUN_TITLE_HEIGHT);
+      await host.runOpen({ project: document, images, fonts: fontList }, Math.max(320, document.device.w * scale), document.device.h * scale + RUN_TITLE_HEIGHT);
       setRunOpen(true);
       log(t("log.runStart"));
     } catch (error) {
@@ -620,6 +679,28 @@ export function App({ initialSettings }) {
       setBottomTab("problems");
       setCollapsed((state) => ({ ...state, bottom: false }));
     }
+  };
+
+  /** An edit in the code view: the design follows when the code can be read. */
+  const applyCode = (file, text) => {
+    const result = applyCodeEdit(store.get(), file, text);
+    if (result.changed) {
+      store.update((draft) => {
+        for (const key of Object.keys(draft)) delete draft[key];
+        Object.assign(draft, structuredClone(result.project));
+      }, { coalesce: `code:${file}` });
+    }
+    return result;
+  };
+
+  /** The screen size from the toolbar. Consecutive edits of the fields are one undo step. */
+  const changeDevice = (device, coalesce = null) => {
+    const next = normalDevice(device);
+    store.update((draft) => {
+      if (sameDevice(draft.device, next)) return false;
+      draft.device = next;
+      return undefined;
+    }, { coalesce });
   };
 
   const goToCode = (problem) => {
@@ -666,7 +747,8 @@ export function App({ initialSettings }) {
     setBuildLines([]);
     setNative("building");
     try {
-      await host.nativeRun(current.lvgl, generateCode(current));
+      await host.nativeRun(current.lvgl, generateCode(current), fontFiles(current, `native:${current.lvgl}`));
+      markFontsWritten(current, `native:${current.lvgl}`);
     } catch (error) {
       setNative("idle");
       showError(error);
@@ -749,6 +831,55 @@ export function App({ initialSettings }) {
     setZoom(Math.max(0.25, Math.min(6, Math.floor(scale * 4) / 4)));
   }, [project.device.w, project.device.h]);
 
+  // Ctrl + wheel over the surface zooms around the pointer: what is under it stays under it.
+  const zoomAnchor = useRef(null);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  useEffect(() => {
+    const element = viewport.current;
+    if (!element) return undefined;
+    const wheel = (event) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const current = zoomRef.current;
+      const next = event.deltaY < 0 ? ZOOMS.find((value) => value > current) : [...ZOOMS].reverse().find((value) => value < current);
+      if (!next) return;
+      const canvas = element.querySelector("canvas");
+      const rect = canvas?.getBoundingClientRect();
+      if (rect) zoomAnchor.current = { clientX: event.clientX, clientY: event.clientY, x: (event.clientX - rect.left) / current, y: (event.clientY - rect.top) / current };
+      setZoom(next);
+    };
+    element.addEventListener("wheel", wheel, { passive: false });
+    return () => element.removeEventListener("wheel", wheel);
+  }, [showStart]);
+  useLayoutEffect(() => {
+    const anchor = zoomAnchor.current;
+    const element = viewport.current;
+    zoomAnchor.current = null;
+    const rect = element?.querySelector("canvas")?.getBoundingClientRect();
+    if (!anchor || !rect) return;
+    element.scrollLeft += rect.left + anchor.x * zoom - anchor.clientX;
+    element.scrollTop += rect.top + anchor.y * zoom - anchor.clientY;
+  }, [zoom]);
+
+  useEffect(() => {
+    const element = viewport.current;
+    if (!element) return undefined;
+    const update = (event) => element.classList.toggle("zooming", event.ctrlKey || event.metaKey);
+    const clear = () => element.classList.remove("zooming");
+    window.addEventListener("keydown", update);
+    window.addEventListener("keyup", update);
+    // A key released in another window is never heard here; the next move tells the truth.
+    window.addEventListener("pointermove", update);
+    window.addEventListener("blur", clear);
+    return () => {
+      window.removeEventListener("keydown", update);
+      window.removeEventListener("keyup", update);
+      window.removeEventListener("pointermove", update);
+      window.removeEventListener("blur", clear);
+    };
+  }, [showStart]);
+
   const stepZoom = (direction) => {
     const next = direction > 0 ? ZOOMS.find((value) => value > zoom) : [...ZOOMS].reverse().find((value) => value < zoom);
     if (next) setZoom(next);
@@ -762,9 +893,10 @@ export function App({ initialSettings }) {
   const beginSplit = (key, sign) => (start) => {
     start.preventDefault();
     const from = sizes[key];
-    const horizontal = key === "left" || key === "right";
-    const limit = horizontal ? [200, 520] : key === "tree" ? [60, Math.max(60, (start.currentTarget.parentElement?.clientHeight ?? 300) - 90)] : [80, 480];
+    const horizontal = key === "left" || key === "right" || key === "code";
+    const limit = key === "code" ? [220, Math.max(220, (start.currentTarget.parentElement?.clientWidth ?? 800) - 225)] : horizontal ? [200, 520] : key === "tree" || key === "explorer" ? [60, Math.max(60, (start.currentTarget.parentElement?.clientHeight ?? 300) - 120)] : [80, 480];
     let latest = from;
+    setDragCursor(horizontal ? "col-resize" : "row-resize");
     const move = (event) => {
       const delta = horizontal ? event.clientX - start.clientX : event.clientY - start.clientY;
       latest = Math.max(limit[0], Math.min(limit[1], from + sign * delta));
@@ -773,6 +905,7 @@ export function App({ initialSettings }) {
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      clearDragCursor();
       setSizes((state) => {
         void host.saveSettings({ panels: state });
         return state;
@@ -843,14 +976,16 @@ export function App({ initialSettings }) {
     rulers: { id: "rulers", icon: "ruler", label: t("cmd.rulers"), disabled: !designing, pressed: rulers, run: toggleRulers },
     native: { id: "native", icon: native === "idle" ? "native" : "stop", label: t(native === "idle" ? "cmd.nativeRun" : "cmd.nativeStop"), keys: "Shift+F5", disabled: !designing && native === "idle", pressed: native !== "idle", run: cmdNative },
     settings: { id: "settings", icon: "project", label: t("cmd.settings"), run: () => setDialog({ kind: "settings" }) },
+    lvConf: { id: "lvconf", icon: "conf", label: t("cmd.lvConf"), run: () => setDialog({ kind: "lvconf" }) },
+    fonts: { id: "fonts", icon: "fontFile", label: t("cmd.fonts"), run: () => setDialog({ kind: "fonts" }) },
     manager: { id: "manager", icon: "manager", label: t("cmd.manager"), run: () => setDialog({ kind: "manager" }) },
     about: { id: "about", icon: "about", label: t("cmd.about"), run: () => setDialog({ kind: "about" }) },
     start: { id: "start", icon: "home", label: t("start.title"), pressed: showStart, run: () => setShowStart((value) => !value) },
     preferences: { id: "preferences", icon: "settings", label: t("cmd.preferences"), run: () => setDialog({ kind: "preferences" }) },
     exit: { id: "exit", icon: "close", label: t("cmd.exit"), run: () => guardUnsaved(() => host.close()) },
-    zoomIn: { id: "zoomIn", icon: "zoomIn", label: t("cmd.zoomIn"), disabled: !designing || !zoomStep(1), run: () => stepZoom(1) },
-    zoomOut: { id: "zoomOut", icon: "zoomOut", label: t("cmd.zoomOut"), disabled: !designing || !zoomStep(-1), run: () => stepZoom(-1) },
-    zoomFit: { id: "zoomFit", icon: "zoomFit", label: t("cmd.zoomFit"), disabled: !designing, run: fitZoom },
+    zoomIn: { id: "zoomIn", icon: "zoomIn", label: t("cmd.zoomIn"), keys: "Ctrl++", disabled: !designing || !zoomStep(1), run: () => stepZoom(1) },
+    zoomOut: { id: "zoomOut", icon: "zoomOut", label: t("cmd.zoomOut"), keys: "Ctrl+-", disabled: !designing || !zoomStep(-1), run: () => stepZoom(-1) },
+    zoomFit: { id: "zoomFit", icon: "zoomFit", label: t("cmd.zoomFit"), keys: "Ctrl+0", disabled: !designing, run: fitZoom },
   };
 
   const menus = [
@@ -858,7 +993,7 @@ export function App({ initialSettings }) {
     { id: "edit", items: [c.undo, c.redo, "-", c.cut, c.copy, c.paste, c.duplicate, c.delete, "-", c.forward, c.backward] },
     { id: "view", items: [c.start, "-", c.panelLeft, c.panelBottom, c.panelRight, c.rulers, c.code, "-", c.zoomIn, c.zoomOut, c.zoomFit] },
     { id: "run", items: [c.run, c.native, "-", c.cleanBuild] },
-    { id: "tools", items: [c.settings, c.manager, "-", c.preferences] },
+    { id: "tools", items: [c.settings, c.fonts, c.lvConf, c.manager, "-", c.preferences] },
     { id: "help", items: [c.about] },
   ];
 
@@ -868,7 +1003,7 @@ export function App({ initialSettings }) {
     [c.copy, c.paste, c.duplicate, c.delete],
     [c.backward, c.forward],
     [c.run, c.native, c.code],
-    [c.settings, c.manager],
+    [c.settings, c.fonts, c.lvConf, c.manager],
     [c.panelLeft, c.panelBottom, c.panelRight, c.rulers],
   ];
 
@@ -990,6 +1125,9 @@ export function App({ initialSettings }) {
         if (letter === "n") return fire(cmd.new);
         if (letter === "o") return fire(cmd.open);
         if (typing) return undefined;
+        if (letter === "=" || letter === "+") return fire(cmd.zoomIn);
+        if (letter === "-") return fire(cmd.zoomOut);
+        if (letter === "0") return fire(cmd.zoomFit);
         if (letter === "z") return fire(event.shiftKey ? cmd.redo : cmd.undo);
         if (letter === "y") return fire(cmd.redo);
         if (letter === "x") return fire(cmd.cut);
@@ -1055,6 +1193,8 @@ export function App({ initialSettings }) {
         setShowStart(true);
       },
       runOpen: () => runOpen,
+      importFont: (file) => importFontFile(file),
+      openFile: (file) => openFile(file),
       collapsed: () => collapsed,
       contextMenu: () => contextMenu,
       language: () => language,
@@ -1074,6 +1214,44 @@ export function App({ initialSettings }) {
   };
 
   const fileName = path ? path.split(/[\\/]/).pop() : project.name;
+  const projectFile = path ? fileName : `${project.name}.${FILE_EXTENSION}`;
+
+  // The project as a folder: what saving writes, also before it is saved for the first time.
+  const explorerPaths = useMemo(() => {
+    if (showStart || collapsed.left || collapsed.explorer) return [];
+    return [projectFile, ...Object.keys(generateCode(project, { imageData: false })), ...(project.images ?? []).map((image) => image.file), ...(project.fonts ?? []).map((font) => font.file)];
+  }, [project, projectFile, showStart, collapsed.left, collapsed.explorer]);
+
+  // Files the code view shows but does not generate.
+  const extraFiles = useMemo(() => {
+    if (view === "design") return {};
+    const files = { [projectFile]: { text: serializeProject(project) } };
+    for (const image of project.images ?? []) {
+      const data = imageData(image.name);
+      const extension = extensionOf(image.file);
+      const type = extension === "jpg" ? "jpeg" : extension === "svg" ? "svg+xml" : extension;
+      files[image.file] = data?.base64 ? { image: `data:image/${type};base64,${data.base64}` } : { text: t("image.missing", { file: image.file }) };
+    }
+    for (const font of project.fonts ?? []) {
+      const data = fontData(font.name);
+      files[font.file] = {
+        text: data
+          ? [font.file, `${(data.bytes.length / 1048576).toFixed(1)} MB`, "", ...data.info.faces.map((face) => `${face.index === font.face ? "* " : "  "}${face.index}: ${face.full}  (${face.languages.join(", ")})`)].join("\n")
+          : t("font.fileGone", { file: font.file }),
+      };
+    }
+    return files;
+  }, [project, projectFile, t, view]);
+  const [openName, setOpenName] = useState(null);
+
+  /** Opens a file of the explorer in the code view; a screen's file also shows that screen. */
+  const openFromExplorer = (file) => {
+    setView((value) => (value === "design" ? "split" : value));
+    setCodeFocus({ file, line: null, at: Date.now() });
+    const names = cNames(project);
+    const screen = project.screens.find((item) => `src/ui/screens/${names.get(item.id)}.c` === file);
+    if (screen) select(screen.id);
+  };
   const status = runOpen ? t("status.run") : native === "building" ? t("status.building") : native === "running" ? t("status.native") : running ? t("status.run") : t("status.design");
 
   return (
@@ -1138,9 +1316,59 @@ export function App({ initialSettings }) {
               </div>
             )}
           </div>
+          <div className="popup-host">
+            <button type="button" className={popup === "device" ? "version-chip active" : "version-chip"} data-command="device-chip" disabled={!designing} aria-haspopup="menu" aria-expanded={popup === "device"} title={t("device.change")} onClick={() => setPopup(popup === "device" ? null : "device")}>
+              <Icon name="device" size={14} /> {project.device.shape === "round" ? "◯ " : ""}{project.device.w}×{project.device.h} <Icon name="dropDown" size={12} />
+            </button>
+            {popup === "device" && (
+              <div className="menu-pop version-pop device-pop" role="menu" data-device-menu="">
+                {DEVICES.map((device) => {
+                  const current = sameDevice(device, project.device);
+                  return (
+                    <button type="button" key={device.id} role="menuitem" data-device={device.id} className={current ? "selected" : undefined} onClick={() => { changeDevice(device); setPopup(null); }}>
+                      <Icon name={current ? "check" : "device"} />
+                      <span className="menu-label">{t(`device.${device.id}`)}</span>
+                    </button>
+                  );
+                })}
+                <div className="sep" />
+                <div className="device-custom" data-device-custom="">
+                  <span>{t("settings.width")}</span>
+                  <Stepper id="toolbarDeviceW" unit="px" value={project.device.w} min={32} max={4096} onChange={(w) => changeDevice({ ...project.device, w }, "toolbar:w")} />
+                  <span>{t("settings.height")}</span>
+                  <Stepper id="toolbarDeviceH" unit="px" value={project.device.h} min={32} max={4096} onChange={(h) => changeDevice(project.device.shape === "round" ? { ...project.device, w: h } : { ...project.device, h }, "toolbar:h")} />
+                </div>
+                <button type="button" role="menuitem" data-command="device-round" aria-pressed={project.device.shape === "round"} onClick={() => changeDevice(project.device.shape === "round" ? { w: project.device.w, h: project.device.h } : { w: Math.min(project.device.w, project.device.h), h: Math.min(project.device.w, project.device.h), shape: "round" })}>
+                  <Icon name={project.device.shape === "round" ? "check" : "device"} />
+                  <span className="menu-label">{t("device.roundToggle")}</span>
+                </button>
+                <button type="button" role="menuitem" data-command="device-swap" onClick={() => changeDevice({ ...project.device, w: project.device.h, h: project.device.w })}>
+                  <Icon name="device" />
+                  <span className="menu-label">{t("device.swap")}</span>
+                </button>
+              </div>
+            )}
+          </div>
           <span className="zoom-box">
             <button type="button" className="mini" data-command="zoomOut" disabled={c.zoomOut.disabled} aria-label={c.zoomOut.label} title={c.zoomOut.label} onClick={c.zoomOut.run}><Icon name="zoomOut" size={14} /></button>
-            <span data-zoom="">{Math.round(zoom * 100)}%</span>
+            <span className="popup-host">
+              <button type="button" className={popup === "zoom" ? "zoom-value active" : "zoom-value"} data-zoom="" disabled={!designing} aria-haspopup="menu" aria-expanded={popup === "zoom"} title={t("zoom.choose")} onClick={() => setPopup(popup === "zoom" ? null : "zoom")}>{Math.round(zoom * 100)}%</button>
+              {popup === "zoom" && (
+                <div className="menu-pop zoom-pop" role="menu" data-zoom-menu="">
+                  {ZOOMS.map((value) => (
+                    <button type="button" key={value} role="menuitem" data-zoom-value={value} className={value === zoom ? "selected" : undefined} onClick={() => { setZoom(value); setPopup(null); }}>
+                      <Icon name={value === zoom ? "check" : "zoomIn"} />
+                      <span className="menu-label">{Math.round(value * 100)}%</span>
+                    </button>
+                  ))}
+                  <div className="sep" />
+                  <button type="button" role="menuitem" data-zoom-value="fit" onClick={() => { fitZoom(); setPopup(null); }}>
+                    <Icon name="zoomFit" />
+                    <span className="menu-label">{t("cmd.zoomFit")}</span>
+                  </button>
+                </div>
+              )}
+            </span>
             <button type="button" className="mini" data-command="zoomIn" disabled={c.zoomIn.disabled} aria-label={c.zoomIn.label} title={c.zoomIn.label} onClick={c.zoomIn.run}><Icon name="zoomIn" size={14} /></button>
             <button type="button" className="mini" data-command="zoomFit" disabled={c.zoomFit.disabled} aria-label={c.zoomFit.label} title={c.zoomFit.label} onClick={c.zoomFit.run}><Icon name="zoomFit" size={14} /></button>
           </span>
@@ -1221,14 +1449,28 @@ export function App({ initialSettings }) {
           {collapsed.left ? (
             <button type="button" className="panel-strip" data-expand="left" title={t("panel.expand")} aria-label={t("panel.expand")} onClick={() => togglePanel("left")}>
               <Icon name="collapseRight" size={14} />
+              <Icon name="open" />
+              <span>{t("panel.explorer")}</span>
               <Icon name="grid" />
               <span>{t("panel.palette")}</span>
             </button>
           ) : (
-            <section className="panel" data-panel="palette">
-              <PanelTitle t={t} id="left" icon="grid" title={t("panel.palette")} collapseIcon="collapseLeft" expandIcon="collapseRight" onToggle={() => togglePanel("left")} />
-              <Palette t={t} version={project.lvgl} disabled={!editing} onDragStart={beginPaletteDrag} onAdd={addFromPalette} />
-            </section>
+            <div className="left-stack" style={{ gridTemplateRows: collapsed.explorer && collapsed.palette ? "auto auto 0 auto" : collapsed.explorer ? "auto auto 0 minmax(0, 1fr)" : collapsed.palette ? "auto minmax(0, 1fr) 0 auto" : `auto minmax(60px, ${sizes.explorer}px) 5px minmax(0, 1fr)` }}>
+              <div className="right-head" data-panel-title="left">
+                <Icon name="panelProject" />
+                <span className="panel-title-text">{t("panel.project")}</span>
+                <button type="button" className="mini" data-collapse="left" title={t("panel.collapseLeft")} aria-label={t("panel.collapseLeft")} onClick={() => togglePanel("left")}><Icon name="collapseLeft" size={14} /></button>
+              </div>
+              <section className="panel" data-panel="explorer">
+                <PanelTitle t={t} id="explorer" icon="open" title={t("panel.explorer")} collapsed={collapsed.explorer} collapseIcon="collapseUp" expandIcon="collapseDown" onToggle={() => togglePanel("explorer")} />
+                {!collapsed.explorer && <Explorer t={t} title={showStart ? "" : project.name} paths={explorerPaths} current={view === "design" ? null : openName} onOpen={openFromExplorer} />}
+              </section>
+              <div className="splitter h" data-splitter="explorer" style={collapsed.explorer || collapsed.palette ? { visibility: "hidden" } : undefined} onPointerDown={beginSplit("explorer", 1)} />
+              <section className="panel" data-panel="palette">
+                <PanelTitle t={t} id="palette" icon="grid" title={t("panel.palette")} collapsed={collapsed.palette} collapseIcon="collapseUp" expandIcon="collapseDown" onToggle={() => togglePanel("palette")} />
+                {!collapsed.palette && <Palette t={t} version={project.lvgl} disabled={!editing} onDragStart={beginPaletteDrag} onAdd={addFromPalette} folds={folds} />}
+              </section>
+            </div>
           )}
         </div>
         <div className="splitter" data-splitter="left" style={collapsed.left ? { visibility: "hidden" } : undefined} onPointerDown={beginSplit("left", 1)} />
@@ -1279,7 +1521,8 @@ export function App({ initialSettings }) {
               />
             </div>
             </div>
-            {code && <CodeView files={code} focus={codeFocus} />}
+            {code && <div className="splitter" data-splitter="code" role="separator" aria-orientation="vertical" onPointerDown={beginSplit("code", -1)} />}
+            {code && <CodeView t={t} files={code} extra={extraFiles} focus={codeFocus} readOnly={!designing} onEdit={applyCode} width={sizes.code} onName={setOpenName} />}
           </div>
           </div>
           <div className="splitter h" data-splitter="bottom" style={collapsed.bottom ? { visibility: "hidden" } : undefined} onPointerDown={beginSplit("bottom", -1)} />
@@ -1315,7 +1558,12 @@ export function App({ initialSettings }) {
             </button>
           </div>
         ) : (
-          <div className="right-col" style={{ gridTemplateRows: collapsed.tree && collapsed.attributes ? "auto 0 auto" : collapsed.tree ? "auto 0 minmax(0, 1fr)" : collapsed.attributes ? "minmax(0, 1fr) 0 auto" : `minmax(60px, ${sizes.tree}px) 5px minmax(0, 1fr)` }}>
+          <div className="right-col" style={{ gridTemplateRows: collapsed.tree && collapsed.attributes ? "auto auto 0 auto" : collapsed.tree ? "auto auto 0 minmax(0, 1fr)" : collapsed.attributes ? "auto minmax(0, 1fr) 0 auto" : `auto minmax(60px, ${sizes.tree}px) 5px minmax(0, 1fr)` }}>
+            <div className="right-head" data-panel-title="right">
+              <Icon name="panelStructure" />
+              <span className="panel-title-text">{t("panel.right")}</span>
+              <button type="button" className="mini" data-collapse="right" title={t("panel.collapseRight")} aria-label={t("panel.collapseRight")} onClick={() => togglePanel("right")}><Icon name="collapseRight" size={14} /></button>
+            </div>
             <section className="panel" data-panel="tree">
               <PanelTitle t={t} id="tree" icon="list" title={t("panel.tree")} collapsed={collapsed.tree} collapseIcon="collapseUp" expandIcon="collapseDown" onToggle={() => togglePanel("tree")} />
               {!collapsed.tree && <ComponentTree t={t} screen={activeScreen} selected={selected} onSelect={select} />}
@@ -1323,7 +1571,7 @@ export function App({ initialSettings }) {
             <div className="splitter h" data-splitter="tree" style={collapsed.tree || collapsed.attributes ? { visibility: "hidden" } : undefined} onPointerDown={beginSplit("tree", 1)} />
             <section className="panel" data-panel="attributes">
               <PanelTitle t={t} id="attributes" icon="attributes" title={t("panel.attributes")} collapsed={collapsed.attributes} collapseIcon="collapseUp" expandIcon="collapseDown" onToggle={() => togglePanel("attributes")} />
-              {!collapsed.attributes && <Attributes t={t} store={store} selected={selected} readOnly={running} onImportImage={importImage} />}
+              {!collapsed.attributes && <Attributes t={t} store={store} selected={selected} readOnly={running} onImportImage={importImage} onOpenFonts={() => setDialog({ kind: "fonts" })} folds={folds} />}
             </section>
           </div>
         )}
@@ -1339,7 +1587,7 @@ export function App({ initialSettings }) {
               <Icon name="manager" />
               <span>{engineInfo.exact ? `LVGL ${project.lvgl}` : t("status.engineClose", { engine: engineInfo.engine, version: project.lvgl })}</span>
             </span>
-            <span className="status-cell" data-status="device"><Icon name="device" /><span>{project.device.w}×{project.device.h}</span></span>
+            <span className="status-cell" data-status="device"><Icon name="device" /><span>{project.device.shape === "round" ? "◯ " : ""}{project.device.w}×{project.device.h}</span></span>
             {selectedNode && <span className="status-cell" data-status="selection"><Icon name={WIDGETS[selectedNode.type].icon} /><span>{selectedNode.name}</span></span>}
           </>
         )}
@@ -1399,6 +1647,8 @@ export function App({ initialSettings }) {
           onClose={() => setDialog(null)}
         />
       )}
+      {dialog?.kind === "fonts" && <FontsDialog t={t} store={store} onImport={importFont} onClose={() => setDialog(null)} />}
+      {dialog?.kind === "lvconf" && <LvConfDialog t={t} store={store} installed={installed} onVersion={changeVersion} onClose={() => setDialog(null)} />}
       {dialog?.kind === "project" && (
         <NewProjectDialog
           t={t}
@@ -1413,7 +1663,7 @@ export function App({ initialSettings }) {
         />
       )}
       {dialog?.kind === "settings" && (
-        <ProjectSettings t={t} store={store} installed={installed} onVersion={changeVersion} onClose={() => setDialog(null)} onManager={() => setDialog({ kind: "manager", back: "settings" })} />
+        <ProjectSettings t={t} store={store} installed={installed} onVersion={changeVersion} onClose={() => setDialog(null)} onManager={() => setDialog({ kind: "manager", back: "settings" })} onConf={() => setDialog({ kind: "lvconf" })} onFonts={() => setDialog({ kind: "fonts" })} />
       )}
       {dialog?.kind === "manager" && (
         <LvglManager t={t} autoInstall={dialog.autoInstall} onInstalledChange={setInstalled} onClose={() => setDialog(dialog.back ? { kind: dialog.back } : null)} />

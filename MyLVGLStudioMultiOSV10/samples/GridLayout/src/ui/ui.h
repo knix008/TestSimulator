@@ -49,6 +49,7 @@ extern lv_obj_t * ui_button15;
 extern lv_obj_t * ui_button15_label;
 extern lv_obj_t * ui_button16;
 extern lv_obj_t * ui_button16_label;
+extern lv_obj_t * ui_slider1;
 
 #ifdef __cplusplus
 }

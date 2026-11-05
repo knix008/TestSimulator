@@ -1,0 +1,110 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "CompassDial",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 360,
+    "h": 360,
+    "shape": "round"
+  },
+  "images": [
+    {
+      "name": "needle",
+      "file": "assets/images/needle.png",
+      "w": 64,
+      "h": 64
+    }
+  ],
+  "theme": {
+    "dark": true,
+    "primary": "#26c6da",
+    "secondary": "#ef5350"
+  },
+  "nextId": 6,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Compass",
+      "props": {
+        "bgColor": "#0d1b2a",
+        "bgOpa": 255
+      },
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "arc",
+          "name": "arc1",
+          "props": {
+            "width": 320,
+            "height": 320,
+            "min": 0,
+            "max": 359,
+            "value": 45,
+            "align": "CENTER"
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n3",
+              "text": ""
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n4",
+              "text": "%d deg"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "image",
+          "name": "image1",
+          "props": {
+            "width": "content",
+            "height": "content",
+            "align": "CENTER",
+            "y": -20,
+            "src": "needle",
+            "scale": 250,
+            "rotation": 45
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "45 deg",
+            "align": "CENTER",
+            "y": 70,
+            "font": 24,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "Drag the ring",
+            "align": "CENTER",
+            "y": 104,
+            "textColor": "#80deea"
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

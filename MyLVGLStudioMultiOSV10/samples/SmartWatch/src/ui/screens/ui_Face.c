@@ -20,7 +20,7 @@ void ui_Face_create(void)
     lv_obj_set_style_text_font(ui_label1, &lv_font_montserrat_36, 0);
     lv_obj_set_style_text_color(ui_label1, lv_color_hex(0xffffff), 0);
     ui_label2 = lv_label_create(ui_Face);
-    lv_label_set_text(ui_label2, "6,840 steps");
+    lv_label_set_text(ui_label2, "68 % of goal");
     lv_obj_set_align(ui_label2, LV_ALIGN_CENTER);
     lv_obj_set_y(ui_label2, 26);
     lv_obj_set_style_text_color(ui_label2, lv_color_hex(0xa5d6a7), 0);

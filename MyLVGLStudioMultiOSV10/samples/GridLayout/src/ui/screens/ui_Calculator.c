@@ -7,7 +7,7 @@ void ui_Calculator_create(void)
     ui_Calculator = lv_obj_create(NULL);
     ui_grid1 = lv_obj_create(ui_Calculator);
     static const int32_t ui_grid1_columns[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
-    static const int32_t ui_grid1_rows[] = { LV_GRID_FR(2), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+    static const int32_t ui_grid1_rows[] = { LV_GRID_FR(2), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
     lv_obj_set_grid_dsc_array(ui_grid1, ui_grid1_columns, ui_grid1_rows);
     lv_obj_set_width(ui_grid1, lv_pct(100));
     lv_obj_set_height(ui_grid1, lv_pct(100));
@@ -133,4 +133,10 @@ void ui_Calculator_create(void)
     lv_label_set_text(ui_button16_label, "+");
     lv_obj_set_width(ui_button16, 110);
     lv_obj_set_height(ui_button16, 44);
+    ui_slider1 = lv_slider_create(ui_grid1);
+    lv_obj_set_grid_cell(ui_slider1, LV_GRID_ALIGN_STRETCH, 0, 4, LV_GRID_ALIGN_STRETCH, 5, 1);
+    lv_slider_set_range(ui_slider1, 0, 100);
+    lv_obj_set_width(ui_slider1, 180);
+    lv_obj_set_height(ui_slider1, 10);
+    lv_slider_set_value(ui_slider1, 0, LV_ANIM_OFF);
 }

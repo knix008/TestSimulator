@@ -13,7 +13,7 @@
     "primary": "#29b6f6",
     "secondary": "#ffca28"
   },
-  "nextId": 7,
+  "nextId": 8,
   "screens": [
     {
       "id": "n1",
@@ -88,13 +88,36 @@
           "name": "table1",
           "props": {
             "width": 444,
-            "height": 140,
+            "height": 134,
             "cells": "Day,High,Low\nMon,19,11\nTue,21,12\nWed,17,10",
             "columnWidth": 148,
             "x": 20,
             "y": 160
           },
           "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 444,
+            "height": 10,
+            "min": -10,
+            "max": 40,
+            "value": 18,
+            "x": 20,
+            "y": 302
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n3",
+              "text": "%d C"
+            }
+          ],
           "children": []
         }
       ]

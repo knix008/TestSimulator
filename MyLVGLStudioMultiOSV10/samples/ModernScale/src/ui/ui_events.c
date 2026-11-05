@@ -2,3 +2,9 @@
 #include "ui.h"
 #include "ui_events.h"
 #include <stdio.h>
+
+void ui_event_0(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_bar_set_value(ui_bar1, lv_map(lv_slider_get_value(ui_slider1), 0, 100, 0, 100), LV_ANIM_OFF);
+}

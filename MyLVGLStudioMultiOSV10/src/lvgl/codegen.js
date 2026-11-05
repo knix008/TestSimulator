@@ -2,17 +2,18 @@
 //   src/ui/...             the screens, for the firmware
 //   src/main.c, config/lv_conf.h, CMakeLists.txt   the desktop simulator
 import { apiFor, parseVersion } from "./versions.js";
-import { ALIGNS, CHART_TYPES, FLEX_FLOWS, SCALE_MODES, SERIES_COLORS } from "./schema.js";
+import { ALIGNS, CHART_TYPES, FLEX_FLOWS, SCALE_MODES, SERIES_COLORS, availableIn } from "./schema.js";
 import { imageData } from "./images.js";
 import { cNames, colorValue, emit } from "./emit.js";
 import { FILE_EXTENSION, serializeProject, walk } from "./project.js";
-import lvConf from "./lvConfText.js";
+import { generateLvConf } from "./lvconf.js";
 
 export const UI_DIR = "src/ui";
 export const SCREENS_DIR = "src/ui/screens";
 export const IMAGES_DIR = "src/ui/images";
+export const FONTS_DIR = "src/ui/fonts";
 /** Only generated code lives here, so files of removed screens can be deleted on save. */
-export const GENERATED_DIRS = [SCREENS_DIR, IMAGES_DIR];
+export const GENERATED_DIRS = [SCREENS_DIR, IMAGES_DIR, FONTS_DIR];
 
 const hex = (value) => `0x${value.toString(16).padStart(6, "0")}`;
 
@@ -38,7 +39,7 @@ function createExtras(name, node, api) {
       `lv_meter_scale_t * ${name}_scale = lv_meter_add_scale(${name});`,
       `lv_meter_set_scale_ticks(${name}, ${name}_scale, 41, 2, 10, lv_palette_main(LV_PALETTE_GREY));`,
       `lv_meter_set_scale_major_ticks(${name}, ${name}_scale, 8, 4, 15, lv_color_black(), 10);`,
-      `lv_meter_indicator_t * ${name}_needle = lv_meter_add_needle_line(${name}, ${name}_scale, 4, lv_palette_main(LV_PALETTE_RED), -10);`,
+      `${name}_needle = lv_meter_add_needle_line(${name}, ${name}_scale, 4, lv_palette_main(LV_PALETTE_RED), -10);`,
     ];
   }
   return [];
@@ -126,7 +127,10 @@ function intLine(o, prop, value, type, api) {
     case "shadowColor": return `lv_obj_set_style_shadow_color(${o}, lv_color_hex(${hex(value)}), 0);`;
     case "opa": return `lv_obj_set_style_opa(${o}, ${value}, 0);`;
     case "gap": return `lv_obj_set_style_pad_gap(${o}, ${value}, 0);`;
-    case "indicatorColor": return `lv_obj_set_style_bg_color(${o}, lv_color_hex(${hex(value)}), ${type === "switch" ? "LV_PART_INDICATOR | LV_STATE_CHECKED" : "LV_PART_INDICATOR"});`;
+    case "indicatorColor":
+      if (type === "arc") return `lv_obj_set_style_arc_color(${o}, lv_color_hex(${hex(value)}), LV_PART_INDICATOR); lv_obj_set_style_bg_color(${o}, lv_color_hex(${hex(value)}), LV_PART_KNOB);`;
+      if (type === "spinner") return `lv_obj_set_style_arc_color(${o}, lv_color_hex(${hex(value)}), LV_PART_INDICATOR);`;
+      return `lv_obj_set_style_bg_color(${o}, lv_color_hex(${hex(value)}), ${type === "switch" ? "LV_PART_INDICATOR | LV_STATE_CHECKED" : "LV_PART_INDICATOR"});`;
     case "flexFlow": return `lv_obj_set_flex_flow(${o}, LV_FLEX_FLOW_${FLEX_FLOWS[value]});`;
     case "value":
       if (type === "slider") return `lv_slider_set_value(${o}, ${value}, LV_ANIM_OFF);`;
@@ -152,8 +156,34 @@ function intLine(o, prop, value, type, api) {
   }
 }
 
-function setTextCall(name, type, text, api) {
-  const literal = cString(text);
+/** The range a value runs over; the engine's range_of gives the same numbers. */
+function valueRange(node) {
+  const { props, type } = node;
+  if (props.min !== undefined && props.max !== undefined && ["slider", "bar", "arc", "spinbox", "meter"].includes(type)) return [Number(props.min) || 0, Number(props.max) || 0];
+  if (type === "switch" || type === "checkbox") return [0, 1];
+  if (type === "led") return [0, 255];
+  if (type === "image") return [0, 3599];
+  if (type === "dropdown" || type === "roller") return [0, String(props.options ?? "").split("\n").length - 1];
+  if (type === "spinbox") return [-99999, 99999];
+  return [0, 100];
+}
+
+function valueOfCall(name, type) {
+  switch (type) {
+    case "slider": return `lv_slider_get_value(${name})`;
+    case "bar": return `lv_bar_get_value(${name})`;
+    case "spinbox": return `lv_spinbox_get_value(${name})`;
+    case "dropdown": return `(int32_t)lv_dropdown_get_selected(${name})`;
+    case "roller": return `(int32_t)lv_roller_get_selected(${name})`;
+    case "switch": case "checkbox": return `(lv_obj_has_state(${name}, LV_STATE_CHECKED) ? 1 : 0)`;
+    default: return `lv_arc_get_value(${name})`;
+  }
+}
+
+const VALUE_PROP = { led: "ledBright", image: "rotation", dropdown: "selected", roller: "selected" };
+
+function setTextCall(name, type, text, api, { raw = false } = {}) {
+  const literal = raw ? text : cString(text);
   switch (type) {
     case "win": return `lv_label_set_text(${name}_label, ${literal});`;
     case "qrcode": return `lv_qrcode_update(${name}, ${literal}, strlen(${literal}));`;
@@ -241,6 +271,80 @@ function strLine(name, type, prop, value, api) {
   return `lv_roller_set_options(${name}, ${cString(value)}, LV_ROLLER_MODE_NORMAL);`;
 }
 
+const fontSymbol = (name, size) => `ui_font_${name}_${size}`;
+
+/** The font and size pairs the code needs, each once. */
+function usedFonts(project, ops) {
+  const used = new Map();
+  const add = (name, size) => {
+    const font = (project.fonts ?? []).find((item) => item.name === name);
+    if (font) used.set(fontSymbol(name, size), { font, size });
+  };
+  if (project.defaultFont) add(project.defaultFont.font, project.defaultFont.size);
+  for (const op of ops) if (op.op === "font") add(op.name, op.size);
+  return used;
+}
+
+/** Fonts are read from their files when the program starts, then decoded as text is drawn. */
+function fontSource(used) {
+  const source = [
+    GENERATED_NOTE,
+    '#include "ui.h"',
+    "#include <stdio.h>",
+    "#include <stdlib.h>",
+    "#include <string.h>",
+    "",
+    "/* The folder of the font files. A firmware without one can define UI_FONT_DIR, or replace ui_font_read. */",
+    "#ifndef UI_FONT_DIR",
+    '#define UI_FONT_DIR "assets/fonts"',
+    "#endif",
+    "",
+  ];
+  for (const symbol of used.keys()) source.push(`const lv_font_t * ${symbol};`);
+  source.push(
+    "",
+    "/* The decoder opens the first face of a collection, so that entry is pointed at the wanted face. */",
+    "static const uint8_t * ui_font_read(const char * file, int face, size_t * size)",
+    "{",
+    '    FILE * in = fopen(file, "rb");',
+    "    if(!in) return NULL;",
+    "    fseek(in, 0, SEEK_END);",
+    "    long length = ftell(in);",
+    "    fseek(in, 0, SEEK_SET);",
+    "    uint8_t * data = length > 0 ? malloc((size_t)length) : NULL;",
+    "    if(data && fread(data, 1, (size_t)length, in) != (size_t)length) {",
+    "        free(data);",
+    "        data = NULL;",
+    "    }",
+    "    fclose(in);",
+    "    if(!data) return NULL;",
+    '    if(face > 0 && memcmp(data, "ttcf", 4) == 0) memcpy(data + 12, data + 12 + 4 * face, 4);',
+    "    *size = (size_t)length;",
+    "    return data;",
+    "}",
+    "",
+    "void ui_fonts_init(void)",
+    "{",
+    "    size_t size = 0;",
+    "    const uint8_t * data = NULL;",
+  );
+  const byFile = new Map();
+  for (const [symbol, item] of used) {
+    const key = item.font.name;
+    if (!byFile.has(key)) byFile.set(key, { font: item.font, list: [] });
+    byFile.get(key).list.push([symbol, item.size]);
+  }
+  for (const { font, list } of byFile.values()) {
+    const file = font.file.split("/").pop();
+    source.push(`    data = ui_font_read(UI_FONT_DIR "/" ${cString(file)}, ${font.face}, &size);`);
+    for (const [symbol, size] of list) {
+      source.push(`    ${symbol} = data ? lv_tiny_ttf_create_data(data, size, ${size}) : NULL;`, `    if(${symbol}) ((lv_font_t *)${symbol})->fallback = LV_FONT_DEFAULT; /* What the file lacks, such as LVGL's symbols. */`, `    else ${symbol} = LV_FONT_DEFAULT;`);
+    }
+  }
+  source.push("}", "");
+  return source.join("\n");
+}
+
 const GENERATED_NOTE = "/* Generated by My LVGL Studio. Changes are overwritten when the project is saved. */";
 
 const hexByte = (value) => `0x${value.toString(16).padStart(2, "0")}`;
@@ -325,6 +429,9 @@ function generateUi(project, options) {
   const nameOf = (id) => names.get(nodeById.get(id).id);
   const typeOf = (id) => nodeById.get(id).type;
   const events = ops.filter((op) => op.op === "event");
+  const fonts = usedFonts(project, ops);
+  const animated = ops.filter((op) => op.op === "int" && op.prop === "animate");
+  const sendChanged = (name) => (api.major >= 9 ? `lv_obj_send_event(${name}, LV_EVENT_VALUE_CHANGED, NULL);` : `lv_event_send(${name}, LV_EVENT_VALUE_CHANGED, NULL);`);
 
   // Operations per screen, in order.
   const byScreen = new Map();
@@ -365,9 +472,20 @@ function generateUi(project, options) {
     for (const image of images) header.push(`${api.imageDeclare}(ui_img_${image.name});`);
     header.push("");
   }
+  if (animated.length) {
+    header.push("/* Values that sweep back and forth, from ui_events.c. */", "void ui_animate_value(lv_obj_t * obj, void (*set)(void *, int32_t), int32_t min, int32_t max, uint32_t duration);");
+    for (const op of animated) header.push(`void ${nameOf(op.id)}_set(void * obj, int32_t value);`);
+    header.push("");
+  }
+  if (fonts.size) {
+    header.push("/* The project's fonts, from fonts/ui_fonts.c. */", "void ui_fonts_init(void);");
+    for (const symbol of fonts.keys()) header.push(`extern const lv_font_t * ${symbol};`);
+    header.push("");
+  }
   walk(project, (node) => {
     header.push(`extern lv_obj_t * ${names.get(node.id)};`);
     if (node.type === "button") header.push(`extern lv_obj_t * ${names.get(node.id)}_label;`);
+    if (node.type === "meter" && availableIn(node.type, project.lvgl)) header.push(`extern lv_meter_indicator_t * ${names.get(node.id)}_needle;`);
   });
   header.push("", "#ifdef __cplusplus", "}", "#endif", "", "#endif", "");
   files[`${UI_DIR}/ui.h`] = header.join("\n");
@@ -403,10 +521,49 @@ function generateUi(project, options) {
       case "show": eventSource.push(`    ${api.removeFlag}(${target}, LV_OBJ_FLAG_HIDDEN);`); break;
       case "hide": eventSource.push(`    lv_obj_add_flag(${target}, LV_OBJ_FLAG_HIDDEN);`); break;
       case "log": eventSource.push(`    printf("%s\\n", ${cString(event.text)});`, "    fflush(stdout);"); break;
+      case "setValue": {
+        const from = nodeById.get(event.id);
+        const to = nodeById.get(event.target);
+        const [fromMin, fromMax] = valueRange(from);
+        const [toMin, toMax] = valueRange(to);
+        const value = `lv_map(${valueOfCall(nameOf(event.id), from.type)}, ${fromMin}, ${fromMax}, ${toMin}, ${toMax})`;
+        eventSource.push(`    ${intLine(target, VALUE_PROP[to.type] ?? "value", value, to.type, api)}`);
+        break;
+      }
+      case "showValue":
+        eventSource.push(
+          "    char text[128];",
+          `    lv_snprintf(text, sizeof(text), ${cString(event.text)}, ${valueOfCall(nameOf(event.id), typeOf(event.id))});`,
+          `    ${setTextCall(target, typeOf(event.target), "text", api, { raw: true })}`,
+        );
+        break;
       default: break;
     }
     eventSource.push("}", "");
   });
+  if (animated.length) {
+    eventSource.push(
+      "/* A value that sweeps back and forth, telling whoever listens, as if a hand moved it. */",
+      "void ui_animate_value(lv_obj_t * obj, void (*set)(void *, int32_t), int32_t min, int32_t max, uint32_t duration)",
+      "{",
+      "    lv_anim_t anim;",
+      "    lv_anim_init(&anim);",
+      "    lv_anim_set_var(&anim, obj);",
+      "    lv_anim_set_exec_cb(&anim, set);",
+      "    lv_anim_set_values(&anim, min, max);",
+      `    ${api.major >= 9 ? "lv_anim_set_duration" : "lv_anim_set_time"}(&anim, duration);`,
+      `    ${api.major >= 9 ? "lv_anim_set_playback_duration" : "lv_anim_set_playback_time"}(&anim, duration);`,
+      "    lv_anim_set_repeat_count(&anim, LV_ANIM_REPEAT_INFINITE);",
+      "    lv_anim_set_path_cb(&anim, lv_anim_path_ease_in_out);",
+      "    lv_anim_start(&anim);",
+      "}",
+      "",
+    );
+    for (const op of animated) {
+      const name = nameOf(op.id);
+      eventSource.push(`void ${name}_set(void * obj, int32_t value)`, "{", "    LV_UNUSED(obj);", `    ${intLine(name, "value", "value", typeOf(op.id), api)}`, `    ${sendChanged(name)}`, "}", "");
+    }
+  }
   files[`${UI_DIR}/ui_events.c`] = eventSource.join("\n");
 
   /* screens/ui_<name>.c */
@@ -462,8 +619,13 @@ function generateUi(project, options) {
             ? `    ${api.imageButtonSet}(${name}, ${api.imageButtonState}, NULL, &ui_img_${op.name}, NULL);`
             : `    ${api.imageSrc}(${name}, &ui_img_${op.name});`);
         }
+      } else if (op.op === "font") {
+        source.push(`    lv_obj_set_style_text_font(${name}, ${fontSymbol(op.name, op.size)}, 0);`);
       } else if (op.op === "link") {
         continue;
+      } else if (op.prop === "animate") {
+        const [min, max] = valueRange(nodeById.get(op.id));
+        source.push(`    ui_animate_value(${name}, ${name}_set, ${min}, ${max}, ${op.value});`);
       } else {
         source.push(`    ${intLine(name, op.prop, op.value, type, api)}`);
       }
@@ -474,6 +636,8 @@ function generateUi(project, options) {
 
   /* images/ui_img_<name>.c */
   for (const image of images) files[`${IMAGES_DIR}/ui_img_${image.name}.c`] = imageSource(image.name, project.lvgl, options);
+
+  if (fonts.size) files[`${FONTS_DIR}/ui_fonts.c`] = fontSource(fonts);
 
   /* ui.c: the objects and ui_init */
   const theme = project.theme;
@@ -487,13 +651,16 @@ function generateUi(project, options) {
   walk(project, (node) => {
     source.push(`lv_obj_t * ${names.get(node.id)};`);
     if (node.type === "button") source.push(`lv_obj_t * ${names.get(node.id)}_label;`);
+    if (node.type === "meter" && availableIn(node.type, project.lvgl)) source.push(`lv_meter_indicator_t * ${names.get(node.id)}_needle;`);
   });
+  const standard = project.defaultFont && fonts.has(fontSymbol(project.defaultFont.font, project.defaultFont.size)) ? fontSymbol(project.defaultFont.font, project.defaultFont.size) : "LV_FONT_DEFAULT";
   source.push(
     "",
     "void ui_init(void)",
     "{",
+    ...(fonts.size ? ["    ui_fonts_init();"] : []),
     `    ${api.display} * display = ${api.defaultDisplay}();`,
-    `    lv_theme_t * theme = lv_theme_default_init(display, lv_color_hex(${hex(colorValue(theme.primary))}), lv_color_hex(${hex(colorValue(theme.secondary))}), ${theme.dark ? "true" : "false"}, LV_FONT_DEFAULT);`,
+    `    lv_theme_t * theme = lv_theme_default_init(display, lv_color_hex(${hex(colorValue(theme.primary))}), lv_color_hex(${hex(colorValue(theme.secondary))}), ${theme.dark ? "true" : "false"}, ${standard});`,
     `    ${api.setTheme}(display, theme);`,
     "",
   );
@@ -514,7 +681,17 @@ function generateUi(project, options) {
 
 /** A desktop host: SDL window + pointer. ML_HEADLESS draws one frame into a file instead. */
 export function generateMain(project) {
-  const { w, h } = project.device;
+  const { w, h, shape } = project.device;
+  const roundMask = shape === "round" ? `
+            /* A round display: what lies outside the circle does not exist. */
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            for(int y = 0; y < HEIGHT; y++) {
+                int half = WIDTH / 2;
+                int dy = y - HEIGHT / 2;
+                while(half > 0 && half * half + dy * dy > (WIDTH / 2) * (WIDTH / 2)) half--;
+                SDL_RenderDrawLine(renderer, 0, y, WIDTH / 2 - half, y);
+                SDL_RenderDrawLine(renderer, WIDTH / 2 + half, y, WIDTH - 1, y);
+            }` : "";
   return `/* Generated by My LVGL Studio: runs the designed screens on the desktop. */
 #include "lvgl.h"
 #include "ui.h"
@@ -527,6 +704,20 @@ export function generateMain(project) {
 
 #define WIDTH ${w}
 #define HEIGHT ${h}
+
+/* The window shows the frame in the colour depth of lv_conf.h. */
+#if LV_COLOR_DEPTH == 16
+#define PIXEL_SIZE 2
+#define WINDOW_FORMAT SDL_PIXELFORMAT_RGB565
+#elif LV_COLOR_DEPTH == 24
+#define PIXEL_SIZE 3
+#define WINDOW_FORMAT SDL_PIXELFORMAT_BGR24
+#elif LV_COLOR_DEPTH == 32
+#define PIXEL_SIZE 4
+#define WINDOW_FORMAT SDL_PIXELFORMAT_ARGB8888
+#else
+#error "The desktop simulator shows colour depths of 16, 24 and 32. Other depths still work on the firmware."
+#endif
 
 static uint8_t * framebuffer;
 static int redraw;
@@ -551,7 +742,7 @@ static void lvgl_host_init(void)
 {
     lv_display_t * display = lv_display_create(WIDTH, HEIGHT);
     lv_display_set_flush_cb(display, flush_cb);
-    lv_display_set_buffers(display, framebuffer, NULL, WIDTH * HEIGHT * 4, LV_DISPLAY_RENDER_MODE_DIRECT);
+    lv_display_set_buffers(display, framebuffer, NULL, WIDTH * HEIGHT * PIXEL_SIZE, LV_DISPLAY_RENDER_MODE_DIRECT);
     lv_indev_t * pointer = lv_indev_create();
     lv_indev_set_type(pointer, LV_INDEV_TYPE_POINTER);
     lv_indev_set_read_cb(pointer, read_cb);
@@ -594,7 +785,7 @@ static void lvgl_host_init(void)
 int main(int argc, char ** argv)
 {
     setvbuf(stdout, NULL, _IONBF, 0);
-    framebuffer = calloc(WIDTH * HEIGHT, 4);
+    framebuffer = calloc(WIDTH * HEIGHT, PIXEL_SIZE);
     lv_init();
     lvgl_host_init();
     ui_init();
@@ -603,7 +794,7 @@ int main(int argc, char ** argv)
     lv_refr_now(NULL);
     FILE * out = argc > 1 ? fopen(argv[1], "wb") : NULL;
     if(!out) return 1;
-    fwrite(framebuffer, 4, WIDTH * HEIGHT, out);
+    fwrite(framebuffer, PIXEL_SIZE, WIDTH * HEIGHT, out);
     fclose(out);
     return 0;
 #else
@@ -615,7 +806,7 @@ int main(int argc, char ** argv)
     }
     SDL_Window * window = SDL_CreateWindow(${JSON.stringify(`${project.name} - LVGL ${project.lvgl}`)}, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, 0);
     SDL_Renderer * renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    SDL_Texture * texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
+    SDL_Texture * texture = SDL_CreateTexture(renderer, WINDOW_FORMAT, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
     Uint32 last = SDL_GetTicks();
     int running = 1;
     printf("started: %dx%d, LVGL %d.%d.%d\\n", WIDTH, HEIGHT, LVGL_VERSION_MAJOR, LVGL_VERSION_MINOR, LVGL_VERSION_PATCH);
@@ -639,8 +830,8 @@ int main(int argc, char ** argv)
         lv_timer_handler();
         if(redraw) {
             redraw = 0;
-            SDL_UpdateTexture(texture, NULL, framebuffer, WIDTH * 4);
-            SDL_RenderCopy(renderer, texture, NULL, NULL);
+            SDL_UpdateTexture(texture, NULL, framebuffer, WIDTH * PIXEL_SIZE);
+            SDL_RenderCopy(renderer, texture, NULL, NULL);${roundMask}
             SDL_RenderPresent(renderer);
         }
         SDL_Delay(5);
@@ -675,6 +866,7 @@ ${list}
 )
 target_include_directories(app PRIVATE "\${CMAKE_CURRENT_SOURCE_DIR}/${UI_DIR}")
 target_link_libraries(app PRIVATE lvgl)
+target_compile_definitions(app PRIVATE UI_FONT_DIR="\${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts")
 if(ML_HEADLESS)
   target_compile_definitions(app PRIVATE ML_HEADLESS)
 else()
@@ -694,7 +886,7 @@ export function generateCode(project, options = {}) {
   return {
     ...ui,
     "src/main.c": generateMain(project),
-    "config/lv_conf.h": lvConf,
+    "config/lv_conf.h": generateLvConf(project),
     "CMakeLists.txt": generateCMake(sources),
   };
 }

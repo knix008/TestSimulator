@@ -13,7 +13,7 @@
     "primary": "#2196f3",
     "secondary": "#f44336"
   },
-  "nextId": 6,
+  "nextId": 8,
   "screens": [
     {
       "id": "n1",
@@ -76,7 +76,50 @@
             "x": 496,
             "y": 356
           },
+          "events": [
+            {
+              "trigger": "CLICKED",
+              "action": "setText",
+              "target": "n3",
+              "text": "Event added"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "spinner",
+          "name": "spinner1",
+          "props": {
+            "width": 44,
+            "height": 44,
+            "x": 736,
+            "y": 8
+          },
           "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 288,
+            "height": 14,
+            "min": 0,
+            "max": 12,
+            "value": 3,
+            "x": 496,
+            "y": 436
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n3",
+              "text": "%d events"
+            }
+          ],
           "children": []
         }
       ]

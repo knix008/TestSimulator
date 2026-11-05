@@ -8,10 +8,12 @@ lv_obj_t * ui_grid1;
 lv_obj_t * ui_container1;
 lv_obj_t * ui_label1;
 lv_obj_t * ui_bar1;
+lv_obj_t * ui_slider1;
 lv_obj_t * ui_switch1;
 lv_obj_t * ui_container2;
 lv_obj_t * ui_label2;
 lv_obj_t * ui_bar2;
+lv_obj_t * ui_slider2;
 lv_obj_t * ui_switch2;
 lv_obj_t * ui_container3;
 lv_obj_t * ui_label3;
@@ -29,7 +31,9 @@ void ui_init(void)
 
     ui_Panel_create();
 
-    lv_obj_add_event_cb(ui_button1, ui_event_0, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_slider1, ui_event_0, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_slider2, ui_event_1, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_button1, ui_event_2, LV_EVENT_CLICKED, NULL);
 
     lv_screen_load(ui_Panel);
 }

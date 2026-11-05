@@ -14,15 +14,21 @@ void ui_init(void);
 /* One function per file in screens/. */
 void ui_Panel_create(void);
 
+/* Values that sweep back and forth, from ui_events.c. */
+void ui_animate_value(lv_obj_t * obj, void (*set)(void *, int32_t), int32_t min, int32_t max, uint32_t duration);
+void ui_bar3_set(void * obj, int32_t value);
+
 extern lv_obj_t * ui_Panel;
 extern lv_obj_t * ui_grid1;
 extern lv_obj_t * ui_container1;
 extern lv_obj_t * ui_label1;
 extern lv_obj_t * ui_bar1;
+extern lv_obj_t * ui_slider1;
 extern lv_obj_t * ui_switch1;
 extern lv_obj_t * ui_container2;
 extern lv_obj_t * ui_label2;
 extern lv_obj_t * ui_bar2;
+extern lv_obj_t * ui_slider2;
 extern lv_obj_t * ui_switch2;
 extern lv_obj_t * ui_container3;
 extern lv_obj_t * ui_label3;

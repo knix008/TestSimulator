@@ -2,8 +2,11 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { Icon } from "./icons.jsx";
 import { ColorField, IconSelect, SizeField, Stepper, Toggle } from "./controls.jsx";
-import { ACTION_IDS, GRID_CELL_PROPS, PALETTE, TRIGGERS, WIDGETS, availableIn } from "./lvgl/schema.js";
+import { ACTION_IDS, FONT_SIZES, GRID_CELL_PROPS, PALETTE, TEXT_TARGETS, TRIGGERS, VALUE_TARGETS, WIDGETS, availableIn } from "./lvgl/schema.js";
+import { DEFAULT_FONT_SIZE } from "./lvgl/emit.js";
+import { fontData } from "./lvgl/fonts.js";
 import { findNode, findParent, sanitizeName, setProp, walk } from "./lvgl/project.js";
+import { isEditableCode } from "./lvgl/codeparse.js";
 
 /** A panel's title bar: icon, title, and the button that folds the panel. */
 export function PanelTitle({ icon, title, id, collapsed, collapseIcon, expandIcon, t, onToggle }) {
@@ -18,12 +21,30 @@ export function PanelTitle({ icon, title, id, collapsed, collapseIcon, expandIco
   );
 }
 
-export function Palette({ t, version, disabled, onDragStart, onAdd }) {
+/** A category inside a panel. Folded, its icon, title and the button to unfold it stay. */
+function Group({ t, id, icon, title, folds, children }) {
+  const key = `group:${id}`;
+  const folded = Boolean(folds.collapsed[key]);
+  const label = t(folded ? "panel.expand" : "panel.collapse");
+  return (
+    <section className={folded ? "group folded" : "group"} data-group={id} data-folded={folded ? "" : undefined}>
+      <h4 className="group-title" onClick={() => folds.toggle(key)}>
+        <Icon name={icon} size={14} />
+        <span>{title}</span>
+        <button type="button" className="mini" data-group-toggle={id} aria-expanded={!folded} aria-label={`${title}: ${label}`} title={label}><Icon name={folded ? "collapseDown" : "collapseUp"} size={12} /></button>
+      </h4>
+      {!folded && children}
+    </section>
+  );
+}
+
+const GROUP_ICONS = { identity: "info", layout: "container", content: "label", style: "theme", flags: "check", events: "log" };
+
+export function Palette({ t, version, disabled, onDragStart, onAdd, folds }) {
   return (
     <div className="panel-body palette">
       {PALETTE.map(({ group, items: all }) => ({ group, items: all.filter((type) => availableIn(type, version)) })).map(({ group, items }) => (
-        <section key={group}>
-          <h4>{t(`palette.${group}`)}</h4>
+        <Group key={group} t={t} id={`palette:${group}`} icon={WIDGETS[items[0]]?.icon ?? "grid"} title={t(`palette.${group}`)} folds={folds}>
           <div className="palette-grid">
             {items.map((type) => (
               <button
@@ -41,8 +62,71 @@ export function Palette({ t, version, disabled, onDragStart, onAdd }) {
               </button>
             ))}
           </div>
-        </section>
+        </Group>
       ))}
+    </div>
+  );
+}
+
+/** The files as a tree of folders, folders first, each level by name. */
+export function fileTree(paths) {
+  const root = { name: "", path: "", folders: new Map(), files: [] };
+  for (const path of paths) {
+    const parts = path.split("/");
+    const file = parts.pop();
+    let folder = root;
+    let at = "";
+    for (const part of parts) {
+      at = at ? `${at}/${part}` : part;
+      if (!folder.folders.has(part)) folder.folders.set(part, { name: part, path: at, folders: new Map(), files: [] });
+      folder = folder.folders.get(part);
+    }
+    folder.files.push({ name: file, path });
+  }
+  return root;
+}
+
+const fileIcon = (name) => {
+  if (/\.mylvgl$/i.test(name)) return "projectFile";
+  if (/\.(png|jpe?g|bmp|gif|webp|svg)$/i.test(name)) return "image";
+  if (/\.(ttf|otf|ttc|otc)$/i.test(name)) return "fontFile";
+  if (/\.h$/i.test(name) || /CMakeLists/.test(name)) return "conf";
+  return "code";
+};
+
+/** The project as it is on disk: its folders and files. Choosing a file opens it. */
+export function Explorer({ t, title, paths, current, onOpen }) {
+  const [closed, setClosed] = useState({});
+  const tree = useMemo(() => fileTree(paths), [paths]);
+  const toggle = (path) => setClosed((state) => ({ ...state, [path]: !state[path] }));
+  const render = (folder, depth) => {
+    const folders = [...folder.folders.values()].sort((a, b) => a.name.localeCompare(b.name));
+    const files = [...folder.files].sort((a, b) => a.name.localeCompare(b.name));
+    return (
+      <>
+        {folders.map((item) => (
+          <div key={item.path}>
+            <button type="button" className="tree-row" data-explorer-folder={item.path} aria-expanded={!closed[item.path]} title={item.path} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => toggle(item.path)}>
+              <Icon name={closed[item.path] ? "collapseRight" : "collapseDown"} size={11} />
+              <Icon name="open" size={14} />
+              <span className="tree-name">{item.name}</span>
+            </button>
+            {!closed[item.path] && render(item, depth + 1)}
+          </div>
+        ))}
+        {files.map((item) => (
+          <button type="button" key={item.path} className={item.path === current ? "tree-row selected" : "tree-row"} data-explorer={item.path} title={item.path} style={{ paddingLeft: 8 + depth * 14 + 15 }} onClick={() => onOpen(item.path)}>
+            <Icon name={fileIcon(item.name)} size={14} />
+            <span className="tree-name">{item.name}</span>
+          </button>
+        ))}
+      </>
+    );
+  };
+  return (
+    <div className="panel-body tree explorer" data-explorer-tree="" aria-label={t("panel.explorer")}>
+      <div className="explorer-root" title={title}><Icon name="open" size={14} /><span className="tree-name">{title}</span></div>
+      {render(tree, 0)}
     </div>
   );
 }
@@ -86,16 +170,35 @@ function unitOf(t, key) {
   if (key === "scale") return "%";
   if (key === "bgOpa" || key === "opa" || key === "ledBright") return "/255";
   if (key === "selected" || key === "separator" || key.startsWith("grid")) return "#";
-  if (key === "duration") return "ms";
+  if (key === "duration" || key === "animate") return "ms";
   if (key === "totalTicks" || key === "majorEvery") return t("unit.ticks");
   if (["year", "month", "day", "digits"].includes(key)) return t(`unit.${key}`);
   return t("unit.value");
 }
 
-function PropInput({ t, node, prop, edit, project, onImportImage }) {
+function PropInput({ t, node, prop, edit, project, onImportImage, onOpenFonts }) {
   const value = node.props[prop.key];
   const set = (next) => edit(prop.key, next);
+  // A project's font comes in any size; the built-in one only in the sizes it was made in.
+  if (prop.key === "font" && (node.props.fontFamily !== undefined || project.defaultFont)) {
+    return <Stepper id="font" unit="px" value={value} min={6} max={200} blank placeholder={String(DEFAULT_FONT_SIZE)} onChange={set} />;
+  }
   switch (prop.kind) {
+    case "fontFamily":
+      return (
+        <span className="image-field">
+          <IconSelect
+            id="fontFamily"
+            value={value ?? ""}
+            options={[{ value: "", label: t("font.builtin"), icon: "fontFile" }, ...(project.fonts ?? []).map((font) => ({ value: font.name, label: fontData(font.name)?.info.faces[font.face]?.full ?? font.name, icon: "fontFile" }))]}
+            onChange={(next) => {
+              if (next === "" && !FONT_SIZES.includes(Number(node.props.font))) edit("font", undefined);
+              set(next === "" ? undefined : next);
+            }}
+          />
+          <button type="button" className="wide-button" data-command="font-open" onClick={onOpenFonts}><Icon name="fontFile" /> {t("cmd.fonts")}</button>
+        </span>
+      );
     case "image":
       return (
         <span className="image-field">
@@ -140,14 +243,16 @@ function PropInput({ t, node, prop, edit, project, onImportImage }) {
 }
 
 const NO_TARGET = new Set(["log"]);
-const TEXT_ACTIONS = new Set(["log", "setText"]);
+const TEXT_ACTIONS = new Set(["log", "setText", "showValue"]);
+const VALUE_ACTIONS = new Set(["setValue", "showValue"]);
 
 function EventRow({ t, event, index, project, onChange, onRemove }) {
   const targets = useMemo(() => {
     const list = [];
     walk(project, (node) => {
       const isScreen = node.type === "screen";
-      if (event.action === "screen" ? isScreen : !isScreen) list.push({ value: node.id, label: node.name, icon: WIDGETS[node.type].icon });
+      const fits = event.action === "setValue" ? VALUE_TARGETS.has(node.type) : event.action === "showValue" ? TEXT_TARGETS.has(node.type) : true;
+      if (fits && (event.action === "screen" ? isScreen : !isScreen)) list.push({ value: node.id, label: node.name, icon: WIDGETS[node.type].icon });
     });
     return list;
   }, [project, event.action]);
@@ -157,16 +262,16 @@ function EventRow({ t, event, index, project, onChange, onRemove }) {
         <IconSelect id="trigger" value={event.trigger} options={TRIGGERS.map((value) => ({ value, label: t(`trigger.${value}`) }))} onChange={(trigger) => onChange({ trigger })} />
         <button type="button" className="mini" title={t("event.remove")} aria-label={t("event.remove")} onClick={onRemove}><Icon name="delete" size={14} /></button>
       </div>
-      <IconSelect id="action" value={event.action} options={Object.keys(ACTION_IDS).map((value) => ({ value, label: t(`action.${value}`) }))} onChange={(action) => onChange({ action, target: "" })} />
+      <IconSelect id="action" value={event.action} options={Object.keys(ACTION_IDS).map((value) => ({ value, label: t(`action.${value}`) }))} onChange={(action) => onChange({ ...(VALUE_ACTIONS.has(action) ? { trigger: "VALUE_CHANGED", text: event.text || "%d" } : {}), action, target: "" })} />
       {!NO_TARGET.has(event.action) && <IconSelect id="target" value={event.target} options={targets} title={t("event.target")} onChange={(target) => onChange({ target })} />}
       {TEXT_ACTIONS.has(event.action) && (
-        <input className="text-input" data-field="eventText" placeholder={t("event.message")} value={event.text ?? ""} onChange={(input) => onChange({ text: input.target.value })} />
+        <input className="text-input" data-field="eventText" placeholder={t(event.action === "showValue" ? "event.format" : "event.message")} title={event.action === "showValue" ? t("event.formatTip") : undefined} value={event.text ?? ""} onChange={(input) => onChange({ text: input.target.value })} />
       )}
     </div>
   );
 }
 
-export function Attributes({ t, store, selected, readOnly, onImportImage }) {
+export function Attributes({ t, store, selected, readOnly, onImportImage, onOpenFonts, folds }) {
   const project = store.project;
   const node = selected ? findNode(project, selected) : null;
   if (!node) return <div className="panel-body empty-note">{t("attr.none")}</div>;
@@ -185,8 +290,7 @@ export function Attributes({ t, store, selected, readOnly, onImportImage }) {
   return (
     <div className={readOnly ? "panel-body attributes read-only" : "panel-body attributes"}>
       {!available && <p className="form-note" data-note="unavailable">{t("widget.unavailable")}</p>}
-      <section>
-        <h4>{t("group.identity")}</h4>
+      <Group t={t} id="attr:identity" icon={GROUP_ICONS.identity} title={t("group.identity")} folds={folds}>
         <Field label={t("prop.name")}>
           <input
             className="text-input"
@@ -200,24 +304,22 @@ export function Attributes({ t, store, selected, readOnly, onImportImage }) {
             }}
           />
         </Field>
-      </section>
+      </Group>
       {groups.map((group) => {
         const props = definition.props.filter((prop) => prop.group === group);
         if (!props.length) return null;
         return (
-          <section key={group}>
-            <h4>{t(`group.${group}`)}</h4>
+          <Group key={group} t={t} id={`attr:${group}`} icon={GROUP_ICONS[group]} title={t(`group.${group}`)} folds={folds}>
             {props.map((prop) => (
               <Field key={prop.key} label={t(`prop.${prop.key}`)}>
-                <PropInput t={t} node={node} prop={prop} edit={edit} project={project} onImportImage={onImportImage} />
+                <PropInput t={t} node={node} prop={prop} edit={edit} project={project} onImportImage={onImportImage} onOpenFonts={onOpenFonts} />
               </Field>
             ))}
-          </section>
+          </Group>
         );
       })}
       {node.type !== "screen" && (
-        <section>
-          <h4>{t("group.events")}</h4>
+        <Group t={t} id="attr:events" icon={GROUP_ICONS.events} title={t("group.events")} folds={folds}>
           {node.events.map((event, index) => (
             <EventRow
               key={index}
@@ -237,7 +339,7 @@ export function Attributes({ t, store, selected, readOnly, onImportImage }) {
           >
             <Icon name="add" /> {t("event.add")}
           </button>
-        </section>
+        </Group>
       )}
     </div>
   );
@@ -255,35 +357,172 @@ function classOf(token) {
   return "c-key";
 }
 
-/** Read-only generated code with light syntax colours. */
-export function CodeView({ files, focus }) {
-  const names = Object.keys(files);
+const CODE_DEBOUNCE = 250;
+
+/**
+ * The generated code, editable: what is typed reaches the design a moment later, and a change
+ * in the design replaces the text. The colours are a <pre> under a transparent <textarea>.
+ */
+export function CodeView({ t, files, extra = {}, focus, readOnly, onEdit, width, onName }) {
+  const generatedNames = Object.keys(files);
   const [chosen, setName] = useState("src/ui/ui.c");
+  // A file outside the generated code (the project file, an image, a font) gets a tab while it is open.
+  const names = extra[chosen] ? [...generatedNames, chosen] : generatedNames;
   const name = names.includes(chosen) ? chosen : names[0];
-  const parts = useMemo(() => (files[name] ?? "").split(TOKEN), [files, name]);
+  const index = names.indexOf(name);
+  const opened = extra[name];
+  useEffect(() => {
+    onName?.(name);
+  }, [name, onName]);
+  // Text being edited and what became of it, per file. Without an entry the file shows as generated.
+  const [drafts, setDrafts] = useState({});
+  const [results, setResults] = useState({});
+  const text = opened ? opened.text ?? "" : drafts[name] ?? files[name] ?? "";
+  const editable = !opened && !readOnly && isEditableCode(name);
+  const result = results[name];
+  const error = result?.errors[0];
+  const parts = useMemo(() => text.split(TOKEN), [text]);
   const pre = useRef(null);
+  const input = useRef(null);
+  const tabs = useRef(null);
+  const timer = useRef(null);
+  const ownChange = useRef(false);
   const [lineHeight, setLineHeight] = useState(17.4);
+  useEffect(() => {
+    tabs.current?.querySelector(".active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [name]);
   useEffect(() => {
     if (focus) setName(focus.file);
   }, [focus]);
+
+  // The design changed by anything but this editor: the code follows it.
+  const generated = useRef(files);
+  useEffect(() => {
+    if (generated.current === files) return;
+    generated.current = files;
+    if (ownChange.current) {
+      ownChange.current = false;
+      return;
+    }
+    setDrafts({});
+    setResults({});
+  }, [files]);
+
+  const commit = (file, value) => {
+    clearTimeout(timer.current);
+    timer.current = null;
+    const outcome = onEdit(file, value);
+    if (outcome.changed) ownChange.current = true;
+    setResults((state) => ({ ...state, [file]: outcome }));
+    return outcome;
+  };
+  const change = (value) => {
+    setDrafts((state) => ({ ...state, [name]: value }));
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => commit(name, value), CODE_DEBOUNCE);
+  };
+  // Leaving the editor: readable code is shown again as the design prints it.
+  const settle = () => {
+    const value = drafts[name];
+    if (value === undefined) return;
+    const outcome = timer.current ? commit(name, value) : results[name];
+    if (outcome && !outcome.errors.length && !outcome.unused.length) {
+      setDrafts(({ [name]: _settled, ...rest }) => rest);
+      setResults(({ [name]: _done, ...rest }) => rest);
+    }
+  };
+  const onKeyDown = (event) => {
+    if (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && editable) {
+      event.preventDefault();
+      document.execCommand("insertText", false, "    ");
+    }
+    if (event.key.toLowerCase() === "s" && event.ctrlKey && timer.current) commit(name, event.currentTarget.value);
+  };
+  const follow = (event) => {
+    if (!pre.current) return;
+    pre.current.scrollTop = event.currentTarget.scrollTop;
+    pre.current.scrollLeft = event.currentTarget.scrollLeft;
+  };
+  const showLine = (line) => {
+    const element = input.current;
+    if (!element) return;
+    const height = Number.parseFloat(getComputedStyle(element).lineHeight) || 17.4;
+    element.scrollTop = Math.max(0, (line - 1) * height - element.clientHeight / 2);
+    let at = 0;
+    for (let row = 1; row < line; row++) at = text.indexOf("\n", at) + 1;
+    element.focus();
+    element.setSelectionRange(at, at);
+  };
+
   const focusLine = focus && focus.file === name ? focus.line : null;
   useLayoutEffect(() => {
-    if (!pre.current || !focusLine) return;
-    const height = Number.parseFloat(getComputedStyle(pre.current).lineHeight) || 17.4;
+    if (!input.current) return;
+    const height = Number.parseFloat(getComputedStyle(input.current).lineHeight) || 17.4;
     setLineHeight(height);
-    pre.current.scrollTop = Math.max(0, (focusLine - 1) * height - pre.current.clientHeight / 2);
+    if (!focusLine) return;
+    const top = Math.max(0, (focusLine - 1) * height - input.current.clientHeight / 2);
+    input.current.scrollTop = top;
+    if (pre.current) pre.current.scrollTop = input.current.scrollTop;
   }, [focus, focusLine]);
+  // A new file starts at its top, with the colours at the same place as the text.
+  useLayoutEffect(() => {
+    if (input.current && pre.current) {
+      pre.current.scrollTop = input.current.scrollTop;
+      pre.current.scrollLeft = input.current.scrollLeft;
+    }
+  }, [name, text]);
+
+  let status = <span className="code-note" data-code-status="readonly"><Icon name="info" size={14} /> {t("code.readOnly")}</span>;
+  if (error) {
+    status = (
+      <button type="button" className="code-note code-note-error" data-code-status="error" data-code-error={error.code} title={t("code.goToLine")} onClick={() => showLine(error.line)}>
+        <Icon name="error" size={14} /> {t("code.line", { line: error.line })} {t(`codeError.${error.code}`, error.params)}
+      </button>
+    );
+  } else if (result?.unused.length) {
+    status = <span className="code-note code-note-warning" data-code-status="unused"><Icon name="warning" size={14} /> {t("code.unused", { lines: result.unused.slice(0, 6).join(", ") })}</span>;
+  } else if (editable) {
+    status = <span className="code-note" data-code-status="editable"><Icon name="code" size={14} /> {t(name.endsWith("main.c") ? "code.editableMain" : name.endsWith("/ui.c") ? "code.editableUi" : name.endsWith("lv_conf.h") ? "code.editableConf" : "code.editable")}</span>;
+  }
   return (
-    <div className="code-view">
-      <div className="code-tabs">
-        {names.map((item) => (
-          <button type="button" key={item} data-code-tab={item} title={item} className={item === name ? "active" : undefined} onClick={() => setName(item)}>{item.split("/").pop()}</button>
-        ))}
+    <div className="code-view" style={width ? { width } : undefined}>
+      <div className="code-tab-bar">
+        <div className="code-tabs" ref={tabs} onWheel={(event) => { event.currentTarget.scrollLeft += event.deltaY; }}>
+          {names.map((item) => (
+            <button type="button" key={item} data-code-tab={item} title={item} className={item === name ? "active" : undefined} onClick={() => setName(item)}>{item.split("/").pop()}</button>
+          ))}
+        </div>
+        <span className="tab-nav">
+          <button type="button" className="mini" data-command="code-prev" disabled={index <= 0} aria-label={t("code.prev")} title={t("code.prev")} onClick={() => setName(names[index - 1])}><Icon name="collapseLeft" size={14} /></button>
+          <button type="button" className="mini" data-command="code-next" disabled={index >= names.length - 1} aria-label={t("code.next")} title={t("code.next")} onClick={() => setName(names[index + 1])}><Icon name="collapseRight" size={14} /></button>
+        </span>
       </div>
-      <pre data-code="" ref={pre}>
-        {focusLine && <i className="code-focus" data-code-focus={focusLine} style={{ top: 8 + (focusLine - 1) * lineHeight, height: lineHeight }} />}
-        {parts.map((part, index) => (index % 2 ? <span key={index} className={classOf(part)}>{part}</span> : part))}
-      </pre>
+      {opened?.image ? (
+        <div className="code-image" data-code-image={name}><img src={opened.image} alt={name} /></div>
+      ) : (
+      <div className="code-edit">
+        <pre data-code="" ref={pre} aria-hidden="true">
+          {focusLine && !error && <i className="code-focus" data-code-focus={focusLine} style={{ top: 8 + (focusLine - 1) * lineHeight, height: lineHeight }} />}
+          {error && <i className="code-focus code-error" data-code-error-line={error.line} style={{ top: 8 + (error.line - 1) * lineHeight, height: lineHeight }} />}
+          {parts.map((part, at) => (at % 2 ? <span key={at} className={classOf(part)}>{part}</span> : part))}
+        </pre>
+        <textarea
+          ref={input}
+          key={name}
+          data-code-input={name}
+          aria-label={name}
+          value={text}
+          readOnly={!editable}
+          wrap="off"
+          spellCheck={false}
+          onChange={(event) => change(event.target.value)}
+          onScroll={follow}
+          onBlur={settle}
+          onKeyDown={onKeyDown}
+        />
+      </div>
+      )}
+      <div className="code-status">{status}</div>
     </div>
   );
 }

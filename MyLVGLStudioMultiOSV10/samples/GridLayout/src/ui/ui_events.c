@@ -2,3 +2,107 @@
 #include "ui.h"
 #include "ui_events.h"
 #include <stdio.h>
+
+void ui_event_0(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "7");
+}
+
+void ui_event_1(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "8");
+}
+
+void ui_event_2(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "9");
+}
+
+void ui_event_3(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "/");
+}
+
+void ui_event_4(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "4");
+}
+
+void ui_event_5(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "5");
+}
+
+void ui_event_6(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "6");
+}
+
+void ui_event_7(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "x");
+}
+
+void ui_event_8(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "1");
+}
+
+void ui_event_9(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "2");
+}
+
+void ui_event_10(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "3");
+}
+
+void ui_event_11(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "-");
+}
+
+void ui_event_12(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "0");
+}
+
+void ui_event_13(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, ".");
+}
+
+void ui_event_14(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "=");
+}
+
+void ui_event_15(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_textarea_set_text(ui_textarea1, "+");
+}
+
+void ui_event_16(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    char text[128];
+    lv_snprintf(text, sizeof(text), "%d", lv_slider_get_value(ui_slider1));
+    lv_textarea_set_text(ui_textarea1, text);
+}

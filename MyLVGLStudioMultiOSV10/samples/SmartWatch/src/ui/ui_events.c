@@ -2,3 +2,11 @@
 #include "ui.h"
 #include "ui_events.h"
 #include <stdio.h>
+
+void ui_event_0(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    char text[128];
+    lv_snprintf(text, sizeof(text), "%d %% of goal", lv_arc_get_value(ui_arc1));
+    lv_label_set_text(ui_label2, text);
+}

@@ -42,4 +42,18 @@ void ui_Desktop_create(void)
     lv_obj_set_align(ui_msgbox1, LV_ALIGN_TOP_LEFT);
     lv_obj_set_x(ui_msgbox1, 410);
     lv_obj_set_y(ui_msgbox1, 270);
+    ui_bar1 = lv_bar_create(ui_Desktop);
+    lv_bar_set_range(ui_bar1, 0, 100);
+    lv_obj_set_width(ui_bar1, 384);
+    lv_obj_set_height(ui_bar1, 10);
+    lv_obj_set_x(ui_bar1, 400);
+    lv_obj_set_y(ui_bar1, 238);
+    lv_bar_set_value(ui_bar1, 30, LV_ANIM_OFF);
+    ui_slider1 = lv_slider_create(ui_Desktop);
+    lv_slider_set_range(ui_slider1, 0, 100);
+    lv_obj_set_width(ui_slider1, 384);
+    lv_obj_set_height(ui_slider1, 10);
+    lv_obj_set_x(ui_slider1, 400);
+    lv_obj_set_y(ui_slider1, 254);
+    lv_slider_set_value(ui_slider1, 30, LV_ANIM_OFF);
 }

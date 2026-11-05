@@ -1,9 +1,11 @@
 // What is wrong with a project: read from the document, so the list is always current, and
 // from the compiler's output after a native build. Every entry says where it can be fixed.
-import { ALIGNS, FLEX_FLOWS, availableIn } from "./schema.js";
+import { ALIGNS, FLEX_FLOWS, TEXT_TARGETS, VALUE_SOURCES, VALUE_TARGETS, availableIn } from "./schema.js";
 import { cNames } from "./emit.js";
 import { sanitizeName, walk } from "./project.js";
 import { engineFor } from "./versions.js";
+import { depthOfFormat, disabledWidgetOption } from "./lvconf.js";
+import { fontData } from "./fonts.js";
 
 const NO_OVERLAP_CHECK = new Set(["keyboard", "msgbox"]);
 
@@ -25,6 +27,14 @@ function boxOf(node, parent) {
   const x = across + (Number(node.props.x) || 0);
   const y = down + (Number(node.props.y) || 0);
   return { x, y, w: width, h: height };
+}
+
+const ROUND_WIDGETS = new Set(["arc", "spinner", "meter", "colorwheel", "led"]);
+/** A round widget must fit the display as a circle; any other one with all its corners. */
+function outsideCircle(type, box, radius) {
+  const [cx, cy] = [box.x + box.w / 2, box.y + box.h / 2];
+  if (ROUND_WIDGETS.has(type)) return Math.hypot(cx - radius, cy - radius) + Math.max(box.w, box.h) / 2 > radius + 0.5;
+  return [[box.x, box.y], [box.x + box.w, box.y], [box.x, box.y + box.h], [box.x + box.w, box.y + box.h]].some(([x, y]) => Math.hypot(x - radius, y - radius) > radius + 0.5);
 }
 
 const contains = (a, b) => a.x <= b.x && a.y <= b.y && a.x + a.w >= b.x + b.w && a.y + a.h >= b.y + b.h;
@@ -124,6 +134,78 @@ export function findProblems(project, { installed = null } = {}) {
     }
   });
 
+  // Value actions on widgets that have no value, or that cannot show one.
+  walk(project, (node) => {
+    for (const event of node.events) {
+      const target = nodes.get(event.target);
+      if (event.action === "setValue" && (!VALUE_SOURCES.has(node.type) || (target && !VALUE_TARGETS.has(target.type)))) add("warning", "eventValue", node, {});
+      if (event.action === "showValue" && (!VALUE_SOURCES.has(node.type) || (target && !TEXT_TARGETS.has(target.type)))) add("warning", "eventValue", node, {});
+    }
+  });
+
+  // Fonts: a file that is gone, and characters the font in effect does not have.
+  const fontNamed = (name) => (project.fonts ?? []).find((font) => font.name === name);
+  for (const font of project.fonts ?? []) {
+    if (!fontData(font.name)) add("error", "fontFile", null, { name: font.name, file: font.file });
+  }
+  if (project.defaultFont && !fontNamed(project.defaultFont.font)) add("warning", "fontMissing", null, { name: project.defaultFont.font });
+  if (project.lvConf?.LV_USE_TINY_TTF === "0" && project.fonts?.length) add("error", "confTtf", null, { option: "LV_USE_TINY_TTF" });
+  const hasCharacter = (fontName, face) => {
+    const faces = fontData(fontName)?.info.faces;
+    return faces ? faces[face]?.has ?? null : null;
+  };
+  const BUILT_IN = (code) => (code >= 0x20 && code <= 0x7e) || code === 0xb0 || code === 0x2022 || (code >= 0xf000 && code <= 0xf8ff);
+  const standardFont = project.defaultFont ? fontNamed(project.defaultFont.font) : null;
+  // A project font falls back on the built-in one, so what that has shows too.
+  const withBuiltIn = (has) => (code) => has(code) || BUILT_IN(code);
+  const standardHas = standardFont && hasCharacter(standardFont.name, standardFont.face);
+  const standard = standardHas ? withBuiltIn(standardHas) : BUILT_IN;
+  const TEXT_PROPS = ["text", "title", "placeholder", "options", "items", "cells", "tabs", "tiles", "menuItems", "spans", "map", "buttons"];
+  const visitText = (node, inherited) => {
+    let current = inherited;
+    if (node.props.fontFamily !== undefined) {
+      const font = fontNamed(node.props.fontFamily);
+      const has = font && hasCharacter(font.name, font.face);
+      if (has) current = withBuiltIn(has);
+      else if (font) current = BUILT_IN;
+      if (!font) add("warning", "fontMissing", node, { name: node.props.fontFamily });
+    } else if (node.props.font !== undefined) {
+      current = standard;
+    }
+    if (availableIn(node.type, version)) {
+      const missing = new Set();
+      for (const key of TEXT_PROPS) {
+        for (const character of String(node.props[key] ?? "")) {
+          const code = character.codePointAt(0);
+          if (code >= 0x20 && !current(code)) missing.add(character);
+        }
+      }
+      if (missing.size) add("warning", "fontGlyphs", node, { characters: [...missing].slice(0, 8).join(" ") });
+    }
+    for (const child of node.children) visitText(child, current);
+  };
+  for (const screen of project.screens) visitText(screen, standard);
+
+  // What project.lvConf turned off, but the design uses: the native build would fail on it.
+  const conf = project.lvConf;
+  if (conf) {
+    if (conf.LV_USE_THEME_DEFAULT === "0") add("error", "confTheme", null, { option: "LV_USE_THEME_DEFAULT" });
+    if (conf.LV_COLOR_DEPTH !== undefined && ![16, 24, 32].includes(Number(conf.LV_COLOR_DEPTH))) add("warning", "confDepth", null, { depth: conf.LV_COLOR_DEPTH });
+    if (conf.LV_COLOR_16_SWAP === "1") add("warning", "confSwap", null, { option: "LV_COLOR_16_SWAP" });
+    if (conf.LV_COLOR_FORMAT_DEFAULT !== undefined && depthOfFormat(conf.LV_COLOR_FORMAT_DEFAULT) < 16) add("warning", "confDepth", null, { depth: conf.LV_COLOR_FORMAT_DEFAULT });
+    if (/SWAPPED/.test(conf.LV_COLOR_FORMAT_DEFAULT ?? "")) add("warning", "confSwap", null, { option: "LV_COLOR_FORMAT_DEFAULT" });
+    const standard = /^(?:&lv_font_montserrat_|LV_FONT_DEFAULT_MONTSERRAT_)(\d+)$/.exec(conf.LV_FONT_DEFAULT ?? "&lv_font_montserrat_14")?.[1];
+    if (standard && conf[`LV_FONT_MONTSERRAT_${standard}`] === "0") add("error", "confFontDefault", null, { option: `LV_FONT_MONTSERRAT_${standard}` });
+    walk(project, (node) => {
+      if (!availableIn(node.type, version)) return;
+      const widget = disabledWidgetOption(node.type, conf);
+      if (widget) add("error", "confWidget", node, { option: widget });
+      if (node.props.font !== undefined && node.props.fontFamily === undefined && conf[`LV_FONT_MONTSERRAT_${node.props.font}`] === "0") add("error", "confFont", node, { option: `LV_FONT_MONTSERRAT_${node.props.font}` });
+      if (node.props.flexFlow !== undefined && conf.LV_USE_FLEX === "0") add("error", "confLayout", node, { option: "LV_USE_FLEX" });
+      if (node.type === "grid" && conf.LV_USE_GRID === "0") add("error", "confLayout", node, { option: "LV_USE_GRID" });
+    });
+  }
+
   // Positions: only what can be worked out without LVGL's layout.
   const visit = (node, size, isScreen) => {
     if (node.type !== "screen" && node.type !== "container") return;
@@ -133,6 +215,7 @@ export function findProblems(project, { installed = null } = {}) {
       if (!availableIn(child.type, version)) continue;
       const box = flowing ? null : boxOf(child, size);
       if (box && !child.props.hidden && !NO_OVERLAP_CHECK.has(child.type)) {
+        if (isScreen && project.device.shape === "round" && outsideCircle(child.type, box, size.w / 2)) add("warning", "roundOutside", child, {});
         if (isScreen) {
           const whole = { x: 0, y: 0, w: size.w, h: size.h };
           if (!touches(whole, box)) add("warning", "offScreen", child, { w: size.w, h: size.h });

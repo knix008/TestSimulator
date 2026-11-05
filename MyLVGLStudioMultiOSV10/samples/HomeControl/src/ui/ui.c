@@ -30,9 +30,11 @@ void ui_init(void)
     ui_Home_create();
     ui_Schedule_create();
 
-    lv_obj_add_event_cb(ui_button1, ui_event_0, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_button2, ui_event_1, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_button2, ui_event_2, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_arc1, ui_event_0, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_slider1, ui_event_1, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_button1, ui_event_2, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button2, ui_event_3, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button2, ui_event_4, LV_EVENT_CLICKED, NULL);
 
     lv_screen_load(ui_Home);
 }

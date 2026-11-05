@@ -66,7 +66,7 @@ App
 │  ├─ 왼쪽              Palette
 │  ├─ 가운데            화면 탭, 버전 표시, 확대·축소, 디자인/분할/코드 전환
 │  │  ├─ Surface        캔버스(LVGL 프레임) + 오버레이(선택, 핸들, 포인터)
-│  │  ├─ CodeView       생성 코드(읽기 전용)
+│  │  ├─ CodeView       생성 코드(편집하면 문서로 되돌림)
 │  │  └─ LogView        로그, 빌드 (가운데 열 아래)
 │  └─ 오른쪽            ComponentTree, Attributes (속성, 이벤트)
 ├─ 상태 표시줄          모드, 파일, LVGL 버전, 화면 크기, 선택 항목, 크기 조절 손잡이
@@ -84,6 +84,26 @@ App
   → Surface: engine.load() (emit → 모든 객체 재생성 → 렌더링) → 캔버스, 선택 상자 좌표 갱신
   → 코드 보기가 열려 있으면: generateCode() → CodeView 갱신
 ```
+
+#### 글꼴
+
+설계 화면(WASM 엔진)과 생성 코드 모두 LVGL의 TinyTTF로 그리므로 결과가 픽셀까지 같습니다(`test/run.mjs`가 gcc 빌드와 비교). 파일 내용은 문서 밖의 `fonts.js`에 두어 실행 취소 기록을 키우지 않습니다. 디코더는 글꼴 모음의 첫 면만 열기 때문에, 다른 면을 쓸 때는 모음 머리의 첫 항목이 그 면을 가리키도록 복사본을 고칩니다. 엔진은 (파일, 면, 크기)별로 디코더를 유지합니다. 파일에 없는 글자는 `fallback`으로 내장 글꼴에서 찾습니다.
+
+#### LVGL 설정
+
+`engine/lv_conf.h`는 설계 엔진과 시뮬레이터가 함께 쓰는 공용 설정이고 엔진은 이 설정으로 미리 빌드됩니다. 프로젝트의 `lvConf`는 생성되는 `config/lv_conf.h`에만 반영되므로 설계 화면의 모양에는 영향을 주지 않습니다. 창의 항목은 코드에 적어 두지 않고 버전의 템플릿을 읽어 만듭니다.
+
+#### 코드 편집
+
+```
+코드 보기에 입력 → 250ms 뒤 applyCodeEdit(문서, 파일, 글)
+  → 지금 문서에서 생성한 코드와 입력한 코드를 각각 읽어 차이만 문서에 적용
+  → 적용 결과를 다시 생성해서 입력과 같은지 확인
+  → 성공: store.update() → 위와 같은 경로로 그래픽 갱신
+  → 실패: 문서는 그대로, 코드 창 아래에 오류와 줄 번호 표시
+```
+
+차이만 적용하므로 코드에 나타나지 않는 값(이벤트, 키보드의 대상, 이 LVGL 버전에 없는 콘트롤)은 그대로 남습니다. 편집할 수 있는 파일은 화면 파일, `main.c`의 `WIDTH`/`HEIGHT`, `ui.c`의 `lv_theme_default_init` 입니다.
 
 #### 앱 안에서 실행
 
@@ -142,6 +162,11 @@ Shift+F5 → native_check (도구 확인) → lvgl_installed (없으면 LVGL 관
 | `src/lvgl/emit.js` | 문서를 연산 목록으로 변환 |
 | `src/lvgl/engine.js` | WebAssembly 엔진 구동. 앱과 Node 테스트에서 함께 사용합니다. |
 | `src/lvgl/codegen.js` | C 코드 생성 |
+| `src/lvgl/codeparse.js` | 고친 C 코드를 읽어 문서에 반영 |
+| `src/lvgl/lvconf.js` | `lv_conf_template.h` 해석, 조건 평가, 프로젝트별 `lv_conf.h` 생성 |
+| `src/lvgl/confTemplates.js` | 내장 엔진 버전의 `lv_conf_template.h` (`npm run conf-templates`로 생성) |
+| `src/lvgl/fonts.js` | 글꼴 파일 해석(면, 이름, 문자표)과 글꼴 보관 |
+| `src/LvConfDialog.jsx`, `src/FontsDialog.jsx` | LVGL 설정 창과 글꼴 창 |
 | `src/lvgl/versions.js` | 지원 버전, 엔진 선택, v8과 v9의 API 이름 차이 |
 | `src/lvgl/lvConfText.js` | 생성 프로젝트용 `lv_conf.h` 문자열. 테스트가 `engine/lv_conf.h`와 같은지 확인합니다. |
 | `src/App.jsx` | 창 전체, 명령, 단축키 |
@@ -264,7 +289,7 @@ F5는 `run` 라벨의 별도 Tauri 창을 엽니다. 메인 창이 문서와 이
 
 1. `schema.js`에 위젯과 속성을 추가합니다.
 2. `runtime.c`의 enum과 `switch`에 같은 id로 추가합니다.
-3. 정수 속성이면 `emit.js`의 목록에, 코드 출력은 `codegen.js`에 추가합니다.
+3. 정수 속성이면 `emit.js`의 목록에, 코드 출력은 `codegen.js`에, 코드를 다시 읽는 부분은 `codeparse.js`에 추가합니다.
 4. `i18n.js`의 두 언어에 이름을 넣고, 필요하면 `icons.jsx`에 아이콘을 추가합니다.
 5. `npm run build:engine`으로 엔진을 다시 빌드합니다.
 6. `valueFor()`와 `visible` 표(`test/features.mjs`)에 추가해 픽셀 비교와 화면 변화 검사의 대상에 넣습니다.

@@ -16,12 +16,16 @@ export const PROP_IDS = {
   align: 9, hidden: 10, clickable: 11, scrollable: 12, checked: 13, disabled: 14,
   bgColor: 20, bgOpa: 21, borderColor: 22, borderWidth: 23, radius: 24, textColor: 25, font: 26, pad: 27,
   shadowWidth: 28, shadowColor: 29, opa: 30, gap: 31, indicatorColor: 32, flexFlow: 33,
-  value: 42, selected: 43, ledBright: 44, rotation: 45, scale: 46, lineColor: 47, lineWidth: 48, columnWidth: 49, chartType: 50, image: 51, scaleMode: 52, totalTicks: 53, majorEvery: 54, duration: 55,
+  value: 42, selected: 43, ledBright: 44, rotation: 45, scale: 46, lineColor: 47, lineWidth: 48, columnWidth: 49, chartType: 50, image: 51, scaleMode: 52, totalTicks: 53, majorEvery: 54, duration: 55, animate: 56,
 };
 
 export const STR_IDS = { text: 1, placeholder: 2, options: 3, items: 4, cells: 5, series: 6, tabs: 7, map: 8, points: 9, title: 10, buttons: 11, tiles: 12, menuItems: 13, spans: 14, frames: 15 };
 export const TRIGGERS = ["CLICKED", "PRESSED", "RELEASED", "VALUE_CHANGED"];
-export const ACTION_IDS = { screen: 1, setText: 2, toggle: 3, log: 4, show: 5, hide: 6 };
+export const ACTION_IDS = { screen: 1, setText: 2, toggle: 3, log: 4, show: 5, hide: 6, setValue: 7, showValue: 8 };
+/** What a value action can read from, and what it can move or write to. */
+export const VALUE_SOURCES = new Set(["slider", "bar", "arc", "spinbox", "dropdown", "roller", "switch", "checkbox"]);
+export const VALUE_TARGETS = new Set(["slider", "bar", "arc", "spinbox", "meter", "led", "dropdown", "roller", "image"]);
+export const TEXT_TARGETS = new Set(["label", "button", "checkbox", "textarea", "arclabel", "win"]);
 
 /** Same order as ALIGNS in engine/runtime.c. */
 export const ALIGNS = ["DEFAULT", "TOP_LEFT", "TOP_MID", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_MID", "BOTTOM_RIGHT", "LEFT_MID", "RIGHT_MID", "CENTER"];
@@ -57,6 +61,7 @@ const STYLE = [
 
 const TEXT_STYLE = [
   { key: "textColor", kind: "color", group: "style" },
+  { key: "fontFamily", kind: "fontFamily", group: "style" },
   { key: "font", kind: "enum", options: FONT_SIZES, group: "style" },
 ];
 
@@ -80,6 +85,7 @@ const RANGE = [
   { key: "min", kind: "int", group: "content" },
   { key: "max", kind: "int", group: "content" },
   { key: "value", kind: "int", group: "content" },
+  { key: "animate", kind: "int", min: 0, max: 600000, group: "content" },
   { key: "indicatorColor", kind: "color", group: "style" },
 ];
 
@@ -167,7 +173,7 @@ export const WIDGETS = {
   span: widget("span", [{ key: "spans", kind: "lines", group: "content" }, ...TEXT_STYLE], { width: 180, height: 60, spans: "Hello \nLVGL" }),
   colorwheel: { ...widget("colorwheel", [], { width: 120, height: 120 }), until: "8.99.99" },
   meter: {
-    ...widget("meter", [{ key: "min", kind: "int", group: "content" }, { key: "max", kind: "int", group: "content" }, { key: "value", kind: "int", group: "content" }], { width: 160, height: 160, min: 0, max: 100, value: 40 }),
+    ...widget("meter", [{ key: "min", kind: "int", group: "content" }, { key: "max", kind: "int", group: "content" }, { key: "value", kind: "int", group: "content" }, { key: "animate", kind: "int", min: 0, max: 600000, group: "content" }], { width: 160, height: 160, min: 0, max: 100, value: 40 }),
     until: "8.99.99",
   },
   scale: {
@@ -198,6 +204,14 @@ export const PALETTE = [
   { group: "display", items: ["bar", "arc", "spinner", "led", "chart", "meter", "scale", "list", "table", "calendar", "qrcode", "barcode"] },
 ];
 
+/** Does a project's screen have this preset's size and shape? */
+export const sameDevice = (a, b) => a.w === b.w && a.h === b.h && (a.shape ?? "rect") === (b.shape ?? "rect");
+/** A round screen is as wide as it is high. Only what is not plain rectangular is stored. */
+export function normalDevice({ w, h, shape }) {
+  if (shape !== "round") return { w, h };
+  return { w, h: w, shape };
+}
+
 export const CONTAINERS = new Set(["screen", "container", "grid"]);
 
 /** Where a child of a Grid sits. Without them it takes the next free cell. */
@@ -217,8 +231,20 @@ export function availableIn(type, version) {
 export const DEVICES = [
   { id: "cyd", w: 320, h: 240 },
   { id: "portrait", w: 240, h: 320 },
+  { id: "round", w: 240, h: 240 },
   { id: "hvga", w: 480, h: 320 },
-  { id: "wvga", w: 800, h: 480 },
-  { id: "wsvga", w: 1024, h: 600 },
+  { id: "wqvga", w: 480, h: 272 },
   { id: "square", w: 480, h: 480 },
+  { id: "vga", w: 640, h: 480 },
+  { id: "wvga", w: 800, h: 480 },
+  { id: "svga", w: 800, h: 600 },
+  { id: "wsvga", w: 1024, h: 600 },
+  { id: "xga", w: 1024, h: 768 },
+  { id: "hd", w: 1280, h: 720 },
+  { id: "wxga", w: 1280, h: 800 },
+  { id: "fhd", w: 1920, h: 1080 },
+  { id: "circle240", w: 240, h: 240, shape: "round" },
+  { id: "circle360", w: 360, h: 360, shape: "round" },
+  { id: "circle466", w: 466, h: 466, shape: "round" },
+  { id: "circle480", w: 480, h: 480, shape: "round" },
 ];

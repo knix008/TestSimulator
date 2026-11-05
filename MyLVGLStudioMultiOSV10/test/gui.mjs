@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { connect, waitForTarget } from "../scripts/cdp.mjs";
 import { freePort } from "../scripts/free-port.mjs";
 import { createReporter } from "./reporter.mjs";
+import { buildCollection } from "./minifont.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const argument = (name) => {
@@ -1198,6 +1199,528 @@ await step("Every generated file can be read in the code view", async () => {
   await click('[data-command="code"]');
 });
 
+await step("The code tabs are one row of their own above the code", async () => {
+  await click('[data-command="code"]');
+  await sleep(60);
+  const shape = () => js(`(() => {
+    const code = document.querySelector("[data-code]").getBoundingClientRect();
+    const view = document.querySelector(".code-view").getBoundingClientRect();
+    const bar = document.querySelector(".code-tab-bar").getBoundingClientRect();
+    const strip = document.querySelector(".code-tabs").getBoundingClientRect();
+    const tops = new Set(Array.from(document.querySelectorAll("[data-code-tab]")).map((e) => Math.round(e.getBoundingClientRect().top)));
+    const active = document.querySelector("[data-code-tab].active").getBoundingClientRect();
+    return { above: bar.bottom <= code.top + 1, atTop: Math.abs(bar.top - view.top) <= 1, rows: tops.size, height: Math.round(bar.height), activeSeen: active.left >= strip.left - 1 && active.right <= strip.right + 1 };
+  })()`);
+  const expected = { above: true, atTop: true, rows: 1, height: 28, activeSeen: true };
+  assert.deepEqual(await shape(), expected);
+  await shot("10p-code-tabs");
+  // The buttons walk through every file, keeping the chosen tab in view.
+  const count = await js('document.querySelectorAll("[data-code-tab]").length');
+  await js('document.querySelector("[data-code-tab]").click()');
+  await sleep(60);
+  assert.equal(await js(`document.querySelector('[data-command="code-prev"]').disabled`), true, "previous on the first file");
+  for (let i = 1; i < count; i++) {
+    await click('[data-command="code-next"]');
+    await sleep(40);
+    assert.deepEqual(await shape(), expected, `file ${i}`);
+  }
+  assert.equal(await js(`document.querySelector('[data-command="code-next"]').disabled`), true, "next on the last file");
+  await click('[data-command="code-prev"]');
+  await sleep(40);
+  assert.equal(await js("document.querySelector('[data-code-tab].active') === Array.from(document.querySelectorAll('[data-code-tab]')).at(-2)"), true);
+  await click('[data-command="code"]');
+});
+
+await step("Screen size: the toolbar chip offers sizes, and any size can be typed", async () => {
+  const device = async () => (await project()).device;
+  const start = await device();
+  await click('[data-command="device-chip"]');
+  await page.until("document.querySelector('[data-device-menu]')", 2000);
+  assert.ok((await js("document.querySelectorAll('[data-device]').length")) >= 10, "too few sizes");
+  await shot("10q-device-menu");
+  await click('[data-device="wvga"]');
+  await sleep(150);
+  assert.deepEqual(await device(), { w: 800, h: 480 });
+  assert.equal(await js("window.__mls.engine().width"), 800, "the surface did not follow");
+  assert.equal(await js("!!document.querySelector('[data-device-menu]')"), false);
+  await click('[data-command="device-chip"]');
+  // Typed digit by digit: every step in between must survive, also those under the minimum.
+  const typeInto = async (selector, text) => {
+    const point = await center(selector);
+    await clickAt(point.x, point.y);
+    await js(`document.querySelector(${JSON.stringify(selector)}).select();void 0`);
+    await page.send("Input.insertText", { text: "" });
+    for (const ch of text) {
+      await page.send("Input.dispatchKeyEvent", { type: "keyDown", text: ch, key: ch });
+      await page.send("Input.dispatchKeyEvent", { type: "keyUp", key: ch });
+      await sleep(30);
+    }
+  };
+  await typeInto('[data-field="toolbarDeviceW"] input', "720");
+  await typeInto('[data-field="toolbarDeviceH"] input', "555");
+  await sleep(150);
+  assert.deepEqual(await device(), { w: 720, h: 555 });
+  assert.match(await js(`document.querySelector('[data-command="device-chip"]').textContent`), /720×555/);
+  await click('[data-command="device-swap"]');
+  await sleep(120);
+  assert.deepEqual(await device(), { w: 555, h: 720 });
+  await shot("10r-device-custom");
+  await click('[data-command="device-chip"]');
+  await sleep(60);
+  for (let i = 0; i < 5; i++) {
+    await click('[data-command="undo"]');
+    await sleep(60);
+    if ((await device()).w === start.w && (await device()).h === start.h) break;
+  }
+  assert.deepEqual(await device(), start);
+});
+
+await step("Code and design follow each other", async () => {
+  await click('[data-command="code"]');
+  await sleep(100);
+  const file = (await js("Array.from(document.querySelectorAll('[data-code-tab]')).map((e) => e.dataset.codeTab)")).find((name) => name.includes("/screens/"));
+  await click(`[data-code-tab="${file}"]`);
+  await sleep(60);
+  const input = `document.querySelector('[data-code-input]')`;
+  const text = () => js(`${input}.value`);
+  const type = async (value) => {
+    await js(`(() => { const e = ${input}; e.focus(); e.select(); document.execCommand("insertText", false, ${JSON.stringify(value)}); })()`);
+    await sleep(450);
+  };
+  assert.equal(await js(`${input}.readOnly`), false, "a screen's code should be editable");
+  assert.equal(await js(`getComputedStyle(${input}).color`), "rgba(0, 0, 0, 0)", "only the coloured layer should show");
+  const nodes = () => js("window.__mls.project().screens[0].children.map((n) => ({ id: n.id, name: n.name, x: n.props.x, type: n.type }))");
+  const original = await text();
+  const list = await nodes();
+  assert.ok(list.length, "the step needs a widget from the earlier steps");
+  const widget = list[0];
+  const name = `ui_${widget.name}`;
+  // Code to design: a number.
+  const moved = original.includes(`lv_obj_set_x(${name},`)
+    ? original.replace(new RegExp(`lv_obj_set_x\\(${name}, -?\\d+\\);`), () => `lv_obj_set_x(${name}, 123);`)
+    : original.replace(/\n}\n$/, () => `\n    lv_obj_set_x(${name}, 123);\n}\n`);
+  await type(moved);
+  assert.equal((await nodes())[0].x, 123, "the design did not follow the code");
+  // The surface draws the moved widget where the code says.
+  assert.equal((await js(`window.__mls.box(${JSON.stringify(widget.id)})`)).x, 123, "the surface did not follow the code");
+  await shot("10s-code-edit");
+  // A mistake says where it is, and the design stays.
+  await type(moved.replace(`lv_obj_set_x(${name}, 123);`, `lv_obj_set_x(${name}, 123)`));
+  assert.equal(await js("document.querySelector('[data-code-status]').dataset.codeStatus"), "error");
+  assert.equal((await nodes())[0].x, 123);
+  await shot("10t-code-error");
+  await type(moved);
+  assert.notEqual(await js("document.querySelector('[data-code-status]').dataset.codeStatus"), "error");
+  // Design to code: the attribute panel, or anything else, replaces the text.
+  await js(`${input}.blur();void 0`);
+  await sleep(80);
+  await click('[data-command="undo"]');
+  await sleep(150);
+  assert.equal(await text(), original, "the code did not follow the design");
+  // A file only the generator writes cannot be typed in.
+  await click('[data-code-tab="src/ui/ui.h"]');
+  await sleep(60);
+  assert.equal(await js(`${input}.readOnly`), true);
+  assert.equal(await js("document.querySelector('[data-code-status]').dataset.codeStatus"), "readonly");
+  await click('[data-command="code"]');
+});
+
+await step("A button's line stays soft under a nearly white accent", async () => {
+  const before = await js("document.documentElement.dataset.theme");
+  const mode = await js("document.documentElement.dataset.mode");
+  await js(`document.documentElement.dataset.theme = "dark-carbon"; document.documentElement.dataset.mode = "dark"; void 0`);
+  await sleep(80);
+  const palette = await center(".palette-item");
+  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: palette.x, y: palette.y, buttons: 0 });
+  await sleep(150);
+  const measured = await js(`(() => { const s = getComputedStyle(document.documentElement); const e = document.querySelector(".palette-item:hover"); return e ? { border: getComputedStyle(e).borderTopColor, wanted: s.getPropertyValue("--accent-line").trim(), raw: s.getPropertyValue("--accent").trim() } : null; })()`);
+  assert.ok(measured, "the pointer did not reach the item");
+  const hex = (text) => "#" + text.match(/\d+/g).slice(0, 3).map((v) => Number(v).toString(16).padStart(2, "0")).join("");
+  assert.equal(hex(measured.border), measured.wanted);
+  assert.notEqual(measured.wanted, measured.raw);
+  await shot("10u-carbon-hover");
+  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 2, y: 2, buttons: 0 });
+  await js(`document.documentElement.dataset.theme = ${JSON.stringify(before)}; document.documentElement.dataset.mode = ${JSON.stringify(mode)}; void 0`);
+});
+
+await step("LVGL settings: the window is made from the version's own file, and reaches the code", async () => {
+  await click('[data-command="lvconf"]');
+  await page.until('document.querySelector("[data-dialog=lvconf] [data-conf-source=bundled]")', 8000);
+  const version = (await project()).lvgl;
+  const total = () => js("Number(document.querySelector('[data-conf-total]').dataset.confTotal)");
+  const first = await total();
+  assert.ok(first >= 200, `${version}: ${first} settings`);
+  assert.match(await js("document.querySelector('[data-conf-source]').textContent"), new RegExp(version.replaceAll(".", "\\.")));
+  await shot("10v-lvconf");
+  // Find an option and change it.
+  await js(`(() => { const e = document.querySelector('[data-field="confSearch"]'); e.focus(); document.execCommand("insertText", false, "LOG"); })()`);
+  await page.until("document.querySelector('[data-conf=\"LV_USE_LOG\"]')", 2000);
+  await click('[data-conf="LV_USE_LOG"] [role="switch"]');
+  await sleep(120);
+  assert.deepEqual((await project()).lvConf, { LV_USE_LOG: "1" });
+  assert.equal(await js("document.querySelector('[data-conf-count]').dataset.confCount"), "1");
+  // What it opens up comes alive.
+  await page.until("document.querySelector('[data-conf=\"LV_LOG_LEVEL\"][data-active]')", 2000);
+  await shot("10w-lvconf-search");
+  await click('[data-conf-reset="LV_USE_LOG"]');
+  await sleep(120);
+  assert.equal((await project()).lvConf, undefined);
+  await click('[data-conf="LV_USE_LOG"] [role="switch"]');
+  await sleep(120);
+  await js(`(() => { const e = document.querySelector('[data-field="confSearch"]'); e.focus(); e.select(); document.execCommand("delete"); })()`);
+  await sleep(120);
+  // Another version, another window: its own count and names.
+  const other = version === "8.4.0" ? "9.6.0" : "8.4.0";
+  await click('[data-select="confVersion"] .icon-select-button');
+  await click(`[data-select="confVersion"] [data-value="${other}"]`);
+  await page.until(`window.__mls.engine() && window.__mls.engine().runtimeVersion() === "${other}"`, 15000);
+  await sleep(300);
+  assert.notEqual(await total(), first, "the same window for another version");
+  await shot("10x-lvconf-other-version");
+  await click('[data-select="confVersion"] .icon-select-button');
+  await click(`[data-select="confVersion"] [data-value="${version}"]`);
+  await page.until(`window.__mls.engine() && window.__mls.engine().runtimeVersion() === "${version}"`, 15000);
+  await sleep(300);
+  await click('[data-command="conf-close"]');
+  await sleep(80);
+  // The code shows it, and takes changes back.
+  await click('[data-command="code"]');
+  await sleep(100);
+  await click('[data-code-tab="config/lv_conf.h"]');
+  await sleep(60);
+  const input = "document.querySelector('[data-code-input]')";
+  assert.match(await js(`${input}.value`), /#define LV_USE_LOG 1/);
+  assert.equal(await js(`${input}.readOnly`), false);
+  const removed = (await js(`${input}.value`)).replace("#define LV_USE_LOG 1", "#define LV_USE_LOG 0");
+  await js(`(() => { const e = ${input}; e.focus(); e.select(); document.execCommand("insertText", false, ${JSON.stringify(removed)}); })()`);
+  await sleep(450);
+  assert.equal((await project()).lvConf?.LV_USE_LOG, undefined, "0 is the default, so nothing stays");
+  await js(`${input}.blur();void 0`);
+  await click('[data-command="code"]');
+  await sleep(60);
+});
+
+await step("Project fonts: a file is read, set to a language, and draws on the surface", async () => {
+  const fontFile = path.join(data, "MiniCJK-Regular.ttc");
+  fs.writeFileSync(fontFile, buildCollection([
+    { family: "Mini CJK JP", characters: "ABCabc 한글あいカタ日本가나다", shape: 0 },
+    { family: "Mini CJK KR", characters: "ABCabc 한글あいカタ日本가나다", shape: 1 },
+  ]));
+  await click('[data-command="fonts"]');
+  await page.until('document.querySelector("[data-dialog=fonts] [data-font-empty]")', 3000);
+  await shot("10y-fonts-empty");
+  await js(`window.__mls.importFont(${JSON.stringify(fontFile)}).then(() => { window.__fontDone = true; }, (e) => { window.__fontDone = String(e); })`);
+  await page.until("window.__fontDone !== undefined", 8000);
+  assert.equal(await js("window.__fontDone"), true);
+  await page.until('document.querySelector("[data-font=MiniCJK_Regular]")', 3000);
+  const entry = async () => (await project()).fonts[0];
+  // The window is Korean, so the Korean face is chosen by itself.
+  assert.deepEqual([(await entry()).face, (await entry()).language, (await entry()).file], [1, "ko", "assets/fonts/MiniCJK_Regular.ttc"]);
+  await shot("10z-fonts-added");
+  await click('[data-select="font-language-MiniCJK_Regular"] .icon-select-button');
+  await click('[data-select="font-language-MiniCJK_Regular"] [data-value="ja"]');
+  await sleep(120);
+  assert.deepEqual([(await entry()).face, (await entry()).language], [0, "ja"]);
+  // As the default font: the surface changes.
+  const before = await canvasHash("[data-surface]");
+  await click('[data-select="fontDefault"] .icon-select-button');
+  await click('[data-select="fontDefault"] [data-value="MiniCJK_Regular"]');
+  await sleep(250);
+  assert.deepEqual((await project()).defaultFont, { font: "MiniCJK_Regular", size: 16 });
+  assert.notEqual(await canvasHash("[data-surface]"), before, "the surface did not change");
+  assert.deepEqual(await js("window.__mls.engine().errors"), []);
+  await shot("10z2-fonts-default");
+  // Saved into the project folder, and read back from there.
+  await click('[data-command="fonts-close"]');
+  await sleep(80);
+  await click('[data-command="save"]');
+  await sleep(500);
+  const folder = path.join(data, "GuiApp");
+  const copied = path.join(folder, "assets", "fonts", "MiniCJK_Regular.ttc");
+  assert.ok(fs.existsSync(copied), "the font was not copied into the project");
+  assert.ok(fs.readFileSync(copied).equals(fs.readFileSync(fontFile)), "the copy differs");
+  assert.ok(fs.existsSync(path.join(folder, "src", "ui", "fonts", "ui_fonts.c")), "no font code");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(folder, "GuiApp.mylvgl"), "utf8")).fonts[0].language, "ja");
+  const drawn = await canvasHash("[data-surface]");
+  await js(`window.__mls.openFile(${JSON.stringify(path.join(folder, "GuiApp.mylvgl"))}); void 0`);
+  await sleep(800);
+  assert.deepEqual((await project()).defaultFont, { font: "MiniCJK_Regular", size: 16 });
+  assert.deepEqual(await js("window.__mls.engine().errors"), []);
+  assert.equal(await canvasHash("[data-surface]"), drawn, "reopened, it draws differently");
+  await click('[data-command="fonts"]');
+  await page.until('document.querySelector("[data-font=MiniCJK_Regular]")', 3000);
+  // Removed: nothing stays behind.
+  await click('[data-font-remove="MiniCJK_Regular"]');
+  await sleep(150);
+  assert.equal((await project()).fonts, undefined);
+  assert.equal((await project()).defaultFont, undefined);
+  await click('[data-command="fonts-close"]');
+  await sleep(80);
+});
+
+await step("Code and graphics: a bar between them changes their sizes", async () => {
+  await click('[data-command="code"]');
+  await sleep(120);
+  const widths = () => js(`(() => { const c = document.querySelector(".code-view").getBoundingClientRect(); const v = document.querySelector(".ruled-view").getBoundingClientRect(); const s = document.querySelector('[data-splitter="code"]').getBoundingClientRect(); return { code: c.width, view: v.width, between: s.left >= v.right - 1 && s.right <= c.left + 1 }; })()`);
+  const before = await widths();
+  assert.ok(before.between, "the bar is not between them");
+  const bar = await center('[data-splitter="code"]');
+  await drag(bar, { x: bar.x - 70, y: bar.y });
+  await sleep(80);
+  const wider = await widths();
+  assert.ok(Math.abs(wider.code - (before.code + 70)) <= 2, `${before.code} and ${wider.code}`);
+  assert.ok(Math.abs(wider.view - (before.view - 70)) <= 2, `${before.view} and ${wider.view}`);
+  // Neither side can vanish.
+  const moved = await center('[data-splitter="code"]');
+  await drag(moved, { x: 2, y: moved.y });
+  await sleep(80);
+  assert.ok((await widths()).view >= 150, "the graphics vanished");
+  const again = await center('[data-splitter="code"]');
+  await drag(again, { x: again.x + 3000, y: again.y });
+  await sleep(80);
+  assert.ok((await widths()).code >= 200, "the code vanished");
+  await shot("11d-code-splitter");
+  await click('[data-command="code"]');
+  await sleep(80);
+  assert.equal(await js("!!document.querySelector('[data-splitter=\"code\"]')"), false, "no bar without the code");
+});
+
+await step("Zoom: Ctrl+wheel around the pointer, the keyboard, and a list of sizes", async () => {
+  const zoom = () => js("window.__mls.zoom()");
+  await click('[data-command="zoomFit"]');
+  await sleep(80);
+  await click('[data-zoom]');
+  await page.until("document.querySelector('[data-zoom-menu]')", 2000);
+  assert.ok((await js("document.querySelectorAll('[data-zoom-value]').length")) >= 8);
+  await click('[data-zoom-value="3"]');
+  await sleep(100);
+  assert.equal(await zoom(), 3);
+  assert.equal(await js("!!document.querySelector('[data-zoom-menu]')"), false);
+  // Big enough to scroll, so the point under the pointer can stay there.
+  const area = await js(`(() => { const v = document.querySelector(".viewport").getBoundingClientRect(); return { x: v.left + v.width / 2, y: v.top + v.height / 2 }; })()`);
+  const spot = (scale) => js(`(() => { const r = document.querySelector("[data-surface]").getBoundingClientRect(); return { x: (${area.x} - r.left) / ${scale}, y: (${area.y} - r.top) / ${scale} }; })()`);
+  const before = await spot(3);
+  await page.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: area.x, y: area.y, deltaX: 0, deltaY: -120, modifiers: 2 });
+  await sleep(150);
+  assert.equal(await zoom(), 4);
+  const under = await spot(4);
+  assert.ok(Math.abs(under.x - before.x) <= 2 && Math.abs(under.y - before.y) <= 2, `moved under the pointer: ${JSON.stringify([before, under])}`);
+  await page.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: area.x, y: area.y, deltaX: 0, deltaY: 120, modifiers: 2 });
+  await sleep(150);
+  assert.equal(await zoom(), 3);
+  // Without Ctrl the wheel keeps scrolling.
+  await page.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: area.x, y: area.y, deltaX: 0, deltaY: 120, modifiers: 0 });
+  await sleep(120);
+  assert.equal(await zoom(), 3);
+  await js("document.activeElement && document.activeElement.blur()");
+  const keys = async (key, code, keyCode) => {
+    await page.send("Input.dispatchKeyEvent", { type: "keyDown", key, code, modifiers: 2, windowsVirtualKeyCode: keyCode });
+    await page.send("Input.dispatchKeyEvent", { type: "keyUp", key, code, modifiers: 2, windowsVirtualKeyCode: keyCode });
+    await sleep(100);
+  };
+  await keys("=", "Equal", 187);
+  assert.equal(await zoom(), 4);
+  await keys("-", "Minus", 189);
+  assert.equal(await zoom(), 3);
+  await click('[data-command="zoomFit"]');
+  await sleep(80);
+});
+
+await step("Round screen: set from the toolbar and the project settings, and drawn round", async () => {
+  const device = async () => (await project()).device;
+  const start = await device();
+  await click('[data-command="device-chip"]');
+  await page.until("document.querySelector('[data-device-menu]')", 2000);
+  await click('[data-device="circle360"]');
+  await sleep(200);
+  assert.deepEqual(await device(), { w: 360, h: 360, shape: "round" });
+  assert.equal(await js('getComputedStyle(document.querySelector(".device-screen")).borderRadius'), "50%");
+  assert.match(await js(`document.querySelector('[data-command="device-chip"]').textContent`), /◯/);
+  await shot("11e-round-screen");
+  await click('[data-command="settings"]');
+  await page.until('document.querySelector("[data-dialog=settings]")', 2000);
+  assert.equal(await js(`document.querySelector('[data-field="deviceRound"]').getAttribute("aria-checked") ?? document.querySelector('[data-field="deviceRound"]').className.includes("on")`) + "", "true");
+  await click('[data-field="deviceRound"]');
+  await sleep(150);
+  assert.deepEqual(await device(), { w: 360, h: 360 });
+  await click('[data-field="deviceRound"]');
+  await sleep(150);
+  assert.deepEqual(await device(), { w: 360, h: 360, shape: "round" });
+  await click('[data-command="settings-close"]');
+  await sleep(80);
+  for (let i = 0; i < 6; i++) {
+    const now = await device();
+    if (now.w === start.w && now.h === start.h && now.shape === start.shape) break;
+    await click('[data-command="undo"]');
+    await sleep(80);
+  }
+  assert.deepEqual(await device(), start);
+  await sleep(100);
+});
+
+await step("The pointer's shape says what a press would do", async () => {
+  const cursor = (selector) => js(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).cursor`);
+  const shown = () => js(`getComputedStyle(document.querySelector("[data-overlay=design]")).cursor`);
+  const held = () => js("document.documentElement.dataset.dragCursor ?? ''");
+  // A hover can get lost on its way to the page, so it is repeated, moving a little, until seen.
+  const hoverShows = async (x, y, wanted, what) => {
+    let last = "";
+    for (let i = 0; i < 8 && last !== wanted; i++) {
+      await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: x + (i % 2), y, buttons: 0 });
+      await sleep(80);
+      last = await shown();
+    }
+    assert.equal(last, wanted, what);
+  };
+  await click('[data-command="add-screen"]');
+  await sleep(150);
+  await click('[data-command="zoomFit"]');
+  await sleep(80);
+  assert.equal(await cursor(".palette-item:not(:disabled)"), "grab");
+  const area = await js(`(() => { const r = document.querySelector("[data-surface]").getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width, height: r.height }; })()`);
+  const spot = { x: area.left + area.width * 0.5, y: area.top + area.height * 0.5 };
+  await hoverShows(spot.x, spot.y, "default", "over the empty screen");
+
+  // From the palette: droppable over the screen only.
+  const item = await center('[data-palette="button"]');
+  await press(item.x, item.y);
+  await mouse("mouseMoved", item.x + 30, item.y + 6);
+  await sleep(80);
+  assert.equal(await held(), "no-drop", "away from the screen");
+  assert.equal(await js("getComputedStyle(document.body).cursor"), "no-drop");
+  await mouse("mouseMoved", spot.x, spot.y);
+  await sleep(80);
+  assert.equal(await held(), "copy", "over the screen");
+  await release(spot.x, spot.y);
+  await sleep(200);
+  assert.equal(await held(), "", "the shape must end with the drag");
+
+  // The new widget is selected: it moves. Another widget would be selected first.
+  const nodes = await js(`(() => { const a = document.querySelector(".screen-tab.active [data-screen-tab]").dataset.screenTab; return window.__mls.project().screens.find((s) => s.id === a).children.map((n) => n.id); })()`);
+  assert.equal(nodes.length, 1);
+  const first = await box(nodes[0]);
+  const zoomed = area.width / (await js("window.__mls.canvas().width"));
+  const inside = { x: area.left + (first.x + first.w / 2) * zoomed, y: area.top + (first.y + first.h / 2) * zoomed };
+  await clickAt(inside.x, inside.y);
+  await sleep(80);
+  await hoverShows(inside.x, inside.y, "move", "over the selected widget");
+  await hoverShows(area.left + area.width - 4, area.top + area.height - 4, "default", "off the widget again");
+  await click('[data-tree="' + (await js("document.querySelector('.screen-tab.active [data-screen-tab]').dataset.screenTab")) + '"]');
+  await sleep(80);
+  await hoverShows(inside.x, inside.y, "pointer", "over a widget that is not selected");
+
+  // Moving and resizing hold their shape wherever the pointer goes.
+  await clickAt(inside.x, inside.y);
+  await sleep(80);
+  await press(inside.x, inside.y);
+  await mouse("mouseMoved", inside.x + 10, inside.y + 6);
+  await sleep(60);
+  assert.equal(await held(), "move");
+  await release(inside.x + 10, inside.y + 6);
+  await sleep(100);
+  assert.equal(await held(), "");
+  for (const [handle, wanted] of [["nw", "nwse-resize"], ["e", "ew-resize"], ["s", "ns-resize"], ["ne", "nesw-resize"]]) assert.equal(await cursor(`[data-handle="${handle}"]`), wanted, handle);
+  const corner = await center('[data-handle="e"]');
+  await press(corner.x, corner.y);
+  await mouse("mouseMoved", corner.x + 8, corner.y);
+  await sleep(60);
+  assert.equal(await held(), "ew-resize");
+  await release(corner.x + 8, corner.y);
+  await sleep(100);
+  assert.equal(await held(), "");
+
+  // A splitter too.
+  const bar = await center('[data-splitter="left"]');
+  await press(bar.x, bar.y);
+  await mouse("mouseMoved", bar.x + 4, bar.y);
+  await sleep(60);
+  assert.equal(await held(), "col-resize");
+  await release(bar.x + 4, bar.y);
+  await sleep(80);
+  assert.equal(await held(), "");
+
+  // Ctrl over the surface: the wheel zooms.
+  await js("document.activeElement && document.activeElement.blur()");
+  await page.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Control", code: "ControlLeft", windowsVirtualKeyCode: 17, modifiers: 2 });
+  await sleep(60);
+  assert.equal(await shown(), "zoom-in");
+  await page.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Control", code: "ControlLeft", windowsVirtualKeyCode: 17 });
+  await sleep(60);
+  assert.notEqual(await shown(), "zoom-in");
+
+  // Leave things as they were.
+  for (let i = 0; i < 12; i++) {
+    const count = (await project()).screens.length;
+    const moved = await js("document.querySelector('[data-command=\"undo\"]').disabled");
+    if (moved) break;
+    await click('[data-command="undo"]');
+    await sleep(40);
+    if ((await project()).screens.length < count) break;
+  }
+  await click(`[data-screen-tab="${(await project()).screens[0].id}"]`);
+  await sleep(100);
+});
+
+await step("Explorer: the project's files as a tree, and each one opens", async () => {
+  assert.equal(await js('document.querySelector("[data-panel-title=explorer]").textContent'), "탐색기");
+  const list = await js("Array.from(document.querySelectorAll('[data-explorer]')).map((e) => e.dataset.explorer)");
+  for (const name of ["CMakeLists.txt", "config/lv_conf.h", "src/main.c", "src/ui/ui.c", "src/ui/ui.h"]) assert.ok(list.includes(name), name);
+  assert.ok(list.some((name) => name.endsWith(".mylvgl")), "no project file");
+  assert.ok(await js("!!document.querySelector('[data-explorer-folder=\"src/ui/screens\"]')"), "no folder");
+  await shot("11f-explorer");
+  // A code file opens, and shows as chosen.
+  await js("document.querySelector('[data-explorer=\"src/main.c\"]').scrollIntoView()");
+  await click('[data-explorer="src/main.c"]');
+  await sleep(200);
+  assert.equal(await js("document.querySelector('[data-code-tab].active').dataset.codeTab"), "src/main.c");
+  assert.match(await js("document.querySelector('[data-code-input]').value"), /#define WIDTH/);
+  assert.ok(await js("document.querySelector('[data-explorer=\"src/main.c\"]').classList.contains('selected')"), "not shown as open");
+  // The project file too, read-only.
+  const file = list.find((name) => name.endsWith(".mylvgl"));
+  await click(`[data-explorer="${file}"]`);
+  await sleep(150);
+  assert.equal(JSON.parse(await js("document.querySelector('[data-code-input]').value")).format, "mylvgl");
+  assert.equal(await js("document.querySelector('[data-code-input]').readOnly"), true);
+  assert.equal(await js(`document.querySelector('[data-code-tab].active').dataset.codeTab`), file);
+  await shot("11g-explorer-project-file");
+  // A screen's file also shows that screen.
+  const screens = (await project()).screens;
+  const last = screens.at(-1);
+  const screenFile = list.find((name) => name.includes("/screens/") && name.toLowerCase().includes(last.name.toLowerCase()));
+  assert.ok(screenFile, "no file for the screen");
+  await click(`[data-explorer="${screenFile}"]`);
+  await sleep(200);
+  assert.equal(await js("document.querySelector('.screen-tab.active [data-screen-tab]').dataset.screenTab"), last.id);
+  await click(`[data-screen-tab="${screens[0].id}"]`);
+  // Folders fold.
+  await click('[data-explorer-folder="src/ui/screens"]');
+  await sleep(60);
+  assert.equal(await js("document.querySelectorAll('[data-explorer^=\"src/ui/screens/\"]').length"), 0);
+  await click('[data-explorer-folder="src/ui/screens"]');
+  await sleep(60);
+  assert.ok((await js("document.querySelectorAll('[data-explorer^=\"src/ui/screens/\"]').length")) > 0);
+  await click('[data-command="code"]');
+  await sleep(80);
+  // The parts of the panel fold, keeping their titles; the divider moves.
+  const height = (name) => js(`document.querySelector("[data-panel=${name}]").getBoundingClientRect().height`);
+  const full = await height("palette");
+  await click('[data-collapse="explorer"]');
+  await sleep(80);
+  assert.ok((await height("explorer")) < 40, "the explorer did not fold");
+  assert.ok((await height("palette")) > full, "the controls did not take the room");
+  assert.ok(await js("!!document.querySelector('[data-panel-title=explorer] .panel-title-text') && !!document.querySelector('[data-collapse=explorer]')"));
+  await click('[data-collapse="explorer"]');
+  await sleep(80);
+  const tall = await height("explorer");
+  const divider = await center('[data-splitter="explorer"]');
+  await drag(divider, { x: divider.x, y: divider.y + 40 });
+  await sleep(60);
+  assert.ok(Math.abs((await height("explorer")) - (tall + 40)) <= 2, "the divider did not move");
+  const back = await center('[data-splitter="explorer"]');
+  await drag(back, { x: back.x, y: back.y - 40 });
+  await sleep(60);
+});
+
 await step("Panels can be resized by their splitters", async () => {
   const width = () => js('document.querySelector(".left-col").getBoundingClientRect().width');
   const before = await width();
@@ -1316,9 +1839,72 @@ await step("Every toolbar icon is in colour, also when pressed", async () => {
   assert.equal(await js(`document.querySelector('[data-command="rulers"]').getAttribute("aria-pressed")`), "true");
 });
 
+await step("Folded parts keep their icon, title and unfold button; the right panel has its own fold", async () => {
+  const visible = (selector) => js(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) return false; const r = e.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return r.width > 0 && r.height > 0 && (top === e || e.contains(top) || (top && top.contains(e))); })()`);
+  const keeps = async (panel) => {
+    assert.ok(await visible(`[data-panel-title="${panel}"] .icon`), `${panel}: no icon`);
+    assert.ok(await visible(`[data-panel-title="${panel}"] .panel-title-text`), `${panel}: no title`);
+    assert.ok(await visible(`[data-collapse="${panel}"]`), `${panel}: no button`);
+  };
+  const bottom = (name) => js(`document.querySelector("[data-panel=${name}]").getBoundingClientRect().bottom`);
+  // Each of the two, and both.
+  await click('[data-collapse="tree"]');
+  await sleep(80);
+  await keeps("tree");
+  await click('[data-collapse="attributes"]');
+  await sleep(80);
+  await keeps("tree");
+  await keeps("attributes");
+  assert.ok((await bottom("attributes")) < 200, "folded panels should stack at the top");
+  await shot("11a-right-both-folded");
+  await click('[data-collapse="tree"]');
+  await sleep(80);
+  await keeps("attributes");
+  await click('[data-collapse="attributes"]');
+  await sleep(80);
+  // The categories of the attributes, and of the palette.
+  const groups = await js("Array.from(document.querySelectorAll('[data-group^=\"attr:\"]')).map((e) => e.dataset.group)");
+  assert.ok(groups.length >= 2, "too few categories");
+  for (const id of groups) {
+    await click(`[data-group-toggle="${id}"]`);
+    await sleep(40);
+    assert.equal(await js(`document.querySelector('[data-group="${id}"]').hasAttribute("data-folded")`), true, id);
+    assert.ok(await js(`!!document.querySelector('[data-group="${id}"] .group-title .icon') && document.querySelector('[data-group="${id}"] .group-title span').textContent.length > 0`), id);
+    assert.equal(await js(`document.querySelector('[data-group="${id}"]').children.length`), 1, `${id}: the content stayed`);
+  }
+  await shot("11b-groups-folded");
+  for (const id of groups) {
+    await click(`[data-group-toggle="${id}"]`);
+    await sleep(30);
+    assert.equal(await js(`document.querySelector('[data-group="${id}"]').hasAttribute("data-folded")`), false, id);
+  }
+  const group = "palette:input";
+  await click(`[data-group-toggle="${group}"]`);
+  await sleep(50);
+  assert.equal(await js(`document.querySelectorAll('[data-group="${group}"] [data-palette]').length`), 0);
+  assert.ok(await js(`!!document.querySelector('[data-group="${group}"] .group-title .icon')`));
+  await click(`[data-group-toggle="${group}"]`);
+  await sleep(50);
+  assert.ok((await js(`document.querySelectorAll('[data-group="${group}"] [data-palette]').length`)) > 0);
+  // The whole right panel, from a button of its own.
+  assert.ok(await visible('[data-panel-title="right"] .icon') && await visible('[data-panel-title="right"] .panel-title-text'));
+  await click('[data-collapse="right"]');
+  await sleep(100);
+  assert.equal((await js("window.__mls.collapsed()")).right, true);
+  assert.ok((await js('document.querySelector(".right-col").getBoundingClientRect().width')) <= 31);
+  assert.ok(await visible('[data-expand="right"]'), "nothing unfolds it");
+  await shot("11c-right-folded");
+  await click('[data-expand="right"]');
+  await sleep(100);
+  assert.equal((await js("window.__mls.collapsed()")).right, false);
+});
+
 await step("Panels: title bars fold them, and the toolbar folds left, right and bottom", async () => {
   for (const panel of ["left", "tree", "attributes"]) assert.ok(await js(`!!document.querySelector('[data-panel-title="${panel}"] .icon')`), panel);
-  assert.equal(await js('document.querySelector("[data-panel-title=left]").textContent'), "콘트롤");
+  assert.equal(await js('document.querySelector("[data-panel-title=left]").textContent'), "프로젝트와 콘트롤");
+  assert.equal(await js('document.querySelector("[data-panel-title=palette] .icon") !== null && document.querySelector("[data-panel-title=left] .icon").dataset.icon'), "panelProject");
+  assert.equal(await js('document.querySelector("[data-panel-title=right] .icon").dataset.icon'), "panelStructure");
+  assert.equal(await js('document.querySelector("[data-panel-title=palette]").textContent'), "콘트롤", "controls are a part of the panel");
   const width = (selector) => js(`document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().width`);
   const collapsed = () => js("window.__mls.collapsed()");
   await click('[data-collapse="left"]');

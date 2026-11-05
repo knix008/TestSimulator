@@ -1,0 +1,150 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "WashingMachine",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 480,
+    "h": 320
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#0288d1",
+    "secondary": "#ff7043"
+  },
+  "nextId": 9,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Program",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "roller",
+          "name": "roller1",
+          "props": {
+            "options": "Cotton\nSynthetics\nWool\nQuick\nDelicate\nSpin",
+            "x": 16,
+            "y": 16,
+            "width": 150,
+            "selected": 1
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n3",
+              "text": "Program %d"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Program 1",
+            "x": 190,
+            "y": 16,
+            "font": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "arc",
+          "name": "arc1",
+          "props": {
+            "width": 130,
+            "height": 130,
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "x": 330,
+            "y": 16,
+            "animate": 2500
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "Time",
+            "x": 190,
+            "y": 56,
+            "font": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "45 min",
+            "x": 190,
+            "y": 90,
+            "font": 28
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 448,
+            "height": 18,
+            "min": 10,
+            "max": 120,
+            "value": 45,
+            "x": 16,
+            "y": 240
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n6",
+              "text": "%d min"
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n8",
+              "text": ""
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n8",
+          "type": "bar",
+          "name": "bar1",
+          "props": {
+            "width": 448,
+            "height": 12,
+            "min": 0,
+            "max": 100,
+            "value": 32,
+            "x": 16,
+            "y": 200
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

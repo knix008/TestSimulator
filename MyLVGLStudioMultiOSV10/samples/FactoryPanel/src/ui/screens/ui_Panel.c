@@ -30,6 +30,11 @@ void ui_Panel_create(void)
     lv_obj_set_width(ui_bar1, lv_pct(100));
     lv_obj_set_height(ui_bar1, 16);
     lv_bar_set_value(ui_bar1, 72, LV_ANIM_OFF);
+    ui_slider1 = lv_slider_create(ui_container1);
+    lv_slider_set_range(ui_slider1, 0, 100);
+    lv_obj_set_width(ui_slider1, lv_pct(100));
+    lv_obj_set_height(ui_slider1, 12);
+    lv_slider_set_value(ui_slider1, 72, LV_ANIM_OFF);
     ui_switch1 = lv_switch_create(ui_container1);
     lv_obj_set_width(ui_switch1, 56);
     lv_obj_set_height(ui_switch1, 28);
@@ -49,6 +54,11 @@ void ui_Panel_create(void)
     lv_obj_set_width(ui_bar2, lv_pct(100));
     lv_obj_set_height(ui_bar2, 16);
     lv_bar_set_value(ui_bar2, 40, LV_ANIM_OFF);
+    ui_slider2 = lv_slider_create(ui_container2);
+    lv_slider_set_range(ui_slider2, 0, 100);
+    lv_obj_set_width(ui_slider2, lv_pct(100));
+    lv_obj_set_height(ui_slider2, 12);
+    lv_slider_set_value(ui_slider2, 40, LV_ANIM_OFF);
     ui_switch2 = lv_switch_create(ui_container2);
     lv_obj_set_width(ui_switch2, 56);
     lv_obj_set_height(ui_switch2, 28);
@@ -68,6 +78,7 @@ void ui_Panel_create(void)
     lv_obj_set_width(ui_bar3, lv_pct(100));
     lv_obj_set_height(ui_bar3, 16);
     lv_bar_set_value(ui_bar3, 88, LV_ANIM_OFF);
+    ui_animate_value(ui_bar3, ui_bar3_set, 0, 100, 1400);
     ui_switch3 = lv_switch_create(ui_container3);
     lv_obj_set_width(ui_switch3, 56);
     lv_obj_set_height(ui_switch3, 28);

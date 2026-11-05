@@ -7,10 +7,12 @@ lv_obj_t * ui_Text;
 lv_obj_t * ui_span1;
 lv_obj_t * ui_canvas1;
 lv_obj_t * ui_line1;
+lv_obj_t * ui_spinner1;
 lv_obj_t * ui_container1;
 lv_obj_t * ui_label1;
 lv_obj_t * ui_label2;
 lv_obj_t * ui_label3;
+lv_obj_t * ui_slider1;
 
 void ui_init(void)
 {
@@ -19,6 +21,10 @@ void ui_init(void)
     lv_display_set_theme(display, theme);
 
     ui_Text_create();
+
+    lv_obj_add_event_cb(ui_slider1, ui_event_0, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_slider1, ui_event_1, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_slider1, ui_event_2, LV_EVENT_VALUE_CHANGED, NULL);
 
     lv_screen_load(ui_Text);
 }

@@ -13,7 +13,7 @@
     "primary": "#2196f3",
     "secondary": "#f44336"
   },
-  "nextId": 17,
+  "nextId": 19,
   "screens": [
     {
       "id": "n1",
@@ -78,6 +78,27 @@
                 },
                 {
                   "id": "n6",
+                  "type": "slider",
+                  "name": "slider1",
+                  "props": {
+                    "width": "100%",
+                    "height": 12,
+                    "min": 0,
+                    "max": 100,
+                    "value": 72
+                  },
+                  "events": [
+                    {
+                      "trigger": "VALUE_CHANGED",
+                      "action": "setValue",
+                      "target": "n5",
+                      "text": ""
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "n7",
                   "type": "switch",
                   "name": "switch1",
                   "props": {
@@ -91,7 +112,7 @@
               ]
             },
             {
-              "id": "n7",
+              "id": "n8",
               "type": "container",
               "name": "container2",
               "props": {
@@ -104,7 +125,7 @@
               "events": [],
               "children": [
                 {
-                  "id": "n8",
+                  "id": "n9",
                   "type": "label",
                   "name": "label2",
                   "props": {
@@ -115,7 +136,7 @@
                   "children": []
                 },
                 {
-                  "id": "n9",
+                  "id": "n10",
                   "type": "bar",
                   "name": "bar2",
                   "props": {
@@ -129,7 +150,28 @@
                   "children": []
                 },
                 {
-                  "id": "n10",
+                  "id": "n11",
+                  "type": "slider",
+                  "name": "slider2",
+                  "props": {
+                    "width": "100%",
+                    "height": 12,
+                    "min": 0,
+                    "max": 100,
+                    "value": 40
+                  },
+                  "events": [
+                    {
+                      "trigger": "VALUE_CHANGED",
+                      "action": "setValue",
+                      "target": "n10",
+                      "text": ""
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "n12",
                   "type": "switch",
                   "name": "switch2",
                   "props": {
@@ -143,7 +185,7 @@
               ]
             },
             {
-              "id": "n11",
+              "id": "n13",
               "type": "container",
               "name": "container3",
               "props": {
@@ -156,7 +198,7 @@
               "events": [],
               "children": [
                 {
-                  "id": "n12",
+                  "id": "n14",
                   "type": "label",
                   "name": "label3",
                   "props": {
@@ -167,7 +209,7 @@
                   "children": []
                 },
                 {
-                  "id": "n13",
+                  "id": "n15",
                   "type": "bar",
                   "name": "bar3",
                   "props": {
@@ -175,13 +217,14 @@
                     "height": 16,
                     "min": 0,
                     "max": 100,
-                    "value": 88
+                    "value": 88,
+                    "animate": 1400
                   },
                   "events": [],
                   "children": []
                 },
                 {
-                  "id": "n14",
+                  "id": "n16",
                   "type": "switch",
                   "name": "switch3",
                   "props": {
@@ -195,7 +238,7 @@
               ]
             },
             {
-              "id": "n15",
+              "id": "n17",
               "type": "list",
               "name": "events",
               "props": {
@@ -210,7 +253,7 @@
               "children": []
             },
             {
-              "id": "n16",
+              "id": "n18",
               "type": "button",
               "name": "button1",
               "props": {

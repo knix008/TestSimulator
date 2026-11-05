@@ -1,0 +1,363 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "ElevatorPanel",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 480,
+    "h": 480
+  },
+  "images": [],
+  "theme": {
+    "dark": true,
+    "primary": "#ffa000",
+    "secondary": "#42a5f5"
+  },
+  "nextId": 20,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Lift",
+      "props": {
+        "bgColor": "#1b1d22",
+        "bgOpa": 255
+      },
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "3",
+            "x": 196,
+            "y": 20,
+            "font": 48,
+            "textColor": "#ffc107"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "Floor",
+            "x": 196,
+            "y": 84,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 30,
+            "height": 430,
+            "min": 1,
+            "max": 12,
+            "value": 3,
+            "x": 40,
+            "y": 24
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n2",
+              "text": "%d"
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n5",
+              "text": ""
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "bar",
+          "name": "bar1",
+          "props": {
+            "width": 14,
+            "height": 430,
+            "min": 0,
+            "max": 100,
+            "value": 18,
+            "x": 96,
+            "y": 24
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "Doors closed",
+            "x": 196,
+            "y": 116,
+            "textColor": "#90caf9"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "grid",
+          "name": "grid1",
+          "props": {
+            "width": 300,
+            "height": 300,
+            "gridColumns": "1fr,1fr,1fr",
+            "gridRows": "1fr,1fr,1fr,1fr",
+            "x": 150,
+            "y": 150,
+            "pad": 6,
+            "gap": 6
+          },
+          "events": [],
+          "children": [
+            {
+              "id": "n8",
+              "type": "button",
+              "name": "button1",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "1"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n2",
+                  "text": "1"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n9",
+              "type": "button",
+              "name": "button2",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "2"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n2",
+                  "text": "2"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n10",
+              "type": "button",
+              "name": "button3",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "3"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n2",
+                  "text": "3"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n11",
+              "type": "button",
+              "name": "button4",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "4"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n2",
+                  "text": "4"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n12",
+              "type": "button",
+              "name": "button5",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "5"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n2",
+                  "text": "5"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n13",
+              "type": "button",
+              "name": "button6",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "6"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n2",
+                  "text": "6"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n14",
+              "type": "button",
+              "name": "button7",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "7"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n2",
+                  "text": "7"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n15",
+              "type": "button",
+              "name": "button8",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "8"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n2",
+                  "text": "8"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n16",
+              "type": "button",
+              "name": "button9",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "9"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n2",
+                  "text": "9"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n17",
+              "type": "button",
+              "name": "button10",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "Open"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n6",
+                  "text": "Doors open"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n18",
+              "type": "button",
+              "name": "button11",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "Close"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n6",
+                  "text": "Doors closed"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n19",
+              "type": "button",
+              "name": "button12",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "Bell",
+                "bgColor": "#d32f2f"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n6",
+                  "text": "Alarm sent"
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

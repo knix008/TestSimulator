@@ -1,0 +1,401 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "Greenhouse",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 800,
+    "h": 480
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#2e7d32",
+    "secondary": "#f9a825"
+  },
+  "nextId": 24,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Climate",
+      "props": {
+        "bgColor": "#f1f8e9",
+        "bgOpa": 255
+      },
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Greenhouse",
+            "x": 24,
+            "y": 16,
+            "font": 28
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "Temperature",
+            "x": 24,
+            "y": 70,
+            "font": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "arc",
+          "name": "arc1",
+          "props": {
+            "width": 200,
+            "height": 200,
+            "min": 0,
+            "max": 45,
+            "value": 24,
+            "x": 24,
+            "y": 100
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n5",
+              "text": "%d C"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "24 C",
+            "x": 96,
+            "y": 188,
+            "font": 20
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 200,
+            "height": 14,
+            "min": 0,
+            "max": 45,
+            "value": 24,
+            "x": 24,
+            "y": 316
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n4",
+              "text": ""
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "label",
+          "name": "label4",
+          "props": {
+            "text": "Humidity",
+            "x": 280,
+            "y": 70,
+            "font": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n8",
+          "type": "arc",
+          "name": "arc2",
+          "props": {
+            "width": 200,
+            "height": 200,
+            "min": 0,
+            "max": 100,
+            "value": 60,
+            "x": 280,
+            "y": 100
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n9",
+              "text": "%d %%"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n9",
+          "type": "label",
+          "name": "label5",
+          "props": {
+            "text": "60 %",
+            "x": 352,
+            "y": 188,
+            "font": 20
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n10",
+          "type": "slider",
+          "name": "slider2",
+          "props": {
+            "width": 200,
+            "height": 14,
+            "min": 0,
+            "max": 100,
+            "value": 60,
+            "x": 280,
+            "y": 316
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n8",
+              "text": ""
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n11",
+          "type": "label",
+          "name": "label6",
+          "props": {
+            "text": "Light",
+            "x": 536,
+            "y": 70,
+            "font": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n12",
+          "type": "arc",
+          "name": "arc3",
+          "props": {
+            "width": 200,
+            "height": 200,
+            "min": 0,
+            "max": 100,
+            "value": 75,
+            "x": 536,
+            "y": 100
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n13",
+              "text": "%d %%"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n13",
+          "type": "label",
+          "name": "label7",
+          "props": {
+            "text": "75 %",
+            "x": 608,
+            "y": 188,
+            "font": 20
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n14",
+          "type": "slider",
+          "name": "slider3",
+          "props": {
+            "width": 200,
+            "height": 14,
+            "min": 0,
+            "max": 100,
+            "value": 75,
+            "x": 536,
+            "y": 316
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n12",
+              "text": ""
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n15",
+          "type": "label",
+          "name": "label8",
+          "props": {
+            "text": "Pump",
+            "x": 24,
+            "y": 356,
+            "font": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n16",
+          "type": "led",
+          "name": "led1",
+          "props": {
+            "width": 36,
+            "height": 36,
+            "ledBright": 0,
+            "x": 104,
+            "y": 386
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n17",
+          "type": "switch",
+          "name": "switch1",
+          "props": {
+            "width": 60,
+            "height": 30,
+            "x": 24,
+            "y": 390
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n16",
+              "text": ""
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n18",
+          "type": "label",
+          "name": "label9",
+          "props": {
+            "text": "Fan",
+            "x": 280,
+            "y": 356,
+            "font": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n19",
+          "type": "led",
+          "name": "led2",
+          "props": {
+            "width": 36,
+            "height": 36,
+            "ledBright": 0,
+            "x": 360,
+            "y": 386
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n20",
+          "type": "switch",
+          "name": "switch2",
+          "props": {
+            "width": 60,
+            "height": 30,
+            "x": 280,
+            "y": 390
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n19",
+              "text": ""
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n21",
+          "type": "label",
+          "name": "label10",
+          "props": {
+            "text": "Heater",
+            "x": 536,
+            "y": 356,
+            "font": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n22",
+          "type": "led",
+          "name": "led3",
+          "props": {
+            "width": 36,
+            "height": 36,
+            "ledBright": 0,
+            "x": 616,
+            "y": 386
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n23",
+          "type": "switch",
+          "name": "switch3",
+          "props": {
+            "width": 60,
+            "height": 30,
+            "x": 536,
+            "y": 390
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n22",
+              "text": ""
+            }
+          ],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

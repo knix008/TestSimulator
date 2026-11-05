@@ -20,7 +20,7 @@
     "primary": "#ab47bc",
     "secondary": "#26c6da"
   },
-  "nextId": 12,
+  "nextId": 14,
   "screens": [
     {
       "id": "n1",
@@ -74,19 +74,39 @@
           "type": "slider",
           "name": "slider1",
           "props": {
-            "width": 280,
+            "width": 230,
             "height": 8,
             "min": 0,
             "max": 100,
             "value": 35,
             "x": 170,
-            "y": 110
+            "y": 110,
+            "animate": 20000
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n6",
+              "text": "%d %%"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "35 %",
+            "x": 412,
+            "y": 104
           },
           "events": [],
           "children": []
         },
         {
-          "id": "n6",
+          "id": "n7",
           "type": "container",
           "name": "container1",
           "props": {
@@ -103,7 +123,7 @@
           "events": [],
           "children": [
             {
-              "id": "n8",
+              "id": "n9",
               "type": "button",
               "name": "button1",
               "props": {
@@ -115,14 +135,14 @@
                 {
                   "trigger": "CLICKED",
                   "action": "setText",
-                  "target": "n7",
+                  "target": "n8",
                   "text": "Previous"
                 }
               ],
               "children": []
             },
             {
-              "id": "n9",
+              "id": "n10",
               "type": "button",
               "name": "button2",
               "props": {
@@ -134,14 +154,14 @@
                 {
                   "trigger": "CLICKED",
                   "action": "setText",
-                  "target": "n7",
+                  "target": "n8",
                   "text": "Playing"
                 }
               ],
               "children": []
             },
             {
-              "id": "n10",
+              "id": "n11",
               "type": "button",
               "name": "button3",
               "props": {
@@ -153,7 +173,7 @@
                 {
                   "trigger": "CLICKED",
                   "action": "setText",
-                  "target": "n7",
+                  "target": "n8",
                   "text": "Next"
                 }
               ],
@@ -162,9 +182,9 @@
           ]
         },
         {
-          "id": "n7",
+          "id": "n8",
           "type": "label",
-          "name": "label3",
+          "name": "label4",
           "props": {
             "text": "Paused",
             "x": 24,
@@ -174,9 +194,9 @@
           "children": []
         },
         {
-          "id": "n11",
-          "type": "bar",
-          "name": "bar1",
+          "id": "n12",
+          "type": "slider",
+          "name": "slider2",
           "props": {
             "width": 432,
             "height": 12,
@@ -186,6 +206,25 @@
             "x": 24,
             "y": 276,
             "indicatorColor": "#26c6da"
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n13",
+              "text": "Volume %d %%"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n13",
+          "type": "label",
+          "name": "label5",
+          "props": {
+            "text": "Volume 70 %",
+            "x": 340,
+            "y": 244
           },
           "events": [],
           "children": []

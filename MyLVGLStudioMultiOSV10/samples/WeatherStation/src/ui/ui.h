@@ -20,6 +20,7 @@ extern lv_obj_t * ui_label2;
 extern lv_obj_t * ui_label3;
 extern lv_obj_t * ui_chart1;
 extern lv_obj_t * ui_table1;
+extern lv_obj_t * ui_slider1;
 
 #ifdef __cplusplus
 }
