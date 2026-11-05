@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/vnd.mymind+json">
+    <comment>MyMind Diagram</comment>
+    <sub-class-of type="application/json"/>
+    <glob pattern="*.mmap"/>
+    <icon name="application-vnd.mymind+json"/>
+  </mime-type>
+</mime-info>

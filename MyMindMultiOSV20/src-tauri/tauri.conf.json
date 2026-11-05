@@ -1,0 +1,63 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyMind",
+  "mainBinaryName": "MyMind",
+  "version": "2.0.0",
+  "identifier": "com.shkwon.mymind",
+  "build": {
+    "frontendDist": "../dist",
+    "beforeBuildCommand": "npm run build:ui"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) 2026 SHKWON (knix008@naver.com)",
+    "category": "Productivity",
+    "resources": { "../template/": "template/", "../assets/file-icon.ico": "file-icon.ico" },
+    "fileAssociations": [
+      {
+        "ext": ["mmap"],
+        "name": "MyMind.Diagram",
+        "description": "MyMind Mindmap / Fishbone diagram",
+        "role": "Editor",
+        "mimeType": "application/vnd.mymind+json"
+      }
+    ],
+    "shortDescription": "Mindmap and fishbone diagram editor",
+    "longDescription": "MyMind edits mind maps and fishbone (Ishikawa) diagrams from one shared model and exports them as PNG, JPEG, WebP or SVG.",
+    "icon": [
+      "../assets/icons/32x32.png",
+      "../assets/icons/128x128.png",
+      "../assets/icons/128x128@2x.png",
+      "../assets/icon.png",
+      "../assets/icon.icns",
+      "../assets/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["Korean", "English"],
+        "installMode": "currentUser",
+        "installerIcon": "../assets/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": { "minimumSystemVersion": "10.15" },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+        "files": {
+          "/usr/share/mime/packages/mymind.xml": "linux/mymind-mime.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-vnd.mymind+json.png": "../assets/file-icon.png"
+        },
+        "postInstallScript": "linux/post-install.sh"
+      }
+    }
+  }
+}

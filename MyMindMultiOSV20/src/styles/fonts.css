@@ -1,0 +1,42 @@
+/* The two preset node fonts, shipped with the app so a diagram looks the same offline. Only the
+   weights the canvas uses, and only woff2: the packages' own CSS would add hundreds of files. */
+@font-face {
+  font-family: 'Outfit';
+  font-weight: 500;
+  font-display: swap;
+  src: url('../../node_modules/@fontsource/outfit/files/outfit-latin-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-weight: 700;
+  font-display: swap;
+  src: url('../../node_modules/@fontsource/outfit/files/outfit-latin-700-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Sans KR';
+  font-weight: 500;
+  font-display: swap;
+  src: url('../../node_modules/@fontsource/noto-sans-kr/files/noto-sans-kr-latin-500-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2190-2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Noto Sans KR';
+  font-weight: 700;
+  font-display: swap;
+  src: url('../../node_modules/@fontsource/noto-sans-kr/files/noto-sans-kr-latin-700-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2190-2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Noto Sans KR';
+  font-weight: 500;
+  font-display: swap;
+  src: url('../../node_modules/@fontsource/noto-sans-kr/files/noto-sans-kr-korean-500-normal.woff2') format('woff2');
+  unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7FF, U+FF00-FFEF;
+}
+@font-face {
+  font-family: 'Noto Sans KR';
+  font-weight: 700;
+  font-display: swap;
+  src: url('../../node_modules/@fontsource/noto-sans-kr/files/noto-sans-kr-korean-700-normal.woff2') format('woff2');
+  unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7FF, U+FF00-FFEF;
+}

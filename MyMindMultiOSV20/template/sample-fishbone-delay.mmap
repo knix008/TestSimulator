@@ -1,0 +1,405 @@
+{
+  "version": 1,
+  "mode": "fishbone",
+  "layout": "ltr",
+  "defaultShape": "rect",
+  "defaultLine": "straight",
+  "defaultLinePattern": "solid",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "배송 지연",
+      "x": 1130,
+      "y": 424,
+      "width": 180,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "effect"
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "주문 처리",
+      "x": 867,
+      "y": 263,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "category"
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "재고 부족",
+      "x": 707,
+      "y": 143,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "확인 지연",
+      "x": 668.2903225806451,
+      "y": 354.2903225806451,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-8",
+      "parentId": "n-1",
+      "text": "물류",
+      "x": 867,
+      "y": 593,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "category"
+    },
+    {
+      "id": "n-9",
+      "parentId": "n-8",
+      "text": "경로 혼잡",
+      "x": 707,
+      "y": 713,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-8",
+      "text": "인력 부족",
+      "x": 582.8064516129032,
+      "y": 513,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-14",
+      "parentId": "n-1",
+      "text": "시스템",
+      "x": 436.35483870967744,
+      "y": 240.41935483870967,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "category"
+    },
+    {
+      "id": "n-15",
+      "parentId": "n-14",
+      "text": "오류",
+      "x": 190.87096774193546,
+      "y": 346.22580645161287,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-17",
+      "parentId": "n-14",
+      "text": "연동 실패",
+      "x": 116.6774193548387,
+      "y": 141.38709677419354,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-20",
+      "parentId": "n-1",
+      "text": "외부 요인",
+      "x": 302.48387096774195,
+      "y": 601.0645161290323,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "category"
+    },
+    {
+      "id": "n-21",
+      "parentId": "n-20",
+      "text": "날씨",
+      "x": 129.58064516129033,
+      "y": 732.3548387096774,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-23",
+      "parentId": "n-20",
+      "text": "교통",
+      "x": 107.00000000000003,
+      "y": 483.9677419354839,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "straight",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "straight",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-7",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "straight",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-10",
+      "from": "n-8",
+      "to": "n-9",
+      "lineType": "straight",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-12",
+      "from": "n-8",
+      "to": "n-11",
+      "lineType": "straight",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-13",
+      "from": "n-1",
+      "to": "n-8",
+      "lineType": "straight",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-16",
+      "from": "n-14",
+      "to": "n-15",
+      "lineType": "straight",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-18",
+      "from": "n-14",
+      "to": "n-17",
+      "lineType": "straight",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-19",
+      "from": "n-1",
+      "to": "n-14",
+      "lineType": "straight",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-22",
+      "from": "n-20",
+      "to": "n-21",
+      "lineType": "straight",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-24",
+      "from": "n-20",
+      "to": "n-23",
+      "lineType": "straight",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-25",
+      "from": "n-1",
+      "to": "n-20",
+      "lineType": "straight",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    }
+  ]
+}
