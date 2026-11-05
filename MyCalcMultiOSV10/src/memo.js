@@ -540,6 +540,7 @@ function memoRow(item, index, visible) {
   check.className = "memo-check";
   check.checked = memoView.selected.has(item.id);
   check.setAttribute("aria-label", memoTitle(item) || item.text);
+  check.dataset.tooltip = t("memoCheckTip");
   check.addEventListener("change", () => {
     if (check.checked) memoView.selected.add(item.id);
     else memoView.selected.delete(item.id);
@@ -596,6 +597,7 @@ function renderMemoFilters() {
     chip.type = "button";
     chip.setAttribute("role", "tab");
     chip.dataset.kind = kind;
+    chip.dataset.tooltip = `${t("memoFilter")}: ${memoKindLabel(kind)}`;
     chip.setAttribute("aria-selected", String(memoView.filter === kind));
     chip.append(el("span", "", memoKindLabel(kind)), el("span", "memo-filter-n", String(count)));
     chip.addEventListener("click", () => {

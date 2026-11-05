@@ -23,7 +23,7 @@ const readoutEl = document.getElementById("readout");
 const HISTORY_KEPT = 10;
 
 // The graph window never goes narrower than its toolbar on one line.
-const GRAPH_MIN_WIDTH = 870;
+const GRAPH_MIN_WIDTH = 950;
 const GRAPH_MIN_HEIGHT = 520;
 
 // Digit rows run 7-8-9 first or 1-2-3 first. Zero keeps the middle column
@@ -408,7 +408,7 @@ function statsKeys() {
     ],
   ];
   digitRows().forEach((trio, index) => {
-    const tail = index < 2 ? toolRows[index + 1] : [{ label: t("statAdd"), type: "sadd", className: "eq", span: 3 }];
+    const tail = index < 2 ? toolRows[index + 1] : [{ label: t("statAdd"), type: "sadd", className: "eq", span: 3, title: t("statAdd") }];
     rows.push([...trio.map((label) => digit(label)), entrySides[index], ...tail]);
   });
   return rows;
@@ -474,7 +474,7 @@ function renderGrid(rows, columns) {
     } else {
       button.textContent = second ? key.altLabel || key.altValue : key.label;
     }
-    if (key.title) button.dataset.tooltip = key.title;
+    button.dataset.tooltip = keyTip(key, second ? key.altLabel || key.altValue : key.label);
     if (key.type === "second" && state.second) button.classList.add("active");
     if (key.type === "pdigit" && digitValue(key.value) >= state.base) button.disabled = true;
     if (key.span > 1) button.style.gridColumn = `span ${key.span}`;
@@ -482,6 +482,14 @@ function renderGrid(rows, columns) {
     grid.append(button);
   }
   return grid;
+}
+
+function keyTip(key, label) {
+  if (key.title) return key.title;
+  // Decimal digits on every pad; A to F only on the programmer's, since the
+  // statistics pad has an E of its own that means something else.
+  if (/^[0-9]$/.test(label) || (key.type === "pdigit" && /^[A-F]$/.test(label))) return `${t("keyDigit")} ${label}`;
+  return t(`key.${label}`);
 }
 
 function digitValue(ch) {
@@ -1184,6 +1192,11 @@ function syncGraphStatus() {
   if (is3d) cells.push(["z", span(view.zMin, view.zMax)]);
   cells.push([t("statusGrid"), board.showGrid ? t("statusOn") : t("statusOff")]);
   cells.push([t("statusLegend"), board.showLegend ? t("statusOn") : t("statusOff")]);
+  if (!is3d) cells.push([t("statusRuler"), board.showRuler ? t("statusOn") : t("statusOff")]);
+  if (is3d) {
+    cells.push([t("statusBox"), board.showBox ? t("statusOn") : t("statusOff")]);
+    cells.push([t("statusHeat"), board.showHeat ? t("statusOn") : t("statusOff")]);
+  }
   if (is3d) cells.push([t("light"), board.light.on ? t("statusOn") : t("statusOff")]);
   cells.push([t("statusAngle"), engine.angleMode === "rad" ? "RAD" : "DEG"]);
 
@@ -1312,6 +1325,15 @@ function syncGraphChrome() {
   axesToggle.setAttribute("aria-pressed", String(axesOn));
   const legendToggle = document.getElementById("legendToggle");
   if (legendToggle) legendToggle.setAttribute("aria-pressed", String(board.showLegend));
+  const rulerToggle = document.getElementById("rulerToggle");
+  rulerToggle.hidden = is3d;
+  rulerToggle.setAttribute("aria-pressed", String(board.showRuler));
+  const boxToggle = document.getElementById("boxToggle");
+  boxToggle.hidden = !is3d;
+  boxToggle.setAttribute("aria-pressed", String(board.showBox));
+  const heatToggle = document.getElementById("heatToggle");
+  heatToggle.hidden = !is3d;
+  heatToggle.setAttribute("aria-pressed", String(board.showHeat));
   readoutEl.textContent = graphHelp();
   syncAxisFields();
   placeAxisColors();
@@ -1386,6 +1408,8 @@ function renderPresets() {
   for (const expr of PRESETS[board.dimension]) {
     const button = el("button", "", expr);
     button.type = "button";
+    const name = typeof MEMO_BUILTINS === "undefined" ? null : MEMO_BUILTINS.find((entry) => entry.text === expr && entry.kind === `graph${board.dimension}`);
+    button.dataset.tooltip = name ? uiText(name.ko, name.en) : expr;
     button.addEventListener("click", () => addGraph(expr));
     presets.append(button);
   }
@@ -1441,6 +1465,7 @@ function renderExprPad() {
       const button = el("button", "", named ? token.slice(0, -1) : token);
       button.type = "button";
       button.tabIndex = -1;
+      button.dataset.tooltip = t(`pad.${named ? token.slice(0, -1) : token}`);
       button.addEventListener("mousedown", (ev) => ev.preventDefault());
       button.addEventListener("click", () => insertGraphToken(token));
       box.append(button);
@@ -1571,6 +1596,18 @@ function bind() {
   });
   document.getElementById("legendToggle").addEventListener("click", () => {
     board.toggleLegend();
+    syncGraphChrome();
+  });
+  document.getElementById("rulerToggle").addEventListener("click", () => {
+    board.toggleRuler();
+    syncGraphChrome();
+  });
+  document.getElementById("boxToggle").addEventListener("click", () => {
+    board.toggleBox();
+    syncGraphChrome();
+  });
+  document.getElementById("heatToggle").addEventListener("click", () => {
+    board.toggleHeat();
     syncGraphChrome();
   });
   document.getElementById("plot").addEventListener("dblclick", (ev) => {
@@ -1725,6 +1762,7 @@ function renderThemeGroups() {
         dot.style.background = color;
         dots.append(dot);
       }
+      button.dataset.tooltip = `${t("themeTip")}: ${themeLabel(theme)}`;
       button.append(dots, el("span", "theme-name", themeLabel(theme)));
       button.addEventListener("click", () => selectPreset(theme));
       host.append(button);
@@ -1864,6 +1902,7 @@ function renderCustomFields(picks) {
   for (const [key] of CUSTOM_FIELDS) {
     const field = document.createElement("label");
     field.textContent = t("field." + key);
+    field.dataset.tooltip = t("field." + key);
     const input = document.createElement("input");
     input.type = "color";
     input.dataset.custom = key;
@@ -3192,6 +3231,9 @@ function snapshotGraph() {
     showGrid: board.showGrid,
     showAxisValues: board.showAxisValues,
     showLegend: board.showLegend,
+    showRuler: board.showRuler,
+    showBox: board.showBox,
+    showHeat: board.showHeat,
     legendPos: board.legendPos ? { ...board.legendPos } : null,
     views: {
       "2d": { ...board.views["2d"] },
@@ -3253,6 +3295,9 @@ function applyGraphState(state) {
     board.showGrid = !!state.showGrid;
     board.showAxisValues = state.showAxisValues !== false;
     board.showLegend = state.showLegend !== false;
+    board.showRuler = state.showRuler === true;
+    board.showBox = state.showBox === true;
+    board.showHeat = state.showHeat === true;
     if ("legendPos" in state) board.legendPos = state.legendPos ? { ...state.legendPos } : null;
     if (state.axes) {
       for (const axis of ["x", "y", "z"]) {

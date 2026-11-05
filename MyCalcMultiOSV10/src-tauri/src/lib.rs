@@ -46,7 +46,7 @@ fn child_spec(kind: &str) -> Option<ChildSpec> {
             height: 700.0,
             // Narrower than this and the toolbar would fold onto a second line.
             // The same floor is GRAPH_MIN_WIDTH / GRAPH_MIN_HEIGHT in src/app.js.
-            min_width: 870.0,
+            min_width: 950.0,
             min_height: 520.0,
             title: "MyCalc 10.0 Graph",
             desktop: true,

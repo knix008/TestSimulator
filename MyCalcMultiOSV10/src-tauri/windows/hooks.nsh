@@ -18,6 +18,13 @@
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
 
+; 설치 언어는 설치할 때마다 묻는다. 이것이 없으면 NSIS 는 처음 고른 언어를
+; 레지스트리에 적어 두고, 그 값이 있으면 다시 묻지 않는다.
+; 설치 마법사가 언어를 묻는 자리보다 이 파일을 먼저 읽으므로 여기 두면 된다.
+!define MUI_LANGDLL_ALWAYSSHOW
+!define MUI_LANGDLL_WINDOWTITLE "MyCalc"
+!define MUI_LANGDLL_INFO "설치 언어를 선택하세요.$\r$\nPlease select the installer language."
+
 !ifndef APP_EXECUTABLE_FILENAME
   !define APP_EXECUTABLE_FILENAME "MyCalc.exe"
 !endif
@@ -43,6 +50,8 @@
 Var OldDir
 ; 그 판의 제거 프로그램. 없으면 빈 글자.
 Var OldUninstaller
+; 그 판이 모든 사용자용으로 깔려 있으면 1. 지우는 데 관리자 권한이 든다.
+Var OldElevated
 ; 실행 파일 이름. customInit 에서 적어 둔다.
 Var ExeName
 ; 설정이 놓이는 자리 세 가지. 쓰지 않는 것은 빈 글자.
@@ -173,11 +182,23 @@ Function RemoveOldApp
   ${If} ${Errors}
     StrCpy $R0 "$OldUninstaller"
   ${EndIf}
+  StrCpy $R3 "$OldDir\$ExeName"
 
   ; 설정은 여기서 건드리지 않는다. 프로그램을 막 닫은 참이라 파일이 아직 잡혀
   ; 있어서, 지우면 반만 지워진 채 남는다. 지우는 일은 파일을 다 옮긴 뒤에 한다.
-  DetailPrint "이전에 설치된 MyCalc 를 제거합니다"
-  ExecWait '"$R0" /S _?=$OldDir' $R2
+  ${If} $LANGUAGE == 1042
+    DetailPrint "이전에 설치된 MyCalc 를 제거합니다"
+  ${Else}
+    DetailPrint "Removing the earlier MyCalc"
+  ${EndIf}
+  ; 이 설치 프로그램은 권한을 올리지 않고 돈다. 예전에 모든 사용자용으로 깐 판의
+  ; 제거 프로그램은 권한을 요구하므로 ExecWait 로는 시작조차 되지 않는다. 셸을
+  ; 거쳐야 UAC 창이 뜬다. 관리자 권한을 묻는 것은 이 경우뿐이다.
+  ${If} $OldElevated == 1
+    ExecShellWait "open" "$R0" '/S _?=$OldDir'
+  ${Else}
+    ExecWait '"$R0" /S _?=$OldDir' $R2
+  ${EndIf}
 
   ; 남은 것이 있으면 폴더째 치운다. 지난 판의 파일이 섞여 남으면 새로 깐 판이
   ; 무엇을 읽을지 알 수 없다.
@@ -188,6 +209,18 @@ Function RemoveOldApp
     RMDir /r "$OldDir\resources"
     RMDir /r "$OldDir\locales"
     RMDir "$OldDir"
+  ${EndIf}
+
+  ; UAC 창을 거절했거나 권한이 없으면 예전 판이 그대로 있다. 새 판은 이 사용자용으로
+  ; 따로 깔리므로 설치는 이어 가고, 둘이 함께 있다는 것만 알린다.
+  ${If} $OldElevated == 1
+  ${AndIf} ${FileExists} "$R3"
+    ${If} $LANGUAGE == 1042
+      StrCpy $R0 "모든 사용자용으로 설치된 이전 MyCalc 를 제거하지 못했습니다.$\n새 MyCalc 는 현재 사용자용으로 따로 설치됩니다.$\n이전 판은 Windows 설정의 앱 목록에서 제거할 수 있습니다."
+    ${Else}
+      StrCpy $R0 "The earlier MyCalc installed for all users could not be removed.$\nThe new MyCalc is installed separately for the current user.$\nYou can remove the earlier one from the app list in Windows Settings."
+    ${EndIf}
+    MessageBox MB_OK|MB_ICONINFORMATION "$R0" /SD IDOK
   ${EndIf}
 FunctionEnd
 
@@ -230,12 +263,23 @@ FunctionEnd
     ReadRegStr $OldDir HKLM "Software\local.mycalc.desktop" InstallLocation
   ${EndIf}
 
+  StrCpy $OldElevated 0
   ReadRegStr $R0 SHCTX "${UNINSTKEY}" UninstallString
   ${If} $R0 == ""
     ReadRegStr $R0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\local.mycalc.desktop" UninstallString
   ${EndIf}
+  ; 여기까지가 이 사용자의 것이다. 아래 둘은 모든 사용자용으로 깔린 예전 판이다.
+  ${If} $R0 == ""
+    ReadRegStr $R0 HKLM "${UNINSTKEY}" UninstallString
+    ${If} $R0 != ""
+      StrCpy $OldElevated 1
+    ${EndIf}
+  ${EndIf}
   ${If} $R0 == ""
     ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\local.mycalc.desktop" UninstallString
+    ${If} $R0 != ""
+      StrCpy $OldElevated 1
+    ${EndIf}
   ${EndIf}
   ${If} $R0 != ""
     Push $R0
@@ -287,7 +331,11 @@ FunctionEnd
 ; 새로 깐 프로그램은 아직 뜨기 전이므로 지운 자리를 다시 만들어 놓지도 않는다.
 !macro customInstall
   ${If} $WipeData == 1
-    DetailPrint "이전 설정을 지웁니다"
+    ${If} $LANGUAGE == 1042
+      DetailPrint "이전 설정을 지웁니다"
+    ${Else}
+      DetailPrint "Erasing the earlier settings"
+    ${EndIf}
     Call WipeOldData
   ${EndIf}
 !macroend

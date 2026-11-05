@@ -60,8 +60,8 @@
     <div class="stage">
     <section class="screen" id="screenCalc">
       <div class="status">
-        <button type="button" id="angleBtn" aria-pressed="false">DEG</button>
-        <button type="button" id="notationBtn">NORM</button>
+        <button type="button" id="angleBtn" aria-pressed="false" data-i18n-title="angleTip" data-tooltip="각도 단위 (DEG / RAD)">DEG</button>
+        <button type="button" id="notationBtn" data-i18n-title="notationTip" data-tooltip="표기 방식 (NORM / SCI / ENG)">NORM</button>
         <button type="button" id="memClear" data-i18n-title="memClear" data-tooltip="메모리 지우기">MC</button>
         <button type="button" id="memRecall" data-i18n-title="memRecall" data-tooltip="메모리 불러오기">MR</button>
         <button type="button" id="memAdd" data-i18n-title="memAdd" data-tooltip="메모리에 더하기">M+</button>
@@ -79,16 +79,16 @@
 
     <section class="screen" id="screenProg" hidden>
       <div class="bit-row" id="bitRow" role="group" data-i18n-aria="bits" aria-label="비트 너비">
-        <button type="button" data-bits="64">64-bit</button>
-        <button type="button" data-bits="32" aria-pressed="true">32-bit</button>
-        <button type="button" data-bits="16">16-bit</button>
-        <button type="button" data-bits="8">8-bit</button>
+        <button type="button" data-bits="64" data-i18n-title="bits" data-tooltip="비트 너비">64-bit</button>
+        <button type="button" data-bits="32" aria-pressed="true" data-i18n-title="bits" data-tooltip="비트 너비">32-bit</button>
+        <button type="button" data-bits="16" data-i18n-title="bits" data-tooltip="비트 너비">16-bit</button>
+        <button type="button" data-bits="8" data-i18n-title="bits" data-tooltip="비트 너비">8-bit</button>
       </div>
       <div class="bases" id="bases">
-        <button type="button" data-base="16"><span>HEX</span><strong id="val16">0</strong></button>
-        <button type="button" data-base="10" aria-pressed="true"><span>DEC</span><strong id="val10">0</strong></button>
-        <button type="button" data-base="8"><span>OCT</span><strong id="val8">0</strong></button>
-        <button type="button" data-base="2" class="bin"><span>BIN</span><strong id="val2">0</strong></button>
+        <button type="button" data-base="16" data-i18n-title="baseHex" data-tooltip="16진수로 입력 (HEX)"><span>HEX</span><strong id="val16">0</strong></button>
+        <button type="button" data-base="10" aria-pressed="true" data-i18n-title="baseDec" data-tooltip="10진수로 입력 (DEC)"><span>DEC</span><strong id="val10">0</strong></button>
+        <button type="button" data-base="8" data-i18n-title="baseOct" data-tooltip="8진수로 입력 (OCT)"><span>OCT</span><strong id="val8">0</strong></button>
+        <button type="button" data-base="2" class="bin" data-i18n-title="baseBin" data-tooltip="2진수로 입력 (BIN)"><span>BIN</span><strong id="val2">0</strong></button>
       </div>
       <label class="prog-field">
         <span data-i18n="progExpr">식</span>
@@ -135,8 +135,8 @@
 
     <section class="screen" id="screenDate" hidden>
       <div class="date-jobs" role="group" data-i18n-aria="dateJob" aria-label="날짜 계산">
-        <button type="button" id="dateJobDiff" aria-pressed="true" data-i18n="dateDiff">차이</button>
-        <button type="button" id="dateJobAdd" aria-pressed="false" data-i18n="dateAdd">더하기</button>
+        <button type="button" id="dateJobDiff" aria-pressed="true" data-i18n="dateDiff" data-i18n-title="dateDiffTip" data-tooltip="두 날짜의 차이 구하기">차이</button>
+        <button type="button" id="dateJobAdd" aria-pressed="false" data-i18n="dateAdd" data-i18n-title="dateAddTip" data-tooltip="날짜에 기간 더하기">더하기</button>
       </div>
       <div class="date-panes">
       <div id="dateDiffPane">
@@ -244,7 +244,7 @@
           <button type="button" id="dim2d" aria-pressed="true" aria-label="2D" data-tooltip="2D">2D</button>
           <button type="button" id="dim3d" aria-pressed="false" aria-label="3D" data-tooltip="3D">3D</button>
         </div>
-        <input id="graphExpr" class="graph-input" data-i18n-aria="graphExpr" aria-label="그래프 식" placeholder="sin(x)" autocomplete="off" spellcheck="false" />
+        <input id="graphExpr" class="graph-input" data-i18n-aria="graphExpr" data-i18n-title="graphExpr" data-tooltip="그래프 식" aria-label="그래프 식" placeholder="sin(x)" autocomplete="off" spellcheck="false" />
         <button type="button" id="addFn" class="tool-icon" data-i18n-aria="add" data-i18n-title="add" aria-label="추가" data-tooltip="추가"><span class="icon icon-add" aria-hidden="true"></span></button>
         <button type="button" id="memoAddGraph" class="tool-icon" data-i18n-aria="memoAddGraph" data-i18n-title="memoAddGraph" aria-label="메모장에 추가" data-tooltip="메모장에 추가"><span class="icon icon-memo-add" aria-hidden="true"></span></button>
         <button type="button" id="memoGraph" class="tool-icon" data-i18n-aria="memoOpen" data-i18n-title="memoOpen" aria-label="메모장 보기" data-tooltip="메모장 보기"><span class="icon icon-memo" aria-hidden="true"></span></button>
@@ -253,8 +253,11 @@
         <button type="button" id="resetView" class="tool-icon" data-i18n-aria="reset" data-i18n-title="reset" aria-label="초기화" data-tooltip="초기화"><span class="icon icon-reset" aria-hidden="true"></span></button>
         <button type="button" id="gridToggle" class="tool-icon" aria-pressed="true" data-i18n-aria="grid" data-i18n-title="grid" aria-label="격자" data-tooltip="격자"><span class="icon icon-grid" aria-hidden="true"></span></button>
         <button type="button" id="legendToggle" class="tool-icon" aria-pressed="true" data-i18n-aria="legend" data-i18n-title="legend" aria-label="범례 On/Off" data-tooltip="범례 On/Off"><span class="icon icon-legend" aria-hidden="true"></span></button>
+        <button type="button" id="rulerToggle" class="tool-icon" aria-pressed="false" data-i18n-aria="ruler" data-i18n-title="ruler" aria-label="눈금자 On/Off" data-tooltip="눈금자 On/Off"><span class="icon icon-ruler" aria-hidden="true"></span></button>
         <button type="button" id="axisToggle" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="axisValues" data-i18n-title="axisValues" aria-label="축 값" data-tooltip="축 값"><span class="icon icon-axis-values" aria-hidden="true"></span></button>
         <button type="button" id="axesToggle" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="axes" data-i18n-title="axes" aria-label="좌표축" data-tooltip="좌표축"><span class="icon icon-axis" aria-hidden="true"></span></button>
+        <button type="button" id="boxToggle" class="tool-icon" hidden aria-pressed="false" data-i18n-aria="rangeBox" data-i18n-title="rangeBox" aria-label="범위 상자 On/Off" data-tooltip="범위 상자 On/Off"><span class="icon icon-box" aria-hidden="true"></span></button>
+        <button type="button" id="heatToggle" class="tool-icon" hidden aria-pressed="false" data-i18n-aria="heatBar" data-i18n-title="heatBar" aria-label="온도 바 On/Off" data-tooltip="온도 바 On/Off"><span class="icon icon-colorbar" aria-hidden="true"></span></button>
         <button type="button" id="panelLeft" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="panelLeft" data-i18n-title="panelLeft" aria-label="식 패널" data-tooltip="식 패널"><span class="icon icon-panel-left" aria-hidden="true"></span></button>
         <button type="button" id="panelRight" class="tool-icon" hidden aria-pressed="false" data-i18n-aria="panelRight" data-i18n-title="panelRight" aria-label="설정 패널" data-tooltip="설정 패널"><span class="icon icon-panel-right" aria-hidden="true"></span></button>
         <button type="button" id="lightToggle" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="light" data-i18n-title="light" aria-label="광원" data-tooltip="광원"><span class="icon icon-light" aria-hidden="true"></span></button>
@@ -375,10 +378,10 @@
           </section>
           <section class="side-group" id="sideLightGroup">
             <h3 data-i18n="light">광원</h3>
-            <label class="side-check"><input type="checkbox" id="sideLightOn" checked /><span data-i18n="lightOn">광원 켜기</span></label>
-            <label class="side-slide"><span data-i18n="lightTurn">방위</span><input type="range" id="sideLightTurn" min="-180" max="180" step="1" value="-54" /><output id="sideLightTurnOut">-54°</output></label>
-            <label class="side-slide"><span data-i18n="lightRise">고도</span><input type="range" id="sideLightRise" min="-88" max="88" step="1" value="52" /><output id="sideLightRiseOut">52°</output></label>
-            <label class="side-slide"><span data-i18n="lightFar">거리</span><input type="range" id="sideLightFar" min="30" max="600" step="5" value="130" /><output id="sideLightFarOut">1.30</output></label>          </section>
+            <label class="side-check" data-i18n-title="lightOn" data-tooltip="광원 켜기"><input type="checkbox" id="sideLightOn" checked /><span data-i18n="lightOn">광원 켜기</span></label>
+            <label class="side-slide" data-i18n-title="lightTurn" data-tooltip="방위"><span data-i18n="lightTurn">방위</span><input type="range" id="sideLightTurn" min="-180" max="180" step="1" value="-54" /><output id="sideLightTurnOut">-54°</output></label>
+            <label class="side-slide" data-i18n-title="lightRise" data-tooltip="고도"><span data-i18n="lightRise">고도</span><input type="range" id="sideLightRise" min="-88" max="88" step="1" value="52" /><output id="sideLightRiseOut">52°</output></label>
+            <label class="side-slide" data-i18n-title="lightFar" data-tooltip="거리"><span data-i18n="lightFar">거리</span><input type="range" id="sideLightFar" min="30" max="600" step="5" value="130" /><output id="sideLightFarOut">1.30</output></label>          </section>
         </aside>
       </div>
       <div class="graph-status" id="graphStatus" role="status" data-i18n-aria="graphStatus" aria-label="그래프 상태"></div>
@@ -475,13 +478,13 @@
         <section class="lang-setting">
           <h3 data-i18n="language">언어</h3>
           <div class="lang-choices" role="group" data-i18n-aria="language" aria-label="언어">
-            <button type="button" id="langKo" aria-pressed="true"><img class="flag" alt="" src="assets/icons/flag-kr.svg" width="22" height="15" draggable="false" />한국어</button>
-            <button type="button" id="langEn" aria-pressed="false"><img class="flag" alt="" src="assets/icons/flag-uk.svg" width="22" height="15" draggable="false" />English</button>
+            <button type="button" id="langKo" aria-pressed="true" data-i18n-title="langKoTip" data-tooltip="한국어로 표시"><img class="flag" alt="" src="assets/icons/flag-kr.svg" width="22" height="15" draggable="false" />한국어</button>
+            <button type="button" id="langEn" aria-pressed="false" data-i18n-title="langEnTip" data-tooltip="영어로 표시"><img class="flag" alt="" src="assets/icons/flag-uk.svg" width="22" height="15" draggable="false" />English</button>
           </div>
           <h3 class="tip-heading" data-i18n="tooltips">툴팁</h3>
           <div class="lang-choices" role="group" data-i18n-aria="tooltips" aria-label="툴팁">
-            <button type="button" id="tipsOn" aria-pressed="true" data-i18n="tooltipsOn">켜기</button>
-            <button type="button" id="tipsOff" aria-pressed="false" data-i18n="tooltipsOff">끄기</button>
+            <button type="button" id="tipsOn" aria-pressed="true" data-i18n="tooltipsOn" data-i18n-title="tipsOnTip" data-tooltip="툴팁 켜기">켜기</button>
+            <button type="button" id="tipsOff" aria-pressed="false" data-i18n="tooltipsOff" data-i18n-title="tipsOffTip" data-tooltip="툴팁 끄기">끄기</button>
           </div>
         </section>
         <div class="theme-columns">

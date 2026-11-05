@@ -18,15 +18,30 @@ function niceNumber(value) {
   return nice * 10 ** exp;
 }
 
+// 3D cell sizes go up by fives from the opening 20 / 5: ..., 0.8, 4, 20, 100, ...
+// A cell is cut into five by its fine lines, so at each change the fine lines
+// simply become the cell lines. Finer rungs made the grid jump every notch.
+function cellNumber(value) {
+  if (!(value > 0) || !Number.isFinite(value)) return 1;
+  return 4 * 5 ** Math.round(Math.log(value / 4) / Math.log(5));
+}
+
 function formatTick(value) {
   if (!Number.isFinite(value)) return "";
   if (Math.abs(value) < 1e-12) return "0";
   const abs = Math.abs(value);
-  if (abs >= 1e5 || abs < 1e-3) {
-    return value.toExponential(0).replace("e+", "e");
-  }
-  const digits = abs >= 100 ? 0 : abs >= 10 ? 1 : abs >= 1 ? 2 : 3;
-  return String(parseFloat(value.toFixed(digits)));
+  // Four figures: a tick at 312500 must not read 3e5, nor one at 0.0064 read 0.006.
+  const figures = parseFloat(value.toPrecision(4));
+  if (abs >= 1e5 || abs < 1e-3) return figures.toExponential().replace("e+", "e");
+  return abs >= 100 ? String(Math.round(value)) : String(figures);
+}
+
+// The pointer's value, to a tenth of a fine grid cell.
+function rulerValue(value, step) {
+  if (!Number.isFinite(value)) return "";
+  if (Math.abs(value) >= 1e7) return value.toExponential(3).replace("e+", "e");
+  const decimals = clamp(Math.ceil(-Math.log10(step / 50)), 0, 12);
+  return value.toFixed(decimals);
 }
 
 function themeVar(name, fallback) {
@@ -60,6 +75,31 @@ function fillWindowBackdrop(ctx, width, height) {
 }
 
 const FLOOR_CELLS = 5;
+// The zoom that fits the scene to the window.
+const CAMERA_HOME = 1.35;
+const RULER_SIZE = 22;
+const RULER_MARK = "#ef4444";
+// Room kept free at the right of the 3D picture for the temperature bar.
+const HEAT_ROOM = 72;
+// How far a cell's corners may leave one plane, on the bar, and still be one face.
+const HEAT_FLAT_CELL = 0.004;
+const HEAT_STOPS = [
+  [11, 31, 138],
+  [22, 119, 232],
+  [25, 200, 200],
+  [63, 191, 63],
+  [242, 226, 42],
+  [242, 138, 28],
+  [215, 25, 28],
+];
+// The colour of a height, 0 at the bottom of the bar and 1 at the top.
+function heatRgbAt(t) {
+  const at = clamp(t, 0, 1) * (HEAT_STOPS.length - 1);
+  const low = Math.min(Math.floor(at), HEAT_STOPS.length - 2);
+  const part = at - low;
+  return HEAT_STOPS[low].map((value, channel) => value + (HEAT_STOPS[low + 1][channel] - value) * part);
+}
+
 // A new curve is left where the reader put the window, unless the window has
 // almost nothing of it in view. Below this share of the curve the picture is
 // empty enough to be worth re-framing around the values.
@@ -81,10 +121,15 @@ const AXIS_PIECES = 64;
 const AXIS_LINE_WIDTH = 1.5;
 const AXIS_LINE_ALPHA = 0.55;
 const AXIS_TEXT_ALPHA = 0.8;
-// An axis lying in a surface ties with it cell by cell and comes out dashed;
-// pulling it toward the eye by this share of the floor's width (about two mesh
-// cells) lets it win the tie, while a sheet clearly in front still covers it.
-const AXIS_DEPTH_BIAS = 0.02;
+// Depths that put an axis piece before every surface cell or after every one.
+const PIECE_FIRST = 1e9;
+const PIECE_LAST = -1e9;
+const RAY_PIECES = 32;
+// How far the eye sits from the middle of the box, in the units of the box.
+const EYE_DISTANCE = 3.2;
+const SIGHT_STEPS = 64;
+// Closer to the surface than this counts as lying in it.
+const SIGHT_TOLERANCE = 0.001;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -137,6 +182,10 @@ class GraphBoard {
     this.showGrid = true;
     this.showAxisValues = true;
     this.showLegend = true;
+    this.showRuler = false;
+    this.showBox = false;
+    this.showHeat = false;
+    this.heatRange = null;
     this.axes = {
       x: { color: AXIS_COLORS.x, visible: true },
       y: { color: AXIS_COLORS.y, visible: true },
@@ -290,8 +339,9 @@ class GraphBoard {
     const bounds = this.fitBounds(values);
     if (!bounds) return false;
     if (this.dimension === "3d") {
-      this.view.zMin = bounds.low;
-      this.view.zMax = bounds.high;
+      const half = Math.max(Math.abs(bounds.low), Math.abs(bounds.high));
+      this.view.zMin = -half;
+      this.view.zMax = half;
       this.zAuto = false;
     } else {
       this.view.yMin = bounds.low;
@@ -360,21 +410,21 @@ class GraphBoard {
     this.onView?.();
   }
 
-  // One axis grows or shrinks about its own middle. The other two stay put,
-  // and the drawn box remains a cube: a longer axis only spreads its ticks.
+  // One axis grows or shrinks about the origin, half its length on either side
+  // of 0. The other two stay put, and the drawn box remains a cube: a longer axis
+  // only spreads its ticks.
   stepAxis(axis, factor) {
     if (axis !== "x" && axis !== "y" && axis !== "z") return;
     const lowKey = `${axis}Min`;
     const highKey = `${axis}Max`;
     const low = this.view[lowKey];
     const high = this.view[highKey];
-    const middle = (low + high) / 2;
     let half = ((high - low) / 2) * factor;
     if (!Number.isFinite(half)) return;
     half = Math.min(1e9, Math.max(1e-6, half));
-    const nextLow = middle - half;
-    const nextHigh = middle + half;
-    if (Math.abs(nextHigh - nextLow - (high - low)) <= Math.max(1e-9, Math.abs(high - low) * 1e-9)) return;
+    const nextLow = -half;
+    const nextHigh = half;
+    if (Math.abs(nextLow - low) + Math.abs(nextHigh - high) <= Math.max(1e-9, Math.abs(high - low) * 1e-9)) return;
     this.setView({ [lowKey]: nextLow, [highKey]: nextHigh });
   }
 
@@ -431,6 +481,31 @@ class GraphBoard {
     this.draw();
   }
 
+  toggleRuler() {
+    this.showRuler = !this.showRuler;
+    this.draw();
+  }
+
+  toggleBox() {
+    this.showBox = !this.showBox;
+    this.draw();
+  }
+
+  toggleHeat() {
+    this.showHeat = !this.showHeat;
+    this.draw();
+  }
+
+  // How much of the right edge the temperature bar takes. 3D only.
+  heatRoom(dpr) {
+    return this.showHeat && this.dimension === "3d" ? HEAT_ROOM * dpr : 0;
+  }
+
+  // How much of each edge the rulers cover. 3D has no rulers.
+  rulerInset(dpr) {
+    return this.showRuler && this.dimension === "2d" ? RULER_SIZE * dpr : 0;
+  }
+
   setLegendText(id, text) {
     const fn = [...this.fns2d, ...this.fns3d].find((item) => item.id === id);
     if (!fn) return;
@@ -479,15 +554,17 @@ class GraphBoard {
 
   zoom3d(factor, fast) {
     const pairs = [["xMin", "xMax"], ["yMin", "yMax"], ["zMin", "zMax"]];
+    const before = { ...this.view };
     const next = {};
+    // The origin stays at 0, 0, 0: half of each axis is negative, half positive.
     for (const [low, high] of pairs) {
-      const middle = (this.view[low] + this.view[high]) / 2;
-      const half = ((this.view[high] - this.view[low]) / 2) * factor;
+      const half = Math.max(Math.abs(this.view[low]), Math.abs(this.view[high])) * factor;
       if (!Number.isFinite(half) || half < 1e-6 || half > 1e9) return;
-      next[low] = middle - half;
-      next[high] = middle + half;
+      next[low] = -half;
+      next[high] = half;
     }
     Object.assign(this.view, next);
+    this.zoomHeight(before);
     // The camera keeps filling the window; only the span of the axes changes.
     this.zAuto = false;
     this.meshKey = "";
@@ -505,6 +582,38 @@ class GraphBoard {
     }
     this.onView?.();
     this.onChange?.();
+  }
+
+  // z follows x and y by the same factor. Only when the surface still sticks out
+  // does z reach further. The factor is measured from where the zoom began, so
+  // coming back to the same x, y range brings back the same z range. Heights
+  // are taken from every other point of the mesh, which is drawn next.
+  zoomHeight(before) {
+    const spanOf = (view) => Math.max(view.xMax - view.xMin, view.yMax - view.yMin);
+    let start = this.zoomStart;
+    // Anything else that moved the range since the last notch starts a new zoom.
+    if (!start || start.seenHalf !== before.zMax || before.zMin !== -before.zMax || start.seenSpan !== spanOf(before)) {
+      start = { half: Math.max(Math.abs(before.zMin), Math.abs(before.zMax)), span: spanOf(before) };
+    }
+    const { xMin, xMax, yMin, yMax } = this.view;
+    let half = start.half * (spanOf(this.view) / start.span);
+    const values = [];
+    const count = 55;
+    for (const fn of this.functions) {
+      if (!fn.visible) continue;
+      for (let j = 0; j < count; j++) {
+        const y = yMin + ((yMax - yMin) * j) / (count - 1);
+        for (let i = 0; i < count; i++) {
+          const value = this.evalScope(fn.ast, { x: xMin + ((xMax - xMin) * i) / (count - 1), y });
+          if (Number.isFinite(value)) values.push(value);
+        }
+      }
+    }
+    const bounds = this.fitBounds(values);
+    if (bounds) half = Math.max(half, Math.abs(bounds.low), Math.abs(bounds.high));
+    this.view.zMin = -half;
+    this.view.zMax = half;
+    this.zoomStart = { ...start, seenHalf: half, seenSpan: spanOf(this.view) };
   }
 
   lightVector() {
@@ -904,6 +1013,7 @@ class GraphBoard {
       }
       this.drawAxisValues2d(ctx, dpr);
       this.drawHover(ctx, dpr);
+      if (this.showRuler) this.drawRuler(ctx, dpr);
     }
     this.drawLegend(ctx, dpr);
     this.onDraw?.();
@@ -960,10 +1070,13 @@ class GraphBoard {
     const boxW = pad * 2 + swatch + gap + textCap;
     const boxH = pad * 2 + items.length * rowH;
     const margin = Math.round(12 * dpr);
-    let x = this.legendPos ? this.legendPos.x * this.canvas.width : this.canvas.width - boxW - margin;
-    let y = this.legendPos ? this.legendPos.y * this.canvas.height : margin;
-    x = clamp(x, 0, Math.max(0, this.canvas.width - boxW));
-    y = clamp(y, 0, Math.max(0, this.canvas.height - boxH));
+    // The plate stays off the rulers, or it would hide the red mark.
+    const inset = this.rulerInset(dpr);
+    const right = this.canvas.width - this.heatRoom(dpr);
+    let x = this.legendPos ? this.legendPos.x * this.canvas.width : right - boxW - margin;
+    let y = this.legendPos ? this.legendPos.y * this.canvas.height : margin + inset;
+    x = clamp(x, inset, Math.max(inset, right - boxW));
+    y = clamp(y, inset, Math.max(inset, this.canvas.height - boxH));
     this.legendBox = { x, y, w: boxW, h: boxH };
     if (!this.exportTransparent) {
       ctx.fillStyle = themeVar("--chip", "#292524");
@@ -1019,7 +1132,8 @@ class GraphBoard {
 
   drawGrid(ctx, dpr) {
     const { xMin, xMax, yMin, yMax } = this.drawn;
-    const step = this.gridStep2d();
+    const stepX = this.gridStep2d("x");
+    const stepY = this.gridStep2d("y");
     const width = this.canvas.width;
     const height = this.canvas.height;
     const ink = themeVar("--muted", "#a8a29e");
@@ -1041,15 +1155,14 @@ class GraphBoard {
     ctx.strokeStyle = ink;
     ctx.lineWidth = dpr;
     // Five fine cells sit between neighbouring labelled lines.
-    const fine = step / 5;
-    if (fine * (width / Math.max(1e-9, xMax - xMin)) > 6) {
-      ctx.globalAlpha = 0.09;
-      rule(this.multiples(xMin, xMax, fine), true);
-      rule(this.multiples(yMin, yMax, fine), false);
-    }
+    const fineX = stepX / 5;
+    const fineY = stepY / 5;
+    ctx.globalAlpha = 0.09;
+    if (fineX * (width / Math.max(1e-9, xMax - xMin)) > 6) rule(this.multiples(xMin, xMax, fineX), true);
+    if (fineY * (height / Math.max(1e-9, yMax - yMin)) > 6) rule(this.multiples(yMin, yMax, fineY), false);
     ctx.globalAlpha = 0.26;
-    rule(this.multiples(xMin, xMax, step), true);
-    rule(this.multiples(yMin, yMax, step), false);
+    rule(this.multiples(xMin, xMax, stepX), true);
+    rule(this.multiples(yMin, yMax, stepY), false);
     ctx.restore();
   }
 
@@ -1088,11 +1201,12 @@ class GraphBoard {
     const { xMin, xMax, yMin, yMax } = this.drawn;
     const width = this.canvas.width;
     const height = this.canvas.height;
-    const step = this.gridStep2d();
-    const xTicks = this.multiples(xMin, xMax, step);
-    const yTicks = this.multiples(yMin, yMax, step);
-    const xAxis = clamp(this.yToPx(0), 16 * dpr, height - 16 * dpr);
-    const yAxis = clamp(this.xToPx(0), 16 * dpr, width - 16 * dpr);
+    const xTicks = this.multiples(xMin, xMax, this.gridStep2d("x"));
+    const yTicks = this.multiples(yMin, yMax, this.gridStep2d("y"));
+    // An axis off the screen pins its numbers to the edge, inside the rulers.
+    const inset = this.rulerInset(dpr);
+    const xAxis = clamp(this.yToPx(0), inset + 16 * dpr, height - 16 * dpr);
+    const yAxis = clamp(this.xToPx(0), inset + 16 * dpr, width - 16 * dpr);
     const below = xAxis < height * 0.72;
     const toLeft = yAxis > width * 0.22;
     ctx.save();
@@ -1170,10 +1284,11 @@ class GraphBoard {
     let prevY = NaN;
     for (let i = 0; i <= this.canvas.width; i += 1) {
       const y = this.sample(fn.ast, this.pxToX(i));
-      const broken = !Number.isFinite(y) || (current.length && Math.abs(y - prevY) > jump);
+      const broken = !Number.isFinite(y) || (current.length && (Math.abs(y - prevY) > jump || this.poleBetween(fn.ast, i, prevY, y)));
       if (broken) {
         if (current.length > 1) segments.push(current);
-        current = [];
+        // This point is on the far side of the gap, and it starts the next stretch.
+        current = Number.isFinite(y) ? [{ x: i, y: this.yToPx(y) }] : [];
         prevY = y;
         continue;
       }
@@ -1190,11 +1305,23 @@ class GraphBoard {
     ctx.restore();
   }
 
+  // A wide window can step over a pole in one pixel, from a value to one not far
+  // from it, and joining them draws a line that is not on the curve. A curve that
+  // is really there passes between the two on the way; a pole does not.
+  poleBetween(ast, column, before, after) {
+    const change = Math.abs(after - before);
+    if (change < (this.drawn.yMax - this.drawn.yMin) * 0.05) return false;
+    const middle = this.sample(ast, this.pxToX(column - 0.5));
+    if (!Number.isFinite(middle)) return true;
+    const slack = change * 1e-6;
+    return middle > Math.max(before, after) + slack || middle < Math.min(before, after) - slack;
+  }
+
   drawHover(ctx, dpr) {
     if (!this.hover || this.drag) return;
     const { px, py, x, y } = this.hover;
     ctx.save();
-    ctx.strokeStyle = "rgba(251, 146, 60, 0.45)";
+    ctx.strokeStyle = this.showRuler ? "rgba(239, 68, 68, 0.6)" : "rgba(251, 146, 60, 0.45)";
     ctx.lineWidth = dpr;
     ctx.setLineDash([4 * dpr, 4 * dpr]);
     ctx.beginPath();
@@ -1205,6 +1332,107 @@ class GraphBoard {
     ctx.stroke();
     ctx.restore();
     this.hoverLabel = `x = ${formatTick(x)}   y = ${formatTick(y)}`;
+  }
+
+  // Bands along the top and the left. They read the same scale as the grid, so
+  // a labelled tick lines up with a labelled grid line.
+  drawRuler(ctx, dpr) {
+    const size = RULER_SIZE * dpr;
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+    const { xMin, xMax, yMin, yMax } = this.drawn;
+    const stepX = this.gridStep2d("x");
+    const stepY = this.gridStep2d("y");
+    ctx.save();
+    if (!this.exportTransparent) {
+      ctx.fillStyle = themeVar("--chip", "#292524");
+      ctx.fillRect(0, 0, width, size);
+      ctx.fillRect(0, 0, size, height);
+    }
+    ctx.font = `${10 * dpr}px Consolas, "Malgun Gothic", sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    this.drawRulerScale(ctx, dpr, xMin, xMax, stepX, (value) => this.xToPx(value), false);
+    this.drawRulerScale(ctx, dpr, yMin, yMax, stepY, (value) => this.yToPx(value), true);
+    ctx.strokeStyle = this.exportEdge();
+    ctx.lineWidth = dpr;
+    ctx.beginPath();
+    ctx.moveTo(0, size + 0.5);
+    ctx.lineTo(width, size + 0.5);
+    ctx.moveTo(size + 0.5, 0);
+    ctx.lineTo(size + 0.5, height);
+    ctx.stroke();
+    if (this.hover && !this.drag) {
+      this.drawRulerMark(ctx, dpr, this.hover.px, rulerValue(this.hover.x, stepX), false);
+      this.drawRulerMark(ctx, dpr, this.hover.py, rulerValue(this.hover.y, stepY), true);
+    }
+    ctx.restore();
+  }
+
+  drawRulerScale(ctx, dpr, min, max, step, toPx, vertical) {
+    const size = RULER_SIZE * dpr;
+    const limit = vertical ? this.canvas.height : this.canvas.width;
+    const tick = (at, length) => {
+      if (at < size) return;
+      const line = Math.round(at) + 0.5;
+      if (vertical) {
+        ctx.moveTo(size - length, line);
+        ctx.lineTo(size, line);
+      } else {
+        ctx.moveTo(line, size - length);
+        ctx.lineTo(line, size);
+      }
+    };
+    const majors = this.multiples(min, max, step);
+    const fine = step / 5;
+    ctx.strokeStyle = this.exportEdge();
+    ctx.lineWidth = dpr;
+    ctx.beginPath();
+    if (Math.abs(toPx(fine) - toPx(0)) >= 4 * dpr) {
+      for (const value of this.multiples(min, max, fine)) tick(toPx(value), 4 * dpr);
+    }
+    for (const value of majors) tick(toPx(value), 8 * dpr);
+    ctx.stroke();
+    ctx.fillStyle = this.exportInk();
+    // A number that would run into its neighbour is left out; its tick stays.
+    let free = size;
+    const labels = majors.map((value) => ({ at: toPx(value), text: formatTick(value) })).sort((a, b) => a.at - b.at);
+    for (const { at, text } of labels) {
+      const half = ctx.measureText(text).width / 2;
+      if (at - half < free || at + half > limit) continue;
+      free = at + half + 6 * dpr;
+      this.rulerText(ctx, text, at, 7 * dpr, vertical);
+    }
+  }
+
+  // The left band's text is turned to read upward, so a long number still fits.
+  rulerText(ctx, text, along, across, vertical) {
+    if (!vertical) {
+      ctx.fillText(text, along, across);
+      return;
+    }
+    ctx.save();
+    ctx.translate(across, along);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
+  }
+
+  // Where the pointer is, in red: a line across the band and the value on a tag.
+  drawRulerMark(ctx, dpr, at, text, vertical) {
+    const size = RULER_SIZE * dpr;
+    const limit = vertical ? this.canvas.height : this.canvas.width;
+    if (at < size || at > limit) return;
+    ctx.fillStyle = RULER_MARK;
+    if (vertical) ctx.fillRect(0, Math.round(at) - dpr, size, 2 * dpr);
+    else ctx.fillRect(Math.round(at) - dpr, 0, 2 * dpr, size);
+    const wide = ctx.measureText(text).width + 8 * dpr;
+    const tall = 14 * dpr;
+    const middle = clamp(at, size + wide / 2, Math.max(size + wide / 2, limit - wide / 2));
+    if (vertical) ctx.fillRect(0, middle - wide / 2, tall, wide);
+    else ctx.fillRect(middle - wide / 2, 0, wide, tall);
+    ctx.fillStyle = "#ffffff";
+    this.rulerText(ctx, text, middle, 7 * dpr, vertical);
   }
 
   // The cylinder around the box. The lamp is left out: folding it in makes the
@@ -1250,11 +1478,14 @@ class GraphBoard {
     const { yaw, pitch, zoom } = this.camera;
     const w = this.canvas.width;
     const h = this.canvas.height;
-    const focal = this.fitFocal(w, h) * (zoom / 1.35);
+    // The picture fills and centres on what the temperature bar leaves free.
+    const room = this.heatRoom(window.devicePixelRatio || 1);
+    const focal = this.fitFocal(Math.max(1, w - room), h) * (zoom / CAMERA_HOME);
     this.proj = {
       yaw,
       pitch,
       zoom,
+      room,
       w,
       h,
       cy: Math.cos(yaw),
@@ -1263,7 +1494,7 @@ class GraphBoard {
       sp: Math.sin(pitch),
       focal,
       // The middle of the box holds the middle of the canvas while the camera turns.
-      ox: w / 2,
+      ox: (w - room) / 2,
       oy: h / 2,
     };
     return this.proj;
@@ -1272,7 +1503,7 @@ class GraphBoard {
   projectLocal(p) {
     const camera = this.camera;
     let proj = this.proj;
-    if (!proj || proj.yaw !== camera.yaw || proj.pitch !== camera.pitch || proj.zoom !== camera.zoom || proj.w !== this.canvas.width || proj.h !== this.canvas.height) {
+    if (!proj || proj.yaw !== camera.yaw || proj.pitch !== camera.pitch || proj.zoom !== camera.zoom || proj.room !== this.heatRoom(window.devicePixelRatio || 1) || proj.w !== this.canvas.width || proj.h !== this.canvas.height) {
       proj = this.beginProjection();
     }
     const x1 = p.x * proj.cy - p.y * proj.sy;
@@ -1361,7 +1592,7 @@ class GraphBoard {
     const beam = this.light.on
       ? `${this.light.azimuth.toFixed(3)},${this.light.elevation.toFixed(3)},${this.lightReach().toFixed(3)}`
       : "off";
-    const geomKey = `${this.meshKey}|${theme}|${colors}`;
+    const geomKey = `${this.meshKey}|${theme}|${colors}|${this.showHeat}`;
     const key = `${geomKey}|${beam}`;
     if (this.scene && this.scene.key === key) return;
     // Moving the lamp only changes how bright each face is. The shape stays.
@@ -1371,23 +1602,154 @@ class GraphBoard {
       return;
     }
     const surfaces = [];
+    this.heatRange = this.showHeat ? this.measureHeat() : null;
     for (const mesh of this.meshes || []) this.cacheSurface(mesh, surfaces);
     this.scene = { key, geomKey, surfaces };
+  }
+
+  // The bar runs over the heights actually drawn, across every surface, so a
+  // shallow surface in a tall range still shows its whole run of colours.
+  measureHeat() {
+    const { zMin, zMax } = this.view;
+    let low = Infinity;
+    let high = -Infinity;
+    for (const mesh of this.meshes || []) {
+      for (const value of mesh.z) {
+        if (!Number.isFinite(value)) continue;
+        const height = clamp(value, zMin, zMax);
+        if (height < low) low = height;
+        if (height > high) high = height;
+      }
+    }
+    if (!(high >= low)) return { low: zMin, high: zMax };
+    // A flat sheet has no run to show: it sits in the middle of the bar.
+    if (high - low < 1e-9 * Math.max(1, Math.abs(high))) {
+      const spread = Math.max(0.5, Math.abs(high) * 0.1);
+      return { low: low - spread, high: high + spread };
+    }
+    return { low, high };
+  }
+
+  heatRgb(height) {
+    const { low, high } = this.heatRange;
+    return heatRgbAt((height - low) / (high - low));
+  }
+
+  // One face in the temperature colours, running across it from its lowest
+  // corner to its highest. One colour to a cell shows the cells: the bands of
+  // colour come out as stairs, and a magnified surface as blocks.
+  paintHeatFace(ctx, xs, ys, heats, count, lit) {
+    let sumX = 0;
+    let sumY = 0;
+    let sumT = 0;
+    let lowest = Infinity;
+    let highest = -Infinity;
+    for (let at = 0; at < count; at++) {
+      sumX += xs[at];
+      sumY += ys[at];
+      sumT += heats[at];
+      if (heats[at] < lowest) lowest = heats[at];
+      if (heats[at] > highest) highest = heats[at];
+    }
+    const midX = sumX / count;
+    const midY = sumY / count;
+    const midT = sumT / count;
+    // The screen direction the temperature climbs in: a plane fitted to the corners.
+    let xx = 0;
+    let xy = 0;
+    let yy = 0;
+    let xt = 0;
+    let yt = 0;
+    for (let at = 0; at < count; at++) {
+      const dx = xs[at] - midX;
+      const dy = ys[at] - midY;
+      const dt = heats[at] - midT;
+      xx += dx * dx;
+      xy += dx * dy;
+      yy += dy * dy;
+      xt += dx * dt;
+      yt += dy * dt;
+    }
+    const det = xx * yy - xy * xy;
+    const ink = (t) => {
+      const rgb = heatRgbAt(t);
+      return `rgb(${Math.round(rgb[0] * lit)}, ${Math.round(rgb[1] * lit)}, ${Math.round(rgb[2] * lit)})`;
+    };
+    let paint = null;
+    if (highest - lowest > 1e-4 && det > 1e-6) {
+      const gx = (yy * xt - xy * yt) / det;
+      const gy = (xx * yt - xy * xt) / det;
+      const pull = gx * gx + gy * gy;
+      if (pull > 1e-14) {
+        const reach = (t) => (t - midT) / pull;
+        paint = ctx.createLinearGradient(midX + gx * reach(lowest), midY + gy * reach(lowest), midX + gx * reach(highest), midY + gy * reach(highest));
+        paint.addColorStop(0, ink(lowest));
+        // The colours bend at each stop of the scale, so a stop inside this face is kept.
+        const bends = HEAT_STOPS.length - 1;
+        for (let bend = Math.floor(lowest * bends) + 1; bend / bends < highest; bend++) {
+          paint.addColorStop((bend / bends - lowest) / (highest - lowest), ink(bend / bends));
+        }
+        paint.addColorStop(1, ink(highest));
+      }
+    }
+    ctx.beginPath();
+    ctx.moveTo(xs[0], ys[0]);
+    for (let at = 1; at < count; at++) ctx.lineTo(xs[at], ys[at]);
+    ctx.closePath();
+    ctx.fillStyle = paint || ink(midT);
+    ctx.strokeStyle = ctx.fillStyle;
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // Brightness comes one value to a cell, which the smooth colours would show up
+  // as a pattern of cells. Each is averaged with the cells around it.
+  smoothShades(surface) {
+    const key = this.scene.key;
+    if (surface.smoothKey === key) return surface.smooth;
+    const { n, shades, colors } = surface;
+    const side = n - 1;
+    const smooth = surface.smooth || new Float32Array(shades.length);
+    for (let row = 0; row < side; row++) {
+      for (let column = 0; column < side; column++) {
+        let sum = 0;
+        let count = 0;
+        for (let down = Math.max(0, row - 1); down <= Math.min(side - 1, row + 1); down++) {
+          for (let across = Math.max(0, column - 1); across <= Math.min(side - 1, column + 1); across++) {
+            const cell = down * side + across;
+            if (!colors[cell]) continue;
+            sum += shades[cell];
+            count += 1;
+          }
+        }
+        smooth[row * side + column] = count ? sum / count : shades[row * side + column];
+      }
+    }
+    surface.smooth = smooth;
+    surface.smoothKey = key;
+    return smooth;
+  }
+
+  // Where a height in the box's units sits on the temperature bar.
+  localHeat(local) {
+    const { zMin, zMax } = this.view;
+    const { low, high } = this.heatRange;
+    return (local * this.heightScale() + (zMin + zMax) / 2 - low) / (high - low);
   }
 
   recolorScene() {
     const beam = this.light.on ? this.lightVector() : null;
     for (const surface of this.scene.surfaces) {
-      const { colors, shades, normals, edges, base } = surface;
+      const { colors, shades, normals, edges, base, heights } = surface;
       for (let index = 0; index < colors.length; index++) {
         if (!colors[index]) continue;
         const at = index * 3;
-        const lit = this.paintLit(normals[at], normals[at + 1], normals[at + 2], base, beam);
+        const lit = this.paintLit(normals[at], normals[at + 1], normals[at + 2], heights ? this.heatRgb(heights[index]) : base, beam);
         colors[index] = lit.color;
         shades[index] = lit.shade;
       }
       for (const edge of edges) {
-        const lit = this.paintLit(edge.nx, edge.ny, edge.nz, base, beam);
+        const lit = this.paintLit(edge.nx, edge.ny, edge.nz, heights ? this.heatRgb(edge.height) : base, beam);
         edge.color = lit.color;
         edge.shade = lit.shade;
       }
@@ -1416,14 +1778,17 @@ class GraphBoard {
     const colours = new Array(cellCount).fill(null);
     const shades = new Uint8Array(cellCount);
     const normals = new Float32Array(cellCount * 3);
+    const heights = this.heatRange ? new Float32Array(cellCount) : null;
     const edges = [];
     const scratch = this.normalScratch || (this.normalScratch = new Float64Array(3));
     const beam = this.light.on ? this.lightVector() : null;
-    // One function, one colour: height does not tint the surface.
-    const remember = (locals, cell) => {
+    // One function, one colour, unless the temperature bar is on. Then a cell
+    // takes the colour of its height.
+    const remember = (locals, cell, height) => {
       this.unitNormal(locals, scratch);
-      const lit = this.paintLit(scratch[0], scratch[1], scratch[2], base, beam);
+      const lit = this.paintLit(scratch[0], scratch[1], scratch[2], heights ? this.heatRgb(height) : base, beam);
       if (cell >= 0) {
+        if (heights) heights[cell] = height;
         const at = cell * 3;
         normals[at] = scratch[0];
         normals[at + 1] = scratch[1];
@@ -1442,8 +1807,9 @@ class GraphBoard {
         const over = samples.filter((value) => value > zCeiling).length;
         const under = samples.filter((value) => value < zFloor).length;
         if (over === 4 || under === 4) continue;
+        const height = samples.reduce((sum, value) => sum + clamp(value, zFloor, zCeiling), 0) / 4;
         if (!over && !under) {
-          remember(locals, j * (n - 1) + i);
+          remember(locals, j * (n - 1) + i, height);
           continue;
         }
         // The cell meets the height limit: cut it there rather than fold it flat.
@@ -1469,8 +1835,8 @@ class GraphBoard {
           y: this.worldToFloorY(point.y),
           z: this.zToLocalFree(point.z),
         }));
-        const lit = remember(slope, -1);
-        edges.push({ shape, count: piece.length, nx: scratch[0], ny: scratch[1], nz: scratch[2], color: lit.color, shade: lit.shade });
+        const lit = remember(slope, -1, height);
+        edges.push({ shape, count: piece.length, nx: scratch[0], ny: scratch[1], nz: scratch[2], height, color: lit.color, shade: lit.shade });
       }
     }
     const count = n * n;
@@ -1482,6 +1848,7 @@ class GraphBoard {
     surfaces.push({
       n,
       base,
+      heights,
       points,
       colors: colours,
       shades,
@@ -1878,7 +2245,7 @@ class GraphBoard {
     const stamp = [
       xMin, xMax, yMin, yMax, zMin, zMax, this.floorZ,
       camera.yaw, camera.pitch, camera.zoom,
-      this.canvas.width, this.canvas.height,
+      this.canvas.width, this.canvas.height, this.showHeat,
       this.axes.x.visible, this.axes.y.visible, this.axes.z.visible,
       window.devicePixelRatio || 1,
     ].join("|");
@@ -1998,6 +2365,54 @@ class GraphBoard {
     this.drawAxisLetters(ctx, dpr, letters);
     this.drawLight(ctx, dpr);
     ctx.restore();
+    if (this.showHeat) this.drawHeatBar(ctx, dpr);
+  }
+
+  drawHeatBar(ctx, dpr) {
+    const range = this.heatRange;
+    if (!range || !(this.meshes || []).length) return;
+    const { low, high } = range;
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+    const left = width - (HEAT_ROOM - 8) * dpr;
+    const barWidth = 14 * dpr;
+    const tall = Math.min(320 * dpr, height - 48 * dpr);
+    if (!(tall > 40 * dpr)) return;
+    const top = (height - tall) / 2;
+    const yOf = (value) => top + tall * (1 - (value - low) / (high - low));
+    ctx.save();
+    const scale = ctx.createLinearGradient(0, top + tall, 0, top);
+    HEAT_STOPS.forEach((rgb, stop) => {
+      scale.addColorStop(stop / (HEAT_STOPS.length - 1), `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`);
+    });
+    ctx.fillStyle = scale;
+    ctx.fillRect(left, top, barWidth, tall);
+    ctx.strokeStyle = this.exportEdge();
+    ctx.lineWidth = dpr;
+    ctx.strokeRect(left, top, barWidth, tall);
+    ctx.font = `600 ${11 * dpr}px Consolas, "Malgun Gothic", sans-serif`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    // The two ends always read; the round values fill in where there is room.
+    const placed = [];
+    const mark = (value) => {
+      const y = yOf(value);
+      if (placed.some((other) => Math.abs(other - y) < 15 * dpr)) return;
+      placed.push(y);
+      ctx.strokeStyle = this.exportEdge();
+      ctx.lineWidth = dpr;
+      ctx.beginPath();
+      ctx.moveTo(left + barWidth, y);
+      ctx.lineTo(left + barWidth + 4 * dpr, y);
+      ctx.stroke();
+      ctx.lineWidth = 3 * dpr;
+      this.haloText(ctx, formatTick(value), left + barWidth + 6 * dpr, y);
+    };
+    mark(low);
+    mark(high);
+    for (const value of this.multiples(low, high, niceStep(high - low, 5))) mark(value);
+    ctx.restore();
   }
 
   // The axis pieces come sorted far to near and are slipped in between the
@@ -2081,6 +2496,19 @@ class GraphBoard {
         const edge = surface.edges[cells[slot]];
         const paint = edge.color;
         const origin = edge.at;
+        if (surface.heights) {
+          flush();
+          const xs = [];
+          const ys = [];
+          const heats = [];
+          for (let vertex = 0; vertex < edge.count; vertex++) {
+            xs.push(surface.rimSx[origin + vertex]);
+            ys.push(surface.rimSy[origin + vertex]);
+            heats.push(this.localHeat(edge.shape[vertex * 3 + 2]));
+          }
+          this.paintHeatFace(ctx, xs, ys, heats, edge.count, edge.shade / 255);
+          continue;
+        }
         const x0 = surface.rimSx[origin];
         const y0 = surface.rimSy[origin];
         const second = Math.min(2, edge.count - 1);
@@ -2098,6 +2526,35 @@ class GraphBoard {
         const i2 = first + n + 1;
         const i3 = first + n;
         if (!(depth[first] > 0) || !(depth[i1] > 0) || !(depth[i2] > 0) || !(depth[i3] > 0)) continue;
+        if (surface.heights) {
+          flush();
+          const heat = (index) => this.localHeat(surface.points[index * 3 + 2]);
+          const ta = heat(first);
+          const tb = heat(i1);
+          const tc = heat(i2);
+          const td = heat(i3);
+          const lit = this.smoothShades(surface)[cell] / 255;
+          const xa = sx[first];
+          const xb = sx[i1];
+          const xc = sx[i2];
+          const xd = sx[i3];
+          const ya = sy[first];
+          const yb = sy[i1];
+          const yc = sy[i2];
+          const yd = sy[i3];
+          if (Math.abs(ta + tc - tb - td) < HEAT_FLAT_CELL) {
+            this.paintHeatFace(ctx, [xa, xb, xc, xd], [ya, yb, yc, yd], [ta, tb, tc, td], 4, lit);
+          } else if (Math.abs(ta - tc) < Math.abs(tb - td)) {
+            // A bent cell has no single direction to run in. Two triangles do, and
+            // they match their neighbours exactly along every shared edge.
+            this.paintHeatFace(ctx, [xa, xb, xc], [ya, yb, yc], [ta, tb, tc], 3, lit);
+            this.paintHeatFace(ctx, [xa, xc, xd], [ya, yc, yd], [ta, tc, td], 3, lit);
+          } else {
+            this.paintHeatFace(ctx, [xa, xb, xd], [ya, yb, yd], [ta, tb, td], 3, lit);
+            this.paintHeatFace(ctx, [xb, xc, xd], [yb, yc, yd], [tb, tc, td], 3, lit);
+          }
+          continue;
+        }
         const paint = surface.colors[cell];
         const x0 = sx[first];
         const y0 = sy[first];
@@ -2243,7 +2700,7 @@ class GraphBoard {
   // One cell of height, the match to floorStep on the ground.
   heightStep() {
     const { zMin, zMax } = this.view;
-    return (zMax - zMin) / FLOOR_CELLS;
+    return this.cellStep(zMax - zMin);
   }
 
   zToLocal(rawZ) {
@@ -2318,8 +2775,14 @@ class GraphBoard {
     return values;
   }
 
-  gridStep2d() {
+  // One step for both axes while their units match. A window framed around the
+  // values has different units, and one shared step left the shorter axis with
+  // no grid at all.
+  gridStep2d(axis) {
     const { xMin, xMax, yMin, yMax } = this.drawn;
+    const free = this.stretched || !this.autoSquare;
+    if (free && axis === "x") return niceStep(xMax - xMin, 8);
+    if (free && axis === "y") return niceStep(yMax - yMin, 8);
     return niceStep(Math.max(xMax - xMin, yMax - yMin), 8);
   }
 
@@ -2351,9 +2814,23 @@ class GraphBoard {
     return (value - (yMin + yMax) / 2) / this.floorScale();
   }
 
+  // The round step that puts about five cells across what the camera sees, so
+  // a cell keeps about its usual size at any zoom, the way the 2D grid does.
+  // Goes by the range and the zoom rather than by pixels: a -10..10 range opens
+  // five cells across in any window.
+  cellStep(span) {
+    return cellNumber((span / FLOOR_CELLS) * (CAMERA_HOME / this.camera.zoom));
+  }
+
   floorStep() {
     const { xMin, xMax, yMin, yMax } = this.view;
-    return Math.max(xMax - xMin, yMax - yMin) / FLOOR_CELLS;
+    return this.cellStep(Math.max(xMax - xMin, yMax - yMin));
+  }
+
+  // The ticks on an axis follow the grid, down to its fine lines when a shrunken
+  // picture has made a cell wider than the axis is long.
+  tickStep(span, step) {
+    return step * 2 > span ? step / FLOOR_CELLS : step;
   }
 
   floorLattice() {
@@ -2424,7 +2901,17 @@ class GraphBoard {
       for (let step = 1; step <= AXIS_PIECES; step++) {
         const next = step === AXIS_PIECES ? b : along(step / AXIS_PIECES);
         if (previous && next) {
-          pieces.push({ depth: (previous.depth + next.depth) / 2, line: [previous.sx, previous.sy, next.sx, next.sy], color: axis.color, width });
+          const t = (step - 0.5) / AXIS_PIECES;
+          pieces.push({
+            at: {
+              x: axis.from.x + (axis.to.x - axis.from.x) * t,
+              y: axis.from.y + (axis.to.y - axis.from.y) * t,
+              z: axis.from.z + (axis.to.z - axis.from.z) * t,
+            },
+            line: [previous.sx, previous.sy, next.sx, next.sy],
+            color: axis.color,
+            width,
+          });
         }
         previous = next;
       }
@@ -2434,12 +2921,118 @@ class GraphBoard {
       const spot = this.settleAxisLetter(b.sx, b.sy, this.axisLabelNormal(axis.key), half, dpr, margin);
       letters.push({ text: axis.label, color: axis.color, x: spot.x, y: spot.y });
     }
+    if (this.showBox) this.rangeBoxPieces(dpr, pieces);
     // The numbers give way to the letters, never the other way round.
     if (this.showAxisValues) this.axisValuePieces(dpr, letters, pieces);
-    const bias = AXIS_DEPTH_BIAS * (xHigh - xLow + yHigh - yLow) / (2 * AXIS_OVERHANG);
-    for (const piece of pieces) piece.depth -= bias;
+    // A piece the surface covers goes down before every cell, and the cell in
+    // front of it paints over it. Any other piece has nothing in front of it and
+    // goes on last. Sorting them among the cells by depth got this wrong: a piece
+    // and the cell covering it can be close in depth with nothing to tell them
+    // apart, and a nudge toward the eye put a low axis on top of a flat surface.
+    for (const piece of pieces) piece.depth = this.coveredBySurface(piece.at) ? PIECE_FIRST : PIECE_LAST;
     pieces.sort((one, two) => two.depth - one.depth);
     return { pieces, letters };
+  }
+
+  // The twelve edges of the range being drawn. Cut into pieces like the axes,
+  // so a surface in front of an edge covers it.
+  rangeBoxPieces(dpr, pieces) {
+    const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
+    const xs = [this.worldToFloorX(xMin), this.worldToFloorX(xMax)];
+    const ys = [this.worldToFloorY(yMin), this.worldToFloorY(yMax)];
+    const zs = [this.zToLocal(zMin), this.zToLocal(zMax)];
+    const color = themeVar("--ink", "#fafaf9");
+    const width = Math.max(1, 1.2 * dpr);
+    const edge = (from, to) => {
+      let previous = this.projectLocal(from);
+      for (let step = 1; step <= AXIS_PIECES; step++) {
+        const t = step / AXIS_PIECES;
+        const next = this.projectLocal({
+          x: from.x + (to.x - from.x) * t,
+          y: from.y + (to.y - from.y) * t,
+          z: from.z + (to.z - from.z) * t,
+        });
+        if (previous && next) {
+          const middle = (step - 0.5) / AXIS_PIECES;
+          pieces.push({
+            at: {
+              x: from.x + (to.x - from.x) * middle,
+              y: from.y + (to.y - from.y) * middle,
+              z: from.z + (to.z - from.z) * middle,
+            },
+            line: [previous.sx, previous.sy, next.sx, next.sy],
+            color,
+            width,
+          });
+        }
+        previous = next;
+      }
+    };
+    for (const a of [0, 1]) {
+      for (const b of [0, 1]) {
+        edge({ x: xs[0], y: ys[a], z: zs[b] }, { x: xs[1], y: ys[a], z: zs[b] });
+        edge({ x: xs[a], y: ys[0], z: zs[b] }, { x: xs[a], y: ys[1], z: zs[b] });
+        edge({ x: xs[a], y: ys[b], z: zs[0] }, { x: xs[a], y: ys[b], z: zs[1] });
+      }
+    }
+  }
+
+  // Whether a surface lies between the eye and this point. Walks the sight line
+  // over the part of it above the ground of the range, looking for the height
+  // of the line to cross the height of the surface. A line that lies in the
+  // surface does not count as behind it, so it does not come out dashed.
+  coveredBySurface(p) {
+    const meshes = this.meshes || [];
+    if (!meshes.length) return false;
+    const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
+    const eye = this.unrotateLocal({ x: 0, y: EYE_DISTANCE, z: 0 });
+    const x0 = this.worldToFloorX(xMin);
+    const x1 = this.worldToFloorX(xMax);
+    const y0 = this.worldToFloorY(yMin);
+    const y1 = this.worldToFloorY(yMax);
+    let enter = 0;
+    let leave = 1;
+    const dx = eye.x - p.x;
+    const dy = eye.y - p.y;
+    const dz = eye.z - p.z;
+    for (const [from, delta, low, high] of [[p.x, dx, x0, x1], [p.y, dy, y0, y1]]) {
+      if (Math.abs(delta) < 1e-12) {
+        if (from < low || from > high) return false;
+        continue;
+      }
+      const a = (low - from) / delta;
+      const b = (high - from) / delta;
+      enter = Math.max(enter, Math.min(a, b));
+      leave = Math.min(leave, Math.max(a, b));
+    }
+    if (!(leave > enter)) return false;
+    const middle = (zMin + zMax) / 2;
+    const scale = this.heightScale();
+    for (const { n, z } of meshes) {
+      let side = 0;
+      for (let step = 0; step <= SIGHT_STEPS; step++) {
+        const t = enter + ((leave - enter) * step) / SIGHT_STEPS;
+        const u = clamp(((p.x + dx * t - x0) / (x1 - x0)) * (n - 1), 0, n - 1 - 1e-9);
+        const v = clamp(((p.y + dy * t - y0) / (y1 - y0)) * (n - 1), 0, n - 1 - 1e-9);
+        const i = Math.floor(u);
+        const j = Math.floor(v);
+        const first = j * n + i;
+        const fu = u - i;
+        const fv = v - j;
+        const height = (z[first] * (1 - fu) + z[first + 1] * fu) * (1 - fv) + (z[first + n] * (1 - fu) + z[first + n + 1] * fu) * fv;
+        // No sheet is drawn here: the function has no value, or it is past the limit.
+        if (!Number.isFinite(height) || height < zMin || height > zMax) {
+          side = 0;
+          continue;
+        }
+        const gap = p.z + dz * t - (height - middle) / scale;
+        if (Math.abs(gap) < SIGHT_TOLERANCE) continue;
+        const now = gap > 0 ? 1 : -1;
+        if (side && now !== side) return true;
+        side = now;
+      }
+    }
+    return false;
   }
 
   // A unit screen normal that leaves the axis. The side is the one that still
@@ -2633,8 +3226,24 @@ class GraphBoard {
       shade.addColorStop(1, ink(0));
       ctx.strokeStyle = shade;
       ctx.beginPath();
-      ctx.moveTo(a.sx, a.sy);
-      ctx.lineTo(b.sx, b.sy);
+      // These go on after the surface, so a stretch behind it has to be left
+      // out. Short steps near the box, where the surface can be in the way.
+      const place = (t) => ({
+        x: ray.from.x + (ray.to.x - ray.from.x) * t,
+        y: ray.from.y + (ray.to.y - ray.from.y) * t,
+        z: ray.from.z + (ray.to.z - ray.from.z) * t,
+      });
+      let start = a;
+      for (let step = 1; step <= RAY_PIECES; step++) {
+        const near = ((step - 1) / RAY_PIECES) ** 2;
+        const far = (step / RAY_PIECES) ** 2;
+        const end = step === RAY_PIECES ? b : this.projectLocal(place(far));
+        if (start && end && !this.coveredBySurface(place((near + far) / 2))) {
+          ctx.moveTo(start.sx, start.sy);
+          ctx.lineTo(end.sx, end.sy);
+        }
+        start = end;
+      }
       ctx.stroke();
     }
     ctx.restore();
@@ -2684,8 +3293,11 @@ class GraphBoard {
     const font = `600 ${11 * dpr}px Consolas, "Malgun Gothic", sans-serif`;
     const tickWidth = Math.max(1, dpr);
     const lines = this.axisScreenLines();
-    const label = (text, point, normal, color) => {
+    const label = (text, point, normal, color, at) => {
       if (!point) return;
+      // A number stands beside its tick, where it could show past the edge of the
+      // surface hiding that tick, so a hidden tick's number is left out altogether.
+      if (this.coveredBySurface(at)) return;
       // Half the width of the text, so a wider number still clears the stroke.
       const wide = Math.max(7 * dpr, text.length * 3.4 * dpr);
       const tall = 6 * dpr;
@@ -2700,16 +3312,16 @@ class GraphBoard {
         if (lines.some((line) => this.distanceToAxis(x, y, line) < 8 * dpr)) continue;
         if (placed.some((item) => Math.hypot(item.x - x, item.y - y) < 18 * dpr)) continue;
         placed.push({ x, y });
-        pieces.push({ depth: point.depth, text, x, y, color, font });
+        pieces.push({ at, text, x, y, color, font });
         return;
       }
     };
-    const tick = (point, end, color) => {
-      if (point && end) pieces.push({ depth: (point.depth + end.depth) / 2, line: [point.sx, point.sy, end.sx, end.sy], color, width: tickWidth });
+    const tick = (point, end, color, at) => {
+      if (point && end) pieces.push({ at, line: [point.sx, point.sy, end.sx, end.sy], color, width: tickWidth });
     };
     const origin = this.axisAnchor();
-    const step = this.floorStep();
     const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
+    const step = this.tickStep(Math.max(xMax - xMin, yMax - yMin), this.floorStep());
     const xNormal = this.axisLabelNormal("x");
     const yNormal = this.axisLabelNormal("y");
     const zNormal = this.axisLabelNormal("z");
@@ -2717,27 +3329,27 @@ class GraphBoard {
       for (const value of this.multiples(xMin, xMax, step)) {
         const local = { x: this.worldToFloorX(value), y: origin.y, z: origin.z };
         const point = this.projectLocal(local);
-        tick(point, this.projectLocal({ x: local.x, y: origin.y, z: origin.z + 0.05 }), this.axes.x.color);
-        label(formatTick(value), point, xNormal, this.axes.x.color);
+        tick(point, this.projectLocal({ x: local.x, y: origin.y, z: origin.z + 0.05 }), this.axes.x.color, local);
+        label(formatTick(value), point, xNormal, this.axes.x.color, local);
       }
     }
     if (this.axes.y.visible) {
       for (const value of this.multiples(yMin, yMax, step)) {
         const local = { x: origin.x, y: this.worldToFloorY(value), z: origin.z };
         const point = this.projectLocal(local);
-        tick(point, this.projectLocal({ x: origin.x, y: local.y, z: origin.z + 0.05 }), this.axes.y.color);
-        label(formatTick(value), point, yNormal, this.axes.y.color);
+        tick(point, this.projectLocal({ x: origin.x, y: local.y, z: origin.z + 0.05 }), this.axes.y.color, local);
+        label(formatTick(value), point, yNormal, this.axes.y.color, local);
       }
     }
     if (!this.axes.z.visible) return;
     const middleZ = (zMin + zMax) / 2;
     // Height ticks stop at the limits, because the drawing stops there too,
     // and they are counted off the height, not off the width of the ground.
-    for (const value of this.multiples(zMin, zMax, this.heightStep())) {
+    for (const value of this.multiples(zMin, zMax, this.tickStep(zMax - zMin, this.heightStep()))) {
       const local = { x: origin.x, y: origin.y, z: (value - middleZ) / this.heightScale() };
       const point = this.projectLocal(local);
-      tick(point, this.projectLocal({ x: origin.x + 0.05, y: origin.y, z: local.z }), this.axes.z.color);
-      label(formatTick(value), point, zNormal, this.axes.z.color);
+      tick(point, this.projectLocal({ x: origin.x + 0.05, y: origin.y, z: local.z }), this.axes.z.color, local);
+      label(formatTick(value), point, zNormal, this.axes.z.color, local);
     }
   }
 }

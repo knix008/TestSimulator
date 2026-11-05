@@ -172,6 +172,9 @@ button, input { font: inherit; color: inherit; }
 .icon-date { -webkit-mask-image: url("../assets/icons/date.svg"); mask-image: url("../assets/icons/date.svg"); }
 .icon-light { -webkit-mask-image: url("../assets/icons/light.svg"); mask-image: url("../assets/icons/light.svg"); }
 .icon-legend { -webkit-mask-image: url("../assets/icons/legend.svg"); mask-image: url("../assets/icons/legend.svg"); }
+.icon-ruler { -webkit-mask-image: url("../assets/icons/ruler.svg"); mask-image: url("../assets/icons/ruler.svg"); }
+.icon-box { -webkit-mask-image: url("../assets/icons/box.svg"); mask-image: url("../assets/icons/box.svg"); }
+.icon-colorbar { -webkit-mask-image: url("../assets/icons/colorbar.svg"); mask-image: url("../assets/icons/colorbar.svg"); }
 .icon-window { -webkit-mask-image: url("../assets/icons/window.svg"); mask-image: url("../assets/icons/window.svg"); }
 .icon-axis { -webkit-mask-image: url("../assets/icons/axis.svg"); mask-image: url("../assets/icons/axis.svg"); }
 .icon-axis-values { -webkit-mask-image: url("../assets/icons/axis-values.svg"); mask-image: url("../assets/icons/axis-values.svg"); }
@@ -1254,6 +1257,9 @@ html[data-scheme="light"] .version { color: #57534e; }
 #axisToggle[aria-pressed="true"],
 #axesToggle[aria-pressed="true"],
 #legendToggle[aria-pressed="true"],
+#rulerToggle[aria-pressed="true"],
+#boxToggle[aria-pressed="true"],
+#heatToggle[aria-pressed="true"],
 #lightToggle[aria-pressed="true"],
 #panelLeft[aria-pressed="true"],
 #panelRight[aria-pressed="true"] {

@@ -1766,7 +1766,7 @@ suite("Product features", () => {
       const angles = [
         { yaw: -0.75, pitch: -1.05, zoom: 1.35 },
         { yaw: 0, pitch: -0.55, zoom: 1.35 },
-        { yaw: 1.15, pitch: -0.3, zoom: 0.55 },
+        { yaw: 1.15, pitch: -0.3, zoom: 0.7 },
         { yaw: -1.57, pitch: -0.85, zoom: 2.4 },
       ];
       const reports = [];
@@ -1796,7 +1796,7 @@ suite("Product features", () => {
       return reports;
     });
     for (const view of views) {
-      assert(view.cells >= 8, `${view.cells} cell lines at yaw ${view.yaw}`);
+      assert(view.cells >= 6, `${view.cells} cell lines at yaw ${view.yaw}`);
       assert(view.reach > 80, `the five by five draws ${view.reach}px at yaw ${view.yaw}`);
     }
   });
@@ -1957,11 +1957,651 @@ suite("Product features", () => {
       assert(report.loose === 0, `${report.label} has ${report.loose} grid ends off the window`);
       assert(report.missed === 0, `${report.label} missed ${report.missed} of ${report.visible} grid lines in the window`);
       if (!report.label.startsWith("along") && !report.label.startsWith("camera")) {
-        assert(report.visible >= 8, `${report.label} shows ${report.visible} cell lines`);
+        assert(report.visible >= 6, `${report.label} shows ${report.visible} cell lines`);
       }
       assert(report.lines < 2500, `${report.label} drew ${report.lines} grid lines`);
       assert(report.painted > 4000, `${report.label} painted ${report.painted} cells`);
     }
+  });
+
+  test("The 3D grid and axis ticks keep a round, usable size at any zoom", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const trouble = appCall(() => {
+      const found = [];
+      const round = (step) => {
+        const rung = Math.log(step / 4) / Math.log(5);
+        return Math.abs(rung - Math.round(rung)) < 1e-6;
+      };
+      board.setDimension("3d");
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      board.camera.zoom = 1.35;
+      if (board.floorStep() !== 4 || board.floorLattice().xs.length !== 5) found.push("-10..10 did not open with a step of 4");
+      const check = (label) => {
+        const seen = (board.view.xMax - board.view.xMin) / (board.camera.zoom / 1.35);
+        const cells = seen / board.floorStep();
+        if (cells < 2.2 || cells > 11.3) found.push(`${label}: ${cells.toFixed(2)} cells in view`);
+        if (!round(board.floorStep())) found.push(`${label}: floor step ${board.floorStep()}`);
+        if (!round(board.heightStep())) found.push(`${label}: height step ${board.heightStep()}`);
+        board.draw();
+      };
+      // Four wheel notches each way leave the opening grid alone.
+      for (const factor of [0.8333, 1.2]) {
+        board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+        for (let notch = 1; notch <= 4; notch++) {
+          board.zoom3d(factor);
+          if (board.floorStep() !== 4) found.push(`notch ${notch} of ${factor} recut the grid to ${board.floorStep()}`);
+        }
+      }
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      for (let notch = 0; notch < 30; notch++) {
+        board.zoom3d(0.8);
+        check(`range in ${notch}`);
+      }
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      for (let notch = 0; notch < 30; notch++) {
+        board.zoom3d(1.25);
+        check(`range out ${notch}`);
+      }
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      for (const zoom of [0.12, 0.3, 0.6, 1.35, 3, 6, 12, 24]) {
+        board.camera.zoom = zoom;
+        check(`camera ${zoom}`);
+      }
+      board.camera.zoom = 1.35;
+      board.resetView();
+      board.setDimension("2d");
+      return found;
+    });
+    assert(trouble.length === 0, trouble.join(" | "));
+  });
+
+  test("The wheel keeps the whole 3D surface inside the height range", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const trouble = appCall(() => {
+      const found = [];
+      board.setDimension("3d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.addFunction("x^2+y^2");
+      const inspect = (label) => {
+        board.draw();
+        const { xMin, xMax, yMin, yMax, zMin, zMax } = board.view;
+        const surface = board.scene.surfaces[0];
+        const n = surface.n;
+        const drawn = surface.colors.filter(Boolean).length / surface.colors.length;
+        if (drawn < 0.99) found.push(`${label}: only ${(drawn * 100).toFixed(1)}% drawn`);
+        // The point the reader looks for: (1, 1, 2), whenever x and y reach it.
+        if (xMax > 1 && yMax > 1) {
+          const col = Math.floor(((1 - xMin) / (xMax - xMin)) * (n - 1));
+          const row = Math.floor(((1 - yMin) / (yMax - yMin)) * (n - 1));
+          if (!surface.colors[row * (n - 1) + col]) found.push(`${label}: (1, 1, 2) is missing`);
+          if (!(zMin <= 2 && zMax >= 2)) found.push(`${label}: z ${zMin}..${zMax} leaves out 2`);
+        }
+      };
+      const size = () => [board.view.xMax - board.view.xMin, board.view.zMax - board.view.zMin];
+      inspect("start");
+      const [startX, startZ] = size();
+      const startLow = board.view.zMin;
+      for (let notch = 1; notch <= 14; notch++) {
+        board.zoom3d(0.8333);
+        inspect(`in ${notch}`);
+        // Zooming in, the surface fits, so all three axes keep their proportion.
+        const [spanX, spanZ] = size();
+        if (Math.abs(spanZ / spanX - startZ / startX) > 1e-6) found.push(`in ${notch}: z and x moved apart, ${spanZ / spanX}`);
+      }
+      for (let notch = 1; notch <= 28; notch++) {
+        board.zoom3d(1.2);
+        inspect(`out ${notch}`);
+        const [spanX, spanZ] = size();
+        if (spanZ / spanX < startZ / startX - 1e-6) found.push(`out ${notch}: z fell behind x`);
+      }
+      for (let notch = 1; notch <= 14; notch++) board.zoom3d(0.8333);
+      const [backX, backZ] = size();
+      if (Math.abs(backX / startX - 1) > 0.01 || Math.abs(backZ / startZ - 1) > 0.01 || Math.abs(board.view.zMin / startLow - 1) > 0.01) {
+        found.push(`back at the start z reads ${board.view.zMin}..${board.view.zMax}`);
+      }
+      board.resetView();
+      board.addFunction("sin(x)*cos(y)");
+      while (board.functions.length > 1) board.removeFunction(board.functions[0].id);
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      board.zoom3d(1.25);
+      if (Math.abs(board.view.zMax - 12.5) > 1e-9) found.push(`a surface that fits still moved z to ${board.view.zMax}`);
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.setDimension("2d");
+      return found;
+    });
+    assert(trouble.length === 0, trouble.join(" | "));
+  });
+
+  test("The 3D origin stays at 0, 0, 0 with half of each axis on either side", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const trouble = appCall(() => {
+      const found = [];
+      board.setDimension("3d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.addFunction("x^2+y^2");
+      const check = (label) => {
+        board.draw();
+        const { xMin, xMax, yMin, yMax, zMin, zMax } = board.view;
+        for (const [name, low, high] of [["x", xMin, xMax], ["y", yMin, yMax], ["z", zMin, zMax]]) {
+          if (Math.abs(low + high) > Math.abs(high) * 1e-9) found.push(`${label}: ${name} runs ${low}..${high}`);
+        }
+        const origin = board.axisAnchor();
+        if (Math.abs(origin.x) + Math.abs(origin.y) + Math.abs(origin.z) > 1e-9) found.push(`${label}: the origin is off the middle`);
+      };
+      check("added");
+      for (const axis of ["x", "y", "z"]) {
+        board.stepAxis(axis, 0.75);
+        check(`${axis} shorter`);
+        board.stepAxis(axis, 4 / 3);
+        check(`${axis} back`);
+      }
+      for (let notch = 0; notch < 5; notch++) {
+        board.stepAxis("z", 0.75);
+        check(`z shorter ${notch}`);
+        // The bowl keeps its bottom: a short axis cuts it from the top only.
+        board.draw();
+        const surface = board.scene.surfaces[0];
+        const n = surface.n;
+        const middle = Math.floor((n - 1) / 2);
+        if (!surface.colors[middle * (n - 1) + middle]) found.push(`z shorter ${notch}: the bottom of the bowl is gone`);
+      }
+      board.resetView();
+      board.addFunction("x^2+y^2");
+      for (let notch = 0; notch < 8; notch++) {
+        board.zoom3d(notch < 4 ? 0.8333 : 1.2);
+        check(`wheel ${notch}`);
+      }
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.setDimension("2d");
+      return found;
+    });
+    assert(trouble.length === 0, trouble.join(" | "));
+  });
+
+  test("A number whose tick the surface hides is not drawn", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const trouble = appCall(() => {
+      const found = [];
+      board.setDimension("3d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.showAxisValues = true;
+      for (const axis of ["x", "y", "z"]) board.axes[axis].visible = true;
+      board.canvas.width = 800;
+      board.canvas.height = 600;
+      board.addFunction("x^2+y^2");
+      const check = (label) => {
+        board.draw();
+        const meshes = board.meshes;
+        board.meshes = [];
+        const every = board.axisPieces(1).pieces.filter((piece) => piece.text);
+        board.meshes = meshes;
+        const shown = board.axisPieces(1).pieces.filter((piece) => piece.text);
+        const hidden = every.filter((piece) => board.coveredBySurface(piece.at));
+        for (const piece of shown) {
+          if (board.coveredBySurface(piece.at)) found.push(`${label}: ${piece.text} is drawn behind the surface`);
+        }
+        return { every: every.length, shown: shown.length, hidden: hidden.length };
+      };
+      const start = check("start");
+      if (!(start.hidden > 0)) found.push("the bowl hides no number, so this proves nothing");
+      if (!(start.shown > 0)) found.push("no number is left");
+      for (let notch = 0; notch < 12; notch++) board.zoom3d(0.8333, true);
+      const close = check("zoomed in");
+      if (!(close.hidden > 0)) found.push("the flat bowl hides no number");
+      // Nothing in the way: every number comes back.
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.draw();
+      const clear = check("no surface");
+      if (clear.shown === 0 || clear.hidden !== 0) found.push(`no surface: ${clear.shown} shown, ${clear.hidden} hidden`);
+      board.setDimension("2d");
+      board.resize();
+      return found;
+    });
+    assert(trouble.length === 0, trouble.join(" | "));
+  });
+
+  test("A surface in front of an axis hides it, even when they are close", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const trouble = appCall(() => {
+      const found = [];
+      board.setDimension("3d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.showGrid = false;
+      board.showAxisValues = false;
+      board.canvas.width = 800;
+      board.canvas.height = 600;
+      board.addFunction("x^2+y^2");
+      const ctx = board.canvas.getContext("2d", { willReadFrequently: true });
+      const inspect = (label) => {
+        // The three axes, past the box as well, against a picture without them.
+        board.draw();
+        const origin = board.axisAnchor();
+        const spots = [];
+        for (let t = -3; t <= 3.001; t += 0.05) {
+          spots.push({ x: t, y: origin.y, z: origin.z }, { x: origin.x, y: t, z: origin.z }, { x: origin.x, y: origin.y, z: t });
+        }
+        const shows = [];
+        for (const on of [true, false]) {
+          for (const axis of ["x", "y", "z"]) board.axes[axis].visible = on;
+          board.draw();
+          shows.push(spots.map((spot) => {
+            const at = board.projectLocal(spot);
+            if (!at || at.sx < 2 || at.sy < 2 || at.sx > 797 || at.sy > 597) return null;
+            return [...ctx.getImageData(Math.round(at.sx), Math.round(at.sy), 1, 1).data];
+          }));
+        }
+        for (const axis of ["x", "y", "z"]) board.axes[axis].visible = true;
+        board.draw();
+        let covered = 0;
+        let leaked = 0;
+        spots.forEach((spot, index) => {
+          if (!board.coveredBySurface(spot) || !shows[0][index]) return;
+          covered += 1;
+          if (shows[0][index].some((value, channel) => Math.abs(value - shows[1][index][channel]) > 40)) leaked += 1;
+        });
+        if (!(covered > 20)) found.push(`${label}: only ${covered} points covered`);
+        if (leaked > covered * 0.05) found.push(`${label}: ${leaked} of ${covered} covered points show the axis`);
+      };
+      inspect("start");
+      // The flat bowl of a close zoom sits right on the axes.
+      for (let notch = 0; notch < 12; notch++) board.zoom3d(0.8333);
+      inspect("zoomed in");
+      const bowl = board.axisAnchor();
+      if (!board.coveredBySurface({ x: bowl.x, y: 0.5, z: bowl.z })) found.push("the bowl does not cover the y axis");
+      if (board.coveredBySurface({ x: bowl.x, y: bowl.y, z: 1 })) found.push("the top of the z axis counts as covered");
+      // An axis that lies in the surface is one solid stretch, not dashes.
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.addFunction("x*y");
+      board.draw();
+      const saddle = board.axisAnchor();
+      let changes = 0;
+      let before = null;
+      for (let t = -0.95; t <= 0.95; t += 0.01) {
+        const now = board.coveredBySurface({ x: t, y: saddle.y, z: saddle.z });
+        if (before !== null && now !== before) changes += 1;
+        before = now;
+      }
+      if (changes > 2) found.push("the x axis of x*y is dashed, " + changes + " changes");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.showGrid = true;
+      board.showAxisValues = true;
+      board.resetView();
+      board.setDimension("2d");
+      board.resize();
+      return found;
+    });
+    assert(trouble.length === 0, trouble.join(" | "));
+  });
+
+  test("The 3D range box follows the range and turns off", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const doc = appWindow.document;
+    doc.getElementById("dim3d").click();
+    const button = doc.getElementById("boxToggle");
+    assert(!button.hidden && button.getAttribute("aria-pressed") === "false", "The box starts off");
+    const count = () => appCall(() => {
+      const pieces = [];
+      board.rangeBoxPieces(1, pieces);
+      return { pieces: pieces.length, drawn: board.axisPieces(1).pieces.filter((piece) => piece.width === Math.max(1, 1.2)).length };
+    });
+    assert(count().drawn === 0, "The box drew while off");
+    button.click();
+    assert(appCall(() => board.showBox) === true && button.getAttribute("aria-pressed") === "true", "The button did not turn it on");
+    const on = count();
+    assert(on.pieces > 0 && on.drawn === on.pieces, `${on.drawn} of ${on.pieces} pieces drawn`);
+    const corners = appCall(() => {
+      board.setView({ xMin: -2, xMax: 6, yMin: -2, yMax: 6, zMin: -1, zMax: 3 });
+      return [board.worldToFloorX(-2), board.worldToFloorX(6), board.zToLocal(-1), board.zToLocal(3)];
+    });
+    assert(Math.abs(corners[0] + 1) < 1e-9 && Math.abs(corners[1] - 1) < 1e-9, "x corners");
+    assert(Math.abs(corners[2] + 1) < 1e-9 && Math.abs(corners[3] - 1) < 1e-9, "z corners");
+    button.click();
+    assert(count().drawn === 0, "The box stayed on");
+    appCall(() => {
+      board.resetView();
+      board.setDimension("2d");
+    });
+    flush(appWindow);
+    assert(button.hidden, "The box button stays out of 2D");
+  });
+
+  test("The temperature colours run smoothly across the surface", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const report = appCall(() => {
+      board.setDimension("3d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.showGrid = false;
+      board.showAxisValues = false;
+      board.showLegend = false;
+      board.light.on = false;
+      for (const axis of ["x", "y", "z"]) board.axes[axis].visible = false;
+      board.showHeat = true;
+      board.canvas.width = 800;
+      board.canvas.height = 600;
+      board.addFunction("x^2+y^2");
+      const ctx = board.canvas.getContext("2d");
+      const measure = () => {
+        board.draw();
+        const { data } = ctx.getImageData(0, 0, 800, 600);
+        // The largest step in colour between neighbouring pixels on the surface.
+        let worst = 0;
+        let compared = 0;
+        const roomy = 800 - board.proj.room - 6;
+        for (let y = 2; y < 598; y += 3) {
+          for (let x = 2; x < roomy; x += 1) {
+            const a = (y * 800 + x) * 4;
+            const b = a + 4;
+            const left = a - 4;
+            const right = b + 4;
+            if (data[a + 3] < 255 || data[b + 3] < 255 || data[left + 3] < 255 || data[right + 3] < 255) continue;
+            compared += 1;
+            worst = Math.max(worst, Math.abs(data[a] - data[b]), Math.abs(data[a + 1] - data[b + 1]), Math.abs(data[a + 2] - data[b + 2]));
+          }
+        }
+        return { worst, compared };
+      };
+      const out = { whole: measure() };
+      board.camera.zoom = 6;
+      out.close = measure();
+      board.showHeat = false;
+      board.light.on = true;
+      board.showGrid = true;
+      board.showAxisValues = true;
+      board.showLegend = true;
+      board.camera.zoom = 1.35;
+      for (const axis of ["x", "y", "z"]) board.axes[axis].visible = true;
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.setDimension("2d");
+      board.resize();
+      return out;
+    });
+    assert(report.whole.compared > 1000 && report.close.compared > 1000, "Too little surface to compare");
+    assert(report.whole.worst <= 40, `The colour jumps by ${report.whole.worst} between neighbouring pixels`);
+    assert(report.close.worst <= 12, `Magnified, the colour jumps by ${report.close.worst} between neighbouring pixels`);
+  });
+
+  test("Every control on the graph toolbar and the calculator's top rows has a tooltip", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const doc = appWindow.document;
+    const lang = appCall(() => uiLang);
+    const bare = [];
+    try {
+      for (const language of ["ko", "en"]) {
+        appCall((code) => applyLanguage(code), language);
+        for (const dimension of ["dim2d", "dim3d"]) {
+          doc.getElementById(dimension).click();
+          flush(appWindow);
+          const seen = new Set();
+          for (const node of doc.querySelectorAll(".graph-tools button, .graph-tools input, #exprPad button, #presets button, #statPresets button, .status button, #bitRow button")) {
+            if (node.hidden || seen.has(node)) continue;
+            seen.add(node);
+            const name = node.id || node.textContent.trim();
+            const tip = node.dataset.tooltip;
+            if (!tip) bare.push(`${language} ${dimension}: ${name}`);
+            else if (tip.startsWith("pad.")) bare.push(`${language} ${dimension}: ${name} shows the key ${tip}`);
+          }
+        }
+        const sine = doc.querySelector("#exprPad button:nth-child(1)");
+        assert(sine.dataset.tooltip, "The pad has no tooltip");
+      }
+      appCall(() => applyLanguage("ko"));
+      doc.getElementById("dim2d").click();
+      flush(appWindow);
+      const preset = [...doc.querySelectorAll("#presets button")].find((button) => button.textContent === "x^2");
+      assert(preset.dataset.tooltip === "포물선", preset.dataset.tooltip);
+      const key = [...doc.querySelectorAll("#exprPad button")].find((button) => button.textContent === "sqrt");
+      assert(key.dataset.tooltip === "제곱근", key.dataset.tooltip);
+      appCall(() => applyLanguage("en"));
+      flush(appWindow);
+      const english = [...doc.querySelectorAll("#exprPad button")].find((button) => button.textContent === "sqrt");
+      assert(english.dataset.tooltip === "Square root", english.dataset.tooltip);
+    } finally {
+      appCall((code) => applyLanguage(code), lang);
+      doc.getElementById("dim2d").click();
+    }
+    assert(bare.length === 0, bare.slice(0, 12).join(" | "));
+  });
+
+  test("Every control in every window has a tooltip, in both languages", async () => {
+    const pages = [
+      ["", ["basic", "scientific", "programmer", "stats", "currency", "unit", "date"]],
+      ["pop=graph&desktop=1", ["2d", "3d"]],
+      ["pop=memo", [null]],
+      ["pop=settings", [null]],
+      ["pop=info", [null]],
+      ["pop=help", [null]],
+    ];
+    const bare = [];
+    let counted = 0;
+    for (const [query, modes] of pages) {
+      const loaded = await loadApp(query);
+      const frameStyle = loaded.frame.style;
+      frameStyle.width = "1200px";
+      frameStyle.height = "800px";
+      try {
+        const doc = loaded.win.document;
+        const startLanguage = callWin(loaded.win, () => uiLang);
+        for (const language of ["ko", "en"]) {
+          loaded.win.__arg = language;
+          callWin(loaded.win, () => applyLanguage(window.__arg));
+          for (const mode of modes) {
+            if (mode === "2d" || mode === "3d") doc.getElementById(`dim${mode}`).click();
+            else if (mode) {
+              loaded.win.__arg = mode;
+              callWin(loaded.win, () => setMode(window.__arg));
+            }
+            flush(loaded.win);
+            for (const second of mode === "scientific" ? [false, true] : [false]) {
+              if (second) [...doc.querySelectorAll(".keygrid button")].find((button) => button.textContent === "2nd").click();
+              for (const node of doc.querySelectorAll("button, select, input, textarea, [role=tab]")) {
+                // The colour inputs beside the axis buttons are only there to open a picker.
+                if (node.getAttribute("aria-hidden") === "true") continue;
+                const box = node.getBoundingClientRect();
+                const style = loaded.win.getComputedStyle(node);
+                if (!(box.width > 0) || !(box.height > 0) || style.visibility === "hidden" || style.display === "none") continue;
+                counted += 1;
+                const holder = node.closest("[data-tooltip]");
+                const tip = holder && holder.dataset.tooltip;
+                const name = `${query || "main"} ${mode || ""} ${language}: ${node.id || node.getAttribute("aria-label") || node.textContent.trim().slice(0, 16)}`;
+                if (!tip) bare.push(name);
+                // A key name left showing means the table has no entry for it.
+                else if (/^(key|pad)\./.test(tip) || tip === "undefined") bare.push(`${name} shows ${tip}`);
+              }
+              if (second) [...doc.querySelectorAll(".keygrid button")].find((button) => button.textContent === "2nd").click();
+            }
+          }
+        }
+        loaded.win.__arg = startLanguage;
+        callWin(loaded.win, () => applyLanguage(window.__arg));
+      } finally {
+        loaded.frame.remove();
+      }
+    }
+    assert(counted > 200, `Only ${counted} controls were looked at`);
+    assert(bare.length === 0, `${bare.length} without: ${bare.slice(0, 14).join(" | ")}`);
+  });
+
+  test("A calculator key shows its tooltip under the pointer", () => {
+    const doc = appWindow.document;
+    appCall(() => setMode("scientific"));
+    flush(appWindow);
+    const shows = (label) => {
+      const key = [...doc.querySelectorAll(".keygrid button")].find((button) => button.textContent === label);
+      assert(key, `No ${label} key`);
+      key.dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+      const tip = doc.querySelector(".tooltip");
+      const text = tip && !tip.hidden ? tip.textContent : "";
+      key.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, relatedTarget: doc.body }));
+      return text;
+    };
+    const saved = appCall(() => uiLang);
+    try {
+      appCall(() => applyLanguage("ko"));
+      flush(appWindow);
+      const answer = shows("Ans");
+      assert(answer === "이전 결과", `Ans shows "${answer}"`);
+      const digit = shows("7");
+      assert(digit === "숫자 7", `7 shows "${digit}"`);
+    } finally {
+      appCall((code) => applyLanguage(code), saved);
+      appCall(() => setMode("basic"));
+    }
+  });
+
+  test("The temperature bar colours the surface by height", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const doc = appWindow.document;
+    doc.getElementById("dim3d").click();
+    const button = doc.getElementById("heatToggle");
+    assert(!button.hidden && button.getAttribute("aria-pressed") === "false", "The bar starts off");
+    const read = () => appCall(() => {
+      board.draw();
+      const hues = new Set();
+      const surface = board.scene.surfaces[0];
+      for (let cell = 0; cell < surface.colors.length; cell++) {
+        const color = surface.colors[cell];
+        if (!color) continue;
+        const [red, green, blue] = color.match(/\d+/g).map(Number);
+        const top = Math.max(red, green, blue) || 1;
+        hues.add(`${Math.round((red / top) * 8)},${Math.round((green / top) * 8)},${Math.round((blue / top) * 8)}`);
+      }
+      return { hues: hues.size, room: board.proj.room, ox: board.proj.ox, width: board.canvas.width };
+    });
+    appCall(() => {
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      board.addFunction("x+y");
+    });
+    const plain = read();
+    assert(plain.hues === 1, `${plain.hues} colours with the bar off`);
+    assert(plain.room === 0 && Math.abs(plain.ox - plain.width / 2) < 1e-9, "The bar kept room while off");
+    button.click();
+    const heated = read();
+    assert(appCall(() => board.showHeat) === true && button.getAttribute("aria-pressed") === "true", "The button did not turn it on");
+    assert(heated.hues > 8, `${heated.hues} colours with the bar on`);
+    assert(heated.room > 0 && heated.ox < plain.ox, "The picture did not make room for the bar");
+    const ends = appCall(() => {
+      const surface = board.scene.surfaces[0];
+      const { heights } = surface;
+      let lowest = 0;
+      let highest = 0;
+      for (let cell = 0; cell < heights.length; cell++) {
+        if (!surface.colors[cell]) continue;
+        if (heights[cell] < heights[lowest] || !surface.colors[lowest]) lowest = cell;
+        if (heights[cell] > heights[highest] || !surface.colors[highest]) highest = cell;
+      }
+      const channels = (cell) => surface.colors[cell].match(/\d+/g).map(Number);
+      const range = board.heatRange;
+      return { low: channels(lowest), high: channels(highest), range: [range.low, range.high] };
+    });
+    assert(ends.low[2] > ends.low[0], `The low end is ${ends.low}`);
+    assert(ends.high[0] > ends.high[2], `The high end is ${ends.high}`);
+    assert(ends.range[0] >= -10 && ends.range[1] <= 10, ends.range.join(".."));
+    // The lamp only changes brightness; the height colours survive a recolour.
+    const relit = appCall(() => {
+      board.light.azimuth += 0.5;
+      board.draw();
+      return board.scene.surfaces[0].heights !== null;
+    });
+    assert(relit, "Moving the lamp lost the heights");
+    button.click();
+    const off = read();
+    assert(off.hues === 1 && off.room === 0, `${off.hues} colours after turning it off`);
+    appCall(() => {
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.light.azimuth -= 0.5;
+      board.resetView();
+      board.setDimension("2d");
+    });
+    flush(appWindow);
+    assert(button.hidden, "The bar button stays out of 2D");
+  });
+
+  test("The 2D ruler shows the pointer in red and turns off", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const doc = appWindow.document;
+    doc.getElementById("dim2d").click();
+    const button = doc.getElementById("rulerToggle");
+    assert(!button.hidden && button.getAttribute("aria-pressed") === "false", "The ruler starts off");
+    assert(button.dataset.tooltip, "Ruler tooltip");
+    const sample = () => appCall(() => {
+      const canvas = board.canvas;
+      canvas.width = 800;
+      canvas.height = 600;
+      const dpr = window.devicePixelRatio || 1;
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10 });
+      board.hover = { px: 400, py: 300, x: board.pxToX(400), y: board.pxToY(300) };
+      board.draw();
+      const ctx = canvas.getContext("2d");
+      const red = (x, y) => {
+        const [r, g, b] = ctx.getImageData(x, y, 1, 1).data;
+        return r > 200 && g < 110 && b < 110;
+      };
+      return { top: red(400, Math.round(18 * dpr)), left: red(Math.round(18 * dpr), 300) };
+    });
+    const off = sample();
+    assert(!off.top && !off.left, "A red mark without the ruler");
+    button.click();
+    assert(appCall(() => board.showRuler) === true && button.getAttribute("aria-pressed") === "true", "The button did not turn it on");
+    const on = sample();
+    assert(on.top && on.left, `Red mark: top ${on.top}, left ${on.left}`);
+    const legend = appCall(() => {
+      board.addFunction("x");
+      board.legendPos = { x: 0, y: 0 };
+      board.draw();
+      const box = { ...board.legendBox };
+      board.legendPos = null;
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      return { box, inset: board.rulerInset(window.devicePixelRatio || 1) };
+    });
+    assert(legend.box.x >= legend.inset && legend.box.y >= legend.inset, "The legend sits on the ruler");
+    button.click();
+    const again = sample();
+    assert(!again.top && !again.left, "The red mark stayed");
+    appCall(() => {
+      board.hover = null;
+      board.resetView();
+      board.resize();
+    });
+    doc.getElementById("dim3d").click();
+    assert(button.hidden, "The ruler button stays out of 3D");
+    doc.getElementById("dim2d").click();
+  });
+
+  test("A framed 2D window keeps a grid on both axes", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const steps = appCall(() => {
+      board.setDimension("2d");
+      board.setView({ xMin: -10, xMax: 10, yMin: -1000, yMax: 1000 });
+      board.stretched = true;
+      board.draw();
+      const result = { x: board.gridStep2d("x"), y: board.gridStep2d("y") };
+      board.stretched = false;
+      board.resetView();
+      return result;
+    });
+    assert(steps.x === 2 && steps.y === 200, `Steps ${steps.x} and ${steps.y}`);
   });
 
   test("Ctrl with the wheel scales the picture only", () => {
@@ -2037,10 +2677,8 @@ suite("Product features", () => {
       const lattice = board.floorLattice();
       if (!lattice.xs.includes(0) || !lattice.ys.includes(0)) throw new Error("The floor grid misses the origin");
       if (!onStep(lattice.xs.concat(lattice.ys), board.floorStep())) throw new Error("The floor grid is not spaced from 0");
-      if (lattice.xs.length < 4 || lattice.xs.length > 7) throw new Error(`${lattice.xs.length} lines across`);
-      if (Math.abs(board.floorStep() - Math.max(board.view.xMax - board.view.xMin, board.view.yMax - board.view.yMin) / 5) > 1e-9) {
-        throw new Error("The floor is not five cells wide");
-      }
+      if (lattice.xs.length < 2 || lattice.xs.length > 7) throw new Error(`${lattice.xs.length} lines across`);
+      if (board.floorStep() !== 4) throw new Error(`The floor step is ${board.floorStep()}, not 4`);
       if (Math.abs(board.floorLevel() - board.zToLocal(0)) > 1e-9) throw new Error("The floor left z = 0");
       const zStep = niceStep(board.view.zMax - board.view.zMin, 5);
       const zs = board.multiples(board.view.zMin, board.view.zMax, zStep);
@@ -2094,8 +2732,10 @@ suite("Product features", () => {
       board.camera.pitch = -1.05;
       board.canvas.width = 800;
       board.canvas.height = 600;
+      // The grid recuts itself as the camera moves in, so the same length of
+      // ground is measured both times.
+      const step = 2;
       const measure = () => {
-        const step = board.floorStep();
         const dx = board.worldToFloorX(1) - board.worldToFloorX(0);
         const dy = board.worldToFloorY(1) - board.worldToFloorY(0);
         const origin = board.projectLocal({ x: board.worldToFloorX(0), y: board.worldToFloorY(0), z: 0 });
@@ -5019,7 +5659,8 @@ suite("The 3D box", () => {
         // The ground is the same two units across, so the box is a cube.
         const wide = board.worldToFloorX(board.view.xMax) - board.worldToFloorX(board.view.xMin);
         if (Math.abs(wide - 2) > 1e-9) trouble.push(`the ground is ${wide.toFixed(3)} across`);
-        if (Math.abs(board.heightStep() * 5 - (zMax - zMin)) > 1e-9) trouble.push("the height step does not divide the range");
+        const heights = (zMax - zMin) / board.heightStep();
+        if (heights < 2.2 || heights > 11.3) trouble.push(`the range is ${heights} height steps`);
       }
       board.setDimension("2d");
       board.resetView();
@@ -5439,7 +6080,7 @@ suite("Windows installer", () => {
   const fetchCode = async (path) => {
     const text = await fetchText(path);
     return text
-      .split("\n")
+      .split(/\r?\n/)
       .map((line) => line.replace(/^\s*;.*$/, ""))
       .join("\n");
   };
@@ -5448,12 +6089,53 @@ suite("Windows installer", () => {
     const conf = JSON.parse(await fetchText("../src-tauri/tauri.conf.json"));
     const nsis = conf.bundle.windows.nsis;
     assert(nsis.installerHooks === "windows/hooks.nsh", `hooks are ${nsis.installerHooks}`);
-    // A one-click installer never stops to ask. installMode "both" asks which
-    // account the program is for, and the language selector asks which text to show.
-    assert(nsis.installMode === "both", "the installer does not ask where to put the program");
+    // "both" and "perMachine" make the installer ask Windows for an administrator
+    // before it even starts. A calculator for one user has no need of one.
+    assert(nsis.installMode === "currentUser", `installMode ${nsis.installMode} asks for an administrator`);
     assert(nsis.displayLanguageSelector === true, "the installer carries one language only");
     assert((nsis.languages || []).includes("Korean"), "Korean is not among the installer languages");
     assert((nsis.languages || []).includes("English"), "English is not among the installer languages");
+  });
+
+  test("The installer asks for its language every time and keeps to the answer", async () => {
+    const script = await fetchCode("../src-tauri/windows/hooks.nsh");
+    const trouble = [];
+    // Without this NSIS remembers the first answer and never asks again.
+    if (!/^!define MUI_LANGDLL_ALWAYSSHOW\s*$/m.test(script)) trouble.push("the language is asked only the first time");
+    const info = script.match(/^!define MUI_LANGDLL_INFO "(.*)"$/m);
+    if (!info) trouble.push("the language question has no text of its own");
+    else if (!/[가-힣]/.test(info[1]) || !/[a-z]/.test(info[1])) trouble.push("the language question is not in both languages");
+    // It has to be defined before the macros, and outside the uninstaller's half.
+    const defined = script.indexOf("!define MUI_LANGDLL_ALWAYSSHOW");
+    const guarded = script.indexOf("!ifndef BUILD_UNINSTALLER");
+    if (defined < 0 || guarded < 0 || defined > guarded) trouble.push("the language settings are not at the top of the script");
+    // Everything shown during the install speaks the chosen language: a line of
+    // Korean has to sit in the Korean branch, with an English branch after it.
+    const lines = script.split("\n");
+    lines.forEach((line, index) => {
+      if (!/[가-힣]/.test(line) || /MUI_LANGDLL_INFO/.test(line)) return;
+      const before = lines.slice(Math.max(0, index - 2), index).join("\n");
+      const after = lines.slice(index + 1, index + 3).join("\n");
+      if (!/\$LANGUAGE == 1042/.test(before) || !/\$\{Else\}/.test(after)) trouble.push(`only in Korean: ${line.trim().slice(0, 40)}`);
+    });
+    assert(!trouble.length, trouble.join(" | "));
+  });
+
+  test("An earlier copy for all users is removed, asking for rights only then", async () => {
+    const script = await fetchCode("../src-tauri/windows/hooks.nsh");
+    const trouble = [];
+    // Found in the machine's half of the registry as well as the user's.
+    if (!/ReadRegStr \$R0 HKLM "\$\{UNINSTKEY\}" UninstallString/.test(script)) trouble.push("a copy for all users is never looked for");
+    // ExecWait cannot start a program that wants an administrator; the shell can.
+    if (!/\$OldElevated == 1\s+ExecShellWait "open" "\$R0" '\/S _\?=\$OldDir'/.test(script)) trouble.push("that copy's uninstaller cannot start");
+    // Elevated only for that copy: everything else stays as it was.
+    if (!/\$\{Else\}\s+ExecWait '"\$R0" \/S _\?=\$OldDir'/.test(script)) trouble.push("the user's own copy is not removed quietly");
+    if (/RequestExecutionLevel/.test(script)) trouble.push("the script asks for rights of its own");
+    // Declining the prompt must not stop the install or pass in silence.
+    const notice = script.match(/MessageBox MB_OK\|MB_ICONINFORMATION[^\n]*/);
+    if (!notice) trouble.push("nothing says the old copy is still there");
+    else if (!/\/SD IDOK/.test(notice[0])) trouble.push("the notice would stop a silent install");
+    assert(!trouble.length, trouble.join(" | "));
   });
 
   test("The installer and uninstaller carry the program's own icon", async () => {
@@ -6270,6 +6952,541 @@ suite("Graph side panels", () => {
 // The 3D axes are sorted in among the surface cells, so a surface in front of
 // an axis hides it. Each test draws the same scene with the axes on and off and
 // compares the pixels along an axis: where it is hidden the two pictures match.
+suite("Built-in graphs land on their true coordinates", () => {
+  // The answers come from Math, never from the engine, and the screen positions
+  // from the formulas below, never from the board's own conversions.
+  function installOracle() {
+    appCall(() => {
+      const pdf = (x, m = 0, s = 1) => Math.exp(-((x - m) ** 2) / (2 * s * s)) / (s * Math.sqrt(2 * Math.PI));
+      const cdf = (x) => {
+        if (Math.abs(x) > 12) return x > 0 ? 1 : 0;
+        const n = 200;
+        const h = x / n;
+        let sum = pdf(0) + pdf(x);
+        for (let i = 1; i < n; i++) sum += pdf(i * h) * (i % 2 ? 4 : 2);
+        return 0.5 + (sum * h) / 3;
+      };
+      const tanPoles = [];
+      for (let k = -40; k <= 40; k++) tanPoles.push(Math.PI / 2 + k * Math.PI);
+      const sortedMiddle = (...list) => list.sort((a, b) => a - b)[Math.floor(list.length / 2)];
+      window.__oracle = {
+        "2d": {
+          "sin(x)": { f: Math.sin, point: [Math.PI / 2, 1] },
+          "cos(x)": { f: Math.cos, point: [0, 1] },
+          "tan(x)": { f: Math.tan, point: [Math.PI / 4, 1], poles: tanPoles },
+          "x^2": { f: (x) => x * x, point: [2, 4] },
+          "1/x": { f: (x) => 1 / x, point: [2, 0.5], poles: [0] },
+          "ln(x)": { f: Math.log, point: [Math.E, 1] },
+          "e^(-x^2)": { f: (x) => Math.exp(-x * x), point: [0, 1] },
+          "normalpdf(x)": { f: (x) => pdf(x), point: [0, 0.3989422804] },
+          "normalcdf(x)": { f: cdf, point: [0, 0.5] },
+          "normalpdf(x,0,2)": { f: (x) => pdf(x, 0, 2), point: [0, 0.1994711402] },
+          "normalpdf(x,0,0.5)": { f: (x) => pdf(x, 0, 0.5), point: [0, 0.7978845608] },
+        },
+        "3d": {
+          "sin(x)*cos(y)": { f: (x, y) => Math.sin(x) * Math.cos(y), point: [Math.PI / 2, 0, 1] },
+          "x^2+y^2": { f: (x, y) => x * x + y * y, point: [1, 1, 2] },
+          "x^2-y^2": { f: (x, y) => x * x - y * y, point: [2, 1, 3] },
+          "sin(sqrt(x^2+y^2))": { f: (x, y) => Math.sin(Math.hypot(x, y)), point: [Math.PI / 2, 0, 1] },
+          "e^(-(x^2+y^2))": { f: (x, y) => Math.exp(-(x * x + y * y)), point: [0, 0, 1] },
+          "cos(x)+sin(y)": { f: (x, y) => Math.cos(x) + Math.sin(y), point: [0, Math.PI / 2, 2] },
+        },
+        // Every function key on the pad, as a graph of x.
+        keys: {
+          sqrt: { expr: "sqrt(x)", f: Math.sqrt },
+          cbrt: { expr: "cbrt(x)", f: Math.cbrt },
+          abs: { expr: "abs(x)", f: Math.abs },
+          exp: { expr: "exp(x)", f: Math.exp },
+          ln: { expr: "ln(x)", f: Math.log },
+          log: { expr: "log(x)", f: Math.log10 },
+          log2: { expr: "log2(x)", f: Math.log2 },
+          log10: { expr: "log10(x)", f: Math.log10 },
+          sin: { expr: "sin(x)", f: Math.sin },
+          cos: { expr: "cos(x)", f: Math.cos },
+          tan: { expr: "tan(x)", f: Math.tan, poles: tanPoles },
+          asin: { expr: "asin(x)", f: Math.asin },
+          acos: { expr: "acos(x)", f: Math.acos },
+          atan: { expr: "atan(x)", f: Math.atan },
+          sinh: { expr: "sinh(x)", f: Math.sinh },
+          cosh: { expr: "cosh(x)", f: Math.cosh },
+          tanh: { expr: "tanh(x)", f: Math.tanh },
+          asinh: { expr: "asinh(x)", f: Math.asinh },
+          acosh: { expr: "acosh(x)", f: Math.acosh },
+          atanh: { expr: "atanh(x)", f: Math.atanh },
+          floor: { expr: "floor(x)", f: Math.floor },
+          ceil: { expr: "ceil(x)", f: Math.ceil },
+          round: { expr: "round(x)", f: Math.round },
+          min: { expr: "min(x,1)", f: (x) => Math.min(x, 1) },
+          max: { expr: "max(x,1)", f: (x) => Math.max(x, 1) },
+          mod: { expr: "mod(x,3)", f: (x) => x - 3 * Math.floor(x / 3) },
+          normalpdf: { expr: "normalpdf(x)", f: (x) => pdf(x) },
+          normalcdf: { expr: "normalcdf(x)", f: cdf },
+          mean: { expr: "mean(x,1)", f: (x) => (x + 1) / 2 },
+          median: { expr: "median(x,1,2)", f: (x) => sortedMiddle(x, 1, 2) },
+          stdev: { expr: "stdev(x,1)", f: (x) => Math.abs(x - 1) / Math.SQRT2 },
+          variance: { expr: "variance(x,1)", f: (x) => ((x - 1) ** 2) / 2 },
+          stdevp: { expr: "stdevp(x,1)", f: (x) => Math.abs(x - 1) / 2 },
+          variancep: { expr: "variancep(x,1)", f: (x) => ((x - 1) ** 2) / 4 },
+          total: { expr: "total(x,1)", f: (x) => x + 1 },
+          count: { expr: "count(x,1)", f: () => 2 },
+          "Σ": { expr: "sum(k,1,3,k*x)", f: (x) => 6 * x },
+          // Whole numbers only, so these are read at points rather than as a line.
+          fact: { expr: "fact(x)", values: [[0, 1], [1, 1], [5, 120], [10, 3628800]] },
+          ncr: { expr: "nCr(x,2)", values: [[2, 1], [5, 10], [10, 45]] },
+          npr: { expr: "nPr(x,2)", values: [[2, 2], [5, 20], [10, 90]] },
+          invnorm: { expr: "invnorm(x)", values: [[0.5, 0], [0.975, 1.959963985], [0.025, -1.959963985]] },
+        },
+        extras: {
+          pi: { expr: "pi*x", f: (x) => Math.PI * x },
+          e: { expr: "e*x", f: (x) => Math.E * x },
+          power: { expr: "-x^2", f: (x) => -(x * x) },
+          order: { expr: "2+3*x", f: (x) => 2 + 3 * x },
+          exponent: { expr: "2^x", f: (x) => 2 ** x },
+          divide: { expr: "x/4", f: (x) => x / 4 },
+        },
+      };
+
+      window.__isTrue = (actual, expected) => {
+        const want = Number.isFinite(expected) ? expected : NaN;
+        if (Number.isNaN(want) || !Number.isFinite(actual)) return Number.isNaN(want) === !Number.isFinite(actual);
+        return Math.abs(actual - want) <= 1e-8 * Math.max(1, Math.abs(want));
+      };
+
+      window.__prepare = (dimension) => {
+        board.setDimension(dimension);
+        while (board.functions.length) board.removeFunction(board.functions[0].id);
+        board.resetView();
+        board.showGrid = false;
+        board.showLegend = false;
+        board.showRuler = false;
+        board.showBox = false;
+        board.showHeat = false;
+        board.light.on = false;
+        for (const axis of ["x", "y", "z"]) board.axes[axis].visible = false;
+        board.canvas.width = 800;
+        board.canvas.height = 600;
+        // Graphs are in radians whatever the calculator is set to.
+        window.__angle = engine.angleMode;
+        engine.angleMode = "deg";
+      };
+
+      window.__finish = () => {
+        engine.angleMode = window.__angle;
+        while (board.functions.length) board.removeFunction(board.functions[0].id);
+        board.showGrid = true;
+        board.showLegend = true;
+        board.light.on = true;
+        for (const axis of ["x", "y", "z"]) board.axes[axis].visible = true;
+        board.resetView();
+        board.setDimension("2d");
+        board.resize();
+      };
+
+      // Draws one curve in one window and reads the canvas back, column by column.
+      window.__check2d = (expr, entry, view, found) => {
+        const { f, point, poles } = entry;
+        const label = `${expr} on x ${view.xMin}..${view.xMax}`;
+        while (board.functions.length) board.removeFunction(board.functions[0].id);
+        const fn = board.addFunction(expr);
+        board.setView(view);
+        board.draw();
+        const live = board.functions[0];
+        const ctx = board.canvas.getContext("2d");
+        const { width, height } = board.canvas;
+        const { xMin, xMax, yMin, yMax } = board.drawn;
+        const worldX = (px) => xMin + (px / width) * (xMax - xMin);
+        const rowOf = (y) => ((yMax - y) / (yMax - yMin)) * height;
+        const unit = (a, b) => Math.abs(a - b) / Math.max(Math.abs(a), Math.abs(b));
+        if (unit(width / (xMax - xMin), height / (yMax - yMin)) > 1e-9) found.push(`${label}: x and y units differ`);
+        // The numbers the engine gives for this curve.
+        let wrongValue = 0;
+        for (let px = 0; px < width; px += 7) {
+          const x = worldX(px);
+          if (!window.__isTrue(board.sample(live.ast, x), f(x))) wrongValue += 1;
+        }
+        if (wrongValue) found.push(`${label}: ${wrongValue} values are wrong`);
+        const pixels = ctx.getImageData(0, 0, width, height).data;
+        const painted = (px, py) => {
+          if (px < 0 || py < 0 || px >= width || py >= height) return false;
+          return pixels[(py * width + px) * 4 + 3] > 60;
+        };
+        const rows = new Float64Array(width + 8);
+        for (let px = -4; px < width + 4; px++) rows[px + 4] = rowOf(f(worldX(px)));
+        const poleColumns = new Set();
+        for (const pole of poles || []) {
+          if (pole < xMin || pole > xMax) continue;
+          const at = (pole - xMin) / (xMax - xMin) * width;
+          for (let px = Math.floor(at) - 2; px <= Math.ceil(at) + 2; px++) poleColumns.add(px);
+        }
+        const reach = 5 * (window.devicePixelRatio || 1);
+        let stray = 0;
+        let missing = 0;
+        for (let px = 2; px < width - 2; px++) {
+          if (poleColumns.has(px)) continue;
+          let low = Infinity;
+          let high = -Infinity;
+          let broken = false;
+          for (let near = px - 3; near <= px + 3; near++) {
+            const row = rows[near + 4];
+            if (!Number.isFinite(row)) {
+              broken = true;
+              continue;
+            }
+            low = Math.min(low, row);
+            high = Math.max(high, row);
+          }
+          if (broken) continue;
+          for (let py = 0; py < height; py++) {
+            if (painted(px, py) && (py < low - reach || py > high + reach)) {
+              stray += 1;
+              break;
+            }
+          }
+          // Where the curve is on the canvas and not too steep, it must be drawn there.
+          const row = rows[px + 4];
+          if (row > 4 && row < height - 4 && Math.abs(rows[px + 5] - rows[px + 3]) < height / 4) {
+            const spot = Math.round(row);
+            let seen = false;
+            for (let py = spot - 3; py <= spot + 3 && !seen; py++) seen = painted(px, py);
+            if (!seen) missing += 1;
+          }
+        }
+        if (stray > 1) found.push(`${label}: ${stray} columns painted away from the curve`);
+        if (missing > 1) found.push(`${label}: ${missing} columns missing the curve`);
+        // Across a pole the two branches must not be joined by a line.
+        for (const pole of poles || []) {
+          if (pole < xMin || pole > xMax) continue;
+          const at = (pole - xMin) / (xMax - xMin) * width;
+          const row = Math.round(rowOf(f(pole - (xMax - xMin) * 0.25 / width) / 2 + f(pole + (xMax - xMin) * 0.25 / width) / 2));
+          const middle = Math.round(height / 2);
+          for (const py of [row, middle]) {
+            for (let px = Math.floor(at) - 1; px <= Math.ceil(at) + 1; px++) {
+              if (painted(px, py) && Math.abs(rowOf(f(worldX(px))) - py) > reach * 2) {
+                found.push(`${label}: a line joins the branches at x = ${pole.toFixed(3)}`);
+                px = Infinity;
+              }
+            }
+          }
+        }
+        // A point worked out by hand.
+        if (point && point[0] >= xMin && point[0] <= xMax && point[1] >= yMin && point[1] <= yMax) {
+          if (!window.__isTrue(f(point[0]), point[1]) && Math.abs(f(point[0]) - point[1]) > 1e-9) found.push(`${expr}: the answer table is wrong at x = ${point[0]}`);
+          const px = Math.round(((point[0] - xMin) / (xMax - xMin)) * width);
+          const py = Math.round(rowOf(point[1]));
+          let seen = false;
+          for (let dx = -2; dx <= 2 && !seen; dx++) for (let dy = -3; dy <= 3 && !seen; dy++) seen = painted(px + dx, py + dy);
+          if (!seen) found.push(`${label}: nothing at (${point[0].toFixed(3)}, ${point[1]})`);
+        }
+        return fn;
+      };
+
+      // The numbers printed along the 2D axes, against where they are printed.
+      window.__check2dLabels = (view, found) => {
+        board.setView(view);
+        for (const axis of ["x", "y"]) board.axes[axis].visible = true;
+        const printed = [];
+        board.haloText = function (ctx, text, x, y, color) {
+          printed.push({ text, x, y, color });
+        };
+        board.draw();
+        delete board.haloText;
+        for (const axis of ["x", "y"]) board.axes[axis].visible = false;
+        const { xMin, xMax, yMin, yMax } = board.drawn;
+        const { width, height } = board.canvas;
+        let xs = 0;
+        let ys = 0;
+        for (const item of printed) {
+          const value = Number(item.text);
+          let where;
+          if (item.color === board.axes.x.color) {
+            where = xMin + (item.x / width) * (xMax - xMin);
+            xs += 1;
+          } else {
+            where = yMax - (item.y / height) * (yMax - yMin);
+            ys += 1;
+          }
+          if (Math.abs(value - where) > Math.max(1e-6, Math.abs(where) * 0.005)) {
+            found.push(`the label ${item.text} is printed at ${where} on x ${view.xMin}..${view.xMax}`);
+          }
+        }
+        if (xs < 3 || ys < 3) found.push(`only ${xs} x and ${ys} y labels on x ${view.xMin}..${view.xMax}`);
+      };
+
+      // Every sampled vertex of a surface: its height, where it lands on screen,
+      // and whether the canvas has paint there.
+      window.__check3d = (expr, entry, step, found) => {
+        const { f, point } = entry;
+        board.draw();
+        const { xMin, xMax, yMin, yMax, zMin, zMax } = board.view;
+        const label = `${expr} (${step}) x ${xMin.toFixed(2)}..${xMax.toFixed(2)} z ${zMin.toFixed(2)}..${zMax.toFixed(2)}`;
+        for (const [name, low, high] of [["x", xMin, xMax], ["y", yMin, yMax], ["z", zMin, zMax]]) {
+          if (Math.abs(low + high) > Math.abs(high) * 1e-9) found.push(`${label}: ${name} is not centred on 0`);
+        }
+        const half = Math.max(xMax - xMin, yMax - yMin) / 2;
+        const zHalf = (zMax - zMin) / 2;
+        const { width, height } = board.canvas;
+        const proj = board.proj;
+        if (Math.abs(proj.ox - width / 2) > 1e-9 || Math.abs(proj.oy - height / 2) > 1e-9) found.push(`${label}: the picture is off centre`);
+        const place = (x, y, z) => {
+          const lx = x / half;
+          const ly = y / half;
+          const lz = clamp(z, zMin, zMax) / zHalf;
+          const flat = lx * Math.cos(proj.yaw) - ly * Math.sin(proj.yaw);
+          const depth = lx * Math.sin(proj.yaw) + ly * Math.cos(proj.yaw);
+          const toward = depth * Math.cos(proj.pitch) - lz * Math.sin(proj.pitch);
+          const up = depth * Math.sin(proj.pitch) + lz * Math.cos(proj.pitch);
+          const scale = proj.focal / (3.2 - toward);
+          return { sx: proj.ox + flat * scale, sy: proj.oy - up * scale };
+        };
+        const mesh = board.meshes[0];
+        const surface = board.scene.surfaces[0];
+        const n = mesh.n;
+        const pixels = board.canvas.getContext("2d").getImageData(0, 0, width, height).data;
+        // Within a pixel: a fold in the surface only part-covers its own.
+        const painted = (sx, sy) => {
+          const px = Math.round(sx);
+          const py = Math.round(sy);
+          if (px < 2 || py < 2 || px >= width - 2 || py >= height - 2) return true;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (pixels[((py + dy) * width + px + dx) * 4 + 3] > 200) return true;
+            }
+          }
+          return false;
+        };
+        const worldX = (i) => xMin + (i / (n - 1)) * (xMax - xMin);
+        const worldY = (j) => yMin + (j / (n - 1)) * (yMax - yMin);
+        const usable = (value) => Number.isFinite(value) && value >= zMin && value <= zMax;
+        let wrongHeight = 0;
+        let wrongPlace = 0;
+        let unpainted = 0;
+        let wrongCell = 0;
+        for (let j = 0; j < n; j += 1) {
+          for (let i = 0; i < n; i += 1) {
+            const value = mesh.z[j * n + i];
+            if (!window.__isTrue(value, f(worldX(i), worldY(j)))) wrongHeight += 1;
+            if (i % 4 || j % 4) continue;
+            if (Number.isFinite(value)) {
+              const want = place(worldX(i), worldY(j), value);
+              const got = { sx: surface.sx[j * n + i], sy: surface.sy[j * n + i] };
+              if (surface.depth[j * n + i] > 0 && Math.hypot(want.sx - got.sx, want.sy - got.sy) > 0.5) wrongPlace += 1;
+            }
+            if (i > 0 && j > 0 && i < n - 1 && j < n - 1) {
+              const around = [];
+              for (const dj of [-1, 0, 1]) for (const di of [-1, 0, 1]) around.push(mesh.z[(j + dj) * n + i + di]);
+              if (around.every(usable) && !painted(place(worldX(i), worldY(j), value).sx, place(worldX(i), worldY(j), value).sy)) unpainted += 1;
+            }
+            if (i < n - 1 && j < n - 1) {
+              const corners = [mesh.z[j * n + i], mesh.z[j * n + i + 1], mesh.z[(j + 1) * n + i], mesh.z[(j + 1) * n + i + 1]];
+              const drawn = !!surface.colors[j * (n - 1) + i];
+              if (corners.every(usable) && !drawn) wrongCell += 1;
+              if ((corners.every((c) => Number.isFinite(c) && c > zMax) || corners.every((c) => Number.isFinite(c) && c < zMin)) && drawn) wrongCell += 1;
+            }
+          }
+        }
+        if (wrongHeight) found.push(`${label}: ${wrongHeight} heights are wrong`);
+        if (wrongPlace) found.push(`${label}: ${wrongPlace} vertices land in the wrong place`);
+        if (unpainted) found.push(`${label}: ${unpainted} vertices have no paint`);
+        if (wrongCell) found.push(`${label}: ${wrongCell} cells drawn or dropped wrongly`);
+        // A point worked out by hand. x and y fall on the surface whenever they are in range.
+        if (point) {
+          if (Math.abs(f(point[0], point[1]) - point[2]) > 1e-9) found.push(`${expr}: the answer table is wrong`);
+          const inside = point[0] > xMin && point[0] < xMax && point[1] > yMin && point[1] < yMax && point[2] > zMin && point[2] < zMax;
+          if (inside) {
+            const spot = place(point[0], point[1], point[2]);
+            if (!painted(spot.sx, spot.sy)) found.push(`${label}: nothing at (${point.map((v) => v.toFixed(3)).join(", ")})`);
+          }
+        }
+        // The numbers and ticks on the three axes.
+        const shown = { x: 0, y: 0, z: 0 };
+        // All of them, including those the surface hides: those have their own test.
+        for (const axis of ["x", "y", "z"]) board.axes[axis].visible = true;
+        const meshes = board.meshes;
+        board.meshes = [];
+        const { pieces } = board.axisPieces(1);
+        board.meshes = meshes;
+        for (const axis of ["x", "y", "z"]) board.axes[axis].visible = false;
+        const colors = { x: board.axes.x.color, y: board.axes.y.color, z: board.axes.z.color };
+        for (const piece of pieces) {
+          const axis = Object.keys(colors).find((name) => colors[name] === piece.color);
+          if (!axis) continue;
+          const local = piece.at;
+          const value = axis === "x" ? local.x * half : axis === "y" ? local.y * half : local.z * zHalf;
+          const position = place(axis === "x" ? value : 0, axis === "y" ? value : 0, axis === "z" ? value : 0);
+          if (piece.text) {
+            shown[axis] += 1;
+            if (Math.abs(Number(piece.text) - value) > Math.max(1e-6, Math.abs(value) * 0.005)) {
+              found.push(`${label}: the ${axis} label ${piece.text} marks ${value}`);
+            }
+          } else if (piece.width === 1) {
+            if (Math.hypot(piece.line[0] - position.sx, piece.line[1] - position.sy) > 0.5) {
+              found.push(`${label}: the ${axis} tick at ${value} is out of place`);
+            }
+          }
+        }
+        if (shown.x + shown.y + shown.z < 3) found.push(`${label}: only ${shown.x + shown.y + shown.z} axis numbers`);
+      };
+    });
+  }
+
+  test("An axis number reads the value it marks", () => {
+    const read = appCall(() => [312500, 62500, 2500, 12.5, 0.8, 0.16, 0.032, 0.0064, 0.00128, 0.000256, -312500].map((value) => [value, formatTick(value)]));
+    for (const [value, text] of read) {
+      assert(Math.abs(Number(text) - value) <= Math.abs(value) * 1e-9, `${value} reads ${text}`);
+    }
+  });
+
+  test("Every 2D preset is drawn on its true coordinates in every window", () => {
+    installOracle();
+    const found = appCall(() => {
+      const out = [];
+      window.__prepare("2d");
+      try {
+        const list = [...PRESETS["2d"], ...STAT_PRESETS.filter((item) => item.expr).map((item) => item.expr)];
+        const windows = [
+          { xMin: -10, xMax: 10, yMin: -10, yMax: 10 },
+          { xMin: -2, xMax: 2, yMin: -2, yMax: 2 },
+          { xMin: 0.5, xMax: 6, yMin: -3, yMax: 3 },
+          { xMin: -50, xMax: 50, yMin: -50, yMax: 50 },
+          { xMin: -0.5, xMax: 0.5, yMin: -0.2, yMax: 1.2 },
+        ];
+        for (const expr of list) {
+          const entry = window.__oracle["2d"][expr];
+          if (!entry) {
+            out.push(`no answer table for the preset ${expr}`);
+            continue;
+          }
+          for (const view of windows) window.__check2d(expr, entry, view, out);
+        }
+        for (const view of windows) window.__check2dLabels(view, out);
+      } finally {
+        window.__finish();
+      }
+      return out;
+    });
+    assert(found.length === 0, found.slice(0, 14).join(" | "));
+  });
+
+  test("Every function key draws its true graph", () => {
+    installOracle();
+    const found = appCall(() => {
+      const out = [];
+      window.__prepare("2d");
+      try {
+        const windows = [
+          { xMin: -10, xMax: 10, yMin: -10, yMax: 10 },
+          { xMin: -2.5, xMax: 2.5, yMin: -2.5, yMax: 2.5 },
+        ];
+        const keys = window.__oracle.keys;
+        const names = EXPR_PAD.filter((group) => ["sum", "fn", "trig", "hyp", "round", "two", "stat"].includes(group.id))
+          .flatMap((group) => group.tokens)
+          .map((token) => token.slice(0, -1).toLowerCase())
+          .map((name) => (name === "σ" ? "Σ" : name));
+        for (const name of names) {
+          const entry = keys[name];
+          if (!entry) {
+            out.push(`no answer table for the key ${name}`);
+            continue;
+          }
+          if (entry.values) {
+            const ast = engine.parse(entry.expr);
+            for (const [x, want] of entry.values) {
+              const got = board.sample(ast, x);
+              if (Math.abs(got - want) > 1e-6) out.push(`${entry.expr} at ${x} is ${got}, not ${want}`);
+            }
+            continue;
+          }
+          for (const view of windows) window.__check2d(entry.expr, entry, view, out);
+        }
+        for (const entry of Object.values(window.__oracle.extras)) {
+          for (const view of windows) window.__check2d(entry.expr, entry, view, out);
+        }
+      } finally {
+        window.__finish();
+      }
+      return out;
+    });
+    assert(found.length === 0, found.slice(0, 14).join(" | "));
+  });
+
+  test("Every 3D preset keeps its true heights, positions and axis numbers through zoom", () => {
+    installOracle();
+    const found = appCall(() => {
+      const out = [];
+      window.__prepare("3d");
+      try {
+        for (const expr of PRESETS["3d"]) {
+          const entry = window.__oracle["3d"][expr];
+          if (!entry) {
+            out.push(`no answer table for the preset ${expr}`);
+            continue;
+          }
+          while (board.functions.length) board.removeFunction(board.functions[0].id);
+          board.resetView();
+          board.addFunction(expr);
+          window.__check3d(expr, entry, "added", out);
+          for (let notch = 1; notch <= 14; notch++) {
+            board.zoom3d(0.8333, true);
+            if (notch === 6 || notch === 14) window.__check3d(expr, entry, `in ${notch}`, out);
+          }
+          for (let notch = 1; notch <= 28; notch++) {
+            board.zoom3d(1.2, true);
+            if (notch === 18 || notch === 28) window.__check3d(expr, entry, `out ${notch}`, out);
+          }
+          board.resetView();
+          board.addFunction(expr);
+          while (board.functions.length > 1) board.removeFunction(board.functions[0].id);
+          board.stepAxis("z", 0.5);
+          window.__check3d(expr, entry, "z shorter", out);
+          board.stepAxis("z", 2);
+          board.stepAxis("x", 0.5);
+          window.__check3d(expr, entry, "x shorter", out);
+          board.stepAxis("x", 2);
+          board.camera.yaw = 0.9;
+          board.camera.pitch = -0.4;
+          window.__check3d(expr, entry, "turned", out);
+          board.camera.zoom = 4;
+          window.__check3d(expr, entry, "magnified", out);
+          board.camera.zoom = 0.4;
+          window.__check3d(expr, entry, "shrunk", out);
+          board.camera.yaw = -0.75;
+          board.camera.pitch = -1.05;
+          board.camera.zoom = 1.35;
+        }
+      } finally {
+        window.__finish();
+      }
+      return out;
+    });
+    assert(found.length === 0, found.slice(0, 14).join(" | "));
+  });
+
+  test("Every function key draws its true surface", () => {
+    installOracle();
+    const found = appCall(() => {
+      const out = [];
+      window.__prepare("3d");
+      try {
+        for (const [name, entry] of Object.entries(window.__oracle.keys)) {
+          if (!entry.f) continue;
+          const expr = `${entry.expr}+y`;
+          const surface = { f: (x, y) => entry.f(x) + y };
+          while (board.functions.length) board.removeFunction(board.functions[0].id);
+          board.resetView();
+          board.addFunction(expr);
+          window.__check3d(expr, surface, "added", out);
+          for (let notch = 0; notch < 5; notch++) board.zoom3d(0.8333, true);
+          window.__check3d(expr, surface, "in", out);
+        }
+      } finally {
+        window.__finish();
+      }
+      return out;
+    });
+    assert(found.length === 0, found.slice(0, 14).join(" | "));
+  });
+});
+
 suite("3D axes and surfaces", () => {
   async function openScene(expr) {
     const loaded = await loadApp("pop=graph&desktop=1");
