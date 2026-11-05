@@ -73,14 +73,10 @@ npm start
 | 작업 | 필요한 도구 |
 |---|---|
 | 앱 개발과 실행 | Node.js 20.19 이상, Rust, Tauri 2 플랫폼 의존성 |
-| 네이티브 실행 | gcc, CMake, Ninja, SDL2 (LVGL 관리자의 **컴파일러 설치**로 설치 가능) |
+| 네이티브 실행 | Windows: 없음(앱이 전용 컴파일러를 자동 설치). macOS, Linux: gcc, CMake, Ninja, SDL2 (LVGL 관리자의 **컴파일러 설치**) |
 | WebAssembly 엔진 다시 빌드 | Emscripten, CMake, Ninja |
 
-Windows에서는 MSYS2 UCRT64로 네이티브 실행 도구를 설치할 수 있습니다.
-
-```
-pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-SDL2
-```
+Windows에서는 앱을 실행할 때 필요한 파일만 `%LOCALAPPDATA%\MyLVGLStudio\toolchain`에 받아 씁니다. PC의 PATH나 다른 프로그램은 바뀌지 않고, 앱을 제거하면 함께 지워집니다. 자세한 내용은 [ARCHITECTURE.md](ARCHITECTURE.md)를 보세요.
 
 MSYS2의 Emscripten 패키지는 Node도 함께 설치합니다. `ucrt64\bin`이 PATH에서 기존 Node보다 앞에 있으면 PC 전체의 `node`가 바뀌므로 주의하세요. 엔진 빌드 스크립트는 자신을 실행한 Node를 `EM_NODE_JS`로 Emscripten에 넘깁니다.
 

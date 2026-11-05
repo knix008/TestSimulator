@@ -1,4 +1,5 @@
 // Project settings, the LVGL manager, and the small confirm / about dialogs.
+import { clockWords, megabytes as wholeMegabytes, timeWords } from "./toolsProgress.js";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { canPopOut, fitPopout, openPopout, sizePopout } from "./popout.js";
@@ -454,7 +455,74 @@ export function NewProjectDialog({ t, saveOnly, initialName, initialLocation, in
 
 const megabytes = (bytes) => `${(bytes / 1048576).toFixed(1)} MB`;
 
-export function LvglManager({ t, onClose, onInstalledChange, autoInstall }) {
+/** The compiler's installation: what is coming, what it is for, how far it is, how long is left. */
+export function ToolsProgress({ t, job, onHide, onCancel, onRetry }) {
+  const failed = job.status === "failed";
+  const left = timeWords(t, job.seconds);
+  const stateOf = (item) => {
+    if (item.state === "download") return t("tools.downloading", { received: wholeMegabytes(item.received), total: wholeMegabytes(item.bytes) });
+    if (item.state === "unpack") return t("tools.unpacking", { percent: Math.floor(item.unpacked * 100) });
+    return t(item.state === "done" ? "tools.done" : "tools.waiting");
+  };
+  return (
+    <Dialog
+      title={t("tools.title")}
+      icon="build"
+      id="tools-progress"
+      width={600}
+      height={520}
+      standsFree
+      onClose={onHide}
+      footer={failed ? (
+        <>
+          <button type="button" className="primary" data-command="tools-retry" onClick={onRetry}><Icon name="build" /> {t("tools.retry")}</button>
+          <button type="button" data-command="tools-hide" onClick={onHide}><Icon name="close" size={14} /> {t("dialog.close")}</button>
+        </>
+      ) : (
+        <>
+          <button type="button" data-command="tools-hide" onClick={onHide}><Icon name="collapseDown" size={14} /> {t("tools.hide")}</button>
+          <button type="button" data-command="tools-cancel" disabled={job.cancelling} onClick={onCancel}><Icon name="close" size={14} /> {t(job.cancelling ? "tools.cancelling" : "dialog.cancel")}</button>
+        </>
+      )}
+    >
+      <div className="tools-progress" data-tools-progress="">
+        <p className="dialog-message">{t("tools.intro")}</p>
+        <ul className="tools-items">
+          {job.items.map((item) => (
+            <li key={item.id} className={item.state === "done" ? "done" : undefined} data-tools-item={item.id} data-state={item.state}>
+              <div className="tools-item-head">
+                {item.state === "download" || item.state === "unpack" ? <i className="tools-spinner" data-tools-spinner="" /> : <Icon name={item.state === "done" ? "check" : "clock"} size={14} />}
+                <strong>{t(`tools.item.${item.id}`)}</strong>
+                <span className="tools-item-state" data-tools-state="">{stateOf(item)}</span>
+              </div>
+              <div className={item.state === "download" || item.state === "unpack" ? "tools-bar active" : "tools-bar"}><i style={{ width: `${item.state === "done" ? 100 : (item.state === "unpack" ? item.unpacked : item.received / item.bytes) * 100}%` }} /></div>
+              <ul className="tools-parts">
+                {item.parts.map((part) => <li key={part.id} data-tools-part={part.id}><b>{t(`tools.part.${part.id}`)} {part.version}</b> <span>{t(`tools.role.${part.id}`)}</span></li>)}
+              </ul>
+            </li>
+          ))}
+        </ul>
+        <div className="tools-overall">
+          <strong data-tools-percent="">{job.percent}%</strong>
+          <div className="tools-bar"><i style={{ width: `${job.percent}%` }} /></div>
+        </div>
+        {failed ? (
+          <p className="form-note" data-tools-error="">{t("tools.failed", { error: job.error })}</p>
+        ) : (
+          <p className="tools-time" data-tools-time="">
+            <b data-tools-status="">{job.cancelling ? t("tools.cancelling") : job.stalled ? t("tools.stalled") : job.percent >= 100 ? t("tools.finishing") : left ? t("tools.remaining", { time: left }) : t("tools.calculating")}</b>
+            <span data-tools-elapsed="">{t("tools.elapsed", { time: clockWords(job.elapsed) })}</span>
+            <span>{wholeMegabytes(job.received)} / {wholeMegabytes(job.bytes)} MB</span>
+            {job.speed > 0 && job.items.some((item) => item.state === "download") && <span>{(job.speed / 1000000).toFixed(1)} MB/s</span>}
+          </p>
+        )}
+        <p className="tools-place" data-tools-place="" title={job.dir}>{t("tools.place", { dir: job.dir, size: job.installedMegabytes })}</p>
+      </div>
+    </Dialog>
+  );
+}
+
+export function LvglManager({ t, onClose, onInstalledChange, autoInstall, toolsBusy, onInstallLocal }) {
   const [installed, setInstalled] = useState([]);
   const [releases, setReleases] = useState(null);
   const [offline, setOffline] = useState(false);
@@ -470,7 +538,7 @@ export function LvglManager({ t, onClose, onInstalledChange, autoInstall }) {
     const offLog = host.on("native-log", ({ line }) => setToolOutput(line));
     const offExit = host.on("tools-exit", ({ ok, error }) => {
       setInstallingTools(false);
-      setToolOutput(ok ? t("manager.toolsDone") : error);
+      setToolOutput(ok ? t("manager.toolsDone") : error === "stopped" ? "" : error);
       host.nativeCheck().then(setTools);
     });
     return () => {
@@ -480,7 +548,11 @@ export function LvglManager({ t, onClose, onInstalledChange, autoInstall }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const askInstallTools = async () => setToolPlan(await host.toolsPlan());
+  // The app's own compiler has its progress window, which also says what comes; the system's asks first.
+  const askInstallTools = async () => {
+    if (tools?.local) void onInstallLocal?.();
+    else setToolPlan(await host.toolsPlan());
+  };
   const installTools = async () => {
     setToolPlan(null);
     setInstallingTools(true);
@@ -593,7 +665,7 @@ export function LvglManager({ t, onClose, onInstalledChange, autoInstall }) {
       {tools && (
         <div className="tools-row">
           <span className="dialog-note" style={{ margin: 0 }}>{t(tools.gcc && tools.cmake && tools.ninja && tools.sdl ? "manager.toolsReady" : "manager.toolsMissing")}</span>
-          <button type="button" data-action="install-tools" disabled={!isDesktop || installingTools || !!(tools.gcc && tools.cmake && tools.ninja && tools.sdl)} onClick={askInstallTools}><Icon name="build" /> {t("manager.installTools")}</button>
+          <button type="button" data-action="install-tools" disabled={!isDesktop || installingTools || toolsBusy || !!(tools.gcc && tools.cmake && tools.ninja && tools.sdl)} onClick={askInstallTools}><Icon name="build" /> {t("manager.installTools")}</button>
         </div>
       )}
       {toolOutput && <p className="tools-output" data-tools-output="" title={toolOutput}>{toolOutput}</p>}

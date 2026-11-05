@@ -20,6 +20,8 @@ tauri-plugin-single-instance = "2"
 ureq = { version = "2", features = ["json"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 base64 = "0.22"
+# The private compiler download is checked against its published hash.
+sha2 = "0.10"
 
 [profile.release]
 panic = "abort"

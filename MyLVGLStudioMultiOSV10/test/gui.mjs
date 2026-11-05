@@ -67,13 +67,15 @@ const { category, test: step, summary } = createReporter({
       fs.writeFileSync(path.join(shots, `failed-${number}.png`), await page.screenshot());
       // A dialog left open would fail every step after this one too.
       await page.evaluate("window.__mls?.showDialog?.(null);void 0");
+      // Nor may a stand-in for the backend or its window outlive a failed step.
+      await page.evaluate("window.__toolsRestore?.();window.__toolsFinish?.();void 0");
     } catch { /* the window is gone */ }
   },
 });
 
 // Everything but the steps about it starts without the tutorial's question in the way.
 fs.mkdirSync(path.join(data, "settings"), { recursive: true });
-fs.writeFileSync(path.join(data, "settings", "settings.json"), JSON.stringify({ general: { askTutorial: false } }));
+fs.writeFileSync(path.join(data, "settings", "settings.json"), JSON.stringify({ general: { askTutorial: false, autoInstallTools: false } }));
 await launch();
 
 const js = (expression) => page.evaluate(expression);
@@ -496,6 +498,35 @@ await step("The attributes panel edits text and colour on the surface", async ()
   const area = await box(widget.id);
   assert.deepEqual(await pixel(area.x + 6, area.y + Math.floor(area.h / 2)), [255, 0, 0]);
   await shot("03-attributes");
+});
+
+await step("A colour can be typed one key at a time; leaving the box unfinished keeps the colour", async () => {
+  const box = '.attributes [data-field="bgColor"] .color-text';
+  const shown = () => js(`document.querySelector(${JSON.stringify(box)}).value`);
+  const colour = async () => (await lastWidget()).props.bgColor;
+  const typeKeys = async (text) => {
+    await click(box);
+    await js(`document.querySelector(${JSON.stringify(box)}).select()`);
+    for (const key of text) {
+      await page.send("Input.insertText", { text: key });
+      await sleep(30);
+    }
+    await sleep(80);
+  };
+  await typeKeys("#00FF");
+  assert.equal(await shown(), "#00FF", "what was typed so far left the box");
+  assert.equal(await colour(), "#ff0000", "an unfinished colour was applied");
+  await js("document.activeElement.blur()");
+  await sleep(80);
+  assert.equal(await shown(), "#ff0000", "the box does not show the colour again");
+  await typeKeys("#00FF00");
+  assert.equal(await colour(), "#00ff00");
+  await js("document.activeElement.blur()");
+  await sleep(80);
+  assert.equal(await shown(), "#00ff00");
+  await typeInto(box, "#ff0000");
+  await js("document.activeElement.blur()");
+  await sleep(80);
 });
 
 await step("Code view shows the generated C", async () => {
@@ -1179,11 +1210,91 @@ await step("The compiler can be installed from the LVGL manager, after showing t
   assert.ok(plan.length >= 1, "no plan");
   const text = plan.join("\n");
   for (const word of ["gcc", "cmake", "ninja", "SDL2"]) assert.match(text, new RegExp(word, "i"), word);
-  assert.doesNotMatch(text, /nodejs|emscripten|python/i, "a package that would change the PC's Node or Python");
+  assert.doesNotMatch(text, /nodejs|emscripten|python|pacman|winget|msys/i, "something that would change the PC");
+  // Everything goes in the test's own data folder.
+  assert.ok(plan.some((line) => line.startsWith(path.join(data, "settings", "toolchain"))), text);
+  const tools = await js("window.__TAURI_INTERNALS__.invoke('native_check')");
+  assert.equal(tools.local, true);
   await click('[data-command="manager"]');
   await page.until('document.querySelector("[data-action=install-tools]")', 15000);
-  assert.equal(await js('document.querySelector("[data-action=install-tools]").disabled'), true, "everything is installed here, so nothing to do");
+  assert.equal(await js('document.querySelector("[data-action=install-tools]").disabled'), !!tools.gcc, "the button is for a PC without the compiler");
   await click('[data-dialog="manager"] footer button');
+  await page.until("!document.querySelector('[data-dialog=\"manager\"]')", 3000);
+});
+
+// The real download belongs to the native part of the tests; here the backend's answers are stood in for.
+const standInForTools = (ok) => js(`(() => {
+  const host = window.__mls.host;
+  const real = { ...host };
+  const calls = [];
+  let installed = false;
+  window.__toolCalls = calls;
+  window.__toolsRestore = () => Object.assign(host, real);
+  const send = (event, payload, ms) => setTimeout(() => host.emit(event, payload), ms);
+  host.nativeCheck = async () => ({ local: true, gcc: installed ? "gcc 1" : null, cmake: installed ? "cmake 1" : null, ninja: installed ? "ninja 1" : null, sdl: installed });
+  host.lvglInstalled = async () => [{ version: window.__mls.project().lvgl }];
+  host.toolsInstall = async () => {
+    calls.push("tools_install");
+    installed = ${ok};
+    send("tools-progress", { item: 0, phase: "download", done: 100000000, total: 274000000 }, 100);
+  };
+  window.__toolsFinish = () => send("tools-exit", { ok: ${ok}, error: ${ok} ? null : "no network" }, 0);
+  host.nativeRun = async () => {
+    calls.push("native_run");
+    send("native-exit", { ok: true }, 100);
+  };
+})()`);
+
+await step("A failed compiler installation says so, and can be tried again", async () => {
+  await standInForTools(false);
+  await click('[data-command="native"]');
+  await page.until('document.querySelector("[data-dialog=tools-progress]")', 3000);
+  await js("window.__toolsFinish()");
+  await page.until('document.querySelector("[data-tools-error]")', 5000);
+  assert.match(await js('document.querySelector("[data-tools-error]").textContent'), /no network/);
+  assert.deepEqual(await js("window.__toolCalls"), ["tools_install"], "it ran without a compiler");
+  await shot("07-tools-failed");
+  await click('[data-command="tools-hide"]');
+  await page.until('!document.querySelector("[data-dialog=tools-progress]")', 3000);
+  await click('[data-status="tools-failed"]');
+  await page.until('document.querySelector("[data-dialog=tools-progress]")', 3000);
+  await click('[data-command="tools-retry"]');
+  await page.until('window.__toolCalls.length === 2', 3000);
+  await page.until('!document.querySelector("[data-tools-error]")', 3000);
+  await js("window.__toolsFinish()");
+  await page.until('document.querySelector("[data-tools-error]")', 5000);
+  await click('[data-command="tools-hide"]');
+  await page.until('!document.querySelector("[data-dialog=tools-progress]")', 3000);
+  await js("window.__toolsRestore()");
+});
+
+await step("Native run on a PC without the compiler installs it without asking, then runs", async () => {
+  await standInForTools(true);
+  await click('[data-command="native"]');
+  await page.until('document.querySelector("[data-tools-item=mingw64][data-state=download]")', 3000);
+  assert.equal(await js("!!document.querySelector('[data-dialog=\"confirm\"]')"), false, "it asked");
+  // It says what comes, how far it is, and how long is left.
+  const told = await js('document.querySelector("[data-tools-progress]").textContent');
+  for (const word of ["GCC", "CMake", "Ninja", "SDL2", "100 / 274 MB", path.join(data, "settings", "toolchain")]) assert.ok(told.includes(word), `${word} is not in: ${told}`);
+  assert.ok(await js('Number.parseInt(document.querySelector("[data-tools-percent]").textContent) > 0'), "no percentage");
+  assert.ok(await js('!!document.querySelector("[data-tools-time] b").textContent'), "no time");
+  await shot("07-tools-progress");
+  // It can go to the background and come back, and the status bar shows how far it is.
+  // Something on screen keeps moving, even when nothing is arriving.
+  assert.ok(await js('!!document.querySelector("[data-tools-spinner]") && getComputedStyle(document.querySelector("[data-tools-spinner]")).animationName !== "none"'), "nothing moves");
+  const clock = await js('document.querySelector("[data-tools-elapsed]").textContent');
+  await sleep(6500);
+  assert.notEqual(await js('document.querySelector("[data-tools-elapsed]").textContent'), clock, "the clock stands still");
+  assert.match(await js('document.querySelector("[data-tools-status]").textContent'), /서버|server/i, "it does not say it is waiting");
+  await click('[data-command="tools-hide"]');
+  await page.until('!document.querySelector("[data-dialog=tools-progress]")', 1000);
+  assert.match(await js('document.querySelector("[data-status=tools]").textContent'), /\d+%/);
+  await js("window.__toolsFinish()");
+  await page.until("window.__toolCalls.includes('native_run')", 5000);
+  assert.deepEqual(await js("window.__toolCalls"), ["tools_install", "native_run"]);
+  await page.until("!document.querySelector('[data-status=tools], [data-status=tools-failed]')", 3000);
+  await page.until('document.querySelector(\'[data-command="native"]\').getAttribute("aria-pressed") === "false"', 3000);
+  await js("window.__toolsRestore()");
 });
 
 await step("The theme menu: my themes and settings on top, Dark and Light side by side", async () => {
@@ -2344,7 +2455,7 @@ await step("Settings: the General tab has real settings, and they work", async (
   await choose("prefNewDevice", "wvga");
   await typeInto('[data-field="prefSnap"] input', "10");
   await click('[data-field="prefReopen"]');
-  assert.deepEqual(await js("window.__mls.general()"), { reopenLast: true, askTutorial: false, newVersion: "8.4.0", newDevice: "wvga", snap: 10 });
+  assert.deepEqual(await js("window.__mls.general()"), { reopenLast: true, askTutorial: false, autoInstallTools: false, newVersion: "8.4.0", newDevice: "wvga", snap: 10 });
   await click('[data-field="prefReopen"]');
   await click('[data-command="preferences-close"]');
   // New projects start with these defaults.
@@ -2474,6 +2585,16 @@ if (!skipNative) {
     assert.ok(!fs.existsSync(path.join(dir, "docs")));
     await shot("09-installed");
     await click('[data-dialog="manager"] footer button');
+  });
+
+  await step("It installs the private compiler in its own folder, and only that", async () => {
+    await js(`new Promise((resolve) => { window.__TAURI_INTERNALS__.invoke("tools_install").then(resolve); })`);
+    const dir = path.join(data, "settings", "toolchain");
+    const done = path.join(dir, "complete.txt");
+    for (let wait = 0; wait < 1200 && !fs.existsSync(done); wait++) await sleep(500);
+    assert.ok(fs.existsSync(done), "the installation did not finish");
+    for (const file of ["mingw64/bin/gcc.exe", "mingw64/bin/cmake.exe", "mingw64/bin/ninja.exe", "sdl2/bin/SDL2.dll", "sdl2/include/SDL2/SDL.h"]) assert.ok(fs.existsSync(path.join(dir, file)), file);
+    for (const file of ["mingw64/bin/gdb.exe", "mingw64/bin/g++.exe"]) assert.ok(!fs.existsSync(path.join(dir, file)), file);
   });
 
   await step("Native run builds with gcc and starts the program", async () => {
@@ -2809,6 +2930,32 @@ await step("Tutorial question: asked at the start, and both places can turn it o
   await sleep(150);
   await click('[data-command="start"]');
   await sleep(150);
+});
+
+await step("The compiler's progress window leaves the main window working", async () => {
+  await restart([], { inlineDialogs: false });
+  await page.until("window.__mls.showStart() !== undefined", 15000);
+  await sleep(500);
+  await js(`(() => {
+    const host = window.__mls.host;
+    window.__toolsReal = { ...host };
+    host.nativeCheck = async () => ({ local: true, gcc: null, cmake: null, ninja: null, sdl: false });
+    host.toolsInstall = async () => {};
+  })()`);
+  await click('[data-start="continue"]');
+  await page.until("!window.__mls.showStart()", 3000);
+  await click('[data-command="native"]');
+  await page.until('document.querySelector("[data-status=tools]")', 5000);
+  await sleep(600);
+  // The window is not modal: the OS keeps the main window enabled, and it takes what is pressed in it.
+  const enabled = await js("window.__TAURI_INTERNALS__.invoke('plugin:window|is_enabled', { label: 'main' })");
+  assert.equal(enabled, true, "the progress window blocks the main window");
+  await click('[data-palette="label"]');
+  await doubleClick('[data-palette="label"]');
+  await page.until("window.__mls.project().screens[0].children.length > 0", 3000);
+  await js("Object.assign(window.__mls.host, window.__toolsReal)");
+  await js(`window.__mls.host.emit("tools-exit", { ok: false, error: "stopped" })`);
+  await page.until('!document.querySelector("[data-status=tools]")', 3000);
 });
 
 await step("Dialogs are windows of their own, fitted to what they hold", async () => {

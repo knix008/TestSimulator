@@ -19,15 +19,16 @@ pub struct NativeState {
     running: Arc<AtomicBool>,
 }
 
-/// PATH with the compiler folder in front: another toolchain's make or gcc must not win.
+/// Windows builds with the app's private compiler and nothing else on PATH but Windows itself:
+/// another toolchain's make, gcc or DLLs must not win. Elsewhere the system's tools are used.
 fn tool_path() -> String {
     let current = std::env::var("PATH").unwrap_or_default();
     if cfg!(windows) {
-        for dir in ["C:\\msys64\\ucrt64\\bin", "C:\\Msys64\\ucrt64\\bin"] {
-            if Path::new(dir).join("gcc.exe").is_file() {
-                return format!("{dir};{current}");
-            }
-        }
+        let system = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into());
+        let mut dirs: Vec<String> = crate::toolchain::path_dirs().iter().map(|dir| dir.display().to_string()).collect();
+        dirs.push(format!("{system}\\System32"));
+        dirs.push(system);
+        return dirs.join(";");
     }
     current
 }
@@ -70,9 +71,24 @@ fn tempdir() -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+/// `local`: the tools are the app's own and can be installed without asking (Windows).
+/// There nothing is run to find out: the private folder is complete or it is not.
 #[tauri::command(async)]
 pub fn native_check() -> Value {
+    if cfg!(windows) {
+        use crate::toolchain::{ready, CMAKE_VERSION, GCC_VERSION, NINJA_VERSION};
+        let installed = ready();
+        let version = |name: &str, number: &str| installed.then(|| format!("{name} {number}"));
+        return json!({
+            "local": true,
+            "gcc": version("gcc", GCC_VERSION),
+            "cmake": version("cmake", CMAKE_VERSION),
+            "ninja": version("ninja", NINJA_VERSION),
+            "sdl": installed,
+        });
+    }
     json!({
+        "local": false,
         "gcc": probe("gcc", "--version"),
         "cmake": probe("cmake", "--version"),
         "ninja": probe("ninja", "--version"),
@@ -84,7 +100,7 @@ fn slash(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
-fn emit_line(app: &AppHandle, stream: &str, line: &str) {
+pub(crate) fn emit_line(app: &AppHandle, stream: &str, line: &str) {
     let _ = app.emit("native-log", json!({ "stream": stream, "line": line }));
 }
 
@@ -142,7 +158,14 @@ fn build_and_run(app: &AppHandle, state: &NativeHandles, version: &str, files: &
     }
     let base = crate::data_dir().join("native").join(version);
     let source = base.join("project");
-    let build = base.join("build");
+    // "build" was made by the tools of older versions, and CMake remembers its compiler.
+    let build = base.join("build-local");
+    if cfg!(windows) {
+        if !crate::toolchain::ready() {
+            return Err("The compiler is not installed yet".into());
+        }
+        let _ = std::fs::remove_dir_all(base.join("build"));
+    }
     crate::write_tree(&source, files)?;
     crate::write_binaries(&source, binaries)?;
 
@@ -154,6 +177,9 @@ fn build_and_run(app: &AppHandle, state: &NativeHandles, version: &str, files: &
             .arg("-B").arg(&build)
             .args(["-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_C_COMPILER=gcc"])
             .arg(format!("-DLVGL_DIR={}", slash(&lvgl)));
+        if cfg!(windows) {
+            configure.arg(format!("-DCMAKE_PREFIX_PATH={}", slash(&crate::toolchain::sdl_dir())));
+        }
         let code = run_step(app, state, configure, "build")?;
         if state.stopped.load(Ordering::SeqCst) {
             return Ok("stopped");
@@ -208,30 +234,11 @@ pub fn native_clean(state: tauri::State<NativeState>, version: String) -> Result
     Ok(())
 }
 
-const MSYS_PACKAGES: [&str; 4] = ["gcc", "cmake", "ninja", "SDL2"];
-
-fn pacman() -> Option<PathBuf> {
-    ["C:\\msys64\\usr\\bin\\pacman.exe", "C:\\Msys64\\usr\\bin\\pacman.exe"].iter().map(PathBuf::from).find(|path| path.is_file())
-}
-
-/// The commands that install the build tools on this system, shown before anything runs.
-/// Only these four packages are named: they pull in no second Node or Python tool chain.
+/// The commands that install the build tools on macOS and Linux, shown before anything runs.
+/// Windows has no commands: see toolchain.rs.
 fn install_plan() -> Vec<Vec<String>> {
     let text = |items: &[&str]| items.iter().map(|item| item.to_string()).collect::<Vec<_>>();
-    if cfg!(windows) {
-        let mut plan = Vec::new();
-        let pacman_path = match pacman() {
-            Some(path) => path.to_string_lossy().to_string(),
-            None => {
-                plan.push(text(&["winget", "install", "--id", "MSYS2.MSYS2", "-e", "--silent", "--accept-source-agreements", "--accept-package-agreements"]));
-                "C:\\msys64\\usr\\bin\\pacman.exe".to_string()
-            }
-        };
-        let mut step = vec![pacman_path, "-S".to_string(), "--needed".to_string(), "--noconfirm".to_string()];
-        step.extend(MSYS_PACKAGES.iter().map(|name| format!("mingw-w64-ucrt-x86_64-{name}")));
-        plan.push(step);
-        plan
-    } else if cfg!(target_os = "macos") {
+    if cfg!(target_os = "macos") {
         vec![text(&["xcode-select", "--install"]), text(&["brew", "install", "cmake", "ninja", "sdl2"])]
     } else {
         vec![text(&["pkexec", "apt-get", "install", "-y", "build-essential", "cmake", "ninja-build", "libsdl2-dev"])]
@@ -239,7 +246,15 @@ fn install_plan() -> Vec<Vec<String>> {
 }
 
 #[tauri::command]
+pub fn tools_items() -> Value {
+    crate::toolchain::items()
+}
+
+#[tauri::command]
 pub fn tools_plan() -> Vec<String> {
+    if cfg!(windows) {
+        return crate::toolchain::plan();
+    }
     install_plan().iter().map(|step| step.join(" ")).collect()
 }
 
@@ -254,7 +269,10 @@ pub fn tools_install(app: AppHandle, state: tauri::State<NativeState>) -> Result
     let running = state.running.clone();
     std::thread::spawn(move || {
         let mut result = Ok(());
-        for step in install_plan() {
+        if cfg!(windows) {
+            result = crate::toolchain::install(&app, &handles.stopped);
+        }
+        for step in install_plan().into_iter().filter(|_| !cfg!(windows)) {
             emit_line(&app, "build", &format!("> {}", step.join(" ")));
             let mut cmd = command(&step[0]);
             cmd.args(&step[1..]);
@@ -271,8 +289,10 @@ pub fn tools_install(app: AppHandle, state: tauri::State<NativeState>) -> Result
             }
         }
         running.store(false, Ordering::SeqCst);
-        if let Err(message) = &result {
-            emit_line(&app, "error", message);
+        if let Err(message) = result.as_ref().map_err(|message| message.as_str()) {
+            if message != "stopped" {
+                emit_line(&app, "error", message);
+            }
         }
         let _ = app.emit("tools-exit", json!({ "ok": result.is_ok(), "error": result.err() }));
     });

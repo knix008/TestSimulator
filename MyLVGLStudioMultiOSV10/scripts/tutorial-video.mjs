@@ -39,7 +39,7 @@ if (preview) {
   fs.mkdirSync(shotDir, { recursive: true });
 }
 fs.mkdirSync(path.join(work, "settings"));
-fs.writeFileSync(path.join(work, "settings", "settings.json"), JSON.stringify({ language: "ko", theme: "light-classic", window: { width: WIDTH, height: HEIGHT, x: 0, y: 20 } }));
+fs.writeFileSync(path.join(work, "settings", "settings.json"), JSON.stringify({ language: "ko", theme: "light-classic", general: { autoInstallTools: false }, window: { width: WIDTH, height: HEIGHT, x: 0, y: 20 } }));
 
 const port = await freePort(9460);
 const app = spawn(exe, [], {
@@ -163,16 +163,11 @@ async function type(text) {
   await hold(120);
 }
 
-async function typeInto(selector, text, { whole = false } = {}) {
+async function typeInto(selector, text) {
   await clickUntil(selector, `document.activeElement === document.querySelector(${q(selector)})`);
   await js(`document.querySelector(${q(selector)}).select()`);
   await hold(90);
-  if (whole) {
-    await page.send("Input.insertText", { text });
-    await hold(250);
-  } else {
-    await type(text);
-  }
+  await type(text);
 }
 
 /* ------------------------------------------------------------ the attributes */
@@ -194,8 +189,7 @@ async function attribute(key, value) {
   })()`);
   if (!input) throw new Error(`no attribute ${key}`);
   if ((await js(`document.querySelector(${q(input)}).value`)) === String(value)) return;
-  // The colour box only keeps a whole value, so a colour goes in at once, as if pasted.
-  await typeInto(input, String(value), { whole: input.endsWith(".color-text") });
+  await typeInto(input, String(value));
 }
 
 async function attributes(values) {

@@ -1,3 +1,4 @@
+import { advance, clockWords, startJob, tick, timeWords } from "../src/toolsProgress.js";
 import { findProblems, locateInCode, parseBuildProblems } from "../src/lvgl/problems.js";
 // Feature coverage for npm test: settings, themes, start backgrounds, and every widget,
 // property, trigger and action on every engine.
@@ -198,9 +199,9 @@ export function registerFeatureTests({ category, test, engines, versions }) {
       assert.equal(settings.projectsDir, "C:\\p");
     });
     await test("General settings are made valid", () => {
-      assert.deepEqual(sanitizeGeneral(undefined), { reopenLast: false, askTutorial: true, newVersion: "9.6.0", newDevice: "cyd", snap: 1 });
-      assert.deepEqual(sanitizeGeneral({ reopenLast: "yes", newVersion: "7.0.0", newDevice: "nope", snap: 900 }), { reopenLast: false, askTutorial: true, newVersion: "9.6.0", newDevice: "cyd", snap: 50 });
-      assert.deepEqual(sanitizeGeneral({ reopenLast: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 }), { reopenLast: true, askTutorial: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 });
+      assert.deepEqual(sanitizeGeneral(undefined), { reopenLast: false, askTutorial: true, autoInstallTools: true, newVersion: "9.6.0", newDevice: "cyd", snap: 1 });
+      assert.deepEqual(sanitizeGeneral({ reopenLast: "yes", newVersion: "7.0.0", newDevice: "nope", snap: 900 }), { reopenLast: false, askTutorial: true, autoInstallTools: true, newVersion: "9.6.0", newDevice: "cyd", snap: 50 });
+      assert.deepEqual(sanitizeGeneral({ reopenLast: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 }), { reopenLast: true, askTutorial: true, autoInstallTools: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 });
     });
     await test("A saved user theme stays selected", () => {
       const settings = sanitizeSettings({ theme: "custom-1", customThemes: [{ id: "custom-1", name: "A", mode: "dark", colors: {} }] });
@@ -1423,6 +1424,50 @@ export function registerFeatureTests({ category, test, engines, versions }) {
       assert.equal(sanitizeGeneral({}).askTutorial, true);
       assert.equal(sanitizeGeneral({ askTutorial: false }).askTutorial, false);
       assert.equal(sanitizeGeneral({ askTutorial: "no" }).askTutorial, true);
+      assert.equal(sanitizeGeneral({}).autoInstallTools, true);
+      {
+        // The installation's progress: what it says at each point, on a clock of its own.
+        const info = { dir: "x", installedMegabytes: 410, items: [{ id: "a", megabytes: 100, parts: [] }, { id: "b", megabytes: 10, parts: [] }] };
+        let job = startJob(info, 0);
+        assert.equal(job.percent, 0);
+        assert.equal(job.seconds, null, "the time is not known before anything has come");
+        assert.equal(timeWords((key, v) => key + JSON.stringify(v), job.seconds), null);
+        job = advance(job, { item: 0, phase: "download", done: 20000000, total: 100000000 }, 2000);
+        assert.equal(job.items[0].state, "download");
+        assert.equal(job.received, 20000000);
+        assert.equal(Math.round(job.speed), 10000000);
+        // 90 MB at 10 MB/s, and an estimate for unpacking 110 MB.
+        assert.equal(Math.round(job.seconds), 9 + Math.round(110 * 0.06));
+        // Nothing arriving: the clock goes on and it says that it is waiting, then news ends that.
+        job = tick(job, 2500);
+        assert.equal(job.stalled, false);
+        assert.equal(job.elapsed, 2.5);
+        const quiet = tick(job, 8000);
+        assert.equal(quiet.stalled, true);
+        assert.equal(quiet.elapsed, 8);
+        assert.equal(quiet.speed, 0, "the speed falls when nothing is arriving");
+        assert.notEqual(quiet.seconds, null, "the last speed still gives a time");
+        assert.equal(advance(quiet, { item: 0, phase: "download", done: 21000000, total: 100000000 }, 8100).stalled, false);
+        assert.equal(clockWords(0), "0:00");
+        assert.equal(clockWords(125.7), "2:05");
+        const before = job.percent;
+        job = advance(job, { item: 0, phase: "unpack", done: 50, total: 100 }, 10000);
+        assert.ok(job.percent > before, "unpacking counts");
+        // Unpacking the first archive with the second still to come: the speed runs down, the time must not jump.
+        const fading = advance(job, { item: 0, phase: "unpack", done: 95, total: 100 }, 14000);
+        assert.ok(fading.speed < job.speed, "nothing is arriving");
+        assert.ok(fading.seconds < 15, `the time left jumped to ${fading.seconds} s`);
+        assert.equal(job.items[0].received, 100000000, "an archive being unpacked has been downloaded");
+        job = advance(job, { item: 0, phase: "done", done: 1, total: 1 }, 12000);
+        job = advance(job, { item: 1, phase: "done", done: 1, total: 1 }, 13000);
+        assert.equal(job.percent, 100);
+        assert.equal(job.seconds, 0);
+        const words = (key, v) => `${key}:${JSON.stringify(v ?? {})}`;
+        assert.equal(timeWords(words, 3), 'tools.seconds:{"seconds":5}');
+        assert.equal(timeWords(words, 61), 'tools.minutes:{"minutes":1,"seconds":5}');
+        assert.equal(timeWords(words, 120), 'tools.minutesOnly:{"minutes":2}');
+      }
+      assert.equal(sanitizeGeneral({ autoInstallTools: false }).autoInstallTools, false);
     });
     await test("Every tutorial step and task has words in both languages", () => {
       assert.ok(TUTORIAL_STEPS.length >= 10);

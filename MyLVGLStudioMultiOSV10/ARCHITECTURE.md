@@ -253,7 +253,7 @@ F5는 `run` 라벨의 별도 Tauri 창을 엽니다. 메인 창이 문서와 이
 
 - 내용이 바뀐 파일만 다시 써서 빌드 시간을 줄입니다. LVGL은 버전마다 첫 빌드에서 한 번만 컴파일합니다.
 - 진행 내용은 `native-log`, `native-started`, `native-exit` 이벤트로 화면에 전달합니다.
-- Windows에서는 MSYS2 UCRT64 폴더를 PATH 앞에 둡니다. 다른 도구 체인의 gcc나 make가 쓰이는 것을 막기 위해서입니다.
+- Windows에서는 앱 전용 컴파일러(`src-tauri/src/toolchain.rs`)만 씁니다. WinLibs(gcc, CMake, Ninja)와 SDL2의 정해진 버전을 SHA-256으로 확인해 `%LOCALAPPDATA%\MyLVGLStudio\toolchain`에 필요한 파일만 풉니다. 빌드할 때 PATH에는 이 폴더와 Windows 폴더만 두어 다른 도구 체인이 끼어들지 않습니다. 시작할 때 없으면 자동으로 설치하고, 제거 프로그램이 지웁니다(`windows/hooks.nsh`, 업데이트 때는 유지).
 - 앱을 닫으면 실행 중인 프로그램도 함께 끝납니다.
 
 생성되는 `main.c`는 `ML_HEADLESS`로 빌드하면 SDL 없이 한 프레임을 파일로 저장합니다. 픽셀 비교 테스트가 이 경로를 사용합니다.

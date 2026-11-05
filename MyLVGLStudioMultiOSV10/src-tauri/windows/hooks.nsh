@@ -6,7 +6,9 @@
 ;   - .mylvgl files show the project file icon;
 ;   - the file type's content type and its "Open with" entry;
 ;   - a clean registry after uninstalling: the template's macro leaves the extension's key behind,
-;     and after a reinstall its backup value names this very ProgID.
+;     and after a reinstall its backup value names this very ProgID;
+;   - the private compiler, the LVGL sources and the native builds go with the program. An update
+;     keeps them. Settings stay unless the uninstaller's own "delete app data" is ticked.
 
 ; The language is asked at every install, with the last one chosen already selected. By default the
 ; question is skipped once a language has been remembered. It is asked before any language is
@@ -21,6 +23,8 @@
 !define MLS_BACKUP "MyLVGLStudio.Project_backup"
 ; The ProgID of the first builds, which had a name with spaces.
 !define MLS_OLD_PROGID "My LVGL Studio Project"
+; The app's data folder, SETTINGS_FOLDER in main.rs.
+!define MLS_FOLDER "MyLVGLStudio"
 
 !macro NSIS_HOOK_PREUNINSTALL
   Delete "$INSTDIR\${MLS_LANGUAGE_FILE}"
@@ -50,4 +54,12 @@
   StrCmp $R0 "${MLS_PROGID}" 0 +2
     DeleteRegKey SHCTX "Software\Classes\${MLS_EXT}"
   !insertmacro UPDATEFILEASSOC
+  ${If} $UpdateMode <> 1
+    RmDir /r "$LOCALAPPDATA\${MLS_FOLDER}\toolchain"
+    RmDir /r "$LOCALAPPDATA\${MLS_FOLDER}\toolchain.partial"
+    ; Not /r: only if nothing else is in it.
+    RmDir "$LOCALAPPDATA\${MLS_FOLDER}"
+    RmDir /r "$APPDATA\${MLS_FOLDER}\native"
+    RmDir /r "$APPDATA\${MLS_FOLDER}\lvgl"
+  ${EndIf}
 !macroend

@@ -87,6 +87,8 @@ export function PreferencesDialog({ t, initialTab, general, onGeneral, onStartTu
                   <Toggle id="prefShowStart" checked={start.showOnStartup} onChange={(showOnStartup) => onStart({ showOnStartup })} />
                   <span>{t("pref.reopenLast")}</span>
                   <Toggle id="prefReopen" checked={general.reopenLast} onChange={(reopenLast) => onGeneral({ reopenLast })} />
+                  <span>{t("pref.autoTools")}</span>
+                  <Toggle id="prefAutoTools" checked={general.autoInstallTools} onChange={(autoInstallTools) => onGeneral({ autoInstallTools })} />
                   <span>{t("pref.askTutorial")}</span>
                   <div className="pref-tutorial">
                     <Toggle id="prefAskTutorial" checked={general.askTutorial} onChange={(askTutorial) => onGeneral({ askTutorial })} />

@@ -52,6 +52,7 @@ export const host = {
 
   nativeCheck: () => (isDesktop ? invoke("native_check") : Promise.resolve({})),
   toolsPlan: () => (isDesktop ? invoke("tools_plan") : Promise.resolve([])),
+  toolsItems: () => (isDesktop ? invoke("tools_items") : desktopOnly()),
   toolsInstall: () => (isDesktop ? invoke("tools_install") : desktopOnly()),
   nativeClean: (version) => (isDesktop ? invoke("native_clean", { version }) : desktopOnly()),
   samplesList: () => (isDesktop ? invoke("samples_list") : Promise.resolve({ dir: "", items: [] })),

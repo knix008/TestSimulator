@@ -10,6 +10,7 @@
 mod lvgl;
 mod popout;
 mod native;
+mod toolchain;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -447,6 +448,7 @@ fn main() {
             popout::popout_reset,
             popout::popout_inline,
             native::tools_plan,
+            native::tools_items,
             native::tools_install,
         ])
         .run(tauri::generate_context!())

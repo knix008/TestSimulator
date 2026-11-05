@@ -18,7 +18,8 @@ import { findProblems, locateInCode, parseBuildProblems } from "./lvgl/problems.
 import { cNames } from "./lvgl/emit.js";
 import { setTipTranslator } from "./tooltips.js";
 import { Attributes, CodeView, Explorer, ProblemsView, ComponentTree, LogView, Palette, PanelTitle } from "./panels.jsx";
-import { AboutDialog, ConfirmDialog, LvglManager, MessageDialog, NewProjectDialog, ProjectSettings, SamplesDialog } from "./dialogs.jsx";
+import { AboutDialog, ConfirmDialog, LvglManager, ToolsProgress, MessageDialog, NewProjectDialog, ProjectSettings, SamplesDialog } from "./dialogs.jsx";
+import { advance, startJob, tick } from "./toolsProgress.js";
 import { useProjectStore } from "./store.js";
 import { FILE_EXTENSION, serializeProject, addNode, addScreen, cloneNode, createNode, findNode, findParent, newProject, parseProject, imageNameFor, removeNode, screenOf } from "./lvgl/project.js";
 import { CONTAINERS, DEVICES, PALETTE, WIDGETS, availableIn, normalDevice, sameDevice } from "./lvgl/schema.js";
@@ -774,6 +775,67 @@ export function App({ initialSettings }) {
     }
   };
 
+  /* The compiler's installation (toolsProgress.js), null when none is going on or has failed. */
+  const [toolsJob, setToolsJob] = useState(null);
+  const [toolsWindow, setToolsWindow] = useState(false);
+  const toolsBusy = toolsJob?.status === "running";
+  // A native run that was asked for goes on once the compiler is there.
+  const runAfterTools = useRef(false);
+  const installTools = async () => {
+    const info = await host.toolsItems();
+    setToolsJob(startJob(info, Date.now()));
+    setToolsWindow(true);
+    log(t("log.toolsStart"));
+    const offProgress = host.on("tools-progress", (event) => setToolsJob((job) => (job ? advance(job, event, Date.now()) : job)));
+    const finished = new Promise((resolve) => {
+      const off = host.on("tools-exit", (result) => {
+        off();
+        resolve(result);
+      });
+    });
+    const result = await host.toolsInstall().then(() => finished, (error) => ({ ok: false, error: String(error) }));
+    offProgress();
+    if (result.ok) {
+      log(t("log.toolsDone"));
+    } else if (result.error === "stopped") {
+      runAfterTools.current = false;
+      log(t("log.toolsCancelled"));
+    } else {
+      runAfterTools.current = false;
+      log(t("log.toolsFailed", { error: result.error }), "error");
+      setToolsJob((job) => ({ ...job, status: "failed", error: result.error }));
+      setToolsWindow(true);
+      return;
+    }
+    setToolsJob(null);
+    setToolsWindow(false);
+  };
+  // The clock in the window moves on even when nothing is arriving.
+  useEffect(() => {
+    if (!toolsBusy) return undefined;
+    const timer = setInterval(() => setToolsJob((job) => (job?.status === "running" ? tick(job, Date.now()) : job)), 1000);
+    return () => clearInterval(timer);
+  }, [toolsBusy]);
+  // In front if it is open already: it stands free, so it can be behind the main window.
+  const showToolsWindow = () => {
+    if (!focusPopout("tools-progress")) setToolsWindow(true);
+  };
+  useEffect(() => {
+    if (toolsJob || !runAfterTools.current) return;
+    runAfterTools.current = false;
+    void commands.current.native.run();
+  }, [toolsJob]);
+  const missingTools = (tools) => [...["gcc", "cmake", "ninja"].filter((tool) => !tools[tool]), ...(tools.sdl ? [] : ["SDL2"])];
+
+  // A new PC has no compiler. Where it is the app's own, it comes without being asked for.
+  useEffect(() => {
+    if (!isDesktop || !initialSettings.general.autoInstallTools) return;
+    host.nativeCheck().then((tools) => {
+      if (tools.local && missingTools(tools).length) void installTools();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const cmdNative = async () => {
     if (native !== "idle") {
       await host.nativeStop();
@@ -783,10 +845,22 @@ export function App({ initialSettings }) {
       showError(t("native.desktopOnly"));
       return;
     }
+    if (toolsBusy) {
+      runAfterTools.current = true;
+      showToolsWindow();
+      return;
+    }
     const version = store.get().lvgl;
     const tools = await host.nativeCheck();
-    const missing = ["gcc", "cmake", "ninja"].filter((tool) => !tools[tool]);
-    if (!tools.sdl) missing.push("SDL2");
+    const missing = missingTools(tools);
+    if (missing.length && tools.local) {
+      setBottomTab("build");
+      setCollapsed((state) => ({ ...state, bottom: false }));
+      setBuildLines([]);
+      runAfterTools.current = true;
+      await installTools();
+      return;
+    }
     if (missing.length) {
       setDialog({
         kind: "confirm",
@@ -1272,6 +1346,8 @@ export function App({ initialSettings }) {
       collapsed: () => collapsed,
       contextMenu: () => contextMenu,
       language: () => language,
+      // Lets a test stand in for the backend: Tauri's own invoke cannot be replaced.
+      host,
     };
   });
 
@@ -1656,6 +1732,12 @@ export function App({ initialSettings }) {
 
       <div className="statusbar">
         <span className="status-cell" data-status="mode"><Icon name={running || native !== "idle" ? "run" : "design"} /><span>{status}</span></span>
+        {toolsJob && (
+          <button type="button" className={toolsBusy ? "status-cell" : "status-cell warn"} data-status={toolsBusy ? "tools" : "tools-failed"} title={t("status.toolsShow")} onClick={showToolsWindow}>
+            <Icon name={toolsBusy ? "build" : "warning"} />
+            <span>{toolsBusy ? t("status.toolsInstalling", { percent: toolsJob.percent }) : t("status.toolsFailed")}</span>
+          </button>
+        )}
         {!showStart && (
           <>
             <span className="status-cell" data-status="file"><span>{fileName} · {t(store.dirty ? "status.modified" : "status.saved")}</span></span>
@@ -1746,8 +1828,9 @@ export function App({ initialSettings }) {
       {dialog?.kind === "settings" && (
         <ProjectSettings t={t} store={store} installed={installed} onVersion={changeVersion} onClose={() => setDialog(null)} onManager={() => setDialog({ kind: "manager", back: "settings" })} onConf={() => setDialog({ kind: "lvconf" })} onFonts={() => setDialog({ kind: "fonts" })} />
       )}
+      {toolsJob && toolsWindow && <ToolsProgress t={t} job={toolsJob} onHide={() => setToolsWindow(false)} onCancel={() => { setToolsJob((job) => job && { ...job, cancelling: true }); void host.nativeStop(); }} onRetry={() => void installTools()} />}
       {dialog?.kind === "manager" && (
-        <LvglManager t={t} autoInstall={dialog.autoInstall} onInstalledChange={setInstalled} onClose={() => setDialog(dialog.back ? { kind: dialog.back } : null)} />
+        <LvglManager t={t} autoInstall={dialog.autoInstall} toolsBusy={toolsBusy} onInstallLocal={installTools} onInstalledChange={setInstalled} onClose={() => setDialog(dialog.back ? { kind: dialog.back } : null)} />
       )}
       {dialog?.kind === "about" && <AboutDialog t={t} runtime={runtime} iconSource={appIconLarge} onClose={() => setDialog(null)} />}
       {dialog?.kind === "message" && <MessageDialog t={t} title={dialog.title} message={dialog.message} onClose={() => setDialog(null)} />}

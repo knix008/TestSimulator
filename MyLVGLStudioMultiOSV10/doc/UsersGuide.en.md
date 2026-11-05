@@ -273,7 +273,7 @@ The project runs in a separate run window. Mouse input reaches LVGL, so you can 
 
 ### Native Run (Shift+F5)
 
-This builds the generated C code and runs it in a separate window. It needs gcc, CMake, Ninja and SDL2, and if the project's LVGL version is not installed, the app asks whether to download it.
+This builds the generated C code and runs it in a separate window. It needs gcc, CMake, Ninja and SDL2. On Windows the app installs them automatically in a folder of its own when it starts (about a 290 MB download), in a progress window that lists what is being installed and what it is for, with the progress of each item, the download speed and the time left. You can keep using the app meanwhile. **Continue in the Background** closes the window, and the progress in the status bar opens it again. If the server stops answering, the window says so and tries again after 30 seconds. If you turn off **Install the compiler automatically when needed** in **Tools > Preferences > General**, they are installed at the first native run. Nothing else on the PC changes, including PATH, and uninstalling the app removes them. If the project's LVGL version is not installed, the app asks whether to download it.
 
 The first build of each version compiles all of LVGL, so it takes time. Build results are kept, so after that only changed files are recompiled. Progress appears in the **Build** tab at the bottom. To end the run, press the stop button on the toolbar or close the run window.
 
@@ -283,7 +283,7 @@ Under **Tools > LVGL Manager** you can install and remove versions and check the
 
 - **Install:** downloads that version's source from GitHub into the data folder. It is marked as installed only if this finishes completely.
 - **Remove:** deletes that version's source and build results.
-- **Install Compiler:** becomes available when build tools are missing. It shows the commands to run first and installs once you confirm. Windows uses the UCRT64 packages of MSYS2 (installed with winget if missing), macOS uses Homebrew, and Linux uses apt.
+- **Install Compiler:** becomes available when build tools are missing. It shows what will be installed first and installs once you confirm. Windows installs into a folder of the app's own (`%LOCALAPPDATA%\MyLVGLStudio\toolchain`). macOS uses Homebrew and Linux uses apt, which install on the system.
 - If GitHub cannot be reached, only known versions are shown.
 
 Designing screens and running inside the app do not need the source to be installed.

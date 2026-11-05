@@ -30,6 +30,7 @@ export function sanitizeGeneral(value) {
   return {
     reopenLast: v.reopenLast === true,
     askTutorial: v.askTutorial !== false,
+    autoInstallTools: v.autoInstallTools !== false,
     newVersion: isSupported(v.newVersion) ? String(v.newVersion) : DEFAULT_GENERAL.newVersion,
     newDevice: DEVICES.some((device) => device.id === v.newDevice) ? v.newDevice : DEFAULT_GENERAL.newDevice,
     snap: Number.isFinite(snap) ? Math.max(SNAP_MIN, Math.min(SNAP_MAX, snap)) : DEFAULT_GENERAL.snap,

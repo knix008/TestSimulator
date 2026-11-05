@@ -155,6 +155,10 @@ export function SizeField({ value, onChange, placeholder, id }) {
 }
 
 export function ColorField({ value, onChange, placeholder, clearLabel, id }) {
+  // What is being typed stays in the box until it is a colour; leaving the box shows the colour again.
+  const [typing, setTyping] = useState(null);
+  // A new colour (finished typing, undo, another widget) replaces what was being typed.
+  useEffect(() => setTyping(null), [value]);
   return (
     <div className="color-field" data-field={id}>
       <label className={value ? "swatch" : "swatch empty"} style={value ? { background: value } : undefined}>
@@ -162,13 +166,15 @@ export function ColorField({ value, onChange, placeholder, clearLabel, id }) {
       </label>
       <input
         className="color-text"
-        value={value ?? ""}
+        value={typing ?? value ?? ""}
         placeholder={placeholder}
         onChange={(event) => {
           const text = event.target.value.trim();
+          setTyping(text);
           if (text === "") onChange(undefined);
           else if (/^#[0-9a-fA-F]{6}$/.test(text)) onChange(text.toLowerCase());
         }}
+        onBlur={() => setTyping(null)}
       />
       {clearLabel && value && (
         <button type="button" className="mini" title={clearLabel} aria-label={clearLabel} onClick={() => onChange(undefined)}>
