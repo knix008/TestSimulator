@@ -1,0 +1,372 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "LoadingGallery",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 800,
+    "h": 480
+  },
+  "images": [],
+  "theme": {
+    "dark": true,
+    "primary": "#29b6f6",
+    "secondary": "#ab47bc"
+  },
+  "nextId": 22,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Loading",
+      "props": {
+        "bgColor": "#0f1420",
+        "bgOpa": 255
+      },
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Things that move by themselves",
+            "x": 24,
+            "y": 16,
+            "font": 20,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "arc",
+          "name": "arc1",
+          "props": {
+            "width": 160,
+            "height": 160,
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "x": 24,
+            "y": 60,
+            "animate": 900
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n4",
+              "text": "%d %%"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "0 %",
+            "x": 86,
+            "y": 130,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "bar",
+          "name": "bar1",
+          "props": {
+            "width": 160,
+            "height": 14,
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "x": 24,
+            "y": 240,
+            "animate": 1300
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "spinner",
+          "name": "spinner1",
+          "props": {
+            "width": 60,
+            "height": 60,
+            "x": 74,
+            "y": 272
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "arc",
+          "name": "arc2",
+          "props": {
+            "width": 160,
+            "height": 160,
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "x": 216,
+            "y": 60,
+            "animate": 1500
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n8",
+              "text": "%d %%"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n8",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "0 %",
+            "x": 278,
+            "y": 130,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n9",
+          "type": "bar",
+          "name": "bar2",
+          "props": {
+            "width": 160,
+            "height": 14,
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "x": 216,
+            "y": 240,
+            "animate": 1900
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n10",
+          "type": "spinner",
+          "name": "spinner2",
+          "props": {
+            "width": 60,
+            "height": 60,
+            "x": 266,
+            "y": 272
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n11",
+          "type": "arc",
+          "name": "arc3",
+          "props": {
+            "width": 160,
+            "height": 160,
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "x": 408,
+            "y": 60,
+            "animate": 2400
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n12",
+              "text": "%d %%"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n12",
+          "type": "label",
+          "name": "label4",
+          "props": {
+            "text": "0 %",
+            "x": 470,
+            "y": 130,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n13",
+          "type": "bar",
+          "name": "bar3",
+          "props": {
+            "width": 160,
+            "height": 14,
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "x": 408,
+            "y": 240,
+            "animate": 2800
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n14",
+          "type": "spinner",
+          "name": "spinner3",
+          "props": {
+            "width": 60,
+            "height": 60,
+            "x": 458,
+            "y": 272
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n15",
+          "type": "arc",
+          "name": "arc4",
+          "props": {
+            "width": 160,
+            "height": 160,
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "x": 600,
+            "y": 60,
+            "animate": 3600
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n16",
+              "text": "%d %%"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n16",
+          "type": "label",
+          "name": "label5",
+          "props": {
+            "text": "0 %",
+            "x": 662,
+            "y": 130,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n17",
+          "type": "bar",
+          "name": "bar4",
+          "props": {
+            "width": 160,
+            "height": 14,
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "x": 600,
+            "y": 240,
+            "animate": 4000
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n18",
+          "type": "spinner",
+          "name": "spinner4",
+          "props": {
+            "width": 60,
+            "height": 60,
+            "x": 650,
+            "y": 272
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n19",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 590,
+            "height": 18,
+            "min": 0,
+            "max": 100,
+            "value": 50,
+            "x": 24,
+            "y": 400
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n20",
+              "text": ""
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n21",
+              "text": "%d %%"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n20",
+          "type": "bar",
+          "name": "bar5",
+          "props": {
+            "width": 590,
+            "height": 18,
+            "min": 0,
+            "max": 100,
+            "value": 50,
+            "x": 24,
+            "y": 360
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n21",
+          "type": "label",
+          "name": "label6",
+          "props": {
+            "text": "50 %",
+            "x": 640,
+            "y": 390,
+            "font": 28,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

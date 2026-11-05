@@ -14,13 +14,19 @@ void ui_init(void);
 /* One function per file in screens/. */
 void ui_Dashboard_create(void);
 
+/* Values that sweep back and forth, from ui_events.c. */
+void ui_animate_value(lv_obj_t * obj, void (*set)(void *, int32_t), int32_t min, int32_t max, uint32_t duration);
+void ui_arc1_set(void * obj, int32_t value);
+
 extern lv_obj_t * ui_Dashboard;
 extern lv_obj_t * ui_label1;
 extern lv_obj_t * ui_chart1;
 extern lv_obj_t * ui_chart2;
 extern lv_obj_t * ui_table1;
 extern lv_obj_t * ui_bar1;
+extern lv_obj_t * ui_slider1;
 extern lv_obj_t * ui_arc1;
+extern lv_obj_t * ui_label2;
 
 #ifdef __cplusplus
 }

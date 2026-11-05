@@ -30,11 +30,23 @@ void ui_Settings_create(void)
     lv_obj_set_x(ui_spinbox1, 240);
     lv_obj_set_y(ui_spinbox1, 158);
     lv_spinbox_set_value(ui_spinbox1, 1200);
+    ui_slider1 = lv_slider_create(ui_Settings);
+    lv_slider_set_range(ui_slider1, 0, 9999);
+    lv_obj_set_width(ui_slider1, 232);
+    lv_obj_set_height(ui_slider1, 8);
+    lv_obj_set_x(ui_slider1, 240);
+    lv_obj_set_y(ui_slider1, 204);
+    lv_slider_set_value(ui_slider1, 1200, LV_ANIM_OFF);
     ui_buttonmatrix1 = lv_buttonmatrix_create(ui_Settings);
     static const char * ui_buttonmatrix1_map[] = { "Save", "Reset", "\n", "Cancel", "" };
     lv_buttonmatrix_set_map(ui_buttonmatrix1, ui_buttonmatrix1_map);
     lv_obj_set_width(ui_buttonmatrix1, 232);
-    lv_obj_set_height(ui_buttonmatrix1, 98);
+    lv_obj_set_height(ui_buttonmatrix1, 92);
     lv_obj_set_x(ui_buttonmatrix1, 240);
-    lv_obj_set_y(ui_buttonmatrix1, 214);
+    lv_obj_set_y(ui_buttonmatrix1, 220);
+    ui_spinner1 = lv_spinner_create(ui_Settings);
+    lv_obj_set_width(ui_spinner1, 40);
+    lv_obj_set_height(ui_spinner1, 40);
+    lv_obj_set_x(ui_spinner1, 400);
+    lv_obj_set_y(ui_spinner1, 158);
 }

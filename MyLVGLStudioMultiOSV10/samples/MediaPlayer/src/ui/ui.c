@@ -8,6 +8,7 @@ lv_obj_t * ui_image1;
 lv_obj_t * ui_label1;
 lv_obj_t * ui_label2;
 lv_obj_t * ui_slider1;
+lv_obj_t * ui_label3;
 lv_obj_t * ui_container1;
 lv_obj_t * ui_button1;
 lv_obj_t * ui_button1_label;
@@ -15,8 +16,9 @@ lv_obj_t * ui_button2;
 lv_obj_t * ui_button2_label;
 lv_obj_t * ui_button3;
 lv_obj_t * ui_button3_label;
-lv_obj_t * ui_label3;
-lv_obj_t * ui_bar1;
+lv_obj_t * ui_label4;
+lv_obj_t * ui_slider2;
+lv_obj_t * ui_label5;
 
 void ui_init(void)
 {
@@ -26,9 +28,11 @@ void ui_init(void)
 
     ui_Player_create();
 
-    lv_obj_add_event_cb(ui_button1, ui_event_0, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_button2, ui_event_1, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_button3, ui_event_2, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_slider1, ui_event_0, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_button1, ui_event_1, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button2, ui_event_2, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button3, ui_event_3, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_slider2, ui_event_4, LV_EVENT_VALUE_CHANGED, NULL);
 
     lv_screen_load(ui_Player);
 }

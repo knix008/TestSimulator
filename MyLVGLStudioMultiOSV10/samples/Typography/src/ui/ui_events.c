@@ -2,3 +2,27 @@
 #include "ui.h"
 #include "ui_events.h"
 #include <stdio.h>
+
+void ui_event_0(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    char text[128];
+    lv_snprintf(text, sizeof(text), "Size 14: %d", lv_slider_get_value(ui_slider1));
+    lv_label_set_text(ui_label1, text);
+}
+
+void ui_event_1(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    char text[128];
+    lv_snprintf(text, sizeof(text), "Size 18: %d", lv_slider_get_value(ui_slider1));
+    lv_label_set_text(ui_label2, text);
+}
+
+void ui_event_2(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    char text[128];
+    lv_snprintf(text, sizeof(text), "Size 24: %d", lv_slider_get_value(ui_slider1));
+    lv_label_set_text(ui_label3, text);
+}

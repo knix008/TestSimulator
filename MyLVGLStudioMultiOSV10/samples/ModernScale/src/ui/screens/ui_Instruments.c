@@ -50,4 +50,23 @@ void ui_Instruments_create(void)
     lv_obj_set_height(ui_arclabel1, 130);
     lv_obj_set_x(ui_arclabel1, 16);
     lv_obj_set_y(ui_arclabel1, 180);
+    ui_spinner1 = lv_spinner_create(ui_Instruments);
+    lv_obj_set_width(ui_spinner1, 60);
+    lv_obj_set_height(ui_spinner1, 60);
+    lv_obj_set_x(ui_spinner1, 170);
+    lv_obj_set_y(ui_spinner1, 200);
+    ui_bar1 = lv_bar_create(ui_Instruments);
+    lv_bar_set_range(ui_bar1, 0, 100);
+    lv_obj_set_width(ui_bar1, 70);
+    lv_obj_set_height(ui_bar1, 14);
+    lv_obj_set_x(ui_bar1, 160);
+    lv_obj_set_y(ui_bar1, 130);
+    lv_bar_set_value(ui_bar1, 50, LV_ANIM_OFF);
+    ui_slider1 = lv_slider_create(ui_Instruments);
+    lv_slider_set_range(ui_slider1, 0, 100);
+    lv_obj_set_width(ui_slider1, 130);
+    lv_obj_set_height(ui_slider1, 12);
+    lv_obj_set_x(ui_slider1, 160);
+    lv_obj_set_y(ui_slider1, 280);
+    lv_slider_set_value(ui_slider1, 50, LV_ANIM_OFF);
 }

@@ -3,6 +3,7 @@
 import { ACTION_IDS, PROP_IDS, STR_IDS, TRIGGERS, TYPE_IDS } from "./schema.js";
 import { colorValue, emit } from "./emit.js";
 import { imageData } from "./images.js";
+import { fontBytesForFace, fontData } from "./fonts.js";
 
 export class Engine {
   constructor(module, version) {
@@ -14,6 +15,27 @@ export class Engine {
     this.scratch = module._malloc(16);
     this.errors = [];
     this.imagePixels = new Map();
+    this.fontSlots = new Map();
+  }
+
+  /** Copies a font's file into engine memory once per face, and gives it a slot. */
+  fontSlot(project, name) {
+    const font = (project.fonts ?? []).find((item) => item.name === name);
+    const data = font ? fontData(font.name) : null;
+    if (!data) return -1;
+    const known = this.fontSlots.get(data.bytes);
+    if (known?.has(font.face)) return known.get(font.face);
+    const bytes = fontBytesForFace(data.bytes, font.face);
+    const memory = this.m._malloc(bytes.length);
+    this.m.HEAPU8.set(bytes, memory);
+    const slot = [...this.fontSlots.values()].reduce((sum, faces) => sum + faces.size, 0);
+    if (this.m._ml_font_load(slot, memory, bytes.length) !== 0) {
+      this.m._free(memory);
+      return -1;
+    }
+    if (!known) this.fontSlots.set(data.bytes, new Map());
+    this.fontSlots.get(data.bytes).set(font.face, slot);
+    return slot;
   }
 
   /** Copies an image's pixels into engine memory once, and registers it under its index. */
@@ -50,6 +72,8 @@ export class Engine {
     } else {
       this.m._ml_clear();
     }
+    const standard = project.defaultFont ? this.fontSlot(project, project.defaultFont.font) : -1;
+    this.m._ml_default_font(standard, project.defaultFont?.size ?? 0);
     this.m._ml_theme(project.theme.dark ? 1 : 0, colorValue(project.theme.primary), colorValue(project.theme.secondary));
     this.loadImages(project);
     const { ops, ids } = emit(project);
@@ -69,11 +93,17 @@ export class Engine {
         case "grid": check(this.withString(op.columns, (c) => this.withString(op.rows, (r) => this.m._ml_grid(op.id, c, r))), op); break;
         case "cell": check(this.m._ml_cell(op.id, op.column, op.columnSpan, op.row, op.rowSpan), op); break;
         case "range": check(this.m._ml_range(op.id, op.min, op.max), op); break;
-        case "int": check(this.m._ml_set_i(op.id, PROP_IDS[op.prop], op.value), op); break;
+        // The design holds still; animations start when the screen runs.
+        case "int": if (events || op.prop !== "animate") check(this.m._ml_set_i(op.id, PROP_IDS[op.prop], op.value), op); break;
         case "str": check(this.withString(op.value, (p) => this.m._ml_set_s(op.id, STR_IDS[op.prop], p)), op); break;
         case "digits": check(this.m._ml_digits(op.id, op.count, op.separator), op); break;
         case "date": check(this.m._ml_date(op.id, op.year, op.month, op.day), op); break;
         case "link": check(this.m._ml_link(op.id, op.target), op); break;
+        case "font": {
+          const slot = this.fontSlot(project, op.name);
+          if (slot >= 0) check(this.m._ml_set_i(op.id, PROP_IDS.font, ((slot + 1) << 16) | op.size), op);
+          break;
+        }
         case "image":
           if (imageData(op.name)) check(this.m._ml_set_i(op.id, PROP_IDS.image, op.index), op);
           break;
@@ -100,6 +130,11 @@ export class Engine {
   }
 
   /** The object's box on the display, or null. */
+  /** A widget's value as it is now, while running. */
+  valueOf(nodeId) {
+    return this.ids.has(nodeId) ? this.m._ml_get_value(this.ids.get(nodeId)) : null;
+  }
+
   coords(nodeId) {
     if (!this.ids.has(nodeId)) return null;
     if (this.m._ml_coords(this.ids.get(nodeId), this.scratch) !== 0) return null;

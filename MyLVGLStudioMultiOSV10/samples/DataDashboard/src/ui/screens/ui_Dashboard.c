@@ -72,7 +72,7 @@ void ui_Dashboard_create(void)
     lv_table_set_cell_value(ui_table1, 3, 1, "0");
     lv_table_set_cell_value(ui_table1, 3, 2, "Stopped");
     lv_obj_set_width(ui_table1, 480);
-    lv_obj_set_height(ui_table1, 170);
+    lv_obj_set_height(ui_table1, 134);
     lv_obj_set_x(ui_table1, 16);
     lv_obj_set_y(ui_table1, 300);
     for(uint32_t c = 0; c < lv_table_get_column_count(ui_table1); c++) lv_table_set_column_width(ui_table1, c, 150);
@@ -83,6 +83,13 @@ void ui_Dashboard_create(void)
     lv_obj_set_x(ui_bar1, 510);
     lv_obj_set_y(ui_bar1, 310);
     lv_bar_set_value(ui_bar1, 72, LV_ANIM_OFF);
+    ui_slider1 = lv_slider_create(ui_Dashboard);
+    lv_slider_set_range(ui_slider1, 0, 100);
+    lv_obj_set_width(ui_slider1, 480);
+    lv_obj_set_height(ui_slider1, 14);
+    lv_obj_set_x(ui_slider1, 16);
+    lv_obj_set_y(ui_slider1, 450);
+    lv_slider_set_value(ui_slider1, 72, LV_ANIM_OFF);
     ui_arc1 = lv_arc_create(ui_Dashboard);
     lv_arc_set_range(ui_arc1, 0, 100);
     lv_obj_set_width(ui_arc1, 120);
@@ -90,4 +97,9 @@ void ui_Dashboard_create(void)
     lv_obj_set_x(ui_arc1, 590);
     lv_obj_set_y(ui_arc1, 345);
     lv_arc_set_value(ui_arc1, 40);
+    ui_animate_value(ui_arc1, ui_arc1_set, 0, 100, 5000);
+    ui_label2 = lv_label_create(ui_Dashboard);
+    lv_label_set_text(ui_label2, "40 %");
+    lv_obj_set_x(ui_label2, 636);
+    lv_obj_set_y(ui_label2, 396);
 }

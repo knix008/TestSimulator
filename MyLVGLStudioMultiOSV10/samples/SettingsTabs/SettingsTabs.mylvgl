@@ -13,7 +13,7 @@
     "primary": "#2196f3",
     "secondary": "#f44336"
   },
-  "nextId": 6,
+  "nextId": 8,
   "screens": [
     {
       "id": "n1",
@@ -69,14 +69,50 @@
         },
         {
           "id": "n5",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 232,
+            "height": 8,
+            "min": 0,
+            "max": 9999,
+            "value": 1200,
+            "x": 240,
+            "y": 204
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n4",
+              "text": ""
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n6",
           "type": "buttonmatrix",
           "name": "buttonmatrix1",
           "props": {
             "width": 232,
-            "height": 98,
+            "height": 92,
             "map": "Save,Reset\nCancel",
             "x": 240,
-            "y": 214
+            "y": 220
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "spinner",
+          "name": "spinner1",
+          "props": {
+            "width": 40,
+            "height": 40,
+            "x": 400,
+            "y": 158
           },
           "events": [],
           "children": []

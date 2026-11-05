@@ -38,6 +38,7 @@ lv_obj_t * ui_button15;
 lv_obj_t * ui_button15_label;
 lv_obj_t * ui_button16;
 lv_obj_t * ui_button16_label;
+lv_obj_t * ui_slider1;
 
 void ui_init(void)
 {
@@ -46,6 +47,24 @@ void ui_init(void)
     lv_display_set_theme(display, theme);
 
     ui_Calculator_create();
+
+    lv_obj_add_event_cb(ui_button1, ui_event_0, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button2, ui_event_1, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button3, ui_event_2, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button4, ui_event_3, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button5, ui_event_4, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button6, ui_event_5, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button7, ui_event_6, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button8, ui_event_7, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button9, ui_event_8, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button10, ui_event_9, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button11, ui_event_10, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button12, ui_event_11, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button13, ui_event_12, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button14, ui_event_13, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button15, ui_event_14, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_button16, ui_event_15, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_slider1, ui_event_16, LV_EVENT_VALUE_CHANGED, NULL);
 
     lv_screen_load(ui_Calculator);
 }

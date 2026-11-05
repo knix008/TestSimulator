@@ -25,6 +25,7 @@ add_executable(app
 )
 target_include_directories(app PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/ui")
 target_link_libraries(app PRIVATE lvgl)
+target_compile_definitions(app PRIVATE UI_FONT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts")
 if(ML_HEADLESS)
   target_compile_definitions(app PRIVATE ML_HEADLESS)
 else()

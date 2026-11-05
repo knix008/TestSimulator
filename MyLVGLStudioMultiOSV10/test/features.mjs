@@ -4,14 +4,19 @@ import { findProblems, locateInCode, parseBuildProblems } from "../src/lvgl/prob
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { addNode, addScreen, createNode, findNode, imageNameFor, newProject, parseProject, removeImageFromProject, removeNode, safeRelativePath, serializeProject } from "../src/lvgl/project.js";
-import { ACTION_IDS, ALIGNS, DEVICES, FLEX_FLOWS, FONT_SIZES, GRID_CELL_PROPS, PALETTE, TRIGGERS, WIDGETS, availableIn } from "../src/lvgl/schema.js";
-import { emit } from "../src/lvgl/emit.js";
+import { ACTION_IDS, ALIGNS, DEVICES, FLEX_FLOWS, FONT_SIZES, GRID_CELL_PROPS, PALETTE, TRIGGERS, WIDGETS, availableIn, normalDevice, sameDevice } from "../src/lvgl/schema.js";
+import { cNames, emit, valueFormat } from "../src/lvgl/emit.js";
+import { confActive, confDefault, confValue, evaluateCondition, generateLvConf, overridesFromText, parseConfTemplate, readDefines, setConfValue, unknownOverrides } from "../src/lvgl/lvconf.js";
+import { CONF_TEMPLATES } from "../src/lvgl/confTemplates.js";
+import { FONT_LANGUAGES, addFont, clearFonts, faceForLanguage, fontBytesForFace, fontData, fontFiles, fontNameFor, markFontsWritten, readFontFile, removeFontFromProject } from "../src/lvgl/fonts.js";
+import { buildCollection, buildFont } from "./minifont.mjs";
+import { applyCodeEdit, isEditableCode } from "../src/lvgl/codeparse.js";
 import { GENERATED_DIRS, generateCode, projectFiles } from "../src/lvgl/codegen.js";
 import { addImage, clearImages, extensionOf, imageData, imageFiles, removeImage } from "../src/lvgl/images.js";
-import { THEMES, THEME_COLOR_KEYS, buildTheme, contrast, customTheme, isThemeId, readable, setCustomThemes, themeById } from "../src/themes.js";
+import { MAX_ACCENT_LINE, THEMES, THEME_COLOR_KEYS, buildTheme, contrast, customTheme, isThemeId, readable, setCustomThemes, themeById } from "../src/themes.js";
 import { BACKGROUND_KINDS, drawBackground, isBackgroundKind } from "../src/start/backgrounds.js";
 import { translator } from "../src/i18n.js";
-import { parseVersion } from "../src/lvgl/versions.js";
+import { engineFor, parseVersion } from "../src/lvgl/versions.js";
 import { ICON_NAMES } from "../src/icons-names.js";
 import { COLS, autoArrange, cardsOf, compact, layoutValue, overlaps, place, rowsFor } from "../src/start/layout.js";
 import {
@@ -43,6 +48,7 @@ export function registerTestImage(project) {
 /** A value that exercises a property. */
 function valueFor(prop) {
   if (prop.key === "frames") return TEST_IMAGE;
+  if (prop.kind === "fontFamily" || prop.key === "animate") return undefined;
   if (prop.key === "duration") return 1000;
   if (prop.key === "canvasW") return 40;
   if (prop.key === "canvasH") return 30;
@@ -72,6 +78,25 @@ function valueFor(prop) {
     case "enum": return prop.options.at(-1);
     case "lines": return "One\nTwo\nThree";
     default: return "Sample";
+  }
+}
+
+/** A second value for a property: what an edit in the code changes it to. */
+function otherValue(prop, current) {
+  const special = {
+    points: "5,5 50,20 90,10", series: "1,2,3\n4,5,6", cells: "A,B\nC,D", map: "X,Y\nZ", gridColumns: "2fr,30", gridRows: "3fr", buttons: "Go,Stop",
+    items: "#Head\nRow", spans: "A \nB", year: 2027, month: 7, day: 9, digits: 5, separator: 1, scale: 151, rotation: 31, bgOpa: 181, opa: 181, selected: 2,
+    columnWidth: 45, duration: 1200, canvasW: 41, canvasH: 31, qrSize: 61, totalTicks: 13, majorEvery: 3, text: 'Say "hi"\tnow',
+  };
+  if (special[prop.key] !== undefined) return special[prop.key];
+  switch (prop.kind) {
+    case "int": return (Number(current) || 0) + 1;
+    case "size": return (Number(current) || 0) + 7;
+    case "color": return "#123456";
+    case "bool": return !current;
+    case "enum": return prop.options.find((option) => option !== current);
+    case "lines": return "Alpha\nBeta";
+    default: return "Changed";
   }
 }
 
@@ -220,6 +245,22 @@ export function registerFeatureTests({ category, test, engines, versions }) {
 
     /* --------------------------------------------------------------- themes */
     category("Themes");
+    await test("A theme's accent line never glares around a button", () => {
+      for (const item of THEMES) {
+        const line = item.vars["--accent-line"];
+        const panel = item.vars["--panel"];
+        assert.ok(contrast(line, panel) <= MAX_ACCENT_LINE + 0.01, `${item.id}: ${contrast(line, panel).toFixed(2)}`);
+        assert.ok(contrast(line, panel) >= Math.min(3, contrast(item.vars["--accent"], panel)), `${item.id} cannot be seen: ${contrast(line, panel).toFixed(2)}`);
+      }
+      const custom = buildTheme("dark", "x", "x", "x", { bg: "#000000", panel: "#101010", ink: "#ffffff", muted: "#999999", line: "#333333", accent: "#ffffff", soft: "#222222", header: "#111111", alt: "#151515", danger: "#ff5555" });
+      assert.ok(contrast(custom.vars["--accent-line"], "#101010") <= MAX_ACCENT_LINE + 0.01);
+    });
+    await test("No thin line in the style sheets uses the raw accent around a button", () => {
+      const sheets = ["styles.css", "start.css"].map((name) => fs.readFileSync(new URL(`../src/${name}`, import.meta.url), "utf8")).join("\n");
+      const filled = /^(\.toggle\.on|button\.primary|\.start-btn\.primary|\.start-toggle\.active|\.range-step:hover|\.selection|\.handle|\.image-placeholder|\.code-focus|\.start-card\.resizing)/;
+      const found = sheets.split("\n").filter((row) => /(border(-[a-z]+)?|outline):[^;]*var\(--accent\)/.test(row) && !filled.test(row.trim()) && !row.trim().startsWith("border:") );
+      assert.deepEqual(found, []);
+    });
     await test("There are 20 light and 20 dark themes", () => {
       assert.equal(THEMES.filter((item) => item.mode === "light").length, 20);
       assert.equal(THEMES.filter((item) => item.mode === "dark").length, 20);
@@ -543,6 +584,49 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         clearImages();
       });
     }
+    for (const [version, engine] of engines) {
+      await test(`Sample ScrollMenu on LVGL ${version}: rows below the display scroll into view with a drag`, () => {
+        const project = parseProject(fs.readFileSync(new URL("../samples/ScrollMenu/ScrollMenu.mylvgl", import.meta.url), "utf8"));
+        project.lvgl = version;
+        const menu = project.screens[0].children.find((node) => node.name === "menu_list");
+        for (const row of menu.children) row.events.push({ trigger: "CLICKED", action: "log", target: "", text: row.props.text });
+        const ticks = (count) => {
+          for (let i = 0; i < count; i++) engine.tick(20);
+        };
+        engine.load(project, project.screens[0].id, { events: true });
+        assert.deepEqual(engine.errors, []);
+        const first = menu.children[0];
+        const last = menu.children.at(-1);
+        const firstY = engine.coords(first.id).y;
+        const area = engine.coords(menu.id);
+        assert.ok(engine.coords(last.id).y > project.device.h, "the last row should start below the display");
+        const x = area.x + area.w / 2;
+        // Three drags up: the throw of each is settled before the next.
+        for (let drag = 0; drag < 3; drag++) {
+          engine.pointer(x, 300, false);
+          ticks(3);
+          engine.pointer(x, 300, true);
+          ticks(3);
+          for (let y = 280; y >= 60; y -= 20) {
+            engine.pointer(x, y, true);
+            ticks(2);
+          }
+          engine.pointer(x, 60, false);
+          ticks(80);
+        }
+        assert.deepEqual(engine.drainLog(), [], "a drag must not click a row");
+        assert.ok(engine.coords(first.id).y < firstY, "the menu did not move");
+        const row = engine.coords(last.id);
+        assert.ok(row.y >= area.y && row.y + row.h <= area.y + area.h, `the last row is at ${row.y}, outside the menu`);
+        engine.pointer(x, row.y + row.h / 2, false);
+        ticks(3);
+        engine.pointer(x, row.y + row.h / 2, true);
+        ticks(3);
+        engine.pointer(x, row.y + row.h / 2, false);
+        ticks(5);
+        assert.deepEqual(engine.drainLog(), [last.props.text]);
+      });
+    }
     await test("The samples are up to date with the generator", async () => {
       const { SAMPLES } = await import("../scripts/generate-samples.mjs");
       assert.deepEqual(SAMPLES.map((sample) => sample.id), sampleIndex.map((sample) => sample.id));
@@ -555,6 +639,972 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         }
       }
       clearImages();
+    });
+
+    /* ------------------------------------------------------- code to design */
+    category("Code to design");
+    const everyFile = (project) => generateCode(project, { imageData: false });
+    const screenFile = (project, screen = project.screens[0]) => `src/ui/screens/${cNames(project).get(screen.id)}.c`;
+    const editLine = (text, from, to) => {
+      assert.ok(text.includes(from), from);
+      return text.replace(from, () => to);
+    };
+    const buttonProject = () => {
+      const project = newProject("Edit");
+      const screen = project.screens[0];
+      const first = addNode(project, screen.id, createNode(project, "button", { x: 10, y: 20, width: 100, height: 40, text: "One" }));
+      const second = addNode(project, screen.id, createNode(project, "label", { x: 30, y: 90, text: "Two" }));
+      first.events.push({ trigger: "CLICKED", action: "setText", target: second.id, text: "Pressed" });
+      return { project, first, second, file: screenFile(project) };
+    };
+    await test("Only the files that hold the design can be edited", () => {
+      assert.ok(isEditableCode("src/ui/screens/ui_Screen1.c"));
+      assert.ok(isEditableCode("src/main.c"));
+      assert.ok(isEditableCode("src/ui/ui.c"));
+      assert.ok(isEditableCode("config/lv_conf.h"));
+      for (const file of ["src/ui/ui.h", "src/ui/ui_events.c", "src/ui/ui_events.h", "CMakeLists.txt"]) assert.ok(!isEditableCode(file), file);
+    });
+    for (const [version] of engines) {
+      await test(`LVGL ${version}: code as generated changes nothing`, () => {
+        const project = everythingProject(version);
+        const files = everyFile(project);
+        for (const file of Object.keys(files).filter(isEditableCode)) {
+          const result = applyCodeEdit(project, file, files[file]);
+          assert.deepEqual(result.errors, [], file);
+          assert.equal(result.changed, false, file);
+          assert.equal(result.project, project, file);
+        }
+      });
+      const widgetProject = everythingProject(version);
+      for (const node of widgetProject.screens[0].children) {
+        await test(`LVGL ${version}: every property of ${node.type} can be changed in code`, () => {
+          const file = screenFile(widgetProject);
+          for (const prop of WIDGETS[node.type].props) {
+            if (prop.kind === "target" || prop.kind === "image" || prop.key === "frames" || node.props[prop.key] === undefined) continue;
+            const wanted = structuredClone(widgetProject);
+            findNode(wanted, node.id).props[prop.key] = otherValue(prop, node.props[prop.key]);
+            const text = everyFile(wanted)[file];
+            if (text === everyFile(widgetProject)[file]) continue;
+            const result = applyCodeEdit(widgetProject, file, text);
+            assert.deepEqual(result.errors, [], prop.key);
+            assert.ok(result.changed, prop.key);
+            assert.equal(everyFile(result.project)[file], text, prop.key);
+          }
+        });
+      }
+      await test(`LVGL ${version}: the other screens read back too`, () => {
+        const project = everythingProject(version);
+        for (const screen of project.screens) {
+          const file = screenFile(project, screen);
+          const text = everyFile(project)[file];
+          const result = applyCodeEdit(project, file, `${text}\n`);
+          assert.deepEqual(result.errors, [], file);
+          assert.equal(result.changed, false, file);
+        }
+      });
+    }
+    await test("Every sample reads back without a change", () => {
+      for (const sample of sampleIndex) {
+        const project = parseProject(fs.readFileSync(new URL(`../samples/${sample.file}`, import.meta.url), "utf8"));
+        clearImages();
+        for (const image of project.images) addImage(image.name, { w: image.w, h: image.h, rgba: new Uint8ClampedArray(image.w * image.h * 4), base64: "AAAA" });
+        const files = everyFile(project);
+        for (const file of Object.keys(files).filter(isEditableCode)) {
+          const result = applyCodeEdit(project, file, `${files[file]}\n`);
+          assert.deepEqual(result.errors, [], `${sample.id} ${file}`);
+          assert.equal(result.changed, false, `${sample.id} ${file}`);
+        }
+      }
+      clearImages();
+    });
+    await test("A changed number moves the widget, and the engine draws it there", () => {
+      const { project, first, file } = buttonProject();
+      const text = editLine(everyFile(project)[file], "lv_obj_set_x(ui_button1, 10);", "lv_obj_set_x(ui_button1, 77);");
+      const result = applyCodeEdit(project, file, text);
+      assert.deepEqual(result.errors, []);
+      assert.equal(findNode(result.project, first.id).props.x, 77);
+      const engine = engines.get(result.project.lvgl);
+      engine.load(result.project, result.project.screens[0].id);
+      assert.equal(engine.coords(first.id).x, 77);
+      assert.equal(findNode(project, first.id).props.x, 10, "the open project must not change by itself");
+    });
+    await test("Everyday spellings are understood and printed in the design's form", () => {
+      const { project, first, file } = buttonProject();
+      let text = editLine(everyFile(project)[file], "lv_obj_set_x(ui_button1, 10);", "lv_obj_set_pos( ui_button1 , 5, 6 ) ; // moved");
+      text = editLine(text, "lv_obj_set_y(ui_button1, 20);", "");
+      text = editLine(text, "lv_obj_set_width(ui_button1, 100);", "lv_obj_set_size(ui_button1, LV_PCT(50), LV_SIZE_CONTENT);");
+      text = editLine(text, "lv_obj_set_height(ui_button1, 40);", "/* gone */");
+      const result = applyCodeEdit(project, file, text);
+      assert.deepEqual(result.errors, []);
+      const props = findNode(result.project, first.id).props;
+      assert.deepEqual([props.x, props.y, props.width, props.height], [5, 6, "50%", "content"]);
+    });
+    await test("A new widget in the code joins the design; removing its lines removes it", () => {
+      const { project, file } = buttonProject();
+      const text = editLine(everyFile(project)[file], "ui_label1 = lv_label_create(ui_Screen1);", 'ui_extra = lv_slider_create(ui_Screen1);\n    lv_slider_set_value(ui_extra, 33, LV_ANIM_OFF);\n    lv_obj_set_x(ui_extra, 12);\n    ui_label1 = lv_label_create(ui_Screen1);');
+      const added = applyCodeEdit(project, file, text);
+      assert.deepEqual(added.errors, []);
+      const node = added.project.screens[0].children[1];
+      assert.deepEqual([node.type, node.name, node.props.value, node.props.x], ["slider", "extra", 33, 12]);
+      assert.equal(new Set(added.project.screens[0].children.map((child) => child.id)).size, 3);
+      const removed = applyCodeEdit(added.project, file, everyFile(project)[file]);
+      assert.deepEqual(removed.errors, []);
+      assert.equal(removed.project.screens[0].children.length, 2);
+    });
+    await test("Removing a widget clears the events that pointed at it", () => {
+      const { project, first, file } = buttonProject();
+      const text = everyFile(project)[file].split("\n").filter((line) => !line.includes("ui_label1")).join("\n");
+      const result = applyCodeEdit(project, file, text);
+      assert.deepEqual(result.errors, []);
+      assert.equal(result.project.screens[0].children.length, 1);
+      assert.deepEqual(findNode(result.project, first.id).events, []);
+    });
+    await test("Renaming in the code keeps the widget and its events", () => {
+      const { project, first, file } = buttonProject();
+      const text = everyFile(project)[file].replaceAll("ui_button1", "ui_start");
+      const result = applyCodeEdit(project, file, text);
+      assert.deepEqual(result.errors, []);
+      const node = findNode(result.project, first.id);
+      assert.equal(node.name, "start");
+      assert.equal(node.events.length, 1);
+      assert.equal(everyFile(result.project)[file], text);
+    });
+    await test("The order of the code is the order of the widgets", () => {
+      const { project, first, second, file } = buttonProject();
+      const lines = everyFile(project)[file].split("\n");
+      const open = lines.findIndex((line) => line.includes("ui_button1 = "));
+      const split = lines.findIndex((line) => line.includes("ui_label1 = "));
+      const end = lines.lastIndexOf("}");
+      const text = [...lines.slice(0, open), ...lines.slice(split, end), ...lines.slice(open, split), ...lines.slice(end)].join("\n");
+      const result = applyCodeEdit(project, file, text);
+      assert.deepEqual(result.errors, []);
+      assert.deepEqual(result.project.screens[0].children.map((child) => child.id), [second.id, first.id]);
+    });
+    await test("A widget can move into a container in the code", () => {
+      const { project, first, file } = buttonProject();
+      const box = addNode(project, project.screens[0].id, createNode(project, "container", { x: 0, y: 150, width: 100, height: 60 }));
+      const lines = everyFile(project)[file].split("\n");
+      const open = lines.findIndex((line) => line.includes("ui_button1 = "));
+      const split = lines.findIndex((line) => line.includes("ui_label1 = "));
+      const end = lines.lastIndexOf("}");
+      const moved = lines.slice(open, split).join("\n").replace("lv_button_create(ui_Screen1)", "lv_button_create(ui_container1)");
+      const text = [...lines.slice(0, open), ...lines.slice(split, end), moved, ...lines.slice(end)].join("\n");
+      const result = applyCodeEdit(project, file, text);
+      assert.deepEqual(result.errors, []);
+      assert.deepEqual(findNode(result.project, box.id).children.map((child) => child.id), [first.id]);
+      assert.equal(result.project.screens[0].children.length, 2);
+    });
+    await test("A removed statement returns the property to the theme's", () => {
+      const { project, first, file } = buttonProject();
+      const result = applyCodeEdit(project, file, editLine(everyFile(project)[file], "lv_obj_set_width(ui_button1, 100);", ""));
+      assert.deepEqual(result.errors, []);
+      assert.equal(findNode(result.project, first.id).props.width, undefined);
+    });
+    await test("What the code does not show survives an edit", () => {
+      const { project, first, second, file } = buttonProject();
+      const old = addNode(project, project.screens[0].id, createNode(project, "meter", { x: 1 }));
+      const keyboard = addNode(project, project.screens[0].id, createNode(project, "keyboard", { target: "" }));
+      const area = addNode(project, project.screens[0].id, createNode(project, "textarea", {}));
+      keyboard.props.target = area.id;
+      const result = applyCodeEdit(project, file, editLine(everyFile(project)[file], "lv_obj_set_x(ui_button1, 10);", "lv_obj_set_x(ui_button1, 11);"));
+      assert.deepEqual(result.errors, []);
+      assert.ok(findNode(result.project, old.id), "the meter of LVGL 8 is gone");
+      assert.equal(findNode(result.project, keyboard.id).props.target, area.id);
+      assert.equal(findNode(result.project, first.id).events[0].target, second.id);
+    });
+    const refused = [
+      ["a missing semicolon", (t) => editLine(t, "lv_obj_set_x(ui_button1, 10);", "lv_obj_set_x(ui_button1, 10)"), "syntax"],
+      ["a missing bracket", (t) => editLine(t, "lv_obj_set_x(ui_button1, 10);", "lv_obj_set_x(ui_button1, 10;"), "syntax"],
+      ["an open string", (t) => editLine(t, 'lv_label_set_text(ui_label1, "Two");', 'lv_label_set_text(ui_label1, "Two);'), "syntax"],
+      ["a function it does not know", (t) => editLine(t, "lv_obj_set_x(ui_button1, 10);", "my_function(ui_button1);"), "unknown"],
+      ["an LVGL call it cannot show", (t) => editLine(t, "lv_obj_set_x(ui_button1, 10);", "lv_obj_scroll_to_y(ui_button1, 5, LV_ANIM_OFF);"), "unknown"],
+      ["an object that does not exist", (t) => editLine(t, "lv_obj_set_x(ui_button1, 10);", "lv_obj_set_x(ui_nothing, 10);"), "noObject"],
+      ["a number that is not one", (t) => editLine(t, "lv_obj_set_x(ui_button1, 10);", "lv_obj_set_x(ui_button1, ten);"), "number"],
+      ["a colour it cannot read", (t) => editLine(t, "lv_obj_set_x(ui_button1, 10);", "lv_obj_set_style_bg_color(ui_button1, red, 0);"), "colour"],
+      ["a font that is not built in", (t) => editLine(t, "lv_obj_set_x(ui_button1, 10);", "lv_obj_set_style_text_font(ui_button1, &lv_font_montserrat_13, 0);"), "font"],
+      ["a property the widget lacks", (t) => editLine(t, "lv_obj_set_x(ui_button1, 10);", "lv_slider_set_value(ui_button1, 5, LV_ANIM_OFF);"), "noProp"],
+      ["a control this version lacks", (t) => editLine(t, "ui_button1 = lv_button_create(ui_Screen1);", "ui_button1 = lv_meter_create(ui_Screen1);"), "noWidget"],
+      ["a second object with one name", (t) => editLine(t, "ui_label1 = lv_label_create(ui_Screen1);", "ui_button1 = lv_label_create(ui_Screen1);"), "duplicate"],
+      ["a name without ui_", (t) => editLine(t, "ui_label1 = lv_label_create(ui_Screen1);", "label9 = lv_label_create(ui_Screen1);"), "badName"],
+      ["a child of a button", (t) => editLine(t, "ui_label1 = lv_label_create(ui_Screen1);", "ui_label1 = lv_label_create(ui_button1);"), "notContainer"],
+      ["a renamed screen", (t) => t.replaceAll("ui_Screen1", "ui_Home"), "screenName"],
+      ["an image the project lacks", (t) => editLine(t, "ui_label1 = lv_label_create(ui_Screen1);", "ui_pic = lv_image_create(ui_Screen1);\n    lv_image_set_src(ui_pic, &ui_img_nothing);\n    ui_label1 = lv_label_create(ui_Screen1);"), "noImage"],
+    ];
+    for (const [what, change, code] of refused) {
+      await test(`Code with ${what} is refused with a reason, and nothing changes`, () => {
+        const { project, file } = buttonProject();
+        const result = applyCodeEdit(project, file, change(everyFile(project)[file]));
+        assert.equal(result.errors[0]?.code, code, JSON.stringify(result.errors));
+        assert.ok(result.errors[0].line >= 1);
+        assert.equal(result.project, project);
+        assert.equal(result.changed, false);
+      });
+    }
+    await test("An error names the line it is on", () => {
+      const { project, file } = buttonProject();
+      const text = everyFile(project)[file];
+      const line = text.split("\n").findIndex((row) => row.includes("lv_obj_set_x(ui_button1, 10);")) + 1;
+      const result = applyCodeEdit(project, file, editLine(text, "lv_obj_set_x(ui_button1, 10);", "lv_obj_set_x(ui_button1, ten);"));
+      assert.equal(result.errors[0].line, line);
+    });
+    await test("Every kind of refusal has words in both languages", () => {
+      for (const language of ["ko", "en"]) {
+        const say = translator(language);
+        for (const code of ["syntax", "unknown", "string", "number", "colour", "noObject", "duplicate", "badName", "screenName", "notContainer", "font", "noScreen", "noWidget", "noProp", "noImage", "noDefine", "deviceRange", "noTheme", "noFile", "notApplied"]) {
+          assert.notEqual(say(`codeError.${code}`), `codeError.${code}`, code);
+        }
+      }
+    });
+    await test("WIDTH and HEIGHT in main.c are the screen size", () => {
+      const { project } = buttonProject();
+      const text = editLine(editLine(everyFile(project)["src/main.c"], `#define WIDTH ${project.device.w}`, "#define WIDTH 640"), `#define HEIGHT ${project.device.h}`, "#define HEIGHT 400");
+      const result = applyCodeEdit(project, "src/main.c", text);
+      assert.deepEqual(result.errors, []);
+      assert.deepEqual(result.project.device, { w: 640, h: 400 });
+      assert.deepEqual(result.unused, []);
+      assert.equal(applyCodeEdit(project, "src/main.c", editLine(text, "#define WIDTH 640", "#define WIDTH 5")).errors[0].code, "deviceRange");
+      assert.equal(applyCodeEdit(project, "src/main.c", editLine(text, "#define WIDTH 640", "")).errors[0].code, "noDefine");
+    });
+    await test("Other edits of main.c are named as having no effect", () => {
+      const { project } = buttonProject();
+      const text = editLine(everyFile(project)["src/main.c"], "static int redraw;", "static int redraws;");
+      const result = applyCodeEdit(project, "src/main.c", text);
+      assert.equal(result.changed, false);
+      assert.deepEqual(result.unused, [text.split("\n").findIndex((row) => row.includes("redraws")) + 1]);
+    });
+    await test("The theme call in ui.c is the LVGL theme", () => {
+      const { project } = buttonProject();
+      const text = everyFile(project)["src/ui/ui.c"].replace(/lv_color_hex\(0x2196f3\)/, "lv_color_hex(0x112233)").replace(/, false, LV_FONT_DEFAULT/, ", true, LV_FONT_DEFAULT");
+      const result = applyCodeEdit(project, "src/ui/ui.c", text);
+      assert.deepEqual(result.errors, []);
+      assert.equal(result.project.theme.primary, "#112233");
+      assert.equal(result.project.theme.dark, true);
+    });
+    await test("A generated-only file never changes the project", () => {
+      const { project } = buttonProject();
+      const result = applyCodeEdit(project, "src/ui/ui.h", "nonsense");
+      assert.deepEqual(result, { project, changed: false, errors: [], unused: [] });
+    });
+
+    /* ---------------------------------------------------------- TrueType fonts */
+    category("Project fonts");
+    const LATIN = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ";
+    const singleFont = buildFont({ family: "Mini Sans", characters: `${LATIN}가나다한글` });
+    const cjkFont = buildCollection([
+      { family: "Mini CJK JP", characters: `${LATIN}あいカタ日本汉语简体漢語繁體가나다한글`, shape: 0 },
+      { family: "Mini CJK KR", characters: `${LATIN}あいカタ日本汉语简体漢語繁體가나다한글`, shape: 1 },
+      { family: "Mini CJK SC", characters: `${LATIN}汉语简体`, shape: 0 },
+    ]);
+    const fontProject = (options = {}) => {
+      clearFonts();
+      addFont("mini", { bytes: singleFont, base64: "bWluaQ==" });
+      addFont("cjk", { bytes: cjkFont, base64: "Y2pr" });
+      const project = newProject("Fonts");
+      project.fonts = [{ name: "mini", file: "assets/fonts/mini.ttf", face: 0 }, { name: "cjk", file: "assets/fonts/cjk.ttc", face: 1, language: "ko" }];
+      const label = addNode(project, project.screens[0].id, createNode(project, "label", { x: 10, y: 10, text: "한글 ABC", ...options }));
+      return { project, label, file: screenFile(project) };
+    };
+    await test("A font file is read: its faces, names and characters", () => {
+      const { faces } = readFontFile(singleFont);
+      assert.equal(faces.length, 1);
+      assert.equal(faces[0].family, "Mini Sans");
+      assert.equal(faces[0].style, "Regular");
+      assert.ok(faces[0].has("A".codePointAt(0)));
+      assert.ok(faces[0].has("한".codePointAt(0)));
+      assert.ok(!faces[0].has("漢".codePointAt(0)));
+      assert.deepEqual(faces[0].languages, ["ko", "latin"]);
+    });
+    await test("A collection has a face per language", () => {
+      const { faces } = readFontFile(cjkFont);
+      assert.deepEqual(faces.map((face) => face.family), ["Mini CJK JP", "Mini CJK KR", "Mini CJK SC"]);
+      assert.deepEqual(faces.map((face) => face.tagged), ["ja", "ko", "zh-Hans"]);
+      assert.deepEqual(faces[2].languages, ["zh-Hans", "latin"]);
+    });
+    await test("Choosing a language chooses its face", () => {
+      const info = readFontFile(cjkFont);
+      assert.equal(faceForLanguage(info, "ko"), 1);
+      assert.equal(faceForLanguage(info, "ja"), 0);
+      assert.equal(faceForLanguage(info, "zh-Hans"), 2);
+      assert.equal(faceForLanguage(info, "latin", 2), 2, "the current face already serves it");
+      assert.equal(faceForLanguage(readFontFile(singleFont), "ko"), 0, "a single font has one face");
+      for (const language of FONT_LANGUAGES) assert.notEqual(translator("ko")(`language.${language.id}`), `language.${language.id}`, language.id);
+    });
+    await test("What is not a font is refused", () => {
+      for (const bytes of [new Uint8Array(4), new Uint8Array(64), Uint8Array.from(Buffer.from("this is certainly not a font file at all"))]) assert.throws(() => readFontFile(bytes), /not a/);
+      const truncated = cjkFont.slice(0, 40);
+      assert.throws(() => readFontFile(truncated), /font/);
+    });
+    await test("A collection is pointed at the wanted face without changing the file", () => {
+      const before = cjkFont.slice();
+      const second = fontBytesForFace(cjkFont, 1);
+      const reader = new DataView(second.buffer);
+      assert.equal(reader.getUint32(12), new DataView(cjkFont.buffer).getUint32(16));
+      assert.deepEqual(cjkFont, before);
+      assert.equal(fontBytesForFace(cjkFont, 0), cjkFont);
+      assert.equal(fontBytesForFace(singleFont, 3), singleFont);
+    });
+    await test("Font names fit C and stay unique", () => {
+      const project = newProject("Fonts");
+      assert.equal(fontNameFor(project, "C:\\Fonts\\NotoSansCJK-Regular.ttc"), "NotoSansCJK_Regular");
+      project.fonts = [{ name: "NotoSansCJK_Regular", file: "a", face: 0 }];
+      assert.equal(fontNameFor(project, "/x/NotoSansCJK-Regular.ttc"), "NotoSansCJK_Regular_2");
+      assert.equal(fontNameFor(project, "9x.ttf"), "_9x");
+    });
+    await test("A project keeps its fonts on disk, and damage is refused", () => {
+      const { project } = fontProject();
+      project.defaultFont = { font: "cjk", size: 18 };
+      const read = parseProject(serializeProject(project));
+      assert.deepEqual(read.fonts, project.fonts);
+      assert.deepEqual(read.defaultFont, { font: "cjk", size: 18 });
+      for (const fonts of [{}, [{ name: "bad name", file: "a.ttf", face: 0 }], [{ name: "x", file: "../up.ttf", face: 0 }], [{ name: "x", file: "a.ttf", face: -1 }], [{ name: "x", file: "a.ttf", face: 0 }, { name: "x", file: "b.ttf", face: 0 }]]) {
+        assert.throws(() => parseProject(JSON.stringify({ ...project, fonts })), /font/, JSON.stringify(fonts));
+      }
+      assert.throws(() => parseProject(JSON.stringify({ ...project, defaultFont: { font: "cjk" } })), /default font/);
+      clearFonts();
+    });
+    await test("A project without fonts prints the code it always did", () => {
+      const project = newProject("Fonts");
+      const files = generateCode(project);
+      assert.ok(!Object.keys(files).some((name) => name.includes("fonts")));
+      assert.match(files["src/ui/ui.c"], /LV_FONT_DEFAULT\);/);
+      assert.doesNotMatch(files["src/ui/ui.c"], /ui_fonts_init/);
+    });
+    await test("The code reads the font file and uses it", () => {
+      const { project, label, file } = fontProject({ fontFamily: "cjk", font: 22 });
+      project.defaultFont = { font: "mini", size: 15 };
+      const files = generateCode(project);
+      assert.match(files[file], new RegExp(`lv_obj_set_style_text_font\\(ui_${label.name}, ui_font_cjk_22, 0\\);`));
+      const source = files["src/ui/fonts/ui_fonts.c"];
+      assert.match(source, /ui_font_read\(UI_FONT_DIR "\/" "cjk\.ttc", 1, &size\)/, "face 1 of the collection");
+      assert.match(source, /ui_font_cjk_22 = data \? lv_tiny_ttf_create_data\(data, size, 22\)/);
+      assert.match(source, /ui_font_mini_15 = /);
+      assert.match(files["src/ui/ui.h"], /extern const lv_font_t \* ui_font_cjk_22;/);
+      assert.match(files["src/ui/ui.c"], /ui_fonts_init\(\);/);
+      assert.match(files["src/ui/ui.c"], /, false, ui_font_mini_15\);/);
+      assert.match(files["CMakeLists.txt"], /src\/ui\/fonts\/ui_fonts\.c/);
+      assert.match(files["CMakeLists.txt"], /UI_FONT_DIR=/);
+      assert.ok(GENERATED_DIRS.includes("src/ui/fonts"), "a removed font's code must go with it");
+      clearFonts();
+    });
+    await test("A font and its size can be changed in the code", () => {
+      const { project, label, file } = fontProject({ fontFamily: "cjk", font: 22 });
+      const text = editLine(everyFile(project)[file], "ui_font_cjk_22", "ui_font_mini_30");
+      const result = applyCodeEdit(project, file, text);
+      assert.deepEqual(result.errors, []);
+      assert.deepEqual([findNode(result.project, label.id).props.fontFamily, findNode(result.project, label.id).props.font], ["mini", 30]);
+      const none = applyCodeEdit(project, file, editLine(everyFile(project)[file], "ui_font_cjk_22", "ui_font_nothing_30"));
+      assert.equal(none.errors[0].code, "noFont");
+      const back = applyCodeEdit(project, file, editLine(everyFile(project)[file], "ui_font_cjk_22", "&lv_font_montserrat_24"));
+      assert.deepEqual(back.errors, []);
+      assert.equal(findNode(back.project, label.id).props.fontFamily, undefined);
+      assert.equal(findNode(back.project, label.id).props.font, 24);
+      clearFonts();
+    });
+    await test("The default font can be changed in ui.c", () => {
+      const { project } = fontProject();
+      const text = everyFile(project)["src/ui/ui.c"].replace(/, false, LV_FONT_DEFAULT\)/, ", false, ui_font_mini_20)");
+      const result = applyCodeEdit(project, "src/ui/ui.c", text);
+      assert.deepEqual(result.errors, []);
+      assert.deepEqual(result.project.defaultFont, { font: "mini", size: 20 });
+      assert.match(everyFile(result.project)[screenFile(result.project)], /lv_obj_set_style_text_font\(ui_Screen1, ui_font_mini_20, 0\);/);
+      clearFonts();
+    });
+    await test("A size alone keeps the default font, in any size", () => {
+      const { project, label, file } = fontProject({ font: 20 });
+      const plain = everyFile(project)[file];
+      assert.match(plain, /&lv_font_montserrat_20/);
+      project.defaultFont = { font: "cjk", size: 16 };
+      const text = everyFile(project)[file];
+      assert.match(text, new RegExp(`lv_obj_set_style_text_font\\(ui_${label.name}, ui_font_cjk_20, 0\\);`));
+      assert.doesNotMatch(text, /lv_font_montserrat/);
+      assert.equal(applyCodeEdit(project, file, text).changed, false, "reading it back changes nothing");
+      findNode(project, label.id).props.font = 23;
+      assert.match(everyFile(project)[file], /ui_font_cjk_23/);
+      delete project.defaultFont;
+      assert.doesNotMatch(everyFile(project)[file], /lv_font_montserrat_23/, "the built-in font has no such size");
+      clearFonts();
+    });
+    await test("What a font file lacks falls back on the built-in font", () => {
+      const { project } = fontProject({ fontFamily: "mini" });
+      assert.match(generateCode(project)["src/ui/fonts/ui_fonts.c"], /->fallback = LV_FONT_DEFAULT;/);
+      clearFonts();
+    });
+    await test("Removing a font returns its widgets to the built-in font", () => {
+      const { project, label } = fontProject({ fontFamily: "cjk", font: 22 });
+      project.defaultFont = { font: "cjk", size: 15 };
+      removeFontFromProject(project, "cjk", FONT_SIZES);
+      assert.deepEqual(project.fonts.map((font) => font.name), ["mini"]);
+      assert.equal(project.defaultFont, undefined);
+      assert.equal(findNode(project, label.id).props.fontFamily, undefined);
+      assert.equal(findNode(project, label.id).props.font, undefined, "22 is not a built-in size");
+      removeFontFromProject(project, "mini", FONT_SIZES);
+      assert.equal(project.fonts, undefined);
+      clearFonts();
+    });
+    await test("A font file goes to a folder once", () => {
+      const { project } = fontProject();
+      assert.deepEqual(Object.keys(fontFiles(project, "one")).sort(), ["assets/fonts/cjk.ttc", "assets/fonts/mini.ttf"]);
+      markFontsWritten(project, "one");
+      assert.deepEqual(fontFiles(project, "one"), {});
+      assert.equal(Object.keys(fontFiles(project, "two")).length, 2);
+      assert.equal(fontData("mini").bytes, singleFont);
+      clearFonts();
+    });
+    await test("Characters the font in effect lacks are a problem", () => {
+      const glyphs = (project) => findProblems(project).filter((problem) => problem.code === "fontGlyphs").map((problem) => problem.params.characters);
+      const built = fontProject();
+      assert.deepEqual(glyphs(built.project), ["한 글"], "the built-in font is Latin only");
+      const own = fontProject({ fontFamily: "mini" });
+      assert.deepEqual(glyphs(own.project), [], "this font has them");
+      findNode(own.project, own.label.id).props.text = "한漢";
+      assert.deepEqual(glyphs(own.project), ["漢"]);
+      const standard = fontProject();
+      standard.project.defaultFont = { font: "cjk", size: 16 };
+      assert.deepEqual(glyphs(standard.project), [], "the default font has them");
+      // A size alone stays in the default font, and the built-in font's characters always show.
+      const sized = fontProject({ font: 20 });
+      sized.project.defaultFont = { font: "cjk", size: 16 };
+      assert.deepEqual(glyphs(sized.project), []);
+      const symbols = fontProject({ fontFamily: "mini", text: "A\uF001" });
+      assert.deepEqual(glyphs(symbols.project), [], "LVGL's symbols come from the built-in font");
+      // A container's font reaches what is inside it.
+      const nested = fontProject();
+      const box = addNode(nested.project, nested.project.screens[0].id, createNode(nested.project, "container", { fontFamily: "mini" }));
+      addNode(nested.project, box.id, createNode(nested.project, "label", { text: "한" }));
+      assert.deepEqual(glyphs(nested.project), ["한 글"]);
+      clearFonts();
+    });
+    await test("A missing font is a problem, and the built-in font takes over", () => {
+      const { project } = fontProject({ fontFamily: "gone" });
+      assert.ok(findProblems(project).some((problem) => problem.code === "fontMissing"));
+      clearFonts();
+      assert.deepEqual(findProblems(project).filter((problem) => problem.code === "fontFile").map((problem) => problem.params.name), ["mini", "cjk"]);
+      project.lvConf = { LV_USE_TINY_TTF: "0" };
+      assert.ok(findProblems(project).some((problem) => problem.code === "confTtf"));
+      const say = translator("en");
+      for (const code of ["fontFile", "fontMissing", "fontGlyphs", "confTtf"]) assert.notEqual(say(`problem.${code}`), `problem.${code}`, code);
+    });
+    for (const [version, engine] of engines) {
+      const ink = () => {
+        const frame = engine.frame();
+        let dark = 0;
+        for (let i = 0; i < frame.length; i += 4) if (frame[i] < 128) dark++;
+        return dark;
+      };
+      await test(`LVGL ${version}: the surface draws with the font file`, () => {
+        const { project, label } = fontProject({ fontFamily: "mini", font: 30 });
+        project.lvgl = version;
+        engine.load(project, project.screens[0].id);
+        assert.deepEqual(engine.errors, []);
+        const own = { ink: ink(), box: engine.coords(label.id) };
+        assert.ok(own.ink > 200, `nothing was drawn: ${own.ink}`);
+        // Hangul has a glyph here: six characters, six boxes as wide as the font says.
+        assert.ok(own.box.w >= 100, `width ${own.box.w}`);
+        findNode(project, label.id).props.font = 60;
+        engine.load(project, project.screens[0].id);
+        assert.ok(engine.coords(label.id).w > own.box.w * 1.5, "the size did nothing");
+        clearFonts();
+      });
+      await test(`LVGL ${version}: the keyboard keeps LVGL's symbols under a font without them`, () => {
+        const frameOf = (project) => {
+          engine.load(project, project.screens[0].id);
+          assert.deepEqual(engine.errors, []);
+          return engine.frame().slice();
+        };
+        const { project, label } = fontProject({ fontFamily: "mini", font: 14, text: "" });
+        project.lvgl = version;
+        findNode(project, label.id).props.hidden = true;
+        // A button showing only a symbol: drawn with the built-in font, it looks the same either way.
+        const button = addNode(project, project.screens[0].id, createNode(project, "button", { x: 20, y: 40, width: 120, height: 60, text: "\uF00C" }));
+        const builtIn = frameOf(project);
+        project.defaultFont = { font: "mini", size: 14 };
+        delete findNode(project, button.id).props.font;
+        const own = frameOf(project);
+        assert.equal(Buffer.compare(Buffer.from(builtIn), Buffer.from(own)), 0, "the symbol changed: it did not come from the built-in font");
+        clearFonts();
+      });
+      await test(`LVGL ${version}: choosing a language draws with that face`, () => {
+        const { project, label } = fontProject({ fontFamily: "cjk", font: 40 });
+        project.lvgl = version;
+        project.fonts[1].face = 0;
+        engine.load(project, project.screens[0].id);
+        assert.deepEqual(engine.errors, []);
+        const tall = ink();
+        project.fonts[1].face = 1;
+        engine.load(project, project.screens[0].id);
+        assert.deepEqual(engine.errors, []);
+        const flat = ink();
+        assert.ok(flat < tall * 0.7, `the faces drew alike: ${tall} and ${flat}`);
+        assert.ok(flat > 50, "the second face drew nothing");
+        void label;
+        clearFonts();
+      });
+      await test(`LVGL ${version}: the default font reaches every widget without its own`, () => {
+        const { project, label } = fontProject({ text: "ABC" });
+        project.lvgl = version;
+        engine.load(project, project.screens[0].id);
+        const before = engine.coords(label.id).w;
+        project.defaultFont = { font: "mini", size: 44 };
+        engine.load(project, project.screens[0].id);
+        assert.deepEqual(engine.errors, []);
+        assert.ok(engine.coords(label.id).w > before, `${before} and ${engine.coords(label.id).w}`);
+        delete project.defaultFont;
+        engine.load(project, project.screens[0].id);
+        assert.equal(engine.coords(label.id).w, before, "the built-in font should come back");
+        clearFonts();
+      });
+    }
+
+    /* ---------------------------------------------- values that move other widgets */
+    category("Interaction and animation");
+    await test("Every sample has something to drag that moves something else", () => {
+      const DRAGGED = new Set(["slider", "arc", "roller"]);
+      assert.ok(sampleIndex.length >= 28, String(sampleIndex.length));
+      for (const sample of sampleIndex) {
+        const project = parseProject(fs.readFileSync(new URL(`../samples/${sample.file}`, import.meta.url), "utf8"));
+        let drags = 0;
+        const step = (node) => {
+          if (DRAGGED.has(node.type) && node.events.some((event) => event.action === "setValue" || event.action === "showValue")) drags++;
+          node.children.forEach(step);
+        };
+        project.screens.forEach(step);
+        assert.ok(drags > 0, `${sample.id} has nothing to drag`);
+      }
+    });
+    for (const [version, engine] of engines) {
+      await test(`LVGL ${version}: dragging in a sample really changes the picture`, () => {
+        for (const sample of sampleIndex.filter((item) => engineFor(item.lvgl).engine === version)) {
+          const project = parseProject(fs.readFileSync(new URL(`../samples/${sample.file}`, import.meta.url), "utf8"));
+          clearImages();
+          for (const image of project.images) addImage(image.name, { w: image.w, h: image.h, rgba: new Uint8ClampedArray(image.w * image.h * 4).fill(200), base64: "AAAA" });
+          let dragged = null;
+          const step = (node) => {
+            if (!dragged && (node.type === "slider" || node.type === "roller" || node.type === "arc") && node.events.some((event) => event.action === "setValue" || event.action === "showValue")) dragged = node;
+            node.children.forEach(step);
+          };
+          const screen = project.screens.find((item) => {
+            dragged = null;
+            step(item);
+            return dragged;
+          });
+          // Only what is dragged may change here: animations hold still, so the picture is steady.
+          const still = structuredClone(project);
+          const quiet = (node) => {
+            delete node.props.animate;
+            node.children = node.children.filter((child) => child.type !== "spinner" && child.type !== "animimage");
+            node.children.forEach(quiet);
+          };
+          still.screens.forEach(quiet);
+          engine.load(still, screen.id, { events: true });
+          assert.deepEqual(engine.errors, [], sample.id);
+          const ticks = (count) => { for (let i = 0; i < count; i++) engine.tick(20); };
+          ticks(6);
+          const before = Buffer.from(engine.frame());
+          const box = engine.coords(dragged.id);
+          const ring = dragged.type === "arc";
+          const tall = box.h > box.w * 1.5;
+          const from = ring ? { x: box.x + 7, y: box.y + box.h * 0.5 } : tall ? { x: box.x + box.w / 2, y: box.y + box.h * 0.85 } : dragged.type === "roller" ? { x: box.x + box.w / 2, y: box.y + box.h * 0.8 } : { x: box.x + box.w * 0.15, y: box.y + box.h / 2 };
+          const to = ring ? { x: box.x + box.w * 0.85, y: box.y + box.h * 0.15 } : tall ? { x: from.x, y: box.y + box.h * 0.2 } : dragged.type === "roller" ? { x: from.x, y: box.y + box.h * 0.2 } : { x: box.x + box.w * 0.8, y: from.y };
+          engine.pointer(from.x, from.y, false);
+          ticks(3);
+          engine.pointer(from.x, from.y, true);
+          ticks(3);
+          for (let i = 1; i <= 10; i++) {
+            engine.pointer(from.x + ((to.x - from.x) * i) / 10, from.y + ((to.y - from.y) * i) / 10, true);
+            ticks(2);
+          }
+          engine.pointer(to.x, to.y, false);
+          ticks(60);
+          assert.ok(!before.equals(Buffer.from(engine.frame())), `${sample.id}: dragging ${dragged.name} changed nothing`);
+        }
+        clearImages();
+      });
+    }
+    await test("A value's format allows one number and shows every other % as itself", () => {
+      for (const [text, wanted] of [["%d km/h", "%d km/h"], ["%d %%", "%d %%"], ["100%", "100%%"], ["%s", "%%s"], ["%d and %d", "%d and %%d"], ["%n", "%%n"], ["", ""], ["plain", "plain"]]) {
+        assert.equal(valueFormat(text), wanted, text);
+      }
+    });
+    for (const [version, engine] of engines) {
+      await test(`LVGL ${version}: an arc and a spinner draw in their indicator colour`, () => {
+        const red = (project) => {
+          engine.load(project, project.screens[0].id);
+          assert.deepEqual(engine.errors, []);
+          const frame = engine.frame();
+          let count = 0;
+          for (let i = 0; i < frame.length; i += 4) if (frame[i] < 40 && frame[i + 1] < 40 && frame[i + 2] > 220) count++;
+          return count;
+        };
+        for (const [type, props] of [["arc", { min: 0, max: 100, value: 80 }], ["spinner", {}]]) {
+          const project = newProject("Colour");
+          project.lvgl = version;
+          const node = addNode(project, project.screens[0].id, createNode(project, type, { x: 20, y: 20, width: 150, height: 150, ...props }));
+          assert.equal(red(project), 0, `${type} is red by itself`);
+          node.props.indicatorColor = "#ff0000";
+          assert.ok(red(project) > 100, `${type} did not turn red`);
+        }
+      });
+    }
+    await test("An arc's indicator colour goes both ways through the code", () => {
+      const project = newProject("Colour");
+      project.lvgl = "9.6.0";
+      const arc = addNode(project, project.screens[0].id, createNode(project, "arc", { x: 20, y: 20, indicatorColor: "#112233" }));
+      const file = "src/ui/screens/ui_Screen1.c";
+      const text = generateCode(project, { imageData: false })[file];
+      assert.match(text, /lv_obj_set_style_arc_color\(ui_arc1, lv_color_hex\(0x112233\), LV_PART_INDICATOR\);/);
+      assert.match(text, /lv_obj_set_style_bg_color\(ui_arc1, lv_color_hex\(0x112233\), LV_PART_KNOB\);/);
+      assert.equal(applyCodeEdit(project, file, text).changed, false);
+      const edited = applyCodeEdit(project, file, text.replace("lv_color_hex(0x112233), LV_PART_INDICATOR", "lv_color_hex(0x445566), LV_PART_INDICATOR"));
+      assert.deepEqual(edited.errors, []);
+      assert.equal(findNode(edited.project, arc.id).props.indicatorColor, "#445566");
+      assert.match(generateCode(edited.project, { imageData: false })[file], /0x445566\), LV_PART_KNOB/, "the knob follows");
+    });
+    const linkedProject = (version) => {
+      const project = newProject("Links");
+      project.lvgl = version;
+      project.device = { w: 480, h: 320 };
+      const screen = project.screens[0];
+      const put = (type, props) => addNode(project, screen.id, createNode(project, type, props));
+      const slider = put("slider", { x: 20, y: 280, width: 400, height: 12, min: 0, max: 240, value: 0 });
+      const arc = put("arc", { x: 20, y: 20, width: 120, height: 120, min: 0, max: 100, value: 0 });
+      const bar = put("bar", { x: 160, y: 20, width: 200, height: 20, min: -50, max: 50, value: -50 });
+      const led = put("led", { x: 160, y: 60, width: 30, height: 30, ledBright: 0 });
+      const label = put("label", { x: 160, y: 100, text: "0" });
+      for (const target of [arc, bar, led]) slider.events.push({ trigger: "VALUE_CHANGED", action: "setValue", target: target.id, text: "" });
+      slider.events.push({ trigger: "VALUE_CHANGED", action: "showValue", target: label.id, text: "%d km/h" });
+      return { project, slider, arc, bar, led, label };
+    };
+    for (const [version, engine] of engines) {
+      await test(`LVGL ${version}: dragging a slider moves what it drives, each over its own range`, () => {
+        const { project, slider, arc, bar, label } = linkedProject(version);
+        engine.load(project, project.screens[0].id, { events: true });
+        assert.deepEqual(engine.errors, []);
+        const width = engine.coords(label.id).w;
+        const box = engine.coords(slider.id);
+        const y = box.y + 6;
+        const ticks = (count) => { for (let i = 0; i < count; i++) engine.tick(20); };
+        engine.pointer(box.x + 5, y, false);
+        ticks(3);
+        engine.pointer(box.x + 5, y, true);
+        ticks(3);
+        for (let x = box.x + 20; x <= box.x + 200; x += 20) {
+          engine.pointer(x, y, true);
+          ticks(2);
+        }
+        engine.pointer(box.x + 200, y, false);
+        ticks(5);
+        const value = engine.valueOf(slider.id);
+        assert.ok(value > 80 && value < 160, `slider ${value}`);
+        assert.equal(engine.valueOf(arc.id), Math.floor((value * 100) / 240), "the arc");
+        assert.ok(Math.abs(engine.valueOf(bar.id) - (-50 + (value * 100) / 240)) <= 1, `the bar: ${engine.valueOf(bar.id)}`);
+        assert.ok(engine.coords(label.id).w > width, "the text did not change");
+      });
+      await test(`LVGL ${version}: a value sweeps by itself when running, and holds still in the design`, () => {
+        const { project, slider, arc } = linkedProject(version);
+        slider.props.animate = 400;
+        engine.load(project, project.screens[0].id);
+        assert.deepEqual(engine.errors, []);
+        for (let i = 0; i < 10; i++) engine.tick(20);
+        assert.equal(engine.valueOf(slider.id), 0, "the design must hold still");
+        assert.deepEqual(engine.drainLog(), []);
+        engine.load(project, project.screens[0].id, { events: true });
+        assert.deepEqual(engine.errors, []);
+        for (let i = 0; i < 10; i++) engine.tick(20);
+        const rising = engine.valueOf(slider.id);
+        assert.ok(rising > 0, `it did not start: ${rising}`);
+        assert.ok(engine.valueOf(arc.id) > 0, "the slider's listeners did not hear it");
+        for (let i = 0; i < 12; i++) engine.tick(20);
+        const top = engine.valueOf(slider.id);
+        assert.ok(top > rising, `${rising} then ${top}`);
+        for (let i = 0; i < 20; i++) engine.tick(20);
+        assert.ok(engine.valueOf(slider.id) < top, "it did not come back");
+      });
+    }
+    await test("The code does what the surface does", () => {
+      const { project, slider } = linkedProject("9.6.0");
+      slider.props.animate = 1500;
+      const files = generateCode(project);
+      const events = files["src/ui/ui_events.c"];
+      assert.match(events, /lv_arc_set_value\(ui_arc1, lv_map\(lv_slider_get_value\(ui_slider1\), 0, 240, 0, 100\)\);/);
+      assert.match(events, /lv_bar_set_value\(ui_bar1, lv_map\(lv_slider_get_value\(ui_slider1\), 0, 240, -50, 50\), LV_ANIM_OFF\);/);
+      assert.match(events, /lv_led_set_brightness\(ui_led1, lv_map\(lv_slider_get_value\(ui_slider1\), 0, 240, 0, 255\)\);/);
+      assert.match(events, /lv_snprintf\(text, sizeof\(text\), "%d km\/h", lv_slider_get_value\(ui_slider1\)\);/);
+      assert.match(events, /lv_label_set_text\(ui_label1, text\);/);
+      assert.match(events, /void ui_slider1_set\(void \* obj, int32_t value\)/);
+      assert.match(events, /lv_anim_set_repeat_count\(&anim, LV_ANIM_REPEAT_INFINITE\);/);
+      assert.match(files["src/ui/screens/ui_Screen1.c"], /ui_animate_value\(ui_slider1, ui_slider1_set, 0, 240, 1500\);/);
+      assert.match(files["src/ui/ui.h"], /void ui_animate_value\(/);
+      const plain = linkedProject("9.6.0");
+      assert.doesNotMatch(generateCode(plain.project)["src/ui/ui_events.c"], /ui_animate_value/);
+    });
+    await test("The sweep can be changed in the code, and removed", () => {
+      const { project, slider } = linkedProject("9.6.0");
+      slider.props.animate = 1500;
+      const file = "src/ui/screens/ui_Screen1.c";
+      const text = generateCode(project, { imageData: false })[file];
+      assert.equal(applyCodeEdit(project, file, text).changed, false);
+      const faster = applyCodeEdit(project, file, text.replace("0, 240, 1500", "0, 240, 700"));
+      assert.deepEqual(faster.errors, []);
+      assert.equal(findNode(faster.project, slider.id).props.animate, 700);
+      const none = applyCodeEdit(project, file, text.replace("    ui_animate_value(ui_slider1, ui_slider1_set, 0, 240, 1500);\n", ""));
+      assert.deepEqual(none.errors, []);
+      assert.equal(findNode(none.project, slider.id).props.animate, undefined);
+    });
+    await test("A value action on a widget without a value is a problem", () => {
+      const project = newProject("Links");
+      const screen = project.screens[0];
+      const button = addNode(project, screen.id, createNode(project, "button", { x: 0, y: 0, width: 50, height: 30, text: "x" }));
+      const slider = addNode(project, screen.id, createNode(project, "slider", { x: 0, y: 60, width: 100, height: 10 }));
+      const label = addNode(project, screen.id, createNode(project, "label", { x: 0, y: 100, text: "x" }));
+      const codes = () => findProblems(project).filter((problem) => problem.code === "eventValue").length;
+      assert.equal(codes(), 0);
+      button.events.push({ trigger: "CLICKED", action: "setValue", target: slider.id, text: "" });
+      assert.equal(codes(), 1);
+      button.events = [];
+      slider.events.push({ trigger: "VALUE_CHANGED", action: "setValue", target: label.id, text: "" });
+      assert.equal(codes(), 1);
+      slider.events = [{ trigger: "VALUE_CHANGED", action: "showValue", target: label.id, text: "%d" }];
+      assert.equal(codes(), 0);
+    });
+
+    /* ------------------------------------------------------------ round screens */
+    category("Round screens");
+    await test("A round screen is square, stays on disk, and damage is refused", () => {
+      assert.deepEqual(normalDevice({ w: 300, h: 200, shape: "round" }), { w: 300, h: 300, shape: "round" });
+      assert.deepEqual(normalDevice({ w: 300, h: 200 }), { w: 300, h: 200 });
+      const project = newProject("Round");
+      project.device = { w: 360, h: 360, shape: "round" };
+      assert.deepEqual(parseProject(serializeProject(project)).device, project.device);
+      for (const device of [{ w: 360, h: 360, shape: "oval" }, { w: 360, h: 300, shape: "round" }]) {
+        assert.throws(() => parseProject(JSON.stringify({ ...project, device })), /device shape/, JSON.stringify(device));
+      }
+    });
+    await test("There are round sizes to choose, told apart from square ones", () => {
+      const round = DEVICES.filter((device) => device.shape === "round");
+      assert.ok(round.length >= 3);
+      for (const device of round) assert.equal(device.w, device.h);
+      assert.equal(sameDevice({ w: 240, h: 240 }, { w: 240, h: 240, shape: "round" }), false);
+      assert.equal(sameDevice({ w: 240, h: 240, shape: "round" }, { w: 240, h: 240, shape: "round" }), true);
+      for (const device of DEVICES) assert.notEqual(translator("ko")(`device.${device.id}`), `device.${device.id}`, device.id);
+    });
+    await test("Widgets reaching outside the circle are a problem; a ring that fits is not", () => {
+      const project = newProject("Round");
+      project.device = { w: 240, h: 240, shape: "round" };
+      const screen = project.screens[0];
+      const outside = () => findProblems(project).filter((problem) => problem.code === "roundOutside").length;
+      const corner = addNode(project, screen.id, createNode(project, "button", { x: 0, y: 0, width: 60, height: 40, text: "x" }));
+      assert.equal(outside(), 1);
+      corner.props.x = 90;
+      corner.props.y = 100;
+      assert.equal(outside(), 0);
+      addNode(project, screen.id, createNode(project, "arc", { align: "CENTER", width: 220, height: 220 }));
+      assert.equal(outside(), 0);
+      delete project.device.shape;
+      corner.props.x = 0;
+      corner.props.y = 0;
+      assert.equal(outside(), 0, "not on a rectangular screen");
+    });
+    await test("The simulator window masks what lies outside the circle", () => {
+      const project = newProject("Round");
+      assert.doesNotMatch(generateCode(project)["src/main.c"], /SDL_RenderDrawLine/);
+      project.device = { w: 240, h: 240, shape: "round" };
+      assert.match(generateCode(project)["src/main.c"], /SDL_RenderDrawLine/);
+    });
+    await test("The round samples use the round screen", () => {
+      assert.equal(sampleIndex.find((sample) => sample.id === "RoundGauge").device.shape, "round");
+      assert.equal(sampleIndex.find((sample) => sample.id === "SmartWatch").device.shape, "round");
+    });
+
+    /* ------------------------------------------------------ the project file */
+    category("Project file registration");
+    const bundleConfig = JSON.parse(fs.readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
+    const hooks = fs.readFileSync(new URL("../src-tauri/windows/hooks.nsh", import.meta.url), "utf8");
+    await test("The installer registers .mylvgl under the ProgID its hook uses", () => {
+      const [association] = bundleConfig.bundle.fileAssociations;
+      assert.deepEqual(association.ext, ["mylvgl"]);
+      assert.equal(association.mimeType, "application/vnd.mylvgl+json");
+      assert.match(association.name, /^[A-Za-z][A-Za-z0-9.]*$/, "a ProgID has no spaces");
+      assert.ok(hooks.includes(`!define MLS_PROGID "${association.name}"`));
+      assert.ok(hooks.includes(`"Content Type" "${association.mimeType}"`));
+      assert.equal(bundleConfig.bundle.windows.nsis.installerHooks, "windows/hooks.nsh");
+    });
+    await test("A project file has an icon of its own, in every size Windows asks for", () => {
+      assert.equal(bundleConfig.bundle.resources["../assets/file-icon.ico"], "file-icon.ico");
+      assert.ok(hooks.includes('DefaultIcon" "" "$INSTDIR\\file-icon.ico,0"'));
+      const icon = fs.readFileSync(new URL("../assets/file-icon.ico", import.meta.url));
+      assert.deepEqual([icon.readUInt16LE(0), icon.readUInt16LE(2)], [0, 1]);
+      const sizes = Array.from({ length: icon.readUInt16LE(4) }, (_, index) => icon[6 + index * 16] || 256);
+      assert.deepEqual(sizes, [16, 24, 32, 48, 64, 128, 256]);
+      assert.notDeepEqual(icon, fs.readFileSync(new URL("../assets/icon.ico", import.meta.url)), "the same as the program's");
+    });
+    await test("Linux learns the file type from the package", () => {
+      const { deb } = bundleConfig.bundle.linux;
+      const xml = fs.readFileSync(new URL(`../src-tauri/${deb.files["/usr/share/mime/packages/mylvgl.xml"]}`, import.meta.url), "utf8");
+      assert.match(xml, /glob pattern="\*\.mylvgl"/);
+      assert.match(xml, /type="application\/vnd\.mylvgl\+json"/);
+      assert.ok(deb.files["/usr/share/icons/hicolor/256x256/mimetypes/application-vnd.mylvgl+json.png"]);
+      assert.match(fs.readFileSync(new URL(`../src-tauri/${deb.postInstallScript}`, import.meta.url), "utf8"), /update-mime-database/);
+    });
+
+    /* -------------------------------------------------------- LVGL settings */
+    category("LVGL settings (lv_conf.h)");
+    const confModels = Object.fromEntries(Object.entries(CONF_TEMPLATES).map(([version, text]) => [version, parseConfTemplate(text)]));
+    await test("The bundled templates are the files in third_party", async () => {
+      const { confTemplatesSource } = await import("../scripts/generate-conf-templates.mjs");
+      assert.equal(fs.readFileSync(new URL("../src/lvgl/confTemplates.js", import.meta.url), "utf8").replace(/\r\n/g, "\n"), confTemplatesSource());
+    });
+    await test("Each bundled engine version has its template", () => {
+      for (const [version] of engines) assert.ok(confModels[version], version);
+    });
+    await test("Every define of a template becomes an option, or is a known exception", () => {
+      for (const [version, text] of Object.entries(CONF_TEMPLATES)) {
+        const model = confModels[version];
+        const defined = [...text.matchAll(/^\s*#\s*define\s+(LV_\w+)(?!\()\b/gm)].map((match) => match[1]).filter((name) => name !== "LV_CONF_H");
+        const missing = [...new Set(defined)].filter((name) => !model.options.has(name) && !new RegExp(`define\\s+${name}\\(`).test(text));
+        assert.deepEqual(missing, [], version);
+        assert.ok(model.options.size >= 200, `${version}: ${model.options.size}`);
+      }
+    });
+    await test("Versions get different windows: their own options and sections", () => {
+      const has = (version, name) => confModels[version].options.has(name);
+      assert.ok(has("8.4.0", "LV_USE_BTN") && !has("8.4.0", "LV_USE_BUTTON"));
+      assert.ok(has("9.2.2", "LV_USE_BUTTON") && !has("9.2.2", "LV_USE_BTN"));
+      assert.ok(has("8.4.0", "LV_COLOR_16_SWAP") && !has("9.6.0", "LV_COLOR_16_SWAP"));
+      assert.ok(has("9.6.0", "LV_USE_ARCLABEL") && !has("9.2.2", "LV_USE_ARCLABEL"));
+      assert.ok(confModels["9.6.0"].options.size > confModels["9.2.2"].options.size);
+      assert.ok(confModels["9.2.2"].options.size > confModels["8.4.0"].options.size);
+      assert.notDeepEqual(confModels["8.4.0"].sections.map((item) => item.title), confModels["9.6.0"].sections.map((item) => item.title));
+      for (const model of Object.values(confModels)) assert.ok(model.sections.length >= 6, String(model.sections.length));
+    });
+    await test("Options get a fitting control", () => {
+      for (const [version, model] of Object.entries(confModels)) {
+        const of = (name) => model.options.get(name);
+        assert.equal(of("LV_USE_LOG").kind, "bool", version);
+        assert.equal(of("LV_FONT_MONTSERRAT_14").kind, "bool", version);
+        if (version === "9.6.0") {
+          assert.equal(of("LV_COLOR_DEPTH"), undefined, "9.6 replaced it");
+          assert.equal(of("LV_COLOR_FORMAT_DEFAULT").kind, "enum");
+          assert.ok(of("LV_COLOR_FORMAT_DEFAULT").choices.includes("LV_COLOR_FORMAT_RGB565"));
+        } else {
+          assert.equal(of("LV_COLOR_DEPTH").kind, "enum", version);
+          assert.ok(of("LV_COLOR_DEPTH").choices.includes("16") && of("LV_COLOR_DEPTH").choices.includes("32"), version);
+        }
+        assert.equal(of("LV_LOG_LEVEL").kind, "enum", version);
+        assert.ok(of("LV_LOG_LEVEL").choices.includes("LV_LOG_LEVEL_WARN"), version);
+        assert.equal(of("LV_FONT_DEFAULT").kind, "enum", version);
+        assert.ok(of("LV_FONT_DEFAULT").choices.includes(version === "9.6.0" ? "LV_FONT_DEFAULT_MONTSERRAT_24" : "&lv_font_montserrat_24"), version);
+        for (const name of ["LV_USE_FLEX", "LV_USE_GRID"]) assert.equal(of(name).kind, "bool", name);
+        assert.ok(of("LV_USE_LOG").description.length > 3, version);
+      }
+      assert.equal(confModels["9.6.0"].options.get("LV_USE_STDLIB_MALLOC").kind, "enum");
+      assert.equal(confModels["9.6.0"].options.get("LV_MEM_SIZE").kind, "int");
+      assert.equal(confModels["8.4.0"].options.get("LV_MEM_SIZE").kind, "text");
+      assert.equal(confModels["8.4.0"].options.get("LV_MEM_ADR").kind, "int");
+      assert.equal(confModels["8.4.0"].options.get("LV_COLOR_CHROMA_KEY").kind, "color");
+    });
+    await test("Conditions are read as the preprocessor reads them", () => {
+      const values = { A: "1", B: "0", KIND: "LV_STDLIB_CLIB", N: "16" };
+      const look = (name) => values[name];
+      for (const [condition, wanted] of [["A", true], ["B", false], ["!B", true], ["!A", false], ["A && B", false], ["A || B", true], ["KIND == LV_STDLIB_CLIB", true], ["KIND == LV_STDLIB_BUILTIN", false], ["KIND != LV_STDLIB_BUILTIN", true], ["N == 16", true], ["N > 8", true], ["N < 8", false], ["(A || B) && !B", true], ["defined(A)", true], ["defined(NOPE)", false], ["NOPE", false], ["!(A) && (B)", false]]) {
+        assert.equal(evaluateCondition(condition, look), wanted, condition);
+      }
+    });
+    await test("An option under an #if is off until its parent is on", () => {
+      const model = confModels["9.6.0"];
+      assert.equal(confActive(model, undefined, "LV_LOG_LEVEL"), false);
+      assert.equal(confActive(model, { LV_USE_LOG: "1" }, "LV_LOG_LEVEL"), true);
+      assert.equal(confActive(model, undefined, "LV_USE_LOG"), true);
+      assert.equal(confActive(model, undefined, "LV_MEM_SIZE"), false, "the shared file uses the C library's malloc");
+      assert.equal(confActive(model, { LV_USE_STDLIB_MALLOC: "LV_STDLIB_BUILTIN" }, "LV_MEM_SIZE"), true);
+    });
+    await test("Values come from the project, the shared file, then the template", () => {
+      const model = confModels["9.6.0"];
+      const old = confModels["9.2.2"];
+      assert.equal(confValue(old, undefined, "LV_COLOR_DEPTH"), "32", "the shared file says 32; the template says 16");
+      assert.equal(confValue(old, { LV_COLOR_DEPTH: "16" }, "LV_COLOR_DEPTH"), "16");
+      assert.equal(confValue(model, undefined, "LV_COLOR_FORMAT_DEFAULT"), "LV_COLOR_FORMAT_XRGB8888", "9.6 derives it from the shared file's depth");
+      assert.equal(confValue(model, { LV_COLOR_DEPTH: "16" }, "LV_COLOR_FORMAT_DEFAULT"), "LV_COLOR_FORMAT_RGB565");
+      assert.equal(confValue(model, undefined, "LV_USE_FLEX"), "1");
+      assert.equal(confDefault(old, { LV_COLOR_DEPTH: "16" }, "LV_COLOR_DEPTH"), "32");
+    });
+    await test("Only what differs is stored, and setting it back removes it", () => {
+      const model = confModels["9.2.2"];
+      const project = newProject("Conf");
+      setConfValue(project, model, "LV_COLOR_DEPTH", "32");
+      assert.equal(project.lvConf, undefined);
+      setConfValue(project, model, "LV_COLOR_DEPTH", "16");
+      assert.deepEqual(project.lvConf, { LV_COLOR_DEPTH: "16" });
+      setConfValue(project, model, "LV_USE_LOG", "1");
+      setConfValue(project, model, "LV_COLOR_DEPTH", undefined);
+      assert.deepEqual(project.lvConf, { LV_USE_LOG: "1" });
+      setConfValue(project, model, "LV_USE_LOG", "0");
+      assert.equal(project.lvConf, undefined);
+    });
+    await test("The generated lv_conf.h carries the settings", () => {
+      const project = newProject("Conf");
+      const plain = generateCode(project)["config/lv_conf.h"];
+      assert.equal(generateLvConf(project), plain);
+      project.lvConf = { LV_COLOR_DEPTH: "16", LV_USE_LOG: "1", LV_LOG_LEVEL: "LV_LOG_LEVEL_WARN", LV_FONT_MONTSERRAT_48: "0" };
+      const defines = readDefines(generateCode(project)["config/lv_conf.h"]);
+      assert.equal(defines.get("LV_COLOR_DEPTH"), "16");
+      assert.equal(defines.get("LV_USE_LOG"), "1");
+      assert.equal(defines.get("LV_LOG_LEVEL"), "LV_LOG_LEVEL_WARN");
+      assert.equal(defines.get("LV_FONT_MONTSERRAT_48"), "0");
+      const text = generateCode(project)["config/lv_conf.h"];
+      assert.equal(text.match(/define LV_COLOR_DEPTH/g).length, 1, "defined twice");
+      assert.ok(text.indexOf("LV_LOG_LEVEL") < text.lastIndexOf("#endif"), "after the guard");
+      assert.deepEqual(overridesFromText(text), project.lvConf);
+    });
+    await test("A 9.6 colour format takes the place of the shared file's depth", () => {
+      const project = newProject("Conf");
+      project.lvConf = { LV_COLOR_FORMAT_DEFAULT: "LV_COLOR_FORMAT_RGB565" };
+      const defines = readDefines(generateLvConf(project));
+      assert.equal(defines.has("LV_COLOR_DEPTH"), false, "9.6 would keep it and disagree with the format");
+      assert.equal(defines.get("LV_COLOR_FORMAT_DEFAULT"), "LV_COLOR_FORMAT_RGB565");
+    });
+    await test("Editing lv_conf.h in the code view changes the settings, and the other way round", () => {
+      const project = newProject("Conf");
+      const text = everyFile(project)["config/lv_conf.h"].replace("#define LV_COLOR_DEPTH 32", "#define LV_COLOR_DEPTH 16").replace("#endif", "#define LV_USE_LOG 1\n\n#endif");
+      const result = applyCodeEdit(project, "config/lv_conf.h", text);
+      assert.deepEqual(result.errors, []);
+      assert.deepEqual(result.project.lvConf, { LV_COLOR_DEPTH: "16", LV_USE_LOG: "1" });
+      const back = applyCodeEdit(result.project, "config/lv_conf.h", everyFile(project)["config/lv_conf.h"]);
+      assert.equal(back.project.lvConf, undefined);
+      const same = applyCodeEdit(result.project, "config/lv_conf.h", everyFile(result.project)["config/lv_conf.h"]);
+      assert.equal(same.changed, false);
+    });
+    await test("A project keeps its settings on disk, and a damaged entry is refused", () => {
+      const project = newProject("Conf");
+      project.lvConf = { LV_USE_LOG: "1" };
+      assert.deepEqual(parseProject(serializeProject(project)).lvConf, { LV_USE_LOG: "1" });
+      for (const lvConf of [[], { "BAD NAME": "1" }, { LV_X: "1\n#define Y" }, { LV_X: 5 }, { LV_CONF_H: "1" }]) {
+        assert.throws(() => parseProject(JSON.stringify({ ...project, lvConf })), /lvConf/, JSON.stringify(lvConf));
+      }
+    });
+    await test("Settings another version does not have are found", () => {
+      assert.deepEqual(unknownOverrides(confModels["9.6.0"], { LV_USE_BTN: "0", LV_USE_LOG: "1" }), ["LV_USE_BTN"]);
+      assert.deepEqual(unknownOverrides(confModels["8.4.0"], { LV_USE_BTN: "0", LV_USE_LOG: "1" }), []);
+    });
+    await test("What the design needs but the settings turned off is a problem", () => {
+      const project = newProject("Conf");
+      const screen = project.screens[0];
+      addNode(project, screen.id, createNode(project, "button", { font: 24, text: "x", flexFlow: "ROW" }));
+      addNode(project, screen.id, createNode(project, "grid", {}));
+      const codes = (lvConf) => {
+        project.lvConf = lvConf;
+        return findProblems(project).filter((problem) => problem.code.startsWith("conf")).map((problem) => `${problem.severity}:${problem.code}:${problem.params.option ?? problem.params.depth}`).sort();
+      };
+      assert.deepEqual(codes({}), []);
+      assert.deepEqual(codes({ LV_USE_BUTTON: "0" }), ["error:confWidget:LV_USE_BUTTON"]);
+      assert.deepEqual(codes({ LV_FONT_MONTSERRAT_24: "0" }), ["error:confFont:LV_FONT_MONTSERRAT_24"]);
+      assert.deepEqual(codes({ LV_USE_FLEX: "0" }), ["error:confLayout:LV_USE_FLEX"]);
+      assert.deepEqual(codes({ LV_USE_GRID: "0" }), ["error:confLayout:LV_USE_GRID"]);
+      assert.deepEqual(codes({ LV_USE_THEME_DEFAULT: "0" }), ["error:confTheme:LV_USE_THEME_DEFAULT"]);
+      assert.deepEqual(codes({ LV_COLOR_DEPTH: "8" }), ["warning:confDepth:8"]);
+      assert.deepEqual(codes({ LV_COLOR_DEPTH: "16" }), []);
+      assert.deepEqual(codes({ LV_FONT_MONTSERRAT_14: "0" }), ["error:confFontDefault:LV_FONT_MONTSERRAT_14"]);
+      const say = translator("ko");
+      for (const code of ["confTheme", "confDepth", "confSwap", "confFontDefault", "confWidget", "confFont", "confLayout"]) assert.notEqual(say(`problem.${code}`), `problem.${code}`, code);
     });
 
     /* -------------------------------------------------------- widget tables */

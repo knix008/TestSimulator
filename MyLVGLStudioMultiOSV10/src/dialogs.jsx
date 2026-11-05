@@ -4,7 +4,7 @@ import { Icon } from "./icons.jsx";
 import { ColorField, IconSelect, Stepper, Toggle } from "./controls.jsx";
 import { host, isDesktop } from "./host.js";
 import { BUNDLED_ENGINES, DEFAULT_VERSION, KNOWN_VERSIONS, engineFor, sortReleases } from "./lvgl/versions.js";
-import { DEVICES } from "./lvgl/schema.js";
+import { DEVICES, normalDevice, sameDevice } from "./lvgl/schema.js";
 import { joinPath, removeImageFromProject, validProjectName } from "./lvgl/project.js";
 
 export function Dialog({ title, icon, onClose, children, footer, width = 460, id }) {
@@ -136,11 +136,12 @@ export function versionChoices(t, installed, current) {
   });
 }
 
-export function ProjectSettings({ t, store, onClose, onManager, onVersion, installed }) {
+export function ProjectSettings({ t, store, onClose, onManager, onVersion, onConf, onFonts, installed }) {
   const project = store.project;
   const edit = (change, coalesce) => store.update(change, { coalesce: coalesce ? `settings:${coalesce}` : null });
   const engine = engineFor(project.lvgl);
-  const deviceValue = DEVICES.find((device) => device.w === project.device.w && device.h === project.device.h)?.id ?? "custom";
+  const deviceValue = DEVICES.find((device) => sameDevice(device, project.device))?.id ?? "custom";
+  const round = project.device.shape === "round";
   const deviceOptions = useMemo(() => [
     ...DEVICES.map((device) => ({ value: device.id, label: t(`device.${device.id}`), icon: "device" })),
     { value: "custom", label: t("device.custom"), icon: "device" },
@@ -155,6 +156,10 @@ export function ProjectSettings({ t, store, onClose, onManager, onVersion, insta
           <IconSelect id="lvglVersion" value={project.lvgl} options={versionChoices(t, installed, project.lvgl)} onChange={onVersion} />
           <button type="button" data-command="open-manager" onClick={onManager}><Icon name="manager" /> {t("settings.manage")}</button>
         </div>
+        <span>{t("font.short")}</span>
+        <button type="button" data-command="open-fonts" onClick={onFonts}><Icon name="fontFile" /> {t("cmd.fonts")}</button>
+        <span>{t("conf.short")}</span>
+        <button type="button" data-command="open-lvconf" onClick={onConf}><Icon name="conf" /> {t("cmd.lvConf")}</button>
         {!engine.exact && <p className="form-note" data-note="engine">{t("settings.engineNote", { engine: engine.engine, version: project.lvgl })}</p>}
         <span>{t("settings.device")}</span>
         <IconSelect
@@ -163,13 +168,18 @@ export function ProjectSettings({ t, store, onClose, onManager, onVersion, insta
           options={deviceOptions}
           onChange={(id) => {
             const device = DEVICES.find((item) => item.id === id);
-            if (device) edit((draft) => { draft.device = { w: device.w, h: device.h }; });
+            if (device) edit((draft) => { draft.device = normalDevice(device); });
           }}
         />
         <span>{t("settings.width")}</span>
-        <Stepper id="deviceW" unit="px" value={project.device.w} min={32} max={4096} onChange={(w) => edit((draft) => { draft.device.w = w; }, "w")} />
+        <Stepper id="deviceW" unit="px" value={project.device.w} min={32} max={4096} onChange={(w) => edit((draft) => { draft.device = normalDevice({ ...draft.device, w }); }, "w")} />
         <span>{t("settings.height")}</span>
-        <Stepper id="deviceH" unit="px" value={project.device.h} min={32} max={4096} onChange={(h) => edit((draft) => { draft.device.h = h; }, "h")} />
+        <Stepper id="deviceH" unit="px" value={project.device.h} min={32} max={4096} onChange={(h) => edit((draft) => { draft.device = normalDevice(round ? { ...draft.device, w: h } : { ...draft.device, h }); }, "h")} />
+        <span>{t("device.roundToggle")}</span>
+        <Toggle id="deviceRound" checked={round} onChange={(on) => edit((draft) => {
+          const side = Math.min(draft.device.w, draft.device.h);
+          draft.device = on ? normalDevice({ w: side, h: side, shape: "round" }) : { w: draft.device.w, h: draft.device.h };
+        })} />
         <span>{t("image.title")}</span>
         <div className="image-list" data-images="">
           {(project.images ?? []).length === 0 && <span className="start-empty">{t("image.empty")}</span>}
@@ -202,6 +212,7 @@ export function NewProjectDialog({ t, saveOnly, initialName, initialLocation, in
   const [location, setLocation] = useState(initialLocation);
   const [version, setVersion] = useState(initialVersion ?? DEFAULT_VERSION);
   const [deviceId, setDeviceId] = useState(initialDevice ?? DEVICES[0].id);
+  const [customSize, setCustomSize] = useState({ w: 320, h: 240 });
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const nameOk = validProjectName(name);
@@ -216,8 +227,8 @@ export function NewProjectDialog({ t, saveOnly, initialName, initialLocation, in
     setBusy(true);
     setError(null);
     try {
-      const device = DEVICES.find((item) => item.id === deviceId);
-      await onCreate({ name, folder, location: location.trim(), version, device: { w: device.w, h: device.h } });
+      const device = DEVICES.find((item) => item.id === deviceId) ?? customSize;
+      await onCreate({ name, folder, location: location.trim(), version, device: normalDevice(device) });
     } catch (failure) {
       setError(String(failure?.message ?? failure));
       setBusy(false);
@@ -253,7 +264,15 @@ export function NewProjectDialog({ t, saveOnly, initialName, initialLocation, in
             <span>{t("settings.version")}</span>
             <IconSelect id="newVersion" value={version} options={versionChoices(t, installed, version)} onChange={setVersion} />
             <span>{t("settings.device")}</span>
-            <IconSelect id="newDevice" value={deviceId} options={DEVICES.map((device) => ({ value: device.id, label: t(`device.${device.id}`), icon: "device" }))} onChange={setDeviceId} />
+            <IconSelect id="newDevice" value={deviceId} options={[...DEVICES.map((device) => ({ value: device.id, label: t(`device.${device.id}`), icon: "device" })), { value: "custom", label: t("device.custom"), icon: "device" }]} onChange={setDeviceId} />
+            {deviceId === "custom" && (
+              <>
+                <span>{t("settings.width")}</span>
+                <Stepper id="newDeviceW" unit="px" value={customSize.w} min={32} max={4096} onChange={(w) => setCustomSize((size) => ({ ...size, w }))} />
+                <span>{t("settings.height")}</span>
+                <Stepper id="newDeviceH" unit="px" value={customSize.h} min={32} max={4096} onChange={(h) => setCustomSize((size) => ({ ...size, h }))} />
+              </>
+            )}
           </>
         )}
         {error && <p className="form-note" data-note="project-error">{error}</p>}

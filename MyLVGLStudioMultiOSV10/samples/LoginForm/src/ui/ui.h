@@ -19,6 +19,10 @@ extern lv_obj_t * ui_label1;
 extern lv_obj_t * ui_user;
 extern lv_obj_t * ui_textarea1;
 extern lv_obj_t * ui_keyboard1;
+extern lv_obj_t * ui_spinner1;
+extern lv_obj_t * ui_slider1;
+extern lv_obj_t * ui_bar1;
+extern lv_obj_t * ui_label2;
 
 #ifdef __cplusplus
 }

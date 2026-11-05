@@ -9,7 +9,9 @@ lv_obj_t * ui_chart1;
 lv_obj_t * ui_chart2;
 lv_obj_t * ui_table1;
 lv_obj_t * ui_bar1;
+lv_obj_t * ui_slider1;
 lv_obj_t * ui_arc1;
+lv_obj_t * ui_label2;
 
 void ui_init(void)
 {
@@ -18,6 +20,9 @@ void ui_init(void)
     lv_display_set_theme(display, theme);
 
     ui_Dashboard_create();
+
+    lv_obj_add_event_cb(ui_slider1, ui_event_0, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_arc1, ui_event_1, LV_EVENT_VALUE_CHANGED, NULL);
 
     lv_screen_load(ui_Dashboard);
 }

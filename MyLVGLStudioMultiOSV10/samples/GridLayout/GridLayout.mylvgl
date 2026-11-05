@@ -13,7 +13,7 @@
     "primary": "#2196f3",
     "secondary": "#f44336"
   },
-  "nextId": 20,
+  "nextId": 21,
   "screens": [
     {
       "id": "n1",
@@ -30,7 +30,7 @@
             "width": "100%",
             "height": "100%",
             "gridColumns": "1fr,1fr,1fr,1fr",
-            "gridRows": "2fr,1fr,1fr,1fr,1fr",
+            "gridRows": "2fr,1fr,1fr,1fr,1fr,1fr",
             "x": 0,
             "y": 0,
             "pad": 6,
@@ -65,7 +65,14 @@
                 "gridCol": 0,
                 "gridRow": 1
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "7"
+                }
+              ],
               "children": []
             },
             {
@@ -79,7 +86,14 @@
                 "gridCol": 1,
                 "gridRow": 1
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "8"
+                }
+              ],
               "children": []
             },
             {
@@ -93,7 +107,14 @@
                 "gridCol": 2,
                 "gridRow": 1
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "9"
+                }
+              ],
               "children": []
             },
             {
@@ -107,7 +128,14 @@
                 "gridCol": 3,
                 "gridRow": 1
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "/"
+                }
+              ],
               "children": []
             },
             {
@@ -121,7 +149,14 @@
                 "gridCol": 0,
                 "gridRow": 2
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "4"
+                }
+              ],
               "children": []
             },
             {
@@ -135,7 +170,14 @@
                 "gridCol": 1,
                 "gridRow": 2
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "5"
+                }
+              ],
               "children": []
             },
             {
@@ -149,7 +191,14 @@
                 "gridCol": 2,
                 "gridRow": 2
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "6"
+                }
+              ],
               "children": []
             },
             {
@@ -163,7 +212,14 @@
                 "gridCol": 3,
                 "gridRow": 2
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "x"
+                }
+              ],
               "children": []
             },
             {
@@ -177,7 +233,14 @@
                 "gridCol": 0,
                 "gridRow": 3
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "1"
+                }
+              ],
               "children": []
             },
             {
@@ -191,7 +254,14 @@
                 "gridCol": 1,
                 "gridRow": 3
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "2"
+                }
+              ],
               "children": []
             },
             {
@@ -205,7 +275,14 @@
                 "gridCol": 2,
                 "gridRow": 3
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "3"
+                }
+              ],
               "children": []
             },
             {
@@ -219,7 +296,14 @@
                 "gridCol": 3,
                 "gridRow": 3
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "-"
+                }
+              ],
               "children": []
             },
             {
@@ -233,7 +317,14 @@
                 "gridCol": 0,
                 "gridRow": 4
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "0"
+                }
+              ],
               "children": []
             },
             {
@@ -247,7 +338,14 @@
                 "gridCol": 1,
                 "gridRow": 4
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "."
+                }
+              ],
               "children": []
             },
             {
@@ -261,7 +359,14 @@
                 "gridCol": 2,
                 "gridRow": 4
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "="
+                }
+              ],
               "children": []
             },
             {
@@ -275,7 +380,38 @@
                 "gridCol": 3,
                 "gridRow": 4
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n3",
+                  "text": "+"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n20",
+              "type": "slider",
+              "name": "slider1",
+              "props": {
+                "width": 180,
+                "height": 10,
+                "min": 0,
+                "max": 100,
+                "value": 0,
+                "gridCol": 0,
+                "gridRow": 5,
+                "gridColSpan": 4
+              },
+              "events": [
+                {
+                  "trigger": "VALUE_CHANGED",
+                  "action": "showValue",
+                  "target": "n3",
+                  "text": "%d"
+                }
+              ],
               "children": []
             }
           ]

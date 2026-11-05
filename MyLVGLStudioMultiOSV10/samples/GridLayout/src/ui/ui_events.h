@@ -4,4 +4,22 @@
 
 #include "lvgl.h"
 
+void ui_event_0(lv_event_t * e);
+void ui_event_1(lv_event_t * e);
+void ui_event_2(lv_event_t * e);
+void ui_event_3(lv_event_t * e);
+void ui_event_4(lv_event_t * e);
+void ui_event_5(lv_event_t * e);
+void ui_event_6(lv_event_t * e);
+void ui_event_7(lv_event_t * e);
+void ui_event_8(lv_event_t * e);
+void ui_event_9(lv_event_t * e);
+void ui_event_10(lv_event_t * e);
+void ui_event_11(lv_event_t * e);
+void ui_event_12(lv_event_t * e);
+void ui_event_13(lv_event_t * e);
+void ui_event_14(lv_event_t * e);
+void ui_event_15(lv_event_t * e);
+void ui_event_16(lv_event_t * e);
+
 #endif

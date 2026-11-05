@@ -13,7 +13,7 @@
     "primary": "#2196f3",
     "secondary": "#f44336"
   },
-  "nextId": 6,
+  "nextId": 8,
   "screens": [
     {
       "id": "n1",
@@ -79,6 +79,45 @@
             "y": 270
           },
           "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "bar",
+          "name": "bar1",
+          "props": {
+            "width": 384,
+            "height": 10,
+            "min": 0,
+            "max": 100,
+            "value": 30,
+            "x": 400,
+            "y": 238
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 384,
+            "height": 10,
+            "min": 0,
+            "max": 100,
+            "value": 30,
+            "x": 400,
+            "y": 254
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n6",
+              "text": ""
+            }
+          ],
           "children": []
         }
       ]

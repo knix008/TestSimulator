@@ -403,7 +403,7 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
   const themeName = (item) => (en ? item.nameEn : item.nameKo);
   const themeTile = (item, label = themeName(item)) => (
     <button type="button" role="radio" key={item.id} aria-checked={themeId === item.id} className={themeId === item.id ? "bg-tile st-theme-tile on" : "bg-tile st-theme-tile"} data-start-theme={item.id} title={label} onClick={() => onTheme(item.id)}>
-      <span className="st-theme-chip" aria-hidden="true" style={{ background: item.swatch[0], borderColor: item.swatch[2] }}>
+      <span className="st-theme-chip" aria-hidden="true" style={{ background: item.swatch[0], borderColor: item.vars["--accent-line"] }}>
         <i style={{ background: item.swatch[1] }} />
         <i style={{ background: item.swatch[2] }} />
       </span>

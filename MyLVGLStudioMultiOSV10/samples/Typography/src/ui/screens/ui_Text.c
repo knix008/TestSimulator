@@ -26,6 +26,11 @@ void ui_Text_create(void)
     lv_obj_set_y(ui_line1, 70);
     lv_obj_set_style_line_width(ui_line1, 4, 0);
     lv_obj_set_style_line_color(ui_line1, lv_color_hex(0xe53935), 0);
+    ui_spinner1 = lv_spinner_create(ui_Text);
+    lv_obj_set_width(ui_spinner1, 50);
+    lv_obj_set_height(ui_spinner1, 50);
+    lv_obj_set_x(ui_spinner1, 410);
+    lv_obj_set_y(ui_spinner1, 110);
     ui_container1 = lv_obj_create(ui_Text);
     lv_obj_set_flex_flow(ui_container1, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_width(ui_container1, 448);
@@ -43,4 +48,11 @@ void ui_Text_create(void)
     ui_label3 = lv_label_create(ui_container1);
     lv_label_set_text(ui_label3, "Montserrat 24");
     lv_obj_set_style_text_font(ui_label3, &lv_font_montserrat_24, 0);
+    ui_slider1 = lv_slider_create(ui_Text);
+    lv_slider_set_range(ui_slider1, 0, 100);
+    lv_obj_set_width(ui_slider1, 220);
+    lv_obj_set_height(ui_slider1, 12);
+    lv_obj_set_x(ui_slider1, 176);
+    lv_obj_set_y(ui_slider1, 150);
+    lv_slider_set_value(ui_slider1, 40, LV_ANIM_OFF);
 }

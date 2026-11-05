@@ -8,6 +8,10 @@ lv_obj_t * ui_label1;
 lv_obj_t * ui_user;
 lv_obj_t * ui_textarea1;
 lv_obj_t * ui_keyboard1;
+lv_obj_t * ui_spinner1;
+lv_obj_t * ui_slider1;
+lv_obj_t * ui_bar1;
+lv_obj_t * ui_label2;
 
 void ui_init(void)
 {
@@ -18,6 +22,9 @@ void ui_init(void)
     ui_Login_create();
 
     lv_keyboard_set_textarea(ui_keyboard1, ui_user);
+
+    lv_obj_add_event_cb(ui_slider1, ui_event_0, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_slider1, ui_event_1, LV_EVENT_VALUE_CHANGED, NULL);
 
     lv_screen_load(ui_Login);
 }

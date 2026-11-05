@@ -21,6 +21,9 @@ extern lv_obj_t * ui_scale2;
 extern lv_obj_t * ui_barcode1;
 extern lv_obj_t * ui_qrcode1;
 extern lv_obj_t * ui_arclabel1;
+extern lv_obj_t * ui_spinner1;
+extern lv_obj_t * ui_bar1;
+extern lv_obj_t * ui_slider1;
 
 #ifdef __cplusplus
 }

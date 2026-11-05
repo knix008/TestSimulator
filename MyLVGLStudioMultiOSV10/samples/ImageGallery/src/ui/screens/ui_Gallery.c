@@ -49,4 +49,15 @@ void ui_Gallery_create(void)
     lv_label_set_text(ui_label2, "Animation Image repeats these three pictures.");
     lv_obj_set_x(ui_label2, 16);
     lv_obj_set_y(ui_label2, 230);
+    ui_slider1 = lv_slider_create(ui_Gallery);
+    lv_slider_set_range(ui_slider1, 0, 359);
+    lv_obj_set_width(ui_slider1, 300);
+    lv_obj_set_height(ui_slider1, 12);
+    lv_obj_set_x(ui_slider1, 16);
+    lv_obj_set_y(ui_slider1, 280);
+    lv_slider_set_value(ui_slider1, 30, LV_ANIM_OFF);
+    ui_label3 = lv_label_create(ui_Gallery);
+    lv_label_set_text(ui_label3, "30 deg");
+    lv_obj_set_x(ui_label3, 336);
+    lv_obj_set_y(ui_label3, 276);
 }

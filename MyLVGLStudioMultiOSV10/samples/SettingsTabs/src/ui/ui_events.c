@@ -2,3 +2,9 @@
 #include "ui.h"
 #include "ui_events.h"
 #include <stdio.h>
+
+void ui_event_0(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_spinbox_set_value(ui_spinbox1, lv_map(lv_slider_get_value(ui_slider1), 0, 9999, 0, 9999));
+}

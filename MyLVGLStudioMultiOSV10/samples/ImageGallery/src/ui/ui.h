@@ -27,6 +27,8 @@ extern lv_obj_t * ui_image3;
 extern lv_obj_t * ui_imagebutton1;
 extern lv_obj_t * ui_animimage1;
 extern lv_obj_t * ui_label2;
+extern lv_obj_t * ui_slider1;
+extern lv_obj_t * ui_label3;
 
 #ifdef __cplusplus
 }

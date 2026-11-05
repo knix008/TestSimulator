@@ -13,7 +13,7 @@
     "primary": "#2196f3",
     "secondary": "#f44336"
   },
-  "nextId": 9,
+  "nextId": 11,
   "screens": [
     {
       "id": "n1",
@@ -66,6 +66,19 @@
         },
         {
           "id": "n5",
+          "type": "spinner",
+          "name": "spinner1",
+          "props": {
+            "width": 50,
+            "height": 50,
+            "x": 410,
+            "y": 110
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
           "type": "container",
           "name": "container1",
           "props": {
@@ -80,7 +93,7 @@
           "events": [],
           "children": [
             {
-              "id": "n6",
+              "id": "n7",
               "type": "label",
               "name": "label1",
               "props": {
@@ -91,7 +104,7 @@
               "children": []
             },
             {
-              "id": "n7",
+              "id": "n8",
               "type": "label",
               "name": "label2",
               "props": {
@@ -102,7 +115,7 @@
               "children": []
             },
             {
-              "id": "n8",
+              "id": "n9",
               "type": "label",
               "name": "label3",
               "props": {
@@ -113,6 +126,41 @@
               "children": []
             }
           ]
+        },
+        {
+          "id": "n10",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 220,
+            "height": 12,
+            "min": 0,
+            "max": 100,
+            "value": 40,
+            "x": 176,
+            "y": 150
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n7",
+              "text": "Size 14: %d"
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n8",
+              "text": "Size 18: %d"
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n9",
+              "text": "Size 24: %d"
+            }
+          ],
+          "children": []
         }
       ]
     }

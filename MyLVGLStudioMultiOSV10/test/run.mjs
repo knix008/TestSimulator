@@ -17,6 +17,9 @@ import lvConfText from "../src/lvgl/lvConfText.js";
 import { createReporter, displayWidth, fit, formatTime } from "./reporter.mjs";
 import { everythingProject, registerFeatureTests } from "./features.mjs";
 import { sampleProject } from "./sample.js";
+import { addFont, clearFonts } from "../src/lvgl/fonts.js";
+import { addImage, clearImages } from "../src/lvgl/images.js";
+import { buildCollection, buildFont } from "./minifont.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const skipNative = process.argv.includes("--no-native");
@@ -198,7 +201,7 @@ await test("Every palette entry is a widget", () => {
   for (const { items } of PALETTE) for (const type of items) assert.ok(WIDGETS[type], type);
 });
 await test("Every property can reach the engine", () => {
-  const extra = new Set(["min", "max", "src", "target", "year", "month", "day", "digits", "separator", "canvasW", "canvasH", "canvasColor", "qrSize", "gridColumns", "gridRows"]);
+  const extra = new Set(["fontFamily", "min", "max", "src", "target", "year", "month", "day", "digits", "separator", "canvasW", "canvasH", "canvasColor", "qrSize", "gridColumns", "gridRows"]);
   for (const [type, definition] of Object.entries(WIDGETS)) {
     for (const prop of definition.props) {
       if (extra.has(prop.key) || prop.key in STR_IDS || prop.kind === "size") continue;
@@ -255,7 +258,7 @@ await test("A removed screen's file is not generated", () => {
   assert.ok(!Object.keys(generateCode(project)).some((file) => file.includes(second.name)));
 });
 await test("Only the generated code folders are cleaned on save", () => {
-  assert.deepEqual(GENERATED_DIRS, ["src/ui/screens", "src/ui/images"]);
+  assert.deepEqual(GENERATED_DIRS, ["src/ui/screens", "src/ui/images", "src/ui/fonts"]);
 });
 await test("Screens differing only by case get different files", () => {
   const project = newProject();
@@ -402,10 +405,15 @@ function writeRetrying(file, text) {
   }
 }
 
-function nativeFrame(version, project) {
+function nativeFrame(version, project, binaries = {}) {
   const dir = path.join(root, "build", "parity", version);
   const source = path.join(dir, "project");
   const build = path.join(dir, "build");
+  for (const [name, bytes] of Object.entries(binaries)) {
+    const file = path.join(source, name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    if (!fs.existsSync(file) || !fs.readFileSync(file).equals(bytes)) fs.writeFileSync(file, bytes);
+  }
   for (const [name, text] of Object.entries(generateCode(project))) {
     const file = path.join(source, name);
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -420,7 +428,21 @@ function nativeFrame(version, project) {
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
     configure();
   }
-  execFileSync("cmake", ["--build", build], { env, stdio: "pipe", maxBuffer: 1 << 28 });
+  const compile = () => execFileSync("cmake", ["--build", build], { env, stdio: "pipe", maxBuffer: 1 << 28 });
+  try {
+    compile();
+  } catch (first) {
+    // Windows can briefly hold a file ninja wants ("failed recompaction", a virus scanner). A real
+    // compiler error fails the second time too, and then its message is what the test reports.
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+    try {
+      compile();
+      console.log(`  note: the build of LVGL ${version} needed a second try: ${String(first.stdout ?? "").trim().split("\n").at(-1)?.slice(0, 160)}`);
+    } catch (error) {
+      error.message = `${error.message}\n${String(error.stdout ?? "").split("\n").filter((line) => /error|FAILED/.test(line)).slice(0, 8).join("\n")}`;
+      throw error;
+    }
+  }
   const output = path.join(dir, "frame.bin");
   execFileSync(path.join(build, process.platform === "win32" ? "app.exe" : "app"), [output], { env, stdio: "pipe" });
   return fs.readFileSync(output);
@@ -462,6 +484,55 @@ for (const version of BUNDLED_ENGINES) {
     assert.equal(different, 0, `${different} pixels differ, first: ${JSON.stringify(first)}`);
   };
   await test("Every pixel of the sample matches the design surface", () => comparePixels(native, home.id, project));
+  await test("Project fonts: every pixel of the built program matches the design surface", () => {
+    const single = buildFont({ family: "Mini Sans", characters: "ABCabc 한글" });
+    const collection = buildCollection([{ family: "Mini JP", characters: "ABCabc 한글", shape: 0 }, { family: "Mini KR", characters: "ABCabc 한글", shape: 1 }]);
+    clearFonts();
+    addFont("mini", { bytes: single, base64: "bWluaQ==" });
+    addFont("cjk", { bytes: collection, base64: "Y2pr" });
+    const variant = newProject("Fonts");
+    variant.lvgl = version;
+    variant.device = { w: 320, h: 240 };
+    variant.fonts = [{ name: "mini", file: "assets/fonts/mini.ttf", face: 0 }, { name: "cjk", file: "assets/fonts/cjk.ttc", face: 1, language: "ko" }];
+    variant.defaultFont = { font: "mini", size: 18 };
+    const screen = variant.screens[0];
+    addNode(variant, screen.id, createNode(variant, "label", { x: 10, y: 10, text: "ABC 한글", fontFamily: "cjk", font: 34 }));
+    addNode(variant, screen.id, createNode(variant, "button", { x: 10, y: 80, width: 140, height: 50, text: "abc" }));
+    addNode(variant, screen.id, createNode(variant, "label", { x: 10, y: 150, text: "ABC", font: 16 }));
+    const frame = nativeFrame(version, variant, { "assets/fonts/mini.ttf": Buffer.from(single), "assets/fonts/cjk.ttc": Buffer.from(collection) });
+    comparePixels(frame, screen.id, variant);
+    clearFonts();
+  });
+  await test("Every sample of this version compiles", () => {
+    const list = JSON.parse(fs.readFileSync(path.join(root, "samples", "index.json"), "utf8")).filter((sample) => sample.lvgl === version);
+    for (const sample of list) {
+      const variant = parseProject(fs.readFileSync(path.join(root, "samples", sample.file), "utf8"));
+      clearImages();
+      for (const image of variant.images) {
+        const bytes = fs.readFileSync(path.join(root, "samples", sample.id, image.file));
+        addImage(image.name, { w: image.w, h: image.h, rgba: new Uint8ClampedArray(image.w * image.h * 4).fill(200), base64: bytes.toString("base64") });
+      }
+      const frame = nativeFrame(version, variant);
+      assert.equal(frame.length, variant.device.w * variant.device.h * 4, sample.id);
+    }
+    clearImages();
+  });
+  await test("LVGL settings reach the build: 16-bit colour and a changed option compile and draw", () => {
+    const variant = structuredClone(project);
+    variant.lvConf = { LV_COLOR_DEPTH: "16", LV_USE_LOG: "1", LV_FONT_MONTSERRAT_48: "0" };
+    const frame = nativeFrame(version, variant);
+    assert.equal(frame.length, variant.device.w * variant.device.h * 2);
+    assert.ok(new Set(frame).size > 8, "the frame is blank");
+  });
+  if (version === "9.6.0") {
+    await test("A 9.6 colour format reaches the build", () => {
+      const variant = structuredClone(project);
+      variant.lvConf = { LV_COLOR_FORMAT_DEFAULT: "LV_COLOR_FORMAT_RGB565" };
+      const frame = nativeFrame(version, variant);
+      assert.equal(frame.length, variant.device.w * variant.device.h * 2);
+      assert.ok(new Set(frame).size > 8, "the frame is blank");
+    });
+  }
   // Each screen of the everything-project goes first in turn, because ui_init loads the first.
   const everything = everythingProject(version);
   const names = ["all widgets and properties", "flex and size forms", "every align", "image and data widgets", "grid", "every font"];

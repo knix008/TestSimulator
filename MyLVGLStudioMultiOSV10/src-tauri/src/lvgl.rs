@@ -164,6 +164,17 @@ pub fn lvgl_install(app: AppHandle, version: String) -> Result<(), String> {
     result
 }
 
+/// The configuration template of an installed version, the file its settings window is made from.
+#[tauri::command(async)]
+pub fn lvgl_conf_template(version: String) -> Result<Option<Value>, String> {
+    let file = version_dir(&version)?.join("lv_conf_template.h");
+    if !file.is_file() {
+        return Ok(None);
+    }
+    let text = fs::read_to_string(&file).map_err(|e| e.to_string())?;
+    Ok(Some(json!({ "path": file.to_string_lossy(), "text": text })))
+}
+
 #[tauri::command(async)]
 pub fn lvgl_remove(version: String) -> Result<(), String> {
     let dir = version_dir(&version)?;

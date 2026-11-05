@@ -35,4 +35,16 @@ void ui_Planner_create(void)
     lv_obj_set_height(ui_button1, 56);
     lv_obj_set_x(ui_button1, 496);
     lv_obj_set_y(ui_button1, 356);
+    ui_spinner1 = lv_spinner_create(ui_Planner);
+    lv_obj_set_width(ui_spinner1, 44);
+    lv_obj_set_height(ui_spinner1, 44);
+    lv_obj_set_x(ui_spinner1, 736);
+    lv_obj_set_y(ui_spinner1, 8);
+    ui_slider1 = lv_slider_create(ui_Planner);
+    lv_slider_set_range(ui_slider1, 0, 12);
+    lv_obj_set_width(ui_slider1, 288);
+    lv_obj_set_height(ui_slider1, 14);
+    lv_obj_set_x(ui_slider1, 496);
+    lv_obj_set_y(ui_slider1, 436);
+    lv_slider_set_value(ui_slider1, 3, LV_ANIM_OFF);
 }

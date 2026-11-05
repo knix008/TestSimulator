@@ -13,7 +13,7 @@
     "primary": "#ef5350",
     "secondary": "#66bb6a"
   },
-  "nextId": 11,
+  "nextId": 15,
   "screens": [
     {
       "id": "n1",
@@ -36,7 +36,7 @@
             "max": 240,
             "value": 96,
             "x": 40,
-            "y": 70
+            "y": 50
           },
           "events": [],
           "children": []
@@ -48,7 +48,7 @@
           "props": {
             "text": "96",
             "x": 146,
-            "y": 186,
+            "y": 166,
             "font": 48,
             "textColor": "#ffffff"
           },
@@ -62,7 +62,7 @@
           "props": {
             "text": "km/h",
             "x": 156,
-            "y": 244,
+            "y": 224,
             "font": 16,
             "textColor": "#ffffff"
           },
@@ -77,10 +77,10 @@
             "width": 300,
             "height": 300,
             "min": 0,
-            "max": 8,
-            "value": 3,
+            "max": 8000,
+            "value": 3000,
             "x": 460,
-            "y": 70
+            "y": 50
           },
           "events": [],
           "children": []
@@ -90,9 +90,9 @@
           "type": "label",
           "name": "label3",
           "props": {
-            "text": "3",
-            "x": 590,
-            "y": 186,
+            "text": "3000",
+            "x": 566,
+            "y": 166,
             "font": 48,
             "textColor": "#ffffff"
           },
@@ -104,10 +104,10 @@
           "type": "label",
           "name": "label4",
           "props": {
-            "text": "x1000 rpm",
-            "x": 572,
-            "y": 244,
-            "font": 14,
+            "text": "rpm",
+            "x": 590,
+            "y": 224,
+            "font": 16,
             "textColor": "#ffffff"
           },
           "events": [],
@@ -124,8 +124,9 @@
             "max": 100,
             "value": 62,
             "x": 300,
-            "y": 420,
-            "indicatorColor": "#66bb6a"
+            "y": 450,
+            "indicatorColor": "#66bb6a",
+            "animate": 15000
           },
           "events": [],
           "children": []
@@ -137,9 +138,9 @@
           "props": {
             "width": 24,
             "height": 24,
-            "ledBright": 255,
+            "ledBright": 96,
             "x": 372,
-            "y": 40
+            "y": 20
           },
           "events": [],
           "children": []
@@ -151,11 +152,107 @@
           "props": {
             "width": 24,
             "height": 24,
-            "ledBright": 120,
+            "ledBright": 96,
             "x": 408,
-            "y": 40
+            "y": 20
           },
           "events": [],
+          "children": []
+        },
+        {
+          "id": "n11",
+          "type": "label",
+          "name": "label5",
+          "props": {
+            "text": "Drag: speed",
+            "x": 40,
+            "y": 364,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n12",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 300,
+            "height": 16,
+            "min": 0,
+            "max": 240,
+            "value": 96,
+            "x": 40,
+            "y": 390
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n2",
+              "text": ""
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n3",
+              "text": "%d"
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n9",
+              "text": ""
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n13",
+          "type": "label",
+          "name": "label6",
+          "props": {
+            "text": "Drag: engine",
+            "x": 460,
+            "y": 364,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n14",
+          "type": "slider",
+          "name": "slider2",
+          "props": {
+            "width": 300,
+            "height": 16,
+            "min": 0,
+            "max": 8000,
+            "value": 3000,
+            "x": 460,
+            "y": 390
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n5",
+              "text": ""
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n6",
+              "text": "%d"
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n10",
+              "text": ""
+            }
+          ],
           "children": []
         }
       ]

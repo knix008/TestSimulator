@@ -40,19 +40,22 @@ export const host = {
   dirState: (dir) => (isDesktop ? invoke("dir_state", { dir }) : desktopOnly()),
   writeProject: (dir, files, binaries, generatedDirs) => (isDesktop ? invoke("write_project", { dir, files, binaries, generatedDirs }) : desktopOnly()),
   pickImage: () => (isDesktop ? open({ filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "bmp", "gif", "webp", "svg"] }] }) : desktopOnly()),
+  pickFont: () => (isDesktop ? open({ filters: [{ name: "TrueType / OpenType", extensions: ["ttf", "otf", "ttc", "otc"] }] }) : desktopOnly()),
   readBase64: (path) => (isDesktop ? invoke("read_base64", { path }) : desktopOnly()),
 
   lvglInstalled: () => (isDesktop ? invoke("lvgl_installed") : Promise.resolve([])),
   lvglReleases: () => (isDesktop ? invoke("lvgl_releases") : desktopOnly()),
   lvglInstall: (version) => (isDesktop ? invoke("lvgl_install", { version }) : desktopOnly()),
   lvglRemove: (version) => (isDesktop ? invoke("lvgl_remove", { version }) : desktopOnly()),
+  /** The lv_conf_template.h of an installed version, as { path, text }; null when not installed. */
+  lvglConfTemplate: (version) => (isDesktop ? invoke("lvgl_conf_template", { version }) : Promise.resolve(null)),
 
   nativeCheck: () => (isDesktop ? invoke("native_check") : Promise.resolve({})),
   toolsPlan: () => (isDesktop ? invoke("tools_plan") : Promise.resolve([])),
   toolsInstall: () => (isDesktop ? invoke("tools_install") : desktopOnly()),
   nativeClean: (version) => (isDesktop ? invoke("native_clean", { version }) : desktopOnly()),
   samplesList: () => (isDesktop ? invoke("samples_list") : Promise.resolve({ dir: "", items: [] })),
-  nativeRun: (version, files) => (isDesktop ? invoke("native_run", { version, files }) : desktopOnly()),
+  nativeRun: (version, files, binaries = {}) => (isDesktop ? invoke("native_run", { version, files, binaries }) : desktopOnly()),
   nativeStop: () => (isDesktop ? invoke("native_stop") : Promise.resolve()),
 
   runOpen: (payload, width, height) => (isDesktop ? invoke("run_open", { payload, width, height }) : desktopOnly()),

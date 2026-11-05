@@ -19,11 +19,11 @@
     "publisher": "SHKWON",
     "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
     "category": "DeveloperTool",
-    "resources": { "../samples/": "samples/" },
+    "resources": { "../samples/": "samples/", "../assets/file-icon.ico": "file-icon.ico" },
     "fileAssociations": [
       {
         "ext": ["mylvgl"],
-        "name": "My LVGL Studio Project",
+        "name": "MyLVGLStudio.Project",
         "description": "My LVGL Studio Project",
         "role": "Editor",
         "mimeType": "application/vnd.mylvgl+json"
@@ -44,10 +44,20 @@
         "displayLanguageSelector": true,
         "languages": ["Korean", "English"],
         "installMode": "currentUser",
-        "installerIcon": "../assets/icon.ico"
+        "installerIcon": "../assets/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
       }
     },
     "macOS": { "minimumSystemVersion": "10.15" },
-    "linux": { "deb": { "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"] } }
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+        "files": {
+          "/usr/share/mime/packages/mylvgl.xml": "linux/mylvgl-mime.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-vnd.mylvgl+json.png": "../assets/file-icon.png"
+        },
+        "postInstallScript": "linux/post-install.sh"
+      }
+    }
   }
 }

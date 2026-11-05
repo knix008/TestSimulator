@@ -135,7 +135,7 @@ struct NativeHandles {
     stopped: Arc<AtomicBool>,
 }
 
-fn build_and_run(app: &AppHandle, state: &NativeHandles, version: &str, files: &BTreeMap<String, String>) -> Result<&'static str, String> {
+fn build_and_run(app: &AppHandle, state: &NativeHandles, version: &str, files: &BTreeMap<String, String>, binaries: &BTreeMap<String, String>) -> Result<&'static str, String> {
     let lvgl = crate::lvgl::version_dir(version)?;
     if !lvgl.join("lvgl.h").is_file() {
         return Err(format!("LVGL {version} is not installed"));
@@ -144,6 +144,7 @@ fn build_and_run(app: &AppHandle, state: &NativeHandles, version: &str, files: &
     let source = base.join("project");
     let build = base.join("build");
     crate::write_tree(&source, files)?;
+    crate::write_binaries(&source, binaries)?;
 
     if !build.join("build.ninja").is_file() {
         emit_line(app, "build", &format!("Configuring (LVGL {version})..."));
@@ -280,7 +281,7 @@ pub fn tools_install(app: AppHandle, state: tauri::State<NativeState>) -> Result
 
 /// Starts in the background and returns at once; the page follows the events.
 #[tauri::command]
-pub fn native_run(app: AppHandle, state: tauri::State<NativeState>, version: String, files: BTreeMap<String, String>) -> Result<(), String> {
+pub fn native_run(app: AppHandle, state: tauri::State<NativeState>, version: String, files: BTreeMap<String, String>, binaries: BTreeMap<String, String>) -> Result<(), String> {
     if state.running.swap(true, Ordering::SeqCst) {
         return Err("already running".into());
     }
@@ -288,7 +289,7 @@ pub fn native_run(app: AppHandle, state: tauri::State<NativeState>, version: Str
     let handles = NativeHandles { child: state.child.clone(), stopped: state.stopped.clone() };
     let running = state.running.clone();
     std::thread::spawn(move || {
-        let result = build_and_run(&app, &handles, &version, &files);
+        let result = build_and_run(&app, &handles, &version, &files, &binaries);
         running.store(false, Ordering::SeqCst);
         let payload = match result {
             Ok(outcome) => json!({ "ok": true, "outcome": outcome }),

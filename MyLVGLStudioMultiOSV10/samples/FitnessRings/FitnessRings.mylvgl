@@ -1,0 +1,137 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "FitnessRings",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 466,
+    "h": 466,
+    "shape": "round"
+  },
+  "images": [],
+  "theme": {
+    "dark": true,
+    "primary": "#ec407a",
+    "secondary": "#66bb6a"
+  },
+  "nextId": 8,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Activity",
+      "props": {
+        "bgColor": "#000000",
+        "bgOpa": 255
+      },
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "arc",
+          "name": "arc1",
+          "props": {
+            "width": 420,
+            "height": 420,
+            "min": 0,
+            "max": 100,
+            "value": 70,
+            "align": "CENTER"
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n5",
+              "text": "Move %d"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "arc",
+          "name": "arc2",
+          "props": {
+            "width": 320,
+            "height": 320,
+            "min": 0,
+            "max": 100,
+            "value": 50,
+            "align": "CENTER"
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n6",
+              "text": "Exercise %d"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "arc",
+          "name": "arc3",
+          "props": {
+            "width": 220,
+            "height": 220,
+            "min": 0,
+            "max": 100,
+            "value": 30,
+            "align": "CENTER"
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n7",
+              "text": "Stand %d"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Move 70",
+            "align": "CENTER",
+            "y": -26,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "Exercise 50",
+            "align": "CENTER",
+            "y": 0,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "Stand 30",
+            "align": "CENTER",
+            "y": 26,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

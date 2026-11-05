@@ -109,6 +109,19 @@ pub fn safe_relative(name: &str) -> Result<PathBuf, String> {
 }
 
 /// Writes `files` under `root`, making folders as needed.
+/// Images and fonts: files given as base64.
+pub fn write_binaries(root: &Path, binaries: &BTreeMap<String, String>) -> Result<(), String> {
+    for (name, data) in binaries {
+        let path = root.join(safe_relative(name)?);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let bytes = base64::engine::general_purpose::STANDARD.decode(data).map_err(|e| e.to_string())?;
+        std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 pub fn write_tree(root: &Path, files: &BTreeMap<String, String>) -> Result<(), String> {
     for (name, text) in files {
         let path = root.join(safe_relative(name)?);
@@ -150,14 +163,7 @@ fn dir_state(dir: String) -> String {
 fn write_project(dir: String, files: BTreeMap<String, String>, binaries: BTreeMap<String, String>, generated_dirs: Vec<String>) -> Result<(), String> {
     let root = PathBuf::from(dir);
     write_tree(&root, &files)?;
-    for (name, data) in &binaries {
-        let path = root.join(safe_relative(name)?);
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        }
-        let bytes = base64::engine::general_purpose::STANDARD.decode(data).map_err(|e| e.to_string())?;
-        std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
-    }
+    write_binaries(&root, &binaries)?;
     for generated in generated_dirs {
         let folder = root.join(safe_relative(&generated)?);
         let Ok(entries) = std::fs::read_dir(&folder) else { continue };
@@ -363,6 +369,7 @@ fn main() {
             lvgl::lvgl_releases,
             lvgl::lvgl_install,
             lvgl::lvgl_remove,
+            lvgl::lvgl_conf_template,
             native::native_check,
             native::native_run,
             native::native_stop,

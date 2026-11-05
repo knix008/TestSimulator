@@ -6,16 +6,32 @@
 void ui_event_0(lv_event_t * e)
 {
     LV_UNUSED(e);
-    lv_screen_load(ui_Schedule);
+    char text[128];
+    lv_snprintf(text, sizeof(text), "%d C", lv_arc_get_value(ui_arc1));
+    lv_label_set_text(ui_label2, text);
 }
 
 void ui_event_1(lv_event_t * e)
 {
     LV_UNUSED(e);
-    lv_label_set_text(ui_label3, "Schedule saved");
+    char text[128];
+    lv_snprintf(text, sizeof(text), "Light %d %%", lv_slider_get_value(ui_slider1));
+    lv_label_set_text(ui_label3, text);
 }
 
 void ui_event_2(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_screen_load(ui_Schedule);
+}
+
+void ui_event_3(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    lv_label_set_text(ui_label3, "Schedule saved");
+}
+
+void ui_event_4(lv_event_t * e)
 {
     LV_UNUSED(e);
     lv_screen_load(ui_Home);

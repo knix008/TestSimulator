@@ -13,6 +13,10 @@ lv_obj_t * ui_label4;
 lv_obj_t * ui_bar1;
 lv_obj_t * ui_led1;
 lv_obj_t * ui_led2;
+lv_obj_t * ui_label5;
+lv_obj_t * ui_slider1;
+lv_obj_t * ui_label6;
+lv_obj_t * ui_slider2;
 
 void ui_init(void)
 {
@@ -21,6 +25,13 @@ void ui_init(void)
     lv_display_set_theme(display, theme);
 
     ui_Cluster_create();
+
+    lv_obj_add_event_cb(ui_slider1, ui_event_0, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_slider1, ui_event_1, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_slider1, ui_event_2, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_slider2, ui_event_3, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_slider2, ui_event_4, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_slider2, ui_event_5, LV_EVENT_VALUE_CHANGED, NULL);
 
     lv_screen_load(ui_Cluster);
 }

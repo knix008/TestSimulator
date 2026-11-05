@@ -4,4 +4,8 @@
 
 #include "lvgl.h"
 
+void ui_event_0(lv_event_t * e);
+void ui_event_1(lv_event_t * e);
+void ui_event_2(lv_event_t * e);
+
 #endif

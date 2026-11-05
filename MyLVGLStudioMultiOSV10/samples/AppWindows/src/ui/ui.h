@@ -19,6 +19,8 @@ extern lv_obj_t * ui_win1;
 extern lv_obj_t * ui_menu1;
 extern lv_obj_t * ui_tileview1;
 extern lv_obj_t * ui_msgbox1;
+extern lv_obj_t * ui_bar1;
+extern lv_obj_t * ui_slider1;
 
 #ifdef __cplusplus
 }

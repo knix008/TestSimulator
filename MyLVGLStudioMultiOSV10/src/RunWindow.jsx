@@ -6,6 +6,7 @@ import { Icon } from "./icons.jsx";
 import { host } from "./host.js";
 import { translator } from "./i18n.js";
 import { addImage, clearImages, decodeImage, extensionOf } from "./lvgl/images.js";
+import { addFont, base64ToBytes, clearFonts } from "./lvgl/fonts.js";
 import { loadEngine } from "./lvgl/engine.js";
 import { engineFor } from "./lvgl/versions.js";
 
@@ -19,13 +20,15 @@ export function RunWindow({ language }) {
 
   const start = useCallback(async () => {
     const payload = await host.runPayload();
-    const { project, images } = payload;
+    const { project, images, fonts = [] } = payload;
     setTitle(`${project.name} - LVGL ${project.lvgl}`);
-    setSize({ w: project.device.w, h: project.device.h });
+    setSize({ w: project.device.w, h: project.device.h, round: project.device.shape === "round" });
     clearImages();
     for (const image of images) {
       addImage(image.name, { ...(await decodeImage(image.base64, extensionOf(image.file))), base64: image.base64 });
     }
+    clearFonts();
+    for (const font of fonts) addFont(font.name, { bytes: base64ToBytes(font.base64), base64: font.base64 });
     const engine = await loadEngine(engineFor(project.lvgl).engine);
     engine.width = 0;
     engine.load(project, project.screens[0].id, { events: true });
@@ -112,7 +115,7 @@ export function RunWindow({ language }) {
           <canvas
             ref={canvas}
             data-run-canvas=""
-            style={{ aspectRatio: `${size.w} / ${size.h}` }}
+            style={{ aspectRatio: `${size.w} / ${size.h}`, borderRadius: size.round ? "50%" : undefined }}
             onPointerDown={pointer(true)}
             onPointerMove={pointer(null)}
             onPointerUp={pointer(false)}

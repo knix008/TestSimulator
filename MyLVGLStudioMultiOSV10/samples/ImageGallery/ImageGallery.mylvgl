@@ -32,7 +32,7 @@
     "primary": "#2196f3",
     "secondary": "#f44336"
   },
-  "nextId": 9,
+  "nextId": 11,
   "screens": [
     {
       "id": "n1",
@@ -135,6 +135,47 @@
             "text": "Animation Image repeats these three pictures.",
             "x": 16,
             "y": 230
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n9",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 300,
+            "height": 12,
+            "min": 0,
+            "max": 359,
+            "value": 30,
+            "x": 16,
+            "y": 280
+          },
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "setValue",
+              "target": "n4",
+              "text": ""
+            },
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n10",
+              "text": "%d deg"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n10",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "30 deg",
+            "x": 336,
+            "y": 276
           },
           "events": [],
           "children": []

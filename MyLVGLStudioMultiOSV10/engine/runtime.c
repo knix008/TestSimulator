@@ -18,6 +18,8 @@
 #define lv_obj_remove_state lv_obj_clear_state
 #define lv_obj_delete lv_obj_del
 #define lv_screen_load lv_scr_load
+#define lv_dropdown_get_option_count lv_dropdown_get_option_cnt
+#define lv_roller_get_option_count lv_roller_get_option_cnt
 #define lv_screen_active lv_scr_act
 #define lv_button_create lv_btn_create
 #define lv_display_set_theme lv_disp_set_theme
@@ -68,6 +70,7 @@ typedef lv_image_dsc_t ml_image_t;
 typedef struct action {
     struct action * next;
     int kind;
+    int source;
     int target;
     char * text;
 } action_t;
@@ -82,6 +85,9 @@ static lv_obj_t * objects[MAX_OBJECTS];
 static lv_obj_t * inner_labels[MAX_OBJECTS];
 static int object_types[MAX_OBJECTS];
 static int object_roots[MAX_OBJECTS];
+static int value_mins[MAX_OBJECTS];
+static int value_maxes[MAX_OBJECTS];
+static char value_ranged[MAX_OBJECTS];
 static action_t * actions;
 static ml_image_t images[MAX_IMAGES];
 static int next_qr_size = 100;
@@ -135,10 +141,10 @@ enum { P_X = 1, P_Y, P_WIDTH, P_HEIGHT, P_WIDTH_PCT, P_HEIGHT_PCT, P_WIDTH_CONTE
        P_BG_COLOR = 20, P_BG_OPA, P_BORDER_COLOR, P_BORDER_WIDTH, P_RADIUS, P_TEXT_COLOR, P_FONT, P_PAD,
        P_SHADOW_WIDTH, P_SHADOW_COLOR, P_OPA, P_GAP, P_INDICATOR_COLOR, P_FLEX_FLOW,
        P_VALUE = 42, P_SELECTED, P_LED_BRIGHT, P_ROTATION, P_SCALE, P_LINE_COLOR, P_LINE_WIDTH, P_COLUMN_WIDTH,
-       P_CHART_TYPE, P_IMAGE, P_SCALE_MODE, P_TOTAL_TICKS, P_MAJOR_EVERY, P_DURATION };
+       P_CHART_TYPE, P_IMAGE, P_SCALE_MODE, P_TOTAL_TICKS, P_MAJOR_EVERY, P_DURATION, P_ANIMATE };
 
 enum { S_TEXT = 1, S_PLACEHOLDER, S_OPTIONS, S_ITEMS, S_CELLS, S_SERIES, S_TABS, S_MAP, S_POINTS, S_TITLE, S_BUTTONS, S_TILES, S_MENU_ITEMS, S_SPANS, S_FRAMES };
-enum { A_SCREEN = 1, A_SET_TEXT, A_TOGGLE, A_LOG, A_SHOW, A_HIDE };
+enum { A_SCREEN = 1, A_SET_TEXT, A_TOGGLE, A_LOG, A_SHOW, A_HIDE, A_SET_VALUE, A_SHOW_VALUE };
 enum { TR_CLICKED = 0, TR_PRESSED, TR_RELEASED, TR_VALUE_CHANGED };
 
 static const lv_align_t ALIGNS[] = {
@@ -211,6 +217,7 @@ void ml_clear(void)
     memset(inner_labels, 0, sizeof(inner_labels));
     memset(object_types, 0, sizeof(object_types));
     memset(object_roots, 0, sizeof(object_roots));
+    memset(value_ranged, 0, sizeof(value_ranged));
     free_actions();
     /* LVGL remembers decoded pictures by address, and these buffers are about to be freed. */
 #if LVGL_VERSION_MAJOR >= 9
@@ -272,10 +279,59 @@ void ml_setup(int width, int height)
     blank = lv_screen_active();
 }
 
+/* ------------------------------------------------------------- TrueType fonts */
+
+#define ML_FONT_SLOTS 32
+#define ML_FONT_CACHE 128
+
+static struct { const uint8_t * data; size_t size; } font_slots[ML_FONT_SLOTS];
+static struct { int slot; int size; lv_font_t * font; } font_cache[ML_FONT_CACHE];
+static int font_cache_used;
+static const lv_font_t * default_font;
+
+/* The file stays in engine memory for good: the decoder reads glyphs from it as it draws. */
+int ml_font_load(int slot, const uint8_t * data, int size)
+{
+    if(slot < 0 || slot >= ML_FONT_SLOTS) return -1;
+    font_slots[slot].data = data;
+    font_slots[slot].size = (size_t)size;
+    return 0;
+}
+
+/* One decoder per file and size, kept across reloads: they hold the drawn glyphs. */
+static const lv_font_t * ttf_font(int slot, int size)
+{
+    if(slot < 0 || slot >= ML_FONT_SLOTS || !font_slots[slot].data || size <= 0) return NULL;
+    for(int i = 0; i < font_cache_used; i++) {
+        if(font_cache[i].slot == slot && font_cache[i].size == size) return font_cache[i].font;
+    }
+    if(font_cache_used >= ML_FONT_CACHE) return NULL;
+    lv_font_t * font = lv_tiny_ttf_create_data(font_slots[slot].data, font_slots[slot].size, size);
+    if(!font) return NULL;
+    /* What the file lacks comes from the built-in font: above all LVGL's symbols on the keyboard. */
+    font->fallback = LV_FONT_DEFAULT;
+    font_cache[font_cache_used].slot = slot;
+    font_cache[font_cache_used].size = size;
+    font_cache[font_cache_used].font = font;
+    font_cache_used++;
+    return font;
+}
+
+/* The font the theme gives to everything without its own; a slot below 0 is the built-in one. */
+int ml_default_font(int slot, int size)
+{
+    if(slot < 0) {
+        default_font = NULL;
+        return 0;
+    }
+    default_font = ttf_font(slot, size);
+    return default_font ? 0 : -1;
+}
+
 void ml_theme(int dark, int primary, int secondary)
 {
     lv_theme_t * theme = lv_theme_default_init(display, lv_color_hex((uint32_t)primary), lv_color_hex((uint32_t)secondary),
-                                               dark != 0, LV_FONT_DEFAULT);
+                                               dark != 0, default_font ? default_font : LV_FONT_DEFAULT);
     lv_display_set_theme(display, theme);
 }
 
@@ -381,8 +437,10 @@ int ml_create(int id, int type, int parent)
     return 0;
 }
 
+/* A value above 16 bits names a TrueType font: (slot + 1) << 16 | size. */
 static const lv_font_t * font_for(int size)
 {
+    if(size >> 16) return ttf_font((size >> 16) - 1, size & 0xffff);
     switch(size) {
         case 12: return &lv_font_montserrat_12;
         case 14: return &lv_font_montserrat_14;
@@ -413,6 +471,9 @@ static void set_state(lv_obj_t * obj, lv_state_t state, int on)
 int ml_range(int id, int min, int max)
 {
     lv_obj_t * obj = objects[id];
+    value_mins[id] = min;
+    value_maxes[id] = max;
+    value_ranged[id] = 1;
     switch(object_types[id]) {
         case T_SLIDER: lv_slider_set_range(obj, min, max); return 0;
         case T_BAR: lv_bar_set_range(obj, min, max); return 0;
@@ -427,6 +488,9 @@ int ml_range(int id, int min, int max)
         default: return -1;
     }
 }
+
+static int animate_value(int id, int duration);
+static int ml_animate(int id, int duration) { return animate_value(id, duration); }
 
 int ml_set_i(int id, int prop, int value)
 {
@@ -465,6 +529,12 @@ int ml_set_i(int id, int prop, int value)
         case P_OPA: lv_obj_set_style_opa(obj, (lv_opa_t)value, 0); return 0;
         case P_GAP: lv_obj_set_style_pad_gap(obj, value, 0); return 0;
         case P_INDICATOR_COLOR:
+            /* An arc draws its indicator as a line, and its knob should match it. A spinner has no knob. */
+            if(object_types[id] == T_ARC || object_types[id] == T_SPINNER) {
+                lv_obj_set_style_arc_color(obj, lv_color_hex((uint32_t)value), LV_PART_INDICATOR);
+                if(object_types[id] == T_ARC) lv_obj_set_style_bg_color(obj, lv_color_hex((uint32_t)value), LV_PART_KNOB);
+                return 0;
+            }
             /* A switch only shows its indicator colour when on, and the theme styles that state. */
             lv_obj_set_style_bg_color(obj, lv_color_hex((uint32_t)value),
                                       object_types[id] == T_SWITCH ? (LV_PART_INDICATOR | LV_STATE_CHECKED) : LV_PART_INDICATOR);
@@ -487,6 +557,7 @@ int ml_set_i(int id, int prop, int value)
                 case T_ROLLER: lv_roller_set_selected(obj, value, LV_ANIM_OFF); return 0;
                 default: return -1;
             }
+        case P_ANIMATE: return ml_animate(id, value);
         case P_LED_BRIGHT: lv_led_set_brightness(obj, (uint8_t)value); return 0;
         case P_ROTATION: lv_image_set_rotation(obj, value); return 0;
         case P_SCALE: lv_image_set_scale(obj, value); return 0;
@@ -849,6 +920,103 @@ int ml_canvas(int id, int width, int height, int color)
     return 0;
 }
 
+/* ---------------------------------------------- values that move other widgets */
+
+static int value_of(int id)
+{
+    lv_obj_t * obj = objects[id];
+    switch(object_types[id]) {
+        case T_SLIDER: return lv_slider_get_value(obj);
+        case T_BAR: return lv_bar_get_value(obj);
+        case T_ARC: return lv_arc_get_value(obj);
+        case T_SPINBOX: return lv_spinbox_get_value(obj);
+        case T_DROPDOWN: return (int)lv_dropdown_get_selected(obj);
+        case T_ROLLER: return (int)lv_roller_get_selected(obj);
+        case T_SWITCH:
+        case T_CHECKBOX: return lv_obj_has_state(obj, LV_STATE_CHECKED) ? 1 : 0;
+        default: return 0;
+    }
+}
+
+/* The range a widget's value runs over; the generator prints the same numbers. */
+static void range_of(int id, int * min, int * max)
+{
+    if(value_ranged[id]) {
+        *min = value_mins[id];
+        *max = value_maxes[id];
+        return;
+    }
+    *min = 0;
+    switch(object_types[id]) {
+        case T_SWITCH:
+        case T_CHECKBOX: *max = 1; break;
+        case T_LED: *max = 255; break;
+        case T_IMAGE: *max = 3599; break;
+        case T_DROPDOWN: *max = (int)lv_dropdown_get_option_count(objects[id]) - 1; break;
+        case T_ROLLER: *max = (int)lv_roller_get_option_count(objects[id]) - 1; break;
+        case T_SPINBOX:
+            *min = -99999;
+            *max = 99999;
+            break;
+        default: *max = 100; break;
+    }
+}
+
+static void set_value_of(int id, int value)
+{
+    switch(object_types[id]) {
+        case T_LED: ml_set_i(id, P_LED_BRIGHT, value); break;
+        case T_IMAGE: ml_set_i(id, P_ROTATION, value); break;
+        case T_DROPDOWN:
+        case T_ROLLER: ml_set_i(id, P_SELECTED, value); break;
+        default: ml_set_i(id, P_VALUE, value); break;
+    }
+}
+
+int ml_get_value(int id)
+{
+    return objects[id] ? value_of(id) : 0;
+}
+
+/* The value sweeps back and forth, telling whoever listens, as if a hand moved it. */
+static void animate_step(void * var, int32_t value)
+{
+    for(int id = 0; id < MAX_OBJECTS; id++) {
+        if(objects[id] != var) continue;
+        ml_set_i(id, P_VALUE, value);
+#if LVGL_VERSION_MAJOR >= 9
+        lv_obj_send_event(objects[id], LV_EVENT_VALUE_CHANGED, NULL);
+#else
+        lv_event_send(objects[id], LV_EVENT_VALUE_CHANGED, NULL);
+#endif
+        return;
+    }
+}
+
+static int animate_value(int id, int duration)
+{
+    int min;
+    int max;
+    if(duration <= 0) return -1;
+    range_of(id, &min, &max);
+    lv_anim_t anim;
+    lv_anim_init(&anim);
+    lv_anim_set_var(&anim, objects[id]);
+    lv_anim_set_exec_cb(&anim, animate_step);
+    lv_anim_set_values(&anim, min, max);
+#if LVGL_VERSION_MAJOR >= 9
+    lv_anim_set_duration(&anim, duration);
+    lv_anim_set_playback_duration(&anim, duration);
+#else
+    lv_anim_set_time(&anim, duration);
+    lv_anim_set_playback_time(&anim, duration);
+#endif
+    lv_anim_set_repeat_count(&anim, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_path_cb(&anim, lv_anim_path_ease_in_out);
+    lv_anim_start(&anim);
+    return 0;
+}
+
 /* Tracks are comma separated: 80, 2fr or content. */
 static ml_track_t * grid_tracks(const char * text)
 {
@@ -917,6 +1085,21 @@ static void on_event(lv_event_t * event)
         case A_SHOW: if(target) set_flag(target, LV_OBJ_FLAG_HIDDEN, 0); break;
         case A_HIDE: if(target) set_flag(target, LV_OBJ_FLAG_HIDDEN, 1); break;
         case A_LOG: log_line(action->text); break;
+        case A_SET_VALUE:
+            if(target) {
+                int from_min, from_max, to_min, to_max;
+                range_of(action->source, &from_min, &from_max);
+                range_of(action->target, &to_min, &to_max);
+                set_value_of(action->target, lv_map(value_of(action->source), from_min, from_max, to_min, to_max));
+            }
+            break;
+        case A_SHOW_VALUE:
+            if(target) {
+                char text[128];
+                lv_snprintf(text, sizeof(text), action->text, value_of(action->source));
+                apply_text(action->target, text);
+            }
+            break;
         default: break;
     }
 }
@@ -927,6 +1110,7 @@ int ml_event(int id, int trigger, int kind, int target, const char * text)
     if(!objects[id] || trigger < 0 || trigger > TR_VALUE_CHANGED) return -1;
     action_t * action = calloc(1, sizeof(action_t));
     action->kind = kind;
+    action->source = id;
     action->target = target;
     action->text = strdup(text ? text : "");
     action->next = actions;

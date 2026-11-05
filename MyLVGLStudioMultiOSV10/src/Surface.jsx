@@ -5,9 +5,11 @@ import { engineFor } from "./lvgl/versions.js";
 import { loadEngine } from "./lvgl/engine.js";
 import { CONTAINERS } from "./lvgl/schema.js";
 import { findNode, findParent, isInside, moveNode, setProp } from "./lvgl/project.js";
+import { clearDragCursor, setDragCursor } from "./cursor.js";
 
 const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 const MIN_SIZE = 4;
+const HANDLE_CURSORS = { nw: "nwse-resize", se: "nwse-resize", ne: "nesw-resize", sw: "nesw-resize", n: "ns-resize", s: "ns-resize", e: "ew-resize", w: "ew-resize" };
 
 /** Every node of a screen, back to front. */
 function flatten(screen) {
@@ -175,16 +177,29 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
       moved: false,
     };
     store.beginGesture();
+    setDragCursor(handle ? HANDLE_CURSORS[handle] : "move");
     // On the window: the widget under the pointer moves and redraws while it is dragged.
     const finish = (up) => {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", finish);
       window.removeEventListener("pointercancel", finish);
+      clearDragCursor();
       onPointerUp(up);
     };
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", finish);
     window.addEventListener("pointercancel", finish);
+  };
+
+  // The pointer says what a press would do: a selected widget moves, another one gets selected,
+  // and the screen itself does nothing to move.
+  const onHover = (event) => {
+    if (drag.current) return;
+    const { x, y } = toDisplay(event.clientX, event.clientY);
+    const node = hit(x, y);
+    const cursor = !node || node.type === "screen" ? "default" : node.id === selected ? "move" : "pointer";
+    event.currentTarget.style.cursor = cursor;
+    event.currentTarget.dataset.cursor = cursor;
   };
 
   const onPointerDown = (event) => {
@@ -274,7 +289,7 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
   const height = project.device.h * zoom;
 
   const device = (
-    <div className={running ? "device running" : "device"} style={{ width: width + 16, height: height + 16 }}>
+    <div className={`device${running ? " running" : ""}${project.device.shape === "round" ? " round" : ""}`} style={{ width: width + 16, height: height + 16 }}>
       <div className="device-screen" style={{ width, height }}>
         <canvas ref={canvas} data-surface="" style={{ width, height, imageRendering: zoom > 1 ? "pixelated" : "auto" }} />
         {running ? (
@@ -291,6 +306,7 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
             className="overlay"
             data-overlay="design"
             onPointerDown={onPointerDown}
+            onPointerMove={onHover}
           >
             {flatten(screen).filter((node) => (node.type === "image" || node.type === "imagebutton") && !node.props.src && boxes.get(node.id)).map((node) => {
               const area = boxes.get(node.id);

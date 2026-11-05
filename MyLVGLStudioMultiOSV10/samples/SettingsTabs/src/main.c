@@ -11,6 +11,20 @@
 #define WIDTH 480
 #define HEIGHT 320
 
+/* The window shows the frame in the colour depth of lv_conf.h. */
+#if LV_COLOR_DEPTH == 16
+#define PIXEL_SIZE 2
+#define WINDOW_FORMAT SDL_PIXELFORMAT_RGB565
+#elif LV_COLOR_DEPTH == 24
+#define PIXEL_SIZE 3
+#define WINDOW_FORMAT SDL_PIXELFORMAT_BGR24
+#elif LV_COLOR_DEPTH == 32
+#define PIXEL_SIZE 4
+#define WINDOW_FORMAT SDL_PIXELFORMAT_ARGB8888
+#else
+#error "The desktop simulator shows colour depths of 16, 24 and 32. Other depths still work on the firmware."
+#endif
+
 static uint8_t * framebuffer;
 static int redraw;
 static int mouse_x, mouse_y, mouse_down;
@@ -34,7 +48,7 @@ static void lvgl_host_init(void)
 {
     lv_display_t * display = lv_display_create(WIDTH, HEIGHT);
     lv_display_set_flush_cb(display, flush_cb);
-    lv_display_set_buffers(display, framebuffer, NULL, WIDTH * HEIGHT * 4, LV_DISPLAY_RENDER_MODE_DIRECT);
+    lv_display_set_buffers(display, framebuffer, NULL, WIDTH * HEIGHT * PIXEL_SIZE, LV_DISPLAY_RENDER_MODE_DIRECT);
     lv_indev_t * pointer = lv_indev_create();
     lv_indev_set_type(pointer, LV_INDEV_TYPE_POINTER);
     lv_indev_set_read_cb(pointer, read_cb);
@@ -77,7 +91,7 @@ static void lvgl_host_init(void)
 int main(int argc, char ** argv)
 {
     setvbuf(stdout, NULL, _IONBF, 0);
-    framebuffer = calloc(WIDTH * HEIGHT, 4);
+    framebuffer = calloc(WIDTH * HEIGHT, PIXEL_SIZE);
     lv_init();
     lvgl_host_init();
     ui_init();
@@ -86,7 +100,7 @@ int main(int argc, char ** argv)
     lv_refr_now(NULL);
     FILE * out = argc > 1 ? fopen(argv[1], "wb") : NULL;
     if(!out) return 1;
-    fwrite(framebuffer, 4, WIDTH * HEIGHT, out);
+    fwrite(framebuffer, PIXEL_SIZE, WIDTH * HEIGHT, out);
     fclose(out);
     return 0;
 #else
@@ -98,7 +112,7 @@ int main(int argc, char ** argv)
     }
     SDL_Window * window = SDL_CreateWindow("SettingsTabs - LVGL 9.6.0", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, 0);
     SDL_Renderer * renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    SDL_Texture * texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
+    SDL_Texture * texture = SDL_CreateTexture(renderer, WINDOW_FORMAT, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
     Uint32 last = SDL_GetTicks();
     int running = 1;
     printf("started: %dx%d, LVGL %d.%d.%d\n", WIDTH, HEIGHT, LVGL_VERSION_MAJOR, LVGL_VERSION_MINOR, LVGL_VERSION_PATCH);
@@ -122,7 +136,7 @@ int main(int argc, char ** argv)
         lv_timer_handler();
         if(redraw) {
             redraw = 0;
-            SDL_UpdateTexture(texture, NULL, framebuffer, WIDTH * 4);
+            SDL_UpdateTexture(texture, NULL, framebuffer, WIDTH * PIXEL_SIZE);
             SDL_RenderCopy(renderer, texture, NULL, NULL);
             SDL_RenderPresent(renderer);
         }

@@ -9,6 +9,8 @@ lv_obj_t * ui_label1;
 lv_obj_t * ui_list1;
 lv_obj_t * ui_button1;
 lv_obj_t * ui_button1_label;
+lv_obj_t * ui_spinner1;
+lv_obj_t * ui_slider1;
 
 void ui_init(void)
 {
@@ -17,6 +19,9 @@ void ui_init(void)
     lv_display_set_theme(display, theme);
 
     ui_Planner_create();
+
+    lv_obj_add_event_cb(ui_button1, ui_event_0, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_slider1, ui_event_1, LV_EVENT_VALUE_CHANGED, NULL);
 
     lv_screen_load(ui_Planner);
 }

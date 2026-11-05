@@ -16,8 +16,11 @@ void ui_Gauges_create(void);
 
 extern lv_obj_t * ui_Gauges;
 extern lv_obj_t * ui_meter1;
-extern lv_obj_t * ui_colorwheel1;
+extern lv_meter_indicator_t * ui_meter1_needle;
+extern lv_obj_t * ui_slider1;
 extern lv_obj_t * ui_label1;
+extern lv_obj_t * ui_colorwheel1;
+extern lv_obj_t * ui_label2;
 
 #ifdef __cplusplus
 }

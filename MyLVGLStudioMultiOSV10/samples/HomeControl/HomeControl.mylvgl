@@ -48,7 +48,14 @@
             "x": 16,
             "y": 50
           },
-          "events": [],
+          "events": [
+            {
+              "trigger": "VALUE_CHANGED",
+              "action": "showValue",
+              "target": "n4",
+              "text": "%d C"
+            }
+          ],
           "children": []
         },
         {
@@ -111,7 +118,14 @@
                 "max": 100,
                 "value": 65
               },
-              "events": [],
+              "events": [
+                {
+                  "trigger": "VALUE_CHANGED",
+                  "action": "showValue",
+                  "target": "n11",
+                  "text": "Light %d %%"
+                }
+              ],
               "children": []
             },
             {
