@@ -449,7 +449,8 @@ button.code-note { border: 0; padding: 0; background: transparent; font: inherit
 .grip svg { width: 14px; height: 14px; fill: currentColor; stroke: none; margin: 0 2px 2px 0; }
 .bottom-actions { display: inline-flex; gap: 2px; margin-left: auto; }
 .samples-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.dialog .samples-list button { display: grid; grid-template-columns: 22px minmax(0, 1fr); grid-template-rows: auto auto; justify-content: stretch; justify-items: start; column-gap: 8px; min-width: 0; height: auto; padding: 8px; text-align: left; white-space: normal; }
+.dialog .samples-list button { border: 1px solid var(--button-border); border-radius: 4px; background: var(--button); display: grid; grid-template-columns: 22px minmax(0, 1fr); grid-template-rows: auto auto; justify-content: stretch; justify-items: start; column-gap: 8px; min-width: 0; height: auto; padding: 8px; text-align: left; white-space: normal; }
+.dialog .samples-list button:hover { background: var(--hover); }
 .samples-list button .icon { grid-row: span 2; align-self: center; }
 .samples-list b { font-size: 12.5px; }
 .samples-list small { color: var(--muted); font-size: 11px; line-height: 1.3; }

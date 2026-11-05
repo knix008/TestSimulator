@@ -73,6 +73,9 @@ export const host = {
   minimize: () => isDesktop && getCurrentWindow().minimize(),
   toggleMaximize: () => isDesktop && getCurrentWindow().toggleMaximize(),
   close: () => isDesktop && getCurrentWindow().close(),
+  // The main window's own close, once the page has dealt with unsaved work.
+  closeMain: () => (isDesktop ? invoke("main_close") : Promise.resolve()),
+  closeGuardReady: () => (isDesktop ? invoke("close_guard_ready") : Promise.resolve()),
   popoutInline: () => (isDesktop ? invoke("popout_inline") : Promise.resolve(true)),
   popoutReset: () => (isDesktop ? invoke("popout_reset") : Promise.resolve()),
   popoutShow: (options) => invoke("popout_show", { options }),

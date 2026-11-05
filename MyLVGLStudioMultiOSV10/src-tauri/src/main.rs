@@ -13,6 +13,7 @@ mod native;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use base64::Engine as _;
@@ -20,6 +21,9 @@ use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 pub const MAIN: &str = "main";
+/// A page that can answer is listening. Before that, or without it, closing just closes.
+static CLOSE_GUARD: AtomicBool = AtomicBool::new(false);
+static CLOSE_ALLOWED: AtomicBool = AtomicBool::new(false);
 const RUN: &str = "run";
 const SETTINGS_FOLDER: &str = "MyLVGLStudio";
 const MIN_WIDTH: f64 = 1000.0;
@@ -203,6 +207,20 @@ fn write_project(dir: String, files: BTreeMap<String, String>, binaries: BTreeMa
 
 /// The page has applied its theme: its window can appear without a flash of the wrong colour.
 #[tauri::command]
+fn close_guard_ready() {
+    CLOSE_GUARD.store(true, Ordering::SeqCst);
+}
+
+/// The page has dealt with unsaved work: the main window may really close now.
+#[tauri::command]
+fn main_close(app: AppHandle) {
+    CLOSE_ALLOWED.store(true, Ordering::SeqCst);
+    if let Some(main) = app.get_webview_window(MAIN) {
+        let _ = main.close();
+    }
+}
+
+#[tauri::command]
 fn window_ready(window: tauri::WebviewWindow) {
     let _ = window.show();
     let _ = window.set_focus();
@@ -373,7 +391,13 @@ fn main() {
             open_main_window(app.handle()).map_err(|e| e.into())
         })
         .on_window_event(|window, event| match event {
-            tauri::WindowEvent::CloseRequested { .. } if window.label() == MAIN => {
+            tauri::WindowEvent::CloseRequested { api, .. } if window.label() == MAIN => {
+                // The page decides first: it may have unsaved work to ask about.
+                if CLOSE_GUARD.load(Ordering::SeqCst) && !CLOSE_ALLOWED.load(Ordering::SeqCst) {
+                    api.prevent_close();
+                    let _ = window.app_handle().emit_to(MAIN, "close-requested", ());
+                    return;
+                }
                 remember_window(window);
                 native::stop_all(window.app_handle());
                 popout::close_all(window.app_handle());
@@ -399,6 +423,8 @@ fn main() {
             dir_state,
             write_project,
             window_ready,
+            close_guard_ready,
+            main_close,
             window_min_size,
             run_open,
             run_payload,

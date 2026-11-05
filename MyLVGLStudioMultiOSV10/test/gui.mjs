@@ -129,6 +129,15 @@ async function click(selector) {
   assert.ok(point, `no element ${selector}`);
   await clickAt(point.x, point.y);
 }
+// On a busy page a click is sometimes lost, or sent again and closes what it opened: look, and press again.
+async function openUntil(button, opened) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await click(button);
+    await sleep(250);
+    if (await js(`!!document.querySelector(${JSON.stringify(opened)})`)) return;
+  }
+  assert.fail(`${button} did not open ${opened}`);
+}
 async function drag(from, to) {
   await press(from.x, from.y);
   const steps = 6;
@@ -1251,8 +1260,7 @@ await step("The code tabs are one row of their own above the code", async () => 
 await step("Screen size: the toolbar chip offers sizes, and any size can be typed", async () => {
   const device = async () => (await project()).device;
   const start = await device();
-  await click('[data-command="device-chip"]');
-  await page.until("document.querySelector('[data-device-menu]')", 2000);
+  await openUntil('[data-command="device-chip"]', "[data-device-menu]");
   assert.ok((await js("document.querySelectorAll('[data-device]').length")) >= 10, "too few sizes");
   await shot("10q-device-menu");
   await click('[data-device="wvga"]');
@@ -1553,8 +1561,7 @@ await step("Zoom: Ctrl+wheel around the pointer, the keyboard, and a list of siz
 await step("Round screen: set from the toolbar and the project settings, and drawn round", async () => {
   const device = async () => (await project()).device;
   const start = await device();
-  await click('[data-command="device-chip"]');
-  await page.until("document.querySelector('[data-device-menu]')", 2000);
+  await openUntil('[data-command="device-chip"]', "[data-device-menu]");
   await click('[data-device="circle360"]');
   await sleep(200);
   assert.deepEqual(await device(), { w: 360, h: 360, shape: "round" });
@@ -2599,10 +2606,10 @@ await step("A damaged project file is refused with a reason", async () => {
 });
 
 await step("Tutorial: a smart watch, done by hand or by the Do It button, step by step", async () => {
-  await click('[data-menu="help"] > button');
+  await openUntil('[data-menu="help"] > button', '[data-menu="help"] [data-command="tutorial"]');
   await click('[data-menu="help"] [data-command="tutorial"]');
   await sleep(100);
-  if (await js('!!document.querySelector("[data-dialog=confirm]")')) await click('[data-command="confirm-yes"]');
+  if (await js('!!document.querySelector("[data-dialog=unsaved]")')) await click('[data-command="unsaved-discard"]');
   await page.until('document.querySelector("[data-tutorial]")', 4000);
   assert.equal((await project()).name, "MyWatch");
   const total = Number((await js('document.querySelector("[data-tutorial-count]").textContent')).split("/")[1]);
@@ -2632,8 +2639,7 @@ await step("Tutorial: a smart watch, done by hand or by the Do It button, step b
     }
     // The second step by hand: the window underneath takes clicks, and the task ticks itself off.
     if (seen.id === "round") {
-      await click('[data-command="device-chip"]');
-      await page.until("document.querySelector('[data-device-menu]')", 2000);
+      await openUntil('[data-command="device-chip"]', "[data-device-menu]");
       await click('[data-device="circle360"]');
       await page.until('document.querySelector("[data-tutorial-task=device][data-done]")', 2000);
       assert.equal(await js('document.querySelector(\'[data-command="tutorial-next"]\').disabled'), false);
@@ -2795,7 +2801,7 @@ await step("Tutorial question: asked at the start, and both places can turn it o
   await shot("11m-start-tutorial-button");
   await click('[data-start="hero-tutorial"]');
   await sleep(150);
-  if (await js('!!document.querySelector("[data-dialog=confirm]")')) await click('[data-command="confirm-yes"]');
+  if (await js('!!document.querySelector("[data-dialog=unsaved]")')) await click('[data-command="unsaved-discard"]');
   await page.until('document.querySelector("[data-tutorial]")', 5000);
   assert.equal(await js("window.__mls.showStart()"), false, "the start screen is in the way");
   assert.equal((await project()).name, "MyWatch");
@@ -2874,6 +2880,97 @@ await step("A recent project that is gone leaves the list", async () => {
   await page.until('document.querySelector("[data-dialog=message]")', 5000);
   await click('[data-dialog="message"] footer button');
   assert.ok(!(await js("window.__mls.recent()")).includes(file));
+});
+
+await step("Leaving with unsaved changes asks: save, don't save, or stay", async () => {
+  const folder = path.join(data, "leaving");
+  fs.mkdirSync(folder, { recursive: true });
+  const closed = async () => {
+    for (let i = 0; i < 60 && app.exitCode === null && app.signalCode === null; i++) await sleep(250);
+    assert.ok(app.exitCode !== null || app.signalCode !== null, "the program is still running");
+  };
+  const fresh = async (args = []) => {
+    await restart(args);
+    await sleep(800);
+    if (await js("window.__mls.showStart()")) {
+      await js('window.__mls.command("start");void 0');
+      await sleep(200);
+    }
+  };
+  const change = async () => {
+    await js('document.querySelector(\'[data-command="add-screen"]\').click();void 0');
+    await sleep(150);
+  };
+  const exitButton = ".titlebar .window-controls .close, .window-controls .close";
+  const asked = async () => {
+    await click(exitButton);
+    await page.until('document.querySelector("[data-dialog=unsaved]")', 3000);
+  };
+
+  // Nothing to save: it just closes.
+  await fresh();
+  await click(exitButton);
+  await closed();
+
+  // All three answers are there, each with its icon; Cancel stays, with the work.
+  await fresh();
+  await change();
+  await asked();
+  assert.deepEqual(await js('Array.from(document.querySelectorAll("[data-dialog=unsaved] footer button")).map((b) => [b.dataset.command, !!b.querySelector("svg")])'), [["unsaved-save", true], ["unsaved-discard", true], ["unsaved-cancel", true]]);
+  assert.match(await js('document.querySelector("[data-dialog=unsaved] .dialog-message").textContent'), /Untitled/);
+  await shot("11o-unsaved");
+  const screens = (await project()).screens.length;
+  await click('[data-command="unsaved-cancel"]');
+  await sleep(200);
+  assert.equal(await js('!!document.querySelector("[data-dialog=unsaved]")'), false);
+  assert.equal((await project()).screens.length, screens);
+
+  // Closing from outside (what Alt+F4 and the taskbar send) asks too.
+  execFileSync("powershell", ["-NoProfile", "-Command", `Add-Type -Namespace W -Name C -MemberDefinition '[DllImport("user32.dll")] public static extern bool PostMessageW(IntPtr h, uint m, IntPtr w, IntPtr l);'; [void][W.C]::PostMessageW((Get-Process -Id ${app.pid}).MainWindowHandle, 0x10, [IntPtr]::Zero, [IntPtr]::Zero)`], { stdio: "ignore" });
+  await page.until('document.querySelector("[data-dialog=unsaved]")', 5000);
+  assert.equal(app.exitCode, null);
+
+  // Save with no folder yet: the folder is asked for; cancelling that stays, choosing it saves and closes.
+  await click('[data-command="unsaved-save"]');
+  await page.until('document.querySelector("[data-dialog=new-project]")', 3000);
+  await click('[data-dialog="new-project"] footer button:last-child');
+  await sleep(250);
+  assert.equal(await js('!!document.querySelector("[data-dialog=new-project]")'), false);
+  assert.equal(app.exitCode, null, "cancelling the folder closed the program");
+  await asked();
+  await click('[data-command="unsaved-save"]');
+  await page.until('document.querySelector("[data-dialog=new-project]")', 3000);
+  await js(`(() => {
+    const set = (selector, value) => { const e = document.querySelector(selector); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(e, value); e.dispatchEvent(new Event("input", { bubbles: true })); };
+    set('[data-field="newName"]', "Leaving");
+    set('[data-field="newLocation"]', ${JSON.stringify(folder)});
+  })()`);
+  await sleep(200);
+  await click('[data-command="project-create"]');
+  await closed();
+  const file = path.join(folder, "Leaving", "Leaving.mylvgl");
+  assert.ok(fs.existsSync(file), "nothing was saved");
+  const saved = () => JSON.parse(fs.readFileSync(file, "utf8")).screens.length;
+  assert.equal(saved(), screens);
+
+  // Save with a folder: written, then closed.
+  await fresh([file]);
+  await page.until("window.__mls.project().name === 'Leaving'", 8000);
+  await change();
+  await asked();
+  await click('[data-command="unsaved-save"]');
+  await closed();
+  assert.equal(saved(), screens + 1);
+
+  // Don't Save: closed, and the file is as it was.
+  await fresh([file]);
+  await page.until("window.__mls.project().name === 'Leaving'", 8000);
+  await change();
+  await asked();
+  await click('[data-command="unsaved-discard"]');
+  await closed();
+  assert.equal(saved(), screens + 1);
+  await restart();
 });
 
 const exitCode = summary();

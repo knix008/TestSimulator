@@ -10,6 +10,8 @@ Dialogs such as the settings, the user guide and the program information are all
 
 The user guide window can stay open while you work. It does not block the program's window and has its own taskbar button. Minimize or close it with the buttons on its top bar, and drag the dots in its bottom-right corner to resize it.
 
+If you exit or open another project with unsaved changes, a window lets you choose **Save**, **Don't Save** or **Cancel**. The same goes for closing with Alt+F4 or from the taskbar. A project that has never been saved asks for its folder first.
+
 ## Tutorial
 
 When the app starts, a window asks whether you want to take the tutorial. Press **Start the Tutorial** and you build the GUI of a smart watch with a round LCD yourself. Each step lists what to do, and doing it ticks it off. If you get stuck, press **Do It for Me**. Drag the card by its title to move it, and press Esc to end it.

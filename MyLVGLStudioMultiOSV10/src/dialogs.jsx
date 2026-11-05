@@ -178,6 +178,28 @@ export function Dialog({ title, icon, onClose, children, footer, width = 460, id
   return <WindowDialog pop={pop} height={height} {...props}>{children}</WindowDialog>;
 }
 
+/** Asked before unsaved work would be lost: keep it, let it go, or stay where you are. */
+export function UnsavedDialog({ t, name, onSave, onDiscard, onCancel }) {
+  return (
+    <Dialog
+      title={t("dialog.confirm")}
+      icon="save"
+      onClose={onCancel}
+      id="unsaved"
+      width={460}
+      footer={(
+        <>
+          <button type="button" className="primary" data-command="unsaved-save" onClick={onSave}><Icon name="save" size={14} /> {t("cmd.save")}</button>
+          <button type="button" data-command="unsaved-discard" onClick={onDiscard}><Icon name="delete" size={14} /> {t("dialog.dontSave")}</button>
+          <button type="button" data-command="unsaved-cancel" onClick={onCancel}><Icon name="close" size={14} /> {t("dialog.cancel")}</button>
+        </>
+      )}
+    >
+      <p className="dialog-message">{t("dialog.unsaved", { name })}</p>
+    </Dialog>
+  );
+}
+
 export function ConfirmDialog({ t, title, message, onYes, onNo, yesLabel }) {
   return (
     <Dialog

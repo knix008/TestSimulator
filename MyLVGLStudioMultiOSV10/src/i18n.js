@@ -74,7 +74,7 @@ const KO = {
   "version.installed": "설치됨", "version.notInstalled": "설치 안 됨", "version.engine": "내장 엔진",
   "manager.title": "LVGL 관리자", "manager.intro": "네이티브 실행에는 LVGL 소스가 필요합니다. 필요한 버전만 내려받으세요. 화면 설계와 앱 내 실행은 소스 없이 내장 엔진으로 동작합니다.", "manager.version": "버전", "manager.state": "상태", "manager.size": "크기", "manager.install": "설치", "manager.remove": "삭제", "manager.removeAsk": "LVGL {version}과 이 버전의 빌드 결과를 삭제할까요?", "manager.downloading": "내려받는 중 {percent}", "manager.extracting": "압축 푸는 중", "manager.offline": "GitHub에서 목록을 읽지 못해 알려진 버전만 표시합니다.", "manager.tools": "빌드 도구", "manager.toolMissing": "없음", "manager.sdlFound": "있음",
   "native.needInstall": "프로젝트의 LVGL {version}이 설치되어 있지 않습니다. 지금 내려받을까요?", "native.needTools": "네이티브 실행에 필요한 도구가 없습니다: {tools}\nLVGL 관리자에서 설치할 수 있습니다.", "native.desktopOnly": "데스크톱 앱에서만 사용할 수 있습니다.",
-  "dialog.ok": "확인", "dialog.cancel": "취소", "dialog.close": "닫기", "dialog.confirm": "확인", "dialog.unsaved": "저장하지 않은 변경 사항을 버릴까요?", "dialog.error": "오류",
+  "dialog.ok": "확인", "dialog.cancel": "취소", "dialog.close": "닫기", "dialog.confirm": "확인", "dialog.unsaved": "'{name}'의 변경 사항을 저장할까요?", "dialog.dontSave": "저장 안 함", "dialog.error": "오류",
   "about.title": "My LVGL Studio", "about.text": "LVGL 화면을 그래픽으로 설계하고 실행하며 C 코드를 생성합니다.",
   "log.saved": "저장함: {path}", "log.opened": "열림: {path}", "log.runStart": "실행 화면 시작", "log.runStop": "실행 화면 중지", "theme.light": "밝은 테마", "theme.dark": "어두운 테마",
 };
@@ -154,7 +154,7 @@ const EN = {
   "version.installed": "Installed", "version.notInstalled": "Not installed", "version.engine": "Built-in engine",
   "manager.title": "LVGL Manager", "manager.intro": "Native runs need the LVGL sources. Download only the versions you need. Designing and running inside the app work without them, on the built-in engines.", "manager.version": "Version", "manager.state": "State", "manager.size": "Size", "manager.install": "Install", "manager.remove": "Remove", "manager.removeAsk": "Remove LVGL {version} and its build output?", "manager.downloading": "Downloading {percent}", "manager.extracting": "Extracting", "manager.offline": "The list could not be read from GitHub; showing known versions only.", "manager.tools": "Build tools", "manager.toolMissing": "missing", "manager.sdlFound": "found",
   "native.needInstall": "The project's LVGL {version} is not installed. Download it now?", "native.needTools": "Native runs need tools that are missing: {tools}\nThe LVGL Manager can install them.", "native.desktopOnly": "Available in the desktop app only.",
-  "dialog.ok": "OK", "dialog.cancel": "Cancel", "dialog.close": "Close", "dialog.confirm": "Confirm", "dialog.unsaved": "Discard unsaved changes?", "dialog.error": "Error",
+  "dialog.ok": "OK", "dialog.cancel": "Cancel", "dialog.close": "Close", "dialog.confirm": "Confirm", "dialog.unsaved": "Save the changes to '{name}'?", "dialog.dontSave": "Don't Save", "dialog.error": "Error",
   "about.title": "My LVGL Studio", "about.text": "Designs LVGL screens graphically, runs them, and generates C code.",
   "log.saved": "Saved: {path}", "log.opened": "Opened: {path}", "log.runStart": "Run window started", "log.runStop": "Run window stopped", "theme.light": "Light themes", "theme.dark": "Dark themes",
 };

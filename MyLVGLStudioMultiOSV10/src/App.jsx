@@ -36,7 +36,7 @@ import { focusPopout } from "./popout.js";
 import { finishStep, stepSelection, tasksOf, tutorialProject } from "./lvgl/tutorial.js";
 import { clearDragCursor, setDragCursor } from "./cursor.js";
 import { engineFor } from "./lvgl/versions.js";
-import { versionChoices } from "./dialogs.jsx";
+import { UnsavedDialog, versionChoices } from "./dialogs.jsx";
 
 const MENU_ICONS = { file: "open", edit: "paste", view: "eye", run: "run", tools: "settings", help: "about" };
 const ZOOMS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8];
@@ -245,7 +245,7 @@ export function App({ initialSettings }) {
   /* ---------------------------------------------------------- document */
 
   const guardUnsaved = (next) => {
-    if (store.dirty) setDialog({ kind: "confirm", message: t("dialog.unsaved"), onYes: next });
+    if (store.dirty) setDialog({ kind: "unsaved", then: next });
     else next();
   };
 
@@ -276,9 +276,9 @@ export function App({ initialSettings }) {
   };
 
   /** Opens the dialog that decides a project folder. */
-  const askProjectFolder = async (saveOnly) => {
+  const askProjectFolder = async (saveOnly, after) => {
     const location = projectsDir || (await host.defaultLocation().catch(() => "")) || "";
-    setDialog({ kind: "project", saveOnly, location, name: saveOnly ? store.get().name : "MyLVGLProject" });
+    setDialog({ kind: "project", saveOnly, location, name: saveOnly ? store.get().name : "MyLVGLProject", after });
   };
 
   const cmdNew = () => guardUnsaved(() => askProjectFolder(false));
@@ -414,10 +414,21 @@ export function App({ initialSettings }) {
       await writeFolder(parts.join(path.includes("\\") ? "\\" : "/"), baseName, store.get());
       store.markSaved();
       rememberRecent(path);
+      return true;
     } catch (error) {
       showError(error);
+      return false;
     }
-    return undefined;
+  };
+
+  /** Saves, then goes on with what was asked for. A project with no folder yet is asked for one. */
+  const saveThen = async (next) => {
+    if (!path) {
+      await askProjectFolder(true, next);
+      return;
+    }
+    setDialog(null);
+    if (await cmdSave()) next();
   };
 
   /* ---------------------------------------------------------- editing */
@@ -1034,7 +1045,7 @@ export function App({ initialSettings }) {
     } },
     start: { id: "start", icon: "home", label: t("start.title"), pressed: showStart, run: () => setShowStart((value) => !value) },
     preferences: { id: "preferences", icon: "settings", label: t("cmd.preferences"), run: () => setDialog({ kind: "preferences" }) },
-    exit: { id: "exit", icon: "close", label: t("cmd.exit"), run: () => guardUnsaved(() => host.close()) },
+    exit: { id: "exit", icon: "close", label: t("cmd.exit"), run: () => guardUnsaved(() => host.closeMain()) },
     zoomIn: { id: "zoomIn", icon: "zoomIn", label: t("cmd.zoomIn"), keys: "Ctrl++", disabled: !designing || !zoomStep(1), run: () => stepZoom(1) },
     zoomOut: { id: "zoomOut", icon: "zoomOut", label: t("cmd.zoomOut"), keys: "Ctrl+-", disabled: !designing || !zoomStep(-1), run: () => stepZoom(-1) },
     zoomFit: { id: "zoomFit", icon: "zoomFit", label: t("cmd.zoomFit"), keys: "Ctrl+0", disabled: !designing, run: fitZoom },
@@ -1160,6 +1171,13 @@ export function App({ initialSettings }) {
   // The latest commands, for the keyboard handler below.
   const commands = useRef(c);
   commands.current = c;
+
+  // Alt+F4 and the taskbar's Close ask the same question as the Exit command.
+  useEffect(() => {
+    const off = host.on("close-requested", () => commands.current.exit.run());
+    void host.closeGuardReady();
+    return off;
+  }, []);
 
   useEffect(() => {
     const key = (event) => {
@@ -1718,7 +1736,10 @@ export function App({ initialSettings }) {
           initialVersion={general.newVersion}
           initialDevice={general.newDevice}
           installed={installed}
-          onCreate={(choice) => createProjectFolder(choice, dialog.saveOnly)}
+          onCreate={async (choice) => {
+            await createProjectFolder(choice, dialog.saveOnly);
+            dialog.after?.();
+          }}
           onClose={() => setDialog(null)}
         />
       )}
@@ -1730,6 +1751,19 @@ export function App({ initialSettings }) {
       )}
       {dialog?.kind === "about" && <AboutDialog t={t} runtime={runtime} iconSource={appIconLarge} onClose={() => setDialog(null)} />}
       {dialog?.kind === "message" && <MessageDialog t={t} title={dialog.title} message={dialog.message} onClose={() => setDialog(null)} />}
+      {dialog?.kind === "unsaved" && (
+        <UnsavedDialog
+          t={t}
+          name={project.name}
+          onSave={() => void saveThen(dialog.then)}
+          onDiscard={() => {
+            const next = dialog.then;
+            setDialog(null);
+            next();
+          }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
       {dialog?.kind === "confirm" && (
         <ConfirmDialog
           t={t}
