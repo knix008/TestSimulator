@@ -91,11 +91,38 @@ Function UnquotePath
   Exch $R0
 FunctionEnd
 
+; 설치 자리에 파일을 쓸 수 있는지 보고, 쓸 수 없으면 기본 자리로 돌아간다.
+;
+; Tauri 는 지난번 자리를 레지스트리에서 읽어 그대로 쓴다. 예전에 모든 사용자용으로
+; 깐 적이 있으면 그 값이 C:\Program Files\MyCalc 이다. 이 설치 프로그램은 권한을
+; 올리지 않으므로 거기에는 아무것도 놓지 못한다. 그런데도 설치는 끝까지 가서
+; 바로 가기만 남고, 띄우려 하면 mycalc.exe 를 찾을 수 없다고 나온다.
+Function UseWritableInstallDir
+  Push $R0
+  ClearErrors
+  CreateDirectory "$INSTDIR"
+  FileOpen $R0 "$INSTDIR\.mycalc-install-check" w
+  ${If} ${Errors}
+    StrCpy $INSTDIR "$LOCALAPPDATA\${APP_FILENAME}"
+  ${Else}
+    FileClose $R0
+    Delete "$INSTDIR\.mycalc-install-check"
+    ; 비어 있을 때만 지워진다. 취소해도 빈 폴더를 남기지 않는다.
+    RMDir "$INSTDIR"
+  ${EndIf}
+  Pop $R0
+FunctionEnd
+
+; 첫 페이지가 뜨기 전에 고쳐 두어야 폴더 고르는 페이지에 바른 자리가 보인다.
+; 조용히 설치할 때(/S)는 불리지 않으므로 customInit 에서 한 번 더 본다.
+!define MUI_CUSTOMFUNCTION_GUIINIT UseWritableInstallDir
+
 ; 설정이 남아 있는지 본다.
 ;
 ; 설정은 사용자별 자리에 둔다. 예전 Electron 판은 %APPDATA%\MyCalc 와
 ; %APPDATA%\mycalc 를 썼고, Tauri 판은 식별자 폴더(local.mycalc.desktop)를 쓴다.
-; 셋 다 사용자의 것이므로 함께 본다.
+; 웹뷰의 Local Storage 는 %LOCALAPPDATA% 쪽 식별자 폴더에 있다.
+; 모두 사용자의 것이므로 함께 본다.
 Function FindOldData
   StrCpy $HasOldData 0
   SetShellVarContext current
@@ -109,6 +136,9 @@ Function FindOldData
   ${EndIf}
   ${If} $DataThree != ""
   ${AndIf} ${FileExists} "$DataThree\*.*"
+    StrCpy $HasOldData 1
+  ${EndIf}
+  ${If} ${FileExists} "$LOCALAPPDATA\${APP_PACKAGE_NAME}\*.*"
     StrCpy $HasOldData 1
   ${EndIf}
 FunctionEnd
@@ -132,8 +162,7 @@ Function WipeOldData
     ${If} $DataThree != ""
       RMDir /r "$DataThree"
     ${EndIf}
-    RMDir /r "$LOCALAPPDATA\${APP_FILENAME}"
-    RMDir /r "$LOCALAPPDATA\${APP_PRODUCT_FILENAME}"
+    ; %LOCALAPPDATA%\MyCalc 는 건드리지 않는다. 방금 새 판을 깐 자리이다.
     RMDir /r "$LOCALAPPDATA\${APP_PACKAGE_NAME}"
     ${If} $R2 >= 8
       Return
@@ -226,6 +255,7 @@ FunctionEnd
 
 ; 설치를 시작하기 전에 자리를 비운다.
 !macro customInit
+  Call UseWritableInstallDir
   StrCpy $WipeData 0
   StrCpy $OldDir ""
   StrCpy $OldUninstaller ""
@@ -324,6 +354,10 @@ FunctionEnd
   ${If} $OldDir != ""
     Call RemoveOldApp
   ${EndIf}
+
+  ; 자리가 바뀌었거나 옛 판과 함께 폴더가 지워졌을 수 있다. File 은 폴더를 만들어
+  ; 주지 않으므로 파일을 놓기 전에 다시 잡아 둔다.
+  SetOutPath "$INSTDIR"
 !macroend
 
 ; 설정을 지우는 것은 맨 뒤로 미룬다. 여기까지 오면 돌고 있던 프로그램은 확실히

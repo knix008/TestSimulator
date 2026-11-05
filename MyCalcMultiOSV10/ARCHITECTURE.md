@@ -47,7 +47,7 @@ test/               브라우저 테스트
 
 `scripts/build-web.js`는 화면 파일을 `dist/web`으로 복사합니다. `tauri build`는 그 명령을 먼저 실행하고 `dist/web`을 프론트로 넣습니다. 패키지는 `src-tauri/target/release/bundle/`에 생깁니다.
 
-Windows 대상은 NSIS입니다. 한 번에 깔리는 설치 파일이 아니라 마법사이고, 언어는 한국어와 영어이며 시작할 때마다 묻습니다(`MUI_LANGDLL_ALWAYSSHOW`). 설치 대상은 현재 사용자뿐입니다(`installMode: currentUser`). `both` 는 시작할 때부터 관리자 권한을 요구하기 때문입니다. `src-tauri/windows/hooks.nsh`가 이전 설치를 지운 뒤, 설정을 지울지는 물은 다음 새 파일이 놓인 뒤에만 지웁니다. 예전 Electron 판의 `%APPDATA%\MyCalc`, `%APPDATA%\mycalc`와 이 앱의 `%APPDATA%\local.mycalc.desktop`을 함께 봅니다.
+Windows 대상은 NSIS입니다. 한 번에 깔리는 설치 파일이 아니라 마법사이고, 언어는 한국어와 영어이며 시작할 때마다 묻습니다(`MUI_LANGDLL_ALWAYSSHOW`). 설치 대상은 현재 사용자뿐입니다(`installMode: currentUser`). `both` 는 시작할 때부터 관리자 권한을 요구하기 때문입니다. `src-tauri/windows/hooks.nsh`가 이전 설치를 지운 뒤, 설정을 지울지는 물은 다음 새 파일이 놓인 뒤에만 지웁니다. 예전 Electron 판의 `%APPDATA%\MyCalc`, `%APPDATA%\mycalc`와 이 앱의 `%APPDATA%\local.mycalc.desktop`, `%LOCALAPPDATA%\local.mycalc.desktop`을 함께 봅니다. `%LOCALAPPDATA%\MyCalc`는 설치 폴더이므로 설정으로 치지 않습니다. 레지스트리에 기억된 설치 폴더에 쓸 수 없으면(예전 모든 사용자용 설치의 `C:\Program Files\MyCalc`) 기본 폴더로 돌아갑니다.
 
 Linux 대상은 deb와 AppImage, macOS 대상은 app과 dmg입니다. 각 명령은 그 운영체제에서 실행합니다. macOS 패키지는 서명되어 있지 않습니다.
 

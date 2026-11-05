@@ -6205,6 +6205,37 @@ suite("Windows installer", () => {
     if (!/wipeRound/.test(script)) trouble.push("erasing is tried once only");
     assert(!trouble.length, trouble.join(" | "));
   });
+
+  test("Erasing the settings leaves the program just installed", async () => {
+    const script = await fetchCode("../src-tauri/windows/hooks.nsh");
+    // The wipe runs after the files are down, and %LOCALAPPDATA%\MyCalc is where
+    // they went. Erasing it leaves shortcuts to a program that is not there.
+    const wipe = script.slice(script.indexOf("Function WipeOldData"), script.indexOf("Function RemoveOldApp"));
+    assert(wipe.length > 0, "the wipe was not found");
+    const swept = [...wipe.matchAll(/RMDir \/r "\$LOCALAPPDATA\\([^"]*)"/g)].map((match) => match[1]);
+    assert(swept.join() === "${APP_PACKAGE_NAME}", `the wipe also takes ${swept.join(", ")}`);
+    // That identifier folder holds the webview's Local Storage, so it counts as settings.
+    const find = script.slice(script.indexOf("Function FindOldData"), script.indexOf("Function WipeOldData"));
+    assert(/FileExists\} "\$LOCALAPPDATA\\\$\{APP_PACKAGE_NAME\}/.test(find), "settings in %LOCALAPPDATA% are never noticed");
+  });
+
+  test("A remembered folder the user cannot write to is not used", async () => {
+    const script = await fetchCode("../src-tauri/windows/hooks.nsh");
+    const trouble = [];
+    // Before the folder page, so the page shows the folder really used.
+    if (!/^!define MUI_CUSTOMFUNCTION_GUIINIT UseWritableInstallDir\s*$/m.test(script)) trouble.push("the wizard opens on the remembered folder");
+    // /S skips that function, so the install itself has to check as well.
+    const init = script.slice(script.indexOf("!macro customInit"), script.indexOf("!macro customInstall"));
+    if (!/Call UseWritableInstallDir/.test(init)) trouble.push("a silent install keeps the remembered folder");
+    const check = script.slice(script.indexOf("Function UseWritableInstallDir"), script.indexOf("Function FindOldData"));
+    if (!/FileOpen \$R0 "\$INSTDIR\\[^"]+" w/.test(check)) trouble.push("the folder is never tried");
+    if (!/StrCpy \$INSTDIR "\$LOCALAPPDATA\\\$\{APP_FILENAME\}"/.test(check)) trouble.push("there is no folder to fall back on");
+    // The folder may have changed or gone with the old copy, and File will not make one.
+    const removed = init.indexOf("Call RemoveOldApp");
+    const again = init.indexOf('SetOutPath "$INSTDIR"');
+    if (again < 0 || again < removed) trouble.push("the files are laid down without a folder");
+    assert(!trouble.length, trouble.join(" | "));
+  });
 });
 
 suite("Notepad", () => {
