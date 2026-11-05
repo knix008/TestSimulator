@@ -4,7 +4,7 @@
 import { kindOf } from '../formats/types.js';
 import { idbClear, idbCount, idbGet, idbSet } from '../platform/idb.js';
 import { fs } from '../platform/fs.js';
-import { assetUrl, invoke, isDesktop } from '../platform/native.js';
+import { assetUrl, errorDetails, invoke, isDesktop } from '../platform/native.js';
 
 // ───────── thumbnails stored per directory (desktop): <data>/thumbnails/<folder>/
 // index.json + images. A folder's index is read once when it opens; matching
@@ -247,7 +247,7 @@ class ThumbService {
       this.onInfo?.(item.path, result, false);
       job.resolve(entry);
     } catch (error) {
-      const entry = { url: null, error: error?.message ?? String(error) };
+      const entry = { url: null, error: error?.message ?? String(error), details: errorDetails(error) };
       this.remember(key, entry);
       job.resolve(entry);
     }

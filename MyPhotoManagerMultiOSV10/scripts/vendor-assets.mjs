@@ -48,6 +48,25 @@ for (const file of DICOM_FILES) {
 }
 if (dicomCopied) console.log(`public/vendor: DICOM 코덱 ${dicomCopied}개 파일 복사`);
 
+// PDF (src/formats/pdf-view.js): the data files pdf.js loads by URL. Without them a PDF with
+// non-embedded Korean fonts shows no text, and JPEG 2000 or JBIG2 pictures (scans) stay empty.
+let pdfCopied = 0;
+for (const folder of ['cmaps', 'standard_fonts', 'wasm', 'iccs']) {
+  const from = path.join(root, 'node_modules', 'pdfjs-dist', folder);
+  const to = path.join(root, 'public', 'vendor', 'pdfjs-dist', folder);
+  if (!fs.existsSync(from)) { console.error(`없음: ${from} (npm install 을 먼저 실행하세요)`); process.exit(1); }
+  fs.mkdirSync(to, { recursive: true });
+  for (const file of fs.readdirSync(from)) {
+    if (file.startsWith('quickjs')) continue; // PDF scripts: never run here
+    const source = path.join(from, file);
+    const target = path.join(to, file);
+    if (fs.existsSync(target) && fs.statSync(target).size === fs.statSync(source).size) continue;
+    fs.copyFileSync(source, target);
+    pdfCopied += 1;
+  }
+}
+if (pdfCopied) console.log(`public/vendor: PDF 자료 ${pdfCopied}개 파일 복사`);
+
 // Image analysis (src/analysis/worker.js): MobileNet v2 (ImageNet) and SSDLite MobileNet v2
 // (COCO) TensorFlow.js graph models from Google's tfjs-models bucket (Apache 2.0), fetched
 // once into public/models/. Without a network the build goes on and analysis reports the

@@ -2,7 +2,7 @@
 // the Chrome DevTools Protocol (WebView2 on Windows). The app gets its own
 // WebView2 profile, config and data folders, and a copy of the fixture photos,
 // so nothing of the user's is touched.
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
@@ -62,6 +62,7 @@ export class App {
     copyDir(fixtures, this.photos);
     await this.options.prepare?.(this.work);
     writeGuide(); // the guide window's text and pictures (npm run dev does it in predev)
+    execFileSync(process.execPath, [path.join(root, 'scripts', 'vendor-assets.mjs')], { stdio: 'ignore' }); // pdf.js data, codecs (also predev)
     if (!(await portOpen(DEV_PORT))) {
       this.vite = spawn(process.execPath, [path.join(root, 'node_modules', 'vite', 'bin', 'vite.js'), '--port', String(DEV_PORT), '--strictPort'], { cwd: root, stdio: 'ignore' });
       for (let i = 0; i < 150 && !(await portOpen(DEV_PORT)); i++) await sleep(100);
@@ -77,7 +78,9 @@ export class App {
 
   async launch(args = []) {
     this.port = await freePort();
-    const env = { ...process.env, MYPHOTO_MULTI: '1', MYPHOTO_CONFIG_DIR: this.config, MYPHOTO_DATA_DIR: this.data, WEBVIEW2_USER_DATA_FOLDER: this.profile, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${this.port}`, ...(this.options.env?.(this.work) ?? {}) };
+    // This variable replaces the arguments the app asks for, so they are repeated: tests run the engine as users do.
+    const appArgs = /const BROWSER_ARGS: &str = "([^"]*)"/.exec(fs.readFileSync(path.join(root, 'src-tauri', 'src', 'lib.rs'), 'utf8'))?.[1] ?? '';
+    const env = { ...process.env, MYPHOTO_MULTI: '1', MYPHOTO_CONFIG_DIR: this.config, MYPHOTO_DATA_DIR: this.data, WEBVIEW2_USER_DATA_FOLDER: this.profile, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `${appArgs} --remote-debugging-port=${this.port}`, ...(this.options.env?.(this.work) ?? {}) };
     delete env.ELECTRON_RUN_AS_NODE;
     this.process = spawn(exe, args, { cwd: root, env, stdio: 'ignore' });
     this.exited = new Promise((resolve) => this.process.once('exit', resolve));

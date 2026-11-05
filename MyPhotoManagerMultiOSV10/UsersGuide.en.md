@@ -280,6 +280,8 @@ JPEG · PNG · GIF · WebP · BMP · TIFF (multi-page) · HEIC/HEIF · AVIF · P
 
 **Saving (Save as · Convert format)**: JPEG · PNG · WebP · BMP · TIFF · GIF · JPEG 2000 · JPEG XL · PSD · PDF · DICOM · ICO · TGA · QOI · PPM · PCX · SGI · Sun RAS · DDS · Radiance HDR · XBM, 16-bit TIFF · PNG. HEIC and AVIF are read-only (the browser engine has no encoder for them). Overwriting the original is done only for JPEG · PNG · WebP · BMP · TIFF (other formats go to a new file).
 
+**Files that cannot be opened, and errors**: a file that cannot be opened, such as a damaged or password-protected PDF, shows its name and the reason where the picture would be. **Copy** puts the file path and the full error details on the clipboard, and **Details** opens all of it in the error window. In the desktop app, when the window hangs (after 30 seconds without a response it asks whether to reload) or the page's process dies, the window reloads; when the program itself dies, the next start shows the cause and the last files read in a window you can copy from (Windows). The last folder is not reopened automatically then, so the same thing does not happen again. Earlier reports stay in `crash-history.log` in the app data folder.
+
 ## 15. Keyboard shortcuts
 
 Help → Keyboard shortcuts (F1) shows the full list. *Help → Customize shortcuts…* reassigns the shortcuts of Manage, View and Edit mode commands (click a field and press the new key combination; ↺ restores the default, ✕ sets none). Giving the same key to two commands shows it in red.

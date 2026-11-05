@@ -272,7 +272,40 @@ async function copyText(text, from) {
       return true;
     }
   } catch { /* the dialog window may refuse the async clipboard */ }
-  return false;
+  // No error window open: copy through a hidden text box.
+  const box = doc.createElement('textarea');
+  box.value = text;
+  box.style.cssText = 'position:fixed;opacity:0';
+  doc.body.append(box);
+  box.select();
+  try { return doc.execCommand('copy'); } catch { return false; } finally { box.remove(); }
+}
+
+/**
+ * What failed, shown where the picture would be: the file, the reason, a button
+ * that copies the full text (file, reason, stack) and one that opens it in the
+ * error window. `details` is the full text when the error object is gone.
+ */
+export function errorPanel(error, { name = '', path = '', size = null, details = null, className = 'error-panel' } = {}) {
+  const message = error?.message ?? String(error);
+  const text = () => [name, path && path !== name ? path : '', Number.isFinite(size) ? `${size} bytes` : '', '', details ?? errorDetails(error)].filter((line, i) => i === 3 || line).join('\n');
+  const note = h('span.error-copied', { hidden: true }, t('error.copied'));
+  return h(`div.${className}`,
+    h('span', { html: icon('warning') }),
+    h('div.error-name', name),
+    h('div.error-message', message),
+    h('div.error-actions',
+      h('button.btn', {
+        type: 'button',
+        onclick: async (event) => {
+          const ok = await copyText(text(), event.currentTarget);
+          if (!ok) { reportError(text()); return; }
+          note.hidden = false;
+          setTimeout(() => { note.hidden = true; }, 1600);
+        },
+      }, t('error.copy')),
+      h('button.btn', { type: 'button', onclick: () => reportError(text()) }, t('error.details')),
+      note));
 }
 
 /** Popup with the full error text, selectable and copyable. Further errors join the open popup. */
