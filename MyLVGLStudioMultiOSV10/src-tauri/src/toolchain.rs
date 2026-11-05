@@ -20,9 +20,9 @@ const COMPLETE: &str = "complete.txt";
 const ATTEMPTS: u32 = 3;
 const USER_AGENT: &str = "MyLVGLStudio";
 const INSTALLED_MEGABYTES: u32 = 410;
-const PROGRESS_EVERY: Duration = Duration::from_millis(150);
+pub const PROGRESS_EVERY: Duration = Duration::from_millis(150);
 /// A connection that has gone quiet is given up on and tried again, rather than waited for forever.
-const QUIET_LIMIT: Duration = Duration::from_secs(30);
+pub const QUIET_LIMIT: Duration = Duration::from_secs(30);
 
 struct Archive {
     name: &'static str,

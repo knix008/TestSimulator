@@ -46,6 +46,8 @@ export const host = {
   lvglInstalled: () => (isDesktop ? invoke("lvgl_installed") : Promise.resolve([])),
   lvglReleases: () => (isDesktop ? invoke("lvgl_releases") : desktopOnly()),
   lvglInstall: (version) => (isDesktop ? invoke("lvgl_install", { version }) : desktopOnly()),
+  lvglItem: (version) => (isDesktop ? invoke("lvgl_item", { version }) : desktopOnly()),
+  lvglCancel: () => (isDesktop ? invoke("lvgl_cancel") : Promise.resolve()),
   lvglRemove: (version) => (isDesktop ? invoke("lvgl_remove", { version }) : desktopOnly()),
   /** The lv_conf_template.h of an installed version, as { path, text }; null when not installed. */
   lvglConfTemplate: (version) => (isDesktop ? invoke("lvgl_conf_template", { version }) : Promise.resolve(null)),

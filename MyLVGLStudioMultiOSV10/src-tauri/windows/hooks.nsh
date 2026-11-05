@@ -7,8 +7,9 @@
 ;   - the file type's content type and its "Open with" entry;
 ;   - a clean registry after uninstalling: the template's macro leaves the extension's key behind,
 ;     and after a reinstall its backup value names this very ProgID;
-;   - the private compiler, the LVGL sources and the native builds go with the program. An update
-;     keeps them. Settings stay unless the uninstaller's own "delete app data" is ticked.
+;   - the private compiler, every LVGL version that was downloaded (with what an interrupted download
+;     left, which is in the same folder) and the native builds go with the program. An update keeps
+;     them. Settings stay unless the uninstaller's own "delete app data" is ticked.
 
 ; The language is asked at every install, with the last one chosen already selected. By default the
 ; question is skipped once a language has been remembered. It is asked before any language is

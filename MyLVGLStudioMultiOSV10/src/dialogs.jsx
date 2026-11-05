@@ -201,11 +201,11 @@ export function UnsavedDialog({ t, name, onSave, onDiscard, onCancel }) {
   );
 }
 
-export function ConfirmDialog({ t, title, message, onYes, onNo, yesLabel }) {
+export function ConfirmDialog({ t, title, message, onYes, onNo, yesLabel, icon = "about" }) {
   return (
     <Dialog
       title={title ?? t("dialog.confirm")}
-      icon="about"
+      icon={icon}
       onClose={onNo}
       id="confirm"
       width={420}
@@ -456,26 +456,26 @@ export function NewProjectDialog({ t, saveOnly, initialName, initialLocation, in
 const megabytes = (bytes) => `${(bytes / 1048576).toFixed(1)} MB`;
 
 /** The compiler's installation: what is coming, what it is for, how far it is, how long is left. */
-export function ToolsProgress({ t, job, onHide, onCancel, onRetry }) {
+export function ToolsProgress({ t, id = "tools-progress", title, intro, job, onHide, onCancel, onRetry }) {
   const failed = job.status === "failed";
   const left = timeWords(t, job.seconds);
   const stateOf = (item) => {
-    if (item.state === "download") return t("tools.downloading", { received: wholeMegabytes(item.received), total: wholeMegabytes(item.bytes) });
+    if (item.state === "download") return t(item.exact ? "tools.downloading" : "tools.downloadingAbout", { received: wholeMegabytes(item.received), total: wholeMegabytes(item.bytes) });
     if (item.state === "unpack") return t("tools.unpacking", { percent: Math.floor(item.unpacked * 100) });
     return t(item.state === "done" ? "tools.done" : "tools.waiting");
   };
   return (
     <Dialog
-      title={t("tools.title")}
-      icon="build"
-      id="tools-progress"
+      title={title ?? t("tools.title")}
+      icon="download"
+      id={id}
       width={600}
-      height={520}
+      height={job.items.length > 1 ? 520 : 400}
       standsFree
       onClose={onHide}
       footer={failed ? (
         <>
-          <button type="button" className="primary" data-command="tools-retry" onClick={onRetry}><Icon name="build" /> {t("tools.retry")}</button>
+          <button type="button" className="primary" data-command="tools-retry" onClick={onRetry}><Icon name="download" /> {t("tools.retry")}</button>
           <button type="button" data-command="tools-hide" onClick={onHide}><Icon name="close" size={14} /> {t("dialog.close")}</button>
         </>
       ) : (
@@ -486,7 +486,7 @@ export function ToolsProgress({ t, job, onHide, onCancel, onRetry }) {
       )}
     >
       <div className="tools-progress" data-tools-progress="">
-        <p className="dialog-message">{t("tools.intro")}</p>
+        <p className="dialog-message">{intro ?? t("tools.intro")}</p>
         <ul className="tools-items">
           {job.items.map((item) => (
             <li key={item.id} className={item.state === "done" ? "done" : undefined} data-tools-item={item.id} data-state={item.state}>
@@ -512,7 +512,7 @@ export function ToolsProgress({ t, job, onHide, onCancel, onRetry }) {
           <p className="tools-time" data-tools-time="">
             <b data-tools-status="">{job.cancelling ? t("tools.cancelling") : job.stalled ? t("tools.stalled") : job.percent >= 100 ? t("tools.finishing") : left ? t("tools.remaining", { time: left }) : t("tools.calculating")}</b>
             <span data-tools-elapsed="">{t("tools.elapsed", { time: clockWords(job.elapsed) })}</span>
-            <span>{wholeMegabytes(job.received)} / {wholeMegabytes(job.bytes)} MB</span>
+            <span>{t(job.items.every((item) => item.exact) ? "tools.amount" : "tools.amountAbout", { received: wholeMegabytes(job.received), total: wholeMegabytes(job.bytes) })}</span>
             {job.speed > 0 && job.items.some((item) => item.state === "download") && <span>{(job.speed / 1000000).toFixed(1)} MB/s</span>}
           </p>
         )}
@@ -522,7 +522,7 @@ export function ToolsProgress({ t, job, onHide, onCancel, onRetry }) {
   );
 }
 
-export function LvglManager({ t, onClose, onInstalledChange, autoInstall, toolsBusy, onInstallLocal }) {
+export function LvglManager({ t, onClose, onInstalledChange, toolsBusy, onInstallLocal, onInstallLvgl, lvglBusy }) {
   const [installed, setInstalled] = useState([]);
   const [releases, setReleases] = useState(null);
   const [offline, setOffline] = useState(false);
@@ -585,19 +585,11 @@ export function LvglManager({ t, onClose, onInstalledChange, autoInstall, toolsB
   const install = async (version) => {
     setErrors((state) => ({ ...state, [version]: null }));
     setProgress((state) => ({ ...state, [version]: { phase: "download", received: 0, total: 0 } }));
-    try {
-      await host.lvglInstall(version);
-    } catch (error) {
-      setErrors((state) => ({ ...state, [version]: String(error) }));
-    }
+    const result = await onInstallLvgl(version);
+    if (!result.ok && result.error !== "stopped") setErrors((state) => ({ ...state, [version]: result.error }));
     setProgress((state) => ({ ...state, [version]: null }));
     await refresh();
   };
-
-  useEffect(() => {
-    if (autoInstall) void install(autoInstall);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoInstall]);
 
   const remove = async (version) => {
     setAsking(null);
@@ -646,7 +638,7 @@ export function LvglManager({ t, onClose, onInstalledChange, autoInstall, toolsB
                 {item ? (
                   <button type="button" data-action="remove" disabled={busy} onClick={() => setAsking(version)}><Icon name="delete" /> {t("manager.remove")}</button>
                 ) : (
-                  <button type="button" data-action="install" disabled={busy || !isDesktop} onClick={() => install(version)}><Icon name="manager" /> {t("manager.install")}</button>
+                  <button type="button" data-action="install" disabled={busy || lvglBusy || !isDesktop} onClick={() => install(version)}><Icon name="manager" /> {t("manager.install")}</button>
                 )}
               </span>
             </div>

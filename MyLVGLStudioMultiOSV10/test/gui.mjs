@@ -1297,6 +1297,66 @@ await step("Native run on a PC without the compiler installs it without asking, 
   await js("window.__toolsRestore()");
 });
 
+await step("Downloading LVGL shows what, how far and how long in a window of its own, and can be cancelled", async () => {
+  await js(`(() => {
+    const host = window.__mls.host;
+    const real = { ...host };
+    window.__toolsRestore = () => Object.assign(host, real);
+    window.__lvgl = { calls: 0 };
+    host.lvglInstall = (version) => {
+      window.__lvgl.calls++;
+      window.__lvgl.version = version;
+      // GitHub does not say how big the archive is: total 0.
+      setTimeout(() => host.emit("lvgl-progress", { version, phase: "download", received: 40000000, total: 0 }), 100);
+      return new Promise((resolve, reject) => {
+        window.__lvgl.finish = resolve;
+        window.__lvgl.fail = reject;
+      });
+    };
+    host.lvglCancel = async () => window.__lvgl.fail("stopped");
+  })()`);
+  await click('[data-command="manager"]');
+  await page.until('document.querySelector(\'[data-version="9.6.0"] [data-action="install"]\')', 15000);
+  await click('[data-version="9.6.0"] [data-action="install"]');
+  await page.until('document.querySelector("[data-dialog=lvgl-progress] [data-tools-item=lvgl][data-state=download]")', 3000);
+  // The manager is modal: it must not stay and lock the main window during the download.
+  assert.equal(await js('!!document.querySelector("[data-dialog=manager]")'), false, "the manager stayed open");
+  assert.equal(await js('document.querySelector("[data-dialog=lvgl-progress] .dialog [data-icon], [data-dialog=lvgl-progress] header [data-icon]").dataset.icon'), "download");
+  const told = await js('document.querySelector("[data-dialog=lvgl-progress]").textContent');
+  for (const word of ["9.6.0", "LVGL", "40 /", "115 MB", path.join(data, "settings", "lvgl", "9.6.0")]) assert.ok(told.includes(word), `${word} is not in: ${told}`);
+  assert.ok(await js('Number.parseInt(document.querySelector("[data-tools-percent]").textContent) > 0'), "no percentage");
+  assert.ok(await js('!!document.querySelector("[data-tools-spinner]")'), "nothing moves");
+  await shot("07-lvgl-progress");
+  // In the background, the manager can be opened, and offers no second download.
+  await click('[data-command="tools-hide"]');
+  await page.until('!document.querySelector("[data-dialog=lvgl-progress]")', 3000);
+  await click('[data-command="manager"]');
+  await page.until('document.querySelector(\'[data-version="9.5.0"] [data-action="install"]\')', 15000);
+  assert.equal(await js('document.querySelector(\'[data-version="9.5.0"] [data-action="install"]\').disabled'), true, "one download at a time");
+  await click('[data-dialog="manager"] footer button');
+  await page.until('!document.querySelector("[data-dialog=manager]")', 3000);
+  await click('[data-status="lvgl"]');
+  await page.until('document.querySelector("[data-dialog=lvgl-progress]")', 3000);
+  // Cancelling ends it without an error and leaves nothing marked.
+  await click('[data-command="tools-cancel"]');
+  await page.until('!document.querySelector("[data-dialog=lvgl-progress]")', 3000);
+  assert.equal(await js('!!document.querySelector("[data-status=lvgl], [data-status=lvgl-failed]")'), false);
+  // A failure stays on screen and can be tried again.
+  await click('[data-command="manager"]');
+  await page.until('document.querySelector(\'[data-version="9.6.0"] [data-action="install"]:not(:disabled)\')', 15000);
+  await click('[data-version="9.6.0"] [data-action="install"]');
+  await page.until('window.__lvgl.calls === 2 && document.querySelector("[data-dialog=lvgl-progress]")', 3000);
+  await js('window.__lvgl.fail("no network")');
+  await page.until('document.querySelector("[data-tools-error]")', 3000);
+  assert.match(await js('document.querySelector("[data-tools-error]").textContent'), /no network/);
+  await click('[data-command="tools-retry"]');
+  await page.until('window.__lvgl.calls === 3 && !document.querySelector("[data-tools-error]")', 3000);
+  assert.equal(await js("window.__lvgl.version"), "9.6.0");
+  await js("window.__lvgl.finish()");
+  await page.until('!document.querySelector("[data-dialog=lvgl-progress]")', 3000);
+  await js("window.__toolsRestore()");
+});
+
 await step("The theme menu: my themes and settings on top, Dark and Light side by side", async () => {
   await click('[data-command="theme"]');
   await sleep(80);
@@ -2578,13 +2638,13 @@ if (!skipNative) {
 
   await step("It downloads and installs LVGL 9.6.0", async () => {
     await click('[data-version="9.6.0"] [data-action="install"]');
-    await page.until('document.querySelector(\'[data-version="9.6.0"] [data-action="remove"]\')', 180000);
+    await page.until('document.querySelector("[data-dialog=lvgl-progress]")', 5000);
+    await page.until('!document.querySelector("[data-dialog=lvgl-progress]")', 180000);
     const dir = path.join(data, "settings", "lvgl", "9.6.0");
     assert.ok(fs.existsSync(path.join(dir, "lvgl.h")));
     assert.ok(fs.existsSync(path.join(dir, "include", "lvgl", "lvgl.h")));
     assert.ok(!fs.existsSync(path.join(dir, "docs")));
     await shot("09-installed");
-    await click('[data-dialog="manager"] footer button');
   });
 
   await step("It installs the private compiler in its own folder, and only that", async () => {
@@ -2618,12 +2678,14 @@ if (!skipNative) {
     await page.until('document.querySelector("[data-dialog=confirm]")', 15000);
     assert.match(await js('document.querySelector("[data-dialog=confirm]").textContent'), /8\.4\.0/);
     await click('[data-command="confirm-yes"]');
-    await page.until('document.querySelector(\'[data-version="8.4.0"] [data-action="remove"]\')', 180000);
-    await click('[data-dialog="manager"] footer button');
+    await page.until('document.querySelector("[data-dialog=lvgl-progress]")', 5000);
+    // Once it has come, the run that was asked for goes on.
+    await page.until('!document.querySelector("[data-dialog=lvgl-progress]")', 180000);
+    assert.ok(fs.existsSync(path.join(data, "settings", "lvgl", "8.4.0", "lvgl.h")));
+    await page.until('document.querySelector(\'[data-command="native"]\').getAttribute("aria-pressed") === "true"', 5000);
   });
 
   await step("Native run works with the LVGL v8 API too", async () => {
-    await click('[data-command="native"]');
     await page.until('Array.from(document.querySelectorAll("[data-log=build] .log-line span")).some((e) => e.textContent.startsWith("Running"))', 480000);
     const buildText = await js('Array.from(document.querySelectorAll("[data-log=build] .log-line span")).map((e) => e.textContent).join("\\n")');
     fs.writeFileSync(path.join(root, "build", "native-v8.log"), buildText);

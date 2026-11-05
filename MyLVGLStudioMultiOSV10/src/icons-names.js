@@ -56,6 +56,7 @@ export const PATHS = {
   split: [["indigo", '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 4v16"/>']],
   code: [["orange", '<path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 5l-4 14"/>']],
   log: [["slate", '<path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/>']],
+  download: [["sky", '<path d="M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/><path d="M12 3v13"/><path d="m7 11 5 5 5-5"/>']],
   build: [["amber", '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2.8 2.8 0 0 1-4-4l9-9a4 4 0 0 1 4-5z"/>']],
   device: [["teal", '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M9 21h6M12 17v4"/>']],
   cut: [["orange", '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2 20 20M8.2 15.8 20 4"/>']],

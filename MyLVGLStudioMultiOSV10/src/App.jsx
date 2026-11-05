@@ -19,7 +19,7 @@ import { cNames } from "./lvgl/emit.js";
 import { setTipTranslator } from "./tooltips.js";
 import { Attributes, CodeView, Explorer, ProblemsView, ComponentTree, LogView, Palette, PanelTitle } from "./panels.jsx";
 import { AboutDialog, ConfirmDialog, LvglManager, ToolsProgress, MessageDialog, NewProjectDialog, ProjectSettings, SamplesDialog } from "./dialogs.jsx";
-import { advance, startJob, tick } from "./toolsProgress.js";
+import { useInstallJob } from "./useInstallJob.js";
 import { useProjectStore } from "./store.js";
 import { FILE_EXTENSION, serializeProject, addNode, addScreen, cloneNode, createNode, findNode, findParent, newProject, parseProject, imageNameFor, removeNode, screenOf } from "./lvgl/project.js";
 import { CONTAINERS, DEVICES, PALETTE, WIDGETS, availableIn, normalDevice, sameDevice } from "./lvgl/schema.js";
@@ -344,9 +344,13 @@ export function App({ initialSettings }) {
       if (!list.includes(document.lvgl)) {
         setDialog({
           kind: "confirm",
+          icon: "download",
           message: t("samples.needLvgl", { version: document.lvgl }),
           yesLabel: t("manager.install"),
-          onYes: () => setDialog({ kind: "manager", autoInstall: document.lvgl }),
+          onYes: () => {
+            setDialog(null);
+            void installLvgl(document.lvgl);
+          },
         });
       }
     } catch (error) {
@@ -775,56 +779,46 @@ export function App({ initialSettings }) {
     }
   };
 
-  /* The compiler's installation (toolsProgress.js), null when none is going on or has failed. */
-  const [toolsJob, setToolsJob] = useState(null);
-  const [toolsWindow, setToolsWindow] = useState(false);
-  const toolsBusy = toolsJob?.status === "running";
-  // A native run that was asked for goes on once the compiler is there.
-  const runAfterTools = useRef(false);
+  /* The downloads a native run needs, each with its progress window. */
+  const toolsInstall = useInstallJob("tools-progress", "tools-progress");
+  const lvglInstall = useInstallJob("lvgl-progress", "lvgl-progress", ({ phase, received, total }) => ({ item: 0, phase: phase === "extract" ? "unpack" : phase, done: received, total }));
+  const toolsBusy = toolsInstall.busy;
+  // A native run that was asked for goes on once what it needs is there.
+  const runAfterInstall = useRef(false);
   const installTools = async () => {
     const info = await host.toolsItems();
-    setToolsJob(startJob(info, Date.now()));
-    setToolsWindow(true);
     log(t("log.toolsStart"));
-    const offProgress = host.on("tools-progress", (event) => setToolsJob((job) => (job ? advance(job, event, Date.now()) : job)));
-    const finished = new Promise((resolve) => {
-      const off = host.on("tools-exit", (result) => {
-        off();
-        resolve(result);
+    const result = await toolsInstall.run(info, () => {
+      const finished = new Promise((resolve) => {
+        const off = host.on("tools-exit", (outcome) => {
+          off();
+          resolve(outcome);
+        });
       });
+      return host.toolsInstall().then(() => finished, (error) => ({ ok: false, error: String(error) }));
     });
-    const result = await host.toolsInstall().then(() => finished, (error) => ({ ok: false, error: String(error) }));
-    offProgress();
-    if (result.ok) {
-      log(t("log.toolsDone"));
-    } else if (result.error === "stopped") {
-      runAfterTools.current = false;
-      log(t("log.toolsCancelled"));
-    } else {
-      runAfterTools.current = false;
-      log(t("log.toolsFailed", { error: result.error }), "error");
-      setToolsJob((job) => ({ ...job, status: "failed", error: result.error }));
-      setToolsWindow(true);
-      return;
-    }
-    setToolsJob(null);
-    setToolsWindow(false);
+    if (!result.ok) runAfterInstall.current = false;
+    if (result.ok) log(t("log.toolsDone"));
+    else if (result.error === "stopped") log(t("log.toolsCancelled"));
+    else log(t("log.toolsFailed", { error: result.error }), "error");
+    return result;
   };
-  // The clock in the window moves on even when nothing is arriving.
-  useEffect(() => {
-    if (!toolsBusy) return undefined;
-    const timer = setInterval(() => setToolsJob((job) => (job?.status === "running" ? tick(job, Date.now()) : job)), 1000);
-    return () => clearInterval(timer);
-  }, [toolsBusy]);
-  // In front if it is open already: it stands free, so it can be behind the main window.
-  const showToolsWindow = () => {
-    if (!focusPopout("tools-progress")) setToolsWindow(true);
+  const installLvgl = async (version) => {
+    const info = await host.lvglItem(version);
+    log(t("log.lvglStart", { version }));
+    const result = await lvglInstall.run(info, () => host.lvglInstall(version).then(() => ({ ok: true }), (error) => ({ ok: false, error: String(error) })));
+    if (!result.ok) runAfterInstall.current = false;
+    if (result.ok) log(t("log.lvglDone", { version }));
+    else if (result.error === "stopped") log(t("log.lvglCancelled", { version }));
+    else log(t("log.lvglFailed", { version, error: result.error }), "error");
+    await refreshInstalled();
+    return result;
   };
   useEffect(() => {
-    if (toolsJob || !runAfterTools.current) return;
-    runAfterTools.current = false;
+    if (toolsInstall.job || lvglInstall.job || !runAfterInstall.current) return;
+    runAfterInstall.current = false;
     void commands.current.native.run();
-  }, [toolsJob]);
+  }, [toolsInstall.job, lvglInstall.job]);
   const missingTools = (tools) => [...["gcc", "cmake", "ninja"].filter((tool) => !tools[tool]), ...(tools.sdl ? [] : ["SDL2"])];
 
   // A new PC has no compiler. Where it is the app's own, it comes without being asked for.
@@ -845,9 +839,9 @@ export function App({ initialSettings }) {
       showError(t("native.desktopOnly"));
       return;
     }
-    if (toolsBusy) {
-      runAfterTools.current = true;
-      showToolsWindow();
+    if (toolsBusy || lvglInstall.busy) {
+      runAfterInstall.current = true;
+      (toolsBusy ? toolsInstall : lvglInstall).show();
       return;
     }
     const version = store.get().lvgl;
@@ -857,7 +851,7 @@ export function App({ initialSettings }) {
       setBottomTab("build");
       setCollapsed((state) => ({ ...state, bottom: false }));
       setBuildLines([]);
-      runAfterTools.current = true;
+      runAfterInstall.current = true;
       await installTools();
       return;
     }
@@ -875,9 +869,14 @@ export function App({ initialSettings }) {
     if (!list.includes(version)) {
       setDialog({
         kind: "confirm",
+        icon: "download",
         message: t("native.needInstall", { version }),
         yesLabel: t("manager.install"),
-        onYes: () => setDialog({ kind: "manager", autoInstall: version }),
+        onYes: () => {
+          setDialog(null);
+          runAfterInstall.current = true;
+          void installLvgl(version);
+        },
       });
       return;
     }
@@ -1732,10 +1731,16 @@ export function App({ initialSettings }) {
 
       <div className="statusbar">
         <span className="status-cell" data-status="mode"><Icon name={running || native !== "idle" ? "run" : "design"} /><span>{status}</span></span>
-        {toolsJob && (
-          <button type="button" className={toolsBusy ? "status-cell" : "status-cell warn"} data-status={toolsBusy ? "tools" : "tools-failed"} title={t("status.toolsShow")} onClick={showToolsWindow}>
-            <Icon name={toolsBusy ? "build" : "warning"} />
-            <span>{toolsBusy ? t("status.toolsInstalling", { percent: toolsJob.percent }) : t("status.toolsFailed")}</span>
+        {toolsInstall.job && (
+          <button type="button" className={toolsBusy ? "status-cell" : "status-cell warn"} data-status={toolsBusy ? "tools" : "tools-failed"} title={t("status.toolsShow")} onClick={toolsInstall.show}>
+            <Icon name={toolsBusy ? "download" : "warning"} />
+            <span>{toolsBusy ? t("status.toolsInstalling", { percent: toolsInstall.job.percent }) : t("status.toolsFailed")}</span>
+          </button>
+        )}
+        {lvglInstall.job && (
+          <button type="button" className={lvglInstall.busy ? "status-cell" : "status-cell warn"} data-status={lvglInstall.busy ? "lvgl" : "lvgl-failed"} title={t("status.toolsShow")} onClick={lvglInstall.show}>
+            <Icon name={lvglInstall.busy ? "download" : "warning"} />
+            <span>{lvglInstall.busy ? t("status.lvglInstalling", { percent: lvglInstall.job.percent }) : t("status.lvglFailed")}</span>
           </button>
         )}
         {!showStart && (
@@ -1828,9 +1833,23 @@ export function App({ initialSettings }) {
       {dialog?.kind === "settings" && (
         <ProjectSettings t={t} store={store} installed={installed} onVersion={changeVersion} onClose={() => setDialog(null)} onManager={() => setDialog({ kind: "manager", back: "settings" })} onConf={() => setDialog({ kind: "lvconf" })} onFonts={() => setDialog({ kind: "fonts" })} />
       )}
-      {toolsJob && toolsWindow && <ToolsProgress t={t} job={toolsJob} onHide={() => setToolsWindow(false)} onCancel={() => { setToolsJob((job) => job && { ...job, cancelling: true }); void host.nativeStop(); }} onRetry={() => void installTools()} />}
+      {toolsInstall.job && toolsInstall.open && <ToolsProgress t={t} job={toolsInstall.job} onHide={toolsInstall.hide} onCancel={() => { toolsInstall.markCancelling(); void host.nativeStop(); }} onRetry={() => void installTools()} />}
+      {lvglInstall.job && lvglInstall.open && <ToolsProgress t={t} id="lvgl-progress" title={t("lvgl.title", { version: lvglInstall.job.version })} intro={t("lvgl.intro")} job={lvglInstall.job} onHide={lvglInstall.hide} onCancel={() => { lvglInstall.markCancelling(); void host.lvglCancel(); }} onRetry={() => void installLvgl(lvglInstall.job.version)} />}
       {dialog?.kind === "manager" && (
-        <LvglManager t={t} autoInstall={dialog.autoInstall} toolsBusy={toolsBusy} onInstallLocal={installTools} onInstalledChange={setInstalled} onClose={() => setDialog(dialog.back ? { kind: dialog.back } : null)} />
+        <LvglManager
+          t={t}
+          toolsBusy={toolsBusy}
+          // The manager is modal: left open, it would lock the main window for the whole download.
+          onInstallLocal={() => {
+            setDialog(null);
+            return installTools();
+          }}
+          onInstallLvgl={(version) => {
+            setDialog(null);
+            return installLvgl(version);
+          }}
+          lvglBusy={lvglInstall.busy}
+          onInstalledChange={setInstalled} onClose={() => setDialog(dialog.back ? { kind: dialog.back } : null)} />
       )}
       {dialog?.kind === "about" && <AboutDialog t={t} runtime={runtime} iconSource={appIconLarge} onClose={() => setDialog(null)} />}
       {dialog?.kind === "message" && <MessageDialog t={t} title={dialog.title} message={dialog.message} onClose={() => setDialog(null)} />}
@@ -1850,6 +1869,7 @@ export function App({ initialSettings }) {
       {dialog?.kind === "confirm" && (
         <ConfirmDialog
           t={t}
+          icon={dialog.icon}
           message={dialog.message}
           yesLabel={dialog.yesLabel}
           onYes={() => {

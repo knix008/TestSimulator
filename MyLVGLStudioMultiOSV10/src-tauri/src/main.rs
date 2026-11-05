@@ -433,6 +433,8 @@ fn main() {
             lvgl::lvgl_installed,
             lvgl::lvgl_releases,
             lvgl::lvgl_install,
+            lvgl::lvgl_item,
+            lvgl::lvgl_cancel,
             lvgl::lvgl_remove,
             lvgl::lvgl_conf_template,
             native::native_check,

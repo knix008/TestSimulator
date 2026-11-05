@@ -1420,6 +1420,22 @@ export function registerFeatureTests({ category, test, engines, versions }) {
 
     /* ---------------------------------------------------- tutorial and documents */
     category("Tutorial and documents");
+    await test("Uninstalling removes every downloaded LVGL file, the compiler and the builds; an update keeps them", () => {
+      const hooks = fs.readFileSync(new URL("../src-tauri/windows/hooks.nsh", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+      const main = fs.readFileSync(new URL("../src-tauri/src/main.rs", import.meta.url), "utf8");
+      const lvgl = fs.readFileSync(new URL("../src-tauri/src/lvgl.rs", import.meta.url), "utf8");
+      const folder = /const SETTINGS_FOLDER: &str = "([^"]+)"/.exec(main)[1];
+      assert.equal(/!define MLS_FOLDER "([^"]+)"/.exec(hooks)[1], folder, "the uninstaller must look where the app stores");
+      assert.ok(lvgl.includes('crate::data_dir().join("lvgl")'), "the LVGL versions moved: the uninstaller must follow");
+      // A download that was interrupted is in the same folder.
+      assert.ok(lvgl.includes('base.join(format!(".download-{version}.zip"))') && lvgl.includes('base.join(format!(".partial-{version}"))'), "an interrupted download moved");
+      const uninstall = hooks.slice(hooks.indexOf("!macro NSIS_HOOK_POSTUNINSTALL"));
+      const when = uninstall.slice(uninstall.indexOf("${If} $UpdateMode <> 1"), uninstall.indexOf("${EndIf}"));
+      for (const line of ['RmDir /r "$APPDATA\\${MLS_FOLDER}\\lvgl"', 'RmDir /r "$APPDATA\\${MLS_FOLDER}\\native"', 'RmDir /r "$LOCALAPPDATA\\${MLS_FOLDER}\\toolchain"', 'RmDir /r "$LOCALAPPDATA\\${MLS_FOLDER}\\toolchain.partial"']) {
+        assert.ok(when.includes(line), line);
+      }
+    });
+
     await test("The tutorial question can be turned off, and stays off", () => {
       assert.equal(sanitizeGeneral({}).askTutorial, true);
       assert.equal(sanitizeGeneral({ askTutorial: false }).askTutorial, false);
@@ -1462,6 +1478,19 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         job = advance(job, { item: 1, phase: "done", done: 1, total: 1 }, 13000);
         assert.equal(job.percent, 100);
         assert.equal(job.seconds, 0);
+        // A server that does not say the size: an estimate that grows, and is exact once it is all here.
+        let unknown = startJob({ dir: "x", installedMegabytes: 25, version: "9.6.0", items: [{ id: "lvgl", megabytes: 100, parts: [] }] }, 0);
+        assert.equal(unknown.version, "9.6.0");
+        unknown = advance(unknown, { item: 0, phase: "download", done: 40000000, total: 0 }, 2000);
+        assert.equal(unknown.items[0].exact, false);
+        assert.equal(unknown.bytes, 100000000);
+        assert.ok(unknown.seconds > 0, "the estimate gives a time");
+        unknown = advance(unknown, { item: 0, phase: "download", done: 120000000, total: 0 }, 4000);
+        assert.ok(unknown.bytes > 120000000, "the estimate grows past what has arrived");
+        assert.ok(unknown.percent < 100, "not done before it is");
+        unknown = advance(unknown, { item: 0, phase: "unpack", done: 0, total: 1 }, 5000);
+        assert.equal(unknown.bytes, 120000000, "all of it has arrived: now the size is known");
+        assert.equal(unknown.items[0].exact, true);
         const words = (key, v) => `${key}:${JSON.stringify(v ?? {})}`;
         assert.equal(timeWords(words, 3), 'tools.seconds:{"seconds":5}');
         assert.equal(timeWords(words, 61), 'tools.minutes:{"minutes":1,"seconds":5}');

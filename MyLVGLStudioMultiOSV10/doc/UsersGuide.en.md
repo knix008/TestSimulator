@@ -281,7 +281,7 @@ The first build of each version compiles all of LVGL, so it takes time. Build re
 
 Under **Tools > LVGL Manager** you can install and remove versions and check the status of the build tools.
 
-- **Install:** downloads that version's source from GitHub into the data folder. It is marked as installed only if this finishes completely.
+- **Install:** downloads that version's source from GitHub into the data folder. A progress window shows how far it is, the download speed and the estimated time left; you can keep using the app or cancel. GitHub does not say the size in advance, so the size and time are estimates. It is marked as installed only if this finishes completely. All downloaded sources are removed when the app is uninstalled.
 - **Remove:** deletes that version's source and build results.
 - **Install Compiler:** becomes available when build tools are missing. It shows what will be installed first and installs once you confirm. Windows installs into a folder of the app's own (`%LOCALAPPDATA%\MyLVGLStudio\toolchain`). macOS uses Homebrew and Linux uses apt, which install on the system.
 - If GitHub cannot be reached, only known versions are shown.

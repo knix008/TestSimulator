@@ -3,12 +3,54 @@
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
 
+use crate::toolchain::{PROGRESS_EVERY, QUIET_LIMIT};
+
 const USER_AGENT: &str = "MyLVGLStudio";
 const TAGS_URL: &str = "https://api.github.com/repos/lvgl/lvgl/tags?per_page=100";
+
+const ATTEMPTS: u32 = 3;
+/// The cancel button of the progress window. One version is installed at a time.
+static STOPPED: AtomicBool = AtomicBool::new(false);
+
+/// GitHub makes these archives as it sends them and does not say how big they will be, so the time
+/// left goes by these: (archive, kept after unpacking) in MB, measured on the releases of each line.
+fn sizes(version: &str) -> (u32, u32) {
+    let mut parts = version.split('.').map(|part| part.parse::<u32>().unwrap_or(0));
+    match (parts.next().unwrap_or(0), parts.next().unwrap_or(0)) {
+        (major, _) if major < 9 => (26, 15),
+        (9, 0) => (56, 13),
+        (9, 1) => (59, 13),
+        (9, 2) => (72, 16),
+        (9, 3) => (90, 21),
+        (9, 4) => (95, 22),
+        (9, 5) => (104, 23),
+        _ => (115, 25),
+    }
+}
+
+/// What the progress window says it is installing.
+#[tauri::command]
+pub fn lvgl_item(version: String) -> Result<Value, String> {
+    let dir = version_dir(&version)?;
+    let (archive, kept) = sizes(&version);
+    Ok(json!({
+        "version": version,
+        "dir": dir.display().to_string(),
+        "installedMegabytes": kept,
+        "items": [{ "id": "lvgl", "megabytes": archive, "parts": [{ "id": "lvgl", "version": version }] }],
+    }))
+}
+
+#[tauri::command]
+pub fn lvgl_cancel() {
+    STOPPED.store(true, Ordering::SeqCst);
+}
 
 pub fn root() -> PathBuf {
     crate::data_dir().join("lvgl")
@@ -86,29 +128,49 @@ fn emit_progress(app: &AppHandle, version: &str, phase: &str, received: u64, tot
 
 fn download(app: &AppHandle, version: &str, target: &Path) -> Result<(), String> {
     let url = format!("https://github.com/lvgl/lvgl/archive/refs/tags/v{version}.zip");
-    let response = ureq::get(&url).set("User-Agent", USER_AGENT).call().map_err(|e| e.to_string())?;
+    emit_progress(app, version, "download", 0, 0);
+    let agent = ureq::AgentBuilder::new().timeout_connect(QUIET_LIMIT).timeout_read(QUIET_LIMIT).build();
+    let response = agent.get(&url).set("User-Agent", USER_AGENT).call().map_err(|e| e.to_string())?;
     let total: u64 = response.header("Content-Length").and_then(|value| value.parse().ok()).unwrap_or(0);
     let mut reader = response.into_reader();
     let mut file = fs::File::create(target).map_err(|e| e.to_string())?;
     let mut buffer = vec![0u8; 256 * 1024];
     let mut received = 0u64;
+    let mut told = Instant::now();
     loop {
+        if STOPPED.load(Ordering::SeqCst) {
+            return Err("stopped".into());
+        }
         let count = reader.read(&mut buffer).map_err(|e| e.to_string())?;
         if count == 0 {
             break;
         }
         file.write_all(&buffer[..count]).map_err(|e| e.to_string())?;
         received += count as u64;
-        emit_progress(app, version, "download", received, total);
+        if told.elapsed() >= PROGRESS_EVERY {
+            told = Instant::now();
+            emit_progress(app, version, "download", received, total);
+        }
     }
+    emit_progress(app, version, "download", received, total);
     Ok(())
 }
 
 fn extract(app: &AppHandle, version: &str, archive: &Path, target: &Path) -> Result<(), String> {
+    emit_progress(app, version, "extract", 0, 1);
     let file = fs::File::open(archive).map_err(|e| e.to_string())?;
     let mut zip = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
     let total = zip.len() as u64;
+    let mut told = Instant::now();
     for index in 0..zip.len() {
+        if STOPPED.load(Ordering::SeqCst) {
+            return Err("stopped".into());
+        }
+        // By the clock: most entries of the archive are passed over.
+        if told.elapsed() >= PROGRESS_EVERY {
+            told = Instant::now();
+            emit_progress(app, version, "extract", index as u64, total);
+        }
         let mut entry = zip.by_index(index).map_err(|e| e.to_string())?;
         // enclosed_name refuses paths that would leave the target folder.
         let Some(path) = entry.enclosed_name() else { continue };
@@ -127,9 +189,6 @@ fn extract(app: &AppHandle, version: &str, archive: &Path, target: &Path) -> Res
             let mut out = fs::File::create(&output).map_err(|e| e.to_string())?;
             std::io::copy(&mut entry, &mut out).map_err(|e| e.to_string())?;
         }
-        if index % 64 == 0 {
-            emit_progress(app, version, "extract", index as u64, total);
-        }
     }
     Ok(())
 }
@@ -147,8 +206,19 @@ pub fn lvgl_install(app: AppHandle, version: String) -> Result<(), String> {
     let archive = base.join(format!(".download-{version}.zip"));
     let partial = base.join(format!(".partial-{version}"));
     let _ = fs::remove_dir_all(&partial);
+    STOPPED.store(false, Ordering::SeqCst);
     let result = (|| {
-        download(&app, &version, &archive)?;
+        let mut outcome = Err(String::new());
+        for attempt in 1..=ATTEMPTS {
+            outcome = download(&app, &version, &archive);
+            if outcome.is_ok() || STOPPED.load(Ordering::SeqCst) {
+                break;
+            }
+            if let Err(message) = &outcome {
+                crate::native::emit_line(&app, "build", &format!("Download failed ({attempt}/{ATTEMPTS}): {message}"));
+            }
+        }
+        outcome?;
         extract(&app, &version, &archive, &partial)?;
         if !is_installed(&partial) {
             return Err("the archive does not contain LVGL".to_string());

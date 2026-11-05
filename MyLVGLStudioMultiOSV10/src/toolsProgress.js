@@ -18,9 +18,10 @@ export function startJob(info, now) {
   const job = {
     status: "running",
     error: null,
+    version: info.version ?? null,
     dir: info.dir,
     installedMegabytes: info.installedMegabytes,
-    items: info.items.map((item) => ({ ...item, state: "waiting", bytes: item.megabytes * MB, received: 0, unpacked: 0, unpackStarted: null })),
+    items: info.items.map((item) => ({ ...item, state: "waiting", bytes: item.megabytes * MB, exact: false, received: 0, unpacked: 0, unpackStarted: null })),
     started: now,
     lastEvent: now,
     cancelling: false,
@@ -80,11 +81,15 @@ export function advance(job, event, now) {
   const items = job.items.map((item, index) => {
     if (index !== event.item) return item;
     if (event.phase === "download") {
-      // The server knows the exact size; the plan only has it in round numbers.
-      return { ...item, state: "download", received: event.done, bytes: event.total > 0 ? event.total : item.bytes };
+      // A server that says the size is believed. Otherwise the size is an estimate, which grows if
+      // more arrives than expected, so that the bar never reaches its end before the download does.
+      if (event.total > 0) return { ...item, state: "download", received: event.done, bytes: event.total, exact: true };
+      return { ...item, state: "download", received: event.done, bytes: Math.max(item.bytes, event.done * 1.05) };
     }
     if (event.phase === "unpack") {
-      return { ...item, state: "unpack", received: item.bytes, unpacked: event.total > 0 ? event.done / event.total : 0, unpackStarted: item.unpackStarted ?? now };
+      // Downloaded: now the size is known for certain.
+      const bytes = item.exact || !item.received ? item.bytes : item.received;
+      return { ...item, state: "unpack", bytes, exact: true, received: bytes, unpacked: event.total > 0 ? event.done / event.total : 0, unpackStarted: item.unpackStarted ?? now };
     }
     return { ...item, state: "done", received: item.bytes, unpacked: 1 };
   });
