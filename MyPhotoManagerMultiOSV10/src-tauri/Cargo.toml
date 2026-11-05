@@ -31,7 +31,7 @@ wallpaper = "3.2"
 tempfile = "3"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_System_WindowsProgramming", "Win32_Graphics_Printing", "Win32_Graphics_Gdi"] }
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_System_WindowsProgramming", "Win32_Graphics_Printing", "Win32_Graphics_Gdi", "Win32_Foundation", "Win32_System_Diagnostics_Debug", "Win32_System_Kernel", "Win32_System_Threading"] }
 # Direct printing through WebView2 (same versions Tauri uses).
 webview2-com = "0.39"
 windows-core = "0.62"

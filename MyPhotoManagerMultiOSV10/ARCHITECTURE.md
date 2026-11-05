@@ -79,7 +79,8 @@ UI 는 Vite 로 묶은 바닐라 JavaScript 하나입니다. 실행 환경의 �
 ## Rust (`src-tauri/src/`)
 
 - `files.rs` — 폴더 목록(숨김 판정: Windows 속성/점 파일, 하위 폴더 유무 탐색은 최대 4000 항목), 장소 목록, 재귀 탐색, 복사/이동(충돌: 둘 다 유지·덮어쓰기·건너뛰기, 같은 폴더에 복사하면 사본, 드라이브가 다르면 복사 후 삭제), 이름 검사, 휴지통(`trash`), 수정 시각(`filetime`), 원자적 쓰기. 모두 단위 테스트.
-- `lib.rs` — 명령 등록, 원본 백업, 앱 데이터, 단일 인스턴스, 패닉 훅(crash.log + UI 알림), 창 생성(WebView2 인자 통일).
+- `lib.rs` — 명령 등록, 원본 백업, 앱 데이터, 단일 인스턴스, 패닉 훅, 창 생성(WebView2 인자 통일). 파일 내용을 돌려주는 명령은 `ipc::Response`(원시 바이트): `Vec<u8>` 는 JSON 숫자 배열이 되어 약 120 MB부터 화면 프로세스가 메모리 부족으로 죽는다.
+- `crash.rs` — 죽어도 말없이 사라지지 않게: 패닉·Windows 예외·WebView2 `ProcessFailed`·페이지 심장 박동(`page_alive`) 끊김을 `crash.log` 에 쓰고(최근 읽은 파일 포함), 화면이 죽으면 다시 불러온다. 페이지는 시작할 때 `take_crash_report` 를 복사 가능한 오류 창으로 보여 주고 그때는 마지막 폴더를 열지 않는다(재발 고리 방지). 시험 `npm test -- --only pdf`, `MYPHOTO_TEST_CRASH`.
 - `window_state.rs` — 창 위치·크기·최대화 기억(연결된 모니터에 보일 때만 복원).
 - `catalogdb.rs` — SQLite 카탈로그(rusqlite, bundled): files(path, record JSON)·meta 표, 바뀐 것만 쓰는 트랜잭션.
 - `mtp.rs` — 휴대폰·카메라(MTP): Windows 는 셸 이름 공간(PowerShell, ASCII 스크립트), Linux 는 GVFS, DCIM·Pictures 의 새 파일만 앱 데이터의 `mtp/` 로 복사. 테스트는 `MYPHOTO_FAKE_MTP`.

@@ -3,6 +3,7 @@
 
 pub mod bgmodels;
 pub mod catalogdb;
+pub mod crash;
 pub mod files;
 pub mod mtp;
 pub mod i18n;
@@ -167,10 +168,11 @@ async fn write_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
 }
 
 /// Reads a file in the backend. The webview must not map a file that a later
-/// move or overwrite will change.
+/// move or overwrite will change. The bytes go as they are: a Vec<u8> return value
+/// would become a JSON array of numbers, which ends the page from about 120 MB.
 #[tauri::command]
-async fn read_file(path: String, max: Option<usize>) -> Result<Vec<u8>, String> {
-    blocking(move || {
+async fn read_file(path: String, max: Option<usize>) -> Result<tauri::ipc::Response, String> {
+    let bytes = blocking(move || {
         if let Some(max) = max {
             use std::io::Read;
             let mut file = std::fs::File::open(&path).map_err(|error| error.to_string())?;
@@ -179,9 +181,41 @@ async fn read_file(path: String, max: Option<usize>) -> Result<Vec<u8>, String> 
             buf.truncate(n);
             Ok(buf)
         } else {
+            let size = std::fs::metadata(&path).map_err(|error| error.to_string())?.len();
+            crash::note_read(&path, size);
             std::fs::read(&path).map_err(|error| error.to_string())
         }
-    }).await
+    }).await?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// Text of what ended the last run badly (once), for the error window.
+#[tauri::command]
+fn take_crash_report() -> Option<String> {
+    crash::take()
+}
+
+/// The page's heartbeat (see crash.rs).
+#[tauri::command]
+fn page_alive(hidden: bool) {
+    crash::beat(hidden);
+}
+
+/// Tests only (MYPHOTO_TEST_CRASH): the failures the error window has to survive.
+#[tauri::command]
+fn test_crash(kind: String) {
+    if std::env::var_os("MYPHOTO_TEST_CRASH").is_none() {
+        return;
+    }
+    match kind.as_str() {
+        "panic" => {
+            std::thread::spawn(|| panic!("test panic"));
+        }
+        "native" => unsafe {
+            std::ptr::null_mut::<u8>().write_volatile(1);
+        },
+        _ => {}
+    }
 }
 
 // ───────────────────────── file operations
@@ -487,9 +521,9 @@ fn bg_model_delete(app: AppHandle, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn bg_model_read(app: AppHandle, id: String) -> Result<Vec<u8>, String> {
+async fn bg_model_read(app: AppHandle, id: String) -> Result<tauri::ipc::Response, String> {
     let dir = model_dir(&app)?;
-    blocking(move || bgmodels::read(&dir, &id)).await
+    Ok(tauri::ipc::Response::new(blocking(move || bgmodels::read(&dir, &id)).await?))
 }
 
 fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -616,7 +650,10 @@ struct FatalError {
 
 fn install_panic_hook(app: &AppHandle) {
     let handle = app.clone();
-    let log = data_dir(app).ok().map(|dir| dir.join("crash.log"));
+    if let Ok(dir) = data_dir(app) {
+        crash::init(dir.join("crash.log"), app.package_info().version.to_string());
+    }
+    crash::catch_native_crashes();
     let default = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         let message = info
@@ -626,12 +663,7 @@ fn install_panic_hook(app: &AppHandle) {
             .or_else(|| info.payload().downcast_ref::<String>().cloned())
             .unwrap_or_else(|| "panic".into());
         let location = info.location().map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column())).unwrap_or_default();
-        if let Some(path) = &log {
-            let _ = std::fs::create_dir_all(path.parent().unwrap_or(Path::new(".")));
-            let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-            let entry = format!("[{stamp}] panicked at {location}\n{message}\n{}\n\n", std::backtrace::Backtrace::force_capture());
-            let _ = std::fs::OpenOptions::new().create(true).append(true).open(path).and_then(|mut file| std::io::Write::write_all(&mut file, entry.as_bytes()));
-        }
+        crash::write(&format!("panicked at {location}: {message}"), &std::backtrace::Backtrace::force_capture().to_string());
         let _ = handle.emit_to("main", "fatal-error", FatalError { message, location });
         default(info);
     }));
@@ -762,6 +794,7 @@ pub fn run() {
                 None => builder.inner_size(1440.0, 900.0).center(),
             };
             let main = builder.build()?;
+            crash::watch_webview(&main);
             // The guide is not owned by the main window: it goes with it, or the program would keep running.
             let handle = app.handle().clone();
             main.on_window_event(move |event| {
@@ -827,6 +860,9 @@ pub fn run() {
             mtp_devices,
             mtp_stage,
             quit_app,
+            take_crash_report,
+            page_alive,
+            test_crash,
             open_guide,
             start_file_drag
         ])

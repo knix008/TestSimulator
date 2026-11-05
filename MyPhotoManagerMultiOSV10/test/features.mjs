@@ -175,7 +175,8 @@ export const FEATURES = [
   ['FMT-EXTRA', 'TGA·PCX·PNM·HDR·DDS·SGI·RAS·XBM·QOI'],
   ['FMT-JP2', 'JPEG 2000'],
   ['FMT-JXL', 'JPEG XL'],
-  ['FMT-PDF', 'PDF 보기'],
+  ['FMT-PDF', 'PDF 보기(글꼴·도형·글꼴 없는 한글·극단적인 쪽 크기·1 GB 파일)'],
+  ['FMT-PDF-ERROR', '손상·암호·빈 PDF는 이유를 보여 주고 파일 경로·호출 스택까지 복사'],
   ['FMT-DICOM', 'DICOM(DCM): 모든 전송 구문·압축(JPEG·JPEG-LS·JPEG 2000·RLE)·여러 프레임'],
   ['FMT-ICC', 'ICC 색 관리(내장 프로필 → sRGB)'],
   ['FMT-GIF', '애니메이션 GIF 보기'],
@@ -183,6 +184,7 @@ export const FEATURES = [
   ['FMT-ZIP', 'ZIP 읽기'],
   // ── App
   ['APP-SETTINGS', '설정 창'],
+  ['APP-CRASH', '화면 프로세스·프로그램이 죽어도 원인을 기록해 복사할 수 있는 창으로 보여 줌'],
   ['APP-THEMES', '테마 40개(어둡게 20·밝게 20)·테마 버튼·드롭다운·사용자 정의 테마'],
   ['APP-STARTBG', '시작 화면 배경 효과 22종 모두 WebGL 3D(하늘·지형·물 반사·입자·나무·건물·리본), 전체·카메라·물체·하늘 속도 각각 조절'],
   ['APP-STARTICONS', '시작 화면 배경 단추마다 장면 아이콘'],

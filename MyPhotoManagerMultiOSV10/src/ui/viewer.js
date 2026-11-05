@@ -13,7 +13,7 @@ import { setFullscreen } from '../platform/native.js';
 import { app, deleteItems, openFolder, selectItem, setMode, viewableList } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { formatBytes, formatDateTime, formatDims, formatDuration } from '../util/format.js';
-import { promptDialog, statusProgress, toast } from './dialog.js';
+import { errorPanel, promptDialog, statusProgress, toast } from './dialog.js';
 import { ANIMATABLE, createAnimPlayer, loadAnimation } from './animplayer.js';
 import { createDicomTools } from './dicomview.js';
 import { button, clear, h } from './dom.js';
@@ -252,6 +252,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
   function open(path) {
     list = viewableList();
     index = Math.max(0, list.findIndex((item) => item.path === path));
+    page = 0; // a document opens on its first page, whatever page the last one was on
     buildToolbar();
     layoutInfoPane();
     layoutStrip();
@@ -383,7 +384,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
       if (mine !== token) return;
       spinner.hidden = true;
       clear(holder);
-      holder.append(h('div.viewer-error', h('span', { html: icon('warning') }), h('div', item.name), h('div', error?.message ?? String(error))));
+      holder.append(errorPanel(error, { name: item.name, path: item.path, size: item.size, className: 'viewer-error' }));
       current = { item, el: null, width: 0, height: 0, kind: 'error' };
     }
     renderStatus();

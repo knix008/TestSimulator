@@ -7,6 +7,7 @@ import { t } from '../i18n.js';
 import { app, openFolder, selectItem, setSelection, viewItem } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { formatBytes, formatDate, formatDateTime, formatDuration } from '../util/format.js';
+import { errorPanel } from './dialog.js';
 import { h, rafThrottle } from './dom.js';
 import { icon } from './icons.js';
 import { beginPointerDrag } from './itemdrag.js';
@@ -52,7 +53,9 @@ export function createFileList({ onContextMenu, onDropItems }) {
     if (!item) { filmPreview.replaceChildren(); return; }
     const { fs } = await import('../platform/fs.js');
     const kind = kindOf(item.name);
-    const src = kind === 'native' || kind === 'svg' ? await fs.objectUrl(item.path) : (await thumbs.get(item, 10))?.url;
+    const thumb = kind === 'native' || kind === 'svg' ? null : await thumbs.get(item, 10);
+    const src = thumb ? thumb.url : await fs.objectUrl(item.path);
+    if (mine === filmToken && thumb?.error) { filmPreview.replaceChildren(errorPanel(thumb.error, { name: item.name, path: item.path, size: item.size, details: thumb.details })); return; }
     if (mine !== filmToken || !src) return;
     const img = h('img', { src, alt: item.name, crossOrigin: kind === 'native' ? 'anonymous' : null });
     if (kind === 'native' || kind === 'svg') img.addEventListener('load', () => URL.revokeObjectURL(src), { once: true });

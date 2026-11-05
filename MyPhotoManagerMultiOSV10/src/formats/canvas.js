@@ -32,7 +32,9 @@ export function scaledCanvas(source, width, height, max) {
   let current = source;
   let cw = width;
   let ch = height;
-  while (width * k < cw / 2.5) {
+  // By the long side: a 1 px wide strip cannot get narrower, so the short side would never stop the loop.
+  const target = Math.max(width, height) * k;
+  while (Math.max(cw, ch) > 1 && target < Math.max(cw, ch) / 2.5) {
     const step = makeCanvas(cw / 2, ch / 2);
     const stepContext = context2d(step);
     stepContext.imageSmoothingQuality = 'high';

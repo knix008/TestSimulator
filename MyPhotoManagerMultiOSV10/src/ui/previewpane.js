@@ -7,6 +7,7 @@ import { fs } from '../platform/fs.js';
 import { app, focusedItem, viewItem } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { formatDateTime, formatDims } from '../util/format.js';
+import { errorPanel } from './dialog.js';
 import { clear, debounce, h } from './dom.js';
 import { drawHistogram, histogramOf } from './histogram.js';
 
@@ -38,7 +39,11 @@ export function createPreviewPane() {
     let src = null;
     let revoke = false;
     if (kind === 'native' || kind === 'svg') { src = await fs.objectUrl(item.path); revoke = true; }
-    else src = (await thumbs.get(item, 10))?.url;
+    else {
+      const thumb = await thumbs.get(item, 10);
+      src = thumb?.url;
+      if (mine === token && thumb?.error) frame.append(errorPanel(thumb.error, { name: item.name, path: item.path, size: item.size, details: thumb.details }));
+    }
     if (mine !== token || !src) { if (revoke && src) URL.revokeObjectURL(src); return; }
     const img = h('img', { crossOrigin: 'anonymous', src, alt: item.name, decoding: 'async' });
     frame.append(img);

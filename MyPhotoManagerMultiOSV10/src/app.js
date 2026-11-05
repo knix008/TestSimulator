@@ -32,7 +32,7 @@ import { createCalendarPane } from './ui/calendarpane.js';
 import { createCatalogPane } from './ui/catalogpane.js';
 import { openCompare } from './ui/compare.js';
 import { createDashboard } from './ui/dashboard.js';
-import { closeAllDialogs, confirmDialog, dialogDocuments, dialogOpen, openDialog, promptDialog, statusProgress, toast, topDialog } from './ui/dialog.js';
+import { closeAllDialogs, confirmDialog, dialogDocuments, dialogOpen, openDialog, promptDialog, reportError, statusProgress, toast, topDialog } from './ui/dialog.js';
 import { $, button, clear, debounce, h, typing } from './ui/dom.js';
 import { findDuplicates } from './ui/duplicates.js';
 import { createEditor } from './ui/editor.js';
@@ -1751,6 +1751,10 @@ async function start() {
   if (!startup.length && app.settings.startScreen?.showOnLaunch !== false) setMode('start');
   showWindow();
 
+  // What ended the last run badly (see crash.rs): shown once the window is up. The last folder
+  // stays closed this time, or a file in it that kills the page would do so again and again.
+  const crashReport = isDesktop() ? await invoke('take_crash_report').catch(() => null) : null;
+
   // What to show first. A folder opened for the command line replaces the start page.
   let opened = false;
   if (isDesktop()) {
@@ -1770,13 +1774,17 @@ async function start() {
         toast(errorText(error), 'error');
       }
     });
-    listen('fatal-error', (error) => toast(`${error.message} (${error.location})`, 'error', 15000));
+    // A panic the app survives: the full report now, not again at the next start.
+    listen('fatal-error', async (error) => reportError((await invoke('take_crash_report').catch(() => null)) ?? `${error.message} (${error.location})`));
     // The title-bar close bypasses File → Exit. Ask while the window is still open.
     onCloseRequested(async (event) => {
       if (!(await leaveEditor())) { event.preventDefault(); return; }
       await shutdown();
     }).catch(() => {});
-    if (!opened) {
+    if (!opened && crashReport) {
+      app.state.source = { type: 'welcome' };
+      renderAll();
+    } else if (!opened) {
       const places = await fs.places().catch(() => []);
       const pick = (kind) => places.find((p) => p.kind === kind)?.path;
       const candidates = app.settings.startup === 'last' ? [app.settings.lastFolder, pick('pictures'), pick('home')] : app.settings.startup === 'pictures' ? [pick('pictures'), pick('home')] : [pick('home')];
@@ -1802,6 +1810,14 @@ async function start() {
   if (typeof requestIdleCallback === 'function') requestIdleCallback(warmStart, { timeout: 1500 });
   else setTimeout(warmStart, 400);
   document.body.classList.add('ready');
+  if (crashReport) reportError(crashReport);
+  if (isDesktop()) {
+    // Tells the backend this page's thread still runs (crash.rs asks the user when it goes quiet).
+    const beat = () => invoke('page_alive', { hidden: document.hidden }).catch(() => {});
+    beat();
+    setInterval(beat, 3000);
+    document.addEventListener('visibilitychange', beat);
+  }
 }
 
 // Runs a menu item the way a click would: menu('organize', 'people.scanList'),

@@ -111,7 +111,7 @@
 | `VIEW-NAVIGATOR` | 내비게이터 | 기능 E2E |
 | `VIEW-LOUPE` | 돋보기(루페) | 기능 E2E |
 | `VIEW-ZOOMLOCK` | 확대 고정 | 단위 · 기능 E2E |
-| `VIEW-PAGES` | 여러 페이지(TIFF·PDF) 넘기기 | 기능 E2E |
+| `VIEW-PAGES` | 여러 페이지(TIFF·PDF) 넘기기 | 기능 E2E ·  |
 | `VIEW-PIXEL` | 픽셀 정보 | 기능 E2E |
 | `VIEW-FACES` | 얼굴 표시와 이름 붙이기 | 기능 E2E |
 | `VIEW-VIDEO` | 동영상 재생 | 기능 E2E |
@@ -203,7 +203,7 @@
 | ID | 기능 | 테스트 |
 | --- | --- | --- |
 | `BATCH-RENAME` | 일괄 이름 바꾸기 | 단위 · 데스크톱 E2E |
-| `BATCH-RESIZE` | 일괄 크기 조절 | 데스크톱 E2E |
+| `BATCH-RESIZE` | 일괄 크기 조절 | 데스크톱 E2E · 기능 E2E |
 | `BATCH-CONVERT` | 형식 변환 | 단위 · 데스크톱 E2E · 기능 E2E |
 | `BATCH-ADJUST` | 일괄 자동 보정 | 기능 E2E |
 | `BATCH-ROTATE` | 무손실 회전·뒤집기 | 단위 · 데스크톱 E2E |
@@ -230,7 +230,8 @@
 | `FMT-EXTRA` | TGA·PCX·PNM·HDR·DDS·SGI·RAS·XBM·QOI | 단위 · 웹 E2E · 기능 E2E |
 | `FMT-JP2` | JPEG 2000 | 단위 · 웹 E2E · 기능 E2E |
 | `FMT-JXL` | JPEG XL | 단위 · 웹 E2E · 기능 E2E |
-| `FMT-PDF` | PDF 보기 | 단위 · 웹 E2E · 기능 E2E |
+| `FMT-PDF` | PDF 보기(글꼴·도형·글꼴 없는 한글·극단적인 쪽 크기·1 GB 파일) | 단위 · 웹 E2E · 기능 E2E ·  |
+| `FMT-PDF-ERROR` | 손상·암호·빈 PDF는 이유를 보여 주고 파일 경로·호출 스택까지 복사 | 단위 ·  |
 | `FMT-DICOM` | DICOM(DCM): 모든 전송 구문·압축(JPEG·JPEG-LS·JPEG 2000·RLE)·여러 프레임 | 단위 · 기능 E2E |
 | `FMT-ICC` | ICC 색 관리(내장 프로필 → sRGB) | 기능 E2E |
 | `FMT-GIF` | 애니메이션 GIF 보기 | 단위 · 웹 E2E · 기능 E2E |
@@ -242,6 +243,7 @@
 | ID | 기능 | 테스트 |
 | --- | --- | --- |
 | `APP-SETTINGS` | 설정 창 | 단위 · 기능 E2E |
+| `APP-CRASH` | 화면 프로세스·프로그램이 죽어도 원인을 기록해 복사할 수 있는 창으로 보여 줌 | **없음** |
 | `APP-THEMES` | 테마 40개(어둡게 20·밝게 20)·테마 버튼·드롭다운·사용자 정의 테마 | 단위 · 기능 E2E |
 | `APP-STARTBG` | 시작 화면 배경 효과 22종 모두 WebGL 3D(하늘·지형·물 반사·입자·나무·건물·리본), 전체·카메라·물체·하늘 속도 각각 조절 | 단위 |
 | `APP-STARTICONS` | 시작 화면 배경 단추마다 장면 아이콘 | 기능 E2E |
