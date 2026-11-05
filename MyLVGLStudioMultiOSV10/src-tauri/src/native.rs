@@ -246,8 +246,8 @@ fn install_plan() -> Vec<Vec<String>> {
 }
 
 #[tauri::command]
-pub fn tools_items() -> Value {
-    crate::toolchain::items()
+pub fn tools_items(only: Option<String>) -> Value {
+    crate::toolchain::items(only.as_deref())
 }
 
 #[tauri::command]
@@ -260,7 +260,7 @@ pub fn tools_plan() -> Vec<String> {
 
 /// Runs the plan in the background; output comes as native-log, the end as tools-exit.
 #[tauri::command]
-pub fn tools_install(app: AppHandle, state: tauri::State<NativeState>) -> Result<(), String> {
+pub fn tools_install(app: AppHandle, state: tauri::State<NativeState>, only: Option<String>) -> Result<(), String> {
     if state.running.swap(true, Ordering::SeqCst) {
         return Err("already running".into());
     }
@@ -270,7 +270,7 @@ pub fn tools_install(app: AppHandle, state: tauri::State<NativeState>) -> Result
     std::thread::spawn(move || {
         let mut result = Ok(());
         if cfg!(windows) {
-            result = crate::toolchain::install(&app, &handles.stopped);
+            result = crate::toolchain::install(&app, &handles.stopped, only.as_deref());
         }
         for step in install_plan().into_iter().filter(|_| !cfg!(windows)) {
             emit_line(&app, "build", &format!("> {}", step.join(" ")));

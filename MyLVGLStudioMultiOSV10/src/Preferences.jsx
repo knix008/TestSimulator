@@ -1,5 +1,5 @@
 // The settings window: general options, themes (with the user's own) and the start screen.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "./icons.jsx";
 import { ColorField, IconSelect, Stepper, Toggle } from "./controls.jsx";
 import { ConfirmDialog, Dialog, versionChoices } from "./dialogs.jsx";
@@ -40,7 +40,62 @@ function ThemeEditor({ t, theme, onChange, onDelete }) {
   );
 }
 
-export function PreferencesDialog({ t, initialTab, general, onGeneral, onStartTutorial, projectsDir, onProjectsDir, rulers, onRulers, recentCount, onClearRecent, language, onLanguage, themeId, onTheme, customThemes, onCustomThemes, start, onStart, onClose }) {
+/** Downloading again what has been downloaded, for when it has gone wrong. */
+function DownloadsPage({ t, disabled, onAgainTools, onAgainLvgl }) {
+  const [tools, setTools] = useState(null);
+  const [versions, setVersions] = useState(null);
+  const [packages, setPackages] = useState([]);
+  const [asking, setAsking] = useState(null);
+  useEffect(() => {
+    host.nativeCheck().then(setTools);
+    host.lvglInstalled().then((list) => setVersions([...list].sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))));
+    host.toolsItems().then((info) => setPackages(info.items)).catch(() => {});
+  }, []);
+  const askLvgl = async (version) => {
+    const info = await host.lvglItem(version);
+    setAsking({
+      message: t("pref.againLvglAsk", { version, size: info.items[0].megabytes }),
+      onYes: () => onAgainLvgl(version),
+    });
+  };
+  const installed = !!tools?.gcc;
+  return (
+    <div className="pref-general" data-pref-downloads="">
+      <p className="dialog-note">{t("pref.againNote")}</p>
+      {tools?.local && (
+        <section>
+          <h4><Icon name="build" size={14} /> {t("pref.packages")}</h4>
+          {packages.map((item) => {
+            const name = t(`tools.item.${item.id}`);
+            return (
+              <div className="pref-row pref-package" key={item.id} data-again-row={item.id}>
+                <span>
+                  <b>{name}</b> ({item.megabytes} MB)
+                  <small>{item.parts.map((part) => `${t(`tools.part.${part.id}`)} ${part.version}`).join(", ")}{installed ? "" : ` · ${t("pref.notInstalled")}`}</small>
+                </span>
+                <button type="button" data-again={`tools:${item.id}`} disabled={disabled} onClick={() => setAsking({ message: t(installed ? "pref.againToolsAsk" : "pref.getToolsAsk", { name, size: installed ? item.megabytes : packages.reduce((sum, each) => sum + each.megabytes, 0) }), onYes: () => onAgainTools(item.id) })}><Icon name="download" /> {t(installed ? "pref.again" : "pref.get")}</button>
+              </div>
+            );
+          })}
+        </section>
+      )}
+      <section>
+        <h4><Icon name="manager" size={14} /> {t("tools.item.lvgl")}</h4>
+        {versions && !versions.length && <p className="dialog-note" data-again-none="">{t("pref.noLvgl")}</p>}
+        {versions?.map((item) => (
+          <div className="pref-row" key={item.version} data-again-row={item.version}>
+            <span>LVGL {item.version} ({(item.size / 1000000).toFixed(1)} MB)</span>
+            <button type="button" data-again={`lvgl:${item.version}`} disabled={disabled} onClick={() => void askLvgl(item.version)}><Icon name="download" /> {t("pref.again")}</button>
+          </div>
+        ))}
+      </section>
+      {disabled && <p className="form-note" data-again-busy="">{t("pref.againBusy")}</p>}
+      {asking && <ConfirmDialog t={t} icon="download" message={asking.message} yesLabel={t("pref.again")} onYes={asking.onYes} onNo={() => setAsking(null)} />}
+    </div>
+  );
+}
+
+export function PreferencesDialog({ t, downloading, onAgainTools, onAgainLvgl, initialTab, general, onGeneral, onStartTutorial, projectsDir, onProjectsDir, rulers, onRulers, recentCount, onClearRecent, language, onLanguage, themeId, onTheme, customThemes, onCustomThemes, start, onStart, onClose }) {
   const [tab, setTab] = useState(initialTab ?? "general");
   const [asking, setAsking] = useState(false);
   const label = (item) => (language === "en" ? item.nameEn : item.nameKo);
@@ -65,6 +120,7 @@ export function PreferencesDialog({ t, initialTab, general, onGeneral, onStartTu
     { id: "general", icon: "settings", label: t("pref.general") },
     { id: "theme", icon: "theme", label: t("cmd.theme") },
     { id: "start", icon: "home", label: t("start.title") },
+    { id: "downloads", icon: "download", label: t("pref.downloads") },
   ];
 
   return (
@@ -131,6 +187,7 @@ export function PreferencesDialog({ t, initialTab, general, onGeneral, onStartTu
               </section>
             </div>
           )}
+          {tab === "downloads" && <DownloadsPage t={t} disabled={downloading} onAgainTools={onAgainTools} onAgainLvgl={onAgainLvgl} />}
           {tab === "theme" && (
             <div className="pref-themes">
               <div className="theme-columns">

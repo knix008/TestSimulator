@@ -1431,7 +1431,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
       assert.ok(lvgl.includes('base.join(format!(".download-{version}.zip"))') && lvgl.includes('base.join(format!(".partial-{version}"))'), "an interrupted download moved");
       const uninstall = hooks.slice(hooks.indexOf("!macro NSIS_HOOK_POSTUNINSTALL"));
       const when = uninstall.slice(uninstall.indexOf("${If} $UpdateMode <> 1"), uninstall.indexOf("${EndIf}"));
-      for (const line of ['RmDir /r "$APPDATA\\${MLS_FOLDER}\\lvgl"', 'RmDir /r "$APPDATA\\${MLS_FOLDER}\\native"', 'RmDir /r "$LOCALAPPDATA\\${MLS_FOLDER}\\toolchain"', 'RmDir /r "$LOCALAPPDATA\\${MLS_FOLDER}\\toolchain.partial"']) {
+      for (const line of ['RmDir /r "$APPDATA\\${MLS_FOLDER}\\lvgl"', 'RmDir /r "$APPDATA\\${MLS_FOLDER}\\native"', 'RmDir /r "$LOCALAPPDATA\\${MLS_FOLDER}\\toolchain"', 'RmDir /r "$LOCALAPPDATA\\${MLS_FOLDER}\\toolchain.partial"', 'RmDir /r "$LOCALAPPDATA\\${MLS_FOLDER}\\.old-toolchain"']) {
         assert.ok(when.includes(line), line);
       }
     });

@@ -196,9 +196,10 @@ fn extract(app: &AppHandle, version: &str, archive: &Path, target: &Path) -> Res
 /// Downloads and installs a version. It appears under its own name only when complete, so a
 /// failed or interrupted install never looks like an installed version.
 #[tauri::command(async)]
-pub fn lvgl_install(app: AppHandle, version: String) -> Result<(), String> {
+pub fn lvgl_install(app: AppHandle, version: String, again: Option<bool>) -> Result<(), String> {
     let final_dir = version_dir(&version)?;
-    if is_installed(&final_dir) {
+    let again = again.unwrap_or(false);
+    if is_installed(&final_dir) && !again {
         return Ok(());
     }
     let base = root();
@@ -223,8 +224,13 @@ pub fn lvgl_install(app: AppHandle, version: String) -> Result<(), String> {
         if !is_installed(&partial) {
             return Err("the archive does not contain LVGL".to_string());
         }
-        let _ = fs::remove_dir_all(&final_dir);
-        fs::rename(&partial, &final_dir).map_err(|e| e.to_string())
+        // Downloading again: what is there stays usable until the new one is complete.
+        crate::toolchain::swap_in(&partial, &final_dir)?;
+        if again {
+            // Compiled from the sources that were replaced, which may be why they are being replaced.
+            let _ = fs::remove_dir_all(crate::data_dir().join("native").join(&version));
+        }
+        Ok(())
     })();
     let _ = fs::remove_file(&archive);
     let _ = fs::remove_dir_all(&partial);

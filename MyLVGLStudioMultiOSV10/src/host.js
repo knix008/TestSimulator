@@ -45,7 +45,7 @@ export const host = {
 
   lvglInstalled: () => (isDesktop ? invoke("lvgl_installed") : Promise.resolve([])),
   lvglReleases: () => (isDesktop ? invoke("lvgl_releases") : desktopOnly()),
-  lvglInstall: (version) => (isDesktop ? invoke("lvgl_install", { version }) : desktopOnly()),
+  lvglInstall: (version, again = false) => (isDesktop ? invoke("lvgl_install", { version, again }) : desktopOnly()),
   lvglItem: (version) => (isDesktop ? invoke("lvgl_item", { version }) : desktopOnly()),
   lvglCancel: () => (isDesktop ? invoke("lvgl_cancel") : Promise.resolve()),
   lvglRemove: (version) => (isDesktop ? invoke("lvgl_remove", { version }) : desktopOnly()),
@@ -54,8 +54,8 @@ export const host = {
 
   nativeCheck: () => (isDesktop ? invoke("native_check") : Promise.resolve({})),
   toolsPlan: () => (isDesktop ? invoke("tools_plan") : Promise.resolve([])),
-  toolsItems: () => (isDesktop ? invoke("tools_items") : desktopOnly()),
-  toolsInstall: () => (isDesktop ? invoke("tools_install") : desktopOnly()),
+  toolsItems: (only = null) => (isDesktop ? invoke("tools_items", { only }) : desktopOnly()),
+  toolsInstall: (only = null) => (isDesktop ? invoke("tools_install", { only }) : desktopOnly()),
   nativeClean: (version) => (isDesktop ? invoke("native_clean", { version }) : desktopOnly()),
   samplesList: () => (isDesktop ? invoke("samples_list") : Promise.resolve({ dir: "", items: [] })),
   nativeRun: (version, files, binaries = {}) => (isDesktop ? invoke("native_run", { version, files, binaries }) : desktopOnly()),

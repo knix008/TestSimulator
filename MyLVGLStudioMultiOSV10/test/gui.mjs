@@ -1357,6 +1357,86 @@ await step("Downloading LVGL shows what, how far and how long in a window of its
   await js("window.__toolsRestore()");
 });
 
+await step("Settings: what was downloaded can be downloaded again, after asking", async () => {
+  await js(`(() => {
+    const host = window.__mls.host;
+    const real = { ...host };
+    window.__toolsRestore = () => Object.assign(host, real);
+    window.__again = { calls: [] };
+    host.nativeCheck = async () => ({ local: true, gcc: "gcc 16.2.0", cmake: "cmake 4.4.3", ninja: "ninja 1.13.2", sdl: true });
+    host.lvglInstalled = async () => [{ version: "9.2.2", size: 16000000 }, { version: "9.6.0", size: 25000000 }];
+    host.lvglInstall = (version, again) => {
+      window.__again.calls.push(["lvgl", version, again]);
+      return new Promise((resolve, reject) => {
+        window.__again.finish = resolve;
+        window.__again.fail = reject;
+      });
+    };
+    host.toolsInstall = async (only) => { window.__again.calls.push(["tools", only]); };
+  })()`);
+  const open = async () => {
+    await js("window.__mls.command('preferences')");
+    await page.until('document.querySelector("[data-pref-tab=downloads]")', 3000);
+    await click('[data-pref-tab="downloads"]');
+    await page.until('document.querySelector(\'[data-again="tools:sdl2"]\') && document.querySelector(\'[data-again="lvgl:9.2.2"]\')', 3000);
+  };
+  await open();
+  assert.deepEqual(await js("Array.from(document.querySelectorAll('[data-again-row]')).map((e) => e.dataset.againRow)"), ["mingw64", "sdl2", "9.6.0", "9.2.2"]);
+  // Every package is named.
+  assert.match(await js('document.querySelector("[data-again-row=mingw64]").textContent'), /GCC 16\.2\.0.*CMake.*Ninja/);
+  assert.match(await js('document.querySelector("[data-again-row=sdl2]").textContent'), /SDL2 2\.32\.10/);
+  await shot("11n-downloads");
+  // It asks, and saying no does nothing.
+  await click('[data-again="lvgl:9.6.0"]');
+  await page.until('document.querySelector("[data-dialog=confirm]")', 3000);
+  assert.match(await js('document.querySelector("[data-dialog=confirm]").textContent'), /9\.6\.0.*115/s);
+  await click('[data-command="confirm-no"]');
+  await page.until('!document.querySelector("[data-dialog=confirm]")', 3000);
+  assert.deepEqual(await js("window.__again.calls"), []);
+  // Yes: the modal settings window goes, so the main window stays free, and the progress window comes.
+  await click('[data-again="lvgl:9.6.0"]');
+  await page.until('document.querySelector("[data-dialog=confirm]")', 3000);
+  await click('[data-command="confirm-yes"]');
+  await page.until('document.querySelector("[data-dialog=lvgl-progress]")', 3000);
+  assert.equal(await js('!!document.querySelector("[data-dialog=preferences]")'), false, "the settings window stayed open");
+  assert.deepEqual(await js("window.__again.calls"), [["lvgl", "9.6.0", true]]);
+  // While it runs nothing else can be started from here.
+  await click('[data-command="tools-hide"]');
+  await page.until('!document.querySelector("[data-dialog=lvgl-progress]")', 3000);
+  await open();
+  assert.equal(await js('document.querySelector(\'[data-again="tools:mingw64"]\').disabled'), true, "a second download could start");
+  assert.equal(await js('!!document.querySelector("[data-again-busy]")'), true);
+  await click('[data-command="preferences-close"]');
+  await page.until('!document.querySelector("[data-dialog=preferences]")', 3000);
+  await js("window.__again.finish()");
+  await page.until('!document.querySelector("[data-status=lvgl]")', 3000);
+  // A failed try is tried again the same way: over what is there.
+  await open();
+  await click('[data-again="lvgl:9.2.2"]');
+  await page.until('document.querySelector("[data-dialog=confirm]")', 3000);
+  await click('[data-command="confirm-yes"]');
+  await page.until('document.querySelector("[data-dialog=lvgl-progress]")', 3000);
+  await js('window.__again.fail("no network")');
+  await page.until('document.querySelector("[data-tools-error]")', 3000);
+  await click('[data-command="tools-retry"]');
+  await page.until("window.__again.calls.length === 3", 3000);
+  assert.deepEqual(await js("window.__again.calls[2]"), ["lvgl", "9.2.2", true]);
+  await js("window.__again.finish()");
+  await page.until('!document.querySelector("[data-dialog=lvgl-progress]")', 3000);
+  // A package alone. This test folder has no compiler, so the backend's list is all of them; on a
+  // PC that has it, that one package is what the backend lists (see the real test of the toolchain).
+  await open();
+  await click('[data-again="tools:sdl2"]');
+  await page.until('document.querySelector("[data-dialog=confirm]")', 3000);
+  assert.match(await js('document.querySelector("[data-dialog=confirm]").textContent'), /15 MB/);
+  await click('[data-command="confirm-yes"]');
+  await page.until('document.querySelector("[data-dialog=tools-progress]")', 3000);
+  assert.deepEqual(await js("window.__again.calls[3]"), ["tools", "sdl2"]);
+  await js('window.__mls.host.emit("tools-exit", { ok: true, error: null })');
+  await page.until('!document.querySelector("[data-dialog=tools-progress]")', 3000);
+  await js("window.__toolsRestore()");
+});
+
 await step("The theme menu: my themes and settings on top, Dark and Light side by side", async () => {
   await click('[data-command="theme"]');
   await sleep(80);

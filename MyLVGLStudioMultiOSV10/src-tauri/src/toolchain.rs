@@ -131,16 +131,30 @@ fn progress(app: &AppHandle, phase: &str, item: usize, done: u64, total: u64) {
     let _ = app.emit("tools-progress", json!({ "item": item, "phase": phase, "done": done, "total": total }));
 }
 
+/// The packages to get. One alone is only possible once they are all there: until then the
+/// compiler is not complete, and getting everything is what it needs.
+fn selected(only: Option<&str>) -> Vec<&'static Archive> {
+    match only {
+        Some(id) if ready() && ARCHIVES.iter().any(|archive| archive.folder == id) => ARCHIVES.iter().filter(|archive| archive.folder == id).collect(),
+        _ => ARCHIVES.iter().collect(),
+    }
+}
+
 /// What will be installed, with what each thing is for (the page has the words for that).
-pub fn items() -> Value {
+pub fn items(only: Option<&str>) -> Value {
     let parts = |list: &[(&str, &str)]| list.iter().map(|(id, version)| json!({ "id": id, "version": version })).collect::<Vec<_>>();
+    let list: Vec<Value> = selected(only)
+        .iter()
+        .map(|archive| {
+            let contents = if archive.folder == "sdl2" { parts(&[("sdl2", SDL_VERSION)]) } else { parts(&[("gcc", GCC_VERSION), ("cmake", CMAKE_VERSION), ("ninja", NINJA_VERSION)]) };
+            json!({ "id": archive.folder, "megabytes": archive.megabytes, "parts": contents })
+        })
+        .collect();
     json!({
+        "only": only,
         "dir": dir().display().to_string(),
-        "installedMegabytes": INSTALLED_MEGABYTES,
-        "items": [
-            { "id": ARCHIVES[0].folder, "megabytes": ARCHIVES[0].megabytes, "parts": parts(&[("gcc", GCC_VERSION), ("cmake", CMAKE_VERSION), ("ninja", NINJA_VERSION)]) },
-            { "id": ARCHIVES[1].folder, "megabytes": ARCHIVES[1].megabytes, "parts": parts(&[("sdl2", SDL_VERSION)]) },
-        ],
+        "installedMegabytes": if list.len() > 1 { INSTALLED_MEGABYTES } else { 0 },
+        "items": list,
     })
 }
 
@@ -217,18 +231,32 @@ fn unpack(app: &AppHandle, stopped: &AtomicBool, part: usize, archive: &Archive,
 
 /// Installs everything. The folder appears under its own name only when complete, so an interrupted
 /// install never looks like a finished one and the next start simply tries again.
-pub fn install(app: &AppHandle, stopped: &AtomicBool) -> Result<(), String> {
+pub fn install(app: &AppHandle, stopped: &AtomicBool, only: Option<&str>) -> Result<(), String> {
     let root = dir();
+    let archives = selected(only);
     let partial = root.with_file_name("toolchain.partial");
     if partial.exists() {
         fs::remove_dir_all(&partial).map_err(|e| e.to_string())?;
     }
     fs::create_dir_all(&partial).map_err(|e| e.to_string())?;
-    let result = install_into(app, stopped, &partial).and_then(|()| {
-        if root.exists() {
-            fs::remove_dir_all(&root).map_err(|e| e.to_string())?;
+    let whole = archives.len() == ARCHIVES.len();
+    let result = install_into(app, stopped, &partial, &archives).and_then(|()| {
+        // Downloading again: what is there stays usable until the new one is complete.
+        let replacing = root.exists();
+        if whole {
+            fs::write(partial.join(COMPLETE), format!("gcc {GCC_VERSION}\ncmake {CMAKE_VERSION}\nninja {NINJA_VERSION}\nsdl2 {SDL_VERSION}\n")).map_err(|e| e.to_string())?;
+            swap_in(&partial, &root)?;
+        } else {
+            for archive in &archives {
+                swap_in(&partial.join(archive.folder), &root.join(archive.folder))?;
+            }
+            let _ = fs::remove_dir_all(&partial);
         }
-        fs::rename(&partial, &root).map_err(|e| e.to_string())
+        if replacing {
+            // Built by the compiler that was replaced, which may be why it is being replaced.
+            let _ = fs::remove_dir_all(crate::data_dir().join("native"));
+        }
+        Ok(())
     });
     if result.is_err() {
         let _ = fs::remove_dir_all(&partial);
@@ -236,8 +264,25 @@ pub fn install(app: &AppHandle, stopped: &AtomicBool) -> Result<(), String> {
     result
 }
 
-fn install_into(app: &AppHandle, stopped: &AtomicBool, partial: &Path) -> Result<(), String> {
-    for (part, archive) in ARCHIVES.iter().enumerate() {
+/// Puts a finished folder in the place of an old one. A rename either happens or does not, so if
+/// the old one is in use it simply stays, whole, unlike deleting it first.
+pub fn swap_in(new: &Path, place: &Path) -> Result<(), String> {
+    let name = place.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_default();
+    let old = place.with_file_name(format!(".old-{name}"));
+    let _ = fs::remove_dir_all(&old);
+    if place.exists() {
+        fs::rename(place, &old).map_err(|e| e.to_string())?;
+    }
+    if let Err(error) = fs::rename(new, place) {
+        let _ = fs::rename(&old, place);
+        return Err(error.to_string());
+    }
+    let _ = fs::remove_dir_all(&old);
+    Ok(())
+}
+
+fn install_into(app: &AppHandle, stopped: &AtomicBool, partial: &Path, archives: &[&Archive]) -> Result<(), String> {
+    for (part, archive) in archives.iter().enumerate() {
         crate::native::emit_line(app, "build", &format!("Downloading {} ({} MB)", archive.name, archive.megabytes));
         let file = partial.join(format!("{}.zip", archive.folder));
         let mut outcome = Err(String::new());
@@ -257,12 +302,30 @@ fn install_into(app: &AppHandle, stopped: &AtomicBool, partial: &Path) -> Result
         fs::remove_file(&file).map_err(|e| e.to_string())?;
         progress(app, "done", part, 1, 1);
     }
-    fs::write(partial.join(COMPLETE), format!("gcc {GCC_VERSION}\ncmake {CMAKE_VERSION}\nninja {NINJA_VERSION}\nsdl2 {SDL_VERSION}\n")).map_err(|e| e.to_string())
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_new_folder_replaces_the_old_one_whole() {
+        let base = std::env::temp_dir().join(format!("mls-swap-{}", std::process::id()));
+        let (new, place) = (base.join("new"), base.join("place"));
+        fs::create_dir_all(&new).unwrap();
+        fs::create_dir_all(&place).unwrap();
+        fs::write(new.join("a.txt"), "new").unwrap();
+        fs::write(place.join("b.txt"), "old").unwrap();
+        swap_in(&new, &place).unwrap();
+        assert_eq!(fs::read_to_string(place.join("a.txt")).unwrap(), "new");
+        assert!(!place.join("b.txt").exists() && !new.exists() && !base.join(".old-place").exists());
+        // Nothing to put in: what is there stays.
+        assert!(swap_in(&new, &place).is_err());
+        assert_eq!(fs::read_to_string(place.join("a.txt")).unwrap(), "new");
+        assert!(!base.join(".old-place").exists());
+        fs::remove_dir_all(&base).unwrap();
+    }
 
     #[test]
     fn the_compiler_keeps_what_a_c_build_needs() {

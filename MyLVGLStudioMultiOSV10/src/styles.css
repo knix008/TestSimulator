@@ -124,6 +124,8 @@ input, textarea, .log-list, .dialog-message { user-select: text; }
 .pref-general h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
 .pref-general .form-grid { grid-template-columns: 200px minmax(0, 1fr); gap: 6px 10px; }
 .pref-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pref-package { padding: 3px 0; }
+.pref-package small { display: block; color: var(--muted); }
 .pref-row.pref-reset { justify-content: flex-start; }
 .ruler line { stroke: var(--muted); stroke-width: 1; }
 .ruler text { fill: var(--ink); font: 10px "Segoe UI", sans-serif; }

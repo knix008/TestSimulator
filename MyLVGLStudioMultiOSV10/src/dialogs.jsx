@@ -470,7 +470,7 @@ export function ToolsProgress({ t, id = "tools-progress", title, intro, job, onH
       icon="download"
       id={id}
       width={600}
-      height={job.items.length > 1 ? 520 : 400}
+      height={job.items.length > 1 ? 520 : job.items[0].parts.length > 1 ? 440 : 400}
       standsFree
       onClose={onHide}
       footer={failed ? (
@@ -516,7 +516,7 @@ export function ToolsProgress({ t, id = "tools-progress", title, intro, job, onH
             {job.speed > 0 && job.items.some((item) => item.state === "download") && <span>{(job.speed / 1000000).toFixed(1)} MB/s</span>}
           </p>
         )}
-        <p className="tools-place" data-tools-place="" title={job.dir}>{t("tools.place", { dir: job.dir, size: job.installedMegabytes })}</p>
+        <p className="tools-place" data-tools-place="" title={job.dir}>{t(job.installedMegabytes ? "tools.place" : "tools.placeOnly", { dir: job.dir, size: job.installedMegabytes })}</p>
       </div>
     </Dialog>
   );

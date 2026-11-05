@@ -785,8 +785,8 @@ export function App({ initialSettings }) {
   const toolsBusy = toolsInstall.busy;
   // A native run that was asked for goes on once what it needs is there.
   const runAfterInstall = useRef(false);
-  const installTools = async () => {
-    const info = await host.toolsItems();
+  const installTools = async (only = null) => {
+    const info = await host.toolsItems(only);
     log(t("log.toolsStart"));
     const result = await toolsInstall.run(info, () => {
       const finished = new Promise((resolve) => {
@@ -795,7 +795,7 @@ export function App({ initialSettings }) {
           resolve(outcome);
         });
       });
-      return host.toolsInstall().then(() => finished, (error) => ({ ok: false, error: String(error) }));
+      return host.toolsInstall(only).then(() => finished, (error) => ({ ok: false, error: String(error) }));
     });
     if (!result.ok) runAfterInstall.current = false;
     if (result.ok) log(t("log.toolsDone"));
@@ -803,10 +803,10 @@ export function App({ initialSettings }) {
     else log(t("log.toolsFailed", { error: result.error }), "error");
     return result;
   };
-  const installLvgl = async (version) => {
+  const installLvgl = async (version, again = false) => {
     const info = await host.lvglItem(version);
     log(t("log.lvglStart", { version }));
-    const result = await lvglInstall.run(info, () => host.lvglInstall(version).then(() => ({ ok: true }), (error) => ({ ok: false, error: String(error) })));
+    const result = await lvglInstall.run({ ...info, again }, () => host.lvglInstall(version, again).then(() => ({ ok: true }), (error) => ({ ok: false, error: String(error) })));
     if (!result.ok) runAfterInstall.current = false;
     if (result.ok) log(t("log.lvglDone", { version }));
     else if (result.error === "stopped") log(t("log.lvglCancelled", { version }));
@@ -1785,6 +1785,16 @@ export function App({ initialSettings }) {
       {dialog?.kind === "preferences" && (
         <PreferencesDialog
           t={t}
+          downloading={toolsBusy || lvglInstall.busy || native !== "idle"}
+          // The settings window is modal: left open, it would lock the main window for the whole download.
+          onAgainTools={(only) => {
+            setDialog(null);
+            void installTools(only);
+          }}
+          onAgainLvgl={(version) => {
+            setDialog(null);
+            void installLvgl(version, true);
+          }}
           initialTab={dialog.tab}
           general={general}
           onGeneral={changeGeneral}
@@ -1833,8 +1843,8 @@ export function App({ initialSettings }) {
       {dialog?.kind === "settings" && (
         <ProjectSettings t={t} store={store} installed={installed} onVersion={changeVersion} onClose={() => setDialog(null)} onManager={() => setDialog({ kind: "manager", back: "settings" })} onConf={() => setDialog({ kind: "lvconf" })} onFonts={() => setDialog({ kind: "fonts" })} />
       )}
-      {toolsInstall.job && toolsInstall.open && <ToolsProgress t={t} job={toolsInstall.job} onHide={toolsInstall.hide} onCancel={() => { toolsInstall.markCancelling(); void host.nativeStop(); }} onRetry={() => void installTools()} />}
-      {lvglInstall.job && lvglInstall.open && <ToolsProgress t={t} id="lvgl-progress" title={t("lvgl.title", { version: lvglInstall.job.version })} intro={t("lvgl.intro")} job={lvglInstall.job} onHide={lvglInstall.hide} onCancel={() => { lvglInstall.markCancelling(); void host.lvglCancel(); }} onRetry={() => void installLvgl(lvglInstall.job.version)} />}
+      {toolsInstall.job && toolsInstall.open && <ToolsProgress t={t} job={toolsInstall.job} onHide={toolsInstall.hide} onCancel={() => { toolsInstall.markCancelling(); void host.nativeStop(); }} onRetry={() => void installTools(toolsInstall.job.only)} />}
+      {lvglInstall.job && lvglInstall.open && <ToolsProgress t={t} id="lvgl-progress" title={t("lvgl.title", { version: lvglInstall.job.version })} intro={t("lvgl.intro")} job={lvglInstall.job} onHide={lvglInstall.hide} onCancel={() => { lvglInstall.markCancelling(); void host.lvglCancel(); }} onRetry={() => void installLvgl(lvglInstall.job.version, lvglInstall.job.again)} />}
       {dialog?.kind === "manager" && (
         <LvglManager
           t={t}

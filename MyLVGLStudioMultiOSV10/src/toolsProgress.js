@@ -19,6 +19,8 @@ export function startJob(info, now) {
     status: "running",
     error: null,
     version: info.version ?? null,
+    again: !!info.again,
+    only: info.only ?? null,
     dir: info.dir,
     installedMegabytes: info.installedMegabytes,
     items: info.items.map((item) => ({ ...item, state: "waiting", bytes: item.megabytes * MB, exact: false, received: 0, unpacked: 0, unpackStarted: null })),

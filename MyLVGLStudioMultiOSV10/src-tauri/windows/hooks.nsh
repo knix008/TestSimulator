@@ -58,6 +58,7 @@
   ${If} $UpdateMode <> 1
     RmDir /r "$LOCALAPPDATA\${MLS_FOLDER}\toolchain"
     RmDir /r "$LOCALAPPDATA\${MLS_FOLDER}\toolchain.partial"
+    RmDir /r "$LOCALAPPDATA\${MLS_FOLDER}\.old-toolchain"
     ; Not /r: only if nothing else is in it.
     RmDir "$LOCALAPPDATA\${MLS_FOLDER}"
     RmDir /r "$APPDATA\${MLS_FOLDER}\native"

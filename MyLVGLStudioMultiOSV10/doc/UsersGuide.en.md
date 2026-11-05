@@ -286,6 +286,8 @@ Under **Tools > LVGL Manager** you can install and remove versions and check the
 - **Install Compiler:** becomes available when build tools are missing. It shows what will be installed first and installs once you confirm. Windows installs into a folder of the app's own (`%LOCALAPPDATA%\MyLVGLStudio\toolchain`). macOS uses Homebrew and Linux uses apt, which install on the system.
 - If GitHub cannot be reached, only known versions are shown.
 
+If something that was downloaded seems damaged, **Tools > Preferences > Downloads** has **Download Again** for each package (the compiler and build tools, SDL2) and each LVGL version. The new copy replaces the old one only once it is complete, so if this fails or is cancelled, what you have stays as it is. The build results concerned are removed, and the next native run compiles them again.
+
 Designing screens and running inside the app do not need the source to be installed.
 
 | OS | Data folder |
