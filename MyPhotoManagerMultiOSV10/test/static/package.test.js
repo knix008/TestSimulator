@@ -58,6 +58,18 @@ test('Windows installer: Korean/English, own icon, hooks file with BOM; "Open wi
   assert.ok(text.includes('OpenWithProgids'));
   assert.ok(!/WriteRegStr SHCTX "Software\\\\Classes\\\\\.\$\{EXT\}" ""/.test(text), 'never sets the default program');
   assert.ok(text.includes('$LANGUAGE == 1042'), 'Korean question');
+  // The language window every time, and every message the hooks show in both languages.
+  assert.match(text, /!define MUI_LANGDLL_ALWAYSSHOW/, 'a saved language must not skip the question');
+  const ask = text.match(/MUI_LANGDLL_INFO "([^"]*)"/)?.[1] ?? '';
+  assert.ok(/[가-힣]/.test(ask) && /[A-Za-z]/.test(ask), `language window in both languages: ${ask}`);
+  for (const line of text.split(/\r?\n/)) {
+    const shown = line.match(/^\s*(?:DetailPrint|MessageBox\s+\S+)\s+"([^"]*)"/)?.[1];
+    assert.ok(!shown || !/[A-Za-z가-힣]/.test(shown), `fixed text the language choice cannot change: ${line.trim()}`);
+  }
+  // The sidebar picture cannot follow the chosen language: names only, no sentences.
+  const render = fs.readFileSync(path.join(root, 'scripts', 'render-icons.mjs'), 'utf8');
+  const drawn = [...render.matchAll(/fillText\('([^']*)'/g)].map((m) => m[1]);
+  assert.deepEqual(drawn, ['MyPhotoManager', 'SHKWON']);
   assert.equal(conf.bundle.fileAssociations, undefined, 'no Tauri file associations (they would take over .jpg)');
 });
 

@@ -15,6 +15,13 @@
 ;
 ; Keep this file UTF-8 with BOM, or NSIS reads the Korean text as ANSI.
 
+; The language is asked every time: without ALWAYSSHOW the choice saved in the registry
+; by an earlier installation silently skips the question. No language is chosen yet,
+; so this one window speaks both.
+!define MUI_LANGDLL_ALWAYSSHOW
+!define MUI_LANGDLL_WINDOWTITLE "설치 언어 / Installer Language"
+!define MUI_LANGDLL_INFO "설치에 사용할 언어를 선택하세요.$\r$\nPlease select the language for the installer."
+
 !macro MYPHOTO_ASSOC EXT
   WriteRegStr SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "MyPhotoManager.Image" ""
   WriteRegStr SHCTX "Software\Classes\Applications\MyPhotoManager.exe\SupportedTypes" ".${EXT}" ""
@@ -45,7 +52,11 @@
   ReadRegStr $R6 SHCTX "${MANUPRODUCTKEY}" ""
   ${If} $R6 != ""
   ${AndIf} ${FileExists} "$R6\uninstall.exe"
-    DetailPrint "Removing the previous installation: $R6"
+    StrCpy $R8 "Removing the previous installation: $R6"
+    ${If} $LANGUAGE == 1042
+      StrCpy $R8 "이전 설치를 제거하는 중: $R6"
+    ${EndIf}
+    DetailPrint $R8
     ExecWait '"$R6\uninstall.exe" /S _?=$R6' $R5
     Delete "$R6\uninstall.exe"
     ; Only a folder of our own is deleted as a whole.

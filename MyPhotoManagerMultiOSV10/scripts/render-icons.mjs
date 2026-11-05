@@ -84,9 +84,9 @@ const images = await evaluate(`(async () => {
     context.textAlign = 'center';
     context.font = 'bold 18px Segoe UI, sans-serif';
     context.fillText('MyPhotoManager', 82, 186);
+    // Names only: this picture cannot follow the installer language.
     context.font = '12px Segoe UI, sans-serif';
     context.fillStyle = 'rgba(255,255,255,0.85)';
-    context.fillText('Photo manager & viewer', 82, 208);
     context.fillText('SHKWON', 82, 290);
   }, true);
   return { icon: square(1024), web192: square(192), web512: square(512), favicon: square(64), header, sidebar };
