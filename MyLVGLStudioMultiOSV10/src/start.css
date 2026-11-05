@@ -159,8 +159,8 @@
   touch-action: none;
   color: var(--muted);
   opacity: 0.7;
-  background: linear-gradient(135deg, transparent 0 55%, currentColor 55% 65%, transparent 65% 75%, currentColor 75% 85%, transparent 85%);
 }
+.card-resize svg { display: block; width: 14px; height: 14px; margin: 2px 0 0 2px; fill: currentColor; stroke: none; }
 .card-resize:hover { color: var(--accent); opacity: 1; }
 
 /* --------------------------------------------------------------- hero */

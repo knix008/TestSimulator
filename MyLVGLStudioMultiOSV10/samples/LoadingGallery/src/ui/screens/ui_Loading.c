@@ -14,6 +14,7 @@ void ui_Loading_create(void)
     lv_obj_set_style_text_font(ui_label1, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(ui_label1, lv_color_hex(0xffffff), 0);
     ui_arc1 = lv_arc_create(ui_Loading);
+    lv_obj_add_flag(ui_arc1, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc1, 0, 100);
     lv_obj_set_width(ui_arc1, 160);
     lv_obj_set_height(ui_arc1, 160);
@@ -40,6 +41,7 @@ void ui_Loading_create(void)
     lv_obj_set_x(ui_spinner1, 74);
     lv_obj_set_y(ui_spinner1, 272);
     ui_arc2 = lv_arc_create(ui_Loading);
+    lv_obj_add_flag(ui_arc2, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc2, 0, 100);
     lv_obj_set_width(ui_arc2, 160);
     lv_obj_set_height(ui_arc2, 160);
@@ -66,6 +68,7 @@ void ui_Loading_create(void)
     lv_obj_set_x(ui_spinner2, 266);
     lv_obj_set_y(ui_spinner2, 272);
     ui_arc3 = lv_arc_create(ui_Loading);
+    lv_obj_add_flag(ui_arc3, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc3, 0, 100);
     lv_obj_set_width(ui_arc3, 160);
     lv_obj_set_height(ui_arc3, 160);
@@ -92,6 +95,7 @@ void ui_Loading_create(void)
     lv_obj_set_x(ui_spinner3, 458);
     lv_obj_set_y(ui_spinner3, 272);
     ui_arc4 = lv_arc_create(ui_Loading);
+    lv_obj_add_flag(ui_arc4, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc4, 0, 100);
     lv_obj_set_width(ui_arc4, 160);
     lv_obj_set_height(ui_arc4, 160);

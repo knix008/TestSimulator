@@ -29,9 +29,14 @@ import { applyCodeEdit } from "./lvgl/codeparse.js";
 import { addImage, clearImages, decodeImage, extensionOf, imageData, imageFiles } from "./lvgl/images.js";
 import { FONT_LANGUAGES, addFont, base64ToBytes, clearFonts, faceForLanguage, fontData, fontFiles, fontNameFor, markFontsWritten } from "./lvgl/fonts.js";
 import { FontsDialog } from "./FontsDialog.jsx";
+import { Tutorial, TutorialAsk } from "./Tutorial.jsx";
+import { GuideDialog } from "./Guide.jsx";
+import { GripDots } from "./controls.jsx";
+import { focusPopout } from "./popout.js";
+import { finishStep, stepSelection, tasksOf, tutorialProject } from "./lvgl/tutorial.js";
 import { clearDragCursor, setDragCursor } from "./cursor.js";
 import { engineFor } from "./lvgl/versions.js";
-import { versionChoices } from "./dialogs.jsx";
+import { UnsavedDialog, versionChoices } from "./dialogs.jsx";
 
 const MENU_ICONS = { file: "open", edit: "paste", view: "eye", run: "run", tools: "settings", help: "about" };
 const ZOOMS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8];
@@ -125,6 +130,7 @@ export function App({ initialSettings }) {
   const [contextMenu, setContextMenu] = useState(null);
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
   const [dialog, setDialog] = useState(null);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [bottomTab, setBottomTab] = useState("log");
   const [chosenProblem, setChosenProblem] = useState(null);
   const [codeFocus, setCodeFocus] = useState(null);
@@ -239,7 +245,7 @@ export function App({ initialSettings }) {
   /* ---------------------------------------------------------- document */
 
   const guardUnsaved = (next) => {
-    if (store.dirty) setDialog({ kind: "confirm", message: t("dialog.unsaved"), onYes: next });
+    if (store.dirty) setDialog({ kind: "unsaved", then: next });
     else next();
   };
 
@@ -270,9 +276,9 @@ export function App({ initialSettings }) {
   };
 
   /** Opens the dialog that decides a project folder. */
-  const askProjectFolder = async (saveOnly) => {
+  const askProjectFolder = async (saveOnly, after) => {
     const location = projectsDir || (await host.defaultLocation().catch(() => "")) || "";
-    setDialog({ kind: "project", saveOnly, location, name: saveOnly ? store.get().name : "MyLVGLProject" });
+    setDialog({ kind: "project", saveOnly, location, name: saveOnly ? store.get().name : "MyLVGLProject", after });
   };
 
   const cmdNew = () => guardUnsaved(() => askProjectFolder(false));
@@ -359,6 +365,8 @@ export function App({ initialSettings }) {
     void host.startupFile().then((file) => {
       const target = file ?? (initialSettings.general.reopenLast ? initialSettings.recent[0] : null);
       if (target) openFileRef.current(target);
+      // The question belongs to the start screen: without it, nothing is asked.
+      else if (initialSettings.general.askTutorial && initialSettings.startScreen.showOnStartup) setDialog({ kind: "tutorialAsk" });
     });
     return host.on("open-file", (file) => openFileRef.current(file));
   }, []);
@@ -406,10 +414,21 @@ export function App({ initialSettings }) {
       await writeFolder(parts.join(path.includes("\\") ? "\\" : "/"), baseName, store.get());
       store.markSaved();
       rememberRecent(path);
+      return true;
     } catch (error) {
       showError(error);
+      return false;
     }
-    return undefined;
+  };
+
+  /** Saves, then goes on with what was asked for. A project with no folder yet is asked for one. */
+  const saveThen = async (next) => {
+    if (!path) {
+      await askProjectFolder(true, next);
+      return;
+    }
+    setDialog(null);
+    if (await cmdSave()) next();
   };
 
   /* ---------------------------------------------------------- editing */
@@ -915,6 +934,46 @@ export function App({ initialSettings }) {
     window.addEventListener("pointerup", up);
   };
 
+  /* ---------------------------------------------------------- the tutorial */
+  const [touring, setTouring] = useState(false);
+  const [tutorialRan, setTutorialRan] = useState(false);
+  // Any other screen ends the question.
+  useEffect(() => {
+    if (!showStart) setDialog((current) => (current?.kind === "tutorialAsk" ? null : current));
+  }, [showStart]);
+  const beginTutorial = () => {
+    setDialog(null);
+    guardUnsaved(() => {
+      load(tutorialProject(), null);
+      setTutorialRan(false);
+      setTouring(true);
+    });
+  };
+  const prepareTutorialStep = (step) => {
+    setView(step.view);
+    // Only the step about running has the program running.
+    if ((runOpen || running) && !tasksOf(step).some((task) => task.run)) commands.current.run.run();
+    const chosen = stepSelection(store.get(), step);
+    select(chosen);
+    // A step about the code opens the file of what it talks about.
+    if (step.view === "split") {
+      const found = locateInCode(generateCode(store.get(), { imageData: false }), cNames(store.get()).get(chosen) ?? "");
+      if (found) setCodeFocus({ ...found, at: Date.now() });
+    }
+  };
+  const finishTutorialStep = (step) => {
+    if (tasksOf(step).some((task) => task.run)) {
+      if (!tutorialRan) commands.current.run.run();
+      return;
+    }
+    store.update((draft) => finishStep(draft, step));
+    select(stepSelection(store.get(), step));
+  };
+  // Starting the program once ticks off its task, whichever way it was started.
+  useEffect(() => {
+    if (touring && (runOpen || running)) setTutorialRan(true);
+  }, [touring, runOpen, running]);
+
   /* ---------------------------------------------------------- commands */
 
   const designing = !showStart;
@@ -980,9 +1039,13 @@ export function App({ initialSettings }) {
     fonts: { id: "fonts", icon: "fontFile", label: t("cmd.fonts"), run: () => setDialog({ kind: "fonts" }) },
     manager: { id: "manager", icon: "manager", label: t("cmd.manager"), run: () => setDialog({ kind: "manager" }) },
     about: { id: "about", icon: "about", label: t("cmd.about"), run: () => setDialog({ kind: "about" }) },
+    tutorial: { id: "tutorial", icon: "tutorial", label: t("cmd.tutorial"), run: beginTutorial },
+    guide: { id: "guide", icon: "guide", label: t("cmd.guide"), keys: "F1", run: () => {
+      if (!focusPopout("guide")) setGuideOpen(true);
+    } },
     start: { id: "start", icon: "home", label: t("start.title"), pressed: showStart, run: () => setShowStart((value) => !value) },
     preferences: { id: "preferences", icon: "settings", label: t("cmd.preferences"), run: () => setDialog({ kind: "preferences" }) },
-    exit: { id: "exit", icon: "close", label: t("cmd.exit"), run: () => guardUnsaved(() => host.close()) },
+    exit: { id: "exit", icon: "close", label: t("cmd.exit"), run: () => guardUnsaved(() => host.closeMain()) },
     zoomIn: { id: "zoomIn", icon: "zoomIn", label: t("cmd.zoomIn"), keys: "Ctrl++", disabled: !designing || !zoomStep(1), run: () => stepZoom(1) },
     zoomOut: { id: "zoomOut", icon: "zoomOut", label: t("cmd.zoomOut"), keys: "Ctrl+-", disabled: !designing || !zoomStep(-1), run: () => stepZoom(-1) },
     zoomFit: { id: "zoomFit", icon: "zoomFit", label: t("cmd.zoomFit"), keys: "Ctrl+0", disabled: !designing, run: fitZoom },
@@ -994,7 +1057,7 @@ export function App({ initialSettings }) {
     { id: "view", items: [c.start, "-", c.panelLeft, c.panelBottom, c.panelRight, c.rulers, c.code, "-", c.zoomIn, c.zoomOut, c.zoomFit] },
     { id: "run", items: [c.run, c.native, "-", c.cleanBuild] },
     { id: "tools", items: [c.settings, c.fonts, c.lvConf, c.manager, "-", c.preferences] },
-    { id: "help", items: [c.about] },
+    { id: "help", items: [c.tutorial, c.guide, "-", c.about] },
   ];
 
   const toolbarGroups = [
@@ -1109,6 +1172,13 @@ export function App({ initialSettings }) {
   const commands = useRef(c);
   commands.current = c;
 
+  // Alt+F4 and the taskbar's Close ask the same question as the Exit command.
+  useEffect(() => {
+    const off = host.on("close-requested", () => commands.current.exit.run());
+    void host.closeGuardReady();
+    return off;
+  }, []);
+
   useEffect(() => {
     const key = (event) => {
       const target = event.target;
@@ -1118,6 +1188,7 @@ export function App({ initialSettings }) {
         event.preventDefault();
         if (!command.disabled) command.run();
       };
+      if (event.key === "F1") return fire(cmd.guide);
       if (event.key === "F5") return fire(event.shiftKey ? cmd.native : cmd.run);
       if (event.ctrlKey || event.metaKey) {
         const letter = event.key.toLowerCase();
@@ -1165,6 +1236,9 @@ export function App({ initialSettings }) {
   useEffect(() => {
     window.__mls = {
       project: () => store.get(),
+      dialog: () => dialog?.kind ?? (guideOpen ? "guide" : null),
+      showDialog: (next) => setDialog(next),
+      command: (id) => commands.current[id]?.run(),
       selected: () => selected,
       engine: () => surface.current?.engine(),
       box: (id) => surface.current?.boxes().get(id) ?? null,
@@ -1243,6 +1317,7 @@ export function App({ initialSettings }) {
     return files;
   }, [project, projectFile, t, view]);
   const [openName, setOpenName] = useState(null);
+
 
   /** Opens a file of the explorer in the code view; a screen's file also shows that screen. */
   const openFromExplorer = (file) => {
@@ -1437,6 +1512,7 @@ export function App({ initialSettings }) {
           onTheme={changeTheme}
           onPreferences={(tab) => setDialog({ kind: "preferences", tab })}
           onManager={c.manager.run}
+          onTutorial={beginTutorial}
           onSettings={c.settings.run}
           onLanguage={() => changeLanguage(language === "en" ? "ko" : "en")}
           onAbout={c.about.run}
@@ -1594,9 +1670,7 @@ export function App({ initialSettings }) {
         <span className="status-end">
           {isDesktop && (
             <button type="button" className="grip" aria-label="resize" onPointerDown={(event) => { event.preventDefault(); host.startResize(); }}>
-              <svg viewBox="0 0 12 12" data-grip="">
-                {[[10, 2], [6, 6], [10, 6], [2, 10], [6, 10], [10, 10]].map(([x, y]) => <circle key={`${x},${y}`} cx={x} cy={y} r="1.15" />)}
-              </svg>
+              <GripDots />
             </button>
           )}
         </span>
@@ -1627,6 +1701,7 @@ export function App({ initialSettings }) {
           initialTab={dialog.tab}
           general={general}
           onGeneral={changeGeneral}
+          onStartTutorial={beginTutorial}
           projectsDir={projectsDir}
           onProjectsDir={changeProjectsDir}
           rulers={rulers}
@@ -1647,6 +1722,9 @@ export function App({ initialSettings }) {
           onClose={() => setDialog(null)}
         />
       )}
+      {dialog?.kind === "tutorialAsk" && showStart && <TutorialAsk t={t} ask={general.askTutorial} onAsk={(askTutorial) => changeGeneral({ askTutorial })} onStart={beginTutorial} onLater={() => setDialog(null)} />}
+      {guideOpen && <GuideDialog language={language} onClose={() => setGuideOpen(false)} />}
+      {touring && <Tutorial t={t} project={project} ran={tutorialRan} onPrepare={prepareTutorialStep} onFinishStep={finishTutorialStep} onClose={() => { setTouring(false); setView("design"); log(t("tutorial.closed")); }} />}
       {dialog?.kind === "fonts" && <FontsDialog t={t} store={store} onImport={importFont} onClose={() => setDialog(null)} />}
       {dialog?.kind === "lvconf" && <LvConfDialog t={t} store={store} installed={installed} onVersion={changeVersion} onClose={() => setDialog(null)} />}
       {dialog?.kind === "project" && (
@@ -1658,7 +1736,10 @@ export function App({ initialSettings }) {
           initialVersion={general.newVersion}
           initialDevice={general.newDevice}
           installed={installed}
-          onCreate={(choice) => createProjectFolder(choice, dialog.saveOnly)}
+          onCreate={async (choice) => {
+            await createProjectFolder(choice, dialog.saveOnly);
+            dialog.after?.();
+          }}
           onClose={() => setDialog(null)}
         />
       )}
@@ -1670,6 +1751,19 @@ export function App({ initialSettings }) {
       )}
       {dialog?.kind === "about" && <AboutDialog t={t} runtime={runtime} iconSource={appIconLarge} onClose={() => setDialog(null)} />}
       {dialog?.kind === "message" && <MessageDialog t={t} title={dialog.title} message={dialog.message} onClose={() => setDialog(null)} />}
+      {dialog?.kind === "unsaved" && (
+        <UnsavedDialog
+          t={t}
+          name={project.name}
+          onSave={() => void saveThen(dialog.then)}
+          onDiscard={() => {
+            const next = dialog.then;
+            setDialog(null);
+            next();
+          }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
       {dialog?.kind === "confirm" && (
         <ConfirmDialog
           t={t}

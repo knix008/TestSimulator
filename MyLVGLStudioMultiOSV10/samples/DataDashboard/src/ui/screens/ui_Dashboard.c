@@ -91,6 +91,7 @@ void ui_Dashboard_create(void)
     lv_obj_set_y(ui_slider1, 450);
     lv_slider_set_value(ui_slider1, 72, LV_ANIM_OFF);
     ui_arc1 = lv_arc_create(ui_Dashboard);
+    lv_obj_add_flag(ui_arc1, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc1, 0, 100);
     lv_obj_set_width(ui_arc1, 120);
     lv_obj_set_height(ui_arc1, 120);

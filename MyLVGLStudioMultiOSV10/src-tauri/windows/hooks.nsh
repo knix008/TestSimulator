@@ -1,4 +1,5 @@
-; My LVGL Studio installer additions (read by the Tauri NSIS template).
+﻿; My LVGL Studio installer additions (read by the Tauri NSIS template). Saved as UTF-8 with a BOM,
+; which is how NSIS knows the Korean below is not in the system's code page.
 ;
 ; The template's file association registers .mylvgl and its "open" command under the ProgID named
 ; in tauri.conf.json, with the program's own icon. What is added here:
@@ -7,13 +8,29 @@
 ;   - a clean registry after uninstalling: the template's macro leaves the extension's key behind,
 ;     and after a reinstall its backup value names this very ProgID.
 
+; The language is asked at every install, with the last one chosen already selected. By default the
+; question is skipped once a language has been remembered. It is asked before any language is
+; chosen, so it says so in both.
+!define MUI_LANGDLL_ALWAYSSHOW
+!define MUI_LANGDLL_WINDOWTITLE "언어 / Language"
+!define MUI_LANGDLL_INFO "설치에 사용할 언어를 고르세요.$\r$\nPlease select the language for the installation."
+
 !define MLS_EXT ".mylvgl"
+!define MLS_LANGUAGE_FILE "install-language.txt"
 !define MLS_PROGID "MyLVGLStudio.Project"
 !define MLS_BACKUP "MyLVGLStudio.Project_backup"
 ; The ProgID of the first builds, which had a name with spaces.
 !define MLS_OLD_PROGID "My LVGL Studio Project"
 
+!macro NSIS_HOOK_PREUNINSTALL
+  Delete "$INSTDIR\${MLS_LANGUAGE_FILE}"
+!macroend
+
 !macro NSIS_HOOK_POSTINSTALL
+  ; The language chosen for the installation, for the program's first start.
+  FileOpen $R0 "$INSTDIR\${MLS_LANGUAGE_FILE}" w
+  FileWrite $R0 "$LANGUAGE"
+  FileClose $R0
   WriteRegStr SHCTX "Software\Classes\${MLS_PROGID}\DefaultIcon" "" "$INSTDIR\file-icon.ico,0"
   WriteRegStr SHCTX "Software\Classes\${MLS_EXT}" "Content Type" "application/vnd.mylvgl+json"
   WriteRegStr SHCTX "Software\Classes\${MLS_EXT}\OpenWithProgids" "${MLS_PROGID}" ""

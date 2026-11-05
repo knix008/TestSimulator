@@ -94,7 +94,7 @@ export function FontsDialog({ t, store, onImport, onClose }) {
       onClose={onClose}
       id="fonts"
       width={640}
-      footer={<button type="button" className="primary" data-command="fonts-close" onClick={onClose}>{t("dialog.close")}</button>}
+      footer={<button type="button" className="primary" data-command="fonts-close" onClick={onClose}><Icon name="close" size={14} /> {t("dialog.close")}</button>}
     >
       <div className="fonts-window">
         <div className="font-default">

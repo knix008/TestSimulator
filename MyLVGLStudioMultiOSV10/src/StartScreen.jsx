@@ -1,6 +1,7 @@
 // The start screen, the same design as My Git Master's: a moving background behind a board of
 // translucent cards that can be moved and resized, with launcher tiles and one-line pickers.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { GripDots } from "./controls.jsx";
 import appIcon from "../assets/icons/128x128.png";
 import { Flag, Icon } from "./icons.jsx";
 import { THEMES, themeById } from "./themes.js";
@@ -110,14 +111,16 @@ export function RangeStepper({ name, label, value, min, max, step, suffix, onCha
         onChange(next);
       }
     };
+    // The settings window draws this too, and a dialog has a window of its own.
+    const win = event.currentTarget.ownerDocument.defaultView;
     const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
+      win.removeEventListener("pointermove", move);
+      win.removeEventListener("pointerup", up);
+      win.removeEventListener("pointercancel", up);
     };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", up);
+    win.addEventListener("pointermove", move);
+    win.addEventListener("pointerup", up);
+    win.addEventListener("pointercancel", up);
   };
   const onBarKey = (event) => {
     const delta = event.key === "ArrowRight" || event.key === "ArrowUp" ? step : event.key === "ArrowLeft" || event.key === "ArrowDown" ? -step : 0;
@@ -170,7 +173,7 @@ export function StartRanges({ t, start, speed, onChange }) {
 const nameOf = (file) => file.split(/[\\/]/).pop().replace(/\.[^.]+$/, "");
 const parentOf = (file) => file.split(/[\\/]/).slice(0, -1).join("/");
 
-export function StartScreen({ t, language, themeId, customThemes, start, recent, onStart, onNew, onOpen, onContinue, onOpenRecent, onOpenSample, onSamples, onRemoveRecent, onClearRecent, onTheme, onPreferences, onManager, onSettings, onLanguage, onAbout, onExit }) {
+export function StartScreen({ t, language, themeId, customThemes, start, recent, onStart, onNew, onOpen, onTutorial, onContinue, onOpenRecent, onOpenSample, onSamples, onRemoveRecent, onClearRecent, onTheme, onPreferences, onManager, onSettings, onLanguage, onAbout, onExit }) {
   const en = language === "en";
   const reduced = useReducedMotion();
   const speed = effectiveSpeed(start.speed, reduced);
@@ -391,7 +394,7 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
           </h2>
         )}
         <div className="card-body">{body}</div>
-        <span className="card-resize" data-card-resize={id} title={t("start.resizeCard")} onPointerDown={(event) => startResize(event, id)} onDoubleClick={() => saveLayout(place(saved, id, { fit: true }))} />
+        <span className="card-resize" data-card-resize={id} title={t("start.resizeCard")} onPointerDown={(event) => startResize(event, id)} onDoubleClick={() => saveLayout(place(saved, id, { fit: true }))}><GripDots /></span>
       </section>
     );
   };
@@ -453,6 +456,7 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
           <button type="button" className="start-btn primary" data-start="hero-new" onClick={onNew}><Icon name="new" /><span>{t("cmd.new")}</span></button>
           <button type="button" className="start-btn" data-start="hero-open" onClick={onOpen}><Icon name="open" /><span>{t("cmd.open")}</span></button>
           <button type="button" className="start-btn" data-start="hero-samples" onClick={onSamples}><Icon name="samples" /><span>{t("cmd.samples")}</span></button>
+          <button type="button" className="start-btn" data-start="hero-tutorial" title={t("start.tipTutorial")} onClick={onTutorial}><Icon name="tutorial" /><span>{t("start.tutorial")}</span></button>
         </div>
       </>
     ), null, true),

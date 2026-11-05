@@ -73,6 +73,18 @@ export const host = {
   minimize: () => isDesktop && getCurrentWindow().minimize(),
   toggleMaximize: () => isDesktop && getCurrentWindow().toggleMaximize(),
   close: () => isDesktop && getCurrentWindow().close(),
+  // The main window's own close, once the page has dealt with unsaved work.
+  closeMain: () => (isDesktop ? invoke("main_close") : Promise.resolve()),
+  closeGuardReady: () => (isDesktop ? invoke("close_guard_ready") : Promise.resolve()),
+  popoutInline: () => (isDesktop ? invoke("popout_inline") : Promise.resolve(true)),
+  popoutReset: () => (isDesktop ? invoke("popout_reset") : Promise.resolve()),
+  popoutShow: (options) => invoke("popout_show", { options }),
+  popoutDrag: (label) => invoke("popout_drag", { label }),
+  // The marker in a window's corner was pressed: the corner follows the mouse.
+  popoutResize: (label) => invoke("plugin:window|start_resize_dragging", { label, value: "SouthEast" }),
+  popoutMinimize: (label) => invoke("popout_minimize", { label }),
+  popoutFocus: (label) => invoke("popout_focus", { label }),
+  popoutClose: (label) => invoke("popout_close", { label }),
   startDrag: () => isDesktop && getCurrentWindow().startDragging(),
   startResize: () => isDesktop && getCurrentWindow().startResizeDragging("SouthEast"),
   setMinimumSize: (width, height) => (isDesktop ? invoke("window_min_size", { width, height }) : Promise.resolve()),

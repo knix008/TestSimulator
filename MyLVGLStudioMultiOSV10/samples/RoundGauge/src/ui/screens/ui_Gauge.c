@@ -8,12 +8,14 @@ void ui_Gauge_create(void)
     lv_obj_set_style_bg_opa(ui_Gauge, 255, 0);
     lv_obj_set_style_bg_color(ui_Gauge, lv_color_hex(0x0b1220), 0);
     ui_arc1 = lv_arc_create(ui_Gauge);
+    lv_obj_add_flag(ui_arc1, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc1, 0, 100);
     lv_obj_set_width(ui_arc1, 330);
     lv_obj_set_height(ui_arc1, 330);
     lv_obj_set_align(ui_arc1, LV_ALIGN_CENTER);
     lv_arc_set_value(ui_arc1, 40);
     ui_arc2 = lv_arc_create(ui_Gauge);
+    lv_obj_add_flag(ui_arc2, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc2, 0, 100);
     lv_obj_set_width(ui_arc2, 240);
     lv_obj_set_height(ui_arc2, 240);

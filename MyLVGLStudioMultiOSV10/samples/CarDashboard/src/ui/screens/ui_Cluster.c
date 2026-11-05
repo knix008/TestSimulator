@@ -8,6 +8,7 @@ void ui_Cluster_create(void)
     lv_obj_set_style_bg_opa(ui_Cluster, 255, 0);
     lv_obj_set_style_bg_color(ui_Cluster, lv_color_hex(0x101418), 0);
     ui_arc1 = lv_arc_create(ui_Cluster);
+    lv_obj_add_flag(ui_arc1, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc1, 0, 240);
     lv_obj_set_width(ui_arc1, 300);
     lv_obj_set_height(ui_arc1, 300);
@@ -27,6 +28,7 @@ void ui_Cluster_create(void)
     lv_obj_set_style_text_font(ui_label2, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(ui_label2, lv_color_hex(0xffffff), 0);
     ui_arc2 = lv_arc_create(ui_Cluster);
+    lv_obj_add_flag(ui_arc2, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc2, 0, 8000);
     lv_obj_set_width(ui_arc2, 300);
     lv_obj_set_height(ui_arc2, 300);

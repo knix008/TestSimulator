@@ -8,17 +8,22 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod lvgl;
+mod popout;
 mod native;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use base64::Engine as _;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
-const MAIN: &str = "main";
+pub const MAIN: &str = "main";
+/// A page that can answer is listening. Before that, or without it, closing just closes.
+static CLOSE_GUARD: AtomicBool = AtomicBool::new(false);
+static CLOSE_ALLOWED: AtomicBool = AtomicBool::new(false);
 const RUN: &str = "run";
 const SETTINGS_FOLDER: &str = "MyLVGLStudio";
 const MIN_WIDTH: f64 = 1000.0;
@@ -58,7 +63,30 @@ fn write_settings_value(settings: &Value) -> Result<(), String> {
 
 #[tauri::command]
 fn load_settings() -> Value {
-    read_settings_value()
+    let mut settings = read_settings_value();
+    with_installer_language(&mut settings, installer_language());
+    settings
+}
+
+/// The language chosen in the installer, which leaves its Windows language id next to the program.
+fn installer_language() -> Option<&'static str> {
+    let file = std::env::current_exe().ok()?.parent()?.join("install-language.txt");
+    language_of_id(&std::fs::read_to_string(file).ok()?)
+}
+
+fn language_of_id(id: &str) -> Option<&'static str> {
+    match id.trim() {
+        "1042" => Some("ko"),
+        "1033" => Some("en"),
+        _ => None,
+    }
+}
+
+/// Only until a language has been chosen in the program: that choice stays, also after a reinstall.
+fn with_installer_language(settings: &mut Value, language: Option<&str>) {
+    if let (Some(object), Some(language)) = (settings.as_object_mut(), language) {
+        object.entry("language").or_insert_with(|| Value::from(language));
+    }
 }
 
 /// Merges `patch` into settings.json, so the page never overwrites the saved window bounds.
@@ -178,6 +206,20 @@ fn write_project(dir: String, files: BTreeMap<String, String>, binaries: BTreeMa
 }
 
 /// The page has applied its theme: its window can appear without a flash of the wrong colour.
+#[tauri::command]
+fn close_guard_ready() {
+    CLOSE_GUARD.store(true, Ordering::SeqCst);
+}
+
+/// The page has dealt with unsaved work: the main window may really close now.
+#[tauri::command]
+fn main_close(app: AppHandle) {
+    CLOSE_ALLOWED.store(true, Ordering::SeqCst);
+    if let Some(main) = app.get_webview_window(MAIN) {
+        let _ = main.close();
+    }
+}
+
 #[tauri::command]
 fn window_ready(window: tauri::WebviewWindow) {
     let _ = window.show();
@@ -301,7 +343,17 @@ fn open_main_window(app: &AppHandle) -> Result<(), String> {
     let settings = read_settings_value();
     let saved = &settings["window"];
     let num = |key: &str| saved[key].as_f64();
+    let dialogs = app.clone();
     let mut builder = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
+        // Every dialog opens as a window of its own.
+        .on_new_window(move |url, features| {
+            if url.scheme() == "about" {
+                if let Some(main) = dialogs.get_webview_window(MAIN) {
+                    return popout::new_window(&dialogs, &main, &url, features);
+                }
+            }
+            tauri::webview::NewWindowResponse::Deny
+        })
         .title("My LVGL Studio")
         .inner_size(num("width").unwrap_or(1440.0).max(MIN_WIDTH), num("height").unwrap_or(860.0).max(MIN_HEIGHT))
         .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
@@ -339,14 +391,24 @@ fn main() {
             open_main_window(app.handle()).map_err(|e| e.into())
         })
         .on_window_event(|window, event| match event {
-            tauri::WindowEvent::CloseRequested { .. } if window.label() == MAIN => {
+            tauri::WindowEvent::CloseRequested { api, .. } if window.label() == MAIN => {
+                // The page decides first: it may have unsaved work to ask about.
+                if CLOSE_GUARD.load(Ordering::SeqCst) && !CLOSE_ALLOWED.load(Ordering::SeqCst) {
+                    api.prevent_close();
+                    let _ = window.app_handle().emit_to(MAIN, "close-requested", ());
+                    return;
+                }
                 remember_window(window);
                 native::stop_all(window.app_handle());
+                popout::close_all(window.app_handle());
                 if let Some(run) = window.app_handle().get_webview_window(RUN) {
                     let _ = run.destroy();
                 }
             }
             tauri::WindowEvent::Resized(_) if window.label() == MAIN => enforce_min_size(window),
+            tauri::WindowEvent::Destroyed if popout::is_dialog(window.label()) => {
+                popout::closed(window.app_handle(), window.label());
+            }
             tauri::WindowEvent::Destroyed if window.label() == RUN => {
                 let _ = window.app_handle().emit("run-closed", ());
             }
@@ -361,6 +423,8 @@ fn main() {
             dir_state,
             write_project,
             window_ready,
+            close_guard_ready,
+            main_close,
             window_min_size,
             run_open,
             run_payload,
@@ -375,9 +439,37 @@ fn main() {
             native::native_stop,
             native::native_clean,
             samples_list,
+            popout::popout_show,
+            popout::popout_drag,
+            popout::popout_minimize,
+            popout::popout_focus,
+            popout::popout_close,
+            popout::popout_reset,
+            popout::popout_inline,
             native::tools_plan,
             native::tools_install,
         ])
         .run(tauri::generate_context!())
         .expect("the application failed to start");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn installer_language_is_only_a_first_default() {
+        assert_eq!(language_of_id("1042"), Some("ko"));
+        assert_eq!(language_of_id(" 1033\r\n"), Some("en"));
+        assert_eq!(language_of_id("1041"), None);
+        let mut empty = serde_json::json!({});
+        with_installer_language(&mut empty, Some("en"));
+        assert_eq!(empty["language"], "en");
+        let mut chosen = serde_json::json!({ "language": "ko" });
+        with_installer_language(&mut chosen, Some("en"));
+        assert_eq!(chosen["language"], "ko");
+        let mut none = serde_json::json!({});
+        with_installer_language(&mut none, None);
+        assert!(none.get("language").is_none());
+    }
 }

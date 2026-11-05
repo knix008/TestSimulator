@@ -23,6 +23,7 @@ void ui_Battery_create(void)
     lv_obj_set_y(ui_bar1, 60);
     lv_bar_set_value(ui_bar1, 64, LV_ANIM_OFF);
     ui_arc1 = lv_arc_create(ui_Battery);
+    lv_obj_add_flag(ui_arc1, LV_OBJ_FLAG_ADV_HITTEST);
     lv_arc_set_range(ui_arc1, 0, 100);
     lv_obj_set_width(ui_arc1, 130);
     lv_obj_set_height(ui_arc1, 130);

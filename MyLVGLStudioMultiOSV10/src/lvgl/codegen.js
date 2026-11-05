@@ -30,6 +30,8 @@ export function cString(text) {
 
 /** What a widget needs right after it is created. */
 function createExtras(name, node, api) {
+  // Only the ring takes a press, not its whole square: rings inside rings each work.
+  if (node.type === "arc") return [`lv_obj_add_flag(${name}, LV_OBJ_FLAG_ADV_HITTEST);`];
   if (node.type === "win") return [`lv_obj_t * ${name}_label = lv_label_create(lv_win_get_content(${name}));`];
   if (node.type === "arclabel") return [`lv_arclabel_set_angle_start(${name}, 180);`, `lv_arclabel_set_angle_size(${name}, 270);`, `lv_arclabel_set_radius(${name}, LV_PCT(100));`];
   if (node.type === "scale") return [`lv_scale_set_label_show(${name}, true);`];

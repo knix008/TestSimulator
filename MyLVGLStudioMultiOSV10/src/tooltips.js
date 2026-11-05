@@ -11,7 +11,7 @@ export function setTipTranslator(t) {
 
 export function tipFor(element) {
   // A switch has no words of its own: it is named by the label beside it.
-  const beside = element.closest(".field")?.querySelector(".field-label") ?? element.previousElementSibling;
+  const beside = element.closest(".field")?.querySelector(".field-label") ?? element.previousElementSibling ?? element.parentElement?.previousElementSibling;
   const own = element.getAttribute("aria-label") || element.textContent || "";
   const text = (own.trim() ? own : beside?.textContent ?? "").replace(/\s+/g, " ").trim();
   return SYMBOLS[text] ? translate(SYMBOLS[text]) : text;
@@ -24,9 +24,10 @@ export function refreshTip(element) {
   element.title = tipFor(element);
 }
 
-export function installTooltips() {
-  document.addEventListener("pointerover", (event) => {
-    const element = event.target instanceof Element ? event.target.closest(SELECTOR) : null;
+export function installTooltips(doc = document) {
+  doc.addEventListener("pointerover", (event) => {
+    // Not instanceof: an element of a dialog's window belongs to that window's Element.
+    const element = event.target?.closest?.(SELECTOR);
     if (element) refreshTip(element);
   }, true);
 }
