@@ -1,0 +1,452 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "rtl",
+  "defaultShape": "rounded",
+  "defaultLine": "curve",
+  "defaultLinePattern": "solid",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "제주도 여행",
+      "x": 1180,
+      "y": 428,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "이동",
+      "x": 968,
+      "y": 76,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "항공권",
+      "x": 748,
+      "y": 32,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "렌터카",
+      "x": 748,
+      "y": 120,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-8",
+      "parentId": "n-1",
+      "text": "숙소",
+      "x": 968,
+      "y": 252,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-9",
+      "parentId": "n-8",
+      "text": "호텔",
+      "x": 748,
+      "y": 208,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-8",
+      "text": "펜션",
+      "x": 748,
+      "y": 296,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-14",
+      "parentId": "n-1",
+      "text": "먹거리",
+      "x": 968,
+      "y": 472,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-15",
+      "parentId": "n-14",
+      "text": "흑돼지",
+      "x": 748,
+      "y": 384,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-17",
+      "parentId": "n-14",
+      "text": "해산물",
+      "x": 748,
+      "y": 472,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-19",
+      "parentId": "n-14",
+      "text": "카페",
+      "x": 748,
+      "y": 560,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-22",
+      "parentId": "n-1",
+      "text": "관광",
+      "x": 968,
+      "y": 736,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-23",
+      "parentId": "n-22",
+      "text": "한라산",
+      "x": 748,
+      "y": 648,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-25",
+      "parentId": "n-22",
+      "text": "해변",
+      "x": 748,
+      "y": 736,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-27",
+      "parentId": "n-22",
+      "text": "올레길",
+      "x": 748,
+      "y": 824,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-7",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-10",
+      "from": "n-8",
+      "to": "n-9",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-12",
+      "from": "n-8",
+      "to": "n-11",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-13",
+      "from": "n-1",
+      "to": "n-8",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-16",
+      "from": "n-14",
+      "to": "n-15",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-18",
+      "from": "n-14",
+      "to": "n-17",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-20",
+      "from": "n-14",
+      "to": "n-19",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-21",
+      "from": "n-1",
+      "to": "n-14",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-24",
+      "from": "n-22",
+      "to": "n-23",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-26",
+      "from": "n-22",
+      "to": "n-25",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-28",
+      "from": "n-22",
+      "to": "n-27",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-29",
+      "from": "n-1",
+      "to": "n-22",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    }
+  ]
+}

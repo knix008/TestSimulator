@@ -1,0 +1,49 @@
+{
+  "name": "mymind-multios",
+  "version": "2.0.0",
+  "private": true,
+  "description": "MyMind - cross-platform mindmap and fishbone diagram editor (Tauri + React + TypeScript)",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "node scripts/dev.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "node scripts/dev.mjs web",
+    "build:ui": "node node_modules/vite/bin/vite.js build",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "icons": "node scripts/gen-icons.mjs",
+    "samples": "node scripts/gen-samples.mjs",
+    "tauri": "node node_modules/@tauri-apps/cli/tauri.js",
+    "build:win": "node node_modules/@tauri-apps/cli/tauri.js build --bundles nsis && node scripts/copy-installer.mjs",
+    "build:mac": "node node_modules/@tauri-apps/cli/tauri.js build --bundles dmg && node scripts/copy-installer.mjs",
+    "build:linux": "node node_modules/@tauri-apps/cli/tauri.js build --bundles appimage,deb && node scripts/copy-installer.mjs",
+    "test": "node test/run.mjs",
+    "build:e2e": "node scripts/build-e2e.mjs",
+    "test:gui": "node scripts/build-e2e.mjs && node test/gui.mjs"
+  },
+  "dependencies": {
+    "@fontsource/noto-sans-kr": "^5.2.5",
+    "@fontsource/outfit": "^5.2.5",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "i18next": "^25.3.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-i18next": "^15.6.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.5"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}

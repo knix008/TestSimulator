@@ -1,0 +1,194 @@
+/* The window's chrome: title row, menus, dialogs and the settings window. Theme tokens only. */
+.icon { width: 16px; height: 16px; min-width: 16px; min-height: 16px; flex: 0 0 16px; display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+.pref-reset { margin-top: 8px; }
+.window-controls { margin-left: auto; display: flex; align-self: stretch; height: 100%; flex: 0 0 auto; }
+.window-controls button { width: 46px; height: 100%; border: 0; border-radius: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; padding: 0; color: var(--ink); }
+.window-controls button:hover { background: var(--hover); }
+.window-controls button.close:hover { background: var(--danger); color: #fff; }
+.window-controls svg { width: 10px; height: 10px; display: block; fill: none; stroke: currentColor; stroke-width: 1.2; }
+.menu-pop { position: absolute; top: calc(100% - 2px); left: 0; z-index: 40; min-width: 240px; max-height: 70vh; overflow: auto; background: var(--pop); border: 1px solid var(--line); border-radius: 6px; box-shadow: var(--shadow); padding: 4px; }
+.menu-pop button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; background: transparent; padding: 6px 8px; border-radius: 4px; white-space: nowrap; }
+.menu-pop button:hover { background: var(--accent-soft); }
+.menu-pop button.selected { background: var(--selected); color: var(--accent-ink); }
+.menu-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.menu-note { color: var(--muted); font-size: 12px; margin-left: 16px; }
+.tool-group { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.tool-sep { display: inline-block; width: 1px; height: 22px; margin: 0 4px; background: var(--line); }
+.toolbar-end { margin-left: auto; display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.popup-host { position: relative; display: flex; }
+.theme-pop { left: auto; right: 0; top: calc(100% + 4px); width: 470px; max-height: calc(100vh - 84px); padding: 6px; }
+.theme-pop-top { display: flex; flex-wrap: wrap; align-items: stretch; gap: 3px; padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.theme-pop-top button { width: calc(50% - 2px); }
+.theme-pop-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.theme-pop button { padding: 2px 6px; height: 24px; font-size: 12px; }
+.theme-pop h4 { margin: 6px 8px 4px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; }
+.swatches { display: inline-flex; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.swatches i { width: 12px; height: 14px; display: block; }
+.pref-general { display: grid; gap: 8px; }
+.pref-general section { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.pref-general section:last-child { border-bottom: 0; }
+.pref-general h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
+.pref-general .form-grid { grid-template-columns: 200px minmax(0, 1fr); gap: 6px 10px; }
+.pref-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pref-row.pref-reset { justify-content: flex-start; }
+.about-body { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 16px 18px; }
+.about-icon { width: 96px; height: 96px; display: block; }
+.about-copy { min-width: 0; }
+.about-copy p { margin: 8px 0 0; line-height: 1.5; }
+.about-name { display: flex; align-items: baseline; gap: 8px; margin: 0 !important; }
+.about-name strong { font-size: 22px; }
+.about-name span { color: var(--muted); }
+.about-meta { grid-column: 1 / -1; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 7px 16px; margin: 0; padding-top: 14px; border-top: 1px solid var(--line); }
+.about-meta dt, .about-meta dd { margin: 0; }
+.about-meta dt { color: var(--muted); white-space: nowrap; }
+.about-meta dd { min-width: 0; overflow-wrap: anywhere; user-select: text; }
+.text-input { width: 100%; height: 26px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--input); outline: none; }
+textarea.text-input { height: auto; resize: vertical; font-family: inherit; }
+.text-input:focus, .stepper input:focus, .color-text:focus { border-color: var(--accent-line); }
+.stepper { display: grid; grid-template-columns: 26px minmax(0, 1fr) 26px; height: 26px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: var(--input); }
+.stepper button { border: 0; background: var(--header); padding: 0; line-height: 1; }
+.stepper button:hover { background: var(--hover); }
+.stepper-value { min-width: 0; display: flex; align-items: center; justify-content: center; gap: 2px; padding: 0 3px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+.stepper-value:focus-within { background: var(--selected); }
+.stepper input { min-width: 0; max-width: 100%; padding: 0; border: 0; text-align: center; background: transparent; outline: none; }
+.stepper-unit { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
+.stepper input::placeholder { font-size: 11px; }
+.color-field { display: flex; align-items: center; gap: 4px; }
+.swatch { position: relative; width: 26px; height: 26px; flex: 0 0 26px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; cursor: pointer; }
+.swatch.empty { background: repeating-conic-gradient(var(--line) 0 25%, transparent 0 50%) 0 0 / 10px 10px; }
+.swatch input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.color-text { flex: 1 1 auto; min-width: 0; height: 26px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--input); outline: none; }
+.color-text::placeholder { font-size: 11px; }
+.toggle { position: relative; width: 36px; height: 20px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--header); display: block; }
+.toggle i { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: left 0.1s; }
+.toggle.on { background: var(--accent); border-color: var(--accent); }
+.toggle.on i { left: 18px; background: var(--on-accent); }
+.icon-select { position: relative; min-width: 0; width: 100%; }
+.icon-select-button { display: flex; align-items: center; gap: 6px; width: 100%; height: 26px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--input); text-align: left; }
+.icon-select-button:hover { border-color: var(--accent-line); }
+.icon-select-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon-select-list { z-index: 70; }
+.dialog-body:has(.guide-window) { padding: 0; height: 640px; max-height: calc(100vh - 120px); overflow: hidden; }
+.guide-window { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.guide-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 0 0 14px; background: var(--header); border-bottom: 1px solid var(--line); }
+.guide-bar .window-controls { margin-left: 0; height: auto; }
+.window-controls button:disabled { opacity: 0.35; background: transparent; cursor: default; }
+.guide-bar-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; }
+.guide-bar-gap { flex: 1 1 auto; }
+.dialog button.guide-language { display: inline-flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 10px; white-space: nowrap; }
+.guide-font { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.guide-font .stepper { width: 124px; }
+.guide-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+.guide-window .conf-sections hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
+.guide-main .conf-sections { min-height: 0; }
+.dialog .guide-window .conf-sections button > span { display: inline-flex; align-items: center; gap: 6px; }
+.guide-body { min-height: 0; overflow: auto; padding: 8px 22px 24px; font-size: var(--guide-font, 14px); line-height: 1.6; user-select: text; }
+.guide-body h1 { font-size: 1.6em; margin: 10px 0; }
+.guide-body h2 { font-size: 1.25em; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.guide-body h3 { font-size: 1.05em; margin: 16px 0 6px; }
+.guide-body p { margin: 6px 0; }
+.guide-body img { display: block; max-width: 100%; margin: 10px 0; border: 1px solid var(--line); border-radius: 6px; }
+.guide-body code { padding: 0 4px; border-radius: 3px; background: var(--header); font: 0.9em Consolas, "Cascadia Mono", "Malgun Gothic", monospace; }
+.guide-body pre { padding: 8px 10px; border-radius: 4px; background: var(--header); overflow: auto; font: 0.9em/1.45 Consolas, "Cascadia Mono", "Malgun Gothic", monospace; }
+.guide-body table { border-collapse: collapse; margin: 8px 0; }
+.guide-body th, .guide-body td { padding: 4px 10px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.guide-body th { background: var(--header); }
+.conf-sections { min-height: 0; overflow: auto; padding: 6px; border-right: 1px solid var(--line); background: var(--header); }
+.dialog .conf-sections button { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; min-width: 0; height: auto; min-height: 26px; padding: 3px 8px; border: 0; border-radius: 4px; background: transparent; font-size: 12px; text-align: left; white-space: normal; }
+.dialog .conf-sections button:hover { background: var(--hover); }
+.dialog .conf-sections button.active { background: var(--selected); color: var(--accent-ink); font-weight: 600; }
+.conf-sections b { flex: 0 0 auto; min-width: 16px; padding: 0 4px; border-radius: 8px; font-size: 11px; line-height: 16px; text-align: center; color: var(--on-accent); background: var(--accent); }
+.grip { width: 22px; height: 100%; padding: 0; border: 0; background: transparent; cursor: nwse-resize; display: flex; align-items: flex-end; justify-content: flex-end; color: var(--muted); }
+.grip svg { width: 14px; height: 14px; fill: currentColor; stroke: none; margin: 0 2px 2px 0; }
+html.popout-dialog body { background: var(--panel); color: var(--ink); user-select: none; }
+.popout-root { position: absolute; top: 0; left: 0; width: max-content; }
+html.popout-dialog .dialog { max-width: none; max-height: var(--popout-max, 900px); border-radius: 0; box-shadow: none; }
+html.popout-dialog .dialog-body { max-height: none !important; }
+html.popout-dialog .dialog > header, html.popout-dialog [data-window-drag] { cursor: move; }
+html.popout-dialog [data-window-drag] button, html.popout-dialog [data-window-drag] input { cursor: default; }
+.popout-free { width: 100vw; height: 100vh; }
+.popout-free > [data-dialog] { height: 100%; }
+html.popout-dialog .popout-free .dialog { position: relative; width: 100% !important; height: 100%; max-height: none; }
+html.popout-dialog .popout-free .dialog-body { height: auto !important; }
+html.popout-dialog .popout-free .dialog > footer { padding-right: 26px; }
+.dialog-grip { position: absolute; right: 0; bottom: 0; width: 22px; height: 22px; }
+.overlay-dim { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: var(--overlay); }
+.dialog { max-width: calc(100vw - 40px); max-height: calc(100vh - 40px); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
+.dialog-title { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+.flag-slot { width: 18px; height: 12px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 18px; }
+.flag { display: block; width: 18px; height: 12px; flex: 0 0 auto; overflow: hidden; box-shadow: 0 0 0 1px var(--line); }
+.dialog > header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 8px 14px; background: var(--header); border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; }
+.dialog-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px 14px; }
+.dialog > footer { flex: 0 0 auto; display: flex; justify-content: flex-end; gap: 6px; padding: 8px 14px; border-top: 1px solid var(--line); }
+.dialog button:disabled { opacity: 0.5; cursor: default; }
+.dialog .icon-select-list button { display: flex; justify-content: flex-start; min-width: 0; height: auto; padding: 6px 8px; border: 0; background: transparent; }
+.dialog .icon-select-list button:hover { background: var(--accent-soft); }
+button.primary .icon, button.primary .icon * { color: inherit !important; stroke: currentColor; }
+button.primary { background: var(--accent) !important; border-color: var(--accent) !important; color: var(--on-accent); }
+.dialog-message { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.dialog-note { margin: 0 0 10px; color: var(--muted); line-height: 1.5; }
+.form-grid { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center; gap: 8px 10px; }
+.form-grid .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.dialog-body:has(.pref-layout) { padding: 0; height: 540px; max-height: calc(100vh - 140px); overflow: hidden; }
+.pref-layout { display: grid; grid-template-columns: 136px minmax(0, 1fr); height: 100%; }
+.pref-tabs { display: flex; flex-direction: column; gap: 2px; padding: 8px; background: var(--header); border-right: 1px solid var(--line); }
+.dialog .pref-tabs button { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 0; border-radius: 4px; background: transparent; width: 100%; min-width: 0; white-space: nowrap; }
+.dialog .pref-tabs button:hover { background: var(--hover); }
+.dialog .pref-tabs button.active { background: var(--selected); color: var(--accent-ink); }
+.pref-page { min-height: 0; overflow: hidden; padding: 10px 12px; }
+.pref-page h4 { margin: 12px 0 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.pref-themes { display: grid; grid-template-columns: 170px 170px minmax(0, 1fr); gap: 10px; }
+.theme-columns { display: contents; }
+.theme-columns h4, .my-themes h4 { margin: 0 0 4px; }
+.my-themes-list { max-height: 112px; overflow-y: auto; scrollbar-width: thin; }
+.swatches i { height: 12px; }
+.dialog .theme-row { display: flex; justify-content: flex-start; align-items: center; gap: 6px; width: 100%; min-width: 0; height: 22px; padding: 0 4px; border: 1px solid transparent; background: transparent; }
+.dialog .theme-row .menu-label { text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; }
+.dialog .theme-row:hover { background: var(--hover); }
+.dialog .theme-row.selected { background: var(--selected); border-color: var(--accent-line); }
+.my-themes > button:not(.theme-row) { width: 100%; margin: 4px 0; }
+.theme-editor { display: grid; gap: 8px; }
+.theme-editor { gap: 6px; }
+.theme-editor .form-grid { grid-template-columns: 60px minmax(0, 1fr); gap: 4px 6px; }
+.theme-colors { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; }
+.theme-color-row { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 4px; align-items: center; }
+.dialog .theme-editor .text-input, .theme-editor .color-text { height: 24px; }
+.theme-editor .swatch { width: 22px; height: 24px; flex-basis: 22px; }
+.theme-color-row > span { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------------------------------------------------------- common dialog buttons */
+.dialog button:not(.mini, .toggle, .icon-select-button, .stepper button, .range-step, .bg-tile, .theme-row, .pref-tabs button, .conf-sections button, .window-controls button, .grip, .icon-select-list button) {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 76px; height: 28px; padding: 0 10px;
+  border: 1px solid var(--button-border); border-radius: 4px; background: var(--button); color: var(--ink); white-space: nowrap; cursor: pointer;
+}
+.dialog button:not(.mini, .toggle, .icon-select-button, .primary, .stepper button, .range-step, .bg-tile, .theme-row, .pref-tabs button, .conf-sections button, .window-controls button, .grip, .icon-select-list button):hover:not(:disabled) { background: var(--hover); }
+.dialog button.mini { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
+.dialog button.mini:hover { background: var(--hover); }
+.dialog .toggle { display: block; cursor: pointer; }
+.dialog .toggle:disabled { opacity: 0.4; cursor: default; }
+.dialog .stepper button, .icon-select-button { cursor: pointer; }
+.dialog .format-on, .dialog button.format-on { border-color: var(--accent-line) !important; background: var(--accent-soft) !important; color: var(--accent-ink); font-weight: 600; }
+.dialog .pref-tabs button, .dialog .theme-row { color: var(--ink); cursor: pointer; }
+.dialog input, .dialog textarea { color: var(--ink); font: inherit; user-select: text; }
+.form-grid > span { min-width: 0; }
+.color-text { color: var(--ink); }
+.pref-page { height: 100%; overflow-y: auto; scrollbar-width: thin; }
+.pref-general .form-grid .icon-select, .pref-general .form-grid .text-input { max-width: 340px; }
+.pref-page .bg-grid { margin-bottom: 4px; }
+.pref-page .start-ranges { margin: 10px 0; }
+
+.export-formats { display: flex; flex-wrap: wrap; gap: 6px; }
+.dialog .export-formats button { min-width: 72px; }
+.export-note { margin: 10px 0 0; }
+
+/* Links keep their theme's accent. */
+.about-meta a { color: var(--accent-ink); }
+
+/* The guide window has no header of its own: its bar is the title bar. */
+.guide-body ul, .guide-body ol { margin: 6px 0; padding-left: 22px; }
+.conf-sections { display: flex; flex-direction: column; gap: 1px; padding: 6px; overflow: auto; background: var(--header); border-right: 1px solid var(--line); }
+.dialog .conf-sections button { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 26px; padding: 3px 8px; border: 0; border-radius: 4px; background: transparent; color: var(--ink); text-align: left; font-size: 12px; cursor: pointer; }
+.dialog .conf-sections button:hover { background: var(--hover); }
+.dialog .conf-sections button > span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+
+.flag-slot { width: 18px; height: 12px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 18px; }

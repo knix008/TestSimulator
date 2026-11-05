@@ -1,0 +1,7 @@
+[
+  { "id": "mindmap-project", "file": "sample-mindmap-project.mmap", "mode": "mindmap", "ko": ["신제품 출시", "방사형 마인드맵으로 세운 프로젝트 계획"], "en": ["Product launch", "A project plan as a radial mind map"] },
+  { "id": "mindmap-trip", "file": "sample-mindmap-trip.mmap", "mode": "mindmap", "ko": ["제주도 여행", "오른쪽에서 왼쪽으로 펼친 여행 계획"], "en": ["Trip to Jeju", "A travel plan laid out right to left"] },
+  { "id": "fishbone-study", "file": "sample-mindmap-study.mmap", "mode": "fishbone", "ko": ["웹 개발 학습", "학습 주제를 피쉬본으로 정리"], "en": ["Learning web development", "Study topics as a fishbone"] },
+  { "id": "fishbone-quality", "file": "sample-fishbone-quality.mmap", "mode": "fishbone", "ko": ["제품 불량 발생", "품질 문제의 원인 분석"], "en": ["Product defects", "Finding the causes of a quality problem"] },
+  { "id": "fishbone-delay", "file": "sample-fishbone-delay.mmap", "mode": "fishbone", "ko": ["배송 지연", "배송 지연의 원인 분석"], "en": ["Delivery delays", "Finding the causes of late deliveries"] }
+]

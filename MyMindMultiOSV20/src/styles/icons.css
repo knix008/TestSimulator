@@ -1,0 +1,68 @@
+/*
+ * Icon colours (src/iconTones.ts names the hue of each icon). Two shades per hue: a
+ * deeper one for light themes and a brighter one for dark themes, so every icon keeps
+ * its contrast on menus, toolbars and dialogs of all 40 themes.
+ */
+:root {
+  --tone-blue: #2563eb;
+  --tone-sky: #0284c7;
+  --tone-indigo: #4f46e5;
+  --tone-purple: #9333ea;
+  --tone-pink: #db2777;
+  --tone-red: #dc2626;
+  --tone-orange: #ea580c;
+  --tone-amber: #b86e00;
+  --tone-yellow: #a16207;
+  --tone-green: #16a34a;
+  --tone-teal: #0d9488;
+  --tone-cyan: #0891b2;
+  --tone-slate: #526075;
+  --tone-brown: #92400e;
+}
+
+:root[data-mode="dark"] {
+  --tone-blue: #60a5fa;
+  --tone-sky: #38bdf8;
+  --tone-indigo: #a5b4fc;
+  --tone-purple: #c084fc;
+  --tone-pink: #f472b6;
+  --tone-red: #f87171;
+  --tone-orange: #fb923c;
+  --tone-amber: #fbbf24;
+  --tone-yellow: #facc15;
+  --tone-green: #4ade80;
+  --tone-teal: #2dd4bf;
+  --tone-cyan: #22d3ee;
+  --tone-slate: #a8b3c4;
+  --tone-brown: #d6a26b;
+}
+
+.icon[data-tone="blue"] { color: var(--tone-blue); }
+.icon[data-tone="sky"] { color: var(--tone-sky); }
+.icon[data-tone="indigo"] { color: var(--tone-indigo); }
+.icon[data-tone="purple"] { color: var(--tone-purple); }
+.icon[data-tone="pink"] { color: var(--tone-pink); }
+.icon[data-tone="red"] { color: var(--tone-red); }
+.icon[data-tone="orange"] { color: var(--tone-orange); }
+.icon[data-tone="amber"] { color: var(--tone-amber); }
+.icon[data-tone="yellow"] { color: var(--tone-yellow); }
+.icon[data-tone="green"] { color: var(--tone-green); }
+.icon[data-tone="teal"] { color: var(--tone-teal); }
+.icon[data-tone="cyan"] { color: var(--tone-cyan); }
+.icon[data-tone="slate"] { color: var(--tone-slate); }
+.icon[data-tone="brown"] { color: var(--tone-brown); }
+
+/* A light wash of the same colour inside the icon's main shape. */
+.icon[data-duo] > :first-child { fill: color-mix(in srgb, currentColor 18%, transparent); }
+
+/* Disabled controls keep the hue but fade it, like their text. */
+button:disabled .icon[data-tone],
+.is-disabled .icon[data-tone] { opacity: 0.45; }
+
+/* Already-coloured buttons draw their icon in the button's own text colour. */
+button.primary .icon[data-tone],
+
+button.primary .icon[data-duo] > :first-child { fill: none; }
+
+/* Stop is always a red square, also on a pressed toolbar button. */
+.toolbar button.active .icon[data-icon="stop"], .icon[data-icon="stop"] { color: #dc2626; }
