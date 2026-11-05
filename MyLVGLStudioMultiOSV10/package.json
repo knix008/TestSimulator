@@ -20,6 +20,7 @@
     "build:win": "node node_modules/@tauri-apps/cli/tauri.js build --bundles nsis && node scripts/copy-installer.mjs",
     "build:mac": "node node_modules/@tauri-apps/cli/tauri.js build --bundles dmg && node scripts/copy-installer.mjs",
     "build:linux": "node node_modules/@tauri-apps/cli/tauri.js build --bundles appimage,deb && node scripts/copy-installer.mjs",
+    "tutorial:video": "node scripts/tutorial-video.mjs",
     "test": "node test/run.mjs",
     "build:e2e": "node scripts/build-e2e.mjs",
     "test:gui": "node scripts/build-e2e.mjs && node test/gui.mjs"

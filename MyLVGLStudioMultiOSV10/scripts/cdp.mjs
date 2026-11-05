@@ -32,12 +32,15 @@ export async function connect(target) {
   });
   let seq = 0;
   const pending = new Map();
+  const listeners = new Map();
   ws.addEventListener('message', (e) => {
     const msg = JSON.parse(typeof e.data === 'string' ? e.data : e.data.toString());
     if (msg.id && pending.has(msg.id)) {
       const { resolve, reject } = pending.get(msg.id);
       pending.delete(msg.id);
       if (msg.error) reject(new Error(msg.error.message)); else resolve(msg.result);
+    } else if (msg.method && listeners.has(msg.method)) {
+      listeners.get(msg.method)(msg.params);
     }
   });
   // A window that is destroyed closes its socket; whatever was still waiting on it
@@ -85,5 +88,5 @@ export async function connect(target) {
     return Buffer.from(r.data, 'base64');
   }
 
-  return { send, evaluate, until, screenshot, close: () => ws.close(), get closed() { return closed; } };
+  return { send, evaluate, until, screenshot, onEvent: (method, listener) => listeners.set(method, listener), close: () => ws.close(), get closed() { return closed; } };
 }

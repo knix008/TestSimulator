@@ -93,6 +93,7 @@ MSYS2의 Emscripten 패키지는 Node도 함께 설치합니다. `ucrt64\bin`이
 | `npm test` | 문서 모델, 설정, 테마, 배경, 코드 생성기, 모든 위젯·속성·이벤트, 생성 코드와 엔진의 픽셀 비교 |
 | `npm test -- --no-native` | gcc 빌드를 뺀 테스트 |
 | `npm run test:gui` | 앱을 `src-tauri/target/e2e`에 빌드한 뒤 모든 화면을 조작하는 GUI 테스트. `npm start` 창을 띄운 채 실행할 수 있습니다. |
+| `npm run tutorial:video` | 릴리스 앱으로 튜토리얼을 진행하며 녹화해 `MyLVGLStudio-Tutorial.mp4`를 프로젝트 루트에 저장(한국어, 무음, ffmpeg 필요). 녹화 중에는 앱 창이 화면에 뜹니다. |
 | `npm run fetch:lvgl` | 엔진 빌드용 LVGL 소스를 `third_party/`에 받기 |
 | `npm run build:engine` | WebAssembly 엔진을 빌드해 `public/engine/`에 저장 |
 | `npm run icons` | 앱 아이콘과 프로젝트 파일 아이콘 생성 |
