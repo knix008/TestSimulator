@@ -1,0 +1,363 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "rtl",
+  "defaultShape": "rounded",
+  "defaultLine": "root",
+  "defaultLinePattern": "solid",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "캠핑 준비물",
+      "x": 1180,
+      "y": 428,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "잠자리",
+      "x": 968,
+      "y": 208,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "텐트",
+      "x": 748,
+      "y": 120,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "침낭",
+      "x": 748,
+      "y": 208,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-7",
+      "parentId": "n-2",
+      "text": "매트",
+      "x": 748,
+      "y": 296,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-10",
+      "parentId": "n-1",
+      "text": "요리",
+      "x": 968,
+      "y": 472,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-10",
+      "text": "버너",
+      "x": 748,
+      "y": 384,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-13",
+      "parentId": "n-10",
+      "text": "코펠",
+      "x": 748,
+      "y": 472,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-15",
+      "parentId": "n-10",
+      "text": "아이스박스",
+      "x": 748,
+      "y": 560,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-18",
+      "parentId": "n-1",
+      "text": "안전",
+      "x": 968,
+      "y": 692,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-19",
+      "parentId": "n-18",
+      "text": "구급약",
+      "x": 748,
+      "y": 648,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-21",
+      "parentId": "n-18",
+      "text": "랜턴",
+      "x": 748,
+      "y": 736,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#92602f",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#92602f",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-8",
+      "from": "n-2",
+      "to": "n-7",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#92602f",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-9",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#92602f",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-12",
+      "from": "n-10",
+      "to": "n-11",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#6b8e23",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-14",
+      "from": "n-10",
+      "to": "n-13",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#6b8e23",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-16",
+      "from": "n-10",
+      "to": "n-15",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#6b8e23",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-17",
+      "from": "n-1",
+      "to": "n-10",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#6b8e23",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-20",
+      "from": "n-18",
+      "to": "n-19",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#a16207",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-22",
+      "from": "n-18",
+      "to": "n-21",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#a16207",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-23",
+      "from": "n-1",
+      "to": "n-18",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#a16207",
+      "startCap": "none",
+      "endCap": "none"
+    }
+  ],
+  "lineTheme": "roots"
+}

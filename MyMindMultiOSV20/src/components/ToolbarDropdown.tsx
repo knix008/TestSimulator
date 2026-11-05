@@ -18,6 +18,10 @@ type Props<T extends string> = {
   onOpen?: () => void
   /** Native tooltip for the trigger button. */
   title?: string
+  /** What the button shows instead of the chosen option's icon. */
+  triggerIcon?: ReactNode
+  /** What the button shows besides its icon: its label and value, the value alone, or nothing. */
+  show?: 'all' | 'value' | 'none'
 }
 
 export function ToolbarDropdown<T extends string>({
@@ -29,6 +33,8 @@ export function ToolbarDropdown<T extends string>({
   onChange,
   onOpen,
   title,
+  show = 'all',
+  triggerIcon,
 }: Props<T>) {
   const [open, setOpen] = useState(false)
   // Fixed-position anchor for the menu so it escapes clipping containers
@@ -72,23 +78,26 @@ export function ToolbarDropdown<T extends string>({
   }, [open])
 
   return (
-    <div className={`tb-dropdown ${open ? 'open' : ''} ${disabled ? 'disabled' : ''}`} ref={rootRef}>
+    <div className={`tb-dropdown ${open ? 'open' : ''} ${disabled ? 'disabled' : ''}`} ref={rootRef} data-value={value}>
       <button
         ref={triggerRef}
         type="button"
-        className={`tb-btn tb-dropdown-trigger ${open ? 'active' : ''}`}
+        className={`tb-btn tb-dropdown-trigger tb-show-${show} ${open ? 'active' : ''}`}
         disabled={disabled}
         title={title ?? label}
+        aria-label={label}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={menuId}
         onClick={() => (open ? setOpen(false) : openMenu())}
       >
-        {selected?.icon ?? icon ? <span className="tb-icon">{selected?.icon ?? icon}</span> : null}
-        <span className="tb-dropdown-text">
-          <span className="tb-dropdown-label">{label}</span>
-          <span className="tb-dropdown-value">{selected?.label ?? ''}</span>
-        </span>
+        {triggerIcon ?? selected?.icon ?? icon ? <span className="tb-icon">{triggerIcon ?? selected?.icon ?? icon}</span> : null}
+        {show !== 'none' && (
+          <span className="tb-dropdown-text">
+            {show === 'all' && <span className="tb-dropdown-label">{label}</span>}
+            <span className="tb-dropdown-value">{selected?.label ?? ''}</span>
+          </span>
+        )}
         <span className="tb-caret" aria-hidden>
           ▾
         </span>

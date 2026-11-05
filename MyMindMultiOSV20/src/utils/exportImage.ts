@@ -1,10 +1,17 @@
 import type { DiagramNode } from '../types'
 
-export type ExportFormat = 'png' | 'jpeg' | 'webp' | 'svg'
+export type ExportFormat = 'png' | 'jpeg' | 'webp' | 'svg' | 'gif' | 'avif' | 'bmp' | 'tiff' | 'tga' | 'ico' | 'ppm' | 'qoi' | 'ff' | 'exr' | 'hdr'
+
+/** All of them; the page encodes the first four, the shell the others from a PNG. */
+export const EXPORT_FORMATS: ExportFormat[] = ['png', 'jpeg', 'webp', 'avif', 'gif', 'svg', 'bmp', 'tiff', 'tga', 'ico', 'ppm', 'qoi', 'ff', 'exr', 'hdr']
+export const WEB_EXPORT_FORMATS: ExportFormat[] = ['png', 'jpeg', 'webp', 'svg']
+/** These hold no transparency. */
+export const OPAQUE_FORMATS: ExportFormat[] = ['jpeg', 'bmp', 'ppm', 'hdr']
+const needsShell = (format: ExportFormat) => !WEB_EXPORT_FORMATS.includes(format)
 
 export type ExportResult =
   | { kind: 'svg'; text: string; ext: string; mime: string }
-  | { kind: 'raster'; dataUrl: string; ext: string; mime: string }
+  | { kind: 'raster'; dataUrl: string; ext: string; mime: string; convert?: ExportFormat }
 
 const CSS_VARS = ['--spine', '--node-stroke', '--accent', '--grid-line', '--grid-line-major']
 
@@ -16,13 +23,13 @@ function resolveVar(name: string): string {
 
 // The tightest box that contains every shape, plus a small margin — so exports
 // are always cropped to the diagram's minimum size.
-function contentBounds(nodes: DiagramNode[], pad: number) {
-  if (nodes.length === 0) return { minX: 0, minY: 0, width: 800, height: 600 }
+function contentBounds(items: { x: number; y: number; width: number; height: number }[], pad: number) {
+  if (items.length === 0) return { minX: 0, minY: 0, width: 800, height: 600 }
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
   let maxY = -Infinity
-  for (const n of nodes) {
+  for (const n of items) {
     minX = Math.min(minX, n.x)
     minY = Math.min(minY, n.y)
     maxX = Math.max(maxX, n.x + n.width)
@@ -40,6 +47,8 @@ export function buildSvgString(
   svg: SVGSVGElement,
   nodes: DiagramNode[],
   background?: string,
+  /** Colours to use instead of the theme's. */
+  overrides: Record<string, string> = {},
 ): { svg: string; width: number; height: number } {
   const clone = svg.cloneNode(true) as SVGSVGElement
   clone.querySelector('.canvas-grid')?.remove()
@@ -48,7 +57,12 @@ export function buildSvgString(
   g?.removeAttribute('transform')
   clone.querySelector('.marquee-rect')?.remove()
 
-  const { minX, minY, width, height } = contentBounds(nodes, 48)
+  // Memos stand beside the shapes, so they count for the crop as well.
+  const memoBoxes = [...svg.querySelectorAll('[data-memo-box]')].map((element) => {
+    const [x, y, boxWidth, boxHeight] = (element.getAttribute('data-memo-box') ?? '').split(' ').map(Number)
+    return { x, y, width: boxWidth, height: boxHeight }
+  })
+  const { minX, minY, width, height } = contentBounds([...nodes, ...memoBoxes], 48)
   clone.setAttribute('width', String(width))
   clone.setAttribute('height', String(height))
   clone.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`)
@@ -56,7 +70,7 @@ export function buildSvgString(
 
   let str = new XMLSerializer().serializeToString(clone)
   for (const v of CSS_VARS) {
-    const val = resolveVar(v)
+    const val = overrides[v] ?? resolveVar(v)
     if (val) str = str.split(`var(${v})`).join(val)
   }
   if (background) {
@@ -98,13 +112,14 @@ export async function exportDiagram(
     if (!ctx) throw new Error('2d context unavailable')
     ctx.scale(scale, scale)
     const isJpeg = format === 'jpeg'
-    if (!transparent || isJpeg) {
+    if (!transparent || OPAQUE_FORMATS.includes(format)) {
       ctx.fillStyle = solidBg
       ctx.fillRect(0, 0, width, height)
     }
     ctx.drawImage(img, 0, 0, width, height)
     const mime = isJpeg ? 'image/jpeg' : format === 'webp' ? 'image/webp' : 'image/png'
     const dataUrl = canvas.toDataURL(mime, 0.95)
+    if (needsShell(format)) return { kind: 'raster', dataUrl, ext: format === 'tiff' ? 'tif' : format, mime, convert: format }
     return { kind: 'raster', dataUrl, ext: isJpeg ? 'jpg' : format, mime }
   } finally {
     URL.revokeObjectURL(url)

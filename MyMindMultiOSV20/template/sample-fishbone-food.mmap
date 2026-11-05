@@ -1,0 +1,406 @@
+{
+  "version": 1,
+  "mode": "fishbone",
+  "layout": "ltr",
+  "defaultShape": "rect",
+  "defaultLine": "curve",
+  "defaultLinePattern": "dashed",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "음식 맛 저하",
+      "x": 1130,
+      "y": 424,
+      "width": 180,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "effect"
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "재료",
+      "x": 867,
+      "y": 263,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "category"
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "신선도",
+      "x": 707,
+      "y": 143,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "납품 변경",
+      "x": 507,
+      "y": 143,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-8",
+      "parentId": "n-1",
+      "text": "조리",
+      "x": 867,
+      "y": 593,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "category"
+    },
+    {
+      "id": "n-9",
+      "parentId": "n-8",
+      "text": "레시피 미준수",
+      "x": 707,
+      "y": 713,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-8",
+      "text": "온도 관리",
+      "x": 507,
+      "y": 713,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-14",
+      "parentId": "n-1",
+      "text": "사람",
+      "x": 567,
+      "y": 263,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "category"
+    },
+    {
+      "id": "n-15",
+      "parentId": "n-14",
+      "text": "주방장 교체",
+      "x": 407,
+      "y": 143,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-17",
+      "parentId": "n-14",
+      "text": "교육 부족",
+      "x": 207,
+      "y": 143,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-20",
+      "parentId": "n-1",
+      "text": "설비",
+      "x": 567,
+      "y": 593,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "category"
+    },
+    {
+      "id": "n-21",
+      "parentId": "n-20",
+      "text": "오븐 고장",
+      "x": 407,
+      "y": 713,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    },
+    {
+      "id": "n-23",
+      "parentId": "n-20",
+      "text": "위생",
+      "x": 207,
+      "y": 713,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      },
+      "role": "cause"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "curve",
+      "linePattern": "dashed",
+      "color": "#f472b6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "curve",
+      "linePattern": "dashed",
+      "color": "#f472b6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-7",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "curve",
+      "linePattern": "dashed",
+      "color": "#f472b6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-10",
+      "from": "n-8",
+      "to": "n-9",
+      "lineType": "curve",
+      "linePattern": "dashed",
+      "color": "#60a5fa",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-12",
+      "from": "n-8",
+      "to": "n-11",
+      "lineType": "curve",
+      "linePattern": "dashed",
+      "color": "#60a5fa",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-13",
+      "from": "n-1",
+      "to": "n-8",
+      "lineType": "curve",
+      "linePattern": "dashed",
+      "color": "#60a5fa",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-16",
+      "from": "n-14",
+      "to": "n-15",
+      "lineType": "curve",
+      "linePattern": "dashed",
+      "color": "#4ade80",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-18",
+      "from": "n-14",
+      "to": "n-17",
+      "lineType": "curve",
+      "linePattern": "dashed",
+      "color": "#4ade80",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-19",
+      "from": "n-1",
+      "to": "n-14",
+      "lineType": "curve",
+      "linePattern": "dashed",
+      "color": "#4ade80",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-22",
+      "from": "n-20",
+      "to": "n-21",
+      "lineType": "curve",
+      "linePattern": "dashed",
+      "color": "#fbbf24",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-24",
+      "from": "n-20",
+      "to": "n-23",
+      "lineType": "curve",
+      "linePattern": "dashed",
+      "color": "#fbbf24",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-25",
+      "from": "n-1",
+      "to": "n-20",
+      "lineType": "curve",
+      "linePattern": "dashed",
+      "color": "#fbbf24",
+      "startCap": "none",
+      "endCap": "none"
+    }
+  ],
+  "lineTheme": "pastel"
+}

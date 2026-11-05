@@ -59,10 +59,9 @@
 button:disabled .icon[data-tone],
 .is-disabled .icon[data-tone] { opacity: 0.45; }
 
-/* Already-coloured buttons draw their icon in the button's own text colour. */
-button.primary .icon[data-tone],
-
-button.primary .icon[data-duo] > :first-child { fill: none; }
-
 /* Stop is always a red square, also on a pressed toolbar button. */
 .toolbar button.active .icon[data-icon="stop"], .icon[data-icon="stop"] { color: #dc2626; }
+
+/* Only the start screen's solid button still draws its icon in its own text colour. */
+.start-btn.primary .icon[data-tone] { color: inherit; }
+.start-btn.primary .icon[data-duo] > :first-child { fill: none; }

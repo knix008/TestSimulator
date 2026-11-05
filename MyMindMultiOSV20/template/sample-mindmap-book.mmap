@@ -1,0 +1,363 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "ltr",
+  "defaultShape": "stadium",
+  "defaultLine": "curve",
+  "defaultLinePattern": "solid",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "습관의 힘",
+      "x": 80,
+      "y": 428,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "핵심 개념",
+      "x": 292,
+      "y": 208,
+      "width": 140,
+      "height": 44,
+      "shape": "stadium",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "신호",
+      "x": 512,
+      "y": 120,
+      "width": 140,
+      "height": 44,
+      "shape": "stadium",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "반복 행동",
+      "x": 512,
+      "y": 208,
+      "width": 140,
+      "height": 44,
+      "shape": "stadium",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-7",
+      "parentId": "n-2",
+      "text": "보상",
+      "x": 512,
+      "y": 296,
+      "width": 140,
+      "height": 44,
+      "shape": "stadium",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-10",
+      "parentId": "n-1",
+      "text": "인상 깊은 사례",
+      "x": 292,
+      "y": 428,
+      "width": 140,
+      "height": 44,
+      "shape": "stadium",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-10",
+      "text": "운동선수",
+      "x": 512,
+      "y": 384,
+      "width": 140,
+      "height": 44,
+      "shape": "stadium",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-13",
+      "parentId": "n-10",
+      "text": "기업 문화",
+      "x": 512,
+      "y": 472,
+      "width": 140,
+      "height": 44,
+      "shape": "stadium",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-16",
+      "parentId": "n-1",
+      "text": "내게 적용",
+      "x": 292,
+      "y": 648,
+      "width": 140,
+      "height": 44,
+      "shape": "stadium",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-17",
+      "parentId": "n-16",
+      "text": "아침 운동",
+      "x": 512,
+      "y": 560,
+      "width": 140,
+      "height": 44,
+      "shape": "stadium",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-19",
+      "parentId": "n-16",
+      "text": "기록하기",
+      "x": 512,
+      "y": 648,
+      "width": 140,
+      "height": 44,
+      "shape": "stadium",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-21",
+      "parentId": "n-16",
+      "text": "작은 목표",
+      "x": 512,
+      "y": 736,
+      "width": 140,
+      "height": 44,
+      "shape": "stadium",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#14b8a6",
+      "startCap": "none",
+      "endCap": "arrow"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#14b8a6",
+      "startCap": "none",
+      "endCap": "arrow"
+    },
+    {
+      "id": "e-8",
+      "from": "n-2",
+      "to": "n-7",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#14b8a6",
+      "startCap": "none",
+      "endCap": "arrow"
+    },
+    {
+      "id": "e-9",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#14b8a6",
+      "startCap": "none",
+      "endCap": "arrow"
+    },
+    {
+      "id": "e-12",
+      "from": "n-10",
+      "to": "n-11",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#14b8a6",
+      "startCap": "none",
+      "endCap": "arrow"
+    },
+    {
+      "id": "e-14",
+      "from": "n-10",
+      "to": "n-13",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#14b8a6",
+      "startCap": "none",
+      "endCap": "arrow"
+    },
+    {
+      "id": "e-15",
+      "from": "n-1",
+      "to": "n-10",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#14b8a6",
+      "startCap": "none",
+      "endCap": "arrow"
+    },
+    {
+      "id": "e-18",
+      "from": "n-16",
+      "to": "n-17",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#14b8a6",
+      "startCap": "none",
+      "endCap": "arrow"
+    },
+    {
+      "id": "e-20",
+      "from": "n-16",
+      "to": "n-19",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#14b8a6",
+      "startCap": "none",
+      "endCap": "arrow"
+    },
+    {
+      "id": "e-22",
+      "from": "n-16",
+      "to": "n-21",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#14b8a6",
+      "startCap": "none",
+      "endCap": "arrow"
+    },
+    {
+      "id": "e-23",
+      "from": "n-1",
+      "to": "n-16",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#14b8a6",
+      "startCap": "none",
+      "endCap": "arrow"
+    }
+  ],
+  "lineTheme": "curveArrow"
+}

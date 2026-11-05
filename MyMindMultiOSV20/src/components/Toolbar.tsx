@@ -2,10 +2,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { host, isDesktop } from '../host'
-import { MIN_WINDOW_HEIGHT, fitToolbar } from '../minsize'
+import { useSystemFonts } from '../hooks/useSystemFonts'
+import { MIN_WINDOW_HEIGHT, requiredWidth } from '../minsize'
+import { NODE_ICONS, nodeIconById } from '../nodeIcons'
+import { DEFAULT_DIAGRAM_THEME } from '../diagramThemes'
+import { DEFAULT_LINE_THEME } from '../lineThemes'
 import { THEMES, themeById, type CustomTheme, type Theme } from '../themes'
-import type { DiagramDocument, DiagramMode, LayoutDirection, Locale } from '../types'
+import type { DiagramDocument, DiagramMode, LayoutDirection, Locale, TextStyle } from '../types'
 import { Flag, Icon } from './Icons'
+import { Stepper } from './controls'
+import { NodeIconPicture, diagramThemeOptions } from './DiagramThemes'
+import { lineThemeOptions } from './LinePreview'
 import { ToolbarDropdown } from './ToolbarDropdown'
 import { ToolbarMenu } from './ToolbarMenu'
 
@@ -16,6 +23,9 @@ type Props = {
   customThemes: CustomTheme[]
   language: Locale
   showGrid: boolean
+  showRulers: boolean
+  leftPanel: boolean
+  rightPanel: boolean
   showStart: boolean
   canUndo: boolean
   canRedo: boolean
@@ -24,13 +34,32 @@ type Props = {
   onOpen: () => void
   onSave: () => void
   onSaveAs: () => void
+  onPrint: () => void
+  onLineTheme: (id: string) => void
+  onDiagramTheme: (id: string) => void
+  onCustomTheme: () => void
+  textStyle?: TextStyle
+  onTextStyle: (style: Partial<TextStyle>) => void
+  nodeIcon?: string
+  onNodeIcon: (icon: string | undefined) => void
+  onAddMemo: () => void
+  onImage: () => void
+  showMemos: boolean
+  onToggleMemos: () => void
+  fullscreen: boolean
+  onToggleFullscreen: () => void
+  onTutorial: () => void
   onExport: () => void
   onMode: (mode: DiagramMode) => void
   onLayout: (layout: LayoutDirection) => void
   onTheme: (id: string) => void
   onLanguage: (language: Locale) => void
   onToggleGrid: () => void
+  onToggleRulers: () => void
+  onToggleLeftPanel: () => void
+  onToggleRightPanel: () => void
   onResetView: () => void
+  onFitView: () => void
   onAutoAlign: () => void
   onPreferences: (tab?: string) => void
   onGuide: () => void
@@ -44,7 +73,7 @@ type Props = {
 }
 
 /** The palette button and its list of every theme, by kind. */
-function ThemeMenu({ themeId, customThemes, language, onTheme, onPreferences }: Pick<Props, 'themeId' | 'customThemes' | 'language' | 'onTheme' | 'onPreferences'>) {
+function ThemeMenu({ themeId, customThemes, language, onTheme, onPreferences, onCustomTheme }: Pick<Props, 'themeId' | 'customThemes' | 'language' | 'onTheme' | 'onPreferences' | 'onCustomTheme'>) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const host_ = useRef<HTMLDivElement>(null)
@@ -72,21 +101,20 @@ function ThemeMenu({ themeId, customThemes, language, onTheme, onPreferences }: 
   )
   return (
     <div className="popup-host" ref={host_}>
-      <button type="button" className={open ? 'tb-btn active' : 'tb-btn'} data-command="theme" aria-expanded={open} title={t('toolbar.theme')} onClick={() => setOpen(!open)}>
+      <button type="button" className={open ? 'tb-btn active' : 'tb-btn'} data-command="theme" aria-expanded={open} aria-label={t('toolbar.theme')} title={`${t('toolbar.theme')}: ${customThemes.find((item) => item.id === themeId)?.name ?? nameOf(themeById(themeId))}`} onClick={() => setOpen(!open)}>
         <Icon name="theme" />
-        <span className="tb-theme-name">{customThemes.find((item) => item.id === themeId)?.name ?? nameOf(themeById(themeId))}</span>
         <Icon name="caret" size={12} />
       </button>
       {open && (
         <div className="menu-pop theme-pop" role="menu" data-theme-menu="">
           <div className="theme-pop-top">
-            <button type="button" data-command="theme-settings" onClick={() => { setOpen(false); onPreferences('theme') }}><Icon name="settings" /><span className="menu-label">{t('start.themeSettings')}</span></button>
+            <button type="button" data-command="theme-custom" onClick={() => { setOpen(false); onCustomTheme() }}><Icon name="color" /><span className="menu-label">{t('theme.mine')}</span></button>
+            <button type="button" data-command="theme-settings" onClick={() => { setOpen(false); onPreferences('theme') }}><Icon name="settings" /><span className="menu-label">{t('toolbar.settings')}</span></button>
           </div>
           {customThemes.length > 0 && (
-            <>
-              <h4>{t('theme.mine')}</h4>
+            <div className="theme-pop-custom" data-theme-custom-list="">
               <div className="theme-pop-columns">{customThemes.map((item) => row(themeById(item.id), item.name))}</div>
-            </>
+            </div>
           )}
           <div className="theme-pop-columns">
             {(['light', 'dark'] as const).map((mode) => (
@@ -102,17 +130,25 @@ function ThemeMenu({ themeId, customThemes, language, onTheme, onPreferences }: 
   )
 }
 
-function ToolButton({ icon, label, title, onClick, disabled, active, command }: { icon: string; label: string; title?: string; onClick: () => void; disabled?: boolean; active?: boolean; command: string }) {
+/** An icon alone; its tooltip says what it does. */
+function ToolButton({ icon, label, onClick, disabled, active, command }: { icon: string; label: string; onClick: () => void; disabled?: boolean; active?: boolean; command: string }) {
   return (
-    <button type="button" className={active ? 'tb-btn active' : 'tb-btn'} data-command={command} aria-pressed={active} disabled={disabled} title={title ?? label} onClick={onClick}>
+    <button type="button" className={active ? 'tb-btn active' : 'tb-btn'} data-command={command} aria-pressed={active} aria-label={label} disabled={disabled} title={label} onClick={onClick}>
       <Icon name={icon} />
-      <span>{label}</span>
+    </button>
+  )
+}
+
+function GlyphButton({ glyph, extra, label, on, disabled, onClick, command }: { glyph: string; extra: string; label: string; on?: boolean; disabled?: boolean; onClick: () => void; command: string }) {
+  return (
+    <button type="button" className={on ? 'tb-btn tb-glyph active' : 'tb-btn tb-glyph'} data-command={command} aria-pressed={!!on} aria-label={label} disabled={disabled} title={label} onClick={onClick}>
+      <span className={extra}>{glyph}</span>
     </button>
   )
 }
 
 export function Toolbar(props: Props) {
-  const { doc, title, themeId, customThemes, language, showGrid, showStart, canUndo, canRedo, onToggleStart, onNew, onOpen, onSave, onSaveAs, onExport, onMode, onLayout, onTheme, onLanguage, onToggleGrid, onResetView, onAutoAlign, onPreferences, onGuide, onAbout, onRequestClose, onUndo, onRedo, onAddChild, onAddSibling, onDelete } = props
+  const { doc, title, themeId, customThemes, language, showGrid, showRulers, leftPanel, rightPanel, showStart, canUndo, canRedo, onToggleStart, onNew, onOpen, onSave, onSaveAs, onPrint, onLineTheme, onDiagramTheme, onCustomTheme, textStyle, onTextStyle, nodeIcon, onNodeIcon, onAddMemo, onImage, showMemos, onToggleMemos, fullscreen, onToggleFullscreen, onTutorial, onExport, onMode, onLayout, onTheme, onLanguage, onToggleGrid, onToggleRulers, onToggleLeftPanel, onToggleRightPanel, onResetView, onFitView, onAutoAlign, onPreferences, onGuide, onAbout, onRequestClose, onUndo, onRedo, onAddChild, onAddSibling, onDelete } = props
   const { t } = useTranslation()
   const menubar = useRef<HTMLDivElement>(null)
   const toolbar = useRef<HTMLDivElement>(null)
@@ -122,7 +158,7 @@ export function Toolbar(props: Props) {
   useEffect(() => {
     let raf = 0
     const measure = () => {
-      if (menubar.current && toolbar.current) void host.setMinimumSize(fitToolbar(menubar.current, toolbar.current), MIN_WINDOW_HEIGHT)
+      if (menubar.current && toolbar.current) void host.setMinimumSize(requiredWidth(menubar.current, toolbar.current), MIN_WINDOW_HEIGHT)
     }
     const schedule = () => {
       cancelAnimationFrame(raf)
@@ -148,6 +184,15 @@ export function Toolbar(props: Props) {
     if (event.detail >= 2) void host.toggleMaximize()
     else void host.startDrag()
   }
+
+  const { fonts, load: loadFonts } = useSystemFonts()
+  const fontValue = textStyle?.fontFamily ?? 'notoSansKr'
+  const presetFonts = ['notoSansKr', 'outfit', 'serif', 'mono']
+  const fontOptions = [
+    ...presetFonts.map((value) => ({ value, label: t(`font.${value}`) })),
+    ...fonts.filter((name) => !presetFonts.includes(name)).map((value) => ({ value, label: value })),
+  ]
+  if (!fontOptions.some((item) => item.value === fontValue)) fontOptions.push({ value: fontValue, label: fontValue })
 
   const layoutOptions = (doc.mode === 'fishbone' ? (['ltr', 'rtl'] as const) : (['radial', 'ttb', 'btt', 'ltr', 'rtl'] as const)).map((value) => ({
     value: value as LayoutDirection,
@@ -177,6 +222,7 @@ export function Toolbar(props: Props) {
             { icon: <Icon name="open" />, label: t('toolbar.open'), hint: 'Ctrl+O', onClick: onOpen },
             { icon: <Icon name="save" />, label: t('toolbar.save'), hint: 'Ctrl+S', onClick: onSave },
             { icon: <Icon name="saveAs" />, label: t('toolbar.saveAs'), hint: 'Ctrl+Shift+S', onClick: onSaveAs },
+            { icon: <Icon name="print" />, label: t('toolbar.print'), hint: 'Ctrl+P', onClick: onPrint },
             { icon: <Icon name="export" />, label: t('toolbar.export'), onClick: onExport },
             { icon: <Icon name="settings" />, label: t('toolbar.settings'), onClick: () => onPreferences() },
             { icon: <Icon name="power" />, label: t('start.exit'), onClick: onRequestClose },
@@ -191,6 +237,8 @@ export function Toolbar(props: Props) {
             { icon: <Icon name="redo" />, label: t('toolbar.redo'), hint: 'Ctrl+Y', disabled: !canRedo, onClick: onRedo },
             { icon: <Icon name="child" />, label: t('context.addChild'), disabled: !doc.selectedId, onClick: onAddChild },
             { icon: <Icon name="sibling" />, label: t('context.addSibling'), disabled: !doc.selectedId, onClick: onAddSibling },
+            { icon: <Icon name="memo" />, label: t('memo.add'), onClick: onAddMemo },
+            { icon: <Icon name="image" />, label: t('toolbar.image'), onClick: onImage },
             { icon: <Icon name="delete" />, label: t('context.delete'), hint: 'Del', disabled: !doc.selectedId, onClick: onDelete },
           ]}
         />
@@ -199,10 +247,15 @@ export function Toolbar(props: Props) {
           label={t('toolbar.view')}
           icon={<Icon name="eye" />}
           items={[
-            { icon: <Icon name="home" />, label: t('start.title'), onClick: onToggleStart },
+            { icon: <Icon name="fitAll" />, label: t('toolbar.fit'), onClick: onFitView },
             { icon: <Icon name="center" />, label: t('toolbar.reset'), onClick: onResetView },
             { icon: <Icon name="align" />, label: t('toolbar.align'), onClick: onAutoAlign },
             { icon: <Icon name="gridIcon" />, label: showGrid ? t('context.hideGrid') : t('context.showGrid'), onClick: onToggleGrid },
+            { icon: <Icon name="ruler" />, label: showRulers ? t('context.hideRuler') : t('context.showRuler'), onClick: onToggleRulers },
+            { icon: <Icon name="panelLeft" />, label: leftPanel ? t('panel.hideLeft') : t('panel.showLeft'), onClick: onToggleLeftPanel },
+            { icon: <Icon name="panelRight" />, label: rightPanel ? t('panel.hideRight') : t('panel.showRight'), onClick: onToggleRightPanel },
+            { icon: <Icon name="memo" />, label: showMemos ? t('memo.hideAll') : t('memo.showAll'), onClick: onToggleMemos },
+            { icon: <Icon name="fullscreen" />, label: t('toolbar.fullscreen'), hint: 'F11', onClick: onToggleFullscreen },
           ]}
         />
         <ToolbarMenu
@@ -211,6 +264,7 @@ export function Toolbar(props: Props) {
           icon={<Icon name="guide" />}
           items={[
             { icon: <Icon name="guide" />, label: t('guide.title'), hint: 'F1', onClick: onGuide },
+            { icon: <Icon name="tutorial" />, label: t('start.tutorial'), onClick: onTutorial },
             { icon: <Icon name="about" />, label: t('toolbar.about'), onClick: onAbout },
           ]}
         />
@@ -230,6 +284,7 @@ export function Toolbar(props: Props) {
           <ToolButton command="new" icon="new" label={t('toolbar.new')} onClick={() => onNew()} />
           <ToolButton command="open" icon="open" label={t('toolbar.open')} onClick={onOpen} />
           <ToolButton command="save" icon="save" label={t('toolbar.save')} onClick={onSave} />
+          <ToolButton command="print" icon="print" label={`${t('toolbar.print')} (Ctrl+P)`} onClick={onPrint} />
           <ToolButton command="export" icon="export" label={t('toolbar.export')} onClick={onExport} />
         </div>
         <span className="tool-sep" />
@@ -241,19 +296,48 @@ export function Toolbar(props: Props) {
         <div className="tool-group">
           <ToolButton command="mode-mindmap" icon="mind" label={t('toolbar.mindmap')} active={doc.mode === 'mindmap'} onClick={() => onMode('mindmap')} />
           <ToolButton command="mode-fishbone" icon="fish" label={t('toolbar.fishbone')} active={doc.mode === 'fishbone'} onClick={() => onMode('fishbone')} />
-          <ToolbarDropdown label={t('toolbar.layout')} title={t('toolbar.layout')} icon={<Icon name="layout" />} value={doc.layout} onChange={onLayout} options={layoutOptions} />
+          <ToolbarDropdown show="none" label={t('toolbar.layout')} title={t('toolbar.layout')} icon={<Icon name="layout" />} value={doc.layout} onChange={onLayout} options={layoutOptions} />
+        </div>
+        <span className="tool-sep" />
+        <div className="tool-group" data-font-tools="">
+          <span data-font-menu="">
+            <ToolbarDropdown show="value" label={t('panel.font')} title={t('panel.font')} icon={<Icon name="fontFile" />} value={fontValue} disabled={!textStyle} onOpen={() => void loadFonts()} onChange={(fontFamily) => onTextStyle({ fontFamily })} options={fontOptions} />
+          </span>
+          <Stepper id="toolbarFontSize" unit="px" min={8} max={120} value={textStyle?.fontSize ?? 13} disabled={!textStyle} labels={{ minus: t('toolbar.fontSmaller'), plus: t('toolbar.fontLarger') }} onChange={(fontSize) => onTextStyle({ fontSize })} />
+          <GlyphButton command="bold" glyph="B" extra="" label={t('style.bold')} on={textStyle?.bold} disabled={!textStyle} onClick={() => onTextStyle({ bold: !textStyle?.bold })} />
+          <GlyphButton command="italic" glyph="I" extra="italic" label={t('style.italic')} on={textStyle?.italic} disabled={!textStyle} onClick={() => onTextStyle({ italic: !textStyle?.italic })} />
+          <GlyphButton command="underline" glyph="U" extra="underline" label={t('style.underline')} on={textStyle?.underline} disabled={!textStyle} onClick={() => onTextStyle({ underline: !textStyle?.underline })} />
+          <GlyphButton command="strike" glyph="S" extra="strike" label={t('style.strike')} on={textStyle?.strike} disabled={!textStyle} onClick={() => onTextStyle({ strike: !textStyle?.strike })} />
         </div>
         <span className="tool-sep" />
         <div className="tool-group">
+          <span data-icon-menu="">
+            <ToolbarDropdown<string> show="none" label={t('toolbar.icons')} title={t('toolbar.icons')} icon={<Icon name="star" />} triggerIcon={nodeIconById(nodeIcon) ? <NodeIconPicture item={nodeIconById(nodeIcon)!} size={16} /> : <Icon name="star" />} value={nodeIcon ?? ''} disabled={!doc.selectedId} onChange={(id) => onNodeIcon(id || undefined)} options={[{ value: '', label: t('icons.none'), icon: <Icon name="close" /> }, ...NODE_ICONS.map((item) => ({ value: item.id, label: item[language], icon: <NodeIconPicture item={item} size={16} /> }))]} />
+          </span>
+          <ToolButton command="memo" icon="memo" label={t('memo.add')} onClick={onAddMemo} />
+          <ToolButton command="image" icon="image" label={t('toolbar.image')} onClick={onImage} />
+          <span data-diagram-theme-menu="">
+            <ToolbarDropdown show="none" label={t('toolbar.diagramTheme')} title={t('toolbar.diagramTheme')} icon={<Icon name="color" />} value={doc.diagramTheme ?? DEFAULT_DIAGRAM_THEME} onChange={onDiagramTheme} options={diagramThemeOptions(language)} />
+          </span>
+          <span data-line-theme="">
+            <ToolbarDropdown show="none" label={t('toolbar.lineTheme')} title={t('toolbar.lineTheme')} icon={<Icon name="line" />} value={doc.lineTheme ?? DEFAULT_LINE_THEME} onChange={onLineTheme} options={lineThemeOptions(language)} />
+          </span>
+        </div>
+        <span className="tool-sep" />
+        <div className="tool-group">
+          <ToolButton command="fit" icon="fitAll" label={t('toolbar.fit')} onClick={onFitView} />
           <ToolButton command="reset" icon="center" label={t('toolbar.reset')} onClick={onResetView} />
           <ToolButton command="align" icon="align" label={t('toolbar.align')} onClick={onAutoAlign} />
           <ToolButton command="grid" icon="gridIcon" label={t('toolbar.grid')} active={showGrid} onClick={onToggleGrid} />
+          <ToolButton command="ruler" icon="ruler" label={t('toolbar.ruler')} active={showRulers} onClick={onToggleRulers} />
+          <ToolButton command="left-panel" icon="panelLeft" label={leftPanel ? t('panel.hideLeft') : t('panel.showLeft')} active={leftPanel} onClick={onToggleLeftPanel} />
+          <ToolButton command="right-panel" icon="panelRight" label={rightPanel ? t('panel.hideRight') : t('panel.showRight')} active={rightPanel} onClick={onToggleRightPanel} />
+          <ToolButton command="fullscreen" icon="fullscreen" label={`${t('toolbar.fullscreen')} (F11)`} active={fullscreen} onClick={onToggleFullscreen} />
         </div>
         <div className="toolbar-end">
-          <ThemeMenu themeId={themeId} customThemes={customThemes} language={language} onTheme={onTheme} onPreferences={onPreferences} />
-          <button type="button" className="tb-btn" data-command="language" title={t('toolbar.language')} onClick={() => onLanguage(language === 'en' ? 'ko' : 'en')}>
+          <ThemeMenu themeId={themeId} customThemes={customThemes} language={language} onTheme={onTheme} onPreferences={onPreferences} onCustomTheme={onCustomTheme} />
+          <button type="button" className="tb-btn" data-command="language" title={`${t('toolbar.language')}: ${language === 'en' ? '한국어' : 'English'}`} aria-label={t('toolbar.language')} onClick={() => onLanguage(language === 'en' ? 'ko' : 'en')}>
             <Flag country={language === 'en' ? 'kr' : 'gb'} />
-            <span>{language === 'en' ? '한국어' : 'English'}</span>
           </button>
           <ToolButton command="preferences" icon="settings" label={t('toolbar.settings')} onClick={() => onPreferences()} />
           <ToolButton command="about" icon="about" label={t('toolbar.about')} onClick={onAbout} />

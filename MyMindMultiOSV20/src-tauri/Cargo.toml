@@ -17,8 +17,16 @@ tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
 base64 = "0.22"
+# Pictures in formats the WebView cannot show are converted to PNG.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "ico", "tiff", "tga", "dds", "hdr", "exr", "pnm", "ff", "qoi", "avif"] }
+psd = "0.3"
 # The installed font families for the font drop-down: WebKit has no queryLocalFonts, and WebView2's asks.
 fontdb = "0.23"
+
+# The system's print dialog: what Tauri offers opens the browser's, inside the window.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = "0.62"
 
 [profile.release]
 panic = "abort"

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import appIcon from '../../assets/icons/128x128.png'
 import { host, isDesktop, type AppInfo } from '../host'
 import { canPopOut, fitPopout, openPopout, sizePopout, type Popout } from '../popout'
-import type { ExportFormat } from '../utils/exportImage'
+import { EXPORT_FORMATS, OPAQUE_FORMATS, WEB_EXPORT_FORMATS, type ExportFormat } from '../utils/exportImage'
 import { GripDots } from './controls'
 import { Icon } from './Icons'
 
@@ -275,15 +275,15 @@ export function InputDialog({ title, label, initial, onOk, onCancel }: { title: 
   )
 }
 
-const FORMATS: ExportFormat[] = ['png', 'jpeg', 'webp', 'svg']
 
 /** Choose an image format and whether the background is transparent. */
 export function ExportDialog({ onExport, onCancel }: { onExport: (format: ExportFormat, transparent: boolean) => void; onCancel: () => void }) {
   const { t } = useTranslation()
   const [format, setFormat] = useState<ExportFormat>('png')
   const [transparent, setTransparent] = useState(false)
-  // JPEG has no alpha channel, so transparency is unavailable.
-  const noAlpha = format === 'jpeg'
+  // Some formats have no alpha channel, so transparency is unavailable.
+  const noAlpha = OPAQUE_FORMATS.includes(format)
+  const formats = isDesktop ? EXPORT_FORMATS : WEB_EXPORT_FORMATS
   return (
     <Dialog
       id="export"
@@ -300,7 +300,7 @@ export function ExportDialog({ onExport, onCancel }: { onExport: (format: Export
       <div className="form-grid">
         <span>{t('export.format')}</span>
         <div className="export-formats">
-          {FORMATS.map((item) => (
+          {formats.map((item) => (
             <button type="button" key={item} data-export-format={item} className={format === item ? 'format-on' : undefined} aria-pressed={format === item} onClick={() => setFormat(item)}>
               <Icon name="image" size={14} /> {item.toUpperCase()}
             </button>

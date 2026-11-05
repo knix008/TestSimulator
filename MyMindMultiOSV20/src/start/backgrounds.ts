@@ -734,6 +734,29 @@ export function themePalette(): Palette {
   }
 }
 
+const hsl = (h: number, s: number, l: number): Rgb => {
+  const a = s * Math.min(l, 1 - l)
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12
+    return 255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))
+  }
+  return [f(0), f(8), f(4)]
+}
+
+/** A picker tile's own colours: each background a hue of its own, light or dark like the theme. */
+export function chipPalette(kind: string, base: Palette): Palette {
+  const hue = (Math.max(0, BACKGROUND_KINDS.indexOf(kind)) * 360) / BACKGROUND_KINDS.length
+  const dark = base.bg[0] * 0.3 + base.bg[1] * 0.59 + base.bg[2] * 0.11 < 128
+  return {
+    bg: hsl(hue, 0.7, dark ? 0.16 : 0.9),
+    panel: hsl(hue, 0.6, dark ? 0.24 : 0.97),
+    ink: hsl(hue, 0.8, dark ? 0.9 : 0.25),
+    muted: hsl((hue + 40) % 360, 0.7, dark ? 0.7 : 0.4),
+    line: hsl((hue + 330) % 360, 0.65, dark ? 0.45 : 0.68),
+    accent: hsl(hue, 0.9, dark ? 0.62 : 0.46),
+  }
+}
+
 /** Draws one frame of a background at time `t` (seconds). */
 export function drawBackground(kind: string, ctx: CanvasRenderingContext2D, w: number, h: number, t: number, palette: Palette) {
   ctx.fillStyle = rgba(palette.bg, 1)

@@ -78,7 +78,7 @@ export function IconSelect<T extends string>({ value, options, onChange, title, 
 const fitWidth = (text: unknown) => ({ width: `${Math.max(1, String(text ?? '').length) + 1}ch` })
 
 /** − [value unit] +, the value and its unit centred. */
-export function Stepper({ value, onChange, min, max, step = 1, id, unit }: { value: number; onChange: (value: number) => void; min?: number; max?: number; step?: number; id?: string; unit?: string }) {
+export function Stepper({ value, onChange, min, max, step = 1, id, unit, disabled, labels }: { value: number; onChange: (value: number) => void; min?: number; max?: number; step?: number; id?: string; unit?: string; disabled?: boolean; labels?: { minus: string; plus: string } }) {
   const clamp = (number: number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, number))
   const [typing, setTyping] = useState<string | null>(null)
   const nudge = (direction: number) => {
@@ -88,10 +88,11 @@ export function Stepper({ value, onChange, min, max, step = 1, id, unit }: { val
   const shown = typing ?? value
   return (
     <div className="stepper" data-field={id}>
-      <button type="button" tabIndex={-1} aria-label="-" onClick={() => nudge(-1)}>−</button>
+      <button type="button" tabIndex={-1} aria-label={labels?.minus ?? '-'} disabled={disabled} onClick={() => nudge(-1)}>−</button>
       <span className="stepper-value">
         <input
           value={shown}
+          disabled={disabled}
           inputMode="numeric"
           style={fitWidth(shown)}
           onChange={(event) => {
@@ -108,7 +109,7 @@ export function Stepper({ value, onChange, min, max, step = 1, id, unit }: { val
         />
         {unit && <span className="stepper-unit" data-unit="">{unit}</span>}
       </span>
-      <button type="button" tabIndex={-1} aria-label="+" onClick={() => nudge(1)}>+</button>
+      <button type="button" tabIndex={-1} aria-label={labels?.plus ?? '+'} disabled={disabled} onClick={() => nudge(1)}>+</button>
     </div>
   )
 }

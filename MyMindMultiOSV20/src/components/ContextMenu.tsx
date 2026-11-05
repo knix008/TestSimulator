@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ContextMenuState } from '../types'
 import {
@@ -12,9 +12,13 @@ import {
   IconNew,
   IconOpen,
   IconPaste,
+  IconMemo,
+  IconPicture,
+  IconPrint,
   IconRedo,
   IconReset,
   IconSave,
+  IconSelectAll,
   IconSibling,
   IconText,
   IconTrash,
@@ -43,6 +47,10 @@ type Props = {
   onOpen: () => void
   onSave: () => void
   onExport: () => void
+  onPrint: () => void
+  onSelectAll: () => void
+  onAddMemo: () => void
+  onImage: () => void
   onAutoAlign: () => void
   onResetView: () => void
   onToggleGrid: () => void
@@ -92,11 +100,16 @@ export function ContextMenu({
   onOpen,
   onSave,
   onExport,
+  onPrint,
+  onSelectAll,
+  onAddMemo,
+  onImage,
   onAutoAlign,
   onResetView,
   onToggleGrid,
 }: Props) {
   const { t } = useTranslation()
+  const box = useRef<HTMLDivElement>(null)
   const hasNode = Boolean(menu.nodeId)
   const multi = selectedCount > 1
 
@@ -118,6 +131,16 @@ export function ContextMenu({
     }
   }, [menu.visible, onClose])
 
+  // It stays on the window: opened near an edge, it moves in or scrolls.
+  useLayoutEffect(() => {
+    const element = box.current
+    if (!menu.visible || !element) return
+    element.style.maxHeight = `${window.innerHeight - 16}px`
+    const rect = element.getBoundingClientRect()
+    element.style.left = `${Math.max(8, Math.min(menu.x, window.innerWidth - rect.width - 8))}px`
+    element.style.top = `${Math.max(8, Math.min(menu.y, window.innerHeight - rect.height - 8))}px`
+  }, [menu.visible, menu.x, menu.y, selectedCount])
+
   if (!menu.visible) return null
 
   const run = (action: () => void) => () => {
@@ -128,6 +151,7 @@ export function ContextMenu({
   return (
     <div
       className="context-menu"
+      ref={box}
       style={{ left: menu.x, top: menu.y }}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -201,10 +225,14 @@ export function ContextMenu({
       <MenuItem icon={<IconNew />} label={t('toolbar.new')} onClick={run(onNew)} />
       <MenuItem icon={<IconOpen />} label={t('toolbar.open')} onClick={run(onOpen)} />
       <MenuItem icon={<IconSave />} label={t('toolbar.save')} onClick={run(onSave)} />
+      <MenuItem icon={<IconPrint />} label={t('toolbar.print')} onClick={run(onPrint)} />
       <MenuItem icon={<IconExport />} label={t('toolbar.export')} onClick={run(onExport)} />
 
       <div className="context-sep" />
 
+      <MenuItem icon={<IconMemo />} label={t('memo.add')} onClick={run(onAddMemo)} />
+      <MenuItem icon={<IconPicture />} label={t('toolbar.image')} onClick={run(onImage)} />
+      <MenuItem icon={<IconSelectAll />} label={`${t('context.selectAll')} (Ctrl+A)`} onClick={run(onSelectAll)} />
       <MenuItem icon={<IconAlign />} label={t('toolbar.align')} onClick={run(onAutoAlign)} />
       <MenuItem icon={<IconReset />} label={t('toolbar.reset')} onClick={run(onResetView)} />
       <MenuItem

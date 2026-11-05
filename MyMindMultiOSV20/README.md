@@ -23,18 +23,26 @@ Version 2 replaces Electron with Tauri. The installer is a few megabytes, and th
 
 - **Start screen**: 24 moving backgrounds in the theme's colours (mind maps, fishbones, neurons, 3D scenes), movable and resizable cards, shortcuts, recent files, samples, theme and background pickers
 - **Themes**: 20 light and 20 dark, plus your own with every colour editable
-- **Settings window**: General, Theme and Start tabs; a new diagram's mode, layout, shape and line; reopen the last file
+- **Settings window**: General, Theme, Line Theme and Start tabs; a new diagram's mode, layout, shape and line theme; reopen the last file
 - **Mind map** and **fishbone (Ishikawa)** modes sharing one node/edge model
 - **Layouts**: Radial, Top→Bottom, Bottom→Top, Left→Right, Right→Left
 - **12 node shapes**, with a live preview in the drop-down
 - **Lines**: curve, straight, elbow, tree-root taper; solid, dashed, dotted, dash-dot; arrow, dot and diamond caps; a manual connection face
 - **Text**: font family (presets and every installed font), size, color, bold, italic, underline, strike
 - **Undo / Redo**, duplicate, copy and paste of a subtree, multi-select, per-shape memo, tree view of the nodes
-- **Export** to PNG, JPEG, WebP or SVG, cropped to the diagram, with an optional transparent background
+- **Export** to PNG, JPEG, WebP, AVIF, GIF, SVG, BMP, TIFF, TGA, ICO, PPM, QOI, Farbfeld, EXR or HDR, cropped to the diagram, with an optional transparent background
+- **Rulers and a zoom-aware grid**, each with a toolbar button; **left and right panels** that fold to a strip
+- **Mind map themes**: 16 ways to dress a whole diagram (colours, shapes, text, connectors), from a gallery in the left panel or the toolbar
+- **Shape icons**: 50 icons listed in the left panel
+- **Memos** on shapes and lines: sticky notes with their own colour, size and font; defaults in the settings window
+- **Images on the canvas**: PNG, JPEG, GIF, WebP, BMP, SVG, AVIF, ICO, TIFF, TGA, DDS, HDR, EXR, PNM, QOI, Farbfeld and PSD
+- **Line themes**: 13 styles for all the connectors of a diagram at once, separate from the colour theme
+- **Tutorials**: draw a real mind map and a real fishbone step by step, from the start screen
+- **Print**: a page setup window with a preview: paper, orientation, margins, header, footer, page numbers, spreading over several sheets
 - **Korean and English**, for the program, the installer and the guide
 - Dialogs as **windows of their own**, frameless main window with remembered position and size, a toolbar that drops to icons when narrow
 - **Unsaved-work prompt** before closing or replacing a document
-- `.mmap` JSON files (legacy `.mymind` still opens), `.mmap` file association, five bundled samples
+- `.mmap` JSON files (legacy `.mymind` still opens), `.mmap` file association, 40 bundled samples (20 mind maps, 20 fishbones)
 
 ## Requirements
 
@@ -67,7 +75,7 @@ Developer-only helpers:
 | Command | Description |
 |---------|-------------|
 | `npm run icons` | Regenerates `assets/icon.*` and the file icon from the SVGs (needs `npm i -D sharp png-to-ico`) |
-| `npm run samples` | Regenerates the sample `.mmap` files in `template/` |
+| `npm run samples` | Regenerates the generated samples and the list in `template/` (the first five are kept as they are) |
 
 ## Project layout
 
@@ -84,6 +92,7 @@ MyMindMultiOSV20/
 │   ├── i18n/          # ko / en
 │   ├── host.ts        # the only file that calls Tauri
 │   ├── popout.ts      # dialogs in windows of their own
+│   ├── diagramThemes.ts, lineThemes.ts, nodeIcons.ts, memo.ts, tutorials.ts, canvasGrid.ts  # pure modules
 │   ├── settings.ts    # what is stored, limits, validation
 │   └── themes.ts      # the 40 themes and user themes
 ├── assets/            # app and file icons

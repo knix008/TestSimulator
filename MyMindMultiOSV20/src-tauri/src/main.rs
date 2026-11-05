@@ -25,7 +25,7 @@ static OPENED_FILE: Mutex<Option<String>> = Mutex::new(None);
 const SETTINGS_FOLDER: &str = "com.shkwon.mymind";
 const MIN_WIDTH: f64 = 900.0;
 const MIN_HEIGHT: f64 = 560.0;
-const DEFAULT_WIDTH: f64 = 1500.0;
+const DEFAULT_WIDTH: f64 = 1440.0;
 const DEFAULT_HEIGHT: f64 = 900.0;
 
 /// Where settings live; MYMIND_SETTINGS_DIR moves it (the GUI tests).
@@ -136,6 +136,98 @@ fn write_base64(path: String, data: String) -> Result<(), String> {
     std::fs::write(path, bytes).map_err(|e| e.to_string())
 }
 
+/// The type of a picture the WebView shows by itself.
+fn browser_image_type(extension: &str) -> Option<&'static str> {
+    Some(match extension {
+        "png" | "apng" => "image/png",
+        "jpg" | "jpeg" | "jpe" | "jfif" | "pjpeg" | "pjp" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "bmp" | "dib" => "image/bmp",
+        "svg" => "image/svg+xml",
+        "avif" => "image/avif",
+        "ico" | "cur" => "image/x-icon",
+        _ => return None,
+    })
+}
+
+/// A picture in another format, as a PNG.
+fn convert_to_png(extension: &str, bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let picture = if extension == "psd" {
+        let document = psd::Psd::from_bytes(bytes).map_err(|e| e.to_string())?;
+        let pixels = image::RgbaImage::from_raw(document.width(), document.height(), document.rgba()).ok_or("bad PSD size")?;
+        image::DynamicImage::ImageRgba8(pixels)
+    } else {
+        // By its extension first: TGA, for one, has no signature to be recognised by.
+        let by_extension = image::ImageFormat::from_extension(extension).and_then(|format| image::load_from_memory_with_format(bytes, format).ok());
+        match by_extension {
+            Some(picture) => picture,
+            None => image::load_from_memory(bytes).map_err(|e| e.to_string())?,
+        }
+    };
+    let mut out = std::io::Cursor::new(Vec::new());
+    picture.to_rgba8().write_to(&mut out, image::ImageFormat::Png).map_err(|e| e.to_string())?;
+    Ok(out.into_inner())
+}
+
+fn read_image_file(path: &std::path::Path) -> Result<Value, String> {
+    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    let extension = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let encoder = base64::engine::general_purpose::STANDARD;
+    if let Some(mime) = browser_image_type(&extension) {
+        return Ok(json!({ "mime": mime, "data": encoder.encode(bytes) }));
+    }
+    Ok(json!({ "mime": "image/png", "data": encoder.encode(convert_to_png(&extension, &bytes)?) }))
+}
+
+#[tauri::command(async)]
+fn read_image(path: String) -> Result<Value, String> {
+    read_image_file(std::path::Path::new(&path))
+}
+
+/// The encoder for an export format the page cannot write by itself.
+fn export_format(name: &str) -> Option<image::ImageFormat> {
+    use image::ImageFormat::*;
+    Some(match name {
+        "gif" => Gif,
+        "avif" => Avif,
+        "bmp" => Bmp,
+        "tiff" => Tiff,
+        "tga" => Tga,
+        "ico" => Ico,
+        "ppm" => Pnm,
+        "qoi" => Qoi,
+        "ff" => Farbfeld,
+        "exr" => OpenExr,
+        "hdr" => Hdr,
+        _ => return None,
+    })
+}
+
+/// A PNG in another format. Each encoder takes what it can hold: no alpha, or an icon's largest size.
+fn convert_png(png: &[u8], name: &str) -> Result<Vec<u8>, String> {
+    let format = export_format(name).ok_or_else(|| format!("unknown format: {name}"))?;
+    let picture = image::load_from_memory_with_format(png, image::ImageFormat::Png).map_err(|e| e.to_string())?;
+    let picture = match name {
+        "ico" if picture.width() > 256 || picture.height() > 256 => picture.thumbnail(256, 256).to_rgba8().into(),
+        "bmp" | "ppm" => picture.to_rgb8().into(),
+        "ff" => picture.to_rgba16().into(),
+        "exr" => picture.to_rgba32f().into(),
+        "hdr" => picture.to_rgb32f().into(),
+        _ => picture.to_rgba8().into(),
+    };
+    let picture: image::DynamicImage = picture;
+    let mut out = std::io::Cursor::new(Vec::new());
+    picture.write_to(&mut out, format).map_err(|e| e.to_string())?;
+    Ok(out.into_inner())
+}
+
+#[tauri::command(async)]
+fn write_converted(path: String, data: String, format: String) -> Result<(), String> {
+    let png = base64::engine::general_purpose::STANDARD.decode(data).map_err(|e| e.to_string())?;
+    std::fs::write(path, convert_png(&png, &format)?).map_err(|e| e.to_string())
+}
+
 /// The folder of the sample diagrams shipped with the app.
 fn samples_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let resources = app.path().resource_dir().map_err(|e| e.to_string())?;
@@ -205,6 +297,33 @@ fn open_external(url: String) -> Result<(), String> {
     command.spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
+/// The system's print dialog for the page; its print style leaves only the prepared sheets.
+#[tauri::command]
+fn print_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    system_print(&window)
+}
+
+/// WebView2's default is its own preview inside the window. This is the system's, a window of its own.
+#[cfg(windows)]
+fn system_print(window: &tauri::WebviewWindow) -> Result<(), String> {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2_16, COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM};
+    use windows::core::Interface;
+    window
+        .with_webview(|webview| unsafe {
+            if let Ok(core) = webview.controller().CoreWebView2() {
+                if let Ok(printer) = core.cast::<ICoreWebView2_16>() {
+                    let _ = printer.ShowPrintUI(COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM);
+                }
+            }
+        })
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(not(windows))]
+fn system_print(window: &tauri::WebviewWindow) -> Result<(), String> {
+    window.print().map_err(|e| e.to_string())
+}
+
 /// The page can ask about unsaved work from now on.
 #[tauri::command]
 fn close_guard_ready() {
@@ -263,7 +382,8 @@ fn show_later(window: tauri::WebviewWindow) {
 }
 
 fn remember_window(window: &tauri::Window) {
-    if window.is_minimized().unwrap_or(false) {
+    // Full screen says nothing about the size the window should open with.
+    if window.is_minimized().unwrap_or(false) || window.is_fullscreen().unwrap_or(false) {
         return;
     }
     let maximized = window.is_maximized().unwrap_or(false);
@@ -376,6 +496,9 @@ fn main() {
             system_fonts,
             app_info,
             open_external,
+            print_window,
+            read_image,
+            write_converted,
             window_ready,
             close_guard_ready,
             main_close,
@@ -429,6 +552,56 @@ mod tests {
         assert_eq!(diagram_argument(&args(&["mymind", "old.mymind"])).as_deref(), Some("old.mymind"));
         assert_eq!(diagram_argument(&args(&["x.mmap"])), None);
         assert_eq!(diagram_argument(&args(&["mymind", "notes.txt"])), None);
+    }
+
+    #[test]
+    fn converts_pictures_the_webview_cannot_show() {
+        let dir = std::env::temp_dir().join(format!("mymind-images-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let picture = image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(3, 2, image::Rgb([200, 30, 60])));
+        for (extension, format) in [
+            ("tga", image::ImageFormat::Tga),
+            ("tiff", image::ImageFormat::Tiff),
+            ("tif", image::ImageFormat::Tiff),
+            ("ppm", image::ImageFormat::Pnm),
+            ("qoi", image::ImageFormat::Qoi),
+        ] {
+            let file = dir.join(format!("picture.{extension}"));
+            picture.save_with_format(&file, format).unwrap();
+            let read = read_image_file(&file).unwrap();
+            assert_eq!(read["mime"], "image/png", "{extension}");
+            let bytes = base64::engine::general_purpose::STANDARD.decode(read["data"].as_str().unwrap()).unwrap();
+            let back = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png).unwrap();
+            assert_eq!((back.width(), back.height()), (3, 2), "{extension}");
+            assert_eq!(back.to_rgb8().get_pixel(0, 0).0, [200, 30, 60], "{extension}");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn writes_every_export_format() {
+        let picture = image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(600, 300, image::Rgba([10, 120, 200, 255])));
+        let mut png = std::io::Cursor::new(Vec::new());
+        picture.write_to(&mut png, image::ImageFormat::Png).unwrap();
+        let png = png.into_inner();
+        for name in ["gif", "bmp", "tiff", "tga", "ico", "ppm", "qoi", "ff", "exr", "hdr"] {
+            let bytes = convert_png(&png, name).unwrap_or_else(|e| panic!("{name}: {e}"));
+            let back = image::load_from_memory_with_format(&bytes, export_format(name).unwrap()).unwrap_or_else(|e| panic!("{name}: {e}"));
+            let expected = if name == "ico" { (256, 128) } else { (600, 300) };
+            assert_eq!((back.width(), back.height()), expected, "{name}");
+        }
+        // There is no AVIF decoder in the program; its file type box says what it is.
+        let avif = convert_png(&png, "avif").unwrap();
+        assert_eq!(&avif[4..12], b"ftypavif");
+        assert!(convert_png(&png, "nonsense").is_err());
+    }
+
+    #[test]
+    fn hands_the_webview_its_own_formats_untouched() {
+        assert_eq!(browser_image_type("jfif"), Some("image/jpeg"));
+        assert_eq!(browser_image_type("svg"), Some("image/svg+xml"));
+        assert_eq!(browser_image_type("tga"), None);
+        assert!(convert_to_png("tga", b"not a picture").is_err());
     }
 
     #[test]

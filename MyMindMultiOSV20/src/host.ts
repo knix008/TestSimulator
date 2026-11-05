@@ -2,6 +2,7 @@
 // localStorage and files go through the browser's own file input and downloads.
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open, save } from '@tauri-apps/plugin-dialog'
 
@@ -15,6 +16,10 @@ function browserSettings(): Record<string, unknown> {
     return {}
   }
 }
+
+/** The GUI tests answer the system's dialogs here, as nothing can click them. */
+type TestSeam = { pick?: string; save?: string; printed?: number }
+const seam = () => (window as unknown as { __mymindTest?: TestSeam }).__mymindTest
 
 const desktopOnly = () => Promise.reject(new Error('desktop app only'))
 
@@ -39,6 +44,9 @@ export type SamplesList = { dir: string; items: SampleItem[] }
 
 export type PopoutShow = { label: string; width: number; height: number; resizeOnly?: boolean }
 
+/** What can be put on the canvas: the WebView shows the first group, the shell converts the rest. */
+export const IMAGE_EXTENSIONS = ['png', 'apng', 'jpg', 'jpeg', 'jpe', 'jfif', 'pjpeg', 'pjp', 'gif', 'webp', 'bmp', 'dib', 'svg', 'avif', 'ico', 'cur', 'tif', 'tiff', 'tga', 'dds', 'hdr', 'exr', 'pnm', 'pbm', 'pgm', 'ppm', 'pam', 'ff', 'qoi', 'psd']
+
 const DIAGRAM_FILTERS = [{ name: 'MyMind Diagram', extensions: ['mmap', 'mymind'] }]
 
 export const host = {
@@ -61,13 +69,48 @@ export const host = {
   saveDiagramDialog: (defaultPath: string): Promise<string | null> =>
     isDesktop ? save({ defaultPath, filters: DIAGRAM_FILTERS }) : desktopOnly(),
   saveImageDialog: (defaultPath: string, extension: string, name: string): Promise<string | null> =>
-    isDesktop ? save({ defaultPath, filters: [{ name, extensions: [extension] }] }) : desktopOnly(),
+    seam()?.save ? Promise.resolve(seam()!.save!) : isDesktop ? save({ defaultPath, filters: [{ name, extensions: [extension] }] }) : desktopOnly(),
   readText: (path: string): Promise<string> => (isDesktop ? invoke('read_text', { path }) : desktopOnly()),
   writeText: (path: string, text: string): Promise<void> => (isDesktop ? invoke('write_text', { path, text }) : desktopOnly()),
   writeBase64: (path: string, data: string): Promise<void> => (isDesktop ? invoke('write_base64', { path, data }) : desktopOnly()),
   samplesList: (): Promise<SamplesList> => (isDesktop ? invoke('samples_list') : Promise.resolve({ dir: '', items: [] })),
   systemFonts: (): Promise<string[]> => (isDesktop ? invoke('system_fonts') : Promise.resolve([])),
   appInfo: (): Promise<AppInfo | null> => (isDesktop ? invoke('app_info') : Promise.resolve(null)),
+  pickImage: (): Promise<string | null> => (seam()?.pick ? Promise.resolve(seam()!.pick!) : isDesktop ? open({ filters: [{ name: 'Images', extensions: IMAGE_EXTENSIONS }] }) : desktopOnly()),
+  /** A picture as the page can show it, whatever its format was. */
+  readImage: (path: string): Promise<{ mime: string; data: string }> => (isDesktop ? invoke('read_image', { path }) : desktopOnly()),
+  /** Files dropped on the window; returns the function that stops listening. */
+  onFileDrop: (handler: (paths: string[]) => void): (() => void) => {
+    if (!isDesktop) return () => {}
+    const pending = getCurrentWebview().onDragDropEvent((event) => {
+      if (event.payload.type === 'drop') handler(event.payload.paths)
+    })
+    return () => void pending.then((off) => off())
+  },
+  toggleFullscreen: async (): Promise<boolean> => {
+    if (isDesktop) {
+      const win = getCurrentWindow()
+      const next = !(await win.isFullscreen())
+      await win.setFullscreen(next)
+      return next
+    }
+    if (document.fullscreenElement) await document.exitFullscreen()
+    else await document.documentElement.requestFullscreen()
+    return !!document.fullscreenElement
+  },
+  /** Writes a PNG as another image format, which the page cannot encode by itself. */
+  writeConverted: (path: string, data: string, format: string): Promise<void> =>
+    isDesktop ? invoke('write_converted', { path, data, format }) : desktopOnly(),
+  print: (): Promise<void> => {
+    const test = seam()
+    if (test) {
+      test.printed = (test.printed ?? 0) + 1
+      return Promise.resolve()
+    }
+    if (isDesktop) return invoke('print_window')
+    window.print()
+    return Promise.resolve()
+  },
   openExternal: (url: string): Promise<void> => {
     if (isDesktop) return invoke('open_external', { url })
     window.open(url, '_blank')

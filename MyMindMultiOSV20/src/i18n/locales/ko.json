@@ -30,7 +30,19 @@
     "view": "보기",
     "help": "도움말",
     "saveAs": "다른 이름으로 저장",
-    "settings": "설정"
+    "settings": "설정",
+    "ruler": "눈금자",
+    "leftPanel": "좌측 패널",
+    "rightPanel": "우측 패널",
+    "print": "인쇄",
+    "lineTheme": "선 테마",
+    "diagramTheme": "마인드맵 테마",
+    "icons": "아이콘",
+    "image": "이미지 넣기",
+    "fullscreen": "전체 화면",
+    "fontSmaller": "글자 줄이기",
+    "fontLarger": "글자 키우기",
+    "fit": "전체 보기"
   },
   "layout": {
     "radial": "방사형",
@@ -89,11 +101,11 @@
     "dark": "다크",
     "name": "이름",
     "mode": "종류",
-    "custom": "내 테마",
-    "mine": "내 테마",
-    "add": "현재 테마로 새로 만들기",
+    "custom": "사용자 테마",
+    "mine": "사용자 정의 테마",
+    "add": "새 사용자 정의 테마",
     "delete": "테마 삭제",
-    "hint": "내 테마를 만들면 색을 하나씩 바꿀 수 있습니다.",
+    "hint": "새 사용자 정의 테마를 만들면 색을 하나씩 바꿀 수 있습니다.",
     "deleteAsk": "{{name}} 테마를 삭제할까요?"
   },
   "language": {
@@ -116,7 +128,10 @@
     "selectedCount": "{{count}}개 선택됨",
     "changeShape": "도형 변경",
     "changeColor": "색상 변경",
-    "changeLine": "선 종류 변경"
+    "changeLine": "선 종류 변경",
+    "showRuler": "눈금자 표시",
+    "hideRuler": "눈금자 숨기기",
+    "selectAll": "전체 선택"
   },
   "panel": {
     "navigator": "탐색 패널",
@@ -142,7 +157,16 @@
     "startCap": "시작 모양",
     "endCap": "끝 모양",
     "lineColor": "선 색",
-    "noSelection": "속성을 편집할 도형을 선택하세요."
+    "noSelection": "속성을 편집할 도형을 선택하세요.",
+    "showLeft": "좌측 패널 펼치기",
+    "hideLeft": "좌측 패널 접기",
+    "showRight": "우측 패널 펼치기",
+    "hideRight": "우측 패널 접기",
+    "resizeThemes": "끌어서 영역 크기 조절",
+    "imageWidth": "이미지 너비",
+    "lineWidth": "선 굵기",
+    "manyShapes": "도형 {{count}}개 선택됨. 아래 값은 모두에 적용됩니다.",
+    "manyLines": "선 {{count}}개 선택됨. 아래 값은 모두에 적용됩니다."
   },
   "status": {
     "ready": "준비",
@@ -175,13 +199,14 @@
     "ok": "확인",
     "openFailed": "{{name}} 파일을 열 수 없습니다.\n{{reason}}",
     "badFile": "{{name}} 파일은 MyMind 다이어그램이 아닙니다.",
-    "saveFailed": "{{name}} 파일을 저장할 수 없습니다.\n{{reason}}"
+    "saveFailed": "{{name}} 파일을 저장할 수 없습니다.\n{{reason}}",
+    "badImage": "{{name}} 이미지를 표시할 수 없습니다."
   },
   "export": {
     "title": "이미지 내보내기",
     "format": "형식",
     "transparent": "배경 투명하게",
-    "jpegHint": "JPEG는 투명 배경을 지원하지 않습니다.",
+    "jpegHint": "이 형식은 투명 배경을 지원하지 않습니다.",
     "export": "내보내기",
     "cancel": "취소"
   },
@@ -225,7 +250,10 @@
     "mindmapLayout": "마인드맵 레이아웃",
     "fishboneLayout": "피쉬본 방향",
     "editor": "편집기",
-    "recentCount": "최근 파일 {{count}}개"
+    "recentCount": "최근 파일 {{count}}개",
+    "lineThemeHint": "선 테마는 연결선의 모양, 무늬, 끝 모양, 색을 한 번에 정합니다. 여기서 고른 테마로 새 다이어그램이 시작합니다.",
+    "lineThemeApply": "지금 다이어그램에 적용",
+    "memoHint": "새 메모의 색, 크기, 글꼴입니다. 이미 있는 메모는 오른쪽 속성에서 고칩니다."
   },
   "guide": {
     "title": "사용 설명서",
@@ -262,13 +290,15 @@
     "tipFishbone": "문제의 원인을 분석합니다",
     "tipOpen": ".mmap 파일을 엽니다",
     "tipContinue": "지금 문서로 돌아갑니다",
-    "tipTheme": "테마와 내 테마를 고릅니다",
+    "tipTheme": "테마와 사용자 정의 테마를 고릅니다",
     "tipLanguage": "화면 언어를 바꿉니다",
     "tipPreferences": "프로그램 설정을 엽니다",
     "tipStart": "배경과 카드를 설정합니다",
     "tipGuide": "사용 방법을 읽습니다 (F1)",
     "tipAbout": "버전과 개발자 정보",
-    "tipExit": "프로그램을 닫습니다"
+    "tipExit": "프로그램을 닫습니다",
+    "tutorial": "튜토리얼",
+    "tipTutorial": "마인드맵과 피쉬본을 직접 그려 봅니다"
   },
   "bg": {
     "mindBloom": "피어나는 마인드맵",
@@ -295,5 +325,74 @@
     "cards3D": "3D 카드",
     "starfield3D": "3D 별",
     "lattice3D": "3D 격자"
+  },
+  "tutorial": {
+    "choose": "튜토리얼 고르기",
+    "stepCount": "{{count}}단계",
+    "close": "튜토리얼 닫기",
+    "prev": "이전",
+    "next": "다음",
+    "finish": "마치기",
+    "doIt": "대신 해 주기",
+    "doItTip": "이 단계를 프로그램이 대신 합니다",
+    "moveCard": "끌어서 옮기기"
+  },
+  "style": {
+    "bold": "굵게",
+    "italic": "기울임",
+    "underline": "밑줄",
+    "strike": "취소선"
+  },
+  "icons": {
+    "none": "아이콘 없음",
+    "hint": "누르면 선택한 도형에 아이콘이 들어갑니다.",
+    "pickFirst": "먼저 도형을 고르세요."
+  },
+  "memo": {
+    "add": "메모 추가",
+    "remove": "메모 삭제",
+    "newText": "메모",
+    "pickFirst": "메모를 붙일 도형이나 선을 먼저 고르세요.",
+    "color": "메모 색",
+    "textColor": "글자 색",
+    "width": "너비",
+    "height": "높이",
+    "showAll": "메모 표시",
+    "hideAll": "메모 숨기기",
+    "lineColor": "연결선 색",
+    "lineWidth": "연결선 굵기",
+    "linePattern": "연결선 모양",
+    "lineNone": "없음"
+  },
+  "print": {
+    "title": "인쇄",
+    "page": "페이지",
+    "paper": "용지",
+    "orientation": "방향",
+    "auto": "자동",
+    "portrait": "세로",
+    "landscape": "가로",
+    "pagesWide": "가로 쪽 수",
+    "pagesTall": "세로 쪽 수",
+    "centerH": "가로 가운데",
+    "centerV": "세로 가운데",
+    "margins": "여백",
+    "margin": {
+      "top": "위",
+      "bottom": "아래",
+      "left": "왼쪽",
+      "right": "오른쪽"
+    },
+    "headings": "머리글과 바닥글",
+    "header": "머리글",
+    "footer": "바닥글",
+    "headingSize": "글자 크기",
+    "side": {
+      "left": "왼쪽",
+      "center": "가운데",
+      "right": "오른쪽"
+    },
+    "tokens": "사용할 수 있는 값: {title} 문서 이름, {date} 날짜, {time} 시각, {page} 쪽 번호, {pages} 전체 쪽 수",
+    "sheets": "{{count}}쪽"
   }
 }

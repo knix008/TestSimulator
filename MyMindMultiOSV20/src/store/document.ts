@@ -1,3 +1,5 @@
+import { diagramThemeById, type DiagramTheme } from '../diagramThemes'
+import { lineThemeById, type LineTheme } from '../lineThemes'
 import { v4 as uuid } from 'uuid'
 import type {
   DiagramDocument,
@@ -10,8 +12,7 @@ import type {
   LinePattern,
   LineType,
   ShapeType,
-  TextStyle,
-} from '../types'
+  TextStyle, MemoStyle, MemoTarget } from '../types'
 import { AUTO_TEXT_COLOR, NODE_COLORS } from '../constants/colors'
 import { applyLayout, NODE_H, NODE_W } from '../layout/engine'
 
@@ -170,6 +171,96 @@ export function relayout(doc: DiagramDocument, w = 1200, h = 700): DiagramDocume
   }
 }
 
+/** Which branch of the diagram a node is on: the place of its ancestor among the centre's children. */
+function branchIndex(nodes: DiagramNode[], id: string): number {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  let current = byId.get(id)
+  for (let guard = 0; current && guard < 10000; guard++) {
+    const parent = current.parentId ? byId.get(current.parentId) : undefined
+    if (!parent) return 0
+    if (!parent.parentId) return nodes.filter((node) => node.parentId === parent.id).indexOf(current)
+    current = parent
+  }
+  return 0
+}
+
+function lineThemeEdge(theme: LineTheme, nodes: DiagramNode[], childId: string) {
+  return {
+    lineType: theme.lineType,
+    linePattern: theme.linePattern,
+    startCap: theme.startCap,
+    endCap: theme.endCap,
+    color: theme.palette[branchIndex(nodes, childId) % theme.palette.length],
+  }
+}
+
+/** How far from the centre a node is. */
+function depthOf(nodes: DiagramNode[], node: DiagramNode): number {
+  const byId = new Map(nodes.map((item) => [item.id, item]))
+  let depth = 0
+  let current = node
+  for (let guard = 0; current.parentId && guard < 10000; guard++) {
+    const parent = byId.get(current.parentId)
+    if (!parent) break
+    current = parent
+    depth += 1
+  }
+  return depth
+}
+
+/** A colour towards white: the further from the centre, the lighter. */
+function lighter(hex: string, k: number): string {
+  const n = Number.parseInt(hex.slice(1), 16)
+  const part = (shift: number) => {
+    const c = (n >> shift) & 255
+    return Math.round(c + (255 - c) * k).toString(16).padStart(2, '0')
+  }
+  return `#${part(16)}${part(8)}${part(0)}`
+}
+
+/** What a theme makes of one node. */
+function themedNode(theme: DiagramTheme, nodes: DiagramNode[], node: DiagramNode): DiagramNode {
+  if (node.image) return node
+  const depth = depthOf(nodes, node)
+  const isRoot = depth === 0
+  const color = isRoot
+    ? theme.root
+    : theme.byLevel
+      ? theme.palette[depth % theme.palette.length]
+      : depth === 1 || theme.flat
+        ? theme.palette[branchIndex(nodes, node.id) % theme.palette.length]
+        : lighter(theme.palette[branchIndex(nodes, node.id) % theme.palette.length], 0.35)
+  return {
+    ...node,
+    color,
+    shape: isRoot ? theme.rootShape : theme.shape,
+    textStyle: { ...normalizeTextStyle(node.textStyle), color: isRoot ? theme.rootText : theme.text },
+  }
+}
+
+/** Dresses the whole diagram: colours, shapes, text and connectors. */
+export function applyDiagramTheme(doc: DiagramDocument, theme: DiagramTheme): DiagramDocument {
+  const lined = applyLineTheme(doc, lineThemeById(theme.line))
+  return {
+    ...lined,
+    diagramTheme: theme.id,
+    defaultShape: theme.shape,
+    nodes: doc.nodes.map((node) => themedNode(theme, doc.nodes, node)),
+  }
+}
+
+/** Styles every connector of the diagram, and those added later. */
+export function applyLineTheme(doc: DiagramDocument, theme: LineTheme): DiagramDocument {
+  return {
+    ...doc,
+    lineTheme: theme.id,
+    defaultLine: theme.lineType,
+    defaultLinePattern: theme.linePattern,
+    edges: doc.edges.map((edge) => ({ ...edge, ...lineThemeEdge(theme, doc.nodes, edge.to) })),
+    dirty: true,
+  }
+}
+
 export function addChild(
   doc: DiagramDocument,
   parentId: string,
@@ -200,10 +291,12 @@ export function addChild(
     lineType: doc.defaultLine,
     linePattern: doc.defaultLinePattern,
     color: '#94a3b8',
+    ...(doc.lineTheme ? lineThemeEdge(lineThemeById(doc.lineTheme), [...doc.nodes, node], id) : {}),
   }
+  const placed = doc.diagramTheme ? themedNode(diagramThemeById(doc.diagramTheme), [...doc.nodes, node], node) : node
   return {
     ...doc,
-    nodes: [...doc.nodes, node],
+    nodes: [...doc.nodes, placed],
     edges: [...doc.edges, edge],
     selectedId: id,
     selectedIds: [id],
@@ -382,10 +475,63 @@ export function updateNodeText(doc: DiagramDocument, nodeId: string, text: strin
   }
 }
 
-export function setNodeNote(doc: DiagramDocument, nodeId: string, note: string): DiagramDocument {
+/** Changes a memo's text and look; an empty text with remove set takes the memo away. */
+export function updateMemo(doc: DiagramDocument, target: MemoTarget, change: { note?: string; style?: Partial<MemoStyle>; remove?: boolean }): DiagramDocument {
+  const apply = <T extends { note?: string; noteStyle?: Partial<MemoStyle> }>(owner: T): T => {
+    if (change.remove) {
+      const { note: _note, noteStyle: _style, ...rest } = owner
+      return rest as T
+    }
+    return {
+      ...owner,
+      ...(change.note !== undefined ? { note: change.note } : {}),
+      ...(change.style ? { noteStyle: { ...owner.noteStyle, ...change.style } } : {}),
+    }
+  }
+  return target.kind === 'node'
+    ? { ...doc, nodes: doc.nodes.map((node) => (node.id === target.id ? apply(node) : node)), dirty: true }
+    : { ...doc, edges: doc.edges.map((edge) => (edge.id === target.id ? apply(edge) : edge)), dirty: true }
+}
+
+/** Sets or removes the icon of these shapes. */
+export function setNodeIcon(doc: DiagramDocument, ids: string[], icon: string | undefined): DiagramDocument {
+  return { ...doc, nodes: doc.nodes.map((node) => (ids.includes(node.id) ? { ...node, icon } : node)), dirty: true }
+}
+
+const IMAGE_MAX_WIDTH = 320
+const IMAGE_MAX_HEIGHT = 240
+
+/** A picture as a node of its own, right of what is there, small enough to see the whole of it. */
+export function addImageNode(doc: DiagramDocument, name: string, src: string, naturalWidth: number, naturalHeight: number): DiagramDocument {
+  const width = Math.max(1, naturalWidth)
+  const height = Math.max(1, naturalHeight)
+  const scale = Math.min(1, IMAGE_MAX_WIDTH / width, IMAGE_MAX_HEIGHT / height)
+  const right = doc.nodes.length ? Math.max(...doc.nodes.map((node) => node.x + node.width)) : 0
+  const top = doc.nodes.length ? Math.min(...doc.nodes.map((node) => node.y)) : 0
+  const id = uuid()
+  const node: DiagramNode = {
+    id,
+    parentId: null,
+    text: name,
+    x: right + 40,
+    y: top,
+    width: Math.round(width * scale),
+    height: Math.round(height * scale),
+    shape: 'rect',
+    color: '#ffffff',
+    textStyle: defaultNodeTextStyle(),
+    image: { src, width, height },
+  }
+  return { ...doc, nodes: [...doc.nodes, node], selectedId: id, selectedIds: [id], selectedEdgeId: null, dirty: true }
+}
+
+/** A picture's new width; the height follows, so it keeps its proportions. */
+export function setImageWidth(doc: DiagramDocument, id: string, width: number): DiagramDocument {
   return {
     ...doc,
-    nodes: doc.nodes.map((n) => (n.id === nodeId ? { ...n, note } : n)),
+    nodes: doc.nodes.map((node) =>
+      node.id === id && node.image ? { ...node, width, height: Math.max(1, Math.round((width * node.image.height) / node.image.width)) } : node,
+    ),
     dirty: true,
   }
 }
@@ -422,8 +568,37 @@ export function setNodeTextStyle(
 }
 
 /** Select a single edge, clearing any node selection (they are exclusive). */
-export function selectEdge(doc: DiagramDocument, edgeId: string | null): DiagramDocument {
-  return { ...doc, selectedEdgeId: edgeId, selectedId: null, selectedIds: [] }
+/** Selects a line; with `add`, Shift-click, it joins or leaves the lines already selected. */
+export function selectEdge(doc: DiagramDocument, edgeId: string | null, add = false): DiagramDocument {
+  if (!edgeId) return { ...doc, selectedEdgeId: null, selectedEdgeIds: [], selectedId: null, selectedIds: [] }
+  const before = doc.selectedEdgeId ? (doc.selectedEdgeIds?.length ? doc.selectedEdgeIds : [doc.selectedEdgeId]) : []
+  const ids = add ? (before.includes(edgeId) ? before.filter((id) => id !== edgeId) : [...before, edgeId]) : [edgeId]
+  return { ...doc, selectedEdgeId: ids.at(-1) ?? null, selectedEdgeIds: ids, selectedId: null, selectedIds: [] }
+}
+
+/** The lines an edit applies to: the selected lines, or else every line of the selected shapes. */
+export function targetEdgeIds(doc: DiagramDocument): string[] {
+  if (doc.selectedEdgeId) return doc.selectedEdgeIds?.length ? doc.selectedEdgeIds : [doc.selectedEdgeId]
+  const shapes = doc.selectedIds.length ? doc.selectedIds : doc.selectedId ? [doc.selectedId] : []
+  return doc.edges.filter((edge) => shapes.includes(edge.from) || shapes.includes(edge.to)).map((edge) => edge.id)
+}
+
+/** Changes all the target lines at once. */
+export function editLines(doc: DiagramDocument, patch: Partial<DiagramEdge>): DiagramDocument {
+  const ids = targetEdgeIds(doc)
+  if (!ids.length) return doc
+  return {
+    ...doc,
+    edges: doc.edges.map((edge) => (ids.includes(edge.id) ? { ...edge, ...patch } : edge)),
+    ...(patch.lineType ? { defaultLine: patch.lineType } : {}),
+    ...(patch.linePattern ? { defaultLinePattern: patch.linePattern } : {}),
+    dirty: true,
+  }
+}
+
+/** The shapes an edit applies to: every selected one. */
+export function targetNodeIds(doc: DiagramDocument): string[] {
+  return doc.selectedIds.length ? doc.selectedIds : doc.selectedId ? [doc.selectedId] : []
 }
 
 /** Patch one edge by id, updating the relevant document default when present. */
@@ -437,48 +612,6 @@ export function updateEdgeById(
     edges: doc.edges.map((e) => (e.id === edgeId ? { ...e, ...patch } : e)),
     ...(patch.lineType ? { defaultLine: patch.lineType } : {}),
     ...(patch.linePattern ? { defaultLinePattern: patch.linePattern } : {}),
-    dirty: true,
-  }
-}
-
-export function setEdgeLine(doc: DiagramDocument, nodeId: string, lineType: LineType): DiagramDocument {
-  return {
-    ...doc,
-    edges: doc.edges.map((e) => (e.to === nodeId || e.from === nodeId ? { ...e, lineType } : e)),
-    defaultLine: lineType,
-    dirty: true,
-  }
-}
-
-export function setEdgeColor(doc: DiagramDocument, nodeId: string, color: string): DiagramDocument {
-  return {
-    ...doc,
-    edges: doc.edges.map((e) => (e.to === nodeId || e.from === nodeId ? { ...e, color } : e)),
-    dirty: true,
-  }
-}
-
-export function setEdgeStartCap(doc: DiagramDocument, nodeId: string, startCap: EndCap): DiagramDocument {
-  return {
-    ...doc,
-    edges: doc.edges.map((e) => (e.to === nodeId || e.from === nodeId ? { ...e, startCap } : e)),
-    dirty: true,
-  }
-}
-
-export function setEdgeEndCap(doc: DiagramDocument, nodeId: string, endCap: EndCap): DiagramDocument {
-  return {
-    ...doc,
-    edges: doc.edges.map((e) => (e.to === nodeId || e.from === nodeId ? { ...e, endCap } : e)),
-    dirty: true,
-  }
-}
-
-export function setEdgePattern(doc: DiagramDocument, nodeId: string, linePattern: LinePattern): DiagramDocument {
-  return {
-    ...doc,
-    edges: doc.edges.map((e) => (e.to === nodeId || e.from === nodeId ? { ...e, linePattern } : e)),
-    defaultLinePattern: linePattern,
     dirty: true,
   }
 }
@@ -545,6 +678,8 @@ export function serialize(doc: DiagramDocument): string {
       defaultShape: doc.defaultShape,
       defaultLine: doc.defaultLine,
       defaultLinePattern: doc.defaultLinePattern,
+      ...(doc.lineTheme ? { lineTheme: doc.lineTheme } : {}),
+      ...(doc.diagramTheme ? { diagramTheme: doc.diagramTheme } : {}),
       nodes: doc.nodes.map((node) => ({
         ...node,
         textStyle: normalizeTextStyle(node.textStyle),

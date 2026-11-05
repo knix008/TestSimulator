@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { DEFAULT_DIAGRAM_THEME, diagramThemeById } from '../diagramThemes'
+import { DEFAULT_LINE_THEME, lineThemeById } from '../lineThemes'
 import { focusPopout } from '../popout'
+import { customThemeFrom } from '../settings'
+import { tutorialById } from '../tutorials'
+import { printPages, type PrintPages } from '../utils/print'
+import type { PageSetup } from '../pageSetup'
 import { host, isDesktop, type SampleItem } from '../host'
+import { IMAGE_EXTENSIONS } from '../host'
 import { addRecent, removeRecent, type AppSettings, type GeneralSettings, type StartSettings } from '../settings'
 import { applyTheme, setCustomThemes, type CustomTheme } from '../themes'
 import { exportDiagram, type ExportFormat } from '../utils/exportImage'
 import type {
+  MemoStyle,
+  MemoTarget,
   ContextMenuState,
   DiagramMode,
   DiagramDocument,
@@ -21,7 +30,16 @@ import type {
 import type { DiagramNode } from '../types'
 import {
   addFreeNode,
+  addImageNode,
+  editLines,
+  targetEdgeIds,
+  targetNodeIds,
+  setImageWidth,
+  setNodeIcon,
+  updateMemo,
   addChild,
+  applyDiagramTheme,
+  applyLineTheme,
   createFishboneDoc,
   addSibling,
   collectSubtree,
@@ -35,21 +53,14 @@ import {
   relayout,
   selectEdge,
   serialize,
-  setEdgeLine,
-  setEdgeColor,
-  setEdgeEndCap,
-  setEdgePattern,
-  setEdgeStartCap,
   setMode,
   setNodeColor,
-  setNodeNote,
   setNodeShape,
   setNodeTextStyle,
-  updateEdgeById,
   updateNodeText,
 } from '../store/document'
 
-const IMAGE_NAMES: Record<string, string> = { png: 'PNG Image', jpg: 'JPEG Image', webp: 'WebP Image', svg: 'SVG Image' }
+const IMAGE_NAMES: Record<string, string> = { png: 'PNG Image', jpg: 'JPEG Image', webp: 'WebP Image', svg: 'SVG Image', gif: 'GIF Image', avif: 'AVIF Image', bmp: 'BMP Image', tif: 'TIFF Image', tga: 'TGA Image', ico: 'Icon', ppm: 'PPM Image', qoi: 'QOI Image', ff: 'Farbfeld Image', exr: 'OpenEXR Image', hdr: 'Radiance HDR Image' }
 const viewportWidth = () => Math.max(800, window.innerWidth)
 const viewportHeight = () => Math.max(500, window.innerHeight - 120)
 const fileNameOf = (path: string) => path.split(/[/\\]/).pop() ?? path
@@ -67,11 +78,10 @@ export function useAppState(initialSettings: AppSettings) {
       mode === 'fishbone'
         ? { ...createFishboneDoc(t('canvas.effect'), t('canvas.category')), layout: general.fishboneLayout }
         : { ...createMindmapDoc(t('canvas.centralTopic')), layout: general.mindmapLayout }
-    return relayout(
-      { ...base, defaultShape: general.newShape, defaultLine: general.newLine, defaultLinePattern: general.newLinePattern },
-      viewportWidth(),
-      viewportHeight(),
-    )
+    const styled = { ...base, defaultShape: general.newShape }
+    const lined = general.newLineTheme === DEFAULT_LINE_THEME ? styled : applyLineTheme(styled, lineThemeById(general.newLineTheme))
+    const dressed = general.newDiagramTheme === DEFAULT_DIAGRAM_THEME ? lined : applyDiagramTheme(lined, diagramThemeById(general.newDiagramTheme))
+    return relayout({ ...dressed, dirty: false }, viewportWidth(), viewportHeight())
   }
   const [doc, setDoc] = useState<DiagramDocument>(() => blankDoc())
   const [showStart, setShowStart] = useState(initialSettings.startScreen.showOnStartup)
@@ -79,6 +89,8 @@ export function useAppState(initialSettings: AppSettings) {
   showStartRef.current = showStart
   const [prefsTab, setPrefsTab] = useState<string | null>(null)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [tutorialChooser, setTutorialChooser] = useState(false)
+  const [tutorialId, setTutorialId] = useState<string | null>(null)
   const [addingText, setAddingText] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [unsavedOpen, setUnsavedOpen] = useState(false)
@@ -86,6 +98,7 @@ export function useAppState(initialSettings: AppSettings) {
   const afterUnsaved = useRef<(() => void) | null>(null)
   const [zoom, setZoom] = useState(1)
   const [viewResetKey, setViewResetKey] = useState(0)
+  const [viewCenterKey, setViewCenterKey] = useState(0)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -141,6 +154,10 @@ export function useAppState(initialSettings: AppSettings) {
     bumpHistory((v) => v + 1)
   }
 
+  /** Every shape in the diagram. */
+  const selectAll = () =>
+    setDoc((d) => ({ ...d, selectedId: d.selectedId ?? d.nodes[0]?.id ?? null, selectedIds: d.nodes.map((node) => node.id), selectedEdgeId: null }))
+
   const undo = () => {
     const prev = past.current.pop()
     if (!prev) return
@@ -169,7 +186,10 @@ export function useAppState(initialSettings: AppSettings) {
         Boolean(target?.isContentEditable)
       if (isTyping || showStartRef.current || !(event.ctrlKey || event.metaKey)) return
       const key = event.key.toLowerCase()
-      if (key === 'z' && !event.shiftKey) {
+      if (key === 'a') {
+        event.preventDefault()
+        selectAll()
+      } else if (key === 'z' && !event.shiftKey) {
         event.preventDefault()
         undo()
       } else if (key === 'y' || (key === 'z' && event.shiftKey)) {
@@ -218,6 +238,9 @@ export function useAppState(initialSettings: AppSettings) {
   const setTheme = (theme: string) => changeSettings({ theme })
   const setLanguage = (language: Locale) => changeSettings({ language })
   const toggleGrid = () => changeSettings({ showGrid: !settingsRef.current.showGrid })
+  const toggleRulers = () => changeSettings({ showRulers: !settingsRef.current.showRulers })
+  const toggleLeftPanel = () => changeSettings({ leftPanel: !settingsRef.current.leftPanel })
+  const toggleRightPanel = () => changeSettings({ rightPanel: !settingsRef.current.rightPanel })
   const setGeneral = (patch: Partial<GeneralSettings>) => changeSettings({ general: { ...settingsRef.current.general, ...patch } })
   const setStart = useCallback(
     (patch: Partial<StartSettings>) => changeSettings({ startScreen: { ...settingsRef.current.startScreen, ...patch } }),
@@ -272,6 +295,140 @@ export function useAppState(initialSettings: AppSettings) {
   }
 
   const newDoc = (mode?: DiagramMode) => guardUnsaved(() => showDoc(blankDoc(mode)))
+
+  /** A tutorial draws its diagram on a new sheet. */
+  const startTutorial = (id: string) => {
+    setTutorialChooser(false)
+    guardUnsaved(() => {
+      showDoc(blankDoc(tutorialById(id).mode))
+      setTutorialId(id)
+    })
+  }
+  const closeTutorial = () => setTutorialId(null)
+  const applyTutorialStep = (update: (d: DiagramDocument) => DiagramDocument) => {
+    setDoc(update)
+    setZoom(1)
+    setViewResetKey((k) => k + 1)
+  }
+
+  /* ------------------------------ memos, icons, pictures, full screen */
+
+  const memoTarget = (d: DiagramDocument): MemoTarget | null => (d.selectedEdgeId ? { kind: 'edge', id: d.selectedEdgeId } : d.selectedId ? { kind: 'node', id: d.selectedId } : null)
+
+  /** A memo on what is selected, in the look the settings give; or to the one it has. */
+  const addMemo = () => {
+    const current = docRef.current
+    const target = memoTarget(current)
+    if (!target) {
+      setMessage(t('memo.pickFirst'))
+      return
+    }
+    const owner = target.kind === 'node' ? current.nodes.find((n) => n.id === target.id) : current.edges.find((e) => e.id === target.id)
+    if (!owner?.note) {
+      const { dx: _dx, dy: _dy, ...look } = settingsRef.current.general.memo
+      setDoc((d) => updateMemo(d, target, { note: t('memo.newText'), style: look }))
+    }
+    if (!settingsRef.current.rightPanel) changeSettings({ rightPanel: true })
+    if (!settingsRef.current.showMemos) changeSettings({ showMemos: true })
+    setTimeout(() => {
+      const field = document.querySelector<HTMLTextAreaElement>('.property-memo')
+      field?.focus()
+      field?.select()
+    }, 40)
+  }
+  const onMemoChange = (target: MemoTarget, change: { note?: string; style?: Partial<MemoStyle>; remove?: boolean }) => setDoc((d) => updateMemo(d, target, change))
+  /** The look of the memos of everything selected. */
+  const onMemoStyleAll = (style: Partial<MemoStyle>) =>
+    setDoc((d) => {
+      const kind = d.selectedEdgeId ? 'edge' : 'node'
+      const ids = kind === 'edge' ? targetEdgeIds(d) : targetNodeIds(d)
+      const hasMemo = (id: string) => (kind === 'edge' ? d.edges : d.nodes).find((owner) => owner.id === id)?.note !== undefined
+      return ids.filter(hasMemo).reduce((next, id) => updateMemo(next, { kind, id }, { style }), d)
+    })
+  const toggleMemos = () => changeSettings({ showMemos: !settingsRef.current.showMemos })
+
+  const onNodeIcon = (icon: string | undefined) =>
+    setDoc((d) => setNodeIcon(d, d.selectedIds.length ? d.selectedIds : d.selectedId ? [d.selectedId] : [], icon))
+
+  const onImageWidth = (id: string, width: number) => setDoc((d) => setImageWidth(d, id, width))
+
+  /** Puts a picture on the canvas, and shows the whole diagram with it. */
+  const placeImage = (name: string, src: string) =>
+    new Promise<void>((resolve) => {
+      const probe = new Image()
+      probe.onload = () => {
+        // An SVG without a size of its own reports nothing.
+        setDoc((d) => addImageNode(d, name, src, probe.naturalWidth || 300, probe.naturalHeight || 200))
+        setShowStart(false)
+        setZoom(1)
+        setViewResetKey((k) => k + 1)
+        resolve()
+      }
+      probe.onerror = () => {
+        setMessage(t('dialog.badImage', { name }))
+        resolve()
+      }
+      probe.src = src
+    })
+
+  const insertImagePath = async (path: string) => {
+    try {
+      const { mime, data } = await host.readImage(path)
+      await placeImage(fileNameOf(path), `data:${mime};base64,${data}`)
+    } catch (error) {
+      setMessage(t('dialog.openFailed', { name: fileNameOf(path), reason: String(error) }))
+    }
+  }
+
+  const insertImage = () => {
+    if (isDesktop) {
+      void host.pickImage().then((path) => (path ? insertImagePath(path) : undefined)).catch((error) => setMessage(String(error)))
+      return
+    }
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.onchange = () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = () => void placeImage(file.name, String(reader.result))
+      reader.readAsDataURL(file)
+    }
+    input.click()
+  }
+
+  const [fullscreen, setFullscreen] = useState(false)
+  const toggleFullscreen = () => {
+    void host.toggleFullscreen().then(setFullscreen).catch(() => {})
+  }
+
+  const onLineTheme = (id: string) => setDoc((d) => applyLineTheme(d, lineThemeById(id)))
+  const onDiagramTheme = (id: string) => setDoc((d) => applyDiagramTheme(d, diagramThemeById(id)))
+  const setThemeAreaHeight = (themeAreaHeight: number) => changeSettings({ themeAreaHeight })
+
+  /** The print window; printing itself starts when that window has gone, as the main window is the one printed. */
+  const [printOpen, setPrintOpen] = useState(false)
+  const printDoc = () => setPrintOpen(true)
+  const runPrint = (pages: PrintPages) => {
+    setPrintOpen(false)
+    setTimeout(() => void printPages(pages).catch((error) => setMessage(String(error))), 150)
+  }
+  const setPageSetup = (pageSetup: PageSetup) => changeSettings({ pageSetup })
+
+  /** Lands in the editor of a custom theme: the current one, the last one, or a new copy. */
+  const openCustomTheme = () => {
+    const { theme, customThemes } = settingsRef.current
+    if (!customThemes.some((item) => item.id === theme)) {
+      const last = customThemes.at(-1)
+      if (last) changeSettings({ theme: last.id })
+      else {
+        const item = customThemeFrom(theme, `${t('theme.custom')} 1`, customThemes)
+        setCustomThemeList([item], item.id)
+      }
+    }
+    setPrefsTab('theme')
+  }
 
   /** Reads a diagram from disk. A file that cannot be read is said so, and leaves the recent list. */
   const loadPath = async (path: string) => {
@@ -391,17 +548,26 @@ export function useAppState(initialSettings: AppSettings) {
   const requestClose = () => guardUnsaved(() => void host.closeMain())
 
   // These stay current for what arrives from outside React.
-  const latest = useRef({ openRecent, requestClose, newDoc, openDoc, saveDoc, saveDocAs })
-  latest.current = { openRecent, requestClose, newDoc, openDoc, saveDoc, saveDocAs }
+  const latest = useRef({ openRecent, requestClose, newDoc, openDoc, saveDoc, saveDocAs, printDoc, toggleFullscreen, insertImagePath })
+  latest.current = { openRecent, requestClose, newDoc, openDoc, saveDoc, saveDocAs, printDoc, toggleFullscreen, insertImagePath }
 
   // The window's close (Alt+F4, the taskbar) asks here first; a diagram can arrive from the system.
   useEffect(() => {
     const offClose = host.on('close-requested', () => latest.current.requestClose())
     const offOpen = host.on<string>('open-file', (file) => latest.current.openRecent(file))
+    // A diagram dropped on the window opens; a picture goes on the canvas.
+    const offDrop = host.onFileDrop((paths) => {
+      for (const path of paths) {
+        const extension = path.split('.').pop()?.toLowerCase() ?? ''
+        if (extension === 'mmap' || extension === 'mymind') latest.current.openRecent(path)
+        else if (IMAGE_EXTENSIONS.includes(extension)) void latest.current.insertImagePath(path)
+      }
+    })
     void host.closeGuardReady()
     return () => {
       offClose()
       offOpen()
+      offDrop()
     }
   }, [])
 
@@ -436,6 +602,11 @@ export function useAppState(initialSettings: AppSettings) {
         setGuideOpen(true)
         return
       }
+      if (event.key === 'F11') {
+        event.preventDefault()
+        latest.current.toggleFullscreen()
+        return
+      }
       if (!(event.ctrlKey || event.metaKey)) return
       const key = event.key.toLowerCase()
       if (key === 'n') {
@@ -444,6 +615,9 @@ export function useAppState(initialSettings: AppSettings) {
       } else if (key === 'o') {
         event.preventDefault()
         latest.current.openDoc()
+      } else if (key === 'p') {
+        event.preventDefault()
+        latest.current.printDoc()
       } else if (key === 's') {
         event.preventDefault()
         void (event.shiftKey ? latest.current.saveDocAs() : latest.current.saveDoc())
@@ -474,6 +648,7 @@ export function useAppState(initialSettings: AppSettings) {
         if (!path) return
         try {
           if (out.kind === 'svg') await host.writeText(path, out.text)
+          else if (out.convert) await host.writeConverted(path, out.dataUrl.split(',')[1], out.convert)
           else await host.writeBase64(path, out.dataUrl.split(',')[1])
         } catch (error) {
           setMessage(t('dialog.saveFailed', { name: fileNameOf(path), reason: String(error) }))
@@ -504,7 +679,7 @@ export function useAppState(initialSettings: AppSettings) {
   const selectNodes = (ids: string[]) =>
     setDoc((d) => ({ ...d, selectedId: ids[0] ?? null, selectedIds: ids, selectedEdgeId: null }))
 
-  const selectEdgeById = (id: string | null) => setDoc((d) => selectEdge(d, id))
+  const selectEdgeById = (id: string | null, add = false) => setDoc((d) => selectEdge(d, id, add))
 
   const onMoveNode = (id: string, x: number, y: number) => {
     setDoc((d) => moveNode(d, id, x, y))
@@ -547,6 +722,8 @@ export function useAppState(initialSettings: AppSettings) {
     setViewResetKey((k) => k + 1)
   }
 
+  const centerView = () => setViewCenterKey((k) => k + 1)
+  // The whole diagram in view.
   const resetView = () => {
     setZoom(1)
     setViewResetKey((k) => k + 1)
@@ -564,81 +741,21 @@ export function useAppState(initialSettings: AppSettings) {
     setViewResetKey((k) => k + 1)
   }
 
-  const onShape = (shape: ShapeType) => {
-    if (!doc.selectedId) return
-    setDoc((d) => setNodeShape(d, d.selectedId!, shape))
-  }
-  const onColor = (color: string) => {
-    if (!doc.selectedId) return
-    setDoc((d) => setNodeColor(d, d.selectedId!, color))
-  }
-  const onNote = (id: string, note: string) => setDoc((d) => setNodeNote(d, id, note))
-  // Line edits target the independently-selected edge when there is one,
-  // otherwise every edge touching the selected node.
-  const onLine = (line: LineType) => {
-    setDoc((d) =>
-      d.selectedEdgeId
-        ? updateEdgeById(d, d.selectedEdgeId, { lineType: line })
-        : d.selectedId
-          ? setEdgeLine(d, d.selectedId, line)
-          : d,
-    )
-  }
-  const onLinePattern = (pattern: LinePattern) => {
-    setDoc((d) =>
-      d.selectedEdgeId
-        ? updateEdgeById(d, d.selectedEdgeId, { linePattern: pattern })
-        : d.selectedId
-          ? setEdgePattern(d, d.selectedId, pattern)
-          : d,
-    )
-  }
-  const onLineColor = (color: string) => {
-    setDoc((d) =>
-      d.selectedEdgeId
-        ? updateEdgeById(d, d.selectedEdgeId, { color })
-        : d.selectedId
-          ? setEdgeColor(d, d.selectedId, color)
-          : d,
-    )
-  }
-  const onLineStartCap = (cap: EndCap) => {
-    setDoc((d) =>
-      d.selectedEdgeId
-        ? updateEdgeById(d, d.selectedEdgeId, { startCap: cap })
-        : d.selectedId
-          ? setEdgeStartCap(d, d.selectedId, cap)
-          : d,
-    )
-  }
-  const onLineEndCap = (cap: EndCap) => {
-    setDoc((d) =>
-      d.selectedEdgeId
-        ? updateEdgeById(d, d.selectedEdgeId, { endCap: cap })
-        : d.selectedId
-          ? setEdgeEndCap(d, d.selectedId, cap)
-          : d,
-    )
-  }
-  // Manual connection-face overrides target the selected edge, or the edge from
-  // the selected node to its parent (from = parent, to = node).
-  const activeEdgeId = (d: DiagramDocument) =>
-    d.selectedEdgeId ?? d.edges.find((e) => e.to === d.selectedId)?.id ?? null
-  const onLineFromSide = (side: EdgeSide) => {
-    setDoc((d) => {
-      const id = activeEdgeId(d)
-      return id ? updateEdgeById(d, id, { fromSide: side }) : d
-    })
-  }
-  const onLineToSide = (side: EdgeSide) => {
-    setDoc((d) => {
-      const id = activeEdgeId(d)
-      return id ? updateEdgeById(d, id, { toSide: side }) : d
-    })
-  }
+  // Every selected shape takes the change.
+  const onShape = (shape: ShapeType) => setDoc((d) => targetNodeIds(d).reduce((next, id) => setNodeShape(next, id, shape), d))
+  const onColor = (color: string) => setDoc((d) => targetNodeIds(d).reduce((next, id) => setNodeColor(next, id, color), d))
+  // Line edits go to every selected line, or else to every line of the selected shapes.
+  const onLine = (lineType: LineType) => setDoc((d) => editLines(d, { lineType }))
+  const onLinePattern = (linePattern: LinePattern) => setDoc((d) => editLines(d, { linePattern }))
+  const onLineColor = (color: string) => setDoc((d) => editLines(d, { color }))
+  const onLineWidth = (width: number) => setDoc((d) => editLines(d, { width }))
+  const onLineStartCap = (startCap: EndCap) => setDoc((d) => editLines(d, { startCap }))
+  const onLineEndCap = (endCap: EndCap) => setDoc((d) => editLines(d, { endCap }))
+  const onLineFromSide = (fromSide: EdgeSide) => setDoc((d) => editLines(d, { fromSide }))
+  const onLineToSide = (toSide: EdgeSide) => setDoc((d) => editLines(d, { toSide }))
+  // Every selected shape, so a whole selection can change its font at once.
   const onTextStyle = (style: Partial<TextStyle>) => {
-    if (!doc.selectedId) return
-    setDoc((d) => setNodeTextStyle(d, d.selectedId!, style))
+    setDoc((d) => targetNodeIds(d).reduce((next, id) => setNodeTextStyle(next, id, style), d))
   }
 
   const switchMode = (mode: 'mindmap' | 'fishbone') => {
@@ -717,6 +834,34 @@ export function useAppState(initialSettings: AppSettings) {
     setStart,
     setCustomThemeList,
     toggleGrid,
+    toggleRulers,
+    toggleLeftPanel,
+    toggleRightPanel,
+    addMemo,
+    onMemoChange,
+    toggleMemos,
+    onNodeIcon,
+    onImageWidth,
+    insertImage,
+    fullscreen,
+    toggleFullscreen,
+    tutorialChooser,
+    setTutorialChooser,
+    tutorialId,
+    startTutorial,
+    closeTutorial,
+    applyTutorialStep,
+    onLineTheme,
+    onDiagramTheme,
+    setThemeAreaHeight,
+    selectAll,
+    printDoc,
+    printOpen,
+    setPrintOpen,
+    runPrint,
+    setPageSetup,
+    onMemoStyleAll,
+    openCustomTheme,
     showStart,
     toggleStart,
     closeStart,
@@ -729,6 +874,8 @@ export function useAppState(initialSettings: AppSettings) {
     zoom,
     setZoom,
     viewResetKey,
+    viewCenterKey,
+    centerView,
     resetView,
     autoAlign,
     undo,
@@ -775,10 +922,10 @@ export function useAppState(initialSettings: AppSettings) {
     onLayout,
     onShape,
     onColor,
-    onNote,
     onLine,
     onLinePattern,
     onLineColor,
+    onLineWidth,
     onLineStartCap,
     onLineEndCap,
     onLineFromSide,

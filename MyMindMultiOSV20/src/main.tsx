@@ -14,6 +14,10 @@ import './styles/global.css'
 
 // The browser's own drag of selected content would cancel every drag the app does itself.
 window.addEventListener('dragstart', (event) => event.preventDefault())
+// The program's own menu is the only one: text fields keep the system's for cut, copy and paste.
+window.addEventListener('contextmenu', (event) => {
+  if (!(event.target as Element | null)?.closest?.('input, textarea')) event.preventDefault()
+})
 
 const settings = sanitizeSettings(await host.loadSettings().catch(() => ({})))
 setCustomThemes(settings.customThemes)

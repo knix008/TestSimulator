@@ -3,6 +3,7 @@
 import { PATHS } from '../icon-paths'
 
 const MINE: Record<string, [string, string]> = {
+  fitAll: ['teal', '<rect x="8" y="8" width="8" height="8" rx="1"/><path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/>'],
   mind: ['blue', '<circle cx="12" cy="12" r="3.2"/><circle cx="5" cy="6.5" r="2"/><circle cx="19" cy="6.5" r="2"/><circle cx="5" cy="17.5" r="2"/><circle cx="19" cy="17.5" r="2"/><path d="M9.5 10 6.5 7.8M14.5 10l3-2.2M9.5 14l-3 2.2M14.5 14l3 2.2"/>'],
   fish: ['teal', '<path d="M2 12h15"/><path d="M17 8.5h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-3z"/><path d="M6 12 3.5 6.5M11 12 8.5 6.5M6 12l-2.5 5.5M11 12l-2.5 5.5M15.5 12 13 6.5M15.5 12 13 17.5"/>'],
   child: ['green', '<rect x="3" y="4" width="9" height="6" rx="1.5"/><rect x="12" y="15" width="9" height="6" rx="1.5"/><path d="M7.5 10v8H12"/>'],
@@ -78,6 +79,10 @@ const named = (name: string) => {
 }
 
 export const IconExport = named('export')
+export const IconPrint = named('print')
+export const IconMemo = named('memo')
+export const IconPicture = named('image')
+export const IconSelectAll = named('selectAll')
 export const IconNew = named('new')
 export const IconOpen = named('open')
 export const IconSave = named('save')

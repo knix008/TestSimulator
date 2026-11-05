@@ -123,8 +123,10 @@ html.popout-dialog .popout-free .dialog > footer { padding-right: 26px; }
 .dialog button:disabled { opacity: 0.5; cursor: default; }
 .dialog .icon-select-list button { display: flex; justify-content: flex-start; min-width: 0; height: auto; padding: 6px 8px; border: 0; background: transparent; }
 .dialog .icon-select-list button:hover { background: var(--accent-soft); }
-button.primary .icon, button.primary .icon * { color: inherit !important; stroke: currentColor; }
-button.primary { background: var(--accent) !important; border-color: var(--accent) !important; color: var(--on-accent); }
+
+/* The main button of a window stands out by its frame, so its icon can keep its colour like every other. */
+.dialog button.primary { background: var(--accent-soft) !important; border: 1px solid var(--accent-line) !important; color: var(--accent-ink); font-weight: 600; }
+.dialog button.primary:hover:not(:disabled) { box-shadow: 0 0 0 1px var(--accent-line); }
 .dialog-message { margin: 0; white-space: pre-wrap; word-break: break-word; }
 .dialog-note { margin: 0 0 10px; color: var(--muted); line-height: 1.5; }
 .form-grid { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center; gap: 8px 10px; }
@@ -157,11 +159,11 @@ button.primary { background: var(--accent) !important; border-color: var(--accen
 .theme-color-row > span { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------------------------------------------------------- common dialog buttons */
-.dialog button:not(.mini, .toggle, .icon-select-button, .stepper button, .range-step, .bg-tile, .theme-row, .pref-tabs button, .conf-sections button, .window-controls button, .grip, .icon-select-list button) {
+.dialog button:not(.mini, .toggle, .icon-select-button, .stepper button, .range-step, .bg-tile, .theme-row, .pref-tabs button, .conf-sections button, .window-controls button, .grip, .icon-select-list button, .tutorial-choice, .line-theme-tile) {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 76px; height: 28px; padding: 0 10px;
   border: 1px solid var(--button-border); border-radius: 4px; background: var(--button); color: var(--ink); white-space: nowrap; cursor: pointer;
 }
-.dialog button:not(.mini, .toggle, .icon-select-button, .primary, .stepper button, .range-step, .bg-tile, .theme-row, .pref-tabs button, .conf-sections button, .window-controls button, .grip, .icon-select-list button):hover:not(:disabled) { background: var(--hover); }
+.dialog button:not(.mini, .toggle, .icon-select-button, .primary, .stepper button, .range-step, .bg-tile, .theme-row, .pref-tabs button, .conf-sections button, .window-controls button, .grip, .icon-select-list button, .tutorial-choice, .line-theme-tile):hover:not(:disabled) { background: var(--hover); }
 .dialog button.mini { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
 .dialog button.mini:hover { background: var(--hover); }
 .dialog .toggle { display: block; cursor: pointer; }
@@ -192,3 +194,51 @@ button.primary { background: var(--accent) !important; border-color: var(--accen
 .dialog .conf-sections button > span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 
 .flag-slot { width: 18px; height: 12px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 18px; }
+
+/* ------------------------------------------------------------- line themes */
+.line-theme-preview { display: inline-flex; flex: 0 0 auto; }
+.line-theme-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+.line-theme-tile { display: flex; align-items: center; gap: 8px; min-width: 0; height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); text-align: left; cursor: pointer; }
+.line-theme-tile > span:nth-child(2) { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.line-theme-tile:hover { background: var(--hover); border-color: var(--accent-line); }
+.line-theme-tile.on { background: var(--accent-soft); border: 2px solid var(--accent-line); color: var(--accent-ink); font-weight: 600; padding: 0 9px; }
+.line-theme-swatches { display: inline-flex; flex: 0 0 auto; gap: 2px; }
+.line-theme-swatches i { display: block; width: 8px; height: 12px; border-radius: 2px; }
+.theme-pop-custom { padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+
+/* --------------------------------------------------------------- the tutorial */
+.tutorial-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tutorial-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); text-align: left; cursor: pointer; }
+.tutorial-choice:hover { background: var(--hover); border-color: var(--accent-line); }
+.tutorial-choice b { font-size: 14px; margin-top: 4px; }
+.tutorial-choice small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.tutorial-card { position: fixed; right: 264px; bottom: 44px; z-index: 50; width: 380px; display: flex; flex-direction: column; background: var(--panel); color: var(--ink); border: 1px solid var(--accent-line); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+.tutorial-card > header { display: flex; align-items: center; gap: 7px; padding: 6px 6px 6px 12px; background: var(--header); cursor: move; user-select: none; touch-action: none; }
+.tutorial-card > header > strong { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tutorial-count { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.tutorial-progress { height: 3px; background: var(--line); }
+.tutorial-progress > i { display: block; height: 100%; background: var(--accent); transition: width 0.2s; }
+.tutorial-card > h3 { display: flex; align-items: center; gap: 6px; margin: 12px 14px 4px; font-size: 14px; }
+.tutorial-card > h3 .icon { color: var(--tone-green); }
+.tutorial-card > p { margin: 0 14px 12px; line-height: 1.55; }
+.tutorial-card > footer { display: flex; justify-content: flex-end; gap: 6px; padding: 8px 14px; border-top: 1px solid var(--line); }
+.tutorial-card > footer .start-btn:first-child { margin-right: auto; }
+.tutorial-card .start-btn { height: 28px; }
+.tutorial-target { outline: 2px solid var(--accent) !important; outline-offset: 2px; animation: tutorial-pulse 1.2s ease-in-out infinite; }
+@keyframes tutorial-pulse { 50% { outline-color: transparent; } }
+
+/* ------------------------------------------------------------ the print window */
+.print-layout { display: grid; grid-template-columns: 430px minmax(0, 1fr); gap: 14px; height: 600px; max-height: calc(100vh - 140px); }
+html.popout-dialog .print-layout { max-height: none; }
+.print-form { min-height: 0; overflow-y: auto; scrollbar-width: thin; padding-right: 8px; }
+.print-form h4 { display: flex; align-items: center; gap: 6px; margin: 10px 0 6px; }
+.print-form h4:first-child { margin-top: 0; }
+.print-form .form-grid { grid-template-columns: 110px minmax(0, 1fr); gap: 5px 8px; }
+.print-heading-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.print-tokens { margin: 8px 0 0; font-size: 11px; }
+.print-preview { min-height: 0; overflow: auto; padding: 12px; display: flex; flex-direction: column; align-items: center; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+.print-preview .print-page { margin: 0 auto 14px; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35); }
+.print-preview .print-page:last-child { margin-bottom: 0; }
+.print-summary { margin-right: auto; align-self: center; color: var(--muted); }
+
+.grip { color: var(--ink); }

@@ -1,0 +1,363 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "ltr",
+  "defaultShape": "rect",
+  "defaultLine": "elbow",
+  "defaultLinePattern": "solid",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "이사 계획",
+      "x": 80,
+      "y": 428,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "이사 전",
+      "x": 292,
+      "y": 208,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "업체 예약",
+      "x": 512,
+      "y": 120,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "짐 정리",
+      "x": 512,
+      "y": 208,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-7",
+      "parentId": "n-2",
+      "text": "폐기물 신고",
+      "x": 512,
+      "y": 296,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-10",
+      "parentId": "n-1",
+      "text": "이사 당일",
+      "x": 292,
+      "y": 428,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-10",
+      "text": "열쇠 인수",
+      "x": 512,
+      "y": 384,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-13",
+      "parentId": "n-10",
+      "text": "청소",
+      "x": 512,
+      "y": 472,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-16",
+      "parentId": "n-1",
+      "text": "이사 후",
+      "x": 292,
+      "y": 648,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-17",
+      "parentId": "n-16",
+      "text": "전입 신고",
+      "x": 512,
+      "y": 560,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-19",
+      "parentId": "n-16",
+      "text": "주소 변경",
+      "x": 512,
+      "y": 648,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-21",
+      "parentId": "n-16",
+      "text": "인터넷 이전",
+      "x": 512,
+      "y": 736,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-8",
+      "from": "n-2",
+      "to": "n-7",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-9",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-12",
+      "from": "n-10",
+      "to": "n-11",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-14",
+      "from": "n-10",
+      "to": "n-13",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-15",
+      "from": "n-1",
+      "to": "n-10",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-18",
+      "from": "n-16",
+      "to": "n-17",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-20",
+      "from": "n-16",
+      "to": "n-19",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-22",
+      "from": "n-16",
+      "to": "n-21",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-23",
+      "from": "n-1",
+      "to": "n-16",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    }
+  ],
+  "lineTheme": "circuit"
+}

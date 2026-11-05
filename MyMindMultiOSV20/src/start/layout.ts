@@ -2,7 +2,8 @@
 export const COLS = 3
 export const ROW = 20
 export const GAP = 14
-export const LAYOUT_VERSION = 1
+// Raised when the default arrangement changes: an older saved one starts over once.
+export const LAYOUT_VERSION = 2
 
 export type Cell = { col: number; row: number; w: number; h: number; fit: boolean }
 export type Cards = Record<string, Cell>

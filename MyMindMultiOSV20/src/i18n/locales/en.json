@@ -30,7 +30,19 @@
     "view": "View",
     "help": "Help",
     "saveAs": "Save As",
-    "settings": "Settings"
+    "settings": "Settings",
+    "ruler": "Ruler",
+    "leftPanel": "Left Panel",
+    "rightPanel": "Right Panel",
+    "print": "Print",
+    "lineTheme": "Line Theme",
+    "diagramTheme": "Mind Map Theme",
+    "icons": "Icons",
+    "image": "Insert Image",
+    "fullscreen": "Full Screen",
+    "fontSmaller": "Smaller text",
+    "fontLarger": "Larger text",
+    "fit": "Fit All"
   },
   "layout": {
     "radial": "Radial",
@@ -89,11 +101,11 @@
     "dark": "Dark",
     "name": "Name",
     "mode": "Kind",
-    "custom": "My theme",
-    "mine": "My themes",
-    "add": "New from current theme",
+    "custom": "Custom theme",
+    "mine": "Custom Themes",
+    "add": "New custom theme",
     "delete": "Delete theme",
-    "hint": "Make your own theme to change its colours one by one.",
+    "hint": "Make a custom theme to change its colours one by one.",
     "deleteAsk": "Delete the theme {{name}}?"
   },
   "language": {
@@ -116,7 +128,10 @@
     "selectedCount": "{{count}} selected",
     "changeShape": "Change Shape",
     "changeColor": "Change Color",
-    "changeLine": "Change Line"
+    "changeLine": "Change Line",
+    "showRuler": "Show Ruler",
+    "hideRuler": "Hide Ruler",
+    "selectAll": "Select All"
   },
   "panel": {
     "navigator": "Navigator panel",
@@ -142,7 +157,16 @@
     "startCap": "Start Cap",
     "endCap": "End Cap",
     "lineColor": "Line Color",
-    "noSelection": "Select a shape to edit its properties."
+    "noSelection": "Select a shape to edit its properties.",
+    "showLeft": "Open the left panel",
+    "hideLeft": "Fold the left panel",
+    "showRight": "Open the right panel",
+    "hideRight": "Fold the right panel",
+    "resizeThemes": "Drag to resize the areas",
+    "imageWidth": "Image width",
+    "lineWidth": "Line width",
+    "manyShapes": "{{count}} shapes selected. The values below apply to all of them.",
+    "manyLines": "{{count}} lines selected. The values below apply to all of them."
   },
   "status": {
     "ready": "Ready",
@@ -175,13 +199,14 @@
     "ok": "OK",
     "openFailed": "Cannot open {{name}}.\n{{reason}}",
     "badFile": "{{name}} is not a MyMind diagram.",
-    "saveFailed": "Cannot save {{name}}.\n{{reason}}"
+    "saveFailed": "Cannot save {{name}}.\n{{reason}}",
+    "badImage": "Cannot show the image {{name}}."
   },
   "export": {
     "title": "Export Image",
     "format": "Format",
     "transparent": "Transparent background",
-    "jpegHint": "JPEG does not support transparency.",
+    "jpegHint": "This format has no transparent background.",
     "export": "Export",
     "cancel": "Cancel"
   },
@@ -225,7 +250,10 @@
     "mindmapLayout": "Mind map layout",
     "fishboneLayout": "Fishbone direction",
     "editor": "Editor",
-    "recentCount": "{{count}} recent files"
+    "recentCount": "{{count}} recent files",
+    "lineThemeHint": "A line theme sets the shape, pattern, ends and colour of the connectors at once. New diagrams start with the one chosen here.",
+    "lineThemeApply": "Apply to this diagram",
+    "memoHint": "The colour, size and font of new memos. Change an existing memo in the properties on the right."
   },
   "guide": {
     "title": "User Guide",
@@ -262,13 +290,15 @@
     "tipFishbone": "Analyse the causes of a problem",
     "tipOpen": "Open a .mmap file",
     "tipContinue": "Back to the current document",
-    "tipTheme": "Pick a theme or your own",
+    "tipTheme": "Pick a theme or a custom one",
     "tipLanguage": "Change the display language",
     "tipPreferences": "Open the program settings",
     "tipStart": "Set the background and cards",
     "tipGuide": "Read how to use it (F1)",
     "tipAbout": "Version and developer",
-    "tipExit": "Close the program"
+    "tipExit": "Close the program",
+    "tutorial": "Tutorial",
+    "tipTutorial": "Draw a mind map and a fishbone yourself"
   },
   "bg": {
     "mindBloom": "Blooming Mind Map",
@@ -295,5 +325,74 @@
     "cards3D": "3D Cards",
     "starfield3D": "3D Stars",
     "lattice3D": "3D Lattice"
+  },
+  "tutorial": {
+    "choose": "Choose a tutorial",
+    "stepCount": "{{count}} steps",
+    "close": "Close the tutorial",
+    "prev": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "doIt": "Do it for me",
+    "doItTip": "The program does this step for you",
+    "moveCard": "Drag to move"
+  },
+  "style": {
+    "bold": "Bold",
+    "italic": "Italic",
+    "underline": "Underline",
+    "strike": "Strikethrough"
+  },
+  "icons": {
+    "none": "No icon",
+    "hint": "Click to put an icon on the selected shape.",
+    "pickFirst": "Select a shape first."
+  },
+  "memo": {
+    "add": "Add Memo",
+    "remove": "Delete Memo",
+    "newText": "Memo",
+    "pickFirst": "Select a shape or a line for the memo first.",
+    "color": "Memo colour",
+    "textColor": "Text colour",
+    "width": "Width",
+    "height": "Height",
+    "showAll": "Show Memos",
+    "hideAll": "Hide Memos",
+    "lineColor": "Line colour",
+    "lineWidth": "Line width",
+    "linePattern": "Line style",
+    "lineNone": "None"
+  },
+  "print": {
+    "title": "Print",
+    "page": "Page",
+    "paper": "Paper",
+    "orientation": "Orientation",
+    "auto": "Automatic",
+    "portrait": "Portrait",
+    "landscape": "Landscape",
+    "pagesWide": "Pages across",
+    "pagesTall": "Pages down",
+    "centerH": "Centre across",
+    "centerV": "Centre down",
+    "margins": "Margins",
+    "margin": {
+      "top": "Top",
+      "bottom": "Bottom",
+      "left": "Left",
+      "right": "Right"
+    },
+    "headings": "Header and footer",
+    "header": "Header",
+    "footer": "Footer",
+    "headingSize": "Text size",
+    "side": {
+      "left": "Left",
+      "center": "Centre",
+      "right": "Right"
+    },
+    "tokens": "You can use: {title} document name, {date} date, {time} time, {page} page number, {pages} number of pages",
+    "sheets": "{{count}} pages"
   }
 }

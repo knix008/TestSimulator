@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import appIcon from '../../assets/icons/128x128.png'
 import { host, type SampleItem, type SamplesList } from '../host'
 import { OPACITY_MAX, OPACITY_MIN, OPACITY_STEP, SHUFFLE_SECONDS, SPEED_MAX, SPEED_MIN, SPEED_STEP, START_CARDS, effectiveSpeed, type StartSettings } from '../settings'
-import { BACKGROUND_KINDS, drawBackground, themePalette } from '../start/backgrounds'
+import { BACKGROUND_KINDS, chipPalette, drawBackground, themePalette } from '../start/backgrounds'
 import { COLS, GAP, ROW, autoArrange, cardsOf, compact, layoutKey, layoutValue, place, rowsFor, type Cards, type Cell } from '../start/layout'
 import { THEMES, themeById, type CustomTheme, type Theme } from '../themes'
 import type { DiagramMode, Locale } from '../types'
@@ -13,7 +13,8 @@ import { GripDots, RangeStepper } from './controls'
 import { Flag, Icon } from './Icons'
 
 const FRAME_MS = 1000 / 30
-const DEFAULT_SPAN: Record<string, number> = { hero: 3, actions: 2, recent: 1, samples: 1, theme: 2, background: 3 }
+// From the top: what to do, then what to start from, and how it all looks last.
+const DEFAULT_SPAN: Record<string, number> = { hero: 3, actions: 2, recent: 1, samples: 3, theme: 3, background: 3 }
 
 function useReducedMotion() {
   const query = '(prefers-reduced-motion: reduce)'
@@ -66,9 +67,9 @@ function BackgroundChip({ kind, themeId }: { kind: string; themeId: string }) {
   useEffect(() => {
     const element = canvas.current
     const ctx = element?.getContext('2d')
-    if (element && ctx) drawBackground(kind, ctx, element.width, element.height, 12.5, themePalette())
+    if (element && ctx) drawBackground(kind, ctx, element.width, element.height, 12.5, chipPalette(kind, themePalette()))
   }, [kind, themeId])
-  return <canvas className="bg-chip" ref={canvas} width={44} height={30} aria-hidden="true" />
+  return <canvas className="bg-chip" ref={canvas} width={56} height={40} aria-hidden="true" />
 }
 
 export function BackgroundGrid({ value, themeId, onChange, shuffle }: { value: string; themeId: string; onChange: (kind: string) => void; shuffle?: { on: boolean; onToggle: () => void } }) {
@@ -122,6 +123,7 @@ export type StartScreenProps = {
   onStart: (patch: Partial<StartSettings>) => void
   onNew: (mode: DiagramMode) => void
   onOpen: () => void
+  onTutorial: () => void
   onContinue: () => void
   onOpenRecent: (file: string) => void
   onOpenSample: (sample: SampleItem, dir: string) => void
@@ -135,7 +137,7 @@ export type StartScreenProps = {
   onExit: () => void
 }
 
-export function StartScreen({ language, themeId, customThemes, start, recent, onStart, onNew, onOpen, onContinue, onOpenRecent, onOpenSample, onRemoveRecent, onClearRecent, onTheme, onPreferences, onLanguage, onGuide, onAbout, onExit }: StartScreenProps) {
+export function StartScreen({ language, themeId, customThemes, start, recent, onStart, onNew, onOpen, onTutorial, onContinue, onOpenRecent, onOpenSample, onRemoveRecent, onClearRecent, onTheme, onPreferences, onLanguage, onGuide, onAbout, onExit }: StartScreenProps) {
   const { t } = useTranslation()
   const en = language === 'en'
   const reduced = useReducedMotion()
@@ -380,6 +382,7 @@ export function StartScreen({ language, themeId, customThemes, start, recent, on
     { id: 'new-mindmap', icon: 'mind', label: t('start.newMindmap'), tip: t('start.tipMindmap'), run: () => onNew('mindmap') },
     { id: 'new-fishbone', icon: 'fish', label: t('start.newFishbone'), tip: t('start.tipFishbone'), run: () => onNew('fishbone') },
     { id: 'open', icon: 'open', label: t('toolbar.open'), tip: t('start.tipOpen'), run: onOpen },
+    { id: 'tutorial', icon: 'tutorial', label: t('start.tutorial'), tip: t('start.tipTutorial'), run: onTutorial },
     { id: 'continue', icon: 'design', label: t('start.continue'), tip: t('start.tipContinue'), run: onContinue },
     { id: 'theme', icon: 'theme', label: t('start.themeSettings'), tip: t('start.tipTheme'), run: () => onPreferences('theme') },
     { id: 'language', icon: 'language', flag: en ? 'kr' : 'gb', label: en ? '한국어' : 'English', tip: t('start.tipLanguage'), run: onLanguage },
@@ -409,6 +412,7 @@ export function StartScreen({ language, themeId, customThemes, start, recent, on
           <button type="button" className="start-btn primary" data-start="hero-mindmap" onClick={() => onNew('mindmap')}><Icon name="mind" /><span>{t('start.newMindmap')}</span></button>
           <button type="button" className="start-btn" data-start="hero-fishbone" onClick={() => onNew('fishbone')}><Icon name="fish" /><span>{t('start.newFishbone')}</span></button>
           <button type="button" className="start-btn" data-start="hero-open" onClick={onOpen}><Icon name="open" /><span>{t('toolbar.open')}</span></button>
+          <button type="button" className="start-btn" data-start="hero-tutorial" title={t('start.tipTutorial')} onClick={onTutorial}><Icon name="tutorial" /><span>{t('start.tutorial')}</span></button>
         </div>
       </>
     ), null, true),
@@ -442,15 +446,26 @@ export function StartScreen({ language, themeId, customThemes, start, recent, on
     ), recent.length ? <button type="button" className="start-btn small" data-start="clear-recent" onClick={onClearRecent}><Icon name="delete" size={14} /><span>{t('start.clearRecent')}</span></button> : null),
 
     samples: card('samples', 'samples', t('start.samples'), (
-      <div className="sample-tiles">
+      <div className="sample-groups">
         {samples.items.length === 0 && <div className="start-empty"><Icon name="about" size={14} /><span>{t('start.noSamples')}</span></div>}
-        {samples.items.map((sample) => (
-          <button type="button" key={sample.id} className="start-tile" data-sample={sample.id} title={sample[language]?.[1]} onClick={() => onOpenSample(sample, samples.dir)}>
-            <Icon name={sample.mode === 'fishbone' ? 'fish' : 'mind'} size={20} />
-            <b>{sample[language]?.[0] ?? sample.id}</b>
-            <small>{sample[language]?.[1]}</small>
-          </button>
-        ))}
+        {(['mindmap', 'fishbone'] as const).map((mode) => {
+          const items = samples.items.filter((sample) => sample.mode === mode)
+          if (!items.length) return null
+          return (
+            <section key={mode} className="st-theme-group" data-sample-group={mode}>
+              <h3><Icon name={mode === 'fishbone' ? 'fish' : 'mind'} size={14} /><span>{t(`toolbar.${mode}`)}</span><span className="sample-count">{items.length}</span></h3>
+              <div className="sample-tiles">
+                {items.map((sample) => (
+                  <button type="button" key={sample.id} className="start-tile" data-sample={sample.id} title={sample[language]?.[1]} onClick={() => onOpenSample(sample, samples.dir)}>
+                    <Icon name={mode === 'fishbone' ? 'fish' : 'mind'} size={20} />
+                    <b>{sample[language]?.[0] ?? sample.id}</b>
+                    <small>{sample[language]?.[1]}</small>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )
+        })}
       </div>
     )),
 

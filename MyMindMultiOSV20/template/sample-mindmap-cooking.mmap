@@ -1,0 +1,453 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "radial",
+  "defaultShape": "note",
+  "defaultLine": "curve",
+  "defaultLinePattern": "dotted",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "일주일 식단",
+      "x": 630,
+      "y": 428,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "아침",
+      "x": 748,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "토스트",
+      "x": 754,
+      "y": 48,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "오트밀",
+      "x": 954,
+      "y": 193,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-8",
+      "parentId": "n-1",
+      "text": "점심",
+      "x": 820,
+      "y": 490,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-9",
+      "parentId": "n-8",
+      "text": "비빔밥",
+      "x": 1030,
+      "y": 428,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-8",
+      "text": "샐러드",
+      "x": 954,
+      "y": 663,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-14",
+      "parentId": "n-1",
+      "text": "저녁",
+      "x": 568,
+      "y": 618,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-15",
+      "parentId": "n-14",
+      "text": "찌개",
+      "x": 754,
+      "y": 808,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-17",
+      "parentId": "n-14",
+      "text": "파스타",
+      "x": 506,
+      "y": 808,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-19",
+      "parentId": "n-14",
+      "text": "구이",
+      "x": 306,
+      "y": 663,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-22",
+      "parentId": "n-1",
+      "text": "장보기",
+      "x": 468,
+      "y": 310,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-23",
+      "parentId": "n-22",
+      "text": "채소",
+      "x": 230,
+      "y": 428,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-25",
+      "parentId": "n-22",
+      "text": "고기",
+      "x": 306,
+      "y": 193,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-27",
+      "parentId": "n-22",
+      "text": "과일",
+      "x": 506,
+      "y": 48,
+      "width": 140,
+      "height": 44,
+      "shape": "note",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-7",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-10",
+      "from": "n-8",
+      "to": "n-9",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-12",
+      "from": "n-8",
+      "to": "n-11",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-13",
+      "from": "n-1",
+      "to": "n-8",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-16",
+      "from": "n-14",
+      "to": "n-15",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-18",
+      "from": "n-14",
+      "to": "n-17",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-20",
+      "from": "n-14",
+      "to": "n-19",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-21",
+      "from": "n-1",
+      "to": "n-14",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-24",
+      "from": "n-22",
+      "to": "n-23",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-26",
+      "from": "n-22",
+      "to": "n-25",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-28",
+      "from": "n-22",
+      "to": "n-27",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-29",
+      "from": "n-1",
+      "to": "n-22",
+      "lineType": "curve",
+      "linePattern": "dotted",
+      "color": "#78716c",
+      "startCap": "none",
+      "endCap": "none"
+    }
+  ],
+  "lineTheme": "pencil"
+}

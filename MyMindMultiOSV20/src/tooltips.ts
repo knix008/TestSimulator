@@ -1,9 +1,11 @@
-// Every button has a tooltip. A button that does not set its own title shows its name; the
-// symbols that have no words of their own are spelled out here.
+// Every button has a tooltip, which appears at once: the system's own waits too long for a toolbar
+// of icons. A button that sets no title shows its name; symbols are spelled out here.
 let translate: (key: string) => string = (key) => key
 
 const SYMBOLS: Record<string, string> = { '-': 'tip.decrease', '−': 'tip.decrease', '+': 'tip.increase', '×': 'tip.close', resize: 'tip.resize' }
-const SELECTOR = 'button, [role=button]'
+const SELECTOR = 'button, [role=button], [title]'
+const DELAY_MS = 100
+const TIP_ATTRIBUTE = 'data-tip'
 
 export function setTipTranslator(t: (key: string) => string) {
   translate = t
@@ -17,21 +19,61 @@ export function tipFor(element: Element): string {
   return SYMBOLS[text] ? translate(SYMBOLS[text]) : text
 }
 
-/** The title is set when the pointer arrives, so it always speaks the current language. */
-export function refreshTip(element: HTMLElement) {
-  if (element.hasAttribute('title') && !element.hasAttribute('data-auto-tip')) return
-  element.setAttribute('data-auto-tip', '')
-  element.title = tipFor(element)
+/** The title moves aside, or the system would show its own tooltip as well. */
+function textOf(element: Element): string {
+  const title = element.getAttribute('title')
+  if (title !== null) {
+    element.removeAttribute('title')
+    if (title) element.setAttribute(TIP_ATTRIBUTE, title)
+  }
+  return element.getAttribute(TIP_ATTRIBUTE) || tipFor(element)
 }
 
 export function installTooltips(doc: Document = document) {
-  doc.addEventListener(
-    'pointerover',
-    (event) => {
-      // Not instanceof: an element of a dialog's window belongs to that window's Element.
-      const element = (event.target as Element | null)?.closest?.(SELECTOR) as HTMLElement | null | undefined
-      if (element) refreshTip(element)
-    },
-    true,
-  )
+  let tip: HTMLElement | null = null
+  let timer = 0
+  let current: Element | null = null
+  const view = doc.defaultView ?? window
+
+  const hide = () => {
+    view.clearTimeout(timer)
+    tip?.remove()
+    tip = null
+  }
+
+  const show = (element: Element, text: string) => {
+    hide()
+    tip = doc.createElement('div')
+    tip.className = 'fast-tip'
+    tip.setAttribute('role', 'tooltip')
+    tip.textContent = text
+    doc.body.append(tip)
+    const box = element.getBoundingClientRect()
+    const size = tip.getBoundingClientRect()
+    const below = box.bottom + 6 + size.height <= view.innerHeight
+    tip.style.left = `${Math.max(4, Math.min(box.left + box.width / 2 - size.width / 2, view.innerWidth - size.width - 4))}px`
+    tip.style.top = `${below ? box.bottom + 6 : box.top - size.height - 6}px`
+  }
+
+  // Not pointerover: the browser sends no events to a disabled button, which must explain itself too.
+  const follow = (event: MouseEvent) => {
+    const under = doc.elementFromPoint(event.clientX, event.clientY)
+    // Not instanceof: an element of a dialog's window belongs to that window's Element.
+    const element = under?.closest?.(SELECTOR) ?? null
+    if (element === current) return
+    current = element
+    hide()
+    if (!element) return
+    const text = textOf(element)
+    if (text) timer = view.setTimeout(() => show(element, text), DELAY_MS)
+  }
+
+  doc.addEventListener('mousemove', follow, true)
+  doc.addEventListener('mouseleave', () => {
+    current = null
+    hide()
+  })
+  doc.addEventListener('mousedown', hide, true)
+  doc.addEventListener('wheel', hide, { capture: true, passive: true })
+  doc.addEventListener('keydown', hide, true)
 }

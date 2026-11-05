@@ -1,0 +1,303 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "ttb",
+  "defaultShape": "rect",
+  "defaultLine": "elbow",
+  "defaultLinePattern": "solid",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "대표이사",
+      "x": 630,
+      "y": 80,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "개발본부",
+      "x": 206,
+      "y": 168,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "플랫폼팀",
+      "x": 100,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "앱팀",
+      "x": 312,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-8",
+      "parentId": "n-1",
+      "text": "사업본부",
+      "x": 630,
+      "y": 168,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-9",
+      "parentId": "n-8",
+      "text": "영업팀",
+      "x": 524,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-8",
+      "text": "마케팅팀",
+      "x": 736,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-14",
+      "parentId": "n-1",
+      "text": "경영지원",
+      "x": 1054,
+      "y": 168,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-15",
+      "parentId": "n-14",
+      "text": "인사팀",
+      "x": 948,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-17",
+      "parentId": "n-14",
+      "text": "재무팀",
+      "x": 1160,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-7",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-10",
+      "from": "n-8",
+      "to": "n-9",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-12",
+      "from": "n-8",
+      "to": "n-11",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-13",
+      "from": "n-1",
+      "to": "n-8",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-16",
+      "from": "n-14",
+      "to": "n-15",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-18",
+      "from": "n-14",
+      "to": "n-17",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-19",
+      "from": "n-1",
+      "to": "n-14",
+      "lineType": "elbow",
+      "linePattern": "solid",
+      "color": "#0ea5e9",
+      "startCap": "none",
+      "endCap": "none"
+    }
+  ],
+  "lineTheme": "circuit"
+}

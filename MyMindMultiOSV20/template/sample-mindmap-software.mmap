@@ -1,0 +1,393 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "ltr",
+  "defaultShape": "parallelogram",
+  "defaultLine": "straight",
+  "defaultLinePattern": "dashdot",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "웹 서비스",
+      "x": 80,
+      "y": 428,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "프런트엔드",
+      "x": 292,
+      "y": 164,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "화면",
+      "x": 512,
+      "y": 120,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "상태 관리",
+      "x": 512,
+      "y": 208,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-8",
+      "parentId": "n-1",
+      "text": "백엔드",
+      "x": 292,
+      "y": 340,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-9",
+      "parentId": "n-8",
+      "text": "API",
+      "x": 512,
+      "y": 296,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-8",
+      "text": "인증",
+      "x": 512,
+      "y": 384,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-14",
+      "parentId": "n-1",
+      "text": "데이터",
+      "x": 292,
+      "y": 516,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-15",
+      "parentId": "n-14",
+      "text": "데이터베이스",
+      "x": 512,
+      "y": 472,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-17",
+      "parentId": "n-14",
+      "text": "캐시",
+      "x": 512,
+      "y": 560,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-20",
+      "parentId": "n-1",
+      "text": "운영",
+      "x": 292,
+      "y": 692,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-21",
+      "parentId": "n-20",
+      "text": "배포",
+      "x": 512,
+      "y": 648,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-23",
+      "parentId": "n-20",
+      "text": "모니터링",
+      "x": 512,
+      "y": 736,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-7",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-10",
+      "from": "n-8",
+      "to": "n-9",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-12",
+      "from": "n-8",
+      "to": "n-11",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-13",
+      "from": "n-1",
+      "to": "n-8",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-16",
+      "from": "n-14",
+      "to": "n-15",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-18",
+      "from": "n-14",
+      "to": "n-17",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-19",
+      "from": "n-1",
+      "to": "n-14",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-22",
+      "from": "n-20",
+      "to": "n-21",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-24",
+      "from": "n-20",
+      "to": "n-23",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-25",
+      "from": "n-1",
+      "to": "n-20",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    }
+  ],
+  "lineTheme": "technical"
+}

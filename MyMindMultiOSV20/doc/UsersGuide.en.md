@@ -18,12 +18,12 @@ MyMind is an editor for **mind maps** and **fishbone (Ishikawa)** diagrams, runn
 |------|-------------|
 | **Start screen** | Cards over a moving background: shortcuts, recent files, samples, themes, backgrounds. The **Start** button in the top row opens it at any time |
 | **Top row** | Name and version, **Start**, **File▾ Edit▾ View▾ Help▾**, document name, window buttons |
-| **Toolbar** | New·Open·Save·Export, Undo/Redo, Mind map/Fishbone, Layout▾, Center·Auto Align·Grid, Theme▾·language·Settings·About. In a narrow window only the icons remain |
-| **Left panel** | Node list as a **tree view** with parent/child connector lines |
+| **Toolbar** | Icons only, explained at once by a tooltip when the pointer rests on them. Files, undo, mode and layout, font and size (−/+), icons, memos and images, mind map and line themes, view (grid, rulers, panels, full screen), theme, language, settings, about |
+| **Left panel** | Above: node list as a **tree view** with parent/child connector lines. Below: the **mind map theme** gallery. Drag the divider between them to resize |
 | **Right panel** | Text·memo, shape·color, font·font size·text color·style, line shape/pattern/caps/color, connection point |
 | **Canvas** | Diagram editing (grid, pan, zoom) |
 | **Status bar** | Mode, layout, node count, zoom, grid, save status, resize dots |
-| **Context menu** | Undo/redo, add/edit, duplicate/copy/paste, file and view actions, delete |
+| **Context menu** | Undo/redo, add/edit, duplicate/copy/paste, file (Save, Print, Export) and view actions, Select All, delete |
 
 Dialogs and the settings window are windows of their own, which can be moved outside the program. The guide window can stay open while you work.
 
@@ -34,8 +34,9 @@ Dialogs and the settings window are windows of their own, which can be moved out
 - **New Mind Map / New Fishbone** (Ctrl+N uses the default mode from the settings): asks first about unsaved work
 - **Open** (Ctrl+O): open `.mmap` (legacy `.mymind` too); the view fits the whole diagram
 - **Save** (Ctrl+S), **Save As** (Ctrl+Shift+S): save as `.mmap` (the web version downloads)
-- **Export**: save an image as **PNG / JPEG / WebP / SVG**, optionally with a **transparent background** (not JPEG), cropped to the **smallest size holding every shape**
-- **Samples**: open from the Samples card on the start screen. They open as new unnamed documents, so the originals never change
+- **Print** (Ctrl+P): the button right of Save in the toolbar, the File menu or the right-click menu. In a window of its own, choose the paper, orientation, margins, header and footer, page numbers and how many sheets to spread over, check the preview, then go on to the system's print window
+- **Export**: save an image as **PNG, JPEG, WebP, AVIF, GIF, SVG, BMP, TIFF, TGA, ICO, PPM, QOI, Farbfeld, EXR or HDR**, optionally with a **transparent background** (where the format has one), cropped to the **smallest size holding every shape**
+- **Samples**: open the 20 mind map and 20 fishbone samples from the Samples card on the start screen. They open as new unnamed documents, so the originals never change
 
 ### 4.2 Mode
 
@@ -47,9 +48,13 @@ The **Mind map / Fishbone** buttons in the toolbar redraw the current document i
 |--------|-----|
 | Select | Click a node (or a row in the left tree — it highlights on canvas) |
 | Select many | **Marquee drag** or **Shift-click** |
+| Select all | **Ctrl+A** or the right-click menu |
+| Change many at once | Select several shapes or lines, then change a property: all of them take it. **Shift-click** adds a line |
+| Memo | Select a shape or a line, then **Memo** in the toolbar or the right-click menu. Change its colour, size, font and connecting line in the properties, and drag it to move it. With several selected, the look of all their memos changes at once |
+| Icon | Select a shape, then pick from the **Icons** tab at the bottom left, or the toolbar |
+| Image | **Insert Image** in the toolbar, or drop a file on the window. PNG, JPEG, GIF, WebP, BMP, SVG, AVIF, ICO, TIFF, TGA, DDS, HDR, EXR, PNM, QOI, Farbfeld, PSD |
 | Move | Drag (moves the whole selection) |
 | Edit text | Double-click or context menu |
-| Memo | Type in the **Memo** field of the right panel (✎ badge + tooltip) |
 | Add child / sibling | Context menu |
 | Duplicate / Copy / Paste | Context menu (node + subtree) |
 | Delete | **Delete/Backspace** or context menu (root/effect can't be deleted) |
@@ -73,9 +78,12 @@ Lines attach at the **midpoint of each node face**.
 
 | Button | Action |
 |--------|--------|
-| **Center View** | Zoom/position so the whole diagram fits |
+| **Fit All** | Zoom and move so the whole diagram fits |
+| **Center View** | Move the diagram to the middle, at the current zoom |
 | **Auto Align** | Re-layout with the current rule, then fit |
-| **Grid** | Toggle the grid. **When the grid is on, left-drag on empty canvas pans the background** |
+| **Ruler** | Toggle the rulers along the canvas's top and left. They show diagram coordinates and the pointer's place as red dashed lines |
+| **Left Panel / Right Panel** | Fold or open a panel. The arrow in a panel's title and the folded strip do the same |
+| **Grid** | Toggle the grid. It is redrawn as you zoom, and its spacing changes by a factor of five when cells get too small or too large. **When the grid is on, left-drag on empty canvas pans the background** |
 
 ### 4.7 Canvas
 
@@ -86,11 +94,15 @@ Lines attach at the **midpoint of each node face**.
 ### 4.8 Theme, language, settings
 
 - **Themes**: 20 light and 20 dark. Pick one from **Theme▾** in the toolbar, the Theme card on the start screen, or the settings window
-- **My themes**: in Settings → Theme, copy the current theme and change its colours one by one
+- **Custom themes**: with the button at the top of the **Theme▾** menu, or in Settings → Theme, copy the current theme and change its colours one by one
+- **Mind map themes**: the gallery at the bottom of the left panel, or **Mind Map Theme▾** in the toolbar, dresses the whole diagram: node colours and shapes, text and connectors, in 16 themes. The canvas keeps the program theme's colours. Drag the divider under the node list to resize the two areas
+- **Line themes**: **Line Theme▾** in the toolbar changes the shape, pattern, ends and colour of every connector at once. Lines added later follow it
 - **Language**: Korean ↔ English, applied at once
 - **Settings window**:
-  - **General**: language, showing the start screen, reopening the last file, a new diagram's mode, layout, shape and line, the grid, clearing recent files
-  - **Theme**: the 40 themes and the editor for your own
+  - **General**: language, showing the start screen, reopening the last file, a new diagram's mode, layout, shape and line theme, the grid, clearing recent files
+  - **Theme**: the 40 themes and the custom theme editor
+  - **Line Theme**: the one for new diagrams, and applying it to the current diagram
+  - **Memo**: the colour, size and font of new memos, and whether memos show
   - **Start**: the background (24 kinds), its speed, card opacity, putting the cards back
 - Move a start screen card by the handle at its top left; resize it by the dots at its bottom right
 - All settings are saved and last to the next start
@@ -98,6 +110,14 @@ Lines attach at the **midpoint of each node face**.
 ### 4.9 Unsaved work
 
 With unsaved work, closing the window or opening another document asks **Save / Don't Save / Cancel**.
+
+### 4.10 Tutorials
+
+The **Tutorial** button on the start screen (or the Help menu) offers **Mind map: a trip plan** and **Fishbone: why we are late**. Either opens a new document with a guide card.
+
+- Follow along with the real program. When a step is done the card notices and **Next** lights up
+- **Do it for me** has the program do the step
+- Drag the card by its header to move it
 
 ## 5. Fishbone tips
 

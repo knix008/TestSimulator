@@ -1,0 +1,393 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "radial",
+  "defaultShape": "parallelogram",
+  "defaultLine": "straight",
+  "defaultLinePattern": "dashdot",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "경력 개발",
+      "x": 630,
+      "y": 428,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "기술",
+      "x": 771,
+      "y": 287,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "자격증",
+      "x": 783,
+      "y": 58,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "온라인 강의",
+      "x": 1000,
+      "y": 275,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-8",
+      "parentId": "n-1",
+      "text": "경험",
+      "x": 771,
+      "y": 569,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-9",
+      "parentId": "n-8",
+      "text": "사이드 프로젝트",
+      "x": 1000,
+      "y": 581,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-8",
+      "text": "발표",
+      "x": 783,
+      "y": 798,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-14",
+      "parentId": "n-1",
+      "text": "인맥",
+      "x": 489,
+      "y": 569,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-15",
+      "parentId": "n-14",
+      "text": "커뮤니티",
+      "x": 477,
+      "y": 798,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-17",
+      "parentId": "n-14",
+      "text": "멘토",
+      "x": 260,
+      "y": 581,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-20",
+      "parentId": "n-1",
+      "text": "목표",
+      "x": 489,
+      "y": 287,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-21",
+      "parentId": "n-20",
+      "text": "승진",
+      "x": 260,
+      "y": 275,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-23",
+      "parentId": "n-20",
+      "text": "이직",
+      "x": 477,
+      "y": 58,
+      "width": 140,
+      "height": 44,
+      "shape": "parallelogram",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-7",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-10",
+      "from": "n-8",
+      "to": "n-9",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-12",
+      "from": "n-8",
+      "to": "n-11",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-13",
+      "from": "n-1",
+      "to": "n-8",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-16",
+      "from": "n-14",
+      "to": "n-15",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-18",
+      "from": "n-14",
+      "to": "n-17",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-19",
+      "from": "n-1",
+      "to": "n-14",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-22",
+      "from": "n-20",
+      "to": "n-21",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-24",
+      "from": "n-20",
+      "to": "n-23",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    },
+    {
+      "id": "e-25",
+      "from": "n-1",
+      "to": "n-20",
+      "lineType": "straight",
+      "linePattern": "dashdot",
+      "color": "#0f766e",
+      "startCap": "none",
+      "endCap": "diamond"
+    }
+  ],
+  "lineTheme": "technical"
+}

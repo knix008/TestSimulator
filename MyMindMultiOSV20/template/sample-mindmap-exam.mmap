@@ -1,0 +1,393 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "ttb",
+  "defaultShape": "rect",
+  "defaultLine": "elbow",
+  "defaultLinePattern": "dashed",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "기말 시험",
+      "x": 630,
+      "y": 80,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "국어",
+      "x": -6,
+      "y": 168,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "문학",
+      "x": -112,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "문법",
+      "x": 100,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-8",
+      "parentId": "n-1",
+      "text": "수학",
+      "x": 418,
+      "y": 168,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-9",
+      "parentId": "n-8",
+      "text": "미적분",
+      "x": 312,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-8",
+      "text": "확률",
+      "x": 524,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-14",
+      "parentId": "n-1",
+      "text": "영어",
+      "x": 842,
+      "y": 168,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-15",
+      "parentId": "n-14",
+      "text": "독해",
+      "x": 736,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-17",
+      "parentId": "n-14",
+      "text": "단어",
+      "x": 948,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-20",
+      "parentId": "n-1",
+      "text": "과학",
+      "x": 1266,
+      "y": 168,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-21",
+      "parentId": "n-20",
+      "text": "물리",
+      "x": 1160,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-23",
+      "parentId": "n-20",
+      "text": "화학",
+      "x": 1372,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-7",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-10",
+      "from": "n-8",
+      "to": "n-9",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-12",
+      "from": "n-8",
+      "to": "n-11",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-13",
+      "from": "n-1",
+      "to": "n-8",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-16",
+      "from": "n-14",
+      "to": "n-15",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-18",
+      "from": "n-14",
+      "to": "n-17",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-19",
+      "from": "n-1",
+      "to": "n-14",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-22",
+      "from": "n-20",
+      "to": "n-21",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-24",
+      "from": "n-20",
+      "to": "n-23",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-25",
+      "from": "n-1",
+      "to": "n-20",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    }
+  ],
+  "lineTheme": "blueprint"
+}

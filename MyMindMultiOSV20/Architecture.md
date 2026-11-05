@@ -60,6 +60,12 @@ MyMindMultiOSV20/
 │   ├── host.ts            # Every call to Tauri
 │   ├── popout.ts          # Dialog windows: mirrors styles into them, sizes them
 │   ├── settings.ts        # What is stored, limits, validation (pure)
+│   ├── diagramThemes.ts   # Mind map themes (pure)
+│   ├── nodeIcons.ts       # Icons a shape can carry (pure)
+│   ├── memo.ts            # Memo defaults, validation, text wrapping (pure)
+│   ├── lineThemes.ts      # Line themes (pure)
+│   ├── tutorials.ts       # Tutorial steps (pure)
+│   ├── canvasGrid.ts      # Grid and ruler lines (pure)
 │   ├── themes.ts          # 40 themes, user themes, readability rules (pure except applyTheme)
 │   ├── minsize.ts         # Toolbar form (labels or icons) and the window's minimum width
 │   ├── markdown.ts        # Enough Markdown for the guide; builds data, never HTML
@@ -124,7 +130,7 @@ Only `host.ts` knows Tauri. `isDesktop` decides between the host and the browser
 | `dialogs` | `Dialog` (window or inline), Unsaved, Confirm, Message, Input, Export, About |
 | `controls` | `IconSelect`, `Stepper`, `RangeStepper`, `ColorField`, `Toggle`, `GripDots` |
 | `ToolbarMenu` / `ToolbarDropdown` | Action and value drop-downs in a portal |
-| `SidePanels` | Left: node list as a tree. Right: node and edge properties |
+| `SidePanels` | Left: node list as a tree. Right: node and edge properties. Each has a title row and folds to a strip (`--left`, `--right` on the workspace) |
 | `LinePreview` / `ShapePreview` | Small SVG previews |
 | `DiagramCanvas` | SVG rendering, pan, wheel zoom, node drag, edge select, marquee, grid, view fit |
 | `ContextMenu` | Right-click actions |
@@ -196,6 +202,12 @@ Layout runs on new document, mode switch, layout change, and Auto Align — re-f
 - **Themes**: `themes.ts` builds 40 themes (and the user's) from ten colours into CSS variables on `:root[data-theme]`. `global.css` derives the names the panels use (`--text`, `--border`, `--bg-canvas`). Readability is enforced when a theme is built: text is settled against the panel, other surfaces move toward the panel, and `npm test` checks the contrast of all 40.
 - The variables an exported SVG takes (`--spine`, `--node-stroke`, `--grid-line`, ...) are plain colours, not `color-mix()`: an SVG must stand alone.
 - **Backgrounds**: `start/backgrounds.ts` draws each as a pure function of time, in the theme's colours. The picker's chips are the same drawing at a small size. The clock lives outside React.
+- **Grid and rulers**: `canvasGrid.ts` computes the lines for both, so ruler ticks sit on grid lines. They are drawn in screen pixels from the current pan and zoom (one crisp pixel wide), and a cell keeps 10 to 50 pixels by changing level by a factor of five. The grid has no `transform`: the export takes the first transformed group as the diagram, and removes `.canvas-grid`.
+- **Mind map themes**: `diagramThemes.ts`, a diagram's dress: node colours by branch, shapes, text and a line theme. `applyDiagramTheme` stores `diagramTheme` in the file, and new shapes follow. The canvas always takes the program theme's colours.
+- **Line themes**: `lineThemes.ts`, separate from the colour themes. `applyLineTheme` styles every edge (colours by branch) and is stored in the file as `lineTheme`, so new edges follow it. Individual edges can still be changed afterwards.
+- **Tutorials**: `tutorials.ts` is pure: each step has `done(doc)` and `apply(doc)`, and `npm test` walks every step in both languages. The card only reads the document.
+- **Printing**: `PrintDialog` is a window of its own with the page setup (`pageSetup.ts`, pure) and a preview. `utils/print.ts` draws the sheets as HTML with their margins and headings on the sheet itself (`@page { margin: 0 }`), the same for the preview and for paper, and spreads a diagram over several sheets by viewBox. The main window prints them with the system's dialog: on Windows `ICoreWebView2_16::ShowPrintUI` with the system kind, as WebView2's default opens inside the window.
+- **Export**: the page encodes PNG, JPEG, WebP and SVG; `write_converted` in `main.rs` encodes the rest (AVIF, GIF, BMP, TIFF, TGA, ICO, PPM, QOI, Farbfeld, EXR, HDR) from a PNG.
 - **Card board**: `start/layout.ts` keeps cards on three columns and 20 px rows without overlaps; a card fits its content until resized by hand.
 
 ## 11. Packaging and installer

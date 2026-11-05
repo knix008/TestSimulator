@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { LINE_THEMES, type LineTheme } from '../lineThemes'
 import type { EndCap, LinePattern, LineType } from '../types'
 
 const W = 34
@@ -40,9 +41,9 @@ export function LinePreview({
 }) {
   let body: ReactNode
   if (lineType === 'curve') {
-    body = <path d={`M 3 ${MID} C 11 2, 23 ${H - 2}, 31 ${MID}`} fill="none" stroke="currentColor" strokeWidth={2} />
+    body = <path d={`M 3 ${MID} C 11 2, 23 ${H - 2}, 31 ${MID}`} fill="none" stroke="currentColor" strokeWidth={2} strokeDasharray={dash(pattern)} />
   } else if (lineType === 'elbow') {
-    body = <path d={`M 3 4 H 17 V ${H - 4} H 31`} fill="none" stroke="currentColor" strokeWidth={2} />
+    body = <path d={`M 3 4 H 17 V ${H - 4} H 31`} fill="none" stroke="currentColor" strokeWidth={2} strokeDasharray={dash(pattern)} />
   } else if (lineType === 'root') {
     body = <path d={`M 3 4 C 14 4, 20 ${MID}, 31 ${MID} C 20 ${MID}, 14 ${H - 4}, 3 ${H - 4} Z`} fill="currentColor" />
   } else {
@@ -67,3 +68,15 @@ export function LinePreview({
     </svg>
   )
 }
+
+/** A line theme in small: its shape, pattern, caps and first colours. */
+export function LineThemePreview({ theme }: { theme: LineTheme }) {
+  return (
+    <span className="line-theme-preview" style={{ color: theme.palette[0] }}>
+      <LinePreview lineType={theme.lineType} pattern={theme.linePattern} startCap={theme.startCap} endCap={theme.endCap} />
+    </span>
+  )
+}
+
+export const lineThemeOptions = (language: 'ko' | 'en') =>
+  LINE_THEMES.map((theme) => ({ value: theme.id, label: theme[language], icon: <LineThemePreview theme={theme} /> }))

@@ -2,7 +2,11 @@
 // settings.json can be made valid here and the rules can be tested without the UI.
 import { BACKGROUND_KINDS, isBackgroundKind } from './start/backgrounds'
 import { CUSTOM_THEME_PREFIX, DEFAULT_THEME_ID, THEME_COLOR_KEYS, isThemeId, themeById, themeColors, type CustomTheme, type ThemeColors } from './themes'
-import type { DiagramMode, LayoutDirection, LinePattern, LineType, Locale, ShapeType } from './types'
+import { DEFAULT_DIAGRAM_THEME, isDiagramThemeId } from './diagramThemes'
+import { DEFAULT_LINE_THEME, isLineThemeId } from './lineThemes'
+import { DEFAULT_MEMO, sanitizeMemo } from './memo'
+import { sanitizePageSetup, type PageSetup } from './pageSetup'
+import type { DiagramMode, LayoutDirection, Locale, MemoStyle, ShapeType } from './types'
 
 export const MAX_CUSTOM_THEMES = 24
 export const MAX_RECENT = 12
@@ -22,8 +26,6 @@ export const MODES: DiagramMode[] = ['mindmap', 'fishbone']
 export const MINDMAP_LAYOUTS: LayoutDirection[] = ['radial', 'ttb', 'btt', 'ltr', 'rtl']
 export const FISHBONE_LAYOUTS: LayoutDirection[] = ['ltr', 'rtl']
 export const SHAPES: ShapeType[] = ['rounded', 'rect', 'stadium', 'ellipse', 'diamond', 'parallelogram', 'trapezoid', 'hexagon', 'octagon', 'chevron', 'cylinder', 'note']
-export const LINES: LineType[] = ['curve', 'straight', 'elbow', 'root']
-export const LINE_PATTERNS: LinePattern[] = ['solid', 'dashed', 'dotted', 'dashdot']
 
 export type GeneralSettings = {
   reopenLast: boolean
@@ -31,8 +33,10 @@ export type GeneralSettings = {
   mindmapLayout: LayoutDirection
   fishboneLayout: LayoutDirection
   newShape: ShapeType
-  newLine: LineType
-  newLinePattern: LinePattern
+  newLineTheme: string
+  newDiagramTheme: string
+  /** What a new memo looks like. */
+  memo: MemoStyle
 }
 
 export type StartSettings = {
@@ -52,6 +56,13 @@ export type AppSettings = {
   recent: string[]
   general: GeneralSettings
   showGrid: boolean
+  showRulers: boolean
+  leftPanel: boolean
+  rightPanel: boolean
+  /** Height of the mind map theme area under the node list, in pixels. */
+  themeAreaHeight: number
+  showMemos: boolean
+  pageSetup: PageSetup
 }
 
 export const DEFAULT_GENERAL: GeneralSettings = {
@@ -60,8 +71,9 @@ export const DEFAULT_GENERAL: GeneralSettings = {
   mindmapLayout: 'radial',
   fishboneLayout: 'ltr',
   newShape: 'rounded',
-  newLine: 'curve',
-  newLinePattern: 'solid',
+  newLineTheme: DEFAULT_LINE_THEME,
+  newDiagramTheme: DEFAULT_DIAGRAM_THEME,
+  memo: DEFAULT_MEMO,
 }
 
 const oneOf = <T,>(value: unknown, allowed: readonly T[], fallback: T): T => (allowed.includes(value as T) ? (value as T) : fallback)
@@ -76,8 +88,9 @@ export function sanitizeGeneral(value: unknown): GeneralSettings {
     mindmapLayout: oneOf(v.mindmapLayout, MINDMAP_LAYOUTS, DEFAULT_GENERAL.mindmapLayout),
     fishboneLayout: oneOf(v.fishboneLayout, FISHBONE_LAYOUTS, DEFAULT_GENERAL.fishboneLayout),
     newShape: oneOf(v.newShape, SHAPES, DEFAULT_GENERAL.newShape),
-    newLine: oneOf(v.newLine, LINES, DEFAULT_GENERAL.newLine),
-    newLinePattern: oneOf(v.newLinePattern, LINE_PATTERNS, DEFAULT_GENERAL.newLinePattern),
+    newLineTheme: isLineThemeId(v.newLineTheme) ? v.newLineTheme : DEFAULT_GENERAL.newLineTheme,
+    newDiagramTheme: isDiagramThemeId(v.newDiagramTheme) ? v.newDiagramTheme : DEFAULT_GENERAL.newDiagramTheme,
+    memo: sanitizeMemo(v.memo),
   }
 }
 
@@ -169,6 +182,14 @@ export function sanitizeRecent(value: unknown): string[] {
 export const addRecent = (list: string[], file: string) => sanitizeRecent([file, ...list])
 export const removeRecent = (list: string[], file: string) => list.filter((item) => item.toLowerCase() !== file.toLowerCase())
 
+export const THEME_AREA_MIN = 90
+export const THEME_AREA_MAX = 1200
+export const THEME_AREA_DEFAULT = 300
+export function sanitizeThemeArea(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.round(Math.max(THEME_AREA_MIN, Math.min(THEME_AREA_MAX, n))) : THEME_AREA_DEFAULT
+}
+
 /** Anything read from settings.json, made valid. Keys this module does not know are dropped from the state. */
 export function sanitizeSettings(value: unknown): AppSettings {
   const v = objectOf(value)
@@ -181,5 +202,11 @@ export function sanitizeSettings(value: unknown): AppSettings {
     recent: sanitizeRecent(v.recent),
     general: sanitizeGeneral(v.general),
     showGrid: v.showGrid !== false,
+    showRulers: v.showRulers !== false,
+    leftPanel: v.leftPanel !== false,
+    rightPanel: v.rightPanel !== false,
+    themeAreaHeight: sanitizeThemeArea(v.themeAreaHeight),
+    showMemos: v.showMemos !== false,
+    pageSetup: sanitizePageSetup(v.pageSetup),
   }
 }

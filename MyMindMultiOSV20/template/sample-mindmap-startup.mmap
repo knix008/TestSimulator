@@ -1,0 +1,573 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "radial",
+  "defaultShape": "hexagon",
+  "defaultLine": "curve",
+  "defaultLinePattern": "solid",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "창업 아이디어",
+      "x": 630,
+      "y": 428,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "고객",
+      "x": 730,
+      "y": 255,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "직장인",
+      "x": 734,
+      "y": 42,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "학생",
+      "x": 913,
+      "y": 145,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-8",
+      "parentId": "n-1",
+      "text": "가치",
+      "x": 830,
+      "y": 428,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-9",
+      "parentId": "n-8",
+      "text": "시간 절약",
+      "x": 1016,
+      "y": 324,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-8",
+      "text": "저렴한 가격",
+      "x": 1016,
+      "y": 532,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-14",
+      "parentId": "n-1",
+      "text": "채널",
+      "x": 730,
+      "y": 601,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-15",
+      "parentId": "n-14",
+      "text": "앱",
+      "x": 913,
+      "y": 711,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-17",
+      "parentId": "n-14",
+      "text": "제휴",
+      "x": 734,
+      "y": 814,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-20",
+      "parentId": "n-1",
+      "text": "수익",
+      "x": 530,
+      "y": 601,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-21",
+      "parentId": "n-20",
+      "text": "구독",
+      "x": 526,
+      "y": 814,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-23",
+      "parentId": "n-20",
+      "text": "광고",
+      "x": 347,
+      "y": 711,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-26",
+      "parentId": "n-1",
+      "text": "비용",
+      "x": 430,
+      "y": 428,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-27",
+      "parentId": "n-26",
+      "text": "서버",
+      "x": 244,
+      "y": 532,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-29",
+      "parentId": "n-26",
+      "text": "인건비",
+      "x": 244,
+      "y": 324,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-32",
+      "parentId": "n-1",
+      "text": "파트너",
+      "x": 530,
+      "y": 255,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-33",
+      "parentId": "n-32",
+      "text": "결제사",
+      "x": 347,
+      "y": 145,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-35",
+      "parentId": "n-32",
+      "text": "물류사",
+      "x": 526,
+      "y": 42,
+      "width": 140,
+      "height": 44,
+      "shape": "hexagon",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#d946ef",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#d946ef",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-7",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#d946ef",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-10",
+      "from": "n-8",
+      "to": "n-9",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#06b6d4",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-12",
+      "from": "n-8",
+      "to": "n-11",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#06b6d4",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-13",
+      "from": "n-1",
+      "to": "n-8",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#06b6d4",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-16",
+      "from": "n-14",
+      "to": "n-15",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#84cc16",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-18",
+      "from": "n-14",
+      "to": "n-17",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#84cc16",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-19",
+      "from": "n-1",
+      "to": "n-14",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#84cc16",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-22",
+      "from": "n-20",
+      "to": "n-21",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#d946ef",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-24",
+      "from": "n-20",
+      "to": "n-23",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#d946ef",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-25",
+      "from": "n-1",
+      "to": "n-20",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#d946ef",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-28",
+      "from": "n-26",
+      "to": "n-27",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#06b6d4",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-30",
+      "from": "n-26",
+      "to": "n-29",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#06b6d4",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-31",
+      "from": "n-1",
+      "to": "n-26",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#06b6d4",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-34",
+      "from": "n-32",
+      "to": "n-33",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#84cc16",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-36",
+      "from": "n-32",
+      "to": "n-35",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#84cc16",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-37",
+      "from": "n-1",
+      "to": "n-32",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#84cc16",
+      "startCap": "none",
+      "endCap": "none"
+    }
+  ],
+  "lineTheme": "neon"
+}

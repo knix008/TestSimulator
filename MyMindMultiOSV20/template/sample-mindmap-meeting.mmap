@@ -1,0 +1,423 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "radial",
+  "defaultShape": "rounded",
+  "defaultLine": "curve",
+  "defaultLinePattern": "solid",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "주간 회의",
+      "x": 630,
+      "y": 428,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "지난주 결과",
+      "x": 803,
+      "y": 328,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "매출",
+      "x": 767,
+      "y": 52,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "고객 문의",
+      "x": 976,
+      "y": 228,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-7",
+      "parentId": "n-2",
+      "text": "배포",
+      "x": 1024,
+      "y": 497,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-10",
+      "parentId": "n-1",
+      "text": "이번 주 계획",
+      "x": 698,
+      "y": 616,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-10",
+      "text": "신규 기능",
+      "x": 887,
+      "y": 734,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-13",
+      "parentId": "n-10",
+      "text": "버그 수정",
+      "x": 630,
+      "y": 828,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-16",
+      "parentId": "n-1",
+      "text": "위험 요소",
+      "x": 457,
+      "y": 528,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-17",
+      "parentId": "n-16",
+      "text": "일정 지연",
+      "x": 373,
+      "y": 734,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-19",
+      "parentId": "n-16",
+      "text": "인력 부족",
+      "x": 236,
+      "y": 497,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-22",
+      "parentId": "n-1",
+      "text": "결정 사항",
+      "x": 501,
+      "y": 275,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-23",
+      "parentId": "n-22",
+      "text": "예산 승인",
+      "x": 284,
+      "y": 228,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-25",
+      "parentId": "n-22",
+      "text": "채용",
+      "x": 493,
+      "y": 52,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#ef4444",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#ef4444",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-8",
+      "from": "n-2",
+      "to": "n-7",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#ef4444",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-9",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#ef4444",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-12",
+      "from": "n-10",
+      "to": "n-11",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#f59e0b",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-14",
+      "from": "n-10",
+      "to": "n-13",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#f59e0b",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-15",
+      "from": "n-1",
+      "to": "n-10",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#f59e0b",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-18",
+      "from": "n-16",
+      "to": "n-17",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#22c55e",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-20",
+      "from": "n-16",
+      "to": "n-19",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#22c55e",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-21",
+      "from": "n-1",
+      "to": "n-16",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#22c55e",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-24",
+      "from": "n-22",
+      "to": "n-23",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-26",
+      "from": "n-22",
+      "to": "n-25",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-27",
+      "from": "n-1",
+      "to": "n-22",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#3b82f6",
+      "startCap": "none",
+      "endCap": "none"
+    }
+  ],
+  "lineTheme": "rainbow"
+}

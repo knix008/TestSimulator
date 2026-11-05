@@ -1,21 +1,94 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type WheelEvent } from 'react'
-import type { DiagramDocument, DiagramNode, EdgeSide, LinePattern, LineType, ShapeType, ThemeMode } from '../types'
+import { RULER_SIZE, gridCell, gridLines, gridPath, rulerLabel, type GridLine } from '../canvasGrid'
+import { DEFAULT_LINE_WIDTH } from '../constants/colors'
+import { sanitizeMemo, wrapMemo } from '../memo'
+import { nodeIconById } from '../nodeIcons'
+import type { DiagramDocument, DiagramNode, EdgeSide, LinePattern, LineType, MemoStyle, MemoTarget, ShapeType, ThemeMode } from '../types'
 import { FISH_ANGLE_DEG } from '../layout/engine'
 import { resolveTextColor } from '../constants/colors'
 import { shapePath } from '../utils/shapePath'
 
 const FISH_TAN = Math.tan((FISH_ANGLE_DEG * Math.PI) / 180)
 
+/** Rulers along the top and left edges, in diagram units, with a mark following the pointer. */
+function Rulers({ xs, ys, width, height }: { xs: GridLine[]; ys: GridLine[]; width: number; height: number }) {
+  const markX = useRef<SVGLineElement>(null)
+  const markY = useRef<SVGLineElement>(null)
+  const guides = useRef<SVGGElement>(null)
+  const host = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    // Moved directly: a render for every pointer move would be wasted on a thin line.
+    const canvas = host.current?.parentElement
+    if (!canvas) return undefined
+    const show = (on: boolean) => guides.current?.setAttribute('visibility', on ? 'visible' : 'hidden')
+    const move = (event: MouseEvent) => {
+      const box = canvas.getBoundingClientRect()
+      markX.current?.setAttribute('transform', `translate(${Math.round(event.clientX - box.left) + 0.5} 0)`)
+      markY.current?.setAttribute('transform', `translate(0 ${Math.round(event.clientY - box.top) + 0.5})`)
+      show(true)
+    }
+    const leave = () => show(false)
+    canvas.addEventListener('mousemove', move)
+    canvas.addEventListener('mouseleave', leave)
+    return () => {
+      canvas.removeEventListener('mousemove', move)
+      canvas.removeEventListener('mouseleave', leave)
+    }
+  }, [])
+  const size = RULER_SIZE
+  return (
+    <div className="canvas-rulers" ref={host} aria-hidden="true">
+      <svg className="ruler ruler-x" width={width} height={size} data-ruler="x">
+        {xs.filter((tick) => tick.px > size).map((tick) => (
+          <g key={tick.value}>
+            <line x1={tick.px} x2={tick.px} y1={size - (tick.major ? 12 : 5)} y2={size} />
+            {tick.major && <text x={tick.px + 3} y={10}>{rulerLabel(tick.value)}</text>}
+          </g>
+        ))}
+      </svg>
+      <svg className="ruler ruler-y" width={size} height={height} data-ruler="y">
+        {ys.filter((tick) => tick.px > size).map((tick) => (
+          <g key={tick.value}>
+            <line y1={tick.px} y2={tick.px} x1={size - (tick.major ? 12 : 5)} x2={size} />
+            {tick.major && <text x={10} y={tick.px - 3} transform={`rotate(-90 10 ${tick.px - 3})`}>{rulerLabel(tick.value)}</text>}
+          </g>
+        ))}
+      </svg>
+      <div className="ruler-corner">px</div>
+      {/* The pointer's place on both rulers, as red dashed lines across the canvas. */}
+      <svg className="ruler-guides" width={width} height={height}>
+        <g ref={guides} visibility="hidden" data-ruler-guides="">
+          <line ref={markX} x1={0} x2={0} y1={0} y2={height} />
+          <line ref={markY} x1={0} x2={width} y1={0} y2={0} />
+        </g>
+      </svg>
+    </div>
+  )
+}
+
+const measuring = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d')
+
+/** The width a line of memo text takes. */
+function measureText(font: string, text: string): number {
+  if (!measuring) return text.length * 8
+  measuring.font = font
+  return measuring.measureText(text).width
+}
+
 type Props = {
   doc: DiagramDocument
   zoom: number
   showGrid: boolean
+  showRulers: boolean
+  showMemos: boolean
+  onMemoMove: (target: MemoTarget, dx: number, dy: number) => void
   theme: ThemeMode
   viewResetKey: number
+  viewCenterKey: number
   editingId: string | null
   onSelect: (id: string | null) => void
   onSelectMany: (ids: string[]) => void
-  onSelectEdge: (id: string) => void
+  onSelectEdge: (id: string, add?: boolean) => void
   onMoveNodes: (ids: string[], dx: number, dy: number) => void
   onContext: (x: number, y: number, nodeId: string | null, canvasX?: number, canvasY?: number) => void
   onEditStart: (id: string) => void
@@ -24,7 +97,6 @@ type Props = {
   onZoom: (zoom: number) => void
 }
 
-const GRID = 20
 const DRAG_THRESHOLD = 4 // px of movement before a node actually starts dragging
 const ZOOM_MIN = 0.1 // 10%
 const ZOOM_MAX = 4 // 400%
@@ -287,6 +359,7 @@ type DragState =
   | { kind: 'pan'; ox: number; oy: number; px: number; py: number }
   | { kind: 'node'; id: string; group: string[]; ox: number; oy: number }
   | { kind: 'marquee'; ox: number; oy: number }
+  | { kind: 'memo'; target: MemoTarget; ox: number; oy: number; dx: number; dy: number }
 
 type Rect = { x1: number; y1: number; x2: number; y2: number }
 
@@ -294,8 +367,12 @@ export function DiagramCanvas({
   doc,
   zoom,
   showGrid,
+  showRulers,
+  showMemos,
+  onMemoMove,
   theme,
   viewResetKey,
+  viewCenterKey,
   editingId,
   onSelect,
   onSelectMany,
@@ -311,9 +388,24 @@ export function DiagramCanvas({
   const nodesRef = useRef(doc.nodes)
   nodesRef.current = doc.nodes
   const [pan, setPan] = useState({ x: 40, y: 20 })
+  // The canvas's size in pixels: the grid and rulers are drawn for exactly this much.
+  const [size, setSize] = useState({ width: 0, height: 0 })
+  useEffect(() => {
+    const element = svgRef.current
+    if (!element) return undefined
+    const measure = () => setSize({ width: element.clientWidth, height: element.clientHeight })
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  const xLines = useMemo(() => (showGrid || showRulers ? gridLines(pan.x, zoom, size.width) : []), [showGrid, showRulers, pan.x, zoom, size.width])
+  const yLines = useMemo(() => (showGrid || showRulers ? gridLines(pan.y, zoom, size.height) : []), [showGrid, showRulers, pan.y, zoom, size.height])
   // Group-drag preview: a delta applied to every id in `ids`.
   const [dragPreview, setDragPreview] = useState<{ ids: string[]; dx: number; dy: number } | null>(null)
   const [marquee, setMarquee] = useState<Rect | null>(null)
+  // A memo being dragged, and where it is so far.
+  const [memoDrag, setMemoDrag] = useState<{ id: string; dx: number; dy: number } | null>(null)
   const drag = useRef<DragState | null>(null)
 
   // Connectors follow the layout orientation so every edge leaves the same face
@@ -467,6 +559,20 @@ export function DiagramCanvas({
     onZoom(scale)
   }, [viewResetKey, onZoom])
 
+  // Center: the diagram in the middle, at the zoom it has.
+  useEffect(() => {
+    if (!viewCenterKey) return
+    const wrap = svgRef.current?.parentElement
+    const list = nodesRef.current
+    if (!wrap || !list.length) return
+    const minX = Math.min(...list.map((n) => n.x))
+    const maxX = Math.max(...list.map((n) => n.x + n.width))
+    const minY = Math.min(...list.map((n) => n.y))
+    const maxY = Math.max(...list.map((n) => n.y + n.height))
+    setPan({ x: wrap.clientWidth / 2 - ((minX + maxX) / 2) * zoom, y: wrap.clientHeight / 2 - ((minY + maxY) / 2) * zoom })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewCenterKey])
+
   const onWheel = (e: WheelEvent) => {
     // Plain wheel zooms (panning is done by dragging the canvas).
     e.preventDefault()
@@ -481,6 +587,25 @@ export function DiagramCanvas({
     setPan((p) => ({ x: cx - (cx - p.x) * ratio, y: cy - (cy - p.y) * ratio }))
     onZoom(next)
   }
+
+  // Where each memo goes: a shape's beside it, a line's at its middle.
+  const memos = useMemo(() => {
+    const out: { target: MemoTarget; owner: { note?: string; noteStyle?: Partial<MemoStyle> }; x: number; y: number; anchorX: number; anchorY: number }[] = []
+    for (const node of nodes) {
+      if (node.note === undefined) continue
+      out.push({ target: { kind: 'node', id: node.id }, owner: node, x: node.x + node.width + 18, y: node.y - 14, anchorX: node.x + node.width, anchorY: node.y + node.height / 2 })
+    }
+    for (const edge of doc.edges) {
+      if (edge.note === undefined) continue
+      const from = nodeMap.get(edge.from)
+      const to = nodeMap.get(edge.to)
+      if (!from || !to) continue
+      const anchorX = (from.x + from.width / 2 + to.x + to.width / 2) / 2
+      const anchorY = (from.y + from.height / 2 + to.y + to.height / 2) / 2
+      out.push({ target: { kind: 'edge', id: edge.id }, owner: edge, x: anchorX + 16, y: anchorY + 16, anchorX, anchorY })
+    }
+    return out
+  }, [nodes, doc.edges, nodeMap])
 
   const clientToCanvas = (clientX: number, clientY: number) => {
     const rect = svgRef.current?.getBoundingClientRect()
@@ -506,6 +631,8 @@ export function DiagramCanvas({
         .map((n) => n.id)
       onSelectMany(hit)
     }
+    if (d?.kind === 'memo' && memoDrag) onMemoMove(d.target, memoDrag.dx, memoDrag.dy)
+    setMemoDrag(null)
     drag.current = null
     setDragPreview(null)
     setMarquee(null)
@@ -557,6 +684,10 @@ export function DiagramCanvas({
             setMarquee((m) => (m ? { ...m, x2: p.x, y2: p.y } : m))
             return
           }
+          if (d.kind === 'memo') {
+            setMemoDrag({ id: d.target.id, dx: d.dx + (e.clientX - d.ox) / zoom, dy: d.dy + (e.clientY - d.oy) / zoom })
+            return
+          }
           const dx = e.clientX - d.ox
           const dy = e.clientY - d.oy
           // Ignore tiny jitter so a click/double-click doesn't nudge the node.
@@ -567,23 +698,6 @@ export function DiagramCanvas({
         onMouseLeave={endDrag}
       >
         <defs>
-          <pattern id="mymind-grid" width={GRID} height={GRID} patternUnits="userSpaceOnUse">
-            <path d={`M ${GRID} 0 L 0 0 0 ${GRID}`} fill="none" stroke="var(--grid-line)" strokeWidth="1" />
-          </pattern>
-          <pattern
-            id="mymind-grid-major"
-            width={GRID * 5}
-            height={GRID * 5}
-            patternUnits="userSpaceOnUse"
-          >
-            <rect width={GRID * 5} height={GRID * 5} fill="url(#mymind-grid)" />
-            <path
-              d={`M ${GRID * 5} 0 L 0 0 0 ${GRID * 5}`}
-              fill="none"
-              stroke="var(--grid-line-major)"
-              strokeWidth="1"
-            />
-          </pattern>
           {capColors.map((color) => {
             const k = colorKey(color)
             return (
@@ -630,14 +744,11 @@ export function DiagramCanvas({
         </defs>
 
         {showGrid && (
-          <rect
-            className="canvas-grid"
-            x={-((pan.x % (GRID * 5)) + GRID * 5)}
-            y={-((pan.y % (GRID * 5)) + GRID * 5)}
-            width="200%"
-            height="200%"
-            fill="url(#mymind-grid-major)"
-          />
+          // In screen pixels and with no transform of its own: lines stay one pixel wide at any zoom.
+          <g className="canvas-grid" fill="none" strokeWidth="1" data-grid-cell={gridCell(zoom)}>
+            <path stroke="var(--grid-line)" d={gridPath(xLines, yLines, size.width, size.height, (line) => !line.major)} />
+            <path stroke="var(--grid-line-major)" d={gridPath(xLines, yLines, size.width, size.height, (line) => line.major)} />
+          </g>
         )}
 
         <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
@@ -666,7 +777,7 @@ export function DiagramCanvas({
                       d={`M ${axis.x1} ${axis.y1} L ${axis.x2} ${axis.y2}`}
                       fill="none"
                       stroke={edge?.color ?? 'var(--spine)'}
-                      strokeWidth={fishWidth(depth)}
+                      strokeWidth={edge?.width ?? fishWidth(depth)}
                       strokeDasharray={dashArray(pattern)}
                       strokeLinecap="round"
                     />
@@ -681,8 +792,8 @@ export function DiagramCanvas({
                       axis.y1,
                       axis.x2,
                       axis.y2,
-                      fishWidth(depth),
-                      fishWidth(depth + 1),
+                      edge?.width ?? fishWidth(depth),
+                      edge?.width ?? fishWidth(depth + 1),
                     )}
                   />
                 )
@@ -699,7 +810,7 @@ export function DiagramCanvas({
                       d={`M ${bone.x1} ${bone.y1} L ${bone.x2} ${bone.y2}`}
                       fill="none"
                       stroke={edge?.color ?? 'var(--spine)'}
-                      strokeWidth={fishWidth(depth)}
+                      strokeWidth={edge?.width ?? fishWidth(depth)}
                       strokeDasharray={dashArray(pattern)}
                       strokeLinecap="round"
                     />
@@ -714,8 +825,8 @@ export function DiagramCanvas({
                       bone.y1,
                       bone.x2,
                       bone.y2,
-                      fishWidth(depth - 1),
-                      fishWidth(depth),
+                      edge?.width ?? fishWidth(depth - 1),
+                      edge?.width ?? fishWidth(depth),
                     )}
                   />
                 )
@@ -727,16 +838,18 @@ export function DiagramCanvas({
             const from = nodeMap.get(edge.from)
             const to = nodeMap.get(edge.to)
             if (!from || !to) return null
-            const isSelected = doc.selectedEdgeId === edge.id
+            const isSelected = Boolean(doc.selectedEdgeId) && (doc.selectedEdgeId === edge.id || Boolean(doc.selectedEdgeIds?.includes(edge.id)))
+            const lineWidth = edge.width ?? DEFAULT_LINE_WIDTH
             const selectEdge = (e: ReactMouseEvent) => {
               e.stopPropagation()
-              if (e.button === 0) onSelectEdge(edge.id)
+              if (e.button === 0) onSelectEdge(edge.id, e.shiftKey || e.ctrlKey)
             }
             if (edge.lineType === 'root') {
               // Organic tree-root branch: a filled tapered ribbon (no dashes).
               const parentDepth = nodeDepthMap.get(from.id) ?? 0
               const childDepth = nodeDepthMap.get(to.id) ?? parentDepth + 1
-              const d = rootRibbonPath(from, to, branchWidth(parentDepth), branchWidth(childDepth), edgeOrient)
+              const scale = lineWidth / DEFAULT_LINE_WIDTH
+              const d = rootRibbonPath(from, to, branchWidth(parentDepth) * scale, branchWidth(childDepth) * scale, edgeOrient)
               return (
                 <path
                   key={edge.id}
@@ -758,14 +871,14 @@ export function DiagramCanvas({
                   d={d}
                   fill="none"
                   stroke="transparent"
-                  strokeWidth={14}
+                  strokeWidth={Math.max(14, lineWidth + 10)}
                   onMouseDown={selectEdge}
                 />
                 <path
                   d={d}
                   fill="none"
                   stroke={isSelected ? 'var(--accent)' : edge.color}
-                  strokeWidth={isSelected ? 3.5 : 2}
+                  strokeWidth={isSelected ? lineWidth + 1.5 : lineWidth}
                   strokeDasharray={dashArray(edge.linePattern)}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -824,14 +937,29 @@ export function DiagramCanvas({
               <path
                 className="node-shape"
                 d={shapePath(node.shape, node.x, node.y, node.width, node.height)}
-                fill={node.color}
-                stroke="var(--node-stroke)"
+                fill={node.image ? 'none' : node.color}
+                stroke={node.image ? 'none' : 'var(--node-stroke)'}
                 strokeWidth={1.5}
               />
-              {node.note?.trim() ? <title>{node.note}</title> : null}
-              <text
+              {node.image ? (
+                <image href={node.image.src} x={node.x} y={node.y} width={node.width} height={node.height} preserveAspectRatio="none" />
+              ) : null}
+              {!node.image && nodeIconById(node.icon) ? (
+                <g
+                  className="node-icon"
+                  data-icon={node.icon}
+                  transform={`translate(${node.x + 8} ${node.y + node.height / 2 - 9}) scale(0.75)`}
+                  fill="none"
+                  stroke={nodeIconById(node.icon)!.color}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  dangerouslySetInnerHTML={{ __html: nodeIconById(node.icon)!.body }}
+                />
+              ) : null}
+              {!node.image && <text
                 className="node-label"
-                x={node.x + node.width / 2}
+                x={node.x + node.width / 2 + (nodeIconById(node.icon) ? 10 : 0)}
                 y={node.y + node.height / 2 + 1}
                 textAnchor="middle"
                 dominantBaseline="middle"
@@ -851,25 +979,54 @@ export function DiagramCanvas({
                 >
                   {node.text.length > 18 ? `${node.text.slice(0, 18)}...` : node.text}
                 </tspan>
-              </text>
-              {node.note?.trim() ? (
-                <g className="node-note-badge" aria-hidden>
-                  <circle cx={node.x + node.width - 10} cy={node.y + 10} r={7} fill="var(--accent)" />
-                  <text
-                    x={node.x + node.width - 10}
-                    y={node.y + 10 + 0.5}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fontSize={10}
-                    fontWeight={700}
-                    fill="#ffffff"
-                  >
-                    ✎
-                  </text>
-                </g>
-              ) : null}
+              </text>}
             </g>
           ))}
+
+          {showMemos && memos.map((memo) => {
+            const style = sanitizeMemo(memo.owner.noteStyle)
+            const moved = memoDrag?.id === memo.target.id ? memoDrag : style
+            const x = memo.x + moved.dx
+            const y = memo.y + moved.dy
+            const lineHeight = style.fontSize * 1.35
+            const font = `${style.italic ? 'italic ' : ''}${style.bold ? '700' : '400'} ${style.fontSize}px ${fontFamily(style.fontFamily)}`
+            const fitting = Math.max(1, Math.floor((style.height - 16) / lineHeight))
+            const lines = wrapMemo(memo.owner.note ?? '', style.width - 16, (text) => measureText(font, text)).slice(0, fitting)
+            return (
+              <g
+                key={memo.target.id}
+                className="memo-note"
+                data-memo={memo.target.kind}
+                data-memo-box={`${x} ${y} ${style.width} ${style.height}`}
+                onMouseDown={(e) => {
+                  if (e.button !== 0) return
+                  e.stopPropagation()
+                  if (memo.target.kind === 'node') onSelect(memo.target.id)
+                  else onSelectEdge(memo.target.id)
+                  drag.current = { kind: 'memo', target: memo.target, ox: e.clientX, oy: e.clientY, dx: style.dx, dy: style.dy }
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onContext(e.clientX, e.clientY, memo.target.kind === 'node' ? memo.target.id : null)
+                }}
+              >
+                {style.linePattern !== 'none' && <line className="memo-line" x1={memo.anchorX} y1={memo.anchorY} x2={x + style.width / 2} y2={y + style.height / 2} stroke={style.lineColor} strokeWidth={style.lineWidth} strokeDasharray={dashArray(style.linePattern)} />}
+                <path d={`M${x} ${y}h${style.width}v${style.height - 12}l-12 12h${12 - style.width}z`} fill={style.color} stroke="rgba(0, 0, 0, 0.25)" strokeWidth="1" />
+                <path d={`M${x + style.width} ${y + style.height - 12}h-12v12z`} fill="rgba(0, 0, 0, 0.14)" />
+                <text
+                  fill={style.textColor}
+                  fontFamily={fontFamily(style.fontFamily)}
+                  fontSize={style.fontSize}
+                  fontWeight={style.bold ? 700 : 400}
+                  fontStyle={style.italic ? 'italic' : 'normal'}
+                  textDecoration={[style.underline ? 'underline' : '', style.strike ? 'line-through' : ''].filter(Boolean).join(' ') || undefined}
+                >
+                  {lines.map((text, index) => <tspan key={index} x={x + 8} y={y + 8 + style.fontSize + index * lineHeight}>{text}</tspan>)}
+                </text>
+              </g>
+            )
+          })}
 
           {marquee && (
             <rect
@@ -882,6 +1039,8 @@ export function DiagramCanvas({
           )}
         </g>
       </svg>
+
+      {showRulers && <Rulers xs={xLines} ys={yLines} width={size.width} height={size.height} />}
 
       {editingNode && (
         <input

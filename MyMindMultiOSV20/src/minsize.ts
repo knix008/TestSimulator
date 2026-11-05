@@ -1,8 +1,6 @@
-// The window's minimum size follows what its two top rows need. The toolbar has two forms: with
-// labels when there is room, and icons only when not (theme and language always keep theirs).
+// The window's minimum size follows what its two top rows need.
 export const MIN_WINDOW_HEIGHT = 560
 const WINDOW_EDGE = 2
-const COMPACT = 'compact'
 
 /** The width of a row's items as they are, gaps and padding included, whatever the row's own width is. */
 function rowWidth(row: HTMLElement, flexible: (child: Element) => boolean): number {
@@ -23,16 +21,6 @@ function rowWidth(row: HTMLElement, flexible: (child: Element) => boolean): numb
 
 const titleFlexible = (child: Element) => child.classList.contains('title-file') || child.classList.contains('title-gap')
 
-/**
- * Picks the toolbar's form for the window's width and returns the smallest width the window may
- * have. Both forms are measured in one go, so nothing of this is ever painted.
- */
-export function fitToolbar(menubar: HTMLElement, toolbar: HTMLElement): number {
-  const title = rowWidth(menubar, titleFlexible) + 60
-  toolbar.classList.remove(COMPACT)
-  const full = rowWidth(toolbar, () => false) + WINDOW_EDGE
-  toolbar.classList.add(COMPACT)
-  const compact = rowWidth(toolbar, () => false) + WINDOW_EDGE
-  toolbar.classList.toggle(COMPACT, window.innerWidth < full)
-  return Math.ceil(Math.max(title, compact))
+export function requiredWidth(menubar: HTMLElement, toolbar: HTMLElement): number {
+  return Math.ceil(Math.max(rowWidth(menubar, titleFlexible) + 60, rowWidth(toolbar, () => false) + WINDOW_EDGE))
 }

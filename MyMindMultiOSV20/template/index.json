@@ -1,7 +1,522 @@
 [
-  { "id": "mindmap-project", "file": "sample-mindmap-project.mmap", "mode": "mindmap", "ko": ["신제품 출시", "방사형 마인드맵으로 세운 프로젝트 계획"], "en": ["Product launch", "A project plan as a radial mind map"] },
-  { "id": "mindmap-trip", "file": "sample-mindmap-trip.mmap", "mode": "mindmap", "ko": ["제주도 여행", "오른쪽에서 왼쪽으로 펼친 여행 계획"], "en": ["Trip to Jeju", "A travel plan laid out right to left"] },
-  { "id": "fishbone-study", "file": "sample-mindmap-study.mmap", "mode": "fishbone", "ko": ["웹 개발 학습", "학습 주제를 피쉬본으로 정리"], "en": ["Learning web development", "Study topics as a fishbone"] },
-  { "id": "fishbone-quality", "file": "sample-fishbone-quality.mmap", "mode": "fishbone", "ko": ["제품 불량 발생", "품질 문제의 원인 분석"], "en": ["Product defects", "Finding the causes of a quality problem"] },
-  { "id": "fishbone-delay", "file": "sample-fishbone-delay.mmap", "mode": "fishbone", "ko": ["배송 지연", "배송 지연의 원인 분석"], "en": ["Delivery delays", "Finding the causes of late deliveries"] }
+  {
+    "id": "mindmap-project",
+    "file": "sample-mindmap-project.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "신제품 출시",
+      "방사형 마인드맵으로 세운 프로젝트 계획"
+    ],
+    "en": [
+      "Product launch",
+      "A project plan as a radial mind map"
+    ]
+  },
+  {
+    "id": "mindmap-trip",
+    "file": "sample-mindmap-trip.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "제주도 여행",
+      "오른쪽에서 왼쪽으로 펼친 여행 계획"
+    ],
+    "en": [
+      "Trip to Jeju",
+      "A travel plan laid out right to left"
+    ]
+  },
+  {
+    "id": "fishbone-study",
+    "file": "sample-mindmap-study.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "웹 개발 학습",
+      "학습 주제를 피쉬본으로 정리"
+    ],
+    "en": [
+      "Learning web development",
+      "Study topics as a fishbone"
+    ]
+  },
+  {
+    "id": "fishbone-quality",
+    "file": "sample-fishbone-quality.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "제품 불량 발생",
+      "품질 문제의 원인 분석"
+    ],
+    "en": [
+      "Product defects",
+      "Finding the causes of a quality problem"
+    ]
+  },
+  {
+    "id": "fishbone-delay",
+    "file": "sample-fishbone-delay.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "배송 지연",
+      "배송 지연의 원인 분석"
+    ],
+    "en": [
+      "Delivery delays",
+      "Finding the causes of late deliveries"
+    ]
+  },
+  {
+    "id": "mindmap-meeting",
+    "file": "sample-mindmap-meeting.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "주간 회의",
+      "안건과 담당자를 한눈에"
+    ],
+    "en": [
+      "Weekly meeting",
+      "Agenda and owners at a glance"
+    ]
+  },
+  {
+    "id": "mindmap-book",
+    "file": "sample-mindmap-book.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "독서 노트",
+      "책 한 권의 구조와 생각"
+    ],
+    "en": [
+      "Reading notes",
+      "A book's structure and your thoughts"
+    ]
+  },
+  {
+    "id": "mindmap-startup",
+    "file": "sample-mindmap-startup.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "창업 아이디어",
+      "사업 모델의 아홉 요소"
+    ],
+    "en": [
+      "Startup idea",
+      "The parts of a business model"
+    ]
+  },
+  {
+    "id": "mindmap-health",
+    "file": "sample-mindmap-health.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "건강 관리",
+      "위에서 아래로 펼친 생활 계획"
+    ],
+    "en": [
+      "Staying healthy",
+      "A lifestyle plan, top to bottom"
+    ]
+  },
+  {
+    "id": "mindmap-org",
+    "file": "sample-mindmap-org.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "조직도",
+      "꺾은 선으로 그린 회사 조직"
+    ],
+    "en": [
+      "Organization chart",
+      "A company drawn with elbow lines"
+    ]
+  },
+  {
+    "id": "mindmap-language",
+    "file": "sample-mindmap-language.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "외국어 공부",
+      "점선과 노트 도형의 학습 계획"
+    ],
+    "en": [
+      "Learning a language",
+      "A study plan with notes and dotted lines"
+    ]
+  },
+  {
+    "id": "mindmap-garden",
+    "file": "sample-mindmap-garden.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "텃밭 가꾸기",
+      "아래에서 위로 자라는 나무 뿌리 선"
+    ],
+    "en": [
+      "A vegetable garden",
+      "Tree-root lines growing upward"
+    ]
+  },
+  {
+    "id": "mindmap-software",
+    "file": "sample-mindmap-software.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "소프트웨어 구조",
+      "기술 도면 선으로 그린 계층"
+    ],
+    "en": [
+      "Software structure",
+      "Layers in a technical line style"
+    ]
+  },
+  {
+    "id": "fishbone-sales",
+    "file": "sample-fishbone-sales.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "매출 감소",
+      "화살표 선으로 그린 매출 원인"
+    ],
+    "en": [
+      "Falling sales",
+      "Causes of falling sales, with arrows"
+    ]
+  },
+  {
+    "id": "fishbone-server",
+    "file": "sample-fishbone-server.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "서버 장애",
+      "오른쪽 머리의 장애 원인 분석"
+    ],
+    "en": [
+      "Server outage",
+      "An outage analysis with the head on the right"
+    ]
+  },
+  {
+    "id": "fishbone-customers",
+    "file": "sample-fishbone-customers.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "고객 이탈",
+      "가지마다 색이 다른 피쉬본"
+    ],
+    "en": [
+      "Customers leaving",
+      "A fishbone with a colour per branch"
+    ]
+  },
+  {
+    "id": "fishbone-project",
+    "file": "sample-fishbone-project.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "프로젝트 지연",
+      "일정이 늦어진 원인"
+    ],
+    "en": [
+      "A late project",
+      "Why a schedule slipped"
+    ]
+  },
+  {
+    "id": "fishbone-grades",
+    "file": "sample-fishbone-grades.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "성적 하락",
+      "공부가 잘 안 되는 원인"
+    ],
+    "en": [
+      "Falling grades",
+      "Why studying is not working"
+    ]
+  },
+  {
+    "id": "fishbone-cafe",
+    "file": "sample-fishbone-cafe.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "카페 손님 감소",
+      "작은 가게의 문제 분석"
+    ],
+    "en": [
+      "Fewer café guests",
+      "A small shop's problem"
+    ]
+  },
+  {
+    "id": "fishbone-safety",
+    "file": "sample-fishbone-safety.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "작업장 사고",
+      "안전 관리의 네 가지 요인"
+    ],
+    "en": [
+      "Workplace accidents",
+      "Four factors of safety"
+    ]
+  },
+  {
+    "id": "fishbone-energy",
+    "file": "sample-fishbone-energy.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "전기 요금 증가",
+      "집에서 찾는 원인"
+    ],
+    "en": [
+      "Higher power bill",
+      "Causes to look for at home"
+    ]
+  },
+  {
+    "id": "mindmap-wedding",
+    "file": "sample-mindmap-wedding.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "결혼 준비",
+      "예식부터 신혼여행까지"
+    ],
+    "en": [
+      "Wedding plans",
+      "From the ceremony to the honeymoon"
+    ]
+  },
+  {
+    "id": "mindmap-moving",
+    "file": "sample-mindmap-moving.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "이사 계획",
+      "이사 전후에 할 일"
+    ],
+    "en": [
+      "Moving house",
+      "What to do before and after"
+    ]
+  },
+  {
+    "id": "mindmap-blog",
+    "file": "sample-mindmap-blog.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "블로그 운영",
+      "주제, 글쓰기, 홍보"
+    ],
+    "en": [
+      "Running a blog",
+      "Topics, writing and promotion"
+    ]
+  },
+  {
+    "id": "mindmap-exam",
+    "file": "sample-mindmap-exam.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "시험 준비",
+      "과목별 공부 계획"
+    ],
+    "en": [
+      "Preparing for an exam",
+      "A study plan by subject"
+    ]
+  },
+  {
+    "id": "mindmap-budget",
+    "file": "sample-mindmap-budget.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "가계부",
+      "수입과 지출 한눈에"
+    ],
+    "en": [
+      "Household budget",
+      "Income and spending at a glance"
+    ]
+  },
+  {
+    "id": "mindmap-camping",
+    "file": "sample-mindmap-camping.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "캠핑 준비물",
+      "잊지 말아야 할 것들"
+    ],
+    "en": [
+      "Camping checklist",
+      "What not to forget"
+    ]
+  },
+  {
+    "id": "mindmap-marketing",
+    "file": "sample-mindmap-marketing.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "마케팅 전략",
+      "제품, 가격, 유통, 홍보"
+    ],
+    "en": [
+      "Marketing strategy",
+      "Product, price, place and promotion"
+    ]
+  },
+  {
+    "id": "mindmap-cooking",
+    "file": "sample-mindmap-cooking.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "일주일 식단",
+      "장보기까지 이어지는 식단"
+    ],
+    "en": [
+      "A week of meals",
+      "A menu that leads to the shopping list"
+    ]
+  },
+  {
+    "id": "mindmap-event",
+    "file": "sample-mindmap-event.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "행사 기획",
+      "아래에서 위로 쌓는 행사 준비"
+    ],
+    "en": [
+      "Planning an event",
+      "Building an event from the bottom up"
+    ]
+  },
+  {
+    "id": "mindmap-career",
+    "file": "sample-mindmap-career.mmap",
+    "mode": "mindmap",
+    "ko": [
+      "경력 개발",
+      "5년 뒤를 위한 계획"
+    ],
+    "en": [
+      "Career development",
+      "A plan for five years from now"
+    ]
+  },
+  {
+    "id": "fishbone-traffic",
+    "file": "sample-fishbone-traffic.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "교통 체증",
+      "출근길이 막히는 원인"
+    ],
+    "en": [
+      "Traffic jams",
+      "Why the morning commute stalls"
+    ]
+  },
+  {
+    "id": "fishbone-website",
+    "file": "sample-fishbone-website.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "웹사이트 느림",
+      "페이지 로딩이 느린 원인"
+    ],
+    "en": [
+      "A slow website",
+      "Why pages load slowly"
+    ]
+  },
+  {
+    "id": "fishbone-turnover",
+    "file": "sample-fishbone-turnover.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "직원 퇴사",
+      "직원이 떠나는 원인"
+    ],
+    "en": [
+      "Staff leaving",
+      "Why people quit"
+    ]
+  },
+  {
+    "id": "fishbone-food",
+    "file": "sample-fishbone-food.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "음식 맛 저하",
+      "식당 음식의 품질 문제"
+    ],
+    "en": [
+      "Food tastes worse",
+      "A restaurant's quality problem"
+    ]
+  },
+  {
+    "id": "fishbone-battery",
+    "file": "sample-fishbone-battery.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "배터리 수명 단축",
+      "제품 배터리 문제 분석"
+    ],
+    "en": [
+      "Short battery life",
+      "A product battery problem"
+    ]
+  },
+  {
+    "id": "fishbone-complaints",
+    "file": "sample-fishbone-complaints.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "고객 불만 증가",
+      "콜센터 문의가 늘어난 원인"
+    ],
+    "en": [
+      "More complaints",
+      "Why the call centre is busier"
+    ]
+  },
+  {
+    "id": "fishbone-diet",
+    "file": "sample-fishbone-diet.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "다이어트 실패",
+      "체중이 줄지 않는 원인"
+    ],
+    "en": [
+      "A failed diet",
+      "Why the weight stays"
+    ]
+  },
+  {
+    "id": "fishbone-print",
+    "file": "sample-fishbone-print.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "인쇄 품질 불량",
+      "인쇄물의 얼룩과 번짐"
+    ],
+    "en": [
+      "Poor print quality",
+      "Stains and smears on prints"
+    ]
+  },
+  {
+    "id": "fishbone-meeting",
+    "file": "sample-fishbone-meeting.mmap",
+    "mode": "fishbone",
+    "ko": [
+      "회의 비효율",
+      "회의가 길어지는 원인"
+    ],
+    "en": [
+      "Inefficient meetings",
+      "Why meetings run long"
+    ]
+  }
 ]

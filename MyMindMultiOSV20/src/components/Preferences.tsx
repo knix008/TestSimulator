@@ -4,8 +4,6 @@ import { useTranslation } from 'react-i18next'
 import {
   DEFAULT_START_SCREEN,
   FISHBONE_LAYOUTS,
-  LINE_PATTERNS,
-  LINES,
   MAX_CUSTOM_THEMES,
   MINDMAP_LAYOUTS,
   SHAPES,
@@ -16,7 +14,12 @@ import {
 } from '../settings'
 import { THEME_COLOR_KEYS, THEMES, themeById, type CustomTheme, type ThemeMode } from '../themes'
 import type { DiagramMode, LayoutDirection, Locale } from '../types'
+import { DIAGRAM_THEMES } from '../diagramThemes'
+import { LINE_THEMES } from '../lineThemes'
 import { ColorField, IconSelect, Toggle } from './controls'
+import { DEFAULT_MEMO } from '../memo'
+import { LineThemePreview } from './LinePreview'
+import { MemoStyleFields } from './MemoEditor'
 import { ConfirmDialog, Dialog } from './dialogs'
 import { Icon } from './Icons'
 import { BackgroundGrid, StartRanges } from './StartScreen'
@@ -59,6 +62,12 @@ type Props = {
   onGeneral: (patch: Partial<GeneralSettings>) => void
   showGrid: boolean
   onToggleGrid: () => void
+  showRulers: boolean
+  onToggleRulers: () => void
+  leftPanel: boolean
+  onToggleLeftPanel: () => void
+  rightPanel: boolean
+  onToggleRightPanel: () => void
   recentCount: number
   onClearRecent: () => void
   language: Locale
@@ -67,12 +76,16 @@ type Props = {
   onTheme: (id: string) => void
   customThemes: CustomTheme[]
   onCustomThemes: (list: CustomTheme[], selected: string) => void
+  showMemos: boolean
+  onToggleMemos: () => void
+  docLineTheme?: string
+  onApplyLineTheme: (id: string) => void
   start: StartSettings
   onStart: (patch: Partial<StartSettings>) => void
   onClose: () => void
 }
 
-export function PreferencesDialog({ initialTab, general, onGeneral, showGrid, onToggleGrid, recentCount, onClearRecent, language, onLanguage, themeId, onTheme, customThemes, onCustomThemes, start, onStart, onClose }: Props) {
+export function PreferencesDialog({ initialTab, general, onGeneral, showGrid, onToggleGrid, showRulers, onToggleRulers, leftPanel, onToggleLeftPanel, rightPanel, onToggleRightPanel, recentCount, onClearRecent, language, onLanguage, themeId, onTheme, customThemes, onCustomThemes, showMemos, onToggleMemos, docLineTheme, onApplyLineTheme, start, onStart, onClose }: Props) {
   const { t } = useTranslation()
   const [tab, setTab] = useState(initialTab ?? 'general')
   const [asking, setAsking] = useState(false)
@@ -98,6 +111,8 @@ export function PreferencesDialog({ initialTab, general, onGeneral, showGrid, on
   const tabs = [
     { id: 'general', icon: 'settings', label: t('pref.general') },
     { id: 'theme', icon: 'theme', label: t('toolbar.theme') },
+    { id: 'lines', icon: 'line', label: t('toolbar.lineTheme') },
+    { id: 'memo', icon: 'memo', label: t('panel.memo') },
     { id: 'start', icon: 'home', label: t('start.title') },
   ]
 
@@ -136,10 +151,10 @@ export function PreferencesDialog({ initialTab, general, onGeneral, showGrid, on
                   <IconSelect id="prefFishboneLayout" value={general.fishboneLayout} options={layouts(FISHBONE_LAYOUTS)} onChange={(fishboneLayout) => onGeneral({ fishboneLayout })} />
                   <span>{t('toolbar.shape')}</span>
                   <IconSelect id="prefNewShape" value={general.newShape} options={SHAPES.map((value) => ({ value, label: t(`shape.${value}`), icon: 'shape' }))} onChange={(newShape) => onGeneral({ newShape })} />
-                  <span>{t('panel.lineShape')}</span>
-                  <IconSelect id="prefNewLine" value={general.newLine} options={LINES.map((value) => ({ value, label: t(`line.${value}`), icon: 'line' }))} onChange={(newLine) => onGeneral({ newLine })} />
-                  <span>{t('panel.linePattern')}</span>
-                  <IconSelect id="prefNewPattern" value={general.newLinePattern} options={LINE_PATTERNS.map((value) => ({ value, label: t(`linePattern.${value}`), icon: 'line' }))} onChange={(newLinePattern) => onGeneral({ newLinePattern })} />
+                  <span>{t('toolbar.diagramTheme')}</span>
+                  <IconSelect id="prefNewDiagramTheme" value={general.newDiagramTheme} options={DIAGRAM_THEMES.map((item) => ({ value: item.id, label: item[language], icon: 'color' }))} onChange={(newDiagramTheme) => onGeneral({ newDiagramTheme })} />
+                  <span>{t('toolbar.lineTheme')}</span>
+                  <IconSelect id="prefNewLineTheme" value={general.newLineTheme} options={LINE_THEMES.map((item) => ({ value: item.id, label: item[language], icon: 'line' }))} onChange={(newLineTheme) => onGeneral({ newLineTheme })} />
                 </div>
               </section>
               <section>
@@ -147,6 +162,12 @@ export function PreferencesDialog({ initialTab, general, onGeneral, showGrid, on
                 <div className="form-grid">
                   <span>{t('toolbar.grid')}</span>
                   <Toggle id="prefGrid" checked={showGrid} onChange={onToggleGrid} />
+                  <span>{t('toolbar.ruler')}</span>
+                  <Toggle id="prefRuler" checked={showRulers} onChange={onToggleRulers} />
+                  <span>{t('panel.showLeft')}</span>
+                  <Toggle id="prefLeftPanel" checked={leftPanel} onChange={onToggleLeftPanel} />
+                  <span>{t('panel.showRight')}</span>
+                  <Toggle id="prefRightPanel" checked={rightPanel} onChange={onToggleRightPanel} />
                 </div>
               </section>
               <section>
@@ -180,6 +201,39 @@ export function PreferencesDialog({ initialTab, general, onGeneral, showGrid, on
                 <button type="button" data-command="theme-add" disabled={customThemes.length >= MAX_CUSTOM_THEMES} onClick={addTheme}><Icon name="add" /> {t('theme.add')}</button>
                 {editing ? <ThemeEditor theme={editing} onChange={editTheme} onDelete={() => setAsking(true)} /> : <p className="dialog-note">{t('theme.hint')}</p>}
               </section>
+            </div>
+          )}
+          {tab === 'memo' && (
+            <div className="pref-memo">
+              <p className="dialog-note">{t('pref.memoHint')}</p>
+              <div className="form-grid">
+                <span>{t('memo.showAll')}</span>
+                <Toggle id="prefShowMemos" checked={showMemos} onChange={onToggleMemos} />
+              </div>
+              <div className="pref-memo-columns">
+                <MemoStyleFields idPrefix="prefMemo" style={general.memo} onChange={(patch) => onGeneral({ memo: { ...general.memo, ...patch } })} />
+                <div className="memo-preview" data-memo-preview="" style={{ width: Math.min(general.memo.width, 300), height: Math.min(general.memo.height, 220), background: general.memo.color, color: general.memo.textColor, fontSize: general.memo.fontSize, fontWeight: general.memo.bold ? 700 : 400, fontStyle: general.memo.italic ? 'italic' : 'normal', textDecoration: [general.memo.underline ? 'underline' : '', general.memo.strike ? 'line-through' : ''].filter(Boolean).join(' ') || 'none' }}>{t('memo.newText')}</div>
+              </div>
+              <div className="pref-row pref-reset">
+                <button type="button" data-command="memo-defaults" onClick={() => onGeneral({ memo: DEFAULT_MEMO })}><Icon name="undo" /> {t('start.reset')}</button>
+              </div>
+            </div>
+          )}
+          {tab === 'lines' && (
+            <div className="pref-lines">
+              <p className="dialog-note">{t('pref.lineThemeHint')}</p>
+              <div className="line-theme-grid">
+                {LINE_THEMES.map((item) => (
+                  <button type="button" key={item.id} data-pref-line-theme={item.id} className={general.newLineTheme === item.id ? 'line-theme-tile on' : 'line-theme-tile'} aria-pressed={general.newLineTheme === item.id} title={item[language]} onClick={() => onGeneral({ newLineTheme: item.id })}>
+                    <LineThemePreview theme={item} />
+                    <span>{item[language]}</span>
+                    <span className="line-theme-swatches">{item.palette.map((color) => <i key={color} style={{ background: color }} />)}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="pref-row pref-reset">
+                <button type="button" data-command="line-theme-apply" disabled={docLineTheme === general.newLineTheme} onClick={() => onApplyLineTheme(general.newLineTheme)}><Icon name="line" /> {t('pref.lineThemeApply')}</button>
+              </div>
             </div>
           )}
           {tab === 'start' && (

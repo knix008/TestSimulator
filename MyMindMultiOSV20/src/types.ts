@@ -33,6 +33,28 @@ export interface TextStyle {
   strike: boolean
 }
 
+/** How a memo looks and where it is, relative to its usual place. */
+export interface MemoStyle {
+  color: string
+  textColor: string
+  width: number
+  height: number
+  fontFamily: string
+  fontSize: number
+  bold: boolean
+  italic: boolean
+  underline: boolean
+  strike: boolean
+  dx: number
+  dy: number
+  /** The line that ties it to its shape or line. */
+  lineColor: string
+  lineWidth: number
+  linePattern: LinePattern | 'none'
+}
+
+export type MemoTarget = { kind: 'node' | 'edge'; id: string }
+
 export interface DiagramNode {
   id: string
   parentId: string | null
@@ -46,6 +68,11 @@ export interface DiagramNode {
   textStyle?: TextStyle
   /** Optional free-form memo attached to the shape. */
   note?: string
+  noteStyle?: Partial<MemoStyle>
+  /** An icon from nodeIcons.ts, drawn before the text. */
+  icon?: string
+  /** A picture on the canvas: this node shows it instead of a shape. */
+  image?: { src: string; width: number; height: number }
   /** Fishbone: category / cause / effect */
   role?: 'effect' | 'category' | 'cause'
 }
@@ -65,6 +92,11 @@ export interface DiagramEdge {
   /** Manual override of the connection face at the from/to node. */
   fromSide?: EdgeSide
   toSide?: EdgeSide
+  /** Thickness in pixels; absent is the usual look. */
+  width?: number
+  /** Optional memo attached to the line. */
+  note?: string
+  noteStyle?: Partial<MemoStyle>
 }
 
 export interface DiagramDocument {
@@ -82,6 +114,12 @@ export interface DiagramDocument {
   selectedIds: string[]
   /** Independently selected edge (mutually exclusive with node selection). */
   selectedEdgeId: string | null
+  /** All the selected edges, when Shift-click has added some; includes selectedEdgeId. */
+  selectedEdgeIds?: string[]
+  /** The line theme last applied to the whole diagram; new connectors follow it. */
+  lineTheme?: string
+  /** The mind map theme last applied; new shapes follow it. */
+  diagramTheme?: string
   filePath: string | null
   dirty: boolean
 }

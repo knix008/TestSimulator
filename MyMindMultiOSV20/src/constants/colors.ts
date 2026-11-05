@@ -32,3 +32,8 @@ export function resolveTextColor(color: string | undefined, _theme: string): str
   if (!color || color === AUTO_TEXT_COLOR) return '#111827'
   return color
 }
+
+/** A line's thickness when it has none of its own, and what can be set. */
+export const DEFAULT_LINE_WIDTH = 2
+export const LINE_WIDTH_MIN = 1
+export const LINE_WIDTH_MAX = 20
