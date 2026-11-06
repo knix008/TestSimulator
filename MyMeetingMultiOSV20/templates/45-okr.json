@@ -1,0 +1,41 @@
+{
+  "id": "okr",
+  "order": 45,
+  "icon": "flag",
+  "name": {
+    "ko": "OKR 수립·점검 회의",
+    "en": "OKR Planning & Check-in"
+  },
+  "description": {
+    "ko": "목표(O)와 핵심 결과(KR)를 정하고 진척도를 점검",
+    "en": "Set objectives and key results and track their progress"
+  },
+  "ko": {
+    "title": "OKR 수립·점검 회의",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "11:30",
+    "location": "대회의실",
+    "organizer": "팀장",
+    "recorder": "",
+    "attendees": "팀장\n팀원",
+    "agenda": "지난 분기 OKR 결과\n이번 분기 목표(Objective)\n핵심 결과(Key Results)와 지표\n진척도와 위험\n담당자 지정",
+    "body": "## 지난 분기 OKR 결과\n\n| 목표 | 핵심 결과 | 달성률 |\n| --- | --- | --- |\n|  |  |  |\n\n## 이번 분기 목표(Objective)\n\n- \n\n## 핵심 결과(Key Results)와 지표\n\n- [ ] KR1: \n- [ ] KR2: \n- [ ] KR3: \n\n## 진척도와 위험\n\n- ",
+    "decisions": "",
+    "actionItems": "팀장 — 확정한 OKR을 팀 공유 문서에 등록"
+  },
+  "en": {
+    "title": "OKR Planning & Check-in",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "11:30",
+    "location": "Main meeting room",
+    "organizer": "Team lead",
+    "recorder": "",
+    "attendees": "Team lead\nTeam members",
+    "agenda": "Last quarter's OKR results\nThis quarter's objectives\nKey results and metrics\nProgress and risks\nOwners",
+    "body": "## Last quarter's OKR results\n\n| Objective | Key result | Achieved |\n| --- | --- | --- |\n|  |  |  |\n\n## This quarter's objectives\n\n- \n\n## Key results and metrics\n\n- [ ] KR1: \n- [ ] KR2: \n- [ ] KR3: \n\n## Progress and risks\n\n- ",
+    "decisions": "",
+    "actionItems": "Team lead — publish the agreed OKRs in the team's shared document"
+  }
+}

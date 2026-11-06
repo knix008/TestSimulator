@@ -1,0 +1,41 @@
+{
+  "id": "vendor",
+  "order": 30,
+  "icon": "handshake",
+  "name": {
+    "ko": "협력사 미팅",
+    "en": "Vendor Meeting"
+  },
+  "description": {
+    "ko": "협력사와 납품·품질·일정을 협의",
+    "en": "Delivery, quality and schedule with a supplier"
+  },
+  "ko": {
+    "title": "협력사 미팅",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "15:00",
+    "location": "협력사 사무실",
+    "organizer": "구매 담당",
+    "recorder": "",
+    "attendees": "구매 담당\n협력사 담당자\n품질 담당",
+    "agenda": "납품 현황\n품질 이슈\n단가와 조건\n다음 일정",
+    "body": "## 납품 현황\n\n- \n\n## 품질 이슈\n\n- \n\n## 단가와 조건\n\n- \n\n## 다음 일정\n\n- ",
+    "decisions": "",
+    "actionItems": "협력사 — 개선 계획서 제출"
+  },
+  "en": {
+    "title": "Vendor Meeting",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "15:00",
+    "location": "Vendor office",
+    "organizer": "Procurement",
+    "recorder": "",
+    "attendees": "Procurement\nVendor contact\nQuality",
+    "agenda": "Delivery status\nQuality issues\nPrice and terms\nNext steps",
+    "body": "## Delivery status\n\n- \n\n## Quality issues\n\n- \n\n## Price and terms\n\n- \n\n## Next steps\n\n- ",
+    "decisions": "",
+    "actionItems": "Vendor — send an improvement plan"
+  }
+}

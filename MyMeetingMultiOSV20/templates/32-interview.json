@@ -1,0 +1,41 @@
+{
+  "id": "interview",
+  "order": 32,
+  "icon": "userPlus",
+  "name": {
+    "ko": "채용 면접",
+    "en": "Job Interview"
+  },
+  "description": {
+    "ko": "지원자 면접 내용과 평가를 기록",
+    "en": "Record the interview and its assessment"
+  },
+  "ko": {
+    "title": "채용 면접",
+    "date": "",
+    "startTime": "15:00",
+    "endTime": "16:00",
+    "location": "면접실",
+    "organizer": "면접관",
+    "recorder": "",
+    "attendees": "면접관 1\n면접관 2\n지원자",
+    "agenda": "자기소개와 경력\n직무 역량 질문\n협업과 문제 해결\n지원자 질문",
+    "body": "## 자기소개와 경력\n\n- \n\n## 직무 역량 질문\n\n- \n\n## 협업과 문제 해결\n\n- \n\n## 지원자 질문\n\n- ",
+    "decisions": "",
+    "actionItems": "면접관 — 평가표 제출"
+  },
+  "en": {
+    "title": "Job Interview",
+    "date": "",
+    "startTime": "15:00",
+    "endTime": "16:00",
+    "location": "Interview room",
+    "organizer": "Interviewer",
+    "recorder": "",
+    "attendees": "Interviewer 1\nInterviewer 2\nCandidate",
+    "agenda": "Introduction and background\nRole skills\nTeamwork and problem solving\nCandidate's questions",
+    "body": "## Introduction and background\n\n- \n\n## Role skills\n\n- \n\n## Teamwork and problem solving\n\n- \n\n## Candidate's questions\n\n- ",
+    "decisions": "",
+    "actionItems": "Interviewers — submit the scorecard"
+  }
+}

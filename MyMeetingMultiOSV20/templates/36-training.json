@@ -1,0 +1,41 @@
+{
+  "id": "training",
+  "order": 36,
+  "icon": "guide",
+  "name": {
+    "ko": "교육·워크숍",
+    "en": "Training Workshop"
+  },
+  "description": {
+    "ko": "교육 내용과 실습 결과를 기록",
+    "en": "Record what was taught and practised"
+  },
+  "ko": {
+    "title": "교육·워크숍",
+    "date": "",
+    "startTime": "13:00",
+    "endTime": "17:00",
+    "location": "교육장",
+    "organizer": "강사",
+    "recorder": "",
+    "attendees": "강사\n수강자",
+    "agenda": "교육 목표\n핵심 내용\n실습\n질의응답과 설문",
+    "body": "## 교육 목표\n\n- \n\n## 핵심 내용\n\n- \n\n## 실습\n\n- \n\n## 질의응답과 설문\n\n- ",
+    "decisions": "",
+    "actionItems": "강사 — 교육 자료 공유"
+  },
+  "en": {
+    "title": "Training Workshop",
+    "date": "",
+    "startTime": "13:00",
+    "endTime": "17:00",
+    "location": "Training room",
+    "organizer": "Trainer",
+    "recorder": "",
+    "attendees": "Trainer\nAttendees",
+    "agenda": "Learning goals\nKey content\nExercises\nQ&A and survey",
+    "body": "## Learning goals\n\n- \n\n## Key content\n\n- \n\n## Exercises\n\n- \n\n## Q&A and survey\n\n- ",
+    "decisions": "",
+    "actionItems": "Trainer — share the materials"
+  }
+}

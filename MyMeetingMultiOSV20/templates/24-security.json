@@ -1,0 +1,41 @@
+{
+  "id": "security",
+  "order": 24,
+  "icon": "shield",
+  "name": {
+    "ko": "보안 점검 회의",
+    "en": "Security Review"
+  },
+  "description": {
+    "ko": "보안 위협과 대응 현황을 점검",
+    "en": "Threats, findings and their fixes"
+  },
+  "ko": {
+    "title": "보안 점검 회의",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "15:00",
+    "location": "보안 회의실",
+    "organizer": "보안 책임자",
+    "recorder": "",
+    "attendees": "보안 책임자\n개발 리드\n인프라 담당",
+    "agenda": "최근 보안 이슈\n취약점 점검 결과\n접근 권한 검토\n교육과 정책",
+    "body": "## 최근 보안 이슈\n\n- \n\n## 취약점 점검 결과\n\n- \n\n## 접근 권한 검토\n\n- \n\n## 교육과 정책\n\n- ",
+    "decisions": "",
+    "actionItems": "인프라 담당 — 취약점 패치 적용"
+  },
+  "en": {
+    "title": "Security Review",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "15:00",
+    "location": "Security room",
+    "organizer": "Security officer",
+    "recorder": "",
+    "attendees": "Security officer\nTech lead\nInfrastructure",
+    "agenda": "Recent security issues\nVulnerability findings\nAccess review\nTraining and policy",
+    "body": "## Recent security issues\n\n- \n\n## Vulnerability findings\n\n- \n\n## Access review\n\n- \n\n## Training and policy\n\n- ",
+    "decisions": "",
+    "actionItems": "Infrastructure — apply the patches"
+  }
+}

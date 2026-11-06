@@ -1,0 +1,33 @@
+{
+  "id": "sample",
+  "order": 1,
+  "name": { "ko": "완성 예시 (샘플)", "en": "Worked Example (Sample)" },
+  "ko": {
+    "title": "2026년 3분기 제품 기획 회의",
+    "date": "2026-09-04",
+    "startTime": "14:00",
+    "endTime": "15:30",
+    "location": "본사 3층 회의실 A",
+    "organizer": "김수호",
+    "recorder": "이영희",
+    "attendees": "김수호 (기획)\n이영희 (개발)\n박민준 (디자인)\n최지우 (QA)",
+    "agenda": "3분기 로드맵 검토\n신규 기능 우선순위 결정\n출시 일정 확정",
+    "body": "## 로드맵 검토\n\n- 지난 분기 실적을 공유하고 목표 대비 달성률을 확인함.\n- 사용자 피드백 상위 5건을 정리하여 반영 방안을 논의함.\n\n## 신규 기능 우선순위\n\n1. 다국어 지원 강화\n2. 다크 테마 개선\n3. 오프라인 모드",
+    "decisions": "다국어 지원을 최우선 과제로 확정함.\n출시일은 11월 15일로 결정함.",
+    "actionItems": "이영희 — 다국어 리소스 구조 설계 (9/11까지)\n박민준 — 다크 테마 시안 3종 준비 (9/9까지)\n최지우 — 회귀 테스트 계획 수립 (9/12까지)"
+  },
+  "en": {
+    "title": "Q3 2026 Product Planning Meeting",
+    "date": "2026-09-04",
+    "startTime": "14:00",
+    "endTime": "15:30",
+    "location": "HQ 3F — Meeting Room A",
+    "organizer": "Suho Kim",
+    "recorder": "Younghee Lee",
+    "attendees": "Suho Kim (Planning)\nYounghee Lee (Dev)\nMinjun Park (Design)\nJiwoo Choi (QA)",
+    "agenda": "Review Q3 roadmap\nDecide new feature priorities\nConfirm release schedule",
+    "body": "## Roadmap Review\n\n- Shared last quarter results and checked progress against goals.\n- Went through the top 5 user feedback items and how to address them.\n\n## New Feature Priorities\n\n1. Stronger multi-language support\n2. Dark theme improvements\n3. Offline mode",
+    "decisions": "Multi-language support confirmed as the top priority.\nRelease date set to November 15.",
+    "actionItems": "Younghee Lee — Design the i18n resource structure (by 9/11)\nMinjun Park — Prepare 3 dark-theme mockups (by 9/9)\nJiwoo Choi — Draft the regression test plan (by 9/12)"
+  }
+}

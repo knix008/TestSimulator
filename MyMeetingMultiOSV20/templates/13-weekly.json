@@ -1,0 +1,41 @@
+{
+  "id": "weekly",
+  "order": 13,
+  "icon": "calendar",
+  "name": {
+    "ko": "주간 업무 회의",
+    "en": "Weekly Team Meeting"
+  },
+  "description": {
+    "ko": "한 주의 진행 상황과 다음 주 계획을 공유",
+    "en": "Share this week's progress and next week's plan"
+  },
+  "ko": {
+    "title": "주간 업무 회의",
+    "date": "",
+    "startTime": "09:00",
+    "endTime": "10:00",
+    "location": "팀 회의실",
+    "organizer": "팀장",
+    "recorder": "",
+    "attendees": "팀장\n팀원",
+    "agenda": "지난주 실적\n이번 주 계획\n이슈와 지원 요청\n공지 사항",
+    "body": "## 지난주 실적\n\n- \n\n## 이번 주 계획\n\n- \n\n## 이슈와 지원 요청\n\n- \n\n## 공지 사항\n\n- ",
+    "decisions": "",
+    "actionItems": "팀장 — 주간 보고서 작성"
+  },
+  "en": {
+    "title": "Weekly Team Meeting",
+    "date": "",
+    "startTime": "09:00",
+    "endTime": "10:00",
+    "location": "Team room",
+    "organizer": "Team lead",
+    "recorder": "",
+    "attendees": "Team lead\nTeam members",
+    "agenda": "Last week's results\nThis week's plan\nIssues and help needed\nAnnouncements",
+    "body": "## Last week's results\n\n- \n\n## This week's plan\n\n- \n\n## Issues and help needed\n\n- \n\n## Announcements\n\n- ",
+    "decisions": "",
+    "actionItems": "Team lead — write the weekly report"
+  }
+}

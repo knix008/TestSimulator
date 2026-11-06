@@ -1,0 +1,41 @@
+{
+  "id": "allhands",
+  "order": 16,
+  "icon": "megaphone",
+  "name": {
+    "ko": "전사 타운홀",
+    "en": "All-Hands Meeting"
+  },
+  "description": {
+    "ko": "회사 소식을 전하고 질문에 답하는 전체 회의",
+    "en": "Company news and open questions for everyone"
+  },
+  "ko": {
+    "title": "전사 타운홀",
+    "date": "",
+    "startTime": "16:00",
+    "endTime": "17:00",
+    "location": "강당 / 온라인 중계",
+    "organizer": "대표",
+    "recorder": "",
+    "attendees": "대표\n전 직원",
+    "agenda": "회사 현황\n부서별 주요 소식\n신규 입사자 소개\n질의응답",
+    "body": "## 회사 현황\n\n- \n\n## 부서별 주요 소식\n\n- \n\n## 신규 입사자 소개\n\n- \n\n## 질의응답\n\n- ",
+    "decisions": "",
+    "actionItems": "인사팀 — 질의응답 요약 공유"
+  },
+  "en": {
+    "title": "All-Hands Meeting",
+    "date": "",
+    "startTime": "16:00",
+    "endTime": "17:00",
+    "location": "Auditorium / live stream",
+    "organizer": "CEO",
+    "recorder": "",
+    "attendees": "CEO\nAll staff",
+    "agenda": "Company update\nNews from the teams\nNew joiners\nQuestions and answers",
+    "body": "## Company update\n\n- \n\n## News from the teams\n\n- \n\n## New joiners\n\n- \n\n## Questions and answers\n\n- ",
+    "decisions": "",
+    "actionItems": "HR — share a summary of the Q&A"
+  }
+}

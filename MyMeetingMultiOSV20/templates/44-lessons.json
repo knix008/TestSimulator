@@ -1,0 +1,41 @@
+{
+  "id": "lessons",
+  "order": 44,
+  "icon": "star",
+  "name": {
+    "ko": "교훈 회의(레슨런)",
+    "en": "Lessons Learned"
+  },
+  "description": {
+    "ko": "끝난 프로젝트에서 배운 점을 남기는 회의",
+    "en": "Capture what a finished project taught us"
+  },
+  "ko": {
+    "title": "교훈 회의(레슨런)",
+    "date": "",
+    "startTime": "15:00",
+    "endTime": "16:30",
+    "location": "대회의실",
+    "organizer": "PM",
+    "recorder": "",
+    "attendees": "PM\n프로젝트 팀",
+    "agenda": "목표 대비 결과\n잘된 점\n개선할 점\n다음 프로젝트에 적용할 것",
+    "body": "## 목표 대비 결과\n\n- \n\n## 잘된 점\n\n- \n\n## 개선할 점\n\n- \n\n## 다음 프로젝트에 적용할 것\n\n- ",
+    "decisions": "",
+    "actionItems": "PM — 교훈 문서를 지식 저장소에 등록"
+  },
+  "en": {
+    "title": "Lessons Learned",
+    "date": "",
+    "startTime": "15:00",
+    "endTime": "16:30",
+    "location": "Main meeting room",
+    "organizer": "Project manager",
+    "recorder": "",
+    "attendees": "Project manager\nProject team",
+    "agenda": "Results against goals\nWhat worked\nWhat to improve\nWhat we will do next time",
+    "body": "## Results against goals\n\n- \n\n## What worked\n\n- \n\n## What to improve\n\n- \n\n## What we will do next time\n\n- ",
+    "decisions": "",
+    "actionItems": "Project manager — file the lessons in the knowledge base"
+  }
+}

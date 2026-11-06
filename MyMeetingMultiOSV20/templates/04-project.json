@@ -1,0 +1,33 @@
+{
+  "id": "project",
+  "order": 4,
+  "name": { "ko": "프로젝트 진행 회의", "en": "Project Status Meeting" },
+  "ko": {
+    "title": "프로젝트 진행 회의",
+    "date": "",
+    "startTime": "",
+    "endTime": "",
+    "location": "",
+    "organizer": "프로젝트 매니저",
+    "recorder": "",
+    "attendees": "PM\n개발\n디자인\nQA",
+    "agenda": "지난 회의 액션 아이템 점검\n진행 현황 공유\n리스크 및 이슈\n다음 마일스톤 계획",
+    "body": "## 진행 현황\n\n| 항목 | 상태 | 비고 |\n| --- | --- | --- |\n|  |  |  |\n\n## 리스크 및 이슈\n\n- \n\n## 다음 마일스톤\n\n- ",
+    "decisions": "결정 사항 1",
+    "actionItems": "담당자 — 할 일 (기한)"
+  },
+  "en": {
+    "title": "Project Status Meeting",
+    "date": "",
+    "startTime": "",
+    "endTime": "",
+    "location": "",
+    "organizer": "Project Manager",
+    "recorder": "",
+    "attendees": "PM\nDev\nDesign\nQA",
+    "agenda": "Review previous action items\nShare progress status\nRisks and issues\nNext milestone plan",
+    "body": "## Progress\n\n| Item | Status | Notes |\n| --- | --- | --- |\n|  |  |  |\n\n## Risks & Issues\n\n- \n\n## Next Milestone\n\n- ",
+    "decisions": "Decision 1",
+    "actionItems": "Owner — task (due)"
+  }
+}

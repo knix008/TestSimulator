@@ -1,0 +1,41 @@
+{
+  "id": "event",
+  "order": 42,
+  "icon": "gift",
+  "name": {
+    "ko": "행사 준비 회의",
+    "en": "Event Planning"
+  },
+  "description": {
+    "ko": "행사의 일정·장소·역할을 준비",
+    "en": "Date, venue and roles for an event"
+  },
+  "ko": {
+    "title": "행사 준비 회의",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "15:00",
+    "location": "회의실 B",
+    "organizer": "행사 책임자",
+    "recorder": "",
+    "attendees": "행사 책임자\n운영 담당\n홍보 담당",
+    "agenda": "행사 목적과 규모\n장소와 일정\n프로그램\n예산과 역할 분담",
+    "body": "## 행사 목적과 규모\n\n- \n\n## 장소와 일정\n\n- \n\n## 프로그램\n\n- \n\n## 예산과 역할 분담\n\n- ",
+    "decisions": "",
+    "actionItems": "운영 담당 — 장소 예약"
+  },
+  "en": {
+    "title": "Event Planning",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "15:00",
+    "location": "Room B",
+    "organizer": "Event lead",
+    "recorder": "",
+    "attendees": "Event lead\nOperations\nCommunications",
+    "agenda": "Purpose and size\nVenue and date\nProgramme\nBudget and roles",
+    "body": "## Purpose and size\n\n- \n\n## Venue and date\n\n- \n\n## Programme\n\n- \n\n## Budget and roles\n\n- ",
+    "decisions": "",
+    "actionItems": "Operations — book the venue"
+  }
+}

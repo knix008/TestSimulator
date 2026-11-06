@@ -1,0 +1,160 @@
+{
+  "appTitle": "MyMeeting",
+  "common": { "ok": "확인", "cancel": "취소", "close": "닫기" },
+  "toolbar": {
+    "file": "파일", "edit": "편집", "view": "보기", "help": "도움말",
+    "new": "새 회의록", "open": "열기", "save": "저장", "saveAs": "다른 이름으로 저장", "print": "인쇄", "export": "내보내기",
+    "settings": "설정", "exit": "끝내기", "undo": "실행 취소", "redo": "다시 실행", "fullscreen": "전체 화면",
+    "numbering": "제목 번호 매기기", "numberingOn": "제목 번호 켜기", "numberingOff": "제목 번호 끄기",
+    "theme": "테마", "language": "언어", "about": "프로그램 정보", "minimize": "최소화", "maximize": "최대화", "close": "닫기",
+    "addSection": "섹션 추가"
+  },
+  "panel": {
+    "outline": "문서 구조", "preview": "완성 문서 미리보기",
+    "showOutline": "문서 구조 보이기", "hideOutline": "문서 구조 숨기기",
+    "showPreview": "미리보기 보이기", "hidePreview": "미리보기 숨기기", "resizePreview": "끌어서 미리보기 폭 조절 (두 번 클릭: 기본 폭)"
+  },
+  "section": { "info": "회의 정보", "attendees": "참석자", "agenda": "안건", "discussion": "회의 내용", "decisions": "결정 사항", "actionItems": "실행 항목" },
+  "sectionKind": { "text": "자유 글", "list": "글머리 목록", "numbered": "번호 목록", "tasks": "할 일 목록", "people": "사람 목록" },
+  "sectionKindNote": {
+    "text": "회의 내용처럼 서식·표·그림을 넣는 글",
+    "list": "한 줄씩 적는 항목 (•)",
+    "numbered": "순서가 있는 항목 (1. 2. 3.)",
+    "tasks": "할 일·담당자·기한·완료 표시",
+    "people": "이름·소속·참석 여부"
+  },
+  "sectionMenu": {
+    "addTitle": "섹션 추가", "add": "추가", "addMore": "섹션 추가…", "kinds": "구성 항목", "builtins": "기본 섹션 다시 넣기", "builtinNote": "숨긴 기본 섹션 (내용은 그대로)",
+    "name": "이름", "where": "위치", "afterCurrent": "현재 섹션 다음", "atEnd": "맨 끝",
+    "icon": "아이콘", "iconDefault": "기본 아이콘", "iconHint": "아래에서 고르세요", "changeIcon": "아이콘 바꾸기",
+    "rename": "이름 바꾸기", "renameTip": "두 번 클릭해서 이름 바꾸기", "more": "섹션 메뉴",
+    "up": "위로 이동", "down": "아래로 이동", "top": "맨 위로", "bottom": "맨 아래로",
+    "delete": "섹션 삭제", "hide": "섹션 숨기기",
+    "grip": "끌어서 섹션 위치 이동 (선택 후 ↑/↓ 키로도 이동)", "gripLabel": "{{name}} 섹션 이동"
+  },
+  "info": {
+    "title": "회의 제목", "titlePlaceholder": "회의 제목", "date": "날짜", "time": "시간", "start": "시작 시간", "end": "종료 시간",
+    "location": "장소", "locationPlaceholder": "회의실, 온라인 링크 등", "organizer": "주관", "recorder": "작성자", "pickDate": "달력에서 고르기",
+    "pickPerson": "참석자에서 고르기", "pickOrType": "참석자에서 고르거나 직접 입력", "typeName": "이름 입력", "noAttendees": "참석자를 추가하면 여기서 고를 수 있습니다"
+  },
+  "attendee": { "name": "이름", "role": "소속 / 역할", "attendance": "참석 여부" },
+  "attendance": { "present": "참석", "remote": "원격", "absent": "불참" },
+  "action": { "task": "할 일", "owner": "담당자", "due": "기한", "duePlaceholder": "기한", "done": "완료" },
+  "add": {
+    "attendee": "참석자 추가", "agenda": "안건 추가", "decision": "결정 사항 추가", "action": "실행 항목 추가",
+    "agendaPlaceholder": "안건", "decisionPlaceholder": "결정한 내용",
+    "item": "항목 추가", "itemPlaceholder": "항목", "person": "사람 추가"
+  },
+  "empty": {
+    "attendees": "아직 참석자가 없습니다. 아래 + 단추로 추가하세요.",
+    "items": "아직 항목이 없습니다.",
+    "people": "아직 사람이 없습니다.",
+    "agenda": "아직 안건이 없습니다.",
+    "decisions": "아직 결정 사항이 없습니다.",
+    "actionItems": "아직 실행 항목이 없습니다."
+  },
+  "row": { "up": "위로", "down": "아래로", "delete": "삭제" },
+  "editor": {
+    "icon": "아이콘 넣기", "iconSearch": "이름으로 찾기 (예: star, chart)", "iconSize": "아이콘 크기", "iconCount": "{{count}}개",
+    "iconGroup": { "all": "전체", "status": "상태·표시", "people": "사람·소통", "work": "업무·일정", "data": "데이터·비용", "comms": "연락·IT", "things": "사물", "arrows": "화살표" },
+    "toolbar": "서식", "block": "문단 종류", "paragraph": "본문", "heading": "제목 {{n}}", "quote": "인용", "codeBlock": "코드 블록",
+    "bold": "굵게 (Ctrl+B)", "italic": "기울임 (Ctrl+I)", "underline": "밑줄 (Ctrl+U)", "strike": "취소선", "code": "코드",
+    "bullets": "글머리 기호 목록", "numbers": "번호 목록", "checklist": "체크리스트", "link": "링크 (Ctrl+K)", "linkUrl": "링크 주소", "unlink": "링크 없애기",
+    "image": "그림 · 동영상 넣기", "table": "표 넣기", "rule": "가로줄",
+    "row": "행", "col": "열", "rowAdd": "아래에 행 추가", "rowDel": "행 삭제", "colAdd": "오른쪽에 열 추가", "colDel": "열 삭제", "column": "열 {{n}}",
+    "placeholder": "논의한 내용을 적으세요. 그림은 끌어다 놓거나 붙여 넣을 수 있습니다.",
+    "resize": "끌어서 크기 조절", "tooLarge": "{{name}}: 25MB보다 큰 파일은 넣을 수 없습니다.", "readFailed": "{{name}}을(를) 읽지 못했습니다.", "notMedia": "{{name}}: 그림·동영상·소리 파일만 넣을 수 있습니다.", "unsupportedImage": "{{name}}: 이 그림 형식은 열 수 없습니다. PNG나 JPG로 바꿔서 넣어 주세요."
+  },
+  "doc": {
+    "untitled": "제목 없는 회의", "field": "항목", "value": "내용", "date": "날짜", "time": "시간", "location": "장소",
+    "organizer": "주관", "recorder": "작성자", "attendees": "참석자", "name": "이름", "role": "소속 / 역할",
+    "attendance": "참석 여부", "present": "참석", "remote": "원격", "absent": "불참", "agenda": "안건",
+    "discussion": "회의 내용", "decisions": "결정 사항", "actions": "실행 항목", "no": "번호", "task": "할 일", "owner": "담당자",
+    "due": "기한", "status": "상태", "done": "완료", "open": "진행 중", "info": "회의 정보", "section": "섹션"
+  },
+  "stats": {
+    "attendance": "참석", "present": "{{present}} / {{total}}명", "actions": "실행 항목", "done": "{{done}} / {{total}} 완료",
+    "words": "회의 내용 단어", "wordsShort": "{{count}} 단어"
+  },
+  "status": {
+    "unsaved": "저장하지 않은 회의록", "modified": "수정됨", "savedAt": "{{time}}에 저장됨", "draftKept": "작업 내용은 자동으로 보관됩니다",
+    "opened": "{{name}}을(를) 열었습니다", "saved": "{{name}}에 저장했습니다", "exported": "{{name}}(으)로 내보냈습니다"
+  },
+  "error": { "open": "{{name}}을(를) 열 수 없습니다.\n{{reason}}", "read": "파일을 읽을 수 없습니다.\n{{reason}}" },
+  "unsaved": { "title": "저장하지 않은 변경 사항", "message": "\"{{name}}\"의 변경 사항을 저장할까요?", "save": "저장", "discard": "저장 안 함" },
+  "export": {
+    "title": "내보내기", "format": "형식", "run": "내보내기",
+    "word": "Word 문서", "wordNote": "Word에서 열고 고칠 수 있습니다. 인쇄 설정의 용지와 여백을 따릅니다.",
+    "html": "웹 페이지", "htmlNote": "그림까지 들어 있는 파일 하나라서 메일로 보내기 좋습니다.",
+    "markdown": "Markdown", "markdownNote": "위키, 깃허브, 노트 앱에 붙여 넣을 수 있습니다.",
+    "text": "텍스트", "textNote": "서식 없는 글자만 저장합니다.",
+    "pdf": "PDF", "pdfNote": "인쇄 창이 열립니다. 프린터로 'PDF로 저장'을 고르세요.",
+    "pdfHow": "PDF는 인쇄 창에서 프린터로 'Microsoft Print to PDF' 또는 'PDF로 저장'을 고르면 만들어집니다."
+  },
+  "print": {
+    "title": "인쇄", "print": "인쇄", "paper": "용지", "size": "크기", "orientation": "방향", "portrait": "세로", "landscape": "가로",
+    "scale": "글자 배율", "margins": "여백", "top": "위", "bottom": "아래", "leftMargin": "왼쪽", "rightMargin": "오른쪽",
+    "headerFooter": "머리글과 바닥글", "header": "머리글", "footer": "바닥글", "left": "왼쪽", "center": "가운데", "right": "오른쪽",
+    "headingSize": "글자 크기", "skipFirst": "첫 페이지 제외",
+    "tokens": "{title} 제목 · {date} 날짜 · {time} 시각 · {page} 쪽 번호 · {pages} 전체 쪽 수",
+    "range": "인쇄 범위", "range-all": "모든 페이지", "rangeCurrent": "현재 페이지 ({{page}}쪽)", "range-custom": "페이지 지정",
+    "pdfHint": "PDF로 저장하려면 인쇄 창에서 프린터를 'PDF로 저장'으로 고르세요.",
+    "defaults": "기본값으로", "measuring": "페이지를 나누는 중…", "pageCount": "모두 {{count}}쪽", "pageOf": "{{page}} / {{pages}}쪽",
+    "prevPage": "이전 페이지", "nextPage": "다음 페이지", "zoom": "확대 비율", "zoomIn": "확대", "zoomOut": "축소", "fit": "폭에 맞춤"
+  },
+  "pref": {
+    "general": "일반", "document": "문서", "startup": "시작", "reopenLast": "마지막 파일 다시 열기", "newMeeting": "새 회의록",
+    "dateToday": "날짜를 오늘로 채우기", "recentCount": "최근 파일 {{count}}개",
+    "documentHint": "완성 문서, 미리보기, 인쇄, 내보내기에 쓰이는 글꼴과 크기입니다.",
+    "font": "글꼴", "fontDefault": "기본 (맑은 고딕)", "fontSize": "글자 크기",
+    "fontSample": "지난주 출시한 기능의 사용자 반응을 공유했습니다. The quick brown fox jumps over the lazy dog. 0123456789"
+  },
+  "start": {
+    "title": "시작", "actions": "바로가기", "recent": "최근 파일", "templates": "서식으로 시작", "background": "배경",
+    "new": "새 회의록", "continue": "계속 작성", "settings": "시작 화면 설정", "themeSettings": "테마 설정", "exit": "끝내기",
+    "noRecent": "최근에 연 파일이 없습니다.", "removeRecent": "목록에서 빼기", "clearRecent": "모두 지우기", "showOnStartup": "시작할 때 표시",
+    "arrange": "자동 정렬", "arrangeTip": "카드를 기본 배치로 되돌립니다", "reset": "기본값으로", "speed": "속도", "opacity": "카드 불투명도",
+    "moveCard": "끌어서 카드 옮기기", "resizeCard": "끌어서 크기 조절, 두 번 눌러 내용에 맞춤",
+    "shuffle": "{{seconds}}초마다 배경 바꾸기", "shuffleShort": "자동 바꾸기",
+    "tipNew": "빈 회의록을 만듭니다", "tipOpen": ".mtg 파일을 엽니다", "tipContinue": "지금 회의록으로 돌아갑니다",
+    "tipTheme": "테마와 사용자 정의 테마를 고릅니다", "tipLanguage": "화면 언어를 바꿉니다", "tipPreferences": "프로그램 설정을 엽니다",
+    "tipStart": "배경과 카드를 설정합니다", "tipGuide": "사용 방법을 읽습니다 (F1)", "tipAbout": "버전과 개발자 정보", "tipExit": "프로그램을 닫습니다",
+    "tutorial": "튜토리얼", "tipTutorial": "회의록 작성과 인쇄를 따라 해 봅니다"
+  },
+  "template": {
+    "sample": "모든 항목이 채워진 예시",
+    "general": "어떤 회의에나 쓰는 기본 틀",
+    "scrum": "어제 한 일 · 오늘 할 일 · 막힌 점",
+    "project": "일정, 위험, 다음 단계 점검",
+    "retrospective": "잘한 점 · 아쉬운 점 · 시도할 점",
+    "board": "안건 의결과 표결 기록",
+    "oneonone": "면담 주제와 후속 조치",
+    "client": "고객 요구와 합의 사항"
+  },
+  "tutorial": {
+    "title": "튜토리얼", "choose": "튜토리얼 고르기", "question": "처음이신가요? 따라 하기로 회의록 작성법을 익혀 보세요.",
+    "askOnStart": "시작할 때 묻기", "later": "나중에", "stepCount": "{{count}}단계",
+    "prev": "이전", "next": "다음", "finish": "마치기", "doIt": "대신 해 주기", "doItTip": "이 단계를 자동으로 끝냅니다",
+    "close": "튜토리얼 닫기", "moveCard": "끌어서 옮기기", "enlarge": "크게 보기"
+  },
+  "guide": { "title": "사용 설명서", "switchLanguage": "언어 바꾸기", "fontSize": "글자 크기" },
+  "about": {
+    "title": "프로그램 정보", "version": "버전", "developer": "개발자", "email": "이메일", "copyright": "저작권", "platform": "플랫폼",
+    "buildDate": "빌드 날짜", "runtime": "런타임", "format": "파일 형식",
+    "description": "Windows · macOS · Linux · 웹용 회의록 작성기"
+  },
+  "theme": {
+    "light": "라이트", "dark": "다크", "name": "이름", "mode": "종류", "custom": "사용자 테마", "mine": "사용자 정의 테마",
+    "add": "새 사용자 정의 테마", "delete": "테마 삭제", "hint": "새 사용자 정의 테마를 만들면 색을 하나씩 바꿀 수 있습니다.",
+    "deleteAsk": "{{name}} 테마를 삭제할까요?"
+  },
+  "themeColor": { "bg": "배경", "panel": "패널", "ink": "글자", "muted": "흐린 글자", "line": "선", "accent": "강조", "soft": "선택", "header": "머리글", "alt": "교대 행", "danger": "경고" },
+  "tip": { "decrease": "줄이기", "increase": "늘리기", "close": "닫기", "resize": "크기 조절" },
+  "bg": {
+    "mindBloom": "피어나는 마인드맵", "fishbones": "헤엄치는 피쉬본", "neurons": "뉴런", "synapse": "시냅스", "treeChart": "트리 차트",
+    "ideaBubbles": "생각 풍선", "stickyNotes": "메모지", "orbits": "궤도", "blueprint": "설계 격자", "branches": "나뭇가지",
+    "flowRoots": "뿌리 흐름", "constellation": "별자리", "ripples": "물결", "aurora": "오로라", "honeycomb": "벌집",
+    "wordCloud": "단어 구름", "sketch": "연필 스케치", "globe3D": "3D 지구본", "tree3D": "3D 나무", "tunnel3D": "3D 터널",
+    "terrain3D": "3D 지형", "cards3D": "3D 카드", "starfield3D": "3D 별", "lattice3D": "3D 격자"
+  }
+}

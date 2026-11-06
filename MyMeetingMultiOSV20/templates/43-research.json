@@ -1,0 +1,41 @@
+{
+  "id": "research",
+  "order": 43,
+  "icon": "search",
+  "name": {
+    "ko": "연구 세미나",
+    "en": "Research Seminar"
+  },
+  "description": {
+    "ko": "연구 결과를 발표하고 토론한 내용을 기록",
+    "en": "Present research and capture the discussion"
+  },
+  "ko": {
+    "title": "연구 세미나",
+    "date": "",
+    "startTime": "16:00",
+    "endTime": "17:30",
+    "location": "세미나실",
+    "organizer": "지도 교수",
+    "recorder": "",
+    "attendees": "지도 교수\n연구원\n발표자",
+    "agenda": "연구 배경\n방법과 결과\n토론\n다음 연구 계획",
+    "body": "## 연구 배경\n\n- \n\n## 방법과 결과\n\n- \n\n## 토론\n\n- \n\n## 다음 연구 계획\n\n- ",
+    "decisions": "",
+    "actionItems": "발표자 — 실험 추가 수행"
+  },
+  "en": {
+    "title": "Research Seminar",
+    "date": "",
+    "startTime": "16:00",
+    "endTime": "17:30",
+    "location": "Seminar room",
+    "organizer": "Supervisor",
+    "recorder": "",
+    "attendees": "Supervisor\nResearchers\nPresenter",
+    "agenda": "Background\nMethod and results\nDiscussion\nNext steps",
+    "body": "## Background\n\n- \n\n## Method and results\n\n- \n\n## Discussion\n\n- \n\n## Next steps\n\n- ",
+    "decisions": "",
+    "actionItems": "Presenter — run the extra experiments"
+  }
+}

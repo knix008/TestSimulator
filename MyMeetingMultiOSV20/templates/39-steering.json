@@ -1,0 +1,41 @@
+{
+  "id": "steering",
+  "order": 39,
+  "icon": "crown",
+  "name": {
+    "ko": "운영 위원회",
+    "en": "Steering Committee"
+  },
+  "description": {
+    "ko": "프로젝트 방향과 주요 결정을 내리는 경영 회의",
+    "en": "Executive direction and key decisions"
+  },
+  "ko": {
+    "title": "운영 위원회",
+    "date": "",
+    "startTime": "16:00",
+    "endTime": "17:00",
+    "location": "임원 회의실",
+    "organizer": "위원장",
+    "recorder": "",
+    "attendees": "위원장\n스폰서\nPM\n부서장",
+    "agenda": "진행 현황 요약\n주요 위험과 이슈\n결정 요청 사항\n다음 보고 일정",
+    "body": "## 진행 현황 요약\n\n- \n\n## 주요 위험과 이슈\n\n- \n\n## 결정 요청 사항\n\n- \n\n## 다음 보고 일정\n\n- ",
+    "decisions": "",
+    "actionItems": "PM — 결정 사항 공지"
+  },
+  "en": {
+    "title": "Steering Committee",
+    "date": "",
+    "startTime": "16:00",
+    "endTime": "17:00",
+    "location": "Executive room",
+    "organizer": "Chair",
+    "recorder": "",
+    "attendees": "Chair\nSponsor\nProject manager\nDepartment heads",
+    "agenda": "Status summary\nKey risks and issues\nDecisions requested\nNext report",
+    "body": "## Status summary\n\n- \n\n## Key risks and issues\n\n- \n\n## Decisions requested\n\n- \n\n## Next report\n\n- ",
+    "decisions": "",
+    "actionItems": "Project manager — announce the decisions"
+  }
+}

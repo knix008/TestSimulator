@@ -1,0 +1,41 @@
+{
+  "id": "performance",
+  "order": 35,
+  "icon": "medal",
+  "name": {
+    "ko": "성과 평가 면담",
+    "en": "Performance Review"
+  },
+  "description": {
+    "ko": "한 기간의 성과와 성장 목표를 이야기",
+    "en": "Results of the period and growth goals"
+  },
+  "ko": {
+    "title": "성과 평가 면담",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "15:00",
+    "location": "소회의실",
+    "organizer": "팀장",
+    "recorder": "",
+    "attendees": "팀장\n팀원",
+    "agenda": "목표 달성도\n잘한 점\n개선할 점\n다음 기간 목표와 지원",
+    "body": "## 목표 달성도\n\n- \n\n## 잘한 점\n\n- \n\n## 개선할 점\n\n- \n\n## 다음 기간 목표와 지원\n\n- ",
+    "decisions": "",
+    "actionItems": "팀원 — 성장 계획 작성"
+  },
+  "en": {
+    "title": "Performance Review",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "15:00",
+    "location": "Small meeting room",
+    "organizer": "Manager",
+    "recorder": "",
+    "attendees": "Manager\nEmployee",
+    "agenda": "Goals achieved\nStrengths\nAreas to improve\nNext goals and support",
+    "body": "## Goals achieved\n\n- \n\n## Strengths\n\n- \n\n## Areas to improve\n\n- \n\n## Next goals and support\n\n- ",
+    "decisions": "",
+    "actionItems": "Employee — write a development plan"
+  }
+}

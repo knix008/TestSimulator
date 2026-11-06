@@ -1,0 +1,41 @@
+{
+  "id": "release",
+  "order": 22,
+  "icon": "upload",
+  "name": {
+    "ko": "릴리스 준비 회의",
+    "en": "Release Readiness"
+  },
+  "description": {
+    "ko": "배포 전 준비 상태와 위험을 점검",
+    "en": "Check readiness and risks before shipping"
+  },
+  "ko": {
+    "title": "릴리스 준비 회의",
+    "date": "",
+    "startTime": "15:00",
+    "endTime": "16:00",
+    "location": "온라인",
+    "organizer": "릴리스 매니저",
+    "recorder": "",
+    "attendees": "릴리스 매니저\n개발 리드\nQA\n지원팀",
+    "agenda": "포함 기능 목록\n테스트 결과\n알려진 문제\n배포 일정과 롤백 계획\n공지와 지원 준비",
+    "body": "## 포함 기능 목록\n\n- \n\n## 테스트 결과\n\n- \n\n## 알려진 문제\n\n- \n\n## 배포 일정과 롤백 계획\n\n- \n\n## 공지와 지원 준비\n\n- ",
+    "decisions": "",
+    "actionItems": "릴리스 매니저 — 배포 승인 요청"
+  },
+  "en": {
+    "title": "Release Readiness",
+    "date": "",
+    "startTime": "15:00",
+    "endTime": "16:00",
+    "location": "Online",
+    "organizer": "Release manager",
+    "recorder": "",
+    "attendees": "Release manager\nTech lead\nQA\nSupport",
+    "agenda": "What is in the release\nTest results\nKnown issues\nSchedule and rollback plan\nAnnouncements and support",
+    "body": "## What is in the release\n\n- \n\n## Test results\n\n- \n\n## Known issues\n\n- \n\n## Schedule and rollback plan\n\n- \n\n## Announcements and support\n\n- ",
+    "decisions": "",
+    "actionItems": "Release manager — ask for the go-ahead"
+  }
+}

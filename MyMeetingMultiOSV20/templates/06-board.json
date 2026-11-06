@@ -1,0 +1,33 @@
+{
+  "id": "board",
+  "order": 6,
+  "name": { "ko": "이사회 / 임원 회의", "en": "Board / Executive Meeting" },
+  "ko": {
+    "title": "제1차 이사회 회의록",
+    "date": "",
+    "startTime": "",
+    "endTime": "",
+    "location": "본사 대회의실",
+    "organizer": "의장",
+    "recorder": "간사",
+    "attendees": "의장\n이사 1\n이사 2\n감사",
+    "agenda": "성원 보고 및 개회 선언\n전차 회의록 승인\n제1호 안건: \n제2호 안건: \n기타 토의",
+    "body": "## 개회\n\n- 재적 이사 O명 중 O명 참석으로 성원이 성립되어 의장이 개회를 선언함.\n\n## 안건 심의\n\n### 제1호 안건\n\n- 제안 설명:\n- 토의 내용:\n- 표결 결과: 찬성 O / 반대 O / 기권 O\n\n## 폐회\n\n- 의장이 모든 안건 심의 종료를 확인하고 폐회를 선언함.",
+    "decisions": "제1호 안건: 원안대로 가결함.",
+    "actionItems": "담당 부서 — 후속 조치 (기한)"
+  },
+  "en": {
+    "title": "Board Meeting Minutes — No. 1",
+    "date": "",
+    "startTime": "",
+    "endTime": "",
+    "location": "HQ Main Conference Room",
+    "organizer": "Chairperson",
+    "recorder": "Secretary",
+    "attendees": "Chairperson\nDirector 1\nDirector 2\nAuditor",
+    "agenda": "Quorum report and call to order\nApproval of previous minutes\nResolution 1: \nResolution 2: \nOther business",
+    "body": "## Call to Order\n\n- With O of O directors present, a quorum was established and the chair called the meeting to order.\n\n## Deliberation\n\n### Resolution 1\n\n- Proposal:\n- Discussion:\n- Vote: For O / Against O / Abstain O\n\n## Adjournment\n\n- The chair confirmed all items were deliberated and adjourned the meeting.",
+    "decisions": "Resolution 1: approved as proposed.",
+    "actionItems": "Responsible dept. — follow-up action (due)"
+  }
+}

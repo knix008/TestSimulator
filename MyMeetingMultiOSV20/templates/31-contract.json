@@ -1,0 +1,41 @@
+{
+  "id": "contract",
+  "order": 31,
+  "icon": "briefcase",
+  "name": {
+    "ko": "계약 협상 회의",
+    "en": "Contract Negotiation"
+  },
+  "description": {
+    "ko": "계약 조건을 협상하고 합의 사항을 기록",
+    "en": "Negotiate terms and record what was agreed"
+  },
+  "ko": {
+    "title": "계약 협상 회의",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "12:00",
+    "location": "고객사 회의실",
+    "organizer": "사업 담당",
+    "recorder": "",
+    "attendees": "사업 담당\n법무 담당\n고객사 대표",
+    "agenda": "계약 범위\n가격과 지불 조건\n책임과 보증\n미합의 쟁점",
+    "body": "## 계약 범위\n\n- \n\n## 가격과 지불 조건\n\n- \n\n## 책임과 보증\n\n- \n\n## 미합의 쟁점\n\n- ",
+    "decisions": "",
+    "actionItems": "법무 담당 — 수정 계약서 송부"
+  },
+  "en": {
+    "title": "Contract Negotiation",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "12:00",
+    "location": "Client meeting room",
+    "organizer": "Account lead",
+    "recorder": "",
+    "attendees": "Account lead\nLegal\nClient representative",
+    "agenda": "Scope\nPrice and payment\nLiability and warranty\nOpen points",
+    "body": "## Scope\n\n- \n\n## Price and payment\n\n- \n\n## Liability and warranty\n\n- \n\n## Open points\n\n- ",
+    "decisions": "",
+    "actionItems": "Legal — send the revised draft"
+  }
+}

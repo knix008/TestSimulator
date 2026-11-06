@@ -1,0 +1,41 @@
+{
+  "id": "incident",
+  "order": 21,
+  "icon": "bug",
+  "name": {
+    "ko": "장애 사후 검토",
+    "en": "Incident Postmortem"
+  },
+  "description": {
+    "ko": "비난 없이 원인과 재발 방지책을 찾는 회의",
+    "en": "Find causes and fixes, blamelessly"
+  },
+  "ko": {
+    "title": "장애 사후 검토",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "11:00",
+    "location": "온라인",
+    "organizer": "장애 책임자",
+    "recorder": "",
+    "attendees": "장애 책임자\n개발팀\n운영팀",
+    "agenda": "장애 요약과 영향\n타임라인\n근본 원인\n잘된 점과 아쉬운 점\n재발 방지 조치",
+    "body": "## 장애 요약과 영향\n\n- \n\n## 타임라인\n\n- \n\n## 근본 원인\n\n- \n\n## 잘된 점과 아쉬운 점\n\n- \n\n## 재발 방지 조치\n\n- ",
+    "decisions": "",
+    "actionItems": "운영팀 — 모니터링 경보 추가"
+  },
+  "en": {
+    "title": "Incident Postmortem",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "11:00",
+    "location": "Online",
+    "organizer": "Incident lead",
+    "recorder": "",
+    "attendees": "Incident lead\nDevelopers\nOperations",
+    "agenda": "Summary and impact\nTimeline\nRoot cause\nWhat went well and what did not\nPreventive actions",
+    "body": "## Summary and impact\n\n- \n\n## Timeline\n\n- \n\n## Root cause\n\n- \n\n## What went well and what did not\n\n- \n\n## Preventive actions\n\n- ",
+    "decisions": "",
+    "actionItems": "Operations — add the missing alert"
+  }
+}

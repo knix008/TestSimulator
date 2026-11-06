@@ -1,0 +1,41 @@
+{
+  "id": "monthly",
+  "order": 14,
+  "icon": "chartBar",
+  "name": {
+    "ko": "월간 실적 회의",
+    "en": "Monthly Review"
+  },
+  "description": {
+    "ko": "월간 목표 대비 실적과 개선 과제를 점검",
+    "en": "Compare the month against its targets"
+  },
+  "ko": {
+    "title": "월간 실적 회의",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "16:00",
+    "location": "대회의실",
+    "organizer": "본부장",
+    "recorder": "",
+    "attendees": "본부장\n팀장들\n재무 담당",
+    "agenda": "월간 핵심 지표(KPI)\n목표 대비 실적\n차이 원인 분석\n다음 달 중점 과제",
+    "body": "## 월간 핵심 지표(KPI)\n\n- \n\n## 목표 대비 실적\n\n- \n\n## 차이 원인 분석\n\n- \n\n## 다음 달 중점 과제\n\n- ",
+    "decisions": "",
+    "actionItems": "팀장 — 개선 계획 제출"
+  },
+  "en": {
+    "title": "Monthly Review",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "16:00",
+    "location": "Main meeting room",
+    "organizer": "Division head",
+    "recorder": "",
+    "attendees": "Division head\nTeam leads\nFinance",
+    "agenda": "Key metrics (KPIs)\nResults against targets\nReasons for the gaps\nFocus for next month",
+    "body": "## Key metrics (KPIs)\n\n- \n\n## Results against targets\n\n- \n\n## Reasons for the gaps\n\n- \n\n## Focus for next month\n\n- ",
+    "decisions": "",
+    "actionItems": "Team leads — submit improvement plans"
+  }
+}

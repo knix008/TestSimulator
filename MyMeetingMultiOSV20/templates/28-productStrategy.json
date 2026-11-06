@@ -1,0 +1,41 @@
+{
+  "id": "productStrategy",
+  "order": 28,
+  "icon": "milestone",
+  "name": {
+    "ko": "제품 전략 회의",
+    "en": "Product Strategy"
+  },
+  "description": {
+    "ko": "제품 방향과 로드맵을 정하는 회의",
+    "en": "Product direction and roadmap"
+  },
+  "ko": {
+    "title": "제품 전략 회의",
+    "date": "",
+    "startTime": "13:00",
+    "endTime": "15:00",
+    "location": "대회의실",
+    "organizer": "제품 총괄",
+    "recorder": "",
+    "attendees": "제품 총괄\n기획자\n개발 리드\n영업 대표",
+    "agenda": "시장과 고객 문제\n제품 비전\n로드맵 우선순위\n필요 자원",
+    "body": "## 시장과 고객 문제\n\n- \n\n## 제품 비전\n\n- \n\n## 로드맵 우선순위\n\n- \n\n## 필요 자원\n\n- ",
+    "decisions": "",
+    "actionItems": "제품 총괄 — 로드맵 공유"
+  },
+  "en": {
+    "title": "Product Strategy",
+    "date": "",
+    "startTime": "13:00",
+    "endTime": "15:00",
+    "location": "Main meeting room",
+    "organizer": "Head of product",
+    "recorder": "",
+    "attendees": "Head of product\nProduct managers\nTech lead\nSales",
+    "agenda": "Market and customer problems\nProduct vision\nRoadmap priorities\nResources needed",
+    "body": "## Market and customer problems\n\n- \n\n## Product vision\n\n- \n\n## Roadmap priorities\n\n- \n\n## Resources needed\n\n- ",
+    "decisions": "",
+    "actionItems": "Head of product — publish the roadmap"
+  }
+}

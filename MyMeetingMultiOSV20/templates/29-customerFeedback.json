@@ -1,0 +1,41 @@
+{
+  "id": "customerFeedback",
+  "order": 29,
+  "icon": "thumbsUp",
+  "name": {
+    "ko": "고객 피드백 리뷰",
+    "en": "Customer Feedback Review"
+  },
+  "description": {
+    "ko": "고객 의견과 문의를 정리해 개선점을 찾는 회의",
+    "en": "Turn customer feedback into improvements"
+  },
+  "ko": {
+    "title": "고객 피드백 리뷰",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "11:00",
+    "location": "온라인",
+    "organizer": "고객 성공 담당",
+    "recorder": "",
+    "attendees": "고객 성공 담당\n기획자\n지원팀",
+    "agenda": "주요 문의 유형\n만족도와 불만 사항\n개선 요청\n대응 우선순위",
+    "body": "## 주요 문의 유형\n\n- \n\n## 만족도와 불만 사항\n\n- \n\n## 개선 요청\n\n- \n\n## 대응 우선순위\n\n- ",
+    "decisions": "",
+    "actionItems": "기획자 — 개선 과제 등록"
+  },
+  "en": {
+    "title": "Customer Feedback Review",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "11:00",
+    "location": "Online",
+    "organizer": "Customer success",
+    "recorder": "",
+    "attendees": "Customer success\nProduct manager\nSupport",
+    "agenda": "Top request types\nSatisfaction and complaints\nFeature requests\nWhat to do first",
+    "body": "## Top request types\n\n- \n\n## Satisfaction and complaints\n\n- \n\n## Feature requests\n\n- \n\n## What to do first\n\n- ",
+    "decisions": "",
+    "actionItems": "Product manager — log the improvements"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "id": "designReview",
+  "order": 18,
+  "icon": "color",
+  "name": {
+    "ko": "디자인 리뷰",
+    "en": "Design Review"
+  },
+  "description": {
+    "ko": "화면·경험 설계안을 검토하고 의견을 모으는 회의",
+    "en": "Review screens and flows, collect feedback"
+  },
+  "ko": {
+    "title": "디자인 리뷰",
+    "date": "",
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "location": "디자인 룸",
+    "organizer": "디자인 리드",
+    "recorder": "",
+    "attendees": "디자이너\n기획자\n개발자",
+    "agenda": "설계 목표와 사용자\n시안 발표\n사용성 의견\n수정 방향",
+    "body": "## 설계 목표와 사용자\n\n- \n\n## 시안 발표\n\n- \n\n## 사용성 의견\n\n- \n\n## 수정 방향\n\n- ",
+    "decisions": "",
+    "actionItems": "디자이너 — 수정 시안 공유"
+  },
+  "en": {
+    "title": "Design Review",
+    "date": "",
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "location": "Design room",
+    "organizer": "Design lead",
+    "recorder": "",
+    "attendees": "Designers\nProduct manager\nDevelopers",
+    "agenda": "Goals and users\nDesign walkthrough\nUsability feedback\nChanges to make",
+    "body": "## Goals and users\n\n- \n\n## Design walkthrough\n\n- \n\n## Usability feedback\n\n- \n\n## Changes to make\n\n- ",
+    "decisions": "",
+    "actionItems": "Designer — share the revised design"
+  }
+}

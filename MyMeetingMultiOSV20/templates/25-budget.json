@@ -1,0 +1,41 @@
+{
+  "id": "budget",
+  "order": 25,
+  "icon": "money",
+  "name": {
+    "ko": "예산 회의",
+    "en": "Budget Meeting"
+  },
+  "description": {
+    "ko": "예산 집행 현황과 다음 기간 예산을 논의",
+    "en": "Spending so far and the next budget"
+  },
+  "ko": {
+    "title": "예산 회의",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "11:30",
+    "location": "재무 회의실",
+    "organizer": "재무 담당",
+    "recorder": "",
+    "attendees": "재무 담당\n부서장",
+    "agenda": "예산 집행 현황\n초과·절감 항목\n추가 예산 요청\n다음 기간 예산안",
+    "body": "## 예산 집행 현황\n\n- \n\n## 초과·절감 항목\n\n- \n\n## 추가 예산 요청\n\n- \n\n## 다음 기간 예산안\n\n- ",
+    "decisions": "",
+    "actionItems": "부서장 — 수정 예산안 제출"
+  },
+  "en": {
+    "title": "Budget Meeting",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "11:30",
+    "location": "Finance room",
+    "organizer": "Finance lead",
+    "recorder": "",
+    "attendees": "Finance lead\nDepartment heads",
+    "agenda": "Spending to date\nOver and under\nExtra requests\nNext period's budget",
+    "body": "## Spending to date\n\n- \n\n## Over and under\n\n- \n\n## Extra requests\n\n- \n\n## Next period's budget\n\n- ",
+    "decisions": "",
+    "actionItems": "Department heads — submit revised budgets"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "id": "backlog",
+  "order": 12,
+  "icon": "list",
+  "name": {
+    "ko": "백로그 정리",
+    "en": "Backlog Refinement"
+  },
+  "description": {
+    "ko": "백로그 항목을 다듬고 우선순위를 정하는 회의",
+    "en": "Clarify, size and order backlog items"
+  },
+  "ko": {
+    "title": "백로그 정리",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "15:00",
+    "location": "온라인",
+    "organizer": "제품 책임자",
+    "recorder": "",
+    "attendees": "제품 책임자\n개발팀",
+    "agenda": "신규 요청 검토\n수용 기준 정리\n규모 추정\n우선순위 조정",
+    "body": "## 신규 요청 검토\n\n- \n\n## 수용 기준 정리\n\n- \n\n## 규모 추정\n\n- \n\n## 우선순위 조정\n\n- ",
+    "decisions": "",
+    "actionItems": "제품 책임자 — 상위 10개 항목 확정"
+  },
+  "en": {
+    "title": "Backlog Refinement",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "15:00",
+    "location": "Online",
+    "organizer": "Product owner",
+    "recorder": "",
+    "attendees": "Product owner\nDevelopers",
+    "agenda": "New requests\nAcceptance criteria\nSizing\nPriority order",
+    "body": "## New requests\n\n- \n\n## Acceptance criteria\n\n- \n\n## Sizing\n\n- \n\n## Priority order\n\n- ",
+    "decisions": "",
+    "actionItems": "Product owner — confirm the top ten items"
+  }
+}

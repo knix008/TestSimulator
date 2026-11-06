@@ -1,0 +1,33 @@
+{
+  "id": "scrum",
+  "order": 3,
+  "name": { "ko": "데일리 스크럼", "en": "Daily Scrum" },
+  "ko": {
+    "title": "데일리 스크럼",
+    "date": "",
+    "startTime": "09:30",
+    "endTime": "09:45",
+    "location": "온라인 / 스탠드업",
+    "organizer": "스크럼 마스터",
+    "recorder": "",
+    "attendees": "팀원 1\n팀원 2\n팀원 3",
+    "agenda": "어제 한 일\n오늘 할 일\n장애 요소(블로커)",
+    "body": "## 어제 한 일\n\n- \n\n## 오늘 할 일\n\n- \n\n## 블로커\n\n- ",
+    "decisions": "",
+    "actionItems": "담당자 — 블로커 해결 (오늘)"
+  },
+  "en": {
+    "title": "Daily Scrum",
+    "date": "",
+    "startTime": "09:30",
+    "endTime": "09:45",
+    "location": "Online / Stand-up",
+    "organizer": "Scrum Master",
+    "recorder": "",
+    "attendees": "Member 1\nMember 2\nMember 3",
+    "agenda": "What I did yesterday\nWhat I will do today\nBlockers",
+    "body": "## Yesterday\n\n- \n\n## Today\n\n- \n\n## Blockers\n\n- ",
+    "decisions": "",
+    "actionItems": "Owner — resolve blocker (today)"
+  }
+}

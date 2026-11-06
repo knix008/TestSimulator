@@ -1,0 +1,41 @@
+{
+  "id": "kickoff",
+  "order": 9,
+  "icon": "rocket",
+  "name": {
+    "ko": "프로젝트 킥오프",
+    "en": "Project Kickoff"
+  },
+  "description": {
+    "ko": "목표·범위·역할·일정을 처음 맞추는 회의",
+    "en": "Agree goals, scope, roles and schedule at the start"
+  },
+  "ko": {
+    "title": "프로젝트 킥오프",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "11:30",
+    "location": "대회의실",
+    "organizer": "PM",
+    "recorder": "",
+    "attendees": "PM\n개발 리드\n디자인 리드\n스폰서",
+    "agenda": "프로젝트 목표와 성공 기준\n범위와 제외 사항\n역할과 책임(R&R)\n주요 일정과 마일스톤\n위험 요소와 의사소통 방법",
+    "body": "## 프로젝트 목표와 성공 기준\n\n- \n\n## 범위와 제외 사항\n\n- \n\n## 역할과 책임(R&R)\n\n- \n\n## 주요 일정과 마일스톤\n\n- \n\n## 위험 요소와 의사소통 방법\n\n- ",
+    "decisions": "",
+    "actionItems": "PM — 프로젝트 헌장 배포"
+  },
+  "en": {
+    "title": "Project Kickoff",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "11:30",
+    "location": "Main meeting room",
+    "organizer": "Project manager",
+    "recorder": "",
+    "attendees": "Project manager\nTech lead\nDesign lead\nSponsor",
+    "agenda": "Goals and success criteria\nIn and out of scope\nRoles and responsibilities\nKey dates and milestones\nRisks and communication",
+    "body": "## Goals and success criteria\n\n- \n\n## In and out of scope\n\n- \n\n## Roles and responsibilities\n\n- \n\n## Key dates and milestones\n\n- \n\n## Risks and communication\n\n- ",
+    "decisions": "",
+    "actionItems": "Project manager — share the project charter"
+  }
+}

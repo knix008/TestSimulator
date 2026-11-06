@@ -1,0 +1,41 @@
+{
+  "id": "changeControl",
+  "order": 38,
+  "icon": "sync",
+  "name": {
+    "ko": "변경 관리 위원회",
+    "en": "Change Control Board"
+  },
+  "description": {
+    "ko": "변경 요청을 검토하고 승인 여부를 결정",
+    "en": "Review change requests and decide"
+  },
+  "ko": {
+    "title": "변경 관리 위원회",
+    "date": "",
+    "startTime": "15:00",
+    "endTime": "16:00",
+    "location": "온라인",
+    "organizer": "CCB 의장",
+    "recorder": "",
+    "attendees": "CCB 의장\nPM\n기술 대표\n품질 대표",
+    "agenda": "변경 요청 목록\n영향 분석(일정·비용·품질)\n승인·보류·반려\n후속 조치",
+    "body": "## 변경 요청 목록\n\n- \n\n## 영향 분석(일정·비용·품질)\n\n- \n\n## 승인·보류·반려\n\n- \n\n## 후속 조치\n\n- ",
+    "decisions": "",
+    "actionItems": "PM — 승인된 변경 반영"
+  },
+  "en": {
+    "title": "Change Control Board",
+    "date": "",
+    "startTime": "15:00",
+    "endTime": "16:00",
+    "location": "Online",
+    "organizer": "CCB chair",
+    "recorder": "",
+    "attendees": "CCB chair\nProject manager\nEngineering\nQuality",
+    "agenda": "Change requests\nImpact on time, cost, quality\nApprove, hold or reject\nFollow-up",
+    "body": "## Change requests\n\n- \n\n## Impact on time, cost, quality\n\n- \n\n## Approve, hold or reject\n\n- \n\n## Follow-up\n\n- ",
+    "decisions": "",
+    "actionItems": "Project manager — apply approved changes"
+  }
+}

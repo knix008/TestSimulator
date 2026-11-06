@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+test-results/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers copied to the project root
+*.exe
+*.dmg
+*.AppImage
+*.deb
+
+# Logs and caches
+*.log
+*.tmp
+*.tsbuildinfo
+.vite/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json

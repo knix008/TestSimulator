@@ -1,0 +1,41 @@
+{
+  "id": "architecture",
+  "order": 20,
+  "icon": "server",
+  "name": {
+    "ko": "아키텍처 검토",
+    "en": "Architecture Review"
+  },
+  "description": {
+    "ko": "시스템 구조와 기술 선택을 검토하는 회의",
+    "en": "Review system structure and technology choices"
+  },
+  "ko": {
+    "title": "아키텍처 검토",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "16:00",
+    "location": "기술 회의실",
+    "organizer": "아키텍트",
+    "recorder": "",
+    "attendees": "아키텍트\n개발 리드\n운영 담당",
+    "agenda": "요구 사항과 제약\n제안 구조\n대안 비교\n성능·보안·비용\n결정 기록(ADR)",
+    "body": "## 요구 사항과 제약\n\n- \n\n## 제안 구조\n\n- \n\n## 대안 비교\n\n- \n\n## 성능·보안·비용\n\n- \n\n## 결정 기록(ADR)\n\n- ",
+    "decisions": "",
+    "actionItems": "아키텍트 — ADR 문서 작성"
+  },
+  "en": {
+    "title": "Architecture Review",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "16:00",
+    "location": "Engineering room",
+    "organizer": "Architect",
+    "recorder": "",
+    "attendees": "Architect\nTech leads\nOperations",
+    "agenda": "Requirements and constraints\nProposed design\nAlternatives\nPerformance, security, cost\nDecision record (ADR)",
+    "body": "## Requirements and constraints\n\n- \n\n## Proposed design\n\n- \n\n## Alternatives\n\n- \n\n## Performance, security, cost\n\n- \n\n## Decision record (ADR)\n\n- ",
+    "decisions": "",
+    "actionItems": "Architect — write the ADR"
+  }
+}

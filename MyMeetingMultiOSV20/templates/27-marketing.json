@@ -1,0 +1,41 @@
+{
+  "id": "marketing",
+  "order": 27,
+  "icon": "sparkle",
+  "name": {
+    "ko": "마케팅 캠페인 회의",
+    "en": "Marketing Campaign"
+  },
+  "description": {
+    "ko": "캠페인 목표·채널·일정을 정하는 회의",
+    "en": "Campaign goals, channels and timing"
+  },
+  "ko": {
+    "title": "마케팅 캠페인 회의",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "15:30",
+    "location": "마케팅 룸",
+    "organizer": "마케팅 리드",
+    "recorder": "",
+    "attendees": "마케팅 리드\n콘텐츠 담당\n디자이너",
+    "agenda": "캠페인 목표와 대상\n메시지와 콘텐츠\n채널과 예산\n일정\n성과 측정",
+    "body": "## 캠페인 목표와 대상\n\n- \n\n## 메시지와 콘텐츠\n\n- \n\n## 채널과 예산\n\n- \n\n## 일정\n\n- \n\n## 성과 측정\n\n- ",
+    "decisions": "",
+    "actionItems": "콘텐츠 담당 — 초안 작성"
+  },
+  "en": {
+    "title": "Marketing Campaign",
+    "date": "",
+    "startTime": "14:00",
+    "endTime": "15:30",
+    "location": "Marketing room",
+    "organizer": "Marketing lead",
+    "recorder": "",
+    "attendees": "Marketing lead\nContent\nDesigner",
+    "agenda": "Goal and audience\nMessage and content\nChannels and budget\nTimeline\nHow we measure it",
+    "body": "## Goal and audience\n\n- \n\n## Message and content\n\n- \n\n## Channels and budget\n\n- \n\n## Timeline\n\n- \n\n## How we measure it\n\n- ",
+    "decisions": "",
+    "actionItems": "Content — draft the copy"
+  }
+}

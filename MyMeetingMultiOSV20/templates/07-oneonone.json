@@ -1,0 +1,33 @@
+{
+  "id": "oneonone",
+  "order": 7,
+  "name": { "ko": "1:1 미팅", "en": "1:1 Meeting" },
+  "ko": {
+    "title": "1:1 미팅",
+    "date": "",
+    "startTime": "",
+    "endTime": "",
+    "location": "",
+    "organizer": "",
+    "recorder": "",
+    "attendees": "관리자\n팀원",
+    "agenda": "지난 목표 점검\n현재 진행 중인 업무\n어려움 / 도움 필요 사항\n성장 및 피드백",
+    "body": "## 잘 되고 있는 것\n\n- \n\n## 어려운 점 / 도움이 필요한 것\n\n- \n\n## 피드백\n\n- ",
+    "decisions": "",
+    "actionItems": "관리자 — 지원 사항 (기한)\n팀원 — 다음 목표 (기한)"
+  },
+  "en": {
+    "title": "1:1 Meeting",
+    "date": "",
+    "startTime": "",
+    "endTime": "",
+    "location": "",
+    "organizer": "",
+    "recorder": "",
+    "attendees": "Manager\nTeam member",
+    "agenda": "Review previous goals\nCurrent work in progress\nChallenges / help needed\nGrowth and feedback",
+    "body": "## What's going well\n\n- \n\n## Challenges / where I need help\n\n- \n\n## Feedback\n\n- ",
+    "decisions": "",
+    "actionItems": "Manager — support item (due)\nTeam member — next goal (due)"
+  }
+}

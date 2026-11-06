@@ -1,0 +1,41 @@
+{
+  "id": "qa",
+  "order": 23,
+  "icon": "checklist",
+  "name": {
+    "ko": "품질(QA) 점검",
+    "en": "QA Review"
+  },
+  "description": {
+    "ko": "테스트 진행률과 결함 현황을 점검",
+    "en": "Test progress and open defects"
+  },
+  "ko": {
+    "title": "품질(QA) 점검",
+    "date": "",
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "location": "QA 실",
+    "organizer": "QA 리드",
+    "recorder": "",
+    "attendees": "QA 리드\n테스터\n개발자",
+    "agenda": "테스트 진행률\n결함 현황(심각도별)\n재현이 어려운 문제\n출시 기준 충족 여부",
+    "body": "## 테스트 진행률\n\n- \n\n## 결함 현황(심각도별)\n\n- \n\n## 재현이 어려운 문제\n\n- \n\n## 출시 기준 충족 여부\n\n- ",
+    "decisions": "",
+    "actionItems": "개발자 — 치명 결함 수정"
+  },
+  "en": {
+    "title": "QA Review",
+    "date": "",
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "location": "QA room",
+    "organizer": "QA lead",
+    "recorder": "",
+    "attendees": "QA lead\nTesters\nDevelopers",
+    "agenda": "Test progress\nDefects by severity\nHard-to-reproduce issues\nExit criteria met?",
+    "body": "## Test progress\n\n- \n\n## Defects by severity\n\n- \n\n## Hard-to-reproduce issues\n\n- \n\n## Exit criteria met?\n\n- ",
+    "decisions": "",
+    "actionItems": "Developers — fix the critical defects"
+  }
+}

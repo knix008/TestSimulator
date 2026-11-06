@@ -1,0 +1,41 @@
+{
+  "id": "sprintPlanning",
+  "order": 10,
+  "icon": "calendarCheck",
+  "name": {
+    "ko": "스프린트 계획",
+    "en": "Sprint Planning"
+  },
+  "description": {
+    "ko": "이번 스프린트의 목표와 작업을 정하는 회의",
+    "en": "Set the sprint goal and pick the work"
+  },
+  "ko": {
+    "title": "스프린트 계획",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "12:00",
+    "location": "팀 회의실",
+    "organizer": "제품 책임자",
+    "recorder": "",
+    "attendees": "제품 책임자\n스크럼 마스터\n개발팀",
+    "agenda": "스프린트 목표\n가용 인원과 용량\n백로그 항목 선택\n작업 분해와 추정",
+    "body": "## 스프린트 목표\n\n- \n\n## 가용 인원과 용량\n\n- \n\n## 백로그 항목 선택\n\n- \n\n## 작업 분해와 추정\n\n- ",
+    "decisions": "",
+    "actionItems": "스크럼 마스터 — 스프린트 보드 갱신"
+  },
+  "en": {
+    "title": "Sprint Planning",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "12:00",
+    "location": "Team room",
+    "organizer": "Product owner",
+    "recorder": "",
+    "attendees": "Product owner\nScrum master\nDevelopers",
+    "agenda": "Sprint goal\nTeam capacity\nBacklog items selected\nTask breakdown and estimates",
+    "body": "## Sprint goal\n\n- \n\n## Team capacity\n\n- \n\n## Backlog items selected\n\n- \n\n## Task breakdown and estimates\n\n- ",
+    "decisions": "",
+    "actionItems": "Scrum master — update the sprint board"
+  }
+}

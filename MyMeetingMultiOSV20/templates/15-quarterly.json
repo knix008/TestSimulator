@@ -1,0 +1,41 @@
+{
+  "id": "quarterly",
+  "order": 15,
+  "icon": "chartPie",
+  "name": {
+    "ko": "분기 사업 검토(QBR)",
+    "en": "Quarterly Business Review"
+  },
+  "description": {
+    "ko": "분기 성과와 다음 분기 목표를 검토",
+    "en": "Review the quarter and set the next one's goals"
+  },
+  "ko": {
+    "title": "분기 사업 검토(QBR)",
+    "date": "",
+    "startTime": "13:00",
+    "endTime": "17:00",
+    "location": "본사 대회의실",
+    "organizer": "대표",
+    "recorder": "",
+    "attendees": "대표\n임원진\n사업부장",
+    "agenda": "분기 실적 요약\n시장과 경쟁 동향\n주요 성과와 미달 항목\n다음 분기 목표(OKR)\n투자와 인력 계획",
+    "body": "## 분기 실적 요약\n\n- \n\n## 시장과 경쟁 동향\n\n- \n\n## 주요 성과와 미달 항목\n\n- \n\n## 다음 분기 목표(OKR)\n\n- \n\n## 투자와 인력 계획\n\n- ",
+    "decisions": "",
+    "actionItems": "전략팀 — 분기 OKR 확정본 배포"
+  },
+  "en": {
+    "title": "Quarterly Business Review",
+    "date": "",
+    "startTime": "13:00",
+    "endTime": "17:00",
+    "location": "Head office boardroom",
+    "organizer": "CEO",
+    "recorder": "",
+    "attendees": "CEO\nExecutives\nBusiness unit heads",
+    "agenda": "Quarter in numbers\nMarket and competition\nWins and misses\nNext quarter's OKRs\nInvestment and staffing",
+    "body": "## Quarter in numbers\n\n- \n\n## Market and competition\n\n- \n\n## Wins and misses\n\n- \n\n## Next quarter's OKRs\n\n- \n\n## Investment and staffing\n\n- ",
+    "decisions": "",
+    "actionItems": "Strategy — share the final OKRs"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "id": "safety",
+  "order": 41,
+  "icon": "fire",
+  "name": {
+    "ko": "안전 점검 회의",
+    "en": "Safety Meeting"
+  },
+  "description": {
+    "ko": "현장 안전 상태와 사고 예방책을 점검",
+    "en": "Workplace safety and accident prevention"
+  },
+  "ko": {
+    "title": "안전 점검 회의",
+    "date": "",
+    "startTime": "08:30",
+    "endTime": "09:00",
+    "location": "현장 사무실",
+    "organizer": "안전 관리자",
+    "recorder": "",
+    "attendees": "안전 관리자\n현장 책임자\n작업자 대표",
+    "agenda": "아차 사고 공유\n위험 작업 점검\n보호구와 설비\n교육 계획",
+    "body": "## 아차 사고 공유\n\n- \n\n## 위험 작업 점검\n\n- \n\n## 보호구와 설비\n\n- \n\n## 교육 계획\n\n- ",
+    "decisions": "",
+    "actionItems": "현장 책임자 — 위험 구역 표지 설치"
+  },
+  "en": {
+    "title": "Safety Meeting",
+    "date": "",
+    "startTime": "08:30",
+    "endTime": "09:00",
+    "location": "Site office",
+    "organizer": "Safety manager",
+    "recorder": "",
+    "attendees": "Safety manager\nSite lead\nWorker representative",
+    "agenda": "Near misses\nHigh-risk work\nProtective gear and equipment\nTraining plan",
+    "body": "## Near misses\n\n- \n\n## High-risk work\n\n- \n\n## Protective gear and equipment\n\n- \n\n## Training plan\n\n- ",
+    "decisions": "",
+    "actionItems": "Site lead — mark the hazard areas"
+  }
+}

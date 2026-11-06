@@ -1,0 +1,41 @@
+{
+  "id": "onboarding",
+  "order": 34,
+  "icon": "tutorial",
+  "name": {
+    "ko": "신규 입사자 온보딩",
+    "en": "New Hire Onboarding"
+  },
+  "description": {
+    "ko": "입사자의 첫 주 일정과 적응을 돕는 회의",
+    "en": "Plan the first weeks of a new colleague"
+  },
+  "ko": {
+    "title": "신규 입사자 온보딩",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "11:00",
+    "location": "팀 회의실",
+    "organizer": "팀장",
+    "recorder": "",
+    "attendees": "팀장\n신규 입사자\n멘토",
+    "agenda": "팀 소개\n업무 도구와 계정\n첫 달 목표\n멘토와 질문 창구",
+    "body": "## 팀 소개\n\n- \n\n## 업무 도구와 계정\n\n- \n\n## 첫 달 목표\n\n- \n\n## 멘토와 질문 창구\n\n- ",
+    "decisions": "",
+    "actionItems": "멘토 — 첫 주 일정 공유"
+  },
+  "en": {
+    "title": "New Hire Onboarding",
+    "date": "",
+    "startTime": "10:00",
+    "endTime": "11:00",
+    "location": "Team room",
+    "organizer": "Team lead",
+    "recorder": "",
+    "attendees": "Team lead\nNew hire\nBuddy",
+    "agenda": "Meet the team\nTools and accounts\nGoals for the first month\nBuddy and where to ask",
+    "body": "## Meet the team\n\n- \n\n## Tools and accounts\n\n- \n\n## Goals for the first month\n\n- \n\n## Buddy and where to ask\n\n- ",
+    "decisions": "",
+    "actionItems": "Buddy — share the first week's plan"
+  }
+}

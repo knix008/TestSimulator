@@ -1,0 +1,160 @@
+{
+  "appTitle": "MyMeeting",
+  "common": { "ok": "OK", "cancel": "Cancel", "close": "Close" },
+  "toolbar": {
+    "file": "File", "edit": "Edit", "view": "View", "help": "Help",
+    "new": "New Minutes", "open": "Open", "save": "Save", "saveAs": "Save As", "print": "Print", "export": "Export",
+    "settings": "Settings", "exit": "Exit", "undo": "Undo", "redo": "Redo", "fullscreen": "Full Screen",
+    "numbering": "Number the headings", "numberingOn": "Turn heading numbers on", "numberingOff": "Turn heading numbers off",
+    "theme": "Theme", "language": "Language", "about": "About", "minimize": "Minimize", "maximize": "Maximize", "close": "Close",
+    "addSection": "Add Section"
+  },
+  "panel": {
+    "outline": "Outline", "preview": "Finished Document",
+    "showOutline": "Show the outline", "hideOutline": "Hide the outline",
+    "showPreview": "Show the preview", "hidePreview": "Hide the preview", "resizePreview": "Drag to resize the preview (double-click: default width)"
+  },
+  "section": { "info": "Meeting Details", "attendees": "Attendees", "agenda": "Agenda", "discussion": "Discussion", "decisions": "Decisions", "actionItems": "Action Items" },
+  "sectionKind": { "text": "Free Text", "list": "Bulleted List", "numbered": "Numbered List", "tasks": "Task List", "people": "People" },
+  "sectionKindNote": {
+    "text": "Formatted text with tables and pictures, like the discussion",
+    "list": "One item per line (•)",
+    "numbered": "Items in order (1. 2. 3.)",
+    "tasks": "Task, owner, due date and a done mark",
+    "people": "Name, team and attendance"
+  },
+  "sectionMenu": {
+    "addTitle": "Add Section", "add": "Add", "addMore": "Add section…", "kinds": "Contents", "builtins": "Bring back a standard section", "builtinNote": "Hidden standard section (contents kept)",
+    "name": "Name", "where": "Position", "afterCurrent": "After the current section", "atEnd": "At the end",
+    "icon": "Icon", "iconDefault": "Default icon", "iconHint": "Pick one below", "changeIcon": "Change icon",
+    "rename": "Rename", "renameTip": "Double-click to rename", "more": "Section menu",
+    "up": "Move up", "down": "Move down", "top": "Move to top", "bottom": "Move to bottom",
+    "delete": "Delete section", "hide": "Hide section",
+    "grip": "Drag to move the section (or focus it and press ↑/↓)", "gripLabel": "Move the {{name}} section"
+  },
+  "info": {
+    "title": "Meeting title", "titlePlaceholder": "Meeting title", "date": "Date", "time": "Time", "start": "Start time", "end": "End time",
+    "location": "Location", "locationPlaceholder": "Room, online link…", "organizer": "Organizer", "recorder": "Recorder", "pickDate": "Pick from the calendar",
+    "pickPerson": "Pick from the attendees", "pickOrType": "Pick an attendee or type a name", "typeName": "Type a name", "noAttendees": "Add attendees to pick from them here"
+  },
+  "attendee": { "name": "Name", "role": "Role / Team", "attendance": "Attendance" },
+  "attendance": { "present": "Present", "remote": "Remote", "absent": "Absent" },
+  "action": { "task": "Task", "owner": "Owner", "due": "Due", "duePlaceholder": "Due", "done": "Done" },
+  "add": {
+    "attendee": "Add attendee", "agenda": "Add item", "decision": "Add decision", "action": "Add action item",
+    "agendaPlaceholder": "Agenda item", "decisionPlaceholder": "What was decided",
+    "item": "Add item", "itemPlaceholder": "Item", "person": "Add person"
+  },
+  "empty": {
+    "attendees": "No attendees yet. Add them with the + button below.",
+    "items": "No items yet.",
+    "people": "No people yet.",
+    "agenda": "No agenda items yet.",
+    "decisions": "No decisions yet.",
+    "actionItems": "No action items yet."
+  },
+  "row": { "up": "Move up", "down": "Move down", "delete": "Delete" },
+  "editor": {
+    "icon": "Insert icon", "iconSearch": "Find by name (e.g. star, chart)", "iconSize": "Icon size", "iconCount": "{{count}} icons",
+    "iconGroup": { "all": "All", "status": "Status & marks", "people": "People & talk", "work": "Work & schedule", "data": "Data & money", "comms": "Contact & IT", "things": "Things", "arrows": "Arrows" },
+    "toolbar": "Formatting", "block": "Paragraph style", "paragraph": "Body text", "heading": "Heading {{n}}", "quote": "Quote", "codeBlock": "Code block",
+    "bold": "Bold (Ctrl+B)", "italic": "Italic (Ctrl+I)", "underline": "Underline (Ctrl+U)", "strike": "Strikethrough", "code": "Code",
+    "bullets": "Bulleted list", "numbers": "Numbered list", "checklist": "Checklist", "link": "Link (Ctrl+K)", "linkUrl": "Link address", "unlink": "Remove link",
+    "image": "Insert picture or video", "table": "Insert table", "rule": "Horizontal line",
+    "row": "row", "col": "col", "rowAdd": "Add a row below", "rowDel": "Delete the row", "colAdd": "Add a column to the right", "colDel": "Delete the column", "column": "Column {{n}}",
+    "placeholder": "Write what was discussed. Drop or paste pictures right in.",
+    "resize": "Drag to resize", "tooLarge": "{{name}}: files over 25 MB cannot be inserted.", "readFailed": "Could not read {{name}}.", "notMedia": "{{name}}: only picture, video and sound files can be inserted.", "unsupportedImage": "{{name}}: this picture format cannot be opened. Convert it to PNG or JPG first."
+  },
+  "doc": {
+    "untitled": "Untitled Meeting", "field": "Item", "value": "Details", "date": "Date", "time": "Time", "location": "Location",
+    "organizer": "Organizer", "recorder": "Recorder", "attendees": "Attendees", "name": "Name", "role": "Role / Team",
+    "attendance": "Attendance", "present": "Present", "remote": "Remote", "absent": "Absent", "agenda": "Agenda",
+    "discussion": "Discussion", "decisions": "Decisions", "actions": "Action Items", "no": "No.", "task": "Task", "owner": "Owner",
+    "due": "Due", "status": "Status", "done": "Done", "open": "Open", "info": "Meeting Details", "section": "Section"
+  },
+  "stats": {
+    "attendance": "Attending", "present": "{{present}} of {{total}}", "actions": "Action items", "done": "{{done}} of {{total}} done",
+    "words": "Discussion words", "wordsShort": "{{count}} words"
+  },
+  "status": {
+    "unsaved": "Unsaved minutes", "modified": "Modified", "savedAt": "Saved at {{time}}", "draftKept": "Your work is kept automatically",
+    "opened": "Opened {{name}}", "saved": "Saved to {{name}}", "exported": "Exported to {{name}}"
+  },
+  "error": { "open": "Cannot open {{name}}.\n{{reason}}", "read": "Cannot read the file.\n{{reason}}" },
+  "unsaved": { "title": "Unsaved Changes", "message": "Save the changes to \"{{name}}\"?", "save": "Save", "discard": "Don't Save" },
+  "export": {
+    "title": "Export", "format": "Format", "run": "Export",
+    "word": "Word document", "wordNote": "Opens and edits in Word, with the paper and margins of the print settings.",
+    "html": "Web page", "htmlNote": "One file with its pictures inside: easy to mail.",
+    "markdown": "Markdown", "markdownNote": "Paste into a wiki, GitHub or a notes app.",
+    "text": "Plain text", "textNote": "Just the words, no formatting.",
+    "pdf": "PDF", "pdfNote": "Opens Print: choose the 'Save as PDF' printer.",
+    "pdfHow": "For PDF, choose 'Microsoft Print to PDF' or 'Save as PDF' as the printer in the print dialog."
+  },
+  "print": {
+    "title": "Print", "print": "Print", "paper": "Paper", "size": "Size", "orientation": "Orientation", "portrait": "Portrait", "landscape": "Landscape",
+    "scale": "Text scale", "margins": "Margins", "top": "Top", "bottom": "Bottom", "leftMargin": "Left", "rightMargin": "Right",
+    "headerFooter": "Header and footer", "header": "Header", "footer": "Footer", "left": "Left", "center": "Center", "right": "Right",
+    "headingSize": "Text size", "skipFirst": "Not on the first page",
+    "tokens": "{title} title · {date} date · {time} time · {page} page number · {pages} page count",
+    "range": "Pages", "range-all": "All pages", "rangeCurrent": "Current page ({{page}})", "range-custom": "Pages:",
+    "pdfHint": "To save a PDF, choose 'Save as PDF' as the printer in the print dialog.",
+    "defaults": "Reset to defaults", "measuring": "Laying out pages…", "pageCount": "{{count}} pages", "pageOf": "Page {{page}} of {{pages}}",
+    "prevPage": "Previous page", "nextPage": "Next page", "zoom": "Zoom", "zoomIn": "Zoom in", "zoomOut": "Zoom out", "fit": "Fit width"
+  },
+  "pref": {
+    "general": "General", "document": "Document", "startup": "Startup", "reopenLast": "Reopen the last file", "newMeeting": "New minutes",
+    "dateToday": "Fill in today's date", "recentCount": "{{count}} recent files",
+    "documentHint": "The font and size of the finished document, the preview, printing and exports.",
+    "font": "Font", "fontDefault": "Default (Malgun Gothic)", "fontSize": "Text size",
+    "fontSample": "We shared how users received last week's release. The quick brown fox jumps over the lazy dog. 0123456789"
+  },
+  "start": {
+    "title": "Start", "actions": "Shortcuts", "recent": "Recent files", "templates": "Start from a template", "background": "Background",
+    "new": "New Minutes", "continue": "Continue", "settings": "Start Screen Settings", "themeSettings": "Theme Settings", "exit": "Exit",
+    "noRecent": "No recent files yet.", "removeRecent": "Remove from the list", "clearRecent": "Clear all", "showOnStartup": "Show at startup",
+    "arrange": "Arrange", "arrangeTip": "Puts the cards back in their default places", "reset": "Reset to defaults", "speed": "Speed", "opacity": "Card opacity",
+    "moveCard": "Drag to move the card", "resizeCard": "Drag to resize, double-click to fit its content",
+    "shuffle": "Change the background every {{seconds}} seconds", "shuffleShort": "Auto change",
+    "tipNew": "Start blank minutes", "tipOpen": "Open a .mtg file", "tipContinue": "Back to the current minutes",
+    "tipTheme": "Pick a theme or a custom one", "tipLanguage": "Change the display language", "tipPreferences": "Open the program settings",
+    "tipStart": "Set the background and cards", "tipGuide": "Read how to use it (F1)", "tipAbout": "Version and developer", "tipExit": "Close the program",
+    "tutorial": "Tutorial", "tipTutorial": "Write and print minutes step by step"
+  },
+  "template": {
+    "sample": "An example with every part filled in",
+    "general": "A plain frame for any meeting",
+    "scrum": "Yesterday · today · blockers",
+    "project": "Schedule, risks and next steps",
+    "retrospective": "Went well · could improve · to try",
+    "board": "Resolutions and votes",
+    "oneonone": "Topics and follow-ups",
+    "client": "Requests and agreements"
+  },
+  "tutorial": {
+    "title": "Tutorials", "choose": "Choose a Tutorial", "question": "New here? Learn to write minutes by doing it once.",
+    "askOnStart": "Ask at startup", "later": "Later", "stepCount": "{{count}} steps",
+    "prev": "Back", "next": "Next", "finish": "Finish", "doIt": "Do it for me", "doItTip": "Completes this step for you",
+    "close": "Close the tutorial", "moveCard": "Drag to move", "enlarge": "Enlarge"
+  },
+  "guide": { "title": "User Guide", "switchLanguage": "Switch language", "fontSize": "Text size" },
+  "about": {
+    "title": "About", "version": "Version", "developer": "Developer", "email": "Email", "copyright": "Copyright", "platform": "Platform",
+    "buildDate": "Build Date", "runtime": "Runtime", "format": "File format",
+    "description": "Meeting minutes editor for Windows, macOS, Linux and the web"
+  },
+  "theme": {
+    "light": "Light", "dark": "Dark", "name": "Name", "mode": "Kind", "custom": "Custom theme", "mine": "Custom Themes",
+    "add": "New custom theme", "delete": "Delete theme", "hint": "Make a custom theme to change its colours one by one.",
+    "deleteAsk": "Delete the theme {{name}}?"
+  },
+  "themeColor": { "bg": "Background", "panel": "Panel", "ink": "Text", "muted": "Dim text", "line": "Line", "accent": "Accent", "soft": "Selection", "header": "Header", "alt": "Alt row", "danger": "Warning" },
+  "tip": { "decrease": "Decrease", "increase": "Increase", "close": "Close", "resize": "Resize" },
+  "bg": {
+    "mindBloom": "Blooming Mind Map", "fishbones": "Swimming Fishbones", "neurons": "Neurons", "synapse": "Synapses", "treeChart": "Tree Chart",
+    "ideaBubbles": "Thought Bubbles", "stickyNotes": "Sticky Notes", "orbits": "Orbits", "blueprint": "Blueprint", "branches": "Branches",
+    "flowRoots": "Flowing Roots", "constellation": "Constellation", "ripples": "Ripples", "aurora": "Aurora", "honeycomb": "Honeycomb",
+    "wordCloud": "Word Cloud", "sketch": "Pencil Sketch", "globe3D": "3D Globe", "tree3D": "3D Tree", "tunnel3D": "3D Tunnel",
+    "terrain3D": "3D Terrain", "cards3D": "3D Cards", "starfield3D": "3D Stars", "lattice3D": "3D Lattice"
+  }
+}

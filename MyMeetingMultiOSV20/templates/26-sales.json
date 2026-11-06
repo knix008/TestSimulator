@@ -1,0 +1,41 @@
+{
+  "id": "sales",
+  "order": 26,
+  "icon": "trendUp",
+  "name": {
+    "ko": "영업 파이프라인 회의",
+    "en": "Sales Pipeline Review"
+  },
+  "description": {
+    "ko": "영업 기회와 예상 매출을 점검",
+    "en": "Opportunities and the forecast"
+  },
+  "ko": {
+    "title": "영업 파이프라인 회의",
+    "date": "",
+    "startTime": "09:00",
+    "endTime": "10:00",
+    "location": "영업팀 회의실",
+    "organizer": "영업 본부장",
+    "recorder": "",
+    "attendees": "영업 본부장\n영업 담당자",
+    "agenda": "이번 달 예상 매출\n주요 영업 기회\n정체된 건\n지원 필요 사항",
+    "body": "## 이번 달 예상 매출\n\n- \n\n## 주요 영업 기회\n\n- \n\n## 정체된 건\n\n- \n\n## 지원 필요 사항\n\n- ",
+    "decisions": "",
+    "actionItems": "영업 담당자 — CRM 단계 갱신"
+  },
+  "en": {
+    "title": "Sales Pipeline Review",
+    "date": "",
+    "startTime": "09:00",
+    "endTime": "10:00",
+    "location": "Sales room",
+    "organizer": "Head of sales",
+    "recorder": "",
+    "attendees": "Head of sales\nAccount managers",
+    "agenda": "This month's forecast\nKey opportunities\nStalled deals\nHelp needed",
+    "body": "## This month's forecast\n\n- \n\n## Key opportunities\n\n- \n\n## Stalled deals\n\n- \n\n## Help needed\n\n- ",
+    "decisions": "",
+    "actionItems": "Account managers — update the CRM stages"
+  }
+}

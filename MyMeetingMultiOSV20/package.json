@@ -1,0 +1,47 @@
+{
+  "name": "mymeeting",
+  "version": "2.0.0",
+  "private": true,
+  "description": "MyMeeting - cross-platform meeting minutes editor (Tauri + React + TypeScript)",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/dev.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "node scripts/dev.mjs web",
+    "build:ui": "node node_modules/vite/bin/vite.js build",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "icons": "node node_modules/@tauri-apps/cli/tauri.js icon assets/icon.svg -o src-tauri/icons",
+    "tauri": "node node_modules/@tauri-apps/cli/tauri.js",
+    "build:win": "node node_modules/@tauri-apps/cli/tauri.js build --bundles nsis && node scripts/copy-installer.mjs",
+    "build:mac": "node node_modules/@tauri-apps/cli/tauri.js build --bundles dmg && node scripts/copy-installer.mjs",
+    "build:linux": "node node_modules/@tauri-apps/cli/tauri.js build --bundles appimage,deb && node scripts/copy-installer.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
+    "test": "node test/run.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "dompurify": "^3.2.6",
+    "i18next": "^25.3.2",
+    "marked": "^16.1.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-i18next": "^15.6.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.7.0",
+    "esbuild": "^0.25.0",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.5"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}

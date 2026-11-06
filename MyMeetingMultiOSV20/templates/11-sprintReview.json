@@ -1,0 +1,41 @@
+{
+  "id": "sprintReview",
+  "order": 11,
+  "icon": "eye",
+  "name": {
+    "ko": "스프린트 리뷰",
+    "en": "Sprint Review"
+  },
+  "description": {
+    "ko": "완료한 결과물을 시연하고 의견을 받는 회의",
+    "en": "Demo what was done and gather feedback"
+  },
+  "ko": {
+    "title": "스프린트 리뷰",
+    "date": "",
+    "startTime": "15:00",
+    "endTime": "16:00",
+    "location": "팀 회의실",
+    "organizer": "제품 책임자",
+    "recorder": "",
+    "attendees": "제품 책임자\n개발팀\n이해관계자",
+    "agenda": "스프린트 목표 달성 여부\n완료 항목 시연\n이해관계자 의견\n다음 스프린트 방향",
+    "body": "## 스프린트 목표 달성 여부\n\n- \n\n## 완료 항목 시연\n\n- \n\n## 이해관계자 의견\n\n- \n\n## 다음 스프린트 방향\n\n- ",
+    "decisions": "",
+    "actionItems": "제품 책임자 — 피드백을 백로그에 반영"
+  },
+  "en": {
+    "title": "Sprint Review",
+    "date": "",
+    "startTime": "15:00",
+    "endTime": "16:00",
+    "location": "Team room",
+    "organizer": "Product owner",
+    "recorder": "",
+    "attendees": "Product owner\nDevelopers\nStakeholders",
+    "agenda": "Sprint goal met?\nDemo of finished items\nStakeholder feedback\nDirection for next sprint",
+    "body": "## Sprint goal met?\n\n- \n\n## Demo of finished items\n\n- \n\n## Stakeholder feedback\n\n- \n\n## Direction for next sprint\n\n- ",
+    "decisions": "",
+    "actionItems": "Product owner — add feedback to the backlog"
+  }
+}

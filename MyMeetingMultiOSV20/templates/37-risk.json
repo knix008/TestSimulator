@@ -1,0 +1,41 @@
+{
+  "id": "risk",
+  "order": 37,
+  "icon": "warning",
+  "name": {
+    "ko": "리스크 검토",
+    "en": "Risk Review"
+  },
+  "description": {
+    "ko": "위험을 찾아 영향과 대응을 정하는 회의",
+    "en": "Find risks and decide how to handle them"
+  },
+  "ko": {
+    "title": "리스크 검토",
+    "date": "",
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "location": "프로젝트룸",
+    "organizer": "PM",
+    "recorder": "",
+    "attendees": "PM\n팀 리드\n품질 담당",
+    "agenda": "신규 위험\n발생 가능성과 영향\n대응 전략\n담당자와 기한",
+    "body": "## 신규 위험\n\n- \n\n## 발생 가능성과 영향\n\n- \n\n## 대응 전략\n\n- \n\n## 담당자와 기한\n\n- ",
+    "decisions": "",
+    "actionItems": "PM — 리스크 목록 갱신"
+  },
+  "en": {
+    "title": "Risk Review",
+    "date": "",
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "location": "Project room",
+    "organizer": "Project manager",
+    "recorder": "",
+    "attendees": "Project manager\nTeam leads\nQuality",
+    "agenda": "New risks\nLikelihood and impact\nResponse\nOwners and dates",
+    "body": "## New risks\n\n- \n\n## Likelihood and impact\n\n- \n\n## Response\n\n- \n\n## Owners and dates\n\n- ",
+    "decisions": "",
+    "actionItems": "Project manager — update the risk register"
+  }
+}

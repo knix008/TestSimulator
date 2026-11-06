@@ -1,0 +1,41 @@
+{
+  "id": "hiring",
+  "order": 33,
+  "icon": "users",
+  "name": {
+    "ko": "채용 결정 회의",
+    "en": "Hiring Debrief"
+  },
+  "description": {
+    "ko": "면접관 의견을 모아 채용 여부를 결정",
+    "en": "Bring interviewers together to decide"
+  },
+  "ko": {
+    "title": "채용 결정 회의",
+    "date": "",
+    "startTime": "17:00",
+    "endTime": "17:30",
+    "location": "온라인",
+    "organizer": "채용 담당",
+    "recorder": "",
+    "attendees": "채용 담당\n면접관들\n인사 담당",
+    "agenda": "면접관별 평가\n강점과 우려\n처우 조건\n결정",
+    "body": "## 면접관별 평가\n\n- \n\n## 강점과 우려\n\n- \n\n## 처우 조건\n\n- \n\n## 결정\n\n- ",
+    "decisions": "",
+    "actionItems": "인사 담당 — 결과 통보"
+  },
+  "en": {
+    "title": "Hiring Debrief",
+    "date": "",
+    "startTime": "17:00",
+    "endTime": "17:30",
+    "location": "Online",
+    "organizer": "Hiring manager",
+    "recorder": "",
+    "attendees": "Hiring manager\nInterviewers\nHR",
+    "agenda": "Each interviewer's view\nStrengths and concerns\nOffer terms\nDecision",
+    "body": "## Each interviewer's view\n\n- \n\n## Strengths and concerns\n\n- \n\n## Offer terms\n\n- \n\n## Decision\n\n- ",
+    "decisions": "",
+    "actionItems": "HR — tell the candidate"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "id": "brainstorm",
+  "order": 17,
+  "icon": "idea",
+  "name": {
+    "ko": "브레인스토밍",
+    "en": "Brainstorming"
+  },
+  "description": {
+    "ko": "판단 없이 아이디어를 모으고 추려 내는 회의",
+    "en": "Collect ideas without judging, then shortlist"
+  },
+  "ko": {
+    "title": "브레인스토밍",
+    "date": "",
+    "startTime": "15:00",
+    "endTime": "16:30",
+    "location": "창의 공간",
+    "organizer": "퍼실리테이터",
+    "recorder": "",
+    "attendees": "퍼실리테이터\n참여자",
+    "agenda": "문제 정의\n아이디어 발산\n분류와 묶기\n투표와 선정",
+    "body": "## 문제 정의\n\n- \n\n## 아이디어 발산\n\n- \n\n## 분류와 묶기\n\n- \n\n## 투표와 선정\n\n- ",
+    "decisions": "",
+    "actionItems": "퍼실리테이터 — 선정 아이디어 정리"
+  },
+  "en": {
+    "title": "Brainstorming",
+    "date": "",
+    "startTime": "15:00",
+    "endTime": "16:30",
+    "location": "Creative space",
+    "organizer": "Facilitator",
+    "recorder": "",
+    "attendees": "Facilitator\nParticipants",
+    "agenda": "The problem\nIdea generation\nGrouping\nVoting and shortlist",
+    "body": "## The problem\n\n- \n\n## Idea generation\n\n- \n\n## Grouping\n\n- \n\n## Voting and shortlist\n\n- ",
+    "decisions": "",
+    "actionItems": "Facilitator — write up the chosen ideas"
+  }
+}

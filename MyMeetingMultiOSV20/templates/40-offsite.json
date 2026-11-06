@@ -1,0 +1,41 @@
+{
+  "id": "offsite",
+  "order": 40,
+  "icon": "map",
+  "name": {
+    "ko": "워크숍·오프사이트",
+    "en": "Team Offsite"
+  },
+  "description": {
+    "ko": "사무실 밖에서 비전과 협업을 다지는 회의",
+    "en": "Vision and teamwork, away from the office"
+  },
+  "ko": {
+    "title": "워크숍·오프사이트",
+    "date": "",
+    "startTime": "09:30",
+    "endTime": "17:00",
+    "location": "외부 연수원",
+    "organizer": "팀장",
+    "recorder": "",
+    "attendees": "팀장\n팀원 전체",
+    "agenda": "지난 성과 돌아보기\n팀 비전\n협업 개선\n내년 목표\n팀 활동",
+    "body": "## 지난 성과 돌아보기\n\n- \n\n## 팀 비전\n\n- \n\n## 협업 개선\n\n- \n\n## 내년 목표\n\n- \n\n## 팀 활동\n\n- ",
+    "decisions": "",
+    "actionItems": "팀장 — 워크숍 결과 공유"
+  },
+  "en": {
+    "title": "Team Offsite",
+    "date": "",
+    "startTime": "09:30",
+    "endTime": "17:00",
+    "location": "Retreat venue",
+    "organizer": "Team lead",
+    "recorder": "",
+    "attendees": "Team lead\nWhole team",
+    "agenda": "Looking back\nTeam vision\nWorking better together\nNext year's goals\nTeam activity",
+    "body": "## Looking back\n\n- \n\n## Team vision\n\n- \n\n## Working better together\n\n- \n\n## Next year's goals\n\n- \n\n## Team activity\n\n- ",
+    "decisions": "",
+    "actionItems": "Team lead — share the outcomes"
+  }
+}
