@@ -218,7 +218,13 @@ fn convert_png(png: &[u8], name: &str) -> Result<Vec<u8>, String> {
     };
     let picture: image::DynamicImage = picture;
     let mut out = std::io::Cursor::new(Vec::new());
-    picture.write_to(&mut out, format).map_err(|e| e.to_string())?;
+    if name == "ppm" {
+        // By itself the encoder writes PAM ("P7"), which programs reading .ppm do not open.
+        let subtype = image::codecs::pnm::PnmSubtype::Pixmap(image::codecs::pnm::SampleEncoding::Binary);
+        picture.write_with_encoder(image::codecs::pnm::PnmEncoder::new(&mut out).with_subtype(subtype)).map_err(|e| e.to_string())?;
+    } else {
+        picture.write_to(&mut out, format).map_err(|e| e.to_string())?;
+    }
     Ok(out.into_inner())
 }
 
@@ -590,9 +596,20 @@ mod tests {
             let expected = if name == "ico" { (256, 128) } else { (600, 300) };
             assert_eq!((back.width(), back.height()), expected, "{name}");
         }
-        // There is no AVIF decoder in the program; its file type box says what it is.
+        assert!(convert_png(&png, "ppm").unwrap().starts_with(b"P6"), "a .ppm must be a real PPM, not PAM");
+        // There is no AVIF decoder in the program: its boxes say what it is and how large
+        // (the GUI tests have the WebView decode one). "ispe" holds the width and height.
         let avif = convert_png(&png, "avif").unwrap();
         assert_eq!(&avif[4..12], b"ftypavif");
+        let at = avif.windows(4).position(|w| w == b"ispe").expect("no size box");
+        let number = |from: usize| u32::from_be_bytes(avif[from..from + 4].try_into().unwrap());
+        assert_eq!((number(at + 8), number(at + 12)), (600, 300));
+        // An alpha plane is written as a second image.
+        let holes = image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(64, 64, image::Rgba([10, 120, 200, 0])));
+        let mut clear = std::io::Cursor::new(Vec::new());
+        holes.write_to(&mut clear, image::ImageFormat::Png).unwrap();
+        let with_alpha = convert_png(&clear.into_inner(), "avif").unwrap();
+        assert!(with_alpha.windows(4).filter(|w| *w == b"ispe").count() >= 2 || with_alpha.windows(5).any(|w| w == b"auxC\0"));
         assert!(convert_png(&png, "nonsense").is_err());
     }
 

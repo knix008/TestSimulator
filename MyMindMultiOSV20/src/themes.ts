@@ -1,4 +1,6 @@
 // The 40 built-in themes (20 light, 20 dark) and the user's own. A theme is a set of CSS variables.
+import { NODE_ICONS } from "./nodeIcons"
+
 export const DEFAULT_THEME_ID = "light-classic"
 export const THEME_COLOR_KEYS = ["bg", "panel", "ink", "muted", "line", "accent", "soft", "header", "alt", "danger"] as const
 export type ThemeColorKey = (typeof THEME_COLOR_KEYS)[number]
@@ -49,6 +51,8 @@ export function readable(color: string, backgrounds: string[], minimum: number, 
 }
 const onAccent = (accent: string) => (contrast("#ffffff", accent) >= contrast("#1a1a1a", accent) ? "#ffffff" : "#1a1a1a")
 const MIN_TEXT = 4.5
+/** What a picture needs against what is behind it. */
+export const MIN_ICON = 3
 const translucent = (hex: string, alpha: number) => `rgba(${channels(hex).join(", ")}, ${alpha})`
 /** A theme's accent can be nearly white. As a thin line around a button that glares, so lines stop here. */
 export const MAX_ACCENT_LINE = 5
@@ -115,7 +119,9 @@ function theme(mode: ThemeMode, id: string, nameKo: string, nameEn: string, rawB
       "--banner-ink": light ? "#9a3412" : "#fdba74",
       "--overlay": light ? "rgba(16, 24, 40, 0.35)" : "rgba(0, 0, 0, 0.55)",
       "--on-accent": onAccent(accent),
-      "--shadow": light ? "0 8px 24px rgba(16, 24, 40, 0.12)" : "0 8px 24px rgba(0, 0, 0, 0.45)"
+      "--shadow": light ? "0 8px 24px rgba(16, 24, 40, 0.12)" : "0 8px 24px rgba(0, 0, 0, 0.45)",
+      // Each icon in its own colour, moved only as far as this theme's panels need.
+      ...Object.fromEntries(NODE_ICONS.map((item) => [`--node-icon-${item.id}`, readable(item.color, [panel], MIN_ICON)]))
     }
   }
 }

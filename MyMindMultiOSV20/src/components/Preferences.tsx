@@ -241,6 +241,8 @@ export function PreferencesDialog({ initialTab, general, onGeneral, showGrid, on
               <div className="form-grid">
                 <span>{t('start.showOnStartup')}</span>
                 <Toggle id="prefStartShow" checked={start.showOnStartup} onChange={(showOnStartup) => onStart({ showOnStartup })} />
+                <span>{t('tutorial.askOnStart')}</span>
+                <Toggle id="prefAskTutorial" checked={start.askTutorial} onChange={(askTutorial) => onStart({ askTutorial })} />
               </div>
               <StartRanges start={start} speed={effectiveSpeed(start.speed, !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)} onChange={onStart} />
               <div className="pref-row pref-reset">

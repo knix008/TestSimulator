@@ -5,14 +5,31 @@ import { useTranslation } from 'react-i18next'
 import { inlinePieces } from '../markdown'
 import { TUTORIALS, applyStep, tutorialById } from '../tutorials'
 import type { DiagramDocument, Locale } from '../types'
+import { Toggle } from './controls'
 import { Dialog } from './dialogs'
 import { Icon } from './Icons'
 
 /** Which tutorial to take. */
-export function TutorialChooser({ language, onPick, onClose }: { language: Locale; onPick: (id: string) => void; onClose: () => void }) {
+export function TutorialChooser({ language, asking, askOnStart, onAskOnStart, onPick, onClose }: { language: Locale; asking: boolean; askOnStart: boolean; onAskOnStart: (ask: boolean) => void; onPick: (id: string) => void; onClose: () => void }) {
   const { t } = useTranslation()
   return (
-    <Dialog id="tutorial-choose" title={t('tutorial.choose')} icon="tutorial" onClose={onClose} width={520}>
+    <Dialog
+      id="tutorial-choose"
+      title={t('tutorial.choose')}
+      icon="tutorial"
+      onClose={onClose}
+      width={520}
+      footer={(
+        <>
+          <span className="tutorial-ask">
+            <Toggle id="tutorialAskOnStart" label={t('tutorial.askOnStart')} checked={askOnStart} onChange={onAskOnStart} />
+            <span>{t('tutorial.askOnStart')}</span>
+          </span>
+          <button type="button" data-command="tutorial-later" onClick={onClose}><Icon name="close" size={14} /> {asking ? t('tutorial.later') : t('about.close')}</button>
+        </>
+      )}
+    >
+      {asking && <p className="dialog-note" data-tutorial-question="">{t('tutorial.question')}</p>}
       <div className="tutorial-choices">
         {TUTORIALS.map((item) => (
           <button type="button" key={item.id} className="tutorial-choice" data-tutorial={item.id} onClick={() => onPick(item.id)}>

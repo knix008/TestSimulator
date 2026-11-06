@@ -38,11 +38,16 @@ function savedFont() {
   return Number.isInteger(value) && value >= MIN_FONT && value <= MAX_FONT ? value : DEFAULT_FONT
 }
 
+const IMAGES = import.meta.glob<string>('../../doc/images/*.webp', { eager: true, query: '?url', import: 'default' })
+
 function Inline({ text }: { text: string }) {
   return inlinePieces(text).map((piece, index) => {
     if ('code' in piece) return <code key={index}>{piece.code}</code>
     if ('bold' in piece) return <strong key={index}>{piece.bold}</strong>
-    if ('src' in piece) return null
+    if ('src' in piece) {
+      const url = IMAGES[`../../doc/${piece.src}`]
+      return url ? <img key={index} src={url} alt={piece.image} /> : null
+    }
     if ('link' in piece) return <span key={index} title={piece.href}>{piece.link}</span>
     return <span key={index}>{piece.text}</span>
   })

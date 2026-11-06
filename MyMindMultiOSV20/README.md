@@ -32,8 +32,8 @@ Version 2 replaces Electron with Tauri. The installer is a few megabytes, and th
 - **Undo / Redo**, duplicate, copy and paste of a subtree, multi-select, per-shape memo, tree view of the nodes
 - **Export** to PNG, JPEG, WebP, AVIF, GIF, SVG, BMP, TIFF, TGA, ICO, PPM, QOI, Farbfeld, EXR or HDR, cropped to the diagram, with an optional transparent background
 - **Rulers and a zoom-aware grid**, each with a toolbar button; **left and right panels** that fold to a strip
-- **Mind map themes**: 16 ways to dress a whole diagram (colours, shapes, text, connectors), from a gallery in the left panel or the toolbar
-- **Shape icons**: 50 icons listed in the left panel
+- **Mind map themes**: 40 ways to dress a whole diagram (colours, a shape for each level, text, connectors), from a gallery in the left panel or the toolbar
+- **Shape icons**: 100 icons listed in the left panel
 - **Memos** on shapes and lines: sticky notes with their own colour, size and font; defaults in the settings window
 - **Images on the canvas**: PNG, JPEG, GIF, WebP, BMP, SVG, AVIF, ICO, TIFF, TGA, DDS, HDR, EXR, PNM, QOI, Farbfeld and PSD
 - **Line themes**: 13 styles for all the connectors of a diagram at once, separate from the colour theme
@@ -76,6 +76,7 @@ Developer-only helpers:
 |---------|-------------|
 | `npm run icons` | Regenerates `assets/icon.*` and the file icon from the SVGs (needs `npm i -D sharp png-to-ico`) |
 | `npm run samples` | Regenerates the generated samples and the list in `template/` (the first five are kept as they are) |
+| `npm run guide-images` | Retakes the user guide's pictures in `doc/images/` from the real program, in both languages (run `npm run build:e2e` first) |
 
 ## Project layout
 

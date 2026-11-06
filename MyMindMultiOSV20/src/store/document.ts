@@ -233,7 +233,7 @@ function themedNode(theme: DiagramTheme, nodes: DiagramNode[], node: DiagramNode
   return {
     ...node,
     color,
-    shape: isRoot ? theme.rootShape : theme.shape,
+    shape: isRoot ? theme.rootShape : depth === 1 ? theme.shape : theme.outer ?? theme.shape,
     textStyle: { ...normalizeTextStyle(node.textStyle), color: isRoot ? theme.rootText : theme.text },
   }
 }
@@ -567,13 +567,29 @@ export function setNodeTextStyle(
   }
 }
 
-/** Select a single edge, clearing any node selection (they are exclusive). */
-/** Selects a line; with `add`, Shift-click, it joins or leaves the lines already selected. */
+/**
+ * Selects a line, and nothing else. With `add` (Ctrl or Shift held) it joins or leaves what is
+ * already selected, shapes included.
+ */
 export function selectEdge(doc: DiagramDocument, edgeId: string | null, add = false): DiagramDocument {
   if (!edgeId) return { ...doc, selectedEdgeId: null, selectedEdgeIds: [], selectedId: null, selectedIds: [] }
   const before = doc.selectedEdgeId ? (doc.selectedEdgeIds?.length ? doc.selectedEdgeIds : [doc.selectedEdgeId]) : []
   const ids = add ? (before.includes(edgeId) ? before.filter((id) => id !== edgeId) : [...before, edgeId]) : [edgeId]
-  return { ...doc, selectedEdgeId: ids.at(-1) ?? null, selectedEdgeIds: ids, selectedId: null, selectedIds: [] }
+  const line = { selectedEdgeId: ids.at(-1) ?? null, selectedEdgeIds: ids }
+  return add ? { ...doc, ...line } : { ...doc, ...line, selectedId: null, selectedIds: [] }
+}
+
+/** A shape joins or leaves what is selected (Ctrl or Shift held); selected lines stay. */
+export function toggleNodeSelection(doc: DiagramDocument, nodeId: string): DiagramDocument {
+  const before = targetNodeIds(doc)
+  const ids = before.includes(nodeId) ? before.filter((id) => id !== nodeId) : [...before, nodeId]
+  return { ...doc, selectedId: ids.at(-1) ?? null, selectedIds: ids }
+}
+
+/** Shapes join what is selected (a marquee with Ctrl or Shift held); selected lines stay. */
+export function addNodesToSelection(doc: DiagramDocument, nodeIds: string[]): DiagramDocument {
+  const ids = [...new Set([...targetNodeIds(doc), ...nodeIds])]
+  return { ...doc, selectedId: doc.selectedId ?? ids[0] ?? null, selectedIds: ids }
 }
 
 /** The lines an edit applies to: the selected lines, or else every line of the selected shapes. */

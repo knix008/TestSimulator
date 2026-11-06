@@ -32,6 +32,7 @@ const diagramThemes = await load('src/diagramThemes.ts')
 const memo = await load('src/memo.ts')
 const pageSetup = await load('src/pageSetup.ts')
 const nodeIcons = await load('src/nodeIcons.ts')
+const connectors = await load('src/utils/connectors.ts')
 const tutorials = await load('src/tutorials.ts')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 
@@ -161,13 +162,140 @@ await test('the theme is saved with the diagram', () => {
   assert.equal(doc.deserialize(doc.serialize(doc.createMindmapDoc('C')), null).lineTheme, undefined)
 })
 
+await category('Connectors')
+const box = (shape, x, y, width = 150, height = 44) => ({ shape, x, y, width, height })
+await test('a line ends on the outline of every shape, on all four faces', () => {
+  const near = (a, b) => Math.abs(a - b) < 0.75
+  for (const shape of settings.SHAPES) {
+    const n = box(shape, 100, 200)
+    const c = connectors.nodeCenter(n)
+    const left = connectors.outlinePoint(n, { x: 0, y: c.y })
+    const right = connectors.outlinePoint(n, { x: 999, y: c.y })
+    const top = connectors.outlinePoint(n, { x: c.x, y: 0 })
+    const bottom = connectors.outlinePoint(n, { x: c.x, y: 999 })
+    assert.ok(left.x >= n.x - 0.01 && left.x < c.x && near(left.y, c.y), `${shape} left`)
+    assert.ok(right.x <= n.x + n.width + 0.01 && right.x > c.x, `${shape} right`)
+    assert.ok(top.y >= n.y - 0.01 && top.y < c.y, `${shape} top`)
+    assert.ok(bottom.y <= n.y + n.height + 0.01 && bottom.y > c.y, `${shape} bottom`)
+  }
+  const on = (shape, towards) => connectors.outlinePoint(box(shape, 0, 0), towards)
+  // The places where the box and the shape differ.
+  assert.ok(near(on('chevron', { x: -99, y: 22 }).x, 28), 'into the notch')
+  assert.ok(near(on('chevron', { x: 999, y: 22 }).x, 150), 'onto the point')
+  assert.ok(near(on('parallelogram', { x: -99, y: 22 }).x, 8), 'on the slant')
+  assert.ok(near(on('trapezoid', { x: -99, y: 22 }).x, 15), 'on the slant')
+  assert.ok(near(on('diamond', { x: 75, y: -99 }).y, 0), 'onto the top corner')
+  assert.ok(near(on('cylinder', { x: 75, y: -99 }).y, (44 * 0.22) / 4), 'on the lid')
+})
+await test('nodes face each other across the wider space, not by their centres alone', () => {
+  // Far to the side by its centre, but its box overlaps sideways and the room is above.
+  const parent = box('rounded', 0, 300)
+  const overlapping = box('rounded', 120, 100)
+  assert.equal(connectors.facingAxis(parent, overlapping), 'v')
+  assert.equal(connectors.connectorEnds(parent, overlapping, 'auto').horizontal, false)
+  assert.equal(connectors.facingAxis(parent, box('rounded', 400, 280)), 'h')
+  // A layout's direction and a chosen face still decide.
+  assert.equal(connectors.connectorEnds(parent, overlapping, 'h').horizontal, true)
+  const chosen = connectors.connectorEnds(parent, overlapping, 'auto', 'right')
+  assert.equal(chosen.horizontal, true)
+  assert.equal(chosen.p1.x, 150)
+})
+await test('a free straight line aims at the centres and stops on both outlines', () => {
+  const a = box('chevron', 0, 0)
+  const b = box('parallelogram', 300, 200)
+  const [x1, y1, x2, y2] = connectors.connectorPath(a, b, 'straight', 'auto').match(/-?[\d.]+/g).map(Number)
+  const ca = connectors.nodeCenter(a)
+  const cb = connectors.nodeCenter(b)
+  const offLine = (x, y) => Math.abs((cb.x - ca.x) * (y - ca.y) - (cb.y - ca.y) * (x - ca.x)) / Math.hypot(cb.x - ca.x, cb.y - ca.y)
+  assert.ok(offLine(x1, y1) < 0.01 && offLine(x2, y2) < 0.01)
+  assert.ok(x1 > ca.x && x1 <= 150 && y2 >= 200 && x2 < cb.x)
+})
+await test('a curve runs straight into both faces, and an elbow has no tiny bend', () => {
+  const numbers = (d) => d.match(/-?[\d.]+/g).map(Number)
+  const across = numbers(connectors.connectorPath(box('rounded', 0, 0), box('rounded', 300, 200), 'curve', 'h'))
+  assert.equal(across[1], across[3], 'level as it leaves')
+  assert.equal(across.at(-1), across.at(-3), 'level as it arrives')
+  assert.ok(across[2] > across[0] && across.at(-2) > across.at(-4))
+  const down = numbers(connectors.connectorPath(box('rounded', 0, 0), box('rounded', 300, 200), 'curve', 'v'))
+  assert.equal(down[0], down[2], 'upright as it leaves')
+  assert.equal(down.at(-2), down.at(-4), 'upright as it arrives')
+  assert.equal((connectors.connectorPath(box('rect', 0, 0), box('rect', 300, 6), 'elbow', 'h').match(/L/g) ?? []).length, 1)
+  assert.equal((connectors.connectorPath(box('rect', 0, 0), box('rect', 300, 60), 'elbow', 'h').match(/L/g) ?? []).length, 3)
+})
+await test('a root branch leaves square to the face and its ends lie under the shapes', () => {
+  const parent = box('rounded', 0, 300)
+  const child = { ...box('hexagon', 120, 100), image: undefined }
+  const d = connectors.ribbonPath(parent, child, 12, 6, 'auto')
+  const points = d.match(/-?[\d.]+ -?[\d.]+/g).map((p) => p.split(' ').map(Number))
+  const half = points.length / 2
+  // First on each side: the end under the parent, level across, inside its box.
+  assert.equal(points[0][1], points[points.length - 1][1])
+  assert.ok(points[0][1] > 300 && points[0][1] < 344, String(points[0]))
+  assert.ok(Math.abs(points[0][0] - points[points.length - 1][0]) === 12)
+  // Last on the first side: the end under the child, inside its box.
+  assert.ok(points[half - 1][1] < 144 && points[half - 1][1] > 100, String(points[half - 1]))
+  assert.ok(d.startsWith('M ') && d.endsWith('Z') && !d.includes('NaN'))
+  // A picture may be see-through: nothing runs on under it.
+  const picture = { ...parent, image: { src: 'x' } }
+  const open = connectors.ribbonPath(picture, child, 12, 6, 'auto').match(/-?[\d.]+ -?[\d.]+/g)[0].split(' ').map(Number)
+  assert.equal(open[1], 300)
+})
+await test('no line type leaves a number undefined, for any two shapes on top of each other or apart', () => {
+  for (const shape of settings.SHAPES) {
+    for (const lineType of ['curve', 'straight', 'elbow', 'root']) {
+      for (const orient of ['auto', 'h', 'v']) {
+        for (const other of [box('note', 0, 0), box('ellipse', 400, 300), box('diamond', -200, 10)]) {
+          assert.ok(!connectors.connectorPath(box(shape, 0, 0), other, lineType, orient).includes('NaN'), `${shape} ${lineType} ${orient}`)
+        }
+      }
+    }
+    assert.ok(!connectors.ribbonPath(box(shape, 0, 0), box(shape, 0, 0), 12, 6, 'auto').includes('NaN'))
+  }
+})
+
 await category('Mind map themes')
-await test('at least twelve, each complete and with a real line theme', () => {
-  assert.ok(diagramThemes.DIAGRAM_THEMES.length >= 12)
-  assert.equal(new Set(diagramThemes.DIAGRAM_THEMES.map((t) => t.id)).size, diagramThemes.DIAGRAM_THEMES.length)
-  for (const t of diagramThemes.DIAGRAM_THEMES) {
+await test('forty, each complete and with a real line theme', () => {
+  const all = diagramThemes.DIAGRAM_THEMES
+  assert.equal(all.length, 40)
+  for (const key of ['id', 'ko', 'en']) assert.equal(new Set(all.map((t) => t[key])).size, all.length, key)
+  for (const t of all) {
     assert.ok(t.ko && t.en && t.palette.length, t.id)
     assert.equal(lineThemes.lineThemeById(t.line).id, t.line, t.id)
+  }
+})
+await test('the themes differ in form, not only in colour', () => {
+  const all = diagramThemes.DIAGRAM_THEMES
+  const used = new Set(all.flatMap((t) => [t.rootShape, t.shape, t.outer ?? t.shape]))
+  assert.deepEqual([...settings.SHAPES].filter((shape) => !used.has(shape)), [], 'shapes no theme uses')
+  const forms = all.map((t) => [t.rootShape, t.shape, t.outer ?? t.shape, t.line].join(' '))
+  const twice = forms.filter((form, index) => forms.indexOf(form) !== index)
+  assert.deepEqual(twice, [], 'themes of the same form')
+  assert.ok(all.filter((t) => t.outer && t.outer !== t.shape).length >= 20)
+})
+await test('each level takes its shape, and new shapes follow', () => {
+  const theme = diagramThemes.diagramThemeById('origami')
+  let d = doc.createMindmapDoc('C')
+  d = doc.addChild(d, d.nodes[0].id, 'a')
+  const a = d.nodes.at(-1).id
+  d = doc.addChild(d, a, 'a1')
+  const dressed = doc.applyDiagramTheme(d, theme)
+  assert.deepEqual(dressed.nodes.map((n) => n.shape), [theme.rootShape, theme.shape, theme.outer])
+  const more = doc.addChild(dressed, a, 'a2')
+  assert.equal(more.nodes.at(-1).shape, theme.outer)
+  assert.equal(doc.addChild(more, more.nodes[0].id, 'b').nodes.at(-1).shape, theme.shape)
+})
+await test('text reads at every depth of every theme', () => {
+  for (const t of diagramThemes.DIAGRAM_THEMES) {
+    let d = doc.createMindmapDoc('C')
+    for (const root of ['a', 'b', 'c', 'd']) {
+      d = doc.addChild(d, d.nodes[0].id, root)
+      d = doc.addChild(d, d.nodes.at(-1).id, `${root}1`)
+      d = doc.addChild(d, d.nodes.at(-1).id, `${root}2`)
+    }
+    for (const n of doc.applyDiagramTheme(d, t).nodes) {
+      const text = n.textStyle.color === 'auto' ? '#111827' : n.textStyle.color
+      assert.ok(themes.contrast(text, n.color) >= 3, `${t.id}: ${text} on ${n.color}`)
+    }
   }
 })
 await test('text reads on a node of every theme', () => {
@@ -216,6 +344,30 @@ const fan = () => {
   for (const name of ['a', 'b', 'c']) d = doc.addChild(d, c, name)
   return d
 }
+await test('shapes and lines are selected together, and each edit goes to its own kind', () => {
+  const d = fan()
+  const [n1, n2] = d.nodes.slice(1).map((n) => n.id)
+  const [e1, e2] = d.edges.map((e) => e.id)
+  let s = doc.toggleNodeSelection({ ...d, selectedId: null, selectedIds: [] }, n1)
+  s = doc.toggleNodeSelection(s, n2)
+  assert.deepEqual(doc.targetNodeIds(s), [n1, n2])
+  s = doc.selectEdge(s, e1, true)
+  s = doc.selectEdge(s, e2, true)
+  assert.deepEqual(doc.targetNodeIds(s), [n1, n2], 'a line added keeps the shapes')
+  assert.deepEqual(doc.targetEdgeIds(s), [e1, e2])
+  s = doc.toggleNodeSelection(s, n1)
+  assert.deepEqual(doc.targetNodeIds(s), [n2])
+  assert.deepEqual(doc.targetEdgeIds(s), [e1, e2], 'a shape taken off keeps the lines')
+  const edited = doc.editLines(s, { width: 9 })
+  assert.deepEqual(edited.edges.map((e) => e.width === 9), [true, true, false], 'only the selected lines')
+  assert.equal(doc.toggleNodeSelection(s, n2).selectedId, null, 'the last shape off')
+  const more = doc.addNodesToSelection(s, [n1, n2])
+  assert.deepEqual(doc.targetNodeIds(more), [n2, n1], 'a marquee adds, each once')
+  assert.deepEqual(doc.targetEdgeIds(more), [e1, e2])
+  const plain = doc.selectEdge(more, e1)
+  assert.deepEqual(doc.targetNodeIds(plain), [], 'a plain click starts over')
+  assert.deepEqual(doc.targetEdgeIds(plain), [e1])
+})
 await test('Shift-click adds a line and takes it off again', () => {
   const d = fan()
   const [e1, e2] = d.edges.map((e) => e.id)
@@ -295,8 +447,9 @@ await test('headers and footers fill in their values', () => {
 })
 
 await category('Icons, memos and pictures')
-await test('at least 40 icons, each with names and a drawing', () => {
-  assert.ok(nodeIcons.NODE_ICONS.length >= 40)
+await test('100 icons, filling the five columns, each with names and a drawing', () => {
+  assert.equal(nodeIcons.NODE_ICONS.length, 100)
+  assert.equal(new Set(nodeIcons.NODE_ICONS.map((i) => i.body)).size, 100, 'two icons with the same drawing')
   assert.equal(new Set(nodeIcons.NODE_ICONS.map((i) => i.id)).size, nodeIcons.NODE_ICONS.length)
   for (const i of nodeIcons.NODE_ICONS) {
     assert.ok(i.ko && i.en && i.body.startsWith('<'), i.id)
@@ -418,10 +571,10 @@ await test('anything read becomes valid', () => {
     assert.equal(s.general.newMode, 'mindmap')
   }
   const on = settings.sanitizeSettings({})
+  assert.equal(on.startScreen.askTutorial, true)
+  assert.equal(settings.sanitizeSettings({ startScreen: { askTutorial: false } }).startScreen.askTutorial, false)
   assert.ok(on.showGrid && on.showRulers && on.leftPanel && on.rightPanel)
-  assert.equal(on.themeAreaHeight, settings.THEME_AREA_DEFAULT)
-  assert.equal(settings.sanitizeSettings({ themeAreaHeight: 5 }).themeAreaHeight, settings.THEME_AREA_MIN)
-  assert.equal(settings.sanitizeSettings({ themeAreaHeight: 'x' }).themeAreaHeight, settings.THEME_AREA_DEFAULT)
+  assert.equal('themeAreaHeight' in settings.sanitizeSettings({ themeAreaHeight: 500 }), false, 'every start shows the left panel half and half')
   const off = settings.sanitizeSettings({ showRulers: false, leftPanel: false, rightPanel: false })
   assert.ok(!off.showRulers && !off.leftPanel && !off.rightPanel)
 })
@@ -466,6 +619,17 @@ await test('20 light and 20 dark', () => {
   assert.equal(themes.THEMES.filter((t) => t.mode === 'light').length, 20)
   assert.equal(themes.THEMES.filter((t) => t.mode === 'dark').length, 20)
   assert.equal(new Set(themes.THEMES.map((t) => t.id)).size, 40)
+})
+await test('every icon shows on every theme\'s panels, in as near its own colour as it can', () => {
+  let unchanged = 0
+  for (const t of themes.THEMES) {
+    for (const item of nodeIcons.NODE_ICONS) {
+      const shown = t.vars[`--node-icon-${item.id}`]
+      assert.ok(themes.contrast(shown, t.vars['--panel']) >= themes.MIN_ICON, `${t.id} ${item.id} ${shown}`)
+      if (shown === item.color) unchanged++
+    }
+  }
+  assert.ok(unchanged > themes.THEMES.length * nodeIcons.NODE_ICONS.length / 2, `only ${unchanged} keep their colour`)
 })
 await test('text reads on every theme\'s surfaces', () => {
   for (const t of themes.THEMES) {
@@ -582,6 +746,17 @@ await test('a sample with a line theme names one that exists', () => {
 await test('every sample file is in the list', () => {
   const listed = index.map((s) => s.file).sort()
   assert.deepEqual(fs.readdirSync(path.join(root, 'template')).filter((f) => f.endsWith('.mmap')).sort(), listed)
+})
+await test('the guide has pictures, the same in both languages, and every one exists', () => {
+  const pictures = (file) => [...read(file).matchAll(/!\[[^\]]*\]\(images\/(ko|en)-([\w-]+\.webp)\)/g)]
+  const ko = pictures('doc/UsersGuide.md')
+  const en = pictures('doc/UsersGuide.en.md')
+  assert.ok(ko.length >= 6, String(ko.length))
+  assert.deepEqual(ko.map((m) => m[2]), en.map((m) => m[2]))
+  assert.ok(ko.every((m) => m[1] === 'ko') && en.every((m) => m[1] === 'en'))
+  for (const m of [...ko, ...en]) assert.ok(fs.statSync(path.join(root, 'doc', 'images', `${m[1]}-${m[2]}`)).size > 1000, m[0])
+  const used = new Set([...ko, ...en].map((m) => `${m[1]}-${m[2]}`))
+  assert.deepEqual(fs.readdirSync(path.join(root, 'doc', 'images')).filter((name) => !used.has(name)), [], 'pictures nothing shows')
 })
 await test('the guide has the same headings in both languages', () => {
   const outline = (file) => markdown.parseMarkdown(read(file)).filter((b) => b.type === 'heading').map((b) => b.level)

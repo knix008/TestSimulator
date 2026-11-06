@@ -25,7 +25,7 @@ async function launch({ inline = true, settings = {}, args = [] } = {}) {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'mymind-gui-'))
   const settingsDir = path.join(work, 'settings')
   fs.mkdirSync(settingsDir)
-  fs.writeFileSync(path.join(settingsDir, 'settings.json'), JSON.stringify(settings))
+  fs.writeFileSync(path.join(settingsDir, 'settings.json'), JSON.stringify({ ...settings, startScreen: { askTutorial: false, ...settings.startScreen } }))
   const port = await freePort(9450)
   const child = spawn(exe, args, {
     stdio: 'ignore',
@@ -316,14 +316,14 @@ await category('Grid, rulers and panels')
     await click(page, '[data-command="ruler"]')
     await page.until(`document.querySelector('.canvas-rulers')`)
   })
-  await test('the pointer shows as red dashed lines from the rulers', async () => {
+  await test('the pointer shows as a red mark on each ruler, not across the canvas', async () => {
     assert.equal(await page.evaluate(`document.querySelector('[data-ruler-guides]').getAttribute('visibility')`), 'hidden')
     await page.evaluate(`document.querySelector('.canvas-svg').dispatchEvent(new MouseEvent('mousemove', { clientX: 700, clientY: 400, bubbles: true }))`)
-    const look = await page.evaluate(`(() => { const g = document.querySelector('[data-ruler-guides]'); const l = g.querySelector('line'); const s = getComputedStyle(l); return { visible: g.getAttribute('visibility'), stroke: s.stroke, dash: s.strokeDasharray, moved: l.getAttribute('transform') } })()`)
+    const look = await page.evaluate(`(() => { const g = document.querySelector('[data-ruler-guides]'); const [x, y] = g.querySelectorAll('line'); return { visible: g.getAttribute('visibility'), stroke: getComputedStyle(x).stroke, moved: x.getAttribute('transform'), tall: x.getBoundingClientRect().height, wide: y.getBoundingClientRect().width, ruler: document.querySelector('[data-ruler="x"]').getBoundingClientRect().height } })()`)
     assert.equal(look.visible, 'visible')
     assert.equal(look.stroke, 'rgb(229, 57, 53)')
-    assert.notEqual(look.dash, 'none')
     assert.ok(look.moved.startsWith('translate('))
+    assert.ok(look.tall <= look.ruler && look.wide <= look.ruler, JSON.stringify(look))
     await shoot(page, 'ruler-guides')
     await page.evaluate(`document.querySelector('.canvas-wrap').dispatchEvent(new MouseEvent('mouseleave'))`)
     assert.equal(await page.evaluate(`document.querySelector('[data-ruler-guides]').getAttribute('visibility')`), 'hidden')
@@ -372,14 +372,27 @@ await category('Mind map themes, selecting and the context menu')
   await test('the left panel: node list, a divider, then the theme gallery', async () => {
     const order = await page.evaluate(`[...document.querySelector('.left-panel').children].map((e) => e.className.split(' ').find((c) => ['panel-head', 'node-list-area', 'panel-splitter', 'diagram-themes'].includes(c)))`)
     assert.deepEqual(order, ['panel-head', 'node-list-area', 'panel-splitter', 'diagram-themes'])
-    assert.ok((await count(page, '[data-diagram-theme]')) >= 12)
+    assert.equal(await count(page, '[data-diagram-theme]'), 40)
+    // The pictures show each theme's form: a theme's outer branch and centre, as they are drawn.
+    assert.equal(await page.evaluate(`[...document.querySelectorAll('[data-diagram-theme="origami"] [data-picture-shape]')].map((p) => p.dataset.pictureShape).join(' ')`), 'parallelogram parallelogram note chevron')
     await shoot(page, 'diagram-themes')
   })
-  await test('the divider resizes both areas and is remembered', async () => {
+  await test('a shape has no hole: the lid of a cylinder is filled', async () => {
+    await click(page, '[data-diagram-theme="storage"]')
+    await page.until(`document.querySelector('.node-shape')`)
+    const filled = await page.evaluate(`(() => { const path = document.querySelector('.node-shape'); const box = path.getBBox(); const point = path.ownerSVGElement.createSVGPoint(); point.x = box.x + box.width / 2; point.y = box.y + box.height * 0.2; return path.isPointInFill(point) })()`)
+    assert.equal(filled, true)
+    await click(page, '[data-diagram-theme="default"]')
+  })
+  await test('every start shows the node list and the theme area half and half', async () => {
+    const heights = await page.evaluate(`[document.querySelector('.node-list-area'), document.querySelector('.diagram-themes')].map((e) => e.getBoundingClientRect().height)`)
+    assert.ok(Math.abs(heights[0] - heights[1]) <= 1, heights.join(' '))
+    assert.ok(heights[0] > 100)
+  })
+  await test('the divider resizes both areas', async () => {
     const before = await areaHeight()
     await dragSplitter(-100)
     assert.ok(Math.abs((await areaHeight()) - (before + 100)) <= 1, String(await areaHeight()))
-    await settled(() => app.settings().themeAreaHeight, before + 100)
     await dragSplitter(100000)
     assert.ok((await areaHeight()) >= 90, 'it keeps a minimum')
     await dragSplitter(-100000)
@@ -689,7 +702,10 @@ await category('Fonts, icons, memos and pictures')
   })
   await test('the left panel lists the icons, and a press puts one on the shape', async () => {
     await click(page, '[data-lower-tab="icons"]')
-    assert.ok((await count(page, '[data-node-icon]')) >= 40)
+    assert.equal(await count(page, '.node-icon-grid [data-node-icon]'), 100)
+    const columns = await page.evaluate(`getComputedStyle(document.querySelector('.node-icon-grid')).gridTemplateColumns.split(' ').length`)
+    assert.equal(columns, 5)
+    assert.equal(await count(page, '.node-icon-head [data-node-icon=""]'), 1)
     await click(page, '[data-node-icon="rocket"]')
     await page.until(`document.querySelector('.node-icon[data-icon="rocket"]')`)
     await shoot(page, 'icons')
@@ -746,6 +762,30 @@ await category('Fonts, icons, memos and pictures')
     assert.ok(widths[0] > 3, widths.join())
     await shoot(page, 'many-lines')
   })
+  await test('Ctrl and Shift clicks select shapes and lines together, on the canvas and in the list', async () => {
+    const press = (selector, index, keys) => page.evaluate(`document.querySelectorAll('${selector}')[${index}].dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, ${keys} }))`)
+    const release = () => page.evaluate(`document.querySelector('.canvas-svg').dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))`)
+    const counts = () => page.evaluate(`({ shapes: document.querySelectorAll('.node-hit.selected').length, list: document.querySelectorAll('.node-tree-item.selected').length, lines: [...document.querySelectorAll('.edge-hit')].filter((hit) => hit.nextElementSibling?.getAttribute('stroke') === 'var(--accent)').length })`)
+    await press('.node-hit', 0, '')
+    await release()
+    await press('.node-hit', 1, 'ctrlKey: true')
+    await page.until(`document.querySelectorAll('.node-hit.selected').length === 2`)
+    await press('.edge-hit', 0, 'ctrlKey: true')
+    await press('.edge-hit', 1, 'shiftKey: true')
+    await page.until(`document.querySelector('[data-line-count]')`)
+    assert.deepEqual(await counts(), { shapes: 2, list: 2, lines: 2 })
+    await shoot(page, 'many-mixed')
+    await page.evaluate(`document.querySelectorAll('.node-tree-item')[2].dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }))`)
+    await page.until(`document.querySelectorAll('.node-hit.selected').length === 3`)
+    await press('.node-hit', 1, 'shiftKey: true')
+    await page.until(`document.querySelectorAll('.node-hit.selected').length === 2`)
+    assert.equal((await counts()).lines, 2, 'taking a shape off keeps the lines')
+    await press('.node-hit', 0, '')
+    assert.equal((await counts()).shapes, 2, 'pressing one of several keeps them, to drag them together')
+    await release()
+    await page.until(`document.querySelectorAll('.node-hit.selected').length === 1`)
+    assert.deepEqual(await counts(), { shapes: 1, list: 1, lines: 0 }, 'a plain click starts over')
+  })
   await test('several shapes change at once: shape, colour, font and icon', async () => {
     const key = { key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 2 }
     await page.evaluate(`document.activeElement?.blur?.()`)
@@ -800,22 +840,98 @@ await category('Fonts, icons, memos and pictures')
     await page.until(`document.querySelector('[data-dialog="message"]')`, 8000)
     await click(page, '[data-command="message-ok"]')
   })
-  for (const [format, ext, magic] of [['gif', 'gif', 'GIF8'], ['avif', 'avif', 'ftyp'], ['bmp', 'bmp', 'BM'], ['tiff', 'tif', 'II'], ['ico', 'ico', ''], ['qoi', 'qoi', 'qoif'], ['webp', 'webp', 'RIFF'], ['png', 'png', 'PNG']]) {
-    await test(`exports ${format.toUpperCase()}`, async () => {
-      const file = path.join(work, `out.${ext}`)
-      await page.evaluate(`(() => { window.__mymindTest = { ...window.__mymindTest, save: ${JSON.stringify(file)} }; return true })()`)
-      await click(page, '[data-command="export"]')
-      await page.until(`document.querySelector('[data-export-format="${format}"]')`)
-      await click(page, `[data-export-format="${format}"]`)
-      await click(page, '[data-command="export-run"]')
-      await page.until(`!document.querySelector('[data-dialog="export"]')`, 60000)
-      const t0 = Date.now()
-      while (!fs.existsSync(file) && Date.now() - t0 < 60000) await sleep(100)
-      assert.ok(fs.statSync(file).size > 50)
-      const head = fs.readFileSync(file).subarray(0, 12).toString('latin1')
-      assert.ok(head.includes(magic), `${format}: ${JSON.stringify(head)}`)
+  // Exports, read back. What the WebView shows by itself it decodes from the file's bytes;
+  // the rest goes through the program's own reader. Nothing here trusts a file's first bytes alone.
+  const NATIVE = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', avif: 'image/avif', gif: 'image/gif', bmp: 'image/bmp', ico: 'image/x-icon' }
+  const pixels = (mime, data) => page.evaluate(`new Promise((resolve) => {
+    const image = new Image()
+    image.onerror = () => resolve({ failed: true })
+    image.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = image.naturalWidth
+      canvas.height = image.naturalHeight
+      const g = canvas.getContext('2d', { willReadFrequently: true })
+      g.drawImage(image, 0, 0)
+      const d = g.getImageData(0, 0, canvas.width, canvas.height).data
+      const seen = new Set()
+      for (let i = 0; i < d.length; i += 4 * 97) seen.add(d[i] + ',' + d[i + 1] + ',' + d[i + 2] + ',' + d[i + 3])
+      resolve({ width: canvas.width, height: canvas.height, colours: seen.size, cornerAlpha: d[3] })
+    }
+    image.src = 'data:${mime};base64,${data}'
+  })`, 60000)
+  const readBack = async (file, ext) => {
+    if (NATIVE[ext]) return pixels(NATIVE[ext], fs.readFileSync(file).toString('base64'))
+    const read = await page.evaluate(`window.__TAURI_INTERNALS__.invoke('read_image', { path: ${JSON.stringify(file)} })`, 60000)
+    return pixels(read.mime, read.data)
+  }
+  const exportAs = async (format, ext, name, transparent = false) => {
+    const file = path.join(work, `${name}.${ext}`)
+    await page.evaluate(`(() => { window.__mymindTest = { ...window.__mymindTest, save: ${JSON.stringify(file)} }; return true })()`)
+    await click(page, '[data-command="export"]')
+    await page.until(`document.querySelector('[data-export-format="${format}"]')`)
+    await click(page, `[data-export-format="${format}"]`)
+    if (transparent) await click(page, '[data-field="exportTransparent"]')
+    await click(page, '[data-command="export-run"]')
+    // The window closes when the file has been written: it must be there by then, complete.
+    await page.until(`!document.querySelector('[data-dialog="export"]') || document.querySelector('[data-message]')`, 120000)
+    assert.equal(await count(page, '[data-message]'), 0, 'the export reported an error')
+    assert.ok(fs.existsSync(file), 'no file when the export window closed')
+    return file
+  }
+  let size = null
+  await test('exports PNG, the size the others are held to', async () => {
+    const seen = await readBack(await exportAs('png', 'png', 'base'), 'png')
+    assert.ok(seen.width > 100 && seen.height > 50 && seen.colours > 3, JSON.stringify(seen))
+    size = seen
+  })
+  for (const [format, ext, magic, lossy] of [['avif', 'avif', 'ftypavif', true], ['gif', 'gif', 'GIF8'], ['jpeg', 'jpg', '\xff\xd8', true], ['webp', 'webp', 'WEBP'], ['bmp', 'bmp', 'BM'], ['tiff', 'tif', 'II'], ['tga', 'tga', ''], ['ppm', 'ppm', 'P6'], ['qoi', 'qoi', 'qoif'], ['ff', 'ff', 'farbfeld'], ['exr', 'exr', ''], ['hdr', 'hdr', '#?']]) {
+    await test(`exports ${format.toUpperCase()}: it decodes to the same size, with the drawing in it`, async () => {
+      const file = await exportAs(format, ext, `all-${format}`)
+      const bytes = fs.readFileSync(file)
+      assert.ok(bytes.subarray(0, 16).toString('latin1').includes(magic), `${format}: ${JSON.stringify(bytes.subarray(0, 16).toString('latin1'))}`)
+      const seen = await readBack(file, ext)
+      assert.ok(!seen.failed, 'it does not decode')
+      assert.equal(seen.width, size.width, 'width')
+      assert.equal(seen.height, size.height, 'height')
+      assert.ok(seen.colours > (lossy ? 3 : 2), `only ${seen.colours} colours: an empty picture`)
     })
   }
+  await test('exports ICO, as large as an icon can be, with the drawing in it', async () => {
+    const seen = await readBack(await exportAs('ico', 'ico', 'all-ico'), 'ico')
+    assert.ok(!seen.failed, 'it does not decode')
+    assert.equal(Math.max(seen.width, seen.height), Math.min(256, Math.max(size.width, size.height)))
+    assert.ok(seen.colours > 2)
+  })
+  await test('exports SVG, standing alone', async () => {
+    const svg = fs.readFileSync(await exportAs('svg', 'svg', 'all-svg'), 'utf8')
+    assert.ok(svg.includes('<svg') && svg.includes('<image'), 'the drawing with its pictures')
+    assert.ok(!svg.includes('var(--'), 'a theme variable left in it')
+    assert.ok(!svg.includes('canvas-grid'))
+  })
+  await test('AVIF: a solid export has a solid corner, a transparent one a clear corner', async () => {
+    const solid = await readBack(await exportAs('avif', 'avif', 'avif-solid'), 'avif')
+    assert.equal(solid.cornerAlpha, 255)
+    const clear = await readBack(await exportAs('avif', 'avif', 'avif-clear', true), 'avif')
+    assert.ok(!clear.failed)
+    assert.equal(clear.cornerAlpha, 0, 'the background should be transparent')
+    assert.equal(clear.width, size.width)
+    assert.ok(clear.colours > 3, 'the drawing is still there')
+  })
+  await test('AVIF: a real diagram\'s file is much smaller than its PNG', async () => {
+    const avif = fs.statSync(path.join(work, 'avif-solid.avif')).size
+    const png = fs.statSync(path.join(work, 'base.png')).size
+    assert.ok(avif > 200 && avif < png, `avif ${avif}, png ${png}`)
+  })
+  await test('formats without transparency do not offer it', async () => {
+    await click(page, '[data-command="export"]')
+    for (const format of ['jpeg', 'bmp', 'ppm', 'hdr']) {
+      await click(page, `[data-export-format="${format}"]`)
+      assert.equal(await page.evaluate(`document.querySelector('[data-field="exportTransparent"]').disabled`), true, format)
+    }
+    await click(page, '[data-export-format="avif"]')
+    assert.equal(await page.evaluate(`document.querySelector('[data-field="exportTransparent"]').disabled`), false)
+    await click(page, '[data-command="export-cancel"]')
+  })
   await test('a memo\'s connecting line has a colour, width and style of its own', async () => {
     await page.evaluate(`document.querySelector('.memo-note[data-memo="node"]').dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true }))`)
     await page.evaluate(`document.querySelector('.canvas-svg').dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))`)
@@ -832,9 +948,12 @@ await category('Fonts, icons, memos and pictures')
   await test('with several shapes selected, the panel changes all their memos', async () => {
     const key = { key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 2 }
     await page.evaluate(`document.activeElement?.blur?.()`)
-    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', ...key })
-    await page.send('Input.dispatchKeyEvent', { type: 'keyUp', ...key })
-    await page.until(`document.querySelector('[data-memo-section="many"]')`)
+    for (let i = 0; i < 6 && !(await count(page, '[data-memo-section="many"]')); i++) {
+      await page.send('Input.dispatchKeyEvent', { type: 'keyDown', ...key })
+      await page.send('Input.dispatchKeyEvent', { type: 'keyUp', ...key })
+      await sleep(200)
+    }
+    await page.until(`document.querySelector('[data-memo-section="many"]')`, 2000)
     await page.evaluate(`document.querySelector('[data-field="memoAllWidth"] button:last-child').click()`)
     await page.until(`[...document.querySelectorAll('.memo-note[data-memo="node"]')].every((m) => m.dataset.memoBox.split(' ')[2] === '180')`)
     await page.evaluate(`document.querySelector('.node-hit').dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true }))`)
@@ -850,6 +969,61 @@ await category('Fonts, icons, memos and pictures')
     await click(page, '[data-command="preferences-close"]')
   })
   await app.stop()
+}
+
+await category('Tutorial question and the guide')
+{
+  const asking = await launch({ settings: { startScreen: { askTutorial: true } } })
+  await test('at the start it asks about the tutorial, with an option to stop asking', async () => {
+    await asking.page.until(`document.querySelector('[data-tutorial-question]')`)
+    assert.equal(await count(asking.page, '[data-tutorial]'), 2)
+    assert.equal(await asking.page.evaluate(`document.querySelector('[data-field="tutorialAskOnStart"]').getAttribute('aria-checked')`), 'true')
+    await shoot(asking.page, 'tutorial-question')
+  })
+  await test('the option is saved, and the settings window has it', async () => {
+    await click(asking.page, '[data-field="tutorialAskOnStart"]')
+    await settled(() => asking.settings().startScreen.askTutorial, false)
+    await click(asking.page, '[data-command="tutorial-later"]')
+    await asking.page.until(`!document.querySelector('[data-dialog="tutorial-choose"]')`)
+    await click(asking.page, '[data-command="preferences"]')
+    await click(asking.page, '[data-pref-tab="start"]')
+    assert.equal(await asking.page.evaluate(`document.querySelector('[data-field="prefAskTutorial"]').getAttribute('aria-checked')`), 'false')
+    await click(asking.page, '[data-field="prefAskTutorial"]')
+    await settled(() => asking.settings().startScreen.askTutorial, true)
+    await click(asking.page, '[data-command="preferences-close"]')
+  })
+  await asking.stop()
+  const quiet = await launch({ settings: { startScreen: { askTutorial: false } } })
+  await test('with the option off it does not ask, but the button still works', async () => {
+    await quiet.page.until(`document.querySelector('[data-start="hero-tutorial"]')`)
+    await sleep(500)
+    assert.equal(await count(quiet.page, '[data-dialog="tutorial-choose"]'), 0)
+    await click(quiet.page, '[data-start="hero-tutorial"]')
+    await quiet.page.until(`document.querySelector('[data-tutorial="fishbone"]')`)
+    assert.equal(await count(quiet.page, '[data-tutorial-question]'), 0)
+    await click(quiet.page, '[data-command="tutorial-later"]')
+  })
+  await test('the user guide shows its pictures, in the language chosen', async () => {
+    const pictures = `[...document.querySelectorAll('.guide-body img')]`
+    await quiet.page.evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F1', bubbles: true }))`)
+    await quiet.page.until(`${pictures}.length >= 6`)
+    await quiet.page.until(`${pictures}.every((i) => i.complete && i.naturalWidth > 100)`, 8000)
+    const first = await quiet.page.evaluate(`document.querySelector('.guide-body img').getAttribute('src')`)
+    assert.ok(first.includes('ko-'), first)
+    await shoot(quiet.page, 'guide')
+    await click(quiet.page, '[data-command="guide-language"]')
+    await quiet.page.until(`document.querySelector('.guide-body img').getAttribute('src').includes('en-')`)
+    await quiet.page.until(`${pictures}.every((i) => i.complete && i.naturalWidth > 100)`, 8000)
+    await click(quiet.page, '[data-command="guide-close"]')
+  })
+  await quiet.stop()
+  const withFile = await launch({ settings: { startScreen: { askTutorial: true } }, args: [path.join(root, 'template', 'sample-mindmap-trip.mmap')] })
+  await test('it does not ask someone who came with a diagram', async () => {
+    await withFile.page.until(`!document.querySelector('[data-start-screen]')`)
+    await sleep(400)
+    assert.equal(await count(withFile.page, '[data-dialog="tutorial-choose"]'), 0)
+  })
+  await withFile.stop()
 }
 
 await category('Installed fonts')

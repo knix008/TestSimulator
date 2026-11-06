@@ -114,7 +114,7 @@ export interface DiagramDocument {
   selectedIds: string[]
   /** Independently selected edge (mutually exclusive with node selection). */
   selectedEdgeId: string | null
-  /** All the selected edges, when Shift-click has added some; includes selectedEdgeId. */
+  /** All the selected edges, when Ctrl or Shift has added some; includes selectedEdgeId. */
   selectedEdgeIds?: string[]
   /** The line theme last applied to the whole diagram; new connectors follow it. */
   lineTheme?: string

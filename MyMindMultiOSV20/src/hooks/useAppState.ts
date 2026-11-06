@@ -52,6 +52,8 @@ import {
   moveNodesBy,
   relayout,
   selectEdge,
+  toggleNodeSelection,
+  addNodesToSelection,
   serialize,
   setMode,
   setNodeColor,
@@ -90,6 +92,10 @@ export function useAppState(initialSettings: AppSettings) {
   const [prefsTab, setPrefsTab] = useState<string | null>(null)
   const [guideOpen, setGuideOpen] = useState(false)
   const [tutorialChooser, setTutorialChooser] = useState(false)
+  // Height of the theme area under the node list. Every start shows the two half and half (null).
+  const [themeAreaHeight, setThemeAreaHeight] = useState<number | null>(null)
+  // The chooser opened by itself at the start, rather than by a button.
+  const [tutorialAsking, setTutorialAsking] = useState(false)
   const [tutorialId, setTutorialId] = useState<string | null>(null)
   const [addingText, setAddingText] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -299,6 +305,7 @@ export function useAppState(initialSettings: AppSettings) {
   /** A tutorial draws its diagram on a new sheet. */
   const startTutorial = (id: string) => {
     setTutorialChooser(false)
+    setTutorialAsking(false)
     guardUnsaved(() => {
       showDoc(blankDoc(tutorialById(id).mode))
       setTutorialId(id)
@@ -313,7 +320,8 @@ export function useAppState(initialSettings: AppSettings) {
 
   /* ------------------------------ memos, icons, pictures, full screen */
 
-  const memoTarget = (d: DiagramDocument): MemoTarget | null => (d.selectedEdgeId ? { kind: 'edge', id: d.selectedEdgeId } : d.selectedId ? { kind: 'node', id: d.selectedId } : null)
+  // With shapes and lines selected together the panel shows the shape, so a memo goes on it.
+  const memoTarget = (d: DiagramDocument): MemoTarget | null => (d.selectedId ? { kind: 'node', id: d.selectedId } : d.selectedEdgeId ? { kind: 'edge', id: d.selectedEdgeId } : null)
 
   /** A memo on what is selected, in the look the settings give; or to the one it has. */
   const addMemo = () => {
@@ -340,10 +348,11 @@ export function useAppState(initialSettings: AppSettings) {
   /** The look of the memos of everything selected. */
   const onMemoStyleAll = (style: Partial<MemoStyle>) =>
     setDoc((d) => {
-      const kind = d.selectedEdgeId ? 'edge' : 'node'
-      const ids = kind === 'edge' ? targetEdgeIds(d) : targetNodeIds(d)
-      const hasMemo = (id: string) => (kind === 'edge' ? d.edges : d.nodes).find((owner) => owner.id === id)?.note !== undefined
-      return ids.filter(hasMemo).reduce((next, id) => updateMemo(next, { kind, id }, { style }), d)
+      const targets: MemoTarget[] = [
+        ...targetNodeIds(d).filter((id) => d.nodes.find((node) => node.id === id)?.note !== undefined).map((id) => ({ kind: 'node' as const, id })),
+        ...(d.selectedEdgeId ? targetEdgeIds(d) : []).filter((id) => d.edges.find((edge) => edge.id === id)?.note !== undefined).map((id) => ({ kind: 'edge' as const, id })),
+      ]
+      return targets.reduce((next, target) => updateMemo(next, target, { style }), d)
     })
   const toggleMemos = () => changeSettings({ showMemos: !settingsRef.current.showMemos })
 
@@ -405,7 +414,6 @@ export function useAppState(initialSettings: AppSettings) {
 
   const onLineTheme = (id: string) => setDoc((d) => applyLineTheme(d, lineThemeById(id)))
   const onDiagramTheme = (id: string) => setDoc((d) => applyDiagramTheme(d, diagramThemeById(id)))
-  const setThemeAreaHeight = (themeAreaHeight: number) => changeSettings({ themeAreaHeight })
 
   /** The print window; printing itself starts when that window has gone, as the main window is the one printed. */
   const [printOpen, setPrintOpen] = useState(false)
@@ -578,6 +586,11 @@ export function useAppState(initialSettings: AppSettings) {
       const last = initialSettings.general.reopenLast ? initialSettings.recent[0] : undefined
       const first = file ?? last
       if (first) await loadPath(first)
+      // Someone who came with a diagram came to work on it.
+      else if (initialSettings.startScreen.askTutorial) {
+        setTutorialAsking(true)
+        setTutorialChooser(true)
+      }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -680,6 +693,8 @@ export function useAppState(initialSettings: AppSettings) {
     setDoc((d) => ({ ...d, selectedId: ids[0] ?? null, selectedIds: ids, selectedEdgeId: null }))
 
   const selectEdgeById = (id: string | null, add = false) => setDoc((d) => selectEdge(d, id, add))
+  const toggleNode = (id: string) => setDoc((d) => toggleNodeSelection(d, id))
+  const addNodes = (ids: string[]) => setDoc((d) => addNodesToSelection(d, ids))
 
   const onMoveNode = (id: string, x: number, y: number) => {
     setDoc((d) => moveNode(d, id, x, y))
@@ -847,12 +862,15 @@ export function useAppState(initialSettings: AppSettings) {
     toggleFullscreen,
     tutorialChooser,
     setTutorialChooser,
+    tutorialAsking,
+    setTutorialAsking,
     tutorialId,
     startTutorial,
     closeTutorial,
     applyTutorialStep,
     onLineTheme,
     onDiagramTheme,
+    themeAreaHeight,
     setThemeAreaHeight,
     selectAll,
     printDoc,
@@ -914,6 +932,8 @@ export function useAppState(initialSettings: AppSettings) {
     selectNode,
     selectNodes,
     selectEdgeById,
+    toggleNode,
+    addNodes,
     onMoveNode,
     onMoveNodes,
     onAddChild,

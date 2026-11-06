@@ -26,7 +26,7 @@ export default function App({ initialSettings }: { initialSettings: AppSettings 
     : state.doc.edges.find(
         (edge) => edge.to === state.doc.selectedId || edge.from === state.doc.selectedId,
       )
-  const edgeOnlySelected = Boolean(state.doc.selectedEdgeId)
+  const edgeOnlySelected = Boolean(state.doc.selectedEdgeId) && !state.doc.selectedId
   const currentLine = selectedEdge?.lineType ?? state.doc.defaultLine
   const currentLinePattern = selectedEdge?.linePattern ?? state.doc.defaultLinePattern
   const currentLineColor = selectedEdge?.color ?? '#94a3b8'
@@ -117,6 +117,7 @@ export default function App({ initialSettings }: { initialSettings: AppSettings 
           currentToSide={currentToSide}
           theme={settings.theme}
           onSelect={state.selectNode}
+          onToggleNode={state.toggleNode}
           onShape={state.onShape}
           onColor={state.onColor}
           onLine={state.onLine}
@@ -136,7 +137,7 @@ export default function App({ initialSettings }: { initialSettings: AppSettings 
           onMemoStyleAll={state.onMemoStyleAll}
           onAddMemo={state.addMemo}
           onImageWidth={state.onImageWidth}
-          themeAreaHeight={settings.themeAreaHeight}
+          themeAreaHeight={state.themeAreaHeight}
           onThemeAreaHeight={state.setThemeAreaHeight}
           language={settings.language}
         />
@@ -154,6 +155,8 @@ export default function App({ initialSettings }: { initialSettings: AppSettings 
           editingId={state.editingId}
           onSelect={state.selectNode}
           onSelectMany={state.selectNodes}
+          onToggleNode={state.toggleNode}
+          onAddNodes={state.addNodes}
           onSelectEdge={state.selectEdgeById}
           onMoveNodes={state.onMoveNodes}
           onContext={state.showContext}
@@ -238,7 +241,19 @@ export default function App({ initialSettings }: { initialSettings: AppSettings 
 
       {state.guideOpen && <GuideDialog language={settings.language} onClose={state.closeGuide} />}
 
-      {state.tutorialChooser && <TutorialChooser language={settings.language} onPick={state.startTutorial} onClose={() => state.setTutorialChooser(false)} />}
+      {state.tutorialChooser && (
+        <TutorialChooser
+          language={settings.language}
+          asking={state.tutorialAsking}
+          askOnStart={settings.startScreen.askTutorial}
+          onAskOnStart={(askTutorial) => state.setStart({ askTutorial })}
+          onPick={state.startTutorial}
+          onClose={() => {
+            state.setTutorialChooser(false)
+            state.setTutorialAsking(false)
+          }}
+        />
+      )}
 
       {state.tutorialId && <TutorialCard id={state.tutorialId} doc={state.doc} language={settings.language} onApply={state.applyTutorialStep} onClose={state.closeTutorial} />}
 

@@ -32,7 +32,8 @@ const SHAPE_VALUES: ShapeType[] = [
 ]
 
 /** The divider above the lower area: dragging it, or its arrow keys, changes that area's height. */
-function PanelSplitter({ height, label, onChange }: { height: number; label: string; onChange: (height: number) => void }) {
+function PanelSplitter({ height, label, onChange }: { height: number | null; label: string; onChange: (height: number) => void }) {
+  const measured = (element: Element) => height ?? element.nextElementSibling?.getBoundingClientRect().height ?? THEME_AREA_MIN
   const limit = (element: Element, wanted: number) => {
     // The list above always keeps some room, in whatever height the panel has.
     const panel = element.parentElement?.clientHeight ?? 800
@@ -43,7 +44,7 @@ function PanelSplitter({ height, label, onChange }: { height: number; label: str
     event.preventDefault()
     const element = event.currentTarget
     const startY = event.clientY
-    const startHeight = element.nextElementSibling?.getBoundingClientRect().height ?? height
+    const startHeight = element.nextElementSibling?.getBoundingClientRect().height ?? measured(element)
     const move = (moved: PointerEvent) => onChange(limit(element, startHeight + startY - moved.clientY))
     const up = () => {
       window.removeEventListener('pointermove', move)
@@ -61,7 +62,7 @@ function PanelSplitter({ height, label, onChange }: { height: number; label: str
       role="separator"
       aria-orientation="horizontal"
       aria-label={label}
-      aria-valuenow={height}
+      aria-valuenow={height ?? undefined}
       title={label}
       tabIndex={0}
       onPointerDown={begin}
@@ -69,7 +70,7 @@ function PanelSplitter({ height, label, onChange }: { height: number; label: str
         const step = event.key === 'ArrowUp' ? 20 : event.key === 'ArrowDown' ? -20 : 0
         if (!step) return
         event.preventDefault()
-        onChange(limit(event.currentTarget, height + step))
+        onChange(limit(event.currentTarget, measured(event.currentTarget) + step))
       }}
     />
   )
@@ -119,6 +120,7 @@ type Props = {
   currentToSide: EdgeSide
   theme: ThemeMode
   onSelect: (id: string | null) => void
+  onToggleNode: (id: string) => void
   onShape: (shape: ShapeType) => void
   onColor: (color: string) => void
   onLine: (line: LineType) => void
@@ -138,7 +140,7 @@ type Props = {
   onMemoStyleAll: (style: Partial<MemoStyle>) => void
   onAddMemo: () => void
   onImageWidth: (id: string, width: number) => void
-  themeAreaHeight: number
+  themeAreaHeight: number | null
   onThemeAreaHeight: (height: number) => void
   language: Locale
 }
@@ -159,6 +161,7 @@ export function SidePanels({
   currentEndCap,
   theme,
   onSelect,
+  onToggleNode,
   onShape,
   onColor,
   onLine,
@@ -253,7 +256,7 @@ export function SidePanels({
   const manyShapes = doc.selectedIds.length
   const manyLines = doc.selectedEdgeId ? (doc.selectedEdgeIds?.length ?? 1) : 0
   const manyOwners: { note?: string; noteStyle?: Partial<MemoStyle> }[] =
-    manyShapes > 1 ? doc.nodes.filter((node) => doc.selectedIds.includes(node.id)) : manyLines > 1 ? doc.edges.filter((edge) => doc.selectedEdgeIds?.includes(edge.id)) : []
+    manyShapes > 1 || manyLines > 1 ? [...doc.nodes.filter((node) => doc.selectedIds.includes(node.id)), ...doc.edges.filter((edge) => doc.selectedEdgeId && doc.selectedEdgeIds?.includes(edge.id))] : []
   const firstMemo = manyOwners.find((owner) => owner.note !== undefined)
   const manyMemos = firstMemo ? (
     <div className="memo-section" data-memo-section="many">
@@ -386,11 +389,11 @@ export function SidePanels({
               <button
                 key={node.id}
                 type="button"
-                className={`node-tree-item ${node.id === doc.selectedId ? 'selected' : ''}`}
-                onClick={() => onSelect(node.id)}
+                className={`node-tree-item ${doc.selectedIds.includes(node.id) ? 'selected' : ''}`}
+                onClick={(event) => (event.ctrlKey || event.shiftKey || event.metaKey ? onToggleNode(node.id) : onSelect(node.id))}
                 role="treeitem"
                 aria-level={depth + 1}
-                aria-selected={node.id === doc.selectedId}
+                aria-selected={doc.selectedIds.includes(node.id)}
               >
                 {Array.from({ length: depth }, (_, idx) => {
                   const level = idx + 1
@@ -433,6 +436,7 @@ export function SidePanels({
               ) : null}
 
               {manyShapes > 1 ? <p className="panel-many" data-selection-count="">{t('panel.manyShapes', { count: manyShapes })}</p> : null}
+              {manyLines > 0 ? <p className="panel-many" data-line-count="">{t('panel.manyLines', { count: manyLines })}</p> : null}
 
               {manyShapes <= 1 && selectedNode.image ? (
                 <div className="property-field">

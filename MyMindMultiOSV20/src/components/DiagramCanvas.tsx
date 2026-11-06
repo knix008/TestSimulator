@@ -3,9 +3,11 @@ import { RULER_SIZE, gridCell, gridLines, gridPath, rulerLabel, type GridLine } 
 import { DEFAULT_LINE_WIDTH } from '../constants/colors'
 import { sanitizeMemo, wrapMemo } from '../memo'
 import { nodeIconById } from '../nodeIcons'
-import type { DiagramDocument, DiagramNode, EdgeSide, LinePattern, LineType, MemoStyle, MemoTarget, ShapeType, ThemeMode } from '../types'
+import { MIN_ICON, readable } from '../themes'
+import type { DiagramDocument, DiagramNode, LinePattern, MemoStyle, MemoTarget, ThemeMode } from '../types'
 import { FISH_ANGLE_DEG } from '../layout/engine'
 import { resolveTextColor } from '../constants/colors'
+import { connectorPath, ribbonPath, type EdgeOrient } from '../utils/connectors'
 import { shapePath } from '../utils/shapePath'
 
 const FISH_TAN = Math.tan((FISH_ANGLE_DEG * Math.PI) / 180)
@@ -55,11 +57,11 @@ function Rulers({ xs, ys, width, height }: { xs: GridLine[]; ys: GridLine[]; wid
         ))}
       </svg>
       <div className="ruler-corner">px</div>
-      {/* The pointer's place on both rulers, as red dashed lines across the canvas. */}
+      {/* The pointer's place, marked on the rulers alone: the canvas stays clear. */}
       <svg className="ruler-guides" width={width} height={height}>
         <g ref={guides} visibility="hidden" data-ruler-guides="">
-          <line ref={markX} x1={0} x2={0} y1={0} y2={height} />
-          <line ref={markY} x1={0} x2={width} y1={0} y2={0} />
+          <line ref={markX} x1={0} x2={0} y1={0} y2={size} />
+          <line ref={markY} x1={0} x2={size} y1={0} y2={0} />
         </g>
       </svg>
     </div>
@@ -89,6 +91,8 @@ type Props = {
   onSelect: (id: string | null) => void
   onSelectMany: (ids: string[]) => void
   onSelectEdge: (id: string, add?: boolean) => void
+  onToggleNode: (id: string) => void
+  onAddNodes: (ids: string[]) => void
   onMoveNodes: (ids: string[], dx: number, dy: number) => void
   onContext: (x: number, y: number, nodeId: string | null, canvasX?: number, canvasY?: number) => void
   onEditStart: (id: string) => void
@@ -122,160 +126,6 @@ function fontFamily(font: string): string {
   return `"${font}", "Noto Sans KR", sans-serif`
 }
 
-const nodeCenter = (n: DiagramNode) => ({ x: n.x + n.width / 2, y: n.y + n.height / 2 })
-
-/**
- * How far the shape's outline sits inside the bounding box at the *centre* of
- * each face. For most shapes the outline meets the box at the face midpoint
- * (inset 0), but slanted/notched/curved shapes are set in — without this the
- * connector would attach to empty space outside the visible outline.
- */
-function faceInsets(
-  shape: ShapeType,
-  w: number,
-  h: number,
-): { left: number; right: number; top: number; bottom: number } {
-  const none = { left: 0, right: 0, top: 0, bottom: 0 }
-  switch (shape) {
-    case 'parallelogram':
-      // Sides are skewed by a fixed 16px; the mid-height edge is half of that in.
-      return { ...none, left: 8, right: 8 }
-    case 'trapezoid': {
-      const c = Math.min(w * 0.22, 30)
-      return { ...none, left: c / 2, right: c / 2 }
-    }
-    case 'chevron': {
-      // Left is a concave notch (tip at +c); right is the arrow point (at the edge).
-      const c = Math.min(w * 0.24, 28)
-      return { ...none, left: c }
-    }
-    case 'cylinder': {
-      // Curved lid/base: at centre-x the outline sits ~1/4 of the ellipse in.
-      const ry = Math.min(h * 0.22, 16) * 0.25
-      return { ...none, top: ry, bottom: ry }
-    }
-    default:
-      return none
-  }
-}
-
-/** Which axis connectors run along. 'auto' = whichever the node offset favours. */
-type EdgeOrient = 'h' | 'v' | 'auto'
-
-/**
- * Pick the connection points at the *midpoint of the facing side* of each node.
- * `orient` forces side-to-side ('h') or top/bottom ('v') so that, e.g., every
- * edge in a top-down tree leaves the parent's bottom-centre rather than flipping
- * to a side face for diagonally-placed children. 'auto' falls back to the
- * dominant axis. Returning the axis lets each line type arrive perpendicular to
- * the face, so arrowheads sit flush.
- */
-/** Connection point at the centre of one node face (respecting shape insets). */
-function sideMidpoint(node: DiagramNode, side: EdgeSide): { x: number; y: number } {
-  const ins = faceInsets(node.shape, node.width, node.height)
-  const cx = node.x + node.width / 2
-  const cy = node.y + node.height / 2
-  switch (side) {
-    case 'left':
-      return { x: node.x + ins.left, y: cy }
-    case 'right':
-      return { x: node.x + node.width - ins.right, y: cy }
-    case 'top':
-      return { x: cx, y: node.y + ins.top }
-    case 'bottom':
-      return { x: cx, y: node.y + node.height - ins.bottom }
-    default:
-      return { x: cx, y: cy }
-  }
-}
-
-const sideAxis = (s?: EdgeSide) =>
-  s === 'left' || s === 'right' ? 'h' : s === 'top' || s === 'bottom' ? 'v' : null
-
-function facePoints(
-  from: DiagramNode,
-  to: DiagramNode,
-  orient: EdgeOrient,
-  fromSide?: EdgeSide,
-  toSide?: EdgeSide,
-): {
-  p1: { x: number; y: number }
-  p2: { x: number; y: number }
-  horizontal: boolean
-} {
-  const fc = nodeCenter(from)
-  const tc = nodeCenter(to)
-  const dx = tc.x - fc.x
-  const dy = tc.y - fc.y
-  const fi = faceInsets(from.shape, from.width, from.height)
-  const ti = faceInsets(to.shape, to.width, to.height)
-  let horizontal = orient === 'h' ? true : orient === 'v' ? false : Math.abs(dx) >= Math.abs(dy)
-  let p1: { x: number; y: number }
-  let p2: { x: number; y: number }
-  if (horizontal) {
-    const right = dx >= 0
-    p1 = { x: right ? from.x + from.width - fi.right : from.x + fi.left, y: fc.y }
-    p2 = { x: right ? to.x + ti.left : to.x + to.width - ti.right, y: tc.y }
-  } else {
-    const down = dy >= 0
-    p1 = { x: fc.x, y: down ? from.y + from.height - fi.bottom : from.y + fi.top }
-    p2 = { x: tc.x, y: down ? to.y + ti.top : to.y + to.height - ti.bottom }
-  }
-  // Manual per-endpoint face overrides.
-  const fa = sideAxis(fromSide)
-  const ta = sideAxis(toSide)
-  if (fromSide && fromSide !== 'auto') p1 = sideMidpoint(from, fromSide)
-  if (toSide && toSide !== 'auto') p2 = sideMidpoint(to, toSide)
-  if (ta) horizontal = ta === 'h'
-  else if (fa) horizontal = fa === 'h'
-  return { p1, p2, horizontal }
-}
-
-function edgePath(
-  from: DiagramNode,
-  to: DiagramNode,
-  lineType: LineType,
-  orient: EdgeOrient,
-  fromSide?: EdgeSide,
-  toSide?: EdgeSide,
-): string {
-  const { p1, p2, horizontal } = facePoints(from, to, orient, fromSide, toSide)
-  const x1 = p1.x
-  const y1 = p1.y
-  const x2 = p2.x
-  const y2 = p2.y
-
-  if (lineType === 'root') {
-    const mx = (x1 + x2) / 2
-    const spread = Math.max(24, Math.abs(y2 - y1) * 0.28)
-    const vertical = y2 >= y1 ? 1 : -1
-    return `M ${x1} ${y1} C ${mx - 42} ${y1 + vertical * spread}, ${mx + 18} ${y2 - vertical * spread * 0.45}, ${x2} ${y2}`
-  }
-
-  if (lineType === 'elbow') {
-    // Route perpendicular to each face: H-V-H when side-connected, V-H-V when
-    // top/bottom-connected, so the segment meeting each node is axis-aligned.
-    if (horizontal) {
-      const mx = (x1 + x2) / 2
-      return `M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}`
-    }
-    const my = (y1 + y2) / 2
-    return `M ${x1} ${y1} L ${x1} ${my} L ${x2} ${my} L ${x2} ${y2}`
-  }
-
-  if (lineType === 'curve') {
-    // Control points along the face normal → tangent is perpendicular to the
-    // face at both ends.
-    if (horizontal) {
-      const mx = (x1 + x2) / 2
-      return `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`
-    }
-    const my = (y1 + y2) / 2
-    return `M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`
-  }
-  return `M ${x1} ${y1} L ${x2} ${y2}`
-}
-
 /** Trunk/branch width for a node at the given depth (thicker near the root). */
 function branchWidth(depth: number): number {
   return Math.max(2.4, 12 - depth * 2.2)
@@ -284,56 +134,6 @@ function branchWidth(depth: number): number {
 /** Fishbone bone width by depth (spine thickest, tapering into causes). */
 function fishWidth(depth: number): number {
   return Math.max(2, 7 - depth * 1.4)
-}
-
-const cubicAt = (p0: number, p1: number, p2: number, p3: number, t: number) => {
-  const u = 1 - t
-  return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3
-}
-const cubicDeriv = (p0: number, p1: number, p2: number, p3: number, t: number) => {
-  const u = 1 - t
-  return 3 * u * u * (p1 - p0) + 6 * u * t * (p2 - p1) + 3 * t * t * (p3 - p2)
-}
-
-/**
- * A filled, organically tapered "tree-root" ribbon between two node centers:
- * wide at the parent, narrowing to the child, following a smooth S-curve.
- */
-function rootRibbonPath(
-  from: DiagramNode,
-  to: DiagramNode,
-  wStart: number,
-  wEnd: number,
-  orient: EdgeOrient,
-): string {
-  const { p1, p2 } = facePoints(from, to, orient)
-  const x1 = p1.x
-  const y1 = p1.y
-  const x2 = p2.x
-  const y2 = p2.y
-  const dx = x2 - x1
-  const c1x = x1 + dx * 0.5
-  const c2x = x1 + dx * 0.5
-  const N = 22
-  const left: string[] = []
-  const right: string[] = []
-  for (let i = 0; i <= N; i++) {
-    const t = i / N
-    const px = cubicAt(x1, c1x, c2x, x2, t)
-    const py = cubicAt(y1, y1, y2, y2, t)
-    let tx = cubicDeriv(x1, c1x, c2x, x2, t)
-    let ty = cubicDeriv(y1, y1, y2, y2, t)
-    const len = Math.hypot(tx, ty) || 1
-    tx /= len
-    ty /= len
-    const nx = -ty
-    const ny = tx
-    // Fuller near the base, easing to the tip.
-    const h = wEnd / 2 + (wStart / 2 - wEnd / 2) * Math.pow(1 - t, 1.3)
-    left.push(`${(px + nx * h).toFixed(2)} ${(py + ny * h).toFixed(2)}`)
-    right.push(`${(px - nx * h).toFixed(2)} ${(py - ny * h).toFixed(2)}`)
-  }
-  return `M ${left.join(' L ')} L ${right.reverse().join(' L ')} Z`
 }
 
 /** A filled straight segment tapering from full width w1 (start) to w2 (end). */
@@ -355,10 +155,13 @@ function taperSegmentPath(
   return `M ${(x1 + nx).toFixed(2)} ${(y1 + ny).toFixed(2)} L ${(x2 + mx).toFixed(2)} ${(y2 + my).toFixed(2)} L ${(x2 - mx).toFixed(2)} ${(y2 - my).toFixed(2)} L ${(x1 - nx).toFixed(2)} ${(y1 - ny).toFixed(2)} Z`
 }
 
+/** The keys that add to what is selected instead of starting over. */
+const adds = (event: ReactMouseEvent) => event.ctrlKey || event.shiftKey || event.metaKey
+
 type DragState =
   | { kind: 'pan'; ox: number; oy: number; px: number; py: number }
   | { kind: 'node'; id: string; group: string[]; ox: number; oy: number }
-  | { kind: 'marquee'; ox: number; oy: number }
+  | { kind: 'marquee'; ox: number; oy: number; add: boolean }
   | { kind: 'memo'; target: MemoTarget; ox: number; oy: number; dx: number; dy: number }
 
 type Rect = { x1: number; y1: number; x2: number; y2: number }
@@ -377,6 +180,8 @@ export function DiagramCanvas({
   onSelect,
   onSelectMany,
   onSelectEdge,
+  onToggleNode,
+  onAddNodes,
   onMoveNodes,
   onContext,
   onEditStart,
@@ -619,6 +424,9 @@ export function DiagramCanvas({
     const d = drag.current
     if (d?.kind === 'node' && dragPreview && (dragPreview.dx !== 0 || dragPreview.dy !== 0)) {
       onMoveNodes(dragPreview.ids, dragPreview.dx, dragPreview.dy)
+    } else if (d?.kind === 'node' && d.group.length > 1) {
+      // Pressed one of several and let go without dragging: a plain click, which starts over.
+      onSelect(d.id)
     } else if (d?.kind === 'marquee' && marquee) {
       const minX = Math.min(marquee.x1, marquee.x2)
       const maxX = Math.max(marquee.x1, marquee.x2)
@@ -629,7 +437,8 @@ export function DiagramCanvas({
           (n) => n.x < maxX && n.x + n.width > minX && n.y < maxY && n.y + n.height > minY,
         )
         .map((n) => n.id)
-      onSelectMany(hit)
+      if (d.add) onAddNodes(hit)
+      else onSelectMany(hit)
     }
     if (d?.kind === 'memo' && memoDrag) onMemoMove(d.target, memoDrag.dx, memoDrag.dy)
     setMemoDrag(null)
@@ -665,9 +474,9 @@ export function DiagramCanvas({
           }
           if (e.button !== 0) return
           const start = clientToCanvas(e.clientX, e.clientY)
-          drag.current = { kind: 'marquee', ox: e.clientX, oy: e.clientY }
+          drag.current = { kind: 'marquee', ox: e.clientX, oy: e.clientY, add: adds(e) }
           setMarquee({ x1: start.x, y1: start.y, x2: start.x, y2: start.y })
-          onSelect(null)
+          if (!adds(e)) onSelect(null)
         }}
         onMouseMove={(e) => {
           const d = drag.current
@@ -842,14 +651,14 @@ export function DiagramCanvas({
             const lineWidth = edge.width ?? DEFAULT_LINE_WIDTH
             const selectEdge = (e: ReactMouseEvent) => {
               e.stopPropagation()
-              if (e.button === 0) onSelectEdge(edge.id, e.shiftKey || e.ctrlKey)
+              if (e.button === 0) onSelectEdge(edge.id, adds(e))
             }
             if (edge.lineType === 'root') {
               // Organic tree-root branch: a filled tapered ribbon (no dashes).
               const parentDepth = nodeDepthMap.get(from.id) ?? 0
               const childDepth = nodeDepthMap.get(to.id) ?? parentDepth + 1
               const scale = lineWidth / DEFAULT_LINE_WIDTH
-              const d = rootRibbonPath(from, to, branchWidth(parentDepth) * scale, branchWidth(childDepth) * scale, edgeOrient)
+              const d = ribbonPath(from, to, branchWidth(parentDepth) * scale, branchWidth(childDepth) * scale, edgeOrient, edge.fromSide, edge.toSide)
               return (
                 <path
                   key={edge.id}
@@ -862,7 +671,7 @@ export function DiagramCanvas({
                 />
               )
             }
-            const d = edgePath(from, to, edge.lineType, edgeOrient, edge.fromSide, edge.toSide)
+            const d = connectorPath(from, to, edge.lineType, edgeOrient, edge.fromSide, edge.toSide)
             return (
               <g key={edge.id}>
                 {/* Invisible wide hit target so thin lines are easy to click. */}
@@ -908,11 +717,8 @@ export function DiagramCanvas({
                 // If the node is part of the current multi-selection, drag the
                 // whole group; otherwise select just this node and drag it.
                 const inMulti = doc.selectedIds.includes(node.id) && doc.selectedIds.length > 1
-                if (e.shiftKey) {
-                  const next = doc.selectedIds.includes(node.id)
-                    ? doc.selectedIds.filter((id) => id !== node.id)
-                    : [...doc.selectedIds, node.id]
-                  onSelectMany(next)
+                if (adds(e)) {
+                  onToggleNode(node.id)
                   return
                 }
                 if (!inMulti) onSelect(node.id)
@@ -950,7 +756,7 @@ export function DiagramCanvas({
                   data-icon={node.icon}
                   transform={`translate(${node.x + 8} ${node.y + node.height / 2 - 9}) scale(0.75)`}
                   fill="none"
-                  stroke={nodeIconById(node.icon)!.color}
+                  stroke={readable(nodeIconById(node.icon)!.color, [node.color], MIN_ICON)}
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -960,7 +766,7 @@ export function DiagramCanvas({
               {!node.image && <text
                 className="node-label"
                 x={node.x + node.width / 2 + (nodeIconById(node.icon) ? 10 : 0)}
-                y={node.y + node.height / 2 + 1}
+                y={node.y + node.height / 2 + (node.shape === 'cylinder' ? 5 : 1)}
                 textAnchor="middle"
                 dominantBaseline="middle"
               >

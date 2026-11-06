@@ -13,6 +13,7 @@
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "icons": "node scripts/gen-icons.mjs",
     "samples": "node scripts/gen-samples.mjs",
+    "guide-images": "node scripts/guide-images.mjs",
     "tauri": "node node_modules/@tauri-apps/cli/tauri.js",
     "build:win": "node node_modules/@tauri-apps/cli/tauri.js build --bundles nsis && node scripts/copy-installer.mjs",
     "build:mac": "node node_modules/@tauri-apps/cli/tauri.js build --bundles dmg && node scripts/copy-installer.mjs",

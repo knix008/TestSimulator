@@ -14,12 +14,16 @@ MyMind is an editor for **mind maps** and **fishbone (Ishikawa)** diagrams, runn
 
 ## 3. Screen layout
 
+![The start screen](images/en-start.webp)
+
+![The workspace](images/en-mindmap.webp)
+
 | Area | Description |
 |------|-------------|
 | **Start screen** | Cards over a moving background: shortcuts, recent files, samples, themes, backgrounds. The **Start** button in the top row opens it at any time |
 | **Top row** | Name and version, **Start**, **File▾ Edit▾ View▾ Help▾**, document name, window buttons |
 | **Toolbar** | Icons only, explained at once by a tooltip when the pointer rests on them. Files, undo, mode and layout, font and size (−/+), icons, memos and images, mind map and line themes, view (grid, rulers, panels, full screen), theme, language, settings, about |
-| **Left panel** | Above: node list as a **tree view** with parent/child connector lines. Below: the **mind map theme** gallery. Drag the divider between them to resize |
+| **Left panel** | Above: node list as a **tree view** with parent/child connector lines. Below: the **mind map theme** gallery. They start half and half; drag the divider between them to resize |
 | **Right panel** | Text·memo, shape·color, font·font size·text color·style, line shape/pattern/caps/color, connection point |
 | **Canvas** | Diagram editing (grid, pan, zoom) |
 | **Status bar** | Mode, layout, node count, zoom, grid, save status, resize dots |
@@ -31,6 +35,10 @@ Dialogs and the settings window are windows of their own, which can be moved out
 
 ### 4.1 File (File▾ menu)
 
+![The export window](images/en-export.webp)
+
+![The print window](images/en-print.webp)
+
 - **New Mind Map / New Fishbone** (Ctrl+N uses the default mode from the settings): asks first about unsaved work
 - **Open** (Ctrl+O): open `.mmap` (legacy `.mymind` too); the view fits the whole diagram
 - **Save** (Ctrl+S), **Save As** (Ctrl+Shift+S): save as `.mmap` (the web version downloads)
@@ -40,6 +48,8 @@ Dialogs and the settings window are windows of their own, which can be moved out
 
 ### 4.2 Mode
 
+![A fishbone](images/en-fishbone.webp)
+
 The **Mind map / Fishbone** buttons in the toolbar redraw the current document in the other mode.
 
 ### 4.3 Nodes
@@ -47,9 +57,9 @@ The **Mind map / Fishbone** buttons in the toolbar redraw the current document i
 | Action | How |
 |--------|-----|
 | Select | Click a node (or a row in the left tree — it highlights on canvas) |
-| Select many | **Marquee drag** or **Shift-click** |
+| Select many | **Marquee drag**, or **Ctrl-click / Shift-click**. Shapes and lines can be selected together, and a second click takes one off. A marquee with the key held adds to the selection |
 | Select all | **Ctrl+A** or the right-click menu |
-| Change many at once | Select several shapes or lines, then change a property: all of them take it. **Shift-click** adds a line |
+| Change many at once | Select several shapes or lines, then change a property: all of them take it. With shapes and lines together, shape properties go to the shapes and line properties to the lines |
 | Memo | Select a shape or a line, then **Memo** in the toolbar or the right-click menu. Change its colour, size, font and connecting line in the properties, and drag it to move it. With several selected, the look of all their memos changes at once |
 | Icon | Select a shape, then pick from the **Icons** tab at the bottom left, or the toolbar |
 | Image | **Insert Image** in the toolbar, or drop a file on the window. PNG, JPEG, GIF, WebP, BMP, SVG, AVIF, ICO, TIFF, TGA, DDS, HDR, EXR, PNM, QOI, Farbfeld, PSD |
@@ -81,7 +91,7 @@ Lines attach at the **midpoint of each node face**.
 | **Fit All** | Zoom and move so the whole diagram fits |
 | **Center View** | Move the diagram to the middle, at the current zoom |
 | **Auto Align** | Re-layout with the current rule, then fit |
-| **Ruler** | Toggle the rulers along the canvas's top and left. They show diagram coordinates and the pointer's place as red dashed lines |
+| **Ruler** | Toggle the rulers along the canvas's top and left. They show diagram coordinates and mark the pointer's place in red on each ruler |
 | **Left Panel / Right Panel** | Fold or open a panel. The arrow in a panel's title and the folded strip do the same |
 | **Grid** | Toggle the grid. It is redrawn as you zoom, and its spacing changes by a factor of five when cells get too small or too large. **When the grid is on, left-drag on empty canvas pans the background** |
 
@@ -93,9 +103,13 @@ Lines attach at the **midpoint of each node face**.
 
 ### 4.8 Theme, language, settings
 
+![A mind map theme, icons and a memo](images/en-decorated.webp)
+
+![Themes in the settings window](images/en-settings.webp)
+
 - **Themes**: 20 light and 20 dark. Pick one from **Theme▾** in the toolbar, the Theme card on the start screen, or the settings window
 - **Custom themes**: with the button at the top of the **Theme▾** menu, or in Settings → Theme, copy the current theme and change its colours one by one
-- **Mind map themes**: the gallery at the bottom of the left panel, or **Mind Map Theme▾** in the toolbar, dresses the whole diagram: node colours and shapes, text and connectors, in 16 themes. The canvas keeps the program theme's colours. Drag the divider under the node list to resize the two areas
+- **Mind map themes**: the gallery at the bottom of the left panel, or **Mind Map Theme▾** in the toolbar, dresses the whole diagram: node colours, text and connectors, and the shapes of the centre, the main branches and the outer branches, in 40 themes. The canvas keeps the program theme's colours. Drag the divider under the node list to resize the two areas
 - **Line themes**: **Line Theme▾** in the toolbar changes the shape, pattern, ends and colour of every connector at once. Lines added later follow it
 - **Language**: Korean ↔ English, applied at once
 - **Settings window**:
@@ -113,8 +127,11 @@ With unsaved work, closing the window or opening another document asks **Save / 
 
 ### 4.10 Tutorials
 
+![The tutorial card](images/en-tutorial.webp)
+
 The **Tutorial** button on the start screen (or the Help menu) offers **Mind map: a trip plan** and **Fishbone: why we are late**. Either opens a new document with a guide card.
 
+- The program asks at startup whether to take a tutorial. Turn off **Ask about the tutorial at startup** in that window, or change it in Settings → Start
 - Follow along with the real program. When a step is done the card notices and **Next** lights up
 - **Do it for me** has the program do the step
 - Drag the card by its header to move it

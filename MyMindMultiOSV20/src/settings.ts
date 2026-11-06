@@ -41,6 +41,8 @@ export type GeneralSettings = {
 
 export type StartSettings = {
   showOnStartup: boolean
+  /** Asks at the start whether to take a tutorial. */
+  askTutorial: boolean
   background: string
   speed: number | null
   shuffle: boolean
@@ -59,8 +61,6 @@ export type AppSettings = {
   showRulers: boolean
   leftPanel: boolean
   rightPanel: boolean
-  /** Height of the mind map theme area under the node list, in pixels. */
-  themeAreaHeight: number
   showMemos: boolean
   pageSetup: PageSetup
 }
@@ -96,6 +96,7 @@ export function sanitizeGeneral(value: unknown): GeneralSettings {
 
 export const DEFAULT_START_SCREEN: StartSettings = {
   showOnStartup: true,
+  askTutorial: true,
   background: BACKGROUND_KINDS[0],
   speed: null,
   shuffle: false,
@@ -113,6 +114,7 @@ export function sanitizeStartScreen(value: unknown): StartSettings {
   const opacity = v.cardOpacity === undefined || v.cardOpacity === null ? NaN : Number(v.cardOpacity)
   return {
     showOnStartup: v.showOnStartup !== false,
+    askTutorial: v.askTutorial !== false,
     background: isBackgroundKind(v.background) ? v.background : DEFAULT_START_SCREEN.background,
     speed: Number.isFinite(speed) ? stepped(speed, SPEED_MIN, SPEED_MAX, SPEED_STEP) : null,
     shuffle: v.shuffle === true,
@@ -183,12 +185,6 @@ export const addRecent = (list: string[], file: string) => sanitizeRecent([file,
 export const removeRecent = (list: string[], file: string) => list.filter((item) => item.toLowerCase() !== file.toLowerCase())
 
 export const THEME_AREA_MIN = 90
-export const THEME_AREA_MAX = 1200
-export const THEME_AREA_DEFAULT = 300
-export function sanitizeThemeArea(value: unknown): number {
-  const n = Number(value)
-  return Number.isFinite(n) ? Math.round(Math.max(THEME_AREA_MIN, Math.min(THEME_AREA_MAX, n))) : THEME_AREA_DEFAULT
-}
 
 /** Anything read from settings.json, made valid. Keys this module does not know are dropped from the state. */
 export function sanitizeSettings(value: unknown): AppSettings {
@@ -205,7 +201,6 @@ export function sanitizeSettings(value: unknown): AppSettings {
     showRulers: v.showRulers !== false,
     leftPanel: v.leftPanel !== false,
     rightPanel: v.rightPanel !== false,
-    themeAreaHeight: sanitizeThemeArea(v.themeAreaHeight),
     showMemos: v.showMemos !== false,
     pageSetup: sanitizePageSetup(v.pageSetup),
   }

@@ -400,9 +400,15 @@ select {
 
 /* Rulers lie over the canvas's edges; the canvas keeps its size, so toggling them moves nothing. */
 /* The left panel's two areas: the node list above, the mind map themes below, with a divider. */
-.node-list-area {
+.panel-section.node-list-area {
   flex: 1 1 0;
   min-height: 60px;
+  /* In the tree inside: a padding here would count on top of its half of the panel. */
+  padding: 0;
+}
+
+.node-list-area > .node-tree {
+  padding: 12px;
 }
 
 .panel-splitter {
@@ -524,7 +530,6 @@ select {
 .ruler-guides line {
   stroke: #e53935;
   stroke-width: 1;
-  stroke-dasharray: 4 3;
 }
 
 .ruler-corner {
@@ -1252,15 +1257,28 @@ select {
   padding: 8px;
 }
 
+.node-icon-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.node-icon-head .node-icon-tile {
+  flex: 0 0 32px;
+}
+
 .node-icon-hint {
-  margin: 0 0 6px;
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
   color: var(--muted);
   font-size: 11px;
 }
 
 .node-icon-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
 }
 
@@ -1272,7 +1290,7 @@ select {
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 5px;
-  background: #ffffff;
+  background: var(--panel);
   cursor: pointer;
 }
 

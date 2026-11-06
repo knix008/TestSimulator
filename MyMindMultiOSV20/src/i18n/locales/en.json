@@ -335,7 +335,10 @@
     "finish": "Finish",
     "doIt": "Do it for me",
     "doItTip": "The program does this step for you",
-    "moveCard": "Drag to move"
+    "moveCard": "Drag to move",
+    "askOnStart": "Ask about the tutorial at startup",
+    "later": "Later",
+    "question": "Take a tutorial? You draw a diagram yourself, following the guide."
   },
   "style": {
     "bold": "Bold",

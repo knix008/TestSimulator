@@ -242,3 +242,6 @@ html.popout-dialog .print-layout { max-height: none; }
 .print-summary { margin-right: auto; align-self: center; color: var(--muted); }
 
 .grip { color: var(--ink); }
+
+.tutorial-ask { display: inline-flex; align-items: center; gap: 8px; margin-right: auto; }
+.pref-page > .form-grid { grid-template-columns: 200px minmax(0, 1fr); }

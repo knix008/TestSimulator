@@ -27,7 +27,8 @@ export function shapePath(shape: ShapeType, x: number, y: number, w: number, h: 
     }
     case 'cylinder': {
       const ry = min(h * 0.22, 16)
-      return `M ${x} ${y + ry} C ${x} ${y}, ${x + w} ${y}, ${x + w} ${y + ry} V ${y + h - ry} C ${x + w} ${y + h}, ${x} ${y + h}, ${x} ${y + h - ry} Z M ${x} ${y + ry} C ${x} ${y + 2 * ry}, ${x + w} ${y + 2 * ry}, ${x + w} ${y + ry}`
+      // The lid's line runs the same way round as the body: the other way, its fill cancels into a hole.
+      return `M ${x} ${y + ry} C ${x} ${y}, ${x + w} ${y}, ${x + w} ${y + ry} V ${y + h - ry} C ${x + w} ${y + h}, ${x} ${y + h}, ${x} ${y + h - ry} Z M ${x + w} ${y + ry} C ${x + w} ${y + 2 * ry}, ${x} ${y + 2 * ry}, ${x} ${y + ry}`
     }
     case 'trapezoid': {
       const c = min(w * 0.22, 30)
