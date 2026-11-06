@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".6" stop-color="#eef2f7"/>
+      <stop offset="1" stop-color="#c8d2de"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#fdfeff"/>
+      <stop offset=".5" stop-color="#d5dee8"/>
+      <stop offset="1" stop-color="#93a3b5"/>
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffa071"/>
+      <stop offset="1" stop-color="#dc4d14"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".6"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="teeth" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#dc4d14"/>
+      <stop offset="1" stop-color="#ffa071"/>
+    </linearGradient>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="150%"><feGaussianBlur stdDeviation="11"/></filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
+  </defs>
+  <path d="M100 52a26 26 0 0 1 26-26h196l106 106v326a26 26 0 0 1-26 26H126a26 26 0 0 1-26-26z" transform="translate(6 16)" fill="#000" opacity=".4" filter="url(#drop)"/>
+  <path d="M100 52a26 26 0 0 1 26-26h196l106 106v326a26 26 0 0 1-26 26H126a26 26 0 0 1-26-26z" fill="url(#paper)" stroke="#8c9bac" stroke-width="3"/>
+  <path d="M322 26l106 106h-80a26 26 0 0 1-26-26z" fill="#000" opacity=".28" transform="translate(-5 8)" filter="url(#soft)"/>
+  <path d="M322 26l106 106h-80a26 26 0 0 1-26-26z" fill="url(#fold)" stroke="#8c9bac" stroke-width="3" stroke-linejoin="round"/>
+  <!-- The zipper running down the sheet -->
+  <rect x="204" y="44" width="44" height="214" rx="6" fill="#000" opacity=".12"/>
+  <g fill="url(#teeth)" stroke="#fff" stroke-opacity=".5" stroke-width="1.5">
+    <rect x="212" y="56" width="28" height="15" rx="4"/>
+    <rect x="212" y="82" width="28" height="15" rx="4"/>
+    <rect x="212" y="108" width="28" height="15" rx="4"/>
+    <rect x="212" y="134" width="28" height="15" rx="4"/>
+    <rect x="212" y="160" width="28" height="15" rx="4"/>
+    <rect x="212" y="186" width="28" height="15" rx="4"/>
+  </g>
+  <path d="M208 214h36l6 34a22 22 0 0 1-48 0z" fill="url(#teeth)" stroke="#55626f" stroke-width="2"/>
+  <!-- The raised colour label -->
+  <rect x="60" y="282" width="392" height="176" rx="30" fill="#000" opacity=".4" transform="translate(0 14)" filter="url(#soft)"/>
+  <rect x="60" y="280" width="392" height="176" rx="30" fill="url(#band)"/>
+  <rect x="60" y="280" width="392" height="176" rx="30" fill="none" stroke="#000" stroke-opacity=".25" stroke-width="3"/>
+  <path d="M72 312a22 22 0 0 1 22-22h324a22 22 0 0 1 22 22v28c-60 22-120 28-184 28s-124-6-184-28z" fill="url(#gloss)"/>
+  <path d="M148.0 324.0L208.0 324.0L148.0 408.0L208.0 408.0M286.0 339.6L271.0 324.0L241.0 324.0L226.0 338.4L226.0 351.6L241.0 366.0L271.0 366.0L286.0 380.4L286.0 393.6L271.0 408.0L241.0 408.0L226.0 392.4M304.0 324.0L364.0 324.0M334.0 324.0L334.0 408.0" transform="translate(4 7)" fill="none" stroke="#000" stroke-opacity=".38" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M148.0 324.0L208.0 324.0L148.0 408.0L208.0 408.0M286.0 339.6L271.0 324.0L241.0 324.0L226.0 338.4L226.0 351.6L241.0 366.0L271.0 366.0L286.0 380.4L286.0 393.6L271.0 408.0L241.0 408.0L226.0 392.4M304.0 324.0L364.0 324.0M334.0 324.0L334.0 408.0" fill="none" stroke="#fff" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

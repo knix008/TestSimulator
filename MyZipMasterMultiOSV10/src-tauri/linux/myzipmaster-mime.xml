@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/zip">
+    <comment>ZIP Archive</comment>
+    <icon name="application-zip"/>
+    <glob pattern="*.zip"/>
+    <glob pattern="*.zipx"/>
+  </mime-type>
+  <mime-type type="application/x-7z-compressed">
+    <comment>7-Zip Archive</comment>
+    <icon name="application-x-7z-compressed"/>
+    <glob pattern="*.7z"/>
+  </mime-type>
+  <mime-type type="application/vnd.rar">
+    <comment>RAR Archive</comment>
+    <icon name="application-vnd.rar"/>
+    <glob pattern="*.rar"/>
+  </mime-type>
+  <mime-type type="application/x-tar">
+    <comment>TAR Archive</comment>
+    <icon name="application-x-tar"/>
+    <glob pattern="*.tar"/>
+  </mime-type>
+  <mime-type type="application/gzip">
+    <comment>GZip Archive</comment>
+    <icon name="application-gzip"/>
+    <glob pattern="*.gz"/>
+    <glob pattern="*.tgz"/>
+  </mime-type>
+  <mime-type type="application/x-bzip2">
+    <comment>BZip2 Archive</comment>
+    <icon name="application-x-bzip2"/>
+    <glob pattern="*.bz2"/>
+    <glob pattern="*.tbz"/>
+    <glob pattern="*.tbz2"/>
+  </mime-type>
+  <mime-type type="application/x-xz">
+    <comment>XZ Archive</comment>
+    <icon name="application-x-xz"/>
+    <glob pattern="*.xz"/>
+    <glob pattern="*.txz"/>
+  </mime-type>
+  <mime-type type="application/zstd">
+    <comment>Zstandard Archive</comment>
+    <icon name="application-zstd"/>
+    <glob pattern="*.zst"/>
+    <glob pattern="*.tzst"/>
+  </mime-type>
+  <mime-type type="application/vnd.ms-cab-compressed">
+    <comment>Cabinet Archive</comment>
+    <icon name="application-vnd.ms-cab-compressed"/>
+    <glob pattern="*.cab"/>
+  </mime-type>
+  <mime-type type="application/x-cd-image">
+    <comment>Disc Image</comment>
+    <icon name="application-x-cd-image"/>
+    <glob pattern="*.iso"/>
+  </mime-type>
+  <mime-type type="application/x-7z-compressed-part">
+    <comment>Split Archive Part</comment>
+    <icon name="application-x-7z-compressed-part"/>
+    <glob pattern="*.001"/>
+  </mime-type>
+</mime-info>

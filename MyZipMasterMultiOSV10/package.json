@@ -1,0 +1,54 @@
+{
+  "name": "myzipmaster",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MyZipMaster - cross-platform archive manager (Web / Windows / macOS / Linux): ZIP, 7z, RAR, TAR and more, with split volumes of any size. Tauri + React + a Rust engine that also compiles to WebAssembly.",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/generate-build-info.mjs",
+    "start": "node scripts/dev.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "npm run build:wasm && node scripts/dev.mjs web",
+    "generate:build-info": "node scripts/generate-build-info.mjs",
+    "icons": "node node_modules/@tauri-apps/cli/tauri.js icon assets/icon.svg -o src-tauri/icons",
+    "tauri": "node node_modules/@tauri-apps/cli/tauri.js",
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "build:sfx": "node scripts/build-sfx.mjs",
+    "build:ui": "npm run generate:build-info && node node_modules/vite/bin/vite.js build",
+    "build:web": "npm run generate:build-info && npm run build:wasm && node node_modules/vite/bin/vite.js build --mode web",
+    "build:debug": "npm run build:ui && node scripts/build-sfx.mjs debug && cargo build -p myzipmaster",
+    "build:win": "node node_modules/@tauri-apps/cli/tauri.js build --bundles nsis && node scripts/copy-installer.mjs",
+    "build:mac": "node node_modules/@tauri-apps/cli/tauri.js build --bundles dmg && node scripts/copy-installer.mjs",
+    "build:linux": "node node_modules/@tauri-apps/cli/tauri.js build --bundles appimage,deb && node scripts/copy-installer.mjs",
+    "build:all": "node scripts/build-all.mjs",
+    "preview:web": "node node_modules/vite/bin/vite.js preview --mode web --outDir dist-web --port 5383",
+    "guide:images": "node scripts/guide-images.mjs",
+    "test": "node test/runner.mjs",
+    "test:engine": "cargo test -p zipmaster-core",
+    "test:long": "cargo test -p zipmaster-core -- --include-ignored",
+    "test:web": "node test/runner.mjs web",
+    "smoke": "node test/runner.mjs desktop",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "i18next": "^23.11.5",
+    "marked": "^12.0.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "^14.1.2"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "jsdom": "^26.1.0",
+    "vite": "^5.4.1"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}

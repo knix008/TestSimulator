@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key><string>ZIP Archive</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>CFBundleTypeIconFile</key><string>file-zip.icns</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>zip</string><string>zipx</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>7-Zip Archive</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>CFBundleTypeIconFile</key><string>file-7z.icns</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>7z</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>RAR Archive</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>CFBundleTypeIconFile</key><string>file-rar.icns</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>rar</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>TAR Archive</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>CFBundleTypeIconFile</key><string>file-tar.icns</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>tar</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>GZip Archive</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>CFBundleTypeIconFile</key><string>file-gz.icns</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>gz</string><string>tgz</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>BZip2 Archive</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>CFBundleTypeIconFile</key><string>file-bz2.icns</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>bz2</string><string>tbz</string><string>tbz2</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>XZ Archive</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>CFBundleTypeIconFile</key><string>file-xz.icns</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>xz</string><string>txz</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>Zstandard Archive</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>CFBundleTypeIconFile</key><string>file-zst.icns</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>zst</string><string>tzst</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>Cabinet Archive</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>CFBundleTypeIconFile</key><string>file-cab.icns</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>cab</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>Disc Image</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>CFBundleTypeIconFile</key><string>file-iso.icns</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>iso</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>Split Archive Part</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>CFBundleTypeIconFile</key><string>file-part.icns</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>001</string></array>
+    </dict>
+  </array>
+</dict>
+</plist>

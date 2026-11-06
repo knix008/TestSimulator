@@ -1,0 +1,205 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyZipMaster",
+  "mainBinaryName": "MyZipMaster",
+  "version": "1.0.0",
+  "identifier": "com.shkwon.myzipmaster",
+  "build": {
+    "frontendDist": "../dist",
+    "beforeBuildCommand": "npm run build:ui && npm run build:sfx"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "dmg",
+      "appimage",
+      "deb"
+    ],
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) 2026 SHKWON (knix008@naver.com)",
+    "category": "Utility",
+    "resources": {
+      "resources/sfx/*": "resources/sfx/",
+      "icons/files/*.ico": "resources/file-icons/"
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "zip",
+          "zipx"
+        ],
+        "name": "MyZipMaster.zip",
+        "description": "ZIP Archive",
+        "role": "Editor",
+        "mimeType": "application/zip"
+      },
+      {
+        "ext": [
+          "7z"
+        ],
+        "name": "MyZipMaster.7z",
+        "description": "7-Zip Archive",
+        "role": "Editor",
+        "mimeType": "application/x-7z-compressed"
+      },
+      {
+        "ext": [
+          "rar"
+        ],
+        "name": "MyZipMaster.rar",
+        "description": "RAR Archive",
+        "role": "Editor",
+        "mimeType": "application/vnd.rar"
+      },
+      {
+        "ext": [
+          "tar"
+        ],
+        "name": "MyZipMaster.tar",
+        "description": "TAR Archive",
+        "role": "Editor",
+        "mimeType": "application/x-tar"
+      },
+      {
+        "ext": [
+          "gz",
+          "tgz"
+        ],
+        "name": "MyZipMaster.gz",
+        "description": "GZip Archive",
+        "role": "Editor",
+        "mimeType": "application/gzip"
+      },
+      {
+        "ext": [
+          "bz2",
+          "tbz",
+          "tbz2"
+        ],
+        "name": "MyZipMaster.bz2",
+        "description": "BZip2 Archive",
+        "role": "Editor",
+        "mimeType": "application/x-bzip2"
+      },
+      {
+        "ext": [
+          "xz",
+          "txz"
+        ],
+        "name": "MyZipMaster.xz",
+        "description": "XZ Archive",
+        "role": "Editor",
+        "mimeType": "application/x-xz"
+      },
+      {
+        "ext": [
+          "zst",
+          "tzst"
+        ],
+        "name": "MyZipMaster.zst",
+        "description": "Zstandard Archive",
+        "role": "Editor",
+        "mimeType": "application/zstd"
+      },
+      {
+        "ext": [
+          "cab"
+        ],
+        "name": "MyZipMaster.cab",
+        "description": "Cabinet Archive",
+        "role": "Editor",
+        "mimeType": "application/vnd.ms-cab-compressed"
+      },
+      {
+        "ext": [
+          "iso"
+        ],
+        "name": "MyZipMaster.iso",
+        "description": "Disc Image",
+        "role": "Editor",
+        "mimeType": "application/x-cd-image"
+      },
+      {
+        "ext": [
+          "001"
+        ],
+        "name": "MyZipMaster.part",
+        "description": "Split Archive Part",
+        "role": "Editor",
+        "mimeType": "application/x-7z-compressed-part"
+      }
+    ],
+    "shortDescription": "Archive manager",
+    "longDescription": "MyZipMaster creates and opens ZIP, 7z, RAR, TAR and more, with split volumes of any size, encryption, repair and checksums.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": [
+          "Korean",
+          "English"
+        ],
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "installerHooks": "nsis/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "files": {
+        "Resources/file-zip.icns": "icons/files/zip.icns",
+        "Resources/file-7z.icns": "icons/files/7z.icns",
+        "Resources/file-rar.icns": "icons/files/rar.icns",
+        "Resources/file-tar.icns": "icons/files/tar.icns",
+        "Resources/file-gz.icns": "icons/files/gz.icns",
+        "Resources/file-bz2.icns": "icons/files/bz2.icns",
+        "Resources/file-xz.icns": "icons/files/xz.icns",
+        "Resources/file-zst.icns": "icons/files/zst.icns",
+        "Resources/file-cab.icns": "icons/files/cab.icns",
+        "Resources/file-iso.icns": "icons/files/iso.icns",
+        "Resources/file-part.icns": "icons/files/part.icns"
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "shared-mime-info"
+        ],
+        "files": {
+          "/usr/share/mime/packages/myzipmaster.xml": "linux/myzipmaster-mime.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-zip.png": "icons/files/zip.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-7z-compressed.png": "icons/files/7z.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-vnd.rar.png": "icons/files/rar.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-tar.png": "icons/files/tar.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-gzip.png": "icons/files/gz.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-bzip2.png": "icons/files/bz2.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-xz.png": "icons/files/xz.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-zstd.png": "icons/files/zst.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-vnd.ms-cab-compressed.png": "icons/files/cab.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-cd-image.png": "icons/files/iso.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-7z-compressed-part.png": "icons/files/part.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      }
+    }
+  }
+}

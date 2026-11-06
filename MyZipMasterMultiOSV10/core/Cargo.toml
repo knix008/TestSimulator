@@ -1,0 +1,53 @@
+[package]
+name = "zipmaster-core"
+description = "MyZipMaster archive engine: ZIP, 7z, RAR, TAR, GZ, BZ2, XZ, ZST, CAB and ISO, with split volumes."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lib]
+name = "zipmaster_core"
+path = "src/lib.rs"
+
+# Prepended to a ZIP to make a self-extracting archive.
+[[bin]]
+name = "zipmaster-sfx"
+path = "src/bin/sfx.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Every codec but the desktop's Zstandard encoder is pure Rust, so the engine compiles to WebAssembly.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+deflate64 = "0.1"
+bzip2 = "0.6"
+lzma-rust2 = { version = "0.23", default-features = false, features = ["std", "encoder", "xz", "optimization"] }
+ruzstd = "0.9"
+sevenz-rust2 = { version = "0.24", default-features = false, features = ["compress", "aes256", "bzip2", "deflate", "ppmd"] }
+tar = { version = "0.4", default-features = false }
+cab = "0.6"
+crc32fast = "1"
+aes = "0.8"
+hmac = "0.12"
+sha1 = "0.10"
+sha2 = "0.10"
+md-5 = "0.10"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+blake3 = { version = "1", default-features = false, features = ["std", "pure"] }
+encoding_rs = "0.8"
+getrandom = "0.4"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rars = "0.12"
+# ruzstd reads everything, but writes only its fastest level. The reference library has them all.
+zstd = { version = "0.13", default-features = false }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+filetime = "0.2"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+rars = { version = "0.12", default-features = false, features = ["write", "recovery", "encryption"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }
+
+[dev-dependencies]
+filetime = "0.2"
