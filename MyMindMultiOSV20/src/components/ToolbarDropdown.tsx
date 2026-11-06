@@ -65,12 +65,13 @@ export function ToolbarDropdown<T extends string>({
     }
     // The fixed menu would detach from the trigger on scroll/resize, so close it.
     const onReflow = () => setOpen(false)
-    document.addEventListener('mousedown', onDoc)
+    // Before anything else sees it: a shape on the canvas stops its mouse press from going further.
+    document.addEventListener('mousedown', onDoc, true)
     document.addEventListener('keydown', onKey)
     window.addEventListener('resize', onReflow)
     window.addEventListener('scroll', onReflow, true)
     return () => {
-      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('mousedown', onDoc, true)
       document.removeEventListener('keydown', onKey)
       window.removeEventListener('resize', onReflow)
       window.removeEventListener('scroll', onReflow, true)

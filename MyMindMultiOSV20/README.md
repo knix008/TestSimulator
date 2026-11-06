@@ -26,7 +26,7 @@ Version 2 replaces Electron with Tauri. The installer is a few megabytes, and th
 - **Settings window**: General, Theme, Line Theme and Start tabs; a new diagram's mode, layout, shape and line theme; reopen the last file
 - **Mind map** and **fishbone (Ishikawa)** modes sharing one node/edge model
 - **Layouts**: Radial, Top→Bottom, Bottom→Top, Left→Right, Right→Left
-- **12 node shapes**, with a live preview in the drop-down
+- **30 node shapes**, all in view as small icons in the properties panel, each with a tooltip
 - **Lines**: curve, straight, elbow, tree-root taper; solid, dashed, dotted, dash-dot; arrow, dot and diamond caps; a manual connection face
 - **Text**: font family (presets and every installed font), size, color, bold, italic, underline, strike
 - **Undo / Redo**, duplicate, copy and paste of a subtree, multi-select, per-shape memo, tree view of the nodes
@@ -36,7 +36,7 @@ Version 2 replaces Electron with Tauri. The installer is a few megabytes, and th
 - **Shape icons**: 100 icons listed in the left panel
 - **Memos** on shapes and lines: sticky notes with their own colour, size and font; defaults in the settings window
 - **Images on the canvas**: PNG, JPEG, GIF, WebP, BMP, SVG, AVIF, ICO, TIFF, TGA, DDS, HDR, EXR, PNM, QOI, Farbfeld and PSD
-- **Line themes**: 13 styles for all the connectors of a diagram at once, separate from the colour theme
+- **Line themes**: 15 styles for all the connectors of a diagram at once, separate from the colour theme
 - **Tutorials**: draw a real mind map and a real fishbone step by step, from the start screen
 - **Print**: a page setup window with a preview: paper, orientation, margins, header, footer, page numbers, spreading over several sheets
 - **Korean and English**, for the program, the installer and the guide

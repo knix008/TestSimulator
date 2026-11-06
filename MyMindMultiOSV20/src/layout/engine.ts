@@ -98,7 +98,30 @@ function layoutRadial(nodes: DiagramNode[], rootId: string, cx: number, cy: numb
   const depth = Math.max(1, treeDepth(nodes, rootId))
   // Ring spacing wide enough that even if every leaf landed on the outermost
   // ring they would still clear NODE_W; keeps a comfortable gap between nodes.
-  const ringGap = Math.max(200, (totalLeaves * (NODE_W + 40)) / (Math.PI * 2 * depth))
+  const outerGap = (totalLeaves * (NODE_W + 40)) / (Math.PI * 2 * depth)
+
+  // Each ring must also be wide enough for its own closest neighbours: an inner ring can be as
+  // crowded as the outer one, in a smaller circle.
+  const anglesByLevel = new Map<number, number[]>()
+  const collect = (id: string, a0: number, a1: number, level: number) => {
+    const kids = childrenOf(nodes, id)
+    const total = kids.reduce((sum, k) => sum + leafCount(nodes, k.id), 0)
+    let a = a0
+    for (const kid of kids) {
+      const span = (a1 - a0) * (leafCount(nodes, kid.id) / total)
+      anglesByLevel.set(level, [...(anglesByLevel.get(level) ?? []), a + span / 2])
+      collect(kid.id, a, a + span, level + 1)
+      a += span
+    }
+  }
+  collect(rootId, 0, Math.PI * 2, 1)
+  let crowdedGap = 0
+  for (const [level, angles] of anglesByLevel) {
+    if (angles.length < 2) continue
+    const closest = Math.min(...angles.map((angle, index) => (index ? angle - angles[index - 1] : angle + Math.PI * 2 - angles[angles.length - 1])))
+    crowdedGap = Math.max(crowdedGap, (NODE_W + 8) / (2 * Math.sin(Math.min(closest, Math.PI) / 2)) / level)
+  }
+  const ringGap = Math.max(200, outerGap, crowdedGap)
 
   const place = (id: string, a0: number, a1: number, level: number) => {
     const kids = childrenOf(nodes, id)

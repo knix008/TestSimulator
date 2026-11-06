@@ -21,6 +21,9 @@ function resolveVar(name: string): string {
   return getComputedStyle(document.body).getPropertyValue(name).trim()
 }
 
+/** What an export or a printed sheet leaves around the diagram, in the diagram's units. */
+export const EXPORT_MARGIN = 24
+
 // The tightest box that contains every shape, plus a small margin — so exports
 // are always cropped to the diagram's minimum size.
 function contentBounds(items: { x: number; y: number; width: number; height: number }[], pad: number) {
@@ -62,7 +65,9 @@ export function buildSvgString(
     const [x, y, boxWidth, boxHeight] = (element.getAttribute('data-memo-box') ?? '').split(' ').map(Number)
     return { x, y, width: boxWidth, height: boxHeight }
   })
-  const { minX, minY, width, height } = contentBounds([...nodes, ...memoBoxes], 48)
+  // Everything drawn counts, wherever the view is: lines and bones can leave the boxes of the shapes.
+  const drawing = svg.querySelector<SVGGraphicsElement>('g[transform]')?.getBBox()
+  const { minX, minY, width, height } = contentBounds([...nodes, ...memoBoxes, ...(drawing && drawing.width > 0 ? [drawing] : [])], EXPORT_MARGIN)
   clone.setAttribute('width', String(width))
   clone.setAttribute('height', String(height))
   clone.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`)

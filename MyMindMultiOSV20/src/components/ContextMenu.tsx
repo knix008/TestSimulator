@@ -123,10 +123,11 @@ export function ContextMenu({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
-    document.addEventListener('mousedown', onDoc)
+    // Before anything else sees it: a shape on the canvas stops its mouse press from going further.
+    document.addEventListener('mousedown', onDoc, true)
     document.addEventListener('keydown', onKey)
     return () => {
-      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('mousedown', onDoc, true)
       document.removeEventListener('keydown', onKey)
     }
   }, [menu.visible, onClose])
@@ -177,13 +178,13 @@ export function ContextMenu({
       <MenuItem
         icon={<IconChild />}
         label={t('context.addChild')}
-        disabled={multi}
+        disabled={multi || selectedCount === 0}
         onClick={run(onAddChild)}
       />
       <MenuItem
         icon={<IconSibling />}
         label={t('context.addSibling')}
-        disabled={multi}
+        disabled={multi || selectedCount === 0}
         onClick={run(onAddSibling)}
       />
       <MenuItem

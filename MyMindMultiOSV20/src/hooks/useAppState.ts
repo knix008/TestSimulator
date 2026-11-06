@@ -164,12 +164,17 @@ export function useAppState(initialSettings: AppSettings) {
   const selectAll = () =>
     setDoc((d) => ({ ...d, selectedId: d.selectedId ?? d.nodes[0]?.id ?? null, selectedIds: d.nodes.map((node) => node.id), selectedEdgeId: null }))
 
+  // Going back in the history is no going back on a save: the file stays, and the document is
+  // unsaved unless it again holds what the file holds.
+  const saved = useRef(doc)
+  const fromHistory = (entry: DiagramDocument): DiagramDocument => ({ ...entry, filePath: doc.filePath, dirty: contentChanged(entry, saved.current) })
+
   const undo = () => {
     const prev = past.current.pop()
     if (!prev) return
     future.current.push(doc)
     timeTravel.current = true
-    setDoc(prev)
+    setDoc(fromHistory(prev))
     bumpHistory((v) => v + 1)
   }
   const redo = () => {
@@ -177,7 +182,7 @@ export function useAppState(initialSettings: AppSettings) {
     if (!next) return
     past.current.push(doc)
     timeTravel.current = true
-    setDoc(next)
+    setDoc(fromHistory(next))
     bumpHistory((v) => v + 1)
   }
   const canUndo = past.current.length > 0
@@ -273,6 +278,7 @@ export function useAppState(initialSettings: AppSettings) {
   )
 
   const showDoc = (next: DiagramDocument) => {
+    saved.current = next
     resetHistory()
     setDoc(next)
     setEditingId(null)
@@ -512,6 +518,7 @@ export function useAppState(initialSettings: AppSettings) {
       a.download = 'diagram.mmap'
       a.click()
       URL.revokeObjectURL(a.href)
+      saved.current = current
       setDoc((d) => ({ ...d, dirty: false }))
       return true
     }
@@ -526,17 +533,18 @@ export function useAppState(initialSettings: AppSettings) {
       setMessage(t('dialog.saveFailed', { name: fileNameOf(filePath), reason: String(error) }))
       return false
     }
-    const saved = filePath
-    setDoc((d) => ({ ...d, filePath: saved, dirty: false }))
-    rememberRecent(saved)
+    const written = filePath
+    saved.current = current
+    setDoc((d) => ({ ...d, filePath: written, dirty: false }))
+    rememberRecent(written)
     return true
   }
   const saveDoc = () => writeDoc(false)
   const saveDocAs = () => writeDoc(true)
 
   const unsavedSave = async () => {
-    const saved = await writeDoc(false)
-    if (!saved) return // the save was cancelled: nothing happens yet
+    const written = await writeDoc(false)
+    if (!written) return // the save was cancelled: nothing happens yet
     setUnsavedOpen(false)
     const next = afterUnsaved.current
     afterUnsaved.current = null

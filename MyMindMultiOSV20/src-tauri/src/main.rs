@@ -348,8 +348,17 @@ fn main_close(app: AppHandle) {
 /// The page has applied its theme: its window can appear without a flash of the wrong colour.
 #[tauri::command]
 fn window_ready(window: tauri::WebviewWindow) {
+    pass_mouse_through(&window);
     let _ = window.show();
     let _ = window.set_focus();
+}
+
+/// In the GUI tests a window lets the real mouse through to what lies under it: they send their own
+/// input to the page, and the hand on the mouse must neither disturb them nor be caught by them.
+pub(crate) fn pass_mouse_through(window: &tauri::WebviewWindow) {
+    if std::env::var_os("MYMIND_TEST_MOUSE_THROUGH").is_some() {
+        let _ = window.set_ignore_cursor_events(true);
+    }
 }
 
 /// The smallest size the page measured for its title row and toolbar, logical pixels.
@@ -373,6 +382,11 @@ fn enforce_min_size(window: &tauri::Window) {
 #[tauri::command]
 fn window_min_size(window: tauri::Window, state: tauri::State<MinSize>, width: f64, height: f64) {
     *state.0.lock().unwrap_or_else(|e| e.into_inner()) = (width, height);
+    // Setting it sets the size again, which forgets that the window is maximized: the window would
+    // stay large with no way back. The page asks again when the window has its own size.
+    if window.is_maximized().unwrap_or(false) || window.is_fullscreen().unwrap_or(false) {
+        return;
+    }
     let _ = window.set_min_size(Some(tauri::LogicalSize::new(width, height)));
     enforce_min_size(&window);
 }

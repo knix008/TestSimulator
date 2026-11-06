@@ -1,35 +1,21 @@
 import { useTranslation } from 'react-i18next'
 import type { DiagramDocument, DiagramNode, EdgeSide, EndCap, LinePattern, LineType, Locale, MemoStyle, MemoTarget, ShapeType, TextStyle, ThemeMode } from '../types'
-import { AUTO_TEXT_COLOR, LINE_WIDTH_MAX, LINE_WIDTH_MIN, resolveTextColor } from '../constants/colors'
-import { ColorPicker } from './ColorPicker'
-import { Icon, IconLine, IconShape } from './Icons'
+import { AUTO_TEXT_COLOR, INK_COLORS, LINE_WIDTH_MAX, LINE_WIDTH_MIN, NODE_COLORS, resolveTextColor } from '../constants/colors'
+import { ColorPalette, IconPalette, PanelGroup, SideIcon } from './Palette'
+import { Icon } from './Icons'
 import { DEFAULT_LINE_THEME } from '../lineThemes'
-import { THEME_AREA_MIN } from '../settings'
+import { SHAPES, THEME_AREA_MIN } from '../settings'
 import { LowerArea } from './DiagramThemes'
 import { Stepper } from './controls'
 import { MemoStyleFields } from './MemoEditor'
 import { sanitizeMemo } from '../memo'
-import { LinePreview, lineThemeOptions } from './LinePreview'
+import { LinePreview, LineThemePreview } from './LinePreview'
+import { LINE_THEMES } from '../lineThemes'
 import { ToolbarDropdown } from './ToolbarDropdown'
 import { ShapePreview } from './ShapePreview'
 import { useSystemFonts } from '../hooks/useSystemFonts'
 
 const PRESET_FONT_VALUES = ['notoSansKr', 'outfit', 'serif', 'mono']
-
-const SHAPE_VALUES: ShapeType[] = [
-  'rounded',
-  'rect',
-  'stadium',
-  'ellipse',
-  'diamond',
-  'parallelogram',
-  'trapezoid',
-  'hexagon',
-  'octagon',
-  'chevron',
-  'cylinder',
-  'note',
-]
 
 /** The divider above the lower area: dragging it, or its arrow keys, changes that area's height. */
 function PanelSplitter({ height, label, onChange }: { height: number | null; label: string; onChange: (height: number) => void }) {
@@ -187,15 +173,10 @@ export function SidePanels({
   onThemeAreaHeight,
   language,
 }: Props) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { fonts: systemFonts, load: loadFonts } = useSystemFonts()
-  const sideOptions = [
-    { value: 'auto' as const, label: t('side.auto') },
-    { value: 'top' as const, label: t('side.top') },
-    { value: 'bottom' as const, label: t('side.bottom') },
-    { value: 'left' as const, label: t('side.left') },
-    { value: 'right' as const, label: t('side.right') },
-  ]
+  const sideOptions = (['auto', 'top', 'bottom', 'left', 'right'] as const).map((value) => ({ value, label: t(`side.${value}`), icon: <SideIcon side={value} /> }))
+  const capOptions = (place: 'startCap' | 'endCap') => (['none', 'arrow', 'dot', 'diamond'] as const).map((value) => ({ value, label: t(`cap.${value}`), icon: <LinePreview lineType="straight" {...{ [place]: value }} /> }))
 
   // Flatten the parent/child tree into ordered rows (depth-first) so the Node
   // List can render as an indented tree with connector lines. `lineage[k]` marks
@@ -259,16 +240,17 @@ export function SidePanels({
     manyShapes > 1 || manyLines > 1 ? [...doc.nodes.filter((node) => doc.selectedIds.includes(node.id)), ...doc.edges.filter((edge) => doc.selectedEdgeId && doc.selectedEdgeIds?.includes(edge.id))] : []
   const firstMemo = manyOwners.find((owner) => owner.note !== undefined)
   const manyMemos = firstMemo ? (
-    <div className="memo-section" data-memo-section="many">
-      <div className="panel-subheading">{t('panel.memo')}</div>
-      <MemoStyleFields idPrefix="memoAll" style={sanitizeMemo(firstMemo.noteStyle)} onChange={onMemoStyleAll} />
-    </div>
+    <PanelGroup id="memo" icon="memo" title={t('panel.groupMemo')}>
+      <div className="memo-section" data-memo-section="many">
+        <MemoStyleFields idPrefix="memoAll" style={sanitizeMemo(firstMemo.noteStyle)} onChange={onMemoStyleAll} />
+      </div>
+    </PanelGroup>
   ) : null
 
   // A memo of a shape or a line: a button until there is one, then its text and look.
   const memoSection = (target: MemoTarget, owner: { note?: string; noteStyle?: Partial<MemoStyle> }) => (
+    <PanelGroup id="memo" icon="memo" title={t('panel.groupMemo')}>
     <div className="memo-section" data-memo-section={target.kind}>
-      <div className="panel-subheading">{t('panel.memo')}</div>
       {owner.note === undefined ? (
         <button type="button" className="style-toggle memo-add" data-command="memo-add" onClick={onAddMemo}><Icon name="memo" size={14} /> {t('memo.add')}</button>
       ) : (
@@ -285,96 +267,29 @@ export function SidePanels({
         </>
       )}
     </div>
+    </PanelGroup>
   )
 
   // Line/connector controls — shared by node selection and standalone edge
   // selection, so a line can be styled on its own.
   const lineSection = (
     <>
-      <div className="panel-subheading">{t('panel.lineStyle')}</div>
-
-      <ToolbarDropdown
-        label={t('toolbar.lineTheme')}
-        icon={<IconLine />}
-        value={doc.lineTheme ?? DEFAULT_LINE_THEME}
-        onChange={onLineTheme}
-        options={lineThemeOptions(i18n.language === 'en' ? 'en' : 'ko')}
-      />
-
-      <ToolbarDropdown
-        label={t('panel.lineShape')}
-        icon={<IconLine />}
-        value={currentLine}
-        onChange={onLine}
-        options={[
-          { value: 'curve', label: t('line.curve'), icon: <LinePreview lineType="curve" /> },
-          { value: 'straight', label: t('line.straight'), icon: <LinePreview lineType="straight" /> },
-          { value: 'elbow', label: t('line.elbow'), icon: <LinePreview lineType="elbow" /> },
-          { value: 'root', label: t('line.root'), icon: <LinePreview lineType="root" /> },
-        ]}
-      />
-
-      <ToolbarDropdown
-        label={t('panel.linePattern')}
-        icon={<IconLine />}
-        value={currentLinePattern}
-        onChange={onLinePattern}
-        options={[
-          { value: 'solid', label: t('linePattern.solid'), icon: <LinePreview lineType="straight" pattern="solid" /> },
-          { value: 'dashed', label: t('linePattern.dashed'), icon: <LinePreview lineType="straight" pattern="dashed" /> },
-          { value: 'dotted', label: t('linePattern.dotted'), icon: <LinePreview lineType="straight" pattern="dotted" /> },
-          { value: 'dashdot', label: t('linePattern.dashdot'), icon: <LinePreview lineType="straight" pattern="dashdot" /> },
-        ]}
-      />
-
-      <ToolbarDropdown
-        label={t('panel.startCap')}
-        icon={<IconLine />}
-        value={currentStartCap}
-        onChange={onLineStartCap}
-        options={[
-          { value: 'none', label: t('cap.none'), icon: <LinePreview lineType="straight" startCap="none" /> },
-          { value: 'arrow', label: t('cap.arrow'), icon: <LinePreview lineType="straight" startCap="arrow" /> },
-          { value: 'dot', label: t('cap.dot'), icon: <LinePreview lineType="straight" startCap="dot" /> },
-          { value: 'diamond', label: t('cap.diamond'), icon: <LinePreview lineType="straight" startCap="diamond" /> },
-        ]}
-      />
-
-      <ToolbarDropdown
-        label={t('panel.endCap')}
-        icon={<IconLine />}
-        value={currentEndCap}
-        onChange={onLineEndCap}
-        options={[
-          { value: 'none', label: t('cap.none'), icon: <LinePreview lineType="straight" endCap="none" /> },
-          { value: 'arrow', label: t('cap.arrow'), icon: <LinePreview lineType="straight" endCap="arrow" /> },
-          { value: 'dot', label: t('cap.dot'), icon: <LinePreview lineType="straight" endCap="dot" /> },
-          { value: 'diamond', label: t('cap.diamond'), icon: <LinePreview lineType="straight" endCap="diamond" /> },
-        ]}
-      />
-
-      <ColorPicker label={t('panel.lineColor')} value={currentLineColor} onChange={onLineColor} />
-
-      <div className="property-field">
-        <span>{t('panel.lineWidth')}</span>
-        <Stepper id="lineWidth" unit="px" min={LINE_WIDTH_MIN} max={LINE_WIDTH_MAX} value={currentLineWidth} onChange={onLineWidth} />
-      </div>
-
-      <div className="panel-subheading">{t('panel.connection')}</div>
-      <ToolbarDropdown
-        label={t('panel.fromSide')}
-        icon={<IconLine />}
-        value={currentFromSide}
-        onChange={onLineFromSide}
-        options={sideOptions}
-      />
-      <ToolbarDropdown
-        label={t('panel.toSide')}
-        icon={<IconLine />}
-        value={currentToSide}
-        onChange={onLineToSide}
-        options={sideOptions}
-      />
+      <PanelGroup id="line" icon="line" title={t('panel.groupLine')}>
+        <IconPalette id="lineTheme" label={t('toolbar.lineTheme')} columns={5} value={doc.lineTheme ?? DEFAULT_LINE_THEME} onChange={onLineTheme} options={LINE_THEMES.map((item) => ({ value: item.id, label: item[language], icon: <LineThemePreview theme={item} /> }))} />
+        <IconPalette id="lineShape" inline label={t('panel.lineShape')} columns={4} value={currentLine} onChange={onLine} options={(['curve', 'straight', 'elbow', 'root'] as const).map((value) => ({ value, label: t(`line.${value}`), icon: <LinePreview lineType={value} /> }))} />
+        <IconPalette id="linePattern" inline label={t('panel.linePattern')} columns={4} value={currentLinePattern} onChange={onLinePattern} options={(['solid', 'dashed', 'dotted', 'dashdot'] as const).map((value) => ({ value, label: t(`linePattern.${value}`), icon: <LinePreview lineType="straight" pattern={value} /> }))} />
+        <IconPalette id="startCap" inline label={t('panel.startCap')} columns={4} value={currentStartCap} onChange={onLineStartCap} options={capOptions('startCap')} />
+        <IconPalette id="endCap" inline label={t('panel.endCap')} columns={4} value={currentEndCap} onChange={onLineEndCap} options={capOptions('endCap')} />
+        <ColorPalette id="lineColor" label={t('panel.lineColor')} value={currentLineColor} colors={INK_COLORS} onChange={onLineColor} />
+        <div className="property-field property-inline">
+          <span>{t('panel.lineWidth')}</span>
+          <Stepper id="lineWidth" unit="px" min={LINE_WIDTH_MIN} max={LINE_WIDTH_MAX} value={currentLineWidth} onChange={onLineWidth} />
+        </div>
+      </PanelGroup>
+      <PanelGroup id="connection" icon="align" title={t('panel.groupConnection')}>
+        <IconPalette id="fromSide" inline label={t('panel.fromSide')} columns={5} value={currentFromSide} onChange={onLineFromSide} options={sideOptions} />
+        <IconPalette id="toSide" inline label={t('panel.toSide')} columns={5} value={currentToSide} onChange={onLineToSide} options={sideOptions} />
+      </PanelGroup>
     </>
   )
 
@@ -445,81 +360,56 @@ export function SidePanels({
                 </div>
               ) : null}
 
-              {manyShapes <= 1 ? memoSection({ kind: 'node', id: selectedNode.id }, selectedNode) : manyMemos}
+              <PanelGroup id="shape" icon="shape" title={t('panel.groupShape')}>
+                <IconPalette id="shape" label={t('panel.shapeKind')} columns={6} value={selectedNode.shape} onChange={onShape} options={SHAPES.map((value) => ({ value, label: t(`shape.${value}`), icon: <ShapePreview shape={value} /> }))} />
+                <ColorPalette id="shapeColor" label={t('panel.shapeColor')} value={selectedNode.color} colors={NODE_COLORS} onChange={onColor} />
+              </PanelGroup>
 
-              <ToolbarDropdown
-                label={t('toolbar.shape')}
-                title={t('toolbar.shape')}
-                icon={<IconShape />}
-                value={selectedNode.shape}
-                onChange={onShape}
-                options={SHAPE_VALUES.map((s) => ({
-                  value: s,
-                  label: t(`shape.${s}`),
-                  icon: <ShapePreview shape={s} />,
-                }))}
-              />
-
-              <ColorPicker label={t('panel.shapeColor')} value={selectedNode.color} onChange={onColor} />
-
-              <div className="panel-subheading">{t('panel.textStyle')}</div>
-
-              <ToolbarDropdown
-                label={t('panel.font')}
-                value={textStyle.fontFamily}
-                onOpen={loadFonts}
-                onChange={(fontFamily) => onTextStyle({ fontFamily })}
-                options={fontOptions}
-              />
-
-              <label className="property-field">
-                <span>{t('panel.fontSize')}</span>
-                <input
-                  type="number"
-                  min={8}
-                  max={120}
-                  step={1}
-                  value={textStyle.fontSize}
-                  onChange={(event) => {
-                    const size = Number(event.target.value)
-                    if (Number.isFinite(size) && size > 0) onTextStyle({ fontSize: size })
-                  }}
+              <PanelGroup id="text" icon="fontFile" title={t('panel.groupText')}>
+                <ToolbarDropdown
+                  label={t('panel.font')}
+                  value={textStyle.fontFamily}
+                  onOpen={loadFonts}
+                  onChange={(fontFamily) => onTextStyle({ fontFamily })}
+                  options={fontOptions}
                 />
-              </label>
 
-              <div className="property-field">
-                <ColorPicker
-                  label={t('panel.textColor')}
-                  value={resolveTextColor(textStyle.color, theme)}
-                  onChange={(color) => onTextStyle({ color })}
-                />
-                <button
-                  type="button"
-                  className={`style-toggle auto-color ${isAutoTextColor ? 'active' : ''}`}
-                  onClick={() => onTextStyle({ color: AUTO_TEXT_COLOR })}
-                  title={t('panel.textColorAutoHint')}
-                >
-                  {t('panel.textColorAuto')}
-                </button>
-              </div>
+                <div className="property-field">
+                  <span>{t('panel.fontSize')}</span>
+                  <Stepper id="panelFontSize" unit="px" min={8} max={120} value={textStyle.fontSize} onChange={(fontSize) => onTextStyle({ fontSize })} />
+                </div>
 
-              <div className="text-style-row" aria-label={t('panel.textStyle')}>
-                <button type="button" className={`style-toggle ${textStyle.bold ? 'active' : ''}`} onClick={() => onTextStyle({ bold: !textStyle.bold })}>B</button>
-                <button type="button" className={`style-toggle italic ${textStyle.italic ? 'active' : ''}`} onClick={() => onTextStyle({ italic: !textStyle.italic })}>I</button>
-                <button type="button" className={`style-toggle underline ${textStyle.underline ? 'active' : ''}`} onClick={() => onTextStyle({ underline: !textStyle.underline })}>U</button>
-                <button type="button" className={`style-toggle strike ${textStyle.strike ? 'active' : ''}`} onClick={() => onTextStyle({ strike: !textStyle.strike })}>S</button>
-              </div>
+                <div className="text-style-row" aria-label={t('panel.textStyle')}>
+                  <button type="button" title={t('style.bold')} aria-label={t('style.bold')} className={`style-toggle ${textStyle.bold ? 'active' : ''}`} onClick={() => onTextStyle({ bold: !textStyle.bold })}>B</button>
+                  <button type="button" title={t('style.italic')} aria-label={t('style.italic')} className={`style-toggle italic ${textStyle.italic ? 'active' : ''}`} onClick={() => onTextStyle({ italic: !textStyle.italic })}>I</button>
+                  <button type="button" title={t('style.underline')} aria-label={t('style.underline')} className={`style-toggle underline ${textStyle.underline ? 'active' : ''}`} onClick={() => onTextStyle({ underline: !textStyle.underline })}>U</button>
+                  <button type="button" title={t('style.strike')} aria-label={t('style.strike')} className={`style-toggle strike ${textStyle.strike ? 'active' : ''}`} onClick={() => onTextStyle({ strike: !textStyle.strike })}>S</button>
+                  <button type="button" className={`style-toggle auto-color ${isAutoTextColor ? 'active' : ''}`} onClick={() => onTextStyle({ color: AUTO_TEXT_COLOR })} title={t('panel.textColorAutoHint')}>{t('panel.textColorAuto')}</button>
+                </div>
+
+                <ColorPalette id="textColor" label={t('panel.textColor')} value={resolveTextColor(textStyle.color, theme)} colors={INK_COLORS} onChange={(color) => onTextStyle({ color })} />
+              </PanelGroup>
 
               {lineSection}
+
+              {manyShapes <= 1 ? memoSection({ kind: 'node', id: selectedNode.id }, selectedNode) : manyMemos}
             </div>
           ) : edgeOnlySelected ? (
             <div className="property-stack">
               {manyLines > 1 ? <p className="panel-many" data-selection-count="">{t('panel.manyLines', { count: manyLines })}</p> : null}
-              {selectedEdge && manyLines <= 1 ? memoSection({ kind: 'edge', id: selectedEdge.id }, selectedEdge) : manyMemos}
+              {selectedEdge && manyLines <= 1 ? <p className="panel-many" data-line-between="">{t('panel.lineBetween', { from: doc.nodes.find((node) => node.id === selectedEdge.from)?.text ?? '', to: doc.nodes.find((node) => node.id === selectedEdge.to)?.text ?? '' })}</p> : null}
               {lineSection}
+              {selectedEdge && manyLines <= 1 ? memoSection({ kind: 'edge', id: selectedEdge.id }, selectedEdge) : manyMemos}
             </div>
           ) : (
-            <p className="panel-empty">{t('panel.noSelection')}</p>
+            <div className="panel-welcome">
+              <p className="panel-empty">{t('panel.noSelection')}</p>
+              <ul className="panel-hints" data-panel-hints="">
+                {([['shape', 'hintClick'], ['edit', 'hintDouble'], ['add', 'hintMany'], ['child', 'hintRight'], ['zoomIn', 'hintWheel']] as const).map(([icon, key]) => (
+                  <li key={key}><Icon name={icon} size={14} /><span>{t(`panel.${key}`)}</span></li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       </aside>

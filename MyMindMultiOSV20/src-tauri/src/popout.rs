@@ -140,6 +140,7 @@ pub fn popout_show(app: AppHandle, options: ShowOptions) -> bool {
             }
         }
     }
+    crate::pass_mouse_through(&window);
     let _ = window.show();
     let _ = window.set_focus();
     true

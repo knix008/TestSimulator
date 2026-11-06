@@ -8,6 +8,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
 import { createReporter } from './reporter.mjs'
+import { unitFeatures } from './unit-features.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const results = path.join(root, 'test-results')
@@ -784,5 +785,7 @@ await test('the Rust unit tests pass', () => {
   assert.equal(run.status, 0, `${run.stdout}\n${run.stderr}`)
 })
 
+await unitFeatures({ category, test, load, read, root })
 fs.rmSync(path.join(results, 'bundle'), { recursive: true, force: true })
+
 process.exit(summary())

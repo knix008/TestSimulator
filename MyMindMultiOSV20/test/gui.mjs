@@ -1,75 +1,17 @@
 // npm run test:gui: the real program (target/e2e, its own settings and WebView2 folders) driven over
 // the DevTools protocol. Dialogs stay inside the page (MYMIND_INLINE_DIALOGS) except in the one
 // category that checks real windows. It never touches the user's settings or a running MyMind.
-import { spawn } from 'node:child_process'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { connect, listTargets, waitForTarget } from '../scripts/cdp.mjs'
-import { freePort } from '../scripts/free-port.mjs'
+import { connect, listTargets } from '../scripts/cdp.mjs'
+import { click, count, cssVar, launch, root, settled, shoot, shots, sleep, text } from './gui-lib.mjs'
+import { runFeatures } from './gui-features.mjs'
 import { createReporter } from './reporter.mjs'
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const exeName = process.platform === 'win32' ? 'MyMind.exe' : 'MyMind'
-const exe = path.join(root, 'src-tauri', 'target', 'e2e', 'debug', exeName)
-const shots = path.join(root, 'test-results', 'screens')
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-fs.mkdirSync(shots, { recursive: true })
-
-const { category, test, summary } = createReporter({ title: 'MyMind GUI tests', reportFile: path.join(root, 'test-results', 'gui-report.json') })
-
-/** Starts the program; returns the page, its settings folder and a way to stop it. */
-async function launch({ inline = true, settings = {}, args = [] } = {}) {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'mymind-gui-'))
-  const settingsDir = path.join(work, 'settings')
-  fs.mkdirSync(settingsDir)
-  fs.writeFileSync(path.join(settingsDir, 'settings.json'), JSON.stringify({ ...settings, startScreen: { askTutorial: false, ...settings.startScreen } }))
-  const port = await freePort(9450)
-  const child = spawn(exe, args, {
-    stdio: 'ignore',
-    env: {
-      ...process.env,
-      MYMIND_SETTINGS_DIR: settingsDir,
-      ...(inline ? { MYMIND_INLINE_DIALOGS: '1' } : {}),
-      WEBVIEW2_USER_DATA_FOLDER: path.join(work, 'webview'),
-      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
-    },
-  })
-  const target = await waitForTarget(port, (t) => /index\.html|tauri\.localhost/.test(t.url), 40000)
-  const page = await connect(target)
-  await page.until(`document.querySelector('.app-shell')`, 30000)
-  return {
-    page,
-    port,
-    settingsDir,
-    settings: () => JSON.parse(fs.readFileSync(path.join(settingsDir, 'settings.json'), 'utf8')),
-    stop: async () => {
-      page.close()
-      // This process only: it is our own child, never the user's window.
-      child.kill()
-      await sleep(400)
-      fs.rmSync(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
-    },
-  }
-}
-
-const click = (page, selector) =>
-  page.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) throw new Error('no ' + ${JSON.stringify(selector)}); e.click(); return true })()`)
-const shoot = async (page, name) => fs.writeFileSync(path.join(shots, `${name}.png`), await page.screenshot())
-const text = (page, selector) => page.evaluate(`document.querySelector(${JSON.stringify(selector)})?.textContent ?? null`)
-const count = (page, selector) => page.evaluate(`document.querySelectorAll(${JSON.stringify(selector)}).length`)
-/** Settings are written a moment after the click. */
-const settled = async (read, want, what = 'setting') => {
-  const t0 = Date.now()
-  while (Date.now() - t0 < 5000) {
-    try { if (read() === want) return } catch { /* being written */ }
-    await sleep(40)
-  }
-  assert.equal(read(), want, what)
-}
-const cssVar = (page, name) => page.evaluate(`getComputedStyle(document.documentElement).getPropertyValue(${JSON.stringify(name)}).trim()`)
+const reporter = createReporter({ title: 'MyMind GUI tests', reportFile: path.join(root, 'test-results', 'gui-report.json') })
+const { category, test, summary } = reporter
 
 await category('Start screen')
 {
@@ -1186,5 +1128,7 @@ await category('Real windows')
   })
   await app.stop()
 }
+
+await runFeatures(reporter)
 
 process.exit(summary())

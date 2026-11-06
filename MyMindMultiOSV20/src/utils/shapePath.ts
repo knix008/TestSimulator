@@ -1,8 +1,11 @@
 import type { ShapeType } from '../types'
+import { polygonOutline } from './shapePolygons'
 
 /** SVG path for a node shape within the box (x, y, w, h). */
 export function shapePath(shape: ShapeType, x: number, y: number, w: number, h: number): string {
   const min = (...v: number[]) => Math.min(...v)
+  const outline = polygonOutline(shape, x, y, w, h)
+  if (outline) return `M ${outline.map((point) => `${Number(point.x.toFixed(2))} ${Number(point.y.toFixed(2))}`).join(' L ')} Z`
   switch (shape) {
     case 'ellipse':
       return `M ${x + w / 2} ${y} A ${w / 2} ${h / 2} 0 1 1 ${x + w / 2 - 0.01} ${y}`

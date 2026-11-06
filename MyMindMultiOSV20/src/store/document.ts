@@ -402,28 +402,25 @@ export function insertSubtree(
     y: n.y + dy,
   }))
 
-  const newEdges: DiagramEdge[] = subtree
-    .filter((n) => n.id !== oldRootId)
-    .map((n) => ({
-      id: uuid(),
-      from: idMap.get(n.parentId as string)!,
-      to: idMap.get(n.id)!,
-      lineType: doc.defaultLine,
-      linePattern: doc.defaultLinePattern,
-      color: '#94a3b8',
-    }))
-  if (targetParentId) {
-    newEdges.push({
-      id: uuid(),
-      from: targetParentId,
-      to: idMap.get(oldRootId)!,
-      lineType: doc.defaultLine,
-      linePattern: doc.defaultLinePattern,
-      color: '#94a3b8',
-    })
-  }
-
   const mergedNodes = [...doc.nodes, ...newNodes]
+  // A copied line looks as the one it copies; if that one has gone since, as a new line would.
+  const copiedEdge = (from: string, oldId: string): DiagramEdge => {
+    const to = idMap.get(oldId)!
+    const original = doc.edges.find((edge) => edge.to === oldId)
+    if (original) return { ...original, id: uuid(), from, to }
+    return {
+      id: uuid(),
+      from,
+      to,
+      lineType: doc.defaultLine,
+      linePattern: doc.defaultLinePattern,
+      color: '#94a3b8',
+      ...(doc.lineTheme ? lineThemeEdge(lineThemeById(doc.lineTheme), mergedNodes, to) : {}),
+    }
+  }
+  const newEdges: DiagramEdge[] = subtree.filter((n) => n.id !== oldRootId).map((n) => copiedEdge(idMap.get(n.parentId as string)!, n.id))
+  if (targetParentId) newEdges.push(copiedEdge(targetParentId, oldRootId))
+
   const newRootId = idMap.get(oldRootId)!
   return {
     ...doc,

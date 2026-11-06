@@ -25,7 +25,7 @@ export const START_CARDS = ['hero', 'actions', 'recent', 'samples', 'theme', 'ba
 export const MODES: DiagramMode[] = ['mindmap', 'fishbone']
 export const MINDMAP_LAYOUTS: LayoutDirection[] = ['radial', 'ttb', 'btt', 'ltr', 'rtl']
 export const FISHBONE_LAYOUTS: LayoutDirection[] = ['ltr', 'rtl']
-export const SHAPES: ShapeType[] = ['rounded', 'rect', 'stadium', 'ellipse', 'diamond', 'parallelogram', 'trapezoid', 'hexagon', 'octagon', 'chevron', 'cylinder', 'note']
+export const SHAPES: ShapeType[] = ['rounded', 'rect', 'stadium', 'ellipse', 'diamond', 'parallelogram', 'trapezoid', 'hexagon', 'octagon', 'chevron', 'cylinder', 'note', 'triangle', 'triangleDown', 'pentagon', 'star', 'cross', 'heart', 'cloud', 'shield', 'callout', 'document', 'tag', 'arrowRight', 'arrowLeft', 'arrowBoth', 'snip', 'folder', 'plaque', 'wave']
 
 export type GeneralSettings = {
   reopenLast: boolean

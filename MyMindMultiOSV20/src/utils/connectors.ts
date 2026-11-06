@@ -1,6 +1,7 @@
 // Where connectors meet shapes, and the paths they take. Pure: everything comes from the shape's
 // real outline, so a line ends on what is drawn and not on the box around it.
 import type { DiagramNode, EdgeSide, LineType, ShapeType } from '../types'
+import { polygonOutline } from './shapePolygons'
 
 type Point = { x: number; y: number }
 type Box = Pick<DiagramNode, 'x' | 'y' | 'width' | 'height' | 'shape'>
@@ -32,6 +33,8 @@ const arc = (cx: number, cy: number, rx: number, ry: number, from: number, to: n
 export function shapeOutline(shape: ShapeType, x: number, y: number, w: number, h: number): Point[] {
   const min = Math.min
   const polygon = (...values: number[]) => values.reduce<Point[]>((list, value, index) => (index % 2 ? [...list.slice(0, -1), { x: list[list.length - 1].x, y: value }] : [...list, { x: value, y: 0 }]), [])
+  const defined = polygonOutline(shape, x, y, w, h)
+  if (defined) return defined
   switch (shape) {
     case 'ellipse':
       return arc(x + w / 2, y + h / 2, w / 2, h / 2, 0, Math.PI * 2, 48)

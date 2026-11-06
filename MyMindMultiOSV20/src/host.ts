@@ -18,8 +18,13 @@ function browserSettings(): Record<string, unknown> {
 }
 
 /** The GUI tests answer the system's dialogs here, as nothing can click them. */
-type TestSeam = { pick?: string; save?: string; printed?: number }
+type TestSeam = { pick?: string; save?: string; printed?: number; open?: string | null; saveDiagram?: string | null }
 const seam = () => (window as unknown as { __mymindTest?: TestSeam }).__mymindTest
+/** A test's answer to a file dialog, null meaning the dialog was cancelled; undefined when no test answers. */
+const answer = (key: 'open' | 'saveDiagram'): Promise<string | null> | undefined => {
+  const test = seam()
+  return test && key in test ? Promise.resolve(test[key] ?? null) : undefined
+}
 
 const desktopOnly = () => Promise.reject(new Error('desktop app only'))
 
@@ -65,9 +70,9 @@ export const host = {
   /** The diagram the app was started with (a double-click in the file manager). */
   startupFile: (): Promise<string | null> => (isDesktop ? invoke('startup_file') : Promise.resolve(null)),
   openDiagramDialog: (defaultPath?: string): Promise<string | null> =>
-    isDesktop ? open({ defaultPath, filters: [...DIAGRAM_FILTERS, { name: 'All Files', extensions: ['*'] }] }) : desktopOnly(),
+    answer('open') ?? (isDesktop ? open({ defaultPath, filters: [...DIAGRAM_FILTERS, { name: 'All Files', extensions: ['*'] }] }) : desktopOnly()),
   saveDiagramDialog: (defaultPath: string): Promise<string | null> =>
-    isDesktop ? save({ defaultPath, filters: DIAGRAM_FILTERS }) : desktopOnly(),
+    answer('saveDiagram') ?? (isDesktop ? save({ defaultPath, filters: DIAGRAM_FILTERS }) : desktopOnly()),
   saveImageDialog: (defaultPath: string, extension: string, name: string): Promise<string | null> =>
     seam()?.save ? Promise.resolve(seam()!.save!) : isDesktop ? save({ defaultPath, filters: [{ name, extensions: [extension] }] }) : desktopOnly(),
   readText: (path: string): Promise<string> => (isDesktop ? invoke('read_text', { path }) : desktopOnly()),

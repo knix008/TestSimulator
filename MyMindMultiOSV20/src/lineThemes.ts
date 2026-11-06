@@ -32,6 +32,8 @@ export const LINE_THEMES: LineTheme[] = [
   theme('technical', '기술 도면', 'Technical', 'straight', 'dashdot', ['#0f766e'], 'none', 'diamond'),
   theme('neon', '네온', 'Neon', 'curve', 'solid', ['#d946ef', '#06b6d4', '#84cc16']),
   theme('pastel', '파스텔', 'Pastel', 'curve', 'dashed', ['#f472b6', '#60a5fa', '#4ade80', '#fbbf24']),
+  theme('steps', '계단 화살표', 'Step Arrows', 'elbow', 'solid', ['#f97316'], 'none', 'arrow'),
+  theme('stitch', '바느질', 'Stitching', 'straight', 'dotted', ['#dc2626', '#2563eb'], 'dot', 'dot'),
 ]
 
 export const lineThemeById = (id: string | undefined): LineTheme => LINE_THEMES.find((item) => item.id === id) ?? LINE_THEMES[0]

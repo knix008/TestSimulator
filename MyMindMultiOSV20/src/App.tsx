@@ -223,7 +223,7 @@ export default function App({ initialSettings }: { initialSettings: AppSettings 
         onAddMemo={state.addMemo}
         onImage={state.insertImage}
         onAutoAlign={state.autoAlign}
-        onResetView={state.resetView}
+        onResetView={state.centerView}
         onToggleGrid={state.toggleGrid}
         onAddText={state.askTextAtContext}
         onAddChild={state.onAddChild}

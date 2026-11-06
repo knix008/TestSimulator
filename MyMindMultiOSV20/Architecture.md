@@ -84,7 +84,7 @@ MyMindMultiOSV20/
 ├── doc/                   # UsersGuide.md, UsersGuide.en.md (bundled into the app)
 ├── template/              # Sample diagrams and index.json, shipped as a resource
 ├── scripts/               # dev, free-port, build-e2e, cdp, copy-installer, gen-icons, gen-samples
-└── test/                  # run.mjs, gui.mjs, reporter.mjs
+└── test/                  # run.mjs + unit-features.mjs (npm test), gui.mjs + gui-features.mjs + gui-lib.mjs (npm run test:gui), reporter.mjs. "Nothing goes untested" in unit-features.mjs fails when a control, menu item or function has no test.
 ```
 
 ## 4. Process model
@@ -188,7 +188,7 @@ Layout runs on new document, mode switch, layout change, and Auto Align — re-f
 ## 9. Rendering
 
 - SVG scene with pan (`translate`) and zoom (`scale`); wheel zoom 10%–400%, centered on the viewport; view-fit scales to show the whole diagram
-- Shapes built by `src/utils/shapePath.ts` (12 shapes)
+- Shapes built by `src/utils/shapePath.ts` (30 shapes); those in `utils/shapePolygons.ts` are defined by their outline alone, so the drawing and the place a line ends on cannot differ
 - **Selection**: Ctrl, Shift or ⌘ with a click adds or removes; shapes (`selectedIds`) and lines (`selectedEdgeIds`) can be selected together (`toggleNodeSelection`, `selectEdge` with `add`, `addNodesToSelection` for a marquee). Shape edits go to `targetNodeIds`, line edits to `targetEdgeIds`; with both selected the panel shows the shape.
 - Connectors (`utils/connectors.ts`, pure) end on the shape's **real outline** (`shapeOutline`, the polygon of what `shapePath` draws), at the middle of the facing side; `fromSide`/`toSide` override the face. Without a layout direction the sides are chosen by the wider gap between the two boxes (`facingAxis`), and a free straight line aims from centre to centre. Curve/elbow/root ribbons arrive perpendicular to the face; a ribbon's ends run on under the shapes, which are drawn on top; caps use per-colour markers with explicit fills
 - **root** line renders as a filled, depth-tapered ribbon; Fishbone skeleton (spine/sub-axes/bones) drawn as filled tapered shapes honouring edge colour/pattern
@@ -257,7 +257,7 @@ Serialized fields (runtime UI fields such as `selectedId` / `selectedIds` / `sel
 
 | Area | Where to change |
 |------|-----------------|
-| New shape | `types.ts`, `settings.ts` (SHAPES), `utils/shapePath.ts`, `SidePanels` (SHAPE_VALUES), i18n |
+| New shape | `types.ts`, `settings.ts` (SHAPES), `utils/shapePolygons.ts` (or `shapePath` and `connectors`), i18n, and a mind map theme that uses it |
 | New line style / cap | canvas path helpers and markers, `LinePreview`, `SidePanels`, `settings.ts`, i18n |
 | New layout | `layout/engine.ts`, toolbar options, `settings.ts`, i18n |
 | New theme | one line in `themes.ts` (the tests check its contrast) |

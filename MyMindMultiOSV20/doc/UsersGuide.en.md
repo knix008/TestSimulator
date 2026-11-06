@@ -73,7 +73,8 @@ The **Mind map / Fishbone** buttons in the toolbar redraw the current document i
 ### 4.4 Layout, shape, line
 
 - **Layout** (toolbar) — Mindmap: Radial · Top→Bottom · Bottom→Top · Left→Right · Right→Left; Fishbone: Left→Right · Right→Left
-- **Shapes (12)**: rounded, rectangle, ellipse, diamond, parallelogram, stadium, hexagon, octagon, cylinder, trapezoid, chevron, note — with previews
+- **Shapes (30)**: all in view as small icons in the properties panel, one press away. Hover over an icon for its name. Besides the basic shapes (rectangle, ellipse, diamond, hexagon, cylinder and so on) there are triangles, a star, a cross, a heart, a cloud, a shield, a speech bubble, a document, a tag, three arrows, a folder, a plaque and a wave.
+- **The properties panel** has groups: Shape, Text, Line, Connection and Memo. Press a heading to fold its group. Colours are in view as well; the rainbow tile at the end chooses any other colour.
 - **Line**: curve · straight · elbow · tree-root; **patterns**: solid · dashed · dotted · dash-dot; **start/end caps**: none · arrow · dot · diamond
 - **Fonts**: presets + **all installed system fonts**, **font size**, color, bold/italic/underline/strike
 

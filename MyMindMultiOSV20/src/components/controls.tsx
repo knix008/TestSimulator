@@ -32,12 +32,18 @@ export function IconSelect<T extends string>({ value, options, onChange, title, 
     const closeNow = () => setOpen(false)
     const win = host.current?.ownerDocument.defaultView ?? window
     win.addEventListener('pointerdown', close, true)
-    // Its place was worked out from the button, so it cannot follow a scrolling panel.
-    win.addEventListener('scroll', close, true)
+    // Its place was worked out from the button, so it cannot follow a scrolling panel. Only a scroll
+    // that moved the button counts: panels also report one when their content changes height.
+    const at = button.current?.getBoundingClientRect()
+    const moved = (event: Event) => {
+      const now = button.current?.getBoundingClientRect()
+      if (!host.current?.contains(event.target as Node) && (!now || !at || now.top !== at.top || now.left !== at.left)) setOpen(false)
+    }
+    win.addEventListener('scroll', moved, true)
     win.addEventListener('resize', closeNow)
     return () => {
       win.removeEventListener('pointerdown', close, true)
-      win.removeEventListener('scroll', close, true)
+      win.removeEventListener('scroll', moved, true)
       win.removeEventListener('resize', closeNow)
     }
   }, [open])

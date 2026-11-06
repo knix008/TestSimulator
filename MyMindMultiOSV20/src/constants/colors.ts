@@ -23,6 +23,30 @@ export const NODE_COLORS = [
 
 export type NodeColor = (typeof NODE_COLORS)[number]
 
+/** For lines and text, which must stand out where the fills are pale. */
+export const INK_COLORS = [
+  '#111827',
+  '#475569',
+  '#94a3b8',
+  '#ffffff',
+  '#b91c1c',
+  '#ef4444',
+  '#f97316',
+  '#d97706',
+  '#ca8a04',
+  '#65a30d',
+  '#16a34a',
+  '#0d9488',
+  '#0891b2',
+  '#0284c7',
+  '#2563eb',
+  '#4f46e5',
+  '#7c3aed',
+  '#a21caf',
+  '#db2777',
+  '#92400e',
+] as const
+
 /** Sentinel meaning "use the default text color" (black, on the light node fills). */
 export const AUTO_TEXT_COLOR = 'auto'
 
