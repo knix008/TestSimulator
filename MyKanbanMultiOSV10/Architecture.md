@@ -2,17 +2,17 @@
 
 ## 시스템 개요
 
-MyKanban은 Electron 데스크톱 앱과 웹 브라우저 양쪽을 지원하는 단일 코드베이스입니다. 동일한 Express.js 서버가 두 환경에서 공유됩니다.
+MyKanban은 Tauri 데스크톱 앱과 웹 브라우저 양쪽을 지원하는 단일 코드베이스입니다. 동일한 Express.js 서버와 화면이 두 환경에서 공유됩니다.
 
 ```
 ┌─────────────────────────────────────────┐
 │           사용자 인터페이스               │
 │  ┌──────────────┐  ┌──────────────────┐ │
-│  │  Electron    │  │   웹 브라우저     │ │
-│  │  BrowserWindow│  │  (localhost:3000)│ │
+│  │  Tauri 창    │  │   웹 브라우저     │ │
+│  │  (WebView)   │  │  (localhost:3000)│ │
 │  └──────┬───────┘  └────────┬─────────┘ │
 └─────────┼────────────────────┼───────────┘
-          │ IPC (contextBridge) │ HTTP
+          │ HTTP (127.0.0.1)   │ HTTP
 ┌─────────▼────────────────────▼───────────┐
 │              Express.js 서버              │
 │  ┌─────────┐ ┌────────┐ ┌─────────────┐ │
@@ -31,9 +31,22 @@ MyKanban은 Electron 데스크톱 앱과 웹 브라우저 양쪽을 지원하는
 
 ```
 MyKanban/
-├── main.js                 # Electron 메인 프로세스 + IPC 핸들러
-├── preload.js              # Electron preload (contextBridge → window.electron)
+├── src-tauri/
+│   ├── src/lib.rs          # 창, 네이티브 대화 상자, .kprj 파일 처리, 명령
+│   ├── src/host.rs         # Node 프로세스 실행, 포트 대기
+│   ├── src/bridge.js       # 페이지에 window.desktop 제공
+│   ├── src/window_icon.rs  # 작업 표시줄 큰 아이콘
+│   ├── capabilities/       # 페이지에 허용한 명령
+│   ├── windows/hooks.nsh   # 설치 프로그램 추가 동작 (Electron 판 제거 등)
+│   └── tauri.conf.json
+├── desktop-host.js         # 데스크톱용 Node 진입점 (서버 실행, 포트 알림)
 ├── server.js               # Express 앱 진입점
+├── scripts/
+│   ├── build.js            # build:win / mac / linux / all / debug
+│   ├── stage-sidecar.js    # 설치본에 넣을 Node·서버·패키지를 dist/sidecar로 복사
+│   ├── smoke.js            # 실제 창 시험 (CDP)
+│   ├── os-drag.ps1         # 실제 마우스 끌기 (대상 창일 때만 누름)
+│   └── install-native-deps.js
 ├── package.json
 ├── sample/
 │   └── sample.kprj         # 번들된 샘플 프로젝트
@@ -62,14 +75,15 @@ MyKanban/
 └── uploads/                # 첨부파일 (자동 생성)
 ```
 
-## Electron vs 웹 모드 분기
+## 데스크톱 vs 웹 모드 분기
 
-`main.js`에서 Electron 시작 시 userData 경로를 환경변수로 전달합니다.
+Tauri 프로그램은 먼저 Node 프로세스(`desktop-host.js`)를 띄웁니다. 서버가 stdout으로 포트(`MYKANBAN_PORT=3000`, 사용 중이면 다음 번호)를 알리면 그 주소를 여는 창을 만듭니다. 프로그램이 끝나면 Node의 stdin이 닫혀 서버도 함께 끝납니다. 서버의 stderr는 데이터 폴더의 `server.log`에 남습니다.
 
-```js
-// main.js
-process.env.KANBAN_DATA_PATH = app.getPath('userData');
-require('./server.js');
+데이터 경로는 환경변수로 전달합니다.
+
+```rust
+// src-tauri/src/host.rs
+command.env("KANBAN_DATA_PATH", data_dir);
 ```
 
 ```js
@@ -81,26 +95,30 @@ function getDataPath() {
 
 | 환경 | 데이터 저장 경로 |
 |------|----------------|
-| Electron | `%APPDATA%/MyKanban/kanban.db` (Windows) |
+| 데스크톱 | `%APPDATA%/MyKanban/kanban.db` (Windows), `~/Library/Application Support/MyKanban` (macOS), `~/.config/MyKanban` (Linux). Electron 판과 같은 폴더 |
 | 웹 서버 | `./data/kanban.db` |
 
-### IPC 채널 (Electron 전용)
+### 데스크톱 명령 (window.desktop)
 
-| 채널 | 방향 | 설명 |
+`src-tauri/src/bridge.js`가 페이지 스크립트보다 먼저 실행되어 `window.desktop`을 만듭니다. 웹에는 이 객체가 없고, 렌더러는 이것으로 환경을 구분합니다. 페이지가 `http://127.0.0.1`에서 오므로 Tauri에는 원격 출처입니다. 그래서 명령마다 `build.rs`의 목록과 `capabilities/default.json`의 권한이 필요합니다.
+
+| window.desktop | Tauri 명령 | 설명 |
 |------|------|------|
-| `get-open-file` | renderer→main | 실행 인자로 받은 `.kprj` 경로 |
-| `open-kprj-dialog` | renderer→main | 파일 열기 다이얼로그 |
-| `save-kprj-dialog` | renderer→main | 파일 저장 다이얼로그 |
-| `save-report-dialog` | renderer→main | 보고서 저장 다이얼로그 (MD/DOCX/PDF) |
-| `open-sqlite-dialog` | renderer→main | SQLite 파일 선택 다이얼로그 |
-| `open-attachment` | renderer→main | `shell.openPath()`로 첨부파일 열기 |
-| `show-context-menu` | renderer→main | 네이티브 컨텍스트 메뉴 표시 |
-| `get-sample-dir` | renderer→main | 번들 `sample/` 디렉토리 경로 |
-| `get-electron-info` | renderer→main | 앱 버전 및 런타임 정보 |
-| `open-kprj` | main→renderer | 파일 연결로 전달된 `.kprj` 경로 |
-| `save-shortcut` | main→renderer | Ctrl/Cmd+S 단축키 |
-| `undo-shortcut` | main→renderer | Ctrl/Cmd+Z 단축키 |
-| `redo-shortcut` | main→renderer | Ctrl/Cmd+Y 단축키 |
+| `getOpenFile` | `take_open_file` | 실행 인자로 받은 `.kprj` 경로 (로그인 뒤에 처리) |
+| `openKprjDialog` | `open_kprj_dialog` | 파일 열기 대화 상자, 마지막 폴더는 `kanban-ui.json`에 저장 |
+| `saveKprj` | `save_kprj` | 파일 저장 대화 상자 |
+| `saveReportFile` | `save_report` | 보고서 저장 대화 상자 (MD/DOCX/PDF) |
+| `openSqliteDialog` | `open_sqlite_dialog` | SQLite 파일 선택 대화 상자 |
+| `openAttachment` | `open_attachment` | 첨부파일을 시스템 앱으로 열기 (uploads 폴더 안의 파일만) |
+| `startResize` | `start_resize` | 크기 변경 마커: 시스템의 창 크기 조절 시작 |
+| `isMaximized` | `is_maximized` | 최대화 중에는 마커를 숨김 |
+| `onOpenKprj` | 이벤트 `open-kprj` | macOS가 실행 중인 앱에 넘긴 `.kprj` 경로 |
+
+Ctrl+S / Ctrl+Z / Ctrl+Y는 `js/app.js`가 웹과 똑같이 처리합니다. `bridge.js`는 브라우저 기본 메뉴와 단축키(인쇄, 찾기 등)를 막습니다. 웹뷰의 파일 끌어놓기 처리는 꺼 두어야 카드의 HTML5 드래그 앤 드롭이 동작합니다(`disable_drag_drop_handler`).
+
+### 창 크기
+
+최소 크기는 720×400입니다(`MIN_WIDTH`, `MIN_HEIGHT`). 헤더 701px, 영어 보드 툴바 678px을 재서 정했고, 시스템이 더 줄이면(Snap 등) `WindowEvent::Resized`에서 되돌립니다. `npm run smoke`가 두 언어에서 잘림이 없는지 확인합니다.
 
 ## 데이터베이스 레이어
 
@@ -311,7 +329,7 @@ IIFE 패턴. 최대 100개 항목. 각 엔트리는 `{ undo(), redo(), scope }` 
 - 업로드: Multer (`diskStorage`) → UUID 기반 파일명으로 `uploads/` 저장
 - 원본 파일명: `Buffer.from(file.originalname, 'latin1').toString('utf8')`로 인코딩 보정
 - DB: `attachments` 테이블에 UUID 파일명 + 원본명 + 크기 + MIME 타입 저장
-- 열기 (Electron): IPC `open-attachment` → `shell.openPath(filePath)`
+- 열기 (데스크톱): `window.desktop.openAttachment` → Tauri `open_attachment` → 시스템 앱
 - 열기 (웹): `window.open('/uploads/filename', '_blank')`
 
 ## 번다운 차트 알고리즘

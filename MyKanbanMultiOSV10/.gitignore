@@ -15,13 +15,12 @@ uploads/
 .env.local
 .env.production
 
-# Electron build output
+# Build output
 dist/
-out/
-release/
-MyKanban-Setup-*.exe
-MyKanban-*.dmg
-MyKanban-*.AppImage
+src-tauri/target/
+src-tauri/gen/
+MyKanban_*
+.smoke/
 
 # OS generated files
 .DS_Store
@@ -42,12 +41,6 @@ logs/
 *.ntvs*
 *.njsproj
 *.sln
-
-# electron-rebuild cache
-.electron-gyp/
-
-# Temporary files
-tmp-cookies.txt
 
 # AI/editor tooling
 .claude/

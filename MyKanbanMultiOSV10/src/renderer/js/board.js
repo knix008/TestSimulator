@@ -257,11 +257,11 @@ const BoardView = (() => {
   // ── Export / Import (.kprj) ───────────────────────────────────────────────
 
   async function exportProject(boardId, boardTitle) {
-    if (typeof window.electron !== 'undefined') {
+    if (window.desktop) {
       try {
         const res = await fetch(`/api/boards/${boardId}/export`, { credentials: 'include' });
         const json = await res.text();
-        const result = await window.electron.saveKprj(boardTitle, json);
+        const result = await window.desktop.saveKprj(boardTitle, json);
         if (result.ok) showToast(I18n.t('exportSuccess') + ': ' + result.filePath.split(/[\\/]/).pop(), 'success');
         else if (!result.cancelled) showError(I18n.t('exportProject'), result.error || I18n.t('exportSaveFailed'));
       } catch (err) { showError(I18n.t('exportProject'), err.message); }
@@ -291,9 +291,9 @@ const BoardView = (() => {
   }
 
   async function importProjectFromDialog(startDir) {
-    if (typeof window.electron !== 'undefined') {
-      // Electron: native file open dialog with optional starting directory
-      const result = await window.electron.openKprjDialog(startDir || undefined);
+    if (window.desktop) {
+      // Desktop: native file open dialog with optional starting directory
+      const result = await window.desktop.openKprjDialog(startDir || undefined);
       if (!result || result.cancelled) return;
       if (!result.ok) { showToast(result.error, 'error'); return; }
       const board = await importProject(result.content);
@@ -326,7 +326,7 @@ const BoardView = (() => {
     }
   }
 
-  // Called when a .kprj file is double-clicked via OS file association (Electron)
+  // Called when a .kprj file is double-clicked via OS file association (desktop app)
   async function handleKprjFileOpen(filePath) {
     try {
       const res = await fetch(`/api/boards/import-file?path=${encodeURIComponent(filePath)}`, { credentials: 'include' });
@@ -336,9 +336,9 @@ const BoardView = (() => {
     } catch (err) { showError(I18n.t('fileOpenFailed'), filePath + '\n\n' + err.message); }
   }
 
-  // Register IPC listener
-  if (typeof window.electron !== 'undefined' && window.electron.onOpenKprj) {
-    window.electron.onOpenKprj((filePath) => handleKprjFileOpen(filePath));
+  // Files the operating system hands to the running app
+  if (window.desktop) {
+    window.desktop.onOpenKprj((filePath) => handleKprjFileOpen(filePath));
   }
 
   // ── Project List ──────────────────────────────────────────────────────────
@@ -1529,14 +1529,14 @@ const BoardView = (() => {
 
   function renderAttachItem(a, canEdit, cardId) {
     const icon = fileIcon(a.mimetype, a.original_name);
-    const isElectron = typeof window.electron !== 'undefined' && window.electron.openAttachment;
-    const dblclickAttr = isElectron
+    const isDesktop = !!window.desktop;
+    const dblclickAttr = isDesktop
       ? `ondblclick="BoardView.openAttachment('${escAttr(a.filename)}')" title="${escAttr(a.original_name)}\n(${I18n.getLang() === 'ko' ? '더블클릭으로 파일 열기' : 'Double-click to open'})"`
       : `title="${escAttr(a.original_name)}"`;
-    const nameEl = isElectron
+    const nameEl = isDesktop
       ? `<span class="attachment-name attachment-name-link" ${dblclickAttr}>${escHtml(a.original_name)}</span>`
       : `<a href="/uploads/${escAttr(a.filename)}" target="_blank" class="attachment-name" ${dblclickAttr}>${escHtml(a.original_name)}</a>`;
-    const openBtn = isElectron
+    const openBtn = isDesktop
       ? `<button class="btn-icon attachment-open" onclick="BoardView.openAttachment('${escAttr(a.filename)}')" title="${I18n.getLang() === 'ko' ? '파일 열기' : 'Open file'}">&#128065;</button>`
       : `<a href="/uploads/${escAttr(a.filename)}" target="_blank" class="btn-icon attachment-open" title="${I18n.getLang() === 'ko' ? '파일 열기' : 'Open file'}">&#128065;</a>`;
     return `
@@ -1550,8 +1550,8 @@ const BoardView = (() => {
   }
 
   async function openAttachment(filename) {
-    if (typeof window.electron !== 'undefined' && window.electron.openAttachment) {
-      const result = await window.electron.openAttachment(filename);
+    if (window.desktop) {
+      const result = await window.desktop.openAttachment(filename);
       if (!result.ok) showToast(result.error || (I18n.getLang() === 'ko' ? '파일을 열 수 없습니다.' : 'Cannot open file.'), 'error');
     } else {
       window.open(`/uploads/${filename}`, '_blank');

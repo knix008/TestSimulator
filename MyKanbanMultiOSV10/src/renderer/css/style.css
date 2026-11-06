@@ -73,15 +73,16 @@ a { color: var(--primary); text-decoration: none; }
 
 /* ── Header ────────────────────────────────────────────────── */
 #app-header { display: flex; align-items: center; justify-content: space-between; padding: 0 20px; height: 52px; min-height: 52px; background: var(--bg-header); color: #fff; z-index: 100; flex-shrink: 0; }
-.logo { font-size: 18px; font-weight: 700; color: #fff; cursor: pointer; letter-spacing: -.3px; }
-.header-left { display: flex; align-items: center; gap: 16px; }
-.header-right { display: flex; align-items: center; gap: 8px; }
+.logo { font-size: 18px; font-weight: 700; color: #fff; cursor: pointer; letter-spacing: -.3px; white-space: nowrap; flex-shrink: 0; }
+.header-left { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; margin-right: 12px; }
+.header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; white-space: nowrap; }
 .header-toolbar-group { display: flex; align-items: center; gap: 2px; padding-right: 8px; margin-right: 4px; border-right: 1px solid rgba(255,255,255,.15); }
 .btn-icon.disabled, .btn-icon:disabled { opacity: 0.38; cursor: default; pointer-events: none; }
-.breadcrumb { display: flex; align-items: center; gap: 6px; color: #94A3B8; font-size: 13px; }
+.breadcrumb { display: flex; align-items: center; gap: 6px; color: #94A3B8; font-size: 13px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.breadcrumb span:last-child { overflow: hidden; text-overflow: ellipsis; }
 .breadcrumb span { cursor: pointer; } .breadcrumb span:hover { color: #fff; }
 .breadcrumb .sep { color: #475569; }
-.user-name { color: #CBD5E1; font-size: 13px; }
+.user-name { color: #CBD5E1; font-size: 13px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
 .btn-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #94A3B8; font-size: 16px; transition: var(--transition); }
 .btn-icon .btn-icon-svg { display: block; flex-shrink: 0; }
 .btn-icon:hover { background: rgba(255,255,255,.1); color: #fff; }
@@ -587,6 +588,14 @@ tr:hover td { background: var(--bg); }
 .status-dot.status-warn { background: var(--warning); }
 .status-dot.status-err { background: var(--danger); }
 .status-sep { color: #334155; }
+
+/* ── Window size marker (desktop app) ──────────────────────── */
+#win-resize-grip { position: fixed; right: 0; bottom: 0; z-index: 3000; width: 16px; height: 16px; display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 1px 1px 0; color: #94A3B8; cursor: nwse-resize; }
+#win-resize-grip:hover { color: var(--primary); }
+#win-resize-grip svg { width: 12px; height: 12px; display: block; fill: currentColor; }
+.is-desktop #status-bar { padding-right: 20px; }
+/* The desktop window has a minimum width that fits the whole toolbar (MIN_WIDTH in src-tauri/src/lib.rs). */
+.is-desktop .board-toolbar { overflow: hidden; }
 
 /* ── Context menu ──────────────────────────────────────────── */
 .ctx-menu { position: fixed; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md); z-index: 2000; min-width: 180px; padding: 4px; }

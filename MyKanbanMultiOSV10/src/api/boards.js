@@ -1108,7 +1108,7 @@ router.get('/:boardId/export', requireAuth, requireProjectAccess, async (req, re
   }
 });
 
-// GET /api/boards/import-file?path=...  — read .kprj file from disk and import (Electron only)
+// GET /api/boards/import-file?path=...  — read .kprj file from disk and import (desktop app only)
 router.get('/import-file', requireAuth, async (req, res) => {
   const filePath = req.query.path;
   if (!filePath || !filePath.toLowerCase().endsWith('.kprj')) {

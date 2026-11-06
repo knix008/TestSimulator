@@ -1,10 +1,10 @@
 # MyKanban
 
-멀티 플랫폼 칸반 보드 애플리케이션입니다. Electron(Windows/Linux/macOS)과 웹 브라우저에서 동시에 동작하며, 복수의 프로젝트와 팀원 관리를 지원합니다.
+멀티 플랫폼 칸반 보드 애플리케이션입니다. Tauri 데스크톱 앱(Windows/Linux/macOS)과 웹 브라우저에서 동시에 동작하며, 복수의 프로젝트와 팀원 관리를 지원합니다.
 
 ## 주요 기능
 
-- **멀티 플랫폼**: Electron 데스크톱 앱 + 웹 브라우저 모두 지원
+- **멀티 플랫폼**: Tauri 데스크톱 앱 + 웹 브라우저 모두 지원
 - **프로젝트 관리**: 복수의 칸반 프로젝트 생성 및 관리
 - **권한 시스템**: 시스템관리자 > 소유자 > 프로젝트관리자 > 편집자 > 뷰어
 - **다국어 지원**: 한국어 / 영어 (토글 전환)
@@ -16,7 +16,8 @@
 - **번다운 차트**: 프로젝트 진행 현황 Summary + Chart.js 번다운 차트
 - **Undo/Redo**: 카드/컬럼 생성·수정·삭제·이동·색상 변경 모두 취소/재실행
 - **컨텍스트 메뉴**: 보드·컬럼·카드 우클릭 메뉴
-- **커스텀 메뉴바**: Electron 전용 상단 메뉴 (파일/편집/보기)
+- **커스텀 메뉴바**: 상단 메뉴 (파일/편집/프로젝트/보기/관리/도움말)
+- **창 크기 변경 마커**: 데스크톱 앱 창 우측 하단의 삼각형 점 마커를 끌어 크기 변경
 - **상태바**: 현재 작업 상태 표시
 - **샘플 프로젝트**: `sample/sample.kprj` 포함 (파일 → 샘플 열기)
 
@@ -29,10 +30,30 @@ npm run start:web
 # → http://localhost:3000
 ```
 
-### Electron 앱으로 실행
+### 데스크톱 앱으로 실행
+Rust 도구 모음과 Node.js가 필요합니다.
 ```bash
 npm install
 npm start
+```
+
+### 설치 파일 만들기
+```bash
+npm run build:win     # Windows NSIS 설치 파일
+npm run build:mac     # macOS .app + .dmg (macOS에서)
+npm run build:linux   # AppImage + .deb (Linux에서)
+npm run build:all     # 지금 운영체제에서 만들 수 있는 전부
+```
+만들어진 설치 파일은 프로젝트 루트로 복사됩니다. Electron 판이 설치되어 있으면 설치 중에 제거되며, 데이터 폴더는 그대로 이어서 씁니다.
+
+### 테스트
+```bash
+npm test                        # 단위·렌더러·API 시험
+npm run test:rust               # Rust 시험
+npm run build:debug             # 아래 시험에 쓰는 디버그 실행 파일
+npm run smoke                   # 실제 창을 CDP로 조작
+npm run smoke -- --real-mouse   # + 실제 마우스로 카드·크기 변경 마커 끌기
+npm run smoke -- --release      # 릴리스 실행 파일 (build:win 후)
 ```
 
 ### 초기 로그인
@@ -45,8 +66,8 @@ npm start
 
 | 영역 | 기술 |
 |------|------|
-| 데스크톱 | Electron 28 |
-| 백엔드 | Node.js + Express.js |
+| 데스크톱 | Tauri 2 (Rust, WebView2/WebKit) |
+| 백엔드 | Node.js + Express.js (데스크톱 앱은 Node를 함께 설치) |
 | ORM | Knex.js |
 | 기본 DB | SQLite3 (N-API) |
 | 인증 | express-session + bcryptjs |
@@ -58,9 +79,10 @@ npm start
 
 ```
 MyKanban/
-├── main.js              # Electron 진입점 + IPC 핸들러
-├── preload.js           # Electron preload (contextBridge)
+├── src-tauri/            # 데스크톱 프로그램 (창, 대화 상자, 파일 연결, 설치 프로그램)
+├── desktop-host.js      # 데스크톱 프로그램이 실행하는 Node 진입점
 ├── server.js            # Express 서버
+├── scripts/             # 빌드, smoke 시험
 ├── sample/
 │   └── sample.kprj      # 샘플 프로젝트 파일
 ├── src/

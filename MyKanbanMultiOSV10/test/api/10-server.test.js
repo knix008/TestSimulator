@@ -41,7 +41,7 @@ describe('Web server, static files and app info', () => {
     const res = await srv.client().get('/app-info');
     assert.equal(res.status, 200);
     assert.equal(res.body.version, pkg.version);
-    assert.equal(res.body.name, pkg.build.productName);
+    assert.equal(res.body.name, pkg.productName);
   });
 
   it('requires authentication for protected APIs', async () => {

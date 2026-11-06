@@ -342,7 +342,7 @@ const SettingsView = (() => {
             <label>${I18n.t('dbFile')} <span style="color:var(--text-muted);font-weight:400">(${I18n.t('dbFileHint')})</span></label>
             <div style="display:flex;gap:8px;align-items:stretch">
               <input id="db-file" class="form-control" value="${escAttr(sqliteFile)}" style="flex:1">
-              ${typeof window.electron !== 'undefined' ? `<button type="button" class="btn btn-secondary btn-sm" onclick="SettingsView.browseSqliteFile()" title="${I18n.t('dbFileBrowse')}">&#128194;</button>` : ''}
+              ${window.desktop ? `<button type="button" class="btn btn-secondary btn-sm" onclick="SettingsView.browseSqliteFile()" title="${I18n.t('dbFileBrowse')}">&#128194;</button>` : ''}
             </div>
           </div>
         </div>
@@ -388,8 +388,8 @@ const SettingsView = (() => {
   }
 
   async function browseSqliteFile() {
-    if (typeof window.electron === 'undefined' || !window.electron.openSqliteDialog) return;
-    const result = await window.electron.openSqliteDialog();
+    if (!window.desktop) return;
+    const result = await window.desktop.openSqliteDialog();
     if (result?.ok && result.filePath) {
       const el = document.getElementById('db-file');
       if (el) el.value = result.filePath;

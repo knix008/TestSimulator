@@ -6,7 +6,7 @@ const { getAppInfo } = require('../../src/api/app-info');
 describe('Application info', () => {
   it('reports the product name, version and build number from package.json', () => {
     const info = getAppInfo();
-    assert.equal(info.name, pkg.build.productName);
+    assert.equal(info.name, pkg.productName);
     assert.equal(info.version, pkg.version);
     assert.equal(info.buildNumber, String(pkg.buildNumber));
   });

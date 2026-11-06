@@ -76,14 +76,14 @@ const ReportExport = (() => {
   }
 
   async function saveBlob(filename, blob) {
-    if (typeof window.electron !== 'undefined' && window.electron.saveReportFile) {
+    if (window.desktop) {
       const reader = new FileReader();
       const base64 = await new Promise((resolve, reject) => {
         reader.onload = () => resolve(String(reader.result).split(',')[1]);
         reader.onerror = reject;
         reader.readAsDataURL(blob);
       });
-      return window.electron.saveReportFile(filename, base64, blob.type);
+      return window.desktop.saveReportFile(filename, base64, blob.type);
     }
 
     const url = URL.createObjectURL(blob);

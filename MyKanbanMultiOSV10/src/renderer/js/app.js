@@ -23,23 +23,19 @@ const AppMenu = (() => {
     let info = {
       name: 'MyKanban',
       description: I18n.t('aboutDescription'),
-      version: '1.0.0',
+      version: '',
       buildNumber: '1',
       copyright: 'Copyright © 2026',
       author: 'SHKWON(knix008@naver.com)',
       iconUrl: '/assets/icon.ico',
     };
     try {
-      if (typeof window.electron !== 'undefined' && window.electron.getElectronInfo) {
-        info = { ...info, ...(await window.electron.getElectronInfo()) };
-      } else {
-        info = { ...info, ...(await API.get('/app-info')) };
-      }
+      info = { ...info, ...(await API.get('/app-info')) };
     } catch {}
 
     const name = escHtml(info.name || 'MyKanban');
     const desc = escHtml(info.description || I18n.t('aboutDescription'));
-    const version = escHtml(info.version || '1.0.0');
+    const version = escHtml(info.version);
     const build = escHtml(info.buildNumber || '1');
     const copyright = escHtml(info.copyright || 'Copyright © 2026');
     const author = escHtml(info.author || 'SHKWON(knix008@naver.com)');
@@ -99,36 +95,44 @@ const App = (() => {
   async function init() {
     updateLangBtn();
     updateThemeBtn();
-    if (typeof window.electron !== 'undefined' && window.electron.onSaveShortcut) {
-      window.electron.onSaveShortcut(() => { if (currentUser) save(); });
-    }
-    if (typeof window.electron !== 'undefined' && window.electron.onUndoShortcut) {
-      window.electron.onUndoShortcut(() => { if (currentUser && typeof History !== 'undefined') History.undo(); });
-    }
-    if (typeof window.electron !== 'undefined' && window.electron.onRedoShortcut) {
-      window.electron.onRedoShortcut(() => { if (currentUser && typeof History !== 'undefined') History.redo(); });
-    }
+    initResizeGrip();
+    API.get('/app-info').then(info => {
+      const verEl = document.getElementById('status-ver');
+      if (verEl && info.version) verEl.textContent = `v${info.version}`;
+    }).catch(() => {});
     try {
       const user = await API.get('/auth/me');
       setUser(user);
       showBoards();
-      // Check if app was launched by opening a .kprj file (Electron only)
-      if (typeof window.electron !== 'undefined' && window.electron.getOpenFile) {
-        const kprjPath = await window.electron.getOpenFile();
-        if (kprjPath) {
-          setTimeout(() => BoardView.handleKprjFileOpen(kprjPath), 500);
-        }
-      }
-      // Update status bar with Electron info
-      if (typeof window.electron !== 'undefined' && window.electron.getElectronInfo) {
-        window.electron.getElectronInfo().then(info => {
-          const verEl = document.getElementById('status-ver');
-          if (verEl) verEl.textContent = `v${info.version || '1.0.0'}`;
-        }).catch(() => {});
-      }
+      openFileFromLaunch();
     } catch {
       showLogin();
     }
+  }
+
+  // The .kprj file the app was launched with. It needs a signed-in user, so it waits for the login.
+  async function openFileFromLaunch() {
+    if (!window.desktop) return;
+    const kprjPath = await window.desktop.getOpenFile();
+    if (kprjPath) setTimeout(() => BoardView.handleKprjFileOpen(kprjPath), 500);
+  }
+
+  // The dotted corner marker: pressing it starts the system's own window sizing.
+  // A browser cannot resize its window and a maximized window has no size to change.
+  function initResizeGrip() {
+    const grip = document.getElementById('win-resize-grip');
+    if (!window.desktop || !grip) return;
+    document.documentElement.classList.add('is-desktop');
+    grip.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      window.desktop.startResize();
+    });
+    const update = () => window.desktop.isMaximized().then((maximized) => {
+      grip.classList.toggle('hidden', maximized);
+    }).catch(() => {});
+    window.addEventListener('resize', update);
+    update();
   }
 
   function setUser(user) {
@@ -363,6 +367,7 @@ const App = (() => {
       saveLastUsername(username);
       setUser(user);
       showBoards();
+      openFileFromLaunch();
     } catch (err) {
       errEl.textContent = err.message;
       errEl.style.display = 'block';

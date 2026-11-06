@@ -1,0 +1,20 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window. Its page is served by the app's own localhost server.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*"]
+  },
+  "permissions": [
+    "core:event:default",
+    "allow-take-open-file",
+    "allow-save-kprj",
+    "allow-save-report",
+    "allow-open-kprj-dialog",
+    "allow-open-sqlite-dialog",
+    "allow-open-attachment",
+    "allow-start-resize",
+    "allow-is-maximized"
+  ]
+}
