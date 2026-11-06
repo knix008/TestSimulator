@@ -1,0 +1,554 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-06T04:18:13.754Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mw4gs3220r8qf",
+  "title": "램프 회로",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-06T04:18:13.754Z",
+  "design": "office",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mw4gs3220r9qp",
+    "name": "램프 회로",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs3220ra0k",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "램프 회로",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3220rben",
+      "type": "shape",
+      "master": "voltageSource",
+      "name": "",
+      "x": 150,
+      "y": 320,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3220rcey",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 60,
+      "y": 340,
+      "w": 85,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "전지\n12 V",
+      "style": {
+       "align": "right",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3220rd27",
+      "type": "shape",
+      "master": "switchElec",
+      "name": "",
+      "x": 300,
+      "y": 150,
+      "w": 100,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "스위치 S1",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3220reop",
+      "type": "shape",
+      "master": "resistor",
+      "name": "",
+      "x": 500,
+      "y": 167,
+      "w": 100,
+      "h": 30,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "저항 R1 10 Ω",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3220rfbo",
+      "type": "shape",
+      "master": "lamp",
+      "name": "",
+      "x": 680,
+      "y": 320,
+      "w": 70,
+      "h": 70,
+      "angle": 90,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3220rg5v",
+      "type": "shape",
+      "master": "lamp",
+      "name": "",
+      "x": 860,
+      "y": 320,
+      "w": 70,
+      "h": 70,
+      "angle": 90,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3220rh8r",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 755,
+      "y": 345,
+      "w": 90,
+      "h": 24,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "램프 L1",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3220rizp",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 935,
+      "y": 345,
+      "w": 90,
+      "h": 24,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "램프 L2",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3220rjkx",
+      "type": "shape",
+      "master": "ground",
+      "name": "",
+      "x": 160,
+      "y": 550,
+      "w": 50,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "접지",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3220rkhi",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3220rben",
+       "pt": 0
+      },
+      "to": {
+       "id": "shp-mw4gs3220rd27",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3220rlg3",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3220rd27",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3220reop",
+       "pt": 0
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3220rmh5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3220reop",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3220rfbo",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3220rnci",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3220reop",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3220rg5v",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3220ro0q",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3220rfbo",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3220rjkx",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3220rpnu",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3220rg5v",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3220rjkx",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3220rqwk",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3220rben",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3220rjkx",
+       "pt": 0
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3220rrpv",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 350,
+      "y": 300,
+      "w": 230,
+      "h": 100,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "S1을 닫으면 두 램프가 병렬로 켜지며 전압은 같습니다.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "electrical",
+   "callouts"
+  ]
+ }
+}

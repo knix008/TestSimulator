@@ -1,0 +1,756 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-06T04:18:13.788Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mw4gs33019xji",
+  "title": "Home Network",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-06T04:18:13.788Z",
+  "design": "slice",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mw4gs33019ylp",
+    "name": "Home Network",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs33019zeu",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Home Network",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301a02e",
+      "type": "shape",
+      "master": "internet",
+      "name": "",
+      "x": 480,
+      "y": 80,
+      "w": 80,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301a169",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 528,
+      "y": 162,
+      "w": 130,
+      "h": 22,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Internet",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301a2ut",
+      "type": "shape",
+      "master": "router",
+      "name": "",
+      "x": 475,
+      "y": 245,
+      "w": 90,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Home router",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "192.168.0.1",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301a3m2",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 215,
+      "y": 250,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301a4mf",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 278,
+      "y": 302,
+      "w": 130,
+      "h": 22,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Wired switch",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301a525",
+      "type": "shape",
+      "master": "wirelessAp",
+      "name": "",
+      "x": 745,
+      "y": 240,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301a6jh",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 788,
+      "y": 312,
+      "w": 130,
+      "h": 22,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Wireless AP",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301a776",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 50,
+      "y": 470,
+      "w": 90,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Desktop",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "192.168.0.10",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301a873",
+      "type": "shape",
+      "master": "printer",
+      "name": "",
+      "x": 200,
+      "y": 470,
+      "w": 90,
+      "h": 75,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Printer",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "192.168.0.11",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301a9hl",
+      "type": "shape",
+      "master": "storage",
+      "name": "",
+      "x": 350,
+      "y": 470,
+      "w": 80,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "NAS",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "192.168.0.12",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301aaj8",
+      "type": "shape",
+      "master": "laptop",
+      "name": "",
+      "x": 560,
+      "y": 470,
+      "w": 100,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Laptop",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "192.168.0.20",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301ab9a",
+      "type": "shape",
+      "master": "phone",
+      "name": "",
+      "x": 720,
+      "y": 470,
+      "w": 44,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Phone",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "192.168.0.21",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301acb4",
+      "type": "shape",
+      "master": "tablet",
+      "name": "",
+      "x": 830,
+      "y": 470,
+      "w": 70,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Tablet",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "192.168.0.22",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3301aduo",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301a02e",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3301a2ut",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301aeqx",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301a2ut",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs3301a3m2",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301afkp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301a2ut",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs3301a525",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301ag6t",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301a3m2",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3301a776",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301ah2r",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301a3m2",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3301a873",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301aiaz",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301a3m2",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3301a9hl",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301aji4",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301a525",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3301aaj8",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "dash": "dash"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301akrp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301a525",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3301ab9a",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "dash": "dash"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301altd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301a525",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3301acb4",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "dash": "dash"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3301amd4",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 60,
+      "y": 90,
+      "w": 230,
+      "h": 100,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Guests use a separate Wi-Fi and cannot reach the NAS.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network",
+   "basic"
+  ]
+ }
+}

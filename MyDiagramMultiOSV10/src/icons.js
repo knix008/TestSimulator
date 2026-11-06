@@ -1,5 +1,9 @@
-// Inline stroke icons (24×24 grid, currentColor). Every command has its own
+// Inline stroke icons (24×24 grid), each in a colour of its own with a light tint inside its
+// closed outlines. The colour follows what the icon is about (ICON_COLOURS), else a stable
+// pick from the palette by its name. Every command has its own
 // picture (test/unit/icons.test.js checks that no two commands share one).
+import { DESIGNS } from './domain/designs.js';
+
 const paths = {
   // ── generic (files, editing, panels, help, small glyphs)
   fileNew: '<path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5M12 11v6M9 14h6"/>',
@@ -50,6 +54,20 @@ const paths = {
   zoomReset: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/><text x="11" y="13.6" font-size="7" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif" font-weight="700">1:1</text>',
   panelLeft: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   panelRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
+  panelCollapseLeft: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M17 9l-3.5 3 3.5 3"/>',
+  panelExpandLeft: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M13.5 9l3.5 3-3.5 3"/>',
+  panelCollapseRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M7 9l3.5 3-3.5 3"/>',
+  panelExpandRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M10.5 9L7 12l3.5 3"/>',
+  stencilMenu: '<rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><circle cx="17.2" cy="6.8" r="3.8"/><path d="M6.8 13.5l4 7h-8z"/><path d="M17.2 13l3.800 3.800-3.800 3.800-3.800-3.800z"/>',
+  autoArrange: '<rect x="3" y="3" width="8" height="7" rx="1.5"/><rect x="13" y="3" width="8" height="7" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/><path d="M14 17h7M18 14l3 3-3 3"/>',
+  fishbone: '<path d="M2 12h17"/><path d="M19 12l3-3v6z"/><path d="M15 12l-3-7M15 12l-3 7M9 12L6 5M9 12l-3 7"/>',
+  patternGallery: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9L9 3M3 15L15 3M3 21L21 3M9 21L21 9M15 21L21 15"/>',
+  docMarkdown: '<path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 17v-5l2 2.500 2-2.500v5M15 12v5M13.500 15.500l1.500 1.500 1.500-1.500"/>',
+  docWord: '<path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 11l1.500 6 2.500-5 2.500 5 1.500-6"/>',
+  docExcel: '<path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 11l6 6M15 11l-6 6"/>',
+  docText: '<path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 12h8M8 15h8M8 18h5"/>',
+  reportExcel: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12M8 14l2 2M10 14l-2 2"/><path d="M13 13h5M13 17h5"/>',
+  arrangeCards: '<rect x="3" y="3" width="8" height="10" rx="1.5"/><rect x="13" y="3" width="8" height="6" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="15" width="8" height="6" rx="1.5"/>',
   statusBar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16h18"/>',
   palette: '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.9-.6-1.3-.6-2.1 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.7 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="14.5" cy="7" r="1.2"/>',
   dice: '<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="8.5" cy="8.5" r="1.1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.1" fill="currentColor"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.1" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.1" fill="currentColor"/>',
@@ -270,6 +288,26 @@ const paths = {
   stBlocks: '<path d="M3 8l4-4h14v12l-4 4H3z"/><path d="M3 8h14v12M17 8l4-4"/>',
   stTimeline: '<path d="M2 12h20"/><path d="M6 12V8M12 12V6M18 12V9"/><path d="M12 15l2 2-2 2-2-2z"/>',
   stElectrical: '<path d="M2 12h4l2-4 3 8 3-8 3 8 2-4h3"/>',
+  stWireframe: '<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 8.5h18M6 12h5M6 15.5h5"/><rect x="13.5" y="11.5" width="5" height="5.5" rx=".5"/>',
+  stCloud: '<path d="M7 18a4 4 0 0 1-.6-8A5.5 5.5 0 0 1 17 9.3 4.4 4.4 0 0 1 17 18z"/><path d="M9 14h6M12 11.5V16"/>',
+  stSecurity: '<path d="M12 2.5l8 3v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10v-6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+  stBusiness: '<rect x="3" y="8" width="18" height="12.5" rx="1.5"/><path d="M9 8V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3M3 13.5h18M12 12v3"/>',
+  stCharts: '<path d="M3 3v18h18"/><path d="M7.5 17v-5M12 17V7M16.5 17v-8"/>',
+  stLogic: '<path d="M8 5h4.5a7 7 0 0 1 0 14H8z"/><path d="M2.5 9H8M2.5 15H8M19.5 12h2"/>',
+  stProcess: '<circle cx="12" cy="12" r="5"/><path d="M2 12h5M17 12h5"/><path d="M9.5 7.8L15 12l-5.5 4.2z"/><path d="M12 2v5"/>',
+  stDfd: '<circle cx="7" cy="12" r="4"/><rect x="15" y="8" width="7" height="8" rx="1"/><path d="M11 12h4"/><path d="M3 20h9M3 4h9"/>',
+  stGenogram: '<rect x="3" y="3" width="6" height="6"/><circle cx="18" cy="6" r="3"/><path d="M6 9v3h12V9M12 12v3"/><rect x="9" y="15" width="6" height="6"/>',
+  stMaps: '<path d="M12 22c-4-5-7-8-7-12a7 7 0 0 1 14 0c0 4-3 7-7 12z"/><circle cx="12" cy="10" r="2.500"/>',
+  stTransport: '<path d="M2 6h12v10H2zM14 10h4l4 4v2h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+  stFactory: '<path d="M2 21V10l6 4v-4l6 4V4h6v17z"/><path d="M7 18h2M12 18h2"/>',
+  stEducation: '<path d="M12 4L2 9l10 5 10-5z"/><path d="M6 11.500V17c3 2.500 9 2.500 12 0v-5.500"/><path d="M21 9.500V15"/>',
+  stMedical: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 7v10M7 12h10"/>',
+  stInterior: '<path d="M4 18v-6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6"/><path d="M2 14h20v5H2zM6 10V6h12v4"/>',
+  stMath: '<path d="M4 4h10l-5 8 5 8H4"/><path d="M16 8l5 5M21 8l-5 5"/>',
+  stStrategy: '<rect x="3" y="3" width="18" height="18" rx="1.500"/><path d="M12 3v18M3 12h18"/><circle cx="7.500" cy="7.500" r="1.500"/><circle cx="16.500" cy="16.500" r="1.500"/>',
+  stC4: '<rect x="2" y="3" width="8" height="6" rx="1"/><rect x="14" y="3" width="8" height="6" rx="1"/><rect x="8" y="15" width="8" height="6" rx="1"/><path d="M6 9v3h12V9M12 12v3"/>',
+  stIcons: '<circle cx="7.5" cy="7.5" r="4.5"/><rect x="13" y="3" width="8.5" height="8.5" rx="2"/><path d="M7.5 13l4.500 8h-9z"/><path d="M17.2 13l1.300 2.800 3 .4-2.200 2.100.6 3-2.700-1.500-2.700 1.500.6-3-2.200-2.100 3-.4z"/>',
+  stAgile: '<rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="4" height="8" rx="1"/>',
   // ── templates
   tplBlank: '<path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/>',
   tplBasic: '<rect x="3" y="4" width="8" height="6" rx="1"/><circle cx="17" cy="7" r="3.5"/><path d="M7 20l4-7 4 7z"/><path d="M11 7h2.5"/>',
@@ -301,9 +339,80 @@ const paths = {
   textBox: '<rect x="3" y="5" width="18" height="14" rx="1.5" stroke-dasharray="3 2"/><path d="M8 9h8M12 9v7"/>',
 };
 
+// The start page's moving backgrounds, by kind (backgroundIcon).
+const BACKGROUND_ICONS = {
+  "aurora": "<path d=\"M3 16c3-8 5-8 7-3s4 5 6-1 3-6 5-4\"/><path d=\"M3 20c3-5 6-5 8-2s5 3 10-3\"/>",
+  "waves": "<path d=\"M2 8c3-3 5-3 7 0s4 3 6 0 4-3 7 0\"/><path d=\"M2 13c3-3 5-3 7 0s4 3 6 0 4-3 7 0\"/><path d=\"M2 18c3-3 5-3 7 0s4 3 6 0 4-3 7 0\"/>",
+  "particles": "<circle cx=\"6\" cy=\"7\" r=\"2\"/><circle cx=\"16\" cy=\"5\" r=\"1.4\"/><circle cx=\"18\" cy=\"14\" r=\"2.4\"/><circle cx=\"9\" cy=\"16\" r=\"1.6\"/><circle cx=\"12\" cy=\"10\" r=\"1\"/><circle cx=\"5\" cy=\"20\" r=\"1\"/>",
+  "constellation": "<path d=\"M4 7l6 3 5-5 5 7-6 7-7-2z\"/><circle cx=\"4\" cy=\"7\" r=\"1.2\"/><circle cx=\"10\" cy=\"10\" r=\"1.2\"/><circle cx=\"15\" cy=\"5\" r=\"1.2\"/><circle cx=\"20\" cy=\"12\" r=\"1.2\"/><circle cx=\"14\" cy=\"19\" r=\"1.2\"/><circle cx=\"7\" cy=\"17\" r=\"1.2\"/>",
+  "bubbles": "<circle cx=\"8\" cy=\"15\" r=\"5\"/><circle cx=\"17\" cy=\"9\" r=\"3.5\"/><circle cx=\"17\" cy=\"19\" r=\"1.8\"/><circle cx=\"8\" cy=\"5\" r=\"2\"/>",
+  "gridflow": "<path d=\"M3 4l3 16M10 4l1 16M17 4l-1 16M21 8H3M21 14H3\"/>",
+  "flowchart": "<rect x=\"8\" y=\"2.5\" width=\"8\" height=\"5\" rx=\"1.2\"/><path d=\"M12 7.5V10M12 10l4 3.5-4 3.5-4-3.5zM12 17v4.5\"/>",
+  "starfield": "<path d=\"M9 3l1.8 4.7 4.7 1.8-4.7 1.8L9 16l-1.8-4.7-4.700-1.800 4.700-1.800z\"/><path d=\"M18 14l.9 2.100 2.100.9-2.100.9L18 20l-.9-2.100-2.100-.9 2.100-.9z\"/>",
+  "rain": "<path d=\"M6 15a4 4 0 0 1 .5-8 5.5 5.5 0 0 1 10.500 1 3.500 3.500 0 0 1 0 7z\"/><path d=\"M8 18l-1 3M12.500 18l-1 3M17 18l-1 3\"/>",
+  "snow": "<path d=\"M12 2.500v19M3.800 7.200l16.400 9.600M20.200 7.200L3.800 16.800\"/><path d=\"M9.500 4.500L12 7l2.500-2.500M9.500 19.500L12 17l2.500 2.500\"/>",
+  "fireflies": "<circle cx=\"7\" cy=\"8\" r=\"2.200\"/><circle cx=\"17\" cy=\"6\" r=\"1.500\"/><circle cx=\"14\" cy=\"16\" r=\"2.500\"/><path d=\"M7 3.500v1M7 11.500v1M2.500 8h1M10.500 8h1M14 11.500v1M14 19.500v1M9.500 16h1M17.500 16h1\"/>",
+  "ripples": "<circle cx=\"12\" cy=\"12\" r=\"2.500\"/><circle cx=\"12\" cy=\"12\" r=\"6\"/><circle cx=\"12\" cy=\"12\" r=\"9.500\"/>",
+  "coderain": "<path d=\"M5 3v5M5 11v2M12 3v2M12 8v7M19 3v9M19 15v2M5 17v4M12 18v3M19 20v1\"/>",
+  "hexagons": "<path d=\"M7.500 3.500l4 2.300v4.600l-4 2.300-4-2.300V5.800z\"/><path d=\"M16.500 3.500l4 2.300v4.600l-4 2.300-4-2.300V5.800z\"/><path d=\"M12 11.500l4 2.300v4.600l-4 2.300-4-2.300v-4.600z\"/>",
+  "orbits": "<circle cx=\"12\" cy=\"12\" r=\"2.500\"/><ellipse cx=\"12\" cy=\"12\" rx=\"10\" ry=\"4\"/><ellipse cx=\"12\" cy=\"12\" rx=\"4\" ry=\"10\"/><circle cx=\"20\" cy=\"9.500\" r=\"1.200\"/>",
+  "lava": "<path d=\"M9 2.500h6l2.500 15h-11z\"/><path d=\"M6.500 17.500L5 21.500h14l-1.500-4\"/><circle cx=\"12\" cy=\"8\" r=\"1.800\"/><circle cx=\"11\" cy=\"13.500\" r=\"2\"/>",
+  "spiral": "<path d=\"M12 12c2-3 6-2 6 1.500S14 20 9.500 18 4 10.500 7.500 7s10-2.500 12.500 1\"/><path d=\"M12 12c-2 2-5 1-5-1.500S10 6 13 7\"/><circle cx=\"12\" cy=\"12\" r=\"1.200\"/>",
+  "confetti": "<path d=\"M3 21l5-13 8 8z\"/><path d=\"M14 3l1 3M20 4l-2 3M21 11l-3 .5M12 8l1.500-1.500\"/><circle cx=\"18.500\" cy=\"16\" r=\"1\"/>",
+  "nodes": "<circle cx=\"5\" cy=\"6\" r=\"2.200\"/><circle cx=\"19\" cy=\"7\" r=\"2.200\"/><circle cx=\"12\" cy=\"13\" r=\"2.500\"/><circle cx=\"6\" cy=\"19\" r=\"2.200\"/><circle cx=\"19\" cy=\"19\" r=\"2.200\"/><path d=\"M7 7.200l3 3.800M17.200 8.600L14 11.400M10.200 14.800L7.700 17.500M14 14.800l3.400 2.800\"/>",
+  "meteors": "<circle cx=\"7\" cy=\"17\" r=\"2.500\"/><path d=\"M9 15L19 4M12 19l7-8M4 12l6-7\"/>",
+  "ribbons": "<path d=\"M2 8c5-5 8 5 12 2s5-5 8-3\"/><path d=\"M2 13c5-5 8 5 12 2s5-5 8-3\"/><path d=\"M2 18c5-5 8 5 12 2s5-5 8-3\"/>"
+};
+for (const [kind, picture] of Object.entries(BACKGROUND_ICONS)) paths[`bg-${kind}`] = picture;
+
+export const backgroundIcon = (kind) => `bg-${kind}`;
+
+// The drawing themes (designs): their first four colours as a little palette.
+for (const design of DESIGNS) {
+  paths[`design-${design.id}`] = design.colors.slice(0, 4).map((colour, i) => `<rect x="${i % 2 ? 12.5 : 3}" y="${i < 2 ? 3 : 12.5}" width="8.5" height="8.5" rx="2" fill="${colour}" stroke="none"/>`).join('');
+}
+export const designIcon = (id) => `design-${id}`;
+
 export const ICON_NAMES = Object.keys(paths);
 export const hasIcon = (name) => Object.hasOwn(paths, name);
 
+// Mid-tone colours that read on light and dark themes alike.
+const BLUE = '#3b82f6'; const RED = '#ef4444'; const AMBER = '#e8930c'; const GREEN = '#16a974'; const VIOLET = '#8b5cf6';
+const PINK = '#ec4899'; const CYAN = '#0ea5c6'; const ORANGE = '#f97316'; const LIME = '#65a30d'; const INDIGO = '#6366f1';
+const PALETTE = [BLUE, GREEN, VIOLET, ORANGE, CYAN, PINK, INDIGO, LIME, AMBER, RED];
+const ICON_COLOURS = [
+  [/close|trash|delete|clear|remove|exit|cut|error|danger|bad/i, RED],
+  [/folder|recent|open/i, AMBER],
+  [/save|disk|db|database|server|plug/i, BLUE],
+  [/undo|redo|back|forward|refresh|shuffle|dice/i, CYAN],
+  [/copy|duplicate|paste|clipboard/i, INDIGO],
+  [/file|doc|page|template|report|export|import|print/i, BLUE],
+  [/ok|check|success|play|start/i, GREEN],
+  [/colou?r|palette|theme|fill|sparkles|style/i, PINK],
+  [/bulb|idea|warn|star|sun/i, AMBER],
+  [/text|font|bold|italic|underline/i, VIOLET],
+  [/plus|add|new/i, GREEN],
+  [/minus/i, ORANGE],
+  [/zoom|search|find|eye/i, CYAN],
+  [/panel|layout|align|grid|ruler|guide|arrange/i, INDIGO],
+  [/help|info|tutorial|about|keyboard/i, VIOLET],
+  [/layer|group|shape/i, ORANGE],
+  [/chevron|caret|arrow/i, CYAN],
+];
+const colours = new Map();
+function colourOf(name) {
+  if (!colours.has(name)) {
+    let colour = ICON_COLOURS.find(([pattern]) => pattern.test(name))?.[1];
+    if (!colour) {
+      let hash = 0;
+      for (const c of name) hash = (hash * 31 + c.charCodeAt(0)) % 9973;
+      colour = PALETTE[hash % PALETTE.length];
+    }
+    colours.set(name, colour);
+  }
+  return colours.get(name);
+}
+
 export function icon(name, className = 'icon') {
-  return `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] ?? paths.dot}</svg>`;
+  return `<svg class="${className}" style="color:color-mix(in srgb,${colourOf(name)} 82%,var(--text))" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] ?? paths.dot}</svg>`;
 }

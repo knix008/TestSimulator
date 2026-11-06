@@ -2,7 +2,7 @@
 // the United Kingdom while the UI is Korean, Korea while it is English.
 
 // Drawn 2:1 but shown in the same 3:2 box as the Korean flag (sides trimmed), so both look the same size.
-const unitedKingdom = `<svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+export const unitedKingdom = `<svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <clipPath id="flag-uk-clip"><path d="M0 0v30h60V0z"/></clipPath>
   <clipPath id="flag-uk-diag"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath>
   <g clip-path="url(#flag-uk-clip)">
@@ -16,7 +16,7 @@ const unitedKingdom = `<svg class="flag" viewBox="0 0 60 30" preserveAspectRatio
 
 // Taegukgi: red-over-blue taeguk on the flag's diagonal, geon ☰ (top left),
 // gon ☷ (bottom right), gam ☵ (top right) and ri ☲ (bottom left).
-const korea = `<svg class="flag" viewBox="-36 -24 72 48" aria-hidden="true">
+export const korea = `<svg class="flag" viewBox="-36 -24 72 48" aria-hidden="true">
   <rect x="-36" y="-24" width="72" height="48" fill="#fff"/>
   <g transform="rotate(-56.31)">
     <g id="flag-kr-bars"><path id="flag-kr-bar" d="M-6-25H6M-6-22H6M-6-19H6" stroke="#000" stroke-width="2"/><use href="#flag-kr-bar" y="44"/></g>

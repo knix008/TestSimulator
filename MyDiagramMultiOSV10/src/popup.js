@@ -2,6 +2,8 @@
 // "popup-<kind>") or in a frame (web build, tutorial: ?popup=<kind>). Every
 // popup has a fixed size chosen so its content fits without scrolling; long
 // content is split into tabs or pages, and each item takes one line.
+import { PATTERNS, patternById, patternTile } from './domain/patterns.js';
+import { PASTEL_COLORS } from './domain/designs.js';
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 import appIcon from '../assets/icon-256.png';
 import { loadRecent, loadRecentDirs, MAX_RECENT, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
@@ -273,17 +275,19 @@ function settingsGeneral() {
 
 /** Start page: shown at start or not, and which of its parts it shows. */
 function settingsStart() {
-  return [
+  const start = [
     toggle('showStartPage', t('settings.showStartPage'), 'home'),
     toggle('startShowRecent', t('settings.startShowRecent'), 'recent'),
     row('list', t('settings.startRecentCount'), numberField('startRecentCount', s().startRecentCount, 1, 10, 1, '', t('settings.startRecentCount'))),
     toggle('startShowFolders', t('settings.startShowFolders'), 'recentFolder'),
     toggle('startShowSamples', t('settings.startShowSamples'), 'samples'),
     toggle('startShowBackground', t('settings.startShowBackground'), 'sparkles'),
+    row('opacity', t('settings.startBgTransparency'), numberField('startBgTransparency', s().startBgTransparency ?? 0, 0, 100, 5, '%', t('settings.startBgTransparency'))),
     toggle('startShowTutorialBanner', t('settings.startShowTutorialBanner'), 'bulb'),
+    toggle('showTutorialPopup', t('settings.showTutorialPopup'), 'tutorial'),
     row('home', t('settings.startOpen'), button('show-start', t('settings.startOpenButton'), 'home', 'small')),
-    row('info', '', `<span class="muted">${escapeHtml(t('settings.startHint'))}</span>`, t('settings.startHint')),
   ].join('');
+  return `<div class="settings-columns"><section>${start}</section><section><h4>${icon('sparkles')}<span>${escapeHtml(t('settings.startBackground'))}</span></h4>${settingsBackground({ hint: false })}</section></div>`;
 }
 
 function themeRow(theme, active) {
@@ -296,17 +300,17 @@ function themeRow(theme, active) {
 
 function settingsAppearance() {
   const current = s().theme;
-  const group = state.themeGroup ?? (current === CUSTOM ? 'custom' : DARK_THEMES.some((theme) => theme.id === current) ? 'dark' : 'light');
+  const group = state.themeGroup ?? (current === CUSTOM ? 'custom' : 'themes');
   state.themeGroup = group;
-  const groups = [['dark', 'moon', t('settings.themeDark', { count: DARK_THEMES.length })], ['light', 'sun', t('settings.themeLight', { count: LIGHT_THEMES.length })], ['custom', 'palette', t('settings.themeCustom')]];
+  const groups = [['themes', 'palette', t('settings.themeAll')], ['custom', 'edit', t('settings.themeCustom')]];
   const head = `<div class="row theme-head">
     <span class="segmented" role="tablist">${groups.map(([id, glyph, label]) => `<button class="segment ${group === id ? 'active' : ''}" data-theme-group="${id}" role="tab" aria-selected="${group === id}" title="${escapeHtml(label)}">${icon(glyph)}<span>${escapeHtml(label)}</span></button>`).join('')}</span>
     <span class="grow"></span>
-    <button class="theme-row compact ${current === SYSTEM ? 'active' : ''}" data-setting="theme" data-value="${SYSTEM}" title="${escapeHtml(themeName(SYSTEM, L()))}">${icon('sun')}<span class="theme-name">${escapeHtml(themeName(SYSTEM, L()))}</span>${current === SYSTEM ? icon('check', 'icon check') : ''}</button>
-  </div>`;
+    <button class="theme-row compact ${current === SYSTEM ? 'active' : ''}" data-setting="theme" data-value="${SYSTEM}" title="${escapeHtml(themeName(SYSTEM, L()))}">${icon('sun')}<span class="theme-name">${escapeHtml(themeName(SYSTEM, L()))}</span></button>
+  </div>`.replace(/\r?\n\s*/g, '');
   if (group === 'custom') return head + customThemeEditor();
-  const list = group === 'dark' ? DARK_THEMES : LIGHT_THEMES;
-  return `${head}<div class="theme-list" role="radiogroup">${list.map((theme) => themeRow(theme, current === theme.id)).join('')}</div>`;
+  const column = (glyph, label, list) => `<section class="theme-column"><h4>${icon(glyph)}<span>${escapeHtml(label)}</span></h4><div class="theme-list" role="radiogroup" aria-label="${escapeHtml(label)}">${list.map((theme) => themeRow(theme, current === theme.id)).join('')}</div></section>`;
+  return `${head}<div class="theme-columns">${column('moon', t('settings.themeDark', { count: DARK_THEMES.length }), DARK_THEMES)}${column('sun', t('settings.themeLight', { count: LIGHT_THEMES.length }), LIGHT_THEMES)}</div>`;
 }
 
 /** Custom theme: dark/light, the editable colours, copy from the current theme; a warning when text would be hard to read. */
@@ -340,7 +344,7 @@ function renderThemePicker() {
   const column = (glyph, title, list) => `<div class="picker-column">
     <h3>${icon(glyph)}<span>${escapeHtml(title)}</span></h3>
     ${list.map((theme) => `<button class="picker-item ${current === theme.id ? 'active' : ''}" data-pick-theme="${theme.id}" title="${escapeHtml(themeName(theme.id, L()))}">
-      <span class="theme-swatch">${theme.swatch.map((color) => `<i style="background:${color}"></i>`).join('')}</span>
+      ${icon(glyph, 'icon tiny')}<span class="theme-swatch">${theme.swatch.map((color) => `<i style="background:${color}"></i>`).join('')}</span>
       <span class="theme-name">${escapeHtml(themeName(theme.id, L()))}</span>${current === theme.id ? icon('check', 'icon check') : ''}
     </button>`).join('')}
   </div>`;
@@ -405,7 +409,7 @@ async function loadFonts() {
   if (state.tab === 'font') render();
 }
 
-function settingsBackground() {
+function settingsBackground({ hint = true } = {}) {
   const name = s().backgroundName || (s().backgroundImage ? s().backgroundImage : t('settings.bgNone'));
   return [
     row('layers', t('settings.bgKind'), segmented('backgroundKind', BACKGROUND_KINDS.map((k) => [k, t(`bgKind.${k}`)]), s().backgroundKind)),
@@ -420,7 +424,7 @@ function settingsBackground() {
       ${button('clear-background', t('settings.bgClear'), 'imageClear', 'small')}`, t('settings.bgImage'), 'full'),
     row('opacity', t('settings.bgOpacity'), numberField('backgroundOpacity', s().backgroundOpacity, 0, 100, 5, '%', t('settings.bgOpacity'))),
     row('fitPage', t('settings.bgFit'), segmented('backgroundFit', BACKGROUND_FITS.map((fit) => [fit, t(`settings.fit.${fit}`)]), s().backgroundFit), t('settings.bgFit'), 'full'),
-    row('info', '', `<span class="muted">${escapeHtml(t('settings.bgHint'))}</span>`, t('settings.bgHint')),
+    hint ? row('info', '', `<span class="muted">${escapeHtml(t('settings.bgHint'))}</span>`, t('settings.bgHint')) : '',
   ].join('');
 }
 
@@ -611,8 +615,9 @@ function renderWelcome() {
         <li>${icon('samples')}<span>${escapeHtml(t('welcome.point2'))}</span></li>
         <li>${icon('userGuide')}<span>${escapeHtml(t('welcome.point3'))}</span></li>
       </ul>
+      <label class="check-row welcome-always" title="${escapeHtml(t('settings.showTutorialPopup'))}"><input type="checkbox" data-toggle="showTutorialPopup" ${s().showTutorialPopup ? 'checked' : ''} /><span>${escapeHtml(t('settings.showTutorialPopup'))}</span></label>
     </div>`,
-    foot: `${button('choice', t('welcome.later'), 'close', '', 'later')}<span class="grow"></span>${button('choice', t('welcome.sample'), 'samples', '', 'sample')}${button('choice', t('welcome.start'), 'play', 'primary', 'tutorial')}`,
+    foot: `${button('choice', t('welcome.later'), 'close', '', 'later')}<span class="grow"></span>${button('choice', t('welcome.sample'), 'samples', '', 'sample')}${button('choice', t('start.viewTutorial'), 'tutorialDoc', '', 'tutorialDoc')}${button('choice', t('welcome.start'), 'play', 'primary', 'tutorial')}`,
   });
   fitHeight();
   root.querySelector('.button.primary')?.focus();
@@ -1039,7 +1044,7 @@ function renderImage() {
 // ───────────────────────── format shape
 
 const colorInput = (key, value, label) => `<span class="color-input"><input type="color" data-draft-color-input="${key}" value="${escapeHtml(/^#[0-9a-f]{6}$/i.test(value ?? '') ? value : '#ffffff')}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}" /><code>${escapeHtml(value === 'none' || !value ? t('color.none') : value)}</code></span>`;
-const swatches = (key) => `<span class="swatch-row">${[...(P().colors ?? []), '#000000', '#7f7f7f', '#ffffff', '#c00000', '#ffc000', '#00b050', '#0070c0', '#7030a0'].map((c) => `<button class="swatch" data-draft-swatch="${key}" data-value="${c}" style="--swatch:${c}" title="${c}"></button>`).join('')}</span>`;
+const swatches = (key) => `<span class="swatch-row">${[...(P().colors ?? []), '#000000', '#7f7f7f', '#ffffff', '#c00000', '#ffc000', '#00b050', '#0070c0', '#7030a0', ...(key === 'fill' ? PASTEL_COLORS : [])].map((c) => `<button class="swatch" data-draft-swatch="${key}" data-value="${c}" style="--swatch:${c}" title="${c}"></button>`).join('')}</span>`;
 const draftToggle = (key, label, glyph, checked) => row(glyph, label, `<label class="switch-wrap" title="${escapeHtml(label)}"><input type="checkbox" data-draft-toggle="${key}" ${checked ? 'checked' : ''} aria-label="${escapeHtml(label)}" /><span class="switch" aria-hidden="true"></span></label>`);
 const draftSelect = (key, options, current, label) => select('data-draft-select', key, options, current, label);
 const draftNumber = (key, value, min, max, step, unit, label) => numberField(`draft:${key}`, value, min, max, step, unit, label);
@@ -1052,7 +1057,7 @@ function renderShapeFormat() {
   }
   const d = state.draft;
   const tabs = p.connector ? [['line', 'lineColor', t('format.line')], ['arrows', 'arrowEnd', t('format.arrows')], ['text', 'textTool', t('format.text')]]
-    : [['fill', 'fillColor', t('format.fill')], ['line', 'lineColor', t('format.line')], ['text', 'textTool', t('format.text')], ['effects', 'shadow', t('format.effects')], ['size', 'position', t('format.size')], ['protect', 'lock', t('format.protect')]];
+    : [['fill', 'fillColor', t('format.fill')], ['pattern', 'patternGallery', t('format.pattern')], ['line', 'lineColor', t('format.line')], ['text', 'textTool', t('format.text')], ['effects', 'shadow', t('format.effects')], ['size', 'position', t('format.size')], ['protect', 'lock', t('format.protect')]];
   const tab = tabs.some(([id]) => id === state.tab) ? state.tab : tabs[0][0];
   let body = '';
   if (tab === 'fill') {
@@ -1060,9 +1065,17 @@ function renderShapeFormat() {
       draftToggle('noFill', t('format.noFill'), 'close', d.fill === 'none' || d.fillPattern === 'none'),
       row('fillColor', t('props.fillColor'), `${colorInput('fill', d.fill, t('props.fillColor'))}${swatches('fill')}`),
       row('quickStyle', t('props.fillPattern'), draftSelect('fillPattern', FILL_PATTERNS.filter((x) => x !== 'none').map((x) => [x, t(`pattern.${x}`)]), d.fillPattern === 'none' ? 'solid' : d.fillPattern ?? 'solid', t('props.fillPattern'))),
-      row('fillColor', t('props.fill2'), colorInput('fill2', d.fill2, t('props.fill2')), t('props.fill2'), ['linear', 'radial', 'hatch', 'cross', 'dots'].includes(d.fillPattern) ? '' : 'disabled-row'),
+      row('fillColor', t('props.fill2'), colorInput('fill2', d.fill2, t('props.fill2')), t('props.fill2'), ['linear', 'radial', 'hatch', 'cross', 'dots'].includes(d.fillPattern) || patternById(d.fillPattern) ? '' : 'disabled-row'),
       row('rotateRight', t('format.gradientAngle'), draftNumber('gradientAngle', d.gradientAngle ?? 90, 0, 360, 15, '°', t('format.gradientAngle')), t('format.gradientAngle'), d.fillPattern === 'linear' ? '' : 'disabled-row'),
       row('opacity', t('props.fillOpacity'), draftNumber('fillOpacity', d.fillOpacity ?? 100, 0, 100, 5, '%', t('props.fillOpacity'))),
+    ].join('');
+  } else if (tab === 'pattern') {
+    const fg = d.fill2 && d.fill2 !== 'none' ? d.fill2 : '#ffffff';
+    const bg = d.fill && d.fill !== 'none' ? d.fill : '#4472c4';
+    body = [
+      row('fillColor', t('props.fillColor'), colorInput('fill', d.fill, t('props.fillColor'))),
+      row('fillColor', t('props.fill2'), colorInput('fill2', d.fill2, t('props.fill2'))),
+      `<div class="pattern-grid" role="radiogroup" aria-label="${escapeHtml(t('format.pattern'))}"><button class="pattern-tile plain ${!patternById(d.fillPattern) ? 'active' : ''}" data-draft-pattern="solid" title="${escapeHtml(t('pattern.solid'))}" aria-label="${escapeHtml(t('pattern.solid'))}"><svg viewBox="0 0 30 30" aria-hidden="true"><rect width="30" height="30" fill="${escapeHtml(bg)}"/></svg></button>${PATTERNS.map((pattern) => `<button class="pattern-tile ${d.fillPattern === pattern.id ? 'active' : ''}" data-draft-pattern="${pattern.id}" title="${escapeHtml(pattern.name[L()])}" aria-label="${escapeHtml(pattern.name[L()])}"><svg viewBox="0 0 30 30" aria-hidden="true"><defs>${patternTile(pattern, escapeHtml(bg), escapeHtml(fg), `t-${pattern.id}`)}</defs><rect width="30" height="30" fill="url(#t-${pattern.id})"/></svg></button>`).join('')}</div>`,
     ].join('');
   } else if (tab === 'line') {
     body = [
@@ -1440,9 +1453,10 @@ function renderColor() {
   const p = P();
   const sw = (c) => `<button class="swatch big ${String(p.current).toLowerCase() === c.toLowerCase() ? 'active' : ''}" data-pick-color="${c}" style="--swatch:${c}" title="${c}"></button>`;
   root.innerHTML = `<div class="color-picker" role="dialog" aria-label="${escapeHtml(t(`color.title.${p.key}`, null, t('color.title.fill')))}">
-    <div class="color-head">${icon('palette')}<b>${escapeHtml(t(`color.title.${p.key}`, null, t('color.title.fill')))}</b><span class="grow"></span><button class="icon-button" data-action="close" title="${escapeHtml(t('common.close'))}" aria-label="${escapeHtml(t('common.close'))}">${icon('close')}</button></div>
+    <div class="color-head" data-tauri-drag-region data-drag-region>${icon('palette')}<b data-tauri-drag-region>${escapeHtml(t(`color.title.${p.key}`, null, t('color.title.fill')))}</b><span class="grow"></span><button class="icon-button" data-action="close" title="${escapeHtml(t('common.close'))}" aria-label="${escapeHtml(t('common.close'))}">${icon('close')}</button></div>
     <small class="muted">${escapeHtml(t('color.theme'))}</small><div class="color-grid6">${(p.accents ?? []).map(sw).join('')}</div>
     <small class="muted">${escapeHtml(t('color.standard'))}</small><div class="color-grid6">${(p.standard ?? []).map(sw).join('')}</div>
+    ${p.pastel?.length ? `<small class="muted">${escapeHtml(t('color.pastel'))}</small><div class="color-grid6">${p.pastel.map(sw).join('')}</div>` : ''}
     <div class="color-foot">${p.allowNone ? `<button class="small-button" data-pick-color="none" title="${escapeHtml(t('color.none'))}">${icon('close')}<span>${escapeHtml(t('color.none'))}</span></button>` : ''}<label class="small-button" title="${escapeHtml(t('color.custom'))}">${icon('fillColor')}<span>${escapeHtml(t('color.custom'))}</span><input type="color" data-color-custom value="${escapeHtml(/^#[0-9a-f]{6}$/i.test(p.current ?? '') ? p.current : '#4472c4')}" /></label></div>
   </div>`;
   const menu = root.querySelector('.color-picker');
@@ -1478,7 +1492,7 @@ function renderPrompt() {
 // ───────────────────────── events
 
 root.addEventListener('click', async (event) => {
-  const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-theme-group], [data-pick-theme], [data-draft-segment], [data-print-segment], [data-draft-swatch], [data-pick-design], [data-pick-quick], [data-pick-color]');
+  const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-theme-group], [data-pick-theme], [data-draft-pattern], [data-draft-segment], [data-print-segment], [data-draft-swatch], [data-pick-design], [data-pick-quick], [data-pick-color]');
   if (!target || target.disabled) return undefined;
   if (target.classList.contains('menu-item')) return chooseMenu(target.dataset.id);
   if (target.dataset.setting) {
@@ -1506,6 +1520,7 @@ root.addEventListener('click', async (event) => {
     } else if (kind === 'page' && key === 'orientation') [d.widthText, d.heightText] = [d.heightText, d.widthText];
     return render();
   }
+  if (target.dataset.draftPattern) { d.fillPattern = target.dataset.draftPattern; d.touched.add('fillPattern'); d.noFill = false; d.touched.add('noFill'); if (!d.fill || d.fill === 'none') { d.fill = '#4472c4'; d.touched.add('fill'); } if (!d.fill2) { d.fill2 = '#ffffff'; d.touched.add('fill2'); } return render(); }
   if (target.dataset.draftSwatch) { const key = target.dataset.draftSwatch; d[key] = target.dataset.value; d.touched.add(key); if (key === 'fill') { d.noFill = false; d.touched.add('noFill'); } if (key === 'line') { d.noLine = false; d.touched.add('noLine'); } return render(); }
   if (target.dataset.printSegment) return changePrint({ [target.dataset.printSegment]: target.dataset.value });
   const value = target.dataset.value;

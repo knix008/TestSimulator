@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-10-16T17:12:20.495Z",
+ "saved": "2026-11-06T04:18:13.770Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mvb86pla05xno",
+  "id": "dgm-mw4gs32i0vadp",
   "title": "Online shop operations",
   "subject": "MyDiagram sample drawing",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-10-16T17:12:20.494Z",
+  "created": "2026-11-06T04:18:13.770Z",
   "design": "office",
   "variant": 0,
   "units": "in",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mvb86pla05y6x",
+    "id": "page-mw4gs32i0vbsd",
     "name": "Order process",
     "paper": "Letter",
     "orientation": "landscape",
@@ -41,13 +41,13 @@
     "height": 816,
     "autoSize": true,
     "background": false,
-    "backgroundId": "page-mvb86pla05z6q",
+    "backgroundId": "page-mw4gs32i0vc8v",
     "color": "",
     "grid": true,
     "gridSize": 0,
     "layers": [
      {
-      "id": "layer-mvb86pla06nsy",
+      "id": "layer-mw4gs32i0w0t2",
       "name": "Notes",
       "visible": true,
       "print": true,
@@ -60,13 +60,13 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mvb86pla062bb",
+      "id": "shp-mw4gs32i0vf21",
       "type": "shape",
       "master": "swimlane",
       "name": "",
       "x": 40,
       "y": 70,
-      "w": 1020,
+      "w": 1010,
       "h": 165,
       "angle": 0,
       "flipH": false,
@@ -86,13 +86,13 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pla063el",
+      "id": "shp-mw4gs32i0vgey",
       "type": "shape",
       "master": "swimlane",
       "name": "",
       "x": 40,
       "y": 235,
-      "w": 1020,
+      "w": 1010,
       "h": 165,
       "angle": 0,
       "flipH": false,
@@ -112,13 +112,13 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pla064z1",
+      "id": "shp-mw4gs32i0vhkn",
       "type": "shape",
       "master": "swimlane",
       "name": "",
       "x": 40,
       "y": 400,
-      "w": 1020,
+      "w": 1010,
       "h": 165,
       "angle": 0,
       "flipH": false,
@@ -138,7 +138,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pla065gm",
+      "id": "shp-mw4gs32i0vipo",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -162,7 +162,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pla066yw",
+      "id": "shp-mw4gs32i0vjaj",
       "type": "shape",
       "master": "terminator",
       "name": "",
@@ -194,7 +194,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pla067y6",
+      "id": "shp-mw4gs32i0vk1k",
       "type": "shape",
       "master": "data",
       "name": "",
@@ -218,7 +218,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pla068q9",
+      "id": "shp-mw4gs32i0vlp9",
       "type": "shape",
       "master": "decision",
       "name": "",
@@ -252,7 +252,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pla06928",
+      "id": "shp-mw4gs32i0vm7k",
       "type": "shape",
       "master": "process",
       "name": "",
@@ -291,7 +291,7 @@
         "id": "cmt-sample",
         "author": "SHKWON",
         "text": "Consider adding a stock check here",
-        "at": "2026-10-16T17:12:20.494Z",
+        "at": "2026-11-06T04:18:13.770Z",
         "done": false
        }
       ],
@@ -299,7 +299,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pla06aeh",
+      "id": "shp-mw4gs32i0vnaz",
       "type": "shape",
       "master": "document",
       "name": "",
@@ -323,7 +323,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pla06b8n",
+      "id": "shp-mw4gs32i0voc3",
       "type": "shape",
       "master": "process",
       "name": "",
@@ -362,7 +362,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pla06c9i",
+      "id": "shp-mw4gs32i0vpmo",
       "type": "shape",
       "master": "process",
       "name": "",
@@ -401,7 +401,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pla06d5j",
+      "id": "shp-mw4gs32i0vqn8",
       "type": "shape",
       "master": "terminator",
       "name": "",
@@ -425,14 +425,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pla06efp",
+      "id": "con-mw4gs32i0vr7e",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pla066yw",
+       "id": "shp-mw4gs32i0vjaj",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pla067y6",
+       "id": "shp-mw4gs32i0vk1k",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -449,14 +449,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pla06fyy",
+      "id": "con-mw4gs32i0vs7l",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pla067y6",
+       "id": "shp-mw4gs32i0vk1k",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pla068q9",
+       "id": "shp-mw4gs32i0vlp9",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -473,14 +473,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pla06gws",
+      "id": "con-mw4gs32i0vtrj",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pla068q9",
+       "id": "shp-mw4gs32i0vlp9",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pla06928",
+       "id": "shp-mw4gs32i0vm7k",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -497,14 +497,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pla06hvj",
+      "id": "con-mw4gs32i0vud4",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pla068q9",
+       "id": "shp-mw4gs32i0vlp9",
        "pt": 3
       },
       "to": {
-       "id": "shp-mvb86pla066yw",
+       "id": "shp-mw4gs32i0vjaj",
        "pt": 2
       },
       "route": "orthogonal",
@@ -521,14 +521,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pla06iw3",
+      "id": "con-mw4gs32i0vvtv",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pla06928",
+       "id": "shp-mw4gs32i0vm7k",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pla06aeh",
+       "id": "shp-mw4gs32i0vnaz",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -545,14 +545,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pla06j5m",
+      "id": "con-mw4gs32i0vwgr",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pla06928",
+       "id": "shp-mw4gs32i0vm7k",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pla06b8n",
+       "id": "shp-mw4gs32i0voc3",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -569,14 +569,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pla06kas",
+      "id": "con-mw4gs32i0vx6q",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pla06b8n",
+       "id": "shp-mw4gs32i0voc3",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pla06c9i",
+       "id": "shp-mw4gs32i0vpmo",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -593,14 +593,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pla06l6g",
+      "id": "con-mw4gs32i0vyau",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pla06c9i",
+       "id": "shp-mw4gs32i0vpmo",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pla06d5j",
+       "id": "shp-mw4gs32i0vqn8",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -617,14 +617,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pla06mje",
+      "id": "con-mw4gs32i0vzno",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pla06aeh",
+       "id": "shp-mw4gs32i0vnaz",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pla06d5j",
+       "id": "shp-mw4gs32i0vqn8",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -644,7 +644,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86plb06oqj",
+      "id": "shp-mw4gs32i0w18h",
       "type": "shape",
       "master": "note",
       "name": "",
@@ -660,7 +660,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mvb86pla06nsy"
+       "layer-mw4gs32i0w0t2"
       ],
       "locked": {},
       "data": [],
@@ -672,7 +672,7 @@
     ]
    },
    {
-    "id": "page-mvb86plb06pqq",
+    "id": "page-mw4gs32i0w2oe",
     "name": "Organization",
     "paper": "custom",
     "orientation": "landscape",
@@ -680,7 +680,7 @@
     "height": 816,
     "autoSize": true,
     "background": false,
-    "backgroundId": "page-mvb86pla05z6q",
+    "backgroundId": "page-mw4gs32i0vc8v",
     "color": "",
     "grid": true,
     "gridSize": 0,
@@ -690,7 +690,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mvb86plb06qjx",
+      "id": "shp-mw4gs32i0w329",
       "type": "shape",
       "master": "orgExecutive",
       "name": "",
@@ -714,7 +714,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86plb06rko",
+      "id": "shp-mw4gs32i0w4rb",
       "type": "shape",
       "master": "orgManager",
       "name": "",
@@ -738,14 +738,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86plb06stb",
+      "id": "con-mw4gs32i0w5vd",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb06qjx",
+       "id": "shp-mw4gs32i0w329",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb06rko",
+       "id": "shp-mw4gs32i0w4rb",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -764,7 +764,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86plb06tiz",
+      "id": "shp-mw4gs32i0w6da",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -788,14 +788,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86plb06uur",
+      "id": "con-mw4gs32i0w7m3",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb06rko",
+       "id": "shp-mw4gs32i0w4rb",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb06tiz",
+       "id": "shp-mw4gs32i0w6da",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -814,7 +814,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86plb06v3u",
+      "id": "shp-mw4gs32i0w8rp",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -838,14 +838,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86plb06wsd",
+      "id": "con-mw4gs32i0w9hh",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb06rko",
+       "id": "shp-mw4gs32i0w4rb",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb06v3u",
+       "id": "shp-mw4gs32i0w8rp",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -864,7 +864,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86plb06xai",
+      "id": "shp-mw4gs32i0wasu",
       "type": "shape",
       "master": "orgManager",
       "name": "",
@@ -888,14 +888,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86plb06yyq",
+      "id": "con-mw4gs32i0wbeq",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb06qjx",
+       "id": "shp-mw4gs32i0w329",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb06xai",
+       "id": "shp-mw4gs32i0wasu",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -914,7 +914,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86plb06zmh",
+      "id": "shp-mw4gs32i0wcg6",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -938,14 +938,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86plb0706w",
+      "id": "con-mw4gs32i0wdfu",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb06xai",
+       "id": "shp-mw4gs32i0wasu",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb06zmh",
+       "id": "shp-mw4gs32i0wcg6",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -964,7 +964,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86plb07117",
+      "id": "shp-mw4gs32i0weeb",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -988,14 +988,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86plb072ep",
+      "id": "con-mw4gs32i0wfgy",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb06xai",
+       "id": "shp-mw4gs32i0wasu",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb07117",
+       "id": "shp-mw4gs32i0weeb",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1014,7 +1014,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86plb0730p",
+      "id": "shp-mw4gs32i0wgue",
       "type": "shape",
       "master": "orgManager",
       "name": "",
@@ -1038,14 +1038,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86plb07488",
+      "id": "con-mw4gs32i0wh3f",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb06qjx",
+       "id": "shp-mw4gs32i0w329",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb0730p",
+       "id": "shp-mw4gs32i0wgue",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1064,7 +1064,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86plb075ee",
+      "id": "shp-mw4gs32i0wip5",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -1088,14 +1088,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86plb076zw",
+      "id": "con-mw4gs32i0wj4r",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb0730p",
+       "id": "shp-mw4gs32i0wgue",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb075ee",
+       "id": "shp-mw4gs32i0wip5",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1116,7 +1116,7 @@
     ]
    },
    {
-    "id": "page-mvb86plb077nc",
+    "id": "page-mw4gs32i0wk2o",
     "name": "Servers",
     "paper": "custom",
     "orientation": "landscape",
@@ -1124,7 +1124,7 @@
     "height": 816,
     "autoSize": true,
     "background": false,
-    "backgroundId": "page-mvb86pla05z6q",
+    "backgroundId": "page-mw4gs32i0vc8v",
     "color": "",
     "grid": true,
     "gridSize": 0,
@@ -1134,7 +1134,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mvb86plb078n7",
+      "id": "shp-mw4gs32i0wla3",
       "type": "shape",
       "master": "cloudNet",
       "name": "",
@@ -1158,7 +1158,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86plb079ba",
+      "id": "shp-mw4gs32i0wmrx",
       "type": "shape",
       "master": "firewall",
       "name": "",
@@ -1182,7 +1182,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86plb07ahi",
+      "id": "shp-mw4gs32i0wnai",
       "type": "shape",
       "master": "router",
       "name": "",
@@ -1206,7 +1206,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86plb07bh7",
+      "id": "shp-mw4gs32i0woy2",
       "type": "shape",
       "master": "server",
       "name": "",
@@ -1234,11 +1234,11 @@
       ],
       "hyperlink": "",
       "comments": [],
-      "groupId": "grp-mvb86plb07k6d",
+      "groupId": "grp-mw4gs32i0wxvx",
       "showData": false
      },
      {
-      "id": "shp-mvb86plb07cwa",
+      "id": "shp-mw4gs32i0wpwl",
       "type": "shape",
       "master": "server",
       "name": "",
@@ -1266,11 +1266,11 @@
       ],
       "hyperlink": "",
       "comments": [],
-      "groupId": "grp-mvb86plb07k6d",
+      "groupId": "grp-mw4gs32i0wxvx",
       "showData": false
      },
      {
-      "id": "grp-mvb86plb07k6d",
+      "id": "grp-mw4gs32i0wxvx",
       "type": "group",
       "master": "group",
       "name": "",
@@ -1294,7 +1294,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86plb07dsl",
+      "id": "shp-mw4gs32i0wq0i",
       "type": "shape",
       "master": "dbServer",
       "name": "",
@@ -1326,14 +1326,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86plb07eh5",
+      "id": "con-mw4gs32i0wrs4",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb078n7",
+       "id": "shp-mw4gs32i0wla3",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb079ba",
+       "id": "shp-mw4gs32i0wmrx",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1352,14 +1352,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86plb07fmw",
+      "id": "con-mw4gs32i0wsho",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb079ba",
+       "id": "shp-mw4gs32i0wmrx",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb07ahi",
+       "id": "shp-mw4gs32i0wnai",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1378,14 +1378,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86plb07gb5",
+      "id": "con-mw4gs32i0wtsz",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb07ahi",
+       "id": "shp-mw4gs32i0wnai",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb07bh7",
+       "id": "shp-mw4gs32i0woy2",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1404,14 +1404,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86plb07ho8",
+      "id": "con-mw4gs32i0wuzl",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb07ahi",
+       "id": "shp-mw4gs32i0wnai",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb07cwa",
+       "id": "shp-mw4gs32i0wpwl",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1430,14 +1430,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86plb07ih5",
+      "id": "con-mw4gs32i0wvk0",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb07bh7",
+       "id": "shp-mw4gs32i0woy2",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb07dsl",
+       "id": "shp-mw4gs32i0wq0i",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1456,14 +1456,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86plb07jzw",
+      "id": "con-mw4gs32i0wwuh",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86plb07cwa",
+       "id": "shp-mw4gs32i0wpwl",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86plb07dsl",
+       "id": "shp-mw4gs32i0wq0i",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1484,7 +1484,7 @@
     ]
    },
    {
-    "id": "page-mvb86pla05z6q",
+    "id": "page-mw4gs32i0vc8v",
     "name": "Background",
     "paper": "custom",
     "orientation": "landscape",
@@ -1502,7 +1502,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mvb86pla060c5",
+      "id": "shp-mw4gs32i0vdi3",
       "type": "shape",
       "master": "rect",
       "name": "",
@@ -1530,7 +1530,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pla0615k",
+      "id": "shp-mw4gs32i0vety",
       "type": "shape",
       "master": "rect",
       "name": "",

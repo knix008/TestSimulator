@@ -2,6 +2,21 @@ import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { defineConfig } from 'vite';
 
+/** The JPEG 2000 decoder asks for Node's fs and path only when it runs under Node: in a web view they stay unused. */
+function noNodeModulesInDecoders() {
+  const EMPTY = '\0empty-node-module';
+  return {
+    name: 'no-node-modules-in-decoders',
+    enforce: 'pre',
+    resolveId(id, importer) {
+      return (id === 'fs' || id === 'path') && importer?.includes('codec-openjpeg') ? EMPTY : null;
+    },
+    load(id) {
+      return id === EMPTY ? 'export default {};' : null;
+    },
+  };
+}
+
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 const commit = (() => {
   try {
@@ -24,6 +39,10 @@ export default defineConfig({
   },
   server: { port: 1450, strictPort: true, watch: { ignored: ['**/src-tauri/**', '**/test-results/**', '**/docs/**', '**/samples/**'] } },
   // Only the app page is an entry (docs/*.html are standalone documents).
-  optimizeDeps: { entries: ['index.html'] },
-  build: { target: 'es2022', outDir: 'dist', emptyOutDir: true },
+  // The JPEG XL decoder finds its .wasm next to its module, which pre-bundling would break.
+  optimizeDeps: { entries: ['index.html'], exclude: ['@jsquash/jxl'], include: ['utif', 'libheif-js/wasm-bundle.js', '@cornerstonejs/codec-openjpeg/decode'] },
+  plugins: [noNodeModulesInDecoders()],
+  // The largest chunks are the picture decoders (HEIC 2 MB, JPEG 2000 0.5 MB), loaded only when such a
+  // file arrives. The limit stands just above them; the app's own chunks are well below 500 kB.
+  build: { target: 'es2022', outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 2100 },
 });

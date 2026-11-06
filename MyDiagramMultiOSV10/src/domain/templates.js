@@ -1,15 +1,15 @@
-// Templates (File › New, start page) and the sample drawings. Each template
-// opens the stencils that fit it in the Shapes panel and starts with a small
-// example drawing (except the blank one). The samples (samples/*.mdg and the
-// tutorial's drawing) are built here too, in Korean and English, with the same
-// edit functions the app uses.
+// Templates (File › New, start page) and the tutorial's sample drawing. Each
+// template opens the stencils that fit it in the Shapes panel and starts with a
+// small example drawing (except the blank one). The drawings are built in Korean
+// and English with the same edit functions the app uses; the rest of samples/*.mdg
+// is in samples.js.
 import { addLayer, addPage, addShape, createConnector, createDocument, createShape, groupShapes, normalizeData } from './diagram.js';
 import { layoutPage } from './layout.js';
 
-const L = (lang, ko, en) => (lang === 'en' ? en : ko);
+export const L = (lang, ko, en) => (lang === 'en' ? en : ko);
 
 /** A tiny drawing builder: add(master, x, y, text, extra) → shape; link(a, b, extra) → connector. */
-function builder(page) {
+export function builder(page) {
   return {
     page,
     add(master, x, y, text = '', extra = {}) { return addShape(page, createShape(master, { x, y, text, ...extra })); },
@@ -20,9 +20,9 @@ function builder(page) {
   };
 }
 
-const data = (pairs) => normalizeData(Object.entries(pairs).map(([key, value]) => ({ key, label: key, value: String(value), type: typeof value === 'number' ? 'number' : 'text' })));
+export const data = (pairs) => normalizeData(Object.entries(pairs).map(([key, value]) => ({ key, label: key, value: String(value), type: typeof value === 'number' ? 'number' : 'text' })));
 
-function newDoc(lang, title, design = 'office', paper = null) {
+export function newDoc(lang, title, design = 'office', paper = null) {
   const doc = createDocument({ title, language: lang, design, paper });
   return { doc, page: doc.pages[0], b: builder(doc.pages[0]) };
 }
@@ -86,7 +86,7 @@ function orgChart(lang) {
     for (const member of teams[i]) b.link(head, b.add('orgPosition', 0, 0, member), { style: { endArrow: 'none' } });
   });
   b.link(ceo, b.add('orgAssistant', 0, 0, L(lang, '비서실', 'Assistant')), { style: { endArrow: 'none' } });
-  layoutPage(page, { kind: 'treeTB', spacing: 36, origin: { x: 60, y: 60 } });
+  layoutPage(page, { kind: 'treeTB', spacing: 14, origin: { x: 40, y: 60 } });
   return doc;
 }
 
@@ -242,7 +242,7 @@ export function buildSample(lang = 'ko') {
   // Page 1: cross-functional flowchart with data.
   const b = builder(process);
   const lanes = [L(lang, '고객', 'Customer'), L(lang, '쇼핑몰', 'Shop'), L(lang, '물류 센터', 'Warehouse')];
-  lanes.forEach((name, i) => b.add('swimlane', 40, 70 + i * 165, name, { w: 1020, h: 165, qs: { color: [1, 5, 6][i] } }));
+  lanes.forEach((name, i) => b.add('swimlane', 40, 70 + i * 165, name, { w: 1010, h: 165, qs: { color: [1, 5, 6][i] } }));
   b.add('title', 40, 18, L(lang, '주문 처리 흐름', 'Order handling flow'), { w: 420 });
   const order = b.add('terminator', 110, 120, L(lang, '주문하기', 'Place order'), { data: data({ [L(lang, '담당', 'Owner')]: L(lang, '고객', 'Customer') }) });
   const pay = b.add('data', 290, 115, L(lang, '결제 정보', 'Payment details'));
@@ -293,11 +293,3 @@ export function buildSample(lang = 'ko') {
   return doc;
 }
 
-/** The samples written to samples/ (scripts/make-samples.mjs): file name stem → builder. */
-export const SAMPLE_FILES = {
-  'online-shop': (lang) => buildSample(lang),
-  'order-flowchart': (lang) => buildTemplate('flowchart', { language: lang }),
-  'company-org': (lang) => buildTemplate('orgChart', { language: lang }),
-  'office-network': (lang) => buildTemplate('network', { language: lang }),
-  'shop-database': (lang) => buildTemplate('erd', { language: lang }),
-};

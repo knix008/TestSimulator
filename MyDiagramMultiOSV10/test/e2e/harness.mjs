@@ -13,7 +13,8 @@ import { fileURLToPath } from 'node:url';
 import { listTargets, Page, sleep, waitTarget } from './cdp.mjs';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const exe = path.join(root, 'src-tauri', 'target', 'debug', process.platform === 'win32' ? 'mydiagram.exe' : 'mydiagram');
+// MYDIAGRAM_E2E_EXE: a build elsewhere, when the debug build is in use by a running app.
+const exe = process.env.MYDIAGRAM_E2E_EXE || path.join(root, 'src-tauri', 'target', 'debug', process.platform === 'win32' ? 'mydiagram.exe' : 'mydiagram');
 export const DEV_PORT = 1450;
 
 export function portOpen(port) {

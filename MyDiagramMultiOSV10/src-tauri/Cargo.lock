@@ -2386,13 +2386,12 @@ dependencies = [
 
 [[package]]
 name = "mydiagram"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "arboard",
  "base64 0.22.1",
  "fontdb",
  "postgresql_embedded",
- "rfd",
  "serde",
  "serde_json",
  "sqlx 0.8.6",

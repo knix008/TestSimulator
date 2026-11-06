@@ -5,9 +5,11 @@
 // and thumbnails. The drawing view uses the same functions, so what is on the
 // screen is what is exported. Pure: text is measured by a function passed in
 // (a canvas in the app, an estimate in Node).
+import { patternById, patternTile } from '../domain/patterns.js';
 import { DEG, rotatePoint } from '../domain/geometry.js';
 import { dashArray, designById, mix, pageColor, readableOn, resolveConnectorStyle, resolveShapeStyle } from '../domain/designs.js';
 import { drawingSize, findShape, isConnector, isGroup, layerState, pageById } from '../domain/diagram.js';
+import { pathBounds } from '../domain/path.js';
 import { routePage } from '../domain/routing.js';
 import { masterById, shapeParams } from '../domain/stencils.js';
 
@@ -139,6 +141,8 @@ function fillPaint(style, defs, key) {
     defs.push(`<linearGradient id="${id}" x1="${n(x1)}" y1="${n(y1)}" x2="${n(1 - x1)}" y2="${n(1 - y1)}"><stop offset="0" stop-color="${esc(c1)}"/><stop offset="1" stop-color="${esc(c2)}"/></linearGradient>`);
   } else if (pattern === 'radial') {
     defs.push(`<radialGradient id="${id}" cx="0.5" cy="0.45" r="0.65"><stop offset="0" stop-color="${esc(c1)}"/><stop offset="1" stop-color="${esc(c2)}"/></radialGradient>`);
+  } else if (patternById(pattern)) {
+    defs.push(patternTile(patternById(pattern), esc(c1), esc(c2), id));
   } else {
     const body = pattern === 'hatch' ? `<path d="M0 8L8 0M-2 2L2 -2M6 10L10 6" stroke="${esc(c2)}" stroke-width="1.4"/>`
       : pattern === 'cross' ? `<path d="M4 0V8M0 4H8" stroke="${esc(c2)}" stroke-width="1.2"/>`
@@ -149,6 +153,22 @@ function fillPaint(style, defs, key) {
 }
 
 // ───────────────────────── shapes
+
+/** The line and mark parts that lie entirely on the shape's filled parts. */
+function insideFill(parts, active) {
+  const inside = new Set();
+  if (!active) return inside;
+  const mains = parts.filter((part) => part.fill === 'main');
+  if (!mains.length) return inside;
+  const boxes = mains.map((part) => pathBounds(part.d));
+  const box = { x1: Math.min(...boxes.map((b) => b.x)), y1: Math.min(...boxes.map((b) => b.y)), x2: Math.max(...boxes.map((b) => b.x + b.w)), y2: Math.max(...boxes.map((b) => b.y + b.h)) };
+  for (const part of parts) {
+    if (part.fill !== 'none' && part.fill !== 'stroke') continue;
+    const b = pathBounds(part.d);
+    if (b.x >= box.x1 - 1 && b.y >= box.y1 - 1 && b.x + b.w <= box.x2 + 1 && b.y + b.h <= box.y2 + 1) inside.add(part);
+  }
+  return inside;
+}
 
 /** Text box of a shape in its own coordinates. */
 function textBoxOf(master, shape) {
@@ -211,6 +231,7 @@ export function shapeSvg(ctx, shape) {
   const base = style.fill && style.fill !== 'none' ? style.fill : null;
   const parts = master.id === 'image' ? [] : master.geometry(shape.w, shape.h, params, radius);
   const partFill = (part) => {
+    if (part.fill === 'color') return part.color;
     if (part.fill === 'main') return fill;
     if (part.fill === 'none') return 'none';
     if (part.fill === 'dark') return base ? mix(base, '#000000', 0.2) : 'none';
@@ -218,8 +239,16 @@ export function shapeSvg(ctx, shape) {
     if (part.fill === 'stroke') return stroke !== 'none' ? stroke : style.textColor;
     return 'none';
   };
+  // Lines and marks lying on the fill (the bars of a predefined process, a smiley's eyes) are drawn
+  // in a colour that stands out from the fill, unless the shape has a line colour of its own.
+  const onFill = insideFill(parts, base && !shape.style?.line && (style.fillOpacity ?? 100) >= 50);
+  const contrast = base ? readableOn(base) : null;
   const body = parts.map((part, i) => {
     const dashed = master.dashedLine && i > 0 ? ` stroke-dasharray="${dashArray('dash', Math.max(1, lw))}"` : '';
+    if (onFill.has(part)) {
+      const mark = part.fill === 'stroke' ? contrast : 'none';
+      return `<path class="inner-line" d="${part.d}" fill="${esc(mark)}" fill-rule="evenodd" stroke="${esc(contrast)}" stroke-width="${n(Math.max(lw, 1.2))}" stroke-linejoin="round" stroke-linecap="round"${dashed}/>`;
+    }
     const pf = partFill(part);
     return `<path d="${part.d}" fill="${esc(pf)}"${pf !== 'none' && part.fill === 'main' ? fillOpacity : ''} fill-rule="evenodd" ${strokeAttrs}${dashed}/>`;
   }).join('');

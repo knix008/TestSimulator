@@ -1,6 +1,7 @@
 // Platform boundary. The desktop app (Tauri) calls the Rust backend; the web
 // build uses browser APIs (File System Access when available, downloads
 // otherwise, IndexedDB for large data). Everything platform-specific is here.
+import { IMAGE_EXTENSIONS } from '../domain/image-formats.js';
 import { convertFileSrc, invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { emitTo as tauriEmitTo, listen as tauriListen } from '@tauri-apps/api/event';
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
@@ -81,8 +82,10 @@ export const SAVE_TYPES = {
   md: { name: 'Markdown (*.md)', extensions: ['md'] },
   docx: { name: 'Word (*.docx)', extensions: ['docx'] },
   pdf: { name: 'PDF (*.pdf)', extensions: ['pdf'] },
+  xlsx: { name: 'Excel (*.xlsx)', extensions: ['xlsx'] },
+  txt: { name: 'Text (*.txt)', extensions: ['txt'] },
 };
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'];
+
 
 // Tests answer the system file dialogs through these (E2E only; normal use never sets them).
 const testPick = (name) => {
@@ -149,6 +152,14 @@ export const dbList = (config) => invoke('db_list', { config });
 export const dbDelete = (config, id) => invoke('db_delete', { config, id });
 
 export const openDocument = (name) => (isDesktop() ? invoke('open_document', { name }) : Promise.resolve(globalThis.open(`./docs/${name}`, '_blank')));
+/** False in a further copy of the program running beside the first one. */
+export const isPrimaryCopy = () => (isDesktop() ? invoke('is_primary_copy') : Promise.resolve(true));
+/** The user's guide or the tutorial document: a window of its own on the desktop, a browser tab on the web. */
+export const openDocWindow = (doc, lang, dark) => (isDesktop() ? invoke('open_doc_window', { doc, lang, dark }) : Promise.resolve(globalThis.open(`./docs/${{ guide: 'UsersGuide', tutorial: 'Tutorial' }[doc]}${lang === 'en' ? '.en' : ''}.html`, `mydiagram-${doc}`)));
+/** Open document windows follow the theme's light or dark look (title bar, scroll bars). */
+export const setDocWindowsTheme = (dark) => (isDesktop() ? invoke('set_doc_windows_theme', { dark }) : Promise.resolve());
+/** Open document windows follow the main window's language. */
+export const setDocWindowsLanguage = (lang) => (isDesktop() ? invoke('set_doc_windows_language', { lang }) : Promise.resolve());
 export const openExternal = (target) => (isDesktop() ? invoke('open_external', { target }) : Promise.resolve(globalThis.open(target, '_blank', 'noopener')));
 export const sampleFiles = () => (isDesktop() ? invoke('sample_files') : Promise.resolve([]));
 

@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "template",
- "saved": "2026-10-16T17:12:20.494Z",
+ "saved": "2026-11-06T04:18:13.769Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mvb86pl8056ps",
+  "id": "dgm-mw4gs32h0ujuc",
   "title": "마인드맵",
   "subject": "",
   "author": "",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-10-16T17:12:20.492Z",
+  "created": "2026-11-06T04:18:13.769Z",
   "design": "bubble",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mvb86pl8057sz",
+    "id": "page-mw4gs32h0ukhl",
     "name": "페이지-1",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mvb86pl8058q1",
+      "id": "shp-mw4gs32h0ulxf",
       "type": "shape",
       "master": "centralTopic",
       "name": "",
@@ -75,7 +75,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pl8059vr",
+      "id": "shp-mw4gs32h0um1f",
       "type": "shape",
       "master": "mainTopic",
       "name": "",
@@ -101,14 +101,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pl805apf",
+      "id": "con-mw4gs32h0unpp",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pl8058q1",
+       "id": "shp-mw4gs32h0ulxf",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pl8059vr",
+       "id": "shp-mw4gs32h0um1f",
        "pt": "auto"
       },
       "route": "curved",
@@ -128,7 +128,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pl805bav",
+      "id": "shp-mw4gs32h0uoll",
       "type": "shape",
       "master": "subTopic",
       "name": "",
@@ -155,14 +155,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pl805cqd",
+      "id": "con-mw4gs32h0upff",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pl8059vr",
+       "id": "shp-mw4gs32h0um1f",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pl805bav",
+       "id": "shp-mw4gs32h0uoll",
        "pt": "auto"
       },
       "route": "curved",
@@ -181,7 +181,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pl805djm",
+      "id": "shp-mw4gs32h0uqjh",
       "type": "shape",
       "master": "subTopic",
       "name": "",
@@ -208,14 +208,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pl805ek0",
+      "id": "con-mw4gs32h0urwv",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pl8059vr",
+       "id": "shp-mw4gs32h0um1f",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pl805djm",
+       "id": "shp-mw4gs32h0uqjh",
        "pt": "auto"
       },
       "route": "curved",
@@ -234,7 +234,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pl805f8j",
+      "id": "shp-mw4gs32h0us8h",
       "type": "shape",
       "master": "mainTopic",
       "name": "",
@@ -260,14 +260,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pl805gdo",
+      "id": "con-mw4gs32h0utv8",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pl8058q1",
+       "id": "shp-mw4gs32h0ulxf",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pl805f8j",
+       "id": "shp-mw4gs32h0us8h",
        "pt": "auto"
       },
       "route": "curved",
@@ -287,7 +287,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pl805h2y",
+      "id": "shp-mw4gs32h0uuwy",
       "type": "shape",
       "master": "subTopic",
       "name": "",
@@ -314,14 +314,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pl805i0l",
+      "id": "con-mw4gs32h0uvik",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pl805f8j",
+       "id": "shp-mw4gs32h0us8h",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pl805h2y",
+       "id": "shp-mw4gs32h0uuwy",
        "pt": "auto"
       },
       "route": "curved",
@@ -340,7 +340,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pl805jpn",
+      "id": "shp-mw4gs32h0uwsl",
       "type": "shape",
       "master": "subTopic",
       "name": "",
@@ -367,14 +367,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pl805ku6",
+      "id": "con-mw4gs32h0uxac",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pl805f8j",
+       "id": "shp-mw4gs32h0us8h",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pl805jpn",
+       "id": "shp-mw4gs32h0uwsl",
        "pt": "auto"
       },
       "route": "curved",
@@ -393,7 +393,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pl805lqn",
+      "id": "shp-mw4gs32h0uyop",
       "type": "shape",
       "master": "mainTopic",
       "name": "",
@@ -419,14 +419,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pl805mqj",
+      "id": "con-mw4gs32h0uznx",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pl8058q1",
+       "id": "shp-mw4gs32h0ulxf",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pl805lqn",
+       "id": "shp-mw4gs32h0uyop",
        "pt": "auto"
       },
       "route": "curved",
@@ -446,7 +446,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pl805ncd",
+      "id": "shp-mw4gs32h0v00g",
       "type": "shape",
       "master": "subTopic",
       "name": "",
@@ -473,14 +473,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pl805ool",
+      "id": "con-mw4gs32h0v1pm",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pl805lqn",
+       "id": "shp-mw4gs32h0uyop",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pl805ncd",
+       "id": "shp-mw4gs32h0v00g",
        "pt": "auto"
       },
       "route": "curved",
@@ -499,7 +499,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pl805p9q",
+      "id": "shp-mw4gs32h0v2qr",
       "type": "shape",
       "master": "subTopic",
       "name": "",
@@ -526,14 +526,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pl805qsd",
+      "id": "con-mw4gs32h0v3vh",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pl805lqn",
+       "id": "shp-mw4gs32h0uyop",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pl805p9q",
+       "id": "shp-mw4gs32h0v2qr",
        "pt": "auto"
       },
       "route": "curved",
@@ -552,7 +552,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pl805ri3",
+      "id": "shp-mw4gs32h0v4sx",
       "type": "shape",
       "master": "mainTopic",
       "name": "",
@@ -578,14 +578,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pl805szs",
+      "id": "con-mw4gs32h0v5o0",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pl8058q1",
+       "id": "shp-mw4gs32h0ulxf",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pl805ri3",
+       "id": "shp-mw4gs32h0v4sx",
        "pt": "auto"
       },
       "route": "curved",
@@ -605,7 +605,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pl805tmm",
+      "id": "shp-mw4gs32h0v61w",
       "type": "shape",
       "master": "subTopic",
       "name": "",
@@ -632,14 +632,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pl805uei",
+      "id": "con-mw4gs32h0v7u3",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pl805ri3",
+       "id": "shp-mw4gs32h0v4sx",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pl805tmm",
+       "id": "shp-mw4gs32h0v61w",
        "pt": "auto"
       },
       "route": "curved",
@@ -658,7 +658,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pl805v3h",
+      "id": "shp-mw4gs32h0v8zl",
       "type": "shape",
       "master": "subTopic",
       "name": "",
@@ -685,14 +685,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pl805wnq",
+      "id": "con-mw4gs32h0v95f",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pl805ri3",
+       "id": "shp-mw4gs32h0v4sx",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pl805v3h",
+       "id": "shp-mw4gs32h0v8zl",
        "pt": "auto"
       },
       "route": "curved",

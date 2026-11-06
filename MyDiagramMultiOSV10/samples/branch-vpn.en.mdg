@@ -1,0 +1,1943 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-06T04:18:13.790Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mw4gs3311bevw",
+  "title": "Head Office & Branch VPN",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-06T04:18:13.789Z",
+  "design": "integral",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mw4gs3311bf5w",
+    "name": "Overview",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs3311bga3",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Head Office & Branch VPN",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311bhcr",
+      "type": "shape",
+      "master": "groupFrame",
+      "name": "",
+      "x": 50,
+      "y": 110,
+      "w": 300,
+      "h": 560,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Head office (Seoul)",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311bi4b",
+      "type": "shape",
+      "master": "groupFrame",
+      "name": "",
+      "x": 700,
+      "y": 90,
+      "w": 300,
+      "h": 280,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Branch (Busan)",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311bjej",
+      "type": "shape",
+      "master": "groupFrame",
+      "name": "",
+      "x": 700,
+      "y": 410,
+      "w": 300,
+      "h": 280,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Branch (Daejeon)",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311bklo",
+      "type": "shape",
+      "master": "cloudNet",
+      "name": "",
+      "x": 445,
+      "y": 310,
+      "w": 160,
+      "h": 100,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Internet",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311bl3z",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 155,
+      "y": 180,
+      "w": 90,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "203.0.113.1",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311bm4o",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 208,
+      "y": 252,
+      "w": 130,
+      "h": 22,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Firewall",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311bnyw",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 145,
+      "y": 340,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311bop4",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 208,
+      "y": 392,
+      "w": 130,
+      "h": 22,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Core switch",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311bpfr",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 170,
+      "y": 490,
+      "w": 60,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Company server",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.1.0.10",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311bq01",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 750,
+      "y": 160,
+      "w": 90,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Firewall",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "198.51.100.2",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311brwx",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 880,
+      "y": 155,
+      "w": 90,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Office PC",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311bsnd",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 750,
+      "y": 480,
+      "w": 90,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Firewall",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "198.51.100.3",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311btv0",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 880,
+      "y": 475,
+      "w": 90,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Office PC",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3311bu8l",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311bl3z",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3311bnyw",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3311bv8v",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311bnyw",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3311bpfr",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3311bwbi",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311bq01",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs3311brwx",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3311bx9g",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311bsnd",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs3311btv0",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3311by3n",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311bl3z",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3311bklo",
+       "pt": 3
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "IPsec VPN",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3311bzce",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311bklo",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3311bq01",
+       "pt": 3
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3311c0sm",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311bklo",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3311bsnd",
+       "pt": 3
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3311c1qu",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 610,
+      "y": 325,
+      "w": 80,
+      "h": 24,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "IPsec VPN",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   },
+   {
+    "id": "page-mw4gs3311c225",
+    "name": "Head office LAN",
+    "paper": "custom",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs3311c38o",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Head office LAN (10.1.0.0/16)",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311c4ov",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 480,
+      "y": 90,
+      "w": 90,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311c5hy",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 533,
+      "y": 162,
+      "w": 130,
+      "h": 22,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Firewall",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311c6dp",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 470,
+      "y": 230,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311c7uy",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 533,
+      "y": 282,
+      "w": 130,
+      "h": 22,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Core switch",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311c836",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 170,
+      "y": 380,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311c9cd",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 233,
+      "y": 432,
+      "w": 130,
+      "h": 22,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "1st floor switch",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311ca9n",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 760,
+      "y": 380,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311cbg9",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 823,
+      "y": 432,
+      "w": 130,
+      "h": 22,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "2nd floor switch",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3311ccb5",
+      "type": "shape",
+      "master": "rack",
+      "name": "",
+      "x": 490,
+      "y": 370,
+      "w": 70,
+      "h": 120,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Server rack",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.1.0.0/24",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3311cd0w",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311c4ov",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3311c6dp",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3311ce8w",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311c6dp",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs3311c836",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3311cfxu",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311c6dp",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs3311ca9n",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3311cgwl",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311c6dp",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3311ccb5",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3311ch0n",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 60,
+      "y": 560,
+      "w": 90,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Sales PC",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.1.1.11",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3311cis5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311c836",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3311ch0n",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3311cj5y",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 190,
+      "y": 560,
+      "w": 90,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Finance PC",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.1.1.12",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3311ck5k",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311c836",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3311cj5y",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3311clkk",
+      "type": "shape",
+      "master": "printer",
+      "name": "",
+      "x": 320,
+      "y": 560,
+      "w": 90,
+      "h": 75,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Printer",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.1.1.50",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3311cm2x",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311c836",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3311clkk",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3311cn8z",
+      "type": "shape",
+      "master": "laptop",
+      "name": "",
+      "x": 640,
+      "y": 560,
+      "w": 100,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Dev laptop",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.1.2.11",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3311co7g",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311ca9n",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3311cn8z",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3311cp1l",
+      "type": "shape",
+      "master": "wirelessAp",
+      "name": "",
+      "x": 780,
+      "y": 560,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Wireless AP",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.1.2.2",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3311cq2c",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311ca9n",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3311cp1l",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3311crbr",
+      "type": "shape",
+      "master": "monitor",
+      "name": "",
+      "x": 900,
+      "y": 560,
+      "w": 90,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Meeting room",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.1.2.30",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3311cszt",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3311ca9n",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3311crbr",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   },
+   {
+    "id": "page-mw4gs3321ctzs",
+    "name": "Branch LAN",
+    "paper": "custom",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs3321cu8n",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Branch LAN (10.2.0.0/16)",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3321cvvq",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 480,
+      "y": 100,
+      "w": 90,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3321cwpj",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 533,
+      "y": 172,
+      "w": 130,
+      "h": 22,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Firewall",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3321cxzg",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 470,
+      "y": 260,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3321cy89",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 533,
+      "y": 312,
+      "w": 130,
+      "h": 22,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Switch",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3321czoy",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3321cvvq",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3321cxzg",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3321d023",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 170,
+      "y": 440,
+      "w": 90,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Sales PC",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.2.0.11",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3321d1x2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3321cxzg",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3321d023",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3321d2yg",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 330,
+      "y": 440,
+      "w": 90,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Support PC",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.2.0.12",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3321d38p",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3321cxzg",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3321d2yg",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3321d4ug",
+      "type": "shape",
+      "master": "printer",
+      "name": "",
+      "x": 490,
+      "y": 440,
+      "w": 90,
+      "h": 75,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Printer",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.2.0.50",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3321d5dv",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3321cxzg",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3321d4ug",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3321d60a",
+      "type": "shape",
+      "master": "wirelessAp",
+      "name": "",
+      "x": 640,
+      "y": 440,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Wireless AP",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.2.0.2",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3321d7ps",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3321cxzg",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3321d60a",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3321d82n",
+      "type": "shape",
+      "master": "storage",
+      "name": "",
+      "x": 780,
+      "y": 440,
+      "w": 80,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "NAS",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.2.0.60",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3321d9q2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3321cxzg",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3321d82n",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network",
+   "containers",
+   "basic"
+  ]
+ }
+}

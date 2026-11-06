@@ -1,0 +1,533 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-06T04:18:13.724Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mw4gs3180aqqo",
+  "title": "로그인 시퀀스",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-06T04:18:13.724Z",
+  "design": "linear",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mw4gs3180ark2",
+    "name": "로그인 시퀀스",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs3180asy6",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "로그인 시퀀스",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3180at62",
+      "type": "shape",
+      "master": "umlLifeline",
+      "name": "",
+      "x": 60,
+      "y": 80,
+      "w": 150,
+      "h": 680,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "브라우저",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false,
+      "points": [
+       [
+        0.5,
+        0.11
+       ],
+       [
+        0.5,
+        0.225
+       ],
+       [
+        0.5,
+        0.34
+       ],
+       [
+        0.5,
+        0.455
+       ],
+       [
+        0.5,
+        0.5700000000000001
+       ],
+       [
+        0.5,
+        0.685
+       ],
+       [
+        0.5,
+        0.8
+       ],
+       [
+        0.5,
+        0.915
+       ]
+      ]
+     },
+     {
+      "id": "shp-mw4gs3180augm",
+      "type": "shape",
+      "master": "umlLifeline",
+      "name": "",
+      "x": 320,
+      "y": 80,
+      "w": 150,
+      "h": 680,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "웹 서버",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false,
+      "points": [
+       [
+        0.5,
+        0.11
+       ],
+       [
+        0.5,
+        0.225
+       ],
+       [
+        0.5,
+        0.34
+       ],
+       [
+        0.5,
+        0.455
+       ],
+       [
+        0.5,
+        0.5700000000000001
+       ],
+       [
+        0.5,
+        0.685
+       ],
+       [
+        0.5,
+        0.8
+       ],
+       [
+        0.5,
+        0.915
+       ]
+      ]
+     },
+     {
+      "id": "shp-mw4gs3180av9w",
+      "type": "shape",
+      "master": "umlLifeline",
+      "name": "",
+      "x": 580,
+      "y": 80,
+      "w": 150,
+      "h": 680,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "인증 서비스",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false,
+      "points": [
+       [
+        0.5,
+        0.11
+       ],
+       [
+        0.5,
+        0.225
+       ],
+       [
+        0.5,
+        0.34
+       ],
+       [
+        0.5,
+        0.455
+       ],
+       [
+        0.5,
+        0.5700000000000001
+       ],
+       [
+        0.5,
+        0.685
+       ],
+       [
+        0.5,
+        0.8
+       ],
+       [
+        0.5,
+        0.915
+       ]
+      ]
+     },
+     {
+      "id": "shp-mw4gs3180awrw",
+      "type": "shape",
+      "master": "umlLifeline",
+      "name": "",
+      "x": 840,
+      "y": 80,
+      "w": 150,
+      "h": 680,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "데이터베이스",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false,
+      "points": [
+       [
+        0.5,
+        0.11
+       ],
+       [
+        0.5,
+        0.225
+       ],
+       [
+        0.5,
+        0.34
+       ],
+       [
+        0.5,
+        0.455
+       ],
+       [
+        0.5,
+        0.5700000000000001
+       ],
+       [
+        0.5,
+        0.685
+       ],
+       [
+        0.5,
+        0.8
+       ],
+       [
+        0.5,
+        0.915
+       ]
+      ]
+     },
+     {
+      "id": "con-mw4gs3180axpi",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3180at62",
+       "pt": 0
+      },
+      "to": {
+       "id": "shp-mw4gs3180augm",
+       "pt": 0
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "1. 로그인 요청",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3180aymg",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3180augm",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3180av9w",
+       "pt": 1
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "2. 자격 확인",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3180azln",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3180av9w",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3180awrw",
+       "pt": 2
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "3. 사용자 조회",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3180b0di",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3180awrw",
+       "pt": 3
+      },
+      "to": {
+       "id": "shp-mw4gs3180av9w",
+       "pt": 3
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "4. 사용자 정보",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3180b1s4",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3180av9w",
+       "pt": 4
+      },
+      "to": {
+       "id": "shp-mw4gs3180augm",
+       "pt": 4
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "5. 토큰 발급",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3180b2sh",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3180augm",
+       "pt": 5
+      },
+      "to": {
+       "id": "shp-mw4gs3180at62",
+       "pt": 5
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "6. 세션 쿠키",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3180b3ue",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3180at62",
+       "pt": 6
+      },
+      "to": {
+       "id": "shp-mw4gs3180augm",
+       "pt": 6
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "7. 홈 화면 요청",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3180b4it",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3180augm",
+       "pt": 7
+      },
+      "to": {
+       "id": "shp-mw4gs3180at62",
+       "pt": 7
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "8. 홈 화면",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "uml",
+   "callouts"
+  ]
+ }
+}

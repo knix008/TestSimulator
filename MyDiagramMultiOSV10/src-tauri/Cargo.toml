@@ -1,6 +1,6 @@
 [package]
 name = "mydiagram"
-version = "1.0.0"
+version = "1.0.1"
 description = "Cross-platform diagramming (Microsoft Visio style)"
 authors = ["SHKWON <knix008@naver.com>"]
 edition = "2021"
@@ -22,8 +22,6 @@ serde_json = "1"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "any", "mysql", "postgres", "sqlite"] }
 tauri = { version = "2", features = ["protocol-asset", "macos-private-api"] }
 tauri-plugin-dialog = "2"
-# The "already running" message, shown before the app (and its event loop) starts.
-rfd = { version = "0.16", default-features = false, features = ["gtk3", "common-controls-v6"] }
 
 [dev-dependencies]
 tempfile = "3"

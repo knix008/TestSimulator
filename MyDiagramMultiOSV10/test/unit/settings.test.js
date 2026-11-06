@@ -60,7 +60,7 @@ test('normalizeSettings repairs choices, booleans and text', () => {
   }, 'ko');
   assert.deepEqual(
     [bad.theme, bad.fontWeight, bad.fontStyle, bad.backgroundKind, bad.animation, bad.backgroundFit, bad.defaultView, bad.gridSize, bad.stencilSize, bad.defaultDesign, bad.defaultPaper, bad.defaultOrientation, bad.defaultUnits, bad.defaultRoute, bad.openStencils, bad.fontFamily, bad.backgroundImage, bad.lastDirectory, bad.showRulers],
-    [base.theme, base.fontWeight, base.fontStyle, base.backgroundKind, base.animation, base.backgroundFit, 'drawing', 'normal', 'medium', 'office', 'A4', 'landscape', 'mm', 'orthogonal', base.openStencils, '', null, null, true],
+    [base.theme, base.fontWeight, base.fontStyle, base.backgroundKind, base.animation, base.backgroundFit, 'drawing', 'normal', 'small', 'office', 'A4', 'landscape', 'mm', 'orthogonal', base.openStencils, '', null, null, true],
   );
   const good = S.normalizeSettings({
     theme: THEME_IDS[3], fontWeight: 600, defaultView: 'reports', gridSize: 'fine', stencilSize: 'small', defaultDesign: 'midnight', defaultPaper: 'Letter', defaultOrientation: 'portrait',

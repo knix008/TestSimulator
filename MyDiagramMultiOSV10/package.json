@@ -2,7 +2,7 @@
   "name": "mydiagram",
   "productName": "MyDiagram",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Diagramming (Microsoft Visio style) for Web, Windows, macOS and Linux (Tauri) — stencils, connectors, themes, pages and layers, shape data, reports, Visio import/export",
   "author": "SHKWON <knix008@naver.com>",
   "type": "module",
@@ -28,8 +28,12 @@
     "samples": "node scripts/make-samples.mjs"
   },
   "dependencies": {
+    "@cornerstonejs/codec-openjpeg": "^1.3.6",
+    "@jsquash/jxl": "^1.3.0",
     "@tauri-apps/api": "^2.8.0",
-    "@tauri-apps/plugin-dialog": "^2.4.0"
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "libheif-js": "^1.23.5",
+    "utif": "^3.1.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.8.0",

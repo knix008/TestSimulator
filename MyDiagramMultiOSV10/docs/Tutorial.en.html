@@ -32,7 +32,18 @@ a:hover { text-decoration: underline; }
 }
 .topbar .brand { font-weight: 700; color: var(--text); }
 .topbar .grow { flex: 1; }
-.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.doc-font { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.doc-font button { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; line-height: 1; cursor: pointer; }
+.doc-font button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.doc-font button:disabled { opacity: .4; cursor: default; }
+.doc-font output { min-width: 26px; text-align: center; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.doc-lang { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.doc-lang a { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; font-size: 13px; color: var(--text); }
+.doc-lang a:hover { text-decoration: none; background: var(--accent-soft); }
+.doc-lang a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; cursor: default; }
+.doc-lang .flag { width: 21px; height: 14px; flex: none; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); }
+main, nav.toc { zoom: var(--doc-zoom, 1); }
+@media (max-width: 700px) { .doc-font-label, .topbar .brand { display: none; } }
 .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
 nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
 nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
@@ -78,14 +89,37 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 </style>
 </head>
 <body>
-<header class="topbar"><span class="brand">MyDiagram <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="Tutorial.html" hreflang="ko">한국어</a></header>
+<header class="topbar"><span class="brand">MyDiagram <small>v1.0.1</small></span><span class="grow"></span><div class="doc-font" role="group" aria-label="Font size" title="Font size"><span class="doc-font-label">Font size</span><button type="button" id="doc-font-down" title="Smaller text" aria-label="Smaller text">−</button><output id="doc-font-value">16</output><button type="button" id="doc-font-up" title="Larger text" aria-label="Larger text">+</button></div>
+<nav class="doc-lang" aria-label="Language"><a href="Tutorial.html" hreflang="ko" class="" title="한국어" ><svg class="flag" viewBox="-36 -24 72 48" aria-hidden="true">
+  <rect x="-36" y="-24" width="72" height="48" fill="#fff"/>
+  <g transform="rotate(-56.31)">
+    <g id="flag-kr-bars"><path id="flag-kr-bar" d="M-6-25H6M-6-22H6M-6-19H6" stroke="#000" stroke-width="2"/><use href="#flag-kr-bar" y="44"/></g>
+    <path d="M0 17v10" stroke="#fff"/>
+    <circle r="12" fill="#cd2e3a"/>
+    <path d="M0-12A6 6 0 0 0 0 0a6 6 0 0 1 0 12 12 12 0 0 1 0-24z" fill="#0047a0"/>
+  </g>
+  <g transform="rotate(-123.69)">
+    <use href="#flag-kr-bars"/>
+    <path d="M0-23.5v3M0 17v3.5M0 23.5v3" stroke="#fff"/>
+  </g>
+</svg><span>한국어</span></a><a href="#" hreflang="en" class="active" title="English" aria-current="true"><svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <clipPath id="flag-uk-clip"><path d="M0 0v30h60V0z"/></clipPath>
+  <clipPath id="flag-uk-diag"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath>
+  <g clip-path="url(#flag-uk-clip)">
+    <path d="M0 0v30h60V0z" fill="#012169"/>
+    <path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/>
+    <path d="M0 0l60 30m0-30L0 30" clip-path="url(#flag-uk-diag)" stroke="#C8102E" stroke-width="4"/>
+    <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+    <path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/>
+  </g>
+</svg><span>English</span></a></nav></header>
 <div class="layout">
-<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#running-the-tutorial">Running the tutorial</a></li><li class="h2"><a href="#contents">Contents</a></li><li class="h2"><a href="#1-getting-started">1. Getting started</a></li><li class="h3"><a href="#1-welcome-to-mydiagram">1. Welcome to MyDiagram</a></li><li class="h3"><a href="#2-the-home-button">2. The Home button</a></li><li class="h3"><a href="#3-creating-a-drawing">3. Creating a drawing</a></li><li class="h3"><a href="#4-recent-files-and-folders">4. Recent files and folders</a></li><li class="h3"><a href="#5-moving-background">5. Moving background</a></li><li class="h2"><a href="#2-drawing-shapes">2. Drawing shapes</a></li><li class="h3"><a href="#6-the-sample-drawing">6. The sample drawing</a></li><li class="h3"><a href="#7-the-window">7. The window</a></li><li class="h3"><a href="#8-the-shapes-panel-and-stencils">8. The Shapes panel and stencils</a></li><li class="h3"><a href="#9-placing-shapes">9. Placing shapes</a></li><li class="h3"><a href="#10-searching-shapes">10. Searching shapes</a></li><li class="h3"><a href="#11-drawing-tools">11. Drawing tools</a></li><li class="h3"><a href="#12-typing-text">12. Typing text</a></li><li class="h3"><a href="#13-moving-sizing-rotating">13. Moving, sizing, rotating</a></li><li class="h3"><a href="#14-undo-and-redo">14. Undo and redo</a></li><li class="h2"><a href="#3-connecting">3. Connecting</a></li><li class="h3"><a href="#15-drawing-connectors">15. Drawing connectors</a></li><li class="h3"><a href="#16-autoconnect">16. AutoConnect</a></li><li class="h3"><a href="#17-connector-styles">17. Connector styles</a></li><li class="h3"><a href="#18-connection-points-and-glue">18. Connection points and glue</a></li><li class="h2"><a href="#4-formatting">4. Formatting</a></li><li class="h3"><a href="#19-the-properties-panel">19. The properties panel</a></li><li class="h3"><a href="#20-quick-styles">20. Quick styles</a></li><li class="h3"><a href="#21-format-shape">21. Format shape</a></li><li class="h3"><a href="#22-themes-and-variants">22. Themes and variants</a></li><li class="h3"><a href="#23-format-painter">23. Format painter</a></li><li class="h2"><a href="#5-arranging">5. Arranging</a></li><li class="h3"><a href="#24-align-and-distribute">24. Align and distribute</a></li><li class="h3"><a href="#25-grouping">25. Grouping</a></li><li class="h3"><a href="#26-automatic-layout">26. Automatic layout</a></li><li class="h3"><a href="#27-rotating-and-flipping">27. Rotating and flipping</a></li><li class="h2"><a href="#6-pages--layers">6. Pages &amp; layers</a></li><li class="h3"><a href="#28-several-pages">28. Several pages</a></li><li class="h3"><a href="#29-background-pages">29. Background pages</a></li><li class="h3"><a href="#30-layers">30. Layers</a></li><li class="h3"><a href="#31-page-setup">31. Page setup</a></li><li class="h3"><a href="#32-pages-view">32. Pages view</a></li><li class="h2"><a href="#7-data--reports">7. Data &amp; reports</a></li><li class="h3"><a href="#33-shape-data">33. Shape data</a></li><li class="h3"><a href="#34-data-graphics">34. Data graphics</a></li><li class="h3"><a href="#35-the-shape-data-table">35. The shape data table</a></li><li class="h3"><a href="#36-org-chart-from-data">36. Org chart from data</a></li><li class="h3"><a href="#37-reports">37. Reports</a></li><li class="h3"><a href="#38-shape-sheet">38. Shape sheet</a></li><li class="h2"><a href="#8-files--printing">8. Files &amp; printing</a></li><li class="h3"><a href="#39-the-file-menu">39. The File menu</a></li><li class="h3"><a href="#40-working-with-visio">40. Working with Visio</a></li><li class="h3"><a href="#41-printing-and-preview">41. Printing and preview</a></li><li class="h3"><a href="#42-a-page-as-a-picture">42. A page as a picture</a></li><li class="h3"><a href="#43-keeping-drawings-in-a-database">43. Keeping drawings in a database</a></li><li class="h3"><a href="#44-managing-recent-files">44. Managing recent files</a></li><li class="h3"><a href="#45-drag-and-drop">45. Drag and drop</a></li><li class="h2"><a href="#9-customizing">9. Customizing</a></li><li class="h3"><a href="#46-themes">46. Themes</a></li><li class="h3"><a href="#47-language">47. Language</a></li><li class="h3"><a href="#48-collapsing-panels">48. Collapsing panels</a></li><li class="h3"><a href="#49-pan--zoom-window">49. Pan &amp; zoom window</a></li><li class="h3"><a href="#50-settings">50. Settings</a></li><li class="h3"><a href="#51-status-bar">51. Status bar</a></li><li class="h2"><a href="#10-help">10. Help</a></li><li class="h3"><a href="#52-presentation-mode">52. Presentation mode</a></li><li class="h3"><a href="#53-keyboard-shortcuts">53. Keyboard shortcuts</a></li><li class="h3"><a href="#54-about">54. About</a></li><li class="h3"><a href="#55-reading-the-tutorial-document">55. Reading the tutorial document</a></li><li class="h3"><a href="#56-thats-the-tour">56. That&#39;s the tour</a></li></ul></nav>
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#running-the-tutorial">Running the tutorial</a></li><li class="h2"><a href="#contents">Contents</a></li><li class="h2"><a href="#1-getting-started">1. Getting started</a></li><li class="h3"><a href="#1-welcome-to-mydiagram">1. Welcome to MyDiagram</a></li><li class="h3"><a href="#2-the-home-button">2. The Home button</a></li><li class="h3"><a href="#3-creating-a-drawing">3. Creating a drawing</a></li><li class="h3"><a href="#4-recent-files-and-folders">4. Recent files and folders</a></li><li class="h3"><a href="#5-moving-and-resizing-cards">5. Moving and resizing cards</a></li><li class="h3"><a href="#6-sample-drawings">6. Sample drawings</a></li><li class="h3"><a href="#7-moving-background">7. Moving background</a></li><li class="h2"><a href="#2-drawing-shapes">2. Drawing shapes</a></li><li class="h3"><a href="#8-the-sample-drawing">8. The sample drawing</a></li><li class="h3"><a href="#9-the-window">9. The window</a></li><li class="h3"><a href="#10-the-shapes-panel-and-stencils">10. The Shapes panel and stencils</a></li><li class="h3"><a href="#11-placing-shapes">11. Placing shapes</a></li><li class="h3"><a href="#13-searching-shapes">13. Searching shapes</a></li><li class="h3"><a href="#14-choosing-stencils">14. Choosing stencils</a></li><li class="h3"><a href="#15-seeing-the-rotation-angle">15. Seeing the rotation angle</a></li><li class="h3"><a href="#16-drawing-tools">16. Drawing tools</a></li><li class="h3"><a href="#17-typing-text">17. Typing text</a></li><li class="h3"><a href="#18-moving-sizing-rotating">18. Moving, sizing, rotating</a></li><li class="h3"><a href="#19-undo-and-redo">19. Undo and redo</a></li><li class="h2"><a href="#3-connecting">3. Connecting</a></li><li class="h3"><a href="#12-straight-lines-with-shift">12. Straight lines with Shift</a></li><li class="h3"><a href="#20-drawing-connectors">20. Drawing connectors</a></li><li class="h3"><a href="#21-autoconnect">21. AutoConnect</a></li><li class="h3"><a href="#22-connector-styles">22. Connector styles</a></li><li class="h3"><a href="#23-connection-points-and-glue">23. Connection points and glue</a></li><li class="h2"><a href="#4-formatting">4. Formatting</a></li><li class="h3"><a href="#24-the-properties-panel">24. The properties panel</a></li><li class="h3"><a href="#25-quick-styles">25. Quick styles</a></li><li class="h3"><a href="#26-format-shape">26. Format shape</a></li><li class="h3"><a href="#27-themes-and-variants">27. Themes and variants</a></li><li class="h3"><a href="#28-format-painter">28. Format painter</a></li><li class="h3"><a href="#29-fill-and-pastel-colours">29. Fill and pastel colours</a></li><li class="h2"><a href="#5-arranging">5. Arranging</a></li><li class="h3"><a href="#30-align-and-distribute">30. Align and distribute</a></li><li class="h3"><a href="#31-grouping">31. Grouping</a></li><li class="h3"><a href="#32-automatic-layout">32. Automatic layout</a></li><li class="h3"><a href="#33-rotating-and-flipping">33. Rotating and flipping</a></li><li class="h3"><a href="#34-converting-to-a-fishbone">34. Converting to a fishbone</a></li><li class="h2"><a href="#6-pages--layers">6. Pages &amp; layers</a></li><li class="h3"><a href="#35-several-pages">35. Several pages</a></li><li class="h3"><a href="#36-background-pages">36. Background pages</a></li><li class="h3"><a href="#37-layers">37. Layers</a></li><li class="h3"><a href="#38-page-setup">38. Page setup</a></li><li class="h3"><a href="#39-pages-view">39. Pages view</a></li><li class="h2"><a href="#7-data--reports">7. Data &amp; reports</a></li><li class="h3"><a href="#40-shape-data">40. Shape data</a></li><li class="h3"><a href="#41-data-graphics">41. Data graphics</a></li><li class="h3"><a href="#42-the-shape-data-table">42. The shape data table</a></li><li class="h3"><a href="#43-org-chart-from-data">43. Org chart from data</a></li><li class="h3"><a href="#44-reports">44. Reports</a></li><li class="h3"><a href="#45-shape-sheet">45. Shape sheet</a></li><li class="h2"><a href="#8-files--printing">8. Files &amp; printing</a></li><li class="h3"><a href="#46-the-file-menu">46. The File menu</a></li><li class="h3"><a href="#47-working-with-visio">47. Working with Visio</a></li><li class="h3"><a href="#48-printing-and-preview">48. Printing and preview</a></li><li class="h3"><a href="#49-a-page-as-a-picture">49. A page as a picture</a></li><li class="h3"><a href="#50-keeping-drawings-in-a-database">50. Keeping drawings in a database</a></li><li class="h3"><a href="#51-managing-recent-files">51. Managing recent files</a></li><li class="h3"><a href="#52-drag-and-drop">52. Drag and drop</a></li><li class="h3"><a href="#53-dropping-pictures">53. Dropping pictures</a></li><li class="h2"><a href="#9-customizing">9. Customizing</a></li><li class="h3"><a href="#54-themes">54. Themes</a></li><li class="h3"><a href="#55-language">55. Language</a></li><li class="h3"><a href="#56-collapsing-panels">56. Collapsing panels</a></li><li class="h3"><a href="#57-pan--zoom-window">57. Pan &amp; zoom window</a></li><li class="h3"><a href="#58-settings">58. Settings</a></li><li class="h3"><a href="#59-status-bar">59. Status bar</a></li><li class="h2"><a href="#10-help">10. Help</a></li><li class="h3"><a href="#60-presentation-mode">60. Presentation mode</a></li><li class="h3"><a href="#61-keyboard-shortcuts">61. Keyboard shortcuts</a></li><li class="h3"><a href="#62-about">62. About</a></li><li class="h3"><a href="#63-reading-the-tutorial-document">63. Reading the tutorial document</a></li><li class="h3"><a href="#64-thats-the-tour">64. That&#39;s the tour</a></li></ul></nav>
 <main>
 <h1 id="mydiagram-tutorial">MyDiagram tutorial</h1>
 <p>This document follows the in-app <strong>Tutorial</strong> step by step, with a screenshot of each step taken from the real app (<code>npm run tutorial:docs</code> makes them again).</p>
 <h2 id="running-the-tutorial">Running the tutorial <a class="anchor" href="#running-the-tutorial" aria-hidden="true">#</a></h2>
-<ul><li><strong>Start page › Start tutorial</strong>, the <strong>Tutorial</strong> toolbar button, <strong>Help › Tutorial</strong> or <strong>F11</strong>.</li><li>In the card: <strong>Next / Previous</strong> one step at a time, <strong>Auto play</strong> to the end, the chapter list to jump to a chapter, <strong>✕</strong> or <strong>Esc</strong> to stop at any time.</li><li>The tutorial works only in its own sample tab. Your open drawings are not changed, and the theme, language and view settings it changes are put back when it ends.</li><li>A recording of the whole tour is <code>MyDiagram-Tutorial.mp4</code> in the project root, made with <code>npm run tutorial:video</code> (needs ffmpeg). That file is not committed.</li></ul>
+<ul><li><strong>Start page › Start tutorial</strong>, the <strong>Tutorial</strong> toolbar button, <strong>Help › Tutorial</strong> or <strong>F11</strong>.</li><li>In the card: <strong>Next / Previous</strong> one step at a time, <strong>Auto play</strong> to the end, the chapter list to jump to a chapter, <strong>✕</strong> or <strong>Esc</strong> to stop at any time.</li><li>The tutorial works only in its own sample tab. Your open drawings are not changed, and the theme, language and view settings it changes are put back when it ends.</li><li>A recording of the whole tour: <code>MyDiagram-Tutorial.mp4</code> in the project root.</li></ul>
 <h2 id="contents">Contents <a class="anchor" href="#contents" aria-hidden="true">#</a></h2>
 <ol><li><a href="#1-getting-started">Getting started</a></li><li><a href="#2-drawing-shapes">Drawing shapes</a></li><li><a href="#3-connecting">Connecting</a></li><li><a href="#4-formatting">Formatting</a></li><li><a href="#5-arranging">Arranging</a></li><li><a href="#6-pages--layers">Pages &amp; layers</a></li><li><a href="#7-data--reports">Data &amp; reports</a></li><li><a href="#8-files--printing">Files &amp; printing</a></li><li><a href="#9-customizing">Customizing</a></li><li><a href="#10-help">Help</a></li></ol>
 <h2 id="1-getting-started">1. Getting started <a class="anchor" href="#1-getting-started" aria-hidden="true">#</a></h2>
@@ -101,173 +135,231 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 <h3 id="4-recent-files-and-folders">4. Recent files and folders <a class="anchor" href="#4-recent-files-and-folders" aria-hidden="true">#</a></h3>
 <p>The last 10 files and 10 folders are remembered. ✕ removes one entry, &quot;Clear all&quot; removes them all. The File menu manages them too.</p>
 <p><img src="tutorial/images/04-recent.jpg" alt="Recent files and folders" loading="lazy" /></p>
-<h3 id="5-moving-background">5. Moving background <a class="anchor" href="#5-moving-background" aria-hidden="true">#</a></h3>
+<h3 id="5-moving-and-resizing-cards">5. Moving and resizing cards <a class="anchor" href="#5-moving-and-resizing-cards" aria-hidden="true">#</a></h3>
+<p>Each area of the start page is a card. Drag the ⠿ handle or the heading to move it, and the triangle of dots at the bottom right to resize it. Auto arrange at the top packs the cards; Reset card layout at the bottom restores the first arrangement.</p>
+<p><img src="tutorial/images/05-startCards.jpg" alt="Moving and resizing cards" loading="lazy" /></p>
+<h3 id="6-sample-drawings">6. Sample drawings <a class="anchor" href="#6-sample-drawings" aria-hidden="true">#</a></h3>
+<p>The samples card lists flowcharts, BPMN, UML, databases, networks, org charts, mind maps, floor plans, schedules, block diagrams and circuits by group. Click one to open it.</p>
+<p><img src="tutorial/images/06-startSamples.jpg" alt="Sample drawings" loading="lazy" /></p>
+<h3 id="7-moving-background">7. Moving background <a class="anchor" href="#7-moving-background" aria-hidden="true">#</a></h3>
 <p>The start page background keeps moving. Pick one of 20 animations (aurora, waves, flowchart, node network, fireflies…) or shuffle them, and set the speed. It changes at every start and after a set time. An image can be the background too.</p>
-<p><img src="tutorial/images/05-background.jpg" alt="Moving background" loading="lazy" /></p>
+<p><img src="tutorial/images/07-background.jpg" alt="Moving background" loading="lazy" /></p>
 <h2 id="2-drawing-shapes">2. Drawing shapes <a class="anchor" href="#2-drawing-shapes" aria-hidden="true">#</a></h2>
-<h3 id="6-the-sample-drawing">6. The sample drawing <a class="anchor" href="#6-the-sample-drawing" aria-hidden="true">#</a></h3>
+<h3 id="8-the-sample-drawing">8. The sample drawing <a class="anchor" href="#8-the-sample-drawing" aria-hidden="true">#</a></h3>
 <p>The online shop sample is open. The first page is an order flowchart in swimlanes; other pages hold an org chart and a server diagram. Every page uses a background page with a title block.</p>
-<p><img src="tutorial/images/06-sample.jpg" alt="The sample drawing" loading="lazy" /></p>
-<h3 id="7-the-window">7. The window <a class="anchor" href="#7-the-window" aria-hidden="true">#</a></h3>
-<p>From the top: menus, the toolbar and drawing tabs; then the Shapes panel on the left, the drawing in the middle (with rulers and page tabs), the properties panel on the right and the status bar. Drag the separators to resize the panels.</p>
-<p><img src="tutorial/images/07-layout.jpg" alt="The window" loading="lazy" /></p>
-<h3 id="8-the-shapes-panel-and-stencils">8. The Shapes panel and stencils <a class="anchor" href="#8-the-shapes-panel-and-stencils" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/08-sample.jpg" alt="The sample drawing" loading="lazy" /></p>
+<h3 id="9-the-window">9. The window <a class="anchor" href="#9-the-window" aria-hidden="true">#</a></h3>
+<p>From the top: the program name, the drawing&#39;s name, the menus and the window buttons, then the toolbar; below them the Shapes panel on the left, the drawing in the middle (page tabs on top, rulers), the properties panel on the right and the status bar. Drag the separators to resize the panels.</p>
+<p><img src="tutorial/images/09-layout.jpg" alt="The window" loading="lazy" /></p>
+<h3 id="10-the-shapes-panel-and-stencils">10. The Shapes panel and stencils <a class="anchor" href="#10-the-shapes-panel-and-stencils" aria-hidden="true">#</a></h3>
 <p>About 200 shapes in 15 stencils — basic shapes, arrows, flowchart, UML, ERD, BPMN, network, org chart, floor plan and more. Open and close them under &quot;Stencils&quot; and change the icon size.</p>
-<p><img src="tutorial/images/08-shapesPanel.jpg" alt="The Shapes panel and stencils" loading="lazy" /></p>
-<h3 id="9-placing-shapes">9. Placing shapes <a class="anchor" href="#9-placing-shapes" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/10-shapesPanel.jpg" alt="The Shapes panel and stencils" loading="lazy" /></p>
+<h3 id="11-placing-shapes">11. Placing shapes <a class="anchor" href="#11-placing-shapes" aria-hidden="true">#</a></h3>
 <p>Drag a shape onto the page, or click it to place it in the middle of the view. It snaps to the grid and to other shapes.</p>
-<p><img src="tutorial/images/09-dropShape.jpg" alt="Placing shapes" loading="lazy" /></p>
-<h3 id="10-searching-shapes">10. Searching shapes <a class="anchor" href="#10-searching-shapes" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/11-dropShape.jpg" alt="Placing shapes" loading="lazy" /></p>
+<h3 id="13-searching-shapes">13. Searching shapes <a class="anchor" href="#13-searching-shapes" aria-hidden="true">#</a></h3>
 <p>Type a name in the search box to find shapes in every stencil, in Korean or English.</p>
-<p><img src="tutorial/images/10-search.jpg" alt="Searching shapes" loading="lazy" /></p>
-<h3 id="11-drawing-tools">11. Drawing tools <a class="anchor" href="#11-drawing-tools" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/13-search.jpg" alt="Searching shapes" loading="lazy" /></p>
+<h3 id="14-choosing-stencils">14. Choosing stencils <a class="anchor" href="#14-choosing-stencils" aria-hidden="true">#</a></h3>
+<p>The Stencils button on the toolbar, or Stencils in the Shapes panel, opens and closes stencils: networks, cloud, wireframes, business, charts, logic circuits, process piping, security and more. Shape icons are small by default.</p>
+<p><img src="tutorial/images/14-stencilMenu.jpg" alt="Choosing stencils" loading="lazy" /></p>
+<h3 id="15-seeing-the-rotation-angle">15. Seeing the rotation angle <a class="anchor" href="#15-seeing-the-rotation-angle" aria-hidden="true">#</a></h3>
+<p>Drag the round handle on top: the shape turns, and a dial shows how far it has turned and its angle, like &quot;+45° → 45°&quot;. Hold Shift for steps of 15 degrees.</p>
+<p><img src="tutorial/images/15-rotateDial.jpg" alt="Seeing the rotation angle" loading="lazy" /></p>
+<h3 id="16-drawing-tools">16. Drawing tools <a class="anchor" href="#16-drawing-tools" aria-hidden="true">#</a></h3>
 <p>Pointer, pan, connector, text, rectangle, ellipse, line, pencil and polyline tools. Esc returns to the pointer.</p>
-<p><img src="tutorial/images/11-tools.jpg" alt="Drawing tools" loading="lazy" /></p>
-<h3 id="12-typing-text">12. Typing text <a class="anchor" href="#12-typing-text" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/16-tools.jpg" alt="Drawing tools" loading="lazy" /></p>
+<h3 id="17-typing-text">17. Typing text <a class="anchor" href="#17-typing-text" aria-hidden="true">#</a></h3>
 <p>Double-click a shape or press F2 to edit its text — or just start typing with it selected. Enter starts a new line; Ctrl+Enter or a click outside finishes.</p>
-<p><img src="tutorial/images/12-text.jpg" alt="Typing text" loading="lazy" /></p>
-<h3 id="13-moving-sizing-rotating">13. Moving, sizing, rotating <a class="anchor" href="#13-moving-sizing-rotating" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/17-text.jpg" alt="Typing text" loading="lazy" /></p>
+<h3 id="18-moving-sizing-rotating">18. Moving, sizing, rotating <a class="anchor" href="#18-moving-sizing-rotating" aria-hidden="true">#</a></h3>
 <p>Drag to move (pink smart guides show alignment); use the white squares to resize, the circle on top to rotate, and the yellow diamonds to adjust the shape. Shift keeps proportions and rotates in 15° steps.</p>
-<p><img src="tutorial/images/13-moveResize.jpg" alt="Moving, sizing, rotating" loading="lazy" /></p>
-<h3 id="14-undo-and-redo">14. Undo and redo <a class="anchor" href="#14-undo-and-redo" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/18-moveResize.jpg" alt="Moving, sizing, rotating" loading="lazy" /></p>
+<h3 id="19-undo-and-redo">19. Undo and redo <a class="anchor" href="#19-undo-and-redo" aria-hidden="true">#</a></h3>
 <p>Every edit can be undone and redone (200 steps per tab). The tooltip names the edit.</p>
-<p><img src="tutorial/images/14-undo.jpg" alt="Undo and redo" loading="lazy" /></p>
+<p><img src="tutorial/images/19-undo.jpg" alt="Undo and redo" loading="lazy" /></p>
 <h2 id="3-connecting">3. Connecting <a class="anchor" href="#3-connecting" aria-hidden="true">#</a></h2>
-<h3 id="15-drawing-connectors">15. Drawing connectors <a class="anchor" href="#15-drawing-connectors" aria-hidden="true">#</a></h3>
+<h3 id="12-straight-lines-with-shift">12. Straight lines with Shift <a class="anchor" href="#12-straight-lines-with-shift" aria-hidden="true">#</a></h3>
+<p>Drag a connected shape with Shift held: it lines up with the shape at the other end of its line, so the line becomes straight. Letting go clears its bends. A shape without lines moves only across or up and down.</p>
+<p><img src="tutorial/images/12-shiftAlign.jpg" alt="Straight lines with Shift" loading="lazy" /></p>
+<h3 id="20-drawing-connectors">20. Drawing connectors <a class="anchor" href="#20-drawing-connectors" aria-hidden="true">#</a></h3>
 <p>With the connector tool, drag from one shape to another to make a glued connector. It follows when shapes move and routes around other shapes.</p>
-<p><img src="tutorial/images/15-connector.jpg" alt="Drawing connectors" loading="lazy" /></p>
-<h3 id="16-autoconnect">16. AutoConnect <a class="anchor" href="#16-autoconnect" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/20-connector.jpg" alt="Drawing connectors" loading="lazy" /></p>
+<h3 id="21-autoconnect">21. AutoConnect <a class="anchor" href="#21-autoconnect" aria-hidden="true">#</a></h3>
 <p>Hover over a shape to see blue arrows. Click one to add a connected copy; drag one to draw a connector anywhere.</p>
-<p><img src="tutorial/images/16-autoConnect.jpg" alt="AutoConnect" loading="lazy" /></p>
-<h3 id="17-connector-styles">17. Connector styles <a class="anchor" href="#17-connector-styles" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/21-autoConnect.jpg" alt="AutoConnect" loading="lazy" /></p>
+<h3 id="22-connector-styles">22. Connector styles <a class="anchor" href="#22-connector-styles" aria-hidden="true">#</a></h3>
 <p>Right-angle, straight and curved connectors; drag the square handles to bend them. There are 16 arrowheads, including UML and ERD ends.</p>
-<p><img src="tutorial/images/17-routes.jpg" alt="Connector styles" loading="lazy" /></p>
-<h3 id="18-connection-points-and-glue">18. Connection points and glue <a class="anchor" href="#18-connection-points-and-glue" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/22-routes.jpg" alt="Connector styles" loading="lazy" /></p>
+<h3 id="23-connection-points-and-glue">23. Connection points and glue <a class="anchor" href="#23-connection-points-and-glue" aria-hidden="true">#</a></h3>
 <p>Drop on a connection point (blue ×) to glue to it, or anywhere on the shape to glue dynamically to the nearest point. A green end is glued.</p>
-<p><img src="tutorial/images/18-glue.jpg" alt="Connection points and glue" loading="lazy" /></p>
+<p><img src="tutorial/images/23-glue.jpg" alt="Connection points and glue" loading="lazy" /></p>
 <h2 id="4-formatting">4. Formatting <a class="anchor" href="#4-formatting" aria-hidden="true">#</a></h2>
-<h3 id="19-the-properties-panel">19. The properties panel <a class="anchor" href="#19-the-properties-panel" aria-hidden="true">#</a></h3>
+<h3 id="24-the-properties-panel">24. The properties panel <a class="anchor" href="#24-the-properties-panel" aria-hidden="true">#</a></h3>
 <p>Edit the selected shape’s text, quick style, fill, line, text, effects, size, data, layers, link, comments and protection right here. With nothing selected it shows the page and drawing settings.</p>
-<p><img src="tutorial/images/19-properties.jpg" alt="The properties panel" loading="lazy" /></p>
-<h3 id="20-quick-styles">20. Quick styles <a class="anchor" href="#20-quick-styles" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/24-properties.jpg" alt="The properties panel" loading="lazy" /></p>
+<h3 id="25-quick-styles">25. Quick styles <a class="anchor" href="#25-quick-styles" aria-hidden="true">#</a></h3>
 <p>Pick one of the theme’s six colors with fill, subtle, outline, intense or gradient — in one click.</p>
-<p><img src="tutorial/images/20-quickStyle.jpg" alt="Quick styles" loading="lazy" /></p>
-<h3 id="21-format-shape">21. Format shape <a class="anchor" href="#21-format-shape" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/25-quickStyle.jpg" alt="Quick styles" loading="lazy" /></p>
+<h3 id="26-format-shape">26. Format shape <a class="anchor" href="#26-format-shape" aria-hidden="true">#</a></h3>
 <p>Fine-tune fill (solid, gradients, patterns, opacity), line (color, weight, pattern, rounding), text, effects, size &amp; position and protection. Only what you change is applied.</p>
-<p><img src="tutorial/images/21-formatDialog.jpg" alt="Format shape" loading="lazy" /></p>
-<h3 id="22-themes-and-variants">22. Themes and variants <a class="anchor" href="#22-themes-and-variants" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/26-formatDialog.jpg" alt="Format shape" loading="lazy" /></p>
+<h3 id="27-themes-and-variants">27. Themes and variants <a class="anchor" href="#27-themes-and-variants" aria-hidden="true">#</a></h3>
 <p>16 themes with 4 variants each. A theme restyles every shape you have not formatted by hand.</p>
-<p><img src="tutorial/images/22-design.jpg" alt="Themes and variants" loading="lazy" /></p>
-<h3 id="23-format-painter">23. Format painter <a class="anchor" href="#23-format-painter" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/27-design.jpg" alt="Themes and variants" loading="lazy" /></p>
+<h3 id="28-format-painter">28. Format painter <a class="anchor" href="#28-format-painter" aria-hidden="true">#</a></h3>
 <p>Select a shape, press Format painter (Ctrl+Shift+C), then click another shape to give it the same formatting.</p>
-<p><img src="tutorial/images/23-formatPainter.jpg" alt="Format painter" loading="lazy" /></p>
+<p><img src="tutorial/images/28-formatPainter.jpg" alt="Format painter" loading="lazy" /></p>
+<h3 id="29-fill-and-pastel-colours">29. Fill and pastel colours <a class="anchor" href="#29-fill-and-pastel-colours" aria-hidden="true">#</a></h3>
+<p>Fill in the properties panel turns the fill on and off, and the pastel presets change the colour with one click. The colour picker has them too.</p>
+<p><img src="tutorial/images/29-pastelFill.jpg" alt="Fill and pastel colours" loading="lazy" /></p>
 <h2 id="5-arranging">5. Arranging <a class="anchor" href="#5-arranging" aria-hidden="true">#</a></h2>
-<h3 id="24-align-and-distribute">24. Align and distribute <a class="anchor" href="#24-align-and-distribute" aria-hidden="true">#</a></h3>
+<h3 id="30-align-and-distribute">30. Align and distribute <a class="anchor" href="#30-align-and-distribute" aria-hidden="true">#</a></h3>
 <p>Align shapes to the first one selected (left, center, right, top, middle, bottom) and spread them evenly.</p>
-<p><img src="tutorial/images/24-align.jpg" alt="Align and distribute" loading="lazy" /></p>
-<h3 id="25-grouping">25. Grouping <a class="anchor" href="#25-grouping" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/30-align.jpg" alt="Align and distribute" loading="lazy" /></p>
+<h3 id="31-grouping">31. Grouping <a class="anchor" href="#31-grouping" aria-hidden="true">#</a></h3>
 <p>Grouped shapes move and resize together. Click again to pick a shape inside a group.</p>
-<p><img src="tutorial/images/25-group.jpg" alt="Grouping" loading="lazy" /></p>
-<h3 id="26-automatic-layout">26. Automatic layout <a class="anchor" href="#26-automatic-layout" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/31-group.jpg" alt="Grouping" loading="lazy" /></p>
+<h3 id="32-automatic-layout">32. Automatic layout <a class="anchor" href="#32-automatic-layout" aria-hidden="true">#</a></h3>
 <p>Arrange connected shapes automatically as a flowchart, hierarchy, radial, circle or grid.</p>
-<p><img src="tutorial/images/26-relayout.jpg" alt="Automatic layout" loading="lazy" /></p>
-<h3 id="27-rotating-and-flipping">27. Rotating and flipping <a class="anchor" href="#27-rotating-and-flipping" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/32-relayout.jpg" alt="Automatic layout" loading="lazy" /></p>
+<h3 id="33-rotating-and-flipping">33. Rotating and flipping <a class="anchor" href="#33-rotating-and-flipping" aria-hidden="true">#</a></h3>
 <p>Rotate in 90° steps or flip horizontally and vertically; Bring to front / Send to back changes the stacking order.</p>
-<p><img src="tutorial/images/27-rotate.jpg" alt="Rotating and flipping" loading="lazy" /></p>
+<p><img src="tutorial/images/33-rotate.jpg" alt="Rotating and flipping" loading="lazy" /></p>
+<h3 id="34-converting-to-a-fishbone">34. Converting to a fishbone <a class="anchor" href="#34-converting-to-a-fishbone" aria-hidden="true">#</a></h3>
+<p>On a page with a mind map, the Fishbone view button on the toolbar comes alive. It turns the central topic into the head and the main topics into ribs; press it again to go back to the mind map.</p>
+<p><img src="tutorial/images/34-fishbone.jpg" alt="Converting to a fishbone" loading="lazy" /></p>
 <h2 id="6-pages--layers">6. Pages &amp; layers <a class="anchor" href="#6-pages--layers" aria-hidden="true">#</a></h2>
-<h3 id="28-several-pages">28. Several pages <a class="anchor" href="#28-several-pages" aria-hidden="true">#</a></h3>
-<p>Switch pages with the tabs at the bottom, add one with +, double-click to rename, and drag to reorder.</p>
-<p><img src="tutorial/images/28-pageTabs.jpg" alt="Several pages" loading="lazy" /></p>
-<h3 id="29-background-pages">29. Background pages <a class="anchor" href="#29-background-pages" aria-hidden="true">#</a></h3>
+<h3 id="35-several-pages">35. Several pages <a class="anchor" href="#35-several-pages" aria-hidden="true">#</a></h3>
+<p>Switch pages with the tabs at the top, add one with +, double-click to rename, and drag to reorder.</p>
+<p><img src="tutorial/images/35-pageTabs.jpg" alt="Several pages" loading="lazy" /></p>
+<h3 id="36-background-pages">36. Background pages <a class="anchor" href="#36-background-pages" aria-hidden="true">#</a></h3>
 <p>The border and title block of a background page appear on every page that uses it. Fields such as {page}, {pages} and {date} fill themselves in.</p>
-<p><img src="tutorial/images/29-backgroundPage.jpg" alt="Background pages" loading="lazy" /></p>
-<h3 id="30-layers">30. Layers <a class="anchor" href="#30-layers" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/36-backgroundPage.jpg" alt="Background pages" loading="lazy" /></p>
+<h3 id="37-layers">37. Layers <a class="anchor" href="#37-layers" aria-hidden="true">#</a></h3>
 <p>Put shapes on layers and set each layer visible, printable, locked or colored.</p>
-<p><img src="tutorial/images/30-layers.jpg" alt="Layers" loading="lazy" /></p>
-<h3 id="31-page-setup">31. Page setup <a class="anchor" href="#31-page-setup" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/37-layers.jpg" alt="Layers" loading="lazy" /></p>
+<h3 id="38-page-setup">38. Page setup <a class="anchor" href="#38-page-setup" aria-hidden="true">#</a></h3>
 <p>Paper and orientation, auto size, background page, page color, grid, connector style and line jumps, units.</p>
-<p><img src="tutorial/images/31-pageSetup.jpg" alt="Page setup" loading="lazy" /></p>
-<h3 id="32-pages-view">32. Pages view <a class="anchor" href="#32-pages-view" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/38-pageSetup.jpg" alt="Page setup" loading="lazy" /></p>
+<h3 id="39-pages-view">39. Pages view <a class="anchor" href="#39-pages-view" aria-hidden="true">#</a></h3>
 <p>See every page as a thumbnail; open, duplicate, rename, delete and reorder them.</p>
-<p><img src="tutorial/images/32-pagesView.jpg" alt="Pages view" loading="lazy" /></p>
+<p><img src="tutorial/images/39-pagesView.jpg" alt="Pages view" loading="lazy" /></p>
 <h2 id="7-data--reports">7. Data &amp; reports <a class="anchor" href="#7-data--reports" aria-hidden="true">#</a></h2>
-<h3 id="33-shape-data">33. Shape data <a class="anchor" href="#33-shape-data" aria-hidden="true">#</a></h3>
+<h3 id="40-shape-data">40. Shape data <a class="anchor" href="#40-shape-data" aria-hidden="true">#</a></h3>
 <p>Attach text, number, currency, date, yes/no and list data to any shape.</p>
-<p><img src="tutorial/images/33-shapeData.jpg" alt="Shape data" loading="lazy" /></p>
-<h3 id="34-data-graphics">34. Data graphics <a class="anchor" href="#34-data-graphics" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/40-shapeData.jpg" alt="Shape data" loading="lazy" /></p>
+<h3 id="41-data-graphics">41. Data graphics <a class="anchor" href="#41-data-graphics" aria-hidden="true">#</a></h3>
 <p>Show the data values under shapes — per shape or for the whole drawing.</p>
-<p><img src="tutorial/images/34-dataGraphics.jpg" alt="Data graphics" loading="lazy" /></p>
-<h3 id="35-the-shape-data-table">35. The shape data table <a class="anchor" href="#35-the-shape-data-table" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/41-dataGraphics.jpg" alt="Data graphics" loading="lazy" /></p>
+<h3 id="42-the-shape-data-table">42. The shape data table <a class="anchor" href="#42-the-shape-data-table" aria-hidden="true">#</a></h3>
 <p>See every shape’s data in a table and edit it in the cells; export to CSV or link a CSV file to shapes.</p>
-<p><img src="tutorial/images/35-dataView.jpg" alt="The shape data table" loading="lazy" /></p>
-<h3 id="36-org-chart-from-data">36. Org chart from data <a class="anchor" href="#36-org-chart-from-data" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/42-dataView.jpg" alt="The shape data table" loading="lazy" /></p>
+<h3 id="43-org-chart-from-data">43. Org chart from data <a class="anchor" href="#43-org-chart-from-data" aria-hidden="true">#</a></h3>
 <p>Paste a table with name, title and manager columns, or open a CSV file, to build an org chart.</p>
-<p><img src="tutorial/images/36-orgChart.jpg" alt="Org chart from data" loading="lazy" /></p>
-<h3 id="37-reports">37. Reports <a class="anchor" href="#37-reports" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/43-orgChart.jpg" alt="Org chart from data" loading="lazy" /></p>
+<h3 id="44-reports">44. Reports <a class="anchor" href="#44-reports" aria-hidden="true">#</a></h3>
 <p>Reports on the inventory, shape data (with totals), connections, pages, layers and all text — exported as HTML, Markdown, Word or PDF.</p>
-<p><img src="tutorial/images/37-reports.jpg" alt="Reports" loading="lazy" /></p>
-<h3 id="38-shape-sheet">38. Shape sheet <a class="anchor" href="#38-shape-sheet" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/44-reports.jpg" alt="Reports" loading="lazy" /></p>
+<h3 id="45-shape-sheet">45. Shape sheet <a class="anchor" href="#45-shape-sheet" aria-hidden="true">#</a></h3>
 <p>Edit the position, size, angle, colors, font size and link of every shape on the page as numbers.</p>
-<p><img src="tutorial/images/38-shapeSheet.jpg" alt="Shape sheet" loading="lazy" /></p>
+<p><img src="tutorial/images/45-shapeSheet.jpg" alt="Shape sheet" loading="lazy" /></p>
 <h2 id="8-files--printing">8. Files &amp; printing <a class="anchor" href="#8-files--printing" aria-hidden="true">#</a></h2>
-<h3 id="39-the-file-menu">39. The File menu <a class="anchor" href="#39-the-file-menu" aria-hidden="true">#</a></h3>
+<h3 id="46-the-file-menu">46. The File menu <a class="anchor" href="#46-the-file-menu" aria-hidden="true">#</a></h3>
 <p>Save (.mdg), save as template (.mdgt), open and save Visio files, export PDF, SVG, pictures, HTML and CSV, recent files and folders, the database and printing.</p>
-<p><img src="tutorial/images/39-fileMenu.jpg" alt="The File menu" loading="lazy" /></p>
-<h3 id="40-working-with-visio">40. Working with Visio <a class="anchor" href="#40-working-with-visio" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/46-fileMenu.jpg" alt="The File menu" loading="lazy" /></p>
+<h3 id="47-working-with-visio">47. Working with Visio <a class="anchor" href="#47-working-with-visio" aria-hidden="true">#</a></h3>
 <p>Open Visio .vsdx and .vstx files, and save shapes, text, formatting, data, layers, pictures and connectors back as .vsdx.</p>
-<p><img src="tutorial/images/40-visio.jpg" alt="Working with Visio" loading="lazy" /></p>
-<h3 id="41-printing-and-preview">41. Printing and preview <a class="anchor" href="#41-printing-and-preview" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/47-visio.jpg" alt="Working with Visio" loading="lazy" /></p>
+<h3 id="48-printing-and-preview">48. Printing and preview <a class="anchor" href="#48-printing-and-preview" aria-hidden="true">#</a></h3>
 <p>Print all pages, the current one or a range — fitted to the sheet, at actual size (tiled over several sheets) or a percentage — with paper, orientation, margins, header and footer in a live preview.</p>
-<p><img src="tutorial/images/41-print.jpg" alt="Printing and preview" loading="lazy" /></p>
-<h3 id="42-a-page-as-a-picture">42. A page as a picture <a class="anchor" href="#42-a-page-as-a-picture" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/48-print.jpg" alt="Printing and preview" loading="lazy" /></p>
+<h3 id="49-a-page-as-a-picture">49. A page as a picture <a class="anchor" href="#49-a-page-as-a-picture" aria-hidden="true">#</a></h3>
 <p>Export the whole page, the shapes or the selection as PNG, JPEG, WebP, BMP, TIFF or SVG, with a transparent background and a scale.</p>
-<p><img src="tutorial/images/42-imageExport.jpg" alt="A page as a picture" loading="lazy" /></p>
-<h3 id="43-keeping-drawings-in-a-database">43. Keeping drawings in a database <a class="anchor" href="#43-keeping-drawings-in-a-database" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/49-imageExport.jpg" alt="A page as a picture" loading="lazy" /></p>
+<h3 id="50-keeping-drawings-in-a-database">50. Keeping drawings in a database <a class="anchor" href="#50-keeping-drawings-in-a-database" aria-hidden="true">#</a></h3>
 <p>In Settings › Database pick SQLite, MariaDB, MySQL or PostgreSQL and press Test connection. From then on Save (Ctrl+S) writes both the file and the database, and File › Open from database brings drawings back.</p>
-<p><img src="tutorial/images/43-database.jpg" alt="Keeping drawings in a database" loading="lazy" /></p>
-<h3 id="44-managing-recent-files">44. Managing recent files <a class="anchor" href="#44-managing-recent-files" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/50-database.jpg" alt="Keeping drawings in a database" loading="lazy" /></p>
+<h3 id="51-managing-recent-files">51. Managing recent files <a class="anchor" href="#51-managing-recent-files" aria-hidden="true">#</a></h3>
 <p>Recent files and recent folders on two tabs: open one, remove one, or clear them all. Files that no longer exist are marked &quot;Missing&quot;.</p>
-<p><img src="tutorial/images/44-recentFiles.jpg" alt="Managing recent files" loading="lazy" /></p>
-<h3 id="45-drag-and-drop">45. Drag and drop <a class="anchor" href="#45-drag-and-drop" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/51-recentFiles.jpg" alt="Managing recent files" loading="lazy" /></p>
+<h3 id="52-drag-and-drop">52. Drag and drop <a class="anchor" href="#52-drag-and-drop" aria-hidden="true">#</a></h3>
 <p>Drag .mdg or .vsdx files from the file manager to open them; pictures go onto the page and a CSV file opens Link data.</p>
-<p><img src="tutorial/images/45-dragDrop.jpg" alt="Drag and drop" loading="lazy" /></p>
+<p><img src="tutorial/images/52-dragDrop.jpg" alt="Drag and drop" loading="lazy" /></p>
+<h3 id="53-dropping-pictures">53. Dropping pictures <a class="anchor" href="#53-dropping-pictures" aria-hidden="true">#</a></h3>
+<p>Drag a picture file from Explorer onto the drawing to place it there. PNG, JPEG, GIF, WebP, AVIF, HEIC, JPEG XL, JPEG 2000, TIFF, SVG, QOI, TGA and more are welcome.</p>
+<p><img src="tutorial/images/53-dropImage.jpg" alt="Dropping pictures" loading="lazy" /></p>
 <h2 id="9-customizing">9. Customizing <a class="anchor" href="#9-customizing" aria-hidden="true">#</a></h2>
-<h3 id="46-themes">46. Themes <a class="anchor" href="#46-themes" aria-hidden="true">#</a></h3>
+<h3 id="54-themes">54. Themes <a class="anchor" href="#54-themes" aria-hidden="true">#</a></h3>
 <p>The theme button picks a different theme at random on every press. The ▾ next to it lists 20 dark and 20 light themes in two columns; the custom theme is edited color by color in Settings › Theme.</p>
-<p><img src="tutorial/images/46-theme.jpg" alt="Themes" loading="lazy" /></p>
-<h3 id="47-language">47. Language <a class="anchor" href="#47-language" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/54-theme.jpg" alt="Themes" loading="lazy" /></p>
+<h3 id="55-language">55. Language <a class="anchor" href="#55-language" aria-hidden="true">#</a></h3>
 <p>The flag button switches between Korean and English: the UK flag shows while the UI is Korean, the Korean flag while it is English.</p>
-<p><img src="tutorial/images/47-language.jpg" alt="Language" loading="lazy" /></p>
-<h3 id="48-collapsing-panels">48. Collapsing panels <a class="anchor" href="#48-collapsing-panels" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/55-language.jpg" alt="Language" loading="lazy" /></p>
+<h3 id="56-collapsing-panels">56. Collapsing panels <a class="anchor" href="#56-collapsing-panels" aria-hidden="true">#</a></h3>
 <p>Collapsed, the tool and properties panels leave a narrow rail with icons and a title; the expand button is at the top. Drag the separators to change their width.</p>
-<p><img src="tutorial/images/48-panels.jpg" alt="Collapsing panels" loading="lazy" /></p>
-<h3 id="49-pan--zoom-window">49. Pan &amp; zoom window <a class="anchor" href="#49-pan--zoom-window" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/56-panels.jpg" alt="Collapsing panels" loading="lazy" /></p>
+<h3 id="57-pan--zoom-window">57. Pan &amp; zoom window <a class="anchor" href="#57-pan--zoom-window" aria-hidden="true">#</a></h3>
 <p>The small window at the bottom right shows the whole page; drag the rectangle to move around. Ctrl+wheel zooms.</p>
-<p><img src="tutorial/images/49-minimap.jpg" alt="Pan &amp; zoom window" loading="lazy" /></p>
-<h3 id="50-settings">50. Settings <a class="anchor" href="#50-settings" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/57-minimap.jpg" alt="Pan &amp; zoom window" loading="lazy" /></p>
+<h3 id="58-settings">58. Settings <a class="anchor" href="#58-settings" aria-hidden="true">#</a></h3>
 <p>General, Theme, Font, Background, Drawing (rulers, grid, guides, snapping, AutoConnect), New drawings (theme, paper, units), Database, Recent and Shortcuts tabs. Settings are kept for the next start.</p>
-<p><img src="tutorial/images/50-settings.jpg" alt="Settings" loading="lazy" /></p>
-<h3 id="51-status-bar">51. Status bar <a class="anchor" href="#51-status-bar" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/58-settings.jpg" alt="Settings" loading="lazy" /></p>
+<h3 id="59-status-bar">59. Status bar <a class="anchor" href="#59-status-bar" aria-hidden="true">#</a></h3>
 <p>Command results, page number, save state, the size and angle of the selection, the pointer position, theme, language, the zoom slider, Fit page and a clock.</p>
-<p><img src="tutorial/images/51-statusBar.jpg" alt="Status bar" loading="lazy" /></p>
+<p><img src="tutorial/images/59-statusBar.jpg" alt="Status bar" loading="lazy" /></p>
 <h2 id="10-help">10. Help <a class="anchor" href="#10-help" aria-hidden="true">#</a></h2>
-<h3 id="52-presentation-mode">52. Presentation mode <a class="anchor" href="#52-presentation-mode" aria-hidden="true">#</a></h3>
+<h3 id="60-presentation-mode">60. Presentation mode <a class="anchor" href="#60-presentation-mode" aria-hidden="true">#</a></h3>
 <p>Press F5 to show the pages full screen one by one. Arrow keys or a click move on, shapes with links can be clicked, and Esc ends it.</p>
-<p><img src="tutorial/images/52-presentation.jpg" alt="Presentation mode" loading="lazy" /></p>
-<h3 id="53-keyboard-shortcuts">53. Keyboard shortcuts <a class="anchor" href="#53-keyboard-shortcuts" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/60-presentation.jpg" alt="Presentation mode" loading="lazy" /></p>
+<h3 id="61-keyboard-shortcuts">61. Keyboard shortcuts <a class="anchor" href="#61-keyboard-shortcuts" aria-hidden="true">#</a></h3>
 <p>Settings › Shortcuts lists them all; the menus show them next to each command.</p>
-<p><img src="tutorial/images/53-shortcuts.jpg" alt="Keyboard shortcuts" loading="lazy" /></p>
-<h3 id="54-about">54. About <a class="anchor" href="#54-about" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/61-shortcuts.jpg" alt="Keyboard shortcuts" loading="lazy" /></p>
+<h3 id="62-about">62. About <a class="anchor" href="#62-about" aria-hidden="true">#</a></h3>
 <p>The ⓘ toolbar button shows the version, build information and the author (SHKWON, knix008@naver.com). Errors open a popup with every detail, ready to copy.</p>
-<p><img src="tutorial/images/54-about.jpg" alt="About" loading="lazy" /></p>
-<h3 id="55-reading-the-tutorial-document">55. Reading the tutorial document <a class="anchor" href="#55-reading-the-tutorial-document" aria-hidden="true">#</a></h3>
-<p>A document with every step of this tutorial and its screen can be read inside the program: open it from Help › Tutorial document on the home screen or in the Help menu. The bar on top jumps to a chapter, switches 한국어/English, starts the tutorial or opens the document in a browser. Home takes you back.</p>
-<p><img src="tutorial/images/55-tutorialDoc.jpg" alt="Reading the tutorial document" loading="lazy" /></p>
-<h3 id="56-thats-the-tour">56. That&#39;s the tour <a class="anchor" href="#56-thats-the-tour" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/62-about.jpg" alt="About" loading="lazy" /></p>
+<h3 id="63-reading-the-tutorial-document">63. Reading the tutorial document <a class="anchor" href="#63-reading-the-tutorial-document" aria-hidden="true">#</a></h3>
+<p>A document with every step of this tutorial and its screens opens in a window of its own. Open it from Help › Tutorial document on the Home screen or from the Help menu. The top of the window changes the font size and the language.</p>
+<p><img src="tutorial/images/63-tutorialDoc.jpg" alt="Reading the tutorial document" loading="lazy" /></p>
+<h3 id="64-thats-the-tour">64. That&#39;s the tour <a class="anchor" href="#64-thats-the-tour" aria-hidden="true">#</a></h3>
 <p>Watch it again any time with Help › Tutorial or the graduation-cap toolbar button (F11). See Help › User&#39;s guide for the details.</p>
-<p><img src="tutorial/images/56-finish.jpg" alt="That&#39;s the tour" loading="lazy" /></p>
+<p><img src="tutorial/images/64-finish.jpg" alt="That&#39;s the tour" loading="lazy" /></p>
 </main>
 </div>
-<footer>MyDiagram v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+<footer>MyDiagram v1.0.1 · © SHKWON (knix008@naver.com)</footer>
+<script>(function () {
+  var KEY = 'mydiagram.docs.fontSize', MIN = 12, MAX = 28, BASE = 16;
+  var value = document.getElementById('doc-font-value');
+  var size = BASE;
+  try { size = Number(localStorage.getItem(KEY)) || BASE; } catch (e) {}
+  function apply(next) {
+    size = Math.max(MIN, Math.min(MAX, next));
+    document.documentElement.style.setProperty('--doc-zoom', String(size / BASE));
+    value.textContent = String(size);
+    document.getElementById('doc-font-down').disabled = size <= MIN;
+    document.getElementById('doc-font-up').disabled = size >= MAX;
+    try { localStorage.setItem(KEY, String(size)); } catch (e) {}
+  }
+  document.getElementById('doc-font-down').addEventListener('click', function () { apply(size - 1); });
+  document.getElementById('doc-font-up').addEventListener('click', function () { apply(size + 1); });
+  value.addEventListener('dblclick', function () { apply(BASE); });
+  document.querySelector('.doc-lang a.active').addEventListener('click', function (event) { event.preventDefault(); });
+  apply(size);
+  // The theme selected in the main window, also when it changes while this page is open.
+  var THEME = 'mydiagram.docs.theme';
+  function applyTheme() {
+    var theme = null;
+    try { theme = JSON.parse(localStorage.getItem(THEME)); } catch (e) {}
+    if (!theme || !theme.vars) return;
+    var style = document.documentElement.style;
+    for (var name in theme.vars) if (theme.vars[name]) style.setProperty(name, theme.vars[name]);
+    style.setProperty('--accent-soft', 'color-mix(in srgb, var(--accent) 16%, var(--surface))');
+    style.setProperty('--code-bg', 'color-mix(in srgb, var(--text) 7%, var(--surface))');
+    style.setProperty('--row-alt', 'color-mix(in srgb, var(--text) 3%, var(--surface))');
+    style.colorScheme = theme.dark ? 'dark' : 'light';
+  }
+  applyTheme();
+  window.addEventListener('storage', function (event) { if (event.key === THEME) applyTheme(); });
+})();</script>
 </body>
 </html>

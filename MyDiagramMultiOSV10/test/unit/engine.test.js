@@ -9,7 +9,11 @@ import { orthogonalRoute, routeConnector, routePage, simplify } from '../../src/
 import { LAYOUTS, layoutPage } from '../../src/domain/layout.js';
 import { exportShapeDataCsv, exportVsdx, importVsdx, linkDataCsv, orgChartFromData, shapesFromText, unzip } from '../../src/domain/interop.js';
 import { masterIcon, renderPageSvg, wrapText } from '../../src/render/svg.js';
-import { SAMPLE_FILES, TEMPLATES, buildSample, buildTemplate } from '../../src/domain/templates.js';
+import { hasIcon } from '../../src/icons.js';
+import { SAMPLE_FILES } from '../../src/domain/samples.js';
+import { SAMPLE_GROUPS } from '../../src/domain/sample-names.js';
+import { parseDiagram, serialize } from '../../src/domain/format.js';
+import { TEMPLATES, buildSample, buildTemplate } from '../../src/domain/templates.js';
 import { renderPrintSheets, selectPages } from '../../src/print/render.js';
 import { parseCsv, toCsv } from '../../src/domain/csv.js';
 import { pathBounds, parsePath, scalePath } from '../../src/domain/path.js';
@@ -28,9 +32,9 @@ function twoBoxes({ gap = 300, obstacle = false } = {}) {
 }
 
 test('stencils: every category has masters, every master renders without NaN', () => {
-  assert.equal(CATEGORIES.length, 15);
+  assert.equal(CATEGORIES.length, 35);
   for (const cat of CATEGORIES) assert.ok(mastersIn(cat.id).length >= 5, `${cat.id} has masters`);
-  assert.ok(MASTERS.length >= 200, `${MASTERS.length} masters`);
+  assert.ok(MASTERS.length >= 650, `${MASTERS.length} masters`);
   const ids = new Set();
   for (const master of MASTERS) {
     assert.ok(!ids.has(master.id), `unique id ${master.id}`);
@@ -42,6 +46,29 @@ test('stencils: every category has masters, every master renders without NaN', (
     assert.ok(finite(icon), `${master.id}: no NaN in the icon`);
   }
   assert.equal(masterById('nope').id, 'rect', 'unknown masters fall back to a rectangle');
+});
+
+test('stencils: the added stencils draw real shapes and every stencil has an icon', () => {
+  for (const cat of CATEGORIES) {
+    assert.ok(hasIcon(cat.icon), `${cat.id}: icon ${cat.icon} exists`);
+    assert.ok(cat.name.ko && cat.name.en, `${cat.id} has names`);
+  }
+  assert.ok(mastersIn('network').length >= 40, 'network has many devices');
+  const added = MASTERS.filter((master) => /^(net|cld|ui|biz|chart|logic|elec[A-Z]|pid|sec)[A-Z]/.test(master.id) && master.cat);
+  assert.ok(added.length >= 110, `${added.length} added masters`);
+  for (const master of added) {
+    const parts = master.geometry(master.w, master.h, {}, 0);
+    assert.ok(parts.length > 0, `${master.id}: has parts`);
+    for (const part of parts) {
+      assert.ok(part.d && !/NaN|undefined|Infinity/.test(part.d), `${master.id}: path is finite`);
+      const box = pathBounds(part.d);
+      assert.ok(box.w > 0 || box.h > 0, `${master.id}: path is not empty`);
+    }
+    const doc = D.createDocument();
+    D.addShape(doc.pages[0], D.createShape(master.id, { x: 100, y: 100, text: 'x' }));
+    assert.ok(finite(renderPageSvg(doc, doc.pages[0], { now: NOW }).svg), `${master.id}: renders`);
+    assert.ok(connectionPoints(D.createShape(master.id)).length > 0, `${master.id}: has connection points`);
+  }
 });
 
 test('stencils: connection points, parameters and search', () => {
@@ -217,6 +244,36 @@ test('templates and samples build and render in both languages', () => {
   assert.ok(sample.pages.length >= 4 && sample.pages.some((p) => p.background), 'the sample has a background page');
 });
 
+test('the sample drawings: named, render, stay on their pages, survive a round trip', () => {
+  assert.equal(Object.keys(SAMPLE_FILES).length, 38, 'with the template and the Visio copy, 40 entries per language');
+  const named = SAMPLE_GROUPS.flatMap((group) => group.items.map((item) => item.id));
+  assert.equal(new Set(named).size, named.length, 'each sample is listed once');
+  assert.deepEqual([...named].filter((id) => id !== 'brainstorm-template').sort(), Object.keys(SAMPLE_FILES).sort(), 'every drawing has a name and every name a drawing');
+  for (const [name, build] of Object.entries(SAMPLE_FILES)) {
+    for (const language of ['ko', 'en']) {
+      const doc = build(language);
+      const label = `${name}.${language}`;
+      assert.equal(doc.language, language, label);
+      assert.ok(doc.pages.some((page) => page.shapes.length > 3), `${label} has a drawing`);
+      for (const page of doc.pages) {
+        assert.ok(finite(renderPageSvg(doc, page, { now: NOW }).svg), `${label}/${page.name} renders`);
+        for (const shape of page.shapes) {
+          if (shape.type === 'connector' || shape.type === 'group') continue;
+          const rotated = shape.angle === 90 || shape.angle === 270;
+          const w = rotated ? shape.h : shape.w;
+          const h = rotated ? shape.w : shape.h;
+          const x = shape.x + shape.w / 2 - w / 2;
+          const y = shape.y + shape.h / 2 - h / 2;
+          assert.ok(x >= 0 && y >= 0 && x + w <= page.width + 0.01 && y + h <= page.height + 0.01, `${label}/${page.name}: ${shape.master} "${shape.text}" stays on the page`);
+        }
+      }
+      const { doc: back } = parseDiagram(serialize(doc), language);
+      assert.equal(back.pages.length, doc.pages.length, `${label} round trip: pages`);
+      assert.deepEqual(back.pages.map((page) => page.shapes.length), doc.pages.map((page) => page.shapes.length), `${label} round trip: shapes`);
+    }
+  }
+});
+
 test('print: page ranges, fit to one sheet, tiles at 100 %', () => {
   const doc = buildSample('ko');
   const foreground = doc.pages.filter((p) => !p.background);
@@ -237,4 +294,14 @@ test('paths: parse, scale and bounds', () => {
   assert.deepEqual([b.x, b.y, b.w, b.h].map(Math.round), [0, 0, 20, 60]);
   const arc = pathBounds('M0 0 A10 10 0 0 1 20 0');
   assert.ok(arc.h > 5, 'arcs are converted to curves with their bulge');
+});
+
+test('the Icons stencil: 100 pictures, each in several colours', () => {
+  const icons = MASTERS.filter((master) => master.cat === 'icons');
+  assert.ok(icons.length >= 100, `${icons.length} icons`);
+  for (const master of icons) {
+    const parts = master.geometry(master.w, master.h, {}, 0);
+    assert.ok(parts.every((part) => part.fill === 'color' && /^#[0-9a-f]{6}$/.test(part.color) && part.d && !part.d.includes('NaN')), master.id);
+    assert.ok(new Set(parts.map((part) => part.color)).size >= 2, `${master.id} has at least two colours`);
+  }
 });

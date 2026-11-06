@@ -1,11 +1,12 @@
 // npm run samples — writes the sample drawings installed with the app into samples/:
-// the tutorial drawing and four templates in Korean and English (.mdg), a Visio
-// copy of the tutorial drawing (.vsdx), and a brainstorming template (.mdgt).
+// the drawings of samples.js in Korean and English (.mdg), a Visio copy of the
+// online shop (.vsdx), and a brainstorming template (.mdgt).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serialize } from '../src/domain/format.js';
-import { buildTemplate, SAMPLE_FILES } from '../src/domain/templates.js';
+import { SAMPLE_FILES } from '../src/domain/samples.js';
+import { buildTemplate } from '../src/domain/templates.js';
 import { exportVsdx } from '../src/domain/interop.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -23,9 +24,9 @@ function sampleFiles() {
 }
 
 fs.mkdirSync(dir, { recursive: true });
-// Stale samples go first; other files in samples/ stay.
+// Stale samples go first; files not named <stem>.<ko|en>.<ext> are not generated here and stay.
 for (const name of fs.readdirSync(dir)) {
-  if (/\.(mdg|mdgt|mwp|mwpt|vsdx)$/i.test(name)) fs.rmSync(path.join(dir, name));
+  if (/\.(ko|en)\.(mdg|mdgt|vsdx)$/i.test(name)) fs.rmSync(path.join(dir, name));
 }
 for (const [name, make] of sampleFiles()) {
   const content = make();

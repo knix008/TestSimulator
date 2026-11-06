@@ -1,6 +1,6 @@
 # MyDiagram User's Guide
 
-MyDiagram draws diagrams, flowcharts, org charts, network diagrams, UML and ERD models, floor plans and other drawings, much like Microsoft Visio. It has about 200 stencil shapes, connectors that route themselves, themes and quick styles, several pages with background pages and layers, shape data and reports, automatic layout, org charts from data, Visio (.vsdx) open and save, and PDF / SVG / picture / HTML export and printing. It runs with the same screens as a desktop app on Windows, macOS and Linux and in a web browser.
+MyDiagram draws diagrams, flowcharts, org charts, network diagrams, UML and ERD models, floor plans and other drawings, much like Microsoft Visio. It has 869 stencil shapes, connectors that route themselves, themes and quick styles, several pages with background pages and layers, shape data and reports, automatic layout, org charts from data, Visio (.vsdx) open and save, and PDF / SVG / picture / HTML export and printing. It runs with the same screens as a desktop app on Windows, macOS and Linux and in a web browser.
 
 This guide is organised by task. Menu and command names are written exactly as the program shows them (for example **Insert › Insert container** is the "Insert container" command of the "Insert" menu, and **View › Show › Rulers** is the "Rulers" command in the "Show" submenu of the "View" menu). The pictures are captured from the tutorial.
 
@@ -10,7 +10,9 @@ This guide is organised by task. Menu and command names are written exactly as t
 
 ### First start
 
-On the first start the **Welcome to MyDiagram** window opens.
+![View tutorial window](docs/tutorial/images/guide-welcome.png)
+
+At each start the **View tutorial** window opens over the start page. Turn off **Show the View tutorial window at each start** in it to stop that (**Settings › Start page** turns it back on). Its **View tutorial** button opens the tutorial document.
 
 | Button | What it does |
 |---|---|
@@ -18,7 +20,7 @@ On the first start the **Welcome to MyDiagram** window opens.
 | **Open the sample** | Opens the "Online shop operations" sample drawing |
 | **Later** | Closes the window. The tutorial is always at **Help › Tutorial** (F11) |
 
-Only one MyDiagram runs at a time. Starting it again while it is running shows an error and the new copy closes (see [Troubleshooting](#troubleshooting)).
+Any number of MyDiagram windows can run at once. Restoring the last session and remembering the window place apply to the first one; later ones open a little aside.
 
 ### Start page
 
@@ -32,11 +34,21 @@ The start page shows when no drawing is open (and from the **Home** button at th
 | **New** | Blank Drawing and 12 templates (see below), **Open…**, **Open Visio file (.vsdx)…** |
 | **Recent files** · **Recent folders** | The last 10 files and 10 folders. ✕ removes one entry, **Clear all** · **Clear all folders** remove them all |
 | **Help** | **Tutorial document**, **User's guide**, **Keyboard shortcuts…** |
-| **Sample drawings** | The installed samples in the current language (online shop, order flowchart, company org chart, office network, shop database, the online shop as a Visio file, a brainstorming template) |
+| **Sample drawings** | The 40 installed samples in the current language, by group |
 | **Moving background** | Pick one of 20 animations, **Change moving background** (random), **Background image…**, **Motion speed**, **Random at start**, **Auto change** (Off, every 15 s … 5 min) |
 | Bottom | **Show the start page when starting** check box |
 
 Right-clicking an empty part of the start page offers New drawing · Open… · Recent files… · Change moving background · Background image… · Tutorial · About….
+
+![Start page cards](docs/tutorial/images/guide-start.png)
+
+Each area is a **card**.
+
+- **Move**: drag the ⠿ handle or the heading. The other cards make room. `Alt+arrows` on the handle move it too.
+- **Resize**: drag the **triangle of dots** at the bottom-right corner (or `Alt+Shift+arrows`). A double-click fits the height to the contents.
+- The arrangement is kept between runs. **Auto arrange** at the top packs the cards without gaps; **Reset card layout** at the bottom restores the first one.
+- The top card has the buttons **Start tutorial**, **View tutorial**, **View user's guide** and **Auto arrange**.
+- **Sample drawings** and **Moving background** are separate cards. **Motion speed** and **Background transparency** each have a row in the background card with a slider, − / + and the current value; transparency applies to the start page's background.
 
 ### Templates
 
@@ -64,24 +76,76 @@ A template opens the stencils that suit it and starts with a small example. A dr
 
 The "Online shop operations" sample has three pages: an order flowchart in swimlanes with shape data, a comment, a hyperlink and a "Notes" layer; an org chart; and a server diagram with a group. Every page uses a background page with a border and a title block whose fields fill themselves in.
 
-![The sample drawing](docs/tutorial/images/06-sample.jpg)
+![The sample drawing](docs/tutorial/images/08-sample.jpg)
+
+### Fill and patterns
+
+![Fill in the properties panel](docs/tutorial/images/guide-fill.png)
+
+![Pattern tab of Format shape](docs/tutorial/images/guide-patterns.png)
+
+**Fill** in the properties panel turns the fill on and off and offers colours and 12 **pastel** presets. The **100 patterns** button, or the **Format shape › Pattern** tab, picks from 100 patterns: stripes, grids, dots, waves, scales, bricks, hexagons, stars, flowers, meanders, interlocked circles and more. A pattern is drawn in the **second colour** over the fill colour.
+
+### Rotation angle
+
+While you drag the round handle on top, a dial shows the turn and the current angle.
+
+![A shape rotating, with its angle](docs/tutorial/images/guide-rotate.png)
+
+### Choosing stencils
+
+The **Stencils** button on the toolbar opens and closes the 35 stencils. Shape icons are **small** by default. The **Icons** stencil holds 120 colourful icons.
+
+![Stencils menu](docs/tutorial/images/guide-stencilmenu.png)
+
+![Icons stencil](docs/tutorial/images/guide-stencils.png)
+
+### Themes and the start page in Settings
+
+**Settings › Theme** shows the dark and light themes together, and **Settings › Start page** includes the background settings.
+
+![Themes in Settings](docs/tutorial/images/guide-themes.png)
+
+![Start page in Settings](docs/tutorial/images/guide-settingsstart.png)
+
+### Right-click menus and tooltips
+
+What cannot be used right now is disabled in the right-click menus (Cut with no selection, Paste with nothing to paste, moving the first page further left). Every button has a tooltip. Windows other than menus move by their title and can go outside the program window.
+
+### Converting to a fishbone
+
+![Mind map](docs/tutorial/images/guide-mindmap.png)
+
+![The mind map as a fishbone](docs/tutorial/images/guide-fishbone.png)
+
+On a page with a mind map, **Fishbone view** on the toolbar and in the canvas's right-click menu comes alive. It turns the central topic into the head, the main topics into ribs above and below and the subtopics into small bones. Press it again to go back to the mind map; undo works too.
 
 ### Tutorial
 
-Start it with **Help › Tutorial** (F11), the graduation-cap toolbar button or **Start the tutorial** on the start page. It opens a sample drawing of its own and shows the features one by one in 56 steps.
+Start it with **Help › Tutorial** (F11), the graduation-cap toolbar button or **Start the tutorial** on the start page. It opens a sample drawing of its own and shows the features one by one in 64 steps.
 
 - Move with **Next** · **Previous step**, or press **Auto play** (▶).
 - **Choose a chapter** jumps to Getting started · Drawing shapes · Connecting · Formatting · Arranging · Pages & layers · Data & reports · Files & printing · Customizing · Help.
 - The tour card can be dragged. **Esc** or ✕ ends the tutorial.
 - Your drawings are not changed (the tutorial's own tab is closed at the end), and the settings it changes (theme, language, background…) are put back.
 
-**Tutorial document** — a document with every tutorial step and its screen can be read inside the program. Open it from **Help › Tutorial document** on the home screen or in the **Help** menu: it fills the middle of the window, and the bar on top jumps to a chapter (**Go to chapter**), switches 한국어/English, starts the tutorial (**Start tutorial**) or opens the document in a browser (**Open in browser**). **Home** takes you back.
+**Tutorial document** — a document with every tutorial step and its screen opens in a window of its own (see [Document windows](#document-windows)). Open it from **Help › Tutorial document** on the home screen or in the **Help** menu: it fills the middle of the window, and the bar on top jumps to a chapter (**Go to chapter**), switches 한국어/English, starts the tutorial (**Start tutorial**) or opens the document in a browser (**Open in browser**). **Home** takes you back.
 
-![Tutorial document](docs/tutorial/images/55-tutorialDoc.jpg)
+![Tutorial document](docs/tutorial/images/63-tutorialDoc.jpg)
+
+### Document windows
+
+![User's guide window](docs/tutorial/images/guide-docwindow.png)
+
+The **User's guide** and the **Tutorial document** each open in a window of their own (a browser tab in the web version).
+
+- **Font size** − / + at the top changes the text size from 12 to 28 (double-click the number for the default). The size is remembered.
+- The **language buttons** (flag and name) switch between 한국어 and English. A window opens in the main window's language and follows it when it changes.
+- The colours follow the theme chosen in the main window, at once when it changes.
 
 ## The window
 
-![The window](docs/tutorial/images/07-layout.jpg)
+![The window](docs/tutorial/images/09-layout.jpg)
 
 The window has no OS title bar. The top line, the **menu bar**, shows the program icon, name and version, then (a little apart) the current drawing's name and the menus, with **Minimize · Maximize · Close** at its right end. Drag an empty part of the menu bar to move the window; double-click it to maximize. Below it is the **toolbar** (one line); then the **Shapes** panel is on the left, the drawing in the middle (page tabs on top, rulers, the page) and the **Properties** panel on the right; the **status bar** is at the bottom. Drag the separators between the panels to resize them, and the bottom-right corner to resize the window. The window never gets narrower than the toolbar and menus need.
 
@@ -108,7 +172,7 @@ Every menu item shows an icon and its shortcut, and menus may extend outside the
 
 | Where | Buttons |
 |---|---|
-| Left | New drawing · Open · Save · Print · Export + ▾ │ Undo · Redo │ Copy · Paste · Format painter │ Pointer · Connector · Text · Rectangle · Ellipse · Line │ Fill color ▾ · Line color ▾ │ Bring to front · Send to back · Align · Group │ Switch view (current view name ▾) │ Zoom `[−] 100% [+]` · Actual size (100%) · Fit width (left–right) · Fit height (top–bottom) · Fit page · Zoom to selection │ Rulers · Grid · Show/hide tool panel · Show/hide properties panel (pressed while on) |
+| Left | New drawing · Open · Save · Print · Export + ▾ │ Undo · Redo │ Copy · Paste · Format painter │ Pointer · Connector · Text · Rectangle · Ellipse · Line │ Fill color ▾ · Line color ▾ │ Bring to front · Send to back · Align · Group │ Switch view (current view name ▾) │ Zoom `[−] 100% [+]` · Actual size (100%) · Fit width (left–right) · Fit height (top–bottom) · Fit page · Zoom to selection │ Rulers · Grid · Stencils · Show/hide tool panel · Show/hide properties panel (pressed while on) |
 | Right | Tutorial (graduation cap) · Random theme + ▾ · Switch language (flag) · Settings · About (ⓘ) |
 
 The **Export** button opens Export as picture (PNG · JPEG · WebP · BMP · TIFF · SVG; a transparent background can be chosen for the formats that support it), and its ▾ lists every export format: Visio, PDF, SVG, picture, HTML and shape data (CSV). Every button has a tooltip with its shortcut. The Undo and Redo tooltips say what will be undone (for example "Undo: Move"). The left half of **Fill color** and **Line color** applies the colour used last (shown by the bar under the icon); the ▾ opens the colour picker.
@@ -119,12 +183,12 @@ Drawings do not get tabs. The current drawing's name is in the menu bar next to 
 
 ### Shapes panel (left)
 
-![The Shapes panel and stencils](docs/tutorial/images/08-shapesPanel.jpg)
+![The Shapes panel and stencils](docs/tutorial/images/10-shapesPanel.jpg)
 
 | Part | Contents |
 |---|---|
 | Search box | **Search shapes** finds shapes in every stencil by name, in Korean or English |
-| **Stencils** | Opens or closes each of the 15 stencils and **My shapes**; **Open all stencils** · **Close all stencils** |
+| **Stencils** | Opens or closes each of the 35 stencils and **My shapes**; **Open all stencils** · **Close all stencils** |
 | **S** · **M** · **L** | **Shape icon size**: Small (icons only) · Medium · Large |
 | Tool strip | The nine drawing tools (see [Drawing tools](#drawing-tools)) |
 | Stencils | Each open stencil with its shapes. Click a stencil's name to collapse it, ✕ to close it |
@@ -133,7 +197,7 @@ Right-click a shape tile for **Add to page** and **Close stencil**. See [Drawing
 
 ### Properties panel (right)
 
-![The properties panel](docs/tutorial/images/19-properties.jpg)
+![The properties panel](docs/tutorial/images/24-properties.jpg)
 
 Shows the properties of the selection and lets you change them in place. Changes apply at once; `Ctrl+Z` undoes them. Click a section heading to open or close it.
 
@@ -147,7 +211,7 @@ Shows the properties of the selection and lets you change them in place. Changes
 
 ### Status bar
 
-![Status bar](docs/tutorial/images/51-statusBar.jpg)
+![Status bar](docs/tutorial/images/59-statusBar.jpg)
 
 From the left: the result of the last command (e.g. "Moved 3 shapes (20 mm, 0 mm)"), **Page 1 of 3** (click for a list of pages), Saved / Modified, the size and angle of the selected shape (or how many items are selected, or how many shapes the page has), the pointer position from the top left of the page, the current drawing tool when it is not the pointer (click to go back to the pointer), the theme name, the language, the zoom slider and percentage, **Fit page** and a clock. **View › Show › Status bar** hides or shows it. Right-click it for Status bar · Zoom in · Zoom out · Zoom 100% · Fit page · Random theme · Switch language.
 
@@ -175,7 +239,7 @@ Windows such as Format shape, Settings and Print preview are separate windows in
 
 ### Stencils
 
-The Shapes panel holds about 200 shapes in 15 stencils. Open and close them under **Stencils**; each drawing remembers its own stencils.
+The Shapes panel holds 869 shapes in 35 stencils. Open and close them under **Stencils**; each drawing remembers its own stencils.
 
 | Stencil | Shapes |
 |---|---|
@@ -197,7 +261,7 @@ The Shapes panel holds about 200 shapes in 15 stencils. Open and close them unde
 
 ### Placing shapes
 
-![Placing shapes](docs/tutorial/images/09-dropShape.jpg)
+![Placing shapes](docs/tutorial/images/11-dropShape.jpg)
 
 - Drag a shape from the Shapes panel onto the page, or click it to place it in the middle of the view.
 - New shapes snap to the grid (**View › Snap & glue › Snap to grid**) and, while you drag, to other shapes.
@@ -207,13 +271,13 @@ The Shapes panel holds about 200 shapes in 15 stencils. Open and close them unde
 
 ### Searching shapes
 
-![Searching shapes](docs/tutorial/images/10-search.jpg)
+![Searching shapes](docs/tutorial/images/13-search.jpg)
 
 Type part of a name into **Search shapes** at the top of the Shapes panel. The results ("12 results") come from every stencil, open or not, and can be dragged or clicked like any other shape. Names can be typed in Korean or English. Clear the box to see the stencils again.
 
 ### Drawing tools
 
-![Drawing tools](docs/tutorial/images/11-tools.jpg)
+![Drawing tools](docs/tutorial/images/16-tools.jpg)
 
 The tools are on the tool strip of the Shapes panel, the toolbar (the first six) and **Insert › Drawing tools**. While a tool other than the pointer is active, the status bar names it; `Esc` returns to the pointer.
 
@@ -231,7 +295,7 @@ The tools are on the tool strip of the Shapes panel, the toolbar (the first six)
 
 ### Moving, sizing and rotating
 
-![Moving, sizing, rotating](docs/tutorial/images/13-moveResize.jpg)
+![Moving, sizing, rotating](docs/tutorial/images/18-moveResize.jpg)
 
 - Click a shape to select it; `Shift`+click or `Ctrl`+click adds to the selection, and dragging over an empty area selects everything inside the box. **Edit › Select** also selects all shapes, all connectors or all shapes of the same master.
 - Drag to move. Pink **smart guides** show when edges or centres line up with other shapes, and the shape snaps to them (**View › Snap & glue › Smart guides (snap to shapes)**).
@@ -249,7 +313,7 @@ The tools are on the tool strip of the Shapes panel, the toolbar (the first six)
 
 ### Undo and redo
 
-![Undo and redo](docs/tutorial/images/14-undo.jpg)
+![Undo and redo](docs/tutorial/images/19-undo.jpg)
 
 Every edit is undone with `Ctrl+Z` and redone with `Ctrl+Y` (or `Ctrl+Shift+Z`), and the last 200 edits of each tab can be undone. Each tab (drawing) has its own history, and the status bar and the tooltips name the edit ("Undo: Format").
 
@@ -272,19 +336,19 @@ Select shapes and choose **Insert › Save selection to My Shapes…** to keep t
 
 ### Drawing connectors
 
-![Drawing connectors](docs/tutorial/images/15-connector.jpg)
+![Drawing connectors](docs/tutorial/images/20-connector.jpg)
 
 With the **Connector** tool (`Ctrl+3`), drag from one shape to another to make a glued connector. It follows when the shapes move and is routed around other shapes in the way. Releasing over empty space leaves that end free.
 
 ### AutoConnect
 
-![AutoConnect](docs/tutorial/images/16-autoConnect.jpg)
+![AutoConnect](docs/tutorial/images/21-autoConnect.jpg)
 
 With the pointer, hover over a shape to see four blue arrows. Click one to add a copy of the shape on that side, connected to it (or to connect to the shape already there); drag one to draw a connector anywhere. **View › Snap & glue › AutoConnect arrows** turns them on and off.
 
 ### Connection points and glue
 
-![Connection points and glue](docs/tutorial/images/18-glue.jpg)
+![Connection points and glue](docs/tutorial/images/23-glue.jpg)
 
 - Drop a connector end on a **connection point** (blue ×) to glue to that point: the connector leaves the shape straight out of that side.
 - Drop it anywhere else on the shape for **dynamic glue**: the connector picks the pair of points that face each other and changes them as shapes move.
@@ -293,7 +357,7 @@ With the pointer, hover over a shape to see four blue arrows. Click one to add a
 
 ### Connector styles and bends
 
-![Connector styles](docs/tutorial/images/17-routes.jpg)
+![Connector styles](docs/tutorial/images/22-routes.jpg)
 
 | Style | Drawn as |
 |---|---|
@@ -320,7 +384,7 @@ Line patterns: Solid · Dash · Dot · Dash dot · Long dash · Dash dot dot.
 
 ### Typing text
 
-![Typing text](docs/tutorial/images/12-text.jpg)
+![Typing text](docs/tutorial/images/17-text.jpg)
 
 - Double-click a shape or press `F2` to edit its text — or just start typing with the shape selected (the typing replaces its text).
 - `Enter` starts a new line; `Ctrl+Enter`, `Tab` or a click outside finishes; `Esc` cancels.
@@ -354,7 +418,7 @@ The sections of the properties panel format the selected shapes at once:
 
 ### Format shape
 
-![Format shape](docs/tutorial/images/21-formatDialog.jpg)
+![Format shape](docs/tutorial/images/26-formatDialog.jpg)
 
 **Format › Format shape…** (or **More…**) fine-tunes the selection in one window. Only what you change is applied, so several different shapes keep their other properties; OK applies it as one undo step.
 
@@ -376,13 +440,13 @@ The colour picker (toolbar ▾, **Format › Fill color**, the colour buttons of
 
 ### Quick styles
 
-![Quick styles](docs/tutorial/images/20-quickStyle.jpg)
+![Quick styles](docs/tutorial/images/25-quickStyle.jpg)
 
 Pick one of the theme's six colours with **Fill**, **Subtle**, **Outline**, **Intense** or **Gradient** in one click — in the **Quick style** section of the properties panel or **Format › Quick styles…** (which also has **Text only**). Quick styles follow the theme: change the theme or variant and the shapes recolour themselves.
 
 ### Themes and variants
 
-![Themes and variants](docs/tutorial/images/22-design.jpg)
+![Themes and variants](docs/tutorial/images/27-design.jpg)
 
 **Design › Themes & variants…** opens the **Design** window. There are 16 themes with 4 variants each:
 
@@ -394,7 +458,7 @@ A theme restyles every shape you have not formatted by hand, and sets the page c
 
 ### Format painter
 
-![Format painter](docs/tutorial/images/23-formatPainter.jpg)
+![Format painter](docs/tutorial/images/28-formatPainter.jpg)
 
 Select a shape, press **Format painter** (`Ctrl+Shift+C`), then click another shape to give it the same formatting. `Esc` (or the button again) cancels.
 
@@ -402,7 +466,7 @@ Select a shape, press **Format painter** (`Ctrl+Shift+C`), then click another sh
 
 ### Align and distribute
 
-![Align and distribute](docs/tutorial/images/24-align.jpg)
+![Align and distribute](docs/tutorial/images/30-align.jpg)
 
 Select two or more shapes and use the toolbar **Align** button, **Arrange › Align & distribute** or the buttons in the properties panel. Shapes are aligned to the first one selected.
 
@@ -420,13 +484,13 @@ Select two or more shapes and use the toolbar **Align** button, **Arrange › Al
 
 ### Rotate and flip
 
-![Rotating and flipping](docs/tutorial/images/27-rotate.jpg)
+![Rotating and flipping](docs/tutorial/images/33-rotate.jpg)
 
 **Rotate right 90°** (`Ctrl+R`), **Rotate left 90°** (`Ctrl+L`), **Flip horizontal** (`Ctrl+J`) and **Flip vertical** (`Ctrl+M`). Any other angle is set with the rotation handle or the **Angle** field of **Size & position**; the status bar shows the current angle.
 
 ### Groups
 
-![Grouping](docs/tutorial/images/25-group.jpg)
+![Grouping](docs/tutorial/images/31-group.jpg)
 
 **Group** (`Ctrl+Shift+G`) joins the selected shapes into one group that moves and resizes together; **Ungroup** (`Ctrl+Shift+U`) separates them again. Click a group once to select it and again to pick a shape inside it. A group can have its own name, text, data and link.
 
@@ -448,7 +512,7 @@ The ruler corner shows the ruler origin (the top left of the page). Units follow
 
 ### Zoom and moving around
 
-![Pan & zoom window](docs/tutorial/images/49-minimap.jpg)
+![Pan & zoom window](docs/tutorial/images/57-minimap.jpg)
 
 - **Zoom** (10–800%): `Ctrl+mouse wheel`, `Ctrl+=` · `Ctrl+-` · `Ctrl+0`, the toolbar `[−] 100% [+]` (the value can be typed) or the status bar slider. With **Settings › Drawing › Mouse wheel zooms (without Ctrl)** the wheel zooms by itself.
 - **Fit page** (`Ctrl+Shift+W`), **Fit width** (left–right), **Fit height** (top–bottom) and **Zoom to selection** — all on the toolbar too.
@@ -459,7 +523,7 @@ The ruler corner shows the ruler origin (the top left of the page). Units follow
 
 ### Several pages
 
-![Several pages](docs/tutorial/images/28-pageTabs.jpg)
+![Several pages](docs/tutorial/images/35-pageTabs.jpg)
 
 - Switch pages with the tabs above the drawing, the arrows at their left, `Ctrl+PageUp` · `Ctrl+PageDown`, **Page › Go to page** or the page number on the status bar.
 - **+** after the tabs or **Page › Insert page** (`Shift+F11`) adds a page; **Duplicate page** copies the current one with its shapes.
@@ -468,7 +532,7 @@ The ruler corner shows the ruler origin (the top left of the page). Units follow
 
 ### Background pages
 
-![Background pages](docs/tutorial/images/29-backgroundPage.jpg)
+![Background pages](docs/tutorial/images/36-backgroundPage.jpg)
 
 A background page holds what every page using it should show — a border, a title block, a logo. It is drawn behind the page's own shapes and cannot be selected from there.
 
@@ -479,7 +543,7 @@ A background page holds what every page using it should show — a border, a tit
 
 ### Page setup
 
-![Page setup](docs/tutorial/images/31-pageSetup.jpg)
+![Page setup](docs/tutorial/images/38-pageSetup.jpg)
 
 **Page › Page setup…** (or **More…** in the properties panel):
 
@@ -495,7 +559,7 @@ With **Auto size page** the page grows by whole sheets when shapes go past its e
 
 ### Layers
 
-![Layers](docs/tutorial/images/30-layers.jpg)
+![Layers](docs/tutorial/images/37-layers.jpg)
 
 Layers group shapes across the page so that they can be shown, printed, locked or coloured together. Open **Page › Layers…**:
 
@@ -513,7 +577,7 @@ Layers group shapes across the page so that they can be shown, printed, locked o
 
 ### Pages view
 
-![Pages view](docs/tutorial/images/32-pagesView.jpg)
+![Pages view](docs/tutorial/images/39-pagesView.jpg)
 
 **Page › Pages** (or the **Pages** view) shows every page as a thumbnail with its size and shape and connector counts — foreground pages first, then background pages with the page that uses them. Click to make a page current, double-click to go to the drawing, drag to reorder; the buttons add, duplicate, rename and delete pages.
 
@@ -521,7 +585,7 @@ Layers group shapes across the page so that they can be shown, printed, locked o
 
 ### Shape data
 
-![Shape data](docs/tutorial/images/33-shapeData.jpg)
+![Shape data](docs/tutorial/images/40-shapeData.jpg)
 
 Any shape or connector can hold data fields. Select shapes and open **Data › Shape data…** (`Ctrl+Shift+D`), or **Edit data** in the **Shape data** section of the properties panel.
 
@@ -536,7 +600,7 @@ Any shape or connector can hold data fields. Select shapes and open **Data › S
 
 ### Data graphics
 
-![Data graphics](docs/tutorial/images/34-dataGraphics.jpg)
+![Data graphics](docs/tutorial/images/41-dataGraphics.jpg)
 
 **Data › Show data on shape** shows the data values under the selected shapes; **Data graphics on all shapes** shows them under every shape with data in the drawing.
 
@@ -574,19 +638,19 @@ Switch views with the toolbar view button (current view name ▾), **View › Sw
 
 ### Shape sheet
 
-![Shape sheet](docs/tutorial/images/38-shapeSheet.jpg)
+![Shape sheet](docs/tutorial/images/45-shapeSheet.jpg)
 
 One row per shape (groups with their members after them): Name, Master, Text, X, Y, Width, Height, Angle, Fill, Line, Line weight, Font size, Layer, Hyperlink and the number of data fields. Edit the cells to change shapes exactly — positions and sizes in the drawing's units, colours as `#RRGGBB`. Every edit can be undone.
 
 ### Shape data table
 
-![The shape data table](docs/tutorial/images/35-dataView.jpg)
+![The shape data table](docs/tutorial/images/42-dataView.jpg)
 
 Every shape's data in a table, for the **Current page** or **All pages** (**Scope**). Edit values in the cells, **Add field** to add a column for all shapes, **Link data** to bring in a CSV file and **CSV** to export the data.
 
 ### Shape reports
 
-![Reports](docs/tutorial/images/37-reports.jpg)
+![Reports](docs/tutorial/images/44-reports.jpg)
 
 Pick a report from the **Data** menu or the tabs at the top of the Shape reports view.
 
@@ -606,6 +670,7 @@ Pick a report from the **Data** menu or the tabs at the top of the Shape reports
 | Format | What you get |
 |---|---|
 | **HTML (.html)** | A single-file web page that opens in any browser. Charts are SVG pictures with their numbers. Good for mail attachments and wikis. |
+| **Export as a document** | **PDF**, **HTML**, **Markdown (.md)**, **Word (.docx)**, **Excel (.xlsx)**, **Text (.txt)**. Each page gives a picture and a table of its shapes (name, text, shape data); Excel has one sheet per page. Reports go to Excel as well |
 | **Markdown (.md)** | Headings and GitHub tables; charts become tables of their numbers. For Git repositories, issues and note apps. |
 | **Word (.docx)** | A Word document with headings, tables and the charts as pictures plus their numbers, in Malgun Gothic. Edit it in Word, Hancom Office or LibreOffice. |
 | **PDF (.pdf)** | The report drawn on A4 pages. The pages are stored as pictures so Korean text looks the same everywhere without embedding a font, which also means the text cannot be selected or copied. |
@@ -626,7 +691,7 @@ The **Find** window has three tabs:
 
 ### Presentation mode
 
-![Presentation mode](docs/tutorial/images/52-presentation.jpg)
+![Presentation mode](docs/tutorial/images/60-presentation.jpg)
 
 **View › Presentation mode** (`F5`) shows the foreground pages full screen one by one, starting from the current page. Arrow keys, `Space`, `Enter`, `Page Down` or a click move on; `Page Up` or `Backspace` move back; `Home` / `End` go to the first / last page. Shapes with links can be clicked (a link to a page jumps there). `Esc` ends it, leaving you on the page shown last.
 
@@ -634,7 +699,7 @@ The **Find** window has three tabs:
 
 ### Re-layout page
 
-![Automatic layout](docs/tutorial/images/26-relayout.jpg)
+![Automatic layout](docs/tutorial/images/32-relayout.jpg)
 
 **Arrange › Re-layout page…** places connected shapes automatically. `Ctrl+Z` undoes it.
 
@@ -652,7 +717,7 @@ The **Find** window has three tabs:
 
 ### Org chart from data
 
-![Org chart from data](docs/tutorial/images/36-orgChart.jpg)
+![Org chart from data](docs/tutorial/images/43-orgChart.jpg)
 
 **Data › Org chart from data…** builds an org chart on the current page. Paste a table (from Excel, or CSV / tab-separated text) or press **Open file…**; **Sample data** fills in an example.
 
@@ -670,7 +735,7 @@ The **Find** window has three tabs:
 
 ## Files
 
-![The File menu](docs/tutorial/images/39-fileMenu.jpg)
+![The File menu](docs/tutorial/images/46-fileMenu.jpg)
 
 ### Saving
 
@@ -690,11 +755,12 @@ The **Find** window has three tabs:
 
 ### Working with Visio
 
-![Working with Visio](docs/tutorial/images/40-visio.jpg)
+![Working with Visio](docs/tutorial/images/47-visio.jpg)
 
 | Command | Notes |
 |---|---|
 | **Open Visio file (.vsdx)…** | Reads Visio drawings (`.vsdx`) and templates (`.vstx`): pages, shapes with their geometry (including masters, style sheets, groups, arcs and ellipses), text, fills, lines, rotation, flips, shape data, hyperlinks, layers, pictures and connectors with their glue. The result is a new drawing that becomes a `.mdg` when saved |
+| **Save as Visio (.vsdx)…** | Colourful icons (to their first colour), pattern fills (to a solid colour) and WebP, AVIF or SVG pictures (left out) do not carry over as they are. When a drawing has any, the **Exporting to Visio** window lists them first: **Export anyway** or **Cancel** |
 | **Save as Visio (.vsdx)…** | Writes pages, shapes, text, formatting, data, layers, pictures and connectors with their glue, ready to open in Microsoft Visio |
 
 ### Exporting
@@ -707,7 +773,7 @@ The **Find** window has three tabs:
 | **Export as web page (.html)…** | `.html` | Every page as SVG in one web page with a page list |
 | **Export shape data to CSV…** | `.csv` | Page, ID, Name, Master, Text, then one column per data field, for every shape on every page |
 
-![A page as a picture](docs/tutorial/images/42-imageExport.jpg)
+![A page as a picture](docs/tutorial/images/49-imageExport.jpg)
 
 The **Export as image** window:
 
@@ -724,7 +790,7 @@ The window remembers your last choices.
 
 ### Recent files and folders
 
-![Managing recent files](docs/tutorial/images/44-recentFiles.jpg)
+![Managing recent files](docs/tutorial/images/51-recentFiles.jpg)
 
 - **File › Recent files…** (`Ctrl+R`) opens a window with **Recent files** and **Recent folders** tabs, up to 10 of each.
 - Each entry has **Open** (folders: **Open from this folder**) and **Remove from the list**; **Clear all** · **Clear all folders** remove them all.
@@ -734,7 +800,7 @@ The window remembers your last choices.
 
 ### Drag and drop
 
-![Drag and drop](docs/tutorial/images/45-dragDrop.jpg)
+![Drag and drop](docs/tutorial/images/52-dragDrop.jpg)
 
 Drag files from the file manager onto the window:
 
@@ -757,7 +823,7 @@ Double-clicking a `.mdg` or `.mdgt` file opens it in MyDiagram too (the installe
 
 ## Database
 
-![Keeping drawings in a database](docs/tutorial/images/43-database.jpg)
+![Keeping drawings in a database](docs/tutorial/images/50-database.jpg)
 
 Drawings can be kept in a database as well as in files (desktop app only — a web browser cannot connect to a database server or an SQLite file, so the web version hides these commands).
 
@@ -782,7 +848,7 @@ Choose in **Settings › Database**.
 
 ## Printing and print preview
 
-![Printing and preview](docs/tutorial/images/41-print.jpg)
+![Printing and preview](docs/tutorial/images/48-print.jpg)
 
 **File › Print…** (`Ctrl+P`) opens the **Print preview** window. The preview on the right follows every change; the arrows at the bottom turn the sheets. The settings on the left are one column, without tabs.
 
@@ -803,7 +869,7 @@ Choose in **Settings › Database**.
 
 ### Themes
 
-![Themes](docs/tutorial/images/46-theme.jpg)
+![Themes](docs/tutorial/images/54-theme.jpg)
 
 The program's own colours (not the drawing's design) come from a theme.
 
@@ -813,7 +879,7 @@ The program's own colours (not the drawing's design) come from a theme.
 
 ### Language
 
-![Language](docs/tutorial/images/47-language.jpg)
+![Language](docs/tutorial/images/55-language.jpg)
 
 The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches between Korean and English: the UK flag shows while the UI is Korean, the Korean flag while it is English (press it to switch to that language). **Settings › General › Language** works too. Menus, popups, reports, error messages and backend messages all switch.
 
@@ -828,7 +894,7 @@ The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches be
 | Field | Contents |
 |---|---|
 | **Background** | Moving · Image · None |
-| **Moving background** | Aurora · Waves · Particles · Constellation · Bubbles · Flowing grid · Flowchart · Star field · Rain · Snow · Fireflies · Ripples · Code rain · Hexagons · Orbits · Lava lamp · Spiral galaxy · Confetti · Node network · Ribbons, **Change moving background** (`Ctrl+Shift+B`, random) |
+| **Moving background** | Aurora · Waves · Particles · Constellation · Bubbles · Flowing grid · Flowchart · Star field · Rain · Snow · Fireflies · Ripples · Code rain · Hexagons · Orbits · Lava lamp · Spiral galaxy · Confetti · Node network · Ribbons · Meteors, **Change moving background** (`Ctrl+Shift+B`, random) |
 | **Motion speed** | 0–300% |
 | **Random background at start** | A different animation at every start |
 | **Start page background changes** | Off · every 15 s, 30 s, 1 min, 2 min or 5 min while the start page is open |
@@ -841,7 +907,7 @@ The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches be
 
 ### Panels
 
-![Collapsing panels](docs/tutorial/images/48-panels.jpg)
+![Collapsing panels](docs/tutorial/images/56-panels.jpg)
 
 - Collapse and expand the Shapes and Properties panels with the arrow in their header, **View › Show › Show/hide tool panel** (`Ctrl+Shift+1`) · **Show/hide properties panel** (`Ctrl+Shift+2`) or the toolbar buttons.
 - Collapsed, a panel leaves a narrow rail with icons and a title; the **Expand** button is at the top. The Shapes rail still switches drawing tools, the Properties rail opens Format, Data, Layers, Page, Themes and Comment.
@@ -857,14 +923,14 @@ Hide or show it with **View › Show › Status bar** or in **Settings › Gener
 
 ### The Settings window
 
-![Settings](docs/tutorial/images/50-settings.jpg)
+![Settings](docs/tutorial/images/58-settings.jpg)
 
 **Help › Settings…** (`Ctrl+,`). Settings apply at once and are kept for the next start. **Defaults** puts every setting back (the language and the background image stay).
 
 | Tab | Fields |
 |---|---|
 | **General** | Language, Reopen last files when starting, Ask before deleting a page with shapes, Clock on the status bar, Status bar, Last folder used, Tutorial (**Start the tutorial**) |
-| **Start page** | Show the start page when starting, Show recent files, Recent files shown (1–10), Show recent folders, Show sample drawings, Show the moving background picker, Show the tutorial banner, Start page **Open now**. Changes show on the start page right away |
+| **Start page** | The start page on the left, the **Background** settings on the right (the same as the **Background** category). Show the start page when starting, Show recent files, Recent files shown (1–10), Show recent folders, Show sample drawings, Show the moving background picker, Background transparency, Show the View tutorial window at each start, Show the tutorial banner, Start page **Open now**. Changes show on the start page right away |
 | **Theme** | Dark · Light · Custom, System setting |
 | **Font** | Font, size, weight, style, row height, zoom |
 | **Background** | Background, moving background, motion speed, random background at start, start page background changes, moving background on the start page only, background image, background opacity, fit |
@@ -876,13 +942,13 @@ Hide or show it with **View › Show › Status bar** or in **Settings › Gener
 
 ### About
 
-![About](docs/tutorial/images/54-about.jpg)
+![About](docs/tutorial/images/62-about.jpg)
 
 The ⓘ toolbar button (**Help › About…**, `F1`) shows the version, build date, commit, target, profile, runtime and platform, and the author. **Copy** copies it all.
 
 ## Keyboard shortcuts
 
-![Keyboard shortcuts](docs/tutorial/images/53-shortcuts.jpg)
+![Keyboard shortcuts](docs/tutorial/images/61-shortcuts.jpg)
 
 The same list is in **Settings › Shortcuts** (or **Help › Keyboard shortcuts…**), and the menus show the shortcuts next to each command. On macOS use `Cmd` instead of `Ctrl`.
 
@@ -987,10 +1053,6 @@ A serious error inside the program (the backend) opens **Serious error (backend)
 | macOS | `~/Library/Application Support/com.shkwon.mydiagram/crash.log` |
 | Linux | `~/.local/share/com.shkwon.mydiagram/crash.log` |
 
-### "Already running" error
-
-Only one MyDiagram runs per user. Starting it again shows **MyDiagram — Start error** with "MyDiagram is already running." and the new copy closes. Find the open window on the taskbar (Dock); **File › Open…** there opens other drawings as tabs. Even after a crash the OS releases the lock, so the next start is never blocked.
-
 ### Other problems
 
 | Symptom | Fix |
@@ -1008,7 +1070,7 @@ Only one MyDiagram runs per user. Starting it again shows **MyDiagram — Start 
 
 ### Windows
 
-Run `MyDiagram-Setup-1.0.0.exe`.
+Run `MyDiagram-Setup-1.0.1.exe`.
 
 1. Choose the installer language (한국어 / English).
 2. **Settings from a previous installation go back to their defaults; your data stays.** At the first start after installing, theme, fonts, zoom, panels, view options, window and popup places, column widths and print choices start fresh, while recent files and folders, the list of open drawings, the database connection, the background image and the tutorial history are kept. Drawing files (.mdg) are never touched.
@@ -1025,11 +1087,11 @@ It installs for the current user, without administrator rights. Remove it in **S
 
 ### macOS
 
-Open `MyDiagram-1.0.0-<arch>.dmg` and drag MyDiagram into Applications. Remove it by moving it to the Trash. macOS 11 or later is required.
+Open `MyDiagram-1.0.1-<arch>.dmg` and drag MyDiagram into Applications. Remove it by moving it to the Trash. macOS 11 or later is required.
 
 ### Linux
 
-Use the `.deb` (Debian, Ubuntu), `.rpm` (Fedora…) or `.AppImage` (`MyDiagram-1.0.0-<arch>.*`). The deb and rpm packages register the `.mdg` and `.mdgt` file types and icons. Remove it with the package manager.
+Use the `.deb` (Debian, Ubuntu), `.rpm` (Fedora…) or `.AppImage` (`MyDiagram-1.0.1-<arch>.*`). The deb and rpm packages register the `.mdg` and `.mdgt` file types and icons. Remove it with the package manager.
 
 ### Web version
 
@@ -1037,5 +1099,5 @@ Put the web build (`dist/`) on any static web server and use the same features i
 
 - Files are opened with the browser's file picker; saving goes back to the same file in browsers with File System Access (Edge, Chrome) and is a download elsewhere.
 - Popups float inside the page.
-- Features that need the OS — the database, file type registration, the "already running" check — are desktop only. The system font list is read only when the browser allows it.
+- Features that need the OS — the database, file type registration — are desktop only. The system font list is read only when the browser allows it.
 - Settings, recent history and My shapes stay in the browser's storage.

@@ -243,6 +243,91 @@ fn document_path(app: &AppHandle, name: &str) -> Option<PathBuf> {
     candidates.into_iter().flatten().find(|path| path.is_file())
 }
 
+/// Whether this copy is the first one running: only it restores and keeps the session.
+struct PrimaryCopy(bool);
+
+#[tauri::command]
+fn is_primary_copy(state: tauri::State<'_, PrimaryCopy>) -> bool {
+    state.0
+}
+
+/// The page of a document window ("guide", "tutorial") in a language, inside the app's pages.
+pub fn doc_page(doc: &str, lang: &str) -> Option<String> {
+    let file = match doc {
+        "guide" => "UsersGuide",
+        "tutorial" => "Tutorial",
+        _ => return None,
+    };
+    Some(format!("docs/{file}{}.html", if lang == "en" { ".en" } else { "" }))
+}
+
+const DOC_WINDOWS: [&str; 2] = ["guide", "tutorial"];
+
+fn show_doc_page(window: &WebviewWindow, page: &str) -> Result<(), String> {
+    let current = window.url().map_err(|error| error.to_string())?;
+    let target = current.join(&format!("/{page}")).map_err(|error| error.to_string())?;
+    // The fragment (the chapter being read) does not make it another page.
+    if current.path() != target.path() {
+        window.navigate(target).map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+/// Opens the user's guide or the tutorial document in a window of its own, or
+/// brings that window back showing the language asked for.
+#[tauri::command]
+async fn open_doc_window(app: AppHandle, doc: String, lang: String, dark: bool) -> Result<(), String> {
+    let page = doc_page(&doc, &lang).ok_or_else(|| format!("unknown document {doc}"))?;
+    let theme = if dark { tauri::Theme::Dark } else { tauri::Theme::Light };
+    let label = format!("doc-{doc}");
+    if let Some(window) = app.get_webview_window(&label) {
+        show_doc_page(&window, &page)?;
+        let _ = window.set_theme(Some(theme));
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    let title_window = label.clone();
+    let title_app = app.clone();
+    WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(page.into()))
+        .title(app_title(app.package_info()))
+        .inner_size(1120.0, 800.0)
+        .min_inner_size(560.0, 420.0)
+        .center()
+        .theme(Some(theme))
+        .additional_browser_args(BROWSER_ARGS)
+        .on_document_title_changed(move |_, title| {
+            if let Some(window) = title_app.get_webview_window(&title_window) {
+                let _ = window.set_title(&title);
+            }
+        })
+        .build()
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+/// The main window's language changed: the open document windows follow it.
+#[tauri::command]
+fn set_doc_windows_language(app: AppHandle, lang: String) -> Result<(), String> {
+    for doc in DOC_WINDOWS {
+        if let (Some(window), Some(page)) = (app.get_webview_window(&format!("doc-{doc}")), doc_page(doc, &lang)) {
+            show_doc_page(&window, &page)?;
+        }
+    }
+    Ok(())
+}
+
+/// The theme changed: the title bars and scroll bars of the document windows follow it.
+#[tauri::command]
+fn set_doc_windows_theme(app: AppHandle, dark: bool) {
+    for doc in DOC_WINDOWS {
+        if let Some(window) = app.get_webview_window(&format!("doc-{doc}")) {
+            let _ = window.set_theme(Some(if dark { tauri::Theme::Dark } else { tauri::Theme::Light }));
+        }
+    }
+}
+
 /// Opens an installed document with the system's viewer (browser for HTML).
 #[tauri::command]
 async fn open_document(app: AppHandle, name: String) -> Result<PathBuf, String> {
@@ -517,23 +602,16 @@ async fn db_delete(config: db::DbConfig, id: String) -> Result<(), String> {
 }
 
 pub fn run() {
-    // One MyDiagram at a time: a second start reports it and ends.
-    // Tests run copies side by side (MYDIAGRAM_MULTI=1).
-    let _instance = if std::env::var_os("MYDIAGRAM_MULTI").is_none() {
-        match instance::acquire() {
-            Some(lock) => Some(lock),
-            None => {
-                instance::report_already_running();
-                std::process::exit(3);
-            }
-        }
-    } else {
-        None
-    };
+    // Several copies may run at once. The first holds this lock and is the primary one
+    // (session, window place). Tests run independent copies (MYDIAGRAM_MULTI=1): each is primary.
+    let instance_lock = instance::acquire();
+    let primary = instance_lock.is_some() || std::env::var_os("MYDIAGRAM_MULTI").is_some();
+    let _instance = instance_lock;
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
-        .setup(|app| {
+        .manage(PrimaryCopy(primary))
+        .setup(move |app| {
             install_panic_hook(app.handle());
             lock(&app.state::<AppState>()).startup_files = files::diagram_files(std::env::args().skip(1));
             if let Ok(dir) = background_dir(app.handle()) {
@@ -543,6 +621,8 @@ pub fn run() {
             // First start after the installer: forget the window place, and have the page reset its preferences.
             let install_reset = state_path.as_deref().and_then(window_state::take_install_reset);
             let placement = state_path.as_deref().and_then(|path| window_state::saved_placement(app.handle(), path));
+            // A further copy opens a little aside, so that it does not hide the first one.
+            let aside = if primary { 0.0 } else { 36.0 };
             let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title(app_title(app.package_info()))
                 // No OS title bar: the menu bar shows the icon, name, version, the drawing's
@@ -558,13 +638,13 @@ pub fn run() {
             };
             let builder = match placement {
                 Some((state, scale)) => builder
-                    .position(f64::from(state.x) / scale, f64::from(state.y) / scale)
+                    .position(f64::from(state.x) / scale + aside, f64::from(state.y) / scale + aside)
                     .inner_size(f64::from(state.width) / scale, f64::from(state.height) / scale)
                     .maximized(state.maximized),
                 None => builder.inner_size(1640.0, 920.0).center(),
             };
             let main = builder.build()?;
-            if let Some(path) = state_path {
+            if let (Some(path), true) = (state_path, primary) {
                 window_state::track(&main, path);
             }
             // Closing the main window ends the app: the popups go with it.
@@ -594,6 +674,10 @@ pub fn run() {
             open_document,
             open_external,
             sample_files,
+            is_primary_copy,
+            open_doc_window,
+            set_doc_windows_language,
+            set_doc_windows_theme,
             open_popup,
             popup_ready,
             place_popup,
@@ -610,4 +694,17 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running MyDiagram");
+}
+
+#[cfg(test)]
+mod doc_window_tests {
+    use super::doc_page;
+
+    #[test]
+    fn a_document_page_follows_the_language() {
+        assert_eq!(doc_page("guide", "ko").as_deref(), Some("docs/UsersGuide.html"));
+        assert_eq!(doc_page("guide", "en").as_deref(), Some("docs/UsersGuide.en.html"));
+        assert_eq!(doc_page("tutorial", "en").as_deref(), Some("docs/Tutorial.en.html"));
+        assert_eq!(doc_page("../secret", "ko"), None);
+    }
 }

@@ -24,7 +24,7 @@ export const BACKGROUND_KINDS = ['animated', 'image', 'none'];
 export const ANIMATION_INTERVALS = [0, 15, 30, 60, 120, 300];
 export const ANIMATIONS = [
   'aurora', 'waves', 'particles', 'constellation', 'bubbles', 'gridflow', 'flowchart', 'starfield', 'rain', 'snow',
-  'fireflies', 'ripples', 'coderain', 'hexagons', 'orbits', 'lava', 'spiral', 'confetti', 'nodes', 'ribbons',
+  'fireflies', 'ripples', 'coderain', 'hexagons', 'orbits', 'lava', 'spiral', 'confetti', 'nodes', 'ribbons', 'meteors',
 ];
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const DATE_FORMATS = ['iso', 'ko', 'us', 'eu'];
@@ -68,6 +68,10 @@ export function defaultSettings(language = 'ko') {
     startShowSamples: true,
     startShowBackground: true,
     startShowTutorialBanner: true,
+    // The start page's cards as the user placed them (src/ui/startboard.js); null = the default arrangement.
+    startLayout: null,
+    // How see-through the start page's background is, in percent.
+    startBgTransparency: 0,
     startRecentCount: 8,
     showLeftPanel: true,
     showRightPanel: true,
@@ -92,7 +96,8 @@ export function defaultSettings(language = 'ko') {
     smartGuides: true,
     autoConnect: true,
     gridSize: 'normal',
-    stencilSize: 'medium',
+    stencilSize: 'small',
+    stencilDefaultSmall: true,
     defaultDesign: 'office',
     defaultPaper: language === 'ko' ? 'A4' : 'Letter',
     defaultOrientation: 'landscape',
@@ -102,6 +107,8 @@ export function defaultSettings(language = 'ko') {
     openStencils: ['basic', 'flowchart', 'arrows'],
     rowHeight: 26,
     tutorialOffered: false,
+    // Settings › Start page: the "view the tutorial" window at each start.
+    showTutorialPopup: true,
     tutorialDone: false,
     // Database (Settings › Database). The password is stored only with dbSavePassword;
     // otherwise it is kept for this run of the app only.
@@ -141,6 +148,8 @@ export function normalizeSettings(raw = {}, language) {
   // Seconds between automatic changes on the start page; 0 = never.
   s.animationInterval = ANIMATION_INTERVALS.includes(Number(s.animationInterval)) ? Number(s.animationInterval) : base.animationInterval;
   s.backgroundOpacity = clamp(s.backgroundOpacity, 0, 100, base.backgroundOpacity);
+  s.startBgTransparency = clamp(s.startBgTransparency, 0, 100, base.startBgTransparency);
+  s.startLayout = s.startLayout && s.startLayout.version === 2 && typeof s.startLayout.cards === 'object' ? s.startLayout : null;
   s.backgroundFit = BACKGROUND_FITS.includes(s.backgroundFit) ? s.backgroundFit : base.backgroundFit;
   s.backgroundImage = typeof s.backgroundImage === 'string' && s.backgroundImage ? s.backgroundImage : null;
   s.lastDirectory = typeof s.lastDirectory === 'string' && s.lastDirectory ? s.lastDirectory : null;
@@ -151,7 +160,9 @@ export function normalizeSettings(raw = {}, language) {
   s.rowHeight = clamp(s.rowHeight, 20, 44, 26);
   s.startRecentCount = Math.round(clamp(s.startRecentCount, 1, 10, 8));
   s.gridSize = s.gridSize in GRID_SIZES ? s.gridSize : 'normal';
-  s.stencilSize = STENCIL_SIZES.includes(s.stencilSize) ? s.stencilSize : 'medium';
+  // The default became small: earlier versions saved 'medium' without it being a choice, so once it moves over.
+  if (raw && typeof raw === 'object' && Object.keys(raw).length && raw.stencilDefaultSmall !== true && raw.stencilSize === 'medium') s.stencilSize = 'small';
+  s.stencilSize = STENCIL_SIZES.includes(s.stencilSize) ? s.stencilSize : 'small';
   s.defaultDesign = DESIGN_IDS.includes(s.defaultDesign) ? s.defaultDesign : 'office';
   s.defaultPaper = PAPERS.includes(s.defaultPaper) ? s.defaultPaper : base.defaultPaper;
   s.defaultOrientation = s.defaultOrientation === 'portrait' ? 'portrait' : 'landscape';
@@ -159,7 +170,7 @@ export function normalizeSettings(raw = {}, language) {
   s.defaultRoute = ROUTE_IDS.includes(s.defaultRoute) ? s.defaultRoute : 'orthogonal';
   s.openStencils = Array.isArray(s.openStencils) ? s.openStencils.filter((id) => typeof id === 'string').slice(0, 30) : base.openStencils;
   for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showRulers', 'showGrid',
-    'showGuides', 'showPageBreaks', 'showConnectionPoints', 'showMinimap', 'snapToGrid', 'snapToShapes', 'smartGuides', 'autoConnect', 'wheelZoom', 'tutorialOffered', 'tutorialDone', 'animationOnStartOnly',
+    'showGuides', 'showPageBreaks', 'showConnectionPoints', 'showMinimap', 'snapToGrid', 'snapToShapes', 'smartGuides', 'autoConnect', 'wheelZoom', 'tutorialOffered', 'showTutorialPopup', 'tutorialDone', 'animationOnStartOnly',
     'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];
   }

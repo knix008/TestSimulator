@@ -1,0 +1,1013 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-06T04:18:13.728Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mw4gs31b0d6s8",
+  "title": "학교 E-R 모델",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-06T04:18:13.727Z",
+  "design": "sequence",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mw4gs31b0d7vv",
+    "name": "학교 E-R 모델",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs31b0d83e",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "학교 E-R 모델",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31b0d97i",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 100,
+      "y": 330,
+      "w": 130,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "학생",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31b0damh",
+      "type": "shape",
+      "master": "relationship",
+      "name": "",
+      "x": 300,
+      "y": 320,
+      "w": 130,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "수강",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31b0dbeb",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 500,
+      "y": 330,
+      "w": 130,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "강좌",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31b0dcn7",
+      "type": "shape",
+      "master": "relationship",
+      "name": "",
+      "x": 700,
+      "y": 320,
+      "w": 130,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "담당",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31b0dd82",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 890,
+      "y": 330,
+      "w": 130,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "교수",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31b0devy",
+      "type": "shape",
+      "master": "relationship",
+      "name": "",
+      "x": 590,
+      "y": 440,
+      "w": 130,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "포함",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31b0dfju",
+      "type": "shape",
+      "master": "weakEntity",
+      "name": "",
+      "x": 585,
+      "y": 575,
+      "w": 140,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "과제",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31b0dg2v",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0d97i",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31b0damh",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "N",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs31b0dhyp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0damh",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31b0dbeb",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "M",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs31b0disy",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0dbeb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31b0dcn7",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "N",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs31b0djk0",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0dcn7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31b0dd82",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "1",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs31b0dk1y",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0dbeb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31b0devy",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "1",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs31b0dl1j",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0devy",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31b0dfju",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "N",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31b0dmkb",
+      "type": "shape",
+      "master": "keyAttribute",
+      "name": "",
+      "x": 40,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "학번",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31b0dn16",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0d97i",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31b0dmkb",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31b0dois",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 170,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "이름",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31b0dpa6",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0d97i",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31b0dois",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31c0dqqj",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 105,
+      "y": 450,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "학년",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31c0drk7",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0d97i",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31c0dqqj",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31c0dsgk",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 310,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "성적",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31c0dtqn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0damh",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31c0dsgk",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31c0dunp",
+      "type": "shape",
+      "master": "keyAttribute",
+      "name": "",
+      "x": 450,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "강좌 번호",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31c0dvq0",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0dbeb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31c0dunp",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31c0dwht",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 580,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "강좌명",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31c0dxra",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0dbeb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31c0dwht",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31c0dyv9",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 420,
+      "y": 450,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "학점",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31c0dzsi",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0dbeb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31c0dyv9",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31c0e0dd",
+      "type": "shape",
+      "master": "keyAttribute",
+      "name": "",
+      "x": 790,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "교번",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31c0e1w9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0dd82",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31c0e0dd",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31c0e2vn",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 920,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "이름",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31c0e3gu",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0dd82",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31c0e2vn",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31c0e4ah",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 850,
+      "y": 450,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "연구실",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31c0e5h2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0dd82",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31c0e4ah",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31c0e6db",
+      "type": "shape",
+      "master": "keyAttribute",
+      "name": "",
+      "x": 400,
+      "y": 580,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "과제 번호",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31c0e7er",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0dfju",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31c0e6db",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31c0e8n9",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 790,
+      "y": 580,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "마감일",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31c0e9cx",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31b0dfju",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31c0e8n9",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "erd",
+   "callouts"
+  ]
+ }
+}

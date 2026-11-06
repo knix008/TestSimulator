@@ -6,7 +6,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { sleep } from './cdp.mjs';
+import { Page, sleep, waitTarget } from './cdp.mjs';
 import { root } from './harness.mjs';
 import { ALIGN_CHECK } from './align-check.mjs';
 import { CLIP_CHECK } from './clip-check.mjs';
@@ -122,10 +122,13 @@ export const cases = [
     await expectPopupWindow(app, page, 'welcome');
     const text = await page.eval(`document.querySelector('.popup').innerText`);
     assert.match(text, /튜토리얼|tutorial/i);
+    assert.ok(await page.eval(`document.querySelector('[data-toggle="showTutorialPopup"]').checked`), 'at each start, by default');
     await page.click('[data-value="later"]');
     page.close();
     await sleep(300);
-    assert.equal(await W(app, 'w.state.settings.tutorialOffered'), true, 'offered once');
+    assert.equal(await W(app, 'w.state.settings.tutorialOffered'), true, 'offered');
+    // The other cases restart the app: without the window in their way.
+    await W(app, '(a.updateSettings({ showTutorialPopup: false }), 1)');
   } },
   { group: '처음 실행', name: '시작 페이지: 템플릿 전부, 최근 파일·폴더, 예제, 튜토리얼 시작 버튼', async run(app) {
     await W(app, '(a.showStartPage(true), 1)');
@@ -202,38 +205,21 @@ export const cases = [
   { group: '창', name: '타이틀 바: 프로그램 이름과 버전', async run(app) {
     assert.equal(mainWindow(app)?.title, TITLE);
   } },
-  { group: '창', name: '이미 실행 중이면 오류 팝업 후 종료 (두 번째 실행)', async run(app) {
+  { group: '창', name: '여러 개 동시 실행: 두 번째 실행도 그대로 뜸', async run(app) {
     const lockDir = tempDir('lock');
-    const report = path.join(lockDir, 'already.txt');
     const profile = tempDir('profile2');
-    const exe = path.join(root, 'src-tauri', 'target', 'debug', 'mydiagram.exe');
+    const exe = process.env.MYDIAGRAM_E2E_EXE || path.join(root, 'src-tauri', 'target', 'debug', 'mydiagram.exe');
     const env = { ...process.env, MYDIAGRAM_LOCK_DIR: lockDir, MYDIAGRAM_CONFIG_DIR: profile, MYDIAGRAM_DATA_DIR: profile, WEBVIEW2_USER_DATA_FOLDER: profile };
     delete env.MYDIAGRAM_MULTI;
     delete env.ELECTRON_RUN_AS_NODE;
     const first = spawn(exe, [], { env, stdio: 'ignore' });
+    const second = spawn(exe, [], { env, stdio: 'ignore' });
     try {
-      await sleep(2500);
-      // The real message box (no test hook): it must open in front of everything.
-      const second = spawn(exe, [], { env, stdio: 'ignore' });
-      const exited = new Promise((resolve) => second.once('exit', resolve));
-      const probe = (close = false) => JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(root, 'test', 'e2e', 'dialogs.ps1'), '-ProcessId', String(second.pid), ...(close ? ['-Close'] : [])], { windowsHide: true }).toString() || '[]');
-      let box;
-      for (let i = 0; i < 40 && !box; i++) { await sleep(250); box = [].concat(probe()).find((w) => w.class === '#32770'); }
-      assert.ok(box, 'the second copy shows a message box');
-      assert.match(box.title, /MyDiagram/);
-      // Topmost keeps it above every window. Keyboard focus also needs Windows' consent: a copy started from Explorer gets it,
-      // one started by this background test process may not, so focus is not required here.
-      assert.ok(box.topmost, `the message box is in front of every window ${JSON.stringify(box)}`);
+      await sleep(5000);
       assert.equal(first.exitCode, null, 'the first copy keeps running');
-      probe(true); // OK
-      const code = await Promise.race([exited, sleep(10000).then(() => 'running')]);
-      assert.equal(code, 3, 'the second copy quits after the message');
-      // The wording (Korean/English) is checked by instance.rs unit tests and through the text hook:
-      const third = spawn(exe, [], { env: { ...env, MYDIAGRAM_ALREADY_RUNNING_FILE: report }, stdio: 'ignore' });
-      await Promise.race([new Promise((resolve) => third.once('exit', resolve)), sleep(10000)]);
-      assert.match(fs.readFileSync(report, 'utf8'), /이미 실행 중|already running/);
+      assert.equal(second.exitCode, null, 'the second copy keeps running');
     } finally {
-      spawn('taskkill', ['/PID', String(first.pid), '/T', '/F'], { stdio: 'ignore' });
+      for (const copy of [first, second]) spawn('taskkill', ['/PID', String(copy.pid), '/T', '/F'], { stdio: 'ignore' });
       await sleep(800);
     }
   } },
@@ -1271,7 +1257,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await expectPopupWindow(app, page, 'settings');
     const tabs = await page.eval(`[...document.querySelectorAll('.tabs [data-action="tab"]')].map((t) => t.dataset.value)`);
     for (const tab of ['general', 'appearance', 'font', 'background', 'drawing', 'defaults', 'database', 'recent', 'shortcuts']) assert.ok(tabs.includes(tab), tab);
-    assert.equal(await page.eval(`document.querySelectorAll('.theme-list .theme-row').length`), 20);
+    assert.equal(await page.eval(`document.querySelectorAll('.theme-list .theme-row').length`), 40, 'the dark and light themes together');
     await page.click('[data-theme-group="custom"]');
     assert.ok(await page.eval(`document.querySelectorAll('[data-custom-color]').length >= 10`), 'custom colours');
     await page.click('.tabs [data-value="font"]');
@@ -1346,39 +1332,347 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── help
-  { group: '도움말', name: '튜토리얼 문서를 프로그램 안에서 읽기 (홈 화면 항목)', async run(app) {
+  { group: '도움말', name: '튜토리얼 문서: 별도의 창, 글꼴 크기·언어·테마', async run(app) {
     await W(app, '(a.showStartPage(true), 1)');
     await sleep(300);
-    assert.ok(await app.main.eval(`Boolean(document.querySelector('#start-page [data-start="tutorial-doc"]'))`), 'the start page lists the tutorial document');
     await app.main.click('#start-page [data-start="tutorial-doc"]');
-    await app.main.waitFor(`document.querySelectorAll('[data-reader-chapter] option').length > 5`, { timeout: 15000 });
-    const doc = await app.main.eval(`(() => { const d = document.querySelector('.reader-frame').contentDocument; return { shown: !document.querySelector('#reader-page').hidden, h1: d.querySelector('h1').textContent, steps: d.querySelectorAll('h3').length, images: d.images.length, raw: d.body.innerText.includes('<a id='), chapters: [...document.querySelectorAll('[data-reader-chapter] option')].slice(1).map((o) => o.textContent) }; })()`);
-    assert.ok(doc.shown);
+    const target = await waitTarget(app.port, (item) => /docs\/Tutorial(\.en)?\.html/.test(item.url), 15000);
+    const page = await new Page(target).open();
+    await page.waitFor('document.readyState === "complete" && Boolean(document.querySelector("main h1"))');
+    const doc = await page.eval(`({ h1: document.querySelector('main h1').textContent, steps: document.querySelectorAll('main h3').length, images: document.querySelectorAll('main img').length, flags: document.querySelectorAll('.doc-lang a .flag').length, names: [...document.querySelectorAll('.doc-lang a span')].map((s) => s.textContent) })`);
     assert.match(doc.h1, /MyDiagram/);
-    const steps = await app.main.eval(`window.__mydiagram.domain.tutorialSteps()`);
+    const steps = await app.main.eval('window.__mydiagram.domain.tutorialSteps()');
     assert.equal(doc.steps, steps, 'every tutorial step is in the document');
     assert.equal(doc.images, steps, 'with a picture each');
-    assert.equal(doc.raw, false, 'no raw HTML shows as text');
-    assert.ok(doc.chapters.every((c) => !c.endsWith('#')), JSON.stringify(doc.chapters));
-    await app.main.eval(`(() => { const s = document.querySelector('[data-reader-chapter]'); s.value = s.options[4].value; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
-    await sleep(300);
-    assert.ok(await app.main.eval(`document.querySelector('.reader-frame').contentWindow.scrollY > 200`), 'a chapter can be picked');
-    await app.main.click('[data-reader="lang"][data-value="en"]');
-    await app.main.waitFor(`/tutorial/i.test(document.querySelector('.reader-frame').contentDocument?.querySelector('h1')?.textContent ?? '')`, { timeout: 10000 });
-    assert.deepEqual(await app.main.eval(CLIP_CHECK), []);
-    await app.main.click('[data-reader="home"]');
-    await sleep(300);
-    assert.deepEqual(await app.main.eval(`[!document.querySelector('#reader-page').hidden, !document.querySelector('#start-page').hidden]`), [false, true], 'Home goes back to the start page');
+    assert.deepEqual([doc.flags, doc.names], [2, ['한국어', 'English']], 'the language buttons show a flag and a name');
+    // Font size.
+    const zoom = () => page.eval(`getComputedStyle(document.documentElement).getPropertyValue('--doc-zoom')`);
+    await page.click('#doc-font-up');
+    assert.equal(Number(await zoom()), 17 / 16);
+    await page.click('#doc-font-down');
+    // The theme of the main window, live.
+    const surface = (who) => who.eval(`getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()`);
+    await W(app, `(a.updateSettings({ theme: 'midnight' }), 1)`);
+    await page.waitFor(`getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() === ${JSON.stringify(await surface(app.main))}`, { message: 'the document follows the theme' });
+    await W(app, `(a.updateSettings({ theme: 'light' }), 1)`);
+    await page.waitFor(`getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() === ${JSON.stringify(await surface(app.main))}`);
+    // Language in the window, then the main window's language wins when it changes.
+    await page.click('.doc-lang a[hreflang="en"]');
+    await page.waitFor('location.pathname.endsWith("Tutorial.en.html") && document.readyState === "complete"');
+    assert.equal(Number(await zoom()), 1, 'the font size is kept across pages');
+    page.close();
   } },
-  { group: '도움말', name: '사용 설명서 열기 (설치된 문서)', async run(app) {
-    const log = path.join(tempDir('open'), 'open.log');
-    await app.restart([], { MYDIAGRAM_OPEN_LOG: log });
-    await app.popup('welcome', 3000).then((p) => p.close()).catch(() => {});
+  { group: '도움말', name: '사용 설명서: 별도의 창 (같은 창을 다시 씀)', async run(app) {
+    await W(app, `(w.run('userGuide'), 1)`);
+    const target = await waitTarget(app.port, (item) => /docs\/UsersGuide(\.en)?\.html/.test(item.url), 15000);
+    const page = await new Page(target).open();
+    await page.waitFor('Boolean(document.querySelector("#doc-font-up") && document.querySelector(".doc-lang a.active"))');
     await W(app, `(w.run('userGuide'), 1)`);
     await sleep(800);
-    assert.match(fs.readFileSync(log, 'utf8'), /UsersGuide(\.en)?\.html/);
-    await app.restart();
-    await app.popup('welcome', 3000).then((p) => p.close()).catch(() => {});
+    assert.equal((await app.targets()).filter((item) => /docs\/UsersGuide/.test(item.url)).length, 1, 'one window per document');
+    assert.equal(app.windowInfo().filter((item) => /사용 설명서|User's Guide/i.test(item.title)).length, 1, 'with the document title');
+    page.close();
+    await noErrorPopup(app, 'guide');
+  } },
+  { group: '캔버스', name: 'Shift로 끌면 연결된 선이 곧게 정렬, 회전 중에는 각도 표시', async run(app) {
+    await freshDrawing(app);
+    await W(app, `(() => { const c = a.activeDoc(); const s1 = a.addShapeAt('process', { x: 300, y: 300, w: 130, h: 70 }); const s2 = a.addShapeAt('process', { x: 620, y: 360, w: 130, h: 70 }); a.connectShapes({ id: s1.id, pt: 'auto' }, { id: s2.id, pt: 'auto' }); a.select([s2.id]); return 1; })()`);
+    await sleep(300);
+    const shapePoint = async (id) => { const r = await W(app, `(() => { const s = a.activeDoc().page.shapes.find((x) => x.id === '${id}'); return a.toScreen ? { x: s.x + s.w / 2, y: s.y + s.h / 2 } : null; })()`); return r; };
+    void shapePoint;
+    const ids = await W(app, `a.activeDoc().page.shapes.filter((s) => s.type !== 'connector').map((s) => s.id)`);
+    const toClient = (id) => app.main.eval(`(() => { const el = document.querySelector('[data-id="${id}"]') ?? document.querySelector('.canvas-scroll'); const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+    const from = await toClient(ids.at(-1));
+    await app.main.mouse('mouseMoved', from.x, from.y);
+    await app.main.mouse('mousePressed', from.x, from.y);
+    await app.main.mouse('mouseMoved', from.x - 4, from.y + 4, { modifiers: 8 });
+    await app.main.mouse('mouseMoved', from.x - 8, from.y + 8, { modifiers: 8 });
+    await app.main.mouse('mouseReleased', from.x - 8, from.y + 8, { modifiers: 8 });
+    await sleep(300);
+    const centres = await W(app, `a.activeDoc().page.shapes.filter((s) => s.type !== 'connector').map((s) => ({ x: s.x + s.w / 2, y: s.y + s.h / 2 }))`);
+    assert.ok(Math.abs(centres.at(-2).y - centres.at(-1).y) < 0.6 || Math.abs(centres.at(-2).x - centres.at(-1).x) < 0.6, `lined up: ${JSON.stringify(centres)}`);
+    // Rotation: the dial with the angle while dragging.
+    await W(app, `(a.select([${JSON.stringify(ids.at(-1))}]), 1)`);
+    await sleep(200);
+    const handle = await app.main.center('[data-handle="rotate"]');
+    await app.main.mouse('mouseMoved', handle.x, handle.y);
+    await app.main.mouse('mousePressed', handle.x, handle.y);
+    await app.main.mouse('mouseMoved', handle.x + 60, handle.y + 30);
+    await app.main.mouse('mouseMoved', handle.x + 90, handle.y + 70);
+    await app.main.waitFor(`Boolean(document.querySelector('.rotate-angle'))`, { timeout: 3000, message: 'the angle shows while rotating' });
+    const dial = await app.main.eval(`document.querySelector('.rotate-angle')?.textContent ?? ''`);
+    assert.match(dial, /°/, 'the angle shows while rotating');
+    await app.main.mouse('mouseReleased', handle.x + 90, handle.y + 70);
+    await sleep(200);
+    assert.equal(await app.main.eval(`Boolean(document.querySelector('.rotate-dial'))`), false, 'gone afterwards');
+    await noErrorPopup(app, 'shift-rotate');
+  } },
+  { group: '캔버스', name: '마인드맵 → Fishbone 버튼 → 되돌리기, 다른 드로잉에서는 비활성', async run(app) {
+    await freshDrawing(app);
+    await sleep(200);
+    const state = () => app.main.eval(`(() => { const b = document.querySelector('#toolbar [data-command="fishbone"]'); return { disabled: b.disabled, tip: b.title }; })()`);
+    assert.equal((await state()).disabled, true, 'nothing to convert');
+    await W(app, `(a.closeDoc?.(), 1)`).catch(() => {});
+    await W(app, `(a.newDrawing('mindmap'), 1)`);
+    await sleep(600);
+    const button = await state();
+    assert.equal(button.disabled, false);
+    assert.ok(button.tip, 'it has a tooltip');
+    await W(app, `(w.run('fishbone'), 1)`);
+    await sleep(400);
+    assert.equal(await W(app, `a.activeDoc().page.shapes.some((s) => s.name === 'fishbone-spine')`), true);
+    await W(app, `(w.run('undo'), 1)`);
+    await sleep(300);
+    assert.equal(await W(app, `a.activeDoc().page.shapes.some((s) => s.name === 'fishbone-spine')`), false, 'undo brings the mind map back');
+    await noErrorPopup(app, 'fishbone');
+  } },
+  { group: '명령', name: '모든 명령: 쓸 수 있을 때 실행해도 오류가 없고, 쓸 수 없으면 비활성', async run(app) {
+    // These leave the window, wait for a file dialog, or are checked by their own cases.
+    const skip = /^(exit|new|open|openDatabase|save|saveAs|saveAll|saveTemplate|saveDatabase|print|tutorial|presentation|closeTab|closeAll|language|theme|export|import|reset)|Export|Database|Dialog|File|exportMenu|insertPicture|backgroundImage|recent/i;
+    const names = await W(app, 'Object.keys(w.commands)');
+    assert.ok(names.length > 100, 'the command table');
+    const settingsBefore = await W(app, 'JSON.stringify(w.state.settings)');
+    await freshSample(app);
+    const shapeId = await W(app, `a.activeDoc().page.shapes.find((s) => s.type === 'shape' && !s.groupId)?.id`);
+    const ran = [];
+    for (const name of names.filter((id) => !skip.test(id))) {
+      await W(app, `(a.select([${JSON.stringify(shapeId)}]), 1)`).catch(() => {});
+      const enabled = await W(app, `w.commands[${JSON.stringify(name)}].enabled ? Boolean(w.commands[${JSON.stringify(name)}].enabled()) : true`).catch(() => false);
+      if (!enabled) continue;
+      await W(app, `(Promise.resolve(w.run(${JSON.stringify(name)})).catch(() => {}), 1)`);
+      await sleep(40);
+      await closePopups(app);
+      ran.push(name);
+      if (!(await W(app, `a.activeDoc() && a.activeDoc().page.shapes.some((s) => s.id === ${JSON.stringify(shapeId)})`).catch(() => false))) await freshSample(app);
+    }
+    assert.ok(ran.length > 80, `${ran.length} commands ran`);
+    await noErrorPopup(app, 'all commands');
+    // The commands toggled panels, rulers and more: the cases after this one start as before.
+    await W(app, `(a.updateSettings(${settingsBefore}), 1)`);
+    await sleep(200);
+    // With nothing selected, the commands that need a selection are off.
+    await freshDrawing(app);
+    await W(app, '(a.select([]), 1)');
+    for (const name of ['cut', 'copy', 'duplicate', 'delete', 'group', 'ungroup', 'formatShape', 'routeStraight', 'rotateRight', 'bringFront']) {
+      assert.equal(await W(app, `Boolean(w.commands.${name}.enabled())`), false, `${name} is off without a selection`);
+    }
+  } },
+  { group: '명령', name: '오른쪽 클릭 메뉴: 지금 못 쓰는 항목은 비활성', async run(app) {
+    await freshDrawing(app);
+    await W(app, '(a.select([]), 1)');
+    const area = await app.main.center('.canvas-scroll');
+    await app.main.mouse('mousePressed', area.x + 300, area.y + 200, { button: 'right' });
+    await app.main.mouse('mouseReleased', area.x + 300, area.y + 200, { button: 'right' });
+    const menu = await app.popup('menu');
+    await menu.waitFor(`document.querySelectorAll('.menu-item').length > 5`);
+    const items = await menu.eval(`[...document.querySelectorAll('.menu-item')].map((b) => ({ id: b.dataset.id, off: b.disabled }))`);
+    menu.close();
+    assert.ok(items.length > 5, 'the canvas menu');
+    assert.equal(items.find((item) => item.id === 'fishbone'), undefined, 'no mind map, no conversion');
+    await closePopups(app);
+    // The first page cannot move further left.
+    await W(app, '(a.addPage(), 1)');
+    const tab = await app.main.center('.page-tab');
+    await app.main.mouse('mousePressed', tab.x, tab.y, { button: 'right' });
+    await app.main.mouse('mouseReleased', tab.x, tab.y, { button: 'right' });
+    const pages = await app.popup('menu');
+    await pages.waitFor(`Boolean([...document.querySelectorAll('.menu-item')].find((b) => b.dataset.id === 'custom:left'))`);
+    const left = await pages.eval(`[...document.querySelectorAll('.menu-item')].find((b) => b.dataset.id === 'custom:left').disabled`);
+    pages.close();
+    assert.equal(left, true, 'the first page cannot go further left');
+    await closePopups(app);
+  } },
+  { group: '스텐실', name: '모든 스텐실과 도형: 패널에 나오고 놓을 수 있음', async run(app) {
+    await freshDrawing(app);
+    const result = await W(app, `(() => {
+      const D = w.domain.D;
+      const page = a.activeDoc().page;
+      const bad = [];
+      for (const master of w.domain.MASTERS.filter((m) => m.cat)) {
+        if (!D.addShape(page, D.createShape(master.id, { x: 200, y: 200 }))) bad.push(master.id);
+      }
+      return { bad, cats: w.domain.CATEGORIES.length, shapes: page.shapes.length };
+    })()`);
+    await W(app, `(() => { const page = a.activeDoc().page; page.shapes.splice(2); return 1; })()`);
+    assert.deepEqual(result.bad, []);
+    assert.ok(result.cats >= 30 && result.shapes > 700, JSON.stringify(result));
+    await W(app, '(a.setStencils?.([]), 1)').catch(() => {});
+    await noErrorPopup(app, 'stencils');
+  } },
+  { group: '도형', name: '문양 100종: 도형 서식 › 문양에서 골라 적용', async run(app) {
+    const ids = await freshDrawing(app);
+    await W(app, `(a.select([${JSON.stringify(ids.a)}]), 1)`);
+    await W(app, `(w.run('formatShape'), 1)`);
+    const page = await app.popup('shape');
+    await page.eval(`document.querySelector('.tabs .tab[data-value="pattern"]').click(); 1`);
+    await page.waitFor(`document.querySelectorAll('[data-draft-pattern]').length === 101`);
+    assert.equal(await page.eval(`(() => { const b = document.querySelector('.popup-body'); return b.scrollHeight > b.clientHeight + 1; })()`), false, 'all of them fit without scrolling');
+    await page.click('[data-draft-pattern="p-brick20"]');
+    await page.waitFor(`document.querySelector('[data-draft-pattern="p-brick20"]').classList.contains('active')`);
+    await page.click('[data-action="format-apply"]');
+    page.close();
+    await sleep(400);
+    assert.equal((await shape(app, ids.a)).style.fillPattern, 'p-brick20');
+    assert.ok(await app.main.eval(`Boolean(document.querySelector('.canvas-svg [data-id="${ids.a}"] [fill^="url(#f-"]'))`), 'drawn with the pattern');
+    await noErrorPopup(app, 'patterns');
+  } },
+  { group: '보기', name: '드로잉 밖의 보기에서도 눈금자·격자·마우스 위치', async run(app) {
+    await freshSample(app);
+    await W(app, `(a.updateSettings({ showRulers: true, showGrid: true }), 1)`);
+    for (const view of ['pages', 'shapeSheet', 'shapeData', 'reports']) {
+      await W(app, `(a.switchView('${view}'), 1)`);
+      await sleep(300);
+      const shown = await app.main.eval(`(() => { const h = document.querySelector('.view-ruler-h'); return { ruler: Boolean(h) && h.getBoundingClientRect().width > 100 && getComputedStyle(h).display !== 'none', grid: Boolean(document.querySelector('.view-grid')) }; })()`);
+      assert.deepEqual(shown, { ruler: true, grid: true }, view);
+      const box = await app.main.center('#view-host');
+      await app.main.mouse('mouseMoved', box.x, box.y);
+      await sleep(200);
+      const pointer = await W(app, 'w.state.pointer');
+      assert.ok(pointer && pointer.x > 0 && pointer.y > 0, `${view}: the pointer position`);
+    }
+    await W(app, `(a.updateSettings({ showRulers: false, showGrid: false }), 1)`);
+    await sleep(300);
+    assert.equal(await app.main.eval(`Boolean(document.querySelector('.view-rulers'))`), false, 'off with Show › Rulers and Grid');
+    await W(app, `(a.updateSettings({ showRulers: true, showGrid: true }), a.switchView('drawing'), 1)`);
+    await sleep(300);
+    assert.equal(await app.main.eval(`Boolean(document.querySelector('.view-rulers'))`), false, 'the drawing has its own');
+    await noErrorPopup(app, 'view rulers');
+  } },
+  { group: '파일', name: '문서로 내보내기: Markdown · Word · Excel · 텍스트', async run(app) {
+    await freshSample(app);
+    const dir = tempDir('document-export');
+    for (const [command, ext, head] of [['exportDocMd', 'md', '# '], ['exportDocDocx', 'docx', 'PK'], ['exportDocXlsx', 'xlsx', 'PK'], ['exportDocTxt', 'txt', '']]) {
+      const file = path.join(dir, `out.${ext}`);
+      await W(app, `(window.__mydiagramSavePicks = [${JSON.stringify(file)}], w.run('${command}'), 1)`);
+      for (let i = 0; i < 60 && !fs.existsSync(file); i += 1) await sleep(150);
+      assert.ok(fs.existsSync(file), file);
+      await sleep(200);
+      assert.ok(fs.statSync(file).size > 100, ext);
+      assert.ok(fs.readFileSync(file).toString('utf8', 0, 2).startsWith(head.slice(0, 2)), ext);
+    }
+    await noErrorPopup(app, 'document export');
+  } },
+  { group: '패널', name: '오른쪽 패널의 테마 드롭다운: 항목마다 아이콘, 고르면 적용', async run(app) {
+    await freshDrawing(app);
+    await W(app, '(a.select([]), 1)');
+    await sleep(300);
+    await app.main.waitFor(`Boolean(document.querySelector('#right-panel [data-design-menu]'))`, { message: 'the theme drop-down in the right panel' });
+    await app.main.click('[data-design-menu]');
+    const menu = await app.popup('menu');
+    await menu.waitFor(`document.querySelectorAll('.menu-item').length >= 12`);
+    const info = await menu.eval(`[...document.querySelectorAll('.menu-item')].map((b) => ({ id: b.dataset.id, colours: b.querySelectorAll('svg rect[fill]').length }))`);
+    assert.ok(info.every((item) => item.colours === 4), JSON.stringify(info.slice(0, 3)));
+    await menu.click('[data-id="custom:design:linear"]');
+    menu.close();
+    await sleep(400);
+    assert.equal(await W(app, 'a.activeDoc().doc.design'), 'linear');
+    await noErrorPopup(app, 'design menu');
+  } },
+  { group: '파일', name: 'Visio 내보내기: 옮겨지지 않는 항목이 있으면 주의 창', async run(app) {
+    await freshDrawing(app);
+    await W(app, `(a.addShapeAt('icoHeart', { x: 200, y: 300, w: 64, h: 64 }), 1)`);
+    const file = path.join(tempDir('vsdx-warning'), 'out.vsdx');
+    await W(app, `(window.__mydiagramSavePicks = [${JSON.stringify(file)}], a.exportAs('vsdx'), 1)`);
+    let page = await app.popup('confirm');
+    await page.waitFor(`document.querySelectorAll('.confirm-items li').length === 1`);
+    assert.match(await page.eval(`document.querySelector('.confirm-items').innerText`), /아이콘|icon/i);
+    await page.click('[data-value="cancel"]');
+    page.close();
+    await sleep(500);
+    assert.equal(fs.existsSync(file), false, 'cancel exports nothing');
+    await W(app, `(window.__mydiagramSavePicks = [${JSON.stringify(file)}], a.exportAs('vsdx'), 1)`);
+    page = await app.popup('confirm');
+    await page.waitFor(`Boolean(document.querySelector('[data-value="export"]'))`);
+    await page.click('[data-value="export"]');
+    page.close();
+    for (let i = 0; i < 40 && !fs.existsSync(file); i += 1) await sleep(150);
+    assert.ok(fs.existsSync(file), 'exported after the warning');
+    await noErrorPopup(app, 'vsdx warning');
+  } },
+  { group: '스텐실', name: '패널의 도형 내부 선은 테마에 따라 옅게, 캔버스는 또렷하게', async run(app) {
+    await freshDrawing(app);
+    const before = await W(app, 'w.state.settings.theme');
+    const opacity = async () => app.main.eval(`(() => { const line = document.querySelector('.stencil-tile .inner-line'); return line ? Number(getComputedStyle(line).strokeOpacity) : null; })()`);
+    await W(app, `(a.updateSettings({ theme: 'light' }), 1)`);
+    await sleep(300);
+    const light = await opacity();
+    await W(app, `(a.updateSettings({ theme: 'dark' }), 1)`);
+    await sleep(300);
+    const dark = await opacity();
+    assert.ok(light > 0 && light < 1 && dark > 0 && dark < 1, JSON.stringify({ light, dark }));
+    assert.notEqual(light, dark, 'each look has its own');
+    await W(app, `(a.addShapeAt('predefined', { x: 300, y: 300, w: 130, h: 70 }), 1)`);
+    await sleep(300);
+    assert.equal(await app.main.eval(`Number(getComputedStyle(document.querySelector('.canvas-svg .inner-line')).strokeOpacity)`), 1, 'the drawing itself stays clear');
+    await W(app, `(a.updateSettings({ theme: ${JSON.stringify(before)} }), 1)`);
+  } },
+  { group: '툴팁', name: '모든 버튼에 툴팁 (주 창, 시작 화면, 드로잉)', async run(app) {
+    const missing = () => app.main.eval(`[...document.querySelectorAll('button')].filter((b) => !b.title).map((b) => b.outerHTML.slice(0, 120))`);
+    await W(app, '(a.showStartPage(true), 1)');
+    await sleep(500);
+    assert.deepEqual(await missing(), [], 'start page');
+    await freshSample(app);
+    await sleep(500);
+    assert.deepEqual(await missing(), [], 'drawing');
+  } },
+  { group: '시작 화면', name: '카드 이동·크기 변경 (실제 끌기), 다시 시작해도 유지', async run(app) {
+    await W(app, '(a.showStartPage(true), 1)');
+    await sleep(500);
+    const box = (id) => app.main.eval(`(() => { const r = document.querySelector('[data-card="${id}"]').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })()`);
+    const samples = await app.main.eval(`Boolean(document.querySelector('[data-card="samples"]') && document.querySelector('[data-card="background"]'))`);
+    assert.ok(samples, 'samples and background are separate cards');
+    assert.ok(await app.main.eval(`getComputedStyle(document.querySelector('[data-card-grip]')).backgroundImage.includes('radial-gradient')`), 'the resize marker is made of dots');
+    const before = await box('help');
+    const handle = await app.main.center('[data-card="help"] .card-handle');
+    await app.main.drag(handle, { x: handle.x - (before.x - (await box('templates')).x), y: handle.y }, 16);
+    await sleep(500);
+    const moved = await box('help');
+    assert.ok(moved.x < before.x - 100, `moved left: ${JSON.stringify([before, moved])}`);
+    const grip = await app.main.center('[data-card="help"] [data-card-grip]');
+    await app.main.drag(grip, { x: grip.x, y: grip.y + 120 }, 16);
+    await sleep(500);
+    const resized = await box('help');
+    assert.ok(resized.h > moved.h + 80, `taller: ${JSON.stringify([moved, resized])}`);
+    assert.equal(await W(app, 'w.state.settings.startLayout.cards.help.fit'), false);
+    await app.main.click('[data-start="arrange"]');
+    await sleep(500);
+    assert.equal(await W(app, 'w.state.settings.startLayout'), null, 'reset layout');
+    const row = await app.main.eval(`(() => {
+      const items = [...document.querySelectorAll('.start-step')];
+      const y = (e, s) => e.querySelector(s).getBoundingClientRect().y;
+      const slider = document.querySelector('[data-start-slider="startBgTransparency"]');
+      slider.value = '40';
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+      return { keys: items.map((e) => e.querySelector('.stepper').dataset.stepper), sliders: items.filter((e) => e.querySelector('input[type=range]')).length, separate: y(items[1], '.stepper') > y(items[0], '.stepper') + 10, centred: items.every((e) => getComputedStyle(e.querySelector('.stepper-value')).textAlign === 'center'), shown: items[1].querySelector('.stepper-value').value, alpha: getComputedStyle(document.querySelector('#start-page')).getPropertyValue('--start-bg-alpha').trim() };
+    })()`);
+    assert.deepEqual(row, { keys: ['animationSpeed', 'startBgTransparency'], sliders: 2, separate: true, centred: true, shown: '40%', alpha: '0.6' }, 'speed and transparency: a row each with a slider, the value centred');
+    assert.equal(await W(app, 'w.state.settings.startBgTransparency'), 40);
+    const same = await app.main.eval(`(() => { const [a, b] = [...document.querySelectorAll('.start-card.background .start-actions .button')].map((e) => e.getBoundingClientRect()); return Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1; })()`);
+    assert.ok(same, 'the two background buttons are the same size');
+    assert.equal((await W(app, 'w.domain.TEMPLATES.length')) > 0, true);
+    assert.equal(await app.main.eval(`document.querySelectorAll('.anim-chip .icon').length === document.querySelectorAll('.anim-chip').length && document.querySelectorAll('.anim-chip').length % 3 === 0`), true, 'every background has an icon, and the chips fill their rows');
+    await W(app, '(a.updateSettings({ startBgTransparency: 0 }), 1)');
+    for (const action of ['tutorial', 'tutorial-doc', 'guide', 'auto-arrange']) assert.ok(await app.main.eval(`Boolean(document.querySelector('.hero-actions [data-start="${action}"]'))`), action);
+    await app.main.click('[data-start="auto-arrange"]');
+    await sleep(500);
+    const packed = await W(app, 'w.state.settings.startLayout.cards');
+    assert.equal(packed.hero.row, 0);
+    assert.ok(Object.values(packed).every((c) => c.col + c.w <= 3));
+    await app.main.click('[data-start="arrange"]');
+    await noErrorPopup(app, 'start');
+  } },
+  { group: '끌어다 놓기', name: '최신 이미지 형식을 끌어다 놓으면 그림이 됨', async run(app) {
+    const dir = path.join(root, 'test', 'fixtures', 'images');
+    for (const name of fs.readdirSync(dir)) {
+      await freshDrawing(app);
+      const count = await W(app, 'a.activeDoc().page.shapes.length');
+      await W(app, `a.handleDroppedPaths([${JSON.stringify(path.join(dir, name))}], null)`);
+      await app.main.waitFor(`window.__mydiagram.actions.activeDoc().page.shapes.length > ${count}`, { timeout: 30000, message: name });
+      const shown = await app.main.eval(`(async () => { const shapes = window.__mydiagram.actions.activeDoc().page.shapes; const src = shapes[shapes.length - 1].src; const img = new Image(); img.src = src; await img.decode(); return { w: img.naturalWidth, h: img.naturalHeight, png: src.startsWith('data:image/png') }; })()`);
+      assert.ok(shown.w > 0 && shown.h > 0, `${name}: ${JSON.stringify(shown)}`);
+      if (/\.(tif|heic|jxl|jp2|qoi|tga)$/.test(name)) assert.ok(shown.png, `${name} is stored as PNG`);
+    }
+    await noErrorPopup(app, 'images');
   } },
   { group: '도움말', name: '튜토리얼: 시작·다음·끝내면 원래대로', async run(app) {
     await freshSample(app);
@@ -1386,7 +1680,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await W(app, 'a.startTutorial()');
     await app.main.waitFor(`window.__mydiagram.tutorial().state().active && !window.__mydiagram.tutorial().state().busy`);
     assert.ok(await app.main.eval(`Boolean(document.querySelector('.tour-card') && document.querySelector('.tour-outline'))`));
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 9; i++) {
       await app.main.click('[data-tour="next"]');
       await app.main.waitFor(`window.__mydiagram.tutorial().state().index === ${i + 1} && !window.__mydiagram.tutorial().state().busy`, { timeout: 30000 });
     }

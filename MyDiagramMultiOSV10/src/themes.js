@@ -221,6 +221,16 @@ export function applyTheme(theme, root = globalThis.document?.documentElement) {
   for (const [name, value] of Object.entries(themeVariables(theme))) root.style.setProperty(name, value);
   root.dataset.theme = theme.id;
   root.style.colorScheme = theme.dark ? 'dark' : 'light';
+  root.style.setProperty('--stencil-inner-opacity', theme.dark ? '0.6' : '0.45');
+}
+
+/** localStorage key of the colours the document windows use (scripts/build-docs.mjs reads it). */
+export const DOC_THEME_KEY = 'mydiagram.docs.theme';
+
+/** The selected theme for the document pages. */
+export function docTheme(theme) {
+  const v = themeVariables(theme);
+  return { dark: Boolean(theme.dark), vars: { '--bg': v['--bg'], '--surface': v['--surface'], '--text': v['--text'], '--muted': v['--muted'], '--border': v['--border'], '--accent': v['--accent'] } };
 }
 
 export function applyFont(settings, root = globalThis.document?.documentElement) {

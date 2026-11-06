@@ -1,20 +1,20 @@
 {
-  "date": "2026-10-25T04:03:25.547Z",
-  "passed": 244,
-  "failed": 4,
-  "skipped": 0,
+  "date": "2026-11-06T06:30:21.966Z",
+  "passed": 371,
+  "failed": 1,
+  "skipped": 1,
   "categories": [
     {
       "id": "js",
       "title": "JS 단위 테스트",
-      "ms": 901,
+      "ms": 1353,
       "results": [
         {
           "name": "ticks start at 0, use round steps, cover the maximum with little room to spare",
           "group": "axes",
           "ok": true,
           "skipped": false,
-          "ms": 2.1196,
+          "ms": 1.4238,
           "error": null
         },
         {
@@ -22,7 +22,7 @@
           "group": "axes",
           "ok": true,
           "skipped": false,
-          "ms": 0.1303,
+          "ms": 0.1098,
           "error": null
         },
         {
@@ -30,7 +30,7 @@
           "group": "axes",
           "ok": true,
           "skipped": false,
-          "ms": 0.0973,
+          "ms": 0.0758,
           "error": null
         },
         {
@@ -38,7 +38,7 @@
           "group": "axes",
           "ok": true,
           "skipped": false,
-          "ms": 12.5328,
+          "ms": 9.566,
           "error": null
         },
         {
@@ -46,7 +46,7 @@
           "group": "axes",
           "ok": true,
           "skipped": false,
-          "ms": 0.1994,
+          "ms": 0.1384,
           "error": null
         },
         {
@@ -54,7 +54,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 2.7446,
+          "ms": 2.5113,
           "error": null
         },
         {
@@ -62,7 +62,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.6413,
+          "ms": 0.4484,
           "error": null
         },
         {
@@ -70,7 +70,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.3949,
+          "ms": 0.3104,
           "error": null
         },
         {
@@ -78,7 +78,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 2.8876,
+          "ms": 1.7652,
           "error": null
         },
         {
@@ -86,7 +86,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 1.4719,
+          "ms": 1.0464,
           "error": null
         },
         {
@@ -94,7 +94,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.3812,
+          "ms": 0.2462,
           "error": null
         },
         {
@@ -102,7 +102,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.3126,
+          "ms": 0.1576,
           "error": null
         },
         {
@@ -110,7 +110,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.2623,
+          "ms": 0.1802,
           "error": null
         },
         {
@@ -118,7 +118,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.9813,
+          "ms": 0.5127,
           "error": null
         },
         {
@@ -126,7 +126,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.4147,
+          "ms": 0.2115,
           "error": null
         },
         {
@@ -134,7 +134,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.5577,
+          "ms": 0.377,
           "error": null
         },
         {
@@ -142,7 +142,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.5495,
+          "ms": 0.3745,
           "error": null
         },
         {
@@ -150,7 +150,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.4181,
+          "ms": 0.3333,
           "error": null
         },
         {
@@ -158,7 +158,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.3352,
+          "ms": 0.2231,
           "error": null
         },
         {
@@ -166,7 +166,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.2313,
+          "ms": 0.2047,
           "error": null
         },
         {
@@ -174,7 +174,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.2875,
+          "ms": 0.2209,
           "error": null
         },
         {
@@ -182,7 +182,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.5957,
+          "ms": 0.3778,
           "error": null
         },
         {
@@ -190,7 +190,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.5437,
+          "ms": 0.3571,
           "error": null
         },
         {
@@ -198,7 +198,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 1.5598,
+          "ms": 1.2103,
           "error": null
         },
         {
@@ -206,7 +206,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.3304,
+          "ms": 0.2051,
           "error": null
         },
         {
@@ -214,7 +214,15 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 12.853,
+          "ms": 39.0216,
+          "error": null
+        },
+        {
+          "name": "stencils: the added stencils draw real shapes and every stencil has an icon",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 15.8907,
           "error": null
         },
         {
@@ -222,7 +230,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 0.8647,
+          "ms": 0.985,
           "error": null
         },
         {
@@ -230,7 +238,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 2.8945,
+          "ms": 1.2303,
           "error": null
         },
         {
@@ -238,7 +246,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 1.2754,
+          "ms": 0.7228,
           "error": null
         },
         {
@@ -246,7 +254,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 0.6413,
+          "ms": 0.3715,
           "error": null
         },
         {
@@ -254,7 +262,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 3.7235,
+          "ms": 2.0986,
           "error": null
         },
         {
@@ -262,7 +270,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 30.7432,
+          "ms": 20.8962,
           "error": null
         },
         {
@@ -270,7 +278,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 2.5983,
+          "ms": 1.9449,
           "error": null
         },
         {
@@ -278,7 +286,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 19.1717,
+          "ms": 14.0393,
           "error": null
         },
         {
@@ -286,7 +294,15 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 23.2788,
+          "ms": 21.2017,
+          "error": null
+        },
+        {
+          "name": "the sample drawings: named, render, stay on their pages, survive a round trip",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 68.9356,
           "error": null
         },
         {
@@ -294,7 +310,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 7.8773,
+          "ms": 3.4864,
           "error": null
         },
         {
@@ -302,7 +318,15 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 0.3133,
+          "ms": 0.1583,
+          "error": null
+        },
+        {
+          "name": "the Icons stencil: 100 pictures, each in several colours",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.8846,
           "error": null
         },
         {
@@ -310,7 +334,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 8.6796,
+          "ms": 6.315,
           "error": null
         },
         {
@@ -318,7 +342,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 12.2191,
+          "ms": 7.9151,
           "error": null
         },
         {
@@ -326,7 +350,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.507,
+          "ms": 0.3887,
           "error": null
         },
         {
@@ -334,7 +358,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.21,
+          "ms": 0.1454,
           "error": null
         },
         {
@@ -342,7 +366,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.1994,
+          "ms": 0.1318,
           "error": null
         },
         {
@@ -350,7 +374,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 1.0295,
+          "ms": 0.2079,
           "error": null
         },
         {
@@ -358,7 +382,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.5778,
+          "ms": 0.3022,
           "error": null
         },
         {
@@ -366,7 +390,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.2373,
+          "ms": 0.1918,
           "error": null
         },
         {
@@ -374,7 +398,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.5649,
+          "ms": 0.4118,
           "error": null
         },
         {
@@ -382,7 +406,7 @@
           "group": "i18n",
           "ok": true,
           "skipped": false,
-          "ms": 1.1774,
+          "ms": 1.0282,
           "error": null
         },
         {
@@ -390,7 +414,7 @@
           "group": "i18n",
           "ok": true,
           "skipped": false,
-          "ms": 2.025,
+          "ms": 2.4069,
           "error": null
         },
         {
@@ -398,7 +422,7 @@
           "group": "i18n",
           "ok": true,
           "skipped": false,
-          "ms": 2.1907,
+          "ms": 2.5197,
           "error": null
         },
         {
@@ -406,7 +430,7 @@
           "group": "i18n",
           "ok": true,
           "skipped": false,
-          "ms": 0.6508,
+          "ms": 0.5699,
           "error": null
         },
         {
@@ -414,7 +438,7 @@
           "group": "i18n",
           "ok": true,
           "skipped": false,
-          "ms": 0.2079,
+          "ms": 0.1432,
           "error": null
         },
         {
@@ -422,7 +446,7 @@
           "group": "icons",
           "ok": true,
           "skipped": false,
-          "ms": 1.1781,
+          "ms": 1.018,
           "error": null
         },
         {
@@ -430,7 +454,7 @@
           "group": "icons",
           "ok": true,
           "skipped": false,
-          "ms": 1.3962,
+          "ms": 1.2875,
           "error": null
         },
         {
@@ -438,7 +462,7 @@
           "group": "icons",
           "ok": true,
           "skipped": false,
-          "ms": 7.1919,
+          "ms": 16.8856,
           "error": null
         },
         {
@@ -446,7 +470,7 @@
           "group": "icons",
           "ok": true,
           "skipped": false,
-          "ms": 0.2116,
+          "ms": 0.3128,
           "error": null
         },
         {
@@ -454,7 +478,7 @@
           "group": "icons",
           "ok": true,
           "skipped": false,
-          "ms": 0.8671,
+          "ms": 0.6028,
           "error": null
         },
         {
@@ -462,7 +486,7 @@
           "group": "icons",
           "ok": true,
           "skipped": false,
-          "ms": 0.4065,
+          "ms": 1.1245,
           "error": null
         },
         {
@@ -470,7 +494,7 @@
           "group": "image-encode",
           "ok": true,
           "skipped": false,
-          "ms": 1.0066,
+          "ms": 0.7185,
           "error": null
         },
         {
@@ -478,7 +502,7 @@
           "group": "image-encode",
           "ok": true,
           "skipped": false,
-          "ms": 0.1376,
+          "ms": 0.1126,
           "error": null
         },
         {
@@ -486,7 +510,7 @@
           "group": "image-encode",
           "ok": true,
           "skipped": false,
-          "ms": 0.7507,
+          "ms": 0.1372,
           "error": null
         },
         {
@@ -494,7 +518,7 @@
           "group": "image-encode",
           "ok": true,
           "skipped": false,
-          "ms": 0.3636,
+          "ms": 0.6875,
           "error": null
         },
         {
@@ -502,7 +526,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 0.6467,
+          "ms": 0.4581,
           "error": null
         },
         {
@@ -510,7 +534,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 1.846,
+          "ms": 1.8856,
           "error": null
         },
         {
@@ -518,7 +542,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 12.3543,
+          "ms": 10.4685,
           "error": null
         },
         {
@@ -526,7 +550,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 0.486,
+          "ms": 0.3615,
           "error": null
         },
         {
@@ -534,7 +558,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 4.0569,
+          "ms": 2.2008,
           "error": null
         },
         {
@@ -542,7 +566,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 0.9313,
+          "ms": 0.819,
           "error": null
         },
         {
@@ -550,7 +574,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 18.1911,
+          "ms": 12.2354,
           "error": null
         },
         {
@@ -558,7 +582,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 1.2881,
+          "ms": 1.072,
           "error": null
         },
         {
@@ -566,7 +590,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.4907,
+          "ms": 0.3856,
           "error": null
         },
         {
@@ -574,7 +598,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.399,
+          "ms": 0.2861,
           "error": null
         },
         {
@@ -582,7 +606,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.2539,
+          "ms": 0.179,
           "error": null
         },
         {
@@ -590,7 +614,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.5821,
+          "ms": 0.5109,
           "error": null
         },
         {
@@ -598,7 +622,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.1381,
+          "ms": 0.1046,
           "error": null
         },
         {
@@ -606,7 +630,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.2139,
+          "ms": 0.1763,
           "error": null
         },
         {
@@ -614,7 +638,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.3144,
+          "ms": 0.1364,
           "error": null
         },
         {
@@ -622,7 +646,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.2716,
+          "ms": 0.0983,
           "error": null
         },
         {
@@ -630,7 +654,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.4466,
+          "ms": 0.2262,
           "error": null
         },
         {
@@ -638,7 +662,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.583,
+          "ms": 0.1945,
           "error": null
         },
         {
@@ -646,7 +670,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.3376,
+          "ms": 0.308,
           "error": null
         },
         {
@@ -654,7 +678,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.1401,
+          "ms": 0.1101,
           "error": null
         },
         {
@@ -662,7 +686,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.5778,
+          "ms": 0.2068,
           "error": null
         },
         {
@@ -670,7 +694,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.3699,
+          "ms": 0.2404,
           "error": null
         },
         {
@@ -678,7 +702,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.3233,
+          "ms": 0.1967,
           "error": null
         },
         {
@@ -686,7 +710,151 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.5044,
+          "ms": 0.4146,
+          "error": null
+        },
+        {
+          "name": "the default arrangement has the samples and the background as separate cards",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.6599,
+          "error": null
+        },
+        {
+          "name": "a moved card stays where it was put, and a new card goes below",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.4485,
+          "error": null
+        },
+        {
+          "name": "a resized card keeps its size; a fit card follows its contents",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5126,
+          "error": null
+        },
+        {
+          "name": "settings keep a valid card layout and the start background transparency, and drop bad ones",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.6069,
+          "error": null
+        },
+        {
+          "name": "every current picture format is taken in",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.2157,
+          "error": null
+        },
+        {
+          "name": "the first bytes decide over the extension",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.2341,
+          "error": null
+        },
+        {
+          "name": "QOI and TGA pictures decode to the same pixels",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.665,
+          "error": null
+        },
+        {
+          "name": "every icon has a colour of its own that follows the theme",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.6186,
+          "error": null
+        },
+        {
+          "name": "every start page background has an icon of its own",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.2202,
+          "error": null
+        },
+        {
+          "name": "the View tutorial window is on by default and can be turned off",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.225,
+          "error": null
+        },
+        {
+          "name": "the fill presets have pastel colours",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.602,
+          "error": null
+        },
+        {
+          "name": "a mind map converts to a fishbone and back, without losing anything",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 6.6224,
+          "error": null
+        },
+        {
+          "name": "100 fill patterns, each drawn in the second colour",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 8.2308,
+          "error": null
+        },
+        {
+          "name": "the Icons stencil fills its rows at every panel width",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3672,
+          "error": null
+        },
+        {
+          "name": "a drawing exports as Markdown, Word, Excel and text",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 5.4056,
+          "error": null
+        },
+        {
+          "name": "lines inside a filled shape stand out from the fill",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.0568,
+          "error": null
+        },
+        {
+          "name": "a Visio export knows what it cannot hold",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 5.2618,
+          "error": null
+        },
+        {
+          "name": "the web version lists and makes the same 40 samples per language",
+          "group": "startpage-images",
+          "ok": true,
+          "skipped": false,
+          "ms": 46.5877,
           "error": null
         },
         {
@@ -694,7 +862,7 @@
           "group": "themes",
           "ok": true,
           "skipped": false,
-          "ms": 0.7757,
+          "ms": 0.5447,
           "error": null
         },
         {
@@ -702,7 +870,7 @@
           "group": "themes",
           "ok": true,
           "skipped": false,
-          "ms": 2.1546,
+          "ms": 1.4557,
           "error": null
         },
         {
@@ -710,7 +878,7 @@
           "group": "themes",
           "ok": true,
           "skipped": false,
-          "ms": 2.7473,
+          "ms": 2.2237,
           "error": null
         },
         {
@@ -718,7 +886,190 @@
           "group": "themes",
           "ok": true,
           "skipped": false,
-          "ms": 0.5734,
+          "ms": 0.3968,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "package",
+      "title": "패키징 · 아이콘 · 문서",
+      "ms": 345,
+      "results": [
+        {
+          "name": "the four HTML documents exist and are complete pages",
+          "group": "docs",
+          "ok": true,
+          "skipped": false,
+          "ms": 5.3833,
+          "error": null
+        },
+        {
+          "name": "the web build gets the same documents (public/docs)",
+          "group": "docs",
+          "ok": true,
+          "skipped": false,
+          "ms": 4.3553,
+          "error": null
+        },
+        {
+          "name": "every relative link and picture in the documents resolves",
+          "group": "docs",
+          "ok": true,
+          "skipped": false,
+          "ms": 25.5242,
+          "error": null
+        },
+        {
+          "name": "the guides refer to tutorial pictures by the current step order",
+          "group": "docs",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.6037,
+          "error": null
+        },
+        {
+          "name": "README names the build commands",
+          "group": "docs",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5709,
+          "error": null
+        },
+        {
+          "name": "the Korean and English guides have the same chapters",
+          "group": "docs",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.4379,
+          "error": null
+        },
+        {
+          "name": "the shortcut table of each guide lists every shortcut of Settings › Shortcuts",
+          "group": "docs",
+          "ok": true,
+          "skipped": false,
+          "ms": 43.8523,
+          "error": null
+        },
+        {
+          "name": "the guides give the tutorial its real number of steps",
+          "group": "docs",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.5244,
+          "error": null
+        },
+        {
+          "name": "app icon: 3D tile, transparent border, glowing top-left, in the exact centre",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 52.4464,
+          "error": null
+        },
+        {
+          "name": "document icons (.mdg drawing, .mdgt template): same style, their own pictures, centred",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 56.7674,
+          "error": null
+        },
+        {
+          "name": "ICO files carry every size Windows needs",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 2.1805,
+          "error": null
+        },
+        {
+          "name": "installer, program and running window all use the same icon",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 2.029,
+          "error": null
+        },
+        {
+          "name": ".mdg is registered with its own icon on every OS",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.9104,
+          "error": null
+        },
+        {
+          "name": ".mdgt is registered with its own icon on every OS",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5637,
+          "error": null
+        },
+        {
+          "name": "installer languages: Korean and English, user selectable",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.1531,
+          "error": null
+        },
+        {
+          "name": "installer hooks: preferences reset at the next start (user data kept), an old install removed completely",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3468,
+          "error": null
+        },
+        {
+          "name": "the documents and samples are installed with the program",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 3.7286,
+          "error": null
+        },
+        {
+          "name": "title bar: program name and version",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.0257,
+          "error": null
+        },
+        {
+          "name": "several copies can run; the first one keeps the session and window place",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3496,
+          "error": null
+        },
+        {
+          "name": "build commands for every OS and the web; the installer is copied to the project root",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3737,
+          "error": null
+        },
+        {
+          "name": "popups close with the main window (owned windows, exit on destroy), fixed size",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3379,
+          "error": null
+        },
+        {
+          "name": "author is shown in the About window",
+          "group": "package",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3828,
           "error": null
         }
       ]
@@ -726,117 +1077,138 @@
     {
       "id": "rust",
       "title": "Rust 단위 테스트",
-      "ms": 15822,
+      "ms": 18819,
       "results": [
         {
           "name": "connection_errors_are_reported_without_the_password",
           "group": "db",
-          "ms": 10008.0118,
+          "ms": 10014.6919,
           "ok": true,
           "skipped": false
         },
         {
           "name": "postgres_placeholders_are_numbered",
           "group": "db",
-          "ms": 0.608699999998862,
+          "ms": 0.4194999999999709,
           "ok": true,
           "skipped": false
         },
         {
           "name": "sqlite_save_load_list_delete",
           "group": "db",
-          "ms": 1149.9298000000017,
+          "ms": 1148.3199999999997,
           "ok": true,
           "skipped": false
         },
         {
           "name": "urls_for_each_database",
           "group": "db",
-          "ms": 0.21110000000044238,
+          "ms": 0.21090000000185682,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "a_document_page_follows_the_language",
+          "group": "doc_window_tests",
+          "ms": 0.16669999999794527,
           "ok": true,
           "skipped": false
         },
         {
           "name": "atomic_write_leaves_no_temporary_file",
           "group": "files",
-          "ms": 2.252599999999802,
+          "ms": 7.874599999999191,
           "ok": true,
           "skipped": false
         },
         {
           "name": "copy_reports_total_bytes",
           "group": "files",
-          "ms": 18.3849999999984,
+          "ms": 69.51130000000194,
           "ok": true,
           "skipped": false
         },
         {
           "name": "diagram_files_keeps_existing_drawings_only",
           "group": "files",
-          "ms": 1.1574000000000524,
+          "ms": 3.9870000000009895,
           "ok": true,
           "skipped": false
         },
         {
           "name": "read_rejects_binary_and_missing_files",
           "group": "files",
-          "ms": 3.6882000000005064,
+          "ms": 4.063799999999901,
           "ok": true,
           "skipped": false
         },
         {
           "name": "read_strips_utf8_bom",
           "group": "files",
-          "ms": 8.274600000000646,
+          "ms": 3.8012999999991735,
           "ok": true,
           "skipped": false
         },
         {
           "name": "write_then_read_round_trips_and_reports_progress",
           "group": "files",
-          "ms": 13.591899999999441,
+          "ms": 14.267800000001444,
           "ok": true,
           "skipped": false
         },
         {
           "name": "finds_installed_fonts_sorted_without_duplicates",
           "group": "fonts",
-          "ms": 87.02769999999873,
+          "ms": 125.3742999999995,
           "ok": true,
           "skipped": false
         },
         {
-          "name": "message_names_the_program_and_says_it_closes",
+          "name": "only_the_first_copy_is_primary_until_it_ends",
           "group": "instance",
-          "ms": 0.23410000000149012,
-          "ok": true,
-          "skipped": false
-        },
-        {
-          "name": "second_lock_fails_until_the_first_is_released",
-          "group": "instance",
-          "ms": 1.6208000000005995,
+          "ms": 3.4202000000004773,
           "ok": true,
           "skipped": false
         },
         {
           "name": "a_new_installation_resets_the_window_place_once",
           "group": "window_state",
-          "ms": 2.5648999999975786,
+          "ms": 5.736499999999069,
           "ok": true,
           "skipped": false
         },
         {
           "name": "round_trips_through_the_file",
           "group": "window_state",
-          "ms": 15.515800000001036,
+          "ms": 6.689699999998993,
           "ok": true,
           "skipped": false
         },
         {
           "name": "saved_place_must_be_on_a_connected_monitor",
           "group": "window_state",
-          "ms": 0.11240000000179862,
+          "ms": 0.3993999999984226,
+          "ok": true,
+          "skipped": false
+        }
+      ]
+    },
+    {
+      "id": "db",
+      "title": "DB 통합 테스트",
+      "ms": 120269,
+      "results": [
+        {
+          "name": "mariadb_or_mysql_round_trip",
+          "group": "integration",
+          "ms": 0.3168000000005122,
+          "ok": true,
+          "skipped": "MYDIAGRAM_TEST_MYSQL_URL is not set (test/db.local.json \"mysql\")"
+        },
+        {
+          "name": "postgres_round_trip",
+          "group": "integration",
+          "ms": 104307.0827,
           "ok": true,
           "skipped": false
         }
@@ -845,1013 +1217,1580 @@
     {
       "id": "web",
       "title": "E2E · 웹",
-      "ms": 73687,
+      "ms": 76576,
       "results": [
         {
           "name": "웹 빌드 (vite build → dist/)",
           "group": "빌드",
           "ok": true,
-          "ms": 1279.625100000001,
+          "ms": 3141.7626000000164,
           "error": null
         },
         {
           "name": "브라우저 실행 · 페이지 열기",
           "group": "실행",
           "ok": true,
-          "ms": 1077.246500000001
+          "ms": 1603.3157000000065
         },
         {
           "name": "제목에 프로그램 이름과 버전, 아이콘",
           "group": "페이지",
           "ok": true,
           "skipped": false,
-          "ms": 1.1723999999994703
+          "ms": 5.399199999985285
         },
         {
           "name": "처음 열면 튜토리얼 안내 (프레임 팝업)",
           "group": "페이지",
           "ok": true,
           "skipped": false,
-          "ms": 626.520199999999
+          "ms": 629.0252000000037
         },
         {
           "name": "템플릿·예제·튜토리얼·움직이는 배경",
           "group": "시작 페이지",
           "ok": true,
           "skipped": false,
-          "ms": 1844.1396999999997
+          "ms": 1792.2014999999956
         },
         {
           "name": "배경: 시작할 때마다 무작위, 정한 시간마다 자동으로 바뀜",
           "group": "시작 페이지",
           "ok": true,
           "skipped": false,
-          "ms": 16559.092999999997
+          "ms": 16623.593400000012
         },
         {
           "name": "메뉴바: 아이콘·이름·버전, 드로잉 이름, 홈; 좌우 패널은 툴바 바로 아래·페이지 탭은 두 패널 사이 위쪽",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 1187.3966
+          "ms": 1214.1489000000001
         },
         {
           "name": "모든 버튼에 툴팁, 한 줄, 투명도 조절 없음",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 606.5468000000037
+          "ms": 636.7020000000193
         },
         {
           "name": "메뉴: 한 줄, 아이콘+이름, 머리글, 바깥 클릭으로 닫힘",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 146.29639999999927
+          "ms": 140.38039999999455
         },
         {
           "name": "하위 메뉴: 마우스를 올리면 옆에 펼쳐지고, 다른 줄로 가면 닫힘 (실제 마우스)",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 2711.1779000000024
+          "ms": 2743.319600000017
         },
         {
           "name": "컨텍스트 메뉴의 하위 메뉴: 도형 › 정렬 순서 (실제 마우스)",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 732.1558000000005
+          "ms": 727.3284999999742
         },
         {
           "name": "툴바: 저장 바로 오른쪽 인쇄, 눈금자·격자 켜고 끄기 (실제 클릭)",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 1807.8164000000033
+          "ms": 1806.49549999999
         },
         {
           "name": "인쇄 창: 탭 없이 범위·페이지 설정·머리글을 한 열에, 좁은 설정 열",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 1356.6097000000009
+          "ms": 1335.5736000000034
         },
         {
           "name": "페이지 탭은 늘 보임: 숨기는 버튼·명령 없음",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 623.0656999999992
+          "ms": 622.2324999999837
         },
         {
           "name": "컨텍스트 메뉴: 도형·연결선·빈 캔버스·페이지 탭이 서로 다름",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 1125.2523999999976
+          "ms": 1054.1797000000079
         },
         {
           "name": "팝업 프레임: 아이콘+제목, 스크롤 없음, 머리글을 끌어 이동",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 3009.4401
+          "ms": 2948.5666999999958
         },
         {
           "name": "도형 서식·페이지 설정·디자인·레이어·찾기 팝업이 잘리지 않음",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2808.306899999996
+          "ms": 2800.3801000000094
         },
         {
           "name": "테마 드롭다운: 다크 20 | 라이트 20 두 줄",
           "group": "테마",
           "ok": true,
           "skipped": false,
-          "ms": 453.7720000000045
+          "ms": 458.07480000000214
         },
         {
           "name": "보기 드롭다운: 보기를 바꿔도 툴바 버튼이 움직이지 않음",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 1583.7900000000009
+          "ms": 1572.6312000000034
         },
         {
           "name": "홈 화면은 좌우 패널을 모두 숨겨도 창 전체 폭을 씀",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 1267.4689999999973
+          "ms": 1313.30309999999
         },
         {
           "name": "스텐실 도형 클릭 → 캔버스에 추가, Ctrl+Z / Ctrl+Y",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1057.7395000000033
+          "ms": 1034.0108000000182
         },
         {
           "name": "스텐실에서 캔버스로 끌어다 놓으면 놓은 자리에 도형 하나 (실제 마우스)",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1278.529800000004
+          "ms": 1246.583099999989
         },
         {
           "name": "사각형 도구로 실제 마우스 끌기 → 새 도형, 끌어서 이동, 화살표로 미세 이동",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1902.1479000000036
+          "ms": 1882.0442999999796
         },
         {
           "name": "크기 조절 핸들과 회전 핸들 (실제 마우스)",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1791.310900000004
+          "ms": 1843.2339999999967
         },
         {
           "name": "연결선이 도형을 잇고, 도형을 옮기면 따라감",
           "group": "연결선",
           "ok": true,
           "skipped": false,
-          "ms": 796.3050000000003
+          "ms": 787.6044999999867
         },
         {
           "name": "연결선 도구: 도형에서 도형으로 끌면 붙은 연결선",
           "group": "연결선",
           "ok": true,
           "skipped": false,
-          "ms": 1264.3630000000048
+          "ms": 1249.3129999999946
         },
         {
           "name": "두 번 클릭해 텍스트 입력, Ctrl+Enter 로 끝냄",
           "group": "텍스트",
           "ok": true,
           "skipped": false,
-          "ms": 538.4032000000007
+          "ms": 558.8742999999959
         },
         {
           "name": "클립보드: Ctrl+C 로 브라우저 클립보드에 글자, Ctrl+V 로 붙여넣기",
           "group": "편집",
           "ok": true,
           "skipped": false,
-          "ms": 1107.3187000000034
+          "ms": 1091.4290999999794
         },
         {
           "name": "Ctrl+휠 확대·축소 (캔버스)",
           "group": "편집",
           "ok": true,
           "skipped": false,
-          "ms": 719.8243999999977
+          "ms": 709.2566999999981
         },
         {
           "name": "빠른 스타일·디자인·정렬·그룹",
           "group": "서식",
           "ok": true,
           "skipped": false,
-          "ms": 631.6502000000037
+          "ms": 628.4513999999908
         },
         {
           "name": "페이지 추가·이름 바꾸기·이동·삭제 (페이지 탭)",
           "group": "페이지",
           "ok": true,
           "skipped": false,
-          "ms": 892.2302000000054
+          "ms": 856.0914000000048
         },
         {
           "name": "파일 끌어다 놓기: 드로잉은 새 탭, 이미지는 그림 도형",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 2450.208599999998
+          "ms": 2429.6965999999957
         },
         {
           "name": "저장(브라우저 저장 창)·Visio/SVG/HTML/CSV/그림 내보내기",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 3564.5945999999967
+          "ms": 3446.526300000027
         },
         {
           "name": "Visio(.vsdx)로 내보낸 것을 다시 열면 같은 도형·연결",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1210.0626000000047
+          "ms": 1170.9311000000162
         },
         {
           "name": "내보내기 버튼: 그림 형식 고르기, 투명 배경은 지원하는 형식에서만, 화살표는 모든 내보내기 형식",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 1856.1279000000068
+          "ms": 1690.4642999999924
         },
         {
           "name": "열기(브라우저 파일 선택)",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 30.98639999999432
+          "ms": 40.05299999998533
         },
         {
           "name": "저장 안 한 변경이 있으면 페이지를 떠날 때 확인",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1187.0323999999964
+          "ms": 1204.5517999999865
         },
         {
           "name": "설정은 새로 고침 뒤에도 남음 (localStorage)",
           "group": "설정",
           "ok": true,
           "skipped": false,
-          "ms": 540.193100000004
+          "ms": 559.0947999999917
         },
         {
           "name": "drawing",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1060.2065000000002
+          "ms": 1072.6869000000006
         },
         {
           "name": "pages",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 435.7972999999911
+          "ms": 438.0950999999768
         },
         {
           "name": "shapeSheet",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 436.803899999999
+          "ms": 440.29200000001583
         },
         {
           "name": "shapeData",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 447.6600000000035
+          "ms": 440.94450000001234
         },
         {
           "name": "reports",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 439.88649999999325
+          "ms": 443.50049999999464
         },
         {
           "name": "보고서: 모든 보고서가 그려지고 HTML·CSV 로 내보냄",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1875.3459999999905
+          "ms": 1924.477199999994
         },
         {
-          "name": "튜토리얼 문서를 프로그램 안에서 읽기 (홈 화면 항목)",
+          "name": "배포 빌드에서 그림 디코더 동작 (HEIC · JPEG 2000 · JPEG XL · TIFF · QOI · TGA)",
+          "group": "끌어다 놓기",
+          "ok": true,
+          "skipped": false,
+          "ms": 705.6056000000099
+        },
+        {
+          "name": "웹에도 같은 예제 40개, 눌러서 열기",
+          "group": "시작 화면",
+          "ok": true,
+          "skipped": false,
+          "ms": 572.0682000000088
+        },
+        {
+          "name": "설명서·튜토리얼 문서는 브라우저 탭으로",
           "group": "도움말",
           "ok": true,
           "skipped": false,
-          "ms": 917.9035000000003
+          "ms": 346.88959999999497
         },
         {
           "name": "인쇄 미리 보기 → 브라우저 인쇄",
           "group": "인쇄",
           "ok": true,
           "skipped": false,
-          "ms": 1245.0669000000053
+          "ms": 1248.3622000000032
         },
         {
           "name": "F5 전체 화면 프레젠테이션: 페이지 넘김, Esc·전체 화면 해제로 끝",
           "group": "프레젠테이션",
           "ok": true,
           "skipped": false,
-          "ms": 1191.131699999998
+          "ms": 1205.2381000000169
         },
         {
           "name": "잘못된 파일 → 오류 팝업, 자세히 복사",
           "group": "오류",
           "ok": true,
           "skipped": false,
-          "ms": 1164.5639000000083
+          "ms": 1185.5866999999853
         }
       ]
     },
     {
       "id": "desktop",
       "title": "E2E · 데스크톱 GUI",
-      "ms": 466739,
+      "ms": 373174,
       "results": [
         {
           "name": "앱 빌드 (cargo build)",
           "group": "빌드",
           "ok": true,
-          "ms": 550.4837000000116,
+          "ms": 15997.702699999994,
           "error": null
         },
         {
           "name": "앱 실행 · DevTools 연결",
           "group": "실행",
           "ok": true,
-          "ms": 17663.76629999999
+          "ms": 17572.168000000005
         },
         {
           "name": "튜토리얼 안내 팝업 (독립 OS 창) → 나중에",
           "group": "처음 실행",
           "ok": true,
           "skipped": false,
-          "ms": 1597.4627000000037
+          "ms": 2126.4842000000062
         },
         {
           "name": "시작 페이지: 템플릿 전부, 최근 파일·폴더, 예제, 튜토리얼 시작 버튼",
           "group": "처음 실행",
           "ok": true,
           "skipped": false,
-          "ms": 310.68910000000324
+          "ms": 322.3891000000003
         },
         {
           "name": "시작 페이지 배경이 움직이고 바꿀 수 있음",
           "group": "처음 실행",
           "ok": true,
           "skipped": false,
-          "ms": 1478.7217999999993
+          "ms": 1477.8784999999916
         },
         {
           "name": "템플릿 타일을 누르면 새 드로잉 (그리기 보기)",
           "group": "처음 실행",
           "ok": true,
           "skipped": false,
-          "ms": 763.0244000000093
+          "ms": 745.4510000000009
         },
         {
           "name": "메뉴바: 아이콘·이름·버전, 드로잉 이름, 홈, 창 버튼; 좌우 패널은 툴바 바로 아래·페이지 탭은 두 패널 사이 위쪽",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 1329.172900000005
+          "ms": 1338.5971000000136
         },
         {
           "name": "타이틀 바: 프로그램 이름과 버전",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 436.1157999999996
+          "ms": 524.69650000002
         },
         {
-          "name": "이미 실행 중이면 오류 팝업 후 종료 (두 번째 실행)",
+          "name": "여러 개 동시 실행: 두 번째 실행도 그대로 뜸",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 4452.691200000001
+          "ms": 5885.492599999998
         },
         {
           "name": "최소 창 폭: 툴바·메뉴가 가려지지 않고 툴바는 한 줄",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 1838.5359000000026
+          "ms": 1830.116800000018
         },
         {
           "name": "오른쪽 아래 모서리의 크기 조절 표시로 창 크기 바꾸기 (실제 마우스)",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 3647.777199999997
+          "ms": 3765.233899999992
         },
         {
           "name": "상태 표시줄: 페이지·저장 상태·도형 수·확대 비율과 명령 결과",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 1050.325600000011
+          "ms": 1077.7174999999697
         },
         {
           "name": "모든 버튼에 툴팁 · 한 줄 · 아이콘은 서로 다름",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 763.7428000000073
+          "ms": 798.4397999999928
         },
         {
           "name": "프로그램 정보 버튼: 빌드 정보와 제작자",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 978.6977999999945
+          "ms": 1058.862300000037
         },
         {
           "name": "테마 버튼은 매번 다른 테마를 무작위로",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 1075.8539000000019
+          "ms": 1094.704299999983
         },
         {
           "name": "테마 드롭다운: 다크 | 라이트 두 줄, 사용자 정의",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 1030.9525999999896
+          "ms": 1234.7191000000457
         },
         {
           "name": "모든 테마에서 글자가 잘 보임 (실제 화면 색 대비)",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 4602.0429
+          "ms": 4521.094400000002
         },
         {
           "name": "언어 버튼: 한국어일 때 영국 국기, 영어일 때 태극기",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 945.107400000008
+          "ms": 932.4832999999635
         },
         {
           "name": "창 투명도 설정은 없음",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 0.8338999999978114
+          "ms": 0.6335000000544824
         },
         {
           "name": "보기 드롭다운: 보기를 바꿔도 툴바 버튼이 움직이지 않음, 메뉴바에 드로잉 이름 없음",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 1731.3389000000025
+          "ms": 1730.5074000000022
         },
         {
           "name": "그리기 도구 버튼: 누르면 도구가 바뀌고 눌림 표시",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 1401.1989999999932
+          "ms": 1439.0701999999583
         },
         {
           "name": "메뉴 \"파일\": 독립 창, 한 줄, 아이콘+이름",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 968.5076999999874
+          "ms": 1049.6832000000286
         },
         {
           "name": "메뉴 \"편집\": 독립 창, 한 줄, 아이콘+이름",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 969.4494000000122
+          "ms": 1050.9969000000274
         },
         {
           "name": "메뉴 \"보기\": 독립 창, 한 줄, 아이콘+이름",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 953.6959999999963
+          "ms": 1033.3214000000153
         },
         {
           "name": "메뉴 \"삽입\": 독립 창, 한 줄, 아이콘+이름",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 966.9801999999909
+          "ms": 1031.7453000000096
         },
         {
           "name": "메뉴 \"서식\": 독립 창, 한 줄, 아이콘+이름",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 968.0328999999911
+          "ms": 1019.2894999999553
         },
         {
           "name": "메뉴 \"정렬\": 독립 창, 한 줄, 아이콘+이름",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 971.3899000000092
+          "ms": 1021.1339000000153
         },
         {
           "name": "메뉴 \"디자인\": 독립 창, 한 줄, 아이콘+이름",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 955.6347999999998
+          "ms": 1018.2384999999776
         },
         {
           "name": "메뉴 \"데이터\": 독립 창, 한 줄, 아이콘+이름",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 971.1062000000093
+          "ms": 1017.9482999999891
         },
         {
           "name": "메뉴 \"페이지\": 독립 창, 한 줄, 아이콘+이름",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 969.4734999999928
+          "ms": 1020.4251999999979
         },
         {
           "name": "메뉴 \"도움말\": 독립 창, 한 줄, 아이콘+이름",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 977.0892999999924
+          "ms": 1034.8652000000002
         },
         {
           "name": "메뉴는 작은 주 창 밖으로 펼쳐짐",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 1685.2148999999918
+          "ms": 1766.632500000007
         },
         {
           "name": "긴 메뉴는 분류된 하위 메뉴 (보기 › 보기 전환 › ShapeSheet)",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 2174.4841000000015
+          "ms": 2157.739899999986
         },
         {
           "name": "메뉴 항목 실행: 페이지 › 새 페이지 (실제 클릭)",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 1243.6823999999906
+          "ms": 1256.263099999982
         },
         {
           "name": "대상마다 다른 메뉴 (도형·연결선·여러 도형·빈 캔버스·페이지 탭·문서 탭·스텐실), 모든 항목에 아이콘",
           "group": "컨텍스트 메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 4645.021600000007
+          "ms": 4511.7351999999955
         },
         {
           "name": "\"settings\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 4035.384699999995
+          "ms": 4138.991999999969
         },
         {
           "name": "\"shape\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 3175.2641000000003
+          "ms": 3575.57859999995
         },
         {
           "name": "\"data\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2152.755199999985
+          "ms": 2480.4271999999764
         },
         {
           "name": "\"page\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2682.7303000000247
+          "ms": 2919.1573000000208
         },
         {
           "name": "\"layers\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2168.5794999999925
+          "ms": 2422.070000000007
         },
         {
           "name": "\"find\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2669.6137000000163
+          "ms": 2943.5507000000216
         },
         {
           "name": "\"document\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2629.061400000006
+          "ms": 2784.944599999988
         },
         {
           "name": "\"layout\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2306.2378000000026
+          "ms": 2445.2614000000176
         },
         {
           "name": "\"hyperlink\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2167.104500000016
+          "ms": 2419.599799999967
         },
         {
           "name": "\"design\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2492.2933000000194
+          "ms": 2785.191300000006
         },
         {
           "name": "\"import\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2790.773600000015
+          "ms": 3000.9927000000025
         },
         {
           "name": "\"stencil\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2297.9320000000007
+          "ms": 2419.7441999999573
         },
         {
           "name": "\"print\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2306.1610999999975
+          "ms": 2465.4819000000134
         },
         {
           "name": "\"recent\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2631.5518000000156
+          "ms": 2758.746999999974
         },
         {
           "name": "\"prompt\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2276.550199999998
+          "ms": 2432.829299999983
         },
         {
           "name": "스텐실 도형 클릭 → 캔버스에 추가, Ctrl+Z / Ctrl+Y",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1401.8767999999982
+          "ms": 1366.8495000000112
         },
         {
           "name": "스텐실에서 캔버스로 끌어다 놓으면 놓은 자리에 도형 하나 (실제 마우스)",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1617.0253000000084
+          "ms": 1657.9966000000131
         },
         {
           "name": "사각형 도구로 끌어 그리기, 도형 끌어 이동 (실행 취소 한 번), 화살표 키로 미세 이동 (실제 마우스)",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 2624.199800000002
+          "ms": 2643.8294999999925
         },
         {
           "name": "크기 조절 핸들과 회전 핸들 (실제 마우스)",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 2161.402300000016
+          "ms": 2177.6195999999763
         },
         {
           "name": "두 번 클릭해 텍스트 입력, Ctrl+Enter 로 끝냄",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 894.2215999999898
+          "ms": 882.4336999999941
         },
         {
           "name": "도형 서식 팝업: 채우기 색을 바꾸면 도형에 반영",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1392.482799999998
+          "ms": 1535.2490000000107
         },
         {
           "name": "정렬·그룹·회전·대칭·순서",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1038.5301000000036
+          "ms": 1084.7854999999981
         },
         {
           "name": "연결선 도구: 도형에서 도형으로 끌면 양쪽에 붙은 연결선 (실제 마우스)",
           "group": "연결선",
           "ok": true,
           "skipped": false,
-          "ms": 1646.1708000000217
+          "ms": 1628.5835999999545
         },
         {
           "name": "도형을 마우스로 옮기면 연결선이 따라감 (직각 경로)",
           "group": "연결선",
           "ok": true,
           "skipped": false,
-          "ms": 1605.585700000025
+          "ms": 1649.370500000019
         },
         {
           "name": "클립보드: Ctrl+C 로 글자가 OS 클립보드에, Ctrl+V 로 도형 붙여넣기, 외부 텍스트 붙여넣기",
           "group": "편집",
           "ok": true,
           "skipped": false,
-          "ms": 2690.4184999999998
+          "ms": 2724.597999999998
         },
         {
           "name": "Ctrl+마우스 휠: 캔버스 확대/축소",
           "group": "편집",
           "ok": true,
           "skipped": false,
-          "ms": 1170.0666999999958
+          "ms": 1176.5376000000397
         },
         {
           "name": "페이지 탭: + 로 추가, 두 번 클릭해 이름 바꾸기, 메뉴로 삭제 (다른 보기를 다녀온 뒤, 실제 마우스)",
           "group": "편집",
           "ok": true,
           "skipped": false,
-          "ms": 2635.6921999999904
+          "ms": 2741.253800000006
         },
         {
           "name": "찾기·바꾸기 팝업: 모두 바꾸기",
           "group": "편집",
           "ok": true,
           "skipped": false,
-          "ms": 1337.995900000009
+          "ms": 1311.5915999999852
         },
         {
           "name": "자동 레이아웃 팝업: 도형을 다시 배치",
           "group": "편집",
           "ok": true,
           "skipped": false,
-          "ms": 1515.9112000000023
+          "ms": 1528.8482000000076
         },
         {
           "name": "좌우 패널: 접으면 아이콘+제목 레일 (펼치기 버튼이 위), 구분자로 너비 조절, 최소 너비",
           "group": "패널",
           "ok": true,
           "skipped": false,
-          "ms": 3285.0756999999867
+          "ms": 3347.7943000000087
         },
         {
           "name": "드로잉은 탭 대신 메뉴바의 이름: 여러 개면 개수, 눌러서 바꾸기 (실제 클릭)",
           "group": "탭",
           "ok": true,
           "skipped": false,
-          "ms": 1902.882500000007
+          "ms": 1883.7541000000201
         },
         {
           "name": "홈 화면은 좌우 패널을 모두 숨겨도 창 전체 폭을 씀",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 1278.7078000000038
+          "ms": 1336.6984999999986
         },
         {
           "name": "drawing 보기가 그려짐",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1401.8277999999991
+          "ms": 1404.6297999999952
         },
         {
           "name": "pages 보기가 그려짐",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1419.5622000000149
+          "ms": 1399.5443000000087
         },
         {
           "name": "shapeSheet 보기가 그려짐",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1416.8329999999842
+          "ms": 1416.774700000009
         },
         {
           "name": "shapeData 보기가 그려짐",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1421.4907999999996
+          "ms": 1412.8293999999878
         },
         {
           "name": "reports 보기가 그려짐",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1414.6075999999885
+          "ms": 1412.2642000000342
         },
         {
           "name": "보고서: 모든 보고서가 그려짐",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 2057.177400000015
+          "ms": 2040.1859000000404
         },
         {
           "name": "페이지 보기: 페이지 카드를 두 번 누르면 그 페이지의 그리기 보기",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1684.8166999999958
+          "ms": 1681.616699999955
         },
         {
           "name": "프레젠테이션: F5 로 시작, 페이지 넘김, Esc 로 끝",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1531.4076999999816
+          "ms": 1525.8585000000312
         },
         {
           "name": "새로 설치한 뒤 첫 실행: 설정은 기본값으로, 최근 파일·DB 연결·배경 이미지는 그대로 (한 번만)",
           "group": "설치",
           "ok": true,
           "skipped": false,
-          "ms": 2060.464799999987
+          "ms": 2855.8466999999946
         },
         {
           "name": "DB를 설정하면 저장은 파일과 DB 둘 다 (SQLite)",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1237.0143000000098
+          "ms": 1240.891799999983
         },
         {
           "name": "저장(.mdg) → 열기: 같은 내용, 최근 파일·폴더에 기록",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1874.4879000000074
+          "ms": 1924.9862999999896
         },
         {
           "name": "최근 파일 최대 10개, 하나씩·전체 지우기 (파일 메뉴의 최근 파일 창)",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 2322.0917999999947
+          "ms": 2545.051299999992
         },
         {
           "name": "이미지로 내보내기 팝업: 형식·배경·영역·배율 → 선택이 내보내기에 쓰임",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1762.7472000000125
+          "ms": 1926.2537000000011
         },
         {
           "name": "그림 내보내기: PNG·JPEG·WebP·BMP·TIFF·SVG, 투명 배경",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 2231.9162999999826
+          "ms": 2089.6417000000365
         },
         {
           "name": "Visio(.vsdx)·SVG·HTML·CSV·템플릿·PDF 내보내기 (파일 머리 확인)",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1028.688300000009
+          "ms": 1025.1539999999804
         },
         {
           "name": "Visio(.vsdx)로 내보낸 파일을 다시 열면 같은 페이지·도형·연결선",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1487.7190999999875
+          "ms": 1481.4225999999908
         },
         {
           "name": "오래 걸리는 파일 작업은 진행 팝업 (진행률 막대)",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 10353.600299999991
+          "ms": 6628.760699999984
         },
         {
           "name": "끌어다 놓기: 드로잉 파일은 새 탭, 이미지는 그림 도형, 텍스트는 도형",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1710.737300000037
+          "ms": 1707.8168999999762
         },
         {
           "name": "저장 안 한 변경이 있으면 끝낼 때 저장 여부를 물음 (취소하면 그대로)",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1440.6688999999897
+          "ms": 1622.3485000000219
         },
         {
           "name": "인쇄 미리 보기: 전체/현재 페이지, 용지 방향, 바로 인쇄",
           "group": "인쇄",
           "ok": true,
           "skipped": false,
-          "ms": 2356.534800000023
+          "ms": 2534.4210999999777
         },
         {
           "name": "설정 창: 테마 탭(다크/라이트/사용자 정의), 글꼴(시스템의 모든 글꼴·크기·굵기·기울임)",
           "group": "설정",
           "ok": true,
           "skipped": false,
-          "ms": 1482.0212000000174
+          "ms": 1686.276200000022
         },
         {
           "name": "설정 창 › 그리기: 격자 표시를 끄면 캔버스에서 격자가 사라짐",
           "group": "설정",
           "ok": true,
           "skipped": false,
-          "ms": 1650.6600000000326
+          "ms": 1791.2621999999974
         },
         {
           "name": "설정은 다음 실행 때 다시 읽힘",
           "group": "설정",
           "ok": true,
           "skipped": false,
-          "ms": 4663.190600000031
+          "ms": 2596.6856999999727
         },
         {
           "name": "오류는 팝업으로 자세히, 내용 복사 가능",
           "group": "오류",
           "ok": true,
           "skipped": false,
-          "ms": 1508.9615999999805
+          "ms": 1749.8863000000129
         },
         {
           "name": "백엔드 심각한 오류(패닉)도 위치·스레드·백트레이스와 함께 팝업",
           "group": "오류",
-          "ok": false,
-          "ms": 15114.791499999992,
-          "error": "Error: page target not found\n    at waitTarget (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/cdp.mjs:174:9)\n    at async App.popup (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/harness.mjs:130:22)\n    at async Object.run (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/desktop.suite.mjs:1340:18)"
+          "ok": true,
+          "skipped": false,
+          "ms": 713.3216000000248
         },
         {
-          "name": "튜토리얼 문서를 프로그램 안에서 읽기 (홈 화면 항목)",
+          "name": "튜토리얼 문서: 별도의 창, 글꼴 크기·언어·테마",
           "group": "도움말",
-          "ok": false,
-          "ms": 15427.080599999987,
-          "error": "Error: timed out waiting for document.querySelectorAll('[data-reader-chapter] option').length > 5 (last: false)\n    at Page.waitFor (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/cdp.mjs:152:11)\n    at async Object.run (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/desktop.suite.mjs:1354:5)\n    at async runCases (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/scripts/test.mjs:269:23)"
+          "ok": true,
+          "skipped": false,
+          "ms": 750.7719999999972
         },
         {
-          "name": "사용 설명서 열기 (설치된 문서)",
+          "name": "사용 설명서: 별도의 창 (같은 창을 다시 씀)",
           "group": "도움말",
+          "ok": true,
+          "skipped": false,
+          "ms": 1621.891900000046
+        },
+        {
+          "name": "Shift로 끌면 연결된 선이 곧게 정렬, 회전 중에는 각도 표시",
+          "group": "캔버스",
+          "ok": true,
+          "skipped": false,
+          "ms": 1820.3195000000414
+        },
+        {
+          "name": "마인드맵 → Fishbone 버튼 → 되돌리기, 다른 드로잉에서는 비활성",
+          "group": "캔버스",
+          "ok": true,
+          "skipped": false,
+          "ms": 2178.3459999999614
+        },
+        {
+          "name": "모든 명령: 쓸 수 있을 때 실행해도 오류가 없고, 쓸 수 없으면 비활성",
+          "group": "명령",
+          "ok": true,
+          "skipped": false,
+          "ms": 122092.87690000003
+        },
+        {
+          "name": "오른쪽 클릭 메뉴: 지금 못 쓰는 항목은 비활성",
+          "group": "명령",
+          "ok": true,
+          "skipped": false,
+          "ms": 1289.5461999999825
+        },
+        {
+          "name": "모든 스텐실과 도형: 패널에 나오고 놓을 수 있음",
+          "group": "스텐실",
+          "ok": true,
+          "skipped": false,
+          "ms": 547.860400000005
+        },
+        {
+          "name": "문양 100종: 도형 서식 › 문양에서 골라 적용",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 1292.0550999999978
+        },
+        {
+          "name": "드로잉 밖의 보기에서도 눈금자·격자·마우스 위치",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 3518.237000000081
+        },
+        {
+          "name": "문서로 내보내기: Markdown · Word · Excel · 텍스트",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 2377.9648999999044
+        },
+        {
+          "name": "오른쪽 패널의 테마 드롭다운: 항목마다 아이콘, 고르면 적용",
+          "group": "패널",
           "ok": false,
-          "ms": 82271.3983,
-          "error": "Error: timed out waiting for Boolean(window.__mydiagram && document.querySelector('#toolbar .tool-button') && document.querySelector('#statusbar .status-notice')) (last: false)\n    at Page.waitFor (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/cdp.mjs:152:11)\n    at async App.launch (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/harness.mjs:101:7)\n    at async App.restart (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/harness.mjs:109:5)"
+          "ms": 850.5098999999464,
+          "error": "Error: [data-design-menu]: missing\n    at Page.click (file:///C:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/cdp.mjs:80:32)\n    at async Object.run (file:///C:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/desktop.suite.mjs:1555:5)\n    at async runCases (file:///C:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/scripts/test.mjs:269:23)"
+        },
+        {
+          "name": "Visio 내보내기: 옮겨지지 않는 항목이 있으면 주의 창",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 1864.045299999998
+        },
+        {
+          "name": "모든 버튼에 툴팁 (주 창, 시작 화면, 드로잉)",
+          "group": "툴팁",
+          "ok": true,
+          "skipped": false,
+          "ms": 1767.8559000000823
+        },
+        {
+          "name": "카드 이동·크기 변경 (실제 끌기), 다시 시작해도 유지",
+          "group": "시작 화면",
+          "ok": true,
+          "skipped": false,
+          "ms": 3690.4161000000313
+        },
+        {
+          "name": "최신 이미지 형식을 끌어다 놓으면 그림이 됨",
+          "group": "끌어다 놓기",
+          "ok": true,
+          "skipped": false,
+          "ms": 5523.411800000002
         },
         {
           "name": "튜토리얼: 시작·다음·끝내면 원래대로",
           "group": "도움말",
-          "ok": false,
-          "ms": 203.7711999999592,
-          "error": "Error: TypeError: Cannot read properties of undefined (reading 'actions')\n    at <anonymous>:1:52\n    at <anonymous>:1:233\n    at Page.eval (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/cdp.mjs:67:24)"
+          "ok": true,
+          "skipped": false,
+          "ms": 13586.070300000021
+        }
+      ]
+    },
+    {
+      "id": "tutorial",
+      "title": "튜토리얼",
+      "ms": 76629,
+      "results": [
+        {
+          "name": "01 welcome",
+          "group": "start",
+          "ok": true,
+          "ms": 132.045999999973,
+          "error": null
+        },
+        {
+          "name": "02 home",
+          "group": "start",
+          "ok": true,
+          "ms": 625.1034999999683,
+          "error": null
+        },
+        {
+          "name": "03 templates",
+          "group": "start",
+          "ok": true,
+          "ms": 746.1935000000522,
+          "error": null
+        },
+        {
+          "name": "04 recent",
+          "group": "start",
+          "ok": true,
+          "ms": 744.3225000000093,
+          "error": null
+        },
+        {
+          "name": "05 startCards",
+          "group": "start",
+          "ok": true,
+          "ms": 744.9793000000063,
+          "error": null
+        },
+        {
+          "name": "06 startSamples",
+          "group": "start",
+          "ok": true,
+          "ms": 625.6131999999052,
+          "error": null
+        },
+        {
+          "name": "07 background",
+          "group": "start",
+          "ok": true,
+          "ms": 5931.59850000008,
+          "error": null
+        },
+        {
+          "name": "08 sample",
+          "group": "draw",
+          "ok": true,
+          "ms": 635.5034000000451,
+          "error": null
+        },
+        {
+          "name": "09 layout",
+          "group": "draw",
+          "ok": true,
+          "ms": 623.6870000000345,
+          "error": null
+        },
+        {
+          "name": "10 shapesPanel",
+          "group": "draw",
+          "ok": true,
+          "ms": 624.9154000000563,
+          "error": null
+        },
+        {
+          "name": "11 dropShape",
+          "group": "draw",
+          "ok": true,
+          "ms": 622.9471999999369,
+          "error": null
+        },
+        {
+          "name": "12 shiftAlign",
+          "group": "connect",
+          "ok": true,
+          "ms": 623.6388000000734,
+          "error": null
+        },
+        {
+          "name": "13 search",
+          "group": "draw",
+          "ok": true,
+          "ms": 623.9048000000184,
+          "error": null
+        },
+        {
+          "name": "14 stencilMenu",
+          "group": "draw",
+          "ok": true,
+          "ms": 623.8188000000082,
+          "error": null
+        },
+        {
+          "name": "15 rotateDial",
+          "group": "draw",
+          "ok": true,
+          "ms": 638.6603999999352,
+          "error": null
+        },
+        {
+          "name": "16 tools",
+          "group": "draw",
+          "ok": true,
+          "ms": 2477.512299999944,
+          "error": null
+        },
+        {
+          "name": "17 text",
+          "group": "draw",
+          "ok": true,
+          "ms": 638.6742000000086,
+          "error": null
+        },
+        {
+          "name": "18 moveResize",
+          "group": "draw",
+          "ok": true,
+          "ms": 621.8061000000453,
+          "error": null
+        },
+        {
+          "name": "19 undo",
+          "group": "draw",
+          "ok": true,
+          "ms": 1874.5421000000788,
+          "error": null
+        },
+        {
+          "name": "20 connector",
+          "group": "connect",
+          "ok": true,
+          "ms": 637.8053000000073,
+          "error": null
+        },
+        {
+          "name": "21 autoConnect",
+          "group": "connect",
+          "ok": true,
+          "ms": 624.5834000000032,
+          "error": null
+        },
+        {
+          "name": "22 routes",
+          "group": "connect",
+          "ok": true,
+          "ms": 2022.747800000012,
+          "error": null
+        },
+        {
+          "name": "23 glue",
+          "group": "connect",
+          "ok": true,
+          "ms": 623.9883000000846,
+          "error": null
+        },
+        {
+          "name": "24 properties",
+          "group": "format",
+          "ok": true,
+          "ms": 627.0847000000067,
+          "error": null
+        },
+        {
+          "name": "25 quickStyle",
+          "group": "format",
+          "ok": true,
+          "ms": 621.7715000000317,
+          "error": null
+        },
+        {
+          "name": "26 formatDialog",
+          "group": "format",
+          "ok": true,
+          "ms": 626.4856999999611,
+          "error": null
+        },
+        {
+          "name": "27 design",
+          "group": "format",
+          "ok": true,
+          "ms": 619.1450999999652,
+          "error": null
+        },
+        {
+          "name": "28 formatPainter",
+          "group": "format",
+          "ok": true,
+          "ms": 624.1853000000119,
+          "error": null
+        },
+        {
+          "name": "29 pastelFill",
+          "group": "format",
+          "ok": true,
+          "ms": 625.1186999999918,
+          "error": null
+        },
+        {
+          "name": "30 align",
+          "group": "arrange",
+          "ok": true,
+          "ms": 623.6888000000035,
+          "error": null
+        },
+        {
+          "name": "31 group",
+          "group": "arrange",
+          "ok": true,
+          "ms": 626.4947999999858,
+          "error": null
+        },
+        {
+          "name": "32 relayout",
+          "group": "arrange",
+          "ok": true,
+          "ms": 623.5966999999946,
+          "error": null
+        },
+        {
+          "name": "33 rotate",
+          "group": "arrange",
+          "ok": true,
+          "ms": 626.3331999999937,
+          "error": null
+        },
+        {
+          "name": "34 fishbone",
+          "group": "arrange",
+          "ok": true,
+          "ms": 623.4256000000751,
+          "error": null
+        },
+        {
+          "name": "35 pageTabs",
+          "group": "pages",
+          "ok": true,
+          "ms": 1492.143299999996,
+          "error": null
+        },
+        {
+          "name": "36 backgroundPage",
+          "group": "pages",
+          "ok": true,
+          "ms": 622.1348999999464,
+          "error": null
+        },
+        {
+          "name": "37 layers",
+          "group": "pages",
+          "ok": true,
+          "ms": 626.1022999999113,
+          "error": null
+        },
+        {
+          "name": "38 pageSetup",
+          "group": "pages",
+          "ok": true,
+          "ms": 516.3087999999989,
+          "error": null
+        },
+        {
+          "name": "39 pagesView",
+          "group": "pages",
+          "ok": true,
+          "ms": 621.2675000000745,
+          "error": null
+        },
+        {
+          "name": "40 shapeData",
+          "group": "data",
+          "ok": true,
+          "ms": 639.7445000000298,
+          "error": null
+        },
+        {
+          "name": "41 dataGraphics",
+          "group": "data",
+          "ok": true,
+          "ms": 623.1474999999627,
+          "error": null
+        },
+        {
+          "name": "42 dataView",
+          "group": "data",
+          "ok": true,
+          "ms": 638.7726000000257,
+          "error": null
+        },
+        {
+          "name": "43 orgChart",
+          "group": "data",
+          "ok": true,
+          "ms": 640.8575999999885,
+          "error": null
+        },
+        {
+          "name": "44 reports",
+          "group": "data",
+          "ok": true,
+          "ms": 625.534900000086,
+          "error": null
+        },
+        {
+          "name": "45 shapeSheet",
+          "group": "data",
+          "ok": true,
+          "ms": 625.1334999999963,
+          "error": null
+        },
+        {
+          "name": "46 fileMenu",
+          "group": "files",
+          "ok": true,
+          "ms": 625.0349999999162,
+          "error": null
+        },
+        {
+          "name": "47 visio",
+          "group": "files",
+          "ok": true,
+          "ms": 623.6149999999907,
+          "error": null
+        },
+        {
+          "name": "48 print",
+          "group": "files",
+          "ok": true,
+          "ms": 625.7608999999939,
+          "error": null
+        },
+        {
+          "name": "49 imageExport",
+          "group": "files",
+          "ok": true,
+          "ms": 625.5878999999259,
+          "error": null
+        },
+        {
+          "name": "50 database",
+          "group": "files",
+          "ok": true,
+          "ms": 622.8236999999499,
+          "error": null
+        },
+        {
+          "name": "51 recentFiles",
+          "group": "files",
+          "ok": true,
+          "ms": 638.7604999999749,
+          "error": null
+        },
+        {
+          "name": "52 dragDrop",
+          "group": "files",
+          "ok": true,
+          "ms": 3193.5402999999933,
+          "error": null
+        },
+        {
+          "name": "53 dropImage",
+          "group": "files",
+          "ok": true,
+          "ms": 623.9908999999752,
+          "error": null
+        },
+        {
+          "name": "54 theme",
+          "group": "customize",
+          "ok": true,
+          "ms": 3956.1655999999493,
+          "error": null
+        },
+        {
+          "name": "55 language",
+          "group": "customize",
+          "ok": true,
+          "ms": 627.1210000000428,
+          "error": null
+        },
+        {
+          "name": "56 panels",
+          "group": "customize",
+          "ok": true,
+          "ms": 1864.244299999904,
+          "error": null
+        },
+        {
+          "name": "57 minimap",
+          "group": "customize",
+          "ok": true,
+          "ms": 622.9070999999531,
+          "error": null
+        },
+        {
+          "name": "58 settings",
+          "group": "customize",
+          "ok": true,
+          "ms": 637.6504999999888,
+          "error": null
+        },
+        {
+          "name": "59 statusBar",
+          "group": "customize",
+          "ok": true,
+          "ms": 624.2741000000387,
+          "error": null
+        },
+        {
+          "name": "60 presentation",
+          "group": "help",
+          "ok": true,
+          "ms": 623.8880999999819,
+          "error": null
+        },
+        {
+          "name": "61 shortcuts",
+          "group": "help",
+          "ok": true,
+          "ms": 622.4551999999676,
+          "error": null
+        },
+        {
+          "name": "62 about",
+          "group": "help",
+          "ok": true,
+          "ms": 518.7309999999125,
+          "error": null
+        },
+        {
+          "name": "63 tutorialDoc",
+          "group": "help",
+          "ok": true,
+          "ms": 741.9588999999687,
+          "error": null
+        },
+        {
+          "name": "64 finish",
+          "group": "help",
+          "ok": true,
+          "ms": 621.8310000000056,
+          "error": null
+        },
+        {
+          "name": "끝나면 설정·화면 원래대로 (튜토리얼 탭 닫힘, 팝업은 다시 OS 창)",
+          "group": "정리",
+          "ok": true,
+          "ms": 54.056400000001304,
+          "error": null
         }
       ]
     }

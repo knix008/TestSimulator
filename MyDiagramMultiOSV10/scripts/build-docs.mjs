@@ -12,6 +12,7 @@
 // lists, tables, fenced code, blockquotes, rules, images, links, inline code,
 // bold, italic) with a table of contents from the h2/h3 headings, light and
 // dark colours (prefers-color-scheme) and a Korean font stack.
+import { korea, unitedKingdom } from '../src/flags.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -299,7 +300,18 @@ a:hover { text-decoration: underline; }
 }
 .topbar .brand { font-weight: 700; color: var(--text); }
 .topbar .grow { flex: 1; }
-.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.doc-font { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.doc-font button { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; line-height: 1; cursor: pointer; }
+.doc-font button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.doc-font button:disabled { opacity: .4; cursor: default; }
+.doc-font output { min-width: 26px; text-align: center; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.doc-lang { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.doc-lang a { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; font-size: 13px; color: var(--text); }
+.doc-lang a:hover { text-decoration: none; background: var(--accent-soft); }
+.doc-lang a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; cursor: default; }
+.doc-lang .flag { width: 21px; height: 14px; flex: none; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); }
+main, nav.toc { zoom: var(--doc-zoom, 1); }
+@media (max-width: 700px) { .doc-font-label, .topbar .brand { display: none; } }
 .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
 nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
 nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
@@ -344,7 +356,57 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 }
 `;
 
-function page({ title, lang, html, toc, other, otherLabel }) {
+/** The top bar's tools: font size (kept per user) and the two languages, each with its flag and name. */
+function docTools({ lang, other }) {
+  const ko = lang === 'ko';
+  const self = other.replace('.en.html', '.html');
+  const hrefKo = ko ? '#' : self;
+  const hrefEn = ko ? other : '#';
+  const sizeLabel = ko ? '글꼴 크기' : 'Font size';
+  const smaller = ko ? '글꼴 작게' : 'Smaller text';
+  const larger = ko ? '글꼴 크게' : 'Larger text';
+  return `<div class="doc-font" role="group" aria-label="${sizeLabel}" title="${sizeLabel}"><span class="doc-font-label">${sizeLabel}</span><button type="button" id="doc-font-down" title="${smaller}" aria-label="${smaller}">−</button><output id="doc-font-value">16</output><button type="button" id="doc-font-up" title="${larger}" aria-label="${larger}">+</button></div>
+<nav class="doc-lang" aria-label="${ko ? '언어' : 'Language'}"><a href="${hrefKo}" hreflang="ko" class="${ko ? 'active' : ''}" title="한국어" ${ko ? 'aria-current="true"' : ''}>${korea}<span>한국어</span></a><a href="${hrefEn}" hreflang="en" class="${ko ? '' : 'active'}" title="English" ${ko ? '' : 'aria-current="true"'}>${unitedKingdom}<span>English</span></a></nav>`;
+}
+
+// Font size of the document, shared by the pages and remembered; a click on the language
+// that is already showing stays where it is.
+const DOC_SCRIPT = `(function () {
+  var KEY = 'mydiagram.docs.fontSize', MIN = 12, MAX = 28, BASE = 16;
+  var value = document.getElementById('doc-font-value');
+  var size = BASE;
+  try { size = Number(localStorage.getItem(KEY)) || BASE; } catch (e) {}
+  function apply(next) {
+    size = Math.max(MIN, Math.min(MAX, next));
+    document.documentElement.style.setProperty('--doc-zoom', String(size / BASE));
+    value.textContent = String(size);
+    document.getElementById('doc-font-down').disabled = size <= MIN;
+    document.getElementById('doc-font-up').disabled = size >= MAX;
+    try { localStorage.setItem(KEY, String(size)); } catch (e) {}
+  }
+  document.getElementById('doc-font-down').addEventListener('click', function () { apply(size - 1); });
+  document.getElementById('doc-font-up').addEventListener('click', function () { apply(size + 1); });
+  value.addEventListener('dblclick', function () { apply(BASE); });
+  document.querySelector('.doc-lang a.active').addEventListener('click', function (event) { event.preventDefault(); });
+  apply(size);
+  // The theme selected in the main window, also when it changes while this page is open.
+  var THEME = 'mydiagram.docs.theme';
+  function applyTheme() {
+    var theme = null;
+    try { theme = JSON.parse(localStorage.getItem(THEME)); } catch (e) {}
+    if (!theme || !theme.vars) return;
+    var style = document.documentElement.style;
+    for (var name in theme.vars) if (theme.vars[name]) style.setProperty(name, theme.vars[name]);
+    style.setProperty('--accent-soft', 'color-mix(in srgb, var(--accent) 16%, var(--surface))');
+    style.setProperty('--code-bg', 'color-mix(in srgb, var(--text) 7%, var(--surface))');
+    style.setProperty('--row-alt', 'color-mix(in srgb, var(--text) 3%, var(--surface))');
+    style.colorScheme = theme.dark ? 'dark' : 'light';
+  }
+  applyTheme();
+  window.addEventListener('storage', function (event) { if (event.key === THEME) applyTheme(); });
+})();`;
+
+function page({ title, lang, html, toc, other }) {
   const tocHtml = toc.length ? `<nav class="toc" aria-label="${lang === 'ko' ? '목차' : 'Contents'}"><p class="toc-title">${lang === 'ko' ? '목차' : 'Contents'}</p><ul>${toc.map((item) => `<li class="h${item.level}"><a href="#${item.id}">${item.html.replace(/<a [^>]*>|<\/a>/g, '')}</a></li>`).join('')}</ul></nav>` : '<nav class="toc" aria-hidden="true"></nav>';
   return `<!doctype html>
 <html lang="${lang}">
@@ -356,7 +418,7 @@ function page({ title, lang, html, toc, other, otherLabel }) {
 <style>${CSS}</style>
 </head>
 <body>
-<header class="topbar"><span class="brand">MyDiagram <small>v${escapeHtml(version)}</small></span><span class="grow"></span>${other ? `<a class="lang" href="${escapeHtml(other)}" hreflang="${lang === 'ko' ? 'en' : 'ko'}">${escapeHtml(otherLabel)}</a>` : ''}</header>
+<header class="topbar"><span class="brand">MyDiagram <small>v${escapeHtml(version)}</small></span><span class="grow"></span>${docTools({ lang, other })}</header>
 <div class="layout">
 ${tocHtml}
 <main>
@@ -364,6 +426,7 @@ ${html}
 </main>
 </div>
 <footer>MyDiagram v${escapeHtml(version)} · © SHKWON (knix008@naver.com)</footer>
+<script>${DOC_SCRIPT}</script>
 </body>
 </html>
 `;

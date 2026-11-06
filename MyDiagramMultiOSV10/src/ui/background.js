@@ -2,7 +2,7 @@
 // twenty of them (the list is ANIMATIONS in settings): aurora, waves, particles,
 // constellation, bubbles, a flowing grid, a drifting flowchart, a star field, rain,
 // snow, fireflies, ripples, code rain, hexagons, orbits, a lava lamp, a spiral
-// galaxy, confetti, a node network and ribbons. Colours follow the theme. The animation
+// galaxy, confetti, a node network, ribbons and meteors. Colours follow the theme. The animation
 // pauses while the window is hidden; `frames` counts drawn frames (tests use it).
 import { ANIMATIONS } from '../domain/settings.js';
 
@@ -545,6 +545,36 @@ export class AnimatedBackground {
       else c.arc(p.x, p.y, p.r * 0.7, 0, Math.PI * 2);
       c.fill();
       c.stroke();
+    }
+  }
+
+  /** Meteors falling across the sky, each with a fading tail. */
+  meteors(c, w, h, time, colors) {
+    const count = 30;
+    const angle = Math.PI * 0.68;
+    const [dx, dy] = [Math.cos(angle), Math.sin(angle)];
+    c.lineCap = 'round';
+    for (let i = 0; i < count; i++) {
+      const progress = (time * (0.05 + ((i * 7) % 5) * 0.018) + (i * 0.618) % 1) % 1;
+      const reach = Math.hypot(w, h) * 1.1;
+      const startX = ((i * 0.37) % 1) * w * 1.5;
+      const x = startX + dx * progress * reach;
+      const y = -h * 0.1 + dy * progress * reach;
+      const tail = h * (0.1 + (i % 4) * 0.05);
+      const colour = i % 3 === 0 ? colors.accent2 ?? colors.accent : colors.accent;
+      const line = c.createLinearGradient(x, y, x - dx * tail, y - dy * tail);
+      line.addColorStop(0, rgba(colour, 0.75));
+      line.addColorStop(1, rgba(colour, 0));
+      c.strokeStyle = line;
+      c.lineWidth = 1.2 + (i % 3) * 0.7;
+      c.beginPath();
+      c.moveTo(x, y);
+      c.lineTo(x - dx * tail, y - dy * tail);
+      c.stroke();
+      c.fillStyle = rgba(colour, 0.9);
+      c.beginPath();
+      c.arc(x, y, c.lineWidth, 0, Math.PI * 2);
+      c.fill();
     }
   }
 

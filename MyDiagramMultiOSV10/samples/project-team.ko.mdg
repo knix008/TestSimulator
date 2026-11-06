@@ -1,0 +1,780 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-06T04:18:13.734Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mw4gs31i0isex",
+  "title": "프로젝트 팀",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-06T04:18:13.734Z",
+  "design": "ion",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mw4gs31i0it7d",
+    "name": "프로젝트 팀",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs31i0iu3x",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "프로젝트 팀",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31i0iv2p",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 425,
+      "y": 80,
+      "w": 190,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "김민준\n프로젝트 관리자",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "역할",
+        "label": "역할",
+        "type": "text",
+        "value": "총괄",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31i0iwyc",
+      "type": "shape",
+      "master": "orgConsultant",
+      "name": "",
+      "x": 790,
+      "y": 90,
+      "w": 170,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "외부 컨설턴트\n오지호",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "역할",
+        "label": "역할",
+        "type": "text",
+        "value": "자문",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31i0ixg3",
+      "type": "shape",
+      "master": "orgAssistant",
+      "name": "",
+      "x": 100,
+      "y": 95,
+      "w": 140,
+      "h": 55,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "PMO 지원",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "역할",
+        "label": "역할",
+        "type": "text",
+        "value": "일정·보고",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31i0iyk8",
+      "type": "shape",
+      "master": "orgPhoto",
+      "name": "",
+      "x": 105,
+      "y": 225,
+      "w": 190,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "이서연\n기획 리더",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "역할",
+        "label": "역할",
+        "type": "text",
+        "value": "기획",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31i0izua",
+      "type": "shape",
+      "master": "orgPhoto",
+      "name": "",
+      "x": 425,
+      "y": 225,
+      "w": 190,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "박지훈\n개발 리더",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "역할",
+        "label": "역할",
+        "type": "text",
+        "value": "개발",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs31i0j082",
+      "type": "shape",
+      "master": "orgPhoto",
+      "name": "",
+      "x": 755,
+      "y": 225,
+      "w": 190,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "최유나\nQA 리더",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "역할",
+        "label": "역할",
+        "type": "text",
+        "value": "품질",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31i0j1lf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31i0iv2p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31i0iwyc",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "dash": "dash"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs31i0j2mi",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31i0iv2p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs31i0ixg3",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "dash": "dash"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs31i0j3sg",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31i0iv2p",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs31i0iyk8",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs31i0j4nr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31i0iv2p",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs31i0izua",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs31i0j5yh",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31i0iv2p",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs31i0j082",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31i0j6iu",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 45,
+      "y": 370,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "정하은\n서비스 기획",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "역할",
+        "label": "역할",
+        "type": "text",
+        "value": "요구 사항",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31i0j7b0",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31i0iyk8",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs31i0j6iu",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31i0j8oy",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 205,
+      "y": 370,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "강도윤\nUX 디자이너",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "역할",
+        "label": "역할",
+        "type": "text",
+        "value": "화면 설계",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31i0j9pz",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31i0iyk8",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs31i0j8oy",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31i0ja8d",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 365,
+      "y": 370,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "윤서준\n프런트엔드",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "역할",
+        "label": "역할",
+        "type": "text",
+        "value": "React",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31i0jbqk",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31i0izua",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs31i0ja8d",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31i0jcuq",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 525,
+      "y": 370,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "임지아\n백엔드",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "역할",
+        "label": "역할",
+        "type": "text",
+        "value": "API",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31i0jdm5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31i0izua",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs31i0jcuq",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31i0je8d",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 695,
+      "y": 370,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "한예린\n테스터",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "역할",
+        "label": "역할",
+        "type": "text",
+        "value": "테스트",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31i0jfhb",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31i0j082",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs31i0je8d",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31i0jg1s",
+      "type": "shape",
+      "master": "orgVacancy",
+      "name": "",
+      "x": 855,
+      "y": 370,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "공석\n자동화 테스터",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs31i0jhu9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs31i0j082",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs31i0jg1s",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs31i0jiwu",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 45,
+      "y": 510,
+      "w": 210,
+      "h": 110,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "우리 팀 8명. 공석은 3월까지 채용합니다.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org",
+   "basic"
+  ]
+ }
+}

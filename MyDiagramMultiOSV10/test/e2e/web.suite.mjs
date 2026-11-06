@@ -628,24 +628,48 @@ export const cases = [
       assert.ok(await app.main.eval(`document.querySelector('#view-host').innerText.trim().length > 20`), id);
     }
   } },
-  { group: '도움말', name: '튜토리얼 문서를 프로그램 안에서 읽기 (홈 화면 항목)', async run(app) {
+  { group: '끌어다 놓기', name: '배포 빌드에서 그림 디코더 동작 (HEIC · JPEG 2000 · JPEG XL · TIFF · QOI · TGA)', async run(app) {
+    const dir = path.join(root, 'test', 'fixtures', 'images');
+    for (const name of ['sample.heic', 'sample.jp2', 'sample.jxl', 'sample.tif', 'sample.qoi', 'sample.tga']) {
+      const data = fs.readFileSync(path.join(dir, name)).toString('base64');
+      const shown = await app.main.eval(`(async () => {
+        const a = window.__mydiagram.actions;
+        for (const doc of [...window.__mydiagram.state.docs]) a.closeDoc(doc, { force: true });
+        a.newDrawing();
+        const bytes = Uint8Array.from(atob('${data}'), (c) => c.charCodeAt(0));
+        await a.handleDroppedFiles([new File([bytes], '${name}')], '', null);
+        const shapes = a.activeDoc().page.shapes;
+        const src = shapes[shapes.length - 1]?.src ?? '';
+        const img = new Image();
+        img.src = src;
+        await img.decode();
+        return { width: img.naturalWidth, png: src.startsWith('data:image/png') };
+      })()`, 60000);
+      assert.ok(shown.width > 0 && shown.png, `${name}: ${JSON.stringify(shown)}`);
+    }
+  } },
+  { group: '시작 화면', name: '웹에도 같은 예제 40개, 눌러서 열기', async run(app) {
+    await W(app, '(a.showStartPage(), 1)');
+    await sleep(400);
+    assert.equal(await app.main.eval(`document.querySelectorAll('[data-start="open-sample"]').length`), 40);
+    assert.equal(await app.main.eval(`document.querySelectorAll('.start-card.samples .start-group').length`), 11);
+    const docs = await W(app, 'w.state.docs.length');
+    await app.main.click('[data-start="open-sample"][data-value*="login-flow"]');
+    await app.main.waitFor(`window.__mydiagram.state.docs.length === ${docs + 1}`, { timeout: 15000 });
+    assert.ok(await W(app, 'a.activeDoc().page.shapes.length > 3'));
+    await W(app, '(a.closeDoc(w.state.docs.at(-1), { force: true }), 1)');
+  } },
+  { group: '도움말', name: '설명서·튜토리얼 문서는 브라우저 탭으로', async run(app) {
+    await app.main.eval('(window.__opened = [], window.open = (url, name) => { window.__opened.push([url, name]); return null; }, 1)');
     await W(app, '(a.showStartPage(), 1)');
     await sleep(300);
-    assert.ok(await app.main.eval(`Boolean(document.querySelector('#start-page [data-start="tutorial-doc"]'))`), 'the start page lists the tutorial document');
     await app.main.click('#start-page [data-start="tutorial-doc"]');
-    await app.main.waitFor(`document.querySelectorAll('[data-reader-chapter] option').length > 5`, { timeout: 15000 });
-    const doc = await app.main.eval(`(() => { const d = document.querySelector('.reader-frame').contentDocument; return { shown: !document.querySelector('#reader-page').hidden, h1: d.querySelector('h1').textContent, steps: d.querySelectorAll('h3').length, raw: d.body.innerText.includes('<a id=') }; })()`);
-    assert.ok(doc.shown);
-    assert.match(doc.h1, /MyDiagram/);
-    const steps = await app.main.eval(`window.__mydiagram.domain.tutorialSteps()`);
-    assert.equal(doc.steps, steps, 'every tutorial step is in the document');
-    assert.equal(doc.raw, false, 'no raw HTML shows as text');
-    await app.main.click('[data-reader="lang"][data-value="en"]');
-    await app.main.waitFor(`/tutorial/i.test(document.querySelector('.reader-frame').contentDocument?.querySelector('h1')?.textContent ?? '')`, { timeout: 10000 });
-    assert.deepEqual(await app.main.eval(CLIP_CHECK), []);
-    await app.main.click('[data-reader="home"]');
-    await sleep(300);
-    assert.deepEqual(await app.main.eval(`[!document.querySelector('#reader-page').hidden, !document.querySelector('#start-page').hidden]`), [false, true], 'Home goes back to the start page');
+    await app.main.click('#start-page [data-start="guide"]');
+    const opened = await app.main.eval('window.__opened');
+    assert.match(opened[0][0], /docs\/Tutorial(\.en)?\.html$/);
+    assert.match(opened[1][0], /docs\/UsersGuide(\.en)?\.html$/);
+    const html = await app.main.eval(`fetch(${JSON.stringify(opened[1][0])}).then((r) => r.text())`);
+    assert.ok(html.includes('doc-font-up') && html.includes('doc-lang'), 'font size and language');
   } },
   { group: '인쇄', name: '인쇄 미리 보기 → 브라우저 인쇄', async run(app) {
     await freshSample(app);

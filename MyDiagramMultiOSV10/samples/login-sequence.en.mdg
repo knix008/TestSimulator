@@ -1,0 +1,533 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-06T04:18:13.782Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mw4gs32u15zbi",
+  "title": "Login Sequence",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-06T04:18:13.782Z",
+  "design": "linear",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mw4gs32u160cy",
+    "name": "Login Sequence",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs32u161q4",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Login Sequence",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs32u1620p",
+      "type": "shape",
+      "master": "umlLifeline",
+      "name": "",
+      "x": 60,
+      "y": 80,
+      "w": 150,
+      "h": 680,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Browser",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false,
+      "points": [
+       [
+        0.5,
+        0.11
+       ],
+       [
+        0.5,
+        0.225
+       ],
+       [
+        0.5,
+        0.34
+       ],
+       [
+        0.5,
+        0.455
+       ],
+       [
+        0.5,
+        0.5700000000000001
+       ],
+       [
+        0.5,
+        0.685
+       ],
+       [
+        0.5,
+        0.8
+       ],
+       [
+        0.5,
+        0.915
+       ]
+      ]
+     },
+     {
+      "id": "shp-mw4gs32u163bk",
+      "type": "shape",
+      "master": "umlLifeline",
+      "name": "",
+      "x": 320,
+      "y": 80,
+      "w": 150,
+      "h": 680,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Web server",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false,
+      "points": [
+       [
+        0.5,
+        0.11
+       ],
+       [
+        0.5,
+        0.225
+       ],
+       [
+        0.5,
+        0.34
+       ],
+       [
+        0.5,
+        0.455
+       ],
+       [
+        0.5,
+        0.5700000000000001
+       ],
+       [
+        0.5,
+        0.685
+       ],
+       [
+        0.5,
+        0.8
+       ],
+       [
+        0.5,
+        0.915
+       ]
+      ]
+     },
+     {
+      "id": "shp-mw4gs32u164cu",
+      "type": "shape",
+      "master": "umlLifeline",
+      "name": "",
+      "x": 580,
+      "y": 80,
+      "w": 150,
+      "h": 680,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Auth service",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false,
+      "points": [
+       [
+        0.5,
+        0.11
+       ],
+       [
+        0.5,
+        0.225
+       ],
+       [
+        0.5,
+        0.34
+       ],
+       [
+        0.5,
+        0.455
+       ],
+       [
+        0.5,
+        0.5700000000000001
+       ],
+       [
+        0.5,
+        0.685
+       ],
+       [
+        0.5,
+        0.8
+       ],
+       [
+        0.5,
+        0.915
+       ]
+      ]
+     },
+     {
+      "id": "shp-mw4gs32u165wp",
+      "type": "shape",
+      "master": "umlLifeline",
+      "name": "",
+      "x": 840,
+      "y": 80,
+      "w": 150,
+      "h": 680,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Database",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false,
+      "points": [
+       [
+        0.5,
+        0.11
+       ],
+       [
+        0.5,
+        0.225
+       ],
+       [
+        0.5,
+        0.34
+       ],
+       [
+        0.5,
+        0.455
+       ],
+       [
+        0.5,
+        0.5700000000000001
+       ],
+       [
+        0.5,
+        0.685
+       ],
+       [
+        0.5,
+        0.8
+       ],
+       [
+        0.5,
+        0.915
+       ]
+      ]
+     },
+     {
+      "id": "con-mw4gs32u166lg",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32u1620p",
+       "pt": 0
+      },
+      "to": {
+       "id": "shp-mw4gs32u163bk",
+       "pt": 0
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "1. Log in",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs32u1670v",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32u163bk",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs32u164cu",
+       "pt": 1
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "2. Verify",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs32u168ga",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32u164cu",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs32u165wp",
+       "pt": 2
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "3. Find user",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs32u169c6",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32u165wp",
+       "pt": 3
+      },
+      "to": {
+       "id": "shp-mw4gs32u164cu",
+       "pt": 3
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "4. User row",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs32u16agt",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32u164cu",
+       "pt": 4
+      },
+      "to": {
+       "id": "shp-mw4gs32u163bk",
+       "pt": 4
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "5. Token",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs32u16bcv",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32u163bk",
+       "pt": 5
+      },
+      "to": {
+       "id": "shp-mw4gs32u1620p",
+       "pt": 5
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "6. Session cookie",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs32u16c5w",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32u1620p",
+       "pt": 6
+      },
+      "to": {
+       "id": "shp-mw4gs32u163bk",
+       "pt": 6
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "7. Get home",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs32u16dzc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32u163bk",
+       "pt": 7
+      },
+      "to": {
+       "id": "shp-mw4gs32u1620p",
+       "pt": 7
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "8. Home page",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "uml",
+   "callouts"
+  ]
+ }
+}

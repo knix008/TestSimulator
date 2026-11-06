@@ -1,0 +1,733 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-06T04:18:13.788Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mw4gs3301an9n",
+  "title": "Three-Tier Cloud",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-06T04:18:13.788Z",
+  "design": "organic",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mw4gs3301aow3",
+    "name": "Three-Tier Cloud",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs3301apsc",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Three-Tier Cloud",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301aqal",
+      "type": "shape",
+      "master": "groupFrame",
+      "name": "",
+      "x": 420,
+      "y": 90,
+      "w": 190,
+      "h": 640,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Web tier",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301arpe",
+      "type": "shape",
+      "master": "groupFrame",
+      "name": "",
+      "x": 630,
+      "y": 90,
+      "w": 190,
+      "h": 640,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "App tier",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301as7j",
+      "type": "shape",
+      "master": "groupFrame",
+      "name": "",
+      "x": 840,
+      "y": 90,
+      "w": 190,
+      "h": 640,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Data tier",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301at7g",
+      "type": "shape",
+      "master": "user",
+      "name": "",
+      "x": 40,
+      "y": 340,
+      "w": 60,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Users",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301au1r",
+      "type": "shape",
+      "master": "cloudNet",
+      "name": "",
+      "x": 130,
+      "y": 333,
+      "w": 120,
+      "h": 85,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "CDN",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301av5k",
+      "type": "shape",
+      "master": "router",
+      "name": "",
+      "x": 290,
+      "y": 345,
+      "w": 90,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Load balancer",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301awj0",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 485,
+      "y": 180,
+      "w": 60,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Web 1",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "Size",
+        "label": "Size",
+        "type": "text",
+        "value": "2 vCPU",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301ax79",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 485,
+      "y": 450,
+      "w": 60,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Web 2",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "Size",
+        "label": "Size",
+        "type": "text",
+        "value": "2 vCPU",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301aycl",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 695,
+      "y": 180,
+      "w": 60,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "App 1",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "Size",
+        "label": "Size",
+        "type": "text",
+        "value": "4 vCPU",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301azpu",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 695,
+      "y": 450,
+      "w": 60,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "App 2",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "Size",
+        "label": "Size",
+        "type": "text",
+        "value": "4 vCPU",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301b0ya",
+      "type": "shape",
+      "master": "dbServer",
+      "name": "",
+      "x": 880,
+      "y": 170,
+      "w": 70,
+      "h": 85,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301b1nq",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 954,
+      "y": 200,
+      "w": 74,
+      "h": 24,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Primary DB",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301b29e",
+      "type": "shape",
+      "master": "dbServer",
+      "name": "",
+      "x": 880,
+      "y": 370,
+      "w": 70,
+      "h": 85,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Replica DB",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3301b3fs",
+      "type": "shape",
+      "master": "storage",
+      "name": "",
+      "x": 875,
+      "y": 570,
+      "w": 80,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "File storage",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3301b48k",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301at7g",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs3301au1r",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301b550",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301au1r",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs3301av5k",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301b674",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301av5k",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3301awj0",
+       "pt": 3
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301b7gc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301av5k",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3301ax79",
+       "pt": 3
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301b8kq",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301awj0",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs3301aycl",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301b943",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301ax79",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs3301azpu",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301baaf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301aycl",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3301b0ya",
+       "pt": 3
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301bb8r",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301azpu",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3301b0ya",
+       "pt": 3
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301bc8d",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301b0ya",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3301b29e",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "replication",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3301bd09",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3301azpu",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3301b3fs",
+       "pt": 3
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network",
+   "containers"
+  ]
+ }
+}

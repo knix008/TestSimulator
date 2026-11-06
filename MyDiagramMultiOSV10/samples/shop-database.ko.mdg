@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-10-16T17:12:20.472Z",
+ "saved": "2026-11-06T04:18:13.711Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mvb86pko03929",
+  "id": "dgm-mw4gs30v023hs",
   "title": "데이터베이스 모델(ERD)",
   "subject": "",
   "author": "",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-10-16T17:12:20.472Z",
+  "created": "2026-11-06T04:18:13.711Z",
   "design": "sequence",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mvb86pko03a85",
+    "id": "page-mw4gs30v024hc",
     "name": "페이지-1",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mvb86pko03bf5",
+      "id": "shp-mw4gs30v025db",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -75,7 +75,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pko03cjn",
+      "id": "shp-mw4gs30v026l9",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -99,7 +99,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pko03dby",
+      "id": "shp-mw4gs30v027kg",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -123,7 +123,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pko03e5s",
+      "id": "shp-mw4gs30v028ln",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -147,14 +147,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pko03fmy",
+      "id": "con-mw4gs30v029n2",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pko03bf5",
+       "id": "shp-mw4gs30v025db",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pko03cjn",
+       "id": "shp-mw4gs30v026l9",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -174,14 +174,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pko03gxu",
+      "id": "con-mw4gs30v02a1n",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pko03cjn",
+       "id": "shp-mw4gs30v026l9",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pko03dby",
+       "id": "shp-mw4gs30v027kg",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -201,14 +201,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pko03h1x",
+      "id": "con-mw4gs30v02bxk",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pko03e5s",
+       "id": "shp-mw4gs30v028ln",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pko03dby",
+       "id": "shp-mw4gs30v027kg",
        "pt": "auto"
       },
       "route": "orthogonal",

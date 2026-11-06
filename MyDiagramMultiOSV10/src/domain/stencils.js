@@ -1,7 +1,7 @@
 // Stencils: the master shapes a diagram is drawn with, in categories like
 // Microsoft Visio's (Basic, Arrows, Flowchart, Callouts, Containers, UML,
 // Database, BPMN, Network, Org chart, Mind map, Floor plan, Blocks, Timeline,
-// Electrical). A master gives
+// Electrical, and those in stencils-more.js). A master gives
 //   w, h       default size (px at 96 dpi)
 //   geometry   (w, h, params, rounding) → parts [{ d, fill }] in the shape's own
 //              coordinates. fill: 'main' (shape fill + line), 'none' (line only),
@@ -15,6 +15,9 @@
 // Pure data and functions — no DOM — so the renderer, export and tests share them.
 import { clamp, ellipsePath, polyPath, regularPoints, roundRectPath } from './geometry.js';
 import { scalePath } from './path.js';
+import { addMoreMasters } from './stencils-more.js';
+import { addExtraMasters } from './stencils-extra.js';
+import { addIconMasters } from './stencils-icons.js';
 
 const main = (d) => ({ d, fill: 'main' });
 const line = (d) => ({ d, fill: 'none' });
@@ -83,15 +86,35 @@ export const CATEGORIES = [
   { id: 'callouts', icon: 'stCallouts', name: { ko: '설명선·텍스트', en: 'Callouts & Text' } },
   { id: 'containers', icon: 'stContainers', name: { ko: '컨테이너·스윔레인', en: 'Containers & Swimlanes' } },
   { id: 'uml', icon: 'stUml', name: { ko: 'UML', en: 'UML' } },
+  { id: 'wireframe', icon: 'stWireframe', name: { ko: '화면 설계', en: 'Wireframe' } },
   { id: 'erd', icon: 'stErd', name: { ko: '데이터베이스(ERD)', en: 'Database (ERD)' } },
   { id: 'bpmn', icon: 'stBpmn', name: { ko: 'BPMN', en: 'BPMN' } },
   { id: 'network', icon: 'stNetwork', name: { ko: '네트워크', en: 'Network' } },
+  { id: 'cloud', icon: 'stCloud', name: { ko: '클라우드·아키텍처', en: 'Cloud & Architecture' } },
+  { id: 'security', icon: 'stSecurity', name: { ko: '보안', en: 'Security' } },
   { id: 'org', icon: 'stOrg', name: { ko: '조직도', en: 'Org Chart' } },
+  { id: 'business', icon: 'stBusiness', name: { ko: '비즈니스', en: 'Business' } },
   { id: 'mind', icon: 'stMind', name: { ko: '마인드맵·브레인스토밍', en: 'Mind Map & Brainstorming' } },
   { id: 'floor', icon: 'stFloor', name: { ko: '평면도', en: 'Floor Plan' } },
   { id: 'blocks', icon: 'stBlocks', name: { ko: '블록 다이어그램', en: 'Block Diagram' } },
+  { id: 'charts', icon: 'stCharts', name: { ko: '차트·데이터', en: 'Charts & Data' } },
   { id: 'timeline', icon: 'stTimeline', name: { ko: '일정표·타임라인', en: 'Timeline' } },
   { id: 'electrical', icon: 'stElectrical', name: { ko: '전기 회로', en: 'Electrical' } },
+  { id: 'logic', icon: 'stLogic', name: { ko: '논리 회로·전자', en: 'Logic & Electronics' } },
+  { id: 'process', icon: 'stProcess', name: { ko: '공정·배관(P&ID)', en: 'Process (P&ID)' } },
+  { id: 'dfd', icon: 'stDfd', name: { ko: '데이터 흐름도(DFD)', en: 'Data Flow Diagram' } },
+  { id: 'genogram', icon: 'stGenogram', name: { ko: '가계도·관계', en: 'Genogram & Family' } },
+  { id: 'maps', icon: 'stMaps', name: { ko: '지도·위치', en: 'Maps & Places' } },
+  { id: 'transport', icon: 'stTransport', name: { ko: '교통·물류', en: 'Transport & Logistics' } },
+  { id: 'factory', icon: 'stFactory', name: { ko: '제조·설비', en: 'Factory & Equipment' } },
+  { id: 'education', icon: 'stEducation', name: { ko: '교육·학습', en: 'Education' } },
+  { id: 'medical', icon: 'stMedical', name: { ko: '의료', en: 'Medical' } },
+  { id: 'interior', icon: 'stInterior', name: { ko: '건물·인테리어', en: 'Building & Interior' } },
+  { id: 'math', icon: 'stMath', name: { ko: '수학·도형', en: 'Math & Geometry' } },
+  { id: 'strategy', icon: 'stStrategy', name: { ko: '전략·프레임워크', en: 'Strategy & Frameworks' } },
+  { id: 'c4', icon: 'stC4', name: { ko: '소프트웨어 아키텍처(C4)', en: 'Software Architecture (C4)' } },
+  { id: 'agile', icon: 'stAgile', name: { ko: '애자일·칸반', en: 'Agile & Kanban' } },
+  { id: 'icons', icon: 'stIcons', name: { ko: '아이콘', en: 'Icons' } },
 ];
 
 const masters = [];
@@ -338,6 +361,11 @@ m('diode', 'electrical', 90, 40, '다이오드', 'Diode', (w, h) => [line(`${M(0
 m('voltageSource', 'electrical', 60, 60, '직류 전원', 'DC Source', (w, h) => [line(`${ell(w * 0.1, h * 0.1, w * 0.8, h * 0.8)}${M(w / 2, 0)}V${f(h * 0.1)}${M(w / 2, h * 0.9)}V${f(h)}${M(w * 0.42, h * 0.32)}H${f(w * 0.58)}${M(w / 2, h * 0.24)}V${f(h * 0.4)}${M(w * 0.42, h * 0.68)}H${f(w * 0.58)}`)], { ...elec, points: [[0.5, 0], [0.5, 1]] });
 m('acSource', 'electrical', 60, 60, '교류 전원', 'AC Source', (w, h) => [line(`${ell(w * 0.1, h * 0.1, w * 0.8, h * 0.8)}${M(w / 2, 0)}V${f(h * 0.1)}${M(w / 2, h * 0.9)}V${f(h)}${M(w * 0.28, h / 2)}C${f(w * 0.38)} ${f(h * 0.25)} ${f(w * 0.45)} ${f(h * 0.25)} ${f(w / 2)} ${f(h / 2)}S${f(w * 0.62)} ${f(h * 0.75)} ${f(w * 0.72)} ${f(h / 2)}`)], { ...elec, points: [[0.5, 0], [0.5, 1]] });
 m('transistor', 'electrical', 70, 80, '트랜지스터', 'Transistor', (w, h) => [line(`${M(0, h / 2)}H${f(w * 0.4)}${M(w * 0.4, h * 0.25)}V${f(h * 0.75)}${M(w * 0.4, h * 0.38)}L${f(w)} 0${M(w * 0.4, h * 0.62)}L${f(w)} ${f(h)}`), solid(poly([[w * 0.86, h * 0.8], [w * 0.95, h * 0.96], [w * 0.76, h * 0.94]]))], { ...elec, points: [[0, 0.5], [1, 0], [1, 1]] });
+
+// ── more network devices and the newer stencils (stencils-more.js)
+addMoreMasters(m, { main, line, dark, light, solid, poly, rect, ell, circle, M, L, f, G, SIDES_AND_CORNERS, ENDS, BELOW });
+addExtraMasters(m, { main, line, dark, light, solid, poly, rect, ell, circle, M, L, f, SIDES_AND_CORNERS, ENDS, BELOW });
+addIconMasters(m, { rect, ell, poly });
 
 // ── special shapes made by the drawing tools (not in a stencil)
 masters.push({ id: 'freeform', cat: null, w: 100, h: 100, name: { ko: '자유형', en: 'Freeform' }, points: SIDES, text: [0, 0, 1, 1], params: {}, style: {}, custom: true,

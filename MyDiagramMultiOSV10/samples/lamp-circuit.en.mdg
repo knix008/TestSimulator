@@ -1,0 +1,554 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-06T04:18:13.801Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mw4gs33d1mh8m",
+  "title": "Lamp Circuit",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-06T04:18:13.801Z",
+  "design": "office",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mw4gs33d1mij1",
+    "name": "Lamp Circuit",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs33d1mj8u",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Lamp Circuit",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs33d1mkvz",
+      "type": "shape",
+      "master": "voltageSource",
+      "name": "",
+      "x": 150,
+      "y": 320,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs33d1mlk6",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 60,
+      "y": 340,
+      "w": 85,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Battery\n12 V",
+      "style": {
+       "align": "right",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs33d1mmg5",
+      "type": "shape",
+      "master": "switchElec",
+      "name": "",
+      "x": 300,
+      "y": 150,
+      "w": 100,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Switch S1",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs33d1mnsg",
+      "type": "shape",
+      "master": "resistor",
+      "name": "",
+      "x": 500,
+      "y": 167,
+      "w": 100,
+      "h": 30,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Resistor R1 10 Ω",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs33d1moqv",
+      "type": "shape",
+      "master": "lamp",
+      "name": "",
+      "x": 680,
+      "y": 320,
+      "w": 70,
+      "h": 70,
+      "angle": 90,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs33d1mphc",
+      "type": "shape",
+      "master": "lamp",
+      "name": "",
+      "x": 860,
+      "y": 320,
+      "w": 70,
+      "h": 70,
+      "angle": 90,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs33d1mqqb",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 755,
+      "y": 345,
+      "w": 90,
+      "h": 24,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Lamp L1",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs33d1mrth",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 935,
+      "y": 345,
+      "w": 90,
+      "h": 24,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Lamp L2",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs33d1msio",
+      "type": "shape",
+      "master": "ground",
+      "name": "",
+      "x": 160,
+      "y": 550,
+      "w": 50,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Ground",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs33d1mtub",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs33d1mkvz",
+       "pt": 0
+      },
+      "to": {
+       "id": "shp-mw4gs33d1mmg5",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs33d1mu7u",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs33d1mmg5",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs33d1mnsg",
+       "pt": 0
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs33d1mvav",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs33d1mnsg",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs33d1moqv",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs33d1mw17",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs33d1mnsg",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs33d1mphc",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs33d1mx4k",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs33d1moqv",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs33d1msio",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs33d1myxc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs33d1mphc",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs33d1msio",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs33d1mzcv",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs33d1mkvz",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs33d1msio",
+       "pt": 0
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs33d1n0qz",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 350,
+      "y": 300,
+      "w": 230,
+      "h": 100,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Closing S1 lights both lamps in parallel, at the same voltage.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "electrical",
+   "callouts"
+  ]
+ }
+}

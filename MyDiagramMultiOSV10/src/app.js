@@ -6,13 +6,13 @@ import { getCurrentWebview } from '@tauri-apps/api/webview';
 import * as D from './domain/diagram.js';
 import { DiagramDocument } from './domain/document.js';
 import {
-  baseName, directoryOf, extensionOf, FormatError, isCsvFileName, isDiagramFileName, isImageFileName, isSvgFileName, isTemplateFileName, isVsdxFileName, parseDiagram, stripExtension, withExtension,
+  baseName, directoryOf, extensionOf, FormatError, isCsvFileName, isDiagramFileName, isImageFileName, isSvgFileName, isTemplateFileName, isVsdxFileName, parseDiagram, serialize, stripExtension, withExtension,
 } from './domain/format.js';
 import { buildSample, buildTemplate, TEMPLATES } from './domain/templates.js';
 import { CATEGORIES, MASTERS, masterById, mastersIn, searchMasters, shapeParams } from './domain/stencils.js';
-import { ARROWS, DASHES, DESIGNS, FONTS, resolveConnectorStyle, resolveShapeStyle, STANDARD_COLORS, variantColors, QUICK_VARIANTS } from './domain/designs.js';
+import { ARROWS, DASHES, DESIGNS, FONTS, PASTEL_COLORS, resolveConnectorStyle, resolveShapeStyle, STANDARD_COLORS, variantColors, QUICK_VARIANTS } from './domain/designs.js';
 import { layoutPage, LAYOUTS } from './domain/layout.js';
-import { bytesToBase64, base64ToBytes, exportHtml, exportShapeDataCsv, exportVsdx, importVsdx, linkDataCsv, orgChartFromData, shapesFromText } from './domain/interop.js';
+import { bytesToBase64, base64ToBytes, exportHtml, exportShapeDataCsv, exportVsdx, vsdxLosses, importVsdx, linkDataCsv, orgChartFromData, shapesFromText } from './domain/interop.js';
 import { SHAPE_FIELD_MAP } from './domain/fields.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
@@ -22,13 +22,22 @@ import {
 import { center, shapeBounds, unionBounds } from './domain/geometry.js';
 import { switchFlag } from './flags.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
-import { icon } from './icons.js';
+import { designIcon, icon } from './icons.js';
 import * as native from './platform/native.js';
 import { PopupHost } from './platform/popups.js';
-import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from './themes.js';
+import { applyFont, applyTheme, DOC_THEME_KEY, docTheme, randomThemeId, resolveTheme, themeName } from './themes.js';
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { AnimatedBackground } from './ui/background.js';
 import { startPageHtml } from './ui/startpage.js';
+import { hasMindMap, isFishbone, toFishbone, toMindMap } from './domain/fishbone.js';
+import { PATTERNS } from './domain/patterns.js';
+import { isWebSample, makeSampleFile, webSamplePaths } from './domain/sample-names.js';
+import { syncViewRulers } from './ui/viewrulers.js';
+import { documentTables, documentToDocx, documentToMarkdown, documentToText, documentToXlsx, reportToXlsx } from './export/document-export.js';
+import { arrangeStartBoard, mountStartBoard } from './ui/startboard.js';
+import { bindSteppers, show as showStepper } from './stepper.js';
+import { imageDecoderFor } from './domain/image-formats.js';
+import { bytesFromBase64, pictureDataUrl } from './export/image-decode.js';
 import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
 import { CanvasView, canvasMeasure } from './views/canvas.js';
 import appIcon from '../assets/icon-256.png';
@@ -78,7 +87,6 @@ const state = {
   collapsedStencils: new Set(),
   myShapes: [],
   presenting: null,
-  reader: null,
   rightSections: new Set(['fill', 'line', 'text', 'size', 'data', 'pageProps', 'docProps', 'layers', 'arrows', 'route', 'quick', 'comments']),
 };
 try { state.columnWidths = JSON.parse(globalThis.localStorage?.getItem('mydiagram.columns.v1') ?? '{}') ?? {}; } catch { state.columnWidths = {}; }
@@ -157,6 +165,17 @@ function newDrawing(templateId = 'blank') {
   return tab;
 }
 
+/** Web version: the samples are built on the spot, the same ones the installer carries as files. */
+async function openWebSample(path) {
+  const name = baseName(path.replace(/^web-sample:/, ''));
+  try {
+    const content = await withProgress('progress.open', name, async () => makeSampleFile(name, await import('./domain/samples.js'), { serialize, buildTemplate, exportVsdx }));
+    await openContent(name, content);
+  } catch (error) {
+    showError('error.open', error, name);
+  }
+}
+
 function openSampleBuiltin() {
   const doc = buildSample(getLanguage());
   const tab = addTab(new DiagramDocument(doc, { name: doc.title }), { view: 'drawing' });
@@ -169,7 +188,6 @@ function activate(id) {
   state.active = id;
   state.selection = { ids: [], primary: null };
   state.showStart = false;
-  state.reader = null;
   mountView();
   renderAll();
 }
@@ -202,6 +220,7 @@ function afterChange({ right = true, left = false } = {}) {
 }
 
 function persistSession() {
+  if (!state.primaryCopy) return;
   try {
     globalThis.localStorage?.setItem(SESSION_KEY, JSON.stringify({ files: state.docs.filter((doc) => doc.path).map((doc) => doc.path) }));
   } catch { /* ignore */ }
@@ -331,8 +350,17 @@ function autoConnect(id, side) {
   select([result.id]);
 }
 
-function moveSelection(ids, dx, dy) {
-  change('op.move', (doc, page) => D.moveShapes(page, ids, dx, dy));
+function moveSelection(ids, dx, dy, { straighten = [] } = {}) {
+  change('op.move', (doc, page) => {
+    D.moveShapes(page, ids, dx, dy);
+    for (const id of straighten) {
+      const line = D.findShape(page, id);
+      if (!line) continue;
+      line.waypoints = [];
+      if (line.from.id) line.from.pt = 'auto';
+      if (line.to.id) line.to.pt = 'auto';
+    }
+  });
   notify('info', t('notice.moved', { count: state.selection.ids.length, x: D.formatLength(dx, unitsOf()), y: D.formatLength(dy, unitsOf()) }));
 }
 
@@ -718,7 +746,6 @@ function switchView(id) {
   if (!tab || !VIEWS.includes(id)) return;
   state.view?.finishTextEdit?.();
   state.showStart = false;
-  state.reader = null;
   tab.view.id = id;
   mountView();
   renderAll();
@@ -761,21 +788,25 @@ function updateView() {
 function renderView() {
   const host = root.querySelector('#view-host');
   const start = root.querySelector('#start-page');
-  const reader = root.querySelector('#reader-page');
-  const reading = Boolean(state.reader);
-  const showStart = !reading && (state.showStart || !activeTab());
-  root.classList.toggle('on-start', showStart || reading);
-  root.classList.toggle('on-reader', reading);
+  const showStart = state.showStart || !activeTab();
+  root.classList.toggle('on-start', showStart);
   start.hidden = !showStart;
-  reader.hidden = !reading;
-  host.hidden = showStart || reading;
-  if (reading) { renderReader(); return; }
-  if (showStart) { renderStartPage(); return; }
+  host.hidden = showStart;
+  if (showStart) { renderStartPage(); syncOtherViewRulers(); return; }
   try {
     state.view?.render?.();
   } catch (error) {
     showError('error.view', error, state.viewId ?? '');
   }
+  syncOtherViewRulers();
+}
+
+/** The views other than the drawing get rulers, a grid and the pointer position too. */
+function syncOtherViewRulers() {
+  const tab = activeTab();
+  const other = Boolean(tab) && !state.showStart && tab.view.id !== 'drawing';
+  const s = state.settings;
+  syncViewRulers(root.querySelector('#center-body'), root.querySelector('#view-host'), { active: other && (s.showRulers || s.showGrid), rulers: s.showRulers, grid: s.showGrid, unit: unitsOf(), onPointer: pointerAt });
 }
 
 function columnWidths(key) {
@@ -840,7 +871,7 @@ function setTool(tool) {
 // ───────────────────────── commands
 
 const hasDoc = () => Boolean(activeTab());
-const drawing = () => hasDoc() && !state.showStart && !state.reader && activeTab().view.id === 'drawing';
+const drawing = () => hasDoc() && !state.showStart && activeTab().view.id === 'drawing';
 const has2D = () => selected2D().length > 0;
 const hasConnector = () => selectedConnectors().length > 0;
 const multi = () => selectedIds().length > 1;
@@ -867,6 +898,10 @@ const commands = {
   exportSvg: { icon: 'svgFile', label: 'action.exportSvg', enabled: hasDoc, run: () => exportAs('svg') },
   exportPdf: { icon: 'pdfFile', label: 'action.exportPdf', enabled: hasDoc, run: () => exportPdf() },
   exportHtml: { icon: 'htmlFile', label: 'action.exportHtml', enabled: hasDoc, run: () => exportAs('html') },
+  exportDocMd: { icon: 'docMarkdown', label: 'action.exportDocMd', enabled: hasDoc, run: () => exportDocument('md') },
+  exportDocDocx: { icon: 'docWord', label: 'action.exportDocDocx', enabled: hasDoc, run: () => exportDocument('docx') },
+  exportDocXlsx: { icon: 'docExcel', label: 'action.exportDocXlsx', enabled: hasDoc, run: () => exportDocument('xlsx') },
+  exportDocTxt: { icon: 'docText', label: 'action.exportDocTxt', enabled: hasDoc, run: () => exportDocument('txt') },
   exportImage: { icon: 'exportImage', label: 'action.exportImage', enabled: hasDoc, run: () => exportImage() },
   recent: { icon: 'recent', label: 'action.recent', key: 'Ctrl+R', run: () => popups.open('recent', {}) },
   recentFolders: { icon: 'recentFolder', label: 'action.recentFolders', run: (context) => recentFoldersMenu(context?.anchor) },
@@ -881,7 +916,7 @@ const commands = {
   redo: { icon: 'redo', label: 'action.redo', key: 'Ctrl+Y', enabled: () => Boolean(activeTab()?.history.canRedo), run: () => redo() },
   cut: { icon: 'cut', label: 'action.cut', key: 'Ctrl+X', enabled: hasSelection, run: () => copySelection({ cut: true }) },
   copy: { icon: 'copy', label: 'action.copy', key: 'Ctrl+C', enabled: hasSelection, run: () => copySelection() },
-  paste: { icon: 'paste', label: 'action.paste', key: 'Ctrl+V', run: (context) => pasteClipboard({ at: context?.point ?? null }) },
+  paste: { icon: 'paste', label: 'action.paste', key: 'Ctrl+V', enabled: () => state.clipboardHasText !== false || Boolean(state.clipboard), run: (context) => pasteClipboard({ at: context?.point ?? null }) },
   duplicate: { icon: 'duplicate', label: 'action.duplicate', key: 'Ctrl+D', enabled: hasSelection, run: () => duplicate() },
   delete: { icon: 'trash', label: 'action.delete', key: 'Delete', enabled: () => hasSelection() || Boolean(state.guide), run: () => deleteSelection() },
   selectAll: { icon: 'selectAll', label: 'action.selectAll', key: 'Ctrl+A', enabled: hasDoc, run: () => selectWhere(() => true) },
@@ -896,10 +931,10 @@ const commands = {
   // tools
   ...Object.fromEntries(TOOLS.map((tool) => [`tool:${tool}`, { icon: TOOL_ICONS[tool], label: `tool.${tool}`, key: TOOL_KEYS[tool], checked: () => state.tool === tool, run: () => setTool(tool) }])),
   // insert
-  insertText: { icon: 'textBox', label: 'action.insertText', run: () => { const shape = dropMaster('textBox'); setTimeout(() => state.view?.startTextEdit?.(shape.id), 40); } },
-  insertPicture: { icon: 'picture', label: 'action.insertPicture', run: () => insertPicture() },
-  insertContainer: { icon: 'container', label: 'action.insertContainer', run: () => insertContainer() },
-  insertCallout: { icon: 'callout', label: 'action.insertCallout', run: () => insertCallout() },
+  insertText: { icon: 'textBox', label: 'action.insertText', enabled: hasDoc, run: () => { const shape = dropMaster('textBox'); setTimeout(() => state.view?.startTextEdit?.(shape.id), 40); } },
+  insertPicture: { icon: 'picture', label: 'action.insertPicture', enabled: hasDoc, run: () => insertPicture() },
+  insertContainer: { icon: 'container', label: 'action.insertContainer', enabled: hasDoc, run: () => insertContainer() },
+  insertCallout: { icon: 'callout', label: 'action.insertCallout', enabled: hasDoc, run: () => insertCallout() },
   insertHyperlink: { icon: 'hyperlink', label: 'action.insertHyperlink', key: 'Ctrl+K', enabled: hasSelection, run: () => openHyperlink() },
   insertComment: { icon: 'comment', label: 'action.insertComment', enabled: hasDoc, run: () => showComments() },
   insertField: { icon: 'field', label: 'action.insertField', enabled: hasDoc, run: (context) => fieldsMenu(context?.anchor) },
@@ -930,9 +965,9 @@ const commands = {
   shadow: { icon: 'shadow', label: 'action.shadow', enabled: has2D, checked: () => styleAll('shadow'), run: () => setStyle({ shadow: !styleAll('shadow') }) },
   quickStyle: { icon: 'quickStyle', label: 'action.quickStyle', enabled: has2D, run: () => openDesign('quick') },
   clearFormat: { icon: 'clearFormat', label: 'action.clearFormat', enabled: hasSelection, run: () => change('op.clearFormat', (doc, page) => D.clearStyle(page, selectedIds())) },
-  routeOrtho: { icon: 'routeOrtho', label: 'action.routeOrtho', checked: () => routeIs('orthogonal'), run: () => setRoute('orthogonal') },
-  routeStraight: { icon: 'routeStraight', label: 'action.routeStraight', checked: () => routeIs('straight'), run: () => setRoute('straight') },
-  routeCurved: { icon: 'routeCurved', label: 'action.routeCurved', checked: () => routeIs('curved'), run: () => setRoute('curved') },
+  routeOrtho: { icon: 'routeOrtho', label: 'action.routeOrtho', enabled: () => selectedShapes().some(D.isConnector), checked: () => routeIs('orthogonal'), run: () => setRoute('orthogonal') },
+  routeStraight: { icon: 'routeStraight', label: 'action.routeStraight', enabled: () => selectedShapes().some(D.isConnector), checked: () => routeIs('straight'), run: () => setRoute('straight') },
+  routeCurved: { icon: 'routeCurved', label: 'action.routeCurved', enabled: () => selectedShapes().some(D.isConnector), checked: () => routeIs('curved'), run: () => setRoute('curved') },
   reverse: { icon: 'reverse', label: 'action.reverse', enabled: hasConnector, run: () => reverseConnectors() },
   clearBends: { icon: 'clearBends', label: 'action.clearBends', enabled: () => selectedConnectors().some((c) => c.waypoints?.length), run: () => clearBends() },
   // arrange
@@ -940,6 +975,14 @@ const commands = {
   sendBack: { icon: 'sendBack', label: 'action.sendBack', key: 'Ctrl+Shift+K', enabled: hasSelection, run: () => reorder('back') },
   bringForward: { icon: 'bringForward', label: 'action.bringForward', enabled: hasSelection, run: () => reorder('forward') },
   sendBackward: { icon: 'sendBackward', label: 'action.sendBackward', enabled: hasSelection, run: () => reorder('backward') },
+  fishbone: { icon: 'fishbone', label: 'action.fishbone', enabled: () => hasDoc() && hasMindMap(currentPage()), checked: () => isFishbone(currentPage()), run: () => {
+    ensureDrawingView();
+    const back = isFishbone(currentPage());
+    change(back ? 'op.toMindMap' : 'op.toFishbone', (doc, page) => (back ? toMindMap(page) : toFishbone(page)));
+    state.view?.fitPage?.();
+    notify('success', t(back ? 'notice.toMindMap' : 'notice.toFishbone'));
+  } },
+  stencilMenu: { icon: 'stencilMenu', label: 'action.stencilMenu', run: (context) => { if (!state.settings.showLeftPanel) toggle('showLeftPanel'); return moreShapesMenu(context?.anchor ?? anchorFor('stencilMenu')); } },
   alignMenu: { icon: 'alignMenu', label: 'action.alignMenu', enabled: multi, run: (context) => showMenu(menuItems(SUBMENUS.align.items), context?.anchor ?? anchorFor('alignMenu'), 'context', { header: { icon: 'alignCenter', title: t('submenu.align') } }) },
   alignLeft: { icon: 'alignLeft', label: 'action.alignLeft', enabled: multi, run: () => align('left') },
   alignCenter: { icon: 'alignCenter', label: 'action.alignCenter', enabled: multi, run: () => align('center') },
@@ -1024,10 +1067,11 @@ const commands = {
   exportReportMd: { icon: 'reportMarkdown', label: 'action.exportReportMd', enabled: hasDoc, run: () => exportReport('md') },
   exportReportDocx: { icon: 'reportWord', label: 'action.exportReportDocx', enabled: hasDoc, run: () => exportReport('docx') },
   exportReportPdf: { icon: 'reportPdf', label: 'action.exportReportPdf', enabled: hasDoc, run: () => exportReport('pdf') },
+  exportReportXlsx: { icon: 'reportExcel', label: 'action.exportReportXlsx', enabled: hasDoc, run: () => exportReport('xlsx') },
   // help
   tutorial: { icon: 'tutorial', label: 'action.tutorial', key: 'F11', run: () => startTutorial() },
-  userGuide: { icon: 'userGuide', label: 'action.userGuide', run: () => openUserGuide() },
-  tutorialDoc: { icon: 'tutorialDoc', label: 'action.tutorialDoc', checked: () => state.reader?.doc === 'tutorial', run: () => openReader('tutorial') },
+  userGuide: { icon: 'userGuide', label: 'action.userGuide', run: () => openDocWindow('guide') },
+  tutorialDoc: { icon: 'tutorialDoc', label: 'action.tutorialDoc', run: () => openDocWindow('tutorial') },
   shortcuts: { icon: 'keyboard', label: 'action.shortcuts', run: () => popups.open('settings', { tab: 'shortcuts' }) },
   settings: { icon: 'gear', label: 'action.settings', key: 'Ctrl+,', run: () => popups.open('settings', { tab: 'general' }) },
   about: { icon: 'info', label: 'action.about', key: 'F1', run: () => popups.open('about') },
@@ -1117,7 +1161,7 @@ function afterHistory(text) {
 
 // Long menus are grouped: a { sub } entry opens its items in a panel beside it (hover or click).
 const SUBMENUS = {
-  exportTo: { icon: 'exportFile', items: ['exportVsdx', 'exportPdf', 'exportSvg', 'exportImage', 'exportHtml', 'exportData'] },
+  exportTo: { icon: 'exportFile', items: ['exportVsdx', 'exportSvg', 'exportImage', '-', 'exportPdf', 'exportHtml', 'exportDocMd', 'exportDocDocx', 'exportDocXlsx', 'exportDocTxt', '-', 'exportData'] },
   views: { icon: 'viewSwitch', items: VIEWS.map((id) => `view:${id}`) },
   zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomReset', '-', 'fitPage', 'fitWidth', 'fitHeight', 'zoomSelection'] },
   show: { icon: 'eye', items: ['rulers', 'grid', 'guides', 'pageBreaks', 'connectionPoints', 'minimap', '-', 'leftPanel', 'rightPanel', 'statusBar'] },
@@ -1131,7 +1175,7 @@ const SUBMENUS = {
   order: { icon: 'bringFront', items: ['bringFront', 'sendBack', 'bringForward', 'sendBackward'] },
   align: { icon: 'alignCenter', items: ['alignLeft', 'alignCenter', 'alignRight', '-', 'alignTop', 'alignMiddle', 'alignBottom', '-', 'distributeH', 'distributeV', 'sameSize'] },
   rotate: { icon: 'rotateRight', items: ['rotateRight', 'rotateLeft', 'flipH', 'flipV'] },
-  reportExport: { icon: 'exportReport', items: ['exportReportHtml', 'exportReportMd', 'exportReportDocx', 'exportReportPdf'] },
+  reportExport: { icon: 'exportReport', items: ['exportReportHtml', 'exportReportMd', 'exportReportDocx', 'exportReportXlsx', 'exportReportPdf'] },
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
@@ -1154,10 +1198,10 @@ const TOOLBAR = [
   ['copy', 'paste', 'formatPainter'],
   ['tool:pointer', 'tool:connector', 'tool:text', 'tool:rect', 'tool:ellipse', 'tool:line'],
   ['fillSplit', 'lineSplit'],
-  ['bringFront', 'sendBack', 'alignMenu', 'group'],
+  ['bringFront', 'sendBack', 'alignMenu', 'group', 'fishbone'],
   ['viewSplit'],
   ['zoom', 'zoomReset', 'fitWidth', 'fitHeight', 'fitPage', 'zoomSelection'],
-  ['rulers', 'grid', 'leftPanel', 'rightPanel'],
+  ['rulers', 'grid', 'stencilMenu', 'leftPanel', 'rightPanel'],
 ];
 /** Right end of the toolbar: tutorial, theme (random + dropdown), language, settings, about. */
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
@@ -1174,7 +1218,6 @@ function renderShell() {
         <div id="center-body">
           <div id="view-host" class="view-host"></div>
           <div id="start-page" hidden></div>
-          <div id="reader-page" hidden></div>
           <div class="drop-overlay" aria-hidden="true"><div>${icon('drop')}<span></span></div></div>
         </div>
       </section>
@@ -1337,7 +1380,7 @@ function cycleTab(direction) {
 
 // ───────────────────────── left panel (Shapes)
 
-const tileSize = () => ({ small: 30, medium: 40, large: 52 }[state.settings.stencilSize] ?? 40);
+const tileSize = () => ({ small: 30, medium: 40, large: 52 }[state.settings.stencilSize] ?? 30);
 
 function stencilTiles(masters) {
   const size = tileSize();
@@ -1358,7 +1401,7 @@ function renderLeft() {
   const lang = getLanguage();
   if (!state.settings.showLeftPanel) {
     panel.innerHTML = `<div class="panel-rail">
-      <button class="rail-button expand" data-command="leftPanel" title="${escapeHtml(t('panel.expandLeft'))}" aria-label="${escapeHtml(t('panel.expandLeft'))}">${icon('chevronRight')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
+      <button class="rail-button expand" data-command="leftPanel" title="${escapeHtml(t('panel.expandLeft'))}" aria-label="${escapeHtml(t('panel.expandLeft'))}">${icon('panelExpandLeft')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
       <div class="rail-title" title="${escapeHtml(t('panel.leftTitle'))}">${icon('stBasic')}<span>${escapeHtml(t('panel.shapesShort'))}</span></div>
       ${TOOLS.slice(0, 7).map((tool) => `<button class="rail-button ${state.tool === tool ? 'active' : ''}" data-command="tool:${tool}" title="${escapeHtml(commandTip(`tool:${tool}`))}">${icon(TOOL_ICONS[tool])}<span class="rail-label">${escapeHtml(t(`toolShort.${tool}`))}</span></button>`).join('')}
     </div>`;
@@ -1377,7 +1420,7 @@ function renderLeft() {
   };
   panel.innerHTML = `
     <div class="panel-header">${icon('stBasic')}<span>${escapeHtml(t('panel.leftTitle'))}</span>
-      <button class="icon-button" data-command="leftPanel" title="${escapeHtml(t('panel.collapseLeft'))}" aria-label="${escapeHtml(t('panel.collapseLeft'))}">${icon('chevronLeft')}</button></div>
+      <button class="icon-button" data-command="leftPanel" title="${escapeHtml(t('panel.collapseLeft'))}" aria-label="${escapeHtml(t('panel.collapseLeft'))}">${icon('panelCollapseLeft')}</button></div>
     <div class="shapes-tools">
       <label class="search-box" title="${escapeHtml(t('stencil.searchTip'))}">${icon('search')}<input id="stencil-search" type="search" value="${escapeHtml(query)}" placeholder="${escapeHtml(t('stencil.search'))}" aria-label="${escapeHtml(t('stencil.searchTip'))}" /></label>
       <div class="shapes-actions">
@@ -1399,6 +1442,16 @@ function setStencils(list) {
   if (tab) tab.stencils = clean;
   updateSettings({ openStencils: clean }, { quiet: true });
   renderLeft();
+}
+
+/** The drawing's theme, each with its colours as an icon. */
+function designMenu(anchor) {
+  const tab = activeTab();
+  if (!tab) return undefined;
+  const lang = getLanguage();
+  const items = DESIGNS.map((d) => ({ id: `custom:design:${d.id}`, label: d.name[lang], icon: designIcon(d.id), checked: tab.doc.design === d.id }));
+  const handlers = Object.fromEntries(DESIGNS.map((d) => [`custom:design:${d.id}`, () => change('op.design', (doc) => { doc.design = d.id; })]));
+  return showMenu(items, anchor, 'context', { handlers, header: { icon: 'design', title: t('props.design') } });
 }
 
 function moreShapesMenu(anchor) {
@@ -1434,7 +1487,7 @@ function renderRight() {
   if (!panel) return;
   if (!state.settings.showRightPanel) {
     panel.innerHTML = `<div class="panel-rail">
-      <button class="rail-button expand" data-command="rightPanel" title="${escapeHtml(t('panel.expandRight'))}" aria-label="${escapeHtml(t('panel.expandRight'))}">${icon('chevronLeft')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
+      <button class="rail-button expand" data-command="rightPanel" title="${escapeHtml(t('panel.expandRight'))}" aria-label="${escapeHtml(t('panel.expandRight'))}">${icon('panelExpandRight')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
       <div class="rail-title" title="${escapeHtml(t('panel.rightTitle'))}">${icon('formatShape')}<span>${escapeHtml(t('panel.propsShort'))}</span></div>
       ${['formatShape', 'shapeData', 'layers', 'pageSetup', 'design', 'insertComment'].map((id) => `<button class="rail-button" data-command="${id}" title="${escapeHtml(commandTip(id))}" ${commandEnabled(id) ? '' : 'disabled'}>${icon(commands[id].icon)}<span class="rail-label">${escapeHtml(t(`toolShort.${id}`))}</span></button>`).join('')}
     </div>`;
@@ -1453,7 +1506,7 @@ function renderRight() {
   }
   panel.innerHTML = `
     <div class="panel-header">${icon('formatShape')}<span>${escapeHtml(title)}</span>
-      <button class="icon-button" data-command="rightPanel" title="${escapeHtml(t('panel.collapseRight'))}" aria-label="${escapeHtml(t('panel.collapseRight'))}">${icon('chevronRight')}</button></div>
+      <button class="icon-button" data-command="rightPanel" title="${escapeHtml(t('panel.collapseRight'))}" aria-label="${escapeHtml(t('panel.collapseRight'))}">${icon('panelCollapseRight')}</button></div>
     <div class="props">${body}</div>`;
   const props = panel.querySelector('.props');
   if (props) props.scrollTop = scroll;
@@ -1475,9 +1528,13 @@ function quickSection(shapes) {
 }
 
 function fillSection(style) {
+  const filled = style.fill !== 'none' && style.fillPattern !== 'none';
   return section('fill', 'fillColor', t('props.fill'), [
+    propRow('quickStyle', t('props.fillEnabled'), `<input type="checkbox" data-prop-fill-toggle ${filled ? 'checked' : ''} aria-label="${escapeHtml(t('props.fillEnabled'))}" title="${escapeHtml(t('props.fillEnabled'))}" />`),
     propRow('fillColor', t('props.fillColor'), colorButton('fill', style.fill, t('props.fillColor'))),
-    propRow('quickStyle', t('props.fillPattern'), propSelect('fillPattern', ['solid', 'linear', 'radial', 'hatch', 'cross', 'dots', 'none'].map((p) => [p, t(`pattern.${p}`)]), style.fill === 'none' ? 'none' : style.fillPattern ?? 'solid', t('props.fillPattern'))),
+    propRow('patternGallery', t('format.pattern'), `<button class="small-button" data-open-format="pattern" title="${escapeHtml(t('format.patternTip'))}">${icon('patternGallery')}<span>${escapeHtml(t('format.patternMore', { count: PATTERNS.length }))}</span></button>`),
+    propRow('palette', t('color.pastel'), `<span class="fill-presets">${PASTEL_COLORS.map((color) => `<button class="swatch" data-prop-fill-preset="${color}" style="--swatch:${color}" title="${color}" aria-label="${color}"></button>`).join('')}</span>`),
+    propRow('quickStyle', t('props.fillPattern'), propSelect('fillPattern', [...['solid', 'linear', 'radial', 'hatch', 'cross', 'dots', 'none'].map((p) => [p, t(`pattern.${p}`)]), ...PATTERNS.map((p) => [p.id, p.name[getLanguage()]])], style.fill === 'none' ? 'none' : style.fillPattern ?? 'solid', t('props.fillPattern'))),
     style.fillPattern && style.fillPattern !== 'solid' && style.fill !== 'none' ? propRow('fillColor', t('props.fill2'), colorButton('fill2', style.fill2, t('props.fill2'))) : '',
     propRow('opacity', t('props.fillOpacity'), `<span class="range-wrap"><input type="range" min="0" max="100" step="5" value="${style.fillOpacity ?? 100}" data-prop-range="fillOpacity" aria-label="${escapeHtml(t('props.fillOpacity'))}" /><output>${style.fillOpacity ?? 100}%</output></span>`),
   ].join(''));
@@ -1645,7 +1702,7 @@ function pageProps() {
       ].join('')),
       section('docProps', 'design', t('props.drawing'), [
         propRow('edit', t('doc.title'), propInput('docTitle', doc.title, t('doc.title'))),
-        propRow('design', t('props.design'), propSelect('design', DESIGNS.map((d) => [d.id, d.name[lang]]), doc.design, t('props.design'))),
+        propRow('design', t('props.design'), `<button class="design-select" data-design-menu title="${escapeHtml(t('props.design'))}" aria-label="${escapeHtml(t('props.design'))}" aria-haspopup="menu">${icon(designIcon(doc.design))}<span>${escapeHtml(DESIGNS.find((d) => d.id === doc.design)?.name[lang] ?? doc.design)}</span>${icon('chevronDown', 'icon tiny')}</button>`),
         `<div class="variant-row">${[0, 1, 2, 3].map((v) => `<button class="variant-chip ${doc.variant === v ? 'active' : ''}" data-variant="${v}" title="${escapeHtml(t('props.variant', { n: v + 1 }))}">${variantColors(doc.design, v).slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join('')}</button>`).join('')}</div>`,
         propRow('rulers', t('doc.units'), propSelect('units', D.UNITS.map((x) => [x, t(`unit.${x}`)]), u, t('doc.units'))),
         propRow('routeOrtho', t('doc.route'), propSelect('route', D.ROUTES.map((r) => [r, t(`route.${r}`)]), doc.options.connectorRoute ?? 'orthogonal', t('doc.route'))),
@@ -1785,14 +1842,37 @@ function renderStartPage() {
   if (state.settings.backgroundKind === 'animated') startBackground.start();
   else startBackground.draw();
   canvas.classList.toggle('static', state.settings.backgroundKind !== 'animated');
-  host.querySelector('.start-scroll').style.setProperty('--start-image', state.backgroundUrl && state.settings.backgroundKind === 'image' ? `url("${state.backgroundUrl}")` : 'none');
+  host.style.setProperty('--start-image', state.backgroundUrl && state.settings.backgroundKind === 'image' ? `url("${state.backgroundUrl}")` : 'none');
   host.classList.toggle('with-image', Boolean(state.backgroundUrl) && state.settings.backgroundKind === 'image');
+  applyStartTransparency();
+  mountStartBoard(host, { layout: () => state.settings.startLayout, saveLayout: (startLayout) => updateSettings({ startLayout }, { quiet: true }) });
+  // Speed and transparency: the slider and the − value + field are the same value.
+  const board = host.querySelector('.start-board');
+  const setStartValue = (key, value) => {
+    updateSettings({ [key]: value }, { quiet: true });
+    if (key === 'startBgTransparency') applyStartTransparency();
+  };
+  bindSteppers(board, (key, value) => {
+    const slider = board.querySelector(`[data-start-slider="${key}"]`);
+    if (slider) slider.value = String(value);
+    setStartValue(key, value);
+  });
+  board.addEventListener('input', (event) => {
+    const key = event.target.dataset?.startSlider;
+    if (!key) return;
+    const value = Number(event.target.value);
+    showStepper(board.querySelector(`[data-stepper="${key}"]`), value);
+    setStartValue(key, value);
+  });
+}
+
+function applyStartTransparency() {
+  root.querySelector('#start-page')?.style.setProperty('--start-bg-alpha', String(1 - (state.settings.startBgTransparency ?? 0) / 100));
 }
 
 function showStartPage(show = true) {
   state.view?.finishTextEdit?.();
   state.showStart = show;
-  state.reader = null;
   if (show) { state.view?.destroy?.(); state.view = null; } else mountView();
   renderAll();
 }
@@ -1809,11 +1889,13 @@ async function onStartAction(target) {
     case 'open-folder': return openWithDialog(value);
     case 'remove-folder': state.recentDirs = removeRecent(state.recentDirs, value); storeRecentDirs(globalThis.localStorage, state.recentDirs); return renderStartPage();
     case 'clear-folders': state.recentDirs = []; storeRecentDirs(globalThis.localStorage, []); return renderStartPage();
-    case 'open-sample': return openPath(value);
+    case 'open-sample': return isWebSample(value) ? openWebSample(value) : openPath(value);
     case 'builtin-sample': return openSampleBuiltin();
     case 'tutorial': return startTutorial();
-    case 'guide': return openUserGuide();
-    case 'tutorial-doc': return openReader('tutorial');
+    case 'guide': return openDocWindow('guide');
+    case 'tutorial-doc': return openDocWindow('tutorial');
+    case 'arrange': updateSettings({ startLayout: null }, { quiet: true }); return renderStartPage();
+    case 'auto-arrange': return arrangeStartBoard();
     case 'shortcuts': return run('shortcuts');
     case 'animation': updateSettings({ animation: value, backgroundKind: 'animated' }); return notify('info', t('notice.animation', { name: t(`animation.${value}`) }));
     case 'shuffle': return shuffleBackground();
@@ -1954,9 +2036,12 @@ function applySettings(previous = {}) {
   applyTheme(theme);
   applyFont(s);
   native.setWindowTheme(theme.dark);
+  try { globalThis.localStorage?.setItem(DOC_THEME_KEY, JSON.stringify(docTheme(theme))); } catch { /* storage blocked: the documents use light or dark */ }
+  native.setDocWindowsTheme(theme.dark).catch(() => {});
   if (s.language !== getLanguage()) {
     setLanguage(s.language);
     native.setBackendLanguage(s.language);
+    native.setDocWindowsLanguage(s.language).catch(() => {});
     if (previous.language) notify('info', t('notice.language'));
   }
   if (s.backgroundImage !== previous.backgroundImage) loadBackground();
@@ -2315,6 +2400,21 @@ async function saveExport(name, type, content) {
 }
 
 /** Template, Visio, SVG (current page), HTML (all pages) or CSV (shape data). */
+/** Visio cannot hold everything: says what changes, and asks before going on. */
+async function confirmVsdxLosses(doc) {
+  const losses = vsdxLosses(doc);
+  const items = [];
+  if (losses.icons) items.push(t('vsdx.lossIcons', { count: losses.icons }));
+  if (losses.patterns) items.push(t('vsdx.lossPatterns', { count: losses.patterns }));
+  if (losses.pictures) items.push(t('vsdx.lossPictures', { count: losses.pictures }));
+  if (!items.length) return true;
+  const result = await popups.open('confirm', {
+    icon: 'warning', title: t('vsdx.lossTitle'), message: t('vsdx.lossMessage'), items,
+    buttons: [{ id: 'cancel', label: t('common.cancel') }, { id: 'export', label: t('vsdx.lossContinue'), primary: true }],
+  });
+  return result?.choice === 'export';
+}
+
 async function exportAs(type) {
   const tab = activeTab();
   if (!tab) return;
@@ -2323,7 +2423,10 @@ async function exportAs(type) {
   try {
     let content;
     if (type === 'mdgt') content = tab.text({ template: true });
-    else if (type === 'vsdx') content = await withProgress('progress.export', name, async () => exportVsdx(tab.doc));
+    else if (type === 'vsdx') {
+      if (!(await confirmVsdxLosses(tab.doc))) return;
+      content = await withProgress('progress.export', name, async () => exportVsdx(tab.doc));
+    }
     else if (type === 'svg') content = renderPageSvg(tab.doc, tab.page, { area: 'content', measure, routes: tab.routes(), language: getLanguage() }).svg;
     else if (type === 'html') content = exportHtml(tab.doc, { measure, language: getLanguage() });
     else if (type === 'csv') content = exportShapeDataCsv(tab.doc, { language: getLanguage() });
@@ -2390,6 +2493,38 @@ async function svgToCanvas(svg, width, height, scale = 2, background = '#ffffff'
 }
 
 /** Every foreground page as a PDF page (laid out with the print setup), pictures of the sheets at 150 dpi. */
+/** The whole drawing as a document: a picture and a table of shapes for each page. */
+async function exportDocument(format) {
+  const tab = activeTab();
+  if (!tab) return;
+  state.view?.finishTextEdit?.();
+  const name = `${safeName(tab)}.${format}`;
+  const lang = getLanguage();
+  const labels = { shape: t('doc.export.shape'), text: t('doc.export.text'), generated: t('doc.export.generated') };
+  const nameOf = (shape) => shape.name || masterById(shape.master).name[lang];
+  try {
+    const content = await withProgress('progress.export', name, async (op, report) => {
+      const tables = documentTables(tab.doc, { labels, nameOf });
+      if (format === 'txt') return documentToText(tables);
+      if (format === 'xlsx') return documentToXlsx(tables);
+      const pages = tab.doc.pages.filter((page) => !page.background);
+      const images = [];
+      for (const [index, page] of pages.entries()) {
+        report?.({ done: index, total: pages.length });
+        if (!page.shapes.length) { images.push(null); continue; }
+        const { svg, width, height } = renderPageSvg(tab.doc, page, { area: 'content', measure, language: lang });
+        const canvas = await svgToCanvas(svg, width, height, 2, '#ffffff');
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+        images.push({ png: new Uint8Array(await blob.arrayBuffer()), width, height, url: canvas.toDataURL('image/png') });
+      }
+      return format === 'md' ? documentToMarkdown(tables, images.map((image) => image?.url)) : documentToDocx(tables, images);
+    });
+    await saveExport(name, format, content);
+  } catch (error) {
+    showError('error.export', error, name);
+  }
+}
+
 async function exportPdf() {
   const tab = activeTab();
   if (!tab) return;
@@ -2417,6 +2552,7 @@ async function exportPdf() {
 // ───────────────────────── report export
 
 const REPORT_FORMATS = {
+  xlsx: { mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
   html: { mime: 'text/html', text: true },
   md: { mime: 'text/markdown', text: true },
   docx: { mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
@@ -2446,6 +2582,7 @@ async function exportReport(format) {
       if (format === 'html') return reportToHtml(model);
       if (format === 'md') return reportToMarkdown(model);
       if (format === 'docx') return reportToDocx(model, { images: await chartPngs(model) });
+      if (format === 'xlsx') return reportToXlsx(model);
       return reportToPdf(model, { onProgress: (done, total) => report?.({ done, total }) });
     });
     if (desktop) {
@@ -2488,13 +2625,11 @@ async function addPicture(src, name = '', at = null, replaceId = null) {
   return shape;
 }
 
-const MIME_BY_EXT = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', svg: 'image/svg+xml', avif: 'image/avif', ico: 'image/x-icon' };
-
 async function insertPictureFromPath(path, replaceId = null, at = null) {
   try {
     const data = await withProgress('progress.open', baseName(path), (op) => native.readBase64File(path, op));
     rememberDirectory(directoryOf(path));
-    return addPicture(`data:${MIME_BY_EXT[extensionOf(path)] ?? 'image/png'};base64,${data}`, stripExtension(baseName(path)), at, replaceId);
+    return addPicture(await pictureDataUrl(baseName(path), bytesFromBase64(data)), stripExtension(baseName(path)), at, replaceId);
   } catch (error) {
     showError('error.picture', error, path);
     return null;
@@ -2502,8 +2637,12 @@ async function insertPictureFromPath(path, replaceId = null, at = null) {
 }
 
 async function insertPictureFromFile(file, at = null, replaceId = null) {
-  const src = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); });
-  return addPicture(src, stripExtension(file.name), at, replaceId);
+  try {
+    return await addPicture(await pictureDataUrl(file.name, new Uint8Array(await file.arrayBuffer()), file.type), stripExtension(file.name), at, replaceId);
+  } catch (error) {
+    showError('error.picture', error, file.name);
+    return null;
+  }
 }
 
 async function insertPicture(replaceId = null) {
@@ -2837,7 +2976,7 @@ async function pickColor(key, anchor = null) {
   const shape = selectedShapes().find((s) => !D.isGroup(s));
   const current = key === 'pageColor' ? currentPage()?.color || designById(doc.design).page : shape ? styleOf(shape)[key] : lastColors[key];
   const element = root.querySelector(`[data-command="${key === 'textColor' ? 'textColor' : key === 'fill' ? 'fillColor' : 'lineColor'}"]`);
-  const result = await popups.open('color', { current, key, accents: doc ? variantColors(doc.design, doc.variant) : [], standard: STANDARD_COLORS, allowNone: key !== 'textColor' && key !== 'pageColor' }, { anchor: anchor ?? (element ? anchorBelow(element.closest('.split-button') ?? element) : null) });
+  const result = await popups.open('color', { current, key, accents: doc ? variantColors(doc.design, doc.variant) : [], standard: STANDARD_COLORS, pastel: PASTEL_COLORS, allowNone: key !== 'textColor' && key !== 'pageColor' }, { anchor: anchor ?? (element ? anchorBelow(element.closest('.split-button') ?? element) : null) });
   if (!result?.color) return;
   applyColor(key, result.color);
 }
@@ -2962,8 +3101,10 @@ function fieldsMenu(anchor) {
 }
 
 /** Context menus: shape, connector, several shapes, the page, a page tab, the report, text fields, tabs… */
-function contextMenu(event, kind, payload = {}) {
+async function contextMenu(event, kind, payload = {}) {
   const point = toScreen(event.clientX, event.clientY);
+  // Paste is on offer only when there is something to paste.
+  state.clipboardHasText = await native.clipboardRead().then((text) => Boolean(text), () => true);
   const anchor = { x: point.x + 1, y: point.y + 1, flipY: point.y };
   const shape = payload.id ? D.findShape(currentPage(), payload.id) : null;
   const lang = getLanguage();
@@ -2971,7 +3112,7 @@ function contextMenu(event, kind, payload = {}) {
     const ids = ['cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'formatShape', 'quickStyle', sub('text'), '-', sub('order'), sub('rotate'), ...(D.isGroup(shape) ? ['ungroup'] : []), '-', 'shapeData', 'showData', 'insertHyperlink', 'insertComment', '-', 'saveShape', 'position', 'protect'];
     const items = menuItems(ids);
     if (shape?.hyperlink) items.unshift({ id: 'custom:follow', label: t('props.followLink'), icon: 'readerExternal' }, { separator: true });
-    items.unshift({ id: 'custom:editText', label: t('canvas.editText'), icon: 'textTool', shortcut: 'F2' }, { separator: true });
+    items.unshift({ id: 'custom:editText', label: t('canvas.editText'), icon: 'textTool', shortcut: 'F2', disabled: Boolean(shape?.locked?.text) || D.isGroup(shape) }, { separator: true });
     const handlers = { 'custom:follow': () => followHyperlink(shape), 'custom:editText': () => { ensureDrawingView(); state.view?.startTextEdit?.(shape.id); } };
     const title = D.isGroup(shape) ? t('shape.group') : `${masterById(shape?.master).name[lang]}${shape?.name ? `: ${shape.name}` : ''}`;
     return showMenu(items, anchor, 'context', { handlers, header: { icon: 'formatShape', title } });
@@ -2983,7 +3124,7 @@ function contextMenu(event, kind, payload = {}) {
   }
   if (kind === 'multi') return showMenu(menuItems(['cut', 'copy', 'duplicate', 'delete', '-', 'group', 'ungroup', sub('align'), sub('order'), sub('rotate'), '-', 'formatShape', 'quickStyle', 'layout', '-', 'saveShape']), anchor, 'context', { header: { icon: 'selectAll', title: t('props.multi', { count: selectedIds().length }) } });
   if (kind === 'canvas') {
-    const items = menuItems(['paste', 'selectAll', '-', sub('tools'), '-', 'insertText', 'insertPicture', 'insertContainer', '-', 'pageSetup', 'layers', 'design', '-', 'zoomIn', 'zoomOut', 'fitPage', '-', sub('show')]);
+    const items = menuItems(['paste', 'selectAll', '-', sub('tools'), '-', 'insertText', 'insertPicture', 'insertContainer', ...(hasMindMap(currentPage()) ? ['-', 'fishbone'] : []), '-', 'pageSetup', 'layers', 'design', '-', 'zoomIn', 'zoomOut', 'fitPage', '-', sub('show')]);
     const handlers = {};
     if (payload.guide) { items.push({ separator: true }, { id: 'custom:guide', label: t('canvas.deleteGuide'), icon: 'trash', danger: true }); handlers['custom:guide'] = () => setGuide(payload.guide, null); }
     return showMenu(items, anchor, 'context', { handlers, header: { icon: 'pageSetup', title: currentPage()?.name ?? '' }, point: payload.point });
@@ -2995,7 +3136,8 @@ function contextMenu(event, kind, payload = {}) {
       'custom:right': () => movePageTo(tab.view.pageId, tab.doc.pages.findIndex((p) => p.id === tab.view.pageId) + 1),
     };
     const items = menuItems(['pageNew', 'pageBackgroundNew', 'pageDuplicate', 'pageRename', 'pageDelete', '-', 'pageSetup', 'backgroundMenu', 'layers', '-']);
-    items.push({ id: 'custom:left', label: t('page.moveLeft'), icon: 'chevronLeft' }, { id: 'custom:right', label: t('page.moveRight'), icon: 'chevronRight' });
+    const position = tab.doc.pages.findIndex((p) => p.id === tab.view.pageId);
+    items.push({ id: 'custom:left', label: t('page.moveLeft'), icon: 'chevronLeft', disabled: position <= 0 }, { id: 'custom:right', label: t('page.moveRight'), icon: 'chevronRight', disabled: position >= tab.doc.pages.length - 1 });
     return showMenu(items, anchor, 'context', { handlers, header: { icon: 'pageSetup', title: tab.page.name } });
   }
   if (kind === 'report') return showMenu(menuItems([...REPORTS.map(([id]) => `report:${id}`), '-', sub('reportExport'), 'copyReport']), anchor, 'context', { header: { icon: 'viewReports', title: t('view.reports') } });
@@ -3007,7 +3149,7 @@ function contextMenu(event, kind, payload = {}) {
     const lang2 = getLanguage();
     const master = payload.master;
     const handlers = { 'custom:add': () => dropMaster(master), 'custom:close': () => setStencils((activeTab()?.stencils ?? []).filter((x) => x !== payload.stencil)) };
-    const items = [{ id: 'custom:add', label: t('stencil.addToPage'), icon: 'plus' }];
+    const items = [{ id: 'custom:add', label: t('stencil.addToPage'), icon: 'plus', disabled: !drawing() }];
     if (payload.stencil) items.push({ separator: true }, { id: 'custom:close', label: t('stencil.close'), icon: 'close' });
     return showMenu(items, anchor, 'context', { handlers, header: { icon: 'stBasic', title: master?.startsWith('my:') ? t('stencil.my') : masterById(master).name[lang2] } });
   }
@@ -3017,7 +3159,8 @@ function contextMenu(event, kind, payload = {}) {
   return showMenu(menuItems(['new', 'open', 'save', '-', 'undo', 'redo', '-', 'settings', 'about']), anchor, 'context', { header: { icon: 'diagram', title: 'MyDiagram' } });
 }
 
-function textContextMenu(element, event) {
+async function textContextMenu(element, event) {
+  state.clipboardHasText = await native.clipboardRead().then((text) => Boolean(text), () => true);
   const point = toScreen(event.clientX, event.clientY);
   const anchor = { x: point.x + 1, y: point.y + 1, flipY: point.y };
   const handlers = {
@@ -3032,76 +3175,17 @@ function textContextMenu(element, event) {
     { id: 'custom:undo', label: t('action.undoText'), icon: 'undo', shortcut: keyLabel('Ctrl+Z') }, { separator: true },
     { id: 'custom:cut', label: t('action.cut'), icon: 'cut', shortcut: keyLabel('Ctrl+X'), disabled: !hasSel },
     { id: 'custom:copy', label: t('action.copy'), icon: 'copy', shortcut: keyLabel('Ctrl+C'), disabled: !hasSel },
-    { id: 'custom:paste', label: t('action.paste'), icon: 'paste', shortcut: keyLabel('Ctrl+V') }, { separator: true },
+    { id: 'custom:paste', label: t('action.paste'), icon: 'paste', shortcut: keyLabel('Ctrl+V'), disabled: state.clipboardHasText === false }, { separator: true },
     { id: 'custom:selectAll', label: t('action.selectText'), icon: 'selectAll', shortcut: keyLabel('Ctrl+A') },
   ], anchor, 'context', { handlers, header: { icon: 'edit', title: t('menu.edit') } });
 }
 
 // ───────────────────────── document reader (tutorial document)
 
-const READER_DOCS = { tutorial: { file: 'Tutorial', title: 'action.tutorialDoc', glyph: 'tutorialDoc' } };
-
-function openReader(doc = 'tutorial', lang = getLanguage()) {
-  popups.hideMenu();
-  state.reader = { doc, lang: lang === 'en' ? 'en' : 'ko' };
-  state.view?.destroy?.();
-  state.view = null;
-  renderAll();
-}
-
-function readerUrl() {
-  const info = READER_DOCS[state.reader.doc];
-  return `docs/${info.file}${state.reader.lang === 'en' ? '.en' : ''}.html`;
-}
-
-function renderReader() {
-  const host = root.querySelector('#reader-page');
-  const info = READER_DOCS[state.reader.doc];
-  const url = readerUrl();
-  const frame = host.querySelector('.reader-frame');
-  if (frame && frame.dataset.url === url && host.dataset.uiLang === getLanguage()) return;
-  host.dataset.uiLang = getLanguage();
-  const lang = state.reader.lang;
-  host.innerHTML = `
-    <div class="reader-bar">
-      <button class="button" data-reader="home" title="${escapeHtml(t('tip.home'))}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button>
-      <h2 class="reader-title">${icon(info.glyph)}<span>${escapeHtml(t(info.title))}</span></h2>
-      <select class="reader-chapters" data-reader-chapter title="${escapeHtml(t('reader.chapters'))}" aria-label="${escapeHtml(t('reader.chapters'))}"><option value="">${escapeHtml(t('reader.chapters'))}</option></select>
-      <span class="grow"></span>
-      <span class="segmented" role="radiogroup" title="${escapeHtml(t('reader.language'))}">
-        <button class="segment ${lang === 'ko' ? 'active' : ''}" data-reader="lang" data-value="ko" role="radio" aria-checked="${lang === 'ko'}" title="한국어">한국어</button>
-        <button class="segment ${lang === 'en' ? 'active' : ''}" data-reader="lang" data-value="en" role="radio" aria-checked="${lang === 'en'}" title="English">English</button>
-      </span>
-      <button class="button primary" data-reader="tutorial" title="${escapeHtml(commandTip('tutorial'))}">${icon('tutorial')}<span>${escapeHtml(t('reader.startTutorial'))}</span></button>
-      <button class="button" data-reader="external" title="${escapeHtml(t('reader.externalTip'))}">${icon('readerExternal')}<span>${escapeHtml(t('reader.external'))}</span></button>
-    </div>
-    <iframe class="reader-frame" data-url="${escapeHtml(url)}" src="${escapeHtml(url)}" title="${escapeHtml(t(info.title))}"></iframe>`;
-  const iframe = host.querySelector('.reader-frame');
-  iframe.addEventListener('load', () => {
-    const chapters = host.querySelector('[data-reader-chapter]');
-    const headings = [...(iframe.contentDocument?.querySelectorAll('h2[id]') ?? [])];
-    chapters.innerHTML = `<option value="">${escapeHtml(t('reader.chapters'))}</option>${headings.map((h) => `<option value="${escapeHtml(h.id)}">${escapeHtml(h.textContent.replace(/#\s*$/, '').trim())}</option>`).join('')}`;
-  });
-}
-
-async function onReaderAction(target) {
-  switch (target.dataset.reader) {
-    case 'home': return showStartPage(true);
-    case 'lang': state.reader.lang = target.dataset.value; return renderAll();
-    case 'tutorial': return startTutorial();
-    case 'external': {
-      if (!desktop) return window.open(readerUrl(), '_blank');
-      try { await native.openDocument(readerUrl().slice('docs/'.length)); } catch (error) { showError('error.guide', error); }
-      return undefined;
-    }
-    default: return undefined;
-  }
-}
-
-async function openUserGuide() {
+/** The user's guide or the tutorial document, in the main window's language. */
+async function openDocWindow(doc) {
   try {
-    await native.openDocument(getLanguage() === 'en' ? 'UsersGuide.en.html' : 'UsersGuide.html');
-    notify('info', t('notice.guide'));
+    await native.openDocWindow(doc, getLanguage(), resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark);
   } catch (error) {
     showError('error.guide', error);
   }
@@ -3169,7 +3253,7 @@ async function handleDroppedPaths(paths, client = null) {
     try {
       if (isDiagramFileName(name) || isVsdxFileName(name)) await openPath(path);
       else if (isImageFileName(name)) {
-        if (activeTab() && !state.showStart) { await insertPictureFromPath(path, null, at); at = at && { x: at.x + 30, y: at.y + 30 }; }
+        if ((activeTab() && !state.showStart) || imageDecoderFor(name)) { await insertPictureFromPath(path, null, at); at = at && { x: at.x + 30, y: at.y + 30 }; }
         else await setBackgroundFromPath(path);
       } else if (isCsvFileName(name)) await openImport('link', { path });
       else notify('error', t('notice.unsupportedDrop', { name }));
@@ -3193,7 +3277,7 @@ async function handleDroppedFiles(files, text, client = null) {
       if (isDiagramFileName(file.name)) await openContent(file.name, await file.text());
       else if (isVsdxFileName(file.name)) await openContent(file.name, new Uint8Array(await file.arrayBuffer()));
       else if (isImageFileName(file.name) || file.type.startsWith('image/')) {
-        if (activeTab() && !state.showStart) { await insertPictureFromFile(file, at); at = at && { x: at.x + 30, y: at.y + 30 }; }
+        if ((activeTab() && !state.showStart) || imageDecoderFor(file.name)) { await insertPictureFromFile(file, at); at = at && { x: at.x + 30, y: at.y + 30 }; }
         else await setBackgroundFromFile(file);
       } else if (isCsvFileName(file.name)) await openImport('link', { text: await file.text(), name: file.name });
       else notify('error', t('notice.unsupportedDrop', { name: file.name }));
@@ -3238,8 +3322,6 @@ function bindEvents() {
       return openMenubarMenu(name);
     }
     if (target.closest('[data-home]')) return showStartPage(true);
-    const reader = target.closest('[data-reader]');
-    if (reader) return onReaderAction(reader);
     const start = target.closest('[data-start]');
     if (start && !start.disabled) return onStartAction(start);
     const colorApply = target.closest('[data-color-apply]');
@@ -3247,7 +3329,7 @@ function bindEvents() {
     const command = target.closest('[data-command]');
     if (command && !command.disabled) {
       const id = command.dataset.command;
-      const anchor = ['themeMenu', 'exportMenu', 'viewMenu', 'alignMenu', 'recentFolders', 'fillColor', 'lineColor', 'textColor', 'goToPage'].includes(id) ? anchorBelow(command.closest('.split-button') ?? command) : undefined;
+      const anchor = ['themeMenu', 'exportMenu', 'viewMenu', 'alignMenu', 'stencilMenu', 'recentFolders', 'fillColor', 'lineColor', 'textColor', 'goToPage'].includes(id) ? anchorBelow(command.closest('.split-button') ?? command) : undefined;
       return run(id, { anchor });
     }
     const tile = target.closest('[data-master]');
@@ -3261,6 +3343,12 @@ function bindEvents() {
     if (stencilSize) { updateSettings({ stencilSize: stencilSize.dataset.stencilSize }, { quiet: true }); return renderLeft(); }
     const sectionToggle = target.closest('[data-section-toggle]');
     if (sectionToggle) { const id = sectionToggle.dataset.sectionToggle; if (state.rightSections.has(id)) state.rightSections.delete(id); else state.rightSections.add(id); return renderRight(); }
+    const designButton = target.closest('[data-design-menu]');
+    if (designButton) return designMenu(anchorBelow(designButton));
+    const openFormatTab = target.closest('[data-open-format]');
+    if (openFormatTab) return openFormat(openFormatTab.dataset.openFormat);
+    const fillPreset = target.closest('[data-prop-fill-preset]');
+    if (fillPreset) return applyColor('fill', fillPreset.dataset.propFillPreset);
     const propColor = target.closest('[data-prop-color]');
     if (propColor) return pickColor(propColor.dataset.propColor, anchorBelow(propColor));
     const quick = target.closest('[data-quick]');
@@ -3377,12 +3465,11 @@ function bindEvents() {
       const value = target.type === 'checkbox' ? (target.checked ? 'true' : 'false') : target.value;
       return change('op.data', (doc, page) => { const s = D.findShape(page, selectedIds()[0]); if (s?.data?.[index]) s.data[index].value = value; });
     }
+    if ('propFillToggle' in target.dataset) return applyColor('fill', target.checked ? lastColors.fill ?? '#4472c4' : 'none');
     if (target.dataset.propLayer) return assignLayer(target.dataset.propLayer, target.checked ? 'add' : 'remove');
     if ('startToggle' in target.dataset) return updateSettings({ showStartPage: target.checked }, { quiet: true });
     if (target.id === 'zoom-value') return setCanvasZoom(parseFloat(target.value) || 100);
     if (target.id === 'zoom-slider') return setCanvasZoom(CANVAS_ZOOM.steps[Number(target.value)]);
-    if ('startSpeed' in target.dataset) return updateSettings({ animationSpeed: Number(target.value) }, { quiet: true });
-    if ('readerChapter' in target.dataset && target.value) { root.querySelector('.reader-frame')?.contentDocument?.getElementById(target.value)?.scrollIntoView({ block: 'start' }); return undefined; }
     if ('startRandom' in target.dataset) return updateSettings({ animationRandom: target.checked }, { quiet: true });
     if ('startInterval' in target.dataset) { startBackgroundChangedAt = Date.now(); return updateSettings({ animationInterval: Number(target.value) }, { quiet: true }); }
     return undefined;
@@ -3402,7 +3489,6 @@ function bindEvents() {
       }, 180);
     }
     if (target.dataset.propRange || target.dataset.propParam) { const out = target.parentElement.querySelector('output'); if (out) out.textContent = `${Math.round(Number(target.value) * (target.dataset.propParam ? 100 : 1))}%`; }
-    if ('startSpeed' in target.dataset) { target.parentElement.querySelector('output').textContent = `${target.value}%`; state.settings.animationSpeed = Number(target.value); }
   });
 
   root.addEventListener('keydown', (event) => {
@@ -3624,7 +3710,8 @@ async function startTutorial(options = {}) {
 // ───────────────────────── start-up
 
 async function restoreSession() {
-  if (!desktop || !state.settings.restoreSession) return;
+  state.primaryCopy = await native.isPrimaryCopy().catch(() => true);
+  if (!state.primaryCopy || !desktop || !state.settings.restoreSession) return;
   let files = [];
   try { files = JSON.parse(globalThis.localStorage?.getItem(SESSION_KEY) ?? '{}').files ?? []; } catch { /* none */ }
   if (!files.length) return;
@@ -3699,8 +3786,6 @@ const appApi = {
   anchorBelow,
   closeDoc,
   ask,
-  openReader: (doc, lang) => openReader(doc, lang),
-  closeReader: () => { if (state.reader) { state.reader = null; if (activeTab()) mountView(); renderAll(); } },
   get view() { return state.view; },
 };
 
@@ -3714,7 +3799,7 @@ async function start() {
   setInterval(tickStartBackground, 1000);
   document.title = `MyDiagram v${state.info?.version ?? VERSION}`;
   native.setBackendLanguage(state.settings.language);
-  state.samples = await native.sampleFiles().catch(() => []);
+  state.samples = desktop ? await native.sampleFiles().catch(() => []) : webSamplePaths();
   applySettings({});
   await loadBackground();
 
@@ -3758,11 +3843,13 @@ async function start() {
     syncMaximized();
     setTimeout(() => popups.prewarm('menu'), 400);
   }
-  if (!state.settings.tutorialOffered && !globalThis.__MYDIAGRAM_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome')) {
+  if ((!state.settings.tutorialOffered || state.settings.showTutorialPopup) && !globalThis.__MYDIAGRAM_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome')) {
     updateSettings({ tutorialOffered: true }, { quiet: true });
     setTimeout(async () => {
+      if (!state.showStart && activeTab()) return; // Only over the start page, not over an opened drawing.
       const result = await popups.open('welcome', {});
       if (result?.choice === 'tutorial') startTutorial();
+      else if (result?.choice === 'tutorialDoc') openDocWindow('tutorial');
       else if (result?.choice === 'sample') openSampleBuiltin();
     }, 600);
   }

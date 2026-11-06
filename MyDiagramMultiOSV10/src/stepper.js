@@ -38,7 +38,7 @@ export function stepperValue(element) {
   return clampStep(parseFloat(String(input.value).replace(/[^0-9.+-]/g, '')), limits(element));
 }
 
-function show(element, value) {
+export function show(element, value) {
   const { unit, min, max } = limits(element);
   element.querySelector('.stepper-value').value = `${value}${unit}`;
   const [down, up] = element.querySelectorAll('.stepper-button');

@@ -39,7 +39,9 @@ export const STEPS = [
   { id: 'home', chapter: 'start', target: '#menubar [data-home]', dwell: 5000, run: (a) => a.start() },
   { id: 'templates', chapter: 'start', target: '.start-card.templates', run: (a) => a.start() },
   { id: 'recent', chapter: 'start', target: '.start-card.recent', run: (a) => a.start() },
-  { id: 'background', chapter: 'start', target: '.start-card.side', dwell: 7000, async run(a) {
+  { id: 'startCards', chapter: 'start', target: '.start-board', dwell: 7000, run: (a) => a.start() },
+  { id: 'startSamples', chapter: 'start', target: '.start-card.samples', run: (a) => a.start() },
+  { id: 'background', chapter: 'start', target: '.start-card.background', dwell: 7000, async run(a) {
     await a.start();
     for (const kind of ['waves', 'flowchart', 'nodes', 'aurora']) { a.app.updateSettings({ animation: kind, backgroundKind: 'animated' }); await sleep(1300); }
   } },
@@ -52,7 +54,10 @@ export const STEPS = [
     const shape = a.app.dropMaster('star5', { x: 880, y: 560 });
     a.app.select([shape.id]);
   } },
+  { id: 'shiftAlign', chapter: 'connect', target: '#view-host', run: (a) => a.sample() },
   { id: 'search', chapter: 'draw', target: '.shapes-tools', async run(a) { await a.sample(); a.app.state.stencilQuery = getLanguage() === 'en' ? 'server' : '서버'; a.app.renderAll(); } },
+  { id: 'stencilMenu', chapter: 'draw', target: '[data-command="stencilMenu"]', run: (a) => a.sample() },
+  { id: 'rotateDial', chapter: 'draw', target: '#view-host', run: (a) => a.sample() },
   { id: 'tools', chapter: 'draw', target: '.tool-strip', dwell: 6000, async run(a) {
     await a.sample();
     a.app.state.stencilQuery = '';
@@ -135,6 +140,7 @@ export const STEPS = [
     await a.sample();
     a.app.select([a.byText(getLanguage() === 'en' ? 'Confirm order' : '주문 확정').id]);
   } },
+  { id: 'pastelFill', chapter: 'format', target: '#right-panel', async run(a) { await a.sample(); const page = a.app.state.docs.at(-1)?.page; const shape = page?.shapes.find((s) => s.master === 'process'); if (shape) a.app.select([shape.id]); } },
   // ── arranging
   { id: 'align', chapter: 'arrange', target: '#toolbar [data-command="alignMenu"]', dwell: 6000, async run(a) {
     await a.sample();
@@ -154,6 +160,7 @@ export const STEPS = [
     const shape = a.app.page().shapes.find((s) => s.master === 'note');
     if (shape) { a.app.select([shape.id]); a.app.run('rotateLeft'); }
   } },
+  { id: 'fishbone', chapter: 'arrange', target: '[data-command="fishbone"]', run: (a) => a.sample() },
   // ── pages and layers
   { id: 'pageTabs', chapter: 'pages', target: '.page-tabs', dwell: 6000, async run(a) {
     await a.sample();
@@ -196,6 +203,7 @@ export const STEPS = [
     await sleep(2600);
     overlay?.classList.remove('visible');
   } },
+  { id: 'dropImage', chapter: 'files', target: '#view-host', run: (a) => a.sample() },
   // ── customizing
   { id: 'theme', chapter: 'customize', target: '.split-button:not(.view-split):not(.color-split)', dwell: 6000, async run(a) {
     await a.sample('drawing');
@@ -215,7 +223,7 @@ export const STEPS = [
   { id: 'presentation', chapter: 'help', target: '#presentation', dwell: 6000, async run(a) { await a.sample('drawing'); await a.app.run('presentation'); } },
   { id: 'shortcuts', chapter: 'help', target: '.web-popup-settings', async run(a) { await a.app.run('presentation'); a.stopPresentation(); await a.sample('drawing'); a.popup(() => a.app.popups.open('settings', { tab: 'shortcuts' }), 'settings'); } },
   { id: 'about', chapter: 'help', target: '.web-popup-about', async run(a) { await a.sample('drawing'); a.popup(() => a.app.run('about'), 'about'); } },
-  { id: 'tutorialDoc', chapter: 'help', target: '#reader-page', dwell: 7000, async run(a) { await a.closeMenus(); a.app.openReader('tutorial'); } },
+  { id: 'tutorialDoc', chapter: 'help', target: '.start-card.help', dwell: 7000, async run(a) { await a.closeMenus(); await a.start(); } },
   { id: 'finish', chapter: 'help', target: '[data-command="tutorial"]', run: (a) => a.sample('drawing') },
 ];
 
@@ -255,7 +263,7 @@ export class Tutorial {
           doc.view.id = 'drawing';
           app.state.docs.push(doc);
         }
-        if (app.state.active !== doc.id || app.state.showStart || app.state.reader) {
+        if (app.state.active !== doc.id || app.state.showStart) {
           app.state.active = doc.id;
           app.state.showStart = false;
           app.switchView(view ?? doc.view.id ?? 'drawing');
@@ -312,7 +320,6 @@ export class Tutorial {
     if (doc) await this.app.closeDoc(doc, { force: true });
     this.docId = null;
     this.stopPresentation();
-    this.app.closeReader?.();
     const restore = { ...this.saved, tutorialDone: true, tutorialOffered: true };
     this.app.updateSettings(restore);
     const back = this.app.state.docs.find((item) => item.id === this.savedActive);

@@ -1,0 +1,1013 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-06T04:18:13.786Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mw4gs32y18f6b",
+  "title": "School E-R Model",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-06T04:18:13.786Z",
+  "design": "sequence",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mw4gs32y18gty",
+    "name": "School E-R Model",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs32y18her",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "School E-R Model",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs32y18im4",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 100,
+      "y": 330,
+      "w": 130,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Student",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs32y18jlt",
+      "type": "shape",
+      "master": "relationship",
+      "name": "",
+      "x": 300,
+      "y": 320,
+      "w": 130,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Takes",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs32y18k6j",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 500,
+      "y": 330,
+      "w": 130,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Course",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs32y18lj9",
+      "type": "shape",
+      "master": "relationship",
+      "name": "",
+      "x": 700,
+      "y": 320,
+      "w": 130,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Teaches",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs32y18mwc",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 890,
+      "y": 330,
+      "w": 130,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Professor",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs32y18n63",
+      "type": "shape",
+      "master": "relationship",
+      "name": "",
+      "x": 590,
+      "y": 440,
+      "w": 130,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Has",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs32y18o8p",
+      "type": "shape",
+      "master": "weakEntity",
+      "name": "",
+      "x": 585,
+      "y": 575,
+      "w": 140,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Assignment",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y18ptb",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18im4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y18jlt",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "N",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs32y18q3e",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18jlt",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y18k6j",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "M",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs32y18rzw",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18k6j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y18lj9",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "N",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs32y18sgw",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18lj9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y18mwc",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "1",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs32y18t7l",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18k6j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y18n63",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "1",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs32y18uwh",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18n63",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y18o8p",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "N",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs32y18v15",
+      "type": "shape",
+      "master": "keyAttribute",
+      "name": "",
+      "x": 40,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Student no.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y18wfq",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18im4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y18v15",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs32y18xlp",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 170,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Name",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y18ye9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18im4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y18xlp",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs32y18zvm",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 105,
+      "y": 450,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Year",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y190tu",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18im4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y18zvm",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs32y191ik",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 310,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Grade",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y192eh",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18jlt",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y191ik",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs32y1937e",
+      "type": "shape",
+      "master": "keyAttribute",
+      "name": "",
+      "x": 450,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Course no.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y194yb",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18k6j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y1937e",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs32y1959v",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 580,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Title",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y196b5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18k6j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y1959v",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs32y1979j",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 420,
+      "y": 450,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Credits",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y198vu",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18k6j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y1979j",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs32y199zw",
+      "type": "shape",
+      "master": "keyAttribute",
+      "name": "",
+      "x": 790,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Staff no.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y19apf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18mwc",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y199zw",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs32y19beh",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 920,
+      "y": 210,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Name",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y19cq6",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18mwc",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y19beh",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs32y19do1",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 850,
+      "y": 450,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Office",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y19es6",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18mwc",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y19do1",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs32y19f8x",
+      "type": "shape",
+      "master": "keyAttribute",
+      "name": "",
+      "x": 400,
+      "y": 580,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Task no.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y19g0n",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18o8p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y19f8x",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs32y19hq5",
+      "type": "shape",
+      "master": "attribute",
+      "name": "",
+      "x": 790,
+      "y": 580,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Due date",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs32y19i9v",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs32y18o8p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mw4gs32y19hq5",
+       "pt": "auto"
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "erd",
+   "callouts"
+  ]
+ }
+}

@@ -1,0 +1,457 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-06T04:18:13.753Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mw4gs3210qsav",
+  "title": "PDCA 순환",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-06T04:18:13.753Z",
+  "design": "linear",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mw4gs3210qt40",
+    "name": "PDCA 순환",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mw4gs3210quon",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "PDCA 순환",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3210qvf6",
+      "type": "shape",
+      "master": "circle",
+      "name": "",
+      "x": 420,
+      "y": 80,
+      "w": 160,
+      "h": 160,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Plan\n계획",
+      "style": {
+       "bold": true,
+       "fontSize": 16
+      },
+      "qs": {
+       "color": 1
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3210qwa7",
+      "type": "shape",
+      "master": "circle",
+      "name": "",
+      "x": 720,
+      "y": 310,
+      "w": 160,
+      "h": 160,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Do\n실행",
+      "style": {
+       "bold": true,
+       "fontSize": 16
+      },
+      "qs": {
+       "color": 2
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3210qx7m",
+      "type": "shape",
+      "master": "circle",
+      "name": "",
+      "x": 420,
+      "y": 560,
+      "w": 160,
+      "h": 160,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Check\n평가",
+      "style": {
+       "bold": true,
+       "fontSize": 16
+      },
+      "qs": {
+       "color": 3
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3210qy48",
+      "type": "shape",
+      "master": "circle",
+      "name": "",
+      "x": 120,
+      "y": 310,
+      "w": 160,
+      "h": 160,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Act\n개선",
+      "style": {
+       "bold": true,
+       "fontSize": 16
+      },
+      "qs": {
+       "color": 4
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3210qzu5",
+      "type": "shape",
+      "master": "circularArrow",
+      "name": "",
+      "x": 445,
+      "y": 335,
+      "w": 110,
+      "h": 110,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {},
+      "qs": {
+       "color": 5,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mw4gs3210r0wx",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3210qvf6",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mw4gs3210qwa7",
+       "pt": 0
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3210r1iy",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3210qwa7",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mw4gs3210qx7m",
+       "pt": 1
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3210r2cr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3210qx7m",
+       "pt": 3
+      },
+      "to": {
+       "id": "shp-mw4gs3210qy48",
+       "pt": 2
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mw4gs3210r3kt",
+      "type": "connector",
+      "from": {
+       "id": "shp-mw4gs3210qy48",
+       "pt": 0
+      },
+      "to": {
+       "id": "shp-mw4gs3210qvf6",
+       "pt": 3
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mw4gs3210r4r8",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 610,
+      "y": 85,
+      "w": 370,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "목표를 정하고 문제와 원인을 분석해 계획을 세웁니다.",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3210r51q",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 890,
+      "y": 340,
+      "w": 150,
+      "h": 100,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "작은 범위에서 계획대로 실행하고 결과를 기록합니다.",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3210r6ho",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 600,
+      "y": 695,
+      "w": 400,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "결과를 목표와 비교해 무엇을 배웠는지 평가합니다.",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mw4gs3210r72u",
+      "type": "shape",
+      "master": "textBox",
+      "name": "",
+      "x": 30,
+      "y": 630,
+      "w": 210,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "효과가 있으면 표준으로 삼고, 아니면 다시 계획합니다.",
+      "style": {
+       "align": "left",
+       "valign": "top",
+       "fontSize": 12,
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "blocks",
+   "arrows",
+   "callouts"
+  ]
+ }
+}

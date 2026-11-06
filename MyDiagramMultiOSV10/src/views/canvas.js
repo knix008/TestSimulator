@@ -16,6 +16,12 @@ import { CANVAS_ZOOM, GRID_SIZES } from '../domain/settings.js';
 import { escapeHtml, frameThrottle } from '../ui/dom.js';
 import { icon } from '../icons.js';
 
+// Shift+drag: how far a shape looks for the line up with its neighbour, in screen px.
+const ALIGN_PX = 70;
+const ROTATE_SVG = "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><path d='M19 12a7 7 0 1 1-2.1-5'/><path d='M17 2.500V7h-4.500'/></svg>";
+const ROTATE_CURSOR_ATTR = `url(data:image/svg+xml,${encodeURI(ROTATE_SVG).replace(/%2523/g, '%23').replace(/'/g, '%27')}) 12 12, grab`;
+const ROTATE_CURSOR = ROTATE_CURSOR_ATTR;
+
 /** Empty canvas kept around the drawing on every side, in screens; scrolling near an edge adds more. */
 const PAD_SCREENS = 1.5;
 /** The stage never grows past this many pixels per side (browsers cap element sizes). */
@@ -383,7 +389,27 @@ export class CanvasView {
       parts.push(g.orient === 'v' ? `<line x1="${this.toStage({ x: g.pos, y: 0 }).x}" y1="0" x2="${this.toStage({ x: g.pos, y: 0 }).x}" y2="${this.stage.offsetHeight}" stroke="#ff2d95" stroke-width="1" stroke-dasharray="4 3"/>`
         : `<line x1="0" y1="${this.toStage({ x: 0, y: g.pos }).y}" x2="${this.stage.offsetWidth}" y2="${this.toStage({ x: 0, y: g.pos }).y}" stroke="#ff2d95" stroke-width="1" stroke-dasharray="4 3"/>`);
     }
+    if (this.drag?.type === 'rotate') parts.push(this.rotationDial(this.drag, accent));
     this.overlay.innerHTML = parts.join('');
+  }
+
+  /** While rotating: the circle, the sweep from where it started, and how far it has turned. */
+  rotationDial(d, accent) {
+    const c = this.toStage(d.center);
+    const radius = Math.max(36, dist(d.center, d.point) * this.z);
+    const from = d.startAngle;
+    const sweep = (d.deg * Math.PI) / 180;
+    const to = from + sweep;
+    const at = (angle, r = radius) => ({ x: c.x + Math.cos(angle) * r, y: c.y + Math.sin(angle) * r });
+    const a = at(from); const b = at(to);
+    const large = Math.abs(d.deg) % 360 > 180 ? 1 : 0;
+    const wedge = `M${n(c.x)} ${n(c.y)}L${n(a.x)} ${n(a.y)}A${n(radius)} ${n(radius)} 0 ${large} ${d.deg >= 0 ? 1 : 0} ${n(b.x)} ${n(b.y)}Z`;
+    const total = ((((d.single ? d.snapshot.get(d.ids[0]).angle ?? 0 : 0) + d.deg) % 360) + 360) % 360;
+    const label = `${d.deg > 0 ? '+' : ''}${Math.round(d.deg)}°${d.single ? `  →  ${Math.round(total)}°` : ''}`;
+    const box = { w: label.length * 7.4 + 16, h: 24 };
+    const place = at(to, radius + 22);
+    const x = Math.max(2, place.x - box.w / 2); const y = Math.max(2, place.y - box.h / 2);
+    return `<g class="rotate-dial" pointer-events="none"><circle cx="${n(c.x)}" cy="${n(c.y)}" r="${n(radius)}" fill="none" stroke="${accent}" stroke-width="1" stroke-dasharray="4 4"/><path d="${wedge}" fill="${accent}" fill-opacity="0.16" stroke="${accent}" stroke-width="1.4"/><circle cx="${n(c.x)}" cy="${n(c.y)}" r="3" fill="${accent}"/><rect x="${n(x)}" y="${n(y)}" width="${n(box.w)}" height="${box.h}" rx="6" fill="#111827" fill-opacity="0.92"/><text class="rotate-angle" x="${n(x + box.w / 2)}" y="${n(y + 16)}" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffffff">${escapeHtml(label)}</text></g>`;
   }
 
   /** Outline of a (rotated) shape in stage px. */
@@ -420,7 +446,7 @@ export class CanvasView {
       const top = at(shape.w / 2, 0);
       const r = at(shape.w / 2, -ROT_OFFSET / this.z);
       out.push(`<line x1="${n(top.x)}" y1="${n(top.y)}" x2="${n(r.x)}" y2="${n(r.y)}" stroke="${accent}" stroke-width="1"/>`);
-      out.push(`<circle class="handle" data-handle="rotate" cx="${n(r.x)}" cy="${n(r.y)}" r="5.5" fill="#ffffff" stroke="${accent}" stroke-width="1.6" style="cursor:grab"/>`);
+      out.push(`<circle class="handle" data-handle="rotate" cx="${n(r.x)}" cy="${n(r.y)}" r="5.5" fill="#ffffff" stroke="${accent}" stroke-width="1.6" style="cursor:${ROTATE_CURSOR_ATTR}"/>`);
     }
     if (!isGroup(shape)) {
       const master = masterById(shape.master);
@@ -447,7 +473,7 @@ export class CanvasView {
     HANDLE_POINTS.forEach(([hx, hy], i) => {
       out.push(`<rect class="handle" data-handle="resize" data-index="${i}" x="${n(tl.x + hx * w - HANDLE / 2)}" y="${n(tl.y + hy * h - HANDLE / 2)}" width="${HANDLE}" height="${HANDLE}" fill="#ffffff" stroke="${accent}" stroke-width="1.5" style="cursor:${cursorFor(i, 0)}"/>`);
     });
-    if (rotate) out.push(`<line x1="${n(tl.x + w / 2)}" y1="${n(tl.y)}" x2="${n(tl.x + w / 2)}" y2="${n(tl.y - ROT_OFFSET)}" stroke="${accent}"/><circle class="handle" data-handle="rotate" cx="${n(tl.x + w / 2)}" cy="${n(tl.y - ROT_OFFSET)}" r="5.5" fill="#fff" stroke="${accent}" stroke-width="1.6" style="cursor:grab"/>`);
+    if (rotate) out.push(`<line x1="${n(tl.x + w / 2)}" y1="${n(tl.y)}" x2="${n(tl.x + w / 2)}" y2="${n(tl.y - ROT_OFFSET)}" stroke="${accent}"/><circle class="handle" data-handle="rotate" cx="${n(tl.x + w / 2)}" cy="${n(tl.y - ROT_OFFSET)}" r="5.5" fill="#fff" stroke="${accent}" stroke-width="1.6" style="cursor:${ROTATE_CURSOR_ATTR}"/>`);
     return out.join('');
   }
 
@@ -726,7 +752,15 @@ export class CanvasView {
     const snapshot = new Map();
     for (const id of all) snapshot.set(id, JSON.parse(JSON.stringify(findShape(page, id))));
     for (const shape of page.shapes) if (isConnector(shape) && shape.waypoints?.length && shape.from.id && shape.to.id && all.includes(shape.from.id) && all.includes(shape.to.id)) snapshot.set(shape.id, JSON.parse(JSON.stringify(shape)));
-    this.drag = { type: 'move', start: p, ids, all, snapshot, copy, locked, box: this.selectionBox(sel), dx: 0, dy: 0 };
+    // The lines from a moving shape to one that stays.
+    const links = [];
+    const moving = new Set(all);
+    for (const shape of page.shapes) {
+      if (!isConnector(shape) || !shape.from.id || !shape.to.id || moving.has(shape.from.id) === moving.has(shape.to.id)) continue;
+      const [mine, other] = moving.has(shape.from.id) ? [shape.from.id, shape.to.id] : [shape.to.id, shape.from.id];
+      links.push({ id: shape.id, mine: center(findShape(page, mine)), other: center(findShape(page, other)) });
+    }
+    this.drag = { type: 'move', start: p, ids, all, snapshot, copy, locked, links, box: this.selectionBox(sel), dx: 0, dy: 0 };
     this.trackPointer(event);
   }
 
@@ -750,6 +784,23 @@ export class CanvasView {
       if (index >= 0) page.shapes[index] = JSON.parse(JSON.stringify(orig));
     }
     this.app.tab().invalidateRoutes();
+  }
+
+  /** Shift+drag: the moving shape lines up with the shapes its lines lead to, on the nearer axis of each. */
+  alignToLinks(d, dx, dy) {
+    const reach = ALIGN_PX / this.z;
+    let bestX = null; let bestY = null;
+    for (const link of d.links) {
+      const needX = link.other.x - (link.mine.x + dx);
+      const needY = link.other.y - (link.mine.y + dy);
+      if (Math.abs(needX) <= Math.abs(needY)) {
+        if (Math.abs(needX) <= reach && (!bestX || Math.abs(needX) < Math.abs(bestX.need))) bestX = { need: needX, pos: link.other.x };
+      } else if (Math.abs(needY) <= reach && (!bestY || Math.abs(needY) < Math.abs(bestY.need))) bestY = { need: needY, pos: link.other.y };
+    }
+    const guides = [];
+    if (bestX) { dx += bestX.need; guides.push({ orient: 'v', pos: bestX.pos }); }
+    if (bestY) { dy += bestY.need; guides.push({ orient: 'h', pos: bestY.pos }); }
+    return { dx, dy, guides };
   }
 
   /** Snapping of a moving box: grid, other shapes (smart guides), page guides. Returns { dx, dy, guides }. */
@@ -814,7 +865,12 @@ export class CanvasView {
       const snapshot = new Map(all.map((id) => [id, JSON.parse(JSON.stringify(findShape(page, id)))]));
       const box = sel.length === 1 && !isConnector(findShape(page, sel[0])) ? { ...findShape(page, sel[0]) } : this.selectionBox(sel);
       this.drag = { type: kind, index: Number(handle.dataset.index), ids: sel, all, snapshot, box, start: p, single: sel.length === 1 && !isConnector(findShape(page, sel[0])), center: center(box) };
-      if (kind === 'rotate') this.drag.startAngle = Math.atan2(p.y - this.drag.center.y, p.x - this.drag.center.x);
+      if (kind === 'rotate') {
+        this.drag.startAngle = Math.atan2(p.y - this.drag.center.y, p.x - this.drag.center.x);
+        this.drag.point = p;
+        this.drag.deg = 0;
+        this.scroll.style.cursor = ROTATE_CURSOR;
+      }
       this.trackPointer(event);
       return;
     }
@@ -860,8 +916,11 @@ export class CanvasView {
         if (d.locked) return;
         let dx = p.x - d.start.x;
         let dy = p.y - d.start.y;
-        if (event.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
-        const snapped = this.snapMove(d.box, dx, dy, event);
+        // Shift: a shape with lines lines up with what they lead to (the lines end up straight);
+        // without lines it moves only across or only up and down.
+        d.aligning = event.shiftKey && d.links.length > 0;
+        if (event.shiftKey && !d.links.length) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
+        const snapped = d.aligning ? this.alignToLinks(d, dx, dy) : this.snapMove(d.box, dx, dy, event);
         d.dx = snapped.dx; d.dy = snapped.dy;
         this.guidesShown = snapped.guides;
         this.placeMoving(d.dx, d.dy);
@@ -1035,6 +1094,7 @@ export class CanvasView {
     this.restoreSnapshotOnly();
     this.app.rotateLive(d.ids, deg, d.center);
     d.deg = deg;
+    d.point = p;
   }
 
   dragCreate(p, event) {
@@ -1079,10 +1139,11 @@ export class CanvasView {
         if (!d.moved || (!d.dx && !d.dy)) { this.restoreSnapshot(d); break; }
         this.restoreSnapshot(d);
         if (d.copy) this.app.duplicateMoved(d.ids.filter((id) => this.app.selection().ids.includes(id)), d.dx, d.dy);
-        else this.app.moveSelection(d.ids, d.dx, d.dy);
+        else this.app.moveSelection(d.ids, d.dx, d.dy, { straighten: d.aligning ? d.links.map((link) => link.id) : [] });
         return;
       }
       case 'resize': case 'rotate': {
+        if (d.type === 'rotate') this.scroll.style.cursor = '';
         if (!d.moved) break;
         const after = new Map(d.all.map((id) => [id, JSON.parse(JSON.stringify(findShape(page, id)))]));
         this.restoreSnapshot(d);
@@ -1424,9 +1485,10 @@ export class CanvasView {
       c.stroke();
       if (pointer) {
         const pos = origin + (horizontal ? pointer.x : pointer.y) * z;
-        c.strokeStyle = accent; c.beginPath();
+        c.strokeStyle = '#e5191f'; c.setLineDash([3, 2]); c.beginPath();
         if (horizontal) { c.moveTo(pos, 0); c.lineTo(pos, h); } else { c.moveTo(0, pos); c.lineTo(w, pos); }
         c.stroke();
+        c.setLineDash([]);
       }
       c.strokeStyle = colors.getPropertyValue('--border').trim() || '#ccc';
       c.beginPath();

@@ -91,6 +91,25 @@ function shiftedOntoPage(page) {
   return copy;
 }
 
+/** What a .vsdx cannot hold as it is: { icons, patterns, pictures }, counted over all pages. */
+export function vsdxLosses(doc) {
+  const losses = { icons: 0, patterns: 0, pictures: 0 };
+  for (const page of doc.pages) {
+    for (const shape of page.shapes) {
+      if (shape.type !== 'shape') continue;
+      const master = masterById(shape.master);
+      if (master.id === 'image') {
+        if (!/^data:image\/(png|jpe?g|gif|bmp);base64,/i.test(shape.src ?? '')) losses.pictures += 1;
+        continue;
+      }
+      if (master.cat === 'icons') { losses.icons += 1; continue; }
+      const style = resolveShapeStyle(doc, shape);
+      if (style.fill !== 'none' && !['solid', 'linear', 'radial', 'none', undefined].includes(style.fillPattern)) losses.patterns += 1;
+    }
+  }
+  return losses;
+}
+
 export function exportVsdx(doc, { now = new Date() } = {}) {
   const files = [];
   const media = [];
@@ -144,7 +163,7 @@ export function exportVsdx(doc, { now = new Date() } = {}) {
       const w = shape.w / IN;
       const h = shape.h / IN;
       const common = `${cell('PinX', v(cx))}${cell('PinY', v(cy))}${cell('Width', v(w))}${cell('Height', v(h))}${cell('LocPinX', v(w / 2), ' F="Width*0.5"')}${cell('LocPinY', v(h / 2), ' F="Height*0.5"')}${cell('Angle', v((-(shape.angle ?? 0) * Math.PI) / 180))}${cell('FlipX', shape.flipH ? 1 : 0)}${cell('FlipY', shape.flipV ? 1 : 0)}`;
-      const fill = colorValue(style.fill);
+      const fill = colorValue(masterById(shape.master).cat === 'icons' ? masterById(shape.master).geometry(shape.w, shape.h, {}, 0)[0].color : style.fill);
       const lineCells = `${cell('LineWeight', v((style.lineWidth ?? 1) / IN), ' U="PT"')}${cell('LineColor', colorValue(style.line) ?? '#000000')}${cell('LinePattern', !style.line || style.line === 'none' ? 0 : LINE_PATTERNS[style.dash] ?? 1)}${cell('Rounding', v((style.rounding ?? 0) / IN))}`;
       const fillCells = `${cell('FillForegnd', fill ?? '#FFFFFF')}${cell('FillBkgnd', colorValue(style.fill2) ?? '#FFFFFF')}${cell('FillPattern', !fill ? 0 : style.fillPattern === 'linear' ? 28 : style.fillPattern === 'radial' ? 40 : 1)}${(style.fillOpacity ?? 100) < 100 ? cell('FillForegndTrans', v(1 - style.fillOpacity / 100)) : ''}${style.shadow ? `${cell('ShdwPattern', 1)}${cell('ShdwForegnd', '#000000')}${cell('ShdwForegndTrans', 0.75)}` : ''}`;
       const textBlock = `${cell('VerticalAlign', { top: 0, middle: 1, bottom: 2 }[style.valign] ?? 1)}${textCells(style)}`;

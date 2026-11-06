@@ -76,6 +76,8 @@ export function luminance(hex) {
 export const readableOn = (bg, dark = '#1f2937', light = '#ffffff') => (luminance(bg) > 0.42 ? dark : light);
 
 /** Colours offered in the colour pickers: the design's accents plus standard colours. */
+/** Soft presets for fills. */
+export const PASTEL_COLORS = ['#ffd1dc', '#ffc9b5', '#ffe5b4', '#fff5ba', '#d9f2b4', '#b5ead7', '#b5e8e0', '#c7ecff', '#bcd9ff', '#cdd2ff', '#e0c8ff', '#f6c6ea'];
 export const STANDARD_COLORS = ['#000000', '#404040', '#7f7f7f', '#bfbfbf', '#ffffff', '#c00000', '#ff0000', '#ffc000', '#ffff00', '#92d050', '#00b050', '#00b0f0', '#0070c0', '#002060', '#7030a0'];
 
 // ───────────────────────── style resolution
@@ -124,6 +126,9 @@ export function resolveShapeStyle(doc, shape) {
     ...(master.style ?? {}),
   };
   if (master.style?.fill && master.style.fill !== 'none' && !master.style.textColor && !qs.variant) out.textColor = readableOn(master.style.fill);
+  const box = master.text ?? [0, 0, 1, 1];
+  const outside = !master.textHeader && (box[1] >= 1 || box[3] <= 0 || box[0] >= 1 || box[2] <= 0);
+  if ((outside || out.fill === 'none') && !master.style?.textColor) out.textColor = pageText;
   for (const key of STYLE_KEYS) if (shape.style?.[key] !== undefined && shape.style[key] !== null) out[key] = shape.style[key];
   if (out.fillPattern === 'none') out.fill = 'none';
   return out;

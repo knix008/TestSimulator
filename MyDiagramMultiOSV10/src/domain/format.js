@@ -4,6 +4,7 @@
 // Reading repairs what it can (missing fields get their defaults, connectors
 // glued to missing shapes keep their place as free ends, members of missing
 // groups are released) and refuses what is not a drawing.
+import { isImageExtension } from './image-formats.js';
 import { createDocument, createLayer, createPage, FORMAT, newId, normalizeAngle, normalizeData, refreshGroups, ROUTES, VERSION } from './diagram.js';
 import { DESIGNS, isColor, STYLE_KEYS } from './designs.js';
 import { CATEGORIES, hasMaster } from './stencils.js';
@@ -33,7 +34,7 @@ export const isTemplateFileName = (name) => extensionOf(name) === 'mdgt';
 export const isVsdxFileName = (name) => ['vsdx', 'vstx', 'vssx'].includes(extensionOf(name));
 export const isSvgFileName = (name) => extensionOf(name) === 'svg';
 export const isCsvFileName = (name) => ['csv', 'tsv', 'txt'].includes(extensionOf(name));
-export const isImageFileName = (name) => ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'].includes(extensionOf(name));
+export const isImageFileName = (name) => isImageExtension(extensionOf(name));
 /** Files the app opens as a drawing (its own, Visio). */
 export const isOpenableFileName = (name) => isDiagramFileName(name) || isVsdxFileName(name);
 

@@ -25,6 +25,9 @@ test('the four HTML documents exist and are complete pages', () => {
     assert.match(html, /<title>[^<]+<\/title>/, `${name} has a title`);
     assert.match(html, /<main>[\s\S]*<h1[^>]*>/, `${name} has a heading`);
     assert.match(html, /prefers-color-scheme: dark/, `${name} has dark colours`);
+    assert.match(html, /id="doc-font-up"/, `${name} has the font size`);
+    assert.equal((html.match(/<svg class="flag"/g) ?? []).length, 2, `${name} has both language flags`);
+    assert.match(html, /mydiagram\.docs\.theme/, `${name} follows the theme`);
   }
   for (const name of ['UsersGuide.html', 'UsersGuide.en.html']) {
     const html = fs.readFileSync(path.join(docs, name), 'utf8');

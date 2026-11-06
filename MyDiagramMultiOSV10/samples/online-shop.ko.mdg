@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-10-16T17:12:20.468Z",
+ "saved": "2026-11-06T04:18:13.708Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mvb86pkg0010i",
+  "id": "dgm-mw4gs30q0012b",
   "title": "온라인 쇼핑몰 운영",
   "subject": "MyDiagram 예제 드로잉",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-10-16T17:12:20.463Z",
+  "created": "2026-11-06T04:18:13.705Z",
   "design": "office",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mvb86pkh002up",
+    "id": "page-mw4gs30q0026k",
     "name": "주문 처리",
     "paper": "A4",
     "orientation": "landscape",
@@ -41,13 +41,13 @@
     "height": 793.7,
     "autoSize": true,
     "background": false,
-    "backgroundId": "page-mvb86pkh00318",
+    "backgroundId": "page-mw4gs30q003o6",
     "color": "",
     "grid": true,
     "gridSize": 0,
     "layers": [
      {
-      "id": "layer-mvb86pkh00r75",
+      "id": "layer-mw4gs30r00rz5",
       "name": "메모",
       "visible": true,
       "print": true,
@@ -60,13 +60,13 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mvb86pkh006j6",
+      "id": "shp-mw4gs30q006xh",
       "type": "shape",
       "master": "swimlane",
       "name": "",
       "x": 40,
       "y": 70,
-      "w": 1020,
+      "w": 1010,
       "h": 165,
       "angle": 0,
       "flipH": false,
@@ -86,13 +86,13 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh007wr",
+      "id": "shp-mw4gs30q007sv",
       "type": "shape",
       "master": "swimlane",
       "name": "",
       "x": 40,
       "y": 235,
-      "w": 1020,
+      "w": 1010,
       "h": 165,
       "angle": 0,
       "flipH": false,
@@ -112,13 +112,13 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh008iv",
+      "id": "shp-mw4gs30q00880",
       "type": "shape",
       "master": "swimlane",
       "name": "",
       "x": 40,
       "y": 400,
-      "w": 1020,
+      "w": 1010,
       "h": 165,
       "angle": 0,
       "flipH": false,
@@ -138,7 +138,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh0090m",
+      "id": "shp-mw4gs30q009rh",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -162,7 +162,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh00aup",
+      "id": "shp-mw4gs30q00a0m",
       "type": "shape",
       "master": "terminator",
       "name": "",
@@ -194,7 +194,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh00byq",
+      "id": "shp-mw4gs30q00bai",
       "type": "shape",
       "master": "data",
       "name": "",
@@ -218,7 +218,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh00c35",
+      "id": "shp-mw4gs30q00cdx",
       "type": "shape",
       "master": "decision",
       "name": "",
@@ -252,7 +252,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh00d53",
+      "id": "shp-mw4gs30r00dby",
       "type": "shape",
       "master": "process",
       "name": "",
@@ -291,7 +291,7 @@
         "id": "cmt-sample",
         "author": "SHKWON",
         "text": "재고 확인 단계를 추가할지 검토",
-        "at": "2026-10-16T17:12:20.465Z",
+        "at": "2026-11-06T04:18:13.707Z",
         "done": false
        }
       ],
@@ -299,7 +299,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh00e1z",
+      "id": "shp-mw4gs30r00e3r",
       "type": "shape",
       "master": "document",
       "name": "",
@@ -323,7 +323,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh00f9d",
+      "id": "shp-mw4gs30r00fdi",
       "type": "shape",
       "master": "process",
       "name": "",
@@ -362,7 +362,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh00g3l",
+      "id": "shp-mw4gs30r00gg4",
       "type": "shape",
       "master": "process",
       "name": "",
@@ -401,7 +401,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh00hv5",
+      "id": "shp-mw4gs30r00h3e",
       "type": "shape",
       "master": "terminator",
       "name": "",
@@ -425,14 +425,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pkh00it1",
+      "id": "con-mw4gs30r00iot",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00aup",
+       "id": "shp-mw4gs30q00a0m",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh00byq",
+       "id": "shp-mw4gs30q00bai",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -449,14 +449,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkh00jlv",
+      "id": "con-mw4gs30r00jdp",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00byq",
+       "id": "shp-mw4gs30q00bai",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh00c35",
+       "id": "shp-mw4gs30q00cdx",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -473,14 +473,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkh00kps",
+      "id": "con-mw4gs30r00k86",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00c35",
+       "id": "shp-mw4gs30q00cdx",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh00d53",
+       "id": "shp-mw4gs30r00dby",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -497,14 +497,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkh00lk8",
+      "id": "con-mw4gs30r00lqf",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00c35",
+       "id": "shp-mw4gs30q00cdx",
        "pt": 3
       },
       "to": {
-       "id": "shp-mvb86pkh00aup",
+       "id": "shp-mw4gs30q00a0m",
        "pt": 2
       },
       "route": "orthogonal",
@@ -521,14 +521,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkh00m8t",
+      "id": "con-mw4gs30r00mgm",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00d53",
+       "id": "shp-mw4gs30r00dby",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh00e1z",
+       "id": "shp-mw4gs30r00e3r",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -545,14 +545,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkh00noi",
+      "id": "con-mw4gs30r00n9n",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00d53",
+       "id": "shp-mw4gs30r00dby",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh00f9d",
+       "id": "shp-mw4gs30r00fdi",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -569,14 +569,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkh00o4g",
+      "id": "con-mw4gs30r00o58",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00f9d",
+       "id": "shp-mw4gs30r00fdi",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh00g3l",
+       "id": "shp-mw4gs30r00gg4",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -593,14 +593,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkh00pgh",
+      "id": "con-mw4gs30r00p8f",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00g3l",
+       "id": "shp-mw4gs30r00gg4",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh00hv5",
+       "id": "shp-mw4gs30r00h3e",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -617,14 +617,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkh00qem",
+      "id": "con-mw4gs30r00q3r",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00e1z",
+       "id": "shp-mw4gs30r00e3r",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh00hv5",
+       "id": "shp-mw4gs30r00h3e",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -644,7 +644,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pkh00sq1",
+      "id": "shp-mw4gs30r00s8f",
       "type": "shape",
       "master": "note",
       "name": "",
@@ -660,7 +660,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mvb86pkh00r75"
+       "layer-mw4gs30r00rz5"
       ],
       "locked": {},
       "data": [],
@@ -672,7 +672,7 @@
     ]
    },
    {
-    "id": "page-mvb86pkh00tvr",
+    "id": "page-mw4gs30r00thv",
     "name": "조직도",
     "paper": "custom",
     "orientation": "landscape",
@@ -680,7 +680,7 @@
     "height": 793.7,
     "autoSize": true,
     "background": false,
-    "backgroundId": "page-mvb86pkh00318",
+    "backgroundId": "page-mw4gs30q003o6",
     "color": "",
     "grid": true,
     "gridSize": 0,
@@ -690,7 +690,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mvb86pkh00uje",
+      "id": "shp-mw4gs30r00uxd",
       "type": "shape",
       "master": "orgExecutive",
       "name": "",
@@ -714,7 +714,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh00v7z",
+      "id": "shp-mw4gs30r00vw3",
       "type": "shape",
       "master": "orgManager",
       "name": "",
@@ -738,14 +738,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pkh00ww5",
+      "id": "con-mw4gs30r00wnr",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00uje",
+       "id": "shp-mw4gs30r00uxd",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh00v7z",
+       "id": "shp-mw4gs30r00vw3",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -764,7 +764,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pkh00x87",
+      "id": "shp-mw4gs30r00xdi",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -788,14 +788,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pkh00yym",
+      "id": "con-mw4gs30r00ytu",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00v7z",
+       "id": "shp-mw4gs30r00vw3",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh00x87",
+       "id": "shp-mw4gs30r00xdi",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -814,7 +814,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pkh00zq0",
+      "id": "shp-mw4gs30r00zjm",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -838,14 +838,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pkh0105p",
+      "id": "con-mw4gs30r010zu",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00v7z",
+       "id": "shp-mw4gs30r00vw3",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh00zq0",
+       "id": "shp-mw4gs30r00zjm",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -864,7 +864,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pkh011ye",
+      "id": "shp-mw4gs30r011j7",
       "type": "shape",
       "master": "orgManager",
       "name": "",
@@ -888,14 +888,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pkh012yj",
+      "id": "con-mw4gs30r012fa",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00uje",
+       "id": "shp-mw4gs30r00uxd",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh011ye",
+       "id": "shp-mw4gs30r011j7",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -914,7 +914,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pkh013mm",
+      "id": "shp-mw4gs30r013fz",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -938,14 +938,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pkh0144o",
+      "id": "con-mw4gs30r014bs",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh011ye",
+       "id": "shp-mw4gs30r011j7",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh013mm",
+       "id": "shp-mw4gs30r013fz",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -964,7 +964,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pkh015f2",
+      "id": "shp-mw4gs30r0150g",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -988,14 +988,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pkh0168q",
+      "id": "con-mw4gs30r016a7",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh011ye",
+       "id": "shp-mw4gs30r011j7",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh015f2",
+       "id": "shp-mw4gs30r0150g",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1014,7 +1014,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pkh0170t",
+      "id": "shp-mw4gs30r0179m",
       "type": "shape",
       "master": "orgManager",
       "name": "",
@@ -1038,14 +1038,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pkh018h6",
+      "id": "con-mw4gs30r018gd",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh00uje",
+       "id": "shp-mw4gs30r00uxd",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh0170t",
+       "id": "shp-mw4gs30r0179m",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1064,7 +1064,7 @@
       "name": ""
      },
      {
-      "id": "shp-mvb86pkh019eb",
+      "id": "shp-mw4gs30r019ee",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -1088,14 +1088,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pkh01a4t",
+      "id": "con-mw4gs30r01a7q",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkh0170t",
+       "id": "shp-mw4gs30r0179m",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkh019eb",
+       "id": "shp-mw4gs30r019ee",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1116,7 +1116,7 @@
     ]
    },
    {
-    "id": "page-mvb86pkj01brk",
+    "id": "page-mw4gs30r01b1s",
     "name": "서버 구성",
     "paper": "custom",
     "orientation": "landscape",
@@ -1124,7 +1124,7 @@
     "height": 793.7,
     "autoSize": true,
     "background": false,
-    "backgroundId": "page-mvb86pkh00318",
+    "backgroundId": "page-mw4gs30q003o6",
     "color": "",
     "grid": true,
     "gridSize": 0,
@@ -1134,7 +1134,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mvb86pkj01cvc",
+      "id": "shp-mw4gs30r01c30",
       "type": "shape",
       "master": "cloudNet",
       "name": "",
@@ -1158,7 +1158,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkj01drv",
+      "id": "shp-mw4gs30r01dz3",
       "type": "shape",
       "master": "firewall",
       "name": "",
@@ -1182,7 +1182,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkj01esg",
+      "id": "shp-mw4gs30r01ena",
       "type": "shape",
       "master": "router",
       "name": "",
@@ -1206,7 +1206,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkj01ffu",
+      "id": "shp-mw4gs30r01fdx",
       "type": "shape",
       "master": "server",
       "name": "",
@@ -1234,11 +1234,11 @@
       ],
       "hyperlink": "",
       "comments": [],
-      "groupId": "grp-mvb86pkj01oz0",
+      "groupId": "grp-mw4gs30s01omu",
       "showData": false
      },
      {
-      "id": "shp-mvb86pkj01gl7",
+      "id": "shp-mw4gs30r01gsw",
       "type": "shape",
       "master": "server",
       "name": "",
@@ -1266,11 +1266,11 @@
       ],
       "hyperlink": "",
       "comments": [],
-      "groupId": "grp-mvb86pkj01oz0",
+      "groupId": "grp-mw4gs30s01omu",
       "showData": false
      },
      {
-      "id": "grp-mvb86pkj01oz0",
+      "id": "grp-mw4gs30s01omu",
       "type": "group",
       "master": "group",
       "name": "",
@@ -1294,7 +1294,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkj01h64",
+      "id": "shp-mw4gs30r01hi8",
       "type": "shape",
       "master": "dbServer",
       "name": "",
@@ -1326,14 +1326,14 @@
       "showData": false
      },
      {
-      "id": "con-mvb86pkj01ig8",
+      "id": "con-mw4gs30r01i03",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkj01cvc",
+       "id": "shp-mw4gs30r01c30",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkj01drv",
+       "id": "shp-mw4gs30r01dz3",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1352,14 +1352,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkj01juy",
+      "id": "con-mw4gs30r01jef",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkj01drv",
+       "id": "shp-mw4gs30r01dz3",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkj01esg",
+       "id": "shp-mw4gs30r01ena",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1378,14 +1378,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkj01kfp",
+      "id": "con-mw4gs30r01kta",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkj01esg",
+       "id": "shp-mw4gs30r01ena",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkj01ffu",
+       "id": "shp-mw4gs30r01fdx",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1404,14 +1404,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkj01l4f",
+      "id": "con-mw4gs30r01lx1",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkj01esg",
+       "id": "shp-mw4gs30r01ena",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkj01gl7",
+       "id": "shp-mw4gs30r01gsw",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1430,14 +1430,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkj01mj0",
+      "id": "con-mw4gs30r01mrm",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkj01ffu",
+       "id": "shp-mw4gs30r01fdx",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkj01h64",
+       "id": "shp-mw4gs30r01hi8",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1456,14 +1456,14 @@
       "name": ""
      },
      {
-      "id": "con-mvb86pkj01nca",
+      "id": "con-mw4gs30r01nhz",
       "type": "connector",
       "from": {
-       "id": "shp-mvb86pkj01gl7",
+       "id": "shp-mw4gs30r01gsw",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mvb86pkj01h64",
+       "id": "shp-mw4gs30r01hi8",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -1484,7 +1484,7 @@
     ]
    },
    {
-    "id": "page-mvb86pkh00318",
+    "id": "page-mw4gs30q003o6",
     "name": "배경",
     "paper": "custom",
     "orientation": "landscape",
@@ -1502,7 +1502,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mvb86pkh004h8",
+      "id": "shp-mw4gs30q0042y",
       "type": "shape",
       "master": "rect",
       "name": "",
@@ -1530,7 +1530,7 @@
       "showData": false
      },
      {
-      "id": "shp-mvb86pkh005v8",
+      "id": "shp-mw4gs30q0054z",
       "type": "shape",
       "master": "rect",
       "name": "",

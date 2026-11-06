@@ -32,7 +32,18 @@ a:hover { text-decoration: underline; }
 }
 .topbar .brand { font-weight: 700; color: var(--text); }
 .topbar .grow { flex: 1; }
-.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.doc-font { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.doc-font button { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; line-height: 1; cursor: pointer; }
+.doc-font button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.doc-font button:disabled { opacity: .4; cursor: default; }
+.doc-font output { min-width: 26px; text-align: center; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.doc-lang { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.doc-lang a { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; font-size: 13px; color: var(--text); }
+.doc-lang a:hover { text-decoration: none; background: var(--accent-soft); }
+.doc-lang a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; cursor: default; }
+.doc-lang .flag { width: 21px; height: 14px; flex: none; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); }
+main, nav.toc { zoom: var(--doc-zoom, 1); }
+@media (max-width: 700px) { .doc-font-label, .topbar .brand { display: none; } }
 .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
 nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
 nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
@@ -78,14 +89,37 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 </style>
 </head>
 <body>
-<header class="topbar"><span class="brand">MyDiagram <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="Tutorial.en.html" hreflang="en">English</a></header>
+<header class="topbar"><span class="brand">MyDiagram <small>v1.0.1</small></span><span class="grow"></span><div class="doc-font" role="group" aria-label="글꼴 크기" title="글꼴 크기"><span class="doc-font-label">글꼴 크기</span><button type="button" id="doc-font-down" title="글꼴 작게" aria-label="글꼴 작게">−</button><output id="doc-font-value">16</output><button type="button" id="doc-font-up" title="글꼴 크게" aria-label="글꼴 크게">+</button></div>
+<nav class="doc-lang" aria-label="언어"><a href="#" hreflang="ko" class="active" title="한국어" aria-current="true"><svg class="flag" viewBox="-36 -24 72 48" aria-hidden="true">
+  <rect x="-36" y="-24" width="72" height="48" fill="#fff"/>
+  <g transform="rotate(-56.31)">
+    <g id="flag-kr-bars"><path id="flag-kr-bar" d="M-6-25H6M-6-22H6M-6-19H6" stroke="#000" stroke-width="2"/><use href="#flag-kr-bar" y="44"/></g>
+    <path d="M0 17v10" stroke="#fff"/>
+    <circle r="12" fill="#cd2e3a"/>
+    <path d="M0-12A6 6 0 0 0 0 0a6 6 0 0 1 0 12 12 12 0 0 1 0-24z" fill="#0047a0"/>
+  </g>
+  <g transform="rotate(-123.69)">
+    <use href="#flag-kr-bars"/>
+    <path d="M0-23.5v3M0 17v3.5M0 23.5v3" stroke="#fff"/>
+  </g>
+</svg><span>한국어</span></a><a href="Tutorial.en.html" hreflang="en" class="" title="English" ><svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <clipPath id="flag-uk-clip"><path d="M0 0v30h60V0z"/></clipPath>
+  <clipPath id="flag-uk-diag"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath>
+  <g clip-path="url(#flag-uk-clip)">
+    <path d="M0 0v30h60V0z" fill="#012169"/>
+    <path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/>
+    <path d="M0 0l60 30m0-30L0 30" clip-path="url(#flag-uk-diag)" stroke="#C8102E" stroke-width="4"/>
+    <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+    <path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/>
+  </g>
+</svg><span>English</span></a></nav></header>
 <div class="layout">
-<nav class="toc" aria-label="목차"><p class="toc-title">목차</p><ul><li class="h2"><a href="#튜토리얼-실행하기">튜토리얼 실행하기</a></li><li class="h2"><a href="#차례">차례</a></li><li class="h2"><a href="#1-시작">1. 시작</a></li><li class="h3"><a href="#1-mydiagram에-오신-것을-환영합니다">1. MyDiagram에 오신 것을 환영합니다</a></li><li class="h3"><a href="#2-홈-버튼">2. 홈 버튼</a></li><li class="h3"><a href="#3-새-드로잉-만들기">3. 새 드로잉 만들기</a></li><li class="h3"><a href="#4-최근-파일과-폴더">4. 최근 파일과 폴더</a></li><li class="h3"><a href="#5-움직이는-배경">5. 움직이는 배경</a></li><li class="h2"><a href="#2-도형-그리기">2. 도형 그리기</a></li><li class="h3"><a href="#6-예제-드로잉">6. 예제 드로잉</a></li><li class="h3"><a href="#7-화면-구성">7. 화면 구성</a></li><li class="h3"><a href="#8-도형-패널과-스텐실">8. 도형 패널과 스텐실</a></li><li class="h3"><a href="#9-도형-놓기">9. 도형 놓기</a></li><li class="h3"><a href="#10-도형-검색">10. 도형 검색</a></li><li class="h3"><a href="#11-그리기-도구">11. 그리기 도구</a></li><li class="h3"><a href="#12-텍스트-입력">12. 텍스트 입력</a></li><li class="h3"><a href="#13-이동크기회전">13. 이동·크기·회전</a></li><li class="h3"><a href="#14-실행-취소다시-실행">14. 실행 취소·다시 실행</a></li><li class="h2"><a href="#3-연결하기">3. 연결하기</a></li><li class="h3"><a href="#15-연결선-그리기">15. 연결선 그리기</a></li><li class="h3"><a href="#16-자동-연결">16. 자동 연결</a></li><li class="h3"><a href="#17-연결선-모양">17. 연결선 모양</a></li><li class="h3"><a href="#18-연결점과-붙이기">18. 연결점과 붙이기</a></li><li class="h2"><a href="#4-서식">4. 서식</a></li><li class="h3"><a href="#19-속성-패널">19. 속성 패널</a></li><li class="h3"><a href="#20-빠른-스타일">20. 빠른 스타일</a></li><li class="h3"><a href="#21-도형-서식">21. 도형 서식</a></li><li class="h3"><a href="#22-테마와-변형">22. 테마와 변형</a></li><li class="h3"><a href="#23-서식-복사">23. 서식 복사</a></li><li class="h2"><a href="#5-정렬과-배치">5. 정렬과 배치</a></li><li class="h3"><a href="#24-맞춤과-분배">24. 맞춤과 분배</a></li><li class="h3"><a href="#25-그룹">25. 그룹</a></li><li class="h3"><a href="#26-자동-레이아웃">26. 자동 레이아웃</a></li><li class="h3"><a href="#27-회전과-대칭">27. 회전과 대칭</a></li><li class="h2"><a href="#6-페이지와-레이어">6. 페이지와 레이어</a></li><li class="h3"><a href="#28-여러-페이지">28. 여러 페이지</a></li><li class="h3"><a href="#29-배경-페이지">29. 배경 페이지</a></li><li class="h3"><a href="#30-레이어">30. 레이어</a></li><li class="h3"><a href="#31-페이지-설정">31. 페이지 설정</a></li><li class="h3"><a href="#32-페이지-개요">32. 페이지 개요</a></li><li class="h2"><a href="#7-데이터와-보고서">7. 데이터와 보고서</a></li><li class="h3"><a href="#33-도형-데이터">33. 도형 데이터</a></li><li class="h3"><a href="#34-데이터-표시">34. 데이터 표시</a></li><li class="h3"><a href="#35-도형-데이터-표">35. 도형 데이터 표</a></li><li class="h3"><a href="#36-데이터로-조직도">36. 데이터로 조직도</a></li><li class="h3"><a href="#37-보고서">37. 보고서</a></li><li class="h3"><a href="#38-도형-시트">38. 도형 시트</a></li><li class="h2"><a href="#8-파일과-인쇄">8. 파일과 인쇄</a></li><li class="h3"><a href="#39-파일-메뉴">39. 파일 메뉴</a></li><li class="h3"><a href="#40-visio와-주고받기">40. Visio와 주고받기</a></li><li class="h3"><a href="#41-인쇄와-미리-보기">41. 인쇄와 미리 보기</a></li><li class="h3"><a href="#42-페이지를-그림으로">42. 페이지를 그림으로</a></li><li class="h3"><a href="#43-데이터베이스에-저장하기">43. 데이터베이스에 저장하기</a></li><li class="h3"><a href="#44-최근-파일-관리">44. 최근 파일 관리</a></li><li class="h3"><a href="#45-끌어다-놓기">45. 끌어다 놓기</a></li><li class="h2"><a href="#9-사용자-설정">9. 사용자 설정</a></li><li class="h3"><a href="#46-테마">46. 테마</a></li><li class="h3"><a href="#47-언어">47. 언어</a></li><li class="h3"><a href="#48-패널-접기">48. 패널 접기</a></li><li class="h3"><a href="#49-이동확대-창">49. 이동·확대 창</a></li><li class="h3"><a href="#50-설정">50. 설정</a></li><li class="h3"><a href="#51-상태-표시줄">51. 상태 표시줄</a></li><li class="h2"><a href="#10-도움말">10. 도움말</a></li><li class="h3"><a href="#52-프레젠테이션-모드">52. 프레젠테이션 모드</a></li><li class="h3"><a href="#53-단축키">53. 단축키</a></li><li class="h3"><a href="#54-프로그램-정보">54. 프로그램 정보</a></li><li class="h3"><a href="#55-튜토리얼-문서-읽기">55. 튜토리얼 문서 읽기</a></li><li class="h3"><a href="#56-다-둘러봤습니다">56. 다 둘러봤습니다</a></li></ul></nav>
+<nav class="toc" aria-label="목차"><p class="toc-title">목차</p><ul><li class="h2"><a href="#튜토리얼-실행하기">튜토리얼 실행하기</a></li><li class="h2"><a href="#차례">차례</a></li><li class="h2"><a href="#1-시작">1. 시작</a></li><li class="h3"><a href="#1-mydiagram에-오신-것을-환영합니다">1. MyDiagram에 오신 것을 환영합니다</a></li><li class="h3"><a href="#2-홈-버튼">2. 홈 버튼</a></li><li class="h3"><a href="#3-새-드로잉-만들기">3. 새 드로잉 만들기</a></li><li class="h3"><a href="#4-최근-파일과-폴더">4. 최근 파일과 폴더</a></li><li class="h3"><a href="#5-카드-옮기기와-크기-바꾸기">5. 카드 옮기기와 크기 바꾸기</a></li><li class="h3"><a href="#6-예제-드로잉">6. 예제 드로잉</a></li><li class="h3"><a href="#7-움직이는-배경">7. 움직이는 배경</a></li><li class="h2"><a href="#2-도형-그리기">2. 도형 그리기</a></li><li class="h3"><a href="#8-예제-드로잉">8. 예제 드로잉</a></li><li class="h3"><a href="#9-화면-구성">9. 화면 구성</a></li><li class="h3"><a href="#10-도형-패널과-스텐실">10. 도형 패널과 스텐실</a></li><li class="h3"><a href="#11-도형-놓기">11. 도형 놓기</a></li><li class="h3"><a href="#13-도형-검색">13. 도형 검색</a></li><li class="h3"><a href="#14-스텐실-고르기">14. 스텐실 고르기</a></li><li class="h3"><a href="#15-회전-각도-보기">15. 회전 각도 보기</a></li><li class="h3"><a href="#16-그리기-도구">16. 그리기 도구</a></li><li class="h3"><a href="#17-텍스트-입력">17. 텍스트 입력</a></li><li class="h3"><a href="#18-이동크기회전">18. 이동·크기·회전</a></li><li class="h3"><a href="#19-실행-취소다시-실행">19. 실행 취소·다시 실행</a></li><li class="h2"><a href="#3-연결하기">3. 연결하기</a></li><li class="h3"><a href="#12-shift로-선-정렬">12. Shift로 선 정렬</a></li><li class="h3"><a href="#20-연결선-그리기">20. 연결선 그리기</a></li><li class="h3"><a href="#21-자동-연결">21. 자동 연결</a></li><li class="h3"><a href="#22-연결선-모양">22. 연결선 모양</a></li><li class="h3"><a href="#23-연결점과-붙이기">23. 연결점과 붙이기</a></li><li class="h2"><a href="#4-서식">4. 서식</a></li><li class="h3"><a href="#24-속성-패널">24. 속성 패널</a></li><li class="h3"><a href="#25-빠른-스타일">25. 빠른 스타일</a></li><li class="h3"><a href="#26-도형-서식">26. 도형 서식</a></li><li class="h3"><a href="#27-테마와-변형">27. 테마와 변형</a></li><li class="h3"><a href="#28-서식-복사">28. 서식 복사</a></li><li class="h3"><a href="#29-채우기와-파스텔-색">29. 채우기와 파스텔 색</a></li><li class="h2"><a href="#5-정렬과-배치">5. 정렬과 배치</a></li><li class="h3"><a href="#30-맞춤과-분배">30. 맞춤과 분배</a></li><li class="h3"><a href="#31-그룹">31. 그룹</a></li><li class="h3"><a href="#32-자동-레이아웃">32. 자동 레이아웃</a></li><li class="h3"><a href="#33-회전과-대칭">33. 회전과 대칭</a></li><li class="h3"><a href="#34-fishbone으로-변환">34. Fishbone으로 변환</a></li><li class="h2"><a href="#6-페이지와-레이어">6. 페이지와 레이어</a></li><li class="h3"><a href="#35-여러-페이지">35. 여러 페이지</a></li><li class="h3"><a href="#36-배경-페이지">36. 배경 페이지</a></li><li class="h3"><a href="#37-레이어">37. 레이어</a></li><li class="h3"><a href="#38-페이지-설정">38. 페이지 설정</a></li><li class="h3"><a href="#39-페이지-개요">39. 페이지 개요</a></li><li class="h2"><a href="#7-데이터와-보고서">7. 데이터와 보고서</a></li><li class="h3"><a href="#40-도형-데이터">40. 도형 데이터</a></li><li class="h3"><a href="#41-데이터-표시">41. 데이터 표시</a></li><li class="h3"><a href="#42-도형-데이터-표">42. 도형 데이터 표</a></li><li class="h3"><a href="#43-데이터로-조직도">43. 데이터로 조직도</a></li><li class="h3"><a href="#44-보고서">44. 보고서</a></li><li class="h3"><a href="#45-도형-시트">45. 도형 시트</a></li><li class="h2"><a href="#8-파일과-인쇄">8. 파일과 인쇄</a></li><li class="h3"><a href="#46-파일-메뉴">46. 파일 메뉴</a></li><li class="h3"><a href="#47-visio와-주고받기">47. Visio와 주고받기</a></li><li class="h3"><a href="#48-인쇄와-미리-보기">48. 인쇄와 미리 보기</a></li><li class="h3"><a href="#49-페이지를-그림으로">49. 페이지를 그림으로</a></li><li class="h3"><a href="#50-데이터베이스에-저장하기">50. 데이터베이스에 저장하기</a></li><li class="h3"><a href="#51-최근-파일-관리">51. 최근 파일 관리</a></li><li class="h3"><a href="#52-끌어다-놓기">52. 끌어다 놓기</a></li><li class="h3"><a href="#53-그림-끌어다-놓기">53. 그림 끌어다 놓기</a></li><li class="h2"><a href="#9-사용자-설정">9. 사용자 설정</a></li><li class="h3"><a href="#54-테마">54. 테마</a></li><li class="h3"><a href="#55-언어">55. 언어</a></li><li class="h3"><a href="#56-패널-접기">56. 패널 접기</a></li><li class="h3"><a href="#57-이동확대-창">57. 이동·확대 창</a></li><li class="h3"><a href="#58-설정">58. 설정</a></li><li class="h3"><a href="#59-상태-표시줄">59. 상태 표시줄</a></li><li class="h2"><a href="#10-도움말">10. 도움말</a></li><li class="h3"><a href="#60-프레젠테이션-모드">60. 프레젠테이션 모드</a></li><li class="h3"><a href="#61-단축키">61. 단축키</a></li><li class="h3"><a href="#62-프로그램-정보">62. 프로그램 정보</a></li><li class="h3"><a href="#63-튜토리얼-문서-읽기">63. 튜토리얼 문서 읽기</a></li><li class="h3"><a href="#64-다-둘러봤습니다">64. 다 둘러봤습니다</a></li></ul></nav>
 <main>
 <h1 id="mydiagram-튜토리얼">MyDiagram 튜토리얼</h1>
 <p>이 문서는 앱 안의 <strong>튜토리얼</strong>과 같은 내용을 단계별 화면과 함께 보여 줍니다. 그림은 실제 앱에서 튜토리얼을 실행하며 찍은 것입니다 (<code>npm run tutorial:docs</code> 로 다시 만듭니다).</p>
 <h2 id="튜토리얼-실행하기">튜토리얼 실행하기 <a class="anchor" href="#튜토리얼-실행하기" aria-hidden="true">#</a></h2>
-<ul><li><strong>시작 페이지 › 튜토리얼 시작</strong>, 툴바의 <strong>튜토리얼</strong> 버튼, <strong>도움말 › 튜토리얼</strong> 또는 <strong>F11</strong>을 누릅니다.</li><li>카드의 <strong>다음 / 이전</strong>으로 한 단계씩, <strong>자동 재생</strong>으로 끝까지 봅니다. 장 목록으로 원하는 장으로 바로 가고, <strong>✕</strong> 또는 <strong>Esc</strong>로 언제든 끝냅니다.</li><li>튜토리얼은 자기 예제 탭에서만 작업합니다. 열어 둔 계획은 바뀌지 않고, 바꾼 테마·언어·보기 설정은 끝날 때 원래대로 돌아갑니다.</li><li>전체 과정을 녹화한 동영상은 <code>npm run tutorial:video</code>로 프로젝트 루트에 <code>MyDiagram-Tutorial.mp4</code>로 만듭니다(ffmpeg 필요). 이 파일은 저장소에 넣지 않습니다.</li></ul>
+<ul><li><strong>시작 페이지 › 튜토리얼 시작</strong>, 툴바의 <strong>튜토리얼</strong> 버튼, <strong>도움말 › 튜토리얼</strong> 또는 <strong>F11</strong>을 누릅니다.</li><li>카드의 <strong>다음 / 이전</strong>으로 한 단계씩, <strong>자동 재생</strong>으로 끝까지 봅니다. 장 목록으로 원하는 장으로 바로 가고, <strong>✕</strong> 또는 <strong>Esc</strong>로 언제든 끝냅니다.</li><li>튜토리얼은 자기 예제 탭에서만 작업합니다. 열어 둔 계획은 바뀌지 않고, 바꾼 테마·언어·보기 설정은 끝날 때 원래대로 돌아갑니다.</li><li>전체 과정을 녹화한 동영상: 프로젝트 루트의 <code>MyDiagram-Tutorial.mp4</code>.</li></ul>
 <h2 id="차례">차례 <a class="anchor" href="#차례" aria-hidden="true">#</a></h2>
 <ol><li><a href="#1-시작">시작</a></li><li><a href="#2-도형-그리기">도형 그리기</a></li><li><a href="#3-연결하기">연결하기</a></li><li><a href="#4-서식">서식</a></li><li><a href="#5-정렬과-배치">정렬과 배치</a></li><li><a href="#6-페이지와-레이어">페이지와 레이어</a></li><li><a href="#7-데이터와-보고서">데이터와 보고서</a></li><li><a href="#8-파일과-인쇄">파일과 인쇄</a></li><li><a href="#9-사용자-설정">사용자 설정</a></li><li><a href="#10-도움말">도움말</a></li></ol>
 <h2 id="1-시작">1. 시작 <a class="anchor" href="#1-시작" aria-hidden="true">#</a></h2>
@@ -101,173 +135,231 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 <h3 id="4-최근-파일과-폴더">4. 최근 파일과 폴더 <a class="anchor" href="#4-최근-파일과-폴더" aria-hidden="true">#</a></h3>
 <p>최근에 연 파일 10개와 폴더 10개가 기억됩니다. ✕로 하나씩, &quot;모두 지우기&quot;로 한 번에 지웁니다. 파일 메뉴의 최근 파일·최근 폴더에서도 관리합니다.</p>
 <p><img src="tutorial/images/04-recent.jpg" alt="최근 파일과 폴더" loading="lazy" /></p>
-<h3 id="5-움직이는-배경">5. 움직이는 배경 <a class="anchor" href="#5-움직이는-배경" aria-hidden="true">#</a></h3>
-<p>시작 페이지의 배경은 계속 움직입니다. 오로라·물결·순서도·노드 네트워크·반딧불 등 20가지 중에서 고르거나 무작위로 바꾸고 속도도 조절합니다. 시작할 때마다, 그리고 정한 시간마다 다른 배경으로 바뀝니다. 이미지를 배경으로 쓸 수도 있습니다.</p>
-<p><img src="tutorial/images/05-background.jpg" alt="움직이는 배경" loading="lazy" /></p>
-<h2 id="2-도형-그리기">2. 도형 그리기 <a class="anchor" href="#2-도형-그리기" aria-hidden="true">#</a></h2>
+<h3 id="5-카드-옮기기와-크기-바꾸기">5. 카드 옮기기와 크기 바꾸기 <a class="anchor" href="#5-카드-옮기기와-크기-바꾸기" aria-hidden="true">#</a></h3>
+<p>시작 화면의 각 영역은 카드입니다. ⠿ 손잡이나 제목 줄을 끌어 옮기고, 오른쪽 아래의 삼각형 점을 끌어 크기를 바꿉니다. 위쪽의 자동 정렬은 카드를 빈틈없이 맞추고, 아래쪽의 카드 배치 초기화는 처음 배치로 돌아갑니다.</p>
+<p><img src="tutorial/images/05-startCards.jpg" alt="카드 옮기기와 크기 바꾸기" loading="lazy" /></p>
 <h3 id="6-예제-드로잉">6. 예제 드로잉 <a class="anchor" href="#6-예제-드로잉" aria-hidden="true">#</a></h3>
+<p>예제 카드에는 순서도, BPMN, UML, 데이터베이스, 네트워크, 조직도, 마인드맵, 평면도, 일정, 블록, 전기 회로 예제가 분류별로 있습니다. 눌러서 바로 열어 보세요.</p>
+<p><img src="tutorial/images/06-startSamples.jpg" alt="예제 드로잉" loading="lazy" /></p>
+<h3 id="7-움직이는-배경">7. 움직이는 배경 <a class="anchor" href="#7-움직이는-배경" aria-hidden="true">#</a></h3>
+<p>시작 페이지의 배경은 계속 움직입니다. 오로라·물결·순서도·노드 네트워크·반딧불 등 20가지 중에서 고르거나 무작위로 바꾸고 속도도 조절합니다. 시작할 때마다, 그리고 정한 시간마다 다른 배경으로 바뀝니다. 이미지를 배경으로 쓸 수도 있습니다.</p>
+<p><img src="tutorial/images/07-background.jpg" alt="움직이는 배경" loading="lazy" /></p>
+<h2 id="2-도형-그리기">2. 도형 그리기 <a class="anchor" href="#2-도형-그리기" aria-hidden="true">#</a></h2>
+<h3 id="8-예제-드로잉">8. 예제 드로잉 <a class="anchor" href="#8-예제-드로잉" aria-hidden="true">#</a></h3>
 <p>온라인 쇼핑몰 예제를 열었습니다. 첫 페이지는 스윔레인으로 나눈 주문 처리 순서도이고, 다른 페이지에 조직도와 서버 구성이 있습니다. 모든 페이지는 제목 칸이 있는 배경 페이지를 씁니다.</p>
-<p><img src="tutorial/images/06-sample.jpg" alt="예제 드로잉" loading="lazy" /></p>
-<h3 id="7-화면-구성">7. 화면 구성 <a class="anchor" href="#7-화면-구성" aria-hidden="true">#</a></h3>
-<p>위에서부터 메뉴, 툴바, 드로잉 탭이 있고, 왼쪽 도형 패널·가운데 드로잉(눈금자와 페이지 탭)·오른쪽 속성 패널·아래 상태 표시줄로 되어 있습니다. 패널 사이의 구분자를 끌어 너비를 바꿉니다.</p>
-<p><img src="tutorial/images/07-layout.jpg" alt="화면 구성" loading="lazy" /></p>
-<h3 id="8-도형-패널과-스텐실">8. 도형 패널과 스텐실 <a class="anchor" href="#8-도형-패널과-스텐실" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/08-sample.jpg" alt="예제 드로잉" loading="lazy" /></p>
+<h3 id="9-화면-구성">9. 화면 구성 <a class="anchor" href="#9-화면-구성" aria-hidden="true">#</a></h3>
+<p>맨 위 줄에 프로그램 이름·드로잉 이름·메뉴·창 버튼, 그 아래 툴바가 있고, 왼쪽 도형 패널·가운데 드로잉(위쪽 페이지 탭과 눈금자)·오른쪽 속성 패널·아래 상태 표시줄로 되어 있습니다. 패널 사이의 구분자를 끌어 너비를 바꿉니다.</p>
+<p><img src="tutorial/images/09-layout.jpg" alt="화면 구성" loading="lazy" /></p>
+<h3 id="10-도형-패널과-스텐실">10. 도형 패널과 스텐실 <a class="anchor" href="#10-도형-패널과-스텐실" aria-hidden="true">#</a></h3>
 <p>기본 도형·화살표·순서도·UML·ERD·BPMN·네트워크·조직도·평면도 등 15가지 스텐실에 200여 개의 도형이 있습니다. &quot;스텐실&quot;로 열고 닫으며, 아이콘 크기를 바꿀 수 있습니다.</p>
-<p><img src="tutorial/images/08-shapesPanel.jpg" alt="도형 패널과 스텐실" loading="lazy" /></p>
-<h3 id="9-도형-놓기">9. 도형 놓기 <a class="anchor" href="#9-도형-놓기" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/10-shapesPanel.jpg" alt="도형 패널과 스텐실" loading="lazy" /></p>
+<h3 id="11-도형-놓기">11. 도형 놓기 <a class="anchor" href="#11-도형-놓기" aria-hidden="true">#</a></h3>
 <p>도형을 페이지로 끌어다 놓거나 한 번 클릭하면 화면 가운데에 놓입니다. 격자와 다른 도형에 맞춰집니다.</p>
-<p><img src="tutorial/images/09-dropShape.jpg" alt="도형 놓기" loading="lazy" /></p>
-<h3 id="10-도형-검색">10. 도형 검색 <a class="anchor" href="#10-도형-검색" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/11-dropShape.jpg" alt="도형 놓기" loading="lazy" /></p>
+<h3 id="13-도형-검색">13. 도형 검색 <a class="anchor" href="#13-도형-검색" aria-hidden="true">#</a></h3>
 <p>검색 칸에 이름을 쓰면 모든 스텐실에서 도형을 찾습니다. 한국어와 영어 이름 모두 됩니다.</p>
-<p><img src="tutorial/images/10-search.jpg" alt="도형 검색" loading="lazy" /></p>
-<h3 id="11-그리기-도구">11. 그리기 도구 <a class="anchor" href="#11-그리기-도구" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/13-search.jpg" alt="도형 검색" loading="lazy" /></p>
+<h3 id="14-스텐실-고르기">14. 스텐실 고르기 <a class="anchor" href="#14-스텐실-고르기" aria-hidden="true">#</a></h3>
+<p>툴바의 스텐실 버튼이나 도형 패널의 스텐실에서 필요한 스텐실을 열고 닫습니다. 네트워크, 클라우드, 화면 설계, 비즈니스, 차트, 논리 회로, 공정 배관, 보안 등 많은 스텐실이 있고, 도형 아이콘 크기는 작게가 기본입니다.</p>
+<p><img src="tutorial/images/14-stencilMenu.jpg" alt="스텐실 고르기" loading="lazy" /></p>
+<h3 id="15-회전-각도-보기">15. 회전 각도 보기 <a class="anchor" href="#15-회전-각도-보기" aria-hidden="true">#</a></h3>
+<p>위쪽 둥근 손잡이를 끌면 도형이 돌아가면서 각도기와 함께 &quot;+45° → 45°&quot;처럼 얼마나 돌렸는지와 지금 각도를 보여 줍니다. Shift를 누르면 15도씩 돕니다.</p>
+<p><img src="tutorial/images/15-rotateDial.jpg" alt="회전 각도 보기" loading="lazy" /></p>
+<h3 id="16-그리기-도구">16. 그리기 도구 <a class="anchor" href="#16-그리기-도구" aria-hidden="true">#</a></h3>
 <p>포인터·화면 이동·연결선·텍스트·사각형·타원·선·연필·다각선 도구가 있습니다. Esc를 누르면 포인터로 돌아갑니다.</p>
-<p><img src="tutorial/images/11-tools.jpg" alt="그리기 도구" loading="lazy" /></p>
-<h3 id="12-텍스트-입력">12. 텍스트 입력 <a class="anchor" href="#12-텍스트-입력" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/16-tools.jpg" alt="그리기 도구" loading="lazy" /></p>
+<h3 id="17-텍스트-입력">17. 텍스트 입력 <a class="anchor" href="#17-텍스트-입력" aria-hidden="true">#</a></h3>
 <p>도형을 두 번 클릭하거나 F2를 누르면 텍스트를 고칩니다. 도형을 선택하고 바로 타이핑해도 됩니다. Enter는 줄 바꿈, Ctrl+Enter나 바깥 클릭으로 끝냅니다.</p>
-<p><img src="tutorial/images/12-text.jpg" alt="텍스트 입력" loading="lazy" /></p>
-<h3 id="13-이동크기회전">13. 이동·크기·회전 <a class="anchor" href="#13-이동크기회전" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/17-text.jpg" alt="텍스트 입력" loading="lazy" /></p>
+<h3 id="18-이동크기회전">18. 이동·크기·회전 <a class="anchor" href="#18-이동크기회전" aria-hidden="true">#</a></h3>
 <p>끌어서 옮기고(분홍 스마트 안내선이 맞춤을 보여 줌), 흰 사각형 손잡이로 크기를, 위쪽 동그라미로 회전을, 노란 마름모로 모양을 조절합니다. Shift는 비율 유지·15° 회전입니다.</p>
-<p><img src="tutorial/images/13-moveResize.jpg" alt="이동·크기·회전" loading="lazy" /></p>
-<h3 id="14-실행-취소다시-실행">14. 실행 취소·다시 실행 <a class="anchor" href="#14-실행-취소다시-실행" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/18-moveResize.jpg" alt="이동·크기·회전" loading="lazy" /></p>
+<h3 id="19-실행-취소다시-실행">19. 실행 취소·다시 실행 <a class="anchor" href="#19-실행-취소다시-실행" aria-hidden="true">#</a></h3>
 <p>모든 편집은 탭마다 200단계까지 실행 취소/다시 실행할 수 있습니다. 툴팁에 되돌릴 작업 이름이 나옵니다.</p>
-<p><img src="tutorial/images/14-undo.jpg" alt="실행 취소·다시 실행" loading="lazy" /></p>
+<p><img src="tutorial/images/19-undo.jpg" alt="실행 취소·다시 실행" loading="lazy" /></p>
 <h2 id="3-연결하기">3. 연결하기 <a class="anchor" href="#3-연결하기" aria-hidden="true">#</a></h2>
-<h3 id="15-연결선-그리기">15. 연결선 그리기 <a class="anchor" href="#15-연결선-그리기" aria-hidden="true">#</a></h3>
+<h3 id="12-shift로-선-정렬">12. Shift로 선 정렬 <a class="anchor" href="#12-shift로-선-정렬" aria-hidden="true">#</a></h3>
+<p>선으로 연결된 도형을 Shift를 누른 채 끌면, 연결된 도형과 가로나 세로로 줄이 맞아 선이 곧게 펴집니다. 놓으면 꺾임점도 정리됩니다. 선이 없는 도형은 가로·세로로만 움직입니다.</p>
+<p><img src="tutorial/images/12-shiftAlign.jpg" alt="Shift로 선 정렬" loading="lazy" /></p>
+<h3 id="20-연결선-그리기">20. 연결선 그리기 <a class="anchor" href="#20-연결선-그리기" aria-hidden="true">#</a></h3>
 <p>연결선 도구로 도형에서 도형으로 끌면 붙은 연결선이 생깁니다. 도형이 움직이면 연결선이 따라오고, 다른 도형을 피해 길을 찾습니다.</p>
-<p><img src="tutorial/images/15-connector.jpg" alt="연결선 그리기" loading="lazy" /></p>
-<h3 id="16-자동-연결">16. 자동 연결 <a class="anchor" href="#16-자동-연결" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/20-connector.jpg" alt="연결선 그리기" loading="lazy" /></p>
+<h3 id="21-자동-연결">21. 자동 연결 <a class="anchor" href="#21-자동-연결" aria-hidden="true">#</a></h3>
 <p>도형 위에 마우스를 올리면 파란 화살표가 나옵니다. 클릭하면 같은 도형을 만들어 연결하고, 끌면 원하는 곳으로 연결선을 그립니다.</p>
-<p><img src="tutorial/images/16-autoConnect.jpg" alt="자동 연결" loading="lazy" /></p>
-<h3 id="17-연결선-모양">17. 연결선 모양 <a class="anchor" href="#17-연결선-모양" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/21-autoConnect.jpg" alt="자동 연결" loading="lazy" /></p>
+<h3 id="22-연결선-모양">22. 연결선 모양 <a class="anchor" href="#22-연결선-모양" aria-hidden="true">#</a></h3>
 <p>직각·직선·곡선 연결선이 있고, 가운데 사각형 손잡이를 끌어 꺾을 수 있습니다. 화살촉은 UML·ERD용을 포함해 16가지입니다.</p>
-<p><img src="tutorial/images/17-routes.jpg" alt="연결선 모양" loading="lazy" /></p>
-<h3 id="18-연결점과-붙이기">18. 연결점과 붙이기 <a class="anchor" href="#18-연결점과-붙이기" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/22-routes.jpg" alt="연결선 모양" loading="lazy" /></p>
+<h3 id="23-연결점과-붙이기">23. 연결점과 붙이기 <a class="anchor" href="#23-연결점과-붙이기" aria-hidden="true">#</a></h3>
 <p>연결점(파란 ×)에 놓으면 그 점에, 도형 위에 놓으면 가장 가까운 점으로 자동 연결됩니다(동적 붙이기). 초록 끝점은 붙어 있다는 뜻입니다.</p>
-<p><img src="tutorial/images/18-glue.jpg" alt="연결점과 붙이기" loading="lazy" /></p>
+<p><img src="tutorial/images/23-glue.jpg" alt="연결점과 붙이기" loading="lazy" /></p>
 <h2 id="4-서식">4. 서식 <a class="anchor" href="#4-서식" aria-hidden="true">#</a></h2>
-<h3 id="19-속성-패널">19. 속성 패널 <a class="anchor" href="#19-속성-패널" aria-hidden="true">#</a></h3>
+<h3 id="24-속성-패널">24. 속성 패널 <a class="anchor" href="#24-속성-패널" aria-hidden="true">#</a></h3>
 <p>선택한 도형의 텍스트·빠른 스타일·채우기·선·텍스트·효과·크기·데이터·레이어·링크·메모·보호를 바로 고칩니다. 아무것도 선택하지 않으면 페이지와 드로잉 설정이 나옵니다.</p>
-<p><img src="tutorial/images/19-properties.jpg" alt="속성 패널" loading="lazy" /></p>
-<h3 id="20-빠른-스타일">20. 빠른 스타일 <a class="anchor" href="#20-빠른-스타일" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/24-properties.jpg" alt="속성 패널" loading="lazy" /></p>
+<h3 id="25-빠른-스타일">25. 빠른 스타일 <a class="anchor" href="#25-빠른-스타일" aria-hidden="true">#</a></h3>
 <p>테마 색 6가지와 채우기·연하게·윤곽선·진하게·그라데이션을 골라 한 번에 꾸밉니다.</p>
-<p><img src="tutorial/images/20-quickStyle.jpg" alt="빠른 스타일" loading="lazy" /></p>
-<h3 id="21-도형-서식">21. 도형 서식 <a class="anchor" href="#21-도형-서식" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/25-quickStyle.jpg" alt="빠른 스타일" loading="lazy" /></p>
+<h3 id="26-도형-서식">26. 도형 서식 <a class="anchor" href="#26-도형-서식" aria-hidden="true">#</a></h3>
 <p>채우기(단색·그라데이션·무늬·불투명도)·선(색·두께·모양·모서리)·텍스트·효과·크기 및 위치·보호를 자세히 설정합니다. 바꾼 항목만 적용됩니다.</p>
-<p><img src="tutorial/images/21-formatDialog.jpg" alt="도형 서식" loading="lazy" /></p>
-<h3 id="22-테마와-변형">22. 테마와 변형 <a class="anchor" href="#22-테마와-변형" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/26-formatDialog.jpg" alt="도형 서식" loading="lazy" /></p>
+<h3 id="27-테마와-변형">27. 테마와 변형 <a class="anchor" href="#27-테마와-변형" aria-hidden="true">#</a></h3>
 <p>16가지 테마와 각 4가지 변형이 있습니다. 테마를 바꾸면 직접 서식을 바꾸지 않은 모든 도형이 함께 바뀝니다.</p>
-<p><img src="tutorial/images/22-design.jpg" alt="테마와 변형" loading="lazy" /></p>
-<h3 id="23-서식-복사">23. 서식 복사 <a class="anchor" href="#23-서식-복사" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/27-design.jpg" alt="테마와 변형" loading="lazy" /></p>
+<h3 id="28-서식-복사">28. 서식 복사 <a class="anchor" href="#28-서식-복사" aria-hidden="true">#</a></h3>
 <p>도형을 선택하고 서식 복사(Ctrl+Shift+C)를 누른 뒤 다른 도형을 클릭하면 같은 서식이 됩니다.</p>
-<p><img src="tutorial/images/23-formatPainter.jpg" alt="서식 복사" loading="lazy" /></p>
+<p><img src="tutorial/images/28-formatPainter.jpg" alt="서식 복사" loading="lazy" /></p>
+<h3 id="29-채우기와-파스텔-색">29. 채우기와 파스텔 색 <a class="anchor" href="#29-채우기와-파스텔-색" aria-hidden="true">#</a></h3>
+<p>속성 패널의 채우기에서 채우기를 켜고 끄고, 파스텔 프리셋을 눌러 바로 색을 바꿉니다. 색 고르기 창에도 파스텔 색이 있습니다.</p>
+<p><img src="tutorial/images/29-pastelFill.jpg" alt="채우기와 파스텔 색" loading="lazy" /></p>
 <h2 id="5-정렬과-배치">5. 정렬과 배치 <a class="anchor" href="#5-정렬과-배치" aria-hidden="true">#</a></h2>
-<h3 id="24-맞춤과-분배">24. 맞춤과 분배 <a class="anchor" href="#24-맞춤과-분배" aria-hidden="true">#</a></h3>
+<h3 id="30-맞춤과-분배">30. 맞춤과 분배 <a class="anchor" href="#30-맞춤과-분배" aria-hidden="true">#</a></h3>
 <p>여러 도형을 처음 선택한 도형에 왼쪽·가운데·오른쪽·위·중간·아래로 맞추고, 간격을 균등하게 분배합니다.</p>
-<p><img src="tutorial/images/24-align.jpg" alt="맞춤과 분배" loading="lazy" /></p>
-<h3 id="25-그룹">25. 그룹 <a class="anchor" href="#25-그룹" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/30-align.jpg" alt="맞춤과 분배" loading="lazy" /></p>
+<h3 id="31-그룹">31. 그룹 <a class="anchor" href="#31-그룹" aria-hidden="true">#</a></h3>
 <p>도형을 그룹으로 묶으면 함께 움직이고 크기가 바뀝니다. 그룹 안의 도형은 한 번 더 클릭해 고릅니다.</p>
-<p><img src="tutorial/images/25-group.jpg" alt="그룹" loading="lazy" /></p>
-<h3 id="26-자동-레이아웃">26. 자동 레이아웃 <a class="anchor" href="#26-자동-레이아웃" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/31-group.jpg" alt="그룹" loading="lazy" /></p>
+<h3 id="32-자동-레이아웃">32. 자동 레이아웃 <a class="anchor" href="#32-자동-레이아웃" aria-hidden="true">#</a></h3>
 <p>연결된 도형을 순서도·계층·방사형·원형·격자로 자동 배치합니다.</p>
-<p><img src="tutorial/images/26-relayout.jpg" alt="자동 레이아웃" loading="lazy" /></p>
-<h3 id="27-회전과-대칭">27. 회전과 대칭 <a class="anchor" href="#27-회전과-대칭" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/32-relayout.jpg" alt="자동 레이아웃" loading="lazy" /></p>
+<h3 id="33-회전과-대칭">33. 회전과 대칭 <a class="anchor" href="#33-회전과-대칭" aria-hidden="true">#</a></h3>
 <p>90°씩 회전하거나 좌우·상하로 뒤집습니다. 맨 앞으로/맨 뒤로로 겹치는 순서를 바꿉니다.</p>
-<p><img src="tutorial/images/27-rotate.jpg" alt="회전과 대칭" loading="lazy" /></p>
+<p><img src="tutorial/images/33-rotate.jpg" alt="회전과 대칭" loading="lazy" /></p>
+<h3 id="34-fishbone으로-변환">34. Fishbone으로 변환 <a class="anchor" href="#34-fishbone으로-변환" aria-hidden="true">#</a></h3>
+<p>마인드맵을 그린 페이지에서는 툴바의 Fishbone 변환 버튼이 켜집니다. 누르면 중심 주제가 머리, 주요 주제가 가시가 되는 Fishbone 다이어그램으로 바뀌고, 다시 누르면 마인드맵으로 돌아갑니다.</p>
+<p><img src="tutorial/images/34-fishbone.jpg" alt="Fishbone으로 변환" loading="lazy" /></p>
 <h2 id="6-페이지와-레이어">6. 페이지와 레이어 <a class="anchor" href="#6-페이지와-레이어" aria-hidden="true">#</a></h2>
-<h3 id="28-여러-페이지">28. 여러 페이지 <a class="anchor" href="#28-여러-페이지" aria-hidden="true">#</a></h3>
-<p>아래 페이지 탭으로 페이지를 바꾸고, +로 추가하며, 두 번 클릭해 이름을 바꾸고, 끌어서 순서를 바꿉니다.</p>
-<p><img src="tutorial/images/28-pageTabs.jpg" alt="여러 페이지" loading="lazy" /></p>
-<h3 id="29-배경-페이지">29. 배경 페이지 <a class="anchor" href="#29-배경-페이지" aria-hidden="true">#</a></h3>
+<h3 id="35-여러-페이지">35. 여러 페이지 <a class="anchor" href="#35-여러-페이지" aria-hidden="true">#</a></h3>
+<p>위쪽 페이지 탭으로 페이지를 바꾸고, +로 추가하며, 두 번 클릭해 이름을 바꾸고, 끌어서 순서를 바꿉니다.</p>
+<p><img src="tutorial/images/35-pageTabs.jpg" alt="여러 페이지" loading="lazy" /></p>
+<h3 id="36-배경-페이지">36. 배경 페이지 <a class="anchor" href="#36-배경-페이지" aria-hidden="true">#</a></h3>
 <p>배경 페이지의 테두리와 제목 칸은 그 배경을 쓰는 모든 페이지에 나타납니다. {page}, {pages}, {date} 같은 필드가 자동으로 채워집니다.</p>
-<p><img src="tutorial/images/29-backgroundPage.jpg" alt="배경 페이지" loading="lazy" /></p>
-<h3 id="30-레이어">30. 레이어 <a class="anchor" href="#30-레이어" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/36-backgroundPage.jpg" alt="배경 페이지" loading="lazy" /></p>
+<h3 id="37-레이어">37. 레이어 <a class="anchor" href="#37-레이어" aria-hidden="true">#</a></h3>
 <p>도형을 레이어에 나눠 담고 레이어마다 보이기·인쇄·잠금·색을 정합니다.</p>
-<p><img src="tutorial/images/30-layers.jpg" alt="레이어" loading="lazy" /></p>
-<h3 id="31-페이지-설정">31. 페이지 설정 <a class="anchor" href="#31-페이지-설정" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/37-layers.jpg" alt="레이어" loading="lazy" /></p>
+<h3 id="38-페이지-설정">38. 페이지 설정 <a class="anchor" href="#38-페이지-설정" aria-hidden="true">#</a></h3>
 <p>용지와 방향, 자동 크기, 배경 페이지, 페이지 색, 격자, 연결선 모양과 선 점프, 측정 단위를 정합니다.</p>
-<p><img src="tutorial/images/31-pageSetup.jpg" alt="페이지 설정" loading="lazy" /></p>
-<h3 id="32-페이지-개요">32. 페이지 개요 <a class="anchor" href="#32-페이지-개요" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/38-pageSetup.jpg" alt="페이지 설정" loading="lazy" /></p>
+<h3 id="39-페이지-개요">39. 페이지 개요 <a class="anchor" href="#39-페이지-개요" aria-hidden="true">#</a></h3>
 <p>모든 페이지를 축소판으로 보고 열기·복제·이름 바꾸기·삭제·순서 바꾸기를 합니다.</p>
-<p><img src="tutorial/images/32-pagesView.jpg" alt="페이지 개요" loading="lazy" /></p>
+<p><img src="tutorial/images/39-pagesView.jpg" alt="페이지 개요" loading="lazy" /></p>
 <h2 id="7-데이터와-보고서">7. 데이터와 보고서 <a class="anchor" href="#7-데이터와-보고서" aria-hidden="true">#</a></h2>
-<h3 id="33-도형-데이터">33. 도형 데이터 <a class="anchor" href="#33-도형-데이터" aria-hidden="true">#</a></h3>
+<h3 id="40-도형-데이터">40. 도형 데이터 <a class="anchor" href="#40-도형-데이터" aria-hidden="true">#</a></h3>
 <p>도형마다 텍스트·숫자·통화·날짜·예/아니요·목록 데이터를 붙입니다.</p>
-<p><img src="tutorial/images/33-shapeData.jpg" alt="도형 데이터" loading="lazy" /></p>
-<h3 id="34-데이터-표시">34. 데이터 표시 <a class="anchor" href="#34-데이터-표시" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/40-shapeData.jpg" alt="도형 데이터" loading="lazy" /></p>
+<h3 id="41-데이터-표시">41. 데이터 표시 <a class="anchor" href="#41-데이터-표시" aria-hidden="true">#</a></h3>
 <p>도형 아래에 데이터 값을 보여 줍니다. 도형마다 또는 드로잉 전체에 켭니다.</p>
-<p><img src="tutorial/images/34-dataGraphics.jpg" alt="데이터 표시" loading="lazy" /></p>
-<h3 id="35-도형-데이터-표">35. 도형 데이터 표 <a class="anchor" href="#35-도형-데이터-표" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/41-dataGraphics.jpg" alt="데이터 표시" loading="lazy" /></p>
+<h3 id="42-도형-데이터-표">42. 도형 데이터 표 <a class="anchor" href="#42-도형-데이터-표" aria-hidden="true">#</a></h3>
 <p>모든 도형의 데이터를 표로 보고 칸에서 바로 고칩니다. CSV로 내보내고, CSV를 도형에 연결합니다.</p>
-<p><img src="tutorial/images/35-dataView.jpg" alt="도형 데이터 표" loading="lazy" /></p>
-<h3 id="36-데이터로-조직도">36. 데이터로 조직도 <a class="anchor" href="#36-데이터로-조직도" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/42-dataView.jpg" alt="도형 데이터 표" loading="lazy" /></p>
+<h3 id="43-데이터로-조직도">43. 데이터로 조직도 <a class="anchor" href="#43-데이터로-조직도" aria-hidden="true">#</a></h3>
 <p>이름·직함·상사 열이 있는 표를 붙여넣거나 CSV를 열면 조직도가 만들어집니다.</p>
-<p><img src="tutorial/images/36-orgChart.jpg" alt="데이터로 조직도" loading="lazy" /></p>
-<h3 id="37-보고서">37. 보고서 <a class="anchor" href="#37-보고서" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/43-orgChart.jpg" alt="데이터로 조직도" loading="lazy" /></p>
+<h3 id="44-보고서">44. 보고서 <a class="anchor" href="#44-보고서" aria-hidden="true">#</a></h3>
 <p>도형 목록·도형 데이터(숫자 합계)·연결 관계·페이지·레이어·모든 텍스트 보고서를 만들고 HTML·Markdown·Word·PDF로 내보냅니다.</p>
-<p><img src="tutorial/images/37-reports.jpg" alt="보고서" loading="lazy" /></p>
-<h3 id="38-도형-시트">38. 도형 시트 <a class="anchor" href="#38-도형-시트" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/44-reports.jpg" alt="보고서" loading="lazy" /></p>
+<h3 id="45-도형-시트">45. 도형 시트 <a class="anchor" href="#45-도형-시트" aria-hidden="true">#</a></h3>
 <p>현재 페이지의 모든 도형의 위치·크기·각도·색·글꼴 크기·링크를 표에서 숫자로 고칩니다.</p>
-<p><img src="tutorial/images/38-shapeSheet.jpg" alt="도형 시트" loading="lazy" /></p>
+<p><img src="tutorial/images/45-shapeSheet.jpg" alt="도형 시트" loading="lazy" /></p>
 <h2 id="8-파일과-인쇄">8. 파일과 인쇄 <a class="anchor" href="#8-파일과-인쇄" aria-hidden="true">#</a></h2>
-<h3 id="39-파일-메뉴">39. 파일 메뉴 <a class="anchor" href="#39-파일-메뉴" aria-hidden="true">#</a></h3>
+<h3 id="46-파일-메뉴">46. 파일 메뉴 <a class="anchor" href="#46-파일-메뉴" aria-hidden="true">#</a></h3>
 <p>저장(.mdg), 템플릿으로 저장(.mdgt), Visio 열기·저장, PDF·SVG·그림·HTML·CSV 내보내기, 최근 파일·폴더, 데이터베이스, 인쇄가 있습니다.</p>
-<p><img src="tutorial/images/39-fileMenu.jpg" alt="파일 메뉴" loading="lazy" /></p>
-<h3 id="40-visio와-주고받기">40. Visio와 주고받기 <a class="anchor" href="#40-visio와-주고받기" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/46-fileMenu.jpg" alt="파일 메뉴" loading="lazy" /></p>
+<h3 id="47-visio와-주고받기">47. Visio와 주고받기 <a class="anchor" href="#47-visio와-주고받기" aria-hidden="true">#</a></h3>
 <p>Visio .vsdx·.vstx 파일을 열고, 도형·텍스트·서식·데이터·레이어·그림·연결선을 그대로 .vsdx로 저장합니다.</p>
-<p><img src="tutorial/images/40-visio.jpg" alt="Visio와 주고받기" loading="lazy" /></p>
-<h3 id="41-인쇄와-미리-보기">41. 인쇄와 미리 보기 <a class="anchor" href="#41-인쇄와-미리-보기" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/47-visio.jpg" alt="Visio와 주고받기" loading="lazy" /></p>
+<h3 id="48-인쇄와-미리-보기">48. 인쇄와 미리 보기 <a class="anchor" href="#48-인쇄와-미리-보기" aria-hidden="true">#</a></h3>
 <p>모든 페이지·현재 페이지·페이지 범위를 고르고, 용지에 맞춤·실제 크기(여러 장에 나눠)·배율, 용지·방향·여백·머리글·바닥글을 미리 보며 인쇄합니다.</p>
-<p><img src="tutorial/images/41-print.jpg" alt="인쇄와 미리 보기" loading="lazy" /></p>
-<h3 id="42-페이지를-그림으로">42. 페이지를 그림으로 <a class="anchor" href="#42-페이지를-그림으로" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/48-print.jpg" alt="인쇄와 미리 보기" loading="lazy" /></p>
+<h3 id="49-페이지를-그림으로">49. 페이지를 그림으로 <a class="anchor" href="#49-페이지를-그림으로" aria-hidden="true">#</a></h3>
 <p>페이지 전체·도형 부분·선택을 PNG·JPEG·WebP·BMP·TIFF·SVG로, 투명 배경과 배율을 골라 내보냅니다.</p>
-<p><img src="tutorial/images/42-imageExport.jpg" alt="페이지를 그림으로" loading="lazy" /></p>
-<h3 id="43-데이터베이스에-저장하기">43. 데이터베이스에 저장하기 <a class="anchor" href="#43-데이터베이스에-저장하기" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/49-imageExport.jpg" alt="페이지를 그림으로" loading="lazy" /></p>
+<h3 id="50-데이터베이스에-저장하기">50. 데이터베이스에 저장하기 <a class="anchor" href="#50-데이터베이스에-저장하기" aria-hidden="true">#</a></h3>
 <p>설정 › 데이터베이스에서 SQLite·MariaDB·MySQL·PostgreSQL을 고르고 연결 시험을 누릅니다. 그다음부터 저장(Ctrl+S)은 파일과 데이터베이스에 함께 저장하고, 파일 › 데이터베이스에서 열기로 꺼내 씁니다.</p>
-<p><img src="tutorial/images/43-database.jpg" alt="데이터베이스에 저장하기" loading="lazy" /></p>
-<h3 id="44-최근-파일-관리">44. 최근 파일 관리 <a class="anchor" href="#44-최근-파일-관리" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/50-database.jpg" alt="데이터베이스에 저장하기" loading="lazy" /></p>
+<h3 id="51-최근-파일-관리">51. 최근 파일 관리 <a class="anchor" href="#51-최근-파일-관리" aria-hidden="true">#</a></h3>
 <p>최근 파일과 최근 폴더를 탭으로 나눠 보여 줍니다. 열거나, 하나씩 지우거나, 모두 지웁니다. 없어진 파일은 &quot;없음&quot;으로 표시됩니다.</p>
-<p><img src="tutorial/images/44-recentFiles.jpg" alt="최근 파일 관리" loading="lazy" /></p>
-<h3 id="45-끌어다-놓기">45. 끌어다 놓기 <a class="anchor" href="#45-끌어다-놓기" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/51-recentFiles.jpg" alt="최근 파일 관리" loading="lazy" /></p>
+<h3 id="52-끌어다-놓기">52. 끌어다 놓기 <a class="anchor" href="#52-끌어다-놓기" aria-hidden="true">#</a></h3>
 <p>탐색기에서 .mdg·.vsdx 파일을 끌어오면 열리고, 그림은 페이지에 들어가며, CSV는 데이터 연결 창을 엽니다.</p>
-<p><img src="tutorial/images/45-dragDrop.jpg" alt="끌어다 놓기" loading="lazy" /></p>
+<p><img src="tutorial/images/52-dragDrop.jpg" alt="끌어다 놓기" loading="lazy" /></p>
+<h3 id="53-그림-끌어다-놓기">53. 그림 끌어다 놓기 <a class="anchor" href="#53-그림-끌어다-놓기" aria-hidden="true">#</a></h3>
+<p>탐색기에서 그림 파일을 드로잉으로 끌어다 놓으면 그 자리에 들어갑니다. PNG, JPEG, GIF, WebP, AVIF, HEIC, JPEG XL, JPEG 2000, TIFF, SVG, QOI, TGA 등을 받습니다.</p>
+<p><img src="tutorial/images/53-dropImage.jpg" alt="그림 끌어다 놓기" loading="lazy" /></p>
 <h2 id="9-사용자-설정">9. 사용자 설정 <a class="anchor" href="#9-사용자-설정" aria-hidden="true">#</a></h2>
-<h3 id="46-테마">46. 테마 <a class="anchor" href="#46-테마" aria-hidden="true">#</a></h3>
+<h3 id="54-테마">54. 테마 <a class="anchor" href="#54-테마" aria-hidden="true">#</a></h3>
 <p>테마 버튼은 누를 때마다 무작위로 다른 테마를 고릅니다. 옆의 ▾는 다크 20개와 라이트 20개를 두 줄로 보여 주고, 사용자 정의 테마는 설정의 테마 탭에서 색을 직접 고칩니다.</p>
-<p><img src="tutorial/images/46-theme.jpg" alt="테마" loading="lazy" /></p>
-<h3 id="47-언어">47. 언어 <a class="anchor" href="#47-언어" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/54-theme.jpg" alt="테마" loading="lazy" /></p>
+<h3 id="55-언어">55. 언어 <a class="anchor" href="#55-언어" aria-hidden="true">#</a></h3>
 <p>국기 버튼으로 한국어와 영어를 바꿉니다. 한국어일 때는 영국 국기, 영어일 때는 태극기가 보입니다.</p>
-<p><img src="tutorial/images/47-language.jpg" alt="언어" loading="lazy" /></p>
-<h3 id="48-패널-접기">48. 패널 접기 <a class="anchor" href="#48-패널-접기" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/55-language.jpg" alt="언어" loading="lazy" /></p>
+<h3 id="56-패널-접기">56. 패널 접기 <a class="anchor" href="#56-패널-접기" aria-hidden="true">#</a></h3>
 <p>도구 모음과 속성 패널은 접으면 아이콘과 제목만 남은 좁은 줄이 되고, 맨 위의 펼치기 버튼으로 다시 엽니다. 패널 사이 구분자를 끌어 너비를 바꿉니다.</p>
-<p><img src="tutorial/images/48-panels.jpg" alt="패널 접기" loading="lazy" /></p>
-<h3 id="49-이동확대-창">49. 이동·확대 창 <a class="anchor" href="#49-이동확대-창" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/56-panels.jpg" alt="패널 접기" loading="lazy" /></p>
+<h3 id="57-이동확대-창">57. 이동·확대 창 <a class="anchor" href="#57-이동확대-창" aria-hidden="true">#</a></h3>
 <p>오른쪽 아래의 작은 창에서 전체 페이지를 보고 사각형을 끌어 원하는 곳으로 이동합니다. Ctrl+휠로 확대/축소합니다.</p>
-<p><img src="tutorial/images/49-minimap.jpg" alt="이동·확대 창" loading="lazy" /></p>
-<h3 id="50-설정">50. 설정 <a class="anchor" href="#50-설정" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/57-minimap.jpg" alt="이동·확대 창" loading="lazy" /></p>
+<h3 id="58-설정">58. 설정 <a class="anchor" href="#58-설정" aria-hidden="true">#</a></h3>
 <p>일반·테마·글꼴·배경·드로잉(눈금자·격자·안내선·맞추기·자동 연결)·새 드로잉(기본 테마·용지·단위)·데이터베이스·최근 기록·단축키 탭이 있습니다. 설정은 다음 실행에도 남습니다.</p>
-<p><img src="tutorial/images/50-settings.jpg" alt="설정" loading="lazy" /></p>
-<h3 id="51-상태-표시줄">51. 상태 표시줄 <a class="anchor" href="#51-상태-표시줄" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/58-settings.jpg" alt="설정" loading="lazy" /></p>
+<h3 id="59-상태-표시줄">59. 상태 표시줄 <a class="anchor" href="#59-상태-표시줄" aria-hidden="true">#</a></h3>
 <p>명령 결과, 페이지 번호, 저장 상태, 선택한 도형의 크기·각도, 포인터 위치, 테마, 언어, 확대 슬라이더, 페이지 맞춤, 시계를 보여 줍니다.</p>
-<p><img src="tutorial/images/51-statusBar.jpg" alt="상태 표시줄" loading="lazy" /></p>
+<p><img src="tutorial/images/59-statusBar.jpg" alt="상태 표시줄" loading="lazy" /></p>
 <h2 id="10-도움말">10. 도움말 <a class="anchor" href="#10-도움말" aria-hidden="true">#</a></h2>
-<h3 id="52-프레젠테이션-모드">52. 프레젠테이션 모드 <a class="anchor" href="#52-프레젠테이션-모드" aria-hidden="true">#</a></h3>
+<h3 id="60-프레젠테이션-모드">60. 프레젠테이션 모드 <a class="anchor" href="#60-프레젠테이션-모드" aria-hidden="true">#</a></h3>
 <p>F5를 누르면 페이지를 전체 화면으로 차례로 보여 줍니다. 방향키·클릭으로 넘기고, 링크가 있는 도형은 클릭해 이동하며, Esc로 끝냅니다.</p>
-<p><img src="tutorial/images/52-presentation.jpg" alt="프레젠테이션 모드" loading="lazy" /></p>
-<h3 id="53-단축키">53. 단축키 <a class="anchor" href="#53-단축키" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/60-presentation.jpg" alt="프레젠테이션 모드" loading="lazy" /></p>
+<h3 id="61-단축키">61. 단축키 <a class="anchor" href="#61-단축키" aria-hidden="true">#</a></h3>
 <p>설정 › 단축키에 모든 단축키가 있습니다. 메뉴에도 단축키가 함께 표시됩니다.</p>
-<p><img src="tutorial/images/53-shortcuts.jpg" alt="단축키" loading="lazy" /></p>
-<h3 id="54-프로그램-정보">54. 프로그램 정보 <a class="anchor" href="#54-프로그램-정보" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/61-shortcuts.jpg" alt="단축키" loading="lazy" /></p>
+<h3 id="62-프로그램-정보">62. 프로그램 정보 <a class="anchor" href="#62-프로그램-정보" aria-hidden="true">#</a></h3>
 <p>툴바의 ⓘ 버튼은 버전, 빌드 정보, 제작자(SHKWON, knix008@naver.com)를 보여 줍니다. 오류가 나면 자세한 내용이 팝업으로 뜨고 그대로 복사할 수 있습니다.</p>
-<p><img src="tutorial/images/54-about.jpg" alt="프로그램 정보" loading="lazy" /></p>
-<h3 id="55-튜토리얼-문서-읽기">55. 튜토리얼 문서 읽기 <a class="anchor" href="#55-튜토리얼-문서-읽기" aria-hidden="true">#</a></h3>
-<p>이 튜토리얼의 모든 단계를 화면과 함께 정리한 문서를 프로그램 안에서 읽을 수 있습니다. 홈 화면의 도움말 › 튜토리얼 문서나 도움말 메뉴에서 엽니다. 위쪽 막대에서 장으로 이동하고, 한국어/English를 바꾸고, 튜토리얼을 바로 시작하거나 브라우저로 열 수 있습니다. 홈 버튼으로 돌아갑니다.</p>
-<p><img src="tutorial/images/55-tutorialDoc.jpg" alt="튜토리얼 문서 읽기" loading="lazy" /></p>
-<h3 id="56-다-둘러봤습니다">56. 다 둘러봤습니다 <a class="anchor" href="#56-다-둘러봤습니다" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/62-about.jpg" alt="프로그램 정보" loading="lazy" /></p>
+<h3 id="63-튜토리얼-문서-읽기">63. 튜토리얼 문서 읽기 <a class="anchor" href="#63-튜토리얼-문서-읽기" aria-hidden="true">#</a></h3>
+<p>이 튜토리얼의 모든 단계를 화면과 함께 정리한 문서는 별도의 창으로 열립니다. 홈 화면의 도움말 › 튜토리얼 문서나 도움말 메뉴에서 엽니다. 창 위쪽에서 글꼴 크기와 언어를 바꿀 수 있습니다.</p>
+<p><img src="tutorial/images/63-tutorialDoc.jpg" alt="튜토리얼 문서 읽기" loading="lazy" /></p>
+<h3 id="64-다-둘러봤습니다">64. 다 둘러봤습니다 <a class="anchor" href="#64-다-둘러봤습니다" aria-hidden="true">#</a></h3>
 <p>튜토리얼은 언제든 도움말 › 튜토리얼이나 툴바의 학사모 버튼(F11)으로 다시 볼 수 있습니다. 자세한 내용은 도움말 › 사용 설명서를 보세요.</p>
-<p><img src="tutorial/images/56-finish.jpg" alt="다 둘러봤습니다" loading="lazy" /></p>
+<p><img src="tutorial/images/64-finish.jpg" alt="다 둘러봤습니다" loading="lazy" /></p>
 </main>
 </div>
-<footer>MyDiagram v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+<footer>MyDiagram v1.0.1 · © SHKWON (knix008@naver.com)</footer>
+<script>(function () {
+  var KEY = 'mydiagram.docs.fontSize', MIN = 12, MAX = 28, BASE = 16;
+  var value = document.getElementById('doc-font-value');
+  var size = BASE;
+  try { size = Number(localStorage.getItem(KEY)) || BASE; } catch (e) {}
+  function apply(next) {
+    size = Math.max(MIN, Math.min(MAX, next));
+    document.documentElement.style.setProperty('--doc-zoom', String(size / BASE));
+    value.textContent = String(size);
+    document.getElementById('doc-font-down').disabled = size <= MIN;
+    document.getElementById('doc-font-up').disabled = size >= MAX;
+    try { localStorage.setItem(KEY, String(size)); } catch (e) {}
+  }
+  document.getElementById('doc-font-down').addEventListener('click', function () { apply(size - 1); });
+  document.getElementById('doc-font-up').addEventListener('click', function () { apply(size + 1); });
+  value.addEventListener('dblclick', function () { apply(BASE); });
+  document.querySelector('.doc-lang a.active').addEventListener('click', function (event) { event.preventDefault(); });
+  apply(size);
+  // The theme selected in the main window, also when it changes while this page is open.
+  var THEME = 'mydiagram.docs.theme';
+  function applyTheme() {
+    var theme = null;
+    try { theme = JSON.parse(localStorage.getItem(THEME)); } catch (e) {}
+    if (!theme || !theme.vars) return;
+    var style = document.documentElement.style;
+    for (var name in theme.vars) if (theme.vars[name]) style.setProperty(name, theme.vars[name]);
+    style.setProperty('--accent-soft', 'color-mix(in srgb, var(--accent) 16%, var(--surface))');
+    style.setProperty('--code-bg', 'color-mix(in srgb, var(--text) 7%, var(--surface))');
+    style.setProperty('--row-alt', 'color-mix(in srgb, var(--text) 3%, var(--surface))');
+    style.colorScheme = theme.dark ? 'dark' : 'light';
+  }
+  applyTheme();
+  window.addEventListener('storage', function (event) { if (event.key === THEME) applyTheme(); });
+})();</script>
 </body>
 </html>

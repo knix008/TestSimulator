@@ -45,7 +45,7 @@ page.on('Runtime.exceptionThrown', (p) => errors.push(p.exceptionDetails?.except
 try {
   if (mode === 'docs' || mode === 'check') {
     const outDir = path.join(root, 'docs', 'tutorial', 'images');
-    if (mode === 'docs') { fs.rmSync(outDir, { recursive: true, force: true }); fs.mkdirSync(outDir, { recursive: true }); }
+    if (mode === 'docs') { fs.mkdirSync(outDir, { recursive: true }); for (const name of fs.readdirSync(outDir)) if (/^\d\d-/.test(name)) fs.rmSync(path.join(outDir, name)); }
     // The dev server may reload the page once while it prepares modules: wait until the app is there again.
     await page.waitFor(`Boolean(${P}?.actions && document.querySelector('#toolbar .tool-button'))`, { timeout: 40000, message: 'the app is ready' });
     await evalJs(`(${P}.actions.startTutorial(), 1)`);

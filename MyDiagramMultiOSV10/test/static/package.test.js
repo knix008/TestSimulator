@@ -215,13 +215,11 @@ test('title bar: program name and version', () => {
   assert.match(read('src/popup.js').toString(), /— MyDiagram v\$\{VERSION\}/, 'popup windows show the name and version too');
 });
 
-test('a second start reports that the program is running and quits', () => {
+test('several copies can run; the first one keeps the session and window place', () => {
   const lib = read('src-tauri/src/lib.rs').toString();
-  assert.match(lib, /instance::acquire\(\)[\s\S]{0,200}report_already_running\(\)[\s\S]{0,80}std::process::exit/);
-  const instance = read('src-tauri/src/instance.rs').toString();
-  assert.match(instance, /이미 실행 중입니다/);
-  assert.match(instance, /already running/);
-  assert.match(instance, /MessageLevel::Error/);
+  assert.match(lib, /instance::acquire\(\)/);
+  assert.doesNotMatch(lib, /report_already_running|process::exit\(3\)/);
+  assert.match(lib, /is_primary_copy/);
 });
 
 test('build commands for every OS and the web; the installer is copied to the project root', () => {
