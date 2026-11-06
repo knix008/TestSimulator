@@ -368,7 +368,7 @@ export function MeetingForm({ meeting, onChange, docKey, onUndo, onRedo, onError
         return { body: <RichEditor value={meeting.body} docKey={docKey} onChange={(body) => set({ body })} onUndo={onUndo} onRedo={onRedo} placeholder={t('editor.placeholder')} onError={onError} /> }
       case 'decisions': {
         const r = own('decisions', () => newEntry())
-        return { body: <EntryRows rows={r} marker="check" placeholder={t('add.decisionPlaceholder')} label={t('section.decisions')} empty={t('empty.decisions')} />, count: r.items.length, add: <AddButton list="decisions" label={t('add.decision')} onClick={() => r.add()} /> }
+        return { body: <EntryRows rows={r} marker="number" placeholder={t('add.decisionPlaceholder')} label={t('section.decisions')} empty={t('empty.decisions')} />, count: r.items.length, add: <AddButton list="decisions" label={t('add.decision')} onClick={() => r.add()} /> }
       }
       case 'actionItems': {
         const r = own('actionItems', () => newAction())

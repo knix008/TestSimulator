@@ -139,7 +139,7 @@ function contents(m: Meeting, s: Section): { body: string; entries: Entry[]; tas
     case 'attendees': return { body: '', entries: [], tasks: [], people: m.attendees, numbered: false }
     case 'agenda': return { body: '', entries: m.agenda, tasks: [], people: [], numbered: true }
     case 'discussion': return { body: m.body, entries: [], tasks: [], people: [], numbered: false }
-    case 'decisions': return { body: '', entries: m.decisions, tasks: [], people: [], numbered: false }
+    case 'decisions': return { body: '', entries: m.decisions, tasks: [], people: [], numbered: true }
     case 'actionItems': return { body: '', entries: [], tasks: m.actionItems, people: [], numbered: false }
     default: return { body: s.body, entries: s.entries, tasks: s.tasks, people: s.people, numbered: s.kind === 'numbered' }
   }
