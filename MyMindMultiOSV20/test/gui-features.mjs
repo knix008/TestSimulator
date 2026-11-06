@@ -1241,6 +1241,80 @@ suite('Properties: icons instead of lists', async (test) => {
   await s.stop()
 })
 
+suite('The folded left panel', async (test) => {
+  const s = await session()
+  const fold = async () => {
+    await s.load()
+    if (await s.count('[data-panel-fold="left"]')) await s.click('[data-panel-fold="left"]')
+    await s.until(`document.querySelector('[data-panel-strip="left"]')`)
+  }
+  const entries = () => s.page.evaluate(`[...document.querySelectorAll('.left-panel .panel-strip')].map((b) => ({ words: b.querySelector('span').textContent, icons: b.querySelectorAll('.icon').length, tip: b.getAttribute('title') ?? b.getAttribute('data-tip') }))`)
+  await test('it lists the node list, the mind map themes and the icons, each with its icon and a tooltip', async () => {
+    await fold()
+    const seen = await entries()
+    assert.deepEqual(seen.map((entry) => entry.words), [ko.panel.nodes, ko.toolbar.diagramTheme, ko.toolbar.icons])
+    for (const entry of seen) {
+      assert.ok(entry.icons >= 1, entry.words)
+      assert.ok(entry.tip, entry.words)
+    }
+    await s.shoot('left-strip')
+  })
+  await test('all of it fits the strip, in the smallest window height too, in both languages', async () => {
+    const fits = () => s.page.evaluate(`(() => {
+      const strip = document.querySelector('.left-panel').getBoundingClientRect()
+      return [...document.querySelectorAll('.left-panel .panel-strip')].every((b) => { const r = b.getBoundingClientRect(); return r.bottom <= strip.bottom && r.right <= strip.right + 0.5 && b.querySelector('span').getBoundingClientRect().right <= strip.right + 0.5 })
+    })()`)
+    await s.page.send('Emulation.setDeviceMetricsOverride', { width: 1488, height: 560, deviceScaleFactor: 1, mobile: false })
+    try {
+      await sleep(100)
+      assert.equal(await fits(), true, 'Korean')
+      await s.click('[data-command="language"]')
+      await s.until(`document.documentElement.lang === 'en'`)
+      assert.deepEqual((await entries()).map((entry) => entry.words), [en.panel.nodes, en.toolbar.diagramTheme, en.toolbar.icons])
+      assert.equal(await fits(), true, 'English')
+      await s.click('[data-command="language"]')
+      await s.until(`document.documentElement.lang === 'ko'`)
+    } finally {
+      await s.page.send('Emulation.clearDeviceMetricsOverride')
+    }
+  })
+  await test('the node list entry opens the panel', async () => {
+    await fold()
+    await s.click('[data-panel-strip="left"]')
+    await s.until(`document.querySelector('[data-panel-fold="left"]')`)
+    assert.equal(await s.count('.node-tree'), 1)
+  })
+  await test('the icons entry opens the panel on the icons', async () => {
+    await fold()
+    await s.click('[data-panel-strip-tab="icons"]')
+    await s.until(`document.querySelector('.node-icon-grid')`)
+    assert.equal(await s.page.evaluate(`document.querySelector('[data-lower-tab="icons"]').getAttribute('aria-selected')`), 'true')
+    await settled(() => s.app.settings().leftPanel, true)
+  })
+  await test('the themes entry opens the panel on the themes, also after the icons were showing', async () => {
+    await fold()
+    await s.click('[data-panel-strip-tab="themes"]')
+    await s.until(`document.querySelector('.diagram-theme-grid')`)
+    assert.equal(await s.page.evaluate(`document.querySelector('[data-lower-tab="themes"]').getAttribute('aria-selected')`), 'true')
+  })
+  await test('the tabs still change by hand, and the tab stays through folding', async () => {
+    await s.click('[data-lower-tab="icons"]')
+    await s.until(`document.querySelector('.node-icon-grid')`)
+    await fold()
+    await s.click('[data-panel-strip="left"]')
+    await s.until(`document.querySelector('.node-icon-grid')`)
+    await s.click('[data-lower-tab="themes"]')
+  })
+  await test('the right panel\'s strip stays one entry', async () => {
+    await s.click('[data-panel-fold="right"]')
+    await s.until(`document.querySelector('[data-panel-strip="right"]')`)
+    assert.equal(await s.count('.right-panel .panel-strip'), 1)
+    await s.click('[data-panel-strip="right"]')
+    await s.until(`document.querySelector('[data-panel-fold="right"]')`)
+  })
+  await s.stop()
+})
+
 suite('Properties: lines', async (test) => {
   const s = await session()
   const panel = '.right-panel'

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DiagramDocument, DiagramNode, EdgeSide, EndCap, LinePattern, LineType, Locale, MemoStyle, MemoTarget, ShapeType, TextStyle, ThemeMode } from '../types'
 import { AUTO_TEXT_COLOR, INK_COLORS, LINE_WIDTH_MAX, LINE_WIDTH_MIN, NODE_COLORS, resolveTextColor } from '../constants/colors'
@@ -5,7 +6,7 @@ import { ColorPalette, IconPalette, PanelGroup, SideIcon } from './Palette'
 import { Icon } from './Icons'
 import { DEFAULT_LINE_THEME } from '../lineThemes'
 import { SHAPES, THEME_AREA_MIN } from '../settings'
-import { LowerArea } from './DiagramThemes'
+import { LowerArea, type LowerTab } from './DiagramThemes'
 import { Stepper } from './controls'
 import { MemoStyleFields } from './MemoEditor'
 import { sanitizeMemo } from '../memo'
@@ -76,14 +77,22 @@ function PanelHead({ icon, title, side, foldLabel, onFold }: { icon: string; tit
 }
 
 /** A folded panel: a strip with its icon and name, standing up. Pressing it opens the panel. */
-function PanelStrip({ icon, title, side, label, onOpen }: { icon: string; title: string; side: 'left' | 'right'; label: string; onOpen: () => void }) {
+function PanelStrip({ icon, title, side, label, more = [], onOpen }: { icon: string; title: string; side: 'left' | 'right'; label: string; more?: { id: string; icon: string; title: string; onOpen: () => void }[]; onOpen: () => void }) {
   return (
     <aside className={`side-panel ${side}-panel folded`} aria-label={title}>
-      <button type="button" className="panel-strip" data-panel-strip={side} title={label} aria-label={label} onClick={onOpen}>
-        <Icon name={side === 'left' ? 'collapseRight' : 'collapseLeft'} size={14} />
-        <Icon name={icon} />
-        <span>{title}</span>
-      </button>
+      <div className="panel-strip-stack">
+        <button type="button" className="panel-strip" data-panel-strip={side} title={label} aria-label={label} onClick={onOpen}>
+          <Icon name={side === 'left' ? 'collapseRight' : 'collapseLeft'} size={14} />
+          <Icon name={icon} />
+          <span>{title}</span>
+        </button>
+        {more.map((item) => (
+          <button type="button" key={item.id} className="panel-strip" data-panel-strip-tab={item.id} title={item.title} aria-label={item.title} onClick={item.onOpen}>
+            <Icon name={item.icon} />
+            <span>{item.title}</span>
+          </button>
+        ))}
+      </div>
     </aside>
   )
 }
@@ -174,6 +183,11 @@ export function SidePanels({
   language,
 }: Props) {
   const { t } = useTranslation()
+  const [lowerTab, setLowerTab] = useState<LowerTab>('themes')
+  const openOnTab = (tab: LowerTab) => {
+    setLowerTab(tab)
+    onToggleLeft()
+  }
   const { fonts: systemFonts, load: loadFonts } = useSystemFonts()
   const sideOptions = (['auto', 'top', 'bottom', 'left', 'right'] as const).map((value) => ({ value, label: t(`side.${value}`), icon: <SideIcon side={value} /> }))
   const capOptions = (place: 'startCap' | 'endCap') => (['none', 'arrow', 'dot', 'diamond'] as const).map((value) => ({ value, label: t(`cap.${value}`), icon: <LinePreview lineType="straight" {...{ [place]: value }} /> }))
@@ -295,7 +309,7 @@ export function SidePanels({
 
   return (
     <>
-      {!leftOpen ? <PanelStrip icon="panelStructure" title={t('panel.nodes')} side="left" label={t('panel.showLeft')} onOpen={onToggleLeft} /> : (
+      {!leftOpen ? <PanelStrip icon="panelStructure" title={t('panel.nodes')} side="left" label={t('panel.showLeft')} onOpen={onToggleLeft} more={[{ id: 'themes', icon: 'color', title: t('toolbar.diagramTheme'), onOpen: () => openOnTab('themes') }, { id: 'icons', icon: 'star', title: t('toolbar.icons'), onOpen: () => openOnTab('icons') }]} /> : (
       <aside className="side-panel left-panel" aria-label={t('panel.navigator')}>
         <PanelHead icon="panelStructure" title={t('panel.nodes')} side="left" foldLabel={t('panel.hideLeft')} onFold={onToggleLeft} />
         <div className="panel-section panel-section-fill node-list-area">
@@ -329,7 +343,7 @@ export function SidePanels({
           </div>
         </div>
         <PanelSplitter height={themeAreaHeight} label={t('panel.resizeThemes')} onChange={onThemeAreaHeight} />
-        <LowerArea themeId={doc.diagramTheme} iconId={selectedNode?.icon} hasSelection={Boolean(selectedNode)} language={language} height={themeAreaHeight} onTheme={onDiagramTheme} onIcon={onNodeIcon} />
+        <LowerArea themeId={doc.diagramTheme} iconId={selectedNode?.icon} hasSelection={Boolean(selectedNode)} language={language} height={themeAreaHeight} onTheme={onDiagramTheme} onIcon={onNodeIcon} tab={lowerTab} onTab={setLowerTab} />
       </aside>
       )}
 

@@ -93,7 +93,7 @@ Lines attach at the **midpoint of each node face**.
 | **Center View** | Move the diagram to the middle, at the current zoom |
 | **Auto Align** | Re-layout with the current rule, then fit |
 | **Ruler** | Toggle the rulers along the canvas's top and left. They show diagram coordinates and mark the pointer's place in red on each ruler |
-| **Left Panel / Right Panel** | Fold or open a panel. The arrow in a panel's title and the folded strip do the same |
+| **Left Panel / Right Panel** | Fold or open a panel. The arrow in a panel's title and the folded strip do the same. **Mind Map Theme** and **Icons** on the folded left strip open the panel on that tab |
 | **Grid** | Toggle the grid. It is redrawn as you zoom, and its spacing changes by a factor of five when cells get too small or too large. **When the grid is on, left-drag on empty canvas pans the background** |
 
 ### 4.7 Canvas

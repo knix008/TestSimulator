@@ -1,6 +1,5 @@
 // The lower area of the left panel: the mind map theme gallery and the list of icons, and the
 // small picture of a theme that the gallery and the toolbar's drop-down share.
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DEFAULT_DIAGRAM_THEME, DIAGRAM_THEMES, type DiagramTheme } from '../diagramThemes'
 import { lineThemeById } from '../lineThemes'
@@ -59,17 +58,21 @@ type Props = {
   height: number | null
   onTheme: (id: string) => void
   onIcon: (id: string | undefined) => void
+  /** Which tab shows: the folded panel's strip can choose it too. */
+  tab: LowerTab
+  onTab: (tab: LowerTab) => void
 }
 
-export function LowerArea({ themeId, iconId, hasSelection, language, height, onTheme, onIcon }: Props) {
+export type LowerTab = 'themes' | 'icons'
+
+export function LowerArea({ themeId, iconId, hasSelection, language, height, onTheme, onIcon, tab, onTab }: Props) {
   const { t } = useTranslation()
-  const [tab, setTab] = useState<'themes' | 'icons'>('themes')
   const current = themeId ?? DEFAULT_DIAGRAM_THEME
   return (
     <section className="diagram-themes" style={height === null ? { flex: '1 1 0' } : { flexBasis: height }}>
       <div className="panel-tabs" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === 'themes'} className={tab === 'themes' ? 'on' : undefined} data-lower-tab="themes" onClick={() => setTab('themes')}><Icon name="color" size={14} /><span>{t('toolbar.diagramTheme')}</span></button>
-        <button type="button" role="tab" aria-selected={tab === 'icons'} className={tab === 'icons' ? 'on' : undefined} data-lower-tab="icons" onClick={() => setTab('icons')}><Icon name="star" size={14} /><span>{t('toolbar.icons')}</span></button>
+        <button type="button" role="tab" aria-selected={tab === 'themes'} className={tab === 'themes' ? 'on' : undefined} data-lower-tab="themes" onClick={() => onTab('themes')}><Icon name="color" size={14} /><span>{t('toolbar.diagramTheme')}</span></button>
+        <button type="button" role="tab" aria-selected={tab === 'icons'} className={tab === 'icons' ? 'on' : undefined} data-lower-tab="icons" onClick={() => onTab('icons')}><Icon name="star" size={14} /><span>{t('toolbar.icons')}</span></button>
       </div>
       {tab === 'themes' ? (
         <div className="diagram-theme-grid" role="radiogroup" aria-label={t('toolbar.diagramTheme')}>

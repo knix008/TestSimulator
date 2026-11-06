@@ -373,13 +373,21 @@ select {
   background: var(--hover);
 }
 
+.panel-strip-stack {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--header);
+}
+
 .panel-strip {
   display: flex;
+  flex: none;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   width: 100%;
-  height: 100%;
   padding: 6px 0;
   border: 0;
   background: var(--header);
