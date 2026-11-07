@@ -76,7 +76,12 @@ const STRINGS = {
 
   "cmd.view.theme": ["테마", "Theme"],
   "cmd.view.start": ["시작", "Start"],
-  "tip.start": ["시작 화면과 작업 화면을 오갑니다 — 열린 탭은 그대로 남습니다", "Switch between the start screen and your work; open tabs stay open"],
+  "tip.start": ["시작 화면과 메인 창을 오갑니다 — 열린 탭은 그대로 남습니다", "Switch between the start screen and the main window; open tabs stay open"],
+  "workspace.empty.title": ["열린 비교가 없습니다", "Nothing is open"],
+  "workspace.empty.hint": [
+    "세션 패널이나 도구 모음에서 새 비교를 열거나, 파일을 여기로 끌어다 놓으세요. 메뉴 막대의 시작을 누르면 시작 화면으로 돌아갑니다.",
+    "Open a comparison from the session panel or the toolbar, or drop files here. Press Start on the menu bar to go back to the start screen.",
+  ],
   "cmd.view.themeToggle": ["밝게 / 어둡게 전환", "Toggle light and dark"],
   "cmd.view.language": ["언어", "Language"],
   "cmd.view.zoomIn": ["확대", "Zoom In"],

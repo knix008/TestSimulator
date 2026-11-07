@@ -22,7 +22,16 @@ export type PanelSettings = {
   showTerminalPanel: boolean;
 };
 
-/** Which switches work; `activeKind` is the active tab's kind, or null on the start screen. */
+/**
+ * What the panels go by: nothing on the start screen, otherwise the active tab's kind. The
+ * main window with no tab open (Start toggled away from the start screen) still has its
+ * session and bottom panels, so it counts as a kind of its own.
+ */
+export function panelKind(onStart: boolean, activeKind: string | null | undefined): string | null {
+  return onStart ? null : activeKind ?? "empty";
+}
+
+/** Which switches work; `activeKind` is what `panelKind` returned. */
 export function panelSwitches(activeKind: string | null | undefined): { left: boolean; right: boolean; bottom: boolean } {
   const open = Boolean(activeKind);
   return { left: open, right: activeKind === "merge", bottom: open };

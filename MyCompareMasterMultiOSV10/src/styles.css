@@ -618,6 +618,21 @@ kbd {
 .conflict-card-actions .chip { flex: 1 1 0; min-width: 0; height: 22px; padding: 0 8px; justify-content: center; }
 .empty-row { padding: 8px; color: var(--muted); list-style: none; }
 
+/* The main window with no tab open: Start toggled away from the start screen. */
+.workspace-empty {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+}
+.workspace-empty > b { font-size: 16px; color: var(--text); }
+.workspace-empty > span { max-width: 460px; line-height: 1.5; }
+
 /* ------------------------------------------------------ property rows */
 
 .property-row {

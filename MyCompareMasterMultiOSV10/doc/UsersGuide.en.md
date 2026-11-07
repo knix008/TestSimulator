@@ -106,7 +106,7 @@ For opening things from the command line see
 |------|------------|
 | **Title bar and menu bar** | The program icon and name, the menus, and **minimise · maximise · close** at the right. Drag an empty spot to move the window, double-click it to maximise. Every menu row has **an icon and a label**, and menus open as one column even outside the window. |
 | **Toolbar** | Actions on the left, view settings on the right — see [The toolbar](#toolbar). Every button has a **tooltip**. |
-| **Start screen** | Shown in the middle when no tab is open: tiles for each kind of session, recent items, and a drag-and-drop hint. |
+| **Start screen** | Shown in the middle when no tab is open: tiles for each kind of session, recent items, and a drag-and-drop hint. The **Start** button on the menu bar **toggles** between the start screen and the main window: open tabs stay open, and with no tab open you get the main window with its panels and an empty workspace. |
 | **Tabs** | Each comparison opens in a new tab. Tabs sit **between the side panels**, right above the comparison. When they overflow, **`‹ ›` buttons** appear at the right end. |
 | **Left panel** | Normally the **sessions**: new session kinds, saved sessions, recent items. **On a merge tab it becomes the conflict list**, each conflict showing its Base, Local and Remote text; click one to select it. |
 | **Right panel** | **Only on a merge**: the input files, progress (conflicts / resolved / unresolved), totals per resolution, and details of the selected conflict. Read-only. |

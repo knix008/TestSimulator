@@ -29,7 +29,8 @@ import {
 import { CUSTOM_THEME_ID, THEMES, theme as themeOf, type Theme } from "../core/themes.js";
 import { useCommands } from "./commands.js";
 import * as host from "./host.js";
-import { AppIcon, Icon } from "./icons.js";
+import { APP_ICON_URL } from "./appIcon.js";
+import { Icon } from "./icons.js";
 import { useApp } from "./state.js";
 import { StartBackground } from "./startBackground.js";
 import { BackgroundGrid, RangeStepper, saveStartScreen } from "./startControls.js";
@@ -486,7 +487,7 @@ export function StartPage() {
   const cards: Record<CardId, ReactNode> = {
     hero: card("hero", "home", "", (
       <>
-        <AppIcon size={76} className="start-icon" />
+        <img className="start-icon" src={APP_ICON_URL} alt="" width={76} height={76} />
         <div className="start-hero-text">
           <h1>
             <span>{app.bootstrap?.app.name ?? "My Compare Master"}</span>

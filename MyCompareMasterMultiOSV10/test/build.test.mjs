@@ -147,31 +147,51 @@ test("icons › the app icon is lit from the top-left", () => {
   );
 });
 
-test("icons › the app icon carries both arrows: compare across, merge down", () => {
+test("icons › the app icon shows two pages merging into one that carries both changes", () => {
   const icon = decodePng(read("assets/icons/256x256.png"));
-  // The two-way arrow lies between the columns, across their middle; the slab just
-  // above it is the control, so this cannot pass on a generally pale icon.
-  const across = brightness(icon.at(128, 104));
-  const slab = brightness(icon.at(128, 70));
-  assert.ok(across > 200, `nothing bright between the columns (${across.toFixed(1)})`);
-  assert.ok(across > slab + 100, `the two-way arrow does not stand out (${across.toFixed(1)} vs ${slab.toFixed(1)})`);
-  // Both heads, not one: a single-headed arrow would leave one of these dark.
-  assert.ok(brightness(icon.at(106, 104)) > 200, "the left head is missing");
-  assert.ok(brightness(icon.at(150, 104)) > 200, "the right head is missing");
-  // And the merge arrow still runs down into the point below them.
-  const merge = icon.at(128, 200);
-  assert.ok(merge.r > 200 && merge.g > 150 && merge.b < 110, `the merge arrow is not yellow (${JSON.stringify(merge)})`);
+  const isCoral = ({ r, g, b }) => r > 200 && g < 150 && b < 170;
+  const isMint = ({ r, g, b }) => r < 110 && g > 180 && b < 190;
+
+  // Two separate pages: the body between them is the control, so this cannot pass on a
+  // generally pale icon or on one wide page.
+  const gap = brightness(icon.at(128, 70));
+  assert.ok(brightness(icon.at(60, 88)) > gap + 25, "the left page does not stand out from the body");
+  assert.ok(brightness(icon.at(196, 88)) > gap + 25, "the right page does not stand out from the body");
+
+  // Each page has its own change: coral on the left, mint on the right.
+  assert.ok(isCoral(icon.at(82, 64)), `the left page has no coral line (${JSON.stringify(icon.at(82, 64))})`);
+  assert.ok(isMint(icon.at(174, 64)), `the right page has no mint line (${JSON.stringify(icon.at(174, 64))})`);
+
+  // An arm from each page, joining into one point: a single arm would leave one side empty.
+  for (const [x, y, name] of [[105, 122, "left arm"], [151, 122, "right arm"], [128, 145, "point"]]) {
+    const pixel = icon.at(x, y);
+    assert.ok(pixel.r > 230 && pixel.b < 100, `the merge arrow's ${name} is missing (${JSON.stringify(pixel)})`);
+  }
+
+  // The result is the brightest page and carries both changes.
+  assert.ok(brightness(icon.at(70, 190)) > 230, "the merged page is not bright");
+  assert.ok(isCoral(icon.at(128, 183)), `the merged page lost the coral line (${JSON.stringify(icon.at(128, 183))})`);
+  assert.ok(isMint(icon.at(128, 197)), `the merged page lost the mint line (${JSON.stringify(icon.at(128, 197))})`);
 });
 
 test("icons › the app icon's edge is lit on one side and shaded on the other", () => {
-  // A slab with a thickness, rather than a flat shape: the top edge catches the
-  // lamp and the bottom falls away. An even rim all round would fail this.
+  // A slab with a thickness, rather than a flat shape: the top edge catches the lamp and
+  // the bottom falls away. Each edge is measured against the body just inside it, because
+  // the body's own gradient would otherwise decide the result. An even rim all round
+  // would fail one or the other.
   const icon = decodePng(read("assets/icons/256x256.png"));
-  const topEdge = brightness(icon.at(128, 20));
-  const bottomEdge = brightness(icon.at(128, 236));
-  const middle = brightness(icon.at(96, 128));
-  assert.ok(topEdge > middle + 15, `the top edge (${topEdge.toFixed(1)}) is not lit against ${middle.toFixed(1)}`);
-  assert.ok(bottomEdge < middle - 15, `the bottom edge (${bottomEdge.toFixed(1)}) is not shaded against ${middle.toFixed(1)}`);
+  const topEdge = brightness(icon.at(128, 15));
+  const insideTop = brightness(icon.at(128, 28));
+  const bottomEdge = brightness(icon.at(128, 241));
+  const insideBottom = brightness(icon.at(128, 230));
+  assert.ok(topEdge > insideTop + 15, `the top edge (${topEdge.toFixed(1)}) is not lit against ${insideTop.toFixed(1)}`);
+  assert.ok(bottomEdge < insideBottom - 2, `the bottom edge (${bottomEdge.toFixed(1)}) is not shaded against ${insideBottom.toFixed(1)}`);
+});
+
+test("icons › the start screen shows the icon file, not a drawing of its own", () => {
+  // A second copy of the picture in the UI code stayed behind when the icon was redrawn.
+  assert.match(readText("src/StartPage.tsx"), /src=\{APP_ICON_URL\}/);
+  assert.doesNotMatch(readText("src/icons.tsx"), /function AppIcon/);
 });
 
 test("icons › the app icon has depth rather than one flat colour", () => {

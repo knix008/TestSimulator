@@ -138,7 +138,11 @@ let menuCancel: (() => void) | null = null;
 
 /** Opens a dropdown or context menu at `anchor` and resolves with the chosen id. */
 export function openMenu(spec: MenuSpec, anchor: MenuAnchor): Promise<string | null> {
-  closeMenu();
+  // Settle the menu this one replaces. The shell is not asked to close it: menu_open replaces
+  // it anyway, and a menu_close sent alongside can overtake the open and blank the new menu.
+  const replaced = menuCancel;
+  menuCancel = null;
+  if (replaced) replaced();
   if (!isDesktop()) {
     return new Promise<string | null>((resolve) => {
       let settled = false;

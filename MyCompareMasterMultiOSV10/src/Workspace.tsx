@@ -1,6 +1,7 @@
 /**
  * The middle of the window: whichever view the active tab calls for, or the welcome
- * screen (StartPage.tsx) when nothing is open yet or Start brought it forward.
+ * screen (StartPage.tsx) when nothing is open yet or Start brought it forward. Start
+ * pressed with nothing open leaves the main window with an empty workspace.
  */
 import { DiffView } from "./views/DiffView.js";
 import { ImageView, isImagePair } from "./views/ImageView.js";
@@ -11,6 +12,7 @@ import { StartPage } from "./StartPage.js";
 import { useEffect } from "react";
 import { useApp } from "./state.js";
 import { hideStartScreen, useOnStartScreen } from "./startScreen.js";
+import { Icon } from "./icons.js";
 
 export function Workspace({
   onContextMenu,
@@ -40,7 +42,14 @@ export function Workspace({
 
   return (
     <main className="workspace" onContextMenu={(event) => onContextMenu(event, target)}>
-      {!active ? <StartPage />
+      {onStart ? <StartPage />
+        : !active ? (
+          <div className="workspace-empty" data-testid="workspace-empty">
+            <Icon name="compareFiles" size={40} />
+            <b>{app.t("workspace.empty.title")}</b>
+            <span>{app.t("workspace.empty.hint")}</span>
+          </div>
+        )
         : active.kind === "compare"
           ? isImagePair(active) ? <ImageView tab={active} /> : <DiffView tab={active} />
           : active.kind === "directory"

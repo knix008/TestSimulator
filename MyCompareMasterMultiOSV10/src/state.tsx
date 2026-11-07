@@ -435,15 +435,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   /* -------------------------------------------------------- settings */
 
-  const updateSettings = useCallback(async (patch: Partial<AppSettings>) => {
+  // Saves go one at a time and only the last answer is applied: an answer to an earlier save
+  // knows nothing of a later change, and showing it would undo that change on screen.
+  const settingsQueue = useRef<Promise<void>>(Promise.resolve());
+  const settingsRequest = useRef(0);
+  const updateSettings = useCallback((patch: Partial<AppSettings>) => {
     // Applied locally first so the UI never lags a click behind the disk write.
     setSettings((current) => (current ? { ...current, ...patch } : current));
-    try {
-      const saved = await api.updateSettings(patch);
-      setSettings(saved);
-    } catch (error) {
-      report(error);
-    }
+    const request = ++settingsRequest.current;
+    const saving = settingsQueue.current
+      .then(() => api.updateSettings(patch))
+      .then((saved) => {
+        if (request === settingsRequest.current) setSettings(saved);
+      })
+      .catch(report);
+    settingsQueue.current = saving;
+    return saving;
   }, [report]);
 
   const resetSettings = useCallback(async () => {

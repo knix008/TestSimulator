@@ -16,8 +16,8 @@ import type { MenuItem } from "./host.js";
 import * as host from "./host.js";
 import type { PrintPayload } from "./dialogs/PrintDialog.js";
 import { baseName, useApp, type AppStore } from "./state.js";
-import { panelSwitches } from "./panelLayout.js";
-import { hideStartScreen, showStartScreen, useOnStartScreen } from "./startScreen.js";
+import { panelKind, panelSwitches } from "./panelLayout.js";
+import { toggleStartScreen, useOnStartScreen } from "./startScreen.js";
 import { startTutorial } from "./TutorialTour.js";
 
 export type Command = {
@@ -342,23 +342,26 @@ function recentIcon(kind: string): string {
  * ------------------------------------------------------------------ */
 
 function build(app: AppStore, onStart: boolean): CommandMap {
-  const { t, settings, active, undo } = app;
+  const { t, settings, undo } = app;
+  // With the start screen in front, the tabs behind it are out of reach: nothing here may
+  // save, print, close or edit a tab the user cannot see. The tab strip is how to get back.
+  const active = onStart ? null : app.active;
   const merge = active?.kind === "merge" ? active : null;
   const compare = active?.kind === "compare" ? active : null;
   const directory = active?.kind === "directory" ? active : null;
   const hasConflicts = merge ? conflictCount(merge.document) > 0 : false;
   const list: Command[] = [];
-  const panels = panelSwitches(onStart ? null : active?.kind);
-  // The menu bar's Start button toggles: the start screen in front with the tabs kept
-  // open behind it, and pressed again, back to the tab that was in front. With no tab
-  // open there is nothing to go back to, so it is off.
+  const panels = panelSwitches(panelKind(onStart, active?.kind));
+  // The menu bar's Start button toggles between the start screen and the main window: the
+  // start screen in front with the tabs kept open behind it, and pressed again, back to the
+  // tab that was in front — or, with no tab open, to the main window's empty workspace.
   list.push({
     id: "view.start",
     label: t("cmd.view.start"),
     icon: "home",
-    enabled: Boolean(active),
+    enabled: true,
     checked: onStart,
-    run: () => (onStart ? hideStartScreen() : showStartScreen()),
+    run: () => toggleStartScreen(Boolean(app.active)),
   });
 
   const add = (command: Command) => list.push(command);
@@ -639,7 +642,7 @@ function build(app: AppStore, onStart: boolean): CommandMap {
     label: t("cmd.edit.undo"),
     icon: "undo",
     shortcut: "Ctrl+Z",
-    enabled: undo.canUndo,
+    enabled: !onStart && undo.canUndo,
     hint: undo.undoLabel || undefined,
     run: () => {
       undo.undo();
@@ -651,7 +654,7 @@ function build(app: AppStore, onStart: boolean): CommandMap {
     label: t("cmd.edit.redo"),
     icon: "redo",
     shortcut: "Ctrl+Y",
-    enabled: undo.canRedo,
+    enabled: !onStart && undo.canRedo,
     hint: undo.redoLabel || undefined,
     run: () => {
       undo.redo();
@@ -1048,7 +1051,7 @@ function build(app: AppStore, onStart: boolean): CommandMap {
     label: t("cmd.nav.back"),
     icon: "historyBack",
     shortcut: "Alt+Left",
-    enabled: app.canGoBack,
+    enabled: !onStart && app.canGoBack,
     run: () => app.goBack(),
   });
   add({
@@ -1056,7 +1059,7 @@ function build(app: AppStore, onStart: boolean): CommandMap {
     label: t("cmd.nav.forward"),
     icon: "historyForward",
     shortcut: "Alt+Right",
-    enabled: app.canGoForward,
+    enabled: !onStart && app.canGoForward,
     run: () => app.goForward(),
   });
 

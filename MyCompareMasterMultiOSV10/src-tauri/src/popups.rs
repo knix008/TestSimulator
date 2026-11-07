@@ -244,13 +244,20 @@ pub fn hide_menu(app: &AppHandle) {
         if win.is_visible().unwrap_or(false) {
             let _ = win.hide();
         }
-        let _ = app.emit_to(MENU, "menu:payload", Value::Null);
+        // Hiding waits on the main thread, and commands run side by side: a menu opened in
+        // the meantime must not be blanked by this close arriving after it.
+        if popups(app).lock().menu_message.is_none() {
+            let _ = app.emit_to(MENU, "menu:payload", Value::Null);
+        }
     }
 }
 
 #[tauri::command]
 pub async fn menu_open(app: AppHandle, window: WebviewWindow, payload: Value, anchor: Value) -> Result<bool, String> {
     let Some(menu) = ensure_menu(&app) else { return Ok(false) };
+    // Replacing a menu hides the old one, and the blur that causes must not dismiss the new
+    // one: with no shown time the focus handler leaves it alone until menu_size sets it.
+    popups(&app).lock().menu_shown = None;
     if menu.is_visible().unwrap_or(false) {
         let _ = menu.hide();
     }

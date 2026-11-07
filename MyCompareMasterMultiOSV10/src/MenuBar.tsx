@@ -65,14 +65,13 @@ export function MenuBar({
         <span className="brand-text">{app.bootstrap?.app.title}</span>
       </span>
 
-      {/* Start, left of File: the start screen in front, the open tabs kept behind it. */}
+      {/* Start, left of File: toggles between the start screen and the main window. */}
       <button
         type="button"
         role="menuitem"
         className={`menubar-item menubar-start${onStart ? " active" : ""}`}
         data-command="view.start"
         aria-pressed={onStart}
-        disabled={!app.active}
         title={app.t("tip.start")}
         onClick={() => {
           host.closeMenu();

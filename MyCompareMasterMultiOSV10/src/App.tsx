@@ -39,7 +39,7 @@ import { TabBar } from "./TabBar.js";
 import { StatusBar } from "./StatusBar.js";
 import { Workspace } from "./Workspace.js";
 import { useApp } from "./state.js";
-import { visiblePanels } from "./panelLayout.js";
+import { panelKind, visiblePanels } from "./panelLayout.js";
 import { useOnStartScreen } from "./startScreen.js";
 import { labelContextEvent, useAppContextMenu } from "./useContextMenu.js";
 import type { ContextTarget } from "./contextMenus.js";
@@ -243,7 +243,7 @@ export function App() {
   // The side panels are a merge's own; every other kind of tab gets the full width.
   const merge = app.active?.kind === "merge" ? app.active : null;
   // The start screen has no panels and no rails; the saved state comes back with a tab.
-  const panels = visiblePanels(onStart ? null : app.active?.kind, app.settings);
+  const panels = visiblePanels(panelKind(onStart, app.active?.kind), app.settings);
 
   return (
     <div className={`shell${dropping ? " dropping" : ""}`} ref={shellRef}>
@@ -278,26 +278,24 @@ export function App() {
           <Workspace onContextMenu={openContextMenu} />
         </div>
 
-        {merge ? (
-          panels.right ? (
-            <>
-              <Splitter side="right" />
-              <RightPanel tab={merge} />
-            </>
-          ) : (
-            /* The same rail as on the left, against the other edge: a panel closed
-               from its own header has to be reopenable from where it was. */
-            <button
-              type="button"
-              className="panel-rail right"
-              data-command="panel.expandRight"
-              title={app.t("panel.expand")}
-              onClick={() => void app.updateSettings({ showRightPanel: true })}
-            >
-              <Icon name="prev" size={13} />
-              <span>{app.t("merge.info")}</span>
-            </button>
-          )
+        {merge && panels.right ? (
+          <>
+            <Splitter side="right" />
+            <RightPanel tab={merge} />
+          </>
+        ) : merge && panels.rightRail ? (
+          /* The same rail as on the left, against the other edge: a panel closed
+             from its own header has to be reopenable from where it was. */
+          <button
+            type="button"
+            className="panel-rail right"
+            data-command="panel.expandRight"
+            title={app.t("panel.expand")}
+            onClick={() => void app.updateSettings({ showRightPanel: true })}
+          >
+            <Icon name="prev" size={13} />
+            <span>{app.t("merge.info")}</span>
+          </button>
         ) : null}
       </div>
 

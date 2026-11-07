@@ -1,35 +1,49 @@
 /**
- * Whether the start screen is in front while tabs are open.
+ * Which of the two faces of the window is in front: the start screen or the main window.
  *
- * With no tab open the start screen is simply what the workspace shows. The menu
- * bar's Start button (command `view.start`) can also bring it forward over open
- * tabs, which stay open underneath; choosing a tab, or opening something new, puts
- * the work back in front. A tiny store rather than app state, because nothing about
- * it is saved and only a few components need to know.
+ * Left alone the tabs decide: no tab open means the start screen, a tab open means that
+ * tab. The menu bar's Start button (command `view.start`) toggles against that, in either
+ * direction: it brings the start screen over open tabs, which stay open underneath, and
+ * with no tab open it swaps the start screen for the main window with its panels and an
+ * empty workspace. Choosing a tab, or opening or closing something, hands the decision
+ * back to the tabs. A tiny store rather than app state, because nothing about it is saved
+ * and only a few components need to know.
  */
 import { useSyncExternalStore } from "react";
 
-let shown = false;
+type Requested = "tabs" | "start" | "main";
+
+let requested: Requested = "tabs";
 const listeners = new Set<() => void>();
 
-function emit() {
+function request(next: Requested) {
+  if (requested === next) return;
+  requested = next;
   for (const listener of listeners) listener();
 }
 
 export function showStartScreen(): void {
-  if (shown) return;
-  shown = true;
-  emit();
+  request("start");
 }
 
+/** Stops overriding the tabs: the open tab comes to the front, or the start screen if none is. */
 export function hideStartScreen(): void {
-  if (!shown) return;
-  shown = false;
-  emit();
+  request("tabs");
 }
 
-export function isStartScreenRequested(): boolean {
-  return shown;
+/** What the Start button does: swaps whichever of the two is in front for the other. */
+export function toggleStartScreen(hasActiveTab: boolean): void {
+  if (!onStartScreen(hasActiveTab, requested)) request("start");
+  else request(hasActiveTab ? "tabs" : "main");
+}
+
+function onStartScreen(hasActiveTab: boolean, current: Requested): boolean {
+  return current === "start" || (!hasActiveTab && current !== "main");
+}
+
+/** Whether the start screen is in front, outside of React. */
+export function isOnStartScreen(hasActiveTab: boolean): boolean {
+  return onStartScreen(hasActiveTab, requested);
 }
 
 function subscribe(listener: () => void) {
@@ -37,13 +51,9 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-/** True while the start screen has been brought in front of open tabs. */
-export function useStartScreenRequested(): boolean {
-  return useSyncExternalStore(subscribe, isStartScreenRequested, isStartScreenRequested);
-}
+const snapshot = () => requested;
 
 /** True whenever the start screen is what the workspace shows. */
 export function useOnStartScreen(hasActiveTab: boolean): boolean {
-  const requested = useStartScreenRequested();
-  return !hasActiveTab || requested;
+  return onStartScreen(hasActiveTab, useSyncExternalStore(subscribe, snapshot, snapshot));
 }

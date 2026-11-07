@@ -11,16 +11,22 @@ import { formatBytes } from "../core/text.js";
 import { Icon } from "./icons.js";
 import { ResizeGrip } from "./ResizeGrip.js";
 import { useApp } from "./state.js";
+import { useOnStartScreen } from "./startScreen.js";
 
 export function StatusBar() {
   const app = useApp();
-  const { t, active } = app;
+  const { t } = app;
+  // A tab kept open behind the start screen is not what the window is showing.
+  const onStart = useOnStartScreen(Boolean(app.active));
+  const active = onStart ? null : app.active;
+  // The running message is usually about that tab too ("conflicts 0/1"), so it waits as well.
+  const message = onStart && app.active ? t("status.ready") : app.status;
 
   return (
     <div className="status-bar" role="status" data-context="status" data-tour="statusbar">
-      <span className="status-message" title={app.status}>
+      <span className="status-message" title={message}>
         <Icon name={app.dirty ? "modified" : "check"} size={14} />
-        {app.status}
+        {message}
       </span>
 
       <span className="status-spacer" />

@@ -167,6 +167,48 @@ test("panels: the start screen has no panels and no rails, and keeps the saved s
   assert.deepEqual(visiblePanels("directory", { ...none, showTerminalPanel: true }), { left: false, leftRail: true, right: false, rightRail: false, bottom: true });
 });
 
+test("panels: the main window with no tab open has the session and bottom panels, no merge panel", async () => {
+  const { panelKind, panelSwitches, visiblePanels } = await import("../src/panelLayout.ts");
+  assert.equal(panelKind(true, undefined), null);
+  assert.equal(panelKind(true, "merge"), null);
+  assert.equal(panelKind(false, "merge"), "merge");
+  const empty = panelKind(false, undefined);
+  assert.deepEqual(panelSwitches(empty), { left: true, right: false, bottom: true });
+  const shown = visiblePanels(empty, { showLeftPanel: true, showRightPanel: true, showLogPanel: true, showTerminalPanel: false });
+  assert.deepEqual(shown, { left: true, leftRail: false, right: false, rightRail: false, bottom: true });
+});
+
+test("start button: toggles the start screen and the main window, with and without tabs", async () => {
+  const { hideStartScreen, isOnStartScreen, showStartScreen, toggleStartScreen } = await import("../src/startScreen.ts");
+  hideStartScreen();
+
+  // No tab: the start screen by default, and the button swaps it for the main window.
+  assert.equal(isOnStartScreen(false), true);
+  toggleStartScreen(false);
+  assert.equal(isOnStartScreen(false), false);
+  toggleStartScreen(false);
+  assert.equal(isOnStartScreen(false), true);
+
+  // Opening something from the main window shows it, and the tabs take over again.
+  toggleStartScreen(false);
+  assert.equal(isOnStartScreen(true), false);
+  hideStartScreen();
+
+  // A tab open: the work by default, and the button brings the start screen over it.
+  assert.equal(isOnStartScreen(true), false);
+  toggleStartScreen(true);
+  assert.equal(isOnStartScreen(true), true);
+  toggleStartScreen(true);
+  assert.equal(isOnStartScreen(true), false);
+
+  // Closing the last tab lands on the start screen, not on an empty main window.
+  assert.equal(isOnStartScreen(false), true);
+
+  showStartScreen();
+  hideStartScreen();
+  assert.equal(isOnStartScreen(false), true);
+});
+
 test("start screen: exactly 20 backgrounds, each with an icon and Korean and English names", async () => {
   const { BACKGROUND_KINDS, BACKGROUND_ICONS } = await import("../src/startBackground.ts");
   const { translate } = await import("../core/i18n.ts");

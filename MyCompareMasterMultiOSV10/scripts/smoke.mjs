@@ -614,6 +614,158 @@ async function run() {
     return "no panels, no rails";
   });
 
+  /** What the window is showing, as far as the Start button is concerned. */
+  const startView = () => js(`(() => {
+    const button = document.querySelector('.menubar-start');
+    return {
+      start: document.querySelectorAll('.start-page').length,
+      empty: document.querySelectorAll('[data-testid="workspace-empty"]').length,
+      left: document.querySelectorAll('.panel-left').length,
+      right: document.querySelectorAll('.panel-right').length,
+      rails: document.querySelectorAll('.panel-rail').length,
+      activeTabs: document.querySelectorAll('.tab.active').length,
+      tabs: document.querySelectorAll('.tab').length,
+      disabled: button.disabled,
+      pressed: button.getAttribute('aria-pressed'),
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+    };
+  })()`);
+  /** A real press on the button, then the view it should have led to. */
+  const pressStart = async (expected) => {
+    await clickAt(await center(".menubar-start"));
+    await waitFor(async () => ((await startView()).start === 1) === expected, 5000);
+    return startView();
+  };
+
+  await step("window", "Start toggles the start screen and the main window with no tab open", async () => {
+    await hook("h.settings({ showLeftPanel: true })");
+    const before = await startView();
+    assert(before.start === 1 && before.tabs === 0 && before.pressed === "true", JSON.stringify(before));
+    assert(!before.disabled, "the Start button is disabled with no tab open");
+
+    const main = await pressStart(false);
+    assert(main.start === 0 && main.empty === 1 && main.pressed === "false", JSON.stringify(main));
+    assert(main.left === 1, "the main window has no session panel");
+    assert(main.overflow <= 0, `the page overflows by ${main.overflow}px`);
+    await shot("01b-main-empty");
+
+    const back = await pressStart(true);
+    assert(back.start === 1 && back.empty === 0 && back.left === 0 && back.rails === 0, JSON.stringify(back));
+    const again = await pressStart(false);
+    assert(again.empty === 1, JSON.stringify(again));
+    return "start → main → start → main";
+  });
+
+  await step("window", "opening from the empty main window shows it, and closing the last tab lands on start", async () => {
+    await hook(`h.open('files', ${JSON.stringify([sample("files", "left.txt"), sample("files", "right.txt")])})`);
+    await waitFor(async () => (await startView()).activeTabs === 1, 8000);
+    const opened = await startView();
+    assert(opened.start === 0 && opened.empty === 0 && opened.pressed === "false", JSON.stringify(opened));
+
+    await hook("h.closeTab()");
+    await waitFor(async () => (await startView()).tabs === 0, 5000);
+    const closed = await startView();
+    assert(closed.start === 1 && closed.empty === 0 && closed.pressed === "true", JSON.stringify(closed));
+    return "comparison shown; start screen after the last close";
+  });
+
+  await step("window", "Start toggles over a comparison and returns to the same tab", async () => {
+    await hook(`h.open('files', ${JSON.stringify([sample("files", "left.txt"), sample("files", "right.txt")])})`);
+    await waitFor(async () => (await startView()).activeTabs === 1, 8000);
+    const activeId = (await state()).activeId;
+
+    const start = await pressStart(true);
+    assert(start.start === 1 && start.tabs === 1 && start.activeTabs === 0 && start.left === 0, JSON.stringify(start));
+    assert(start.pressed === "true", "the button does not show the start screen as on");
+
+    const work = await pressStart(false);
+    assert(work.empty === 0 && work.activeTabs === 1 && work.left === 1, JSON.stringify(work));
+    assert((await state()).activeId === activeId, "came back to a different tab");
+
+    await pressStart(true);
+    await clickAt(await center(".tab"));
+    await waitFor(async () => (await startView()).start === 0, 5000);
+    await hook("h.closeTab()");
+    await waitFor(async () => (await startView()).tabs === 0, 5000);
+    return "start → the same tab; pressing the tab also returns";
+  });
+
+  await step("window", "the start screen over a merge tab has no panels and no rails", async () => {
+    await hook("h.settings({ showRightPanel: false })");
+    await openMergeTab();
+    const railed = await startView();
+    assert(railed.rails === 1 && railed.right === 0, `merge with its panel closed: ${JSON.stringify(railed)}`);
+
+    const start = await pressStart(true);
+    assert(start.left === 0 && start.right === 0 && start.rails === 0, JSON.stringify(start));
+    await shot("01c-start-over-merge");
+
+    await pressStart(false);
+    await hook("h.settings({ showRightPanel: true })");
+    await waitFor(async () => (await startView()).right === 1, 5000);
+    const start2 = await pressStart(true);
+    assert(start2.right === 0 && start2.rails === 0, JSON.stringify(start2));
+
+    const merge = await pressStart(false);
+    assert(merge.left === 1 && merge.right === 1, JSON.stringify(merge));
+    await hook("h.closeTab()");
+    await waitFor(async () => (await startView()).tabs === 0, 5000);
+    return "no panels and no rails, both come back";
+  });
+
+  await step("window", "the start screen keeps the toolbar, the keyboard and the status bar off the tab behind it", async () => {
+    await openMergeTab();
+    await hook("h.selectConflict(0)");
+    await hook("h.resolve('local')");
+    await waitFor(async () => (await state()).undo.canUndo, 5000);
+
+    const TAB_COMMANDS = ["file.saveResult", "file.print", "file.closeTab", "edit.undo", "edit.find", "view.refresh", "merge.takeLocal"];
+    const enabledOf = async () => {
+      const list = await hook("h.commands()");
+      return TAB_COMMANDS.filter((id) => list.find((item) => item.id === id)?.enabled);
+    };
+    const conflictCell = () => js(`document.querySelectorAll('.status-cell.conflict').length`);
+    assert((await conflictCell()) === 1, "the merge tab shows no conflict count in the status bar");
+    const statusMessage = () => hook("h.text('.status-message')");
+    const onTab = await statusMessage();
+    const during = await enabledOf();
+    assert(during.includes("file.closeTab") && during.includes("edit.undo"), `on the tab: ${during.join(", ")}`);
+
+    await pressStart(true);
+    const hidden = await enabledOf();
+    assert(hidden.length === 0, `still enabled behind the start screen: ${hidden.join(", ")}`);
+    assert((await conflictCell()) === 0, "the status bar reports the tab behind the start screen");
+    const overStart = await statusMessage();
+    assert(overStart !== onTab, `the status message still talks about the tab behind: ${overStart}`);
+    assert((await js(`document.querySelectorAll('.toolbar [data-command="file.saveResult"]').length`)) === 0,
+      "the save button is on the toolbar over the start screen");
+    assert(!(await startView()).disabled, "the Start button itself went off");
+
+    // Ctrl+W, Ctrl+Z: real keys, and neither reaches the tab.
+    await press("w", { windowsVirtualKeyCode: 87, modifiers: 2 });
+    await press("z", { windowsVirtualKeyCode: 90, modifiers: 2 });
+    await sleep(150);
+    const kept = await state();
+    assert(kept.tabs.length === 1, "Ctrl+W closed the tab behind the start screen");
+    assert(kept.tabs[0].resolved === 1, "Ctrl+Z undid an edit behind the start screen");
+
+    const back = await pressStart(false);
+    assert(back.activeTabs === 1, JSON.stringify(back));
+    const restored = await enabledOf();
+    assert(restored.includes("file.closeTab") && restored.includes("edit.undo"), `back on the tab: ${restored.join(", ")}`);
+    assert((await conflictCell()) === 1, "the status bar did not come back");
+    assert((await statusMessage()) === onTab, "the status message did not come back");
+    const [width] = await windowSize();
+    const toolbar = await hook("h.toolbarWidth()");
+    assert(toolbar <= width, `the toolbar (${toolbar}px) is clipped at ${width}px`);
+
+    await hook("h.undo()");
+    await waitFor(async () => (await state()).tabs[0].resolved === 0, 5000);
+    await hook("h.closeTab()");
+    await waitFor(async () => (await startView()).tabs === 0, 5000);
+    return `${TAB_COMMANDS.length} tab commands off and back on; keys did nothing`;
+  });
+
   await step("window", "with a comparison open the session panel is on the left, and only it", async () => {
     await hook(`h.open('files', ${JSON.stringify([sample("files", "left.txt"), sample("files", "right.txt")])})`);
     await waitFor(async () => (await hook("h.query('.panel-left')")) === 1, 8000);
@@ -2197,6 +2349,22 @@ async function run() {
     await hook(`h.open('files', ${JSON.stringify([sample("files", "left.txt"), sample("files", "right.txt")])})`);
     await waitFor(async () => (await state()).tabs.at(-1).kind === "compare", 8000);
     return "both closed to their own edge and reopened from the rail";
+  });
+
+  await step("chrome", "settings changed in quick succession all stick", async () => {
+    // Each answer used to be applied as it came, so an earlier one could undo a later change.
+    for (let round = 0; round < 5; round++) {
+      await js(`Promise.all([
+        window.__mcm.settings({ showLeftPanel: false }),
+        window.__mcm.settings({ showRightPanel: false }),
+        window.__mcm.settings({ showLeftPanel: true }),
+        window.__mcm.settings({ showRightPanel: true }),
+      ]).then(() => true)`);
+      const { showLeftPanel, showRightPanel } = (await state()).settings;
+      assert(showLeftPanel === true && showRightPanel === true, `round ${round}: left ${showLeftPanel}, right ${showRightPanel}`);
+      assert((await hook("h.query('.panel-left')")) === 1, `round ${round}: the left panel is gone`);
+    }
+    return "5 rounds of 4 changes, the last ones won";
   });
 
   await step("chrome", "a session can be saved and reopened from the panel", async () => {
