@@ -1,0 +1,1569 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.302Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13MakB5AAfulBh4Cv",
+  "name": "Chat App",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "The message sequence, deployment and components",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13MakB5A6nbXhzrgP",
+    "name": "Chat App",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13MakB5AAfulBh4Cv"
+    },
+    "ownedElements": [
+     {
+      "_type": "UMLCollaboration",
+      "_id": "AAAAAAG13MakB5AkvjuxqJAU",
+      "name": "Send a Message Collaboration",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLInteraction",
+        "_id": "AAAAAAG13MakB5A6B+wwK1FR",
+        "name": "Send a Message",
+        "_parent": {
+         "$ref": "AAAAAAG13MakB5AkvjuxqJAU"
+        },
+        "ownedElements": [
+         {
+          "_type": "UMLSequenceDiagram",
+          "_id": "AAAAAAG13MakB5AQd9Lh6np6",
+          "name": "Send a Message",
+          "defaultDiagram": false,
+          "ownedViews": [
+           {
+            "_type": "UMLCombinedFragmentView",
+            "_id": "AAAAAAG13MalB5AJmDxySLFx",
+            "model": {
+             "$ref": "AAAAAAG13MalB5Ak1MotcB2t"
+            },
+            "left": 370,
+            "top": 270,
+            "width": 770,
+            "height": 96,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLLifelineView",
+            "_id": "AAAAAAG13MakB5Ai3N9Gy1GK",
+            "model": {
+             "$ref": "AAAAAAG13MakB5ADKH1iZ2d8"
+            },
+            "left": 40,
+            "top": 30,
+            "width": 0,
+            "height": 0,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLLifelineView",
+            "_id": "AAAAAAG13MakB5AAobcOQYXW",
+            "model": {
+             "$ref": "AAAAAAG13MakB5A0GYejsDfo"
+            },
+            "left": 230,
+            "top": 30,
+            "width": 0,
+            "height": 0,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLLifelineView",
+            "_id": "AAAAAAG13MakB5AyQXVVB5ZM",
+            "model": {
+             "$ref": "AAAAAAG13MakB5Ay5snMmeAa"
+            },
+            "left": 420,
+            "top": 30,
+            "width": 0,
+            "height": 0,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLLifelineView",
+            "_id": "AAAAAAG13MakB5AFNFnOMbKg",
+            "model": {
+             "$ref": "AAAAAAG13MakB5AjV02u6oY+"
+            },
+            "left": 610,
+            "top": 30,
+            "width": 0,
+            "height": 0,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLLifelineView",
+            "_id": "AAAAAAG13MalB5A+zOSGRpUF",
+            "model": {
+             "$ref": "AAAAAAG13MalB5AxYbpM1qg1"
+            },
+            "left": 800,
+            "top": 30,
+            "width": 0,
+            "height": 0,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLLifelineView",
+            "_id": "AAAAAAG13MalB5AK4dFGjbHn",
+            "model": {
+             "$ref": "AAAAAAG13MalB5AizZG9f3jq"
+            },
+            "left": 990,
+            "top": 30,
+            "width": 0,
+            "height": 0,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLMessageView",
+            "_id": "AAAAAAG13MalB5AUbuDNhP+T",
+            "model": {
+             "$ref": "AAAAAAG13MalB5AqZyWzqnTx"
+            },
+            "tail": {
+             "$ref": "AAAAAAG13MakB5Ai3N9Gy1GK"
+            },
+            "head": {
+             "$ref": "AAAAAAG13MakB5AAobcOQYXW"
+            },
+            "points": [],
+            "lineStyle": "",
+            "y": 110,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLMessageView",
+            "_id": "AAAAAAG13MalB5AXkVDEQWoC",
+            "model": {
+             "$ref": "AAAAAAG13MalB5AXqcUlQfdS"
+            },
+            "tail": {
+             "$ref": "AAAAAAG13MakB5AAobcOQYXW"
+            },
+            "head": {
+             "$ref": "AAAAAAG13MakB5AyQXVVB5ZM"
+            },
+            "points": [],
+            "lineStyle": "",
+            "y": 150,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLMessageView",
+            "_id": "AAAAAAG13MalB5ATai9kC4kR",
+            "model": {
+             "$ref": "AAAAAAG13MalB5AIKgb//Pa/"
+            },
+            "tail": {
+             "$ref": "AAAAAAG13MakB5AyQXVVB5ZM"
+            },
+            "head": {
+             "$ref": "AAAAAAG13MakB5AFNFnOMbKg"
+            },
+            "points": [],
+            "lineStyle": "",
+            "y": 190,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLMessageView",
+            "_id": "AAAAAAG13MalB5AY7VaVPTTb",
+            "model": {
+             "$ref": "AAAAAAG13MalB5AL6R2iQBHP"
+            },
+            "tail": {
+             "$ref": "AAAAAAG13MakB5AFNFnOMbKg"
+            },
+            "head": {
+             "$ref": "AAAAAAG13MakB5AyQXVVB5ZM"
+            },
+            "points": [],
+            "lineStyle": "",
+            "y": 230,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLMessageView",
+            "_id": "AAAAAAG13MalB5AbViVKGIlo",
+            "model": {
+             "$ref": "AAAAAAG13MalB5AxfbmCM7TX"
+            },
+            "tail": {
+             "$ref": "AAAAAAG13MakB5AyQXVVB5ZM"
+            },
+            "head": {
+             "$ref": "AAAAAAG13MalB5A+zOSGRpUF"
+            },
+            "points": [],
+            "lineStyle": "",
+            "y": 304,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLMessageView",
+            "_id": "AAAAAAG13MalB5AeCJre7VuZ",
+            "model": {
+             "$ref": "AAAAAAG13MalB5A9veTt9Rmq"
+            },
+            "tail": {
+             "$ref": "AAAAAAG13MalB5A+zOSGRpUF"
+            },
+            "head": {
+             "$ref": "AAAAAAG13MalB5AK4dFGjbHn"
+            },
+            "points": [],
+            "lineStyle": "",
+            "y": 344,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           },
+           {
+            "_type": "UMLMessageView",
+            "_id": "AAAAAAG13MalB5Aaa2cuzIC6",
+            "model": {
+             "$ref": "AAAAAAG13MalB5AsQQZ6ebow"
+            },
+            "tail": {
+             "$ref": "AAAAAAG13MakB5AyQXVVB5ZM"
+            },
+            "head": {
+             "$ref": "AAAAAAG13MakB5AAobcOQYXW"
+            },
+            "points": [],
+            "lineStyle": "",
+            "y": 418,
+            "_parent": {
+             "$ref": "AAAAAAG13MakB5AQd9Lh6np6"
+            }
+           }
+          ],
+          "showSequenceNumber": true,
+          "messageSignature": "nameAndType",
+          "showActivation": true,
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          }
+         }
+        ],
+        "participants": [
+         {
+          "_type": "UMLLifeline",
+          "_id": "AAAAAAG13MakB5ADKH1iZ2d8",
+          "name": "Sender",
+          "selector": "",
+          "isMultiInstance": false,
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          },
+          "represent": {
+           "$ref": "AAAAAAG13MakB5ASQyNaOJVV"
+          }
+         },
+         {
+          "_type": "UMLLifeline",
+          "_id": "AAAAAAG13MakB5A0GYejsDfo",
+          "name": "chatClient",
+          "selector": "",
+          "isMultiInstance": false,
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          },
+          "represent": {
+           "$ref": "AAAAAAG13MakB5AGC4An6Kty"
+          }
+         },
+         {
+          "_type": "UMLLifeline",
+          "_id": "AAAAAAG13MakB5Ay5snMmeAa",
+          "name": "gateway",
+          "selector": "",
+          "isMultiInstance": false,
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          },
+          "represent": {
+           "$ref": "AAAAAAG13MakB5ADpHIWeCZY"
+          }
+         },
+         {
+          "_type": "UMLLifeline",
+          "_id": "AAAAAAG13MakB5AjV02u6oY+",
+          "name": "messageService",
+          "selector": "",
+          "isMultiInstance": false,
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          },
+          "represent": {
+           "$ref": "AAAAAAG13MakB5An0dEu4LW3"
+          }
+         },
+         {
+          "_type": "UMLLifeline",
+          "_id": "AAAAAAG13MalB5AxYbpM1qg1",
+          "name": "pushService",
+          "selector": "",
+          "isMultiInstance": false,
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          },
+          "represent": {
+           "$ref": "AAAAAAG13MalB5AORPvXL67e"
+          }
+         },
+         {
+          "_type": "UMLLifeline",
+          "_id": "AAAAAAG13MalB5AizZG9f3jq",
+          "name": "Receiver",
+          "selector": "",
+          "isMultiInstance": false,
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          },
+          "represent": {
+           "$ref": "AAAAAAG13MalB5AMQt30sO5h"
+          }
+         }
+        ],
+        "fragments": [
+         {
+          "_type": "UMLCombinedFragment",
+          "_id": "AAAAAAG13MalB5Ak1MotcB2t",
+          "name": "",
+          "interactionOperator": "par",
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          },
+          "operands": [
+           {
+            "_type": "UMLInteractionOperand",
+            "_id": "AAAAAAG13MalB5A4AxLXha7B",
+            "name": "",
+            "guard": "offline members",
+            "_parent": {
+             "$ref": "AAAAAAG13MalB5Ak1MotcB2t"
+            }
+           },
+           {
+            "_type": "UMLInteractionOperand",
+            "_id": "AAAAAAG13MalB5A2kMll8+XM",
+            "name": "",
+            "guard": "",
+            "_parent": {
+             "$ref": "AAAAAAG13MalB5Ak1MotcB2t"
+            }
+           }
+          ]
+         }
+        ],
+        "messages": [
+         {
+          "_type": "UMLMessage",
+          "_id": "AAAAAAG13MalB5AqZyWzqnTx",
+          "name": "send(text)",
+          "messageSort": "synchCall",
+          "arguments": "",
+          "assignmentTarget": "",
+          "guard": "",
+          "source": {
+           "$ref": "AAAAAAG13MakB5ADKH1iZ2d8"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MakB5A0GYejsDfo"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          }
+         },
+         {
+          "_type": "UMLMessage",
+          "_id": "AAAAAAG13MalB5AXqcUlQfdS",
+          "name": "publish(room, text)",
+          "messageSort": "asynchCall",
+          "arguments": "",
+          "assignmentTarget": "",
+          "guard": "",
+          "source": {
+           "$ref": "AAAAAAG13MakB5A0GYejsDfo"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MakB5Ay5snMmeAa"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          }
+         },
+         {
+          "_type": "UMLMessage",
+          "_id": "AAAAAAG13MalB5AIKgb//Pa/",
+          "name": "store(message)",
+          "messageSort": "synchCall",
+          "arguments": "",
+          "assignmentTarget": "",
+          "guard": "",
+          "source": {
+           "$ref": "AAAAAAG13MakB5Ay5snMmeAa"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MakB5AjV02u6oY+"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          }
+         },
+         {
+          "_type": "UMLMessage",
+          "_id": "AAAAAAG13MalB5AL6R2iQBHP",
+          "name": "id",
+          "messageSort": "reply",
+          "arguments": "",
+          "assignmentTarget": "",
+          "guard": "",
+          "source": {
+           "$ref": "AAAAAAG13MakB5AjV02u6oY+"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MakB5Ay5snMmeAa"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          }
+         },
+         {
+          "_type": "UMLMessage",
+          "_id": "AAAAAAG13MalB5AxfbmCM7TX",
+          "name": "fanOut(message)",
+          "messageSort": "asynchCall",
+          "arguments": "",
+          "assignmentTarget": "",
+          "guard": "",
+          "source": {
+           "$ref": "AAAAAAG13MakB5Ay5snMmeAa"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MalB5AxYbpM1qg1"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          }
+         },
+         {
+          "_type": "UMLMessage",
+          "_id": "AAAAAAG13MalB5A9veTt9Rmq",
+          "name": "notification",
+          "messageSort": "asynchCall",
+          "arguments": "",
+          "assignmentTarget": "",
+          "guard": "",
+          "source": {
+           "$ref": "AAAAAAG13MalB5AxYbpM1qg1"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MalB5AizZG9f3jq"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          }
+         },
+         {
+          "_type": "UMLMessage",
+          "_id": "AAAAAAG13MalB5AsQQZ6ebow",
+          "name": "ack(id)",
+          "messageSort": "reply",
+          "arguments": "",
+          "assignmentTarget": "",
+          "guard": "",
+          "source": {
+           "$ref": "AAAAAAG13MakB5Ay5snMmeAa"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MakB5A0GYejsDfo"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MakB5A6B+wwK1FR"
+          }
+         }
+        ]
+       }
+      ],
+      "attributes": [
+       {
+        "_type": "UMLAttribute",
+        "_id": "AAAAAAG13MakB5ASQyNaOJVV",
+        "name": "Sender",
+        "visibility": "public",
+        "type": {
+         "$ref": "AAAAAAG13MakB5AO8jD4u8DK"
+        },
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MakB5AkvjuxqJAU"
+        }
+       },
+       {
+        "_type": "UMLAttribute",
+        "_id": "AAAAAAG13MakB5AGC4An6Kty",
+        "name": "chatClient",
+        "visibility": "public",
+        "type": "",
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MakB5AkvjuxqJAU"
+        }
+       },
+       {
+        "_type": "UMLAttribute",
+        "_id": "AAAAAAG13MakB5ADpHIWeCZY",
+        "name": "gateway",
+        "visibility": "public",
+        "type": "",
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MakB5AkvjuxqJAU"
+        }
+       },
+       {
+        "_type": "UMLAttribute",
+        "_id": "AAAAAAG13MakB5An0dEu4LW3",
+        "name": "messageService",
+        "visibility": "public",
+        "type": "",
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MakB5AkvjuxqJAU"
+        }
+       },
+       {
+        "_type": "UMLAttribute",
+        "_id": "AAAAAAG13MalB5AORPvXL67e",
+        "name": "pushService",
+        "visibility": "public",
+        "type": "",
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MakB5AkvjuxqJAU"
+        }
+       },
+       {
+        "_type": "UMLAttribute",
+        "_id": "AAAAAAG13MalB5AMQt30sO5h",
+        "name": "Receiver",
+        "visibility": "public",
+        "type": {
+         "$ref": "AAAAAAG13MalB5AzvHfp+nte"
+        },
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MakB5AkvjuxqJAU"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLActor",
+      "_id": "AAAAAAG13MakB5AO8jD4u8DK",
+      "name": "Sender",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      }
+     },
+     {
+      "_type": "UMLActor",
+      "_id": "AAAAAAG13MalB5AzvHfp+nte",
+      "name": "Receiver",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      }
+     },
+     {
+      "_type": "UMLDeploymentDiagram",
+      "_id": "AAAAAAG13MalB5AfBcai370K",
+      "name": "Chat Deployment",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "UMLDeviceView",
+        "_id": "AAAAAAG13MalB5An5raJmwkP",
+        "model": {
+         "$ref": "AAAAAAG13MalB5AIBoE+el4m"
+        },
+        "left": 40,
+        "top": 80,
+        "width": 190,
+        "height": 150,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLArtifactView",
+        "_id": "AAAAAAG13MalB5ABfPPbyIXP",
+        "model": {
+         "$ref": "AAAAAAG13MalB5AV6dnOzIOW"
+        },
+        "left": 70,
+        "top": 145,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLNodeView",
+        "_id": "AAAAAAG13MalB5ANSd50KWVs",
+        "model": {
+         "$ref": "AAAAAAG13MalB5Ao0JcCCR1l"
+        },
+        "left": 310,
+        "top": 40,
+        "width": 250,
+        "height": 220,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLExecutionEnvironmentView",
+        "_id": "AAAAAAG13MalB5AKV/zrQJ0j",
+        "model": {
+         "$ref": "AAAAAAG13MalB5AaN6JmZBzY"
+        },
+        "left": 330,
+        "top": 95,
+        "width": 210,
+        "height": 140,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLArtifactView",
+        "_id": "AAAAAAG13MalB6AZeZaVPDpS",
+        "model": {
+         "$ref": "AAAAAAG13MalB6AuC9voMY3i"
+        },
+        "left": 365,
+        "top": 160,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLNodeView",
+        "_id": "AAAAAAG13MalB6Aw/Hhkguvd",
+        "model": {
+         "$ref": "AAAAAAG13MalB6Aa4lutW5AW"
+        },
+        "left": 650,
+        "top": 40,
+        "width": 250,
+        "height": 220,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLExecutionEnvironmentView",
+        "_id": "AAAAAAG13MalB6AY3K/qCc0k",
+        "model": {
+         "$ref": "AAAAAAG13MalB6A3W0JpY+5y"
+        },
+        "left": 670,
+        "top": 95,
+        "width": 210,
+        "height": 140,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLArtifactView",
+        "_id": "AAAAAAG13MalB6AM4TsAcXuI",
+        "model": {
+         "$ref": "AAAAAAG13MalB6Ae6A9oRqDQ"
+        },
+        "left": 695,
+        "top": 160,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLNodeView",
+        "_id": "AAAAAAG13MalB6ACP3Nl77El",
+        "model": {
+         "$ref": "AAAAAAG13MalB6As55cbimqC"
+        },
+        "left": 650,
+        "top": 340,
+        "width": 250,
+        "height": 130,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLNodeView",
+        "_id": "AAAAAAG13MalB6A6B5jBqexi",
+        "model": {
+         "$ref": "AAAAAAG13MalB6A9cGvGo3QM"
+        },
+        "left": 310,
+        "top": 340,
+        "width": 250,
+        "height": 130,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLCommunicationPathView",
+        "_id": "AAAAAAG13MalB6AQuzp6wRVg",
+        "model": {
+         "$ref": "AAAAAAG13MalB6AxjPZAHDQr"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MalB5An5raJmwkP"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MalB5ANSd50KWVs"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLCommunicationPathView",
+        "_id": "AAAAAAG13MalB6ALAWi12Q+R",
+        "model": {
+         "$ref": "AAAAAAG13MalB6AGQRDzurx3"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MalB5ANSd50KWVs"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MalB6Aw/Hhkguvd"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLCommunicationPathView",
+        "_id": "AAAAAAG13MalB6AdAru/NrMS",
+        "model": {
+         "$ref": "AAAAAAG13MalB6AmkhU2YZvb"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MalB6Aw/Hhkguvd"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MalB6ACP3Nl77El"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       },
+       {
+        "_type": "UMLCommunicationPathView",
+        "_id": "AAAAAAG13MalB6A1sfDWXctv",
+        "model": {
+         "$ref": "AAAAAAG13MalB6AhRybqw6P7"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MalB5ANSd50KWVs"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MalB6A6B5jBqexi"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AfBcai370K"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      }
+     },
+     {
+      "_type": "UMLDevice",
+      "_id": "AAAAAAG13MalB5AIBoE+el4m",
+      "name": "Phone",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLArtifact",
+        "_id": "AAAAAAG13MalB5AV6dnOzIOW",
+        "name": "chat-app.apk",
+        "visibility": "public",
+        "isAbstract": false,
+        "isFinalSpecialization": false,
+        "isLeaf": false,
+        "fileName": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AIBoE+el4m"
+        }
+       },
+       {
+        "_type": "UMLCommunicationPath",
+        "_id": "AAAAAAG13MalB6AxjPZAHDQr",
+        "name": "WebSocket",
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MalB6AfNUt0dtnm",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MalB5AIBoE+el4m"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MalB6AxjPZAHDQr"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MalB6A6fNWIyqsG",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MalB5Ao0JcCCR1l"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MalB6AxjPZAHDQr"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5AIBoE+el4m"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLNode",
+      "_id": "AAAAAAG13MalB5Ao0JcCCR1l",
+      "name": "gateway-01",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLExecutionEnvironment",
+        "_id": "AAAAAAG13MalB5AaN6JmZBzY",
+        "name": "Node.js 22",
+        "visibility": "public",
+        "isAbstract": false,
+        "isFinalSpecialization": false,
+        "isLeaf": false,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5Ao0JcCCR1l"
+        },
+        "ownedElements": [
+         {
+          "_type": "UMLArtifact",
+          "_id": "AAAAAAG13MalB6AuC9voMY3i",
+          "name": "ws-gateway.js",
+          "visibility": "public",
+          "isAbstract": false,
+          "isFinalSpecialization": false,
+          "isLeaf": false,
+          "fileName": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MalB5AaN6JmZBzY"
+          }
+         }
+        ]
+       },
+       {
+        "_type": "UMLCommunicationPath",
+        "_id": "AAAAAAG13MalB6AGQRDzurx3",
+        "name": "gRPC",
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MalB6A5PYLEyzqL",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MalB5Ao0JcCCR1l"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MalB6AGQRDzurx3"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MalB6AIYDJyBPRm",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MalB6Aa4lutW5AW"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MalB6AGQRDzurx3"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5Ao0JcCCR1l"
+        }
+       },
+       {
+        "_type": "UMLCommunicationPath",
+        "_id": "AAAAAAG13MalB6AhRybqw6P7",
+        "name": "Kafka",
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MalB6AqjAvZAY0q",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MalB5Ao0JcCCR1l"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MalB6AhRybqw6P7"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MalB6AXCLn3XQYN",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MalB6A9cGvGo3QM"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MalB6AhRybqw6P7"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MalB5Ao0JcCCR1l"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLNode",
+      "_id": "AAAAAAG13MalB6Aa4lutW5AW",
+      "name": "message-01",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLExecutionEnvironment",
+        "_id": "AAAAAAG13MalB6A3W0JpY+5y",
+        "name": "JVM 21",
+        "visibility": "public",
+        "isAbstract": false,
+        "isFinalSpecialization": false,
+        "isLeaf": false,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6Aa4lutW5AW"
+        },
+        "ownedElements": [
+         {
+          "_type": "UMLArtifact",
+          "_id": "AAAAAAG13MalB6Ae6A9oRqDQ",
+          "name": "message-service.jar",
+          "visibility": "public",
+          "isAbstract": false,
+          "isFinalSpecialization": false,
+          "isLeaf": false,
+          "fileName": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MalB6A3W0JpY+5y"
+          }
+         }
+        ]
+       },
+       {
+        "_type": "UMLCommunicationPath",
+        "_id": "AAAAAAG13MalB6AmkhU2YZvb",
+        "name": "CQL",
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MalB6Ag5ce4P5bt",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MalB6Aa4lutW5AW"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MalB6AmkhU2YZvb"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MalB6AfWecz+TgN",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MalB6As55cbimqC"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MalB6AmkhU2YZvb"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6Aa4lutW5AW"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLNode",
+      "_id": "AAAAAAG13MalB6As55cbimqC",
+      "name": "cassandra-01",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      }
+     },
+     {
+      "_type": "UMLNode",
+      "_id": "AAAAAAG13MalB6A9cGvGo3QM",
+      "name": "kafka-01",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      }
+     },
+     {
+      "_type": "UMLComponentDiagram",
+      "_id": "AAAAAAG13MalB6AwWKF4gVS/",
+      "name": "Chat Components",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "UMLComponentView",
+        "_id": "AAAAAAG13MalB6AfI2m0MgVq",
+        "model": {
+         "$ref": "AAAAAAG13MalB6An8wk5zunM"
+        },
+        "left": 40,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AwWKF4gVS/"
+        }
+       },
+       {
+        "_type": "UMLInterfaceView",
+        "_id": "AAAAAAG13MalB6AK3yh0HUIy",
+        "model": {
+         "$ref": "AAAAAAG13MalB6AdDvJbfL4j"
+        },
+        "left": 228,
+        "top": 49,
+        "width": 0,
+        "height": 0,
+        "stereotypeDisplay": "icon",
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AwWKF4gVS/"
+        }
+       },
+       {
+        "_type": "UMLComponentView",
+        "_id": "AAAAAAG13MalB6AdsInnBCzG",
+        "model": {
+         "$ref": "AAAAAAG13MalB6AabI+H7IpN"
+        },
+        "left": 324,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AwWKF4gVS/"
+        }
+       },
+       {
+        "_type": "UMLInterfaceView",
+        "_id": "AAAAAAG13MalB6AdpputqhB5",
+        "model": {
+         "$ref": "AAAAAAG13MalB6AftSO3jY/6"
+        },
+        "left": 495,
+        "top": 49,
+        "width": 0,
+        "height": 0,
+        "stereotypeDisplay": "icon",
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AwWKF4gVS/"
+        }
+       },
+       {
+        "_type": "UMLComponentView",
+        "_id": "AAAAAAG13MalB6ATLmf8mW/g",
+        "model": {
+         "$ref": "AAAAAAG13MalB6AALH5+jp2U"
+        },
+        "left": 591,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AwWKF4gVS/"
+        }
+       },
+       {
+        "_type": "UMLComponentView",
+        "_id": "AAAAAAG13MalB6AIJwv0cUza",
+        "model": {
+         "$ref": "AAAAAAG13MalB6AG1Gq4xSNL"
+        },
+        "left": 603,
+        "top": 174,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AwWKF4gVS/"
+        }
+       },
+       {
+        "_type": "UMLUsageView",
+        "_id": "AAAAAAG13MamB6AQurz5z0FG",
+        "model": {
+         "$ref": "AAAAAAG13MamB6A9NW1isHQ8"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MalB6AfI2m0MgVq"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MalB6AK3yh0HUIy"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AwWKF4gVS/"
+        }
+       },
+       {
+        "_type": "UMLInterfaceRealizationView",
+        "_id": "AAAAAAG13MamB6AwihHe0RpA",
+        "model": {
+         "$ref": "AAAAAAG13MamB6AdMBs9SjoO"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MalB6AdsInnBCzG"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MalB6AK3yh0HUIy"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AwWKF4gVS/"
+        }
+       },
+       {
+        "_type": "UMLUsageView",
+        "_id": "AAAAAAG13MamB6APqA4QCvM+",
+        "model": {
+         "$ref": "AAAAAAG13MamB6A/tOOKOlRh"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MalB6AdsInnBCzG"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MalB6AdpputqhB5"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AwWKF4gVS/"
+        }
+       },
+       {
+        "_type": "UMLInterfaceRealizationView",
+        "_id": "AAAAAAG13MamB6A5GnhW2nhM",
+        "model": {
+         "$ref": "AAAAAAG13MamB6AurVa+bB5c"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MalB6ATLmf8mW/g"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MalB6AdpputqhB5"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AwWKF4gVS/"
+        }
+       },
+       {
+        "_type": "UMLDependencyView",
+        "_id": "AAAAAAG13MamB6A9x4m0FeeZ",
+        "model": {
+         "$ref": "AAAAAAG13MamB6AJ5jQO/gC2"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MalB6ATLmf8mW/g"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MalB6AIJwv0cUza"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AwWKF4gVS/"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      }
+     },
+     {
+      "_type": "UMLComponent",
+      "_id": "AAAAAAG13MalB6An8wk5zunM",
+      "name": "ChatClient",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "isIndirectlyInstantiated": true,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLUsage",
+        "_id": "AAAAAAG13MamB6A9NW1isHQ8",
+        "name": "",
+        "source": {
+         "$ref": "AAAAAAG13MalB6An8wk5zunM"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MalB6AdDvJbfL4j"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6An8wk5zunM"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLInterface",
+      "_id": "AAAAAAG13MalB6AdDvJbfL4j",
+      "name": "RealtimeAPI",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      }
+     },
+     {
+      "_type": "UMLComponent",
+      "_id": "AAAAAAG13MalB6AabI+H7IpN",
+      "name": "Gateway",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "isIndirectlyInstantiated": true,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLInterfaceRealization",
+        "_id": "AAAAAAG13MamB6AdMBs9SjoO",
+        "name": "",
+        "source": {
+         "$ref": "AAAAAAG13MalB6AabI+H7IpN"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MalB6AdDvJbfL4j"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AabI+H7IpN"
+        }
+       },
+       {
+        "_type": "UMLUsage",
+        "_id": "AAAAAAG13MamB6A/tOOKOlRh",
+        "name": "",
+        "source": {
+         "$ref": "AAAAAAG13MalB6AabI+H7IpN"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MalB6AftSO3jY/6"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AabI+H7IpN"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLInterface",
+      "_id": "AAAAAAG13MalB6AftSO3jY/6",
+      "name": "MessageAPI",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      }
+     },
+     {
+      "_type": "UMLComponent",
+      "_id": "AAAAAAG13MalB6AALH5+jp2U",
+      "name": "MessageService",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "isIndirectlyInstantiated": true,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLInterfaceRealization",
+        "_id": "AAAAAAG13MamB6AurVa+bB5c",
+        "name": "",
+        "source": {
+         "$ref": "AAAAAAG13MalB6AALH5+jp2U"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MalB6AftSO3jY/6"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AALH5+jp2U"
+        }
+       },
+       {
+        "_type": "UMLDependency",
+        "_id": "AAAAAAG13MamB6AJ5jQO/gC2",
+        "name": "",
+        "visibility": "public",
+        "source": {
+         "$ref": "AAAAAAG13MalB6AALH5+jp2U"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MalB6AG1Gq4xSNL"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MalB6AALH5+jp2U"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLComponent",
+      "_id": "AAAAAAG13MalB6AG1Gq4xSNL",
+      "name": "PushService",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "isIndirectlyInstantiated": true,
+      "_parent": {
+       "$ref": "AAAAAAG13MakB5A6nbXhzrgP"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

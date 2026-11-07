@@ -22,21 +22,32 @@ At start the **Welcome to MyUMLMaker** window opens. It explains that the tutori
 
 Turn off **Show this window at start** at its bottom and it no longer opens at start. **Help › Welcome window** opens it any time, and **Settings › Start page › Show the welcome window at start** turns it on again. You can run several MyUMLMaker desktop apps at once: every start opens one more window (see [Running several windows](#running-several-windows)).
 
+### Installation language
+
+The Windows installer starts by asking for **한국어** or **English**, at every installation. Its pages and questions then use that language, and the program opens in it at its first start. You can change the language later with the flag button on the toolbar or in **Settings**; updates and unattended installs (`/S`, `/P`) keep the language in use. macOS and Linux do not ask during installation and start in the system language.
+
 ### Start page
 
-The start page shows when no project is open (and from the **Home** button at the start of the menu bar, `Ctrl+Shift+H`). Its background keeps moving. The **Home** button does not close the open project: press **Home** (`Ctrl+Shift+H`) again to go back to it.
+The start page shows when no project is open (and from the **Start** button at the start of the menu bar, `Ctrl+Shift+H`). Its background keeps moving. The **Home** button does not close the open project: press **Home** (`Ctrl+Shift+H`) again to go back to it.
 
 | Area | Contents |
 |---|---|
 | Top | Program name and version, the line "Model UML and software diagrams, generate code and publish documentation.", three document buttons — **User's guide** · **Tutorial document** · **Tutorial video** (each opens its own window, see [Document windows](#document-windows)) —, a **Help** button (the tutorial, the tutorial document, the tutorial video, the user's guide, the shortcut list, settings and About) and **Start the tutorial**. Until the tutorial has been finished, a "New here?" banner with a **Start** button shows too |
-| **New** | 23 template tiles, **Open…**, **Open StarUML project (.mdj)…**, **Reverse engineer (code → model)**, **Import Mermaid / PlantUML…** |
+| **Quick actions** | Tiles with a picture, name and description: **Open…**, **Open StarUML project (.mdj)…**, **Reverse engineer (code → model)**, **Import Mermaid / PlantUML…**, **Start the tutorial**, **Theme settings**, the language switch (a flag), **Settings…**, **Start page settings**, **About…**, **Exit** |
+| **New** | 23 template tiles |
 | **Recent files** · **Recent folders** | The files and folders opened lately. ✕ removes one entry, **Clear all** · **Clear all folders** remove them all. Clicking a folder opens the Open window in that folder |
-| **Help** | **Tutorial document**, **User's guide**, **Tutorial video**, **Keyboard shortcuts…** |
-| **Sample projects** | The installed sample files (only those in the current language). If the install folder has no samples, a single **Online Shop (sample)** shows |
-| **Moving background** | Pick one of 20 animations, **Change moving background** (random), **Background image…**, **Motion speed** (0–300%), **Random at start**, **Auto change** (Off, every 15 s, 30 s, 1 min, 2 min or 5 min) |
-| Bottom | **Show the start page at start-up** check box |
+| **Sample projects** | [40 sample projects](#the-sample-projects), five in each of eight groups. A click opens one as a new, unsaved project |
+| **Theme** | Tiles for the 20 dark and 20 light themes; a click changes the theme at once. **Theme settings** opens the settings window |
+| **Moving background** | Pick one of 20 animations, **Change moving background** (random), **Background image…**, **Motion speed** (0–300%), **Card opacity** (20–100%), **Random at start**, **Auto change** (Off, every 15 s, 30 s, 1 min, 2 min or 5 min) |
+| Top right | **Show the start page at start-up** check box, **Start page settings**, **Arrange** (the same as **Auto arrange** on the toolbar: it arranges the cards on the start page and the nodes on a diagram) |
+
+Every area is a translucent card over the moving background. Drag the handle at a card's top left to move it (the other cards make room) and its bottom right corner to resize it (what no longer fits scrolls inside the card). A double click on the corner fits the card to its content again, and **Arrange** puts all cards back in their first arrangement. The arrangement and the opacity are kept for the next start.
 
 Which parts show, and how many recent files, is set in **Settings › Start page**. Right-clicking the start page offers New project · Open · Recent files · Change moving background · Tutorial · About.
+
+### Tooltips and icon colours
+
+A button's description appears at once (in about a tenth of a second) when the pointer is over it. Every icon has a colour of its own, in a shade that suits light and dark themes.
 
 ### New project from a template
 
@@ -72,9 +83,66 @@ Pick a template tile on the start page or **File › New from template**. Each t
 
 **New project** on the toolbar (`Ctrl+N`) makes a blank project: first pick its first diagram in the [New diagram popup](#new-diagram-popup), and the project holds just that diagram. Only one project is open at a time, so a new project, a template or the sample replaces the current project. When the current project has unsaved changes, you are asked first: **Save** · **Don't save** · **Cancel** (see [Unsaved changes](#unsaved-changes)). A project made from a template has no file yet, so the first save asks for a file name.
 
-### The sample project
+### Icons on a diagram
 
-The "Online Shop" sample draws the requirements, structure, behaviour and data of an online shop in several notations: a finished example of every one of the 40 kinds of diagram the program draws.
+Every diagram outside UML (ER, flowchart, data flow, SysML, BPMN, C4, mind map, wireframe, cloud, network, Gantt, WBS, timeline, ArchiMate, story map, customer journey, JSON, YAML, EBNF, regex) has an **Icon…** tool at the top of its toolbox. It opens the icon window; the icon you choose goes in the middle of what you see.
+
+- **100 built-in icons**: ten each of People · Devices · Network & Cloud · Data & Files · Security · Communication · Business & Finance · Transport & Places · Nature & Science · Symbols & Status. Type a name in the box at the top to find one.
+- **My icons**: **+** adds a picture file (PNG, JPG, GIF, WebP, BMP or SVG, up to about 190 KB). You can add 200; the ✕ on an icon removes it from the list. Icons already on a diagram stay.
+- An icon moves and resizes like any shape. **Change Icon** in the **Properties** panel replaces it, and the line colour in the **Style** panel recolours a built-in one.
+
+### Diagram colour schemes
+
+By default diagrams **follow the program theme**: their background and colours match it and change with it (printing and exports use a white background). To change that, **View › Diagram colour scheme › All 40 colour schemes…** offers 20 light and 20 dark schemes. For one diagram's background only, use **Background** in the **Properties** panel. A click applies one to every diagram at once and the window stays open, so you can compare them. **Settings › Diagram** has the same choice.
+
+### The sample projects
+
+The **Sample projects** card of the start page has 40 of them, each in Korean and English. They open as new, unsaved projects, so change them as you like.
+
+| Group | Sample | What it shows |
+|---|---|---|
+| Business Systems | **Online Shop** | The big sample: one diagram of every kind |
+| Business Systems | **Warehouse Inventory** | Receiving, picking and stock counts: classes, use cases, ER and states |
+| Business Systems | **HR and Payroll** | Employees and pay, the leave approval flow and the HR database |
+| Business Systems | **Support Helpdesk** | From ticket to resolution: BPMN, states and use cases |
+| Business Systems | **Sales CRM** | Sales pipeline model, quote sequence and a customer journey map |
+| Public, Education & Health | **Library Management** | Loans and holds: classes, use cases, a sequence and states |
+| Public, Education & Health | **University Enrolment** | Students and courses, the enrolment sequence and the database |
+| Public, Education & Health | **Hospital Appointments** | Booking use cases, the visit activity and the clinic database |
+| Public, Education & Health | **E-Learning Platform** | Course model, a C4 system context and a user story map |
+| Public, Education & Health | **Citizen Requests** | Handling citizen requests: BPMN, data flow and states |
+| Finance | **Online Banking** | Accounts and transfers: classes, a sequence and states |
+| Finance | **Card Payment** | The authorization flow: sequence, communication and data flow |
+| Finance | **Stock Trading** | Order model, order states and execution timing |
+| Finance | **Insurance Claims** | Handling claims: use cases, BPMN and ER |
+| Finance | **Mobile Wallet** | C4 containers, a QR payment sequence and input patterns |
+| Web & Mobile Services | **Blog CMS** | Posts and comments, components and the database |
+| Web & Mobile Services | **Chat App** | The message sequence, deployment and components |
+| Web & Mobile Services | **Food Delivery** | Use cases, order states and an interaction overview |
+| Web & Mobile Services | **Ride Sharing** | Dispatch model, objects at one moment and the dispatch sequence |
+| Web & Mobile Services | **Video Streaming** | C4 containers, an AWS deployment and packages |
+| Embedded & IoT | **Smart Home** | SysML requirements and blocks, and thermostat states |
+| Embedded & IoT | **Elevator Control** | Controller classes, a composite state and door timing |
+| Embedded & IoT | **Vending Machine** | States, the purchase activity and a change flowchart |
+| Embedded & IoT | **Car Cruise Control** | SysML requirements, internal blocks and parametrics |
+| Embedded & IoT | **Delivery Drone** | Block definitions, composite structure and the flight sequence |
+| Cloud & Infrastructure | **Three-Tier Web App on AWS** | AWS layout, the network and the deployment |
+| Cloud & Infrastructure | **Azure Data Pipeline** | Azure layout, data flow and a YAML pipeline |
+| Cloud & Infrastructure | **Serverless API on GCP** | GCP layout, containers and JSON messages |
+| Cloud & Infrastructure | **Microservices** | Components, C4 containers and calls between services |
+| Cloud & Infrastructure | **Office Network** | The network, branch deployment and a rollout mind map |
+| Architecture & Processes | **Company Architecture** | ArchiMate layered view, and motivation and strategy |
+| Architecture & Processes | **Purchase Approval** | BPMN, an activity and information flows between departments |
+| Architecture & Processes | **Employee Onboarding** | BPMN, the account flowchart and a preparation schedule |
+| Architecture & Processes | **Design Rule Profile** | A profile, package rules and classes that use it |
+| Architecture & Processes | **Layered Architecture** | Package layers, components and a request communication |
+| Projects, UX & Data | **App Launch Project** | Gantt chart, work breakdown and the year on a timeline |
+| Projects, UX & Data | **Mobile App UX** | Customer journey, story map and screen wireframes |
+| Projects, UX & Data | **Marketing Campaign** | A mind map, campaign timeline and a landing page wireframe |
+| Projects, UX & Data | **REST API Specification** | JSON messages, a YAML spec, input patterns and an ID grammar |
+| Projects, UX & Data | **Calculator Language** | EBNF grammar, token patterns and an evaluation flowchart |
+
+Among them, the "Online Shop" sample draws the requirements, structure, behaviour and data of an online shop in several notations: a finished example of every one of the 40 kinds of diagram the program draws.
 
 ![The sample project](docs/tutorial/images/06-sample.jpg)
 
@@ -123,7 +191,7 @@ The "Online Shop" sample draws the requirements, structure, behaviour and data o
 
 The last two diagrams are under the **Agile & UX** model in the Model Explorer.
 
-The `samples` folder of the installation holds the same sample as `.myuml` and as StarUML `.mdj`, a class model template (`.mumlt`) and a model fragment (`.mfj`), in Korean and English.
+The `samples` folder of the installation holds the 40 samples as `.myuml` (`library.ko.myuml` and `library.en.myuml` for the library, and so on), the Online Shop as StarUML `.mdj` and as a model fragment (`.mfj`), and a class model template (`.mumlt`), in Korean and English.
 
 ### Tutorial
 
@@ -167,7 +235,7 @@ From the top there are the menu bar (which is also the title bar: program name �
 
 ### Menu bar
 
-The **Home** button at the start of the menu bar (`Ctrl+Shift+H`) goes back to the start page at any time. Resting the pointer on an item marked ▸ opens its submenu beside the row, and moving the pointer to another row of the same menu closes it. From the keyboard, `→` or `Enter` opens a submenu and `←` or `Esc` closes the innermost one. Each menu command shows its shortcut, and commands that cannot be used right now are dimmed.
+The **Start** button at the start of the menu bar (`Ctrl+Shift+H`) opens the start page; pressed again, it returns to your diagram. Resting the pointer on an item marked ▸ opens its submenu beside the row, and moving the pointer to another row of the same menu closes it. From the keyboard, `→` or `Enter` opens a submenu and `←` or `Esc` closes the innermost one. Each menu command shows its shortcut, and commands that cannot be used right now are dimmed.
 
 | Menu | Commands |
 |---|---|
@@ -1188,15 +1256,16 @@ In the web version, dropping Mermaid or PlantUML text also opens the import wind
 
 ![Printing and print preview](docs/tutorial/images/61-print.jpg)
 
-**File › Print…** (`Ctrl+P`) opens the **Print preview** window. Changing a setting on the left updates the preview on the right at once, and ‹ › at the bottom turn the pages. The settings are remembered for the next print and for PDF export.
+**File › Print…** (`Ctrl+P`) opens the **Print preview** window. All settings and the preview are on one screen, with no tabs. Changing a setting on the left updates the preview on the right at once, and ‹ › at the bottom turn the pages. The settings are remembered for the next print and for PDF export.
 
-| Tab | Items |
+| Group | Items |
 |---|---|
+| **Printer** | **Printer** (the default printer or one of this computer's) · **Copies**. In the Windows desktop app only |
 | **What to print** | **All pages** (all diagrams) · **Current page** (the current diagram) · **Page range** (the **First diagram**–**Last diagram** numbers), **To print** (N diagrams · N sheets) |
 | **Paper** | **Paper** (A3 · A4 · A5 · B4 · B5 · Letter · Legal · Tabloid) · **Orientation** (Portrait · Landscape) · **Margins** (None · Narrow · Normal · Wide) · **Size** (Fit to sheet · Actual size · Percent) · **Scale** (10–400%) · **Center on the sheet** · **Print the diagram background** |
 | **Header and footer** | **Header** and **Header text** (the project name when empty) · **Footer** and **Footer text** |
 
-Printed at **Actual size** or a large scale, a big diagram is split over several sheets. **Print** opens the system print dialog.
+Printed at **Actual size** or a large scale, a big diagram is split over several sheets. In the Windows desktop app **Print** prints at once on the chosen printer, without the system print window. In the web version and on macOS and Linux no printer can be chosen, and **Print** opens the system print window.
 
 ## Database storage
 

@@ -27,6 +27,11 @@ tiberius = { version = "0.13", default-features = false, features = ["tds73", "r
 tokio-util = { version = "0.7", features = ["compat"] }
 tokio = { version = "1", features = ["net"] }
 
+# Printing straight to a printer (the same versions as Tauri's own WebView2).
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Printing", "Win32_Security"] }
+
 [dev-dependencies]
 tempfile = "3"
 # Starts a throw-away PostgreSQL server for the database tests (downloaded once, then cached).

@@ -1,0 +1,850 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.356Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13MbbCYAqcTT1+FPl",
+  "name": "Azure Data Pipeline",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "Azure layout, data flow and a YAML pipeline",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13MbbCYANVFXtBAeL",
+    "name": "Azure Data Pipeline",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13MbbCYAqcTT1+FPl"
+    }
+   },
+   {
+    "_type": "CloudModel",
+    "_id": "AAAAAAG13MbbCYAXHspBzJiT",
+    "name": "Azure Layout",
+    "_parent": {
+     "$ref": "AAAAAAG13MbbCYAqcTT1+FPl"
+    },
+    "ownedElements": [
+     {
+      "_type": "AzureDiagram",
+      "_id": "AAAAAAG13MbbCYAfDyIlSjUn",
+      "name": "Azure Layout",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "CloudGroupView",
+        "_id": "AAAAAAG13MbbCZAU9Y+L1wUU",
+        "model": {
+         "$ref": "AAAAAAG13MbbCZAW62VeLkpJ"
+        },
+        "left": 212,
+        "top": 94,
+        "width": 752,
+        "height": 268,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbbCYAoSFJtogOo",
+        "model": {
+         "$ref": "AAAAAAG13MbbCYA3JQ1C7xp+"
+        },
+        "left": 90,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbbCYANXvb028Jb",
+        "model": {
+         "$ref": "AAAAAAG13MbbCYAPO+HjTFdv"
+        },
+        "left": 248,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbbCYAIraXkXZNE",
+        "model": {
+         "$ref": "AAAAAAG13MbbCYAGLnUVz0Eo"
+        },
+        "left": 564,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbbCYAxWpnOty1+",
+        "model": {
+         "$ref": "AAAAAAG13MbbCYAiXwrDn4sB"
+        },
+        "left": 406,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbbCYArU4CMyeUg",
+        "model": {
+         "$ref": "AAAAAAG13MbbCYAFMGsS0sKr"
+        },
+        "left": 722,
+        "top": 150,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbbCYAYvFXTN1fi",
+        "model": {
+         "$ref": "AAAAAAG13MbbCYAtRb0sr3YX"
+        },
+        "left": 722,
+        "top": 278,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbbCYAKE+ybtbwp",
+        "model": {
+         "$ref": "AAAAAAG13MbbCYArruHKfazW"
+        },
+        "left": 880,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbbCYAZfC3TCmqZ",
+        "model": {
+         "$ref": "AAAAAAG13MbbCYA//e/Q/3+a"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbbCYAoSFJtogOo"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbbCYANXvb028Jb"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbbCYAVvUV9sE5x",
+        "model": {
+         "$ref": "AAAAAAG13MbbCYARX4ZDTfg/"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbbCYANXvb028Jb"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbbCYAxWpnOty1+"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbbCYA77kIKw3i0",
+        "model": {
+         "$ref": "AAAAAAG13MbbCYACZgrTm+/S"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbbCYAxWpnOty1+"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbbCYAIraXkXZNE"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbbCZAg04Ekf6Qb",
+        "model": {
+         "$ref": "AAAAAAG13MbbCZAnOlcPDMe8"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbbCYAIraXkXZNE"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbbCYArU4CMyeUg"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbbCZAJvWMxkH1/",
+        "model": {
+         "$ref": "AAAAAAG13MbbCZAXfS4TiP9y"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbbCYAIraXkXZNE"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbbCYAYvFXTN1fi"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbbCZAL6RWNWNrD",
+        "model": {
+         "$ref": "AAAAAAG13MbbCZAdA4cos96O"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbbCYArU4CMyeUg"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbbCYAKE+ybtbwp"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCYAfDyIlSjUn"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbbCYA3JQ1C7xp+",
+      "name": "Devices",
+      "provider": "azure",
+      "service": "User",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbbCYAPO+HjTFdv",
+      "name": "Ingest",
+      "provider": "azure",
+      "service": "Event Hubs",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbbCYAGLnUVz0Eo",
+      "name": "Transform",
+      "provider": "azure",
+      "service": "Data Factory",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbbCYAiXwrDn4sB",
+      "name": "Raw store",
+      "provider": "azure",
+      "service": "Blob Storage",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbbCYAFMGsS0sKr",
+      "name": "Analytics",
+      "provider": "azure",
+      "service": "Synapse",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbbCYAtRb0sr3YX",
+      "name": "Training",
+      "provider": "azure",
+      "service": "Databricks",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbbCYArruHKfazW",
+      "name": "Monitor",
+      "provider": "azure",
+      "service": "Monitor",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbbCYA//e/Q/3+a",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbbCYA3JQ1C7xp+"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbbCYAPO+HjTFdv"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbbCYARX4ZDTfg/",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbbCYAPO+HjTFdv"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbbCYAiXwrDn4sB"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbbCYACZgrTm+/S",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbbCYAiXwrDn4sB"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbbCYAGLnUVz0Eo"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbbCZAnOlcPDMe8",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbbCYAGLnUVz0Eo"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbbCYAFMGsS0sKr"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbbCZAXfS4TiP9y",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbbCYAGLnUVz0Eo"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbbCYAtRb0sr3YX"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbbCZAdA4cos96O",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbbCYAFMGsS0sKr"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbbCYArruHKfazW"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     },
+     {
+      "_type": "CloudGroup",
+      "_id": "AAAAAAG13MbbCZAW62VeLkpJ",
+      "name": "rg-data",
+      "provider": "azure",
+      "groupKind": "resourceGroup",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCYAXHspBzJiT"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "DFDDataFlowModel",
+    "_id": "AAAAAAG13MbbCZADQW/vKQB5",
+    "name": "Data Flows",
+    "_parent": {
+     "$ref": "AAAAAAG13MbbCYAqcTT1+FPl"
+    },
+    "ownedElements": [
+     {
+      "_type": "DFDDiagram",
+      "_id": "AAAAAAG13MbbCZA3HCHWvOW+",
+      "name": "Data Refinery",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "DFDExternalEntityView",
+        "_id": "AAAAAAG13MbcCZAW0oZ4YOFO",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZA+RDlsRnBS"
+        },
+        "left": 40,
+        "top": 58,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCZA3HCHWvOW+"
+        }
+       },
+       {
+        "_type": "DFDProcessView",
+        "_id": "AAAAAAG13MbcCZAMqEpvUV5C",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZAH1zOMBPXf"
+        },
+        "left": 310,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCZA3HCHWvOW+"
+        }
+       },
+       {
+        "_type": "DFDDataStoreView",
+        "_id": "AAAAAAG13MbcCZAIWO01bFPS",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZA2pXRB1DtV"
+        },
+        "left": 565,
+        "top": 61,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCZA3HCHWvOW+"
+        }
+       },
+       {
+        "_type": "DFDProcessView",
+        "_id": "AAAAAAG13MbcCZAEJwZVKcZY",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZAfqRdoEjYZ"
+        },
+        "left": 885,
+        "top": 43,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCZA3HCHWvOW+"
+        }
+       },
+       {
+        "_type": "DFDDataStoreView",
+        "_id": "AAAAAAG13MbcCZAlZGScY8Ms",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZANu24n6+5c"
+        },
+        "left": 1135,
+        "top": 61,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCZA3HCHWvOW+"
+        }
+       },
+       {
+        "_type": "DFDExternalEntityView",
+        "_id": "AAAAAAG13MbcCZAgxFqZZDFU",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZAPCVODYl3F"
+        },
+        "left": 1455,
+        "top": 58,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCZA3HCHWvOW+"
+        }
+       },
+       {
+        "_type": "DFDDataFlowView",
+        "_id": "AAAAAAG13MbcCZAhbnCWVh7C",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZAO1m+8qmra"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbcCZAW0oZ4YOFO"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbcCZAMqEpvUV5C"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCZA3HCHWvOW+"
+        }
+       },
+       {
+        "_type": "DFDDataFlowView",
+        "_id": "AAAAAAG13MbcCZAeVlukGEgn",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZAMcBgLaLUF"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbcCZAMqEpvUV5C"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbcCZAIWO01bFPS"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCZA3HCHWvOW+"
+        }
+       },
+       {
+        "_type": "DFDDataFlowView",
+        "_id": "AAAAAAG13MbcCZAtgprZ5xB/",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZAGkC0nK++j"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbcCZAIWO01bFPS"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbcCZAEJwZVKcZY"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCZA3HCHWvOW+"
+        }
+       },
+       {
+        "_type": "DFDDataFlowView",
+        "_id": "AAAAAAG13MbcCZA0lq+mV77l",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZAKKrqVXJsi"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbcCZAEJwZVKcZY"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbcCZAlZGScY8Ms"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCZA3HCHWvOW+"
+        }
+       },
+       {
+        "_type": "DFDDataFlowView",
+        "_id": "AAAAAAG13MbcCZA1eEgAxOly",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZAiCapePQia"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbcCZAlZGScY8Ms"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbcCZAgxFqZZDFU"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbbCZA3HCHWvOW+"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCZADQW/vKQB5"
+      }
+     },
+     {
+      "_type": "DFDExternalEntity",
+      "_id": "AAAAAAG13MbcCZA+RDlsRnBS",
+      "name": "Devices",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCZADQW/vKQB5"
+      }
+     },
+     {
+      "_type": "DFDProcess",
+      "_id": "AAAAAAG13MbcCZAH1zOMBPXf",
+      "name": "Ingest",
+      "id": "1.0",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCZADQW/vKQB5"
+      }
+     },
+     {
+      "_type": "DFDDataStore",
+      "_id": "AAAAAAG13MbcCZA2pXRB1DtV",
+      "name": "Raw",
+      "id": "D1",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCZADQW/vKQB5"
+      }
+     },
+     {
+      "_type": "DFDProcess",
+      "_id": "AAAAAAG13MbcCZAfqRdoEjYZ",
+      "name": "Clean",
+      "id": "2.0",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCZADQW/vKQB5"
+      }
+     },
+     {
+      "_type": "DFDDataStore",
+      "_id": "AAAAAAG13MbcCZANu24n6+5c",
+      "name": "Curated",
+      "id": "D2",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCZADQW/vKQB5"
+      }
+     },
+     {
+      "_type": "DFDExternalEntity",
+      "_id": "AAAAAAG13MbcCZAPCVODYl3F",
+      "name": "Analyst",
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCZADQW/vKQB5"
+      }
+     },
+     {
+      "_type": "DFDDataFlow",
+      "_id": "AAAAAAG13MbcCZAO1m+8qmra",
+      "name": "readings",
+      "source": {
+       "$ref": "AAAAAAG13MbcCZA+RDlsRnBS"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbcCZAH1zOMBPXf"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCZADQW/vKQB5"
+      }
+     },
+     {
+      "_type": "DFDDataFlow",
+      "_id": "AAAAAAG13MbcCZAMcBgLaLUF",
+      "name": "raw events",
+      "source": {
+       "$ref": "AAAAAAG13MbcCZAH1zOMBPXf"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbcCZA2pXRB1DtV"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCZADQW/vKQB5"
+      }
+     },
+     {
+      "_type": "DFDDataFlow",
+      "_id": "AAAAAAG13MbcCZAGkC0nK++j",
+      "name": "daily batch",
+      "source": {
+       "$ref": "AAAAAAG13MbcCZA2pXRB1DtV"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbcCZAfqRdoEjYZ"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCZADQW/vKQB5"
+      }
+     },
+     {
+      "_type": "DFDDataFlow",
+      "_id": "AAAAAAG13MbcCZAKKrqVXJsi",
+      "name": "clean data",
+      "source": {
+       "$ref": "AAAAAAG13MbcCZAfqRdoEjYZ"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbcCZANu24n6+5c"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCZADQW/vKQB5"
+      }
+     },
+     {
+      "_type": "DFDDataFlow",
+      "_id": "AAAAAAG13MbcCZAiCapePQia",
+      "name": "reports",
+      "source": {
+       "$ref": "AAAAAAG13MbcCZANu24n6+5c"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbcCZAPCVODYl3F"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbbCZADQW/vKQB5"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "DSSpecification",
+    "_id": "AAAAAAG13MbcCZAfK2mds+RI",
+    "name": "Data Specifications",
+    "_parent": {
+     "$ref": "AAAAAAG13MbbCYAqcTT1+FPl"
+    },
+    "ownedElements": [
+     {
+      "_type": "YAMLDiagram",
+      "_id": "AAAAAAG13MbcCZAZu0+b/J4y",
+      "name": "Pipeline Definition",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13MbcCZAd0lMSsBJg",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZAg8f9tDiVc"
+        },
+        "left": 20,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbcCZAZu0+b/J4y"
+        }
+       },
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13MbcCZAvo50kdXqH",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZA8FKpHBQIY"
+        },
+        "left": 548,
+        "top": 60,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbcCZAZu0+b/J4y"
+        }
+       },
+       {
+        "_type": "DSReferenceView",
+        "_id": "AAAAAAG13MbcCZAuKt38rQiW",
+        "model": {
+         "$ref": "AAAAAAG13MbcCZAFVtHpBKxm"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbcCZAd0lMSsBJg"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbcCZAvo50kdXqH"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbcCZAZu0+b/J4y"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbcCZAfK2mds+RI"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13MbcCZAg8f9tDiVc",
+      "name": "azure-pipelines.yml",
+      "format": "yaml",
+      "text": "trigger:\n  - main\npool:\n  vmImage: ubuntu-latest\nsteps:\n  - script: pytest tests\n  - task: AzureCLI@2\n    inputs:\n      scriptType: bash\n      inlineScript: az datafactory pipeline create-run",
+      "_parent": {
+       "$ref": "AAAAAAG13MbcCZAfK2mds+RI"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13MbcCZA8FKpHBQIY",
+      "name": "adf-trigger.yml",
+      "format": "yaml",
+      "text": "name: daily-batch\nschedule:\n  frequency: Day\n  time: \"02:00\"\nactivities:\n  - copy-raw\n  - clean\n  - load-curated",
+      "_parent": {
+       "$ref": "AAAAAAG13MbcCZAfK2mds+RI"
+      }
+     },
+     {
+      "_type": "DSReference",
+      "_id": "AAAAAAG13MbcCZAFVtHpBKxm",
+      "name": "deploys",
+      "source": {
+       "$ref": "AAAAAAG13MbcCZAg8f9tDiVc"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbcCZA8FKpHBQIY"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbcCZAfK2mds+RI"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

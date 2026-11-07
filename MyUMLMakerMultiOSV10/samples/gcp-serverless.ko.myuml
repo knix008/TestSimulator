@@ -1,0 +1,864 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.358Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13MbdCZAt8qXYnZdY",
+  "name": "GCP 서버리스 API",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "GCP 구성, 컨테이너, JSON 메시지",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13MbdCZAacaDWFQaI",
+    "name": "GCP 서버리스 API",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13MbdCZAt8qXYnZdY"
+    }
+   },
+   {
+    "_type": "CloudModel",
+    "_id": "AAAAAAG13MbdCZAExmlhyzzF",
+    "name": "GCP 서버리스 구성",
+    "_parent": {
+     "$ref": "AAAAAAG13MbdCZAt8qXYnZdY"
+    },
+    "ownedElements": [
+     {
+      "_type": "GCPDiagram",
+      "_id": "AAAAAAG13MbdCZAan9Bi3pfE",
+      "name": "GCP 서버리스 구성",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "CloudGroupView",
+        "_id": "AAAAAAG13MbdCaA95WcxErYa",
+        "model": {
+         "$ref": "AAAAAAG13MbdCaAaXeAMCbsQ"
+        },
+        "left": 370,
+        "top": 94,
+        "width": 594,
+        "height": 268,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbdCZAfc4DHFwg0",
+        "model": {
+         "$ref": "AAAAAAG13MbdCZAqx/+BUlZI"
+        },
+        "left": 90,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbdCZA5kYCLTZVU",
+        "model": {
+         "$ref": "AAAAAAG13MbdCZAoPN3Ymf8X"
+        },
+        "left": 248,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbdCZAdSm++GeLB",
+        "model": {
+         "$ref": "AAAAAAG13MbdCZAt5R267Ues"
+        },
+        "left": 406,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbdCZAqEGJU27JF",
+        "model": {
+         "$ref": "AAAAAAG13MbdCZAtcsD8ZxkU"
+        },
+        "left": 564,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbdCZAe42pkd77Y",
+        "model": {
+         "$ref": "AAAAAAG13MbdCZAoLn35V+F2"
+        },
+        "left": 722,
+        "top": 150,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbdCZAExhXVwpmn",
+        "model": {
+         "$ref": "AAAAAAG13MbdCZAOUp1dShIC"
+        },
+        "left": 722,
+        "top": 278,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbdCZAirYDXgHxh",
+        "model": {
+         "$ref": "AAAAAAG13MbdCZAZ5HfCKzHx"
+        },
+        "left": 880,
+        "top": 150,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbdCZAMn9r0uEju",
+        "model": {
+         "$ref": "AAAAAAG13MbdCZAvyqyXnZ7a"
+        },
+        "left": 880,
+        "top": 278,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbdCZAB4fcpZwDo",
+        "model": {
+         "$ref": "AAAAAAG13MbdCZAOLoCHBrIE"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbdCZAfc4DHFwg0"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbdCZA5kYCLTZVU"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbdCaACRzwysgyu",
+        "model": {
+         "$ref": "AAAAAAG13MbdCZAAW5thLfiS"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbdCZA5kYCLTZVU"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbdCZAdSm++GeLB"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbdCaAB99JSU+Ux",
+        "model": {
+         "$ref": "AAAAAAG13MbdCaAVVDkjhLX7"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbdCZAdSm++GeLB"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbdCZAqEGJU27JF"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbdCaAR/8b+tFV4",
+        "model": {
+         "$ref": "AAAAAAG13MbdCaAvO9xcLI07"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbdCZAqEGJU27JF"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbdCZAe42pkd77Y"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbdCaAGA0kFGDil",
+        "model": {
+         "$ref": "AAAAAAG13MbdCaAW6nJWhfJ0"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbdCZAqEGJU27JF"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbdCZAExhXVwpmn"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbdCaACVOYW8T2B",
+        "model": {
+         "$ref": "AAAAAAG13MbdCaAZDjZs+xcX"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbdCZAExhXVwpmn"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbdCZAirYDXgHxh"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbdCaAJzVqH9BRV",
+        "model": {
+         "$ref": "AAAAAAG13MbdCaA0OAZOMw0T"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbdCZAExhXVwpmn"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbdCZAMn9r0uEju"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCZAan9Bi3pfE"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbdCZAqx/+BUlZI",
+      "name": "클라이언트",
+      "provider": "gcp",
+      "service": "User",
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbdCZAoPN3Ymf8X",
+      "name": "HTTPS LB",
+      "provider": "gcp",
+      "service": "Cloud Load Balancing",
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbdCZAt5R267Ues",
+      "name": "API Gateway",
+      "provider": "gcp",
+      "service": "API Gateway",
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbdCZAtcsD8ZxkU",
+      "name": "주문 API",
+      "provider": "gcp",
+      "service": "Cloud Run",
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbdCZAoLn35V+F2",
+      "name": "문서 DB",
+      "provider": "gcp",
+      "service": "Firestore",
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbdCZAOUp1dShIC",
+      "name": "이벤트",
+      "provider": "gcp",
+      "service": "Pub/Sub",
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbdCZAZ5HfCKzHx",
+      "name": "메일 발송",
+      "provider": "gcp",
+      "service": "Cloud Functions",
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbdCZAvyqyXnZ7a",
+      "name": "분석",
+      "provider": "gcp",
+      "service": "BigQuery",
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbdCZAOLoCHBrIE",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbdCZAqx/+BUlZI"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbdCZAoPN3Ymf8X"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbdCZAAW5thLfiS",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbdCZAoPN3Ymf8X"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbdCZAt5R267Ues"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbdCaAVVDkjhLX7",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbdCZAt5R267Ues"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbdCZAtcsD8ZxkU"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbdCaAvO9xcLI07",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbdCZAtcsD8ZxkU"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbdCZAoLn35V+F2"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbdCaAW6nJWhfJ0",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbdCZAtcsD8ZxkU"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbdCZAOUp1dShIC"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbdCaAZDjZs+xcX",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbdCZAOUp1dShIC"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbdCZAZ5HfCKzHx"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbdCaA0OAZOMw0T",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbdCZAOUp1dShIC"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbdCZAvyqyXnZ7a"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     },
+     {
+      "_type": "CloudGroup",
+      "_id": "AAAAAAG13MbdCaAaXeAMCbsQ",
+      "name": "orders-prod",
+      "provider": "gcp",
+      "groupKind": "project",
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCZAExmlhyzzF"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "C4Model",
+    "_id": "AAAAAAG13MbdCaAkuIuURv10",
+    "name": "C4",
+    "_parent": {
+     "$ref": "AAAAAAG13MbdCZAt8qXYnZdY"
+    },
+    "ownedElements": [
+     {
+      "_type": "C4Diagram",
+      "_id": "AAAAAAG13MbdCaA7sIXtIJM3",
+      "name": "주문 API 컨테이너",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "C4SoftwareSystemView",
+        "_id": "AAAAAAG13MbdCaA7jfUv6s2W",
+        "model": {
+         "$ref": "AAAAAAG13MbdCaAAspfwIxeN"
+        },
+        "left": 45,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCaA7sIXtIJM3"
+        }
+       },
+       {
+        "_type": "C4ContainerView",
+        "_id": "AAAAAAG13MbdCaABtMJF9LH+",
+        "model": {
+         "$ref": "AAAAAAG13MbdCaAe6wA1gMJQ"
+        },
+        "left": 40,
+        "top": 260,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCaA7sIXtIJM3"
+        }
+       },
+       {
+        "_type": "C4ContainerView",
+        "_id": "AAAAAAG13MbdCaAvI6r1iwLl",
+        "model": {
+         "$ref": "AAAAAAG13MbdCaAMdiBzxqX8"
+        },
+        "left": 451,
+        "top": 260,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCaA7sIXtIJM3"
+        }
+       },
+       {
+        "_type": "C4ContainerDatabaseView",
+        "_id": "AAAAAAG13MbdCaAZ0m+m9BhV",
+        "model": {
+         "$ref": "AAAAAAG13MbdCaAP5fnE2h+g"
+        },
+        "left": 56,
+        "top": 480,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCaA7sIXtIJM3"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13MbeCaAD/Bd76DAZ",
+        "model": {
+         "$ref": "AAAAAAG13MbeCaARD6g5Ndo5"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbdCaA7jfUv6s2W"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbdCaABtMJF9LH+"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCaA7sIXtIJM3"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13MbeCaAeIrxO3kgN",
+        "model": {
+         "$ref": "AAAAAAG13MbeCaA4nzudIw+A"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbdCaABtMJF9LH+"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbdCaAZ0m+m9BhV"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCaA7sIXtIJM3"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13MbeCaAM3r/CmitO",
+        "model": {
+         "$ref": "AAAAAAG13MbeCaAzFdbUZyOj"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbdCaABtMJF9LH+"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbdCaAvI6r1iwLl"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbdCaA7sIXtIJM3"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCaAkuIuURv10"
+      }
+     },
+     {
+      "_type": "C4SoftwareSystem",
+      "_id": "AAAAAAG13MbdCaAAspfwIxeN",
+      "name": "쇼핑 앱",
+      "description": "API를 호출한다",
+      "external": true,
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCaAkuIuURv10"
+      }
+     },
+     {
+      "_type": "C4Container",
+      "_id": "AAAAAAG13MbdCaAe6wA1gMJQ",
+      "name": "주문 API",
+      "technology": "Python, FastAPI",
+      "description": "주문을 받는다",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCaAkuIuURv10"
+      }
+     },
+     {
+      "_type": "C4Container",
+      "_id": "AAAAAAG13MbdCaAMdiBzxqX8",
+      "name": "메일 함수",
+      "technology": "Node.js",
+      "description": "확인 메일",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCaAkuIuURv10"
+      }
+     },
+     {
+      "_type": "C4ContainerDatabase",
+      "_id": "AAAAAAG13MbdCaAP5fnE2h+g",
+      "name": "Firestore",
+      "technology": "NoSQL",
+      "description": "주문 문서",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCaAkuIuURv10"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13MbeCaARD6g5Ndo5",
+      "name": "주문한다",
+      "technology": "HTTPS",
+      "source": {
+       "$ref": "AAAAAAG13MbdCaAAspfwIxeN"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbdCaAe6wA1gMJQ"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCaAkuIuURv10"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13MbeCaA4nzudIw+A",
+      "name": "저장한다",
+      "technology": "gRPC",
+      "source": {
+       "$ref": "AAAAAAG13MbdCaAe6wA1gMJQ"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbdCaAP5fnE2h+g"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCaAkuIuURv10"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13MbeCaAzFdbUZyOj",
+      "name": "이벤트를 보낸다",
+      "technology": "Pub/Sub",
+      "source": {
+       "$ref": "AAAAAAG13MbdCaAe6wA1gMJQ"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbdCaAMdiBzxqX8"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbdCaAkuIuURv10"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "DSSpecification",
+    "_id": "AAAAAAG13MbeCaAQ+TNLtG10",
+    "name": "데이터 명세",
+    "_parent": {
+     "$ref": "AAAAAAG13MbdCZAt8qXYnZdY"
+    },
+    "ownedElements": [
+     {
+      "_type": "JSONDiagram",
+      "_id": "AAAAAAG13MbeCaA4j9ORqAf5",
+      "name": "주문 API 메시지",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13MbeCaAido5AG9oI",
+        "model": {
+         "$ref": "AAAAAAG13MbeCaA/VWgiD1t4"
+        },
+        "left": 48,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaA4j9ORqAf5"
+        }
+       },
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13MbeCaARahVSScxg",
+        "model": {
+         "$ref": "AAAAAAG13MbeCaAW+kewe4KJ"
+        },
+        "left": 406,
+        "top": 70,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaA4j9ORqAf5"
+        }
+       },
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13MbeCaAqwHtfRrIh",
+        "model": {
+         "$ref": "AAAAAAG13MbeCaAp+jISanyR"
+        },
+        "left": 20,
+        "top": 285,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaA4j9ORqAf5"
+        }
+       },
+       {
+        "_type": "DSReferenceView",
+        "_id": "AAAAAAG13MbeCaAhnbCUj2Xh",
+        "model": {
+         "$ref": "AAAAAAG13MbeCaA0Iyzy0VsN"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbeCaARahVSScxg"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbeCaAido5AG9oI"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaA4j9ORqAf5"
+        }
+       },
+       {
+        "_type": "DSReferenceView",
+        "_id": "AAAAAAG13MbeCaA1S7U8Up9r",
+        "model": {
+         "$ref": "AAAAAAG13MbeCaA6/6ZWPqQq"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbeCaAqwHtfRrIh"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbeCaARahVSScxg"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaA4j9ORqAf5"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAQ+TNLtG10"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13MbeCaA/VWgiD1t4",
+      "name": "주문 요청",
+      "format": "json",
+      "text": "{\n  \"customerId\": \"C-1001\",\n  \"items\": [\n    {\n      \"sku\": \"A-1\",\n      \"qty\": 2\n    },\n    {\n      \"sku\": \"B-7\",\n      \"qty\": 1\n    }\n  ],\n  \"coupon\": null\n}",
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAQ+TNLtG10"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13MbeCaAW+kewe4KJ",
+      "name": "주문 응답",
+      "format": "json",
+      "text": "{\n  \"orderId\": \"O-5001\",\n  \"status\": \"ACCEPTED\",\n  \"total\": 42000,\n  \"currency\": \"KRW\"\n}",
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAQ+TNLtG10"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13MbeCaAp+jISanyR",
+      "name": "주문 이벤트",
+      "format": "json",
+      "text": "{\n  \"type\": \"order.accepted\",\n  \"orderId\": \"O-5001\",\n  \"at\": \"2026-11-01T09:00:00Z\"\n}",
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAQ+TNLtG10"
+      }
+     },
+     {
+      "_type": "DSReference",
+      "_id": "AAAAAAG13MbeCaA0Iyzy0VsN",
+      "name": "orderId",
+      "source": {
+       "$ref": "AAAAAAG13MbeCaAW+kewe4KJ"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbeCaA/VWgiD1t4"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAQ+TNLtG10"
+      }
+     },
+     {
+      "_type": "DSReference",
+      "_id": "AAAAAAG13MbeCaA6/6ZWPqQq",
+      "name": "orderId",
+      "source": {
+       "$ref": "AAAAAAG13MbeCaAp+jISanyR"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbeCaAW+kewe4KJ"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAQ+TNLtG10"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

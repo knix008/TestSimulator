@@ -1,0 +1,412 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.417Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13McYC7AQ6Ik4CyhC",
+  "name": "REST API Specification",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "JSON messages, a YAML spec, input patterns and an ID grammar",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13McYC7Apah4+EfTo",
+    "name": "REST API Specification",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13McYC7AQ6Ik4CyhC"
+    }
+   },
+   {
+    "_type": "DSSpecification",
+    "_id": "AAAAAAG13McYC7AOfIEZve8p",
+    "name": "Data Specifications",
+    "_parent": {
+     "$ref": "AAAAAAG13McYC7AQ6Ik4CyhC"
+    },
+    "ownedElements": [
+     {
+      "_type": "JSONDiagram",
+      "_id": "AAAAAAG13McYC7A6ocLy4N9x",
+      "name": "Member API Messages",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13McYC7ACHoX6PDfY",
+        "model": {
+         "$ref": "AAAAAAG13McYC7AHjLZrmLGp"
+        },
+        "left": 20,
+        "top": 50,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7A6ocLy4N9x"
+        }
+       },
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13McYC7AwG4xc2aDl",
+        "model": {
+         "$ref": "AAAAAAG13McYC7Aw1kgRN56z"
+        },
+        "left": 383,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7A6ocLy4N9x"
+        }
+       },
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13McYC7AsMR1QACCb",
+        "model": {
+         "$ref": "AAAAAAG13McYC7A3m+fYpZaI"
+        },
+        "left": 23,
+        "top": 225,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7A6ocLy4N9x"
+        }
+       },
+       {
+        "_type": "DSReferenceView",
+        "_id": "AAAAAAG13McYC7AtUj4KPL38",
+        "model": {
+         "$ref": "AAAAAAG13McYC7A5wPqwqlG6"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McYC7AwG4xc2aDl"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McYC7ACHoX6PDfY"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7A6ocLy4N9x"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13McYC7AHjLZrmLGp",
+      "name": "Sign-up request",
+      "format": "json",
+      "text": "{\n  \"email\": \"mina@example.com\",\n  \"name\": \"Mina\",\n  \"marketing\": true\n}",
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13McYC7Aw1kgRN56z",
+      "name": "Member response",
+      "format": "json",
+      "text": "{\n  \"id\": \"M-00042\",\n  \"email\": \"mina@example.com\",\n  \"name\": \"Mina\",\n  \"roles\": [\n    \"user\"\n  ],\n  \"createdAt\": \"2026-11-01T09:00:00Z\"\n}",
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13McYC7A3m+fYpZaI",
+      "name": "Error response",
+      "format": "json",
+      "text": "{\n  \"status\": 422,\n  \"code\": \"INVALID_EMAIL\",\n  \"message\": \"Invalid e-mail\",\n  \"fields\": [\n    \"email\"\n  ]\n}",
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "DSReference",
+      "_id": "AAAAAAG13McYC7A5wPqwqlG6",
+      "name": "creates",
+      "source": {
+       "$ref": "AAAAAAG13McYC7Aw1kgRN56z"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McYC7AHjLZrmLGp"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "YAMLDiagram",
+      "_id": "AAAAAAG13McYC7AqhefPSG4v",
+      "name": "OpenAPI Spec",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13McYC7AkKpXszQ3h",
+        "model": {
+         "$ref": "AAAAAAG13McYC7AcdxiVdv9M"
+        },
+        "left": 20,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7AqhefPSG4v"
+        }
+       },
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13McYC7A2JllhxpY+",
+        "model": {
+         "$ref": "AAAAAAG13McYC7ARo+JHYR0E"
+        },
+        "left": 442,
+        "top": 80,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7AqhefPSG4v"
+        }
+       },
+       {
+        "_type": "DSReferenceView",
+        "_id": "AAAAAAG13McYC7AzTqultgtO",
+        "model": {
+         "$ref": "AAAAAAG13McYC7AVzUGD6mXL"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McYC7A2JllhxpY+"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McYC7AkKpXszQ3h"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7AqhefPSG4v"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13McYC7AcdxiVdv9M",
+      "name": "openapi.yaml",
+      "format": "yaml",
+      "text": "openapi: 3.0.3\ninfo:\n  title: Member API\n  version: 1.0.0\npaths:\n  /members:\n    post:\n      summary: Sign up\n      responses:\n        \"201\":\n          description: Created\n        \"422\":\n          description: Invalid input",
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13McYC7ARo+JHYR0E",
+      "name": "gateway.yaml",
+      "format": "yaml",
+      "text": "routes:\n  - path: /members\n    upstream: member-service:8080\n    rateLimit:\n      perMinute: 120\n    auth: bearer",
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "DSReference",
+      "_id": "AAAAAAG13McYC7AVzUGD6mXL",
+      "name": "follows",
+      "source": {
+       "$ref": "AAAAAAG13McYC7ARo+JHYR0E"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McYC7AcdxiVdv9M"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "RegexDiagram",
+      "_id": "AAAAAAG13McYC7AMOg813k84",
+      "name": "Input Checks",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "RegexPatternView",
+        "_id": "AAAAAAG13McYC7ATOZ0n0Xy6",
+        "model": {
+         "$ref": "AAAAAAG13McYC7Ah+/2ObMSv"
+        },
+        "left": 20,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7AMOg813k84"
+        }
+       },
+       {
+        "_type": "RegexPatternView",
+        "_id": "AAAAAAG13McYC7At+44vKDVk",
+        "model": {
+         "$ref": "AAAAAAG13McYC7AyP6ZzWLQ4"
+        },
+        "left": 223,
+        "top": 177,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7AMOg813k84"
+        }
+       },
+       {
+        "_type": "RegexPatternView",
+        "_id": "AAAAAAG13McYC7AQYJw11B+J",
+        "model": {
+         "$ref": "AAAAAAG13McYC7Afd9+8zyXK"
+        },
+        "left": 111,
+        "top": 306,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7AMOg813k84"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "RegexPattern",
+      "_id": "AAAAAAG13McYC7Ah+/2ObMSv",
+      "name": "E-mail",
+      "pattern": "^[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+$",
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "RegexPattern",
+      "_id": "AAAAAAG13McYC7AyP6ZzWLQ4",
+      "name": "Member ID",
+      "pattern": "^M-\\d{5}$",
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "RegexPattern",
+      "_id": "AAAAAAG13McYC7Afd9+8zyXK",
+      "name": "Date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "EBNFDiagram",
+      "_id": "AAAAAAG13McYC7A1jcrNogLA",
+      "name": "Member ID Grammar",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "EBNFRuleView",
+        "_id": "AAAAAAG13McYC7ARgsTUB9qU",
+        "model": {
+         "$ref": "AAAAAAG13McYC7Ar9VznAGlV"
+        },
+        "left": 20,
+        "top": 164,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7A1jcrNogLA"
+        }
+       },
+       {
+        "_type": "EBNFRuleView",
+        "_id": "AAAAAAG13McYC7AtqKpsZkM5",
+        "model": {
+         "$ref": "AAAAAAG13McYC7APE6J9vbwu"
+        },
+        "left": 547,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7A1jcrNogLA"
+        }
+       },
+       {
+        "_type": "DSReferenceView",
+        "_id": "AAAAAAG13McYC7AarH6lSgUT",
+        "model": {
+         "$ref": "AAAAAAG13McYC7AWHoRRGVRx"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McYC7ARgsTUB9qU"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McYC7AtqKpsZkM5"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McYC7A1jcrNogLA"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "EBNFRule",
+      "_id": "AAAAAAG13McYC7Ar9VznAGlV",
+      "name": "member id",
+      "expression": "\"M\", \"-\", digit, digit, digit, digit, digit",
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "EBNFRule",
+      "_id": "AAAAAAG13McYC7APE6J9vbwu",
+      "name": "digit",
+      "expression": "\"0\" | \"1\" | \"2\" | \"3\" | \"4\" | \"5\" | \"6\" | \"7\" | \"8\" | \"9\"",
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     },
+     {
+      "_type": "DSReference",
+      "_id": "AAAAAAG13McYC7AWHoRRGVRx",
+      "name": "uses",
+      "source": {
+       "$ref": "AAAAAAG13McYC7Ar9VznAGlV"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McYC7APE6J9vbwu"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McYC7AOfIEZve8p"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

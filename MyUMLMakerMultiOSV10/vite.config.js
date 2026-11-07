@@ -48,6 +48,7 @@ function chunkOf(id) {
     ['/src/domain/codegen/', 'code'],
     ['/src/domain/reverse/', 'code'],
     ['/src/domain/templates', 'samples'],
+    ['/src/domain/samples/', 'samples'],
     ['/src/export/', 'documents'],
     ['/src/print/', 'documents'],
     ['/src/domain/report.js', 'documents'],

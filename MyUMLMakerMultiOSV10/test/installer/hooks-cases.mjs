@@ -43,15 +43,15 @@ export async function runHookCases(check) {
   const builds = new Map();
   const desktop = path.join(base, 'Desktop');
   const programs = path.join(base, 'Programs');
-  const installer = (mode, ask, running = 'IDOK', reinstall = 'IDYES') => {
-    const key = `${mode}-${ask}-${running}-${reinstall}`;
+  const installer = (mode, ask, running = 'IDOK', reinstall = 'IDYES', language = null) => {
+    const key = `${mode}-${ask}-${running}-${reinstall}-${language}`;
     if (!builds.has(key)) {
       const out = path.join(work, `hooks-${key}.exe`);
       compile(path.join(here, 'hooks-test.nsi'), {
         HOOKS, OUT: out, MODE: mode, INST: path.join(base, 'new', 'MyUMLMaker'), RESULT: path.join(base, 'result.txt'),
         MUM_ROAMING: roaming, MUM_LOCAL: local, MUM_DESKTOP: desktop, MUM_SMPROGRAMS: programs,
         MUM_UNKEY: 'Software\\MyUMLMakerHookTest\\Uninstall\\MyUMLMaker', MUM_PRODKEY: 'Software\\MyUMLMakerHookTest\\SHKWON\\MyUMLMaker',
-        MUM_SD_ASK: ask, MUM_SD_RUNNING: running, MUM_SD_REINSTALL: reinstall,
+        MUM_SD_ASK: ask, MUM_SD_RUNNING: running, MUM_SD_REINSTALL: reinstall, ...(language ? { TEST_LANG: language } : {}),
       });
       builds.set(key, out);
     }
@@ -93,6 +93,16 @@ export async function runHookCases(check) {
 
   try {
     compile(path.join(here, 'fake-uninstall.nsi'), { OUT: fake });
+    await check('훅: 설치 언어를 다음 실행에 넘김 (한국어·영어, 사용자 데이터를 지운 뒤에도)', () => {
+      for (const [code, language] of [['1042', 'ko'], ['1033', 'en']]) {
+        setup({ data: true });
+        installer('gui', 'IDYES', 'IDOK', 'IDYES', code);
+        expect(result()?.wipe === '1', 'the data was deleted first');
+        const marker = path.join(roaming, 'install-language');
+        expect(fs.existsSync(marker), 'the marker is there');
+        expect(fs.readFileSync(marker, 'latin1') === language, `${code}: ${fs.readFileSync(marker, 'latin1')}`);
+      }
+    });
     await check('훅: 이전 설치도 사용자 데이터도 없으면 묻지 않음', () => {
       setup();
       installer('gui', 'IDYES');

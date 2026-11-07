@@ -18,6 +18,16 @@ async function closeFrames(app) {
 
 const noError = async (app, where) => assert.equal(await app.main.eval(`Boolean(document.querySelector('.web-popup-error'))`), false, `${where}: no error popup`);
 
+/** The start page with nothing open and the default arrangement. */
+let welcomeWaited = false;
+async function startFresh(app) {
+  // The welcome popup comes a moment after the page loads: wait for it once, when a run starts here.
+  if (!welcomeWaited) { welcomeWaited = true; await sleep(800); }
+  await closeFrames(app);
+  await W(app, `(() => { for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true }); w.state.settings.startLayout = null; a.showStartPage(true); document.querySelector('.start-scroll').scrollTop = 0; return 1; })()`);
+  await sleep(300);
+}
+
 /** The sample project, class diagram open, at 100 %. */
 async function freshSample(app) {
   await closeFrames(app);
@@ -69,7 +79,7 @@ export const cases = [
   { group: '시작 페이지', name: '템플릿 전부·예제·튜토리얼, 템플릿을 누르면 새 프로젝트', async run(app) {
     await W(app, '(a.showStartPage(true), 1)');
     await sleep(300);
-    const info = await app.main.eval(`({ templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('[data-start="tutorial"]')), sample: Boolean(document.querySelector('[data-start="builtin-sample"], [data-start="open-sample"]')), panelsHidden: getComputedStyle(document.querySelector('#left-panel')).display === 'none' })`);
+    const info = await app.main.eval(`({ templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('[data-start="tutorial"]')), sample: document.querySelectorAll('[data-start="sample"]').length === 40, panelsHidden: getComputedStyle(document.querySelector('#left-panel')).display === 'none' })`);
     assert.equal(info.templates, await W(app, 'w.domain.TEMPLATES.length'));
     assert.ok(info.tutorial && info.sample && info.panelsHidden, JSON.stringify(info));
     await app.main.click('[data-start="template"][data-value="sequence"]');
@@ -77,6 +87,509 @@ export const cases = [
     assert.equal(await W(app, 'api.diagram()._type'), 'UMLSequenceDiagram');
     assert.ok(await W(app, 'api.diagram().ownedViews.length >= 4'));
     await noError(app, 'template');
+  } },
+  { group: '시작 페이지', name: '카드 보드: MyMind 와 같은 카드 7장, 겹치지 않고 가로로 넘치지 않는다', async run(app) {
+    await startFresh(app);
+    const info = await app.main.eval(`(() => {
+      const cards = [...document.querySelectorAll('.start-board > .start-card')];
+      const rects = cards.map((c) => c.getBoundingClientRect());
+      let overlaps = 0;
+      rects.forEach((a, i) => rects.forEach((b, j) => { if (j > i && a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) overlaps += 1; }));
+      const scroll = document.querySelector('.start-scroll');
+      return { ids: cards.map((c) => c.dataset.card), overlaps, overflow: scroll.scrollWidth - scroll.clientWidth,
+        handles: document.querySelectorAll('.start-board [data-card-handle]').length, corners: document.querySelectorAll('.start-board [data-card-resize]').length,
+        translucent: getComputedStyle(cards[1]).backgroundColor, hero: rects[0].height, width: rects[0].width };
+    })()`);
+    assert.deepEqual(info.ids, ['hero', 'actions', 'recent', 'templates', 'samples', 'theme', 'background']);
+    assert.equal(info.overlaps, 0, 'no card covers another');
+    assert.ok(info.overflow <= 0, `no sideways scrolling (${info.overflow})`);
+    assert.equal(info.handles, 7);
+    assert.equal(info.corners, 7);
+    assert.match(info.translucent, /color\(srgb .* \/ 0.8\)|rgba\(.*0.8\)/, `cards are translucent: ${info.translucent}`);
+    assert.ok(info.hero < 180, `the title card is not taller than its content (${info.hero})`);
+  } },
+  { group: '시작 페이지', name: '카드 안의 글과 타일이 잘리거나 카드 밖으로 나가지 않는다 (작은 창에서도)', async run(app) {
+    await startFresh(app);
+    for (const [width, height] of [[1600, 1000], [1000, 700]]) {
+      await app.main.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+      await sleep(500);
+      const bad = await app.main.eval(`(() => {
+        const out = [];
+        for (const card of document.querySelectorAll('.start-board > .start-card')) {
+          const box = card.getBoundingClientRect();
+          if (card.scrollWidth > card.clientWidth + 1) out.push(card.dataset.card + ': wider than the card');
+          if (card.classList.contains('fit') && card.scrollHeight > card.clientHeight + 1) out.push(card.dataset.card + ': taller than the card');
+          for (const item of card.querySelectorAll('button, label, select')) {
+            const r = item.getBoundingClientRect();
+            if (r.width && (r.left < box.left - 1 || r.right > box.right + 1 || r.top < box.top - 1 || r.bottom > box.bottom + 1)) out.push(card.dataset.card + ': ' + (item.dataset.start ?? item.textContent.trim()).slice(0, 30));
+          }
+        }
+        const scroll = document.querySelector('.start-scroll');
+        if (scroll.scrollWidth > scroll.clientWidth) out.push('page wider than the window');
+        return out;
+      })()`);
+      assert.deepEqual(bad, [], `at ${width}×${height}`);
+    }
+    await app.main.send('Emulation.clearDeviceMetricsOverride');
+    await sleep(300);
+  } },
+  { group: '시작 페이지', name: '최근 항목 카드에는 최근 파일·폴더만 있고, 도움말은 위쪽 단추와 메뉴에 있다', async run(app) {
+    await startFresh(app);
+    const info = await app.main.eval(`({ title: document.querySelector('.start-card.recent .start-card-title').textContent, subs: document.querySelectorAll('.start-card.recent .start-sub').length, help: document.querySelectorAll('.start-card.recent [data-start="guide"], .start-card.recent [data-start="tutorial-doc"], .start-card.recent [data-start="tutorial-video"], .start-card.recent [data-start="shortcuts"]').length, hero: ['guide', 'tutorial-doc', 'tutorial-video', 'help-menu'].every((x) => document.querySelector('.start-hero [data-start="' + x + '"]')) })`);
+    assert.deepEqual(info, { title: '최근 항목', subs: 2, help: 0, hero: true });
+    await W(app, '(w.state.settings.startShowRecent = false, w.state.settings.startShowFolders = false, a.showStartPage(true), 1)');
+    await sleep(300);
+    assert.equal(await app.main.eval(`Boolean(document.querySelector('.start-card.recent'))`), false, 'with both off the card is gone');
+    await W(app, '(w.state.settings.startShowRecent = true, w.state.settings.startShowFolders = true, a.showStartPage(true), 1)');
+    await sleep(300);
+    assert.equal(await app.main.eval(`Boolean(document.querySelector('.start-card.recent'))`), true);
+  } },
+  { group: '시작 페이지', name: '예제 40개: 8묶음·5개씩, 제목과 설명이 언어를 따른다', async run(app) {
+    await startFresh(app);
+    const read = () => app.main.eval(`({ groups: [...document.querySelectorAll('[data-sample-group]')].map((g) => [g.dataset.sampleGroup, g.querySelectorAll('[data-start="sample"]').length, g.querySelector('.sample-count').textContent]), first: document.querySelector('[data-start="sample"] b').textContent, desc: document.querySelector('[data-start="sample"] small').textContent, icons: [...document.querySelectorAll('[data-start="sample"] svg')].length })`);
+    const ko = await read();
+    assert.deepEqual(ko.groups.map((g) => g[1]), [5, 5, 5, 5, 5, 5, 5, 5]);
+    assert.ok(ko.groups.every((g) => g[2] === '5'), 'each group shows its count');
+    assert.equal(ko.icons, 40, 'every tile has an icon');
+    assert.equal(ko.first, '온라인 쇼핑몰');
+    await app.main.click('[data-start="language"]');
+    await sleep(400);
+    const en = await read();
+    assert.equal(en.first, 'Online Shop');
+    assert.notEqual(en.desc, ko.desc);
+    await app.main.click('[data-start="language"]');
+    await sleep(400);
+    assert.equal(await W(app, 'w.state.settings.language'), 'ko');
+  } },
+  { group: '시작 페이지', name: '예제 타일 40개를 하나씩 누르면 그 프로젝트가 열리고 다이어그램이 그려지며 문제가 없다', async run(app) {
+    await startFresh(app);
+    const ids = await app.main.eval(`[...document.querySelectorAll('[data-start="sample"]')].map((b) => [b.dataset.value, b.querySelector('b').textContent])`);
+    assert.equal(ids.length, 40);
+    for (const [id, title] of ids) {
+      await startFresh(app);
+      await app.main.click(`[data-start="sample"][data-value="${id}"]`);
+      await app.main.waitFor(`window.__myumlmaker.state.docs.length === 1 && Boolean(window.__myumlmaker.api.diagram()) && document.querySelector('#start-page').hidden`, { timeout: 8000, message: `${id} opens` });
+      await sleep(120);
+      const info = await W(app, `({ name: w.api.project?.()?.name ?? w.state.docs[0].project?.name, drawn: document.querySelectorAll('.canvas-svg [data-view]').length, diagrams: w.domain.M.allDiagrams(w.state.docs[0].project).length, dirty: Boolean(w.state.docs[0].dirty) })`);
+      assert.equal(info.name, title, `${id}: the project takes the tile's title`);
+      assert.ok(info.drawn >= 2, `${id}: the first diagram is drawn (${info.drawn})`);
+      assert.ok(info.diagrams >= 2, `${id}: ${info.diagrams} diagrams`);
+      assert.equal(info.dirty, false, `${id}: a sample just opened has nothing to save`);
+      await noError(app, id);
+    }
+  } },
+  { group: '시작 페이지', name: '카드를 손잡이로 끌어 옮기면 배치가 저장되고, 자동 정렬이 되돌린다', async run(app) {
+    await startFresh(app);
+    const cell = (id) => app.main.eval(`document.querySelector('[data-card="${id}"]').style.gridRow + ' | ' + document.querySelector('[data-card="${id}"]').style.gridColumn`);
+    const before = await cell('recent');
+    assert.match(before, /span 1$/);
+    assert.match(before, /\| 3 \/ span 1/, 'the recent card starts in the third column');
+    const handle = await app.main.center('[data-card-handle="recent"]');
+    const target = await app.main.center('[data-card="actions"] .start-tile');
+    const during = await (async () => {
+      await app.main.mouse('mouseMoved', handle.x, handle.y);
+      await app.main.mouse('mousePressed', handle.x, handle.y);
+      for (let i = 1; i <= 10; i += 1) await app.main.mouse('mouseMoved', handle.x + ((target.x - handle.x) * i) / 10, handle.y + ((target.y - handle.y) * i) / 10);
+      await sleep(100);
+      return app.main.eval(`({ ghost: Boolean(document.querySelector('.start-ghost')), outline: Boolean(document.querySelector('.card-drop-outline')), origin: document.querySelector('[data-card="recent"]').classList.contains('drag-origin') })`);
+    })();
+    assert.deepEqual(during, { ghost: true, outline: true, origin: true }, 'a copy follows the pointer, the drop place shows');
+    await app.main.mouse('mouseReleased', target.x, target.y);
+    await sleep(300);
+    assert.deepEqual(await app.main.eval(`[document.querySelectorAll('.start-ghost').length, document.querySelectorAll('.card-drop-outline').length]`), [0, 0], 'the copy is gone');
+    const after = await cell('recent');
+    assert.notEqual(after, before, 'the card moved');
+    assert.match(after, /\| 1 \/ span 1/, 'to the first column');
+    const saved = await W(app, 'w.state.settings.startLayout');
+    assert.equal(saved.cards.recent.col, 0, 'saved in the settings');
+    assert.match(await app.main.eval(`localStorage.getItem('myumlmaker.settings.v1')`), /startLayout/, 'and kept for the next start');
+    await W(app, '(a.showStartPage(false), a.showStartPage(true), 1)');
+    await sleep(300);
+    await app.main.eval(`window.__myumlmaker.actions.showStartPage(true), 1`);
+    await sleep(300);
+    assert.equal(await cell('recent'), after, 'the arrangement comes back when the page is built again');
+    await app.main.click('[data-start="arrange"]');
+    await sleep(300);
+    assert.equal(await cell('recent'), before, 'Arrange puts it back');
+    assert.equal((await W(app, 'w.state.settings.startLayout')).cards.recent.col, 2);
+    await noError(app, 'move card');
+  } },
+  { group: '시작 페이지', name: '모서리로 카드 크기를 바꾸면 고정 높이·내부 스크롤, 두 번 누르면 내용에 맞춘다', async run(app) {
+    await startFresh(app);
+    const read = () => app.main.eval(`(() => { const c = document.querySelector('[data-card="samples"]'); return { h: c.getBoundingClientRect().height, fixed: c.classList.contains('fixed-height'), scrolls: c.querySelector('.card-body').scrollHeight > c.querySelector('.card-body').clientHeight }; })()`);
+    const before = await read();
+    assert.equal(before.fixed, false);
+    await app.main.eval(`document.querySelector('[data-card-resize="samples"]').scrollIntoView({ block: 'center' }), 1`);
+    await sleep(100);
+    const corner = await app.main.center('[data-card-resize="samples"]');
+    await app.main.drag(corner, { x: corner.x, y: corner.y - 300 });
+    await sleep(300);
+    const small = await read();
+    assert.ok(small.fixed && small.h < before.h - 200, `smaller and fixed: ${JSON.stringify(small)}`);
+    assert.ok(small.scrolls, 'the rest scrolls inside the card');
+    await app.main.eval(`document.querySelector('[data-card-resize="samples"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), 1`);
+    await sleep(300);
+    const fitted = await read();
+    assert.equal(fitted.fixed, false, 'fits again');
+    assert.ok(Math.abs(fitted.h - before.h) < 2, `the same height as before: ${fitted.h} / ${before.h}`);
+    await app.main.click('[data-start="arrange"]');
+    await noError(app, 'resize card');
+  } },
+  { group: '시작 페이지', name: '다시 그려도 스크롤 위치가 그대로이고, 끌지 않은 누름은 배치를 바꾸지 않는다', async run(app) {
+    await startFresh(app);
+    await app.main.eval(`document.querySelector('.start-scroll').scrollTop = 500, 1`);
+    const handle = await app.main.center('[data-card-handle="theme"]');
+    const layout = await W(app, 'JSON.stringify(w.state.settings.startLayout)');
+    await app.main.realClick(handle.x, handle.y);
+    await sleep(200);
+    assert.equal(await W(app, 'JSON.stringify(w.state.settings.startLayout)'), layout, 'a click on the handle moves nothing');
+    await app.main.eval(`document.querySelector('[data-start="animation"][data-value="nodes"]').click(), 1`);
+    await sleep(300);
+    assert.ok(await app.main.eval(`document.querySelector('.start-scroll').scrollTop > 400`), 'choosing a background does not jump to the top');
+  } },
+  { group: '시작 페이지', name: '바로 가기 타일: 언어·설정·테마 설정·시작 화면 설정·정보, 끝내기까지 모두 동작', async run(app) {
+    await startFresh(app);
+    const tiles = await app.main.eval(`[...document.querySelectorAll('.start-actions [data-start]')].map((b) => b.dataset.start)`);
+    assert.deepEqual(tiles, ['open', 'import', 'reverse', 'textImport', 'tutorial', 'theme-settings', 'language', 'settings', 'start-settings', 'about', 'exit']);
+    assert.ok(await app.main.eval(`[...document.querySelectorAll('.start-actions .start-tile')].every((b) => b.title && b.querySelector('b').textContent && b.querySelector('small').textContent && b.querySelector('svg'))`), 'each has a picture, name, description and tooltip');
+    for (const [start, kind, tab] of [['settings', 'settings', 'general'], ['theme-settings', 'settings', 'appearance'], ['start-settings', 'settings', 'start'], ['about', 'about', null]]) {
+      await startFresh(app);
+      await app.main.click(`.start-actions [data-start="${start}"]`);
+      await app.waitFrame(kind, `document.querySelector('.popup')`);
+      if (tab) assert.ok(await app.frame(kind, `document.querySelector('[data-action="tab"].active, .tab.active, [role="tab"][aria-selected="true"]')?.dataset.value === ${JSON.stringify(tab)} || document.body.innerHTML.includes('data-value="${tab}"')`), `${start} opens ${tab}`);
+      await closeFrames(app);
+    }
+    await noError(app, 'launcher');
+  } },
+  { group: '시작 페이지', name: '테마 카드: 어두운 20 · 밝은 20, 누르면 바뀌고 고른 타일이 표시된다', async run(app) {
+    await startFresh(app);
+    const info = await app.main.eval(`({ dark: document.querySelectorAll('[data-theme-kind="dark"] [data-start="pick-theme"]').length, light: document.querySelectorAll('[data-theme-kind="light"] [data-start="pick-theme"]').length, chip: Boolean(document.querySelector('[data-start="pick-theme"] .st-theme-chip')) })`);
+    assert.deepEqual(info, { dark: 20, light: 20, chip: true });
+    const previous = await W(app, 'w.state.settings.theme');
+    await app.main.click('[data-start="pick-theme"][data-value="nord"]');
+    await sleep(300);
+    assert.deepEqual(await app.main.eval(`[document.documentElement.dataset.theme, document.documentElement.dataset.mode, document.querySelector('[data-start="pick-theme"][data-value="nord"]').classList.contains('on'), document.querySelector('[data-start="pick-theme"][data-value="nord"]').getAttribute('aria-checked')]`), ['nord', 'dark', true, 'true']);
+    await app.main.click(`[data-start="pick-theme"][data-value="${previous}"]`);
+    await sleep(200);
+    assert.equal(await W(app, 'w.state.settings.theme'), previous);
+  } },
+  { group: '시작 페이지', name: '카드 불투명도 슬라이더가 바로 반영되고 저장된다', async run(app) {
+    await startFresh(app);
+    const set = (value, type) => app.main.eval(`(() => { const i = document.querySelector('[data-start-opacity]'); i.value = ${value}; i.dispatchEvent(new Event('${type}', { bubbles: true })); return 1; })()`);
+    await set(40, 'input');
+    assert.equal(await app.main.eval(`getComputedStyle(document.querySelector('.start-inner')).getPropertyValue('--start-card-alpha').trim()`), '40%');
+    assert.equal(await app.main.eval(`document.querySelector('[data-start-opacity]').parentElement.querySelector('output').textContent`), '40%');
+    await set(40, 'change');
+    await sleep(200);
+    assert.equal(await W(app, 'w.state.settings.startCardOpacity'), 40);
+    await set(80, 'change');
+    await sleep(200);
+    assert.equal(await W(app, 'w.state.settings.startCardOpacity'), 80);
+  } },
+  { group: '시작 페이지', name: '설정에서 끈 예제·배경 카드는 사라지고 배치가 메워진다', async run(app) {
+    await startFresh(app);
+    await W(app, '(w.state.settings.startShowSamples = false, w.state.settings.startShowBackground = false, a.showStartPage(true), 1)');
+    await sleep(300);
+    assert.deepEqual(await app.main.eval(`[...document.querySelectorAll('.start-board > .start-card')].map((c) => c.dataset.card)`), ['hero', 'actions', 'recent', 'templates', 'theme']);
+    await W(app, '(w.state.settings.startShowSamples = true, w.state.settings.startShowBackground = true, a.showStartPage(true), 1)');
+    await sleep(300);
+    assert.equal(await app.main.eval(`document.querySelectorAll('.start-board > .start-card').length`), 7);
+  } },
+  { group: '자동 정렬', name: '툴바의 자동 정렬: 이름이 보이고, 시작 페이지에서는 카드를, 다이어그램에서는 노드를 정렬한다', async run(app) {
+    await startFresh(app);
+    const label = await app.main.eval(`(() => { const b = document.querySelector('#toolbar [data-command="autoArrange"]'); return { text: b?.textContent.trim(), disabled: b?.disabled, inside: b.getBoundingClientRect().right <= innerWidth }; })()`);
+    assert.deepEqual(label, { text: '자동 정렬', disabled: false, inside: true }, 'a named, enabled button on the toolbar');
+    const handle = await app.main.center('[data-card-handle="recent"]');
+    const target = await app.main.center('[data-card="actions"] .start-tile');
+    await app.main.drag(handle, target);
+    await sleep(300);
+    assert.equal((await W(app, 'w.state.settings.startLayout')).cards.recent.col, 0, 'moved away');
+    await app.main.click('#toolbar [data-command="autoArrange"]');
+    await sleep(300);
+    assert.equal((await W(app, 'w.state.settings.startLayout')).cards.recent.col, 2, 'the cards are back');
+    await W(app, `(a.openSampleBuiltin('inventory'), 1)`);
+    await sleep(500);
+    const place = () => W(app, `JSON.stringify(w.api.diagram().ownedViews.filter((v) => !v.tail).map((v) => [v.left, v.top]))`);
+    const before = await place();
+    await W(app, `(() => { const d = w.api.diagram(); for (const v of d.ownedViews) if (!v.tail) { v.left = 40; v.top = 40; } return 1; })()`);
+    await app.main.click('#toolbar [data-command="autoArrange"]');
+    await sleep(500);
+    const after = JSON.parse(await place());
+    assert.ok(new Set(after.map((p) => p.join())).size === after.length, `nodes piled up are spread out again (${before})`);
+    await W(app, 'a.undo?.() ?? w.run("undo")');
+    await sleep(300);
+    const inMenu = await W(app, `Boolean(w.commands.autoArrange)`);
+    assert.ok(inMenu);
+    await noError(app, 'auto arrange');
+  } },
+  { group: '툴팁', name: '버튼 위에 마우스를 올리면 곧바로 툴팁이 뜨고, 떠나면 사라지며 title 이 돌아온다', async run(app) {
+    await startFresh(app);
+    const button = await app.main.center('#toolbar [data-command="autoArrange"]');
+    const title = await app.main.eval(`document.querySelector('#toolbar [data-command="autoArrange"]').title`);
+    assert.ok(title, 'it has a tooltip');
+    await app.main.mouse('mouseMoved', button.x, button.y, { button: 'none' });
+    const started = Date.now();
+    await app.main.waitFor(`Boolean(document.querySelector('.app-tooltip'))`, { timeout: 1000, interval: 20, message: 'the tooltip appears' });
+    const elapsed = Date.now() - started;
+    assert.ok(elapsed < 450, `quickly: ${elapsed} ms`);
+    const box = await app.main.eval(`(() => { const t = document.querySelector('.app-tooltip'); const r = t.getBoundingClientRect(); const b = document.querySelector('#toolbar [data-command="autoArrange"]'); return { text: t.textContent, inside: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight, below: r.top >= b.getBoundingClientRect().bottom, nativeOff: !b.hasAttribute('title'), events: getComputedStyle(t).pointerEvents }; })()`);
+    assert.deepEqual(box, { text: title, inside: true, below: true, nativeOff: true, events: 'none' }, 'the browser shows no second tooltip');
+    const other = await app.main.center('#toolbar [data-command="open"]');
+    await app.main.mouse('mouseMoved', other.x, other.y, { button: 'none' });
+    await app.main.waitFor(`document.querySelector('.app-tooltip')?.textContent === document.querySelector('#toolbar [data-command="open"]').dataset.tip`, { timeout: 1000, interval: 20, message: 'moves on to the next button' });
+    assert.equal(await app.main.eval(`document.querySelector('#toolbar [data-command="autoArrange"]').title`), title, 'the first button has its title back');
+    const empty = await app.main.center('.start-foot .muted');
+    await app.main.mouse('mouseMoved', empty.x, empty.y, { button: 'none' });
+    await app.main.waitFor(`!document.querySelector('.app-tooltip')`, { timeout: 1000, message: 'gone when the pointer leaves' });
+    // A press hides it, and it does not come back on the same button.
+    await app.main.mouse('mouseMoved', other.x, other.y, { button: 'none' });
+    await app.main.waitFor(`Boolean(document.querySelector('.app-tooltip'))`, { timeout: 1000 });
+    await app.main.key('Escape');
+    assert.equal(await app.main.eval(`Boolean(document.querySelector('.app-tooltip'))`), false, 'a key hides it');
+    await app.main.mouse('mouseMoved', empty.x, empty.y, { button: 'none' });
+    await sleep(200);
+  } },
+  { group: '툴팁', name: '시작 화면의 타일과 카드 손잡이도 빠른 툴팁을 보인다', async run(app) {
+    await startFresh(app);
+    for (const selector of ['[data-card-handle="actions"]', '.start-actions [data-start="open"]', '[data-start="sample"][data-value="library"]']) {
+      await app.main.eval(`document.querySelector('${selector.replace(/'/g, "\\'")}').scrollIntoView({ block: 'center' }), 1`);
+      await sleep(60);
+      const at = await app.main.center(selector);
+      await app.main.mouse('mouseMoved', at.x, at.y, { button: 'none' });
+      await app.main.waitFor(`Boolean(document.querySelector('.app-tooltip')?.textContent)`, { timeout: 1000, interval: 20, message: selector });
+      await app.main.mouse('mouseMoved', 2, 2, { button: 'none' });
+      await sleep(80);
+    }
+  } },
+  { group: '눈금자', name: '마우스 위치를 표시하는 선은 어느 테마에서나 빨간 점선이다', async run(app) {
+    await startFresh(app); // waits for the welcome popup when a run starts here: it would cover the canvas
+    await freshSample(app);
+    await W(app, '(a.updateSettings({ showRulers: true }), 1)');
+    await sleep(300);
+    const red = () => app.main.eval(`(() => { const count = (selector) => { const c = document.querySelector(selector); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] === 0xe5 && d[i + 1] === 0x19 && d[i + 2] === 0x1c && d[i + 3] > 200) n += 1; return n; }; return [count('.ruler-h'), count('.ruler-v')]; })()`);
+    const box = await app.main.eval(`(() => { const r = document.querySelector('.canvas-scroll').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    for (const theme of ['light', 'nord']) {
+      await W(app, `(a.updateSettings({ theme: '${theme}' }), 1)`);
+      await sleep(250);
+      await app.main.mouse('mouseMoved', box.x + 11, box.y + 7, { button: 'none' });
+      await app.main.mouse('mouseMoved', box.x + 13, box.y + 9, { button: 'none' });
+      await sleep(250);
+      const [h, v] = await red();
+      // A solid line would fill the ruler's 20 px; dashes 2 on, 2 off fill half of it.
+      assert.ok(h >= 8 && h <= 12 && v >= 8 && v <= 12, `${theme}: a red dotted line on both rulers (${h}, ${v})`);
+    }
+    await W(app, `(a.updateSettings({ theme: 'light' }), 1)`);
+    await sleep(200);
+  } },
+  { group: '다이어그램 아이콘', name: 'UML이 아닌 다이어그램의 도구 상자에만 아이콘 도구가 있고, 창에서 고르면 가운데에 들어간다', async run(app) {
+    await freshSample(app);
+    const toolIn = (type) => W(app, `(() => { const d = w.domain.M.allDiagrams(w.state.docs[0].project).find((x) => x._type === '${type}'); a.openDiagram ? a.openDiagram(d._id) : w.actions.showDiagram?.(d._id); return Boolean(w.domain.toolboxFor('${type}').flatMap((g) => g[3]).find((t) => t.id === 'insertIcon')); })()`);
+    assert.equal(await toolIn('UMLClassDiagram'), false);
+    assert.equal(await toolIn('FCFlowchartDiagram'), true);
+    await W(app, `(a.newProject('flowchart'), a.setCanvasZoom(100), 1)`);
+    await sleep(400);
+    const before = await W(app, `w.api.diagram().ownedViews.length`);
+    await app.main.click('[data-tool="insertIcon"]');
+    await app.waitFrame('iconpicker', `document.querySelector('.icon-tile')`);
+    const info = await app.frame('iconpicker', `({ tiles: document.querySelectorAll('[data-action="pick-icon"]').length, groups: document.querySelectorAll('[data-icon-group]').length, add: Boolean(document.querySelector('[data-action="add-my-icon"]')), named: [...document.querySelectorAll('[data-action="pick-icon"]')].every((b) => b.title || b.dataset.tip), drawn: [...document.querySelectorAll('[data-action="pick-icon"] svg')].every((s) => s.getBoundingClientRect().width > 10), overflow: document.querySelector('.icon-groups').scrollHeight - document.querySelector('.icon-groups').clientHeight })`);
+    assert.equal(info.tiles, 100, JSON.stringify(info));
+    assert.equal(info.groups, 11, JSON.stringify(info));
+    assert.ok(info.add && info.named && info.drawn, JSON.stringify(info));
+    assert.ok(info.overflow <= 0, `all fit without scrolling (${info.overflow})`);
+    await app.frame('iconpicker', `(() => { const i = document.querySelector('[data-icon-search]'); i.value = '방패'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+    await sleep(150);
+    assert.equal(await app.frame('iconpicker', `document.querySelectorAll('[data-action="pick-icon"]').length`), 1, 'the search narrows the list');
+    assert.equal(await app.frame('iconpicker', `document.activeElement === document.querySelector('[data-icon-search]') && document.activeElement.value === '방패'`), true, 'typing goes on');
+    await app.frame('iconpicker', `(document.querySelector('[data-action="pick-icon"]').click(), 1)`);
+    await app.main.waitFor(`!document.querySelector('.web-popup-iconpicker')`, { timeout: 4000 });
+    await sleep(300);
+    const placed = await W(app, `(() => { const views = w.api.diagram().ownedViews; const v = views.at(-1); const s = document.querySelector('.canvas-svg [data-view="' + v._id + '"]'); return { count: views.length, type: v._type, icon: v.iconId, selected: w.state.selection.ids.includes(v._id), drawn: Boolean(s?.querySelector('g[transform] path')), editing: Boolean(document.querySelector('.canvas-editor, .inline-editor')) }; })()`);
+    assert.deepEqual(placed, { count: before + 1, type: 'IconView', icon: 'shield', selected: true, drawn: true, editing: false });
+    // The Properties panel changes it; undo takes it back.
+    await sleep(200);
+    await app.main.eval(`document.querySelector('[data-icon-pick]').click(), 1`);
+    await app.waitFrame('iconpicker', `document.querySelector('.icon-tile')`);
+    await app.frame('iconpicker', `(document.querySelector('[data-action="pick-icon"][data-value="cloud"]').click(), 1)`);
+    await app.main.waitFor(`!document.querySelector('.web-popup-iconpicker')`, { timeout: 4000 });
+    await sleep(300);
+    assert.equal(await W(app, `w.api.diagram().ownedViews.at(-1).iconId`), 'cloud');
+    await W(app, `w.run('undo')`);
+    await sleep(200);
+    assert.equal(await W(app, `w.api.diagram().ownedViews.at(-1).iconId`), 'shield');
+    await noError(app, 'icon');
+  } },
+  { group: '다이어그램 아이콘', name: '내 아이콘을 추가해 넣고, 창에서 지울 수 있다', async run(app) {
+    await W(app, `(() => { localStorage.setItem('myumlmaker.myIcons.v1', JSON.stringify([{ id: 'my-1', name: 'Logo', src: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMCAxMCc+PGNpcmNsZSBjeD0nNScgY3k9JzUnIHI9JzQnLz48L3N2Zz4=' }])); a.newProject('flowchart'); return 1; })()`);
+    await sleep(400);
+    await app.main.click('[data-tool="insertIcon"]');
+    await app.waitFrame('iconpicker', `document.querySelector('.icon-tile')`);
+    assert.equal(await app.frame('iconpicker', `document.querySelectorAll('[data-icon-group="mine"] img').length`), 1);
+    await app.frame('iconpicker', `(document.querySelector('[data-action="pick-my-icon"]').click(), 1)`);
+    await app.main.waitFor(`!document.querySelector('.web-popup-iconpicker')`, { timeout: 4000 });
+    await sleep(300);
+    const v = await W(app, `(() => { const v = w.api.diagram().ownedViews.at(-1); return { type: v._type, image: Boolean(document.querySelector('.canvas-svg [data-view="' + v._id + '"] image')), src: v.src.slice(0, 14) }; })()`);
+    assert.deepEqual(v, { type: 'IconView', image: true, src: 'data:image/svg' });
+    await app.main.click('[data-tool="insertIcon"]');
+    await app.waitFrame('iconpicker', `document.querySelector('.icon-tile')`);
+    await app.frame('iconpicker', `(document.querySelector('[data-action="remove-my-icon"]').click(), 1)`);
+    await sleep(200);
+    assert.equal(await app.frame('iconpicker', `document.querySelectorAll('[data-icon-group="mine"] img').length`), 0);
+    assert.equal(await app.main.eval(`localStorage.getItem('myumlmaker.myIcons.v1')`), '[]');
+    assert.equal(await W(app, `Boolean(document.querySelector('.canvas-svg [data-view] image'))`), true, 'an icon already on the diagram stays');
+    await closeFrames(app);
+    await noError(app, 'my icon');
+  } },
+  { group: '다이어그램 테마', name: '기본: 다이어그램 배경이 프로그램 테마를 따르고, 사용자가 색 구성이나 다이어그램별 배경으로 바꿀 수 있다', async run(app) {
+    await freshSample(app);
+    const shown = () => app.main.eval(`getComputedStyle(document.querySelector('.canvas-svg')).backgroundColor`);
+    assert.equal(await W(app, 'w.state.settings.diagramTheme'), 'theme', 'the default');
+    const set = (patch) => W(app, `(a.updateSettings(${JSON.stringify(patch)}), 1)`);
+    await set({ theme: 'light' });
+    await sleep(300);
+    const light = await shown();
+    await set({ theme: 'nord' });
+    await sleep(400);
+    const dark = await shown();
+    assert.notEqual(dark, light, 'the diagram changes with the program theme');
+    assert.equal(await app.main.eval(`document.documentElement.dataset.mode`), 'dark');
+    assert.equal(dark, await app.main.eval(`(() => { const e = document.createElement('i'); e.style.color = getComputedStyle(document.documentElement).getPropertyValue('--chart'); document.body.append(e); const c = getComputedStyle(e).color; e.remove(); return c; })()`), 'the paper is the drawing colour of the theme');
+    // The user's choice: a scheme stays whatever the program theme.
+    await set({ diagramTheme: 'classic' });
+    await sleep(300);
+    const white = await shown();
+    assert.notEqual(white, dark, 'white paper in a dark program');
+    await set({ theme: 'light' });
+    await sleep(300);
+    await set({ theme: 'nord' });
+    await sleep(300);
+    assert.equal(await shown(), white, 'and it stays when the theme changes');
+    // One diagram's own background still wins.
+    await set({ diagramTheme: 'theme' });
+    await sleep(200);
+    await W(app, `(a.change ? a.change('op.edit', (project, diagram) => { diagram.backgroundKind = 'color'; diagram.backgroundColor = '#112233'; }) : null, 1)`);
+    await sleep(300);
+    assert.notEqual(await shown(), dark, 'the diagram has its own background');
+    // On paper and in images: white, also from a dark program.
+    await W(app, `(w.run('print'), 1)`);
+    await app.waitFrame('print', `document.querySelector('#print-preview svg')`);
+    assert.equal(await W(app, `JSON.parse(localStorage.getItem('myumlmaker.popup.print') ?? '{}').theme ?? 'classic'`), 'classic', 'prints on white');
+    await closeFrames(app);
+    await set({ theme: 'light' });
+    await sleep(200);
+    await noError(app, 'follow the theme');
+  } },
+  { group: '시작 페이지', name: '시작 버튼은 토글: 시작 페이지 ↔ 보던 다이어그램 (프로젝트가 없으면 시작 페이지 유지)', async run(app) {
+    await freshSample(app);
+    const state = () => app.main.eval(`({ start: !document.querySelector('#start-page').hidden, pressed: document.querySelector('#menubar [data-home]').getAttribute('aria-pressed'), text: document.querySelector('#menubar [data-home]').textContent.trim() })`);
+    const diagram = await W(app, 'w.api.diagram()._id');
+    assert.deepEqual(await state(), { start: false, pressed: 'false', text: '시작' });
+    await app.main.click('#menubar [data-home]');
+    await sleep(300);
+    assert.deepEqual(await state(), { start: true, pressed: 'true', text: '시작' }, 'opens');
+    await app.main.click('#menubar [data-home]');
+    await sleep(400);
+    assert.deepEqual(await state(), { start: false, pressed: 'false', text: '시작' }, 'closes');
+    assert.equal(await W(app, 'w.api.diagram()._id'), diagram, 'the same diagram is back');
+    assert.ok(await app.main.eval(`document.querySelectorAll('.canvas-svg [data-view]').length > 0`), 'and drawn');
+    await startFresh(app);
+    await app.main.click('#menubar [data-home]');
+    await sleep(300);
+    assert.equal((await state()).start, true, 'nothing open: the start page stays');
+    await noError(app, 'start toggle');
+  } },
+  { group: '인쇄', name: '툴바의 인쇄 버튼: 프로젝트가 있으면 인쇄 창을 열고, 없으면 꺼져 있다', async run(app) {
+    await startFresh(app);
+    const button = `#toolbar [data-command="print"]`;
+    const info = await app.main.eval(`(() => { const b = document.querySelector('${button}'); return { there: Boolean(b), disabled: b?.disabled, icon: b?.querySelector('svg')?.dataset.icon, tip: Boolean(b?.title || b?.dataset.tip), inside: b.getBoundingClientRect().right <= innerWidth }; })()`);
+    assert.deepEqual(info, { there: true, disabled: true, icon: 'print', tip: true, inside: true });
+    await freshSample(app);
+    assert.equal(await app.main.eval(`document.querySelector('${button}').disabled`), false);
+    await app.main.click(button);
+    await app.waitFrame('print', `document.querySelector('#print-preview svg')`);
+    await closeFrames(app);
+    await noError(app, 'toolbar print');
+  } },
+  { group: '다이어그램 테마', name: '색 구성 창: 밝은 20 · 어두운 20, 누르면 바로 다이어그램에 적용되고 설정에도 40개가 있다', async run(app) {
+    await freshSample(app);
+    const previous = await W(app, 'w.state.settings.diagramTheme');
+    await W(app, `(w.run('diagramThemeMore'), 1)`);
+    await app.waitFrame('diagramtheme', `document.querySelector('.dt-tile')`);
+    const info = await app.frame('diagramtheme', `({ light: document.querySelectorAll('[data-theme-kind="light"] .dt-tile').length, dark: document.querySelectorAll('[data-theme-kind="dark"] .dt-tile').length, on: document.querySelector('.dt-tile.on')?.dataset.value, overflow: document.querySelector('.dt-groups').scrollHeight - document.querySelector('.dt-groups').clientHeight, cut: [...document.querySelectorAll('.dt-tile')].filter((b) => b.scrollWidth > b.clientWidth + 1).length })`);
+    assert.deepEqual(info, { light: 20, dark: 20, on: previous, overflow: 0, cut: 0 });
+    assert.equal(await app.frame('diagramtheme', `document.querySelector('[data-theme-kind="follow"] .dt-tile').dataset.value`), 'theme');
+    const paper = () => app.main.eval(`getComputedStyle(document.querySelector('.canvas-svg .node-view rect:not(.hit)') ?? document.body).fill`);
+    const before = await paper();
+    for (const id of ['neon', 'lavender', 'chalkboard']) {
+      await app.frame('diagramtheme', `(document.querySelector('[data-value="${id}"]').click(), 1)`);
+      await sleep(350);
+      assert.equal(await W(app, 'w.state.settings.diagramTheme'), id);
+      assert.equal(await app.frame('diagramtheme', `document.querySelector('.dt-tile.on').dataset.value`), id, 'the window stays open and marks it');
+    }
+    assert.notEqual(await paper(), before, 'the diagram changed colour');
+    await app.frame('diagramtheme', `(document.querySelector('[data-value="${previous}"]').click(), 1)`);
+    await sleep(250);
+    await closeFrames(app);
+    await W(app, `(w.popups.open('settings', { tab: 'diagram' }), 1)`);
+    await app.waitFrame('settings', `document.querySelector('[data-select="diagramTheme"]')`);
+    assert.equal(await app.frame('settings', `document.querySelectorAll('[data-select="diagramTheme"] option').length`), 41, '40 and following the theme');
+    await closeFrames(app);
+    await noError(app, 'diagram themes');
+  } },
+  { group: '인쇄', name: '인쇄 창: 탭 없이 범위·용지·머리글·프린터 설정과 미리보기가 한 화면에 있고 스크롤이 없다', async run(app) {
+    await freshSample(app);
+    await W(app, `(w.run('print'), 1)`);
+    await app.waitFrame('print', `document.querySelector('#print-preview svg')`);
+    const info = await app.frame('print', `(() => {
+      const options = document.querySelector('.print-options');
+      const visible = (selector) => { const e = document.querySelector(selector); if (!e) return false; const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom <= innerHeight && r.right <= innerWidth; };
+      return { tabs: document.querySelectorAll('.tabs, [data-action="tab"]').length, sections: document.querySelectorAll('.print-section').length,
+        range: visible('[data-print-range="all"]'), paper: visible('[data-print="paper"]'), orientation: visible('[data-print-segment="orientation"]'), margin: visible('[data-print="margin"]'), fit: visible('[data-print-segment="fit"]'), header: visible('[data-print-toggle="header"]'), footerText: visible('[data-print-text="footerText"]'), background: visible('[data-print-toggle="background"]'), preview: visible('#print-preview svg'), print: visible('[data-action="print"]'),
+        clipped: options.scrollHeight - options.clientHeight, wide: options.scrollWidth - options.clientWidth };
+    })()`);
+    assert.deepEqual({ ...info, clipped: 0, wide: 0 }, { tabs: 0, sections: 4, range: true, paper: true, orientation: true, margin: true, fit: true, header: true, footerText: true, background: true, preview: true, print: true, clipped: 0, wide: 0 });
+    assert.ok(info.clipped <= 0 && info.wide <= 0, `nothing is cut off ${JSON.stringify(info)}`);
+    // The browser has no printer list: Print opens its own window, and says so.
+    assert.ok(await app.frame('print', `document.querySelector('.print-options').textContent.includes(window.__myumlmaker?.t?.('print.systemDialog') ?? '시스템 인쇄 창')`));
+    // Changing a setting updates the preview beside it at once.
+    const size = () => app.frame('print', `(() => { const s = document.querySelector('#print-preview svg').getBoundingClientRect(); return s.width > s.height; })()`);
+    const wide = await size();
+    await app.frame('print', `(document.querySelector('[data-print-segment="orientation"]:not(.active)').click(), 1)`);
+    await sleep(300);
+    assert.notEqual(await size(), wide, 'the preview turned');
+    await app.frame('print', `(document.querySelector('[data-print-segment="orientation"]:not(.active)').click(), 1)`);
+    await sleep(200);
+    await closeFrames(app);
+    await noError(app, 'print window');
+  } },
+  { group: '아이콘', name: '화면의 모든 아이콘이 색을 가지며, 테마에 따라 음영이 바뀐다', async run(app) {
+    await startFresh(app);
+    const colours = () => app.main.eval(`(() => {
+      const icons = [...document.querySelectorAll('svg.icon')];
+      const seen = {};
+      for (const i of icons) if (i.dataset.tone) seen[i.dataset.tone] = getComputedStyle(i).color;
+      return { total: icons.length, unmarked: icons.filter((i) => !i.dataset.tone).length, hues: new Set(icons.map((i) => getComputedStyle(i).color)).size, seen, toolbarHues: new Set([...document.querySelectorAll('#toolbar svg.icon')].map((i) => getComputedStyle(i).color)).size, primary: getComputedStyle(document.querySelector('.button.primary svg.icon')).color === getComputedStyle(document.querySelector('.button.primary')).color };
+    })()`);
+    const light = await colours();
+    assert.ok(light.total > 100, `icons on screen: ${light.total}`);
+    assert.equal(light.unmarked, 0, 'every icon has a colour');
+    assert.ok(light.hues >= 10, `many colours: ${light.hues}`);
+    assert.ok(light.toolbarHues >= 5, `the toolbar is colourful: ${light.toolbarHues}`);
+    assert.ok(light.primary, 'on the accent button the icon takes the button text colour');
+    const previous = await W(app, 'w.state.settings.theme');
+    await app.main.click('[data-start="pick-theme"][data-value="nord"]');
+    await sleep(300);
+    const dark = await colours();
+    for (const tone of ['blue', 'red', 'green', 'amber']) assert.notEqual(dark.seen[tone], light.seen[tone], `${tone}: a brighter shade on dark themes`);
+    await app.main.click(`[data-start="pick-theme"][data-value="${previous}"]`);
+    await sleep(200);
+  } },
+  { group: '아이콘', name: '패널·메뉴·팝업의 아이콘도 색이 있다 (예제 프로젝트 화면)', async run(app) {
+    await freshSample(app);
+    const panes = await app.main.eval(`Object.fromEntries(['#left-panel', '#right-panel', '#menubar', '#explorer', '#tabs'].map((s) => [s, new Set([...document.querySelectorAll(s + ' svg.icon')].map((i) => getComputedStyle(i).color)).size]))`);
+    for (const [selector, hues] of Object.entries(panes)) assert.ok(hues >= 3, `${selector}: ${hues} colours`);
+    await app.main.click('[data-menu="file"]');
+    await sleep(400);
+    await closeFrames(app);
   } },
   { group: '창', name: '도구 상자·모델 탐색기·편집기·프로젝트 이름과 다이어그램 탭', async run(app) {
     await freshSample(app);

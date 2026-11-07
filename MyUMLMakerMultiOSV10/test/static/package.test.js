@@ -181,6 +181,19 @@ test('installer languages: Korean and English, user selectable', () => {
   const nsis = conf.bundle.windows.nsis;
   assert.deepEqual(nsis.languages, ['Korean', 'English']);
   assert.equal(nsis.displayLanguageSelector, true);
+  // The selector opens at every installation (the template remembers the last choice) with both languages on any Windows.
+  const hooks = read('src-tauri/windows/hooks.nsh').toString();
+  assert.match(hooks, /^!define MUI_LANGDLL_ALWAYSSHOW/m);
+  assert.match(hooks, /^!define MUI_LANGDLL_ALLLANGUAGES/m);
+  // The choice goes to the program: after a data wipe, and never from an unattended install (an update keeps the user's language).
+  const post = /!macro NSIS_HOOK_POSTINSTALL[\s\S]*?!macroend/.exec(hooks)[0];
+  assert.ok(post.indexOf('Call MumWipeData') < post.indexOf('Call MumWriteLanguage'), 'written after the data is deleted');
+  assert.match(post, /\$\{IfNot\} \$\{Silent\}\s*\$\{AndIf\} \$PassiveMode <> 1\s*Call MumWriteLanguage/);
+  assert.match(hooks, /\$LANGUAGE == 1042\s*FileWrite \$0 "ko"[\s\S]*FileWrite \$0 "en"/);
+  assert.match(read('src-tauri/src/window_state.rs').toString(), /LANGUAGE_MARKER: &str = "install-language"/);
+  assert.match(read('src-tauri/src/lib.rs').toString(), /__MYUMLMAKER_INSTALL_LANGUAGE__/);
+  const main = read('src/main.js').toString();
+  assert.ok(main.indexOf('resetForNewInstall(globalThis') < main.indexOf('applyInstallLanguage(globalThis') && main.indexOf('applyInstallLanguage(globalThis') < main.indexOf('loadSettings(globalThis'), 'after the reset, before the settings are read');
 });
 
 test('installer hooks: one installation only (an old one removed completely), the user is asked whether to delete the user data', () => {

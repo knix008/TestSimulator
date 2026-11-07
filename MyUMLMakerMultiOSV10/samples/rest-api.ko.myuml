@@ -1,0 +1,412 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.415Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13McWC6AkVabYN/Q8",
+  "name": "REST API 명세",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "JSON 메시지, YAML 명세, 입력 정규식, 식별자 문법",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13McWC6AYLH7KRHiE",
+    "name": "REST API 명세",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13McWC6AkVabYN/Q8"
+    }
+   },
+   {
+    "_type": "DSSpecification",
+    "_id": "AAAAAAG13McWC6A988G2DjSz",
+    "name": "데이터 명세",
+    "_parent": {
+     "$ref": "AAAAAAG13McWC6AkVabYN/Q8"
+    },
+    "ownedElements": [
+     {
+      "_type": "JSONDiagram",
+      "_id": "AAAAAAG13McWC6As3KAwnGr1",
+      "name": "회원 API 메시지",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13McWC6AbI981dU1Y",
+        "model": {
+         "$ref": "AAAAAAG13McWC6A+xmZwW7sI"
+        },
+        "left": 20,
+        "top": 50,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McWC6As3KAwnGr1"
+        }
+       },
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13McWC6AL7f8UirDP",
+        "model": {
+         "$ref": "AAAAAAG13McWC6A/DFNE+BTC"
+        },
+        "left": 383,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McWC6As3KAwnGr1"
+        }
+       },
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13McWC7A+PyT2h/vC",
+        "model": {
+         "$ref": "AAAAAAG13McWC7A4nMl41tV0"
+        },
+        "left": 23,
+        "top": 225,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McWC6As3KAwnGr1"
+        }
+       },
+       {
+        "_type": "DSReferenceView",
+        "_id": "AAAAAAG13McWC7AotafjTwtM",
+        "model": {
+         "$ref": "AAAAAAG13McWC7AwyOOmPOvl"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McWC6AL7f8UirDP"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McWC6AbI981dU1Y"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McWC6As3KAwnGr1"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13McWC6A+xmZwW7sI",
+      "name": "회원 가입 요청",
+      "format": "json",
+      "text": "{\n  \"email\": \"mina@example.com\",\n  \"name\": \"Mina\",\n  \"marketing\": true\n}",
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13McWC6A/DFNE+BTC",
+      "name": "회원 응답",
+      "format": "json",
+      "text": "{\n  \"id\": \"M-00042\",\n  \"email\": \"mina@example.com\",\n  \"name\": \"Mina\",\n  \"roles\": [\n    \"user\"\n  ],\n  \"createdAt\": \"2026-11-01T09:00:00Z\"\n}",
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13McWC7A4nMl41tV0",
+      "name": "오류 응답",
+      "format": "json",
+      "text": "{\n  \"status\": 422,\n  \"code\": \"INVALID_EMAIL\",\n  \"message\": \"Invalid e-mail\",\n  \"fields\": [\n    \"email\"\n  ]\n}",
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "DSReference",
+      "_id": "AAAAAAG13McWC7AwyOOmPOvl",
+      "name": "만든다",
+      "source": {
+       "$ref": "AAAAAAG13McWC6A/DFNE+BTC"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McWC6A+xmZwW7sI"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "YAMLDiagram",
+      "_id": "AAAAAAG13McWC7ASLDu/3vr+",
+      "name": "OpenAPI 명세",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13McWC7AA/CcA5N+c",
+        "model": {
+         "$ref": "AAAAAAG13McWC7Aa3JtYUBzq"
+        },
+        "left": 20,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McWC7ASLDu/3vr+"
+        }
+       },
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13McWC7AVChzXXwvl",
+        "model": {
+         "$ref": "AAAAAAG13McWC7ACT+0ARQwr"
+        },
+        "left": 442,
+        "top": 80,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McWC7ASLDu/3vr+"
+        }
+       },
+       {
+        "_type": "DSReferenceView",
+        "_id": "AAAAAAG13McWC7A/gUIuM0Ep",
+        "model": {
+         "$ref": "AAAAAAG13McWC7A7RO1Q4ErZ"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McWC7AVChzXXwvl"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McWC7AA/CcA5N+c"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McWC7ASLDu/3vr+"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13McWC7Aa3JtYUBzq",
+      "name": "openapi.yaml",
+      "format": "yaml",
+      "text": "openapi: 3.0.3\ninfo:\n  title: Member API\n  version: 1.0.0\npaths:\n  /members:\n    post:\n      summary: Sign up\n      responses:\n        \"201\":\n          description: Created\n        \"422\":\n          description: Invalid input",
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13McWC7ACT+0ARQwr",
+      "name": "gateway.yaml",
+      "format": "yaml",
+      "text": "routes:\n  - path: /members\n    upstream: member-service:8080\n    rateLimit:\n      perMinute: 120\n    auth: bearer",
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "DSReference",
+      "_id": "AAAAAAG13McWC7A7RO1Q4ErZ",
+      "name": "따른다",
+      "source": {
+       "$ref": "AAAAAAG13McWC7ACT+0ARQwr"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McWC7Aa3JtYUBzq"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "RegexDiagram",
+      "_id": "AAAAAAG13McWC7APWW5T4xyE",
+      "name": "입력 검증",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "RegexPatternView",
+        "_id": "AAAAAAG13McWC7APxGNvpSZk",
+        "model": {
+         "$ref": "AAAAAAG13McWC7AOfwZsUSJ5"
+        },
+        "left": 20,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McWC7APWW5T4xyE"
+        }
+       },
+       {
+        "_type": "RegexPatternView",
+        "_id": "AAAAAAG13McWC7ATbmCYaeKM",
+        "model": {
+         "$ref": "AAAAAAG13McWC7AMUyUuYL/R"
+        },
+        "left": 223,
+        "top": 177,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McWC7APWW5T4xyE"
+        }
+       },
+       {
+        "_type": "RegexPatternView",
+        "_id": "AAAAAAG13McWC7AaTQeBN4OH",
+        "model": {
+         "$ref": "AAAAAAG13McWC7AfwZfruBVy"
+        },
+        "left": 111,
+        "top": 306,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McWC7APWW5T4xyE"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "RegexPattern",
+      "_id": "AAAAAAG13McWC7AOfwZsUSJ5",
+      "name": "이메일",
+      "pattern": "^[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+$",
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "RegexPattern",
+      "_id": "AAAAAAG13McWC7AMUyUuYL/R",
+      "name": "회원 번호",
+      "pattern": "^M-\\d{5}$",
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "RegexPattern",
+      "_id": "AAAAAAG13McWC7AfwZfruBVy",
+      "name": "날짜",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "EBNFDiagram",
+      "_id": "AAAAAAG13McXC7A0S0T0dA2w",
+      "name": "회원 번호 문법",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "EBNFRuleView",
+        "_id": "AAAAAAG13McXC7AdtE3wjFvo",
+        "model": {
+         "$ref": "AAAAAAG13McXC7AR/T6O5P4s"
+        },
+        "left": 20,
+        "top": 164,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McXC7A0S0T0dA2w"
+        }
+       },
+       {
+        "_type": "EBNFRuleView",
+        "_id": "AAAAAAG13McXC7AKtWW6dD8n",
+        "model": {
+         "$ref": "AAAAAAG13McXC7A9ty5uLFPQ"
+        },
+        "left": 547,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McXC7A0S0T0dA2w"
+        }
+       },
+       {
+        "_type": "DSReferenceView",
+        "_id": "AAAAAAG13McXC7AQfJCTbTv4",
+        "model": {
+         "$ref": "AAAAAAG13McXC7AF8zC3NeQg"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McXC7AdtE3wjFvo"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McXC7AKtWW6dD8n"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McXC7A0S0T0dA2w"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "EBNFRule",
+      "_id": "AAAAAAG13McXC7AR/T6O5P4s",
+      "name": "member id",
+      "expression": "\"M\", \"-\", digit, digit, digit, digit, digit",
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "EBNFRule",
+      "_id": "AAAAAAG13McXC7A9ty5uLFPQ",
+      "name": "digit",
+      "expression": "\"0\" | \"1\" | \"2\" | \"3\" | \"4\" | \"5\" | \"6\" | \"7\" | \"8\" | \"9\"",
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     },
+     {
+      "_type": "DSReference",
+      "_id": "AAAAAAG13McXC7AF8zC3NeQg",
+      "name": "사용",
+      "source": {
+       "$ref": "AAAAAAG13McXC7AR/T6O5P4s"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McXC7A9ty5uLFPQ"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McWC6A988G2DjSz"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

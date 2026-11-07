@@ -15,7 +15,7 @@ export const FITS = ['fit', 'actual', 'percent'];
 const MM = 96 / 25.4;
 
 export function defaultPrintOptions() {
-  return { paper: 'A4', orientation: 'landscape', margin: 'normal', fit: 'fit', scale: 100, header: true, footer: true, headerText: '', footerText: '', background: true, center: true, range: 'all', from: 1, to: 999 };
+  return { printer: '', copies: 1, paper: 'A4', orientation: 'landscape', margin: 'normal', fit: 'fit', scale: 100, header: true, footer: true, headerText: '', footerText: '', background: true, center: true, range: 'all', from: 1, to: 999 };
 }
 
 /** The diagrams chosen by the range: all, the current one, or from…to (1-based). */

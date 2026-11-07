@@ -7,6 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { animationIcon, ICON_NAMES, icon } from '../../src/icons.js';
+import { ICON_TONES, toneOf } from '../../src/icon-tones.js';
 import { TEMPLATES } from '../../src/domain/templates.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -94,4 +95,39 @@ test('every moving background has its own icon', async () => {
   for (const name of names) assert.ok(ICON_NAMES.includes(name), name);
   const pictures = names.map((name) => icon(name));
   assert.equal(new Set(pictures).size, pictures.length);
+});
+
+test('every icon has a colour of its own: a known hue, for light and dark themes', () => {
+  const css = fs.readFileSync(path.join(root, 'src', 'styles.css'), 'utf8');
+  const lightBlock = /:root \{\s*--tone-blue[^}]*\}/.exec(css)?.[0] ?? '';
+  const darkBlock = /:root\[data-mode="dark"\] \{[^}]*\}/.exec(css)?.[0] ?? '';
+  for (const tone of ICON_TONES) {
+    assert.match(lightBlock, new RegExp(`--tone-${tone}: #`), `${tone} on light themes`);
+    assert.match(darkBlock, new RegExp(`--tone-${tone}: #`), `${tone} on dark themes`);
+    assert.ok(css.includes(`.icon[data-tone="${tone}"]`), `a rule for ${tone}`);
+  }
+  const used = new Map();
+  for (const name of ICON_NAMES) {
+    const tone = toneOf(name);
+    assert.ok(ICON_TONES.includes(tone), `${name}: ${tone}`);
+    assert.equal(toneOf(name), tone, 'always the same');
+    used.set(tone, (used.get(tone) ?? 0) + 1);
+    const svg = icon(name);
+    assert.ok(svg.startsWith('<svg class="icon"'), 'the drop-down lists replace this start');
+    assert.ok(svg.includes(`data-tone="${tone}"`) && svg.includes(`data-icon="${name}"`), `${name}: marked`);
+    assert.ok(svg.includes('stroke="currentColor"'), 'drawn in its colour');
+  }
+  assert.equal(used.size, ICON_TONES.length, 'all hues are in use');
+  for (const [tone, count] of used) assert.ok(count < ICON_NAMES.length / 3, `${tone} has ${count} of ${ICON_NAMES.length}: not one colour for most icons`);
+});
+
+test('colours follow the meaning, and an unknown icon still draws', () => {
+  for (const [name, tone] of [['trash', 'red'], ['close', 'red'], ['folderOpen', 'amber'], ['save', 'indigo'], ['fileNew', 'green'], ['gear', 'slate'], ['palette', 'pink'], ['info', 'blue']]) assert.equal(toneOf(name), tone, name);
+  assert.ok(icon('no-such-icon').includes('data-icon="dot"'));
+});
+
+test('an icon on the accent colour takes the text colour, and error icons stay red', () => {
+  const css = fs.readFileSync(path.join(root, 'src', 'styles.css'), 'utf8');
+  assert.match(css, /\.button\.primary \.icon\[data-tone\][^{]*\{ color: inherit !important; \}/);
+  assert.match(css, /\.result-row\.error \.icon\[data-tone\] \{ color: var\(--danger\) !important; \}/);
 });

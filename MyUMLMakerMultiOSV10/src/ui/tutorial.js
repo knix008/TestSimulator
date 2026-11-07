@@ -41,7 +41,7 @@ export const STEPS = [
   { id: 'home', chapter: 'start', target: '#menubar [data-home]', dwell: 5000, run: (a) => a.start() },
   { id: 'templates', chapter: 'start', target: '.start-card.templates', run: (a) => a.start() },
   { id: 'recent', chapter: 'start', target: '.start-card.recent', run: (a) => a.start() },
-  { id: 'background', chapter: 'start', target: '.start-card.side', dwell: 7000, async run(a) {
+  { id: 'background', chapter: 'start', target: '.start-card.background', dwell: 7000, async run(a) {
     await a.start();
     for (const kind of ['waves', 'nodes', 'aurora']) { a.app.updateSettings({ animation: kind, backgroundKind: 'animated' }); await sleep(1300); }
   } },

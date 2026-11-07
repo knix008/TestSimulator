@@ -1,0 +1,1254 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.323Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13Ma5CFA9y4OUomox",
+  "name": "스마트 홈",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "SysML 요구사항과 블록, 온도 조절기 상태",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13Ma5CFAj4UocXiag",
+    "name": "스마트 홈",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13Ma5CFA9y4OUomox"
+    },
+    "ownedElements": [
+     {
+      "_type": "UMLStateMachine",
+      "_id": "AAAAAAG13Ma7CFA9dZQrpv4W",
+      "name": "온도 조절기 상태",
+      "isReentrant": true,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma5CFAj4UocXiag"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLStatechartDiagram",
+        "_id": "AAAAAAG13Ma7CFA2IDgxF4e5",
+        "name": "온도 조절기 상태",
+        "defaultDiagram": false,
+        "ownedViews": [
+         {
+          "_type": "UMLPseudostateView",
+          "_id": "AAAAAAG13Ma7CGAteFtkQ9i4",
+          "model": {
+           "$ref": "AAAAAAG13Ma7CGAvUSA1tl+l"
+          },
+          "left": 40,
+          "top": 137,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CFA2IDgxF4e5"
+          }
+         },
+         {
+          "_type": "UMLStateView",
+          "_id": "AAAAAAG13Ma7CGA7YfIA+eLT",
+          "model": {
+           "$ref": "AAAAAAG13Ma7CGAOaL7niKxu"
+          },
+          "left": 190,
+          "top": 127,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CFA2IDgxF4e5"
+          }
+         },
+         {
+          "_type": "UMLStateView",
+          "_id": "AAAAAAG13Ma7CGAlraqbwx20",
+          "model": {
+           "$ref": "AAAAAAG13Ma7CGAWiB5SZW9S"
+          },
+          "left": 400,
+          "top": 116,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CFA2IDgxF4e5"
+          }
+         },
+         {
+          "_type": "UMLStateView",
+          "_id": "AAAAAAG13Ma7CGA7PhGKtQY/",
+          "model": {
+           "$ref": "AAAAAAG13Ma7CGAxrcZDSVvG"
+          },
+          "left": 685,
+          "top": 40,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CFA2IDgxF4e5"
+          }
+         },
+         {
+          "_type": "UMLStateView",
+          "_id": "AAAAAAG13Ma7CGAtJkiuPYvP",
+          "model": {
+           "$ref": "AAAAAAG13Ma7CGATyy4j66dL"
+          },
+          "left": 671,
+          "top": 191,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CFA2IDgxF4e5"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13Ma7CGAI30as019R",
+          "model": {
+           "$ref": "AAAAAAG13Ma7CGAayrIRMpgP"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13Ma7CGAteFtkQ9i4"
+          },
+          "head": {
+           "$ref": "AAAAAAG13Ma7CGA7YfIA+eLT"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CFA2IDgxF4e5"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13Ma7CGAcKVCiAZiV",
+          "model": {
+           "$ref": "AAAAAAG13Ma7CGAOibcsf5r9"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13Ma7CGA7YfIA+eLT"
+          },
+          "head": {
+           "$ref": "AAAAAAG13Ma7CGAlraqbwx20"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CFA2IDgxF4e5"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13Ma7CGAl1yu+JnKe",
+          "model": {
+           "$ref": "AAAAAAG13Ma7CGAbmsUxYr+e"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13Ma7CGAlraqbwx20"
+          },
+          "head": {
+           "$ref": "AAAAAAG13Ma7CGA7PhGKtQY/"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CFA2IDgxF4e5"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13Ma7CGAmkFVHnA9k",
+          "model": {
+           "$ref": "AAAAAAG13Ma7CGAgLhBmbfEN"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13Ma7CGA7PhGKtQY/"
+          },
+          "head": {
+           "$ref": "AAAAAAG13Ma7CGAlraqbwx20"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CFA2IDgxF4e5"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13Ma7CGAcCu4KvcuG",
+          "model": {
+           "$ref": "AAAAAAG13Ma7CGA42W+rCnd7"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13Ma7CGAlraqbwx20"
+          },
+          "head": {
+           "$ref": "AAAAAAG13Ma7CGAtJkiuPYvP"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CFA2IDgxF4e5"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13Ma7CGA1yxdqUIwG",
+          "model": {
+           "$ref": "AAAAAAG13Ma7CGASZGufo7ul"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13Ma7CGAtJkiuPYvP"
+          },
+          "head": {
+           "$ref": "AAAAAAG13Ma7CGAlraqbwx20"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CFA2IDgxF4e5"
+          }
+         }
+        ],
+        "_parent": {
+         "$ref": "AAAAAAG13Ma7CFA9dZQrpv4W"
+        }
+       }
+      ],
+      "regions": [
+       {
+        "_type": "UMLRegion",
+        "_id": "AAAAAAG13Ma7CGASEZaeqbSd",
+        "name": "",
+        "vertices": [
+         {
+          "_type": "UMLPseudostate",
+          "_id": "AAAAAAG13Ma7CGAvUSA1tl+l",
+          "name": "",
+          "kind": "initial",
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CGASEZaeqbSd"
+          }
+         },
+         {
+          "_type": "UMLState",
+          "_id": "AAAAAAG13Ma7CGAOaL7niKxu",
+          "name": "꺼짐",
+          "entryActivity": "",
+          "doActivity": "",
+          "exitActivity": "",
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CGASEZaeqbSd"
+          }
+         },
+         {
+          "_type": "UMLState",
+          "_id": "AAAAAAG13Ma7CGAWiB5SZW9S",
+          "name": "대기",
+          "entryActivity": "",
+          "doActivity": "readSensor()",
+          "exitActivity": "",
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CGASEZaeqbSd"
+          }
+         },
+         {
+          "_type": "UMLState",
+          "_id": "AAAAAAG13Ma7CGAxrcZDSVvG",
+          "name": "난방",
+          "entryActivity": "boilerOn()",
+          "doActivity": "",
+          "exitActivity": "boilerOff()",
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CGASEZaeqbSd"
+          }
+         },
+         {
+          "_type": "UMLState",
+          "_id": "AAAAAAG13Ma7CGATyy4j66dL",
+          "name": "외출",
+          "entryActivity": "setTarget(16)",
+          "doActivity": "",
+          "exitActivity": "",
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CGASEZaeqbSd"
+          }
+         }
+        ],
+        "transitions": [
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13Ma7CGAayrIRMpgP",
+          "name": "",
+          "kind": "external",
+          "triggers": "",
+          "guard": "",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13Ma7CGAvUSA1tl+l"
+          },
+          "target": {
+           "$ref": "AAAAAAG13Ma7CGAOaL7niKxu"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CGASEZaeqbSd"
+          }
+         },
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13Ma7CGAOibcsf5r9",
+          "name": "",
+          "kind": "external",
+          "triggers": "powerOn",
+          "guard": "",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13Ma7CGAOaL7niKxu"
+          },
+          "target": {
+           "$ref": "AAAAAAG13Ma7CGAWiB5SZW9S"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CGASEZaeqbSd"
+          }
+         },
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13Ma7CGAbmsUxYr+e",
+          "name": "",
+          "kind": "external",
+          "triggers": "tick",
+          "guard": "temp < target",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13Ma7CGAWiB5SZW9S"
+          },
+          "target": {
+           "$ref": "AAAAAAG13Ma7CGAxrcZDSVvG"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CGASEZaeqbSd"
+          }
+         },
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13Ma7CGAgLhBmbfEN",
+          "name": "",
+          "kind": "external",
+          "triggers": "tick",
+          "guard": "temp >= target",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13Ma7CGAxrcZDSVvG"
+          },
+          "target": {
+           "$ref": "AAAAAAG13Ma7CGAWiB5SZW9S"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CGASEZaeqbSd"
+          }
+         },
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13Ma7CGA42W+rCnd7",
+          "name": "",
+          "kind": "external",
+          "triggers": "allLeft",
+          "guard": "",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13Ma7CGAWiB5SZW9S"
+          },
+          "target": {
+           "$ref": "AAAAAAG13Ma7CGATyy4j66dL"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CGASEZaeqbSd"
+          }
+         },
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13Ma7CGASZGufo7ul",
+          "name": "",
+          "kind": "external",
+          "triggers": "someoneHome",
+          "guard": "",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13Ma7CGATyy4j66dL"
+          },
+          "target": {
+           "$ref": "AAAAAAG13Ma7CGAWiB5SZW9S"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13Ma7CGASEZaeqbSd"
+          }
+         }
+        ],
+        "_parent": {
+         "$ref": "AAAAAAG13Ma7CFA9dZQrpv4W"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13Ma6CFAARrCqi1XI",
+    "name": "시스템 모델 (SysML)",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13Ma5CFA9y4OUomox"
+    },
+    "ownedElements": [
+     {
+      "_type": "SysMLRequirementDiagram",
+      "_id": "AAAAAAG13Ma6CFAXireqmnPS",
+      "name": "스마트 홈 요구사항",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "SysMLRequirementView",
+        "_id": "AAAAAAG13Ma6CFAvIsJau/6V",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAGvRO2DXVC"
+        },
+        "left": 320,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAXireqmnPS"
+        }
+       },
+       {
+        "_type": "SysMLRequirementView",
+        "_id": "AAAAAAG13Ma6CFANIGFtpalp",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAxSf9XM/g8"
+        },
+        "left": 40,
+        "top": 231,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAXireqmnPS"
+        }
+       },
+       {
+        "_type": "SysMLRequirementView",
+        "_id": "AAAAAAG13Ma6CFAYKxmAy243",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAe3GC6DLc6"
+        },
+        "left": 324,
+        "top": 231,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAXireqmnPS"
+        }
+       },
+       {
+        "_type": "SysMLRequirementView",
+        "_id": "AAAAAAG13Ma6CFApiV1sxUM9",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFA8qT5Li41T"
+        },
+        "left": 657,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAXireqmnPS"
+        }
+       },
+       {
+        "_type": "SysMLBlockView",
+        "_id": "AAAAAAG13Ma6CFAdza0ve0+a",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAHEnANPWLu"
+        },
+        "left": 117,
+        "top": 430,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAXireqmnPS"
+        }
+       },
+       {
+        "_type": "SysMLBlockView",
+        "_id": "AAAAAAG13Ma6CFAG/yswRKY7",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAG1JKgoQOz"
+        },
+        "left": 723,
+        "top": 258,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAXireqmnPS"
+        }
+       },
+       {
+        "_type": "UMLUseCaseView",
+        "_id": "AAAAAAG13Ma6CFA2IENzJWTM",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAt5HNHOqu7"
+        },
+        "left": 372,
+        "top": 422,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAXireqmnPS"
+        }
+       },
+       {
+        "_type": "UMLContainmentView",
+        "_id": "AAAAAAG13Ma6CFAcZM4tu9v3",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFABcel8caCx"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma6CFANIGFtpalp"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma6CFAvIsJau/6V"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAXireqmnPS"
+        }
+       },
+       {
+        "_type": "UMLContainmentView",
+        "_id": "AAAAAAG13Ma6CFAdHvMjCm/u",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAf6v7scQUv"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma6CFAYKxmAy243"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma6CFAvIsJau/6V"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAXireqmnPS"
+        }
+       },
+       {
+        "_type": "SysMLSatisfyView",
+        "_id": "AAAAAAG13Ma6CFAJaFLvUDCw",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAXDXS0xFV2"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma6CFAdza0ve0+a"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma6CFANIGFtpalp"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAXireqmnPS"
+        }
+       },
+       {
+        "_type": "SysMLVerifyView",
+        "_id": "AAAAAAG13Ma6CFAdd1ksrg/l",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAY+u3mZqGT"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma6CFA2IENzJWTM"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma6CFAYKxmAy243"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAXireqmnPS"
+        }
+       },
+       {
+        "_type": "SysMLSatisfyView",
+        "_id": "AAAAAAG13Ma6CFAL8wguuu47",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAJNkZrsqoO"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma6CFAG/yswRKY7"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma6CFApiV1sxUM9"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAXireqmnPS"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     },
+     {
+      "_type": "SysMLRequirement",
+      "_id": "AAAAAAG13Ma6CFAGvRO2DXVC",
+      "name": "원격 제어",
+      "id": "REQ-1",
+      "text": "밖에서 집안 기기를 제어한다",
+      "kind": "functional",
+      "status": "proposed",
+      "priority": "medium",
+      "difficulty": "medium",
+      "stability": "medium",
+      "risk": "",
+      "verifyMethod": "",
+      "version": "",
+      "author": "MyUMLMaker",
+      "phase": "",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     },
+     {
+      "_type": "SysMLRequirement",
+      "_id": "AAAAAAG13Ma6CFAxSf9XM/g8",
+      "name": "안전한 연결",
+      "id": "REQ-1.1",
+      "text": "통신은 암호화한다",
+      "kind": "functional",
+      "status": "proposed",
+      "priority": "medium",
+      "difficulty": "medium",
+      "stability": "medium",
+      "risk": "",
+      "verifyMethod": "",
+      "version": "",
+      "author": "MyUMLMaker",
+      "phase": "",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     },
+     {
+      "_type": "SysMLRequirement",
+      "_id": "AAAAAAG13Ma6CFAe3GC6DLc6",
+      "name": "빠른 응답",
+      "id": "REQ-1.2",
+      "text": "명령은 1초 안에 실행된다",
+      "kind": "functional",
+      "status": "proposed",
+      "priority": "medium",
+      "difficulty": "medium",
+      "stability": "medium",
+      "risk": "",
+      "verifyMethod": "",
+      "version": "",
+      "author": "MyUMLMaker",
+      "phase": "",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     },
+     {
+      "_type": "SysMLRequirement",
+      "_id": "AAAAAAG13Ma6CFA8qT5Li41T",
+      "name": "에너지 절약",
+      "id": "REQ-2",
+      "text": "집이 비면 난방을 줄인다",
+      "kind": "functional",
+      "status": "proposed",
+      "priority": "medium",
+      "difficulty": "medium",
+      "stability": "medium",
+      "risk": "",
+      "verifyMethod": "",
+      "version": "",
+      "author": "MyUMLMaker",
+      "phase": "",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     },
+     {
+      "_type": "SysMLBlock",
+      "_id": "AAAAAAG13Ma6CFAHEnANPWLu",
+      "name": "HomeHub",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      },
+      "ownedElements": [
+       {
+        "_type": "SysMLSatisfy",
+        "_id": "AAAAAAG13Ma6CFAXDXS0xFV2",
+        "name": "",
+        "source": {
+         "$ref": "AAAAAAG13Ma6CFAHEnANPWLu"
+        },
+        "target": {
+         "$ref": "AAAAAAG13Ma6CFAxSf9XM/g8"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAHEnANPWLu"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "SysMLBlock",
+      "_id": "AAAAAAG13Ma6CFAG1JKgoQOz",
+      "name": "Thermostat",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      },
+      "ownedElements": [
+       {
+        "_type": "SysMLSatisfy",
+        "_id": "AAAAAAG13Ma6CFAJNkZrsqoO",
+        "name": "",
+        "source": {
+         "$ref": "AAAAAAG13Ma6CFAG1JKgoQOz"
+        },
+        "target": {
+         "$ref": "AAAAAAG13Ma6CFA8qT5Li41T"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAG1JKgoQOz"
+        }
+       },
+       {
+        "_type": "UMLInterfaceRealization",
+        "_id": "AAAAAAG13Ma7CFAwwuvldlvF",
+        "name": "",
+        "source": {
+         "$ref": "AAAAAAG13Ma6CFAG1JKgoQOz"
+        },
+        "target": {
+         "$ref": "AAAAAAG13Ma6CFAlPNN29ePw"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAG1JKgoQOz"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLUseCase",
+      "_id": "AAAAAAG13Ma6CFAt5HNHOqu7",
+      "name": "응답 시간 시험",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "stereotype": "testCase",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     },
+     {
+      "_type": "UMLContainment",
+      "_id": "AAAAAAG13Ma6CFABcel8caCx",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma6CFAxSf9XM/g8"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma6CFAGvRO2DXVC"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     },
+     {
+      "_type": "UMLContainment",
+      "_id": "AAAAAAG13Ma6CFAf6v7scQUv",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma6CFAe3GC6DLc6"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma6CFAGvRO2DXVC"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     },
+     {
+      "_type": "SysMLVerify",
+      "_id": "AAAAAAG13Ma6CFAY+u3mZqGT",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma6CFAt5HNHOqu7"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma6CFAe3GC6DLc6"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     },
+     {
+      "_type": "SysMLBlockDefinitionDiagram",
+      "_id": "AAAAAAG13Ma6CFAugtPbOFv7",
+      "name": "스마트 홈 블록",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "SysMLBlockView",
+        "_id": "AAAAAAG13Ma6CFALiBAwCLU3",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAqKOEvTYJB"
+        },
+        "left": 40,
+        "top": 128,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAugtPbOFv7"
+        }
+       },
+       {
+        "_type": "SysMLBlockView",
+        "_id": "AAAAAAG13Ma6CFAhS0b99Bxi",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAHEnANPWLu"
+        },
+        "left": 339,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAugtPbOFv7"
+        }
+       },
+       {
+        "_type": "SysMLBlockView",
+        "_id": "AAAAAAG13Ma6CFAyW+ib8LnQ",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAG1JKgoQOz"
+        },
+        "left": 329,
+        "top": 128,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAugtPbOFv7"
+        }
+       },
+       {
+        "_type": "SysMLBlockView",
+        "_id": "AAAAAAG13Ma6CFAwFwBNpipg",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAgvMzvFLox"
+        },
+        "left": 330,
+        "top": 216,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAugtPbOFv7"
+        }
+       },
+       {
+        "_type": "SysMLBlockView",
+        "_id": "AAAAAAG13Ma6CFANxG1plkE8",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAkHku4Q+sL"
+        },
+        "left": 322,
+        "top": 304,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAugtPbOFv7"
+        }
+       },
+       {
+        "_type": "SysMLInterfaceBlockView",
+        "_id": "AAAAAAG13Ma7CFANgruKCcD9",
+        "model": {
+         "$ref": "AAAAAAG13Ma6CFAlPNN29ePw"
+        },
+        "left": 623,
+        "top": 128,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAugtPbOFv7"
+        }
+       },
+       {
+        "_type": "UMLAssociationView",
+        "_id": "AAAAAAG13Ma7CFAOM84BQNF9",
+        "model": {
+         "$ref": "AAAAAAG13Ma7CFAlfHRp1VmP"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma6CFALiBAwCLU3"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma6CFAhS0b99Bxi"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAugtPbOFv7"
+        }
+       },
+       {
+        "_type": "UMLAssociationView",
+        "_id": "AAAAAAG13Ma7CFArtgXUEfqv",
+        "model": {
+         "$ref": "AAAAAAG13Ma7CFA5pjTRLBQ8"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma6CFALiBAwCLU3"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma6CFAyW+ib8LnQ"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAugtPbOFv7"
+        }
+       },
+       {
+        "_type": "UMLAssociationView",
+        "_id": "AAAAAAG13Ma7CFAx6ooNx32b",
+        "model": {
+         "$ref": "AAAAAAG13Ma7CFAF34IuuiA+"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma6CFALiBAwCLU3"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma6CFAwFwBNpipg"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAugtPbOFv7"
+        }
+       },
+       {
+        "_type": "UMLAssociationView",
+        "_id": "AAAAAAG13Ma7CFAmW7z+NwTB",
+        "model": {
+         "$ref": "AAAAAAG13Ma7CFAmykLI8lhM"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma6CFALiBAwCLU3"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma6CFANxG1plkE8"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAugtPbOFv7"
+        }
+       },
+       {
+        "_type": "UMLInterfaceRealizationView",
+        "_id": "AAAAAAG13Ma7CFA6T2o8Vzsp",
+        "model": {
+         "$ref": "AAAAAAG13Ma7CFAwwuvldlvF"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma6CFAyW+ib8LnQ"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma7CFANgruKCcD9"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAugtPbOFv7"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     },
+     {
+      "_type": "SysMLBlock",
+      "_id": "AAAAAAG13Ma6CFAqKOEvTYJB",
+      "name": "SmartHome",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLAssociation",
+        "_id": "AAAAAAG13Ma7CFAlfHRp1VmP",
+        "name": "",
+        "visibility": "public",
+        "isDerived": false,
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13Ma7CFAQvTRa+2jh",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "composite",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13Ma6CFAqKOEvTYJB"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13Ma7CFAlfHRp1VmP"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13Ma7CFA6NdaceaZR",
+         "name": "hub",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "1",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13Ma6CFAHEnANPWLu"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13Ma7CFAlfHRp1VmP"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAqKOEvTYJB"
+        }
+       },
+       {
+        "_type": "UMLAssociation",
+        "_id": "AAAAAAG13Ma7CFA5pjTRLBQ8",
+        "name": "",
+        "visibility": "public",
+        "isDerived": false,
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13Ma7CFAByPlG5ZdF",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "composite",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13Ma6CFAqKOEvTYJB"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13Ma7CFA5pjTRLBQ8"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13Ma7CFAt/OVZknNw",
+         "name": "thermostats",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "1..*",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13Ma6CFAG1JKgoQOz"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13Ma7CFA5pjTRLBQ8"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAqKOEvTYJB"
+        }
+       },
+       {
+        "_type": "UMLAssociation",
+        "_id": "AAAAAAG13Ma7CFAF34IuuiA+",
+        "name": "",
+        "visibility": "public",
+        "isDerived": false,
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13Ma7CFAGxZCEhagZ",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "composite",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13Ma6CFAqKOEvTYJB"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13Ma7CFAF34IuuiA+"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13Ma7CFA+WmQeHBmP",
+         "name": "lights",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "0..*",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13Ma6CFAgvMzvFLox"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13Ma7CFAF34IuuiA+"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAqKOEvTYJB"
+        }
+       },
+       {
+        "_type": "UMLAssociation",
+        "_id": "AAAAAAG13Ma7CFAmykLI8lhM",
+        "name": "",
+        "visibility": "public",
+        "isDerived": false,
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13Ma7CFAwhWMR+Wb8",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "composite",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13Ma6CFAqKOEvTYJB"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13Ma7CFAmykLI8lhM"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13Ma7CFA9UnxNEdE6",
+         "name": "sensors",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "0..*",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13Ma6CFAkHku4Q+sL"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13Ma7CFAmykLI8lhM"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma6CFAqKOEvTYJB"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "SysMLBlock",
+      "_id": "AAAAAAG13Ma6CFAgvMzvFLox",
+      "name": "SmartLight",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     },
+     {
+      "_type": "SysMLBlock",
+      "_id": "AAAAAAG13Ma6CFAkHku4Q+sL",
+      "name": "MotionSensor",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     },
+     {
+      "_type": "SysMLInterfaceBlock",
+      "_id": "AAAAAAG13Ma6CFAlPNN29ePw",
+      "name": "IDevice",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma6CFAARrCqi1XI"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

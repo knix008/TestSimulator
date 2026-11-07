@@ -1,6 +1,8 @@
-// Inline stroke icons (24×24 grid, currentColor). Every command has its own
-// picture (test/unit/icons.test.js checks that no two commands share one).
+// Inline stroke icons (24×24 grid, currentColor), each in a colour of its own: icon-tones.js
+// names the hue, styles.css gives each hue a shade for light and for dark themes. Every
+// command has its own picture (test/unit/icons.test.js checks that no two commands share one).
 import { UML_ICONS } from './icons-uml.js';
+import { toneOf } from './icon-tones.js';
 
 const base = {
   // ── generic (files, editing, panels, help, small glyphs)
@@ -20,6 +22,11 @@ const base = {
   print: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/><path d="M17.5 12h.01"/>',
   closeTab: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h7l1-4"/><path d="M10 12l5 5M15 12l-5 5"/>',
   closeAll: '<rect x="5" y="3" width="16" height="13" rx="2"/><path d="M3 7v12a2 2 0 0 0 2 2h12"/><path d="M10.5 7.5l5 5M15.5 7.5l-5 5"/>',
+  autoArrange: '<rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-4h12v4"/>',
+  iconInsert: '<path d="M12 3l2.800 5.800 6.200.9-4.500 4.400 1.100 6.300L12 17.400l-5.600 3 1.100-6.300L3 9.700l6.200-.9z"/>',
+  diagramThemes: '<rect x="3" y="3" width="8" height="8" rx="1.500"/><rect x="13" y="3" width="8" height="8" rx="1.500"/><rect x="3" y="13" width="8" height="8" rx="1.500"/><path d="M17 13v8M13 17h8"/>',
+  moveHandle: '<path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"/>',
+  launcher: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
   home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
   exit: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 16l-4-4 4-4M6 12h10"/>',
   samples: '<path d="M4 6l8-3 8 3-8 3z"/><path d="M4 11l8 3 8-3M4 16l8 3 8-3"/>',
@@ -354,6 +361,11 @@ const paths = { ...base, ...UML_ICONS };
 export const ICON_NAMES = Object.keys(paths);
 export const hasIcon = (name) => Object.hasOwn(paths, name);
 
+/** The icon's first shape carries a light wash of its colour when it encloses something. */
+const hasWash = (body) => /^<(rect|circle|ellipse)\b(?![^>]*\bfill=)/.test(body) || /^<path d="[^"]*[zZ]\s*"(?![^>]*\bfill=)[^>]*\/>/.test(body);
+
 export function icon(name, className = 'icon') {
-  return `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] ?? paths.dot}</svg>`;
+  const known = Object.hasOwn(paths, name) ? name : 'dot';
+  const body = paths[known];
+  return `<svg class="${className}" data-icon="${known}" data-tone="${toneOf(known)}"${hasWash(body) ? ' data-wash=""' : ''} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 }

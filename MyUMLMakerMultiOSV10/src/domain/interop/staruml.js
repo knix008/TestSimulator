@@ -338,7 +338,7 @@ function edgeSubViews(view, model) {
 }
 
 const STYLE_FLAGS = ['showShadow', 'autoResize', 'stereotypeDisplay', 'suppressAttributes', 'suppressOperations', 'suppressReceptions', 'suppressLiterals', 'suppressColumns',
-  'showVisibility', 'showNamespace', 'showOperationSignature', 'showProperty', 'showMultiplicity', 'showType', 'wordWrap', 'text', 'url'];
+  'showVisibility', 'showNamespace', 'showOperationSignature', 'showProperty', 'showMultiplicity', 'showType', 'wordWrap', 'text', 'url', 'src', 'iconId'];
 
 function styleOf(view) {
   const out = { font: fontString(view) };

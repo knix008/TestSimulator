@@ -23,7 +23,7 @@ export const TEMPLATES = [
 const L = (language, ko, en) => (language === 'ko' ? ko : en);
 
 /** A small drawing helper bound to one diagram. */
-function painter(project, diagram, language) {
+export function painter(project, diagram, language) {
   const views = new Map();
   const tool = (id) => { const found = toolById(diagram._type, id) ?? (TYPES[id] || id.endsWith('View') ? { id, type: id, kind: TYPES[id]?.edge ? 'edge' : 'node', attrs: {} } : null); if (!found) throw new Error(`unknown tool ${id}`); return found; };
   // Boxes of views drawn without a size are tiny here, so that a later node is never taken as dropped inside them.

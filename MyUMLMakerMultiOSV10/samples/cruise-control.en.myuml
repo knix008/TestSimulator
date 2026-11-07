@@ -1,0 +1,1197 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.341Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13MbMCPAFtCFzLl70",
+  "name": "Car Cruise Control",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "SysML requirements, internal blocks and parametrics",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13MbMCPAODnI360TC",
+    "name": "Car Cruise Control",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13MbMCPAFtCFzLl70"
+    }
+   },
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13MbMCPAgQGvMHw8P",
+    "name": "System Model (SysML)",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13MbMCPAFtCFzLl70"
+    },
+    "ownedElements": [
+     {
+      "_type": "SysMLRequirementDiagram",
+      "_id": "AAAAAAG13MbMCPAHddk5OF6S",
+      "name": "Cruise Control Requirements",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "SysMLRequirementView",
+        "_id": "AAAAAAG13MbMCPAKmTwazN1D",
+        "model": {
+         "$ref": "AAAAAAG13MbMCPAAYRKvuGpb"
+        },
+        "left": 370,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCPAHddk5OF6S"
+        }
+       },
+       {
+        "_type": "SysMLRequirementView",
+        "_id": "AAAAAAG13MbMCQASGAnUz9ef",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQASDBjJQ4aD"
+        },
+        "left": 747,
+        "top": 231,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCPAHddk5OF6S"
+        }
+       },
+       {
+        "_type": "SysMLRequirementView",
+        "_id": "AAAAAAG13MbMCQAUbm0Jat2d",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQAn3Q7sJ68A"
+        },
+        "left": 40,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCPAHddk5OF6S"
+        }
+       },
+       {
+        "_type": "SysMLBlockView",
+        "_id": "AAAAAAG13MbMCQAHPN3iY8Da",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQAyMoYXkrLL"
+        },
+        "left": 442,
+        "top": 258,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCPAHddk5OF6S"
+        }
+       },
+       {
+        "_type": "UMLUseCaseView",
+        "_id": "AAAAAAG13MbMCQAWbzGQVl2w",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQA+SFqXEtbn"
+        },
+        "left": 97,
+        "top": 250,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCPAHddk5OF6S"
+        }
+       },
+       {
+        "_type": "SysMLDeriveReqtView",
+        "_id": "AAAAAAG13MbMCQAkrVOBb0dg",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQA2bNPWkjHD"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbMCQAUbm0Jat2d"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbMCPAKmTwazN1D"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCPAHddk5OF6S"
+        }
+       },
+       {
+        "_type": "SysMLSatisfyView",
+        "_id": "AAAAAAG13MbMCQAVWCmHRcMQ",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQAr/YBUDqIN"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbMCQAHPN3iY8Da"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbMCPAKmTwazN1D"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCPAHddk5OF6S"
+        }
+       },
+       {
+        "_type": "SysMLSatisfyView",
+        "_id": "AAAAAAG13MbMCQAP5LV6Z6lR",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQA4sTJfKITb"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbMCQAHPN3iY8Da"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbMCQASGAnUz9ef"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCPAHddk5OF6S"
+        }
+       },
+       {
+        "_type": "SysMLVerifyView",
+        "_id": "AAAAAAG13MbMCQAUxgh6Wyqi",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQARojgrMLF3"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbMCQAWbzGQVl2w"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbMCQAUbm0Jat2d"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCPAHddk5OF6S"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLRequirement",
+      "_id": "AAAAAAG13MbMCPAAYRKvuGpb",
+      "name": "Hold Speed",
+      "id": "REQ-1",
+      "text": "Holds the set speed within 2 km/h",
+      "kind": "functional",
+      "status": "proposed",
+      "priority": "medium",
+      "difficulty": "medium",
+      "stability": "medium",
+      "risk": "",
+      "verifyMethod": "",
+      "version": "",
+      "author": "MyUMLMaker",
+      "phase": "",
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLRequirement",
+      "_id": "AAAAAAG13MbMCQASDBjJQ4aD",
+      "name": "Brake Cancels",
+      "id": "REQ-2",
+      "text": "Braking switches it off at once",
+      "kind": "functional",
+      "status": "proposed",
+      "priority": "medium",
+      "difficulty": "medium",
+      "stability": "medium",
+      "risk": "",
+      "verifyMethod": "",
+      "version": "",
+      "author": "MyUMLMaker",
+      "phase": "",
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLRequirement",
+      "_id": "AAAAAAG13MbMCQAn3Q7sJ68A",
+      "name": "Hill Handling",
+      "id": "REQ-1.1",
+      "text": "Holds speed on slopes",
+      "kind": "functional",
+      "status": "proposed",
+      "priority": "medium",
+      "difficulty": "medium",
+      "stability": "medium",
+      "risk": "",
+      "verifyMethod": "",
+      "version": "",
+      "author": "MyUMLMaker",
+      "phase": "",
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLBlock",
+      "_id": "AAAAAAG13MbMCQAyMoYXkrLL",
+      "name": "CruiseController",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      },
+      "ownedElements": [
+       {
+        "_type": "SysMLSatisfy",
+        "_id": "AAAAAAG13MbMCQAr/YBUDqIN",
+        "name": "",
+        "source": {
+         "$ref": "AAAAAAG13MbMCQAyMoYXkrLL"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MbMCPAAYRKvuGpb"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAyMoYXkrLL"
+        }
+       },
+       {
+        "_type": "SysMLSatisfy",
+        "_id": "AAAAAAG13MbMCQA4sTJfKITb",
+        "name": "",
+        "source": {
+         "$ref": "AAAAAAG13MbMCQAyMoYXkrLL"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MbMCQASDBjJQ4aD"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAyMoYXkrLL"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLUseCase",
+      "_id": "AAAAAAG13MbMCQA+SFqXEtbn",
+      "name": "Road Test",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "stereotype": "testCase",
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLDeriveReqt",
+      "_id": "AAAAAAG13MbMCQA2bNPWkjHD",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbMCQAn3Q7sJ68A"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbMCPAAYRKvuGpb"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLVerify",
+      "_id": "AAAAAAG13MbMCQARojgrMLF3",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbMCQA+SFqXEtbn"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbMCQAn3Q7sJ68A"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLBlock",
+      "_id": "AAAAAAG13MbMCQAwNoY6U1vA",
+      "name": "SpeedSensor",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLBlock",
+      "_id": "AAAAAAG13MbMCQAI6IhkppJt",
+      "name": "ThrottleActuator",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLBlock",
+      "_id": "AAAAAAG13MbMCQAuSly/2vKc",
+      "name": "BrakeSwitch",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLBlock",
+      "_id": "AAAAAAG13MbMCQAice6olgqB",
+      "name": "CruiseSystem",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      },
+      "parts": [
+       {
+        "_type": "SysMLPart",
+        "_id": "AAAAAAG13MbMCQA36217fyxH",
+        "name": "speed",
+        "visibility": "public",
+        "type": {
+         "$ref": "AAAAAAG13MbMCQAwNoY6U1vA"
+        },
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAice6olgqB"
+        }
+       },
+       {
+        "_type": "SysMLPart",
+        "_id": "AAAAAAG13MbMCQAzCNxbeCLb",
+        "name": "controller",
+        "visibility": "public",
+        "type": {
+         "$ref": "AAAAAAG13MbMCQAyMoYXkrLL"
+        },
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAice6olgqB"
+        }
+       },
+       {
+        "_type": "SysMLPart",
+        "_id": "AAAAAAG13MbMCQAo5MI9pqF8",
+        "name": "throttle",
+        "visibility": "public",
+        "type": {
+         "$ref": "AAAAAAG13MbMCQAI6IhkppJt"
+        },
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAice6olgqB"
+        }
+       },
+       {
+        "_type": "SysMLPart",
+        "_id": "AAAAAAG13MbMCQAlBYoyLSlv",
+        "name": "brake",
+        "visibility": "public",
+        "type": {
+         "$ref": "AAAAAAG13MbMCQAuSly/2vKc"
+        },
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAice6olgqB"
+        }
+       }
+      ],
+      "ownedElements": [
+       {
+        "_type": "SysMLConnector",
+        "_id": "AAAAAAG13MbMCQA08UUnZAD/",
+        "name": "km/h",
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MbMCQAVSYGSbZGh",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MbMCQA36217fyxH"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MbMCQA08UUnZAD/"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MbMCQA/psZ8Jaf3",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MbMCQAzCNxbeCLb"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MbMCQA08UUnZAD/"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAice6olgqB"
+        }
+       },
+       {
+        "_type": "SysMLConnector",
+        "_id": "AAAAAAG13MbMCQAw66jC9f3u",
+        "name": "cancel",
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MbMCQA15jntFPdu",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MbMCQAlBYoyLSlv"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MbMCQAw66jC9f3u"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MbMCQAp5ze9rQ6g",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MbMCQAzCNxbeCLb"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MbMCQAw66jC9f3u"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAice6olgqB"
+        }
+       },
+       {
+        "_type": "SysMLItemFlow",
+        "_id": "AAAAAAG13MbMCQAfeSKxagHg",
+        "name": "command: Percent",
+        "itemProperty": "command",
+        "source": {
+         "$ref": "AAAAAAG13MbMCQAzCNxbeCLb"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MbMCQAo5MI9pqF8"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAice6olgqB"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "SysMLInternalBlockDiagram",
+      "_id": "AAAAAAG13MbMCQAeCwo9HDPM",
+      "name": "Cruise Control Internals",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "UMLFrameView",
+        "_id": "AAAAAAG13MbMCQAywnG3m6kG",
+        "left": 40,
+        "top": 30,
+        "width": 900,
+        "height": 320,
+        "text": "ibd [Block] CruiseSystem",
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAeCwo9HDPM"
+        }
+       },
+       {
+        "_type": "SysMLPartView",
+        "_id": "AAAAAAG13MbMCQAVveoToKUA",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQA36217fyxH"
+        },
+        "left": 90,
+        "top": 110,
+        "width": 170,
+        "height": 70,
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAeCwo9HDPM"
+        }
+       },
+       {
+        "_type": "SysMLPartView",
+        "_id": "AAAAAAG13MbMCQAAbcOeSTon",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQAzCNxbeCLb"
+        },
+        "left": 370,
+        "top": 180,
+        "width": 170,
+        "height": 70,
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAeCwo9HDPM"
+        }
+       },
+       {
+        "_type": "SysMLPartView",
+        "_id": "AAAAAAG13MbMCQAbEHfL5IIJ",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQAo5MI9pqF8"
+        },
+        "left": 720,
+        "top": 180,
+        "width": 170,
+        "height": 70,
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAeCwo9HDPM"
+        }
+       },
+       {
+        "_type": "SysMLPartView",
+        "_id": "AAAAAAG13MbMCQANOoTWkLh/",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQAlBYoyLSlv"
+        },
+        "left": 90,
+        "top": 260,
+        "width": 170,
+        "height": 70,
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAeCwo9HDPM"
+        }
+       },
+       {
+        "_type": "SysMLConnectorView",
+        "_id": "AAAAAAG13MbMCQAIFoZA2dFn",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQA08UUnZAD/"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbMCQAVveoToKUA"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbMCQAAbcOeSTon"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAeCwo9HDPM"
+        }
+       },
+       {
+        "_type": "SysMLConnectorView",
+        "_id": "AAAAAAG13MbMCQAfcPnc4XYg",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQAw66jC9f3u"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbMCQANOoTWkLh/"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbMCQAAbcOeSTon"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAeCwo9HDPM"
+        }
+       },
+       {
+        "_type": "SysMLItemFlowView",
+        "_id": "AAAAAAG13MbMCQAhroeLh5eR",
+        "model": {
+         "$ref": "AAAAAAG13MbMCQAfeSKxagHg"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbMCQAAbcOeSTon"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbMCQAbEHfL5IIJ"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAeCwo9HDPM"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLConstraintBlock",
+      "_id": "AAAAAAG13MbMCQAMtN5wsyAp",
+      "name": "ThrottleLaw",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "constraint": "u = Kp * (target - speed)",
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      },
+      "parameters": [
+       {
+        "_type": "SysMLConstraintParameter",
+        "_id": "AAAAAAG13MbNCQAJA7ASGGCQ",
+        "name": "target",
+        "type": {
+         "$ref": "AAAAAAG13MbMCQABQ6wlCImM"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAMtN5wsyAp"
+        }
+       },
+       {
+        "_type": "SysMLConstraintParameter",
+        "_id": "AAAAAAG13MbNCQA4I8fjUGPT",
+        "name": "speed",
+        "type": {
+         "$ref": "AAAAAAG13MbMCQABQ6wlCImM"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAMtN5wsyAp"
+        }
+       },
+       {
+        "_type": "SysMLConstraintParameter",
+        "_id": "AAAAAAG13MbNCQAU3Hlz+fXo",
+        "name": "u",
+        "type": {
+         "$ref": "AAAAAAG13MbMCQABQ6wlCImM"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAMtN5wsyAp"
+        }
+       }
+      ],
+      "ownedElements": [
+       {
+        "_type": "SysMLConnector",
+        "_id": "AAAAAAG13MbNCRAL4mOyNTcZ",
+        "name": "",
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MbNCRArmdkDo2vP",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MbNCQAU3Hlz+fXo"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MbNCRAL4mOyNTcZ"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MbNCRAwiiovsi6s",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MbNCQApzIsdEZK5"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MbNCRAL4mOyNTcZ"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbMCQAMtN5wsyAp"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "SysMLValueType",
+      "_id": "AAAAAAG13MbMCQABQ6wlCImM",
+      "name": "Speed",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "unit": "km/h",
+      "quantityKind": "",
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLBlock",
+      "_id": "AAAAAAG13MbNCQAsQWu1K4Dv",
+      "name": "CruiseValues",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      },
+      "parts": [
+       {
+        "_type": "SysMLPart",
+        "_id": "AAAAAAG13MbNCQA4shOOJQyt",
+        "name": "targetSpeed",
+        "visibility": "public",
+        "type": {
+         "$ref": "AAAAAAG13MbMCQABQ6wlCImM"
+        },
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQAsQWu1K4Dv"
+        }
+       },
+       {
+        "_type": "SysMLPart",
+        "_id": "AAAAAAG13MbNCQApdbKe4wD8",
+        "name": "actualSpeed",
+        "visibility": "public",
+        "type": {
+         "$ref": "AAAAAAG13MbMCQABQ6wlCImM"
+        },
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQAsQWu1K4Dv"
+        }
+       },
+       {
+        "_type": "SysMLPart",
+        "_id": "AAAAAAG13MbNCQApzIsdEZK5",
+        "name": "throttleCommand",
+        "visibility": "public",
+        "type": {
+         "$ref": "AAAAAAG13MbMCQABQ6wlCImM"
+        },
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQAsQWu1K4Dv"
+        }
+       }
+      ],
+      "ownedElements": [
+       {
+        "_type": "SysMLConnector",
+        "_id": "AAAAAAG13MbNCQAMr36UFX4j",
+        "name": "",
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MbNCQAS5ZdKwj8K",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MbNCQA4shOOJQyt"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MbNCQAMr36UFX4j"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MbNCQAtwu5EWXzn",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MbNCQAJA7ASGGCQ"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MbNCQAMr36UFX4j"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQAsQWu1K4Dv"
+        }
+       },
+       {
+        "_type": "SysMLConnector",
+        "_id": "AAAAAAG13MbNCQA4wBtrSMVL",
+        "name": "",
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MbNCQArSYDSr9O8",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MbNCQApdbKe4wD8"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MbNCQA4wBtrSMVL"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAG13MbNCRAXNCR2Eb0G",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAG13MbNCQA4I8fjUGPT"
+         },
+         "_parent": {
+          "$ref": "AAAAAAG13MbNCQA4wBtrSMVL"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQAsQWu1K4Dv"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "SysMLParametricDiagram",
+      "_id": "AAAAAAG13MbNCQArjsV+V3Hr",
+      "name": "Control Law",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "UMLFrameView",
+        "_id": "AAAAAAG13MbNCQAg7PUfooZd",
+        "left": 20,
+        "top": 20,
+        "width": 820,
+        "height": 270,
+        "text": "par [Block] CruiseValues",
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQArjsV+V3Hr"
+        }
+       },
+       {
+        "_type": "SysMLConstraintPropertyView",
+        "_id": "AAAAAAG13MbNCQAZ2vS68j5z",
+        "model": {
+         "$ref": "AAAAAAG13MbNCQAIlqnQbMh0"
+        },
+        "left": 340,
+        "top": 100,
+        "width": 220,
+        "height": 130,
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQArjsV+V3Hr"
+        }
+       },
+       {
+        "_type": "SysMLPartView",
+        "_id": "AAAAAAG13MbNCQAD6pB0Ovu5",
+        "model": {
+         "$ref": "AAAAAAG13MbNCQA4shOOJQyt"
+        },
+        "left": 60,
+        "top": 90,
+        "width": 170,
+        "height": 44,
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQArjsV+V3Hr"
+        }
+       },
+       {
+        "_type": "SysMLPartView",
+        "_id": "AAAAAAG13MbNCQAW6eRLsWza",
+        "model": {
+         "$ref": "AAAAAAG13MbNCQApdbKe4wD8"
+        },
+        "left": 60,
+        "top": 190,
+        "width": 170,
+        "height": 44,
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQArjsV+V3Hr"
+        }
+       },
+       {
+        "_type": "SysMLPartView",
+        "_id": "AAAAAAG13MbNCQArEiKhSa1g",
+        "model": {
+         "$ref": "AAAAAAG13MbNCQApzIsdEZK5"
+        },
+        "left": 630,
+        "top": 140,
+        "width": 170,
+        "height": 44,
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQArjsV+V3Hr"
+        }
+       },
+       {
+        "_type": "SysMLConstraintParameterView",
+        "_id": "AAAAAAG13MbNCQAQq5ckyEfz",
+        "model": {
+         "$ref": "AAAAAAG13MbNCQAJA7ASGGCQ"
+        },
+        "left": 332,
+        "top": 104,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQArjsV+V3Hr"
+        }
+       },
+       {
+        "_type": "SysMLConstraintParameterView",
+        "_id": "AAAAAAG13MbNCQA4K7w585K2",
+        "model": {
+         "$ref": "AAAAAAG13MbNCQA4I8fjUGPT"
+        },
+        "left": 332,
+        "top": 204,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQArjsV+V3Hr"
+        }
+       },
+       {
+        "_type": "SysMLConstraintParameterView",
+        "_id": "AAAAAAG13MbNCQA1i6n3H8jZ",
+        "model": {
+         "$ref": "AAAAAAG13MbNCQAU3Hlz+fXo"
+        },
+        "left": 552,
+        "top": 154,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQArjsV+V3Hr"
+        }
+       },
+       {
+        "_type": "SysMLConnectorView",
+        "_id": "AAAAAAG13MbNCQAwjI1ucHnS",
+        "model": {
+         "$ref": "AAAAAAG13MbNCQAMr36UFX4j"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbNCQAD6pB0Ovu5"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbNCQAQq5ckyEfz"
+        },
+        "points": [
+         {
+          "x": 280,
+          "y": 112
+         }
+        ],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQArjsV+V3Hr"
+        }
+       },
+       {
+        "_type": "SysMLConnectorView",
+        "_id": "AAAAAAG13MbNCRAQ0QRoPnxj",
+        "model": {
+         "$ref": "AAAAAAG13MbNCQA4wBtrSMVL"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbNCQAW6eRLsWza"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbNCQA4K7w585K2"
+        },
+        "points": [
+         {
+          "x": 280,
+          "y": 212
+         }
+        ],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQArjsV+V3Hr"
+        }
+       },
+       {
+        "_type": "SysMLConnectorView",
+        "_id": "AAAAAAG13MbNCRAN0rZDhDji",
+        "model": {
+         "$ref": "AAAAAAG13MbNCRAL4mOyNTcZ"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbNCQA1i6n3H8jZ"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbNCQArEiKhSa1g"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbNCQArjsV+V3Hr"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     },
+     {
+      "_type": "SysMLConstraintProperty",
+      "_id": "AAAAAAG13MbNCQAIlqnQbMh0",
+      "name": "law",
+      "type": {
+       "$ref": "AAAAAAG13MbMCQAMtN5wsyAp"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbMCPAgQGvMHw8P"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

@@ -1,0 +1,1131 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.321Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13Ma3CDACS88C7Kzb",
+  "name": "Video Streaming",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "C4 containers, an AWS deployment and packages",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13Ma3CDA4DtQcqgrK",
+    "name": "Video Streaming",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13Ma3CDACS88C7Kzb"
+    },
+    "ownedElements": [
+     {
+      "_type": "UMLPackageDiagram",
+      "_id": "AAAAAAG13Ma4CEAqPJCW0e3W",
+      "name": "Package Structure",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "UMLPackageView",
+        "_id": "AAAAAAG13Ma4CEA18r9K4lt3",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAGivta5AMv"
+        },
+        "left": 240,
+        "top": 40,
+        "width": 340,
+        "height": 110,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAqPJCW0e3W"
+        }
+       },
+       {
+        "_type": "UMLClassView",
+        "_id": "AAAAAAG13Ma4CEAgk7hpmv0t",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAKf7ENBD26"
+        },
+        "left": 300,
+        "top": 90,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAqPJCW0e3W"
+        },
+        "suppressAttributes": true,
+        "suppressOperations": true
+       },
+       {
+        "_type": "UMLPackageView",
+        "_id": "AAAAAAG13Ma4CEAEp/psZnV8",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAHJ6qNs2O4"
+        },
+        "left": 40,
+        "top": 220,
+        "width": 340,
+        "height": 110,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAqPJCW0e3W"
+        }
+       },
+       {
+        "_type": "UMLClassView",
+        "_id": "AAAAAAG13Ma4CEAcXoMV7Tlp",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAR43YB33cv"
+        },
+        "left": 100,
+        "top": 270,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAqPJCW0e3W"
+        },
+        "suppressAttributes": true,
+        "suppressOperations": true
+       },
+       {
+        "_type": "UMLPackageView",
+        "_id": "AAAAAAG13Ma4CEAEW6sqo3I6",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEA76EXFnFgC"
+        },
+        "left": 440,
+        "top": 220,
+        "width": 340,
+        "height": 110,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAqPJCW0e3W"
+        }
+       },
+       {
+        "_type": "UMLClassView",
+        "_id": "AAAAAAG13Ma5CEAaZZsuCZNC",
+        "model": {
+         "$ref": "AAAAAAG13Ma5CEALmqSf+VeN"
+        },
+        "left": 500,
+        "top": 270,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAqPJCW0e3W"
+        },
+        "suppressAttributes": true,
+        "suppressOperations": true
+       },
+       {
+        "_type": "UMLPackageView",
+        "_id": "AAAAAAG13Ma5CEAQcVm3SPjU",
+        "model": {
+         "$ref": "AAAAAAG13Ma5CEAtave8/OHI"
+        },
+        "left": 240,
+        "top": 400,
+        "width": 340,
+        "height": 110,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAqPJCW0e3W"
+        }
+       },
+       {
+        "_type": "UMLClassView",
+        "_id": "AAAAAAG13Ma5CEApkXf8I1wH",
+        "model": {
+         "$ref": "AAAAAAG13Ma5CEAPDQVuj+Mb"
+        },
+        "left": 300,
+        "top": 450,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAqPJCW0e3W"
+        },
+        "suppressAttributes": true,
+        "suppressOperations": true
+       },
+       {
+        "_type": "UMLDependencyView",
+        "_id": "AAAAAAG13Ma5CEAxST4eng/Z",
+        "model": {
+         "$ref": "AAAAAAG13Ma5CEAPmUhyosOh"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma4CEA18r9K4lt3"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma4CEAEp/psZnV8"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAqPJCW0e3W"
+        }
+       },
+       {
+        "_type": "UMLDependencyView",
+        "_id": "AAAAAAG13Ma5CEAnt+Ss5Zx8",
+        "model": {
+         "$ref": "AAAAAAG13Ma5CEAZPtOIDV3s"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma4CEA18r9K4lt3"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma4CEAEW6sqo3I6"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAqPJCW0e3W"
+        }
+       },
+       {
+        "_type": "UMLDependencyView",
+        "_id": "AAAAAAG13Ma5CFAoacLrSC9t",
+        "model": {
+         "$ref": "AAAAAAG13Ma5CFAG1Rtj2NT1"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma4CEAEp/psZnV8"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma5CEAQcVm3SPjU"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAqPJCW0e3W"
+        }
+       },
+       {
+        "_type": "UMLDependencyView",
+        "_id": "AAAAAAG13Ma5CFAY+nWgvpef",
+        "model": {
+         "$ref": "AAAAAAG13Ma5CFA0TZC9dXoq"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma4CEAEW6sqo3I6"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma5CEAQcVm3SPjU"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAqPJCW0e3W"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDA4DtQcqgrK"
+      }
+     },
+     {
+      "_type": "UMLPackage",
+      "_id": "AAAAAAG13Ma4CEAGivta5AMv",
+      "name": "player",
+      "visibility": "public",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDA4DtQcqgrK"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLClass",
+        "_id": "AAAAAAG13Ma4CEAKf7ENBD26",
+        "name": "PlayerPage",
+        "visibility": "public",
+        "isAbstract": false,
+        "isFinalSpecialization": false,
+        "isLeaf": false,
+        "isActive": false,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAGivta5AMv"
+        }
+       },
+       {
+        "_type": "UMLDependency",
+        "_id": "AAAAAAG13Ma5CEAPmUhyosOh",
+        "name": "",
+        "visibility": "public",
+        "stereotype": "import",
+        "source": {
+         "$ref": "AAAAAAG13Ma4CEAGivta5AMv"
+        },
+        "target": {
+         "$ref": "AAAAAAG13Ma4CEAHJ6qNs2O4"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAGivta5AMv"
+        }
+       },
+       {
+        "_type": "UMLDependency",
+        "_id": "AAAAAAG13Ma5CEAZPtOIDV3s",
+        "name": "",
+        "visibility": "public",
+        "stereotype": "import",
+        "source": {
+         "$ref": "AAAAAAG13Ma4CEAGivta5AMv"
+        },
+        "target": {
+         "$ref": "AAAAAAG13Ma4CEA76EXFnFgC"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAGivta5AMv"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLPackage",
+      "_id": "AAAAAAG13Ma4CEAHJ6qNs2O4",
+      "name": "catalog",
+      "visibility": "public",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDA4DtQcqgrK"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLClass",
+        "_id": "AAAAAAG13Ma4CEAR43YB33cv",
+        "name": "VideoCatalog",
+        "visibility": "public",
+        "isAbstract": false,
+        "isFinalSpecialization": false,
+        "isLeaf": false,
+        "isActive": false,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAHJ6qNs2O4"
+        }
+       },
+       {
+        "_type": "UMLDependency",
+        "_id": "AAAAAAG13Ma5CFAG1Rtj2NT1",
+        "name": "",
+        "visibility": "public",
+        "stereotype": "import",
+        "source": {
+         "$ref": "AAAAAAG13Ma4CEAHJ6qNs2O4"
+        },
+        "target": {
+         "$ref": "AAAAAAG13Ma5CEAtave8/OHI"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAHJ6qNs2O4"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLPackage",
+      "_id": "AAAAAAG13Ma4CEA76EXFnFgC",
+      "name": "media",
+      "visibility": "public",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDA4DtQcqgrK"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLClass",
+        "_id": "AAAAAAG13Ma5CEALmqSf+VeN",
+        "name": "Transcoder",
+        "visibility": "public",
+        "isAbstract": false,
+        "isFinalSpecialization": false,
+        "isLeaf": false,
+        "isActive": false,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEA76EXFnFgC"
+        }
+       },
+       {
+        "_type": "UMLDependency",
+        "_id": "AAAAAAG13Ma5CFA0TZC9dXoq",
+        "name": "",
+        "visibility": "public",
+        "stereotype": "import",
+        "source": {
+         "$ref": "AAAAAAG13Ma4CEA76EXFnFgC"
+        },
+        "target": {
+         "$ref": "AAAAAAG13Ma5CEAtave8/OHI"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEA76EXFnFgC"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLPackage",
+      "_id": "AAAAAAG13Ma5CEAtave8/OHI",
+      "name": "common",
+      "visibility": "public",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDA4DtQcqgrK"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLClass",
+        "_id": "AAAAAAG13Ma5CEAPDQVuj+Mb",
+        "name": "EventLog",
+        "visibility": "public",
+        "isAbstract": false,
+        "isFinalSpecialization": false,
+        "isLeaf": false,
+        "isActive": false,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma5CEAtave8/OHI"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "_type": "C4Model",
+    "_id": "AAAAAAG13Ma3CDAp3Rvt9q6I",
+    "name": "C4",
+    "_parent": {
+     "$ref": "AAAAAAG13Ma3CDACS88C7Kzb"
+    },
+    "ownedElements": [
+     {
+      "_type": "C4Diagram",
+      "_id": "AAAAAAG13Ma3CDA3Hs5tkIRo",
+      "name": "Streaming Containers",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "C4PersonView",
+        "_id": "AAAAAAG13Ma3CDAwhNhN+b3M",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CDAVmkC/7lXe"
+        },
+        "left": 82,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma3CDA3Hs5tkIRo"
+        }
+       },
+       {
+        "_type": "C4ContainerView",
+        "_id": "AAAAAAG13Ma3CDAKaGvcV0Qf",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CDADk3VCC5cj"
+        },
+        "left": 82,
+        "top": 296,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma3CDA3Hs5tkIRo"
+        }
+       },
+       {
+        "_type": "C4ContainerView",
+        "_id": "AAAAAAG13Ma3CDAclgnWJGOB",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CDAInyUsQMAB"
+        },
+        "left": 80,
+        "top": 516,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma3CDA3Hs5tkIRo"
+        }
+       },
+       {
+        "_type": "C4ContainerView",
+        "_id": "AAAAAAG13Ma3CDAcl/ccIBvp",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CDAW7HfD1+Sn"
+        },
+        "left": 474,
+        "top": 516,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma3CDA3Hs5tkIRo"
+        }
+       },
+       {
+        "_type": "C4ContainerDatabaseView",
+        "_id": "AAAAAAG13Ma3CEAalR85azTY",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CEAqGEr1NV8N"
+        },
+        "left": 82,
+        "top": 736,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma3CDA3Hs5tkIRo"
+        }
+       },
+       {
+        "_type": "C4SoftwareSystemView",
+        "_id": "AAAAAAG13Ma3CEA30h2DGVrr",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CEAAnJ1n0cTi"
+        },
+        "left": 463,
+        "top": 296,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma3CDA3Hs5tkIRo"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13Ma3CEAOPQyS5dpn",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CEAVb2t6N3k6"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma3CDAwhNhN+b3M"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma3CDAKaGvcV0Qf"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma3CDA3Hs5tkIRo"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13Ma3CEAB4yUh9keP",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CEAMa6VNWWwf"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma3CDAKaGvcV0Qf"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma3CDAclgnWJGOB"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma3CDA3Hs5tkIRo"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13Ma3CEAUjedYSJOk",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CEAMHDLFdUlz"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma3CDAclgnWJGOB"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma3CEAalR85azTY"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma3CDA3Hs5tkIRo"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13Ma3CEAGQebG7fhV",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CEArP5K6pE/B"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma3CDAKaGvcV0Qf"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma3CEA30h2DGVrr"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma3CDA3Hs5tkIRo"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13Ma3CEAT0HiNm68L",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CEAnkv/AkH+v"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma3CDAcl/ccIBvp"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma3CEA30h2DGVrr"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma3CDA3Hs5tkIRo"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDAp3Rvt9q6I"
+      }
+     },
+     {
+      "_type": "C4Person",
+      "_id": "AAAAAAG13Ma3CDAVmkC/7lXe",
+      "name": "Viewer",
+      "description": "Watches videos",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDAp3Rvt9q6I"
+      }
+     },
+     {
+      "_type": "C4Container",
+      "_id": "AAAAAAG13Ma3CDADk3VCC5cj",
+      "name": "Web Player",
+      "technology": "React",
+      "description": "Playback page",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDAp3Rvt9q6I"
+      }
+     },
+     {
+      "_type": "C4Container",
+      "_id": "AAAAAAG13Ma3CDAInyUsQMAB",
+      "name": "Catalog API",
+      "technology": "Kotlin",
+      "description": "Videos and suggestions",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDAp3Rvt9q6I"
+      }
+     },
+     {
+      "_type": "C4Container",
+      "_id": "AAAAAAG13Ma3CDAW7HfD1+Sn",
+      "name": "Encoder",
+      "technology": "FFmpeg",
+      "description": "Transcodes renditions",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDAp3Rvt9q6I"
+      }
+     },
+     {
+      "_type": "C4ContainerDatabase",
+      "_id": "AAAAAAG13Ma3CEAqGEr1NV8N",
+      "name": "Metadata DB",
+      "technology": "MySQL",
+      "description": "Video information",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDAp3Rvt9q6I"
+      }
+     },
+     {
+      "_type": "C4SoftwareSystem",
+      "_id": "AAAAAAG13Ma3CEAAnJ1n0cTi",
+      "name": "CDN",
+      "description": "Delivers segments",
+      "external": true,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDAp3Rvt9q6I"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13Ma3CEAVb2t6N3k6",
+      "name": "Watches",
+      "technology": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma3CDAVmkC/7lXe"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma3CDADk3VCC5cj"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDAp3Rvt9q6I"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13Ma3CEAMa6VNWWwf",
+      "name": "Reads catalog",
+      "technology": "HTTPS",
+      "source": {
+       "$ref": "AAAAAAG13Ma3CDADk3VCC5cj"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma3CDAInyUsQMAB"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDAp3Rvt9q6I"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13Ma3CEAMHDLFdUlz",
+      "name": "Reads and writes",
+      "technology": "SQL",
+      "source": {
+       "$ref": "AAAAAAG13Ma3CDAInyUsQMAB"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma3CEAqGEr1NV8N"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDAp3Rvt9q6I"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13Ma3CEArP5K6pE/B",
+      "name": "Fetches video",
+      "technology": "HLS",
+      "source": {
+       "$ref": "AAAAAAG13Ma3CDADk3VCC5cj"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma3CEAAnJ1n0cTi"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDAp3Rvt9q6I"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13Ma3CEAnkv/AkH+v",
+      "name": "Uploads",
+      "technology": "S3",
+      "source": {
+       "$ref": "AAAAAAG13Ma3CDAW7HfD1+Sn"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma3CEAAnJ1n0cTi"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CDAp3Rvt9q6I"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "CloudModel",
+    "_id": "AAAAAAG13Ma3CEAxORDAQS17",
+    "name": "Streaming on AWS",
+    "_parent": {
+     "$ref": "AAAAAAG13Ma3CDACS88C7Kzb"
+    },
+    "ownedElements": [
+     {
+      "_type": "AWSDiagram",
+      "_id": "AAAAAAG13Ma4CEAxiBrvE7gc",
+      "name": "Streaming on AWS",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "CloudGroupView",
+        "_id": "AAAAAAG13Ma4CEAfUaa3Mz2v",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAo176y1L8K"
+        },
+        "left": 370,
+        "top": 262,
+        "width": 436,
+        "height": 140,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma4CEAWDzPt5wJf",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAHdp8005cW"
+        },
+        "left": 90,
+        "top": 318,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma4CEASCJNxEg4f",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAz+k+PirzC"
+        },
+        "left": 248,
+        "top": 318,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma4CEAaQl3fICgY",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEA91hODRp2N"
+        },
+        "left": 406,
+        "top": 150,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma4CEAkLUO9jEi7",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAJjQCFA5Vw"
+        },
+        "left": 564,
+        "top": 150,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma4CEA8VREnJd5l",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEA4c/pgEwb/"
+        },
+        "left": 406,
+        "top": 318,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma4CEA/4ixkbEHw",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAyEGvTWZgt"
+        },
+        "left": 564,
+        "top": 318,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma4CEAd7HK6c9u3",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAC6sscsUsx"
+        },
+        "left": 722,
+        "top": 318,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13Ma4CEAbVVuvnsPj",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAhKpVFIRMm"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma4CEAWDzPt5wJf"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma4CEASCJNxEg4f"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13Ma4CEAYuLVTD2Rd",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAqnQaDbsi/"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma4CEASCJNxEg4f"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma4CEAaQl3fICgY"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13Ma4CEAo/BswYtqi",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAy/3+2b1u5"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma4CEAaQl3fICgY"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma4CEAkLUO9jEi7"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13Ma4CEAuYSMZd4+a",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEA64Fyahv+t"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma4CEASCJNxEg4f"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma4CEA8VREnJd5l"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13Ma4CEA4vMeqwJU5",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEAx2bqrtv8A"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma4CEA8VREnJd5l"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma4CEA/4ixkbEHw"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13Ma4CEAgyPlwqzx9",
+        "model": {
+         "$ref": "AAAAAAG13Ma4CEApa4yVtbBO"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma4CEA/4ixkbEHw"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma4CEAd7HK6c9u3"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma4CEAxiBrvE7gc"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma4CEAHdp8005cW",
+      "name": "Viewers",
+      "provider": "aws",
+      "service": "User",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma4CEAz+k+PirzC",
+      "name": "CloudFront",
+      "provider": "aws",
+      "service": "CloudFront",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma4CEA91hODRp2N",
+      "name": "Video store",
+      "provider": "aws",
+      "service": "S3",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma4CEAJjQCFA5Vw",
+      "name": "Transcode job",
+      "provider": "aws",
+      "service": "Lambda",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma4CEA4c/pgEwb/",
+      "name": "ALB",
+      "provider": "aws",
+      "service": "Elastic Load Balancing",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma4CEAyEGvTWZgt",
+      "name": "Catalog API",
+      "provider": "aws",
+      "service": "ECS",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma4CEAC6sscsUsx",
+      "name": "Metadata",
+      "provider": "aws",
+      "service": "Aurora",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13Ma4CEAhKpVFIRMm",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma4CEAHdp8005cW"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma4CEAz+k+PirzC"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13Ma4CEAqnQaDbsi/",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma4CEAz+k+PirzC"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma4CEA91hODRp2N"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13Ma4CEAy/3+2b1u5",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma4CEA91hODRp2N"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma4CEAJjQCFA5Vw"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13Ma4CEA64Fyahv+t",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma4CEAz+k+PirzC"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma4CEA4c/pgEwb/"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13Ma4CEAx2bqrtv8A",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma4CEA4c/pgEwb/"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma4CEAyEGvTWZgt"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13Ma4CEApa4yVtbBO",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma4CEAyEGvTWZgt"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma4CEAC6sscsUsx"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     },
+     {
+      "_type": "CloudGroup",
+      "_id": "AAAAAAG13Ma4CEAo176y1L8K",
+      "name": "VPC",
+      "provider": "aws",
+      "groupKind": "vpc",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma3CEAxORDAQS17"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

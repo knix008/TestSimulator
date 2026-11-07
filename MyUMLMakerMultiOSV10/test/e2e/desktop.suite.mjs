@@ -369,7 +369,7 @@ async function drawDiagramType(app, type) {
   app.main.errors.length = 0;
   await openTypeByTabs(app, type);
   const plan = await W(app, `(() => {
-    const groups = w.domain.toolboxFor(${JSON.stringify(type)}).filter(([id]) => id !== 'annotations');
+    const groups = w.domain.toolboxFor(${JSON.stringify(type)}).filter(([id]) => id !== 'annotations' && id !== 'icons');
     const all = groups.flatMap((g) => g[3]);
     const wanted = ${JSON.stringify(MAIN_TOOLS[type] ?? null)};
     const first = groups[0][3].filter((t) => t.kind === 'node' && !${INNER_TOOL}.test(t.type) && !${INNER_TOOL}.test(t.id));
@@ -479,12 +479,12 @@ export const cases = [
     await W(app, '(a.showStartPage(true), 1)');
     await sleep(300);
     const templates = await W(app, 'w.domain.TEMPLATES.length');
-    const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('.start-hero [data-start="tutorial"]')), banner: Boolean(document.querySelector('.start-banner')), recent: Boolean(document.querySelector('.start-card.recent')), samples: [...document.querySelectorAll('[data-start="open-sample"], [data-start="builtin-sample"]')].map((b) => b.dataset.value), help: ['tutorial-doc', 'guide', 'shortcuts'].every((x) => document.querySelector('[data-start="' + x + '"]')), left: getComputedStyle(document.querySelector('#left-panel')).display, version: document.querySelector('.start-hero h1').textContent })`);
+    const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('.start-hero [data-start="tutorial"]')), banner: Boolean(document.querySelector('.start-banner')), recent: Boolean(document.querySelector('.start-card.recent')), samples: [...document.querySelectorAll('[data-start="sample"]')].map((b) => b.dataset.value), help: ['tutorial-doc', 'guide', 'tutorial-video'].every((x) => document.querySelector('.start-hero [data-start="' + x + '"]')), left: getComputedStyle(document.querySelector('#left-panel')).display, version: document.querySelector('.start-hero h1').textContent })`);
     assert.ok(info.shown, 'start page shown');
     assert.equal(templates, 23, 'MyUMLMaker has 23 templates');
     assert.equal(info.templates, templates, 'a tile per template');
     assert.ok(info.tutorial && info.banner && info.recent && info.help, JSON.stringify(info));
-    assert.ok(info.samples.length >= 1 && info.samples.every((p) => !p || /\.ko\.(myuml|mdj)$/.test(p)), `sample projects in the UI language ${JSON.stringify(info.samples)}`);
+    assert.equal(info.samples.length, 40, 'the 40 sample projects');
     assert.match(info.version, new RegExp(VERSION.replace(/\./g, '\\.')));
     assert.equal(info.left, 'none', 'the side panels are hidden on the start page');
   } },
@@ -541,6 +541,13 @@ export const cases = [
     assert.equal(await app.main.eval(`!document.querySelector('#start-page').hidden`), true, 'Home shows the start page');
     assert.deepEqual(await app.main.eval(`[getComputedStyle(document.querySelector('#left-panel')).display, getComputedStyle(document.querySelector('#right-panel')).display, document.querySelector('#start-page').getBoundingClientRect().height > 300]`), ['none', 'none', true], 'with a project open the start page fills the window (no panels over it)');
     assert.ok(await app.main.eval(`document.querySelector('#menubar [data-home]').classList.contains('current')`));
+    // A toggle: pressed again, back to the diagram, pressed once more, the start page.
+    await app.main.click('#menubar [data-home]');
+    await sleep(300);
+    assert.equal(await app.main.eval(`document.querySelector('#start-page').hidden`), true, 'Start again: back to the diagram');
+    assert.equal(await app.main.eval(`document.querySelector('#menubar [data-home]').getAttribute('aria-pressed')`), 'false');
+    await app.main.click('#menubar [data-home]');
+    await sleep(300);
     await W(app, `(w.run('startPage'), 1)`);
     await sleep(300);
     assert.equal(await app.main.eval(`document.querySelector('#start-page').hidden`), true, 'File › Start page brings the diagram back');
@@ -1533,7 +1540,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
       await sleep(200);
       const place = await menu.eval(`(() => { const main = document.querySelector('.popup-menu[data-level="0"]').getBoundingClientRect(); const row = document.querySelector('[data-id="submenu:diagramTheme"]').getBoundingClientRect(); const sub = document.querySelector('.popup-menu[data-level="1"]'); const r = sub.getBoundingClientRect(); return { head: sub.getAttribute('aria-label'), ids: [...sub.querySelectorAll('.menu-item')].map((i) => i.dataset.id), gap: r.left - main.right, dy: r.top - row.top, open: document.querySelector('[data-id="submenu:diagramTheme"]').classList.contains('open'), win: { w: innerWidth, h: innerHeight }, right: r.right, bottom: r.bottom }; })()`);
       assert.equal(place.head, '다이어그램 색 구성');
-      assert.deepEqual(place.ids, ['diagramTheme:classic', 'diagramTheme:pastel', 'diagramTheme:blueprint', 'diagramTheme:dark']);
+      assert.deepEqual(place.ids, ['diagramTheme:theme', 'diagramTheme:classic', 'diagramTheme:pastel', 'diagramTheme:blueprint', 'diagramTheme:dark', 'diagramThemeMore']);
       assert.ok(place.open && Math.abs(place.gap) < 8 && Math.abs(place.dy) < 14, `the submenu opens beside its row ${JSON.stringify(place)}`);
       assert.ok(place.right <= place.win.w && place.bottom <= place.win.h, `the menu window holds the submenu ${JSON.stringify(place)}`);
       // Resting on an ordinary row of the parent closes it again.
@@ -1700,6 +1707,8 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     ['textimport', `w.run('importText')`],
     ['image', `w.run('exportImage')`],
     ['print', `w.run('print')`],
+    ['iconpicker', `w.popups.open('iconpicker', {})`],
+    ['diagramtheme', `w.run('diagramThemeMore')`],
     ['recent', `w.run('recent')`],
     ['confirm', `w.run('statistics')`],
     ['error', `a.showError('error.unexpected', new Error('테스트 오류'), 'e2e')`],
@@ -2555,6 +2564,23 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── printing
+  { group: '다이어그램 아이콘', name: '아이콘 도구: 별도의 창에서 고르면 다이어그램에 들어가고 저장·다시 그리기에 남음 (실제 클릭)', async run(app) {
+    await closePopups(app);
+    await W(app, `(() => { for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true }); a.newProject('flowchart'); a.setCanvasZoom(100); return 1; })()`);
+    await sleep(500);
+    const before = await W(app, 'api.diagram().ownedViews.length');
+    await clickOn(app.main, '[data-tool="insertIcon"]');
+    const page = await app.popup('iconpicker');
+    try {
+      await page.waitFor(`document.querySelectorAll('[data-action="pick-icon"]').length === 100`, { timeout: 5000, message: 'all 100 icons' });
+      assert.ok(await page.eval(`(() => { const g = document.querySelector('.icon-groups'); return g.scrollHeight <= g.clientHeight; })()`), 'all fit without scrolling');
+      await clickOn(page, '[data-action="pick-icon"][data-value="cloud"]');
+    } finally { page.close(); }
+    await app.main.waitFor(`window.__myumlmaker.api.diagram().ownedViews.length === ${before + 1}`, { timeout: 5000, message: 'the icon is on the diagram' });
+    const placed = await W(app, `(() => { const v = api.diagram().ownedViews.at(-1); return { type: v._type, icon: v.iconId, drawn: Boolean(document.querySelector('.canvas-svg [data-view="' + v._id + '"] g[transform] path')) }; })()`);
+    assert.deepEqual(placed, { type: 'IconView', icon: 'cloud', drawn: true });
+    await noErrorPopup(app, 'icon');
+  } },
   { group: '인쇄', name: '인쇄 미리 보기 (Ctrl+P): 전체/현재 다이어그램, 용지 방향, 바로 인쇄', async run(app) {
     await freshSample(app);
     await app.main.eval(`document.querySelector('.canvas-scroll').focus(); 1`);
@@ -2570,7 +2596,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.ok(await sheets() < all, 'the current diagram only');
     await page.eval(`(() => { const r = document.querySelector('[data-print-range="all"]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
     assert.equal(await sheets(), all);
-    await page.click('.tabs [data-value="page"]');
+    assert.equal(await page.eval(`document.querySelectorAll('.tabs, [data-action="tab"]').length`), 0, 'no tabs: all settings at once');
     const orientation = await page.eval(`document.querySelector('[data-print-segment="orientation"].active').dataset.value`);
     const svgBox = () => page.eval(`(() => { const s = document.querySelector('#print-preview svg'); const r = s.getBoundingClientRect(); return r.width > r.height ? 'wide' : 'tall'; })()`);
     const shapeBefore = await svgBox();
@@ -2578,10 +2604,33 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(200);
     assert.notEqual(await svgBox(), shapeBefore, 'the orientation turns the sheet');
     await page.click(`[data-print-segment="orientation"][data-value="${orientation}"]`);
-    await page.eval(`window.__myumlmakerPrintHook = (layout) => { window.__printed = layout.count; }; 1`);
+    // The printers of this computer are offered, with the default first; the job names the chosen one.
+    const printers = await page.eval(`window.__TAURI_INTERNALS__.invoke('list_printers')`);
+    assert.ok(Array.isArray(printers.printers), JSON.stringify(printers));
+    if (printers.printers.length) {
+      await page.waitFor(`document.querySelectorAll('[data-print="printer"] option').length === ${printers.printers.length + 1}`, { timeout: 4000, message: 'the printer list' });
+      assert.equal(await page.eval(`document.querySelector('[data-print="printer"]').value`), '', 'the default printer unless one is chosen');
+      assert.ok(await page.eval(`Boolean(document.querySelector('[data-action="print"]'))`));
+      // What would be printed, as a PDF: sized to the paper, one page a sheet. Never a real printer here.
+      const pdf = path.join(os.tmpdir(), `myumlmaker-print-test-${process.pid}.pdf`);
+      const paper = await page.eval('window.__myumlmakerPopup.printLayout().paper');
+      const sheetCount = await sheets();
+      await page.eval(`window.__TAURI_INTERNALS__.invoke('print_pages_to_pdf', { job: { printer: '', copies: 1, widthMm: ${paper.width}, heightMm: ${paper.height} }, path: ${JSON.stringify(pdf)} }).then(() => 1)`, 60000);
+      const bytes = fs.readFileSync(pdf);
+      fs.rmSync(pdf);
+      assert.equal(bytes.subarray(0, 4).toString(), '%PDF');
+      const text = bytes.toString('latin1');
+      const pages = (text.match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+      assert.equal(pages, sheetCount, `one PDF page per sheet (${pages}/${sheetCount})`);
+      const box = /\/MediaBox\s*\[\s*0 0 ([\d.]+) ([\d.]+)/.exec(text);
+      if (box) assert.ok(Math.abs(Number(box[1]) / 72 * 25.4 - paper.width) < 3 && Math.abs(Number(box[2]) / 72 * 25.4 - paper.height) < 3, `paper size ${box[1]}×${box[2]} / ${paper.width}×${paper.height}`);
+    }
+    await page.eval(`window.__myumlmakerPrintHook = (layout, job) => { window.__printed = layout.count; window.__job = { ...job, paper: layout.paper }; }; 1`);
     await page.click('[data-action="print"]');
     await sleep(300);
     assert.ok(await page.eval('window.__printed') >= 1, 'printed');
+    const job = await page.eval('window.__job');
+    assert.deepEqual([job.widthMm, job.heightMm, job.copies, job.printer], [job.paper.width, job.paper.height, 1, ''], 'the job has the paper, one copy and the default printer');
     page.close();
     await closePopups(app);
   } },
@@ -2621,7 +2670,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await page.waitFor(`document.querySelector('[data-toggle="showGrid"]')`);
     assert.equal(await page.eval(`document.querySelector('[data-toggle="showGrid"]').checked`), true);
     await page.eval(`(() => { const c = document.querySelector('[data-toggle="showGrid"]'); c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
-    await page.click('[data-setting="diagramTheme"][data-value="dark"]');
+    await page.eval(`(() => { const c = document.querySelector('[data-select="diagramTheme"]'); c.value = 'dark'; c.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
     await sleep(500);
     page.close();
     await closePopups(app);
@@ -2629,6 +2678,36 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.equal(await app.main.eval(grid), false, 'the grid is gone from the canvas');
     assert.equal(await W(app, 'w.state.settings.diagramTheme'), 'dark', 'the colour scheme reached the main window');
     await W(app, `a.updateSettings({ showGrid: true, diagramTheme: 'classic' })`);
+  } },
+  { group: '설치', name: '설치 때 고른 언어로 처음 실행되고, 그 뒤에는 사용자가 고른 언어가 유지됨', async run(app) {
+    const marker = path.join(app.config, 'install-language');
+    const shown = async () => ({ setting: await W(app, 'w.state.settings.language'), menu: (await app.main.eval(`document.querySelector('[data-menu="file"]').textContent`)).trim() });
+    try {
+      assert.equal(await W(app, 'w.state.settings.language'), 'ko', 'this run so far is in Korean');
+      await sleep(300);
+      await app.quit();
+      fs.writeFileSync(marker, 'en');
+      await app.launch();
+      assert.deepEqual(await shown(), { setting: 'en', menu: 'File' }, 'the installer ran in English');
+      assert.equal(fs.existsSync(marker), false, 'read once');
+      await sleep(300);
+      await app.quit();
+      await app.launch();
+      assert.equal((await shown()).setting, 'en', 'stays');
+      await W(app, `a.updateSettings({ language: 'ko' })`);
+      await sleep(300);
+      await app.quit();
+      await app.launch();
+      assert.deepEqual(await shown(), { setting: 'ko', menu: '파일' }, 'the user changed it: the installer does not ask again');
+      await sleep(300);
+      await app.quit();
+      fs.writeFileSync(marker, 'ko');
+      await app.launch();
+      assert.equal((await shown()).setting, 'ko', 'installed in Korean');
+    } finally {
+      fs.rmSync(marker, { force: true });
+      await W(app, `a.updateSettings({ language: 'ko' })`).catch(() => {});
+    }
   } },
   { group: '설정', name: '설정은 다음 실행 때 다시 읽힘', async run(app) {
     await W(app, `a.updateSettings({ theme: 'dracula', gridSize: 20, language: 'en', showRightPanel: false })`);
@@ -2748,8 +2827,8 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
       assert.ok(hero.titles.every(Boolean), 'every button has a tooltip');
       assert.deepEqual(hero.labels, await W(app, `['action.userGuide', 'action.tutorialDoc', 'action.tutorialVideo'].map((k) => w.t(k))`));
       assert.deepEqual(await app.main.eval(`(${CLIP_CHECK}).filter((x) => x.includes('start-hero') || x.includes('doc-button') || x.includes('start-docs'))`), [], 'nothing in the header is cut off');
-      // The help card lists them too.
-      assert.ok(await app.main.eval(`['guide', 'tutorial-doc', 'tutorial-video', 'shortcuts'].every((x) => document.querySelector('.start-card.recent [data-start="' + x + '"]'))`));
+      // The Recent card holds recent items only: help is in the header and the menu.
+      assert.equal(await app.main.eval(`document.querySelectorAll('.start-card.recent [data-start="guide"], .start-card.recent [data-start="tutorial-doc"], .start-card.recent [data-start="tutorial-video"], .start-card.recent [data-start="shortcuts"]').length`), 0);
     } finally {
       await resize(app, 1480, 900);
       await sleep(300);

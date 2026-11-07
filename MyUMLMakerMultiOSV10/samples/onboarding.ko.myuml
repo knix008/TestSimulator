@@ -1,0 +1,1408 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.383Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13Mb1CnAaXblwch4w",
+  "name": "신입 사원 입사",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "BPMN, 계정 발급 순서도, 입사 준비 일정",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13Mb1CnA8OHqCalTt",
+    "name": "신입 사원 입사",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13Mb1CnAaXblwch4w"
+    }
+   },
+   {
+    "_type": "BPMNProcess",
+    "_id": "AAAAAAG13Mb1CnABANSkiYA6",
+    "name": "업무 프로세스",
+    "isExecutable": false,
+    "_parent": {
+     "$ref": "AAAAAAG13Mb1CnAaXblwch4w"
+    },
+    "ownedElements": [
+     {
+      "_type": "BPMNDiagram",
+      "_id": "AAAAAAG13Mb1CnAMnxBJo+gy",
+      "name": "입사 절차",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "BPMNLaneView",
+        "_id": "AAAAAAG13Mb1CnATtG4ALiEK",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CnAXWJstRtFT"
+        },
+        "left": 52,
+        "top": 270,
+        "width": 1448,
+        "height": 120,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNLaneView",
+        "_id": "AAAAAAG13Mb1CnAEcoqTqenw",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CnAkykY6/+AT"
+        },
+        "left": 52,
+        "top": 150,
+        "width": 1448,
+        "height": 120,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNLaneView",
+        "_id": "AAAAAAG13Mb1CnA8ED0QnvTO",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CnAZRVzG1L9k"
+        },
+        "left": 52,
+        "top": 30,
+        "width": 1448,
+        "height": 120,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNParticipantView",
+        "_id": "AAAAAAG13Mb1CnAI6sBExtxO",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CnAj8ZXFqvkz"
+        },
+        "left": 20,
+        "top": 30,
+        "width": 1480,
+        "height": 360,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNStartEventView",
+        "_id": "AAAAAAG13Mb1CnAPPW1QoArL",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CnA+6JaE8YET"
+        },
+        "left": 152,
+        "top": 70,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNTaskView",
+        "_id": "AAAAAAG13Mb1CnAimQ4a1rAj",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CnAue2c/iBFj"
+        },
+        "left": 290,
+        "top": 56,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNParallelGatewayView",
+        "_id": "AAAAAAG13Mb1CoAj0rGV8kzH",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CnAmrxJ7pXFV"
+        },
+        "left": 489,
+        "top": 67,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNTaskView",
+        "_id": "AAAAAAG13Mb1CoAXQvWbAKTb",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAP/+EToJny"
+        },
+        "left": 630,
+        "top": 176,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNTaskView",
+        "_id": "AAAAAAG13Mb1CoA+68Qfz6Jw",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAYJVzwOFNz"
+        },
+        "left": 800,
+        "top": 176,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNTaskView",
+        "_id": "AAAAAAG13Mb1CoA52kfLc/Bn",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAI+mOeWz9R"
+        },
+        "left": 630,
+        "top": 296,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNParallelGatewayView",
+        "_id": "AAAAAAG13Mb1CoALr5UJsziD",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAibskvkMKp"
+        },
+        "left": 999,
+        "top": 307,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNTaskView",
+        "_id": "AAAAAAG13Mb1CoAteqRXs07o",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAdHPK9rRP5"
+        },
+        "left": 1140,
+        "top": 296,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNEndEventView",
+        "_id": "AAAAAAG13Mb1CoAXb49Ld/Sz",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAfqjcMZtw5"
+        },
+        "left": 1342,
+        "top": 310,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNSequenceFlowView",
+        "_id": "AAAAAAG13Mb1CoAl62Hb99F0",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAJO1HJxOHy"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CnAPPW1QoArL"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CnAimQ4a1rAj"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNSequenceFlowView",
+        "_id": "AAAAAAG13Mb1CoA5l3RKs991",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAXq8zq3lPO"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CnAimQ4a1rAj"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoAj0rGV8kzH"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNSequenceFlowView",
+        "_id": "AAAAAAG13Mb1CoACp0qWKf5U",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoA9/pdxIN9w"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoAj0rGV8kzH"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoAXQvWbAKTb"
+        },
+        "points": [
+         {
+          "x": 510,
+          "y": 208
+         }
+        ],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNSequenceFlowView",
+        "_id": "AAAAAAG13Mb1CoAY0HmUk1Vj",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAtw/Lqo04b"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoAXQvWbAKTb"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoA+68Qfz6Jw"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNSequenceFlowView",
+        "_id": "AAAAAAG13Mb1CoAG9Z8l3JrW",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAgSqlBcA6u"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoAj0rGV8kzH"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoA52kfLc/Bn"
+        },
+        "points": [
+         {
+          "x": 510,
+          "y": 328
+         }
+        ],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNSequenceFlowView",
+        "_id": "AAAAAAG13Mb1CoAAPjGBrLVM",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoA5S1PLHwXe"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoA+68Qfz6Jw"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoALr5UJsziD"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNSequenceFlowView",
+        "_id": "AAAAAAG13Mb1CoAvEuENFp/v",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoA+1w8Qu3cw"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoA52kfLc/Bn"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoALr5UJsziD"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNSequenceFlowView",
+        "_id": "AAAAAAG13Mb1CoANLOj/6iNg",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAAW8/ORr2c"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoALr5UJsziD"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoAteqRXs07o"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       },
+       {
+        "_type": "BPMNSequenceFlowView",
+        "_id": "AAAAAAG13Mb1CoApRpNA2UE2",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAT2RxJLKzQ"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoAteqRXs07o"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoAXb49Ld/Sz"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CnAMnxBJo+gy"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNParticipant",
+      "_id": "AAAAAAG13Mb1CnAj8ZXFqvkz",
+      "name": "회사",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNLane",
+      "_id": "AAAAAAG13Mb1CnAZRVzG1L9k",
+      "name": "인사팀",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNLane",
+      "_id": "AAAAAAG13Mb1CnAkykY6/+AT",
+      "name": "IT 지원",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNLane",
+      "_id": "AAAAAAG13Mb1CnAXWJstRtFT",
+      "name": "소속 팀",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNStartEvent",
+      "_id": "AAAAAAG13Mb1CnA+6JaE8YET",
+      "name": "합격 통보",
+      "eventKind": "message",
+      "isInterrupting": true,
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNTask",
+      "_id": "AAAAAAG13Mb1CnAue2c/iBFj",
+      "name": "서류 받기",
+      "taskKind": "user",
+      "loop": "none",
+      "isForCompensation": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNParallelGateway",
+      "_id": "AAAAAAG13Mb1CnAmrxJ7pXFV",
+      "name": "",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNTask",
+      "_id": "AAAAAAG13Mb1CoAP/+EToJny",
+      "name": "PC 준비",
+      "taskKind": "manual",
+      "loop": "none",
+      "isForCompensation": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNTask",
+      "_id": "AAAAAAG13Mb1CoAYJVzwOFNz",
+      "name": "계정 발급",
+      "taskKind": "service",
+      "loop": "none",
+      "isForCompensation": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNTask",
+      "_id": "AAAAAAG13Mb1CoAI+mOeWz9R",
+      "name": "멘토 지정",
+      "taskKind": "user",
+      "loop": "none",
+      "isForCompensation": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNParallelGateway",
+      "_id": "AAAAAAG13Mb1CoAibskvkMKp",
+      "name": "",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNTask",
+      "_id": "AAAAAAG13Mb1CoAdHPK9rRP5",
+      "name": "첫날 안내",
+      "taskKind": "user",
+      "loop": "none",
+      "isForCompensation": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNEndEvent",
+      "_id": "AAAAAAG13Mb1CoAfqjcMZtw5",
+      "name": "입사 완료",
+      "eventKind": "none",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNSequenceFlow",
+      "_id": "AAAAAAG13Mb1CoAJO1HJxOHy",
+      "name": "",
+      "conditionExpression": "",
+      "isDefault": false,
+      "source": {
+       "$ref": "AAAAAAG13Mb1CnA+6JaE8YET"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CnAue2c/iBFj"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNSequenceFlow",
+      "_id": "AAAAAAG13Mb1CoAXq8zq3lPO",
+      "name": "",
+      "conditionExpression": "",
+      "isDefault": false,
+      "source": {
+       "$ref": "AAAAAAG13Mb1CnAue2c/iBFj"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CnAmrxJ7pXFV"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNSequenceFlow",
+      "_id": "AAAAAAG13Mb1CoA9/pdxIN9w",
+      "name": "",
+      "conditionExpression": "",
+      "isDefault": false,
+      "source": {
+       "$ref": "AAAAAAG13Mb1CnAmrxJ7pXFV"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoAP/+EToJny"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNSequenceFlow",
+      "_id": "AAAAAAG13Mb1CoAtw/Lqo04b",
+      "name": "",
+      "conditionExpression": "",
+      "isDefault": false,
+      "source": {
+       "$ref": "AAAAAAG13Mb1CoAP/+EToJny"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoAYJVzwOFNz"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNSequenceFlow",
+      "_id": "AAAAAAG13Mb1CoAgSqlBcA6u",
+      "name": "",
+      "conditionExpression": "",
+      "isDefault": false,
+      "source": {
+       "$ref": "AAAAAAG13Mb1CnAmrxJ7pXFV"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoAI+mOeWz9R"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNSequenceFlow",
+      "_id": "AAAAAAG13Mb1CoA5S1PLHwXe",
+      "name": "",
+      "conditionExpression": "",
+      "isDefault": false,
+      "source": {
+       "$ref": "AAAAAAG13Mb1CoAYJVzwOFNz"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoAibskvkMKp"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNSequenceFlow",
+      "_id": "AAAAAAG13Mb1CoA+1w8Qu3cw",
+      "name": "",
+      "conditionExpression": "",
+      "isDefault": false,
+      "source": {
+       "$ref": "AAAAAAG13Mb1CoAI+mOeWz9R"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoAibskvkMKp"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNSequenceFlow",
+      "_id": "AAAAAAG13Mb1CoAAW8/ORr2c",
+      "name": "",
+      "conditionExpression": "",
+      "isDefault": false,
+      "source": {
+       "$ref": "AAAAAAG13Mb1CoAibskvkMKp"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoAdHPK9rRP5"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     },
+     {
+      "_type": "BPMNSequenceFlow",
+      "_id": "AAAAAAG13Mb1CoAT2RxJLKzQ",
+      "name": "",
+      "conditionExpression": "",
+      "isDefault": false,
+      "source": {
+       "$ref": "AAAAAAG13Mb1CoAdHPK9rRP5"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoAfqjcMZtw5"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CnABANSkiYA6"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "FCFlowchart",
+    "_id": "AAAAAAG13Mb1CoAJVh/UbRRd",
+    "name": "순서도",
+    "_parent": {
+     "$ref": "AAAAAAG13Mb1CnAaXblwch4w"
+    },
+    "ownedElements": [
+     {
+      "_type": "FCFlowchartDiagram",
+      "_id": "AAAAAAG13Mb1CoA8ZWZPhsEv",
+      "name": "계정 발급",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "FCTerminatorView",
+        "_id": "AAAAAAG13Mb1CoA9rqNzhpmn",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAVwI4Gnv8p"
+        },
+        "left": 56,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCManualInputView",
+        "_id": "AAAAAAG13Mb1CoAyZJKZje6C",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoA2PVoJMH7H"
+        },
+        "left": 56,
+        "top": 127,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCDecisionView",
+        "_id": "AAAAAAG13Mb1CoAsxUI8h28n",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoARycoY7wZb"
+        },
+        "left": 40,
+        "top": 221,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCPredefinedProcessView",
+        "_id": "AAAAAAG13Mb1CoAxK2jG/iPI",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAC3DJjk0Gl"
+        },
+        "left": 56,
+        "top": 329,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCDatabaseView",
+        "_id": "AAAAAAG13Mb1CoA518JQmjTR",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAAzEniggbU"
+        },
+        "left": 66,
+        "top": 423,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCDocumentView",
+        "_id": "AAAAAAG13Mb1CoAnMerg840Q",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAYKM7RAsxM"
+        },
+        "left": 262,
+        "top": 228,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCTerminatorView",
+        "_id": "AAAAAAG13Mb1CoAjgVnjOr1D",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAcFDzYj0kK"
+        },
+        "left": 452,
+        "top": 232,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13Mb1CoALqDxdV+1+",
+        "model": {
+         "$ref": "AAAAAAG13Mb1CoAVcLMCCbc+"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoA9rqNzhpmn"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoAyZJKZje6C"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13Mb2CoADbeTnddTw",
+        "model": {
+         "$ref": "AAAAAAG13Mb2CoAfwKqx54DH"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoAyZJKZje6C"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoAsxUI8h28n"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13Mb2CoAYfxeITuOd",
+        "model": {
+         "$ref": "AAAAAAG13Mb2CoAgcvfNu/f6"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoAsxUI8h28n"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoAxK2jG/iPI"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13Mb2CoAVPlTc1k2s",
+        "model": {
+         "$ref": "AAAAAAG13Mb2CoAXrYtkXvXd"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoAsxUI8h28n"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoAnMerg840Q"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13Mb2CoAFpuMexSLQ",
+        "model": {
+         "$ref": "AAAAAAG13Mb2CoA9pXBCMiVv"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoAxK2jG/iPI"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoA518JQmjTR"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13Mb2CoAs6IKbvT9N",
+        "model": {
+         "$ref": "AAAAAAG13Mb2CoAWJoA3/T1x"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoAxK2jG/iPI"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoAnMerg840Q"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13Mb2CoAHXpNCJNE8",
+        "model": {
+         "$ref": "AAAAAAG13Mb2CoAZ+ONZB4br"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb1CoAnMerg840Q"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb1CoAjgVnjOr1D"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb1CoA8ZWZPhsEv"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCTerminator",
+      "_id": "AAAAAAG13Mb1CoAVwI4Gnv8p",
+      "name": "시작",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCManualInput",
+      "_id": "AAAAAAG13Mb1CoA2PVoJMH7H",
+      "name": "사번 입력",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCDecision",
+      "_id": "AAAAAAG13Mb1CoARycoY7wZb",
+      "name": "이미 있음?",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCPredefinedProcess",
+      "_id": "AAAAAAG13Mb1CoAC3DJjk0Gl",
+      "name": "계정 생성",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCDatabase",
+      "_id": "AAAAAAG13Mb1CoAAzEniggbU",
+      "name": "계정 DB",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCDocument",
+      "_id": "AAAAAAG13Mb1CoAYKM7RAsxM",
+      "name": "안내 메일",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCTerminator",
+      "_id": "AAAAAAG13Mb1CoAcFDzYj0kK",
+      "name": "끝",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13Mb1CoAVcLMCCbc+",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Mb1CoAVwI4Gnv8p"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoA2PVoJMH7H"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13Mb2CoAfwKqx54DH",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Mb1CoA2PVoJMH7H"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoARycoY7wZb"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13Mb2CoAgcvfNu/f6",
+      "name": "아니오",
+      "source": {
+       "$ref": "AAAAAAG13Mb1CoARycoY7wZb"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoAC3DJjk0Gl"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13Mb2CoAXrYtkXvXd",
+      "name": "예",
+      "source": {
+       "$ref": "AAAAAAG13Mb1CoARycoY7wZb"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoAYKM7RAsxM"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13Mb2CoA9pXBCMiVv",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Mb1CoAC3DJjk0Gl"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoAAzEniggbU"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13Mb2CoAWJoA3/T1x",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Mb1CoAC3DJjk0Gl"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoAYKM7RAsxM"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13Mb2CoAZ+ONZB4br",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Mb1CoAYKM7RAsxM"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb1CoAcFDzYj0kK"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb1CoAJVh/UbRRd"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "PMPlan",
+    "_id": "AAAAAAG13Mb2CoAPed7vcusn",
+    "name": "입사 준비",
+    "start": "2027-01-04",
+    "_parent": {
+     "$ref": "AAAAAAG13Mb1CnAaXblwch4w"
+    },
+    "ownedElements": [
+     {
+      "_type": "GanttDiagram",
+      "_id": "AAAAAAG13Mb2CoA0OUPdZkyd",
+      "name": "입사 준비 일정",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "GanttCalendarView",
+        "_id": "AAAAAAG13Mb2CoAcQgSSf8vT",
+        "model": {
+         "$ref": "AAAAAAG13Mb2CoAGB4kvF4ye"
+        },
+        "left": 20,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb2CoA0OUPdZkyd"
+        }
+       },
+       {
+        "_type": "GanttTaskView",
+        "_id": "AAAAAAG13Mb2CpAWFaFva650",
+        "model": {
+         "$ref": "AAAAAAG13Mb2CpA70MBenimM"
+        },
+        "left": 230,
+        "top": 64,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb2CoA0OUPdZkyd"
+        }
+       },
+       {
+        "_type": "GanttTaskView",
+        "_id": "AAAAAAG13Mb2CpAsvMXr9rul",
+        "model": {
+         "$ref": "AAAAAAG13Mb2CpA9FFVyiPsI"
+        },
+        "left": 230,
+        "top": 92,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb2CoA0OUPdZkyd"
+        }
+       },
+       {
+        "_type": "GanttTaskView",
+        "_id": "AAAAAAG13Mb3CpAIXprZiWHw",
+        "model": {
+         "$ref": "AAAAAAG13Mb3CpAGf+lgBd2v"
+        },
+        "left": 230,
+        "top": 120,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb2CoA0OUPdZkyd"
+        }
+       },
+       {
+        "_type": "GanttTaskView",
+        "_id": "AAAAAAG13Mb3CpAj9SxOezpz",
+        "model": {
+         "$ref": "AAAAAAG13Mb3CpASfAqSFJ0O"
+        },
+        "left": 230,
+        "top": 148,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb2CoA0OUPdZkyd"
+        }
+       },
+       {
+        "_type": "GanttMilestoneView",
+        "_id": "AAAAAAG13Mb3CpA7n6WAdqj/",
+        "model": {
+         "$ref": "AAAAAAG13Mb3CpAh5epgXDMA"
+        },
+        "left": 230,
+        "top": 176,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Mb2CoA0OUPdZkyd"
+        }
+       },
+       {
+        "_type": "GanttDependencyView",
+        "_id": "AAAAAAG13Mb3CpAQQ4VFcNtO",
+        "model": {
+         "$ref": "AAAAAAG13Mb3CpA4HOd/vUiQ"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb2CpAWFaFva650"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb2CpAsvMXr9rul"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb2CoA0OUPdZkyd"
+        }
+       },
+       {
+        "_type": "GanttDependencyView",
+        "_id": "AAAAAAG13Mb3CpAWaWK7kgir",
+        "model": {
+         "$ref": "AAAAAAG13Mb3CpAUPoR2WYCm"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb2CpAsvMXr9rul"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb3CpAIXprZiWHw"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb2CoA0OUPdZkyd"
+        }
+       },
+       {
+        "_type": "GanttDependencyView",
+        "_id": "AAAAAAG13Mb3CpA01HRDKZRH",
+        "model": {
+         "$ref": "AAAAAAG13Mb3CpAOIuhlANla"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb2CpAWFaFva650"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb3CpAj9SxOezpz"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb2CoA0OUPdZkyd"
+        }
+       },
+       {
+        "_type": "GanttDependencyView",
+        "_id": "AAAAAAG13Mb3CpAEn4/0aJ77",
+        "model": {
+         "$ref": "AAAAAAG13Mb3CpAIk+Wa85Ct"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb3CpAIXprZiWHw"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb3CpA7n6WAdqj/"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb2CoA0OUPdZkyd"
+        }
+       },
+       {
+        "_type": "GanttDependencyView",
+        "_id": "AAAAAAG13Mb3CpAoshMJhiXj",
+        "model": {
+         "$ref": "AAAAAAG13Mb3CpAEAk6nL732"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Mb3CpAj9SxOezpz"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Mb3CpA7n6WAdqj/"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Mb2CoA0OUPdZkyd"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13Mb2CoAPed7vcusn"
+      }
+     },
+     {
+      "_type": "GanttCalendar",
+      "_id": "AAAAAAG13Mb2CoAGB4kvF4ye",
+      "name": "입사 준비",
+      "start": "2027-01-04",
+      "days": 0,
+      "dayWidth": 18,
+      "closedDays": "saturday,sunday",
+      "closedDates": "",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb2CoAPed7vcusn"
+      }
+     },
+     {
+      "_type": "GanttTask",
+      "_id": "AAAAAAG13Mb2CpA70MBenimM",
+      "name": "서류 받기",
+      "start": "2027-01-04",
+      "end": "",
+      "duration": 3,
+      "completion": 100,
+      "resources": "HR",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb2CoAPed7vcusn"
+      }
+     },
+     {
+      "_type": "GanttTask",
+      "_id": "AAAAAAG13Mb2CpA9FFVyiPsI",
+      "name": "PC 준비",
+      "start": "",
+      "end": "",
+      "duration": 2,
+      "completion": 50,
+      "resources": "IT",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb2CoAPed7vcusn"
+      }
+     },
+     {
+      "_type": "GanttTask",
+      "_id": "AAAAAAG13Mb3CpAGf+lgBd2v",
+      "name": "계정 발급",
+      "start": "",
+      "end": "",
+      "duration": 1,
+      "completion": 0,
+      "resources": "IT",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb2CoAPed7vcusn"
+      }
+     },
+     {
+      "_type": "GanttTask",
+      "_id": "AAAAAAG13Mb3CpASfAqSFJ0O",
+      "name": "멘토 지정",
+      "start": "",
+      "end": "",
+      "duration": 1,
+      "completion": 0,
+      "resources": "팀장",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb2CoAPed7vcusn"
+      }
+     },
+     {
+      "_type": "GanttMilestone",
+      "_id": "AAAAAAG13Mb3CpAh5epgXDMA",
+      "name": "첫 출근",
+      "date": "",
+      "_parent": {
+       "$ref": "AAAAAAG13Mb2CoAPed7vcusn"
+      }
+     },
+     {
+      "_type": "GanttDependency",
+      "_id": "AAAAAAG13Mb3CpA4HOd/vUiQ",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Mb2CpA70MBenimM"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb2CpA9FFVyiPsI"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb2CoAPed7vcusn"
+      }
+     },
+     {
+      "_type": "GanttDependency",
+      "_id": "AAAAAAG13Mb3CpAUPoR2WYCm",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Mb2CpA9FFVyiPsI"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb3CpAGf+lgBd2v"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb2CoAPed7vcusn"
+      }
+     },
+     {
+      "_type": "GanttDependency",
+      "_id": "AAAAAAG13Mb3CpAOIuhlANla",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Mb2CpA70MBenimM"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb3CpASfAqSFJ0O"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb2CoAPed7vcusn"
+      }
+     },
+     {
+      "_type": "GanttDependency",
+      "_id": "AAAAAAG13Mb3CpAIk+Wa85Ct",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Mb3CpAGf+lgBd2v"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb3CpAh5epgXDMA"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb2CoAPed7vcusn"
+      }
+     },
+     {
+      "_type": "GanttDependency",
+      "_id": "AAAAAAG13Mb3CpAEAk6nL732",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Mb3CpASfAqSFJ0O"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Mb3CpAh5epgXDMA"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Mb2CoAPed7vcusn"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

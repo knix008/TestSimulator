@@ -1,0 +1,1559 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.407Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13McNC1AxAoRhY7Va",
+  "name": "Mobile App UX",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "Customer journey, story map and screen wireframes",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13McNC1A6AvHLlg4N",
+    "name": "Mobile App UX",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13McNC1AxAoRhY7Va"
+    }
+   },
+   {
+    "_type": "UXModel",
+    "_id": "AAAAAAG13McNC1Aw2AwUhNS7",
+    "name": "Agile & UX",
+    "_parent": {
+     "$ref": "AAAAAAG13McNC1AxAoRhY7Va"
+    },
+    "ownedElements": [
+     {
+      "_type": "CustomerJourneyDiagram",
+      "_id": "AAAAAAG13McNC1A2jCzejEXV",
+      "name": "Fitness App Journey",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "CJLaneView",
+        "_id": "AAAAAAG13McNC1AmSrmOxiM0",
+        "model": {
+         "$ref": "AAAAAAG13McNC1ANuJXDXRfh"
+        },
+        "left": 20,
+        "top": 550,
+        "width": 1140,
+        "height": 90,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJLaneView",
+        "_id": "AAAAAAG13McNC1ALLHKS0/wq",
+        "model": {
+         "$ref": "AAAAAAG13McNC1AUsA4E478Y"
+        },
+        "left": 20,
+        "top": 450,
+        "width": 1140,
+        "height": 90,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJLaneView",
+        "_id": "AAAAAAG13McNC1Ay48CUfwEE",
+        "model": {
+         "$ref": "AAAAAAG13McNC1Az2YQd+acj"
+        },
+        "left": 20,
+        "top": 330,
+        "width": 1140,
+        "height": 110,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJLaneView",
+        "_id": "AAAAAAG13McNC1AdyYRJP7pX",
+        "model": {
+         "$ref": "AAAAAAG13McNC1AEk6M0H1EQ"
+        },
+        "left": 20,
+        "top": 250,
+        "width": 1140,
+        "height": 70,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJLaneView",
+        "_id": "AAAAAAG13McNC1AD/3WJp3WV",
+        "model": {
+         "$ref": "AAAAAAG13McNC1AE2rIj8odv"
+        },
+        "left": 20,
+        "top": 150,
+        "width": 1140,
+        "height": 90,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJStageView",
+        "_id": "AAAAAAG13McNC1AHsFkYfWjk",
+        "model": {
+         "$ref": "AAAAAAG13McNC1A5UjsO9TqR"
+        },
+        "left": 930,
+        "top": 10,
+        "width": 220,
+        "height": 640,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJStageView",
+        "_id": "AAAAAAG13McNC1AS0SuoyVOY",
+        "model": {
+         "$ref": "AAAAAAG13McNC1AU+ESq0BWQ"
+        },
+        "left": 700,
+        "top": 10,
+        "width": 220,
+        "height": 640,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJStageView",
+        "_id": "AAAAAAG13McNC1AnyApLNxQy",
+        "model": {
+         "$ref": "AAAAAAG13McNC1AfQvXzahl1"
+        },
+        "left": 470,
+        "top": 10,
+        "width": 220,
+        "height": 640,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJStageView",
+        "_id": "AAAAAAG13McNC1A4Sju15dSx",
+        "model": {
+         "$ref": "AAAAAAG13McNC1AnVgnCvqTD"
+        },
+        "left": 240,
+        "top": 10,
+        "width": 220,
+        "height": 640,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJPersonaView",
+        "_id": "AAAAAAG13McNC1AUi7i3A88F",
+        "model": {
+         "$ref": "AAAAAAG13McNC1A7NrGQIbPP"
+        },
+        "left": 20,
+        "top": 10,
+        "width": 200,
+        "height": 130,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McNC1A0G0+rlvxS",
+        "model": {
+         "$ref": "AAAAAAG13McNC1Av3LdWD5n+"
+        },
+        "left": 270,
+        "top": 165,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJTouchpointView",
+        "_id": "AAAAAAG13McNC1AfkBKKtHgJ",
+        "model": {
+         "$ref": "AAAAAAG13McNC1AIklqx/c0O"
+        },
+        "left": 270,
+        "top": 265,
+        "width": 160,
+        "height": 40,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJEmotionView",
+        "_id": "AAAAAAG13McNC1A+fCRM2wp9",
+        "model": {
+         "$ref": "AAAAAAG13McNC1AlJ0v3ubGA"
+        },
+        "left": 333,
+        "top": 368,
+        "width": 34,
+        "height": 34,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McNC2A2yYqVxqRz",
+        "model": {
+         "$ref": "AAAAAAG13McNC2Ai2shed3n0"
+        },
+        "left": 270,
+        "top": 465,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McNC2AhoHsE1ab7",
+        "model": {
+         "$ref": "AAAAAAG13McNC2Al6BEk6paZ"
+        },
+        "left": 270,
+        "top": 565,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McNC2ACpqUAmr+R",
+        "model": {
+         "$ref": "AAAAAAG13McNC2A2jg4SdmuE"
+        },
+        "left": 500,
+        "top": 165,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJTouchpointView",
+        "_id": "AAAAAAG13McNC2AT3ZYy2XWR",
+        "model": {
+         "$ref": "AAAAAAG13McNC2AJXrL5dFY+"
+        },
+        "left": 500,
+        "top": 265,
+        "width": 160,
+        "height": 40,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJEmotionView",
+        "_id": "AAAAAAG13McNC2A28H05r4qF",
+        "model": {
+         "$ref": "AAAAAAG13McNC2AdY2XbwFUP"
+        },
+        "left": 563,
+        "top": 388,
+        "width": 34,
+        "height": 34,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McNC2A/6HOCoyE+",
+        "model": {
+         "$ref": "AAAAAAG13McNC2A6zBo0RMEK"
+        },
+        "left": 500,
+        "top": 465,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McNC2AE223yMw6j",
+        "model": {
+         "$ref": "AAAAAAG13McNC2AsQLK2+O9O"
+        },
+        "left": 500,
+        "top": 565,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McNC2AqlsaWeDd+",
+        "model": {
+         "$ref": "AAAAAAG13McNC2AXNZOd3hrS"
+        },
+        "left": 730,
+        "top": 165,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJTouchpointView",
+        "_id": "AAAAAAG13McOC2A2b4dH7Kzp",
+        "model": {
+         "$ref": "AAAAAAG13McOC2AG8VDxGCdX"
+        },
+        "left": 730,
+        "top": 265,
+        "width": 160,
+        "height": 40,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJEmotionView",
+        "_id": "AAAAAAG13McOC2AfvayJVsrq",
+        "model": {
+         "$ref": "AAAAAAG13McOC2Au60bCUlmr"
+        },
+        "left": 793,
+        "top": 348,
+        "width": 34,
+        "height": 34,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McOC2A9lmnrYBMr",
+        "model": {
+         "$ref": "AAAAAAG13McOC2AOpzAQy7Tr"
+        },
+        "left": 730,
+        "top": 565,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McOC2AUflM/ENPz",
+        "model": {
+         "$ref": "AAAAAAG13McOC2A1xS7yd8cH"
+        },
+        "left": 960,
+        "top": 165,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJTouchpointView",
+        "_id": "AAAAAAG13McOC2AAHmi8ClwK",
+        "model": {
+         "$ref": "AAAAAAG13McOC2ADRXAi2LYz"
+        },
+        "left": 960,
+        "top": 265,
+        "width": 160,
+        "height": 40,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJEmotionView",
+        "_id": "AAAAAAG13McOC2A/nODB4GDr",
+        "model": {
+         "$ref": "AAAAAAG13McOC2A+y2eKX06n"
+        },
+        "left": 1023,
+        "top": 328,
+        "width": 34,
+        "height": 34,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McOC2Ad7tw7QUXp",
+        "model": {
+         "$ref": "AAAAAAG13McOC2AmAf8chryw"
+        },
+        "left": 960,
+        "top": 465,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McOC2A5YWaaSd4T",
+        "model": {
+         "$ref": "AAAAAAG13McOC2A6lQ7u1dLV"
+        },
+        "left": 960,
+        "top": 565,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJEmotionLinkView",
+        "_id": "AAAAAAG13McOC2AH8sd1hmVh",
+        "model": {
+         "$ref": "AAAAAAG13McOC2Abe2OT2rku"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McNC1A+fCRM2wp9"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McNC2A28H05r4qF"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJEmotionLinkView",
+        "_id": "AAAAAAG13McOC2AKsdoAKXIU",
+        "model": {
+         "$ref": "AAAAAAG13McOC2A3My82m9Ql"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McNC2A28H05r4qF"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McOC2AfvayJVsrq"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       },
+       {
+        "_type": "CJEmotionLinkView",
+        "_id": "AAAAAAG13McOC2A7WGB00lq/",
+        "model": {
+         "$ref": "AAAAAAG13McOC2AKpZFvy09U"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McOC2AfvayJVsrq"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McOC2A/nODB4GDr"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McNC1A2jCzejEXV"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJStage",
+      "_id": "AAAAAAG13McNC1AnVgnCvqTD",
+      "name": "Discover",
+      "goal": "Finds the app",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJStage",
+      "_id": "AAAAAAG13McNC1AfQvXzahl1",
+      "name": "Setup",
+      "goal": "Gets started",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJStage",
+      "_id": "AAAAAAG13McNC1AU+ESq0BWQ",
+      "name": "First workout",
+      "goal": "Follows along",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJStage",
+      "_id": "AAAAAAG13McNC1A5UjsO9TqR",
+      "name": "Habit",
+      "goal": "Keeps going",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJLane",
+      "_id": "AAAAAAG13McNC1AE2rIj8odv",
+      "name": "Actions",
+      "laneKind": "actions",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJLane",
+      "_id": "AAAAAAG13McNC1AEk6M0H1EQ",
+      "name": "Touchpoints",
+      "laneKind": "touchpoints",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJLane",
+      "_id": "AAAAAAG13McNC1Az2YQd+acj",
+      "name": "Emotions",
+      "laneKind": "emotions",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJLane",
+      "_id": "AAAAAAG13McNC1AUsA4E478Y",
+      "name": "Pain points",
+      "laneKind": "painPoints",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJLane",
+      "_id": "AAAAAAG13McNC1ANuJXDXRfh",
+      "name": "Opportunities",
+      "laneKind": "opportunities",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJPersona",
+      "_id": "AAAAAAG13McNC1A7NrGQIbPP",
+      "name": "Haneul Lee",
+      "role": "Exercises after work",
+      "goals": "Keep a steady habit",
+      "frustrations": "Complicated setup",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McNC1Av3LdWD5n+",
+      "name": "Searches the store",
+      "cardKind": "action",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJTouchpoint",
+      "_id": "AAAAAAG13McNC1AIklqx/c0O",
+      "name": "App store",
+      "channel": "mobile",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJEmotion",
+      "_id": "AAAAAAG13McNC1AlJ0v3ubGA",
+      "name": "Unsure",
+      "score": "neutral",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McNC2Ai2shed3n0",
+      "name": "Too many lookalikes",
+      "cardKind": "painPoint",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McNC2Al6BEk6paZ",
+      "name": "Highlight reviews",
+      "cardKind": "opportunity",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McNC2A2jg4SdmuE",
+      "name": "Sets a goal",
+      "cardKind": "action",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJTouchpoint",
+      "_id": "AAAAAAG13McNC2AJXrL5dFY+",
+      "name": "Setup screen",
+      "channel": "mobile",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJEmotion",
+      "_id": "AAAAAAG13McNC2AdY2XbwFUP",
+      "name": "Too many questions",
+      "score": "negative",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McNC2A6zBo0RMEK",
+      "name": "Long survey",
+      "cardKind": "painPoint",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McNC2AsQLK2+O9O",
+      "name": "Three questions only",
+      "cardKind": "opportunity",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McNC2AXNZOd3hrS",
+      "name": "Follows a video",
+      "cardKind": "action",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJTouchpoint",
+      "_id": "AAAAAAG13McOC2AG8VDxGCdX",
+      "name": "Workout screen",
+      "channel": "mobile",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJEmotion",
+      "_id": "AAAAAAG13McOC2Au60bCUlmr",
+      "name": "Fun",
+      "score": "positive",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McOC2AOpzAQy7Tr",
+      "name": "Auto difficulty",
+      "cardKind": "opportunity",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McOC2A1xS7yd8cH",
+      "name": "Checks weekly stats",
+      "cardKind": "action",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJTouchpoint",
+      "_id": "AAAAAAG13McOC2ADRXAi2LYz",
+      "name": "Push",
+      "channel": "push",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJEmotion",
+      "_id": "AAAAAAG13McOC2A+y2eKX06n",
+      "name": "Proud",
+      "score": "veryPositive",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McOC2AmAf8chryw",
+      "name": "Too many alerts",
+      "cardKind": "painPoint",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McOC2A6lQ7u1dLV",
+      "name": "Choose alert time",
+      "cardKind": "opportunity",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJEmotionLink",
+      "_id": "AAAAAAG13McOC2Abe2OT2rku",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13McNC1AlJ0v3ubGA"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McNC2AdY2XbwFUP"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJEmotionLink",
+      "_id": "AAAAAAG13McOC2A3My82m9Ql",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13McNC2AdY2XbwFUP"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McOC2Au60bCUlmr"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "CJEmotionLink",
+      "_id": "AAAAAAG13McOC2AKpZFvy09U",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13McOC2Au60bCUlmr"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McOC2A+y2eKX06n"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "UserStoryMapDiagram",
+      "_id": "AAAAAAG13McOC2A9VsvN4m2S",
+      "name": "Fitness App Story Map",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "USReleaseView",
+        "_id": "AAAAAAG13McOC2A+jk4V6WPu",
+        "model": {
+         "$ref": "AAAAAAG13McOC2AHIkao0sdR"
+        },
+        "left": 20,
+        "top": 310,
+        "width": 830,
+        "height": 120,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USReleaseView",
+        "_id": "AAAAAAG13McOC2AeI/hXThAD",
+        "model": {
+         "$ref": "AAAAAAG13McOC2A6qFAO6SzL"
+        },
+        "left": 20,
+        "top": 180,
+        "width": 830,
+        "height": 120,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USActivityView",
+        "_id": "AAAAAAG13McOC2AuokVxTnQl",
+        "model": {
+         "$ref": "AAAAAAG13McOC2A0Vlajr0MB"
+        },
+        "left": 160,
+        "top": 20,
+        "width": 320,
+        "height": 64,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USActivityView",
+        "_id": "AAAAAAG13McOC2A/uq6rdLZQ",
+        "model": {
+         "$ref": "AAAAAAG13McOC2AhE+jW0pHy"
+        },
+        "left": 500,
+        "top": 20,
+        "width": 320,
+        "height": 64,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USStepView",
+        "_id": "AAAAAAG13McOC2APyMz3QzTg",
+        "model": {
+         "$ref": "AAAAAAG13McOC2AZqjCwOIxQ"
+        },
+        "left": 160,
+        "top": 100,
+        "width": 150,
+        "height": 56,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USStepView",
+        "_id": "AAAAAAG13McOC2AeXCjvUMrE",
+        "model": {
+         "$ref": "AAAAAAG13McOC2AlQ8VqBew4"
+        },
+        "left": 330,
+        "top": 100,
+        "width": 150,
+        "height": 56,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USStepView",
+        "_id": "AAAAAAG13McOC2ATUW12OMW7",
+        "model": {
+         "$ref": "AAAAAAG13McOC2A4KdqIzqXE"
+        },
+        "left": 500,
+        "top": 100,
+        "width": 150,
+        "height": 56,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USStepView",
+        "_id": "AAAAAAG13McOC2AgBnj19q+T",
+        "model": {
+         "$ref": "AAAAAAG13McOC2AnOP7Uof70"
+        },
+        "left": 670,
+        "top": 100,
+        "width": 150,
+        "height": 56,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McOC2AhTrWJHiVt",
+        "model": {
+         "$ref": "AAAAAAG13McOC2AtD6GsvqUc"
+        },
+        "left": 160,
+        "top": 194,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McOC2AoeFtpdzWh",
+        "model": {
+         "$ref": "AAAAAAG13McOC2AfMphiYodD"
+        },
+        "left": 330,
+        "top": 194,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McOC2Aoj9C/Ak9q",
+        "model": {
+         "$ref": "AAAAAAG13McOC2AWtROBface"
+        },
+        "left": 500,
+        "top": 194,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McOC2A9EjsCvrPI",
+        "model": {
+         "$ref": "AAAAAAG13McOC2A2kFDUoGNc"
+        },
+        "left": 670,
+        "top": 194,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McOC2AQg5yIjd6L",
+        "model": {
+         "$ref": "AAAAAAG13McOC2A1q6xTAGGc"
+        },
+        "left": 160,
+        "top": 324,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McOC3Ac0hdX/mDD",
+        "model": {
+         "$ref": "AAAAAAG13McOC3A4V1LLycxe"
+        },
+        "left": 500,
+        "top": 324,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McOC3AR9Q7zzsiX",
+        "model": {
+         "$ref": "AAAAAAG13McOC3Alrur0VVbA"
+        },
+        "left": 670,
+        "top": 324,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McOC2A9VsvN4m2S"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USRelease",
+      "_id": "AAAAAAG13McOC2A6qFAO6SzL",
+      "name": "MVP",
+      "date": "2027-05-03",
+      "goal": "First workout done",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USRelease",
+      "_id": "AAAAAAG13McOC2AHIkao0sdR",
+      "name": "Release 2",
+      "date": "2027-08-02",
+      "goal": "Build the habit",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USActivity",
+      "_id": "AAAAAAG13McOC2A0Vlajr0MB",
+      "name": "Start",
+      "description": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USActivity",
+      "_id": "AAAAAAG13McOC2AhE+jW0pHy",
+      "name": "Work out",
+      "description": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USStep",
+      "_id": "AAAAAAG13McOC2AZqjCwOIxQ",
+      "name": "Sign up",
+      "description": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USStep",
+      "_id": "AAAAAAG13McOC2AlQ8VqBew4",
+      "name": "Set a goal",
+      "description": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USStep",
+      "_id": "AAAAAAG13McOC2A4KdqIzqXE",
+      "name": "Pick workout",
+      "description": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USStep",
+      "_id": "AAAAAAG13McOC2AnOP7Uof70",
+      "name": "See stats",
+      "description": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McOC2AtD6GsvqUc",
+      "name": "E-mail sign-up",
+      "asA": "",
+      "iWant": "E-mail sign-up",
+      "soThat": "",
+      "priority": "must",
+      "storyPoints": 2,
+      "status": "done",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McOC2AfMphiYodD",
+      "name": "Three questions",
+      "asA": "",
+      "iWant": "Three questions",
+      "soThat": "",
+      "priority": "must",
+      "storyPoints": 2,
+      "status": "doing",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McOC2AWtROBface",
+      "name": "Workout of the day",
+      "asA": "",
+      "iWant": "Workout of the day",
+      "soThat": "",
+      "priority": "must",
+      "storyPoints": 5,
+      "status": "todo",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McOC2A2kFDUoGNc",
+      "name": "This week",
+      "asA": "",
+      "iWant": "This week",
+      "soThat": "",
+      "priority": "should",
+      "storyPoints": 3,
+      "status": "todo",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McOC2A1q6xTAGGc",
+      "name": "Social login",
+      "asA": "",
+      "iWant": "Social login",
+      "soThat": "",
+      "priority": "could",
+      "storyPoints": 3,
+      "status": "todo",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McOC3A4V1LLycxe",
+      "name": "Adjust difficulty",
+      "asA": "",
+      "iWant": "Adjust difficulty",
+      "soThat": "",
+      "priority": "should",
+      "storyPoints": 5,
+      "status": "todo",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McOC3Alrur0VVbA",
+      "name": "Badges",
+      "asA": "",
+      "iWant": "Badges",
+      "soThat": "",
+      "priority": "could",
+      "storyPoints": 2,
+      "status": "todo",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McNC1Aw2AwUhNS7"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "WFWireframe",
+    "_id": "AAAAAAG13McOC3APTY9ztjUh",
+    "name": "Screens",
+    "_parent": {
+     "$ref": "AAAAAAG13McNC1AxAoRhY7Va"
+    },
+    "ownedElements": [
+     {
+      "_type": "WFWireframeDiagram",
+      "_id": "AAAAAAG13McPC3AnRrKxQ1BW",
+      "name": "Fitness App Screens",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "WFMobileFrameView",
+        "_id": "AAAAAAG13McPC3AYeM5smfx2",
+        "model": {
+         "$ref": "AAAAAAG13McPC3A0bkmsBAk2"
+        },
+        "left": 350,
+        "top": 20,
+        "width": 280,
+        "height": 338,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       },
+       {
+        "_type": "WFMobileFrameView",
+        "_id": "AAAAAAG13McPC3AR2I7xKN4+",
+        "model": {
+         "$ref": "AAAAAAG13McPC3A5TPhMmrFR"
+        },
+        "left": 20,
+        "top": 20,
+        "width": 280,
+        "height": 384,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       },
+       {
+        "_type": "WFTextView",
+        "_id": "AAAAAAG13McPC3Az0sv4ecpL",
+        "model": {
+         "$ref": "AAAAAAG13McPC3A8n2yb328D"
+        },
+        "left": 44,
+        "top": 76,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       },
+       {
+        "_type": "WFImageView",
+        "_id": "AAAAAAG13McPC3Akh3lgrp20",
+        "model": {
+         "$ref": "AAAAAAG13McPC3AW1Jbjiwqv"
+        },
+        "left": 44,
+        "top": 120,
+        "width": 232,
+        "height": 120,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       },
+       {
+        "_type": "WFProgressView",
+        "_id": "AAAAAAG13McPC3AvY24wPghR",
+        "model": {
+         "$ref": "AAAAAAG13McPC3AEsx4SiDj8"
+        },
+        "left": 44,
+        "top": 254,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       },
+       {
+        "_type": "WFButtonView",
+        "_id": "AAAAAAG13McPC3A9+e5wP001",
+        "model": {
+         "$ref": "AAAAAAG13McPC3AnxUJAcCwF"
+        },
+        "left": 44,
+        "top": 298,
+        "width": 232,
+        "height": 36,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       },
+       {
+        "_type": "WFTabListView",
+        "_id": "AAAAAAG13McPC3AVVQn7n32h",
+        "model": {
+         "$ref": "AAAAAAG13McPC3A+GxfP+QxF"
+        },
+        "left": 44,
+        "top": 348,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       },
+       {
+        "_type": "WFTextView",
+        "_id": "AAAAAAG13McPC3AfL3646Dex",
+        "model": {
+         "$ref": "AAAAAAG13McPC3ArLTzktoHp"
+        },
+        "left": 374,
+        "top": 76,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       },
+       {
+        "_type": "WFRadioView",
+        "_id": "AAAAAAG13McPC3AvyzAEGDWS",
+        "model": {
+         "$ref": "AAAAAAG13McPC3AvLe14J7wK"
+        },
+        "left": 374,
+        "top": 120,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       },
+       {
+        "_type": "WFRadioView",
+        "_id": "AAAAAAG13McPC3AoyNT3mvDD",
+        "model": {
+         "$ref": "AAAAAAG13McPC3AlZpfMamzm"
+        },
+        "left": 374,
+        "top": 164,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       },
+       {
+        "_type": "WFDropdownView",
+        "_id": "AAAAAAG13McPC3A2+YNAwNhv",
+        "model": {
+         "$ref": "AAAAAAG13McPC3A4wlt1KWWd"
+        },
+        "left": 374,
+        "top": 208,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       },
+       {
+        "_type": "WFSwitchView",
+        "_id": "AAAAAAG13McPC3AJhPwObVHL",
+        "model": {
+         "$ref": "AAAAAAG13McPC3AOMdEQ+KAg"
+        },
+        "left": 374,
+        "top": 252,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       },
+       {
+        "_type": "WFButtonView",
+        "_id": "AAAAAAG13McPC3AbgOlBnuy4",
+        "model": {
+         "$ref": "AAAAAAG13McPC3AX+oHINAwO"
+        },
+        "left": 374,
+        "top": 296,
+        "width": 232,
+        "height": 36,
+        "_parent": {
+         "$ref": "AAAAAAG13McPC3AnRrKxQ1BW"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFMobileFrame",
+      "_id": "AAAAAAG13McPC3A5TPhMmrFR",
+      "name": "Today",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFText",
+      "_id": "AAAAAAG13McPC3A8n2yb328D",
+      "name": "Workout of the day",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFImage",
+      "_id": "AAAAAAG13McPC3AW1Jbjiwqv",
+      "name": "",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFProgress",
+      "_id": "AAAAAAG13McPC3AEsx4SiDj8",
+      "name": "",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFButton",
+      "_id": "AAAAAAG13McPC3AnxUJAcCwF",
+      "name": "Start",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFTabList",
+      "_id": "AAAAAAG13McPC3A+GxfP+QxF",
+      "name": "",
+      "checked": false,
+      "disabled": false,
+      "items": "Today,Stats,Settings",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFMobileFrame",
+      "_id": "AAAAAAG13McPC3A0bkmsBAk2",
+      "name": "Sign up",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFText",
+      "_id": "AAAAAAG13McPC3ArLTzktoHp",
+      "name": "Tell us your goal",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFRadio",
+      "_id": "AAAAAAG13McPC3AvLe14J7wK",
+      "name": "Lose weight",
+      "checked": true,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFRadio",
+      "_id": "AAAAAAG13McPC3AlZpfMamzm",
+      "name": "Build strength",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFDropdown",
+      "_id": "AAAAAAG13McPC3A4wlt1KWWd",
+      "name": "3 times a week",
+      "checked": false,
+      "disabled": false,
+      "items": "2 a week,3 a week,5 a week",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFSwitch",
+      "_id": "AAAAAAG13McPC3AOMdEQ+KAg",
+      "name": "Reminders",
+      "checked": true,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     },
+     {
+      "_type": "WFButton",
+      "_id": "AAAAAAG13McPC3AX+oHINAwO",
+      "name": "Next",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McOC3APTY9ztjUh"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

@@ -31,7 +31,7 @@ export const ANIMATIONS = [
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const DATE_FORMATS = ['iso', 'ko', 'us', 'eu'];
 export const LINE_STYLES = ['rectilinear', 'oblique', 'roundRect', 'curve'];
-export const DIAGRAM_THEME_IDS = ['classic', 'pastel', 'blueprint', 'dark'];
+export const DIAGRAM_THEME_IDS = ['classic', 'pastel', 'paper', 'sky', 'ocean', 'mint', 'forest', 'lime', 'lemon', 'apricot', 'coral', 'rose', 'lavender', 'lilac', 'slate', 'stone', 'rainbow', 'spring', 'sunset', 'print', 'blueprint', 'dark', 'midnight', 'navy', 'deepSea', 'teal', 'pine', 'moss', 'olive', 'bronze', 'ember', 'wine', 'plum', 'violet', 'graphite', 'charcoal', 'ink', 'neon', 'aurora', 'chalkboard'];
 /** Grid spacing on the page: fine / normal / coarse (Visio "variable grid"). */
 export const GRID_SIZES = [5, 10, 15, 20, 25, 40];
 export const PAPERS = ['A3', 'A4', 'A5', 'B4', 'B5', 'Letter', 'Legal', 'Tabloid'];
@@ -41,6 +41,22 @@ export const DB_DEFAULT_PORTS = { mariadb: 3306, mysql: 3306, postgres: 5432, ms
 export const usesDbServer = (kind) => kind === 'mariadb' || kind === 'mysql' || kind === 'postgres' || kind === 'mssql';
 /** The names the UI shows for each database kind. */
 export const DB_NAMES = { sqlite: 'SQLite', mariadb: 'MariaDB', mysql: 'MySQL', postgres: 'PostgreSQL', mssql: 'SQL Server' };
+
+/**
+ * The first start after the installer: the program opens in the language chosen there, also when
+ * earlier settings are kept. Later the user's own choice counts: the installer hands this over once.
+ */
+export function applyInstallLanguage(storage, language) {
+  if (!storage || (language !== 'ko' && language !== 'en')) return false;
+  try {
+    let saved = {};
+    try { saved = JSON.parse(storage.getItem(STORAGE_KEY) ?? '{}') ?? {}; } catch { /* unreadable: start over */ }
+    storage.setItem(STORAGE_KEY, JSON.stringify({ ...saved, language }));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function defaultSettings(language = 'ko') {
   return {
@@ -70,6 +86,9 @@ export function defaultSettings(language = 'ko') {
     startShowBackground: true,
     startShowTutorialBanner: true,
     startRecentCount: 8,
+    // The start page's cards: where the user moved them (null: the default arrangement), and how opaque they are.
+    startLayout: null,
+    startCardOpacity: 80,
     showLeftPanel: true,
     showRightPanel: true,
     showStatusBar: true,
@@ -92,7 +111,8 @@ export function defaultSettings(language = 'ko') {
     showShadow: true,
     showQuickButtons: true,
     defaultLineStyle: 'rectilinear',
-    diagramTheme: 'classic',
+    diagramTheme: 'theme',
+    diagramThemeRev: 2,
     diagramFont: '',
     diagramFontSize: 13,
     explorerSort: false,
@@ -158,9 +178,14 @@ export function normalizeSettings(raw = {}, language) {
   s.dateFormat = DATE_FORMATS.includes(s.dateFormat) ? s.dateFormat : base.dateFormat;
   s.rowHeight = clamp(s.rowHeight, 20, 44, 26);
   s.startRecentCount = Math.round(clamp(s.startRecentCount, 1, 10, 8));
+  s.startCardOpacity = Math.round(clamp(s.startCardOpacity, 20, 100, 80));
+  s.startLayout = s.startLayout && typeof s.startLayout === 'object' && !Array.isArray(s.startLayout) ? s.startLayout : null;
   s.gridSize = GRID_SIZES.includes(Number(s.gridSize)) ? Number(s.gridSize) : base.gridSize;
   s.defaultLineStyle = LINE_STYLES.includes(s.defaultLineStyle) ? s.defaultLineStyle : base.defaultLineStyle;
-  s.diagramTheme = DIAGRAM_THEME_IDS.includes(s.diagramTheme) ? s.diagramTheme : base.diagramTheme;
+  // 'classic' was the default before the diagrams followed the theme: from then it is the user's own choice.
+  if (s.diagramTheme === 'classic' && raw?.diagramThemeRev !== 2) s.diagramTheme = base.diagramTheme;
+  s.diagramThemeRev = 2;
+  s.diagramTheme = s.diagramTheme === 'theme' || DIAGRAM_THEME_IDS.includes(s.diagramTheme) ? s.diagramTheme : base.diagramTheme;
   s.diagramFont = typeof s.diagramFont === 'string' ? s.diagramFont : '';
   s.diagramFontSize = clamp(s.diagramFontSize, 9, 24, base.diagramFontSize);
   s.defaultPaper = PAPERS.includes(s.defaultPaper) ? s.defaultPaper : base.defaultPaper;
@@ -257,7 +282,7 @@ export function zoomStep(value, direction) {
 /** Remembers which installation's reset was done (the installer leaves a new token each time). */
 export const INSTALL_RESET_KEY = 'myumlmaker.installReset';
 /** Stored lists that are the user's own data, kept by a new installation. */
-const KEEP_KEYS = [RECENT_KEY, RECENT_DIRS_KEY, SESSION_KEY, MY_SHAPES_KEY];
+const KEEP_KEYS = [RECENT_KEY, RECENT_DIRS_KEY, SESSION_KEY, MY_SHAPES_KEY, 'myumlmaker.myIcons.v1'];
 /** Settings that are the user's data rather than preferences: database connection, background image, tutorial history. */
 const KEEP_SETTINGS = ['dbKind', 'dbHost', 'dbPort', 'dbName', 'dbUser', 'dbFile', 'dbSavePassword', 'dbPassword', 'backgroundImage', 'backgroundName', 'lastDirectory', 'tutorialOffered', 'tutorialDone'];
 

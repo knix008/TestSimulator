@@ -1,0 +1,1481 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.335Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13MbFCLAOPMgA9+f6",
+  "name": "자판기",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "상태, 구매 활동, 거스름돈 순서도",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13MbFCLAtfK1HvV5c",
+    "name": "자판기",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13MbFCLAOPMgA9+f6"
+    },
+    "ownedElements": [
+     {
+      "_type": "UMLStateMachine",
+      "_id": "AAAAAAG13MbFCLAQzLqW7dAy",
+      "name": "자판기 상태",
+      "isReentrant": true,
+      "_parent": {
+       "$ref": "AAAAAAG13MbFCLAtfK1HvV5c"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLStatechartDiagram",
+        "_id": "AAAAAAG13MbFCLAQZ3h9UdkB",
+        "name": "자판기 상태",
+        "defaultDiagram": false,
+        "ownedViews": [
+         {
+          "_type": "UMLPseudostateView",
+          "_id": "AAAAAAG13MbFCLAARliPQkDr",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLAERBuFODIN"
+          },
+          "left": 40,
+          "top": 182,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLStateView",
+          "_id": "AAAAAAG13MbFCLAQlTxyr+o0",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLA6e6PJ0pWq"
+          },
+          "left": 170,
+          "top": 172,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLStateView",
+          "_id": "AAAAAAG13MbFCLAV7m2DXTrv",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLAeOZ0i5xm1"
+          },
+          "left": 360,
+          "top": 160,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLStateView",
+          "_id": "AAAAAAG13MbFCLAPjloOojIt",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLAniViDocYP"
+          },
+          "left": 608,
+          "top": 160,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLStateView",
+          "_id": "AAAAAAG13MbFCLAux6xxkalH",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLAwoZrOuNLV"
+          },
+          "left": 373,
+          "top": 303,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLStateView",
+          "_id": "AAAAAAG13MbFCLA0VdLpu7A1",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLAqmpsFnWJt"
+          },
+          "left": 389,
+          "top": 40,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13MbFCLA9jdnGePH9",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLAhFkzJkUrc"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCLAARliPQkDr"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCLAQlTxyr+o0"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13MbFCLALnJYVHUW8",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLADV0lT3Xzd"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCLAQlTxyr+o0"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCLAV7m2DXTrv"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13MbFCLAfbnBe1FdP",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLANcqDm9Y41"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCLAV7m2DXTrv"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCLAPjloOojIt"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13MbFCLAJGuP7L1cX",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLAEWdkbPhx3"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCLAV7m2DXTrv"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCLAQlTxyr+o0"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13MbFCLAzYhrFpZhF",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLAnLIeuUmQ4"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCLAPjloOojIt"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCLAux6xxkalH"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13MbFCLAtiYLXGreE",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLAsxK0kYXoZ"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCLAux6xxkalH"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCLAQlTxyr+o0"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13MbFCLAX2HFA5VMx",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLAc4CLNbWl8"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCLAPjloOojIt"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCLA0VdLpu7A1"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         },
+         {
+          "_type": "UMLTransitionView",
+          "_id": "AAAAAAG13MbFCLA4BLX7t+z5",
+          "model": {
+           "$ref": "AAAAAAG13MbFCLAUOorvM67d"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCLA0VdLpu7A1"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCLAQlTxyr+o0"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLAQZ3h9UdkB"
+          }
+         }
+        ],
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAQzLqW7dAy"
+        }
+       }
+      ],
+      "regions": [
+       {
+        "_type": "UMLRegion",
+        "_id": "AAAAAAG13MbFCLA7cb8FLn3W",
+        "name": "",
+        "vertices": [
+         {
+          "_type": "UMLPseudostate",
+          "_id": "AAAAAAG13MbFCLAERBuFODIN",
+          "name": "",
+          "kind": "initial",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         },
+         {
+          "_type": "UMLState",
+          "_id": "AAAAAAG13MbFCLA6e6PJ0pWq",
+          "name": "대기",
+          "entryActivity": "",
+          "doActivity": "",
+          "exitActivity": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         },
+         {
+          "_type": "UMLState",
+          "_id": "AAAAAAG13MbFCLAeOZ0i5xm1",
+          "name": "동전 받는 중",
+          "entryActivity": "",
+          "doActivity": "countCoins()",
+          "exitActivity": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         },
+         {
+          "_type": "UMLState",
+          "_id": "AAAAAAG13MbFCLAniViDocYP",
+          "name": "상품 내보내기",
+          "entryActivity": "dropItem()",
+          "doActivity": "",
+          "exitActivity": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         },
+         {
+          "_type": "UMLState",
+          "_id": "AAAAAAG13MbFCLAwoZrOuNLV",
+          "name": "거스름돈",
+          "entryActivity": "",
+          "doActivity": "payOut()",
+          "exitActivity": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         },
+         {
+          "_type": "UMLState",
+          "_id": "AAAAAAG13MbFCLAqmpsFnWJt",
+          "name": "품절",
+          "entryActivity": "",
+          "doActivity": "",
+          "exitActivity": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         }
+        ],
+        "transitions": [
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13MbFCLAhFkzJkUrc",
+          "name": "",
+          "kind": "external",
+          "triggers": "",
+          "guard": "",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13MbFCLAERBuFODIN"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MbFCLA6e6PJ0pWq"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         },
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13MbFCLADV0lT3Xzd",
+          "name": "",
+          "kind": "external",
+          "triggers": "insertCoin",
+          "guard": "",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13MbFCLA6e6PJ0pWq"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MbFCLAeOZ0i5xm1"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         },
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13MbFCLANcqDm9Y41",
+          "name": "",
+          "kind": "external",
+          "triggers": "select",
+          "guard": "paid >= price",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13MbFCLAeOZ0i5xm1"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MbFCLAniViDocYP"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         },
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13MbFCLAEWdkbPhx3",
+          "name": "",
+          "kind": "external",
+          "triggers": "cancel",
+          "guard": "",
+          "effect": "refund",
+          "source": {
+           "$ref": "AAAAAAG13MbFCLAeOZ0i5xm1"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MbFCLA6e6PJ0pWq"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         },
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13MbFCLAnLIeuUmQ4",
+          "name": "",
+          "kind": "external",
+          "triggers": "dropped",
+          "guard": "",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13MbFCLAniViDocYP"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MbFCLAwoZrOuNLV"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         },
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13MbFCLAsxK0kYXoZ",
+          "name": "",
+          "kind": "external",
+          "triggers": "done",
+          "guard": "",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13MbFCLAwoZrOuNLV"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MbFCLA6e6PJ0pWq"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         },
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13MbFCLAc4CLNbWl8",
+          "name": "",
+          "kind": "external",
+          "triggers": "empty",
+          "guard": "",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13MbFCLAniViDocYP"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MbFCLAqmpsFnWJt"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         },
+         {
+          "_type": "UMLTransition",
+          "_id": "AAAAAAG13MbFCLAUOorvM67d",
+          "name": "",
+          "kind": "external",
+          "triggers": "refill",
+          "guard": "",
+          "effect": "",
+          "source": {
+           "$ref": "AAAAAAG13MbFCLAqmpsFnWJt"
+          },
+          "target": {
+           "$ref": "AAAAAAG13MbFCLA6e6PJ0pWq"
+          },
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCLA7cb8FLn3W"
+          }
+         }
+        ],
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAQzLqW7dAy"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "_type": "UMLPackage",
+    "_id": "AAAAAAG13MbFCLAVayOeJOLf",
+    "name": "업무 흐름",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13MbFCLAOPMgA9+f6"
+    },
+    "ownedElements": [
+     {
+      "_type": "UMLActivity",
+      "_id": "AAAAAAG13MbFCLAcnmFglga2",
+      "name": "음료 구매",
+      "isReadOnly": false,
+      "isSingleExecution": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbFCLAVayOeJOLf"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLActivityDiagram",
+        "_id": "AAAAAAG13MbFCMAnWqmZMEOq",
+        "name": "음료 구매",
+        "defaultDiagram": false,
+        "ownedViews": [
+         {
+          "_type": "UMLActivityPartitionView",
+          "_id": "AAAAAAG13MbFCMAB5ODxCA7t",
+          "model": {
+           "$ref": "AAAAAAG13MbFCMAWvdgRtud9"
+          },
+          "left": 260,
+          "top": 20,
+          "width": 240,
+          "height": 690,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLActivityPartitionView",
+          "_id": "AAAAAAG13MbFCMAJ/JunT6/9",
+          "model": {
+           "$ref": "AAAAAAG13MbFCMAKVENAXv6I"
+          },
+          "left": 20,
+          "top": 20,
+          "width": 240,
+          "height": 690,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLInitialNodeView",
+          "_id": "AAAAAAG13MbFCMAoLH6NFiHp",
+          "model": {
+           "$ref": "AAAAAAG13MbFCMAy2VmNmJah"
+          },
+          "left": 130,
+          "top": 92,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLActionView",
+          "_id": "AAAAAAG13MbFCMAdtG+aH3Fz",
+          "model": {
+           "$ref": "AAAAAAG13MbFCMAIiZZH4lrJ"
+          },
+          "left": 95,
+          "top": 171,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLActionView",
+          "_id": "AAAAAAG13MbFCMAlA7URCr2r",
+          "model": {
+           "$ref": "AAAAAAG13MbFCMAgDlXDcWTD"
+          },
+          "left": 90,
+          "top": 261,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLActionView",
+          "_id": "AAAAAAG13MbFCMApjl6EXaYI",
+          "model": {
+           "$ref": "AAAAAAG13MbFCMAKUTssG5Or"
+          },
+          "left": 335,
+          "top": 261,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLDecisionNodeView",
+          "_id": "AAAAAAG13MbFCMA2H5ZFaJf8",
+          "model": {
+           "$ref": "AAAAAAG13MbFCMAWhl986jzl"
+          },
+          "left": 365,
+          "top": 357,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLActionView",
+          "_id": "AAAAAAG13MbFCMANQeeo15pv",
+          "model": {
+           "$ref": "AAAAAAG13MbFCMAojUnLSwbA"
+          },
+          "left": 323,
+          "top": 441,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLActionView",
+          "_id": "AAAAAAG13MbFCMApygkJsz2B",
+          "model": {
+           "$ref": "AAAAAAG13MbFCMATIEX94mTi"
+          },
+          "left": 81,
+          "top": 351,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLActionView",
+          "_id": "AAAAAAG13MbFCMAlkncQkOri",
+          "model": {
+           "$ref": "AAAAAAG13MbFCMAq5Pq5E+MB"
+          },
+          "left": 90,
+          "top": 531,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLActivityFinalNodeView",
+          "_id": "AAAAAAG13MbGCMAaLcaQ3mdC",
+          "model": {
+           "$ref": "AAAAAAG13MbGCMA0rjojycnO"
+          },
+          "left": 127,
+          "top": 629,
+          "width": 0,
+          "height": 0,
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLControlFlowView",
+          "_id": "AAAAAAG13MbGCMA7wu3g5t+n",
+          "model": {
+           "$ref": "AAAAAAG13MbGCMAbxXHQMJiY"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCMAoLH6NFiHp"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCMAdtG+aH3Fz"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLControlFlowView",
+          "_id": "AAAAAAG13MbGCMAG3a+oSvYt",
+          "model": {
+           "$ref": "AAAAAAG13MbGCMAc4pEsYYLV"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCMAdtG+aH3Fz"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCMAlA7URCr2r"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLControlFlowView",
+          "_id": "AAAAAAG13MbGCMAHobOvkLgk",
+          "model": {
+           "$ref": "AAAAAAG13MbGCMApQSmX7Ioj"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCMAlA7URCr2r"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCMApjl6EXaYI"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLControlFlowView",
+          "_id": "AAAAAAG13MbGCMApUDkpkftC",
+          "model": {
+           "$ref": "AAAAAAG13MbGCMAZug1Ezcrj"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCMApjl6EXaYI"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCMA2H5ZFaJf8"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLControlFlowView",
+          "_id": "AAAAAAG13MbGCMA3ja1L2gMl",
+          "model": {
+           "$ref": "AAAAAAG13MbGCMAXrm4tgzb6"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCMA2H5ZFaJf8"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCMANQeeo15pv"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLControlFlowView",
+          "_id": "AAAAAAG13MbGCMA9ysZN7N1p",
+          "model": {
+           "$ref": "AAAAAAG13MbGCMAUf9jreQtc"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCMA2H5ZFaJf8"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCMApygkJsz2B"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLControlFlowView",
+          "_id": "AAAAAAG13MbGCMAVd8f/W3kZ",
+          "model": {
+           "$ref": "AAAAAAG13MbGCMAoitghOAVo"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCMANQeeo15pv"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbFCMAlkncQkOri"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         },
+         {
+          "_type": "UMLControlFlowView",
+          "_id": "AAAAAAG13MbGCMA2ueOu7GQB",
+          "model": {
+           "$ref": "AAAAAAG13MbGCMAG60uBuyck"
+          },
+          "tail": {
+           "$ref": "AAAAAAG13MbFCMAlkncQkOri"
+          },
+          "head": {
+           "$ref": "AAAAAAG13MbGCMAaLcaQ3mdC"
+          },
+          "points": [],
+          "lineStyle": "",
+          "_parent": {
+           "$ref": "AAAAAAG13MbFCMAnWqmZMEOq"
+          }
+         }
+        ],
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       }
+      ],
+      "groups": [
+       {
+        "_type": "UMLActivityPartition",
+        "_id": "AAAAAAG13MbFCMAKVENAXv6I",
+        "name": "손님",
+        "isVertical": true,
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLActivityPartition",
+        "_id": "AAAAAAG13MbFCMAWvdgRtud9",
+        "name": "자판기",
+        "isVertical": true,
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       }
+      ],
+      "nodes": [
+       {
+        "_type": "UMLInitialNode",
+        "_id": "AAAAAAG13MbFCMAy2VmNmJah",
+        "name": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLAction",
+        "_id": "AAAAAAG13MbFCMAIiZZH4lrJ",
+        "name": "동전 넣기",
+        "kind": "opaque",
+        "isLocallyReentrant": false,
+        "isSynchronous": true,
+        "body": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLAction",
+        "_id": "AAAAAAG13MbFCMAgDlXDcWTD",
+        "name": "음료 고르기",
+        "kind": "opaque",
+        "isLocallyReentrant": false,
+        "isSynchronous": true,
+        "body": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLAction",
+        "_id": "AAAAAAG13MbFCMAKUTssG5Or",
+        "name": "금액 확인",
+        "kind": "opaque",
+        "isLocallyReentrant": false,
+        "isSynchronous": true,
+        "body": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLDecisionNode",
+        "_id": "AAAAAAG13MbFCMAWhl986jzl",
+        "name": "",
+        "decisionInput": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLAction",
+        "_id": "AAAAAAG13MbFCMAojUnLSwbA",
+        "name": "음료 내보내기",
+        "kind": "opaque",
+        "isLocallyReentrant": false,
+        "isSynchronous": true,
+        "body": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLAction",
+        "_id": "AAAAAAG13MbFCMATIEX94mTi",
+        "name": "금액 부족 표시",
+        "kind": "opaque",
+        "isLocallyReentrant": false,
+        "isSynchronous": true,
+        "body": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLAction",
+        "_id": "AAAAAAG13MbFCMAq5Pq5E+MB",
+        "name": "음료 꺼내기",
+        "kind": "opaque",
+        "isLocallyReentrant": false,
+        "isSynchronous": true,
+        "body": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLActivityFinalNode",
+        "_id": "AAAAAAG13MbGCMA0rjojycnO",
+        "name": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       }
+      ],
+      "edges": [
+       {
+        "_type": "UMLControlFlow",
+        "_id": "AAAAAAG13MbGCMAbxXHQMJiY",
+        "name": "",
+        "guard": "",
+        "weight": "",
+        "source": {
+         "$ref": "AAAAAAG13MbFCMAy2VmNmJah"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MbFCMAIiZZH4lrJ"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLControlFlow",
+        "_id": "AAAAAAG13MbGCMAc4pEsYYLV",
+        "name": "",
+        "guard": "",
+        "weight": "",
+        "source": {
+         "$ref": "AAAAAAG13MbFCMAIiZZH4lrJ"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MbFCMAgDlXDcWTD"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLControlFlow",
+        "_id": "AAAAAAG13MbGCMApQSmX7Ioj",
+        "name": "",
+        "guard": "",
+        "weight": "",
+        "source": {
+         "$ref": "AAAAAAG13MbFCMAgDlXDcWTD"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MbFCMAKUTssG5Or"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLControlFlow",
+        "_id": "AAAAAAG13MbGCMAZug1Ezcrj",
+        "name": "",
+        "guard": "",
+        "weight": "",
+        "source": {
+         "$ref": "AAAAAAG13MbFCMAKUTssG5Or"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MbFCMAWhl986jzl"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLControlFlow",
+        "_id": "AAAAAAG13MbGCMAXrm4tgzb6",
+        "name": "",
+        "guard": "충분",
+        "weight": "",
+        "source": {
+         "$ref": "AAAAAAG13MbFCMAWhl986jzl"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MbFCMAojUnLSwbA"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLControlFlow",
+        "_id": "AAAAAAG13MbGCMAUf9jreQtc",
+        "name": "",
+        "guard": "부족",
+        "weight": "",
+        "source": {
+         "$ref": "AAAAAAG13MbFCMAWhl986jzl"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MbFCMATIEX94mTi"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLControlFlow",
+        "_id": "AAAAAAG13MbGCMAoitghOAVo",
+        "name": "",
+        "guard": "",
+        "weight": "",
+        "source": {
+         "$ref": "AAAAAAG13MbFCMAojUnLSwbA"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MbFCMAq5Pq5E+MB"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       },
+       {
+        "_type": "UMLControlFlow",
+        "_id": "AAAAAAG13MbGCMAG60uBuyck",
+        "name": "",
+        "guard": "",
+        "weight": "",
+        "source": {
+         "$ref": "AAAAAAG13MbFCMAq5Pq5E+MB"
+        },
+        "target": {
+         "$ref": "AAAAAAG13MbGCMA0rjojycnO"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13MbFCLAcnmFglga2"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "_type": "FCFlowchart",
+    "_id": "AAAAAAG13MbGCMArw+GQjsai",
+    "name": "순서도",
+    "_parent": {
+     "$ref": "AAAAAAG13MbFCLAOPMgA9+f6"
+    },
+    "ownedElements": [
+     {
+      "_type": "FCFlowchartDiagram",
+      "_id": "AAAAAAG13MbGCMAeHrdrv4fQ",
+      "name": "거스름돈 계산",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "FCTerminatorView",
+        "_id": "AAAAAAG13MbGCMAWql4j/BvR",
+        "model": {
+         "$ref": "AAAAAAG13MbGCMA1uRpRKEEf"
+        },
+        "left": 88,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCDataView",
+        "_id": "AAAAAAG13MbGCMAuZTtDyC6E",
+        "model": {
+         "$ref": "AAAAAAG13MbGCMAd3GaDWbYs"
+        },
+        "left": 71,
+        "top": 127,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCProcessView",
+        "_id": "AAAAAAG13MbGCMAt7gVRiGOf",
+        "model": {
+         "$ref": "AAAAAAG13MbGCMAk7mAP1AAz"
+        },
+        "left": 40,
+        "top": 221,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCDecisionView",
+        "_id": "AAAAAAG13MbGCMAxLBayqCaa",
+        "model": {
+         "$ref": "AAAAAAG13MbGCMAcPY4tCFcp"
+        },
+        "left": 63,
+        "top": 315,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCProcessView",
+        "_id": "AAAAAAG13MbGCMAMCpjX251h",
+        "model": {
+         "$ref": "AAAAAAG13MbGCMA0xA0b6a6T"
+        },
+        "left": 356,
+        "top": 322,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCDisplayView",
+        "_id": "AAAAAAG13MbGCMAtqI2MV1Cs",
+        "model": {
+         "$ref": "AAAAAAG13MbGCMAuFzQ45tNM"
+        },
+        "left": 84,
+        "top": 423,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCTerminatorView",
+        "_id": "AAAAAAG13MbGCMAo6NQqiG3r",
+        "model": {
+         "$ref": "AAAAAAG13MbGCMARvzdcFoVl"
+        },
+        "left": 88,
+        "top": 517,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13MbGCMAxcP2UD0gz",
+        "model": {
+         "$ref": "AAAAAAG13MbGCMAh1VlHxiEm"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbGCMAWql4j/BvR"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbGCMAuZTtDyC6E"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13MbGCMAyF1DlDq1O",
+        "model": {
+         "$ref": "AAAAAAG13MbGCMAQtB7KD234"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbGCMAuZTtDyC6E"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbGCMAt7gVRiGOf"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13MbGCMApZggzeeLj",
+        "model": {
+         "$ref": "AAAAAAG13MbGCMAachSSJJDN"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbGCMAt7gVRiGOf"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbGCMAxLBayqCaa"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13MbGCMA7WgZpXOr+",
+        "model": {
+         "$ref": "AAAAAAG13MbGCMA8gkXA1VPC"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbGCMAxLBayqCaa"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbGCMAtqI2MV1Cs"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13MbHCMA8f2djvdtB",
+        "model": {
+         "$ref": "AAAAAAG13MbHCMAd6Emz2NDK"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbGCMAxLBayqCaa"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbGCMAMCpjX251h"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13MbHCNATH5cRj+sg",
+        "model": {
+         "$ref": "AAAAAAG13MbHCNA0mIJGI9ts"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbGCMAMCpjX251h"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbGCMAxLBayqCaa"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       },
+       {
+        "_type": "FCFlowView",
+        "_id": "AAAAAAG13MbHCNAG4iJn2gLi",
+        "model": {
+         "$ref": "AAAAAAG13MbHCNAOfE5kFgO8"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbGCMAtqI2MV1Cs"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbGCMAo6NQqiG3r"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbGCMAeHrdrv4fQ"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCTerminator",
+      "_id": "AAAAAAG13MbGCMA1uRpRKEEf",
+      "name": "시작",
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCData",
+      "_id": "AAAAAAG13MbGCMAd3GaDWbYs",
+      "name": "받은 금액 읽기",
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCProcess",
+      "_id": "AAAAAAG13MbGCMAk7mAP1AAz",
+      "name": "거스름돈 = 받은 금액 - 가격",
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCDecision",
+      "_id": "AAAAAAG13MbGCMAcPY4tCFcp",
+      "name": "거스름돈 > 0?",
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCProcess",
+      "_id": "AAAAAAG13MbGCMA0xA0b6a6T",
+      "name": "가장 큰 동전 지급",
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCDisplay",
+      "_id": "AAAAAAG13MbGCMAuFzQ45tNM",
+      "name": "완료 표시",
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCTerminator",
+      "_id": "AAAAAAG13MbGCMARvzdcFoVl",
+      "name": "끝",
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13MbGCMAh1VlHxiEm",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbGCMA1uRpRKEEf"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbGCMAd3GaDWbYs"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13MbGCMAQtB7KD234",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbGCMAd3GaDWbYs"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbGCMAk7mAP1AAz"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13MbGCMAachSSJJDN",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbGCMAk7mAP1AAz"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbGCMAcPY4tCFcp"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13MbGCMA8gkXA1VPC",
+      "name": "아니오",
+      "source": {
+       "$ref": "AAAAAAG13MbGCMAcPY4tCFcp"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbGCMAuFzQ45tNM"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13MbHCMAd6Emz2NDK",
+      "name": "예",
+      "source": {
+       "$ref": "AAAAAAG13MbGCMAcPY4tCFcp"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbGCMA0xA0b6a6T"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13MbHCNA0mIJGI9ts",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbGCMA0xA0b6a6T"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbGCMAcPY4tCFcp"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     },
+     {
+      "_type": "FCFlow",
+      "_id": "AAAAAAG13MbHCNAOfE5kFgO8",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbGCMAuFzQ45tNM"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbGCMARvzdcFoVl"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbGCMArw+GQjsai"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

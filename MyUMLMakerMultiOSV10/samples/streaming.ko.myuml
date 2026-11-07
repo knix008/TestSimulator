@@ -1,0 +1,1131 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.319Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13Ma1CCANllyk7VXL",
+  "name": "동영상 스트리밍",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "C4 컨테이너, AWS 배치, 패키지 구조",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13Ma1CCAOVKIZNLG/",
+    "name": "동영상 스트리밍",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13Ma1CCANllyk7VXL"
+    },
+    "ownedElements": [
+     {
+      "_type": "UMLPackageDiagram",
+      "_id": "AAAAAAG13Ma2CDALWxLKejmN",
+      "name": "패키지 구조",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "UMLPackageView",
+        "_id": "AAAAAAG13Ma2CDAkd0Nn41Kq",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAAgGNehMgo"
+        },
+        "left": 240,
+        "top": 40,
+        "width": 340,
+        "height": 110,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDALWxLKejmN"
+        }
+       },
+       {
+        "_type": "UMLClassView",
+        "_id": "AAAAAAG13Ma2CDAev3mrl1hY",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDA/ACDEBi3a"
+        },
+        "left": 300,
+        "top": 90,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDALWxLKejmN"
+        },
+        "suppressAttributes": true,
+        "suppressOperations": true
+       },
+       {
+        "_type": "UMLPackageView",
+        "_id": "AAAAAAG13Ma2CDA0Po+r9JhS",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDATWjAXaG4H"
+        },
+        "left": 40,
+        "top": 220,
+        "width": 340,
+        "height": 110,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDALWxLKejmN"
+        }
+       },
+       {
+        "_type": "UMLClassView",
+        "_id": "AAAAAAG13Ma2CDAi7T2uAp7+",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAcHV/peD1b"
+        },
+        "left": 100,
+        "top": 270,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDALWxLKejmN"
+        },
+        "suppressAttributes": true,
+        "suppressOperations": true
+       },
+       {
+        "_type": "UMLPackageView",
+        "_id": "AAAAAAG13Ma2CDA6ZNp/aUAN",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAd65GJc/nT"
+        },
+        "left": 440,
+        "top": 220,
+        "width": 340,
+        "height": 110,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDALWxLKejmN"
+        }
+       },
+       {
+        "_type": "UMLClassView",
+        "_id": "AAAAAAG13Ma2CDAAGdmnliIJ",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAA5iUf/eRw"
+        },
+        "left": 500,
+        "top": 270,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDALWxLKejmN"
+        },
+        "suppressAttributes": true,
+        "suppressOperations": true
+       },
+       {
+        "_type": "UMLPackageView",
+        "_id": "AAAAAAG13Ma2CDAhIQ6vAbkH",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAFiK52htdK"
+        },
+        "left": 240,
+        "top": 400,
+        "width": 340,
+        "height": 110,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDALWxLKejmN"
+        }
+       },
+       {
+        "_type": "UMLClassView",
+        "_id": "AAAAAAG13Ma2CDAUr1dAJT3W",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAUNRx/HtDc"
+        },
+        "left": 300,
+        "top": 450,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDALWxLKejmN"
+        },
+        "suppressAttributes": true,
+        "suppressOperations": true
+       },
+       {
+        "_type": "UMLDependencyView",
+        "_id": "AAAAAAG13Ma3CDAxjjPP1Oh3",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAWK9g3zpDN"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma2CDAkd0Nn41Kq"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma2CDA0Po+r9JhS"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDALWxLKejmN"
+        }
+       },
+       {
+        "_type": "UMLDependencyView",
+        "_id": "AAAAAAG13Ma3CDAseFYs7wuw",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CDAqJGdoNK/2"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma2CDAkd0Nn41Kq"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma2CDA6ZNp/aUAN"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDALWxLKejmN"
+        }
+       },
+       {
+        "_type": "UMLDependencyView",
+        "_id": "AAAAAAG13Ma3CDAs8HPE8FFv",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CDAnkTQ7RUBE"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma2CDA0Po+r9JhS"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma2CDAhIQ6vAbkH"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDALWxLKejmN"
+        }
+       },
+       {
+        "_type": "UMLDependencyView",
+        "_id": "AAAAAAG13Ma3CDA664LJj9xe",
+        "model": {
+         "$ref": "AAAAAAG13Ma3CDAVElF2Ll6I"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma2CDA6ZNp/aUAN"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma2CDAhIQ6vAbkH"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDALWxLKejmN"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAOVKIZNLG/"
+      }
+     },
+     {
+      "_type": "UMLPackage",
+      "_id": "AAAAAAG13Ma2CDAAgGNehMgo",
+      "name": "player",
+      "visibility": "public",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAOVKIZNLG/"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLClass",
+        "_id": "AAAAAAG13Ma2CDA/ACDEBi3a",
+        "name": "PlayerPage",
+        "visibility": "public",
+        "isAbstract": false,
+        "isFinalSpecialization": false,
+        "isLeaf": false,
+        "isActive": false,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDAAgGNehMgo"
+        }
+       },
+       {
+        "_type": "UMLDependency",
+        "_id": "AAAAAAG13Ma2CDAWK9g3zpDN",
+        "name": "",
+        "visibility": "public",
+        "stereotype": "import",
+        "source": {
+         "$ref": "AAAAAAG13Ma2CDAAgGNehMgo"
+        },
+        "target": {
+         "$ref": "AAAAAAG13Ma2CDATWjAXaG4H"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDAAgGNehMgo"
+        }
+       },
+       {
+        "_type": "UMLDependency",
+        "_id": "AAAAAAG13Ma3CDAqJGdoNK/2",
+        "name": "",
+        "visibility": "public",
+        "stereotype": "import",
+        "source": {
+         "$ref": "AAAAAAG13Ma2CDAAgGNehMgo"
+        },
+        "target": {
+         "$ref": "AAAAAAG13Ma2CDAd65GJc/nT"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDAAgGNehMgo"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLPackage",
+      "_id": "AAAAAAG13Ma2CDATWjAXaG4H",
+      "name": "catalog",
+      "visibility": "public",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAOVKIZNLG/"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLClass",
+        "_id": "AAAAAAG13Ma2CDAcHV/peD1b",
+        "name": "VideoCatalog",
+        "visibility": "public",
+        "isAbstract": false,
+        "isFinalSpecialization": false,
+        "isLeaf": false,
+        "isActive": false,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDATWjAXaG4H"
+        }
+       },
+       {
+        "_type": "UMLDependency",
+        "_id": "AAAAAAG13Ma3CDAnkTQ7RUBE",
+        "name": "",
+        "visibility": "public",
+        "stereotype": "import",
+        "source": {
+         "$ref": "AAAAAAG13Ma2CDATWjAXaG4H"
+        },
+        "target": {
+         "$ref": "AAAAAAG13Ma2CDAFiK52htdK"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDATWjAXaG4H"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLPackage",
+      "_id": "AAAAAAG13Ma2CDAd65GJc/nT",
+      "name": "media",
+      "visibility": "public",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAOVKIZNLG/"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLClass",
+        "_id": "AAAAAAG13Ma2CDAA5iUf/eRw",
+        "name": "Transcoder",
+        "visibility": "public",
+        "isAbstract": false,
+        "isFinalSpecialization": false,
+        "isLeaf": false,
+        "isActive": false,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDAd65GJc/nT"
+        }
+       },
+       {
+        "_type": "UMLDependency",
+        "_id": "AAAAAAG13Ma3CDAVElF2Ll6I",
+        "name": "",
+        "visibility": "public",
+        "stereotype": "import",
+        "source": {
+         "$ref": "AAAAAAG13Ma2CDAd65GJc/nT"
+        },
+        "target": {
+         "$ref": "AAAAAAG13Ma2CDAFiK52htdK"
+        },
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDAd65GJc/nT"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLPackage",
+      "_id": "AAAAAAG13Ma2CDAFiK52htdK",
+      "name": "common",
+      "visibility": "public",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAOVKIZNLG/"
+      },
+      "ownedElements": [
+       {
+        "_type": "UMLClass",
+        "_id": "AAAAAAG13Ma2CDAUNRx/HtDc",
+        "name": "EventLog",
+        "visibility": "public",
+        "isAbstract": false,
+        "isFinalSpecialization": false,
+        "isLeaf": false,
+        "isActive": false,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma2CDAFiK52htdK"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "_type": "C4Model",
+    "_id": "AAAAAAG13Ma1CCAk7mN8dtCr",
+    "name": "C4",
+    "_parent": {
+     "$ref": "AAAAAAG13Ma1CCANllyk7VXL"
+    },
+    "ownedElements": [
+     {
+      "_type": "C4Diagram",
+      "_id": "AAAAAAG13Ma1CCAMT4aUvmYx",
+      "name": "스트리밍 컨테이너",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "C4PersonView",
+        "_id": "AAAAAAG13Ma1CCABxYyUVUh1",
+        "model": {
+         "$ref": "AAAAAAG13Ma1CCAZF6+g4ev3"
+        },
+        "left": 80,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAMT4aUvmYx"
+        }
+       },
+       {
+        "_type": "C4ContainerView",
+        "_id": "AAAAAAG13Ma1CCAVGMokwdGN",
+        "model": {
+         "$ref": "AAAAAAG13Ma1CCAkkXYZ1CoH"
+        },
+        "left": 80,
+        "top": 296,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAMT4aUvmYx"
+        }
+       },
+       {
+        "_type": "C4ContainerView",
+        "_id": "AAAAAAG13Ma1CCAHxrW3S0EQ",
+        "model": {
+         "$ref": "AAAAAAG13Ma1CCAz/1U3QAde"
+        },
+        "left": 80,
+        "top": 516,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAMT4aUvmYx"
+        }
+       },
+       {
+        "_type": "C4ContainerView",
+        "_id": "AAAAAAG13Ma1CCAgi0nAiTtU",
+        "model": {
+         "$ref": "AAAAAAG13Ma1CCACCVHoqkDr"
+        },
+        "left": 471,
+        "top": 516,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAMT4aUvmYx"
+        }
+       },
+       {
+        "_type": "C4ContainerDatabaseView",
+        "_id": "AAAAAAG13Ma1CCAtpQPm8vWt",
+        "model": {
+         "$ref": "AAAAAAG13Ma1CCASIzGexOAo"
+        },
+        "left": 80,
+        "top": 736,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAMT4aUvmYx"
+        }
+       },
+       {
+        "_type": "C4SoftwareSystemView",
+        "_id": "AAAAAAG13Ma1CCARA1Z3Sjn7",
+        "model": {
+         "$ref": "AAAAAAG13Ma1CCAI8jd3eMzW"
+        },
+        "left": 460,
+        "top": 296,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAMT4aUvmYx"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13Ma1CCAo6yr6sn5n",
+        "model": {
+         "$ref": "AAAAAAG13Ma1CCAHAF1Qt6h9"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma1CCABxYyUVUh1"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma1CCAVGMokwdGN"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAMT4aUvmYx"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13Ma1CCAazuGp2Zan",
+        "model": {
+         "$ref": "AAAAAAG13Ma1CCAoymniLwPH"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma1CCAVGMokwdGN"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma1CCAHxrW3S0EQ"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAMT4aUvmYx"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13Ma1CCALR3uQxvi5",
+        "model": {
+         "$ref": "AAAAAAG13Ma1CCAn2MdCIDL7"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma1CCAHxrW3S0EQ"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma1CCAtpQPm8vWt"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAMT4aUvmYx"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13Ma1CCAn0xLNrDBd",
+        "model": {
+         "$ref": "AAAAAAG13Ma1CCAqQqotynl4"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma1CCAVGMokwdGN"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma1CCARA1Z3Sjn7"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAMT4aUvmYx"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13Ma1CCASm+6jfjVj",
+        "model": {
+         "$ref": "AAAAAAG13Ma1CCAcrYLa+8Jy"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma1CCAgi0nAiTtU"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma1CCARA1Z3Sjn7"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAMT4aUvmYx"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAk7mN8dtCr"
+      }
+     },
+     {
+      "_type": "C4Person",
+      "_id": "AAAAAAG13Ma1CCAZF6+g4ev3",
+      "name": "시청자",
+      "description": "영상을 본다",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAk7mN8dtCr"
+      }
+     },
+     {
+      "_type": "C4Container",
+      "_id": "AAAAAAG13Ma1CCAkkXYZ1CoH",
+      "name": "웹 플레이어",
+      "technology": "React",
+      "description": "재생 화면",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAk7mN8dtCr"
+      }
+     },
+     {
+      "_type": "C4Container",
+      "_id": "AAAAAAG13Ma1CCAz/1U3QAde",
+      "name": "카탈로그 API",
+      "technology": "Kotlin",
+      "description": "영상 목록과 추천",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAk7mN8dtCr"
+      }
+     },
+     {
+      "_type": "C4Container",
+      "_id": "AAAAAAG13Ma1CCACCVHoqkDr",
+      "name": "인코더",
+      "technology": "FFmpeg",
+      "description": "화질별로 변환",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAk7mN8dtCr"
+      }
+     },
+     {
+      "_type": "C4ContainerDatabase",
+      "_id": "AAAAAAG13Ma1CCASIzGexOAo",
+      "name": "메타데이터 DB",
+      "technology": "MySQL",
+      "description": "영상 정보",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAk7mN8dtCr"
+      }
+     },
+     {
+      "_type": "C4SoftwareSystem",
+      "_id": "AAAAAAG13Ma1CCAI8jd3eMzW",
+      "name": "CDN",
+      "description": "영상 조각 전달",
+      "external": true,
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAk7mN8dtCr"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13Ma1CCAHAF1Qt6h9",
+      "name": "시청한다",
+      "technology": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma1CCAZF6+g4ev3"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma1CCAkkXYZ1CoH"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAk7mN8dtCr"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13Ma1CCAoymniLwPH",
+      "name": "목록을 읽는다",
+      "technology": "HTTPS",
+      "source": {
+       "$ref": "AAAAAAG13Ma1CCAkkXYZ1CoH"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma1CCAz/1U3QAde"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAk7mN8dtCr"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13Ma1CCAn2MdCIDL7",
+      "name": "읽고 쓴다",
+      "technology": "SQL",
+      "source": {
+       "$ref": "AAAAAAG13Ma1CCAz/1U3QAde"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma1CCASIzGexOAo"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAk7mN8dtCr"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13Ma1CCAqQqotynl4",
+      "name": "영상을 받는다",
+      "technology": "HLS",
+      "source": {
+       "$ref": "AAAAAAG13Ma1CCAkkXYZ1CoH"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma1CCAI8jd3eMzW"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAk7mN8dtCr"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13Ma1CCAcrYLa+8Jy",
+      "name": "올린다",
+      "technology": "S3",
+      "source": {
+       "$ref": "AAAAAAG13Ma1CCACCVHoqkDr"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma1CCAI8jd3eMzW"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAk7mN8dtCr"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "CloudModel",
+    "_id": "AAAAAAG13Ma1CCAuWlKaARlZ",
+    "name": "스트리밍 AWS 배치",
+    "_parent": {
+     "$ref": "AAAAAAG13Ma1CCANllyk7VXL"
+    },
+    "ownedElements": [
+     {
+      "_type": "AWSDiagram",
+      "_id": "AAAAAAG13Ma1CCAc8BI1fadQ",
+      "name": "스트리밍 AWS 배치",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "CloudGroupView",
+        "_id": "AAAAAAG13Ma2CDASOkG7dOka",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDApSD90A8Ye"
+        },
+        "left": 370,
+        "top": 262,
+        "width": 436,
+        "height": 140,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma1CCAp9WENi5NX",
+        "model": {
+         "$ref": "AAAAAAG13Ma1CCAOY/il0rIl"
+        },
+        "left": 90,
+        "top": 318,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma2CDADSthpzOH6",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDACC2D0yv10"
+        },
+        "left": 248,
+        "top": 318,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma2CDAvCRmTwNt9",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDARJFIUyLWM"
+        },
+        "left": 406,
+        "top": 150,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma2CDAJW7UebwKt",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAM3SsoBu+h"
+        },
+        "left": 564,
+        "top": 150,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma2CDAoFn+dx01D",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDALlg6UuNHg"
+        },
+        "left": 406,
+        "top": 318,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma2CDAfK/N5DTE0",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAF1yyyRt09"
+        },
+        "left": 564,
+        "top": 318,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13Ma2CDAVMQsBfIu6",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDA46YxozLWu"
+        },
+        "left": 722,
+        "top": 318,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13Ma2CDAqgM+rXjkC",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAs4ydfUPqp"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma1CCAp9WENi5NX"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma2CDADSthpzOH6"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13Ma2CDACXD8J9/Ee",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDA75PXBVRkm"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma2CDADSthpzOH6"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma2CDAvCRmTwNt9"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13Ma2CDA1uFT5hatZ",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDA4NXy3YA4D"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma2CDAvCRmTwNt9"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma2CDAJW7UebwKt"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13Ma2CDATp0uFWVcV",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAMBvJzu1ln"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma2CDADSthpzOH6"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma2CDAoFn+dx01D"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13Ma2CDABrh22nxcd",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAkwS8P30mZ"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma2CDAoFn+dx01D"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma2CDAfK/N5DTE0"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13Ma2CDALV6ZyGvMZ",
+        "model": {
+         "$ref": "AAAAAAG13Ma2CDAljoiYSZ1Q"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13Ma2CDAfK/N5DTE0"
+        },
+        "head": {
+         "$ref": "AAAAAAG13Ma2CDAVMQsBfIu6"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13Ma1CCAc8BI1fadQ"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma1CCAOY/il0rIl",
+      "name": "시청자",
+      "provider": "aws",
+      "service": "User",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma2CDACC2D0yv10",
+      "name": "CloudFront",
+      "provider": "aws",
+      "service": "CloudFront",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma2CDARJFIUyLWM",
+      "name": "영상 저장소",
+      "provider": "aws",
+      "service": "S3",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma2CDAM3SsoBu+h",
+      "name": "변환 작업",
+      "provider": "aws",
+      "service": "Lambda",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma2CDALlg6UuNHg",
+      "name": "ALB",
+      "provider": "aws",
+      "service": "Elastic Load Balancing",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma2CDAF1yyyRt09",
+      "name": "카탈로그 API",
+      "provider": "aws",
+      "service": "ECS",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13Ma2CDA46YxozLWu",
+      "name": "메타데이터",
+      "provider": "aws",
+      "service": "Aurora",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13Ma2CDAs4ydfUPqp",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma1CCAOY/il0rIl"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma2CDACC2D0yv10"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13Ma2CDA75PXBVRkm",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma2CDACC2D0yv10"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma2CDARJFIUyLWM"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13Ma2CDA4NXy3YA4D",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma2CDARJFIUyLWM"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma2CDAM3SsoBu+h"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13Ma2CDAMBvJzu1ln",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma2CDACC2D0yv10"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma2CDALlg6UuNHg"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13Ma2CDAkwS8P30mZ",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma2CDALlg6UuNHg"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma2CDAF1yyyRt09"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13Ma2CDAljoiYSZ1Q",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13Ma2CDAF1yyyRt09"
+      },
+      "target": {
+       "$ref": "AAAAAAG13Ma2CDA46YxozLWu"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     },
+     {
+      "_type": "CloudGroup",
+      "_id": "AAAAAAG13Ma2CDApSD90A8Ye",
+      "name": "VPC",
+      "provider": "aws",
+      "groupKind": "vpc",
+      "_parent": {
+       "$ref": "AAAAAAG13Ma1CCAuWlKaARlZ"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

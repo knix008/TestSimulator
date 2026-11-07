@@ -44,6 +44,9 @@ import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from '.
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { AnimatedBackground } from './ui/background.js';
 import { startPageHtml } from './ui/startpage.js';
+import { startBoard } from './ui/startboard.js';
+import { buildSampleProject } from './domain/samples/index.js';
+import { addMyIcon, loadMyIcons, storeMyIcons } from './domain/iconlib.js';
 import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
 import { ModelExplorer } from './ui/explorer.js';
 import { datalistsHtml, diagramPropertiesHtml, documentationHtml, propertiesHtml, styleHtml, tagsHtml } from './ui/editors.js';
@@ -74,7 +77,6 @@ const state = {
   settings: loadSettings(globalThis.localStorage),
   recent: loadRecent(globalThis.localStorage),
   recentDirs: loadRecentDirs(globalThis.localStorage),
-  samples: [],
   docs: [],
   active: null,
   /** Selected views on the current diagram. */
@@ -202,13 +204,15 @@ async function pickDiagramType({ project = false } = {}) {
   return result?.type && DIAGRAM_TYPES[result.type] ? { type: result.type, name: String(result.name ?? '').trim() } : null;
 }
 
-async function openSampleAsk() {
+async function openSampleAsk(id = 'online-shop') {
   if (!(await confirmReplace())) return null;
-  return openSampleBuiltin();
+  return openSampleBuiltin(id);
 }
 
-function openSampleBuiltin() {
-  const project = buildSample(lang());
+/** A sample of the start page as a new project (saved somewhere only when the user saves it). */
+function openSampleBuiltin(id = 'online-shop') {
+  const project = buildSampleProject(id, lang());
+  if (!project) return null;
   const tab = addTab(new ProjectDocument(project, { name: project.name }));
   tab.markSaved(null);
   return tab;
@@ -386,6 +390,36 @@ function renderContext() {
 }
 
 /** Creates the element of a node tool with its view (Toolbox click on the canvas, or drop). */
+/**
+ * The icon window. With a view: changes its icon; without: puts the chosen icon in the middle of what
+ * is visible. Adding the user's own icon closes the window for the file dialog, then comes back to it.
+ */
+async function insertIcon({ viewId = null } = {}) {
+  const result = await popups.open('iconpicker', { title: viewId ? t('icons.change') : t('icons.insert') });
+  if (result?.add) { await addUserIcon(); return insertIcon({ viewId }); }
+  if (!result?.icon) return null;
+  const fields = result.src ? { src: result.src, iconId: result.icon } : { iconId: result.icon, src: '' };
+  if (viewId) return change('op.edit', (project, diagram) => { const view = M.findView(diagram, viewId); if (view) Object.assign(view, fields); });
+  const diagram = currentDiagram();
+  const tool = diagram && toolById(diagram._type, 'insertIcon');
+  if (!tool) return null;
+  const v = state.view;
+  const middle = v?.scroll && v.world ? { x: v.world.x + (v.scroll.scrollLeft + v.scroll.clientWidth / 2) / v.z, y: v.world.y + (v.scroll.scrollTop + v.scroll.clientHeight / 2) / v.z } : { x: 100, y: 100 };
+  return createNodeAt({ ...tool, view: fields }, { x: Math.round(middle.x - 24), y: Math.round(middle.y - 24), w: 48, h: 48 });
+}
+
+/** The user chooses a picture file; it joins the icon window's list. */
+async function addUserIcon() {
+  try {
+    const src = await chooseImageDataUrl();
+    if (!src) return;
+    const list = loadMyIcons(globalThis.localStorage);
+    const added = addMyIcon(list, { name: t('icons.myName', { n: list.length + 1 }), src });
+    if (added.error) { notify('error', t(`icons.error.${added.error}`)); return; }
+    storeMyIcons(globalThis.localStorage, added.list);
+  } catch (error) { showError('error.picture', error); }
+}
+
 function createNodeAt(tool, box, { keepTool = false } = {}) {
   const tab = activeTab();
   if (!tab || !currentDiagram()) return null;
@@ -816,6 +850,11 @@ function fitToContent() {
   });
 }
 
+/** The window with all 40 colour schemes of the diagrams. */
+function pickDiagramTheme() {
+  return popups.open('diagramtheme', {});
+}
+
 function runLayout(direction = 'TB') {
   const tab = activeTab();
   if (!currentDiagram()) return;
@@ -1035,6 +1074,7 @@ function pickTool(id) {
   if (!diagram) { notify('info', t('canvas.noDiagram')); return; }
   const tool = toolById(diagram._type, id);
   if (!tool) return;
+  if (tool.type === 'IconView') { setTool(null); return insertIcon(); }
   setTool(state.tool?.id === id ? null : tool);
 }
 
@@ -1158,6 +1198,9 @@ const commands = {
   sameWidth: { icon: 'sameWidth', label: 'action.sameWidth', enabled: multi, run: () => sameSize('width') },
   sameHeight: { icon: 'sameHeight', label: 'action.sameHeight', enabled: multi, run: () => sameSize('height') },
   sameSize: { icon: 'sameSize', label: 'action.sameSize', enabled: multi, run: () => sameSize('both') },
+  // On the start page the cards, on a diagram its nodes.
+  autoArrange: { icon: 'autoArrange', label: 'action.autoArrange', enabled: () => state.showStart || !activeTab() || Boolean(currentDiagram()), run: () => { if (state.showStart || !activeTab()) startCards?.arrange(); else runLayout('TB'); } },
+  diagramThemeMore: { icon: 'diagramThemes', label: 'action.diagramThemeMore', run: () => pickDiagramTheme() },
   layoutMenu: { icon: 'layout', label: 'action.layout', enabled: hasDiagram, run: (context) => showMenu(menuItems(SUBMENUS.layout.items), context?.anchor ?? anchorFor('layoutMenu'), 'context', { header: { icon: 'layout', title: t('submenu.layout') } }) },
   ...Object.fromEntries(LAYOUT_DIRECTIONS.map((d) => [`layout:${d}`, { icon: `layout${d}`, label: `layout.${d}`, enabled: hasDiagram, run: () => runLayout(d) }])),
   // view
@@ -1172,7 +1215,7 @@ const commands = {
   minimap: { icon: 'minimap', label: 'action.minimap', checked: () => state.settings.showMinimap, run: () => toggle('showMinimap') },
   quickButtons: { icon: 'quickButtons', label: 'action.quickButtons', checked: () => state.settings.showQuickButtons, run: () => toggle('showQuickButtons') },
   showShadows: { icon: 'shadowAll', label: 'action.showShadows', checked: () => state.settings.showShadow, run: () => toggle('showShadow') },
-  ...Object.fromEntries(DIAGRAM_THEME_IDS.map((id) => [`diagramTheme:${id}`, { icon: 'palette', label: `diagramTheme.${id}`, checked: () => state.settings.diagramTheme === id, run: () => updateSettings({ diagramTheme: id }) }])),
+  ...Object.fromEntries(['theme', ...DIAGRAM_THEME_IDS].map((id) => [`diagramTheme:${id}`, { icon: 'palette', label: `diagramTheme.${id}`, checked: () => state.settings.diagramTheme === id, run: () => updateSettings({ diagramTheme: id }) }])),
   ...Object.fromEntries(LINE_STYLES.map((s) => [`defaultLine:${s}`, { icon: `line${s[0].toUpperCase()}${s.slice(1)}`, label: `lineStyle.${s}`, checked: () => state.settings.defaultLineStyle === s, run: () => updateSettings({ defaultLineStyle: s }) }])),
   presentation: { icon: 'presentation', label: 'action.presentation', key: 'F5', enabled: hasDoc, run: () => startPresentation() },
   leftPanel: { icon: 'panelLeft', label: 'action.toolboxPanel', key: 'Ctrl+Shift+1', checked: () => state.settings.showLeftPanel, run: () => toggle('showLeftPanel') },
@@ -1288,7 +1331,7 @@ const SUBMENUS = {
   exportTo: { icon: 'exportFile', items: ['exportImage', 'exportSvg', 'exportPdf', 'exportAllImages', '-', 'exportHtml', 'exportMarkdown', '-', 'exportStarUml', 'exportXmi', 'exportXmiModel', 'exportFragment', 'exportMermaid', 'exportPlantUml'] },
   zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomReset', '-', 'fitPage', 'zoomSelection'] },
   show: { icon: 'eye', items: ['grid', 'rulers', 'snapGrid', 'minimap', 'quickButtons', 'showShadows', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar'] },
-  diagramTheme: { icon: 'palette', items: DIAGRAM_THEME_IDS.map((id) => `diagramTheme:${id}`) },
+  diagramTheme: { icon: 'palette', items: ['diagramTheme:theme', '-', 'diagramTheme:classic', 'diagramTheme:pastel', 'diagramTheme:blueprint', 'diagramTheme:dark', '-', 'diagramThemeMore'] },
   defaultLine: { icon: 'lineRectilinear', items: LINE_STYLES.map((s) => `defaultLine:${s}`) },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
   font: { icon: 'textTool', items: ['bold', 'italic', 'fontUp', 'fontDown', 'fontColor'] },
@@ -1307,19 +1350,19 @@ const MENUS = {
   model: ['addDiagram', 'addElement', '-', 'moveUp', 'moveDown', '-', 'showRelations', 'unusedElements', '-', 'requirements', 'traceMatrix', '-', 'baselines', 'compareFile', '-', 'validate', 'statistics'],
   view: [sub('zoom'), sub('show'), '-', sub('diagramTheme'), sub('defaultLine'), '-', sub('diagrams'), 'presentation', '-', sub('appearance')],
   format: [sub('font'), 'fillColor', 'lineColor', '-', sub('lineStyle'), sub('stereotype'), sub('display'), '-', 'autoResize', 'fitContent', '-', 'diagramBackground'],
-  arrange: [sub('order'), sub('align'), '-', 'layoutMenu', sub('layout'), sub('mindmap')],
+  arrange: [sub('order'), sub('align'), '-', 'autoArrange', 'layoutMenu', sub('layout'), sub('mindmap')],
   tools: ['generateCode', 'generateDdl', 'generateDocument', 'reverse', '-', 'validate', 'bpmnSimulate', '-', 'settings'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', model: 'umlModel', view: 'eye', format: 'formatShape', arrange: 'bringFront', tools: 'tools', help: 'question' };
 
 const TOOLBAR = [
-  ['new', 'open', 'save', 'exportSplit'],
+  ['new', 'open', 'save', 'exportSplit', 'print'],
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'deleteFromModel', 'find'],
   ['tool:pointer', 'addDiagram'],
   ['fillSplit', 'lineSplit', 'lineStyleMenu'],
-  ['alignMenu', 'layoutMenu'],
+  ['alignMenu', 'layoutMenu', 'autoArrange'],
   ['zoom', 'fitPage', 'grid', 'rulers', 'minimap'],
   ['generateCode', 'reverse', 'validate'],
   ['leftPanel', 'rightPanel', 'bottomPanel'],
@@ -1425,6 +1468,8 @@ function renderToolbar() {
         <button class="tool-button stepper-button-tool" data-command="zoomIn" title="${escapeHtml(commandTip('zoomIn'))}" aria-label="${escapeHtml(t('action.zoomIn'))}">${icon('plus')}</button>
       </span>`;
     }
+    // Named on the toolbar, not only a picture: the one command everybody looks for by its name.
+    if (id === 'autoArrange') return `<button class="tool-button tool-labeled" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(commands[id].label))}">${icon(commands[id].icon)}<span>${escapeHtml(t(commands[id].label))}</span></button>`;
     if (id === 'exportSplit') return `<span class="split-button">${plain('exportImage')}<button class="tool-button split-arrow" data-command="exportMenu" title="${escapeHtml(commandTip('exportMenu'))}" aria-label="${escapeHtml(t('action.exportMenu'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
     if (id === 'themeSplit') return `<span class="split-button">${plain('theme')}<button class="tool-button split-arrow" data-command="themeMenu" title="${escapeHtml(commandTip('themeMenu'))}" aria-label="${escapeHtml(t('action.themeChoose'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
     if (id === 'fillSplit' || id === 'lineSplit') {
@@ -1709,6 +1754,7 @@ function annotationProps(v) {
   return `<section class="prop-section"><header><span class="section-toggle">${icon(viewDef(v._type).icon ?? 'note')}<span>${escapeHtml(label)}</span></span></header><div class="props">
     <div class="prop-row tall"><span class="prop-label"><span>${escapeHtml(t('field.text'))}</span></span><span class="prop-control"><textarea data-view-text="${v._id}" rows="5">${escapeHtml(v.text ?? '')}</textarea></span></div>
     ${v._type === 'HyperlinkView' ? `<div class="prop-row"><span class="prop-label"><span>URL</span></span><span class="prop-control"><input type="text" data-view-field="url" data-view="${v._id}" value="${escapeHtml(v.url ?? '')}" /></span></div>` : ''}
+    ${v._type === 'IconView' ? `<div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('icons.field'))}</span></span><span class="prop-control"><button class="button" data-icon-pick="${v._id}">${icon('iconInsert')}<span>${escapeHtml(t('icons.change'))}</span></button></span></div>` : ''}
     ${v._type === 'ImageView' ? `<div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('field.image'))}</span></span><span class="prop-control"><button class="button" data-image-pick="${v._id}">${icon('picture')}<span>${escapeHtml(t('action.chooseImage'))}</span></button></span></div>` : ''}
   </div></section>`;
 }
@@ -1797,9 +1843,20 @@ function renderAll() {
 
 // ───────────────────────── start page
 
+let startCards = null;
+
 function renderStartPage() {
   const host = root.querySelector('#start-page');
+  // Rebuilding the page must not scroll it back to the top.
+  const scrollTop = host.querySelector('.start-scroll')?.scrollTop ?? 0;
+  startCards?.destroy();
   host.innerHTML = startPageHtml(appApi);
+  startCards = startBoard(host.querySelector('.start-board'), {
+    saved: state.settings.startLayout,
+    reduced: Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches),
+    onSave: (layout) => { state.settings.startLayout = layout; storeSettings(globalThis.localStorage, state.settings); },
+  });
+  host.querySelector('.start-scroll').scrollTop = scrollTop;
   const canvas = host.querySelector('.start-bg');
   startBackground?.destroy();
   startBackground = new AnimatedBackground(canvas, { colors: backgroundColors, speed: () => state.settings.animationSpeed / 100, kind: state.settings.animation, vivid: true });
@@ -1831,15 +1888,21 @@ async function onStartAction(target) {
     case 'open-folder': return openWithDialog(value);
     case 'remove-folder': state.recentDirs = removeRecent(state.recentDirs, value); storeRecentDirs(globalThis.localStorage, state.recentDirs); return renderStartPage();
     case 'clear-folders': state.recentDirs = []; storeRecentDirs(globalThis.localStorage, []); return renderStartPage();
-    case 'open-sample': return openPath(value);
-    case 'builtin-sample': return openSampleAsk();
+    case 'sample': return openSampleAsk(value);
+    case 'arrange': return startCards?.arrange();
+    case 'pick-theme': return updateSettings({ theme: value });
+    case 'theme-settings': return popups.open('settings', { tab: 'appearance' });
+    case 'start-settings': return popups.open('settings', { tab: 'start' });
+    case 'settings': return run('settings');
+    case 'language': return run('language');
+    case 'about': return run('about');
+    case 'exit': return run('exit');
     // The Help button of the start page: the same items as the Help menu, below the button.
     case 'help-menu': return showMenu(menuItems(MENUS.help), anchorBelow(target), 'help');
     case 'tutorial': return startTutorial();
     case 'guide': return openDocWindow('guide');
     case 'tutorial-doc': return openDocWindow('tutorial');
     case 'tutorial-video': return openDocWindow('video');
-    case 'shortcuts': return run('shortcuts');
     case 'animation': updateSettings({ animation: value, backgroundKind: 'animated' }); return notify('info', t('notice.animation', { name: t(`animation.${value}`) }));
     case 'shuffle': return shuffleBackground();
     case 'background-image': return chooseBackground();
@@ -1992,7 +2055,7 @@ function applySettings(previous = {}) {
   }
   if (s.backgroundImage !== previous.backgroundImage) loadBackground();
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
-  const redraw = ['diagramTheme', 'defaultLineStyle', 'diagramFont', 'diagramFontSize', 'showShadow', 'showGrid', 'showRulers', 'showMinimap', 'gridSize', 'language', 'showQuickButtons'].some((key) => s[key] !== previous[key]);
+  const redraw = (s.diagramTheme === 'theme' && (s.theme !== previous.theme || s.customTheme !== previous.customTheme)) || ['diagramTheme', 'defaultLineStyle', 'diagramFont', 'diagramFontSize', 'showShadow', 'showGrid', 'showRulers', 'showMinimap', 'gridSize', 'language', 'showQuickButtons'].some((key) => s[key] !== previous[key]);
   if (redraw && state.view) state.view.update();
   // The Problems panel opened (or autoValidate turned on): check now; the canvas badges come and go with the panel.
   if ((s.showBottomPanel && !previous.showBottomPanel) || (s.autoValidate && !previous.autoValidate)) scheduleProblems(0);
@@ -2353,7 +2416,9 @@ async function saveExport(name, type, content) {
   return Boolean(saved);
 }
 
-const diagramSvg = (diagram, options = {}) => renderDiagramSvg(activeTab().project, diagram, { measure, language: lang(), lineStyle: state.settings.defaultLineStyle, theme: state.settings.diagramTheme, font: state.settings.diagramFont, fontSize: state.settings.diagramFontSize, showShadow: state.settings.showShadow, ...options });
+/** On paper and in files a diagram that follows a dark program theme would be black: they use the white scheme. */
+const outputTheme = () => (state.settings.diagramTheme === 'theme' ? 'classic' : state.settings.diagramTheme);
+const diagramSvg = (diagram, options = {}) => renderDiagramSvg(activeTab().project, diagram, { measure, language: lang(), lineStyle: state.settings.defaultLineStyle, theme: outputTheme(), font: state.settings.diagramFont, fontSize: state.settings.diagramFontSize, showShadow: state.settings.showShadow, ...options });
 const fileSafe = (text) => String(text ?? '').replace(/[\\/:*?"<>|]/g, '_');
 
 async function exportAs(type, options = {}) {
@@ -2478,7 +2543,7 @@ async function exportPdf() {
   try { setup = JSON.parse(globalThis.localStorage?.getItem(PRINT_KEY) ?? '{}'); } catch { setup = {}; }
   try {
     const bytes = await withProgress('progress.pdf', name, async (op, report) => {
-      const layout = renderPrintSheets(tab.project, { ...setup, range: 'all' }, { measure, currentPageId: tab.view.diagramId, language: lang(), t, theme: state.settings.diagramTheme, lineStyle: state.settings.defaultLineStyle });
+      const layout = renderPrintSheets(tab.project, { ...setup, range: 'all' }, { measure, currentPageId: tab.view.diagramId, language: lang(), t, theme: outputTheme(), lineStyle: state.settings.defaultLineStyle });
       const pages = [];
       for (const [index, sheet] of layout.pages.entries()) {
         report?.({ done: index, total: layout.pages.length });
@@ -3270,7 +3335,7 @@ function openPrint() {
   state.view?.finishEdit?.();
   let setup = {};
   try { setup = JSON.parse(globalThis.localStorage?.getItem(PRINT_KEY) ?? '{}'); } catch { setup = {}; }
-  popups.open('print', { doc: tab.project, title: tab.project.name, currentPageId: tab.view.diagramId, setup, theme: state.settings.diagramTheme, lineStyle: state.settings.defaultLineStyle });
+  popups.open('print', { doc: tab.project, title: tab.project.name, currentPageId: tab.view.diagramId, setup, theme: outputTheme(), lineStyle: state.settings.defaultLineStyle });
 }
 
 // ───────────────────────── confirmation & exit
@@ -3679,7 +3744,8 @@ function bindEvents() {
       if (state.lastMenuClose.name === name && Date.now() - state.lastMenuClose.at < 300) return undefined;
       return openMenubarMenu(name);
     }
-    if (target.closest('[data-home]')) return showStartPage(true);
+    // A toggle: from a project to the start page, and back. With nothing open the start page stays.
+    if (target.closest('[data-home]')) return showStartPage(!state.showStart || !hasDoc());
     const start = target.closest('[data-start]');
     if (start && !start.disabled) return onStartAction(start);
     const colorApply = target.closest('[data-color-apply]');
@@ -3735,6 +3801,8 @@ function bindEvents() {
       if (styleAction.dataset.styleAction === 'fit') return fitToContent();
       return change('op.style', (project, diagram) => { for (const id of selectedIds()) { const v = M.findView(diagram, id); if (!v) continue; for (const key of ['fillColor', 'lineColor', 'fontColor', 'fontFace', 'fontSize', 'bold', 'italic', 'lineWidth', 'showShadow', 'stereotypeDisplay', 'suppressAttributes', 'suppressOperations', 'suppressReceptions', 'suppressLiterals', 'showVisibility', 'showNamespace', 'showOperationSignature', 'showProperty', 'showType', 'showMultiplicity', 'wordWrap', 'autoResize', 'lineStyle']) delete v[key]; } });
     }
+    const iconPick = target.closest('[data-icon-pick]');
+    if (iconPick) return insertIcon({ viewId: iconPick.dataset.iconPick });
     const imagePick = target.closest('[data-image-pick]');
     if (imagePick) return pickImageFor(imagePick.dataset.imagePick);
     const bgSet = target.closest('[data-bg-target] [data-bg]');
@@ -3834,6 +3902,7 @@ function bindEvents() {
     if (target.id === 'zoom-value') return setCanvasZoom(parseFloat(target.value) || 100);
     if (target.id === 'zoom-slider') return setCanvasZoom(CANVAS_ZOOM.steps[Number(target.value)]);
     if ('startSpeed' in target.dataset) return updateSettings({ animationSpeed: Number(target.value) }, { quiet: true });
+    if ('startOpacity' in target.dataset) return updateSettings({ startCardOpacity: Number(target.value) }, { quiet: true });
     if ('startRandom' in target.dataset) return updateSettings({ animationRandom: target.checked }, { quiet: true });
     if ('startInterval' in target.dataset) { startBackgroundChangedAt = Date.now(); return updateSettings({ animationInterval: Number(target.value) }, { quiet: true }); }
     return undefined;
@@ -3855,6 +3924,7 @@ function bindEvents() {
       }, 150);
     }
     if ('startSpeed' in target.dataset) { target.parentElement.querySelector('output').textContent = `${target.value}%`; state.settings.animationSpeed = Number(target.value); }
+    if ('startOpacity' in target.dataset) { target.parentElement.querySelector('output').textContent = `${target.value}%`; root.querySelector('.start-inner')?.style.setProperty('--start-card-alpha', `${target.value}%`); }
   });
 
   root.addEventListener('keydown', (event) => {
@@ -4274,7 +4344,6 @@ async function start() {
   setInterval(tickStartBackground, 1000);
   document.title = `MyUMLMaker v${state.info?.version ?? VERSION}`;
   native.setBackendLanguage(state.settings.language);
-  state.samples = await native.sampleFiles().catch(() => []);
   native.listFonts().then((fonts) => { state.fonts = fonts ?? []; }).catch(() => {});
   applySettings({});
   await loadBackground();
@@ -4343,9 +4412,9 @@ window.__myumlmaker = {
     contextMenu, activeDoc, toScreen, docName, scrollTabs, withProgress, showStartPage, exportAs, exportImage, exportPdf, exportAllImages, createNodeAt, createEdgeBetween,
     align, distribute, reorder, setViewStyle, commitEdit, addDiagram, openDiagram, openDiagramType, closeDiagram, renameElement, addElementTo, addRelated, quickAction, dropElements, moveElements,
     runLayout, runValidation, openCodegen, reverseFiles, openTextImport, startTutorial, startPresentation, stopPresentation, presentStep, setTool, pickTool, findElements, revealElement,
-    rememberDirectory, applyColor, openSampleBuiltin, shuffleBackground, fitToContent, showRelations, openDocWindow, closeDocFrames,
+    rememberDirectory, applyColor, openSampleBuiltin, openSampleAsk, shuffleBackground, fitToContent, showRelations, openDocWindow, closeDocFrames,
   },
-  domain: { M, E, TYPES, DIAGRAM_TYPES, TEMPLATES, toolboxFor, buildTemplate, buildSample, renderDiagramSvg, diagramBounds, tutorialSteps: () => TUTORIAL_STEPS.length },
+  domain: { M, E, TYPES, DIAGRAM_TYPES, TEMPLATES, toolboxFor, buildTemplate, buildSample, buildSampleProject, renderDiagramSvg, diagramBounds, tutorialSteps: () => TUTORIAL_STEPS.length },
   tutorial: () => tutorial,
 };
 

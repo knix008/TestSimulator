@@ -1,0 +1,864 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.360Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13MbeCaAgWsjVrZxr",
+  "name": "Serverless API on GCP",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "GCP layout, containers and JSON messages",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13MbeCaAmUB9YXQBn",
+    "name": "Serverless API on GCP",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13MbeCaAgWsjVrZxr"
+    }
+   },
+   {
+    "_type": "CloudModel",
+    "_id": "AAAAAAG13MbeCaAOZphu2Ya/",
+    "name": "GCP Serverless",
+    "_parent": {
+     "$ref": "AAAAAAG13MbeCaAgWsjVrZxr"
+    },
+    "ownedElements": [
+     {
+      "_type": "GCPDiagram",
+      "_id": "AAAAAAG13MbeCaAc+r4DWHdA",
+      "name": "GCP Serverless",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "CloudGroupView",
+        "_id": "AAAAAAG13MbfCbATHeX/9+WW",
+        "model": {
+         "$ref": "AAAAAAG13MbfCbAoeJjP3JDo"
+        },
+        "left": 370,
+        "top": 94,
+        "width": 594,
+        "height": 268,
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbeCaA+ZDEIIBTv",
+        "model": {
+         "$ref": "AAAAAAG13MbeCaAH7vDSP77A"
+        },
+        "left": 90,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbeCaAaJUPwYwdh",
+        "model": {
+         "$ref": "AAAAAAG13MbeCaAMcuiTXEPy"
+        },
+        "left": 248,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbeCaAUNtgJBIjH",
+        "model": {
+         "$ref": "AAAAAAG13MbeCaAQOZWmhGec"
+        },
+        "left": 406,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbeCaAs/swXsbzo",
+        "model": {
+         "$ref": "AAAAAAG13MbeCaA7syNBVxes"
+        },
+        "left": 564,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbfCaALPhC2eNz2",
+        "model": {
+         "$ref": "AAAAAAG13MbfCaA8XZFQnnKf"
+        },
+        "left": 722,
+        "top": 150,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbfCaA2K3wxe1au",
+        "model": {
+         "$ref": "AAAAAAG13MbfCaA3dmRJ+ZEj"
+        },
+        "left": 722,
+        "top": 278,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbfCaAEXqUw9BM3",
+        "model": {
+         "$ref": "AAAAAAG13MbfCaAh2CcZmRyK"
+        },
+        "left": 880,
+        "top": 150,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbfCaAjzg/A1uUM",
+        "model": {
+         "$ref": "AAAAAAG13MbfCaAkFrwWg60X"
+        },
+        "left": 880,
+        "top": 278,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbfCaA99tWP1yE+",
+        "model": {
+         "$ref": "AAAAAAG13MbfCaA9grd+0SrO"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbeCaA+ZDEIIBTv"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbeCaAaJUPwYwdh"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbfCaAOGifTbxUy",
+        "model": {
+         "$ref": "AAAAAAG13MbfCaA1YVjzFuBO"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbeCaAaJUPwYwdh"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbeCaAUNtgJBIjH"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbfCbA0lQ5UIK1k",
+        "model": {
+         "$ref": "AAAAAAG13MbfCbAOdoOoCBJC"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbeCaAUNtgJBIjH"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbeCaAs/swXsbzo"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbfCbAe+hmjVEiv",
+        "model": {
+         "$ref": "AAAAAAG13MbfCbA1YDZkfeWe"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbeCaAs/swXsbzo"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbfCaALPhC2eNz2"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbfCbAHGTN8COEd",
+        "model": {
+         "$ref": "AAAAAAG13MbfCbAfjV9IJ9D0"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbeCaAs/swXsbzo"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbfCaA2K3wxe1au"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbfCbAthObJhJSj",
+        "model": {
+         "$ref": "AAAAAAG13MbfCbAZsmWpXZDe"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbfCaA2K3wxe1au"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbfCaAEXqUw9BM3"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbfCbA2XndxV7nW",
+        "model": {
+         "$ref": "AAAAAAG13MbfCbAEvxK6lQCi"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbfCaA2K3wxe1au"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbfCaAjzg/A1uUM"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbeCaAc+r4DWHdA"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbeCaAH7vDSP77A",
+      "name": "Clients",
+      "provider": "gcp",
+      "service": "User",
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbeCaAMcuiTXEPy",
+      "name": "HTTPS LB",
+      "provider": "gcp",
+      "service": "Cloud Load Balancing",
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbeCaAQOZWmhGec",
+      "name": "API Gateway",
+      "provider": "gcp",
+      "service": "API Gateway",
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbeCaA7syNBVxes",
+      "name": "Orders API",
+      "provider": "gcp",
+      "service": "Cloud Run",
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbfCaA8XZFQnnKf",
+      "name": "Documents",
+      "provider": "gcp",
+      "service": "Firestore",
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbfCaA3dmRJ+ZEj",
+      "name": "Events",
+      "provider": "gcp",
+      "service": "Pub/Sub",
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbfCaAh2CcZmRyK",
+      "name": "Mailer",
+      "provider": "gcp",
+      "service": "Cloud Functions",
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbfCaAkFrwWg60X",
+      "name": "Analytics",
+      "provider": "gcp",
+      "service": "BigQuery",
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbfCaA9grd+0SrO",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbeCaAH7vDSP77A"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbeCaAMcuiTXEPy"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbfCaA1YVjzFuBO",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbeCaAMcuiTXEPy"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbeCaAQOZWmhGec"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbfCbAOdoOoCBJC",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbeCaAQOZWmhGec"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbeCaA7syNBVxes"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbfCbA1YDZkfeWe",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbeCaA7syNBVxes"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbfCaA8XZFQnnKf"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbfCbAfjV9IJ9D0",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbeCaA7syNBVxes"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbfCaA3dmRJ+ZEj"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbfCbAZsmWpXZDe",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbfCaA3dmRJ+ZEj"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbfCaAh2CcZmRyK"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbfCbAEvxK6lQCi",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbfCaA3dmRJ+ZEj"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbfCaAkFrwWg60X"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     },
+     {
+      "_type": "CloudGroup",
+      "_id": "AAAAAAG13MbfCbAoeJjP3JDo",
+      "name": "orders-prod",
+      "provider": "gcp",
+      "groupKind": "project",
+      "_parent": {
+       "$ref": "AAAAAAG13MbeCaAOZphu2Ya/"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "C4Model",
+    "_id": "AAAAAAG13MbfCbANyS8Ecrgr",
+    "name": "C4",
+    "_parent": {
+     "$ref": "AAAAAAG13MbeCaAgWsjVrZxr"
+    },
+    "ownedElements": [
+     {
+      "_type": "C4Diagram",
+      "_id": "AAAAAAG13MbgCbAibkqh2fEn",
+      "name": "Orders API Containers",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "C4SoftwareSystemView",
+        "_id": "AAAAAAG13MbgCbA10ujUKAkO",
+        "model": {
+         "$ref": "AAAAAAG13MbgCbAOmD474iDW"
+        },
+        "left": 45,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbgCbAibkqh2fEn"
+        }
+       },
+       {
+        "_type": "C4ContainerView",
+        "_id": "AAAAAAG13MbgCbAlIyToUHN9",
+        "model": {
+         "$ref": "AAAAAAG13MbgCbARejR7P3r8"
+        },
+        "left": 40,
+        "top": 260,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbgCbAibkqh2fEn"
+        }
+       },
+       {
+        "_type": "C4ContainerView",
+        "_id": "AAAAAAG13MbgCbAGTGJQg0bl",
+        "model": {
+         "$ref": "AAAAAAG13MbgCbABkUDO5+lm"
+        },
+        "left": 451,
+        "top": 260,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbgCbAibkqh2fEn"
+        }
+       },
+       {
+        "_type": "C4ContainerDatabaseView",
+        "_id": "AAAAAAG13MbgCbATEbRpIVBd",
+        "model": {
+         "$ref": "AAAAAAG13MbgCbAWiwqpdFXg"
+        },
+        "left": 56,
+        "top": 480,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbgCbAibkqh2fEn"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13MbgCbAT6YWuE99H",
+        "model": {
+         "$ref": "AAAAAAG13MbgCbAYuR/pGaIn"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbgCbA10ujUKAkO"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbgCbAlIyToUHN9"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbgCbAibkqh2fEn"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13MbgCbAWJBGXkFq7",
+        "model": {
+         "$ref": "AAAAAAG13MbgCbAw548u1C8o"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbgCbAlIyToUHN9"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbgCbATEbRpIVBd"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbgCbAibkqh2fEn"
+        }
+       },
+       {
+        "_type": "C4RelationshipView",
+        "_id": "AAAAAAG13MbgCbAxVyybqlin",
+        "model": {
+         "$ref": "AAAAAAG13MbgCbAA2hkD+ldP"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbgCbAlIyToUHN9"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbgCbAGTGJQg0bl"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbgCbAibkqh2fEn"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbfCbANyS8Ecrgr"
+      }
+     },
+     {
+      "_type": "C4SoftwareSystem",
+      "_id": "AAAAAAG13MbgCbAOmD474iDW",
+      "name": "Shop App",
+      "description": "Calls the API",
+      "external": true,
+      "_parent": {
+       "$ref": "AAAAAAG13MbfCbANyS8Ecrgr"
+      }
+     },
+     {
+      "_type": "C4Container",
+      "_id": "AAAAAAG13MbgCbARejR7P3r8",
+      "name": "Orders API",
+      "technology": "Python, FastAPI",
+      "description": "Takes orders",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbfCbANyS8Ecrgr"
+      }
+     },
+     {
+      "_type": "C4Container",
+      "_id": "AAAAAAG13MbgCbABkUDO5+lm",
+      "name": "Mailer Function",
+      "technology": "Node.js",
+      "description": "Confirmation mail",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbfCbANyS8Ecrgr"
+      }
+     },
+     {
+      "_type": "C4ContainerDatabase",
+      "_id": "AAAAAAG13MbgCbAWiwqpdFXg",
+      "name": "Firestore",
+      "technology": "NoSQL",
+      "description": "Order documents",
+      "external": false,
+      "_parent": {
+       "$ref": "AAAAAAG13MbfCbANyS8Ecrgr"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13MbgCbAYuR/pGaIn",
+      "name": "Orders",
+      "technology": "HTTPS",
+      "source": {
+       "$ref": "AAAAAAG13MbgCbAOmD474iDW"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbgCbARejR7P3r8"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbfCbANyS8Ecrgr"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13MbgCbAw548u1C8o",
+      "name": "Stores",
+      "technology": "gRPC",
+      "source": {
+       "$ref": "AAAAAAG13MbgCbARejR7P3r8"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbgCbAWiwqpdFXg"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbfCbANyS8Ecrgr"
+      }
+     },
+     {
+      "_type": "C4Relationship",
+      "_id": "AAAAAAG13MbgCbAA2hkD+ldP",
+      "name": "Publishes",
+      "technology": "Pub/Sub",
+      "source": {
+       "$ref": "AAAAAAG13MbgCbARejR7P3r8"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbgCbABkUDO5+lm"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbfCbANyS8Ecrgr"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "DSSpecification",
+    "_id": "AAAAAAG13MbgCbAcoJP6Ry1R",
+    "name": "Data Specifications",
+    "_parent": {
+     "$ref": "AAAAAAG13MbeCaAgWsjVrZxr"
+    },
+    "ownedElements": [
+     {
+      "_type": "JSONDiagram",
+      "_id": "AAAAAAG13MbgCbAq8XYFTRtN",
+      "name": "Orders API Messages",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13MbgCbA1o2NBUWmn",
+        "model": {
+         "$ref": "AAAAAAG13MbgCbAleX08atsH"
+        },
+        "left": 45,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbgCbAq8XYFTRtN"
+        }
+       },
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13MbgCbAdKhK8aIXm",
+        "model": {
+         "$ref": "AAAAAAG13MbgCbAIl+q/UGCA"
+        },
+        "left": 406,
+        "top": 70,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbgCbAq8XYFTRtN"
+        }
+       },
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13MbgCbAPj6oNHKae",
+        "model": {
+         "$ref": "AAAAAAG13MbgCbAWAS4JOHVi"
+        },
+        "left": 20,
+        "top": 285,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbgCbAq8XYFTRtN"
+        }
+       },
+       {
+        "_type": "DSReferenceView",
+        "_id": "AAAAAAG13MbgCbAYpnO6QyIh",
+        "model": {
+         "$ref": "AAAAAAG13MbgCbAofY1lL8wY"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbgCbAdKhK8aIXm"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbgCbA1o2NBUWmn"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbgCbAq8XYFTRtN"
+        }
+       },
+       {
+        "_type": "DSReferenceView",
+        "_id": "AAAAAAG13MbgCbAxO6bt46pV",
+        "model": {
+         "$ref": "AAAAAAG13MbgCbAhlkaJ9OUW"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbgCbAPj6oNHKae"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbgCbAdKhK8aIXm"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbgCbAq8XYFTRtN"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbgCbAcoJP6Ry1R"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13MbgCbAleX08atsH",
+      "name": "Order request",
+      "format": "json",
+      "text": "{\n  \"customerId\": \"C-1001\",\n  \"items\": [\n    {\n      \"sku\": \"A-1\",\n      \"qty\": 2\n    },\n    {\n      \"sku\": \"B-7\",\n      \"qty\": 1\n    }\n  ],\n  \"coupon\": null\n}",
+      "_parent": {
+       "$ref": "AAAAAAG13MbgCbAcoJP6Ry1R"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13MbgCbAIl+q/UGCA",
+      "name": "Order response",
+      "format": "json",
+      "text": "{\n  \"orderId\": \"O-5001\",\n  \"status\": \"ACCEPTED\",\n  \"total\": 42000,\n  \"currency\": \"KRW\"\n}",
+      "_parent": {
+       "$ref": "AAAAAAG13MbgCbAcoJP6Ry1R"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13MbgCbAWAS4JOHVi",
+      "name": "Order event",
+      "format": "json",
+      "text": "{\n  \"type\": \"order.accepted\",\n  \"orderId\": \"O-5001\",\n  \"at\": \"2026-11-01T09:00:00Z\"\n}",
+      "_parent": {
+       "$ref": "AAAAAAG13MbgCbAcoJP6Ry1R"
+      }
+     },
+     {
+      "_type": "DSReference",
+      "_id": "AAAAAAG13MbgCbAofY1lL8wY",
+      "name": "orderId",
+      "source": {
+       "$ref": "AAAAAAG13MbgCbAIl+q/UGCA"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbgCbAleX08atsH"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbgCbAcoJP6Ry1R"
+      }
+     },
+     {
+      "_type": "DSReference",
+      "_id": "AAAAAAG13MbgCbAhlkaJ9OUW",
+      "name": "orderId",
+      "source": {
+       "$ref": "AAAAAAG13MbgCbAWAS4JOHVi"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbgCbAIl+q/UGCA"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbgCbAcoJP6Ry1R"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

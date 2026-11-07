@@ -3,6 +3,7 @@ pub mod files;
 pub mod fonts;
 pub mod i18n;
 pub mod instance;
+pub mod printing;
 pub mod window_state;
 
 use serde::Serialize;
@@ -19,7 +20,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 const POPUP_KINDS: &[&str] = &[
     "settings", "about", "confirm", "error", "progress", "recent", "print", "menu", "theme", "welcome", "image", "database",
     "find", "validation", "codegen", "textimport", "color", "prompt", "requirements", "tracematrix", "document", "baselines", "compare",
-    "background", "diagram",
+    "background", "diagram", "iconpicker", "diagramtheme",
 ];
 
 #[derive(Default)]
@@ -365,24 +366,6 @@ async fn list_files(dir: PathBuf, extensions: Vec<String>) -> Result<Vec<PathBuf
     blocking(move || Ok(files::list_files(&dir, &extensions, 5000))).await
 }
 
-/// Sample projects installed with the program (start page).
-#[tauri::command]
-fn sample_files(app: AppHandle) -> Vec<PathBuf> {
-    let dirs = [
-        app.path().resource_dir().ok().map(|dir| dir.join("samples")),
-        Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("samples")),
-    ];
-    for dir in dirs.into_iter().flatten() {
-        if let Ok(entries) = std::fs::read_dir(&dir) {
-            let mut list: Vec<PathBuf> = entries.flatten().map(|entry| entry.path()).filter(|path| files::is_diagram_file(path)).collect();
-            if !list.is_empty() {
-                list.sort();
-                return list;
-            }
-        }
-    }
-    Vec::new()
-}
 
 /// Opens a popup window at (x, y) logical screen pixels, or brings it back.
 /// It is shown by `popup_ready` / `place_popup` once drawn, so it never flashes
@@ -576,6 +559,24 @@ fn print_window(window: WebviewWindow) -> Result<(), String> {
     window.print().map_err(|error| tr!("인쇄를 시작할 수 없습니다: {error}", "Could not start printing: {error}"))
 }
 
+/// The printers of this computer (none: the print window uses the system dialog).
+#[tauri::command]
+fn list_printers() -> printing::PrinterList {
+    printing::printers()
+}
+
+/// Prints the calling window's print view straight to a printer, with no dialog.
+#[tauri::command]
+async fn print_direct(window: WebviewWindow, job: printing::PrintJob) -> Result<(), String> {
+    printing::print(&window, job).await
+}
+
+/// The same pages as a PDF file (the tests check what would be printed, on no paper).
+#[tauri::command]
+async fn print_pages_to_pdf(window: WebviewWindow, job: printing::PrintJob, path: String) -> Result<(), String> {
+    printing::print_to_pdf(&window, job, path).await
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FatalError {
@@ -683,6 +684,8 @@ pub fn run() {
             let state_path = window_state::state_file(app.handle());
             // First start after the installer: forget the window place, and have the page reset its preferences.
             let install_reset = state_path.as_deref().and_then(window_state::take_install_reset);
+            // ...and open in the language chosen in the installer.
+            let install_language = state_path.as_deref().and_then(window_state::take_install_language);
             let placement = state_path.as_deref().and_then(|path| window_state::saved_placement(app.handle(), path));
             // No system title bar: the menu bar row carries the icon, name and version (left) and the
             // minimize / maximize / close buttons (right), and is the drag area (src/app.js renderMenubar).
@@ -696,6 +699,10 @@ pub fn run() {
                 .additional_browser_args(BROWSER_ARGS);
             let builder = match install_reset {
                 Some(token) => builder.initialization_script(format!("window.__MYUMLMAKER_INSTALL_RESET__ = {};", serde_json::to_string(&token).unwrap_or_default())),
+                None => builder,
+            };
+            let builder = match install_language {
+                Some(language) => builder.initialization_script(format!("window.__MYUMLMAKER_INSTALL_LANGUAGE__ = '{language}';")),
                 None => builder,
             };
             let builder = match placement {
@@ -752,7 +759,6 @@ pub fn run() {
             open_doc_window,
             tutorial_video,
             open_external,
-            sample_files,
             list_files,
             open_popup,
             popup_ready,
@@ -761,6 +767,9 @@ pub fn run() {
             hide_popup,
             close_popup,
             print_window,
+            list_printers,
+            print_direct,
+            print_pages_to_pdf,
             quit_app,
             raise_test_panic,
             db_test,

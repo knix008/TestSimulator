@@ -17,6 +17,8 @@ use tauri::{Manager, WebviewWindow, WindowEvent};
 const FILE_NAME: &str = "window-state.json";
 /// Left next to it by the installer: the next start resets the preferences (see take_install_reset).
 const INSTALL_MARKER: &str = "install-reset";
+/// Left next to it by the installer: the language chosen for the installation (see take_install_language).
+const LANGUAGE_MARKER: &str = "install-language";
 const SAVE_DELAY: Duration = Duration::from_millis(500);
 /// How much of the window must lie on a monitor (px) for the saved place to be used.
 const MIN_VISIBLE: i64 = 120;
@@ -61,6 +63,18 @@ pub fn take_install_reset(state_path: &Path) -> Option<String> {
     let _ = std::fs::remove_file(state_path);
     let token = token.trim();
     Some(if token.is_empty() { "installed".to_string() } else { token.to_string() })
+}
+
+/// The language the installer ran in ("ko" or "en"), once: the first start after installing opens in it.
+pub fn take_install_language(state_path: &Path) -> Option<&'static str> {
+    let marker = state_path.with_file_name(LANGUAGE_MARKER);
+    let language = std::fs::read_to_string(&marker).ok()?;
+    let _ = std::fs::remove_file(&marker);
+    match language.trim() {
+        "ko" => Some("ko"),
+        "en" => Some("en"),
+        _ => None,
+    }
 }
 
 pub fn save(path: &Path, state: &WindowState) -> std::io::Result<()> {
@@ -251,6 +265,22 @@ mod tests {
         assert_eq!(take_install_reset(&path).as_deref(), Some("12345"));
         assert_eq!(load(&path), None, "the window place is forgotten");
         assert_eq!(take_install_reset(&path), None, "only once");
+    }
+
+    #[test]
+    fn the_language_of_the_installation_is_read_once() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(FILE_NAME);
+        let marker = directory.path().join(LANGUAGE_MARKER);
+        assert_eq!(take_install_language(&path), None, "no installer marker");
+        for (text, language) in [("ko", "ko"), ("en\n", "en")] {
+            std::fs::write(&marker, text).unwrap();
+            assert_eq!(take_install_language(&path), Some(language));
+            assert_eq!(take_install_language(&path), None, "only once");
+        }
+        std::fs::write(&marker, "<script>").unwrap();
+        assert_eq!(take_install_language(&path), None, "anything else is ignored");
+        assert!(!marker.exists(), "and removed");
     }
 
     #[test]

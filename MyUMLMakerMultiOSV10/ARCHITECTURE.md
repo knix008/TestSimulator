@@ -60,7 +60,7 @@
 | `├ settings.js`, `recent.js` | 설정 기본값·검증·저장(localStorage), DB 연결 설정, 설치 후 초기화, 최근 파일·폴더 10개 |
 | `src/render/` | `notation.js`(뷰 상자, 시퀀스 기하, 선 경로와 UML 장식, SVG, `renderDiagramSvg`, `diagramThumbnail`, 다이어그램 색 구성 `DIAGRAM_THEMES`), `shapes.js`(`SHAPES`: `shape`마다 `size`/`draw`/`clip`, 145종 — `shapes-more.js`의 간트 막대·WBS·타임라인·ArchiMate·네트워크·JSON/YAML 나무 표·철도 다이어그램·스토리 맵 카드와 릴리스 띠·고객 여정 단계/행/카드/감정을 합침. 날짜를 따르는 뷰는 `place`가 위치를 정함), `text.js`(이스케이프, 폭 추정, 줄바꿈) |
 | `src/views/diagram.js` | `DiagramView`: 다이어그램 편집기(마우스 조작 전부, 제자리 편집, 빠른 버튼, 확대·이동, 눈금자·격자, 시뮬레이션 프레임을 `.canvas-sim` 층에 그리는 `drawSimulation`) |
-| `src/ui/` | `explorer.js`(`ModelExplorer`), `editors.js`(속성·스타일·설명·태그와 제약 패널), `startpage.js`, `tutorial.js`(`CHAPTERS` · `STEPS`), `background.js`(움직이는 배경 20종), `simulation.js`(`SimulationController`: BPMN 시뮬레이션 막대 — 재생·한 단계·처음부터·속도·100회 분석·닫기·상태 줄 — 와 흐름을 따라 움직이는 토큰 애니메이션, `bpmnsim.js`를 씀), `dom.js` |
+| `src/ui/` | `explorer.js`(`ModelExplorer`), `editors.js`(속성·스타일·설명·태그와 제약 패널), `startpage.js`(시작 페이지 카드), `startlayout.js`(카드 보드 계산, 순수 함수), `startboard.js`(카드 옮기기·크기 바꾸기), `tutorial.js`(`CHAPTERS` · `STEPS`), `background.js`(움직이는 배경 20종), `simulation.js`(`SimulationController`: BPMN 시뮬레이션 막대 — 재생·한 단계·처음부터·속도·100회 분석·닫기·상태 줄 — 와 흐름을 따라 움직이는 토큰 애니메이션, `bpmnsim.js`를 씀), `dom.js` |
 | `src/print/render.js` | 인쇄용 SVG 용지(맞춤·실제 크기·배율 나눠 찍기, 머리글·바닥글, 테마와 무관한 흰 바탕) |
 | `src/export/` | `image-encode.js`(BMP·TIFF 인코더, 그림 크기 제한), `files.js`(ZIP 작성기, base64, JPEG 쪽 → PDF), `docx.js`(Word 작성기: 스타일, 열 때 갱신되는 목차 필드, 표, PNG 그림, 쪽 번호), `report-pdf.js`(문서 블록 → A4 SVG 쪽, 앱이 JPEG로 그려 PDF로 묶음) |
 | `src/platform/native.js`, `idb.js` | 플랫폼 경계: 데스크톱은 Rust 명령, 웹은 브라우저 API(File System Access · 내려받기 · IndexedDB) |
@@ -75,7 +75,13 @@
 | `.gitignore` | 의존성, 빌드·설치 결과, 튜토리얼 동영상, 테스트 결과, 로컬 DB 접속 정보를 저장소에서 뺌 (`package-lock.json` · `Cargo.lock`은 커밋) |
 | `test/` | `unit/`(도메인·렌더링·내보내기), `conformance/`(StarUML · Enterprise Architect · PlantUML 기능 점검표), `static/`(패키징·문서), `e2e/`(`cdp.mjs`, `harness.mjs`, `web.harness.mjs`, 스위트, `align-check.mjs`, `clip-check.mjs`, `dialogs.ps1`), `db_integration.rs` |
 | `docs/` | 생성된 HTML 설명서와 `tutorial/`(튜토리얼 문서·그림) — `npm run build:docs` / `tutorial:docs`가 만듦 |
-| `samples/` | 예제(`online-shop.*.myuml`, `online-shop.*.mdj`, `shop-domain.*.mfj`, `class-model.*.mumlt`, `staruml-sample.mdj`) — 설치 파일에 포함 |
+| `src/domain/samples/` | 시작 페이지의 예제 40개: `kit.js`(다이어그램 하나를 짧게 쓰는 도구, 실제 크기로 자동 배치), `business.js` · `finance.js` · `systems.js` · `planning.js`(내용, 글은 `'한국어|English'`), `index.js`(`SAMPLE_PROJECTS` · `SAMPLE_GROUPS`) |
+| `src/domain/iconlib.js` | 다이어그램 아이콘 100개와 내 아이콘(`localStorage`). 파일에는 id와 그림 데이터 URL만 저장(마크업 없음) |
+| `src/render/diagram-themes.js` | 다이어그램 색 구성 40가지(`DIAGRAM_THEMES`, 밝은 20 · 어두운 20) |
+| `src/ui/tooltip.js` | 빠른 툴팁: `title`을 잠시 `data-tip`으로 옮겨 브라우저 툴팁을 막고 0.1초 뒤 상자를 띄움 |
+| `src-tauri/src/printing.rs` | 프린터 목록(`EnumPrintersW`), 바로 인쇄(WebView2 `ICoreWebView2_16.Print`), 시험용 PDF. Windows 외에는 목록이 비어 시스템 창을 씀 |
+| `src/icon-tones.js` | 아이콘마다의 색: 뜻이 있으면 뜻대로(삭제는 빨강), 모델 요소는 이름에서 정해진 색. 색상값은 `styles.css`의 `--tone-*`(밝은·어두운 테마) |
+| `samples/` | 예제(`<id>.ko.myuml` · `<id>.en.myuml` 40쌍, `online-shop.*.mdj`, `shop-domain.*.mfj`, `class-model.*.mumlt`, `staruml-sample.mdj`) — `npm run samples`로 생성, 설치 파일에 포함 |
 
 ## 모델링 엔진
 
@@ -201,7 +207,7 @@
 | 글꼴 목록 | `list_fonts`(fontdb) | `queryLocalFonts`(허락될 때), 아니면 후보 글꼴 검사 |
 | 클립보드 | `clipboard_write`, `clipboard_read`(arboard) | `navigator.clipboard` |
 | 문서·링크 열기 | `open_document`(설치 폴더 `docs/`), `open_external` | `window.open('./docs/…')` |
-| 예제·시작 파일 | `sample_files`, `startup_files`(명령줄의 .myuml/.mumlt/.muml/.mdj/.mfj/.json) | 내장 예제 |
+| 시작 파일 | `startup_files`(명령줄의 .myuml/.mumlt/.muml/.mdj/.mfj/.json) | 없음 |
 | 데이터베이스 | `db_test`, `db_save`, `db_load`, `db_list`, `db_delete` | — (메뉴에 없음) |
 | 인쇄 | `print_window`(팝업 창의 OS 인쇄) | `window.print` |
 | 종료 | `quit_app`(저장 안 한 변경을 UI가 처리한 뒤) | — |

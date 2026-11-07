@@ -34,6 +34,13 @@
 ;  the Start menu one the folder page is skipped; the desktop one replaces the
 ;  template's check box on the finish page. Silent (/S) and passive (/P)
 ;  installs keep Tauri's behaviour (both, or none with /NS).
+; Language: the selector opens at every installation with both languages. The template
+;  remembers the last choice in the registry, and NSIS then skips the selector unless
+;  MUI_LANGDLL_ALWAYSSHOW is defined; without MUI_LANGDLL_ALLLANGUAGES it also hides languages
+;  outside the system's code page (and with one left, the whole selector). The choice goes to
+;  %APPDATA%\com.shkwon.myumlmaker\install-language, which the next start reads (once): the
+;  program opens in the language of the installation. Silent and passive installs choose nothing
+;  and write nothing, so an update keeps the user's language.
 ; After installing:
 ;  4. .myuml projects and .mumlt templates get their own icons (project.ico,
 ;     template.ico), not the app icon.
@@ -75,6 +82,12 @@
 !define /IfNDef MUM_SD_REINSTALL IDYES
 !define /IfNDef MUM_SD_ASK IDNO
 !define /IfNDef MUM_SD_RUNNING IDCANCEL
+
+; The language selector: always shown, always with both languages, in both languages.
+!define MUI_LANGDLL_ALWAYSSHOW
+!define MUI_LANGDLL_ALLLANGUAGES
+!define MUI_LANGDLL_WINDOWTITLE "언어 / Language"
+!define MUI_LANGDLL_INFO "설치와 프로그램에 사용할 언어를 고르십시오.$\nChoose the language of the installer and the program."
 
 ; 1042 = Korean, 1033 = English (the installer's two languages).
 LangString MumAskReinstall 1042 "이전에 설치한 MyUMLMaker 가 있습니다.$\n$R9$\n$\n이전 프로그램을 완전히 삭제하고 다시 설치할까요?$\n$\n예: 이전 프로그램과 바로가기를 지우고 새로 설치합니다. 사용자 데이터는 다음 질문에서 정합니다.$\n아니오: 설치를 그만둡니다."
@@ -379,6 +392,21 @@ Function MumGuiInit
   Call MumRemoveOld
 FunctionEnd
 
+; Leaves the installer's language for the next start of the program (window_state.rs). After
+; MumWipeData: that deletes the folder.
+Function MumWriteLanguage
+  Push $0
+  CreateDirectory "${MUM_ROAMING}"
+  FileOpen $0 "${MUM_ROAMING}\install-language" w
+  ${If} $LANGUAGE == 1042
+    FileWrite $0 "ko"
+  ${Else}
+    FileWrite $0 "en"
+  ${EndIf}
+  FileClose $0
+  Pop $0
+FunctionEnd
+
 ; Deletes the user data (after the old copy is gone and no MyUMLMaker runs).
 Function MumWipeData
   RMDir /r "${MUM_ROAMING}"
@@ -496,6 +524,11 @@ FunctionEnd
     FileOpen $R9 "$APPDATA\${BUNDLEID}\install-reset" w
     FileWrite $R9 "$9"
     FileClose $R9
+  ${EndIf}
+  ; The program starts in the language chosen for this installation (nothing was chosen in silent and passive installs).
+  ${IfNot} ${Silent}
+  ${AndIf} $PassiveMode <> 1
+    Call MumWriteLanguage
   ${EndIf}
   ; 4. Document icons (Tauri registers the types with the app icon).
   WriteRegStr SHCTX "Software\Classes\MyUMLMaker.Project\DefaultIcon" "" "$INSTDIR\project.ico"

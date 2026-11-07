@@ -17,6 +17,9 @@ import { relatedFor } from '../domain/edit.js';
 import { escapeHtml, frameThrottle } from '../ui/dom.js';
 import { icon } from '../icons.js';
 
+/** The line on the rulers that follows the pointer: red on every theme. */
+export const RULER_POINTER_COLOR = '#e5191c';
+
 const PAD_SCREENS = 1.5;
 const MAX_STAGE = 4_000_000;
 const HANDLE = 8;
@@ -370,7 +373,6 @@ export class DiagramView {
     const tickEvery = minor * z >= 4 ? 1 : 5;
     const css = getComputedStyle(this.root);
     const ink = css.getPropertyValue('--muted').trim() || '#6b7280';
-    const accent = css.getPropertyValue('--accent').trim() || '#2f6fed';
     const font = `10px ${css.fontFamily || 'sans-serif'}`;
     const dpr = window.devicePixelRatio || 1;
     const sc = this.scroll;
@@ -406,9 +408,10 @@ export class DiagramView {
       }
       if (pointer) {
         const at = Math.round(((horizontal ? pointer.x : pointer.y) - start) * z) + 0.5;
-        c.strokeStyle = accent; c.beginPath();
+        c.strokeStyle = RULER_POINTER_COLOR; c.setLineDash([2, 2]); c.beginPath();
         if (horizontal) { c.moveTo(at, 0); c.lineTo(at, thick); } else { c.moveTo(0, at); c.lineTo(thick, at); }
         c.stroke();
+        c.setLineDash([]);
       }
       c.strokeStyle = css.getPropertyValue('--border').trim() || '#d0d4da';
       c.beginPath();

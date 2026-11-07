@@ -1,0 +1,1543 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.411Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13McQC3A+FWkn6uv3",
+  "name": "마케팅 캠페인 기획",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "마인드맵, 캠페인 타임라인, 랜딩 페이지 와이어프레임",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13McQC3AxLzNt0DVO",
+    "name": "마케팅 캠페인 기획",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13McQC3A+FWkn6uv3"
+    }
+   },
+   {
+    "_type": "MMMindmap",
+    "_id": "AAAAAAG13McQC3AEdecmSIDC",
+    "name": "마인드맵",
+    "_parent": {
+     "$ref": "AAAAAAG13McQC3A+FWkn6uv3"
+    },
+    "ownedElements": [
+     {
+      "_type": "MMMindmapDiagram",
+      "_id": "AAAAAAG13McQC3AExXG3VMWc",
+      "name": "캠페인 아이디어",
+      "defaultDiagram": false,
+      "mindLayout": "map",
+      "ownedViews": [
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McQC3AYdUwwjAy8",
+        "model": {
+         "$ref": "AAAAAAG13McQC3Aw3q0E8YIp"
+        },
+        "left": 480,
+        "top": 225,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McQC3AfBx0qhBUd",
+        "model": {
+         "$ref": "AAAAAAG13McQC3AOAr4Ra5U/"
+        },
+        "left": 720,
+        "top": 70,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McQC3ADQw8MIvwB",
+        "tail": {
+         "$ref": "AAAAAAG13McQC3AYdUwwjAy8"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McQC3AfBx0qhBUd"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McQC3A5rxhlfmBN",
+        "model": {
+         "$ref": "AAAAAAG13McQC3ALIWHlUaCF"
+        },
+        "left": 930,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McQC3AnKFhRM6oF",
+        "tail": {
+         "$ref": "AAAAAAG13McQC3AfBx0qhBUd"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McQC3A5rxhlfmBN"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McQC3AND5OCtU+E",
+        "model": {
+         "$ref": "AAAAAAG13McQC3AmJSlMxqGL"
+        },
+        "left": 930,
+        "top": 90,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McQC3ATyOQB3FyH",
+        "tail": {
+         "$ref": "AAAAAAG13McQC3AfBx0qhBUd"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McQC3AND5OCtU+E"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McQC3Ayleuq7pkE",
+        "model": {
+         "$ref": "AAAAAAG13McQC3AxQlxHBBqx"
+        },
+        "left": 720,
+        "top": 215,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McQC3A7UKFAXUuR",
+        "tail": {
+         "$ref": "AAAAAAG13McQC3AYdUwwjAy8"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McQC3Ayleuq7pkE"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McQC3Ay9EPwySKM",
+        "model": {
+         "$ref": "AAAAAAG13McQC3A4ShSzUiwj"
+        },
+        "left": 930,
+        "top": 160,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McQC3Arnf/pfs7f",
+        "tail": {
+         "$ref": "AAAAAAG13McQC3Ayleuq7pkE"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McQC3Ay9EPwySKM"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McQC3AkT3+s7GoC",
+        "model": {
+         "$ref": "AAAAAAG13McQC3A27n+noLdC"
+        },
+        "left": 930,
+        "top": 210,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McQC3A47W6AGTvU",
+        "tail": {
+         "$ref": "AAAAAAG13McQC3Ayleuq7pkE"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McQC3AkT3+s7GoC"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McQC3Aj/bsHasfA",
+        "model": {
+         "$ref": "AAAAAAG13McQC3AYTfCYEW+l"
+        },
+        "left": 930,
+        "top": 260,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McQC3A7MQwPVoFg",
+        "tail": {
+         "$ref": "AAAAAAG13McQC3Ayleuq7pkE"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McQC3Aj/bsHasfA"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McRC3AwabeNHNbI",
+        "model": {
+         "$ref": "AAAAAAG13McQC3A3BcO61wJD"
+        },
+        "left": 720,
+        "top": 360,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McRC3As40y/ybxy",
+        "tail": {
+         "$ref": "AAAAAAG13McQC3AYdUwwjAy8"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McRC3AwabeNHNbI"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McRC4AME8vpf+yq",
+        "model": {
+         "$ref": "AAAAAAG13McRC3AvxWD68dtk"
+        },
+        "left": 930,
+        "top": 330,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McRC4A/90D25Zte",
+        "tail": {
+         "$ref": "AAAAAAG13McRC3AwabeNHNbI"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McRC4AME8vpf+yq"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McRC4AculR2kw51",
+        "model": {
+         "$ref": "AAAAAAG13McRC4AqZGY+p5st"
+        },
+        "left": 930,
+        "top": 380,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McRC4AHaFf0LjMn",
+        "tail": {
+         "$ref": "AAAAAAG13McRC3AwabeNHNbI"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McRC4AculR2kw51"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McRC4AXv9ccSCP2",
+        "model": {
+         "$ref": "AAAAAAG13McRC4A+iIz3CqMa"
+        },
+        "left": 250,
+        "top": 95,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McRC4AHPg53urcc",
+        "tail": {
+         "$ref": "AAAAAAG13McQC3AYdUwwjAy8"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McRC4AXv9ccSCP2"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McRC4AQJxlvFgbI",
+        "model": {
+         "$ref": "AAAAAAG13McRC4ATP22+k2kW"
+        },
+        "left": 20,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McRC4AsoY24IRAs",
+        "tail": {
+         "$ref": "AAAAAAG13McRC4AXv9ccSCP2"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McRC4AQJxlvFgbI"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McRC4AGBqBDK9qa",
+        "model": {
+         "$ref": "AAAAAAG13McRC4AorPu70MJO"
+        },
+        "left": 20,
+        "top": 90,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McRC4A6w0ODjxY2",
+        "tail": {
+         "$ref": "AAAAAAG13McRC4AXv9ccSCP2"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McRC4AGBqBDK9qa"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McRC4AjFbWN4PUP",
+        "model": {
+         "$ref": "AAAAAAG13McRC4Az+ipv0Jqp"
+        },
+        "left": 20,
+        "top": 140,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McRC4A8+oLNfDzQ",
+        "tail": {
+         "$ref": "AAAAAAG13McRC4AXv9ccSCP2"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McRC4AjFbWN4PUP"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McRC4Aqj9A9fSyk",
+        "model": {
+         "$ref": "AAAAAAG13McRC4AEs2ytTsRK"
+        },
+        "left": 250,
+        "top": 240,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McRC4AbsJe5yWgO",
+        "tail": {
+         "$ref": "AAAAAAG13McQC3AYdUwwjAy8"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McRC4Aqj9A9fSyk"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McRC4Aj3zrbKHR+",
+        "model": {
+         "$ref": "AAAAAAG13McRC4ArrZrU1SmT"
+        },
+        "left": 20,
+        "top": 210,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McRC4AWt9aXWSW0",
+        "tail": {
+         "$ref": "AAAAAAG13McRC4Aqj9A9fSyk"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McRC4Aj3zrbKHR+"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McRC4A5HqTKALVC",
+        "model": {
+         "$ref": "AAAAAAG13McRC4AEJZUvbUBG"
+        },
+        "left": 20,
+        "top": 260,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McRC4A2dRBOMSG0",
+        "tail": {
+         "$ref": "AAAAAAG13McRC4Aqj9A9fSyk"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McRC4A5HqTKALVC"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McRC4AtZTx+J2lb",
+        "model": {
+         "$ref": "AAAAAAG13McRC4A0ScLDe72C"
+        },
+        "left": 250,
+        "top": 360,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McRC4Ai+GphIvJZ",
+        "tail": {
+         "$ref": "AAAAAAG13McQC3AYdUwwjAy8"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McRC4AtZTx+J2lb"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McRC4Arh5UymguS",
+        "model": {
+         "$ref": "AAAAAAG13McRC4AT498KPOuo"
+        },
+        "left": 20,
+        "top": 330,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McRC4AkDCK58aHS",
+        "tail": {
+         "$ref": "AAAAAAG13McRC4AtZTx+J2lb"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McRC4Arh5UymguS"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMNodeView",
+        "_id": "AAAAAAG13McSC4AbyUCvp0VO",
+        "model": {
+         "$ref": "AAAAAAG13McSC4AE7XvV5bRK"
+        },
+        "left": 20,
+        "top": 380,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       },
+       {
+        "_type": "MMEdgeView",
+        "_id": "AAAAAAG13McSC4AOuofKau6v",
+        "tail": {
+         "$ref": "AAAAAAG13McRC4AtZTx+J2lb"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McSC4AbyUCvp0VO"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3AExXG3VMWc"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McQC3AEdecmSIDC"
+      }
+     },
+     {
+      "_type": "MMNode",
+      "_id": "AAAAAAG13McQC3Aw3q0E8YIp",
+      "name": "봄맞이 캠페인",
+      "direction": "auto",
+      "shape": "auto",
+      "marker": "",
+      "priority": "",
+      "progress": "",
+      "startDate": "",
+      "dueDate": "",
+      "resource": "",
+      "collapsed": false,
+      "_parent": {
+       "$ref": "AAAAAAG13McQC3AEdecmSIDC"
+      },
+      "ownedElements": [
+       {
+        "_type": "MMNode",
+        "_id": "AAAAAAG13McQC3AOAr4Ra5U/",
+        "name": "목표",
+        "direction": "auto",
+        "shape": "auto",
+        "marker": "",
+        "priority": "",
+        "progress": "",
+        "startDate": "",
+        "dueDate": "",
+        "resource": "",
+        "collapsed": false,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3Aw3q0E8YIp"
+        },
+        "ownedElements": [
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McQC3ALIWHlUaCF",
+          "name": "신규 가입 5천 명",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McQC3AOAr4Ra5U/"
+          }
+         },
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McQC3AmJSlMxqGL",
+          "name": "재구매 20% 증가",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McQC3AOAr4Ra5U/"
+          }
+         }
+        ]
+       },
+       {
+        "_type": "MMNode",
+        "_id": "AAAAAAG13McQC3AxQlxHBBqx",
+        "name": "채널",
+        "direction": "auto",
+        "shape": "auto",
+        "marker": "",
+        "priority": "",
+        "progress": "",
+        "startDate": "",
+        "dueDate": "",
+        "resource": "",
+        "collapsed": false,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3Aw3q0E8YIp"
+        },
+        "ownedElements": [
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McQC3A4ShSzUiwj",
+          "name": "SNS 광고",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McQC3AxQlxHBBqx"
+          }
+         },
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McQC3A27n+noLdC",
+          "name": "메일 소식지",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McQC3AxQlxHBBqx"
+          }
+         },
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McQC3AYTfCYEW+l",
+          "name": "앱 푸시",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McQC3AxQlxHBBqx"
+          }
+         }
+        ]
+       },
+       {
+        "_type": "MMNode",
+        "_id": "AAAAAAG13McQC3A3BcO61wJD",
+        "name": "혜택",
+        "direction": "auto",
+        "shape": "auto",
+        "marker": "",
+        "priority": "",
+        "progress": "",
+        "startDate": "",
+        "dueDate": "",
+        "resource": "",
+        "collapsed": false,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3Aw3q0E8YIp"
+        },
+        "ownedElements": [
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McRC3AvxWD68dtk",
+          "name": "첫 구매 쿠폰",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McQC3A3BcO61wJD"
+          }
+         },
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McRC4AqZGY+p5st",
+          "name": "친구 초대 포인트",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McQC3A3BcO61wJD"
+          }
+         }
+        ]
+       },
+       {
+        "_type": "MMNode",
+        "_id": "AAAAAAG13McRC4A+iIz3CqMa",
+        "name": "고객",
+        "direction": "auto",
+        "shape": "auto",
+        "marker": "",
+        "priority": "",
+        "progress": "",
+        "startDate": "",
+        "dueDate": "",
+        "resource": "",
+        "collapsed": false,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3Aw3q0E8YIp"
+        },
+        "ownedElements": [
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McRC4ATP22+k2kW",
+          "name": "20~30대 직장인",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McRC4A+iIz3CqMa"
+          }
+         },
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McRC4AorPu70MJO",
+          "name": "기존 회원",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McRC4A+iIz3CqMa"
+          }
+         },
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McRC4Az+ipv0Jqp",
+          "name": "소개 받은 친구",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McRC4A+iIz3CqMa"
+          }
+         }
+        ]
+       },
+       {
+        "_type": "MMNode",
+        "_id": "AAAAAAG13McRC4AEs2ytTsRK",
+        "name": "콘텐츠",
+        "direction": "auto",
+        "shape": "auto",
+        "marker": "",
+        "priority": "",
+        "progress": "",
+        "startDate": "",
+        "dueDate": "",
+        "resource": "",
+        "collapsed": false,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3Aw3q0E8YIp"
+        },
+        "ownedElements": [
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McRC4ArrZrU1SmT",
+          "name": "후기 영상",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McRC4AEs2ytTsRK"
+          }
+         },
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McRC4AEJZUvbUBG",
+          "name": "블로그 글",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McRC4AEs2ytTsRK"
+          }
+         }
+        ]
+       },
+       {
+        "_type": "MMNode",
+        "_id": "AAAAAAG13McRC4A0ScLDe72C",
+        "name": "측정",
+        "direction": "auto",
+        "shape": "auto",
+        "marker": "",
+        "priority": "",
+        "progress": "",
+        "startDate": "",
+        "dueDate": "",
+        "resource": "",
+        "collapsed": false,
+        "_parent": {
+         "$ref": "AAAAAAG13McQC3Aw3q0E8YIp"
+        },
+        "ownedElements": [
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McRC4AT498KPOuo",
+          "name": "클릭률",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McRC4A0ScLDe72C"
+          }
+         },
+         {
+          "_type": "MMNode",
+          "_id": "AAAAAAG13McSC4AE7XvV5bRK",
+          "name": "전환율",
+          "direction": "auto",
+          "shape": "auto",
+          "marker": "",
+          "priority": "",
+          "progress": "",
+          "startDate": "",
+          "dueDate": "",
+          "resource": "",
+          "collapsed": false,
+          "_parent": {
+           "$ref": "AAAAAAG13McRC4A0ScLDe72C"
+          }
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "_type": "PMPlan",
+    "_id": "AAAAAAG13McSC4AsaW3lCRuy",
+    "name": "봄맞이 캠페인",
+    "start": "2027-02-01",
+    "_parent": {
+     "$ref": "AAAAAAG13McQC3A+FWkn6uv3"
+    },
+    "ownedElements": [
+     {
+      "_type": "TimelineDiagram",
+      "_id": "AAAAAAG13McSC4A2MbMRRyUZ",
+      "name": "캠페인 일정",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "TLTimelineView",
+        "_id": "AAAAAAG13McSC4A4BZaVbHTu",
+        "model": {
+         "$ref": "AAAAAAG13McSC4A6NIox11Mm"
+        },
+        "left": 20,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4A2MbMRRyUZ"
+        }
+       },
+       {
+        "_type": "TLEventView",
+        "_id": "AAAAAAG13McSC4Ax8NKigxpV",
+        "model": {
+         "$ref": "AAAAAAG13McSC4AEb/2GjXIA"
+        },
+        "left": 20,
+        "top": 84,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4A2MbMRRyUZ"
+        }
+       },
+       {
+        "_type": "TLEventView",
+        "_id": "AAAAAAG13McSC4Ak6xvzEYyx",
+        "model": {
+         "$ref": "AAAAAAG13McSC4AHCW2iHv8i"
+        },
+        "left": 20,
+        "top": 118,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4A2MbMRRyUZ"
+        }
+       },
+       {
+        "_type": "TLEventView",
+        "_id": "AAAAAAG13McSC4AwROSpmtp5",
+        "model": {
+         "$ref": "AAAAAAG13McSC4Av6ng2b8q3"
+        },
+        "left": 20,
+        "top": 152,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4A2MbMRRyUZ"
+        }
+       },
+       {
+        "_type": "TLEventView",
+        "_id": "AAAAAAG13McSC4A+s/4sEd5U",
+        "model": {
+         "$ref": "AAAAAAG13McSC4A0/iMgoQzE"
+        },
+        "left": 20,
+        "top": 186,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4A2MbMRRyUZ"
+        }
+       },
+       {
+        "_type": "TLPeriodView",
+        "_id": "AAAAAAG13McSC4AikUKWwKiY",
+        "model": {
+         "$ref": "AAAAAAG13McSC4ASQzNDisTS"
+        },
+        "left": 20,
+        "top": 220,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4A2MbMRRyUZ"
+        }
+       },
+       {
+        "_type": "TLPeriodView",
+        "_id": "AAAAAAG13McSC4Au7OMbyVRK",
+        "model": {
+         "$ref": "AAAAAAG13McSC4AHxzE44gH5"
+        },
+        "left": 20,
+        "top": 254,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4A2MbMRRyUZ"
+        }
+       },
+       {
+        "_type": "TLLinkView",
+        "_id": "AAAAAAG13McSC4AykE0n9s85",
+        "model": {
+         "$ref": "AAAAAAG13McSC4ARcWfv1Mq/"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McSC4Ax8NKigxpV"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McSC4Ak6xvzEYyx"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4A2MbMRRyUZ"
+        }
+       },
+       {
+        "_type": "TLLinkView",
+        "_id": "AAAAAAG13McSC4AEX31zD8s3",
+        "model": {
+         "$ref": "AAAAAAG13McSC4AxLhPIRnsd"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McSC4Ak6xvzEYyx"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McSC4AwROSpmtp5"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4A2MbMRRyUZ"
+        }
+       },
+       {
+        "_type": "TLLinkView",
+        "_id": "AAAAAAG13McSC4A923dZ7mwj",
+        "model": {
+         "$ref": "AAAAAAG13McSC4Ac4a7Wmbnh"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McSC4AwROSpmtp5"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McSC4A+s/4sEd5U"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4A2MbMRRyUZ"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4AsaW3lCRuy"
+      }
+     },
+     {
+      "_type": "TLTimeline",
+      "_id": "AAAAAAG13McSC4A6NIox11Mm",
+      "name": "2027",
+      "start": "2027-02-01",
+      "end": "2027-05-31",
+      "dayWidth": 3,
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4AsaW3lCRuy"
+      }
+     },
+     {
+      "_type": "TLEvent",
+      "_id": "AAAAAAG13McSC4AEb/2GjXIA",
+      "name": "티저 공개",
+      "date": "2027-02-15",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4AsaW3lCRuy"
+      }
+     },
+     {
+      "_type": "TLEvent",
+      "_id": "AAAAAAG13McSC4AHCW2iHv8i",
+      "name": "정식 시작",
+      "date": "2027-03-02",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4AsaW3lCRuy"
+      }
+     },
+     {
+      "_type": "TLEvent",
+      "_id": "AAAAAAG13McSC4Av6ng2b8q3",
+      "name": "중간 점검",
+      "date": "2027-04-01",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4AsaW3lCRuy"
+      }
+     },
+     {
+      "_type": "TLEvent",
+      "_id": "AAAAAAG13McSC4A0/iMgoQzE",
+      "name": "종료",
+      "date": "2027-05-14",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4AsaW3lCRuy"
+      }
+     },
+     {
+      "_type": "TLPeriod",
+      "_id": "AAAAAAG13McSC4ASQzNDisTS",
+      "name": "준비",
+      "start": "2027-02-01",
+      "end": "2027-02-26",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4AsaW3lCRuy"
+      }
+     },
+     {
+      "_type": "TLPeriod",
+      "_id": "AAAAAAG13McSC4AHxzE44gH5",
+      "name": "광고 집행",
+      "start": "2027-03-02",
+      "end": "2027-05-14",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4AsaW3lCRuy"
+      }
+     },
+     {
+      "_type": "TLLink",
+      "_id": "AAAAAAG13McSC4ARcWfv1Mq/",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13McSC4AEb/2GjXIA"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McSC4AHCW2iHv8i"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4AsaW3lCRuy"
+      }
+     },
+     {
+      "_type": "TLLink",
+      "_id": "AAAAAAG13McSC4AxLhPIRnsd",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13McSC4AHCW2iHv8i"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McSC4Av6ng2b8q3"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4AsaW3lCRuy"
+      }
+     },
+     {
+      "_type": "TLLink",
+      "_id": "AAAAAAG13McSC4Ac4a7Wmbnh",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13McSC4Av6ng2b8q3"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McSC4A0/iMgoQzE"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4AsaW3lCRuy"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "WFWireframe",
+    "_id": "AAAAAAG13McSC4A2dsDqP1HC",
+    "name": "화면 설계",
+    "_parent": {
+     "$ref": "AAAAAAG13McQC3A+FWkn6uv3"
+    },
+    "ownedElements": [
+     {
+      "_type": "WFWireframeDiagram",
+      "_id": "AAAAAAG13McSC4AO8U+g5vMq",
+      "name": "랜딩 페이지",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "WFWebFrameView",
+        "_id": "AAAAAAG13McSC4Adi0WoNMsY",
+        "model": {
+         "$ref": "AAAAAAG13McSC4AH4qDLL1A5"
+        },
+        "left": 20,
+        "top": 20,
+        "width": 620,
+        "height": 426,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4AO8U+g5vMq"
+        }
+       },
+       {
+        "_type": "WFIconView",
+        "_id": "AAAAAAG13McSC4AiGQ3l1ZuB",
+        "model": {
+         "$ref": "AAAAAAG13McSC4AjTUDeeQJ9"
+        },
+        "left": 44,
+        "top": 76,
+        "width": 280,
+        "height": 24,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4AO8U+g5vMq"
+        }
+       },
+       {
+        "_type": "WFLinkView",
+        "_id": "AAAAAAG13McSC4A0qajhogzR",
+        "model": {
+         "$ref": "AAAAAAG13McSC4AOFa/NmAFq"
+        },
+        "left": 336,
+        "top": 76,
+        "width": 280,
+        "height": 24,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4AO8U+g5vMq"
+        }
+       },
+       {
+        "_type": "WFTextView",
+        "_id": "AAAAAAG13McSC5A12hsK1Kdt",
+        "model": {
+         "$ref": "AAAAAAG13McSC5AMljiGYfBV"
+        },
+        "left": 44,
+        "top": 114,
+        "width": 572,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4AO8U+g5vMq"
+        }
+       },
+       {
+        "_type": "WFImageView",
+        "_id": "AAAAAAG13McSC5AY1gfryYO8",
+        "model": {
+         "$ref": "AAAAAAG13McSC5AKQYu7TdK3"
+        },
+        "left": 44,
+        "top": 158,
+        "width": 572,
+        "height": 150,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4AO8U+g5vMq"
+        }
+       },
+       {
+        "_type": "WFDividerView",
+        "_id": "AAAAAAG13McSC5AiZ4Krj9cP",
+        "model": {
+         "$ref": "AAAAAAG13McSC5ARjqSeETV3"
+        },
+        "left": 44,
+        "top": 322,
+        "width": 572,
+        "height": 10,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4AO8U+g5vMq"
+        }
+       },
+       {
+        "_type": "WFInputView",
+        "_id": "AAAAAAG13McSC5A9IQz6W/f1",
+        "model": {
+         "$ref": "AAAAAAG13McSC5AsIJBsJ2Vo"
+        },
+        "left": 44,
+        "top": 346,
+        "width": 280,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4AO8U+g5vMq"
+        }
+       },
+       {
+        "_type": "WFButtonView",
+        "_id": "AAAAAAG13McSC5AC2aLKw4Vm",
+        "model": {
+         "$ref": "AAAAAAG13McSC5AykeOqhwML"
+        },
+        "left": 336,
+        "top": 346,
+        "width": 280,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4AO8U+g5vMq"
+        }
+       },
+       {
+        "_type": "WFCheckboxView",
+        "_id": "AAAAAAG13McTC5AoJZszgmus",
+        "model": {
+         "$ref": "AAAAAAG13McTC5AclVC1G+1a"
+        },
+        "left": 44,
+        "top": 390,
+        "width": 572,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McSC4AO8U+g5vMq"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4A2dsDqP1HC"
+      }
+     },
+     {
+      "_type": "WFWebFrame",
+      "_id": "AAAAAAG13McSC4AH4qDLL1A5",
+      "name": "https://example.com/spring",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4A2dsDqP1HC"
+      }
+     },
+     {
+      "_type": "WFIcon",
+      "_id": "AAAAAAG13McSC4AjTUDeeQJ9",
+      "name": "logo",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4A2dsDqP1HC"
+      }
+     },
+     {
+      "_type": "WFLink",
+      "_id": "AAAAAAG13McSC4AOFa/NmAFq",
+      "name": "로그인",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4A2dsDqP1HC"
+      }
+     },
+     {
+      "_type": "WFText",
+      "_id": "AAAAAAG13McSC5AMljiGYfBV",
+      "name": "봄맞이 첫 구매 20% 할인",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4A2dsDqP1HC"
+      }
+     },
+     {
+      "_type": "WFImage",
+      "_id": "AAAAAAG13McSC5AKQYu7TdK3",
+      "name": "",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4A2dsDqP1HC"
+      }
+     },
+     {
+      "_type": "WFDivider",
+      "_id": "AAAAAAG13McSC5ARjqSeETV3",
+      "name": "",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4A2dsDqP1HC"
+      }
+     },
+     {
+      "_type": "WFInput",
+      "_id": "AAAAAAG13McSC5AsIJBsJ2Vo",
+      "name": "이메일",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4A2dsDqP1HC"
+      }
+     },
+     {
+      "_type": "WFButton",
+      "_id": "AAAAAAG13McSC5AykeOqhwML",
+      "name": "쿠폰 받기",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4A2dsDqP1HC"
+      }
+     },
+     {
+      "_type": "WFCheckbox",
+      "_id": "AAAAAAG13McTC5AclVC1G+1a",
+      "name": "소식 메일 받기",
+      "checked": true,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McSC4A2dsDqP1HC"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

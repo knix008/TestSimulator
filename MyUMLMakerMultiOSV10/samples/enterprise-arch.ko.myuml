@@ -1,0 +1,991 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.373Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13MbrChAZe6jZWgk3",
+  "name": "전사 아키텍처",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "ArchiMate 계층 뷰와 동기·전략 뷰",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13MbrChAovOKnHTN3",
+    "name": "전사 아키텍처",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13MbrChAZe6jZWgk3"
+    }
+   },
+   {
+    "_type": "ArchiMateModel",
+    "_id": "AAAAAAG13MbrChAFHDnq9IiC",
+    "name": "엔터프라이즈 아키텍처",
+    "_parent": {
+     "$ref": "AAAAAAG13MbrChAZe6jZWgk3"
+    },
+    "ownedElements": [
+     {
+      "_type": "ArchiMateDiagram",
+      "_id": "AAAAAAG13MbrChAgli30Xsms",
+      "name": "보험 계약 계층 뷰",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbrChAwm1ahn9+R",
+        "model": {
+         "$ref": "AAAAAAG13MbrChAcJ+CppjJl"
+        },
+        "left": 100,
+        "top": 40,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbrChAPf9/0BS6U",
+        "model": {
+         "$ref": "AAAAAAG13MbrChAv/odH6bPU"
+        },
+        "left": 100,
+        "top": 150,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbrChAzd93ds1cV",
+        "model": {
+         "$ref": "AAAAAAG13MbrChArB+l/sHEQ"
+        },
+        "left": 100,
+        "top": 260,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbrChAiLGpAt1//",
+        "model": {
+         "$ref": "AAAAAAG13MbrChAquxthQKY0"
+        },
+        "left": 320,
+        "top": 260,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbrChAgeIeh2FdI",
+        "model": {
+         "$ref": "AAAAAAG13MbrChALPV1t7dLm"
+        },
+        "left": 100,
+        "top": 370,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbrChAou6GkkGab",
+        "model": {
+         "$ref": "AAAAAAG13MbrChAUL3+3nawC"
+        },
+        "left": 100,
+        "top": 480,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbrChAElll2ANqS",
+        "model": {
+         "$ref": "AAAAAAG13MbrChAQ5khJzrJC"
+        },
+        "left": 320,
+        "top": 480,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbrCiAEhIw/fo/U",
+        "model": {
+         "$ref": "AAAAAAG13MbrChAxwDFsedMv"
+        },
+        "left": 100,
+        "top": 590,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbrCiAlrbMaJkOj",
+        "model": {
+         "$ref": "AAAAAAG13MbrCiAgoPOm2B7g"
+        },
+        "left": 320,
+        "top": 590,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateServingView",
+        "_id": "AAAAAAG13MbsCiAu4NMdy4WM",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiA9exMTKFhV"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbrChAPf9/0BS6U"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbrChAwm1ahn9+R"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateRealizationView",
+        "_id": "AAAAAAG13MbsCiAN2NMw3+YM",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiA0wrO5TxAl"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbrChAzd93ds1cV"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbrChAPf9/0BS6U"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateAccessView",
+        "_id": "AAAAAAG13MbsCiAOCq2jJnVj",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiACZNd3ovMO"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbrChAzd93ds1cV"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbrChAiLGpAt1//"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateServingView",
+        "_id": "AAAAAAG13MbsCiAfvFyTRWmH",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiAew3g2O0d7"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbrChAgeIeh2FdI"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbrChAzd93ds1cV"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateRealizationView",
+        "_id": "AAAAAAG13MbsCiArkzXDZoLX",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiAlgkEpAR2g"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbrChAou6GkkGab"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbrChAgeIeh2FdI"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateAccessView",
+        "_id": "AAAAAAG13MbsCiAeA1jzTq/7",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiAvm2vgplwB"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbrChAou6GkkGab"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbrChAElll2ANqS"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateServingView",
+        "_id": "AAAAAAG13MbsCiAVfTj47o+L",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiAx62irQkLT"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbrCiAEhIw/fo/U"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbrChAou6GkkGab"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       },
+       {
+        "_type": "ArchiMateCompositionView",
+        "_id": "AAAAAAG13MbsCiAhkreAkHyV",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiAB62+DP8Mw"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbrCiAEhIw/fo/U"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbrCiAlrbMaJkOj"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbrChAgli30Xsms"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbrChAcJ+CppjJl",
+      "name": "고객",
+      "kind": "business-actor",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbrChAv/odH6bPU",
+      "name": "계약 서비스",
+      "kind": "business-service",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbrChArB+l/sHEQ",
+      "name": "계약 처리",
+      "kind": "business-process",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbrChAquxthQKY0",
+      "name": "계약",
+      "kind": "business-object",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbrChALPV1t7dLm",
+      "name": "계약 API",
+      "kind": "application-service",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbrChAUL3+3nawC",
+      "name": "계약 시스템",
+      "kind": "application-component",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbrChAQ5khJzrJC",
+      "name": "계약 데이터",
+      "kind": "application-data-object",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbrChAxwDFsedMv",
+      "name": "앱 서버",
+      "kind": "technology-node",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbrCiAgoPOm2B7g",
+      "name": "PostgreSQL",
+      "kind": "technology-system-software",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateServing",
+      "_id": "AAAAAAG13MbsCiA9exMTKFhV",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbrChAv/odH6bPU"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbrChAcJ+CppjJl"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateRealization",
+      "_id": "AAAAAAG13MbsCiA0wrO5TxAl",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbrChArB+l/sHEQ"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbrChAv/odH6bPU"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateAccess",
+      "_id": "AAAAAAG13MbsCiACZNd3ovMO",
+      "name": "",
+      "accessType": "write",
+      "source": {
+       "$ref": "AAAAAAG13MbrChArB+l/sHEQ"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbrChAquxthQKY0"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateServing",
+      "_id": "AAAAAAG13MbsCiAew3g2O0d7",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbrChALPV1t7dLm"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbrChArB+l/sHEQ"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateRealization",
+      "_id": "AAAAAAG13MbsCiAlgkEpAR2g",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbrChAUL3+3nawC"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbrChALPV1t7dLm"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateAccess",
+      "_id": "AAAAAAG13MbsCiAvm2vgplwB",
+      "name": "",
+      "accessType": "readwrite",
+      "source": {
+       "$ref": "AAAAAAG13MbrChAUL3+3nawC"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbrChAQ5khJzrJC"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateServing",
+      "_id": "AAAAAAG13MbsCiAx62irQkLT",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbrChAxwDFsedMv"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbrChAUL3+3nawC"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateComposition",
+      "_id": "AAAAAAG13MbsCiAB62+DP8Mw",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbrChAxwDFsedMv"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbrCiAgoPOm2B7g"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateDiagram",
+      "_id": "AAAAAAG13MbsCiAin+lQqatB",
+      "name": "동기와 전략",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbsCiAOyL02mALs",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiA88iOrdj5d"
+        },
+        "left": 40,
+        "top": 40,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbsCiAfBOfU1idl",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiA96Uc+NO1a"
+        },
+        "left": 260,
+        "top": 40,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbsCiA6JQ5MnJ/0",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiA8N23M4rNa"
+        },
+        "left": 480,
+        "top": 40,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbsCiABhfbc2+Ro",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiA1Y+5BRQig"
+        },
+        "left": 700,
+        "top": 40,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbsCiA1RRtjwgop",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiAzJXAow2Oq"
+        },
+        "left": 700,
+        "top": 170,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbsCiA7tiOQ3ZhV",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiAQMoib2/r6"
+        },
+        "left": 480,
+        "top": 170,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbsCiAkhi7kWQ2Y",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiACmj9nHXFk"
+        },
+        "left": 260,
+        "top": 170,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbsCiAy2mWzr1Rp",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiAoPze4+QNa"
+        },
+        "left": 40,
+        "top": 300,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbsCiAMsE99DyOm",
+        "model": {
+         "$ref": "AAAAAAG13MbsCiAbBoVrN3u3"
+        },
+        "left": 40,
+        "top": 170,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateAssociationView",
+        "_id": "AAAAAAG13MbtCiA5dsjAE1L8",
+        "model": {
+         "$ref": "AAAAAAG13MbtCiAR25USCTqv"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbsCiAOyL02mALs"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbsCiAfBOfU1idl"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateAssociationView",
+        "_id": "AAAAAAG13MbtCiAde1E3X/BE",
+        "model": {
+         "$ref": "AAAAAAG13MbtCiALcdSFWE7d"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbsCiAfBOfU1idl"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbsCiA6JQ5MnJ/0"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateInfluenceView",
+        "_id": "AAAAAAG13MbtCiA0Gip87hAV",
+        "model": {
+         "$ref": "AAAAAAG13MbtCiAOKZfVGAK7"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbsCiA6JQ5MnJ/0"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbsCiABhfbc2+Ro"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateRealizationView",
+        "_id": "AAAAAAG13MbtCiAaNr6zcFvw",
+        "model": {
+         "$ref": "AAAAAAG13MbtCiAu23Dmon6m"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbsCiA1RRtjwgop"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbsCiABhfbc2+Ro"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateRealizationView",
+        "_id": "AAAAAAG13MbtCiAE8SWaIune",
+        "model": {
+         "$ref": "AAAAAAG13MbtCiAOSM55yoWk"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbsCiAkhi7kWQ2Y"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbsCiA7tiOQ3ZhV"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateInfluenceView",
+        "_id": "AAAAAAG13MbtCiA/pdPiU6o1",
+        "model": {
+         "$ref": "AAAAAAG13MbtCiAgy7W6hXDS"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbsCiA7tiOQ3ZhV"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbsCiABhfbc2+Ro"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateRealizationView",
+        "_id": "AAAAAAG13MbtCiAEjqNqFCqa",
+        "model": {
+         "$ref": "AAAAAAG13MbtCiAqOiArVBXv"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbsCiAy2mWzr1Rp"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbsCiAMsE99DyOm"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       },
+       {
+        "_type": "ArchiMateRealizationView",
+        "_id": "AAAAAAG13MbtCiAJO3tGqvZB",
+        "model": {
+         "$ref": "AAAAAAG13MbtCiA+Ca3BIzW3"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbsCiAMsE99DyOm"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbsCiAkhi7kWQ2Y"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbsCiAin+lQqatB"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbsCiA88iOrdj5d",
+      "name": "경영진",
+      "kind": "motivation-stakeholder",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbsCiA96Uc+NO1a",
+      "name": "비용 압박",
+      "kind": "motivation-driver",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbsCiA8N23M4rNa",
+      "name": "오래된 시스템",
+      "kind": "motivation-assessment",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbsCiA1Y+5BRQig",
+      "name": "운영비 20% 절감",
+      "kind": "motivation-goal",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbsCiAzJXAow2Oq",
+      "name": "클라우드 우선",
+      "kind": "motivation-principle",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbsCiAQMoib2/r6",
+      "name": "디지털 계약",
+      "kind": "strategy-capability",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbsCiACmj9nHXFk",
+      "name": "단계적 이전",
+      "kind": "strategy-course-of-action",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbsCiAoPze4+QNa",
+      "name": "이전 프로젝트",
+      "kind": "implementation-work-package",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbsCiAbBoVrN3u3",
+      "name": "목표 아키텍처",
+      "kind": "implementation-plateau",
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateAssociation",
+      "_id": "AAAAAAG13MbtCiAR25USCTqv",
+      "name": "",
+      "isDirected": false,
+      "source": {
+       "$ref": "AAAAAAG13MbsCiA88iOrdj5d"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbsCiA96Uc+NO1a"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateAssociation",
+      "_id": "AAAAAAG13MbtCiALcdSFWE7d",
+      "name": "",
+      "isDirected": false,
+      "source": {
+       "$ref": "AAAAAAG13MbsCiA96Uc+NO1a"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbsCiA8N23M4rNa"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateInfluence",
+      "_id": "AAAAAAG13MbtCiAOKZfVGAK7",
+      "name": "",
+      "strength": "+",
+      "source": {
+       "$ref": "AAAAAAG13MbsCiA8N23M4rNa"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbsCiA1Y+5BRQig"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateRealization",
+      "_id": "AAAAAAG13MbtCiAu23Dmon6m",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbsCiAzJXAow2Oq"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbsCiA1Y+5BRQig"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateRealization",
+      "_id": "AAAAAAG13MbtCiAOSM55yoWk",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbsCiACmj9nHXFk"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbsCiAQMoib2/r6"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateInfluence",
+      "_id": "AAAAAAG13MbtCiAgy7W6hXDS",
+      "name": "",
+      "strength": "++",
+      "source": {
+       "$ref": "AAAAAAG13MbsCiAQMoib2/r6"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbsCiA1Y+5BRQig"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateRealization",
+      "_id": "AAAAAAG13MbtCiAqOiArVBXv",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbsCiAoPze4+QNa"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbsCiAbBoVrN3u3"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     },
+     {
+      "_type": "ArchiMateRealization",
+      "_id": "AAAAAAG13MbtCiA+Ca3BIzW3",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbsCiAbBoVrN3u3"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbsCiACmj9nHXFk"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbrChAFHDnq9IiC"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

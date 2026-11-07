@@ -29,11 +29,11 @@ This tutorial shows every feature of MyUMLMaker with a sample project. Press Nex
 
 ![Welcome to MyUMLMaker](images/01-welcome.jpg)
 
-### 2. The Home button
+### 2. The Start button
 
-The Home button at the start of the menu bar (or Ctrl+Shift+H) brings you back here at any time. Open projects stay in their tabs.
+The Start button at the start of the menu bar (or Ctrl+Shift+H) brings you back here at any time. Open projects stay in their tabs.
 
-![The Home button](images/02-home.jpg)
+![The Start button](images/02-home.jpg)
 
 ### 3. Creating a project
 

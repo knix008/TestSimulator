@@ -14,10 +14,10 @@ const UPWARD = new Set(['UMLGeneralization', 'UMLInterfaceRealization', 'UMLReal
  * Lays out the node views of a diagram. boxes: view id → { x, y, w, h }.
  * Changes the views in place; returns the number of views moved.
  */
-export function layoutDiagram(diagram, boxes, index, { direction = 'TB', nodeSep = 50, rankSep = 70, origin = null } = {}) {
+export function layoutDiagram(diagram, boxes, index, { direction = 'TB', nodeSep = 50, rankSep = 70, origin = null, moveContainers = false } = {}) {
   const views = diagram.ownedViews ?? [];
   if (diagram._type === 'UMLSequenceDiagram') return layoutSequence(diagram, boxes, index);
-  const nodes = views.filter((v) => !isEdgeView(v) && boxes.get(v._id) && !viewDef(v._type).container && !typeDef(index.get(refId(v.model))?._type)?.container && v._type !== 'UMLNoteView' && v._type !== 'UMLTextView');
+  const nodes = views.filter((v) => !isEdgeView(v) && boxes.get(v._id) && (moveContainers || (!viewDef(v._type).container && !typeDef(index.get(refId(v.model))?._type)?.container)) && v._type !== 'UMLNoteView' && v._type !== 'UMLTextView');
   if (!nodes.length) return 0;
   const ids = new Set(nodes.map((v) => v._id));
   const edges = [];

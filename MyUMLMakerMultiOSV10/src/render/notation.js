@@ -7,6 +7,7 @@
 // and produces SVG. The diagram view, image/SVG/PDF export, printing,
 // thumbnails and the HTML documentation all use this, so what is on screen is
 // what is exported. Pure: text is measured by a function passed in.
+import { DIAGRAM_THEMES } from './diagram-themes.js';
 import { esc, estimateMeasure, n, textLine, DEFAULT_FONT } from './text.js';
 import { hiddenViews } from '../domain/mindmap.js';
 import { SHAPES, operandBounds, shade } from './shapes.js';
@@ -16,19 +17,14 @@ import { flowText, messageText, stereotypeText, transitionText } from '../domain
 import { MORE_CONTAINERS, MORE_FREE, MORE_ROUTES } from './shapes-more.js';
 
 /** Shapes whose stored size wins over the fitted size (containers, bars, widgets). */
-const FREE = new Set(['frame', 'diagramFrame', 'fragment', 'swimlane', 'pool', 'lane', 'bpmnSubProcess', 'bpmnGroup', 'expansion', 'structured', 'interruptible', 'c4Boundary', 'cloudGroup', 'rect', 'roundRect', 'ellipse', 'image', 'timingLifeline', 'subject', 'bar', 'wfFrame', 'wfMobile', 'wfPanel', 'wfInput', 'wfTextArea', 'wfDropdown', 'wfSlider', 'wfTabs', 'wfImage', 'wfAvatar', 'wfList', 'wfTable', 'wfDivider', 'wfProgress', 'wfIcon', 'note', 'text', 'cloudService', 'pseudostate']);
+const FREE = new Set(['frame', 'diagramFrame', 'fragment', 'swimlane', 'pool', 'lane', 'bpmnSubProcess', 'bpmnGroup', 'expansion', 'structured', 'interruptible', 'c4Boundary', 'cloudGroup', 'rect', 'roundRect', 'ellipse', 'image', 'iconPicture', 'timingLifeline', 'subject', 'bar', 'wfFrame', 'wfMobile', 'wfPanel', 'wfInput', 'wfTextArea', 'wfDropdown', 'wfSlider', 'wfTabs', 'wfImage', 'wfAvatar', 'wfList', 'wfTable', 'wfDivider', 'wfProgress', 'wfIcon', 'note', 'text', 'cloudService', 'pseudostate']);
 /** Container shapes: drawn behind the other nodes; moving one moves what is inside. */
 export const CONTAINER_SHAPES = new Set(['mmBoundary', 'usRelease', 'cjStage', 'cjLane', 'frame', 'diagramFrame', 'fragment', 'swimlane', 'pool', 'lane', 'bpmnSubProcess', 'bpmnGroup', 'expansion', 'structured', 'interruptible', 'c4Boundary', 'cloudGroup', 'subject', 'package', 'state', 'node3d', 'component', 'wfFrame', 'wfMobile', 'wfPanel', 'collaboration', 'subsystem']);
 for (const shape of MORE_FREE) FREE.add(shape);
 for (const shape of MORE_CONTAINERS) CONTAINER_SHAPES.add(shape);
 
 /** Diagram colour schemes (Settings › Diagram). */
-export const DIAGRAM_THEMES = {
-  classic: { background: '#ffffff', fill: '#ffffff', line: '#1f1f1f', color: '#000000', grid: '#e9ecf1', gridMajor: '#a9b2bf' },
-  pastel: { background: '#ffffff', fill: '#fffdf2', line: '#4a4a4a', color: '#1f2937', grid: '#eceff3', gridMajor: '#b3bac5', fills: { classifier: '#fff7d6', instance: '#e8f4ff', behavior: '#f1ecff', state: '#eaf7ee', activity: '#eaf7ee', interaction: '#f0f6ff', erd: '#fff1e6', flowchart: '#eef6ff', dfd: '#fef2f2', sysml: '#f3f0ff', package: '#f5f5f4', annotation: '#fffbe6' } },
-  blueprint: { background: '#0f3057', fill: '#14406f', line: '#cfe3ff', color: '#ffffff', grid: '#1a4675', gridMajor: '#4f8cca' },
-  dark: { background: '#1e1f24', fill: '#2a2c33', line: '#c9ccd4', color: '#e8eaef', grid: '#2a2c33', gridMajor: '#535867' },
-};
+export { DIAGRAM_THEMES };
 
 const NOTE_GROUP = new Set(['annotation']);
 

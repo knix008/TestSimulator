@@ -12,6 +12,8 @@ import {
 } from './domain/settings.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
+import { DIAGRAM_THEME_LIST } from './render/diagram-themes.js';
+import { ICON_GROUPS, LIBRARY_ICONS, loadMyIcons, removeMyIcon, storeMyIcons } from './domain/iconlib.js';
 import * as native from './platform/native.js';
 import { POPUPS, popupParams } from './platform/popups.js';
 import {
@@ -204,7 +206,7 @@ function render() {
       print: renderPrint, menu: renderMenu, theme: renderThemePicker, welcome: renderWelcome, image: renderImage, database: renderDatabase,
       find: renderFind, validation: renderValidation, codegen: renderCodegen, textimport: renderTextImport, color: renderColor, prompt: renderPrompt,
       document: renderDocument, baselines: renderBaselines, compare: renderCompare, background: renderBackground,
-      requirements: renderRequirements, tracematrix: renderTraceMatrix, diagram: renderDiagramPicker,
+      requirements: renderRequirements, tracematrix: renderTraceMatrix, diagram: renderDiagramPicker, iconpicker: renderIconPicker, diagramtheme: renderDiagramThemes,
     })[kind]?.();
     alignRows();
     updateTabsNav();
@@ -912,7 +914,7 @@ root.addEventListener('pointerdown', (event) => {
 
 function settingsDiagram() {
   return [
-    row('palette', t('settings.diagramTheme'), segmented('diagramTheme', DIAGRAM_THEME_IDS.map((id) => [id, t(`diagramTheme.${id}`)]), s().diagramTheme)),
+    row('palette', t('settings.diagramTheme'), select('data-select', 'diagramTheme', ['theme', ...DIAGRAM_THEME_IDS].map((id) => [id, t(`diagramTheme.${id}`), 'palette']), s().diagramTheme, t('settings.diagramTheme'))),
     row('lineRectilinear', t('settings.defaultLineStyle'), segmented('defaultLineStyle', LINE_STYLES.map((id) => [id, t(`lineStyle.${id}`)]), s().defaultLineStyle)),
     row('font', t('settings.diagramFont'), `<input type="text" data-setting-text="diagramFont" value="${escapeHtml(s().diagramFont)}" placeholder="${escapeHtml(t('style.default'))}" />`),
     row('fontUp', t('settings.diagramFontSize'), numberField('diagramFontSize', s().diagramFontSize, 9, 24, 1, 'px', t('settings.diagramFontSize'))),
@@ -959,6 +961,50 @@ function printLayout() {
   return renderPrintSheets(printDoc(), printSetup(), { measure: printMeasure, currentPageId: P().currentPageId, language: L(), t, theme: P().theme, lineStyle: P().lineStyle });
 }
 
+// ───────────────────────── the icon window
+
+function renderIconPicker() {
+  const L = getLanguage();
+  const search = (state.iconSearch ?? '').trim().toLowerCase();
+  const matches = (text) => !search || text.toLowerCase().includes(search);
+  const mine = loadMyIcons(globalThis.localStorage).filter((item) => matches(item.name));
+  const tile = (item) => `<button class="icon-tile" data-action="pick-icon" data-value="${escapeHtml(item.id)}" title="${escapeHtml(item[L])}" aria-label="${escapeHtml(item[L])}"><svg viewBox="0 0 24 24" fill="none" stroke="${item.color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${item.body}</svg></button>`;
+  const groups = ICON_GROUPS.map((group) => ({ ...group, shown: group.icons.filter((item) => matches(item.ko) || matches(item.en)) })).filter((group) => group.shown.length);
+  root.innerHTML = frame({
+    glyph: 'iconInsert', title: P().title ?? t('icons.insert'),
+    body: `<div class="icon-picker">
+      <div class="icon-search search-box">${icon('search')}<input type="text" data-icon-search value="${escapeHtml(state.iconSearch ?? '')}" placeholder="${escapeHtml(t('icons.search'))}" aria-label="${escapeHtml(t('icons.search'))}" /></div>
+      <div class="icon-groups">
+        <section class="icon-group" data-icon-group="mine"><h3>${escapeHtml(t('icons.mine'))}</h3><div class="icon-tiles">
+          ${mine.map((item) => `<span class="icon-mine"><button class="icon-tile" data-action="pick-my-icon" data-value="${escapeHtml(item.id)}" title="${escapeHtml(item.name)}" aria-label="${escapeHtml(item.name)}"><img src="${escapeHtml(item.src)}" alt="" /></button><button class="icon-remove" data-action="remove-my-icon" data-value="${escapeHtml(item.id)}" title="${escapeHtml(t('icons.remove'))}" aria-label="${escapeHtml(t('icons.remove'))}">${icon('close', 'icon tiny')}</button></span>`).join('')}
+          <button class="icon-tile add" data-action="add-my-icon" title="${escapeHtml(t('icons.add'))}" aria-label="${escapeHtml(t('icons.add'))}">${icon('plus')}</button>
+        </div></section>
+        ${groups.map((group) => `<section class="icon-group" data-icon-group="${group.id}"><h3>${escapeHtml(group[L])}</h3><div class="icon-tiles">${group.shown.map(tile).join('')}</div></section>`).join('')}
+        ${groups.length || mine.length ? '' : `<div class="muted">${escapeHtml(t('icons.none'))}</div>`}
+      </div>
+    </div>`,
+    foot: `<span class="muted">${escapeHtml(t('icons.count', { n: LIBRARY_ICONS.length, mine: loadMyIcons(globalThis.localStorage).length }))}</span><span class="grow"></span>${button('close', t('common.cancel'), 'close')}`,
+  });
+  ready();
+}
+
+// ───────────────────────── the colour schemes of the diagrams
+
+function renderDiagramThemes() {
+  const L = getLanguage();
+  const current = s().diagramTheme;
+  const tile = (theme) => `<button class="dt-tile ${theme.id === current ? 'on' : ''}" data-action="pick-diagram-theme" data-value="${theme.id}" title="${escapeHtml(theme[L])}">
+    <svg viewBox="0 0 60 36" aria-hidden="true"><rect width="60" height="36" fill="${theme.background}"/><rect x="6" y="6" width="20" height="12" fill="${theme.fills?.classifier ?? theme.fill}" stroke="${theme.line}"/><rect x="34" y="18" width="20" height="12" fill="${theme.fills?.behavior ?? theme.fill}" stroke="${theme.line}"/><path d="M26 12h4v12h4" fill="none" stroke="${theme.line}"/><path d="M9 11h12" stroke="${theme.color}"/><path d="M37 23h12" stroke="${theme.color}"/></svg>
+    <span>${escapeHtml(theme[L])}</span></button>`;
+  const group = (dark, glyph, label) => `<section class="icon-group" data-theme-kind="${dark ? 'dark' : 'light'}"><h3>${icon(glyph)}<span>${escapeHtml(label)}</span></h3><div class="dt-tiles">${DIAGRAM_THEME_LIST.filter((theme) => theme.dark === dark).map(tile).join('')}</div></section>`;
+  root.innerHTML = frame({
+    glyph: 'diagramThemes', title: t('action.diagramThemeMore'),
+    body: `<div class="icon-groups dt-groups"><section class="icon-group" data-theme-kind="follow"><div class="dt-tiles">${tile({ id: 'theme', [L]: t('diagramTheme.theme'), ...DIAGRAM_THEMES.theme })}</div></section>${group(false, 'sun', t('start.themeLight'))}${group(true, 'moon', t('start.themeDark'))}</div>`,
+    foot: `<span class="grow"></span>${button('close', t('common.close'), 'close')}`,
+  });
+  ready();
+}
+
 function renderPrint() {
   const options = printSetup();
   const p = P();
@@ -968,14 +1014,37 @@ function renderPrint() {
   const sel = (key, values, label) => select('data-print', key, values, options[key], label);
   const check = (key, label, glyph) => row(glyph, label, `<label class="switch-wrap" title="${escapeHtml(label)}"><input type="checkbox" data-print-toggle="${key}" ${options[key] ? 'checked' : ''} aria-label="${escapeHtml(label)}" /><span class="switch" aria-hidden="true"></span></label>`);
   const custom = options.range === 'custom';
-  const tab = ['range', 'page', 'header'].includes(state.tab) ? state.tab : 'range';
   const count = diagramCount(printDoc());
+  // The printers are asked for once; until then, and without any, the system dialog prints.
+  if (!state.printers) {
+    state.printers = { printers: [], defaultPrinter: '' };
+    native.listPrinters().then((list) => { state.printers = list; if (list.printers.length) render(); }).catch(() => {});
+  }
+  const { printers, defaultPrinter } = state.printers;
+  const section = (glyph, title, rows) => `<section class="print-section"><h3>${icon(glyph)}<span>${escapeHtml(title)}</span></h3>${rows.join('')}</section>`;
   root.innerHTML = frame({
     glyph: 'print', title: t('print.title'),
-    tabs: tabsHtml([['range', 'list', t('print.tabRange')], ['page', 'pageSetup', t('print.tabPage')], ['header', 'notes', t('print.tabHeader')]], tab),
     body: `<div class="print-view">
       <div class="print-options">
-        ${tab === 'page' ? [
+        <div class="print-column">
+        ${section('print', t('print.printer'), [
+          printers.length ? row('print', t('print.printer'), select('data-print', 'printer', [['', t('print.defaultPrinter', { name: defaultPrinter || '-' }), 'print'], ...printers.map((name) => [name, name, 'print'])], printers.includes(options.printer) ? options.printer : '', t('print.printer'))) : row('info', '', `<span class="muted">${escapeHtml(t('print.systemDialog'))}</span>`),
+          printers.length ? row('duplicate', t('print.copies'), numberField('print:copies', options.copies, 1, 99, 1, '', t('print.copies'))) : '',
+        ])}
+        ${section('list', t('print.tabRange'), [
+          ...RANGES.map((range) => `<label class="row radio-row" title="${escapeHtml(t(`print.range.${range}`))}"><input type="radio" name="range" data-print-range="${range}" ${options.range === range ? 'checked' : ''} /><span>${icon({ all: 'selectAll', current: 'eye', custom: 'filter' }[range])}${escapeHtml(t(`print.range.${range}`))}</span></label>`),
+          row('list', t('print.pages'), `${numberField('print:from', Math.min(options.from, count), 1, Math.max(1, count), 1, '', t('print.from'))}<span>–</span>${numberField('print:to', Math.min(options.to, count), 1, Math.max(1, count), 1, '', t('print.to'))}`),
+          row('info', t('print.summary'), `<span class="muted">${escapeHtml(t('print.summaryText', { pages: count, sheets: layout.count }))}</span>`),
+        ])}
+        ${section('notes', t('print.tabHeader'), [
+          check('header', t('print.header'), 'notes'),
+          row('edit', t('print.headerText'), `<input type="text" data-print-text="headerText" value="${escapeHtml(options.headerText)}" placeholder="${escapeHtml(p.title ?? '')}" title="${escapeHtml(t('print.headerText'))}" />`),
+          check('footer', t('print.footer'), 'pageSetup'),
+          row('edit', t('print.footerText'), `<input type="text" data-print-text="footerText" value="${escapeHtml(options.footerText)}" placeholder="MyUMLMaker" title="${escapeHtml(t('print.footerText'))}" />`),
+        ])}
+        </div>
+        <div class="print-column">
+        ${section('pageSetup', t('print.tabPage'), [
           row('file', t('print.paper'), sel('paper', Object.keys(PAPERS).map((paper) => [paper, paper]), t('print.paper'))),
           row('pageSetup', t('print.orientation'), segmented('orientation', [['portrait', t('print.portrait')], ['landscape', t('print.landscape')]], options.orientation, 'data-print-segment')),
           row('fitPage', t('print.margin'), sel('margin', Object.keys(MARGINS).map((margin) => [margin, t(`print.margin.${margin}`)]), t('print.margin'))),
@@ -983,16 +1052,8 @@ function renderPrint() {
           row('zoomIn', t('print.scale'), numberField('print:scale', options.scale, 10, 400, 10, '%', t('print.scale')), t('print.scale'), options.fit === 'percent' ? '' : 'disabled-row'),
           check('center', t('print.center'), 'alignCenter'),
           check('background', t('print.background'), 'fillColor'),
-        ].join('') : tab === 'header' ? [
-          check('header', t('print.header'), 'notes'),
-          row('edit', t('print.headerText'), `<input type="text" data-print-text="headerText" value="${escapeHtml(options.headerText)}" placeholder="${escapeHtml(p.title ?? '')}" title="${escapeHtml(t('print.headerText'))}" />`),
-          check('footer', t('print.footer'), 'pageSetup'),
-          row('edit', t('print.footerText'), `<input type="text" data-print-text="footerText" value="${escapeHtml(options.footerText)}" placeholder="MyUMLMaker" title="${escapeHtml(t('print.footerText'))}" />`),
-        ].join('') : [
-          ...RANGES.map((range) => `<label class="row radio-row" title="${escapeHtml(t(`print.range.${range}`))}"><input type="radio" name="range" data-print-range="${range}" ${options.range === range ? 'checked' : ''} /><span>${icon({ all: 'selectAll', current: 'eye', custom: 'filter' }[range])}${escapeHtml(t(`print.range.${range}`))}</span></label>`),
-          row('list', t('print.pages'), `${numberField('print:from', Math.min(options.from, count), 1, Math.max(1, count), 1, '', t('print.from'))}<span>–</span>${numberField('print:to', Math.min(options.to, count), 1, Math.max(1, count), 1, '', t('print.to'))}`, t('print.pages'), custom ? '' : 'disabled-row'),
-          row('info', t('print.summary'), `<span class="muted">${escapeHtml(t('print.summaryText', { pages: count, sheets: layout.count }))}</span>`),
-        ].join('')}
+        ])}
+        </div>
       </div>
       <div class="print-preview" id="print-preview">
         ${page ? `<div class="preview-stage">${page.svg}</div>` : `<div class="preview-empty">${icon('info')}<span>${escapeHtml(t('print.empty'))}</span></div>`}
@@ -1008,7 +1069,9 @@ function renderPrint() {
   });
   let style = document.querySelector('#page-style');
   if (!style) { style = document.createElement('style'); style.id = 'page-style'; document.head.append(style); }
-  style.textContent = `@page { size: ${layout.paper.width}mm ${layout.paper.height}mm; margin: 0; }`;
+  // A hair under the paper's height: a sheet exactly as tall as the page can round over it and print an empty page.
+  style.textContent = `@page { size: ${layout.paper.width}mm ${layout.paper.height}mm; margin: 0; }
+@media print { .print-sheet .print-page { width: ${layout.paper.width}mm; height: ${layout.paper.height - 0.5}mm; } }`;
   fitPreview();
   ready();
 }
@@ -1039,7 +1102,11 @@ function changePrint(patch) {
 
 async function doPrint() {
   try {
-    if (window.__myumlmakerPrintHook) window.__myumlmakerPrintHook(printLayout());
+    const layout = printLayout();
+    const options = printSetup();
+    const job = { printer: state.printers?.printers.includes(options.printer) ? options.printer : '', copies: options.copies ?? 1, widthMm: layout.paper.width, heightMm: layout.paper.height };
+    if (window.__myumlmakerPrintHook) window.__myumlmakerPrintHook(layout, job);
+    else if (state.printers?.printers.length) await native.printDirect(job);
     else await native.printWindow();
     action('printed');
   } catch (error) {
@@ -1777,6 +1844,11 @@ root.addEventListener('click', async (event) => {
       return copyText([...root.querySelectorAll('#about-rows dt')].map((dt) => `${dt.textContent.trim()}: ${dt.nextElementSibling.textContent.trim()}`).join('\n')).then(() => action('notice', { kind: 'success', text: t('error.copied') }));
     case 'page': state.page += Number(value); return render();
     case 'print': return doPrint();
+    case 'pick-icon': pickerDone = true; return close({ icon: value });
+    case 'pick-my-icon': { const item = loadMyIcons(globalThis.localStorage).find((x) => x.id === value); pickerDone = true; return close(item ? { icon: item.id, src: item.src } : null); }
+    case 'add-my-icon': pickerDone = true; return close({ add: true });
+    case 'remove-my-icon': storeMyIcons(globalThis.localStorage, removeMyIcon(loadMyIcons(globalThis.localStorage), value)); return render();
+    case 'pick-diagram-theme': return update({ diagramTheme: value });
     case 'use-custom': return update({ theme: CUSTOM });
     case 'copy-theme': { const from = resolveTheme(s().theme === CUSTOM ? 'light' : s().theme, prefersDark(), s().customTheme); return update({ customTheme: customFrom(from) }); }
     case 'edit-custom': pickerDone = true; await action('open-settings', { tab: 'appearance', themeGroup: 'custom' }); return close();
@@ -1863,6 +1935,16 @@ root.addEventListener('change', (event) => {
 
 root.addEventListener('input', (event) => {
   const target = event.target;
+  // The icon window narrows its list as the user types (the field keeps the focus).
+  if ('iconSearch' in target.dataset) {
+    state.iconSearch = target.value;
+    const at = target.selectionStart;
+    render();
+    const field = root.querySelector('[data-icon-search]');
+    field.focus();
+    field.setSelectionRange(at, at);
+    return;
+  }
   // Background sliders, numbers and colours: the preview follows while dragging (the change redraws the controls).
   if (kind === 'background' && target.dataset.bgInput) {
     for (const twin of target.closest('.bg-slider')?.querySelectorAll('input') ?? []) if (twin !== target) twin.value = target.value;

@@ -1,0 +1,850 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.354Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13MbXCXAwVMdJqu2d",
+  "name": "Azure 데이터 파이프라인",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "Azure 구성, 데이터 흐름도, YAML 파이프라인",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13MbXCXAIkMYtf2BX",
+    "name": "Azure 데이터 파이프라인",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13MbXCXAwVMdJqu2d"
+    }
+   },
+   {
+    "_type": "CloudModel",
+    "_id": "AAAAAAG13MbXCXAgS9S5Dk7k",
+    "name": "Azure 구성",
+    "_parent": {
+     "$ref": "AAAAAAG13MbXCXAwVMdJqu2d"
+    },
+    "ownedElements": [
+     {
+      "_type": "AzureDiagram",
+      "_id": "AAAAAAG13MbXCXAWrWlkTYXn",
+      "name": "Azure 구성",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "CloudGroupView",
+        "_id": "AAAAAAG13MbXCYAyMJOsxvqD",
+        "model": {
+         "$ref": "AAAAAAG13MbXCYAVF2IOPHAu"
+        },
+        "left": 212,
+        "top": 94,
+        "width": 752,
+        "height": 268,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbXCXA+Gxyzsz/o",
+        "model": {
+         "$ref": "AAAAAAG13MbXCXAT323XCqn1"
+        },
+        "left": 90,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbXCXARxq0w6rTY",
+        "model": {
+         "$ref": "AAAAAAG13MbXCXAekmVmf5DP"
+        },
+        "left": 248,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbXCXArf7JCd5RA",
+        "model": {
+         "$ref": "AAAAAAG13MbXCXAOe2K4HYvu"
+        },
+        "left": 564,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbXCXAjRvn9JyuP",
+        "model": {
+         "$ref": "AAAAAAG13MbXCXAjXtpJNHXL"
+        },
+        "left": 406,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbXCXA7UkvjZ3JQ",
+        "model": {
+         "$ref": "AAAAAAG13MbXCXAPghLQRBTt"
+        },
+        "left": 722,
+        "top": 150,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbXCXAAPfPM2cot",
+        "model": {
+         "$ref": "AAAAAAG13MbXCXAdowl7AmfW"
+        },
+        "left": 722,
+        "top": 278,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudServiceView",
+        "_id": "AAAAAAG13MbXCXA4uqT1T9pF",
+        "model": {
+         "$ref": "AAAAAAG13MbXCXA8Q5BCyd3p"
+        },
+        "left": 880,
+        "top": 214,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbXCXAkfEA1urt/",
+        "model": {
+         "$ref": "AAAAAAG13MbXCXA54DbJmEjT"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbXCXA+Gxyzsz/o"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbXCXARxq0w6rTY"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbXCXAWi3LI89II",
+        "model": {
+         "$ref": "AAAAAAG13MbXCXA+6XD2sYq9"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbXCXARxq0w6rTY"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbXCXAjRvn9JyuP"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbXCYA7LkEq266N",
+        "model": {
+         "$ref": "AAAAAAG13MbXCXApu5kobpDg"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbXCXAjRvn9JyuP"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbXCXArf7JCd5RA"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbXCYAZ6NytqOwk",
+        "model": {
+         "$ref": "AAAAAAG13MbXCYALDSldN4Wn"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbXCXArf7JCd5RA"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbXCXA7UkvjZ3JQ"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbXCYA8Jm8Y2/Xv",
+        "model": {
+         "$ref": "AAAAAAG13MbXCYArij29ivvK"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbXCXArf7JCd5RA"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbXCXAAPfPM2cot"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       },
+       {
+        "_type": "CloudConnectionView",
+        "_id": "AAAAAAG13MbXCYAE61iy6oGZ",
+        "model": {
+         "$ref": "AAAAAAG13MbXCYAT6Mch6ida"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbXCXA7UkvjZ3JQ"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbXCXA4uqT1T9pF"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCXAWrWlkTYXn"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbXCXAT323XCqn1",
+      "name": "장치",
+      "provider": "azure",
+      "service": "User",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbXCXAekmVmf5DP",
+      "name": "수집",
+      "provider": "azure",
+      "service": "Event Hubs",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbXCXAOe2K4HYvu",
+      "name": "변환",
+      "provider": "azure",
+      "service": "Data Factory",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbXCXAjXtpJNHXL",
+      "name": "원본 저장",
+      "provider": "azure",
+      "service": "Blob Storage",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbXCXAPghLQRBTt",
+      "name": "분석",
+      "provider": "azure",
+      "service": "Synapse",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbXCXAdowl7AmfW",
+      "name": "모델 학습",
+      "provider": "azure",
+      "service": "Databricks",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudService",
+      "_id": "AAAAAAG13MbXCXA8Q5BCyd3p",
+      "name": "Monitor",
+      "provider": "azure",
+      "service": "Monitor",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbXCXA54DbJmEjT",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbXCXAT323XCqn1"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbXCXAekmVmf5DP"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbXCXA+6XD2sYq9",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbXCXAekmVmf5DP"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbXCXAjXtpJNHXL"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbXCXApu5kobpDg",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbXCXAjXtpJNHXL"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbXCXAOe2K4HYvu"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbXCYALDSldN4Wn",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbXCXAOe2K4HYvu"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbXCXAPghLQRBTt"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbXCYArij29ivvK",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbXCXAOe2K4HYvu"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbXCXAdowl7AmfW"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudConnection",
+      "_id": "AAAAAAG13MbXCYAT6Mch6ida",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbXCXAPghLQRBTt"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbXCXA8Q5BCyd3p"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     },
+     {
+      "_type": "CloudGroup",
+      "_id": "AAAAAAG13MbXCYAVF2IOPHAu",
+      "name": "rg-data",
+      "provider": "azure",
+      "groupKind": "resourceGroup",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCXAgS9S5Dk7k"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "DFDDataFlowModel",
+    "_id": "AAAAAAG13MbXCYAzLj8jkzZW",
+    "name": "데이터 흐름",
+    "_parent": {
+     "$ref": "AAAAAAG13MbXCXAwVMdJqu2d"
+    },
+    "ownedElements": [
+     {
+      "_type": "DFDDiagram",
+      "_id": "AAAAAAG13MbXCYACfV7Go6j1",
+      "name": "데이터 가공 흐름",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "DFDExternalEntityView",
+        "_id": "AAAAAAG13MbXCYAZBRiyGsa1",
+        "model": {
+         "$ref": "AAAAAAG13MbXCYAA5pcURyS0"
+        },
+        "left": 40,
+        "top": 55,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCYACfV7Go6j1"
+        }
+       },
+       {
+        "_type": "DFDProcessView",
+        "_id": "AAAAAAG13MbXCYAKYi6NoOLS",
+        "model": {
+         "$ref": "AAAAAAG13MbXCYAp4cxYwnER"
+        },
+        "left": 310,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCYACfV7Go6j1"
+        }
+       },
+       {
+        "_type": "DFDDataStoreView",
+        "_id": "AAAAAAG13MbYCYAICYZhKzL/",
+        "model": {
+         "$ref": "AAAAAAG13MbYCYAOTp3S0rax"
+        },
+        "left": 560,
+        "top": 59,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCYACfV7Go6j1"
+        }
+       },
+       {
+        "_type": "DFDProcessView",
+        "_id": "AAAAAAG13MbYCYAv/t5BhB/1",
+        "model": {
+         "$ref": "AAAAAAG13MbYCYAxDpmpKZXN"
+        },
+        "left": 880,
+        "top": 40,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCYACfV7Go6j1"
+        }
+       },
+       {
+        "_type": "DFDDataStoreView",
+        "_id": "AAAAAAG13MbYCYANcWn5svAk",
+        "model": {
+         "$ref": "AAAAAAG13MbYCYAQ+Fxa5AHa"
+        },
+        "left": 1130,
+        "top": 59,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCYACfV7Go6j1"
+        }
+       },
+       {
+        "_type": "DFDExternalEntityView",
+        "_id": "AAAAAAG13MbYCYAs9i35UWKI",
+        "model": {
+         "$ref": "AAAAAAG13MbYCYA/YjEl37y9"
+        },
+        "left": 1450,
+        "top": 55,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCYACfV7Go6j1"
+        }
+       },
+       {
+        "_type": "DFDDataFlowView",
+        "_id": "AAAAAAG13MbYCYAITITAFHd5",
+        "model": {
+         "$ref": "AAAAAAG13MbYCYAD6PW1YfNX"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbXCYAZBRiyGsa1"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbXCYAKYi6NoOLS"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCYACfV7Go6j1"
+        }
+       },
+       {
+        "_type": "DFDDataFlowView",
+        "_id": "AAAAAAG13MbYCYAa+zOj7Dcf",
+        "model": {
+         "$ref": "AAAAAAG13MbYCYAmJpJCk3W0"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbXCYAKYi6NoOLS"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbYCYAICYZhKzL/"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCYACfV7Go6j1"
+        }
+       },
+       {
+        "_type": "DFDDataFlowView",
+        "_id": "AAAAAAG13MbYCYABFcGb7rR3",
+        "model": {
+         "$ref": "AAAAAAG13MbYCYAPcF3vxNWV"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbYCYAICYZhKzL/"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbYCYAv/t5BhB/1"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCYACfV7Go6j1"
+        }
+       },
+       {
+        "_type": "DFDDataFlowView",
+        "_id": "AAAAAAG13MbYCYAAJWUNeW8S",
+        "model": {
+         "$ref": "AAAAAAG13MbYCYAeYIOAq1T0"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbYCYAv/t5BhB/1"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbYCYANcWn5svAk"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCYACfV7Go6j1"
+        }
+       },
+       {
+        "_type": "DFDDataFlowView",
+        "_id": "AAAAAAG13MbYCYALkTnDkgSw",
+        "model": {
+         "$ref": "AAAAAAG13MbYCYAoa9etsFmv"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbYCYANcWn5svAk"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbYCYAs9i35UWKI"
+        },
+        "points": [],
+        "lineStyle": "oblique",
+        "_parent": {
+         "$ref": "AAAAAAG13MbXCYACfV7Go6j1"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCYAzLj8jkzZW"
+      }
+     },
+     {
+      "_type": "DFDExternalEntity",
+      "_id": "AAAAAAG13MbXCYAA5pcURyS0",
+      "name": "장치",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCYAzLj8jkzZW"
+      }
+     },
+     {
+      "_type": "DFDProcess",
+      "_id": "AAAAAAG13MbXCYAp4cxYwnER",
+      "name": "수집",
+      "id": "1.0",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCYAzLj8jkzZW"
+      }
+     },
+     {
+      "_type": "DFDDataStore",
+      "_id": "AAAAAAG13MbYCYAOTp3S0rax",
+      "name": "원본",
+      "id": "D1",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCYAzLj8jkzZW"
+      }
+     },
+     {
+      "_type": "DFDProcess",
+      "_id": "AAAAAAG13MbYCYAxDpmpKZXN",
+      "name": "정제",
+      "id": "2.0",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCYAzLj8jkzZW"
+      }
+     },
+     {
+      "_type": "DFDDataStore",
+      "_id": "AAAAAAG13MbYCYAQ+Fxa5AHa",
+      "name": "분석 테이블",
+      "id": "D2",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCYAzLj8jkzZW"
+      }
+     },
+     {
+      "_type": "DFDExternalEntity",
+      "_id": "AAAAAAG13MbYCYA/YjEl37y9",
+      "name": "분석가",
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCYAzLj8jkzZW"
+      }
+     },
+     {
+      "_type": "DFDDataFlow",
+      "_id": "AAAAAAG13MbYCYAD6PW1YfNX",
+      "name": "측정값",
+      "source": {
+       "$ref": "AAAAAAG13MbXCYAA5pcURyS0"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbXCYAp4cxYwnER"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCYAzLj8jkzZW"
+      }
+     },
+     {
+      "_type": "DFDDataFlow",
+      "_id": "AAAAAAG13MbYCYAmJpJCk3W0",
+      "name": "원본 이벤트",
+      "source": {
+       "$ref": "AAAAAAG13MbXCYAp4cxYwnER"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbYCYAOTp3S0rax"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCYAzLj8jkzZW"
+      }
+     },
+     {
+      "_type": "DFDDataFlow",
+      "_id": "AAAAAAG13MbYCYAPcF3vxNWV",
+      "name": "일일 묶음",
+      "source": {
+       "$ref": "AAAAAAG13MbYCYAOTp3S0rax"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbYCYAxDpmpKZXN"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCYAzLj8jkzZW"
+      }
+     },
+     {
+      "_type": "DFDDataFlow",
+      "_id": "AAAAAAG13MbYCYAeYIOAq1T0",
+      "name": "정제 데이터",
+      "source": {
+       "$ref": "AAAAAAG13MbYCYAxDpmpKZXN"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbYCYAQ+Fxa5AHa"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCYAzLj8jkzZW"
+      }
+     },
+     {
+      "_type": "DFDDataFlow",
+      "_id": "AAAAAAG13MbYCYAoa9etsFmv",
+      "name": "보고서",
+      "source": {
+       "$ref": "AAAAAAG13MbYCYAQ+Fxa5AHa"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbYCYA/YjEl37y9"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbXCYAzLj8jkzZW"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "DSSpecification",
+    "_id": "AAAAAAG13MbYCYAvqFjT09C+",
+    "name": "데이터 명세",
+    "_parent": {
+     "$ref": "AAAAAAG13MbXCXAwVMdJqu2d"
+    },
+    "ownedElements": [
+     {
+      "_type": "YAMLDiagram",
+      "_id": "AAAAAAG13MbYCYAH12NQG2TQ",
+      "name": "파이프라인 설정",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13MbYCYArPkGfp/b3",
+        "model": {
+         "$ref": "AAAAAAG13MbYCYA6lRUjf6w/"
+        },
+        "left": 20,
+        "top": 20,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbYCYAH12NQG2TQ"
+        }
+       },
+       {
+        "_type": "DSDocumentView",
+        "_id": "AAAAAAG13MbYCYAT8F3pwt1Z",
+        "model": {
+         "$ref": "AAAAAAG13MbYCYA7Bq4+sEgG"
+        },
+        "left": 548,
+        "top": 60,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAG13MbYCYAH12NQG2TQ"
+        }
+       },
+       {
+        "_type": "DSReferenceView",
+        "_id": "AAAAAAG13MbYCYAfCq4p9hVg",
+        "model": {
+         "$ref": "AAAAAAG13MbYCYABFcohwvAM"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbYCYArPkGfp/b3"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbYCYAT8F3pwt1Z"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbYCYAH12NQG2TQ"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbYCYAvqFjT09C+"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13MbYCYA6lRUjf6w/",
+      "name": "azure-pipelines.yml",
+      "format": "yaml",
+      "text": "trigger:\n  - main\npool:\n  vmImage: ubuntu-latest\nsteps:\n  - script: pytest tests\n  - task: AzureCLI@2\n    inputs:\n      scriptType: bash\n      inlineScript: az datafactory pipeline create-run",
+      "_parent": {
+       "$ref": "AAAAAAG13MbYCYAvqFjT09C+"
+      }
+     },
+     {
+      "_type": "DSDocument",
+      "_id": "AAAAAAG13MbYCYA7Bq4+sEgG",
+      "name": "adf-trigger.yml",
+      "format": "yaml",
+      "text": "name: daily-batch\nschedule:\n  frequency: Day\n  time: \"02:00\"\nactivities:\n  - copy-raw\n  - clean\n  - load-curated",
+      "_parent": {
+       "$ref": "AAAAAAG13MbYCYAvqFjT09C+"
+      }
+     },
+     {
+      "_type": "DSReference",
+      "_id": "AAAAAAG13MbYCYABFcohwvAM",
+      "name": "배포한다",
+      "source": {
+       "$ref": "AAAAAAG13MbYCYA6lRUjf6w/"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbYCYA7Bq4+sEgG"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbYCYAvqFjT09C+"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

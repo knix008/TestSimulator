@@ -449,6 +449,7 @@ export const VIEW_ONLY = {
   EllipseView: { ko: '타원', en: 'Ellipse', shape: 'ellipse', icon: 'ellipseTool' },
   HyperlinkView: { ko: '하이퍼링크', en: 'Hyperlink', shape: 'hyperlink', icon: 'hyperlink' },
   ImageView: { ko: '그림', en: 'Image', shape: 'image', icon: 'picture' },
+  IconView: { ko: '아이콘', en: 'Icon', shape: 'iconPicture', icon: 'iconInsert' },
   FreelineEdgeView: { ko: '자유선', en: 'Free Line', edge: true, icon: 'lineTool' },
   MMEdgeView: { ko: '가지', en: 'Branch', edge: true, icon: 'umlAssociation' },
   WBSEdgeView: { ko: '하위 작업', en: 'Sub-item', edge: true, icon: 'wbsBranch' },

@@ -256,6 +256,11 @@ Object.assign(TOOLBOX, {
   ],
 });
 
+// Every diagram outside UML can hold icons: the tool opens the icon window.
+for (const [type, groups] of Object.entries(TOOLBOX)) {
+  if (!type.startsWith('UML')) groups.unshift(['icons', '아이콘', 'Icons', [N('IconView', { id: 'insertIcon', ko: '아이콘…', en: 'Icon…', icon: 'iconInsert', view: { iconId: 'star' }, size: { w: 48, h: 48 } })]]);
+}
+
 /** Toolbox groups of a diagram type. */
 export const toolboxFor = (diagramType) => TOOLBOX[diagramType] ?? TOOLBOX.UMLClassDiagram;
 /** A tool by id within a diagram type. */

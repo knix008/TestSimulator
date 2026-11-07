@@ -1,0 +1,991 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.374Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13MbtCiAOfV99R7S5",
+  "name": "Company Architecture",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "ArchiMate layered view, and motivation and strategy",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13MbtCiAtovJjeGm/",
+    "name": "Company Architecture",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13MbtCiAOfV99R7S5"
+    }
+   },
+   {
+    "_type": "ArchiMateModel",
+    "_id": "AAAAAAG13MbtCiABid/5X7+H",
+    "name": "Enterprise Architecture",
+    "_parent": {
+     "$ref": "AAAAAAG13MbtCiAOfV99R7S5"
+    },
+    "ownedElements": [
+     {
+      "_type": "ArchiMateDiagram",
+      "_id": "AAAAAAG13MbtCiAtuPeFzwbZ",
+      "name": "Policy Layered View",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbtCiAKik/7WMlS",
+        "model": {
+         "$ref": "AAAAAAG13MbtCiA8LI6cRlPZ"
+        },
+        "left": 100,
+        "top": 40,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbtCiAFK3J92UGH",
+        "model": {
+         "$ref": "AAAAAAG13MbtCiASbHqNM063"
+        },
+        "left": 100,
+        "top": 150,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbtCiAUVkBieK7r",
+        "model": {
+         "$ref": "AAAAAAG13MbtCiARdW1GMz17"
+        },
+        "left": 100,
+        "top": 260,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbtCjAAXP5omsf8",
+        "model": {
+         "$ref": "AAAAAAG13MbtCiAJ5tlAYr6N"
+        },
+        "left": 320,
+        "top": 260,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbtCjAidysFi5/q",
+        "model": {
+         "$ref": "AAAAAAG13MbtCjAZHJr+/VVL"
+        },
+        "left": 100,
+        "top": 370,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjAFSqRS7ZHa",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAjZ7jt6Z0Y"
+        },
+        "left": 100,
+        "top": 480,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjA2LWuOBueP",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAE6g7ICZ1X"
+        },
+        "left": 320,
+        "top": 480,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjAUl4tol9UT",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjADQDxO+VEB"
+        },
+        "left": 100,
+        "top": 590,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjAaTenRFwRZ",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAvdPN/WABz"
+        },
+        "left": 320,
+        "top": 590,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateServingView",
+        "_id": "AAAAAAG13MbuCjAd2Qz1b5rT",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAdFGg3nZoE"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbtCiAFK3J92UGH"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbtCiAKik/7WMlS"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateRealizationView",
+        "_id": "AAAAAAG13MbuCjAd2YXNRQE/",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAZDEA9M+te"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbtCiAUVkBieK7r"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbtCiAFK3J92UGH"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateAccessView",
+        "_id": "AAAAAAG13MbuCjA8HmQUVXgc",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAIjdENXqzH"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbtCiAUVkBieK7r"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbtCjAAXP5omsf8"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateServingView",
+        "_id": "AAAAAAG13MbuCjA5DN0ciSyu",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAc6n/tLmr/"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbtCjAidysFi5/q"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbtCiAUVkBieK7r"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateRealizationView",
+        "_id": "AAAAAAG13MbuCjAS9IWjPi9F",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAk7CUkvbpo"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbuCjAFSqRS7ZHa"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbtCjAidysFi5/q"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateAccessView",
+        "_id": "AAAAAAG13MbuCjAm41chqt44",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAaAehIB52q"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbuCjAFSqRS7ZHa"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbuCjA2LWuOBueP"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateServingView",
+        "_id": "AAAAAAG13MbuCjAxO2r3Z9a7",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAX3ZfMGsJS"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbuCjAUl4tol9UT"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbuCjAFSqRS7ZHa"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       },
+       {
+        "_type": "ArchiMateCompositionView",
+        "_id": "AAAAAAG13MbuCjAkZo0Eibyz",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAFWtTUhTqB"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbuCjAUl4tol9UT"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbuCjAaTenRFwRZ"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbtCiAtuPeFzwbZ"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbtCiA8LI6cRlPZ",
+      "name": "Customer",
+      "kind": "business-actor",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbtCiASbHqNM063",
+      "name": "Policy Service",
+      "kind": "business-service",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbtCiARdW1GMz17",
+      "name": "Handle Policy",
+      "kind": "business-process",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbtCiAJ5tlAYr6N",
+      "name": "Policy",
+      "kind": "business-object",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbtCjAZHJr+/VVL",
+      "name": "Policy API",
+      "kind": "application-service",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjAjZ7jt6Z0Y",
+      "name": "Policy System",
+      "kind": "application-component",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjAE6g7ICZ1X",
+      "name": "Policy Data",
+      "kind": "application-data-object",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjADQDxO+VEB",
+      "name": "App Server",
+      "kind": "technology-node",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjAvdPN/WABz",
+      "name": "PostgreSQL",
+      "kind": "technology-system-software",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateServing",
+      "_id": "AAAAAAG13MbuCjAdFGg3nZoE",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbtCiASbHqNM063"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbtCiA8LI6cRlPZ"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateRealization",
+      "_id": "AAAAAAG13MbuCjAZDEA9M+te",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbtCiARdW1GMz17"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbtCiASbHqNM063"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateAccess",
+      "_id": "AAAAAAG13MbuCjAIjdENXqzH",
+      "name": "",
+      "accessType": "write",
+      "source": {
+       "$ref": "AAAAAAG13MbtCiARdW1GMz17"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbtCiAJ5tlAYr6N"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateServing",
+      "_id": "AAAAAAG13MbuCjAc6n/tLmr/",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbtCjAZHJr+/VVL"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbtCiARdW1GMz17"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateRealization",
+      "_id": "AAAAAAG13MbuCjAk7CUkvbpo",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbuCjAjZ7jt6Z0Y"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbtCjAZHJr+/VVL"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateAccess",
+      "_id": "AAAAAAG13MbuCjAaAehIB52q",
+      "name": "",
+      "accessType": "readwrite",
+      "source": {
+       "$ref": "AAAAAAG13MbuCjAjZ7jt6Z0Y"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbuCjAE6g7ICZ1X"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateServing",
+      "_id": "AAAAAAG13MbuCjAX3ZfMGsJS",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbuCjADQDxO+VEB"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbuCjAjZ7jt6Z0Y"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateComposition",
+      "_id": "AAAAAAG13MbuCjAFWtTUhTqB",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbuCjADQDxO+VEB"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbuCjAvdPN/WABz"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateDiagram",
+      "_id": "AAAAAAG13MbuCjAQp3WGHt8/",
+      "name": "Motivation and Strategy",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjATmfEKjVzU",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAeQbkKWVNs"
+        },
+        "left": 49,
+        "top": 40,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjAvQGz/6MUC",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAyVe/s4nav"
+        },
+        "left": 277,
+        "top": 40,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjAUAIOaXcAO",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAyeWDEoCqA"
+        },
+        "left": 497,
+        "top": 40,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjAXZPEZGekQ",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAoZvVNSb3f"
+        },
+        "left": 717,
+        "top": 40,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjAMciJBqyvQ",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAh2LZZTS3+"
+        },
+        "left": 717,
+        "top": 170,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjA2+MsQBL1C",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjA8tWx5yh0X"
+        },
+        "left": 497,
+        "top": 170,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjABg3NVa3D9",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjA4yLCByGJT"
+        },
+        "left": 277,
+        "top": 170,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjAATCOxKjSs",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAxp84WkDh5"
+        },
+        "left": 49,
+        "top": 300,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateElementView",
+        "_id": "AAAAAAG13MbuCjAXGnvrZ4GO",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAwqqquzGgx"
+        },
+        "left": 40,
+        "top": 170,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateAssociationView",
+        "_id": "AAAAAAG13MbuCjAKAW/Lp6wr",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAtf4aNx5ue"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbuCjATmfEKjVzU"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbuCjAvQGz/6MUC"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateAssociationView",
+        "_id": "AAAAAAG13MbuCjAcNSb/TESE",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAhd+6CIqU6"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbuCjAvQGz/6MUC"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbuCjAUAIOaXcAO"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateInfluenceView",
+        "_id": "AAAAAAG13MbuCjAH7TvgfU4J",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjA9OEgzOAh9"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbuCjAUAIOaXcAO"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbuCjAXZPEZGekQ"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateRealizationView",
+        "_id": "AAAAAAG13MbuCjA32hqJ57hJ",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAkuvw2fCpQ"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbuCjAMciJBqyvQ"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbuCjAXZPEZGekQ"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateRealizationView",
+        "_id": "AAAAAAG13MbuCjAvDjLmTRpM",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAj96PY+fhx"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbuCjABg3NVa3D9"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbuCjA2+MsQBL1C"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateInfluenceView",
+        "_id": "AAAAAAG13MbuCjAnbfPbpCRB",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAjG/Qjr3bk"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbuCjA2+MsQBL1C"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbuCjAXZPEZGekQ"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateRealizationView",
+        "_id": "AAAAAAG13MbuCjAxOUxW7vLL",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAD8dZw+Y+g"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbuCjAATCOxKjSs"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbuCjAXGnvrZ4GO"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       },
+       {
+        "_type": "ArchiMateRealizationView",
+        "_id": "AAAAAAG13MbuCjAzO3JSbWI/",
+        "model": {
+         "$ref": "AAAAAAG13MbuCjAp8PJijdJ7"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13MbuCjAXGnvrZ4GO"
+        },
+        "head": {
+         "$ref": "AAAAAAG13MbuCjABg3NVa3D9"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13MbuCjAQp3WGHt8/"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjAeQbkKWVNs",
+      "name": "Board",
+      "kind": "motivation-stakeholder",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjAyVe/s4nav",
+      "name": "Cost Pressure",
+      "kind": "motivation-driver",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjAyeWDEoCqA",
+      "name": "Old Systems",
+      "kind": "motivation-assessment",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjAoZvVNSb3f",
+      "name": "Cut Costs 20%",
+      "kind": "motivation-goal",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjAh2LZZTS3+",
+      "name": "Cloud First",
+      "kind": "motivation-principle",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjA8tWx5yh0X",
+      "name": "Digital Policies",
+      "kind": "strategy-capability",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjA4yLCByGJT",
+      "name": "Phased Migration",
+      "kind": "strategy-course-of-action",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjAxp84WkDh5",
+      "name": "Migration Project",
+      "kind": "implementation-work-package",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateElement",
+      "_id": "AAAAAAG13MbuCjAwqqquzGgx",
+      "name": "Target Architecture",
+      "kind": "implementation-plateau",
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateAssociation",
+      "_id": "AAAAAAG13MbuCjAtf4aNx5ue",
+      "name": "",
+      "isDirected": false,
+      "source": {
+       "$ref": "AAAAAAG13MbuCjAeQbkKWVNs"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbuCjAyVe/s4nav"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateAssociation",
+      "_id": "AAAAAAG13MbuCjAhd+6CIqU6",
+      "name": "",
+      "isDirected": false,
+      "source": {
+       "$ref": "AAAAAAG13MbuCjAyVe/s4nav"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbuCjAyeWDEoCqA"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateInfluence",
+      "_id": "AAAAAAG13MbuCjA9OEgzOAh9",
+      "name": "",
+      "strength": "+",
+      "source": {
+       "$ref": "AAAAAAG13MbuCjAyeWDEoCqA"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbuCjAoZvVNSb3f"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateRealization",
+      "_id": "AAAAAAG13MbuCjAkuvw2fCpQ",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbuCjAh2LZZTS3+"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbuCjAoZvVNSb3f"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateRealization",
+      "_id": "AAAAAAG13MbuCjAj96PY+fhx",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbuCjA4yLCByGJT"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbuCjA8tWx5yh0X"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateInfluence",
+      "_id": "AAAAAAG13MbuCjAjG/Qjr3bk",
+      "name": "",
+      "strength": "++",
+      "source": {
+       "$ref": "AAAAAAG13MbuCjA8tWx5yh0X"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbuCjAoZvVNSb3f"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateRealization",
+      "_id": "AAAAAAG13MbuCjAD8dZw+Y+g",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbuCjAxp84WkDh5"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbuCjAwqqquzGgx"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     },
+     {
+      "_type": "ArchiMateRealization",
+      "_id": "AAAAAAG13MbuCjAp8PJijdJ7",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13MbuCjAwqqquzGgx"
+      },
+      "target": {
+       "$ref": "AAAAAAG13MbuCjA4yLCByGJT"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13MbtCiABid/5X7+H"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

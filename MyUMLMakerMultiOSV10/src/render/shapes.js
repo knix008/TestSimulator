@@ -8,6 +8,7 @@
 //   clip: 'rect' | 'ellipse' | 'diamond' | 'circle'   how edges meet its outline
 //   fixed: true when the fitted size is the size (not just a minimum)
 // Pure: text is measured by ctx.measure.
+import { isIconSource, libraryIcon } from '../domain/iconlib.js';
 import { esc, n, textLine, textStack, stackHeight, stackWidth, wrapText } from './text.js';
 import {
   attributeText, columnText, lifelineText, literalText, operationText, propertyText, receptionText, slotText, stereotypeText, typeName,
@@ -749,6 +750,18 @@ export const SHAPES = {
     size: (ctx, v, el, st) => sizeOfText(ctx, st, [{ text: v.text || v.url || 'link' }], { padX: 14, padY: 6, minW: 40, minH: 24 }),
     draw: (ctx, v, el, b, st) => strokeSvg(`M${n(b.x + 3)} ${n(b.y + b.h / 2 + 3)}l6 -6M${n(b.x + 2)} ${n(b.y + b.h / 2)}a3 3 0 0 1 0 -4l1 -1a3 3 0 0 1 4 0`, { ...st, line: '#1a66cc' })
       + textLine(v.text || v.url || 'link', b.x + 14, b.y + b.h / 2 + st.size * 0.36, { ...base(st), color: v.fontColor || '#1a66cc', underline: true }),
+  },
+  // An icon: a drawing of the library by its id, or the user's own picture. Never markup from the file.
+  iconPicture: {
+    clip: 'rect', size: () => ({ w: 48, h: 48 }),
+    draw: (ctx, v, el, b, st) => {
+      if (isIconSource(v.src)) return `<image href="${esc(v.src)}" x="${n(b.x)}" y="${n(b.y)}" width="${n(b.w)}" height="${n(b.h)}" preserveAspectRatio="xMidYMid meet"/>`;
+      const item = libraryIcon(v.iconId);
+      const side = Math.min(b.w, b.h);
+      const placed = `translate(${n(b.x + (b.w - side) / 2)} ${n(b.y + (b.h - side) / 2)}) scale(${n(side / 24)})`;
+      if (!item) return `<g transform="${placed}" fill="none" stroke="${esc(st.line)}" stroke-width="1.5" stroke-dasharray="2 2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9.500 9.500a2.500 2.500 0 1 1 3.500 2.300c-.7.300-1 .8-1 1.700M12 17h.01"/></g>`;
+      return `<g transform="${placed}" fill="none" stroke="${esc(v.lineColor || item.color)}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${item.body}</g>`;
+    },
   },
   image: {
     clip: 'rect', size: () => ({ w: 120, h: 90 }),

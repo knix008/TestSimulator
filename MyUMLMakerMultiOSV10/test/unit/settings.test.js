@@ -27,7 +27,7 @@ test('defaults per language', () => {
   assert.equal(en.language, 'en');
   assert.deepEqual([ko.defaultPaper, en.defaultPaper], ['A4', 'Letter']);
   assert.equal(ko.defaultLineStyle, 'rectilinear');
-  assert.equal(ko.diagramTheme, 'classic');
+  assert.equal(ko.diagramTheme, 'theme', 'diagrams follow the program theme by default');
   assert.equal(ko.gridSize, 10);
   assert.ok(ko.showGrid && ko.snapToGrid && ko.showShadow && ko.showQuickButtons && ko.reparentOnDrop);
   assert.equal(ko.codegenLanguage, 'java');
@@ -54,12 +54,12 @@ test('normalizeSettings clamps every number', () => {
 test('normalizeSettings repairs choices, booleans and text', () => {
   const base = S.defaultSettings('ko');
   const bad = S.normalizeSettings({
-    theme: 'nope', fontWeight: 450, fontStyle: 'wavy', backgroundKind: 'video', animation: 'gantt', backgroundFit: 'zoom', gridSize: 7, defaultLineStyle: 'zigzag', diagramTheme: 'neon',
+    theme: 'nope', fontWeight: 450, fontStyle: 'wavy', backgroundKind: 'video', animation: 'gantt', backgroundFit: 'zoom', gridSize: 7, defaultLineStyle: 'zigzag', diagramTheme: 'nosuch',
     diagramFontSize: 99, defaultPaper: 'A9', defaultOrientation: 'sideways', explorerHeight: 2, autoSaveMinutes: 3, codegenOptions: 'x', fontFamily: 12, backgroundImage: 7, lastDirectory: '', showGrid: 'yes',
   }, 'ko');
   assert.deepEqual(
     [bad.theme, bad.fontWeight, bad.fontStyle, bad.backgroundKind, bad.animation, bad.backgroundFit, bad.gridSize, bad.defaultLineStyle, bad.diagramTheme, bad.diagramFontSize, bad.defaultPaper, bad.defaultOrientation, bad.explorerHeight, bad.autoSaveMinutes, bad.codegenOptions, bad.fontFamily, bad.backgroundImage, bad.lastDirectory, bad.showGrid],
-    [base.theme, base.fontWeight, base.fontStyle, base.backgroundKind, base.animation, base.backgroundFit, 10, 'rectilinear', 'classic', 24, 'A4', 'landscape', 20, 0, {}, '', null, null, true],
+    [base.theme, base.fontWeight, base.fontStyle, base.backgroundKind, base.animation, base.backgroundFit, 10, 'rectilinear', 'theme', 24, 'A4', 'landscape', 20, 0, {}, '', null, null, true],
   );
   const good = S.normalizeSettings({
     theme: THEME_IDS[3], fontWeight: 600, gridSize: 20, defaultLineStyle: 'curve', diagramTheme: 'blueprint', defaultPaper: 'Letter', defaultOrientation: 'portrait',
@@ -278,4 +278,22 @@ test('the bottom (Problems) panel: shown by default, height kept within its limi
   assert.equal(S.normalizeSettings({ bottomHeight: 260.4 }, 'ko').bottomHeight, 260);
   assert.equal(S.normalizeSettings({ showBottomPanel: 'no' }, 'ko').showBottomPanel, true, 'not a boolean: the default');
   assert.equal(S.normalizeSettings({ showBottomPanel: false }, 'ko').showBottomPanel, false);
+});
+
+test('the first start after the installer opens in the language chosen there', () => {
+  const data = new Map();
+  const storage = { getItem: (k) => data.get(k) ?? null, setItem: (k, v) => data.set(k, v) };
+  assert.equal(S.applyInstallLanguage(storage, undefined), false, 'no installer: nothing happens');
+  assert.equal(S.applyInstallLanguage(storage, 'fr'), false);
+  assert.equal(data.size, 0);
+  assert.equal(S.applyInstallLanguage(storage, 'en'), true);
+  assert.equal(S.loadSettings(storage).language, 'en', 'a first start');
+  assert.equal(S.applyInstallLanguage(storage, 'ko'), true);
+  assert.equal(S.loadSettings(storage).language, 'ko');
+  data.set(S.STORAGE_KEY, JSON.stringify({ language: 'ko', theme: 'nord', gridSize: 20 }));
+  S.applyInstallLanguage(storage, 'en');
+  assert.deepEqual([S.loadSettings(storage).language, S.loadSettings(storage).theme, S.loadSettings(storage).gridSize], ['en', 'nord', 20], 'kept settings stay, the language changes');
+  data.set(S.STORAGE_KEY, '{broken');
+  S.applyInstallLanguage(storage, 'en');
+  assert.equal(S.loadSettings(storage).language, 'en', 'unreadable settings do not stop it');
 });

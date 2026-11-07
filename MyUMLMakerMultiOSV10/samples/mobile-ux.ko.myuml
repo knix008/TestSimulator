@@ -1,0 +1,1559 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "project",
+ "saved": "2026-11-07T11:55:07.404Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAG13McJCzAQ+T+Msj6C",
+  "name": "모바일 앱 UX",
+  "author": "MyUMLMaker",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "고객 여정, 스토리 맵, 화면 와이어프레임",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAG13McJCzAP9PG1uOIG",
+    "name": "모바일 앱 UX",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAG13McJCzAQ+T+Msj6C"
+    }
+   },
+   {
+    "_type": "UXModel",
+    "_id": "AAAAAAG13McJCzAnPpFmqrW3",
+    "name": "애자일·UX",
+    "_parent": {
+     "$ref": "AAAAAAG13McJCzAQ+T+Msj6C"
+    },
+    "ownedElements": [
+     {
+      "_type": "CustomerJourneyDiagram",
+      "_id": "AAAAAAG13McJCzAbZ1ncr6tv",
+      "name": "운동 앱 고객 여정",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "CJLaneView",
+        "_id": "AAAAAAG13McKCzAUu5VeMoFf",
+        "model": {
+         "$ref": "AAAAAAG13McKCzAqFytGQPOm"
+        },
+        "left": 20,
+        "top": 550,
+        "width": 1140,
+        "height": 90,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJLaneView",
+        "_id": "AAAAAAG13McKCzA6nLr27LFn",
+        "model": {
+         "$ref": "AAAAAAG13McKCzAWGAggrRFI"
+        },
+        "left": 20,
+        "top": 450,
+        "width": 1140,
+        "height": 90,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJLaneView",
+        "_id": "AAAAAAG13McKCzAsnCkhvuS1",
+        "model": {
+         "$ref": "AAAAAAG13McKCzAKBC+RnJPm"
+        },
+        "left": 20,
+        "top": 330,
+        "width": 1140,
+        "height": 110,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJLaneView",
+        "_id": "AAAAAAG13McKCzAG2MUkFb4l",
+        "model": {
+         "$ref": "AAAAAAG13McKCzAoUBOHlLh1"
+        },
+        "left": 20,
+        "top": 250,
+        "width": 1140,
+        "height": 70,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJLaneView",
+        "_id": "AAAAAAG13McJCzASwkS7SE9o",
+        "model": {
+         "$ref": "AAAAAAG13McJCzAIKOguFNnP"
+        },
+        "left": 20,
+        "top": 150,
+        "width": 1140,
+        "height": 90,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJStageView",
+        "_id": "AAAAAAG13McJCzAvb88F2Ifh",
+        "model": {
+         "$ref": "AAAAAAG13McJCzAOw/MOThXy"
+        },
+        "left": 930,
+        "top": 10,
+        "width": 220,
+        "height": 640,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJStageView",
+        "_id": "AAAAAAG13McJCzA78vFTcKdC",
+        "model": {
+         "$ref": "AAAAAAG13McJCzA4GTt9qRh7"
+        },
+        "left": 700,
+        "top": 10,
+        "width": 220,
+        "height": 640,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJStageView",
+        "_id": "AAAAAAG13McJCzADokvzOjLn",
+        "model": {
+         "$ref": "AAAAAAG13McJCzAVYwlw6c4H"
+        },
+        "left": 470,
+        "top": 10,
+        "width": 220,
+        "height": 640,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJStageView",
+        "_id": "AAAAAAG13McJCzAcqVATsSq4",
+        "model": {
+         "$ref": "AAAAAAG13McJCzAUF5JUF/If"
+        },
+        "left": 240,
+        "top": 10,
+        "width": 220,
+        "height": 640,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJPersonaView",
+        "_id": "AAAAAAG13McKCzAaC5yhusX6",
+        "model": {
+         "$ref": "AAAAAAG13McKCzAhmbJuC2m8"
+        },
+        "left": 20,
+        "top": 10,
+        "width": 200,
+        "height": 130,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McKCzA/pyEPBCwa",
+        "model": {
+         "$ref": "AAAAAAG13McKCzABp3JBNCoz"
+        },
+        "left": 270,
+        "top": 165,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJTouchpointView",
+        "_id": "AAAAAAG13McKCzARWXI5/43Q",
+        "model": {
+         "$ref": "AAAAAAG13McKCzAubpk40hgH"
+        },
+        "left": 270,
+        "top": 265,
+        "width": 160,
+        "height": 40,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJEmotionView",
+        "_id": "AAAAAAG13McKC0A8BshI6OI+",
+        "model": {
+         "$ref": "AAAAAAG13McKCzACtsCOYqqt"
+        },
+        "left": 333,
+        "top": 368,
+        "width": 34,
+        "height": 34,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McKC0AkifaEVmp4",
+        "model": {
+         "$ref": "AAAAAAG13McKC0A8by4rgrPf"
+        },
+        "left": 270,
+        "top": 465,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McKC0AndUmlJ01y",
+        "model": {
+         "$ref": "AAAAAAG13McKC0Ar0g3DRyU+"
+        },
+        "left": 270,
+        "top": 565,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McKC0Ao8aZRsh+Q",
+        "model": {
+         "$ref": "AAAAAAG13McKC0AxOv5A+8CJ"
+        },
+        "left": 500,
+        "top": 165,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJTouchpointView",
+        "_id": "AAAAAAG13McKC0A3g30lGjiu",
+        "model": {
+         "$ref": "AAAAAAG13McKC0ASwUI+hc0u"
+        },
+        "left": 500,
+        "top": 265,
+        "width": 160,
+        "height": 40,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJEmotionView",
+        "_id": "AAAAAAG13McKC0Aak5q02/lQ",
+        "model": {
+         "$ref": "AAAAAAG13McKC0ACM3GaMWzr"
+        },
+        "left": 563,
+        "top": 388,
+        "width": 34,
+        "height": 34,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McKC0AJtZereVIO",
+        "model": {
+         "$ref": "AAAAAAG13McKC0AtM+PqVQh2"
+        },
+        "left": 500,
+        "top": 465,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McKC0AE37WjTnrw",
+        "model": {
+         "$ref": "AAAAAAG13McKC0AdsGQ2eh8x"
+        },
+        "left": 500,
+        "top": 565,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McKC0AMkr8396Gg",
+        "model": {
+         "$ref": "AAAAAAG13McKC0A/uGZ8i/IP"
+        },
+        "left": 730,
+        "top": 165,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJTouchpointView",
+        "_id": "AAAAAAG13McKC0Adjr4l5TJ7",
+        "model": {
+         "$ref": "AAAAAAG13McKC0AlPAkEP4/C"
+        },
+        "left": 730,
+        "top": 265,
+        "width": 160,
+        "height": 40,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJEmotionView",
+        "_id": "AAAAAAG13McKC0ACKb7+BzIs",
+        "model": {
+         "$ref": "AAAAAAG13McKC0AHXNtRu/b7"
+        },
+        "left": 793,
+        "top": 348,
+        "width": 34,
+        "height": 34,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McKC0A2AzBIVYZh",
+        "model": {
+         "$ref": "AAAAAAG13McKC0ATdWO1OzZK"
+        },
+        "left": 730,
+        "top": 565,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McKC0A4LzJwnJvw",
+        "model": {
+         "$ref": "AAAAAAG13McKC0AJxyAQX07o"
+        },
+        "left": 960,
+        "top": 165,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJTouchpointView",
+        "_id": "AAAAAAG13McKC0AiDUPq2yqI",
+        "model": {
+         "$ref": "AAAAAAG13McKC0ADB46r2Anc"
+        },
+        "left": 960,
+        "top": 265,
+        "width": 160,
+        "height": 40,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJEmotionView",
+        "_id": "AAAAAAG13McKC0AbTiSDzBw6",
+        "model": {
+         "$ref": "AAAAAAG13McKC0ATVwGTA39n"
+        },
+        "left": 1023,
+        "top": 328,
+        "width": 34,
+        "height": 34,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McKC0ApEZSZ0kVJ",
+        "model": {
+         "$ref": "AAAAAAG13McKC0AUMTPLd2wu"
+        },
+        "left": 960,
+        "top": 465,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJCardView",
+        "_id": "AAAAAAG13McKC0AaXTMFIamz",
+        "model": {
+         "$ref": "AAAAAAG13McKC0AKzzjjINCs"
+        },
+        "left": 960,
+        "top": 565,
+        "width": 160,
+        "height": 60,
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJEmotionLinkView",
+        "_id": "AAAAAAG13McKC0A+mOo8/tnW",
+        "model": {
+         "$ref": "AAAAAAG13McKC0AqHCxm3z6d"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McKC0A8BshI6OI+"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McKC0Aak5q02/lQ"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJEmotionLinkView",
+        "_id": "AAAAAAG13McKC0AeZ31BZO8x",
+        "model": {
+         "$ref": "AAAAAAG13McKC0A7VWxdwiX8"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McKC0Aak5q02/lQ"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McKC0ACKb7+BzIs"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       },
+       {
+        "_type": "CJEmotionLinkView",
+        "_id": "AAAAAAG13McKC0AZJdbuRhRc",
+        "model": {
+         "$ref": "AAAAAAG13McKC0AoPfvjHd3v"
+        },
+        "tail": {
+         "$ref": "AAAAAAG13McKC0ACKb7+BzIs"
+        },
+        "head": {
+         "$ref": "AAAAAAG13McKC0AbTiSDzBw6"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAG13McJCzAbZ1ncr6tv"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJStage",
+      "_id": "AAAAAAG13McJCzAUF5JUF/If",
+      "name": "발견",
+      "goal": "앱을 알게 됨",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJStage",
+      "_id": "AAAAAAG13McJCzAVYwlw6c4H",
+      "name": "첫 설정",
+      "goal": "시작함",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJStage",
+      "_id": "AAAAAAG13McJCzA4GTt9qRh7",
+      "name": "첫 운동",
+      "goal": "따라함",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJStage",
+      "_id": "AAAAAAG13McJCzAOw/MOThXy",
+      "name": "습관",
+      "goal": "꾸준히 함",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJLane",
+      "_id": "AAAAAAG13McJCzAIKOguFNnP",
+      "name": "고객 행동",
+      "laneKind": "actions",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJLane",
+      "_id": "AAAAAAG13McKCzAoUBOHlLh1",
+      "name": "터치포인트",
+      "laneKind": "touchpoints",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJLane",
+      "_id": "AAAAAAG13McKCzAKBC+RnJPm",
+      "name": "감정",
+      "laneKind": "emotions",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJLane",
+      "_id": "AAAAAAG13McKCzAWGAggrRFI",
+      "name": "고통 지점",
+      "laneKind": "painPoints",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJLane",
+      "_id": "AAAAAAG13McKCzAqFytGQPOm",
+      "name": "기회",
+      "laneKind": "opportunities",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJPersona",
+      "_id": "AAAAAAG13McKCzAhmbJuC2m8",
+      "name": "이하늘",
+      "role": "퇴근 후 운동하는 직장인",
+      "goals": "운동을 꾸준히 하기",
+      "frustrations": "복잡한 설정",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McKCzABp3JBNCoz",
+      "name": "스토어에서 검색",
+      "cardKind": "action",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJTouchpoint",
+      "_id": "AAAAAAG13McKCzAubpk40hgH",
+      "name": "앱 스토어",
+      "channel": "mobile",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJEmotion",
+      "_id": "AAAAAAG13McKCzACtsCOYqqt",
+      "name": "기대 반 의심 반",
+      "score": "neutral",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McKC0A8by4rgrPf",
+      "name": "비슷한 앱이 많음",
+      "cardKind": "painPoint",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McKC0Ar0g3DRyU+",
+      "name": "후기 강조",
+      "cardKind": "opportunity",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McKC0AxOv5A+8CJ",
+      "name": "목표를 입력",
+      "cardKind": "action",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJTouchpoint",
+      "_id": "AAAAAAG13McKC0ASwUI+hc0u",
+      "name": "설정 화면",
+      "channel": "mobile",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJEmotion",
+      "_id": "AAAAAAG13McKC0ACM3GaMWzr",
+      "name": "입력이 많음",
+      "score": "negative",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McKC0AtM+PqVQh2",
+      "name": "설문이 길다",
+      "cardKind": "painPoint",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McKC0AdsGQ2eh8x",
+      "name": "세 문항으로 축소",
+      "cardKind": "opportunity",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McKC0A/uGZ8i/IP",
+      "name": "영상을 따라 운동",
+      "cardKind": "action",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJTouchpoint",
+      "_id": "AAAAAAG13McKC0AlPAkEP4/C",
+      "name": "운동 화면",
+      "channel": "mobile",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJEmotion",
+      "_id": "AAAAAAG13McKC0AHXNtRu/b7",
+      "name": "재미있음",
+      "score": "positive",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McKC0ATdWO1OzZK",
+      "name": "난이도 자동 조정",
+      "cardKind": "opportunity",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McKC0AJxyAQX07o",
+      "name": "주간 기록을 봄",
+      "cardKind": "action",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJTouchpoint",
+      "_id": "AAAAAAG13McKC0ADB46r2Anc",
+      "name": "푸시 알림",
+      "channel": "push",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJEmotion",
+      "_id": "AAAAAAG13McKC0ATVwGTA39n",
+      "name": "뿌듯함",
+      "score": "veryPositive",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McKC0AUMTPLd2wu",
+      "name": "알림이 잦음",
+      "cardKind": "painPoint",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJCard",
+      "_id": "AAAAAAG13McKC0AKzzjjINCs",
+      "name": "알림 시간 고르기",
+      "cardKind": "opportunity",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJEmotionLink",
+      "_id": "AAAAAAG13McKC0AqHCxm3z6d",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13McKCzACtsCOYqqt"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McKC0ACM3GaMWzr"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJEmotionLink",
+      "_id": "AAAAAAG13McKC0A7VWxdwiX8",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13McKC0ACM3GaMWzr"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McKC0AHXNtRu/b7"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "CJEmotionLink",
+      "_id": "AAAAAAG13McKC0AoPfvjHd3v",
+      "name": "",
+      "source": {
+       "$ref": "AAAAAAG13McKC0AHXNtRu/b7"
+      },
+      "target": {
+       "$ref": "AAAAAAG13McKC0ATVwGTA39n"
+      },
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "UserStoryMapDiagram",
+      "_id": "AAAAAAG13McKC0AcLNHw69Va",
+      "name": "운동 앱 스토리 맵",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "USReleaseView",
+        "_id": "AAAAAAG13McKC0Aakj9Pcm2g",
+        "model": {
+         "$ref": "AAAAAAG13McKC0A6TnaP2sD7"
+        },
+        "left": 20,
+        "top": 310,
+        "width": 830,
+        "height": 120,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USReleaseView",
+        "_id": "AAAAAAG13McKC0AXaRaLI/si",
+        "model": {
+         "$ref": "AAAAAAG13McKC0AGFGXe45B6"
+        },
+        "left": 20,
+        "top": 180,
+        "width": 830,
+        "height": 120,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USActivityView",
+        "_id": "AAAAAAG13McKC0ACVH86Xnti",
+        "model": {
+         "$ref": "AAAAAAG13McKC0AG2Zc/jbGm"
+        },
+        "left": 160,
+        "top": 20,
+        "width": 320,
+        "height": 64,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USActivityView",
+        "_id": "AAAAAAG13McLC0Akko0YcMZy",
+        "model": {
+         "$ref": "AAAAAAG13McLC0AcjSnwamI5"
+        },
+        "left": 500,
+        "top": 20,
+        "width": 320,
+        "height": 64,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USStepView",
+        "_id": "AAAAAAG13McLC0AKtDkv7XPx",
+        "model": {
+         "$ref": "AAAAAAG13McLC0AV8fxTnqAI"
+        },
+        "left": 160,
+        "top": 100,
+        "width": 150,
+        "height": 56,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USStepView",
+        "_id": "AAAAAAG13McLC0AHo7OyiE5Q",
+        "model": {
+         "$ref": "AAAAAAG13McLC0AdqEwWSZYy"
+        },
+        "left": 330,
+        "top": 100,
+        "width": 150,
+        "height": 56,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USStepView",
+        "_id": "AAAAAAG13McLC0AC0zgOBQck",
+        "model": {
+         "$ref": "AAAAAAG13McLC0Ag1WYr04fD"
+        },
+        "left": 500,
+        "top": 100,
+        "width": 150,
+        "height": 56,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USStepView",
+        "_id": "AAAAAAG13McLC0AOwPLcKahM",
+        "model": {
+         "$ref": "AAAAAAG13McLC0ALWH17vf7A"
+        },
+        "left": 670,
+        "top": 100,
+        "width": 150,
+        "height": 56,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McLC0AGtGrDwnMZ",
+        "model": {
+         "$ref": "AAAAAAG13McLC0AGQCQc/8LH"
+        },
+        "left": 160,
+        "top": 194,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McLC0ALjdPwwIj1",
+        "model": {
+         "$ref": "AAAAAAG13McLC0ACgU9Aygtr"
+        },
+        "left": 330,
+        "top": 194,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McLC0AeC0Bd6XA2",
+        "model": {
+         "$ref": "AAAAAAG13McLC0AVp17R8fak"
+        },
+        "left": 500,
+        "top": 194,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McLC0AbUFcEAzuM",
+        "model": {
+         "$ref": "AAAAAAG13McLC0AoX1BHD5dZ"
+        },
+        "left": 670,
+        "top": 194,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McLC1AfMMPDPQvb",
+        "model": {
+         "$ref": "AAAAAAG13McLC0AM1ZLuGT6e"
+        },
+        "left": 160,
+        "top": 324,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McLC1ATus4ofxIn",
+        "model": {
+         "$ref": "AAAAAAG13McLC1AzL2hYNIPz"
+        },
+        "left": 500,
+        "top": 324,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       },
+       {
+        "_type": "USStoryView",
+        "_id": "AAAAAAG13McLC1AuvZfBcWtU",
+        "model": {
+         "$ref": "AAAAAAG13McLC1AGsi48sFq6"
+        },
+        "left": 670,
+        "top": 324,
+        "width": 150,
+        "height": 92,
+        "_parent": {
+         "$ref": "AAAAAAG13McKC0AcLNHw69Va"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USRelease",
+      "_id": "AAAAAAG13McKC0AGFGXe45B6",
+      "name": "MVP",
+      "date": "2027-05-03",
+      "goal": "첫 운동 완료",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USRelease",
+      "_id": "AAAAAAG13McKC0A6TnaP2sD7",
+      "name": "릴리스 2",
+      "date": "2027-08-02",
+      "goal": "습관 만들기",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USActivity",
+      "_id": "AAAAAAG13McKC0AG2Zc/jbGm",
+      "name": "시작하기",
+      "description": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USActivity",
+      "_id": "AAAAAAG13McLC0AcjSnwamI5",
+      "name": "운동하기",
+      "description": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USStep",
+      "_id": "AAAAAAG13McLC0AV8fxTnqAI",
+      "name": "가입",
+      "description": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USStep",
+      "_id": "AAAAAAG13McLC0AdqEwWSZYy",
+      "name": "목표 설정",
+      "description": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USStep",
+      "_id": "AAAAAAG13McLC0Ag1WYr04fD",
+      "name": "운동 고르기",
+      "description": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USStep",
+      "_id": "AAAAAAG13McLC0ALWH17vf7A",
+      "name": "기록 보기",
+      "description": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McLC0AGQCQc/8LH",
+      "name": "이메일 가입",
+      "asA": "",
+      "iWant": "이메일 가입",
+      "soThat": "",
+      "priority": "must",
+      "storyPoints": 2,
+      "status": "done",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McLC0ACgU9Aygtr",
+      "name": "세 문항 설문",
+      "asA": "",
+      "iWant": "세 문항 설문",
+      "soThat": "",
+      "priority": "must",
+      "storyPoints": 2,
+      "status": "doing",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McLC0AVp17R8fak",
+      "name": "오늘의 운동",
+      "asA": "",
+      "iWant": "오늘의 운동",
+      "soThat": "",
+      "priority": "must",
+      "storyPoints": 5,
+      "status": "todo",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McLC0AoX1BHD5dZ",
+      "name": "이번 주 기록",
+      "asA": "",
+      "iWant": "이번 주 기록",
+      "soThat": "",
+      "priority": "should",
+      "storyPoints": 3,
+      "status": "todo",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McLC0AM1ZLuGT6e",
+      "name": "소셜 로그인",
+      "asA": "",
+      "iWant": "소셜 로그인",
+      "soThat": "",
+      "priority": "could",
+      "storyPoints": 3,
+      "status": "todo",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McLC1AzL2hYNIPz",
+      "name": "난이도 조정",
+      "asA": "",
+      "iWant": "난이도 조정",
+      "soThat": "",
+      "priority": "should",
+      "storyPoints": 5,
+      "status": "todo",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     },
+     {
+      "_type": "USStory",
+      "_id": "AAAAAAG13McLC1AGsi48sFq6",
+      "name": "달성 배지",
+      "asA": "",
+      "iWant": "달성 배지",
+      "soThat": "",
+      "priority": "could",
+      "storyPoints": 2,
+      "status": "todo",
+      "acceptance": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McJCzAnPpFmqrW3"
+      }
+     }
+    ]
+   },
+   {
+    "_type": "WFWireframe",
+    "_id": "AAAAAAG13McLC1AbLDv/Bxfi",
+    "name": "화면 설계",
+    "_parent": {
+     "$ref": "AAAAAAG13McJCzAQ+T+Msj6C"
+    },
+    "ownedElements": [
+     {
+      "_type": "WFWireframeDiagram",
+      "_id": "AAAAAAG13McLC1AUTlIrVQRm",
+      "name": "운동 앱 화면",
+      "defaultDiagram": false,
+      "ownedViews": [
+       {
+        "_type": "WFMobileFrameView",
+        "_id": "AAAAAAG13McMC1ATOGQZHijE",
+        "model": {
+         "$ref": "AAAAAAG13McMC1A9KuQ15UaR"
+        },
+        "left": 350,
+        "top": 20,
+        "width": 280,
+        "height": 338,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       },
+       {
+        "_type": "WFMobileFrameView",
+        "_id": "AAAAAAG13McMC1AOJBzj5odE",
+        "model": {
+         "$ref": "AAAAAAG13McLC1AL2NUsabhV"
+        },
+        "left": 20,
+        "top": 20,
+        "width": 280,
+        "height": 384,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       },
+       {
+        "_type": "WFTextView",
+        "_id": "AAAAAAG13McMC1Ayb+89CT+b",
+        "model": {
+         "$ref": "AAAAAAG13McMC1AfFmCukOUz"
+        },
+        "left": 44,
+        "top": 76,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       },
+       {
+        "_type": "WFImageView",
+        "_id": "AAAAAAG13McMC1AGbrLtdnCR",
+        "model": {
+         "$ref": "AAAAAAG13McMC1A1yApBWkIu"
+        },
+        "left": 44,
+        "top": 120,
+        "width": 232,
+        "height": 120,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       },
+       {
+        "_type": "WFProgressView",
+        "_id": "AAAAAAG13McMC1AWhnI9nTfD",
+        "model": {
+         "$ref": "AAAAAAG13McMC1A3c88vxXrf"
+        },
+        "left": 44,
+        "top": 254,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       },
+       {
+        "_type": "WFButtonView",
+        "_id": "AAAAAAG13McMC1ABBzY88KgM",
+        "model": {
+         "$ref": "AAAAAAG13McMC1AbgviVkBQJ"
+        },
+        "left": 44,
+        "top": 298,
+        "width": 232,
+        "height": 36,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       },
+       {
+        "_type": "WFTabListView",
+        "_id": "AAAAAAG13McMC1ASKyCLNCqH",
+        "model": {
+         "$ref": "AAAAAAG13McMC1AjlcSRzR/+"
+        },
+        "left": 44,
+        "top": 348,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       },
+       {
+        "_type": "WFTextView",
+        "_id": "AAAAAAG13McMC1AYjGH+7oUQ",
+        "model": {
+         "$ref": "AAAAAAG13McMC1A6cZvHAXqN"
+        },
+        "left": 374,
+        "top": 76,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       },
+       {
+        "_type": "WFRadioView",
+        "_id": "AAAAAAG13McMC1A8vfZcrukB",
+        "model": {
+         "$ref": "AAAAAAG13McMC1AM1XOvGvPK"
+        },
+        "left": 374,
+        "top": 120,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       },
+       {
+        "_type": "WFRadioView",
+        "_id": "AAAAAAG13McMC1A+aETCzfpi",
+        "model": {
+         "$ref": "AAAAAAG13McMC1A13bysojcY"
+        },
+        "left": 374,
+        "top": 164,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       },
+       {
+        "_type": "WFDropdownView",
+        "_id": "AAAAAAG13McMC1AVQjVTH2GL",
+        "model": {
+         "$ref": "AAAAAAG13McMC1AsUvvbaEA1"
+        },
+        "left": 374,
+        "top": 208,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       },
+       {
+        "_type": "WFSwitchView",
+        "_id": "AAAAAAG13McMC1AhLpJI0ZNp",
+        "model": {
+         "$ref": "AAAAAAG13McMC1ASgem4ePwm"
+        },
+        "left": 374,
+        "top": 252,
+        "width": 232,
+        "height": 30,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       },
+       {
+        "_type": "WFButtonView",
+        "_id": "AAAAAAG13McMC1AKe3UMSydr",
+        "model": {
+         "$ref": "AAAAAAG13McMC1A2lJpDLzn6"
+        },
+        "left": 374,
+        "top": 296,
+        "width": 232,
+        "height": 36,
+        "_parent": {
+         "$ref": "AAAAAAG13McLC1AUTlIrVQRm"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFMobileFrame",
+      "_id": "AAAAAAG13McLC1AL2NUsabhV",
+      "name": "오늘",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFText",
+      "_id": "AAAAAAG13McMC1AfFmCukOUz",
+      "name": "오늘의 운동",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFImage",
+      "_id": "AAAAAAG13McMC1A1yApBWkIu",
+      "name": "",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFProgress",
+      "_id": "AAAAAAG13McMC1A3c88vxXrf",
+      "name": "",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFButton",
+      "_id": "AAAAAAG13McMC1AbgviVkBQJ",
+      "name": "시작하기",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFTabList",
+      "_id": "AAAAAAG13McMC1AjlcSRzR/+",
+      "name": "",
+      "checked": false,
+      "disabled": false,
+      "items": "오늘,기록,설정",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFMobileFrame",
+      "_id": "AAAAAAG13McMC1A9KuQ15UaR",
+      "name": "가입",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFText",
+      "_id": "AAAAAAG13McMC1A6cZvHAXqN",
+      "name": "목표를 알려 주세요",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFRadio",
+      "_id": "AAAAAAG13McMC1AM1XOvGvPK",
+      "name": "체중 감량",
+      "checked": true,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFRadio",
+      "_id": "AAAAAAG13McMC1A13bysojcY",
+      "name": "근력 향상",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFDropdown",
+      "_id": "AAAAAAG13McMC1AsUvvbaEA1",
+      "name": "주 3회",
+      "checked": false,
+      "disabled": false,
+      "items": "주 2회,주 3회,주 5회",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFSwitch",
+      "_id": "AAAAAAG13McMC1ASgem4ePwm",
+      "name": "알림 받기",
+      "checked": true,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     },
+     {
+      "_type": "WFButton",
+      "_id": "AAAAAAG13McMC1A2lJpDLzn6",
+      "name": "다음",
+      "checked": false,
+      "disabled": false,
+      "items": "",
+      "_parent": {
+       "$ref": "AAAAAAG13McLC1AbLDv/Bxfi"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

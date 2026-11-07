@@ -216,10 +216,22 @@ export function themeVariables(theme) {
   return Object.fromEntries(Object.entries({ ...base, ...theme.colors }).map(([key, value]) => [`--${kebab(key)}`, value]));
 }
 
+/** The diagram colours that go with a program theme: the paper is the theme's drawing area. */
+export function diagramPaletteOf(theme) {
+  const { chart, surface, text, border, gridAlt } = theme.colors;
+  return { dark: theme.dark, background: chart, fill: surface, line: mix(text, chart, 0.2), color: text, grid: gridAlt, gridMajor: mix(border, text, 0.3) };
+}
+
+let appPalette = { dark: false, background: '#ffffff', fill: '#ffffff', line: '#1f1f1f', color: '#000000', grid: '#e9ecf1', gridMajor: '#a9b2bf' };
+/** The palette of the "follow the theme" scheme in this window: the theme applied last. */
+export const appDiagramPalette = () => appPalette;
+
 export function applyTheme(theme, root = globalThis.document?.documentElement) {
+  appPalette = diagramPaletteOf(theme);
   if (!root) return;
   for (const [name, value] of Object.entries(themeVariables(theme))) root.style.setProperty(name, value);
   root.dataset.theme = theme.id;
+  root.dataset.mode = theme.dark ? 'dark' : 'light';
   root.style.colorScheme = theme.dark ? 'dark' : 'light';
 }
 

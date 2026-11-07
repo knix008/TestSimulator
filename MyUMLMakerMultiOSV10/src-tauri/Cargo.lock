@@ -2523,6 +2523,8 @@ dependencies = [
  "tiberius",
  "tokio",
  "tokio-util",
+ "webview2-com",
+ "windows",
 ]
 
 [[package]]
