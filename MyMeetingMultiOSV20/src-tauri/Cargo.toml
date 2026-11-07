@@ -30,7 +30,7 @@ tokio-util = { version = "0.7", features = ["compat"] }
 # The system's print dialog: WebView2's default is its own preview inside the window.
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"
-windows = "0.62"
+windows = { version = "0.62", features = ["Win32_Graphics_Printing", "Win32_Graphics_Gdi", "Win32_Security"] }
 
 [profile.release]
 panic = "abort"

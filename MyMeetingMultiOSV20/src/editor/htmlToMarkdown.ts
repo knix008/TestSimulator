@@ -14,7 +14,8 @@ function mediaWidth(node: Element) {
 }
 
 function imageMarkup(node: Element) {
-  const src = node.getAttribute('src') || ''
+  // A file beside the minutes is saved by its name, not by the address it is shown from.
+  const src = node.getAttribute('data-asset') || node.getAttribute('src') || ''
   if (!src) return ''
   const alt = node.getAttribute('alt') || ''
   const width = mediaWidth(node)
@@ -23,7 +24,8 @@ function imageMarkup(node: Element) {
 
 function mediaMarkup(node: Element) {
   const tag = node.tagName.toLowerCase()
-  const src = node.getAttribute('src') || node.querySelector('source')?.getAttribute('src') || ''
+  const source = node.querySelector('source')
+  const src = node.getAttribute('data-asset') || node.getAttribute('src') || source?.getAttribute('data-asset') || source?.getAttribute('src') || ''
   if (!src) return ''
   const width = tag === 'video' ? mediaWidth(node) : ''
   return `<${tag} src="${src}" controls${width ? ` width="${width}"` : ''}></${tag}>`

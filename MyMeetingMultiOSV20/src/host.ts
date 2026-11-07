@@ -28,6 +28,9 @@ export type AppInfo = { version: string; platform: string; arch: string; tauri: 
 export type FileFilter = { name: string; extensions: string[] }
 /** A file chosen in the browser: its name and text, as there is no path. */
 export type PickedFile = { path: string; name: string; text: string }
+/** `direct`: pages can go straight to a printer or a PDF file, without the system's dialog. */
+export type Printers = { direct: boolean; printers: string[]; default: string | null }
+export type PrintJob = { printer?: string; pdfPath?: string; widthMm: number; heightMm: number; copies: number }
 export type PopoutShow = { label: string; width: number; height: number; resizeOnly?: boolean }
 
 export const MINUTES_FILTERS: FileFilter[] = [{ name: 'MyMeeting', extensions: ['mtg'] }]
@@ -96,11 +99,18 @@ export const host = {
   convertImage: (data: string): Promise<string> => (isDesktop ? invoke('convert_image', { data }) : Promise.reject(new Error('desktop app only'))),
   systemFonts: (): Promise<string[]> => (isDesktop ? invoke('system_fonts') : Promise.resolve([])),
   appInfo: (): Promise<AppInfo | null> => (isDesktop ? invoke('app_info') : Promise.resolve(null)),
-  print: (): Promise<void> => {
-    if (isDesktop) return invoke('print_window')
+  /** The printers the print window can send to. */
+  printers: (): Promise<Printers> => (isDesktop ? invoke('list_printers') : Promise.resolve({ direct: false, printers: [], default: null })),
+  /** Prints the page's print view: straight to the job's printer or PDF file where that can be done. */
+  print: (job: PrintJob): Promise<void> => {
+    if (isDesktop) return invoke('print_window', { job })
     window.print()
     return Promise.resolve()
   },
+  pickPdf: async (defaultName: string): Promise<string | null> => save({ defaultPath: defaultName, filters: [{ name: 'PDF', extensions: ['pdf'] }] }),
+  saveAsset: (dir: string, name: string, data: string): Promise<string> => invoke('save_asset', { dir, name, data }),
+  copyAsset: (from: string, to: string, name: string): Promise<string> => invoke('copy_asset', { from, to, name }),
+  readAsset: (dir: string, name: string): Promise<string> => invoke('read_asset', { dir, name }),
   openExternal: (url: string): Promise<void> => {
     if (isDesktop) return invoke('open_external', { url })
     window.open(url, '_blank')

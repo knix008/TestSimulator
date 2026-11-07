@@ -121,6 +121,12 @@ export function PreferencesDialog({ initialTab, general, onGeneral, recentCount,
                 <div className="form-grid">
                   <span>{t('pref.dateToday')}</span>
                   <Toggle id="prefDateToday" checked={general.dateToday} onChange={(dateToday) => onGeneral({ dateToday })} />
+                  <span>{t('mediaStorage.setting')}</span>
+                  <select className="text-input" data-field="prefMediaStorage" value={general.mediaStorage} onChange={(e) => onGeneral({ mediaStorage: e.target.value as GeneralSettings['mediaStorage'] })}>
+                    <option value="ask">{t('mediaStorage.ask')}</option>
+                    <option value="internal">{t('mediaStorage.internal')}</option>
+                    <option value="external">{t('mediaStorage.external')}</option>
+                  </select>
                 </div>
               </section>
               <section>

@@ -4,7 +4,9 @@
 //   * popout.rs: dialogs as windows of their own
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod assets;
 mod popout;
+mod printing;
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -183,32 +185,6 @@ fn open_external(url: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn print_window(window: tauri::WebviewWindow) -> Result<(), String> {
-    system_print(&window)
-}
-
-/// WebView2's default is its own preview inside the window; this is the system's dialog.
-#[cfg(windows)]
-fn system_print(window: &tauri::WebviewWindow) -> Result<(), String> {
-    use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2_16, COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM};
-    use windows::core::Interface;
-    window
-        .with_webview(|webview| unsafe {
-            if let Ok(core) = webview.controller().CoreWebView2() {
-                if let Ok(printer) = core.cast::<ICoreWebView2_16>() {
-                    let _ = printer.ShowPrintUI(COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM);
-                }
-            }
-        })
-        .map_err(|e| e.to_string())
-}
-
-#[cfg(not(windows))]
-fn system_print(window: &tauri::WebviewWindow) -> Result<(), String> {
-    window.print().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 fn close_guard_ready() {
     CLOSE_GUARD.store(true, Ordering::SeqCst);
 }
@@ -322,6 +298,9 @@ fn main() {
     }
     let app = builder
         .plugin(tauri_plugin_dialog::init())
+        .register_asynchronous_uri_scheme_protocol("mtgasset", |_context, request, responder| {
+            std::thread::spawn(move || responder.respond(assets::serve(&request)));
+        })
         .setup(|app| open_main_window(app.handle()).map_err(|e| e.into()))
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { api, .. } if window.label() == MAIN => {
@@ -351,7 +330,11 @@ fn main() {
             system_fonts,
             app_info,
             open_external,
-            print_window,
+            printing::list_printers,
+            printing::print_window,
+            assets::save_asset,
+            assets::copy_asset,
+            assets::read_asset,
             window_ready,
             close_guard_ready,
             main_close,

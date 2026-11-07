@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DocStyle } from '../document'
+import { host } from '../host'
 import { paginate, printSheets, sheetsHtml, type PrintPages } from '../print/paginate'
 import { DEFAULT_PAGE_SETUP, MARGIN_MAX, PAPERS, SCALE_MAX, SCALE_MIN, parsePageRange, type HeadingLine, type Margins, type PageSetup } from '../print/pageSetup'
 import { Stepper, Toggle } from './controls'
@@ -12,12 +13,20 @@ import { Icon } from './Icons'
 type Range = 'all' | 'current' | 'custom'
 const ZOOMS = [50, 75, 100, 125, 150]
 const MM_TO_PX = 96 / 25.4
+/** "Save as PDF" in the printer list. Windows' own PDF printer would ask with a dialog: this replaces it. */
+const SAVE_PDF = '::pdf'
+const WINDOWS_PDF = 'Microsoft Print to PDF'
 
 type Props = {
   bodyHtml: string
   title: string
   setup: PageSetup
   style: DocStyle
+  /** The printer last used, and telling it the one now chosen. */
+  printer: string
+  onPrinter: (printer: string) => void
+  /** Opened to make a PDF: starts on "Save as PDF", which is then not remembered. */
+  asPdf: boolean
   onSetup: (patch: Partial<PageSetup>) => void
   onClose: () => void
   onError: (message: string) => void
@@ -37,7 +46,7 @@ function HeadingFields({ id, label, line, onChange }: { id: string; label: strin
   )
 }
 
-export function PrintDialog({ bodyHtml, title, setup, style, onSetup, onClose, onError }: Props) {
+export function PrintDialog({ bodyHtml, title, setup, style, printer, onPrinter, asPdf, onSetup, onClose, onError }: Props) {
   const { t } = useTranslation()
   const [result, setResult] = useState<PrintPages | null>(null)
   const [busy, setBusy] = useState(true)
@@ -47,6 +56,34 @@ export function PrintDialog({ bodyHtml, title, setup, style, onSetup, onClose, o
   const [current, setCurrent] = useState(1)
   const [fitZoom, setFitZoom] = useState(60)
   const preview = useRef<HTMLDivElement>(null)
+  // The printers; null where this system can only print through its own dialog.
+  const [printers, setPrinters] = useState<string[] | null>(null)
+  const [asked, setAsked] = useState(false)
+  const [target, setTarget] = useState('')
+  const [copies, setCopies] = useState(1)
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState<string | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    void host.printers().catch(() => ({ direct: false, printers: [] as string[], default: null })).then((found) => {
+      if (!alive) return
+      setAsked(true)
+      if (!found.direct) return
+      // A fax is not paper: pages sent straight to one would go off to wherever its wizard is told.
+      const names = found.printers.filter((name) => name !== WINDOWS_PDF && !/\bfax\b/i.test(name))
+      setPrinters(names)
+      // A printer that is gone falls back to the default; with no default among them, to the PDF,
+      // which asks where to save: never to some other printer that would put out paper.
+      const wanted = [printer, found.default ?? ''].find((name) => name && names.includes(name)) ?? SAVE_PDF
+      setTarget(asPdf || printer === SAVE_PDF ? SAVE_PDF : wanted)
+    })
+    return () => {
+      alive = false
+    }
+    // Asked once, when the window opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -105,9 +142,22 @@ export function PrintDialog({ bodyHtml, title, setup, style, onSetup, onClose, o
     setCurrent(page)
   }
 
-  const print = () => {
-    if (!result || rangeBad) return
-    void printSheets(sheetsHtml(result, setup, style, title, selected ?? undefined), result.width, result.height).catch((error: unknown) => onError(String(error)))
+  const direct = printers !== null
+  const toPdf = target === SAVE_PDF
+  const print = async () => {
+    if (!result || rangeBad || sending) return
+    setSent(null)
+    const pdfPath = toPdf ? await host.pickPdf(`${title.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'minutes'}.pdf`) : undefined
+    if (toPdf && !pdfPath) return
+    setSending(true)
+    try {
+      await printSheets(sheetsHtml(result, setup, style, title, selected ?? undefined), result.width, result.height, { printer: toPdf ? undefined : target || undefined, pdfPath: pdfPath ?? undefined, copies })
+      if (direct) setSent(toPdf ? t('print.savedPdf') : t('print.sent', { printer: target }))
+    } catch (error) {
+      onError(String(error) === 'printer-unavailable' ? t('print.unavailable', { printer: target }) : t('print.failed', { reason: String(error) }))
+    } finally {
+      setSending(false)
+    }
   }
 
   const margin = (side: keyof Margins) => (value: number) => onSetup({ margins: { ...setup.margins, [side]: value } })
@@ -122,14 +172,38 @@ export function PrintDialog({ bodyHtml, title, setup, style, onSetup, onClose, o
       footer={(
         <>
           <span className="print-pages-note" data-print-count="">{busy ? t('print.measuring') : t('print.pageCount', { count: pages })}</span>
+          {(sending || sent) && <span className="print-pages-note" data-print-sent="">{sending ? t('print.sending') : sent}</span>}
           <span className="grow" />
           <button type="button" data-command="print-close" onClick={onClose}><Icon name="close" size={14} /> {t('common.close')}</button>
-          <button type="button" className="primary" data-command="print-run" disabled={!result || rangeBad} onClick={print}><Icon name="print" size={14} /> {t('print.print')}</button>
+          <button type="button" className="primary" data-command="print-run" disabled={!result || rangeBad || sending || !asked} onClick={() => void print()}><Icon name={toPdf ? 'pdf' : 'print'} size={14} /> {toPdf ? t('print.savePdf') : t('print.print')}</button>
         </>
       )}
     >
       <div className="print-layout">
         <aside className="print-settings">
+          {printers && (
+            <section>
+              <h4><Icon name="print" size={14} /> {t('print.printer')}</h4>
+              <div className="form-grid">
+                <span>{t('print.printer')}</span>
+                <select
+                  className="text-input"
+                  data-field="printPrinter"
+                  value={target}
+                  onChange={(e) => {
+                    setTarget(e.target.value)
+                    setSent(null)
+                    onPrinter(e.target.value)
+                  }}
+                >
+                  {printers.map((name) => <option key={name} value={name}>{name}</option>)}
+                  <option value={SAVE_PDF}>{t('print.savePdf')}</option>
+                </select>
+                <span>{t('print.copies')}</span>
+                <Stepper id="printCopies" min={1} max={99} value={copies} disabled={toPdf} onChange={setCopies} />
+              </div>
+            </section>
+          )}
           <section>
             <h4><Icon name="page" size={14} /> {t('print.paper')}</h4>
             <div className="form-grid">

@@ -9,6 +9,8 @@ import { docIconHtml } from './docIcons'
 import { htmlToMarkdown } from './htmlToMarkdown'
 import { IconPicker } from './IconPicker'
 import { MEDIA_ACCEPT, UnsupportedImage, mediaDataUrl, mediaType } from './media'
+import { assetUrl, saveAsset } from '../assets'
+import type { MediaStorageChoice } from '../settings'
 
 type Block = 'p' | 'h2' | 'h3' | 'h4' | 'pre' | 'blockquote'
 type Active = { block: Block | ''; bold: boolean; italic: boolean; underline: boolean; strike: boolean; ul: boolean; ol: boolean; table: boolean }
@@ -46,6 +48,30 @@ function Tool({ id, label, on, children, onClick }: { id: string; label: string;
   )
 }
 
+const MEDIA_DRAG = 'application/x-mymeeting-media'
+/** The picture being dragged and how its editor reports the change: it can land in another editor. */
+let moving: { node: HTMLElement; flush: () => void } | null = null
+
+/** Where the insertion mark goes for a caret: a collapsed range often has no box of its own. */
+function caretRect(range: Range) {
+  const own = range.getClientRects()[0]
+  if (own) return { x: own.left, y: own.top, height: own.height }
+  const parent = range.startContainer
+  const box = (node: Node) => {
+    const around = document.createRange()
+    around.selectNode(node)
+    return around.getBoundingClientRect()
+  }
+  if (parent.nodeType !== 1) {
+    const r = box(parent)
+    return { x: r.left, y: r.top, height: r.height }
+  }
+  const next = parent.childNodes[range.startOffset]
+  const previous = parent.childNodes[range.startOffset - 1]
+  const r = next ? box(next) : previous ? box(previous) : (parent as Element).getBoundingClientRect()
+  return { x: next || !previous ? r.left : r.right, y: r.top, height: r.height }
+}
+
 export type RichEditorProps = {
   value: string
   /** A new key reloads the page from `value` (undo, open, a tutorial step). */
@@ -55,9 +81,11 @@ export type RichEditorProps = {
   onRedo: () => void
   placeholder?: string
   onError?: (message: string) => void
+  /** Where what is being put in goes; null is cancelled. Without it, inside the document. */
+  onChooseStorage?: () => Promise<MediaStorageChoice | null>
 }
 
-export function RichEditor({ value, docKey, onChange, onUndo, onRedo, placeholder, onError }: RichEditorProps) {
+export function RichEditor({ value, docKey, onChange, onUndo, onRedo, placeholder, onError, onChooseStorage }: RichEditorProps) {
   const { t } = useTranslation()
   const page = useRef<HTMLDivElement>(null)
   const pending = useRef<number | null>(null)
@@ -70,6 +98,7 @@ export function RichEditor({ value, docKey, onChange, onUndo, onRedo, placeholde
   const [link, setLink] = useState<{ url: string; range: Range | null } | null>(null)
   const [picked, setPicked] = useState<HTMLElement | null>(null)
   const [icons, setIcons] = useState(false)
+  const [dropMark, setDropMark] = useState<{ left: number; top: number; height: number } | null>(null)
   const [, setTick] = useState(0)
   const saved = useRef<Range | null>(null)
 
@@ -212,21 +241,25 @@ export function RichEditor({ value, docKey, onChange, onUndo, onRedo, placeholde
     })
 
   const insertMedia = async (files: File[]) => {
-    for (const file of files) {
-      if (!mediaType(file)) {
-        onError?.(t('editor.notMedia', { name: file.name }))
-        continue
-      }
-      if (file.size > MAX_MEDIA) {
-        onError?.(t('editor.tooLarge', { name: file.name }))
-        continue
-      }
+    const usable = files.filter((file) => {
+      if (!mediaType(file)) onError?.(t('editor.notMedia', { name: file.name }))
+      else if (file.size > MAX_MEDIA) onError?.(t('editor.tooLarge', { name: file.name }))
+      else return true
+      return false
+    })
+    if (!usable.length) return
+    const storage = onChooseStorage ? await onChooseStorage() : 'internal'
+    if (!storage) return
+    for (const file of usable) {
       try {
         const media = await mediaDataUrl(file)
         if (!media) continue
         const alt = escapeHtml(file.name.replace(/\.[^.]+$/, ''))
+        // Beside the minutes: the document keeps the file's name, the page shows it from its folder.
+        const ref = storage === 'external' ? await saveAsset(file.name, media.src) : null
+        const source = ref ? `src="${escapeHtml(assetUrl(ref))}" data-asset="${escapeHtml(ref)}"` : `src="${media.src}"`
         // A picture sits in the line like a character; video and sound are players.
-        insertHtml(media.kind === 'image' ? `<img src="${media.src}" alt="${alt}">` : `<${media.kind} src="${media.src}" controls></${media.kind}>`)
+        insertHtml(media.kind === 'image' ? `<img ${source} alt="${alt}">` : `<${media.kind} ${source} controls></${media.kind}>`)
       } catch (error) {
         onError?.(error instanceof UnsupportedImage ? t('editor.unsupportedImage', { name: file.name }) : t('editor.readFailed', { name: file.name }))
       }
@@ -359,7 +392,66 @@ export function RichEditor({ value, docKey, onChange, onUndo, onRedo, placeholde
     }
   }
 
+  /* --------------------------------------------- moving a picture by dragging it */
+
+  /** The place in the page under a point; code keeps only text, so a picture goes after it. */
+  const dropPlace = (x: number, y: number) => {
+    const root = page.current
+    const range = document.caretRangeFromPoint?.(x, y)
+    if (!root || !range || !root.contains(range.startContainer)) return null
+    // Its <pre> first: after the <code> inside one would still be in the block.
+    const code = closest(range.startContainer, 'pre', root) ?? closest(range.startContainer, 'code', root)
+    if (code) {
+      range.setStartAfter(code)
+      range.collapse(true)
+    }
+    return range
+  }
+
+  const onDragStart = (event: React.DragEvent) => {
+    const target = event.target as HTMLElement
+    if (target.tagName !== 'IMG') return
+    // Only the mark of our own: no copy of the file or address for this page or other programs to take.
+    event.dataTransfer.clearData()
+    event.dataTransfer.setData(MEDIA_DRAG, '1')
+    event.dataTransfer.effectAllowed = 'move'
+    moving = { node: target, flush }
+    setPicked(null)
+  }
+
+  const onDragOver = (event: React.DragEvent) => {
+    if (event.dataTransfer.types.includes(MEDIA_DRAG) && moving) {
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'move'
+      const range = dropPlace(event.clientX, event.clientY)
+      const host = page.current?.parentElement?.getBoundingClientRect()
+      if (!range || !host) return setDropMark(null)
+      const at = caretRect(range)
+      setDropMark({ left: at.x - host.left, top: at.y - host.top, height: Math.max(at.height, 18) })
+    } else if (event.dataTransfer.types.includes('Files')) {
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'copy'
+    }
+  }
+
+  const moveMedia = (event: React.DragEvent) => {
+    event.preventDefault()
+    setDropMark(null)
+    const source = moving
+    moving = null
+    const range = source && dropPlace(event.clientX, event.clientY)
+    if (!source || !range) return
+    const from = source.node.parentElement
+    range.insertNode(source.node)
+    // A paragraph that only held the picture would stay behind as an empty gap.
+    if (from?.matches('p,div') && !from.isSameNode(source.node.parentElement) && !from.classList.contains('richeditor-page') && !from.textContent?.trim() && !from.querySelector('img,video,audio,input,table,hr')) from.remove()
+    source.flush()
+    flush()
+    setPicked(source.node)
+  }
+
   const onDrop = (event: React.DragEvent) => {
+    if (event.dataTransfer.types.includes(MEDIA_DRAG)) return moveMedia(event)
     const files = Array.from(event.dataTransfer.files)
     if (!files.length) return
     event.preventDefault()
@@ -499,16 +591,19 @@ export function RichEditor({ value, docKey, onChange, onUndo, onRedo, placeholde
           onBlur={flush}
           onKeyDown={onKeyDown}
           onPaste={onPaste}
-          onDragOver={(event) => {
-            if (!event.dataTransfer.types.includes('Files')) return
-            event.preventDefault()
-            event.dataTransfer.dropEffect = 'copy'
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragLeave={(event) => !page.current?.contains(event.relatedTarget as Node) && setDropMark(null)}
+          onDragEnd={() => {
+            moving = null
+            setDropMark(null)
           }}
           onDrop={onDrop}
           onClick={onClick}
         />
+        {dropMark && <span className="media-drop-mark" style={dropMark} />}
         {box && (
-          <div className="media-frame" style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>
+          <div className={`media-frame${box.width < 40 || box.height < 40 ? ' is-small' : ''}`} style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>
             <div className="media-sizes" onMouseDown={(e) => e.preventDefault()}>
               {[0.25, 0.5, 0.75, 1].map((f) => (
                 <button key={f} type="button" className="btn btn-small" onClick={() => sizePreset(f)}>{Math.round(f * 100)}%</button>

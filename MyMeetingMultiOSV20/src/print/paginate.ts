@@ -118,8 +118,11 @@ export async function paginate(bodyHtml: string, setup: PageSetup, style: DocSty
     const finish = () => {
       // A heading belongs with what follows it.
       const carried: Element[] = []
-      while (page.children.length > 1 && HEADING.test(page.lastElementChild!.tagName)) carried.unshift(page.lastElementChild!)
-      carried.forEach((element) => element.remove())
+      while (page.children.length > 1 && HEADING.test(page.lastElementChild!.tagName)) {
+        const heading = page.lastElementChild!
+        heading.remove()
+        carried.unshift(heading)
+      }
       pages.push(page.innerHTML)
       page.innerHTML = ''
       return carried
@@ -173,8 +176,8 @@ export function sheetsHtml(result: PrintPages, setup: PageSetup, style: DocStyle
     .join('')
 }
 
-/** Puts the sheets where the print style shows them, sized for their paper, and opens the print dialog. */
-export function printSheets(html: string, width: number, height: number) {
+/** Puts the sheets where the print style shows them, sized for their paper, and sends them off. */
+export function printSheets(html: string, width: number, height: number, target: { printer?: string; pdfPath?: string; copies: number }) {
   let sheet = document.getElementById('print-sheet')
   if (!sheet) {
     sheet = document.createElement('div')
@@ -189,5 +192,5 @@ export function printSheets(html: string, width: number, height: number) {
     document.head.append(rule)
   }
   rule.textContent = `@page { size: ${width}mm ${height}mm; margin: 0 }`
-  return host.print()
+  return host.print({ ...target, widthMm: width, heightMm: height })
 }

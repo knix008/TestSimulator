@@ -266,8 +266,8 @@ export function meetingBaseName(m: Meeting, fallback: string) {
 }
 
 export const timeRange = (m: Meeting) => {
-  const a = m.startTime.trim()
-  const b = m.endTime.trim()
+  const a = normalizeTime(m.startTime) ?? m.startTime.trim()
+  const b = normalizeTime(m.endTime) ?? m.endTime.trim()
   return a && b ? `${a} – ${b}` : a || b
 }
 
@@ -275,6 +275,55 @@ export const TIME_PATTERN = /^([01]?\d|2[0-3]):[0-5]\d$/
 export const toMinutes = (text: string) => {
   const match = text.trim().match(TIME_PATTERN)
   return match ? Number(text.split(':')[0]) * 60 + Number(text.split(':')[1]) : null
+}
+
+const DAY_MINUTES = 24 * 60
+/** Minutes as HH:MM; past midnight it carries on from 00:00. */
+export const minutesToTime = (minutes: number) => {
+  const inDay = ((minutes % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES
+  return `${String(Math.floor(inDay / 60)).padStart(2, '0')}:${String(inDay % 60).padStart(2, '0')}`
+}
+/** How long from one time to the next; an end before the start is on the next day. */
+export const minutesBetween = (from: number, to: number) => (to - from + DAY_MINUTES) % DAY_MINUTES
+
+const MERIDIEM = '(오전|오후|a\\.?m\\.?|p\\.?m\\.?|a|p)'
+const TIME_TEXT = new RegExp(`^(?:${MERIDIEM}\\s*)?(\\d{1,2})(?:\\s*(?:시|:|\\.|\\s)\\s*(\\d{1,2}|반)?\\s*분?)?(?:\\s*${MERIDIEM})?$`)
+
+/**
+ * A time however it was typed, as HH:MM: 9 / 930 / 9.30 / 9시 반 / 오후 3시 / 3:30pm. Empty stays empty;
+ * null means it can't be read as a time. A bare hour is taken literally: 3 is 03:00.
+ */
+export function normalizeTime(text: string): string | null {
+  const typed = text.trim().toLowerCase().replace(/：/g, ':')
+  if (!typed) return ''
+  // Three or four digits in a row are hours and minutes.
+  const match = typed.replace(/^(\D*)(\d{1,2})(\d{2})(\D*)$/, '$1$2:$3$4').match(TIME_TEXT)
+  if (!match) return null
+  const [, before, hourText, minuteText, after] = match
+  if (before && after) return null
+  const meridiem = before ?? after
+  const minute = minuteText === '반' ? 30 : Number(minuteText ?? 0)
+  let hour = Number(hourText)
+  if (meridiem) {
+    const pm = meridiem === '오후' || meridiem.startsWith('p')
+    if (hour === 0 || (!pm && hour > 12)) return null
+    if (hour < 12 && pm) hour += 12
+    else if (hour === 12 && !pm) hour = 0
+  }
+  return hour < 24 && minute < 60 ? minutesToTime(hour * 60 + minute) : null
+}
+
+/**
+ * The start set to a finished time. The meeting keeps its length: `before` is the start it had, and
+ * an end not set yet becomes an hour later.
+ */
+export function withStartTime(m: Meeting, start: string, before: string): Meeting {
+  const next = toMinutes(start)
+  if (next === null) return { ...m, startTime: start }
+  const was = toMinutes(before)
+  const end = toMinutes(m.endTime)
+  const length = !m.endTime.trim() ? 60 : was !== null && end !== null ? minutesBetween(was, end) : null
+  return { ...m, startTime: start, endTime: length === null ? m.endTime : minutesToTime(next + length) }
 }
 
 export function todayText(now = new Date()) {

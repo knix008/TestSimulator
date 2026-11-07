@@ -2,6 +2,7 @@
 // and the HTML, Word and Markdown exports are all made from it, so they always agree.
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
+import { resolveAssets } from './assets'
 import { timeRange, type ActionItem, type Attendee, type Entry, type Meeting, type Section } from './meeting'
 
 export type DocLabels = {
@@ -53,7 +54,7 @@ const MEDIA_TAGS = ['video', 'audio', 'source', 'u']
 /** Markdown as safe HTML: pictures stay as data: URLs, scripts and handlers never survive. */
 export function renderMarkdown(md: string): string {
   const html = marked.parse(md || '', { async: false }) as string
-  return DOMPurify.sanitize(html, { ADD_ATTR: MEDIA_ATTR, ADD_TAGS: MEDIA_TAGS })
+  return resolveAssets(DOMPurify.sanitize(html, { ADD_ATTR: MEDIA_ATTR, ADD_TAGS: MEDIA_TAGS }))
 }
 
 /** Pasted HTML (a browser, Word): its structure, without styles, classes or scripts. */

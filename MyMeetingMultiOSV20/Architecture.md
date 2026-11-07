@@ -76,7 +76,9 @@ Program icons (`icon-paths.ts`, `components/Icons.tsx`) are duotone SVG paths, e
 
 ## Printing
 
-`print/pageSetup.ts` holds paper sizes, orientation, scale, margins, header and footer templates and the page range. `print/paginate.ts` lays the document out in an off-screen frame at the paper size and splits it into pages, filling `{title} {date} {time} {page} {pages}`. The print dialog shows those pages as the preview; printing writes the selected pages into a print frame and calls `print_window` (or `window.print()` in a browser). PDF goes through the system print dialog.
+`print/pageSetup.ts` holds paper sizes, orientation, scale, margins, header and footer templates and the page range. `print/paginate.ts` lays the document out in an off-screen frame at the paper size and splits it into pages, filling `{title} {date} {time} {page} {pages}`. The print dialog shows those pages as the preview; printing writes the selected pages into a print frame and calls `print_window`, which on Windows sends them with WebView2 straight to the printer chosen from `list_printers`, or to a PDF file, with no dialog. WKWebView and WebKitGTK cannot do this, so macOS and Linux use the system's dialog, as a browser does with `window.print()`.
+
+`assets.ts` and `src-tauri/src/assets.rs` keep media beside the minutes: a file in the `.mtg`'s folder, written under a free name and never over another file, named in the Markdown by its encoded file name. `renderMarkdown` turns those names into `mtgasset:` addresses with `data-asset` holding the name, which `htmlToMarkdown` writes back. Exports carry the files inside them, and Save As into another folder copies them.
 
 ## Popup windows
 

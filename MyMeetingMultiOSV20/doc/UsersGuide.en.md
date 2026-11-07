@@ -32,6 +32,8 @@ On the left is the **outline**, in the middle the minutes **document**, and on t
 
 Write the meeting title at the top, then the date, time, place, organizer and recorder under **Meeting details**. The calendar button next to the date opens a date picker.
 
+Pick a time with the clock button beside its field (or `↓` in the field), or type it however is convenient. `930`, `9.30`, `15`, `3pm` and `3:30 pm` become `09:30`-style times when you leave the field; text that can't be read as a time turns the field red. A number alone is read as it stands, so `3` is 3 in the morning. Entering a start time fills an empty end time an hour later, and changing the start moves the end with it so the meeting keeps its length. The end-time list shows the meeting's length beside each time. **Now** at the top of the list enters the current time.
+
 ![Meeting details](images/ko-info.webp)
 
 ## Attendees and agenda: add with "+"
@@ -52,7 +54,8 @@ The discussion is edited as it looks. The format bar sets the paragraph style (b
 
 - Typing `# `, `- `, `1. ` or `> ` at the start of a line makes a heading, list, numbered list or quote.
 - In a table **Tab** moves to the next cell, and the format bar shows buttons to add and delete rows and columns.
-- Pictures can also be dropped or pasted in. Click a picture for 25, 50, 75 and 100% buttons and a resize handle.
+- Pictures can also be dropped or pasted in. Click a picture for 25, 50, 75 and 100% buttons and a resize handle. Drag a picture to move it, also into another text section.
+- Choose where a picture or video is kept as you put it in. **Inside the minutes** holds everything in the one `.mtg` file; **In the same folder as the minutes** copies the file beside the `.mtg` (a file of the same name is never written over: the copy takes a name like `name-2`). Files kept beside the minutes have to move with them. Minutes not saved yet ask where to save first. Saving As into another folder copies the files too, and exports carry the files inside them. Removing a picture from the document does not delete its file. To stop being asked, set **Settings → General → Keep pictures and video**.
 - **Ctrl+click** opens a link.
 
 ### Inserting icons
@@ -83,7 +86,9 @@ The **Preview** button shows the finished minutes on the right, exactly as they 
 - **Pages**: all, current, or a range such as `1-3, 5`
 - Zoom the preview to fit the width or to 50–150%.
 
-To make a PDF, choose "Save as PDF" as the printer.
+Choose the **Printer** and **Copies** at the top left and press **Print** at the bottom: the pages go straight to that printer, with no other window. The printer stays selected next time. Duplex, colour and other printer settings follow the printer's defaults in Windows. On macOS and Linux the system's print dialog opens instead of the list.
+
+To make a PDF, choose **Save as PDF** as the printer, press the button and pick where to save it.
 
 ## Export
 

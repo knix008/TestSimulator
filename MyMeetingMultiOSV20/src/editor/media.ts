@@ -17,6 +17,10 @@ export const MEDIA_ACCEPT = ['image/*', 'video/*', 'audio/*', ...Object.keys(TYP
 
 export const extensionOf = (name: string) => (name.match(/\.([a-z0-9]+)$/i)?.[1] ?? '').toLowerCase()
 
+/** The kinds a file beside the minutes can be: what the WebView shows as it is (src-tauri/src/assets.rs). */
+const KEPT_BESIDE = new Set(['png', 'apng', 'jpg', 'jpeg', 'jpe', 'jfif', 'pjpeg', 'pjp', 'gif', 'webp', 'avif', 'bmp', 'dib', 'svg', 'svgz', 'ico', 'cur', 'mp4', 'm4v', 'webm', 'ogv', 'mov', 'mp3', 'm4a', 'aac', 'wav', 'ogg', 'oga', 'opus', 'flac'])
+export const isMediaName = (name: string) => KEPT_BESIDE.has(extensionOf(name))
+
 /** The MIME type, from the file or, when the system gives none, from its extension. */
 export const mediaType = (file: File) => {
   const given = file.type && file.type !== 'application/octet-stream' ? file.type : ''

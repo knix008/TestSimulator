@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { host, isDesktop, type AppInfo } from '../host'
 import { canPopOut, closePopout, fitPopout, openPopoutSoon, sizePopout, type Popout } from '../popout'
+import type { MediaStorageChoice } from '../settings'
 import { GripDots } from './controls'
 import { Icon } from './Icons'
 
@@ -369,6 +370,34 @@ export function ExportDialog({ initial, onExport, onCancel }: { initial: ExportF
             <span>{t(`export.${item.id}Note`)}</span>
           </button>
         ))}
+      </div>
+    </Dialog>
+  )
+}
+
+/** Where a picture, video or sound goes as it is put in. */
+export function MediaStorageDialog({ saved, onPick, onCancel }: { saved: boolean; onPick: (storage: MediaStorageChoice) => void; onCancel: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <Dialog
+      id="media-storage"
+      title={t('mediaStorage.title')}
+      icon="image"
+      width={560}
+      onClose={onCancel}
+      footer={<button type="button" data-command="media-storage-cancel" onClick={onCancel}><Icon name="close" size={14} /> {t('common.cancel')}</button>}
+    >
+      <div className="export-choices media-storage-choices">
+        <button type="button" className="export-choice" data-media-storage="internal" onClick={() => onPick('internal')}>
+          <Icon name="page" size={26} />
+          <b>{t('mediaStorage.internal')}</b>
+          <span>{t('mediaStorage.internalNote')}</span>
+        </button>
+        <button type="button" className="export-choice" data-media-storage="external" onClick={() => onPick('external')}>
+          <Icon name="open" size={26} />
+          <b>{t('mediaStorage.external')}</b>
+          <span>{t(saved ? 'mediaStorage.externalNote' : 'mediaStorage.externalUnsaved')}</span>
+        </button>
       </div>
     </Dialog>
   )

@@ -80,8 +80,8 @@ export const TUTORIALS: Tutorial[] = [
         id: 'when',
         title: { ko: '날짜와 시간', en: 'Date and time' },
         text: {
-          ko: '**날짜** 옆의 달력 단추로 날짜를 고르고, **시작**과 **종료** 시간을 입력하세요(예: 10:00, 11:00).',
-          en: 'Pick the **date** with the calendar button beside it, then enter the **start** and **end** times (e.g. 10:00, 11:00).',
+          ko: '**날짜** 옆의 달력 단추로 날짜를 고르고, **시작** 시간을 시계 단추로 고르거나 930, 오후 3시처럼 입력하세요. **종료** 시간은 한 시간 뒤로 채워지니 필요하면 바꾸세요.',
+          en: 'Pick the **date** with the calendar button beside it, then pick the **start** time with the clock button or type it like 930 or 3pm. The **end** time fills in an hour later; change it if you need to.',
         },
         image: 'info',
         highlight: '[data-section="info"]',
@@ -186,7 +186,7 @@ export const TUTORIALS: Tutorial[] = [
       {
         id: 'open-print',
         title: { ko: '인쇄 창 열기', en: 'Open Print' },
-        text: { ko: '툴바의 **인쇄** 단추(또는 Ctrl+P)를 누르세요. 왼쪽은 페이지 설정, 오른쪽은 실제로 나올 페이지의 미리보기입니다.', en: 'Press **Print** in the toolbar (or Ctrl+P). Page setup is on the left; on the right is a preview of the real pages.' },
+        text: { ko: '툴바의 **인쇄** 단추(또는 Ctrl+P)를 누르세요. 왼쪽은 프린터와 페이지 설정, 오른쪽은 실제로 나올 페이지의 미리보기입니다. 창 아래의 **인쇄**를 누르면 고른 프린터로 바로 인쇄됩니다.', en: 'Press **Print** in the toolbar (or Ctrl+P). The printer and page setup are on the left; on the right is a preview of the real pages. **Print** at the bottom of the window prints straight to the chosen printer.' },
         image: 'print',
         highlight: '[data-command="print"]',
         done: (_, view) => view.printOpen,

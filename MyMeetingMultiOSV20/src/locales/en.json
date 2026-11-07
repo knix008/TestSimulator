@@ -35,6 +35,8 @@
   "info": {
     "title": "Meeting title", "titlePlaceholder": "Meeting title", "date": "Date", "time": "Time", "start": "Start time", "end": "End time",
     "location": "Location", "locationPlaceholder": "Room, online link…", "organizer": "Organizer", "recorder": "Recorder", "pickDate": "Pick from the calendar",
+    "pickTime": "Pick a time", "now": "Now", "timeHint": "You can also type 930, 15 or 3pm",
+    "durationH": "{{h}} hr", "durationM": "{{m}} min", "durationHM": "{{h}} hr {{m}} min",
     "pickPerson": "Pick from the attendees", "pickOrType": "Pick an attendee or type a name", "typeName": "Type a name", "noAttendees": "Add attendees to pick from them here"
   },
   "attendee": { "name": "Name", "role": "Role / Team", "attendance": "Attendance" },
@@ -88,8 +90,14 @@
     "html": "Web page", "htmlNote": "One file with its pictures inside: easy to mail.",
     "markdown": "Markdown", "markdownNote": "Paste into a wiki, GitHub or a notes app.",
     "text": "Plain text", "textNote": "Just the words, no formatting.",
-    "pdf": "PDF", "pdfNote": "Opens Print: choose the 'Save as PDF' printer.",
-    "pdfHow": "For PDF, choose 'Microsoft Print to PDF' or 'Save as PDF' as the printer in the print dialog."
+    "pdf": "PDF", "pdfNote": "Opens Print, set to 'Save as PDF'.",
+    "pdfHow": "Set the pages as you like, then save the PDF from the print window."
+  },
+  "mediaStorage": {
+    "title": "Where should it be kept?", "setting": "Keep pictures and video", "ask": "Ask each time",
+    "internal": "Inside the minutes", "internalNote": "Everything stays in one file that is easy to move. The file grows by as much.",
+    "external": "In the same folder as the minutes", "externalNote": "Copies the file beside the minutes. They stay small, but move the files along with them.",
+    "externalUnsaved": "Copies the file beside the minutes. These minutes aren't saved yet, so you'll choose where to save them first."
   },
   "print": {
     "title": "Print", "print": "Print", "paper": "Paper", "size": "Size", "orientation": "Orientation", "portrait": "Portrait", "landscape": "Landscape",
@@ -98,7 +106,9 @@
     "headingSize": "Text size", "skipFirst": "Not on the first page",
     "tokens": "{title} title · {date} date · {time} time · {page} page number · {pages} page count",
     "range": "Pages", "range-all": "All pages", "rangeCurrent": "Current page ({{page}})", "range-custom": "Pages:",
-    "pdfHint": "To save a PDF, choose 'Save as PDF' as the printer in the print dialog.",
+    "pdfHint": "To save a PDF, choose 'Save as PDF' as the printer.",
+    "printer": "Printer", "copies": "Copies", "savePdf": "Save as PDF", "sending": "Sending…", "sent": "Sent to {{printer}}", "savedPdf": "PDF saved",
+    "unavailable": "{{printer}} can't be used. Check its power and connection, or choose another printer.", "failed": "Could not print: {{reason}}",
     "defaults": "Reset to defaults", "measuring": "Laying out pages…", "pageCount": "{{count}} pages", "pageOf": "Page {{page}} of {{pages}}",
     "prevPage": "Previous page", "nextPage": "Next page", "zoom": "Zoom", "zoomIn": "Zoom in", "zoomOut": "Zoom out", "fit": "Fit width"
   },

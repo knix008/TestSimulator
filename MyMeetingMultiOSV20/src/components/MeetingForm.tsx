@@ -5,9 +5,10 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { useTranslation } from 'react-i18next'
 import { RichEditor } from '../editor/RichEditor'
 import {
-  ATTENDANCE, isBuiltin, moveSection, moveSectionTo, newAction, newAttendee, newEntry, removeSection, SECTION_ICON, sectionIcon, TIME_PATTERN, todayText, updateSection,
+  ATTENDANCE, isBuiltin, minutesBetween, minutesToTime, moveSection, moveSectionTo, newAction, newAttendee, newEntry, normalizeTime, removeSection, SECTION_ICON, sectionIcon, todayText, toMinutes, updateSection, withStartTime,
   type ActionItem, type Attendee, type Entry, type Meeting, type Section,
 } from '../meeting'
+import type { MediaStorageChoice } from '../settings'
 import { Icon } from './Icons'
 import { IconPopover, sectionLabel } from './SectionParts'
 
@@ -22,6 +23,7 @@ type Props = {
   onError: (message: string) => void
   /** Opens the "add section" window; `after` is the card it goes below. */
   onAddSection: (after: string | null) => void
+  onChooseStorage: () => Promise<MediaStorageChoice | null>
 }
 
 const DRAG_TYPE = 'application/x-mymeeting-section'
@@ -80,9 +82,8 @@ function DateField({ value, onChange, field, placeholder }: { value: string; onC
   )
 }
 
-/** A name typed freely, or picked from the meeting's attendees with the button beside it. */
-function PersonField({ value, onChange, field, people }: { value: string; onChange: (value: string) => void; field: string; people: Attendee[] }) {
-  const { t } = useTranslation()
+/** The list a field opens: a press elsewhere closes it, ↑/↓ walk it, Esc goes back to the field. */
+function useFieldPop() {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLSpanElement>(null)
   useEffect(() => {
@@ -102,14 +103,23 @@ function PersonField({ value, onChange, field, people }: { value: string; onChan
       list[(index + (event.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length]?.focus()
     } else if (event.key === 'Escape') {
       event.preventDefault()
-      setOpen(false)
-      box.current?.querySelector('input')?.focus()
+      close()
     }
   }
-  const pick = (name: string) => {
-    onChange(name)
+  const close = () => {
     setOpen(false)
     box.current?.querySelector('input')?.focus()
+  }
+  return { open, setOpen, box, options, listKeys, close }
+}
+
+/** A name typed freely, or picked from the meeting's attendees with the button beside it. */
+function PersonField({ value, onChange, field, people }: { value: string; onChange: (value: string) => void; field: string; people: Attendee[] }) {
+  const { t } = useTranslation()
+  const { open, setOpen, box, options, listKeys, close } = useFieldPop()
+  const pick = (name: string) => {
+    onChange(name)
+    close()
   }
   return (
     <span className="date-field person-field" ref={box}>
@@ -139,6 +149,114 @@ function PersonField({ value, onChange, field, people }: { value: string; onChan
               {person.attendance !== 'present' && <em>{t(`attendance.${person.attendance}`)}</em>}
             </button>
           ))}
+        </div>
+      )}
+    </span>
+  )
+}
+
+const WHOLE_DAY = Array.from({ length: 48 }, (_, index) => index * 30)
+const LENGTHS = [15, 30, 45, ...Array.from({ length: 15 }, (_, index) => 60 + index * 30)]
+
+/** 90 → "1시간 30분" / "1 hr 30 min". */
+function useDuration() {
+  const { t } = useTranslation()
+  return (minutes: number) => {
+    const h = Math.floor(minutes / 60)
+    const m = minutes % 60
+    return t(h && m ? 'info.durationHM' : h ? 'info.durationH' : 'info.durationM', { h, m })
+  }
+}
+
+/**
+ * A time typed any way normalizeTime reads (it becomes HH:MM on leaving the field), or picked from the
+ * list under the clock button. With `from`, the list offers lengths from that time instead of the day.
+ */
+function TimeField({ value, onChange, onCommit, field, label, from }: { value: string; onChange: (value: string) => void; onCommit: (time: string, before: string) => void; field: string; label: string; from?: number | null }) {
+  const { t } = useTranslation()
+  const duration = useDuration()
+  const { open, setOpen, box, options, listKeys, close } = useFieldPop()
+  const [focused, setFocused] = useState(false)
+  // What the user is typing, and the finished time from before they started.
+  const typed = useRef<string | null>(null)
+  const before = useRef(value)
+  useEffect(() => {
+    if (typed.current === null) before.current = value
+  }, [value])
+
+  const settle = () => {
+    // The text was replaced while typing (undo, another file): there is nothing of the user's to finish.
+    const mine = typed.current === value
+    typed.current = null
+    if (!mine) before.current = value
+    const time = mine ? normalizeTime(value) : null
+    if (time !== null) onCommit(time, before.current)
+  }
+  const pick = (time: string) => {
+    typed.current = null
+    onCommit(time, before.current)
+    close()
+  }
+
+  const hasFrom = from !== undefined && from !== null
+  const choices = hasFrom ? LENGTHS.map((length) => from + length) : WHOLE_DAY
+  // Opening lands on the time in the field, or the nearest one, or a likely one.
+  useLayoutEffect(() => {
+    if (!open) return
+    const wanted = toMinutes(value) ?? (hasFrom ? from + 60 : 9 * 60)
+    const distance = (minutes: number) => Math.min(minutesBetween(minutes, wanted), minutesBetween(wanted, minutes))
+    const nearest = choices.reduce((best, minutes) => (distance(minutes) < distance(best) ? minutes : best), choices[0])
+    options().find((option) => option.dataset.time === minutesToTime(nearest))?.focus()
+  }, [open]) // Only when it opens: `choices` is new on every render.
+
+  const now = new Date()
+  const nowText = minutesToTime(now.getHours() * 60 + now.getMinutes())
+  return (
+    <span className="date-field time-field" ref={box}>
+      <input
+        data-field={field}
+        className={!focused && normalizeTime(value) === null ? 'is-invalid' : ''}
+        value={value}
+        placeholder={label}
+        aria-label={label}
+        data-tip={t('info.timeHint')}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          setFocused(false)
+          settle()
+        }}
+        onChange={(e) => {
+          typed.current = e.target.value
+          onChange(e.target.value)
+        }}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return
+          if (e.key === 'Enter') settle()
+          else if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            setOpen(true)
+          } else if (e.key === 'Escape' && open) setOpen(false)
+        }}
+      />
+      {/* Out of the tab order so Tab goes from the start time straight to the end time; ↓ opens the list. */}
+      <button type="button" className="icon-button" tabIndex={-1} data-command={`pick-${field}`} data-tip={t('info.pickTime')} aria-label={t('info.pickTime')} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="clock" />
+      </button>
+      {open && (
+        <div className="person-pop time-pop" role="listbox" aria-label={label} onKeyDown={listKeys}>
+          <button type="button" role="option" aria-selected={false} data-now="" onClick={() => pick(nowText)}>
+            <span className="person-pop-name">{t('info.now')}</span>
+            <small>{nowText}</small>
+          </button>
+          {choices.map((minutes) => {
+            const time = minutesToTime(minutes)
+            return (
+              <button type="button" role="option" key={minutes} data-time={time} aria-selected={time === value.trim()} onClick={() => pick(time)}>
+                <span className="person-pop-name">{time}</span>
+                {hasFrom && <small>{duration(minutes - from)}</small>}
+              </button>
+            )
+          })}
         </div>
       )}
     </span>
@@ -261,8 +379,9 @@ function PopMenu({ x, y, items, onClose, label }: { x: number; y: number; items:
   )
 }
 
-export function MeetingForm({ meeting, onChange, docKey, onUndo, onRedo, onError, onAddSection }: Props) {
+export function MeetingForm({ meeting, onChange, docKey, onUndo, onRedo, onError, onAddSection, onChooseStorage }: Props) {
   const { t } = useTranslation()
+  const duration = useDuration()
   const [focusId, setFocusId] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [iconFor, setIconFor] = useState<string | null>(null)
@@ -329,7 +448,9 @@ export function MeetingForm({ meeting, onChange, docKey, onUndo, onRedo, onError
   const roster = [...meeting.attendees, ...meeting.sections.flatMap((s) => s.people)]
     .filter((person, index, all) => person.name.trim() && all.findIndex((other) => other.name.trim() === person.name.trim()) === index)
   const people = roster.map((person) => person.name.trim())
-  const badTime = (text: string) => !!text.trim() && !TIME_PATTERN.test(text.trim())
+  const startMinutes = toMinutes(meeting.startTime)
+  const endMinutes = toMinutes(meeting.endTime)
+  const length = startMinutes !== null && endMinutes !== null ? minutesBetween(startMinutes, endMinutes) : 0
   const total = meeting.sections.length
 
   /** The card's contents, its row count for the badge, and its "+" button. */
@@ -343,9 +464,10 @@ export function MeetingForm({ meeting, onChange, docKey, onUndo, onRedo, onError
               <DateField field="date" value={meeting.date} onChange={(date) => set({ date })} />
               <label className="info-label"><Icon name="clock" />{t('info.time')}</label>
               <span className="time-range">
-                <input data-field="startTime" className={badTime(meeting.startTime) ? 'is-invalid' : ''} value={meeting.startTime} placeholder="10:00" aria-label={t('info.start')} onChange={(e) => set({ startTime: e.target.value })} />
+                <TimeField field="startTime" label={t('info.start')} value={meeting.startTime} onChange={(startTime) => set({ startTime })} onCommit={(time, before) => onChange((current) => withStartTime(current, time, before))} />
                 <span aria-hidden="true">–</span>
-                <input data-field="endTime" className={badTime(meeting.endTime) ? 'is-invalid' : ''} value={meeting.endTime} placeholder="11:00" aria-label={t('info.end')} onChange={(e) => set({ endTime: e.target.value })} />
+                <TimeField field="endTime" label={t('info.end')} value={meeting.endTime} from={startMinutes} onChange={(endTime) => set({ endTime })} onCommit={(endTime) => set({ endTime })} />
+                {length > 0 && <span className="time-length">{duration(length)}</span>}
               </span>
               <label className="info-label"><Icon name="place" />{t('info.location')}</label>
               <input data-field="location" value={meeting.location} placeholder={t('info.locationPlaceholder')} onChange={(e) => set({ location: e.target.value })} />
@@ -365,7 +487,7 @@ export function MeetingForm({ meeting, onChange, docKey, onUndo, onRedo, onError
         return { body: <EntryRows rows={r} marker="number" placeholder={t('add.agendaPlaceholder')} label={t('section.agenda')} empty={t('empty.agenda')} />, count: r.items.length, add: <AddButton list="agenda" label={t('add.agenda')} onClick={() => r.add()} /> }
       }
       case 'discussion':
-        return { body: <RichEditor value={meeting.body} docKey={docKey} onChange={(body) => set({ body })} onUndo={onUndo} onRedo={onRedo} placeholder={t('editor.placeholder')} onError={onError} /> }
+        return { body: <RichEditor value={meeting.body} docKey={docKey} onChange={(body) => set({ body })} onUndo={onUndo} onRedo={onRedo} placeholder={t('editor.placeholder')} onError={onError} onChooseStorage={onChooseStorage} /> }
       case 'decisions': {
         const r = own('decisions', () => newEntry())
         return { body: <EntryRows rows={r} marker="number" placeholder={t('add.decisionPlaceholder')} label={t('section.decisions')} empty={t('empty.decisions')} />, count: r.items.length, add: <AddButton list="decisions" label={t('add.decision')} onClick={() => r.add()} /> }
@@ -375,7 +497,7 @@ export function MeetingForm({ meeting, onChange, docKey, onUndo, onRedo, onError
         return { body: <TaskRows rows={r} empty={t('empty.actionItems')} />, count: r.items.length, add: <AddButton list="actionItems" label={t('add.action')} onClick={() => r.add()} /> }
       }
       case 'text':
-        return { body: <RichEditor value={s.body} docKey={docKey} onChange={(body) => onChange((current) => updateSection(current, s.id, { body }))} onUndo={onUndo} onRedo={onRedo} placeholder={t('editor.placeholder')} onError={onError} /> }
+        return { body: <RichEditor value={s.body} docKey={docKey} onChange={(body) => onChange((current) => updateSection(current, s.id, { body }))} onUndo={onUndo} onRedo={onRedo} placeholder={t('editor.placeholder')} onError={onError} onChooseStorage={onChooseStorage} /> }
       case 'list':
       case 'numbered': {
         const r = inSection(s, 'entries', () => newEntry())

@@ -3,7 +3,8 @@
 // the newest one without waiting for a render.
 import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AboutDialog, ExportDialog, MessageDialog, UnsavedDialog, type ExportFormat } from './components/dialogs'
+import { copyAssets, inlineAssets, setAssetFolder } from './assets'
+import { AboutDialog, ExportDialog, MediaStorageDialog, MessageDialog, UnsavedDialog, type ExportFormat } from './components/dialogs'
 import { MeetingForm, type MeetingUpdate } from './components/MeetingForm'
 import { OutlinePanel, PreviewPanel, StatusBar } from './components/Panels'
 import { AddSectionDialog } from './components/SectionParts'
@@ -15,7 +16,7 @@ import { host, isDesktop, MINUTES_FILTERS } from './host'
 import i18n, { docLabels } from './i18n'
 import { addSection, emptyMeeting, isEmpty, meetingBaseName, parseMeetingFile, sanitizeMeeting, serializeMeeting, todayText, type Meeting, type Section } from './meeting'
 import { sheetSize, type PageSetup } from './print/pageSetup'
-import { addRecent, removeRecent, type AppSettings, type GeneralSettings, type Locale, type StartSettings } from './settings'
+import { addRecent, removeRecent, type AppSettings, type GeneralSettings, type Locale, type MediaStorageChoice, type StartSettings } from './settings'
 import { TEMPLATES, templateMeeting, type Template } from './templates'
 import { applyTheme, setCustomThemes, type CustomTheme } from './themes'
 import { tutorialById } from './tutorials'
@@ -55,6 +56,8 @@ export default function App({ initialSettings, shot }: { initialSettings: AppSet
 
   const put = useCallback((next: Doc, reload: boolean) => {
     docRef.current = next
+    // Before anything renders: file names in the document are shown from this folder.
+    setAssetFolder(isDesktop ? dirOf(next.filePath) ?? null : null)
     setDoc(next)
     if (reload) setDocKey((key) => key + 1)
   }, [])
@@ -153,6 +156,7 @@ export default function App({ initialSettings, shot }: { initialSettings: AppSet
 
   const [showStart, setShowStart] = useState(!!initialSettings.startScreen.showOnStartup)
   const [printOpen, setPrintOpen] = useState(false)
+  const [printAsPdf, setPrintAsPdf] = useState(false)
   const [exportOpen, setExportOpen] = useState<ExportFormat | null>(null)
   const [guideOpen, setGuideOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
@@ -244,7 +248,16 @@ export default function App({ initialSettings, shot }: { initialSettings: AppSet
     try {
       const path = await host.saveAs(`${meetingBaseName(current.meeting, labels.untitled)}.mtg`, serializeMeeting(current.meeting), MINUTES_FILTERS, 'application/json')
       if (!path) return false
-      put({ ...docRef.current, filePath: isDesktop ? path : null, dirty: false }, false)
+      // Files kept beside the minutes go with them to a new folder.
+      const from = dirOf(current.filePath)
+      const to = dirOf(path)
+      if (isDesktop && from && to && from !== to) {
+        const moved = await copyAssets(docRef.current.meeting, from, to)
+        if (moved.meeting !== docRef.current.meeting) await host.writeText(path, serializeMeeting(moved.meeting))
+        put({ ...docRef.current, meeting: moved.meeting, filePath: path, dirty: false }, moved.copied > 0)
+      } else {
+        put({ ...docRef.current, filePath: isDesktop ? path : null, dirty: false }, false)
+      }
       if (isDesktop) remember(path)
       setSavedAt(new Date())
       flash(t('status.saved', { name: fileName(path) }))
@@ -271,6 +284,17 @@ export default function App({ initialSettings, shot }: { initialSettings: AppSet
     }
   }
 
+  /** Where what is being put in goes. Keeping it beside the minutes needs them to have a folder. */
+  const [storageAsk, setStorageAsk] = useState<((choice: MediaStorageChoice | null) => void) | null>(null)
+  const chooseStorage = async (): Promise<MediaStorageChoice | null> => {
+    if (!isDesktop) return 'internal'
+    const setting = settings.general.mediaStorage
+    const choice = setting !== 'ask' ? setting : await new Promise<MediaStorageChoice | null>((resolve) => setStorageAsk(() => resolve))
+    setStorageAsk(null)
+    if (choice === 'external' && !docRef.current.filePath && !(await saveAs())) return null
+    return choice
+  }
+
   const startNew = () =>
     guard(() => {
       replace({ meeting: newMeeting(), filePath: null, dirty: false })
@@ -288,14 +312,16 @@ export default function App({ initialSettings, shot }: { initialSettings: AppSet
   const runExport = async (format: ExportFormat) => {
     setExportOpen(null)
     if (format === 'pdf') {
+      setPrintAsPdf(true)
       setPrintOpen(true)
       flash(t('export.pdfHow'))
       return
     }
-    const m = docRef.current.meeting
-    const base = meetingBaseName(m, labels.untitled)
-    const html = () => renderMarkdown(markdownOf(m))
     try {
+      // An export travels alone: files kept beside the minutes go inside it.
+      const m = format === 'text' ? docRef.current.meeting : await inlineAssets(docRef.current.meeting)
+      const base = meetingBaseName(m, labels.untitled)
+      const html = () => renderMarkdown(markdownOf(m))
       let path: string | null = null
       if (format === 'word') {
         const box = sheetSize(settings.pageSetup)
@@ -613,7 +639,7 @@ export default function App({ initialSettings, shot }: { initialSettings: AppSet
           <div className="editor-layout">
             {settings.outline && <OutlinePanel meeting={doc.meeting} scroller={scroller} onHide={() => saveSettings({ outline: false })} />}
             <div className="sheet-scroll" ref={setScroller}>
-              <MeetingForm meeting={doc.meeting} onChange={change} docKey={docKey} onUndo={undo} onRedo={redo} onError={setMessage} onAddSection={openAddSection} />
+              <MeetingForm meeting={doc.meeting} onChange={change} docKey={docKey} onUndo={undo} onRedo={redo} onError={setMessage} onAddSection={openAddSection} onChooseStorage={chooseStorage} />
             </div>
             {settings.preview && <PreviewPanel html={previewHtml} styleVars={styleVars} width={settings.previewWidth} onWidth={(previewWidth) => saveSettings({ previewWidth })} onPrint={() => setPrintOpen(true)} onHide={() => saveSettings({ preview: false })} />}
           </div>
@@ -636,7 +662,7 @@ export default function App({ initialSettings, shot }: { initialSettings: AppSet
       )}
 
       <Suspense fallback={null}>
-        {printOpen && <PrintDialog bodyHtml={previewHtml} title={title} setup={settings.pageSetup} style={docStyle} onSetup={setPageSetup} onClose={() => setPrintOpen(false)} onError={fail} />}
+        {printOpen && <PrintDialog bodyHtml={previewHtml} title={title} setup={settings.pageSetup} style={docStyle} printer={settings.general.printer} onPrinter={(printer) => setGeneral({ printer })} asPdf={printAsPdf} onSetup={setPageSetup} onClose={() => { setPrintOpen(false); setPrintAsPdf(false) }} onError={fail} />}
         {guideOpen && <GuideDialog language={language} onClose={() => setGuideOpen(false)} />}
         {prefTab && (
           <PreferencesDialog
@@ -658,6 +684,7 @@ export default function App({ initialSettings, shot }: { initialSettings: AppSet
         )}
       </Suspense>
 
+      {storageAsk && <MediaStorageDialog saved={!!doc.filePath} onPick={storageAsk} onCancel={() => storageAsk(null)} />}
       {exportOpen && <ExportDialog initial={exportOpen} onExport={(format) => void runExport(format)} onCancel={() => setExportOpen(null)} />}
       {chooser && (
         <TutorialChooser

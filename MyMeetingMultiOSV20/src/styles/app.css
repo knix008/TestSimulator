@@ -645,9 +645,48 @@ body.col-resizing * {
   gap: 8px;
 }
 
+.time-range .time-field {
+  flex: 0 0 auto;
+  width: 132px;
+}
+
 .time-range input {
-  width: 96px;
   text-align: center;
+}
+
+.time-length {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.person-pop.time-pop {
+  left: 0;
+  right: auto;
+  min-width: 170px;
+  max-width: none;
+  padding-top: 0;
+  scroll-padding-top: 34px;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-pop small {
+  flex: 1 1 auto;
+  margin: 0;
+  text-align: right;
+}
+
+/* Stays in view when the list opens scrolled to the time in the field. */
+.time-pop button[data-now] {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.time-pop button[data-now]:not(:hover, :focus-visible) {
+  background: var(--pop);
 }
 
 .icon-button {
@@ -860,7 +899,7 @@ body.col-resizing * {
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .format-bar {
@@ -1069,16 +1108,42 @@ body.col-resizing * {
   margin-top: 0;
 }
 
+/* The page being written follows the theme. The paper colours in DOC_CSS stay for the preview, the
+   print and the exports, which are never dark; colours written here never reach the saved Markdown. */
+.richeditor-page.doc { color: var(--ink); }
+.richeditor-page.doc h1 { color: var(--accent-ink); border-bottom-color: var(--accent-line); }
+.richeditor-page.doc h2 { color: var(--accent-ink); border-bottom-color: var(--line); }
+.richeditor-page.doc th,
+.richeditor-page.doc td { border-color: var(--line); }
+.richeditor-page.doc th { background: var(--header); }
+.richeditor-page.doc blockquote { border-left-color: var(--line); color: var(--muted); }
+.richeditor-page.doc code { background: var(--alt-row); }
+.richeditor-page.doc pre { background: var(--alt-row); border-color: var(--line); }
+.richeditor-page.doc pre code { background: none; }
+.richeditor-page.doc hr { border-top-color: var(--line); }
+.richeditor-page.doc a { color: var(--accent-ink); }
+
 .richeditor-page.is-empty::before {
   content: attr(data-placeholder);
   position: absolute;
-  color: #9aa3ad;
+  color: var(--muted);
   pointer-events: none;
 }
 
-.richeditor-page img,
+.richeditor-page img {
+  cursor: grab;
+}
+
 .richeditor-page video {
   cursor: pointer;
+}
+
+.media-drop-mark {
+  position: absolute;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent);
+  pointer-events: none;
 }
 
 .richeditor-page li > input[type='checkbox'] {
@@ -1111,6 +1176,20 @@ body.col-resizing * {
   background: var(--accent);
   cursor: nwse-resize;
   pointer-events: auto;
+}
+
+.export-choices.media-storage-choices {
+  grid-template-columns: 1fr 1fr;
+}
+
+.media-storage-choices span {
+  word-break: keep-all;
+}
+
+/* On a small picture the handle would cover what there is to drag. */
+.media-frame.is-small .media-handle {
+  right: -17px;
+  bottom: -17px;
 }
 
 /* ------------------------------------------------------------ preview panel */

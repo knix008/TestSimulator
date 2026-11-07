@@ -42,7 +42,14 @@ export type GeneralSettings = {
   reopenLast: boolean
   /** The date of a new meeting is today. */
   dateToday: boolean
+  /** Where pictures, video and sound go when put in. */
+  mediaStorage: MediaStorageChoice | 'ask'
+  /** The printer last printed to; empty is the system's default. */
+  printer: string
 }
+
+/** Inside the .mtg file, or as files in the same folder as it. */
+export type MediaStorageChoice = 'internal' | 'external'
 
 export type AppSettings = {
   language: Locale
@@ -62,7 +69,7 @@ export type AppSettings = {
 export const PREVIEW_MIN = 260
 export const PREVIEW_MAX = 1400
 
-export const DEFAULT_GENERAL: GeneralSettings = { numbering: true, fontFamily: '', fontSizePt: 10.5, reopenLast: false, dateToday: true }
+export const DEFAULT_GENERAL: GeneralSettings = { numbering: true, fontFamily: '', fontSizePt: 10.5, reopenLast: false, dateToday: true, mediaStorage: 'ask', printer: '' }
 
 export const DEFAULT_START_SCREEN: StartSettings = {
   showOnStartup: true,
@@ -103,6 +110,8 @@ export function sanitizeGeneral(value: unknown): GeneralSettings {
     fontSizePt: Number.isFinite(size) ? Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, Math.round(size * 2) / 2)) : DEFAULT_GENERAL.fontSizePt,
     reopenLast: v.reopenLast === true,
     dateToday: v.dateToday !== false,
+    mediaStorage: v.mediaStorage === 'internal' || v.mediaStorage === 'external' ? v.mediaStorage : 'ask',
+    printer: typeof v.printer === 'string' ? v.printer.slice(0, 260) : '',
   }
 }
 

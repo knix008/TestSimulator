@@ -35,6 +35,8 @@
   "info": {
     "title": "회의 제목", "titlePlaceholder": "회의 제목", "date": "날짜", "time": "시간", "start": "시작 시간", "end": "종료 시간",
     "location": "장소", "locationPlaceholder": "회의실, 온라인 링크 등", "organizer": "주관", "recorder": "작성자", "pickDate": "달력에서 고르기",
+    "pickTime": "시간 고르기", "now": "지금", "timeHint": "930, 15, 오후 3시처럼 입력해도 됩니다",
+    "durationH": "{{h}}시간", "durationM": "{{m}}분", "durationHM": "{{h}}시간 {{m}}분",
     "pickPerson": "참석자에서 고르기", "pickOrType": "참석자에서 고르거나 직접 입력", "typeName": "이름 입력", "noAttendees": "참석자를 추가하면 여기서 고를 수 있습니다"
   },
   "attendee": { "name": "이름", "role": "소속 / 역할", "attendance": "참석 여부" },
@@ -88,8 +90,14 @@
     "html": "웹 페이지", "htmlNote": "그림까지 들어 있는 파일 하나라서 메일로 보내기 좋습니다.",
     "markdown": "Markdown", "markdownNote": "위키, 깃허브, 노트 앱에 붙여 넣을 수 있습니다.",
     "text": "텍스트", "textNote": "서식 없는 글자만 저장합니다.",
-    "pdf": "PDF", "pdfNote": "인쇄 창이 열립니다. 프린터로 'PDF로 저장'을 고르세요.",
-    "pdfHow": "PDF는 인쇄 창에서 프린터로 'Microsoft Print to PDF' 또는 'PDF로 저장'을 고르면 만들어집니다."
+    "pdf": "PDF", "pdfNote": "인쇄 창이 'PDF로 저장'으로 열립니다.",
+    "pdfHow": "페이지를 설정한 뒤 인쇄 창에서 PDF로 저장하세요."
+  },
+  "mediaStorage": {
+    "title": "어디에 저장할까요?", "setting": "그림·동영상 저장 위치", "ask": "넣을 때마다 묻기",
+    "internal": "회의록 안에 저장", "internalNote": "회의록 파일 하나에 모두 들어 있어 옮기기 쉽습니다. 파일은 그만큼 커집니다.",
+    "external": "회의록과 같은 폴더에 저장", "externalNote": "파일을 회의록 옆에 복사합니다. 회의록은 작게 유지되지만, 옮길 때 파일도 함께 옮겨야 합니다.",
+    "externalUnsaved": "파일을 회의록 옆에 복사합니다. 아직 저장하지 않은 회의록이라 먼저 저장 위치를 묻습니다."
   },
   "print": {
     "title": "인쇄", "print": "인쇄", "paper": "용지", "size": "크기", "orientation": "방향", "portrait": "세로", "landscape": "가로",
@@ -98,7 +106,9 @@
     "headingSize": "글자 크기", "skipFirst": "첫 페이지 제외",
     "tokens": "{title} 제목 · {date} 날짜 · {time} 시각 · {page} 쪽 번호 · {pages} 전체 쪽 수",
     "range": "인쇄 범위", "range-all": "모든 페이지", "rangeCurrent": "현재 페이지 ({{page}}쪽)", "range-custom": "페이지 지정",
-    "pdfHint": "PDF로 저장하려면 인쇄 창에서 프린터를 'PDF로 저장'으로 고르세요.",
+    "pdfHint": "PDF로 저장하려면 프린터를 'PDF로 저장'으로 고르세요.",
+    "printer": "프린터", "copies": "매수", "savePdf": "PDF로 저장", "sending": "보내는 중…", "sent": "{{printer}}(으)로 보냈습니다", "savedPdf": "PDF를 저장했습니다",
+    "unavailable": "{{printer}} 프린터를 사용할 수 없습니다. 전원과 연결을 확인하거나 다른 프린터를 고르세요.", "failed": "인쇄하지 못했습니다: {{reason}}",
     "defaults": "기본값으로", "measuring": "페이지를 나누는 중…", "pageCount": "모두 {{count}}쪽", "pageOf": "{{page}} / {{pages}}쪽",
     "prevPage": "이전 페이지", "nextPage": "다음 페이지", "zoom": "확대 비율", "zoomIn": "확대", "zoomOut": "축소", "fit": "폭에 맞춤"
   },
