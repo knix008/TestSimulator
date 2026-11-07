@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers (npm run build:win / build:mac / build:linux / build:all)
+release/
+/My3DBlender-*.exe
+/My3DBlender-*.msi
+/My3DBlender-*.dmg
+/My3DBlender-*.deb
+/My3DBlender-*.rpm
+/My3DBlender-*.AppImage
+/My3DBlender_*
+
+# Test runs (npm test; the desktop E2E builds into src-tauri/target/e2e)
+test-results/
+*.log
+*.tmp
+
+# Local settings and secrets
+.env
+.env.*
+*.local
+.claude/settings.local.json
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Vite cache
+.vite/

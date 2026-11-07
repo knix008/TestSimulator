@@ -1,0 +1,1313 @@
+[
+ {
+  "id": "first-cube",
+  "level": "beginner",
+  "title": {
+   "en": "First Cube",
+   "ko": "첫 번째 큐브"
+  },
+  "description": {
+   "en": "A cube, a light and a camera: where everything starts.",
+   "ko": "큐브, 조명, 카메라. 모든 작업의 출발점입니다."
+  },
+  "tryThis": {
+   "en": "Select the cube and press R, then Z, then 45, then Enter.",
+   "ko": "큐브를 선택하고 R, Z, 45, Enter를 차례로 눌러 보세요."
+  },
+  "topics": [
+   "objects",
+   "material"
+  ],
+  "file": "beginner/first-cube.my3d",
+  "thumb": "thumb/first-cube.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "primitives",
+  "level": "beginner",
+  "title": {
+   "en": "Every Primitive",
+   "ko": "모든 기본 도형"
+  },
+  "description": {
+   "en": "All the shapes of the Add menu, in a row.",
+   "ko": "추가 메뉴의 모든 도형을 한 줄로 놓았습니다."
+  },
+  "tryThis": {
+   "en": "Press Shift+A in the 3D view and add one more.",
+   "ko": "3D 뷰에서 Shift+A를 눌러 하나 더 추가해 보세요."
+  },
+  "topics": [
+   "objects",
+   "add menu"
+  ],
+  "file": "beginner/primitives.my3d",
+  "thumb": "thumb/primitives.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "snowman",
+  "level": "beginner",
+  "title": {
+   "en": "Snowman",
+   "ko": "눈사람"
+  },
+  "description": {
+   "en": "Three spheres, a cone and a little scaling make a figure.",
+   "ko": "구 세 개와 원뿔, 약간의 크기 조절로 인물을 만듭니다."
+  },
+  "tryThis": {
+   "en": "Change the nose colour in the Material tab.",
+   "ko": "재질 탭에서 코의 색을 바꿔 보세요."
+  },
+  "topics": [
+   "objects",
+   "smooth shading"
+  ],
+  "file": "beginner/snowman.my3d",
+  "thumb": "thumb/snowman.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "block-tower",
+  "level": "beginner",
+  "title": {
+   "en": "Block Tower",
+   "ko": "블록 탑"
+  },
+  "description": {
+   "en": "Coloured blocks stacked by hand: Shift+D and G are all it takes.",
+   "ko": "색 블록을 손으로 쌓습니다. Shift+D와 G면 충분합니다."
+  },
+  "tryThis": {
+   "en": "Duplicate a block with Shift+D and put it on top.",
+   "ko": "Shift+D로 블록을 복제해 맨 위에 올려 보세요."
+  },
+  "topics": [
+   "objects",
+   "materials"
+  ],
+  "file": "beginner/block-tower.my3d",
+  "thumb": "thumb/block-tower.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "table-chair",
+  "level": "beginner",
+  "title": {
+   "en": "Table and Chair",
+   "ko": "탁자와 의자"
+  },
+  "description": {
+   "en": "Furniture from stretched cubes: scale is all it takes.",
+   "ko": "늘린 큐브로 만든 가구입니다. 크기 조절만으로 충분합니다."
+  },
+  "tryThis": {
+   "en": "Select the table top, press G and move it: the legs are separate.",
+   "ko": "탁자 상판을 선택하고 G로 옮겨 보세요. 다리는 따로 움직입니다."
+  },
+  "topics": [
+   "objects",
+   "scale",
+   "parent"
+  ],
+  "file": "beginner/table-chair.my3d",
+  "thumb": "thumb/table-chair.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "color-balls",
+  "level": "beginner",
+  "title": {
+   "en": "Colourful Balls",
+   "ko": "알록달록 공"
+  },
+  "description": {
+   "en": "Twelve materials from dull to shiny, to compare side by side.",
+   "ko": "거친 것부터 매끈한 것까지 재질 12종을 나란히 비교합니다."
+  },
+  "tryThis": {
+   "en": "Switch the view to Material Preview with the buttons at the top right.",
+   "ko": "오른쪽 위 버튼으로 뷰를 재질 미리보기로 바꿔 보세요."
+  },
+  "topics": [
+   "materials"
+  ],
+  "file": "beginner/color-balls.my3d",
+  "thumb": "thumb/color-balls.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "three-point",
+  "level": "beginner",
+  "title": {
+   "en": "Three-Point Lighting",
+   "ko": "3점 조명"
+  },
+  "description": {
+   "en": "Key, fill and rim: the classic way to light a subject.",
+   "ko": "키, 필, 림 조명. 대상을 비추는 고전적인 방법입니다."
+  },
+  "tryThis": {
+   "en": "Select a light and turn it off with the eye in the Outliner: see what each one does.",
+   "ko": "아웃라이너의 눈 아이콘으로 조명을 하나씩 꺼서 각각의 역할을 확인해 보세요."
+  },
+  "topics": [
+   "lights"
+  ],
+  "file": "beginner/three-point.my3d",
+  "thumb": "thumb/three-point.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "hello-text",
+  "level": "beginner",
+  "title": {
+   "en": "Hello Text",
+   "ko": "글자 만들기"
+  },
+  "description": {
+   "en": "A text object with depth. Change the words in the Object Data tab.",
+   "ko": "두께가 있는 텍스트 오브젝트입니다. 오브젝트 데이터 탭에서 글자를 바꿀 수 있습니다."
+  },
+  "tryThis": {
+   "en": "Open the Object Data tab and change the text.",
+   "ko": "오브젝트 데이터 탭을 열어 글자를 바꿔 보세요."
+  },
+  "topics": [
+   "text"
+  ],
+  "file": "beginner/hello-text.my3d",
+  "thumb": "thumb/hello-text.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "mirror-shape",
+  "level": "beginner",
+  "title": {
+   "en": "Half a Shape, Mirrored",
+   "ko": "반쪽 모델링"
+  },
+  "description": {
+   "en": "Model one side; the Mirror modifier makes the other.",
+   "ko": "한쪽만 모델링하면 미러 모디파이어가 반대쪽을 만듭니다."
+  },
+  "tryThis": {
+   "en": "Press Tab and move a vertex: the other side follows.",
+   "ko": "Tab을 누르고 꼭짓점을 옮겨 보세요. 반대쪽이 따라옵니다."
+  },
+  "topics": [
+   "modifier",
+   "mirror"
+  ],
+  "file": "beginner/mirror-shape.my3d",
+  "thumb": "thumb/mirror-shape.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "array-fence",
+  "level": "beginner",
+  "title": {
+   "en": "A Long Fence",
+   "ko": "긴 울타리"
+  },
+  "description": {
+   "en": "One post and the Array modifier: as many as you like.",
+   "ko": "기둥 하나와 배열 모디파이어로 원하는 만큼 늘립니다."
+  },
+  "tryThis": {
+   "en": "In the Modifiers tab raise Count.",
+   "ko": "모디파이어 탭에서 개수(Count)를 늘려 보세요."
+  },
+  "topics": [
+   "modifier",
+   "array"
+  ],
+  "file": "beginner/array-fence.my3d",
+  "thumb": "thumb/array-fence.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "bouncing-ball",
+  "level": "beginner",
+  "title": {
+   "en": "Bouncing Ball",
+   "ko": "튀는 공"
+  },
+  "description": {
+   "en": "Keyframes on height, with a bounce in the timing. Press Space.",
+   "ko": "높이에 키프레임을 넣고 타이밍으로 튕김을 만듭니다. 스페이스를 누르세요."
+  },
+  "tryThis": {
+   "en": "Press Space to play. Then move a key in the Dope Sheet.",
+   "ko": "스페이스로 재생한 뒤 도프 시트에서 키를 옮겨 보세요."
+  },
+  "topics": [
+   "animation",
+   "keyframes"
+  ],
+  "file": "beginner/bouncing-ball.my3d",
+  "thumb": "thumb/bouncing-ball.png",
+  "workspace": "animation",
+  "bake": false
+ },
+ {
+  "id": "turntable",
+  "level": "beginner",
+  "title": {
+   "en": "Turntable",
+   "ko": "턴테이블"
+  },
+  "description": {
+   "en": "The camera circles the subject by being a child of a turning empty.",
+   "ko": "회전하는 엠프티의 자식이 된 카메라가 대상을 돕니다."
+  },
+  "tryThis": {
+   "en": "Press Numpad 0 for the camera view, then Space.",
+   "ko": "숫자패드 0으로 카메라 시점에 맞춘 뒤 스페이스를 누르세요."
+  },
+  "topics": [
+   "animation",
+   "camera",
+   "parent"
+  ],
+  "file": "beginner/turntable.my3d",
+  "thumb": "thumb/turntable.png",
+  "workspace": "animation",
+  "bake": false
+ },
+ {
+  "id": "depth-of-field",
+  "level": "beginner",
+  "title": {
+   "en": "Depth of Field",
+   "ko": "피사계 심도"
+  },
+  "description": {
+   "en": "Near and far blur away from the one in focus.",
+   "ko": "초점 밖의 앞뒤가 흐려집니다."
+  },
+  "tryThis": {
+   "en": "Press F12. In the camera's data tab change the f-stop.",
+   "ko": "F12를 누른 뒤 카메라의 데이터 탭에서 조리개 값을 바꿔 보세요."
+  },
+  "topics": [
+   "camera",
+   "render"
+  ],
+  "file": "beginner/depth-of-field.my3d",
+  "thumb": "thumb/depth-of-field.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "glass-metal",
+  "level": "beginner",
+  "title": {
+   "en": "Glass and Metal",
+   "ko": "유리와 금속"
+  },
+  "description": {
+   "en": "What a path tracer is for: reflections and refraction.",
+   "ko": "경로 추적 렌더러의 진가, 반사와 굴절입니다."
+  },
+  "tryThis": {
+   "en": "Press F12 to render. Look at what the glass does to the stripes.",
+   "ko": "F12로 렌더해 유리가 줄무늬를 어떻게 휘게 하는지 보세요."
+  },
+  "topics": [
+   "materials",
+   "render"
+  ],
+  "file": "beginner/glass-metal.my3d",
+  "thumb": "thumb/glass-metal.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "solar-parent",
+  "level": "beginner",
+  "title": {
+   "en": "A Little Solar System",
+   "ko": "작은 태양계"
+  },
+  "description": {
+   "en": "Moon follows Earth follows Sun: parenting makes it effortless.",
+   "ko": "달은 지구를, 지구는 태양을 따릅니다. 부모 관계면 간단합니다."
+  },
+  "tryThis": {
+   "en": "Press Space. Then select the Earth and move it.",
+   "ko": "스페이스를 누른 뒤 지구를 선택해 옮겨 보세요."
+  },
+  "topics": [
+   "parent",
+   "animation"
+  ],
+  "file": "beginner/solar-parent.my3d",
+  "thumb": "thumb/solar-parent.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "curve-ribbon",
+  "level": "beginner",
+  "title": {
+   "en": "A Thick Curve",
+   "ko": "두꺼운 커브"
+  },
+  "description": {
+   "en": "A curve is a line until it has a Bevel Depth.",
+   "ko": "커브는 베벨 깊이를 주기 전까지 선일 뿐입니다."
+  },
+  "tryThis": {
+   "en": "Change Bevel Depth in the Object Data tab.",
+   "ko": "오브젝트 데이터 탭에서 베벨 깊이를 바꿔 보세요."
+  },
+  "topics": [
+   "curve"
+  ],
+  "file": "beginner/curve-ribbon.my3d",
+  "thumb": "thumb/curve-ribbon.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "duplicate-stairs",
+  "level": "beginner",
+  "title": {
+   "en": "Stairs",
+   "ko": "계단"
+  },
+  "description": {
+   "en": "One step and an offset in three directions.",
+   "ko": "계단 하나를 세 방향으로 띄워 쌓습니다."
+  },
+  "tryThis": {
+   "en": "Change the Array offsets and see the stairs turn into a ramp.",
+   "ko": "배열 오프셋을 바꿔 계단이 경사로로 변하는 것을 보세요."
+  },
+  "topics": [
+   "duplicate",
+   "array"
+  ],
+  "file": "beginner/duplicate-stairs.my3d",
+  "thumb": "thumb/duplicate-stairs.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "subsurf-mug",
+  "level": "intermediate",
+  "title": {
+   "en": "Mug",
+   "ko": "머그잔"
+  },
+  "description": {
+   "en": "A cylinder, an inset, an extrude and Subdivision Surface.",
+   "ko": "원기둥에 인셋과 돌출, 서브디비전 표면을 더합니다."
+  },
+  "tryThis": {
+   "en": "Press Tab to see the few faces it really is.",
+   "ko": "Tab을 눌러 실제로는 면이 얼마 안 된다는 것을 확인해 보세요."
+  },
+  "topics": [
+   "edit mode",
+   "subdivision"
+  ],
+  "file": "intermediate/subsurf-mug.my3d",
+  "thumb": "thumb/subsurf-mug.png",
+  "workspace": "modeling",
+  "bake": false
+ },
+ {
+  "id": "street-lamp",
+  "level": "intermediate",
+  "title": {
+   "en": "Street Lamp",
+   "ko": "가로등"
+  },
+  "description": {
+   "en": "A pole, an arm and a warm point light in the dusk.",
+   "ko": "기둥과 팔, 해질녘의 따뜻한 점광원입니다."
+  },
+  "tryThis": {
+   "en": "Select the light and change its colour in the Data tab.",
+   "ko": "조명을 골라 데이터 탭에서 색을 바꿔 보세요."
+  },
+  "topics": [
+   "lights",
+   "parent"
+  ],
+  "file": "intermediate/street-lamp.my3d",
+  "thumb": "thumb/street-lamp.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "screw-spring",
+  "level": "intermediate",
+  "title": {
+   "en": "Spring",
+   "ko": "용수철"
+  },
+  "description": {
+   "en": "A small circle swept up by the Screw modifier.",
+   "ko": "작은 원을 스크류 모디파이어로 쓸어 올립니다."
+  },
+  "tryThis": {
+   "en": "Change Angle and Height in the Modifiers tab.",
+   "ko": "모디파이어 탭에서 각도와 높이를 바꿔 보세요."
+  },
+  "topics": [
+   "modifier",
+   "screw"
+  ],
+  "file": "intermediate/screw-spring.my3d",
+  "thumb": "thumb/screw-spring.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "boolean-cheese",
+  "level": "intermediate",
+  "title": {
+   "en": "Cheese",
+   "ko": "구멍 뚫린 치즈"
+  },
+  "description": {
+   "en": "A block with holes: spheres cut by Boolean modifiers.",
+   "ko": "불리언 모디파이어로 구를 빼서 구멍을 냅니다."
+  },
+  "tryThis": {
+   "en": "Select a hidden cutter in the Outliner, show it and move it.",
+   "ko": "아웃라이너에서 숨긴 커터를 보이게 해 옮겨 보세요."
+  },
+  "topics": [
+   "modifier",
+   "boolean"
+  ],
+  "file": "intermediate/boolean-cheese.my3d",
+  "thumb": "thumb/boolean-cheese.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "noise-material",
+  "level": "intermediate",
+  "title": {
+   "en": "Marble",
+   "ko": "대리석"
+  },
+  "description": {
+   "en": "A noise texture through a colour ramp into Base Color.",
+   "ko": "노이즈 텍스처를 컬러 램프로 거쳐 기본 색에 연결합니다."
+  },
+  "tryThis": {
+   "en": "In the Shading workspace change the Noise Scale.",
+   "ko": "셰이딩 워크스페이스에서 노이즈 크기를 바꿔 보세요."
+  },
+  "topics": [
+   "shader nodes"
+  ],
+  "file": "intermediate/noise-material.my3d",
+  "thumb": "thumb/noise-material.png",
+  "workspace": "shading",
+  "bake": false
+ },
+ {
+  "id": "sky-world",
+  "level": "intermediate",
+  "title": {
+   "en": "Sky World",
+   "ko": "하늘 월드"
+  },
+  "description": {
+   "en": "The whole sky comes from a node tree; nothing lights the scene but it.",
+   "ko": "하늘 전체가 노드 트리에서 나오고, 그것만으로 장면을 비춥니다."
+  },
+  "tryThis": {
+   "en": "Change the sky's Horizon colour in the World tree.",
+   "ko": "월드 트리에서 하늘의 지평선 색을 바꿔 보세요."
+  },
+  "topics": [
+   "world nodes"
+  ],
+  "file": "intermediate/sky-world.my3d",
+  "thumb": "thumb/sky-world.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "robot-arm",
+  "level": "intermediate",
+  "title": {
+   "en": "Robot Arm",
+   "ko": "로봇 팔"
+  },
+  "description": {
+   "en": "A tube bent by three bones, with automatic weights and a keyed pose.",
+   "ko": "자동 가중치로 뼈 세 개에 묶인 관을 키 포즈로 구부립니다."
+  },
+  "tryThis": {
+   "en": "Press Space. Then enter Pose Mode and turn a bone.",
+   "ko": "스페이스를 누른 뒤 포즈 모드에서 뼈를 돌려 보세요."
+  },
+  "topics": [
+   "armature",
+   "skinning"
+  ],
+  "file": "intermediate/robot-arm.my3d",
+  "thumb": "thumb/robot-arm.png",
+  "workspace": "animation",
+  "bake": false
+ },
+ {
+  "id": "cloth-flag",
+  "level": "intermediate",
+  "title": {
+   "en": "Flag",
+   "ko": "깃발"
+  },
+  "description": {
+   "en": "A cloth pinned along one edge, in the wind.",
+   "ko": "한쪽 가장자리를 고정한 천이 바람에 날립니다."
+  },
+  "tryThis": {
+   "en": "Press Space. Change the wind strength and bake again.",
+   "ko": "스페이스를 누른 뒤 바람 세기를 바꿔 다시 베이크해 보세요."
+  },
+  "topics": [
+   "cloth",
+   "wind"
+  ],
+  "file": "intermediate/cloth-flag.my3d",
+  "thumb": "thumb/cloth-flag.png",
+  "workspace": "animation",
+  "bake": true
+ },
+ {
+  "id": "dominoes",
+  "level": "intermediate",
+  "title": {
+   "en": "Falling Boxes",
+   "ko": "떨어지는 상자들"
+  },
+  "description": {
+   "en": "A stack of rigid boxes dropped on the floor.",
+   "ko": "쌓인 강체 상자들을 바닥에 떨어뜨립니다."
+  },
+  "tryThis": {
+   "en": "Press Space. Add another box and bake again.",
+   "ko": "스페이스를 누른 뒤 상자를 더 넣고 다시 베이크해 보세요."
+  },
+  "topics": [
+   "rigid body"
+  ],
+  "file": "intermediate/dominoes.my3d",
+  "thumb": "thumb/dominoes.png",
+  "workspace": "animation",
+  "bake": true
+ },
+ {
+  "id": "fountain",
+  "level": "intermediate",
+  "title": {
+   "en": "Fountain",
+   "ko": "분수"
+  },
+  "description": {
+   "en": "Particles thrown up from a disc, falling back under gravity.",
+   "ko": "원판에서 위로 쏜 입자가 중력으로 떨어집니다."
+  },
+  "tryThis": {
+   "en": "Change Velocity and Count in the Particles tab.",
+   "ko": "파티클 탭에서 속도와 개수를 바꿔 보세요."
+  },
+  "topics": [
+   "particles"
+  ],
+  "file": "intermediate/fountain.my3d",
+  "thumb": "thumb/fountain.png",
+  "workspace": "animation",
+  "bake": false
+ },
+ {
+  "id": "shape-keys",
+  "level": "intermediate",
+  "title": {
+   "en": "Morphing Shape",
+   "ko": "모양 바꾸기"
+  },
+  "description": {
+   "en": "A cube turns into a sphere with one shape key and two keyframes.",
+   "ko": "셰이프 키 하나와 키프레임 둘로 큐브가 구로 바뀝니다."
+  },
+  "tryThis": {
+   "en": "Drag the shape key's value in the Object Data tab.",
+   "ko": "오브젝트 데이터 탭에서 셰이프 키 값을 끌어 보세요."
+  },
+  "topics": [
+   "shape keys",
+   "animation"
+  ],
+  "file": "intermediate/shape-keys.my3d",
+  "thumb": "thumb/shape-keys.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "track-to",
+  "level": "intermediate",
+  "title": {
+   "en": "Eyes on the Ball",
+   "ko": "공을 쫓는 눈"
+  },
+  "description": {
+   "en": "Track To keeps the spotlight and the camera on a moving ball.",
+   "ko": "따라보기 컨스트레인트로 조명과 카메라가 움직이는 공을 놓치지 않습니다."
+  },
+  "tryThis": {
+   "en": "Press Space, then move the ball by hand.",
+   "ko": "스페이스를 누른 뒤 공을 직접 옮겨 보세요."
+  },
+  "topics": [
+   "constraints"
+  ],
+  "file": "intermediate/track-to.my3d",
+  "thumb": "thumb/track-to.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "lattice-bend",
+  "level": "intermediate",
+  "title": {
+   "en": "Bending with a Lattice",
+   "ko": "래티스로 구부리기"
+  },
+  "description": {
+   "en": "Move the corners of a cage and the shape inside follows.",
+   "ko": "바깥 틀의 모서리를 옮기면 안의 모양이 따라옵니다."
+  },
+  "tryThis": {
+   "en": "Select the lattice; change its points by script or move the object.",
+   "ko": "래티스를 선택해 옮겨 보세요. 안의 모양이 바뀝니다."
+  },
+  "topics": [
+   "lattice",
+   "deform"
+  ],
+  "file": "intermediate/lattice-bend.my3d",
+  "thumb": "thumb/lattice-bend.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "collection-city",
+  "level": "intermediate",
+  "title": {
+   "en": "Instanced City",
+   "ko": "인스턴스 도시"
+  },
+  "description": {
+   "en": "One small block of buildings repeated many times, for the price of one.",
+   "ko": "건물 한 블록을 여러 번 반복합니다. 비용은 한 블록치입니다."
+  },
+  "tryThis": {
+   "en": "Change a building in the Block collection: every block changes.",
+   "ko": "Block 컬렉션의 건물을 바꿔 보세요. 모든 블록이 바뀝니다."
+  },
+  "topics": [
+   "collections",
+   "instancing"
+  ],
+  "file": "intermediate/collection-city.my3d",
+  "thumb": "thumb/collection-city.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "studs-faces",
+  "level": "intermediate",
+  "title": {
+   "en": "Studded Sphere",
+   "ko": "돌기 달린 구"
+  },
+  "description": {
+   "en": "A child object repeated on every face, turned to its normal.",
+   "ko": "자식 오브젝트를 모든 면에, 면의 방향으로 돌려 반복합니다."
+  },
+  "tryThis": {
+   "en": "Change the parent's subdivisions in Object Data, or use Instancing › On Vertices.",
+   "ko": "오브젝트 메뉴의 인스턴싱에서 꼭짓점에 놓기로 바꿔 보세요."
+  },
+  "topics": [
+   "instancing"
+  ],
+  "file": "intermediate/studs-faces.my3d",
+  "thumb": "thumb/studs-faces.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "glare-compositor",
+  "level": "intermediate",
+  "title": {
+   "en": "Glow in the Compositor",
+   "ko": "합성 글로우"
+  },
+  "description": {
+   "en": "Bright lamps get a glare and a vignette after the render.",
+   "ko": "렌더 뒤에 밝은 조명에 글레어와 비네트를 더합니다."
+  },
+  "tryThis": {
+   "en": "Press F12, then raise the Glare Strength in the Compositing workspace.",
+   "ko": "F12를 누른 뒤 합성 워크스페이스에서 글레어 세기를 올려 보세요."
+  },
+  "topics": [
+   "compositor"
+  ],
+  "file": "intermediate/glare-compositor.my3d",
+  "thumb": "thumb/glare-compositor.png",
+  "workspace": "compositing",
+  "bake": false
+ },
+ {
+  "id": "metaballs",
+  "level": "intermediate",
+  "title": {
+   "en": "Lava Lamp",
+   "ko": "라바 램프"
+  },
+  "description": {
+   "en": "Metaballs melt into each other as they rise and sink.",
+   "ko": "메타볼이 오르내리며 서로 녹아듭니다."
+  },
+  "tryThis": {
+   "en": "Press Space. Move an element in the Object Data tab.",
+   "ko": "스페이스를 누른 뒤 오브젝트 데이터 탭에서 요소를 옮겨 보세요."
+  },
+  "topics": [
+   "metaballs",
+   "animation"
+  ],
+  "file": "intermediate/metaballs.my3d",
+  "thumb": "thumb/metaballs.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "geo-scatter",
+  "level": "advanced",
+  "title": {
+   "en": "Geometry Nodes: Forest",
+   "ko": "지오메트리 노드: 숲"
+  },
+  "description": {
+   "en": "A node program scatters cones on a bumpy ground and sizes them at random.",
+   "ko": "노드 프로그램이 울퉁불퉁한 땅에 원뿔을 뿌리고 크기를 무작위로 정합니다."
+  },
+  "tryThis": {
+   "en": "In the Geo Nodes workspace raise Density.",
+   "ko": "지오 노드 워크스페이스에서 밀도를 올려 보세요."
+  },
+  "topics": [
+   "geometry nodes"
+  ],
+  "file": "advanced/geo-scatter.my3d",
+  "thumb": "thumb/geo-scatter.png",
+  "workspace": "geonodes",
+  "bake": false
+ },
+ {
+  "id": "smoke-plume",
+  "level": "advanced",
+  "title": {
+   "en": "Smoke Plume",
+   "ko": "연기 기둥"
+  },
+  "description": {
+   "en": "Hot smoke rises and curls in a domain. It is baked when it opens.",
+   "ko": "뜨거운 연기가 도메인 안에서 소용돌이치며 오릅니다. 열 때 베이크합니다."
+  },
+  "tryThis": {
+   "en": "Press Space. Raise Vorticity in the Physics tab and bake again.",
+   "ko": "스페이스를 누른 뒤 물리 탭에서 와류를 올리고 다시 베이크해 보세요."
+  },
+  "topics": [
+   "smoke",
+   "volume"
+  ],
+  "file": "advanced/smoke-plume.my3d",
+  "thumb": "thumb/smoke-plume.png",
+  "workspace": null,
+  "bake": true
+ },
+ {
+  "id": "campfire",
+  "level": "advanced",
+  "title": {
+   "en": "Campfire",
+   "ko": "모닥불"
+  },
+  "description": {
+   "en": "Fuel burns into flame and smoke among some logs.",
+   "ko": "장작 사이에서 연료가 불꽃과 연기로 탑니다."
+  },
+  "tryThis": {
+   "en": "Press Space. Change Flame Strength in the Physics tab.",
+   "ko": "스페이스를 누른 뒤 물리 탭에서 불꽃 세기를 바꿔 보세요."
+  },
+  "topics": [
+   "fire",
+   "volume"
+  ],
+  "file": "advanced/campfire.my3d",
+  "thumb": "thumb/campfire.png",
+  "workspace": null,
+  "bake": true
+ },
+ {
+  "id": "water-tank",
+  "level": "advanced",
+  "title": {
+   "en": "Water in a Tank",
+   "ko": "수조의 물"
+  },
+  "description": {
+   "en": "A block of water collapses and sloshes round a box. It is baked when it opens.",
+   "ko": "물 덩어리가 무너져 상자 주위를 출렁입니다. 열 때 베이크합니다."
+  },
+  "tryThis": {
+   "en": "Press Space. Raise Resolution in the Physics tab, and bake again.",
+   "ko": "스페이스를 누른 뒤 물리 탭에서 해상도를 올리고 다시 베이크해 보세요."
+  },
+  "topics": [
+   "liquid",
+   "FLIP"
+  ],
+  "file": "advanced/water-tank.my3d",
+  "thumb": "thumb/water-tank.png",
+  "workspace": null,
+  "bake": true
+ },
+ {
+  "id": "ocean-sunset",
+  "level": "advanced",
+  "title": {
+   "en": "Ocean at Sunset",
+   "ko": "노을 바다"
+  },
+  "description": {
+   "en": "The Ocean modifier makes a moving sea; the sky lights it.",
+   "ko": "오션 모디파이어로 움직이는 바다를 만들고 하늘이 비춥니다."
+  },
+  "tryThis": {
+   "en": "Press Space. Change Wind Speed in the Modifiers tab.",
+   "ko": "스페이스를 누른 뒤 모디파이어 탭에서 풍속을 바꿔 보세요."
+  },
+  "topics": [
+   "ocean",
+   "world"
+  ],
+  "file": "advanced/ocean-sunset.my3d",
+  "thumb": "thumb/ocean-sunset.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "dynamic-paint",
+  "level": "advanced",
+  "title": {
+   "en": "Paint Trail",
+   "ko": "페인트 자국"
+  },
+  "description": {
+   "en": "A moving ball leaves paint behind on a floor that dents and slowly dries.",
+   "ko": "움직이는 공이 바닥에 자국을 남깁니다. 바닥은 패이고 천천히 마릅니다."
+  },
+  "tryThis": {
+   "en": "Press Space. Change Fade and Spread in the Physics tab, and bake again.",
+   "ko": "스페이스를 누른 뒤 물리 탭에서 옅어짐과 번짐을 바꾸고 다시 베이크해 보세요."
+  },
+  "topics": [
+   "dynamic paint",
+   "animation"
+  ],
+  "file": "advanced/dynamic-paint.my3d",
+  "thumb": "thumb/dynamic-paint.png",
+  "workspace": "animation",
+  "bake": true
+ },
+ {
+  "id": "python-tower",
+  "level": "advanced",
+  "title": {
+   "en": "Python: Twisted Tower",
+   "ko": "Python: 꼬인 탑"
+  },
+  "description": {
+   "en": "Every floor of this tower was placed by the Python script in the Text Editor.",
+   "ko": "이 탑의 모든 층은 텍스트 에디터의 Python 스크립트가 놓았습니다."
+  },
+  "tryThis": {
+   "en": "In the Scripting workspace change a number and press Ctrl+Enter.",
+   "ko": "스크립팅 워크스페이스에서 숫자를 바꾸고 Ctrl+Enter를 눌러 보세요."
+  },
+  "topics": [
+   "python",
+   "scripting"
+  ],
+  "file": "advanced/python-tower.my3d",
+  "thumb": "thumb/python-tower.png",
+  "workspace": "scripting",
+  "bake": false
+ },
+ {
+  "id": "python-grid",
+  "level": "advanced",
+  "title": {
+   "en": "Python: Sine Field",
+   "ko": "Python: 사인 들판"
+  },
+  "description": {
+   "en": "A class and a comprehension lay out a field of columns from a formula.",
+   "ko": "클래스와 컴프리헨션으로 수식에 따라 기둥 들판을 만듭니다."
+  },
+  "tryThis": {
+   "en": "Change wave() in the script, and press Ctrl+Enter.",
+   "ko": "스크립트의 wave()를 바꾸고 Ctrl+Enter를 눌러 보세요."
+  },
+  "topics": [
+   "python",
+   "classes"
+  ],
+  "file": "advanced/python-grid.my3d",
+  "thumb": "thumb/python-grid.png",
+  "workspace": "scripting",
+  "bake": false
+ },
+ {
+  "id": "addon-gears",
+  "level": "advanced",
+  "title": {
+   "en": "Add-on: Gears",
+   "ko": "애드온: 기어"
+  },
+  "description": {
+   "en": "Gears made by the Add Gear add-on, meshing and turning at their proper ratio.",
+   "ko": "Add Gear 애드온으로 만든 기어들이 맞물려 비율대로 돕니다."
+  },
+  "tryThis": {
+   "en": "Turn on Add Gear in Preferences › Add-ons, then find Gear with F3.",
+   "ko": "환경 설정 › 애드온에서 Add Gear를 켜고 F3으로 Gear를 찾아보세요."
+  },
+  "topics": [
+   "add-on",
+   "python"
+  ],
+  "file": "advanced/addon-gears.my3d",
+  "thumb": "thumb/addon-gears.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "node-group-shared",
+  "level": "advanced",
+  "title": {
+   "en": "Shared Node Group",
+   "ko": "공유 노드 그룹"
+  },
+  "description": {
+   "en": "Three materials share one \"Banded\" group; each feeds it a different colour.",
+   "ko": "재질 세 개가 \"Banded\" 그룹을 공유하고 각자 다른 색을 넣습니다."
+  },
+  "tryThis": {
+   "en": "Select a material, select the group node and press Tab to edit it: all three change.",
+   "ko": "재질의 그룹 노드를 선택하고 Tab으로 들어가 고쳐 보세요. 세 재질이 함께 바뀝니다."
+  },
+  "topics": [
+   "node groups",
+   "shader nodes"
+  ],
+  "file": "advanced/node-group-shared.my3d",
+  "thumb": "thumb/node-group-shared.png",
+  "workspace": "shading",
+  "bake": false
+ },
+ {
+  "id": "osl-shader",
+  "level": "advanced",
+  "title": {
+   "en": "OSL Script Shader",
+   "ko": "OSL 스크립트 셰이더"
+  },
+  "description": {
+   "en": "A checker written as a few lines of Open Shading Language. Its parameters are sockets.",
+   "ko": "몇 줄의 Open Shading Language로 쓴 체커입니다. 매개변수가 소켓이 됩니다."
+  },
+  "tryThis": {
+   "en": "In the Shading workspace edit the source inside the node.",
+   "ko": "셰이딩 워크스페이스에서 노드 안의 코드를 고쳐 보세요."
+  },
+  "topics": [
+   "OSL",
+   "shader nodes"
+  ],
+  "file": "advanced/osl-shader.my3d",
+  "thumb": "thumb/osl-shader.png",
+  "workspace": "shading",
+  "bake": false
+ },
+ {
+  "id": "story-scenes",
+  "level": "advanced",
+  "title": {
+   "en": "Two Scenes, One Film",
+   "ko": "장면 둘, 영상 하나"
+  },
+  "description": {
+   "en": "Two scenes in one file, cut together with a cross and a title in the Video Sequencer.",
+   "ko": "한 파일의 두 장면을 비디오 시퀀서에서 크로스 전환과 제목으로 잇습니다."
+  },
+  "tryThis": {
+   "en": "In the Video workspace press Space. Export Video writes a WebM.",
+   "ko": "영상 워크스페이스에서 스페이스를 누르세요. 동영상 내보내기로 WebM을 만듭니다."
+  },
+  "topics": [
+   "scenes",
+   "sequencer"
+  ],
+  "file": "advanced/story-scenes.my3d",
+  "thumb": "thumb/story-scenes.png",
+  "workspace": "video",
+  "bake": false
+ },
+ {
+  "id": "title-card",
+  "level": "advanced",
+  "title": {
+   "en": "Title Sequence",
+   "ko": "타이틀 시퀀스"
+  },
+  "description": {
+   "en": "Colour strips, wipes and text, with no 3D at all.",
+   "ko": "색 스트립, 와이프, 글자만으로 만든 영상입니다."
+  },
+  "tryThis": {
+   "en": "Press K at the playhead to cut a strip. Move strips by dragging.",
+   "ko": "재생 헤드에서 K로 스트립을 자르고, 끌어서 옮겨 보세요."
+  },
+  "topics": [
+   "sequencer",
+   "titles"
+  ],
+  "file": "advanced/title-card.my3d",
+  "thumb": "thumb/title-card.png",
+  "workspace": "video",
+  "bake": false
+ },
+ {
+  "id": "camera-solve",
+  "level": "advanced",
+  "title": {
+   "en": "Motion Tracking",
+   "ko": "모션 트래킹"
+  },
+  "description": {
+   "en": "A short clip of dots seen by a turning camera. The tracks are already made: solve them.",
+   "ko": "돌아가는 카메라로 찍은 점들의 짧은 클립입니다. 트랙은 이미 있으니 풀어 보세요."
+  },
+  "tryThis": {
+   "en": "In the Tracking workspace press Solve Camera: the 3D points appear.",
+   "ko": "트래킹 워크스페이스에서 카메라 풀기를 누르면 3D 점들이 나타납니다."
+  },
+  "topics": [
+   "tracking",
+   "clip editor"
+  ],
+  "file": "advanced/camera-solve.my3d",
+  "thumb": "thumb/camera-solve.png",
+  "workspace": "tracking",
+  "bake": false
+ },
+ {
+  "id": "nurbs-vase",
+  "level": "advanced",
+  "title": {
+   "en": "NURBS Vase",
+   "ko": "NURBS 꽃병"
+  },
+  "description": {
+   "en": "A rational surface: move the control points in Edit Mode and the curve stays smooth.",
+   "ko": "유리 곡면입니다. 편집 모드에서 조정점을 옮겨도 곡선이 매끄럽게 유지됩니다."
+  },
+  "tryThis": {
+   "en": "Press Tab and move a control point.",
+   "ko": "Tab을 누르고 조정점을 옮겨 보세요."
+  },
+  "topics": [
+   "NURBS",
+   "surfaces"
+  ],
+  "file": "advanced/nurbs-vase.my3d",
+  "thumb": "thumb/nurbs-vase.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "texture-painted",
+  "level": "advanced",
+  "title": {
+   "en": "Texture Painting",
+   "ko": "텍스처 페인팅"
+  },
+  "description": {
+   "en": "Seams, an unwrap and a painted picture: paint crosses islands without a break.",
+   "ko": "심과 언랩, 칠한 그림입니다. 페인트가 UV 섬을 넘어 끊김 없이 이어집니다."
+  },
+  "tryThis": {
+   "en": "In the Paint workspace, paint on the cube, and watch the picture on the left.",
+   "ko": "페인트 워크스페이스에서 큐브에 칠하고 왼쪽의 그림을 보세요."
+  },
+  "topics": [
+   "texture paint",
+   "UV"
+  ],
+  "file": "advanced/texture-painted.my3d",
+  "thumb": "thumb/texture-painted.png",
+  "workspace": "paint",
+  "bake": false
+ },
+ {
+  "id": "freestyle-toon",
+  "level": "advanced",
+  "title": {
+   "en": "Cartoon Lines",
+   "ko": "만화 선"
+  },
+  "description": {
+   "en": "Flat colours and Freestyle outlines, drawn from the real edges.",
+   "ko": "평평한 색과 실제 엣지에서 그린 Freestyle 윤곽선입니다."
+  },
+  "tryThis": {
+   "en": "Press F12. Change the Thickness in the Render tab.",
+   "ko": "F12를 누른 뒤 렌더 탭에서 두께를 바꿔 보세요."
+  },
+  "topics": [
+   "freestyle",
+   "render"
+  ],
+  "file": "advanced/freestyle-toon.my3d",
+  "thumb": "thumb/freestyle-toon.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "multires-sculpt",
+  "level": "advanced",
+  "title": {
+   "en": "Sculpted Head",
+   "ko": "조각한 머리"
+  },
+  "description": {
+   "en": "A form pushed by brushes on Multiresolution levels; the base mesh stays eight corners.",
+   "ko": "멀티레졸루션 단계 위에 브러시로 밀어 만든 형태입니다. 원본은 꼭짓점 8개 그대로입니다."
+  },
+  "tryThis": {
+   "en": "In the Sculpting workspace, drag with a brush. Lower Levels in the Modifiers tab.",
+   "ko": "스컬프팅 워크스페이스에서 브러시로 끌어 보고, 모디파이어 탭에서 레벨을 내려 보세요."
+  },
+  "topics": [
+   "sculpt",
+   "multiresolution"
+  ],
+  "file": "advanced/multires-sculpt.my3d",
+  "thumb": "thumb/multires-sculpt.png",
+  "workspace": "sculpting",
+  "bake": false
+ },
+ {
+  "id": "skin-tree",
+  "level": "advanced",
+  "title": {
+   "en": "Skin: A Tree",
+   "ko": "스킨: 나무"
+  },
+  "description": {
+   "en": "A few edges with radii become one flowing surface, then a Remesh evens it out.",
+   "ko": "반지름을 준 엣지 몇 개가 하나의 면으로 이어지고, 리메시로 고르게 합니다."
+  },
+  "tryThis": {
+   "en": "Press Tab, select a vertex, and use Skin Radius from F3.",
+   "ko": "Tab을 누르고 꼭짓점을 고른 뒤 F3에서 Skin Radius를 실행해 보세요."
+  },
+  "topics": [
+   "skin",
+   "remesh"
+  ],
+  "file": "advanced/skin-tree.my3d",
+  "thumb": "thumb/skin-tree.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "god-rays",
+  "level": "advanced",
+  "title": {
+   "en": "Light Shafts",
+   "ko": "빛줄기"
+  },
+  "description": {
+   "en": "Fog in a room with a slit: a spot of light becomes a shaft you can see.",
+   "ko": "틈이 있는 방의 안개 속에서 빛이 눈에 보이는 줄기가 됩니다."
+  },
+  "tryThis": {
+   "en": "Press F12. Change the Volume's Density in the Object Data tab.",
+   "ko": "F12를 누른 뒤 오브젝트 데이터 탭에서 볼륨 밀도를 바꿔 보세요."
+  },
+  "topics": [
+   "volume",
+   "lights"
+  ],
+  "file": "advanced/god-rays.my3d",
+  "thumb": "thumb/god-rays.png",
+  "workspace": null,
+  "bake": false
+ },
+ {
+  "id": "motion-paths",
+  "level": "advanced",
+  "title": {
+   "en": "Motion Paths",
+   "ko": "모션 경로"
+  },
+  "description": {
+   "en": "A throw shown with its whole path and its ghosts around the current frame.",
+   "ko": "던진 공의 전체 경로와 현재 프레임 주변의 잔상을 함께 보여 줍니다."
+  },
+  "tryThis": {
+   "en": "Move a key in the Graph Editor, then Object › Animation › Calculate Motion Path.",
+   "ko": "그래프 에디터에서 키를 옮긴 뒤 오브젝트 › 애니메이션 › 모션 경로 계산을 실행해 보세요."
+  },
+  "topics": [
+   "animation",
+   "graph editor",
+   "onion skin"
+  ],
+  "file": "advanced/motion-paths.my3d",
+  "thumb": "thumb/motion-paths.png",
+  "workspace": "animation",
+  "bake": false
+ }
+]

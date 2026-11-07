@@ -1,0 +1,32 @@
+[package]
+name = "my3dblender"
+version = "1.0.0"
+description = "3D creation suite: modeling, sculpting, animation, nodes, simulation and rendering"
+authors = ["SHKWON <knix008@naver.com>"]
+edition = "2021"
+
+[lib]
+name = "my3dblender_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+fontdb = "0.23"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+# Preferences › Packages: downloading the WebView2 setup with progress and a stop button.
+ureq = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+# Installed app: smaller and faster (whole-program optimisation, no debug symbols). Debug builds and tests are unaffected.
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

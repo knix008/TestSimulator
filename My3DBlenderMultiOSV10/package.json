@@ -1,0 +1,43 @@
+{
+  "name": "my3dblender",
+  "productName": "My3DBlender",
+  "private": true,
+  "version": "1.0.0",
+  "description": "3D creation suite for Web, Windows, macOS and Linux (Tauri + three.js): modeling, modifiers, sculpting, UV and paint, shader / geometry / compositor nodes, animation, physics, path-traced rendering and scripting",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "node scripts/build-docs.mjs && vite build",
+    "preview": "vite preview --port 4537 --strictPort",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "test:js": "node scripts/test.mjs --only js",
+    "test:rust": "node scripts/test.mjs --only rust",
+    "test:e2e": "node scripts/test.mjs --only web,desktop",
+    "test:web": "node scripts/test.mjs --only web",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "build:icons": "node scripts/render-icons.mjs",
+    "build:docs": "node scripts/build-docs.mjs",
+    "coverage": "node scripts/coverage.mjs",
+    "tutorial:video": "node scripts/tutorial-video.mjs",
+    "verify:blender": "node scripts/verify-blender.mjs",
+    "verify:formats": "node scripts/verify-formats.mjs",
+    "samples": "node scripts/create-samples.mjs",
+    "guide:images": "node scripts/guide-images.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.3",
+    "vite": "^7.1.7"
+  }
+}

@@ -1,0 +1,79 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>My3DBlender 튜토리얼</title><style>:root{color-scheme:light dark;--bg:#fff;--side:#f6f6f6;--fg:#1d1d1f;--muted:#5f6368;--line:#dcdcdc;--code:#f3f3f3;--accent:#c5651c;--doc-font:15px}
+@media (prefers-color-scheme:dark){:root{--bg:#1f1f1f;--side:#282828;--fg:#dedede;--muted:#a0a0a0;--line:#3d3d3d;--code:#2c2c2c;--accent:#ef8b3c}}
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;display:grid;grid-template-rows:44px minmax(0,1fr);grid-template-columns:280px minmax(0,1fr);background:var(--bg);color:var(--fg);font:14px/1.5 "Segoe UI","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;overflow:hidden}
+.doc-top{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:0 14px;background:var(--side);border-bottom:1px solid var(--line)}
+.doc-title{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc-label{color:var(--muted);font-size:12.5px;white-space:nowrap}.doc-value{width:58px;justify-content:center;text-align:center;font-variant-numeric:tabular-nums}.doc-flag{padding:0 6px}.doc-flag svg{display:block;border-radius:2px;box-shadow:0 0 0 1px var(--line)}
+.doc-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:28px;height:28px;padding:0 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit;cursor:pointer;text-decoration:none;white-space:nowrap}
+.doc-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}.doc-btn:disabled{opacity:.4;cursor:default}.doc-sep{width:1px;height:20px;margin:0 6px;background:var(--line)}
+.doc-tree{display:flex;flex-direction:column;min-height:0;background:var(--side);border-right:1px solid var(--line)}
+.doc-tree-head{flex:none;display:flex;align-items:center;gap:7px;height:34px;padding:0 6px 0 12px;font-weight:600;border-bottom:1px solid var(--line)}.doc-tree-head svg{flex:none;color:var(--accent)}.doc-tree-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc-fold{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:0;border-radius:5px;background:none;color:var(--muted);font:inherit;font-size:16px;line-height:1;cursor:pointer}.doc-fold:hover{background:color-mix(in srgb,var(--fg) 10%,transparent);color:var(--accent)}
+.doc-tree-body{flex:1;min-height:0;overflow-y:auto;padding:8px 8px 24px;scrollbar-width:thin}
+body.tree-closed{grid-template-columns:38px minmax(0,1fr)}.tree-closed .doc-tree-body,.tree-closed .doc-tree-name{display:none}.tree-closed .doc-tree-head{flex-direction:column;height:auto;gap:6px;padding:6px 0;border:0}
+.doc-tree a{display:block;padding:3px 8px;border-radius:5px;color:var(--fg);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc-tree a.l2{margin-top:2px;font-weight:600}.doc-tree a.l3{padding-left:22px;color:var(--muted);font-size:13px}
+.doc-tree a:hover{background:color-mix(in srgb,var(--fg) 8%,transparent)}.doc-tree a.on{background:var(--accent);color:#fff}
+main{overflow-y:auto;font-size:var(--doc-font);line-height:1.65;scroll-padding-top:12px}.doc-page{max-width:900px;margin:0 auto;padding:24px 28px 80px}
+h1{font-size:1.87em;margin:0 0 8px}h2{font-size:1.4em;margin:1.6em 0 .4em;padding-bottom:4px;border-bottom:1px solid var(--line)}h3{font-size:1.07em;margin:1.3em 0 .3em}
+a{color:var(--accent)}code{padding:1px 5px;background:var(--code);border-radius:3px;font:.87em ui-monospace,Consolas,monospace}pre{padding:10px 12px;background:var(--code);border-radius:5px;overflow:auto}pre code{padding:0;background:none}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.93em}th,td{padding:5px 8px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:var(--code)}
+img{display:block;max-width:100%;height:auto;margin:10px 0;border:1px solid var(--line);border-radius:6px}
+@media (max-width:720px){body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,30vh) minmax(0,1fr)}.doc-top{flex-wrap:wrap;padding:6px 10px}.doc-tree{border-right:0;border-bottom:1px solid var(--line)}body.tree-closed{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}.doc-page{padding:16px 16px 60px}}</style></head><body><header class="doc-top"><span class="doc-title">My3DBlender 튜토리얼</span><span class="doc-label">글자 크기</span><button type="button" class="doc-btn" id="doc-font-down" title="글자 작게" aria-label="글자 작게">−</button><button type="button" class="doc-btn doc-value" id="doc-font-reset" title="15px로 되돌리기"><span id="doc-font-value"></span></button><button type="button" class="doc-btn" id="doc-font-up" title="글자 크게" aria-label="글자 크게">+</button><span class="doc-sep"></span><a class="doc-btn doc-flag" id="doc-lang" href="Tutorial.en.html" title="English로 보기" aria-label="English로 보기"><svg width="22.5" height="15" viewBox="0 0 60 40" role="img" aria-label="English" data-testid="flag-en">
+    <rect width="60" height="40" fill="#012169"/>
+    <path d="M0,0 L60,40 M60,0 L0,40" stroke="#ffffff" stroke-width="8"/>
+    <path d="M0,0 L60,40 M60,0 L0,40" stroke="#C8102E" stroke-width="4"/>
+    <path d="M30,0 V40 M0,20 H60" stroke="#ffffff" stroke-width="13"/>
+    <path d="M30,0 V40 M0,20 H60" stroke="#C8102E" stroke-width="8"/></svg></a></header><nav class="doc-tree" aria-label="목차"><div class="doc-tree-head"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><path d="M3 3h4M5 6.500h8M5 10h8M5 13.500h8M3 4v9.500"/></svg><span class="doc-tree-name">목차</span><button type="button" class="doc-fold" id="doc-tree-fold" data-close="목차 접기" data-open="목차 펼치기">‹</button></div><div class="doc-tree-body"><a class="l2" href="#s0" title="시작하기 전에">시작하기 전에</a><a class="l2" href="#s1" title="튜토리얼 1. 머그잔 만들기 (초급)">튜토리얼 1. 머그잔 만들기 (초급)</a><a class="l3" href="#s2" title="몸통">몸통</a><a class="l3" href="#s3" title="속 파내기">속 파내기</a><a class="l3" href="#s4" title="손잡이">손잡이</a><a class="l3" href="#s5" title="다듬고 칠하기">다듬고 칠하기</a><a class="l3" href="#s6" title="돌리고 렌더하기">돌리고 렌더하기</a><a class="l2" href="#s7" title="튜토리얼 2. 심으로 펼치고 칠하기 (중급)">튜토리얼 2. 심으로 펼치고 칠하기 (중급)</a><a class="l2" href="#s8" title="튜토리얼 3. 튀는 공과 모션 경로 (중급)">튜토리얼 3. 튀는 공과 모션 경로 (중급)</a><a class="l2" href="#s9" title="튜토리얼 4. 연기 피우기 (고급)">튜토리얼 4. 연기 피우기 (고급)</a><a class="l2" href="#s10" title="튜토리얼 5. Python으로 만들기 (고급)">튜토리얼 5. Python으로 만들기 (고급)</a><a class="l2" href="#s11" title="튜토리얼 6. 영상 편집 (고급)">튜토리얼 6. 영상 편집 (고급)</a><a class="l2" href="#s12" title="튜토리얼 7. 모션 트래킹 (고급)">튜토리얼 7. 모션 트래킹 (고급)</a><a class="l2" href="#s13" title="다음 단계">다음 단계</a></div></nav><main><div class="doc-page"><h1>My3DBlender 튜토리얼</h1>
+<p>처음 쓰는 사람을 위한 실습입니다. 앞에서부터 따라 하면 기본 조작에서 시뮬레이션, Python, 영상 편집까지 익힐 수 있습니다. 튜토리얼마다 짧게는 5분, 길게는 20분쯤 걸립니다. 완성본이 궁금하면 시작 화면의 샘플을 열어 보세요.</p>
+<h2 id="s0">시작하기 전에</h2>
+<table><thead><tr><th>조작</th><th>입력</th></tr></thead><tbody><tr><td>보는 방향 돌리기</td><td>가운데 버튼 끌기, Alt + 왼쪽 버튼 끌기, 또는 오른쪽 위 축 표시 끌기</td></tr><tr><td>확대·축소</td><td>휠</td></tr><tr><td>옮겨 보기</td><td>Shift + 가운데 버튼 끌기</td></tr><tr><td>실행 취소</td><td>Ctrl + Z</td></tr></tbody></table>
+<p>단축키는 마우스가 올라가 있는 영역으로 전달됩니다. 키를 눌러도 반응이 없으면 마우스를 3D 뷰 위로 옮기세요.</p>
+<h2 id="s1">튜토리얼 1. 머그잔 만들기 (초급)</h2>
+<p>샘플: <code>subsurf-mug</code></p>
+<p><img src="images/ko/mug.png" alt="머그잔 샘플" loading="lazy"></p>
+<h3 id="s2">몸통</h3>
+<ol><li>시작 화면에서 <strong>새 프로젝트</strong>를 누릅니다.</li><li>큐브가 선택된 상태에서 3D 뷰 위에 마우스를 두고 X를 눌러 지웁니다.</li><li>머리글의 <strong>추가 › 메시 › 원기둥</strong>을 고릅니다.</li><li>왼쪽 아래 <strong>마지막 작업 조정</strong> 패널을 펼쳐 꼭짓점을 48로 바꿉니다.</li></ol>
+<h3 id="s3">속 파내기</h3>
+<ol><li>Tab으로 편집 모드에 들어가 3을 눌러 면 선택으로 바꿉니다.</li><li>윗면을 눌러 선택합니다.</li><li>I를 누릅니다. 패널에서 두께를 0.1로 정합니다.</li><li>E를 누르고 마우스를 아래로 움직인 다음 왼쪽 버튼으로 확정합니다. 바닥 조금 위까지 내립니다.</li></ol>
+<h3 id="s4">손잡이</h3>
+<ol><li>Tab으로 오브젝트 모드로 돌아옵니다.</li><li><strong>추가 › 메시 › 토러스</strong>를 고릅니다.</li><li>G, X를 누르고 1을 입력한 뒤 Enter로 옆으로 옮깁니다.</li><li>R, X를 누르고 90을 입력한 뒤 Enter로 세웁니다.</li><li>머그와 손잡이를 Shift를 누른 채 차례로 선택하고 Ctrl + J로 합칩니다.</li></ol>
+<h3 id="s5">다듬고 칠하기</h3>
+<ol><li>속성 에디터의 모디파이어 탭에서 <strong>모디파이어 추가 › 생성 › 서브디비전 표면</strong>을 고릅니다.</li><li><strong>오브젝트 › 부드러운 셰이딩</strong>을 고릅니다.</li><li>재질 탭에서 <strong>새 재질</strong>을 누르고 기본 색과 거칠기(0.2)를 정합니다.</li><li>머리글 오른쪽의 재질 미리보기 버튼으로 결과를 확인합니다.</li></ol>
+<h3 id="s6">돌리고 렌더하기</h3>
+<ol><li>머그를 선택하고 프레임 1에서 I를 누릅니다.</li><li>타임라인의 프레임을 120으로 옮기고, R, Z를 누른 뒤 360을 입력해 Enter로 확정합니다. 다시 I를 누릅니다.</li><li>타임라인 위에서 오른쪽 버튼을 눌러 <strong>보간 › 선형</strong>을 고른 뒤 스페이스로 재생합니다.</li><li>렌더 탭에서 샘플을 64로 정하고 F12를 누릅니다.</li><li><strong>렌더 › 렌더 저장</strong>으로 PNG를 저장합니다. Ctrl + S로 프로젝트를 저장합니다.</li></ol>
+<h2 id="s7">튜토리얼 2. 심으로 펼치고 칠하기 (중급)</h2>
+<p>샘플: <code>texture-painted</code></p>
+<p><img src="images/ko/paint.png" alt="텍스처 페인트" loading="lazy"></p>
+<ol><li><strong>새 프로젝트</strong>에서 큐브를 선택하고 Tab, 2를 눌러 엣지 선택으로 바꿉니다.</li><li>A로 모두 선택한 뒤 <strong>메시 › 엣지 › 심 표시</strong>를 고릅니다. 빨간 선이 잘릴 곳입니다.</li><li>U를 누릅니다. <strong>UV</strong> 워크스페이스에서 여섯 면이 펼쳐진 것을 봅니다.</li><li>Tab으로 나와 <strong>페인트</strong> 워크스페이스로 갑니다.</li><li>N으로 사이드바를 열고 <strong>칠할 텍스처 추가</strong>를 누릅니다.</li><li>색을 고르고 큐브 위를 끕니다. 모서리를 넘어가도 이어져 칠해지고 왼쪽 그림에 같이 나타납니다.</li><li>왼쪽 이미지 에디터의 브러시 단추를 켜고 그림 위를 끌어도 칠해집니다.</li></ol>
+<h2 id="s8">튜토리얼 3. 튀는 공과 모션 경로 (중급)</h2>
+<p>샘플: <code>bouncing-ball</code>, <code>motion-paths</code></p>
+<ol><li><strong>새 프로젝트</strong>에서 큐브를 지우고 <strong>추가 › 메시 › UV 구</strong>를 고른 뒤, G, Z, 3, Enter로 올립니다.</li><li>프레임 1에서 I를 누릅니다.</li><li>프레임을 12로 옮기고 G, Z로 바닥까지 내린 뒤 I를 누릅니다.</li><li>프레임 24, 36에서 높이를 조금씩 줄이며 반복합니다.</li><li>도프 시트에서 키를 끌어 타이밍을 고칩니다.</li><li><strong>오브젝트 › 애니메이션 › 모션 경로 계산</strong>을 고르면 공의 길이 선으로 나타납니다. 시작과 끝은 마지막 작업 조정 패널에서 정합니다.</li><li><strong>어니언 스킨</strong>을 고르면 앞뒤 프레임의 모습이 파랗고 초록색으로 보입니다.</li></ol>
+<h2 id="s9">튜토리얼 4. 연기 피우기 (고급)</h2>
+<p>샘플: <code>smoke-plume</code>, <code>campfire</code></p>
+<p><img src="images/ko/smoke.png" alt="연기" loading="lazy"></p>
+<ol><li><strong>새 프로젝트</strong>에서 큐브의 크기를 키웁니다. S, 3, Enter를 누르면 도메인 상자가 됩니다.</li><li>물리 탭에서 <strong>연기 도메인</strong>을 누릅니다. 상자가 선으로 바뀝니다.</li><li><strong>추가 › 메시 › 아이코 구</strong>를 넣고 G, Z, -2, Enter로 상자 아래쪽에 둡니다. S, 0.4, Enter로 줄입니다.</li><li>물리 탭에서 <strong>연기 흐름</strong>을 누릅니다.</li><li>시작을 1, 끝을 40프레임으로 출력 탭에서 맞춘 뒤 <strong>모든 시뮬레이션 베이크</strong>를 누릅니다.</li><li>스페이스로 재생합니다. 연기가 올라옵니다.</li><li>흐름의 종류를 <strong>둘 다</strong>로 바꾸고 다시 베이크하면 불이 붙습니다. F12로 렌더합니다.</li></ol>
+<h2 id="s10">튜토리얼 5. Python으로 만들기 (고급)</h2>
+<p>샘플: <code>python-tower</code>, <code>python-grid</code></p>
+<p><img src="images/ko/scripting.png" alt="Python" loading="lazy"></p>
+<ol><li><strong>스크립팅</strong> 워크스페이스로 갑니다. 텍스트 에디터에 <code>script.py</code>가 열려 있습니다.</li><li>내용을 다음으로 바꿉니다.</li></ol>
+<pre><code>import bpy
+from math import sin, cos
+
+for i in range(36):
+    a = i * 0.35
+    bpy.ops.mesh.primitive_ico_sphere_add(radius=0.25, location=(cos(a) * 3, sin(a) * 3, i * 0.12))
+    bpy.context.active_object.name = f"Bead {i:02d}"
+
+print("Made", len(bpy.data.objects), "objects")</code></pre>
+<ol><li>Ctrl + Enter로 실행합니다. 나선이 생기고 Ctrl + Z 한 번에 전부 사라집니다.</li><li>틀린 곳이 있으면 상태 표시줄에 몇 번째 줄인지 나옵니다.</li><li>콘솔에 <code>len(bpy.data.objects)</code>를 입력해 봅니다.</li></ol>
+<h2 id="s11">튜토리얼 6. 영상 편집 (고급)</h2>
+<p>샘플: <code>title-card</code>, <code>story-scenes</code></p>
+<p><img src="images/ko/sequencer.png" alt="비디오 시퀀서" loading="lazy"></p>
+<ol><li><strong>영상</strong> 워크스페이스로 갑니다.</li><li>머리글의 <strong>추가 › 색</strong>을 고릅니다. 오른쪽 패널에서 길이를 48로 정합니다.</li><li>눈금을 끌어 프레임 30으로 옮기고 <strong>추가 › 색</strong>을 한 번 더 고릅니다. 앞 스트립과 겹쳐 위 채널에 놓입니다. 색을 바꿉니다.</li><li>뒤 스트립을 고른 채 <strong>크로스</strong>를 누릅니다. 겹친 구간이 부드럽게 바뀝니다.</li><li><strong>추가 › 텍스트</strong>로 제목을 넣고 패널에서 내용을 고칩니다.</li><li>재생 헤드를 옮기고 K를 눌러 자릅니다. X로 지웁니다.</li><li><strong>동영상 내보내기</strong>로 WebM 파일을 저장합니다.</li></ol>
+<h2 id="s12">튜토리얼 7. 모션 트래킹 (고급)</h2>
+<p>샘플: <code>camera-solve</code></p>
+<p><img src="images/ko/clip.png" alt="무비 클립 에디터" loading="lazy"></p>
+<ol><li>시작 화면의 샘플 프로젝트에서 <strong>모션 트래킹</strong> 샘플을 엽니다. 트래킹 워크스페이스가 열립니다.</li><li>오른쪽 트랙 목록에 트랙이 9개 있습니다. 타임라인을 움직이면 마커가 점을 따라갑니다.</li><li><strong>카메라 풀기</strong>를 누릅니다. 오른쪽 3D 뷰에 점들과 카메라가 생깁니다.</li><li>트랙 목록 아래의 풀이 오차를 확인합니다.</li><li>직접 해 보려면 <strong>열기</strong>로 동영상을 열고, 그림의 뚜렷한 지점을 눌러 마커를 놓은 뒤 <strong>추적 ▶</strong>을 누릅니다.</li></ol>
+<h2 id="s13">다음 단계</h2>
+<ul><li>시작 화면의 샘플을 난이도별로 열어 상태 표시줄의 안내를 따라 해 봅니다. 샘플 목록은 <code>sample/README.md</code>에 있습니다.</li><li>모든 기능은 <a href="UsersGuide.html">사용자 설명서</a>에 있습니다.</li><li>구현 범위는 <strong>도움말 › 기능 구현 현황</strong>에서 확인합니다.</li></ul></div></main><script src="doc.js"></script></body></html>
