@@ -42,7 +42,7 @@ describe("shared unit geometries", () => {
     const p = load("01-studio.myarch");
     let shared = 0;
     buildBuilding(THREE, p, mats()).traverse((o) => {
-      if (o.isMesh && o.userData.sharedGeometry) { shared++; assert.ok(["box", "cyl", "cyl32", "ball"].some((k) => unitGeometry(THREE, k) === o.geometry)); }
+      if (o.isMesh && o.userData.sharedGeometry) { shared++; assert.ok(o.geometry.userData.furniturePart || ["box", "cyl", "cyl32", "ball"].some((k) => unitGeometry(THREE, k) === o.geometry)); }
     });
     assert.ok(shared > 20);
   });

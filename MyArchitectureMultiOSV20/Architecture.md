@@ -1,7 +1,7 @@
 # Architecture
 
-**MyArchitecture 10.0** — 평면도, 3D, BIM, SketchUp 방식 매싱을 갖춘 건축 설계 프로그램 (Web, Windows, macOS, Linux)
-Author: SHKWON (`knix008@naver.com`) · Version 10.0.0
+**MyArchitecture 1.0.2** — 평면도, 3D, BIM, SketchUp 방식 매싱을 갖춘 건축 설계 프로그램 (Web, Windows, macOS, Linux)
+Author: SHKWON (`knix008@naver.com`) · Version 1.0.2
 
 이 문서는 이 코드베이스를 처음 보는 개발자를 위한 구조 설명서입니다. 모든 내용은 현재 소스를 기준으로 하며, 식별자는 `코드`로, 파일은 저장소 루트 기준 상대 링크로 표기합니다.
 

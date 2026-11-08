@@ -38,7 +38,7 @@ for (const entry of ENTRIES) {
 }
 
 writeFileSync(path.join(out, 'README.txt'), [
-  'MyArchitecture 10.0 - web build',
+  'MyArchitecture 1.0.2 - web build',
   '',
   'Serve this folder with any static web server and open index.html, e.g.',
   '  npm run serve -- dist/web        (from the project folder, http://localhost:8642)',

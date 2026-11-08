@@ -70,7 +70,7 @@ fn err(e: impl std::fmt::Display) -> String {
   e.to_string()
 }
 
-/// "MyArchitecture 10.0" for version 10.0.0, as the Electron build named its windows.
+/// "MyArchitecture 10.0" for 10.0.0, "MyArchitecture 1.0.2" for 1.0.2, as the Electron build named its windows.
 pub fn app_title(version: &str) -> String {
   format!("{APP_NAME} {}", version.strip_suffix(".0").unwrap_or(version))
 }
@@ -696,7 +696,7 @@ async fn open_manual(app: AppHandle, lang: String) -> Result<bool, String> {
   let en = lang == "en";
   let page = if en { "docs/USERSGUIDE.en.html" } else { "docs/USERSGUIDE.ko.html" };
   // The pages' own <title> (scripts/build-manual.mjs).
-  let title = if en { "User manual — MyArchitecture 10.0" } else { "사용 설명서 — MyArchitecture 10.0" };
+  let title = if en { "User manual — MyArchitecture 1.0.2" } else { "사용 설명서 — MyArchitecture 1.0.2" };
   let (dark, bg) = *state(&app).manual_theme.lock().unwrap();
   if let Some(w) = app.get_webview_window(MANUAL) {
     let _ = w.eval(format!("location.replace({})", json!(format!("/{page}"))));
@@ -1071,6 +1071,7 @@ mod tests {
   #[test]
   fn titles_drop_the_patch_zero() {
     assert_eq!(app_title("10.0.0"), "MyArchitecture 10.0");
+    assert_eq!(app_title("1.0.2"), "MyArchitecture 1.0.2");
     assert_eq!(app_title("10.2.3"), "MyArchitecture 10.2.3");
   }
 

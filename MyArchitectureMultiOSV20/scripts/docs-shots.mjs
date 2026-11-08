@@ -66,7 +66,7 @@ async function shot(name, caption, fn, { clip = null } = {}) {
 
 async function shots() {
   // ------------------------------------------------------------------ start, overview
-  await shot("start-page", T("시작 페이지: 튜토리얼, 새 프로젝트, 열기, 가져오기, 예제 카드, 최근 파일", "Start page: tutorial, new project, open, import, sample cards and recent files"), async () => {
+  await shot("start-page", T("시작 페이지: 바로 가기, 최근, 새로 시작, 테마, 배경, 예제 카드 — 움직이는 배경 위의 카드 보드", "Start page: quick start, recent, start something new, themes, background and sample cards on a moving background"), async () => {
     await app(`app.addRecent("C:/Projects/house.myarch", "house"); app.addRecent("C:/Projects/office.myarch", "office"); return 1`);
     await tab("start");
   });
@@ -74,9 +74,13 @@ async function shots() {
     await tab("start");
     await app(`document.querySelector('[data-card="side"]').scrollIntoView({ block: "center" }); return 1`); await sleep(400);
   }, { clip: '[data-card="side"]' });
-  await shot("startup-popup", T("시작 시 팝업: 실행할 때마다 뜨며, 아래쪽 '시작 시 계속 열기'를 끄면 다음부터 뜨지 않습니다", "Start-up popup: shown at every start; untick 'Keep opening at start-up' to stop it"), async () => {
-    await tab("start"); await run("help.tour"); await waitFor(`document.querySelector(".welcome-again")`);
+  await shot("startup-popup", T("시작 시 튜토리얼 팝업: 시작 화면에서 튜토리얼을 진행할지 묻습니다. '다시 보지 않기'를 켜면 다음부터 뜨지 않습니다(설정 › 일반 › 튜토리얼 팝업에서 다시 켬)", "Start-up tutorial popup: the start page asks whether to run the tutorial; tick 'Don't show again' to stop it (Settings › General › Tutorial popup turns it back on)"), async () => {
+    await tab("start"); await app(`const d = await import("./src/ui/dialogs.js"); d.tutorialPrompt(app); return 1`); await waitFor(`document.querySelector(".tutorial-prompt")`);
   });
+  await shot("start-templates", T("새로 시작: 건물 종류별 6개 묶음에 9개씩 — 빈 프로젝트(층·층고·그리드), 예제, 가져오기", "Start something new: six groups of nine by kind of building — blank projects (storeys, heights, grid), samples and imports"), async () => {
+    await tab("start");
+    await app(`document.querySelector('[data-card="templates"]').scrollIntoView({ block: "center" }); return 1`); await sleep(400);
+  }, { clip: '[data-card="templates"]' });
   await shot("overview-plan", T("평면도 화면: 메뉴·탭·도구 모음, 왼쪽 가구 라이브러리, 가운데 도면, 오른쪽 속성, 아래 상태 표시줄", "Floor plan: menus, tabs and toolbar, furniture library on the left, drawing in the middle, properties on the right, status bar below"), async () => {
     await sample("03-two-storey-house.myarch"); await tab("plan"); await run("view.fit");
   });
@@ -118,7 +122,7 @@ async function shots() {
     await sample("02-two-bedroom.myarch"); await tab("plan"); await run("view.fit");
     await app(`const o = app.store.project.openings.find(o => o.kind === "door"); app.plan.select([o.id]); app.refreshInspector(); return 1`);
   });
-  await shot("furniture-library", T("가구 라이브러리: 분류·검색 후 끌어다 놓거나 눌러서 배치합니다", "Furniture library: filter or search, then drag onto the plan or click to place"), async () => {
+  await shot("furniture-library", T("가구 라이브러리: 검색, 아이콘이 붙은 분류 칩, 3D 그림 타일과 즐겨찾기 별 — 줄마다 빈 칸 없이", "Furniture library: search, category chips with icons, 3D picture tiles with favourite stars — every row filled"), async () => {
     await sample("01-studio.myarch"); await tab("plan"); await run("view.fit");
     await app(`const s = document.querySelector('#left-panel input'); if (s) { s.value = ""; } return 1`);
     await app(`const f = app.store.project.furniture[0]; app.plan.select([f.id]); app.refreshInspector(); return 1`);
@@ -127,6 +131,40 @@ async function shots() {
     await sample("01-studio.myarch"); await tab("plan"); await run("view.fit");
     await a.key("f"); await sleep(250); await a.type(lang === "ko" ? "침대" : "bed");
   });
+  await shot("library-register", T("내 라이브러리에 등록: 이름과 범주(기존 또는 새 범주)를 정하고 3D 그림을 확인합니다", "Register in my library: name it, pick a category (or a new one) and check its 3D picture"), async () => {
+    await sample("01-studio.myarch"); await tab("plan"); await run("view.fit");
+    await app(`const f = app.store.project.furniture.find((x) => /sofa/.test(x.kind)) || app.store.project.furniture[0]; app.plan.select([f.id]); app.refreshInspector(); return 1`);
+    await run("furniture.register"); await waitFor(`document.querySelector(".modal")`); await sleep(1500);
+  }, { clip: ".modal" });
+  await shot("furniture-3d", T("실제 제품처럼 보이는 가구: 예제 40 펜트하우스의 거실", "Furniture that looks like the real thing: the living room of sample 40, the penthouse"), async () => {
+    await sample("40-penthouse.myarch"); await tab("3d");
+    await app(`const sc = (app.store.project.scenes || []).find((x) => x.name === "Living room"); if (sc) app.v3d.goScene(sc, 0); return 1`); await sleep(2500);
+  });
+  await shot("electronics-3d", T("전자 제품과 가전: TV, 모니터, 노트북, 냉장고, 세탁기·건조기, 의류 관리기, 오븐, 전자레인지, 커피 머신", "Electronics and appliances: TVs, monitors, laptop, fridges, washer and dryer, clothes styler, oven, microwave, coffee machine"), async () => {
+    await fresh();
+    await app(`const F = await import("./src/lib/furniture.js"); const p = app.store.project; const lv = p.levels[0].id; let n = 0;
+      const put = (kind, x, y, extra = {}) => p.furniture.push({ id: "e" + (++n), level: lv, ...F.makeFurniture(kind, x, y, extra) });
+      app.store.edit("x", () => {
+        put("fridgeFrench", 0, 0); put("fridgeSideBySide", 1000, 0); put("ovenTower", 1850, 0); put("washer", 2550, 0); put("dryer", 3200, 0); put("clothesStyler", 3850, 0);
+        put("counter", 5400, 0, { w: 1800 }); put("microwave", 4900, 0, { elevation: 900 }); put("coffeeMachine", 5500, 0, { elevation: 900 }); put("waterPurifier", 5950, 0, { elevation: 900 });
+        put("tvUnit", 0, 2200); put("tvOLED", 0, 2150, { elevation: 500 }); put("soundbar", 0, 2380, { elevation: 500 }); put("speakerFloor", -1150, 2200); put("speakerFloor", 1150, 2200);
+        put("desk", 2700, 2200, { w: 1600 }); put("monitorDual", 2700, 2050, { elevation: 750 }); put("keyboardMouse", 2700, 2330, { elevation: 750 }); put("laptop", 3300, 2300, { elevation: 750 }); put("desktopPC", 3700, 2200);
+        put("tvCurved", 5100, 2200); put("airPurifier", 6000, 2200); put("robotVacuum", 5600, 2600);
+      }); return 1`);
+    await tab("3d"); await app(`app.v3d.setView("iso"); app.v3d.zoomToFit(); return 1`); await sleep(1800);
+  });
+  await shot("sample-cafe-3d", T("예제 39 카페 비스트로: 대리석 바, 카페 테이블과 펜던트 조명", "Sample 39, the café-bistro: marble bar, café tables and pendant lights"), async () => {
+    await sample("39-cafe-bistro.myarch"); await tab("3d");
+    await app(`const sc = (app.store.project.scenes || []).find((x) => x.name === "Bar") || (app.store.project.scenes || [])[0]; if (sc) app.v3d.goScene(sc, 0); return 1`); await sleep(2500);
+  });
+  await shot("ruler-cursor", T("눈금자: 마우스 위치가 위·왼쪽 눈금자에 붉은 선으로 표시됩니다", "Rulers: the pointer's position shows as a red line on the top and left rulers"), async () => {
+    await sample("02-two-bedroom.myarch"); await tab("plan"); await run("view.fit");
+    const b = await app(`const r = app.plan.canvas.getBoundingClientRect(); return [r.left, r.top]`);
+    await a.move(b[0] + 360, b[1] + 230); await sleep(300);
+  }, { clip: async () => { const r = await app(`const r = app.plan.canvas.getBoundingClientRect(); return [r.left, r.top]`); return { x: r[0], y: r[1], width: 620, height: 380 }; } });
+  await shot("titlebar-start-print", T("제목 표시줄: 버전 배지, 시작 토글 단추, 메뉴 — 도구 모음: 새로 만들기·열기·저장·인쇄", "Title bar: version badge, Start toggle and menus — toolbar: new, open, save and print"), async () => {
+    await sample("03-two-storey-house.myarch"); await tab("plan");
+  }, { clip: async () => { const r = await app(`const t = document.getElementById("toolbar").getBoundingClientRect(); return [t.bottom]`); return { x: 0, y: 0, width: 760, height: r[0] + 4 }; } });
   await shot("stairs-columns", T("계단(S)과 기둥(C): 계단은 두 점으로, 기둥은 한 번 클릭으로 놓습니다", "Stairs (S) and columns (C): stairs from two points, a column with one click"), async () => {
     await sample("08-apartment-block.myarch"); await tab("plan"); await run("view.fit");
     await app(`const s = app.store.project.stairs[0]; if (s) { app.plan.setLevel(s.level); app.plan.select([s.id]); app.refreshInspector(); } return 1`);
@@ -305,9 +343,12 @@ async function shots() {
   });
 
   // ------------------------------------------------------------------ appearance, help
-  await shot("settings", T("설정(Ctrl+,): 일반·도면·벽·3D·출력 등 탭, 숫자는 − / + 로 조절", "Settings (Ctrl+,): tabs for general, plan, walls, 3D, output …; numbers use − / +"), async () => {
+  await shot("settings", T("설정(Ctrl+,): 탭마다 아이콘, 숫자는 − / + 아이콘 단추로 조절", "Settings (Ctrl+,): tabs with icons; numbers use − / + icon buttons"), async () => {
     await run("tools.settings"); await waitFor(`document.querySelector(".settings-modal")`);
   });
+  await shot("settings-tutorial-popup", T("설정 → 일반 → 튜토리얼 팝업: 시작할 때 튜토리얼 묻기", "Settings › General › Tutorial popup: ask to start the tutorial at start-up"), async () => {
+    await run("tools.settings"); await waitFor(`document.querySelector(".settings-modal")`);
+  }, { clip: ".settings-modal" });
   await shot("themes", T("테마: 다크·라이트 40가지와 사용자 테마", "Themes: 40 dark and light themes plus your own"), async () => {
     await run("view.themes"); await waitFor(`document.querySelector(".modal")`);
   });

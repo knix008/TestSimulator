@@ -50,6 +50,11 @@ export async function collectKeys() {
   for (const m of fm.matchAll(/\["([^"]+)", "[^"]*", "[^"]*", "[^"]*", "([^"]+)"\]/g)) { keys.add(m[1]); keys.add(m[2]); }
   const start = read("src/ui/start.js");
   for (const m of start.slice(start.indexOf("const TIPS"), start.indexOf("];")).matchAll(/"((?:[^"\\]|\\.)*)"/g)) keys.add(unq(m[1]));
+  // 새로 시작: group titles, tile names and lines; blank-project presets.
+  const { startTemplateStrings } = await import(pathToFileURL(path.join(root, "src/ui/starttemplates.js")).href);
+  for (const s of startTemplateStrings()) keys.add(s);
+  const { PRESETS } = await import(pathToFileURL(path.join(root, "src/core/presets.js")).href);
+  for (const pr of Object.values(PRESETS)) { keys.add(pr.name); keys.add(pr.desc); }
   const v3d = read("src/ui/view3dtab.js");
   for (const m of v3d.matchAll(/\["\w+", "([^"]+)", "\d"\]/g)) keys.add(m[1]);
   for (const m of v3d.slice(v3d.indexOf("const STYLES"), v3d.indexOf("export class")).matchAll(/\["\w+", "([^"]+)"\]/g)) keys.add(m[1]);

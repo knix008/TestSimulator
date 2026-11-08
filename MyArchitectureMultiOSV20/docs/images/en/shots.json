@@ -1,7 +1,7 @@
 {
  "start-page": {
   "file": "docs/images/en/start-page.webp",
-  "caption": "Start page: tutorial, new project, open, import, sample cards and recent files"
+  "caption": "Start page: quick start, recent, start something new, themes, background and sample cards on a moving background"
  },
  "start-background": {
   "file": "docs/images/en/start-background.webp",
@@ -9,7 +9,11 @@
  },
  "startup-popup": {
   "file": "docs/images/en/startup-popup.webp",
-  "caption": "Start-up popup: shown at every start; untick 'Keep opening at start-up' to stop it"
+  "caption": "Start-up tutorial popup: the start page asks whether to run the tutorial; tick 'Don't show again' to stop it (Settings › General › Tutorial popup turns it back on)"
+ },
+ "start-templates": {
+  "file": "docs/images/en/start-templates.webp",
+  "caption": "Start something new: six groups of nine by kind of building — blank projects (storeys, heights, grid), samples and imports"
  },
  "overview-plan": {
   "file": "docs/images/en/overview-plan.webp",
@@ -45,11 +49,35 @@
  },
  "furniture-library": {
   "file": "docs/images/en/furniture-library.webp",
-  "caption": "Furniture library: filter or search, then drag onto the plan or click to place"
+  "caption": "Furniture library: search, category chips with icons, 3D picture tiles with favourite stars — every row filled"
  },
  "furniture-picker": {
   "file": "docs/images/en/furniture-picker.webp",
   "caption": "F: find furniture by name and place it"
+ },
+ "library-register": {
+  "file": "docs/images/en/library-register.webp",
+  "caption": "Register in my library: name it, pick a category (or a new one) and check its 3D picture"
+ },
+ "furniture-3d": {
+  "file": "docs/images/en/furniture-3d.webp",
+  "caption": "Furniture that looks like the real thing: the living room of sample 40, the penthouse"
+ },
+ "electronics-3d": {
+  "file": "docs/images/en/electronics-3d.webp",
+  "caption": "Electronics and appliances: TVs, monitors, laptop, fridges, washer and dryer, clothes styler, oven, microwave, coffee machine"
+ },
+ "sample-cafe-3d": {
+  "file": "docs/images/en/sample-cafe-3d.webp",
+  "caption": "Sample 39, the café-bistro: marble bar, café tables and pendant lights"
+ },
+ "ruler-cursor": {
+  "file": "docs/images/en/ruler-cursor.webp",
+  "caption": "Rulers: the pointer's position shows as a red line on the top and left rulers"
+ },
+ "titlebar-start-print": {
+  "file": "docs/images/en/titlebar-start-print.webp",
+  "caption": "Title bar: version badge, Start toggle and menus — toolbar: new, open, save and print"
  },
  "stairs-columns": {
   "file": "docs/images/en/stairs-columns.webp",
@@ -229,7 +257,11 @@
  },
  "settings": {
   "file": "docs/images/en/settings.webp",
-  "caption": "Settings (Ctrl+,): tabs for general, plan, walls, 3D, output …; numbers use − / +"
+  "caption": "Settings (Ctrl+,): tabs with icons; numbers use − / + icon buttons"
+ },
+ "settings-tutorial-popup": {
+  "file": "docs/images/en/settings-tutorial-popup.webp",
+  "caption": "Settings › General › Tutorial popup: ask to start the tutorial at start-up"
  },
  "themes": {
   "file": "docs/images/en/themes.webp",

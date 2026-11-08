@@ -1,7 +1,7 @@
 {
  "start-page": {
   "file": "docs/images/ko/start-page.webp",
-  "caption": "시작 페이지: 튜토리얼, 새 프로젝트, 열기, 가져오기, 예제 카드, 최근 파일"
+  "caption": "시작 페이지: 바로 가기, 최근, 새로 시작, 테마, 배경, 예제 카드 — 움직이는 배경 위의 카드 보드"
  },
  "start-background": {
   "file": "docs/images/ko/start-background.webp",
@@ -9,7 +9,11 @@
  },
  "startup-popup": {
   "file": "docs/images/ko/startup-popup.webp",
-  "caption": "시작 시 팝업: 실행할 때마다 뜨며, 아래쪽 '시작 시 계속 열기'를 끄면 다음부터 뜨지 않습니다"
+  "caption": "시작 시 튜토리얼 팝업: 시작 화면에서 튜토리얼을 진행할지 묻습니다. '다시 보지 않기'를 켜면 다음부터 뜨지 않습니다(설정 › 일반 › 튜토리얼 팝업에서 다시 켬)"
+ },
+ "start-templates": {
+  "file": "docs/images/ko/start-templates.webp",
+  "caption": "새로 시작: 건물 종류별 6개 묶음에 9개씩 — 빈 프로젝트(층·층고·그리드), 예제, 가져오기"
  },
  "overview-plan": {
   "file": "docs/images/ko/overview-plan.webp",
@@ -45,11 +49,35 @@
  },
  "furniture-library": {
   "file": "docs/images/ko/furniture-library.webp",
-  "caption": "가구 라이브러리: 분류·검색 후 끌어다 놓거나 눌러서 배치합니다"
+  "caption": "가구 라이브러리: 검색, 아이콘이 붙은 분류 칩, 3D 그림 타일과 즐겨찾기 별 — 줄마다 빈 칸 없이"
  },
  "furniture-picker": {
   "file": "docs/images/ko/furniture-picker.webp",
   "caption": "F 키: 가구를 이름으로 찾아 바로 배치합니다"
+ },
+ "library-register": {
+  "file": "docs/images/ko/library-register.webp",
+  "caption": "내 라이브러리에 등록: 이름과 범주(기존 또는 새 범주)를 정하고 3D 그림을 확인합니다"
+ },
+ "furniture-3d": {
+  "file": "docs/images/ko/furniture-3d.webp",
+  "caption": "실제 제품처럼 보이는 가구: 예제 40 펜트하우스의 거실"
+ },
+ "electronics-3d": {
+  "file": "docs/images/ko/electronics-3d.webp",
+  "caption": "전자 제품과 가전: TV, 모니터, 노트북, 냉장고, 세탁기·건조기, 의류 관리기, 오븐, 전자레인지, 커피 머신"
+ },
+ "sample-cafe-3d": {
+  "file": "docs/images/ko/sample-cafe-3d.webp",
+  "caption": "예제 39 카페 비스트로: 대리석 바, 카페 테이블과 펜던트 조명"
+ },
+ "ruler-cursor": {
+  "file": "docs/images/ko/ruler-cursor.webp",
+  "caption": "눈금자: 마우스 위치가 위·왼쪽 눈금자에 붉은 선으로 표시됩니다"
+ },
+ "titlebar-start-print": {
+  "file": "docs/images/ko/titlebar-start-print.webp",
+  "caption": "제목 표시줄: 버전 배지, 시작 토글 단추, 메뉴 — 도구 모음: 새로 만들기·열기·저장·인쇄"
  },
  "stairs-columns": {
   "file": "docs/images/ko/stairs-columns.webp",
@@ -229,7 +257,11 @@
  },
  "settings": {
   "file": "docs/images/ko/settings.webp",
-  "caption": "설정(Ctrl+,): 일반·도면·벽·3D·출력 등 탭, 숫자는 − / + 로 조절"
+  "caption": "설정(Ctrl+,): 탭마다 아이콘, 숫자는 − / + 아이콘 단추로 조절"
+ },
+ "settings-tutorial-popup": {
+  "file": "docs/images/ko/settings-tutorial-popup.webp",
+  "caption": "설정 → 일반 → 튜토리얼 팝업: 시작할 때 튜토리얼 묻기"
  },
  "themes": {
   "file": "docs/images/ko/themes.webp",

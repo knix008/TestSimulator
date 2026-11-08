@@ -12,6 +12,8 @@ import { buildBuilding, makeMaterials, modelExtent, M } from "../../src/view3d/b
 import {
   allFurniture, furnitureDef, makeFurniture, furnitureParts, furnitureCorners, drawFurniturePlan, FURNITURE_CATEGORIES, COLORS,
 } from "../../src/lib/furniture.js";
+import { PART_TYPES, partBounds, partsBounds, partOutline, fitParts, B as PB, C as PC, S as PS, L as PL, E as PE, T as PT, R as PR, MATERIAL_CLASSES, CLASS_OF_COLOR } from "../../src/lib/furnparts.js";
+import { partGeometry, partNeedsOwnGeometry, classNameOf } from "../../src/view3d/furngeo.js";
 import { MATERIALS, MATERIAL_CATEGORIES, PATTERNS, materialById, materialsFor, materialColor, paintPattern, DEFAULT_MATERIAL } from "../../src/lib/materials.js";
 import { newProject, normalizeProject, newLevel, parseProject } from "../../src/core/project.js";
 import { roofModel, roofBase } from "../../src/core/roof.js";
@@ -314,14 +316,28 @@ describe("buildBuilding — furniture, mass models and roofs", () => {
     near(bg.max.y, 1.25, 1e-6);
   });
 
-  test("every catalogue item builds one mesh per part", () => {
-    const list = allFurniture().map((def, i) => ({ id: `f${i}`, ...makeFurniture(def.kind, i * 3000, 0) }));
-    const g = build(project({ furniture: list }));
+  test("every catalogue item builds one mesh per surface (and one per glowing part), inside its box", () => {
+    const list = allFurniture().map((def, i) => ({ id: `f${i}`, ...makeFurniture(def.kind, i * 5000, 0) }));
+    const g = build(project({ furniture: list }), { detail: "full" });
     for (const it of list) {
       const grp = byName(g, `${it.kind} ${it.id}`);
       assert.ok(grp, it.kind);
-      assert.equal(meshes(grp).length, furnitureParts(it).length, it.kind);
+      const parts = furnitureParts(it);
+      const surfaces = new Set(parts.filter((p) => !p.g).map((p) => `${p.color}|${classNameOf(p)}|${p.t === "lathe" || p.t === "tube" || (p.t === "tor" && (p.arc ?? 360) < 360) || !!p.double}`)).size;
+      const n = meshes(grp).length;
+      assert.ok(n >= 1 && n <= surfaces + parts.filter((p) => p.g).length, `${it.kind}: ${n} meshes for ${parts.length} parts`);
+      grp.updateMatrixWorld(true);
+      const b = worldBox(grp);
+      assert.ok(b.max.x - b.min.x <= (it.w * 1.03 + 2) / 1000 + 1e-6 && b.max.z - b.min.z <= (it.d * 1.03 + 2) / 1000 + 1e-6, `${it.kind} footprint`);
     }
+  });
+
+  test("big buildings get the lighter furniture detail, small ones the full one", () => {
+    const tris = (root) => { let t = 0; root.traverse((o) => { if (o.isMesh && o.userData.kind === "furniture") t += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return t; };
+    const one = [{ id: "a", ...makeFurniture("plantFiddle", 0, 0) }];
+    const full = tris(build(project({ furniture: one })));
+    const low = tris(build(project({ furniture: one }), { detail: "low" }));
+    assert.ok(low < full * 0.7, `${low} < ${full}`);
   });
 
   test("opts.furniture: false leaves furniture out; imported models get a placeholder", () => {
@@ -522,25 +538,17 @@ describe("makeMaterials", () => {
 
 // ================================================================ furniture library
 describe("lib/furniture.js", () => {
-  // Items with accessories standing on top of the body (TV, lamp, monitor,
-  // tap, wall cabinets, headboard).
-  const TALL_ACCESSORIES = new Set(["tvUnit", "doubleBed", "singleBed", "nightstand", "desk", "counter", "sinkCounter", "washbasin", "officeDesk"]);
-
-  const extent = (it) => {
-    let x1 = Infinity, x2 = -Infinity, y1 = Infinity, y2 = -Infinity, z1 = Infinity, z2 = -Infinity;
-    for (const p of furnitureParts(it)) {
-      const [hx, hy, zb, zt] = p.t === "box" ? [p.w / 2, p.d / 2, p.z, p.z + p.h] : p.t === "cyl" ? [p.rx, p.ry, p.z, p.z + p.h] : [p.r, p.r, p.z - p.r, p.z + p.r];
-      x1 = Math.min(x1, p.x - hx); x2 = Math.max(x2, p.x + hx); y1 = Math.min(y1, p.y - hy); y2 = Math.max(y2, p.y + hy); z1 = Math.min(z1, zb); z2 = Math.max(z2, zt);
-    }
-    return { x1, x2, y1, y2, z1, z2 };
-  };
+  // Items marked over (a TV on its unit, a lamp on a nightstand…) may have
+  // things standing above their height.
+  const extent = (it) => partsBounds(furnitureParts(it));
 
   test("the catalogue has unique kinds, categories and sensible sizes", () => {
     const all = allFurniture();
-    assert.ok(all.length >= 40);
+    assert.ok(all.length >= 500, `${all.length} items`);
     assert.equal(new Set(all.map((d) => d.kind)).size, all.length);
     assert.deepEqual(FURNITURE_CATEGORIES, [...new Set(all.map((d) => d.cat))]);
-    for (const c of ["Living", "Dining", "Bedroom", "Kitchen", "Bathroom", "Office", "Outdoor", "Other"]) assert.ok(FURNITURE_CATEGORIES.includes(c), c);
+    for (const c of ["Living", "Dining", "Bedroom", "Kitchen", "Bathroom", "Office", "Outdoor", "Other", "Kids", "Electronics", "Decor", "Plants", "Vehicles", "People", "Lighting"]) assert.ok(FURNITURE_CATEGORIES.includes(c), c);
+    for (const c of FURNITURE_CATEGORIES) assert.ok(all.filter((d) => d.cat === c).length >= 5, `${c} has a handful of items`);
     for (const d of all) {
       assert.ok(d.w > 0 && d.d > 0 && d.h > 0, d.kind);
       assert.ok(d.name.length > 1);
@@ -556,17 +564,23 @@ describe("lib/furniture.js", () => {
       const parts = furnitureParts(it);
       assert.ok(parts.length > 0);
       for (const p of parts) {
-        assert.ok(["box", "cyl", "sph"].includes(p.t));
+        assert.ok(PART_TYPES.includes(p.t), `${def.kind} part type ${p.t}`);
+        const b = partBounds(p);
+        assert.ok([b.x1, b.x2, b.y1, b.y2, b.z1, b.z2].every(Number.isFinite), `${def.kind} ${p.t} bounds`);
         assert.match(p.color, /^#[0-9a-f]{6}$/i, `${def.kind} part colour ${p.c}`);
         for (const k of ["x", "y", "z"]) assert.ok(Number.isFinite(p[k]));
         if (p.t === "box") assert.ok(p.w > 0 && p.d > 0 && p.h > 0, `${def.kind} box size`);
         if (p.t === "cyl") assert.ok(p.rx > 0 && p.ry > 0 && p.h > 0, `${def.kind} cylinder size`);
         if (p.t === "sph") assert.ok(p.r > 0);
+        if (p.t === "lathe") assert.ok(p.prof.length >= 2 && p.prof.every(([r, z]) => r >= 0 && Number.isFinite(z)), `${def.kind} lathe profile`);
+        if (p.t === "ext") assert.ok(p.pts.length >= 3 && p.depth > 0 && ["x", "y", "z"].includes(p.axis), `${def.kind} extrusion`);
+        if (p.t === "tube") assert.ok(p.pts.length >= 2 && p.r > 0, `${def.kind} tube`);
+        if (p.t === "tor") assert.ok(p.R > 0 && p.r > 0, `${def.kind} torus`);
       }
       const e = extent(it);
       const tol = (s) => s * 0.025 + 1;
       assert.ok(e.z1 >= -0.11 * it.h, `${def.kind}: nothing deep below the floor (${e.z1})`);
-      assert.ok(e.z2 <= (TALL_ACCESSORIES.has(def.kind) ? 2.5 : 1.01) * it.h, `${def.kind}: height ${e.z2} vs ${it.h}`);
+      assert.ok(e.z2 <= (def.over ? 2.5 : 1.01) * it.h, `${def.kind}: height ${e.z2} vs ${it.h}`);
       assert.ok(-e.x1 <= it.w / 2 + tol(it.w) && e.x2 <= it.w / 2 + tol(it.w), `${def.kind}: width ${e.x1}…${e.x2} vs ${it.w}`);
       if (def.kind !== "washer") assert.ok(-e.y1 <= it.d / 2 + tol(it.d) && e.y2 <= it.d / 2 + tol(it.d), `${def.kind}: depth ${e.y1}…${e.y2} vs ${it.d}`);
     });
@@ -628,7 +642,7 @@ describe("lib/furniture.js", () => {
     const th = PLAN_THEMES.dark;
     for (const def of allFurniture()) {
       const it = makeFurniture(def.kind, 0, 0);
-      const n = furnitureParts(it).length;
+      const n = furnitureParts(it).filter((p) => p.plan !== false).length;
       const ctx = fakeCtx();
       drawFurniturePlan(ctx, it, th, 10);
       assert.equal(ctx.calls.beginPath, n, def.kind);
@@ -649,11 +663,89 @@ describe("lib/furniture.js", () => {
     drawFurniturePlan(round, makeFurniture("sofa3", 0, 0), PLAN_THEMES.light);
     assert.ok(round.calls.roundRect > 0);
     const cyl = fakeCtx();
-    drawFurniturePlan(cyl, makeFurniture("roundTable", 0, 0), PLAN_THEMES.light);
-    assert.equal(cyl.calls.ellipse, 3);
+    drawFurniturePlan(cyl, makeFurniture("cylinder", 0, 0), PLAN_THEMES.light);
+    assert.equal(cyl.calls.ellipse, 1);
     const sph = fakeCtx();
-    drawFurniturePlan(sph, makeFurniture("shrub", 0, 0), PLAN_THEMES.light);
-    assert.equal(sph.calls.arc, 1);
+    drawFurniturePlan(sph, makeFurniture("sphere", 0, 0), PLAN_THEMES.light);
+    assert.equal(sph.calls.ellipse, 1);
+  });
+
+  test("part outlines seen from above", () => {
+    assert.deepEqual(partOutline(PB(10, 20, 0, 100, 60, 50, "main", 8)), [{ kind: "rect", x: -40, y: -10, w: 100, d: 60, r: 8 }]);
+    assert.equal(partOutline(PC(0, 0, 0, 50, 100, "main", 30))[0].kind, "ellipse");
+    assert.equal(partOutline(PL(0, 0, 0, [[0, 0], [80, 50], [40, 100]]))[0].rx, 80, "a lathe: its widest radius");
+    assert.deepEqual(partOutline(PE(0, 0, 0, [[0, 0], [100, 0], [0, 100]], 20))[0].pts, [[0, 0], [100, 0], [0, 100]]);
+    assert.equal(partOutline(PT([[0, 0, 0], [100, 0, 0], [100, 100, 0]], 5)).length, 2, "a tube: one strip per piece");
+    assert.equal(partOutline(PR(0, 0, 0, 100, 10)).length, 2, "a lying ring: two circles");
+    const turned = partOutline(PB(0, 0, 0, 100, 100, 100, "main", 0, { tz: 45 }))[0];
+    assert.equal(turned.kind, "poly");
+    near(Math.max(...turned.pts.map((q) => q[0])), 50 * Math.SQRT2, 1e-6);
+  });
+
+  test("part bounds follow the part's turn", () => {
+    const b = partBounds(PB(0, 0, 0, 200, 20, 100, "main", 0, { tx: 90 }));
+    near(b.z2 - b.z1, 20, 1e-6); near(b.y2 - b.y1, 100, 1e-6);
+    const s = partBounds(PS(0, 0, 100, 50, "leaf", { sx: 2, sz: 0.5 }));
+    near(s.x2, 100, 1e-6); near(s.z2, 125, 1e-6);
+    const t = partBounds(PT([[0, 0, 0], [0, 0, 300]], 10));
+    near(t.z2, 310, 1e-6); near(t.x2, 10, 1e-6);
+    const r = partBounds(PR(0, 0, 300, 200, 20, "metal", { axis: "x" }));
+    near(r.z2, 520, 1e-6); near(r.x2, 20, 1e-6); near(r.y2, 220, 1e-6);
+  });
+
+  test("fitParts squeezes parts into the item's box and leaves fitting parts alone", () => {
+    const parts = [PB(0, 0, 0, 1200, 500, 800), PS(500, 0, 900, 200)];
+    const fit = fitParts(parts, 1000, 500, 1000);
+    const b = partsBounds(fit);
+    assert.ok(b.x1 >= -500.5 && b.x2 <= 500.5, `x ${b.x1}…${b.x2}`);
+    assert.ok(b.z2 <= 1004, `z ${b.z2}`);
+    const ok = [PB(0, 0, 0, 100, 100, 100)];
+    assert.equal(fitParts(ok, 100, 100, 100), ok);
+    const over = fitParts([PB(0, 0, 0, 100, 100, 100), PB(0, 0, 100, 50, 50, 300)], 100, 100, 100, { over: true });
+    assert.equal(partsBounds(over).z2, 400, "over: things may stand above the height");
+  });
+
+  test("materials: every colour key has a surface class", () => {
+    for (const k of Object.keys(COLORS)) if (k !== "main") assert.ok(MATERIAL_CLASSES[CLASS_OF_COLOR[k]] || ["bulb"].includes(k) || CLASS_OF_COLOR[k] === undefined, k);
+    for (const [k, c] of Object.entries(MATERIAL_CLASSES)) assert.ok(c.rough >= 0 && c.rough <= 1 && c.metal >= 0 && c.metal <= 1, k);
+  });
+
+  test("3D: every part type makes a closed, outward geometry inside its bounds", () => {
+    const parts = [PB(0, 0, 0, 400, 300, 200, "main", 40, { b: 20 }), PC(0, 0, 0, 100, 300, "main", 100, { top: 0.5 }), PS(0, 0, 100, 80, "leaf", { sz: 0.5 }),
+      PL(0, 0, 0, [[0, 0], [100, 0], [120, 200], [0, 220]]), PE(0, 0, 0, [[-100, 0], [100, 0], [0, 150]], 60, "main", { axis: "x", b: 5 }),
+      PE(0, 0, 0, [[-100, 0], [100, 0], [0, 150]], 60, "main", { axis: "y" }), PT([[0, 0, 0], [0, 0, 200], [200, 0, 200]], 10), PR(0, 0, 300, 200, 20, "metal", { axis: "x" }),
+      PB(0, 0, 0, 200, 100, 50, "main", 0, { tx: 30, tz: 20 })];
+    for (const p of parts) {
+      assert.ok(partNeedsOwnGeometry(p) || p.t === "sph", p.t);
+      const g = partGeometry(THREE, p);
+      g.computeBoundingBox();
+      const bb = g.boundingBox, pb = partBounds(p);
+      // World frame: x = item x, y = item z, z = item y; metres; anchor at the origin.
+      const tol = 0.012;
+      assert.ok(bb.min.x >= (pb.x1 - p.x) / 1000 - tol && bb.max.x <= (pb.x2 - p.x) / 1000 + tol, `${p.t} x ${bb.min.x}…${bb.max.x} vs ${pb.x1}…${pb.x2}`);
+      assert.ok(bb.min.y >= (pb.z1 - p.z) / 1000 - tol && bb.max.y <= (pb.z2 - p.z) / 1000 + tol, `${p.t} up ${bb.min.y}…${bb.max.y} vs ${pb.z1}…${pb.z2}`);
+      assert.ok(bb.min.z >= (pb.y1 - p.y) / 1000 - tol && bb.max.z <= (pb.y2 - p.y) / 1000 + tol, `${p.t} y ${bb.min.z}…${bb.max.z} vs ${pb.y1}…${pb.y2}`);
+      assert.equal(partGeometry(THREE, { ...p }), g, `${p.t}: the same shape shares its geometry`);
+    }
+    // Faces point outwards: a soft box's top faces up.
+    const box = partGeometry(THREE, PB(0, 0, 0, 400, 300, 200, "main", 40, { b: 20 }));
+    const pos = box.attributes.position, nor = box.attributes.normal;
+    let up = 0;
+    for (let i = 0; i < pos.count; i++) if (pos.getY(i) > 0.199 && nor.getY(i) > 0.9) up++;
+    assert.ok(up > 0, "the top faces up");
+    // Triangle winding agrees with the normals (front faces seen from outside).
+    let agree = 0, total = 0;
+    const idx = box.index;
+    const tri = (i) => (idx ? idx.getX(i) : i);
+    const v = (i) => new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i));
+    for (let k = 0; k < (idx ? idx.count : pos.count); k += 3) {
+      const a0 = v(tri(k)), b0 = v(tri(k + 1)), c0 = v(tri(k + 2));
+      const n = new THREE.Vector3().subVectors(b0, a0).cross(new THREE.Vector3().subVectors(c0, a0));
+      if (n.lengthSq() < 1e-14) continue;
+      const vn = new THREE.Vector3(nor.getX(tri(k)), nor.getY(tri(k)), nor.getZ(tri(k)));
+      total++; if (n.dot(vn) > 0) agree++;
+    }
+    assert.ok(agree / total > 0.95, `${agree} of ${total} triangles wound outwards`);
   });
 });
 

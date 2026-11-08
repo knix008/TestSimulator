@@ -11,16 +11,30 @@ export const COLORS = {
   main: "#8a9bb0", wood: "#a9784f", lightwood: "#d7b98e", dark: "#3b4048", white: "#f3f2ee", fabric: "#6f7f94", fabric2: "#8c98a8",
   cushion: "#c9ced6", metal: "#a4aab2", glass: "#a9d4e8", ceramic: "#f5f5f2", green: "#4e8b4a", leaf: "#5b9a50", trunk: "#7a5536",
   black: "#25282d", red: "#b5483e", rug: "#9e7f6b", stone: "#b9b4aa", screen: "#1c2026", water: "#7fc4dc", bulb: "#fff4dc",
+  // Woods
+  darkwood: "#4f3526", walnut: "#6b4a33", oak: "#c39a6b", teak: "#9a6b43", bamboo: "#d8c08a",
+  // Upholstery
+  linen: "#d8d1c4", grey: "#8e9297", charcoal: "#45484d", navy: "#2f3d5a", sage: "#9aab8f", mustard: "#c9983a", terracotta: "#b8643f",
+  blush: "#d6a39b", cream: "#ebe3d3", velvet: "#3e5d59", teal: "#2f6f73", leather: "#5e3a29", tan: "#a8754a", cognac: "#8a4b2a",
+  // Metals
+  steel: "#b8bec6", chrome: "#dfe3e8", brass: "#c9a55c", gold: "#d4af37", copper: "#b87333",
+  // Paints and plastics
+  offwhite: "#ecebe6", plastic: "#e6e6e3", yellow: "#e5b93a", blue: "#3d6fb6", orange: "#e07b39",
+  // Stone and mineral
+  porcelain: "#fbfbf9", marble: "#efede9", granite: "#5d5b58", concrete: "#a9a7a2", terrazzo: "#d8d3c9", soil: "#4a3a2c", sand: "#d9c9a3",
+  mirror: "#c8d4dc",
+  // Plants
+  leaf2: "#3f7a3a", leaf3: "#7aa94f", flower: "#d94f6b", flower2: "#f2c94c", flower3: "#9b6bd1", grass: "#6c9e45",
+  // People, rubber, paper, book spines
+  rubber: "#2a2a2a", tyre: "#1f1f1f", skin: "#e2b892", skin2: "#9c6a49", hair: "#3a2a20", paper: "#f4f1ea",
+  book1: "#7d2f2f", book2: "#2e4a6b", book3: "#c9b48a", book4: "#3f5d3f", book5: "#d9a441",
 };
 
-const B = (x, y, z, w, d, h, c = "main", r = 0) => ({ t: "box", x, y, z, w, d, h, c, r });
-const C = (x, y, z, rx, h, c = "main", ry = rx) => ({ t: "cyl", x, y, z, rx, ry, h, c });
-const S = (x, y, z, r, c = "leaf") => ({ t: "sph", x, y, z, r, c });
-// A part that glows when its lamp is on (g: 0…1, how strongly).
-const G = (part, g = 1) => ({ ...part, g });
+import { B, C, S, G, partTop, tracePartOutline, fitParts } from "./furnparts.js";
+import { CATALOG as NEW_CATALOG } from "./catalog/index.js";
 
 // Each builder gets the item size and returns parts.
-const CATALOG = [
+const LEGACY = [
   // ---------------------------------------------------------------- living
   { kind: "sofa3", cat: "Living", name: "Sofa (3 seats)", w: 2100, d: 900, h: 800, color: "fabric", parts: (w, d, h) => [
     B(0, 0.1 * d, 0, w, 0.8 * d, 0.45 * h, "main", 60), B(0, -0.4 * d, 0, w, 0.2 * d, h, "main", 60),
@@ -240,6 +254,12 @@ function legs(w, d, h, size, dy = 0) {
   return [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => B(a * x, b * y + dy, 0, size, size, h, "main"));
 }
 
+// The library: the catalogue files (src/lib/catalog), then any older entry
+// they do not replace.
+const CATALOG = (() => {
+  const have = new Set(NEW_CATALOG.map((c) => c.kind));
+  return [...NEW_CATALOG, ...LEGACY.filter((c) => !have.has(c.kind))];
+})();
 const BY_KIND = new Map(CATALOG.map((c) => [c.kind, c]));
 
 export const FURNITURE_CATEGORIES = [...new Set(CATALOG.map((c) => c.cat))];
@@ -339,30 +359,45 @@ export function drawLightSymbol(ctx, item, th, px = 10) {
   ctx.restore();
 }
 
-// Resolved parts of an item (colour keys turned into hex colours).
+// Resolved parts of an item (colour keys turned into hex colours), fitted
+// into the item's box. They depend only on the kind, size and colour, so
+// they are kept (the plan draws every item on every frame): callers must
+// not change them.
+const PARTS_CACHE = new Map();
 export function furnitureParts(item) {
   const def = furnitureDef(item.kind);
   if (!def) return [B(0, 0, 0, item.w, item.d, item.h)];
   const main = item.color || COLORS[def.color] || COLORS.main;
-  return def.parts(item.w, item.d, item.h).map((p) => ({ ...p, color: p.c === "main" ? main : COLORS[p.c] || p.c }));
+  const key = `${def.kind}|${item.w}|${item.d}|${item.h}|${main}`;
+  let parts = PARTS_CACHE.get(key);
+  if (parts) return parts;
+  parts = fitParts(def.parts(item.w, item.d, item.h), item.w, item.d, item.h, { over: !!def.over }).map((p) => ({ ...p, color: p.c === "main" ? main : COLORS[p.c] || p.c }));
+  if (PARTS_CACHE.size > 4000) PARTS_CACHE.clear();
+  PARTS_CACHE.set(key, parts);
+  return parts;
+}
+
+// Parts seen from above, lowest first (kept per parts list).
+const PLAN_ORDER = new WeakMap();
+function planOrder(parts) {
+  let o = PLAN_ORDER.get(parts);
+  if (!o) PLAN_ORDER.set(parts, (o = parts.filter((p) => p.plan !== false).map((p) => [partTop(p), p]).sort((a, b) => a[0] - b[0]).map((e) => e[1])));
+  return o;
 }
 
 // Plan symbol of an item in its own frame (the caller applies x, y, rot).
 // `px` is one screen pixel in millimetres (keeps the strokes thin).
 export function drawFurniturePlan(ctx, item, th, px = 10) {
-  const parts = furnitureParts(item).slice().sort((a, b) => a.z + (a.h || a.r || 0) - (b.z + (b.h || b.r || 0)));
+  // Lowest first, so what is on top covers what is under it; parts marked
+  // plan: false (hidden under others, tiny details) are left out.
+  const parts = planOrder(furnitureParts(item));
   ctx.lineWidth = px;
   ctx.lineJoin = "round";
   for (const p of parts) {
     ctx.beginPath();
-    if (p.t === "box") {
-      const r = Math.min(p.r || 0, p.w / 2, p.d / 2);
-      if (r > 0 && ctx.roundRect) ctx.roundRect(p.x - p.w / 2, p.y - p.d / 2, p.w, p.d, r);
-      else ctx.rect(p.x - p.w / 2, p.y - p.d / 2, p.w, p.d);
-    } else if (p.t === "cyl") ctx.ellipse(p.x, p.y, Math.max(1, p.rx), Math.max(1, p.ry), 0, 0, Math.PI * 2);
-    else ctx.arc(p.x, p.y, Math.max(1, p.r), 0, Math.PI * 2);
+    tracePartOutline(ctx, p);
     ctx.fillStyle = th.furnitureFill;
-    ctx.fill();
+    if (p.t === "tor") ctx.fill("evenodd"); else ctx.fill();
     ctx.strokeStyle = th.furniture;
     ctx.stroke();
   }

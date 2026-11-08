@@ -10,6 +10,7 @@ import * as platform from "./platform.js";
 import { PlanEditor, PLAN_TOOLS } from "../plan/editor.js";
 import { PLAN_THEMES } from "../plan/render.js";
 import { newProject, parseProject, levelById, findItem } from "../core/project.js";
+import { PRESETS, presetProject } from "../core/presets.js";
 import { runCheck } from "../core/check.js";
 import { buildingOutlines } from "../core/rooms.js";
 import { uid } from "../core/geom.js";
@@ -29,7 +30,7 @@ import { install as installViews } from "../views/index.js"; // views, sheets, s
 import { watchItemIcons } from "./itemicons.js"; // an icon on every row of the side panels
 import { BottomPanel } from "./bottompanel.js"; // problems, log and project summary under the drawing
 
-const VERSION = "10.0.0";
+const VERSION = "1.0.2";
 
 const DEFAULT_SETTINGS = {
   theme: "midnight", lang: "ko", systemDark: "midnight", systemLight: "daylight",
@@ -81,6 +82,8 @@ class App {
     if (platform.isDesktop) document.body.classList.add("desktop");
 
     this.plan = new PlanEditor(this, this.$("view-plan"));
+    this.version = VERSION; // shown on the start page
+    { const v = document.getElementById("brand-ver"); if (v) v.textContent = `v${VERSION}`; } // right of the name in the title bar
     this.start = new StartPage(this, this.$("view-start"));
     this.v3d = new View3DTab(this, this.$("view-3d"));
     // Every open drawing is a document tab (strip under the tool bar).
@@ -118,10 +121,12 @@ class App {
     this.refreshAll();
     this.checkAutosave();
     this.applySettings();
-    // The last project (when asked for) opens behind the start-up popup.
-    if (this.settings.startup === "last" && platform.isDesktop && this.settings.recent && this.settings.recent[0]) setTimeout(() => this.openPath(this.settings.recent[0].path), 300);
-    // 시작 시 팝업: on unless switched off in the popup or Settings › General.
-    if (this.settings.welcomeAtStart !== false) setTimeout(() => dialogs.showWelcome(this), 400);
+    // The last project (when asked for) opens instead of the start page.
+    const reopen = this.settings.startup === "last" && platform.isDesktop && this.settings.recent && this.settings.recent[0];
+    if (reopen) setTimeout(() => this.openPath(this.settings.recent[0].path), 300);
+    // On the start page a popup asks whether to run the tutorial — unless
+    // switched off in it ("Don't show again"), on the start page or in Settings › General.
+    else if (this.settings.tutorialAtStart !== false) setTimeout(() => { if (this.tab === "start") dialogs.tutorialPrompt(this); }, 400);
   }
 
   // ---------------------------------------------------------------- theme & settings
@@ -194,6 +199,7 @@ class App {
     if (key === "lang") setLanguage(value);
     if (key === "units3d") this.v3d.applySettings();
     if (key === "liveCheck" && value) this.runCheck(false);
+    if (this.start) { this.start.syncChecks(); if (key === "theme") this.start.refreshThemes(); }
     this.plan.request();
     this.renderToolbar();
     this.updateStatus();
@@ -204,8 +210,11 @@ class App {
     if (this.tab === "plan" && tab !== "plan") this.plan.finishChain();
     if (this.tab === "3d" && tab !== "3d") this.v3d.deactivate();
     if (this.tab === "views" && tab !== "views" && this.views) this.views.deactivate();
+    if (tab !== "start") this.lastWorkTab = tab;
     this.tab = tab;
     for (const id of ["start", "plan", "3d", "views"]) this.$(`view-${id}`).classList.toggle("on", id === tab);
+    const st = document.getElementById("start-toggle");
+    if (st) { st.classList.toggle("on", tab === "start"); st.setAttribute("aria-checked", String(tab === "start")); }
     if (tab === "plan") this.plan.activate();
     if (tab === "3d") this.v3d.activate();
     if (tab === "views" && this.views) this.views.activate();
@@ -217,6 +226,11 @@ class App {
     this.renderLeft();
     this.refreshInspector();
     this.updateStatus();
+  }
+
+  // The 시작 button: to the start page, or back to the tab you left.
+  toggleStart() {
+    this.setTab(this.tab === "start" ? this.lastWorkTab || "plan" : "start");
   }
 
   renderTabs() {
@@ -410,7 +424,7 @@ class App {
     const el = this.$("doc-title");
     el.innerHTML = "";
     el.append(h("span", {}, `${this.store.project.meta.title || name}`), h("span", { class: "dirty" }, this.store.dirty ? " ●" : ""), h("span", {}, `  —  ${name}`));
-    platform.setWindowTitle(`${this.store.dirty ? "● " : ""}${name} — MyArchitecture 10.0`);
+    platform.setWindowTitle(`${this.store.dirty ? "● " : ""}${name} — MyArchitecture 1.0.2`);
     if (this.docTabs) this.docTabs.render();
   }
 
@@ -526,11 +540,17 @@ class App {
 
   // A new project, an opened file or a sample gets its own document tab (an
   // untouched "Untitled" tab is reused); other tabs keep their work.
-  async newProject() {
+  // preset: a blank project of a kind of building (core/presets.js — storeys,
+  // storey heights, wall size and a structural grid), from 새로 시작.
+  async newProject(preset = null) {
+    const pr = typeof preset === "string" && PRESETS[preset];
     this.docTabs.prepareNew();
-    this.store.load(newProject(t("Untitled")));
+    this.store.load(pr ? presetProject(preset, t(pr.name)) : newProject(t("Untitled")));
     this.setTab("plan");
-    toast(t("New project. Press W to draw walls."), "ok");
+    if (pr) {
+      requestAnimationFrame(() => this.run("view.fit"));
+      toast(t("{name}: {n} levels. Press W to draw walls.", { name: t(pr.name), n: this.store.project.levels.length }), "ok");
+    } else toast(t("New project. Press W to draw walls."), "ok");
   }
 
   loadText(text, { fileName, filePath } = {}) {
@@ -776,6 +796,11 @@ class App {
     C("file.importIfc", "Import IFC (BIM)…", "bim", "", () => this.importAny("ifc"));
     C("file.importBim", "Import Sweet Home 3D, gbXML or IFC ZIP…", "bim", "", () => this.importAny("bim"));
     C("file.importModel", "Import 3D model (OBJ, FBX, GLB, STL…)…", "model3d", "", () => this.importAny("model"));
+    // My furniture library (src/ui/userlib.js).
+    C("furniture.register", "Register in my library…", "libraryAdd", "", () => import("./userlib.js").then((m) => m.registerSelection(this)));
+    C("furniture.registerModel", "Register a 3D model file in my library…", "model3d", "", () => import("./userlib.js").then((m) => m.registerModelFile(this)));
+    C("furniture.exportLibrary", "Export my library…", "export", "", () => import("./userlib.js").then((m) => m.exportLibrary(this)));
+    C("furniture.importLibrary", "Import a library…", "import", "", () => import("./userlib.js").then((m) => m.importLibrary(this)));
     C("file.importImage", "Import image as tracing underlay…", "underlay", "", () => this.importAny("image"));
     C("file.importSvg", "Import SVG drawing…", "image", "", () => this.importAny("svg"));
     C("file.save", "Save", "save", "Ctrl+S", () => this.save());
@@ -916,7 +941,7 @@ class App {
   buildMenus() {
     const M = {
       File: ["file.new", "file.open", "file.samples", "file.recent", "file.clearRecent", "-", "file.save", "file.saveAs", "file.close", "-", "file.import", "@import", "@export", "-", "file.print", "file.props", "-", "file.exit"],
-      Edit: ["edit.undo", "edit.redo", "edit.history", "-", "edit.cut", "edit.copy", "edit.paste", "edit.duplicate", "edit.delete", "-", "edit.selectAll", "edit.find", "-", "edit.rotate", "edit.mirror", "edit.mirrorV", "edit.scale", "edit.offset", "-", "edit.group", "edit.ungroup", "edit.properties"],
+      Edit: ["edit.undo", "edit.redo", "edit.history", "-", "edit.cut", "edit.copy", "edit.paste", "edit.duplicate", "edit.delete", "-", "edit.selectAll", "edit.find", "-", "edit.rotate", "edit.mirror", "edit.mirrorV", "edit.scale", "edit.offset", "-", "edit.group", "edit.ungroup", "edit.properties", "-", "furniture.register", "furniture.registerModel", "furniture.exportLibrary", "furniture.importLibrary"],
       View: ["view.start", "view.plan", "view.3d", "-", "view.zoomIn", "view.zoomOut", "view.fit", "view.pan", "-", "view.grid", "view.rulers", "view.scaleBar", "view.snap", "view.ortho", "-", "view.dims", "view.furniture", "view.areas", "view.ghost", "view.underlays", "-", "view.phaseAll", "view.phaseNew", "view.phaseExisting", "-", "view.left", "view.bottom", "view.right", "-", "view.themes", "view.themeDark", "view.themeLight", "view.themeSystem", "-", "view.langKo", "view.langEn"],
       Build: ["build.detectRooms", "build.autoRoof", "build.autoDims", "-", "build.addLevel", "build.levelProps", "build.defaults", "build.layers", "-", "build.check", "build.schedules"],
       BIM: ["build.wallTypes", "build.bimProps", "build.selectSimilar", "-", "build.costs", "build.site", "-", "file.exportIfc", "file.exportGbxml", "file.exportSh3d", "file.importIfc", "file.importBim"],
@@ -927,6 +952,11 @@ class App {
     this.menuMap = M;
     const bar = this.$("menubar");
     bar.innerHTML = "";
+    // 시작: left of the File menu, a toggle between the start page and the tab
+    // you came from.
+    bar.append(h("button", { class: `start-toggle ${this.tab === "start" ? "on" : ""}`, id: "start-toggle", role: "switch", "aria-checked": String(this.tab === "start"),
+      title: t("Start page (click again to go back)"), onclick: () => this.toggleStart() },
+      h("span", { html: icon("home", 15) }), h("span", {}, t("Start"))));
     for (const [name, ids] of Object.entries(M)) {
       const btn = h("button", { class: "menu-root", "data-menu": name }, t(name));
       const open = () => {
@@ -1206,7 +1236,7 @@ class App {
     };
     const sep = () => h("div", { class: "sep" });
     const add = (...els) => bar.append(...els.filter(Boolean));
-    add(btn("file.new"), btn("file.open"), btn("file.save"), sep(), btn("edit.undo"), btn("edit.redo"), sep());
+    add(btn("file.new"), btn("file.open"), btn("file.save"), btn("file.print"), sep(), btn("edit.undo"), btn("edit.redo"), sep());
     if (tab === "start") {
       add(btn("help.tutorial", { label: true }), btn("file.samples", { label: true }), btn("file.import", { label: true }), btn("help.manual", { label: true }));
     } else if (tab === "plan") {

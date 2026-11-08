@@ -1,23 +1,28 @@
-// Start page in MyCodeChecker's layout (its src/views/StartPage.jsx, from
-// MyHeatManager): a full-window moving background (startbg.js, or the live 3D
-// house) behind a board of cards — the hero (icon, name, version, documents,
-// tutorial), a first-run banner, 새로 시작 (tiles by kind of project),
-// recent projects, help, the background controls and the sample gallery with
-// 3D thumbnails. Every card is moved by its ⠿ handle and resized by its
-// bottom-right corner on a 3-column grid (startlayout.js); unlike
-// MyCodeChecker the cards glide: the moved or resized card follows the
-// pointer continuously, the others slide to their new places and the card
-// settles into its cell when it is let go. Background and layout are kept in
-// settings.startBackground.
+// Start page in MyUMLMaker's style (its src/ui/startpage.js + startboard.js):
+// a full-window moving background (startbg.js, or the live 3D house) behind a
+// board of translucent cards — the hero (icon, name, version, documents,
+// tutorial), a first-run banner, 바로 가기 (launcher tiles), recent projects,
+// 새로 시작 (tiles by kind of building, starttemplates.js), themes, the
+// background controls and the sample gallery with 3D thumbnails. Icons are
+// coloured by meaning (icontones.js). Every card is moved by its four-arrow
+// handle and resized by the dotted corner on a 3-column grid (startlayout.js):
+// the moved or resized card follows the pointer continuously, the others
+// slide to their new places and the card settles into its cell when it is
+// let go. Background and layout are kept in settings.startBackground.
 
 import { t, getLanguage } from "./i18n.js";
 import { icon } from "./icons.js";
+import { toned } from "./icontones.js";
 import { h, slider } from "./widgets.js";
 import { loadSampleIndex, loadSampleText } from "./dialogs.js";
 import { parseProject } from "../core/project.js";
 import { PLAN_THEMES, drawPlan, planBounds } from "../plan/render.js";
-import { COLS, ROW, GAP, cardsOf, place, compact, autoArrange, swapVertical, layoutValue, rowsFor, boxOf, cellAt, spanFor } from "./startlayout.js";
+import { COLS, ROW, GAP, cardsOf, place, compact, autoArrange, swapVertical, layoutValue, rowsFor, boxOf, cellAt, spanFor, fullColumns } from "./startlayout.js";
 import { AnimatedBackground, ANIMATION_KINDS, ANIMATION_ICONS, ANIMATION_NAMES, DEFAULT_START_BACKGROUND, themeColors } from "./startbg.js";
+import { START_GROUPS, START_TILE_COUNT } from "./starttemplates.js";
+import { allThemes, uiTokens } from "./themes.js";
+import { UK_FLAG, KR_FLAG } from "./flags.js";
+import { isDesktop } from "./platform.js";
 
 const TIPS = [
   "Press Ctrl+K anywhere to search every command, room and level.",
@@ -30,18 +35,14 @@ const TIPS = [
   "Right-click anything for the actions that apply to it.",
 ];
 
-export const CARD_IDS = ["hero", "banner", "templates", "recent", "side", "help", "samples"];
-export const DEFAULT_SPAN = { hero: 3, banner: 3, templates: 3, recent: 2, side: 1, help: 2, samples: 3 };
+// Cards in reading order (MyUMLMaker's start board): the hero, the tutorial
+// banner, 바로 가기 and recent projects side by side, 새로 시작, themes and
+// the background side by side, then the sample gallery.
+export const CARD_IDS = ["hero", "banner", "actions", "recent", "templates", "theme", "side", "samples"];
+export const DEFAULT_SPAN = { hero: 3, banner: 3, actions: 2, recent: 1, templates: 3, theme: 2, side: 1, samples: 3 };
 
-// 새로 시작: [group title, [[kind, id, icon, fallback name, description], …]]; kind "sample" opens
-// that sample as a starting point (its name comes from sample/index.json), "cmd" runs a command.
-const GROUPS = [
-  ["Houses and flats", [["sample", "03-two-storey-house.myarch", "building", "Two-storey house", "Two levels, stairs, gable roof"], ["sample", "02-two-bedroom.myarch", "room", "Two-bedroom apartment", "Rooms, areas and schedules"], ["sample", "14-courtyard-house.myarch", "building", "Courtyard house", "A U-shaped house around a pool"], ["sample", "21-interior-design.myarch", "material", "Interior design apartment", "Wall finishes, skirting, scenes"]]],
-  ["Large buildings", [["sample", "10-office-tower.myarch", "building", "Office tower", "Core, curtain wall, column grid"], ["sample", "29-hotel.myarch", "building", "City hotel", "Podium and guest-room floors"], ["sample", "30-university-library.myarch", "levels", "University library", "Four levels around an atrium"], ["sample", "32-residential-complex.myarch", "building", "Residential complex", "Two towers on a podium"], ["sample", "33-atrium-office.myarch", "levels", "Atrium office", "Six storeys, bridges across an atrium"], ["sample", "34-general-hospital.myarch", "building", "General hospital", "Podium and two ward wings"], ["sample", "38-museum.myarch", "curtainwall", "Museum", "A gallery wing at an angle"]]],
-  ["Massing and 3D", [["sample", "07-massing-study.myarch", "massShape", "Massing study", "Push/pull masses and scenes"], ["sample", "15-sketchup-complex.myarch", "skComponent", "Cultural complex", "SketchUp-style components and tags"]]],
-  ["Structures", [["cmd", "build.tower", "tower", "Lattice tower…", "A parametric steel tower"], ["cmd", "build.bridge", "bridge", "Bridge…", "Ten kinds of bridge"]]],
-  ["CAD and BIM", [["cmd", "file.import", "import", "Import…", "DXF, DWG, IFC, SVG, 3D models"], ["sample", "09-cad-tracing.myarch", "dxf", "Tracing a DXF drawing", "CAD layers traced into walls"], ["sample", "06-renovation-bim.myarch", "bim", "Renovation (BIM phases)", "Wall types, phases, cost"]]],
-];
+// The card handle (moves the card): three horizontal rows of dots.
+const MOVE_ICON = '<svg class="ico" data-tone="pink" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" aria-hidden="true"><circle cx="5" cy="7" r="1.6"/><circle cx="9.67" cy="7" r="1.6"/><circle cx="14.33" cy="7" r="1.6"/><circle cx="19" cy="7" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="9.67" cy="12" r="1.6"/><circle cx="14.33" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/><circle cx="5" cy="17" r="1.6"/><circle cx="9.67" cy="17" r="1.6"/><circle cx="14.33" cy="17" r="1.6"/><circle cx="19" cy="17" r="1.6"/></svg>';
 
 // 3D thumbnails of the samples are kept between runs (per browser profile):
 // drawing them takes a second, hidden 3D view — a WebGL context alone costs
@@ -91,11 +92,18 @@ export class StartPage {
     }
     this.outline = h("div", { class: "card-drop-outline", "aria-hidden": "true" });
     board.append(this.outline);
+    // Top right: the two start-up switches (the same settings as Settings ›
+    // General) and Auto arrange.
+    const check = (key, label, tip, on, set) => h("label", { class: "start-btn start-startup", title: tip },
+      h("input", { type: "checkbox", checked: on, "data-start-check": key, onchange: (e) => set(e.target.checked) }), h("span", {}, label));
     const tools = h("div", { class: "start-tools" },
-      h("button", { class: "btn small", "data-start-arrange": "1", title: t("Pack the cards in three columns again"), onclick: () => this.arrange() }, h("span", { html: icon("grid", 14) }), t("Auto arrange")));
-    const showStart = (app.settings.startup || "start") === "start";
+      check("startup", t("Show the start page at start-up"), t("Otherwise the last project opens at start-up"), (app.settings.startup || "start") === "start", (v) => app.setSetting("startup", v ? "start" : "last")),
+      check("tutorial", t("Ask to start the tutorial at start-up"), t("The start-up popup that offers the tutorial"), app.settings.tutorialAtStart !== false, (v) => app.setSetting("tutorialAtStart", v)),
+      h("button", { class: "start-btn", "data-start-arrange": "1", title: t("Pack the cards in three columns again"), onclick: () => this.arrange() }, h("span", { class: "si", html: toned("grid", 15) }), h("span", {}, t("Auto arrange"))));
+    const tip = TIPS[Math.floor(Date.now() / 86400000) % TIPS.length];
     const foot = h("footer", { class: "start-foot" },
-      h("label", { class: "start-check" }, h("input", { type: "checkbox", checked: showStart, onchange: (e) => app.setSetting("startup", e.target.checked ? "start" : "last") }), h("span", {}, t("Show the start page at start-up"))),
+      h("span", { class: "si", html: toned("info", 15) }), h("span", {}, `MyArchitecture v${app.version || ""}`),
+      h("span", { class: "start-tip", title: t(tip) }, h("span", { class: "si", html: toned("bulb", 14) }), h("b", {}, t("Tip")), h("span", {}, t(tip))),
       h("span", { class: "grow" }),
       h("span", { class: "muted" }, "© SHKWON (knix008@naver.com)"));
     this.scroll = h("div", { class: "start-scroll" }, h("div", { class: "start-inner" }, tools, board, foot));
@@ -107,10 +115,18 @@ export class StartPage {
     this.measure();
     this.watch();
     this.startAnimation();
+    fullRows(samplesGrid, 210, 10);
     this.fillSamples(samplesGrid).catch(() => {}).finally(() => {
       this.measure();
       requestAnimationFrame(() => requestAnimationFrame(() => { if (this.board === board) board.classList.toggle("no-anim", app.settings.animations === false); }));
     });
+  }
+
+  // The start-up switches follow the setting when it changes elsewhere (the popup, Settings).
+  syncChecks() {
+    if (!this.scroll) return;
+    const s = this.app.settings;
+    for (const box of this.scroll.querySelectorAll("[data-start-check]")) box.checked = box.dataset.startCheck === "startup" ? (s.startup || "start") === "start" : s.tutorialAtStart !== false;
   }
 
   // ---------------------------------------------------------------- cards
@@ -118,27 +134,25 @@ export class StartPage {
     const app = this.app;
     const ko = getLanguage() === "ko";
     const recent = (app.settings.recent || []).slice(0, +app.settings.recentLimit || 10);
-    const btn = (ic, label, fn, cls = "") => h("button", { class: `btn ${cls}`, onclick: fn }, h("span", { html: icon(ic, 15) }), label);
-    const link = (ic, label, fn, attrs = {}) => h("button", { class: "start-link", onclick: fn, ...attrs }, h("span", { class: "si", html: icon(ic, 15) }), h("span", { class: "name" }, label));
-    const version = "10.0";
+    const btn = (ic, label, fn, cls = "") => h("button", { class: `btn ${cls}`, onclick: fn }, h("span", { class: "si", html: toned(ic, 15) }), label);
     const sampleTitle = (file, fallback) => {
       const s = (this.sampleIndex || []).find((x) => x.file === file);
       return s ? (ko ? s.titleKo || s.title : s.title) : t(fallback);
     };
-    const tile = ([kind, id, ic, name, desc]) => {
-      const label = kind === "sample" ? sampleTitle(id, name) : t(name);
-      return h("button", { class: "template-tile", title: t(desc), "data-tile": id, onclick: () => (kind === "sample" ? app.openSample(id) : app.run(id)) },
-        h("span", { class: "si", html: icon(ic, 18) }), h("b", {}, label), h("small", {}, t(desc)));
-    };
+    // One launcher tile: coloured icon (or a flag), name and a line under it.
+    const tile = (cls, ic, label, desc, fn, attrs = {}) => h("button", { class: `start-tile ${cls}`, title: desc ? `${label} — ${desc}` : label, onclick: fn, ...attrs },
+      h("span", { class: "si", html: ic.startsWith("<svg") ? ic : toned(ic, 20) }), h("b", {}, label), h("small", {}, desc));
+    const template = ([kind, id, ic, name, desc]) => tile("template-tile", ic, kind === "sample" ? sampleTitle(id, name) : t(name), t(desc),
+      () => (kind === "sample" ? app.openSample(id) : kind === "preset" ? app.newProject(id) : app.run(id)), { "data-tile": id, "data-kind": kind });
     const bg = this.bg;
     const kinds = h("div", { class: "bg-kinds", role: "radiogroup", "aria-label": t("Background") },
       ...ANIMATION_KINDS.map((k) => h("button", { class: `bg-kind ${bg.kind === k ? "on" : ""}`, role: "radio", "aria-checked": String(bg.kind === k), "data-bg-kind": k, title: `${t(ANIMATION_NAMES[k][0])} — ${t(ANIMATION_NAMES[k][1])}`, onclick: () => this.setKind(k) },
-        h("span", { html: icon(ANIMATION_ICONS[k], 14) }), h("span", {}, t(ANIMATION_NAMES[k][0])))),
+        h("span", { class: "si", html: toned(ANIMATION_ICONS[k], 15) }), h("span", {}, t(ANIMATION_NAMES[k][0])))),
       h("button", { class: `bg-kind shuffle ${(+bg.shuffleSec || 0) > 0 ? "on" : ""}`, role: "switch", "aria-checked": String((+bg.shuffleSec || 0) > 0), title: t("A different background every {n} seconds", { n: bg.shuffleSec || 20 }),
-        onclick: () => { this.saveBg({ shuffleSec: (+this.bg.shuffleSec || 0) > 0 ? 0 : 20 }); this.applyBackground(); this.refreshSide(); } }, h("span", { html: icon("refresh", 14) }), h("span", {}, t("Shuffle"))));
+        onclick: () => { this.saveBg({ shuffleSec: (+this.bg.shuffleSec || 0) > 0 ? 0 : 20 }); this.applyBackground(); this.refreshSide(); } }, h("span", { class: "si", html: toned("refresh", 15) }), h("span", {}, t("Shuffle"))));
     // A label line, the bar with − / + under it (the card may be one column narrow).
     // The background follows the bar as it moves; the setting is saved once it settles.
-    const row = (ic, label, control, unit = "") => h("div", { class: "start-setting" }, h("div", { class: "start-speed" }, h("span", { class: "si", html: icon(ic, 14) }), h("span", {}, label)), h("div", { class: "start-ctl" }, control, unit ? h("span", { class: "unit" }, unit) : null));
+    const row = (ic, label, control, unit = "") => h("div", { class: "start-setting" }, h("div", { class: "start-speed" }, h("span", { class: "si", html: toned(ic, 14) }), h("span", {}, label)), h("div", { class: "start-ctl" }, control, unit ? h("span", { class: "unit" }, unit) : null));
     const step = (key, min, max, stp, fmt) => {
       const el = slider(+bg[key] || 0, { min, max, step: stp, format: fmt,
         onInput: (v) => { this.app.settings.startBackground = { ...this.bg, [key]: v }; this.applyBackground(); },
@@ -146,47 +160,83 @@ export class StartPage {
       el.dataset.bgSetting = key;
       return el;
     };
+    // 바로 가기: what to do next, as tiles.
+    const actions = [
+      ["new", t("New project"), t("A blank project: start with the walls"), () => app.run("file.new")],
+      ["open", t("Open project…"), t("A .myarch project you saved"), () => app.run("file.open")],
+      ["import", t("Import…"), t("DXF, DWG, IFC, SVG, 3D models, images"), () => app.run("file.import")],
+      ["sample", t("Browse samples"), t("Preview the samples and open one"), () => app.run("file.samples")],
+      ["history", t("Recent files…"), t("Every project you opened lately"), () => app.run("file.recent")],
+      ["play", t("Interactive tutorial"), t("Draw a house with the tutorial, step by step"), () => app.run("help.tutorial")],
+      ["palette", t("Themes…"), t("Forty colour themes, dark and light"), () => app.run("view.themes")],
+      [ko ? UK_FLAG : KR_FLAG, ko ? "English" : "한국어", t("Change the language of the screen"), () => app.setSetting("lang", ko ? "en" : "ko")],
+      ["settings", t("Settings…"), t("Units, grid, autosave, start-up"), () => app.run("tools.settings")],
+      ["file", t("Supported file formats"), t("What opens and what can be exported"), () => app.run("help.formats")],
+      ["info", t("About MyArchitecture"), t("Version, build and author"), () => app.run("help.about")],
+      ...(isDesktop ? [["close", t("Exit"), t("Close MyArchitecture"), () => app.run("file.exit")]] : []),
+    ];
+    // Themes: every dark and light theme as a tile; the current one is marked.
+    const themeTile = (th) => {
+      const tok = uiTokens(th);
+      const on = this.app.settings.theme === th.id;
+      return h("button", { class: `bg-kind theme-tile ${on ? "on" : ""}`, role: "radio", "aria-checked": String(on), "data-theme-pick": th.id, title: th.name[getLanguage()] || th.name.en,
+        onclick: () => { this.app.setSetting("theme", th.id); this.refreshThemes(); } },
+        h("span", { class: "theme-chip", style: { background: th.bg } }, h("i", { style: { background: th.panel } }), h("i", { style: { background: tok["--line2"] } }), h("i", { style: { background: th.accent } })),
+        h("span", {}, th.name[getLanguage()] || th.name.en));
+    };
+    const themes = allThemes();
+    const themeGroup = (mode, ic, label) => {
+      const list = themes.filter((x) => x.mode === mode);
+      return h("section", { class: "start-group" }, h("h3", {}, h("span", { class: "si", html: toned(ic, 15) }), h("span", {}, label), h("span", { class: "start-count" }, String(list.length))),
+        h("div", { class: "theme-tiles", role: "radiogroup", "aria-label": label }, ...list.map(themeTile)));
+    };
     return {
       hero: { cls: "start-hero", bare: true, body: [
         h("img", { class: "start-icon", src: "assets/icon.png", alt: "" }),
-        h("div", { class: "hero-text" }, h("h1", {}, "MyArchitecture ", h("small", {}, `V${version}`)), h("p", {}, t("Floor plan → 3D → drawings, BIM and CAD exchange, in one window."))),
+        h("div", { class: "hero-text" }, h("h1", {}, h("span", {}, "MyArchitecture"), h("small", {}, `v${app.version || ""}`)), h("p", {}, t("Floor plan → 3D → drawings, BIM and CAD exchange, in one window."))),
         h("div", { class: "start-hero-actions" },
-          h("div", { class: "start-docs" }, btn("help", t("User manual"), () => app.run("help.manual")), btn("keyboard", t("Keyboard shortcuts"), () => app.run("help.keys"))),
-          btn("sample", t("Start the tutorial"), () => app.run("help.tutorial"), "primary big"))] },
+          h("div", { class: "start-docs" }, btn("help", t("User manual"), () => app.run("help.manual"), "big"), btn("keyboard", t("Keyboard shortcuts"), () => app.run("help.keys"), "big"), btn("info", t("Quick tour"), () => app.run("help.tour"), "big")),
+          h("button", { class: "btn primary big", onclick: () => app.run("help.tutorial") }, h("span", { class: "si", html: icon("play", 15) }), t("Start the tutorial")))] },
       banner: { cls: "start-banner", bare: true, body: [
-        h("span", { class: "si", html: icon("bulb", 16) }),
+        h("span", { class: "si", html: toned("bulb", 17) }),
         h("span", { class: "banner-text" }, t("New to MyArchitecture? The tutorial draws a house with you step by step and ends with a three-storey building of your own.")),
-        h("button", { class: "btn small primary", onclick: () => app.run("help.tutorial") }, h("span", { html: icon("play", 11) }), t("Start the tutorial")),
-        h("button", { class: "icon-btn", title: t("Hide"), "aria-label": t("Hide"), "data-banner-hide": "1", html: icon("close", 14), onclick: () => { this.saveBg({ banner: false }); this.render(); } })] },
-      templates: { icon: "plus", title: t("Start something new"), body: [
-        h("div", { class: "start-actions" }, btn("new", t("New project"), () => app.run("file.new"), "primary"), btn("open", t("Open project…"), () => app.run("file.open")), btn("import", t("Import…"), () => app.run("file.import")), btn("sample", t("Browse samples"), () => app.run("file.samples"))),
-        h("div", { class: "template-groups" }, ...GROUPS.map(([g, items]) => h("div", { class: "template-group" }, h("p", { class: "template-group-title" }, t(g)), ...items.map(tile))))] },
-      recent: { icon: "history", title: t("Recent"), extra: recent.length ? h("button", { class: "btn small", "data-clear-recent": "1", onclick: () => app.run("file.clearRecent") }, h("span", { html: icon("trash", 12) }), t("Clear list")) : null,
-        body: [recent.length ? h("div", { class: "recent-list" }, ...recent.map((r, i) => h("div", { class: "recent-item", title: r.path, onclick: () => app.openPath(r.path) },
-          h("span", { html: icon("file", 15) }), h("span", { class: "name" }, `${i + 1}. ${r.title || r.path.split(/[\\/]/).pop()}`), h("small", {}, new Date(r.at).toLocaleDateString()),
+        h("button", { class: "start-btn small", onclick: () => app.run("help.tutorial") }, h("span", { class: "si", html: toned("play", 12) }), h("span", {}, t("Start the tutorial"))),
+        h("button", { class: "icon-btn popup-close", title: t("Hide"), "aria-label": t("Hide"), "data-banner-hide": "1", html: icon("close", 14), onclick: () => { this.saveBg({ banner: false }); this.render(); } })] },
+      actions: { icon: "command", title: t("Quick start"), body: [
+        h("div", { class: "start-actions" }, ...actions.map(([ic, label, desc, fn]) => tile("action-tile", ic, label, desc, fn)))] },
+      recent: { icon: "history", title: t("Recent"), extra: recent.length ? h("button", { class: "start-btn small danger", "data-clear-recent": "1", title: t("Clear list"), onclick: () => app.run("file.clearRecent") }, h("span", { class: "si", html: toned("trash", 13) }), h("span", {}, t("Clear list"))) : null,
+        body: [recent.length ? h("div", { class: "recent-list" }, ...recent.map((r) => h("div", { class: "recent-item", title: r.path, onclick: () => app.openPath(r.path) },
+          h("span", { class: "si", html: toned("file", 16) }), h("span", { class: "rt" }, h("span", { class: "name" }, r.title || r.path.split(/[\\/]/).pop()), h("small", {}, `${r.path.split(/[\\/]/).pop()} · ${new Date(r.at).toLocaleDateString()}`)),
           h("span", { class: "ri-del", title: t("Remove from the list"), "data-remove": r.path, html: icon("close", 13), onclick: (e) => { e.stopPropagation(); app.removeRecent(r.path); } }))))
-          : h("div", { class: "start-empty" }, h("span", { html: icon("info", 13) }), h("span", {}, t("No recent projects yet. Open a sample or start a new project.")))] },
-      side: { icon: "palette", title: t("Background"), body: [kinds,
+          : h("div", { class: "start-empty" }, h("span", { class: "si", html: toned("info", 14) }), h("span", {}, t("No recent projects yet. Open a sample or start a new project.")))] },
+      templates: { icon: "new", title: t("Start something new"), note: String(START_TILE_COUNT), body: [
+        h("div", { class: "template-groups" }, ...START_GROUPS.map((g) => h("section", { class: "template-group start-group", "data-group": g.id },
+          h("h3", {}, h("span", { class: "si", html: toned(g.icon, 15) }), h("span", { class: "gt" }, t(g.title)), h("span", { class: "start-count" }, String(g.items.length))),
+          h("div", { class: "template-list" }, ...g.items.map(template)))))] },
+      theme: { icon: "palette", title: t("Theme"), extra: h("button", { class: "start-btn small", title: t("Themes…"), onclick: () => app.run("view.themes") }, h("span", { class: "si", html: toned("settings", 13) }), h("span", {}, t("Themes…"))),
+        body: [h("div", { class: "theme-groups" }, themeGroup("dark", "moon", t("Dark themes")), themeGroup("light", "sun", t("Light themes")))] },
+      side: { icon: "image", title: t("Background"), body: [kinds,
         row("zoomIn", t("Speed"), step("speed", 0, 300, 10, (v) => `${v}`), "%"),
         row("eye", t("Transparency"), step("transparency", 0, 100, 5, (v) => `${v}`), "%"),
         row("refresh", t("Shuffle every"), step("shuffleSec", 0, 600, 5, (v) => `${v}`), t("s")),
         h("label", { class: "start-check" }, h("input", { type: "checkbox", checked: !!bg.random, onchange: (e) => this.saveBg({ random: e.target.checked }) }), h("span", {}, t("A random background at each start")))] },
-      help: { icon: "help", title: t("Help"), body: [
-        h("div", { class: "start-help" },
-          link("sample", t("Interactive tutorial"), () => app.run("help.tutorial")), link("help", t("User manual"), () => app.run("help.manual")),
-          link("keyboard", t("Keyboard shortcuts"), () => app.run("help.keys")), link("info", t("Quick tour"), () => app.run("help.tour")),
-          link("file", t("Supported file formats"), () => app.run("help.formats")), link("info", t("About MyArchitecture"), () => app.run("help.about"))),
-        h("div", { class: "tip" }, h("b", {}, t("Tip")), " — ", t(TIPS[Math.floor(Date.now() / 86400000) % TIPS.length]))] },
-      samples: { icon: "sample", title: t("Samples"), titleCount: true, extra: btn("sample", t("Browse samples"), () => app.run("file.samples")), body: [samplesGrid] },
+      samples: { icon: "sample", title: t("Samples"), titleCount: true, extra: h("button", { class: "start-btn small", title: t("Browse samples"), onclick: () => app.run("file.samples") }, h("span", { class: "si", html: toned("sample", 13) }), h("span", {}, t("Browse samples"))), body: [samplesGrid] },
     };
   }
 
+  // The theme card follows the current theme (picked here, in the title bar or in Settings).
+  refreshThemes() {
+    if (!this.board) return;
+    const cur = this.app.settings.theme;
+    for (const b of this.board.querySelectorAll("[data-theme-pick]")) { const on = b.dataset.themePick === cur; b.classList.toggle("on", on); b.setAttribute("aria-checked", String(on)); }
+  }
+
   cardElement(id, d) {
-    const handle = h("button", { class: "card-handle", type: "button", title: `${t("Move the card")} (Alt+←↑↓→ · Alt+Shift: ${t("Resize the card")})`, "aria-label": t("Move the card"), "data-handle": id }, "⠿");
+    const handle = h("button", { class: "card-handle", type: "button", title: `${t("Move the card")} (Alt+←↑↓→ · Alt+Shift: ${t("Resize the card")})`, "aria-label": t("Move the card"), "data-handle": id, html: MOVE_ICON });
     handle.addEventListener("pointerdown", (e) => this.startMove(e, id));
     handle.addEventListener("keydown", (e) => this.keyMove(e, id));
     const head = d.bare ? h("span", { class: "card-handle-float" }, handle)
-      : h("h2", { class: "card-head" }, handle, h("span", { class: "si", html: icon(d.icon, 15) }), h("span", { class: "card-title" }, d.title), h("span", { class: "grow" }), d.extra || null);
+      : h("h2", { class: "card-head" }, handle, h("span", { class: "si", html: toned(d.icon, 17) }), h("span", { class: "card-title" }, d.title), h("span", { class: "grow" }), d.note ? h("span", { class: "card-note" }, d.note) : null, d.extra || null);
     const body = h("div", { class: "card-body" }, ...d.body);
     const grip = h("span", { class: "card-resize", title: `${t("Resize the card")} (${t("double-click: fit the contents")})`, "data-resize": id });
     grip.addEventListener("pointerdown", (e) => this.startResize(e, id));
@@ -195,7 +245,11 @@ export class StartPage {
   }
 
   // ---------------------------------------------------------------- layout
-  saved() { return cardsOf(this.bg.layout, this.visibleIds(), DEFAULT_SPAN, this.measured); }
+  // A layout saved before 바로 가기 and the theme card existed is packed afresh.
+  saved() {
+    const l = this.bg.layout;
+    return cardsOf(l && l.cards && l.cards.actions ? l : null, this.visibleIds(), DEFAULT_SPAN, this.measured);
+  }
 
   // Puts every card (but `skip`, the one under the pointer) at its cell.
   // The CSS transitions turn each change into a glide.
@@ -462,10 +516,14 @@ export class StartPage {
     // Tile names come from the sample index once it is known.
     if (this.cards) for (const tl of this.board.querySelectorAll("[data-tile]")) {
       const s = samples.find((x) => x.file === tl.dataset.tile);
-      if (s) tl.querySelector("b").textContent = ko ? s.titleKo || s.title : s.title;
+      if (!s) continue;
+      const name = ko ? s.titleKo || s.title : s.title;
+      tl.querySelector("b").textContent = name;
+      tl.title = `${name} — ${tl.querySelector("small").textContent}`;
     }
-    const title = this.cards && this.cards.get("samples") && this.cards.get("samples").querySelector(".card-title");
-    if (title) title.textContent = `${t("Samples")} (${samples.length})`;
+    // The count sits at the right of the samples card's title, as on 새로 시작.
+    const head = this.cards && this.cards.get("samples") && this.cards.get("samples").querySelector(".card-head");
+    if (head && !head.querySelector(".card-note")) head.insertBefore(h("span", { class: "card-note" }, String(samples.length)), head.querySelector(".grow").nextSibling);
     if (!samples.length) grid.append(h("div", { class: "empty-note" }, t("No samples found.")));
     for (const s of samples) {
       const canvas = h("canvas", { width: 460, height: 260 });
@@ -650,4 +708,20 @@ export class StartPage {
     };
     img.src = url;
   }
+}
+
+// Every row of a grid full: the column count is the largest one that fits
+// the width (at least minW per cell) and divides the number of cells, so the
+// last row never has empty cells. Followed on resize and when cells change.
+function fullRows(grid, minW, gap) {
+  const apply = () => {
+    const n = [...grid.children].filter((c) => c.classList.contains("sample-card")).length;
+    const w = grid.clientWidth;
+    if (!n || !w) return;
+    const cols = fullColumns(n, w, minW, gap);
+    grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+    grid.dataset.cols = String(cols);
+  };
+  new ResizeObserver(apply).observe(grid);
+  new MutationObserver(apply).observe(grid, { childList: true });
 }

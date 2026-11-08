@@ -551,7 +551,7 @@ class IfcExporter {
     const org = this.add("IFCORGANIZATION", [null, opts.organization || opts.application, null, null, null]);
     const user = this.add("IFCPERSONANDORGANIZATION", [person, org, null]);
     const devOrg = opts.organization ? org : this.add("IFCORGANIZATION", [null, opts.application, null, null, null]);
-    const app = this.add("IFCAPPLICATION", [devOrg, "10.0", opts.application, opts.application]);
+    const app = this.add("IFCAPPLICATION", [devOrg, "1.0.2", opts.application, opts.application]);
     this.oh = this.add("IFCOWNERHISTORY", [user, app, null, E("ADDED"), null, null, null, int(time.unix)]);
   }
 

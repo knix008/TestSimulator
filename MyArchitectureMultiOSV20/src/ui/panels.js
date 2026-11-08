@@ -19,6 +19,7 @@ import { PLAN_THEMES } from "../plan/render.js";
 import { levelSummary } from "../core/schedule.js";
 import { ifcGuid } from "../io/ifc.js";
 import { elementPanel } from "./elements.js";
+import { renderLibrary as renderFurnitureLibrary, categoryIcon, chipNaturalWidth } from "./library.js";
 
 const IFC_CLASS = { walls: "IfcWall", openings: "IfcDoor / IfcWindow", rooms: "IfcSpace", columns: "IfcColumn", stairs: "IfcStair", furniture: "IfcFurniture", roofs: "IfcRoof", grids: "IfcGrid", solids: "IfcBuildingElementProxy", slabs: "IfcSlab", ceilings: "IfcCovering", beams: "IfcBeam", railings: "IfcRailing", ramps: "IfcRamp", shafts: "IfcOpeningElement" };
 
@@ -50,15 +51,10 @@ export function furnitureThumb(kind, w = 44, hgt = 36, themeName = "dark") {
 }
 
 // ---------------------------------------------------------------- left panel
-const libState = { query: "", category: "" };
 
 // Each category of the library is a group with its icon and title that folds
 // (remembered in the settings, libOpen). Only the recently used start open.
-const CATEGORY_ICONS = {
-  recent: "history", models: "model3d", Living: "sofa", Dining: "catDining", Bedroom: "catBed", Kitchen: "catKitchen", Bathroom: "catBath",
-  Office: "monitor", Commercial: "catShop", Restaurant: "catRestaurant", Outdoor: "catOutdoor", Healthcare: "catHealth", School: "catSchool",
-  Fitness: "catFitness", Building: "building", Lighting: "bulb", Other: "dots",
-};
+// Its icons and contents: src/ui/library.js.
 
 export function renderLeft(app, host) {
   host.innerHTML = "";
@@ -96,9 +92,8 @@ function leftNeed(host) {
   rows.forEach((el, i) => { el.style.width = saved[i][0]; el.style.flex = saved[i][1]; });
   // Category chips: two columns of the widest one.
   for (const chips of host.querySelectorAll(".chips")) {
-    let w = 0;
-    for (const c of chips.children) w = Math.max(w, c.scrollWidth + 2);
-    if (w) need = Math.max(need, chips.getBoundingClientRect().left - hostL + 2 * w + 4 + 2 * GAP);
+    const w = chipNaturalWidth(chips) + 2; // they stretch to fill their rows: their own width
+    if (w > 2) need = Math.max(need, chips.getBoundingClientRect().left - hostL + 2 * w + 4 + 2 * GAP);
   }
   // Search boxes: their whole hint.
   const g = document.createElement("canvas").getContext("2d");
@@ -160,13 +155,13 @@ function addCollapse(app, host, side) {
 
 // A folding group of the library: a head (arrow, icon, title, count) and the
 // box its rows go in. Folding is done in place, so the list keeps its scroll.
-function libGroup(app, list, key, title, count, unfold) {
+function libGroup(app, list, key, title, count, unfold, ic = null) {
   const st = app.settings;
   const isOpen = () => unfold || (st.libOpen ? st.libOpen.includes(key) : key === "recent");
   const caret = h("span", { class: "lg-caret" });
   const box = h("div", { class: "lib-group-items" });
   const head = h("div", { class: "lib-group", role: "button", tabindex: "0", "data-cat": key },
-    caret, h("span", { class: "lg-ico", html: icon(CATEGORY_ICONS[key] || "furniture", 14) }), h("span", { class: "lg-title" }, title), h("small", {}, String(count)));
+    caret, h("span", { class: "lg-ico", html: icon(ic || categoryIcon(key), 14) }), h("span", { class: "lg-title" }, title), h("small", {}, String(count)));
   const show = () => {
     const open = isOpen();
     caret.innerHTML = icon(open ? "chevronDown" : "chevronRight", 12);
@@ -191,65 +186,7 @@ function libGroup(app, list, key, title, count, unfold) {
 
 function renderLibrary(app, host) {
   const p = app.store.project;
-  const panel = h("div", { class: "panel grow" });
-  panel.append(panelHead("sofa", t("Furniture library"), h("div", { class: "grow" }),
-    h("button", { class: "icon-btn", title: t("Import 3D model (OBJ, FBX, GLB, STL…)…"), html: icon("model3d", 15), onclick: () => app.run("file.importModel") })));
-  const search = h("input", { placeholder: t("Search (sofa, bed, toilet…)"), value: libState.query });
-  panel.append(h("div", { class: "search" }, h("span", { html: icon("search", 15) }), search));
-  const chips = h("div", { class: "chips" });
-  for (const c of ["", ...FURNITURE_CATEGORIES]) {
-    chips.append(h("button", { class: `chip ${libState.category === c ? "on" : ""}`, onclick: () => { libState.category = c; renderLeft(app, host); } }, c ? t(c) : t("All")));
-  }
-  panel.append(chips);
-  // Even grid columns as wide as the longest category name (either language).
-  requestAnimationFrame(() => {
-    const w = Math.max(0, ...[...chips.children].map((b) => b.scrollWidth));
-    if (w) chips.style.setProperty("--chip-w", `${Math.ceil(w) + 2}px`);
-  });
-  const list = h("div", { class: "lib-list" });
-  panel.append(list);
-  host.append(panel);
-  const fill = () => {
-    list.innerHTML = "";
-    const q = libState.query.trim().toLowerCase();
-    let defs = allFurniture().filter((d) => !libState.category || d.cat === libState.category);
-    if (q) defs = defs.filter((d) => `${d.kind} ${d.name} ${t(d.name)} ${d.cat} ${t(d.cat)}`.toLowerCase().includes(q));
-    const groups = new Map(); // category key → {title, items}
-    const recent = !q && !libState.category ? (app.settings.recentFurniture || []).map(furnitureDef).filter(Boolean) : [];
-    if (recent.length) groups.set("recent", { title: t("Recently used"), items: recent });
-    for (const d of defs) {
-      if (!groups.has(d.cat)) groups.set(d.cat, { title: t(d.cat), items: [] });
-      groups.get(d.cat).items.push(d);
-    }
-    // A search or a chosen category shows what it found, unfolded.
-    const unfold = !!q || !!libState.category;
-    for (const [key, { title, items }] of groups) {
-      const box = libGroup(app, list, key, title, items.length, unfold);
-      for (const d of items) {
-        const row = h("div", { class: "lib-item", draggable: "true", "data-kind": d.kind, title: `${t(d.name)} — ${d.w} × ${d.d} × ${d.h} mm` }, furnitureThumb(d.kind, 44, 36, app.themeName()),
-          h("div", {}, h("div", { class: "nm" }, t(d.name)), h("div", { class: "ds" }, `${d.w} × ${d.d} × ${d.h}`)));
-        row.addEventListener("click", () => { app.setTab("plan"); app.plan.setTool("furniture", { kind: d.kind }); app.plan.canvas.focus(); });
-        row.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/x-myarch-furniture", d.kind); e.dataTransfer.effectAllowed = "copy"; });
-        box.append(row);
-      }
-    }
-    // Imported 3D models (assets in this project).
-    const models = p.models.filter((m) => !q || m.name.toLowerCase().includes(q));
-    if (models.length && !libState.category) {
-      const box = libGroup(app, list, "models", t("Imported 3D models"), models.length, !!q);
-      for (const m of models) {
-        const row = h("div", { class: "lib-item", title: `${m.name} — ${m.size.map(Math.round).join(" × ")} mm` }, h("span", { class: "lib-ico", html: icon("model3d", 26) }),
-          h("div", {}, h("div", { class: "nm" }, m.name), h("div", { class: "ds" }, `${(m.format || "").toUpperCase()} · ${m.size.map((v) => Math.round(v)).join(" × ")}`)));
-        row.addEventListener("click", () => { app.setTab("plan"); app.plan.setTool("furniture", { kind: "model", model: m.id }); });
-        box.append(row);
-      }
-    }
-    if (!list.children.length) list.append(h("div", { class: "empty-note" }, t("Nothing matches. Try another word, or import a 3D model.")));
-  };
-  search.addEventListener("input", () => { libState.query = search.value; fill(); });
-  search.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") { const first = list.querySelector(".lib-item"); if (first) first.click(); } });
-  fill();
-  bindCanvasDrop(app);
+  renderFurnitureLibrary(app, host, { groupBox: (list, key, title, count, unfold, ic) => libGroup(app, list, key, title, count, unfold, ic), thumb: furnitureThumb, rerender: () => renderLeft(app, host) });
 
   // CAD layers (DXF / SVG imports, line tool).
   if (p.drawings.length || p.layers.length > 1) {
@@ -268,26 +205,6 @@ function renderLibrary(app, host) {
     lp.append(body);
     host.append(lp);
   }
-}
-
-let dropBound = false;
-function bindCanvasDrop(app) {
-  if (dropBound) return;
-  dropBound = true;
-  const canvas = app.plan.canvas;
-  canvas.addEventListener("dragover", (e) => {
-    if ([...e.dataTransfer.types].includes("text/x-myarch-furniture")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }
-  });
-  canvas.addEventListener("drop", (e) => {
-    const kind = e.dataTransfer.getData("text/x-myarch-furniture");
-    if (!kind) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const r = canvas.getBoundingClientRect();
-    const [wx, wy] = app.plan.vp.toWorld(e.clientX - r.left, e.clientY - r.top);
-    app.plan.setTool("furniture", { kind });
-    app.plan.pointerPlace("down", { button: 0, shiftKey: false }, wx, wy);
-  });
 }
 
 // ---------------------------------------------------------------- right panel
@@ -380,11 +297,11 @@ function inspector(app, body) {
     body.append(h("div", { class: "prop-title" }, t("{n} items selected", { n: items.length })),
       h("div", { class: "prop-sub" }, Object.entries(counts).map(([k, n]) => `${n} ${t(k)}`).join(" · ")),
       h("div", { class: "prop-actions" },
-        h("button", { class: "btn small", onclick: () => app.plan.rotate(90) }, t("Rotate")),
-        h("button", { class: "btn small", onclick: () => app.plan.mirror("x") }, t("Mirror")),
-        h("button", { class: "btn small", onclick: () => app.plan.duplicate() }, t("Duplicate")),
-        h("button", { class: "btn small danger", onclick: () => app.plan.deleteSelection() }, t("Delete"))));
-    body.lastChild.append(h("button", { class: "btn small", onclick: () => app.run("edit.group") }, t("Group")), h("button", { class: "btn small", onclick: () => app.run("edit.scale") }, t("Scale…")));
+        h("button", { class: "btn small", onclick: () => app.plan.rotate(90) }, h("span", { html: icon("rotate", 14) }), t("Rotate")),
+        h("button", { class: "btn small", onclick: () => app.plan.mirror("x") }, h("span", { html: icon("mirror", 14) }), t("Mirror")),
+        h("button", { class: "btn small", onclick: () => app.plan.duplicate() }, h("span", { html: icon("copy", 14) }), t("Duplicate")),
+        h("button", { class: "btn small danger", onclick: () => app.plan.deleteSelection() }, h("span", { html: icon("trash", 14) }), t("Delete"))));
+    body.lastChild.append(h("button", { class: "btn small", onclick: () => app.run("edit.group") }, h("span", { html: icon("group", 14) }), t("Group")), h("button", { class: "btn small", onclick: () => app.run("edit.scale") }, h("span", { html: icon("scale", 14) }), t("Scale…")));
     if (items.every((i) => i.kind === "walls")) {
       const g = h("div", { class: "prop-grid", style: { marginTop: "10px" } },
         ...bindField(app, t("Thickness"), () => items[0].obj.thickness, (v) => { for (const i of items) i.obj.thickness = Math.max(10, v); }, mmS(10, 10)),
@@ -652,21 +569,21 @@ export function renderStatus(app, bar) {
     bar.append(cell(`X ${fmt(m.wx)}  Y ${fmt(-m.wy)}`, "mono"));
     const lv = levelById(app.store.project, ed.level);
     bar.append(h("button", { class: "cell", title: t("Level properties…"), onclick: () => app.run("build.levelProps") }, h("span", { html: icon("levels", 13) }), lv ? lv.name : ""));
-    bar.append(h("button", { class: "cell", title: t("Change grid"), onclick: (e) => gridMenu(app, e) }, `${t("Grid")} ${app.settings.planGrid || 100} mm`));
-    bar.append(h("button", { class: `cell ${app.settings.snap !== false ? "on" : ""}`, title: t("Snap to grid and walls"), onclick: () => app.run("view.snap") }, `${t("Snap")} ${app.settings.snap !== false ? "✓" : "—"}`));
-    bar.append(h("button", { class: `cell ${app.settings.ortho !== false ? "on" : ""}`, title: t("Orthogonal drawing (45° steps)"), onclick: () => app.run("view.ortho") }, `${t("Ortho")} ${app.settings.ortho !== false ? "✓" : "—"}`));
+    bar.append(h("button", { class: "cell", title: t("Change grid"), onclick: (e) => gridMenu(app, e) }, h("span", { class: "cell-ico", html: icon("grid", 13) }), `${t("Grid")} ${app.settings.planGrid || 100} mm`));
+    bar.append(h("button", { class: `cell ${app.settings.snap !== false ? "on" : ""}`, title: t("Snap to grid and walls"), onclick: () => app.run("view.snap") }, h("span", { class: "cell-ico", html: icon("snap", 13) }), `${t("Snap")} ${app.settings.snap !== false ? "✓" : "—"}`));
+    bar.append(h("button", { class: `cell ${app.settings.ortho !== false ? "on" : ""}`, title: t("Orthogonal drawing (45° steps)"), onclick: () => app.run("view.ortho") }, h("span", { class: "cell-ico", html: icon("orthomode", 13) }), `${t("Ortho")} ${app.settings.ortho !== false ? "✓" : "—"}`));
     // Approximate drawing scale at 96 dpi.
     const scale = Math.round(1 / (ed.vp.scale * (25.4 / 96)) || 0);
     bar.append(cell(`1:${scale}`, "mono"));
-    bar.append(h("button", { class: "cell", title: t("Switch units"), onclick: () => app.setSetting("units", { mm: "cm", cm: "m", m: "ft", ft: "mm" }[units] || "mm") }, units));
+    bar.append(h("button", { class: "cell", title: t("Switch units"), onclick: () => app.setSetting("units", { mm: "cm", cm: "m", m: "ft", ft: "mm" }[units] || "mm") }, h("span", { class: "cell-ico", html: icon("ruler", 13) }), units));
     if (ed.sel.size) bar.append(cell(t("{n} selected", { n: ed.sel.size })));
   } else if (app.tab === "3d") {
     const v = app.v3d;
     const o = v.opts;
     const nav = { orbit: t("Orbit"), pan: t("Pan"), walk: t("Walk") }[o.navMode] || t("Orbit");
     bar.append(h("button", { class: "cell", title: t("Walk through (first person)"), onclick: () => app.run("v3d.walk") }, h("span", { html: icon(o.navMode === "walk" ? "walk" : "orbit", 13) }), nav));
-    bar.append(h("button", { class: `cell ${o.ortho ? "on" : ""}`, title: t("Orthographic projection"), onclick: () => app.run("v3d.ortho") }, o.ortho ? t("Orthographic") : t("Perspective")));
-    bar.append(h("button", { class: `cell ${o.section !== null ? "on" : ""}`, title: t("Section cut at the current level"), onclick: () => app.run("v3d.section") }, `${t("Section")} ${o.section !== null ? "✓" : "—"}`));
+    bar.append(h("button", { class: `cell ${o.ortho ? "on" : ""}`, title: t("Orthographic projection"), onclick: () => app.run("v3d.ortho") }, h("span", { class: "cell-ico", html: icon(o.ortho ? "ortho" : "perspective", 13) }), o.ortho ? t("Orthographic") : t("Perspective")));
+    bar.append(h("button", { class: `cell ${o.section !== null ? "on" : ""}`, title: t("Section cut at the current level"), onclick: () => app.run("v3d.section") }, h("span", { class: "cell-ico", html: icon("section", 13) }), `${t("Section")} ${o.section !== null ? "✓" : "—"}`));
     const style = { realistic: t("Realistic"), white: t("White model"), lines: t("Line drawing"), xray: t("X-ray") }[o.style] || t("Realistic");
     bar.append(cell(style));
     if (v.viewer) { const s = v.viewer.stats(); bar.append(cell(t("{n} triangles", { n: s.triangles.toLocaleString() }), "mono")); }
@@ -681,7 +598,7 @@ export function renderStatus(app, bar) {
   }
   const e = app.checkIssues.filter((i) => i.severity === "error").length;
   const w = app.checkIssues.length - e;
-  bar.append(h("button", { class: "cell", onclick: () => app.run("build.check") }, `${t("Check")} ${e ? "✖ " + e : w ? "⚠ " + w : "✓"}`));
+  bar.append(h("button", { class: "cell", onclick: () => app.run("build.check") }, h("span", { class: "cell-ico", html: icon("modelcheck", 13) }), `${t("Check")} ${e ? "✖ " + e : w ? "⚠ " + w : "✓"}`));
 }
 
 function gridMenu(app, e) {

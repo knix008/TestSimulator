@@ -115,7 +115,7 @@ export function normalizeProject(p) {
   }
   out.levels.sort((a, b) => a.elevation - b.elevation);
   if (!Array.isArray(out.layers) || !out.layers.length) out.layers = base.layers;
-  for (const k of [...COLLECTIONS, "models", "grids"]) if (!Array.isArray(out[k])) out[k] = [];
+  for (const k of [...COLLECTIONS, "models", "grids", "libraryItems"]) if (!Array.isArray(out[k])) out[k] = []; // libraryItems: copies of the user library items it uses (src/ui/userlib.js)
   if (!Array.isArray(out.wallTypes)) out.wallTypes = base.wallTypes;
   for (const wt of out.wallTypes) {
     wt.id = wt.id || uid("wt");

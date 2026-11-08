@@ -21,7 +21,7 @@ import { SETTING_DEFAULTS } from "./dialogs.js";
 // they replace the user's own (grid, snap, units, phase filter, panels …) so
 // every step behaves as described; closing the tutorial puts them back.
 // Appearance (theme, language, UI scale, animations, hints) is left alone.
-const KEEP_OWN = new Set(["uiScale", "animations", "showHints", "hintSeconds", "autosave", "autosaveSeconds", "recentLimit", "startup", "welcomeAtStart"]);
+const KEEP_OWN = new Set(["uiScale", "animations", "showHints", "hintSeconds", "autosave", "autosaveSeconds", "recentLimit", "startup", "tutorialAtStart"]);
 const BASELINE = {
   ...Object.fromEntries(Object.entries(SETTING_DEFAULTS).filter(([k]) => !KEEP_OWN.has(k))),
   phaseView: "all", drawPhase: "new", sunStudy: false, showLeft: true, showRight: true,
@@ -250,7 +250,7 @@ export class TutorialPlayer {
         h("span", { class: "field-hint" }, L(UI.speed)), speed);
     this.panel.innerHTML = "";
     this.panel.append(
-      h("div", { class: "tut-head" }, h("span", { html: icon("sample", 16) }), h("b", {}, L(UI.title)), sel, btn("close", UI.stop, () => this.close())),
+      h("div", { class: "tut-head" }, h("span", { html: icon("sample", 16) }), h("b", {}, L(UI.title)), sel, btn("close", UI.stop, () => this.close(), "popup-close")),
       h("div", { class: "tut-modebar" }, modeSeg),
       bar,
       h("div", { class: "tut-step" }, `${L(UI.step)} ${Math.min(this.si + 1, total)} / ${total}`, h("span", { class: "tut-state" }, this.busy ? L(UI.running) : practice && this.done ? "✓" : "")),

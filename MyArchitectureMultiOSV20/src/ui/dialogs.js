@@ -5,6 +5,7 @@
 import { t, getLanguage } from "./i18n.js";
 import { elementScheduleTabs } from "./elements.js";
 import { icon } from "./icons.js";
+import { iconForTab } from "./autoicon.js";
 import { h, modal, toast, quickPick, field, input, select, checkbox, tabs, confirmDialog, pager, stepper } from "./widgets.js";
 import * as platform from "./platform.js";
 import { allFurniture, furnitureDef, normalizeLight } from "../lib/furniture.js";
@@ -81,7 +82,7 @@ export function themeMenu(app, anchor) {
   drop.append(
     h("div", { class: "theme-drop-head" }, h("img", { src: "assets/icon.png", width: 16, height: 16, alt: "" }), h("span", {}, t("Themes")),
       h("span", { class: "grow" }),
-      h("button", { class: "icon-btn", title: t("Close"), html: icon("close", 14), onclick: close })),
+      h("button", { class: "icon-btn popup-close", title: t("Close"), html: icon("close", 14), onclick: close })),
     // The user's own themes and the theme settings come first, above the
     // dark and light lists.
     h("div", { class: "theme-top" },
@@ -419,7 +420,7 @@ export async function layersDialog(app) {
 
 // ---------------------------------------------------------------- settings
 export const SETTING_DEFAULTS = {
-  units: "mm", startup: "start", autosave: true, autosaveSeconds: 30, recentLimit: 10, welcomeAtStart: true,
+  units: "mm", startup: "start", autosave: true, autosaveSeconds: 30, recentLimit: 10, tutorialAtStart: true,
   uiScale: 1, animations: true, showHints: true, hintSeconds: 7,
   planGrid: 100, gridStyle: "lines", showGrid: true, showRulers: true, snap: true, ortho: true, emptyDrag: "pan", crossProbe: true, liveCheck: true, zoomSpeed: 1,
   wallStyle: "solid", showDims: true, showFurniture: true, showAreas: true, showGhost: true, showTags: true, showRoofs: true, showUnderlays: true, showDrawings: true,
@@ -437,7 +438,7 @@ export async function settingsDialog(app) {
     field(t("Language"), sel("lang", [["ko", "한국어"], ["en", "English"]])),
     field(t("On start-up"), sel("startup", [["start", t("Show the start page")], ["last", t("Reopen the last project")]])),
     field(t("Recent files to remember"), num("recentLimit", { min: 1, max: 30, step: 1 })),
-    field(t("Start-up popup"), chk("welcomeAtStart", t("Show the popup at start-up"))),
+    field(t("Tutorial popup"), chk("tutorialAtStart", t("Ask to start the tutorial at start-up"))),
     field(t("Autosave"), chk("autosave", t("Keep a recovery copy"))),
     field(t("Autosave interval"), num("autosaveSeconds", { values: [10, 15, 30, 60, 120, 300, 600], format: secs })),
   );
@@ -787,7 +788,7 @@ export function shortcuts() {
     const q = search.value.trim().toLowerCase();
     tabsBar.innerHTML = "";
     SHORTCUTS.forEach(([group, rows], i) => {
-      const b = h("button", { class: `keys-tab ${!q && i === tab ? "on" : ""}`, type: "button", role: "tab", "data-group": group }, t(group), h("small", {}, String(rows.length)));
+      const b = h("button", { class: `keys-tab ${!q && i === tab ? "on" : ""}`, type: "button", role: "tab", "data-group": group }, h("span", { class: "tab-ico", html: icon(iconForTab(group), 14) }), t(group), h("small", {}, String(rows.length)));
       b.addEventListener("click", () => { tab = i; page = 0; search.value = ""; draw(); });
       tabsBar.append(b);
     });
@@ -830,16 +831,42 @@ export function showWelcome(app) {
   const body = h("div", {},
     h("p", { style: { marginTop: 0, lineHeight: 1.6 } }, t("MyArchitecture turns a floor plan into a 3D building as you draw. Everything is searchable with Ctrl+K, and every tool shows a hint at the bottom of the canvas.")),
     ...steps.map(([ic, title, text]) => h("div", { class: "action-card", style: { cursor: "default", marginBottom: "8px" } }, h("span", { class: "ai", html: icon(ic, 18) }), h("div", {}, h("b", {}, title), h("small", {}, text)))));
-  // 시작 시 계속 열기: the same setting as Settings › General › Start-up popup.
-  body.append(h("div", { class: "welcome-again" }, checkbox(app.settings.welcomeAtStart !== false, t("Keep opening at start-up"), { onChange: (on) => { app.settings.welcomeAtStart = on; app.saveSettings(); } })));
   modal({ icon: "home",
-    title: t("Welcome to MyArchitecture 10.0"), width: 640, body,
+    title: t("Welcome to MyArchitecture"), width: 640, body,
     buttons: [{ label: t("Open a sample"), value: "sample" }, { label: t("Start a new project"), value: "new" }, { label: t("Got it"), value: "ok", primary: true }],
   }).then((r) => {
     app.settings.onboarded = true;
     app.saveSettings();
     if (r === "sample") samplePicker(app);
     if (r === "new") app.newProject();
+  });
+}
+
+// Start-up popup on the start page: run the tutorial now? "Don't show again"
+// is the same setting as Settings › General › Tutorial popup and the switch
+// at the top of the start page (tutorialAtStart).
+export function tutorialPrompt(app) {
+  const tone = (name, c) => icon(name, 18).replace("<svg ", `<svg data-tone="${c}" `);
+  const steps = [
+    ["wall", "blue", t("Walls, doors and windows"), t("Draw a house on the plan with the keyboard and mouse")],
+    ["levels", "indigo", t("Levels, stairs and the roof"), t("Stack storeys, connect them and close the top")],
+    ["sofa", "orange", t("Furniture and materials"), t("Furnish the rooms from the library")],
+    ["cube", "purple", t("3D, drawings and export"), t("Walk through it, print sheets, export DXF, IFC and 3D")],
+  ];
+  const again = checkbox(false, t("Don't show again"), { onChange: (on) => app.setSetting("tutorialAtStart", !on) });
+  again.classList.add("tp-again");
+  const body = h("div", { class: "tutorial-prompt" },
+    h("div", { class: "tp-head" }, h("img", { class: "tp-icon", src: "assets/icon.png", alt: "" }),
+      h("div", {}, h("h2", {}, t("Start the tutorial?")), h("p", {}, t("The tutorial draws a house with you step by step — on a practice project, so your files stay as they are. It can be started again at any time from Help › Interactive tutorial.")))),
+    h("div", { class: "tp-steps" }, ...steps.map(([ic, c, title, text]) => h("div", { class: "tp-step" }, h("span", { class: "si", html: tone(ic, c) }), h("div", {}, h("b", {}, title), h("small", {}, text))))),
+    again);
+  return modal({ icon: "play", title: t("Tutorial"), width: 560, body, className: "tutorial-prompt-modal",
+    buttons: [{ label: t("Not now"), value: "later" }, { label: t("Start the tutorial"), value: "start", primary: true }],
+  }).then((r) => {
+    app.settings.onboarded = true;
+    app.saveSettings();
+    if (r === "start") app.run("help.tutorial");
+    return r;
   });
 }
 

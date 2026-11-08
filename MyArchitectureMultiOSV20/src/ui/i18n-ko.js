@@ -5,11 +5,15 @@ import { VIEWS_KO } from "../views/i18n-ko.js";
 
 import { KO_ELEMENTS } from "./i18n-ko-elements.js";
 import { KO_DESIGN } from "./i18n-ko-design.js";
+import { KO_START } from "./i18n-ko-start.js";
+import { KO_FURNITURE } from "./i18n-ko-furniture.js";
 
 export const KO = {
   "...": "...",
   ...KO_ELEMENTS, // slabs, beams, railings, stairs by type, curtain walls, types, design options
   ...KO_DESIGN, // material library and picker, interior design
+  ...KO_START, // start page, 새로 시작 presets, start-up tutorial popup
+  ...KO_FURNITURE, // furniture library: categories, catalogue items, my library
   // document tabs (src/ui/doctabs.js)
   "All open drawings": "열린 도면 모두 보기",
   "Close other tabs": "다른 탭 닫기",
@@ -1021,9 +1025,6 @@ export const KO = {
   "Show the level below": "아래층 표시",
   "Show the start page": "시작 페이지 표시",
   "Show the welcome window at start-up": "시작할 때 환영 창 표시",
-  "Show the popup at start-up": "시작 시 팝업 보여주기",
-  "Keep opening at start-up": "시작 시 계속 열기",
-  "Start-up popup": "시작 시 팝업",
   "Clear the log": "로그 지우기",
   "Log": "로그",
   "Problems": "문제",
@@ -1074,6 +1075,7 @@ export const KO = {
   "Stairs": "계단",
   "Stairs on the top level": "맨 위층의 계단",
   "Start": "시작",
+  "Start page (click again to go back)": "시작 화면 (다시 누르면 돌아갑니다)",
   "Start a new project": "새 프로젝트 시작",
   "Start page": "시작 페이지",
   "Start with": "시작 시 표시",
@@ -1203,7 +1205,6 @@ export const KO = {
   "Wavefront OBJ (+MTL)": "Wavefront OBJ (+MTL)",
   "Web": "웹",
   "Welcome": "환영합니다",
-  "Welcome to MyArchitecture 10.0": "MyArchitecture 10.0에 오신 것을 환영합니다",
   "Wheel zoom speed": "휠 확대/축소 속도",
   "While drawing a wall, type a length such as 4200 or 4.2m and press Enter.": "벽을 그리는 중에 4200 또는 4.2m 같은 길이를 입력하고 Enter를 누르세요.",
   "While drawing: any angle": "그리는 중: 임의 각도",

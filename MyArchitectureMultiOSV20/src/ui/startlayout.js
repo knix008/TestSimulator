@@ -162,3 +162,11 @@ export function spanFor(px, py, col, width) {
   const colW = (width - GAP * (COLS - 1)) / COLS;
   return { w: clamp(Math.round((px + GAP) / (colW + GAP)), 1, COLS - col), h: Math.max(4, Math.round((py + GAP) / ROW)) };
 }
+
+// The column count that keeps every row of a grid of n cells full (see start.js fullRows).
+export function fullColumns(n, width, minW, gap) {
+  const fit = Math.max(1, Math.floor((width + gap) / (minW + gap)));
+  if (n <= fit) return Math.max(1, n);
+  for (let c = fit; c >= 1; c--) if (n % c === 0 && c >= Math.ceil(fit / 2)) return c;
+  return fit; // no divisor close enough: the widest that fits
+}

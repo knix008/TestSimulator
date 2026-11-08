@@ -8,7 +8,7 @@
   "client": "Sample",
   "address": "Sejong",
   "rev": "A",
-  "date": "2026-10-11",
+  "date": "2026-11-08",
   "comment": "",
   "scale": 100,
   "north": 0,
@@ -31,7 +31,7 @@
  },
  "levels": [
   {
-   "id": "lvbsc9p04zefw",
+   "id": "lvbtc2a05r3j5",
    "name": "1F",
    "elevation": 0,
    "height": 2800,
@@ -174,7 +174,7 @@
  ],
  "grids": [
   {
-   "id": "gbsc9p0536sk",
+   "id": "gbtc2b05uvot",
    "x1": 0,
    "y1": -10000,
    "x2": 0,
@@ -182,7 +182,7 @@
    "label": "1"
   },
   {
-   "id": "gbsc9p05375f",
+   "id": "gbtc2b05uw59",
    "x1": 16000,
    "y1": -10000,
    "x2": 16000,
@@ -190,7 +190,7 @@
    "label": "2"
   },
   {
-   "id": "gbsc9p05388n",
+   "id": "gbtc2b05uxju",
    "x1": 32000,
    "y1": -10000,
    "x2": 32000,
@@ -198,7 +198,7 @@
    "label": "3"
   },
   {
-   "id": "gbsc9p0539tr",
+   "id": "gbtc2b05uyyb",
    "x1": 48000,
    "y1": -10000,
    "x2": 48000,
@@ -206,7 +206,7 @@
    "label": "4"
   },
   {
-   "id": "gbsc9p053ay5",
+   "id": "gbtc2b05uzl7",
    "x1": 64000,
    "y1": -10000,
    "x2": 64000,
@@ -214,7 +214,7 @@
    "label": "5"
   },
   {
-   "id": "gbsc9p053b97",
+   "id": "gbtc2b05v0gu",
    "x1": 80000,
    "y1": -10000,
    "x2": 80000,
@@ -222,7 +222,7 @@
    "label": "6"
   },
   {
-   "id": "gbsc9p053cky",
+   "id": "gbtc2b05v1ov",
    "x1": 96000,
    "y1": -10000,
    "x2": 96000,
@@ -230,7 +230,7 @@
    "label": "7"
   },
   {
-   "id": "gbsc9p053d8p",
+   "id": "gbtc2b05v2yn",
    "x1": -10000,
    "y1": 0,
    "x2": 106000,
@@ -238,7 +238,7 @@
    "label": "A"
   },
   {
-   "id": "gbsc9p053em9",
+   "id": "gbtc2b05v337",
    "x1": -10000,
    "y1": 14000,
    "x2": 106000,
@@ -246,7 +246,7 @@
    "label": "B"
   },
   {
-   "id": "gbsc9p053f8a",
+   "id": "gbtc2b05v43i",
    "x1": -10000,
    "y1": 28000,
    "x2": 106000,
@@ -254,7 +254,7 @@
    "label": "C"
   },
   {
-   "id": "gbsc9p053gk3",
+   "id": "gbtc2b05v5je",
    "x1": -10000,
    "y1": 42000,
    "x2": 106000,
@@ -262,7 +262,7 @@
    "label": "D"
   },
   {
-   "id": "gbsc9p053htr",
+   "id": "gbtc2b05v669",
    "x1": -10000,
    "y1": 56000,
    "x2": 106000,
@@ -286,7 +286,8 @@
   "beam": 180000,
   "railing": 150000,
   "ramp": 2000000,
-  "curtainWall": 650000
+  "curtainWall": 650000,
+  "member": 4500000
  },
  "layers": [
   {
@@ -345,8 +346,8 @@
  "stairs": [],
  "furniture": [
   {
-   "id": "ubsc9p051zc6",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05tose",
+   "level": "lvbtc2a05r3j5",
    "kind": "tree",
    "x": 26000,
    "y": 31000,
@@ -360,8 +361,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0520dn",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05tpqn",
+   "level": "lvbtc2a05r3j5",
    "kind": "tree",
    "x": 31500,
    "y": 31000,
@@ -375,8 +376,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0521zg",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05tqpt",
+   "level": "lvbtc2a05r3j5",
    "kind": "tree",
    "x": 37000,
    "y": 31000,
@@ -390,8 +391,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0522nx",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05tr9q",
+   "level": "lvbtc2a05r3j5",
    "kind": "tree",
    "x": 42500,
    "y": 31000,
@@ -405,8 +406,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0523jj",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05ts4w",
+   "level": "lvbtc2a05r3j5",
    "kind": "tree",
    "x": 48000,
    "y": 31000,
@@ -420,8 +421,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0524tu",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05tt56",
+   "level": "lvbtc2a05r3j5",
    "kind": "tree",
    "x": 26000,
    "y": 40000,
@@ -435,8 +436,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0525hb",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05tu9d",
+   "level": "lvbtc2a05r3j5",
    "kind": "tree",
    "x": 31500,
    "y": 40000,
@@ -450,8 +451,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p05262z",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05tvp9",
+   "level": "lvbtc2a05r3j5",
    "kind": "tree",
    "x": 37000,
    "y": 40000,
@@ -465,8 +466,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0527ve",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05tw6u",
+   "level": "lvbtc2a05r3j5",
    "kind": "tree",
    "x": 42500,
    "y": 40000,
@@ -480,8 +481,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p05282q",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05txc7",
+   "level": "lvbtc2a05r3j5",
    "kind": "tree",
    "x": 48000,
    "y": 40000,
@@ -495,8 +496,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0529l7",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05tyfk",
+   "level": "lvbtc2a05r3j5",
    "kind": "streetLamp",
    "x": -4000,
    "y": -4000,
@@ -516,8 +517,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052aul",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05tzdh",
+   "level": "lvbtc2a05r3j5",
    "kind": "streetLamp",
    "x": 9500,
    "y": -4000,
@@ -537,8 +538,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052br3",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05u07g",
+   "level": "lvbtc2a05r3j5",
    "kind": "streetLamp",
    "x": 23000,
    "y": -4000,
@@ -558,8 +559,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052cox",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05u1ci",
+   "level": "lvbtc2a05r3j5",
    "kind": "streetLamp",
    "x": 36500,
    "y": -4000,
@@ -579,8 +580,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052dj9",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05u2qv",
+   "level": "lvbtc2a05r3j5",
    "kind": "streetLamp",
    "x": 50000,
    "y": -4000,
@@ -600,8 +601,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052etg",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05u378",
+   "level": "lvbtc2a05r3j5",
    "kind": "streetLamp",
    "x": 63500,
    "y": -4000,
@@ -621,8 +622,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052fu7",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05u44s",
+   "level": "lvbtc2a05r3j5",
    "kind": "streetLamp",
    "x": 77000,
    "y": -4000,
@@ -642,8 +643,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052gsf",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05u573",
+   "level": "lvbtc2a05r3j5",
    "kind": "streetLamp",
    "x": 90500,
    "y": -4000,
@@ -663,8 +664,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052hes",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05u60g",
+   "level": "lvbtc2a05r3j5",
    "kind": "bench",
    "x": 22000,
    "y": -1000,
@@ -678,8 +679,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052is3",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05u7dk",
+   "level": "lvbtc2a05r3j5",
    "kind": "bench",
    "x": 25500,
    "y": -1000,
@@ -693,8 +694,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052jg6",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05u8x0",
+   "level": "lvbtc2a05r3j5",
    "kind": "bench",
    "x": 29000,
    "y": -1000,
@@ -708,8 +709,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052kl8",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05u9ls",
+   "level": "lvbtc2a05r3j5",
    "kind": "bench",
    "x": 32500,
    "y": -1000,
@@ -723,8 +724,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052lad",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05uabm",
+   "level": "lvbtc2a05r3j5",
    "kind": "bench",
    "x": 36000,
    "y": -1000,
@@ -738,8 +739,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052mxw",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05ubc1",
+   "level": "lvbtc2a05r3j5",
    "kind": "bench",
    "x": 39500,
    "y": -1000,
@@ -753,8 +754,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052nxd",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05ucsz",
+   "level": "lvbtc2a05r3j5",
    "kind": "parkingSpace",
    "x": 76000,
    "y": 50000,
@@ -768,8 +769,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052oov",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05udef",
+   "level": "lvbtc2a05r3j5",
    "kind": "parkingSpace",
    "x": 78600,
    "y": 50000,
@@ -783,8 +784,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052pj9",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05ueet",
+   "level": "lvbtc2a05r3j5",
    "kind": "car",
    "x": 78600,
    "y": 49800,
@@ -798,8 +799,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052qvn",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05uf3t",
+   "level": "lvbtc2a05r3j5",
    "kind": "parkingSpace",
    "x": 81200,
    "y": 50000,
@@ -813,8 +814,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052rwd",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05ug79",
+   "level": "lvbtc2a05r3j5",
    "kind": "car",
    "x": 81200,
    "y": 49800,
@@ -828,8 +829,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052scj",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05uhsf",
+   "level": "lvbtc2a05r3j5",
    "kind": "parkingSpace",
    "x": 83800,
    "y": 50000,
@@ -843,8 +844,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052t6l",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05uibo",
+   "level": "lvbtc2a05r3j5",
    "kind": "parkingSpace",
    "x": 86400,
    "y": 50000,
@@ -858,8 +859,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052u1p",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05uj0j",
+   "level": "lvbtc2a05r3j5",
    "kind": "car",
    "x": 86400,
    "y": 49800,
@@ -873,8 +874,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052vv5",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05uke9",
+   "level": "lvbtc2a05r3j5",
    "kind": "parkingSpace",
    "x": 89000,
    "y": 50000,
@@ -888,8 +889,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052whh",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05ul1n",
+   "level": "lvbtc2a05r3j5",
    "kind": "car",
    "x": 89000,
    "y": 49800,
@@ -903,8 +904,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052xud",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05umdl",
+   "level": "lvbtc2a05r3j5",
    "kind": "parkingSpace",
    "x": 91600,
    "y": 50000,
@@ -918,8 +919,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052yla",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05un6q",
+   "level": "lvbtc2a05r3j5",
    "kind": "parkingSpace",
    "x": 94200,
    "y": 50000,
@@ -933,8 +934,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p052z4d",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05uo8a",
+   "level": "lvbtc2a05r3j5",
    "kind": "car",
    "x": 94200,
    "y": 49800,
@@ -948,8 +949,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0530dz",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05up8i",
+   "level": "lvbtc2a05r3j5",
    "kind": "parkingSpace",
    "x": 96800,
    "y": 50000,
@@ -963,8 +964,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0531is",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05uq43",
+   "level": "lvbtc2a05r3j5",
    "kind": "car",
    "x": 96800,
    "y": 49800,
@@ -978,8 +979,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0532xg",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05ur31",
+   "level": "lvbtc2a05r3j5",
    "kind": "parkingSpace",
    "x": 99400,
    "y": 50000,
@@ -993,8 +994,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0533bf",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05us7f",
+   "level": "lvbtc2a05r3j5",
    "kind": "pergola",
    "x": 36000,
    "y": 45500,
@@ -1008,8 +1009,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0534ce",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05ut1p",
+   "level": "lvbtc2a05r3j5",
    "kind": "patioUmbrella",
    "x": 30000,
    "y": 52000,
@@ -1023,8 +1024,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc9p0535gk",
-   "level": "lvbsc9p04zefw",
+   "id": "ubtc2b05uur8",
+   "level": "lvbtc2a05r3j5",
    "kind": "patioUmbrella",
    "x": 34000,
    "y": 52000,
@@ -1038,10 +1039,10 @@
    "phase": "new"
   },
   {
-   "id": "fbsc9y053rud",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2n05vgtb",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9v053qu7",
+   "comp": "cdbtc2h05vfk3",
    "name": "Kiosk",
    "x": 8000,
    "y": 30000,
@@ -1054,10 +1055,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9y053s33",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2n05vhnr",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9v053qu7",
+   "comp": "cdbtc2h05vfk3",
    "name": "Kiosk",
    "x": 14000,
    "y": 30000,
@@ -1070,10 +1071,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9y053tb2",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2n05vio3",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9v053qu7",
+   "comp": "cdbtc2h05vfk3",
    "name": "Kiosk",
    "x": 56000,
    "y": 48000,
@@ -1086,10 +1087,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9y053ub9",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2n05vj23",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9v053qu7",
+   "comp": "cdbtc2h05vfk3",
    "name": "Kiosk",
    "x": 72000,
    "y": 2000,
@@ -1102,10 +1103,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9y053v6w",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2n05vk28",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9v053qu7",
+   "comp": "cdbtc2h05vfk3",
    "name": "Kiosk",
    "x": 100000,
    "y": 20000,
@@ -1118,10 +1119,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9z053yga",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2o05vnir",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9y053xg5",
+   "comp": "cdbtc2o05vmio",
    "name": "Bollard",
    "x": 42000,
    "y": -7000,
@@ -1134,10 +1135,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9z053ze6",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2o05vonw",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9y053xg5",
+   "comp": "cdbtc2o05vmio",
    "name": "Bollard",
    "x": 43800,
    "y": -7000,
@@ -1150,10 +1151,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9z0540al",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2o05vpkr",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9y053xg5",
+   "comp": "cdbtc2o05vmio",
    "name": "Bollard",
    "x": 45600,
    "y": -7000,
@@ -1166,10 +1167,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9z05412k",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2o05vq01",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9y053xg5",
+   "comp": "cdbtc2o05vmio",
    "name": "Bollard",
    "x": 47400,
    "y": -7000,
@@ -1182,10 +1183,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9z0542wy",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2o05vr6k",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9y053xg5",
+   "comp": "cdbtc2o05vmio",
    "name": "Bollard",
    "x": 49200,
    "y": -7000,
@@ -1198,10 +1199,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9z0543fj",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2o05vsko",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9y053xg5",
+   "comp": "cdbtc2o05vmio",
    "name": "Bollard",
    "x": 51000,
    "y": -7000,
@@ -1214,10 +1215,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9z05447q",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2o05vt8z",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9y053xg5",
+   "comp": "cdbtc2o05vmio",
    "name": "Bollard",
    "x": 52800,
    "y": -7000,
@@ -1230,10 +1231,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9z054548",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2o05vut7",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9y053xg5",
+   "comp": "cdbtc2o05vmio",
    "name": "Bollard",
    "x": 54600,
    "y": -7000,
@@ -1246,10 +1247,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9z0546a9",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2o05vvx0",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9y053xg5",
+   "comp": "cdbtc2o05vmio",
    "name": "Bollard",
    "x": 56400,
    "y": -7000,
@@ -1262,10 +1263,10 @@
    "layer": "tag-street"
   },
   {
-   "id": "fbsc9z0547lo",
-   "level": "lvbsc9p04zefw",
+   "id": "fbtc2o05vwuz",
+   "level": "lvbtc2a05r3j5",
    "kind": "component",
-   "comp": "cdbsc9y053xg5",
+   "comp": "cdbtc2o05vmio",
    "name": "Bollard",
    "x": 58200,
    "y": -7000,
@@ -1276,14 +1277,79 @@
    "elevation": 0,
    "phase": "new",
    "layer": "tag-street"
+  },
+  {
+   "id": "ubtc2x05wof8",
+   "kind": "coffeeMugs",
+   "x": 30085.81649431493,
+   "y": 51461.30124195013,
+   "rot": 30,
+   "w": 250,
+   "d": 120,
+   "h": 100,
+   "elevation": 2400,
+   "color": null,
+   "level": "lvbtc2a05r3j5"
+  },
+  {
+   "id": "ubtc2x05wp34",
+   "kind": "placeSetting",
+   "x": 30751.895954806823,
+   "y": 51019.57052584272,
+   "rot": 30,
+   "w": 450,
+   "d": 350,
+   "h": 200,
+   "elevation": 2400,
+   "color": null,
+   "level": "lvbtc2a05r3j5"
+  },
+  {
+   "id": "ubtc2y05wqkv",
+   "kind": "coffeeMugs",
+   "x": 34900.4755430785,
+   "y": 51413.59453060664,
+   "rot": 0,
+   "w": 250,
+   "d": 120,
+   "h": 100,
+   "elevation": 2400,
+   "color": null,
+   "level": "lvbtc2a05r3j5"
+  },
+  {
+   "id": "ubtc2y05wr2q",
+   "kind": "placeSetting",
+   "x": 33313.3473230619,
+   "y": 51653.591861559544,
+   "rot": 30,
+   "w": 450,
+   "d": 350,
+   "h": 200,
+   "elevation": 2400,
+   "color": null,
+   "level": "lvbtc2a05r3j5"
+  },
+  {
+   "id": "ubtc2y05ws9t",
+   "kind": "coffeeMugs",
+   "x": 34818.2039186731,
+   "y": 51052.02255298849,
+   "rot": 30,
+   "w": 250,
+   "d": 120,
+   "h": 100,
+   "elevation": 2400,
+   "color": null,
+   "level": "lvbtc2a05r3j5"
   }
  ],
  "roofs": [],
  "dimensions": [],
  "texts": [
   {
-   "id": "tbsc9p053i7j",
-   "level": "lvbsc9p04zefw",
+   "id": "tbtc2b05v71u",
+   "level": "lvbtc2a05r3j5",
    "x": -6000,
    "y": 60000,
    "text": "Push/pull the masses in 3D (Tool: Push/Pull) — each building is a group",
@@ -1292,8 +1358,8 @@
    "phase": "new"
   },
   {
-   "id": "tbsc9p053jpz",
-   "level": "lvbsc9p04zefw",
+   "id": "tbtc2b05v8b1",
+   "level": "lvbtc2a05r3j5",
    "x": 6000,
    "y": -11000,
    "text": "Museum",
@@ -1302,8 +1368,8 @@
    "phase": "new"
   },
   {
-   "id": "tbsc9p053ktb",
-   "level": "lvbsc9p04zefw",
+   "id": "tbtc2b05v9ra",
+   "level": "lvbtc2a05r3j5",
    "x": 56000,
    "y": -11000,
    "text": "Concert hall",
@@ -1312,8 +1378,8 @@
    "phase": "new"
   },
   {
-   "id": "tbsc9p053lk7",
-   "level": "lvbsc9p04zefw",
+   "id": "tbtc2b05vasr",
+   "level": "lvbtc2a05r3j5",
    "x": 84000,
    "y": 21000,
    "text": "Twisting tower (24 floors)",
@@ -1322,8 +1388,8 @@
    "phase": "new"
   },
   {
-   "id": "tbsc9p053m3r",
-   "level": "lvbsc9p04zefw",
+   "id": "tbtc2b05vb14",
+   "level": "lvbtc2a05r3j5",
    "x": 0,
    "y": 55000,
    "text": "Terraced housing",
@@ -1340,11 +1406,12 @@
  "railings": [],
  "ramps": [],
  "shafts": [],
+ "members": [],
  "models": [],
  "solids": [
   {
-   "id": "vbsc9p04zfcz",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2a05r41b",
+   "level": "lvbtc2a05r3j5",
    "name": "Plinth",
    "pts": [
     [
@@ -1376,14 +1443,14 @@
    "height": 5000,
    "taper": 1,
    "material": "stone",
-   "group": "grpbsc9p04zrey",
+   "group": "grpbtc2b05rg53",
    "groupName": "Museum",
    "layer": "tag-museum",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zgbn",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05r5i8",
+   "level": "lvbtc2a05r3j5",
    "name": "Glass foyer",
    "pts": [
     [
@@ -1407,14 +1474,14 @@
    "height": 5000,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p04zrey",
+   "group": "grpbtc2b05rg53",
    "groupName": "Museum",
    "layer": "tag-museum",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zhcn",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05r6uf",
+   "level": "lvbtc2a05r3j5",
    "name": "Cantilevered gallery",
    "pts": [
     [
@@ -1438,14 +1505,14 @@
    "height": 7000,
    "taper": 1,
    "material": "plaster",
-   "group": "grpbsc9p04zrey",
+   "group": "grpbtc2b05rg53",
    "groupName": "Museum",
    "layer": "tag-museum",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zifb",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05r77h",
+   "level": "lvbtc2a05r3j5",
    "name": "Gallery window band",
    "pts": [
     [
@@ -1469,14 +1536,14 @@
    "height": 2500,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p04zrey",
+   "group": "grpbtc2b05rg53",
    "groupName": "Museum",
    "layer": "tag-museum",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zjmx",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05r89n",
+   "level": "lvbtc2a05r3j5",
    "name": "Skylight pyramid",
    "pts": [
     [
@@ -1500,14 +1567,14 @@
    "height": 4500,
    "taper": 0,
    "material": "glass",
-   "group": "grpbsc9p04zrey",
+   "group": "grpbtc2b05rg53",
    "groupName": "Museum",
    "layer": "tag-museum",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zkaf",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05r98f",
+   "level": "lvbtc2a05r3j5",
    "name": "Rooftop pavilion",
    "pts": [
     [
@@ -1531,7 +1598,7 @@
    "height": 3200,
    "taper": 1,
    "material": "wood-cladding",
-   "group": "grpbsc9p04zrey",
+   "group": "grpbtc2b05rg53",
    "groupName": "Museum",
    "layer": "tag-museum",
    "mesh": {
@@ -1632,8 +1699,8 @@
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zld7",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05ragz",
+   "level": "lvbtc2a05r3j5",
    "name": "Fin 1",
    "pts": [
     [
@@ -1657,14 +1724,14 @@
    "height": 7000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p04zrey",
+   "group": "grpbtc2b05rg53",
    "groupName": "Museum",
    "layer": "tag-museum",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zm0a",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rbxr",
+   "level": "lvbtc2a05r3j5",
    "name": "Fin 2",
    "pts": [
     [
@@ -1688,14 +1755,14 @@
    "height": 7000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p04zrey",
+   "group": "grpbtc2b05rg53",
    "groupName": "Museum",
    "layer": "tag-museum",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zntx",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rcgi",
+   "level": "lvbtc2a05r3j5",
    "name": "Fin 3",
    "pts": [
     [
@@ -1719,14 +1786,14 @@
    "height": 7000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p04zrey",
+   "group": "grpbtc2b05rg53",
    "groupName": "Museum",
    "layer": "tag-museum",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zo2s",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rd7c",
+   "level": "lvbtc2a05r3j5",
    "name": "Fin 4",
    "pts": [
     [
@@ -1750,14 +1817,14 @@
    "height": 7000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p04zrey",
+   "group": "grpbtc2b05rg53",
    "groupName": "Museum",
    "layer": "tag-museum",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zpne",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05re54",
+   "level": "lvbtc2a05r3j5",
    "name": "Fin 5",
    "pts": [
     [
@@ -1781,14 +1848,14 @@
    "height": 7000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p04zrey",
+   "group": "grpbtc2b05rg53",
    "groupName": "Museum",
    "layer": "tag-museum",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zqlq",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rffb",
+   "level": "lvbtc2a05r3j5",
    "name": "Fin 6",
    "pts": [
     [
@@ -1812,14 +1879,14 @@
    "height": 7000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p04zrey",
+   "group": "grpbtc2b05rg53",
    "groupName": "Museum",
    "layer": "tag-museum",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zsor",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rh9h",
+   "level": "lvbtc2a05r3j5",
    "name": "Concert hall drum",
    "pts": [
     [
@@ -2019,14 +2086,14 @@
    "height": 14000,
    "taper": 1,
    "material": "brick",
-   "group": "grpbsc9p05027t",
+   "group": "grpbtc2b05rr7r",
    "groupName": "Concert hall",
    "layer": "tag-hall",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zt64",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05ri06",
+   "level": "lvbtc2a05r3j5",
    "name": "Hall roof",
    "pts": [
     [
@@ -2226,14 +2293,14 @@
    "height": 3500,
    "taper": 0.55,
    "material": "roof-metal",
-   "group": "grpbsc9p05027t",
+   "group": "grpbtc2b05rr7r",
    "groupName": "Concert hall",
    "layer": "tag-hall",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zupx",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rjtb",
+   "level": "lvbtc2a05r3j5",
    "name": "Fly tower",
    "pts": [
     [
@@ -2257,14 +2324,14 @@
    "height": 21000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p05027t",
+   "group": "grpbtc2b05rr7r",
    "groupName": "Concert hall",
    "layer": "tag-hall",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zv9h",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rkts",
+   "level": "lvbtc2a05r3j5",
    "name": "Amphitheatre step 1",
    "pts": [
     [
@@ -2368,14 +2435,14 @@
    "height": 450,
    "taper": 1,
    "material": "stone",
-   "group": "grpbsc9p05027t",
+   "group": "grpbtc2b05rr7r",
    "groupName": "Concert hall",
    "layer": "tag-hall",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zwn7",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rlkf",
+   "level": "lvbtc2a05r3j5",
    "name": "Amphitheatre step 2",
    "pts": [
     [
@@ -2479,14 +2546,14 @@
    "height": 900,
    "taper": 1,
    "material": "stone",
-   "group": "grpbsc9p05027t",
+   "group": "grpbtc2b05rr7r",
    "groupName": "Concert hall",
    "layer": "tag-hall",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zxgk",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rm2p",
+   "level": "lvbtc2a05r3j5",
    "name": "Amphitheatre step 3",
    "pts": [
     [
@@ -2590,14 +2657,14 @@
    "height": 1350,
    "taper": 1,
    "material": "stone",
-   "group": "grpbsc9p05027t",
+   "group": "grpbtc2b05rr7r",
    "groupName": "Concert hall",
    "layer": "tag-hall",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zy6v",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rncx",
+   "level": "lvbtc2a05r3j5",
    "name": "Amphitheatre step 4",
    "pts": [
     [
@@ -2701,14 +2768,14 @@
    "height": 1800,
    "taper": 1,
    "material": "stone",
-   "group": "grpbsc9p05027t",
+   "group": "grpbtc2b05rr7r",
    "groupName": "Concert hall",
    "layer": "tag-hall",
    "phase": "new"
   },
   {
-   "id": "vbsc9p04zz6t",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05ro14",
+   "level": "lvbtc2a05r3j5",
    "name": "Amphitheatre step 5",
    "pts": [
     [
@@ -2812,14 +2879,14 @@
    "height": 2250,
    "taper": 1,
    "material": "stone",
-   "group": "grpbsc9p05027t",
+   "group": "grpbtc2b05rr7r",
    "groupName": "Concert hall",
    "layer": "tag-hall",
    "phase": "new"
   },
   {
-   "id": "vbsc9p05001b",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rpks",
+   "level": "lvbtc2a05r3j5",
    "name": "Amphitheatre step 6",
    "pts": [
     [
@@ -2923,14 +2990,14 @@
    "height": 2700,
    "taper": 1,
    "material": "stone",
-   "group": "grpbsc9p05027t",
+   "group": "grpbtc2b05rr7r",
    "groupName": "Concert hall",
    "layer": "tag-hall",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0501we",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rqzs",
+   "level": "lvbtc2a05r3j5",
    "name": "Amphitheatre step 7",
    "pts": [
     [
@@ -3034,14 +3101,14 @@
    "height": 3150,
    "taper": 1,
    "material": "stone",
-   "group": "grpbsc9p05027t",
+   "group": "grpbtc2b05rr7r",
    "groupName": "Concert hall",
    "layer": "tag-hall",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0503qg",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rsf7",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 1",
    "pts": [
     [
@@ -3065,14 +3132,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0504vl",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rtao",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 1",
    "pts": [
     [
@@ -3096,14 +3163,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0505lk",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05ru8y",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 2",
    "pts": [
     [
@@ -3127,14 +3194,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050694",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rvfm",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 2",
    "pts": [
     [
@@ -3158,14 +3225,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p05070i",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rwwh",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 3",
    "pts": [
     [
@@ -3189,14 +3256,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0508e7",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rxqh",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 3",
    "pts": [
     [
@@ -3220,14 +3287,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0509bv",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05ryxe",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 4",
    "pts": [
     [
@@ -3251,14 +3318,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050az9",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05rzr9",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 4",
    "pts": [
     [
@@ -3282,14 +3349,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050bm7",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05s0z4",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 5",
    "pts": [
     [
@@ -3313,14 +3380,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050ctj",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05s1l0",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 5",
    "pts": [
     [
@@ -3344,14 +3411,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050df2",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05s2wj",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 6",
    "pts": [
     [
@@ -3375,14 +3442,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050e2m",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05s372",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 6",
    "pts": [
     [
@@ -3406,14 +3473,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050fb3",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05s4jk",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 7",
    "pts": [
     [
@@ -3437,14 +3504,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050g5a",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05s5zg",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 7",
    "pts": [
     [
@@ -3468,14 +3535,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050htg",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05s6x9",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 8",
    "pts": [
     [
@@ -3499,14 +3566,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050i3x",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05s7ho",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 8",
    "pts": [
     [
@@ -3530,14 +3597,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050j6s",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05s809",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 9",
    "pts": [
     [
@@ -3561,14 +3628,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050kxm",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05s9yt",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 9",
    "pts": [
     [
@@ -3592,14 +3659,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050l5o",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sa5b",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 10",
    "pts": [
     [
@@ -3623,14 +3690,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050mna",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sbmq",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 10",
    "pts": [
     [
@@ -3654,14 +3721,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050nsh",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sc7i",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 11",
    "pts": [
     [
@@ -3685,14 +3752,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050on0",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sd8g",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 11",
    "pts": [
     [
@@ -3716,14 +3783,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050p7q",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05segx",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 12",
    "pts": [
     [
@@ -3747,14 +3814,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050quq",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sfgn",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 12",
    "pts": [
     [
@@ -3778,14 +3845,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050ru4",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sgfn",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 13",
    "pts": [
     [
@@ -3809,14 +3876,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050sdj",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05shz0",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 13",
    "pts": [
     [
@@ -3840,14 +3907,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050tc6",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05simf",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 14",
    "pts": [
     [
@@ -3871,14 +3938,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050up0",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sjat",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 14",
    "pts": [
     [
@@ -3902,14 +3969,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050vq0",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sk0c",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 15",
    "pts": [
     [
@@ -3933,14 +4000,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050wh6",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sla2",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 15",
    "pts": [
     [
@@ -3964,14 +4031,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050x92",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05smau",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 16",
    "pts": [
     [
@@ -3995,14 +4062,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050ypa",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05snb2",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 16",
    "pts": [
     [
@@ -4026,14 +4093,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p050zrl",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05soub",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 17",
    "pts": [
     [
@@ -4057,14 +4124,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0510zh",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05spva",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 17",
    "pts": [
     [
@@ -4088,14 +4155,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0511zi",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sqji",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 18",
    "pts": [
     [
@@ -4119,14 +4186,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0512np",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sr0z",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 18",
    "pts": [
     [
@@ -4150,14 +4217,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0513hp",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05ssbb",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 19",
    "pts": [
     [
@@ -4181,14 +4248,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0514b5",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05stkb",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 19",
    "pts": [
     [
@@ -4212,14 +4279,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0515ay",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sudb",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 20",
    "pts": [
     [
@@ -4243,14 +4310,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0516e7",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05svnh",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 20",
    "pts": [
     [
@@ -4274,14 +4341,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0517pf",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05swa4",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 21",
    "pts": [
     [
@@ -4305,14 +4372,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0518fv",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sxvo",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 21",
    "pts": [
     [
@@ -4336,14 +4403,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p0519lz",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05sy6t",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 22",
    "pts": [
     [
@@ -4367,14 +4434,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051ags",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05szwr",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 22",
    "pts": [
     [
@@ -4398,14 +4465,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051bqs",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05t0tr",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 23",
    "pts": [
     [
@@ -4429,14 +4496,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051cr0",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05t1ga",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 23",
    "pts": [
     [
@@ -4460,14 +4527,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051duw",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05t22n",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower floor 24",
    "pts": [
     [
@@ -4491,14 +4558,14 @@
    "height": 3300,
    "taper": 1,
    "material": "glass",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051ec8",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05t33h",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower slab 24",
    "pts": [
     [
@@ -4522,14 +4589,14 @@
    "height": 300,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051fjv",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05t418",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower crown",
    "pts": [
     [
@@ -4553,14 +4620,14 @@
    "height": 6000,
    "taper": 0.2,
    "material": "roof-metal",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051gav",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05t5fa",
+   "level": "lvbtc2a05r3j5",
    "name": "Tower core",
    "pts": [
     [
@@ -4664,14 +4731,14 @@
    "height": 4000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051hnj",
+   "group": "grpbtc2b05t6iv",
    "groupName": "Twisting tower",
    "layer": "tag-tower",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051i93",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05t7rr",
+   "level": "lvbtc2a05r3j5",
    "name": "Canopy",
    "pts": [
     [
@@ -4695,14 +4762,14 @@
    "height": 400,
    "taper": 1,
    "material": "wood-cladding",
-   "group": "grpbsc9p051oaf",
+   "group": "grpbtc2b05tdoa",
    "groupName": "Canopy",
    "layer": "tag-canopy",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051jfx",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05t8t1",
+   "level": "lvbtc2a05r3j5",
    "name": "Canopy column",
    "pts": [
     [
@@ -4758,14 +4825,14 @@
    "height": 6000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051oaf",
+   "group": "grpbtc2b05tdoa",
    "groupName": "Canopy",
    "layer": "tag-canopy",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051kdw",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05t968",
+   "level": "lvbtc2a05r3j5",
    "name": "Canopy column",
    "pts": [
     [
@@ -4821,14 +4888,14 @@
    "height": 6000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051oaf",
+   "group": "grpbtc2b05tdoa",
    "groupName": "Canopy",
    "layer": "tag-canopy",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051lnu",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05tabk",
+   "level": "lvbtc2a05r3j5",
    "name": "Canopy column",
    "pts": [
     [
@@ -4884,14 +4951,14 @@
    "height": 6000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051oaf",
+   "group": "grpbtc2b05tdoa",
    "groupName": "Canopy",
    "layer": "tag-canopy",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051mca",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05tbcj",
+   "level": "lvbtc2a05r3j5",
    "name": "Canopy column",
    "pts": [
     [
@@ -4947,14 +5014,14 @@
    "height": 6000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051oaf",
+   "group": "grpbtc2b05tdoa",
    "groupName": "Canopy",
    "layer": "tag-canopy",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051nmb",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05tcb6",
+   "level": "lvbtc2a05r3j5",
    "name": "Canopy column",
    "pts": [
     [
@@ -5010,14 +5077,14 @@
    "height": 6000,
    "taper": 1,
    "material": "concrete",
-   "group": "grpbsc9p051oaf",
+   "group": "grpbtc2b05tdoa",
    "groupName": "Canopy",
    "layer": "tag-canopy",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051pgb",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05tem7",
+   "level": "lvbtc2a05r3j5",
    "name": "Terrace 1",
    "pts": [
     [
@@ -5041,14 +5108,14 @@
    "height": 3200,
    "taper": 1,
    "material": "brick",
-   "group": "grpbsc9p051vde",
+   "group": "grpbtc2b05tkvy",
    "groupName": "Terraced housing",
    "layer": "tag-housing",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051q9j",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05tfwq",
+   "level": "lvbtc2a05r3j5",
    "name": "Terrace 2",
    "pts": [
     [
@@ -5072,14 +5139,14 @@
    "height": 3200,
    "taper": 1,
    "material": "plaster",
-   "group": "grpbsc9p051vde",
+   "group": "grpbtc2b05tkvy",
    "groupName": "Terraced housing",
    "layer": "tag-housing",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051rg0",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05tgmq",
+   "level": "lvbtc2a05r3j5",
    "name": "Terrace 3",
    "pts": [
     [
@@ -5103,14 +5170,14 @@
    "height": 3200,
    "taper": 1,
    "material": "brick",
-   "group": "grpbsc9p051vde",
+   "group": "grpbtc2b05tkvy",
    "groupName": "Terraced housing",
    "layer": "tag-housing",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051sdz",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05thqi",
+   "level": "lvbtc2a05r3j5",
    "name": "Terrace 4",
    "pts": [
     [
@@ -5134,14 +5201,14 @@
    "height": 3200,
    "taper": 1,
    "material": "plaster",
-   "group": "grpbsc9p051vde",
+   "group": "grpbtc2b05tkvy",
    "groupName": "Terraced housing",
    "layer": "tag-housing",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051tsd",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05tidm",
+   "level": "lvbtc2a05r3j5",
    "name": "Terrace 5",
    "pts": [
     [
@@ -5165,14 +5232,14 @@
    "height": 3200,
    "taper": 1,
    "material": "brick",
-   "group": "grpbsc9p051vde",
+   "group": "grpbtc2b05tkvy",
    "groupName": "Terraced housing",
    "layer": "tag-housing",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051ulx",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05tjpn",
+   "level": "lvbtc2a05r3j5",
    "name": "Terrace 6",
    "pts": [
     [
@@ -5196,14 +5263,14 @@
    "height": 3200,
    "taper": 1,
    "material": "plaster",
-   "group": "grpbsc9p051vde",
+   "group": "grpbtc2b05tkvy",
    "groupName": "Terraced housing",
    "layer": "tag-housing",
    "phase": "new"
   },
   {
-   "id": "vbsc9p051wra",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05tl6e",
+   "level": "lvbtc2a05r3j5",
    "name": "Plaza",
    "pts": [
     [
@@ -5231,8 +5298,8 @@
    "phase": "new"
   },
   {
-   "id": "vbsc9p051xtd",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05tm8a",
+   "level": "lvbtc2a05r3j5",
    "name": "Reflecting pool",
    "pts": [
     [
@@ -5260,8 +5327,8 @@
    "phase": "new"
   },
   {
-   "id": "vbsc9p051yp2",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2b05tns9",
+   "level": "lvbtc2a05r3j5",
    "name": "Lawn",
    "pts": [
     [
@@ -5289,8 +5356,8 @@
    "phase": "new"
   },
   {
-   "id": "vbsca2054rp3",
-   "level": "lvbsc9p04zefw",
+   "id": "vbtc2r05wgm7",
+   "level": "lvbtc2a05r3j5",
    "name": "Terrain",
    "material": "grass",
    "terrain": true,
@@ -38576,7 +38643,7 @@
  ],
  "scenes": [
   {
-   "id": "scbsca0054epi",
+   "id": "scbtc2p05w3xx",
    "name": "Aerial",
    "camera": {
     "pos": [
@@ -38596,7 +38663,7 @@
    "phase": "all"
   },
   {
-   "id": "scbsca0054fh9",
+   "id": "scbtc2p05w40z",
    "name": "Plaza view",
    "camera": {
     "pos": [
@@ -38616,7 +38683,7 @@
    "phase": "all"
   },
   {
-   "id": "scbsca0054g8t",
+   "id": "scbtc2p05w5cb",
    "name": "Tower from the park",
    "camera": {
     "pos": [
@@ -38636,7 +38703,7 @@
    "phase": "all"
   },
   {
-   "id": "scbsca0054h8q",
+   "id": "scbtc2p05w67x",
    "name": "White model",
    "camera": {
     "pos": [
@@ -38656,7 +38723,7 @@
    "phase": "all"
   },
   {
-   "id": "scbsca0054i5c",
+   "id": "scbtc2p05w7kc",
    "name": "Hidden line",
    "camera": {
     "pos": [
@@ -38676,7 +38743,7 @@
    "phase": "all"
   },
   {
-   "id": "scbsca0054j7a",
+   "id": "scbtc2p05w8fn",
    "name": "X-ray",
    "camera": {
     "pos": [
@@ -38696,7 +38763,7 @@
    "phase": "all"
   },
   {
-   "id": "scbsca1054kxw",
+   "id": "scbtc2q05w9q6",
    "name": "Section at 10 m",
    "camera": {
     "pos": [
@@ -38716,7 +38783,7 @@
    "phase": "all"
   },
   {
-   "id": "scbsca1054lb2",
+   "id": "scbtc2q05waag",
    "name": "Site plan",
    "camera": {
     "pos": [
@@ -38736,7 +38803,7 @@
    "phase": "all"
   },
   {
-   "id": "scbsca1054mru",
+   "id": "scbtc2q05wbx1",
    "name": "South elevation",
    "camera": {
     "pos": [
@@ -38756,7 +38823,7 @@
    "phase": "all"
   },
   {
-   "id": "scbsca1054nx4",
+   "id": "scbtc2q05wcap",
    "name": "Museum section",
    "camera": {
     "pos": [
@@ -38774,13 +38841,13 @@
    "style": "realistic",
    "section": null,
    "phase": "all",
-   "sectionPlane": "spbsca0054cxj",
+   "sectionPlane": "spbtc2p05w1u2",
    "hiddenTags": [
     "tag-street"
    ]
   },
   {
-   "id": "scbsca1054ovl",
+   "id": "scbtc2q05wdhu",
    "name": "Tower plan cut",
    "camera": {
     "pos": [
@@ -38798,10 +38865,10 @@
    "style": "realistic",
    "section": null,
    "phase": "all",
-   "sectionPlane": "spbsca0054du6"
+   "sectionPlane": "spbtc2p05w2uk"
   },
   {
-   "id": "scbsca1054pou",
+   "id": "scbtc2q05wec7",
    "name": "Massing only (tags off)",
    "camera": {
     "pos": [
@@ -38825,7 +38892,7 @@
    ]
   },
   {
-   "id": "scbsca1054qju",
+   "id": "scbtc2q05wfqy",
    "name": "Sketch style",
    "camera": {
     "pos": [
@@ -38857,7 +38924,7 @@
   }
  ],
  "view": {
-  "level": "lvbsc9p04zefw"
+  "level": "lvbtc2a05r3j5"
  },
  "materials": [
   {
@@ -38886,7 +38953,7 @@
  ],
  "components": [
   {
-   "id": "cdbsc9v053qu7",
+   "id": "cdbtc2h05vfk3",
    "name": "Kiosk",
    "mesh": {
     "v": [
@@ -39202,7 +39269,7 @@
    ]
   },
   {
-   "id": "cdbsc9y053xg5",
+   "id": "cdbtc2o05vmio",
    "name": "Bollard",
    "mesh": {
     "v": [
@@ -39532,7 +39599,7 @@
  ],
  "sections": [
   {
-   "id": "spbsca0054cxj",
+   "id": "spbtc2p05w1u2",
    "name": "Museum long section",
    "o": [
     0,
@@ -39547,7 +39614,7 @@
    "active": false
   },
   {
-   "id": "spbsca0054du6",
+   "id": "spbtc2p05w2uk",
    "name": "Tower plan cut",
    "o": [
     90000,
@@ -39564,7 +39631,7 @@
  ],
  "guides": [
   {
-   "id": "glbsca00548fg",
+   "id": "glbtc2p05vxti",
    "a": [
     0,
     30000,
@@ -39577,7 +39644,7 @@
    ]
   },
   {
-   "id": "glbsca005495k",
+   "id": "glbtc2p05vydv",
    "a": [
     42000,
     0,
@@ -39592,7 +39659,7 @@
  ],
  "dims3d": [
   {
-   "id": "d3bsca0054anx",
+   "id": "d3btc2p05vzdo",
    "a": [
     62000,
     12000,
@@ -39612,7 +39679,7 @@
  ],
  "texts3d": [
   {
-   "id": "t3bsca0054bw9",
+   "id": "t3btc2p05w0d2",
    "at": [
     90000,
     34000,
@@ -39626,13 +39693,15 @@
    ]
   }
  ],
+ "libraryItems": [],
  "slabTypes": [],
  "types": [],
  "designOptions": [],
+ "structures": [],
  "views": [],
  "sheets": [
   {
-   "id": "shbsca9054xlp",
+   "id": "shbtc2w05wm0v",
    "number": "A101",
    "name": "Floor plan — 1F",
    "paper": "A3",
@@ -39646,8 +39715,8 @@
    },
    "viewports": [
     {
-     "id": "vpbsca9054yvb",
-     "view": "pl-lvbsc9p04zefw",
+     "id": "vpbtc2w05wnoh",
+     "view": "pl-lvbtc2a05r3j5",
      "x": 0,
      "y": 0,
      "fit": true

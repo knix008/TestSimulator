@@ -503,5 +503,31 @@
       "angled walls",
       "canopy"
     ]
+  },
+  {
+    "file": "39-cafe-bistro.myarch",
+    "title": "Café-bistro",
+    "titleKo": "카페 비스트로",
+    "description": "A fully furnished corner bistro: a dining room with a marble-topped bar, espresso machine, café tables, booths and a high table under pendant lights; a working kitchen with a commercial range, prep table and French-door refrigerator; two toilets. Eye-level scenes of the dining room, bar and kitchen.",
+    "descriptionKo": "가구를 모두 갖춘 모퉁이 비스트로: 대리석 바와 에스프레소 머신, 카페 테이블·부스·하이 테이블과 펜던트 조명이 있는 홀, 업소용 레인지·작업대·양문형 냉장고가 있는 주방, 화장실 2개. 홀·바·주방 눈높이 장면.",
+    "tags": [
+      "1 level",
+      "restaurant",
+      "interior",
+      "furniture"
+    ]
+  },
+  {
+    "file": "40-penthouse.myarch",
+    "title": "Penthouse",
+    "titleKo": "펜트하우스",
+    "description": "A luxury penthouse that shows off the furniture library: open living with a corner sofa, media wall and grand piano; a kitchen with a waterfall island and dining for six; a master suite with an ensuite (freestanding bath, walk-in shower, wall-hung toilet); a study with an executive desk; an entrance hall. Eye-level scenes in every room.",
+    "descriptionKo": "가구 라이브러리를 보여 주는 고급 펜트하우스: 코너 소파·미디어 월·그랜드 피아노가 있는 거실, 워터폴 아일랜드와 6인 식탁이 있는 주방, 독립형 욕조·워크인 샤워·벽걸이 변기를 갖춘 욕실이 딸린 안방, 임원 책상이 놓인 서재, 현관. 방마다 눈높이 장면.",
+    "tags": [
+      "1 level",
+      "interior",
+      "luxury",
+      "furniture"
+    ]
   }
 ]

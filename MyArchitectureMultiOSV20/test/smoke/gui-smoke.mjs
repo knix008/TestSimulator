@@ -86,7 +86,7 @@ try {
 
   // ---------------------------------------------------------------- start-up
   sectionStart("Start-up");
-  await step("app boots, title set, welcome dialog shown", async () => app(`return !!app && document.title.includes("MyArchitecture") && !!document.querySelector(".modal")`));
+  await step("app boots, title set, tutorial popup shown on the start page", async () => { for (let i = 0; i < 60; i++) { if (await app(`return !!app && !!document.querySelector(".modal .tutorial-prompt")`).catch(() => false)) break; await sleep(150); } return app(`return !!app && document.title.includes("MyArchitecture") && !!document.querySelector(".modal .tutorial-prompt") && app.tab === "start"`); });
   await closeModals();
   await app(`app.settings.onboarded = true; app.setSetting("lang", "en"); return 1`);
   await step("start page lists every sample with a card", async () => { await sleep(400); const n = await app(`return document.querySelectorAll(".sample-card").length`); const idx = JSON.parse(fs.readFileSync(path.join(root, "sample/index.json"), "utf8")); return n === idx.length || fail(`${n} cards for ${idx.length} samples`); });
@@ -2104,16 +2104,35 @@ try {
     const okBars = r.bars.length === 3 && r.bars.every((b) => b.dec && b.inc && b.track && b.btnBeforeTrack);
     return (r.kinds === 21 && okBars && r.up === r.before + 5 && r.fill === `${r.before + 5}%` && r.back === r.before) || fail(r);
   });
-  await step("start-up popup: \"Keep opening at start-up\" is the same switch as Settings › General", async () => {
-    const before = await app(`return app.settings.welcomeAtStart !== false`);
-    await app(`app.run("help.tour"); return 1`); await waitFor(`document.querySelector(".welcome-again input")`);
-    const on = await app(`const b = document.querySelector(".welcome-again input"); const was = b.checked; b.click(); return [was, b.checked, app.settings.welcomeAtStart]`);
+  await step("start-up tutorial popup: \"Don't show again\" is the same setting as Settings › General and the start page switch", async () => {
+    await app(`app.settings.tutorialAtStart = true; app.saveSettings(); app.setTab("start"); return 1`); await sleep(300);
+    await app(`const d = await import("./src/ui/dialogs.js"); d.tutorialPrompt(app); return 1`); await waitFor(`document.querySelector(".tutorial-prompt .tp-again input")`);
+    const r1 = await app(`const b = document.querySelector(".tutorial-prompt .tp-again input"); const was = b.checked; b.click(); return [was, app.settings.tutorialAtStart, document.querySelector('[data-start-check="tutorial"]').checked, [...document.querySelectorAll(".modal-foot .btn")].map(x => x.textContent.trim())]`);
     await closeModals();
     await app(`app.run("tools.settings"); return 1`); await waitFor(`document.querySelector(".modal")`);
-    const inSettings = await app(`const lab = [...document.querySelectorAll(".modal label.check, .modal label")].find(l => l.textContent.includes(app.t("Show the popup at start-up"))); return lab ? lab.querySelector("input").checked : null`);
+    const inSettings = await app(`const lab = [...document.querySelectorAll(".modal label.check")].find(l => l.textContent.includes(app.t("Ask to start the tutorial at start-up"))); return lab ? lab.querySelector("input").checked : null`);
     await closeModals();
-    await app(`app.settings.welcomeAtStart = ${JSON.stringify(before)}; app.saveSettings(); return 1`);
-    return (on[0] === before && on[1] === !before && on[2] === !before && inSettings === !before) || fail({ before, on, inSettings });
+    await clickSel('[data-start-check="tutorial"]'); // the switch on the start page turns it back on
+    const back = await app(`return app.settings.tutorialAtStart`);
+    return (r1[0] === false && r1[1] === false && r1[2] === false && r1[3].length === 2 && inSettings === false && back === true) || fail({ r1, inSettings, back });
+  });
+  await step("start page: quick start and theme cards; a theme tile switches the theme and is marked", async () => {
+    const r = await app(`const was = app.settings.theme; app.setTab("start"); await new Promise((r) => setTimeout(r, 300));
+      const cards = [...document.querySelectorAll(".start-card")].map((c) => c.dataset.card);
+      const b = document.querySelector('[data-theme-pick="nord"]'); b.click();
+      const on = b.classList.contains("on") && app.settings.theme === "nord" && document.documentElement.dataset.themeId === "nord";
+      app.setSetting("theme", was);
+      return { cards, on, themes: document.querySelectorAll("[data-theme-pick]").length, actions: document.querySelectorAll('[data-card="actions"] .start-tile').length, dots: getComputedStyle(document.querySelector(".card-resize")).backgroundImage.split("radial-gradient").length - 1 }`);
+    const want = ["hero", "actions", "recent", "templates", "theme", "side", "samples"];
+    return (want.every((c) => r.cards.includes(c)) && r.on && r.themes >= 40 && r.actions >= 11 && r.dots === 6) || fail(r);
+  });
+  await step("새로 시작: six groups of nine tiles; a blank preset opens with its storeys and grid", async () => {
+    await app(`app.setTab("start"); return 1`); await sleep(300);
+    const g = await app(`return [...document.querySelectorAll('[data-card="templates"] .template-group')].map((s) => s.querySelectorAll(".template-tile").length)`);
+    await app(`app.store.dirty = false; return 1`);
+    await clickSel('[data-tile="office"]'); await sleep(600);
+    const p = await app(`const p = app.store.project; return [app.tab, p.levels.length, p.grids.length, p.defaults.wallHeight]`);
+    return (g.length === 6 && g.every((n) => n === 9) && p[0] === "plan" && p[1] === 4 && p[2] === 8 && p[3] === 3600) || fail({ g, p });
   });
   await step("right-click never shows the webview's own browser menu (Refresh, Inspect …), except in text fields", async () => {
     const r = await app(`const fire = (el) => { const e = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }); el.dispatchEvent(e); return e.defaultPrevented; };

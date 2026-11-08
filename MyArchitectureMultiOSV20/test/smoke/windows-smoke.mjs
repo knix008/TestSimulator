@@ -61,7 +61,10 @@ try {
   await app(`app.setSetting("lang", "en"); app.settings.onboarded = true; document.querySelectorAll(".modal-backdrop").forEach(e => e.remove()); return 1`);
   await app(`app.store.dirty = false; await app.openSample("03-two-storey-house.myarch"); app.setTab("plan"); return 1`);
   await sleep(800);
-  // Close any dialog the start-up opened (welcome …).
+  // The start-up tutorial popup opens a moment after the page (later on a cold
+  // start): wait for it, then close it — left open it is modal and every
+  // dialog below would sit behind it.
+  await waitWindows(1, 8000);
   await app(`for (const w of app.dialogWindows()) w.close(); return 1`); await waitGone(0);
 
   for (const [cmd, title] of DIALOGS) {

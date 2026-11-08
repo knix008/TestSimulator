@@ -104,9 +104,12 @@ function builder(title, meta = {}) {
 }
 
 const samples = [];
+// Props from the furniture library in every room (scripts/sample-dress.mjs).
+const { dress } = await import(pathToFileURL(path.join(root, "scripts/sample-dress.mjs")).href);
 function add(file, b, info) {
   const p = normalizeProject(b.p);
   p.view.level = p.levels[0].id;
+  dress(p, [...file].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7));
   const { docs, ...rest } = info;
   if (docs) documentation(p, docs);
   samples.push({ file, project: p, ...rest });
@@ -2305,6 +2308,146 @@ const flatRoof = (p, level, pts, overhang = 0) => p.roofs.push({ id: uid("f"), l
   b.dims(G); b.dims(U);
   p.scenes.push(sceneFor(p, "Approach", [0.2, 0.45, 1.3]), sceneFor(p, "Angled wing", [1.2, 0.8, -0.6]), sceneFor(p, "Gallery cut", [0.4, 1.3, 1], { section: 2500 }), sceneFor(p, "Line drawing", [-1, 0.9, 1], { style: "lines" }));
   add("38-museum.myarch", b, { docs: { scale: 200, elevScale: 200, tagRooms: false }, title: "Museum with an angled wing", titleKo: "사선 전시동이 있는 박물관", description: "A two-storey museum: a foyer with a grand stair behind a curved entrance canopy on round columns, eight galleries on two floors linked by wide openings, a museum shop, café, education room and offices, and a single-storey gallery wing set at an angle of about 37° to the main block, split by a partition between its slanted walls.", descriptionKo: "2층 박물관: 둥근 기둥이 받치는 곡선 캐노피 뒤 큰 계단이 있는 로비, 넓은 개구부로 이어진 두 층의 전시실 여덟 곳, 뮤지엄숍·카페·교육실·사무실, 본관과 약 37° 로 꺾여 붙은 단층 전시동(사선 벽 사이를 칸막이로 나눔).", tags: ["2 levels", "building", "culture", "angled walls", "canopy"] });
+}
+
+// ---------------------------------------------------------------- 39. café-bistro (fully furnished interior)
+// A corner bistro: an open dining room with a bar and espresso machine, café
+// tables, booths and a high table; a working kitchen with a commercial range;
+// two toilets. Realistic furniture and appliances from the library.
+{
+  const b = builder("Café-bistro", { client: "Sample", address: "Seoul, Seongsu-dong" });
+  const p = b.p;
+  const L = b.level(0);
+  p.levels[0].height = 3200;
+  const [n, e, s, w] = b.loop(L, [[0, 0], [16000, 0], [16000, 11000], [0, 11000]], 250);
+  const k = b.wall(L, [11000, 0], [11000, 11000], 150);
+  void b.wall(L, [11000, 6500], [16000, 6500], 150);
+  void b.wall(L, [11000, 8750], [16000, 8750], 120);
+  b.door(s, 10500, 1800, { type: "double", height: 2400 });
+  for (const at of [14000, 7000]) b.window(s, at, 2400, { sill: 300, height: 2100, type: "fixed" });
+  for (const x of [2500, 6000, 9000]) b.window(n, x, 1800, { sill: 700, height: 1700 });
+  for (const y of [3000, 6000]) b.window(w, 11000 - y, 1800, { sill: 700, height: 1700 });
+  b.window(e, 3000, 1200, { sill: 1000, height: 1000 });
+  b.window(e, 7600, 600, { sill: 1500, height: 600 });
+  b.window(e, 9850, 600, { sill: 1500, height: 600 });
+  b.door(k, 5000, 900, { type: "sliding" });
+  b.door(k, 7600, 800, { type: "sliding" });
+  b.door(k, 9900, 800, { type: "sliding" });
+  b.rooms(L, [[5000, 5000, "Restaurant", "oak"], [13500, 3000, "Kitchen", "tile-white"], [13500, 7600, "Toilet (men)", "tile-white"], [13500, 9850, "Toilet (women)", "tile-white"]]);
+  // The bar along the kitchen wall, its stools and the espresso machine on it.
+  b.furn(L, "barCounter", 10555, 2600, 270);
+  for (const y of [1700, 2600, 3500]) b.furn(L, "barStool", 9955, y, 270);
+  b.furn(L, "espresso", 10555, 1700, 270, { elevation: 1100 });
+  b.furn(L, "wineGlasses", 10555, 3400, 0, { elevation: 1100 });
+  // Café tables with two chairs each, booths by the west wall, a high table by the window.
+  for (const y of [2200, 5200]) for (const x of [1800, 4200, 6600]) { b.furn(L, "cafeSet", x, y, 0); b.lamp(L, "pendantGlobe", x, y); }
+  for (const x of [900, 2600]) { b.furn(L, "booth", x, 8200, 0); b.lamp(L, "pendantRattan", x, 8200); }
+  b.furn(L, "highTop", 8500, 8000, 0);
+  b.lamp(L, "pendantCluster", 8500, 8000);
+  b.furn(L, "plantPalm", 600, 5900); b.furn(L, "oliveTree", 9900, 10200);
+  b.furn(L, "wallClock", 5500, 150, 0);
+  // Kitchen: sink, worktop, range with hood, prep table, refrigerator.
+  b.furn(L, "sinkCounter", 11900, 425, 0);
+  b.furn(L, "counter", 13450, 425, 0, { w: 1800 });
+  b.furn(L, "range", 15200, 525, 0);
+  b.furn(L, "prepTable", 13500, 3200, 0);
+  b.furn(L, "fridgeFrench", 15500, 5000, 270);
+  b.lamp(L, "panelLight", 12500, 3000); b.lamp(L, "panelLight", 14500, 3000);
+  // Toilets.
+  b.furn(L, "toilet", 15575, 7625, 270); b.furn(L, "washbasin", 13000, 6800, 0);
+  b.furn(L, "toilet", 15575, 9850, 270); b.furn(L, "washbasin", 13000, 10650, 180);
+  b.lamp(L, "downlight", 13500, 7600); b.lamp(L, "downlight", 13500, 9850);
+  b.dims(L);
+  b.roof(L, "flat", 0, 300);
+  bimElements(b, { ceilings: /Restaurant|Kitchen/ });
+  const eye = (name, pos, target) => ({ id: uid("sc"), name, camera: { pos, target, ortho: false }, style: "realistic", section: null, phase: "all" });
+  p.scenes.push(sceneFor(p, "Overview", [0.8, 1.2, 1]), eye("Dining room", [1.2, 1.6, 10.2], [7.5, 1.1, 3]), eye("Bar", [6.5, 1.6, 4], [10.5, 1.2, 2.2]), eye("Kitchen", [12, 1.7, 5.6], [15, 1.1, 1]));
+  add("39-cafe-bistro.myarch", b, { docs: { scale: 100 }, title: "Café-bistro", titleKo: "카페 비스트로", description: "A fully furnished corner bistro: a dining room with a marble-topped bar, espresso machine, café tables, booths and a high table under pendant lights; a working kitchen with a commercial range, prep table and French-door refrigerator; two toilets. Eye-level scenes of the dining room, bar and kitchen.", descriptionKo: "가구를 모두 갖춘 모퉁이 비스트로: 대리석 바와 에스프레소 머신, 카페 테이블·부스·하이 테이블과 펜던트 조명이 있는 홀, 업소용 레인지·작업대·양문형 냉장고가 있는 주방, 화장실 2개. 홀·바·주방 눈높이 장면.", tags: ["1 level", "restaurant", "interior", "furniture"] });
+}
+
+// ---------------------------------------------------------------- 40. penthouse (interior showcase)
+// A luxury penthouse: open living with a corner sofa, media wall and grand
+// piano; a kitchen with a waterfall island and dining for six; a master
+// suite with an ensuite (freestanding bath, walk-in shower); a study; an
+// entrance hall. Shows the realistic furniture, appliances and electronics.
+{
+  const b = builder("Penthouse", { client: "Sample", address: "Seoul, Hannam-dong" });
+  const p = b.p;
+  const L = b.level(0);
+  p.levels[0].height = 3000;
+  const [n, e, s, w] = b.loop(L, [[0, 0], [20000, 0], [20000, 14000], [0, 14000]], 250);
+  const mid = b.wall(L, [0, 8000], [20000, 8000], 150);
+  const lk = b.wall(L, [12000, 0], [12000, 8000], 150);
+  const m1 = b.wall(L, [7000, 8000], [7000, 14000], 150);
+  void b.wall(L, [10500, 8000], [10500, 14000], 150);
+  void b.wall(L, [14500, 8000], [14500, 14000], 150);
+  b.door(lk, 5000, 3000, { kind: "opening", type: "none", height: 2600 });
+  b.door(mid, 5500, 900, { type: "sliding" });
+  b.door(mid, 12500, 900, { type: "sliding" });
+  b.door(mid, 17000, 1800, { kind: "opening", type: "none", height: 2400 });
+  b.door(m1, 3000, 800, { type: "sliding" });
+  b.door(e, 11000, 1000, { height: 2400 });
+  for (const at of [2000, 6000, 10000]) b.window(n, at, 2400, { sill: 200, height: 2400, type: "fixed" });
+  for (const at of [13000, 19000]) b.window(n, at, 1200, { sill: 1000, height: 1400 });
+  b.window(w, 10000, 2400, { sill: 200, height: 2400, type: "fixed" });
+  b.window(w, 3000, 1800, { sill: 600, height: 1800 });
+  b.window(s, 16500, 2000, { sill: 600, height: 1800 });
+  b.window(s, 11250, 900, { sill: 1500, height: 800 });
+  b.window(s, 7500, 1800, { sill: 700, height: 1700 });
+  b.window(e, 4000, 1800, { sill: 900, height: 1400 });
+  b.rooms(L, [[6000, 4000, "Living room", "oak"], [16000, 4000, "Kitchen and dining", "marble"], [3500, 11000, "Master bedroom", "oak"], [8750, 11000, "Ensuite", "tile-white"], [12500, 11000, "Study", "carpet"], [17250, 11000, "Hall", "marble"]]);
+  // Living: corner sofa facing the media wall, marble coffee table on a rug, armchair, grand piano, sideboard.
+  b.furn(L, "sectionalCream", 3000, 3800, 0);
+  b.furn(L, "mediaWall", 3000, 7700, 180);
+  b.furn(L, "rugPattern", 3000, 5500, 0);
+  b.furn(L, "coffeeMarble", 3000, 5700, 0);
+  b.furn(L, "armchairVelvet", 5300, 5600, 270);
+  b.furn(L, "grandPiano", 9500, 3000, 0);
+  b.furn(L, "sideboard", 11700, 1800, 270);
+  b.furn(L, "smartSpeaker", 11700, 1300, 270, { elevation: 800 });
+  b.lamp(L, "floorLamp", 5000, 3000);
+  b.lamp(L, "chandelierCrystal", 3000, 5000);
+  // Kitchen and dining.
+  b.furn(L, "counterCharcoal", 16000, 425, 0, { w: 3600 });
+  b.furn(L, "fridgeFrench", 19505, 1600, 270);
+  b.furn(L, "islandWaterfall", 16000, 3200, 0);
+  for (const x of [15200, 16000, 16800]) b.furn(L, "barStoolBlack", x, 4000, 180);
+  b.furn(L, "diningOval", 16000, 6100, 0);
+  for (const x of [15400, 16600]) { b.furn(L, "chairUpholsteredGrey", x, 5275, 0); b.furn(L, "chairUpholsteredGrey", x, 6925, 180); }
+  b.furn(L, "chairUpholsteredGrey", 14700, 6100, 270); b.furn(L, "chairUpholsteredGrey", 17300, 6100, 90);
+  b.lamp(L, "pendantLinear", 16000, 6100);
+  for (const x of [15200, 16800]) b.lamp(L, "pendantGlobe", x, 3200);
+  // Master bedroom.
+  b.furn(L, "bedWing", 1250, 11000, 90);
+  for (const y of [9800, 12200]) { b.furn(L, "nightstandWalnut", 325, y, 90); }
+  b.furn(L, "wardrobeSliding", 6600, 12700, 270);
+  b.lamp(L, "ceilingFan", 3700, 11000);
+  // Ensuite.
+  b.furn(L, "vanity2", 8750, 8350, 0);
+  b.furn(L, "bathFreestanding", 8750, 13400, 0);
+  b.furn(L, "toiletWallHung", 10155, 11000, 270);
+  b.furn(L, "showerWalkIn", 7525, 12200, 90);
+  b.lamp(L, "downlight", 8750, 10000); b.lamp(L, "downlight", 8750, 12500);
+  // Study: executive desk with a monitor, chair, bookcases.
+  b.furn(L, "executiveDesk", 12500, 10500, 0);
+  b.furn(L, "executiveChair", 12500, 11500, 180);
+  b.furn(L, "monitor", 12000, 10250, 0, { elevation: 760 });
+  b.furn(L, "keyboardMouse", 12100, 10650, 0, { elevation: 760 });
+  for (const x of [11500, 13500]) b.furn(L, "officeBookcase", x, 13675, 180);
+  b.lamp(L, "pendantLamp", 12500, 10500);
+  // Hall.
+  b.furn(L, "consoleTable", 17000, 13700, 180);
+  b.furn(L, "coatStand", 19400, 13400, 0);
+  b.furn(L, "shoeRack", 19725, 9000, 270);
+  b.furn(L, "runner", 18200, 11000, 90);
+  b.furn(L, "personWoman", 16500, 11000, 300);
+  b.lamp(L, "pendantGlobe", 17250, 11000);
+  b.dims(L);
+  b.roof(L, "flat", 0, 300);
+  bimElements(b, { ceilings: /Living|Kitchen|bedroom|Study|Hall|Ensuite/ });
+  const eye = (name, pos, target) => ({ id: uid("sc"), name, camera: { pos, target, ortho: false }, style: "realistic", section: null, phase: "all" });
+  p.scenes.push(sceneFor(p, "Overview", [0.8, 1.2, 1]), eye("Living room", [7.6, 1.6, 6.6], [2.5, 1, 3]), eye("Kitchen and dining", [13, 1.6, 7.4], [17.5, 1, 2.5]), eye("Master bedroom", [5.8, 1.6, 13.4], [1.5, 0.8, 10.5]), eye("Study", [13.8, 1.6, 13.4], [12, 1, 9.5]));
+  add("40-penthouse.myarch", b, { docs: { scale: 100 }, title: "Penthouse", titleKo: "펜트하우스", description: "A luxury penthouse that shows off the furniture library: open living with a corner sofa, media wall and grand piano; a kitchen with a waterfall island and dining for six; a master suite with an ensuite (freestanding bath, walk-in shower, wall-hung toilet); a study with an executive desk; an entrance hall. Eye-level scenes in every room.", descriptionKo: "가구 라이브러리를 보여 주는 고급 펜트하우스: 코너 소파·미디어 월·그랜드 피아노가 있는 거실, 워터폴 아일랜드와 6인 식탁이 있는 주방, 독립형 욕조·워크인 샤워·벽걸이 변기를 갖춘 욕실이 딸린 안방, 임원 책상이 놓인 서재, 현관. 방마다 눈높이 장면.", tags: ["1 level", "interior", "luxury", "furniture"] });
 }
 
 // ---------------------------------------------------------------- verify and write

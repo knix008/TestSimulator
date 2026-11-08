@@ -309,7 +309,11 @@ export class PlanEditor {
     if (type === "leave") { this.hover = null; this.request(); return; }
     if (type === "context") return this.contextMenuAt(e, x, y);
     if (type === "dblclick") return this.dblclick(x, y, e);
-    if (type === "move") this.app.updateStatus();
+    if (type === "move") {
+      this.app.updateStatus();
+      // The red cursor lines on the rulers follow the pointer whatever the tool redraws.
+      if (this.app.settings.showRulers !== false) this.request();
+    }
     const tool = this.tool;
     if (tool === "select") return this.pointerSelect(type, e, x, y);
     if (tool === "wall" || tool === "line" || tool === "curtainWall") return this.pointerChain(type, e, x, y);
@@ -974,6 +978,7 @@ export class PlanEditor {
       }
       if (h.kind === "solids") items.push({ label: t("Mass to building…"), icon: "skMassBuild", action: () => this.app.run("sk.massToBuilding") });
       if (h.kind === "openings") items.push({ label: t("Flip swing side"), icon: "flip", shortcut: "X", action: () => this.flipSelected("side") }, { label: t("Swap hinge"), icon: "mirror", shortcut: "H", action: () => this.flipSelected("hinge") });
+      if (h.kind === "furniture" && h.obj.kind !== "component") items.push({ label: t("Register in my library…"), icon: "libraryAdd", action: () => this.app.run("furniture.register") });
       items.push({ label: t("Select similar"), icon: "select", action: () => this.selectSimilar() }, { label: t("BIM properties…"), icon: "bim", action: () => this.app.run("build.bimProps") });
       items.push(...elementMenuItems(this.app, h)); // types, openings, beam systems, arrays …
       items.push("-", { label: t("Rotate"), icon: "rotate", shortcut: "R", action: () => this.rotate(90) },
@@ -1214,7 +1219,7 @@ export class PlanEditor {
     const th = this.theme;
     const units = this.app.settings.units || "mm";
     const per = units === "m" ? 0.001 : units === "cm" ? 0.1 : units === "ft" ? 1 / 304.8 : 1;
-    vp.drawRulers(ctx, { toDisplay: (v) => v * per, unit: units, bg: th.ruler, fg: th.text, accent: "#ff9f43" });
+    vp.drawRulers(ctx, { toDisplay: (v) => v * per, unit: units, bg: th.ruler, fg: th.text, accent: "#ff9f43", cursor: "#e5322d" });
   }
 }
 

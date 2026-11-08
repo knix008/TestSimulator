@@ -217,6 +217,22 @@ const P = {
   skGuide: '<path d="M2 20L22 4" stroke-dasharray="3 2"/><circle cx="12" cy="12" r="2"/>',
   skOutliner: '<path d="M4 5h4M8 5v14M8 10h4M8 15h4M8 19h4"/><rect x="13" y="8" width="7" height="4" rx="1"/><rect x="13" y="13" width="7" height="4" rx="1"/>',
   skStyle: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="16" cy="8" r="1.5"/>',
+  // furniture library
+  star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+  starFill: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" fill="currentColor"/>',
+  libraryAdd: '<path d="M4 4h4v16H4zM10 4h4v9"/><path d="M18 14v7M14.5 17.5h7"/>',
+  userLib: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/><path d="M18 3l1 2 2 .3-1.5 1.4.4 2-1.9-1-1.9 1 .4-2L15 5.3l2-.3z" stroke-width="1.2"/>',
+  catKids: '<rect x="3" y="12" width="7" height="7" rx="1"/><rect x="14" y="12" width="7" height="7" rx="1"/><rect x="8.5" y="4" width="7" height="7" rx="1"/>',
+  catDecor: '<path d="M9 3h6M10 3v3c-3 1.5-4 4-4 7a6 6 0 0 0 12 0c0-3-1-5.5-4-7V3"/>',
+  catPlant: '<path d="M7 15h10l-1.5 6h-7z"/><path d="M12 15V9"/><path d="M12 10c0-3 2-5 6-5 0 3-2 5-6 5zM12 12c0-2.5-1.8-4.5-5.5-4.5 0 2.6 1.8 4.5 5.5 4.5z"/>',
+  catTv: '<rect x="2" y="5" width="20" height="13" rx="2"/><path d="M8 21h8M12 18v3"/>',
+  catCar: '<path d="M3 15v-3l2-5h14l2 5v3"/><path d="M3 15h18v3H3z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/><path d="M5 12h14"/>',
+  catPerson: '<circle cx="12" cy="5" r="2.5"/><path d="M8 22l1-8-2-1 1-5h8l1 5-2 1 1 8"/>',
+  catOffice: '<rect x="3" y="4" width="18" height="11" rx="1.5"/><path d="M9 20h6M12 15v5"/>',
+  catOther: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>',
+  catAll: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  viewTiles: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>',
+  viewRows: '<rect x="3" y="4" width="5" height="5" rx="1"/><path d="M11 6.5h10"/><rect x="3" y="15" width="5" height="5" rx="1"/><path d="M11 17.5h10"/>',
 };
 
 export function icon(name, size = 18, extraClass = "") {

@@ -8,7 +8,7 @@
   "client": "Sample",
   "address": "Gangwon",
   "rev": "A",
-  "date": "2026-10-11",
+  "date": "2026-11-08",
   "comment": "",
   "scale": 100,
   "north": 0,
@@ -31,7 +31,7 @@
  },
  "levels": [
   {
-   "id": "lvbsc6p00894p",
+   "id": "lvbtbv10092sy",
    "name": "1F",
    "elevation": 0,
    "height": 2800,
@@ -189,7 +189,8 @@
   "beam": 180000,
   "railing": 150000,
   "ramp": 2000000,
-  "curtainWall": 650000
+  "curtainWall": 650000,
+  "member": 4500000
  },
  "layers": [
   {
@@ -201,8 +202,8 @@
  ],
  "walls": [
   {
-   "id": "wbsc6p008auv",
-   "level": "lvbsc6p00894p",
+   "id": "wbtbv10093ue",
+   "level": "lvbtbv10092sy",
    "x1": 0,
    "y1": 0,
    "x2": 6000,
@@ -213,8 +214,8 @@
    "phase": "new"
   },
   {
-   "id": "wbsc6p008b2o",
-   "level": "lvbsc6p00894p",
+   "id": "wbtbv10094g0",
+   "level": "lvbtbv10092sy",
    "x1": 6000,
    "y1": 0,
    "x2": 6000,
@@ -225,8 +226,8 @@
    "phase": "new"
   },
   {
-   "id": "wbsc6p008ctg",
-   "level": "lvbsc6p00894p",
+   "id": "wbtbv10095wv",
+   "level": "lvbtbv10092sy",
    "x1": 6000,
    "y1": 4500,
    "x2": 0,
@@ -237,8 +238,8 @@
    "phase": "new"
   },
   {
-   "id": "wbsc6p008d42",
-   "level": "lvbsc6p00894p",
+   "id": "wbtbv10096m6",
+   "level": "lvbtbv10092sy",
    "x1": 0,
    "y1": 4500,
    "x2": 0,
@@ -249,8 +250,8 @@
    "phase": "new"
   },
   {
-   "id": "wbsc6p008e78",
-   "level": "lvbsc6p00894p",
+   "id": "wbtbv100975u",
+   "level": "lvbtbv10092sy",
    "x1": 4000,
    "y1": 2500,
    "x2": 6000,
@@ -261,8 +262,8 @@
    "phase": "new"
   },
   {
-   "id": "wbsc6p008f37",
-   "level": "lvbsc6p00894p",
+   "id": "wbtbv10098lu",
+   "level": "lvbtbv10092sy",
    "x1": 4000,
    "y1": 2500,
    "x2": 4000,
@@ -275,8 +276,8 @@
  ],
  "openings": [
   {
-   "id": "obsc6p008g7s",
-   "wall": "wbsc6p008ctg",
+   "id": "obtbv10099ue",
+   "wall": "wbtbv10095wv",
    "kind": "window",
    "type": "sliding",
    "at": 2000,
@@ -288,8 +289,8 @@
    "phase": "new"
   },
   {
-   "id": "obsc6p008h0r",
-   "wall": "wbsc6p008d42",
+   "id": "obtbv1009an6",
+   "wall": "wbtbv10096m6",
    "kind": "window",
    "type": "casement",
    "at": 2200,
@@ -301,8 +302,8 @@
    "phase": "new"
   },
   {
-   "id": "obsc6p008ie0",
-   "wall": "wbsc6p008auv",
+   "id": "obtbv1009bia",
+   "wall": "wbtbv10093ue",
    "kind": "window",
    "type": "casement",
    "at": 2000,
@@ -314,8 +315,8 @@
    "phase": "new"
   },
   {
-   "id": "obsc6p008jrx",
-   "wall": "wbsc6p008b2o",
+   "id": "obtbv1009cqc",
+   "wall": "wbtbv10094g0",
    "kind": "window",
    "type": "casement",
    "at": 1200,
@@ -327,8 +328,8 @@
    "phase": "new"
   },
   {
-   "id": "obsc6p008ks4",
-   "wall": "wbsc6p008auv",
+   "id": "obtbv1009d09",
+   "wall": "wbtbv10093ue",
    "kind": "door",
    "type": "single",
    "at": 4800,
@@ -340,8 +341,8 @@
    "phase": "new"
   },
   {
-   "id": "obsc6p008li9",
-   "wall": "wbsc6p008f37",
+   "id": "obtbv1009el2",
+   "wall": "wbtbv10098lu",
    "kind": "door",
    "type": "single",
    "at": 1000,
@@ -355,8 +356,8 @@
  ],
  "rooms": [
   {
-   "id": "rbsc6p008mi5",
-   "level": "lvbsc6p00894p",
+   "id": "rbtbv1009f86",
+   "level": "lvbtbv10092sy",
    "name": "Living room",
    "pts": [
     [
@@ -388,8 +389,8 @@
    "phase": "new"
   },
   {
-   "id": "rbsc6p008nes",
-   "level": "lvbsc6p00894p",
+   "id": "rbtbv1009gko",
+   "level": "lvbtbv10092sy",
    "name": "Bathroom",
    "pts": [
     [
@@ -417,8 +418,8 @@
  "stairs": [],
  "furniture": [
   {
-   "id": "ubsc6p008oqb",
-   "level": "lvbsc6p00894p",
+   "id": "ubtbv1009hx6",
+   "level": "lvbtbv10092sy",
    "kind": "sofa2",
    "x": 1700,
    "y": 3800,
@@ -431,8 +432,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc6p008ps7",
-   "level": "lvbsc6p00894p",
+   "id": "ubtbv1009ifj",
+   "level": "lvbtbv10092sy",
    "kind": "armchair",
    "x": 500,
    "y": 2600,
@@ -445,8 +446,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc6p008q7f",
-   "level": "lvbsc6p00894p",
+   "id": "ubtbv1009j85",
+   "level": "lvbtbv10092sy",
    "kind": "singleBed",
    "x": 4300,
    "y": 1100,
@@ -459,8 +460,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc6p008r6j",
-   "level": "lvbsc6p00894p",
+   "id": "ubtbv1009k6f",
+   "level": "lvbtbv10092sy",
    "kind": "counter",
    "x": 1600,
    "y": 400,
@@ -473,8 +474,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc6p008sqo",
-   "level": "lvbsc6p00894p",
+   "id": "ubtbv1009ljg",
+   "level": "lvbtbv10092sy",
    "kind": "toilet",
    "x": 5550,
    "y": 4100,
@@ -487,8 +488,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc6p008tln",
-   "level": "lvbsc6p00894p",
+   "id": "ubtbv1009mq6",
+   "level": "lvbtbv10092sy",
    "kind": "shower",
    "x": 5450,
    "y": 3000,
@@ -501,8 +502,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc6p008u0u",
-   "level": "lvbsc6p00894p",
+   "id": "ubtbv1009nx2",
+   "level": "lvbtbv10092sy",
    "kind": "tree",
    "x": -2500,
    "y": -1500,
@@ -515,8 +516,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc6p008vno",
-   "level": "lvbsc6p00894p",
+   "id": "ubtbv1009ofc",
+   "level": "lvbtbv10092sy",
    "kind": "tree",
    "x": 8500,
    "y": 6000,
@@ -529,8 +530,8 @@
    "phase": "new"
   },
   {
-   "id": "ubsc6p008wew",
-   "level": "lvbsc6p00894p",
+   "id": "ubtbv1009pw2",
+   "level": "lvbtbv10092sy",
    "kind": "bench",
    "x": 3000,
    "y": 5600,
@@ -541,12 +542,38 @@
    "elevation": 0,
    "color": null,
    "phase": "new"
+  },
+  {
+   "id": "ubtbv100a0zu",
+   "kind": "riceCooker",
+   "x": 1511.5962332487106,
+   "y": 460,
+   "rot": 0,
+   "w": 260,
+   "d": 340,
+   "h": 260,
+   "elevation": 900,
+   "color": null,
+   "level": "lvbtbv10092sy"
+  },
+  {
+   "id": "ubtbv100a125",
+   "kind": "knifeBlock",
+   "x": 1157.910628109239,
+   "y": 520,
+   "rot": 0,
+   "w": 150,
+   "d": 220,
+   "h": 330,
+   "elevation": 900,
+   "color": null,
+   "level": "lvbtbv10092sy"
   }
  ],
  "roofs": [
   {
-   "id": "fbsc6p008x0d",
-   "level": "lvbsc6p00894p",
+   "id": "fbtbv1009qao",
+   "level": "lvbtbv10092sy",
    "pts": [
     [
      6100,
@@ -575,8 +602,8 @@
  ],
  "dimensions": [
   {
-   "id": "kbsc6p008yhd",
-   "level": "lvbsc6p00894p",
+   "id": "kbtbv1009r87",
+   "level": "lvbtbv10092sy",
    "x1": 0,
    "y1": 0,
    "x2": 6000,
@@ -586,8 +613,8 @@
    "phase": "new"
   },
   {
-   "id": "kbsc6p008ztb",
-   "level": "lvbsc6p00894p",
+   "id": "kbtbv1009s0h",
+   "level": "lvbtbv10092sy",
    "x1": 0,
    "y1": 4500,
    "x2": 0,
@@ -606,19 +633,22 @@
  "railings": [],
  "ramps": [],
  "shafts": [],
+ "members": [],
  "models": [],
  "solids": [],
  "scenes": [],
  "view": {
-  "level": "lvbsc6p00894p"
+  "level": "lvbtbv10092sy"
  },
+ "libraryItems": [],
  "slabTypes": [],
  "types": [],
  "designOptions": [],
+ "structures": [],
  "views": [],
  "sheets": [
   {
-   "id": "shbsc6q0095yc",
+   "id": "shbtbv1009yjx",
    "number": "A101",
    "name": "Floor plan — 1F",
    "paper": "A3",
@@ -632,8 +662,8 @@
    },
    "viewports": [
     {
-     "id": "vpbsc6q0096sd",
-     "view": "pl-lvbsc6p00894p",
+     "id": "vpbtbv1009za1",
+     "view": "pl-lvbtbv10092sy",
      "x": 0,
      "y": 0,
      "fit": true

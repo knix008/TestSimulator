@@ -13,9 +13,9 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCES = [
-  { md: "UsersGuide.md", out: "docs/USERSGUIDE.ko.html", lang: "ko", title: "MyArchitecture 10.0 사용 설명서", tab: "사용 설명서 — MyArchitecture 10.0", sub: "사용 설명서", filter: "목차 검색…", foot: "MyArchitecture 10.0 사용 설명서 · 프로그램의 실제 동작을 기준으로 작성되었고, 그림은 실제 실행 화면입니다.",
+  { md: "UsersGuide.md", out: "docs/USERSGUIDE.ko.html", lang: "ko", title: "MyArchitecture 1.0.2 사용 설명서", tab: "사용 설명서 — MyArchitecture 1.0.2", sub: "사용 설명서", filter: "목차 검색…", foot: "MyArchitecture 1.0.2 사용 설명서 · 프로그램의 실제 동작을 기준으로 작성되었고, 그림은 실제 실행 화면입니다.",
     ui: { lang: "언어", size: "글자 크기", smaller: "글자 작게", larger: "글자 크게", min: "최소화", max: "최대화", restore: "이전 크기로", close: "닫기" } },
-  { md: "docs/UsersGuide.en.md", out: "docs/USERSGUIDE.en.html", lang: "en", title: "MyArchitecture 10.0 User's Guide", tab: "User manual — MyArchitecture 10.0", sub: "User's guide", filter: "Filter contents…", foot: "MyArchitecture 10.0 User's Guide · written against the program's actual behaviour; the pictures are real screenshots.",
+  { md: "docs/UsersGuide.en.md", out: "docs/USERSGUIDE.en.html", lang: "en", title: "MyArchitecture 1.0.2 User's Guide", tab: "User manual — MyArchitecture 1.0.2", sub: "User's guide", filter: "Filter contents…", foot: "MyArchitecture 1.0.2 User's Guide · written against the program's actual behaviour; the pictures are real screenshots.",
     ui: { lang: "Language", size: "Text size", smaller: "Smaller text", larger: "Larger text", min: "Minimize", max: "Maximize", restore: "Restore", close: "Close" } },
 ];
 // The language switch in the sidebar: [lang, label, page].
@@ -375,7 +375,7 @@ function page(src, body, toc, title) {
 </head>
 <body>
 <div class="manual-bar" id="manual-bar" role="toolbar" data-restore="${esc(src.ui.restore)}">
-  <div class="bar-title"><img src="../assets/icon.png" alt=""><b>${esc(src.sub)}</b><span>— MyArchitecture 10.0</span></div>
+  <div class="bar-title"><img src="../assets/icon.png" alt=""><b>${esc(src.sub)}</b><span>— MyArchitecture 1.0.2</span></div>
   <div class="group"><span class="label">${esc(src.ui.lang)}</span>
     <div class="seg" role="group" aria-label="${esc(src.ui.lang)}">${LANGS.map(([l, label, file]) => (l === src.lang ? `<button type="button" class="on" aria-pressed="true" lang="${l}">${label}</button>` : `<button type="button" aria-pressed="false" lang="${l}" data-href="${file}">${label}</button>`)).join("")}</div></div>
   <span class="divider"></span>
@@ -385,13 +385,13 @@ function page(src, body, toc, title) {
 </div>
 <div class="layout">
 <nav class="toc" id="toc">
-  <div class="brand"><img src="../assets/icon.png" alt="">MyArchitecture 10.0</div>
+  <div class="brand"><img src="../assets/icon.png" alt="">MyArchitecture 1.0.2</div>
   <div class="sub">${esc(src.sub)}</div>
   <input id="toc-filter" type="search" placeholder="${esc(src.filter)}" autocomplete="off">
   <ol>${nav}</ol>
 </nav>
 <main id="top">
-<header class="cover"><img src="../assets/icon.png" alt=""><div><h1>${esc(title || src.title)}</h1><p>${esc(src.sub)} · MyArchitecture 10.0</p></div></header>
+<header class="cover"><img src="../assets/icon.png" alt=""><div><h1>${esc(title || src.title)}</h1><p>${esc(src.sub)} · MyArchitecture 1.0.2</p></div></header>
 ${body}
 <footer>${esc(src.foot)}</footer>
 </main>

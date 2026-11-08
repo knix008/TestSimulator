@@ -1,0 +1,2231 @@
+{
+ "format": "myarch",
+ "version": 1,
+ "meta": {
+  "title": "Café-bistro",
+  "author": "SHKWON",
+  "company": "MyArchitecture",
+  "client": "Sample",
+  "address": "Seoul, Seongsu-dong",
+  "rev": "A",
+  "date": "2026-11-08",
+  "comment": "",
+  "scale": 100,
+  "north": 0,
+  "latitude": 37.57,
+  "longitude": 126.98,
+  "timezone": 9
+ },
+ "defaults": {
+  "wallThickness": 200,
+  "wallHeight": 2800,
+  "doorWidth": 900,
+  "doorHeight": 2100,
+  "windowWidth": 1200,
+  "windowHeight": 1200,
+  "windowSill": 900,
+  "slab": 200,
+  "columnSize": 400,
+  "stairWidth": 1000,
+  "textSize": 300
+ },
+ "levels": [
+  {
+   "id": "lvccynn0pf9dd",
+   "name": "1F",
+   "elevation": 0,
+   "height": 3200,
+   "slab": 200
+  }
+ ],
+ "wallTypes": [
+  {
+   "id": "ext-brick-300",
+   "name": "Exterior brick cavity 300",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "brick",
+     "thickness": 100,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 80,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 100,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-render-250",
+   "name": "Exterior rendered 250",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 60,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-wood-200",
+   "name": "Exterior timber frame 200",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "wood-cladding",
+     "thickness": 25,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 25,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-block-150",
+   "name": "Interior block 150",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    },
+    {
+     "material": "concrete",
+     "thickness": 120,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-drywall-100",
+   "name": "Interior drywall 100",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 74,
+     "function": "structure"
+    },
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "concrete-200",
+   "name": "Concrete 200",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "concrete",
+     "thickness": 200,
+     "function": "structure"
+    }
+   ]
+  }
+ ],
+ "grids": [],
+ "costs": {
+  "currency": "KRW",
+  "wall": 120000,
+  "floor": 80000,
+  "roof": 150000,
+  "door": 450000,
+  "window": 380000,
+  "opening": 100000,
+  "stair": 2500000,
+  "column": 300000,
+  "furniture": 0,
+  "slab": 90000,
+  "ceiling": 45000,
+  "beam": 180000,
+  "railing": 150000,
+  "ramp": 2000000,
+  "curtainWall": 650000,
+  "member": 4500000
+ },
+ "layers": [
+  {
+   "id": "0",
+   "name": "0",
+   "color": "#9aa4b5",
+   "visible": true
+  }
+ ],
+ "walls": [
+  {
+   "id": "wccynn0pfarx",
+   "level": "lvccynn0pf9dd",
+   "x1": 0,
+   "y1": 0,
+   "x2": 16000,
+   "y2": 0,
+   "thickness": 250,
+   "height": null,
+   "phase": "new"
+  },
+  {
+   "id": "wccynn0pfb8a",
+   "level": "lvccynn0pf9dd",
+   "x1": 16000,
+   "y1": 0,
+   "x2": 16000,
+   "y2": 11000,
+   "thickness": 250,
+   "height": null,
+   "phase": "new"
+  },
+  {
+   "id": "wccynn0pfclz",
+   "level": "lvccynn0pf9dd",
+   "x1": 16000,
+   "y1": 11000,
+   "x2": 0,
+   "y2": 11000,
+   "thickness": 250,
+   "height": null,
+   "phase": "new"
+  },
+  {
+   "id": "wccynn0pfdea",
+   "level": "lvccynn0pf9dd",
+   "x1": 0,
+   "y1": 11000,
+   "x2": 0,
+   "y2": 0,
+   "thickness": 250,
+   "height": null,
+   "phase": "new"
+  },
+  {
+   "id": "wccynn0pfezw",
+   "level": "lvccynn0pf9dd",
+   "x1": 11000,
+   "y1": 0,
+   "x2": 11000,
+   "y2": 11000,
+   "thickness": 150,
+   "height": null,
+   "phase": "new"
+  },
+  {
+   "id": "wccynn0pffw5",
+   "level": "lvccynn0pf9dd",
+   "x1": 11000,
+   "y1": 6500,
+   "x2": 16000,
+   "y2": 6500,
+   "thickness": 150,
+   "height": null,
+   "phase": "new"
+  },
+  {
+   "id": "wccynn0pfgny",
+   "level": "lvccynn0pf9dd",
+   "x1": 11000,
+   "y1": 8750,
+   "x2": 16000,
+   "y2": 8750,
+   "thickness": 120,
+   "height": null,
+   "phase": "new"
+  }
+ ],
+ "openings": [
+  {
+   "id": "occynn0pfh3a",
+   "wall": "wccynn0pfclz",
+   "kind": "door",
+   "type": "double",
+   "at": 10500,
+   "width": 1800,
+   "height": 2400,
+   "sill": 0,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pfi69",
+   "wall": "wccynn0pfclz",
+   "kind": "window",
+   "type": "fixed",
+   "at": 14000,
+   "width": 2400,
+   "height": 2100,
+   "sill": 300,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pfjo8",
+   "wall": "wccynn0pfclz",
+   "kind": "window",
+   "type": "fixed",
+   "at": 7000,
+   "width": 2400,
+   "height": 2100,
+   "sill": 300,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pfke3",
+   "wall": "wccynn0pfarx",
+   "kind": "window",
+   "type": "casement",
+   "at": 2500,
+   "width": 1800,
+   "height": 1700,
+   "sill": 700,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pfl8f",
+   "wall": "wccynn0pfarx",
+   "kind": "window",
+   "type": "casement",
+   "at": 6000,
+   "width": 1800,
+   "height": 1700,
+   "sill": 700,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pfm8j",
+   "wall": "wccynn0pfarx",
+   "kind": "window",
+   "type": "casement",
+   "at": 9000,
+   "width": 1800,
+   "height": 1700,
+   "sill": 700,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pfnrm",
+   "wall": "wccynn0pfdea",
+   "kind": "window",
+   "type": "casement",
+   "at": 8000,
+   "width": 1800,
+   "height": 1700,
+   "sill": 700,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pfocq",
+   "wall": "wccynn0pfdea",
+   "kind": "window",
+   "type": "casement",
+   "at": 5000,
+   "width": 1800,
+   "height": 1700,
+   "sill": 700,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pfpas",
+   "wall": "wccynn0pfb8a",
+   "kind": "window",
+   "type": "casement",
+   "at": 3000,
+   "width": 1200,
+   "height": 1000,
+   "sill": 1000,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pfqiy",
+   "wall": "wccynn0pfb8a",
+   "kind": "window",
+   "type": "casement",
+   "at": 7600,
+   "width": 600,
+   "height": 600,
+   "sill": 1500,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pfrcc",
+   "wall": "wccynn0pfb8a",
+   "kind": "window",
+   "type": "casement",
+   "at": 9850,
+   "width": 600,
+   "height": 600,
+   "sill": 1500,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pfsjn",
+   "wall": "wccynn0pfezw",
+   "kind": "door",
+   "type": "sliding",
+   "at": 5000,
+   "width": 900,
+   "height": 2100,
+   "sill": 0,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pftr3",
+   "wall": "wccynn0pfezw",
+   "kind": "door",
+   "type": "sliding",
+   "at": 7600,
+   "width": 800,
+   "height": 2100,
+   "sill": 0,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "occynn0pfuvx",
+   "wall": "wccynn0pfezw",
+   "kind": "door",
+   "type": "sliding",
+   "at": 9900,
+   "width": 800,
+   "height": 2100,
+   "sill": 0,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  }
+ ],
+ "rooms": [
+  {
+   "id": "rccynn0pfvit",
+   "level": "lvccynn0pf9dd",
+   "name": "Restaurant",
+   "pts": [
+    [
+     125,
+     125
+    ],
+    [
+     10925,
+     125
+    ],
+    [
+     10925,
+     10875
+    ],
+    [
+     125,
+     10875
+    ]
+   ],
+   "floor": "oak",
+   "phase": "new"
+  },
+  {
+   "id": "rccynn0pfwd9",
+   "level": "lvccynn0pf9dd",
+   "name": "Kitchen",
+   "pts": [
+    [
+     11075,
+     125
+    ],
+    [
+     15875,
+     125
+    ],
+    [
+     15875,
+     6425
+    ],
+    [
+     11075,
+     6425
+    ]
+   ],
+   "floor": "tile-white",
+   "phase": "new"
+  },
+  {
+   "id": "rccynn0pfxwb",
+   "level": "lvccynn0pf9dd",
+   "name": "Toilet (men)",
+   "pts": [
+    [
+     15875,
+     6575
+    ],
+    [
+     15875,
+     8690
+    ],
+    [
+     11075,
+     8690
+    ],
+    [
+     11075,
+     6575
+    ]
+   ],
+   "floor": "tile-white",
+   "phase": "new"
+  },
+  {
+   "id": "rccynn0pfy0n",
+   "level": "lvccynn0pf9dd",
+   "name": "Toilet (women)",
+   "pts": [
+    [
+     15875,
+     8810
+    ],
+    [
+     15875,
+     10875
+    ],
+    [
+     11075,
+     10875
+    ],
+    [
+     11075,
+     8810
+    ]
+   ],
+   "floor": "tile-white",
+   "phase": "new"
+  }
+ ],
+ "columns": [],
+ "stairs": [],
+ "furniture": [
+  {
+   "id": "uccynn0pfzdh",
+   "level": "lvccynn0pf9dd",
+   "kind": "barCounter",
+   "x": 10555,
+   "y": 2600,
+   "rot": 270,
+   "w": 3000,
+   "d": 700,
+   "h": 1100,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pg0hh",
+   "level": "lvccynn0pf9dd",
+   "kind": "barStool",
+   "x": 9955,
+   "y": 1700,
+   "rot": 270,
+   "w": 400,
+   "d": 400,
+   "h": 750,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pg1ao",
+   "level": "lvccynn0pf9dd",
+   "kind": "barStool",
+   "x": 9955,
+   "y": 2600,
+   "rot": 270,
+   "w": 400,
+   "d": 400,
+   "h": 750,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pg2e7",
+   "level": "lvccynn0pf9dd",
+   "kind": "barStool",
+   "x": 9955,
+   "y": 3500,
+   "rot": 270,
+   "w": 400,
+   "d": 400,
+   "h": 750,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pg32q",
+   "level": "lvccynn0pf9dd",
+   "kind": "espresso",
+   "x": 10555,
+   "y": 1700,
+   "rot": 270,
+   "w": 900,
+   "d": 550,
+   "h": 550,
+   "elevation": 1100,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pg4gx",
+   "level": "lvccynn0pf9dd",
+   "kind": "wineGlasses",
+   "x": 10555,
+   "y": 3400,
+   "rot": 0,
+   "w": 260,
+   "d": 260,
+   "h": 220,
+   "elevation": 1100,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pg50l",
+   "level": "lvccynn0pf9dd",
+   "kind": "cafeSet",
+   "x": 1800,
+   "y": 2200,
+   "rot": 0,
+   "w": 700,
+   "d": 1500,
+   "h": 850,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pg6dr",
+   "level": "lvccynn0pf9dd",
+   "kind": "pendantGlobe",
+   "x": 1800,
+   "y": 2200,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 800,
+   "elevation": 2400,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1000,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pg73t",
+   "level": "lvccynn0pf9dd",
+   "kind": "cafeSet",
+   "x": 4200,
+   "y": 2200,
+   "rot": 0,
+   "w": 700,
+   "d": 1500,
+   "h": 850,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pg8xj",
+   "level": "lvccynn0pf9dd",
+   "kind": "pendantGlobe",
+   "x": 4200,
+   "y": 2200,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 800,
+   "elevation": 2400,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1000,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pg9ad",
+   "level": "lvccynn0pf9dd",
+   "kind": "cafeSet",
+   "x": 6600,
+   "y": 2200,
+   "rot": 0,
+   "w": 700,
+   "d": 1500,
+   "h": 850,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pga0l",
+   "level": "lvccynn0pf9dd",
+   "kind": "pendantGlobe",
+   "x": 6600,
+   "y": 2200,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 800,
+   "elevation": 2400,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1000,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgb7f",
+   "level": "lvccynn0pf9dd",
+   "kind": "cafeSet",
+   "x": 1800,
+   "y": 5200,
+   "rot": 0,
+   "w": 700,
+   "d": 1500,
+   "h": 850,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgc3j",
+   "level": "lvccynn0pf9dd",
+   "kind": "pendantGlobe",
+   "x": 1800,
+   "y": 5200,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 800,
+   "elevation": 2400,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1000,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgdte",
+   "level": "lvccynn0pf9dd",
+   "kind": "cafeSet",
+   "x": 4200,
+   "y": 5200,
+   "rot": 0,
+   "w": 700,
+   "d": 1500,
+   "h": 850,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgewx",
+   "level": "lvccynn0pf9dd",
+   "kind": "pendantGlobe",
+   "x": 4200,
+   "y": 5200,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 800,
+   "elevation": 2400,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1000,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgfzl",
+   "level": "lvccynn0pf9dd",
+   "kind": "cafeSet",
+   "x": 6600,
+   "y": 5200,
+   "rot": 0,
+   "w": 700,
+   "d": 1500,
+   "h": 850,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pggzb",
+   "level": "lvccynn0pf9dd",
+   "kind": "pendantGlobe",
+   "x": 6600,
+   "y": 5200,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 800,
+   "elevation": 2400,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1000,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pghmi",
+   "level": "lvccynn0pf9dd",
+   "kind": "booth",
+   "x": 900,
+   "y": 8200,
+   "rot": 0,
+   "w": 1500,
+   "d": 1800,
+   "h": 1100,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgise",
+   "level": "lvccynn0pf9dd",
+   "kind": "pendantRattan",
+   "x": 900,
+   "y": 8200,
+   "rot": 0,
+   "w": 500,
+   "d": 500,
+   "h": 900,
+   "elevation": 2300,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 800,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgjmo",
+   "level": "lvccynn0pf9dd",
+   "kind": "booth",
+   "x": 2600,
+   "y": 8200,
+   "rot": 0,
+   "w": 1500,
+   "d": 1800,
+   "h": 1100,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgkvo",
+   "level": "lvccynn0pf9dd",
+   "kind": "pendantRattan",
+   "x": 2600,
+   "y": 8200,
+   "rot": 0,
+   "w": 500,
+   "d": 500,
+   "h": 900,
+   "elevation": 2300,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 800,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pglnf",
+   "level": "lvccynn0pf9dd",
+   "kind": "highTop",
+   "x": 8500,
+   "y": 8000,
+   "rot": 0,
+   "w": 1300,
+   "d": 1300,
+   "h": 1050,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgm15",
+   "level": "lvccynn0pf9dd",
+   "kind": "pendantCluster",
+   "x": 8500,
+   "y": 8000,
+   "rot": 0,
+   "w": 700,
+   "d": 700,
+   "h": 1200,
+   "elevation": 2000,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1500,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgna3",
+   "level": "lvccynn0pf9dd",
+   "kind": "plantPalm",
+   "x": 600,
+   "y": 5900,
+   "rot": 0,
+   "w": 900,
+   "d": 900,
+   "h": 1700,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgo7a",
+   "level": "lvccynn0pf9dd",
+   "kind": "oliveTree",
+   "x": 9900,
+   "y": 10200,
+   "rot": 0,
+   "w": 900,
+   "d": 900,
+   "h": 2000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgpf2",
+   "level": "lvccynn0pf9dd",
+   "kind": "wallClock",
+   "x": 5500,
+   "y": 150,
+   "rot": 0,
+   "w": 400,
+   "d": 50,
+   "h": 400,
+   "elevation": 1800,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgqck",
+   "level": "lvccynn0pf9dd",
+   "kind": "sinkCounter",
+   "x": 11900,
+   "y": 425,
+   "rot": 0,
+   "w": 1200,
+   "d": 600,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgrvm",
+   "level": "lvccynn0pf9dd",
+   "kind": "counter",
+   "x": 13450,
+   "y": 425,
+   "rot": 0,
+   "w": 1800,
+   "d": 600,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgss4",
+   "level": "lvccynn0pf9dd",
+   "kind": "range",
+   "x": 15200,
+   "y": 525,
+   "rot": 0,
+   "w": 1200,
+   "d": 800,
+   "h": 2200,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgtrm",
+   "level": "lvccynn0pf9dd",
+   "kind": "prepTable",
+   "x": 13500,
+   "y": 3200,
+   "rot": 0,
+   "w": 1800,
+   "d": 700,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgu9p",
+   "level": "lvccynn0pf9dd",
+   "kind": "fridgeFrench",
+   "x": 15500,
+   "y": 5000,
+   "rot": 270,
+   "w": 910,
+   "d": 740,
+   "h": 1790,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgve4",
+   "level": "lvccynn0pf9dd",
+   "kind": "panelLight",
+   "x": 12500,
+   "y": 3000,
+   "rot": 0,
+   "w": 600,
+   "d": 600,
+   "h": 30,
+   "elevation": 3170,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 3600,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgwhx",
+   "level": "lvccynn0pf9dd",
+   "kind": "panelLight",
+   "x": 14500,
+   "y": 3000,
+   "rot": 0,
+   "w": 600,
+   "d": 600,
+   "h": 30,
+   "elevation": 3170,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 3600,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgx82",
+   "level": "lvccynn0pf9dd",
+   "kind": "toilet",
+   "x": 15575,
+   "y": 7625,
+   "rot": 270,
+   "w": 400,
+   "d": 700,
+   "h": 800,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgyig",
+   "level": "lvccynn0pf9dd",
+   "kind": "washbasin",
+   "x": 13000,
+   "y": 6800,
+   "rot": 0,
+   "w": 600,
+   "d": 450,
+   "h": 850,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0pgzpl",
+   "level": "lvccynn0pf9dd",
+   "kind": "toilet",
+   "x": 15575,
+   "y": 9850,
+   "rot": 270,
+   "w": 400,
+   "d": 700,
+   "h": 800,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0ph0ta",
+   "level": "lvccynn0pf9dd",
+   "kind": "washbasin",
+   "x": 13000,
+   "y": 10650,
+   "rot": 180,
+   "w": 600,
+   "d": 450,
+   "h": 850,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0ph1wg",
+   "level": "lvccynn0pf9dd",
+   "kind": "downlight",
+   "x": 13500,
+   "y": 7600,
+   "rot": 0,
+   "w": 160,
+   "d": 160,
+   "h": 40,
+   "elevation": 3160,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 700,
+    "color": "#ffdfba",
+    "beam": 70
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccynn0ph2v3",
+   "level": "lvccynn0pf9dd",
+   "kind": "downlight",
+   "x": 13500,
+   "y": 9850,
+   "rot": 0,
+   "w": 160,
+   "d": 160,
+   "h": 40,
+   "elevation": 3160,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 700,
+    "color": "#ffdfba",
+    "beam": 70
+   },
+   "phase": "new"
+  },
+  {
+   "id": "uccyno0phkm7",
+   "kind": "espresso",
+   "x": 10534.995211102068,
+   "y": 2675.7710667792708,
+   "rot": 285,
+   "w": 900,
+   "d": 550,
+   "h": 550,
+   "elevation": 1100,
+   "color": null,
+   "level": "lvccynn0pf9dd"
+  },
+  {
+   "id": "uccyno0phnqr",
+   "kind": "knifeBlock",
+   "x": 14071.398450739216,
+   "y": 545,
+   "rot": 0,
+   "w": 150,
+   "d": 220,
+   "h": 330,
+   "elevation": 900,
+   "color": null,
+   "level": "lvccynn0pf9dd"
+  },
+  {
+   "id": "uccyno0phoct",
+   "kind": "kettle",
+   "x": 13172.414655741304,
+   "y": 565,
+   "rot": 0,
+   "w": 220,
+   "d": 180,
+   "h": 250,
+   "elevation": 900,
+   "color": null,
+   "level": "lvccynn0pf9dd"
+  },
+  {
+   "id": "uccyno0php7m",
+   "kind": "plantPalm",
+   "x": 835,
+   "y": 10165,
+   "rot": 0,
+   "w": 900,
+   "d": 900,
+   "h": 1700,
+   "elevation": 0,
+   "color": null,
+   "level": "lvccynn0pf9dd"
+  },
+  {
+   "id": "uccyno0phqg1",
+   "kind": "plantFiddle",
+   "x": 735,
+   "y": 735,
+   "rot": 0,
+   "w": 700,
+   "d": 700,
+   "h": 1800,
+   "elevation": 0,
+   "color": null,
+   "level": "lvccynn0pf9dd"
+  },
+  {
+   "id": "uccyno0phrhi",
+   "kind": "trashCan",
+   "x": 11485,
+   "y": 6015,
+   "rot": 0,
+   "w": 300,
+   "d": 300,
+   "h": 650,
+   "elevation": 0,
+   "color": null,
+   "level": "lvccynn0pf9dd"
+  },
+  {
+   "id": "uccyno0phsaf",
+   "kind": "laundryBasket",
+   "x": 11535,
+   "y": 7035,
+   "rot": 0,
+   "w": 400,
+   "d": 400,
+   "h": 550,
+   "elevation": 0,
+   "color": null,
+   "level": "lvccynn0pf9dd"
+  },
+  {
+   "id": "uccyno0pht6d",
+   "kind": "plantBathroom",
+   "x": 15415,
+   "y": 9270,
+   "rot": 0,
+   "w": 400,
+   "d": 400,
+   "h": 450,
+   "elevation": 0,
+   "color": null,
+   "level": "lvccynn0pf9dd"
+  }
+ ],
+ "roofs": [
+  {
+   "id": "fccynn0ph5lt",
+   "level": "lvccynn0pf9dd",
+   "pts": [
+    [
+     -125,
+     -125
+    ],
+    [
+     -125,
+     11125
+    ],
+    [
+     16125,
+     11125
+    ],
+    [
+     16125,
+     -125
+    ]
+   ],
+   "kind": "flat",
+   "pitch": 0,
+   "overhang": 300,
+   "thickness": 200,
+   "material": "concrete",
+   "phase": "new"
+  }
+ ],
+ "dimensions": [
+  {
+   "id": "kccynn0ph3rp",
+   "level": "lvccynn0pf9dd",
+   "x1": 0,
+   "y1": 0,
+   "x2": 16000,
+   "y2": 0,
+   "offset": -1200,
+   "auto": true,
+   "phase": "new"
+  },
+  {
+   "id": "kccynn0ph4aj",
+   "level": "lvccynn0pf9dd",
+   "x1": 0,
+   "y1": 11000,
+   "x2": 0,
+   "y2": 0,
+   "offset": -1200,
+   "auto": true,
+   "phase": "new"
+  }
+ ],
+ "texts": [],
+ "drawings": [],
+ "underlays": [],
+ "slabs": [
+  {
+   "id": "slccynn0ph65l",
+   "level": "lvccynn0pf9dd",
+   "pts": [
+    [
+     -125,
+     -125
+    ],
+    [
+     -125,
+     11125
+    ],
+    [
+     16125,
+     11125
+    ],
+    [
+     16125,
+     -125
+    ]
+   ],
+   "holes": [],
+   "type": "floor-insulated-300",
+   "offset": 0,
+   "slope": 0,
+   "slopeDir": 0,
+   "phase": "new",
+   "thickness": 300,
+   "kind": "floor"
+  }
+ ],
+ "ceilings": [
+  {
+   "id": "clccynn0ph7ue",
+   "level": "lvccynn0pf9dd",
+   "pts": [
+    [
+     125,
+     125
+    ],
+    [
+     10925,
+     125
+    ],
+    [
+     10925,
+     10875
+    ],
+    [
+     125,
+     10875
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clccynn0ph81m",
+   "level": "lvccynn0pf9dd",
+   "pts": [
+    [
+     11075,
+     125
+    ],
+    [
+     15875,
+     125
+    ],
+    [
+     15875,
+     6425
+    ],
+    [
+     11075,
+     6425
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  }
+ ],
+ "beams": [],
+ "railings": [],
+ "ramps": [],
+ "shafts": [],
+ "members": [],
+ "models": [],
+ "solids": [],
+ "scenes": [
+  {
+   "id": "scccynn0ph9xs",
+   "name": "Overview",
+   "camera": {
+    "pos": [
+     23.31630147617534,
+     22.974452214263007,
+     24.64537684521917
+    ],
+    "target": [
+     8,
+     2,
+     5.5
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  },
+  {
+   "id": "scccynn0phaez",
+   "name": "Dining room",
+   "camera": {
+    "pos": [
+     1.2,
+     1.6,
+     10.2
+    ],
+    "target": [
+     7.5,
+     1.1,
+     3
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  },
+  {
+   "id": "scccynn0phbg6",
+   "name": "Bar",
+   "camera": {
+    "pos": [
+     6.5,
+     1.6,
+     4
+    ],
+    "target": [
+     10.5,
+     1.2,
+     2.2
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  },
+  {
+   "id": "scccynn0phcat",
+   "name": "Kitchen",
+   "camera": {
+    "pos": [
+     12,
+     1.7,
+     5.6
+    ],
+    "target": [
+     15,
+     1.1,
+     1
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  }
+ ],
+ "view": {
+  "level": "lvccynn0pf9dd"
+ },
+ "libraryItems": [],
+ "slabTypes": [],
+ "types": [],
+ "designOptions": [],
+ "structures": [],
+ "views": [
+  {
+   "id": "vccynp0phurg",
+   "kind": "section",
+   "name": "Section A-A",
+   "scale": 100,
+   "detail": "fine",
+   "phase": "all",
+   "hidden": [],
+   "overrides": {},
+   "template": null,
+   "crop": {
+    "x1": 0,
+    "y1": -4900,
+    "x2": 19250,
+    "y2": 1500
+   },
+   "cropOn": true,
+   "cropShow": true,
+   "ref": "S1",
+   "line": {
+    "x1": -1625,
+    "y1": 5500,
+    "x2": 17625,
+    "y2": 5500
+   }
+  },
+  {
+   "id": "vccynp0phvyo",
+   "kind": "section",
+   "name": "Section B-B",
+   "scale": 100,
+   "detail": "fine",
+   "phase": "all",
+   "hidden": [],
+   "overrides": {},
+   "template": null,
+   "crop": {
+    "x1": 0,
+    "y1": -4900,
+    "x2": 14250,
+    "y2": 1500
+   },
+   "cropOn": true,
+   "cropShow": true,
+   "ref": "S2",
+   "line": {
+    "x1": 8000,
+    "y1": 12625,
+    "x2": 8000,
+    "y2": -1625
+   }
+  },
+  {
+   "id": "vccynp0phw7u",
+   "kind": "elevation",
+   "name": "South elevation",
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [
+    "furniture"
+   ],
+   "overrides": {},
+   "template": null,
+   "crop": {
+    "x1": -9625,
+    "y1": -4900,
+    "x2": 9625,
+    "y2": 1500
+   },
+   "cropOn": true,
+   "cropShow": true,
+   "ref": "E1",
+   "x": 8000,
+   "y": 19125,
+   "angle": -90
+  },
+  {
+   "id": "vccynp0phxna",
+   "kind": "elevation",
+   "name": "North elevation",
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [
+    "furniture"
+   ],
+   "overrides": {},
+   "template": null,
+   "crop": {
+    "x1": -9625,
+    "y1": -4900,
+    "x2": 9625,
+    "y2": 1500
+   },
+   "cropOn": true,
+   "cropShow": true,
+   "ref": "E2",
+   "x": 8000,
+   "y": -8125,
+   "angle": 90
+  },
+  {
+   "id": "vccynp0phyzz",
+   "kind": "elevation",
+   "name": "East elevation",
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [
+    "furniture"
+   ],
+   "overrides": {},
+   "template": null,
+   "crop": {
+    "x1": -7124.999999999999,
+    "y1": -4900,
+    "x2": 7125.000000000003,
+    "y2": 1500
+   },
+   "cropOn": true,
+   "cropShow": true,
+   "ref": "E3",
+   "x": 24125,
+   "y": 5500,
+   "angle": 180
+  },
+  {
+   "id": "vccynp0phz44",
+   "kind": "elevation",
+   "name": "West elevation",
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [
+    "furniture"
+   ],
+   "overrides": {},
+   "template": null,
+   "crop": {
+    "x1": -7125,
+    "y1": -4900,
+    "x2": 7125,
+    "y2": 1500
+   },
+   "cropOn": true,
+   "cropShow": true,
+   "ref": "E4",
+   "x": -8125,
+   "y": 5500,
+   "angle": 0
+  },
+  {
+   "id": "vccynp0pi0e7",
+   "kind": "schedule",
+   "name": "Room schedule",
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [],
+   "overrides": {},
+   "template": null,
+   "crop": null,
+   "cropOn": false,
+   "cropShow": true,
+   "category": "rooms",
+   "fields": [
+    "level",
+    "name",
+    "area",
+    "floor"
+   ],
+   "filters": [],
+   "sort": [
+    {
+     "field": "name"
+    }
+   ],
+   "group": "level",
+   "totals": true,
+   "calc": []
+  },
+  {
+   "id": "vccynp0pi1rq",
+   "kind": "schedule",
+   "name": "Door schedule",
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [],
+   "overrides": {},
+   "template": null,
+   "crop": null,
+   "cropOn": false,
+   "cropShow": true,
+   "category": "doors",
+   "fields": [
+    "mark",
+    "level",
+    "type",
+    "width",
+    "height"
+   ],
+   "filters": [],
+   "sort": [
+    {
+     "field": "mark"
+    }
+   ],
+   "group": null,
+   "totals": true,
+   "calc": []
+  },
+  {
+   "id": "vccynp0pi2vy",
+   "kind": "schedule",
+   "name": "Sheet list",
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [],
+   "overrides": {},
+   "template": null,
+   "crop": null,
+   "cropOn": false,
+   "cropShow": true,
+   "category": "sheets",
+   "fields": [
+    "number",
+    "name",
+    "revision",
+    "date"
+   ],
+   "filters": [],
+   "sort": [
+    {
+     "field": "number"
+    }
+   ],
+   "group": null,
+   "totals": false,
+   "calc": []
+  },
+  {
+   "id": "vccynp0pi3c4",
+   "kind": "legend",
+   "name": "Wall types legend",
+   "scale": 20,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [],
+   "overrides": {},
+   "template": null,
+   "crop": null,
+   "cropOn": false,
+   "cropShow": true,
+   "legend": "walltypes"
+  }
+ ],
+ "sheets": [
+  {
+   "id": "shccynn0phipp",
+   "number": "A101",
+   "name": "Floor plan — 1F",
+   "paper": "A3",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "",
+    "status": ""
+   },
+   "viewports": [
+    {
+     "id": "vpccynn0phjkr",
+     "view": "pl-lvccynn0pf9dd",
+     "x": 0,
+     "y": 0,
+     "fit": true
+    }
+   ],
+   "revisions": [],
+   "auto": true
+  },
+  {
+   "id": "shccynp0pic4l",
+   "number": "A001",
+   "name": "Cover and drawing list",
+   "paper": "A1",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "SHKWON",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "2026-11-08",
+    "status": "For planning"
+   },
+   "viewports": [
+    {
+     "id": "vpccynp0pid0k",
+     "view": "vccynp0pi2vy",
+     "x": 67,
+     "y": 30
+    },
+    {
+     "id": "vpccynp0pigf1",
+     "view": "3d-default",
+     "x": 166,
+     "y": 53
+    }
+   ],
+   "revisions": [
+    "rv-a"
+   ]
+  },
+  {
+   "id": "shccynp0pihqo",
+   "number": "A201",
+   "name": "Sections",
+   "paper": "A1",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "SHKWON",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "2026-11-08",
+    "status": "For planning"
+   },
+   "viewports": [
+    {
+     "id": "vpccynp0pii57",
+     "view": "vccynp0phurg",
+     "x": 124,
+     "y": 50
+    },
+    {
+     "id": "vpccynp0pijy0",
+     "view": "vccynp0phvyo",
+     "x": 299,
+     "y": 50
+    }
+   ],
+   "revisions": [
+    "rv-a"
+   ]
+  },
+  {
+   "id": "shccynp0pikzm",
+   "number": "A301",
+   "name": "Elevations",
+   "paper": "A1",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "SHKWON",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "2026-11-08",
+    "status": "For planning"
+   },
+   "viewports": [
+    {
+     "id": "vpccynp0pilvl",
+     "view": "vccynp0phw7u",
+     "x": 124,
+     "y": 50
+    },
+    {
+     "id": "vpccynp0pim2u",
+     "view": "vccynp0phxna",
+     "x": 324,
+     "y": 50
+    },
+    {
+     "id": "vpccynp0pin7m",
+     "view": "vccynp0phyzz",
+     "x": 499,
+     "y": 50
+    },
+    {
+     "id": "vpccynp0pio30",
+     "view": "vccynp0phz44",
+     "x": 99,
+     "y": 138
+    }
+   ],
+   "revisions": [
+    "rv-a"
+   ]
+  },
+  {
+   "id": "shccynp0pipys",
+   "number": "A601",
+   "name": "Schedules and legend",
+   "paper": "A1",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "SHKWON",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "2026-11-08",
+    "status": "For planning"
+   },
+   "viewports": [
+    {
+     "id": "vpccynp0piquh",
+     "view": "vccynp0pi0e7",
+     "x": 66,
+     "y": 45
+    },
+    {
+     "id": "vpccynp0pir2u",
+     "view": "vccynp0pi1rq",
+     "x": 161,
+     "y": 39
+    },
+    {
+     "id": "vpccynq0pisue",
+     "view": "vccynp0pi3c4",
+     "x": 291,
+     "y": 62
+    }
+   ],
+   "revisions": [
+    "rv-a"
+   ]
+  }
+ ],
+ "annotations": [
+  {
+   "id": "anccynp0pi49v",
+   "view": "vccynp0phurg",
+   "kind": "dim",
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     -3400
+    ]
+   ],
+   "offset": -600
+  },
+  {
+   "id": "anccynp0pi5rq",
+   "view": "vccynp0phurg",
+   "kind": "spot",
+   "x": 9625,
+   "y": 0,
+   "dx": 800,
+   "dy": -600
+  },
+  {
+   "id": "anccynp0pi6xr",
+   "view": "vccynp0phurg",
+   "kind": "note",
+   "x": 13475,
+   "y": -4000,
+   "text": "Roof: see detail",
+   "size": 2.5,
+   "leader": [
+    [
+     11550,
+     -3200
+    ]
+   ]
+  },
+  {
+   "id": "anccynp0pi7xu",
+   "view": "pl-lvccynn0pf9dd",
+   "kind": "tag",
+   "target": "rccynn0pfvit",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anccynp0pi8gb",
+   "view": "pl-lvccynn0pf9dd",
+   "kind": "tag",
+   "target": "rccynn0pfwd9",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anccynp0pi9vm",
+   "view": "pl-lvccynn0pf9dd",
+   "kind": "tag",
+   "target": "rccynn0pfxwb",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anccynp0piac0",
+   "view": "pl-lvccynn0pf9dd",
+   "kind": "tag",
+   "target": "rccynn0pfy0n",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anccynp0pibq5",
+   "view": "vccynp0phurg",
+   "kind": "cloud",
+   "pts": [
+    [
+     5775,
+     -4600
+    ],
+    [
+     13475,
+     -4600
+    ],
+    [
+     13475,
+     -2500
+    ],
+    [
+     5775,
+     -2500
+    ]
+   ],
+   "rev": "rv-a"
+  }
+ ],
+ "revisions": [
+  {
+   "id": "rv-a",
+   "seq": 1,
+   "name": "A",
+   "date": "2026-11-08",
+   "description": "Issued for planning",
+   "issuedTo": "Sample",
+   "issuedBy": "SHKWON",
+   "issued": true
+  }
+ ],
+ "publishSets": [
+  {
+   "id": "ps-all",
+   "name": "Planning set",
+   "sheets": [
+    "shccynn0phipp",
+    "shccynp0pic4l",
+    "shccynp0pihqo",
+    "shccynp0pikzm",
+    "shccynp0pipys"
+   ]
+  }
+ ],
+ "viewTemplates": [
+  {
+   "id": "vt-plan-100",
+   "name": "Architectural plan 1:100",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": []
+  },
+  {
+   "id": "vt-furn-50",
+   "name": "Furniture plan 1:50",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "new",
+   "hidden": [
+    "dimensions"
+   ]
+  },
+  {
+   "id": "vt-section-50",
+   "name": "Construction section 1:50",
+   "kinds": [
+    "section",
+    "detail"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "all",
+   "hidden": [
+    "furniture",
+    "lights"
+   ]
+  },
+  {
+   "id": "vt-elev-100",
+   "name": "Presentation elevation 1:100",
+   "kinds": [
+    "elevation"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "new",
+   "hidden": [
+    "furniture"
+   ]
+  }
+ ],
+ "lineStyles": [
+  {
+   "id": "thin",
+   "name": "Thin lines",
+   "weight": 0.13,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "medium",
+   "name": "Medium lines",
+   "weight": 0.25,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "wide",
+   "name": "Wide lines",
+   "weight": 0.5,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "hidden",
+   "name": "Hidden lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dash"
+  },
+  {
+   "id": "centre",
+   "name": "Centre lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dashdot"
+  },
+  {
+   "id": "overhead",
+   "name": "Overhead lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dot"
+  },
+  {
+   "id": "demolished",
+   "name": "Demolished",
+   "weight": 0.25,
+   "color": "#c62828",
+   "pattern": "dash"
+  },
+  {
+   "id": "red",
+   "name": "Red lines",
+   "weight": 0.25,
+   "color": "#d32f2f",
+   "pattern": "solid"
+  }
+ ],
+ "components": [],
+ "materials": [],
+ "sections": [],
+ "guides": [],
+ "dims3d": [],
+ "texts3d": [],
+ "style3d": {
+  "edges": false,
+  "edgeColor": "#1d2128",
+  "profiles": false,
+  "profileWidth": 3,
+  "colorByTag": false,
+  "background": "",
+  "sky": "",
+  "horizon": "",
+  "ground": "",
+  "groundOn": true,
+  "watermark": "",
+  "watermarkPos": "br",
+  "sectionFill": "#3b4250",
+  "fogDensity": 1
+ }
+}

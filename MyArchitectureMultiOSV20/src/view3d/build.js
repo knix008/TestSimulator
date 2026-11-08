@@ -13,6 +13,8 @@ import { wallLength, wallHeight, levelById, levelAbove } from "../core/project.j
 import { triangulate, polygonArea, rotPt, pointInPolygon } from "../core/geom.js";
 import { roofModel, roofBase } from "../core/roof.js";
 import { furnitureParts, lightOf } from "../lib/furniture.js";
+import { partBounds } from "../lib/furnparts.js";
+import { partNeedsOwnGeometry, partGeometry, classOf, classNameOf, surfaceTexture, mergePieces } from "./furngeo.js";
 import { materialById, materialColor, paintPattern, DEFAULT_MATERIAL } from "../lib/materials.js";
 import { phaseVisible } from "../plan/render.js";
 import { buildSolid, buildComponent, buildOpeningComponent, skVisible } from "./skbuild.js";
@@ -247,6 +249,23 @@ export function makeMaterials(THREE, { textures = true } = {}) {
         color: hex, roughness: opts.rough ?? 0.7, metalness: opts.metal ?? 0, transparent: (opts.opacity ?? 1) < 1, opacity: opts.opacity ?? 1, side: (opts.opacity ?? 1) < 1 ? THREE.DoubleSide : THREE.FrontSide, name: hex,
       }));
     },
+    // A furniture part's surface: its colour on the part's material class
+    // (wood, fabric, leather, chrome, glass…; src/lib/furnparts.js), with a
+    // procedural texture in a browser. double: seen from both sides (thin
+    // turned shells, bent tubes).
+    textured: !!textures && typeof document !== "undefined",
+    furn(hex, cls, name, double = false) {
+      const tex = textures && cls.tex ? cls.tex : "";
+      return get(`f:${hex}:${name}:${double ? 1 : 0}:${tex}`, () => {
+        const op = cls.opacity ?? 1;
+        const map = tex ? surfaceTexture(THREE, cls.tex, cls.tile || 500) : null;
+        const mat = new THREE.MeshStandardMaterial({ color: hex, map, roughness: cls.rough, metalness: cls.metal, transparent: op < 1, opacity: op, side: double || op < 1 ? THREE.DoubleSide : THREE.FrontSide, name: `${name} ${hex}` });
+        if (map && cls.bump) { mat.bumpMap = map; mat.bumpScale = cls.bump; }
+        if (cls.emissive) { mat.emissive = new THREE.Color(hex); mat.emissiveIntensity = cls.emissive; }
+        if (op < 1) mat.depthWrite = false;
+        return mat;
+      });
+    },
     // A lit lamp part: its own colour glowing in the light's colour.
     glow(hex, light, strength = 1) {
       return get(`g:${hex}:${light}:${strength}`, () => new THREE.MeshStandardMaterial({ color: hex, emissive: light, emissiveIntensity: GLOW * strength, roughness: 0.4, name: `glow ${light}` }));
@@ -373,16 +392,69 @@ export function glowMaterial(mats, part, light) {
 // A lamp's light source is not a three.js light here: an empty "lamp" anchor
 // at the bulb carries what the viewer needs ({id, type, lumens, colour, on,
 // beam, dir}), and the viewer lights only the nearest few (see lamps.js).
-function furnitureGroup(THREE, mats, f) {
+// An item's parts are merged into one mesh per surface (wood, fabric,
+// chrome…), built once per kind, size and colour and shared by every item
+// like it — a sofa is a handful of meshes, not forty, and the viewer draws
+// identical items as instances. Parts that glow (lamp shades, bulbs) stay
+// meshes of their own: they change material when the lamp is switched.
+const ITEM_GEOMETRY = new WeakMap(); // THREE → Map(key → [{geometry, color, cls, name, double, glassy}])
+function itemSurfaces(THREE, f, parts, textured, lod) {
+  let cache = ITEM_GEOMETRY.get(THREE);
+  if (!cache) ITEM_GEOMETRY.set(THREE, (cache = new Map()));
+  const key = `${f.kind}|${f.w}|${f.d}|${f.h}|${f.color || ""}|${textured ? 1 : 0}|${lod ? 1 : 0}`;
+  let surfaces = cache.get(key);
+  if (surfaces) return surfaces;
+  const groups = new Map();
+  const m4 = new THREE.Matrix4();
+  for (const part of parts) {
+    if (part.g) continue;
+    // Light detail: small things you cannot see from afar (keys, buttons, LEDs) are left out.
+    if (lod && part.plan === false) { const b = partBounds(part); if (Math.max(b.x2 - b.x1, b.y2 - b.y1, b.z2 - b.z1) < 45) continue; }
+    const cls = classOf(part);
+    const double = part.t === "lathe" || part.t === "tube" || (part.t === "tor" && (part.arc ?? 360) < 360) || !!part.double;
+    const name = classNameOf(part);
+    const gk = `${part.color}|${name}|${double ? 1 : 0}`;
+    let gr = groups.get(gk);
+    if (!gr) groups.set(gk, (gr = { color: part.color, cls, name, double, glassy: (cls.opacity ?? 1) < 1, pieces: [] }));
+    let geometry, matrix;
+    if (partNeedsOwnGeometry(part, textured)) { geometry = partGeometry(THREE, part, lod); matrix = m4.clone().makeTranslation(part.x * M, part.z * M, part.y * M); }
+    else if (part.t === "box") { geometry = unitGeometry(THREE, "box"); matrix = m4.clone().compose(new THREE.Vector3(part.x * M, (part.z + part.h / 2) * M, part.y * M), new THREE.Quaternion(), new THREE.Vector3(Math.max(1e-4, part.w * M), Math.max(1e-4, part.h * M), Math.max(1e-4, part.d * M))); }
+    else if (part.t === "cyl") { geometry = unitGeometry(THREE, "cyl"); matrix = m4.clone().compose(new THREE.Vector3(part.x * M, (part.z + part.h / 2) * M, part.y * M), new THREE.Quaternion(), new THREE.Vector3(Math.max(1e-4, part.rx * M), Math.max(1e-4, part.h * M), Math.max(1e-4, part.ry * M))); }
+    else { geometry = unitGeometry(THREE, "ball"); const r = Math.max(1e-4, part.r * M); matrix = m4.clone().compose(new THREE.Vector3(part.x * M, part.z * M, part.y * M), new THREE.Quaternion(), new THREE.Vector3(r, r, r)); }
+    gr.pieces.push({ geometry, matrix });
+  }
+  surfaces = [...groups.values()].map((gr) => ({ ...gr, geometry: mergePieces(THREE, gr.pieces), pieces: undefined }));
+  if (cache.size > 3000) cache.clear(); // meshes keep theirs
+  cache.set(key, surfaces);
+  return surfaces;
+}
+
+function furnitureGroup(THREE, mats, f, lod = false) {
   const g = new THREE.Group();
   const light = lightOf(f);
-  for (const part of furnitureParts(f)) {
-    const glassy = part.c === "glass";
-    const metal = part.c === "metal";
-    let mat = glassy ? mats.color(part.color, { opacity: 0.35, rough: 0.1 }) : mats.color(part.color, { rough: metal ? 0.35 : 0.75, metal: metal ? 0.7 : 0 });
-    if (light && part.g) mat = glowMaterial(mats, part, light);
+  const textured = !!mats.textured;
+  const parts = furnitureParts(f);
+  for (const s of itemSurfaces(THREE, f, parts, textured, lod)) {
+    const mat = mats.furn ? mats.furn(s.color, s.cls, s.name, s.double) : mats.color(s.color, { rough: s.cls.rough, metal: s.cls.metal, opacity: s.cls.opacity });
+    const mesh = new THREE.Mesh(s.geometry, mat);
+    mesh.userData.sharedGeometry = true;
+    mesh.castShadow = !s.glassy;
+    mesh.receiveShadow = true;
+    g.add(mesh);
+  }
+  // Glowing parts: one mesh each.
+  for (const part of parts) {
+    if (!part.g) continue;
+    const cls = classOf(part);
+    const double = part.t === "lathe" || part.t === "tube" || !!part.double;
+    let mat = mats.furn ? mats.furn(part.color, cls, classNameOf(part), double) : mats.color(part.color, { rough: cls.rough, metal: cls.metal, opacity: cls.opacity });
+    if (light) mat = glowMaterial(mats, part, light);
     let mesh;
-    if (part.t === "box") {
+    if (partNeedsOwnGeometry(part, textured)) {
+      mesh = new THREE.Mesh(partGeometry(THREE, part), mat);
+      mesh.userData.sharedGeometry = true;
+      mesh.position.set(part.x * M, part.z * M, part.y * M);
+    } else if (part.t === "box") {
       mesh = boxMesh(THREE, part.w * M, part.h * M, part.d * M, mat);
       mesh.position.set(part.x * M, (part.z + part.h / 2) * M, part.y * M);
     } else if (part.t === "cyl") {
@@ -394,9 +466,9 @@ function furnitureGroup(THREE, mats, f) {
       mesh.scale.setScalar(Math.max(1e-4, part.r * M));
       mesh.position.set(part.x * M, part.z * M, part.y * M);
     }
-    mesh.castShadow = !glassy && !part.g;
+    mesh.castShadow = false;
     mesh.receiveShadow = true;
-    if (light && part.g) mesh.userData.glow = { color: part.color, c: part.c, g: part.g };
+    if (light) mesh.userData.glow = { color: part.color, c: part.c, g: part.g };
     g.add(mesh);
   }
   if (light) {
@@ -415,6 +487,8 @@ function furnitureGroup(THREE, mats, f) {
 // opts: {openDoors, furniture, roofs, levels: Set|null (visible), phase:
 // "all"|"new"|"existing", loadModel(asset) → Promise<Object3D>}
 export function buildBuilding(THREE, p, mats, opts = {}) {
+  // Furniture detail: opts.detail "full" | "low"; by default big buildings (many items) get the lighter one.
+  const lod = opts.detail === "low" || (opts.detail !== "full" && (p.furniture || []).length > 800);
   syncOptions(p); // design options: only the active option of each set is built
   setProjectMaterials(p.materials); // the project's own / edited materials (src/core/skmodel.js)
   // Hidden items and switched-off tags (SketchUp) are left out too: opts.hiddenTags.
@@ -569,7 +643,7 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
             }).catch(() => {});
           }
         } else if (f.kind === "component") g = buildComponent(THREE, mats, p, f, compCache); // a component instance (skbuild.js)
-        else g = furnitureGroup(THREE, mats, f);
+        else g = furnitureGroup(THREE, mats, f, lod);
         const lamp = g.getObjectByName("lamp");
         if (lamp) lamp.userData.lamp.floor = base * M; // the section cut keeps lamps whose floor is below it
         g.position.set(f.x * M, (base + (f.elevation || 0)) * M, f.y * M);

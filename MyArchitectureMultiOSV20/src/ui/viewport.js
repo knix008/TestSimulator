@@ -310,7 +310,7 @@ export class Viewport {
 
   // Rulers along the top and left edges, in display units.
   // toDisplay converts a world length to display units; unit is its label.
-  drawRulers(ctx, { toDisplay = (v) => v, unit = "", bg = "#202430", fg = "#c8ccd4", accent = "#ff9f43" } = {}) {
+  drawRulers(ctx, { toDisplay = (v) => v, unit = "", bg = "#202430", fg = "#c8ccd4", accent = "#ff9f43", cursor = "#e5322d" } = {}) {
     const R = 20;
     this.screenTransform(ctx);
     const per = toDisplay(1); // display units per world unit
@@ -367,14 +367,22 @@ export class Viewport {
     ctx.moveTo(0, R + 0.5); ctx.lineTo(this.width, R + 0.5);
     ctx.moveTo(R + 0.5, 0); ctx.lineTo(R + 0.5, this.height);
     ctx.stroke();
-    // Cursor markers
+    // Cursor lines: a red line across each ruler at the pointer, with a small
+    // red notch pointing into the drawing.
     if (this.mouse.inside) {
-      ctx.strokeStyle = accent;
+      const mx = Math.round(this.mouse.x) + 0.5;
+      const my = Math.round(this.mouse.y) + 0.5;
+      ctx.strokeStyle = cursor;
+      ctx.fillStyle = cursor;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(this.mouse.x, 0); ctx.lineTo(this.mouse.x, R);
-      ctx.moveTo(0, this.mouse.y); ctx.lineTo(R, this.mouse.y);
+      if (mx > R) { ctx.moveTo(mx, 0); ctx.lineTo(mx, R); }
+      if (my > R) { ctx.moveTo(0, my); ctx.lineTo(R, my); }
       ctx.stroke();
+      ctx.beginPath();
+      if (mx > R) { ctx.moveTo(mx - 4, R - 6); ctx.lineTo(mx + 4, R - 6); ctx.lineTo(mx, R); ctx.closePath(); }
+      if (my > R) { ctx.moveTo(R - 6, my - 4); ctx.lineTo(R - 6, my + 4); ctx.lineTo(R, my); ctx.closePath(); }
+      ctx.fill();
     }
     // Corner: unit
     ctx.fillStyle = bg;

@@ -3,6 +3,7 @@
 
 import { t } from "./i18n.js";
 import { icon } from "./icons.js";
+import { iconForLabel, iconForTab } from "./autoicon.js";
 
 export function h(tag, attrs = {}, ...children) {
   const el = document.createElement(tag);
@@ -18,6 +19,11 @@ export function h(tag, attrs = {}, ...children) {
   for (const c of children.flat()) {
     if (c == null || c === false) continue;
     el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  // Every text button gets an icon (src/ui/autoicon.js).
+  if (tag === "button" && /(^|\s)btn(\s|$)/.test(el.className) && !(attrs && (attrs.html || attrs["data-noicon"])) && !el.querySelector("svg, img, canvas, .ico, [data-icon]")) {
+    const label = el.textContent.trim();
+    if (label) { const ic = document.createElement("span"); ic.className = "btn-ico"; ic.innerHTML = icon(iconForLabel(label), 14); el.prepend(ic); }
   }
   return el;
 }
@@ -135,7 +141,7 @@ export function modal({ title, icon: iconName = null, body, buttons = [{ label: 
     const ic = iconName || hinted;
     const head = h("div", { class: "modal-head" },
       h("div", { class: "modal-title" }, ic ? h("span", { class: "modal-icon", "data-icon": ic, html: icon(ic, 18) }) : h("img", { class: "modal-appicon", src: "assets/icon.png", alt: "", width: 18, height: 18 }), h("span", {}, title)),
-      h("button", { class: "icon-btn", title: t("Close"), onclick: () => close(null), html: icon("close", 16) }));
+      h("button", { class: "icon-btn popup-close", title: t("Close"), onclick: () => close(null), html: icon("close", 16) }));
     const foot = h("div", { class: "modal-foot" });
     // Buttons marked `left` sit together on the left, the rest on the right.
     const lastLeft = buttons.map((b) => !!b.left).lastIndexOf(true);
@@ -423,8 +429,8 @@ export function select(value, options, { onChange, cls = "" } = {}) {
 export function stepper(value, { min = -Infinity, max = Infinity, step = 1, values = null, format = (v) => String(v), onChange, editable = false } = {}) {
   let v = Number(value);
   const out = editable ? h("input", { class: "stepper-val", type: "text", inputmode: "decimal", spellcheck: "false" }) : h("span", { class: "stepper-val" });
-  const dec = h("button", { class: "stepper-btn", type: "button", title: t("Decrease"), "aria-label": t("Decrease"), "data-step": "-1" }, "−");
-  const inc = h("button", { class: "stepper-btn", type: "button", title: t("Increase"), "aria-label": t("Increase"), "data-step": "1" }, "+");
+  const dec = h("button", { class: "stepper-btn", type: "button", title: t("Decrease"), "aria-label": t("Decrease"), "data-step": "-1", html: icon("minus", 13) });
+  const inc = h("button", { class: "stepper-btn", type: "button", title: t("Increase"), "aria-label": t("Increase"), "data-step": "1", html: icon("plus", 13) });
   const nearest = () => {
     let best = 0;
     for (let i = 1; i < values.length; i++) if (Math.abs(values[i] - v) < Math.abs(values[best] - v)) best = i;
@@ -485,8 +491,8 @@ export function slider(value, { min = 0, max = 100, step = 1, format = (v) => St
   const thumb = h("span", { class: "slider-thumb" });
   const track = h("span", { class: "slider-track" }, fill, thumb);
   const out = h("span", { class: "slider-val" });
-  const dec = h("button", { class: "slider-btn", type: "button", title: t("Decrease"), "aria-label": t("Decrease"), "data-step": "-1" }, "−");
-  const inc = h("button", { class: "slider-btn", type: "button", title: t("Increase"), "aria-label": t("Increase"), "data-step": "1" }, "+");
+  const dec = h("button", { class: "slider-btn", type: "button", title: t("Decrease"), "aria-label": t("Decrease"), "data-step": "-1", html: icon("minus", 13) });
+  const inc = h("button", { class: "slider-btn", type: "button", title: t("Increase"), "aria-label": t("Increase"), "data-step": "1", html: icon("plus", 13) });
   const el = h("div", { class: "slider", tabindex: "0", role: "slider", "aria-valuemin": String(min), "aria-valuemax": String(max) }, dec, track, inc, out);
   const render = () => {
     const pct = max > min ? ((v - min) / (max - min)) * 100 : 0;
@@ -561,7 +567,7 @@ export function tabs(defs) {
     }
   };
   for (const d of defs) {
-    bar.append(h("button", { class: "tab", "data-id": d.id, onclick: () => show(d.id) }, d.label));
+    bar.append(h("button", { class: "tab", "data-id": d.id, onclick: () => show(d.id) }, h("span", { class: "tab-ico", html: icon(d.icon || iconForTab(d.label), 14) }), d.label));
     host.append(d.body);
   }
   show(defs[0].id);

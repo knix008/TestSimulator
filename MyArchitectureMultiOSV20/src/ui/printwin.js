@@ -8,6 +8,7 @@
 
 import { t } from "./i18n.js";
 import { icon } from "./icons.js";
+import { iconForTab } from "./autoicon.js";
 import { h, modal, toast, select, checkbox } from "./widgets.js";
 import * as platform from "./platform.js";
 import { SvgContext } from "./svgctx.js";
@@ -222,7 +223,7 @@ function segmented(value, options, onChange) {
   const paint = () => { for (const b of wrap.children) b.classList.toggle("on", b.dataset.value === String(value)); };
   for (const [v, label, ic] of options) {
     wrap.append(h("button", { type: "button", class: "pw-seg-btn", "data-value": String(v), role: "radio", onclick: () => { value = v; paint(); onChange(v); } },
-      ic ? h("span", { class: "pw-seg-ico", html: ic }) : null, h("span", {}, label)));
+      h("span", { class: "pw-seg-ico", html: ic || icon(iconForTab(label), 14) }), h("span", {}, label)));
   }
   paint();
   wrap.setValue = (v) => { value = v; paint(); };

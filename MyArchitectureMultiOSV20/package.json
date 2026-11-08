@@ -1,9 +1,9 @@
 {
   "name": "myarchitecture",
   "productName": "MyArchitecture",
-  "version": "10.0.0",
+  "version": "1.0.2",
   "private": true,
-  "description": "MyArchitecture 10.0 — architectural floor plans, 3D, BIM and CAD exchange for Web, Windows, macOS and Linux (Tauri)",
+  "description": "MyArchitecture 1.0.2 — architectural floor plans, 3D, BIM and CAD exchange for Web, Windows, macOS and Linux (Tauri)",
   "author": "SHKWON <knix008@naver.com>",
   "scripts": {
     "start": "node scripts/start.mjs",
@@ -21,6 +21,7 @@
     "build:all": "node scripts/build.mjs all",
     "build:samples": "node scripts/create-samples.mjs",
     "build:docs": "node scripts/docs-shots.mjs",
+    "build:furniture": "node scripts/render-furniture.mjs",
     "build:icons": "node scripts/render-art.mjs",
     "build:art": "node scripts/render-art.mjs",
     "smoke": "node test/smoke/gui-smoke.mjs",

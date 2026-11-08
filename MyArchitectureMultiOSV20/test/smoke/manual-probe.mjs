@@ -50,7 +50,7 @@ try {
   let s = await m.ev(STATE);
   check("opens in the program's language", s.lang === "ko" && s.langs === "한국어* English", s.langs);
   check("dark theme of the program (Dracula)", s.mode === "dark" && s.bg === "#21222c" && s.body === hex2rgb("#21222c"), `${s.mode} ${s.bg} ${s.body}`);
-  check("window title is the page's", s.title === "사용 설명서 — MyArchitecture 10.0", s.title);
+  check("window title is the page's", s.title === "사용 설명서 — MyArchitecture 1.0.2", s.title);
   check("text size: − , value , + on one row", s.order && s.sameRow, JSON.stringify({ order: s.order, sameRow: s.sameRow }));
   check("current size centred", s.centre < 1, `off by ${s.centre.toFixed(2)} px`);
   check("starts at 12 px", s.out === "12 px" && s.fs === "12px", `${s.out} / ${s.fs}`);
@@ -102,7 +102,7 @@ try {
   m = await manual();
   s = await m.ev(STATE);
   check("English page", s.lang === "en" && s.langs === "한국어 English*" && /USERSGUIDE\.en\.html/.test(m.url), `${s.lang} ${s.langs}`);
-  check("English title", s.title === "User manual — MyArchitecture 10.0", s.title);
+  check("English title", s.title === "User manual — MyArchitecture 1.0.2", s.title);
   check("keeps theme and text size", s.mode === "light" && s.bg === "#f4f1ea" && s.out === "18 px" && s.fs === "18px", `${s.mode} ${s.bg} ${s.out}`);
   await shot(m, "manual-light-en.png");
   // And back.
@@ -111,7 +111,7 @@ try {
   await sleep(600);
   m = await manual();
   s = await m.ev(STATE);
-  check("back to Korean", s.lang === "ko" && s.title === "사용 설명서 — MyArchitecture 10.0", `${s.lang} ${s.title}`);
+  check("back to Korean", s.lang === "ko" && s.title === "사용 설명서 — MyArchitecture 1.0.2", `${s.lang} ${s.title}`);
   // Window buttons.
   const maxState = () => m.ev(`return window.__TAURI__.core.invoke("win_is_maximized")`);
   await m.ev(`document.querySelector('[data-win="max"]').click(); return 1`);

@@ -299,7 +299,7 @@ async function sidebarArt(houseUrl) {
   g.fillText("MyArchitecture", 20, 72);
   g.fillStyle = "#7fb8ff";
   g.font = "600 28px 'Segoe UI', sans-serif";
-  g.fillText("10.0", 22, 108);
+  g.fillText("1.0.2", 22, 108);
   g.fillStyle = "rgba(255,255,255,0.75)";
   g.font = "20px 'Segoe UI', 'Malgun Gothic', sans-serif";
   g.fillText("Floor plans · 3D · BIM", 22, 580);

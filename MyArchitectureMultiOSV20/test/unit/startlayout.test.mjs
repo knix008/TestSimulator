@@ -5,24 +5,27 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { COLS, ROW, GAP, overlaps, cardsOf, place, compact, autoArrange, swapVertical, layoutValue, boxOf, cellAt, spanFor, rowsFor } from "../../src/ui/startlayout.js";
 
-const IDS = ["hero", "banner", "templates", "recent", "side", "help", "samples"];
-const SPAN = { hero: 3, banner: 3, templates: 3, recent: 2, side: 1, help: 2, samples: 3 };
+// The start page's cards (src/ui/start.js CARD_IDS / DEFAULT_SPAN).
+const IDS = ["hero", "banner", "actions", "recent", "templates", "theme", "side", "samples"];
+const SPAN = { hero: 3, banner: 3, actions: 2, recent: 1, templates: 3, theme: 2, side: 1, samples: 3 };
+const M = { hero: 6, banner: 3, actions: 12, recent: 8, templates: 30, theme: 20, side: 32, samples: 30 };
 const noOverlap = (cards) => { const v = Object.values(cards); for (let i = 0; i < v.length; i++) for (let j = i + 1; j < v.length; j++) if (overlaps(v[i], v[j])) return false; return true; };
 
-test("default layout: full-width cards in reading order, recent and help beside the background", () => {
-  const c = cardsOf(null, IDS, SPAN, { hero: 6, banner: 3, templates: 14, recent: 8, side: 16, help: 8, samples: 30 });
+test("default layout: full-width cards in reading order, quick start beside recent, themes beside the background", () => {
+  const c = cardsOf(null, IDS, SPAN, M);
   assert.ok(noOverlap(c));
   assert.equal(c.hero.row, 0);
   assert.equal(c.banner.row, 6);
-  assert.equal(c.templates.row, 9);
-  assert.deepEqual([c.recent.col, c.recent.w, c.side.col, c.side.w], [0, 2, 2, 1]);
-  assert.equal(c.help.col, 0);
-  assert.equal(c.help.row, c.recent.row + 8, "help goes under recent, next to the tall background card");
+  assert.deepEqual([c.actions.col, c.actions.w, c.actions.row, c.recent.col, c.recent.w, c.recent.row], [0, 2, 9, 2, 1, 9]);
+  assert.equal(c.templates.row, 9 + 12, "새로 시작 goes under the taller of the two");
+  assert.deepEqual([c.theme.col, c.theme.w, c.side.col, c.side.w], [0, 2, 2, 1]);
+  assert.equal(c.theme.row, c.templates.row + 30);
+  assert.equal(c.side.row, c.theme.row);
   assert.ok(c.samples.row >= c.side.row + c.side.h, "samples go below everything");
 });
 
 test("a dropped card keeps its cell and the ones it covers move down without overlapping", () => {
-  const c = cardsOf(null, IDS, SPAN, { hero: 6, banner: 3, templates: 14, recent: 8, side: 16, help: 8, samples: 30 });
+  const c = cardsOf(null, IDS, SPAN, M);
   const n = place(c, "side", { col: 0, row: 0 });
   assert.ok(noOverlap(n));
   assert.deepEqual([n.side.col, n.side.row], [0, 0]);
@@ -35,12 +38,12 @@ test("compaction floats cards up in their own columns", () => {
 });
 
 test("resizing a card wider pushes its neighbour down; fit is turned off", () => {
-  const c = cardsOf(null, IDS, SPAN, { hero: 6, banner: 3, templates: 14, recent: 8, side: 16, help: 8, samples: 30 });
-  const n = place(c, "recent", { w: 3, h: 12, fit: false });
+  const c = cardsOf(null, IDS, SPAN, M);
+  const n = place(c, "actions", { w: 3, h: 14, fit: false });
   assert.ok(noOverlap(n));
-  assert.equal(n.recent.w, 3);
-  assert.equal(n.recent.fit, false);
-  assert.ok(n.side.row >= n.recent.row + 12);
+  assert.equal(n.actions.w, 3);
+  assert.equal(n.actions.fit, false);
+  assert.ok(n.recent.row >= n.actions.row + 14, "recent, beside it before, is pushed below");
 });
 
 test("Alt+↑ / Alt+↓ swap with the neighbour above / below", () => {
@@ -51,7 +54,7 @@ test("Alt+↑ / Alt+↓ swap with the neighbour above / below", () => {
 });
 
 test("auto arrange packs every card without overlaps; saved layouts round-trip", () => {
-  const measured = { hero: 6, banner: 3, templates: 14, recent: 8, side: 16, help: 8, samples: 30 };
+  const measured = M;
   const a = autoArrange(IDS, SPAN, measured);
   assert.ok(noOverlap(a));
   const back = cardsOf(layoutValue(a), IDS, SPAN, measured);
@@ -99,4 +102,14 @@ test("every background kind draws on a canvas (and none hides its own drawing me
     assert.ok(ICON_NAMES.includes(ANIMATION_ICONS[kind]), `${kind} has a real icon`);
     assert.ok(ANIMATION_NAMES[kind] && ANIMATION_NAMES[kind].length === 2, `${kind} has a name and a description`);
   }
+});
+
+test("the samples grid keeps every row full", async () => {
+  const { fullColumns } = await import("../../src/ui/startlayout.js");
+  for (let w = 220; w <= 3000; w += 37) {
+    const c = fullColumns(40, w, 210, 10);
+    assert.equal(40 % c, 0, `width ${w}: ${c} columns leave a gap`);
+    assert.ok(c * 210 + (c - 1) * 10 <= Math.max(w, 210), `width ${w}: ${c} columns do not fit`);
+  }
+  assert.equal(fullColumns(3, 2000, 210, 10), 3, "fewer cells than fit: one row");
 });
