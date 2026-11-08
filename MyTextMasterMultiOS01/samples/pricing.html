@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>요금제 안내</title>
+<style>
+  body { margin: 0; font-family: system-ui, "Malgun Gothic", sans-serif; background: #f0f4f8; color: #243b53; }
+  h1 { text-align: center; margin: 48px 0 8px; }
+  .sub { text-align: center; color: #627d98; margin-bottom: 40px; }
+  .plans { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; padding: 0 16px 48px; }
+  .plan { background: #fff; width: 280px; border-radius: 14px; padding: 28px; box-shadow: 0 4px 16px rgba(16,42,67,.08); position: relative; }
+  .plan.best { border: 2px solid #2680c2; transform: translateY(-8px); }
+  .badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #2680c2; color: #fff;
+           font-size: .75rem; padding: 3px 12px; border-radius: 99px; }
+  .price { font-size: 2.2rem; font-weight: 700; margin: 12px 0; }
+  .price small { font-size: .9rem; color: #829ab1; font-weight: 400; }
+  ul { list-style: none; padding: 0; margin: 0 0 24px; }
+  li { padding: 6px 0; border-bottom: 1px solid #e6edf3; }
+  li::before { content: "✓ "; color: #3ebd93; font-weight: 700; }
+  li.no { color: #9fb3c8; }
+  li.no::before { content: "✕ "; color: #ef8e58; }
+  .btn { display: block; text-align: center; padding: 12px; border-radius: 8px; background: #e6edf3; color: #243b53; text-decoration: none; font-weight: 600; }
+  .best .btn { background: #2680c2; color: #fff; }
+  table { margin: 0 auto 64px; border-collapse: collapse; background: #fff; }
+  th, td { padding: 10px 18px; border: 1px solid #d9e2ec; text-align: center; }
+  th { background: #f0f4f8; }
+</style>
+</head>
+<body>
+  <h1>나에게 맞는 요금제를 고르세요</h1>
+  <p class="sub">모든 요금제는 14일 무료 체험을 제공합니다. 언제든 해지할 수 있어요.</p>
+  <section class="plans">
+    <div class="plan">
+      <h2>베이직</h2>
+      <div class="price">₩0 <small>/ 월</small></div>
+      <ul><li>문서 50개</li><li>저장 공간 1 GB</li><li class="no">공동 편집</li><li class="no">우선 지원</li></ul>
+      <a class="btn" href="#">무료로 시작</a>
+    </div>
+    <div class="plan best">
+      <span class="badge">가장 인기</span>
+      <h2>프로</h2>
+      <div class="price">₩9,900 <small>/ 월</small></div>
+      <ul><li>문서 무제한</li><li>저장 공간 100 GB</li><li>공동 편집</li><li class="no">우선 지원</li></ul>
+      <a class="btn" href="#">프로 시작하기</a>
+    </div>
+    <div class="plan">
+      <h2>팀</h2>
+      <div class="price">₩29,000 <small>/ 월</small></div>
+      <ul><li>문서 무제한</li><li>저장 공간 1 TB</li><li>공동 편집</li><li>우선 지원</li></ul>
+      <a class="btn" href="#">영업팀 문의</a>
+    </div>
+  </section>
+  <table>
+    <tr><th>기능</th><th>베이직</th><th>프로</th><th>팀</th></tr>
+    <tr><td>PDF 내보내기</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>버전 기록</td><td>7일</td><td>90일</td><td>무제한</td></tr>
+    <tr><td>관리자 콘솔</td><td>—</td><td>—</td><td>✓</td></tr>
+  </table>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frequently Asked Questions</title>
+<style>
+  body { margin: 0; font-family: Georgia, "Times New Roman", serif; background: #fffaf0; color: #3c2f2f; }
+  main { max-width: 720px; margin: 0 auto; padding: 48px 20px; }
+  h1 { font-size: 2.2rem; margin-bottom: 4px; }
+  .lead { color: #7b6a58; margin-top: 0; }
+  details { background: #fff; border: 1px solid #ecdcc4; border-radius: 10px; margin: 12px 0; padding: 0 18px; }
+  details[open] { box-shadow: 0 3px 12px rgba(120, 80, 30, .1); }
+  summary { cursor: pointer; padding: 16px 0; font-weight: bold; font-family: system-ui, sans-serif; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; float: right; color: #c47f2c; font-size: 1.3rem; line-height: 1; }
+  details[open] summary::after { content: "−"; }
+  details p { margin: 0 0 16px; line-height: 1.7; }
+  .contact { margin-top: 40px; padding: 20px; background: #fdebd0; border-radius: 10px; }
+  kbd { background: #f4ecdf; border: 1px solid #d6c3a5; border-radius: 4px; padding: 1px 6px; font-size: .85em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>FAQ</h1>
+  <p class="lead">Answers to the questions we hear most often. Click a question to open it.</p>
+
+  <details open>
+    <summary>Is my data stored in the cloud?</summary>
+    <p>No. Every document stays on your computer unless you choose to save it to a synced folder yourself.</p>
+  </details>
+  <details>
+    <summary>Which file types can I open?</summary>
+    <p>Markdown, HTML and plain text, plus common code and data formats such as JSON, CSV, YAML, Python and SQL.</p>
+  </details>
+  <details>
+    <summary>How do I switch between edit and preview?</summary>
+    <p>Use the toolbar buttons, or press <kbd>Ctrl</kbd> + <kbd>E</kbd> to toggle the preview pane.</p>
+  </details>
+  <details>
+    <summary>Can I export to PDF?</summary>
+    <p>Yes. Choose <em>File → Print</em> and pick a PDF printer, or use <em>Export → PDF</em> for a cleaner layout.</p>
+  </details>
+  <details>
+    <summary>Does it work offline?</summary>
+    <p>Completely. The app never needs a network connection to edit, preview or save.</p>
+  </details>
+  <details>
+    <summary>How do I get a refund?</summary>
+    <p>Write to us within 30 days of purchase and we will refund you in full, no questions asked.</p>
+  </details>
+
+  <div class="contact">
+    <strong>Still stuck?</strong> Email support@example.com — we reply within one business day.
+  </div>
+</main>
+</body>
+</html>

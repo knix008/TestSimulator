@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Dashboard</title>
+<style>
+  :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --good: #4ade80; --bad: #f87171; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+  .layout { display: grid; grid-template-columns: 200px 1fr; min-height: 100vh; }
+  aside { background: #0b1222; padding: 24px 16px; }
+  aside h2 { font-size: 1rem; color: var(--accent); margin-top: 0; }
+  aside a { display: block; color: var(--muted); text-decoration: none; padding: 8px 10px; border-radius: 6px; }
+  aside a.on { background: var(--card); color: var(--text); }
+  main { padding: 24px; display: grid; gap: 16px;
+         grid-template-columns: repeat(4, 1fr);
+         grid-template-areas: "k1 k2 k3 k4" "chart chart chart side" "table table table side"; }
+  .card { background: var(--card); border-radius: 12px; padding: 18px; }
+  .kpi .label { color: var(--muted); font-size: .85rem; }
+  .kpi .value { font-size: 1.8rem; font-weight: 700; margin: 6px 0; }
+  .up { color: var(--good); } .down { color: var(--bad); }
+  .chart { grid-area: chart; }
+  .bars { display: flex; align-items: flex-end; gap: 10px; height: 160px; margin-top: 12px; }
+  .bars div { flex: 1; background: linear-gradient(var(--accent), #0369a1); border-radius: 4px 4px 0 0; }
+  .side { grid-area: side; }
+  .side li { padding: 6px 0; border-bottom: 1px solid #334155; list-style: none; }
+  .side ul { padding: 0; margin: 0; }
+  .table { grid-area: table; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #334155; }
+  th { color: var(--muted); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <h2>Acme Analytics</h2>
+    <a class="on" href="#">Overview</a><a href="#">Orders</a><a href="#">Customers</a><a href="#">Reports</a>
+  </aside>
+  <main>
+    <div class="card kpi" style="grid-area:k1"><div class="label">Revenue</div><div class="value">$48.2k</div><div class="up">▲ 12.4%</div></div>
+    <div class="card kpi" style="grid-area:k2"><div class="label">Orders</div><div class="value">1,284</div><div class="up">▲ 5.1%</div></div>
+    <div class="card kpi" style="grid-area:k3"><div class="label">Refunds</div><div class="value">23</div><div class="down">▲ 2.0%</div></div>
+    <div class="card kpi" style="grid-area:k4"><div class="label">New customers</div><div class="value">312</div><div class="up">▲ 8.7%</div></div>
+    <section class="card chart">
+      <strong>Monthly revenue</strong>
+      <div class="bars">
+        <div style="height:40%"></div><div style="height:55%"></div><div style="height:48%"></div>
+        <div style="height:70%"></div><div style="height:62%"></div><div style="height:85%"></div>
+        <div style="height:78%"></div><div style="height:95%"></div>
+      </div>
+    </section>
+    <section class="card side">
+      <strong>Top products</strong>
+      <ul><li>Wireless mouse — 412</li><li>USB-C hub — 298</li><li>Laptop stand — 187</li><li>Webcam HD — 140</li></ul>
+    </section>
+    <section class="card table">
+      <strong>Recent orders</strong>
+      <table>
+        <tr><th>Order</th><th>Customer</th><th>Total</th><th>Status</th></tr>
+        <tr><td>#10421</td><td>Kim Minji</td><td>$129.00</td><td class="up">Paid</td></tr>
+        <tr><td>#10420</td><td>John Smith</td><td>$54.50</td><td class="up">Paid</td></tr>
+        <tr><td>#10419</td><td>Lee Junho</td><td>$310.20</td><td class="down">Refunded</td></tr>
+      </table>
+    </section>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,52 @@
+# docker-compose.yml — web app with database and cache
+# Start everything with: docker compose up -d
+
+version: "3.9"
+
+services:
+  web:
+    build: ./web
+    image: mytextmaster/web:2.4.0
+    ports:
+      - "8080:80"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://app:secret@db:5432/app
+      REDIS_URL: redis://cache:6379
+      LOG_LEVEL: info
+    depends_on:
+      - db
+      - cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: app
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  cache:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    restart: unless-stopped
+
+  backup:
+    image: alpine:3.20
+    profiles: ["maintenance"]
+    volumes:
+      - db-data:/data:ro
+      - ./backups:/backups
+    entrypoint: >
+      sh -c "tar czf /backups/db-$$(date +%F).tar.gz -C /data ."
+
+volumes:
+  db-data:

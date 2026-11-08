@@ -1,0 +1,34 @@
+[package]
+name = "mytextmaster"
+version = "1.0.0"
+description = "Cross-platform Markdown, HTML and text editor"
+authors = ["SHKWON <knix008@naver.com>"]
+edition = "2021"
+
+[lib]
+name = "mytextmaster_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+arboard = { version = "3.6", default-features = false }
+encoding_rs = "0.8"
+md-5 = "0.10"
+sha1 = "0.10"
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+# Installed app: smaller and faster (whole-program optimisation, no debug symbols). Debug builds and tests are unaffected.
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

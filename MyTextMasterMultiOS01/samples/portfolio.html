@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jiwoo Park — Product Designer</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; color: #1f2933; background: #f7f7f2; line-height: 1.6; }
+  header { padding: 64px 24px 40px; text-align: center; }
+  .avatar { width: 96px; height: 96px; border-radius: 50%; margin: 0 auto 16px;
+            background: linear-gradient(135deg, #f6ad55, #ed64a6); }
+  h1 { margin: 0; font-size: 2rem; }
+  .role { color: #616e7c; }
+  nav a { margin: 0 10px; color: #c05621; text-decoration: none; font-weight: 600; }
+  main { max-width: 960px; margin: 0 auto; padding: 0 24px 64px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+  .work { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+  .thumb { height: 150px; }
+  .t1 { background: linear-gradient(120deg, #4fd1c5, #3182ce); }
+  .t2 { background: linear-gradient(120deg, #f6e05e, #ed8936); }
+  .t3 { background: linear-gradient(120deg, #9f7aea, #ed64a6); }
+  .work div.body { padding: 16px; }
+  .work h3 { margin: 0 0 4px; }
+  .tags span { display: inline-block; font-size: .75rem; background: #fefcbf; padding: 2px 8px; border-radius: 99px; margin-right: 4px; }
+  footer { text-align: center; color: #9aa5b1; padding: 24px; font-size: .9rem; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="avatar"></div>
+    <h1>Jiwoo Park</h1>
+    <p class="role">Product designer · Seoul · 7 years of experience</p>
+    <nav><a href="#work">Work</a><a href="#about">About</a><a href="#contact">Contact</a></nav>
+  </header>
+  <main>
+    <h2 id="work">Selected work</h2>
+    <div class="grid">
+      <article class="work"><div class="thumb t1"></div><div class="body">
+        <h3>Banking app redesign</h3><p>Cut the transfer flow from 7 steps to 3.</p>
+        <p class="tags"><span>Mobile</span><span>UX research</span></p></div></article>
+      <article class="work"><div class="thumb t2"></div><div class="body">
+        <h3>Recipe platform</h3><p>A design system with 120 components.</p>
+        <p class="tags"><span>Design system</span><span>Web</span></p></div></article>
+      <article class="work"><div class="thumb t3"></div><div class="body">
+        <h3>Smart home dashboard</h3><p>Accessible controls for elderly users.</p>
+        <p class="tags"><span>IoT</span><span>Accessibility</span></p></div></article>
+    </div>
+    <h2 id="about">About</h2>
+    <p>I design calm, honest interfaces. Before design I studied psychology, which still shapes how I run interviews and usability tests.</p>
+    <h2 id="contact">Contact</h2>
+    <p>jiwoo.park@example.com</p>
+  </main>
+  <footer>&copy; 2026 Jiwoo Park</footer>
+</body>
+</html>

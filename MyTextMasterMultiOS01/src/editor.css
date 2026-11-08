@@ -1,0 +1,149 @@
+/* MyTextMaster — the editor's own parts, on top of the MyUMLMaker look (styles.css). Colours come only from the theme variables. */
+
+#app:not(:empty) { grid-template-rows: auto auto 1fr auto; }
+
+/* workspace: see the end of this file (panels) */
+body.splitting, body.splitting * { cursor: col-resize !important; user-select: none !important; }
+body.splitting iframe { pointer-events: none; }
+
+/* outline */
+.outline-count { flex: none !important; font-weight: normal; color: var(--muted); font-size: 0.85em; }
+.outline-list { display: flex; flex-direction: column; gap: 1px; padding: 6px 6px 12px; overflow: auto; flex: 1; min-height: 0; }
+.outline-item {
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 26px; padding: 3px 8px 3px calc(8px + var(--depth, 0) * 14px);
+  border: 0; border-radius: 6px; background: none; color: var(--text); cursor: pointer; text-align: left;
+}
+.outline-item .icon { width: 14px; height: 14px; flex: none; }
+.outline-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.outline-item.level-1 { font-weight: 700; }
+.outline-item.level-2 { font-weight: 600; }
+.outline-item:hover { background: var(--hover); }
+.outline-item.current { background: var(--soft-accent, var(--hover)); box-shadow: inset 3px 0 0 var(--accent); }
+
+/* editor | splitter | preview */
+#editor-area { flex: 1; min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, calc(var(--split, 0.5) * 100%)) 5px minmax(0, 1fr); }
+#editor-area[data-mode="editor"] { grid-template-columns: minmax(0, 1fr) 0 0; }
+#editor-area[data-mode="editor"] #preview-pane, #editor-area[data-mode="editor"] > .splitter { display: none; }
+#editor-area[data-mode="preview"] { grid-template-columns: 0 0 minmax(0, 1fr); }
+#editor-area[data-mode="preview"] #editor-pane, #editor-area[data-mode="preview"] > .splitter { visibility: hidden; }
+#editor-pane, #preview-pane { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+#editor-area > .splitter { border-left: 1px solid var(--hairline, var(--border)); }
+#editor-host { flex: 1; min-height: 0; display: flex; }
+#preview-host { flex: 1; min-height: 0; display: flex; background: var(--chart); }
+.pane-head { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; flex: none; font-size: 0.82em; color: var(--muted); background: var(--panel); border-bottom: 1px solid var(--hairline, var(--border)); }
+.pane-head .icon { width: 14px; height: 14px; }
+.pane-note { font-size: 0.95em; }
+.preview-frame { flex: 1; width: 100%; height: 100%; border: 0; background: #fff; }
+:root[data-mode="dark"] .preview-frame { background: #0d1117; }
+.print-frame { position: fixed; right: 0; bottom: 0; width: 0; height: 0; border: 0; visibility: hidden; }
+
+/* CodeMirror in the theme's colours */
+#editor-host .cm-editor { flex: 1; min-width: 0; height: 100%; background: var(--chart); color: var(--text); }
+#editor-host .cm-editor.cm-focused { outline: none; }
+#editor-host .cm-scroller { line-height: 1.6; }
+#editor-host .cm-content { padding: 10px 0 40vh; caret-color: var(--accent); }
+#editor-host .cm-line { padding: 0 14px 0 10px; }
+#editor-host .cm-gutters { background: var(--panel); color: color-mix(in srgb, var(--muted) 80%, transparent); border-right: 1px solid var(--hairline, var(--border)); }
+#editor-host .cm-lineNumbers .cm-gutterElement { padding: 0 8px 0 12px; min-width: 38px; }
+#editor-host .cm-activeLine { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+#editor-host .cm-activeLineGutter { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--text); }
+#editor-host .cm-cursor, #editor-host .cm-dropCursor { border-left: 2px solid var(--accent); }
+#editor-host .cm-selectionBackground, #editor-host .cm-content ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent) !important; }
+#editor-host .cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground { background: color-mix(in srgb, var(--accent) 30%, transparent) !important; }
+#editor-host .cm-selectionMatch { background: color-mix(in srgb, var(--warning) 25%, transparent); }
+#editor-host .cm-matchingBracket { background: color-mix(in srgb, var(--success) 25%, transparent); outline: 1px solid color-mix(in srgb, var(--success) 60%, transparent); }
+#editor-host .cm-searchMatch { background: color-mix(in srgb, var(--warning) 35%, transparent); outline: 1px solid var(--warning); }
+#editor-host .cm-searchMatch-selected { background: color-mix(in srgb, var(--accent) 40%, transparent); }
+#editor-host .cm-foldGutter .cm-gutterElement { padding: 0 4px; cursor: pointer; }
+#editor-host .cm-foldPlaceholder { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); border-radius: 4px; padding: 0 5px; }
+#editor-host .cm-highlightSpace { background-image: radial-gradient(circle at 50% 55%, color-mix(in srgb, var(--muted) 55%, transparent) 15%, transparent 20%); }
+#editor-host .cm-highlightTab { background-image: none; position: relative; }
+#editor-host .cm-highlightTab::before { content: "→"; position: absolute; color: color-mix(in srgb, var(--muted) 60%, transparent); }
+#editor-host .cm-tooltip { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px var(--shadow); color: var(--text); }
+#editor-host .cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--accent); color: var(--accent-text); }
+/* find / replace and go to line: a bar at the top in the toolbar look */
+#editor-host .cm-panels { background: var(--toolbar); color: var(--text); border-color: var(--hairline, var(--border)); }
+#editor-host .cm-panels-top { border-bottom: 1px solid var(--hairline, var(--border)); }
+#editor-host .cm-panel.cm-search { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 6px 34px 6px 10px; font-size: 0.92em; }
+#editor-host .cm-panel.cm-search br { flex-basis: 100%; height: 0; content: ""; }
+#editor-host .cm-panel input.cm-textfield { padding: 3px 7px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); font-size: 1em; min-width: 200px; }
+#editor-host .cm-panel input.cm-textfield:focus { border-color: var(--accent); box-shadow: var(--ring); outline: none; }
+#editor-host .cm-panel button.cm-button { padding: 3px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); background-image: none; color: var(--text); font-size: 0.95em; cursor: pointer; }
+#editor-host .cm-panel button.cm-button:hover { border-color: var(--accent); }
+#editor-host .cm-panel label { display: inline-flex; align-items: center; gap: 3px; font-size: 0.95em; }
+#editor-host .cm-panel input[type="checkbox"] { accent-color: var(--accent); }
+#editor-host .cm-panel button[name="close"] { position: absolute; top: 6px; right: 8px; width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
+#editor-host .cm-panel button[name="close"]:hover { background: var(--danger); color: #fff; }
+#editor-host .cm-panel.cm-gotoLine { padding: 6px 10px; }
+
+/* tabs: a close button on each */
+.tab { padding-right: 4px; }
+.tab-close { width: 20px; height: 20px; opacity: 0; }
+.tab:hover .tab-close, .tab.active .tab-close { opacity: 1; }
+.tab-close:hover { background: var(--danger) !important; color: #fff !important; }
+.tab.dirty .tab-close { opacity: 1; }
+.tab .icon.tiny { width: 12px; height: 12px; color: var(--muted); }
+
+/* in-page menus (ui/menu.js) */
+.menu-layer { position: fixed; inset: 0; z-index: 5000; pointer-events: none; }
+.popup-menu.in-page { position: fixed; pointer-events: auto; overflow-y: auto; box-shadow: 0 10px 28px -6px var(--shadow), 0 1px 3px color-mix(in srgb, var(--shadow) 45%, transparent); max-width: min(520px, calc(100vw - 8px)); }
+.menu-item { min-width: 220px; color: var(--text); }
+.menu-item.has-sub.open { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.menu-check { display: inline-grid; place-items: center; width: 14px; }
+.menu-label { overflow: hidden; text-overflow: ellipsis; }
+.menu-item { grid-template-columns: 14px 20px auto 1fr; }
+.menu-item .menu-key { grid-column: 4; }
+.menu-header { display: flex; align-items: center; gap: 7px; padding: 4px 10px 7px; margin-bottom: 4px; border-bottom: 1px solid var(--hairline, var(--border)); font-weight: 600; font-size: 0.92em; }
+.menu-header .icon { width: 16px; height: 16px; }
+.menu-item .flag { width: 18px; height: 12px; }
+
+/* dialogs over the page (ui/dialog.js) */
+.dialog-overlay { position: fixed; inset: 0; z-index: 4000; display: grid; place-items: center; background: color-mix(in srgb, #000 28%, transparent); animation: fade-in 0.12s ease-out; }
+.dialog.popup { height: auto; max-height: calc(100vh - 24px); border-radius: 12px; box-shadow: var(--elev-2), 0 24px 60px -12px rgba(0, 0, 0, 0.45); }
+.dialog .popup-head { cursor: move; }
+.dialog .popup-body { overflow: auto; padding: 14px 18px; }
+.dialog .popup-foot { gap: 8px; }
+.dialog .dialog-close:hover { background: var(--danger); color: #fff; }
+.dialog-detail { white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow: auto; }
+.form-note { margin: 10px 0 0; font-size: 0.86em; white-space: normal; line-height: 1.5; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.settings-dialog .popup-body { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.settings-dialog .tabs { padding: 8px 14px 0; }
+.settings-dialog .tabs .tab { display: inline-flex; align-items: center; gap: 6px; }
+.settings-dialog .tabs .tab .icon { width: 15px; height: 15px; }
+.settings-pane { flex: 1; overflow: auto; padding: 8px 18px 14px; --label-col: 220px; }
+.settings-pane .row-control output { min-width: 46px; text-align: right; color: var(--accent); font-weight: 600; }
+.settings-pane .row-control input[type="range"] { flex: 1; }
+.settings-note { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0 0; font-size: 0.86em; line-height: 1.5; white-space: normal; }
+.settings-note .icon { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+.custom-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 12px; padding: 8px 0 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 38%, transparent); }
+.custom-color { display: inline-flex; align-items: center; gap: 7px; font-size: 0.9em; cursor: pointer; }
+.custom-color input[type="color"] { width: 30px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: 5px; background: none; cursor: pointer; }
+
+.stats-name { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+.stats-table { grid-template-columns: 190px minmax(0, 1fr); }
+.stats-table dd { text-align: right; font-weight: 600; }
+
+.shortcuts-dialog .popup-body { overflow: auto; }
+.shortcut-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 22px; }
+.shortcut-columns h3 { display: flex; align-items: center; gap: 7px; margin: 10px 0 4px; font-size: 0.92em; color: var(--accent); }
+.shortcut-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 26px; border-bottom: 1px solid color-mix(in srgb, var(--border) 38%, transparent); }
+.shortcut-row .icon { width: 15px; height: 15px; }
+.shortcut-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+kbd { display: inline-block; padding: 1px 7px; font: 0.86em Consolas, Menlo, monospace; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--surface2); white-space: nowrap; }
+
+/* tutorial card above the dialogs */
+#tutorial-layer.active { display: block; }
+#tutorial-layer .tour-card { z-index: 2; }
+
+/* focus mode: only the text */
+#app.focus-mode #toolbar, #app.focus-mode #tabs, #app.focus-mode #statusbar { display: none; }
+#app.focus-mode #editor-host .cm-content { max-width: 860px; margin: 0 auto; }
+
+/* status bar buttons */
+#statusbar button.status-item { border-radius: 0; }
+#statusbar button.status-item:hover { background: var(--hover); }
+
+.boot-error { margin: 20px; padding: 16px; white-space: pre-wrap; color: var(--danger); background: var(--surface); border: 1px solid var(--danger); border-radius: 10px; user-select: text; }
+.start-banner .small-button { flex: none; }

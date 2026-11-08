@@ -1,0 +1,13 @@
+{
+  "name": "my-project",
+  "version": "1.0.0",
+  "editor": {
+    "tabSize": 2,
+    "wordWrap": true,
+    "theme": "dark"
+  },
+  "recent": [
+    "notes/todo.md",
+    "site/index.html"
+  ]
+}

@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers (npm run build:win / build:mac / build:linux / build:all)
+release/
+/MyTextMaster-*.exe
+/MyTextMaster-*.msi
+/MyTextMaster-*.dmg
+/MyTextMaster-*.deb
+/MyTextMaster-*.rpm
+/MyTextMaster-*.AppImage
+/MyTextMaster-Web-*.zip
+
+# Videos (npm run tutorial:video → MyTextMaster-Tutorial.mp4)
+#*.mp4
+
+# Test runs (npm test)
+test-results/
+*.log
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+

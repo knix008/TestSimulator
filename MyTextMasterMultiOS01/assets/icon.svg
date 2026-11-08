@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- MyTextMaster app icon: a raised 3D tile (the same build as the MyUMLMaker icon) with a page
+       of text lines, a Markdown "M↓" badge and a pen writing on the page. The tile sits in the
+       centre (112…912 both ways); the border is transparent; the top-left corner glows. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9db8ff"/>
+      <stop offset="0.5" stop-color="#4b63e6"/>
+      <stop offset="1" stop-color="#2a1f8f"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22187a"/>
+      <stop offset="1" stop-color="#120c48"/>
+    </linearGradient>
+    <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#0c0636" stop-opacity="0.6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.2" cy="0.16" r="0.62">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.28" stop-color="#eef2ff" stop-opacity="0.55"/>
+      <stop offset="0.7" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe6ff"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd166"/><stop offset="1" stop-color="#f4a21a"/>
+    </linearGradient>
+    <linearGradient id="pen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff8fa3"/><stop offset="1" stop-color="#e23b63"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-300%" width="160%" height="700%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="9" stdDeviation="9" flood-color="#0c0636" flood-opacity="0.5"/>
+    </filter>
+    <radialGradient id="spark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="faceClip"><rect x="112" y="112" width="800" height="760" rx="170"/></clipPath>
+  </defs>
+
+  <ellipse cx="512" cy="948" rx="370" ry="32" fill="#0c0636" opacity="0.45" filter="url(#shadow)"/>
+  <rect x="112" y="152" width="800" height="760" rx="170" fill="url(#side)"/>
+  <rect x="112" y="112" width="800" height="760" rx="170" fill="url(#face)"/>
+  <g clip-path="url(#faceClip)">
+    <!-- the page with a folded corner -->
+    <g filter="url(#drop)">
+      <path d="M262 214h372l128 128v436a36 36 0 0 1-36 36H262a36 36 0 0 1-36-36V250a36 36 0 0 1 36-36z" fill="url(#paper)"/>
+      <path d="M634 214v92a36 36 0 0 0 36 36h92z" fill="#b9c6f5"/>
+    </g>
+    <!-- a heading and lines of text -->
+    <rect x="282" y="282" width="250" height="34" rx="17" fill="#3a4fd8"/>
+    <g fill="#8a98c9">
+      <rect x="282" y="360" width="400" height="20" rx="10"/>
+      <rect x="282" y="410" width="360" height="20" rx="10"/>
+      <rect x="282" y="460" width="300" height="20" rx="10"/>
+      <rect x="282" y="540" width="250" height="20" rx="10"/>
+      <rect x="282" y="590" width="200" height="20" rx="10"/>
+    </g>
+    <!-- Markdown badge: M and a down arrow -->
+    <g filter="url(#drop)">
+      <rect x="282" y="650" width="230" height="120" rx="22" fill="url(#badge)"/>
+    </g>
+    <g fill="none" stroke="#5a2d00" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M314 740v-60l36 40 36-40v60"/>
+      <path d="M460 680v58M436 716l24 24 24-24"/>
+    </g>
+    <!-- the pen, writing on the page -->
+    <g transform="rotate(40 690 560)" filter="url(#drop)">
+      <rect x="664" y="300" width="56" height="300" rx="14" fill="url(#pen)"/>
+      <rect x="664" y="300" width="56" height="58" rx="14" fill="#ffffff" opacity="0.9"/>
+      <path d="M664 600h56l-28 70z" fill="#ffe0c2"/>
+      <path d="M682 645h20l-10 25z" fill="#2a1f8f"/>
+    </g>
+    <path d="M112 112h800v300C700 345 400 345 112 455z" fill="url(#gloss)" opacity="0.6"/>
+    <rect x="112" y="112" width="800" height="760" fill="url(#glow)"/>
+  </g>
+  <rect x="120" y="120" width="784" height="744" rx="163" fill="none" stroke="url(#bevel)" stroke-width="16"/>
+  <circle cx="232" cy="214" r="70" fill="url(#spark)" opacity="0.9"/>
+  <path d="M232 142l12 60 60 12-60 12-12 60-12-60-60-12 60-12z" fill="#ffffff"/>
+</svg>

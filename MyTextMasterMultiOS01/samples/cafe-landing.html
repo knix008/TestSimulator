@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>카페 바람 — 소개</title>
+    <style>
+      :root { --brand: #8a5a3b; }
+      body { margin: 0; font-family: "Malgun Gothic", system-ui, sans-serif; color: #2b2118; background: #fbf7f2; }
+      header { padding: 70px 24px; text-align: center; color: #fff; background: linear-gradient(135deg, #8a5a3b, #c08a5b); }
+      header h1 { margin: 0 0 8px; font-size: 2.6em; }
+      nav { display: flex; justify-content: center; gap: 22px; padding: 12px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+      nav a { color: var(--brand); text-decoration: none; font-weight: 600; }
+      main { max-width: 900px; margin: 30px auto; padding: 0 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+      .card { padding: 20px; border-radius: 14px; background: #fff; box-shadow: 0 6px 20px rgba(80, 50, 20, .08); }
+      .price { color: var(--brand); font-weight: 700; }
+      footer { padding: 30px; text-align: center; color: #8b7b6b; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>카페 바람</h1>
+      <p>매일 아침 직접 볶은 원두로 내린 커피</p>
+    </header>
+    <nav>
+      <a href="#menu">메뉴</a>
+      <a href="#hours">영업시간</a>
+      <a href="#map">오시는 길</a>
+    </nav>
+    <main id="menu">
+      <div class="card">
+        <h2>아메리카노</h2>
+        <p>고소한 맛의 기본 커피</p>
+        <p class="price">4,000원</p>
+      </div>
+      <div class="card">
+        <h2>카페라테</h2>
+        <p>부드러운 우유와 에스프레소</p>
+        <p class="price">4,800원</p>
+      </div>
+      <div class="card" id="hours">
+        <h2>영업시간</h2>
+        <p>평일 08:00 – 21:00<br>주말 10:00 – 22:00</p>
+      </div>
+    </main>
+    <footer id="map">서울시 바람구 커피로 12 · 02-123-4567</footer>
+  </body>
+</html>

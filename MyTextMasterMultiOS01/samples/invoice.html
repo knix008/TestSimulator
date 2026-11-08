@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>청구서 INV-2026-0117</title>
+<style>
+  body { margin: 0; background: #e9ecef; font-family: system-ui, "Malgun Gothic", sans-serif; color: #212529; }
+  .page { max-width: 760px; margin: 32px auto; background: #fff; padding: 48px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .logo { font-size: 1.5rem; font-weight: 800; color: #5f3dc4; }
+  h1 { margin: 0; font-size: 2rem; letter-spacing: .1em; color: #495057; }
+  .info { display: flex; justify-content: space-between; margin: 32px 0; font-size: .95rem; line-height: 1.7; }
+  .info h3 { margin: 0 0 4px; font-size: .8rem; color: #868e96; text-transform: uppercase; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #5f3dc4; color: #fff; padding: 10px; text-align: left; }
+  td { padding: 10px; border-bottom: 1px solid #dee2e6; }
+  .num { text-align: right; }
+  .totals { width: 300px; margin-left: auto; margin-top: 16px; }
+  .totals td { border: none; padding: 6px 10px; }
+  .grand td { font-size: 1.2rem; font-weight: 700; border-top: 2px solid #5f3dc4; }
+  .note { margin-top: 40px; padding: 16px; background: #f3f0ff; border-radius: 8px; font-size: .9rem; }
+  @media print { body { background: #fff; } .page { box-shadow: none; margin: 0; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top">
+    <div class="logo">한빛 디자인 스튜디오</div>
+    <div style="text-align:right"><h1>청구서</h1><div>INV-2026-0117</div></div>
+  </div>
+  <div class="info">
+    <div><h3>발행자</h3>한빛 디자인 스튜디오<br>서울시 마포구 월드컵로 12<br>사업자 번호 123-45-67890</div>
+    <div><h3>청구 대상</h3>(주)푸른숲 출판<br>담당: 이정민 과장<br>jm.lee@example.com</div>
+    <div><h3>날짜</h3>발행일: 2026-11-05<br>지급 기한: 2026-11-30</div>
+  </div>
+  <table>
+    <tr><th>항목</th><th class="num">수량</th><th class="num">단가</th><th class="num">금액</th></tr>
+    <tr><td>도서 표지 디자인</td><td class="num">3</td><td class="num">800,000</td><td class="num">2,400,000</td></tr>
+    <tr><td>내지 레이아웃 (페이지)</td><td class="num">240</td><td class="num">5,000</td><td class="num">1,200,000</td></tr>
+    <tr><td>홍보용 카드뉴스</td><td class="num">5</td><td class="num">120,000</td><td class="num">600,000</td></tr>
+    <tr><td>수정 작업 (시간)</td><td class="num">4</td><td class="num">50,000</td><td class="num">200,000</td></tr>
+  </table>
+  <table class="totals">
+    <tr><td>공급가액</td><td class="num">4,400,000</td></tr>
+    <tr><td>부가세 (10%)</td><td class="num">440,000</td></tr>
+    <tr class="grand"><td>합계</td><td class="num">₩4,840,000</td></tr>
+  </table>
+  <div class="note"><strong>입금 계좌:</strong> 한빛은행 110-234-567890 (예금주: 한빛 디자인 스튜디오)<br>문의 사항은 billing@example.com 으로 연락 주세요. 감사합니다.</div>
+</div>
+</body>
+</html>

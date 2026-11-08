@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Contact form</title>
+    <style>
+      body { display: grid; place-items: center; min-height: 100vh; margin: 0; font-family: system-ui, sans-serif; background: #f1f5f9; }
+      form { width: 360px; padding: 26px; border-radius: 14px; background: #fff; box-shadow: 0 10px 30px rgba(15, 23, 42, .1); }
+      label { display: block; margin: 12px 0 4px; font-weight: 600; }
+      input, textarea, select { width: 100%; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; box-sizing: border-box; }
+      button { margin-top: 16px; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: #0f766e; color: #fff; font: inherit; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <form>
+      <h2>Contact us</h2>
+      <label for="name">Name</label>
+      <input id="name" placeholder="Your name">
+      <label for="mail">E-mail</label>
+      <input id="mail" type="email" placeholder="you@example.com">
+      <label for="topic">Topic</label>
+      <select id="topic">
+        <option>Question</option>
+        <option>Bug report</option>
+        <option>Other</option>
+      </select>
+      <label for="message">Message</label>
+      <textarea id="message" rows="4"></textarea>
+      <button type="button">Send</button>
+    </form>
+  </body>
+</html>
