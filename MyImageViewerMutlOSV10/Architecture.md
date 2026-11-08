@@ -33,7 +33,8 @@ On Windows/Linux the window is **frameless**; chrome (brand, menus, current file
 │    ├─ Editor (history = pixels + effects + transforms)        │
 │    ├─ Media transport + cues (video / audio / animated GIF)   │
 │    ├─ FileTree (drive-rooted), Browse + Thumbs (contact sheet)  │
-│    ├─ FormatSupport, DicomDecoder + codecs                      │
+│    ├─ FormatSupport (+ imageWorker), DicomDecoder + codecs    │
+│    ├─ Start screen: StartBoard cards + StartBackground (3D)   │
 │    ├─ Info panel (file / capture / media / tags / DICOM)      │
 │    ├─ I18n, ContextMenu, Tooltip, Icons                       │
 │    ├─ DialogWindows, DragDrop (desktop only)                  │
@@ -93,6 +94,8 @@ Until 1.0.2 this was a Node process (`host/service.js`) the page reached over HT
 ### `src/js/dialogWindow.js` — Dialogs in their own windows (desktop)
 - A `MutationObserver` sees a `.dialog-overlay` become visible, opens its dialog window, **moves the overlay's DOM into that same-origin document** (listeners travel with the nodes), freezes the box at its in-page size (the CSS sizes ride `vw`/`vh`) and calls `fit_dialog`. Hiding the dialog moves the DOM back and closes the window. `progress-overlay` stays in the page.
 - While a dialog is out: `document.getElementById / querySelector / querySelectorAll` also search the dialog windows (app.js looks dialog elements up on `document`), Esc pressed in a dialog is re-dispatched to the main document, the main window is blocked by `#dialog-window-blocker`, the title row is an `app-region: drag` (macOS/Linux: `dialog_start_dragging`), tooltips draw in the dialog's own document.
+- **Sizing**: in the page a `.dialog-box` is held to `max-height: calc(100vh - 24px)` (title and footer `flex-shrink: 0`, `.dialog-body` `overflow-y: auto`), so a long dialog never pushes its title row and × off screen. `_detach` measures the box at its **natural** size — inline `max-height: none`, `flex-shrink: 0` (the overlay is a flex box and would shrink it) and `animation: none` (the `dialogSlide` transform is part of `getBoundingClientRect`). `_size` measures with `max-height: none !important` too, because in the dialog window the box is `max-height: 100vh` and, before `fit_dialog` has sized the new window, that is ~30 px short (the hidden-window caption gap) — the box would otherwise ask for the short height and scroll. A window clamped to the work area keeps the box at `100vh` with the body scrolling.
+- `.dialog-close-btn` (every dialog's ×) is `#e81123` with a white glyph on hover / focus, like `#win-close`. `#shortcuts-overlay` uses `.shortcuts-dialog-box` (`min(880px, 100vw - 32px)`) and lays the table rows out in two CSS columns (`tbody { columns: 2 }`), so all shortcuts fit without scrolling at the 600 px minimum window height.
 
 ### `src/js/dragdrop.js` — Drag & drop (desktop)
 - In-app drags use **pointer events** (not HTML5 DnD): thumbnails / explorer files → explorer folder rows or folder tiles (move; Ctrl = copy), with a ghost and a `dd-target` highlight. Leaving the window mid-drag hands the same files to `startFileDrag` (OS drag-out).
@@ -157,6 +160,8 @@ Until 1.0.2 this was a Node process (`host/service.js`) the page reached over HT
 | BG remove / crop | Algorithmic (mask-guided alpha, flood/chroma) + AI (`rembg` via main-process worker); crop uses off-screen canvas |
 | Undo/Redo | Snapshots of pixels **and** effects / rotation / flip (`MAX_HISTORY` 20) |
 | Source swap | `replaceSource(img)` — new picture (DICOM window / frame) keeping transforms and effects; resets history |
+| Off-thread load | `loadImage(img, prepared)` — `prepared = { pixels, copy }` from `FormatSupport.decodeOffThread`: `workingPixels` is the worker's ImageData (no `drawImage` + `getImageData` here) and `_histShare` takes `copy`, so the first undo step clones nothing on the UI thread |
+| Untouched picture | `_pristine = { image, pixels, version }`: while `workingPixels`, `_pixVersion`, `originalImg`, rotation / flip are unchanged and no effect is on (`_pristineImage()`), `_composePhoto` returns the decoded ImageBitmap instead of `putImageData`-ing every pixel into a new canvas. `_displayBlank` skips `clearRect` on a display canvas that was just resized (a ~90 ms pass at 100 MP). The display canvas stays `willReadFrequently` (CPU): a GPU canvas was slower because the histogram reads it back |
 
 ### `src/js/formatSupport.js` — Format Loader
 | Format | Desktop | Web |
@@ -166,6 +171,8 @@ Until 1.0.2 this was a Node process (`host/service.js`) the page reached over HT
 | HEIC/HEIF/HIF | libheif (wasm) in `js/heicWorker.js` | Optional heic2any |
 | DICOM | `dicomDecoder.js` in the renderer (`read-file-bytes` → `DicomDecoder.load`); no host decoder | Same decoder in the renderer |
 | Video/Audio | `file://` URL | `blob:` object URL |
+
+**Viewer open (`loadImageForView`)**: the main viewer's `_openFile` calls `FormatSupport.loadImageForView(path)` instead of `loadImageFile`. A still JPEG / PNG / GIF / BMP / WebP / ICO / AVIF is read with `readFileBytes` (an ArrayBuffer over Tauri IPC — no base64 data URL to build and parse) and returned as `{ type: 'image', blob }`; an animated GIF / WebP (`hasAnimationBytes`) and every other format take `loadImageFile`. app.js `_loadImageBlob` hands the blob to `decodeOffThread(blob, { pixels: true })`: `js/imageWorker.js` decodes it with `createImageBitmap` (`imageOrientation: 'from-image'`, `premultiplyAlpha: 'none'`), draws it on an `OffscreenCanvas`, reads the RGBA pixels and a second copy, and **transfers** bitmap + both buffers back. One decode runs at a time: a newer call terminates the worker and rejects the older promise with `err.superseded`. If the worker cannot decode a file, the viewer falls back to `loadImageFile` and the `<img>` path. Measured on a 96 MP JPEG: longest UI stall 3.2 s → ~0.25 s (what is left is drawing the finished bitmap into the 100 MP display canvas). `batch.js`, `thumbs.js` and the edit paths still use `loadImageFile`.
 
 ### `src/js/dicomDecoder.js` — DICOM session decoder
 - Shared Node / browser UMD module. `DicomDecoder.load(bytes)` parses with **dicom-parser** and returns an *image session* that keeps the decoded samples per frame (cached) and re-renders on demand: `render({ frame, wc, ww, invert, voiLut, voiFunction, colormap, overlays, overlayColor, resetWindow })` → RGBA, `toCanvas()` / `toDataUrl()` in the browser.
@@ -225,6 +232,10 @@ Until 1.0.2 this was a Node process (`host/service.js`) the page reached over HT
 - `icons.js` — inline SVG (undo/redo, rotate, drive, window controls)
 - `contextMenu.js` — dropdown / context menus: rows with icon, label, detail, shortcut, `checked`, `danger`, `inline`, `remove`, and `submenu`. **Every row shows an icon**: a checked row keeps its icon and adds `.ctx-checkmark` at the right; a row without one gets a neutral dot (or the check). `_place()` calls `_fitColumns()` first: a list taller than the screen (the 40-palette theme picker) gets a fixed height and an `is-columns` class. On the desktop menus are serialised to the menu overlay window (`electronAPI.popupMenu`), with the in-page menu as fallback.
 - `dragdrop.js`, `dialogWindow.js`, `popupMenu.js` — see above.
+- `imageWorker.js` — the viewer's decode worker (see *Viewer open* under `formatSupport.js`).
+- `startboard.js` — `window.StartBoard`, the start screen's card board, ported from MyUMLMaker (`ui/startlayout.js` + `ui/startboard.js`): a 3-column grid of 20 px rows (14 px gap) whose cards never overlap. `StartBoard.card(id, …)` builds a card (handle = **three horizontal lines**, resize corner); `StartBoard.start(board)` places them (`cardsOf` → `compact(resolve(…))`), measures "fit" cards to their content with a `ResizeObserver`, moves a card by its handle (a see-through ghost follows the pointer, a dashed outline shows the drop cell, the others slide aside), resizes from the corner (double-click = fit again) and saves `{ version, cards }` under `localStorage.startLayout`; `arrange()` = default layout (`SPAN`: hero 3, begin 1, tasks 2, recent 1, scenes 2). app.js `_renderHomeBody` builds the hero / begin / tasks / recent / scenes cards, the top tools ("show at startup", **Auto arrange**) and the footer.
+- `startbg.js` — the start screen's 3D background (`start3d/`). index.html's first-paint script shows the chosen scene's saved picture (`startSnap:<scene>`, scene `valley` when none is saved — a missing value must not pass the `/^[a-z]+$/` test as the text `"undefined"`); the WebGL canvas is created at its final size (growing it from 300×150 after the context existed flashed the whole page black) and fades in over the picture.
+- **Viewer ruler** (app.js `_paintGuides`): px rulers along the top and left (`GUIDE_RULER` 22 px), on by default; `_guides` is read back from `localStorage.viewGuidesV1`, toggled by `#btn-ruler` and View ▸ Ruler (main and edit window) through `_toggleGuide('ruler')`. Hidden only under the full contact sheet (`Browse.isVisible() && !isFilmstrip()`). `_paintGuideCursor` draws the pointer on its own canvas (`#view-guides-cursor`): a red (`#ff3b30`) line in each band plus the image pixel coordinate, repainted per animation frame from `pointermove`, so the rulers themselves are not redrawn. The guide state (`GUIDE_RULER`, `_guideCanvas`, `_guideGeo`, …) is declared at the top of app.js: the first ruler paint runs during start-up, before the code next to those functions.
 - `tauriAPI.js` — desktop `electronAPI`. `webAPI.js` is the browser counterpart.
 - `tooltip.js`
 

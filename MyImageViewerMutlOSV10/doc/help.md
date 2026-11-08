@@ -11,6 +11,8 @@ Until you open a file or a folder, **Home** fills the window: cards on a landsca
 - **Recent folders** lists folders you opened before. Click a name to open it again.
 - Cards that need a picture (edit, print, resize, background removal, details) ask you to open one first. The status bar says so when there is nothing to edit.
 
+You can move and resize the cards. Drag a card by the **three lines (☰)** left of its title to move it; the other cards make room. Drag its bottom-right corner to resize it, and double-click that corner to fit it to its content again. **Auto arrange** (top right) puts every card back. Your layout is kept for next time. The background starts as the chosen scene's last picture and changes to the live 3D scene once it is ready.
+
 **Home** on the menu bar returns here at any time. The file you already opened stays loaded. If Settings says to reopen the last folder and file at startup, the next launch skips Home and opens that file. Double-clicking a file to start the app does the same.
 
 ## Window and menu bar
@@ -30,7 +32,7 @@ The **Help** menu contains **Help**, **Keyboard Shortcuts** and **About**. Help 
 
 Menus and right-click menus may extend past the edge of the window, so nothing is cut off. Every menu item has an icon. A ticked item keeps its icon and shows ✓ at the right. Click outside a menu or press `Esc` to close it.
 
-Dialogs (Settings, About, Print, Resize, Details, confirmations) open as windows of their own. Drag one by its title to move it anywhere on the screen, even past the main window. The main window waits behind it until you close the dialog.
+Dialogs (Settings, About, Print, Resize, Details, Keyboard Shortcuts, confirmations) open as windows of their own. Drag one by its title to move it anywhere on the screen, even past the main window. The main window waits behind it until you close the dialog. The **×** at the top right turns red under the mouse. Keyboard Shortcuts lists its keys in two columns, so all of them show without scrolling.
 
 ## File menu
 
@@ -70,6 +72,8 @@ The centre is the viewer. An empty viewer shows a short hint. An open picture is
 - **Rotate** (`Ctrl+[`, `Ctrl+]`) and **flip** horizontal or vertical. Each step can be undone.
 - A checkerboard can sit behind transparent PNG files. Turn it off in Settings for a flat background.
 - **Smooth pixels when zoomed in** softens enlargement. Turn it off for medical images and pixel art so each pixel stays a square.
+- **Ruler**: pixel scales run along the top and left of the viewer. The ruler button on the toolbar (next to Centre) or **View ▸ Ruler** turns them on and off, and the choice is remembered. The mouse position shows on both rulers as a **red line with the pixel coordinate**.
+- **Big pictures**: even a photo of about 100 megapixels opens without freezing the window. Reading and decoding happen in the background; moving on to the next picture before one has opened cancels it.
 
 The right side is **colour**. It shows a histogram (red, green, blue and luminance), a colour wheel, and brightness, contrast, saturation, tint and temperature. A slider updates live and becomes one undo step when you release it. Double-click a slider to reset that one control. **Reset colour** clears every colour edit. DICOM uses its own window and level instead of this panel.
 

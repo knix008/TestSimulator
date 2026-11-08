@@ -3304,7 +3304,8 @@ html.dialog-window .dialog-box {
   transform: none !important;
   animation: none !important;
   max-width: none !important;
-  max-height: none !important;
+  /* A window clamped to the screen's work area: the box fits it and its body scrolls */
+  max-height: 100vh !important;
   border: none;
   border-radius: 0;
   box-shadow: none;
@@ -3460,10 +3461,17 @@ html.dialog-window .dialog-overlay .dialog-header select {
   box-shadow: 0 8px 32px var(--shadow);
   min-width: 360px;
   max-width: 600px;
+  /* Never taller than the window: a long dialog (Keyboard Shortcuts) pushed its title row
+     and × above the top edge. The title and button rows stay; the body scrolls. The dialog
+     window is sized from this in-page box, so it gets the same limit. */
+  max-height: calc(100vh - 24px);
   display: flex;
   flex-direction: column;
   animation: dialogSlide 0.15s ease;
 }
+.dialog-box > .dialog-header,
+.dialog-box > .dialog-footer { flex-shrink: 0; }
+.dialog-box > .dialog-body { overflow-y: auto; }
 .dialog-box.is-moved {
   position: absolute;
   margin: 0;
@@ -3531,7 +3539,10 @@ html.dialog-window .dialog-overlay .dialog-header select {
   cursor: pointer;
   border-radius: 3px;
 }
-.dialog-close-btn:hover { background: var(--btn-hover); color: var(--text-primary); }
+/* × of every popup / dialog window: red on hover, like the main window's close button */
+.dialog-close-btn:hover,
+.dialog-close-btn:focus-visible { background: #e81123; color: #fff; opacity: 1; }
+.dialog-close-btn:active { background: #c50f1f; color: #fff; }
 .dialog-close-btn svg { width: 16px; height: 16px; fill: currentColor; }
 
 .dialog-body {
@@ -4066,20 +4077,42 @@ html.dialog-window .dialog-overlay .dialog-header select {
 .btn-icon.copied { color: #4caf50; border-color: #4caf50; }
 
 /* ========== Shortcuts Dialog ========== */
-.shortcuts-table {
+/* Keyboard Shortcuts: wide, the rows in two columns — the whole list shows without
+   scrolling, even at the main window's smallest height (600 px). */
+.dialog-box.shortcuts-dialog-box {
+  width: min(880px, calc(100vw - 32px));
+  min-width: 0;
+  max-width: none;
+}
+.shortcuts-table,
+.shortcuts-table tbody {
+  display: block;
   width: 100%;
-  border-collapse: collapse;
+}
+.shortcuts-table tbody {
+  columns: 2;
+  column-gap: 20px;
+}
+.shortcuts-table tr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  break-inside: avoid;
 }
 .shortcuts-table tr:nth-child(even) { background: var(--bg-tertiary); }
 .shortcuts-table td {
+  display: block;
   padding: 5px 8px;
   font-size: 12px;
   color: var(--text-primary);
+  white-space: nowrap;
 }
 .shortcuts-table td:first-child {
   color: var(--text-secondary);
-  white-space: nowrap;
-  padding-right: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 kbd {
   display: inline-block;

@@ -121,6 +121,8 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Mouse-wheel zoom, pan, zoom input
   - **Display modes on the toolbar** for pictures and video: fit to window, fit width, fit height, original size (remembered, re-applied on resize / next file), centre, fullscreen
   - The bottom filmstrip is its own row under the viewer (divider line): the picture, the media bar and the arrows are never covered by it
+  - **Big pictures open without freezing the window**: the file arrives as bytes, and decoding, reading the pixels back and the first undo copy happen in a background worker (`js/imageWorker.js`) — a 96 MP JPEG used to stop the UI for ~3 s, now for ~0.2 s while the finished picture is drawn. Stepping on before a decode finishes cancels it
+  - **Ruler (px)** along the top and left of the viewer, on by default: a toolbar **ON/OFF** button (next to *Center*) and **View ▸ Ruler** (also in the edit window's View menu) switch it, and the choice is remembered. The mouse position shows on both rulers as a **red line with the pixel coordinate**
   - Frameless window (minimize / maximize / close on the menu bar)
   - Fullscreen (`F11`)
 
@@ -132,6 +134,8 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Opening a file shows live progress on the **status bar** (not a modal popup); the last result stays until the next status change (`Loading Done.` when finished)
   - Context and menu-bar menus **can extend past the window edge** (desktop: drawn in a transparent overlay window that never takes the focus); **every row has an icon**, a checked row keeps its icon and shows a check at the right; the viewer context menu keeps everyday actions top-level (including Delete, in red) and groups the rest (Transform / Zoom / More tools, DICOM Frames / Window / Colour map / Measure / Export)
   - **Dialogs open in windows of their own** on the desktop (Settings, About, Print, Resize, Details, confirmations …) — drag them by the title anywhere on screen, past the main window; the main window waits behind them
+  - Every dialog's **×** turns **red** under the mouse, like the main window's close button. A dialog never gets taller than the window it is in: its title row and × stay on screen and only the body scrolls. **Keyboard Shortcuts** lists its keys in two columns and shows them all without scrolling
+  - **Start screen** (Home): a board of translucent cards over a moving 3D background, laid out like MyUMLMaker — the app card (help, shortcuts, settings, open folder), *Start*, *What you can do*, *Recent & Favorites* and *Background*. Drag a card by its **three-line handle (☰)** to move it (the others make room), drag its bottom-right corner to resize it, double-click the corner to fit it to its content; **Auto arrange** puts everything back. The layout is remembered. The first paint already shows the chosen scene's last picture, so the page opens without a stand-in or a black flash
   - Toolbar, custom app icon (`src/assets`)
 
 - **Installer / 설치**
@@ -281,6 +285,9 @@ MyImageViewer/
 │   │   ├── thumbs.js       # Background thumbnail cache
 │   │   ├── fileDialog.js   # In-app open / save dialogs
 │   │   ├── formatSupport.js
+│   │   ├── imageWorker.js  # Viewer decode worker (decode + pixels + undo copy, off the UI thread)
+│   │   ├── startboard.js   # Start screen card board (move / resize / auto arrange)
+│   │   ├── startbg.js      # Start screen 3D background (start3d/)
 │   │   ├── dicomDecoder.js # DICOM session decoder (LUTs, overlays, enhanced multi-frame, probe / stats)
 │   │   ├── fileRegistry.js # Virtual FS (web)
 │   │   ├── tauriAPI.js     # Desktop electronAPI bridge (Tauri)

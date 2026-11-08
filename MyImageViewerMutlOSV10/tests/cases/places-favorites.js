@@ -75,6 +75,25 @@ module.exports = {
       for (const k of new Set(keys)) assert(ko[k] && en[k], `missing ${k}`);
     });
 
+    test('Every popup × turns red under the mouse (like the main window close)', () => {
+      assertIncludes(css, '.dialog-close-btn:hover,\r\n.dialog-close-btn:focus-visible { background: #e81123; color: #fff; opacity: 1; }', 'red hover');
+      assert(!/\.dialog-close-btn:hover\s*\{[^}]*--btn-hover/.test(css), 'no grey hover left');
+      const closeBtns = (html.match(/class="dialog-close-btn"/g) || []).length;
+      assert(closeBtns >= 15, `all dialogs use .dialog-close-btn (${closeBtns})`);
+    });
+
+    test('Keyboard Shortcuts fits without a scroll bar: two columns, its window sized to the content', () => {
+      assertIncludes(html, '<div class="dialog-box shortcuts-dialog-box">', 'own box class');
+      assertIncludes(css, '.shortcuts-table tbody {\r\n  columns: 2;', 'two columns');
+      assertIncludes(css, 'max-height: calc(100vh - 24px);', 'in-page dialogs never taller than the window');
+      assertIncludes(css, '.dialog-box > .dialog-body { overflow-y: auto; }', 'a dialog that cannot fit scrolls instead of losing its title row');
+      // Dialog windows: measured at the natural size (no in-page cap, no flex shrink, no
+      // opening animation), and _size ignores the window's own 100vh while it is first sized
+      assertIncludes(dialogWindow, "box.style.flexShrink = '0';", 'no flex shrink');
+      assertIncludes(dialogWindow, "box.style.animation = 'none';", 'no animation scale');
+      assertIncludes(dialogWindow, "box.style.setProperty('max-height', 'none', 'important');", 'natural height in _size');
+    });
+
     test('Dialog title rows: one height, centred, × at the top right', () => {
       const rule = css.slice(css.indexOf('.dialog-header {'), css.indexOf('.dialog-header:active'));
       assertIncludes(rule, 'min-height: 44px;', 'fixed height');

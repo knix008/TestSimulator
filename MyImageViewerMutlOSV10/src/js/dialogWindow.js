@@ -90,8 +90,12 @@
     const box = entry.box;
     // Grow only: the box was frozen at its in-page size; content that arrives later
     // (Details, print preview) may need more, but shrinking would chase vh rules.
+    // Measured without the window's max-height (100vh): before fit_dialog has sized the
+    // window that is the window's first, smaller height, and the box would ask for it.
+    box.style.setProperty('max-height', 'none', 'important');
     const w = Math.ceil(Math.max(box.offsetWidth, box.scrollWidth));
     const h = Math.ceil(Math.max(box.offsetHeight, box.scrollHeight));
+    box.style.removeProperty('max-height');
     if (w !== entry.w || h !== entry.h) {
       if (h > entry.h) box.style.height = `${h}px`;
       if (w > entry.w) box.style.width = `${w}px`;
@@ -107,7 +111,21 @@
     const id = overlay.id;
     const box = overlay.querySelector('.dialog-box') || overlay.firstElementChild;
     if (!box) return;
+    // Measured at its natural height: in the page a long dialog is held to the main window's
+    // height, but its own window may be as tall as the screen (fit_dialog clamps it there).
+    // (the overlay is a flex box: unless told not to shrink, the box shrinks to fit it)
+    // Without the opening animation either: its scale is part of getBoundingClientRect,
+    // and the window came out a few percent short — the body then scrolled.
+    const prevMax = box.style.maxHeight;
+    const prevShrink = box.style.flexShrink;
+    const prevAnim = box.style.animation;
+    box.style.maxHeight = 'none';
+    box.style.flexShrink = '0';
+    box.style.animation = 'none';
     const r = box.getBoundingClientRect();
+    box.style.maxHeight = prevMax;
+    box.style.flexShrink = prevShrink;
+    box.style.animation = prevAnim;
     if (!r.width || !r.height) return;
     const label = `dialog-${id}`;
     const win = window.open(`about:blank#${label}`, label, `width=${Math.ceil(r.width)},height=${Math.ceil(r.height)}`);
