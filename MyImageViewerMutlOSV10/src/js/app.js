@@ -2576,6 +2576,9 @@
     force = false,
     delayMs = 0,
     kind = null,
+    creep = true,      // false: the work reports its own true percent (batch)
+    modal = false,     // popup from the start (it also pops up by itself after a while)
+    onCancel = null,   // shows a Stop button in the popup
   } = {}) {
     const dlg = _pd();
     const nested = !!(dlg && typeof dlg.isVisible === 'function' && dlg.isVisible());
@@ -2593,9 +2596,10 @@
           title: I18n.t(titleKey) || I18n.t('progress.title') || 'Progress',
           message: msg || I18n.t(messageKey) || '',
           percent: percent != null ? percent : 8,
-          modal: !!document.getElementById('edit-window')?.classList.contains('visible'),
+          modal: !!modal || !!document.getElementById('edit-window')?.classList.contains('visible'),
+          onCancel,
         });
-        dlg.startCreep(90);
+        if (creep) dlg.startCreep(90);
       } else {
         dlg.set(percent != null ? percent : 0, msg);
       }
@@ -2603,7 +2607,7 @@
 
     try {
       if (predicted && dlg) {
-        showNow(8, I18n.t(messageKey));
+        showNow(creep ? 8 : 0, I18n.t(messageKey));
       } else if (dlg && delayMs > 0) {
         timer = setTimeout(() => showNow(8, I18n.t(messageKey)), delayMs);
       }
@@ -9620,9 +9624,9 @@
         showDialog: (id) => _showDialog(id),
         status: (msg) => _updateStatus({ msg }),
         refreshTree: () => FileTree.refresh({ force: true }).catch(() => {}),
-        report: (done, failed, dir) => _saveRelatedPrompt({
+        report: (done, failed, dir, skipped = 0) => _saveRelatedPrompt({
           title: I18n.t('batch.title'),
-          message: `${I18n.t('batch.done')}: ${done.length}${failed.length ? ` · ${I18n.t('batch.failed')}: ${failed.length}` : ''}`,
+          message: `${I18n.t('batch.done')}: ${done.length}${failed.length ? ` · ${I18n.t('batch.failed')}: ${failed.length}` : ''}${skipped ? ` · ${I18n.t('batch.stopped')}: ${skipped}` : ''}`,
           detail: failed.length ? failed.slice(0, 12).join('\n') : dir,
           buttons: [I18n.t('error.ok') || 'OK'], defaultId: 0, cancelId: 0, icon: 'save',
         }),
@@ -10756,6 +10760,13 @@
     let _message = '';
     let _modal = false;
     let _doneTimer = null; // leftover timer from a previous finish, if any
+    // Work that is still running after this long is shown in the popup, not only the
+    // status bar: a long job (batch, effect, big file) must say how far it has got.
+    const LONG_MS = 800;
+    let _longTimer = null;
+    let _title = '';
+    let _dismissed = false; // the user closed the popup (×): keep this run in the status bar
+    let _onCancel = null;
 
     function _elsList() {
       return [
@@ -10784,13 +10795,33 @@
         fill: document.getElementById('progress-bar-fill'),
         bar: document.getElementById('progress-bar'),
         pct: document.getElementById('progress-percent'),
+        detail: document.getElementById('progress-detail'),
+        footer: document.getElementById('progress-footer'),
+        cancel: document.getElementById('progress-cancel'),
       };
+    }
+
+    function _syncCancelUi() {
+      const m = _modalEls();
+      if (m.footer) m.footer.hidden = !_onCancel;
+      if (m.cancel) {
+        m.cancel.disabled = false;
+        m.cancel.textContent = I18n.t('progress.stop') || 'Stop';
+      }
+    }
+
+    function _clearLongTimer() {
+      if (_longTimer) {
+        clearTimeout(_longTimer);
+        _longTimer = null;
+      }
     }
 
     function _setModalVisible(on, title) {
       const m = _modalEls();
       if (!m.overlay) return;
       if (on) {
+        _syncCancelUi();
         if (m.title && title) m.title.textContent = title;
         m.overlay.style.display = 'flex';
         m.overlay.classList.add('visible');
@@ -10844,31 +10875,57 @@
     }
 
     function dismissModal() {
+      _clearLongTimer();
+      _dismissed = true;
       _modal = false;
       _setModalVisible(false);
     }
 
     function enableModal(title) {
       if (_modal) return;
+      _clearLongTimer();
       _modal = true;
-      _setModalVisible(true, title || '');
+      _setModalVisible(true, title || _title || '');
       _paint();
     }
 
-    function show({ title, message, percent, modal } = {}) {
+    /**
+     * @param {object} o
+     * @param {boolean} [o.modal] popup from the start
+     * @param {boolean} [o.autoModal=true] popup once the work has run LONG_MS
+     * @param {Function} [o.onCancel] shows a Stop button that calls it
+     */
+    function show({ title, message, percent, modal, autoModal = true, onCancel = null } = {}) {
       _cancelDoneTimer();
+      _clearLongTimer();
       stopCreep();
       _percent = 0;
       _active = true;
       _visible = true;
       _modal = !!modal;
+      _dismissed = false;
+      _title = title || '';
+      _onCancel = typeof onCancel === 'function' ? onCancel : null;
       for (const e of _elsList()) {
         e.wrap.hidden = false;
         e.wrap.classList.remove('is-done');
       }
+      setDetail('');
       _setModalVisible(_modal, title || '');
       _snapFill(0);
       set(percent != null ? percent : 0, message || title || '', true);
+      if (!_modal && autoModal) {
+        _longTimer = setTimeout(() => {
+          _longTimer = null;
+          if (_active && !_modal && !_dismissed) enableModal(_title || I18n.t('progress.title') || 'Progress');
+        }, LONG_MS);
+      }
+    }
+
+    /** Second line of the popup (e.g. the time left); '' clears it. */
+    function setDetail(text) {
+      const m = _modalEls();
+      if (m.detail) m.detail.textContent = text || '';
     }
 
     /** @param {boolean} [force] allow decreasing (reset) */
@@ -10883,6 +10940,9 @@
 
     function hide(resultMessage) {
       stopCreep();
+      _clearLongTimer();
+      _onCancel = null;
+      setDetail('');
       const list = _elsList();
       const wasShown = _active || _modal || list.some((e) => !e.wrap.hidden);
       _active = false;
@@ -10924,7 +10984,22 @@
       });
     }
 
-    return { show, set, hide, dismissModal, startCreep, stopCreep, yieldFrame, enableModal, isVisible: () => _visible };
+    /** The Stop button: ask the running work to stop after the current step. */
+    function requestCancel() {
+      const fn = _onCancel;
+      if (!fn) return;
+      const m = _modalEls();
+      if (m.cancel) {
+        m.cancel.disabled = true;
+        m.cancel.textContent = I18n.t('progress.stopping') || 'Stopping…';
+      }
+      try { fn(); } catch (err) { console.error('progress cancel', err); }
+    }
+
+    return {
+      show, set, setDetail, hide, dismissModal, startCreep, stopCreep, yieldFrame, enableModal, requestCancel,
+      isVisible: () => _visible,
+    };
   })();
   window._ProgressDialog = ProgressDialog;
 
@@ -12553,6 +12628,9 @@
 
   document.getElementById('progress-close')?.addEventListener('click', () => {
     window._ProgressDialog?.dismissModal?.();
+  });
+  document.getElementById('progress-cancel')?.addEventListener('click', () => {
+    window._ProgressDialog?.requestCancel?.();
   });
 
   document.addEventListener('pointerdown', (e) => {

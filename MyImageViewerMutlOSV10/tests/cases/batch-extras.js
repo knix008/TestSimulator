@@ -58,5 +58,49 @@ module.exports = {
       for (const m of html.matchAll(/data-i18n="(batch\.[\w.]+)"/g)) assert(ko[m[1]] && en[m[1]], m[1]);
       for (const m of batch.matchAll(/t\('(batch\.[\w.]+)'/g)) assert(ko[m[1]] && en[m[1]], m[1]);
     });
+
+    test('Batch shows a progress popup: true percent (no creep), time left, Stop', () => {
+      assertIncludes(batch, 'modal: true, creep: false, onCancel: () => { stop = true; },', 'popup from the start, own percent, Stop');
+      assertIncludes(batch, 'if (stop) break;', 'Stop ends after the current picture');
+      assertIncludes(batch, "dlg.setDetail(`${t('batch.elapsed', 'Elapsed')}", 'elapsed and time left');
+      assertIncludes(batch, 'new Promise((r) => setTimeout(r, 40)),', 'keeps going when frames stop (minimised)');
+      assertIncludes(app, 'if (creep) dlg.startCreep(90);', 'creep can be turned off');
+      assertIncludes(app, "modal: !!modal || !!document.getElementById('edit-window')?.classList.contains('visible'),", 'modal option');
+      assertIncludes(html, '<button type="button" id="progress-cancel" data-i18n="progress.stop">Stop</button>', 'Stop button');
+      assertIncludes(html, '<span id="progress-detail" class="progress-detail"></span>', 'detail line');
+      assert(ko['progress.stop'] && en['progress.stop'] && ko['progress.stopping'] && en['progress.stopping'], 'strings');
+    });
+
+    test('Popups follow the theme: native controls and drop-down lists too', () => {
+      const css = h.read('src/styles/main.css');
+      assertIncludes(css, ':root { color-scheme: dark; accent-color: var(--accent); }', 'dark controls by default');
+      assertIncludes(css, ':root[data-theme-kind="light"] { color-scheme: light; }', 'light themes get light controls');
+      assertIncludes(css, 'select option,\r\nselect optgroup {', 'the open list of a drop-down is themed');
+      assertIncludes(css, '.dialog-box :is(input[type="text"], input[type="number"], input[type="search"], input[type="password"], select, textarea) {', 'every popup input uses the theme colours');
+    });
+
+    test('Popups line up: two widths, one label | control | unit grid, OK rightmost', () => {
+      const css = h.read('src/styles/main.css');
+      for (const box of ['error-dialog-box', 'unsaved-dialog-box', 'rename-dialog-box', 'confirm-dialog-box', 'progress-dialog-box', 'amount-box']) {
+        assert(new RegExp(`\\.dialog-box\\.${box}[,\\s][^{]*\\{ width: var\\(--dlg-w-s\\)`).test(css) || css.includes(`.dialog-box.${box},`), `${box} small width`);
+      }
+      assertIncludes(css, '.dialog-box.batch-box { width: var(--dlg-w-m);', 'form width');
+      assertIncludes(css, 'grid-template-columns: var(--dlg-label-w) minmax(0, 1fr) var(--dlg-unit-w);', 'shared grid');
+      for (const id of ['watermark-overlay', 'batch-overlay', 'canvas-size-overlay', 'amount-overlay']) {
+        const start = html.indexOf(`<div id="${id}"`);
+        const part = html.slice(start, html.indexOf('<div class="dialog-footer">', start));
+        assert(part.includes('dlg-form') && part.includes('class="dlg-row"'), `${id} uses the form grid`);
+        assert(!/<(?:label|div) class="(?:wm-field|batch-row)/.test(part), `${id} has no old ad-hoc rows`);
+      }
+      const r = html.indexOf('id="rename-cancel"'), o = html.indexOf('id="rename-ok"');
+      assert(r > 0 && o > r, 'Rename: Cancel then Rename, like every other popup');
+    });
+
+    test('Any long work pops the progress dialog up after a moment (not only the status bar)', () => {
+      assertIncludes(app, 'const LONG_MS = 800;', 'threshold');
+      assertIncludes(app, 'if (_active && !_modal && !_dismissed) enableModal(', 'promotes to the popup');
+      assertIncludes(app, '_dismissed = true;', 'closing it with × keeps that run in the status bar');
+      assert(/function hide\(resultMessage\) \{\s*stopCreep\(\);\s*_clearLongTimer\(\);/.test(app), 'hide cancels the pending popup');
+    });
   },
 };

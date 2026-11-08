@@ -181,17 +181,50 @@ window.Batch = (() => {
     return window.electronAPI.pathJoin(dir, `${stem} (${Date.now()}).${ext}`);
   }
 
-  /** Process every file; one progress window, a summary at the end. */
+  /** 75 → "1분 15초" / "1:15"-style text from the i18n patterns. */
+  function _duration(sec) {
+    const s = Math.max(1, Math.round(sec));
+    if (s < 60) return t('batch.timeSec', '{s} s').replace('{s}', s);
+    if (s < 3600) {
+      return t('batch.timeMin', '{m} min {s} s').replace('{m}', Math.floor(s / 60)).replace('{s}', String(s % 60).padStart(2, '0'));
+    }
+    return t('batch.timeHour', '{h} h {m} min').replace('{h}', Math.floor(s / 3600)).replace('{m}', String(Math.floor(s % 3600 / 60)).padStart(2, '0'));
+  }
+
+  /** Process every file; one progress popup (true percent, time left, Stop), a summary at the end. */
   async function run(o) {
     const done = [], failed = [];
+    const total = o.files.length;
+    let stop = false;
+    const started = performance.now();
     await ctx.runWithProgress(async (dlg) => {
-      for (let i = 0; i < o.files.length; i++) {
+      // Each file's share of the bar is split over its steps, so a big picture still moves it
+      const step = (i, frac, name) => {
+        dlg?.set((i + frac) / total * 100, `${i + 1} / ${total}  ·  ${name}`);
+      };
+      const showEta = (finished) => {
+        if (!dlg?.setDetail) return;
+        const elapsed = (performance.now() - started) / 1000;
+        if (finished < 1 || elapsed < 1.5) { dlg.setDetail(t('batch.estimating', 'Estimating time left…')); return; }
+        const left = elapsed / finished * (total - finished);
+        dlg.setDetail(`${t('batch.elapsed', 'Elapsed')} ${_duration(elapsed)}  ·  ${t('batch.left', 'About {time} left').replace('{time}', _duration(left))}`);
+      };
+      for (let i = 0; i < total; i++) {
+        if (stop) break;
         const src = o.files[i];
         const name = src.split(/[/\\]/).pop();
-        dlg?.set(Math.round(i / o.files.length * 100), `${i + 1} / ${o.files.length}  ${name}`);
+        step(i, 0, name);
+        showEta(i);
+        // Let the popup paint before the decode takes the page
+        // (a frame, or a short timer when the window is minimised and frames stop)
+        await Promise.race([
+          dlg?.yieldFrame ? dlg.yieldFrame() : Promise.resolve(),
+          new Promise((r) => setTimeout(r, 40)),
+        ]);
         try {
           let c = await _decode(src);
           if (!c) { failed.push(name); continue; }
+          step(i, 0.45, name);
           if (o.resize) c = _fit(c, o.longest);
           if (o.wm) {
             const saved = (() => { try { return JSON.parse(localStorage.getItem('watermarkV1') || '{}') || {}; } catch { return {}; } })();
@@ -201,8 +234,10 @@ window.Batch = (() => {
               anchor: saved.anchor && Number.isFinite(saved.anchor.x) ? saved.anchor : { x: 1, y: 1 }, text: o.wmText,
             });
           }
+          step(i, 0.6, name);
           const fmt = _formatFor(src, o.format);
           let dataUrl = _encode(c, fmt, o.quality);
+          step(i, 0.85, name);
           dataUrl = await ctx.withPhotoInfo(dataUrl, { w: c.width, h: c.height }, src);
           const stem = name.replace(/\.[^.]+$/, '') + (o.suffix || '');
           const out = await _freeName(o.dir, stem, fmt);
@@ -212,15 +247,18 @@ window.Batch = (() => {
           console.error('batch', src, err);
           failed.push(name);
         }
-        // Let the progress window and the page breathe between files
-        await new Promise((r) => setTimeout(r, 0));
+        step(i, 1, name);
       }
-      dlg?.set(100);
-    }, { messageKey: 'batch.running', kind: 'encode', force: true });
+      if (!stop) dlg?.set(100);
+    }, {
+      titleKey: 'batch.title', messageKey: 'batch.running', kind: 'encode', force: true,
+      modal: true, creep: false, onCancel: () => { stop = true; },
+    });
+    const skipped = Math.max(0, total - done.length - failed.length);
     await ctx.refreshTree?.();
-    ctx.status?.(`${t('batch.done')}: ${done.length} / ${o.files.length}${failed.length ? ` · ${t('batch.failed')}: ${failed.length}` : ''}`);
-    await ctx.report?.(done, failed, o.dir);
-    return { done, failed };
+    ctx.status?.(`${t('batch.done')}: ${done.length} / ${total}${failed.length ? ` · ${t('batch.failed')}: ${failed.length}` : ''}${skipped ? ` · ${t('batch.stopped', 'Stopped')}: ${skipped}` : ''}`);
+    await ctx.report?.(done, failed, o.dir, skipped);
+    return { done, failed, skipped };
   }
 
   return { init, open, run };

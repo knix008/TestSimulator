@@ -444,7 +444,7 @@
 
   <!-- ═══ Error Dialog ═══ -->
   <div id="error-overlay" class="dialog-overlay" style="display:none;">
-    <div class="dialog-box" style="min-width:480px;max-width:640px;">
+    <div class="dialog-box error-dialog-box">
       <div class="dialog-header error-header">
         <span class="dialog-title">
           <span class="dialog-title-icon" data-icon="warning" id="error-title-icon"></span>
@@ -497,8 +497,12 @@
           <div id="progress-bar-fill" class="progress-bar-fill"></div>
         </div>
         <div class="progress-percent-row">
+          <span id="progress-detail" class="progress-detail"></span>
           <span id="progress-percent" class="progress-percent">0%</span>
         </div>
+      </div>
+      <div class="dialog-footer" id="progress-footer" hidden>
+        <button type="button" id="progress-cancel" data-i18n="progress.stop">Stop</button>
       </div>
     </div>
   </div>
@@ -554,8 +558,8 @@ Do you want to save before closing?</p>
         <p id="rename-error" class="rename-error" hidden></p>
       </div>
       <div class="dialog-footer">
-        <button type="button" class="primary" id="rename-ok" data-i18n="dialog.rename.ok">Rename</button>
         <button type="button" id="rename-cancel" data-i18n="dialog.rename.cancel">Cancel</button>
+        <button type="button" class="primary" id="rename-ok" data-i18n="dialog.rename.ok">Rename</button>
       </div>
     </div>
   </div>
@@ -1592,21 +1596,19 @@ Do you want to save before closing?</p>
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </div>
-      <div class="dialog-body canvas-size-body">
-        <div class="canvas-size-current" id="canvas-size-current"></div>
-        <div class="canvas-size-grid">
-          <label><span data-i18n="resize.width">Width</span><input type="number" id="canvas-size-w" min="1" max="30000" step="1"><span data-i18n="resize.px">px</span></label>
-          <label><span data-i18n="resize.height">Height</span><input type="number" id="canvas-size-h" min="1" max="30000" step="1"><span data-i18n="resize.px">px</span></label>
-          <label><span data-i18n="canvasSize.margin">Add on every side</span><input type="number" id="canvas-size-margin" min="-5000" max="5000" step="1" value="0"><span data-i18n="resize.px">px</span></label>
-        </div>
-        <div class="canvas-size-label" data-i18n="canvasSize.anchor">Picture position</div>
-        <div class="canvas-anchor" id="canvas-anchor" role="radiogroup"></div>
-        <div class="canvas-size-label" data-i18n="canvasSize.fill">New area</div>
-        <div class="canvas-fill-row">
-          <label><input type="radio" name="canvas-fill" value="transparent" checked> <span data-i18n="canvasSize.transparent">Transparent</span></label>
-          <label><input type="radio" name="canvas-fill" value="color"> <span data-i18n="canvasSize.color">Colour</span></label>
-          <input type="color" id="canvas-size-color" value="#ffffff">
-        </div>
+      <div class="dialog-body dlg-form canvas-size-body">
+        <div class="dlg-hint dlg-hint-full canvas-size-current" id="canvas-size-current"></div>
+        <label class="dlg-row"><span class="dlg-label" data-i18n="resize.width">Width</span><input type="number" id="canvas-size-w" min="1" max="30000" step="1"><span class="dlg-unit" data-i18n="resize.px">px</span></label>
+        <label class="dlg-row"><span class="dlg-label" data-i18n="resize.height">Height</span><input type="number" id="canvas-size-h" min="1" max="30000" step="1"><span class="dlg-unit" data-i18n="resize.px">px</span></label>
+        <label class="dlg-row"><span class="dlg-label" data-i18n="canvasSize.margin">Add on every side</span><input type="number" id="canvas-size-margin" min="-5000" max="5000" step="1" value="0"><span class="dlg-unit" data-i18n="resize.px">px</span></label>
+        <div class="dlg-row dlg-row-top"><span class="dlg-label" data-i18n="canvasSize.anchor">Picture position</span>
+          <span class="dlg-ctl"><span class="canvas-anchor" id="canvas-anchor" role="radiogroup"></span></span></div>
+        <div class="dlg-row"><span class="dlg-label" data-i18n="canvasSize.fill">New area</span>
+          <span class="dlg-ctl">
+            <label class="dlg-check"><input type="radio" name="canvas-fill" value="transparent" checked> <span data-i18n="canvasSize.transparent">Transparent</span></label>
+            <label class="dlg-check"><input type="radio" name="canvas-fill" value="color"> <span data-i18n="canvasSize.color">Colour</span></label>
+            <input type="color" id="canvas-size-color" value="#ffffff">
+          </span></div>
       </div>
       <div class="dialog-footer">
         <button type="button" id="canvas-size-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
@@ -1627,19 +1629,21 @@ Do you want to save before closing?</p>
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </div>
-      <div class="dialog-body watermark-body">
-        <label class="wm-field wm-wide"><span data-i18n="watermark.text">Text</span><input type="text" id="wm-text" spellcheck="false"></label>
-        <label class="wm-field"><span data-i18n="et.font">Font</span><select id="wm-font"></select></label>
-        <label class="wm-field"><span data-i18n="et.color">Colour</span><input type="color" id="wm-color" value="#ffffff"></label>
-        <div class="wm-field wm-wide"><span data-i18n="watermark.size">Size</span><input type="range" id="wm-size" min="2" max="30" step="1" value="6"><output id="wm-size-val">6%</output></div>
-        <div class="wm-field wm-wide"><span data-i18n="et.opacity">Opacity</span><input type="range" id="wm-opacity" min="5" max="100" step="1" value="45"><output id="wm-opacity-val">45%</output></div>
-        <div class="wm-field wm-wide"><span data-i18n="watermark.angle">Angle</span><input type="range" id="wm-angle" min="-90" max="90" step="1" value="0"><output id="wm-angle-val">0°</output></div>
-        <div class="wm-field wm-wide">
-          <span data-i18n="watermark.position">Position</span>
-          <div class="canvas-anchor" id="wm-anchor" role="radiogroup"></div>
-          <label class="wm-tile"><input type="checkbox" id="wm-tile"> <span data-i18n="watermark.tile">Repeat over the whole picture</span></label>
+      <div class="dialog-body dlg-form watermark-body">
+        <label class="dlg-row"><span class="dlg-label" data-i18n="watermark.text">Text</span><input type="text" id="wm-text" spellcheck="false"></label>
+        <label class="dlg-row"><span class="dlg-label" data-i18n="et.font">Font</span><select id="wm-font"></select></label>
+        <label class="dlg-row"><span class="dlg-label" data-i18n="et.color">Colour</span><span class="dlg-ctl"><input type="color" id="wm-color" value="#ffffff"></span></label>
+        <div class="dlg-row"><span class="dlg-label" data-i18n="watermark.size">Size</span><input type="range" id="wm-size" min="2" max="30" step="1" value="6"><output class="dlg-unit" id="wm-size-val">6%</output></div>
+        <div class="dlg-row"><span class="dlg-label" data-i18n="et.opacity">Opacity</span><input type="range" id="wm-opacity" min="5" max="100" step="1" value="45"><output class="dlg-unit" id="wm-opacity-val">45%</output></div>
+        <div class="dlg-row"><span class="dlg-label" data-i18n="watermark.angle">Angle</span><input type="range" id="wm-angle" min="-90" max="90" step="1" value="0"><output class="dlg-unit" id="wm-angle-val">0°</output></div>
+        <div class="dlg-row dlg-row-top">
+          <span class="dlg-label" data-i18n="watermark.position">Position</span>
+          <span class="dlg-ctl">
+            <span class="canvas-anchor" id="wm-anchor" role="radiogroup"></span>
+            <label class="dlg-check"><input type="checkbox" id="wm-tile"> <span data-i18n="watermark.tile">Repeat over the whole picture</span></label>
+          </span>
         </div>
-        <label class="wm-check"><input type="checkbox" id="wm-shadow" checked> <span data-i18n="watermark.shadow">Shadow (readable on any background)</span></label>
+        <div class="dlg-row"><span class="dlg-label"></span><label class="dlg-check"><input type="checkbox" id="wm-shadow" checked> <span data-i18n="watermark.shadow">Shadow (readable on any background)</span></label></div>
       </div>
       <div class="dialog-footer">
         <button type="button" id="watermark-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
@@ -1660,29 +1664,30 @@ Do you want to save before closing?</p>
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </div>
-      <div class="dialog-body batch-body">
-        <div class="batch-label" data-i18n="batch.target">Pictures</div>
-        <label class="batch-row"><input type="radio" name="batch-target" value="selected"> <span data-i18n="batch.selected">Selected</span> (<span id="batch-count-selected">0</span>)</label>
-        <label class="batch-row"><input type="radio" name="batch-target" value="folder" checked> <span data-i18n="batch.folder">Every picture in this folder</span> (<span id="batch-count-folder">0</span>)</label>
-        <div class="batch-label" data-i18n="batch.do">Do</div>
-        <label class="batch-row"><input type="checkbox" id="batch-resize" checked> <span data-i18n="batch.resize">Longest side at most</span>
-          <input type="number" id="batch-longest" min="16" max="20000" step="1" value="1920"> <span data-i18n="resize.px">px</span></label>
-        <div class="batch-row"><span data-i18n="resize.format">Format</span>
+      <div class="dialog-body dlg-form batch-body">
+        <div class="dlg-section" data-i18n="batch.target">Pictures</div>
+        <label class="dlg-row"><span class="dlg-label"></span><span class="dlg-check"><input type="radio" name="batch-target" value="selected"> <span data-i18n="batch.selected">Selected</span> (<span id="batch-count-selected">0</span>)</span></label>
+        <label class="dlg-row"><span class="dlg-label"></span><span class="dlg-check"><input type="radio" name="batch-target" value="folder" checked> <span data-i18n="batch.folder">Every picture in this folder</span> (<span id="batch-count-folder">0</span>)</span></label>
+        <div class="dlg-section" data-i18n="batch.do">Do</div>
+        <div class="dlg-row"><label class="dlg-label dlg-check"><input type="checkbox" id="batch-resize" checked> <span data-i18n="batch.resize">Longest side at most</span></label>
+          <input type="number" id="batch-longest" min="16" max="20000" step="1" value="1920"><span class="dlg-unit" data-i18n="resize.px">px</span></div>
+        <label class="dlg-row"><span class="dlg-label" data-i18n="resize.format">Format</span>
           <select id="batch-format">
             <option value="jpg">JPEG</option>
             <option value="png">PNG</option>
             <option value="webp">WebP</option>
             <option value="keep" data-i18n="batch.keepFormat">Same as the original</option>
-          </select>
-          <span data-i18n="resize.fileQuality">File quality</span>
-          <input type="range" id="batch-quality" min="40" max="100" step="1" value="90"><output id="batch-quality-val">90</output></div>
-        <label class="batch-row"><input type="checkbox" id="batch-wm"> <span data-i18n="watermark.title">Watermark</span>
-          <input type="text" id="batch-wm-text" spellcheck="false"></label>
-        <div class="batch-hint" data-i18n="batch.wmHint">The watermark uses the size, colour and position last set in Image › Watermark.</div>
-        <div class="batch-label" data-i18n="resize.saveTo">Save to</div>
-        <div class="batch-row"><input type="text" id="batch-dir" spellcheck="false"><button type="button" id="batch-browse" data-i18n="resize.browse">Browse…</button></div>
-        <label class="batch-row"><span data-i18n="batch.suffix">Add to the name</span><input type="text" id="batch-suffix" spellcheck="false"></label>
-        <div class="batch-hint" data-i18n="batch.safeHint">Originals are never changed; an existing file gets a number instead of being replaced.</div>
+          </select></label>
+        <div class="dlg-row"><span class="dlg-label" data-i18n="resize.fileQuality">File quality</span>
+          <input type="range" id="batch-quality" min="40" max="100" step="1" value="90"><output class="dlg-unit" id="batch-quality-val">90</output></div>
+        <div class="dlg-row"><label class="dlg-label dlg-check"><input type="checkbox" id="batch-wm"> <span data-i18n="watermark.title">Watermark</span></label>
+          <input type="text" id="batch-wm-text" spellcheck="false"></div>
+        <div class="dlg-hint" data-i18n="batch.wmHint">The watermark uses the size, colour and position last set in Image › Watermark.</div>
+        <div class="dlg-section" data-i18n="resize.saveTo">Save to</div>
+        <div class="dlg-row"><span class="dlg-label" data-i18n="resize.folder">Folder</span>
+          <span class="dlg-ctl"><input type="text" id="batch-dir" spellcheck="false"><button type="button" class="dlg-btn" id="batch-browse" data-i18n="resize.browse">Browse…</button></span></div>
+        <label class="dlg-row"><span class="dlg-label" data-i18n="batch.suffix">Add to the name</span><input type="text" id="batch-suffix" spellcheck="false"></label>
+        <div class="dlg-hint" data-i18n="batch.safeHint">Originals are never changed; an existing file gets a number instead of being replaced.</div>
       </div>
       <div class="dialog-footer">
         <button type="button" id="batch-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
@@ -1700,11 +1705,10 @@ Do you want to save before closing?</p>
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </div>
-      <div class="dialog-body amount-body">
-        <span id="amount-label"></span>
-        <input type="range" id="amount-range" min="1" max="100" step="1" value="10">
-        <input type="number" id="amount-number" min="1" max="100" step="1" value="10">
-        <span data-i18n="resize.px">px</span>
+      <div class="dialog-body dlg-form amount-body">
+        <div class="dlg-row"><span class="dlg-label" id="amount-label"></span>
+          <span class="dlg-ctl"><input type="range" id="amount-range" min="1" max="100" step="1" value="10"><input type="number" id="amount-number" min="1" max="100" step="1" value="10"></span>
+          <span class="dlg-unit" data-i18n="resize.px">px</span></div>
       </div>
       <div class="dialog-footer">
         <button type="button" id="amount-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>

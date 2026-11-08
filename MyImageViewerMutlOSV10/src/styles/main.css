@@ -60,6 +60,11 @@
    :root[data-theme] block derives the full variable set from them.
    app.js sets data-theme="<id>" and data-theme-kind="dark|light" on <html>.
    The theme list (ids / names / order) lives in src/js/themes.js. */
+/* Native controls (drop-down lists, check boxes, sliders, spin buttons, colour wells,
+   scroll bars) follow the theme too, not the system's light look. Dialog windows copy
+   data-theme-kind, so they follow it as well. */
+:root { color-scheme: dark; accent-color: var(--accent); }
+:root[data-theme-kind="light"] { color-scheme: light; }
 :root[data-theme-kind="dark"] {
   --btn-hover: rgba(255,255,255,0.07);
   --btn-active: rgba(255,255,255,0.13);
@@ -3441,7 +3446,25 @@ html.dialog-window .dialog-overlay .dialog-header select {
 .progress-percent-row {
   display: flex;
   justify-content: flex-end;
+  align-items: baseline;
+  gap: 12px;
 }
+.progress-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.progress-message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#progress-footer[hidden] { display: none; }
 .progress-percent {
   font-size: 13px;
   font-weight: 600;
@@ -5838,18 +5861,142 @@ body.home-open #main-area { display: none !important; }
 .tone-row output { text-align: right; font-variant-numeric: tabular-nums; }
 .dialog-footer .footer-left { margin-right: auto; }
 
-/* Canvas size / watermark: anchor grid */
-.canvas-size-box { width: 340px; }
-.canvas-size-body { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; font-size: 12px; }
-.canvas-size-current { color: var(--text-secondary); }
-.canvas-size-grid { display: flex; flex-direction: column; gap: 6px; }
-.canvas-size-grid label { display: grid; grid-template-columns: 110px 1fr 24px; align-items: center; gap: 8px; }
-.canvas-size-grid input { height: 24px; }
-.canvas-size-label { margin-top: 4px; font-weight: 600; }
-.canvas-anchor { display: grid; grid-template-columns: repeat(3, 24px); gap: 3px; }
+/* ═══ Popups: one width per kind, one form grid, themed controls ═══
+   Message popups (error, confirm, rename, unsaved, progress, one value) are all
+   --dlg-w-s wide; form popups (canvas size, watermark, tone, batch) are --dlg-w-m.
+   (.dialog-box.x: the plain .dialog-box min-width further up used to win over each
+   popup's own width, so most of them came out 360 px whatever they asked for.)
+   A form row is   label | control | unit   with the same column widths everywhere,
+   and every text box, number box and drop-down list is --dlg-ctl-h tall. */
+:root {
+  --dlg-w-s: 420px;
+  --dlg-w-m: 480px;
+  --dlg-label-w: 156px;
+  --dlg-unit-w: 36px;
+  --dlg-ctl-h: 30px;
+  --dlg-gap: 10px;
+}
+.dialog-box.error-dialog-box,
+.dialog-box.unsaved-dialog-box,
+.dialog-box.rename-dialog-box,
+.dialog-box.confirm-dialog-box,
+.dialog-box.progress-dialog-box,
+.dialog-box.amount-box { width: var(--dlg-w-s); min-width: var(--dlg-w-s); max-width: var(--dlg-w-s); box-sizing: border-box; }
+.dialog-box.canvas-size-box,
+.dialog-box.watermark-box,
+.dialog-box.tone-dialog-box,
+.dialog-box.batch-box { width: var(--dlg-w-m); min-width: var(--dlg-w-m); max-width: var(--dlg-w-m); box-sizing: border-box; }
+
+/* Every footer button the same size; the main action stays rightmost */
+.dialog-footer { align-items: center; }
+.dialog-footer button { min-width: 84px; justify-content: center; box-sizing: border-box; }
+
+/* Text boxes, number boxes, drop-down lists in any popup: the theme's input look */
+.dialog-box :is(input[type="text"], input[type="number"], input[type="search"], input[type="password"], select, textarea) {
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+}
+.dialog-box :is(input[type="text"], input[type="number"], input[type="search"], input[type="password"], select) {
+  height: var(--dlg-ctl-h);
+  padding: 0 8px;
+}
+.dialog-box :is(input, select, textarea):focus { border-color: var(--accent); }
+.dialog-box :is(input, select, textarea):disabled { opacity: 0.5; }
+/* Drop-down lists everywhere (popups, toolbars, panels): the open list is themed too */
+select option,
+select optgroup {
+  background-color: var(--context-bg, var(--dialog-bg));
+  color: var(--text-primary);
+}
+.dialog-box input[type="color"] {
+  width: 44px;
+  height: var(--dlg-ctl-h);
+  padding: 2px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  box-sizing: border-box;
+  cursor: pointer;
+}
+.dialog-box input[type="range"] { min-width: 0; accent-color: var(--accent); }
+
+.dlg-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  font-size: 13px;
+}
+.dlg-row {
+  display: grid;
+  grid-template-columns: var(--dlg-label-w) minmax(0, 1fr) var(--dlg-unit-w);
+  align-items: center;
+  column-gap: var(--dlg-gap);
+  min-height: var(--dlg-ctl-h);
+}
+.dlg-row > :nth-child(2) { width: 100%; min-width: 0; }
+.dlg-row > input[type="range"] { width: 100%; }
+.dlg-row-top { align-items: start; }
+.dlg-row-top > .dlg-label { line-height: var(--dlg-ctl-h); }
+.dlg-label {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dlg-label.dlg-check { color: var(--text-primary); }
+.dlg-unit {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.dlg-ctl { display: flex; align-items: center; gap: var(--dlg-gap); min-width: 0; }
+.dlg-ctl > input[type="text"], .dlg-ctl > input[type="range"] { flex: 1 1 auto; min-width: 0; }
+.dlg-ctl > input[type="number"] { flex: 0 0 76px; width: 76px; }
+.dlg-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; min-width: 0; }
+.dlg-check input { margin: 0; flex: 0 0 auto; }
+.dlg-section {
+  margin-top: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.dlg-section:first-child { margin-top: 0; }
+.dlg-hint {
+  margin-left: calc(var(--dlg-label-w) + var(--dlg-gap));
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.dlg-hint.dlg-hint-full { margin-left: 0; font-size: 12px; }
+.dialog-box .dlg-btn {
+  flex: 0 0 auto;
+  height: var(--dlg-ctl-h);
+  min-width: 84px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.dialog-box .dlg-btn:hover { background: var(--bg-hover); border-color: var(--accent); }
+
+/* Anchor grid (canvas size, watermark position) */
+.canvas-anchor { display: inline-grid; grid-template-columns: repeat(3, 26px); gap: 3px; flex: 0 0 auto; }
 .anchor-cell {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 3px;
@@ -5858,30 +6005,15 @@ body.home-open #main-area { display: none !important; }
 }
 .anchor-cell:hover { border-color: var(--accent); }
 .anchor-cell.on { background: var(--accent); border-color: var(--accent); }
-.canvas-fill-row { display: flex; align-items: center; gap: 12px; }
-.watermark-box { width: 400px; }
-.watermark-body { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; padding: 12px 16px; font-size: 12px; }
-.wm-field { display: flex; align-items: center; gap: 8px; }
-.wm-field > span:first-child { flex: 0 0 52px; color: var(--text-secondary); }
-.wm-field.wm-wide { grid-column: 1 / -1; }
-.wm-field input[type="text"] { flex: 1; height: 24px; }
-.wm-field input[type="range"] { flex: 1; }
-.wm-field output { min-width: 40px; text-align: right; }
-.wm-tile, .wm-check { display: inline-flex; align-items: center; gap: 6px; }
-.wm-check { grid-column: 1 / -1; }
-.amount-box { width: 340px; }
-.amount-body { display: flex; align-items: center; gap: 10px; padding: 14px 16px; font-size: 12px; }
-.amount-body input[type="range"] { flex: 1; }
-.amount-body input[type="number"] { width: 64px; height: 24px; }
+.watermark-body .dlg-row-top .dlg-ctl { align-items: flex-start; gap: 14px; }
+.watermark-body .dlg-row-top .dlg-check { white-space: normal; }
 
-/* Batch processing */
-.batch-box { width: 460px; }
-.batch-body { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; font-size: 12px; }
-.batch-label { margin-top: 6px; font-weight: 600; }
-.batch-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.batch-row input[type="number"] { width: 78px; height: 24px; }
-.batch-row input[type="text"] { flex: 1; min-width: 120px; height: 24px; }
-.batch-row input[type="range"] { width: 90px; }
-.batch-row select { height: 24px; }
-.batch-row button { height: 26px; padding: 0 10px; }
-.batch-hint { color: var(--text-secondary); font-size: 11px; }
+/* Tone curve: the same label column for the Levels rows; the curve keeps to a square */
+.dialog-box.tone-dialog-box .tone-row { grid-template-columns: var(--dlg-label-w) minmax(0, 1fr) var(--dlg-unit-w); gap: var(--dlg-gap); font-size: 13px; }
+.dialog-box.tone-dialog-box .tone-row > span { color: var(--text-secondary); }
+.dialog-box.tone-dialog-box .tone-curve { width: 340px; max-width: 100%; align-self: center; }
+.dialog-box.tone-dialog-box .tone-dialog-body { padding: 14px 16px; }
+
+/* Rename / progress keep the same side padding as the forms */
+.rename-input { height: var(--dlg-ctl-h); }
+.dialog-box.progress-dialog-box .progress-dialog-body { padding: 14px 16px 16px; }
