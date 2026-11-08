@@ -51,6 +51,7 @@ export default {
   'viewer.actual': '실제 크기', 'viewer.cannotConvert': '이 형식으로 바꿀 수 없습니다', 'viewer.cannotShow': '그림을 보여 줄 수 없습니다', 'viewer.copied': '그림을 복사했습니다', 'viewer.copy': '그림 복사', 'viewer.fit': '창에 맞춤',
   'viewer.fitShort': '맞춤', 'viewer.noClipboard': '이 환경에서는 그림을 클립보드에 넣을 수 없습니다', 'viewer.rotateLeft': '왼쪽으로 돌리기', 'viewer.rotateRight': '오른쪽으로 돌리기', 'viewer.saveAs': '다른 형식으로 저장',
   'viewer.unsupported': '이 형식은 재생할 수 없습니다', 'viewer.zoomIn': '확대', 'viewer.zoomOut': '축소',
+  'theme.darkGroup': '다크 ({count})', 'theme.lightGroup': '라이트 ({count})', 'theme.editCustom': '사용자 정의 테마 편집…',
   'mdtags.bar': 'Markdown 요소', 'mdtags.group.heading': '제목', 'mdtags.group.inline': '글자', 'mdtags.group.block': '문단', 'mdtags.group.html': 'HTML',
   'mdtags.h1': '제목 1', 'mdtags.h2': '제목 2', 'mdtags.h3': '제목 3', 'mdtags.h4': '제목 4', 'mdtags.h5': '제목 5', 'mdtags.h6': '제목 6', 'mdtags.p': '본문 문단',
   'mdtags.bold': '굵게', 'mdtags.italic': '기울임', 'mdtags.boldItalic': '굵게 + 기울임', 'mdtags.strike': '취소선', 'mdtags.code': '인라인 코드', 'mdtags.link': '링크', 'mdtags.image': '그림',

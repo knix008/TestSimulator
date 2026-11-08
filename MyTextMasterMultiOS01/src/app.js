@@ -16,6 +16,7 @@ import { showViewer } from './ui/viewers.js';
 import { showGuide } from './ui/guide.js';
 import { renderLeft, renderRight, renderBottom } from './ui/panels.js';
 import { mdTagBarHtml, mdTagById } from './ui/mdtags.js';
+import { showThemePicker, closeThemePicker } from './ui/themepicker.js';
 import { showMenu, closeMenu, menuOpen, menuKey } from './ui/menu.js';
 import { openDialog, confirmDialog, alertDialog, formDialog, dialogOpen } from './ui/dialog.js';
 import { startPageHtml } from './ui/startpage.js';
@@ -25,7 +26,7 @@ import { escapeHtml, keyLabel } from './ui/dom.js';
 import { icon } from './icons.js';
 import { switchFlag } from './flags.js';
 import { t, getLanguage, setLanguage } from './i18n.js';
-import { applyFont, applyTheme, resolveTheme, themeName, LIGHT_THEMES, DARK_THEMES, randomThemeId, customFrom } from './themes.js';
+import { applyFont, applyTheme, resolveTheme, themeName, randomThemeId, customFrom } from './themes.js';
 import { loadSettings, storeSettings, ANIMATIONS } from './domain/settings.js';
 import { KINDS, baseName, dirName, kindOf, untitledName, withExt, decodeText, encodeText, defaultExt, isTextKind, isViewerKind, formatSize } from './domain/doctypes.js';
 import { outlineOf, textStats } from './domain/outline.js';
@@ -384,28 +385,28 @@ function menus() {
     view: [
       ...menuItems(['viewEditor', 'viewSplit', 'viewPreview', 'viewWysiwyg', 'syncScroll', 'sep', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', 'sep', 'explorer', 'outline', 'problems', 'sep', 'wordWrap', 'lineNumbers', 'activeLine', 'whitespace', 'inlineImages', 'sep', 'foldAll', 'unfoldAll', 'sep', 'zoomIn', 'zoomOut', 'zoomReset', 'sep']),
       { label: t('submenu.previewStyle'), icon: 'viewPreview', items: styles },
-      { label: t('action.themeChoose'), icon: 'palette', items: themeItems() },
+      { label: `${t('action.themeChoose')}…`, icon: 'palette', run: () => themeMenu() },
       ...menuItems(['language', 'focusMode', 'alwaysOnTop', 'sep', 'settings']),
     ],
     help: menuItems(['userGuide', 'shortcuts', 'sep', 'about']),
   };
 }
 
-/** The theme menu: the system setting, 20 light, 20 dark, the custom theme and theme settings. */
-function themeItems() {
-  const item = (theme) => ({ label: theme.name[lang()], checked: state.settings.theme === theme.id, run: () => updateSettings({ theme: theme.id }) });
-  return [
-    { label: themeName('system', lang()), icon: 'refresh', checked: state.settings.theme === 'system', run: () => updateSettings({ theme: 'system' }) },
-    { label: `${t('start.themeLight')} (${LIGHT_THEMES.length})`, icon: 'sun', items: LIGHT_THEMES.map(item) },
-    { label: `${t('start.themeDark')} (${DARK_THEMES.length})`, icon: 'moon', items: DARK_THEMES.map(item) },
-    'sep',
-    { label: themeName('custom', lang()), icon: 'palette', checked: state.settings.theme === 'custom', run: () => { updateSettings({ theme: 'custom', customTheme: state.settings.customTheme ?? customFrom(resolveTheme(state.settings.theme, prefersDark())) }); openSettings(appApi, 'appearance'); } },
-    { label: t('start.themeSettings'), icon: 'gear', run: () => openSettings(appApi, 'appearance') },
-  ];
+/** The custom theme starts from the current theme's colours the first time it is chosen. */
+function useCustomTheme() {
+  updateSettings({ theme: 'custom', customTheme: state.settings.customTheme ?? customFrom(resolveTheme(state.settings.theme, prefersDark())) });
 }
 
+/** The theme drop-down of the toolbar (as in MyUMLMaker): system and custom on top, dark | light columns, edit / random / close. */
 function themeMenu(anchor) {
-  showMenu(themeItems(), anchor, { header: { icon: 'palette', title: t('action.themeChoose') } });
+  closeMenu();
+  const button = root.querySelector('#toolbar .split-button [data-command="themeMenu"]')?.closest('.split-button') ?? anchor ?? toolbarAnchor('themeMenu');
+  showThemePicker(button, {
+    theme: () => state.settings.theme,
+    pick: (id) => (id === 'custom' ? useCustomTheme() : updateSettings({ theme: id })),
+    editCustom: () => { if (state.settings.theme !== 'custom') useCustomTheme(); openSettings(appApi, 'appearance'); },
+    random: () => run('theme'),
+  });
 }
 
 // ───────────────────────── shell
@@ -413,6 +414,7 @@ function themeMenu(anchor) {
 const GRIP_DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="20" cy="20" r="2"/><circle cx="14" cy="20" r="2"/><circle cx="20" cy="14" r="2"/><circle cx="8" cy="20" r="2"/><circle cx="14" cy="14" r="2"/><circle cx="20" cy="8" r="2"/></svg>';
 
 function renderShell() {
+  closeThemePicker();
   root.innerHTML = `
     <nav id="menubar" role="menubar"></nav>
     <div id="toolbar" role="toolbar"></div>

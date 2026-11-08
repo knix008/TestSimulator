@@ -51,6 +51,7 @@ export default {
   'viewer.actual': 'Actual size', 'viewer.cannotConvert': 'Cannot convert to this format', 'viewer.cannotShow': 'The picture cannot be shown', 'viewer.copied': 'Picture copied', 'viewer.copy': 'Copy the picture', 'viewer.fit': 'Fit to window',
   'viewer.fitShort': 'fit', 'viewer.noClipboard': 'Pictures cannot be copied to the clipboard here', 'viewer.rotateLeft': 'Rotate left', 'viewer.rotateRight': 'Rotate right', 'viewer.saveAs': 'Save in another format',
   'viewer.unsupported': 'This format cannot be played', 'viewer.zoomIn': 'Zoom in', 'viewer.zoomOut': 'Zoom out',
+  'theme.darkGroup': 'Dark ({count})', 'theme.lightGroup': 'Light ({count})', 'theme.editCustom': 'Edit the custom theme…',
   'mdtags.bar': 'Markdown elements', 'mdtags.group.heading': 'Headings', 'mdtags.group.inline': 'Text', 'mdtags.group.block': 'Blocks', 'mdtags.group.html': 'HTML',
   'mdtags.h1': 'Heading 1', 'mdtags.h2': 'Heading 2', 'mdtags.h3': 'Heading 3', 'mdtags.h4': 'Heading 4', 'mdtags.h5': 'Heading 5', 'mdtags.h6': 'Heading 6', 'mdtags.p': 'Body paragraph',
   'mdtags.bold': 'Bold', 'mdtags.italic': 'Italic', 'mdtags.boldItalic': 'Bold + italic', 'mdtags.strike': 'Strikethrough', 'mdtags.code': 'Inline code', 'mdtags.link': 'Link', 'mdtags.image': 'Picture',

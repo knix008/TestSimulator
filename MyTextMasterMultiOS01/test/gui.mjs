@@ -538,13 +538,27 @@ check('encode tools and the syntax menu', async () => {
   await page.key('Escape');
 });
 
-check('theme menu lists 20 light, 20 dark, the custom theme and theme settings', async () => {
+check('theme drop-down: system and custom on top, dark | light columns of 20, edit / random / close', async () => {
+  await app(`app.updateSettings({ theme: 'light' }, { quiet: true }); return true;`);
   await page.click('#toolbar [data-command="themeMenu"]');
-  await page.waitFor(`document.querySelector('.popup-menu.in-page')`, 2000);
-  const labels = await page.eval(`return [...document.querySelectorAll('.popup-menu.in-page .menu-item')].map((b) => b.textContent.trim());`);
-  expect(labels.some((l) => l.includes('(20)')) && labels.filter((l) => l.includes('(20)')).length === 2, `labels ${labels}`);
-  expect(labels.some((l) => l.includes('사용자 정의')) && labels.some((l) => l.includes('테마 설정')), `custom / settings missing: ${labels}`);
+  await page.waitFor(`document.querySelector('.theme-dropdown')`, 2000);
+  const info = await page.eval(`const p = document.querySelector('.theme-dropdown'); const r = p.getBoundingClientRect(); const b = document.querySelector('#toolbar [data-command="themeMenu"]').getBoundingClientRect();
+    return { columns: [...p.querySelectorAll('.picker-column')].map((c) => c.querySelectorAll('.picker-item').length), top: [...p.querySelectorAll('.picker-top .picker-item')].map((i) => i.dataset.pickTheme), swatches: p.querySelectorAll('.picker-column .theme-swatch').length,
+      checked: p.querySelector('.picker-item.active')?.dataset.pickTheme, foot: [...p.querySelectorAll('[data-theme-action]')].map((x) => x.dataset.themeAction), below: r.top >= b.bottom - 1, inside: r.right <= innerWidth && r.bottom <= innerHeight && r.left >= 0 };`);
+  expect(info.columns.join() === '20,20' && info.swatches === 40, `columns ${JSON.stringify(info)}`);
+  expect(info.top.join() === 'system,custom', `top ${info.top}`);
+  expect(info.checked === 'light', `current ${info.checked}`);
+  expect(['edit', 'random', 'close'].every((a) => info.foot.includes(a)), `footer ${info.foot}`);
+  expect(info.below && info.inside, `placement ${JSON.stringify(info)}`);
+  await shot('13-theme-dropdown');
+  await page.click('.theme-dropdown [data-pick-theme="dracula"]');
+  await wait(100);
+  expect((await page.eval(`return [document.documentElement.dataset.theme, Boolean(document.querySelector('.theme-dropdown'))];`)).join() === 'dracula,false', 'pick did not apply and close');
+  await page.click('#toolbar [data-command="themeMenu"]');
+  await page.waitFor(`document.querySelector('.theme-dropdown')`, 2000);
   await page.key('Escape');
+  expect(!(await page.eval(`return Boolean(document.querySelector('.theme-dropdown'));`)), 'Esc did not close');
+  await app(`app.updateSettings({ theme: 'light' }, { quiet: true }); return true;`);
 });
 
 check('settings apply at once and "reset to defaults" restores them', async () => {
