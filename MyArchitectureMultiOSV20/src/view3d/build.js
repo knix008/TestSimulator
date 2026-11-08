@@ -198,7 +198,10 @@ export function makeMaterials(THREE, { textures = true } = {}) {
   const cache = new Map();
   const texCache = new Map();
   const texture = (m) => {
-    if (!textures || !m || (!m.pattern && !m.src) || typeof document === "undefined") return null;
+    if (!textures || !m || (!m.pattern && !m.src)) return null;
+    // A page has a document; a worker (the start page's thumbnails) has
+    // OffscreenCanvas for the painted patterns but no image loading; Node has neither.
+    if (typeof document === "undefined" && (typeof OffscreenCanvas === "undefined" || m.src)) return null;
     // Keyed by everything that changes the picture (an edited material repaints).
     const key = `${m.id}:${m.color}:${m.tile || ""}:${m.src ? `${m.src.length}:${m.src.slice(-32)}` : ""}`;
     if (texCache.has(key)) return texCache.get(key);
@@ -208,7 +211,7 @@ export function makeMaterials(THREE, { textures = true } = {}) {
       // asynchronously; the viewer redraws when it is there.
       tx = new THREE.TextureLoader().load(m.src, () => { if (typeof window !== "undefined") window.dispatchEvent(new Event("myarch-texture")); });
     } else {
-      const c = document.createElement("canvas");
+      const c = typeof document !== "undefined" ? document.createElement("canvas") : new OffscreenCanvas(256, 256);
       c.width = c.height = 256;
       paintPattern(c.getContext("2d"), m, 256);
       tx = new THREE.CanvasTexture(c);

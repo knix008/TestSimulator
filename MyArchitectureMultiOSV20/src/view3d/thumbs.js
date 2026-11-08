@@ -10,8 +10,9 @@ import { base64ToBytes } from "../ui/platform.js";
 // A thumbnail renderer: render(furniture, models) → data URL. furniture: item
 // objects as in a project (x, y relative to the picture's centre); models: the
 // imported model assets they use. Call dispose() when done.
-export function createThumbRenderer(THREE, { width = 160, height = 128, dir = [0.62, 0.5, 1], background = null, preserve = true } = {}) {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: preserve });
+// canvas: an OffscreenCanvas to draw in a worker (src/view3d/thumbworker.js); render() then gives a Blob.
+export function createThumbRenderer(THREE, { width = 160, height = 128, dir = [0.62, 0.5, 1], background = null, preserve = true, canvas = undefined } = {}) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: preserve });
   renderer.setPixelRatio(1);
   renderer.setSize(width, height, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -83,7 +84,7 @@ export function createThumbRenderer(THREE, { width = 160, height = 128, dir = [0
     const sc = sun.shadow.camera;
     sc.left = sc.bottom = -r * 2; sc.right = sc.top = r * 2; sc.near = 0.01; sc.far = r * 12; sc.updateProjectionMatrix();
     renderer.render(scene, camera);
-    const url = renderer.domElement.toDataURL("image/png");
+    const url = renderer.domElement.convertToBlob ? await renderer.domElement.convertToBlob({ type: "image/png" }) : renderer.domElement.toDataURL("image/png");
     scene.remove(root);
     return url;
   }

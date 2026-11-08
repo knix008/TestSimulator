@@ -14,7 +14,8 @@
 // relative to the entry's centre], models: [model assets they use], created}
 
 import { t } from "./i18n.js";
-import { h, modal, toast, field, input, select, confirmDialog, promptDialog } from "./widgets.js";
+import { h, modal, toast, field, input, select, confirmDialog, promptDialog, progressPopup } from "./widgets.js";
+import { itemsThumb } from "./thumbclient.js";
 import * as platform from "./platform.js";
 import { uid } from "../core/geom.js";
 import { furnitureCorners, FURNITURE_CATEGORIES, furnitureDef } from "../lib/furniture.js";
@@ -99,7 +100,13 @@ function saveEntries(app, list) {
   if (app.renderLeft) app.renderLeft();
 }
 
+// The entry's picture: drawn in the background worker (src/ui/thumbclient.js),
+// else on the page as before.
 async function thumbOf(entry) {
+  try {
+    const url = await itemsThumb(entry.items, entry.models);
+    if (url) return url;
+  } catch { /* no worker: on the page */ }
   try {
     const THREE = await import("../vendor/three/three.module.js");
     const { createThumbRenderer } = await import("../view3d/thumbs.js");
@@ -242,4 +249,22 @@ export async function importLibrary(app) {
   try { add = parseLibraryFile(f.text); } catch (e) { toast(e.message || String(e), "error", 6000); return; }
   saveEntries(app, mergeEntries(userEntries(app), add));
   toast(t("{n} items added to your library.", { n: add.length }), "ok", 5000);
+  drawMissingPictures(app);
+}
+
+// Entries without a picture (e.g. from a library file) get one in the
+// background, one after another, with a progress popup; the app stays usable.
+export async function drawMissingPictures(app) {
+  const todo = userEntries(app).filter((x) => !x.thumb);
+  if (!todo.length) return;
+  const pp = progressPopup("library-pictures", { title: t("Drawing the library pictures"), icon: "image" });
+  let n = 0;
+  for (const entry of todo) {
+    pp.set(n, todo.length, t("Drawing {name}…", { name: entry.name }));
+    const thumb = await thumbOf(entry);
+    if (thumb) saveEntries(app, userEntries(app).map((x) => (x.id === entry.id ? { ...x, thumb } : x)));
+    n++;
+  }
+  pp.set(n, todo.length);
+  pp.finish(t("Library pictures are ready ({n})", { n: todo.length }));
 }

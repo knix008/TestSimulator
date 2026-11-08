@@ -13,7 +13,7 @@
 import { t, getLanguage } from "./i18n.js";
 import { icon } from "./icons.js";
 import { toned } from "./icontones.js";
-import { h, slider } from "./widgets.js";
+import { h, slider, progressPopup } from "./widgets.js";
 import { loadSampleIndex, loadSampleText } from "./dialogs.js";
 import { parseProject } from "../core/project.js";
 import { PLAN_THEMES, drawPlan, planBounds } from "../plan/render.js";
@@ -530,9 +530,115 @@ export class StartPage {
       grid.append(h("button", { class: "sample-card", onclick: () => this.app.openSample(s.file) }, canvas,
         h("div", { class: "sc-body" }, h("b", {}, ko ? s.titleKo || s.title : s.title), h("small", {}, ko ? s.descriptionKo || s.description : s.description),
           h("div", { class: "tags" }, ...(s.tags || []).slice(0, 5).map((tg) => h("span", {}, tg))))));
-      this.thumb(s.file, canvas).then(() => this.queue3d(s.file, canvas));
+      this.sampleThumb(s, canvas, ko ? s.titleKo || s.title : s.title);
     }
     this.measure();
+  }
+
+  // ---------------------------------------------------------------- thumbnails in the background
+  // A sample card's pictures. A saved 3D thumbnail of this build and this
+  // sample shows at once; otherwise the worker (src/view3d/thumbworker.js)
+  // draws the plan and the 3D picture off the main thread — big furnished
+  // samples took up to a second each and froze the app — and a progress
+  // popup counts them. Without a worker the page draws them itself (thumb, queue3d).
+  async sampleThumb(s, canvas, title) {
+    const file = s.file;
+    this.canvasOf = this.canvasOf || new Map();
+    this.canvasOf.set(file, canvas);
+    this.renders = this.renders || new Map();
+    if (this.renders.has(file)) { this.paint3d(canvas, this.renders.get(file)); return; }
+    let text;
+    try { text = await loadSampleText(file); } catch { return; }
+    this.hashes.set(file, hashText(text));
+    const sig = await this.thumbSig(file);
+    const saved = this.savedThumbs()[file];
+    if (saved && saved.sig === sig && saved.url) { this.renders.set(file, saved.url); this.paint3d(this.canvasOf.get(file) || canvas, saved.url); return; }
+    const w = await this.thumbWorker();
+    if (!w) { this.thumb(file, canvas).then(() => this.queue3d(file, canvas)); return; }
+    this.jobs = this.jobs || new Map();
+    if (this.jobs.has(file)) return; // already on its way (the page was drawn again)
+    const id = `${file}#${++this.jobSeq}`;
+    this.jobs.set(file, { id, file, sig, title, want3d: w.webgl });
+    this.jobTotal = (this.jobTotal || 0) + 1;
+    this.showProgress();
+    w.worker.postMessage({ id, text, w: canvas.width, h: canvas.height, want3d: w.webgl });
+  }
+
+  // The worker, started once; null when this browser cannot run it.
+  thumbWorker() {
+    if (this.workerReady) return this.workerReady;
+    this.jobSeq = 0;
+    this.workerReady = new Promise((resolve) => {
+      let worker;
+      try { worker = new Worker(new URL("../view3d/thumbworker.js", import.meta.url), { type: "module" }); } catch { resolve(null); return; }
+      const timer = setTimeout(() => { try { worker.terminate(); } catch { /* gone */ } resolve(null); }, 15000);
+      worker.onerror = () => { clearTimeout(timer); resolve(null); };
+      worker.onmessage = (e) => {
+        const m = e.data;
+        if (m.ready) { clearTimeout(timer); resolve({ worker, webgl: !!m.webgl }); return; }
+        this.onThumbResult(m);
+      };
+    });
+    return this.workerReady;
+  }
+
+  onThumbResult(m) {
+    const job = this.jobs && [...this.jobs.values()].find((j) => j.id === m.id);
+    if (!job) return;
+    const canvas = this.canvasOf.get(job.file);
+    if (m.plan && canvas && !this.renders.has(job.file)) {
+      createImageBitmap(m.plan).then((bmp) => {
+        if (this.renders.has(job.file)) return; // the 3D picture came first
+        const g = canvas.getContext("2d");
+        g.setTransform(1, 0, 0, 1, 0, 0);
+        g.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+        bmp.close();
+      }, () => {});
+    }
+    if (m.img3d) {
+      const r = new FileReader();
+      r.onload = () => {
+        const url = String(r.result);
+        this.renders.set(job.file, url);
+        this.saveThumb(job.file, job.sig, url);
+        const c = this.canvasOf.get(job.file);
+        if (c) this.paint3d(c, url);
+      };
+      r.readAsDataURL(m.img3d);
+    }
+    if (m.done || m.error) {
+      if (m.error) console.warn("thumbnail", job.file, m.error);
+      this.jobs.delete(job.file);
+      this.jobDone = (this.jobDone || 0) + 1;
+      // No 3D in the worker (no WebGL there): the page draws the 3D ones itself.
+      if (m.done && !job.want3d && canvas) this.queue3d(job.file, canvas);
+      this.showProgress(job.title);
+    }
+  }
+
+  // The progress popup of the thumbnails (widgets.js progressPopup); shown
+  // only while there is work, and only if it is not done within a moment.
+  showProgress(lastTitle = "") {
+    const total = this.jobTotal || 0, done = this.jobDone || 0;
+    if (!total) return;
+    if (done >= total) {
+      clearTimeout(this.progressTimer);
+      this.progressTimer = null;
+      if (this.progress) this.progress.finish(t("Sample previews are ready ({n})", { n: total }));
+      this.progress = null;
+      this.jobTotal = this.jobDone = 0;
+      return;
+    }
+    const next = this.jobs && this.jobs.size ? [...this.jobs.values()][0].title : lastTitle;
+    const update = () => this.progress && this.progress.set(this.jobDone || 0, this.jobTotal || 0, t("Drawing {name}…", { name: next }));
+    if (this.progress) { update(); return; }
+    if (this.progressTimer) return;
+    this.progressTimer = setTimeout(() => {
+      this.progressTimer = null;
+      if (!this.jobs || !this.jobs.size) return;
+      this.progress = progressPopup("start-thumbs", { title: t("Making the sample previews"), icon: "image" });
+      update();
+    }, 300);
   }
 
   async load(file) {

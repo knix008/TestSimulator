@@ -578,3 +578,54 @@ export function tabs(defs) {
 export function panelHead(ic, title, ...extra) {
   return h("div", { class: "panel-head", "data-key": ic }, h("span", { class: "ph-ico", html: icon(ic, 14) }), h("span", { class: "ph-title" }, title), ...extra);
 }
+
+// ---------------------------------------------------------------- progress popup
+// Long work that runs in the background (e.g. the start page's thumbnails in
+// a worker) shows its progress in a small popup at the bottom right instead
+// of freezing the app: a title, what is being done, a bar and n / total.
+// It never blocks the app; × only hides it (the work goes on). One popup per
+// key; several stack upwards.
+const progressPopups = new Map();
+export function progressPopup(key, { title = "", icon: ic = "refresh" } = {}) {
+  if (progressPopups.has(key)) return progressPopups.get(key);
+  let host = document.getElementById("progress-popups");
+  if (!host) { host = h("div", { id: "progress-popups", class: "progress-popups", "aria-live": "polite" }); document.body.append(host); }
+  const label = h("div", { class: "pp-label" });
+  const fill = h("div", { class: "pp-fill" });
+  const count = h("span", { class: "pp-count" });
+  const pct = h("span", { class: "pp-pct" });
+  let hidden = false;
+  const el = h("div", { class: "progress-popup", role: "status", "data-progress": key },
+    h("div", { class: "pp-head" }, h("span", { class: "pp-ico spin", html: icon(ic, 15) }), h("b", { class: "pp-title" }, title),
+      h("button", { class: "icon-btn popup-close", title: t("Hide (the work goes on)"), "aria-label": t("Hide"), html: icon("close", 13), onclick: () => { hidden = true; el.remove(); } })),
+    label, h("div", { class: "pp-bar" }, fill), h("div", { class: "pp-foot" }, count, pct));
+  host.append(el);
+  const api = {
+    el,
+    set(done, total, what = "") {
+      const f = total > 0 ? Math.max(0, Math.min(1, done / total)) : 0;
+      fill.style.width = `${(f * 100).toFixed(1)}%`;
+      count.textContent = `${done} / ${total}`;
+      pct.textContent = `${Math.round(f * 100)}%`;
+      label.textContent = what;
+      el.dataset.done = String(done);
+      el.dataset.total = String(total);
+    },
+    // Done: a short "finished" line, then the popup goes away by itself.
+    finish(msg = t("Done")) {
+      progressPopups.delete(key);
+      el.classList.add("finished");
+      el.querySelector(".pp-ico").classList.remove("spin");
+      el.querySelector(".pp-ico").innerHTML = icon("check", 15);
+      fill.style.width = "100%";
+      label.textContent = msg;
+      if (el.dataset.total) { count.textContent = `${el.dataset.total} / ${el.dataset.total}`; el.dataset.done = el.dataset.total; }
+      pct.textContent = "100%";
+      setTimeout(() => el.remove(), hidden ? 0 : 1600);
+    },
+    close() { progressPopups.delete(key); el.remove(); },
+    get hidden() { return hidden; },
+  };
+  progressPopups.set(key, api);
+  return api;
+}

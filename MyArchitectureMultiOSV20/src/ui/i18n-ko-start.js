@@ -118,4 +118,11 @@ export const KO_START = {
   "Not now": "나중에",
   "Tutorial popup": "튜토리얼 팝업",
   "Welcome to MyArchitecture": "MyArchitecture 에 오신 것을 환영합니다",
+  "Hide (the work goes on)": "숨기기 (작업은 계속됩니다)",
+  "Done": "완료",
+  "Sample previews are ready ({n})": "예제 미리보기를 모두 만들었습니다 ({n}개)",
+  "Drawing {name}…": "{name} 그리는 중…",
+  "Making the sample previews": "예제 미리보기 만드는 중",
+  "Drawing the library pictures": "라이브러리 그림 그리는 중",
+  "Library pictures are ready ({n})": "라이브러리 그림을 모두 그렸습니다 ({n}개)",
 };

@@ -308,12 +308,12 @@ function paintTexture(ctx, kind, n) {
 
 const TEXTURES = new WeakMap();
 export function surfaceTexture(THREE, kind, tile) {
-  if (typeof document === "undefined") return null;
+  if (typeof document === "undefined" && typeof OffscreenCanvas === "undefined") return null; // Node: no textures
   let m = TEXTURES.get(THREE);
   if (!m) TEXTURES.set(THREE, (m = new Map()));
   const key = `${kind}:${tile}`;
   if (m.has(key)) return m.get(key);
-  const c = document.createElement("canvas");
+  const c = typeof document !== "undefined" ? document.createElement("canvas") : new OffscreenCanvas(256, 256); // a worker has no document
   c.width = c.height = 256;
   paintTexture(c.getContext("2d"), kind, 256);
   const tx = new THREE.CanvasTexture(c);
