@@ -124,7 +124,8 @@ function addDoc(doc) {
 
 function newSite(templateId = 'blank', { name = '', designId = null } = {}) {
   const built = buildTemplate(templateId, lang());
-  if (designId && DESIGN_IDS.includes(designId)) built.design = { id: designId, overrides: {} };
+  // Only a blank site takes the design chosen in the new site window: a template comes with its own.
+  if (templateId === 'blank' && designId && DESIGN_IDS.includes(designId)) built.design = { id: designId, overrides: {} };
   else if (templateId === 'blank') built.design = { id: state.settings.defaultDesign, overrides: {} };
   if (name) { built.name = name; built.meta.title = name; built.layout.header.props.brand = name; }
   else if (templateId === 'blank') { state.untitled += 1; built.name = t('tabs.untitled', { n: state.untitled }); }

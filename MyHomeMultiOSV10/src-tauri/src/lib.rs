@@ -249,7 +249,7 @@ async fn clipboard_read() -> Result<String, String> {
 /// A document installed with the program (user's guide, tutorial): its path in
 /// the resource folder, or in the source tree when running from it (dev).
 fn document_path(app: &AppHandle, name: &str) -> Option<PathBuf> {
-    let safe = name.replace("..", "");
+    let safe = safe_document_name(name);
     let candidates = [
         app.path().resource_dir().ok().map(|dir| dir.join("docs").join(&safe)),
         Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("public").join("docs").join(&safe)),
@@ -500,8 +500,7 @@ fn window_min_size(window: WebviewWindow, state: tauri::State<'_, AppState>, wid
             (f64::from(m.work_area().size.width) / scale, f64::from(m.work_area().size.height) / scale)
         })
         .unwrap_or((f64::MAX, f64::MAX));
-    let min_width = width.ceil().max(800.0).min(area.0);
-    let min_height = height.ceil().max(480.0).min(area.1);
+    let (min_width, min_height) = minimum_for(width, height, area);
     lock(&state).min_size = (min_width, min_height);
     // The OS minimum binds the outer rect, which on a frameless window carries invisible resize
     // borders: without them an edge drag stopped short of the toolbar's width.
@@ -538,9 +537,24 @@ fn keep_minimum(window: &WebviewWindow) {
     }
     let (Ok(scale), Ok(size)) = (window.scale_factor(), window.inner_size()) else { return };
     let size = size.to_logical::<f64>(scale);
-    if size.width + 0.5 < min_width || size.height + 0.5 < min_height {
-        let _ = window.set_size(tauri::LogicalSize::new(size.width.max(min_width), size.height.max(min_height)));
+    if let Some((w, h)) = grown_to_minimum((size.width, size.height), (min_width, min_height)) {
+        let _ = window.set_size(tauri::LogicalSize::new(w, h));
     }
+}
+
+/// The window minimum from the page's measure: at least 800 × 480, at most the work area.
+fn minimum_for(width: f64, height: f64, area: (f64, f64)) -> (f64, f64) {
+    (width.ceil().max(800.0).min(area.0), height.ceil().max(480.0).min(area.1))
+}
+
+/// The size a window must grow to when it is below its minimum (None: it is large enough).
+fn grown_to_minimum(size: (f64, f64), min: (f64, f64)) -> Option<(f64, f64)> {
+    (size.0 + 0.5 < min.0 || size.1 + 0.5 < min.1).then(|| (size.0.max(min.0), size.1.max(min.1)))
+}
+
+/// A document name without ways out of the docs folder.
+fn safe_document_name(name: &str) -> String {
+    name.replace("..", "")
 }
 
 /// Called by a popup page once it has drawn itself.
@@ -813,4 +827,65 @@ fn offset_window(window: &WebviewWindow, copies: usize) {
         copies,
     );
     let _ = window.set_position(PhysicalPosition::new(x, y));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_popup_of_the_page_is_known_to_the_backend() {
+        let source = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../src/platform/popups.js")).unwrap();
+        let start = source.find("export const POPUPS = {").unwrap();
+        let body = &source[start..source[start..].find("};").unwrap() + start];
+        let kinds: Vec<&str> = body.lines().filter_map(|line| line.trim().split(':').next()).filter(|k| !k.is_empty() && !k.contains(' ')).collect();
+        assert!(kinds.len() >= 10, "{kinds:?}");
+        for kind in &kinds {
+            assert!(POPUP_KINDS.contains(kind), "popup {kind} is missing in POPUP_KINDS");
+        }
+        assert_eq!(kinds.len(), POPUP_KINDS.len());
+    }
+
+    #[test]
+    fn the_window_minimum_stays_between_the_floor_and_the_screen() {
+        assert_eq!(minimum_for(1234.2, 300.0, (1920.0, 1040.0)), (1235.0, 480.0));
+        assert_eq!(minimum_for(500.0, 900.0, (1920.0, 1040.0)), (800.0, 900.0));
+        assert_eq!(minimum_for(2500.0, 2000.0, (1366.0, 728.0)), (1366.0, 728.0));
+    }
+
+    #[test]
+    fn a_window_below_its_minimum_grows_back() {
+        assert_eq!(grown_to_minimum((700.0, 500.0), (1240.0, 640.0)), Some((1240.0, 640.0)));
+        assert_eq!(grown_to_minimum((1500.0, 500.0), (1240.0, 640.0)), Some((1500.0, 640.0)));
+        assert_eq!(grown_to_minimum((1240.2, 640.0), (1240.0, 640.0)), None);
+    }
+
+    #[test]
+    fn document_names_cannot_leave_the_docs_folder() {
+        assert_eq!(safe_document_name("../../secret.txt"), "//secret.txt");
+        assert_eq!(safe_document_name("UsersGuide.en.html"), "UsersGuide.en.html");
+        assert!(DOC_KINDS.contains(&"guide") && DOC_KINDS.contains(&"tutorial"));
+    }
+
+    #[test]
+    fn the_preview_folder_belongs_to_this_run() {
+        let dir = preview_dir();
+        assert!(dir.starts_with(std::env::temp_dir()));
+        assert!(dir.to_string_lossy().ends_with(&std::process::id().to_string()));
+    }
+
+    #[test]
+    fn backend_messages_follow_the_language() {
+        i18n::set_english(true);
+        assert_eq!(tr!("열기 {}", "Open {}", 1), "Open 1");
+        i18n::set_english(false);
+        assert_eq!(tr!("열기 {}", "Open {}", 1), "열기 1");
+    }
+
+    #[test]
+    fn the_title_names_the_program_and_its_version() {
+        let source = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tauri.conf.json")).unwrap();
+        assert!(source.contains("\"productName\": \"MyHomeMaker\""));
+        assert!(source.contains("\"myhome\"") && source.contains("\"mhomt\""));
+    }
 }
