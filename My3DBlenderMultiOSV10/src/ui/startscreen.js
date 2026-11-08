@@ -198,6 +198,7 @@ export function createStartScreen(app, actions) {
   let drag = null;
   let measured = {};
   let burst = { at: 0, n: 0 };
+  let burstRetry = 0;
   let rects = new Map();
   const saved = () => cardsOf(settings.startLayout, START_CARDS, DEFAULT_SPAN, measured);
   const cellStyle = (cell) => ({ gridColumn: `${cell.col + 1} / span ${cell.w}`, gridRow: `${cell.row + 1} / span ${cell.h}` });
@@ -243,7 +244,7 @@ export function createStartScreen(app, actions) {
     if (!changed.length) return;
     const now = performance.now();
     if (now - burst.at > 1000) burst = { at: now, n: 0 };
-    if (burst.n > 12) return;
+    if (burst.n > 12) { clearTimeout(burstRetry); burstRetry = setTimeout(measure, 1100); return; }
     burst.n += 1;
     measured = { ...measured, ...Object.fromEntries(changed.map((key) => [key, next[key]])) };
     render();

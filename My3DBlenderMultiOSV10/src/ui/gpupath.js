@@ -1,5 +1,5 @@
 // A path tracer on the graphics card: the same scene description and BVH as the CPU one, walked in a fragment shader, with
-// samples added up in a floating point texture. Node trees reach it as their value at one point (see FEATURES).
+// samples added up in a floating point texture. Node trees reach it as their value at one point, plus a picture on Base Color (see FEATURES).
 import { buildBVH, buildRenderScene } from '../core/pathtracer.js';
 import { evalShader } from '../core/nodes.js';
 
@@ -13,6 +13,8 @@ precision highp float;
 precision highp int;
 precision highp sampler2D;
 uniform sampler2D uTris, uNodes, uMats;
+precision highp sampler2DArray;
+uniform sampler2DArray uPictures;
 uniform sampler2D uAccum;
 uniform vec2 uSize;
 uniform int uSample, uBounces, uLights;
@@ -53,8 +55,8 @@ Hit trace(vec3 o, vec3 d, float tMax, bool any) {
     if (left >= 0) { stack[sp++] = left; stack[sp++] = right; continue; }
     int start = -left - 1, end = right;
     for (int t = start; t < end; t++) {
-      vec3 a = fetch(uTris, t * 7).xyz;
-      vec3 e1 = fetch(uTris, t * 7 + 1).xyz - a, e2 = fetch(uTris, t * 7 + 2).xyz - a;
+      vec3 a = fetch(uTris, t * 8).xyz;
+      vec3 e1 = fetch(uTris, t * 8 + 1).xyz - a, e2 = fetch(uTris, t * 8 + 2).xyz - a;
       vec3 q = cross(d, e2);
       float det = dot(e1, q);
       if (abs(det) < 1e-12) continue;
@@ -147,13 +149,20 @@ vec4 path(vec3 ro, vec3 rd) {
       break;
     }
     float w = 1.0 - h.u - h.v;
-    vec3 n = normalize(fetch(uTris, h.tri * 7 + 3).xyz * w + fetch(uTris, h.tri * 7 + 4).xyz * h.u + fetch(uTris, h.tri * 7 + 5).xyz * h.v);
+    vec3 n = normalize(fetch(uTris, h.tri * 8 + 3).xyz * w + fetch(uTris, h.tri * 8 + 4).xyz * h.u + fetch(uTris, h.tri * 8 + 5).xyz * h.v);
     bool entering = dot(n, rd) < 0.0;
     if (!entering) n = -n;
     vec3 pos = ro + rd * h.t;
-    int m = int(fetch(uTris, h.tri * 7 + 6).x);
-    vec4 M0 = fetch(uMats, m * 3), M1 = fetch(uMats, m * 3 + 1), M2 = fetch(uMats, m * 3 + 2);
-    vec3 base = M0.rgb; float metal = M0.a, rough = M1.r, trans = M1.g, ior = M1.b, spec = M1.a;
+    int m = int(fetch(uTris, h.tri * 8 + 6).x);
+    vec4 M0 = fetch(uMats, m * 4), M1 = fetch(uMats, m * 4 + 1), M2 = fetch(uMats, m * 4 + 2), M3 = fetch(uMats, m * 4 + 3);
+    vec3 base = M0.rgb;
+    if (M3.r >= 0.0) {
+      // A picture on the base colour; the corners' UVs sit in the triangle's last two texels. Row 0 of a picture is its top.
+      vec4 U0 = fetch(uTris, h.tri * 8 + 6), U1 = fetch(uTris, h.tri * 8 + 7);
+      vec2 uv = vec2(U0.y, U0.z) * w + vec2(U0.w, U1.x) * h.u + vec2(U1.y, U1.z) * h.v;
+      base = texture(uPictures, vec3(uv.x, 1.0 - uv.y, M3.r)).rgb;
+    }
+    float metal = M0.a, rough = M1.r, trans = M1.g, ior = M1.b, spec = M1.a;
     float matAlpha = M2.a;
     if (matAlpha < 1.0 && rnd() > matAlpha) { ro = pos + rd * 1e-3; depth--; continue; }
     color += through * M2.rgb;
@@ -237,33 +246,72 @@ function dataTexture(gl, values) {
   return tex;
 }
 
-/** The scene as three floating point textures. Exported for tests of the layout. */
+/** The picture directly feeding a tree's Base Color, if any. */
+function baseColorPicture(graph) {
+  const bsdf = graph?.nodes?.find((n) => n.type === 'BSDF_PRINCIPLED');
+  const link = bsdf && graph.links.find((l) => l.to === bsdf.id && l.in === 'Base Color');
+  const node = link && graph.nodes.find((n) => n.id === link.from);
+  return node?.type === 'TEX_IMAGE' && link.out === 'Color' ? node.values?.image ?? null : null;
+}
+
+/** The scene as floating point textures, and the pictures materials use as layers of one array. Exported for tests of the layout. */
 export function packSceneForGPU(scene, images) {
   const bvh = buildBVH(scene.positions);
-  // Triangles in BVH order, so a leaf is a range of them: 7 texels each.
+  // Triangles in BVH order, so a leaf is a range of them: 8 texels each.
   const count = scene.positions.length / 9;
-  const tris = new Float32Array(count * 7 * 4);
+  const tris = new Float32Array(count * 8 * 4);
   for (let i = 0; i < count; i++) {
     const t = bvh.order[i];
     for (let k = 0; k < 3; k++) {
-      tris.set(scene.positions.subarray(t * 9 + k * 3, t * 9 + k * 3 + 3), (i * 7 + k) * 4);
-      tris.set(scene.normals.subarray(t * 9 + k * 3, t * 9 + k * 3 + 3), (i * 7 + 3 + k) * 4);
+      tris.set(scene.positions.subarray(t * 9 + k * 3, t * 9 + k * 3 + 3), (i * 8 + k) * 4);
+      tris.set(scene.normals.subarray(t * 9 + k * 3, t * 9 + k * 3 + 3), (i * 8 + 3 + k) * 4);
     }
-    tris[(i * 7 + 6) * 4] = scene.triMat[t];
+    tris[(i * 8 + 6) * 4] = scene.triMat[t];
+    if (scene.uvs) {
+      const uv = [0, 1, 2, 3, 4, 5].map((k) => scene.uvs[t * 6 + k]);
+      tris.set([uv[0], uv[1], uv[2]], (i * 8 + 6) * 4 + 1);
+      tris.set([uv[3], uv[4], uv[5]], (i * 8 + 7) * 4);
+    }
   }
   // Nodes: two texels. A leaf has a negative `left` holding its first triangle, and `right` its end.
   const nodes = new Float32Array(Math.max(1, bvh.nodes.length) * 8);
   bvh.nodes.forEach((n, i) => {
     nodes.set([n.box[0], n.box[1], n.box[2], n.left >= 0 ? n.left : -n.start - 1, n.box[3], n.box[4], n.box[5], n.left >= 0 ? n.right : n.end], i * 8);
   });
-  const mats = new Float32Array(Math.max(1, scene.materials.length) * 12);
+  const mats = new Float32Array(Math.max(1, scene.materials.length) * 16);
+  const pictures = [];
+  const layerOf = new Map();
   scene.materials.forEach((source, i) => {
     let m = source;
+    const pictureId = source.nodes ? baseColorPicture(source.nodes) : null;
+    const picture = pictureId && images?.[pictureId];
+    let layer = -1;
+    if (picture?.rgba) {
+      if (!layerOf.has(pictureId)) { layerOf.set(pictureId, pictures.length); pictures.push(picture); }
+      layer = layerOf.get(pictureId);
+    }
+    mats[i * 16 + 12] = layer;
     if (m.nodes) m = evalShader(m.nodes, { uv: [0.5, 0.5], position: [0, 0, 0], normal: [0, 0, 1], images }) ?? m;
     const e = m.emission ?? [0, 0, 0];
-    mats.set([m.baseColor[0], m.baseColor[1], m.baseColor[2], m.metallic ?? 0, Math.max(0.001, m.roughness ?? 0.5), m.transmission ?? 0, m.ior ?? 1.45, m.specular ?? 0.5, e[0], e[1], e[2], m.alpha ?? 1], i * 12);
+    mats.set([m.baseColor[0], m.baseColor[1], m.baseColor[2], m.metallic ?? 0, Math.max(0.001, m.roughness ?? 0.5), m.transmission ?? 0, m.ior ?? 1.45, m.specular ?? 0.5, e[0], e[1], e[2], m.alpha ?? 1], i * 16);
   });
-  return { tris, nodes, mats, bvh };
+  return { tris, nodes, mats, bvh, pictures };
+}
+
+/** All pictures at one size, as layers of an array texture, in sRGB so that sampling gives linear light. */
+export function pictureLayers(pictures) {
+  if (!pictures.length) return { width: 1, height: 1, layers: 1, data: new Uint8Array(4) };
+  const width = Math.min(2048, Math.max(...pictures.map((p) => p.width)));
+  const height = Math.min(2048, Math.max(...pictures.map((p) => p.height)));
+  const data = new Uint8Array(width * height * pictures.length * 4);
+  pictures.forEach((p, layer) => {
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      const from = (Math.floor((y / height) * p.height) * p.width + Math.floor((x / width) * p.width)) * 4;
+      const to = (layer * width * height + y * width + x) * 4;
+      data[to] = p.rgba[from]; data[to + 1] = p.rgba[from + 1]; data[to + 2] = p.rgba[from + 2]; data[to + 3] = p.rgba[from + 3];
+    }
+  });
+  return { width, height, layers: pictures.length, data };
 }
 
 /** Whether this browser can do it. */
@@ -318,6 +366,16 @@ export function renderPathGPU(doc, images, { onProgress } = {}) {
     bind(0, textures[0], 'uTris');
     bind(1, textures[1], 'uNodes');
     bind(2, textures[2], 'uMats');
+    const layers = pictureLayers(pack.pictures);
+    const pictureTexture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0 + 4);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, pictureTexture);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.SRGB8_ALPHA8, layers.width, layers.height, layers.layers, 0, gl.RGBA, gl.UNSIGNED_BYTE, layers.data);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.uniform1i(u('uPictures'), 4);
     const cam = scene.camera;
     gl.uniform2f(u('uSize'), width, height);
     gl.uniform1i(u('uBounces'), settings.bounces);

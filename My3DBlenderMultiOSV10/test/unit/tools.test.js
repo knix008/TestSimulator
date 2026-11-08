@@ -506,7 +506,7 @@ describe('skin', () => {
   test('as a modifier', () => {
     const mesh = createMesh([[0, 0, 0], [0, 0, 1]], []);
     mesh.loose = [[0, 1]];
-    assert.ok(applyModifier(mesh, createModifier('SKIN')).faces.length > 20);
+    assert.ok(applyModifier(mesh, { ...createModifier('SKIN'), method: 'SMOOTH' }).faces.length > 20);
   });
   test('no edges: an empty mesh, not an error', () => {
     assert.equal(skinMesh(createMesh([[0, 0, 0]], [])).faces.length, 0);

@@ -1009,7 +1009,7 @@ export function createApp(rootEl) {
     for (const a of c.areas) {
       groups.push(h('tr', { className: 'area-row' }, h('td', { colSpan: 2 }, `${t(a.area, AREA_KO[a.area] ?? a.area)}  (${a.done} / ${a.partial} / ${a.planned})`)));
       for (const f of FEATURES.filter((x) => x.area === a.area)) {
-        groups.push(h('tr', { dataset: { feature: f.id } }, h('td', null, nameOf(f), f.note ? h('div', { className: 'note' }, f.note) : null), h('td', null, h('span', { className: `status-pill status-${f.status}` }, label[f.status]))));
+        groups.push(h('tr', { dataset: { feature: f.id } }, h('td', null, nameOf(f), f.note ? h('div', { className: 'note' }, f.note) : null, f.missing?.length ? h('div', { className: 'note missing' }, `${t('Missing', '없는 것')}: ${f.missing.join('; ')}`) : null), h('td', null, h('span', { className: `status-pill status-${f.status}` }, label[f.status]))));
       }
     }
     openDialog({

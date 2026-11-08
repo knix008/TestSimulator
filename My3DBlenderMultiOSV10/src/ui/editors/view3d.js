@@ -1160,7 +1160,13 @@ export function createView3D(app, el, area) {
       app.commit(t('Brush Stroke', '브러시 스트로크'));
     } else if (d.kind === 'gp') {
       gpPreview(null);
-      if (d.points.length > 1) app.op('gpencil.stroke_add', { points: d.points });
+      const gp = activeObject(doc)?.data;
+      if (gp?.tool === 'SCULPT') {
+        // Twist turns about the line of sight, in the object's own space.
+        const toward = camera.getWorldDirection(new THREE.Vector3()).negate().transformDirection(worldMatrix(doc, activeObject(doc)).clone().invert());
+        app.op('gpencil.sculpt', { tool: gp.sculptTool ?? 'SMOOTH', points: d.points, radius: gp.sculptRadius ?? 0.3, strength: gp.sculptStrength ?? 0.5, invert: Boolean(gp.sculptInvert), normal: [toward.x, toward.y, toward.z] });
+      } else if (gp?.tool === 'ERASE') app.op('gpencil.erase', { points: d.points });
+      else if (d.points.length > 1) app.op('gpencil.stroke_add', { points: d.points });
     }
     redraw();
   };
@@ -1715,6 +1721,11 @@ export function createView3D(app, el, area) {
       if (key === '[') { sessionTool.radius = Math.max(0.01, sessionTool.radius * 0.9); app.invalidate(); return true; }
       if (key === ']') { sessionTool.radius *= 1.1; app.invalidate(); return true; }
       return false;
+    }
+    // Pose mode keys the bones with I (Alt+I is held back: deleting bone keys is done in the Dope Sheet).
+    if (doc.mode === 'POSE' && key === 'i' && !e.ctrlKey && !e.shiftKey) {
+      if (!e.altKey && app.canRun('anim.keyframe_insert')) app.op('anim.keyframe_insert');
+      return true;
     }
     if (doc.mode !== 'OBJECT' && doc.mode !== 'EDIT') return false;
     const editing = doc.mode === 'EDIT' && activeObject(doc)?.type === 'MESH';

@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { getObject, setFrame, worldMatrix } from '../core/doc.js';
 import { evalCompositor } from '../core/nodes.js';
-import { buildRenderScene, denoiseImage, toDisplay } from '../core/pathtracer.js';
+import { buildRenderScene, denoiseImage, lightPassBuffers, lightPassImages, toDisplay } from '../core/pathtracer.js';
 import { SceneSync } from './sync.js';
 import { drawFreestyle } from '../core/freestyle.js';
 import { renderPathGPU } from './gpupath.js';
@@ -53,13 +53,17 @@ export function renderPath(doc, images, { onProgress } = {}) {
     const job = renderPathGPU(doc, images, { onProgress: (fraction) => onProgress?.(fraction, { width: 1, height: 1, display: new Uint8ClampedArray(4) }) });
     return { promise: job.promise.then((image) => finish(doc, image, null)), cancel: job.cancel };
   }
-  const scene = buildRenderScene(doc);
+  const scene = buildRenderScene(doc, { images });
   scene.images = images;
   const { width, height } = scene;
   const samples = scene.settings.samples;
   const data = new Float32Array(width * height * 4);
   const depth = { width, height, data: new Float32Array(width * height * 4) };
   const normal = { width, height, data: new Float32Array(width * height * 4) };
+  // The other passes: where each pixel is, its texture place, plain colour and glow, and its material's number.
+  const more = Object.fromEntries(['position', 'uv', 'albedo', 'emission', 'materialIndex', 'objectIndex'].map((name) => [name, { width, height, data: new Float32Array(width * height * 4) }]));
+  // Light passes, light groups and cryptomatte, gathered row by row.
+  const light = lightPassBuffers(scene, width * height);
   const count = threadLimit || Math.max(1, Math.min(16, (navigator.hardwareConcurrency || 4) - 1));
   const workers = [];
   let cancelled = false;
@@ -82,6 +86,7 @@ export function renderPath(doc, images, { onProgress } = {}) {
       if (m.type === 'ready') { feed(worker); return; }
       const offset = m.y * width * 4;
       for (let k = 0; k < m.data.length; k++) data[offset + k] = m.data[k] / samples;
+      if (m.light) for (const key of Object.keys(light)) light[key].set(m.light[key], (m.light[key].length / width) * m.y * width);
       for (let x = 0; x < width; x++) {
         const p = (m.y * width + x) * 4;
         depth.data.fill(m.depth[x], p, p + 3);
@@ -90,13 +95,24 @@ export function renderPath(doc, images, { onProgress } = {}) {
         normal.data[p + 1] = m.normal[x * 3 + 1] * 0.5 + 0.5;
         normal.data[p + 2] = m.normal[x * 3 + 2] * 0.5 + 0.5;
         normal.data[p + 3] = 1;
+        if (m.extra) {
+          for (const [name, n] of [['position', 3], ['uv', 2], ['albedo', 3], ['emission', 3]]) {
+            for (let k = 0; k < n; k++) more[name].data[p + k] = m.extra[name][x * n + k];
+            more[name].data[p + 3] = 1;
+          }
+          more.materialIndex.data.fill(m.extra.materialIndex[x], p, p + 3);
+          more.materialIndex.data[p + 3] = 1;
+          more.objectIndex.data.fill(m.extra.objectIndex?.[x] ?? 0, p, p + 3);
+          more.objectIndex.data[p + 3] = 1;
+        }
       }
       preview.set(toDisplay({ width, height: 1, data: data.subarray(offset, offset + width * 4) }, { exposure: scene.settings.exposure, gamma: scene.settings.gamma, viewTransform: scene.settings.viewTransform }), offset);
       done++;
       onProgress?.(done / height, { width, height, display: preview });
       if (done === height) {
         stop();
-        settle.resolve(finish(doc, { width, height, data }, { depth, normal }));
+        const lit = lightPassImages(scene, light, samples);
+        settle.resolve(finish(doc, { width, height, data }, { depth, normal, ...more, light: lit, lightGroups: lit.lightGroups, cryptoManifest: lit.cryptoManifest }));
       } else feed(worker);
     };
     worker.postMessage({ type: 'init', scene });
@@ -178,6 +194,15 @@ export async function renderSequence(doc, images, { onFrame, onProgress, isCance
 }
 
 /** A render result as a PNG blob (Korean-safe: no file name handling here). */
+/** The finished picture on a canvas of its own size. */
+export function resultToCanvas(result) {
+  const canvas = document.createElement('canvas');
+  canvas.width = result.width;
+  canvas.height = result.height;
+  canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(result.display), result.width, result.height), 0, 0);
+  return canvas;
+}
+
 export function resultToPng(result) {
   const canvas = document.createElement('canvas');
   canvas.width = result.width;

@@ -163,7 +163,7 @@ export function exportPLY(objects) {
 export function importPLY(text) {
   const lines = text.split(/\r?\n/);
   if (lines[0]?.trim() !== 'ply') throw new Error('Not a PLY file');
-  if (!lines.some((l) => l.startsWith('format ascii'))) throw new Error('Only ASCII PLY files can be read');
+  if (!lines.some((l) => l.startsWith('format ascii'))) throw new Error('importPLY reads ASCII only: a binary PLY goes through importPLYAny');
   let nv = 0;
   let nf = 0;
   const props = [];
@@ -188,6 +188,87 @@ export function importPLY(text) {
     mesh.faces.push(p.slice(1, 1 + p[0]));
   }
   return [{ name: 'PLY', mesh }];
+}
+
+/** Binary PLY in either byte order: vertices, faces and colours. The format is told apart by its header. */
+export function importPLYAny(bytes) {
+  const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const headEnd = (() => { const text = new TextDecoder('latin1').decode(data.subarray(0, Math.min(data.length, 65536))); const at = text.indexOf('end_header'); if (at < 0) throw new Error('Not a PLY file'); return at + text.slice(at).indexOf('\n') + 1; })();
+  const head = new TextDecoder('latin1').decode(data.subarray(0, headEnd));
+  if (head.includes('format ascii')) return importPLY(new TextDecoder().decode(data));
+  const little = head.includes('binary_little_endian');
+  if (!little && !head.includes('binary_big_endian')) throw new Error('Not a PLY file');
+  const elements = [];
+  for (const line of head.split(/\r?\n/)) {
+    const parts = line.trim().split(/\s+/);
+    if (parts[0] === 'element') elements.push({ name: parts[1], count: Number(parts[2]), props: [] });
+    else if (parts[0] === 'property') elements.at(-1)?.props.push(parts[1] === 'list' ? { name: parts[4], list: parts[2], type: parts[3] } : { name: parts[2], type: parts[1] });
+  }
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  let at = headEnd;
+  const SIZE = { char: 1, int8: 1, uchar: 1, uint8: 1, short: 2, int16: 2, ushort: 2, uint16: 2, int: 4, int32: 4, uint: 4, uint32: 4, float: 4, float32: 4, double: 8, float64: 8 };
+  const value = (type) => {
+    const n = SIZE[type];
+    let v;
+    switch (type) {
+      case 'char': case 'int8': v = view.getInt8(at); break;
+      case 'uchar': case 'uint8': v = view.getUint8(at); break;
+      case 'short': case 'int16': v = view.getInt16(at, little); break;
+      case 'ushort': case 'uint16': v = view.getUint16(at, little); break;
+      case 'int': case 'int32': v = view.getInt32(at, little); break;
+      case 'uint': case 'uint32': v = view.getUint32(at, little); break;
+      case 'float': case 'float32': v = view.getFloat32(at, little); break;
+      default: v = view.getFloat64(at, little);
+    }
+    at += n;
+    return v;
+  };
+  const mesh = createMesh();
+  const colors = [];
+  for (const element of elements) {
+    for (let i = 0; i < element.count; i++) {
+      const row = {};
+      for (const p of element.props) {
+        if (p.list) { const n = value(p.list); const list = []; for (let k = 0; k < n; k++) list.push(value(p.type)); row[p.name] = list; } else row[p.name] = value(p.type);
+      }
+      if (element.name === 'vertex') {
+        mesh.verts.push([row.x, row.y, row.z]);
+        if (row.red != null) colors.push([row.red, row.green, row.blue].map((c) => (c > 1 ? c / 255 : c)));
+      } else if (element.name === 'face') mesh.faces.push(row.vertex_indices ?? row.vertex_index ?? []);
+    }
+  }
+  if (colors.length === mesh.verts.length && colors.length) mesh.colors = colors;
+  return [{ name: 'PLY', mesh }];
+}
+
+/** Binary little-endian PLY: the compact form other programs prefer for large meshes. */
+export function exportPLYBinary(objects) {
+  const verts = [];
+  const faces = [];
+  const colors = [];
+  let any = false;
+  for (const { mesh } of objects) {
+    const base = verts.length;
+    mesh.verts.forEach((v, i) => { verts.push(v); const c = mesh.colors?.[i]; if (c) any = true; colors.push(c ?? [1, 1, 1]); });
+    for (const f of mesh.faces) faces.push(f.map((i) => i + base));
+  }
+  const head = ['ply', 'format binary_little_endian 1.0', 'comment My3DBlender', `element vertex ${verts.length}`, 'property float x', 'property float y', 'property float z', ...(any ? ['property uchar red', 'property uchar green', 'property uchar blue'] : []), `element face ${faces.length}`, 'property list uchar int vertex_indices', 'end_header', ''].join('\n');
+  const text = new TextEncoder().encode(head);
+  const size = text.length + verts.length * (12 + (any ? 3 : 0)) + faces.reduce((n, f) => n + 1 + f.length * 4, 0);
+  const out = new Uint8Array(size);
+  out.set(text);
+  const view = new DataView(out.buffer);
+  let at = text.length;
+  verts.forEach((v, i) => {
+    for (const c of v) { view.setFloat32(at, c, true); at += 4; }
+    if (any) for (const c of colors[i]) { view.setUint8(at, Math.round(Math.max(0, Math.min(1, c)) * 255)); at += 1; }
+  });
+  for (const f of faces) {
+    view.setUint8(at, f.length);
+    at += 1;
+    for (const i of f) { view.setInt32(at, i, true); at += 4; }
+  }
+  return out;
 }
 
 // ─────────────── glTF 2.0 binary (GLB). glTF is Y-up: Z-up scenes turn on the way out and back.

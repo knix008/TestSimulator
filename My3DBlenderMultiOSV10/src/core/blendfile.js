@@ -1,6 +1,6 @@
 // Reading .blend files. A .blend describes its own layout: the "SDNA" block lists every struct with its field names and types,
-// so fields are found by name for whichever version wrote the file. Only meshes, their object transforms, UVs and base colours
-// are taken. Nothing here runs anything from the file (a .blend can hold scripts: they are never touched).
+// so fields are found by name for whichever version wrote the file. This is the reader and the plain list of world-space meshes;
+// blendscene.js builds whole scenes on it. Nothing here runs anything from the file (a .blend can hold scripts: they are never touched).
 import { Euler, Matrix4, Quaternion, Vector3 } from 'three';
 import { isZstd, zstdDecompress } from './zstd.js';
 import { createMesh } from './mesh.js';
@@ -116,11 +116,12 @@ function parseStructure(bytes) {
     structs.push(struct);
     structByName.set(struct.name, struct);
   }
-  return { bytes, view, little, pointer, version, blocks, byPointer, structs, structByName, ptr };
+  const text = (block) => cstr(bytes, block.data, block.size);
+  return { bytes, view, little, pointer, version, blocks, byPointer, structs, structByName, ptr, text };
 }
 
 /** A view of one struct in the file: `get` finds a field by name and quietly returns null if this version lacks it. */
-function record(file, struct, at) {
+export function record(file, struct, at) {
   const { view, little, bytes } = file;
   const read = (type, o) => {
     switch (type) {
@@ -128,12 +129,18 @@ function record(file, struct, at) {
       case 'double': return view.getFloat64(o, little);
       case 'int': case 'int32_t': return view.getInt32(o, little);
       case 'short': case 'int16_t': return view.getInt16(o, little);
-      case 'char': case 'uchar': case 'uint8_t': case 'int8_t': return bytes[o];
+      case 'ushort': case 'uint16_t': return view.getUint16(o, little);
+      case 'uint': case 'uint32_t': return view.getUint32(o, little);
+      case 'char': case 'uchar': case 'uint8_t': return bytes[o];
+      case 'int8_t': return view.getInt8(o);
       case 'int64_t': case 'uint64_t': return Number(view.getBigInt64(o, little));
       default: return null;
     }
   };
   return {
+    structName: struct.name,
+    address: null,
+    old: (name) => { const f = struct.fields.get(name); return f ? file.ptr(at + f.offset) : null; },
     has: (name) => struct.fields.has(name),
     get(name) {
       const f = struct.fields.get(name);
@@ -159,7 +166,24 @@ function record(file, struct, at) {
 const NULL_POINTER = '0';
 
 /** The block a pointer leads to, or null. */
-const follow = (file, pointer) => (pointer && pointer !== NULL_POINTER ? file.byPointer.get(pointer) ?? null : null);
+export const follow = (file, pointer) => (pointer && pointer !== NULL_POINTER ? file.byPointer.get(pointer) ?? null : null);
+
+/** The records of a linked list (a ListBase field), each as the struct its own block says it is. */
+export function listOf(file, list) {
+  const out = [];
+  if (!list) return out;
+  const seen = new Set();
+  for (let at = list.get('first'); at && at !== NULL_POINTER && !seen.has(at);) {
+    seen.add(at);
+    const block = file.byPointer.get(at);
+    if (!block) break;
+    const item = record(file, file.structs[block.index], block.data);
+    item.address = at;
+    out.push(item);
+    at = item.get('next');
+  }
+  return out;
+}
 
 /** The named layer of a custom-data set: its name, type and the block holding its values. */
 function customLayers(file, data) {
@@ -201,7 +225,9 @@ function storedAttributes(file, mesh) {
 /** The current name of a custom-data set, older names being tried too: fields were renamed over the years. */
 const dataSet = (mesh, ...names) => { for (const n of names) { const s = mesh.sub(n); if (s) return s; } return null; };
 
-function readMesh(file, block) {
+export const readBlendMesh = (file, block, ob = null) => readMesh(file, block, ob);
+
+function readMesh(file, block, ob = null) {
   const { view, little } = file;
   const struct = file.structs[block.index];
   const me = record(file, struct, block.data);
@@ -212,12 +238,13 @@ function readMesh(file, block) {
   const vdata = dataSet(me, 'vert_data', 'vdata');
   const ldata = dataSet(me, 'corner_data', 'ldata');
   const pdata = dataSet(me, 'face_data', 'pdata');
-  void pdata;
   const stored = storedAttributes(file, me);
   const POINT = 0;
   const CORNER = 3;
   const vertLayers = [...customLayers(file, vdata), ...stored.filter((a) => a.domain === POINT)];
   const cornerLayers = [...customLayers(file, ldata), ...stored.filter((a) => a.domain === CORNER)];
+  const FACE = 2;
+  const faceLayers = [...customLayers(file, pdata), ...stored.filter((a) => a.domain === FACE)];
 
   // Positions: a "position" attribute since 3.5; before that an MVert array, as custom data or a plain pointer.
   const verts = [];
@@ -241,7 +268,6 @@ function readMesh(file, block) {
   const mpoly = follow(file, me.get('mpoly'));
   const mloop = follow(file, me.get('mloop'));
   const mface = follow(file, me.get('mface'));
-  const cornerIndex = [];
   const cornerOfFace = [];
   if (offsets && cornerVert) {
     for (let f = 0; f < faces; f++) {
@@ -277,7 +303,6 @@ function readMesh(file, block) {
       mesh.faces.push(fourth ? [read(v1), read(v2), read(v3), fourth] : [read(v1), read(v2), read(v3)]);
     }
   }
-  void cornerIndex;
 
   // UVs: a 2-float corner attribute now; MLoopUV before. An attribute's type number 49 is CD_PROP_FLOAT2.
   const twoFloats = (l) => l.block && loops && l.block.size === loops * 8;
@@ -285,6 +310,72 @@ function readMesh(file, block) {
   if (uvLayer?.block && cornerOfFace.length && loops) {
     const stride = uvLayer.block.size / loops;
     mesh.uvs = cornerOfFace.map((at) => at.map((c) => { const o = uvLayer.block.data + c * stride; return [view.getFloat32(o, little), view.getFloat32(o + 4, little)]; }));
+  }
+
+  // Edges that belong to no face: a wire mesh, as Skin and curves start from.
+  const edgeData = dataSet(me, 'edge_data', 'edata');
+  const EDGE = 1;
+  const edgeLayers = [...customLayers(file, edgeData), ...stored.filter((a) => a.domain === EDGE)];
+  const edgeVerts = edgeLayers.find((l) => l.name === '.edge_verts')?.block;
+  if (edgeVerts) {
+    const inFaces = new Set();
+    for (const face of mesh.faces) face.forEach((v, i) => { const w = face[(i + 1) % face.length]; inFaces.add(v < w ? `${v}_${w}` : `${w}_${v}`); });
+    const count = Math.floor(edgeVerts.size / 8);
+    for (let e = 0; e < count; e++) {
+      const [a, b] = [view.getInt32(edgeVerts.data + e * 8, little), view.getInt32(edgeVerts.data + e * 8 + 4, little)];
+      if (!inFaces.has(a < b ? `${a}_${b}` : `${b}_${a}`)) mesh.loose.push([a, b]);
+    }
+    // Seams and sharp edges, each a byte per edge.
+    for (const [attribute, mark] of [['.uv_seam', 'seam'], ['uv_seam', 'seam'], ['sharp_edge', 'sharp']]) {
+      const layer = edgeLayers.find((l) => l.name === attribute)?.block;
+      if (!layer) continue;
+      for (let e = 0; e < count; e++) {
+        if (!file.bytes[layer.data + e]) continue;
+        const [a, b] = [view.getInt32(edgeVerts.data + e * 8, little), view.getInt32(edgeVerts.data + e * 8 + 4, little)];
+        ((mesh.marks ??= {})[mark] ??= {})[a < b ? `${a}_${b}` : `${b}_${a}`] = true;
+      }
+    }
+  }
+  // The Skin modifier's radii.
+  const skinStruct = file.structByName.get('MVertSkin');
+  const skinLayer = skinStruct && vertLayers.find((l) => l.block && file.structs[l.block.index]?.name === 'MVertSkin')?.block;
+  if (skinLayer) {
+    mesh.skin = {};
+    for (let v = 0; v < totvert; v++) mesh.skin[v] = record(file, skinStruct, skinLayer.data + v * skinStruct.size).get('radius')[0];
+  }
+
+  // Flat or smooth: since 4.1 an attribute that is left out when nothing is sharp.
+  const sharp = faceLayers.find((l) => l.name === 'sharp_face')?.block;
+  if (faces && !mpoly && !mface) mesh.smooth = !sharp || file.bytes.subarray(sharp.data, sharp.data + faces).includes(0);
+  const materialIndex = faceLayers.find((l) => l.name === 'material_index')?.block;
+  if (materialIndex && materialIndex.size >= faces * 4) mesh.faceMat = Array.from({ length: faces }, (_, f) => view.getInt32(materialIndex.data + f * 4, little));
+
+  // Vertex groups: the names on the mesh since 3.0, on the object before; the weights per vertex in either case.
+  const names = [...listOf(file, me.sub('vertex_group_names')), ...(ob ? listOf(file, ob.sub('defbase')) : [])].map((g) => g.get('name'));
+  const deform = vertLayers.find((l) => l.type === 2)?.block ?? follow(file, me.get('dvert'));
+  const [DV, DW] = [file.structByName.get('MDeformVert'), file.structByName.get('MDeformWeight')];
+  if (names.length && deform && DV && DW) {
+    mesh.vgroups = names.map((name) => ({ name, w: {} }));
+    for (let v = 0; v < totvert; v++) {
+      const dv = record(file, DV, deform.data + v * DV.size);
+      const list = follow(file, dv.get('dw'));
+      const n = dv.get('totweight') ?? 0;
+      for (let k = 0; list && k < n; k++) {
+        const w = record(file, DW, list.data + k * DW.size);
+        const group = mesh.vgroups[w.get('def_nr')];
+        if (group && w.get('weight') > 0) group.w[v] = w.get('weight');
+      }
+    }
+  }
+
+  // Shape keys: the first block is the basis, which is the mesh itself.
+  const keyBlock = follow(file, me.get('key'));
+  if (keyBlock) {
+    const blocks = listOf(file, record(file, file.structs[keyBlock.index], keyBlock.data).sub('block'));
+    mesh.shapeKeys = blocks.slice(1).map((k) => {
+      const data = follow(file, k.get('data'));
+      return data && { name: k.get('name'), value: k.get('curval') ?? 0, verts: Array.from({ length: totvert }, (_, v) => [0, 1, 2].map((c) => view.getFloat32(data.data + v * 12 + c * 4, little))) };
+    }).filter(Boolean);
   }
 
   // Materials: the first slot's viewport colour.
@@ -303,6 +394,8 @@ function readMesh(file, block) {
 }
 
 /** Blender's Euler XYZ applies X first, which three.js spells 'ZYX'. */
+export const blendObjectMatrix = (ob) => localMatrix(ob);
+
 function localMatrix(ob) {
   const loc = ob.get('loc') ?? [0, 0, 0];
   const size = ob.get('size') ?? ob.get('scale') ?? [1, 1, 1];
@@ -319,12 +412,17 @@ function localMatrix(ob) {
   return new Matrix4().compose(new Vector3(loc[0], loc[1], loc[2]), q, new Vector3(size[0], size[1], size[2]));
 }
 
-/** Meshes of a .blend file, as { name, mesh (world space), material }. Compressed with gzip or Zstandard is fine. */
-export function importBlend(input) {
+/** A .blend's structure, compressed with gzip or Zstandard or not. */
+export function openBlend(input) {
   let bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
   if (bytes[0] === 0x1f && bytes[1] === 0x8b) bytes = gunzip(bytes);
   else if (isZstd(bytes)) bytes = zstdDecompress(bytes);
-  const file = parseStructure(bytes);
+  return parseStructure(bytes);
+}
+
+/** Meshes of a .blend file, as { name, mesh (world space), material }. */
+export function importBlend(input) {
+  const file = openBlend(input);
   const meshes = new Map();
   const objects = [];
   for (const block of file.blocks) {

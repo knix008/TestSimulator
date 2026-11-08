@@ -24,7 +24,9 @@ const exists = (id) => js(`Boolean(window.__my3d.query(${JSON.stringify(tid(id))
 const rect = (selector) => js(`(() => { const r = document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect(); return r ? { x: r.x, y: r.y, w: r.width, h: r.height, cx: r.x + r.width / 2, cy: r.y + r.height / 2 } : null; })()`);
 /** A real click on an element found by test id. */
 async function click(id, button = 'left') {
-  const r = await waitFor(() => rect(tid(id)), 5000);
+  await waitFor(() => rect(tid(id)), 5000);
+  await js(`document.querySelector(${JSON.stringify(tid(id))})?.scrollIntoView({ block: 'nearest' })`);
+  const r = await rect(tid(id));
   await cdp.click(r.cx, r.cy, button);
   await frame();
 }
@@ -745,7 +747,9 @@ await test('the Boolean modifier cuts with another object picked in the panel', 
 await test('constraint from the panel: Copy Location follows its target', async () => {
   await click('tab-constraints');
   await click('add-constraint');
-  await js("[...document.querySelectorAll('.menu .menu-item')].find((x) => x.textContent === 'Copy Location' || x.textContent.includes('Copy Location')).click()");
+  const group = await waitFor(() => rect(tid('con-group-transform')), 3000);
+  await moveTo(group.cx, group.cy);
+  await click('con-add-COPY_LOCATION');
   await frame();
   const light = await doc('doc.objects[1].id');
   await js(`(() => { const s = document.querySelector('[data-testid=prop-target]'); s.value = ${JSON.stringify(light)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
@@ -767,6 +771,89 @@ await test('material panel: new material, edit, assign; the Material shading use
   await click('shading-MATERIAL');
   await frame();
   eq(await js("(() => { const v = window.__my3d.editorsOf('view3d')[0].api; const doc = window.__my3d.doc; const m = v.sync.items.get(doc.objects[0].id).mesh.material; return m.roughness; })()"), 0.25, 'view uses it');
+});
+await test('a video writer makes a real file with what this browser has: frames in, sizes that add up', async () => {
+  const info = await js(`(async () => {
+    const { createVideoWriter } = await import('/src/ui/video.js');
+    const { inspectMP4 } = await import('/src/core/videofile.js');
+    const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 48;
+    const c = canvas.getContext('2d');
+    const writer = await createVideoWriter({ width: 64, height: 48, fps: 24, format: 'MP4' });
+    for (let i = 0; i < 12; i++) { c.fillStyle = 'rgb(' + i * 20 + ',80,160)'; c.fillRect(0, 0, 64, 48); await writer.add(canvas); }
+    const video = await writer.finish();
+    const bytes = new Uint8Array(await video.blob.arrayBuffer());
+    if (video.extension !== 'mp4') return { extension: video.extension, frames: video.frames, size: bytes.length, head: String.fromCharCode(...bytes.subarray(0, 4)) };
+    const box = inspectMP4(bytes);
+    return { extension: video.extension, frames: video.frames, size: bytes.length, count: box.count, width: box.width, sum: box.sizes.reduce((a, b) => a + b, 0), codec: box.codec, seconds: box.duration / box.timescale, codecString: video.codec };
+  })()`);
+  eq(info.frames, 12, 'twelve frames');
+  if (info.extension === 'mp4') {
+    eq(info.count, 12, 'twelve samples');
+    eq(info.width, 64, 'width');
+    assert(Math.abs(info.seconds - 0.5) < 1e-6, 'half a second');
+    assert(info.sum > 0 && info.sum < info.size, 'the samples are in the file');
+  } else {
+    eq(info.head, 'RIFF', 'AVI when there is no encoder');
+  }
+  const avi = await js(`(async () => {
+    const { createVideoWriter } = await import('/src/ui/video.js');
+    const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 32;
+    canvas.getContext('2d').fillRect(0, 0, 32, 32);
+    const writer = await createVideoWriter({ width: 32, height: 32, fps: 24, format: 'AVI' });
+    await writer.add(canvas); await writer.add(canvas);
+    const v = await writer.finish();
+    return { extension: v.extension, frames: v.frames, head: String.fromCharCode(...new Uint8Array(await v.blob.arrayBuffer()).subarray(0, 4)) };
+  })()`);
+  eq(avi.extension, 'avi', 'AVI');
+  eq(avi.frames, 2, 'two pictures');
+  eq(avi.head, 'RIFF', 'a RIFF file');
+});
+await test('physics tab: shapes, joints between two bodies, and baking them to keys', async () => {
+  await js(`(() => {
+    const a = window.__my3d;
+    window.__jointBefore = a.doc.objects.map((o) => o.id);
+    a.doc.mode = 'OBJECT';
+    a.op('mesh.primitive_cube_add');
+    const one = a.doc.objects.find((o) => o.id === a.doc.activeId);
+    one.location = [3, 0, 5];
+    a.op('mesh.primitive_cube_add');
+    const two = a.doc.objects.find((o) => o.id === a.doc.activeId);
+    two.location = [5, 0, 5];
+    a.doc.selected = [one.id, two.id];
+    a.invalidate();
+  })()`);
+  await frame();
+  await click('tab-physics');
+  await frame();
+  await click('rigid-connect');
+  await frame();
+  await js(`[...document.querySelectorAll('.menu-popup button, .menu button, .menu-item')].find((b) => /Hinge|HINGE|힌지/i.test(b.textContent)).click()`);
+  await frame();
+  const joint = await js(`(() => { const o = window.__my3d.doc.objects.find((x) => x.rigidConstraint); return o && { type: o.type, kind: o.rigidConstraint.type, one: o.rigidConstraint.object1, two: o.rigidConstraint.object2, at: o.location }; })()`);
+  assert(joint, 'a constraint exists');
+  eq(joint.type, 'EMPTY', 'held by an empty');
+  eq(joint.kind, 'HINGE', 'hinge');
+  assert(joint.one && joint.two && joint.one !== joint.two, 'between two bodies');
+  eq(joint.at, [4, 0, 5], 'in the middle');
+  await js(`(() => { const a = window.__my3d; const o = a.doc.objects.find((x) => x.rigidConstraint); a.doc.activeId = o.id; a.doc.selected = [o.id]; a.invalidate(); })()`);
+  await frame();
+  assert(await js("!!document.querySelector('[data-testid=rigid-constraint-remove]')"), 'an empty with a constraint shows its physics tab');
+  await js("window.__my3d.doc.frameEnd = 12; window.__my3d.op('ptcache.bake_all');");
+  await waitFor(() => js("(() => { const d = window.__my3d.doc; const o = d.objects.find((x) => x.rigidBody?.type === 'ACTIVE'); return Boolean(o?.cache?.transform?.[12]); })()"), 20000, 100);
+  await js("window.__my3d.op('rigidbody.bake_to_keyframes');");
+  await frame();
+  const keyed = await js("(() => { const o = window.__my3d.doc.objects.find((x) => x.anim?.fcurves?.['location.2']); return o ? { keys: o.anim.fcurves['location.2'].length, body: o.rigidBody } : null; })()");
+  assert(keyed && keyed.keys >= 12, 'keys for each frame');
+  eq(keyed.body, null, 'the body is keys now');
+  await js(`(() => {
+    const a = window.__my3d;
+    a.doc.selected = a.doc.objects.filter((o) => !window.__jointBefore.includes(o.id)).map((o) => o.id);
+    a.doc.activeId = a.doc.selected[0];
+    a.op('object.delete');
+    a.doc.selected = [];
+    a.doc.frame = 1;
+  })()`);
+  await frame();
 });
 await test('physics tab: rigid bodies baked from the button fall in the timeline', async () => {
   await click('tab-physics');
@@ -1370,6 +1457,12 @@ await test('OSL: the node\'s sockets come from its source, and a typo shows an e
 
 // ───────────────────────── the start screen and the samples
 
+/** Cards slide to new places over a moment; measuring in the middle of that sees them overlap. */
+const boardSettled = async () => {
+  await waitFor(() => js("(() => { const b = document.querySelector('[data-testid=start-board]'); return b.getAnimations({ subtree: true }).length === 0 && document.querySelectorAll('[data-testid=start-card-samples] .sample-card').length > 0; })()"), 6000, 50);
+  await sleep(120);
+  await waitFor(() => js("document.querySelector('[data-testid=start-board]').getAnimations({ subtree: true }).length === 0"), 6000, 50);
+};
 await test('Start screen: six cards, tools and footer; the Start button in the top bar shows and hides it', async () => {
   await js('window.__my3d.showStart()');
   await frame();
@@ -1379,7 +1472,7 @@ await test('Start screen: six cards, tools and footer; the Start button in the t
   assert((await js("document.querySelector('[data-testid=start-author]').textContent")).includes('SHKWON (knix008@naver.com)'), 'the author');
   eq(await js("document.querySelectorAll('[data-bg-card]').length"), 20, 'twenty backgrounds');
   // The samples are a section of their own, right under the recent projects.
-  await sleep(350);
+  await boardSettled();
   const under = await js("(() => { const a = document.querySelector('[data-testid=start-card-recent]').getBoundingClientRect(); const b = document.querySelector('[data-testid=start-card-samples]').getBoundingClientRect(); return b.top >= a.bottom && b.top - a.bottom < 60; })()");
   assert(under, 'samples sit under the recent projects');
   assert(await js("document.querySelectorAll('[data-start-theme]').length") >= 4, 'themes to pick from');
@@ -1417,7 +1510,7 @@ await test('Start screen: keys do not reach the hidden view, and each background
 await test('Start screen: a card moves by its handle, with a ghost and an outline; it resizes by its corner; Auto Arrange puts them back', async () => {
   await js('window.__my3d.settings.startLayout = null; window.__my3d.showStart();');
   await frame();
-  await sleep(600);
+  await boardSettled();
   const read = () => js("(() => { const out = {}; for (const el of document.querySelectorAll('.start-board > [data-card]')) { const r = el.getBoundingClientRect(); out[el.dataset.card] = { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) }; } return out; })()");
   const before = await read();
   eq(Object.keys(before).length, 6, 'six cards');
@@ -1429,7 +1522,7 @@ await test('Start screen: a card moves by its handle, with a ghost and an outlin
   const corner = await js("(() => { const r = document.querySelector('[data-card-resize=recent]').getBoundingClientRect(); return { x: r.x + 8, y: r.y + 8 }; })()");
   await cdp.drag([corner.x, corner.y], [before.recent.x + before.recent.w * 0.33, corner.y], 6);
   await frame();
-  await sleep(260);
+  await boardSettled();
   const narrow = await read();
   assert(narrow.recent.w < before.recent.w * 0.5, `narrower: ${narrow.recent.w}`);
   assert(clear(narrow), 'no overlap after a resize');
@@ -1437,7 +1530,7 @@ await test('Start screen: a card moves by its handle, with a ghost and an outlin
   const handle = await js("(() => { const r = document.querySelector('[data-card-handle=recent]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()");
   await cdp.drag([handle.x, handle.y], [handle.x + narrow.recent.w + 20, handle.y], 6);
   await frame();
-  await sleep(260);
+  await boardSettled();
   const moved = await read();
   assert(moved.recent.x > narrow.recent.x + 100, `moved: ${JSON.stringify(moved.recent)}`);
   assert(clear(moved), 'no overlap after a move');
@@ -1445,7 +1538,7 @@ await test('Start screen: a card moves by its handle, with a ghost and an outlin
   eq(await js('window.__my3d.settings.startLayout.version'), 1, 'the arrangement is remembered');
   await click('start-arrange');
   await frame();
-  await sleep(300);
+  await boardSettled();
   eq(await read(), before, 'back to the default');
   await js('window.__my3d.hideStart()');
 });
@@ -2421,6 +2514,418 @@ await test('UV workspace: projection from the menu draws UVs; dragging a corner 
   await cdp.drag([ox + size, oy], [ox + size - 60, oy + 40], 4);
   await frame();
   assert(await doc('active.data.uvs.some((f) => f.some((p) => p[0] < 0.95 && p[0] > 0.7))'), 'a UV moved');
+});
+await test('UV menu: selected corners can be pinned and welded', async () => {
+  await click('ws-uv');
+  await sleep(100);
+  await menu('menu-uv', 'uvop-uv.reset');
+  await frame();
+  const c = await rect(tid('uv-canvas'));
+  const size = Math.min(c.w, c.h) * 0.8;
+  const [ox, oy] = [c.x + (c.w - size) / 2, c.y + (c.h - size) / 2];
+  await cdp.click(ox + size, oy);
+  await frame();
+  await menu('menu-uv', 'uvop-uv.pin');
+  assert(Object.keys(await doc('active.data.uvPins ?? {}')).length > 0, 'pinned');
+  await menu('menu-uv', 'uvop-unpin');
+  eq(Object.keys(await doc('active.data.uvPins ?? {}')).length, 0, 'unpinned');
+  await menu('menu-uv', 'uvop-uv.weld');
+  await menu('menu-uv', 'uvop-uv.minimize_stretch');
+  assert(await doc('active.data.uvs.length === 6'), 'the layer is still there');
+});
+await test('Image Editor: tools and masks in the header change what the brush does', async () => {
+  await click('ws-paint');
+  await frame();
+  await click('image-new');
+  await sleep(100);
+  await frame();
+  const id = JSON.stringify(await doc('doc.images.at(-1).id'));
+  const box = await rect(tid('image-canvas'));
+  await cdp.drag([box.cx - 40, box.cy], [box.cx - 10, box.cy], 5);
+  await frame();
+  // How far along the middle row the colour reaches: smearing has to carry it further than it was painted.
+  const reach = () => js(`(() => { const e = ${pixelsOf(id)}; const y = Math.floor(e.height / 2); let last = -1; for (let x = 0; x < e.width; x++) if (e.rgba[(y * e.width + x) * 4 + 1] < 250) last = x; return last; })()`);
+  const before = await reach();
+  assert(before > 0, 'something was painted');
+  await js("(() => { const s = document.querySelector('[data-testid=image-tool]'); s.value = 'SMEAR'; s.dispatchEvent(new Event('change', { bubbles: true })); })()");
+  await cdp.drag([box.cx - 25, box.cy], [box.cx + 40, box.cy], 12);
+  await frame();
+  const after = await reach();
+  assert(after > before, `colour was dragged along: ${before} to ${after}`);
+  assert(await js("Boolean(document.querySelector('[data-testid=image-mask]'))"), 'a mask choice');
+});
+await test('Bones: a constraint from the panel changes the pose, and comes off again', async () => {
+  await op('object.armature_add');
+  // The tabs change with the object: wait for them before pressing one.
+  await frame();
+  await click('tab-data');
+  await frame();
+  await click('bone-con-add-0');
+  await frame();
+  await js("[...document.querySelectorAll('.menu .menu-item')].find((b) => /Limit Scale|크기 제한/.test(b.textContent)).click()");
+  await frame();
+  eq(await doc('active.data.bones[0].constraints[0].type'), 'LIMIT_SCALE', 'added');
+  await js("window.__my3d.doc.objects.find((o) => o.id === window.__my3d.doc.activeId).data.bones[0].pose.scale = [5, 5, 5]; window.__my3d.touch(); window.__my3d.invalidate();");
+  await frame();
+  const scale = await js(`(async () => {
+    const { evaluatedArmature } = await import('/src/core/doc.js');
+    const { bonePoseMatrices } = await import('/src/core/armature.js');
+    const d = window.__my3d.doc;
+    const e = bonePoseMatrices(evaluatedArmature(d, d.objects.find((o) => o.id === d.activeId)))[0].elements;
+    return Math.hypot(e[4], e[5], e[6]);
+  })()`);
+  assert(Math.abs(scale - 2) < 1e-6, `held to its limit: ${scale}`);
+  await click('bone-con-remove-0-0');
+  await frame();
+  eq(await doc('active.data.bones[0].constraints.length'), 0, 'removed');
+});
+await test('Grease pencil: fills and ribbons are drawn, and the eraser rubs out by dragging', async () => {
+  await op('object.gpencil_add');
+  await op('object.mode_set', { mode: 'PAINT_GPENCIL' });
+  const r = await viewRect();
+  await cdp.drag([r.cx - 80, r.cy], [r.cx + 80, r.cy], 16);
+  await frame();
+  eq(await doc('active.data.layers[0].strokes.length'), 1, 'a stroke');
+  const shown = () => js("(() => { const a = window.__my3d; const v = a.editorsOf('view3d')[0].api.sync.items.get(a.doc.activeId); return (v.grease ?? []).length; })()");
+  assert(await shown() >= 1, 'its ribbon is in the scene');
+  await click('tab-data');
+  await frame();
+  assert(await exists('gp-smooth'), 'stroke tools');
+  await js("(() => { const s = document.querySelector('[data-testid=prop-tool]'); s.value = 'ERASE'; s.dispatchEvent(new Event('change', { bubbles: true })); })()");
+  await frame();
+  eq(await doc('active.data.tool'), 'ERASE', 'eraser chosen');
+  const before = await doc('active.data.layers[0].strokes.reduce((n, s) => n + s.points.length, 0)');
+  await cdp.drag([r.cx - 10, r.cy], [r.cx + 10, r.cy], 6);
+  await frame();
+  const after = await doc('active.data.layers[0].strokes.reduce((n, s) => n + s.points.length, 0)');
+  assert(after < before, `points went: ${before} to ${after}`);
+});
+await test('Grease pencil: a sculpt brush pushes strokes, and modifiers and interpolation come from the panel', async () => {
+  await op('object.mode_set', { mode: 'OBJECT' });
+  await op('object.gpencil_add');
+  await op('object.mode_set', { mode: 'PAINT_GPENCIL' });
+  const r = await viewRect();
+  await cdp.drag([r.cx - 80, r.cy], [r.cx + 80, r.cy], 16);
+  await frame();
+  await click('tab-data');
+  await frame();
+  const choose = (id, value) => js(`(() => { const s = document.querySelector('[data-testid=${id}]'); s.value = ${JSON.stringify(value)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await choose('prop-tool', 'SCULPT');
+  await frame();
+  assert(await exists('prop-sculptTool'), 'brush choice for sculpting');
+  await choose('prop-sculptTool', 'PUSH');
+  await js('(() => { const d = window.__my3d.doc.objects.find((o) => o.id === window.__my3d.doc.activeId).data; d.sculptRadius = 3; d.sculptStrength = 1; })()');
+  await frame();
+  const shape = () => doc('active.data.layers[0].strokes[0].points.map((p) => p.map((x) => x.toFixed(3)).join()).join(";")');
+  const before = await shape();
+  await cdp.drag([r.cx, r.cy], [r.cx, r.cy - 60], 8);
+  await frame();
+  assert((await shape()) !== before, 'the stroke was pushed');
+  eq(await doc('active.data.layers[0].strokes.length'), 1, 'sculpting draws nothing new');
+  await click('gp-mod-add');
+  const row = await waitFor(() => js("(() => { const x = [...document.querySelectorAll('.menu .menu-item')].find((m) => m.textContent.trim() === 'Array'); if (!x) return null; const q = x.getBoundingClientRect(); return { cx: q.x + q.width / 2, cy: q.y + q.height / 2 }; })()"), 3000);
+  await cdp.click(row.cx, row.cy);
+  await frame();
+  eq(await doc('active.data.modifiers.map((m) => m.type)'), ['ARRAY'], 'an Array modifier');
+  assert(await exists('gp-mod-remove-0'), 'its panel');
+  // Two drawings, four frames apart: interpolating fills the frames between.
+  await js('(() => { const a = window.__my3d; const l = a.doc.objects.find((o) => o.id === a.doc.activeId).data.layers[0]; const s = l.strokes[0]; l.strokes = [{ ...s, frame: 1 }, { ...s, points: s.points.map((p) => [p[0], p[1], p[2] + 1]), frame: 5 }]; l.keyed = true; a.setFrame(3); a.touch(); })()');
+  await frame();
+  await click('gp-interpolate-seq');
+  eq(await doc('[...new Set(active.data.layers[0].strokes.map((s) => s.frame))].sort((a, b) => a - b)'), [1, 2, 3, 4, 5], 'frames 2 to 4 drawn');
+  await click('gp-mod-remove-0');
+  eq(await doc('active.data.modifiers.length'), 0, 'removed');
+  await op('object.mode_set', { mode: 'OBJECT' });
+});
+await test('Actions: I keys every bone in pose mode, and the Action menu saves, assigns and lays it into the NLA', async () => {
+  await click('ws-animation');
+  await sleep(100);
+  await op('object.armature_add');
+  await op('armature.bone_add');
+  await op('object.mode_set', { mode: 'POSE' });
+  await hoverView();
+  await press('i');
+  eq(await doc('Object.keys(active.data.anim?.fcurves ?? {}).length'), 18, 'two bones keyed');
+  await frame();
+  assert(await js("[...document.querySelectorAll('.channel')].some((c) => /Pose/.test(c.textContent))"), 'the bone keys show in the Dope Sheet');
+  await click('menu-dopesheet-action');
+  await click('action-save');
+  eq(await doc('doc.actions.map((a) => a.name)'), ['Pose'], 'saved');
+  await js('(() => { const a = window.__my3d; a.doc.objects.find((o) => o.id === a.doc.activeId).data.anim.fcurves = {}; a.touch(); })()');
+  await click('menu-dopesheet-action');
+  const item = await waitFor(() => rect(tid('action-0')), 3000);
+  await moveTo(item.cx, item.cy);
+  await click('action-assign-0');
+  eq(await doc('Object.keys(active.data.anim.fcurves).length'), 18, 'assigned back');
+  await click('menu-dopesheet-action');
+  const again = await waitFor(() => rect(tid('action-0')), 3000);
+  await moveTo(again.cx, again.cy);
+  await click('action-strip-0');
+  eq(await doc('active.anim.nla.length'), 1, 'a strip on the object');
+  assert(await doc('Object.keys(active.anim.nla[0].action).every((p) => p.startsWith("data.bones."))'), 'that moves the bones');
+  await op('object.mode_set', { mode: 'OBJECT' });
+  await click('ws-layout');
+  await sleep(100);
+});
+await test('Liquid panel: surface tension and foam settings, and the foam material', async () => {
+  await op('mesh.primitive_cube_add');
+  await op('object.fluid_domain_toggle');
+  await click('tab-physics');
+  await frame();
+  assert(await exists('prop-surfaceTension'), 'surface tension');
+  await js("(() => { const c = document.querySelector('[data-testid=prop-foam] input') ?? document.querySelector('[data-testid=prop-foam]'); c.click(); })()");
+  await frame();
+  eq(await doc('active.fluid.foam'), true, 'foam on');
+  await click('fluid-foam-material');
+  eq(await doc('doc.materials.find((m) => m.id === active.materials[1])?.name'), 'Foam', 'a white material in the second slot');
+  await op('object.fluid_domain_toggle');
+});
+await test('Constraint menu groups: Shrinkwrap from Relationship, and a Transform Cache that opens an Alembic file', async () => {
+  await op('object.mode_set', { mode: 'OBJECT' });
+  await op('mesh.primitive_cube_add');
+  const cube = await doc('doc.activeId');
+  await op('object.empty_add');
+  await js(`(() => { const a = window.__my3d; const o = a.doc.objects.find((x) => x.id === a.doc.activeId); o.location = [0.2, 0.1, 6]; const c = a.doc.objects.find((x) => x.id === ${JSON.stringify(cube)}); c.location = [0, 0, 0]; c.rotation = [0, 0, 0]; c.scale = [1, 1, 1]; a.touch(); })()`);
+  await frame();
+  await click('tab-constraints');
+  await frame();
+  const open = async (group, type) => {
+    await click('add-constraint');
+    const g = await waitFor(() => rect(tid(`con-group-${group}`)), 3000);
+    await moveTo(g.cx, g.cy);
+    await click(`con-add-${type}`);
+    await frame();
+  };
+  await open('relationship', 'SHRINKWRAP');
+  await js(`(() => { const s = document.querySelector('[data-testid=prop-target]'); s.value = ${JSON.stringify(cube)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await frame();
+  const pos = await js("import('/src/core/doc.js').then((d) => { const doc = window.__my3d.doc; return d.worldPosition(doc, doc.objects.find((o) => o.id === doc.activeId)); })");
+  eq(pos.map((x) => Math.round(x * 100) / 100), [0.2, 0.1, 1], 'onto the top of the cube');
+  await open('transform', 'TRANSFORM_CACHE');
+  assert(await exists('cache-open-1'), 'an Open Cache File button');
+  // The file the button would ask for, given straight to the same function.
+  await js("Promise.all([import('/src/core/alembic.js'), import('/src/core/mesh.js')]).then(([a, m]) => { const o = window.__my3d.doc.objects.find((x) => x.id === window.__my3d.doc.activeId); window.__my3d.addCacheFile('moved.abc', a.exportABC([{ name: o.name, mesh: m.cubeMesh(1) }])); })");
+  await frame();
+  assert(await doc('active.constraints[1].cache !== "" && active.constraints[1].objectPath.endsWith("/" + active.name)'), 'the cache and its path filled in');
+  assert(await js("[...document.querySelectorAll('[data-testid=prop-objectPath] option')].length >= 2"), 'its paths to choose from');
+  await js(`(() => { const a = window.__my3d; a.doc.selected = [a.doc.activeId, ${JSON.stringify(cube)}]; })()`);
+  await op('object.delete');
+});
+await test('Light groups and cryptomatte: a group made in the View Layer, an object put in it, and the passes on the Render Layers node', async () => {
+  await op('object.mode_set', { mode: 'OBJECT' });
+  await js('(() => { const v = window.__my3d.doc.viewLayers[0]; v.lightGroups = []; v.usePass.cryptoObject = false; window.__my3d.touch(); })()');
+  await op('mesh.primitive_cube_add');
+  await frame();
+  await click('tab-viewlayer');
+  await frame();
+  await click('lightgroup-add');
+  await frame();
+  eq(await js('window.__my3d.doc.viewLayers[0].lightGroups.map((g) => g.name)'), ['Lightgroup'], 'one light group');
+  await js("document.querySelector('[data-panel=vl-crypto].closed .panel-head')?.click()");
+  await click('prop-cryptoObject');
+  await frame();
+  assert(await js('window.__my3d.doc.viewLayers[0].usePass.cryptoObject === true'), 'cryptomatte by object switched on');
+  await click('tab-object');
+  await frame();
+  await js("document.querySelector('[data-panel=ob-shading] .panel-head')?.click()");
+  await js("(() => { const s = document.querySelector('[data-testid=prop-lightGroup]'); s.value = 'Lightgroup'; s.dispatchEvent(new Event('change', { bubbles: true })); })()");
+  await frame();
+  eq(await doc('active.lightGroup'), 'Lightgroup', 'the cube adds to the group');
+  await click('ws-compositing');
+  await sleep(100);
+  if (!(await exists('node-CMP_RENDER_LAYERS'))) await click('node-use');
+  await waitFor(() => exists('node-CMP_RENDER_LAYERS'), 3000);
+  await frame();
+  assert(await exists('socket-CMP_RENDER_LAYERS-out-Combined_Lightgroup'), 'a Combined socket for the light group');
+  assert(await exists('socket-CMP_RENDER_LAYERS-out-CryptoObject00'), 'the cryptomatte layers');
+  // A render gives the group's image and the cryptomatte layers to the compositor.
+  await js("Object.assign(window.__my3d.doc.render, { width: 24, height: 16, percent: 100, samples: 2, engine: 'PATH', denoise: false })");
+  await js('window.__my3d.startRender()');
+  await waitFor(() => js('Boolean(window.__my3d.renderResult?.passes?.lightGroups) && !window.__my3d.isRendering()'), 60000, 100);
+  assert(await js("Boolean(window.__my3d.renderResult.passes.lightGroups.Lightgroup && window.__my3d.renderResult.passes.light.CryptoObject00 && window.__my3d.renderResult.passes.light['Diffuse Direct'])"), 'the light group, cryptomatte and light passes came back');
+  await click('ws-layout');
+  await sleep(100);
+  await op('object.delete');
+});
+await test('Particles as objects are real copies in the view', async () => {
+  const count = await js(`(() => {
+    const a = window.__my3d;
+    const d = a.doc;
+    const cube = d.objects.find((o) => o.type === 'MESH');
+    a.op('mesh.primitive_plane_add');
+    const emitter = d.objects.find((o) => o.id === d.activeId);
+    a.op('object.particle_system_add', { kind: 'EMITTER' });
+    Object.assign(emitter.particles[0], { count: 30, frameStart: 1, frameEnd: 1, renderAs: 'OBJECT', instanceObject: cube.id, size: 0.1, velocity: 0, randomVelocity: 0 });
+    a.setFrame(2);
+    a.touch();
+    a.invalidate();
+    return emitter.id;
+  })()`);
+  await frame();
+  await frame();
+  const n = await js(`(() => { const v = window.__my3d.editorsOf('view3d')[0].api.sync.items.get(${JSON.stringify(count)}); return v.instances?.[0]?.count ?? 0; })()`);
+  eq(n, 30, 'one copy each');
+});
+await test('A failing video encoder costs nothing: the next one or AVI still gets every frame', async () => {
+  const r = await js(`(async () => {
+    const { createVideoWriter } = await import('/src/ui/video.js');
+    const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 32;
+    canvas.getContext('2d').fillRect(0, 0, 32, 32);
+    const Real = window.VideoEncoder;
+    const write = async () => { const w = await createVideoWriter({ width: 32, height: 32, fps: 24, format: 'MP4' }); for (let i = 0; i < 4; i++) await w.add(canvas); return w.finish(); };
+    // Every encoder fails when flushed, as a busy hardware one does.
+    class Broken extends Real { flush() { return Promise.reject(new Error('Flushing error.')); } }
+    Broken.isConfigSupported = Real.isConfigSupported.bind(Real);
+    window.VideoEncoder = Broken;
+    const allFail = await write();
+    // Only the first fails.
+    let tries = 0;
+    class FirstFails extends Real { flush() { return tries++ ? super.flush() : Promise.reject(new Error('Flushing error.')); } }
+    FirstFails.isConfigSupported = Real.isConfigSupported.bind(Real);
+    window.VideoEncoder = FirstFails;
+    const firstFails = await write();
+    window.VideoEncoder = Real;
+    return { all: { extension: allFail.extension, frames: allFail.frames, fellBack: allFail.fellBack, said: allFail.problems.join() }, first: { extension: firstFails.extension, frames: firstFails.frames, fellBack: firstFails.fellBack, problems: firstFails.problems.length } };
+  })()`);
+  eq(r.all.extension, 'avi', 'all failing gives AVI');
+  eq(r.all.frames, 4, 'with every frame');
+  eq(r.all.fellBack, true, 'and says so');
+  assert(r.all.said.includes('Flushing error'), 'with the reason');
+  eq(r.first.extension, 'mp4', 'one failing gives the next');
+  eq(r.first.frames, 4, 'with every frame');
+  eq(r.first.fellBack, false, 'no fallback to report');
+  assert(r.first.problems >= 1, 'the failure is noted');
+});
+await test('A volume shader renders in the workers, and baking writes a new image from the panel', async () => {
+  const lit = await js(`(async () => {
+    const a = window.__my3d;
+    const d = a.doc;
+    const { createNode, addLink, defaultShaderGraph } = await import('/src/core/nodes.js');
+    const { renderPath } = await import('/src/ui/render.js');
+    const cube = d.objects.find((o) => o.type === 'MESH');
+    const m = d.materials.find((x) => x.id === cube.materials[0]) ?? d.materials[0];
+    cube.materials = [m.id];
+    m.useNodes = true;
+    m.nodes = defaultShaderGraph(m);
+    m.nodes.links = [];
+    const out = m.nodes.nodes.find((n) => n.type === 'OUTPUT_MATERIAL');
+    const v = createNode('VOLUME_PRINCIPLED', 0, 0, { Density: 2, Color: [0.1, 0.1, 0.1], 'Emission Color': [1, 0, 0], 'Emission Strength': 2 });
+    m.nodes.nodes.push(v);
+    addLink(m.nodes, v.id, 'Volume', out.id, 'Volume');
+    d.world.color = [0, 0, 0];
+    d.world.useNodes = false;
+    Object.assign(d.render, { engine: 'PATH', width: 32, height: 18, percent: 100, samples: 12, bounces: 2, denoise: false, viewTransform: 'STANDARD' });
+    const r = (await renderPath(d, {}).promise).linear;
+    const c = (9 * 32 + 16) * 4;
+    return [r.data[c], r.data[c + 1], r.data[c + 2]];
+  })()`);
+  assert(lit[0] > 0.2 && lit[0] > lit[1] * 3, `it glows red in the middle: ${lit}`);
+  await js(`(() => { const a = window.__my3d; const o = a.doc.objects.find((x) => x.type === 'MESH'); a.doc.activeId = o.id; a.doc.selected = [o.id]; a.op('uv.reset'); })()`);
+  const before = await doc('doc.images.length');
+  await js("window.__my3d.op('object.bake', { type: 'POSITION', size: 32 })");
+  await waitFor(() => js(`window.__my3d.doc.images.length > ${before}`), 8000, 50);
+  const image = await doc('doc.images.at(-1).name');
+  assert(/POSITION/.test(image), `named for what it holds: ${image}`);
+  assert(await doc('doc.images.at(-1).dataUrl.startsWith("data:image/png")'), 'a picture');
+  await click('tab-render');
+  await frame();
+  assert(await js("Boolean(document.querySelector('[data-testid=bake-run]')) || Boolean([...document.querySelectorAll('.panel-title, .panel-head, summary, button')].find((b) => /Bake|베이크/.test(b.textContent)))"), 'a Bake panel');
+});
+await test('Rendering: pictures reach the GPU engine, passes reach the result, and the menu writes a playable MP4', async () => {
+  const gpu = await js(`(async () => {
+    const a = window.__my3d;
+    const d = a.doc;
+    const { encodePNGDataUrl, createImageBuffer } = await import('/src/core/paint.js');
+    const { createNode, addLink, defaultShaderGraph } = await import('/src/core/nodes.js');
+    const { decodeImages, renderPath } = await import('/src/ui/render.js');
+    const { gpuPathAvailable } = await import('/src/ui/gpupath.js');
+    if (!gpuPathAvailable()) return { missing: true };
+    // Left half red, right half blue, on a plane the camera looks down at.
+    const picture = createImageBuffer(8, 8, [1, 0, 0, 1]);
+    for (let y = 0; y < 8; y++) for (let x = 4; x < 8; x++) picture.rgba.set([0, 0, 255], (y * 8 + x) * 4);
+    d.images.push({ id: 'img_split', name: 'Split', dataUrl: encodePNGDataUrl(picture) });
+    a.op('mesh.primitive_plane_add', { size: 6 });
+    const plane = d.objects.find((o) => o.id === d.activeId);
+    plane.location = [0, 0, 1.2];
+    plane.data.uvs = plane.data.faces.map((f) => f.map((v) => [plane.data.verts[v][0] / 6 + 0.5, plane.data.verts[v][1] / 6 + 0.5]));
+    a.op('material.new');
+    const m = d.materials.find((x) => x.id === plane.materials[0]) ?? d.materials.at(-1);
+    plane.materials = [m.id];
+    m.useNodes = true;
+    m.nodes = defaultShaderGraph(m);
+    const bsdf = m.nodes.nodes.find((n) => n.type === 'BSDF_PRINCIPLED');
+    const tex = createNode('TEX_IMAGE', 0, 0, { image: 'img_split' });
+    m.nodes.nodes.push(tex);
+    addLink(m.nodes, tex.id, 'Color', bsdf.id, 'Base Color');
+    d.world.color = [1, 1, 1];
+    d.world.nodes = null;
+    const images = await decodeImages(d, {});
+    const run = async (engine) => {
+      Object.assign(d.render, { engine, width: 48, height: 27, percent: 100, samples: 32, bounces: 2, denoise: false, seed: 1, viewTransform: 'STANDARD' });
+      return (await renderPath(d, images).promise).linear;
+    };
+    const [cpu, g] = [await run('PATH'), await run('GPU')];
+    let [difference, redder, bluer] = [0, 0, 0];
+    for (let i = 0; i < g.data.length; i += 4) {
+      difference += Math.abs(g.data[i] - cpu.data[i]) + Math.abs(g.data[i + 2] - cpu.data[i + 2]);
+      if (g.data[i] > g.data[i + 2] * 2) redder++;
+      if (g.data[i + 2] > g.data[i] * 2) bluer++;
+    }
+    return { difference: difference / (g.data.length / 2), redder, bluer };
+  })()`);
+  assert(!gpu.missing, 'this browser renders to float textures');
+  assert(gpu.redder > 20 && gpu.bluer > 20, `both halves of the picture show: ${JSON.stringify(gpu)}`);
+  assert(gpu.difference < 0.2, `the GPU agrees with the CPU: ${JSON.stringify(gpu)}`);
+  const made = await js(`(async () => {
+    const a = window.__my3d;
+    const d = a.doc;
+    const { inspectMP4 } = await import('/src/core/videofile.js');
+    Object.assign(d.render, { engine: 'PATH', width: 64, height: 48, percent: 100, samples: 1, bounces: 1, denoise: false, movieFormat: 'MP4' });
+    d.frameStart = 1; d.frameEnd = 3; d.frameStep = 1;
+    const made = [];
+    const real = URL.createObjectURL;
+    URL.createObjectURL = (b) => { made.push(b); return real.call(URL, b); };
+    a.op('render.animation');
+    for (let i = 0; i < 400 && !made.length; i++) await new Promise((r) => setTimeout(r, 100));
+    URL.createObjectURL = real;
+    if (!made.length) return { none: true };
+    const bytes = new Uint8Array(await made[0].arrayBuffer());
+    // ftyp comes first in an MP4.
+    const box = bytes[4] === 0x66 ? inspectMP4(bytes) : null;
+    const p = a.renderResult?.passes ?? {};
+    const nonzero = (x) => Boolean(x?.data?.some((v, i) => i % 4 !== 3 && v !== 0));
+    return { files: made.length, type: made[0].type, count: box?.count, width: box?.width, passes: Object.fromEntries(['position', 'uv', 'albedo', 'materialIndex', 'depth', 'normal'].map((n) => [n, nonzero(p[n])])) };
+  })()`);
+  assert(!made.none, 'a file came out');
+  eq(made.files, 1, 'one file, not a file per frame');
+  eq(made.type, 'video/mp4', 'an MP4');
+  eq(made.count, 3, 'three frames');
+  eq(made.width, 64, 'its size');
+  for (const [name, has] of Object.entries(made.passes)) assert(has, `the ${name} pass holds something`);
+});
+await test('Geometry nodes: the zones are in the add list, and a repeat zone runs on an object', async () => {
+  const z = await js(`(async () => {
+    const a = window.__my3d;
+    const { nodesForKind, createNode, addLink, defaultGeometryGraph } = await import('/src/core/nodes.js');
+    const kinds = nodesForKind('GEOMETRY').map((n) => n.type ?? n);
+    const d = a.doc;
+    const o = d.objects.find((x) => x.type === 'MESH');
+    const graph = defaultGeometryGraph();
+    const input = graph.nodes.find((n) => n.type === 'GROUP_INPUT');
+    const output = graph.nodes.find((n) => n.type === 'GROUP_OUTPUT');
+    graph.links = [];
+    const [start, grow, end] = [createNode('REPEAT_INPUT', 0, 0, { Iterations: 2 }), createNode('SUBDIVIDE_MESH'), createNode('REPEAT_OUTPUT')];
+    graph.nodes.push(start, grow, end);
+    addLink(graph, input.id, 'Geometry', start.id, 'Geometry');
+    addLink(graph, start.id, 'Geometry', grow.id, 'Mesh');
+    addLink(graph, grow.id, 'Mesh', end.id, 'Geometry');
+    addLink(graph, end.id, 'Geometry', output.id, 'Geometry');
+    o.modifiers.push({ type: 'NODES', name: 'Nodes', show: true, showRender: true, graph });
+    const { evaluatedMesh } = await import('/src/core/doc.js');
+    return { faces: evaluatedMesh(d, o).faces.length, listed: JSON.stringify(kinds).includes('REPEAT_INPUT') && JSON.stringify(kinds).includes('SIM_OUTPUT') };
+  })()`);
+  eq(z.faces, 96, 'twice subdivided');
+  assert(z.listed, 'in the add list');
 });
 await test('Text Editor runs a script: bpy.ops adds objects; an error shows in the status bar', async () => {
   await click('ws-scripting');

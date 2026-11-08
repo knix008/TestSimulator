@@ -3,11 +3,12 @@
 import { activeObject, getMaterial } from '../../core/doc.js';
 import { NODE_TYPES, addLink, createGroupNode, createNode, makeGroup, nodeSockets, nodesForKind, syncGroupInstances, ungroup, wouldCycle } from '../../core/nodes.js';
 import { oslShader } from '../../core/osl.js';
+import { syncRenderLayers } from '../../core/passes.js';
 import { h } from '../dom.js';
 import { icon } from '../icons.js';
 import { enumName, nameOf, propName, t } from '../i18n.js';
 import { menuTitle, openMenu } from '../menus.js';
-import { button, colorField, emptyNote, numField, select } from '../widgets.js';
+import { button, colorField, emptyNote, numField, select, textField } from '../widgets.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const SOCKET_COLOR = { VALUE: '#a1a1a1', COLOR: '#c7c729', VECTOR: '#6363c7', SHADER: '#63c763', GEOMETRY: '#00d6a3', IMAGE: '#c7a229' };
@@ -141,6 +142,7 @@ export function createNodeEditor(app, el, area) {
       out.push(h('textarea', { className: 'osl-source', spellcheck: false, value: node.values.source ?? '', dataset: { testid: 'osl-source' }, onChange: (e) => { node.values.source = e.target.value; lastGraphKey = ''; app.changed('OSL Source', true); update(); }, onKeydown: (e) => e.stopPropagation(), onPointerdown: (e) => e.stopPropagation() }));
       if (problem) out.push(h('div', { className: 'osl-error', dataset: { testid: 'osl-error' } }, problem));
     }
+    if (node.type === 'CMP_CRYPTOMATTE') out.push(h('div', { className: 'node-row' }, textField({ value: node.values.matteId ?? '', placeholder: t('Names, by commas', '이름, 쉼표로'), testid: 'node-CMP_CRYPTOMATTE-matteId', onChange: (v) => { node.values.matteId = v; app.changed('Cryptomatte', true); } })));
     if (node.type === 'VALUE') out.push(h('div', { className: 'node-row' }, numField({ value: node.values.value ?? 0.5, step: 0.05, testid: 'node-VALUE-value', onChange: (v, final) => { node.values.value = v; app.changed('Node Value', final); } })));
     if (node.type === 'RGB') out.push(h('div', { className: 'node-row' }, colorField({ value: node.values.color ?? [0.5, 0.5, 0.5], onChange: (v, final) => { node.values.color = v; app.changed('Node Value', final); } })));
     if (node.type === 'TEX_IMAGE') out.push(h('div', { className: 'node-row' }, select({ value: node.values.image, options: [[null, t('(none)', '(없음)')], ...app.doc.images.map((i) => [i.id, i.name])], onChange: (v) => { node.values.image = v || null; app.changed('Node Image', true); } })));
@@ -254,6 +256,7 @@ export function createNodeEditor(app, el, area) {
       if (!spec) continue;
       const head = h('div', { className: `node-head head-${spec.cat.replace(/\s/g, '')}`, title: nameOf(spec) }, nameOf(spec));
       const box = h('div', { className: `node${selected.has(node.id) ? ' selected' : ''}`, style: { left: `${node.x}px`, top: `${node.y}px` }, dataset: { id: node.id, type: node.type, testid: `node-${node.type}` } }, head);
+      if (node.type === 'CMP_RENDER_LAYERS') syncRenderLayers(app.doc, graph);
       const sockets = nodeSockets(node);
       for (const out of sockets.outputs) box.append(h('div', { className: 'node-row out' }, h('span', { className: 'sock-name' }, out.name), socketDot(node, out.name, out.type, 'out')));
       box.append(...nodeProps(node, spec));

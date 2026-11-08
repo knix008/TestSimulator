@@ -17,12 +17,18 @@ import { MODIFIERS, catmullClark, createModifier, evaluateMesh } from './modifie
 import { addLink, createNode, defaultCompositorGraph, defaultGeometryGraph, defaultShaderGraph, defaultWorldGraph } from './nodes.js';
 import { nurbsPrimitive } from './nurbs.js';
 import { solveCamera } from './tracking.js';
+import { readABCTransforms } from './alembic.js';
 import { calculateMotionPath, makeInstancesReal, newScene, removeScene, switchScene } from './scenes.js';
 import { createImageBuffer, encodePNGDataUrl } from './paint.js';
 import { multiresAddLevel, voxelRemesh } from './remesh.js';
 import { unwrapSeams, uvOverlap } from './unwrap.js';
 import { bakeDynamicPaint, bakeLiquid, bakeSmoke, clearSimCache, defaultDynamicPaint, defaultLiquidDomain, defaultLiquidFlow, defaultSmokeDomain, defaultSmokeFlow } from './simulation.js';
-import { bakeCloth, bakeRigidBodies, bakeSoftBody, clearCaches, defaultCloth, defaultField, defaultParticles, defaultRigidBody, defaultSoftBody } from './physics.js';
+import { bakeCloth, bakeParticles, bakeRigidBodies, bakeSoftBody, clearCaches, defaultCloth, defaultField, defaultParticles, defaultRigidBody, defaultSoftBody } from './physics.js';
+import { insertKey } from './anim.js';
+import { GP_EASINGS, GP_MODIFIERS, GP_SCULPT_TOOLS, createGPModifier, eraseAt, gpencilToMesh, interpolateDrawing, neighbourDrawings, sculptStrokes, simplifyStroke, smoothStroke, strokesAt, subdivideStroke } from './gpencil.js';
+import { alignUVs, minimizeStretch, pinUVs, stitchUVs, weldUVs } from './unwrap.js';
+import { BONE_CONSTRAINTS, createBoneConstraint } from './armature.js';
+import { RIGID_CONSTRAINT_TYPES, defaultRigidConstraint } from './rigid.js';
 
 const registry = new Map();
 
@@ -512,12 +518,12 @@ register({ id: 'wm.proportional_set', en: 'Proportional Editing', ko: '비례 �
 
 // ─────────────── UV
 
-register({ id: 'uv.unwrap', en: 'Unwrap', ko: '펼치기', key: 'U', icon: 'ed-uv', poll: isMeshActive, props: [num('margin', 'Margin', '간격', 0.01, 0, 0.2, 0.005)],
+register({ id: 'uv.unwrap', en: 'Unwrap', ko: '펼치기', key: 'U', icon: 'ed-uv', poll: isMeshActive, props: [num('margin', 'Margin', '간격', 0.01, 0, 0.2, 0.005), choice('method', 'Method', '방식', 'ANGLE_BASED', ['ANGLE_BASED', 'CONFORMAL'])],
   exec: (ctx, p) => {
     const m = activeMesh(ctx);
     if (!m.faces.length) return 'CANCELLED';
     const chosen = ctx.doc.mode === 'EDIT' ? selectedFaces(m) : [];
-    ctx.lastUnwrap = unwrapSeams(m, { faces: chosen.length ? chosen : null, margin: p.margin });
+    ctx.lastUnwrap = unwrapSeams(m, { faces: chosen.length ? chosen : null, margin: p.margin, method: p.method });
     return undefined;
   } });
 const uvOp = (id, en, ko, props, fn) => register({ id, en, ko, props, poll: isMeshActive, exec: (ctx, p) => fn(activeMesh(ctx), p) });
@@ -525,6 +531,12 @@ uvOp('uv.smart_project', 'Smart UV Project', '스마트 UV 투영', [num('margin
 uvOp('uv.cube_project', 'Cube Projection', '큐브 투영', [num('scale', 'Scale', '크기', 0.5, 0, undefined, 0.05)], (m, p) => { unwrapBox(m, p.scale); });
 uvOp('uv.cylinder_project', 'Cylinder Projection', '원기둥 투영', [], (m) => { unwrapCylinder(m); });
 uvOp('uv.sphere_project', 'Sphere Projection', '구 투영', [], (m) => { unwrapSphere(m); });
+const CORNERS = { name: 'corners', type: 'vec3list', def: [], hidden: true };
+uvOp('uv.pin', 'Pin', '고정', [CORNERS, { name: 'clear', en: 'Clear', ko: '해제', type: 'bool', def: false }], (m, p) => { pinUVs(m, p.corners, !p.clear); });
+uvOp('uv.weld', 'Weld', '용접', [CORNERS], (m, p) => { weldUVs(m, p.corners); });
+uvOp('uv.align', 'Align', '정렬', [CORNERS, choice('axis', 'Axis', '축', 'U', ['U', 'V'])], (m, p) => { alignUVs(m, p.corners, p.axis); });
+uvOp('uv.stitch', 'Stitch', '꿰매기', [CORNERS], (m, p) => { stitchUVs(m, p.corners); });
+uvOp('uv.minimize_stretch', 'Minimize Stretch', '늘어남 최소화', [int('iterations', 'Iterations', '반복', 50, 1, 2000)], (m, p) => { minimizeStretch(m, { iterations: p.iterations }); });
 uvOp('uv.reset', 'Reset UVs', 'UV 초기화', [], (m) => { m.uvs = m.faces.map((f) => (f.length === 4 ? [[0, 0], [1, 0], [1, 1], [0, 1]] : f.map((_, i) => { const a = (i / f.length) * Math.PI * 2; return [0.5 + Math.cos(a) / 2, 0.5 + Math.sin(a) / 2]; }))); });
 
 // ─────────────── images and texture paint
@@ -613,7 +625,49 @@ register({ id: 'object.modifier_apply', en: 'Apply Modifier', ko: '모디파이�
     void evaluateMesh;
   } });
 register({ id: 'object.constraint_add', en: 'Add Constraint', ko: '컨스트레인트 추가', poll: hasActive, props: [choice('type', 'Type', '종류', 'COPY_LOCATION', Object.keys(CONSTRAINTS))], exec: (ctx, p) => { activeObject(ctx.doc).constraints.push(createConstraint(p.type)); } });
+/**
+ * A transform cache from an Alembic file's bytes: every transform at every sample, one frame apart from frame 1.
+ * When the active object has a Transform Cache constraint without a cache, it takes this one, at the path named like it.
+ */
+export function addTransformCache(doc, name, bytes) {
+  const read = readABCTransforms(bytes);
+  const cache = { id: newId('cache'), name, start: 1, count: read.count, samples: read.samples };
+  (doc.caches ??= []).push(cache);
+  const o = activeObject(doc);
+  for (const c of o?.constraints ?? []) {
+    if (c.type !== 'TRANSFORM_CACHE' || c.cache) continue;
+    c.cache = cache.id;
+    const paths = Object.keys(cache.samples);
+    c.objectPath = paths.find((p) => p.endsWith(`/${o.name}`)) ?? paths[0] ?? '';
+  }
+  return cache;
+}
+register({ id: 'cachefile.remove', en: 'Remove Cache File', ko: '캐시 파일 제거', props: [{ name: 'cache', type: 'string', def: '', hidden: true }], poll: (ctx) => Boolean(ctx.doc.caches?.length),
+  exec: (ctx, p) => {
+    const doc = ctx.doc;
+    doc.caches = (doc.caches ?? []).filter((c) => c.id !== p.cache);
+    for (const o of doc.objects) for (const c of o.constraints ?? []) if (c.type === 'TRANSFORM_CACHE' && c.cache === p.cache) { c.cache = ''; c.objectPath = ''; }
+  } });
 register({ id: 'object.constraint_remove', en: 'Remove Constraint', ko: '컨스트레인트 제거', poll: hasActive, props: [int('index', 'Index', '순서', 0, 0)], exec: (ctx, p) => { activeObject(ctx.doc).constraints.splice(p.index, 1); } });
+
+// ─────────────── light groups (View Layer › Light Groups)
+
+const lightGroupsOf = (doc) => (doc.viewLayers[0].lightGroups ??= []);
+const usedLightGroups = (doc) => [...new Set([...doc.objects.map((o) => o.lightGroup), doc.world.lightGroup].filter(Boolean))];
+register({ id: 'scene.view_layer_add_lightgroup', en: 'Add Light Group', ko: '라이트 그룹 추가', props: [{ name: 'name', en: 'Name', ko: '이름', type: 'string', def: '' }],
+  exec: (ctx, p) => {
+    const list = lightGroupsOf(ctx.doc);
+    const base = p.name || 'Lightgroup';
+    let name = base;
+    for (let i = 1; list.some((g) => g.name === name); i++) name = `${base}.${String(i).padStart(3, '0')}`;
+    list.push({ name });
+  } });
+register({ id: 'scene.view_layer_remove_lightgroup', en: 'Remove Light Group', ko: '라이트 그룹 제거', props: [int('index', 'Index', '순서', 0, 0)], poll: (ctx) => Boolean(ctx.doc.viewLayers[0].lightGroups?.length),
+  exec: (ctx, p) => { lightGroupsOf(ctx.doc).splice(p.index, 1); } });
+register({ id: 'scene.view_layer_add_used_lightgroups', en: 'Add Used Light Groups', ko: '사용 중인 라이트 그룹 추가',
+  exec: (ctx) => { const list = lightGroupsOf(ctx.doc); for (const name of usedLightGroups(ctx.doc)) if (!list.some((g) => g.name === name)) list.push({ name }); } });
+register({ id: 'scene.view_layer_remove_unused_lightgroups', en: 'Remove Unused Light Groups', ko: '쓰지 않는 라이트 그룹 제거',
+  exec: (ctx) => { const used = new Set(usedLightGroups(ctx.doc)); ctx.doc.viewLayers[0].lightGroups = lightGroupsOf(ctx.doc).filter((g) => used.has(g.name)); } });
 
 // ─────────────── materials, world, nodes
 
@@ -642,8 +696,11 @@ register({ id: 'compositor.use_nodes', en: 'Use Compositor Nodes', ko: '컴포�
 const TRANSFORM_PATHS = { Location: ['location.0', 'location.1', 'location.2'], Rotation: ['rotation.0', 'rotation.1', 'rotation.2'], Scale: ['scale.0', 'scale.1', 'scale.2'] };
 TRANSFORM_PATHS.LocRotScale = [...TRANSFORM_PATHS.Location, ...TRANSFORM_PATHS.Rotation, ...TRANSFORM_PATHS.Scale];
 
-register({ id: 'anim.keyframe_insert', en: 'Insert Keyframe', ko: '키프레임 삽입', key: 'I', icon: 'keyframe', poll: hasSelected, props: [choice('type', 'Channels', '채널', 'LocRotScale', Object.keys(TRANSFORM_PATHS)), choice('interp', 'Interpolation', '보간', 'BEZIER', anim.INTERPOLATIONS)],
+register({ id: 'anim.keyframe_insert', en: 'Insert Keyframe', ko: '키프레임 삽입', key: 'I', icon: 'keyframe', poll: (ctx) => hasSelected(ctx) || (ctx.doc.mode === 'POSE' && activeObject(ctx.doc)?.type === 'ARMATURE'), props: [choice('type', 'Channels', '채널', 'LocRotScale', Object.keys(TRANSFORM_PATHS)), choice('interp', 'Interpolation', '보간', 'BEZIER', anim.INTERPOLATIONS)],
   exec: (ctx, p) => {
+    // In pose mode the keys go on the bones, as in Blender.
+    const active = activeObject(ctx.doc);
+    if (ctx.doc.mode === 'POSE' && active?.type === 'ARMATURE') { keyPose(ctx.doc, active, -1, p.type, p.interp); return; }
     for (const obj of selectedObjects(ctx.doc)) for (const path of TRANSFORM_PATHS[p.type]) anim.insertKey(obj, path, ctx.doc.frame, anim.getPath(obj, path), p.interp);
   } });
 register({ id: 'anim.keyframe_insert_path', en: 'Insert Keyframe on Property', ko: '속성에 키프레임 삽입', poll: hasActive, props: [{ name: 'path', en: 'Path', ko: '경로', type: 'string', def: 'location.0' }],
@@ -661,6 +718,54 @@ register({ id: 'anim.interpolation_set', en: 'Set Interpolation', ko: '보간 �
     const objects = selectedObjects(ctx.doc);
     const onlySelected = objects.some((o) => anim.hasSelectedKeys(o));
     for (const obj of objects) for (const keys of Object.values(obj.anim?.fcurves ?? {})) for (const k of keys) if (!onlySelected || k.sel) { k.interp = p.type; k.easing = p.easing; }
+  } });
+/** Keys a bone's pose (or every bone's, for -1) on the armature data. */
+function keyPose(doc, obj, bone, type = 'LocRotScale', interp = 'BEZIER') {
+  const bones = obj.data.bones;
+  const which = bone >= 0 ? [bone] : bones.map((_, i) => i);
+  for (const i of which) {
+    if (!bones[i]) continue;
+    for (const path of TRANSFORM_PATHS[type] ?? TRANSFORM_PATHS.LocRotScale) anim.insertKey(obj.data, `bones.${i}.pose.${path}`, doc.frame, anim.getPath(bones[i].pose, path), interp);
+  }
+}
+const animTarget = (obj) => (obj?.type === 'ARMATURE' && Object.keys(obj.data?.anim?.fcurves ?? {}).length ? obj.data : obj);
+const boneNames = (obj) => (obj?.type === 'ARMATURE' ? obj.data.bones.map((b) => b.name) : null);
+register({ id: 'pose.keyframe_insert', en: 'Insert Pose Keyframe', ko: '포즈 키프레임 삽입', icon: 'keyframe', poll: (ctx) => activeObject(ctx.doc)?.type === 'ARMATURE', props: [int('bone', 'Bone (-1: all)', '본 (-1: 전체)', -1, -1), choice('type', 'Channels', '채널', 'LocRotScale', Object.keys(TRANSFORM_PATHS)), choice('interp', 'Interpolation', '보간', 'BEZIER', anim.INTERPOLATIONS)],
+  exec: (ctx, p) => { keyPose(ctx.doc, activeObject(ctx.doc), p.bone, p.type, p.interp); } });
+register({ id: 'action.new', en: 'Save as Action', ko: '액션으로 저장', poll: (ctx) => Object.keys(animTarget(activeObject(ctx.doc))?.anim?.fcurves ?? {}).length > 0, props: [{ name: 'name', en: 'Name', ko: '이름', type: 'string', def: 'Action' }],
+  exec: (ctx, p) => { const obj = activeObject(ctx.doc); anim.storeAction(ctx.doc, animTarget(obj), p.name || 'Action', boneNames(obj)); } });
+const libraryPoll = (ctx) => (ctx.doc.actions?.length ?? 0) > 0 && hasActive(ctx);
+register({ id: 'action.assign', en: 'Assign Action', ko: '액션 지정', poll: libraryPoll, props: [int('index', 'Action', '액션', 0, 0)],
+  exec: (ctx, p) => {
+    const action = ctx.doc.actions[p.index];
+    const obj = activeObject(ctx.doc);
+    if (!action) return 'CANCELLED';
+    // An action of bones belongs on the armature data, the rest on the object.
+    const onBones = obj.type === 'ARMATURE' && Object.keys(action.fcurves).some((k) => k.startsWith('bones.'));
+    anim.assignAction(onBones ? obj.data : obj, action, onBones ? boneNames(obj) : null);
+    setFrame(ctx.doc, ctx.doc.frame);
+    return undefined;
+  } });
+register({ id: 'action.strip_add', en: 'Add Action Strip', ko: '액션 스트립 추가', poll: libraryPoll, props: [int('index', 'Action', '액션', 0, 0)],
+  exec: (ctx, p) => {
+    const action = ctx.doc.actions[p.index];
+    const obj = activeObject(ctx.doc);
+    if (!action) return 'CANCELLED';
+    const onBones = obj.type === 'ARMATURE' && Object.keys(action.fcurves).some((k) => k.startsWith('bones.'));
+    // On the object either way, so that the NLA editor shows it; a strip of bones reaches them through the data.
+    anim.addActionStrip(obj, action, ctx.doc.frame, onBones ? boneNames(obj) : null, onBones ? 'data.' : '');
+    setFrame(ctx.doc, ctx.doc.frame);
+    return undefined;
+  } });
+register({ id: 'action.remove', en: 'Delete Action', ko: '액션 삭제', poll: (ctx) => (ctx.doc.actions?.length ?? 0) > 0, props: [int('index', 'Action', '액션', 0, 0)],
+  exec: (ctx, p) => {
+    const action = ctx.doc.actions[p.index];
+    if (!action) return 'CANCELLED';
+    ctx.doc.actions.splice(p.index, 1);
+    // Constraints that read it read nothing now.
+    for (const o of ctx.doc.objects) if (o.type === 'ARMATURE') for (const b of o.data.bones) for (const c of b.constraints ?? []) if (c.action === action.id) c.action = '';
+    setFrame(ctx.doc, ctx.doc.frame);
+    return undefined;
   } });
 const hasKeysSelected = (ctx) => selectedObjects(ctx.doc).some((o) => anim.hasSelectedKeys(o));
 register({ id: 'action.delete_selected', en: 'Delete Selected Keys', ko: '선택 키 삭제', poll: hasKeysSelected, exec: (ctx) => { for (const o of selectedObjects(ctx.doc)) anim.deleteSelectedKeys(o); setFrame(ctx.doc, ctx.doc.frame); } });
@@ -706,6 +811,10 @@ register({ id: 'pose.ik_solve', en: 'Solve IK', ko: 'IK 풀기', poll: armPoll, 
 const boneProps = [int('bone', 'Bone', '본', 0, 0)];
 register({ id: 'pose.ik_add', en: 'Add IK to Bone', ko: '본에 IK 추가', poll: armPoll, props: [...boneProps, { name: 'target', en: 'Target', ko: '목표', type: 'string', def: '' }, int('chain', 'Chain Length', '체인 길이', 2, 1, 32)],
   exec: (ctx, p) => { const b = activeObject(ctx.doc).data.bones[p.bone]; if (!b) return 'CANCELLED'; b.ik = { target: p.target || null, pole: null, chain: p.chain, poleAngle: 0, influence: 1, iterations: 24 }; return undefined; } });
+register({ id: 'pose.constraint_add', en: 'Add Bone Constraint', ko: '본 컨스트레인트 추가', poll: armPoll, props: [...boneProps, choice('type', 'Type', '종류', 'COPY_ROTATION', Object.keys(BONE_CONSTRAINTS))],
+  exec: (ctx, p) => { const b = activeObject(ctx.doc).data.bones[p.bone]; if (!b) return 'CANCELLED'; (b.constraints ??= []).push(createBoneConstraint(p.type)); return undefined; } });
+register({ id: 'pose.constraint_remove', en: 'Remove Bone Constraint', ko: '본 컨스트레인트 제거', poll: armPoll, props: [...boneProps, int('index', 'Index', '순서', 0, 0)],
+  exec: (ctx, p) => { const b = activeObject(ctx.doc).data.bones[p.bone]; if (!b?.constraints?.[p.index]) return 'CANCELLED'; b.constraints.splice(p.index, 1); return undefined; } });
 register({ id: 'pose.ik_clear', en: 'Remove IK', ko: 'IK 제거', poll: armPoll, props: boneProps, exec: (ctx, p) => { const b = activeObject(ctx.doc).data.bones[p.bone]; if (b) b.ik = null; } });
 register({ id: 'pose.paths_calculate', en: 'Calculate Bone Path', ko: '본 경로 계산', icon: 'curve', poll: armPoll, props: [...boneProps, int('start', 'Start', '시작', 1), int('end', 'End', '끝', 250), int('step', 'Step', '간격', 1, 1)],
   exec: (ctx, p) => { const o = activeObject(ctx.doc); const b = o.data.bones[p.bone]; if (!b) return 'CANCELLED'; b.motionPath = calculateMotionPath(ctx.doc, o, { start: p.start, end: Math.max(p.start, p.end), step: p.step, bone: p.bone }); return undefined; } });
@@ -716,6 +825,44 @@ register({ id: 'pose.transforms_clear', en: 'Clear Pose', ko: '포즈 지우기'
 
 const addTo = (key, make) => (ctx) => { const o = activeObject(ctx.doc); o[key] = o[key] ? null : make(); };
 register({ id: 'rigidbody.object_add', en: 'Rigid Body', ko: '강체', icon: 'physics', poll: isMeshActive, props: [choice('type', 'Type', '종류', 'ACTIVE', ['ACTIVE', 'PASSIVE'])], exec: (ctx, p) => { activeObject(ctx.doc).rigidBody = defaultRigidBody(p.type); } });
+register({ id: 'rigidbody.constraint_add', en: 'Rigid Body Constraint', ko: '강체 제약', icon: 'constraint', poll: (ctx) => Boolean(activeObject(ctx.doc)), props: [choice('type', 'Type', '종류', 'FIXED', RIGID_CONSTRAINT_TYPES)], exec: (ctx, p) => { activeObject(ctx.doc).rigidConstraint = defaultRigidConstraint(p.type); } });
+register({ id: 'rigidbody.constraint_remove', en: 'Remove Rigid Body Constraint', ko: '강체 제약 제거', poll: (ctx) => Boolean(activeObject(ctx.doc)?.rigidConstraint), exec: (ctx) => { activeObject(ctx.doc).rigidConstraint = null; } });
+register({
+  id: 'rigidbody.connect', en: 'Connect', ko: '연결', icon: 'constraint', poll: (ctx) => ctx.doc.selected.length >= 2 && Boolean(activeObject(ctx.doc)), props: [choice('type', 'Type', '종류', 'FIXED', RIGID_CONSTRAINT_TYPES)],
+  // An empty between the active body and each other selected one, holding the joint: as in Blender.
+  exec: (ctx, p) => {
+    const doc = ctx.doc;
+    const active = activeObject(doc);
+    const made = [];
+    for (const id of doc.selected) {
+      if (id === active.id) continue;
+      const other = getObject(doc, id);
+      if (!other) continue;
+      for (const o of [active, other]) o.rigidBody ??= defaultRigidBody('ACTIVE');
+      const [a, b] = [worldPosition(doc, active), worldPosition(doc, other)];
+      const joint = addObject(doc, { type: 'EMPTY', name: 'Constraint', location: a.map((x, k) => (x + b[k]) / 2) });
+      joint.rigidConstraint = { ...defaultRigidConstraint(p.type), object1: active.id, object2: other.id };
+      made.push(joint);
+    }
+    if (!made.length) return 'CANCELLED';
+  },
+});
+register({
+  id: 'rigidbody.bake_to_keyframes', en: 'Bake to Keyframes', ko: '키프레임으로 베이크', poll: (ctx) => ctx.doc.objects.some((o) => o.cache?.transform),
+  // What the simulation did, as ordinary keys that can be edited.
+  exec: (ctx) => {
+    const doc = ctx.doc;
+    for (const o of doc.objects) {
+      const baked = o.cache?.transform;
+      if (!baked) continue;
+      for (const [frame, t] of Object.entries(baked)) {
+        for (let k = 0; k < 3; k++) { insertKey(o, `location.${k}`, Number(frame), t.location[k], 'LINEAR'); insertKey(o, `rotation.${k}`, Number(frame), t.rotation[k], 'LINEAR'); }
+      }
+      delete o.cache.transform;
+      o.rigidBody = null;
+    }
+  },
+});
 register({ id: 'rigidbody.object_remove', en: 'Remove Rigid Body', ko: '강체 제거', poll: (ctx) => Boolean(activeObject(ctx.doc)?.rigidBody), exec: (ctx) => { activeObject(ctx.doc).rigidBody = null; } });
 register({ id: 'object.cloth_toggle', en: 'Cloth', ko: '천', poll: isMeshActive, exec: addTo('cloth', defaultCloth) });
 register({ id: 'object.softbody_toggle', en: 'Soft Body', ko: '소프트 바디', poll: isMeshActive, exec: addTo('softBody', defaultSoftBody) });
@@ -731,6 +878,7 @@ register({ id: 'ptcache.bake_all', en: 'Bake All Simulations', ko: '모든 시�
     for (const o of doc.objects) {
       if (o.cloth) bakeCloth(doc, o);
       else if (o.softBody) bakeSoftBody(doc, o);
+      for (const system of o.particles ?? []) if (system.kind !== 'HAIR') bakeParticles(doc, o, system);
     }
     for (const o of doc.objects) {
       if (o.smoke) bakeSmoke(doc, o);
@@ -744,6 +892,15 @@ const toggleOn = (key, make) => (ctx) => { const o = activeObject(ctx.doc); o[ke
 register({ id: 'object.smoke_domain_toggle', en: 'Smoke Domain', ko: '연기 도메인', poll: isMeshActive, exec: toggleOn('smoke', defaultSmokeDomain) });
 register({ id: 'object.smoke_flow_toggle', en: 'Smoke Flow', ko: '연기 흐름', poll: isMeshActive, exec: toggleOn('smokeFlow', defaultSmokeFlow) });
 register({ id: 'object.fluid_domain_toggle', en: 'Liquid Domain', ko: '액체 도메인', poll: isMeshActive, exec: toggleOn('fluid', defaultLiquidDomain) });
+register({ id: 'object.fluid_foam_material', en: 'Add Foam Material', ko: '거품 재질 추가', poll: (ctx) => Boolean(activeObject(ctx.doc)?.fluid),
+  exec: (ctx) => {
+    // Foam, spray and bubbles use the second slot: white and rough.
+    const o = activeObject(ctx.doc);
+    const foam = { ...defaultMaterial('Foam'), baseColor: [0.95, 0.97, 1], roughness: 0.6 };
+    ctx.doc.materials.push(foam);
+    if (!o.materials.length) o.materials.push(null);
+    o.materials[1] = foam.id;
+  } });
 register({ id: 'object.fluid_flow_toggle', en: 'Liquid Flow', ko: '액체 흐름', poll: isMeshActive, exec: toggleOn('fluidFlow', defaultLiquidFlow) });
 register({ id: 'object.dynamicpaint_toggle', en: 'Dynamic Paint', ko: '다이나믹 페인트', poll: isMeshActive, props: [choice('role', 'Role', '역할', 'CANVAS', ['CANVAS', 'BRUSH'])], exec: (ctx, p) => { const o = activeObject(ctx.doc); o.dynamicPaint = o.dynamicPaint?.role === p.role ? null : defaultDynamicPaint(p.role); clearSimCache(o.id); } });
 register({ id: 'object.mesh_from_data', en: 'Mesh from Data', ko: '데이터로 메시 만들기', category: 'add', poll: objectMode, props: [{ name: 'name', en: 'Name', ko: '이름', type: 'string', def: 'Mesh', hidden: true }, { name: 'verts', type: 'vec3list', def: [], hidden: true }, { name: 'faces', type: 'list', def: [], hidden: true }, { name: 'smooth', type: 'bool', def: false, hidden: true }],
@@ -764,6 +921,36 @@ const gpPoll = (ctx) => activeObject(ctx.doc)?.type === 'GPENCIL';
 register({ id: 'gpencil.layer_add', en: 'Add Layer', ko: '레이어 추가', poll: gpPoll, exec: (ctx) => { const d = activeObject(ctx.doc).data; d.layers.push({ name: `Layer ${d.layers.length + 1}`, hide: false, color: [0, 0, 0], strokes: [] }); d.activeLayer = d.layers.length - 1; } });
 register({ id: 'gpencil.stroke_add', en: 'Add Stroke', ko: '스트로크 추가', poll: gpPoll, props: [{ name: 'points', type: 'vec3list', def: [], hidden: true }, num('width', 'Width', '두께', 2, 0.1)],
   exec: (ctx, p) => { const d = activeObject(ctx.doc).data; if (p.points.length < 2) return 'CANCELLED'; d.layers[d.activeLayer].strokes.push({ points: p.points, width: p.width, frame: ctx.doc.frame }); return undefined; } });
+const gpLayer = (ctx) => { const d = activeObject(ctx.doc).data; return d.layers[d.activeLayer]; };
+register({ id: 'gpencil.layer_remove', en: 'Remove Layer', ko: '레이어 제거', poll: (ctx) => gpPoll(ctx) && activeObject(ctx.doc).data.layers.length > 1, exec: (ctx) => { const d = activeObject(ctx.doc).data; d.layers.splice(d.activeLayer, 1); d.activeLayer = Math.max(0, d.activeLayer - 1); } });
+register({ id: 'gpencil.stroke_smooth', en: 'Smooth Strokes', ko: '스트로크 부드럽게', poll: gpPoll, props: [num('factor', 'Factor', '정도', 0.5, 0, 1, 0.05), int('passes', 'Passes', '반복', 2, 1, 50)], exec: (ctx, p) => { for (const s of gpLayer(ctx).strokes) smoothStroke(s, p.factor, p.passes); } });
+register({ id: 'gpencil.stroke_simplify', en: 'Simplify Strokes', ko: '스트로크 단순화', poll: gpPoll, props: [num('tolerance', 'Tolerance', '허용 오차', 0.01, 0, undefined, 0.005)], exec: (ctx, p) => { for (const s of gpLayer(ctx).strokes) simplifyStroke(s, p.tolerance); } });
+register({ id: 'gpencil.stroke_subdivide', en: 'Subdivide Strokes', ko: '스트로크 세분', poll: gpPoll, exec: (ctx) => { for (const s of gpLayer(ctx).strokes) subdivideStroke(s); } });
+register({ id: 'gpencil.erase', en: 'Erase', ko: '지우기', poll: gpPoll, props: [{ name: 'points', type: 'vec3list', def: [], hidden: true }, num('radius', 'Radius', '반지름', 0.1, 0, undefined, 0.01)], exec: (ctx, p) => { let gone = 0; for (const point of p.points) gone += eraseAt(gpLayer(ctx), point, p.radius); if (!gone) return 'CANCELLED'; return undefined; } });
+register({ id: 'gpencil.convert', en: 'Convert to Mesh', ko: '메시로 변환', poll: gpPoll, exec: (ctx) => {
+  const source = activeObject(ctx.doc);
+  const mesh = gpencilToMesh(source.data, ctx.doc.frame);
+  if (!mesh.faces.length) return 'CANCELLED';
+  addOther(ctx, { type: 'MESH', name: `${source.name}.mesh`, data: mesh, location: [...source.location], rotation: [...source.rotation], scale: [...source.scale] });
+  return undefined;
+} });
+register({ id: 'gpencil.sculpt', en: 'Sculpt Strokes', ko: '스트로크 스컬프트', poll: gpPoll, props: [choice('tool', 'Tool', '도구', 'SMOOTH', GP_SCULPT_TOOLS), { name: 'points', type: 'vec3list', def: [], hidden: true }, num('radius', 'Radius', '반지름', 0.3, 0, undefined, 0.01), num('strength', 'Strength', '세기', 0.5, 0, 1, 0.05), vec('normal', 'View Axis', '시선 축', [0, 0, 1]), bool('invert', 'Invert', '반대로')],
+  exec: (ctx, p) => { const l = gpLayer(ctx); const moved = sculptStrokes(strokesAt(l, ctx.doc.frame), p.tool, p.points, p); return moved ? undefined : 'CANCELLED'; } });
+register({ id: 'gpencil.interpolate', en: 'Interpolate', ko: '보간', poll: gpPoll, props: [choice('easing', 'Easing', '가감속', 'LINEAR', GP_EASINGS)],
+  exec: (ctx, p) => (interpolateDrawing(gpLayer(ctx), ctx.doc.frame, p.easing)?.length ? undefined : 'CANCELLED') });
+register({ id: 'gpencil.interpolate_sequence', en: 'Interpolate Sequence', ko: '시퀀스 보간', poll: gpPoll, props: [choice('easing', 'Easing', '가감속', 'LINEAR', GP_EASINGS)],
+  exec: (ctx, p) => {
+    // Every frame between the drawings either side of the current one.
+    const l = gpLayer(ctx);
+    const { before, after } = neighbourDrawings(l, ctx.doc.frame);
+    if (before == null || after == null || after - before < 2) return 'CANCELLED';
+    for (let f = before + 1; f < after; f++) interpolateDrawing(l, f, p.easing);
+    return undefined;
+  } });
+register({ id: 'gpencil.modifier_add', en: 'Add Grease Pencil Modifier', ko: '그리스 펜슬 모디파이어 추가', poll: gpPoll, props: [choice('type', 'Type', '종류', 'THICKNESS', Object.keys(GP_MODIFIERS))],
+  exec: (ctx, p) => { (activeObject(ctx.doc).data.modifiers ??= []).push(createGPModifier(p.type)); } });
+register({ id: 'gpencil.modifier_remove', en: 'Remove Grease Pencil Modifier', ko: '그리스 펜슬 모디파이어 제거', poll: (ctx) => gpPoll(ctx) && (activeObject(ctx.doc).data.modifiers?.length ?? 0) > 0, props: [int('index', 'Index', '순서', 0, 0)],
+  exec: (ctx, p) => { const list = activeObject(ctx.doc).data.modifiers; if (!list[p.index]) return 'CANCELLED'; list.splice(p.index, 1); return undefined; } });
 register({ id: 'gpencil.clear', en: 'Clear Layer', ko: '레이어 지우기', poll: gpPoll, exec: (ctx) => { const d = activeObject(ctx.doc).data; d.layers[d.activeLayer].strokes = []; } });
 
 // ─────────────── scenes
@@ -807,7 +994,7 @@ register({ id: 'clip.solve', en: 'Solve Camera', ko: '카메라 풀기', icon: '
     const doc = ctx.doc;
     const clip = doc.clips.find((c) => c.id === p.clip) ?? doc.clips.find((c) => c.tracks?.length >= 4);
     const solve = solveCamera(clip.tracks);
-    clip.solve = { error: solve.error, frames: solve.frames };
+    clip.solve = { error: solve.error, frames: solve.frames, points: [], camera: [] };
     // Pixels become scene units: the points fit a box of about 4.
     const reach = Math.max(1e-6, ...solve.points.flat().map(Math.abs));
     const unit = 2 / reach;
@@ -815,6 +1002,7 @@ register({ id: 'clip.solve', en: 'Solve Camera', ko: '카메라 풀기', icon: '
     let collection = doc.collections.find((c) => c.name === 'Tracking');
     if (!collection) { collection = { id: newId('col'), name: 'Tracking', parent: 'col_root', hide: false, exclude: false }; doc.collections.push(collection); }
     for (const o of doc.objects.filter((x) => x.collection === collection.id)) removeObject(doc, o.id);
+    clip.solve.points = solve.points.map((point) => point.map((x) => x * unit));
     solve.points.forEach((point, i) => addObject(doc, { type: 'EMPTY', name: clip.tracks[i].name, collection: collection.id, location: point.map((x) => x * unit), data: { display: 'PLAIN_AXES', size: 0.1 } }));
     const camera = addObject(doc, { type: 'CAMERA', name: `${clip.name} Camera`, collection: collection.id, data: { ...defaultCamera(), kind: 'ORTHO', orthoScale: (clip.width / (solve.scales[0] || 1)) * unit } });
     const quaternion = new Quaternion();
@@ -823,6 +1011,7 @@ register({ id: 'clip.solve', en: 'Solve Camera', ko: '카메라 풀기', icon: '
       const rotation = rotationFromQuat(quaternion, 'XYZ');
       const back = new Vector3(0, 0, 8).applyQuaternion(quaternion);
       const frame = f + start;
+      clip.solve.camera.push({ frame, location: back.toArray(), quaternion: [...solve.rotations[i]] });
       for (let k = 0; k < 3; k++) {
         anim.insertKey(camera, `location.${k}`, frame, back.getComponent(k), 'LINEAR');
         anim.insertKey(camera, `rotation.${k}`, frame, rotation[k], 'LINEAR');

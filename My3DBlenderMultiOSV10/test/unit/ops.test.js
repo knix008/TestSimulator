@@ -1,3 +1,12 @@
+import * as svg from '../../src/core/svg.js';
+import * as usdscene from '../../src/core/usdscene.js';
+import * as abcscene from '../../src/core/abcscene.js';
+import * as daescene from '../../src/core/daescene.js';
+import * as gpencil from '../../src/core/gpencil.js';
+import * as fbxscene from '../../src/core/fbxscene.js';
+import * as blendscene from '../../src/core/blendscene.js';
+import * as rigid from '../../src/core/rigid.js';
+import * as usdc from '../../src/core/usdc.js';
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { activeObject, addObject, createDefaultScene, createDocument, deserialize, getObject, serialize, worldPosition } from '../../src/core/doc.js';
@@ -549,7 +558,7 @@ describe('scripting', () => {
 });
 
 describe('feature checklist', () => {
-  const modules = { addons, anim, armature, assets, blendfile, freestyle, osl, python, sequencer, tracking, keymap, nodes, nurbs, scenes, simulation, doc: doc2, formats, io, meshops, metaball, paint, pathtracer, physics, remesh, script, sculpt, unwrap };
+  const modules = { svg, abcscene, usdscene, daescene, fbxscene, blendscene, usdc, rigid, gpencil, addons, anim, armature, assets, blendfile, freestyle, osl, python, sequencer, tracking, keymap, nodes, nurbs, scenes, simulation, doc: doc2, formats, io, meshops, metaball, paint, pathtracer, physics, remesh, script, sculpt, unwrap };
   // Operators the UI layer registers (they need the screen or file dialogs).
   test('ids are unique and every entry is complete', () => {
     const ids = new Set();
@@ -560,10 +569,10 @@ describe('feature checklist', () => {
       assert.ok(['done', 'partial', 'planned'].includes(f.status), f.id);
     }
   });
-  test('partial features say what is missing', () => {
-    for (const f of FEATURES.filter((x) => x.status === 'partial')) {
-      if (f.id === 'phys.soft') continue;
-      assert.ok(f.note, `${f.id} needs a note`);
+  test('partial features list what is missing; done ones list nothing', () => {
+    for (const f of FEATURES) {
+      if (f.status === 'partial') assert.ok(f.missing?.length && f.missing.every((m) => typeof m === 'string' && m.length > 3), `${f.id} needs its missing parts`);
+      else assert.equal(f.missing, undefined, `${f.id} is ${f.status} but lists missing parts`);
     }
   });
   test('planned features claim no code', () => {

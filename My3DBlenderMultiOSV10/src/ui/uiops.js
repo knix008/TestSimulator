@@ -1,16 +1,29 @@
 // Operators that need the screen or the file system: open, save, import, export, render, images.
 import { activeObject, addObject, appendDocument, defaultMaterial, deserialize, evaluatedMesh, GEOMETRY_TYPES, createDefaultScene, getMaterial, isVisible, newId, selectOnly, serialize, worldMatrix, createDocument } from '../core/doc.js';
 import { Vector3 } from 'three';
-import { exportGLB, exportOBJ, exportPLY, exportSTLBinary, importGLB, importOBJ, importPLY, importSTL, importSVG } from '../core/io.js';
-import { exportABC, importABC } from '../core/alembic.js';
-import { exportDAE, exportFBX, exportUSDA, importDAE, importFBX, importUSDA } from '../core/formats.js';
+import { exportGLB, exportOBJ, exportPLYBinary, exportSTLBinary, importGLB, importOBJ, importPLYAny, importSTL } from '../core/io.js';
+import { importSVGScene } from '../core/svg.js';
+import { importABC } from '../core/alembic.js';
+import { exportABCScene, importABCScene } from '../core/abcscene.js';
+import { exportGLTFScene, importGLTFScene } from '../core/gltf.js';
+import { exportFBXScene, importFBXScene } from '../core/fbxscene.js';
+import { exportFBX, importDAE, importFBX, importUSDA } from '../core/formats.js';
+import { exportDAEScene, importDAEScene } from '../core/daescene.js';
+import { exportUSDScene, importUSDScene } from '../core/usdscene.js';
 import { importBlend } from '../core/blendfile.js';
-import { getOp, register, touch } from '../core/ops.js';
+import { importBlendScene } from '../core/blendscene.js';
+import { addTransformCache, getOp, register, touch } from '../core/ops.js';
 import { addStrip, createStrip } from '../core/sequencer.js';
 import { isTauri, invoke, openTextFile, readTextFile, saveBlobFile, saveTextFile } from '../platform/native.js';
 import { progressDialog, showError } from './dialogs.js';
 import { nameOf, t } from './i18n.js';
-import { decodeImages, renderPath, renderRealtime, renderSequence, resultToPng } from './render.js';
+import { decodeImages, renderPath, renderRealtime, renderSequence, resultToCanvas, resultToPng } from './render.js';
+import { createVideoWriter } from './video.js';
+import { BAKE_TYPES, bakeMap } from '../core/bake.js';
+import { catmullClark } from '../core/modifiers.js';
+import { multiresEvaluate } from '../core/remesh.js';
+import { encodePNG, encodePNGDataUrl } from '../core/paint.js';
+import { dynamicPaintImages } from '../core/simulation.js';
 
 const PROJECT_FILTER = [{ name: 'My3DBlender', extensions: ['my3d'] }];
 const RECENT_KEY = 'my3d.recent';
@@ -58,6 +71,14 @@ function exportList(app, onlySelected = false) {
 }
 
 /** Puts imported objects into the scene; each is selected. */
+/** What an import could not bring along is said, not hidden. */
+function reportLeftOut(app, made) {
+  if (!made.left?.length) return;
+  const text = t(`Left out: ${made.left.join('; ')}`, `가져오지 못한 것: ${made.left.join('; ')}`);
+  app.log(text, 'warning');
+  app.status(text, true);
+}
+
 function addImported(app, objects) {
   const doc = app.doc;
   const ids = [];
@@ -105,7 +126,7 @@ export function parseGeometry(name, bytes) {
   const text = () => new TextDecoder().decode(bytes);
   if (ext === 'obj') return importOBJ(text());
   if (ext === 'stl') return importSTL(bytes);
-  if (ext === 'ply') return importPLY(text());
+  if (ext === 'ply') return importPLYAny(bytes);
   if (ext === 'glb') return importGLB(bytes);
   if (ext === 'fbx') return importFBX(bytes);
   if (ext === 'dae') return importDAE(text());
@@ -122,7 +143,8 @@ function exportOp(id, en, ko, ext, make) {
       const app = ctx.app;
       const list = exportList(app, p.selected);
       if (!list.length) { app.status(t('Nothing to export', '내보낼 것이 없습니다'), true); return 'CANCELLED'; }
-      const data = make(list);
+      app.exportSelectedOnly = Boolean(p.selected);
+      const data = make(list, app);
       const blob = new Blob([data]);
       saveBlobFile(`${baseName(app)}.${ext}`, blob, [{ name: ext.toUpperCase(), extensions: [ext] }])
         .then((target) => { if (target) { app.log(t(`Exported ${target}`, `${target} 내보내기 완료`), 'report'); app.status(t(`Exported ${target}`, `내보내기 완료: ${target}`)); } })
@@ -139,9 +161,21 @@ function importOp(id, en, ko, extensions) {
     id, en, ko, icon: 'import', undo: false,
     exec: (ctx) => {
       const app = ctx.app;
-      pickBinary(extensions).then((file) => {
+      pickBinary(extensions).then(async (file) => {
         if (!file) return;
-        addImported(app, parseGeometry(file.name, file.bytes));
+        if (/\.(glb|gltf|fbx|blend|dae|usd|usda|usdc|usdz|abc)$/i.test(file.name)) {
+          // A whole scene: hierarchy, materials and textures, skins and animation.
+          const read = /\.fbx$/i.test(file.name) ? importFBXScene : /\.blend$/i.test(file.name) ? importBlendScene
+            : /\.dae$/i.test(file.name) ? (d, bytes) => importDAEScene(d, new TextDecoder().decode(bytes))
+              : /\.usd[acz]?$/i.test(file.name) ? importUSDScene : /\.abc$/i.test(file.name) ? importABCScene : importGLTFScene;
+          const made = read(app.doc, file.bytes);
+          reportLeftOut(app, made);
+          app.doc.selected = made.map((o) => o.id);
+          app.doc.activeId = made.at(-1)?.id ?? app.doc.activeId;
+          app.doc.mode = 'OBJECT';
+          app.images = await decodeImages(app.doc, app.images);
+          app.commit(t('Import', '가져오기'));
+        } else addImported(app, parseGeometry(file.name, file.bytes));
         app.log(t(`Imported ${file.name}`, `${file.name} 가져오기 완료`), 'report');
       }).catch((error) => showError(t('Could not import the file', '파일을 가져올 수 없습니다'), error?.message ?? error));
     },
@@ -220,7 +254,7 @@ export function registerUiOps(app) {
   importOp('import_scene.obj', 'Wavefront (.obj)', 'Wavefront (.obj)', ['obj']);
   importOp('import_mesh.stl', 'Stl (.stl)', 'Stl (.stl)', ['stl']);
   importOp('import_mesh.ply', 'Stanford PLY (.ply)', 'Stanford PLY (.ply)', ['ply']);
-  importOp('import_scene.gltf', 'glTF 2.0 (.glb)', 'glTF 2.0 (.glb)', ['glb']);
+  importOp('import_scene.gltf', 'glTF 2.0 (.glb, .gltf)', 'glTF 2.0 (.glb, .gltf)', ['glb', 'gltf']);
   importOp('import_scene.fbx', 'FBX (.fbx)', 'FBX (.fbx)', ['fbx']);
   importOp('wm.collada_import', 'Collada (.dae)', 'Collada (.dae)', ['dae']);
   register({
@@ -237,7 +271,7 @@ export function registerUiOps(app) {
     },
   });
   importOp('wm.alembic_import', 'Alembic (.abc)', 'Alembic (.abc)', ['abc']);
-  importOp('wm.usd_import', 'Universal Scene Description (.usda)', 'USD (.usda)', ['usda', 'usd']);
+  importOp('wm.usd_import', 'Universal Scene Description (.usd, .usda, .usdc, .usdz)', 'USD (.usd, .usda, .usdc, .usdz)', ['usd', 'usda', 'usdc', 'usdz']);
   importOp('import_scene.blend', 'Blender file (.blend)', 'Blender 파일 (.blend)', ['blend']);
   register({
     id: 'wm.append', en: 'Append...', ko: '추가 (Append)...', icon: 'import', undo: false,
@@ -247,9 +281,13 @@ export function registerUiOps(app) {
         const stem = file.name.replace(/\.[^.]+$/, '');
         const doc = app.doc;
         if (file.name.toLowerCase().endsWith('.blend')) {
-          const before = doc.collections.length;
-          addImported(app, importBlend(file.bytes));
-          void before;
+          const made = importBlendScene(doc, file.bytes);
+          doc.selected = made.map((o) => o.id);
+          doc.activeId = made.at(-1)?.id ?? doc.activeId;
+          doc.mode = 'OBJECT';
+          app.commit(t('Append', '추가'));
+          decodeImages(doc, app.images).then(() => app.invalidate());
+          reportLeftOut(app, made);
         } else {
           const added = appendDocument(doc, deserialize(new TextDecoder().decode(file.bytes)), { name: stem });
           doc.selected = added.map((o) => o.id);
@@ -263,26 +301,41 @@ export function registerUiOps(app) {
     },
   });
   register({
+    id: 'dpaint.output_images', en: 'Save Dynamic Paint Image Sequence', ko: '다이나믹 페인트 이미지 시퀀스 저장', icon: 'image', undo: false,
+    poll: (ctx) => activeObject(ctx.doc)?.dynamicPaint?.role === 'CANVAS',
+    exec: () => {
+      const obj = activeObject(app.doc);
+      const frames = [...dynamicPaintImages(obj, { map: 'paintmap' }), ...dynamicPaintImages(obj, { map: 'wetmap' })];
+      if (!frames.length) { app.status(t('Bake the canvas first; it needs UVs', '먼저 캔버스를 베이크하세요(UV가 필요합니다)'), true); return; }
+      (async () => {
+        for (const f of frames) await saveBlobFile(f.name, new Blob([encodePNG(f.image)], { type: 'image/png' }), [{ name: 'PNG', extensions: ['png'] }]);
+        app.log(t(`Saved ${frames.length} pictures`, `그림 ${frames.length}장 저장`), 'report');
+      })().catch((error) => showError(t('Could not save the pictures', '그림을 저장할 수 없습니다'), error?.message ?? error));
+    },
+  });
+  register({
     id: 'import_curve.svg', en: 'Scalable Vector Graphics (.svg)', ko: 'SVG (.svg)', icon: 'import', undo: false,
     exec: () => {
       pickBinary(['svg']).then((file) => {
         if (!file) return;
-        const splines = importSVG(new TextDecoder().decode(file.bytes));
-        if (!splines.length) { app.status(t('No paths in this SVG', '이 SVG에는 경로가 없습니다'), true); return; }
-        const obj = addObject(app.doc, { type: 'CURVE', name: file.name.replace(/\.svg$/i, ''), data: { splines, bevelDepth: 0, resolution: 12 } });
-        selectOnly(app.doc, obj);
+        const made = importSVGScene(app.doc, new TextDecoder().decode(file.bytes), { name: file.name });
+        if (!made.length) { app.status(t('No shapes in this SVG', '이 SVG에는 도형이 없습니다'), true); return; }
+        app.doc.selected = made.map((o) => o.id);
+        app.doc.activeId = made[made.length - 1].id;
         app.commit(t('Import SVG', 'SVG 가져오기'));
       }).catch((error) => showError(t('Could not import the file', '파일을 가져올 수 없습니다'), error?.message ?? error));
     },
   });
   exportOp('export_scene.obj', 'Wavefront (.obj)', 'Wavefront (.obj)', 'obj', (list) => exportOBJ(list));
   exportOp('export_mesh.stl', 'Stl (.stl)', 'Stl (.stl)', 'stl', (list) => exportSTLBinary(list));
-  exportOp('export_mesh.ply', 'Stanford PLY (.ply)', 'Stanford PLY (.ply)', 'ply', (list) => exportPLY(list));
-  exportOp('export_scene.gltf', 'glTF 2.0 (.glb)', 'glTF 2.0 (.glb)', 'glb', (list) => exportGLB(list));
-  exportOp('export_scene.fbx', 'FBX (.fbx)', 'FBX (.fbx)', 'fbx', (list) => exportFBX(list));
-  exportOp('wm.collada_export', 'Collada (.dae)', 'Collada (.dae)', 'dae', (list) => exportDAE(list));
-  exportOp('wm.alembic_export', 'Alembic (.abc)', 'Alembic (.abc)', 'abc', (list) => exportABC(list));
-  exportOp('wm.usd_export', 'Universal Scene Description (.usda)', 'USD (.usda)', 'usda', (list) => exportUSDA(list));
+  exportOp('export_mesh.ply', 'Stanford PLY (.ply)', 'Stanford PLY (.ply)', 'ply', (list) => exportPLYBinary(list));
+  exportOp('export_scene.gltf', 'glTF 2.0 (.glb)', 'glTF 2.0 (.glb)', 'glb', (list, app) => exportGLTFScene(app.doc, { selectedOnly: app.exportSelectedOnly }));
+  exportOp('export_scene.fbx', 'FBX (.fbx)', 'FBX (.fbx)', 'fbx', (list, app) => exportFBXScene(app.doc, { selectedOnly: app.exportSelectedOnly }));
+  exportOp('wm.collada_export', 'Collada (.dae)', 'Collada (.dae)', 'dae', (list, app) => exportDAEScene(app.doc, { selectedOnly: app.exportSelectedOnly }));
+  exportOp('wm.usdz_export', 'Universal Scene Description (.usdz)', 'USD (.usdz)', 'usdz', (list, app) => exportUSDScene(app.doc, { selectedOnly: app.exportSelectedOnly, usdz: true }));
+  exportOp('wm.alembic_export', 'Alembic (.abc)', 'Alembic (.abc)', 'abc', (list, app) => exportABCScene(app.doc, { selectedOnly: app.exportSelectedOnly }));
+  exportOp('wm.usd_export', 'Universal Scene Description (.usda)', 'USD (.usda)', 'usda', (list, app) => exportUSDScene(app.doc, { selectedOnly: app.exportSelectedOnly }));
+  exportOp('wm.usdc_export', 'Universal Scene Description, binary (.usdc)', 'USD 바이너리 (.usdc)', 'usdc', (list, app) => exportUSDScene(app.doc, { selectedOnly: app.exportSelectedOnly, usdc: true }));
 
   // Drop a file on the window: a project opens, geometry is imported.
   app.importDropped = async (file) => {
@@ -345,13 +398,21 @@ export function registerUiOps(app) {
         let cancelled = false;
         const dialog = progressDialog(t('Rendering animation', '애니메이션 렌더링'), () => { cancelled = true; });
         const saves = [];
+        const format = app.doc.render.movieFormat ?? 'PNG';
+        let writer = null;
         try {
+          if (format !== 'PNG') {
+            const r = app.doc.render;
+            const scale = (r.percent ?? 100) / 100;
+            writer = await createVideoWriter({ width: Math.max(2, Math.round(r.width * scale)), height: Math.max(2, Math.round(r.height * scale)), fps: app.doc.fps || 24, format });
+          }
           const finished = await renderSequence(app.doc, app.images, {
             isCancelled: () => cancelled,
             onProgress: (fraction, frame) => dialog.set(fraction, t(`Frame ${frame}`, `프레임 ${frame}`)),
             onFrame: async (frame, result) => {
               app.renderResult = result;
               app.invalidate();
+              if (writer) { await writer.add(await resultToCanvas(result)); return; }
               const blob = await resultToPng(result);
               const name = `${baseName(app)}_${String(frame).padStart(4, '0')}.png`;
               // The web build downloads each frame; the desktop asks for the first one's folder through the normal dialog.
@@ -359,12 +420,48 @@ export function registerUiOps(app) {
               await saves.at(-1);
             },
           });
+          if (writer && finished) {
+            dialog.set(1, t('Writing the video file', '영상 파일 쓰는 중'));
+            const video = await writer.finish();
+            if (video.fellBack) app.log(t(`MP4 could not be made, so this is AVI with JPEG pictures. ${video.problems.join('; ') || 'There is no video encoder here.'}`, `MP4를 만들 수 없어 JPEG AVI로 저장합니다. ${video.problems.join('; ') || '이 환경에는 영상 인코더가 없습니다.'}`), 'warning');
+            await saveBlobFile(`${baseName(app)}.${video.extension}`, video.blob, [{ name: video.extension.toUpperCase(), extensions: [video.extension] }]);
+          }
           app.status(finished ? t('Animation rendered', '애니메이션 렌더 완료') : t('Render cancelled', '렌더 취소됨'));
         } catch (error) {
           showError(t('The render failed', '렌더에 실패했습니다'), error?.message ?? error);
         } finally {
           dialog.close();
           app.invalidate();
+        }
+      })();
+    },
+  });
+  register({
+    id: 'object.bake', en: 'Bake', ko: '베이크', icon: 'render', poll: () => activeObject(app.doc)?.type === 'MESH',
+    props: [{ name: 'type', en: 'Type', ko: '종류', type: 'enum', def: 'DIFFUSE', options: BAKE_TYPES }, { name: 'size', en: 'Size', ko: '크기', type: 'int', def: 512, min: 8, max: 8192 }, { name: 'fromMultires', en: 'From Multiresolution', ko: '멀티레졸루션에서', type: 'bool', def: false }, { name: 'distance', en: 'Distance', ko: '거리', type: 'number', def: 0.5, min: 0.001, step: 0.05 }],
+    exec: (_, p) => {
+      (async () => {
+        const doc = app.doc;
+        const obj = activeObject(doc);
+        app.images = await decodeImages(doc, app.images);
+        try {
+          let high = null;
+          let low = null;
+          if (p.fromMultires) {
+            const mod = obj.modifiers.find((m) => m.type === 'MULTIRES');
+            if (!mod) throw new Error(t('This object has no Multiresolution modifier', '이 오브젝트에는 멀티레졸루션 모디파이어가 없습니다'));
+            // The detailed surface against the base mesh, whose UVs the picture uses.
+            high = multiresEvaluate(obj.data, { ...mod, levels: mod.total ?? mod.levels }, catmullClark);
+            low = obj.data;
+          }
+          const picture = bakeMap(doc, obj, { type: p.type, width: p.size, height: p.size, images: app.images, high, mesh: low, distance: p.distance });
+          const image = { id: `img_bake_${Date.now().toString(36)}`, name: `${obj.name}_${p.type}`, dataUrl: encodePNGDataUrl(picture) };
+          doc.images.push(image);
+          app.images = await decodeImages(doc, app.images);
+          app.commit(t('Bake', '베이크'));
+          app.status(t(`Baked ${image.name}`, `${image.name} 베이크 완료`));
+        } catch (error) {
+          showError(t('The bake failed', '베이크에 실패했습니다'), error?.message ?? error);
         }
       })();
     },
@@ -406,6 +503,20 @@ export function registerUiOps(app) {
       }).catch((error) => showError(t('Could not add the sound', '소리를 추가할 수 없습니다'), error?.message ?? error));
     },
   });
+  register({
+    id: 'cachefile.open', en: 'Open Cache File...', ko: '캐시 파일 열기...', icon: 'open', undo: false,
+    exec: () => {
+      pickBinary(['abc']).then((file) => {
+        if (!file) return;
+        app.addCacheFile(file.name, file.bytes);
+      }).catch((error) => showError(t('Could not open the cache file', '캐시 파일을 열 수 없습니다'), error?.message ?? error));
+    },
+  });
+  app.addCacheFile = (name, bytes) => {
+    const cache = addTransformCache(app.doc, name, bytes);
+    app.commit(t('Open Cache File', '캐시 파일 열기'));
+    return cache;
+  };
   register({
     id: 'clip.open', en: 'Open Clip...', ko: '클립 열기...', icon: 'open', undo: false,
     exec: () => {
@@ -482,7 +593,7 @@ export function fileMenuItems(app) {
     entry('wm.append'),
     { label: t('Samples...', '샘플...'), icon: 'open', testid: 'menu-samples', onClick: () => app.openSamples() },
     { label: t('Import', '가져오기'), icon: 'import', testid: 'menu-import', items: [entry('import_scene.blend'), entry('import_scene.fbx'), entry('import_scene.gltf'), entry('wm.usd_import'), entry('wm.alembic_import'), entry('wm.collada_import'), entry('import_scene.obj'), entry('import_mesh.stl'), entry('import_mesh.ply'), entry('import_curve.svg')] },
-    { label: t('Export', '내보내기'), icon: 'export', testid: 'menu-export', items: [entry('export_scene.fbx'), entry('export_scene.gltf'), entry('wm.usd_export'), entry('wm.alembic_export'), entry('wm.collada_export'), entry('export_scene.obj'), entry('export_mesh.stl'), entry('export_mesh.ply')] },
+    { label: t('Export', '내보내기'), icon: 'export', testid: 'menu-export', items: [entry('export_scene.fbx'), entry('export_scene.gltf'), entry('wm.usd_export'), entry('wm.usdc_export'), entry('wm.usdz_export'), entry('wm.alembic_export'), entry('wm.collada_export'), entry('export_scene.obj'), entry('export_mesh.stl'), entry('export_mesh.ply')] },
     null,
     { label: t('Quit', '끝내기'), testid: 'menu-quit', onClick: () => document.querySelector('[data-testid=win-close]')?.click() ?? window.close() },
   ];

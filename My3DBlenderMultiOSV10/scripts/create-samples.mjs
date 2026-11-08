@@ -820,7 +820,7 @@ print(len(field.points()), "columns")
     const edges = [[0, 1], [1, 2], [1, 3], [2, 4], [2, 5], [3, 6], [3, 7], [1, 8], [8, 9]];
     const mesh = { ...planeMesh(1), verts, faces: [], uvs: null, loose: edges, skin: { 0: 0.42, 1: 0.3, 2: 0.17, 3: 0.17, 4: 0.07, 5: 0.07, 6: 0.07, 7: 0.07, 8: 0.2, 9: 0.05 } };
     const tree = shape(ctx, 'Tree', mesh, { smooth: true, mat: material(ctx.doc, 'Bark', { baseColor: [0.32, 0.2, 0.11], roughness: 0.85 }) });
-    use(tree, 'SKIN', { radius: 0.1, resolution: 0.075, blend: 0.14 });
+    use(tree, 'SKIN', { method: 'SMOOTH', radius: 0.1, resolution: 0.075, blend: 0.14 });
     const leaf = material(ctx.doc, 'Leaves', { baseColor: [0.2, 0.5, 0.15], roughness: 0.8 });
     for (const [x, y, z, r] of [[1.6, 0.6, 3.4, 0.75], [0.6, -0.6, 3.7, 0.65], [-1.4, 0.3, 3.7, 0.75], [-0.4, -0.9, 3.8, 0.6], [0.2, 0.6, 4.5, 0.85]]) {
       const canopy = shape(ctx, 'Canopy', icoSphereMesh(3, r), { location: [x, y, z], smooth: true, mat: leaf });

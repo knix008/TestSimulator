@@ -447,9 +447,9 @@ describe('physics', () => {
     near(worldPosition(doc, box)[2], 0.5, 0.02);
   });
   test('restitution makes it bounce', () => {
-    const { doc, box } = dropScene();
+    const { box, doc, ground } = dropScene();
     box.rigidBody.restitution = 0.9;
-    doc.objects[0].rigidBody.restitution = 0.9;
+    ground.rigidBody.restitution = 0.9;
     bakeRigidBodies(doc);
     const heights = Object.values(box.cache.transform).map((t) => t.location[2]);
     const lowest = heights.indexOf(Math.min(...heights));

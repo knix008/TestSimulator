@@ -42,10 +42,9 @@ describe('documents', () => {
   });
   test('the guide does not claim formats the code lacks', () => {
     const guide = read('doc/UsersGuide.en.md');
-    // What is still missing is said so; each format it does claim has its reader in the code.
-    assert.match(guide, /Alembic is not supported yet/);
+    // Each format it claims has its reader in the code.
     const uiops = read('src/ui/uiops.js');
-    for (const [row, reader] of [['Blender (.blend)', 'importBlend'], ['FBX', 'importFBX'], ['USD (.usda)', 'importUSDA'], ['Collada (.dae)', 'importDAE']]) {
+    for (const [row, reader] of [['Blender (.blend)', 'importBlendScene'], ['FBX', 'importFBXScene'], ['USD (.usda, .usdc, .usdz)', 'importUSDA'], ['Alembic (.abc)', 'importABC'], ['Collada (.dae)', 'importDAE']]) {
       assert.ok(guide.includes(`| ${row} | Yes |`), row);
       assert.ok(uiops.includes(reader), reader);
     }

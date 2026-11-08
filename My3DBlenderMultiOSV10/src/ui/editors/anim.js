@@ -48,25 +48,46 @@ function createAnimEditor(app, el, area, kind) {
         obj.drivers.forEach((d, index) => list.push({ label: pathLabel(d.path), title: d.path, level: 1, target: obj, driver: d, index }));
         continue;
       }
-      const curves = Object.entries(obj.anim?.fcurves ?? {});
-      if (!curves.length) continue;
-      list.push({ label: obj.name, level: 0, group: true, target: obj, curves: curves.map(([, k]) => k) });
-      const groups = new Map();
-      for (const [path, keys] of curves) {
-        const name = pathGroupName(path);
-        if (!groups.has(name)) groups.set(name, []);
-        groups.get(name).push([path, keys]);
-      }
-      for (const [name, members] of groups) {
-        const key = `${obj.id}:${name}`;
-        const closed = Boolean(state.collapsed[key]);
-        list.push({ label: name, level: 1, group: true, foldKey: key, closed, target: obj, curves: members.map(([, k]) => k) });
-        if (!closed) for (const [path, keys] of members) list.push({ label: pathLabel(path), title: path, level: 2, target: obj, path, keys });
+      // An armature's bones are keyed on its data: their curves show under the object, grouped by bone.
+      for (const target of [obj, obj.type === 'ARMATURE' ? obj.data : null]) {
+        const curves = Object.entries(target?.anim?.fcurves ?? {});
+        if (!curves.length) continue;
+        const onData = target !== obj;
+        list.push({ label: onData ? `${obj.name} · ${t('Pose', '포즈')}` : obj.name, level: 0, group: true, target, curves: curves.map(([, k]) => k) });
+        const groups = new Map();
+        for (const [path, keys] of curves) {
+          const name = boneGroupName(target, path) ?? pathGroupName(path);
+          if (!groups.has(name)) groups.set(name, []);
+          groups.get(name).push([path, keys]);
+        }
+        for (const [name, members] of groups) {
+          const key = `${obj.id}:${onData ? 'data:' : ''}${name}`;
+          const closed = Boolean(state.collapsed[key]);
+          list.push({ label: name, level: 1, group: true, foldKey: key, closed, target, curves: members.map(([, k]) => k) });
+          if (!closed) for (const [path, keys] of members) list.push({ label: boneCurveLabel(path) ?? pathLabel(path), title: path, level: 2, target, path, keys });
+        }
       }
     }
     return list;
   };
   const allCurves = () => channels().filter((c) => c.keys);
+  /** 'bones.2.pose.rotation.0' reads as the bone's name, then X Rotation. */
+  const boneGroupName = (target, path) => { const m = /^bones\.(\d+)\.pose\./.exec(path); return m ? target.bones?.[Number(m[1])]?.name ?? null : null; };
+  const boneCurveLabel = (path) => { const m = /^bones\.\d+\.pose\.(location|rotation|scale)\.(\d)$/.exec(path); return m ? pathLabel(`${m[1]}.${m[2]}`) : null; };
+  /** The document's actions: save the current one, assign one, play one as a strip, or delete one. */
+  const actionMenu = () => {
+    const doc = app.doc;
+    return [
+      { label: t('Save as Action', '액션으로 저장'), disabled: !app.canRun('action.new'), testid: 'action-save', onClick: () => app.op('action.new', { name: activeObject(doc)?.type === 'ARMATURE' ? 'Pose' : 'Action' }) },
+      null,
+      ...(doc.actions ?? []).map((a, index) => ({ label: a.name, testid: `action-${index}`, items: [
+        { label: t('Assign', '지정'), testid: `action-assign-${index}`, disabled: !app.canRun('action.assign'), onClick: () => app.op('action.assign', { index }) },
+        { label: t('Add as Strip', '스트립으로 추가'), testid: `action-strip-${index}`, disabled: !app.canRun('action.strip_add'), onClick: () => app.op('action.strip_add', { index }) },
+        { label: t('Delete', '삭제'), testid: `action-delete-${index}`, onClick: () => app.op('action.remove', { index }) },
+      ] })),
+      ...((doc.actions ?? []).length ? [] : [{ label: t('No actions yet', '저장된 액션 없음'), disabled: true }]),
+    ];
+  };
 
   const frameX = (f, w) => left + ((f - state.start) / (state.end - state.start)) * (w - left);
   const xFrame = (x, w) => state.start + ((x - left) / (w - left)) * (state.end - state.start);
@@ -580,6 +601,7 @@ function createAnimEditor(app, el, area, kind) {
         { label: t('None', '해제'), shortcut: 'Alt A', onClick: () => { clearSelection(); redraw(); } },
         { label: t('Invert', '반전'), shortcut: 'Ctrl I', onClick: () => { for (const c of allCurves()) for (const k of c.keys) k.sel = !k.sel; redraw(); } },
       ], `menu-${kind}-select`)] : []),
+      ...(kind === 'dopesheet' || kind === 'nla' ? [menuTitle(t('Action', '액션'), actionMenu, `menu-${kind}-action`)] : []),
       menuTitle(t('Marker', '마커'), () => [{ label: t('Add Marker', '마커 추가'), onClick: () => app.op('marker.add') }, { label: t('Delete All Markers', '마커 모두 삭제'), disabled: !app.doc.markers.length, onClick: () => { app.doc.markers = []; app.changed('Delete Markers', true); } }], `menu-${kind}-marker`),
       ...(kind === 'nla' ? [h('button', { type: 'button', className: 'hdr-btn', dataset: { testid: 'nla-push' }, onClick: () => app.op('nla.push_down') }, t('Push Down', '내려놓기'))] : []),
       ...(modeButtons.length ? [h('span', { className: 'hdr-group' }, modeButtons)] : []),

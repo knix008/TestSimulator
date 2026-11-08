@@ -1,8 +1,9 @@
 // Interchange formats: FBX (binary and ASCII to read, binary to write), Collada (.dae) and USD text (.usda). Like io.js these
 // speak { name, mesh (world-space vertices, Z up), material? }, so a file's own node transforms are baked into the vertices.
+import { importUSDC } from './usdc.js';
 import { Euler, Matrix4, Quaternion, Vector3 } from 'three';
 import { createMesh } from './mesh.js';
-import { inflateZlib } from './inflate.js';
+import { inflateZlib, inflateRaw } from './inflate.js';
 
 const DEG = Math.PI / 180;
 const bake = (verts, m) => { const p = new Vector3(); return verts.map((v) => { p.set(v[0], v[1], v[2]).applyMatrix4(m); return [p.x, p.y, p.z]; }); };
@@ -25,10 +26,10 @@ function polygons(verts, counts, indices, cornerUvs = null) {
 
 // ─────────────── FBX reading
 
-const FBX_MAGIC = 'Kaydara FBX Binary  ';
+export const FBX_MAGIC = 'Kaydara FBX Binary  ';
 
 /** A parsed FBX node: { name, props: [values], children: [nodes] }. */
-function readFbxBinary(bytes) {
+export function readFbxBinary(bytes) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const version = view.getUint32(23, true);
   const wide = version >= 7500;
@@ -97,7 +98,7 @@ function readFbxBinary(bytes) {
   return root;
 }
 
-function readFbxAscii(text) {
+export function readFbxAscii(text) {
   let i = 0;
   const n = text.length;
   const space = () => {
@@ -257,7 +258,7 @@ export function importFBX(bytes) {
 
 // ─────────────── FBX writing (binary 7.4: what other programs read most reliably; their importers often refuse ASCII)
 
-class FbxWriter {
+export class FbxWriter {
   constructor() { this.chunks = []; this.size = 0; }
 
   raw(bytes) { this.chunks.push(bytes); this.size += bytes.length; }
@@ -270,6 +271,9 @@ class FbxWriter {
     if (p.kind === 'L') return pack('L', 8, (v) => v.setBigInt64(1, BigInt(p.value), true));
     if (p.kind === 'D') return pack('D', 8, (v) => v.setFloat64(1, p.value, true));
     if (p.kind === 'i') return pack('i', 12 + p.value.length * 4, (v) => { v.setUint32(1, p.value.length, true); v.setUint32(5, 0, true); v.setUint32(9, p.value.length * 4, true); p.value.forEach((x, k) => v.setInt32(13 + k * 4, x, true)); });
+    if (p.kind === 'l') return pack('l', 12 + p.value.length * 8, (v) => { v.setUint32(1, p.value.length, true); v.setUint32(5, 0, true); v.setUint32(9, p.value.length * 8, true); p.value.forEach((x, k) => v.setBigInt64(13 + k * 8, BigInt(x), true)); });
+    if (p.kind === 'f') return pack('f', 12 + p.value.length * 4, (v) => { v.setUint32(1, p.value.length, true); v.setUint32(5, 0, true); v.setUint32(9, p.value.length * 4, true); p.value.forEach((x, k) => v.setFloat32(13 + k * 4, x, true)); });
+    if (p.kind === 'R') return pack('R', 4 + p.value.length, (v, o) => { v.setUint32(1, p.value.length, true); o.set(p.value, 5); });
     if (p.kind === 'd') return pack('d', 12 + p.value.length * 8, (v) => { v.setUint32(1, p.value.length, true); v.setUint32(5, 0, true); v.setUint32(9, p.value.length * 8, true); p.value.forEach((x, k) => v.setFloat64(13 + k * 8, x, true)); });
     throw new Error('Bad FBX property');
   }
@@ -295,9 +299,26 @@ class FbxWriter {
 }
 FbxWriter.START = 27;
 
-const I = (value) => ({ kind: 'I', value });
-const L = (value) => ({ kind: 'L', value });
-const D = (value) => ({ kind: 'D', value });
+export const I = (value) => ({ kind: 'I', value });
+export const L = (value) => ({ kind: 'L', value });
+export const D = (value) => ({ kind: 'D', value });
+
+/** The file around what has been written: its header and footer. */
+export function finishFbx(w) {
+  w.raw(new Uint8Array(13));
+  const head = new Uint8Array(27);
+  head.set(new TextEncoder().encode(FBX_MAGIC), 0);
+  head[20] = 0; head[21] = 0x1a; head[22] = 0;
+  new DataView(head.buffer).setUint32(23, 7400, true);
+  const footer = new Uint8Array(16 + 16);
+  footer.set([0xfa, 0xbc, 0xab, 0x09, 0xd0, 0xc8, 0xd4, 0x66, 0xb1, 0x76, 0xfb, 0x83, 0x1c, 0xf7, 0x26, 0x7e], 0);
+  const out = new Uint8Array(27 + w.size + footer.length);
+  out.set(head, 0);
+  let o = 27;
+  for (const c of w.chunks) { out.set(c, o); o += c.length; }
+  out.set(footer, o);
+  return out;
+}
 
 export function exportFBX(objects) {
   const w = new FbxWriter();
@@ -371,19 +392,7 @@ export function exportFBX(objects) {
     for (const g of groups) w.node('C', ['OO', L(g.model), L(0)]);
     for (const [child, parent] of links) w.node('C', ['OO', L(child), L(parent)]);
   });
-  w.raw(new Uint8Array(13));
-  const head = new Uint8Array(27);
-  head.set(new TextEncoder().encode(FBX_MAGIC), 0);
-  head[20] = 0; head[21] = 0x1a; head[22] = 0;
-  new DataView(head.buffer).setUint32(23, 7400, true);
-  const footer = new Uint8Array(16 + 16);
-  footer.set([0xfa, 0xbc, 0xab, 0x09, 0xd0, 0xc8, 0xd4, 0x66, 0xb1, 0x76, 0xfb, 0x83, 0x1c, 0xf7, 0x26, 0x7e], 0);
-  const out = new Uint8Array(27 + w.size + footer.length);
-  out.set(head, 0);
-  let o = 27;
-  for (const c of w.chunks) { out.set(c, o); o += c.length; }
-  out.set(footer, o);
-  return out;
+  return finishFbx(w);
 }
 
 // ─────────────── a small XML reader (for Collada: no DOM in the core)
@@ -425,7 +434,7 @@ const xmlEscape = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').
 
 // ─────────────── Collada
 
-function daeGeometry(geometry) {
+export function daeGeometry(geometry) {
   const mesh = xmlFind(geometry, 'mesh');
   if (!mesh) return null;
   const sources = new Map();
@@ -480,7 +489,7 @@ function daeGeometry(geometry) {
   return polygons(verts, counts, flat, hasUv ? uv : null);
 }
 
-function daeNodeMatrix(node) {
+export function daeNodeMatrix(node) {
   const m = new Matrix4();
   for (const c of node.children) {
     if (c.name === 'matrix') { const n = numbers(c.text); m.multiply(new Matrix4().set(...n)); }
@@ -564,7 +573,49 @@ ${hasUv ? `<source id="${id}-uv"><float_array id="${id}-uv-a" count="${uv.length
 `;
 }
 
-// ─────────────── USD text (.usda). Binary .usdc and .usdz archives are told apart and refused with a clear message.
+// ─────────────── USD text (.usda). Binary .usdc goes to usdc.js; a .usdz is a plain zip around either.
+
+/** The files of a zip archive that are stored or deflated. */
+export function readZipEntries(data) {
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const out = [];
+  let at = 0;
+  while (at + 30 <= data.length && view.getUint32(at, true) === 0x04034b50) {
+    const [method, packed, nameLength, extraLength] = [view.getUint16(at + 8, true), view.getUint32(at + 18, true), view.getUint16(at + 26, true), view.getUint16(at + 28, true)];
+    const name = new TextDecoder().decode(data.subarray(at + 30, at + 30 + nameLength));
+    const start = at + 30 + nameLength + extraLength;
+    const body = data.subarray(start, start + packed);
+    out.push({ name, bytes: method === 0 ? body : method === 8 ? inflateRaw(body) : new Uint8Array(0) });
+    at = start + packed;
+  }
+  return out;
+}
+
+/** A .usdz: an uncompressed zip whose files start on 64 byte boundaries, as the format asks. */
+export function exportUSDZ(objects) {
+  const name = 'scene.usda';
+  const body = new TextEncoder().encode(exportUSDA(objects));
+  const nameBytes = new TextEncoder().encode(name);
+  let crc = 0xffffffff;
+  for (const b of body) { crc ^= b; for (let k = 0; k < 8; k++) crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1; }
+  crc = (crc ^ 0xffffffff) >>> 0;
+  const padding = (64 - ((30 + nameBytes.length + 4) % 64)) % 64;
+  const extraLength = 4 + padding;
+  const localSize = 30 + nameBytes.length + extraLength;
+  const centralSize = 46 + nameBytes.length;
+  const out = new Uint8Array(localSize + body.length + centralSize + 22);
+  const v = new DataView(out.buffer);
+  v.setUint32(0, 0x04034b50, true); v.setUint16(4, 20, true); v.setUint32(14, crc, true); v.setUint32(18, body.length, true); v.setUint32(22, body.length, true); v.setUint16(26, nameBytes.length, true); v.setUint16(28, extraLength, true);
+  out.set(nameBytes, 30);
+  v.setUint16(30 + nameBytes.length, 0x1986, true); v.setUint16(32 + nameBytes.length, padding, true);
+  out.set(body, localSize);
+  const c = localSize + body.length;
+  v.setUint32(c, 0x02014b50, true); v.setUint16(c + 4, 20, true); v.setUint16(c + 6, 20, true); v.setUint32(c + 16, crc, true); v.setUint32(c + 20, body.length, true); v.setUint32(c + 24, body.length, true); v.setUint16(c + 28, nameBytes.length, true);
+  out.set(nameBytes, c + 46);
+  const e = c + centralSize;
+  v.setUint32(e, 0x06054b50, true); v.setUint16(e + 8, 1, true); v.setUint16(e + 10, 1, true); v.setUint32(e + 12, centralSize, true); v.setUint32(e + 16, c, true);
+  return out;
+}
 
 export function exportUSDA(objects) {
   const prim = (s) => { const t = String(s).replace(/\W/g, '_'); return /^[a-zA-Z_]/.test(t) ? t : `_${t}`; };
@@ -599,8 +650,12 @@ const usdArray = (text) => {
 export function importUSDA(bytes) {
   const data = bytes instanceof Uint8Array ? bytes : new TextEncoder().encode(bytes);
   const head = new TextDecoder().decode(data.subarray(0, 8));
-  if (head.startsWith('PXR-USDC')) throw new Error('This is a binary .usdc file. Only USD text (.usda) can be read for now: re-save it as .usda.');
-  if (head.startsWith('PK')) throw new Error('This is a .usdz archive. Only USD text (.usda) can be read for now: unpack it, or re-save it as .usda.');
+  if (head.startsWith('PXR-USDC')) return importUSDC(data);
+  if (head.startsWith('PK')) {
+    const entry = readZipEntries(data).find((e) => /\.usd[ac]?$/i.test(e.name));
+    if (!entry) throw new Error('This .usdz holds no USD file');
+    return importUSDA(entry.bytes);
+  }
   if (!head.startsWith('#usda')) throw new Error('Not a USD text file');
   const text = new TextDecoder().decode(data);
   const headerEnd = text.indexOf('def ') >= 0 ? text.indexOf('def ') : 0;

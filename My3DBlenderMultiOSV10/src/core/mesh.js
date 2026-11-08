@@ -193,6 +193,7 @@ export function toTriangles(mesh) {
   const colors = mesh.colors ? [] : null;
   const triFace = [];
   const triMat = [];
+  const cornerVerts = [];
   mesh.faces.forEach((face, f) => {
     const fn = vn ? null : faceNormal(mesh, face);
     for (const t of triangulateFace(mesh, face)) {
@@ -200,6 +201,7 @@ export function toTriangles(mesh) {
         const i = face[corner];
         const p = mesh.verts[i];
         positions.push(p[0], p[1], p[2]);
+        cornerVerts.push(i);
         const n = corners?.[f]?.[corner] ?? (vn ? vn[i] : fn);
         normals.push(n[0], n[1], n[2]);
         const uv = mesh.uvs?.[f]?.[corner];
@@ -210,7 +212,7 @@ export function toTriangles(mesh) {
       triMat.push(mesh.faceMat?.[f] ?? 0);
     }
   });
-  return { positions, normals, uvs, colors, triFace, triMat };
+  return { positions, normals, uvs, colors, triFace, triMat, corners: cornerVerts };
 }
 
 // ─────────────── edge marks and split normals

@@ -483,3 +483,68 @@ export function keyFrames(target) {
   for (const keys of Object.values(target.anim?.fcurves ?? {})) for (const k of keys) set.add(k.f);
   return [...set].sort((a, b) => a - b);
 }
+
+// ─────────────── the action library: named actions a document keeps, to assign, lay into the NLA or read through an Action constraint
+
+const copyCurves = (curves) => JSON.parse(JSON.stringify(curves ?? {}));
+
+/** Stores a target's current curves as a new action in the document. `bones`: an armature's bone names, so that the action finds them by name. */
+export function storeAction(doc, target, name = 'Action', bones = null) {
+  doc.actions ??= [];
+  const taken = new Set(doc.actions.map((a) => a.name));
+  let unique = name;
+  for (let i = 1; taken.has(unique); i++) unique = `${name}.${String(i).padStart(3, '0')}`;
+  const action = { id: `act${Date.now().toString(36)}${doc.actions.length}`, name: unique, fcurves: copyCurves(target.anim?.fcurves), bones: bones ? [...bones] : null };
+  doc.actions.push(action);
+  return action;
+}
+
+/** The frames an action's keys span. */
+export function actionRange(action) {
+  const frames = Object.values(action?.fcurves ?? {}).flat().map((k) => k.f);
+  return frames.length ? [Math.min(...frames), Math.max(...frames)] : [1, 1];
+}
+
+/** Makes an action the target's own curves (a copy: the library keeps its version). An armature's bones are matched by name. */
+export function assignAction(target, action, bones = null) {
+  target.anim ??= { fcurves: {}, nla: [] };
+  target.anim.fcurves = remapBones(copyCurves(action.fcurves), action.bones, bones);
+}
+
+/** An NLA strip playing a library action from `start`. `prefix` ('data.') lets an armature object's strip move its bones. */
+export function addActionStrip(target, action, start, bones = null, prefix = '') {
+  const [from, to] = actionRange(action);
+  const curves = remapBones(copyCurves(action.fcurves), action.bones, bones);
+  const strip = { name: action.name, action: Object.fromEntries(Object.entries(curves).map(([path, keys]) => [`${prefix}${path}`, keys])), start, end: start + (to - from), actionStart: from, scale: 1, influence: 1, blend: 'REPLACE', mute: false, source: action.id };
+  target.anim ??= { fcurves: {}, nla: [] };
+  (target.anim.nla ??= []).push(strip);
+  return strip;
+}
+
+/** Paths 'bones.N.…' renumbered from one list of bone names to another; curves for bones the other list lacks are dropped. */
+function remapBones(curves, from, to) {
+  if (!from || !to) return curves;
+  const out = {};
+  for (const [path, keys] of Object.entries(curves)) {
+    const m = /^bones\.(\d+)\.(.*)$/.exec(path);
+    if (!m) { out[path] = keys; continue; }
+    const index = to.indexOf(from[Number(m[1])]);
+    if (index >= 0) out[`bones.${index}.${m[2]}`] = keys;
+  }
+  return out;
+}
+
+/** One bone's pose from an action at a frame, or null when the action does not move it. Channels it lacks stay at rest. */
+export function actionBonePose(action, boneName, boneIndex, frame) {
+  const index = action.bones ? action.bones.indexOf(boneName) : boneIndex;
+  if (index < 0) return null;
+  const pose = { location: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] };
+  let found = false;
+  for (const name of ['location', 'rotation', 'scale']) for (let k = 0; k < 3; k++) {
+    const path = `bones.${index}.pose.${name}.${k}`;
+    if (!action.fcurves?.[path]?.length) continue;
+    pose[name][k] = evalFCurve(action, path, frame);
+    found = true;
+  }
+  return found ? pose : null;
+}

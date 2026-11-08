@@ -238,8 +238,16 @@ function parse(source) {
     }
   };
   const AUG = new Set(['+=', '-=', '*=', '/=', '//=', '%=', '**=', '>>=', '<<=', '&=', '|=', '^=']);
+  // yield, yield from: a statement, the right side of an assignment, or in brackets.
+  const yieldExpr = () => {
+    expect('yield');
+    if (accept('from')) return { k: 'YieldFrom', value: expression() };
+    if (is('NEWLINE') || is(')') || is(';') || is('=')) return { k: 'Yield', value: null };
+    return { k: 'Yield', value: testList() };
+  };
+  const valueList = () => (is('yield') ? yieldExpr() : testList());
   const exprStatement = (with_) => {
-    const first = testList();
+    const first = valueList();
     if (is(':') ) {
       // An annotated name: x: int = 3
       p++;
@@ -247,11 +255,11 @@ function parse(source) {
       const value = accept('=') ? testList() : null;
       return with_({ k: 'AnnAssign', target: first, annotation, value });
     }
-    if (AUG.has(tokens[p].t)) { const op = tokens[p++].t.slice(0, -1); return with_({ k: 'AugAssign', target: first, op, value: testList() }); }
+    if (AUG.has(tokens[p].t)) { const op = tokens[p++].t.slice(0, -1); return with_({ k: 'AugAssign', target: first, op, value: valueList() }); }
     if (is('=')) {
       const targets = [first];
       let value = null;
-      while (accept('=')) { value = testList(); targets.push(value); }
+      while (accept('=')) { value = valueList(); targets.push(value); }
       targets.pop();
       return with_({ k: 'Assign', targets, value });
     }
@@ -264,7 +272,8 @@ function parse(source) {
     const params = parameters(')');
     expect(')');
     if (accept('->')) expression();
-    return { k: 'Def', name, params, body: block() };
+    const body = block();
+    return { k: 'Def', name, params, body, generator: markYields(body) };
   };
   const parameters = (end) => {
     const params = [];
@@ -457,6 +466,7 @@ function parse(source) {
       case '(': {
         p++;
         if (accept(')')) return { k: 'Tuple', elts: [] };
+        if (is('yield')) { const y = yieldExpr(); expect(')'); return y; }
         const first = star();
         if (is('for')) { const c = comprehension('Gen', first); expect(')'); return c; }
         if (!is(',')) { expect(')'); return first; }
@@ -565,6 +575,44 @@ class PyInstance {
 class PyFunction {
   constructor(name, params, body, scope, interp, isLambda = false) { this.name = name; this.params = params; this.body = body; this.scope = scope; this.interp = interp; this.isLambda = isLambda; }
 }
+
+// ─────────────── generators
+// A function with yield in it runs on a JavaScript generator: statements that hold a yield run through statementG,
+// the rest as usual. yield stands as a statement, on the right of an assignment, or in brackets there.
+const STATEMENTS = new Set(['Expr', 'Assign', 'AnnAssign', 'AugAssign', 'If', 'While', 'For', 'Try', 'With', 'Return', 'Assert', 'Raise', 'Del']);
+function scanYields(node) {
+  if (!node || typeof node !== 'object') return false;
+  if (Array.isArray(node)) { let any = false; for (const x of node) if (scanYields(x)) any = true; return any; }
+  if (node.k === 'Yield' || node.k === 'YieldFrom') { scanYields(node.value); return true; }
+  if (node.k === 'Def' || node.k === 'Class' || node.k === 'Lambda') return false;
+  let any = false;
+  for (const [key, v] of Object.entries(node)) if (key !== 'line' && key !== 'y' && scanYields(v)) any = true;
+  if (any && STATEMENTS.has(node.k)) node.y = true;
+  return any;
+}
+/** Marks the statements of a function body that hold a yield; true when there is one (the function is a generator). */
+function markYields(body) { return scanYields(body); }
+
+class PyGenerator {
+  constructor(interp, fn, scope) { this.interp = interp; this.name = fn.name; this.it = interp.execG(fn.body, scope); this.done = false; this.running = false; }
+  /** Runs to the next yield: { done, value }; a return's value comes with done. */
+  resume(sent = null, mode = 'next', error = null) {
+    if (this.done) { if (mode === 'throw') throw error; return { done: true, value: null }; }
+    if (this.running) raise('ValueError', 'generator already executing');
+    this.running = true;
+    try {
+      const r = mode === 'throw' ? this.it.throw(error) : mode === 'close' ? this.it.return(null) : this.it.next(sent);
+      if (r.done) { this.done = true; return { done: true, value: null }; }
+      return r;
+    } catch (e) {
+      this.done = true;
+      if (e instanceof ReturnSignal) return { done: true, value: e.value };
+      throw e;
+    } finally { this.running = false; }
+  }
+  __next() { return this.resume(null); }
+  *[Symbol.iterator]() { for (;;) { const r = this.resume(null); if (r.done) return; yield r.value; } }
+}
 class BoundMethod {
   constructor(self, fn) { this.self = self; this.fn = fn; }
 }
@@ -578,7 +626,7 @@ const BaseException = base('BaseException');
 const Exception_ = base('Exception', BaseException);
 const makeError = (name, parent = Exception_) => base(name, parent);
 const ERRORS = { BaseException, Exception: Exception_ };
-for (const [name, parent] of [['TypeError'], ['ValueError'], ['NameError'], ['AttributeError'], ['ArithmeticError'], ['LookupError'], ['RuntimeError'], ['ImportError'], ['StopIteration'], ['AssertionError'], ['NotImplementedError', 'RuntimeError'], ['ZeroDivisionError', 'ArithmeticError'], ['OverflowError', 'ArithmeticError'], ['KeyError', 'LookupError'], ['IndexError', 'LookupError'], ['ModuleNotFoundError', 'ImportError'], ['RecursionError', 'RuntimeError'], ['TimeoutError', 'RuntimeError']]) ERRORS[name] = makeError(name, parent ? ERRORS[parent] : Exception_);
+for (const [name, parent] of [['TypeError'], ['ValueError'], ['NameError'], ['AttributeError'], ['ArithmeticError'], ['LookupError'], ['RuntimeError'], ['ImportError'], ['StopIteration'], ['AssertionError'], ['NotImplementedError', 'RuntimeError'], ['ZeroDivisionError', 'ArithmeticError'], ['OverflowError', 'ArithmeticError'], ['KeyError', 'LookupError'], ['IndexError', 'LookupError'], ['ModuleNotFoundError', 'ImportError'], ['RecursionError', 'RuntimeError'], ['TimeoutError', 'RuntimeError'], ['SyntaxError']]) ERRORS[name] = makeError(name, parent ? ERRORS[parent] : Exception_);
 
 /** A raised Python exception travelling through the interpreter. */
 class PyRaise {
@@ -612,6 +660,7 @@ const typeName = (v) => {
   if (v instanceof PyClass) return 'type';
   if (v instanceof PyFunction || v instanceof Native || typeof v === 'function') return 'function';
   if (v instanceof BoundMethod) return 'method';
+  if (v instanceof PyGenerator) return 'generator';
   return 'object';
 };
 
@@ -661,6 +710,7 @@ function str(interp, v, asRepr = false) {
   }
   if (v instanceof PyClass) return `<class '${v.name}'>`;
   if (v instanceof PyFunction) return `<function ${v.name}>`;
+  if (v instanceof PyGenerator) return `<generator object ${v.name}>`;
   if (v instanceof Native || typeof v === 'function') return `<built-in function ${v.name ?? ''}>`;
   if (v instanceof BoundMethod) return '<bound method>';
   if (v.name !== undefined && v.type !== undefined) return `<${v.type} ${v.name}>`;
@@ -741,6 +791,106 @@ class Interpreter {
     }
   }
 
+  /** A generator's body: like exec, but the statements that hold a yield pass it out. */
+  *execG(list, scope) {
+    for (const node of list) {
+      this.line = node.line ?? this.line;
+      if (++this.steps > MAX_STEPS) raise('TimeoutError', 'The script ran too long and was stopped');
+      if (node.y) yield* this.statementG(node, scope);
+      else this.statement(node, scope);
+    }
+  }
+
+  /** The value of a yield (what send() gave back) or of a yield from (what the inner generator returned). */
+  *yieldValue(node, scope) {
+    if (node.k === 'Yield') { const sent = yield (node.value ? this.eval(node.value, scope) : null); return sent ?? null; }
+    if (node.k === 'YieldFrom') {
+      const source = this.eval(node.value, scope);
+      if (source instanceof PyGenerator) {
+        let r = source.resume(null);
+        while (!r.done) { const sent = yield r.value; r = source.resume(sent ?? null); }
+        return r.value;
+      }
+      for (const x of this.iterate(source)) yield x;
+      return null;
+    }
+    return raise('SyntaxError', 'yield is supported as a statement, on the right of an assignment or in brackets there, not inside a larger expression');
+  }
+
+  *statementG(n, scope) {
+    switch (n.k) {
+      case 'Expr': yield* this.yieldValue(n.value, scope); return;
+      case 'Assign': { const v = yield* this.yieldValue(n.value, scope); for (const t of n.targets) this.assign(t, v, scope); return; }
+      case 'AnnAssign': { const v = yield* this.yieldValue(n.value, scope); this.assign(n.target, v, scope); return; }
+      case 'AugAssign': { const current = this.eval(n.target, scope); const right = yield* this.yieldValue(n.value, scope); this.assign(n.target, this.binary(n.op, current, right), scope); return; }
+      case 'If': { if (truthy(this, this.eval(n.test, scope))) yield* this.execG(n.body, scope); else yield* this.execG(n.orelse, scope); return; }
+      case 'While': {
+        let broken = false;
+        while (truthy(this, this.eval(n.test, scope))) {
+          if (++this.steps > MAX_STEPS) raise('TimeoutError', 'The script ran too long and was stopped');
+          try { yield* this.execG(n.body, scope); } catch (e) { if (e instanceof BreakSignal) { broken = true; break; } if (!(e instanceof ContinueSignal)) throw e; }
+        }
+        if (!broken) yield* this.execG(n.orelse, scope);
+        return;
+      }
+      case 'For': {
+        let broken = false;
+        for (const item of this.iterate(this.eval(n.iter, scope))) {
+          if (++this.steps > MAX_STEPS) raise('TimeoutError', 'The script ran too long and was stopped');
+          this.assign(n.target, item, scope);
+          try { yield* this.execG(n.body, scope); } catch (e) { if (e instanceof BreakSignal) { broken = true; break; } if (!(e instanceof ContinueSignal)) throw e; }
+        }
+        if (!broken) yield* this.execG(n.orelse, scope);
+        return;
+      }
+      case 'With': {
+        const entered = n.items.map((it) => {
+          const manager = this.eval(it.e, scope);
+          const value = this.call(this.getAttr(manager, '__enter__'), []);
+          if (it.as) this.assign(it.as, value, scope);
+          return manager;
+        });
+        try { yield* this.execG(n.body, scope); } finally { for (const m of entered.reverse()) this.call(this.getAttr(m, '__exit__'), [null, null, null]); }
+        return;
+      }
+      case 'Try': {
+        let pending = null;
+        // Closing the generator unwinds it without coming back here: the finally block then runs in the unwinding.
+        let finished = false;
+        try {
+          try {
+            yield* this.execG(n.body, scope);
+            yield* this.execG(n.orelse, scope);
+          } catch (raw) {
+          const e = raw instanceof PyRaise ? raw : this.wrapError(raw);
+          if (!e) pending = raw;
+          else {
+            let handled = false;
+            for (const h of n.handlers) {
+              if (!this.matches(e.instance, h.type ? this.eval(h.type, scope) : null)) continue;
+              handled = true;
+              if (h.name) this.setName(h.name, e.instance, scope);
+              const prior = this.handling;
+              this.handling = e;
+              try { yield* this.execG(h.body, scope); } catch (inner) { pending = inner; } finally { this.handling = prior; }
+              break;
+            }
+            if (!handled) pending = e;
+          }
+          }
+          finished = true;
+        } finally {
+          if (!finished) this.exec(n.finalbody, scope);
+        }
+        yield* this.execG(n.finalbody, scope);
+        if (pending) throw pending;
+        return;
+      }
+      case 'Return': throw new ReturnSignal(n.value ? yield* this.yieldValue(n.value, scope) : null);
+      default: return raise('SyntaxError', `yield cannot stand in a ${n.k} statement here`);
+    }
+  }
+
   statement(n, scope) {
     switch (n.k) {
       case 'Expr': this.eval(n.value, scope); return;
@@ -792,6 +942,7 @@ class Interpreter {
       case 'Return': throw new ReturnSignal(n.value ? this.eval(n.value, scope) : null);
       case 'Def': {
         let fn = new PyFunction(n.name, this.params(n.params, scope), n.body, scope, this);
+        fn.generator = Boolean(n.generator);
         for (const d of [...(n.decorators ?? [])].reverse()) fn = this.call(this.eval(d, scope), [fn]);
         this.setName(n.name, fn, scope);
         return;
@@ -1003,6 +1154,7 @@ class Interpreter {
         }
         return this.call(fn, args, kwargs);
       }
+      case 'Yield': case 'YieldFrom': return raise('SyntaxError', 'yield is supported as a statement, on the right of an assignment or in brackets there, not inside a larger expression');
       case 'Lambda': return new PyFunction('<lambda>', this.params(n.params, scope), n.body, scope, this, true);
       case 'ListComp': return this.comprehend(n, scope, 'list');
       case 'Gen': return this.comprehend(n, scope, 'list');
@@ -1220,6 +1372,15 @@ class Interpreter {
 
   getAttr(o, name) {
     if (o === null || o === undefined) raise('AttributeError', `'NoneType' object has no attribute '${name}'`);
+    if (o instanceof PyGenerator) {
+      const step = (r) => { if (r.done) { const inst = new PyInstance(ERRORS.StopIteration); inst.attrs.set('args', tuple([r.value])); inst.attrs.set('value', r.value); throw new PyRaise(inst, this.line); } return r.value; };
+      if (name === 'send') return native('send', ([v]) => step(o.resume(v ?? null)));
+      if (name === '__next__') return native('__next__', () => step(o.resume(null)));
+      if (name === '__iter__') return native('__iter__', () => o);
+      if (name === 'close') return native('close', () => { o.resume(null, 'close'); return null; });
+      if (name === 'throw') return native('throw', ([e]) => step(o.resume(null, 'throw', new PyRaise(e instanceof PyClass ? this.call(e, []) : e, this.line))));
+      raise('AttributeError', `'generator' object has no attribute '${name}'`);
+    }
     if (o instanceof PyInstance) {
       if (o.attrs.has(name)) return o.attrs.get(name);
       if (name === '__class__') return o.cls;
@@ -1307,6 +1468,7 @@ class Interpreter {
     }
     if (i < args.length) raise('TypeError', `${fn.name}() takes ${fn.params.filter((p) => !p.star && !p.dstar).length} positional arguments but ${args.length} were given`);
     if (rest.size) raise('TypeError', `${fn.name}() got an unexpected keyword argument '${[...rest.keys()][0]}'`);
+    if (fn.generator) { this.depth--; return new PyGenerator(this, fn, scope); }
     try {
       if (fn.isLambda) return this.eval(fn.body, scope);
       this.exec(fn.body, scope);

@@ -1,0 +1,746 @@
+// Which tests prove each entry of the feature checklist (src/core/features.js). `npm run test:features` runs them and reports,
+// feature by feature, whether everything it names passed; test/unit/features.test.js checks that every feature has tests here
+// and that every test named here exists.
+//   '<unit file> › <test title>'   a test in test/unit/<unit file>.test.js
+//   'web › <test title>'           a case of the web E2E (test/e2e/web.mjs)
+// A title written as a template (${…}) stands for every test it makes.
+export const FEATURE_TESTS = {
+  'ui.areas': [
+    'web › areas: split, join, and the divider drags',
+    'web › Ctrl+Space maximizes the area under the mouse and restores it',
+  ],
+  'ui.editor_types': [
+    'web › every editor type can be switched in; each draws without error',
+    'web › a sample of all 14 editors stays free of errors after heavy document changes',
+  ],
+  'ui.workspaces': [
+    'web › every workspace builds its editors, draws and shows no error',
+    'web › workspaces switch the mode: Modeling edits, Sculpting sculpts',
+    'web › Interface: workspaces on their own row with icons, active area outlined, nothing clipped',
+  ],
+  'ui.search': [
+    'web › operator search (F3) finds and runs an operator',
+  ],
+  'ui.adjust_last': [
+    'ops › adjust last re-runs from the state before it',
+    'web › Adjust Last Operation changes the result in place',
+  ],
+  'ui.undo': [
+    'scene › undo and redo restore the document; a new edit drops the redo branch',
+    'scene › the limit drops the oldest; jump goes to any entry',
+    'ops › every step comes back',
+    'web › Edit menu: undo history lists the steps and jumps',
+  ],
+  'ui.themes': [
+    'docs › the default theme exists, every theme fills every variable, names in both languages',
+    'web › themes: the list picks one, the palette button steps, colours really change',
+    'web › Theme menu: two columns side by side, dark and light, each one theme per line',
+  ],
+  'ui.i18n': [
+    'ops › every operator has names in both languages and a valid id',
+    'ops › every visible operator property has names in both languages',
+    'web › language button switches the interface to Korean and back',
+  ],
+  'ui.preferences': [
+    'web › preferences and about open and close; preferences change the undo limit',
+    'web › Preferences: the settings really work: right-drag, speeds, wheel direction, grid, axis widget, left drag',
+    'web › Preferences: the settings button is a gear; every page shows all of itself without a scroll bar',
+  ],
+  'ui.keymap_edit': [
+    'workflow › a changed key runs its operator, and the old one no longer does',
+    'workflow › menus show the new key; reset brings the default back',
+    'workflow › conflicts are found',
+    'web › Keymap editor: a new key runs the operator, the old one stops, reset brings it back',
+  ],
+  'ui.addons': [
+    'editors › Add Gear: on, used, off',
+    'editors › a JavaScript add-on',
+    'editors › a broken add-on is an error to show, and leaves nothing behind',
+    'web › Add-ons: turning one on adds its operator to the Edit menu and F3; off takes it away',
+  ],
+  'ui.asset_browser': [
+    'workflow › a material goes on the selection, an independent copy each time',
+    'workflow › an object appears at the 3D cursor, selected',
+    'workflow › marked objects are assets of the file; packed ones carry their materials to another file',
+    'web › Asset Browser: previews draw, a double-click gives the selection a material and adds an object',
+  ],
+  'ui.file_browser': [
+    'web › File menu: every new format is offered, for import and for export',
+    'web › import through drag and drop: OBJ, STL, GLB round trips make objects',
+  ],
+  'io.native': [
+    'scene › save and load round trip, run-time keys stay out',
+    'scene › load rejects other files and newer versions with a clear message',
+    'scene › load fills in fields a file from before they existed does not have',
+    'web › a project saves and loads back intact, with modifiers, materials and keys',
+  ],
+  'io.obj': [
+    'engine › OBJ round trip keeps quads, UVs and object names',
+    'engine › OBJ reads negative indices, several objects and lines',
+  ],
+  'io.stl': [
+    'engine › binary STL round trip welds corners back into a closed cube',
+    'engine › ASCII STL round trip',
+  ],
+  'io.ply': [
+    'engine › PLY round trip with vertex colours',
+    'gltf › binary PLY round trip, with colours and quads',
+    'gltf › a big-endian PLY reads too, and an ASCII one still does',
+  ],
+  'io.gltf': [
+    'engine › GLB is a valid container and round trips, Z-up staying Z-up',
+    'gltf › hierarchy, transforms and shape survive, Z up staying Z up',
+    'gltf › a skinned mesh bends the same after the trip, weights and bones included',
+    'formats › rotation and a parent both count',
+  ],
+  'io.svg': [
+    'tools3 › path data: arcs, smooth curves, implicit commands and numbers that run together',
+    'tools3 › transforms compose as SVG writes them',
+    'tools3 › colours: hex, short hex, rgb() and CSS names, linear like Blender',
+    'tools3 › a rectangle lands where Blender 4.5 puts it: 1/90 inch to the pixel, Y up, single-precision scale',
+    'tools3 › every element kind of the fixture: shapes, groups, use and symbol, fill or outline',
+    'tools3 › filled curves become faces, a spline inside another a hole',
+    'tools3 › File › Import › SVG: a collection named after the file, one SVGMat per colour, curves drawn with their fill',
+    'engine › SVG paths become polylines, curves are flattened, Y flips',
+  ],
+  'io.blend': [
+    'formats › the old layout (MVert, MPoly, MLoop), as Blender 2.63 to 3.4 write it',
+    'formats › the attribute layout, as Blender 3.6 and 4.x write it',
+    'formats › the 64-bit block headers of Blender 5',
+    'formats › gzip-compressed files open',
+  ],
+  'io.fbx': [
+    'formats › a binary file round-trips: shape, faces, UVs, names, colours',
+    'gltf › a skinned, keyed mesh bends the same after a round trip',
+    'gltf › parents, places, colours and textures survive',
+    'tools2 › read back: kinds, settings, places and the way they face',
+  ],
+  'io.usd': [
+    'tools2 › read back from ${usdz ? \'.usdz\' : \'.usda\'}: places at every frame, settings, materials per face${usdz ? \' and the picture inside\' : \'\'}',
+    'tools2 › a skinned rig ${usdc ? \'as binary .usdc\' : \'as text\'}: a Skeleton with its animation and a bound mesh, read back bending the same',
+    'tools2 › composition: a reference with its material, a class inherited, the chosen variant, and a layer inside the .usdz',
+    'formats › a round trip: shape, polygons, UVs, names, colours',
+  ],
+  'io.abc': [
+    'tools2 › read back: names, parents, places at every frame, the camera, the changing mesh and the curve',
+    'tools2 › curves of other kinds: Bézier, B-spline with knots, and closed ones',
+    'formats › round trip keeps names, shape, place and the way faces turn',
+    'formats › UVs stay with their face corners',
+  ],
+  'io.collada': [
+    'tools2 › read back: every object, its kind, settings and place, frame by frame',
+    'formats › a round trip: shape, polygons, UVs, names, colours',
+    'formats › units, Y-up and nested node transforms',
+    'web › the Collada we write is well-formed XML to a real XML parser',
+  ],
+  'obj.primitives': [
+    'mesh › cube: 8 verts, 6 faces, closed, volume 8, normals outward',
+    'mesh › uv sphere is closed and its volume approaches 4/3 pi r^3',
+    'mesh › torus is closed with Euler characteristic 0 and a known volume',
+    'ops › add ${name}: selected, active, at the 3D cursor',
+  ],
+  'obj.types': [
+    'tools3 › Bézier points with handles are sampled as cubic segments',
+    'tools3 › filled curves become faces, a spline inside another a hole',
+    'ops › add each other object type',
+    'ops › light kinds',
+    'web › Add menu: mesh, light, camera and others through real clicks',
+  ],
+  'obj.text': [
+    'scene › text outlines become faces in the XY plane, extrude gives depth',
+    'scene › centre alignment centres the text',
+    'modeling › a text object draws Hangul in the chosen font, and the bundled typeface cannot',
+    'modeling › alignment, lines, spacing',
+  ],
+  'obj.metaball': [
+    'scene › one metaball is a closed surface round its centre',
+    'scene › two close metaballs merge, two far ones do not',
+  ],
+  'obj.surfaces': [
+    'simulation › a surface with one raised control point bulges there, smoothly',
+    'simulation › weight pulls the surface toward its control point',
+    'simulation › as an object it draws, renders and converts',
+    'web › NURBS: Add › Surface, Tab shows control points, a click and G moves one and the surface follows',
+  ],
+  'obj.volumes': [
+    'simulation › the procedural shapes',
+    'simulation › Add › Volume, and it stays in the file',
+    'web › Add › Volume draws in the view; a Smoke Domain bakes and shows from the Physics tab',
+  ],
+  'obj.transform': [
+    'ops › object mode: move, rotate about the median, scale',
+    'ops › edit mode: moves only selected vertices, in world space',
+    'ops › mirror in edit mode keeps the normals outward',
+    'web › G moves with the mouse, X limits to an axis, Enter confirms, undo restores',
+  ],
+  'obj.select': [
+    'ops › select all, none, invert, set',
+    'web › click selects an object, Shift adds, empty space deselects, box selects',
+  ],
+  'obj.manage': [
+    'ops › duplicate copies deep; linked shares the mesh',
+    'ops › join brings the other mesh in, in its world position',
+    'ops › apply transform moves it into the vertices; the world position stays',
+    'ops › parent keeps the child in place; clear removes it',
+    'web › object keys: duplicate, delete, hide, show, parent',
+  ],
+  'obj.collections': [
+    'ops › collections: create, move, delete keeps the objects',
+    'scene › parent transforms carry children; hiding a collection hides its objects',
+    'web › Outliner: click selects, double click renames, the eye hides, filter narrows',
+  ],
+  'obj.constraints': [
+    'scene › copy location, with influence',
+    'scene › track to aims a camera (-Z) at the target',
+    'tools2 › all 26 of Blender\'s object constraints, each in one menu group',
+    'tools2 › Shrinkwrap: onto the nearest surface, a distance away, along an axis, or to a vertex',
+    'web › constraint from the panel: Copy Location follows its target',
+  ],
+  'obj.instancing': [
+    'workflow › a collection instance repeats what is in the collection, where the empty is',
+    'workflow › children repeat on vertices, keep their offset, and the original hides',
+    'workflow › Make Real turns instances into ordinary objects where they were',
+    'workflow › the operators',
+  ],
+  'obj.multi_scene': [
+    'workflow › a new empty scene has nothing in it; switching back finds everything',
+    'workflow › a copied scene has its own objects with their references, and shares materials',
+    'workflow › deleting: the last one stays; deleting the active one moves on',
+    'web › Scenes: new, copy, switch and delete from the top bar',
+  ],
+  'obj.linking': [
+    'formats › objects come over with materials, images, parents and modifier targets, under fresh ids',
+    'formats › names that are taken get a number; `only` picks objects',
+    'formats › the source is not changed',
+  ],
+  'mesh.modes': [
+    'ops › ${id} runs on a selected cube and leaves valid indices',
+    'web › Tab enters edit mode; 1/2/3 pick the selection mode; A selects all',
+    'web › clicking a vertex selects the visible one under the mouse',
+    'web › face mode: click a face, E extrudes along its normal with the mouse, Esc undoes it',
+  ],
+  'mesh.select': [
+    'mesh › invert, linked, more, less',
+    'mesh › non-manifold selection finds the open boundary of a plane, nothing on a cube',
+    'mesh › edge loop goes straight through a grid',
+  ],
+  'mesh.extrude': [
+    'mesh › extruding a cube top keeps it closed and grows the volume',
+    'mesh › extruding two adjacent faces as a region makes no wall between them',
+    'mesh › individual extrude walls every selected face',
+    'mesh › extruding a lone vertex makes a loose edge',
+  ],
+  'mesh.inset': [
+    'mesh › inset adds a ring and stays closed',
+    'modeling › neighbouring faces inset as one: the shared edge stays inside, and the outline moves by the thickness',
+    'modeling › depth lifts the region and the mesh stays one piece',
+  ],
+  'mesh.bevel': [
+    'mesh › one edge of a cube: closed, volume reduced by the cut prism',
+    'mesh › all edges of a cube: closed with chamfer faces and corner caps',
+    'modeling › segments round a cube: closed, outward, and smaller by what a round corner takes off',
+    'modeling › vertex bevel cuts the corners off exactly',
+  ],
+  'mesh.loopcut': [
+    'mesh › loop cut around a cube adds a ring of four vertices',
+    'mesh › two cuts make two rings and stay evenly spaced',
+    'mesh › edge ring finds all four side quads',
+  ],
+  'mesh.knife': [
+    'mesh › bisect splits every crossing face and clear removes one side',
+    'modeling › a line across a quad splits it, and its neighbour takes the new vertex without a crack',
+    'modeling › a cut through a cube keeps it closed and its volume',
+    'web › Knife: K, clicks along the line, Enter cuts the cube; Esc leaves it',
+  ],
+  'mesh.subdivide': [
+    'mesh › subdividing all of a cube keeps it closed',
+    'mesh › subdividing one face stays watertight through the neighbours',
+  ],
+  'mesh.delete': [
+    'mesh › deleting a vertex of a cube removes its 3 faces',
+    'mesh › deleting a face leaves the other five',
+    'mesh › dissolving two faces joins them into one',
+  ],
+  'mesh.merge': [
+    'mesh › merge at centre collapses a face to one point',
+    'mesh › merge by distance welds coincident vertices only',
+  ],
+  'mesh.fill': [
+    'mesh › make face from four vertices, edge from two',
+    'mesh › bridging the two open rings of a tube closes it',
+  ],
+  'mesh.normals': [
+    'mesh › flip reverses, recalculate restores outward',
+    'mesh › recalculate fixes a single inverted face',
+  ],
+  'mesh.deform_tools': [
+    'mesh › shrink/fatten moves a cube corner along its normal',
+    'mesh › smooth pulls a spike back',
+    'mesh › randomize is repeatable from its seed',
+    'mesh › to sphere puts every vertex at one distance',
+  ],
+  'mesh.topology_tools': [
+    'mesh › poke turns a quad into four triangles',
+    'mesh › triangulate and back to quads',
+    'mesh › spin of an edge round Z makes a closed band',
+    'ops › separate moves selected faces to a new object',
+  ],
+  'mesh.proportional': [
+    'tools › the falloffs are 1 at the selection and 0 at the edge',
+    'tools › only vertices inside the size follow, with weights by distance',
+    'tools › the Move operator drags followers by their weights',
+    'web › O turns proportional editing on: G drags the neighbours with falloff, the wheel changes its reach',
+  ],
+  'mesh.snapping': [
+    'modeling › on, off and its target are in the document',
+    'web › Snapping: the magnet, a target, and G lands on the other object',
+  ],
+  'mesh.custom_normals': [
+    'tools › custom normals override the shading and aim at a point',
+    'tools › sharp edges split smooth normals; the rest stay shared',
+  ],
+  'mesh.rip': [
+    'tools › ripping a line of edges on a grid opens a slit: new vertices, faces separated',
+    'tools › sliding a loop moves it along the neighbouring edges, as one',
+    'tools › seam, sharp and crease survive vertex removal with their edges renumbered',
+    'tools › a full crease keeps a subdivided cube a cube; no crease rounds it off',
+  ],
+  'mod.subsurf': [
+    'scene › subdivision: a cube has 26 verts and 24 faces after one level, and shrinks towards a sphere',
+    'scene › subdivision moves vertices to the limit surface, as Blender does by default',
+    'scene › subdivision keeps boundary vertices on the boundary curve and subdivides UVs',
+  ],
+  'mod.mirror': [
+    'scene › mirror welds the seam into a closed mesh',
+  ],
+  'mod.array': [
+    'scene › array makes count copies at the offset',
+  ],
+  'mod.solidify': [
+    'scene › solidify closes an open plane into a box',
+  ],
+  'mod.screw': [
+    'scene › screw of an open edge sweeps a closed tube',
+  ],
+  'mod.weld': [
+    'scene › weld, triangulate, wireframe',
+    'scene › every modifier in the table runs on a cube and returns a mesh',
+  ],
+  'mod.wireframe': [
+    'scene › wireframe: two quads per side of a face, and nothing beyond half the thickness along a normal',
+    'scene › weld, triangulate, wireframe',
+  ],
+  'mod.triangulate': [
+    'scene › weld, triangulate, wireframe',
+    'scene › every modifier in the table runs on a cube and returns a mesh',
+  ],
+  'mod.edge_split': [
+    'scene › edge split gives each face of a cube its own corners',
+  ],
+  'mod.build': [
+    'scene › build grows over time, mask hides by vertex group',
+    'scene › every modifier in the table runs on a cube and returns a mesh',
+  ],
+  'mod.mask': [
+    'scene › build grows over time, mask hides by vertex group',
+    'scene › every modifier in the table runs on a cube and returns a mesh',
+  ],
+  'mod.displace': [
+    'scene › displace moves vertices along normals, wave moves with the frame, smooth shrinks',
+  ],
+  'mod.wave': [
+    'scene › displace moves vertices along normals, wave moves with the frame, smooth shrinks',
+  ],
+  'mod.smooth': [
+    'scene › displace moves vertices along normals, wave moves with the frame, smooth shrinks',
+  ],
+  'mod.simple_deform': [
+    'scene › simple deform: twist keeps the height, taper changes the width at one end',
+  ],
+  'mod.cast': [
+    'scene › cast pulls a cube corner in towards a sphere',
+  ],
+  'mod.lattice': [
+    'scene › lattice moves points inside by its deformed corners',
+  ],
+  'mod.armature': [
+    'scene › the armature modifier reads pose through the scene',
+    'ops › armature parent with automatic weights adds groups and a modifier',
+  ],
+  'mod.nodes': [
+    'engine › as a modifier, on an object',
+    'tools2 › as a modifier: the frame on the document drives it',
+  ],
+  'mod.bevel': [
+    'scene › bevel modifier chamfers all sharp cube edges',
+    'modeling › the modifier passes segments and vertices on',
+  ],
+  'mod.decimate': [
+    'scene › decimate reaches about the ratio without breaking the mesh',
+    'modeling › the modifier chooses the mode',
+    'modeling › quadric error reaches the target and holds a sphere better than the shape needs',
+  ],
+  'mod.boolean': [
+    'scene › difference of overlapping cubes has the exact volume',
+    'scene › union and intersection add up',
+    'scene › the modifier reads the other object in its own space',
+    'web › the Boolean modifier cuts with another object picked in the panel',
+  ],
+  'mod.shrinkwrap': [
+    'modeling › the modifier: project and nearest vertex',
+    'tools › a point lands on a big face, not on its nearest corner',
+    'tools › points around a sphere land on its surface',
+  ],
+  'mod.remesh': [
+    'tools › a sphere comes out closed, with about the same volume',
+    'tools › as a modifier and as an operator',
+    'tools2 › blocks: a closed all-quad shape near the size of the cube, made of grid steps',
+    'tools2 › smooth: surface nets, closed quads over a sphere of the right volume',
+  ],
+  'mod.multires': [
+    'tools › a sculpted dab is kept as offsets and the base mesh does not change',
+    'tools › Subdivide adds a level and keeps the sculpted shape',
+    'tools2 › multiresolution detail bakes through the same way',
+    'web › the Multiresolution modifier: Subdivide adds a level from its panel, and a sculpt stroke lands on it',
+  ],
+  'mod.skin': [
+    'tools › a single edge becomes a closed capsule of the right size',
+    'tools › as a modifier',
+    'tools2 › a chain: rings at the vertices and between them, closed quads',
+    'tools2 › a branch closes up with a hull',
+  ],
+  'mod.ocean': [
+    'tools › waves average to sea level and move over time',
+    'tools › as a modifier it follows the frame',
+    'tools2 › an ocean marks foam where choppy waves fold, more of it with coverage, and a render whitens there',
+    'tools2 › the spectra peak where they should: Pierson–Moskowitz at 0.877 g/U, JONSWAP higher and sharper',
+  ],
+  'sculpt.brushes': [
+    'scene › all brushes run; a brush outside the mesh moves nothing',
+    'scene › draw raises along the normal; invert lowers; falloff fades to the edge',
+    'scene › grab moves by the delta at full strength in the centre',
+    'web › sculpt: every brush from the tool shelf runs',
+  ],
+  'sculpt.symmetry': [
+    'modeling › each axis mirrors the dab, and all three make eight',
+    'scene › symmetry mirrors the dab across X',
+  ],
+  'sculpt.dyntopo': [
+    'tools › long edges near the brush split; far ones stay',
+    'tools › a closed mesh stays closed and keeps its shape through many refinements',
+    'tools › as a modifier and as an operator',
+    'web › dynamic topology adds triangles where the brush goes',
+  ],
+  'paint.vertex': [
+    'scene › vertex paint makes the layer and blends',
+    'web › vertex and weight paint leave data on the mesh',
+  ],
+  'paint.weight': [
+    'scene › weight paint makes the group, clamps 0 to 1, colours by ramp',
+    'web › vertex and weight paint leave data on the mesh',
+  ],
+  'paint.texture': [
+    'tools › a surface dab paints the texels of the 3D neighbourhood, across UV islands',
+    'tools › Add Paint Texture wires an image to Base Color and unwraps if needed',
+    'tools › a dab in image space paints round, with its centre the strongest',
+    'web › Paint workspace: Add Paint Texture, then a real stroke changes the picture on the model and undo restores it',
+  ],
+  'uv.project': [
+    'ops › uv projections write a layer the size of the faces',
+    'mesh › box projection gives each corner a uv',
+    'mesh › smart project keeps every island inside the unit square',
+    'web › UV workspace: projection from the menu draws UVs; dragging a corner moves it',
+  ],
+  'uv.editor': [
+    'tools2 › weld brings corners together, align onto a line',
+    'tools2 › stitch brings another island to the selected edge',
+    'tools2 › minimize stretch evens out edges, pins holding',
+    'web › UV workspace: projection from the menu draws UVs; dragging a corner moves it',
+  ],
+  'uv.unwrap': [
+    'tools › a flat grid unwraps with no distortion at all',
+    'tools › seams split a cube into islands; a corner on a seam gets a UV per side',
+    'tools › uv.unwrap unwraps the selected faces in edit mode, all faces otherwise',
+    'tools2 › the operator offers both',
+  ],
+  'image.editor': [
+    'web › F12 renders with the path tracer into the Image Editor, across workers',
+    'web › Image Editor: New Image, the brush paints where the mouse is',
+  ],
+  'image.paint': [
+    'tools › image.new makes a valid PNG in the document',
+    'tools2 › soften blurs an edge and leaves flat areas',
+    'tools2 › smear drags colour along the stroke; clone copies from an offset',
+    'web › Image Editor: tools and masks in the header change what the brush does',
+  ],
+  'shade.nodes_editor': [
+    'engine › a cycle is detected before it is linked',
+    'engine › relinking an input replaces the old link',
+    'web › shader nodes: dragging from a socket to a socket makes a link',
+    'web › shader nodes: dragging a head moves the node; X deletes it',
+  ],
+  'shade.principled': [
+    'engine › the default tree gives the material\'s values',
+    'engine › the base colour tints the result',
+    'engine › glass lets the world through; metal reflects it',
+  ],
+  'shade.shader_nodes': [
+    'engine › math on a noise value reaches roughness; a value converts to a colour',
+    'engine › a checker plugged into base colour follows position',
+    'nodes2 › Fresnel: low head on, one at the edge; Layer Weight likewise',
+    'nodes2 › Bump bends the normal through a real tree, and only where the height changes',
+  ],
+  'shade.world': [
+    'engine › world: background colour and a sky that depends on direction',
+    'engine › a sun and a world light the scene too',
+  ],
+  'shade.viewport': [
+    'web › view: numpad, frame all, shading modes, camera view, statistics',
+    'web › 3D view: Z opens the shading pie; an empty scene says what to do',
+    'web › material panel: new material, edit, assign; the Material shading uses it',
+  ],
+  'shade.node_groups': [
+    'workflow › grouping does not change what the tree computes',
+    'workflow › ungroup restores the same result and the same nodes',
+    'workflow › a tree with groups survives saving',
+    'web › Node groups: Ctrl+G makes a group, Tab goes in and out, Alt+G undoes it, and the result is the same',
+  ],
+  'shade.osl': [
+    'editors › parameters become inputs and outputs, with defaults',
+    'editors › as a node: sockets from the source, and it drives a material',
+    'editors › errors name the line, and are found when compiling',
+    'web › OSL: the node\'s sockets come from its source, and a typo shows an error instead of breaking',
+  ],
+  'gn.core': [
+    'engine › set position evaluates its field per vertex',
+    'engine › instance on points places one copy per point',
+    'nodes2 › Separate Geometry splits by a field, Compare and Position deciding',
+    'tools2 › repeat: the body runs that many times, each round from the last',
+  ],
+  'render.path': [
+    'engine › BVH finds the same nearest hit as testing every triangle',
+    'engine › light energy scales brightness linearly, and shadows darken',
+    'engine › glass lets the world through; metal reflects it',
+    'engine › the camera sees the lit cube in the middle of the frame',
+  ],
+  'render.denoise': [
+    'engine › denoise smooths noise but keeps a hard edge',
+    'nodes2 › Denoise smooths speckle and keeps an edge',
+  ],
+  'render.realtime': [
+    'web › the real-time engine renders too',
+  ],
+  'render.gpu': [
+    'web › GPU Path Tracing renders the same scene as the CPU, within noise',
+    'web › Rendering: pictures reach the GPU engine, passes reach the result, and the menu writes a playable MP4',
+  ],
+  'render.passes': [
+    'tools2 › colour times light, glow and world add up to the image; each light group to its own share',
+    'tools2 › cryptomatte: shares per pixel add to one where something is hit, and a matte picks one object out',
+    'tools2 › mist rises with distance by the falloff, AO darkens in a corner, and the object index comes from the object',
+    'web › Light groups and cryptomatte: a group made in the View Layer, an object put in it, and the passes on the Render Layers node',
+  ],
+  'render.animation': [
+    'nodes2 › MP4: sizes, timing, keys and where the data is all read back',
+    'nodes2 › AVI: RIFF layout, frame count, index that points at each picture',
+    'web › Rendering: pictures reach the GPU engine, passes reach the result, and the menu writes a playable MP4',
+    'web › A failing video encoder costs nothing: the next one or AVI still gets every frame',
+  ],
+  'render.volumes': [
+    'simulation › a fog box dims what is behind it, by Beer-Lambert',
+    'simulation › light scatters in a volume: a lit fog is brighter than a dark one',
+    'tools2 › a volume shader fills its mesh, evaluated per cell, and a surface-less material hides the mesh',
+    'tools2 › anisotropy sends scattered light onward: forward scatter lets more of the bright world through',
+  ],
+  'render.compositor': [
+    'engine › glare adds light round what is over the threshold',
+    'engine › blur spreads a bright pixel and keeps the total',
+    'nodes2 › a compositor tree with these nodes runs',
+    'web › compositor tree: Use Nodes, then a render passes through it',
+  ],
+  'render.freestyle': [
+    'simulation › a cube has its silhouette and creases; a closed mesh no borders',
+    'simulation › an edge behind something is not drawn',
+    'simulation › it paints the given colour over the image, and does nothing when off',
+    'web › Freestyle draws lines on a render from the Render tab setting',
+  ],
+  'anim.keyframes': [
+    'ops › keyframes, interpolation, markers, frame steps',
+    'ops › a keyframe on any numeric property; refuses a non-number',
+    'scene › insert replaces a key on the same frame and keeps order; delete removes it',
+    'web › I keys a frame; the timeline scrubs; the object moves between keys',
+  ],
+  'anim.interp': [
+    'scene › constant jumps, linear interpolates',
+    'scene › bezier passes through its keys, eases at the ends and stays monotonic between flat keys',
+    'scene › every easing starts at the first value and ends at the second',
+    'ops › keyframes, interpolation, markers, frame steps',
+  ],
+  'anim.timeline': [
+    'ops › keyframes, interpolation, markers, frame steps',
+    'web › Space plays and stops; the frame advances and wraps',
+    'web › I keys a frame; the timeline scrubs; the object moves between keys',
+  ],
+  'anim.dopesheet': [
+    'animation › a box selects by time and value',
+    'animation › move, duplicate and delete take only the selected',
+    'web › Dope Sheet shows channels; dragging a key moves it in time',
+    'web › Dope Sheet: a box selects keys, and dragging moves what is selected together; groups fold',
+  ],
+  'anim.graph': [
+    'animation › the curve follows the handle',
+    'animation › the frame applies them, and a muted one does nothing',
+    'web › Graph Editor draws curves; dragging a key changes its value',
+    'web › Graph Editor: handles drag, a modifier changes the curve, extrapolation and the panel work',
+  ],
+  'anim.nla': [
+    'animation › a transition goes from where one strip ends to where the next begins',
+    'animation › split keeps the motion and makes two strips',
+    'scene › NLA strip plays a pushed-down action, scaled in time',
+    'web › NLA: Push Down moves the action to a strip',
+  ],
+  'anim.actions': [
+    'tools2 › stored actions are copies with unique names, and assigning finds bones by name',
+    'tools2 › operators key a pose, save it, assign it, play it as a strip, and deleting it leaves constraints reading nothing',
+    'tools2 › the target picks the frame: half way along its range is half way through the action, clamped at the ends',
+    'web › Actions: I keys every bone in pose mode, and the Action menu saves, assigns and lays it into the NLA',
+  ],
+  'anim.drivers': [
+    'animation › safe expressions work; anything that reaches for the program does not',
+    'animation › sum, average, min and max need no expression',
+    'scene › drivers: an expression sets a property each frame; a bad expression changes nothing',
+    'web › Drivers: the Graph Editor edits them, with variables; an unsafe expression is refused',
+  ],
+  'anim.shape_keys': [
+    'ops › shape keys and vertex groups',
+    'scene › shape keys blend before the modifiers',
+    'gltf › morph targets become shape keys',
+  ],
+  'anim.armature': [
+    'scene › automatic weights give each end to its nearest bone and sum to one',
+    'scene › skinning moves weighted vertices with the bone',
+    'scene › rotating the parent carries the child',
+    'ops › bones: extrude chains from the last one; IK and clear pose',
+  ],
+  'anim.ik': [
+    'animation › the tip follows the target as it moves, and the stored pose is untouched',
+    'animation › the pole swings the elbow towards it, and the tip stays',
+    'scene › IK brings the tip to a reachable target',
+    'ops › bones: extrude chains from the last one; IK and clear pose',
+  ],
+  'anim.motion_paths': [
+    'workflow › the path follows the keyframes, and the frame is put back',
+    'workflow › onion frames lie around the current one, nearer ones stronger, inside the path',
+    'workflow › the operators',
+    'web › Motion path and onion ghosts appear in the view',
+  ],
+  'phys.rigid': [
+    'engine › a body falls by gravity at the expected rate',
+    'physics2 › a tilted box lands, turns over and comes to rest flat on a face',
+    'physics2 › the operators connect selected bodies through an empty, and bake to keys',
+    'ops › bake all drives bodies; free all clears',
+  ],
+  'phys.cloth': [
+    'tools3 › cloth pressure inflates a closed mesh; without it the same mesh sags',
+    'tools3 › cloth sewing: loose edges pull two panels together',
+    'tools3 › cloth self collision keeps vertices off its own faces: a coarse sheet folded onto itself does not pass through',
+    'engine › cloth with pinned corners hangs; unpinned falls; edges keep length',
+    'engine › cloth rests on a collider',
+    'physics2 › a cloth wraps a sphere: real shape, not its box',
+    'physics2 › self-collision keeps a folding sheet off itself',
+  ],
+  'phys.soft': [
+    'tools3 › soft body aerodynamics: a falling sheet flat to the air falls slower than one without, and slower than an edge-on one',
+    'tools3 › soft body self collision: a sheet folding onto itself keeps its vertices apart',
+    'tools3 › force fields act on soft bodies',
+    'engine › soft body sags under gravity and is held by its goal',
+    'tools2 › pressure swells a closed shape; none leaves it to sag',
+  ],
+  'phys.particles': [
+    'engine › particles: born over time, repeatable, fall ballistically, end at their lifetime',
+    'engine › hair gives a strand per particle at any frame',
+    'physics2 › baked particles bounce off a floor, stay above it, and are the same each time',
+    'physics2 › children multiply parents and stay within their radius',
+  ],
+  'phys.fields': [
+    'tools3 › charge fields push like charges apart and pull unlike ones; a curve guide carries things along its curve',
+    'tools3 › smoke follows force fields',
+    'tools3 › Lennard-Jones pushes inside its size, pulls just beyond it and fades far away',
+    'engine › wind pushes along its axis; a vortex turns; drag slows',
+    'physics2 › baked particles feel fields; plain ones are worked out for any frame',
+    'physics2 › new fields: magnetic turns, harmonic pulls back, turbulence varies from place to place',
+  ],
+  'phys.fluid': [
+    'simulation › it falls, at first at the rate of gravity',
+    'simulation › a baked domain evaluates to the liquid, frame by frame',
+    'physics2 › a liquid stays out of a sphere in its way and pools around it',
+    'tools2 › without gravity a cube of liquid keeps its corners, and with surface tension it pulls them in',
+  ],
+  'phys.smoke': [
+    'simulation › hot smoke rises',
+    'simulation › fuel burns: flame and heat appear, fuel goes down',
+    'simulation › a bake stores each frame, renders, and an emitter off-range makes nothing',
+    'physics2 › smoke goes around a ceiling, not through it, and never into it',
+  ],
+  'phys.dynamic_paint': [
+    'tools3 › a weight surface writes its wetness into a vertex group, before the modifiers',
+    'tools3 › the image sequence: one paint map and one wet map a frame, painted where the brush was, over the UVs',
+    'simulation › the brush leaves its colour where it passes, and nowhere else',
+    'simulation › the frame shows in the evaluated mesh: colours and a dent',
+    'tools2 › a wave canvas dips under a brush and the dip spreads and dies away',
+  ],
+  'gp.draw': [
+    'tools2 › a stroke becomes a ribbon, and with fill also its inside',
+    'tools2 › erase cuts a stroke in two and removes what is left too short',
+    'tools2 › operators work on the active layer, and a drawing converts and renders',
+    'web › grease pencil: a drag in Draw mode becomes a stroke',
+  ],
+  'ed.text': [
+    'ops › bpy.ops runs operators; bpy.context and bpy.data read the scene',
+    'ops › an error in a script is reported, not thrown',
+    'web › Text Editor runs a script: bpy.ops adds objects; an error shows in the status bar',
+  ],
+  'ed.console': [
+    'ops › the console shows expressions and runs statements',
+    'python › a console keeps its names, and shows an expression as the prompt does',
+    'web › Console evaluates an expression and runs an operator',
+  ],
+  'ed.python': [
+    'python › a generator runs lazily, a value at a time',
+    'python › send gives a value back to the paused yield; the return value comes with StopIteration',
+    'python › yield from hands over to another generator and gets its return value',
+    'python › try, finally and with inside a generator; close runs the finally',
+    'python › keyword arguments reach the operator; tuples become plain arrays',
+    'python › objects by index, by name, by iteration; fields read and write through',
+    'python › classes become operators, with properties',
+    'web › Text Editor runs Python: operators work, print goes to the Info log',
+  ],
+  'ed.info': [
+    'web › Text Editor runs Python: operators work, print goes to the Info log',
+    'web › every editor type can be switched in; each draws without error',
+  ],
+  'ed.spreadsheet': [
+    'web › Spreadsheet lists vertices and faces of the active object',
+    'web › geometry nodes workspace builds a tree and the spreadsheet follows it',
+  ],
+  'ed.outliner': [
+    'web › Outliner: click selects, double click renames, the eye hides, filter narrows',
+  ],
+  'ed.properties': [
+    'web › every Properties tab opens for a mesh',
+    'web › Data tab fits every object type',
+    'web › Properties: the tab says what it is, and a search finds a setting, even in a folded panel',
+  ],
+  'ed.sequencer': [
+    'editors › cutting: two strips that show the same frames as the one',
+    'editors › the higher channel covers the lower; opacity lets it through',
+    'editors › a cross fades across the overlap, from one strip to the other',
+    'web › Sequencer: strips made from the menu, a real drag moves one, K cuts, the preview shows it',
+  ],
+  'ed.clip': [
+    'editors › one step finds a patch that moved',
+    'editors › the solve explains exact tracks to a tiny error, and recovers the shape up to scale',
+    'editors › the operator fills the scene with points and an animated camera',
+    'web › Clip Editor: a click adds a marker, Track follows it through the pictures, Solve fills the scene',
+  ],
+};

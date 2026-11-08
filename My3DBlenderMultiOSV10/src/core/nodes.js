@@ -11,6 +11,8 @@ import { DEFAULT_OSL, oslShader } from './osl.js';
 import { booleanMesh } from './csg.js';
 import { extrudeIndividual, flipNormals, mergeByDistance, recalcNormals } from './meshops.js';
 import { fbm, voronoi } from './noise.js';
+import { moreNodes } from './nodes-more.js';
+import { CRYPTO_RANKS, LIGHT_PASSES, cryptoMatte } from './passes.js';
 
 const V = (name, def = 0, extra = {}) => ({ name, type: 'VALUE', def, ...extra });
 const C = (name, def = [0.8, 0.8, 0.8]) => ({ name, type: 'COLOR', def });
@@ -18,6 +20,7 @@ const N = (name, def = [0, 0, 0]) => ({ name, type: 'VECTOR', def });
 const S = (name) => ({ name, type: 'SHADER' });
 const G = (name) => ({ name, type: 'GEOMETRY' });
 const I = (name) => ({ name, type: 'IMAGE' });
+const CRYPTO_LAYERS = ['CryptoObject', 'CryptoMaterial', 'CryptoAsset'].flatMap((k) => Array.from({ length: CRYPTO_RANKS / 2 }, (_, i) => `${k}0${i}`));
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const lum = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
@@ -95,16 +98,16 @@ const emptyImage = (w = 1, h = 1) => ({ width: w, height: h, data: new Float32Ar
 /** Every node type. `kinds`: trees it appears in. `run(input, node, ctx)` returns { outputName: value }. */
 export const NODE_TYPES = {
   // ── Shader: output and BSDFs
-  OUTPUT_MATERIAL: { en: 'Material Output', ko: '재질 출력', cat: 'Output', kinds: ['SHADER'], inputs: [S('Surface')], outputs: [], output: true, run: () => ({}) },
+  OUTPUT_MATERIAL: { en: 'Material Output', ko: '재질 출력', cat: 'Output', kinds: ['SHADER'], inputs: [S('Surface'), S('Volume'), N('Displacement')], outputs: [], output: true, run: () => ({}) },
   OUTPUT_WORLD: { en: 'World Output', ko: '월드 출력', cat: 'Output', kinds: ['WORLD'], inputs: [S('Surface')], outputs: [], output: true, run: () => ({}) },
   BSDF_PRINCIPLED: {
     en: 'Principled BSDF', ko: '프린시펄드 BSDF', cat: 'Shader', kinds: ['SHADER'],
-    inputs: [C('Base Color'), V('Metallic', 0), V('Roughness', 0.5), V('IOR', 1.45), V('Specular', 0.5), V('Transmission', 0), V('Alpha', 1), C('Emission', [0, 0, 0]), V('Emission Strength', 1)],
+    inputs: [C('Base Color'), V('Metallic', 0), V('Roughness', 0.5), V('IOR', 1.45), V('Specular', 0.5), V('Transmission', 0), V('Alpha', 1), C('Emission', [0, 0, 0]), V('Emission Strength', 1), N('Normal', null)],
     outputs: [S('BSDF')],
     run: (input) => {
       const e = input('Emission');
       const k = input('Emission Strength');
-      return { BSDF: { baseColor: input('Base Color'), metallic: input('Metallic'), roughness: input('Roughness'), ior: input('IOR'), specular: input('Specular'), transmission: input('Transmission'), alpha: input('Alpha'), emission: [e[0] * k, e[1] * k, e[2] * k] } };
+      return { BSDF: { baseColor: input('Base Color'), metallic: input('Metallic'), roughness: input('Roughness'), ior: input('IOR'), specular: input('Specular'), transmission: input('Transmission'), alpha: input('Alpha'), emission: [e[0] * k, e[1] * k, e[2] * k], normal: input('Normal', null) } };
     },
   },
   BSDF_DIFFUSE: { en: 'Diffuse BSDF', ko: '디퓨즈 BSDF', cat: 'Shader', kinds: ['SHADER'], inputs: [C('Color'), V('Roughness', 0)], outputs: [S('BSDF')], run: (input) => ({ BSDF: { ...emptyBsdf(), baseColor: input('Color'), roughness: 1, specular: 0 } }) },
@@ -118,7 +121,7 @@ export const NODE_TYPES = {
       const t = clamp01(input('Fac'));
       const [a, b] = [input('Shader 1') ?? emptyBsdf(), input('Shader 2') ?? emptyBsdf()];
       const m = (x, y) => x + (y - x) * t;
-      return { Shader: { baseColor: mix3(a.baseColor, b.baseColor, t), metallic: m(a.metallic, b.metallic), roughness: m(a.roughness, b.roughness), specular: m(a.specular, b.specular), ior: m(a.ior, b.ior), transmission: m(a.transmission, b.transmission), alpha: m(a.alpha, b.alpha), emission: mix3(a.emission, b.emission, t) } };
+      return { Shader: { baseColor: mix3(a.baseColor, b.baseColor, t), metallic: m(a.metallic, b.metallic), roughness: m(a.roughness, b.roughness), specular: m(a.specular, b.specular), ior: m(a.ior, b.ior), transmission: m(a.transmission, b.transmission), alpha: m(a.alpha, b.alpha), emission: mix3(a.emission, b.emission, t), normal: t < 0.5 ? a.normal ?? b.normal : b.normal ?? a.normal } };
     },
   },
   BACKGROUND: { en: 'Background', ko: '배경', cat: 'Shader', kinds: ['WORLD'], inputs: [C('Color', [0.05, 0.05, 0.05]), V('Strength', 1)], outputs: [S('Background')], run: (input) => { const c = input('Color'); const k = input('Strength'); return { Background: { emission: [c[0] * k, c[1] * k, c[2] * k] } }; } },
@@ -281,7 +284,7 @@ export const NODE_TYPES = {
     run: (input, node, ctx) => {
       const mesh = cloneMesh(input('Geometry') ?? createMesh());
       const normals = vertexNormals(mesh);
-      mesh.verts = mesh.verts.map((p, i) => v3.add(p, input('Offset', undefined, { ...ctx, memo: ctx.geometryMemo(), position: p, normal: normals[i], index: i })));
+      mesh.verts = mesh.verts.map((p, i) => v3.add(p, input('Offset', undefined, { ...ctx, memo: ctx.geometryMemo(), position: p, normal: normals[i], index: i, mesh })));
       return { Geometry: mesh };
     },
   },
@@ -305,7 +308,7 @@ export const NODE_TYPES = {
     run: (input, node, ctx) => {
       const m = cloneMesh(input('Geometry') ?? createMesh());
       const normals = vertexNormals(m);
-      const gone = m.verts.map((p, i) => input('Selection', undefined, { ...ctx, memo: ctx.geometryMemo(), position: p, normal: normals[i], index: i }) > 0.5);
+      const gone = m.verts.map((p, i) => input('Selection', undefined, { ...ctx, memo: ctx.geometryMemo(), position: p, normal: normals[i], index: i, mesh: m }) > 0.5);
       m.faces = m.faces.filter((face) => !face.some((i) => gone[i]));
       m.uvs = null;
       m.faceMat = null;
@@ -357,7 +360,35 @@ export const NODE_TYPES = {
     },
   },
   // ── Compositor
-  CMP_RENDER_LAYERS: { en: 'Render Layers', ko: '렌더 레이어', cat: 'Input', kinds: ['COMPOSITOR'], inputs: [], outputs: [I('Image'), V('Alpha'), I('Depth'), I('Normal')], run: (input, node, ctx) => ({ Image: ctx.render ?? emptyImage(), Depth: ctx.passes?.depth ?? emptyImage(), Normal: ctx.passes?.normal ?? emptyImage(), Alpha: 1 }) },
+  CMP_RENDER_LAYERS: { en: 'Render Layers', ko: '렌더 레이어', cat: 'Input', kinds: ['COMPOSITOR'], inputs: [], outputs: [I('Image'), V('Alpha'), I('Depth'), I('Normal'), I('Position'), I('UV'), I('Albedo'), I('Emission'), I('Material Index'), I('Object Index')],
+    run: (input, node, ctx) => ({
+      'Object Index': ctx.passes?.objectIndex ?? emptyImage(),
+      Image: ctx.render ?? emptyImage(), Depth: ctx.passes?.depth ?? emptyImage(), Normal: ctx.passes?.normal ?? emptyImage(), Position: ctx.passes?.position ?? emptyImage(), UV: ctx.passes?.uv ?? emptyImage(), Albedo: ctx.passes?.albedo ?? emptyImage(), Emission: ctx.passes?.emission ?? emptyImage(), 'Material Index': ctx.passes?.materialIndex ?? emptyImage(), Alpha: 1,
+      ...Object.fromEntries([...LIGHT_PASSES, ...CRYPTO_LAYERS].map((name) => [name, ctx.passes?.light?.[name] ?? emptyImage()])),
+      // One Combined image for every light group, as Blender adds them to the node.
+      ...Object.fromEntries(Object.entries(ctx.passes?.lightGroups ?? {}).map(([name, img]) => [`Combined_${name}`, img])),
+    }) },
+  // Cryptomatte: a matte of the named objects or materials, from the cryptomatte layers; Pick shows every id in its own colour.
+  CMP_CRYPTOMATTE: { en: 'Cryptomatte', ko: '크립토매트', cat: 'Matte', kinds: ['COMPOSITOR'], inputs: [I('Image')], outputs: [I('Image'), I('Matte'), I('Pick')], props: { source: 'OBJECT', matteId: '' }, options: { source: ['OBJECT', 'MATERIAL', 'ASSET'] },
+    run: (input, node, ctx) => {
+      const image = input('Image') ?? ctx.render ?? emptyImage();
+      const key = node.values.source === 'MATERIAL' ? 'CryptoMaterial' : node.values.source === 'ASSET' ? 'CryptoAsset' : 'CryptoObject';
+      const layers = [0, 1, 2].map((i) => ctx.passes?.light?.[`${key}0${i}`]).filter(Boolean);
+      if (!layers.length) return { Image: image, Matte: emptyImage(), Pick: emptyImage() };
+      const names = String(node.values.matteId ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+      const matte = cryptoMatte(layers, names);
+      const out = { width: image.width, height: image.height, data: new Float32Array(image.data.length) };
+      const pick = { width: layers[0].width, height: layers[0].height, data: new Float32Array(layers[0].data.length) };
+      const bits = new DataView(new ArrayBuffer(4));
+      for (let p = 0; p < out.data.length / 4; p++) {
+        const m = matte.data[p * 4] ?? 0;
+        for (let k = 0; k < 4; k++) out.data[p * 4 + k] = image.data[p * 4 + k] * m;
+        bits.setFloat32(0, layers[0].data[p * 4]);
+        const h = bits.getUint32(0);
+        pick.data.set([(h & 255) / 255, ((h >>> 8) & 255) / 255, ((h >>> 16) & 255) / 255, 1], p * 4);
+      }
+      return { Image: out, Matte: matte, Pick: pick };
+    } },
   CMP_OUTPUT: { en: 'Composite', ko: '합성 출력', cat: 'Output', kinds: ['COMPOSITOR'], inputs: [I('Image')], outputs: [], output: true, run: () => ({}) },
   CMP_VIEWER: { en: 'Viewer', ko: '뷰어', cat: 'Output', kinds: ['COMPOSITOR'], inputs: [I('Image')], outputs: [], run: () => ({}) },
   CMP_BLUR: { en: 'Blur', ko: '블러', cat: 'Filter', kinds: ['COMPOSITOR'], inputs: [I('Image'), V('Size', 4)], outputs: [I('Image')], run: (input) => ({ Image: blurImage(input('Image') ?? emptyImage(), input('Size')) }) },
@@ -395,6 +426,12 @@ export const NODE_TYPES = {
       }) };
     } },
 };
+
+Object.assign(NODE_TYPES, moreNodes({ V, C, N, S, G, I, clamp01, lum, mix3, emptyBsdf, mapImage, blurImage, emptyImage, rgbToHsv, fbm, voronoi, freshCtx: (ctx, extra) => makeCtx({ ...ctx, ...extra }), inputOf: (graph, node, name, ctx) => {
+  const link = graph.links.find((l) => l.to === node.id && l.in === name);
+  const source = link && graph.nodes.find((n) => n.id === link.from);
+  return source ? evalNode(graph, source, ctx)[link.out] : node.values?.[name] ?? NODE_TYPES[node.type].inputs.find((x) => x.name === name)?.def;
+} }));
 
 function appendMesh(out, m) {
   const base = out.verts.length;
@@ -439,6 +476,7 @@ export function nodeSockets(node) {
   if (node.type === 'GROUP') return { inputs: node.group?.inputs ?? [], outputs: node.group?.outputs ?? [] };
   if (node.type === 'NG_INPUT') return { inputs: [], outputs: node.sockets ?? [] };
   if (node.type === 'NG_OUTPUT') return { inputs: node.sockets ?? [], outputs: [] };
+  if (node.type === 'CMP_RENDER_LAYERS') return { inputs: [], outputs: [...spec.outputs, ...(node.values?.passes ?? []).filter((name) => LIGHT_PASSES.includes(name) || CRYPTO_LAYERS.includes(name)).map(I), ...(node.values?.lightGroups ?? []).map((name) => I(`Combined_${name}`))] };
   if (node.type === 'SCRIPT_OSL') {
     const { shader } = oslShader(node.values?.source ?? '');
     const kind = (t) => (t === 'float' || t === 'int' ? 'VALUE' : t === 'color' ? 'COLOR' : 'VECTOR');
@@ -598,7 +636,7 @@ function evalNode(graph, node, ctx, stack = new Set()) {
     if (fallback !== undefined) return fallback;
     return node.values?.[name] ?? socket?.def;
   };
-  const result = spec.run(input, node, ctx);
+  const result = spec.run(input, node, ctx, graph);
   ctx.memo.set(node.id, result);
   stack.delete(node.id);
   return result;
@@ -639,6 +677,27 @@ export function evalShader(graph, ctx) {
   const source = graph.nodes.find((n) => n.id === link.from);
   if (!source) return null;
   return evalNode(graph, source, makeCtx(ctx))[link.out] ?? null;
+}
+
+const linkInto = (graph, name) => { const output = outputNode(graph); return output && graph.links.find((l) => l.to === output.id && l.in === name); };
+/** Whether a tree says anything about one of its output's inputs. */
+export const treeUses = (graph, name) => Boolean(linkInto(graph, name));
+
+/** How far a surface point moves, as a vector, when the tree's output has a Displacement input. */
+export function evalDisplacement(graph, ctx) {
+  const link = linkInto(graph, 'Displacement');
+  const source = link && graph.nodes.find((n) => n.id === link.from);
+  return source ? evalNode(graph, source, makeCtx(ctx))[link.out] ?? null : null;
+}
+
+/** The medium at a point: { density, color, anisotropy, emission, absorb }, or null. */
+export function evalVolume(graph, ctx) {
+  const link = linkInto(graph, 'Volume');
+  const source = link && graph.nodes.find((n) => n.id === link.from);
+  const v = source ? evalNode(graph, source, makeCtx(ctx))[link.out] : null;
+  if (!v) return null;
+  // An Emission node wired here glows without blocking much.
+  return v.density != null ? v : { density: 1, color: [0, 0, 0], anisotropy: 0, emission: v.emission ?? [0, 0, 0], absorb: false };
 }
 
 /** World colour for a direction (`ctx.normal`); null when the tree has no output. */

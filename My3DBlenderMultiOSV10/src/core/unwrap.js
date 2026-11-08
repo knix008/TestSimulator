@@ -85,7 +85,118 @@ function cutClosedIsland(mesh, island) {
  * Flattens one open island. Returns per-face UVs: Map face → [[u,v], …], at the size of the 3D surface.
  * The corners of faces that meet across a seam get separate UV vertices.
  */
-function flattenIsland(mesh, island) {
+/**
+ * Angle Based Flattening (Sheffer and de Sturler): the angles nearest the 3D ones, weighted by 1/angle², that can lie flat. Each triangle's angles sum to π, those
+ * around an inner vertex to 2π, and the sines around one multiply out the same each way (the wheel condition, in logs). Gauss-Newton on these constraints, with
+ * the normal equations solved by conjugate gradients. Returns three angles per triangle, or null when it does not settle, and the caller goes on with the 3D shape.
+ */
+function flatAngles(triangles, position, vertexCount) {
+  const T = triangles.length;
+  const beta = new Float64Array(T * 3);
+  const angle = (a, b, c) => { const [u, w] = [v3.norm(v3.sub(b, a)), v3.norm(v3.sub(c, a))]; return Math.acos(Math.max(-1, Math.min(1, v3.dot(u, w)))); };
+  triangles.forEach(([a, b, c], t) => {
+    beta[t * 3] = Math.max(1e-3, angle(position[a], position[b], position[c]));
+    beta[t * 3 + 1] = Math.max(1e-3, angle(position[b], position[c], position[a]));
+    beta[t * 3 + 2] = Math.max(1e-3, angle(position[c], position[a], position[b]));
+  });
+  // Inner vertices: every edge around them has two triangles.
+  const edgeUse = new Map();
+  triangles.forEach((tri) => tri.forEach((v, k) => { const w = tri[(k + 1) % 3]; const key = v < w ? `${v}_${w}` : `${w}_${v}`; edgeUse.set(key, (edgeUse.get(key) ?? 0) + 1); }));
+  const border = new Uint8Array(vertexCount);
+  for (const [key, count] of edgeUse) if (count !== 2) for (const v of key.split('_')) border[Number(v)] = 1;
+  const around = Array.from({ length: vertexCount }, () => []);
+  triangles.forEach((tri, t) => tri.forEach((v, k) => around[v].push(t * 3 + k)));
+  const inner = [];
+  for (let v = 0; v < vertexCount; v++) if (!border[v] && around[v].length) inner.push(v);
+  // The goal at an inner vertex: its angles scaled to fill the circle.
+  for (const v of inner) {
+    const sum = around[v].reduce((x, a) => x + beta[a], 0);
+    for (const a of around[v]) beta[a] *= (2 * Math.PI) / sum;
+  }
+  const weight = beta.map((b) => 1 / (b * b));
+  const x = Float64Array.from(beta);
+  const next = (a) => (a % 3 === 2 ? a - 2 : a + 1);
+  const previous = (a) => (a % 3 === 0 ? a + 2 : a - 1);
+  const C = T + inner.length * 2;
+  const residual = new Float64Array(C);
+  const evaluate = () => {
+    for (let t = 0; t < T; t++) residual[t] = x[t * 3] + x[t * 3 + 1] + x[t * 3 + 2] - Math.PI;
+    inner.forEach((v, i) => {
+      let [sum, wheel] = [-2 * Math.PI, 0];
+      for (const a of around[v]) {
+        sum += x[a];
+        wheel += Math.log(Math.max(1e-9, Math.sin(x[next(a)]))) - Math.log(Math.max(1e-9, Math.sin(x[previous(a)])));
+      }
+      residual[T + i * 2] = sum;
+      residual[T + i * 2 + 1] = wheel;
+    });
+  };
+  /** J·v and Jᵀ·v for the constraints at the current angles. */
+  const times = (v, out) => {
+    for (let t = 0; t < T; t++) out[t] = v[t * 3] + v[t * 3 + 1] + v[t * 3 + 2];
+    inner.forEach((vertex, i) => {
+      let [sum, wheel] = [0, 0];
+      for (const a of around[vertex]) {
+        sum += v[a];
+        wheel += v[next(a)] / Math.tan(x[next(a)]) - v[previous(a)] / Math.tan(x[previous(a)]);
+      }
+      out[T + i * 2] = sum;
+      out[T + i * 2 + 1] = wheel;
+    });
+  };
+  const timesT = (v, out) => {
+    out.fill(0);
+    for (let t = 0; t < T; t++) { out[t * 3] += v[t]; out[t * 3 + 1] += v[t]; out[t * 3 + 2] += v[t]; }
+    inner.forEach((vertex, i) => {
+      for (const a of around[vertex]) {
+        out[a] += v[T + i * 2];
+        out[next(a)] += v[T + i * 2 + 1] / Math.tan(x[next(a)]);
+        out[previous(a)] -= v[T + i * 2 + 1] / Math.tan(x[previous(a)]);
+      }
+    });
+  };
+  const [gradient, step, jt] = [new Float64Array(T * 3), new Float64Array(T * 3), new Float64Array(T * 3)];
+  const [lambda, right, r, p, q] = Array.from({ length: 5 }, () => new Float64Array(C));
+  const apply = (input, output) => {
+    timesT(input, jt);
+    for (let a = 0; a < jt.length; a++) jt[a] /= 2 * weight[a];
+    times(jt, output);
+    for (let c = 0; c < C; c++) output[c] += 1e-10 * input[c];
+  };
+  for (let round = 0; round < 8; round++) {
+    evaluate();
+    if (Math.max(...residual.map(Math.abs)) < 1e-6 && round > 0) break;
+    for (let a = 0; a < gradient.length; a++) gradient[a] = 2 * weight[a] * (x[a] - beta[a]);
+    // Solve J H⁻¹ Jᵀ λ = J H⁻¹ g − c for the multipliers.
+    for (let a = 0; a < gradient.length; a++) step[a] = gradient[a] / (2 * weight[a]);
+    times(step, right);
+    for (let c = 0; c < C; c++) right[c] -= residual[c];
+    lambda.fill(0);
+    r.set(right);
+    p.set(r);
+    let rr = r.reduce((sum, value) => sum + value * value, 0);
+    const start = rr || 1;
+    for (let i = 0; i < Math.min(2000, C * 4 + 20) && rr > start * 1e-16; i++) {
+      apply(p, q);
+      let pq = 0;
+      for (let c = 0; c < C; c++) pq += p[c] * q[c];
+      if (Math.abs(pq) < 1e-30) break;
+      const alpha = rr / pq;
+      let nextR = 0;
+      for (let c = 0; c < C; c++) { lambda[c] += alpha * p[c]; r[c] -= alpha * q[c]; nextR += r[c] * r[c]; }
+      const b = nextR / rr;
+      rr = nextR;
+      for (let c = 0; c < C; c++) p[c] = r[c] + b * p[c];
+    }
+    timesT(lambda, jt);
+    for (let a = 0; a < x.length; a++) x[a] = Math.max(1e-3, Math.min(Math.PI - 1e-3, x[a] - (gradient[a] - jt[a]) / (2 * weight[a])));
+    if (x.some(Number.isNaN)) return null;
+  }
+  evaluate();
+  return Math.max(...residual.map(Math.abs)) < 0.05 ? x : null;
+}
+
+function flattenIsland(mesh, island, method = 'ANGLE_BASED') {
   const seams = mesh.marks?.seam ?? {};
   // UV vertices: corners joined across the edges of this island that are not seams.
   const offset = new Map();
@@ -129,11 +240,18 @@ function flattenIsland(mesh, island) {
   const pinB = farthest(position[pinA]);
   const span = v3.dist(position[pinA], position[pinB]) || 1;
 
+  // Angle based: first the angles a flat layout would ideally have; each triangle's target shape comes from them.
+  const triangles = [];
+  for (const f of island) for (const t of triangulateFace(mesh, mesh.faces[f])) triangles.push(t.map((k) => uvVert[offset.get(f) + k]));
+  const targets = method === 'ANGLE_BASED' ? flatAngles(triangles, position, n) : null;
+  let triangleIndex = -1;
+
   // LSCM energy as rows of a sparse complex matrix: for each triangle Σ (Wk)·zk, in real form.
   const rows = [];
   for (const f of island) {
     const face = mesh.faces[f];
     for (const t of triangulateFace(mesh, face)) {
+      triangleIndex++;
       const [a, b, c] = t.map((k) => position[uvVert[offset.get(f) + k]]);
       const ids = t.map((k) => uvVert[offset.get(f) + k]);
       const e1 = v3.sub(b, a);
@@ -141,8 +259,15 @@ function flattenIsland(mesh, island) {
       const x2 = v3.len(e1);
       if (x2 < 1e-12) continue;
       const ex = v3.mul(e1, 1 / x2);
-      const x3 = v3.dot(e2, ex);
-      const y3 = v3.len(v3.sub(e2, v3.mul(ex, x3)));
+      let x3 = v3.dot(e2, ex);
+      let y3 = v3.len(v3.sub(e2, v3.mul(ex, x3)));
+      if (targets) {
+        // The triangle with the angles asked for, at the same long side: by the law of sines.
+        const [angleA, angleB, angleC] = targets.slice(triangleIndex * 3, triangleIndex * 3 + 3);
+        const across = (x2 * Math.sin(angleB)) / Math.max(1e-6, Math.sin(angleC));
+        x3 = across * Math.cos(angleA);
+        y3 = across * Math.sin(angleA);
+      }
       const area2 = x2 * y3;
       if (area2 < 1e-14) continue;
       const s = 1 / Math.sqrt(area2);
@@ -317,7 +442,7 @@ export function packIslands(islands, margin = 0.01) {
  * Unwraps the mesh (or just `faces`) along its seams. Other faces keep their UVs.
  * Returns { islands, autoCut }; `autoCut` counts closed islands that had to be cut because no seam opened them.
  */
-export function unwrapSeams(mesh, { faces = null, margin = 0.01 } = {}) {
+export function unwrapSeams(mesh, { faces = null, margin = 0.01, method = 'ANGLE_BASED' } = {}) {
   const edges = edgeMap(mesh);
   let autoCut = 0;
   const pieces = [];
@@ -325,11 +450,171 @@ export function unwrapSeams(mesh, { faces = null, margin = 0.01 } = {}) {
     if (isOpen(mesh, island, edges)) pieces.push(island);
     else { autoCut++; pieces.push(...cutClosedIsland(mesh, island)); }
   }
-  const flat = pieces.map((island) => flattenIsland(mesh, island));
-  packIslands(flat, margin);
+  const flat = pieces.map((island) => flattenIsland(mesh, island, method));
+  // An island with pins stays where its pins are; only the others are packed around.
+  const held = [];
+  const free = [];
+  flat.forEach((uvs) => { (holdToPins(mesh, uvs) ? held : free).push(uvs); });
+  packIslands(free, margin);
   mesh.uvs ??= mesh.faces.map(() => null);
-  for (const uvs of flat) for (const [f, uv] of uvs) mesh.uvs[f] = uv;
+  for (const uvs of [...free, ...held]) for (const [f, uv] of uvs) mesh.uvs[f] = uv;
   return { islands: flat.length, autoCut };
+}
+
+/** Fits an unwrapped island onto its pinned corners' old places: moved for one pin, also turned and scaled for more. Pins land exactly. */
+function holdToPins(mesh, uvs) {
+  const pins = mesh.uvPins;
+  if (!pins || !mesh.uvs) return false;
+  const pairs = [];
+  for (const [f, uv] of uvs) uv.forEach((now, i) => { const was = mesh.uvs[f]?.[i]; if (pins[`${f}:${i}`] && was) pairs.push({ f, i, now, was }); });
+  if (!pairs.length) return false;
+  const mean = (list) => [list.reduce((s, x) => s + x[0], 0) / list.length, list.reduce((s, x) => s + x[1], 0) / list.length];
+  const [mNow, mWas] = [mean(pairs.map((p) => p.now)), mean(pairs.map((p) => p.was))];
+  let [a, b, d] = [0, 0, 0];
+  for (const { now, was } of pairs) {
+    const [x, y] = [now[0] - mNow[0], now[1] - mNow[1]];
+    const [u, v] = [was[0] - mWas[0], was[1] - mWas[1]];
+    a += x * u + y * v;
+    b += x * v - y * u;
+    d += x * x + y * y;
+  }
+  const [ca, cb] = d > 1e-12 ? [a / d, b / d] : [1, 0];
+  for (const [f, uv] of uvs) uv.forEach((p, i) => {
+    const [x, y] = [p[0] - mNow[0], p[1] - mNow[1]];
+    uv[i] = [x * ca - y * cb + mWas[0], x * cb + y * ca + mWas[1]];
+    void f;
+  });
+  for (const { f, i, was } of pairs) uvs.get ? (uvs.get(f)[i] = [...was]) : (uvs.find(([g]) => g === f)[1][i] = [...was]);
+  return true;
+}
+
+const cornersOf = (list) => list.map(([f, i]) => [Math.round(f), Math.round(i)]);
+
+/** Marks corners so a later unwrap keeps them where they are. */
+export function pinUVs(mesh, corners, on = true) {
+  mesh.uvPins ??= {};
+  for (const [f, i] of cornersOf(corners)) { if (on) mesh.uvPins[`${f}:${i}`] = true; else delete mesh.uvPins[`${f}:${i}`]; }
+}
+
+/** All the given corners to their common middle. */
+export function weldUVs(mesh, corners) {
+  const list = cornersOf(corners).filter(([f, i]) => mesh.uvs?.[f]?.[i]);
+  if (!list.length) return;
+  const mid = [0, 1].map((k) => list.reduce((s, [f, i]) => s + mesh.uvs[f][i][k], 0) / list.length);
+  for (const [f, i] of list) mesh.uvs[f][i] = [...mid];
+}
+
+/** The given corners onto one line, at their mean. */
+export function alignUVs(mesh, corners, axis = 'U') {
+  const list = cornersOf(corners).filter(([f, i]) => mesh.uvs?.[f]?.[i]);
+  if (!list.length) return;
+  const k = axis === 'U' ? 0 : 1;
+  const mid = list.reduce((s, [f, i]) => s + mesh.uvs[f][i][k], 0) / list.length;
+  for (const [f, i] of list) mesh.uvs[f][i][k] = mid;
+}
+
+/** Faces whose UVs meet at shared corners: UV-connected islands. */
+function uvIslands(mesh) {
+  const parent = mesh.faces.map((_, f) => f);
+  const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  const at = new Map();
+  mesh.faces.forEach((face, f) => {
+    const uv = mesh.uvs?.[f];
+    if (!uv) return;
+    face.forEach((v, i) => {
+      const key = `${v}|${uv[i][0].toFixed(5)}|${uv[i][1].toFixed(5)}`;
+      if (at.has(key)) parent[find(f)] = find(at.get(key)); else at.set(key, f);
+    });
+  });
+  return mesh.faces.map((_, f) => find(f));
+}
+
+/**
+ * Brings another island to the one holding the first given corner: whichever island shares mesh vertices with the selected corners is moved, turned and
+ * scaled so that those vertices land on the selected corners, and then they are the same UV points.
+ */
+export function stitchUVs(mesh, corners) {
+  const list = cornersOf(corners).filter(([f, i]) => mesh.uvs?.[f]?.[i]);
+  if (!list.length) return 0;
+  const islands = uvIslands(mesh);
+  const home = islands[list[0][0]];
+  const targets = new Map();
+  for (const [f, i] of list) if (islands[f] === home) targets.set(mesh.faces[f][i], mesh.uvs[f][i]);
+  const moved = new Map();
+  mesh.faces.forEach((face, f) => {
+    if (!mesh.uvs[f] || islands[f] === home) return;
+    face.forEach((v, i) => { if (targets.has(v)) { if (!moved.has(islands[f])) moved.set(islands[f], []); moved.get(islands[f]).push({ now: mesh.uvs[f][i], was: targets.get(v) }); } });
+  });
+  for (const [island, pairs] of moved) {
+    const mean = (name) => [0, 1].map((k) => pairs.reduce((s, p) => s + p[name][k], 0) / pairs.length);
+    const [mNow, mWas] = [mean('now'), mean('was')];
+    let [a, b, d] = [0, 0, 0];
+    for (const { now, was } of pairs) {
+      const [x, y, u, v] = [now[0] - mNow[0], now[1] - mNow[1], was[0] - mWas[0], was[1] - mWas[1]];
+      a += x * u + y * v;
+      b += x * v - y * u;
+      d += x * x + y * y;
+    }
+    const [ca, cb] = d > 1e-12 ? [a / d, b / d] : [1, 0];
+    mesh.faces.forEach((_, f) => {
+      if (islands[f] !== island || !mesh.uvs[f]) return;
+      mesh.uvs[f] = mesh.uvs[f].map((p) => { const [x, y] = [p[0] - mNow[0], p[1] - mNow[1]]; return [x * ca - y * cb + mWas[0], x * cb + y * ca + mWas[1]]; });
+    });
+  }
+  return moved.size;
+}
+
+/**
+ * Evens out the UVs: UV edges act as springs towards their length on the model at the island's own scale. Pinned corners stay. Returns how uneven the
+ * edges were, before and after, as the spread of (UV length / 3D length).
+ */
+export function minimizeStretch(mesh, { iterations = 50 } = {}) {
+  if (!mesh.uvs) return null;
+  const points = new Map(); // UV point: { x, y, corners: [[f, i]], held }
+  const idOf = (f, i) => `${mesh.faces[f][i]}|${mesh.uvs[f][i][0].toFixed(5)}|${mesh.uvs[f][i][1].toFixed(5)}`;
+  mesh.faces.forEach((face, f) => {
+    if (!mesh.uvs[f]) return;
+    face.forEach((_, i) => {
+      const key = idOf(f, i);
+      if (!points.has(key)) points.set(key, { x: mesh.uvs[f][i][0], y: mesh.uvs[f][i][1], corners: [], held: false });
+      const p = points.get(key);
+      p.corners.push([f, i]);
+      if (mesh.uvPins?.[`${f}:${i}`]) p.held = true;
+    });
+  });
+  const seen = new Set();
+  const springs = [];
+  mesh.faces.forEach((face, f) => {
+    if (!mesh.uvs[f]) return;
+    face.forEach((_, i) => {
+      const j = (i + 1) % face.length;
+      const [ka, kb] = [idOf(f, i), idOf(f, j)];
+      const key = ka < kb ? `${ka}/${kb}` : `${kb}/${ka}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      springs.push({ a: points.get(ka), b: points.get(kb), length: v3.dist(mesh.verts[face[i]], mesh.verts[face[j]]) });
+    });
+  });
+  const spread = () => {
+    const ratios = springs.filter((s) => s.length > 1e-9).map((s) => Math.hypot(s.a.x - s.b.x, s.a.y - s.b.y) / s.length);
+    if (!ratios.length) return 0;
+    const mean = ratios.reduce((x, y) => x + y, 0) / ratios.length;
+    return Math.sqrt(ratios.reduce((x, y) => x + (y - mean) ** 2, 0) / ratios.length) / (mean || 1);
+  };
+  const before = spread();
+  // A common scale, so that the springs neither shrink nor grow the layout.
+  const scale = (() => { let [u, m] = [0, 0]; for (const s of springs) { u += Math.hypot(s.a.x - s.b.x, s.a.y - s.b.y); m += s.length; } return m > 0 ? u / m : 1; })();
+  for (let it = 0; it < iterations; it++) {
+    for (const s of springs) {
+      const [dx, dy] = [s.b.x - s.a.x, s.b.y - s.a.y];
+      const l = Math.hypot(dx, dy) || 1e-9;
+      const k = ((l - s.length * scale) / l) * 0.25;
+      if (!s.a.held) { s.a.x += dx * k; s.a.y += dy * k; }
+      if (!s.b.held) { s.b.x -= dx * k; s.b.y -= dy * k; }
+    }
+  }
+  for (const p of points.values()) for (const [f, i] of p.corners) mesh.uvs[f][i] = [p.x, p.y];
+  return { before, after: spread() };
 }
 
 /**

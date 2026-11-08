@@ -7,7 +7,7 @@ import { Matrix4, Vector3 } from 'three';
 
 const DATA_BIT = 0x80000000;
 
-class OgawaReader {
+export class OgawaReader {
   constructor(bytes) {
     this.bytes = bytes;
     this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -96,7 +96,7 @@ const POD_SIZE = { bool: 1, u8: 1, i8: 1, u16: 2, i16: 2, u32: 4, i32: 4, u64: 8
 const decoder = new TextDecoder();
 const parseMeta = (text) => Object.fromEntries(text.split(';').filter(Boolean).map((pair) => { const i = pair.indexOf('='); return [pair.slice(0, i), pair.slice(i + 1)]; }));
 
-function readIndexedMeta(reader, child) {
+export function readIndexedMeta(reader, child) {
   const bytes = reader.data(child);
   const list = [''];
   let at = 0;
@@ -109,7 +109,7 @@ function readIndexedMeta(reader, child) {
 }
 
 /** The properties of a compound: the last child holds the headers; the others are the properties, in the same order. */
-function readProperties(reader, group, meta) {
+export function readProperties(reader, group, meta) {
   const children = reader.group(group.at);
   const out = new Map();
   if (!children.length || !children.at(-1).data) return out;
@@ -130,7 +130,7 @@ function readProperties(reader, group, meta) {
       p.extent = (info >> 12) & 255;
       p.next = uint();
       if (info & 0x200) { p.first = uint(); p.last = uint(); } else if (info & 0x800) { p.first = 0; p.last = 0; } else { p.first = 1; p.last = p.next - 1; }
-      if (info & 0x100) uint();
+      p.ts = info & 0x100 ? uint() : 0;
     }
     const nameSize = uint();
     p.name = decoder.decode(bytes.subarray(at, at + nameSize));
@@ -173,7 +173,7 @@ function typed(bytes, pod) {
 }
 
 /** The values of a scalar or array property at sample `i`, as a flat list. Every stored sample begins with a 16 byte key. */
-function readSample(reader, p, i) {
+export function readSample(reader, p, i) {
   const children = reader.group(p.group.at);
   if (!children.length) return [];
   const stored = storedIndex(p, Math.min(i, Math.max(0, p.next - 1)));
@@ -184,7 +184,60 @@ function readSample(reader, p, i) {
 
 // ─────────────── reading a scene
 
-function xformMatrix(reader, schema, sample) {
+/**
+ * The archive's time samplings: [{ max, perCycle, times }]. A uniform one has one time and a step; a cyclic one repeats its times
+ * every cycle; an acyclic one lists every time.
+ */
+export function readTimeSamplings(reader, child) {
+  const bytes = reader.data(child);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const out = [];
+  let at = 0;
+  while (at + 16 <= bytes.length) {
+    const max = view.getUint32(at, true);
+    const perCycle = view.getFloat64(at + 4, true);
+    const n = view.getUint32(at + 12, true);
+    at += 16;
+    const times = [];
+    for (let i = 0; i < n && at + 8 <= bytes.length; i++, at += 8) times.push(view.getFloat64(at, true));
+    out.push({ max, perCycle, times });
+  }
+  return out;
+}
+
+/** The time of sample `i` in a time sampling, in seconds. */
+export function sampleTime(sampling, i) {
+  const { perCycle, times } = sampling ?? { perCycle: 1, times: [0] };
+  if (!times.length) return i;
+  if (times.length === 1) return times[0] + i * perCycle;
+  // Acyclic: Alembic marks it with a cycle of the largest double over 32.
+  if (perCycle > 1e300) return times[Math.min(i, times.length - 1)];
+  return times[i % times.length] + Math.floor(i / times.length) * perCycle;
+}
+
+/** The headers of an object's children: [{ name, meta }]. */
+export function readObjectHeaders(reader, children, meta) {
+  const last = children.at(-1);
+  if (!last?.data) return [];
+  const data = reader.data(last);
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const end = data.length - 32;
+  const list = [];
+  let at = 0;
+  while (at < end) {
+    const nameSize = view.getUint32(at, true);
+    at += 4;
+    const name = decoder.decode(data.subarray(at, at + nameSize));
+    at += nameSize;
+    const index = data[at++];
+    let text;
+    if (index === 255) { const size = view.getUint32(at, true); at += 4; text = decoder.decode(data.subarray(at, at + size)); at += size; } else text = meta[index] ?? '';
+    list.push({ name, meta: parseMeta(text) });
+  }
+  return list;
+}
+
+export function xformMatrix(reader, schema, sample) {
   const m = new Matrix4();
   const ops = schema.get('.ops');
   const vals = schema.get('.vals');
@@ -323,6 +376,70 @@ export function importABC(input, { sample = 0 } = {}) {
   return out;
 }
 
+/**
+ * Every transform of an Alembic file in the world, Z up, at every sample: { samples: { '/path/to/xform': [16 numbers per sample…] }, count }.
+ * For a transform cache: the matrices are in this program's column order.
+ */
+const Z_UP_TO_Y_UP = new Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1);
+export function readABCTransforms(input) {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+  let count = 1;
+  // The number of samples is the longest of any transform's: read it once at sample 0 to find the paths, then every sample.
+  const paths = new Map();
+  const visit = (sample) => {
+    const reader = new OgawaReader(bytes);
+    const root = reader.root();
+    if (root.length < 6) throw new Error('This Alembic file has a layout that cannot be read');
+    const meta = readIndexedMeta(reader, root[5]);
+    const headersOf = (children) => {
+      const last = children.at(-1);
+      if (!last?.data) return [];
+      const data = reader.data(last);
+      const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+      const end = data.length - 32;
+      const list = [];
+      let at = 0;
+      while (at < end) {
+        const nameSize = view.getUint32(at, true);
+        at += 4;
+        const name = decoder.decode(data.subarray(at, at + nameSize));
+        at += nameSize;
+        const index = data[at++];
+        let text;
+        if (index === 255) { const size = view.getUint32(at, true); at += 4; text = decoder.decode(data.subarray(at, at + size)); at += size; } else text = meta[index] ?? '';
+        list.push({ name, meta: parseMeta(text) });
+      }
+      return list;
+    };
+    const walk = (group, header, parentWorld, path) => {
+      const children = reader.group(group.at);
+      if (!children.length) return;
+      const props = readProperties(reader, children[0], meta);
+      let world = parentWorld;
+      if ((header?.meta.schema ?? '').startsWith('AbcGeom_Xform')) {
+        const compound = props.get('.xform');
+        if (compound) {
+          const schema = readProperties(reader, compound.group, meta);
+          const vals = schema.get('.vals');
+          if (vals) count = Math.max(count, vals.next ?? 1);
+          world = new Matrix4().multiplyMatrices(parentWorld, xformMatrix(reader, schema, sample));
+          if (!paths.has(path)) paths.set(path, []);
+          // The object's own axes are Y up as well: turned on that side too, as Blender does on import.
+          paths.get(path)[sample] = [...world.clone().multiply(Z_UP_TO_Y_UP).elements];
+        }
+      }
+      headersOf(children).forEach((h, i) => {
+        const child = children[i + 1];
+        if (child && !child.data) walk(child, h, world, `${path}/${h.name}`);
+      });
+    };
+    walk(root[2], null, new Matrix4().set(1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 1), '');
+  };
+  visit(0);
+  for (let i = 1; i < count; i++) visit(i);
+  return { samples: Object.fromEntries(paths), count };
+}
+
 // ─────────────── writing
 
 const encoder = new TextEncoder();
@@ -356,16 +473,20 @@ function propertyHeaders(list) {
     const text = encoder.encode(metaText(p.meta ?? {}));
     let info = 2 << 2; // 4 byte sizes
     info |= (text.length ? 255 : 0) << 20;
+    // A property with many samples stores each of them, on a time sampling of its own.
+    const many = !p.compound && p.samples?.length > 1;
     if (p.compound) info |= 0;
     else {
       info |= p.array ? 2 : 1;
       info |= POD.indexOf(p.pod) << 4;
       info |= p.extent << 12;
-      info |= 0x800; // constant
+      if (!many) info |= 0x800; // constant
       info |= 0x400; // homogeneous
+      if (many && p.ts) info |= 0x100;
     }
     u32(info >>> 0);
-    if (!p.compound) u32(1);
+    if (!p.compound) u32(many ? p.samples.length : 1);
+    if (many && p.ts) u32(p.ts);
     const name = encoder.encode(p.name);
     u32(name.length);
     chunks.push(name);
@@ -384,8 +505,9 @@ function concat(chunks) {
 function writeCompound(w, list) {
   const children = list.map((p) => {
     if (p.compound) return writeCompound(w, p.children);
-    if (p.array) return w.group([w.data(withKey(p.bytes)), { data: true, at: 0 }]);
-    return w.group([w.data(withKey(p.bytes))]);
+    const samples = p.samples?.length > 1 ? p.samples : [p.bytes ?? p.samples[0]];
+    if (p.array) return w.group(samples.flatMap((bytes) => [w.data(withKey(bytes)), { data: true, at: 0 }]));
+    return w.group(samples.map((bytes) => w.data(withKey(bytes))));
   });
   children.push(w.data(propertyHeaders(list)));
   return w.group(children);
@@ -471,6 +593,14 @@ export function exportABC(objects) {
       }],
     };
   });
+  return writeArchive(kids, [], w);
+}
+
+/**
+ * A whole archive from a tree of objects ({ name, meta, properties, kids }). `samplings` are the time samplings after the default
+ * one (index 0): [{ max, perCycle, start }], uniform.
+ */
+export function writeArchive(kids, samplings = [], w = new OgawaWriter()) {
   const version = new Uint8Array(4);
   const library = new Uint8Array(4);
   new DataView(library.buffer).setInt32(0, 10800, true);
@@ -478,14 +608,19 @@ export function exportABC(objects) {
   const libraryChild = w.data(library);
   const top = writeObject(w, [], kids);
   const archive = w.data(encoder.encode(metaText({ _ai_Application: 'My3DBlender', _ai_AlembicVersion: 'Alembic 1.8.0', _ai_DateWritten: new Date().toUTCString().replace(/[;=]/g, ' '), _ai_UserDescription: '' })));
-  // One time sampling: the default.
-  const times = new Uint8Array(4 + 8 + 4 + 8);
+  // The default time sampling first, then the scene's.
+  const all = [{ max: 1, perCycle: 1, start: 0 }, ...samplings];
+  const times = new Uint8Array(all.length * 24);
   const tv = new DataView(times.buffer);
-  tv.setUint32(0, 1, true);
-  tv.setFloat64(4, 1, true);
-  tv.setUint32(12, 1, true);
-  tv.setFloat64(16, 0, true);
+  all.forEach((s, i) => {
+    tv.setUint32(i * 24, s.max, true);
+    tv.setFloat64(i * 24 + 4, s.perCycle, true);
+    tv.setUint32(i * 24 + 12, 1, true);
+    tv.setFloat64(i * 24 + 16, s.start, true);
+  });
   const timeChild = w.data(times);
   const metaChild = w.data(new Uint8Array(0));
   return w.finish(w.group([versionChild, libraryChild, top, archive, timeChild, metaChild]));
 }
+
+export { asBytes, safeName };

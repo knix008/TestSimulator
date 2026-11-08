@@ -9,7 +9,7 @@ import { nameOf, t } from '../i18n.js';
 import { menuTitle } from '../menus.js';
 import { getOp } from '../../core/ops.js';
 import { colorField, emptyNote, numField, select } from '../widgets.js';
-import { PAINT_BLENDS, paintDabImage } from '../../core/paint.js';
+import { PAINT_BLENDS, PAINT_TOOLS, paintDabImage } from '../../core/paint.js';
 import { encodeImageData } from '../render.js';
 import { sessionTool } from './view3d.js';
 
@@ -71,7 +71,7 @@ export function createUVEditor(app, el, area) {
       g.stroke();
       uv.forEach((p, i) => {
         const [x, y] = toScreen(p, l);
-        g.fillStyle = selectedUV.has(`${f}:${i}`) ? '#ef8b3c' : '#111';
+        g.fillStyle = selectedUV.has(`${f}:${i}`) ? '#ef8b3c' : m.uvPins?.[`${f}:${i}`] ? '#e04040' : '#111';
         g.fillRect(x - 2, y - 2, 4, 4);
       });
     });
@@ -134,7 +134,15 @@ export function createUVEditor(app, el, area) {
     update: redraw,
     frame() { if (dirty) draw(); },
     header(hdr) {
-      hdr.append(menuTitle(t('UV', 'UV'), () => ['uv.unwrap', 'uv.smart_project', 'uv.cube_project', 'uv.cylinder_project', 'uv.sphere_project', 'uv.reset'].map((id) => ({ label: nameOf(getOp(id)), disabled: !app.canRun(id), testid: `uvop-${id}`, onClick: () => app.op(id) })), 'menu-uv'));
+      const corners = () => [...selectedUV].map((key) => { const [f, i] = key.split(':').map(Number); return [f, i, 0]; });
+      const onCorners = (id, more = {}) => ({ label: nameOf(getOp(id)), disabled: !app.canRun(id) || !selectedUV.size, testid: `uvop-${id}`, onClick: () => { app.op(id, { corners: corners(), ...more }); redraw(); } });
+      hdr.append(menuTitle(t('UV', 'UV'), () => [
+        ...['uv.unwrap', 'uv.smart_project', 'uv.cube_project', 'uv.cylinder_project', 'uv.sphere_project', 'uv.reset', 'uv.minimize_stretch'].map((id) => ({ label: nameOf(getOp(id)), disabled: !app.canRun(id), testid: `uvop-${id}`, onClick: () => { app.op(id); redraw(); } })),
+        null,
+        onCorners('uv.pin'), { ...onCorners('uv.pin', { clear: true }), label: t('Unpin', '고정 해제'), testid: 'uvop-unpin' },
+        onCorners('uv.weld'), onCorners('uv.stitch'),
+        { ...onCorners('uv.align', { axis: 'U' }), label: t('Align U', 'U 정렬'), testid: 'uvop-align-u' }, { ...onCorners('uv.align', { axis: 'V' }), label: t('Align V', 'V 정렬'), testid: 'uvop-align-v' },
+      ], 'menu-uv'));
     },
     dispose() { ro.disconnect(); root.remove(); },
   };
@@ -185,7 +193,15 @@ export function createImageEditor(app, el, area) {
     if (!entry) return;
     e.preventDefault();
     const win = canvas.ownerDocument.defaultView;
-    const dab = ([u, v]) => paintDabImage(entry, u, v, { radius: state.brushSize ?? 24, strength: sessionTool.strength, color: sessionTool.paintColor, blend: sessionTool.paintBlend });
+    // Alt-click says where Clone copies from.
+    if (e.altKey && state.paintTool === 'CLONE') { state.cloneFrom = toUV(e); return; }
+    const mask = state.paintMask ? app.imageCache?.()[state.paintMask] ?? null : null;
+    let previous = toUV(e);
+    const offset = state.cloneFrom ? [state.cloneFrom[0] - previous[0], state.cloneFrom[1] - previous[1]] : [0.1, 0];
+    const dab = ([u, v]) => {
+      paintDabImage(entry, u, v, { radius: state.brushSize ?? 24, strength: sessionTool.strength, color: sessionTool.paintColor, blend: sessionTool.paintBlend, tool: state.paintTool ?? 'DRAW', from: previous, offset, mask });
+      previous = [u, v];
+    };
     let last = toUV(e);
     dab(last);
     const changed = () => { entry.version = (entry.version ?? 0) + 1; shown = undefined; draw(); app.touch(); };
@@ -238,6 +254,8 @@ export function createImageEditor(app, el, area) {
             colorField({ value: sessionTool.paintColor, onChange: (v) => { sessionTool.paintColor = v; } }),
             numField({ value: state.brushSize ?? 24, step: 1, min: 1, max: 1024, int: true, testid: 'image-brush', onChange: (v) => { state.brushSize = v; } }),
             select({ value: sessionTool.paintBlend, options: PAINT_BLENDS, testid: 'image-blend', onChange: (v) => { sessionTool.paintBlend = v; } }),
+            select({ value: state.paintTool ?? 'DRAW', options: PAINT_TOOLS, testid: 'image-tool', onChange: (v) => { state.paintTool = v; } }),
+            select({ value: state.paintMask ?? '', options: [['', t('No Mask', '마스크 없음')], ...app.doc.images.filter((i) => i.id !== state.source).map((i) => [i.id, i.name])], testid: 'image-mask', onChange: (v) => { state.paintMask = v || null; } }),
           ] : []),
           select({ value: state.source, options: [['RENDER', t('Render Result', '렌더 결과')], ...app.doc.images.map((i) => [i.id, i.name])], testid: 'image-source', onChange: (v) => { state.source = v; state.chosen = true; shown = undefined; draw(); sync(); } }),
           h('button', { type: 'button', className: 'hdr-btn', title: t('Save the render as an image', '렌더를 이미지로 저장'), disabled: !app.renderResult?.linear, dataset: { testid: 'image-save' }, onClick: () => app.op('render.save_image') }, icon('save', 13)),

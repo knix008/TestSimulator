@@ -216,7 +216,6 @@ describe('Python: errors say what and where', () => {
   fails('files are not available', 'open("x")', /not available/);
   fails('a missing attribute', '(1).nothing', /AttributeError/);
   fails('a wrong operator call says why', 'import bpy\nbpy.ops.object.mode_set(mode="EDIT")\nbpy.ops.object.delete()', /cannot run/);
-  fails('generators are said to be missing', 'def g():\n    yield 1', /SyntaxError/);
 });
 
 describe('Python: bpy', () => {
@@ -327,4 +326,101 @@ def unregister():
     assert.equal(getOp('object.test_lift'), undefined);
     unregister('object.test_lift');
   });
+});
+
+describe('Python: generators', () => {
+  check('a generator runs lazily, a value at a time', `
+log = []
+def count(n):
+    i = 0
+    while i < n:
+        log.append(i)
+        yield i
+        i += 1
+g = count(3)
+print(type(g).__name__ if hasattr(type(g), '__name__') else 'generator', log)
+print(next(g), log)
+print(list(g), log)
+`, ['generator []', '0 [0]', '[1, 2] [0, 1, 2]']);
+  check('an endless generator stops where the loop stops', `
+def naturals():
+    n = 0
+    while True:
+        yield n
+        n += 1
+out = []
+for x in naturals():
+    if x > 4:
+        break
+    out.append(x * x)
+print(out)
+`, ['[0, 1, 4, 9, 16]']);
+  check('send gives a value back to the paused yield; the return value comes with StopIteration', `
+def averager():
+    total = 0
+    count = 0
+    while True:
+        value = yield (total / count if count else None)
+        if value is None:
+            return count
+        total += value
+        count += 1
+a = averager()
+print(next(a))
+print(a.send(10), a.send(20), a.send(60))
+try:
+    a.send(None)
+except StopIteration as e:
+    print('done', e.value)
+`, ['None', '10.0 15.0 30.0', 'done 3']);
+  check('yield from hands over to another generator and gets its return value', `
+def inner():
+    yield 1
+    yield 2
+    return 'inner done'
+def outer():
+    got = yield from inner()
+    yield got
+    yield from [3, 4]
+print(list(outer()))
+`, ["[1, 2, 'inner done', 3, 4]"]);
+  check('try, finally and with inside a generator; close runs the finally', `
+class Ctx:
+    def __enter__(self):
+        print('enter')
+        return self
+    def __exit__(self, a, b, c):
+        print('exit')
+def g():
+    try:
+        with Ctx():
+            yield 1
+            yield 2
+    finally:
+        print('cleanup')
+it = g()
+print(next(it))
+it.close()
+def h():
+    for i in range(3):
+        try:
+            if i == 1:
+                raise ValueError('odd')
+            yield i
+        except ValueError as e:
+            yield str(e)
+print(list(h()))
+`, ['enter', '1', 'exit', 'cleanup', "[0, 'odd', 2]"]);
+  check('generators work with sum, zip, sorted and comprehensions', `
+def evens(n):
+    for i in range(n):
+        if i % 2 == 0:
+            yield i
+print(sum(evens(10)), list(zip(evens(6), 'abc')), sorted(evens(7), reverse=True), [x + 1 for x in evens(5)])
+`, ["20 [(0, 'a'), (2, 'b'), (4, 'c')] [6, 4, 2, 0] [1, 3, 5]"]);
+  fails('a yield inside a larger expression says so', `
+def g():
+    x = 1 + (yield 2)
+list(g())
+`, /yield is supported as a statement/);
 });

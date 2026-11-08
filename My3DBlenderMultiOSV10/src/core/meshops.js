@@ -546,7 +546,9 @@ export function bevelEdges(mesh, width = 0.1, { segments = 1, profile = 0.5 } = 
     if (segments <= 1) { addFace(mesh, fixed, f); continue; }
     // Rounded: a fan around a point pushed out towards the old corner.
     const c = addVert(mesh, v3.add(center, v3.mul(v3.sub(mesh.verts[v], center), Math.max(0, Math.min(1, profile)) * 0.9)), v);
-    fixed.forEach((u, i) => addFace(mesh, [u, fixed[(i + 1) % fixed.length], c], f));
+    // Quads where the ring allows it, as Blender makes them.
+    if (fixed.length % 2 === 0) for (let i = 0; i < fixed.length; i += 2) addFace(mesh, [fixed[i], fixed[i + 1], fixed[(i + 2) % fixed.length], c], f);
+    else fixed.forEach((u, i) => addFace(mesh, [u, fixed[(i + 1) % fixed.length], c], f));
   }
   // Faces around the strips take the new points too, so that nothing is left open.
   if (segments > 1) for (let f = 0; f < first; f++) { mesh.faces[f] = widen(mesh.faces[f]); if (mesh.uvs) mesh.uvs[f] = null; }

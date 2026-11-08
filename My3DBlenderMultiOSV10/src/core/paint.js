@@ -3,6 +3,7 @@
 import { triangulateFace, v3 } from './mesh.js';
 
 export const PAINT_BLENDS = ['MIX', 'ADD', 'SUB', 'MUL', 'ERASE'];
+export const PAINT_TOOLS = ['DRAW', 'SOFTEN', 'SMEAR', 'CLONE'];
 
 export function createImageBuffer(width, height, color = [1, 1, 1, 1]) {
   const rgba = new Uint8ClampedArray(width * height * 4);
@@ -27,17 +28,51 @@ function blendPixel(rgba, i, color, k, blend) {
 
 const smooth = (t) => { const x = Math.max(0, Math.min(1, 1 - t)); return x * x * (3 - 2 * x); };
 
-/** A round dab in image space at (u, v), `radius` in pixels. Returns the changed box, or null. */
-export function paintDabImage(image, u, v, { radius = 16, strength = 1, color = [1, 0, 0], blend = 'MIX' } = {}) {
+/** How much a mask lets through at a pixel: its red channel, at the same place in its own size. */
+const maskAt = (mask, x, y, width, height) => {
+  if (!mask) return 1;
+  const mx = Math.min(mask.width - 1, Math.floor((x / width) * mask.width));
+  const my = Math.min(mask.height - 1, Math.floor((y / height) * mask.height));
+  return mask.rgba[(my * mask.width + mx) * 4] / 255;
+};
+
+/**
+ * A round dab in image space at (u, v), `radius` in pixels. Returns the changed box, or null.
+ * `tool`: DRAW lays colour; SOFTEN blurs what is there; SMEAR drags colour from where the last dab (`from`) was; CLONE copies from `offset` away (in UV).
+ * A `mask` image holds back paint where it is dark.
+ */
+export function paintDabImage(image, u, v, { radius = 16, strength = 1, color = [1, 0, 0], blend = 'MIX', tool = 'DRAW', from = null, offset = [0, 0], mask = null } = {}) {
   const { width, height, rgba } = image;
   const [cx, cy] = [u * width, (1 - v) * height];
   const [x0, x1] = [Math.max(0, Math.floor(cx - radius)), Math.min(width - 1, Math.ceil(cx + radius))];
   const [y0, y1] = [Math.max(0, Math.floor(cy - radius)), Math.min(height - 1, Math.ceil(cy + radius))];
   if (x0 > x1 || y0 > y1) return null;
+  // Tools that read the picture read it as it was before this dab.
+  const before = tool === 'DRAW' ? null : rgba.slice();
+  const read = (px, py) => {
+    const x = Math.max(0, Math.min(width - 1, Math.round(px)));
+    const y = Math.max(0, Math.min(height - 1, Math.round(py)));
+    const i = (y * width + x) * 4;
+    return [before[i] / 255, before[i + 1] / 255, before[i + 2] / 255];
+  };
+  const [dx, dy] = tool === 'SMEAR' && from ? [(from[0] - u) * width, (v - from[1]) * height] : tool === 'CLONE' ? [offset[0] * width, -offset[1] * height] : [0, 0];
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
     if (d >= radius) continue;
-    blendPixel(rgba, (y * width + x) * 4, color, smooth(d / radius) * strength, blend);
+    const k = smooth(d / radius) * strength * maskAt(mask, x, y, width, height);
+    if (!k) continue;
+    let paint = color;
+    let how = blend;
+    if (tool === 'SOFTEN') {
+      const sum = [0, 0, 0];
+      for (let oy = -2; oy <= 2; oy++) for (let ox = -2; ox <= 2; ox++) { const c = read(x + ox, y + oy); sum[0] += c[0]; sum[1] += c[1]; sum[2] += c[2]; }
+      paint = sum.map((c) => c / 25);
+      how = 'MIX';
+    } else if (tool === 'SMEAR' || tool === 'CLONE') {
+      paint = read(x + dx, y + dy);
+      how = 'MIX';
+    }
+    blendPixel(rgba, (y * width + x) * 4, paint, k, how);
   }
   return { x0, y0, x1, y1 };
 }

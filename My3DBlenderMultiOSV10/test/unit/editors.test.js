@@ -316,6 +316,54 @@ describe('motion tracking', () => {
     run(ctx, 'clip.solve');
     assert.equal(ctx.doc.objects.length, before + SHAPE.length + 1, 'solving again replaces');
   });
+  test('Camera Solver, Object Solver and Follow Track constraints use the solve', async () => {
+    const { addObject, createConstraint, defaultCamera, setFrame, solvedCameraMatrix, worldMatrix } = await import('../../src/core/doc.js');
+    const ctx = context();
+    const doc = ctx.doc;
+    doc.clips = [{ id: 'c', name: 'Clip', kind: 'IMAGES', frames: [], width: 640, height: 480, start: 1, tracks: syntheticTracks() }];
+    run(ctx, 'clip.solve');
+    const clip = doc.clips[0];
+    assert.equal(clip.solve.camera.length, 24, 'the camera path is kept with the clip');
+    assert.equal(clip.solve.points.length, SHAPE.length);
+    const solvedCamera = doc.objects.at(-1);
+    // A second camera held only by the constraint stands where the keyed one does, at every frame and between.
+    const held = addObject(doc, { type: 'CAMERA', name: 'Held', data: defaultCamera() });
+    held.constraints = [{ ...createConstraint('CAMERA_SOLVER'), clip: 'c' }];
+    for (const frame of [1, 7, 24]) {
+      setFrame(doc, frame);
+      const [a, b] = [worldMatrix(doc, held).elements, worldMatrix(doc, solvedCamera).elements];
+      a.forEach((x, i) => assert.ok(Math.abs(x - b[i]) < 1e-4, `frame ${frame}, element ${i}: ${x} and ${b[i]}`));
+    }
+    const half = solvedCameraMatrix(clip, 7.5).elements;
+    assert.ok(half.every(Number.isFinite), 'blended between frames');
+    // Object Solver: with the solved camera as the scene camera, the object's motion undoes it, so it stays where it is put.
+    const box = addObject(doc, { type: 'EMPTY', name: 'Box', location: [1, 2, 3], data: {} });
+    box.constraints = [{ ...createConstraint('OBJECT_SOLVER'), clip: 'c', camera: solvedCamera.id }];
+    for (const frame of [1, 12]) {
+      setFrame(doc, frame);
+      const e = worldMatrix(doc, box).elements;
+      assert.deepEqual([e[12], e[13], e[14]].map((x) => +x.toFixed(4)), [1, 2, 3]);
+    }
+    // Follow Track in 3D is at the solved point, the same as the track's empty.
+    const follower = addObject(doc, { type: 'EMPTY', name: 'Follower', data: {} });
+    const name = clip.tracks[2].name;
+    follower.constraints = [{ ...createConstraint('FOLLOW_TRACK'), clip: 'c', track: name, use3D: true }];
+    const marker = doc.objects.find((o) => o.name === name);
+    const [p, q] = [worldMatrix(doc, follower).elements, worldMatrix(doc, marker).elements];
+    for (const i of [12, 13, 14]) assert.ok(Math.abs(p[i] - q[i]) < 1e-6);
+    // On screen: the clip's centre seen by a camera at the origin looking down −Z is straight ahead, at the depth.
+    const eye = addObject(doc, { type: 'CAMERA', name: 'Eye', data: defaultCamera() });
+    clip.tracks[2].points[0] = [320, 240];
+    follower.constraints = [{ ...createConstraint('FOLLOW_TRACK'), clip: 'c', track: name, camera: eye.id, depth: 4 }];
+    setFrame(doc, 1);
+    const at = worldMatrix(doc, follower).elements;
+    assert.deepEqual([at[12], at[13], at[14]].map((x) => +x.toFixed(6) + 0), [0, 0, -4]);
+    // A corner of the picture is at the edge of the camera's view: half the sensor over the lens, times the depth.
+    clip.tracks[2].points[0] = [640, 0];
+    setFrame(doc, 1);
+    const corner = worldMatrix(doc, follower).elements;
+    assert.ok(Math.abs(corner[12] - (4 * 18) / 50) < 1e-9 && Math.abs(corner[13] - ((4 * 18) / 50) * 0.75) < 1e-9);
+  });
 });
 
 describe('OSL', () => {

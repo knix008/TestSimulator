@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="200mm" height="120mm" viewBox="0 0 200 120">
+  <!-- every kind of element Blender reads -->
+  <defs>
+    <path id="star" d="M0-10 L3 -3 10 -3 4 2 6 9 0 5 -6 9 -4 2 -10-3 -3-3z" fill="gold"/>
+    <symbol id="sym" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#0a0"/></symbol>
+  </defs>
+  <path id="wave" d="M10,20 C20,0 30,40 40,20 S60,0 70,20 Q80,40 90,20 T110,20" fill="none"/>
+  <path id="ring" d="M150 30 a20 20 0 1 0 0.01 0 Z M150 40 a10 10 0 1 1 -0.01 0z" style="fill:#3366cc;stroke:black"/>
+  <path id="relative" d="m120,60 h20 v10 h-20 z" fill="rgb(200, 30,40)"/>
+  <rect id="box" x="10" y="50" width="30" height="20" fill="#f80"/>
+  <rect id="rounded" x="50" y="50" width="30" height="20" rx="5" fill="red"/>
+  <circle id="dot" cx="20" cy="95" r="8" fill="navy"/>
+  <ellipse id="egg" cx="50" cy="95" rx="12" ry="7" fill="none"/>
+  <line id="stick" x1="70" y1="85" x2="90" y2="105"/>
+  <polyline id="zig" points="100,90 105,100 110,90 115,100" fill="none"/>
+  <polygon id="tri" points="130,100 140,85 150,100" fill="teal"/>
+  <g transform="translate(160 90) rotate(30) scale(1.5 0.8)" fill="purple">
+    <rect id="grouped" x="-5" y="-5" width="10" height="10"/>
+    <path id="skewed" transform="skewX(20)" d="M-3 8 L3 8 L0 12 Z"/>
+  </g>
+  <use id="star1" xlink:href="#star" x="180" y="20"/>
+  <use id="star2" xlink:href="#star" transform="matrix(0.5 0.2 -0.2 0.5 120 20)"/>
+  <use id="symuse" xlink:href="#sym" x="185" y="100" width="12" height="12"/>
+</svg>

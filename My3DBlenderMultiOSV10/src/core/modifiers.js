@@ -6,11 +6,11 @@ import {
 import { bevelEdges, mergeByDistance, smoothVerts } from './meshops.js';
 import { booleanMesh } from './csg.js';
 import { fbm } from './noise.js';
-import { multiresEvaluate, oceanMesh, skinMesh, voxelRemesh } from './remesh.js';
+import { multiresEvaluate, oceanMesh, quadRemesh, skinHull, skinMesh, voxelRemesh } from './remesh.js';
 
 /** Every modifier: its name, Korean name, parameters and defaults. The UI builds its panels from this table. */
 export const MODIFIERS = {
-  SUBSURF: { en: 'Subdivision Surface', ko: '서브디비전 표면', icon: 'mod-subsurf', group: 'generate', props: { levels: { def: 2, min: 0, max: 6, step: 1, int: true } } },
+  SUBSURF: { en: 'Subdivision Surface', ko: '서브디비전 표면', icon: 'mod-subsurf', group: 'generate', props: { levels: { def: 2, min: 0, max: 6, step: 1, int: true }, limitSurface: { def: true } } },
   MIRROR: { en: 'Mirror', ko: '미러', icon: 'mod-mirror', group: 'generate', props: { x: { def: true }, y: { def: false }, z: { def: false }, merge: { def: true }, mergeDistance: { def: 0.001, min: 0, step: 0.001 } } },
   ARRAY: { en: 'Array', ko: '배열', icon: 'mod-array', group: 'generate', props: { count: { def: 3, min: 1, max: 1000, step: 1, int: true }, offsetX: { def: 2.2, step: 0.1 }, offsetY: { def: 0, step: 0.1 }, offsetZ: { def: 0, step: 0.1 } } },
   SOLIDIFY: { en: 'Solidify', ko: '솔리디파이', icon: 'mod-solidify', group: 'generate', props: { thickness: { def: 0.1, step: 0.01 } } },
@@ -24,10 +24,10 @@ export const MODIFIERS = {
   EDGE_SPLIT: { en: 'Edge Split', ko: '엣지 분할', icon: 'mod-split', group: 'generate', props: { angle: { def: 30, min: 0, max: 180, step: 1 } } },
   BUILD: { en: 'Build', ko: '빌드', icon: 'mod-build', group: 'generate', props: { start: { def: 1, step: 1, int: true }, length: { def: 100, min: 1, step: 1, int: true } } },
   MASK: { en: 'Mask', ko: '마스크', icon: 'mod-mask', group: 'generate', props: { group: { def: '' }, invert: { def: false } } },
-  REMESH: { en: 'Remesh', ko: '리메시', icon: 'mod-remesh', group: 'generate', props: { voxelSize: { def: 0.1, min: 0.005, step: 0.01 }, smooth: { def: true } } },
+  REMESH: { en: 'Remesh', ko: '리메시', icon: 'mod-remesh', group: 'generate', props: { mode: { def: 'VOXEL', options: ['VOXEL', 'BLOCKS', 'SMOOTH', 'SHARP'] }, voxelSize: { def: 0.1, min: 0.005, step: 0.01 }, smooth: { def: true } } },
   MULTIRES: { en: 'Multiresolution', ko: '멀티레졸루션', icon: 'mod-multires', group: 'generate', props: { levels: { def: 1, min: 0, max: 6, step: 1, int: true }, total: { def: 1, min: 0, max: 6, step: 1, int: true } } },
-  SKIN: { en: 'Skin', ko: '스킨', icon: 'mod-skin', group: 'generate', props: { radius: { def: 0.25, min: 0.001, step: 0.01 }, resolution: { def: 0.08, min: 0.01, step: 0.01 }, blend: { def: 0.1, min: 0, step: 0.01 } } },
-  OCEAN: { en: 'Ocean', ko: '오션', icon: 'mod-ocean', group: 'generate', props: { resolution: { def: 64, min: 8, max: 512, step: 8, int: true }, size: { def: 50, min: 1, step: 1 }, waveScale: { def: 1, min: 0, step: 0.1 }, windSpeed: { def: 12, min: 0.1, step: 0.5 }, windAngle: { def: 0, step: 5 }, choppiness: { def: 1, min: 0, step: 0.1 }, seed: { def: 1, min: 0, step: 1, int: true }, speed: { def: 1, min: 0, step: 0.1 } } },
+  SKIN: { en: 'Skin', ko: '스킨', icon: 'mod-skin', group: 'generate', props: { method: { def: 'QUADS', options: ['QUADS', 'SMOOTH'] }, radius: { def: 0.25, min: 0.001, step: 0.01 }, resolution: { def: 0.08, min: 0.01, step: 0.01 }, blend: { def: 0.1, min: 0, step: 0.01 } } },
+  OCEAN: { en: 'Ocean', ko: '오션', icon: 'mod-ocean', group: 'generate', props: { resolution: { def: 64, min: 8, max: 512, step: 8, int: true }, size: { def: 50, min: 1, step: 1 }, waveScale: { def: 1, min: 0, step: 0.1 }, windSpeed: { def: 12, min: 0.1, step: 0.5 }, windAngle: { def: 0, step: 5 }, choppiness: { def: 1, min: 0, step: 0.1 }, seed: { def: 1, min: 0, step: 1, int: true }, speed: { def: 1, min: 0, step: 0.1 }, useFoam: { def: false }, foamCoverage: { def: 0, min: -1, max: 1, step: 0.05 }, spectrum: { def: 'PHILLIPS', options: ['PHILLIPS', 'PIERSON_MOSKOWITZ', 'JONSWAP', 'TEXEL_MARSEN_ARSLOE'] }, fetch: { def: 120, min: 0.001, step: 1 }, sharpenPeak: { def: 3.3, min: 1, step: 0.1 }, depth: { def: 200, min: 0.001, step: 1 }, useSpray: { def: false }, invertSpray: { def: false } } },
   DISPLACE: { en: 'Displace', ko: '변위', icon: 'mod-displace', group: 'deform', props: { strength: { def: 0.3, step: 0.05 }, scale: { def: 2, min: 0.01, step: 0.1 }, midlevel: { def: 0.5, min: 0, max: 1, step: 0.05 } } },
   WAVE: { en: 'Wave', ko: '웨이브', icon: 'mod-wave', group: 'deform', props: { height: { def: 0.2, step: 0.05 }, width: { def: 1.5, min: 0.01, step: 0.1 }, speed: { def: 0.25, step: 0.05 } } },
   SMOOTH: { en: 'Smooth', ko: '스무스', icon: 'mod-smooth', group: 'deform', props: { factor: { def: 0.5, min: -2, max: 2, step: 0.05 }, iterations: { def: 3, min: 0, max: 100, step: 1, int: true } } },
@@ -255,26 +255,71 @@ function screwMesh(mesh, { angle, steps, height, axis }) {
   return out;
 }
 
+/**
+ * Blender's wireframe: each vertex splits into one pushed out and one pushed in along its normal, each face corner gets a point inset on the
+ * face, and every side of every face becomes two quads between them. A side with no face beyond it is closed off.
+ */
 function wireframeMesh(mesh, thickness) {
+  const normals = vertexNormals(mesh);
+  const half = thickness / 2;
   const out = createMesh([], []);
-  const box = cubePrism(thickness / 2);
-  for (const e of edgeMap(mesh).values()) {
-    const [a, b] = [mesh.verts[e.a], mesh.verts[e.b]];
-    const d = v3.norm(v3.sub(b, a));
-    const ref = Math.abs(d[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
-    const u = v3.norm(v3.cross(ref, d));
-    const w = v3.cross(d, u);
-    const base = out.verts.length;
-    for (const end of [a, b]) for (const [x, y] of box) out.verts.push(v3.add(end, v3.add(v3.mul(u, x), v3.mul(w, y))));
-    for (let i = 0; i < 4; i++) {
-      const j = (i + 1) % 4;
-      out.faces.push([base + i, base + j, base + j + 4, base + i + 4]);
-    }
-    out.faces.push([base + 3, base + 2, base + 1, base], [base + 4, base + 5, base + 6, base + 7]);
+  const base = mesh.verts.length;
+  mesh.verts.forEach((v, i) => out.verts.push(v3.add(v, v3.mul(normals[i], half))));
+  mesh.verts.forEach((v, i) => out.verts.push(v3.sub(v, v3.mul(normals[i], half))));
+  const pos = (v) => v;
+  const neg = (v) => v + base;
+  for (const face of mesh.faces) {
+    const n = face.length;
+    const corners = face.map((v, i) => {
+      const toPrev = v3.norm(v3.sub(mesh.verts[face[(i + n - 1) % n]], mesh.verts[v]));
+      const toNext = v3.norm(v3.sub(mesh.verts[face[(i + 1) % n]], mesh.verts[v]));
+      const between = v3.add(toPrev, toNext);
+      const length = v3.len(between);
+      const sinHalf = Math.max(0.05, Math.sqrt(Math.max(0, (1 - v3.dot(toPrev, toNext)) / 2)));
+      out.verts.push(length > 1e-9 ? v3.add(mesh.verts[v], v3.mul(between, half / sinHalf / length)) : [...mesh.verts[v]]);
+      return out.verts.length - 1;
+    });
+    face.forEach((v, i) => {
+      const j = (i + 1) % n;
+      out.faces.push([pos(v), pos(face[j]), corners[j], corners[i]]);
+      out.faces.push([neg(face[j]), neg(v), corners[i], corners[j]]);
+    });
   }
+  for (const e of edgeMap(mesh).values()) if (e.faces.length === 1) out.faces.push([pos(e.a), neg(e.a), neg(e.b), pos(e.b)]);
   return out;
 }
-const cubePrism = (r) => [[-r, -r], [r, -r], [r, r], [-r, r]];
+
+/**
+ * Moves each vertex of an all-quad mesh to where endless subdivision would take it, as Blender's "use limit surface" does. Vertices on a
+ * crease stay: a crease changes the rule and only the plain surface is computed here.
+ */
+function toLimitSurface(mesh) {
+  const creased = new Set();
+  for (const key of Object.keys(mesh.marks?.crease ?? {})) for (const v of key.split('_')) creased.add(Number(v));
+  const edgeOthers = mesh.verts.map(() => []);
+  const diagonal = mesh.verts.map(() => []);
+  const boundary = mesh.verts.map(() => []);
+  for (const e of edgeMap(mesh).values()) {
+    edgeOthers[e.a].push(e.b);
+    edgeOthers[e.b].push(e.a);
+    if (e.faces.length === 1) { boundary[e.a].push(e.b); boundary[e.b].push(e.a); }
+  }
+  for (const face of mesh.faces) if (face.length === 4) face.forEach((v, i) => diagonal[v].push(face[(i + 2) % 4]));
+  const out = cloneMesh(mesh);
+  out.verts = mesh.verts.map((v, i) => {
+    if (creased.has(i)) return v;
+    const sumOf = (list) => list.reduce((c, u) => v3.add(c, mesh.verts[u]), [0, 0, 0]);
+    if (boundary[i].length) {
+      // A corner of an open sheet stays; along a border the curve's own rule applies.
+      if (boundary[i].length !== 2 || diagonal[i].length < 2) return v;
+      return v3.mul(v3.add(v3.mul(v, 4), sumOf(boundary[i])), 1 / 6);
+    }
+    const n = edgeOthers[i].length;
+    if (n < 3 || diagonal[i].length !== n) return v;
+    return v3.mul(v3.add(v3.add(v3.mul(v, n * n), v3.mul(sumOf(edgeOthers[i]), 4)), sumOf(diagonal[i])), 1 / (n * (n + 5)));
+  });
+  return out;
+}
 
 function simpleDeform(mesh, { mode, angle, factor, axis }) {
   const out = cloneMesh(mesh);
@@ -426,7 +471,8 @@ export function applyModifier(mesh, mod, ctx = {}) {
     case 'SUBSURF': {
       let out = mesh;
       for (let i = 0; i < Math.min(mod.levels, 6); i++) out = catmullClark(out);
-      return out === mesh ? cloneMesh(mesh) : out;
+      if (out === mesh) return cloneMesh(mesh);
+      return mod.limitSurface === false ? out : toLimitSurface(out);
     }
     case 'MIRROR': {
       let out = mesh;
@@ -555,9 +601,13 @@ export function applyModifier(mesh, mod, ctx = {}) {
       return ctx.deformByArmature ? ctx.deformByArmature(out, mod.object) : out;
     }
     case 'NODES': return ctx.evalGeometryNodes ? ctx.evalGeometryNodes(mesh, mod) : cloneMesh(mesh);
-    case 'REMESH': return voxelRemesh(mesh, { voxel: mod.voxelSize, smooth: mod.smooth });
+    case 'REMESH': {
+      if (mod.mode && mod.mode !== 'VOXEL') return quadRemesh(mesh, { voxel: mod.voxelSize, mode: mod.mode });
+      return voxelRemesh(mesh, { voxel: mod.voxelSize, smooth: mod.smooth });
+    }
     case 'MULTIRES': return multiresEvaluate(mesh, mod, catmullClark);
-    case 'SKIN': return skinMesh(mesh, mod);
+    // Files from before there was a choice keep the flowing surface they were made with.
+    case 'SKIN': return mod.method === 'QUADS' ? skinHull(mesh, mod) : skinMesh(mesh, mod);
     case 'OCEAN': return oceanMesh({ ...mod, time: (((ctx.frame ?? 1) - 1) / (ctx.fps ?? 24)) * mod.speed });
     default: return cloneMesh(mesh);
   }
@@ -571,6 +621,8 @@ export function evaluateMesh(mesh, modifiers = [], ctx = {}, { render = false } 
     out.verts = out.verts.map((v, i) => v3.add(v, v3.mul(v3.sub(key.verts[i] ?? mesh.verts[i], mesh.verts[i]), key.value)));
   }
   out.shapeKeys = [];
+  // A step before the modifiers (Dynamic Paint's weight output), so they can use what it writes.
+  if (ctx.beforeAll) out = ctx.beforeAll(out) ?? out;
   for (const mod of modifiers) {
     if (render ? mod.showRender === false : mod.show === false) continue;
     out = applyModifier(out, mod, ctx);

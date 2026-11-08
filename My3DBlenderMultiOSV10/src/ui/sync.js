@@ -8,6 +8,7 @@ import { posedBone } from '../core/armature.js';
 import { edgeMap, faceNormal, toTriangles, triangulateIndices, vertexNormals, v3 } from '../core/mesh.js';
 import { evalShader } from '../core/nodes.js';
 import { particlesAt } from '../core/physics.js';
+import { gpencilMeshes } from '../core/gpencil.js';
 
 export const COLORS = { selected: 0xef8b3c, active: 0xffc266, wire: 0x101010, helper: 0x101010, edge: 0x000000, editSel: 0xffa030, editFace: 0xffa030, vert: 0x101010 };
 
@@ -40,6 +41,8 @@ function signature(doc, obj) {
   if (obj.type === 'VOLUME') parts.push(JSON.stringify(obj.data));
   return parts.join('|');
 }
+
+const l0 = (obj) => obj.data.layers.reduce((n, l) => n + l.strokes.reduce((m, s) => m + s.points.reduce((k, p) => k + p[0] + p[1] * 3 + p[2] * 7, 0), 0), 0);
 
 export function meshToGeometry(mesh) {
   const tri = toTriangles(mesh);
@@ -343,6 +346,7 @@ export class SceneSync {
       if (sig !== item.sig) { this.rebuild(doc, obj, item); item.sig = sig; }
       this.style(doc, obj, item, { shading, selection, xray, renderMode });
       this.updateParticles(doc, obj, item);
+      this.updateGrease(doc, obj, item);
     }
     for (const [id, item] of this.items) {
       if (seen.has(id)) continue;
@@ -504,13 +508,49 @@ export class SceneSync {
     }
   }
 
+  /** A drawing's ribbons and fills; the thin helper lines stay as the outline to pick by. */
+  updateGrease(doc, obj, item) {
+    if (obj.type !== 'GPENCIL') return;
+    const key = JSON.stringify([obj.data.layers.map((l) => [l.hide, l.color, l.fill, l.fillColor, l.opacity, l.thickness, l.keyed, l.strokes.length, l.strokes.at(-1)?.points.length]), l0(obj), doc.frame]);
+    if (item.greaseKey === key) return;
+    item.greaseKey = key;
+    if (item.grease) { for (const m of item.grease) { item.group.remove(m); m.geometry.dispose(); m.material.dispose(); } }
+    item.grease = [];
+    for (const part of gpencilMeshes(obj.data, doc.frame)) {
+      for (const [piece, color] of [[part.fills, part.fillColor], [part.lines, part.color]]) {
+        if (!piece.faces.length) continue;
+        const material = new THREE.MeshBasicMaterial({ color: new THREE.Color(color[0], color[1], color[2]), transparent: part.opacity < 1, opacity: part.opacity, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(meshToGeometry(piece), material);
+        mesh.raycast = () => {};
+        item.group.add(mesh);
+        item.grease.push(mesh);
+      }
+    }
+  }
+
   updateParticles(doc, obj, item) {
     if (item.points) { item.group.remove(item.points); item.points.geometry.dispose(); item.points = null; }
+    if (item.instances) { for (const m of item.instances) { item.group.remove(m); m.geometry.dispose(); m.dispose(); } item.instances = null; }
     if (!obj.particles?.length) return;
     const flat = [];
     const pairs = [];
     for (const system of obj.particles) {
       const list = particlesAt(doc, obj, system);
+      const source = system.renderAs === 'OBJECT' && system.kind !== 'HAIR' && list.length ? doc.objects.find((o) => o.id === system.instanceObject) : null;
+      if (source?.type === 'MESH') {
+        // Copies of an object, one per particle.
+        const geometry = meshToGeometry(evaluatedMesh(doc, source));
+        const copies = new THREE.InstancedMesh(geometry, this.particleInstanceMaterial ??= new THREE.MeshStandardMaterial({ color: 0xbbbbbb }), list.length);
+        const m = new THREE.Matrix4();
+        list.forEach((p, i) => { m.makeScale(system.size, system.size, system.size).setPosition(p[0], p[1], p[2]); copies.setMatrixAt(i, m); });
+        copies.matrixAutoUpdate = false;
+        copies.matrix.copy(item.group.matrix).invert();
+        copies.raycast = () => {};
+        copies.frustumCulled = false;
+        (item.instances ??= []).push(copies);
+        item.group.add(copies);
+        continue;
+      }
       if (system.kind === 'HAIR') for (const strand of list) for (let i = 0; i + 1 < strand.length; i++) pairs.push(...strand[i], ...strand[i + 1]);
       else for (const p of list) flat.push(...p);
     }

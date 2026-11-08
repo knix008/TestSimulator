@@ -29,12 +29,27 @@ describe('modifiers', () => {
     assert.equal(m.verts.length, 26);
     assert.equal(m.faces.length, 24);
     assert.ok(isManifold(m));
-    const two = applyModifier(cubeMesh(2), mod('SUBSURF', { levels: 2 }));
+    const two = applyModifier(cubeMesh(2), mod('SUBSURF', { levels: 2, limitSurface: false }));
     assert.equal(two.faces.length, 96);
     // A size-2 cube converges to a volume of about 2.62: 3.33, 2.80, 2.66, 2.63… by level.
     near(signedVolume(two), 2.8009, 1e-3);
     near(signedVolume(catmullClark(catmullClark(two))), 2.6314, 1e-3);
     near(Math.max(...two.verts.map((v) => Math.abs(v[0]))), Math.max(...two.verts.map((v) => Math.abs(v[1]))), 1e-9);
+  });
+  test('subdivision moves vertices to the limit surface, as Blender does by default', () => {
+    // 0.840 is what Blender's own evaluation gives for a size-2 cube at level 2; see scripts/verify-blender.
+    const limit = applyModifier(cubeMesh(2), mod('SUBSURF', { levels: 2 }));
+    near(Math.max(...limit.verts.map((v) => v[0])), 0.84, 2e-3);
+    const once = applyModifier(cubeMesh(2), mod('SUBSURF', { levels: 3 }));
+    assert.ok(Math.abs(Math.max(...once.verts.map((v) => v[0])) - 0.84) < 2e-3, 'the extreme stays where it is at a higher level');
+  });
+  test('wireframe: two quads per side of a face, and nothing beyond half the thickness along a normal', () => {
+    const wire = applyModifier(cubeMesh(2), mod('WIREFRAME', { thickness: 0.1 }));
+    assert.equal(wire.verts.length, 40);
+    assert.equal(wire.faces.length, 48);
+    near(Math.max(...wire.verts.map((v) => v[0])), 1 + 0.05 / Math.sqrt(3), 1e-6);
+    const open = applyModifier(planeMesh(2), mod('WIREFRAME', { thickness: 0.1 }));
+    assert.equal(open.faces.length, 12, 'a sheet: two per side and its four open sides closed');
   });
   test('subdivision keeps boundary vertices on the boundary curve and subdivides UVs', () => {
     const m = catmullClark(planeMesh(2));
@@ -80,7 +95,7 @@ describe('modifiers', () => {
   test('weld, triangulate, wireframe', () => {
     const c = cubeMesh(2);
     assert.equal(applyModifier(c, mod('TRIANGULATE')).faces.length, 12);
-    assert.equal(applyModifier(c, mod('WIREFRAME', { thickness: 0.1 })).faces.length, 12 * 6);
+    assert.equal(applyModifier(c, mod('WIREFRAME', { thickness: 0.1 })).faces.length, 48);
     assert.equal(applyModifier(c, mod('WELD', { distance: 10 })).verts.length < 8, true);
   });
   test('edge split gives each face of a cube its own corners', () => {

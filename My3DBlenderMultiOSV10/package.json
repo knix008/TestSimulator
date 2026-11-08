@@ -25,6 +25,7 @@
     "build:icons": "node scripts/render-icons.mjs",
     "build:docs": "node scripts/build-docs.mjs",
     "coverage": "node scripts/coverage.mjs",
+    "test:features": "node scripts/test-features.mjs",
     "tutorial:video": "node scripts/tutorial-video.mjs",
     "verify:blender": "node scripts/verify-blender.mjs",
     "verify:formats": "node scripts/verify-formats.mjs",
