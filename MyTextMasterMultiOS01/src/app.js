@@ -17,7 +17,7 @@ import { renderLeft, renderRight, renderBottom } from './ui/panels.js';
 import { mdTagBarHtml, mdTagById } from './ui/mdtags.js';
 import { showThemePicker, closeThemePicker } from './ui/themepicker.js';
 import { showMenu, closeMenu, menuOpen, menuKey } from './ui/menu.js';
-import { openDialog, confirmDialog, alertDialog, formDialog, dialogOpen } from './ui/dialog.js';
+import { confirmDialog, alertDialog, formDialog, dialogOpen } from './ui/dialog.js';
 import { startPageHtml } from './ui/startpage.js';
 import { startBoard } from './ui/startboard.js';
 import { AnimatedBackground } from './ui/background.js';
@@ -38,7 +38,8 @@ import { addRecent, removeRecent, loadRecent, storeRecent, loadRecentDirs, store
 import { TEMPLATES, templateById, templateText } from './domain/templates.js';
 import { sampleById } from './domain/samples.js';
 import * as native from './platform/native.js';
-import { openSettings, openAbout, openStats, openShortcuts, openUserDictionary } from './ui/appdialogs.js';
+import { openSettings, openAbout, openStats, openShortcuts, openUserDictionary, openHash } from './ui/appdialogs.js';
+import { openPrint } from './ui/printwindow.js';
 
 const VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0';
 const root = document.querySelector('#app');
@@ -402,8 +403,7 @@ function themeMenu(anchor) {
   showThemePicker(button, {
     theme: () => state.settings.theme,
     pick: (id) => (id === 'custom' ? useCustomTheme() : updateSettings({ theme: id })),
-    editCustom: () => { if (state.settings.theme !== 'custom') useCustomTheme(); openSettings(appApi, 'appearance'); },
-    random: () => run('theme'),
+    editCustom: () => openSettings(appApi, 'custom'),
   });
 }
 
@@ -1638,12 +1638,7 @@ async function hashDialog() {
   const text = inWysiwyg() ? wysiwyg.selectedText() : editor.selection().text || editor.text();
   const rows = [];
   for (const algorithm of ['SHA-1', 'SHA-256', 'SHA-512']) rows.push([algorithm, await tools.digest(text, algorithm)]);
-  await openDialog({
-    id: 'hash', title: t('action.hashSelection'), icon: 'hashTool', width: 640,
-    body: `<p class="muted">${escapeHtml(t('hash.of', { n: text.length.toLocaleString() }))}</p>${rows.map(([name, value]) => `<div class="hash-row"><b>${name}</b><code>${value}</code><button class="icon-button" data-copy="${value}" title="${escapeHtml(t('action.copy'))}">${icon('copy')}</button></div>`).join('')}`,
-    buttons: [{ id: 'ok', label: t('action.ok'), icon: 'check', primary: true }],
-    onMount: (box) => box.addEventListener('click', (event) => { const b = event.target.closest('[data-copy]'); if (b) copyText(b.dataset.copy).then(() => notify('success', t('notice.copied'))); }),
-  });
+  await openHash({ n: text.length, rows });
 }
 
 async function macroRepeatDialog() {
@@ -1875,7 +1870,11 @@ async function copyHtml() {
   notify('success', t('notice.htmlCopied'));
 }
 
-/** Prints through a hidden frame: Markdown and HTML as in the preview, text in a fixed-width font, a picture alone. */
+/**
+ * The print window (ui/printwindow.js): page setup and a preview, then the system's print dialog.
+ * Markdown and HTML print as in the preview, text in a fixed-width font, a picture on its own.
+ * Pictures next to the document get addresses the print window can load.
+ */
 async function printDocument() {
   const doc = activeDoc();
   let page;
@@ -1885,16 +1884,13 @@ async function printDocument() {
     const text = editor.text(doc);
     page = doc.kind === 'markdown' ? exportedHtml(doc) : doc.kind === 'html' ? DOMPurify.sanitize(text, { WHOLE_DOCUMENT: true, ADD_TAGS: ['style', 'link'] }) : textPage(text, { title: doc.name, lang: lang(), font: state.settings.editorFont });
   }
-  const frame = document.createElement('iframe');
-  frame.className = 'print-frame';
-  frame.setAttribute('sandbox', 'allow-same-origin allow-modals');
-  frame.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(frame);
-  await new Promise((resolve) => { frame.addEventListener('load', resolve, { once: true }); frame.srcdoc = page; });
-  if (doc.path && !doc.web && frame.contentDocument && isTextKind(doc.kind)) await preview.fixUrls(frame.contentDocument, doc);
-  await new Promise((resolve) => setTimeout(resolve, 200));
-  try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch (error) { showError(error); }
-  setTimeout(() => frame.remove(), 60000);
+  if (doc.path && !doc.web && isTextKind(doc.kind)) {
+    const parsed = new DOMParser().parseFromString(page, 'text/html');
+    await preview.fixUrls(parsed, doc);
+    page = `<!doctype html>\n${parsed.documentElement.outerHTML}`;
+  }
+  const result = await openPrint({ html: page, title: doc.name });
+  if (result === 'printed') log('info', t('print.sent', { name: doc.name }));
 }
 
 // ───────────────────────── start page
@@ -2342,6 +2338,12 @@ async function boot() {
     native.onCloseRequested(() => requestExit().then(() => false));
     if (state.settings.alwaysOnTop) native.setAlwaysOnTop(true).catch(() => {});
     loadPlaces();
+    // Dialog windows (settings, the user dictionary) send their changes here: applied and stored by this window.
+    const allowed = new Set(['updateSettings', 'notify', 'setUserDictionary']);
+    import('@tauri-apps/api/event').then(({ listen }) => listen('app-call', (event) => {
+      const { method, args } = event.payload ?? {};
+      if (allowed.has(method)) appApi[method](...(args ?? []));
+    }));
   } else {
     const guard = () => false;
     guard.hasUnsaved = () => state.docs.some(isDirty);

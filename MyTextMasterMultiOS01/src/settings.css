@@ -1,10 +1,10 @@
-/* The Settings window: every tab visible (they share the width and wrap when they must), every pane
-   the height of the tallest one (measured in appdialogs.js), nothing scrolls. */
+/* The Settings window: a fixed size (appdialogs.js SETTINGS_SIZE), every tab visible (they share the width and wrap when they must),
+   every pane fits it: nothing scrolls. */
 .settings-dialog .popup-body { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
 .settings-dialog .tabs { display: flex; flex-wrap: wrap; gap: 4px 4px; padding: 8px 12px 0; overflow: visible; }
 .settings-dialog .tabs .tab { flex: 1 1 auto; justify-content: center; display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 6px 10px; white-space: nowrap; }
 .settings-dialog .tabs .tab .icon { width: 15px; height: 15px; flex: none; }
-.settings-pane { overflow: hidden !important; padding: 8px 18px 12px; --label-col: 240px; }
+.settings-pane { flex: 1; min-height: 0; overflow: hidden !important; padding: 8px 18px 12px; --label-col: 240px; }
 .settings-pane .row { min-height: 32px; }
 .settings-pane .row-control output { min-width: 46px; text-align: right; color: var(--accent); font-weight: 600; }
 .settings-pane .row-control input[type="range"] { flex: 1; }
@@ -39,3 +39,39 @@
 .custom-preview .cp-accent { padding: 2px 10px; border-radius: 6px; font-size: 0.9em; }
 .custom-preview .cp-body { padding: 10px; }
 .custom-preview .cp-status { padding: 3px 10px; border-top: 1px solid; font-size: 0.85em; }
+
+/* A dialog in a window of its own (dialogwindow.js): the dialog is the window. */
+html.is-dialog-window, html.is-dialog-window body { background: var(--surface); overflow: hidden; }
+html.is-dialog-window #app { display: none; }
+.dialog-overlay.in-window { inset: 0; display: block; background: none; animation: none; }
+.dialog-overlay.in-window > .dialog.popup { width: 100vw !important; max-height: none; border-radius: 0; box-shadow: none; border: 1px solid var(--border); }
+.dialog-overlay.in-window > .dialog.popup:not(.fit) { height: 100vh !important; }
+.dialog-overlay.in-window .popup-head { cursor: default; }
+/* The owner window while a dialog window waits: dimmed, a click brings the dialog forward. */
+.window-wait { position: fixed; inset: 0; z-index: 6000; background: color-mix(in srgb, #000 22%, transparent); animation: fade-in 0.12s ease-out; }
+
+/* The print window */
+.print-dialog .popup-body { padding: 0; overflow: hidden; }
+.print-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); height: 100%; min-height: 0; }
+.print-setup { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-right: 1px solid var(--hairline, var(--border)); background: var(--panel); overflow: hidden; }
+.print-setup-title { display: flex; align-items: center; gap: 7px; margin: 0 0 8px; font-size: 0.95em; }
+.print-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 36px; border-bottom: 1px solid color-mix(in srgb, var(--border) 38%, transparent); }
+.print-label { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); white-space: nowrap; }
+.print-label .icon { width: 15px; height: 15px; }
+.print-control { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.print-control select { width: 100%; min-width: 0; }
+.print-control input[type="range"] { flex: 1; min-width: 0; }
+.print-control output { min-width: 44px; text-align: right; color: var(--accent); font-weight: 600; }
+.print-control .segmented { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+.print-control .segment { justify-content: center; }
+.print-pages { color: var(--accent); }
+.print-note { display: flex; gap: 7px; margin: 10px 0 0; font-size: 0.82em; line-height: 1.5; white-space: normal; }
+.print-note .icon { width: 15px; height: 15px; flex: none; margin-top: 2px; }
+.pw-preview { min-width: 0; min-height: 0; overflow: auto; background: color-mix(in srgb, var(--text) 14%, var(--bg)); }
+.pw-stage { display: flex; justify-content: center; padding: 20px; min-height: 100%; }
+.pw-sheet { position: relative; flex: none; background: #fff; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25); transform-origin: top center; }
+.pw-page { position: absolute; border: 0; background: transparent; pointer-events: none; }
+.pw-breaks { position: absolute; inset: 0; pointer-events: none; }
+.pw-break { position: absolute; left: 0; right: 0; border-top: 2px dashed #9aa3b2; }
+.pw-break span { position: absolute; right: 6px; top: -22px; padding: 1px 6px; border-radius: 6px; background: #eef2f8; color: #556; font-size: 11px; }
+.pw-break:last-child { border-top-color: transparent; }

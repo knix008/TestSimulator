@@ -1,11 +1,21 @@
-// Dialogs over the page, drawn like MyUMLMaker's popup windows (.popup, .popup-head, .popup-body,
-// .popup-foot). The head moves the dialog; Esc and × cancel; Enter presses the default button.
+// Dialogs drawn like MyUMLMaker's popup windows (.popup, .popup-head, .popup-body, .popup-foot).
+// On the desktop every dialog is a window of its own (ui/winbridge.js, dialogwindow.js): the
+// question helpers below open one and wait for its answer. In the browser they are layers over the
+// page. The head moves the dialog (the window); Esc and × cancel; Enter presses the default button.
 import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
 import { t } from '../i18n.js';
+import { runInWindow, useWindows } from './winbridge.js';
 
 const open = new Set();
 export const dialogOpen = () => open.size > 0;
+
+/**
+ * Set by dialogwindow.js: the next dialog fills this window (its head moves the window) and
+ * ready(box) gives the window the dialog's size and shows it.
+ */
+let windowMode = null;
+export function drawInWindow(mode) { windowMode = mode; }
 
 /**
  * openDialog({ id, title, icon, body (html), width, buttons: [{ id, label, icon, primary, danger }], onMount(el, close), onButton(id, el) → false keeps it open })
@@ -15,8 +25,10 @@ export function openDialog({ id = 'dialog', title: rawTitle, icon: glyph = 'info
   // Menu labels end in … ("Settings…"); the dialog's own title does not.
   const title = String(rawTitle ?? '').replace(/…$/, '');
   return new Promise((resolve) => {
+    const mode = windowMode;
+    windowMode = null;
     const overlay = document.createElement('div');
-    overlay.className = 'dialog-overlay';
+    overlay.className = `dialog-overlay ${mode ? 'in-window' : ''}`;
     overlay.innerHTML = `<section class="popup ${height ? '' : 'fit'} dialog ${className}" data-dialog="${escapeHtml(id)}" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" style="width:min(${width}px, calc(100vw - 24px));${height ? `height:min(${height}px, calc(100vh - 24px));` : ''}">
       <header class="popup-head" data-dialog-drag><h2>${icon(glyph)}<span>${escapeHtml(title)}</span></h2>
         <button type="button" class="window-button dialog-close" data-dialog-button="cancel" title="${escapeHtml(t('action.close'))}" aria-label="${escapeHtml(t('action.close'))}">${icon('winClose')}</button></header>
@@ -54,9 +66,10 @@ export function openDialog({ id = 'dialog', title: rawTitle, icon: glyph = 'info
       if (button && box.contains(button)) press(button.dataset.dialogButton);
     });
 
-    // The head moves the dialog.
+    // The head moves the dialog (in a window of its own: the window).
     box.querySelector('[data-dialog-drag]').addEventListener('pointerdown', (event) => {
       if (event.button !== 0 || event.target.closest('button')) return;
+      if (mode) { mode.drag(); return; }
       const rect = box.getBoundingClientRect();
       const dx = event.clientX - rect.left;
       const dy = event.clientY - rect.top;
@@ -73,11 +86,15 @@ export function openDialog({ id = 'dialog', title: rawTitle, icon: glyph = 'info
 
     onMount?.(box, close);
     const first = box.querySelector('[autofocus]') ?? box.querySelector('.popup-body input, .popup-body select, .popup-body textarea') ?? box.querySelector('.button.primary');
-    requestAnimationFrame(() => { first?.focus(); if (first?.select && first.type !== 'checkbox') first.select(); });
+    requestAnimationFrame(() => {
+      mode?.ready(box, { width, height });
+      first?.focus();
+      if (first?.select && first.type !== 'checkbox') first.select();
+    });
   });
 }
 
-export async function confirmDialog({ title, message, detail = '', icon: glyph = 'question', yes = t('action.ok'), no = t('action.cancel'), extra = null, danger = false }) {
+export async function renderConfirm({ title, message, detail = '', icon: glyph = 'question', yes = t('action.ok'), no = t('action.cancel'), extra = null, danger = false }) {
   const buttons = [
     ...(extra ? [{ id: 'extra', label: extra.label, icon: extra.icon, danger: extra.danger }] : []),
     { id: 'no', label: no, icon: 'close' },
@@ -89,7 +106,7 @@ export async function confirmDialog({ title, message, detail = '', icon: glyph =
   });
 }
 
-export async function alertDialog({ title, message, detail = '', icon: glyph = 'info', error = false }) {
+export async function renderAlert({ title, message, detail = '', icon: glyph = 'info', error = false }) {
   await openDialog({
     id: error ? 'error' : 'alert', title, icon: error ? 'error' : glyph, width: 470, className: error ? 'popup-error' : '',
     buttons: [{ id: 'ok', label: t('action.ok'), icon: 'check', primary: true }],
@@ -98,7 +115,7 @@ export async function alertDialog({ title, message, detail = '', icon: glyph = '
 }
 
 /** fields: [{ id, label, icon, type ('text'|'number'|'select'|'checkbox'), value, options: [[value, label]], min, max }] → values or null. */
-export async function formDialog({ title, icon: glyph = 'edit', fields, ok = t('action.ok'), width = 480, note = '' }) {
+export async function renderForm({ title, icon: glyph = 'edit', fields, ok = t('action.ok'), width = 480, note = '' }) {
   let values = null;
   const field = (f) => {
     const control = f.type === 'select'
@@ -123,4 +140,20 @@ export async function formDialog({ title, icon: glyph = 'edit', fields, ok = t('
     },
   });
   return result === 'ok' ? values : null;
+}
+
+// ───────────────────────── the questions the app asks: a window of their own on the desktop
+
+/** "Save the changes?" and the like → 'yes' | 'no' | 'extra' | 'cancel'. */
+export function confirmDialog(params) {
+  return useWindows() ? runInWindow('confirm', params, { title: params.title, width: 470, height: 200 }) : renderConfirm(params);
+}
+
+export function alertDialog(params) {
+  return useWindows() ? runInWindow('alert', params, { title: params.title, width: 470, height: 200 }) : renderAlert(params);
+}
+
+/** A small form (link, table size, go to line …) → its values, or null when cancelled. */
+export function formDialog(params) {
+  return useWindows() ? runInWindow('form', params, { title: params.title, width: params.width ?? 480, height: 240 }) : renderForm(params);
 }

@@ -1,7 +1,8 @@
-// The toolbar's theme drop-down, as in MyUMLMaker: a panel under the ▾ button with the system
-// setting and the custom theme on top, the dark and the light themes in two columns (colour swatch,
-// name, ✓ on the current one), and at the bottom: edit the custom theme, a random theme, close.
-// Picking a theme applies it and closes the panel; Esc or a click outside closes it.
+// The toolbar's theme drop-down, as in MyUMLMaker: a panel under the ▾ button. On top only the custom
+// theme and the button that sets it up (Settings › Custom theme); below, the dark and the light themes
+// in two columns (colour swatch, name, ✓ on the current one). It is a drop-down: no close button and
+// no buttons at the bottom; picking a theme applies it and closes the panel, and Esc, a click outside
+// or the ▾ button again close it.
 import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
 import { t, getLanguage } from '../i18n.js';
@@ -33,23 +34,16 @@ export function showThemePicker(anchor, hooks) {
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', t('action.themeChoose'));
   panel.innerHTML = `
-    <header class="popup-head"><h2>${icon('palette')}<span>${escapeHtml(t('action.themeChoose'))}</span></h2>
-      <button type="button" class="window-button" data-theme-action="close" title="${escapeHtml(t('action.close'))}" aria-label="${escapeHtml(t('action.close'))}">${icon('winClose')}</button></header>
+    <div class="menu-header">${icon('palette')}<span>${escapeHtml(t('action.themeChoose'))}</span></div>
     <div class="popup-body"><div class="theme-picker">
-      <div class="picker-top">${item('system', icon('sun'))}${item('custom', icon('palette'))}</div>
+      <div class="picker-top">${item('custom', icon('palette'))}<button type="button" class="picker-item" data-theme-action="edit" title="${escapeHtml(t('theme.editCustom'))}">${icon('gear')}<span class="theme-name">${escapeHtml(t('theme.editCustom'))}</span></button></div>
       <div class="picker-columns">${column('moon', t('theme.darkGroup', { count: DARK_THEMES.length }), DARK_THEMES)}${column('sun', t('theme.lightGroup', { count: LIGHT_THEMES.length }), LIGHT_THEMES)}</div>
-    </div></div>
-    <footer class="popup-foot">
-      <button type="button" class="button small" data-theme-action="edit" title="${escapeHtml(t('theme.editCustom'))}">${icon('edit')}<span>${escapeHtml(t('theme.editCustom'))}</span></button>
-      <button type="button" class="button small" data-theme-action="random" title="${escapeHtml(t('action.themeRandom'))}">${icon('dice')}<span>${escapeHtml(t('action.themeRandom'))}</span></button>
-      <span class="grow"></span>
-      <button type="button" class="button small" data-theme-action="close">${icon('close')}<span>${escapeHtml(t('action.close'))}</span></button>
-    </footer>`;
+    </div></div>`;
   document.body.appendChild(panel);
 
   // Under the button, its right edge on the button's right edge (the button sits at the toolbar's right end), inside the window.
   const rect = anchor.getBoundingClientRect();
-  const width = Math.min(620, window.innerWidth - 16);
+  const width = Math.min(440, window.innerWidth - 16);
   const height = Math.min(panel.offsetHeight, window.innerHeight - rect.bottom - 12);
   panel.style.width = `${width}px`;
   panel.style.height = `${Math.max(320, height)}px`;
@@ -62,9 +56,7 @@ export function showThemePicker(anchor, hooks) {
     const pick = event.target.closest('[data-pick-theme]');
     if (pick) { closeThemePicker(); hooks.pick(pick.dataset.pickTheme); return; }
     const action = event.target.closest('[data-theme-action]')?.dataset.themeAction;
-    if (action === 'close') closeThemePicker();
-    else if (action === 'edit') { closeThemePicker(); hooks.editCustom(); }
-    else if (action === 'random') { closeThemePicker(); hooks.random(); }
+    if (action === 'edit') { closeThemePicker(); hooks.editCustom(); }
   });
   // Arrow keys move through the themes (both columns in one list), Enter picks, Esc closes.
   const onKey = (event) => {

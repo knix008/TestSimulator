@@ -1,4 +1,7 @@
-// Settings, About, Document statistics and Keyboard shortcuts. Settings apply as they change.
+// Settings, About, Document statistics, Keyboard shortcuts, the user dictionary and hashes.
+// open*() is what the app calls: on the desktop each opens a window of its own (ui/winbridge.js) and
+// hands it plain data; render*() draws the dialog — in that window, or over the page in the browser.
+// Settings apply as they change (the settings window sends each change to the main window).
 import appIcon from '../../assets/icon-256.png';
 import { openDialog, confirmDialog } from './dialog.js';
 import { escapeHtml, keyLabel } from './dom.js';
@@ -7,7 +10,8 @@ import { t, getLanguage } from '../i18n.js';
 import { DEFAULTS, EDITOR_FONTS, PREVIEW_STYLES, TAB_SIZES, ANIMATION_INTERVALS } from '../domain/settings.js';
 import { THEMES, LIGHT_THEMES, DARK_THEMES, themeName, customFrom, resolveTheme, CUSTOM_KEYS } from '../themes.js';
 import { addWords, isWord, parseWordList } from '../domain/userdict.js';
-import { download } from '../platform/native.js';
+import { download, appInfo } from '../platform/native.js';
+import { runInWindow, useWindows } from './winbridge.js';
 import { intervalLabel } from './startpage.js';
 import { ANIMATION_KINDS } from './background.js';
 
@@ -119,19 +123,16 @@ function pane(tab, s) {
 
 const NUMERIC = new Set(['fontSize', 'editorFontSize', 'tabSize', 'autoSaveSeconds', 'startRecentCount', 'animationSpeed', 'startCardOpacity', 'animationInterval']);
 
-export async function openSettings(app, first = 'general') {
+/** The Settings window always has this size, whatever the tab, the language or the text size (every tab fits it without scrolling). */
+export const SETTINGS_SIZE = { width: 880, height: 560 };
+
+export function openSettings(app, first = 'general') {
+  if (useWindows()) return runInWindow('settings', { tab: first }, { title: t('action.settings'), ...SETTINGS_SIZE, fixed: true });
+  return renderSettings(app, first);
+}
+
+export async function renderSettings(app, first = 'general') {
   let tab = first;
-  /** Every tab gets the height of the tallest one (measured off-screen at the pane's width): no tab scrolls and the window does not jump. */
-  const fit = (box) => {
-    const pane = box.querySelector('.settings-pane');
-    const probe = pane.cloneNode(false);
-    Object.assign(probe.style, { position: 'absolute', visibility: 'hidden', left: '-10000px', top: '0', width: `${pane.clientWidth}px`, height: 'auto' });
-    box.appendChild(probe);
-    let tallest = 0;
-    for (const [id] of TABS) { probe.innerHTML = paneFor(id); tallest = Math.max(tallest, probe.scrollHeight); }
-    probe.remove();
-    pane.style.height = `${Math.ceil(tallest) + 2}px`;
-  };
   const paneFor = (id) => pane(id, app.settings());
   const draw = (box) => {
     box.querySelector('.tabs').innerHTML = TABS.map(([id, glyph]) => `<button type="button" class="tab ${id === tab ? 'active' : ''}" data-settings-tab="${id}">${icon(glyph)}<span>${escapeHtml(t(`settings.tab.${id}`))}</span></button>`).join('');
@@ -145,12 +146,12 @@ export async function openSettings(app, first = 'general') {
     draw(box);
   };
   await openDialog({
-    id: 'settings', title: t('action.settings'), icon: 'gear', width: 880, className: 'settings-dialog',
+    id: 'settings', title: t('action.settings'), icon: 'gear', width: SETTINGS_SIZE.width, height: SETTINGS_SIZE.height, className: 'settings-dialog',
     body: '<div class="tabs" role="tablist"></div><div class="settings-pane form-rows"></div>',
     buttons: [{ id: 'reset', label: t('settings.reset'), icon: 'refresh', danger: true }, { id: 'close', label: t('action.close'), icon: 'check', primary: true }],
     onMount: (box) => {
       draw(box);
-      requestAnimationFrame(() => fit(box));
+
       box.addEventListener('click', (event) => {
         const button = event.target.closest('[data-settings-tab]');
         if (button) { tab = button.dataset.settingsTab; draw(box); return; }
@@ -198,8 +199,7 @@ export async function openSettings(app, first = 'general') {
           draw(box);
           box.querySelector('[data-dialog-button="reset"] span').textContent = t('settings.reset');
           box.querySelector('[data-dialog-button="close"] span').textContent = t('action.close');
-          // Other words or another text size: the tabs are measured again.
-          requestAnimationFrame(() => fit(box));
+
         }
       };
       box.addEventListener('change', apply);
@@ -212,7 +212,7 @@ export async function openSettings(app, first = 'general') {
         const keep = { startLayout: null, explorerRoot: app.settings().explorerRoot };
         app.updateSettings({ ...DEFAULTS, ...keep }, { quiet: true });
         draw(box);
-        requestAnimationFrame(() => fit(box));
+
         app.notify('success', t('settings.resetDone'));
       }
       return false;
@@ -220,8 +220,14 @@ export async function openSettings(app, first = 'general') {
   });
 }
 
-export async function openAbout(app) {
-  const info = await app.appInfo().catch(() => null);
+export function openAbout(app) {
+  const params = { version: app.version() };
+  return useWindows() ? runInWindow('about', params, { title: t('action.about'), width: 600, height: 520 }) : renderAbout(params);
+}
+
+export async function renderAbout({ version }) {
+  const app = { version: () => version };
+  const info = await appInfo().catch(() => null);
   const L = getLanguage();
   const built = typeof __BUILD_DATE__ === 'string' ? new Date(__BUILD_DATE__) : null;
   const rows = [
@@ -246,9 +252,16 @@ export async function openAbout(app) {
   });
 }
 
-export async function openStats(app) {
+/** The statistics are counted in the main window; the dialog only shows them. */
+export function openStats(app) {
+  const params = statsParams(app);
+  if (!params) return undefined;
+  return useWindows() ? runInWindow('stats', params, { title: t('action.stats'), width: 460, height: 420 }) : renderStats(params);
+}
+
+function statsParams(app) {
   const doc = app.activeDoc();
-  if (!doc) return;
+  if (!doc) return null;
   const s = app.stats(doc);
   const editor = app.editor();
   const selected = editor.selection().text;
@@ -262,14 +275,19 @@ export async function openStats(app) {
     ['encoding', t('stats.encoding'), `${app.encodingLabel(doc.encoding)} · ${doc.eol.toUpperCase()}`],
     ['file', t('stats.kind'), t(`kind.${doc.kind}`)],
   ];
+  return { name: doc.name, rows, selected: selected.length };
+}
+
+export async function renderStats({ name, rows, selected }) {
   await openDialog({
     id: 'stats', title: t('action.stats'), icon: 'docStats', width: 460,
-    body: `<p class="stats-name">${icon('file')}<b>${escapeHtml(doc.name)}</b></p><dl class="about-table stats-table">${rows.map(([glyph, label, value]) => `<dt>${icon(glyph)}<span>${escapeHtml(label)}</span></dt><dd>${escapeHtml(typeof value === 'number' ? value.toLocaleString() : value)}</dd>`).join('')}</dl>${selected ? `<p class="muted">${escapeHtml(t('stats.selection', { n: selected.length.toLocaleString() }))}</p>` : ''}`,
+    body: `<p class="stats-name">${icon('file')}<b>${escapeHtml(name)}</b></p><dl class="about-table stats-table">${rows.map(([glyph, label, value]) => `<dt>${icon(glyph)}<span>${escapeHtml(label)}</span></dt><dd>${escapeHtml(typeof value === 'number' ? value.toLocaleString() : value)}</dd>`).join('')}</dl>${selected ? `<p class="muted">${escapeHtml(t('stats.selection', { n: selected.toLocaleString() }))}</p>` : ''}`,
     buttons: [{ id: 'ok', label: t('action.ok'), icon: 'check', primary: true }],
   });
 }
 
-export async function openShortcuts(app) {
+/** The list is made from the main window's commands; the dialog only shows it. */
+export function openShortcuts(app) {
   const groups = [
     ['file', ['new', 'open', 'openFolder', 'save', 'saveAs', 'saveAll', 'exportHtml', 'print', 'closeTab']],
     ['edit', ['undo', 'redo', 'find', 'replace', 'findInFiles', 'gotoLine', 'duplicateLine', 'toggleComment', 'indentMore', 'indentLess', 'joinLines', 'dateTime', 'bookmarkToggle', 'bookmarkNext', 'bookmarkPrev']],
@@ -278,16 +296,29 @@ export async function openShortcuts(app) {
     ['macro', ['macroRecord', 'macroStop', 'macroPlay']],
   ];
   const extra = [['Ctrl+Tab', t('shortcut.nextTab')], ['Ctrl+Shift+Tab', t('shortcut.prevTab')], ['Alt+↑ / Alt+↓', t('shortcut.moveLine')], ['Ctrl+D', t('shortcut.selectNext')], ['Alt+' + t('shortcut.click'), t('shortcut.multiCursor')], ['Alt', t('shortcut.menu')]];
+  const params = {
+    groups: groups.map(([menu, ids]) => ({ menu, rows: ids.filter((id) => app.commands[id]?.key).map((id) => [app.commands[id].icon, t(app.commands[id].label), app.commands[id].key]) })),
+    extra,
+  };
+  return useWindows() ? runInWindow('shortcuts', params, { title: t('action.shortcuts'), width: 760, height: 620, fixed: true }) : renderShortcuts(params);
+}
+
+export async function renderShortcuts({ groups, extra }) {
   await openDialog({
     id: 'shortcuts', title: t('action.shortcuts'), icon: 'keyboard', width: 760, height: 620, className: 'shortcuts-dialog',
-    body: `<div class="shortcut-columns">${groups.map(([menu, ids]) => `<section><h3>${icon({ file: 'file', edit: 'edit', format: 'bold', view: 'eye', macro: 'macroRecord' }[menu])}<span>${escapeHtml(t(`menu.${menu}`))}</span></h3>${ids.filter((id) => app.commands[id]?.key).map((id) => `<div class="shortcut-row">${icon(app.commands[id].icon)}<span>${escapeHtml(t(app.commands[id].label))}</span><kbd>${escapeHtml(keyLabel(app.commands[id].key))}</kbd></div>`).join('')}</section>`).join('')}
+    body: `<div class="shortcut-columns">${groups.map(({ menu, rows }) => `<section><h3>${icon({ file: 'file', edit: 'edit', format: 'bold', view: 'eye', macro: 'macroRecord' }[menu])}<span>${escapeHtml(t(`menu.${menu}`))}</span></h3>${rows.map(([glyph, label, key]) => `<div class="shortcut-row">${icon(glyph)}<span>${escapeHtml(label)}</span><kbd>${escapeHtml(keyLabel(key))}</kbd></div>`).join('')}</section>`).join('')}
       <section><h3>${icon('keyboard')}<span>${escapeHtml(t('shortcut.editor'))}</span></h3>${extra.map(([key, label]) => `<div class="shortcut-row">${icon('dot')}<span>${escapeHtml(label)}</span><kbd>${escapeHtml(keyLabel(key))}</kbd></div>`).join('')}</section></div>`,
     buttons: [{ id: 'ok', label: t('action.ok'), icon: 'check', primary: true }],
   });
 }
 
 /** The user's dictionary: words the spell checker accepts. Add, remove, import and export (one word per line). */
-export async function openUserDictionary(app) {
+export function openUserDictionary(app) {
+  if (useWindows()) return runInWindow('dictionary', { words: app.userWords() }, { title: t('action.userDictionary'), width: 560, height: 560, fixed: true });
+  return renderDictionary(app);
+}
+
+export async function renderDictionary(app) {
   let filter = '';
   const draw = (box) => {
     const words = app.userWords().filter((w) => !filter || w.toLowerCase().includes(filter.toLowerCase()));
@@ -352,5 +383,19 @@ export async function openUserDictionary(app) {
       }
       return true;
     },
+  });
+}
+
+/** Hashes of a text (Tools › Hash): rows of [algorithm, hex]; each has a copy button. */
+export function openHash(params) {
+  return useWindows() ? runInWindow('hash', params, { title: t('action.hashSelection'), width: 640, height: 260 }) : renderHash(params);
+}
+
+export async function renderHash({ n, rows }, copy = (text) => navigator.clipboard.writeText(text)) {
+  await openDialog({
+    id: 'hash', title: t('action.hashSelection'), icon: 'hashTool', width: 640,
+    body: `<p class="muted">${escapeHtml(t('hash.of', { n: n.toLocaleString() }))}</p>${rows.map(([name, value]) => `<div class="hash-row"><b>${name}</b><code>${value}</code><button class="icon-button" data-copy="${value}" title="${escapeHtml(t('action.copy'))}">${icon('copy')}</button></div>`).join('')}`,
+    buttons: [{ id: 'ok', label: t('action.ok'), icon: 'check', primary: true }],
+    onMount: (box) => box.addEventListener('click', (event) => { const b = event.target.closest('[data-copy]'); if (b) copy(b.dataset.copy); }),
   });
 }

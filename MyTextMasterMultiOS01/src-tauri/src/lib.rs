@@ -307,6 +307,76 @@ async fn open_guide_window(app: AppHandle, title: String) -> Result<(), String> 
         .map_err(|error| error.to_string())
 }
 
+/// A dialog (settings, about, a question, printing …) as a window of its own, owned by the window
+/// that asked for it: it stays above its owner but can be moved anywhere on the screen. It starts
+/// hidden; the page measures itself and calls fit_dialog_window, which sizes, centres and shows it.
+/// `init` (JSON) tells the page which dialog to draw. Async: windows made from sync commands deadlock.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn open_dialog_window(app: AppHandle, label: String, owner: String, title: String, width: f64, height: f64, resizable: bool, init: String) -> Result<(), String> {
+    let parent = app.get_webview_window(&owner).or_else(|| app.get_webview_window("main")).ok_or("no owner window")?;
+    let script = format!(
+        "window.__MYTEXTMASTER_VIEW__ = 'dialog'; window.__MYTEXTMASTER_DIALOG__ = JSON.parse({});",
+        serde_json::to_string(&init).map_err(|error| error.to_string())?
+    );
+    let (x, y) = centred_on(&parent, width, height);
+    WebviewWindowBuilder::new(&app, &label, WebviewUrl::default())
+        .title(title)
+        .decorations(false)
+        .shadow(true)
+        .resizable(resizable)
+        .inner_size(width, height)
+        .min_inner_size(width.min(360.0), height.min(160.0))
+        .position(x, y)
+        .visible(false)
+        .parent(&parent)
+        .map_err(|error| error.to_string())?
+        .initialization_script(&script)
+        .build()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+/// The logical position that centres a window of this size on `owner`, kept on the owner's monitor.
+fn centred_on(owner: &WebviewWindow, width: f64, height: f64) -> (f64, f64) {
+    let scale = owner.scale_factor().unwrap_or(1.0);
+    let (Ok(position), Ok(size)) = (owner.outer_position(), owner.outer_size()) else { return (120.0, 120.0) };
+    let (ox, oy) = (f64::from(position.x) / scale, f64::from(position.y) / scale);
+    let (ow, oh) = (f64::from(size.width) / scale, f64::from(size.height) / scale);
+    let mut x = ox + (ow - width) / 2.0;
+    let mut y = oy + ((oh - height) / 2.0).max(0.0);
+    if let Ok(Some(monitor)) = owner.current_monitor() {
+        let area = monitor.work_area();
+        let (ax, ay) = (f64::from(area.position.x) / scale, f64::from(area.position.y) / scale);
+        let (aw, ah) = (f64::from(area.size.width) / scale, f64::from(area.size.height) / scale);
+        x = x.min(ax + aw - width).max(ax);
+        y = y.min(ay + ah - height).max(ay);
+    }
+    (x, y)
+}
+
+/// The dialog page has drawn itself: give the window the page's size, centre it on its owner, show it.
+#[tauri::command]
+fn fit_dialog_window(app: AppHandle, window: WebviewWindow, owner: String, width: f64, height: f64) -> Result<(), String> {
+    window.set_size(tauri::LogicalSize::new(width, height)).map_err(|error| error.to_string())?;
+    if let Some(parent) = app.get_webview_window(&owner) {
+        let (x, y) = centred_on(&parent, width, height);
+        let _ = window.set_position(tauri::LogicalPosition::new(x, y));
+    }
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(())
+}
+
+/// Brings a window to the front (a click on the dimmed owner while its dialog waits).
+#[tauri::command]
+fn focus_window(app: AppHandle, label: String) {
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
 #[tauri::command]
 fn quit_app(app: AppHandle) {
     app.exit(0);
@@ -374,7 +444,10 @@ pub fn run() {
             set_always_on_top,
             file_details,
             file_hashes,
-            open_guide_window
+            open_guide_window,
+            open_dialog_window,
+            fit_dialog_window,
+            focus_window
         ])
         .build(tauri::generate_context!())
         .expect("error while building MyTextMaster");

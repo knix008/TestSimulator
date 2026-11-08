@@ -550,19 +550,27 @@ check('encode tools and the syntax menu', async () => {
   await page.key('Escape');
 });
 
-check('theme drop-down: system and custom on top, dark | light columns of 20, edit / random / close', async () => {
+check('theme drop-down: only the custom theme and its settings on top, dark | light columns of 20, no buttons below', async () => {
   await app(`app.updateSettings({ theme: 'light' }, { quiet: true }); return true;`);
   await page.click('#toolbar [data-command="themeMenu"]');
   await page.waitFor(`document.querySelector('.theme-dropdown')`, 2000);
   const info = await page.eval(`const p = document.querySelector('.theme-dropdown'); const r = p.getBoundingClientRect(); const b = document.querySelector('#toolbar [data-command="themeMenu"]').getBoundingClientRect();
-    return { columns: [...p.querySelectorAll('.picker-column')].map((c) => c.querySelectorAll('.picker-item').length), top: [...p.querySelectorAll('.picker-top .picker-item')].map((i) => i.dataset.pickTheme), swatches: p.querySelectorAll('.picker-column .theme-swatch').length,
-      checked: p.querySelector('.picker-item.active')?.dataset.pickTheme, foot: [...p.querySelectorAll('[data-theme-action]')].map((x) => x.dataset.themeAction), below: r.top >= b.bottom - 1, inside: r.right <= innerWidth && r.bottom <= innerHeight && r.left >= 0 };`);
+    return { columns: [...p.querySelectorAll('.picker-column')].map((c) => c.querySelectorAll('.picker-item').length), top: [...p.querySelectorAll('.picker-top .picker-item')].map((i) => i.dataset.pickTheme ?? i.dataset.themeAction), swatches: p.querySelectorAll('.picker-column .theme-swatch').length,
+      checked: p.querySelector('.picker-item.active')?.dataset.pickTheme, foot: p.querySelectorAll('.popup-foot, .popup-foot button').length, below: r.top >= b.bottom - 1, inside: r.right <= innerWidth && r.bottom <= innerHeight && r.left >= 0 };`);
   expect(info.columns.join() === '20,20' && info.swatches === 40, `columns ${JSON.stringify(info)}`);
-  expect(info.top.join() === 'system,custom', `top ${info.top}`);
+  expect(info.top.join() === 'custom,edit', `top ${info.top}`);
   expect(info.checked === 'light', `current ${info.checked}`);
-  expect(['edit', 'random', 'close'].every((a) => info.foot.includes(a)), `footer ${info.foot}`);
+  expect(info.foot === 0, 'buttons below the themes');
+  expect(!(await page.eval(`return Boolean(document.querySelector('.theme-dropdown .window-button, .theme-dropdown [data-theme-action="close"]'));`)), 'a close button in the drop-down');
   expect(info.below && info.inside, `placement ${JSON.stringify(info)}`);
   await shot('13-theme-dropdown');
+  await page.click('.theme-dropdown [data-theme-action="edit"]');
+  await page.waitFor(`document.querySelector('[data-dialog="settings"] [data-settings-tab="custom"].active')`, 2000);
+  expect(!(await page.eval(`return Boolean(document.querySelector('.theme-dropdown'));`)), 'drop-down still open');
+  await page.key('Escape');
+  await wait(100);
+  await page.click('#toolbar [data-command="themeMenu"]');
+  await page.waitFor(`document.querySelector('.theme-dropdown')`, 2000);
   await page.click('.theme-dropdown [data-pick-theme="dracula"]');
   await wait(100);
   expect((await page.eval(`return [document.documentElement.dataset.theme, Boolean(document.querySelector('.theme-dropdown'))];`)).join() === 'dracula,false', 'pick did not apply and close');
@@ -576,7 +584,8 @@ check('theme drop-down: system and custom on top, dark | light columns of 20, ed
 check('settings apply at once and "reset to defaults" restores them', async () => {
   await app(`app.run('settings'); return true;`);
   await page.waitFor(`document.querySelector('[data-dialog="settings"]')`, 2000);
-  // No tab hides, no pane scrolls, the window fits.
+  // No tab hides, no pane scrolls, the window fits, and its size never changes.
+  const sizes = new Set();
   const tabs = await page.eval(`return [...document.querySelectorAll('[data-settings-tab]')].map((b) => b.dataset.settingsTab);`);
   expect(tabs.length === 8 && tabs.includes('custom'), `tabs ${tabs}`);
   for (const tab of tabs) {
@@ -584,7 +593,14 @@ check('settings apply at once and "reset to defaults" restores them', async () =
     const m = await page.eval(`const pane = document.querySelector('.settings-pane'); const bar = document.querySelector('[data-dialog="settings"] .tabs').getBoundingClientRect(); const box = document.querySelector('[data-dialog="settings"]').getBoundingClientRect();
       return { over: pane.scrollHeight - pane.clientHeight, hidden: [...document.querySelectorAll('[data-settings-tab]')].filter((b) => { const r = b.getBoundingClientRect(); return r.right > bar.right + 1 || b.scrollWidth > b.clientWidth + 1; }).length, fits: box.bottom <= innerHeight && box.top >= 0 };`);
     expect(m.over <= 0 && m.hidden === 0 && m.fits, `${tab}: ${JSON.stringify(m)}`);
+    sizes.add(await page.eval(`const r = document.querySelector('[data-dialog="settings"]').getBoundingClientRect(); return Math.round(r.width) + 'x' + Math.round(r.height);`));
   }
+  await page.click('[data-settings-tab="general"]');
+  await page.eval(`const s = document.querySelector('[data-dialog="settings"] [data-setting="language"]'); s.value = 'en'; s.dispatchEvent(new Event('change', { bubbles: true })); return true;`);
+  await wait(150);
+  sizes.add(await page.eval(`const r = document.querySelector('[data-dialog="settings"]').getBoundingClientRect(); return Math.round(r.width) + 'x' + Math.round(r.height);`));
+  await page.eval(`const s = document.querySelector('[data-dialog="settings"] [data-setting="language"]'); s.value = 'ko'; s.dispatchEvent(new Event('change', { bubbles: true })); return true;`);
+  expect(sizes.size === 1 && [...sizes][0] === '880x560', `settings sizes ${[...sizes]}`);
   await page.click('[data-settings-tab="appearance"]');
   expect((await page.eval(`return document.querySelectorAll('[data-dialog="settings"] .mini-themes:not(.top) [data-pick-theme]').length;`)) === 40, 'theme buttons');
   expect((await page.eval(`return Math.round(document.querySelector('[data-dialog="settings"] .mini-theme').getBoundingClientRect().height);`)) <= 26, 'theme buttons are not small');
@@ -602,6 +618,46 @@ check('settings apply at once and "reset to defaults" restores them', async () =
   await wait(100);
   expect((await app(`return app.settings().theme;`)) === 'light', 'reset did not restore the theme');
   await page.key('Escape');
+});
+
+check('print window: page setup in one aligned column, a preview with pages, orientation and paper change it', async () => {
+  await app(`app.showStartPage(false); await app.openSample('feature-tour'); return true;`);
+  await app(`app.run('print'); return true;`);
+  await page.waitFor(`document.querySelector('[data-dialog="print"] .print-pages')?.textContent.match(/\\d/)`, 4000);
+  const layout = await page.eval(`const rows = [...document.querySelectorAll('.print-row')];
+    const lx = new Set(rows.map((r) => Math.round(r.querySelector('.print-label').getBoundingClientRect().left)));
+    const cx = new Set(rows.map((r) => Math.round(r.querySelector('.print-control').getBoundingClientRect().left)));
+    const vertical = rows.every((r, i) => i === 0 || r.getBoundingClientRect().top >= rows[i - 1].getBoundingClientRect().bottom - 1);
+    return { rows: rows.length, labelColumns: lx.size, controlColumns: cx.size, vertical, pages: document.querySelector('.print-pages').textContent, sheet: Math.round(document.querySelector('.pw-sheet').getBoundingClientRect().width) };`);
+  expect(layout.rows >= 6 && layout.labelColumns === 1 && layout.controlColumns === 1 && layout.vertical, `setup layout ${JSON.stringify(layout)}`);
+  // The paper is on screen (a leftover rule once hid it) and shows the document.
+  const shown = await page.eval(`const s = document.querySelector('.pw-sheet').getBoundingClientRect(); const p = document.querySelector('.pw-preview').getBoundingClientRect(); const text = document.querySelector('.pw-page').contentDocument?.body?.innerText ?? '';
+    return { w: Math.round(s.width), h: Math.round(s.height), inside: s.left >= p.left - 1 && s.right <= p.right + 1, text: text.trim().length };`);
+  expect(shown.w > 400 && shown.h > 400 && shown.inside && shown.text > 50, `preview paper not shown ${JSON.stringify(shown)}`);
+  const before = await page.eval(`return document.querySelector('.pw-sheet').style.width;`);
+  await page.click('[data-print-orientation="landscape"]');
+  await wait(150);
+  const after = await page.eval(`return document.querySelector('.pw-sheet').style.width;`);
+  expect(parseFloat(after) > parseFloat(before), `landscape did not widen the paper (${before} → ${after})`);
+  await page.eval(`const s = document.querySelector('[data-print="paper"]'); s.value = 'A5'; s.dispatchEvent(new Event('change', { bubbles: true })); return true;`);
+  await wait(150);
+  expect(parseFloat(await page.eval(`return document.querySelector('.pw-sheet').style.width;`)) < parseFloat(after), 'A5 did not shrink the paper');
+  // The page count follows the content, not the last count: back to portrait A4 and it is what it was.
+  const firstPages = layout.pages;
+  await page.click('[data-print-orientation="portrait"]');
+  await page.eval(`const s = document.querySelector('[data-print="paper"]'); s.value = 'A4'; s.dispatchEvent(new Event('change', { bubbles: true })); return true;`);
+  await wait(150);
+  const againPages = await page.eval(`return document.querySelector('.print-pages').textContent;`);
+  expect(againPages === firstPages, `page count drifted: ${firstPages} → ${againPages}`);
+  await page.click('[data-print-orientation="landscape"]');
+  await page.eval(`const s = document.querySelector('[data-print="paper"]'); s.value = 'A5'; s.dispatchEvent(new Event('change', { bubbles: true })); return true;`);
+  await wait(150);
+  await shot('14-print');
+  await page.click('[data-print-orientation="portrait"]');
+  await page.eval(`const s = document.querySelector('[data-print="paper"]'); s.value = 'A4'; s.dispatchEvent(new Event('change', { bubbles: true })); return true;`);
+  await page.click('[data-dialog="print"] [data-dialog-button="cancel"]');
+  await wait(100);
+  expect(!(await page.eval(`return Boolean(document.querySelector('[data-dialog="print"]'));`)), 'print window still open');
 });
 
 check('the resize marker at the bottom right is made of dots', async () => {

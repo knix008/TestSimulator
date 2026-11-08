@@ -228,3 +228,10 @@ html.is-guide #app.guide-window { height: 100vh; min-width: 0; display: grid; gr
 .guide-titlebar-sep { color: var(--muted); }
 .guide-titlebar-title { font-weight: 600; }
 #guide-host { display: flex; flex-direction: column; min-height: 0; }
+.theme-dropdown .popup-body { padding: 8px 10px; }
+.theme-dropdown .picker-columns { gap: 0 8px; }
+.theme-dropdown .picker-item { padding: 0 6px; gap: 6px; }
+.theme-dropdown .picker-item .theme-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.theme-dropdown .popup-foot { gap: 6px; padding: 8px 10px; }
+.theme-dropdown > .menu-header { flex: none; margin: 0; padding: 8px 12px 7px; }
+.theme-dropdown .popup-foot { justify-content: flex-start; }

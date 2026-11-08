@@ -22,6 +22,9 @@ const view = window.__MYTEXTMASTER_VIEW__ ?? new URLSearchParams(location.search
 if (view === 'guide') {
   document.documentElement.classList.add('is-guide');
   import('./guidewindow.js');
+} else if (view === 'dialog') {
+  // A dialog (settings, about, a question, printing …) in a window of its own.
+  import('./dialogwindow.js');
 } else {
   // A browser window can be narrower than the app's minimum width (a desktop window cannot): scroll sideways then.
   if (!window.__TAURI_INTERNALS__) document.documentElement.classList.add('is-web');

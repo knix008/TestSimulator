@@ -140,6 +140,11 @@ export const windowDrag = (edge) => (desktop ? invoke('window_drag', { edge: edg
 export const setMinimumSize = (width, height) => (desktop ? invoke('set_min_size', { width, height }).catch(() => {}) : Promise.resolve());
 export const setWindowTitle = async (title) => { if (desktop) await (await api()).win.getCurrentWindow().setTitle(title).catch(() => {}); else document.title = title; };
 export const showWindow = () => (desktop ? invoke('window_ready').catch(() => {}) : Promise.resolve());
+/** A dialog window (ui/winbridge.js) and its helpers. */
+export const openDialogWindow = (options) => invoke('open_dialog_window', options);
+export const fitDialogWindow = (owner, width, height) => invoke('fit_dialog_window', { owner, width, height });
+export const focusWindow = (label) => (desktop ? invoke('focus_window', { label }).catch(() => {}) : Promise.resolve());
+
 /** The user's guide in a window of its own (a second call brings it to the front). */
 export function openGuideWindow(title) {
   if (desktop) return invoke('open_guide_window', { title });

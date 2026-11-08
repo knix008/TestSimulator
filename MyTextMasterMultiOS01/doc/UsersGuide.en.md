@@ -22,7 +22,7 @@ The window has no system title bar: the top row is the title bar.
 
 | Part | What it does |
 | --- | --- |
-| **Menu bar** | The program icon, name, version and current document, Home, the File · Edit · Format · Insert · Tools · Macro · View · Help menus, and minimize · maximize · close at the right end. Drag an empty spot to move the window; double-click to maximize. `Alt` alone opens the File menu. |
+| **Menu bar** | The program icon, name and version, Home, the File · Edit · Format · Insert · Tools · Macro · View · Help menus, and minimize · maximize · close at the right end. Drag an empty spot to move the window; double-click to maximize. `Alt` alone opens the File menu. |
 | **Toolbar** | Buttons for frequent commands; hovering shows the name and shortcut at once. The window has a minimum width so no button is ever cut off. |
 | **Left panel** | Explorer · Outline · Open documents |
 | **Document tabs** | One tab per open document; `●` marks unsaved ones. |
@@ -186,14 +186,16 @@ Many kinds of files are shown **in a tab of the main window**, not in pop-up win
 ## 14. Export and print
 
 - **Export as HTML…** (`Ctrl+Shift+E`), **Copy as HTML**, **Open with the default program** (HTML, PDF, pictures and video in the system's programs).
-- **Print…** (`Ctrl+P`): Markdown and HTML as in the preview, text in a fixed-width font, a picture on its own. Choose "Save as PDF" for a PDF.
+- **Print…** (`Ctrl+P`): opens the **print window**. In **Page setup** on the left choose the paper (A4 · A3 · A5 · B5 · Letter · Legal), orientation (portrait / landscape), margins (normal · narrow · wide · none), scale (50 %–200 %) and whether background colours print; the preview on the right follows at once, with page breaks as dashed lines with page numbers and the page count at the left. **Print…** opens the system's print dialog; choose "Save as PDF" there for a PDF. The page setup is remembered. Markdown and HTML print as in the preview, text in a fixed-width font, a picture on its own.
 
 ## 15. View and settings
 
 - **Word wrap** (`Alt+Z`), **Line numbers**, **Highlight current line**, **Show whitespace**, text size (`Ctrl+=` / `Ctrl+-` / `Ctrl+Alt+0`), **Focus mode** (`F11`), **Always on top**.
-- **Themes**: the palette button picks a random theme, `▾` opens the theme menu with the system setting, **20 light themes**, **20 dark themes**, **Custom** and **Theme settings**.
+- **Themes**: the palette button picks a random theme, `▾` opens the theme menu: on top **Custom** (use your own theme) and **Custom theme settings…** (the Custom theme tab of Settings), below them **20 dark themes** on the left and **20 light themes** on the right. Picking a theme, `Esc` or a click outside closes it.
 - **Language**: the flag button. Open documents stay.
-- **Settings…** (`Ctrl+,`): General (language, new document kind, panels, always on top, hidden files), Appearance (40 theme tiles, the **custom theme**'s 12 colours, interface font), Editor, Spelling, Preview, Files, Start page. **Changes apply at once**; **Reset to defaults** puts every setting back (recent files and open documents stay).
+- **Settings…** (`Ctrl+,`): General (language, new document kind, panels, always on top, hidden files), Appearance (small buttons for the system setting, Custom and the 40 themes; interface font), **Custom theme** (the theme to start from, dark/light, 12 colours with a preview), Editor, Spelling, Preview, Files, Start page. The settings window has a fixed size, shows every tab at once and fits without scrolling. **Changes apply at once**; **Reset to defaults** puts every setting back (recent files and open documents stay).
+
+- **Windows**: Settings, About, Print, Statistics, Shortcuts, the user dictionary, hashes and questions all open as **windows of their own** that can be moved outside the program's window. While one is open the program window is dimmed; clicking the dimmed window brings the dialog to the front. The window's × or `Alt+F4` is the same as Cancel. (In the web version they open over the page.)
 
 ## 16. Reading this guide
 
