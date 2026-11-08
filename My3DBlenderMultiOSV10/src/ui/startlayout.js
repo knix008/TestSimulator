@@ -2,7 +2,7 @@
 export const COLS = 3;
 export const ROW = 20;
 export const GAP = 14;
-export const LAYOUT_VERSION = 1;
+export const LAYOUT_VERSION = 2;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 export const rowsFor = (px) => Math.max(2, Math.ceil((px + GAP) / ROW));
 export function overlaps(a, b) {

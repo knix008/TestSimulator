@@ -157,6 +157,23 @@ for (const file of fs.readdirSync(source).filter((f) => f.endsWith('.md'))) {
   fs.writeFileSync(path.join(target, file.replace(/\.md$/, '.html')), html);
   count++;
 }
+// The tutorial video (npm run tutorial:video writes it in the project root): a page of its own in each language, with
+// the file beside it. The page says so when the video has not been made.
+const videoName = 'My3DBlender-Tutorial.mp4';
+const madeVideo = path.join(root, videoName);
+if (fs.existsSync(madeVideo)) {
+  fs.mkdirSync(path.join(target, 'video'), { recursive: true });
+  fs.copyFileSync(madeVideo, path.join(target, 'video', videoName));
+}
+for (const en of [false, true]) {
+  const words = en
+    ? { title: 'My3DBlender Tutorial Video', note: 'The tutorial course in about four minutes, silent. Pause it at any step and try the same in the program.', missing: 'The video is not in this build.', languageTip: '한국어로 보기', flag: taegukgiMarkup(15), other: 'TutorialVideo.html' }
+    : { title: 'My3DBlender 튜토리얼 동영상', note: '튜토리얼 과정을 약 4분 동안 보여 줍니다(소리 없음). 아무 단계에서나 멈추고 프로그램에서 똑같이 해 보세요.', missing: '이 빌드에는 영상이 없습니다.', languageTip: 'English로 보기', flag: unionJackMarkup(15), other: 'TutorialVideo.en.html' };
+  const html = `<!doctype html><html lang="${en ? 'en' : 'ko'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(words.title)}</title><style>${STYLE}
+body.video-body{display:flex;flex-direction:column;height:100vh;overflow:hidden}.video-body .doc-top{min-height:44px;flex:none}.video-main{flex:1;overflow:auto}.video-page{max-width:1100px;margin:0 auto;padding:18px 20px}.video-page video{width:100%;border-radius:8px;background:#000;display:block}.video-page p{margin:10px 0 0;opacity:.8}.video-missing{padding:30px;border:1px dashed currentColor;border-radius:8px;text-align:center}</style></head><body class="video-body"><header class="doc-top"><span class="doc-title">${escape(words.title)}</span><span class="doc-sep"></span><a class="doc-btn doc-flag" id="doc-lang" href="${words.other}" title="${words.languageTip}" aria-label="${words.languageTip}">${words.flag}</a></header><main class="video-main"><div class="video-page"><video id="tutorial-video" controls preload="metadata" src="video/${videoName}"></video><div class="video-missing" id="video-missing" hidden>${escape(words.missing)}</div><p>${escape(words.note)}</p></div></main><script>const v=document.getElementById('tutorial-video');v.addEventListener('error',()=>{v.hidden=true;document.getElementById('video-missing').hidden=false;});</script></body></html>`;
+  fs.writeFileSync(path.join(target, en ? 'TutorialVideo.en.html' : 'TutorialVideo.html'), html);
+  count++;
+}
 // The pictures go along. They are made by npm run guide:images.
 const pictures = path.join(source, 'images');
 if (fs.existsSync(pictures)) fs.cpSync(pictures, path.join(target, 'images'), { recursive: true });

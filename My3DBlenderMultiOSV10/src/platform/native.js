@@ -21,11 +21,11 @@ export async function listen(event, handler) {
   return on(event, (e) => handler(e.payload));
 }
 
-/** Open dialog → { path, name, text } or null. `filters`: [{ name, extensions }]. */
-export async function openTextFile(filters) {
+/** Open dialog → { path, name, text } or null. `filters`: [{ name, extensions }]; `folder` is where it starts (desktop). */
+export async function openTextFile(filters, folder = null) {
   if (isTauri) {
     const { open } = await import('@tauri-apps/plugin-dialog');
-    const path = await open({ multiple: false, filters });
+    const path = await open({ multiple: false, filters, ...(folder ? { defaultPath: folder } : {}) });
     if (!path) return null;
     return readTextFile(path);
   }

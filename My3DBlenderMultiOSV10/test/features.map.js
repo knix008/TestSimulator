@@ -14,6 +14,7 @@ export const FEATURE_TESTS = {
     'web › a sample of all 14 editors stays free of errors after heavy document changes',
   ],
   'ui.workspaces': [
+    'web › Start screen: New makes a scene for the work and opens its workspace (sculpting, 2D animation, video editing)',
     'web › every workspace builds its editors, draws and shows no error',
     'web › workspaces switch the mode: Modeling edits, Sculpting sculpts',
     'web › Interface: workspaces on their own row with icons, active area outlined, nothing clipped',

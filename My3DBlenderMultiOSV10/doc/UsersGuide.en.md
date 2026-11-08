@@ -10,20 +10,22 @@ The program opens with the start screen and a window asking whether to run the t
 
 ![The start screen](images/en/start.png)
 
-- **Tools at the top**: show at startup, Start Screen Settings, Auto Arrange
-- **Intro card**: the program's name, New Project, Open, Samples, Tutorial, User's Guide
-- **Menu card**: New Project, Empty Scene, Open, Import, Samples, Theme, language, Preferences, About, Exit (desktop)
-- **Recent projects card**: files opened lately. The bin button takes one off the list (desktop)
-- **Sample Projects card**: a section of its own under the recent projects. Choose by level, each with a small picture
-- **Theme card**: dark and light themes
-- **Background card**: 20 moving backgrounds, Auto change, Speed, Card opacity
+- **Tools at the top**: show the start screen at startup, Start Screen Settings, Auto Arrange
+- **Banner**: shown at the top until the tutorial has been finished once; **Start** opens the tutorial
+- **Intro card**: the program's name and version, **User's Guide**, **Tutorial Document**, **Tutorial Video**, the **Help** menu, and the blue (accent coloured) **Start Tutorial**
+- **Shortcuts card**: Open, Import, Sample Gallery, Start Tutorial, Theme Settings, language, Preferences, Start Screen Settings, About, Exit (desktop)
+- **Recent card**: beside Shortcuts. Recent projects (× takes one off the list, **Clear** empties it) and the recent folders they are in (a click opens the Open window in that folder)
+- **New card**: General, Empty Scene, Modeling, Sculpting, Animation, 2D Animation, Shading, Geometry Nodes, VFX, Video Editing. Each makes a scene for that work and opens its workspace (Sculpting: a dense sphere in Sculpt Mode; 2D Animation: a camera and a Grease Pencil in Draw Mode)
+- **Sample Projects card**: 15 beginner, 20 intermediate and 20 advanced samples in a group per level, each with a small picture
+- **Theme card**: dark and light themes, with **Theme Settings** at the top right
+- **Moving Background card**: 20 backgrounds, **Change Background**, speed, card opacity, **Auto change** and how often (10 s to 5 min)
 - **Bottom line**: version and author
 
-A card moves by the dots left of its title and resizes by its bottom right corner. While dragging, a see-through copy follows the pointer, a dashed outline shows where the card will land, and the others make way so that nothing overlaps. Double-clicking the corner fits the card to its content again, and **Auto Arrange** puts the whole board back. The background and card settings are also in **Preferences**.
+A card moves by the four-way arrow left of its title and resizes by its bottom right corner. While dragging, a see-through copy follows the pointer, a dashed outline shows where the card will land, and the others make way so that nothing overlaps. Double-clicking the corner fits the card to its content again, and **Auto Arrange** puts the whole board back. The background and card settings are also in **Preferences › Start and Tutorial**. The tutorial video opens in a window of its own on the desktop, and in a new window on the web.
 
 ## Sample projects
 
-The `sample` folder holds samples by level. Choose one in the **Sample Projects** section of the start screen, or open the window with larger pictures from **File › Samples**. Choose a level and click to open. The status bar then says what to try. Saving asks for a new name, so the original stays as it is. Samples with a simulation bake it when they open.
+The `sample` folder holds samples by level. Choose one from the level groups in the **Sample Projects** section of the start screen, or open the window with larger pictures from **File › Samples**, choose a level and click. The status bar then says what to try. Saving asks for a new name, so the original stays as it is. Samples with a simulation bake it when they open.
 
 | Level | What is in it |
 |---|---|

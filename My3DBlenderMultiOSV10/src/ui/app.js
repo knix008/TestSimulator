@@ -1,6 +1,6 @@
 // The application: the document and its history, the top bar, workspaces, the area tree, the status bar, keys.
 import { decodeImages, encodeImageData, setRenderThreads } from './render.js';
-import { activeObject, createDefaultScene, deserialize, evaluatedMesh, sceneStats, serialize, setFrame } from '../core/doc.js';
+import { activeObject, createDefaultScene, createDocument, deserialize, evaluatedMesh, sceneStats, serialize, setFrame } from '../core/doc.js';
 import { coverage, FEATURES } from '../core/features.js';
 import { History } from '../core/history.js';
 import { adjustLast, allOps, canRun, getOp, run, touch } from '../core/ops.js';
@@ -439,14 +439,15 @@ export function createApp(rootEl) {
   const helpItems = () => [
     { label: t("User's Guide", '사용자 설명서'), icon: 'guide', testid: 'menu-guide', onClick: () => openDoc('UsersGuide') },
     { label: t('Tutorial', '튜토리얼'), icon: 'tutorial', testid: 'menu-tutorial', onClick: () => app.startTutorial() },
-    { label: t('Tutorial Course (written)', '튜토리얼 교재 (문서)'), icon: 'guide', testid: 'menu-tutorial-doc', onClick: () => openDoc('Tutorial') },
+    { label: t('Tutorial Course (written)', '튜토리얼 교재 (문서)'), icon: 'bookmark', testid: 'menu-tutorial-doc', onClick: () => openDoc('Tutorial') },
+    { label: t('Tutorial Video', '튜토리얼 동영상'), icon: 'video', testid: 'menu-tutorial-video', onClick: () => openDoc('TutorialVideo') },
     null,
     { label: t('Feature Coverage...', '기능 구현 현황...'), icon: 'ed-coverage', testid: 'menu-coverage', onClick: () => openCoverage() },
     { label: t('About My3DBlender', 'My3DBlender 정보'), icon: 'ed-info', testid: 'menu-about', onClick: () => openAbout() },
   ];
   const openDoc = (base) => {
     const name = getLanguage() === 'en' ? `${base}.en.html` : `${base}.html`;
-    if (isTauri) import('../platform/native.js').then((m) => m.invoke('open_doc_window', { name, title: base === 'Tutorial' ? t('Tutorial', '튜토리얼') : t("User's Guide", '사용자 설명서') })).catch((error) => showError(t('Could not open the document', '문서를 열 수 없습니다'), error));
+    if (isTauri) import('../platform/native.js').then((m) => m.invoke('open_doc_window', { name, title: base === 'Tutorial' ? t('Tutorial', '튜토리얼') : base === 'TutorialVideo' ? t('Tutorial Video', '튜토리얼 동영상') : t("User's Guide", '사용자 설명서') })).catch((error) => showError(t('Could not open the document', '문서를 열 수 없습니다'), error));
     else window.open(`./doc/${name}`, 'my3d-docs', 'width=1040,height=820');
   };
 
@@ -631,7 +632,7 @@ export function createApp(rootEl) {
   app.openSearch = openSearch;
 
   /** The settings that have a default worth going back to. */
-  const PREFERENCE_KEYS = ['showStats', 'showHints', 'toolLabels', 'recentCount', 'viewGrid', 'showNavGizmo', 'gizmoSize', 'orbitSpeed', 'panSpeed', 'zoomSpeed', 'invertZoom', 'rightDragNav', 'emulate3', 'leftDrag', 'renderThreads', 'showStart', 'askTutorial', 'startBg', 'startBgSpeed', 'startCardOpacity', 'startBgShuffle'];
+  const PREFERENCE_KEYS = ['showStats', 'showHints', 'toolLabels', 'recentCount', 'viewGrid', 'showNavGizmo', 'gizmoSize', 'orbitSpeed', 'panSpeed', 'zoomSpeed', 'invertZoom', 'rightDragNav', 'emulate3', 'leftDrag', 'renderThreads', 'showStart', 'askTutorial', 'startBg', 'startBgSpeed', 'startCardOpacity', 'startBgShuffle', 'startBgInterval'];
   const applyPreferences = () => {
     setRenderThreads(settings.renderThreads ?? 0);
     setRecentLimit(settings.recentCount ?? 10);
@@ -726,7 +727,8 @@ export function createApp(rootEl) {
     return page;
   }
 
-  function openSettings() {
+  function openSettings(page = null) {
+    if (typeof page === 'string') prefPage = page === 'theme' ? 'interface' : page;
     const change = (key) => (v) => { settings[key] = v; saveSettings(); applyPreferences(); };
     const number = (label, key, fallback, min, max, step, suffix = '') => row(label, numField({ value: settings[key] ?? fallback, int: true, min, max, step, suffix, testid: `pref-${key}`, onChange: change(key) }));
     const check = (label, key, fallback = true) => toggle({ value: settings[key] ?? fallback, label, testid: `pref-${key}`, onChange: change(key) });
@@ -761,6 +763,7 @@ export function createApp(rootEl) {
         check(t('Ask about the tutorial at startup', '시작할 때 튜토리얼 실행 묻기'), 'askTutorial'),
         row(t('Background', '배경'), select({ value: settings.startBg ?? 'wirecubes', options: backgroundOptions(), testid: 'pref-start-bg', onChange: change('startBg') })),
         check(t('Change the background by itself', '배경 자동 변경'), 'startBgShuffle', false),
+        row(t('Change Every', '바꾸는 간격'), select({ value: String(settings.startBgInterval ?? 30), options: [10, 20, 30, 60, 120, 300].map((n) => [String(n), n < 60 ? t(`${n} s`, `${n}초`) : t(`${n / 60} min`, `${n / 60}분`)]), testid: 'pref-startBgInterval', onChange: (v) => change('startBgInterval')(Number(v)) })),
         number(t('Background Speed', '배경 속도'), 'startBgSpeed', 100, 0, 300, 10, '%'),
         number(t('Card Opacity', '카드 불투명도'), 'startCardOpacity', 85, 20, 100, 5, '%'),
       ]],
@@ -811,6 +814,33 @@ export function createApp(rootEl) {
     app.hideStart();
     tutorial.start();
   };
+
+  /**
+   * Start screen › New: a fresh scene set up for one kind of work and the workspace for it, as Blender's own new-file
+   * templates do. Unsaved work is asked about first.
+   */
+  app.newFromTemplate = async (kind) => {
+    if (app.isDirty()) {
+      const answer = await ask({ title: t('New', '새로 만들기'), message: t('This project has unsaved changes.', '이 프로젝트에 저장하지 않은 변경 내용이 있습니다.'), buttons: [['discard', t('Discard and Start', '버리고 시작'), true], ['no', t('Cancel', '취소')]] });
+      if (answer !== 'discard') return;
+    }
+    const empty = ['sculpting', 'gpencil', 'video'].includes(kind);
+    app.replaceDocument(serialize(empty ? createDocument() : createDefaultScene()), true);
+    app.projectPath = null;
+    app.projectName = null;
+    if (kind === 'sculpting') app.op('mesh.primitive_uv_sphere_add', { segments: 96, rings: 48, radius: 1 });
+    if (kind === 'gpencil') {
+      app.op('object.camera_add');
+      Object.assign(activeObject(ctx.doc), { location: [0, -8, 0], rotation: [90, 0, 0] });
+      app.op('object.gpencil_add');
+    }
+    app.fileSaved();
+    app.hideStart();
+    const workspace = { modeling: 'modeling', sculpting: 'sculpting', animation: 'animation', gpencil: 'layout', shading: 'shading', geonodes: 'geonodes', tracking: 'tracking', video: 'video' }[kind] ?? 'layout';
+    app.setWorkspace(workspace);
+    if (kind === 'gpencil') app.op('object.mode_set', { mode: 'PAINT_GPENCIL' });
+  };
+  app.onTutorialFinished = () => { settings.tutorialDone = true; saveSettings(); };
 
   // Fonts for text objects: loaded when a text needs one. A file does not hold its fonts; it names them.
   const fontLoads = new Map();
@@ -1085,8 +1115,11 @@ export function createApp(rootEl) {
     setRecent: (list) => setRecentFiles(list),
     samples: () => app.openSamples(),
     startTutorial: () => app.startTutorial(),
-    preferences: () => openSettings(),
+    preferences: (page) => openSettings(page ?? null),
     about: () => openAbout(),
+    openVideo: () => openDoc('TutorialVideo'),
+    helpMenu: (anchor) => openMenuBelow(anchor, helpItems()),
+    template: (kind) => app.newFromTemplate(kind),
     canExit: isTauri,
     exit: () => requestClose(),
     flag: () => (getLanguage() === 'ko' ? unionJack(16) : taegukgi(16)),
@@ -1095,7 +1128,7 @@ export function createApp(rootEl) {
     applyTheme: () => applyTheme(),
     newProject: () => app.op('wm.new'),
     newEmpty: () => app.op('wm.new_empty'),
-    open: () => app.op('wm.open'),
+    open: (folder = null) => app.op('wm.open', folder ? { folder } : {}),
     openRecent: (path) => loadProjectText(app, path),
     openSample: (s) => app.openSample(s),
     importMenu: () => { const r = document.querySelector('[data-testid=start-import]').getBoundingClientRect(); openMenu(fileMenuItems(app).find((x) => x?.testid === 'menu-import').items, r.left, r.bottom); },

@@ -1463,18 +1463,23 @@ const boardSettled = async () => {
   await sleep(120);
   await waitFor(() => js("document.querySelector('[data-testid=start-board]').getAnimations({ subtree: true }).length === 0"), 6000, 50);
 };
-await test('Start screen: six cards, tools and footer; the Start button in the top bar shows and hides it', async () => {
+await test('Start screen: seven cards as MyUMLMaker lays them out, tools, banner and footer; the Start button in the top bar shows and hides it', async () => {
   await js('window.__my3d.showStart()');
   await frame();
   await sleep(150);
   assert(await js("document.querySelector('[data-testid=start-screen]').style.display !== 'none'"), 'visible');
-  for (const id of ['start-card-hero', 'start-card-actions', 'start-card-recent', 'start-card-samples', 'start-card-theme', 'start-card-background', 'start-footer', 'start-new', 'start-open', 'start-samples', 'start-guide', 'start-tutorial', 'start-arrange', 'start-settings', 'start-option', 'start-empty', 'start-import', 'bg-cards']) assert(await exists(id), id);
-  assert((await js("document.querySelector('[data-testid=start-author]').textContent")).includes('SHKWON (knix008@naver.com)'), 'the author');
+  for (const id of ['start-card-hero', 'start-card-actions', 'start-card-recent', 'start-card-templates', 'start-card-samples', 'start-card-theme', 'start-card-background', 'start-footer', 'start-banner', 'start-guide', 'start-tutorial-doc', 'start-tutorial-video', 'start-help', 'start-tutorial', 'start-arrange', 'start-settings', 'start-option', 'start-import', 'start-action-open', 'start-folders-empty', 'start-theme-settings', 'start-bg-next', 'start-interval', 'bg-cards']) assert(await exists(id), id);
+  eq(await js("document.querySelectorAll('[data-testid^=start-template-]').length"), 10, 'ten templates');
+  assert((await js("document.querySelector('[data-testid=start-author]').textContent")).includes('SHKWON(knix008@naver.com)'), 'the author');
+  assert(await js("document.querySelector('[data-testid=start-tutorial]').classList.contains('primary')"), 'Start Tutorial is the main button');
   eq(await js("document.querySelectorAll('[data-bg-card]').length"), 20, 'twenty backgrounds');
-  // The samples are a section of their own, right under the recent projects.
+  // Shortcuts and Recent side by side, New under them, the samples under New.
   await boardSettled();
-  const under = await js("(() => { const a = document.querySelector('[data-testid=start-card-recent]').getBoundingClientRect(); const b = document.querySelector('[data-testid=start-card-samples]').getBoundingClientRect(); return b.top >= a.bottom && b.top - a.bottom < 60; })()");
-  assert(under, 'samples sit under the recent projects');
+  const box = (id) => js(`(() => { const r = document.querySelector('[data-testid=start-card-${id}]').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, b: r.bottom }; })()`);
+  const [actionsBox, recentBox, templatesBox, samplesBox] = [await box('actions'), await box('recent'), await box('templates'), await box('samples')];
+  assert(Math.abs(actionsBox.y - recentBox.y) < 2 && recentBox.x > actionsBox.x + actionsBox.w - 2, 'Shortcuts and Recent side by side');
+  assert(actionsBox.w > recentBox.w * 1.8, 'Shortcuts takes two columns');
+  assert(templatesBox.y >= Math.max(actionsBox.b, recentBox.b) && samplesBox.y >= templatesBox.b && samplesBox.y - templatesBox.b < 60, 'New, then the samples');
   assert(await js("document.querySelectorAll('[data-start-theme]').length") >= 4, 'themes to pick from');
   assert(await js("document.querySelector('[data-testid=start-toggle]').classList.contains('active')"), 'the button is pressed');
   // Nothing sticks out sideways, and every fixed row of buttons is whole.
@@ -1513,29 +1518,29 @@ await test('Start screen: a card moves by its handle, with a ghost and an outlin
   await boardSettled();
   const read = () => js("(() => { const out = {}; for (const el of document.querySelectorAll('.start-board > [data-card]')) { const r = el.getBoundingClientRect(); out[el.dataset.card] = { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) }; } return out; })()");
   const before = await read();
-  eq(Object.keys(before).length, 6, 'six cards');
-  assert(before.hero.y < before.actions.y && before.actions.y < before.recent.y && before.recent.y < before.samples.y && before.samples.y < before.theme.y, 'in order, top to bottom');
+  eq(Object.keys(before).length, 7, 'seven cards');
+  assert(before.hero.y < before.actions.y && before.actions.y === before.recent.y && before.recent.y < before.templates.y && before.templates.y < before.samples.y && before.samples.y < before.theme.y, 'in order, top to bottom');
   // No two cards overlap.
   const clear = (l) => { const c = Object.values(l); return c.every((a, i) => c.every((b, j) => i === j || a.y + a.h <= b.y || b.y + b.h <= a.y || a.x + a.w <= b.x || b.x + b.w <= a.x)); };
   assert(clear(before), 'no overlap');
-  // Narrow the Recent card to one column by its corner.
-  const corner = await js("(() => { const r = document.querySelector('[data-card-resize=recent]').getBoundingClientRect(); return { x: r.x + 8, y: r.y + 8 }; })()");
-  await cdp.drag([corner.x, corner.y], [before.recent.x + before.recent.w * 0.33, corner.y], 6);
+  // Narrow the New card to one column by its corner.
+  const corner = await js("(() => { const r = document.querySelector('[data-card-resize=templates]').getBoundingClientRect(); return { x: r.x + 8, y: r.y + 8 }; })()");
+  await cdp.drag([corner.x, corner.y], [before.templates.x + before.templates.w * 0.33, corner.y], 6);
   await frame();
   await boardSettled();
   const narrow = await read();
-  assert(narrow.recent.w < before.recent.w * 0.5, `narrower: ${narrow.recent.w}`);
+  assert(narrow.templates.w < before.templates.w * 0.5, `narrower: ${narrow.templates.w}`);
   assert(clear(narrow), 'no overlap after a resize');
   // Move it with the handle: while dragging there is one ghost and an outline; after it the card is elsewhere.
-  const handle = await js("(() => { const r = document.querySelector('[data-card-handle=recent]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()");
-  await cdp.drag([handle.x, handle.y], [handle.x + narrow.recent.w + 20, handle.y], 6);
+  const handle = await js("(() => { const r = document.querySelector('[data-card-handle=templates]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()");
+  await cdp.drag([handle.x, handle.y], [handle.x + narrow.templates.w + 20, handle.y], 6);
   await frame();
   await boardSettled();
   const moved = await read();
-  assert(moved.recent.x > narrow.recent.x + 100, `moved: ${JSON.stringify(moved.recent)}`);
+  assert(moved.templates.x > narrow.templates.x + 100, `moved: ${JSON.stringify(moved.templates)}`);
   assert(clear(moved), 'no overlap after a move');
   eq(await js("document.querySelectorAll('.start-ghost, .card-drop-outline').length"), 0, 'the ghost and outline are gone');
-  eq(await js('window.__my3d.settings.startLayout.version'), 1, 'the arrangement is remembered');
+  eq(await js('window.__my3d.settings.startLayout.version'), 2, 'the arrangement is remembered');
   await click('start-arrange');
   await frame();
   await boardSettled();
@@ -1559,7 +1564,7 @@ await test('Start screen: card opacity and speed change by their steppers; a the
   await js(`document.querySelector('[data-start-theme=${theme}]').click()`);
   await js("window.__my3d.settings.startCardOpacity = 85; window.__my3d.settings.startBgSpeed = 100; window.__my3d.hideStart();");
 });
-await test('Samples: at least 40 in their section on the start screen, with all three levels; the chips filter; a click opens one', async () => {
+await test('Samples: at least 40 in their section on the start screen, grouped by the three levels with their counts; no gaps; a click opens one', async () => {
   await js('window.__my3d.showStart()');
   await frame();
   const count = () => js("document.querySelectorAll('[data-testid=start-card-samples] .sample-card').length");
@@ -1567,23 +1572,15 @@ await test('Samples: at least 40 in their section on the start screen, with all 
   const all = await count();
   assert(all >= 40, `${all} samples`);
   await sleep(250);
-  // No gap in the last row, at this width and in any filtered list: the rows end level with the first one.
-  const noHole = () => js("(() => { const g = document.querySelector('[data-testid=start-card-samples] .sample-tiles'); const cards = [...g.children]; const edge = Math.max(...cards.map((c) => c.getBoundingClientRect().right)); return Math.abs(cards.at(-1).getBoundingClientRect().right - edge) < 2; })()");
-  assert(await noHole(), 'no hole after the last sample');
-  eq(await js("(() => { const g = document.querySelector('[data-testid=start-card-samples] .sample-tiles'); return g.children.length % getComputedStyle(g).gridTemplateColumns.split(' ').length; })()"), 0, 'the samples fill their rows at the usual width');
-  eq(await js("[...document.querySelectorAll('[data-testid=start-card-samples] .sample-card')].filter((c) => /span/.test(c.style.gridColumn)).length"), 0, 'without stretching any');
+  // Each level is a group with its heading and count, and every group fills its rows at the usual width.
   for (const level of ['beginner', 'intermediate', 'advanced']) {
-    await click(`sample-level-${level}`);
-    await frame();
-    await sleep(40);
-    const n = await count();
+    const group = `[data-testid=sample-group-${level}]`;
+    const n = await js(`document.querySelectorAll('${group} .sample-card').length`);
     assert(n > 0 && n < all, `${level}: ${n}`);
-    await sleep(40);
-    assert(await noHole(), `${level}: no hole`);
+    eq(await js(`document.querySelector('${group} .sample-count').textContent`), String(n), `${level}: the count`);
+    eq(await js(`(() => { const g = document.querySelector('${group} .sample-tiles'); return g.children.length % getComputedStyle(g).gridTemplateColumns.split(' ').length; })()`), 0, `${level}: rows filled`);
+    eq(await js(`[...document.querySelectorAll('${group} .sample-card')].filter((c) => /span/.test(c.style.gridColumn)).length`), 0, `${level}: none stretched`);
   }
-  await click('sample-level-all');
-  await frame();
-  await sleep(40);
   await click('sample-snowman');
   await waitFor(() => js("window.__my3d.doc.name === 'Snowman'"), 4000);
   await frame();
@@ -1591,6 +1588,72 @@ await test('Samples: at least 40 in their section on the start screen, with all 
   eq(await doc("doc.objects.some((o) => o.name === 'Nose')"), true, 'the sample is there');
   eq(await js('window.__my3d.projectPath'), null, 'saving asks where: a sample is not overwritten');
   assert((await js("document.querySelector('[data-testid=status-msg]').textContent")).length > 3, 'it says what to try');
+});
+await test('Start screen: Help opens its menu, the tutorial video and documents are there, the banner goes once the tutorial is finished', async () => {
+  await js('window.__my3d.settings.tutorialDone = false; window.__my3d.showStart()');
+  await frame();
+  await sleep(300);
+  await click('start-help');
+  await frame();
+  for (const id of ['menu-guide', 'menu-tutorial', 'menu-tutorial-doc', 'menu-tutorial-video', 'menu-about']) assert(await js(`Boolean(window.__my3d.query('[data-testid=${id}]'))`), id);
+  await press('Escape');
+  for (const page of ['TutorialVideo.html', 'TutorialVideo.en.html', 'Tutorial.html', 'UsersGuide.html']) eq(await js(`fetch('./doc/${page}').then((r) => r.ok)`), true, page);
+  assert(await js("fetch('./doc/TutorialVideo.html').then((r) => r.text()).then((t) => t.includes('video/My3DBlender-Tutorial.mp4'))"), 'the page plays the tutorial video');
+  eq(await js("fetch('./doc/video/My3DBlender-Tutorial.mp4', { method: 'HEAD' }).then((r) => r.ok)"), true, 'and the video is there');
+  assert(await exists('start-banner'), 'the banner is offered');
+  await js('window.__my3d.onTutorialFinished(); window.__my3d.hideStart(); window.__my3d.showStart()');
+  await frame();
+  eq(await exists('start-banner'), false, 'not after the tutorial');
+  await js('window.__my3d.settings.tutorialDone = false; window.__my3d.hideStart()');
+});
+await test('Start screen: New makes a scene for the work and opens its workspace (sculpting, 2D animation, video editing)', async () => {
+  await js('window.__my3d.showStart()');
+  await frame();
+  await sleep(300);
+  await js('window.__my3d.fileSaved()');
+  await click('start-template-sculpting');
+  await waitFor(() => js("document.querySelector('[data-testid=start-screen]').style.display === 'none'"), 4000);
+  await frame();
+  eq(await doc('doc.mode'), 'SCULPT', 'sculpt mode');
+  assert(await doc('doc.objects.length === 1 && doc.objects[0].data.verts.length > 3000'), 'one dense sphere');
+  assert(await js("document.querySelector('[data-testid=ws-sculpting]').classList.contains('on')"), 'the Sculpting workspace');
+  await js('window.__my3d.showStart()');
+  await frame();
+  await sleep(200);
+  await js('window.__my3d.fileSaved()');
+  await click('start-template-gpencil');
+  await waitFor(() => js("document.querySelector('[data-testid=start-screen]').style.display === 'none'"), 4000);
+  await frame();
+  eq(await doc('doc.mode'), 'PAINT_GPENCIL', 'draw mode');
+  assert(await doc("doc.objects.some((o) => o.type === 'GPENCIL') && doc.objects.some((o) => o.type === 'CAMERA')"), 'a grease pencil and a camera');
+  await js('window.__my3d.showStart()');
+  await frame();
+  await sleep(200);
+  await js('window.__my3d.fileSaved()');
+  await click('start-template-video');
+  await waitFor(() => js("document.querySelector('[data-testid=start-screen]').style.display === 'none'"), 4000);
+  await frame();
+  assert(await js("document.querySelector('[data-testid=ws-video]').classList.contains('on')"), 'the Video workspace');
+  await js("window.__my3d.op('object.mode_set', { mode: 'OBJECT' })").catch(() => {});
+  await click('ws-layout');
+  await js('window.__my3d.fileSaved()');
+  await js("window.__my3d.op('wm.new')");
+  await frame();
+});
+await test('Start screen: the background changes on demand, and by itself at the chosen interval', async () => {
+  await js('window.__my3d.showStart()');
+  await frame();
+  await sleep(200);
+  const first = await js('window.__my3d.settings.startBg ?? "wirecubes"');
+  await js("document.querySelector('[data-testid=start-bg-next]').click()");
+  assert((await js('window.__my3d.settings.startBg')) !== first, 'changed');
+  await js("(() => { const s = document.querySelector('[data-testid=start-interval]'); s.value = '10'; s.dispatchEvent(new Event('change')); })()");
+  eq(await js('window.__my3d.settings.startBgInterval'), 10, 'the interval');
+  await js("document.querySelector('[data-testid=start-shuffle]').click()");
+  eq(await js('window.__my3d.settings.startBgShuffle'), true, 'auto change on');
+  await js("document.querySelector('[data-testid=start-shuffle]').click()");
+  eq(await js('window.__my3d.settings.startBgShuffle'), false, 'and off');
+  await js(`window.__my3d.settings.startBg = ${JSON.stringify(first)}; window.__my3d.settings.startBgInterval = 30; window.__my3d.hideStart();`);
 });
 await test('Samples: the Menu card opens the gallery window above the start screen', async () => {
   await js('window.__my3d.showStart()');

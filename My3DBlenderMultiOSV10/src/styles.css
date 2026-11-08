@@ -419,6 +419,27 @@ input, textarea { user-select: text; }
 .range-value input:focus { outline: none; }
 .range-value:focus-within { border-color: var(--accent-line); }
 .range-suffix { color: var(--muted); }
+/* MyUMLMaker's start page: a banner for a first visit, document buttons in the hero, grouped samples and templates. */
+.card-handle { color: var(--accent); }
+.start-banner { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 14px; border: 1px solid var(--accent-line); border-radius: 12px; background: color-mix(in srgb, color-mix(in srgb, var(--accent) 12%, var(--panel)) var(--start-card-alpha, 85%), transparent); font-size: 12.5px; }
+.start-banner > svg { flex: 0 0 auto; color: var(--accent); }
+.start-banner > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-docs { display: inline-flex; flex-wrap: wrap; gap: 8px; padding-right: 10px; margin-right: 2px; border-right: 1px solid var(--line); }
+.start-btn.big > svg + span + svg { color: var(--muted); }
+.start-btn.danger > svg { color: var(--danger, #e5484d); }
+.start-btn.danger:hover:not(:disabled) { border-color: var(--danger, #e5484d); }
+.start-sub { display: flex; align-items: center; gap: 6px; margin: 2px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); min-width: 0; }
+.start-sub > svg { flex: 0 0 auto; color: var(--accent); }
+.start-sub ~ .start-sub { margin-top: 10px; }
+.template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+.sample-groups { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sample-group > h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--line); font-size: 12px; min-width: 0; }
+.sample-count { color: var(--muted); font-weight: normal; }
+.start-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px; margin-top: 10px; }
+.start-check, .start-interval { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; cursor: pointer; }
+.start-check input { margin: 0; accent-color: var(--accent); }
+.start-interval > svg { color: var(--accent); }
+.start-interval select { height: 26px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit; padding: 0 4px; }
 .start-foot { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 14px; border-radius: 12px; background: color-mix(in srgb, var(--panel) var(--start-card-alpha, 85%), transparent); font-size: 12px; }
 .start-foot > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .start-toggle { display: inline-flex; align-items: center; gap: 5px; height: 24px; margin: 0 4px 0 6px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; -webkit-app-region: no-drag; }

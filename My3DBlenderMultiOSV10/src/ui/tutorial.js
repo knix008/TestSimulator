@@ -77,7 +77,7 @@ export function createTutorial(app) {
       h('button', { type: 'button', disabled: index === 0, dataset: { testid: 'tutorial-prev' }, onClick: () => go(index - 1) }, icon('left', 11), t('Back', '이전')),
       !done ? h('button', { type: 'button', dataset: { testid: 'tutorial-do' }, onClick: () => doIt() }, icon('check', 12), t('Do It for Me', '대신 해 주기')) : null,
       last
-        ? h('button', { type: 'button', className: 'primary', dataset: { testid: 'tutorial-done' }, onClick: () => close() }, icon('check', 12), t('Finish', '마치기'))
+        ? h('button', { type: 'button', className: 'primary', dataset: { testid: 'tutorial-done' }, onClick: () => { app.onTutorialFinished?.(); close(); } }, icon('check', 12), t('Finish', '마치기'))
         : h('button', { type: 'button', className: 'primary', disabled: !done, title: done ? '' : t('Finish what is listed first', '먼저 목록의 일을 마치세요'), dataset: { testid: 'tutorial-next' }, onClick: () => go(index + 1) }, t('Next', '다음'), icon('right', 11)));
     replace(card, head, h('p', { dataset: { testid: 'tutorial-text' } }, words(step.text)), list, h('div', { className: 'tutorial-progress' }, h('i', { style: { width: `${((index + 1) / TUTORIAL_STEPS.length) * 100}%` } })), foot);
     measure();

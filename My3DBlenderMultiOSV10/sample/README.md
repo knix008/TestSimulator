@@ -4,7 +4,7 @@
 
 Open them from the start screen or File › Samples. `npm run samples` makes them again.
 
-## 초급 (17)
+## 초급 (15)
 
 | 샘플 | 다루는 것 | 내용 |
 |---|---|---|
@@ -23,13 +23,13 @@ Open them from the start screen or File › Samples. `npm run samples` makes the
 | [피사계 심도](beginner/depth-of-field.my3d) | camera, render | 초점 밖의 앞뒤가 흐려집니다. |
 | [유리와 금속](beginner/glass-metal.my3d) | materials, render | 경로 추적 렌더러의 진가, 반사와 굴절입니다. |
 | [작은 태양계](beginner/solar-parent.my3d) | parent, animation | 달은 지구를, 지구는 태양을 따릅니다. 부모 관계면 간단합니다. |
-| [두꺼운 커브](beginner/curve-ribbon.my3d) | curve | 커브는 베벨 깊이를 주기 전까지 선일 뿐입니다. |
-| [계단](beginner/duplicate-stairs.my3d) | duplicate, array | 계단 하나를 세 방향으로 띄워 쌓습니다. |
 
-## 중급 (17)
+## 중급 (20)
 
 | 샘플 | 다루는 것 | 내용 |
 |---|---|---|
+| [두꺼운 커브](intermediate/curve-ribbon.my3d) | curve | 커브는 베벨 깊이를 주기 전까지 선일 뿐입니다. |
+| [계단](intermediate/duplicate-stairs.my3d) | duplicate, array | 계단 하나를 세 방향으로 띄워 쌓습니다. |
 | [머그잔](intermediate/subsurf-mug.my3d) | edit mode, subdivision | 원기둥에 인셋과 돌출, 서브디비전 표면을 더합니다. |
 | [가로등](intermediate/street-lamp.my3d) | lights, parent | 기둥과 팔, 해질녘의 따뜻한 점광원입니다. |
 | [용수철](intermediate/screw-spring.my3d) | modifier, screw | 작은 원을 스크류 모디파이어로 쓸어 올립니다. |
@@ -47,8 +47,9 @@ Open them from the start screen or File › Samples. `npm run samples` makes the
 | [돌기 달린 구](intermediate/studs-faces.my3d) | instancing | 자식 오브젝트를 모든 면에, 면의 방향으로 돌려 반복합니다. |
 | [합성 글로우](intermediate/glare-compositor.my3d) | compositor | 렌더 뒤에 밝은 조명에 글레어와 비네트를 더합니다. |
 | [라바 램프](intermediate/metaballs.my3d) | metaballs, animation | 메타볼이 오르내리며 서로 녹아듭니다. |
+| [모션 경로](intermediate/motion-paths.my3d) | animation, graph editor, onion skin | 던진 공의 전체 경로와 현재 프레임 주변의 잔상을 함께 보여 줍니다. |
 
-## 고급 (21)
+## 고급 (20)
 
 | 샘플 | 다루는 것 | 내용 |
 |---|---|---|
@@ -72,11 +73,10 @@ Open them from the start screen or File › Samples. `npm run samples` makes the
 | [조각한 머리](advanced/multires-sculpt.my3d) | sculpt, multiresolution | 멀티레졸루션 단계 위에 브러시로 밀어 만든 형태입니다. 원본은 꼭짓점 8개 그대로입니다. |
 | [스킨: 나무](advanced/skin-tree.my3d) | skin, remesh | 반지름을 준 엣지 몇 개가 하나의 면으로 이어지고, 리메시로 고르게 합니다. |
 | [빛줄기](advanced/god-rays.my3d) | volume, lights | 틈이 있는 방의 안개 속에서 빛이 눈에 보이는 줄기가 됩니다. |
-| [모션 경로](advanced/motion-paths.my3d) | animation, graph editor, onion skin | 던진 공의 전체 경로와 현재 프레임 주변의 잔상을 함께 보여 줍니다. |
 
 ---
 
-## Beginner (17)
+## Beginner (15)
 
 | Sample | Topics | What it shows |
 |---|---|---|
@@ -95,13 +95,13 @@ Open them from the start screen or File › Samples. `npm run samples` makes the
 | [Depth of Field](beginner/depth-of-field.my3d) | camera, render | Near and far blur away from the one in focus. |
 | [Glass and Metal](beginner/glass-metal.my3d) | materials, render | What a path tracer is for: reflections and refraction. |
 | [A Little Solar System](beginner/solar-parent.my3d) | parent, animation | Moon follows Earth follows Sun: parenting makes it effortless. |
-| [A Thick Curve](beginner/curve-ribbon.my3d) | curve | A curve is a line until it has a Bevel Depth. |
-| [Stairs](beginner/duplicate-stairs.my3d) | duplicate, array | One step and an offset in three directions. |
 
-## Intermediate (17)
+## Intermediate (20)
 
 | Sample | Topics | What it shows |
 |---|---|---|
+| [A Thick Curve](intermediate/curve-ribbon.my3d) | curve | A curve is a line until it has a Bevel Depth. |
+| [Stairs](intermediate/duplicate-stairs.my3d) | duplicate, array | One step and an offset in three directions. |
 | [Mug](intermediate/subsurf-mug.my3d) | edit mode, subdivision | A cylinder, an inset, an extrude and Subdivision Surface. |
 | [Street Lamp](intermediate/street-lamp.my3d) | lights, parent | A pole, an arm and a warm point light in the dusk. |
 | [Spring](intermediate/screw-spring.my3d) | modifier, screw | A small circle swept up by the Screw modifier. |
@@ -119,8 +119,9 @@ Open them from the start screen or File › Samples. `npm run samples` makes the
 | [Studded Sphere](intermediate/studs-faces.my3d) | instancing | A child object repeated on every face, turned to its normal. |
 | [Glow in the Compositor](intermediate/glare-compositor.my3d) | compositor | Bright lamps get a glare and a vignette after the render. |
 | [Lava Lamp](intermediate/metaballs.my3d) | metaballs, animation | Metaballs melt into each other as they rise and sink. |
+| [Motion Paths](intermediate/motion-paths.my3d) | animation, graph editor, onion skin | A throw shown with its whole path and its ghosts around the current frame. |
 
-## Advanced (21)
+## Advanced (20)
 
 | Sample | Topics | What it shows |
 |---|---|---|
@@ -144,4 +145,3 @@ Open them from the start screen or File › Samples. `npm run samples` makes the
 | [Sculpted Head](advanced/multires-sculpt.my3d) | sculpt, multiresolution | A form pushed by brushes on Multiresolution levels; the base mesh stays eight corners. |
 | [Skin: A Tree](advanced/skin-tree.my3d) | skin, remesh | A few edges with radii become one flowing surface, then a Remesh evens it out. |
 | [Light Shafts](advanced/god-rays.my3d) | volume, lights | Fog in a room with a slit: a spot of light becomes a shaft you can see. |
-| [Motion Paths](advanced/motion-paths.my3d) | animation, graph editor, onion skin | A throw shown with its whole path and its ghosts around the current frame. |

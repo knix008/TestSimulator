@@ -1,4 +1,4 @@
-// What the program opens with, in the design of My LVGL Studio and My Git Master: a moving background behind a scrolling board of
+// What the program opens with, in the design of MyUMLMaker's start page: a moving background behind a scrolling board of
 // translucent cards on a three-column grid. A card moves by its handle (a see-through copy follows the pointer and a dashed outline
 // shows where it lands) and resizes by its corner; double-clicking the corner fits it to its content again.
 import { h, replace, svg, themeSwatch } from './dom.js';
@@ -77,9 +77,8 @@ export function sampleBrowser(app, state, { onOpen, tiles = false }) {
 }
 
 const FIT_SHRINK_ROWS = 1;
-const START_CARDS = ['hero', 'actions', 'recent', 'samples', 'theme', 'background'];
-const DEFAULT_SPAN = { hero: 3, actions: 3, recent: 3, samples: 3, theme: 3, background: 3 };
-const SHUFFLE_SECONDS = 20;
+const START_CARDS = ['hero', 'actions', 'recent', 'templates', 'samples', 'theme', 'background'];
+const DEFAULT_SPAN = { hero: 3, actions: 2, recent: 1, templates: 3, samples: 3, theme: 3, background: 3 };
 
 /** A see-through copy of the dragged card that follows the pointer. */
 function dragGhost(element, event, container) {
@@ -182,13 +181,15 @@ export function createStartScreen(app, actions) {
     engine?.setKind(kind);
     root.querySelectorAll('[data-bg-card]').forEach((c) => c.classList.toggle('on', c.dataset.bgCard === kind));
   };
+  const interval = () => settings.startBgInterval ?? 30;
+  const nextBackground = () => {
+    const i = ANIMATIONS.indexOf(settings.startBg ?? 'wirecubes');
+    setBackground(ANIMATIONS[(i + 1) % ANIMATIONS.length]);
+  };
   const runShuffle = () => {
     clearInterval(shuffleTimer);
     if (!settings.startBgShuffle) return;
-    shuffleTimer = setInterval(() => {
-      const i = ANIMATIONS.indexOf(settings.startBg ?? 'wirecubes');
-      setBackground(ANIMATIONS[(i + 1) % ANIMATIONS.length]);
-    }, SHUFFLE_SECONDS * 1000);
+    shuffleTimer = setInterval(nextBackground, interval() * 1000);
   };
 
   // ── The board
@@ -334,7 +335,7 @@ export function createStartScreen(app, actions) {
   };
   const GRIP = () => drawing('<g fill="currentColor"><circle cx="10.500" cy="1.500" r="1.100"/><circle cx="6" cy="6" r="1.100"/><circle cx="10.500" cy="6" r="1.100"/><circle cx="1.500" cy="10.500" r="1.100"/><circle cx="6" cy="10.500" r="1.100"/><circle cx="10.500" cy="10.500" r="1.100"/></g>', 14, '0 0 12 12');
   const makeCard = (id, iconName, title, body, { extra = null, bare = false } = {}) => {
-    const handle = h('button', { type: 'button', className: 'card-handle', title: t('Move card', '카드 옮기기'), ariaLabel: t('Move card', '카드 옮기기'), dataset: { cardHandle: id }, onPointerdown: (e) => startMove(e, id) }, icon('drag', 14));
+    const handle = h('button', { type: 'button', className: 'card-handle', title: t('Move card', '카드 옮기기'), ariaLabel: t('Move card', '카드 옮기기'), dataset: { cardHandle: id }, onPointerdown: (e) => startMove(e, id) }, icon('move4', 15));
     const grip = h('span', {
       className: 'card-resize', title: t('Resize card (double-click to fit its content)', '카드 크기 조절 (두 번 클릭하면 내용에 맞춤)'), dataset: { cardResize: id },
       onPointerdown: (e) => startResize(e, id),
@@ -361,10 +362,7 @@ export function createStartScreen(app, actions) {
     const [en, ko, color, path] = BG_NAMES[kind];
     return h('button', { type: 'button', className: `bg-tile${kind === (settings.startBg ?? 'wirecubes') ? ' on' : ''}`, title: t(en, ko), dataset: { bgCard: kind }, onClick: () => setBackground(kind) },
       drawing(`<path d="${path}" fill="none" stroke="${color}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>`, 18, '0 0 24 24'), h('span', null, t(en, ko)));
-  }), h('button', {
-    type: 'button', role: 'switch', className: `bg-tile shuffle${settings.startBgShuffle ? ' on' : ''}`, title: t(`Change background every ${SHUFFLE_SECONDS} s`, `${SHUFFLE_SECONDS}초마다 배경 변경`), dataset: { testid: 'start-shuffle' },
-    onClick: (e) => { settings.startBgShuffle = !settings.startBgShuffle; actions.saveSettings(); e.currentTarget.classList.toggle('on', settings.startBgShuffle); runShuffle(); },
-  }, icon('sync', 18), h('span', null, t('Auto change', '자동 변경'))));
+  }));
   const themeTile = (theme) => h('button', {
     type: 'button', className: `bg-tile st-theme-tile${settings.theme === theme.id ? ' on' : ''}`, title: actions.themeName(theme), dataset: { startTheme: theme.id },
     onClick: () => {
@@ -380,8 +378,8 @@ export function createStartScreen(app, actions) {
     h('h3', null, icon(iconName, 14), h('span', null, name)),
     h('div', { className: 'bg-grid st-theme-tiles' }, themesByMode(mode).map(themeTile)));
 
-  const sampleState = { level: 'all' };
-  let gridWatchers = [];
+  const groupWatch = [];
+  let gridWatchers = groupWatch;
   const closeLastRow = (grid) => {
     const items = [...grid.children];
     for (const item of items) item.style.gridColumn = '';
@@ -392,7 +390,7 @@ export function createStartScreen(app, actions) {
   const watchGrids = () => {
     for (const w of gridWatchers) w.disconnect();
     gridWatchers = [];
-    for (const grid of board.querySelectorAll('.start-actions, .sample-tiles, .bg-grid')) {
+    for (const grid of board.querySelectorAll('.start-actions, .sample-tiles, .template-grid, .bg-grid')) {
       const check = () => closeLastRow(grid);
       const resized = new ResizeObserver(check);
       resized.observe(grid);
@@ -402,68 +400,135 @@ export function createStartScreen(app, actions) {
       check();
     }
   };
+  const baseName = (p) => p.split(/[\\/]/).pop();
+  const dirName = (p) => p.slice(0, Math.max(0, p.length - baseName(p).length - 1));
+  // The samples by level, each level a group with its own heading and count, as MyUMLMaker groups its samples.
+  const LEVEL_ICONS = { beginner: ['tutorial', '#22c55e'], intermediate: ['samples', '#f59e0b'], advanced: ['physics', '#ef4444'] };
+  const sampleGroups = () => {
+    const host = h('div', { className: 'sample-groups', dataset: { testid: 'sample-groups' } });
+    loadSamples().then((list) => {
+      replace(host, ...Object.entries(LEVELS).map(([level, name]) => {
+        const items = list.filter((s) => s.level === level);
+        const [glyph, color] = LEVEL_ICONS[level];
+        const mark = icon(glyph, 14);
+        mark.style.color = color;
+        return h('section', { className: 'sample-group', dataset: { sampleGroup: level, testid: `sample-group-${level}` } },
+          h('h3', null, mark, h('span', null, words(name)), h('span', { className: 'sample-count' }, String(items.length))),
+          h('div', { className: 'sample-tiles' }, items.map((s) => h('button', {
+            type: 'button', className: 'sample-card start-tile', title: `${words(s.title)}\n${words(s.description)}`, dataset: { testid: `sample-${s.id}` }, onClick: () => actions.openSample(s),
+          },
+          h('img', { src: `./sample/${s.thumb}`, alt: '', loading: 'lazy', draggable: false }),
+          h('b', null, words(s.title)),
+          h('small', null, s.topics.slice(0, 3).join(', '))))));
+      }));
+      const note = cards.samples?.querySelector('.start-card-note');
+      if (note) note.textContent = String(list.length);
+      watchGrids();
+    }).catch((error) => replace(host, h('div', { className: 'note-line' }, error.message)));
+    return host;
+  };
+  // New: the starting points Blender offers (General, 2D Animation, Sculpting, VFX, Video Editing) and the workspaces they open.
+  const TEMPLATES = [
+    ['general', 'prim-cube', '#3b82f6', ['General', '일반'], ['A cube, a light and a camera', '큐브, 조명, 카메라'], () => actions.newProject()],
+    ['empty', 'add', '#22c55e', ['Empty Scene', '빈 장면'], ['Nothing at all', '아무것도 없는 장면'], () => actions.newEmpty()],
+    ['modeling', 'mesh', '#0ea5e9', ['Modeling', '모델링'], ['The cube in Edit Mode', '편집 모드의 큐브'], () => actions.template('modeling')],
+    ['sculpting', 'tool-brush', '#f97316', ['Sculpting', '스컬프팅'], ['A dense sphere and the brushes', '조밀한 구와 브러시'], () => actions.template('sculpting')],
+    ['animation', 'ed-timeline', '#a855f7', ['Animation', '애니메이션'], ['Timeline, Dope Sheet and Graph', '타임라인·도프 시트·그래프'], () => actions.template('animation')],
+    ['gpencil', 'gpencil', '#ec4899', ['2D Animation', '2D 애니메이션'], ['A Grease Pencil to draw on', '그림을 그릴 그리스 펜슬'], () => actions.template('gpencil')],
+    ['shading', 'material', '#eab308', ['Shading', '셰이딩'], ['Materials and their nodes', '재질과 노드'], () => actions.template('shading')],
+    ['geonodes', 'mod-nodes', '#14b8a6', ['Geometry Nodes', '지오메트리 노드'], ['Build shapes from nodes', '노드로 모양 만들기'], () => actions.template('geonodes')],
+    ['vfx', 'ed-clip', '#64748b', ['VFX', 'VFX'], ['Motion tracking a movie clip', '동영상 모션 트래킹'], () => actions.template('tracking')],
+    ['video', 'ed-sequencer', '#ef4444', ['Video Editing', '영상 편집'], ['Strips on the sequencer', '시퀀서의 스트립'], () => actions.template('video')],
+  ];
+  const INTERVALS = [10, 20, 30, 60, 120, 300];
+  const intervalLabel = (n) => (n < 60 ? t(`Every ${n} s`, `${n}초마다`) : t(`Every ${n / 60} min`, `${n / 60}분마다`));
   const build = () => {
     const top = scroller.scrollTop;
     rects = new Map();
     measured = {};
     for (const el of Object.values(cards)) { sizes.unobserve(el); el.remove(); }
     for (const key of Object.keys(cards)) delete cards[key];
+    const big = (id, iconName, label, onClick, { primary = false, title = null, extra = null } = {}) => h('button', { type: 'button', className: `start-btn big${primary ? ' primary' : ''}`, title: title ?? label, dataset: { testid: id }, onClick }, icon(iconName, 16), h('span', null, label), extra);
     makeCard('hero', 'home', '', [
       h('img', { className: 'start-icon', src: './icon.png', width: 76, height: 76, alt: '' }),
       h('div', { className: 'start-hero-text' },
         h('h1', null, h('span', null, 'My3DBlender'), h('small', null, `v${__APP_VERSION__}`)),
         h('p', null, t('Modeling, sculpting, nodes, animation, simulation, rendering and video in one program.', '모델링·스컬프팅·노드·애니메이션·시뮬레이션·렌더링·영상 편집을 한 프로그램에서.'))),
       h('div', { className: 'start-hero-actions' },
-        button('start-new', 'new', t('New Project', '새 프로젝트'), () => actions.newProject(), { primary: true, title: t('A cube, a light and a camera', '큐브, 조명, 카메라') }),
-        button('start-open', 'open', t('Open...', '열기...'), () => actions.open(), { title: t('Open a .my3d project', '.my3d 프로젝트 열기') }),
-        button('start-samples', 'samples', t('Samples', '샘플'), () => root.querySelector('[data-testid=start-card-samples]').scrollIntoView({ block: 'start', behavior: 'smooth' }), { title: t('Go to the sample projects', '샘플 프로젝트로 이동') }),
-        button('start-tutorial', 'tutorial', t('Tutorial', '튜토리얼'), () => actions.startTutorial(), { title: t('Learn by doing, step by step', '따라 하며 배우기') }),
-        button('start-guide', 'guide', t("User's Guide", '사용자 설명서'), () => actions.openDoc('UsersGuide'), { title: t('Everything the program does', '프로그램의 모든 기능') })),
+        h('div', { className: 'start-docs', role: 'group', ariaLabel: t('Help', '도움말') },
+          big('start-guide', 'guide', t("User's Guide", '사용 설명서'), () => actions.openDoc('UsersGuide'), { title: t('Everything the program does', '프로그램의 모든 기능') }),
+          big('start-tutorial-doc', 'bookmark', t('Tutorial Document', '튜토리얼 문서'), () => actions.openDoc('Tutorial'), { title: t('The tutorial course, written out', '튜토리얼 교재 (문서)') }),
+          big('start-tutorial-video', 'video', t('Tutorial Video', '튜토리얼 동영상'), () => actions.openVideo(), { title: t('Watch the tutorial', '튜토리얼을 영상으로 봅니다') })),
+        big('start-help', 'help', t('Help', '도움말'), (e) => actions.helpMenu(e.currentTarget), { title: t('Guides, feature coverage and information', '설명서, 기능 구현 현황, 정보'), extra: icon('down', 10) }),
+        big('start-tutorial', 'tutorial', t('Start Tutorial', '튜토리얼 시작'), () => actions.startTutorial(), { primary: true, title: t('Learn by doing, step by step', '따라 하며 배우기') })),
     ], { bare: true });
-    makeCard('actions', 'grid', t('Menu', '메뉴'), [h('div', { className: 'start-actions' },
-      tile('start-action-new', 'new', '#3b82f6', t('New Project', '새 프로젝트'), t('A cube, a light and a camera', '큐브, 조명, 카메라'), () => actions.newProject()),
-      tile('start-empty', 'add', '#22c55e', t('Empty Scene', '빈 장면'), t('Nothing at all', '아무것도 없는 장면'), () => actions.newEmpty()),
-      tile('start-action-open', 'open', '#f59e0b', t('Open...', '열기...'), t('A .my3d project', '.my3d 프로젝트'), () => actions.open()),
-      tile('start-import', 'import', '#14b8a6', t('Import...', '가져오기...'), t('.blend, FBX, glTF, OBJ…', '.blend, FBX, glTF, OBJ…'), () => actions.importMenu()),
-      tile('start-action-samples', 'samples', '#10b981', t('Samples...', '샘플...'), t('The gallery, by level', '난이도별 샘플 모음'), () => actions.samples()),
-      tile('start-action-theme', 'palette', '#a855f7', t('Theme', '테마'), t('Dark and light themes', '어두운 테마와 밝은 테마'), () => root.querySelector('[data-testid=start-card-theme]').scrollIntoView({ block: 'nearest', behavior: 'smooth' })),
-      tile('start-action-language', null, null, getLanguage() === 'en' ? '한국어' : 'English', t('Switch between Korean and English', '한국어와 English를 전환합니다'), () => actions.toggleLanguage(), actions.flag()),
+    makeCard('actions', 'grid', t('Shortcuts', '바로 가기'), [h('div', { className: 'start-actions' },
+      tile('start-action-open', 'open', '#f59e0b', t('Open...', '열기...'), t('A saved .my3d project', '저장한 .my3d 프로젝트'), () => actions.open()),
+      tile('start-import', 'import', '#14b8a6', t('Import...', '가져오기...'), t('.blend, FBX, glTF, USD, OBJ, SVG…', '.blend, FBX, glTF, USD, OBJ, SVG…'), () => actions.importMenu()),
+      tile('start-action-samples', 'samples', '#10b981', t('Sample Gallery...', '샘플 모음...'), t('Every sample with its picture', '그림과 함께 보는 모든 샘플'), () => actions.samples()),
+      tile('start-action-tutorial', 'tutorial', '#22c55e', t('Start Tutorial', '튜토리얼 시작'), t('Learn by doing, step by step', '기능을 하나씩 따라 해 봅니다'), () => actions.startTutorial()),
+      tile('start-action-theme', 'palette', '#a855f7', t('Theme Settings', '테마 설정'), t('Pick a theme and its colours', '테마를 고르고 색을 바꿉니다'), () => actions.preferences('theme')),
+      tile('start-action-language', null, null, getLanguage() === 'en' ? '한국어' : 'English', t('Switch between Korean and English', '화면 언어를 바꿉니다'), () => actions.toggleLanguage(), actions.flag()),
       tile('start-action-preferences', 'settings', '#64748b', t('Preferences...', '환경 설정...'), t('Language, themes, keys, add-ons', '언어, 테마, 단축키, 애드온'), () => actions.preferences()),
-      tile('start-action-start', 'home', '#f97316', t('Start Screen Settings', '시작 화면 설정'), t('Background, speed, card opacity', '배경, 속도, 카드 불투명도'), () => actions.preferences()),
-      tile('start-action-about', 'ed-info', '#0ea5e9', t('About...', '정보...'), t('Version and license information', '버전과 라이선스 정보'), () => actions.about()),
-      actions.canExit ? tile('start-action-exit', 'power', '#ef4444', t('Exit', '끝내기'), t('Quit My3DBlender', 'My3DBlender를 끝냅니다'), () => actions.exit()) : null,
+      tile('start-action-start', 'home', '#f97316', t('Start Screen Settings', '시작 화면 설정'), t('What the start screen shows', '시작 화면에 보일 항목을 정합니다'), () => actions.preferences('start')),
+      tile('start-action-about', 'ed-info', '#0ea5e9', t('About...', '프로그램 정보...'), t('Version and who made it', '버전과 만든 사람을 봅니다'), () => actions.about()),
+      actions.canExit ? tile('start-action-exit', 'power', '#ef4444', t('Exit', '끝내기'), t('Quit My3DBlender', '프로그램을 닫습니다'), () => actions.exit()) : null,
     )]);
-    const browser = sampleBrowser(app, sampleState, { onOpen: (s) => actions.openSample(s), tiles: true });
+    // Recent: projects, and the folders they are in.
     const recent = actions.recentFiles();
-    const baseName = (p) => p.split(/[\\/]/).pop();
-    makeCard('recent', 'clock', t('Recent projects', '최근 프로젝트'), [recent.length
-      ? h('div', { className: 'start-list', dataset: { testid: 'start-recent' } }, recent.map((p) => h('div', { className: 'start-row' },
-        h('button', { type: 'button', className: 'start-link', title: p, onClick: () => actions.openRecent(p) }, icon('ed-view3d', 16), h('span', { className: 'name' }, baseName(p).replace(/\.[^.]+$/, '')), h('span', { className: 'path' }, p.slice(0, -baseName(p).length - 1))),
-        h('button', { type: 'button', className: 'start-row-remove', title: t('Remove from list', '목록에서 제거'), onClick: () => { actions.setRecent(actions.recentFiles().filter((x) => x !== p)); build(); } }, icon('delete', 14)))))
-      : h('div', { className: 'start-empty', dataset: { testid: 'start-recent-empty' } }, icon('ed-info', 14), h('span', null, t('No recent projects yet.', '최근에 연 프로젝트가 없습니다.')))],
-    { extra: recent.length ? h('button', { type: 'button', className: 'start-btn small', dataset: { testid: 'start-clear-recent' }, onClick: () => { actions.setRecent([]); build(); } }, icon('delete', 14), h('span', null, t('Clear All', '모두 지우기'))) : null });
-    makeCard('samples', 'samples', t('Sample Projects', '샘플 프로젝트'), [browser.grid], { extra: browser.chips });
+    const folders = [...new Set(recent.map(dirName).filter(Boolean))];
+    const sub = (iconName, label, clear) => h('h3', { className: 'start-sub' }, icon(iconName, 14), h('span', null, label), h('span', { className: 'grow' }), clear);
+    const clearButton = (id, label, onClick) => h('button', { type: 'button', className: 'start-btn small danger', title: label, dataset: { testid: id }, onClick }, icon('delete', 13), h('span', null, label));
+    const empty = (id, text) => h('div', { className: 'start-empty', dataset: { testid: id } }, icon('ed-info', 14), h('span', null, text));
+    makeCard('recent', 'clock', t('Recent', '최근 항목'), [
+      sub('clock', t('Recent projects', '최근 프로젝트'), recent.length ? clearButton('start-clear-recent', t('Clear', '지우기'), () => { actions.setRecent([]); build(); }) : null),
+      recent.length
+        ? h('div', { className: 'start-list', dataset: { testid: 'start-recent' } }, recent.map((p) => h('div', { className: 'start-row' },
+          h('button', { type: 'button', className: 'start-link', title: p, onClick: () => actions.openRecent(p) }, icon('ed-view3d', 16), h('span', { className: 'name' }, baseName(p).replace(/\.[^.]+$/, '')), h('span', { className: 'path' }, dirName(p))),
+          h('button', { type: 'button', className: 'start-row-remove', title: t('Remove from list', '목록에서 제거'), onClick: () => { actions.setRecent(actions.recentFiles().filter((x) => x !== p)); build(); } }, icon('close', 12)))))
+        : empty('start-recent-empty', t('No recent projects yet.', '최근에 연 프로젝트가 없습니다.')),
+      sub('folder-clock', t('Recent folders', '최근 폴더'), null),
+      folders.length
+        ? h('div', { className: 'start-list', dataset: { testid: 'start-folders' } }, folders.map((dir) => h('div', { className: 'start-row' },
+          h('button', { type: 'button', className: 'start-link', title: dir, onClick: () => actions.open(dir) }, icon('folder', 16), h('span', { className: 'name' }, baseName(dir) || dir), h('span', { className: 'path' }, dir)))))
+        : empty('start-folders-empty', t('No recent folders yet.', '최근에 쓴 폴더가 없습니다.')),
+    ]);
+    makeCard('templates', 'template', t('New', '새로 만들기'), [h('div', { className: 'template-grid', dataset: { testid: 'start-templates' } },
+      TEMPLATES.map(([id, glyph, color, name, tip, run]) => tile(`start-template-${id}`, glyph, color, t(...name), t(...tip), run)))],
+    { extra: h('span', { className: 'start-card-note' }, String(TEMPLATES.length)) });
+    makeCard('samples', 'samples', t('Sample Projects', '샘플 프로젝트'), [sampleGroups()], { extra: h('span', { className: 'start-card-note' }, '') });
     makeCard('theme', 'palette', t('Theme', '테마'), [h('div', { className: 'st-theme-columns' }, themeGroup('dark', 'moon', t('Dark', '어두운 테마')), themeGroup('light', 'sun', t('Light', '밝은 테마')))],
-      { extra: h('span', { className: 'start-card-note' }, actions.themeName(THEMES.find((x) => x.id === settings.theme) ?? THEMES[0])) });
-    makeCard('background', 'ed-image', t('Background', '배경'), [
+      { extra: h('button', { type: 'button', className: 'start-btn small', title: t('Pick a theme and its colours', '테마를 고르고 색을 바꿉니다'), dataset: { testid: 'start-theme-settings' }, onClick: () => actions.preferences('theme') }, icon('settings', 14), h('span', null, t('Theme Settings', '테마 설정'))) });
+    makeCard('background', 'ed-image', t('Moving Background', '움직이는 배경'), [
       bgTiles(),
-      h('div', { className: 'start-ranges', dataset: { testid: 'start-bg-controls' } },
-        h('div', { className: 'start-range' }, h('span', { className: 'start-range-label' }, icon('ed-timeline', 14), t('Speed', '속도')),
-          rangeStepper({ name: 'start-speed', label: t('Speed', '속도'), min: 0, max: 300, step: 10, suffix: '%', value: speed(), onChange: (v) => { settings.startBgSpeed = v; actions.saveSettings(); } })),
+      h('div', { className: 'start-controls', dataset: { testid: 'start-bg-controls' } },
+        h('button', { type: 'button', className: 'start-btn', title: t('Change the background now', '배경을 지금 바꿉니다'), dataset: { testid: 'start-bg-next' }, onClick: () => nextBackground() }, icon('sync', 14), h('span', null, t('Change Background', '움직이는 배경 바꾸기'))),
+        h('div', { className: 'start-range' }, h('span', { className: 'start-range-label' }, icon('ed-timeline', 14), t('Speed', '움직임 속도')),
+          rangeStepper({ name: 'start-speed', label: t('Speed', '움직임 속도'), min: 0, max: 300, step: 10, suffix: '%', value: speed(), onChange: (v) => { settings.startBgSpeed = v; actions.saveSettings(); } })),
         h('div', { className: 'start-range' }, h('span', { className: 'start-range-label' }, icon('eye', 14), t('Card opacity', '카드 불투명도')),
-          rangeStepper({ name: 'start-opacity', label: t('Card opacity', '카드 불투명도'), min: 20, max: 100, step: 5, suffix: '%', value: opacity(), onChange: (v) => { settings.startCardOpacity = v; actions.saveSettings(); applyOpacity(); } }))),
+          rangeStepper({ name: 'start-opacity', label: t('Card opacity', '카드 불투명도'), min: 20, max: 100, step: 5, suffix: '%', value: opacity(), onChange: (v) => { settings.startCardOpacity = v; actions.saveSettings(); applyOpacity(); } })),
+        h('label', { className: 'start-check', title: t('Change the background by itself', '배경을 저절로 바꿉니다') },
+          h('input', { type: 'checkbox', checked: Boolean(settings.startBgShuffle), dataset: { testid: 'start-shuffle' }, onChange: (e) => { settings.startBgShuffle = e.target.checked; actions.saveSettings(); runShuffle(); } }),
+          h('span', null, t('Auto change', '자동 변경'))),
+        h('label', { className: 'start-interval', title: t('How often it changes', '바꾸는 간격') }, icon('clock', 14),
+          h('select', { dataset: { testid: 'start-interval' }, onChange: (e) => { settings.startBgInterval = Number(e.target.value); actions.saveSettings(); runShuffle(); } },
+            INTERVALS.map((n) => h('option', { value: String(n), selected: n === interval() }, intervalLabel(n)))))),
     ]);
     const tools = h('div', { className: 'start-tools' },
-      h('label', { className: 'start-btn start-startup', title: t('Show at startup', '시작할 때 표시') },
+      h('label', { className: 'start-btn start-startup', title: t('Show the start screen at startup', '시작할 때 시작 화면 표시') },
         h('input', { type: 'checkbox', checked: settings.showStart !== false, dataset: { testid: 'start-option' }, onChange: (e) => { settings.showStart = e.target.checked; actions.saveSettings(); } }),
-        h('span', null, t('Show at startup', '시작할 때 표시'))),
-      button('start-settings', 'settings', t('Start Screen Settings', '시작 화면 설정'), () => actions.preferences()),
+        h('span', null, t('Show at startup', '시작할 때 시작 화면 표시'))),
+      button('start-settings', 'settings', t('Start Screen Settings', '시작 화면 설정'), () => actions.preferences('start')),
       button('start-arrange', 'grid', t('Auto Arrange', '자동 정렬'), () => saveLayout(autoArrange(START_CARDS, DEFAULT_SPAN, measured)), { title: t('Put the cards back in their default arrangement', '카드를 기본 배치로 정렬합니다') }));
+    // A first visit: the tutorial is offered until it has been finished once.
+    const banner = settings.tutorialDone ? null : h('div', { className: 'start-banner', dataset: { testid: 'start-banner' } },
+      icon('bulb', 16), h('span', { className: 'grow' }, t('New here? The tutorial walks through the program step by step (any time: Help › Tutorial).', '처음이세요? 튜토리얼이 프로그램을 차례로 따라 해 보게 합니다 (언제든 도움말 › 튜토리얼).')),
+      h('button', { type: 'button', className: 'start-btn small', dataset: { testid: 'start-banner-go' }, onClick: () => actions.startTutorial() }, icon('play', 12), h('span', null, t('Start', '시작하기'))));
     const footer = h('footer', { className: 'start-foot', dataset: { testid: 'start-footer' } },
       icon('ed-info', 14),
-      h('span', { className: 'grow' }, `My3DBlender V${__APP_VERSION__}`),
-      h('span', { className: 'muted', dataset: { testid: 'start-author' } }, '© SHKWON (knix008@naver.com)'));
-    replace(scroller, h('div', { className: 'start-inner' }, tools, board, footer));
+      h('span', { className: 'grow' }, `My3DBlender v${__APP_VERSION__}`),
+      h('span', { className: 'muted', dataset: { testid: 'start-author' } }, '© SHKWON(knix008@naver.com)'));
+    replace(scroller, h('div', { className: 'start-inner' }, tools, banner, board, footer));
     render();
     watchGrids();
     measure();

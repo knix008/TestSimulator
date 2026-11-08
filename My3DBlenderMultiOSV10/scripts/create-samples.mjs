@@ -219,13 +219,13 @@ export const SAMPLES = [
     setFrame(ctx.doc, 20);
     return ctx;
   }, { thumbFrame: 20 }),
-  s('curve-ribbon', 'beginner', 'A Thick Curve', '두꺼운 커브', ['curve'], 'A curve is a line until it has a Bevel Depth.', '커브는 베벨 깊이를 주기 전까지 선일 뿐입니다.', 'Change Bevel Depth in the Object Data tab.', '오브젝트 데이터 탭에서 베벨 깊이를 바꿔 보세요.', () => {
+  s('curve-ribbon', 'intermediate', 'A Thick Curve', '두꺼운 커브', ['curve'], 'A curve is a line until it has a Bevel Depth.', '커브는 베벨 깊이를 주기 전까지 선일 뿐입니다.', 'Change Bevel Depth in the Object Data tab.', '오브젝트 데이터 탭에서 베벨 깊이를 바꿔 보세요.', () => {
     const ctx = start({ camera: [0, -8, 3.4], target: [0, 0, 1.2] });
     const points = Array.from({ length: 13 }, (_, i) => { const a = (i / 12) * Math.PI * 4; return [Math.cos(a) * (2.4 - i * 0.12), Math.sin(a) * (2.4 - i * 0.12), 0.3 + i * 0.2]; });
     addObject(ctx.doc, { type: 'CURVE', name: 'Spiral', data: { splines: [{ kind: 'BEZIER', cyclic: false, points }], bevelDepth: 0.12, resolution: 16 }, materials: [material(ctx.doc, 'Tube', { baseColor: PALETTE.purple, roughness: 0.3 }).id] });
     return ctx;
   }),
-  s('duplicate-stairs', 'beginner', 'Stairs', '계단', ['duplicate', 'array'], 'One step and an offset in three directions.', '계단 하나를 세 방향으로 띄워 쌓습니다.', 'Change the Array offsets and see the stairs turn into a ramp.', '배열 오프셋을 바꿔 계단이 경사로로 변하는 것을 보세요.', () => {
+  s('duplicate-stairs', 'intermediate', 'Stairs', '계단', ['duplicate', 'array'], 'One step and an offset in three directions.', '계단 하나를 세 방향으로 띄워 쌓습니다.', 'Change the Array offsets and see the stairs turn into a ramp.', '배열 오프셋을 바꿔 계단이 경사로로 변하는 것을 보세요.', () => {
     const ctx = start({ camera: [14, -15, 8], target: [3, 0, 2], lens: 45 });
     const step = shape(ctx, 'Step', cubeMesh(1), { location: [-3, 0, 0.15], scale: [1, 3, 0.3], mat: material(ctx.doc, 'Stone', { baseColor: [0.62, 0.3, 0.16], roughness: 0.7 }) });
     use(step, 'ARRAY', { count: 14, offsetX: 1, offsetY: 0, offsetZ: 1 });
@@ -841,7 +841,7 @@ print(len(field.points()), "columns")
     addObject(ctx.doc, { type: 'LIGHT', name: 'Shaft', location: [0, 11, 5.6], rotation: rotationFromQuat(new Quaternion().setFromRotationMatrix(m)), data: { ...defaultLight('SPOT'), energy: 16000, spotSize: 28, spotBlend: 0.2, color: [1, 0.92, 0.75], radius: 0 } });
     return ctx;
   }, { thumbSamples: 48 }),
-  s('motion-paths', 'advanced', 'Motion Paths', '모션 경로', ['animation', 'graph editor', 'onion skin'], 'A throw shown with its whole path and its ghosts around the current frame.', '던진 공의 전체 경로와 현재 프레임 주변의 잔상을 함께 보여 줍니다.', 'Move a key in the Graph Editor, then Object › Animation › Calculate Motion Path.', '그래프 에디터에서 키를 옮긴 뒤 오브젝트 › 애니메이션 › 모션 경로 계산을 실행해 보세요.', () => {
+  s('motion-paths', 'intermediate', 'Motion Paths', '모션 경로', ['animation', 'graph editor', 'onion skin'], 'A throw shown with its whole path and its ghosts around the current frame.', '던진 공의 전체 경로와 현재 프레임 주변의 잔상을 함께 보여 줍니다.', 'Move a key in the Graph Editor, then Object › Animation › Calculate Motion Path.', '그래프 에디터에서 키를 옮긴 뒤 오브젝트 › 애니메이션 › 모션 경로 계산을 실행해 보세요.', () => {
     const ctx = start({ camera: [0, -12, 4.4], target: [0, 0, 2], frameEnd: 60, lens: 45 });
     const ball = shape(ctx, 'Ball', uvSphereMesh(32, 16, 0.4), { location: [-5, 0, 0.4], smooth: true, mat: material(ctx.doc, 'Ball', { baseColor: PALETTE.orange, roughness: 0.3 }) });
     for (let i = 0; i <= 12; i++) {

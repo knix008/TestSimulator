@@ -239,10 +239,10 @@ export function registerUiOps(app) {
     } });
   register({
     id: 'wm.open', en: 'Open...', ko: '열기...', icon: 'open', key: 'Ctrl+O', undo: false,
-    exec: () => {
+    exec: (ctx, props = {}) => {
       confirmDiscard().then(async (go) => {
         if (!go) return;
-        const file = await openTextFile(PROJECT_FILTER);
+        const file = await openTextFile(PROJECT_FILTER, props.folder || null);
         if (file) await loadProjectText(app, file);
       });
     },

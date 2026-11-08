@@ -360,7 +360,7 @@
  },
  {
   "id": "curve-ribbon",
-  "level": "beginner",
+  "level": "intermediate",
   "title": {
    "en": "A Thick Curve",
    "ko": "두꺼운 커브"
@@ -376,14 +376,14 @@
   "topics": [
    "curve"
   ],
-  "file": "beginner/curve-ribbon.my3d",
+  "file": "intermediate/curve-ribbon.my3d",
   "thumb": "thumb/curve-ribbon.png",
   "workspace": null,
   "bake": false
  },
  {
   "id": "duplicate-stairs",
-  "level": "beginner",
+  "level": "intermediate",
   "title": {
    "en": "Stairs",
    "ko": "계단"
@@ -400,7 +400,7 @@
    "duplicate",
    "array"
   ],
-  "file": "beginner/duplicate-stairs.my3d",
+  "file": "intermediate/duplicate-stairs.my3d",
   "thumb": "thumb/duplicate-stairs.png",
   "workspace": null,
   "bake": false
@@ -1287,7 +1287,7 @@
  },
  {
   "id": "motion-paths",
-  "level": "advanced",
+  "level": "intermediate",
   "title": {
    "en": "Motion Paths",
    "ko": "모션 경로"
@@ -1305,7 +1305,7 @@
    "graph editor",
    "onion skin"
   ],
-  "file": "advanced/motion-paths.my3d",
+  "file": "intermediate/motion-paths.my3d",
   "thumb": "thumb/motion-paths.png",
   "workspace": "animation",
   "bake": false

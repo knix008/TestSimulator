@@ -126,7 +126,7 @@ try {
     await waitFor(() => js("Boolean(window.__my3d.query('[data-testid=\"tutorial-ask-later\"]'))"), 10000);
     await js("window.__my3d.query('[data-testid=\"tutorial-ask-later\"]').click()");
     eq(await js("document.querySelector('[data-testid=start-screen]').style.display !== 'none'"), true, 'shown at start');
-    await waitFor(() => js("document.querySelectorAll('[data-card]').length === 6"), 10000);
+    await waitFor(() => js("document.querySelectorAll('[data-card]').length === 7"), 10000);
     await waitFor(() => js("document.querySelectorAll('[data-testid=start-card-samples] .sample-card').length >= 40"), 10000);
     await waitFor(() => js("document.querySelector('[data-testid=start-card-samples] .sample-card img').naturalWidth > 0"), 10000);
   });
