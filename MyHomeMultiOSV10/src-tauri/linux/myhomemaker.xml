@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-myhomemaker">
+    <comment>MyHomeMaker Site</comment>
+    <comment xml:lang="ko">MyHomeMaker 사이트</comment>
+    <icon name="application-x-myhomemaker"/>
+    <glob pattern="*.myhome"/>
+  </mime-type>
+  <mime-type type="application/x-myhomemaker-template">
+    <comment>MyHomeMaker Site Template</comment>
+    <comment xml:lang="ko">MyHomeMaker 사이트 템플릿</comment>
+    <icon name="application-x-myhomemaker-template"/>
+    <glob pattern="*.mhomt"/>
+  </mime-type>
+</mime-info>

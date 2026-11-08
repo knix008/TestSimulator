@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="MyHomeMaker scripts/build-docs.mjs" />
+<title>MyHomeMaker 튜토리얼 — 첫 홈페이지 만들기</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f7f8fa; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #2f6fde; --accent-soft: #e8f0fe; --code-bg: #f1f3f7; --row-alt: #f8fafc; --shadow: 0 1px 3px rgba(20, 30, 50, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --surface: #1b1f27; --text: #e3e7ee; --muted: #9aa4b5; --border: #2e3440;
+    --accent: #6ea8ff; --accent-soft: #1f2b40; --code-bg: #242a35; --row-alt: #1f242d; --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+  font-family: "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.topbar .brand { font-weight: 700; color: var(--text); }
+.topbar .grow { flex: 1; }
+.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; }
+nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
+nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
+h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
+h1 { font-size: 2em; margin: 0 0 .6em; }
+h2 { font-size: 1.5em; margin: 2em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.anchor { opacity: 0; margin-left: 6px; font-weight: 400; color: var(--muted); }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: 14px; }
+blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
+blockquote p { margin: 6px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  main { padding: 20px 18px 32px; border-radius: 10px; }
+  .topbar { padding: 10px 14px; }
+}
+@media print {
+  .topbar, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  main { border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand">MyHomeMaker <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="Tutorial.en.html" hreflang="en">English</a></header>
+<div class="layout">
+<nav class="toc" aria-label="목차"><p class="toc-title">목차</p><ul><li class="h2"><a href="#1-새-사이트-만들기">1. 새 사이트 만들기</a></li><li class="h2"><a href="#2-화면-둘러보기">2. 화면 둘러보기</a></li><li class="h2"><a href="#3-대표-문구-고치기">3. 대표 문구 고치기</a></li><li class="h2"><a href="#4-그림-바꾸기">4. 그림 바꾸기</a></li><li class="h2"><a href="#5-메뉴판-고치기">5. 메뉴판 고치기</a></li><li class="h2"><a href="#6-블록-넣고-옮기기">6. 블록 넣고 옮기기</a></li><li class="h2"><a href="#7-블록-꾸미기">7. 블록 꾸미기</a></li><li class="h2"><a href="#8-페이지-추가하기">8. 페이지 추가하기</a></li><li class="h2"><a href="#9-디자인-바꾸기">9. 디자인 바꾸기</a></li><li class="h2"><a href="#10-휴대폰에서-확인하기">10. 휴대폰에서 확인하기</a></li><li class="h2"><a href="#11-미리-보기">11. 미리 보기</a></li><li class="h2"><a href="#12-사이트-정보와-저장">12. 사이트 정보와 저장</a></li><li class="h2"><a href="#13-점검하고-게시하기">13. 점검하고 게시하기</a></li><li class="h2"><a href="#14-인터넷에-올리기">14. 인터넷에 올리기</a></li><li class="h2"><a href="#다음-단계">다음 단계</a></li></ul></nav>
+<main>
+<h1 id="myhomemaker-튜토리얼--첫-홈페이지-만들기">MyHomeMaker 튜토리얼 — 첫 홈페이지 만들기</h1>
+<p>이 튜토리얼은 동네 카페 <strong>&quot;오늘의 커피&quot;</strong> 홈페이지를 처음부터 만들어 게시하는 과정을 따라 합니다. 30분쯤 걸립니다. 각 단계의 메뉴·단추 이름은 앱에 보이는 그대로입니다. 기능 전체는 <a href="UsersGuide.html">사용 설명서</a>에 있습니다.</p>
+<blockquote><p>앱 안의 튜토리얼(<strong>도움말 › 튜토리얼</strong>, F11)은 같은 내용을 실제 화면을 움직이며 보여 줍니다. 이 문서는 직접 손으로 해 보는 실습서입니다.</p></blockquote>
+<h2 id="1-새-사이트-만들기">1. 새 사이트 만들기 <a class="anchor" href="#1-새-사이트-만들기" aria-hidden="true">#</a></h2>
+<ol><li>MyHomeMaker 를 실행하면 시작 화면이 나옵니다.</li><li>툴바의 <strong>새 사이트…</strong> 단추(또는 <strong>파일 › 새 사이트…</strong>, Ctrl+N)를 누릅니다.</li><li>왼쪽에서 <strong>템플릿</strong>을, 카드에서 <strong>카페</strong>를 고릅니다.</li><li>아래 <strong>사이트 이름</strong> 칸에 <code>오늘의 커피</code> 라고 쓰고 <strong>만들기</strong>를 누릅니다.</li></ol>
+<p><img src="images/ko/02-new-site.png" alt="새 사이트 창" loading="lazy" /></p>
+<p>카페 템플릿에는 그림 옆 배너, 메뉴판, 사진첩, 문의 블록이 든 페이지 하나가 있습니다. 머리글에는 사이트 이름이 들어가 있습니다.</p>
+<h2 id="2-화면-둘러보기">2. 화면 둘러보기 <a class="anchor" href="#2-화면-둘러보기" aria-hidden="true">#</a></h2>
+<p><img src="images/ko/03-editor.png" alt="편집 화면" loading="lazy" /></p>
+<ul><li>왼쪽 <strong>블록 패널</strong>: 넣을 수 있는 블록들</li><li>가운데 <strong>페이지 탭과 캔버스</strong>: 실제 사이트 모습</li><li>오른쪽 <strong>사이트 패널</strong>: 위는 머리글·페이지·블록·바닥글 목록, 아래는 <strong>내용 · 스타일 · 페이지 · 사이트</strong> 편집기</li></ul>
+<p>툴바의 <strong>너비에 맞추기</strong>(Ctrl+Shift+W)를 누르면 페이지 전체 폭이 캔버스에 맞게 보입니다.</p>
+<h2 id="3-대표-문구-고치기">3. 대표 문구 고치기 <a class="anchor" href="#3-대표-문구-고치기" aria-hidden="true">#</a></h2>
+<ol><li>캔버스 맨 위의 배너(그림 옆 배너)를 한 번 누릅니다. 파란 테두리와 이름표가 생깁니다.</li><li>큰 제목 글자를 <strong>한 번 더</strong> 누르면 글자가 선택되고 바로 고칠 수 있습니다.</li><li><code>향긋한 커피 한 잔으로 시작하는 하루</code> 라고 쓰고 <strong>Enter</strong> 를 누릅니다.</li></ol>
+<p><img src="images/ko/06-inline-edit.png" alt="그 자리에서 고치기" loading="lazy" /></p>
+<p>작은 제목·설명·버튼 글자도 같은 방법으로 고칩니다. 오른쪽 <strong>내용</strong> 탭에서도 같은 칸을 고칠 수 있습니다. 잘못 고쳤으면 <strong>Ctrl+Z</strong> 로 되돌립니다.</p>
+<h2 id="4-그림-바꾸기">4. 그림 바꾸기 <a class="anchor" href="#4-그림-바꾸기" aria-hidden="true">#</a></h2>
+<ol><li>배너의 그림을 <strong>두 번 누르면</strong> 파일 고르기 창이 열립니다. 카페 사진을 고르세요.</li><li>사진이 없으면 오른쪽 <strong>내용</strong> 탭의 그림 칸에서 <strong>내장 그림 › 카페</strong>를 고릅니다.</li></ol>
+<p>큰 사진은 긴 변이 1920px 이 되도록 저절로 줄여서 넣습니다. 그림 파일을 선택한 블록 위로 끌어 놓아도 됩니다.</p>
+<h2 id="5-메뉴판-고치기">5. 메뉴판 고치기 <a class="anchor" href="#5-메뉴판-고치기" aria-hidden="true">#</a></h2>
+<ol><li><strong>메뉴판</strong> 블록을 누릅니다.</li><li>오른쪽 <strong>내용</strong> 탭 아래의 <strong>메뉴</strong> 목록에서 항목마다 이름·설명·가격을 고칩니다.</li><li><strong>추가</strong>를 눌러 <code>바닐라 라테 · 달콤한 바닐라 향 · 5,500</code> 을 넣습니다.</li><li>항목의 ↑ ↓ 단추로 순서를 바꾸고, 휴지통으로 지웁니다.</li></ol>
+<p><img src="images/ko/07-content-tab.png" alt="항목 목록" loading="lazy" /></p>
+<h2 id="6-블록-넣고-옮기기">6. 블록 넣고 옮기기 <a class="anchor" href="#6-블록-넣고-옮기기" aria-hidden="true">#</a></h2>
+<ol><li>왼쪽 블록 패널의 <strong>내용 구성 › 특징 소개</strong>를 캔버스의 메뉴판 위로 끌어다 놓습니다. 파란 선이 놓일 자리를 보여 줍니다.</li><li>특징 세 개를 <code>직접 볶은 원두</code>, <code>매일 굽는 빵</code>, <code>조용한 2층 자리</code> 로 고칩니다. 아이콘 칸에는 이모지(☕ 🥐 🪑)를 쓸 수 있습니다.</li><li><strong>소개·전시 › 고객 후기</strong>를 눌러 넣습니다(선택한 블록 바로 아래에 들어갑니다).</li><li>블록의 <strong>이름표를 끌어</strong> 원하는 자리로 옮기거나, 툴바의 <strong>위로 이동 · 아래로 이동</strong>(Ctrl+↑/↓)을 씁니다.</li></ol>
+<p><img src="images/ko/05-select-block.png" alt="블록 선택과 도구" loading="lazy" /></p>
+<h2 id="7-블록-꾸미기">7. 블록 꾸미기 <a class="anchor" href="#7-블록-꾸미기" aria-hidden="true">#</a></h2>
+<ol><li>고객 후기 블록을 고르고 오른쪽 <strong>스타일</strong> 탭을 엽니다.</li><li><strong>배경</strong>을 <strong>옅은 바탕</strong>으로, <strong>위 여백</strong>과 <strong>아래 여백</strong>을 96px 로 바꿉니다.</li><li><strong>정렬</strong>을 <strong>가운데</strong>로 둡니다.</li></ol>
+<p><img src="images/ko/08-style-tab.png" alt="스타일 탭" loading="lazy" /></p>
+<h2 id="8-페이지-추가하기">8. 페이지 추가하기 <a class="anchor" href="#8-페이지-추가하기" aria-hidden="true">#</a></h2>
+<ol><li>탭 줄 끝의 <strong>+</strong>(또는 <strong>페이지 › 페이지 추가…</strong>)를 누릅니다.</li><li>이름에 <code>오시는 길</code>, 시작 내용에 <strong>문의</strong>를 고르고 <strong>확인</strong>을 누릅니다.</li><li>새 페이지의 <strong>문의·연락처</strong> 블록에서 주소·전화·운영 시간을 고치고, <strong>지도 장소</strong> 칸에 카페 주소를 씁니다.</li><li>머리글 메뉴에 <code>오시는 길</code> 이 저절로 생긴 것을 확인합니다.</li></ol>
+<p><img src="images/ko/10-pages.png" alt="페이지 추가" loading="lazy" /></p>
+<p><strong>페이지</strong> 탭에서 파일 이름(<code>visit</code> → <code>visit.html</code>), 브라우저 제목, 검색용 설명을 정할 수 있습니다.</p>
+<h2 id="9-디자인-바꾸기">9. 디자인 바꾸기 <a class="anchor" href="#9-디자인-바꾸기" aria-hidden="true">#</a></h2>
+<ol><li><strong>디자인 › 디자인 바꾸기…</strong>(Ctrl+Shift+D)를 엽니다.</li><li><strong>밝은 디자인</strong>에서 <strong>우드</strong>나 <strong>피치</strong>를 두 번 눌러 바로 적용합니다.</li><li>마음에 들 때까지 다른 디자인도 눌러 봅니다. 내용은 그대로이고 색과 글꼴만 바뀝니다.</li><li>더 다듬으려면 편집기의 <strong>사이트</strong> 탭에서 <strong>주 색</strong>이나 <strong>제목 글꼴</strong>을 바꿉니다.</li></ol>
+<p><img src="images/ko/12-design-picker.png" alt="디자인 고르기" loading="lazy" /></p>
+<h2 id="10-휴대폰에서-확인하기">10. 휴대폰에서 확인하기 <a class="anchor" href="#10-휴대폰에서-확인하기" aria-hidden="true">#</a></h2>
+<ol><li>툴바의 <strong>휴대폰</strong> 단추를 누릅니다. 캔버스가 390px 너비가 되고 메뉴가 ☰ 로 접힙니다.</li><li>휴대폰에서 필요 없는 블록은 <strong>스타일 › 휴대폰에서 숨기기</strong>를 켭니다.</li><li><strong>데스크톱</strong> 단추로 돌아옵니다.</li></ol>
+<p><img src="images/ko/14-mobile.png" alt="휴대폰 너비" loading="lazy" /></p>
+<h2 id="11-미리-보기">11. 미리 보기 <a class="anchor" href="#11-미리-보기" aria-hidden="true">#</a></h2>
+<ol><li><strong>미리 보기</strong>(Ctrl+E)를 누르면 편집 표시 없이 방문자 화면이 됩니다. 메뉴의 <code>오시는 길</code> 을 눌러 페이지가 바뀌는지 봅니다. <strong>Esc</strong> 로 돌아옵니다.</li><li><strong>브라우저에서 미리 보기</strong>(F5)는 사이트를 시스템 브라우저로 엽니다.</li></ol>
+<p><img src="images/ko/15-preview.png" alt="미리 보기 모드" loading="lazy" /></p>
+<h2 id="12-사이트-정보와-저장">12. 사이트 정보와 저장 <a class="anchor" href="#12-사이트-정보와-저장" aria-hidden="true">#</a></h2>
+<ol><li>블록 선택을 풀고(Esc) <strong>사이트</strong> 탭에서 <strong>사이트 설명</strong>에 <code>동네 카페 오늘의 커피 — 직접 볶은 원두와 매일 굽는 빵</code> 을 씁니다.</li><li><strong>저장</strong>(Ctrl+S)을 눌러 <code>오늘의 커피.myhome</code> 으로 저장합니다. 그림까지 이 파일 하나에 들어갑니다.</li></ol>
+<p><img src="images/ko/13-site-tab.png" alt="사이트 탭" loading="lazy" /></p>
+<h2 id="13-점검하고-게시하기">13. 점검하고 게시하기 <a class="anchor" href="#13-점검하고-게시하기" aria-hidden="true">#</a></h2>
+<ol><li><strong>도구 › 사이트 점검</strong>으로 고칠 점이 없는지 봅니다.</li><li>툴바의 <strong>게시</strong>(Ctrl+Shift+P)를 누릅니다.</li><li><strong>폴더</strong>(데스크톱) 또는 <strong>ZIP 파일</strong>을 고르고, <strong>그림을 파일로 빼기</strong>를 켠 채 <strong>게시</strong>를 누릅니다.</li><li>폴더로 게시했다면 <strong>브라우저로 보기</strong>를 눌러 결과를 확인합니다.</li></ol>
+<p><img src="images/ko/16-publish.png" alt="게시" loading="lazy" /></p>
+<p>게시한 폴더에는 <code>index.html</code>, <code>visit.html</code>, <code>style.css</code>, <code>assets/</code> 가 있습니다.</p>
+<h2 id="14-인터넷에-올리기">14. 인터넷에 올리기 <a class="anchor" href="#14-인터넷에-올리기" aria-hidden="true">#</a></h2>
+<ul><li><strong>GitHub Pages</strong>: 저장소를 만들고 게시한 파일을 올린 뒤 Settings › Pages 에서 켭니다.</li><li><strong>Netlify</strong>: app.netlify.com 의 Sites 에 폴더나 ZIP 을 끌어다 놓습니다.</li><li><strong>웹 호스팅</strong>: FTP 로 웹 루트(<code>public_html</code> 등)에 올립니다.</li></ul>
+<p>문의 양식이 메일로 오게 하려면 Formspree 같은 양식 서비스에서 주소를 받아 <strong>문의·연락처</strong> 블록의 <strong>양식 보낼 주소</strong>에 넣고 다시 게시합니다.</p>
+<h2 id="다음-단계">다음 단계 <a class="anchor" href="#다음-단계" aria-hidden="true">#</a></h2>
+<ul><li><strong>파일 › 예제 사이트 열기</strong>의 예제 16가지를 열어 블록 구성을 살펴보세요.</li></ul>
+<p><img src="images/ko/18-sample.png" alt="예제 사이트" loading="lazy" /></p>
+<ul><li>자주 쓰는 구성은 <strong>파일 › 템플릿으로 저장…</strong>으로 템플릿(.mhomt)을 만들어 두세요.</li><li>단축키는 <strong>도움말 › 단축키 목록…</strong>에 있습니다.</li></ul>
+</main>
+</div>
+<footer>MyHomeMaker v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+</body>
+</html>

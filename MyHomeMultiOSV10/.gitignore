@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers and the web package (npm run build:win / build:mac / build:linux / build:webapp / build:all)
+release/
+/MyHomeMaker-*.exe
+/MyHomeMaker-*.msi
+/MyHomeMaker-*.dmg
+/MyHomeMaker-*.deb
+/MyHomeMaker-*.rpm
+/MyHomeMaker-*.AppImage
+/MyHomeMaker-*.zip
+
+# Test runs (npm test)
+test-results/
+*.log
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

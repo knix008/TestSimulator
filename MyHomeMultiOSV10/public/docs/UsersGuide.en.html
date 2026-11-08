@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="MyHomeMaker scripts/build-docs.mjs" />
+<title>MyHomeMaker User&amp;#39;s Guide</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f7f8fa; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #2f6fde; --accent-soft: #e8f0fe; --code-bg: #f1f3f7; --row-alt: #f8fafc; --shadow: 0 1px 3px rgba(20, 30, 50, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --surface: #1b1f27; --text: #e3e7ee; --muted: #9aa4b5; --border: #2e3440;
+    --accent: #6ea8ff; --accent-soft: #1f2b40; --code-bg: #242a35; --row-alt: #1f242d; --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+  font-family: "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.topbar .brand { font-weight: 700; color: var(--text); }
+.topbar .grow { flex: 1; }
+.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; }
+nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
+nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
+h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
+h1 { font-size: 2em; margin: 0 0 .6em; }
+h2 { font-size: 1.5em; margin: 2em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.anchor { opacity: 0; margin-left: 6px; font-weight: 400; color: var(--muted); }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: 14px; }
+blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
+blockquote p { margin: 6px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  main { padding: 20px 18px 32px; border-radius: 10px; }
+  .topbar { padding: 10px 14px; }
+}
+@media print {
+  .topbar, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  main { border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand">MyHomeMaker <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="UsersGuide.html" hreflang="ko">한국어</a></header>
+<div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#installing-and-starting">Installing and starting</a></li><li class="h2"><a href="#the-window">The window</a></li><li class="h2"><a href="#the-start-page">The start page</a></li><li class="h2"><a href="#sites-and-files">Sites and files</a></li><li class="h3"><a href="#a-new-site">A new site</a></li><li class="h3"><a href="#saving-and-opening">Saving and opening</a></li><li class="h2"><a href="#pages">Pages</a></li><li class="h2"><a href="#blocks">Blocks</a></li><li class="h3"><a href="#adding-blocks">Adding blocks</a></li><li class="h3"><a href="#selecting-and-moving">Selecting and moving</a></li><li class="h2"><a href="#editing-content">Editing content</a></li><li class="h3"><a href="#right-on-the-canvas">Right on the canvas</a></li><li class="h3"><a href="#the-content-tab">The Content tab</a></li><li class="h3"><a href="#header-and-footer">Header and footer</a></li><li class="h3"><a href="#the-style-tab">The Style tab</a></li><li class="h2"><a href="#design">Design</a></li><li class="h2"><a href="#device-widths-and-preview">Device widths and preview</a></li><li class="h2"><a href="#publishing">Publishing</a></li><li class="h3"><a href="#putting-it-online">Putting it online</a></li><li class="h3"><a href="#contact-forms-and-newsletters">Contact forms and newsletters</a></li><li class="h2"><a href="#settings">Settings</a></li><li class="h2"><a href="#keyboard-shortcuts">Keyboard shortcuts</a></li><li class="h2"><a href="#help">Help</a></li><li class="h2"><a href="#file-format">File format</a></li><li class="h2"><a href="#troubleshooting">Troubleshooting</a></li></ul></nav>
+<main>
+<h1 id="myhomemaker-users-guide">MyHomeMaker User&#39;s Guide</h1>
+<p>MyHomeMaker is a graphical website builder: you <strong>build a homepage by dragging blocks onto pages</strong>. No code is needed — arrange the pages, change the whole design at once, check how it looks on a phone, then publish HTML and CSS files for any web server.</p>
+<ul><li>34 kinds of blocks (heroes, features, service cards, galleries, pricing, testimonials, team, timelines, FAQs, contact forms, maps, videos …) plus one header and one footer per site</li><li>36 site designs (24 light, 12 dark): colours, heading and body fonts, corners, content width, text size</li><li>12 templates and 16 finished sample sites (Korean and English)</li><li>Edit text right on the canvas; desktop, tablet and phone widths; preview mode; preview in the browser</li><li>Publishing: a folder (desktop), a ZIP file, or this page as one HTML file</li><li>Desktop app for Windows, macOS and Linux, and a web version</li></ul>
+<p>New to it? Follow the <a href="Tutorial.en.html">tutorial</a>. In the app, <strong>Help › Tutorial</strong> (F11) shows every feature on the real screen.</p>
+<h2 id="installing-and-starting">Installing and starting <a class="anchor" href="#installing-and-starting" aria-hidden="true">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>For</th><th>File</th><th>Install</th></tr></thead><tbody><tr><td>Windows</td><td><code>MyHomeMaker-Setup-&lt;version&gt;.exe</code></td><td>Run it, pick the language and install. An earlier installation is removed completely first, and you are asked whether to delete the earlier user data.</td></tr><tr><td>macOS</td><td><code>MyHomeMaker-&lt;version&gt;-&lt;arch&gt;.dmg</code></td><td>Open it and drag the app into Applications.</td></tr><tr><td>Linux</td><td><code>.deb</code> · <code>.rpm</code> · <code>.AppImage</code></td><td>Install with the package manager, or run the AppImage.</td></tr><tr><td>Web</td><td><code>MyHomeMaker-Web-&lt;version&gt;.zip</code></td><td>Unpack it on a web server and open <code>index.html</code> there.</td></tr></tbody></table></div>
+<p>After installing, <code>.myhome</code> site files and <code>.mhomt</code> templates open in MyHomeMaker (double-click them or drop them on the window).</p>
+<p>The installers are built from the sources with (Tauri builds for its own operating system only):</p>
+<pre><code>npm install
+npm run build:win      # Windows installer (NSIS)
+npm run build:mac      # macOS (.app, .dmg)
+npm run build:linux    # Linux (.deb, .rpm, .AppImage)
+npm run build:webapp   # the web version as a ZIP
+npm run build:all      # the web version + this OS&#39;s installers</code></pre>
+<p>The results are copied to <code>release/</code> and to the project folder. While developing, <code>npm start</code> runs the app.</p>
+<h2 id="the-window">The window <a class="anchor" href="#the-window" aria-hidden="true">#</a></h2>
+<p><img src="images/en/03-editor.png" alt="The editor" loading="lazy" /></p>
+<ol><li><strong>Menu bar row</strong> — the app icon, name and version, the open site (● for unsaved changes), the Start (home) button, the menus (File, Edit, Insert, Page, View, Design, Tools, Help) and, at the right, minimize, maximize and close. This row is the title bar: drag its empty parts to move the window, double-click to maximize.</li><li><strong>Toolbar</strong> — New, Open, Save, Publish (▾ choices), Preview in browser / Undo, Redo / Cut, Copy, Paste, Delete / Add block, Add page / Move up, Move down, Duplicate, Hide / device width (desktop, tablet, phone), zoom, Fit width / Preview, Change design, Check the site / panels. At the right: Tutorial, Theme (random, ▾ list), Language (flag), Settings, About. The window never gets narrower than the toolbar, so no button is ever hidden.</li><li><strong>Blocks panel</strong> (left) — the blocks in five groups with a search box, and at the bottom the header and footer.</li><li><strong>Page tabs and canvas</strong> (centre) — one tab per page; the first tab is the home page (index.html). The canvas draws the real site.</li><li><strong>Site panel</strong> (right) — top: the header, each page with its blocks, the footer. Bottom: the editors (<strong>Content · Style · Page · Site</strong>). Drag the divider between them to change their heights.</li><li><strong>Status bar</strong> — notices, the page and its file name, pages and blocks, saved state, the selected block, device width, design, theme, language, a zoom slider and a clock.</li></ol>
+<p>Panels fold into a narrow strip (Ctrl+Shift+1, Ctrl+Shift+2); drag the dividers between panels to change their width.</p>
+<h2 id="the-start-page">The start page <a class="anchor" href="#the-start-page" aria-hidden="true">#</a></h2>
+<p><img src="images/en/01-start.png" alt="Start page" loading="lazy" /></p>
+<p>At start (you can turn it off) a board of cards lies over a moving background:</p>
+<ul><li><strong>Quick actions</strong> — New site, Open, Tutorial, Theme settings, Language, Settings, Start page settings, About, Exit</li><li><strong>Recent</strong> — recent files and recent folders (× removes an entry)</li><li><strong>New site</strong> — the 12 templates</li><li><strong>Sample sites</strong> — 16 samples in four groups</li><li><strong>Theme</strong> — the program themes (dark and light)</li><li><strong>Moving background</strong> — 20 animations, random, speed, card opacity, change interval, a background picture</li></ul>
+<p>Drag a card by its handle (top left) and resize it from its bottom right corner; <strong>Arrange</strong> puts them back. The <strong>Start</strong> button of the menu bar switches between the start page and the editor (Ctrl+Shift+H).</p>
+<h2 id="sites-and-files">Sites and files <a class="anchor" href="#sites-and-files" aria-hidden="true">#</a></h2>
+<h3 id="a-new-site">A new site <a class="anchor" href="#a-new-site" aria-hidden="true">#</a></h3>
+<p><img src="images/en/02-new-site.png" alt="New site" loading="lazy" /></p>
+<p><strong>File › New site…</strong> (Ctrl+N): pick <em>Templates</em> or a sample group on the left, then a card, give the site a name and (for a blank site) a design, and press <strong>Create</strong>. Double-click a card to create at once.</p>
+<div class="table-wrap"><table><thead><tr><th>Template</th><th>Comes with</th></tr></thead><tbody><tr><td>Blank site</td><td>one hero</td></tr><tr><td>Business</td><td>home, about, services, contact</td></tr><tr><td>Landing page</td><td>one long page for an app or product</td></tr><tr><td>Portfolio</td><td>work, about, contact</td></tr><tr><td>Restaurant</td><td>menu, booking, directions</td></tr><tr><td>Café</td><td>one page with menu and photos</td></tr><tr><td>Small shop</td><td>products, story, contact</td></tr><tr><td>Blog</td><td>posts and an author page</td></tr><tr><td>Event</td><td>programme, line-up, registration</td></tr><tr><td>Résumé</td><td>career and contact on one page</td></tr><tr><td>Academy</td><td>courses, teachers, fees</td></tr><tr><td>Clinic</td><td>treatments, doctors, hours</td></tr></tbody></table></div>
+<p><strong>File › New from template</strong> and <strong>File › Open sample site</strong> show the same lists as menus. The samples come in four groups of four: business &amp; services, food &amp; shops, personal &amp; portfolio, community, events &amp; learning.</p>
+<h3 id="saving-and-opening">Saving and opening <a class="anchor" href="#saving-and-opening" aria-hidden="true">#</a></h3>
+<ul><li><strong>Save</strong> (Ctrl+S) — a site is one <code>.myhome</code> file with every page, block, picture and the design. A site made from a template or a sample asks for a file name the first time.</li><li><strong>Save as…</strong> (Ctrl+Shift+S), <strong>Save as template…</strong> (<code>.mhomt</code>: opening it starts a new site)</li><li><strong>Open…</strong> (Ctrl+O), <strong>Recent files…</strong> (Ctrl+R), <strong>Recent folders</strong>, <strong>Clear all recent files and folders</strong></li><li><strong>Close site</strong> (Ctrl+W) asks to save unsaved changes.</li><li>Drop a site file (.myhome) on the window to open it; drop a picture to put it into the selected block.</li><li>One window holds one site. Start the program again to work on two sites side by side.</li><li>The web version uses the browser&#39;s open and save windows (where supported) or downloads.</li></ul>
+<h2 id="pages">Pages <a class="anchor" href="#pages" aria-hidden="true">#</a></h2>
+<p><img src="images/en/10-pages.png" alt="Adding a page" loading="lazy" /></p>
+<ul><li><strong>Add page…</strong> (Ctrl+Shift+N, the + of the tab row) asks for a name and what to start with (blank, about, services, gallery, contact, pricing, news).</li><li>Click a tab to go to that page; double-click to rename it (F2). Its right-click menu duplicates, deletes and moves it.</li><li><strong>Previous / Next page</strong> (Ctrl+PageUp/PageDown, Ctrl+Tab)</li><li>The first tab is always the home page <code>index.html</code>; <strong>Move page left / right</strong> changes the order.</li></ul>
+<p><img src="images/en/11-page-tab.png" alt="Page tab" loading="lazy" /></p>
+<p>The editors&#39; <strong>Page</strong> tab:</p>
+<div class="table-wrap"><table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody><tr><td>Page name</td><td>shown on the tab and in the menu</td></tr><tr><td>File name</td><td>the published file (<code>about</code> → <code>about.html</code>)</td></tr><tr><td>Browser title</td><td>empty: &quot;Page name</td></tr><tr><td>Description (search)</td><td>one or two sentences for search results</td></tr><tr><td>Show in the menu</td><td>off: left out of the header menu and the footer links (the tab name looks italic)</td></tr></tbody></table></div>
+<h2 id="blocks">Blocks <a class="anchor" href="#blocks" aria-hidden="true">#</a></h2>
+<h3 id="adding-blocks">Adding blocks <a class="anchor" href="#adding-blocks" aria-hidden="true">#</a></h3>
+<p><img src="images/en/04-blocks-panel.png" alt="Blocks panel" loading="lazy" /></p>
+<ul><li><strong>Click</strong> a block in the Blocks panel: it goes right below the selected block (at the end when nothing is selected).</li><li><strong>Drag</strong> a block onto the canvas: a blue line shows where it lands; release it there.</li><li>Or use <strong>Add block</strong> on the toolbar (Ctrl+Shift+A), the group submenus of the <strong>Insert</strong> menu, the <strong>+</strong> under the selected block, or the hint on an empty page.</li></ul>
+<p><img src="images/en/09-add-block-menu.png" alt="Add block menu" loading="lazy" /></p>
+<div class="table-wrap"><table><thead><tr><th>Group</th><th>Blocks</th></tr></thead><tbody><tr><td>Heroes &amp; banners</td><td>Hero banner, Split hero, Call to action, Newsletter, Notice bar</td></tr><tr><td>Basic elements</td><td>Heading, Text, Picture, Button, Divider, Spacer, Text columns, Quote, Check list, Video (YouTube, Vimeo, mp4), Map, HTML code</td></tr><tr><td>Content</td><td>Features, Service cards, Picture &amp; text, Steps, Timeline, Numbers, FAQ</td></tr><tr><td>Showcase</td><td>Gallery, Testimonials, Team, Logos, Pricing, Menu, Events, Posts</td></tr><tr><td>Contact &amp; social</td><td>Contact (with a form and a map), Social links</td></tr></tbody></table></div>
+<h3 id="selecting-and-moving">Selecting and moving <a class="anchor" href="#selecting-and-moving" aria-hidden="true">#</a></h3>
+<p><img src="images/en/05-select-block.png" alt="A selected block" loading="lazy" /></p>
+<p>Click a block on the canvas: an outline, its <strong>name tab</strong> and tool buttons (up, down, duplicate, style, hide, delete) appear. Hovering shows a dashed outline and the block&#39;s name.</p>
+<ul><li><strong>Drag the name tab</strong> to another place, or move one step with the ↑ ↓ buttons or <strong>Ctrl+↑/↓</strong>.</li><li><strong>Alt+↑/↓</strong> (or ↑/↓) picks the neighbouring block; <strong>Esc</strong> clears the selection.</li><li><strong>Duplicate</strong> (Ctrl+D), <strong>Cut, Copy, Paste</strong> (Ctrl+X/C/V; pasting works into another MyHomeMaker window, and plain text becomes a Text block), <strong>Delete</strong> (Delete)</li><li><strong>Hide</strong> (Ctrl+H): hidden blocks look faded and are not published.</li><li>Clicking a row in the Site panel list opens its page and selects the block.</li><li>Every change can be undone (<strong>Undo</strong>, Ctrl+Z) and redone (<strong>Redo</strong>, Ctrl+Y).</li></ul>
+<h2 id="editing-content">Editing content <a class="anchor" href="#editing-content" aria-hidden="true">#</a></h2>
+<h3 id="right-on-the-canvas">Right on the canvas <a class="anchor" href="#right-on-the-canvas" aria-hidden="true">#</a></h3>
+<p><img src="images/en/06-inline-edit.png" alt="Editing in place" loading="lazy" /></p>
+<p>Click the text of the selected block <strong>once more</strong> (or double-click any text) to edit it in place. <strong>Enter</strong> finishes, <strong>Esc</strong> cancels; <strong>Shift+Enter</strong> starts a new line in longer fields. The status bar shows which field you are editing.</p>
+<ul><li>Double-click a picture to choose a picture file.</li><li>Formatted text (Text, Text columns) and HTML code open their field in the Content tab on a double click.</li><li><strong>Ctrl+click</strong> a menu link of the header to open that page.</li></ul>
+<h3 id="the-content-tab">The Content tab <a class="anchor" href="#the-content-tab" aria-hidden="true">#</a></h3>
+<p><img src="images/en/07-content-tab.png" alt="Content tab" loading="lazy" /></p>
+<p>Every field of the selected block. Text is applied when you leave the field or press Enter; longer fields follow as you pause typing.</p>
+<ul><li><strong>Formatted text</strong> — <code>**bold**</code>, <code>*italic*</code>, <code>[link](address)</code>, a blank line for a new paragraph, <code>-</code> for a list, <code>1.</code> for a numbered list, <code>##</code> for a small heading</li><li><strong>Links</strong> — another page file (pick it from the list), a block&#39;s anchor (<code>#contact</code>), a web address, <code>mailto:</code>, <code>tel:</code></li><li><strong>Pictures</strong> — <strong>File…</strong> (large photos are scaled to 1920 px on their longest side), <strong>Built-in picture</strong> (16 kinds — landscape, city, food, portrait … — drawn in the site&#39;s colours), <strong>Remove</strong>, or a picture address (https://…)</li><li><strong>Item lists</strong> — features, cards, photos, plans, reviews, people, questions … are lists: <strong>Add · Duplicate · Up/Down · Delete</strong>, ▸ to fold one</li><li>Numbers have − + buttons and can be typed; on/off settings are switches</li></ul>
+<h3 id="header-and-footer">Header and footer <a class="anchor" href="#header-and-footer" aria-hidden="true">#</a></h3>
+<p>There is one of each per site and they appear on every page. Click them on the canvas, or use <strong>Insert › Edit header (menu) / Edit footer</strong>.</p>
+<ul><li><strong>Header</strong> — site name, logo, a button on the right (label and link), layout (logo left or centred), stick to the top. The menu lists the pages with &quot;Show in the menu&quot; on; on phones it folds into ☰.</li><li><strong>Footer</strong> — about text, address, phone, e-mail, a list of links, copyright. The page links are added by themselves.</li></ul>
+<h3 id="the-style-tab">The Style tab <a class="anchor" href="#the-style-tab" aria-hidden="true">#</a></h3>
+<p><img src="images/en/08-style-tab.png" alt="Style tab" loading="lazy" /></p>
+<div class="table-wrap"><table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody><tr><td>Background</td><td>Default · Light surface · Main colour · Accent colour · Dark · Footer colour · Custom colour</td></tr><tr><td>Text colour</td><td>automatic (fits the background) or your own</td></tr><tr><td>Background picture</td><td>a picture behind the block, and Darken picture (%)</td></tr><tr><td>Space above · Space below</td><td>0–320 px (at most 64 px on phones)</td></tr><tr><td>Alignment</td><td>left · centre · right</td></tr><tr><td>Content width</td><td>narrow · normal · wide · full</td></tr><tr><td>Anchor</td><td>links to <code>#name</code> come to this block</td></tr><tr><td>Rounded box · Hide on phones · Hidden</td><td></td></tr></tbody></table></div>
+<p><strong>Reset style</strong> puts the block&#39;s own defaults back.</p>
+<h2 id="design">Design <a class="anchor" href="#design" aria-hidden="true">#</a></h2>
+<p><img src="images/en/12-design-picker.png" alt="Site design" loading="lazy" /></p>
+<p><strong>Design › Change design…</strong> (Ctrl+Shift+D) shows 24 light and 12 dark designs as small page pictures. A design sets the main colour, accent, backgrounds, text, header and footer colours, heading and body fonts, corners, content width and text size of the whole site at once. Double-click a card to use it. Turn on <em>Keep the colours and fonts I changed</em> to keep your own changes.</p>
+<ul><li><strong>Random design</strong> tries another one.</li><li><strong>Clear design changes</strong> puts the values changed in the Site tab back to the design&#39;s.</li></ul>
+<p><img src="images/en/13-site-tab.png" alt="Site tab" loading="lazy" /></p>
+<p>The editors&#39; <strong>Site</strong> tab:</p>
+<ul><li><strong>Site information</strong> — site title (header name and browser title), site description and keywords (search engines and link previews), author, site language (<code>&lt;html lang&gt;</code>), site icon (favicon)</li><li><strong>Design</strong> — the current design with <strong>Change design…</strong>, then main colour, accent, background, surface, text, header and footer backgrounds, heading and body fonts (sans, serif, rounded, monospace, elegant, modern, handwriting), corners, content width and text size. The × next to a changed value gives back the design&#39;s.</li></ul>
+<p>The program <strong>theme</strong> (the palette at the right of the toolbar) colours the MyHomeMaker window; it is separate from the design of the site you make.</p>
+<h2 id="device-widths-and-preview">Device widths and preview <a class="anchor" href="#device-widths-and-preview" aria-hidden="true">#</a></h2>
+<p><img src="images/en/14-mobile.png" alt="Phone width" loading="lazy" /></p>
+<ul><li>The <strong>Desktop (1280 px) · Tablet (820 px) · Phone (390 px)</strong> buttons change the canvas width. The site adapts: columns stack (two at 900 px or less, one at 600 px or less) and the menu folds into ☰.</li><li><strong>Zoom</strong> — − +, the percentage box, Ctrl+wheel, the status bar slider; <strong>Fit width</strong> (Ctrl+Shift+W). Settings decide whether a site fits the width when it opens.</li></ul>
+<p><img src="images/en/15-preview.png" alt="Preview mode" loading="lazy" /></p>
+<ul><li><strong>Preview mode</strong> (Ctrl+E) hides the editing marks and shows what visitors see. Menu links switch pages, <code>#anchor</code> links scroll to their block; Esc ends it.</li><li><strong>Preview in browser</strong> (F5) — desktop: writes the whole site to a temporary folder and opens it in the system browser. Web: opens the current page in a new tab.</li></ul>
+<h2 id="publishing">Publishing <a class="anchor" href="#publishing" aria-hidden="true">#</a></h2>
+<p><img src="images/en/16-publish.png" alt="Publish site" loading="lazy" /></p>
+<p><strong>File › Publish &amp; export › Publish site…</strong> (Ctrl+Shift+P, <strong>Publish</strong> on the toolbar):</p>
+<div class="table-wrap"><table><thead><tr><th>Choice</th><th>Result</th></tr></thead><tbody><tr><td>Folder (desktop)</td><td>a folder named after the site inside the folder you choose, with <code>index.html</code>, an <code>.html</code> per page, <code>style.css</code> and <code>assets/</code>. Afterwards you can open the folder or the browser.</td></tr><tr><td>ZIP file</td><td>the same files in one ZIP — handy for uploading</td></tr><tr><td>This page only</td><td>one HTML file with its style and pictures inside (e-mail, sharing)</td></tr></tbody></table></div>
+<ul><li><strong>Pictures as files</strong> writes the pictures of the site as <code>assets/img-….png/jpg/svg</code> files (each picture once), so the pages stay light.</li><li>The window lists <strong>things to check</strong> (no site title or description, empty pages, pictures without alt text, contact forms with nowhere to send, two pages with the same file name). <strong>Tools › Check the site</strong> shows them before publishing.</li><li><strong>Copy this page as HTML</strong> puts the current page, as one HTML file, on the clipboard.</li></ul>
+<p>The published files are clean HTML and CSS without hidden blocks or editing marks, and work without JavaScript (the phone menu and the FAQ included).</p>
+<h3 id="putting-it-online">Putting it online <a class="anchor" href="#putting-it-online" aria-hidden="true">#</a></h3>
+<p>Upload the published folder or the ZIP&#39;s contents to GitHub Pages, Netlify, Cloudflare Pages or the web root of any host, and everyone can see the site.</p>
+<h3 id="contact-forms-and-newsletters">Contact forms and newsletters <a class="anchor" href="#contact-forms-and-newsletters" aria-hidden="true">#</a></h3>
+<p>A static site cannot send e-mail by itself. Put the address of a form service such as Formspree or Getform into the <em>Form endpoint</em> of the <strong>Contact</strong> block: the service forwards the messages by e-mail. Left empty, the form opens the visitor&#39;s e-mail program (<code>mailto:</code>). The <strong>Newsletter</strong> block works the same.</p>
+<h2 id="settings">Settings <a class="anchor" href="#settings" aria-hidden="true">#</a></h2>
+<p><img src="images/en/17-settings.png" alt="Settings" loading="lazy" /></p>
+<p><strong>Tools › Settings…</strong> (Ctrl+,):</p>
+<ul><li><strong>General</strong> — language, reopen last files when starting, ask before deleting a page, status bar clock and display, auto-save (1, 5, 10, 30 min), start the tutorial</li><li><strong>Start page</strong> — show it at start, the welcome window, which cards and how many recent entries</li><li><strong>Theme</strong> — dark themes, light themes, a custom theme (your own colours, with a contrast warning)</li><li><strong>Font</strong> — the program font, size, weight, italics, row height, zoom</li><li><strong>Background</strong> — moving, picture or none; kind, speed, random, interval; the picture&#39;s opacity and fit</li><li><strong>Editor</strong> — the design of a new blank site, the device width at start, fit the width when a site opens, Blocks panel icons only, pictures as files when publishing</li><li><strong>Recent</strong>, <strong>Shortcuts</strong></li></ul>
+<p><strong>Defaults</strong> puts every setting back (recent files and the background picture stay).</p>
+<h2 id="keyboard-shortcuts">Keyboard shortcuts <a class="anchor" href="#keyboard-shortcuts" aria-hidden="true">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Keys</th><th>Action</th></tr></thead><tbody><tr><td>Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S</td><td>New site / Open / Save / Save as</td></tr><tr><td>Ctrl+W / Ctrl+R</td><td>Close site / Recent files</td></tr><tr><td>Ctrl+Z / Ctrl+Y</td><td>Undo / Redo</td></tr><tr><td>Ctrl+X / Ctrl+C / Ctrl+V / Ctrl+D / Delete</td><td>Cut / Copy / Paste / Duplicate / Delete block</td></tr><tr><td>Ctrl+↑ / Ctrl+↓</td><td>Move block up / down</td></tr><tr><td>Alt+↑ / Alt+↓</td><td>Select previous / next block</td></tr><tr><td>Enter / Esc</td><td>Edit content / Clear selection</td></tr><tr><td>Ctrl+H</td><td>Hide / show block</td></tr><tr><td>Ctrl+Shift+A / Ctrl+Shift+N / F2</td><td>Add block / Add page / Rename page</td></tr><tr><td>Ctrl+PageUp / Ctrl+PageDown, Ctrl+Tab</td><td>Previous / next page</td></tr><tr><td>Ctrl+= / Ctrl+- / Ctrl+0 / Ctrl+Shift+W</td><td>Zoom in / out / 100 % / Fit width</td></tr><tr><td>Ctrl+E / F5</td><td>Preview mode / Preview in browser</td></tr><tr><td>Ctrl+Shift+P / Ctrl+Shift+D</td><td>Publish / Change design</td></tr><tr><td>Ctrl+Shift+1 / Ctrl+Shift+2</td><td>Blocks panel / Site panel</td></tr><tr><td>Ctrl+Shift+L / Ctrl+Shift+B / Ctrl+Shift+H</td><td>Language / Shuffle background / Start page</td></tr><tr><td>Ctrl+, / F11 / F1</td><td>Settings / Tutorial / About</td></tr></tbody></table></div>
+<h2 id="help">Help <a class="anchor" href="#help" aria-hidden="true">#</a></h2>
+<ul><li><strong>Help › Welcome window</strong> — tutorial, a sample, or later</li><li><strong>Tutorial</strong> (F11) — 43 steps in 8 chapters on the real screen. Step back and forth on the card, auto play, pick a chapter, ✕ to end; afterwards your settings and your open site come back as they were.</li><li><strong>Tutorial document</strong>, <strong>User&#39;s guide</strong> — open in a window of their own with contents and search (Korean and English).</li><li><strong>About</strong> (F1) — version, build information, author</li></ul>
+<p>When something goes wrong, an error window shows the details; <strong>Copy</strong> copies them as they are.</p>
+<h2 id="file-format">File format <a class="anchor" href="#file-format" aria-hidden="true">#</a></h2>
+<p><code>.myhome</code> is UTF-8 JSON: <code>format: &quot;myhomemaker&quot;</code>, <code>meta</code> (title, description, language …), <code>design</code> (the design id and your changes), <code>layout</code> (the header and footer blocks), <code>pages</code> (name, file name, blocks). A block has a <code>type</code>, <code>props</code> (its content) and <code>style</code>. Pictures are kept in the file as data URLs, so the one file is all you need to move.</p>
+<h2 id="troubleshooting">Troubleshooting <a class="anchor" href="#troubleshooting" aria-hidden="true">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Problem</th><th>Solution</th></tr></thead><tbody><tr><td>A published site opened from the disk shows broken pictures or links</td><td>Keep the folder together and open its <code>index.html</code>: the other pages and <code>assets/</code> must be next to it.</td></tr><tr><td>A map or video is empty on the canvas</td><td>They need an internet connection. On the canvas they do not react to clicks (in preview mode neither).</td></tr><tr><td>The contact form sends no e-mail</td><td>Put a form service address into the Contact block&#39;s <em>Form endpoint</em>.</td></tr><tr><td>The web version is blank when index.html is opened from the disk</td><td>Open it through a web server (for example <code>npx vite preview</code>, or your host).</td></tr></tbody></table></div>
+</main>
+</div>
+<footer>MyHomeMaker v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+</body>
+</html>

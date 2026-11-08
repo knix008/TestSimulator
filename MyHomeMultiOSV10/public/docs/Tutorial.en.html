@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="MyHomeMaker scripts/build-docs.mjs" />
+<title>MyHomeMaker Tutorial — your first website</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f7f8fa; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #2f6fde; --accent-soft: #e8f0fe; --code-bg: #f1f3f7; --row-alt: #f8fafc; --shadow: 0 1px 3px rgba(20, 30, 50, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --surface: #1b1f27; --text: #e3e7ee; --muted: #9aa4b5; --border: #2e3440;
+    --accent: #6ea8ff; --accent-soft: #1f2b40; --code-bg: #242a35; --row-alt: #1f242d; --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+  font-family: "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.topbar .brand { font-weight: 700; color: var(--text); }
+.topbar .grow { flex: 1; }
+.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; }
+nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
+nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
+h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
+h1 { font-size: 2em; margin: 0 0 .6em; }
+h2 { font-size: 1.5em; margin: 2em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.anchor { opacity: 0; margin-left: 6px; font-weight: 400; color: var(--muted); }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: 14px; }
+blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
+blockquote p { margin: 6px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  main { padding: 20px 18px 32px; border-radius: 10px; }
+  .topbar { padding: 10px 14px; }
+}
+@media print {
+  .topbar, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  main { border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand">MyHomeMaker <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="Tutorial.html" hreflang="ko">한국어</a></header>
+<div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#1-create-a-site">1. Create a site</a></li><li class="h2"><a href="#2-look-around">2. Look around</a></li><li class="h2"><a href="#3-change-the-headline">3. Change the headline</a></li><li class="h2"><a href="#4-change-the-picture">4. Change the picture</a></li><li class="h2"><a href="#5-edit-the-menu">5. Edit the menu</a></li><li class="h2"><a href="#6-add-and-move-blocks">6. Add and move blocks</a></li><li class="h2"><a href="#7-style-a-block">7. Style a block</a></li><li class="h2"><a href="#8-add-a-page">8. Add a page</a></li><li class="h2"><a href="#9-change-the-design">9. Change the design</a></li><li class="h2"><a href="#10-check-it-on-a-phone">10. Check it on a phone</a></li><li class="h2"><a href="#11-preview">11. Preview</a></li><li class="h2"><a href="#12-site-information-and-saving">12. Site information and saving</a></li><li class="h2"><a href="#13-check-and-publish">13. Check and publish</a></li><li class="h2"><a href="#14-put-it-online">14. Put it online</a></li><li class="h2"><a href="#next-steps">Next steps</a></li></ul></nav>
+<main>
+<h1 id="myhomemaker-tutorial--your-first-website">MyHomeMaker Tutorial — your first website</h1>
+<p>This tutorial builds the website of a neighbourhood café, <strong>&quot;Daily Coffee&quot;</strong>, from scratch and publishes it. It takes about 30 minutes. Menu and button names are written as the app shows them. Every feature is described in the <a href="UsersGuide.en.html">user&#39;s guide</a>.</p>
+<blockquote><p>The tour in the app (<strong>Help › Tutorial</strong>, F11) shows the same on the real screen. This document is a hands-on exercise.</p></blockquote>
+<h2 id="1-create-a-site">1. Create a site <a class="anchor" href="#1-create-a-site" aria-hidden="true">#</a></h2>
+<ol><li>Start MyHomeMaker; the start page appears.</li><li>Press <strong>New site…</strong> on the toolbar (or <strong>File › New site…</strong>, Ctrl+N).</li><li>Pick <strong>Templates</strong> on the left and the <strong>Café</strong> card.</li><li>Type <code>Daily Coffee</code> into <strong>Site name</strong> and press <strong>Create</strong>.</li></ol>
+<p><img src="images/en/02-new-site.png" alt="New site" loading="lazy" /></p>
+<p>The café template has one page with a split hero, a menu, a gallery and a contact block. The header already carries the site name.</p>
+<h2 id="2-look-around">2. Look around <a class="anchor" href="#2-look-around" aria-hidden="true">#</a></h2>
+<p><img src="images/en/03-editor.png" alt="The editor" loading="lazy" /></p>
+<ul><li><strong>Blocks panel</strong> (left): the blocks you can add</li><li><strong>Page tabs and canvas</strong> (centre): the real site</li><li><strong>Site panel</strong> (right): the header, pages, blocks and footer at the top, the <strong>Content · Style · Page · Site</strong> editors below</li></ul>
+<p><strong>Fit width</strong> on the toolbar (Ctrl+Shift+W) shows the whole page width on the canvas.</p>
+<h2 id="3-change-the-headline">3. Change the headline <a class="anchor" href="#3-change-the-headline" aria-hidden="true">#</a></h2>
+<ol><li>Click the banner at the top of the canvas once. A blue outline and a name tab appear.</li><li>Click the big title <strong>once more</strong>: the text is selected and can be typed over.</li><li>Type <code>Start your day with a good cup</code> and press <strong>Enter</strong>.</li></ol>
+<p><img src="images/en/06-inline-edit.png" alt="Editing in place" loading="lazy" /></p>
+<p>The small title, the text and the button work the same way. The <strong>Content</strong> tab on the right has the same fields. Press <strong>Ctrl+Z</strong> to undo a change.</p>
+<h2 id="4-change-the-picture">4. Change the picture <a class="anchor" href="#4-change-the-picture" aria-hidden="true">#</a></h2>
+<ol><li><strong>Double-click</strong> the banner&#39;s picture: a file window opens. Choose a photo of your café.</li><li>No photo yet? In the <strong>Content</strong> tab, use <strong>Built-in picture › Café</strong> of the picture field.</li></ol>
+<p>Large photos are scaled so their longest side is 1920 px. You can also drop a picture file onto the selected block.</p>
+<h2 id="5-edit-the-menu">5. Edit the menu <a class="anchor" href="#5-edit-the-menu" aria-hidden="true">#</a></h2>
+<ol><li>Click the <strong>Menu</strong> block.</li><li>In the <strong>Dishes</strong> list at the bottom of the <strong>Content</strong> tab, change each item&#39;s name, description and price.</li><li>Press <strong>Add</strong> and enter <code>Vanilla latte · Sweet vanilla · 5.50</code>.</li><li>Reorder items with their ↑ ↓ buttons; the bin deletes one.</li></ol>
+<p><img src="images/en/07-content-tab.png" alt="Item lists" loading="lazy" /></p>
+<h2 id="6-add-and-move-blocks">6. Add and move blocks <a class="anchor" href="#6-add-and-move-blocks" aria-hidden="true">#</a></h2>
+<ol><li>Drag <strong>Content › Features</strong> from the Blocks panel onto the canvas, above the menu. A blue line shows where it will go.</li><li>Change the three features to <code>Roasted here</code>, <code>Baked every morning</code> and <code>A quiet upstairs</code>. The icon field takes emoji (☕ 🥐 🪑).</li><li>Click <strong>Showcase › Testimonials</strong> to add it (it goes right below the selected block).</li><li><strong>Drag a block&#39;s name tab</strong> to move it, or use <strong>Move up · Move down</strong> on the toolbar (Ctrl+↑/↓).</li></ol>
+<p><img src="images/en/05-select-block.png" alt="A selected block and its tools" loading="lazy" /></p>
+<h2 id="7-style-a-block">7. Style a block <a class="anchor" href="#7-style-a-block" aria-hidden="true">#</a></h2>
+<ol><li>Select the testimonials and open the <strong>Style</strong> tab on the right.</li><li>Set <strong>Background</strong> to <strong>Light surface</strong>, and <strong>Space above</strong> and <strong>Space below</strong> to 96 px.</li><li>Set <strong>Alignment</strong> to <strong>Centre</strong>.</li></ol>
+<p><img src="images/en/08-style-tab.png" alt="Style tab" loading="lazy" /></p>
+<h2 id="8-add-a-page">8. Add a page <a class="anchor" href="#8-add-a-page" aria-hidden="true">#</a></h2>
+<ol><li>Press the <strong>+</strong> at the end of the tabs (or <strong>Page › Add page…</strong>).</li><li>Name it <code>Visit us</code>, choose <strong>Contact</strong> to start with, and press <strong>OK</strong>.</li><li>In the new page&#39;s <strong>Contact</strong> block, change the address, phone and opening hours, and put the café&#39;s address into <strong>Map place</strong>.</li><li>See <code>Visit us</code> appear in the header menu by itself.</li></ol>
+<p><img src="images/en/10-pages.png" alt="Adding a page" loading="lazy" /></p>
+<p>The <strong>Page</strong> tab sets the file name (<code>visit-us</code> → <code>visit-us.html</code>), the browser title and the search description.</p>
+<h2 id="9-change-the-design">9. Change the design <a class="anchor" href="#9-change-the-design" aria-hidden="true">#</a></h2>
+<ol><li>Open <strong>Design › Change design…</strong> (Ctrl+Shift+D).</li><li>Double-click <strong>Wood</strong> or <strong>Peach</strong> among the <strong>Light designs</strong> to use it at once.</li><li>Try others until you like one: the content stays, only colours and fonts change.</li><li>To fine-tune, change <strong>Main colour</strong> or <strong>Heading font</strong> in the <strong>Site</strong> tab.</li></ol>
+<p><img src="images/en/12-design-picker.png" alt="Choosing a design" loading="lazy" /></p>
+<h2 id="10-check-it-on-a-phone">10. Check it on a phone <a class="anchor" href="#10-check-it-on-a-phone" aria-hidden="true">#</a></h2>
+<ol><li>Press the <strong>Phone</strong> button on the toolbar. The canvas becomes 390 px wide and the menu folds into ☰.</li><li>For a block you do not need on phones, turn on <strong>Style › Hide on phones</strong>.</li><li>Go back with the <strong>Desktop</strong> button.</li></ol>
+<p><img src="images/en/14-mobile.png" alt="Phone width" loading="lazy" /></p>
+<h2 id="11-preview">11. Preview <a class="anchor" href="#11-preview" aria-hidden="true">#</a></h2>
+<ol><li><strong>Preview</strong> (Ctrl+E) shows the site as visitors see it. Click <code>Visit us</code> in the menu to switch pages; <strong>Esc</strong> goes back.</li><li><strong>Preview in browser</strong> (F5) opens the site in the system browser.</li></ol>
+<p><img src="images/en/15-preview.png" alt="Preview mode" loading="lazy" /></p>
+<h2 id="12-site-information-and-saving">12. Site information and saving <a class="anchor" href="#12-site-information-and-saving" aria-hidden="true">#</a></h2>
+<ol><li>Clear the selection (Esc) and, in the <strong>Site</strong> tab, write a <strong>Site description</strong>: <code>Daily Coffee — beans roasted here, bread baked every morning</code>.</li><li><strong>Save</strong> (Ctrl+S) as <code>Daily Coffee.myhome</code>. The pictures are inside this one file too.</li></ol>
+<p><img src="images/en/13-site-tab.png" alt="Site tab" loading="lazy" /></p>
+<h2 id="13-check-and-publish">13. Check and publish <a class="anchor" href="#13-check-and-publish" aria-hidden="true">#</a></h2>
+<ol><li><strong>Tools › Check the site</strong> lists anything to fix.</li><li>Press <strong>Publish</strong> on the toolbar (Ctrl+Shift+P).</li><li>Choose <strong>Folder</strong> (desktop) or <strong>ZIP file</strong>, keep <strong>Pictures as files</strong> on, and press <strong>Publish</strong>.</li><li>After publishing to a folder, press <strong>Open in browser</strong> to see the result.</li></ol>
+<p><img src="images/en/16-publish.png" alt="Publishing" loading="lazy" /></p>
+<p>The published folder holds <code>index.html</code>, <code>visit-us.html</code>, <code>style.css</code> and <code>assets/</code>.</p>
+<h2 id="14-put-it-online">14. Put it online <a class="anchor" href="#14-put-it-online" aria-hidden="true">#</a></h2>
+<ul><li><strong>GitHub Pages</strong>: create a repository, upload the published files, and turn it on in Settings › Pages.</li><li><strong>Netlify</strong>: drop the folder or the ZIP onto Sites at app.netlify.com.</li><li><strong>Web hosting</strong>: upload the files with FTP into the web root (<code>public_html</code> or similar).</li></ul>
+<p>To get the contact form by e-mail, get an address from a form service such as Formspree, put it into the <strong>Form endpoint</strong> of the <strong>Contact</strong> block and publish again.</p>
+<h2 id="next-steps">Next steps <a class="anchor" href="#next-steps" aria-hidden="true">#</a></h2>
+<ul><li>Open the 16 samples from <strong>File › Open sample site</strong> and see how they are built.</li></ul>
+<p><img src="images/en/18-sample.png" alt="A sample site" loading="lazy" /></p>
+<ul><li>Save layouts you use often as a template with <strong>File › Save as template…</strong> (.mhomt).</li><li><strong>Help › Keyboard shortcuts…</strong> lists every keyboard shortcut.</li></ul>
+</main>
+</div>
+<footer>MyHomeMaker v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+</body>
+</html>
