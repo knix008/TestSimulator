@@ -96,6 +96,42 @@ module.exports = {
       assert(r > 0 && o > r, 'Rename: Cancel then Rename, like every other popup');
     });
 
+    test('Tab strips have "<" ">" at the right end (ready for many tabs)', () => {
+      const ts = h.read('src/js/tabStrip.js');
+      const css = h.read('src/styles/main.css');
+      assertIncludes(html, '<script src="./js/tabStrip.js"></script>', 'loaded');
+      assert(html.indexOf('js/tabStrip.js') < html.indexOf('js/app.js'), 'before app.js');
+      assertIncludes(ts, "root.querySelectorAll('#tree-tabs, .settings-tabs, .tone-tabs').forEach((l) => enhance(l));", 'static strips');
+      assertIncludes(app, 'window.TabStrip?.enhance(bar);', 'start screen recent / favorites tabs');
+      assertIncludes(ts, 'prev.disabled = i <= 0;', 'greyed at the first tab');
+      assertIncludes(ts, 'next.disabled = i < 0 || i >= all.length - 1;', 'greyed at the last tab');
+      assertIncludes(css, '.tabstrip > .tabstrip-scroll {', 'row scrolls sideways');
+      assertIncludes(css, 'scrollbar-width: none;', 'without a scroll bar');
+      assert(ko['tabs.prev'] && en['tabs.next'], 'tooltips');
+    });
+
+    test('Settings: custom theme has its own tab, smaller theme tiles, no scroll bar', () => {
+      const css = h.read('src/styles/main.css');
+      const theme = html.slice(html.indexOf('data-panel="theme"'), html.indexOf('data-panel="custom"'));
+      assert(!theme.includes('settings-custom-theme'), 'custom theme is not on the Theme tab');
+      const custom = html.slice(html.indexOf('data-panel="custom"'), html.indexOf('data-panel="viewer"'));
+      assertIncludes(custom, 'id="settings-custom-theme"', 'custom theme tab');
+      assert(html.indexOf('data-tab="custom"') > html.indexOf('data-tab="theme"'), 'right after Theme');
+      assertIncludes(css, '.settings-theme-grid { grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 5px; }', 'smaller tiles');
+      assertIncludes(css, '.settings-dialog-box .dialog-body.settings-body { flex: 1; overflow: hidden;', 'body never scrolls');
+    });
+
+    test('Help (user guide) opens in a window of its own that follows the main theme', () => {
+      const dw = h.read('src/js/dialogWindow.js');
+      const rs = h.read('src-tauri/src/main.rs');
+      assertIncludes(dw, "const STANDALONE = new Set(['help-overlay']);", 'help is standalone');
+      assertIncludes(dw, 'if (!STANDALONE.has(id)) _block(true);', 'main window stays usable');
+      assertIncludes(dw, "for (const a of ['data-theme', 'data-theme-kind', 'lang', 'style']) {", 'theme copied from the main window');
+      assertIncludes(rs, 'label == "dialog-help-overlay"', 'Rust side knows it');
+      assertIncludes(rs, '.skip_taskbar(!standalone)', 'on the taskbar');
+      assertIncludes(rs, 'fn dialog_window_state(', 'minimise / maximise');
+    });
+
     test('Any long work pops the progress dialog up after a moment (not only the status bar)', () => {
       assertIncludes(app, 'const LONG_MS = 800;', 'threshold');
       assertIncludes(app, 'if (_active && !_modal && !_dismissed) enableModal(', 'promotes to the popup');

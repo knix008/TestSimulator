@@ -22,6 +22,11 @@
 
   // Kept in the page: the progress dialog is brief and sits over running work
   const IN_PAGE = new Set(['progress-overlay']);
+  // Windows of their own, not popups: the main window stays usable, they are on the
+  // taskbar with minimise / maximise, and their content fills the window as it is resized
+  // (same list as is_standalone_dialog in src-tauri main.rs)
+  const STANDALONE = new Set(['help-overlay']);
+  const _anyModal = () => [...open.keys()].some((k) => !STANDALONE.has(k));
   const open = new Map();   // overlay id → { win, label, overlay, home, boxStyle, ro }
   let blocker = null;
 
@@ -134,7 +139,7 @@
     const sel = focused && typeof focused.selectionStart === 'number' ? [focused.selectionStart, focused.selectionEnd] : null;
     const entry = { win, label, overlay, box, home: document.createComment(`dialog:${id}`), boxStyle: box.getAttribute('style'), w: 0, h: 0, placed: false };
     open.set(id, entry);
-    _block(true);
+    if (!STANDALONE.has(id)) _block(true);
 
     const doc = win.document;
     doc.open(); doc.write(_docHtml()); doc.close();
@@ -167,9 +172,18 @@
       invoke('dialog_start_dragging', { label }).catch(() => {});
     });
 
-    entry.ro = new win.ResizeObserver(() => _size(entry));
-    entry.ro.observe(box);
-    await _size(entry);
+    if (STANDALONE.has(id)) {
+      // Sized once, then the content follows the window (resize, maximise)
+      await _size(entry);
+      box.style.width = '100vw';
+      box.style.height = '100vh';
+      _addWindowButtons(doc, overlay, label);
+      try { doc.title = (overlay.querySelector('.dialog-title')?.textContent || '').trim() + ' — MyImageViewer'; } catch { /* */ }
+    } else {
+      entry.ro = new win.ResizeObserver(() => _size(entry));
+      entry.ro.observe(box);
+      await _size(entry);
+    }
     if (focused && overlay.contains(focused)) {
       try { focused.focus(); if (sel) focused.setSelectionRange(sel[0], sel[1]); } catch { /* not focusable any more */ }
     }
@@ -184,8 +198,39 @@
     if (entry.boxStyle == null) box.removeAttribute('style'); else box.setAttribute('style', entry.boxStyle);
     if (home.parentNode) home.parentNode.replaceChild(document.adoptNode(overlay), home);
     else document.body.appendChild(document.adoptNode(overlay));
+    overlay.querySelectorAll('.dialog-win-btn').forEach((b) => b.remove());
     invoke('close_dialog', { label: entry.label }).catch(() => { try { entry.win.close(); } catch { /* gone */ } });
-    if (!open.size) _block(false);
+    if (!_anyModal()) _block(false);
+  }
+
+  // Minimise / maximise in a standalone window's title row, before its ×
+  function _addWindowButtons(doc, overlay, label) {
+    const close = overlay.querySelector('.dialog-header .dialog-close-btn');
+    if (!close || overlay.querySelector('.dialog-win-btn')) return;
+    const mk = (action, title, path) => {
+      const b = doc.createElement('button');
+      b.type = 'button';
+      b.className = 'dialog-win-btn';
+      b.dataset.winAction = action;
+      b.title = title;
+      b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">${path}</svg>`;
+      b.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        invoke('dialog_window_state', { label, action }).catch(() => {});
+      });
+      return b;
+    };
+    const ko = document.documentElement.lang === 'ko';
+    close.before(
+      mk('min', ko ? '최소화' : 'Minimise', '<path d="M6 12h12"/>'),
+      mk('max', ko ? '최대화' : 'Maximise', '<rect x="6.5" y="6.5" width="11" height="11"/>'),
+    );
+    // Double-click on the title row maximises too, like any window
+    overlay.querySelector('.dialog-header')?.addEventListener('dblclick', (e) => {
+      if (e.target.closest('button')) return;
+      invoke('dialog_window_state', { label, action: 'max' }).catch(() => {});
+    });
   }
 
   function _watch(overlay) {

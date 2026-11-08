@@ -455,6 +455,8 @@
   "progress.moving": "Moving files…",
   "progress.openingFolder": "Opening folder…",
   "progress.deleting": "Deleting…",
+  "tabs.prev": "Previous tab",
+  "tabs.next": "Next tab",
   "progress.stop": "Stop",
   "progress.stopping": "Stopping…",
   "resize.title": "Resize Image",

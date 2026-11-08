@@ -455,6 +455,8 @@
   "progress.moving": "파일을 이동하는 중…",
   "progress.openingFolder": "폴더를 여는 중…",
   "progress.deleting": "삭제하는 중…",
+  "tabs.prev": "이전 탭",
+  "tabs.next": "다음 탭",
   "progress.stop": "중지",
   "progress.stopping": "중지하는 중…",
   "resize.title": "이미지 리사이즈",

@@ -28,6 +28,15 @@ module.exports = {
       assertIncludes(main, `"${ch}" =>`, ch);
     });
 
+    test('No permission prompt at start: fonts come from the host, npm start serves like the installed app', () => {
+      const app = h.read('src/js/app.js');
+      assert(!/(?:await|=)\s*window\.queryLocalFonts\(/.test(app), 'the page never calls queryLocalFonts() (WebView2 asked "use your fonts?" every start)');
+      assertIncludes(preload, "listFonts: () => call('list-fonts'),", 'bridge');
+      assertIncludes(main, '"list-fonts" => system::list_fonts(),', 'host');
+      assertIncludes(h.read('src-tauri/src/host/system.rs'), 'EnumFontFamiliesExW(', 'installed fonts via GDI');
+      assert(pkg.scripts.start === 'tauri dev --no-dev-server', 'npm start: http://tauri.localhost like the build, not 127.0.0.1:1430');
+    });
+
     test('page builds print HTML', () => {
       assertIncludes(preload, 'function printPageHtml', 'print html');
     });

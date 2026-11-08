@@ -230,22 +230,27 @@ fn dialog_window(app: &AppHandle, url: &tauri::Url, features: NewWindowFeatures)
     if app.get_webview_window(&label).is_some() {
         return NewWindowResponse::Deny;
     }
+    // The user's guide (Help) is a window of its own: on the taskbar, can be minimised and
+    // maximised, not owned by the main window (which stays usable beside it).
+    let standalone = is_standalone_dialog(&label);
     let mut b = WebviewWindowBuilder::new(app, label, WebviewUrl::External("about:blank".parse().expect("about:blank")))
         .window_features(features)
-        .title("MyImageViewer")
+        .title(if standalone { "MyImageViewer — Help" } else { "MyImageViewer" })
         .decorations(false)
         .resizable(true)
-        .maximizable(false)
-        .minimizable(false)
-        .skip_taskbar(true)
+        .maximizable(standalone)
+        .minimizable(standalone)
+        .skip_taskbar(!standalone)
         .visible(false)
-        .min_inner_size(240.0, 120.0)
+        .min_inner_size(if standalone { 560.0 } else { 240.0 }, if standalone { 360.0 } else { 120.0 })
         .disable_drag_drop_handler();
-    if let Some(main) = app.get_webview_window(MAIN) {
-        b = match b.parent(&main) {
-            Ok(next) => next,
-            Err(_) => return NewWindowResponse::Deny,
-        };
+    if !standalone {
+        if let Some(main) = app.get_webview_window(MAIN) {
+            b = match b.parent(&main) {
+                Ok(next) => next,
+                Err(_) => return NewWindowResponse::Deny,
+            };
+        }
     }
     match b.build() {
         Ok(window) => {
@@ -329,6 +334,30 @@ fn dialog_start_dragging(app: AppHandle, label: String) -> bool {
     app.get_webview_window(&label).is_some_and(|w| w.start_dragging().is_ok())
 }
 
+/// Dialogs that are windows of their own rather than popups over the main window
+/// (same list as STANDALONE in dialogWindow.js).
+fn is_standalone_dialog(label: &str) -> bool {
+    label == "dialog-help-overlay"
+}
+
+/// Minimise / maximise buttons of a standalone dialog window ("min" | "max").
+#[tauri::command]
+fn dialog_window_state(app: AppHandle, label: String, action: String) -> bool {
+    if !is_standalone_dialog(&label) {
+        return false;
+    }
+    let Some(w) = app.get_webview_window(&label) else {
+        return false;
+    };
+    match action.as_str() {
+        "min" => w.minimize().is_ok(),
+        "max" => {
+            if w.is_maximized().unwrap_or(false) { w.unmaximize().is_ok() } else { w.maximize().is_ok() }
+        }
+        _ => false,
+    }
+}
+
 // ── Drag-out: an in-app drag that leaves the window becomes a real OS file drag, so the
 // files can be dropped on Explorer, the desktop or another app. Offered as copy only:
 // a drop somewhere else never takes the original away. ──
@@ -389,6 +418,7 @@ fn main() {
             fit_dialog,
             close_dialog,
             dialog_start_dragging,
+            dialog_window_state,
         ])
         .on_window_event(|window, event| {
             if cfg!(debug_assertions) {

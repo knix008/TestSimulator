@@ -907,6 +907,7 @@ Do you want to save before closing?</p>
       <div class="settings-tabs" role="tablist">
         <button type="button" class="settings-tab active" role="tab" data-tab="general" aria-selected="true" data-i18n="settings.tab.general">General</button>
         <button type="button" class="settings-tab" role="tab" data-tab="theme" aria-selected="false" data-i18n="settings.tab.theme">Theme</button>
+        <button type="button" class="settings-tab" role="tab" data-tab="custom" aria-selected="false" data-i18n="theme.custom">Custom theme</button>
         <button type="button" class="settings-tab" role="tab" data-tab="viewer" aria-selected="false" data-i18n="settings.tab.viewer">Viewer &amp; editing</button>
         <button type="button" class="settings-tab" role="tab" data-tab="dicom" aria-selected="false">DICOM</button>
         <button type="button" class="settings-tab" role="tab" data-tab="media" aria-selected="false" data-i18n="settings.tab.media">Media</button>
@@ -991,13 +992,18 @@ Do you want to save before closing?</p>
           <div id="settings-theme-dark" class="settings-theme-grid"></div>
           <div class="settings-theme-kind" data-i18n="menu.lightThemes">Light Themes</div>
           <div id="settings-theme-light" class="settings-theme-grid"></div>
+        </div>
+        <div class="settings-panel" data-panel="custom" role="tabpanel">
           <div class="settings-theme-kind" data-i18n="theme.custom">Custom theme</div>
           <div class="theme-custom" id="settings-custom-theme">
-            <label><span data-i18n="theme.bg">Background</span><input type="color" data-custom="bg" value="#1f2433"></label>
-            <label><span data-i18n="theme.text">Text</span><input type="color" data-custom="text" value="#dde3f0"></label>
-            <label><span data-i18n="theme.accent">Accent</span><input type="color" data-custom="accent" value="#e8a33d"></label>
-            <button type="button" class="settings-btn" data-custom-reset data-i18n="theme.resetDefault">Default</button>
-            <button type="button" class="settings-btn" data-custom-apply data-i18n="theme.apply">Apply</button>
+            <label class="dlg-row"><span class="dlg-label" data-i18n="theme.bg">Background</span><span class="dlg-ctl"><input type="color" data-custom="bg" value="#1f2433"></span></label>
+            <label class="dlg-row"><span class="dlg-label" data-i18n="theme.text">Text</span><span class="dlg-ctl"><input type="color" data-custom="text" value="#dde3f0"></span></label>
+            <label class="dlg-row"><span class="dlg-label" data-i18n="theme.accent">Accent</span><span class="dlg-ctl"><input type="color" data-custom="accent" value="#e8a33d"></span></label>
+            <div class="dlg-row"><span class="dlg-label"></span>
+              <span class="dlg-ctl">
+                <button type="button" class="settings-btn" data-custom-reset data-i18n="theme.resetDefault">Default</button>
+                <button type="button" class="settings-btn" data-custom-apply data-i18n="theme.apply">Apply</button>
+              </span></div>
           </div>
         </div>
         <div class="settings-panel" data-panel="viewer" role="tabpanel">
@@ -1745,6 +1751,7 @@ Do you want to save before closing?</p>
   <script src="./js/batch.js"></script>
   <script src="./js/fileTree.js"></script>
   <script src="./js/dragdrop.js"></script>
+  <script src="./js/tabStrip.js"></script>
   <script src="./js/dialogWindow.js"></script>
   <script src="./js/startboard.js"></script>
   <script src="./js/app.js"></script>

@@ -19,6 +19,62 @@ pub fn take_launch_file() -> Option<String> {
     LAUNCH_FILE.lock().unwrap().take()
 }
 
+/// Installed font family names (sorted, no vertical "@" faces). Asked here, not with the
+/// page's queryLocalFonts(): that one needs a permission WebView2 asks for on every start.
+pub fn list_fonts() -> Value {
+    let mut names: Vec<String> = installed_font_families();
+    names.retain(|n| !n.is_empty() && !n.starts_with('@'));
+    names.sort_by_key(|n| n.to_lowercase());
+    names.dedup();
+    json!(names)
+}
+
+#[cfg(windows)]
+fn installed_font_families() -> Vec<String> {
+    use windows_sys::Win32::Foundation::LPARAM;
+    use windows_sys::Win32::Graphics::Gdi::{
+        EnumFontFamiliesExW, GetDC, ReleaseDC, DEFAULT_CHARSET, LOGFONTW, TEXTMETRICW,
+    };
+    unsafe extern "system" fn each(lf: *const LOGFONTW, _tm: *const TEXTMETRICW, _kind: u32, out: LPARAM) -> i32 {
+        let names = &mut *(out as *mut Vec<String>);
+        let face = &(*lf).lfFaceName;
+        let len = face.iter().position(|&c| c == 0).unwrap_or(face.len());
+        names.push(String::from_utf16_lossy(&face[..len]));
+        1
+    }
+    let mut names: Vec<String> = Vec::new();
+    unsafe {
+        let dc = GetDC(std::ptr::null_mut());
+        if dc.is_null() {
+            return names;
+        }
+        let mut lf: LOGFONTW = std::mem::zeroed();
+        lf.lfCharSet = DEFAULT_CHARSET as u8;
+        EnumFontFamiliesExW(dc, &lf, Some(each), &mut names as *mut Vec<String> as LPARAM, 0);
+        ReleaseDC(std::ptr::null_mut(), dc);
+    }
+    names
+}
+
+#[cfg(target_os = "linux")]
+fn installed_font_families() -> Vec<String> {
+    std::process::Command::new("fc-list")
+        .args([":", "family"])
+        .output()
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter_map(|l| l.split(',').next().map(|s| s.trim().to_string()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+fn installed_font_families() -> Vec<String> {
+    Vec::new()
+}
+
 pub fn queue_open_file(path: &str) {
     if !path.is_empty() && Path::new(path).exists() {
         emit("open-file", json!(path));

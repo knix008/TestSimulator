@@ -40,6 +40,9 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 [target.'cfg(windows)'.dependencies]
 # Default image viewer: per-user file associations
 winreg = "0.55"
+# Installed font families for the font lists (GDI EnumFontFamiliesExW). The page's own
+# queryLocalFonts() made WebView2 ask "use your computer's fonts?" on every start.
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Gdi"] }
 
 [profile.release]
 panic = "abort"

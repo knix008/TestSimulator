@@ -5,7 +5,7 @@
   "description": "MyImageViewer — multi-platform image viewer and editor with dark/light themes and Korean/English support",
   "author": "SHKWON",
   "scripts": {
-    "start": "tauri dev",
+    "start": "tauri dev --no-dev-server",
     "test": "node tests/run-feature-tests.js",
     "web": "node server.js",
     "create-icons": "node scripts/create-icons.js",

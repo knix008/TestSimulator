@@ -104,7 +104,7 @@ module.exports = {
       assert(Themes.label('dracula') === 'Dracula');
     });
 
-    const settingsTabs = ['general', 'theme', 'viewer', 'dicom', 'media'];
+    const settingsTabs = ['general', 'theme', 'custom', 'viewer', 'dicom', 'media'];
     each(settingsTabs, (id) => `Settings has ${id} tab and panel`, (id) => {
       assertIncludes(html, `data-tab="${id}"`, `tab ${id}`);
       assertIncludes(html, `data-panel="${id}"`, `panel ${id}`);

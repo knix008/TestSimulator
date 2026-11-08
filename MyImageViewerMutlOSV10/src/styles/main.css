@@ -6017,3 +6017,78 @@ select optgroup {
 /* Rename / progress keep the same side padding as the forms */
 .rename-input { height: var(--dlg-ctl-h); }
 .dialog-box.progress-dialog-box .progress-dialog-body { padding: 14px 16px 16px; }
+
+/* ═══ Tab strips with "<" ">" at the right end (tabStrip.js) ═══
+   The tabs keep their natural width in a row that scrolls sideways (no scroll bar);
+   the two buttons step to the previous / next tab. Each strip's bottom line and
+   background continue under the buttons. */
+.tabstrip { display: flex; align-items: stretch; min-width: 0; flex-shrink: 0; }
+.tabstrip > .tabstrip-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.tabstrip > .tabstrip-scroll::-webkit-scrollbar { display: none; }
+.tabstrip > .tabstrip-scroll > * { flex: 0 0 auto !important; }
+.tabstrip-nav { flex: none; display: flex; align-items: center; gap: 1px; padding: 0 4px; }
+.tabstrip-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.tabstrip-btn svg { width: 16px; height: 16px; fill: currentColor; }
+.tabstrip-btn:hover:not(:disabled) { background: var(--btn-hover); color: var(--text-primary); border-color: var(--border); }
+.tabstrip-btn:disabled { opacity: 0.35; cursor: default; }
+.tabstrip--tree-tabs > .tabstrip-nav { background: var(--panel-title-bg); border-bottom: 1px solid var(--border); padding-top: 3px; }
+.tabstrip--settings-tabs > .tabstrip-nav,
+.tabstrip--tone-tabs > .tabstrip-nav { border-bottom: 1px solid var(--border); }
+.tabstrip--settings-tabs > .tabstrip-nav { padding-right: 12px; }
+.tabstrip--home-places-tabs { margin-bottom: 8px; }
+.tabstrip--home-places-tabs > .home-places-tabs { margin-bottom: 0; }
+.tabstrip--home-places-tabs > .tabstrip-nav { border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); padding-bottom: 6px; }
+/* The tabs used to share the width equally; now they keep their own width */
+.tabstrip--tree-tabs .tree-tab,
+.tabstrip--home-places-tabs .home-places-tabs button { min-width: max-content; }
+
+/* ═══ Settings: smaller theme tiles, custom theme on its own tab ═══ */
+.settings-theme-grid { grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 5px; }
+.settings-theme-btn { padding: 3px; gap: 3px; border-radius: 5px; }
+.settings-theme-preview { height: 20px; border-radius: 3px; background: linear-gradient(var(--sw-bar), var(--sw-bar)) top / 100% 6px no-repeat, var(--sw-bg); }
+.settings-theme-preview::after { width: 6px; height: 6px; right: 3px; bottom: 3px; }
+.settings-theme-name { font-size: 10px; }
+.settings-panel[data-panel="custom"] .theme-custom { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 4px 0; }
+.settings-panel[data-panel="custom"] .theme-custom .dlg-row { display: grid; max-width: 460px; }
+.settings-panel[data-panel="custom"] .theme-custom label.dlg-row { font-size: 13px; color: var(--text-primary); }
+.settings-panel[data-panel="custom"] .theme-custom .dlg-label { color: var(--text-primary); }
+.settings-panel[data-panel="custom"] .theme-custom input[type="color"] { width: 64px; height: 30px; }
+
+/* ═══ Help: a window of its own (dialogWindow.js STANDALONE) ═══ */
+.dialog-win-btn {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.dialog-header > .dialog-win-btn:first-of-type { margin-left: auto; }
+.dialog-win-btn ~ .dialog-close-btn { margin-left: 0; }
+.dialog-win-btn svg { width: 16px; height: 16px; }
+.dialog-win-btn:hover { background: var(--btn-hover); color: var(--text-primary); }
+html.dialog-window .help-dialog-box { max-width: none; max-height: none; }

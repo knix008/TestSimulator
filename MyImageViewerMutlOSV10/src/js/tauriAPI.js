@@ -478,6 +478,8 @@ ${band('ftr', footerMm, footer)}
     getFileUrl: (filePath) => call('get-file-url', filePath),
     readFileBase64: (filePath) => call('read-file-base64', filePath),
     readHelpDoc: (lang) => call('read-help-doc', lang),
+    // Installed font families, from the host (no "use your fonts?" prompt)
+    listFonts: () => call('list-fonts'),
     readFileBytes: async (filePath) => {
       try { return await fileBytes(filePath); } catch (err) { return { error: String((err && err.message) || err) }; }
     },

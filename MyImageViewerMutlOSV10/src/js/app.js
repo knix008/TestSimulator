@@ -1658,6 +1658,7 @@
       bar.appendChild(b);
     }
     host.append(bar, body);
+    window.TabStrip?.enhance(bar);
     fill();
     return host;
   }
@@ -8278,13 +8279,13 @@
       if (!existing.has(name) && _fontFamilyAvailable(name)) extras.push(name);
     });
 
-    // Local font query (Chromium / Electron) when permitted
+    // Installed fonts from the desktop host. Never window.queryLocalFonts(): WebView2 asks
+    // "use your computer's fonts?" for it on every start and offers only "this time".
     try {
-      if (typeof window.queryLocalFonts === 'function') {
-        const local = await window.queryLocalFonts();
+      if (typeof window.electronAPI?.listFonts === 'function') {
+        const local = await window.electronAPI.listFonts();
         const skip = /emoji|symbol|wingding|webding|marlett|mt extra|bookshel|segoe mdl2|fluent icons|math|noto color/i;
-        for (const f of local) {
-          const family = f.family;
+        for (const family of Array.isArray(local) ? local : []) {
           if (!family || existing.has(family) || skip.test(family)) continue;
           extras.push(family);
           existing.add(family);

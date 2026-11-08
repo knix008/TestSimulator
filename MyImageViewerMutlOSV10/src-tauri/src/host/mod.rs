@@ -120,6 +120,7 @@ fn dispatch(channel: &str, args: &[Value]) -> Value {
         "path-dirname" => json!(node_dirname(s0)),
         "path-basename" => json!(node_basename(s0)),
         "read-help-doc" => json!(system::help_doc(s0)),
+        "list-fonts" => system::list_fonts(),
         // ── thumbnails ──
         "thumb-cache-load" => thumbs::cache_load(s0),
         "thumb-cache-put" => thumbs::cache_put(s0, a1, args.get(2).unwrap_or(&Value::Null)),
