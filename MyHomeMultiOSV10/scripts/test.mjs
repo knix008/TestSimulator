@@ -19,7 +19,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const only = args.includes('--only') ? args[args.indexOf('--only') + 1].split(',') : args.includes('--quick') ? ['js', 'rust'] : ['js', 'rust', 'web', 'desktop'];
 const node = process.execPath;
-const exe = path.join(root, 'src-tauri', 'target', 'debug', process.platform === 'win32' ? 'MyHomeMaker.exe' : 'myhomemaker');
+// Its own build folder: a running `npm start` keeps target/debug/myhomemaker.exe locked.
+const targetDir = path.join(root, 'src-tauri', 'target', 'e2e');
+const exe = path.join(targetDir, 'debug', process.platform === 'win32' ? 'MyHomeMaker.exe' : 'myhomemaker');
 const resultsDir = path.join(root, 'test-results');
 
 const run = (command, commandArgs, options = {}) => spawnSync(command, commandArgs, { cwd: root, stdio: 'inherit', ...options }).status === 0;
@@ -33,7 +35,7 @@ const CATEGORIES = {
     title: 'desktop app',
     run: () => {
       console.log(`\n${color.gray('  building the debug app (tauri build --debug --no-bundle) …')}`);
-      const built = spawnSync(node, [path.join('node_modules', '@tauri-apps', 'cli', 'tauri.js'), 'build', '--debug', '--no-bundle'], { cwd: root, encoding: 'utf8' });
+      const built = spawnSync(node, [path.join('node_modules', '@tauri-apps', 'cli', 'tauri.js'), 'build', '--debug', '--no-bundle'], { cwd: root, encoding: 'utf8', env: { ...process.env, CARGO_TARGET_DIR: targetDir } });
       if (built.status !== 0 || !fs.existsSync(exe)) { console.log(color.red(`${built.stdout}\n${built.stderr}`.trim().split('\n').slice(-15).join('\n'))); return false; }
       return run(node, [path.join('test', 'e2e', 'desktop.smoke.mjs'), exe]);
     },

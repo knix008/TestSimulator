@@ -31,8 +31,41 @@ export const SHOTS = [
   ['15-preview', async (p) => { await p.eval("(() => { const a = window.__myhomemaker; a.actions.setDevice('desktop'); a.actions.fitWidth({ quiet: true }); a.actions.togglePreview(); return 1; })()"); }],
   ['16-publish', async (p) => { await p.eval("(() => { const a = window.__myhomemaker; if (a.state.preview) a.actions.togglePreview(); return 1; })()"); await p.eval("void window.__myhomemaker.run('publish'), 1"); await sleep(900); }],
   ['17-settings', async (p) => { await closePopups(p); await p.eval("void window.__myhomemaker.popups.open('settings', { tab: 'editor' }), 1"); await sleep(900); }],
-  ['18-sample', async (p) => { await closePopups(p); await p.eval("window.__myhomemaker.actions.openSampleBuiltin('bakery'), 1"); await sleep(900); }],
-  ['19-tutorial', async (p) => { await p.eval("void window.__myhomemaker.actions.startTutorial({ index: 9 }), 1"); await sleep(1600); }],
+  ['19-tutorial', async (p) => { await p.eval("void window.__myhomemaker.actions.startTutorial({ index: 8 }), 1"); await sleep(2600); }],
+  ['20-problems', async (p) => {
+    await p.eval('window.__myhomemaker.tutorial()?.stop().then(() => 1)');
+    await closePopups(p);
+    await p.eval(`(async () => {
+      const a = window.__myhomemaker; const A = a.actions; const en = a.state.settings.language === 'en';
+      A.newSite('business'); await new Promise((r) => setTimeout(r, 300));
+      const doc = a.state.docs[0]; const hero = doc.page.blocks[0];
+      A.commitText(hero.id, 'title', en ? 'Grow your businness with experts' : '전문가와 함께 사업을 키우새요');
+      A.setProp(hero.id, 'url1', 'booking.html', 'url'); A.setSiteField('description', '');
+      A.updateSettings({ showBottomPanel: true, bottomHeight: 210 });
+      await a.problems.check();
+      const row = a.problems.list().find((r) => r.kind === 'spelling'); if (row) a.problems.select(row.key, { reveal: true });
+      return 1; })()`);
+    await sleep(600);
+  }],
+  ['21-spelling-menu', async (p) => {
+    await p.eval(`(() => { const a = window.__myhomemaker; const row = a.problems.list().find((r) => r.kind === 'spelling'); const el = document.querySelector('#bottom-panel [data-problem="' + CSS.escape(row.key) + '"] .cell.msg'); const r = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 60, clientY: r.top + 8 })); return 1; })()`);
+    await sleep(900);
+  }],
+  ['22-dictionary', async (p) => {
+    await closePopups(p);
+    await p.eval("window.__myhomemaker.actions.updateSettings({ userWords: ['flownote', 'seoulful', 'teamspace', '마이홈', '플로우노트', '한빛상사'] }), 1");
+    await p.eval("void window.__myhomemaker.popups.open('settings', { tab: 'dictionary' }), 1");
+    await sleep(900);
+  }],
+  ['23-samples', async (p) => {
+    await closePopups(p);
+    await p.eval("window.__myhomemaker.actions.updateSettings({ userWords: [], bottomHeight: 170 }), 1");
+    await p.eval('(async () => { const a = window.__myhomemaker; for (const doc of [...a.state.docs]) await a.actions.closeDoc(doc, { force: true }); return 1; })()');
+    await p.eval("void window.__myhomemaker.run('new'), 1");
+    await sleep(900);
+    await p.eval("(() => { document.querySelector('.web-popup-template iframe').contentDocument.querySelector('[data-action=\"template-group\"][data-value=\"business\"]').click(); return 1; })()");
+    await sleep(500);
+  }],
 ];
 
 async function closePopups(p) {
@@ -56,8 +89,9 @@ export async function capture({ languages = ['ko', 'en'], outDir = path.join(roo
       const { page, close } = await launch(dist, { width: 1440, height: 900, language });
       try {
         await page.eval(`(() => { localStorage.setItem('myhomemaker.settings.v1', JSON.stringify({ language: '${language}', theme: 'light', showWelcome: false, animationRandom: false, animation: 'aurora', tutorialDone: false })); return 1; })()`);
+        await page.eval('window.__beforeReload = true, 1');
         await page.send('Page.reload');
-        await page.waitFor("document.readyState === 'complete' && !!window.__myhomemaker", { timeout: 20000 });
+        await page.waitFor("!window.__beforeReload && document.readyState === 'complete' && !!window.__myhomemaker", { timeout: 20000 });
         await sleep(800);
         fs.mkdirSync(path.join(outDir, language), { recursive: true });
         for (const [name, run] of SHOTS) {

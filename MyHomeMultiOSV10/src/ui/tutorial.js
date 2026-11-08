@@ -1,20 +1,37 @@
-// Tutorial: a guided tour that runs the real app, chapter by chapter — the start page, building
-// a page from blocks, editing text and pictures, pages, designs, the phone and tablet views,
-// previewing and publishing, settings and help.
+// Tutorial: a guided tour that builds a real website in the real app — "FlowNote", the homepage of
+// an AI note app, four pages (Home, Pricing, About, Contact) made the way sites are made today: a bold
+// first screen, a bento grid, social proof, a clear next step, dark mode, a phone check, search engine
+// text and a spelling check — from an empty site to the published files (ui/tutorial-project.js).
 //
-// It works on a sample site of its own (closed at the end without touching the user's site), and
-// the theme, language and other settings it changes are put back when it ends. While it runs,
-// popups open inside the main window (so a screen recording shows them). A card at the bottom
+// Every step starts from the site as it is after the steps before it, so the tour can jump anywhere
+// and always shows the same thing; then the step plays its own part (a block appears, text is typed,
+// a page is added …). The tutorial's site is its own (dropped at the end, the user's sites come back
+// untouched), and the theme, language, dictionary and other settings it changes are put back. While
+// it runs, popups open inside the main window (so a screen recording shows them). A card at the bottom
 // right shows the step with previous / next, auto play, a chapter list and exit; the part of the
 // window the step is about is outlined.
 import { escapeHtml, pointerDrag } from './dom.js';
 import { icon } from '../icons.js';
 import { getLanguage, t } from '../i18n.js';
-import { buildSample } from '../domain/samples.js';
 import { SiteDocument } from '../domain/document.js';
+import { OPS, TUTORIAL_WORDS, stageSite } from './tutorial-project.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const q = (selector) => document.querySelector(selector);
+/** Scrolls an element into sight inside its own scrolling box only (never the window itself). */
+function scrollInside(el) {
+  if (!el) return;
+  let box = el.parentElement;
+  while (box && box !== document.body) {
+    const overflow = getComputedStyle(box).overflowY;
+    if ((overflow === 'auto' || overflow === 'scroll') && box.scrollHeight > box.clientHeight) break;
+    box = box.parentElement;
+  }
+  if (!box || box === document.body) return;
+  const r = el.getBoundingClientRect();
+  const b = box.getBoundingClientRect();
+  box.scrollTop += r.top - b.top - (b.height - r.height) / 2;
+}
 async function until(test, timeout = 6000) {
   const end = performance.now() + timeout;
   while (performance.now() < end) {
@@ -24,77 +41,175 @@ async function until(test, timeout = 6000) {
   return false;
 }
 
-export const CHAPTERS = ['start', 'build', 'edit', 'pages', 'design', 'publish', 'customize', 'help'];
+export const CHAPTERS = ['start', 'home', 'pages', 'design', 'mobile', 'quality', 'publish', 'finish'];
 
-/** Steps. `target`: what the step outlines (selector); `run(a)` puts the app in the state the step shows; `dwell`: how long auto play stays (ms). */
+/** A step that adds a block: the site as before the step, then the step's change, the new block selected. */
+const addStep = (type) => async (a) => {
+  await a.stage();
+  await sleep(500);
+  a.play();
+  a.selectType(type, { last: true });
+};
+
+/**
+ * Steps. `target`: what the step outlines (selector); `run(a)` puts the app in the state the step shows
+ * (a.stage() = the site after the steps before it, a.play() = this step's own change); `dwell`: how long
+ * auto play stays (ms); `page`: the page (slug) the step shows.
+ */
 export const STEPS = [
-  // ── start page
-  { id: 'welcome', chapter: 'start', target: '.start-hero', run: (a) => a.start() },
-  { id: 'home', chapter: 'start', target: '#menubar [data-home]', dwell: 5000, run: (a) => a.start() },
-  { id: 'templates', chapter: 'start', target: '.start-card.templates', run: (a) => a.start() },
-  { id: 'samples', chapter: 'start', target: '.start-card.samples', run: (a) => a.start() },
+  // ── 1. start: what we will make, a new site, the window
+  { id: 'welcome', chapter: 'start', target: '.start-hero', dwell: 6000, run: (a) => a.start() },
+  { id: 'plan', chapter: 'start', target: '#view-host', dwell: 9000, async run(a) {
+    await a.stage({ complete: true });
+    a.actions().togglePreview();
+    for (const page of a.doc().site.pages) { a.app.openPage(page.id); await sleep(1400); }
+    a.app.openPage(a.doc().site.pages[0].id);
+  } },
   { id: 'newSite', chapter: 'start', target: '.web-popup-template', dwell: 7000, async run(a) { await a.start(); await a.popup(() => a.app.run('new'), 'template'); } },
-  { id: 'background', chapter: 'start', target: '.start-card.background', dwell: 7000, async run(a) {
-    await a.start();
-    for (const kind of ['waves', 'nodes', 'aurora']) { a.app.updateSettings({ animation: kind, backgroundKind: 'animated' }); await sleep(1300); }
+  { id: 'workspace', chapter: 'start', target: '#workspace', dwell: 7000, run: (a) => a.stage() },
+  // ── 2. the home page, block by block
+  { id: 'hero', chapter: 'home', target: '#left-panel .block-item[data-block-type="hero"]', dwell: 6000, async run(a) {
+    await a.stage();
+    scrollInside(q('#left-panel .block-item[data-block-type="hero"]'));
+    await sleep(900);
+    a.play();
+    a.selectType('hero');
   } },
-  // ── building a page
-  { id: 'workspace', chapter: 'build', target: '#workspace', run: (a) => a.sample() },
-  { id: 'blocks', chapter: 'build', target: '#left-panel', dwell: 6000, run: (a) => a.sample() },
-  { id: 'addBlock', chapter: 'build', target: '#view-host', dwell: 6000, async run(a) { await a.sample(); a.selectType('features'); await sleep(400); a.app.insertBlock('quote'); } },
-  { id: 'dragBlock', chapter: 'build', target: '#left-panel .block-item[data-block-type="gallery"]', dwell: 6000, async run(a) { await a.sample(); q('#left-panel .block-item[data-block-type="gallery"]')?.scrollIntoView({ block: 'center' }); } },
-  { id: 'select', chapter: 'build', target: '.sel-bar', dwell: 6000, async run(a) { await a.sample(); a.selectType('features'); } },
-  { id: 'moveBlock', chapter: 'build', target: '.sel-bar', dwell: 6000, async run(a) { await a.sample(); const id = a.selectType('cta'); await sleep(500); a.actions().moveBlock(-1, id); await sleep(800); a.actions().moveBlock(1, id); } },
-  { id: 'insertMenu', chapter: 'build', target: '#menubar [data-menu="insert"]', run: (a) => a.sample() },
-  { id: 'tree', chapter: 'build', target: '#site-tree', dwell: 6000, async run(a) { await a.sample(); a.selectType('mediaText'); } },
-  // ── editing content
-  { id: 'inlineText', chapter: 'edit', target: '#view-host', dwell: 7000, async run(a) {
-    await a.sample(); const id = a.selectType('hero'); await sleep(300);
-    const el = a.app.view?.blockElement(id)?.querySelector('[data-edit="title"]'); if (el) a.app.view.startEdit(el);
+  { id: 'heroText', chapter: 'home', target: '#view-host', dwell: 8000, async run(a) {
+    await a.stage();
+    const id = a.selectType('hero');
+    await sleep(400);
+    const el = a.app.view?.blockElement(id)?.querySelector('[data-edit="title"]');
+    if (el) {
+      a.app.view.startEdit(el);
+      await a.typeInto(el, a.finalProps('hero').title ?? '');
+      a.app.view.finishEdit(false);
+    }
+    a.play();
+    a.selectType('hero');
   } },
-  { id: 'contentTab', chapter: 'edit', target: '#editors', dwell: 6000, async run(a) { a.app.view?.finishEdit?.(false); await a.sample(); a.selectType('features'); a.app.state.rightTab = 'content'; a.app.renderRight(); } },
-  { id: 'items', chapter: 'edit', target: '#editors .items-field', dwell: 6000, async run(a) { await a.sample(); a.selectType('features'); a.app.state.rightTab = 'content'; a.app.renderRight(); await sleep(200); q('#editors .items-field')?.scrollIntoView({ block: 'start' }); } },
-  { id: 'pictures', chapter: 'edit', target: '#editors .image-field', dwell: 6000, async run(a) { await a.sample(); a.selectType('mediaText'); a.app.state.rightTab = 'content'; a.app.renderRight(); await sleep(200); q('#editors .image-field')?.scrollIntoView({ block: 'center' }); } },
-  { id: 'styleTab', chapter: 'edit', target: '#editors', dwell: 7000, async run(a) {
-    await a.sample(); const id = a.selectType('features'); a.app.state.rightTab = 'style'; a.app.renderRight();
-    for (const bg of ['surface', 'primary', 'dark', '']) { a.actions().setStyle(id, { bg }); await sleep(800); }
+  { id: 'heroButtons', chapter: 'home', target: '#editors', dwell: 7000, async run(a) {
+    await a.stage();
+    a.selectType('hero');
+    a.showTab('content');
+    await sleep(500);
+    a.play();
+    a.selectType('hero');
+    a.showTab('content');
+    await sleep(200);
+    scrollInside(q('#editors [data-prop="url1"]'));
   } },
-  { id: 'headerFooter', chapter: 'edit', target: '#view-host', dwell: 6000, async run(a) { await a.sample(); a.app.select(a.doc().site.layout.header.id); } },
-  { id: 'undo', chapter: 'edit', target: '[data-command="undo"]', async run(a) { await a.sample(); await a.app.run('undo'); await sleep(500); await a.app.run('redo'); } },
-  // ── pages
-  { id: 'pageTabs', chapter: 'pages', target: '#tabs', dwell: 6000, async run(a) { await a.sample(); for (const page of a.doc().site.pages) { a.app.openPage(page.id); await sleep(700); } a.app.openPage(a.doc().site.pages[0].id); } },
-  { id: 'addPage', chapter: 'pages', target: '.web-popup-prompt', dwell: 6000, async run(a) { await a.sample(); await a.popup(() => a.app.run('addPage'), 'prompt'); } },
-  { id: 'pageTab', chapter: 'pages', target: '#editors', dwell: 6000, async run(a) { await a.closeMenus(); await a.sample(); a.app.state.rightTab = 'page'; a.app.select(null); a.app.state.rightTab = 'page'; a.app.renderRight(); } },
-  { id: 'navLinks', chapter: 'pages', target: '#view-host', dwell: 6000, async run(a) { await a.sample(); a.app.select(a.doc().site.layout.header.id); } },
-  // ── design
-  { id: 'designs', chapter: 'design', target: '.web-popup-design', dwell: 7000, async run(a) { await a.sample(); await a.popup(() => a.app.run('designPicker'), 'design'); } },
-  { id: 'designChange', chapter: 'design', target: '#view-host', dwell: 8000, async run(a) {
-    await a.closeMenus(); await a.sample();
-    for (const id of ['midnight', 'forest', 'rose', a.originalDesign()]) { a.actions().setDesign({ id }, { reset: true }); await sleep(1100); }
+  { id: 'logos', chapter: 'home', target: '#view-host', dwell: 5500, run: addStep('logos') },
+  { id: 'bento', chapter: 'home', target: '#view-host', dwell: 7500, run: addStep('features') },
+  { id: 'stats', chapter: 'home', target: '#view-host', dwell: 5500, run: addStep('stats') },
+  { id: 'testimonials', chapter: 'home', target: '#view-host', dwell: 5500, run: addStep('testimonials') },
+  { id: 'cta', chapter: 'home', target: '#view-host', dwell: 6000, run: addStep('cta') },
+  { id: 'reorder', chapter: 'home', target: '.sel-bar', dwell: 6500, async run(a) {
+    await a.stage();
+    const id = a.selectType('stats');
+    await sleep(700);
+    a.actions().moveBlock(-1, id);
+    await sleep(1100);
+    a.actions().moveBlock(1, id);
   } },
-  { id: 'siteTab', chapter: 'design', target: '#editors', dwell: 6000, async run(a) { await a.sample(); a.app.select(null); a.app.state.rightTab = 'site'; a.app.renderRight(); } },
-  { id: 'devices', chapter: 'design', target: '[data-command="device:mobile"]', dwell: 8000, async run(a) {
-    await a.sample();
-    for (const device of ['tablet', 'mobile', 'desktop']) { a.app.setDevice(device); await sleep(1300); }
+  { id: 'header', chapter: 'home', target: '#view-host', dwell: 6500, async run(a) {
+    await a.stage();
+    a.app.select(a.doc().site.layout.header.id);
+    await sleep(600);
+    a.play();
+    a.app.select(a.doc().site.layout.header.id);
+    a.showTab('content');
   } },
-  { id: 'preview', chapter: 'design', target: '[data-command="previewMode"]', dwell: 6000, async run(a) { await a.sample(); a.actions().togglePreview(); await sleep(2200); a.actions().togglePreview(); } },
-  // ── publishing
-  { id: 'save', chapter: 'publish', target: '[data-command="save"]', run: (a) => a.sample() },
-  { id: 'check', chapter: 'publish', target: '.web-popup-confirm', async run(a) { await a.sample(); await a.popup(() => a.app.run('checkSite'), 'confirm'); } },
-  { id: 'publish', chapter: 'publish', target: '.web-popup-publish', dwell: 7000, async run(a) { await a.closeMenus(); await a.sample(); await a.popup(() => a.app.run('publish'), 'publish'); } },
-  { id: 'browser', chapter: 'publish', target: '[data-command="previewBrowser"]', async run(a) { await a.closeMenus(); await a.sample(); } },
-  { id: 'hosting', chapter: 'publish', target: '#workspace', dwell: 7000, run: (a) => a.sample() },
-  // ── customizing
-  { id: 'theme', chapter: 'customize', target: '[data-command="theme"]', dwell: 6000, async run(a) { await a.sample(); for (let i = 0; i < 3; i += 1) { await a.app.run('theme'); await sleep(900); } } },
-  { id: 'language', chapter: 'customize', target: '[data-command="language"]', run: (a) => a.sample() },
-  { id: 'panels', chapter: 'customize', target: '#workspace', dwell: 6000, async run(a) { await a.sample(); await a.app.run('leftPanel'); await sleep(800); await a.app.run('leftPanel'); await a.app.run('rightPanel'); await sleep(800); await a.app.run('rightPanel'); } },
-  { id: 'settings', chapter: 'customize', target: '.web-popup-settings', async run(a) { await a.sample(); await a.popup(() => a.app.popups.open('settings', { tab: 'editor' }), 'settings'); } },
-  // ── help
-  { id: 'shortcuts', chapter: 'help', target: '.web-popup-settings', async run(a) { await a.sample(); await a.popup(() => a.app.popups.open('settings', { tab: 'shortcuts' }), 'settings'); } },
-  { id: 'guide', chapter: 'help', target: '.web-popup-doc', dwell: 7000, async run(a) { await a.closeMenus(); await a.sample(); a.app.openDocWindow('guide'); await until(() => q('.web-popup-doc')); } },
-  { id: 'about', chapter: 'help', target: '.web-popup-about', async run(a) { a.app.closeDocFrames?.(); await a.sample(); await a.popup(() => a.app.run('about'), 'about'); } },
-  { id: 'finish', chapter: 'help', target: '[data-command="tutorial"]', async run(a) { await a.closeMenus(); await a.sample(); } },
+  { id: 'footer', chapter: 'home', target: '#editors', dwell: 6000, async run(a) {
+    await a.stage();
+    a.app.select(a.doc().site.layout.footer.id);
+    a.showTab('content');
+    await sleep(600);
+    a.play();
+    a.app.select(a.doc().site.layout.footer.id);
+    a.showTab('content');
+  } },
+  // ── 3. more pages
+  { id: 'addPage', chapter: 'pages', target: '.web-popup-prompt', dwell: 6500, async run(a) { await a.stage(); await a.popup(() => a.app.run('addPage'), 'prompt'); } },
+  { id: 'pricing', chapter: 'pages', target: '#view-host', page: 'pricing', dwell: 7000, async run(a) { await a.stage(); await sleep(500); a.play(); a.selectType('pricing'); } },
+  { id: 'about', chapter: 'pages', target: '#tabs', page: 'pricing', dwell: 7000, async run(a) { await a.stage(); await sleep(400); a.play(); a.openSlug('about'); a.selectType('team'); } },
+  { id: 'contact', chapter: 'pages', target: '#view-host', page: 'about', dwell: 7000, async run(a) { await a.stage(); await sleep(400); a.play(); a.openSlug('contact'); a.selectType('contact'); } },
+  { id: 'nav', chapter: 'pages', target: '#site-tree', dwell: 7000, async run(a) {
+    await a.stage();
+    a.app.select(a.doc().site.layout.header.id);
+    for (const page of a.doc().site.pages) { a.app.openPage(page.id); await sleep(800); }
+    a.app.openPage(a.doc().site.pages[0].id);
+  } },
+  // ── 4. design
+  { id: 'designs', chapter: 'design', target: '.web-popup-design', dwell: 7000, async run(a) { await a.stage(); await a.popup(() => a.app.run('designPicker'), 'design'); } },
+  { id: 'darkMode', chapter: 'design', target: '#view-host', dwell: 7500, async run(a) {
+    await a.stage();
+    for (const id of ['midnight', 'galaxy']) { a.actions().setDesign({ id }, { reset: true }); await sleep(1000); }
+    a.play();
+  } },
+  { id: 'accent', chapter: 'design', target: '#editors', dwell: 7000, async run(a) { await a.stage(); a.app.select(null); a.showTab('site'); await sleep(600); a.play(); a.app.select(null); a.showTab('site'); } },
+  { id: 'sectionStyle', chapter: 'design', target: '#editors', dwell: 7000, async run(a) { await a.stage(); a.selectType('features'); a.showTab('style'); await sleep(600); a.play(); a.selectType('features'); a.showTab('style'); } },
+  // ── 5. phones and tablets
+  { id: 'devices', chapter: 'mobile', target: '[data-command="device:mobile"]', dwell: 8000, async run(a) {
+    await a.stage();
+    for (const device of ['tablet', 'mobile']) { a.app.setDevice(device); await sleep(1500); }
+  } },
+  { id: 'preview', chapter: 'mobile', target: '[data-command="previewMode"]', dwell: 8000, async run(a) {
+    await a.stage();
+    a.app.setDevice('mobile');
+    a.actions().togglePreview();
+    await sleep(1600);
+    a.openSlug('pricing');
+    await sleep(1600);
+    a.openSlug('index');
+  } },
+  // ── 6. checking: the Problems panel, spelling, search engines
+  { id: 'problems', chapter: 'quality', target: '#bottom-panel', dwell: 8000, async run(a) { await a.stage(); await a.problems(); } },
+  { id: 'spelling', chapter: 'quality', target: '#bottom-panel', dwell: 8000, async run(a) {
+    await a.stage();
+    const panel = await a.problems();
+    const row = panel?.list().find((r) => r.word === TUTORIAL_WORDS.typo[getLanguage()]);
+    if (row) {
+      panel.select(row.key, { reveal: true });
+      await sleep(1600);
+      panel.replace(row, TUTORIAL_WORDS.fixed[getLanguage()]);
+    }
+  } },
+  { id: 'dictionary', chapter: 'quality', target: '#bottom-panel', dwell: 7500, async run(a) {
+    await a.stage();
+    const panel = await a.problems();
+    const row = panel?.list().find((r) => r.word === TUTORIAL_WORDS.newWord[getLanguage()]);
+    if (row) { panel.select(row.key, { reveal: true }); await sleep(1400); }
+    await a.addWord();
+  } },
+  { id: 'seo', chapter: 'quality', target: '#editors', dwell: 8000, async run(a) {
+    await a.stage();
+    await a.addWord();
+    a.app.select(null);
+    a.showTab('site');
+    await sleep(700);
+    a.play();
+    a.app.select(null);
+    a.showTab('site');
+    await a.problems();
+  } },
+  // ── 7. publishing
+  { id: 'save', chapter: 'publish', target: '[data-command="save"]', dwell: 5500, run: (a) => a.stage() },
+  { id: 'publish', chapter: 'publish', target: '.web-popup-publish', dwell: 7000, async run(a) { await a.stage(); await a.popup(() => a.app.run('publish'), 'publish'); } },
+  { id: 'browser', chapter: 'publish', target: '[data-command="previewBrowser"]', dwell: 5500, run: (a) => a.stage() },
+  { id: 'hosting', chapter: 'publish', target: '#workspace', dwell: 7500, run: (a) => a.stage({ complete: true }) },
+  // ── 8. your own way of working, help
+  { id: 'customize', chapter: 'finish', target: '.web-popup-settings', dwell: 7000, async run(a) {
+    await a.stage({ complete: true });
+    for (let i = 0; i < 2; i += 1) { await a.app.run('theme'); await sleep(900); }
+    await a.popup(() => a.app.popups.open('settings', { tab: 'dictionary' }), 'settings');
+  } },
+  { id: 'help', chapter: 'finish', target: '.web-popup-doc', dwell: 7000, async run(a) { await a.stage({ complete: true }); a.app.openDocWindow('guide'); await until(() => q('.web-popup-doc')); } },
+  { id: 'finish', chapter: 'finish', target: '[data-command="tutorial"]', dwell: 6000, async run(a) { a.app.closeDocFrames?.(); await a.stage({ complete: true }); } },
 ];
+
+/** The ids in order (the project's changes are applied in this order). */
+const STEP_IDS = STEPS.map((s) => s.id);
 
 export class Tutorial {
   constructor(app, layer) {
@@ -116,46 +231,89 @@ export class Tutorial {
   helpers() {
     const app = this.app;
     const tutorial = this;
+    const step = STEPS[this.index];
+    const L = () => getLanguage();
     const doc = () => app.state.docs.find((item) => item.id === tutorial.docId);
     const helpers = {
       app,
       doc,
       actions: () => window.__myhomemaker?.actions ?? {},
       async start() { await tutorial.closeAll(); app.showStartPage(true); await sleep(250); },
-      async sample() {
+      /** The tutorial's site as it is when this step starts (or finished: `complete`), shown on the step's page. */
+      async stage({ complete = false } = {}) {
         await tutorial.closeAll();
-        let current = doc();
-        if (!current) {
-          const site = buildSample('bakery', getLanguage());
-          current = new SiteDocument(site, { name: site.name });
-          current.markSaved(null);
-          current.view.device = 'desktop';
-          tutorial.docId = current.id;
-          tutorial.design = site.design.id;
-          app.state.docs.splice(0, app.state.docs.length, current);
-        }
-        if (app.state.active !== current.id || app.state.showStart) {
-          app.state.active = current.id;
-          app.state.showStart = false;
-          app.state.selected = null;
-          app.showStartPage(false);
-          app.setZoom(app.view?.fitZoom() ?? 70);
-        }
+        app.view?.finishEdit?.(false);
         if (app.state.preview) window.__myhomemaker?.actions.togglePreview();
-        await sleep(150);
+        const upTo = complete ? STEP_IDS.length : STEP_IDS.indexOf(step.id);
+        const site = stageSite(L(), STEP_IDS, upTo);
+        const current = new SiteDocument(site, { name: site.name });
+        current.markSaved(null);
+        current.view.device = 'desktop';
+        const page = site.pages.find((p) => p.slug === (step.page ?? 'index')) ?? site.pages[0];
+        current.view.pageId = page.id;
+        tutorial.docId = current.id;
+        app.state.docs.splice(0, app.state.docs.length, current);
+        app.state.active = current.id;
+        // The Problems panel joins in the "Checking" chapter (until then the site is still being built).
+        const checking = STEP_IDS.indexOf(step.id) >= STEP_IDS.indexOf('problems') || complete;
+        if (app.settings().showBottomPanel !== checking) app.updateSettings({ showBottomPanel: checking });
+        document.scrollingElement.scrollTop = 0;
+        document.querySelector('#app').scrollTop = 0;
+        app.state.selected = null;
+        app.state.showStart = false;
+        app.showStartPage(false);
+        app.setDevice('desktop');
+        app.setZoom(app.view?.fitZoom() ?? 70);
+        await sleep(200);
         return current;
       },
-      /** Selects the first block of a kind on the current page (opening the page that has it). */
-      selectType(type) {
+      /** This step's own change, as one undo step. */
+      play() {
+        const op = OPS[step.id];
+        if (!op || !doc()) return;
+        app.change('tutorial.change', (site) => op(site, L()));
+        app.renderAll();
+      },
+      /** A block's props as this step leaves them (for typing them). */
+      finalProps(type) {
+        const site = stageSite(L(), STEP_IDS, STEP_IDS.indexOf(step.id) + 1);
+        for (const page of site.pages) { const b = page.blocks.find((x) => x.type === type); if (b) return b.props; }
+        return {};
+      },
+      /** Types text into an element being edited on the canvas, a couple of letters at a time. */
+      async typeInto(el, text) {
+        el.innerText = '';
+        const letters = [...text];
+        for (let i = 0; i < letters.length; i += 2) { el.innerText = letters.slice(0, i + 2).join(''); await sleep(60); }
+        el.innerText = text;
+      },
+      showTab(tab) { app.state.rightTab = tab; if (!app.settings().showRightPanel) app.updateSettings({ showRightPanel: true }); app.renderRight(); },
+      openSlug(slug) { const page = doc()?.site.pages.find((p) => p.slug === slug); if (page) app.openPage(page.id); },
+      /** Selects the first (or `last`) block of a kind (opening the page that has it). */
+      selectType(type, { last = false } = {}) {
         const site = doc()?.site;
-        const page = site?.pages.find((p) => p.blocks.some((b) => b.type === type));
+        const pages = site?.pages.filter((p) => p.blocks.some((b) => b.type === type)) ?? [];
+        const page = last ? pages.at(-1) : pages[0];
         if (!page) return null;
         if (app.page()?.id !== page.id) app.openPage(page.id);
-        const block = page.blocks.find((b) => b.type === type);
+        const list = page.blocks.filter((b) => b.type === type);
+        const block = last ? list.at(-1) : list[0];
         app.select(block.id);
         return block.id;
       },
-      originalDesign: () => tutorial.design ?? 'peach',
+      /** The Problems panel open and checked (spelling on). */
+      async problems() {
+        app.updateSettings({ showBottomPanel: true, spellCheck: true, spellEnglish: true, spellKorean: true });
+        const panel = window.__myhomemaker?.problems;
+        await panel?.check();
+        return panel;
+      },
+      /** The word the dictionary step adds (kept until the tutorial ends; the settings are put back then). */
+      async addWord() {
+        const word = TUTORIAL_WORDS.newWord[L()];
+        const words = app.settings().userWords ?? [];
+        if (!words.includes(word) && !words.includes(word.toLowerCase())) await window.__myhomemaker?.problems?.addWord(word);
+      },
       popup(open, kind) { Promise.resolve(open()).catch(() => {}); return until(() => q(`.web-popup-${kind}`) && getComputedStyle(q(`.web-popup-${kind}`)).visibility !== 'hidden'); },
       closeMenus: () => tutorial.closeAll(),
     };

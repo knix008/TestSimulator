@@ -6,8 +6,10 @@ import appIcon from '../assets/icon-256.png';
 import { loadRecent, loadRecentDirs, MAX_RECENT, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
   ANIMATIONS, ANIMATION_INTERVALS, BACKGROUND_FITS, BACKGROUND_KINDS, defaultSettings, DEVICE_IDS, FONT_SIZE, FONT_STYLES, FONT_WEIGHTS, loadSettings,
-  RECENT_DIRS_KEY, RECENT_KEY, STORAGE_KEY, storeSettings, ZOOM,
+  normalizeUserWords, RECENT_DIRS_KEY, RECENT_KEY, STORAGE_KEY, storeSettings, USER_WORDS_MAX, ZOOM,
 } from './domain/settings.js';
+import { normalizeWord, validUserWord } from './domain/spell.js';
+import { DICT_INFO } from './domain/dict-info.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
@@ -240,6 +242,7 @@ const SETTINGS_TABS = [
   ['font', 'font', 'settings.font'],
   ['background', 'sparkles', 'settings.background'],
   ['editor', 'siteProject', 'settings.editor'],
+  ['dictionary', 'dictionary', 'settings.dictionary'],
   ['recent', 'recent', 'settings.recent'],
   ['shortcuts', 'keyboard', 'settings.shortcuts'],
 ];
@@ -247,7 +250,7 @@ const SETTINGS_TABS = [
 function renderSettings() {
   const body = {
     general: settingsGeneral, start: settingsStart, appearance: settingsAppearance, font: settingsFont, background: settingsBackground,
-    editor: settingsEditor, recent: settingsRecent, shortcuts: settingsShortcuts,
+    editor: settingsEditor, dictionary: settingsDictionary, recent: settingsRecent, shortcuts: settingsShortcuts,
   }[state.tab]?.() ?? '';
   root.innerHTML = frame({
     glyph: 'gear', title: t('settings.title'), tabs: tabsHtml(SETTINGS_TABS.map(([id, glyph, key]) => [id, glyph, t(key)]), state.tab),
@@ -285,6 +288,42 @@ function settingsStart() {
     row('home', t('settings.startOpen'), button('show-start', t('settings.startOpenButton'), 'home', 'small')),
     row('info', '', `<span class="muted">${escapeHtml(t('settings.startHint'))}</span>`, t('settings.startHint')),
   ].join('');
+}
+
+/** Spelling: on / off per language, and the user's own words (added here or from the Problems panel). */
+function settingsDictionary() {
+  const words = s().userWords ?? [];
+  const query = (state.dictQuery ?? '').trim().toLowerCase();
+  const shown = query ? words.filter((w) => w.toLowerCase().includes(query)) : words;
+  const [page, pager] = paged('dict', shown, 24);
+  const note = state.dictNote ? `<span class="dict-note ${state.dictNote.kind}">${icon(state.dictNote.kind === 'error' ? 'warning' : 'check')}<span>${escapeHtml(state.dictNote.text)}</span></span>` : '';
+  const chips = page.length
+    ? `<div class="dict-words">${page.map((w) => `<span class="dict-word" title="${escapeHtml(w)}"><span>${escapeHtml(w)}</span><button class="icon-button tiny" data-action="dict-remove" data-value="${escapeHtml(w)}" title="${escapeHtml(t('settings.dictRemove', { word: w }))}" aria-label="${escapeHtml(t('settings.dictRemove', { word: w }))}">${icon('close')}</button></span>`).join('')}</div>`
+    : `<p class="muted dict-empty">${escapeHtml(words.length ? t('problems.noneFiltered') : t('settings.dictEmpty'))}</p>`;
+  return [
+    toggle('spellCheck', t('settings.spellCheck'), 'spellCheck'),
+    toggle('spellEnglish', t('settings.spellEnglish'), 'globe'),
+    toggle('spellKorean', t('settings.spellKorean'), 'globe'),
+    row('addWord', t('settings.dictWord'), `<span class="dict-add"><input type="text" id="dict-word" maxlength="40" placeholder="${escapeHtml(t('settings.dictPlaceholder'))}" aria-label="${escapeHtml(t('settings.dictWord'))}" spellcheck="false" value="${escapeHtml(state.dictDraft ?? '')}" />${button('dict-add', t('settings.dictAdd'), 'plus', 'small primary')}</span>${note}`),
+    row('dictionary', t('settings.dictWords', { count: words.length }), `<span class="dict-tools"><label class="search-box" title="${escapeHtml(t('settings.dictFind'))}">${icon('search')}<input type="search" id="dict-find" placeholder="${escapeHtml(t('settings.dictFind'))}" value="${escapeHtml(state.dictQuery ?? '')}" spellcheck="false" /></label>${pager}<span class="grow"></span>${button('dict-clear', t('settings.dictClear'), 'trash', 'small danger', '', words.length ? '' : 'disabled')}</span>`),
+    `<div class="dict-list">${chips}</div>`,
+    row('info', '', `<span class="muted">${escapeHtml(t('settings.dictSizes', { en: DICT_INFO.en.toLocaleString(), ko: DICT_INFO.ko.toLocaleString() }))}</span>`, t('settings.dictSizes', { en: DICT_INFO.en, ko: DICT_INFO.ko })),
+  ].join('');
+}
+
+function addDictionaryWord() {
+  const input = root.querySelector('#dict-word');
+  const raw = (input?.value ?? state.dictDraft ?? '').trim();
+  const words = s().userWords ?? [];
+  if (!validUserWord(raw)) { state.dictNote = { kind: 'error', text: t('settings.dictInvalid') }; state.dictDraft = raw; return render(); }
+  const word = normalizeWord(raw);
+  if (words.includes(word)) { state.dictNote = { kind: 'error', text: t('settings.dictExists', { word }) }; state.dictDraft = raw; return render(); }
+  if (words.length >= USER_WORDS_MAX) return render();
+  state.dictNote = { kind: 'success', text: t('settings.dictAdded', { word }) };
+  state.dictDraft = '';
+  update({ userWords: normalizeUserWords([...words, word]) });
+  requestAnimationFrame(() => root.querySelector('#dict-word')?.focus());
+  return undefined;
 }
 
 /** The editor: the design new sites start with, the device shown, fitting, publishing. */
@@ -971,7 +1010,10 @@ root.addEventListener('click', async (event) => {
     case 'close':
       if (kind === 'menu') return chooseMenu(null);
       return close(kind === 'confirm' || kind === 'welcome' ? { choice: 'cancel' } : null);
-    case 'tab': state.tab = value; return render();
+    case 'tab': state.tab = value; state.dictNote = null; return render();
+    case 'dict-add': return addDictionaryWord();
+    case 'dict-remove': state.dictNote = null; return update({ userWords: (s().userWords ?? []).filter((w) => w !== value) });
+    case 'dict-clear': state.dictNote = null; state.pager.dict = 0; return update({ userWords: [] });
     case 'design-group': d.group = value; return render();
     case 'template-group': d.group = value; return render();
     case 'tabs-scroll': return scrollPopupTabs(Number(value));
@@ -1029,6 +1071,8 @@ root.addEventListener('change', (event) => {
 root.addEventListener('input', (event) => {
   const target = event.target;
   if (target.dataset.draft && state.draft) state.draft[target.dataset.draft] = target.value;
+  if (target.id === 'dict-word') state.dictDraft = target.value;
+  if (target.id === 'dict-find') { state.dictQuery = target.value; state.pager.dict = 0; render(); const find = root.querySelector('#dict-find'); find?.focus(); find?.setSelectionRange(find.value.length, find.value.length); }
 });
 
 document.addEventListener('keydown', (event) => {
@@ -1044,6 +1088,7 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowRight' && document.activeElement?.classList.contains('has-sub')) { event.preventDefault(); chooseMenu(document.activeElement.dataset.id, document.activeElement); }
     if (event.key === 'ArrowLeft') { event.preventDefault(); closeInnermostSubmenu(); }
   }
+  if (event.key === 'Enter' && event.target.id === 'dict-word') { event.preventDefault(); addDictionaryWord(); return; }
   if (event.key === 'Enter' && event.target.matches?.('input[type="text"]') && !event.target.matches('.stepper-value')) {
     const primary = { prompt: 'prompt-apply', template: 'template-create' }[kind];
     if (primary) {

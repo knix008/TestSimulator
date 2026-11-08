@@ -40,14 +40,31 @@ export async function launch(dir, { width = 1500, height = 950, query = 'nowelco
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'myhomemaker-web-'));
   const debug = 9400 + Math.floor(Math.random() * 500);
   const url = `http://127.0.0.1:${server.port}/?${query}`;
-  const child = spawn(browser, ['--headless=new', `--remote-debugging-port=${debug}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`, `--lang=${language}`, '--no-first-run', '--no-default-browser-check', '--disable-features=msEdgeSidebarV2', 'about:blank'], { stdio: 'ignore' });
-  const target = await waitTarget(debug, (t) => t.type === 'page');
+  // A fresh Edge profile opens pages of its own (OneNote clipper, sync confirmation) in front of ours:
+  // the app page then is "hidden", its timers are throttled to minutes and popups lose focus. So: no
+  // background throttling, no sync or first-run pages, and any page that is not ours is closed.
+  const child = spawn(browser, ['--headless=new', `--remote-debugging-port=${debug}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`, `--lang=${language}`,
+    '--no-first-run', '--no-default-browser-check', '--disable-sync', '--disable-extensions', '--disable-component-extensions-with-background-pages',
+    '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
+    '--disable-features=msEdgeSidebarV2,msEdgeOnRampFRE,msSyncConsentPrompt,CalculateNativeWinOcclusion', 'about:blank'], { stdio: 'ignore' });
+  const target = await waitTarget(debug, (t) => t.type === 'page' && t.url === 'about:blank');
   const page = await new Page(target).open();
+  const closeOthers = async () => {
+    try {
+      const list = await (await fetch(`http://127.0.0.1:${debug}/json/list`)).json();
+      for (const t of list) if (t.type === 'page' && t.id !== target.id) await fetch(`http://127.0.0.1:${debug}/json/close/${t.id}`).catch(() => {});
+    } catch { /* the browser is closing */ }
+  };
+  await closeOthers();
+  const keeper = setInterval(closeOthers, 3000);
+  await page.send('Page.bringToFront').catch(() => {});
+  await page.send('Emulation.setFocusEmulationEnabled', { enabled: true }).catch(() => {});
   await page.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
   await page.send('Page.navigate', { url });
   await page.waitFor("document.readyState === 'complete' && !!window.__myhomemaker", { timeout: 20000 });
   await sleep(400);
   const close = async () => {
+    clearInterval(keeper);
     page.close();
     child.kill();
     server.close();

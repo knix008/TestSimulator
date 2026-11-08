@@ -1,7 +1,7 @@
 // Web tests: the web build in headless Edge / Chrome, every feature, in Korean and English.
 //   node test/e2e/web.smoke.mjs [distDir] [--lang ko|en]   (no dir: builds into a temporary folder)
 // Sections: start page, templates, samples, blocks, designs, editing, items & pictures, style,
-// pages, site & design, view, files, publishing, menus, every command, popups, settings,
+// pages, site & design, view, problems & spelling, files, publishing, menus, every command, popups, settings,
 // appearance, tutorial, window. The browser's file and clipboard APIs are replaced by fakes, so
 // nothing is written outside the test and no dialog waits for a person.
 import { spawnSync } from 'node:child_process';
@@ -46,14 +46,19 @@ for (const language of languages) {
   const app = (body, timeout) => run(`(async () => { document.activeElement?.blur?.(); const a = window.__myhomemaker; const A = a.actions; const S = a.domain.S; const doc = () => a.state.docs[0]; const frame = () => document.querySelector('.site-frame').contentDocument; ${body} })()`, timeout);
   const closePopups = () => run("window.__myhomemaker.popups.closeAll().then(() => { document.querySelectorAll('.web-popup, .web-popup-shield').forEach((el) => el.remove()); window.__myhomemaker.popups.frames.clear(); return 1; })");
   const popupDoc = (kind) => `document.querySelector('.web-popup-${kind} iframe')?.contentDocument`;
-  const waitPopup = (kind) => page.waitFor(`(() => { const d = ${popupDoc(kind)}; return d && d.querySelector('.popup, .popup-menu, .menu-stack .popup-menu') && getComputedStyle(document.querySelector('.web-popup-${kind}')).visibility !== 'hidden'; })()`, { timeout: 10000 });
+  const waitPopup = (kind) => page.waitFor(`(() => { const d = ${popupDoc(kind)}; return d && d.querySelector('.popup, .popup-menu, .menu-stack .popup-menu') && getComputedStyle(document.querySelector('.web-popup-${kind}')).visibility !== 'hidden'; })()`, { timeout: 10000 })
+    .catch(async (error) => { const why = await run(`JSON.stringify({ frame: !!document.querySelector('.web-popup-${kind}'), visibility: document.querySelector('.web-popup-${kind}')?.style.visibility, body: (document.querySelector('.web-popup-${kind} iframe')?.contentDocument?.body?.innerHTML ?? '').slice(0, 80), focus: document.activeElement?.tagName + '#' + (document.activeElement?.id ?? ''), log: (window.__popupLog ?? []).slice(-8) })`).catch(() => ''); throw new Error(`${error.message} ${why}`); });
+  /** Records what happens to popup frames, for the message of a popup that never shows. */
+  const POPUP_LOG = `(() => { const P = window.__myhomemaker.popups; if (P.__logged) return 1; P.__logged = true; window.__popupLog = []; const log = (text) => { window.__popupLog.push(Math.round(performance.now()) + ' ' + text); if (window.__popupLog.length > 40) window.__popupLog.shift(); }; const fm = P.frameMessage.bind(P); P.frameMessage = (k, t, d) => { log('msg ' + k + ' ' + t); return fm(k, t, d); }; const rf = P.removeFrame.bind(P); P.removeFrame = (k) => { log('remove ' + k + ' ' + (new Error().stack.split('\\n')[2] ?? '').trim()); return rf(k); }; const op = P.openFrame.bind(P); P.openFrame = (k, a) => { log('open ' + k); return op(k, a); }; const st = P.settle.bind(P); P.settle = (k, v) => { if (P.pending.has(k)) log('settle ' + k + ' ' + JSON.stringify(v)); return st(k, v); }; return 1; })()`;
   const fresh = async (template = 'business') => { await closePopups(); await app(`if (a.state.preview) A.togglePreview(); A.newSite('${template}'); await new Promise((r) => setTimeout(r, 80)); return 1;`); };
   const errorsSoFar = () => page.errors.splice(0);
   const tag = (name) => `[${language}] ${name}`;
   try {
-    await run(`localStorage.clear(); localStorage.setItem('myhomemaker.settings.v1', JSON.stringify({ language: '${language}', showWelcome: false, animationRandom: false })); location.reload(); 1`).catch(() => {});
-    await page.waitFor("document.readyState === 'complete' && !!window.__myhomemaker && document.querySelector('#statusbar .status-notice')", { timeout: 20000 });
+    // The old page must not answer for the new one: it is marked, and the wait is for an unmarked page.
+    await run(`window.__beforeReload = true; localStorage.clear(); localStorage.setItem('myhomemaker.settings.v1', JSON.stringify({ language: '${language}', showWelcome: false, animationRandom: false })); location.reload(); 1`).catch(() => {});
+    await page.waitFor("!window.__beforeReload && document.readyState === 'complete' && !!window.__myhomemaker && document.querySelector('#statusbar .status-notice')", { timeout: 20000 });
     await run(FAKES);
+    await run(POPUP_LOG);
 
     // ── start page
     report.group('start page');
@@ -343,6 +348,87 @@ for (const language of languages) {
       await report.check(tag(name), async () => { expect(await app(code), 'failed'); });
     }
 
+    // ── problems & spelling (the bottom panel)
+    report.group('problems');
+    await fresh('business');
+    const typoEn = language === 'ko' ? '홈패이지를 쉽게 만듭니다' : 'Make your websiet in minutes';
+    const typoWord = language === 'ko' ? '홈패이지를' : 'websiet';
+    const rightWord = language === 'ko' ? '홈페이지를' : 'website';
+    const setTypo = `const hero = doc().page.blocks[0]; A.commitText(hero.id, 'title', ${JSON.stringify(typoEn)}); await a.problems.check();`;
+    const typoRow = `a.problems.list().find((r) => r.word === ${JSON.stringify(typoWord)})`;
+    for (const [name, code] of [
+      ['the panel is under the canvas with its counts in the header and the status bar', "await a.problems.check(); const panel = document.querySelector('#bottom-panel'); const c = a.problems.counts(); const head = ['error', 'warning', 'spelling'].map((k) => Number(panel.querySelector('[data-problem-count=\"' + k + '\"] b').textContent)); const status = document.querySelector('#statusbar .problems-status')?.textContent ?? ''; return panel.offsetHeight >= 90 && head.join() === [c.error, c.warning, c.spelling].join() && status.includes(String(c.warning)) ? '' : panel.offsetHeight + ' ' + head + ' ' + status;"],
+      ['a fresh template has nothing misspelt', "await a.problems.check(); return a.problems.counts().spelling === 0 ? '' : a.problems.list().filter((r) => r.kind === 'spelling').map((r) => r.word).join(',');"],
+      ['the toolbar button folds and opens the panel', "const b = document.querySelector('#toolbar [data-command=\"bottomPanel\"]'); b.click(); const folded = getComputedStyle(document.querySelector('#bottom-panel')).display === 'none' && !a.state.settings.showBottomPanel; document.querySelector('#toolbar [data-command=\"bottomPanel\"]').click(); const open = document.querySelector('#bottom-panel').offsetHeight > 0; return folded && open ? '' : 'folded ' + folded + ' open ' + open;"],
+      ['Ctrl+J folds and opens it, the × in its header folds it', "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', ctrlKey: true, bubbles: true })); const folded = !a.state.settings.showBottomPanel; document.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', ctrlKey: true, bubbles: true })); const open = a.state.settings.showBottomPanel; document.querySelector('#bottom-panel .problems-header [data-command=\"bottomPanel\"]').click(); const closed = !a.state.settings.showBottomPanel; a.run('bottomPanel'); return folded && open && closed && a.state.settings.showBottomPanel ? '' : [folded, open, closed].join();"],
+      ['a misspelt word is listed and underlined on the canvas', `${setTypo} const row = ${typoRow}; return row && row.path === 'title' && a.state.view.spellRanges >= 1 && document.querySelector('#bottom-panel .problem-row.spelling') ? '' : JSON.stringify(a.problems.list().map((r) => r.word)) + ' ranges ' + a.state.view.spellRanges;`],
+      ['conjugated and particle forms are not flagged', `A.commitText(doc().page.blocks[0].id, 'text', ${JSON.stringify(language === 'ko' ? '새로운 홈페이지를 만들어 보세요. 고마워요! 함께해요, 했습니다, 즐거운 시간을 보냈어요.' : "We're glad you didn't wait: it's ready, isn't it? Our café opens on Monday.")}); await a.problems.check(); const bad = a.problems.list().filter((r) => r.kind === 'spelling' && r.path === 'text').map((r) => r.word); return bad.length ? bad.join(',') : '';`],
+      ['a click shows the place on the canvas', `const row = ${typoRow}; document.querySelector('#bottom-panel [data-problem="' + CSS.escape(row.key) + '"] .cell.msg').click(); await new Promise((r) => setTimeout(r, 120)); const shown = a.state.view.shownProblem; return a.state.selected === row.blockId && shown?.found && frame().querySelector('.hm-problem-flash') ? '' : JSON.stringify(shown);`],
+      ['a double click goes to the field with the word selected', `const row = ${typoRow}; document.querySelector('#bottom-panel [data-problem="' + CSS.escape(row.key) + '"] .cell.msg').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await new Promise((r) => setTimeout(r, 200)); const f = document.activeElement; return a.state.rightTab === 'content' && f?.dataset.prop === 'title' && f.value.slice(f.selectionStart, f.selectionEnd) === ${JSON.stringify(typoWord)} ? '' : (f?.dataset.prop + ' ' + f?.value?.slice(f.selectionStart, f.selectionEnd));`],
+      ['the right word comes first and its button fixes the text (one undo step)', `const row = ${typoRow}; const first = a.problems.suggest(row)[0]; if (first !== ${JSON.stringify(rightWord)}) return 'first ' + first; a.problems.select(row.key); const button = document.querySelector('#bottom-panel [data-problem-replace="' + CSS.escape(row.key) + '"]'); button.click(); await a.problems.check(); const fixed = doc().page.blocks[0].props.title.includes(${JSON.stringify(rightWord)}); A.undo(); return fixed && doc().page.blocks[0].props.title.includes(${JSON.stringify(typoWord)}) ? '' : 'not fixed';`],
+      ['Add to dictionary: the word goes away and is kept in my dictionary', `await a.problems.check(); const row = ${typoRow}; document.querySelector('#bottom-panel [data-problem-add="' + CSS.escape(row.key) + '"]').click(); await new Promise((r) => setTimeout(r, 150)); await a.problems.check(); const kept = JSON.parse(localStorage.getItem('myhomemaker.settings.v1')).userWords; const gone = !${typoRow}; A.updateSettings({ userWords: [] }); await a.problems.check(); return gone && kept.includes(${JSON.stringify(typoWord)}) && ${typoRow} ? '' : 'gone ' + gone + ' kept ' + kept;`],
+      ['F7 turns spelling off and on', "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F7', bubbles: true })); await a.problems.check(); const off = !a.state.settings.spellCheck && a.problems.counts().spelling === 0 && a.state.view.spellRanges === 0; document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F7', bubbles: true })); await a.problems.check(); return off && a.problems.counts().spelling > 0 ? '' : 'off ' + off;"],
+      ['English and Korean words are checked separately', `A.commitText(doc().page.blocks[0].id, 'eyebrow', '홈패이지 websiet'); A.updateSettings({ spellEnglish: false }); await a.problems.check(); const noEn = !a.problems.list().some((r) => r.word === 'websiet') && a.problems.list().some((r) => r.word === '홈패이지'); A.updateSettings({ spellEnglish: true, spellKorean: false }); await a.problems.check(); const noKo = a.problems.list().some((r) => r.word === 'websiet') && !a.problems.list().some((r) => r.word === '홈패이지'); A.updateSettings({ spellKorean: true }); return noEn && noKo ? '' : noEn + ' ' + noKo;`],
+      ['filters: errors, warnings, spelling, this page only and the search box', `A.setSiteField('description', ''); const hero = doc().page.blocks[0]; A.setProp(hero.id, 'url1', 'nowhere.html', 'url'); const other = doc().site.pages[1]; A.change('op.edit', (s) => { a.domain.S.findBlock(s, s.pages[1].blocks[0].id).block.props.title = 'Anothr pagge'; }); await a.problems.check(); const panel = document.querySelector('#bottom-panel'); const rows = () => panel.querySelectorAll('.problem-row[data-problem]').length; const counts = {}; for (const k of ['error', 'warning', 'spelling', 'all']) { panel.querySelector('[data-problem-severity="' + k + '"]').click(); counts[k] = rows(); } const c = a.problems.counts(); const sev = counts.error === c.error && counts.warning === c.warning && counts.spelling === c.spelling && counts.all === c.total && c.error >= 1; panel.querySelector('[data-problem-current]').click(); const here = rows(); panel.querySelector('[data-problem-current]').click(); const q = panel.querySelector('#problem-query'); q.value = 'Anothr'; q.dispatchEvent(new Event('input', { bubbles: true })); const found = rows(); q.value = ''; q.dispatchEvent(new Event('input', { bubbles: true })); return sev && here < c.total && found === 1 ? '' : JSON.stringify({ counts, c, here, found });`],
+      ['every kind of check points at its field', `await a.problems.check(); const where = (code) => a.problems.list().find((r) => r.code === code); const broken = where('check.brokenLink'); const noDesc = where('check.noDescription'); if (!broken || broken.path !== 'url1' || broken.scope !== 'block') return 'broken ' + JSON.stringify(broken); a.problems.reveal(noDesc, { edit: true }); await new Promise((r) => setTimeout(r, 120)); const siteField = document.activeElement?.dataset.siteField; A.change('op.page', (s) => { s.pages.push({ id: 'p-empty', name: 'Empty', slug: 'empty', title: '', description: '', nav: true, blocks: [] }); }); await a.problems.check(); const empty = where('check.emptyPage'); a.problems.reveal(empty, { edit: true }); await new Promise((r) => setTimeout(r, 120)); const onPage = doc().page.id === 'p-empty' && a.state.rightTab === 'page'; return siteField === 'description' && empty?.pageId === 'p-empty' && onPage ? '' : siteField + ' ' + onPage;`],
+      ['header and footer words are listed once, for every page', "const f = doc().site.layout.footer; A.commitText(f.id, 'about', 'Hellow from the footr'); await a.problems.check(); const rows = a.problems.list().filter((r) => r.blockId === f.id); const label = a.problems.where(rows[0] ?? {})[0]; return rows.length === 2 && label === a.t('problems.allPagesFooter') ? '' : rows.length + ' ' + label;"],
+      ['right-click: corrections, add and ignore', `const row = ${typoRow} ?? a.problems.list().find((r) => r.kind === 'spelling'); const el = document.querySelector('#bottom-panel [data-problem="' + CSS.escape(row.key) + '"]'); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 400, clientY: 800 })); return 1;`, 'menu'],
+      ['the arrow keys move in the list and Enter goes to the field', "const list = document.querySelector('#bottom-panel .problems-list'); list.focus(); a.problems.selected = null; list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); const first = a.problems.selected; list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); const second = a.problems.selected; list.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await new Promise((r) => setTimeout(r, 200)); return first && second && first !== second && document.activeElement !== list ? '' : [first, second].join();"],
+      ['the status bar count opens the panel', "A.updateSettings({ showBottomPanel: false }); document.querySelector('#statusbar [data-problems-open]').click(); await new Promise((r) => setTimeout(r, 150)); return a.state.settings.showBottomPanel && document.activeElement?.classList.contains('problems-list') ? '' : 'not opened';"],
+      ['Tools menu and the panels submenu have the commands', "return ['showProblems', 'spellCheck', 'dictionary'].every((id) => a.menus.MENUS.tools.includes(id)) && a.menus.SUBMENUS.panels.items.includes('bottomPanel') ? '' : 'missing';"],
+    ]) {
+      if (code === undefined) continue;
+      await report.check(tag(name), async () => {
+        const out = await app(code);
+        if (name.startsWith('right-click')) {
+          await waitPopup('menu');
+          const items = await run(`[...${popupDoc('menu')}.querySelectorAll('.menu-item')].map((m) => m.dataset.id).join(',')`);
+          expect(/custom:replace0/.test(items) && /custom:add/.test(items) && /custom:ignore/.test(items), items);
+          await run(`${popupDoc('menu')}.querySelector('.menu-item[data-id="custom:ignore"]').click(), 1`);
+          await page.waitFor(`!window.__myhomemaker.problems.list().some((r) => r.word === ${JSON.stringify(typoWord)})`, { timeout: 5000 });
+          return;
+        }
+        expect(out === '' || out === true, String(out));
+      });
+    }
+    await report.check(tag('the splitter changes the height of the panel'), async () => {
+      const box = await run("(() => { const r = document.querySelector('[data-split=\"bottom\"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + 2, h: window.__myhomemaker.problems.height() }; })()");
+      await page.drag({ x: box.x, y: box.y }, { x: box.x, y: box.y - 80 });
+      await sleep(200);
+      const after = await run('window.__myhomemaker.state.settings.bottomHeight');
+      await app('A.updateSettings({ bottomHeight: 170 }); return 1;');
+      expect(after >= box.h + 60, `height ${box.h} → ${after}`);
+    });
+    await report.check(tag('Settings › Dictionary: add, find, remove and clear words'), async () => {
+      await closePopups();
+      await app("void a.popups.open('settings', { tab: 'dictionary' }); return 1;");
+      await waitPopup('settings');
+      const d = popupDoc('settings');
+      const out = await run(`(async () => {
+        const d = () => ${d};
+        const wait = () => new Promise((r) => setTimeout(r, 120));
+        const add = async (word) => { const input = d().querySelector('#dict-word'); input.value = word; input.dispatchEvent(new Event('input', { bubbles: true })); d().querySelector('[data-action="dict-add"]').click(); await wait(); };
+        await add('Seoulful'); await add('마이홈'); await add('no good!');
+        const invalid = !!d().querySelector('.dict-note.error');
+        const words = JSON.parse(localStorage.getItem('myhomemaker.settings.v1')).userWords;
+        if (!(words.includes('seoulful') && words.includes('마이홈') && invalid)) return 'add ' + words + ' invalid ' + invalid;
+        const find = d().querySelector('#dict-find'); find.value = '마이'; find.dispatchEvent(new Event('input', { bubbles: true })); await wait();
+        const filtered = d().querySelectorAll('.dict-word').length;
+        find.value = ''; d().querySelector('#dict-find').dispatchEvent(new Event('input', { bubbles: true })); await wait();
+        d().querySelector('[data-action="dict-remove"][data-value="마이홈"]').click(); await wait();
+        const removed = !JSON.parse(localStorage.getItem('myhomemaker.settings.v1')).userWords.includes('마이홈');
+        d().querySelector('[data-action="dict-clear"]').click(); await wait();
+        const cleared = JSON.parse(localStorage.getItem('myhomemaker.settings.v1')).userWords.length === 0;
+        return filtered === 1 && removed && cleared ? '' : JSON.stringify({ filtered, removed, cleared });
+      })()`);
+      await closePopups();
+      expect(!out, out);
+    });
+    await report.check(tag('a word added in Settings is no longer a problem'), async () => {
+      const out = await app(`A.commitText(doc().page.blocks[0].id, 'eyebrow', 'Seoulful'); await a.problems.check(); const before = a.problems.list().some((r) => r.word === 'Seoulful'); localStorage.setItem('myhomemaker.settings.v1', JSON.stringify({ ...JSON.parse(localStorage.getItem('myhomemaker.settings.v1')), userWords: ['seoulful'] })); window.dispatchEvent(new StorageEvent('storage', { key: 'myhomemaker.settings.v1' })); await new Promise((r) => setTimeout(r, 50)); await a.problems.check(); const after = a.problems.list().some((r) => r.word === 'Seoulful'); A.updateSettings({ userWords: [] }); return before && !after ? '' : before + ' ' + after;`);
+      expect(!out, out);
+    });
+
     // ── files
     report.group('files');
     await fresh('business');
@@ -462,7 +548,7 @@ for (const language of languages) {
         await app(`void a.run('${id}', { anchor: { x: 200, y: 200 } }); await new Promise((r) => setTimeout(r, 250)); return 1;`);
         const problems = errorsSoFar();
         const notice = await run("document.querySelector('#statusbar .status-notice')?.className ?? ''");
-        await app("if (a.tutorial()?.active) await a.tutorial().stop(); if (a.state.preview) A.togglePreview(); const before = JSON.parse(window.__before); a.state.settings.language !== before.language || a.state.settings.showLeftPanel !== before.showLeftPanel || a.state.settings.showRightPanel !== before.showRightPanel || a.state.settings.showStatusBar !== before.showStatusBar ? A.updateSettings({ language: before.language, showLeftPanel: before.showLeftPanel, showRightPanel: before.showRightPanel, showStatusBar: before.showStatusBar }) : 0; if (a.state.showStart) A.showStartPage(false); return 1;");
+        await app("if (a.tutorial()?.active) await a.tutorial().stop(); if (a.state.preview) A.togglePreview(); const before = JSON.parse(window.__before); a.state.settings.language !== before.language || a.state.settings.showLeftPanel !== before.showLeftPanel || a.state.settings.showRightPanel !== before.showRightPanel || a.state.settings.showStatusBar !== before.showStatusBar || a.state.settings.showBottomPanel !== before.showBottomPanel || a.state.settings.spellCheck !== before.spellCheck ? A.updateSettings({ language: before.language, showLeftPanel: before.showLeftPanel, showRightPanel: before.showRightPanel, showStatusBar: before.showStatusBar, showBottomPanel: before.showBottomPanel, spellCheck: before.spellCheck }) : 0; if (a.state.showStart) A.showStartPage(false); return 1;");
         expect(!problems.length, problems.join(' | '));
         expect(!notice.includes('error'), `error notice (${enabled ? 'enabled' : 'disabled'})`);
       });
@@ -567,19 +653,35 @@ for (const language of languages) {
     await app('void A.startTutorial(); return 1;');
     await page.waitFor('window.__myhomemaker.tutorial()?.active', { timeout: 5000 });
     const stepInfo = await run('window.__myhomemaker.tutorial() && Array.from({ length: window.__myhomemaker.domain.tutorialSteps() }, (_, i) => i)');
+    const info = await run('window.__myhomemaker.domain.tutorialInfo()');
     let chapter = null;
     for (const i of stepInfo) {
-      await report.check(tag(`tutorial step ${String(i + 1).padStart(2)} of ${steps}`), async () => {
+      await report.check(tag(`tutorial step ${String(i + 1).padStart(2)} of ${steps}: ${info.steps[i].id}`), async () => {
         await run(`window.__myhomemaker.tutorial().go(${i}).then(() => 1)`, 30000);
         const text = await run("document.querySelector('.tour-card .tour-chapter')?.textContent + ' — ' + document.querySelector('.tour-card h3')?.textContent + ' | ' + document.querySelector('.tour-card p')?.textContent");
         expect(text && !/tutorial\.|undefined/.test(text), text);
         chapter = text.split(' — ')[0];
+        // The part of the window the step is about is there and outlined.
+        const step = info.steps[i];
+        const outlined = await run(`(() => { const el = document.querySelector(${JSON.stringify(step.target)}); return !!el && !!document.querySelector('.tour-outline'); })()`);
+        expect(outlined, `no outline: ${step.target}`);
+        // The site is exactly what the steps so far have built (start page steps have none of their own).
+        if (!['welcome', 'newSite'].includes(step.id)) {
+          const upTo = step.id === 'plan' ? info.steps.length : step.id === 'addPage' ? i : i + 1;
+          const [shape, expected] = await run(`(() => { const a = window.__myhomemaker; return [a.domain.siteShape(), a.domain.tutorialShape(${upTo})]; })()`);
+          expect(shape === expected, `${step.id}: ${shape} ≠ ${expected}`);
+        }
+        if (step.id === 'spelling' || step.id === 'seo') {
+          const words = await run("window.__myhomemaker.problems.list().map((r) => r.word ?? r.code).join(',')");
+          if (step.id === 'spelling') expect(!words.split(',').includes(language === 'ko' ? '함니다' : 'meetting'), `typo still listed: ${words}`);
+          else expect(words === '', `the finished site still has problems: ${words}`);
+        }
       });
     }
     void chapter;
-    await report.check(tag('the tutorial ends and gives back the site and settings'), async () => {
+    await report.check(tag('the tutorial ends and gives back the site, the settings and the dictionary'), async () => {
       await run('window.__myhomemaker.tutorial().stop().then(() => 1)');
-      expect(await app("return !a.tutorial().active && !document.querySelector('.tour-card');"), 'still running');
+      expect(await app("return !a.tutorial().active && !document.querySelector('.tour-card') && a.state.settings.userWords.length === 0 && a.state.settings.showBottomPanel === true;"), 'not given back');
     });
 
     report.group('errors');

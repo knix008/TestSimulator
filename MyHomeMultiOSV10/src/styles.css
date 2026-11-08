@@ -1438,7 +1438,7 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
   background: var(--panel); border-top: 1px solid var(--hairline, var(--border)); overflow: hidden; container-type: inline-size;
 }
 .splitter.bottom-split { position: relative; z-index: 3; }
-#app.no-bottom #bottom-panel, #app.no-bottom .bottom-split, #app.on-start #bottom-panel, #app.on-start .bottom-split { display: none; }
+#app.no-bottom #bottom-panel, #app.no-bottom .bottom-split, #app.start-shown #bottom-panel, #app.start-shown .bottom-split { display: none; }
 .problems-header { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 10px; flex-wrap: wrap; row-gap: 4px; background: var(--toolbar); border-bottom: 1px solid var(--hairline, var(--border)); flex: none; min-width: 0; }
 .problems-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; }
 .problems-title .icon { width: 16px; height: 16px; color: var(--accent); }
@@ -1480,15 +1480,32 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 .problem-group.error { color: #e5484d; }
 .problem-group.warning { color: #c98a0b; }
 .problem-group b { font-weight: 600; color: var(--muted); }
+.problem-count.spelling, .problem-group.spelling, .problem-row.spelling .cell.sev { color: #d6336c; }
+.problem-row .cell.dg mark { background: color-mix(in srgb, #ffbe0b 45%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; text-decoration: underline wavy #e5484d; text-underline-offset: 2px; }
+.problem-row .cell.rule { display: flex; align-items: center; gap: 4px; }
+.problem-fix { display: inline-flex; align-items: center; gap: 3px; padding: 0 7px; height: 20px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 0.86em; cursor: pointer; white-space: nowrap; flex: none; }
+.problem-fix .icon { width: 13px; height: 13px; }
+.problem-fix:hover { border-color: var(--accent); color: var(--accent); }
+.problem-fix.suggestion { border-style: dashed; }
+.status-item.problems-status.error-count { color: #e5484d; }
+.status-item.problems-status.warn { color: #c98a0b; }
 .problems-empty { display: flex; align-items: center; gap: 8px; margin: 0; padding: 14px 16px; color: var(--muted); }
 .problems-empty .icon { width: 16px; height: 16px; }
 .canvas-overlay .problem-badge { pointer-events: auto; cursor: pointer; }
 .canvas-overlay .problem-badge:hover circle { stroke-width: 2.5; }
 /* A narrow centre column: shorter header buttons, and the type and rule columns give way to the message. */
+.problems-header { flex-wrap: nowrap; overflow: hidden; }
+.problems-header .problem-toggle.active { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--accent); border-color: var(--accent); }
+@container (max-width: 1100px) {
+  .problems-header .problems-meta, .problems-header [data-command="dictionary"] span, .problems-header [data-problem-run] span { display: none; }
+  .problem-row { grid-template-columns: 22px minmax(170px, 1.7fr) minmax(150px, 1.4fr) minmax(70px, 0.5fr) minmax(120px, 1fr) minmax(130px, 1.1fr); }
+}
+/* A narrow centre column: shorter header buttons; the kind column gives way, the fix buttons stay. */
 @container (max-width: 900px) {
-  .problem-toggle span, .problems-header [data-problem-run] span, .problems-header .problems-meta { display: none; }
-  .problem-row { grid-template-columns: 22px minmax(180px, 2fr) minmax(130px, 1.4fr) minmax(90px, 1fr); }
-  .problem-row .cell.type, .problem-row .cell.rule { display: none; }
+  .problem-toggle span, .problems-header .segment:not([data-problem-severity="all"]) span { display: none; }
+  .problems-header .problems-search { flex: 0 1 150px; width: 150px; }
+  .problem-row { grid-template-columns: 22px minmax(150px, 1.6fr) minmax(130px, 1.3fr) minmax(110px, 1fr) minmax(120px, 1fr); }
+  .problem-row .cell.type { display: none; }
 }
 
 /* Diagram background controls (ui/diagram-background.js): the editor panel and the "Diagram background…" popup. */
@@ -1826,3 +1843,22 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .choice-grid .segment { border: 1px solid var(--border); border-radius: 6px; }
 .popup-template .dg-picker { grid-template-columns: 250px minmax(0, 1fr); }
 .popup-publish .popup-body { overflow: hidden; }
+
+/* Settings › Dictionary: the user's words as chips, a page at a time (no scroll bar). */
+.dict-add { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.dict-add input { flex: 1; min-width: 0; }
+.dict-note { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; font-size: 0.86em; white-space: nowrap; }
+.dict-note .icon { width: 14px; height: 14px; }
+.dict-note.error { color: #e5484d; }
+.dict-note.success { color: #2b8a3e; }
+.dict-tools { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.dict-tools .search-box { width: 200px; flex: 0 1 200px; margin: 0; }
+.dict-tools .grow { flex: 1; }
+.dict-list { min-height: 168px; padding: 6px 0 4px; }
+.dict-words { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.dict-word { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; height: 30px; padding: 0 4px 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
+.dict-word > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dict-word .icon-button.tiny { width: 20px; height: 20px; padding: 0; flex: none; }
+.dict-word .icon-button.tiny .icon { width: 12px; height: 12px; }
+.dict-word .icon-button.tiny:hover { color: #e5484d; }
+.dict-empty { margin: 10px 2px; }

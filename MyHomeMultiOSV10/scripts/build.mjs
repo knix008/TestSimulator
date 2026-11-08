@@ -77,10 +77,10 @@ if (requested !== host) {
   process.exit(1);
 }
 
-// A copy started from this folder keeps target/release/MyHomeMaker.exe locked on
-// Windows. Only those are stopped; an installed MyHomeMaker keeps running.
+// A copy started from target/release keeps MyHomeMaker.exe locked on Windows. Only those are
+// stopped; an installed MyHomeMaker and a running `npm start` (target/debug) keep running.
 if (process.platform === 'win32') {
-  const script = `Get-Process -Name '${name}' -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith('${root.replace(/'/g, "''")}', 'OrdinalIgnoreCase') } | Stop-Process -Force`;
+  const script = `Get-Process -Name '${name}' -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith('${path.join(root, 'src-tauri', 'target', 'release').replace(/'/g, "''")}', 'OrdinalIgnoreCase') } | Stop-Process -Force`;
   spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { stdio: 'ignore' });
 }
 

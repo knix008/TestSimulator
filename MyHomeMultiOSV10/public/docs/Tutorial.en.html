@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="generator" content="MyHomeMaker scripts/build-docs.mjs" />
-<title>MyHomeMaker Tutorial — your first website</title>
+<title>MyHomeMaker tutorial — building an up-to-date website</title>
 <style>
 :root {
   color-scheme: light dark;
@@ -80,62 +80,137 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 <body>
 <header class="topbar"><span class="brand">MyHomeMaker <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="Tutorial.html" hreflang="ko">한국어</a></header>
 <div class="layout">
-<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#1-create-a-site">1. Create a site</a></li><li class="h2"><a href="#2-look-around">2. Look around</a></li><li class="h2"><a href="#3-change-the-headline">3. Change the headline</a></li><li class="h2"><a href="#4-change-the-picture">4. Change the picture</a></li><li class="h2"><a href="#5-edit-the-menu">5. Edit the menu</a></li><li class="h2"><a href="#6-add-and-move-blocks">6. Add and move blocks</a></li><li class="h2"><a href="#7-style-a-block">7. Style a block</a></li><li class="h2"><a href="#8-add-a-page">8. Add a page</a></li><li class="h2"><a href="#9-change-the-design">9. Change the design</a></li><li class="h2"><a href="#10-check-it-on-a-phone">10. Check it on a phone</a></li><li class="h2"><a href="#11-preview">11. Preview</a></li><li class="h2"><a href="#12-site-information-and-saving">12. Site information and saving</a></li><li class="h2"><a href="#13-check-and-publish">13. Check and publish</a></li><li class="h2"><a href="#14-put-it-online">14. Put it online</a></li><li class="h2"><a href="#next-steps">Next steps</a></li></ul></nav>
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#running-the-tutorial">Running the tutorial</a></li><li class="h2"><a href="#what-makes-a-website-up-to-date--and-where-the-tutorial-does-it">What makes a website up to date — and where the tutorial does it</a></li><li class="h2"><a href="#contents">Contents</a></li><li class="h2"><a href="#1-getting-started">1. Getting started</a></li><li class="h3"><a href="#1-welcome-to-myhomemaker">1. Welcome to MyHomeMaker</a></li><li class="h3"><a href="#2-what-we-will-build">2. What we will build</a></li><li class="h3"><a href="#3-a-new-site">3. A new site</a></li><li class="h3"><a href="#4-the-workspace">4. The workspace</a></li><li class="h2"><a href="#2-building-the-home-page">2. Building the home page</a></li><li class="h3"><a href="#5-the-first-screen-a-hero">5. The first screen: a hero</a></li><li class="h3"><a href="#6-edit-the-text-right-on-the-page">6. Edit the text right on the page</a></li><li class="h3"><a href="#7-buttons-and-links-one-next-step">7. Buttons and links: one next step</a></li><li class="h3"><a href="#8-trust-the-logos-of-your-users">8. Trust: the logos of your users</a></li><li class="h3"><a href="#9-features-in-a-bento-grid">9. Features in a bento grid</a></li><li class="h3"><a href="#10-numbers-that-speak">10. Numbers that speak</a></li><li class="h3"><a href="#11-reviews">11. Reviews</a></li><li class="h3"><a href="#12-ask-once-more-at-the-end">12. Ask once more at the end</a></li><li class="h3"><a href="#13-changing-the-order">13. Changing the order</a></li><li class="h3"><a href="#14-the-header-a-menu-that-stays">14. The header: a menu that stays</a></li><li class="h3"><a href="#15-the-footer">15. The footer</a></li><li class="h2"><a href="#3-adding-pages">3. Adding pages</a></li><li class="h3"><a href="#16-adding-a-page">16. Adding a page</a></li><li class="h3"><a href="#17-the-pricing-page">17. The Pricing page</a></li><li class="h3"><a href="#18-the-about-page">18. The About page</a></li><li class="h3"><a href="#19-the-contact-page">19. The Contact page</a></li><li class="h3"><a href="#20-the-menu-builds-itself">20. The menu builds itself</a></li><li class="h2"><a href="#4-design">4. Design</a></li><li class="h3"><a href="#21-choosing-a-design">21. Choosing a design</a></li><li class="h3"><a href="#22-dark-mode">22. Dark mode</a></li><li class="h3"><a href="#23-your-own-colour-and-corners">23. Your own colour and corners</a></li><li class="h3"><a href="#24-background-and-spacing-per-section">24. Background and spacing per section</a></li><li class="h2"><a href="#5-phones-and-tablets">5. Phones and tablets</a></li><li class="h3"><a href="#25-tablet-and-phone-widths">25. Tablet and phone widths</a></li><li class="h3"><a href="#26-preview">26. Preview</a></li><li class="h2"><a href="#6-checking">6. Checking</a></li><li class="h3"><a href="#27-the-problems-panel">27. The Problems panel</a></li><li class="h3"><a href="#28-fixing-a-typo">28. Fixing a typo</a></li><li class="h3"><a href="#29-new-words-go-into-the-dictionary">29. New words go into the dictionary</a></li><li class="h3"><a href="#30-a-description-for-search-engines">30. A description for search engines</a></li><li class="h2"><a href="#7-publishing">7. Publishing</a></li><li class="h3"><a href="#31-saving">31. Saving</a></li><li class="h3"><a href="#32-publishing">32. Publishing</a></li><li class="h3"><a href="#33-open-it-in-a-browser">33. Open it in a browser</a></li><li class="h3"><a href="#34-putting-it-online">34. Putting it online</a></li><li class="h2"><a href="#8-finishing-up">8. Finishing up</a></li><li class="h3"><a href="#35-make-it-yours">35. Make it yours</a></li><li class="h3"><a href="#36-help">36. Help</a></li><li class="h3"><a href="#37-done">37. Done!</a></li><li class="h2"><a href="#learn-more">Learn more</a></li></ul></nav>
 <main>
-<h1 id="myhomemaker-tutorial--your-first-website">MyHomeMaker Tutorial — your first website</h1>
-<p>This tutorial builds the website of a neighbourhood café, <strong>&quot;Daily Coffee&quot;</strong>, from scratch and publishes it. It takes about 30 minutes. Menu and button names are written as the app shows them. Every feature is described in the <a href="UsersGuide.en.html">user&#39;s guide</a>.</p>
-<blockquote><p>The tour in the app (<strong>Help › Tutorial</strong>, F11) shows the same on the real screen. This document is a hands-on exercise.</p></blockquote>
-<h2 id="1-create-a-site">1. Create a site <a class="anchor" href="#1-create-a-site" aria-hidden="true">#</a></h2>
-<ol><li>Start MyHomeMaker; the start page appears.</li><li>Press <strong>New site…</strong> on the toolbar (or <strong>File › New site…</strong>, Ctrl+N).</li><li>Pick <strong>Templates</strong> on the left and the <strong>Café</strong> card.</li><li>Type <code>Daily Coffee</code> into <strong>Site name</strong> and press <strong>Create</strong>.</li></ol>
-<p><img src="images/en/02-new-site.png" alt="New site" loading="lazy" /></p>
-<p>The café template has one page with a split hero, a menu, a gallery and a contact block. The header already carries the site name.</p>
-<h2 id="2-look-around">2. Look around <a class="anchor" href="#2-look-around" aria-hidden="true">#</a></h2>
-<p><img src="images/en/03-editor.png" alt="The editor" loading="lazy" /></p>
-<ul><li><strong>Blocks panel</strong> (left): the blocks you can add</li><li><strong>Page tabs and canvas</strong> (centre): the real site</li><li><strong>Site panel</strong> (right): the header, pages, blocks and footer at the top, the <strong>Content · Style · Page · Site</strong> editors below</li></ul>
-<p><strong>Fit width</strong> on the toolbar (Ctrl+Shift+W) shows the whole page width on the canvas.</p>
-<h2 id="3-change-the-headline">3. Change the headline <a class="anchor" href="#3-change-the-headline" aria-hidden="true">#</a></h2>
-<ol><li>Click the banner at the top of the canvas once. A blue outline and a name tab appear.</li><li>Click the big title <strong>once more</strong>: the text is selected and can be typed over.</li><li>Type <code>Start your day with a good cup</code> and press <strong>Enter</strong>.</li></ol>
-<p><img src="images/en/06-inline-edit.png" alt="Editing in place" loading="lazy" /></p>
-<p>The small title, the text and the button work the same way. The <strong>Content</strong> tab on the right has the same fields. Press <strong>Ctrl+Z</strong> to undo a change.</p>
-<h2 id="4-change-the-picture">4. Change the picture <a class="anchor" href="#4-change-the-picture" aria-hidden="true">#</a></h2>
-<ol><li><strong>Double-click</strong> the banner&#39;s picture: a file window opens. Choose a photo of your café.</li><li>No photo yet? In the <strong>Content</strong> tab, use <strong>Built-in picture › Café</strong> of the picture field.</li></ol>
-<p>Large photos are scaled so their longest side is 1920 px. You can also drop a picture file onto the selected block.</p>
-<h2 id="5-edit-the-menu">5. Edit the menu <a class="anchor" href="#5-edit-the-menu" aria-hidden="true">#</a></h2>
-<ol><li>Click the <strong>Menu</strong> block.</li><li>In the <strong>Dishes</strong> list at the bottom of the <strong>Content</strong> tab, change each item&#39;s name, description and price.</li><li>Press <strong>Add</strong> and enter <code>Vanilla latte · Sweet vanilla · 5.50</code>.</li><li>Reorder items with their ↑ ↓ buttons; the bin deletes one.</li></ol>
-<p><img src="images/en/07-content-tab.png" alt="Item lists" loading="lazy" /></p>
-<h2 id="6-add-and-move-blocks">6. Add and move blocks <a class="anchor" href="#6-add-and-move-blocks" aria-hidden="true">#</a></h2>
-<ol><li>Drag <strong>Content › Features</strong> from the Blocks panel onto the canvas, above the menu. A blue line shows where it will go.</li><li>Change the three features to <code>Roasted here</code>, <code>Baked every morning</code> and <code>A quiet upstairs</code>. The icon field takes emoji (☕ 🥐 🪑).</li><li>Click <strong>Showcase › Testimonials</strong> to add it (it goes right below the selected block).</li><li><strong>Drag a block&#39;s name tab</strong> to move it, or use <strong>Move up · Move down</strong> on the toolbar (Ctrl+↑/↓).</li></ol>
-<p><img src="images/en/05-select-block.png" alt="A selected block and its tools" loading="lazy" /></p>
-<h2 id="7-style-a-block">7. Style a block <a class="anchor" href="#7-style-a-block" aria-hidden="true">#</a></h2>
-<ol><li>Select the testimonials and open the <strong>Style</strong> tab on the right.</li><li>Set <strong>Background</strong> to <strong>Light surface</strong>, and <strong>Space above</strong> and <strong>Space below</strong> to 96 px.</li><li>Set <strong>Alignment</strong> to <strong>Centre</strong>.</li></ol>
-<p><img src="images/en/08-style-tab.png" alt="Style tab" loading="lazy" /></p>
-<h2 id="8-add-a-page">8. Add a page <a class="anchor" href="#8-add-a-page" aria-hidden="true">#</a></h2>
-<ol><li>Press the <strong>+</strong> at the end of the tabs (or <strong>Page › Add page…</strong>).</li><li>Name it <code>Visit us</code>, choose <strong>Contact</strong> to start with, and press <strong>OK</strong>.</li><li>In the new page&#39;s <strong>Contact</strong> block, change the address, phone and opening hours, and put the café&#39;s address into <strong>Map place</strong>.</li><li>See <code>Visit us</code> appear in the header menu by itself.</li></ol>
-<p><img src="images/en/10-pages.png" alt="Adding a page" loading="lazy" /></p>
-<p>The <strong>Page</strong> tab sets the file name (<code>visit-us</code> → <code>visit-us.html</code>), the browser title and the search description.</p>
-<h2 id="9-change-the-design">9. Change the design <a class="anchor" href="#9-change-the-design" aria-hidden="true">#</a></h2>
-<ol><li>Open <strong>Design › Change design…</strong> (Ctrl+Shift+D).</li><li>Double-click <strong>Wood</strong> or <strong>Peach</strong> among the <strong>Light designs</strong> to use it at once.</li><li>Try others until you like one: the content stays, only colours and fonts change.</li><li>To fine-tune, change <strong>Main colour</strong> or <strong>Heading font</strong> in the <strong>Site</strong> tab.</li></ol>
-<p><img src="images/en/12-design-picker.png" alt="Choosing a design" loading="lazy" /></p>
-<h2 id="10-check-it-on-a-phone">10. Check it on a phone <a class="anchor" href="#10-check-it-on-a-phone" aria-hidden="true">#</a></h2>
-<ol><li>Press the <strong>Phone</strong> button on the toolbar. The canvas becomes 390 px wide and the menu folds into ☰.</li><li>For a block you do not need on phones, turn on <strong>Style › Hide on phones</strong>.</li><li>Go back with the <strong>Desktop</strong> button.</li></ol>
-<p><img src="images/en/14-mobile.png" alt="Phone width" loading="lazy" /></p>
-<h2 id="11-preview">11. Preview <a class="anchor" href="#11-preview" aria-hidden="true">#</a></h2>
-<ol><li><strong>Preview</strong> (Ctrl+E) shows the site as visitors see it. Click <code>Visit us</code> in the menu to switch pages; <strong>Esc</strong> goes back.</li><li><strong>Preview in browser</strong> (F5) opens the site in the system browser.</li></ol>
-<p><img src="images/en/15-preview.png" alt="Preview mode" loading="lazy" /></p>
-<h2 id="12-site-information-and-saving">12. Site information and saving <a class="anchor" href="#12-site-information-and-saving" aria-hidden="true">#</a></h2>
-<ol><li>Clear the selection (Esc) and, in the <strong>Site</strong> tab, write a <strong>Site description</strong>: <code>Daily Coffee — beans roasted here, bread baked every morning</code>.</li><li><strong>Save</strong> (Ctrl+S) as <code>Daily Coffee.myhome</code>. The pictures are inside this one file too.</li></ol>
-<p><img src="images/en/13-site-tab.png" alt="Site tab" loading="lazy" /></p>
-<h2 id="13-check-and-publish">13. Check and publish <a class="anchor" href="#13-check-and-publish" aria-hidden="true">#</a></h2>
-<ol><li><strong>Tools › Check the site</strong> lists anything to fix.</li><li>Press <strong>Publish</strong> on the toolbar (Ctrl+Shift+P).</li><li>Choose <strong>Folder</strong> (desktop) or <strong>ZIP file</strong>, keep <strong>Pictures as files</strong> on, and press <strong>Publish</strong>.</li><li>After publishing to a folder, press <strong>Open in browser</strong> to see the result.</li></ol>
-<p><img src="images/en/16-publish.png" alt="Publishing" loading="lazy" /></p>
-<p>The published folder holds <code>index.html</code>, <code>visit-us.html</code>, <code>style.css</code> and <code>assets/</code>.</p>
-<h2 id="14-put-it-online">14. Put it online <a class="anchor" href="#14-put-it-online" aria-hidden="true">#</a></h2>
-<ul><li><strong>GitHub Pages</strong>: create a repository, upload the published files, and turn it on in Settings › Pages.</li><li><strong>Netlify</strong>: drop the folder or the ZIP onto Sites at app.netlify.com.</li><li><strong>Web hosting</strong>: upload the files with FTP into the web root (<code>public_html</code> or similar).</li></ul>
-<p>To get the contact form by e-mail, get an address from a form service such as Formspree, put it into the <strong>Form endpoint</strong> of the <strong>Contact</strong> block and publish again.</p>
-<h2 id="next-steps">Next steps <a class="anchor" href="#next-steps" aria-hidden="true">#</a></h2>
-<ul><li>Open the 16 samples from <strong>File › Open sample site</strong> and see how they are built.</li></ul>
-<p><img src="images/en/18-sample.png" alt="A sample site" loading="lazy" /></p>
-<ul><li>Save layouts you use often as a template with <strong>File › Save as template…</strong> (.mhomt).</li><li><strong>Help › Keyboard shortcuts…</strong> lists every keyboard shortcut.</li></ul>
+<h1 id="myhomemaker-tutorial--building-an-up-to-date-website">MyHomeMaker tutorial — building an up-to-date website</h1>
+<p>This document follows the in-app <strong>Tutorial</strong> step by step, with a picture of each step taken from the real app. Starting from an empty site it builds <strong>four pages (Home, Pricing, About, Contact)</strong> for “FlowNote”, an AI note app, then refines the design, checks it on a phone, checks the problems and the spelling, and publishes it.</p>
+<h2 id="running-the-tutorial">Running the tutorial <a class="anchor" href="#running-the-tutorial" aria-hidden="true">#</a></h2>
+<ul><li><strong>Start page › Start tutorial</strong>, the <strong>Tutorial</strong> toolbar button, <strong>Help › Tutorial</strong> or <strong>F11</strong>.</li><li>In the card: <strong>Next / Previous</strong> one step at a time, <strong>Auto play</strong> to the end, the chapter list to jump to a chapter, <strong>✕</strong> or <strong>Esc</strong> to stop at any time.</li><li>Whichever step you jump to, the site appears as it is at that step.</li><li>The tutorial works on a site of its own. Your open sites are not changed, and the theme, language, dictionary and view settings it changes are put back when it ends.</li><li>A video of the whole tour: <code>doc/video/MyHomeMaker-Tutorial.en.mp4</code> (the same file is in the project folder). <code>npm run tutorial:video</code> makes it again.</li></ul>
+<h2 id="what-makes-a-website-up-to-date--and-where-the-tutorial-does-it">What makes a website up to date — and where the tutorial does it <a class="anchor" href="#what-makes-a-website-up-to-date--and-where-the-tutorial-does-it" aria-hidden="true">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Trend</th><th>In the tutorial</th></tr></thead><tbody><tr><td>One bold message on the first screen</td><td>the hero banner, a short strong title</td></tr><tr><td>Bento grid</td><td>the Features block, two columns, four boxes</td></tr><tr><td>Showing trust</td><td>logos, numbers, reviews</td></tr><tr><td>One clear next step</td><td>the hero button, the sticky header button, the closing call to action</td></tr><tr><td>Dark mode with a bright accent</td><td>the Aurora design, a pink accent, round corners</td></tr><tr><td>Mobile first</td><td>tablet and phone widths, preview</td></tr><tr><td>Search engines and accessibility</td><td>the site description and keywords, alt text, spelling</td></tr><tr><td>A fast, safe static site</td><td>published as an HTML/CSS folder or a ZIP</td></tr></tbody></table></div>
+<h2 id="contents">Contents <a class="anchor" href="#contents" aria-hidden="true">#</a></h2>
+<ol><li>Getting started</li><li>Building the home page</li><li>Adding pages</li><li>Design</li><li>Phones and tablets</li><li>Checking</li><li>Publishing</li><li>Finishing up</li></ol>
+<h2 id="1-getting-started">1. Getting started <a class="anchor" href="#1-getting-started" aria-hidden="true">#</a></h2>
+<h3 id="1-welcome-to-myhomemaker">1. Welcome to MyHomeMaker <a class="anchor" href="#1-welcome-to-myhomemaker" aria-hidden="true">#</a></h3>
+<p>This tutorial builds a real website from an empty site: “FlowNote”, four pages (Home, Pricing, About, Contact), all the way to publishing. Press Next on this card, or Auto play.</p>
+<p><img src="images/en/tutorial/01-welcome.png" alt="Welcome to MyHomeMaker" loading="lazy" /></p>
+<h3 id="2-what-we-will-build">2. What we will build <a class="anchor" href="#2-what-we-will-build" aria-hidden="true">#</a></h3>
+<p>It follows how sites are made today: one bold message on the first screen, features in a bento grid, trust shown with logos, numbers and reviews, a clear next step on every page, dark mode, a phone-first check, a search description and a spelling check.</p>
+<p><img src="images/en/tutorial/02-plan.png" alt="What we will build" loading="lazy" /></p>
+<h3 id="3-a-new-site">3. A new site <a class="anchor" href="#3-a-new-site" aria-hidden="true">#</a></h3>
+<p>New (Ctrl+N) starts from an empty site, one of 12 templates or one of 36 samples. Give it a name, choose a design and press Create. Here we start an empty site called “FlowNote”.</p>
+<p><img src="images/en/tutorial/03-newSite.png" alt="A new site" loading="lazy" /></p>
+<h3 id="4-the-workspace">4. The workspace <a class="anchor" href="#4-the-workspace" aria-hidden="true">#</a></h3>
+<p>On the left the Blocks panel, in the middle the canvas (drawn exactly like the published site), on the right the pages and blocks with the Content, Style, Page and Site editors, and at the bottom the Problems panel. We stack blocks onto the empty home page.</p>
+<p><img src="images/en/tutorial/04-workspace.png" alt="The workspace" loading="lazy" /></p>
+<h2 id="2-building-the-home-page">2. Building the home page <a class="anchor" href="#2-building-the-home-page" aria-hidden="true">#</a></h2>
+<h3 id="5-the-first-screen-a-hero">5. The first screen: a hero <a class="anchor" href="#5-the-first-screen-a-hero" aria-hidden="true">#</a></h3>
+<p>Visitors should know what the site is about within three seconds. Click “Hero banner” in the Blocks panel to add it below the selected block, or drag it to the place you want on the canvas.</p>
+<p><img src="images/en/tutorial/05-hero.png" alt="The first screen: a hero" loading="lazy" /></p>
+<h3 id="6-edit-the-text-right-on-the-page">6. Edit the text right on the page <a class="anchor" href="#6-edit-the-text-right-on-the-page" aria-hidden="true">#</a></h3>
+<p>Click the title and type. One short, bold sentence is the heart of today&#39;s first screens. A typo slipped in on purpose: the spelling check finds and fixes it later, in “Checking”.</p>
+<p><img src="images/en/tutorial/06-heroText.png" alt="Edit the text right on the page" loading="lazy" /></p>
+<h3 id="7-buttons-and-links-one-next-step">7. Buttons and links: one next step <a class="anchor" href="#7-buttons-and-links-one-next-step" aria-hidden="true">#</a></h3>
+<p>Set the button labels and links in the Content tab. The main button (Start for free) goes to the Pricing page (pricing.html), the second to the features further down (#features). The picture is changed here too.</p>
+<p><img src="images/en/tutorial/07-heroButtons.png" alt="Buttons and links: one next step" loading="lazy" /></p>
+<h3 id="8-trust-the-logos-of-your-users">8. Trust: the logos of your users <a class="anchor" href="#8-trust-the-logos-of-your-users" aria-hidden="true">#</a></h3>
+<p>Showing who uses it right under the first screen builds trust. The Logos block lines up company names or logo pictures in one row.</p>
+<p><img src="images/en/tutorial/08-logos.png" alt="Trust: the logos of your users" loading="lazy" /></p>
+<h3 id="9-features-in-a-bento-grid">9. Features in a bento grid <a class="anchor" href="#9-features-in-a-bento-grid" aria-hidden="true">#</a></h3>
+<p>A grid of cards, like the boxes of a bento, is today&#39;s favourite way to show features. The Features block in two columns holds four boxes with an icon, a title and a short line. Add, remove and reorder them in the Content tab.</p>
+<p><img src="images/en/tutorial/09-bento.png" alt="Features in a bento grid" loading="lazy" /></p>
+<h3 id="10-numbers-that-speak">10. Numbers that speak <a class="anchor" href="#10-numbers-that-speak" aria-hidden="true">#</a></h3>
+<p>Numbers like “3 min” or “1,200+” are read faster than long sentences. The Numbers block shows four big figures on a dark band.</p>
+<p><img src="images/en/tutorial/10-stats.png" alt="Numbers that speak" loading="lazy" /></p>
+<h3 id="11-reviews">11. Reviews <a class="anchor" href="#11-reviews" aria-hidden="true">#</a></h3>
+<p>A line from a real user persuades best. The Testimonials block shows a short quote with a photo, a name and a role.</p>
+<p><img src="images/en/tutorial/11-testimonials.png" alt="Reviews" loading="lazy" /></p>
+<h3 id="12-ask-once-more-at-the-end">12. Ask once more at the end <a class="anchor" href="#12-ask-once-more-at-the-end" aria-hidden="true">#</a></h3>
+<p>Invite visitors who scrolled to the end to take the next step. The Call to action block puts a title and one button on a band of strong colour.</p>
+<p><img src="images/en/tutorial/12-cta.png" alt="Ask once more at the end" loading="lazy" /></p>
+<h3 id="13-changing-the-order">13. Changing the order <a class="anchor" href="#13-changing-the-order" aria-hidden="true">#</a></h3>
+<p>Move a block with the ↑ ↓ buttons on its bar, Ctrl+↑/↓, or by dragging its name tab — or drag it in the list of pages and blocks. Undo (Ctrl+Z) puts anything back.</p>
+<p><img src="images/en/tutorial/13-reorder.png" alt="Changing the order" loading="lazy" /></p>
+<h3 id="14-the-header-a-menu-that-stays">14. The header: a menu that stays <a class="anchor" href="#14-the-header-a-menu-that-stays" aria-hidden="true">#</a></h3>
+<p>The header is the same on every page. Set the site name and the button on the right (Start free); with “Stick to the top” on, the menu and the button stay visible while visitors scroll.</p>
+<p><img src="images/en/tutorial/14-header.png" alt="The header: a menu that stays" loading="lazy" /></p>
+<h3 id="15-the-footer">15. The footer <a class="anchor" href="#15-the-footer" aria-hidden="true">#</a></h3>
+<p>The footer is on every page too: a short line about you, contact details, the copyright line and social links. The page links fill themselves in.</p>
+<p><img src="images/en/tutorial/15-footer.png" alt="The footer" loading="lazy" /></p>
+<h2 id="3-adding-pages">3. Adding pages <a class="anchor" href="#3-adding-pages" aria-hidden="true">#</a></h2>
+<h3 id="16-adding-a-page">16. Adding a page <a class="anchor" href="#16-adding-a-page" aria-hidden="true">#</a></h3>
+<p>Add a page with + on the tab row or Page › Add page (Ctrl+Shift+N). Call it “Pricing” and start it empty or with a common layout. Its file name (pricing.html) is chosen for you.</p>
+<p><img src="images/en/tutorial/16-addPage.png" alt="Adding a page" loading="lazy" /></p>
+<h3 id="17-the-pricing-page">17. The Pricing page <a class="anchor" href="#17-the-pricing-page" aria-hidden="true">#</a></h3>
+<p>The Pricing page: a heading, the price table and frequently asked questions. The price table highlights the recommended plan, and each question opens on a click.</p>
+<p><img src="images/en/tutorial/17-pricing.png" alt="The Pricing page" loading="lazy" /></p>
+<h3 id="18-the-about-page">18. The About page <a class="anchor" href="#18-the-about-page" aria-hidden="true">#</a></h3>
+<p>“Our story” (a picture with text), the team and the journey give the company a face. Click the tabs to move between pages, drag them to reorder.</p>
+<p><img src="images/en/tutorial/18-about.png" alt="The About page" loading="lazy" /></p>
+<h3 id="19-the-contact-page">19. The Contact page <a class="anchor" href="#19-the-contact-page" aria-hidden="true">#</a></h3>
+<p>We finish with a contact form, a newsletter sign-up and social links. With an e-mail address or a form service address filled in, the form works on the published site.</p>
+<p><img src="images/en/tutorial/19-contact.png" alt="The Contact page" loading="lazy" /></p>
+<h3 id="20-the-menu-builds-itself">20. The menu builds itself <a class="anchor" href="#20-the-menu-builds-itself" aria-hidden="true">#</a></h3>
+<p>Every page you add appears in the header menu and the footer by itself. The list on the right shows all pages and blocks; the Page tab says whether a page is in the menu.</p>
+<p><img src="images/en/tutorial/20-nav.png" alt="The menu builds itself" loading="lazy" /></p>
+<h2 id="4-design">4. Design <a class="anchor" href="#4-design" aria-hidden="true">#</a></h2>
+<h3 id="21-choosing-a-design">21. Choosing a design <a class="anchor" href="#21-choosing-a-design" aria-hidden="true">#</a></h3>
+<p>A design (Ctrl+Shift+D) changes the colours, fonts, corners and width at once. There are 24 light and 12 dark designs, previewed as you pick.</p>
+<p><img src="images/en/tutorial/21-designs.png" alt="Choosing a design" loading="lazy" /></p>
+<h3 id="22-dark-mode">22. Dark mode <a class="anchor" href="#22-dark-mode" aria-hidden="true">#</a></h3>
+<p>Light text and glowing accents on a dark background are the look of today&#39;s tech products. We switch to the “Aurora” design. In every design the text keeps enough contrast to read easily.</p>
+<p><img src="images/en/tutorial/22-darkMode.png" alt="Dark mode" loading="lazy" /></p>
+<h3 id="23-your-own-colour-and-corners">23. Your own colour and corners <a class="anchor" href="#23-your-own-colour-and-corners" aria-hidden="true">#</a></h3>
+<p>The Site tab changes parts of the design. Here the accent colour becomes pink and the corners rounder. “Reset design” takes it back at any time.</p>
+<p><img src="images/en/tutorial/23-accent.png" alt="Your own colour and corners" loading="lazy" /></p>
+<h3 id="24-background-and-spacing-per-section">24. Background and spacing per section <a class="anchor" href="#24-background-and-spacing-per-section" aria-hidden="true">#</a></h3>
+<p>The Style tab sets a block&#39;s background (none, surface, primary, accent, dark or a colour of your own), top and bottom space, alignment and width. Alternating backgrounds make a long page easy to read.</p>
+<p><img src="images/en/tutorial/24-sectionStyle.png" alt="Background and spacing per section" loading="lazy" /></p>
+<h2 id="5-phones-and-tablets">5. Phones and tablets <a class="anchor" href="#5-phones-and-tablets" aria-hidden="true">#</a></h2>
+<h3 id="25-tablet-and-phone-widths">25. Tablet and phone widths <a class="anchor" href="#25-tablet-and-phone-widths" aria-hidden="true">#</a></h3>
+<p>Most visitors use a phone. Check the site with the desktop, tablet and phone buttons of the toolbar: columns stack into one, and the menu folds into a ☰ button.</p>
+<p><img src="images/en/tutorial/25-devices.png" alt="Tablet and phone widths" loading="lazy" /></p>
+<h3 id="26-preview">26. Preview <a class="anchor" href="#26-preview" aria-hidden="true">#</a></h3>
+<p>Preview (Ctrl+E) shows the site the way visitors see it, without editing marks; menu links switch pages. F5 opens it in your real browser.</p>
+<p><img src="images/en/tutorial/26-preview.png" alt="Preview" loading="lazy" /></p>
+<h2 id="6-checking">6. Checking <a class="anchor" href="#6-checking" aria-hidden="true">#</a></h2>
+<h3 id="27-the-problems-panel">27. The Problems panel <a class="anchor" href="#27-the-problems-panel" aria-hidden="true">#</a></h3>
+<p>The Problems panel at the bottom lists what to fix (errors, warnings) and words the dictionaries do not know (spelling), checked again after every change. Open and fold it with the panel button of the toolbar or Ctrl+J.</p>
+<p><img src="images/en/tutorial/27-problems.png" alt="The Problems panel" loading="lazy" /></p>
+<h3 id="28-fixing-a-typo">28. Fixing a typo <a class="anchor" href="#28-fixing-a-typo" aria-hidden="true">#</a></h3>
+<p>The English and Korean dictionaries found the typo on the first screen. Click the row to see where it is on the canvas, double-click to go to the field with the word selected. A suggestion button or the right-click menu fixes it at once.</p>
+<p><img src="images/en/tutorial/28-spelling.png" alt="Fixing a typo" loading="lazy" /></p>
+<h3 id="29-new-words-go-into-the-dictionary">29. New words go into the dictionary <a class="anchor" href="#29-new-words-go-into-the-dictionary" aria-hidden="true">#</a></h3>
+<p>A word that is right but not in the dictionary, such as a product name: press “Add to dictionary”. Tools › Dictionary (the Dictionary tab of Settings) shows, finds and removes your words.</p>
+<p><img src="images/en/tutorial/29-dictionary.png" alt="New words go into the dictionary" loading="lazy" /></p>
+<h3 id="30-a-description-for-search-engines">30. A description for search engines <a class="anchor" href="#30-a-description-for-search-engines" aria-hidden="true">#</a></h3>
+<p>The title, description and keywords of the Site tab appear in search results and link previews. With the description filled in, the last warning is gone. The alt text of pictures matters for search and accessibility too.</p>
+<p><img src="images/en/tutorial/30-seo.png" alt="A description for search engines" loading="lazy" /></p>
+<h2 id="7-publishing">7. Publishing <a class="anchor" href="#7-publishing" aria-hidden="true">#</a></h2>
+<h3 id="31-saving">31. Saving <a class="anchor" href="#31-saving" aria-hidden="true">#</a></h3>
+<p>Save (Ctrl+S) keeps the whole site in one .myhome file to open and change later. Save a layout you reuse as a template (.mhomt).</p>
+<p><img src="images/en/tutorial/31-save.png" alt="Saving" loading="lazy" /></p>
+<h3 id="32-publishing">32. Publishing <a class="anchor" href="#32-publishing" aria-hidden="true">#</a></h3>
+<p>Publish (Ctrl+Shift+P) writes an HTML file per page, one style sheet and a pictures folder, as a folder or a ZIP, and checks the problems once more before.</p>
+<p><img src="images/en/tutorial/32-publish.png" alt="Publishing" loading="lazy" /></p>
+<h3 id="33-open-it-in-a-browser">33. Open it in a browser <a class="anchor" href="#33-open-it-in-a-browser" aria-hidden="true">#</a></h3>
+<p>F5 opens the site in your real browser. Try other browsers and a real phone as well.</p>
+<p><img src="images/en/tutorial/33-browser.png" alt="Open it in a browser" loading="lazy" /></p>
+<h3 id="34-putting-it-online">34. Putting it online <a class="anchor" href="#34-putting-it-online" aria-hidden="true">#</a></h3>
+<p>The published folder is a static site, fast and safe, ready to upload as it is. Upload the folder or the ZIP to free hosting such as GitHub Pages, Netlify or Cloudflare Pages and it gets an address.</p>
+<p><img src="images/en/tutorial/34-hosting.png" alt="Putting it online" loading="lazy" /></p>
+<h2 id="8-finishing-up">8. Finishing up <a class="anchor" href="#8-finishing-up" aria-hidden="true">#</a></h2>
+<h3 id="35-make-it-yours">35. Make it yours <a class="anchor" href="#35-make-it-yours" aria-hidden="true">#</a></h3>
+<p>Settings change the theme (over 40 light and dark), the language, the font, the start page, the spelling check and your dictionary. The theme button of the toolbar picks one at random, the ▾ next to it lists them.</p>
+<p><img src="images/en/tutorial/35-customize.png" alt="Make it yours" loading="lazy" /></p>
+<h3 id="36-help">36. Help <a class="anchor" href="#36-help" aria-hidden="true">#</a></h3>
+<p>Help › User&#39;s guide and the tutorial document explain every feature with pictures. Shortcuts are listed in the Shortcuts tab of Settings.</p>
+<p><img src="images/en/tutorial/36-help.png" alt="Help" loading="lazy" /></p>
+<h3 id="37-done">37. Done! <a class="anchor" href="#37-done" aria-hidden="true">#</a></h3>
+<p>From an empty site to a four-page, up-to-date homepage — checked and published. Now open a sample or make your own site. Run the tutorial again with its toolbar button or F11.</p>
+<p><img src="images/en/tutorial/37-finish.png" alt="Done!" loading="lazy" /></p>
+<h2 id="learn-more">Learn more <a class="anchor" href="#learn-more" aria-hidden="true">#</a></h2>
+<ul><li>Every feature is described in the <a href="UsersGuide.en.html">User&#39;s guide</a>.</li><li>Open one of the 36 samples (File › Open sample) to see how they are made.</li></ul>
 </main>
 </div>
 <footer>MyHomeMaker v1.0.0 · © SHKWON (knix008@naver.com)</footer>

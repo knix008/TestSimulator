@@ -5,11 +5,12 @@ A graphical website builder: drag blocks onto pages, change the design at once, 
 
 ![MyHomeMaker](doc/images/ko/03-editor.png)
 
-- 블록 34가지와 사이트 머리글·바닥글, 사이트 디자인 36가지, 템플릿 12가지, 예제 사이트 16가지 (한국어·영어)
+- 블록 34가지와 사이트 머리글·바닥글, 사이트 디자인 36가지, 템플릿 12가지, 예제 사이트 36가지 (네 분야 × 9, 한국어·영어)
 - 캔버스에서 바로 글 고치기, 내용·스타일·페이지·사이트 편집기, 실행 취소
 - 데스크톱·태블릿·휴대폰 너비, 미리 보기 모드, 브라우저 미리 보기
+- 문제점 패널(Ctrl+J): 게시 전 오류·경고와 영어·한국어 맞춤법 검사(조사·어미 분석), 내 사전, 더블클릭으로 위치 이동
 - 게시: 폴더 · ZIP · 한 페이지 HTML (그림은 assets/ 파일로)
-- 시작 화면(카드 보드), 프로그램 테마, 앱 안 튜토리얼 43단계, 사용 설명서·튜토리얼 문서 창
+- 시작 화면(카드 보드), 프로그램 테마, 앱 안 튜토리얼 37단계(빈 사이트에서 4개 페이지 홈페이지 만들기)와 동영상(MyHomeMaker-Tutorial.mp4), 사용 설명서·튜토리얼 문서 창
 
 문서 / Documents: [사용 설명서](doc/UsersGuide.md) · [User's guide](doc/UsersGuide.en.md) · [튜토리얼](doc/Tutorial.md) · [Tutorial](doc/Tutorial.en.md)
 
@@ -21,6 +22,9 @@ npm start              # 데스크톱 앱 (tauri dev, http://localhost:1460)
 npm run dev            # 웹 버전만 (Vite)
 npm test               # 단위(js) · Rust · 웹 · 데스크톱 검사 / every test
 npm test -- --quick    # 단위 · Rust 만
+npm run tutorial:video # 튜토리얼 동영상 (doc/video/, 프로젝트 폴더에 복사)
+npm run tutorial:docs  # 튜토리얼 문서와 단계별 그림
+npm run build:dict     # 맞춤법 사전 (public/dict/)
 ```
 
 ## 설치 파일 / Installers

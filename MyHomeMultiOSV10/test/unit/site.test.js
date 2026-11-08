@@ -96,7 +96,8 @@ test('a saved site reads back the same, and broken files are refused', () => {
 
 test('every template and sample builds in both languages and publishes', () => {
   assert.equal(TEMPLATE_IDS.length, 12);
-  assert.equal(SAMPLES.length, 16);
+  assert.equal(SAMPLES.length, 36);
+  for (const g of ['business', 'food', 'people', 'community']) assert.equal(SAMPLES.filter((s) => s.group === g).length, 9, g);
   for (const L of ['ko', 'en']) {
     for (const [kind, ids, build] of [['template', TEMPLATE_IDS, buildTemplate], ['sample', SAMPLE_IDS, buildSample]]) {
       for (const id of ids) {

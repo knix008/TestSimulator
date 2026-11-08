@@ -67,7 +67,14 @@ export class Report {
     this.section = name;
   }
 
+  /** TEST_GROUPS=problems,menus runs only those groups (to repeat one part quickly). */
+  skipped() {
+    const only = process.env.TEST_GROUPS?.split(',').map((g) => g.trim()).filter(Boolean);
+    return Boolean(only?.length && !only.includes(this.section));
+  }
+
   async check(name, fn, { attempts = 1 } = {}) {
+    if (this.skipped()) return;
     const started = Date.now();
     let error = null;
     for (let attempt = 1; attempt <= attempts; attempt++) {

@@ -1,0 +1,275 @@
+{
+  "version": 1,
+  "language": "ko",
+  "video": "MyHomeMaker-Tutorial.mp4",
+  "width": 1440,
+  "height": 900,
+  "duration": 313.84,
+  "recorded": "2026-11-08T17:45:52.612Z",
+  "chapters": [
+    {
+      "id": "start",
+      "start": 1.55,
+      "title": "시작하기"
+    },
+    {
+      "id": "home",
+      "start": 38.81,
+      "title": "첫 페이지 만들기"
+    },
+    {
+      "id": "pages",
+      "start": 123.69,
+      "title": "페이지 늘리기"
+    },
+    {
+      "id": "design",
+      "start": 165.69,
+      "title": "디자인 다듬기"
+    },
+    {
+      "id": "mobile",
+      "start": 199.81,
+      "title": "휴대폰에서 보기"
+    },
+    {
+      "id": "quality",
+      "start": 223.26,
+      "title": "점검하기"
+    },
+    {
+      "id": "publish",
+      "start": 260.98,
+      "title": "게시하기"
+    },
+    {
+      "id": "finish",
+      "start": 288.8,
+      "title": "마치며"
+    }
+  ],
+  "steps": [
+    {
+      "id": "welcome",
+      "chapter": "start",
+      "start": 1.55,
+      "title": "MyHomeMaker에 오신 것을 환영합니다"
+    },
+    {
+      "id": "plan",
+      "chapter": "start",
+      "start": 8.25,
+      "title": "완성될 사이트 미리 보기"
+    },
+    {
+      "id": "newSite",
+      "chapter": "start",
+      "start": 23.52,
+      "title": "새 사이트 만들기"
+    },
+    {
+      "id": "workspace",
+      "chapter": "start",
+      "start": 31.23,
+      "title": "작업 화면"
+    },
+    {
+      "id": "hero",
+      "chapter": "home",
+      "start": 38.81,
+      "title": "첫 화면: 대표 배너"
+    },
+    {
+      "id": "heroText",
+      "chapter": "home",
+      "start": 46.29,
+      "title": "글은 화면에서 바로 고칩니다"
+    },
+    {
+      "id": "heroButtons",
+      "chapter": "home",
+      "start": 56.04,
+      "title": "버튼과 링크: 다음 행동 하나"
+    },
+    {
+      "id": "logos",
+      "chapter": "home",
+      "start": 64.36,
+      "title": "신뢰: 함께하는 회사 로고"
+    },
+    {
+      "id": "bento",
+      "chapter": "home",
+      "start": 70.96,
+      "title": "벤토 격자로 기능 소개"
+    },
+    {
+      "id": "stats",
+      "chapter": "home",
+      "start": 79.56,
+      "title": "숫자로 보여 주기"
+    },
+    {
+      "id": "testimonials",
+      "chapter": "home",
+      "start": 86.16,
+      "title": "고객 후기"
+    },
+    {
+      "id": "cta",
+      "chapter": "home",
+      "start": 92.76,
+      "title": "마지막에 한 번 더: 행동 유도"
+    },
+    {
+      "id": "reorder",
+      "chapter": "home",
+      "start": 99.84,
+      "title": "블록 순서 바꾸기"
+    },
+    {
+      "id": "header",
+      "chapter": "home",
+      "start": 108.76,
+      "title": "머리글: 늘 보이는 메뉴"
+    },
+    {
+      "id": "footer",
+      "chapter": "home",
+      "start": 116.45,
+      "title": "바닥글"
+    },
+    {
+      "id": "addPage",
+      "chapter": "pages",
+      "start": 123.69,
+      "title": "페이지 더하기"
+    },
+    {
+      "id": "pricing",
+      "chapter": "pages",
+      "start": 130.76,
+      "title": "요금제 페이지"
+    },
+    {
+      "id": "about",
+      "chapter": "pages",
+      "start": 138.84,
+      "title": "소개 페이지"
+    },
+    {
+      "id": "contact",
+      "chapter": "pages",
+      "start": 146.84,
+      "title": "문의 페이지"
+    },
+    {
+      "id": "nav",
+      "chapter": "pages",
+      "start": 154.84,
+      "title": "메뉴는 저절로"
+    },
+    {
+      "id": "designs",
+      "chapter": "design",
+      "start": 165.69,
+      "title": "디자인 고르기"
+    },
+    {
+      "id": "darkMode",
+      "chapter": "design",
+      "start": 173.24,
+      "title": "다크 모드"
+    },
+    {
+      "id": "accent",
+      "chapter": "design",
+      "start": 183.36,
+      "title": "나만의 색과 모서리"
+    },
+    {
+      "id": "sectionStyle",
+      "chapter": "design",
+      "start": 191.57,
+      "title": "구역마다 배경과 여백"
+    },
+    {
+      "id": "devices",
+      "chapter": "mobile",
+      "start": 199.81,
+      "title": "태블릿과 휴대폰 너비"
+    },
+    {
+      "id": "preview",
+      "chapter": "mobile",
+      "start": 211.41,
+      "title": "미리 보기"
+    },
+    {
+      "id": "problems",
+      "chapter": "quality",
+      "start": 223.26,
+      "title": "문제점 패널"
+    },
+    {
+      "id": "spelling",
+      "chapter": "quality",
+      "start": 231.84,
+      "title": "맞춤법 고치기"
+    },
+    {
+      "id": "dictionary",
+      "chapter": "quality",
+      "start": 242.12,
+      "title": "새 단어는 사전에 추가"
+    },
+    {
+      "id": "seo",
+      "chapter": "quality",
+      "start": 251.65,
+      "title": "검색엔진을 위한 설명"
+    },
+    {
+      "id": "save",
+      "chapter": "publish",
+      "start": 260.98,
+      "title": "저장"
+    },
+    {
+      "id": "publish",
+      "chapter": "publish",
+      "start": 267.08,
+      "title": "게시하기"
+    },
+    {
+      "id": "browser",
+      "chapter": "publish",
+      "start": 274.65,
+      "title": "브라우저에서 열어 보기"
+    },
+    {
+      "id": "hosting",
+      "chapter": "publish",
+      "start": 280.72,
+      "title": "인터넷에 올리기"
+    },
+    {
+      "id": "customize",
+      "chapter": "finish",
+      "start": 288.8,
+      "title": "나에게 맞게"
+    },
+    {
+      "id": "help",
+      "chapter": "finish",
+      "start": 298.22,
+      "title": "도움말"
+    },
+    {
+      "id": "finish",
+      "chapter": "finish",
+      "start": 305.82,
+      "title": "완성!"
+    }
+  ]
+}

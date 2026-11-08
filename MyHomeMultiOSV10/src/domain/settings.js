@@ -15,7 +15,11 @@ export const ZOOM = { min: 50, max: 200, step: 10 };
 /** Canvas zoom in percent (toolbar, status bar, Ctrl+wheel). */
 export const CANVAS_ZOOM = { min: 10, max: 200, steps: [10, 15, 20, 25, 33, 40, 50, 60, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200] };
 /** Narrowest side panels that still show all of their content. */
-export const PANEL_MIN = { left: 230, right: 320 };
+export const PANEL_MIN = { left: 230, right: 320, bottom: 90 };
+/** The Problems panel takes at most this share of the window's height. */
+export const BOTTOM_MAX_SHARE = 0.6;
+/** The user's dictionary holds at most this many words. */
+export const USER_WORDS_MAX = 5000;
 export const BACKGROUND_KINDS = ['animated', 'image', 'none'];
 /** Choices for the start page's automatic background change (seconds; 0 = off). */
 export const ANIMATION_INTERVALS = [0, 15, 30, 60, 120, 300];
@@ -72,6 +76,13 @@ export function defaultSettings(language = 'ko') {
     showLeftPanel: true,
     showRightPanel: true,
     showStatusBar: true,
+    showBottomPanel: true,
+    bottomHeight: 170,
+    // Spelling (the Problems panel)
+    spellCheck: true,
+    spellEnglish: true,
+    spellKorean: true,
+    userWords: [],
     leftWidth: 250,
     rightWidth: 360,
     explorerHeight: 38,
@@ -101,7 +112,7 @@ const clamp = (value, min, max, fallback) => {
   return Number.isFinite(number) ? Math.min(max, Math.max(min, Math.round(number))) : fallback;
 };
 
-const BOOLEANS = ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'statusClock', 'autoFit', 'showHover', 'toolboxCompact',
+const BOOLEANS = ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'showBottomPanel', 'spellCheck', 'spellEnglish', 'spellKorean', 'restoreSession', 'confirmDelete', 'statusClock', 'autoFit', 'showHover', 'toolboxCompact',
   'confirmPublish', 'publishExtractImages', 'tutorialOffered', 'showWelcome', 'tutorialDone', 'animationOnStartOnly', 'animationRandom',
   'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner'];
 
@@ -128,6 +139,8 @@ export function normalizeSettings(raw = {}, language) {
   s.lastPublishDirectory = typeof s.lastPublishDirectory === 'string' && s.lastPublishDirectory ? s.lastPublishDirectory : null;
   s.leftWidth = clamp(s.leftWidth, PANEL_MIN.left, 600, base.leftWidth);
   s.rightWidth = clamp(s.rightWidth, PANEL_MIN.right, 700, base.rightWidth);
+  s.bottomHeight = clamp(s.bottomHeight, PANEL_MIN.bottom, 2000, base.bottomHeight);
+  s.userWords = normalizeUserWords(s.userWords);
   s.explorerHeight = clamp(s.explorerHeight, 15, 80, base.explorerHeight);
   s.rowHeight = clamp(s.rowHeight, 20, 44, 26);
   s.startRecentCount = clamp(s.startRecentCount, 1, 10, 8);
@@ -138,6 +151,19 @@ export function normalizeSettings(raw = {}, language) {
   s.autoSaveMinutes = [0, 1, 5, 10, 30].includes(Number(s.autoSaveMinutes)) ? Number(s.autoSaveMinutes) : 0;
   for (const key of BOOLEANS) s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];
   return s;
+}
+
+/** The user's dictionary: valid words only (letters; Hangul or Latin), each once, sorted, at most USER_WORDS_MAX. */
+export function normalizeUserWords(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  for (const raw of list) {
+    if (typeof raw !== 'string') continue;
+    const word = raw.trim().normalize('NFC').replace(/’/g, "'");
+    if (!word || word.length > 40 || !/^(?:[가-힣]+|[A-Za-z]+(?:['-][A-Za-z]+)*)$/.test(word)) continue;
+    seen.add(/[가-힣]/.test(word) ? word : word.toLowerCase());
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b)).slice(0, USER_WORDS_MAX);
 }
 
 const systemLanguage = () => (String(globalThis.navigator?.language ?? 'ko').toLowerCase().startsWith('ko') ? 'ko' : 'en');
@@ -173,7 +199,7 @@ export const INSTALL_RESET_KEY = 'myhomemaker.installReset';
 /** Stored lists that are the user's own data, kept by a new installation. */
 const KEEP_KEYS = [RECENT_KEY, RECENT_DIRS_KEY, SESSION_KEY];
 /** Settings that are the user's data rather than preferences. */
-const KEEP_SETTINGS = ['backgroundImage', 'backgroundName', 'lastDirectory', 'lastPublishDirectory', 'tutorialOffered', 'tutorialDone'];
+const KEEP_SETTINGS = ['userWords', 'backgroundImage', 'backgroundName', 'lastDirectory', 'lastPublishDirectory', 'tutorialOffered', 'tutorialDone'];
 
 /** After the installer ran (it hands over `token`): preferences go back to their defaults, the user's data stays. Once per token. */
 export function resetForNewInstall(storage, token) {

@@ -1,0 +1,12 @@
+Spelling dictionaries of MyHomeMaker
+=====================================
+
+en.txt  English words from "an-array-of-english-words" 2.0.0 by Titus Wormer (MIT License).
+        https://github.com/words/an-array-of-english-words
+
+ko.txt  Korean words from "dictionary-ko" 2.0.0, the Korean Hunspell dictionary of the
+        spellcheck-ko project (hunspell-dict-ko 0.7.94), used under the Mozilla Public
+        License 1.1 (also available under GPL 2.0 / LGPL 2.1).
+        https://spellcheck-ko.github.io/   https://github.com/wooorm/dictionaries
+
+Both lists were converted (sorted, de-duplicated, front-coded) by scripts/build-dict.mjs.

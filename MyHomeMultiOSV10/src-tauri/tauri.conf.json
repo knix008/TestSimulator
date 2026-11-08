@@ -31,7 +31,7 @@
     "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
     "category": "DeveloperTool",
     "shortDescription": "Graphical website builder",
-    "longDescription": "Build websites by dragging blocks onto pages: heroes, features, galleries, pricing tables, testimonials, team, timelines, FAQs, contact forms, maps and videos. 36 site designs, 12 templates and 16 sample sites; edit text in place, check desktop, tablet and phone widths, preview in the browser and publish the site as an HTML/CSS folder or a ZIP file.",
+    "longDescription": "Build websites by dragging blocks onto pages: heroes, features, galleries, pricing tables, testimonials, team, timelines, FAQs, contact forms, maps and videos. 36 site designs, 12 templates and 36 sample sites, a Problems panel with English and Korean spelling check; edit text in place, check desktop, tablet and phone widths, preview in the browser and publish the site as an HTML/CSS folder or a ZIP file.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

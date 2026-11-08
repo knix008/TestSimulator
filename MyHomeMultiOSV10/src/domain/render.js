@@ -227,6 +227,10 @@ body.hm-editor a{cursor:default}
 body.hm-editor iframe,body.hm-editor video,body.hm-editor input,body.hm-editor textarea,body.hm-editor select,body.hm-editor .hm-nav-toggle{pointer-events:none}
 body.hm-editor [data-edit]{cursor:text}
 body.hm-editor [data-edit]:hover{outline:1px dashed color-mix(in srgb,#3b82f6 60%,transparent);outline-offset:2px}
+::highlight(hm-spell){text-decoration:underline wavy #e5484d;text-decoration-thickness:1.5px;text-underline-offset:3px}
+::highlight(hm-problem){background-color:rgba(255,190,0,.55);color:inherit}
+.hm-problem-flash{outline:3px solid #f59f00 !important;outline-offset:3px;animation:hm-problem-pulse .45s ease-in-out 3}
+@keyframes hm-problem-pulse{50%{outline-color:transparent}}
 body.hm-editor [data-edit][contenteditable="true"]{outline:2px solid #3b82f6;outline-offset:3px;cursor:text;user-select:text;-webkit-user-select:text;background:color-mix(in srgb,#3b82f6 8%,transparent)}
 body.hm-editor [data-edit-image]{cursor:pointer}
 body.hm-editor .hm-sticky{position:relative}

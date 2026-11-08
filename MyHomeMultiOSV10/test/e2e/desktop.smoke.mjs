@@ -117,6 +117,41 @@ try {
     await evalApp("window.__myhomemaker.actions.setDevice('desktop'), 1");
   });
 
+  report.group('problems');
+  await report.check('the dictionaries load in the desktop app and a typo is listed and underlined', async () => {
+    const out = await evalApp(`(async () => {
+      const a = window.__myhomemaker; const doc = a.state.docs[0]; const hero = doc.page.blocks[0];
+      a.actions.updateSettings({ showBottomPanel: true, spellCheck: true });
+      a.actions.commitText(hero.id, 'title', 'Grow your businness 홈패이지를');
+      await a.problems.check();
+      const words = a.problems.list().filter((r) => r.kind === 'spelling').map((r) => r.word);
+      return JSON.stringify({ words, error: String(a.problems.dictionaryError ?? ''), ranges: a.state.view.spellRanges, panel: document.querySelector('#bottom-panel').offsetHeight });
+    })()`);
+    const r = JSON.parse(out);
+    expect(!r.error && r.words.includes('businness') && r.words.includes('홈패이지를') && r.ranges >= 2 && r.panel >= 90, out);
+  });
+  await report.check('the toolbar button folds and opens the Problems panel', async () => {
+    const out = await evalApp(`(async () => {
+      const b = () => document.querySelector('#toolbar [data-command="bottomPanel"]');
+      b().click(); await new Promise((r) => setTimeout(r, 150));
+      const folded = document.querySelector('#bottom-panel').offsetHeight === 0;
+      b().click(); await new Promise((r) => setTimeout(r, 150));
+      return folded && document.querySelector('#bottom-panel').offsetHeight >= 90;
+    })()`);
+    expect(out === true, String(out));
+  });
+  await report.check('a double click on a row goes to the field with the word selected', async () => {
+    const out = await evalApp(`(async () => {
+      const a = window.__myhomemaker; const row = a.problems.list().find((r) => r.word === 'businness');
+      document.querySelector('#bottom-panel [data-problem="' + CSS.escape(row.key) + '"] .cell.msg').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 250));
+      const f = document.activeElement; const word = f?.value?.slice(f.selectionStart, f.selectionEnd);
+      a.actions.undo();
+      return word === 'businness' && a.state.view.shownProblem?.found ? '' : 'selected: ' + word;
+    })()`);
+    expect(out === '', out);
+  });
+
   report.group('files');
   const savePath = path.join(app.dir('files'), 'smoke-site.myhome');
   await report.check('save and open a site file', async () => {

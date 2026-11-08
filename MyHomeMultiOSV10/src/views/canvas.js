@@ -76,7 +76,82 @@ export class SiteCanvas {
     doc.getElementById('hm-root').innerHTML = pageBody(site, page, { editor: !preview, L: site.meta.language, emptyText: [this.app.t('canvas.emptyTitle'), this.app.t('canvas.emptyText')] });
     this.layout();
     this.updateOverlay();
+    this.applyMarks();
     for (const img of doc.images) if (!img.complete) img.addEventListener('load', () => { this.fitHeight(); this.updateOverlay(); }, { once: true });
+  }
+
+  // ───────────────────────── problems: unknown words underlined, the shown problem marked
+
+  /** The element that shows a block's field (its text), or null. */
+  fieldElement(blockId, path) {
+    const block = this.blockElement(blockId);
+    if (!block || !path) return null;
+    const p = CSS.escape(path);
+    return block.querySelector(`[data-edit="${p}"], [data-edit-field="${p}"]`);
+  }
+
+  /** The range of the `occurrence`-th (0 = first) `word` in an element's text, or null. */
+  wordRange(el, word, occurrence = 0) {
+    if (!el || !word) return null;
+    const doc = this.doc;
+    const walker = doc.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let text = '';
+    while (walker.nextNode()) { nodes.push([walker.currentNode, text.length]); text += walker.currentNode.data; }
+    let at = -1;
+    for (let i = 0; i <= occurrence; i++) { at = text.indexOf(word, at + 1); if (at < 0) return null; }
+    // A start lies in the node that holds its character; an end in the node that holds the character before it.
+    const locate = (pos, end) => {
+      for (const [node, offset] of nodes) {
+        const inside = end ? pos > offset && pos <= offset + node.data.length : pos >= offset && pos < offset + node.data.length;
+        if (inside) return [node, pos - offset];
+      }
+      return null;
+    };
+    const from = locate(at, false);
+    const to = locate(at + word.length, true);
+    if (!from || !to) return null;
+    const range = doc.createRange();
+    range.setStart(from[0], from[1]);
+    range.setEnd(to[0], to[1]);
+    return range;
+  }
+
+  /** Unknown words of the page: [{ blockId, path, word, occurrence }] get a wavy underline. */
+  markSpelling(list) {
+    this.spelling = list ?? [];
+    this.applyMarks();
+  }
+
+  applyMarks() {
+    const win = this.doc?.defaultView;
+    if (!win?.CSS?.highlights || typeof win.Highlight !== 'function') return;
+    const preview = Boolean(this.app.state.preview);
+    const ranges = preview ? [] : (this.spelling ?? []).map((m) => this.wordRange(this.fieldElement(m.blockId, m.path), m.word, m.occurrence)).filter(Boolean);
+    win.CSS.highlights.set('hm-spell', new win.Highlight(...ranges));
+    this.spellRanges = ranges.length;
+    const p = this.problemMark;
+    const mark = !preview && p ? this.wordRange(this.fieldElement(p.blockId, p.path), p.word, p.occurrence) : null;
+    if (mark) win.CSS.highlights.set('hm-problem', new win.Highlight(mark)); else win.CSS.highlights.delete('hm-problem');
+  }
+
+  /** Shows a problem's place: scrolled into sight, the field flashing, the word marked. True when found. */
+  showProblem({ blockId, path, word = '', occurrence = 0 }) {
+    const el = this.fieldElement(blockId, path) ?? this.blockElement(blockId);
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    const z = this.zoom;
+    const top = this.stage.offsetTop + r.top * z;
+    if (top < this.scroll.scrollTop + 20 || top + Math.min(r.height * z, 160) > this.scroll.scrollTop + this.scroll.clientHeight) this.scroll.scrollTop = Math.max(0, top - this.scroll.clientHeight / 3);
+    el.classList.remove('hm-problem-flash');
+    void el.offsetWidth;
+    el.classList.add('hm-problem-flash');
+    clearTimeout(this.flashTimer);
+    this.flashTimer = setTimeout(() => el.classList.remove('hm-problem-flash'), 1700);
+    this.problemMark = word ? { blockId, path, word, occurrence } : null;
+    this.applyMarks();
+    this.shownProblem = { blockId, path, word, found: Boolean(word && this.wordRange(this.fieldElement(blockId, path), word, occurrence)) };
+    return true;
   }
 
   update() { this.render(); }

@@ -29,12 +29,14 @@ import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/do
 import { AnimatedBackground } from './ui/background.js';
 import { startPageHtml } from './ui/startpage.js';
 import { startBoard } from './ui/startboard.js';
-import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
+import { CHAPTERS as TUTORIAL_CHAPTERS, STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
 import { contentHtml, EDITOR_TABS, pageHtml as pageEditorHtml, pagesDatalist, siteHtml, styleHtml } from './ui/inspector.js';
 import { bindSteppers } from './stepper.js';
 import { DEVICES, SiteCanvas } from './views/canvas.js';
 import { bytesToBase64, zip } from './export/files.js';
 import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
+import { ProblemsPanel } from './ui/problems.js';
+import { stageSite as tutorialStageSite } from './ui/tutorial-project.js';
 
 const root = document.querySelector('#app');
 const desktop = native.isDesktop();
@@ -80,6 +82,33 @@ const site = () => activeDoc()?.site ?? null;
 const currentPage = () => activeDoc()?.page ?? null;
 const docName = (doc) => (doc.path ? baseName(doc.path) : doc.name ?? doc.site.name);
 const lang = () => getLanguage();
+
+/** The bottom panel: Problems (site checks and spelling); ui/problems.js. */
+const problems = new ProblemsPanel({
+  get root() { return root; },
+  state,
+  t,
+  language: () => getLanguage(),
+  activeDoc: () => activeDoc(),
+  currentPage: () => currentPage(),
+  onStart: () => state.showStart || !activeDoc(),
+  findBlock: (id) => (site() && id ? S.findBlock(site(), id)?.block ?? null : null),
+  isGlobalBlock: (id) => Boolean(site() && (site().layout.header.id === id || site().layout.footer.id === id)),
+  fieldOf: (blockId, path) => fieldOf(blockId, path),
+  openPage: (id) => openPage(id),
+  select: (id, options) => select(id, options),
+  focusEditor: (tab, selector, row) => focusEditor(tab, selector, row),
+  setFieldText: (row, text) => setFieldText(row, text),
+  updateSettings: (patch, options) => updateSettings(patch, options),
+  notify: (kind, text) => notify(kind, text),
+  renderStatus: () => renderStatus(),
+  run: (id, context) => run(id, context),
+  menuItems: (ids) => menuItems(ids),
+  showMenu: (items, anchor, name, context) => showMenu(items, anchor, name, context),
+  menuAnchor: (event) => { const point = toScreen(event.clientX, event.clientY); return { x: point.x + 1, y: point.y + 1, flipY: point.y }; },
+  copyText: (text) => native.clipboardWrite(text).then(() => notify('success', t('notice.textCopied'))).catch((error) => showError('error.copy', error)),
+  pointerDrag: (event, options) => pointerDrag(event, options),
+});
 
 // ───────────────────────── notices & errors
 
@@ -182,6 +211,7 @@ function activate(id) {
   state.preview = false;
   mountView();
   renderAll();
+  problems.schedule(0);
   if (state.settings.autoFit) requestAnimationFrame(() => fitWidth({ quiet: true }));
 }
 
@@ -203,6 +233,7 @@ function afterChange({ redraw = true } = {}) {
   renderToolbarState();
   renderRight();
   renderStatus();
+  problems.schedule();
 }
 
 function persistSession() {
@@ -256,6 +287,7 @@ function openPage(id) {
   if (state.showStart) { state.showStart = false; mountView(); renderAll(); } else { state.view?.render(); afterChange({ redraw: false }); }
   if (state.view) state.view.scroll.scrollTop = doc.view.scroll[id] ?? 0;
   scrollActiveTabIntoView();
+  problems.markCanvas();
 }
 
 async function addPageAsk() {
@@ -612,7 +644,44 @@ function togglePreview() {
   state.selected = null;
   state.view?.render();
   renderAll();
+  problems.markCanvas();
   notify('info', t(state.preview ? 'notice.previewOn' : 'notice.previewOff'));
+}
+
+// ───────────────────────── problems: going to a field, fixing a word
+
+/** Opens an editor tab and puts the cursor in a field (the row's word selected). */
+function focusEditor(tab, selector, row = null) {
+  state.rightTab = tab;
+  if (!state.settings.showRightPanel) updateSettings({ showRightPanel: true });
+  renderRight();
+  requestAnimationFrame(() => {
+    const field = root.querySelector(selector);
+    if (!field) return;
+    field.scrollIntoView({ block: 'center' });
+    field.focus();
+    if (row?.kind === 'spelling' && typeof field.setSelectionRange === 'function') {
+      const at = field.value.slice(row.start, row.end) === row.word ? row.start : field.value.indexOf(row.word);
+      if (at >= 0) field.setSelectionRange(at, at + row.word.length);
+    }
+  });
+}
+
+/** Writes a whole field of a problem row (a word replaced): site information, the page, or a block. */
+function setFieldText(row, text) {
+  if (row.scope === 'site') return setSiteField(row.path.replace(/^meta\./, ''), text);
+  if (row.scope === 'page') {
+    if (currentPage()?.id !== row.pageId) openPage(row.pageId);
+    return setPageField(row.path, text);
+  }
+  return change('op.editText', (value) => { const found = S.findBlock(value, row.blockId); if (found) S.setPath(found.block.props, row.path, text); });
+}
+
+/** F7: spelling on / off (the panel opens when it is turned on). */
+function toggleSpelling() {
+  const on = !state.settings.spellCheck;
+  updateSettings({ spellCheck: on, ...(on && !state.settings.showBottomPanel ? { showBottomPanel: true } : {}) });
+  notify('info', t(on ? 'notice.spellOn' : 'notice.spellOff'));
 }
 
 // ───────────────────────── canvas mount
@@ -626,6 +695,7 @@ function mountView() {
   if (showStart) { state.view?.destroy(); state.view = null; renderStartPage(); return; }
   if (!state.view) state.view = new SiteCanvas(appApi, host);
   state.view.render();
+  problems.markCanvas();
 }
 
 // ───────────────────────── commands
@@ -697,6 +767,7 @@ const commands = {
   leftPanel: { icon: 'panelLeft', label: 'action.blocksPanel', key: 'Ctrl+Shift+1', checked: () => state.settings.showLeftPanel, run: () => toggle('showLeftPanel') },
   rightPanel: { icon: 'panelRight', label: 'action.sitePanel', key: 'Ctrl+Shift+2', checked: () => state.settings.showRightPanel, run: () => toggle('showRightPanel') },
   statusBar: { icon: 'statusBar', label: 'action.statusBar', checked: () => state.settings.showStatusBar, run: () => toggle('showStatusBar') },
+  bottomPanel: { icon: 'panelBottom', label: 'action.bottomPanel', key: 'Ctrl+J', checked: () => state.settings.showBottomPanel, run: () => toggle('showBottomPanel') },
   theme: { icon: 'palette', label: 'action.themeRandom', run: () => updateSettings({ theme: randomThemeId(state.settings.theme) }) },
   themeMenu: { icon: 'chevronDown', label: 'action.themeChoose', run: (context) => openThemePicker(context?.anchor) },
   language: { icon: 'globe', label: 'action.language', key: 'Ctrl+Shift+L', run: () => updateSettings({ language: getLanguage() === 'ko' ? 'en' : 'ko' }) },
@@ -710,6 +781,9 @@ const commands = {
   // tools
   checkSite: { icon: 'checkSite', label: 'action.checkSite', enabled: () => Boolean(activeDoc()), run: () => checkSite() },
   siteStats: { icon: 'blkStats', label: 'action.siteStats', enabled: () => Boolean(activeDoc()), run: () => showStats() },
+  showProblems: { icon: 'problems', label: 'action.showProblems', key: 'Ctrl+Shift+M', enabled: hasDoc, run: () => problems.show() },
+  spellCheck: { icon: 'spellCheck', label: 'action.spellCheck', key: 'F7', checked: () => state.settings.spellCheck, run: () => toggleSpelling() },
+  dictionary: { icon: 'dictionary', label: 'action.dictionary', run: () => popups.open('settings', { tab: 'dictionary' }) },
   settings: { icon: 'gear', label: 'action.settings', key: 'Ctrl+,', run: () => popups.open('settings', { tab: 'general' }) },
   // help
   tutorial: { icon: 'tutorial', label: 'action.tutorial', key: 'F11', run: () => startTutorial() },
@@ -773,7 +847,7 @@ const SUBMENUS = {
   zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomReset', 'zoomFit'] },
   device: { icon: 'devDesktop', items: ['device:desktop', 'device:tablet', 'device:mobile'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
-  panels: { icon: 'panelLeft', items: ['leftPanel', 'rightPanel', 'statusBar'] },
+  panels: { icon: 'panelLeft', items: ['leftPanel', 'rightPanel', 'bottomPanel', 'statusBar'] },
   ...Object.fromEntries(BLOCK_GROUPS.filter((g) => g.id !== 'site').map((g) => [`insert:${g.id}`, { icon: g.icon, items: PAGE_BLOCK_TYPES.filter((type) => BLOCKS[type].group === g.id).map((type) => `block:${type}`) }])),
 };
 const sub = (key) => ({ sub: key });
@@ -784,7 +858,7 @@ const MENUS = {
   page: ['addPage', 'duplicatePage', 'renamePage', 'deletePage', '-', 'pageLeft', 'pageRight', '-', 'prevPage', 'nextPage', '-', 'pageProps'],
   view: [sub('device'), sub('zoom'), '-', 'previewMode', '-', sub('panels'), '-', sub('appearance')],
   design: ['designPicker', 'randomDesign', 'resetDesign', '-', 'siteProps'],
-  tools: ['checkSite', 'siteStats', '-', 'previewBrowser', 'publish', '-', 'settings'],
+  tools: ['checkSite', 'showProblems', 'spellCheck', 'dictionary', 'siteStats', '-', 'previewBrowser', 'publish', '-', 'settings'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', insert: 'addBlock', page: 'pageItem', view: 'eye', design: 'palette', tools: 'gear', help: 'question' };
@@ -796,8 +870,8 @@ const TOOLBAR = [
   ['addBlock', 'addPage'],
   ['moveUp', 'moveDown', 'duplicate', 'toggleHidden'],
   ['device:desktop', 'device:tablet', 'device:mobile', 'zoom', 'zoomFit'],
-  ['previewMode', 'designPicker', 'checkSite'],
-  ['leftPanel', 'rightPanel'],
+  ['previewMode', 'designPicker'],
+  ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
 /** Right end of the toolbar: tutorial, theme (random + dropdown), language, settings, about. */
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
@@ -817,6 +891,8 @@ function renderShell() {
           <div id="start-page" hidden></div>
           <div class="drop-overlay" aria-hidden="true"><div>${icon('drop')}<span></span></div></div>
         </div>
+        <div class="splitter horizontal bottom-split" data-split="bottom" title="${escapeHtml(t('problems.splitter'))}" role="separator" aria-orientation="horizontal"></div>
+        <section id="bottom-panel" aria-label="${escapeHtml(t('problems.title'))}"></section>
       </section>
       <div class="splitter vertical panel-split" data-split="right" title="${escapeHtml(t('tip.panelSplitter'))}" role="separator" aria-orientation="vertical"></div>
       <aside id="right-panel" class="side-panel" aria-label="${escapeHtml(t('panel.site'))}"></aside>
@@ -1135,6 +1211,8 @@ function renderStatus() {
     const stats = S.siteStats(doc.site);
     items.push(`<span class="status-item" title="${escapeHtml(t('status.pageTip'))}">${icon('pageItem')}<span>${escapeHtml(`${doc.page.name} · ${pageFile(doc.page)}`)}</span></span>`);
     items.push(`<span class="status-item" title="${escapeHtml(t('status.siteTip'))}">${icon('pagesTree')}<span>${escapeHtml(t('status.counts', { pages: stats.pages, blocks: stats.blocks }))}</span></span>`);
+    const pc = problems.counts();
+    items.push(`<button class="status-item problems-status ${pc.error ? 'error-count' : pc.warning || pc.spelling ? 'warn' : ''}" data-problems-open title="${escapeHtml(t('status.problemsTip'))}">${icon('problems')}<span>${escapeHtml(t('status.problems', { errors: pc.error, warnings: pc.warning, spelling: pc.spelling }))}</span></button>`);
     items.push(`<span class="status-item ${doc.dirty ? 'modified' : 'saved'}" title="${escapeHtml(doc.path ?? t('status.unsavedFile'))}">${icon(doc.dirty ? 'edit' : 'save')}<span>${escapeHtml(doc.dirty ? t('status.modified') : t('status.saved'))}</span></span>`);
     const block = selectedBlock();
     if (block) items.push(`<span class="status-item" title="${escapeHtml(t('status.blockTip'))}">${icon(BLOCKS[block.type].icon)}<span>${escapeHtml(blockLabel(block.type, lang()))}</span></span>`);
@@ -1164,6 +1242,9 @@ function renderAll() {
   root.classList.toggle('no-status', !state.settings.showStatusBar);
   root.classList.toggle('no-left', !state.settings.showLeftPanel);
   root.classList.toggle('no-right', !state.settings.showRightPanel);
+  root.classList.toggle('no-bottom', !state.settings.showBottomPanel);
+  root.classList.toggle('start-shown', state.showStart || !activeDoc());
+  root.style.setProperty('--bottom-height', `${problems.height()}px`);
   root.classList.toggle('previewing', state.preview);
   root.style.setProperty('--left-width', `${state.settings.leftWidth}px`);
   root.style.setProperty('--right-width', `${state.settings.rightWidth}px`);
@@ -1175,6 +1256,7 @@ function renderAll() {
   if (!state.showStart && activeDoc() && !state.view) mountView();
   renderRight();
   renderStatus();
+  problems.render();
   updateBackgroundState();
 }
 
@@ -1402,6 +1484,8 @@ function applySettings(previous = {}) {
     state.view?.render();
   }
   if (s.backgroundImage !== previous.backgroundImage) loadBackground();
+  if (['spellCheck', 'spellEnglish', 'spellKorean'].some((key) => s[key] !== previous[key]) || (s.userWords ?? []).join('\n') !== (previous.userWords ?? []).join('\n')) problems.schedule(0);
+  if (s.showBottomPanel !== previous.showBottomPanel) requestAnimationFrame(() => problems.markCanvas());
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
   if ((state.showStart || !activeDoc()) && ['theme', 'customTheme', 'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner', 'startRecentCount', 'animation', 'backgroundKind'].some((key) => s[key] !== previous[key])) renderStartPage();
   renderAll();
@@ -1881,7 +1965,7 @@ function contextMenu(event, kind, payload = {}) {
   }
   if (kind === 'start') return showMenu(menuItems(['new', 'open', 'recent', '-', 'shuffleBackground', 'backgroundImage', '-', 'tutorial', 'about']), anchor, 'context', { header: { icon: 'home', title: t('action.startPage') } });
   if (kind === 'status') return showMenu(menuItems(['statusBar', '-', 'zoomIn', 'zoomOut', 'zoomReset', 'zoomFit', '-', 'theme', 'language']), anchor, 'context', { header: { icon: 'statusBar', title: t('action.statusBar') } });
-  if (kind === 'panel') return showMenu(menuItems(['leftPanel', 'rightPanel', 'statusBar', '-', 'settings']), anchor, 'context', { header: { icon: 'panelLeft', title: t('submenu.panels') } });
+  if (kind === 'panel') return showMenu(menuItems(['leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', '-', 'settings']), anchor, 'context', { header: { icon: 'panelLeft', title: t('submenu.panels') } });
   return showMenu(menuItems(['new', 'open', 'save', '-', 'undo', 'redo', '-', 'settings', 'about']), anchor, 'context', { header: { icon: 'siteProject', title: 'MyHomeMaker' } });
 }
 
@@ -2065,6 +2149,7 @@ function bindEvents() {
       return openMenubarMenu(name);
     }
     if (target.closest('[data-home]')) return showStartPage(!state.showStart || !activeDoc());
+    if (target.closest('[data-problems-open]')) return problems.show();
     const start = target.closest('[data-start]');
     if (start && !start.disabled) return onStartAction(start);
     const command = target.closest('[data-command]');
@@ -2323,7 +2408,7 @@ const SHORTCUTS = [
   ['=', false, 'zoomIn'], ['+', false, 'zoomIn'], ['-', false, 'zoomOut'], ['0', false, 'zoomReset'], ['w', true, 'zoomFit'], ['e', false, 'previewMode'],
   ['p', true, 'publish'], ['d', true, 'designPicker'], [',', false, 'settings'], ['l', true, 'language'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'],
   ['@', true, 'rightPanel'], ['2', true, 'rightPanel'], ['q', false, 'exit'], ['h', true, 'startPage'], ['b', true, 'shuffleBackground'],
-  ['pageup', false, 'prevPage'], ['pagedown', false, 'nextPage'],
+  ['pageup', false, 'prevPage'], ['pagedown', false, 'nextPage'], ['j', false, 'bottomPanel'], ['m', true, 'showProblems'],
 ];
 
 function onKeyDown(event) {
@@ -2341,6 +2426,9 @@ function onKeyDown(event) {
   if (key === 'f1') { event.preventDefault(); run('about'); return; }
   if (key === 'f5') { event.preventDefault(); run('previewBrowser'); return; }
   if (key === 'f11') { event.preventDefault(); run('tutorial'); return; }
+  if (key === 'f7') { event.preventDefault(); run('spellCheck'); return; }
+  // The Problems list moves its own selection with the arrow keys and opens a row with Enter.
+  if (event.target.closest?.('#bottom-panel')) return;
   if (editing) {
     if (key === 'escape') event.target.blur?.();
     return;
@@ -2445,6 +2533,7 @@ const appApi = {
 async function start() {
   renderShell();
   bindEvents();
+  problems.bind();
   bindPopupActions();
   await popups.init();
   state.info = await native.appInfo().catch(() => null);
@@ -2502,6 +2591,9 @@ async function openWelcome() {
   else if (result?.choice === 'sample') openSampleAsk();
 }
 
+/** A site's shape for the tests: page files with their block kinds, and the design. */
+const siteShape = (s) => (s ? `${s.pages.map((p) => `${p.slug}:${p.blocks.map((b) => b.type).join(',')}`).join(' | ')} # ${s.design.id}` : '');
+
 // Test hook: the E2E suites drive the app through this (no effect on normal use).
 window.__myhomemaker = {
   state,
@@ -2518,8 +2610,9 @@ window.__myhomemaker = {
     handleDroppedPaths, handleDroppedFiles, confirmExit, openRecent, showError, openMenubarMenu, contextMenu, toScreen, withProgress, startTutorial, shuffleBackground,
     openDocWindow, closeDocFrames, focusField, pickDesign, randomDesign, addBlockMenu,
   },
-  domain: { S, BLOCKS, PAGE_BLOCK_TYPES, DESIGNS, TEMPLATES, SAMPLES, buildTemplate, buildSample, siteFiles, tutorialSteps: () => TUTORIAL_STEPS.length },
+  domain: { S, BLOCKS, PAGE_BLOCK_TYPES, DESIGNS, TEMPLATES, SAMPLES, buildTemplate, buildSample, siteFiles, tutorialSteps: () => TUTORIAL_STEPS.length, siteShape: () => siteShape(site()), tutorialShape: (upTo) => siteShape(tutorialStageSite(getLanguage(), TUTORIAL_STEPS.map((step) => step.id), upTo)), tutorialInfo: () => ({ chapters: TUTORIAL_CHAPTERS, steps: TUTORIAL_STEPS.map((step) => ({ id: step.id, chapter: step.chapter, target: step.target, dwell: step.dwell ?? 4200 })) }) },
   tutorial: () => tutorial,
+  problems,
 };
 
 start()
