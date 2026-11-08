@@ -222,10 +222,15 @@ export function createViewer(container, options = {}) {
   // The model's box for the near plane (fitNear); measured again after a change.
   const modelBox = new THREE.Box3();
   let modelBoxStale = true;
+  // The building's matrices: walked again only after a rebuild or an edit
+  // (updateMatrices). Tools that move a part update it themselves
+  // (updateMatrixWorld(true)), and the batched originals do not move.
+  let buildingMoved = true;
   let bgTexture = null;
   let dirty = true;
   let shadersStale = true; // new materials or lights: compile before drawing (warmShaders)
   let warming = null;
+  let modelShown = false; // the model has been drawn: later frames no longer wait for shaders (warmShaders)
   let anim = null;
   let disposed = false;
   let lastView = "iso";
@@ -275,38 +280,55 @@ export function createViewer(container, options = {}) {
   function rebuild() {
     const old = building;
     content.remove(old);
-    batcher.release();
+    // The batches stay: applyStyle → batcher.build keeps those of the levels
+    // carried over and makes the rest again.
     moving.clear();
     if (edges) { helpers.remove(edges); disposeGroup(edges); edges = null; }
     if (wires) { helpers.remove(wires); disposeGroup(wires); wires = null; }
-    if (!project) { disposeObject(old); building = new THREE.Group(); content.add(building); lampRig.setLamps([]); invalidateShadows(); dirty = true; return; }
+    if (!project) { batcher.release(); disposeObject(old); building = new THREE.Group(); content.add(building); lampRig.setLamps([]); invalidateShadows(); dirty = true; return; }
     building = buildBuilding(THREE, project, mats, {
       openDoors: opts.openDoors, furniture: opts.furniture, roofs: opts.roofs, levels: opts.levels, phase: opts.phase, solids: opts.solids, hiddenTags: opts.hiddenTags,
       reuse: old.userData.levels || new Map(), // always keyed, so the next build can reuse this one
-      loadModel, onAsync: () => { applyStyle(); applyHighlight(); dirty = true; },
+      loadModel, onAsync: () => { buildingMoved = true; applyStyle(); applyHighlight(); dirty = true; },
     });
     disposeObject(old); // only the levels that were built again are still in it
     content.add(building);
     modelBoxStale = true;
-    // Carried-over meshes keep the material they were built with (they may be
-    // showing a render style or a highlight right now).
-    building.traverse((o) => { if (o.isMesh && !o.userData.baseMaterial) o.userData.baseMaterial = o.material; });
-    lampRig.setLamps(collectLamps(THREE, building));
-    lightKey = lampKey(project);
+    buildingMoved = true;
+    lampRig.setLamps(collectLamps(THREE, building)); // brings every matrix of the building up to date
+    lightKey = nextLampKey !== null ? nextLampKey : lampKey(project); // setProject has usually worked it out already
+    nextLampKey = null;
     extent = modelExtent(project);
-    applyStyle();
+    applyStyle({ fresh: true });
     applyHighlight();
-    updateHelpers();
+    // Ground, grid, axes, dimensions and sun follow the model's extent (their
+    // options rebuild them in setOptions): most edits leave it as it was, and
+    // the labels' canvas text is not drawn again for nothing.
+    const hk = JSON.stringify(extent);
+    if (hk !== helpersKey) { helpersKey = hk; updateHelpers(); }
     if (sk) sk.afterRebuild();
+    buildingMoved = false; // the lamp scan above brought every matrix up to date
     shadersStale = true;
     dirty = true;
   }
 
   // ---------------------------------------------------------------- styles
-  function applyStyle() {
+  // three.js draws a transparent double-sided object twice (back faces, then
+  // front) and marks its material changed around each pass, so every pane of
+  // glass made three.js work out its shader again twice a frame — the larger
+  // part of a big building's frame. Glass, water and the X-ray faces are thin
+  // or see-through anyway: one pass draws them the same.
+  function singlePass(m) {
+    for (const x of Array.isArray(m) ? m : [m]) if (x && x.transparent && x.side === THREE.DoubleSide) x.forceSinglePass = true;
+  }
+  // `fresh`: right after a rebuild, whose lamp scan updated every matrix.
+  function applyStyle({ fresh = false } = {}) {
     const style = opts.style || "realistic";
     building.traverse((o) => {
       if (!o.isMesh) return;
+      // A new mesh keeps the material it was built with; carried-over ones
+      // already have it (they may be showing a render style or a highlight).
+      if (!o.userData.baseMaterial) o.userData.baseMaterial = o.material;
       o.userData.hl = null;
       const base = o.userData.baseMaterial || o.material;
       if (style === "realistic") o.material = base;
@@ -314,6 +336,7 @@ export function createViewer(container, options = {}) {
       else o.material = styleMats[style] || base;
       // Coplanar faces of different kinds: the lower rank always wins (depth.js).
       o.material = rankedMaterial(o.material, rankOf(o.userData.kind));
+      singlePass(o.material);
     });
     if (edges) { helpers.remove(edges); disposeGroup(edges); edges = null; }
     // Edges: the line drawing, or any style with the style editor's edges on.
@@ -324,7 +347,7 @@ export function createViewer(container, options = {}) {
     wires = buildWires(style === "lines" ? opts.edgeColor || 0x1d2128 : style === "sketch" ? opts.edgeColor || SKETCH_INK : null);
     applyBackground(); // the sketch is drawn on paper
     if (sk) sk.applyStyleExtras(); // colour by tag, profiles, watermark
-    batcher.build(building); // before the cut: its filled caps follow the batches
+    batcher.build(building, { fresh }); // before the cut: its filled caps follow the batches
     applyLighting();
     syncLabelDepth();
     applyClipping();
@@ -465,6 +488,8 @@ export function createViewer(container, options = {}) {
   // What of the project is not about lamp settings: when only lamps were
   // switched or re-coloured, the model is kept and only the lamps change.
   let lightKey = "";
+  let nextLampKey = null; // lampKey(project) from setProject, for the rebuild that follows
+  let helpersKey = ""; // the extent the ground, grid, axes and dimensions were built for
   function hasLamps(p) { return lampRig.lamps.length > 0 || (p && p.furniture.some((f) => f.light)); }
   function lampKey(p) {
     if (!p || !hasLamps(p)) return "";
@@ -752,7 +777,9 @@ export function createViewer(container, options = {}) {
       x2 + off, 0, z1, x2 + off, 0, z2, x2, 0, z1, x2 + off * 1.2, 0, z1, x2, 0, z2, x2 + off * 1.2, 0, z2,
       x2 + off, 0, z1 - off, x2 + off, h, z1 - off];
     const l = lineSegs(pts, 0xffd166);
-    l.material.depthTest = false;
+    // Like the numbers: behind the building when it stands in front, seen through it only in X-ray.
+    l.material.depthTest = !labelsSeeThrough();
+    l.userData.label3d = true;
     l.renderOrder = 9;
     dims.add(l);
     const a = labelSprite(`W ${fmt(w, true)}`, "#ffd166", h0); a.center.set(0.5, 0); a.position.set((x1 + x2) / 2, 0.2, z2 + off + h0); dims.add(a);
@@ -980,7 +1007,8 @@ export function createViewer(container, options = {}) {
   }
   function addMeasure(a, b) {
     const l = lineSegs([a.x, a.y, a.z, b.x, b.y, b.z], 0xffb300);
-    l.material.depthTest = false;
+    l.material.depthTest = !labelsSeeThrough(); // hidden behind the building, like its number
+    l.userData.label3d = true;
     l.renderOrder = 11;
     const d = a.distanceTo(b);
     const s = labelSprite(fmt(d, true), "#ffd166", Math.max(0.25, d / 14));
@@ -1154,7 +1182,7 @@ export function createViewer(container, options = {}) {
   sk = createSketchupLayer({
     THREE, scene, canvas, renderer, controls, opts,
     get camera() { return camera; }, get building() { return building; }, get project() { return project; },
-    raycastAt, rayFrom, emitTool, labelSprite, fmt, addMeasure, markDirty: () => { dirty = true; modelBoxStale = true; invalidateShadows(); }, unbatch: (ids) => unbatch(ids),
+    raycastAt, rayFrom, emitTool, labelSprite, fmt, addMeasure, markDirty: () => { dirty = true; modelBoxStale = true; buildingMoved = true; invalidateShadows(); }, unbatch: (ids) => unbatch(ids),
     getHighlighted: () => highlighted,
     batches: () => batcher.group.children,
     extentSize: () => Math.max(extent.x2 - extent.x1, extent.y2 - extent.y1, extent.top) * M,
@@ -1259,18 +1287,42 @@ export function createViewer(container, options = {}) {
     if (Math.abs(near - persp.near) > persp.near * 0.02) { persp.near = near; persp.updateProjectionMatrix(); }
   }
 
+  // three.js composes every object's matrix before every frame — 20,000 in a
+  // tower, most of them the batched originals kept for picking, and the
+  // largest part of a frame after the draw calls. The viewer does it instead
+  // (scene.matrixWorldAutoUpdate is off) and leaves the building out unless
+  // it changed.
+  scene.matrixWorldAutoUpdate = false;
+  const skipMatrices = () => {};
+  function updateMatrices() {
+    const b = building;
+    if (!buildingMoved) b.updateMatrixWorld = skipMatrices;
+    try { scene.updateMatrixWorld(); }
+    finally { delete b.updateMatrixWorld; }
+    buildingMoved = false;
+  }
+
   // Before every picture, on screen or saved.
   function prepareFrame() {
+    updateMatrices();
     fitNear(); // before the two-point shift, which builds on the projection
     sk.beforeRender(); // two-point perspective, profiles
+    // Batched instances out of view or under a pixel are left out (batch.js
+    // cull) — after the projection is final. A frame that renders the sun's
+    // shadow map draws them all: the sun sees what the camera does not.
+    const shadowPass = renderer.shadowMap.enabled && sun.castShadow && sun.shadow.needsUpdate;
+    batcher.cull(camera, renderer.domElement.height, { all: shadowPass });
   }
 
   // Shaders. A program compiles in the GPU driver, and the first frame that
   // draws with it waits for that on the main thread: a few hundred ms per
   // program on some machines, seconds for a fresh model, with the whole app
   // frozen. After the model, the style or the lights change, the programs are
-  // compiled in the background first (KHR_parallel_shader_compile); until
-  // they are ready the view keeps its last picture and the app stays live.
+  // compiled in the background first (KHR_parallel_shader_compile). Only the
+  // first picture of a model waits for that (the app stays live while a
+  // freshly opened project is prepared); once the model is on screen, every
+  // frame is drawn at once — orbit, pan and zoom never stall on a compile,
+  // and a later style or light change shows as soon as it is drawn.
   //
   // A program depends on the material, the kind of object and the attributes
   // its geometry has, not on where the object is: one object per combination
@@ -1292,6 +1344,7 @@ export function createViewer(container, options = {}) {
       if (!(o.isMesh || o.isPoints || o.isLine || o.isSprite) || !o.material) return;
       const kind = `${o.isInstancedMesh ? `i${o.instanceColor ? "c" : ""}${o.morphTexture ? "m" : ""}` : ""}${o.isBatchedMesh ? "b" : ""}${o.isSkinnedMesh ? "s" : ""}${o.isPoints ? "p" : ""}${o.isLine ? "l" : ""}${o.isSprite ? "S" : ""}|${attrKey(o.geometry)}`;
       let fresh = false;
+      singlePass(o.material); // helpers and tool overlays too (applyStyle does the building)
       for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
         const key = `${m.id}|${kind}`;
         if (!seen.has(key)) { seen.add(key); fresh = true; }
@@ -1340,17 +1393,25 @@ export function createViewer(container, options = {}) {
         if (!m || o.customDepthMaterial) continue;
         const own = (renderer.localClippingEnabled && m.clipShadows && m.clippingPlanes && m.clippingPlanes.length) || (m.displacementMap && m.displacementScale !== 0) || (m.alphaMap && m.alphaTest > 0) || (m.map && m.alphaTest > 0) || m.alphaToCoverage;
         const side = m.shadowSide !== null ? m.shadowSide : SHADOW_SIDE[m.side];
-        const sig = `${side}|${o.isInstancedMesh ? "i" : o.isLine ? "l" : o.isPoints ? "p" : "m"}|${attrKey(o.geometry)}|${own ? m.uuid : ""}`;
+        const sig = `${side}|${o.isInstancedMesh ? "i" : o.isBatchedMesh ? "b" : o.isLine ? "l" : o.isPoints ? "p" : "m"}|${attrKey(o.geometry)}|${own ? m.uuid : ""}`;
         if (depthStandIns.has(sig)) continue;
         const d = new THREE.MeshDepthMaterial();
         d.side = side;
         if (own) Object.assign(d, { alphaMap: m.alphaMap, alphaTest: m.alphaToCoverage ? 0.5 : m.alphaTest, map: m.map, clipShadows: m.clipShadows, clippingPlanes: m.clippingPlanes, clipIntersection: m.clipIntersection, displacementMap: m.displacementMap, displacementScale: m.displacementScale });
-        const s = o.isInstancedMesh ? new THREE.InstancedMesh(o.geometry, d, 1) : o.isLine ? new THREE.LineSegments(o.geometry, d) : o.isPoints ? new THREE.Points(o.geometry, d) : new THREE.Mesh(o.geometry, d);
+        const s = o.isInstancedMesh ? new THREE.InstancedMesh(o.geometry, d, 1) : o.isBatchedMesh ? batchedStandIn(d) : o.isLine ? new THREE.LineSegments(o.geometry, d) : o.isPoints ? new THREE.Points(o.geometry, d) : new THREE.Mesh(o.geometry, d);
         depthStandIns.set(sig, s);
         out.push(s);
       }
     });
     return out;
+  }
+  // A merged batch (batch.js) has its own depth program (batching): a one-triangle BatchedMesh stands in.
+  function batchedStandIn(d) {
+    const tri = new THREE.BufferGeometry();
+    tri.setAttribute("position", new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+    const s = new THREE.BatchedMesh(1, 3, 0, d);
+    s.addInstance(s.addGeometry(tri));
+    return s;
   }
   let gizmoWarm = false;
   function warmShaders() {
@@ -1394,7 +1455,7 @@ export function createViewer(container, options = {}) {
     if (changed || dirty || anim || walk.keys.size) {
       if (!hasEnvironment) { dirty = true; return; } // skyEnvironment
       if (shadersStale) warmShaders();
-      if (warming) { dirty = true; return; } // drawn once the shaders are ready
+      if (warming && !modelShown) { dirty = true; return; } // the first picture: drawn once the shaders are ready
       prepareFrame();
       fitGrid();
       fitAxes();
@@ -1402,16 +1463,22 @@ export function createViewer(container, options = {}) {
       renderer.render(scene, camera);
       lastFrame = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
       renderGizmo();
+      if (project) modelShown = true;
       dirty = false;
       for (const cb of frameCallbacks) { try { cb(); } catch (err) { console.error(err); } }
     }
   });
 
   // ---------------------------------------------------------------- API
-  function setProject(p) {
+  // `fresh`: another project was opened — its first picture is prepared in
+  // the background again, like the very first one.
+  function setProject(p, { fresh = false } = {}) {
     const first = !project;
+    if (first || fresh) modelShown = false;
     // Only lamps switched or re-coloured: keep the model, update the lamps.
-    if (!first && hasLamps(p) && lightKey && lampKey(p) === lightKey) { project = p; updateLamps(p); return "lamps"; }
+    // (The key — the whole project as JSON — is worked out once per edit.)
+    nextLampKey = !first && hasLamps(p) && lightKey ? lampKey(p) : null;
+    if (nextLampKey !== null && nextLampKey === lightKey) { nextLampKey = null; project = p; updateLamps(p); return "lamps"; }
     project = p;
     rebuild();
     if (first) {

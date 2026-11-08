@@ -373,6 +373,7 @@ class App {
       this.plan.levelId = null;
       this.checkIssues = [];
       this.v3d.framed = false;
+      this.v3d.freshModel = true;
       if (this.tab === "plan") this.plan.activate();
     }
     this.plan.request();

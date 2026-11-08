@@ -251,7 +251,10 @@ export class View3DTab {
   syncModel() {
     if (!this.viewer || !this.dirty) return;
     this.viewer.setOptions({ levels: this.levelSet(), north: this.app.store.project.meta.north || 0, ...this.sk.viewerOpts() });
-    this.viewer.setProject(this.app.store.project);
+    // A project just opened: its first picture is prepared in the background
+    // (viewer.js warmShaders); edits after that are drawn at once.
+    this.viewer.setProject(this.app.store.project, { fresh: !!this.freshModel });
+    this.freshModel = false;
     this.dirty = false;
     if (this.highlighted.length) this.viewer.highlight(this.highlighted);
     if (this.app.tab === "3d") this.app.updateStatus();

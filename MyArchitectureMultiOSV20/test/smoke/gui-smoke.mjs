@@ -581,8 +581,8 @@ try {
     await a.key("g"); await a.key("g");
     return sec;
   });
-  await step("3D numbers hide behind the building; only X-ray shows them through", async () => {
-    const depth = () => app(`const s = []; app.v3d.viewer.three.scene.traverse(o => { if (o.isSprite && o.userData.label3d) s.push(o.material.depthTest); }); return s`);
+  await step("3D numbers and dimension lines hide behind the building; only X-ray shows them through", async () => {
+    const depth = () => app(`const s = []; app.v3d.viewer.three.scene.traverse(o => { if ((o.isSprite || o.isLineSegments) && o.userData.label3d) s.push(o.material.depthTest); }); return s`);
     await app(`app.v3d.setOpt("dimensions", true); return 1`);
     const solid = await depth();
     await app(`app.v3d.setOpt("style", "xray"); return 1`);

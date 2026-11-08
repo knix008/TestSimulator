@@ -31,7 +31,7 @@ try {
       for (let i = 0; i < 40; i++) {
         v.orbit(1, 0);
         const t0 = performance.now();
-        t.renderer.render(t.scene, t.camera);
+        v.renderNow(); // prepared like the screen's frame (culling, matrices)
         gl.finish();
         times.push(performance.now() - t0);
         await frame();

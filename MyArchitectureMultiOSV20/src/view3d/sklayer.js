@@ -1454,7 +1454,7 @@ export function createSketchupLayer(ctx) {
     let n = 0;
     ctx.building.traverseVisible((o) => {
       if (!o.isMesh || n > 4000) return;
-      if (!o.layers.isEnabled(0)) return; // drawn by a batch: capped with it below
+      if (!o.layers.isEnabled(0) && !o.userData.merged) return; // drawn by an instanced batch: capped with it below (a merged one: capped here, by itself)
       const base = o.userData.baseMaterial || o.material;
       if ((base && base.transparent) || o.userData.open) return; // only closed solids have an inside to fill
       for (const m of [back, front]) {
@@ -1470,9 +1470,12 @@ export function createSketchupLayer(ctx) {
     });
     // Batched repeats (viewer batch.js): one stencil pass per batch, sharing its instances.
     for (const im of ctx.batches ? ctx.batches() : []) {
+      if (im.userData.batchLod || !im.isInstancedMesh) continue; // a coarse far copy (batch.js) is not a closed solid; merged meshes are capped above
       for (const m of [back, front]) {
         const s = new THREE.InstancedMesh(im.geometry, m, im.count);
         s.instanceMatrix = im.instanceMatrix;
+        // The batch's drawn count changes every frame (batch.js cull): follow it.
+        Object.defineProperty(s, "count", { get: () => im.count, set() {}, configurable: true });
         s.boundingSphere = im.boundingSphere;
         s.renderOrder = 20;
         s.userData.shared = true;
