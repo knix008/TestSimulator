@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The main window: window buttons of its own title bar, file dialogs and drag and drop",
-  "windows": ["main"],
+  "description": "The main window and the user's guide window: window buttons of their own title bars, file dialogs and drag and drop",
+  "windows": ["main", "guide"],
   "permissions": [
     "core:default",
     "core:window:allow-show",

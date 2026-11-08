@@ -3,6 +3,7 @@
 import './styles.css';
 import './editor.css';
 import './panels.css';
+import './settings.css';
 import { loadSettings } from './domain/settings.js';
 import { setLanguage } from './i18n.js';
 import { applyFont, applyTheme, resolveTheme } from './themes.js';
@@ -16,6 +17,13 @@ applyFont(settings);
 // Every title shows at once, not after the browser's long wait.
 installTooltips(document);
 
-// A browser window can be narrower than the app's minimum width (a desktop window cannot): scroll sideways then.
-if (!window.__TAURI_INTERNALS__) document.documentElement.classList.add('is-web');
-import('./app.js');
+// The user's guide has a window of its own (desktop: set by Rust; browser: ?view=guide).
+const view = window.__MYTEXTMASTER_VIEW__ ?? new URLSearchParams(location.search).get('view');
+if (view === 'guide') {
+  document.documentElement.classList.add('is-guide');
+  import('./guidewindow.js');
+} else {
+  // A browser window can be narrower than the app's minimum width (a desktop window cannot): scroll sideways then.
+  if (!window.__TAURI_INTERNALS__) document.documentElement.classList.add('is-web');
+  import('./app.js');
+}

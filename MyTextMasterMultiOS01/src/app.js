@@ -13,7 +13,6 @@ import { Preview } from './ui/preview.js';
 import { Wysiwyg } from './ui/wysiwyg.js';
 import { HexEditor, toHex } from './ui/hexeditor.js';
 import { showViewer } from './ui/viewers.js';
-import { showGuide } from './ui/guide.js';
 import { renderLeft, renderRight, renderBottom } from './ui/panels.js';
 import { mdTagBarHtml, mdTagById } from './ui/mdtags.js';
 import { showThemePicker, closeThemePicker } from './ui/themepicker.js';
@@ -40,7 +39,6 @@ import { TEMPLATES, templateById, templateText } from './domain/templates.js';
 import { sampleById } from './domain/samples.js';
 import * as native from './platform/native.js';
 import { openSettings, openAbout, openStats, openShortcuts, openUserDictionary } from './ui/appdialogs.js';
-import { helpText } from './help.js';
 
 const VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0';
 const root = document.querySelector('#app');
@@ -169,7 +167,7 @@ const canEdit = () => onText() && !activeDoc().readOnly;
 const hasPreview = () => onText() && KINDS[activeDoc().kind].preview;
 const inWysiwyg = () => onText() && modeFor(activeDoc()) === 'wysiwyg';
 const isHex = () => onDoc() && activeDoc().kind === 'hex';
-const canSave = () => onDoc() && (isTextKind(activeDoc().kind) || activeDoc().kind === 'hex') && !activeDoc().readOnly && !activeDoc().guide;
+const canSave = () => onDoc() && (isTextKind(activeDoc().kind) || activeDoc().kind === 'hex') && !activeDoc().readOnly;
 
 const commands = {
   // file
@@ -180,7 +178,7 @@ const commands = {
   pasteNew: { icon: 'paste', label: 'action.pasteNew', run: () => pasteAsNew() },
   open: { icon: 'folderOpen', label: 'action.open', key: 'Ctrl+O', run: () => openWithDialog() },
   openFolder: { icon: 'explorer', label: 'action.openFolder', key: 'Ctrl+Shift+F2', enabled: () => desktop, run: () => chooseExplorerRoot() },
-  openAsHex: { icon: 'openAsHex', label: 'action.openAsHex', enabled: () => onDoc() && activeDoc().kind !== 'hex' && !activeDoc().guide, run: () => openAsHex(activeDoc()) },
+  openAsHex: { icon: 'openAsHex', label: 'action.openAsHex', enabled: () => onDoc() && activeDoc().kind !== 'hex', run: () => openAsHex(activeDoc()) },
   reload: { icon: 'reload', label: 'action.reload', enabled: () => onDoc() && Boolean(activeDoc().path) && desktop && !activeDoc().web && isTextKind(activeDoc().kind), run: () => reloadDocument(activeDoc(), true) },
   save: { icon: 'save', label: 'action.save', key: 'Ctrl+S', enabled: canSave, run: () => saveDocument(activeDoc()) },
   saveAs: { icon: 'saveAs', label: 'action.saveAs', key: 'Ctrl+Shift+S', enabled: () => onDoc() && (isTextKind(activeDoc().kind) || activeDoc().kind === 'hex'), run: () => saveDocument(activeDoc(), { as: true }) },
@@ -212,7 +210,7 @@ const commands = {
   bookmarkNext: { icon: 'bookmarkNext', label: 'action.bookmarkNext', key: 'F2', enabled: onText, run: () => { leaveWysiwyg(); if (!gotoBookmark(editor.view, 1)) notify('info', t('bookmarks.empty')); } },
   bookmarkPrev: { icon: 'bookmarkPrev', label: 'action.bookmarkPrev', key: 'Shift+F2', enabled: onText, run: () => { leaveWysiwyg(); if (!gotoBookmark(editor.view, -1)) notify('info', t('bookmarks.empty')); } },
   bookmarkClear: { icon: 'bookmarkClear', label: 'action.bookmarkClear', enabled: onText, run: () => { clearBookmarks(editor.view); afterBookmarks(); } },
-  readOnly: { icon: 'lock', label: 'action.readOnly', enabled: () => onText() && !activeDoc().guide, checked: () => Boolean(activeDoc()?.readOnly), run: () => toggleReadOnly() },
+  readOnly: { icon: 'lock', label: 'action.readOnly', enabled: onText, checked: () => Boolean(activeDoc()?.readOnly), run: () => toggleReadOnly() },
   // format
   bold: { icon: 'bold', label: 'action.bold', key: 'Ctrl+B', enabled: canFormat, run: () => format('bold') },
   italic: { icon: 'italic', label: 'action.italic', key: 'Ctrl+I', enabled: canFormat, run: () => format('italic') },
@@ -541,7 +539,7 @@ function renderMenubar() {
   const menubar = root.querySelector('#menubar');
   const onStart = state.showStart || !activeDoc();
   const home = `<button class="menubar-item menubar-home ${onStart ? 'current' : ''}" data-command="home" title="${escapeHtml(t('tip.home'))}" aria-label="${escapeHtml(t('menu.home'))}" aria-pressed="${onStart}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button><span class="menubar-sep" aria-hidden="true"></span>`;
-  const brand = `<div class="app-brand" data-window-drag title="${escapeHtml(`MyTextMaster v${VERSION}`)}"><img class="app-brand-icon" src="${appIconUrl}" alt="" data-window-drag /><span class="app-brand-name" data-window-drag>MyTextMaster</span><span class="app-brand-version" data-window-drag>v${escapeHtml(VERSION)}</span><span class="app-brand-project" data-window-drag><span class="app-brand-project-name" data-window-drag></span><span class="app-brand-dirty" data-window-drag>●</span></span></div>`;
+  const brand = `<div class="app-brand" data-window-drag title="${escapeHtml(`MyTextMaster v${VERSION}`)}"><img class="app-brand-icon" src="${appIconUrl}" alt="" data-window-drag /><span class="app-brand-name" data-window-drag>MyTextMaster</span><span class="app-brand-version" data-window-drag>v${escapeHtml(VERSION)}</span></div>`;
   const button = (id, glyph, key) => `<button class="window-button ${id === 'close' ? 'close' : ''}" data-window="${id}" title="${escapeHtml(t(key))}" aria-label="${escapeHtml(t(key))}">${icon(glyph)}</button>`;
   const controls = desktop ? `<div class="window-controls">${button('minimize', 'winMinimize', 'window.minimize')}${state.maximized ? button('maximize', 'winRestore', 'window.restore') : button('maximize', 'winMaximize', 'window.maximize')}${button('close', 'winClose', 'window.close')}</div>` : '';
   const open = menuKey();
@@ -549,17 +547,6 @@ function renderMenubar() {
   menubar.innerHTML = brand + home + Object.keys(MENU_ICONS).map((name) => `
     <button class="menubar-item ${open === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('')
     + `${recording}<div class="menubar-drag" data-window-drag></div>${controls}`;
-  renderTitleDoc();
-}
-
-function renderTitleDoc() {
-  const box = root.querySelector('.app-brand-project');
-  if (!box) return;
-  const doc = state.showStart ? null : activeDoc();
-  box.classList.toggle('empty', !doc);
-  box.classList.toggle('dirty', isDirty(doc));
-  box.querySelector('.app-brand-project-name').textContent = doc ? docName(doc) : '';
-  box.title = doc ? `${doc.path ?? docName(doc)}${isDirty(doc) ? ` (${t('status.modified')})` : ''}` : '';
 }
 
 function openMenubarMenu(name) {
@@ -654,7 +641,6 @@ function updateMinimumWidth() {
 // ───────────────────────── tabs
 
 function renderTabs() {
-  renderTitleDoc();
   const tabs = root.querySelector('#tabs');
   const active = activeDoc();
   tabs.hidden = state.showStart || !active;
@@ -662,7 +648,7 @@ function renderTabs() {
   const scroll = tabs.querySelector('.tab-strip')?.scrollLeft ?? 0;
   tabs.innerHTML = `
     <div class="tab-strip"><div class="tab-list" role="tablist" aria-label="${escapeHtml(t('tabs.documents'))}">
-      ${state.docs.map((doc) => `<div class="tab ${doc.id === state.activeId ? 'active' : ''} ${isDirty(doc) ? 'dirty' : ''}" role="tab" aria-selected="${doc.id === state.activeId}" data-tab="${doc.id}" title="${escapeHtml(doc.path ?? doc.name)}${isDirty(doc) ? ` (${escapeHtml(t('status.modified'))})` : ''}">${icon(doc.guide ? 'userGuide' : KINDS[doc.kind]?.icon ?? 'file')}<span class="tab-name">${escapeHtml(doc.name)}</span>${doc.readOnly ? icon('lock', 'icon tiny') : ''}<span class="tab-dirty">●</span><button class="tab-close" data-tab-close="${doc.id}" title="${escapeHtml(t('action.closeTab'))}" aria-label="${escapeHtml(t('action.closeTab'))}">${icon('close')}</button></div>`).join('')}
+      ${state.docs.map((doc) => `<div class="tab ${doc.id === state.activeId ? 'active' : ''} ${isDirty(doc) ? 'dirty' : ''}" role="tab" aria-selected="${doc.id === state.activeId}" data-tab="${doc.id}" title="${escapeHtml(doc.path ?? doc.name)}${isDirty(doc) ? ` (${escapeHtml(t('status.modified'))})` : ''}">${icon(KINDS[doc.kind]?.icon ?? 'file')}<span class="tab-name">${escapeHtml(doc.name)}</span>${doc.readOnly ? icon('lock', 'icon tiny') : ''}<span class="tab-dirty">●</span><button class="tab-close" data-tab-close="${doc.id}" title="${escapeHtml(t('action.closeTab'))}" aria-label="${escapeHtml(t('action.closeTab'))}">${icon('close')}</button></div>`).join('')}
     </div></div>
     <button class="tab-add" data-tab-add title="${escapeHtml(t('tip.newTab'))}" aria-label="${escapeHtml(t('tip.newTab'))}">${icon('plus')}</button>
     <div class="tab-nav">
@@ -694,7 +680,6 @@ function updateTabNav() {
 /** Only the tab states (dirty dot, title): cheaper than drawing the tabs on every key. */
 function refreshTabState(doc) {
   for (const el of root.querySelectorAll(`[data-tab="${doc.id}"]`)) el.classList.toggle('dirty', isDirty(doc));
-  renderTitleDoc();
   updateTitle();
 }
 
@@ -708,7 +693,7 @@ function tabMenu(doc, point) {
     { label: t('action.save'), icon: 'save', disabled: doc.readOnly || !(isTextKind(doc.kind) || doc.kind === 'hex'), run: () => saveDocument(doc) },
     { label: t('action.saveAs'), icon: 'saveAs', disabled: !(isTextKind(doc.kind) || doc.kind === 'hex'), run: () => saveDocument(doc, { as: true }) },
     { label: t('tabs.rename'), icon: 'edit', disabled: Boolean(doc.path) && !doc.web, run: () => renameUntitled(doc) },
-    { label: t('action.openAsHex'), icon: 'openAsHex', disabled: doc.kind === 'hex' || doc.guide, run: () => openAsHex(doc) },
+    { label: t('action.openAsHex'), icon: 'openAsHex', disabled: doc.kind === 'hex', run: () => openAsHex(doc) },
     'sep',
     { label: t('tabs.copyPath'), icon: 'copy', disabled: !doc.path || doc.web, run: () => copyText(doc.path).then(() => notify('success', t('notice.copied'))) },
     { label: t('tabs.copyName'), icon: 'copy', run: () => copyText(doc.name).then(() => notify('success', t('notice.copied'))) },
@@ -935,7 +920,7 @@ function renderStatus() {
     return;
   }
   if (!isTextKind(doc.kind)) {
-    bar.innerHTML = `<span class="status-item">${icon(doc.guide ? 'userGuide' : KINDS[doc.kind]?.icon ?? 'file')}<span>${escapeHtml(doc.guide ? t('action.userGuide') : t(`kind.${doc.kind}`))}</span></span>${notice}${doc.size !== undefined ? `<span class="status-item clock">${icon('hexFile')}<span>${escapeHtml(formatSize(doc.size))}</span></span>` : ''}`;
+    bar.innerHTML = `<span class="status-item">${icon(KINDS[doc.kind]?.icon ?? 'file')}<span>${escapeHtml(t(`kind.${doc.kind}`))}</span></span>${notice}${doc.size !== undefined ? `<span class="status-item clock">${icon('hexFile')}<span>${escapeHtml(formatSize(doc.size))}</span></span>` : ''}`;
     return;
   }
   const cursor = editor.cursorInfo();
@@ -1074,16 +1059,6 @@ async function mountDocument(doc) {
   viewerHost.hidden = doc.kind === 'hex';
   viewerHandle = null;
   if (doc.kind === 'hex') { hexEditor.show(doc); return; }
-  if (doc.guide) {
-    viewerHandle = showGuide(viewerHost, {
-      text: (language) => helpText('guide', language),
-      settings: () => ({ ...state.settings, guideLanguage: state.settings.guideLanguage || lang() }),
-      update: (patch) => { state.settings = { ...state.settings, ...patch }; storeSettings(store, state.settings); },
-      dark: () => isDark(),
-      openLink: (href) => followLink(href),
-    });
-    return;
-  }
   viewerHandle = showViewer(viewerHost, doc, {
     notify,
     status: () => {},
@@ -1241,7 +1216,7 @@ async function reloadDocument(doc, ask) {
 
 /** Saves a document; `as` asks for a new name. Returns true when it was written. */
 async function saveDocument(doc, { as = false } = {}) {
-  if (!doc || doc.guide) return false;
+  if (!doc) return false;
   if (doc === activeDoc() && inWysiwyg()) wysiwyg.flush();
   if (doc.kind === 'hex') return saveHex(doc, { as });
   if (!isTextKind(doc.kind)) return false;
@@ -1415,13 +1390,9 @@ function toggleReadOnly() {
   renderAll();
 }
 
-/** The user's guide (doc/UsersGuide*.md) in a tab of its own, with text size and language. */
+/** The user's guide (doc/UsersGuide*.md) in a window of its own, with its contents, text size and language. */
 function openGuide() {
-  const existing = state.docs.find((doc) => doc.guide);
-  if (existing) return activate(existing);
-  const doc = makeDoc({ name: t('action.userGuide'), kind: 'guide', readOnly: true });
-  doc.guide = true;
-  return addDocument(doc);
+  return native.openGuideWindow(`MyTextMaster — ${t('action.userGuide')}`).catch(showError);
 }
 
 // ───────────────────────── pictures: drop, paste, resolve
@@ -1498,7 +1469,7 @@ function saveSessionSoon() {
 
 function sessionDocs() {
   return state.docs
-    .filter((doc) => !doc.guide && !doc.sample && !(doc.discarded && !doc.path) && (isTextKind(doc.kind) ? true : doc.path && !doc.web))
+    .filter((doc) => !doc.sample && !(doc.discarded && !doc.path) && (isTextKind(doc.kind) ? true : doc.path && !doc.web))
     .map((doc) => (isTextKind(doc.kind) ? { ...doc, text: editor.text(doc), dirty: isDirty(doc) && !doc.discarded } : { path: doc.path, kind: doc.kind, dirty: false, id: doc.id }));
 }
 

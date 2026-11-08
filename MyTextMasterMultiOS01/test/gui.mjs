@@ -95,7 +95,7 @@ check('typing updates the preview, the outline and marks the tab unsaved', async
   expect(/<h1 id="새-제목">새 제목<\/h1>/.test(html), 'heading not rendered');
   await page.waitFor(`document.querySelectorAll('.outline-item').length === 2`, 3000);
   expect(await page.eval(`return document.querySelector('#tabs .tab.active').classList.contains('dirty');`), 'tab not dirty');
-  expect(await page.eval(`return document.querySelector('.app-brand-project').classList.contains('dirty');`), 'title not dirty');
+  expect(!(await page.eval(`return Boolean(document.querySelector('.app-brand-project'));`)), 'the file name is back in the title row');
 });
 
 check('Ctrl+B bolds the selection and undoes it again; Ctrl+I italics', async () => {
@@ -340,19 +340,31 @@ check('about, statistics and shortcuts dialogs open', async () => {
   }
 });
 
-check('the user\'s guide opens in a tab with contents, text size and language', async () => {
-  await app(`app.run('userGuide'); return true;`);
-  await page.waitFor(`document.querySelector('.guide-frame')?.contentDocument?.querySelector('h1')`, 4000);
+check('the user\'s guide opens in a window of its own, with contents, text size and language', async () => {
+  // F1 opens a separate window (window.open in the browser, a Tauri window on the desktop), not a tab.
+  const tabs = await page.eval(`return document.querySelectorAll('#tabs .tab').length;`);
+  const opened = await app(`const calls = []; const real = window.open; window.open = (...a) => { calls.push(a); return null; }; await app.run('userGuide'); await new Promise((r) => setTimeout(r, 100)); window.open = real; return calls;`);
+  expect(opened.length === 1 && opened[0][0].includes('view=guide') && opened[0][1] === 'mytextmaster-guide', `window.open: ${JSON.stringify(opened)}`);
+  expect((await page.eval(`return document.querySelectorAll('#tabs .tab').length;`)) === tabs, 'a tab was opened');
+  // The guide window's page.
+  await page.send('Page.navigate', { url: `${url}?view=guide` });
+  await page.waitFor(`document.querySelector('.guide-frame')?.contentDocument?.querySelector('h1')`, 6000);
+  expect(await page.eval(`return Boolean(document.querySelector('.guide-titlebar .app-brand-icon') && document.querySelector('.guide-titlebar-title') && document.querySelectorAll('.resize-grip circle').length === 6 && !document.querySelector('#menubar'));`), 'guide window chrome');
   expect((await page.eval(`return document.querySelectorAll('.guide-toc .outline-item').length;`)) > 8, 'no contents');
   await page.click('[data-guide="larger"]');
   expect((await page.eval(`return document.querySelector('.guide-size').textContent;`)) === '110%', 'size did not grow');
   expect((await page.eval(`return document.querySelector('.guide-frame').contentDocument.body.style.fontSize;`)) === '110%', 'guide text did not grow');
   await page.click('[data-guide-lang="en"]');
   await page.waitFor(`document.querySelector('.guide-frame')?.contentDocument?.querySelector('h1')?.textContent.includes('User')`, 4000);
-  await shot('08-guide');
+  await shot('08-guide-window');
+  // A theme picked in the main window shows here at once (shared storage, storage event).
+  await page.eval(`const s = JSON.parse(localStorage.getItem('mytextmaster.settings')); s.theme = 'nord'; const v = JSON.stringify(s); localStorage.setItem('mytextmaster.settings', v); window.dispatchEvent(new StorageEvent('storage', { key: 'mytextmaster.settings', newValue: v })); return true;`);
+  await page.waitFor(`document.documentElement.dataset.theme === 'nord'`, 2000);
   await page.click('[data-guide-lang="ko"]');
   await page.click('[data-guide="reset"]');
-  await app(`app.run('closeTab'); return true;`);
+  await page.eval(`const s = JSON.parse(localStorage.getItem('mytextmaster.settings')); s.theme = 'light'; localStorage.setItem('mytextmaster.settings', JSON.stringify(s)); return true;`);
+  await page.goto(url);
+  await app(`app.showStartPage(false); return true;`);
 });
 
 check('side and bottom panels collapse and expand from the toolbar and their title bars', async () => {
@@ -564,12 +576,26 @@ check('theme drop-down: system and custom on top, dark | light columns of 20, ed
 check('settings apply at once and "reset to defaults" restores them', async () => {
   await app(`app.run('settings'); return true;`);
   await page.waitFor(`document.querySelector('[data-dialog="settings"]')`, 2000);
+  // No tab hides, no pane scrolls, the window fits.
+  const tabs = await page.eval(`return [...document.querySelectorAll('[data-settings-tab]')].map((b) => b.dataset.settingsTab);`);
+  expect(tabs.length === 8 && tabs.includes('custom'), `tabs ${tabs}`);
+  for (const tab of tabs) {
+    await page.click(`[data-settings-tab="${tab}"]`);
+    const m = await page.eval(`const pane = document.querySelector('.settings-pane'); const bar = document.querySelector('[data-dialog="settings"] .tabs').getBoundingClientRect(); const box = document.querySelector('[data-dialog="settings"]').getBoundingClientRect();
+      return { over: pane.scrollHeight - pane.clientHeight, hidden: [...document.querySelectorAll('[data-settings-tab]')].filter((b) => { const r = b.getBoundingClientRect(); return r.right > bar.right + 1 || b.scrollWidth > b.clientWidth + 1; }).length, fits: box.bottom <= innerHeight && box.top >= 0 };`);
+    expect(m.over <= 0 && m.hidden === 0 && m.fits, `${tab}: ${JSON.stringify(m)}`);
+  }
   await page.click('[data-settings-tab="appearance"]');
-  expect((await page.eval(`return document.querySelectorAll('[data-dialog="settings"] [data-pick-theme]').length;`)) === 40, 'theme tiles');
+  expect((await page.eval(`return document.querySelectorAll('[data-dialog="settings"] .mini-themes:not(.top) [data-pick-theme]').length;`)) === 40, 'theme buttons');
+  expect((await page.eval(`return Math.round(document.querySelector('[data-dialog="settings"] .mini-theme').getBoundingClientRect().height);`)) <= 26, 'theme buttons are not small');
   await page.click('[data-dialog="settings"] [data-pick-theme="nord"]');
   expect((await page.eval(`return document.documentElement.dataset.theme;`)) === 'nord', 'theme not applied at once');
-  await page.click('[data-dialog="settings"] [data-custom-start]');
-  expect((await page.eval(`return document.querySelectorAll('[data-dialog="settings"] [data-custom]').length;`)) >= 12, 'custom colour editor');
+  // The custom theme's own tab: copy a theme's colours, which switches to the custom theme.
+  await page.click('[data-settings-tab="custom"]');
+  expect((await page.eval(`return document.querySelectorAll('[data-dialog="settings"] input[type="color"][data-custom]').length;`)) === 12, 'custom colour editor');
+  await page.eval(`const s = document.querySelector('[data-custom-copy]'); s.value = 'dracula'; s.dispatchEvent(new Event('change', { bubbles: true })); return true;`);
+  await wait(100);
+  expect((await app(`return app.settings().theme + ' ' + app.settings().customTheme.accent;`)) === 'custom #ff79c6', 'copy into the custom theme');
   await page.click('[data-dialog-button="reset"]');
   await page.waitFor(`document.querySelector('[data-dialog="confirm"]')`, 2000);
   await page.click('[data-dialog="confirm"] [data-dialog-button="yes"]');

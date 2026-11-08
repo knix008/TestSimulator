@@ -197,7 +197,7 @@ Many kinds of files are shown **in a tab of the main window**, not in pop-up win
 
 ## 16. Reading this guide
 
-**Help › User's guide** (`F1`) opens this guide in a tab: the contents on the left, and on the bar above, the **text size** (− / + / 100%) and the **language** (한국어 / English). Size and language are remembered.
+**Help › User's guide** (`F1`) opens this guide in **a window of its own** (a new browser window in the web version), so it can stay open beside your work; pressing it again brings that window to the front. The contents are on the left; the bar above sets the **text size** (− / + / 100%) and the **language** (한국어 / English). Size and language are remembered, and the guide window follows the program's theme.
 
 ## 17. Keyboard shortcuts
 

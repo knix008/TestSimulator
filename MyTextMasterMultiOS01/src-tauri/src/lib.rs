@@ -283,6 +283,30 @@ fn window_ready(window: WebviewWindow) {
     let _ = window.set_focus();
 }
 
+/// The user's guide in a window of its own (label "guide"); a second call brings that window back
+/// to the front. Async: creating a window from a synchronous command deadlocks on Windows.
+#[tauri::command]
+async fn open_guide_window(app: AppHandle, title: String) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("guide") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app, "guide", WebviewUrl::default())
+        .title(title)
+        .decorations(false)
+        .shadow(true)
+        .inner_size(1040.0, 780.0)
+        .min_inner_size(640.0, 420.0)
+        .center()
+        // The page reads this to show the guide instead of the editor.
+        .initialization_script("window.__MYTEXTMASTER_VIEW__ = 'guide';")
+        .build()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 fn quit_app(app: AppHandle) {
     app.exit(0);
@@ -349,7 +373,8 @@ pub fn run() {
             write_bytes,
             set_always_on_top,
             file_details,
-            file_hashes
+            file_hashes,
+            open_guide_window
         ])
         .build(tauri::generate_context!())
         .expect("error while building MyTextMaster");

@@ -12,7 +12,7 @@ import { intervalLabel } from './startpage.js';
 import { ANIMATION_KINDS } from './background.js';
 
 const TABS = [
-  ['general', 'gear'], ['appearance', 'palette'], ['editor', 'edit'], ['spelling', 'spellCheck'], ['preview', 'viewPreview'], ['files', 'save'], ['start', 'home'],
+  ['general', 'gear'], ['appearance', 'palette'], ['custom', 'diagramThemes'], ['editor', 'edit'], ['spelling', 'spellCheck'], ['preview', 'viewPreview'], ['files', 'save'], ['start', 'home'],
 ];
 
 const row = (glyph, label, control, tip = '') => `<div class="row" ${tip ? `title="${escapeHtml(tip)}"` : ''}><span class="row-label">${icon(glyph)}<span>${escapeHtml(label)}</span></span><span class="row-control">${control}</span></div>`;
@@ -35,21 +35,39 @@ function pane(tab, s) {
       row('eye', t('explorer.hidden'), toggle('showHidden', s.showHidden)),
     ].join('');
     case 'appearance': {
-      const themes = [['system', themeName('system', L)], ...THEMES.map((theme) => [theme.id, `${theme.dark ? '🌙' : '☀'} ${theme.name[L]}`]), ['custom', themeName('custom', L)]];
-      const custom = s.customTheme ?? customFrom(resolveTheme(s.theme === 'custom' ? 'light' : s.theme));
-      const tile = (theme) => `<button type="button" class="bg-tile st-theme-tile ${s.theme === theme.id ? 'on' : ''}" data-pick-theme="${theme.id}" title="${escapeHtml(theme.name[L])}"><span class="st-theme-chip" style="background:${theme.swatch[0]};border-color:${theme.swatch[2]}"><i style="background:${theme.swatch[1]}"></i><i style="background:${theme.swatch[2]}"></i></span><span>${escapeHtml(theme.name[L])}</span></button>`;
-      const grid = `<div class="settings-themes"><h4>${icon('sun')}<span>${escapeHtml(t('start.themeLight'))} (${LIGHT_THEMES.length})</span></h4><div class="bg-grid st-theme-tiles">${LIGHT_THEMES.map(tile).join('')}</div>
-        <h4>${icon('moon')}<span>${escapeHtml(t('start.themeDark'))} (${DARK_THEMES.length})</span></h4><div class="bg-grid st-theme-tiles">${DARK_THEMES.map(tile).join('')}</div></div>`;
-      const editorBox = s.theme === 'custom'
-        ? `<div class="custom-colors">${CUSTOM_KEYS.map((key) => `<label class="custom-color" title="${escapeHtml(key)}"><input type="color" data-custom="${key}" value="${custom[key]}"/><span>${escapeHtml(t(`color.${key}`, null, key))}</span></label>`).join('')}<label class="custom-color"><input type="checkbox" data-custom="dark" ${custom.dark ? 'checked' : ''}/><span>${escapeHtml(t('color.dark'))}</span></label></div>`
-        : `<p class="muted settings-note">${icon('info')}<span>${escapeHtml(t('settings.customNote'))}</span></p>`;
-      const colors = `<div class="custom-head">${icon('palette')}<b>${escapeHtml(themeName('custom', L))}</b><span class="grow"></span>${s.theme === 'custom' ? '' : `<button type="button" class="small-button" data-custom-start>${icon('edit')}<span>${escapeHtml(t('settings.customStart'))}</span></button>`}</div>${editorBox}`;
+      // Small theme buttons: the system setting and the custom theme, then 20 dark and 20 light.
+      const chip = (theme) => `<span class="mini-chip" style="background:${theme.swatch[0]};border-color:${theme.swatch[2]}"><i style="background:${theme.swatch[1]}"></i><i style="background:${theme.swatch[2]}"></i></span>`;
+      const tile = (id, lead, name) => `<button type="button" class="mini-theme ${s.theme === id ? 'on' : ''}" data-pick-theme="${id}" role="radio" aria-checked="${s.theme === id}" title="${escapeHtml(name)}">${lead}<span>${escapeHtml(name)}</span></button>`;
+      const group = (glyph, title, list) => `<h4>${icon(glyph)}<span>${escapeHtml(title)}</span></h4><div class="mini-themes" role="radiogroup" aria-label="${escapeHtml(title)}">${list.map((theme) => tile(theme.id, chip(theme), theme.name[L])).join('')}</div>`;
       return [
-        row('palette', t('settings.theme'), select('theme', s.theme, themes)),
-        grid,
-        colors,
+        `<div class="settings-themes">
+          <div class="mini-themes top">${tile('system', icon('sun'), themeName('system', L))}${tile('custom', icon('palette'), themeName('custom', L))}</div>
+          ${group('moon', t('theme.darkGroup', { count: DARK_THEMES.length }), DARK_THEMES)}
+          ${group('sun', t('theme.lightGroup', { count: LIGHT_THEMES.length }), LIGHT_THEMES)}
+        </div>`,
         row('font', t('settings.uiFont'), `<input type="text" data-setting="fontFamily" value="${escapeHtml(s.fontFamily)}" placeholder="Segoe UI, Malgun Gothic…"/>`),
         row('fontSizeUp', t('settings.uiFontSize'), number('fontSize', s.fontSize, 11, 18, 1, 'px')),
+      ].join('');
+    }
+    case 'custom': {
+      // The custom theme's own tab: its colours, light or dark, a theme to start from, a preview. Changing a colour uses it.
+      const custom = s.customTheme ?? customFrom(resolveTheme(s.theme === 'custom' ? 'light' : s.theme));
+      const using = s.theme === 'custom';
+      const sources = THEMES.map((theme) => [theme.id, `${theme.dark ? '◐' : '○'} ${theme.name[L]}`]);
+      return [
+        `<div class="custom-head">${icon('palette')}<b>${escapeHtml(themeName('custom', L))}</b>
+          <span class="custom-state ${using ? 'on' : ''}">${icon(using ? 'check' : 'info', 'icon tiny')}<span>${escapeHtml(t(using ? 'settings.customInUse' : 'settings.customNotInUse'))}</span></span>
+          <span class="grow"></span>
+          ${using ? '' : `<button type="button" class="small-button primary-ish" data-custom-use>${icon('check')}<span>${escapeHtml(t('settings.customUse'))}</span></button>`}
+        </div>`,
+        row('copy', t('settings.customCopyFrom'), `<select data-custom-copy><option value="">${escapeHtml(t('settings.customCopyPick'))}</option>${sources.map(([id, name]) => `<option value="${id}">${escapeHtml(name)}</option>`).join('')}</select>`),
+        row('moon', t('color.dark'), `<label class="switch-wrap"><input type="checkbox" data-custom="dark" ${custom.dark ? 'checked' : ''}/><span class="switch"></span></label>`),
+        `<div class="custom-colors">${CUSTOM_KEYS.map((key) => `<label class="custom-color" title="${escapeHtml(t(`color.${key}`, null, key))}"><input type="color" data-custom="${key}" value="${custom[key]}"/><span>${escapeHtml(t(`color.${key}`, null, key))}</span><code>${escapeHtml(custom[key])}</code></label>`).join('')}</div>`,
+        `<div class="custom-preview" style="background:${custom.bg};color:${custom.text};border-color:${custom.border}">
+          <div class="cp-bar" style="background:${custom.toolbar};border-color:${custom.border}"><b>${escapeHtml(t('settings.customPreview'))}</b><span class="cp-accent" style="background:${custom.accent};color:${custom.accentText}">${escapeHtml(t('action.save'))}</span></div>
+          <div class="cp-body" style="background:${custom.chart}"><span>${escapeHtml(t('settings.customSampleText'))}</span> <span style="color:${custom.muted}">${escapeHtml(t('settings.customSampleMuted'))}</span></div>
+          <div class="cp-status" style="background:${custom.status};color:${custom.muted};border-color:${custom.border}">${escapeHtml(t('status.cursor', { line: 1, lines: 12, col: 1 }))}</div>
+        </div>`,
       ].join('');
     }
     case 'editor': return [
@@ -103,29 +121,66 @@ const NUMERIC = new Set(['fontSize', 'editorFontSize', 'tabSize', 'autoSaveSecon
 
 export async function openSettings(app, first = 'general') {
   let tab = first;
+  /** Every tab gets the height of the tallest one (measured off-screen at the pane's width): no tab scrolls and the window does not jump. */
+  const fit = (box) => {
+    const pane = box.querySelector('.settings-pane');
+    const probe = pane.cloneNode(false);
+    Object.assign(probe.style, { position: 'absolute', visibility: 'hidden', left: '-10000px', top: '0', width: `${pane.clientWidth}px`, height: 'auto' });
+    box.appendChild(probe);
+    let tallest = 0;
+    for (const [id] of TABS) { probe.innerHTML = paneFor(id); tallest = Math.max(tallest, probe.scrollHeight); }
+    probe.remove();
+    pane.style.height = `${Math.ceil(tallest) + 2}px`;
+  };
+  const paneFor = (id) => pane(id, app.settings());
   const draw = (box) => {
     box.querySelector('.tabs').innerHTML = TABS.map(([id, glyph]) => `<button type="button" class="tab ${id === tab ? 'active' : ''}" data-settings-tab="${id}">${icon(glyph)}<span>${escapeHtml(t(`settings.tab.${id}`))}</span></button>`).join('');
-    box.querySelector('.settings-pane').innerHTML = pane(tab, app.settings());
+    box.querySelector('.settings-pane').innerHTML = paneFor(tab);
+  };
+  /** A colour of the custom theme changed (or all of them): the custom theme is used from then on. */
+  const setCustom = (box, patch) => {
+    const s = app.settings();
+    const base = s.customTheme ?? customFrom(resolveTheme(s.theme === 'custom' ? 'light' : s.theme));
+    app.updateSettings({ theme: 'custom', customTheme: { ...base, ...patch } }, { quiet: true });
+    draw(box);
   };
   await openDialog({
-    id: 'settings', title: t('action.settings'), icon: 'gear', width: 640, height: 560, className: 'settings-dialog',
+    id: 'settings', title: t('action.settings'), icon: 'gear', width: 880, className: 'settings-dialog',
     body: '<div class="tabs" role="tablist"></div><div class="settings-pane form-rows"></div>',
     buttons: [{ id: 'reset', label: t('settings.reset'), icon: 'refresh', danger: true }, { id: 'close', label: t('action.close'), icon: 'check', primary: true }],
     onMount: (box) => {
       draw(box);
+      requestAnimationFrame(() => fit(box));
       box.addEventListener('click', (event) => {
         const button = event.target.closest('[data-settings-tab]');
         if (button) { tab = button.dataset.settingsTab; draw(box); return; }
         const pick = event.target.closest('[data-pick-theme]');
-        if (pick) { app.updateSettings({ theme: pick.dataset.pickTheme }, { quiet: true }); draw(box); return; }
-        if (event.target.closest('[data-custom-start]')) { app.updateSettings({ theme: 'custom', customTheme: customFrom(resolveTheme(app.settings().theme)) }, { quiet: true }); draw(box); return; }
+        if (pick) {
+          const id = pick.dataset.pickTheme;
+          if (id === 'custom') setCustom(box, {}); else { app.updateSettings({ theme: id }, { quiet: true }); draw(box); }
+          return;
+        }
+        if (event.target.closest('[data-custom-use]')) { setCustom(box, {}); return; }
         if (event.target.closest('[data-open-dictionary]')) openUserDictionary(app);
       });
       const apply = (event) => {
         const el = event.target;
+        if (el.matches('[data-custom-copy]')) {
+          if (event.type === 'change' && el.value) setCustom(box, customFrom(resolveTheme(el.value)));
+          return;
+        }
         if (el.dataset.custom) {
-          const current = app.settings().customTheme ?? customFrom(resolveTheme(app.settings().theme === 'custom' ? 'light' : app.settings().theme));
-          app.updateSettings({ customTheme: { ...current, [el.dataset.custom]: el.type === 'checkbox' ? el.checked : el.value } }, { quiet: true });
+          const value = el.type === 'checkbox' ? el.checked : el.value;
+          // While a colour is dragged the theme follows; the tab is drawn again when the choice is made.
+          if (event.type === 'input' && el.type === 'color') {
+            const s = app.settings();
+            const base = s.customTheme ?? customFrom(resolveTheme(s.theme === 'custom' ? 'light' : s.theme));
+            app.updateSettings({ theme: 'custom', customTheme: { ...base, [el.dataset.custom]: value } }, { quiet: true });
+            const code = el.parentElement.querySelector('code');
+            if (code) code.textContent = value;
+            return;
+          }
+          if (event.type === 'change') setCustom(box, { [el.dataset.custom]: value });
           return;
         }
         const key = el.dataset.setting;
@@ -138,7 +193,14 @@ export async function openSettings(app, first = 'general') {
         if (key === 'theme' && value === 'custom' && !app.settings().customTheme) patch.customTheme = customFrom(resolveTheme(app.settings().theme));
         app.updateSettings(patch, { quiet: true });
         // Another language or the custom theme's colours: the panel is drawn again.
-        if (key === 'language' || key === 'theme') { box.querySelector('.popup-head h2 span').textContent = t('action.settings'); draw(box); box.querySelector('[data-dialog-button="reset"] span').textContent = t('settings.reset'); box.querySelector('[data-dialog-button="close"] span').textContent = t('action.close'); }
+        if (key === 'language' || key === 'theme' || key === 'fontSize' || key === 'fontFamily') {
+          box.querySelector('.popup-head h2 span').textContent = t('action.settings');
+          draw(box);
+          box.querySelector('[data-dialog-button="reset"] span').textContent = t('settings.reset');
+          box.querySelector('[data-dialog-button="close"] span').textContent = t('action.close');
+          // Other words or another text size: the tabs are measured again.
+          requestAnimationFrame(() => fit(box));
+        }
       };
       box.addEventListener('change', apply);
       box.addEventListener('input', apply);
@@ -150,6 +212,7 @@ export async function openSettings(app, first = 'general') {
         const keep = { startLayout: null, explorerRoot: app.settings().explorerRoot };
         app.updateSettings({ ...DEFAULTS, ...keep }, { quiet: true });
         draw(box);
+        requestAnimationFrame(() => fit(box));
         app.notify('success', t('settings.resetDone'));
       }
       return false;

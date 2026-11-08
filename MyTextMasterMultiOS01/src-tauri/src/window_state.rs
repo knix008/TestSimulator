@@ -14,8 +14,12 @@ pub struct WindowState {
     pub maximized: bool,
 }
 
+/// MYTEXTMASTER_CONFIG_DIR (tests, a second copy beside an installed one) keeps the window place elsewhere.
 pub fn state_file(app: &AppHandle) -> Option<PathBuf> {
-    let dir = app.path().app_config_dir().ok()?;
+    let dir = match std::env::var_os("MYTEXTMASTER_CONFIG_DIR") {
+        Some(dir) => PathBuf::from(dir),
+        None => app.path().app_config_dir().ok()?,
+    };
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir.join("window-state.json"))
 }

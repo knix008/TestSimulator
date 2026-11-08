@@ -216,3 +216,15 @@ body.splitting-v iframe { pointer-events: none; }
 .theme-dropdown .popup-body { flex: 1; min-height: 0; overflow: auto; padding: 10px 14px; }
 .theme-dropdown .picker-item .icon.check { margin-left: auto; }
 .theme-dropdown .picker-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Title row: icon, name and version, then Home right away (the open document is named on its tab and in the window title). */
+.app-brand { padding-right: 8px; margin-right: 2px; }
+
+/* The user's guide window (guidewindow.js): its own title row, the guide filling the rest */
+html.is-guide #app.guide-window { height: 100vh; min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.guide-titlebar { display: flex; align-items: stretch; gap: 7px; min-height: 34px; padding-left: 10px; background: var(--toolbar); border-bottom: 1px solid var(--hairline, var(--border)); user-select: none; }
+.guide-titlebar > :not(.window-controls) { align-self: center; }
+.guide-titlebar .app-brand-name { font-weight: 700; }
+.guide-titlebar-sep { color: var(--muted); }
+.guide-titlebar-title { font-weight: 600; }
+#guide-host { display: flex; flex-direction: column; min-height: 0; }

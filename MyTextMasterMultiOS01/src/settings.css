@@ -1,0 +1,41 @@
+/* The Settings window: every tab visible (they share the width and wrap when they must), every pane
+   the height of the tallest one (measured in appdialogs.js), nothing scrolls. */
+.settings-dialog .popup-body { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.settings-dialog .tabs { display: flex; flex-wrap: wrap; gap: 4px 4px; padding: 8px 12px 0; overflow: visible; }
+.settings-dialog .tabs .tab { flex: 1 1 auto; justify-content: center; display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 6px 10px; white-space: nowrap; }
+.settings-dialog .tabs .tab .icon { width: 15px; height: 15px; flex: none; }
+.settings-pane { overflow: hidden !important; padding: 8px 18px 12px; --label-col: 240px; }
+.settings-pane .row { min-height: 32px; }
+.settings-pane .row-control output { min-width: 46px; text-align: right; color: var(--accent); font-weight: 600; }
+.settings-pane .row-control input[type="range"] { flex: 1; }
+.settings-note { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 0; font-size: 0.86em; line-height: 1.5; white-space: normal; }
+.settings-note .icon { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+
+/* Appearance: small theme buttons, five to a row */
+.settings-themes h4 { display: flex; align-items: center; gap: 6px; margin: 8px 0 4px; font-size: 0.82em; color: var(--muted); }
+.settings-themes h4 .icon { width: 13px; height: 13px; }
+.mini-themes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px 4px; }
+.mini-themes.top { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 2px; }
+.mini-theme { display: flex; align-items: center; gap: 6px; height: 24px; min-width: 0; padding: 0 7px; border: 1px solid var(--hairline, var(--border)); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 0.84em; cursor: pointer; text-align: left; }
+.mini-theme > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-theme .icon { width: 13px; height: 13px; flex: none; }
+.mini-theme:hover { border-color: var(--accent); background: var(--hover); }
+.mini-theme.on { border-color: var(--accent); background: var(--soft-accent, var(--hover)); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 600; }
+.mini-chip { flex: none; display: flex; width: 18px; height: 12px; padding: 1px; gap: 1px; border: 1px solid; border-radius: 3px; overflow: hidden; }
+.mini-chip > i { flex: 1 1 0; border-radius: 1px; }
+
+/* Custom theme tab */
+.settings-pane .custom-head { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; }
+.custom-state { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 10px; font-size: 0.8em; color: var(--muted); background: var(--surface2); }
+.custom-state.on { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
+.custom-state .icon { width: 12px; height: 12px; }
+.settings-pane .custom-colors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 12px; padding: 8px 0; border: 0; }
+.settings-pane .custom-color { display: grid; grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 7px; align-items: center; font-size: 0.86em; cursor: pointer; }
+.settings-pane .custom-color input[type="color"] { grid-row: span 2; width: 30px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 5px; background: none; cursor: pointer; }
+.settings-pane .custom-color span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-pane .custom-color code { font: 0.8em Consolas, monospace; color: var(--muted); }
+.custom-preview { margin-top: 6px; border: 1px solid; border-radius: 8px; overflow: hidden; font-size: 0.9em; }
+.custom-preview .cp-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid; }
+.custom-preview .cp-accent { padding: 2px 10px; border-radius: 6px; font-size: 0.9em; }
+.custom-preview .cp-body { padding: 10px; }
+.custom-preview .cp-status { padding: 3px 10px; border-top: 1px solid; font-size: 0.85em; }

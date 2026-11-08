@@ -140,6 +140,14 @@ export const windowDrag = (edge) => (desktop ? invoke('window_drag', { edge: edg
 export const setMinimumSize = (width, height) => (desktop ? invoke('set_min_size', { width, height }).catch(() => {}) : Promise.resolve());
 export const setWindowTitle = async (title) => { if (desktop) await (await api()).win.getCurrentWindow().setTitle(title).catch(() => {}); else document.title = title; };
 export const showWindow = () => (desktop ? invoke('window_ready').catch(() => {}) : Promise.resolve());
+/** The user's guide in a window of its own (a second call brings it to the front). */
+export function openGuideWindow(title) {
+  if (desktop) return invoke('open_guide_window', { title });
+  const url = `${location.pathname}?view=guide`;
+  const win = globalThis.open(url, 'mytextmaster-guide', 'width=1040,height=780');
+  win?.focus?.();
+  return Promise.resolve(Boolean(win));
+}
 export const quitApp = () => (desktop ? invoke('quit_app') : Promise.resolve(globalThis.close()));
 
 /** handler() → true when the window may close (asked before every close of the main window). */
