@@ -93,9 +93,26 @@
   let _histPreviewGen = 0;
   let _histPreview = null;   // { path, src, w, h } for a selected file not in the editor
   let _appInfoCache = null;
-  // Ruler / grid overlays were removed from the UI; keep the paint path inert.
+  // Ruler (px) over the viewer: on by default, toggled by the toolbar / View menu and
+  // remembered. The 5×5 grid has no button and stays off.
   const GUIDE_KEY = 'viewGuidesV1';
-  let _guides = { ruler: false, grid: false };
+  let _guides = (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(GUIDE_KEY) || 'null');
+      return { ruler: !saved || saved.ruler !== false, grid: false };
+    } catch { return { ruler: true, grid: false }; }
+  })();
+  // Pointer marker on the rulers (_paintGuideCursor) — declared up here because the first
+  // ruler paint runs during start-up, before the code near those functions has run.
+  const GUIDE_RULER = 22;        // ruler band thickness (px)
+  const GUIDE_CELL_MIN = 36;
+  const GUIDE_CELL_MAX = 170;
+  let _guideCanvas = null;
+  let _guideGeo = null;          // { container, left, top, zoom, w, h } of the last ruler paint
+  let _guideCursorCanvas = null;
+  let _guidePointer = null;      // { container, x, y } in container pixels, or null
+  let _guideCursorQueued = false;
+  const _guideCursorWatched = new WeakSet();
 
   function _isEditableImage() {
     return (Editor.isLoaded() || state.isAnimated) && !state.isVideo && !state.isAudio;
@@ -284,6 +301,7 @@
   };
   let _startBg = null;
   let _startBgLoading = null;
+  let _startBoard = null;
   let _startSyncing = false;
   let _batchReady = false;
   // The start page opens later in this init: load the 3D module and queue its shaders now.
@@ -833,6 +851,7 @@
       { id:'btn-fit-height',  icon:'fitHeight',  tip:'toolbar.fitHeight',  action: () => _setViewMode('height'), disabled: true },
       { id:'btn-actual',      icon:'actualSize', tip:'toolbar.actualSize', action: _actualSize,       disabled: true },
       { id:'btn-center',      icon:'center',     tip:'toolbar.center',     action: _centerView,       disabled: true },
+      { id:'btn-ruler',       icon:'ruler',      tip: () => _guideTip('ruler'), action: () => _toggleGuide('ruler') },
       { id:'btn-fullscreen',  icon:'fullscreen', tip:'toolbar.fullscreen', action: () => window.electronAPI.toggleFullscreen?.() },
       { separator: true },
       { id:'btn-rotate-l',    icon:'rotateLeft', tip:'toolbar.rotateLeft', action: () => _rotate(-90), disabled: true },
@@ -1098,6 +1117,7 @@
       { icon: Icons.zoomOut,    label: t('menu.zoomOut'),     shortcut: 'Ctrl+-', action: () => _ewZoomBy(0.8) },
       { icon: Icons.fitWindow,  label: t('menu.fitToWindow'), shortcut: 'Ctrl+0', action: () => _ewFit() },
       { icon: Icons.actualSize, label: t('menu.actualSize'),  shortcut: 'Ctrl+1', action: () => _ewZoomTo(1) },
+      { icon: Icons.ruler,      label: t('menu.ruler'),       checked: _guides.ruler, action: () => _toggleGuide('ruler') },
       { separator: true },
       { icon: Icons.panelLeft,  label: t('menu.ewLeftPanel'),  checked: _ewLayout.left,  action: () => _toggleEwLeftPanel() },
       { icon: Icons.panelRight, label: t('menu.ewRightPanel'), checked: _ewLayout.right, action: () => _toggleEwRightPanel() },
@@ -1229,6 +1249,7 @@
       { icon: Icons.fitHeight,  label: t('toolbar.fitHeight'), disabled: !hasVisual, checked: _wantFit && _viewMode === 'height', action: () => _setViewMode('height') },
       { icon: Icons.center,     label: t('toolbar.center'),    disabled: !hasVisual, action: () => _centerView() },
       { icon: Icons.actualSize, label: t('menu.actualSize'),  shortcut: 'Ctrl+1', disabled: !hasImg,    action: () => _actualSize() },
+      { icon: Icons.ruler,      label: t('menu.ruler'),       checked: _guides.ruler, action: () => _toggleGuide('ruler') },
       { separator: true },
       { icon: Icons.prev, label: t('menu.previousImage'), shortcut: '← / Page Up', disabled: !canPrev, action: () => _prevImage() },
       { icon: Icons.next, label: t('menu.nextImage'),     shortcut: '→ / Page Down', disabled: !canNext, action: () => _nextImage() },
@@ -1390,7 +1411,7 @@
   function _homeCard(task) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'task-card';
+    btn.className = 'start-tile task-card';
     btn.innerHTML = `<span class="task-icon">${Icons[task.icon] || ''}</span>`
       + `<span class="${task.primary ? 'action-text' : 'task-text'}"><b></b><small></small></span>`;
     btn.querySelector('b').textContent = I18n.t(task.title);
@@ -1646,7 +1667,7 @@
     begin.className = 'start-actions';
     for (const task of HOME_TASKS.filter((t) => t.primary || t.icon === 'openFile' || t.icon === 'help' || t.icon === 'settings')) {
       const card = _homeCard(task);
-      card.className = 'action-card';
+      card.className = 'start-tile action-card';
       card.querySelector('span').className = 'action-icon';
       const text = card.querySelector('span:last-child');
       if (text) text.className = 'action-text';
@@ -1680,16 +1701,6 @@
     tip.className = 'start-tip';
     tip.append(toggle, more);
 
-    const group = (id, glyph, title, node) => {
-      const sec = document.createElement('section');
-      sec.className = 'start-group';
-      sec.dataset.group = id;
-      const h = document.createElement('h2');
-      h.innerHTML = `${Icons[glyph] || ''}<span></span>`;
-      h.querySelector('span').textContent = title;
-      sec.append(h, node);
-      return sec;
-    };
     const screen = _startScreen();
     const showLabel = document.createElement('label');
     showLabel.className = 'start-show';
@@ -1735,29 +1746,76 @@
     const sceneBody = document.createElement('div');
     sceneBody.append(scenes, speeds);
 
+    recentHost.appendChild(tip);
+
+    // Hero (bare card): logo, name and version, the lead line, help / settings / open folder
+    const verText = _appInfoCache ? _versionLabel(_appInfoCache) : (document.querySelector('.app-brand-ver')?.textContent || 'V1.0.2');
+    const hero = document.createElement('div');
+    hero.className = 'start-hero';
+    hero.innerHTML = `<img src="./assets/icon.png" alt="" class="start-icon">`
+      + `<div class="start-hero-text"><h1><span>MyImageViewer</span> <small class="start-version"></small></h1><p></p></div>`
+      + `<div class="start-hero-actions"></div>`;
+    hero.querySelector('.start-version').textContent = verText;
+    hero.querySelector('p').textContent = I18n.t('home.lead');
+    const heroBtn = (glyph, labelKey, run, primary = false) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `start-hero-btn${primary ? ' primary' : ''}`;
+      b.innerHTML = `${Icons[glyph] || ''}<span></span>`;
+      b.querySelector('span').textContent = I18n.t(labelKey);
+      b.title = I18n.t(labelKey);
+      b.addEventListener('click', run);
+      return b;
+    };
+    hero.querySelector('.start-hero-actions').append(
+      heroBtn('help', 'menu.help', () => _openHelp()),
+      heroBtn('keyboard', 'menu.shortcuts', () => _showDialog('shortcuts-overlay')),
+      heroBtn('settings', 'menu.settings', () => _openSettings()),
+      heroBtn('openFolder', 'menu.openFolder', () => _pickOpenFolder(), true),
+    );
+
+    // The board: movable, resizable cards (startboard.js, same as MyUMLMaker)
+    const moveTip = I18n.t('start.moveCard');
+    const resizeTip = I18n.t('start.resizeCard');
+    const card = (id, glyph, title, body) => StartBoard.card(id, { icon: Icons[glyph] || '', title, body, moveTip, resizeTip });
     const board = document.createElement('div');
     board.className = 'start-board';
     board.append(
-      group('begin', 'home', I18n.t('home.begin'), begin),
-      group('tasks', 'viewGrid', I18n.t('home.tasks'), tasks),
-      group('recent', 'recent', I18n.t('home.places'), recentHost),
-      group('scenes', 'image', I18n.t('home.background'), sceneBody),
+      StartBoard.card('hero', { body: hero, bare: true, moveTip, resizeTip }),
+      card('begin', 'home', I18n.t('home.begin'), begin),
+      card('tasks', 'viewGrid', I18n.t('home.tasks'), tasks),
+      card('recent', 'recent', I18n.t('home.places'), recentHost),
+      card('scenes', 'image', I18n.t('home.background'), sceneBody),
     );
-    recentHost.appendChild(tip);
 
+    // Top-right tools: "show this screen at startup" and "arrange cards"
+    const tools = document.createElement('div');
+    tools.className = 'start-tools';
+    showLabel.classList.add('start-btn');
+    const arrange = document.createElement('button');
+    arrange.type = 'button';
+    arrange.className = 'start-btn';
+    arrange.title = I18n.t('start.arrangeTip');
+    arrange.innerHTML = `${Icons.viewGrid || ''}<span></span>`;
+    arrange.querySelector('span').textContent = I18n.t('start.arrange');
+    arrange.addEventListener('click', () => _startBoard?.arrange());
+    tools.append(showLabel, arrange);
+
+    const foot = document.createElement('footer');
+    foot.className = 'start-foot';
+    foot.innerHTML = `${Icons.info || ''}<span class="grow">MyImageViewer <span class="start-version"></span></span><span class="start-foot-copy"></span>`;
+    foot.querySelector('.start-version').textContent = verText;
+    foot.querySelector('.start-foot-copy').textContent = I18n.t('about.copyright');
+
+    _startBoard?.destroy();
+    _startBoard = null;
     scroll.replaceChildren();
     const wrap = document.createElement('div');
-    wrap.className = 'start';
-    const head = document.createElement('header');
-    head.className = 'start-head';
-    head.innerHTML = `<span class="start-logo"><img src="./assets/icon.png" alt=""></span><div><h1>MyImageViewer <span class="start-version"></span></h1><p></p></div>`;
-    const startVer = head.querySelector('.start-version');
-    if (startVer) startVer.textContent = _appInfoCache ? _versionLabel(_appInfoCache) : (document.querySelector('.app-brand-ver')?.textContent || 'V1.0.2');
-    head.querySelector('p').textContent = I18n.t('home.lead');
-    // "Show this screen at startup" sits at the top right of the header
-    head.appendChild(showLabel);
-    wrap.append(head, board);
+    wrap.className = 'start start-inner';
+    wrap.append(tools, board, foot);
     scroll.appendChild(wrap);
+    const reduced = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    _startBoard = StartBoard.start(board, { reduced });
     _syncStartScreenControls();
   }
 
@@ -2670,7 +2728,7 @@
 
     try {
       const result = await _withTimeout(
-        FormatSupport.loadImageFile(filePath),
+        FormatSupport.loadImageForView(filePath),
         25000,
         I18n.t('error.openFile') || 'Opening this file took too long'
       );
@@ -2709,7 +2767,7 @@
       } else {
         _showVideoPlayer(null);
         _showAudioPlayer(null);
-        if (!result.dataUrl && !result.canvas) {
+        if (!result.dataUrl && !result.canvas && !result.blob) {
           _showPlaceholder(true);
           _updateToolbarForMedia('none');
           _showError(
@@ -2724,7 +2782,18 @@
           mediaKind = 'image';
         } else {
           state.isAnimated = false;
-          await _loadImageDataUrl(result.canvas || result.dataUrl, filePath, result.dicomMeta);
+          if (result.blob) {
+            // Decoded and read back in a worker: the UI keeps running while a big photo opens
+            const shown = await _loadImageBlob(result.blob, filePath, () => openGen === _openGen);
+            if (openGen !== _openGen) return;
+            if (!shown) {
+              const fallback = await FormatSupport.loadImageFile(filePath);
+              if (openGen !== _openGen) return;
+              await _loadImageDataUrl(fallback && (fallback.canvas || fallback.dataUrl), filePath, fallback && fallback.dicomMeta);
+            }
+          } else {
+            await _loadImageDataUrl(result.canvas || result.dataUrl, filePath, result.dicomMeta);
+          }
           mediaKind = _isEditableImage() ? 'image' : 'none';
         }
       }
@@ -2843,6 +2912,40 @@
     });
   }
 
+  /** The viewer shows a decoded picture (prepared: pixels read in a worker, or none). */
+  function _showLoadedImage(source, filePath, dicomMeta, prepared = null) {
+    _showPlaceholder(false);
+    _showVideoPlayer(null);
+    _showAudioPlayer(null);
+    _hideAnimatedImage();
+    displayCanvas.style.display  = 'block';
+    selCanvas.style.display      = 'block';
+    videoEl.style.display        = 'none';
+    Editor.loadImage(source, prepared);
+    _fitToWindow();
+    _updateStatus({ filePath, dicomMeta });
+    _dicomSyncBar();
+  }
+
+  /**
+   * Opens a still picture from its bytes without blocking the UI: decoding, reading the
+   * pixels back and the undo copy all happen in a worker (FormatSupport.decodeOffThread);
+   * this thread only draws the finished bitmap. false = could not decode (caller falls back).
+   */
+  async function _loadImageBlob(blob, filePath, isCurrent) {
+    let decoded;
+    try {
+      decoded = await FormatSupport.decodeOffThread(blob, { pixels: true });
+    } catch (err) {
+      if (err && err.superseded) return true;   // a newer open took over; nothing to show
+      console.warn('Off-thread decode failed, using the page decoder:', err);
+      return false;
+    }
+    if (!isCurrent()) { try { decoded.bitmap.close(); } catch { /* ignore */ } return true; }
+    _showLoadedImage(decoded.bitmap, filePath, null, decoded);
+    return true;
+  }
+
   async function _loadImageDataUrl(dataUrl, filePath, dicomMeta) {
     return new Promise((resolve) => {
       if (!dataUrl) {
@@ -2850,19 +2953,7 @@
         resolve();
         return;
       }
-      const show = (source) => {
-        _showPlaceholder(false);
-        _showVideoPlayer(null);
-        _showAudioPlayer(null);
-        _hideAnimatedImage();
-        displayCanvas.style.display  = 'block';
-        selCanvas.style.display      = 'block';
-        videoEl.style.display        = 'none';
-        Editor.loadImage(source);
-        _fitToWindow();
-        _updateStatus({ filePath, dicomMeta });
-        _dicomSyncBar();
-      };
+      const show = (source) => _showLoadedImage(source, filePath, dicomMeta);
       // A ready canvas (DICOM rendering) needs no decoding round-trip
       if (typeof dataUrl !== 'string' && dataUrl.getContext) {
         show(dataUrl);
@@ -6497,11 +6588,8 @@
 
   /* Ruler (px) and a 5×5 grid over the image. The grid stays on those fifths
      while a cell is a readable size on screen; past that it follows the ruler's
-     tick spacing so the lines and the numbers stay on the same pixels. */
-  const GUIDE_RULER = 22;
-  const GUIDE_CELL_MIN = 36;
-  const GUIDE_CELL_MAX = 170;
-  let _guideCanvas = null;
+     tick spacing so the lines and the numbers stay on the same pixels.
+     (GUIDE_RULER, GUIDE_CELL_MIN / MAX and _guideCanvas are declared at the top of the file.) */
 
   function _guideTip(which) {
     if (which === 'ruler') return I18n.t(_guides.ruler ? 'toolbar.rulerOff' : 'toolbar.ruler');
@@ -6568,7 +6656,11 @@
 
   function _paintGuides(container, left, top, zoom, w, h) {
     const show = (_guides.ruler || _guides.grid) && w > 0 && h > 0 && zoom > 0
-      && !(container === viewerContainer && window.Browse?.isVisible?.());
+      // hidden only under the full contact sheet — the filmstrip leaves the image in view
+      && !(container === viewerContainer && window.Browse?.isVisible?.() && !window.Browse?.isFilmstrip?.());
+    _guideGeo = show ? { container, left, top, zoom, w, h } : null;
+    _watchGuideCursor(container);
+    _paintGuideCursor();
     if (!show) {
       if (_guideCanvas) _guideCanvas.hidden = true;
       return;
@@ -6715,6 +6807,90 @@
     };
     drawAxis(true);
     drawAxis(false);
+  }
+
+  /* The pointer on the rulers: a red line in each band at the mouse, with the image pixel
+     under it. It has its own canvas, so moving the mouse never repaints the rulers. */
+  function _watchGuideCursor(container) {
+    if (!container || _guideCursorWatched.has(container)) return;
+    _guideCursorWatched.add(container);
+    const queue = () => {
+      if (_guideCursorQueued) return;
+      _guideCursorQueued = true;
+      requestAnimationFrame(() => { _guideCursorQueued = false; _paintGuideCursor(); });
+    };
+    container.addEventListener('pointermove', (e) => {
+      const r = container.getBoundingClientRect();
+      _guidePointer = { container, x: e.clientX - r.left, y: e.clientY - r.top };
+      queue();
+    }, { passive: true });
+    container.addEventListener('pointerleave', () => { _guidePointer = null; queue(); }, { passive: true });
+  }
+
+  function _paintGuideCursor() {
+    const geo = _guideGeo;
+    const p = _guidePointer;
+    const on = !!(geo && _guides.ruler && p && p.container === geo.container);
+    if (!on) {
+      if (_guideCursorCanvas) _guideCursorCanvas.hidden = true;
+      return;
+    }
+    const container = geo.container;
+    if (!_guideCursorCanvas) {
+      _guideCursorCanvas = document.createElement('canvas');
+      _guideCursorCanvas.id = 'view-guides-cursor';
+      _guideCursorCanvas.className = 'view-guides view-guides-cursor';
+    }
+    // Above the ruler canvas
+    if (_guideCursorCanvas.parentElement !== container || _guideCursorCanvas.nextSibling) container.appendChild(_guideCursorCanvas);
+    _guideCursorCanvas.hidden = false;
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    const dpr = window.devicePixelRatio || 1;
+    const W = Math.max(1, Math.round(cw * dpr));
+    const H = Math.max(1, Math.round(ch * dpr));
+    if (_guideCursorCanvas.width !== W) _guideCursorCanvas.width = W;
+    if (_guideCursorCanvas.height !== H) _guideCursorCanvas.height = H;
+    _guideCursorCanvas.style.width = `${cw}px`;
+    _guideCursorCanvas.style.height = `${ch}px`;
+    const ctx = _guideCursorCanvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cw, ch);
+
+    const ruler = GUIDE_RULER;
+    const red = '#ff3b30';
+    const bar = getComputedStyle(document.body).getPropertyValue('--bg-secondary').trim() || '#1e2430';
+    const px = Math.floor((p.x - geo.left) / geo.zoom);
+    const py = Math.floor((p.y - geo.top) / geo.zoom);
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = red;
+    // Top band: a line at the pointer's x and the image column
+    if (p.x >= ruler && p.x <= cw) {
+      const x = Math.round(p.x) + 0.5;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ruler); ctx.stroke();
+      const label = String(px);
+      const tw = ctx.measureText(label).width + 6;
+      const lx = Math.min(cw - tw, x + 2);
+      ctx.fillStyle = bar; ctx.fillRect(lx, 1, tw, 12);
+      ctx.fillStyle = red; ctx.fillText(label, lx + 3, 2);
+    }
+    // Left band: a line at the pointer's y and the image row
+    if (p.y >= ruler && p.y <= ch) {
+      const y = Math.round(p.y) + 0.5;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(ruler, y); ctx.stroke();
+      const label = String(py);
+      const tw = ctx.measureText(label).width + 6;
+      const ly = Math.min(ch - tw, y + 2);
+      ctx.save();
+      ctx.translate(1, ly);
+      ctx.fillStyle = bar; ctx.fillRect(0, 0, 12, tw);
+      ctx.translate(13, 0);
+      ctx.rotate(Math.PI / 2);
+      ctx.fillStyle = red; ctx.fillText(label, 3, 1);
+      ctx.restore();
+    }
   }
 
   function _applyTransform() {
@@ -12296,8 +12472,7 @@
     if (buildEl) buildEl.textContent = String(info.buildNumber || '').trim() || '—';
     _fillAboutRows(info);
     if (brandVer) brandVer.textContent = label;
-    const startVer = document.querySelector('.start-version');
-    if (startVer) startVer.textContent = label;
+    document.querySelectorAll('.start-version').forEach((el) => { el.textContent = label; });
   }
 
   /**

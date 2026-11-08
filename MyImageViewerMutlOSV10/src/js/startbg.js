@@ -105,6 +105,13 @@ export class StartBackground {
     if (this.gl || this.failed) return;
     const canvas = document.createElement('canvas');
     canvas.className = 'start-bg-canvas is-pending';
+    // Born at its final size: growing the WebGL buffer from the default 300×150 after
+    // the context exists showed as a black frame over the whole start page.
+    {
+      const ratio = Math.min(1.5, window.devicePixelRatio || 1);
+      canvas.width = Math.max(1, Math.floor(Math.max(1, this.host.clientWidth) * ratio));
+      canvas.height = Math.max(1, Math.floor(Math.max(1, this.host.clientHeight) * ratio));
+    }
     this.host.append(canvas);
     const gl = canvas.getContext('webgl', { antialias: true, alpha: false, powerPreference: 'low-power', preserveDrawingBuffer: true });
     if (!gl) {

@@ -59,7 +59,9 @@
       try {
         const saved = JSON.parse(localStorage.getItem('startScreen') || '{}') || {};
         if (saved.showOnStart !== false) {
-          const scene = /^[a-z]+$/.test(saved.scene) ? saved.scene : 'valley';
+          // (a missing scene must not pass as the text "undefined": then neither the
+          // picture nor the scene's colours were found and the stand-in showed instead)
+          const scene = typeof saved.scene === 'string' && /^[a-z]+$/.test(saved.scene) ? saved.scene : 'valley';
           const host = document.querySelector('#start-page .start-bg');
           const transparency = Math.max(0, Math.min(100, Math.round(Number(saved.transparency)) || 0));
           host.dataset.scene = scene;
@@ -1740,6 +1742,7 @@ Do you want to save before closing?</p>
   <script src="./js/fileTree.js"></script>
   <script src="./js/dragdrop.js"></script>
   <script src="./js/dialogWindow.js"></script>
+  <script src="./js/startboard.js"></script>
   <script src="./js/app.js"></script>
 
   <script>

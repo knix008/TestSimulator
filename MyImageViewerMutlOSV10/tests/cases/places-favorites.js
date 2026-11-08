@@ -64,7 +64,7 @@ module.exports = {
     });
 
     test('Start screen shows recent folders, recent files and favorites', () => {
-      assertIncludes(app, "group('recent', 'recent', I18n.t('home.places'), recentHost)", 'group');
+      assertIncludes(app, "card('recent', 'recent', I18n.t('home.places'), recentHost)", 'card');
       for (const k of ['home.tab.recentFolders', 'home.tab.recentFiles']) assertIncludes(app, `t('${k}')`, k);
       assertIncludes(app, "entries: () => _favorites.map(", 'favorites tab');
     });

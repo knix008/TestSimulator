@@ -197,6 +197,100 @@ window.FormatSupport = (() => {
     return { type: 'image', dataUrl };
   }
 
+  /** hasAnimation on the file's bytes (no base64 string, no copy). */
+  function hasAnimationBytes(u8) {
+    const at = (i, s) => { for (let k = 0; k < s.length; k++) if (u8[i + k] !== s.charCodeAt(k)) return false; return true; };
+    const find = (s, from) => {
+      const a = s.charCodeAt(0);
+      for (let i = u8.indexOf(a, from); i >= 0 && i + s.length <= u8.length; i = u8.indexOf(a, i + 1)) if (at(i, s)) return i;
+      return -1;
+    };
+    if (at(0, 'RIFF') && at(8, 'WEBP')) {
+      if (at(12, 'VP8X') && (u8[20] & 0x02)) return true;
+      return find('ANIM', 12) >= 0;
+    }
+    if (at(0, 'GIF')) {
+      let frames = 0;
+      for (let i = find('\x21\xF9\x04', 0); i >= 0; i = find('\x21\xF9\x04', i + 3)) if (++frames > 1) return true;
+      return false;
+    }
+    return true;
+  }
+
+  const VIEW_MIME = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', bmp: 'image/bmp',
+    webp: 'image/webp', ico: 'image/x-icon', avif: 'image/avif',
+  };
+
+  /**
+   * The viewer's open. Like loadImageFile, but a still picture the webview decodes comes back
+   * as { type: 'image', blob }: its bytes arrive as an ArrayBuffer (no base64 string to build
+   * and parse) and decodeOffThread turns them into pixels in a worker. Everything else — and
+   * anything that fails here — takes loadImageFile's path.
+   */
+  async function loadImageForView(filePath) {
+    const ext = getExtension(filePath);
+    const api = window.electronAPI || {};
+    if (VIEW_MIME[ext] && typeof api.readFileBytes === 'function'
+        && typeof Worker === 'function' && typeof OffscreenCanvas === 'function') {
+      try {
+        const bytes = await readFileBytes(filePath);
+        if (bytes && bytes.length) {
+          if (isAnimatedImage(filePath) && hasAnimationBytes(bytes)) return loadImageFile(filePath);
+          return { type: 'image', blob: new Blob([bytes], { type: VIEW_MIME[ext] }) };
+        }
+      } catch { /* the old path below */ }
+    }
+    return loadImageFile(filePath);
+  }
+
+  /* One viewer decode at a time: a newer open ends the older one (its worker is dropped),
+     so stepping quickly through big photos never queues decodes nobody will see. */
+  let _viewWorker = null;
+  let _viewJob = null;   // { id, reject }
+  let _viewSeq = 0;
+
+  /**
+   * Decode `blob` off the UI thread. Resolves { bitmap, w, h, pixels?: ImageData, copy?: ImageData }
+   * (pixels / copy when opts.pixels); rejects when it cannot be decoded or a newer decode
+   * replaced it (err.superseded).
+   */
+  function decodeOffThread(blob, opts = {}) {
+    if (_viewJob) {
+      const old = _viewJob;
+      _viewJob = null;
+      try { _viewWorker?.terminate(); } catch { /* ignore */ }
+      _viewWorker = null;
+      const err = new Error('superseded');
+      err.superseded = true;
+      old.reject(err);
+    }
+    return new Promise((resolve, reject) => {
+      const id = ++_viewSeq;
+      if (!_viewWorker) _viewWorker = new Worker('./js/imageWorker.js');
+      const worker = _viewWorker;
+      _viewJob = { id, reject };
+      const finish = () => { if (_viewJob && _viewJob.id === id) _viewJob = null; };
+      worker.onmessage = (e) => {
+        const m = e.data || {};
+        if (m.id !== id) return;
+        finish();
+        if (!m.ok) { reject(new Error(m.error || 'decode failed')); return; }
+        const out = { bitmap: m.bitmap, w: m.w, h: m.h };
+        if (m.data) out.pixels = new ImageData(new Uint8ClampedArray(m.data), m.w, m.h);
+        if (m.copy) out.copy = new ImageData(new Uint8ClampedArray(m.copy), m.w, m.h);
+        resolve(out);
+      };
+      worker.onerror = (e) => {
+        finish();
+        try { worker.terminate(); } catch { /* ignore */ }
+        if (_viewWorker === worker) _viewWorker = null;
+        reject(new Error((e && e.message) || 'decode worker failed'));
+      };
+      worker.postMessage({ id, blob, pixels: !!opts.pixels });
+    });
+  }
+
   function formatFileSize(bytes) {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -265,7 +359,7 @@ window.FormatSupport = (() => {
   return {
     getExtension, isImage, isVideo, isAudio, isSupportedFile,
     isNativeImage, isTiff, isHeic, isDcm, isAnimatedImage, hasAnimation,
-    loadImageFile, loadDicomFile, readFileBytes, formatFileSize, formatDate, decodeDicomBuffer,
+    loadImageFile, loadImageForView, decodeOffThread, hasAnimationBytes, loadDicomFile, readFileBytes, formatFileSize, formatDate, decodeDicomBuffer,
     IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS,
   };
 })();

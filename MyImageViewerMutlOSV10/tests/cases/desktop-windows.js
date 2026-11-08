@@ -329,6 +329,90 @@ module.exports = {
       assertIncludes(app, '_showFolderInCenter(dir);', 'main view with the folder sheet');
     });
 
+    test('Start screen is a board of movable cards (MyUMLMaker layout); the move handle is three lines', () => {
+      const vm = require('vm');
+      const boardSrc = require('../helpers').read('src/js/startboard.js');
+      const sandbox = { window: {}, document: {}, localStorage: { getItem: () => null, setItem() {} }, performance: { now: () => 0 } };
+      vm.runInNewContext(boardSrc, sandbox);
+      const SB = sandbox.window.StartBoard;
+      assertIncludes(html, 'js/startboard.js', 'loaded');
+      assert(html.indexOf('js/startboard.js') < html.indexOf('js/app.js'), 'before app.js');
+      assertIncludes(SB.HANDLE_SVG, 'M5 7h14M5 12h14M5 17h14', 'three horizontal lines');
+      assertIncludes(css, '.card-handle svg { width: 16px; height: 16px; fill: none; stroke: currentColor;', 'handle drawn as strokes');
+      assertIncludes(css, 'grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  grid-auto-rows: 20px;', 'three columns, 20px rows');
+      for (const id of ['hero', 'begin', 'tasks', 'recent', 'scenes']) assertIncludes(app, `'${id}'`, id);
+      assertIncludes(app, '_startBoard = StartBoard.start(board, { reduced });', 'board started');
+      assertIncludes(app, "arrange.addEventListener('click', () => _startBoard?.arrange());", 'auto arrange');
+      // Default layout: hero across the top, then Start | What you can do, Places | Background
+      const ids = ['hero', 'begin', 'tasks', 'recent', 'scenes'];
+      const cells = SB.cardsOf(null, ids, { hero: 6, begin: 14, tasks: 14, recent: 12, scenes: 12 });
+      assert(cells.hero.row === 0 && cells.hero.w === 3, 'hero spans the top');
+      assert(cells.begin.col === 0 && cells.tasks.col === 1 && cells.tasks.w === 2, 'begin | tasks');
+      for (const a of ids) for (const b of ids) if (a < b) assert(!SB.overlaps(cells[a], cells[b]), `${a} / ${b} overlap`);
+      // Moving a card pushes the others aside, never on top of each other
+      const moved = SB.place(cells, 'scenes', { col: 0, row: 0 });
+      for (const a of ids) for (const b of ids) if (a < b) assert(!SB.overlaps(moved[a], moved[b]), `after move: ${a} / ${b} overlap`);
+      // A saved layout comes back; an old version starts over
+      const saved = SB.layoutValue(moved);
+      assert(SB.cardsOf(saved, ids, {}).scenes.row === moved.scenes.row, 'saved layout restored');
+      assert(SB.cardsOf({ ...saved, version: 0 }, ids, {}).hero.row === 0, 'old layout ignored');
+      for (const k of ['start.moveCard', 'start.resizeCard', 'start.arrange', 'start.arrangeTip']) {
+        assert(src.ko[k] && src.en[k], `missing ${k}`);
+      }
+    });
+
+    test('Opening a big picture does not block the UI: decode, read-back and undo copy run in a worker', () => {
+      const fmt = require('../helpers').read('src/js/formatSupport.js');
+      const worker = require('../helpers').read('src/js/imageWorker.js');
+      const editor = require('../helpers').read('src/js/editor.js');
+      // Bytes, not a base64 string; decoded in imageWorker.js; a newer open ends the older decode
+      assertIncludes(app, 'FormatSupport.loadImageForView(filePath),', 'viewer uses the off-thread loader');
+      assertIncludes(fmt, 'const bytes = await readFileBytes(filePath);', 'binary IPC');
+      assertIncludes(fmt, "new Worker('./js/imageWorker.js')", 'decode worker');
+      assertIncludes(fmt, 'err.superseded = true;', 'latest open wins');
+      assertIncludes(worker, 'await createImageBitmap(blob,', 'decoded in the worker');
+      assertIncludes(worker, 'ctx.getImageData(0, 0, w, h)', 'pixels read in the worker');
+      assertIncludes(worker, 'transfer.push(data.buffer, copy.buffer)', 'pixels transferred, not copied');
+      assertIncludes(app, 'const shown = await _loadImageBlob(result.blob, filePath, () => openGen === _openGen);', 'blob path');
+      assertIncludes(app, 'const fallback = await FormatSupport.loadImageFile(filePath);', 'page decoder when the worker cannot');
+      // The editor takes the prepared pixels (no getImageData / clone here) and draws the bitmap while untouched
+      assertIncludes(editor, 'function loadImage(img, prepared = null) {', 'prepared pixels');
+      assertIncludes(editor, '_histShare = { src: px, version: _pixVersion, copy };', 'first undo step reuses the worker copy');
+      assertIncludes(editor, 'const pristine = _pristineImage();', 'untouched picture drawn as is');
+      assertIncludes(editor, 'if (!blank) displayCtx.clearRect(0, 0, frame.outW, frame.outH);', 'no clear of a fresh canvas');
+      // Animated GIF / WebP still found from the bytes
+      const vm = require('vm');
+      const sb = { window: {}, document: {} };
+      vm.runInNewContext(fmt, sb);
+      const anim = sb.window.FormatSupport.hasAnimationBytes;
+      const bytes = (s) => Uint8Array.from(s, (c) => c.charCodeAt(0));
+      assert(anim(bytes('GIF89a....\x21\xF9\x04....\x21\xF9\x04..')) === true, 'two-frame GIF');
+      assert(anim(bytes('GIF89a....\x21\xF9\x04......')) === false, 'still GIF');
+      assert(anim(bytes('RIFF....WEBPVP8 ........')) === false, 'still WebP');
+      assert(anim(bytes('RIFF....WEBPVP8X\x00\x00\x00\x00\x02...')) === true, 'animated WebP flag');
+    });
+
+    test('Viewer ruler: on by default, toolbar / View menu ON-OFF, remembered, red pointer marker', () => {
+      assertIncludes(app, "{ id:'btn-ruler',       icon:'ruler',      tip: () => _guideTip('ruler'), action: () => _toggleGuide('ruler') },", 'toolbar button');
+      assertIncludes(app, "{ icon: Icons.ruler,      label: t('menu.ruler'),       checked: _guides.ruler, action: () => _toggleGuide('ruler') },", 'View menu');
+      assertIncludes(app, "return { ruler: !saved || saved.ruler !== false, grid: false };", 'saved state read, default on');
+      assertIncludes(app, "const red = '#ff3b30';", 'red marker');
+      assertIncludes(app, "container.addEventListener('pointermove',", 'follows the mouse');
+      assertIncludes(app, "&& !(container === viewerContainer && window.Browse?.isVisible?.() && !window.Browse?.isFilmstrip?.());", 'shown with the filmstrip');
+      // Declared before the start-up code that paints the first ruler (no TDZ)
+      const decl = app.indexOf('let _guideCursorCanvas = null;');
+      const firstUse = app.indexOf('_applyTransform();');
+      assert(decl > 0 && app.indexOf('const GUIDE_RULER = 22;') < firstUse && decl < firstUse, 'state declared at the top');
+      for (const k of ['menu.ruler', 'toolbar.ruler', 'toolbar.rulerOff']) assert(src.ko[k] && src.en[k], `missing ${k}`);
+    });
+
+    test('Start screen first paint: a missing scene is "valley", not "undefined"; the 3D canvas is born full size', () => {
+      const bg = require('../helpers').read('src/js/startbg.js');
+      assertIncludes(html, "const scene = typeof saved.scene === 'string' && /^[a-z]+$/.test(saved.scene) ? saved.scene : 'valley';", 'scene default');
+      assertIncludes(bg, 'canvas.width = Math.max(1, Math.floor(Math.max(1, this.host.clientWidth) * ratio));', 'no 300×150 → full-size realloc');
+      assert(bg.indexOf('canvas.width = Math.max(1') < bg.indexOf("canvas.getContext('webgl'"), 'sized before the context');
+    });
+
     test('Several copies can run at once: each has its host inside itself', () => {
       assertIncludes(rust, 'host::ipc,', 'host is a command of this process');
       assertIncludes(bridge, "invoke('ipc', { channel, args: args.map(encodeArg) })", 'page calls it directly');

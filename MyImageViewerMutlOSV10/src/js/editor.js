@@ -73,6 +73,11 @@ window.Editor = (() => {
   const MAX_HISTORY_BYTES = 768 * 1024 * 1024;
   let _pixVersion = 0;      // bumped whenever the working pixels change in place (_bake)
   let _histShare = null;    // { src, version, copy }: the last copy and what it was taken from
+  // The picture as decoded (an ImageBitmap) while nothing has changed it: the view draws it
+  // as is instead of putting all of workingPixels back each render. { image, pixels, version }
+  let _pristine = null;
+  // The display canvas was just resized (so it is empty) and nothing has drawn on it since
+  let _displayBlank = false;
 
   /* ─── Listeners ─── */
   let onDirtyCallback   = null;
@@ -104,7 +109,12 @@ window.Editor = (() => {
   /* ═══════════════════════════════════════════
      Load Image
   ═══════════════════════════════════════════ */
-  function loadImage(img) {
+  /**
+   * `prepared` (optional, from FormatSupport.decodeOffThread): the picture's RGBA pixels and a
+   * second copy for the first undo step, read in a worker — so a big photo is not read back
+   * and copied here on the UI thread.
+   */
+  function loadImage(img, prepared = null) {
     originalImg     = img;
     sourceImg       = img;
     naturalW        = img.naturalWidth  || img.width;
@@ -113,12 +123,34 @@ window.Editor = (() => {
     rotation = 0; flipH = false; flipV = false;
     _resetEffects();
     clearSelection();
-    history.length = 0; histIndex = -1; _histShare = null;
+    history.length = 0; histIndex = -1; _histShare = null; _pristine = null;
 
     _resizeCanvases();
-    _drawOriginalToWorking();
+    const px = prepared && prepared.pixels;
+    if (px && px.width === naturalW && px.height === naturalH) {
+      workingPixels = px;
+      _pristine = { image: img, pixels: px, version: _pixVersion };
+      const copy = prepared.copy;
+      if (copy && copy.width === px.width && copy.height === px.height) {
+        _histShare = { src: px, version: _pixVersion, copy };
+      }
+    } else {
+      _drawOriginalToWorking();
+    }
     _render();
     _saveHistory();
+  }
+
+  /** Untouched since loading, no effects: the decoded picture can be drawn as it is. */
+  function _pristineImage() {
+    const p = _pristine;
+    if (!p || p.pixels !== workingPixels || p.version !== _pixVersion || originalImg !== p.image) return null;
+    if (rotation !== 0 || flipH || flipV) return null;
+    if (_toneOn() || effects.sharpen > 0 || effects.emboss || effects.edge || effects.warmth !== 0) return null;
+    if (_buildFilterString() !== 'none') return null;
+    if ((effects.tintColor && effects.tintAmount > 0) || effects.tiltShift > 0 || effects.vignette > 0
+        || effects.posterize > 1 || effects.solarize > 0 || effects.grain > 0) return null;
+    return p.image;
   }
 
   /**
@@ -150,8 +182,8 @@ window.Editor = (() => {
     const isRotated90 = rotation === 90 || rotation === 270;
     const cw = isRotated90 ? naturalH : naturalW;
     const ch = isRotated90 ? naturalW : naturalH;
-    if (displayCanvas.width  !== cw) displayCanvas.width  = cw;
-    if (displayCanvas.height !== ch) displayCanvas.height = ch;
+    if (displayCanvas.width  !== cw) { displayCanvas.width  = cw; _displayBlank = true; }
+    if (displayCanvas.height !== ch) { displayCanvas.height = ch; _displayBlank = true; }
     if (selCanvas.width      !== cw) selCanvas.width      = cw;
     if (selCanvas.height     !== ch) selCanvas.height     = ch;
   }
@@ -209,6 +241,8 @@ window.Editor = (() => {
   }
 
   function _composePhoto() {
+    const pristine = _pristineImage();
+    if (pristine) return pristine;
     const w = workingPixels.width;
     const h = workingPixels.height;
     const photo = document.createElement('canvas');
@@ -1030,14 +1064,18 @@ window.Editor = (() => {
 
     const photo = _composePhoto();
     const frame = _frameLayout();
-    if (displayCanvas.width !== frame.outW) displayCanvas.width = frame.outW;
-    if (displayCanvas.height !== frame.outH) displayCanvas.height = frame.outH;
+    let blank = _displayBlank;
+    _displayBlank = false;
+    if (displayCanvas.width !== frame.outW) { displayCanvas.width = frame.outW; blank = true; }
+    if (displayCanvas.height !== frame.outH) { displayCanvas.height = frame.outH; blank = true; }
     if (selCanvas) {
       if (selCanvas.width !== frame.outW) selCanvas.width = frame.outW;
       if (selCanvas.height !== frame.outH) selCanvas.height = frame.outH;
     }
 
-    displayCtx.clearRect(0, 0, frame.outW, frame.outH);
+    // A canvas that was just sized is already clear: on a 100 MP photo clearing it again
+    // is a ~90 ms memory pass on the UI thread.
+    if (!blank) displayCtx.clearRect(0, 0, frame.outW, frame.outH);
     if (frame.pad === 0 && frame.shadow === 0 && !frame.captionOn) {
       displayCtx.drawImage(photo, 0, 0);
     } else {
@@ -3019,6 +3057,7 @@ window.Editor = (() => {
     originalImg = null;
     sourceImg = null;
     workingPixels = null;
+    _pristine = null;
     naturalW = 0;
     naturalH = 0;
     rotation = 0;
