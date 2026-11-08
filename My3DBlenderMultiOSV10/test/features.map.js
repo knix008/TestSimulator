@@ -20,6 +20,7 @@ export const FEATURE_TESTS = {
     'web › Interface: workspaces on their own row with icons, active area outlined, nothing clipped',
   ],
   'ui.search': [
+    'web › title bar menus: every title has its coloured icon, and every row of every menu and submenu has an icon',
     'web › operator search (F3) finds and runs an operator',
   ],
   'ui.adjust_last': [
@@ -33,6 +34,8 @@ export const FEATURE_TESTS = {
     'web › Edit menu: undo history lists the steps and jumps',
   ],
   'ui.themes': [
+    'editors › every icon of the set has a colour of its own, as a CSS colour',
+    'web › colour icons: in every workspace, every toolbar, header and tab button draws its icon in its own colour',
     'docs › the default theme exists, every theme fills every variable, names in both languages',
     'web › themes: the list picks one, the palette button steps, colours really change',
     'web › Theme menu: two columns side by side, dark and light, each one theme per line',
@@ -60,6 +63,8 @@ export const FEATURE_TESTS = {
     'web › Add-ons: turning one on adds its operator to the Edit menu and F3; off takes it away',
   ],
   'ui.asset_browser': [
+    'web › Tools & Library: dragging into the 3D view adds the object where it is let go, and a material onto the object under the pointer',
+    'web › Tools & Library panel: on the left of the workspace, sections that fold and remember it, a search, and a click that does the thing',
     'workflow › a material goes on the selection, an independent copy each time',
     'workflow › an object appears at the 3D cursor, selected',
     'workflow › marked objects are assets of the file; packed ones carry their materials to another file',

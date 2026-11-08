@@ -19,6 +19,8 @@ import { icon } from './icons.js';
 import { WORKSPACES, workspaceById } from './layouts.js';
 import { closeMenus, menuOpen, menuTitle, openMenu, openMenuBelow } from './menus.js';
 import { createTutorial } from './tutorial.js';
+import { TUTORIAL_PICTURE } from '../core/tutorial.js';
+import { createLibraryPanel, useLibraryItem } from './library.js';
 import { getFont, parseFont, registerFont } from '../core/ttf.js';
 import { setFallbackFont, setMissingFontHook } from '../core/text3d.js';
 import { registerUiOps, fileMenuItems, loadProjectText, recentFiles, setRecentFiles, setRecentLimit } from './uiops.js';
@@ -209,6 +211,8 @@ export function createApp(rootEl) {
 
   // ── Frame loop
   let needsUpdate = false;
+  // The Tools & Library panel, left of every workspace (made once the operators are registered).
+  let library = null;
   let framePending = false;
   let playClock = 0;
   let lastStatsRev = -1;
@@ -233,6 +237,7 @@ export function createApp(rootEl) {
       for (const e of liveEditors()) { try { e.instance.update?.(); } catch (error) { reportError(error); } }
       updateStatusStats();
       updateTitle();
+      try { library?.update(); } catch (error) { reportError(error); }
     }
     for (const e of liveEditors()) { try { e.instance.frame?.(); } catch (error) { reportError(error); } }
   }
@@ -414,11 +419,11 @@ export function createApp(rootEl) {
     return [
       { label: t('Undo', '실행 취소'), icon: 'undo', shortcut: 'Ctrl Z', disabled: !history.canUndo, testid: 'menu-undo', onClick: () => app.undo() },
       { label: t('Redo', '다시 실행'), icon: 'redo', shortcut: 'Ctrl Shift Z', disabled: !history.canRedo, testid: 'menu-redo', onClick: () => app.redo() },
-      { label: t('Undo History', '실행 취소 기록'), items: entries.items.map((label, i) => ({ label, checked: i === entries.index, onClick: () => { const text = history.jump(i); if (text) replaceDocument(text); } })) },
+      { label: t('Undo History', '실행 취소 기록'), icon: 'history', items: entries.items.map((label, i) => ({ label, icon: 'history', checked: i === entries.index, onClick: () => { const text = history.jump(i); if (text) replaceDocument(text); } })) },
       null,
       { label: t('Search Operators...', '연산자 검색...'), icon: 'search', shortcut: 'F3', testid: 'menu-search', onClick: () => openSearch() },
-      { label: t('Add-ons', '애드온'), testid: 'menu-addons', items: () => [...addonOperators().map((id) => opEntry(id)), ...(addonOperators().length ? [null] : []), { label: t('Manage Add-ons...', '애드온 관리...'), testid: 'menu-addons-manage', onClick: () => openAddons() }] },
-      { label: t('Adjust Last Operation', '마지막 작업 조정'), shortcut: 'F9', disabled: !ctx.lastOp, onClick: () => {} },
+      { label: t('Add-ons', '애드온'), icon: 'library', testid: 'menu-addons', items: () => [...addonOperators().map((id) => opEntry(id)), ...(addonOperators().length ? [null] : []), { label: t('Manage Add-ons...', '애드온 관리...'), icon: 'settings', testid: 'menu-addons-manage', onClick: () => openAddons() }] },
+      { label: t('Adjust Last Operation', '마지막 작업 조정'), icon: 'tool-transform', shortcut: 'F9', disabled: !ctx.lastOp, onClick: () => {} },
       null,
       { label: t('Preferences...', '환경 설정...'), icon: 'settings', testid: 'menu-preferences', onClick: () => openSettings() },
     ];
@@ -428,13 +433,13 @@ export function createApp(rootEl) {
     null,
     opEntry('render.save_image'),
     null,
-    { label: t('Engine', '엔진'), items: [['PATH', t('Path Tracing (CPU)', '경로 추적 (CPU)')], ['GPU', t('Path Tracing (GPU)', '경로 추적 (GPU)')], ['REALTIME', t('Real-time (GPU)', '실시간 (GPU)')]].map(([id, label]) => ({ label, checked: ctx.doc.render.engine === id, onClick: () => { ctx.doc.render.engine = id; app.changed('Engine', true); } })) },
+    { label: t('Engine', '엔진'), icon: 'render', items: [['PATH', t('Path Tracing (CPU)', '경로 추적 (CPU)'), 'render'], ['GPU', t('Path Tracing (GPU)', '경로 추적 (GPU)'), 'camera-render'], ['REALTIME', t('Real-time (GPU)', '실시간 (GPU)'), 'eye']].map(([id, label, glyph]) => ({ label, icon: glyph, checked: ctx.doc.render.engine === id, onClick: () => { ctx.doc.render.engine = id; app.changed('Engine', true); } })) },
   ];
   const windowItems = () => [
-    { label: t('Toggle Maximize Area', '영역 최대화 전환'), shortcut: 'Ctrl Space', onClick: () => { const area = activeArea ?? mounted[0]?.area; if (area) toggleMaximize(maximized ?? area); } },
-    { label: t('Reset This Workspace Layout', '이 워크스페이스 배치 초기화'), onClick: () => { layouts[workspaceId] = workspaceById(workspaceId).make(); maximized = null; buildScreen(); app.invalidate(); } },
+    { label: t('Toggle Maximize Area', '영역 최대화 전환'), icon: 'maximize2', shortcut: 'Ctrl Space', onClick: () => { const area = activeArea ?? mounted[0]?.area; if (area) toggleMaximize(maximized ?? area); } },
+    { label: t('Reset This Workspace Layout', '이 워크스페이스 배치 초기화'), icon: 'restore', onClick: () => { layouts[workspaceId] = workspaceById(workspaceId).make(); maximized = null; buildScreen(); app.invalidate(); } },
     null,
-    { label: t('Toggle Full Screen', '전체 화면 전환'), shortcut: 'F11', onClick: () => import('../platform/native.js').then((m) => m.toggleFullscreen()) },
+    { label: t('Toggle Full Screen', '전체 화면 전환'), icon: 'fullscreen', shortcut: 'F11', onClick: () => import('../platform/native.js').then((m) => m.toggleFullscreen()) },
   ];
   const helpItems = () => [
     { label: t("User's Guide", '사용자 설명서'), icon: 'guide', testid: 'menu-guide', onClick: () => openDoc('UsersGuide') },
@@ -493,11 +498,11 @@ export function createApp(rootEl) {
     replace(topbar,
       brand,
       startToggle,
-      menuTitle(t('File', '파일'), () => fileMenuItems(app), 'menu-file'),
-      menuTitle(t('Edit', '편집'), editItems, 'menu-edit'),
-      menuTitle(t('Render', '렌더'), renderItems, 'menu-render'),
-      menuTitle(t('Window', '창'), windowItems, 'menu-window'),
-      menuTitle(t('Help', '도움말'), helpItems, 'menu-help'),
+      menuTitle(t('File', '파일'), () => fileMenuItems(app), 'menu-file', 'open', '#f59e0b'),
+      menuTitle(t('Edit', '편집'), editItems, 'menu-edit', 'pencil', '#22c55e'),
+      menuTitle(t('Render', '렌더'), renderItems, 'menu-render', 'camera-render', '#ef4444'),
+      menuTitle(t('Window', '창'), windowItems, 'menu-window', 'split-v', '#14b8a6'),
+      menuTitle(t('Help', '도움말'), helpItems, 'menu-help', 'help', '#3b82f6'),
       h('span', { className: 'top-spacer' }),
       h('span', { className: 'top-tools' }, sceneButton, flagButton, nextTheme, themeButton, settingsButton, aboutButton),
       isTauri ? h('button', { type: 'button', className: 'win-btn', title: t('Minimize', '최소화'), onClick: () => windowAction('minimize') }, icon('minimize', 12)) : null,
@@ -574,6 +579,7 @@ export function createApp(rootEl) {
     buildTabs();
     buildScreen();
     buildStatusHints();
+    library?.rebuild();
     if (startScreen.isOpen()) startScreen.rebuild();
     app.invalidate();
   }
@@ -894,7 +900,7 @@ export function createApp(rootEl) {
       id: 'tutorial-ask', title: t('Tutorial', '튜토리얼'), icon: 'tutorial', width: 640, height: 298,
       body: h('div', { className: 'tutorial-ask', dataset: { testid: 'tutorial-ask' } },
         h('div', { className: 'tutorial-ask-main' },
-          h('img', { src: './sample/thumb/subsurf-mug.png', alt: '', draggable: false, dataset: { testid: 'tutorial-ask-picture' } }),
+          h('img', { src: `./${TUTORIAL_PICTURE}`, alt: t('What the tutorial makes', '튜토리얼에서 만드는 그림'), title: t('What the tutorial makes', '튜토리얼에서 만드는 그림'), draggable: false, dataset: { testid: 'tutorial-ask-picture' } }),
           h('div', { className: 'tutorial-ask-text' },
             h('strong', null, t('Would you like to run the tutorial?', '튜토리얼을 실행할까요?')),
             h('p', null, t('It runs in this window, about ten minutes, step by step. Each step shows where to look and ticks itself off as you do it.', '이 창에서 약 10분 동안 단계별로 진행됩니다. 단계마다 어디를 볼지 알려 주고, 직접 하면 저절로 체크됩니다.')),
@@ -1108,6 +1114,10 @@ export function createApp(rootEl) {
 
   // ── Start
   registerUiOps(app);
+  library = createLibraryPanel(app, { saveSettings });
+  screenWrap.prepend(library.root);
+  app.libraryUse = (item) => useLibraryItem(app, item);
+  app.libraryDrop = (item, drop) => useLibraryItem(app, item, drop);
   const startScreen = createStartScreen(app, {
     saveSettings,
     openDoc,

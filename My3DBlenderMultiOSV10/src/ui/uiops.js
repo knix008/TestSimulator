@@ -249,7 +249,7 @@ export function registerUiOps(app) {
   });
   register({ id: 'wm.save', en: 'Save', ko: '저장', icon: 'save', key: 'Ctrl+S', undo: false, exec: () => { app.saveProject(); } });
   register({ id: 'wm.save_as', en: 'Save As...', ko: '다른 이름으로 저장...', icon: 'save', key: 'Ctrl+Shift+S', undo: false, exec: () => { app.saveProject(true); } });
-  register({ id: 'wm.revert', en: 'Revert', ko: '되돌리기', undo: false, poll: () => Boolean(app.projectPath), exec: () => { loadProjectText(app, app.projectPath); } });
+  register({ id: 'wm.revert', en: 'Revert', ko: '되돌리기', icon: 'undo', undo: false, poll: () => Boolean(app.projectPath), exec: () => { loadProjectText(app, app.projectPath); } });
 
   importOp('import_scene.obj', 'Wavefront (.obj)', 'Wavefront (.obj)', ['obj']);
   importOp('import_mesh.stl', 'Stl (.stl)', 'Stl (.stl)', ['stl']);
@@ -585,7 +585,7 @@ export function fileMenuItems(app) {
   const recent = isTauri ? recentFiles() : [];
   return [
     entry('wm.new'), entry('wm.new_empty'), entry('wm.open'),
-    { label: t('Open Recent', '최근 파일'), disabled: !recent.length, items: recent.map((p) => ({ label: p, onClick: () => loadProjectText(app, p) })) },
+    { label: t('Open Recent', '최근 파일'), icon: 'clock', disabled: !recent.length, items: recent.map((p) => ({ label: p, icon: 'ed-view3d', onClick: () => loadProjectText(app, p) })) },
     entry('wm.revert'),
     null,
     entry('wm.save'), entry('wm.save_as'),
@@ -595,6 +595,6 @@ export function fileMenuItems(app) {
     { label: t('Import', '가져오기'), icon: 'import', testid: 'menu-import', items: [entry('import_scene.blend'), entry('import_scene.fbx'), entry('import_scene.gltf'), entry('wm.usd_import'), entry('wm.alembic_import'), entry('wm.collada_import'), entry('import_scene.obj'), entry('import_mesh.stl'), entry('import_mesh.ply'), entry('import_curve.svg')] },
     { label: t('Export', '내보내기'), icon: 'export', testid: 'menu-export', items: [entry('export_scene.fbx'), entry('export_scene.gltf'), entry('wm.usd_export'), entry('wm.usdc_export'), entry('wm.usdz_export'), entry('wm.alembic_export'), entry('wm.collada_export'), entry('export_scene.obj'), entry('export_mesh.stl'), entry('export_mesh.ply')] },
     null,
-    { label: t('Quit', '끝내기'), testid: 'menu-quit', onClick: () => document.querySelector('[data-testid=win-close]')?.click() ?? window.close() },
+    { label: t('Quit', '끝내기'), icon: 'power', testid: 'menu-quit', onClick: () => document.querySelector('[data-testid=win-close]')?.click() ?? window.close() },
   ];
 }

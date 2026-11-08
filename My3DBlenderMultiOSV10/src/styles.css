@@ -536,6 +536,9 @@ input, textarea { user-select: text; }
 .tutorial-card header strong { flex: 1; font-size: 14px; }
 .tutorial-count { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .tutorial-card p { margin: 0; line-height: 1.55; }
+.tutorial-picture { margin: 0; display: grid; gap: 4px; }
+.tutorial-picture img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); background: #222; display: block; }
+.tutorial-picture figcaption { font-size: 11.5px; color: var(--muted); }
 .tutorial-tasks { display: grid; gap: 5px; margin: 0; padding: 8px 10px; list-style: none; border-radius: 6px; background: var(--bg); }
 .tutorial-tasks li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 7px; align-items: start; line-height: 1.45; }
 .tutorial-tasks li svg { margin-top: 2px; color: var(--muted); }
@@ -612,3 +615,37 @@ input, textarea { user-select: text; }
 .fmod, .driver-var { padding: 5px; border: 1px solid color-mix(in srgb, var(--line) 80%, transparent); border-radius: 5px; }
 .fmod-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
 .driver-error { color: var(--danger); line-height: 1.4; }
+
+/* The menu row: every title with its own coloured icon. */
+.menu-title { display: inline-flex; align-items: center; gap: 5px; }
+.menu-title > svg { flex: 0 0 auto; }
+/* Tools & Library: the panel left of every workspace. */
+.side-panel.left[data-testid=side-panel-library] { width: 236px; }
+.side-panel.left.collapsed[data-testid=side-panel-library] { width: 28px; }
+.library { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.library-search { flex: none; margin: 6px 8px; height: 26px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink, var(--text)); font: inherit; font-size: 12px; min-width: 0; }
+.library-search:focus { outline: none; border-color: var(--accent-line, var(--accent)); }
+.library-sections { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 0 6px 8px; scrollbar-width: thin; }
+.library-section { border-bottom: 1px solid var(--line); }
+.library-head { display: flex; align-items: center; gap: 6px; width: 100%; height: 28px; padding: 0 4px; border: 0; background: none; color: var(--text); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; }
+.library-head > svg:nth-child(2) { color: var(--accent); }
+.library-head:hover { background: var(--hover); border-radius: 5px; }
+.library-head .grow { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.library-count { color: var(--muted); font-weight: normal; font-size: 11px; }
+.library-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; padding: 2px 0 8px; }
+.library-item { display: flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 6px; border: 1px solid transparent; border-radius: 6px; background: color-mix(in srgb, var(--panel) 80%, var(--bg)); color: var(--text); font: inherit; font-size: 11.5px; cursor: pointer; text-align: left; }
+.library-item:hover { border-color: var(--accent-line, var(--accent)); background: var(--hover); }
+.library-item[draggable=true] { cursor: grab; }
+.library-item.dim { opacity: .45; }
+.library-item > svg { flex: 0 0 auto; }
+.library-swatch { flex: 0 0 auto; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--line); }
+.library-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Colour icons on every toolbar, header, tab bar and menu: each icon in its own tone (icon-tones.js). A pressed button keeps
+   its own colour so its icon reads on the accent. */
+.hdr-btn svg.ico, .top-btn svg.ico, .tool-btn svg.ico, .icon-btn svg.ico, .ws-tab svg.ico, .props-tab svg.ico, .pref-tab svg.ico,
+.nav-buttons svg.ico, .menu-icon svg.ico, .menu-title svg.ico, .start-toggle svg.ico, .start-btn svg.ico, .library-head svg.ico,
+.area-type svg.ico, .hdr-menu svg.ico, .tool-shelf svg.ico, .toolbar-t svg.ico, .editor-switch svg.ico, .side-fold svg.ico,
+.btn svg.ico, .num-step svg.ico { color: var(--tone, currentColor); }
+.hdr-btn.on svg.ico, .tool-btn.on svg.ico, .start-toggle.active svg.ico, .start-btn.primary svg.ico, .props-tab.on svg.ico, .menu-item.checked .menu-icon svg.ico, .btn.primary svg.ico { color: inherit; }
+.ws-tab > svg { opacity: 1; }

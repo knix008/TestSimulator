@@ -29,6 +29,42 @@ const SHOTS = [
   ['clip', async () => { await openSample('camera-solve', 'Motion Tracking'); await js("window.__my3d.setWorkspace('tracking'); window.__my3d.setFrame(8);"); await settle(900); }],
 ];
 
+// What the tutorial makes: its steps done one after another with Do It for Me, and the picture its Render step renders.
+// The tutorial popup and the tutorial's first and last steps show it (public/tutorial/result.png), and so does the
+// written tutorial (doc/images/tutorial-result.png).
+async function tutorialResult() {
+  await js(`localStorage.setItem('my3d.settings', JSON.stringify({ language: 'ko', showStart: false, askTutorial: false }))`);
+  await cdp.send('Page.reload');
+  await sleep(600);
+  await waitFor(() => js('document.readyState === "complete" && Boolean(window.__my3d)'), 30000);
+  await js('window.__my3d.startTutorial()');
+  await waitFor(() => js("Boolean(document.querySelector('[data-testid=tutorial-text]'))"), 10000);
+  for (let guard = 0; guard < 40; guard++) {
+    if (await js("Boolean(document.querySelector('[data-testid=tutorial-done]'))")) break;
+    if (await js("Boolean(document.querySelector('[data-testid=tutorial-do]'))")) await js("document.querySelector('[data-testid=tutorial-do]').click()");
+    await waitFor(() => js("Boolean(document.querySelector('[data-testid=tutorial-next]:not([disabled]), [data-testid=tutorial-done]'))"), 180000, 200);
+    if (await js("Boolean(document.querySelector('[data-testid=tutorial-done]'))")) break;
+    await js("document.querySelector('[data-testid=tutorial-next]').click()");
+    await settle(200);
+  }
+  const data = await js(`(async () => {
+    const { resultToPng } = await import('/src/ui/render.js');
+    const blob = await resultToPng(window.__my3d.renderResult);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let text = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(text);
+  })()`);
+  const png = Buffer.from(data, 'base64');
+  for (const file of [path.join(root, 'public', 'tutorial', 'result.png'), path.join(root, 'doc', 'images', 'tutorial-result.png')]) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, png);
+  }
+  await js("document.querySelector('[data-testid=tutorial-done]')?.click()");
+  console.log(`  tutorial result: ${png.length} bytes`);
+}
+await tutorialResult();
+
 for (const language of ['ko', 'en']) {
   await js(`localStorage.setItem('my3d.settings', JSON.stringify({ language: ${JSON.stringify(language)}, showStart: false, askTutorial: false }))`);
   await cdp.send('Page.reload');

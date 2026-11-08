@@ -35,7 +35,22 @@ The `sample` folder holds samples by level. Choose one from the level groups in 
 
 ## The screen
 
-The bar at the top has the File, Edit, Render, Window and Help menus, the workspace tabs, and the language, theme, preferences and about buttons. Below it are the editor areas, and at the bottom the status bar.
+The bar at the top has the File, Edit, Render, Window and Help menus, the workspace tabs, and the language, theme, preferences and about buttons. Each menu title has a coloured icon, and so has every row of the menus and their submenus. The buttons of every toolbar, area header and tab bar draw their icons in colour by kind too (a pressed button follows its own text colour, so the icon reads on the accent). Below it are the **Tools & Library** panel on the left and the editor areas on the right, and at the bottom the status bar.
+
+### The Tools & Library panel
+
+It is on the left of every workspace. The **‹** button in its header folds it to a thin strip and back, and typing in the search box at the top keeps only what matches. A click on a section's title folds it, and the panel remembers. Items that cannot be used now (a modifier with no object selected, say) are dimmed.
+
+| Section | What is in it | How to use it |
+|---|---|---|
+| Tools | The 3D view's Select, Move, Rotate, Scale, Transform, 3D Cursor, Measure and Annotate tools; Duplicate, Delete, Join, Smooth, Flat, Apply, Origin, Parent; cursor snapping; Frame All, Frame Selected; Keyframe; Render | Click |
+| Add | Mesh primitives, a NURBS surface, four lights, a camera, an empty, an armature, three curves, text, a metaball, a lattice, a Grease Pencil, a volume, a force field | A click adds at the 3D cursor; dragged into a 3D view, it lands where it is let go (on the surface under the pointer, else on the ground) |
+| Modifiers | Every modifier | A click adds it to the active object |
+| Materials | The Asset Browser's built-in materials (metal, glass, plastic, matte, light) | A click gives it to the selection; dropped on an object in a 3D view, to that object |
+| Assets | Built-in shape assets, this file's assets, My Library | A click adds at the 3D cursor; a drop where it is let go |
+| Physics | Rigid body, collision, cloth, soft body, particles, smoke and liquid domains and flows, Dynamic Paint, Bake All Dynamics | Click |
+
+The Asset Browser's cards can be dragged into a 3D view as well.
 
 The button at the top left of an area changes its editor type. Right-click an area's header for split, join and maximize. Drag the border between two areas to resize them.
 
@@ -332,7 +347,7 @@ Every operator in the menus can be called through `bpy.ops`.
 
 ## Asset Browser
 
-In the Assets workspace, materials and shapes are chosen by their pictures. A double-click puts a material on the selection and a shape at the 3D cursor. The header's buttons mark the active object as an asset of this file, or save it to My Library, which stays across files.
+In the Assets workspace, materials and shapes are chosen by their pictures. A double-click puts a material on the selection and a shape at the 3D cursor. Dragged into a 3D view, a shape lands where it is let go and a material goes on the object under it. The header's buttons mark the active object as an asset of this file, or save it to My Library, which stays across files.
 
 ![The Asset Browser](images/en/assets.png)
 

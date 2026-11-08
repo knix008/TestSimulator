@@ -1018,6 +1018,37 @@ export function createView3D(app, el, area) {
 
   const inPaint = () => ['SCULPT', 'VERTEX_PAINT', 'WEIGHT_PAINT', 'TEXTURE_PAINT'].includes(app.doc.mode);
 
+  // ── Drops from the Tools & Library panel: where it lands is the surface under the pointer, or the ground (Z = 0) seen
+  // through it; a material lands on the object under the pointer.
+  const LIBRARY_MIME = 'application/x-my3d-library';
+  const dropTarget = (e) => {
+    const p = local(e);
+    castAt(p.x, p.y);
+    const hit = raycaster.intersectObjects(sync.pickables().filter((m) => m.isMesh), false)[0];
+    let point = hit?.point ?? null;
+    if (!point) {
+      const ground = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+      point = raycaster.ray.intersectPlane(ground, new THREE.Vector3()) ?? planePoint(p.x, p.y, new THREE.Vector3(...app.doc.cursor));
+    }
+    const picked = pickObject(p.x, p.y);
+    return { point: point.toArray(), objectId: picked?.id ?? hit?.object?.userData?.objId ?? null };
+  };
+  canvas.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer?.types?.includes(LIBRARY_MIME)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  canvas.addEventListener('drop', (e) => {
+    const text = e.dataTransfer?.getData(LIBRARY_MIME);
+    if (!text) return;
+    e.preventDefault();
+    e.stopPropagation();
+    app.setActiveArea(area);
+    let item = null;
+    try { item = JSON.parse(text); } catch { return; }
+    app.libraryDrop?.(item, dropTarget(e));
+  });
+
   canvas.addEventListener('pointerdown', (e) => {
     canvas.focus({ preventScroll: true });
     app.setActiveArea(area);

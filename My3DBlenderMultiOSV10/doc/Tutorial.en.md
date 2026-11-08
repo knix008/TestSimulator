@@ -2,6 +2,14 @@
 
 A hands-on course for first-time users. Followed from the start, it goes from the basics to simulation, Python and video editing. Each tutorial takes from 5 to 20 minutes. To see a finished one, open its sample from the start screen.
 
+## The tutorial inside the program
+
+At the first start a window asks whether to run the tutorial (**Help › Tutorial** opens it too). The picture in that window and in the tutorial's first and last steps is the very picture the tutorial makes: a rounded cube with a coloured ball on top, the ball moved in time, rendered through the camera.
+
+![What the tutorial makes](images/tutorial-result.png)
+
+It is exactly what the Render step gives when every step is done with **Do It for Me**. Done by hand, yours may differ a little in colour or place.
+
 ## Before you start
 
 | Action | Input |

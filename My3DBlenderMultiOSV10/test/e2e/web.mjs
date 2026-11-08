@@ -157,6 +157,141 @@ await test('every top menu opens and has rows', async () => {
     eq(await js("document.querySelectorAll('.menu').length"), 0, `${id} did not close`);
   }
 });
+await test('title bar menus: every title has its coloured icon, and every row of every menu and submenu has an icon', async () => {
+  const out = await js(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const titles = ['menu-file', 'menu-edit', 'menu-render', 'menu-window', 'menu-help'].map((id) => document.querySelector('[data-testid=' + id + ']'));
+    const titled = titles.every((el) => el.querySelector('svg') && el.querySelector('svg').style.color);
+    const missing = [];
+    let rows = 0;
+    for (const title of titles) {
+      title.click();
+      await sleep(80);
+      const walk = async (level, path) => {
+        const menu = document.querySelector('.menu[data-level="' + level + '"]');
+        if (!menu) return;
+        for (const row of [...menu.querySelectorAll(':scope > .menu-item')]) {
+          rows++;
+          const label = row.querySelector('.menu-label')?.textContent;
+          if (!row.querySelector('.menu-icon svg')) missing.push(path + ' > ' + label);
+          row.dispatchEvent(new MouseEvent('mouseenter'));
+          await sleep(30);
+          if (row.classList.contains('sub-open') && document.querySelector('.menu[data-level="' + (level + 1) + '"]')) await walk(level + 1, path + ' > ' + label);
+        }
+      };
+      await walk(0, title.dataset.testid);
+      document.body.click();
+      await sleep(40);
+    }
+    return { titled, rows, missing };
+  })()`);
+  assert(out.titled, 'each title has a coloured icon');
+  assert(out.rows > 40, `${out.rows} rows walked`);
+  eq(out.missing, [], 'rows without an icon');
+  await press('Escape');
+});
+await test('colour icons: in every workspace, every toolbar, header and tab button draws its icon in its own colour', async () => {
+  const left = [];
+  for (const ws of ['layout', 'modeling', 'sculpting', 'uv', 'paint', 'shading', 'animation', 'rendering', 'compositing', 'geonodes', 'video', 'tracking', 'assets', 'scripting']) {
+    await click(`ws-${ws}`);
+    await frame();
+    await sleep(150);
+    const found = await js(`(() => {
+      const out = [];
+      for (const b of document.querySelectorAll('button')) {
+        if (b.closest('.start') || b.offsetParent === null) continue;
+        // A pressed or main button keeps the button's own colour so its icon reads on the accent.
+        if (b.matches('.on, .active, .primary, .checked')) continue;
+        const svg = b.querySelector(':scope > svg, :scope > .menu-icon > svg');
+        // Flags and swatches are pictures in their own colours; the line icons are the ones that take a tone.
+        if (!svg || !svg.matches('.ico, .about-mark')) continue;
+        const icon = getComputedStyle(svg).color;
+        if (icon === getComputedStyle(b).color) out.push((svg.dataset.icon || svg.getAttribute('class')) + ' in ' + (b.dataset.testid || b.className));
+      }
+      return out;
+    })()`);
+    for (const f of found) left.push(`${ws}: ${f}`);
+  }
+  eq(left, [], 'buttons whose icon has no colour of its own');
+  await click('ws-layout');
+  await frame();
+});
+await test('Tools & Library panel: on the left of the workspace, sections that fold and remember it, a search, and a click that does the thing', async () => {
+  assert(await exists('side-panel-library'), 'the panel');
+  const left = await js("(() => { const p = document.querySelector('[data-testid=side-panel-library]').getBoundingClientRect(); const s = document.querySelector('.screen').getBoundingClientRect(); return p.right <= s.left + 1 && p.width > 150; })()");
+  assert(left, 'left of the areas');
+  for (const id of ['tools', 'add', 'modifiers', 'materials', 'assets', 'physics']) assert(await exists(`library-section-${id}`), id);
+  // Add: a click makes the object at the 3D cursor.
+  const before = await doc('doc.objects.length');
+  await js("document.querySelector('[data-item^=\"op:mesh.primitive_torus_add\"]').click()");
+  await frame();
+  eq(await doc('doc.objects.length'), before + 1, 'a torus');
+  eq(await doc('active.name'), 'Torus', 'and it is active');
+  // Modifiers go on the active object; materials on the selection.
+  await js("document.querySelector('[data-item=\"modifier:BEVEL\"]').click()");
+  await frame();
+  eq(await doc("active.modifiers.at(-1).type"), 'BEVEL', 'a bevel');
+  await js("document.querySelector('[data-item=\"asset:lib_gold\"]').click()");
+  await frame();
+  eq(await doc("doc.materials.find((m) => m.id === active.materials[0]).metallic"), 1, 'gold on it');
+  // A tool button switches the 3D view's tool.
+  await js("document.querySelector('[data-item=\"tool:rotate\"]').click()");
+  eq(await js("window.__my3d.editorsOf('view3d')[0].api.tool.name"), 'rotate', 'the rotate tool');
+  await js("document.querySelector('[data-item=\"tool:select\"]').click()");
+  // Search narrows to what matches and opens the sections it finds things in.
+  await js("(() => { const s = document.querySelector('[data-testid=library-search]'); s.value = 'torus'; s.dispatchEvent(new Event('input')); })()");
+  await frame();
+  const found = await js("[...document.querySelectorAll('.library-item')].map((b) => b.textContent)");
+  assert(found.length >= 1 && found.every((x) => x.toLowerCase().includes('torus')), `search: ${found}`);
+  await js("(() => { const s = document.querySelector('[data-testid=library-search]'); s.value = ''; s.dispatchEvent(new Event('input')); })()");
+  // A section folds, and stays folded.
+  await click('library-head-materials');
+  await frame();
+  eq(await js("document.querySelectorAll('[data-testid=library-section-materials] .library-item').length"), 0, 'folded');
+  eq(await js('window.__my3d.settings.libraryClosed.materials'), true, 'remembered');
+  await click('library-head-materials');
+  // The whole panel folds to a strip and back.
+  await click('side-fold-library');
+  await frame();
+  assert(await js("document.querySelector('[data-testid=side-panel-library]').getBoundingClientRect().width < 40"), 'folded panel');
+  await click('side-fold-library');
+  await frame();
+  // Items that cannot run now are dimmed: with nothing selected, a modifier has nothing to go on.
+  await js("window.__my3d.op('object.select_all', { action: 'DESELECT' }); window.__my3d.doc.activeId = null; window.__my3d.touch();");
+  await frame();
+  await frame();
+  assert(await js("document.querySelector('[data-item=\"modifier:BEVEL\"]').classList.contains('dim')"), 'dimmed');
+  await js("window.__my3d.op('wm.new')").catch(() => {});
+  await js('window.__my3d.fileSaved?.()');
+});
+await test('Tools & Library: dragging into the 3D view adds the object where it is let go, and a material onto the object under the pointer', async () => {
+  await js("window.__my3d.fileSaved(); window.__my3d.op('wm.new')");
+  await frame();
+  const drop = (payload, x, y) => js(`(() => {
+    const c = document.querySelector('[data-testid=gl-canvas]');
+    const r = c.getBoundingClientRect();
+    const dt = new DataTransfer();
+    dt.setData('application/x-my3d-library', ${JSON.stringify(JSON.stringify(payload))});
+    const at = { clientX: r.left + r.width * ${x}, clientY: r.top + r.height * ${y}, bubbles: true, cancelable: true, dataTransfer: dt };
+    c.dispatchEvent(new DragEvent('dragover', at));
+    c.dispatchEvent(new DragEvent('drop', at));
+    return true;
+  })()`);
+  const cursor = await doc('doc.cursor');
+  await drop({ kind: 'op', id: 'mesh.primitive_uv_sphere_add', props: {} }, 0.2, 0.75);
+  await frame();
+  const ball = await doc("doc.objects.find((o) => o.name === 'UV Sphere')?.location");
+  assert(ball, 'a sphere');
+  assert(Math.hypot(ball[0] - cursor[0], ball[1] - cursor[1]) > 0.5, `away from the cursor: ${ball}`);
+  assert(Math.abs(ball[2]) < 0.05, `on the ground: ${ball}`);
+  eq(await doc('doc.cursor'), cursor, 'the cursor stays');
+  // The default cube is in the middle of the view: gold dropped there goes on it.
+  await drop({ kind: 'asset', id: 'lib_gold' }, 0.5, 0.5);
+  await frame();
+  eq(await doc("doc.materials.find((m) => m.id === doc.objects.find((o) => o.name === 'Cube').materials[0])?.metallic"), 1, 'the cube is gold');
+  await js("window.__my3d.fileSaved(); window.__my3d.op('wm.new')");
+  await frame();
+});
 await test('the top bar fits: nothing is cut off at the measured minimum width', async () => {
   const fit = await js(`(() => {
     const bar = document.querySelector('[data-testid=topbar]');
@@ -1667,6 +1802,19 @@ await test('Samples: the Menu card opens the gallery window above the start scre
   await press('Escape');
   await frame();
   await js('window.__my3d.hideStart()');
+});
+await test('Tutorial picture: the startup question shows what the tutorial makes, and the tutorial shows the same picture at its first step', async () => {
+  await js('window.__my3d.askTutorial()');
+  await waitFor(() => js("document.querySelector('[data-testid=tutorial-ask-picture]')?.naturalWidth > 0"), 4000);
+  const asked = await js("document.querySelector('[data-testid=tutorial-ask-picture]').src");
+  assert(asked.endsWith('/tutorial/result.png'), asked);
+  await click('tutorial-ask-later');
+  await js('window.__my3d.fileSaved(); window.__my3d.startTutorial()');
+  await waitFor(() => js("document.querySelector('[data-testid=tutorial-picture] img')?.naturalWidth > 0"), 4000);
+  eq(await js("document.querySelector('[data-testid=tutorial-picture] img').src"), asked, 'the same picture in the tutorial');
+  assert((await js("document.querySelector('[data-testid=tutorial-picture] figcaption').textContent")).length > 3, 'with a caption');
+  await click('tutorial-close');
+  await frame();
 });
 await test('Tutorial popup: it offers the tutorial, and its check box and Preferences both decide whether it comes back', async () => {
   await js('window.__my3d.settings.askTutorial = true; window.__my3d.askTutorial()');

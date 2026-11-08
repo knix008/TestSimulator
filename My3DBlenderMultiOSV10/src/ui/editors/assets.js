@@ -1,5 +1,6 @@
 // The Asset Browser: a grid of ready-made materials and objects. Double-click uses one: a material goes on the selection, an
-// object appears at the 3D cursor. Previews are rendered one at a time, in idle moments, and kept for the session.
+// object appears at the 3D cursor. Or drag one into a 3D view: an object lands where it is let go, a material on the object
+// under the pointer (the same drop as the Tools & Library panel's). Previews are rendered one at a time, in idle moments, and kept for the session.
 import { BUILTIN_ASSETS, applyAsset, assetName, assetPreview, fileAssets, packAsset } from '../../core/assets.js';
 import { activeObject, getMaterial } from '../../core/doc.js';
 import { h } from '../dom.js';
@@ -78,7 +79,7 @@ export function createAssetBrowser(app, el, area) {
       const picture = previews.get(asset.id);
       if (picture) canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(picture.rgba), picture.width, picture.height), 0, 0);
       else queue.push({ asset, canvas });
-      return h('button', { type: 'button', className: `asset-card${state.selected === asset.id ? ' on' : ''}`, title: `${assetName(asset, getLanguage())} — ${t('double-click to use', '더블 클릭으로 사용')}`, dataset: { testid: `asset-${asset.id}` }, onClick: () => { state.selected = asset.id; grid.querySelectorAll('.asset-card').forEach((c) => c.classList.toggle('on', c.dataset.testid === `asset-${asset.id}`)); }, onDblclick: () => useAsset(asset) }, canvas, h('span', null, assetName(asset, getLanguage())));
+      return h('button', { type: 'button', className: `asset-card${state.selected === asset.id ? ' on' : ''}`, title: `${assetName(asset, getLanguage())} — ${t('double-click to use', '더블 클릭으로 사용')}`, dataset: { testid: `asset-${asset.id}` }, draggable: true, onDragstart: (e) => { e.dataTransfer.setData('application/x-my3d-library', JSON.stringify({ kind: 'asset', id: asset.id })); e.dataTransfer.effectAllowed = 'copy'; }, onClick: () => { state.selected = asset.id; grid.querySelectorAll('.asset-card').forEach((c) => c.classList.toggle('on', c.dataset.testid === `asset-${asset.id}`)); }, onDblclick: () => useAsset(asset) }, canvas, h('span', null, assetName(asset, getLanguage())));
     }));
     if (!items.length) grid.append(h('div', { className: 'empty-note' }, t('Nothing here. Mark an object or material as an asset, or save one to My Library.', '여기에는 아직 없습니다. 오브젝트나 재질을 애셋으로 표시하거나 내 라이브러리에 저장하세요.')));
     pump();

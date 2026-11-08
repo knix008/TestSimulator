@@ -384,6 +384,26 @@ const schlick = (cos, f0) => f0 + (1 - f0) * (1 - cos) ** 5;
 const picked = { group: -1, diffuse: [0, 0, 0] };
 
 /** The surface at a hit: a material's plain values, or its node tree evaluated at this point. */
+/**
+ * The shadow terminator fix (Hanika, "Hacking the Shadow Terminator", which Cycles uses): the hit point moved up onto the
+ * tangent planes of the triangle's corners where it lies below them, blended by the barycentric weights. A flat triangle
+ * (normals all equal to its face) does not move. `o` is the triangle's offset in the 9-float arrays; a, b, c weigh its corners.
+ */
+export function terminatorOffset(positions, normals, o, p, a, b, c) {
+  let x = 0;
+  let y = 0;
+  let z = 0;
+  const weights = [a, b, c];
+  for (let k = 0; k < 3; k++) {
+    const i = o + k * 3;
+    const d = Math.min(0, (p[0] - positions[i]) * normals[i] + (p[1] - positions[i + 1]) * normals[i + 1] + (p[2] - positions[i + 2]) * normals[i + 2]);
+    x -= weights[k] * d * normals[i];
+    y -= weights[k] * d * normals[i + 1];
+    z -= weights[k] * d * normals[i + 2];
+  }
+  return [p[0] + x, p[1] + y, p[2] + z];
+}
+
 function surfaceAt(scene, material, position, normal, uv, view = null, depth = 0, rayLength = 0) {
   if (material.nodes) {
     const ctx = { uv, position, normal, images: scene.images, view, depth, rayLength };
@@ -674,9 +694,13 @@ export function tracePath(scene, bvh, origin, direction, random, aovs, lp = null
     const [u, v, w] = [h.u, h.v, 1 - h.u - h.v];
     const o = t * 9;
     const nrm = scene.normals;
-    const pos = [ro[0] + rd[0] * h.t, ro[1] + rd[1] * h.t, ro[2] + rd[2] * h.t];
+    const hitPos = [ro[0] + rd[0] * h.t, ro[1] + rd[1] * h.t, ro[2] + rd[2] * h.t];
+    let pos = hitPos;
     let n = v3.norm([nrm[o] * w + nrm[o + 3] * u + nrm[o + 6] * v, nrm[o + 1] * w + nrm[o + 4] * u + nrm[o + 7] * v, nrm[o + 2] * w + nrm[o + 5] * u + nrm[o + 8] * v]);
     const entering = v3.dot(n, rd) < 0;
+    // Shadow and reflected rays leave a smooth surface from where its vertex normals say it is, not from the flat triangle
+    // (Cycles' shadow terminator offset); rays going in or through start at the real hit.
+    if (entering) pos = terminatorOffset(scene.positions, nrm, o, pos, w, u, v);
     if (!entering) n = v3.mul(n, -1);
     const uvs = scene.uvs;
     const uv = [uvs[t * 6] * w + uvs[t * 6 + 2] * u + uvs[t * 6 + 4] * v, uvs[t * 6 + 1] * w + uvs[t * 6 + 3] * u + uvs[t * 6 + 5] * v];
@@ -706,7 +730,7 @@ export function tracePath(scene, bvh, origin, direction, random, aovs, lp = null
     if (depth === 0 && aovs) { aovs.depth = h.t; aovs.normal = n; aovs.position = pos; aovs.uv = uv; aovs.materialIndex = scene.triMat[t]; aovs.objectIndex = scene.crypto?.objectIndex?.[scene.triObj?.[t]] ?? 0; aovs.albedo = surf.baseColor ?? null; aovs.emission = surf.emission ?? null; }
     // A partly transparent surface: the ray may pass straight through.
     if ((surf.alpha ?? 1) < 1 && random() > surf.alpha) {
-      ro = v3.add(pos, v3.mul(rd, 1e-4));
+      ro = v3.add(hitPos, v3.mul(rd, 1e-4));
       if (depth === 0) alpha = surf.alpha;
       continue;
     }
@@ -739,7 +763,8 @@ export function tracePath(scene, bvh, origin, direction, random, aovs, lp = null
         ro = v3.add(pos, v3.mul(n, 1e-4));
       } else {
         rd = half === n ? refracted : v3.norm(v3.lerp(refracted, v3.mul(half, -1), (surf.roughness ?? 0) * 0.5));
-        ro = v3.sub(pos, v3.mul(n, 1e-4));
+        // Into the surface: from the real hit, not the lifted point, or the ray starts outside it.
+        ro = v3.sub(hitPos, v3.mul(n, 1e-4));
         throughput = throughput.map((x, c) => x * surf.baseColor[c]);
         chosen = LOBE.TRANS;
       }

@@ -17,10 +17,17 @@ const select = (env, obj) => { if (obj) { selectOnly(env.doc, obj); env.touch?.(
 const baseColor = (doc, obj) => getMaterial(doc, obj?.materials?.[0])?.baseColor ?? null;
 const DEFAULT_GREY = 0.8;
 
+/**
+ * What the tutorial makes, rendered by its own Render step (npm run guide:images makes it by doing every step). The
+ * startup question and the first and last steps show it, so the picture promised is the picture made.
+ */
+export const TUTORIAL_PICTURE = 'tutorial/result.png';
+
 export const TUTORIAL_STEPS = [
   {
     id: 'welcome',
     title: { en: 'Welcome', ko: '환영합니다' },
+    picture: { src: TUTORIAL_PICTURE, en: 'What you will make', ko: '만들게 될 그림' },
     text: {
       en: 'In about ten minutes you will make a little scene: a cube with a ball on top, smooth and coloured, moved in time and rendered to a picture. Every step can be done by hand or with Do It for Me. You can drag this card out of the way.',
       ko: '약 10분 동안 작은 장면을 만듭니다. 큐브 위에 공을 올리고, 부드럽게 다듬어 색을 입히고, 움직임을 준 뒤 그림으로 렌더링합니다. 단계마다 직접 하거나 대신 해 주기를 누르면 됩니다. 이 카드는 끌어서 옮길 수 있습니다.',
@@ -232,6 +239,7 @@ export const TUTORIAL_STEPS = [
   {
     id: 'finish',
     title: { en: 'Well done', ko: '수고하셨습니다' },
+    picture: { src: TUTORIAL_PICTURE, en: 'The picture the tutorial makes; yours is in the Render window', ko: '튜토리얼이 만드는 그림. 내가 만든 그림은 렌더 창에 있습니다' },
     text: {
       en: 'That is the whole road: model, shade, animate, render. Save with Ctrl+S. The Samples on the start screen go further, from beginner to advanced, and the User\'s Guide in the Help menu covers everything else.',
       ko: '모델링, 재질, 애니메이션, 렌더링까지 한 바퀴를 돌았습니다. Ctrl+S로 저장합니다. 시작 화면의 샘플로 초급부터 고급까지 더 나아갈 수 있고, 도움말의 사용자 설명서에 나머지가 모두 있습니다.',

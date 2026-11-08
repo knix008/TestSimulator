@@ -23,7 +23,7 @@ export const FEATURES = [
   f('ui.preferences', 'Interface', 'Preferences', '환경 설정', P, { note: 'Six pages: interface, 3D view, navigation, start, packages and system, with the keymap editor and add-on manager; no per-user startup file.', missing: ['a per-user startup file'] }),
   f('ui.keymap_edit', 'Interface', 'Keymap editor', '단축키 편집기', D, { module: 'keymap.lookupKey' }),
   f('ui.addons', 'Interface', 'Add-on system', '애드온 시스템', P, { module: 'addons.enableAddon', note: 'Python or JavaScript add-ons that add operators, with their own properties, and three built in; no custom panels or menus.', missing: ['custom panels and menus from add-ons'] }),
-  f('ui.asset_browser', 'Interface', 'Asset Browser', '애셋 브라우저', P, { ops: ['asset.mark', 'asset.clear'], module: 'assets.applyAsset', note: 'Built-in, file and personal libraries with previews; used by double-click, not by dragging into the view.', missing: ['dragging assets into the 3D view'] }),
+  f('ui.asset_browser', 'Interface', 'Asset Browser', '애셋 브라우저', D, { ops: ['asset.mark', 'asset.clear'], module: 'assets.applyAsset', note: 'Built-in, file and personal libraries with previews, in the Asset Browser and in the Tools & Library panel left of every workspace; used by a click or double-click, or dragged into a 3D view: an object lands where it is let go (on the surface under the pointer or the ground), a material on the object under the pointer.' }),
   f('ui.file_browser', 'Interface', 'File Browser editor', '파일 브라우저 에디터', P, { note: 'Uses the system file dialogs (or the browser\'s) rather than a built-in browser.', missing: ['a built-in file browser editor'] }),
 
   // ── Files

@@ -144,7 +144,7 @@ export function taegukgiMarkup(size = 15) {
 
 /** The About mark from MyCAD's toolbar: an "i" in a circle, drawn in currentColor. */
 export function aboutMark() {
-  return svg(`<svg class="about-mark" viewBox="0 0 20 20" width="17" height="17" role="img"><circle cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="5.6" r="1.2" fill="currentColor"/><rect x="8.9" y="8.2" width="2.2" height="6.6" rx="1.1" fill="currentColor"/></svg>`);
+  return svg(`<svg class="about-mark" style="color:#3b82f6" viewBox="0 0 20 20" width="17" height="17" role="img"><circle cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="5.6" r="1.2" fill="currentColor"/><rect x="8.9" y="8.2" width="2.2" height="6.6" rx="1.1" fill="currentColor"/></svg>`);
 }
 
 /** A 2×2 swatch of a theme's colours (theme picker). */

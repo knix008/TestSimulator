@@ -435,3 +435,15 @@ describe('OSL', () => {
     assert.deepEqual(nodeSockets(node), { inputs: [], outputs: [] });
   });
 });
+
+describe('icon colours', () => {
+  test('every icon of the set has a colour of its own, as a CSS colour', async () => {
+    const { ICON_TONES } = await import('../../src/ui/icon-tones.js');
+    const source = (await import('node:fs')).readFileSync(new URL('../../src/ui/icons.js', import.meta.url), 'utf8');
+    const names = [...source.matchAll(/'?([a-z][a-z0-9-]*)'?: (?:L|C|F|CUBE|GEAR)\(?/g)].map((m) => m[1]).filter((n) => !['d', 'x', 'y', 'r'].includes(n));
+    assert.ok(names.length > 150, `${names.length} icons read`);
+    const missing = names.filter((n) => !ICON_TONES[n]);
+    assert.deepEqual(missing, [], 'icons without a colour');
+    for (const tone of Object.values(ICON_TONES)) assert.match(tone, /^#[0-9a-f]{6}$/);
+  });
+});

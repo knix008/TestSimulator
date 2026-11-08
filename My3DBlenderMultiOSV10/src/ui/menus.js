@@ -99,7 +99,10 @@ export function openMenuBelow(button, items) {
 }
 
 /** Header menu titles: hovering another one while a menu is open moves to it. */
-export function menuTitle(label, items, testid) {
+/** A title in the top bar's menu row: its icon in its own colour, then the name. */
+export function menuTitle(label, items, testid, iconName = null, color = null) {
+  const mark = iconName ? icon(iconName, 14) : null;
+  if (mark && color) mark.style.color = color;
   const el = h('button', {
     type: 'button', className: 'menu-title', dataset: { testid: testid ?? undefined },
     onClick: (e) => {
@@ -107,7 +110,7 @@ export function menuTitle(label, items, testid) {
       if (opener === el) closeMenus(); else openMenuBelow(el, items);
     },
     onMouseenter: () => { if (opener && opener !== el) openMenuBelow(el, items); },
-  }, label);
+  }, mark, h('span', null, label));
   return el;
 }
 
