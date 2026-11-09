@@ -4,7 +4,7 @@
 // class balance and feature statistics. Clicking a sample makes it the probe
 // input that the neuron view follows.
 import { classCounts, featureStats, GENERATOR_GROUPS, GENERATOR_IDS, GENERATORS, sampleX } from '../domain/datasets.js';
-import { STEP_IDS, STEPS, stepApplies } from '../domain/preprocess.js';
+import { GROUP_TEST, STEP_IDS, STEPS, stepApplies } from '../domain/preprocess.js';
 import { shapeText } from '../domain/layers.js';
 import { icon } from '../icons.js';
 import { stepperHtml } from '../stepper.js';
@@ -46,6 +46,10 @@ export function dataViewHtml(app) {
     </div>`;
   }).join('');
   const split = ds.split;
+  // A bank that names its test speakers (data.groupRoles): with the speaker split on, the test part is them.
+  const roles = split.group !== false ? app.data()?.groupRoles : null;
+  const fixedTest = roles?.includes(GROUP_TEST) ? roles.filter((r) => r === GROUP_TEST).length : 0;
+  const testShare = fixedTest ? (app.prepared()?.test?.n ?? 0) / Math.max(1, app.data().n) || split.test : split.test;
   const summary = prepared ? `<dl class="kv">
       <dt>${escapeHtml(t('data.samples'))}</dt><dd>${data.n.toLocaleString()}</dd>
       <dt>${escapeHtml(t('data.parts'))}</dt><dd>${prepared.train.n} / ${prepared.val.n} / ${prepared.test.n}</dd>
@@ -71,11 +75,11 @@ export function dataViewHtml(app) {
       </section>
       <section class="panel-section"><h3>${icon('split')}<span>${escapeHtml(t('data.split'))}</span></h3>
         <div class="prop-row"><span class="prop-label">${escapeHtml(t('data.val'))}</span><span class="prop-control">${stepperHtml({ key: 'split:val', value: Math.round(split.val * 100), min: 0, max: 50, step: 5, unit: '%', label: t('data.val') })}</span></div>
-        <div class="prop-row"><span class="prop-label">${escapeHtml(t('data.test'))}</span><span class="prop-control">${stepperHtml({ key: 'split:test', value: Math.round(split.test * 100), min: 0, max: 50, step: 5, unit: '%', label: t('data.test') })}</span></div>
+        <div class="prop-row" ${fixedTest ? `data-fixed-test title="${escapeHtml(t('data.fixedTestTip'))}"` : ''}><span class="prop-label">${escapeHtml(t(fixedTest ? 'data.fixedTest' : 'data.test'))}</span><span class="prop-control">${fixedTest ? stepperHtml({ key: 'split:fixedTest', value: fixedTest, min: fixedTest, max: fixedTest, unit: t('data.speakersUnit'), label: t('data.fixedTestTip'), disabled: true }) : stepperHtml({ key: 'split:test', value: Math.round(split.test * 100), min: 0, max: 50, step: 5, unit: '%', label: t('data.test') })}</span></div>
         <div class="prop-row"><span class="prop-label">${escapeHtml(t('data.seed'))}</span><span class="prop-control">${stepperHtml({ key: 'split:seed', value: split.seed, min: 1, max: 99999, step: 1, label: t('data.seed') })}</span></div>
         <div class="prop-row"><span class="prop-label">${escapeHtml(t('data.stratify'))}</span><span class="prop-control"><label class="switch-wrap"><input type="checkbox" data-data="stratify" ${split.stratify ? 'checked' : ''}/><span class="switch"></span></label></span></div>
         ${app.data()?.groups ? `<div class="prop-row" title="${escapeHtml(t('data.groupTip'))}"><span class="prop-label">${escapeHtml(t('data.group'))}</span><span class="prop-control"><label class="switch-wrap"><input type="checkbox" data-data="group" ${split.group !== false ? 'checked' : ''}/><span class="switch"></span></label></span></div>` : ''}
-        <div class="split-bar" title="${escapeHtml(t('data.parts'))}"><i class="train" style="flex:${1 - split.val - split.test}">${escapeHtml(t('data.train'))}</i><i class="val" style="flex:${split.val}">${split.val ? escapeHtml(t('data.valShort')) : ''}</i><i class="test" style="flex:${split.test}">${split.test ? escapeHtml(t('data.testShort')) : ''}</i></div>
+        <div class="split-bar" title="${escapeHtml(t('data.parts'))}"><i class="train" style="flex:${1 - split.val - testShare}">${escapeHtml(t('data.train'))}</i><i class="val" style="flex:${split.val}">${split.val ? escapeHtml(t('data.valShort')) : ''}</i><i class="test" style="flex:${testShare}">${testShare ? escapeHtml(t('data.testShort')) : ''}</i></div>
       </section>
       <section class="panel-section"><h3>${icon('info')}<span>${escapeHtml(t('data.summary'))}</span></h3>${summary}</section>
     </aside>

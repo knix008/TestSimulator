@@ -20,6 +20,11 @@ export function rng(seed = 1) {
 
 const size = (shape) => shape.reduce((a, b) => a * b, 1);
 
+/** Roles of sample groups (data.groupRoles, see splitIndices): free for any part, training/validation only, test only. */
+export const GROUP_ANY = 0;
+export const GROUP_FIT = 1;
+export const GROUP_TEST = 2;
+
 export function makeDataset({ name, kind, inputShape, xs, ys, task, labels = null, featureNames = null, vocab = null }) {
   const n = ys.length / (task.kind === 'classification' ? 1 : size(task.outputShape));
   return { name, kind, inputShape, n, x: Float32Array.from(xs), y: Float32Array.from(ys), task, labels, featureNames, vocab };

@@ -476,7 +476,7 @@ int cls = mt_classify(raw, NULL); /* or both at once: mt_labels[cls] */` : ''}
 - Build and check: \`gcc -O2 -std=c99 example.c ${name}.c -lm -o example && ./example\` — it runs a test sample and compares with MyTrainer.
 - C++: include \`${name}.h\` as it is (it has \`extern "C"\`).
 - The functions use static buffers: not reentrant, no heap. RAM ≈ the sum of the layer outputs listed in \`${name}.c\`.
-${prepared.kind === 'audio' ? `- Speech: the input is a log-mel spectrogram (32 bands × 32 frames over ${prepared.media?.seconds ?? 0.6} s at 8 kHz) normalised to 0…1, like MyTrainer makes it. Compute the same features on the device.\n` : ''}${prepared.kind === 'image' ? '- Pictures: values 0…1, row by row, channels last (RGB).\n' : ''}`;
+${prepared.kind === 'audio' ? `- Speech: the input is a log-mel spectrogram (${prepared.media?.bands ?? 32} bands × ${prepared.media?.frames ?? 32} frames over ${prepared.media?.seconds ?? 0.6} s at 8 kHz) normalised to 0…1, like MyTrainer makes it. Compute the same features on the device.\n` : ''}${prepared.kind === 'image' ? '- Pictures: values 0…1, row by row, channels last (RGB).\n' : ''}`;
 
   return { files: { [`${name}.h`]: header, [`${name}.c`]: source, 'example.c': exampleC, 'README.md': readme }, errors };
 }

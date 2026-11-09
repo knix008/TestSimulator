@@ -6,7 +6,7 @@
 //   video   — short clips of a moving ball (right, left, up, down, growing, shrinking), as a
 //             sequence of frames or with the frames stacked as channels
 // A dataset may carry `media` describing how to show / play a sample (audio waves, frames).
-import { makeDataset, rasterize, rng } from './datasets-core.js';
+import { GROUP_ANY, GROUP_FIT, GROUP_TEST, makeDataset, rasterize, rng } from './datasets-core.js';
 
 const classification = (classes) => ({ kind: 'classification', classes, binaryOutput: classes === 2 ? 1 : classes });
 
@@ -656,7 +656,10 @@ export function parseSoundBank(buffer) {
   const length = view.getUint32(0, true);
   const index = JSON.parse(new TextDecoder().decode(new Uint8Array(buffer, 4, length)));
   const size = Math.round(index.rate * index.seconds);
-  const clips = index.clips.map(([label, voice], i) => ({ label, voice, wave: fromMulaw(new Uint8Array(buffer, 4 + length + i * size, size)) }));
+  // [label, voice] or [label, voice, word] (newer banks also tell which word an unknown clip says)
+  // testVoices: speakers kept for testing only (their voices share nothing with the others, see make-kws-ko.py)
+  const tests = new Set(index.testVoices ?? []);
+  const clips = index.clips.map(([label, voice, word], i) => ({ label, voice, ...(word ? { word } : {}), ...(tests.has(voice) ? { testOnly: true } : {}), wave: fromMulaw(new Uint8Array(buffer, 4 + length + i * size, size)) }));
   return { index, clips };
 }
 
@@ -836,6 +839,13 @@ function* soundSteps(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseCla
   const data = makeDataset({ name, kind: 'audio', inputShape: layout === 'image' ? [bands, frames, 1] : [frames, bands], xs, ys, task: classification(names.length), labels: names });
   data.media = { ...media, waves };
   data.groups = Int32Array.from(groups);
+  // A bank that keeps speakers for testing only (clip.testOnly): their groups test, every other speaker
+  // trains or validates, noise goes anywhere (see splitIndices).
+  if (clips.some((clip) => clip.testOnly)) {
+    const roles = new Uint8Array(groupIds.size).fill(GROUP_ANY);
+    for (const clip of clips) if (clip.voice) roles[groupIds.get(`voice:${clip.voice}`)] = clip.testOnly ? GROUP_TEST : GROUP_FIT;
+    data.groupRoles = roles;
+  }
   return data;
 }
 

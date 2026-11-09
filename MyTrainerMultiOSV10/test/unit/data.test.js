@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { classCounts, describeTable, featureStats, fromImages, fromTable, generate, GENERATOR_IDS, GENERATORS, parseCsv, sampleX } from '../../src/domain/datasets.js';
-import { cleanSplit, newStep, prepare, splitIndices, STEP_IDS, stepApplies, targetsFor, transformInput } from '../../src/domain/preprocess.js';
+import { cleanSplit, GROUP_ANY, GROUP_FIT, GROUP_TEST, newStep, prepare, splitIndices, STEP_IDS, stepApplies, targetsFor, transformInput } from '../../src/domain/preprocess.js';
 
 const size = (shape) => shape.reduce((a, b) => a * b, 1);
 
@@ -66,6 +66,27 @@ test('the split is stratified and covers every sample once', () => {
   const all = [...parts.train, ...parts.val, ...parts.test].sort((a, b) => a - b);
   assert.deepEqual(all, Array.from({ length: 400 }, (_, i) => i));
   for (let c = 0; c < 4; c++) assert.equal(parts.val.filter((i) => data.y[i] === c).length, 20);
+});
+
+test('named test groups: the test part is exactly those speakers (plus the same share of free noise), none of them ever trains', () => {
+  // 10 speakers × 20 samples (speakers 8 and 9 test only) + 50 noise samples, each its own free group
+  const groups = []; const roles = [];
+  for (let g = 0; g < 10; g++) { roles.push(g >= 8 ? GROUP_TEST : GROUP_FIT); for (let k = 0; k < 20; k++) groups.push(g); }
+  for (let k = 0; k < 50; k++) { roles.push(GROUP_ANY); groups.push(10 + k); }
+  const data = { n: groups.length, groups: Int32Array.from(groups), groupRoles: Uint8Array.from(roles), task: { kind: 'classification', classes: 2 }, y: new Float32Array(groups.length) };
+  for (const seed of [1, 7, 42]) {
+    const parts = splitIndices(data, cleanSplit({ val: 0.15, test: 0.3, seed }));
+    const all = [...parts.train, ...parts.val, ...parts.test].sort((a, b) => a - b);
+    assert.deepEqual(all, Array.from({ length: data.n }, (_, i) => i));
+    const speakers = (list) => new Set(list.map((i) => groups[i]).filter((g) => g < 10));
+    assert.deepEqual([...speakers(parts.test)].sort(), [8, 9], 'test = the test speakers, whatever split.test says');
+    for (const part of [parts.train, parts.val]) assert.ok(![...speakers(part)].some((g) => g >= 8));
+    assert.equal(parts.test.filter((i) => groups[i] >= 10).length, 10, 'noise: the test speakers\' share (40 of 200 → 10 of 50)');
+    assert.ok(parts.val.length > 0 && parts.train.length > parts.val.length);
+  }
+  // without roles nothing changes: groups are dealt at random
+  const plain = splitIndices({ ...data, groupRoles: undefined }, cleanSplit({ val: 0.15, test: 0.15, seed: 42 }));
+  assert.equal(plain.train.length + plain.val.length + plain.test.length, data.n);
 });
 
 test('statistics are fitted on the training part only, and augmentation grows only the training part', () => {

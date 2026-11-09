@@ -107,6 +107,9 @@ export function cleanDataset(raw = {}) {
     clean = { kind: 'images', name: String(source.name ?? 'images'), size: clampNumber(source.size, 4, 128, 28, true), channels: source.channels === 3 ? 3 : 1, items: source.items.filter((item) => item && typeof item.label === 'string' && typeof item.data === 'string') };
   } else if (source.kind === 'sounds' && (SOUND_BANKS[source.bank] || Array.isArray(source.items))) {
     clean = { kind: 'sounds', name: String(source.name ?? 'sounds'), seconds: clampNumber(source.seconds, 0.3, 3, 1), copies: clampNumber(source.copies, 1, 8, 3, true), noiseClass: source.noiseClass !== false, layout: source.layout === 'seq' ? 'seq' : 'image', seed: clampNumber(source.seed, 1, 9999, 1, true) };
+    // optional: spectrogram frames per clip (finer timing; the model's input follows) and non-word sounds in the noise class
+    if (source.frames !== undefined) clean.frames = clampNumber(source.frames, 8, 128, 32, true);
+    if (source.noiseEvents) clean.noiseEvents = clampNumber(source.noiseEvents, 0, 1, 0);
     if (SOUND_BANKS[source.bank]) clean.bank = source.bank;
     else clean.items = source.items.filter((item) => item && typeof item.label === 'string' && typeof item.data === 'string');
   } else clean = defaultDataset().source;

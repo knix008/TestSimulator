@@ -3,6 +3,7 @@
 // on the training part only and applied to all three, as they should be.
 // Augmentation steps add transformed copies to the training part only.
 import { rng } from './datasets.js';
+import { GROUP_ANY, GROUP_FIT, GROUP_TEST } from './datasets-core.js';
 
 const size = (shape) => shape.reduce((a, b) => a * b, 1);
 
@@ -61,8 +62,11 @@ export function cleanSplit(split = {}) {
  * Grouped (data.groups, one id per sample — a speaker, or a recording and its augmented copies): every
  * group goes to one part only, so validation and test measure inputs the model has never heard (not
  * a copy of a training clip, not a training speaker). Groups are dealt out in random order until each
- * part has its share of the samples.
+ * part has its share of the samples. When the data names its test groups (data.groupRoles, one role per
+ * group id: GROUP_TEST, GROUP_FIT = training or validation only, GROUP_ANY), the test part is exactly
+ * the GROUP_TEST groups plus the same share of the free ones; no GROUP_TEST sample ever trains.
  */
+export { GROUP_ANY, GROUP_FIT, GROUP_TEST };
 export function splitIndices(data, split) {
   const s = cleanSplit(split);
   const r = rng(s.seed);
@@ -84,6 +88,24 @@ export function splitIndices(data, split) {
     const ids = shuffle([...members.keys()]);
     const train = []; const val = []; const test = [];
     const wantTest = Math.round(data.n * s.test); const wantVal = Math.round(data.n * s.val);
+    const roles = data.groupRoles;
+    if (roles?.length && roles.includes(GROUP_TEST)) {
+      // The data names its test groups (speakers whose voices share nothing with the others): the test part
+      // is exactly those, whatever s.test says; groups free for any part (noise) follow the same share.
+      const of = (role) => ids.filter((id) => (roles[id] ?? GROUP_ANY) === role);
+      const size = (list) => list.reduce((a, id) => a + members.get(id).length, 0);
+      const tests = of(GROUP_TEST); const fits = of(GROUP_FIT); const free = of(GROUP_ANY);
+      for (const id of tests) test.push(...members.get(id));
+      const wantFree = Math.round(size(free) * (size(tests) / Math.max(1, size(tests) + size(fits))));
+      const rest = [...fits];
+      let freeInTest = 0;
+      for (const id of free) {
+        if (freeInTest < wantFree) { test.push(...members.get(id)); freeInTest += members.get(id).length; } else rest.push(id);
+      }
+      // validation: whole groups (never a test speaker) until its share, the rest trains
+      for (const id of shuffle(rest)) (val.length < wantVal ? val : train).push(...members.get(id));
+      return { train: shuffle(train), val: shuffle(val), test: shuffle(test) };
+    }
     for (const id of ids) {
       const list = members.get(id);
       if (test.length < wantTest) test.push(...list);
