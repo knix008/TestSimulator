@@ -11,7 +11,7 @@
 //          deadline, priority, type, effortDriven, fixedCost, notes, calendarId,
 //          predecessors: [{ taskId, type, lag, lagUnit }], active, collapsed, hyperlink,
 //          text1…text3, number1, flag1, barColor, levelingDelay, baselines: { 0: {…} }, recurring }
-// resource = { id, name, type, initials, group, email, maxUnits, stdRate, ovtRate, costPerUse,
+// resource = { id, name, type, initials, group, email, maxUnits, stdRate, ovtRate, costPerUse, wage,
 //              accrue, calendarId, materialLabel, notes }
 // assignment = { id, taskId, resourceId, units, work?, cost? }
 import { defaultCalendars, normalizePeriods } from './calendars.js';
@@ -152,6 +152,8 @@ export function createResource(project, data = {}) {
     stdRate: data.stdRate ?? options.defaultStdRate ?? 0,
     ovtRate: data.ovtRate ?? options.defaultOvtRate ?? 0,
     costPerUse: data.costPerUse ?? 0,
+    // Pay by the day / week / month / year (labor.js); stdRate is its hourly equivalent.
+    wage: data.wage && typeof data.wage === 'object' && ['day', 'week', 'month', 'year'].includes(data.wage.basis) && Number(data.wage.amount) >= 0 ? { basis: data.wage.basis, amount: Number(data.wage.amount) } : null,
     accrue: data.accrue ?? 'prorated',
     calendarId: data.calendarId ?? null,
     materialLabel: data.materialLabel ?? '',

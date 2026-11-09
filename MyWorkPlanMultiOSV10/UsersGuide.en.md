@@ -1,82 +1,297 @@
 # MyWorkPlan User's Guide
 
-MyWorkPlan plans tasks, schedules, resources and costs and tracks progress, much like Microsoft Project. It runs with the same screens as a desktop app on Windows, macOS and Linux and in a web browser.
+Version 1.0.0
 
-This guide is organised by task. Menu and command names are written exactly as the program shows them (for example **Task › Insert task** is the "Insert task" command of the "Task" menu). The pictures are captured from the tutorial.
+MyWorkPlan plans tasks, schedules, resources and costs and tracks progress, much like Microsoft Project. It runs as a desktop app on Windows, macOS and Linux and, with the same screens, in a web browser.
+
+This guide follows the order in which you usually work: start the program, build a plan, schedule it, add resources and costs, track progress, look at it in different views and reports, then save, print and customize. Menu and command names are written exactly as the program shows them; **Task › Insert task** means the "Insert task" command of the "Task" menu, and **File › Import and export › …** means a command in a submenu. The pictures were taken from the program in English.
 
 > 한국어 설명서: [UsersGuide.md](UsersGuide.md)
 
 ## Getting started
 
+### What you need
+
+| Platform | Package |
+|---|---|
+| Windows 10 / 11 | `MyWorkPlan-Setup-1.0.0.exe` (installs for the current user, no administrator rights) |
+| macOS 11 or later | `MyWorkPlan-1.0.0-<arch>.dmg` |
+| Linux | `.deb`, `.rpm` or `.AppImage` |
+| Web browser | The web build (`dist/`) on any static web server |
+
+See [Installing and removing](#installing-and-removing) for the details.
+
 ### First start
 
-On the first start the **Welcome to MyWorkPlan** window opens.
+On the very first start the **Welcome to MyWorkPlan** window opens over the start page.
 
 | Button | What it does |
 |---|---|
 | **Start the tutorial** | Starts the tutorial, which shows every feature step by step on a sample project |
-| **Open the sample** | Opens the "Website Redesign (sample)" project |
-| **Later** | Closes the window. The tutorial is always at **Help › Tutorial** (F11) |
+| **Open the sample** | Opens the "Website Redesign" sample project |
+| **Later** | Closes the window. The tutorial is always at **Help › Tutorial** (`F11`) |
 
-Only one MyWorkPlan runs at a time. Starting it again while it is running shows an error and the new copy closes (see [Troubleshooting](#troubleshooting)).
+Only one MyWorkPlan runs at a time per user. Starting it again while it is running shows an error and the new copy closes (see [Troubleshooting](#troubleshooting)).
 
-### Start page
+### Your first plan in five minutes
 
-The start page shows when no project is open (and from the **Home** button at the start of the menu bar, `Ctrl+Shift+H`). Its background keeps moving.
+1. On the start page, click a template in the **New** card (or **Blank project**).
+2. Type task names into the table; type durations such as `5d` or `2w` in the **Duration** column.
+3. Select tasks and press **Link tasks** (`Ctrl+F2`) to chain them; dates follow automatically.
+4. Select tasks and press **Indent (make subtask)** (`Alt+Shift+→`) to group them under a summary task.
+5. Press **Save** (`Ctrl+S`) and give the plan a file name (`.mwp`).
 
-![Start page](docs/tutorial/images/01-welcome.jpg)
+If you would rather look first, open one of the [40 sample projects](#sample-projects) or start the [tutorial](#tutorial-and-help).
 
-| Area | Contents |
+## The start page
+
+The start page shows when the program starts (if **Show the start page when starting** is on) and whenever no project is open. The **Home** button at the left end of the menu bar (`Ctrl+Shift+H`) brings it back at any time; open projects stay in their tabs.
+
+![The start page: hero card, Quick actions, Recent, New and Sample projects cards over the moving background](docs/guide/images/en/01-start.png)
+
+The page is a board of translucent cards on a moving background, laid out in three columns. Scroll it with the mouse wheel or the scroll bar on the right.
+
+### The top row
+
+Above the cards are three controls:
+
+| Control | What it does |
 |---|---|
-| Top | Program name and version, **Start the tutorial**. Until the tutorial has been finished, a hint banner shows too |
-| **New** | Blank project and 7 templates (Software development · Building construction · Event planning · Marketing campaign · Product launch · Research study · Office move), **Open…**, **Import (MS Project XML · CSV)…** |
-| **Recent files** · **Recent folders** | The last 10 files and 10 folders. ✕ removes one entry, **Clear all** · **Clear all folders** remove them all |
-| **Sample projects** | Installed samples (website redesign · software · construction · event plan · event template) |
-| **Moving background** | Pick one of 21 animations, **Change moving background** (random), **Background image…**, **Motion speed** |
-| **Help** | **User's guide**, **Keyboard shortcuts…** |
-| Bottom | **Show the start page when starting** check box |
+| **Show the start page when starting** | Check box. When off, the program opens straight to an empty window (or to the files it reopens) |
+| **Start page settings** | Opens **Settings › Start page** (see [Start page settings](#start-page-settings)) |
+| **Auto arrange** | Puts every card back in its first arrangement |
 
-![New project from a template](docs/tutorial/images/03-templates.jpg)
+Until you have finished the tutorial once, a hint banner under this row says "New here? …" with a **Start** button. It can be turned off in the start page settings.
 
-Templates come with phases (summary tasks), tasks, links, milestones and resources. A project made from a template asks for a new file name the first time it is saved.
+### The cards
 
-### The sample project
+| Card | Width | Contents |
+|---|---|---|
+| Hero (no title) | 3 columns | Program icon, **MyWorkPlan** and its version, the tagline, and the buttons **User's guide**, **Tutorial document**, **Tutorial video**, **Help** ▾ and **Start the tutorial** |
+| **Quick actions** | 2 columns | Ten tiles for everyday jobs (below) |
+| **Recent** | 1 column | **Recent files** and **Recent folders** |
+| **New** | 3 columns | **Blank project** and 7 templates |
+| **Sample projects** | 3 columns | 40 sample plans in 8 groups (see [Sample projects](#sample-projects)) |
+| **Moving background** | 3 columns | 21 animations and the background controls |
 
-Open "Website Redesign" under **Sample projects**: the task table is on the left, the Gantt chart on the right. Black brackets are summary tasks, diamonds are milestones and red bars are critical tasks.
+There is no theme card on the start page: themes are chosen with the theme buttons on the toolbar or in **Settings › Theme** (see [Themes](#themes)).
 
-![The sample project](docs/tutorial/images/06-sample.jpg)
+### The hero card
 
-### Tutorial
+| Button | What it does |
+|---|---|
+| **User's guide** | Opens this guide |
+| **Tutorial document** | Shows the tutorial document inside the program (every step with its screen) |
+| **Tutorial video** | Plays the recording of the whole tutorial inside the program |
+| **Help** ▾ | Drops down the same items as the **Help** menu: Tutorial · Tutorial document · Tutorial video · User's guide · Keyboard shortcuts… · Settings… · About… |
+| **Start the tutorial** | Starts the interactive tutorial |
 
-Start it with **Help › Tutorial** (F11), the graduation-cap toolbar button or **Start the tutorial** on the start page. It opens a sample project and shows the features one by one in 64 steps.
+### Quick actions
 
-- Move with **Next** · **Previous step**, or press **Auto play** (▶).
-- **Choose a chapter** jumps to Start page · Building a plan · Scheduling · Resources and costs · Tracking · Views · Reports · Files and printing · Customizing · Help.
-- The tour box can be dragged. **Esc** or ✕ ends the tutorial.
-- Your files are not changed, and the settings the tutorial changes (theme, language, background…) are put back at the end.
+The ten tiles sit in two rows of five. Each tile shows a short hint under its name; the full hint is in its tooltip.
 
-**Tutorial document** — a document with every tutorial step and its screen can be read inside the program. Open it from **Help › Tutorial document** on the home screen or in the **Help** menu: it fills the middle of the window, and the bar on top jumps to a chapter, switches 한국어/English, starts the tutorial or opens the document in a browser. **Home** takes you back.
+| Tile | What it does |
+|---|---|
+| **Open** | Opens a saved plan (.mwp) or template (.mwpt) |
+| **Import** | Imports an MS Project XML or CSV file |
+| **Print** | Prints the open plan. When no plan is open it says "Pick the plan file to print.", asks for a file first, opens it and then opens the print preview |
+| **Start the tutorial** | Walks through every feature on a sample plan |
+| **Keyboard shortcuts** | Shows every keyboard shortcut |
+| **한국어** / **English** | Switches the program language (the tile shows the flag and name of the other language) |
+| **Settings** | Opens the program settings |
+| **Start page settings** | Chooses what the start page shows |
+| **About** | Version and author |
+| **Exit** | Closes the program (unsaved plans are asked about first) |
+
+### Recent
+
+- **Recent files** lists the last files you opened (8 by default; 1–10 in the start page settings). Click one to open it; ✕ removes it from the list; **Clear all** removes them all.
+- **Recent folders** lists the folders you opened files from. Click one to open the file dialog in that folder; ✕ removes it; **Clear all folders** removes them all.
+- When a list is empty it says "No recent files." or "No recent folders.".
+
+### New
+
+Click a tile to start a new plan:
+
+| Template | Contents |
+|---|---|
+| **Blank project** | Start from an empty plan |
+| **Software development** | Requirements, design, build, testing and release of a software product |
+| **Building construction** | Permits, foundation, structure, services, finishes and handover of a small building |
+| **Event planning** | Venue, speakers, promotion, logistics, the event day and the wrap-up |
+| **Marketing campaign** | Research, creative work, channel setup, the campaign itself and the results |
+| **Product launch** | Final QA, go-to-market, support readiness, launch day and early feedback |
+| **Research study** | Study design, ethics review, data collection, analysis and the final report |
+| **Office move** | Lease, fit-out, packing, the move itself and handing back the old office |
+
+Templates come with phases (summary tasks), tasks, links, milestones and resources. A plan made from a template asks for a new file name the first time it is saved.
+
+### Moving background
+
+![The Moving background card with the 21 animations and its controls](docs/guide/images/en/03-start-background.png)
+
+| Control | What it does |
+|---|---|
+| Animation tiles | Pick one of 21 animations: Aurora · Waves · Particles · Constellation · Bubbles · Flowing grid · Gantt bars · Star field · Rain · Snow · Fireflies · Ripples · Code rain · Hexagons · Orbits · Lava lamp · Spiral galaxy · Confetti · Milestones · Ribbons · Fireworks |
+| **Change moving background** | Switches to another animation at random (`Ctrl+Shift+B`) |
+| **Background image…** | Uses a picture as the background instead |
+| **Motion speed** | 0–300% |
+| **Card opacity** | How solid the cards are, 20–100% (80% by default) |
+| **Random at start** | Picks a different animation every time the program starts |
+| **Auto change** | While the start page is open, switches to another animation after Off · 15 s · 30 s · 1 min · 2 min · 5 min (30 s by default) |
+
+### Moving and resizing cards
+
+- **Move** a card by dragging the four-arrow handle at the left of its header (on the hero card it is in the top-left corner). A see-through copy follows the pointer, an outline shows where the card will land, and the other cards slide out of the way. Near the top or bottom edge the page scrolls by itself.
+- **Resize** a card by dragging the dotted corner at its bottom right: sideways in whole columns (1–3), down in rows.
+- **Double-click** the dotted corner to fit the card to its content again.
+- Cards never overlap; they always move up as far as they can.
+- The arrangement is saved and comes back on the next start. **Auto arrange** (top row, or **Settings › Start page › Card layout**) restores the first arrangement.
+
+### Start page settings
+
+![Settings › Start page tab](docs/guide/images/en/21-settings-start.png)
+
+**Start page settings** (top row or Quick actions) opens the **Start page** tab of the Settings window:
+
+| Setting | Meaning |
+|---|---|
+| **Show the start page when starting** | Same as the check box on the start page |
+| **Show the tutorial banner** | The "New here?" banner (shown only until the tutorial is finished) |
+| **Show recent files** · **Show recent folders** | The two parts of the Recent card; with both off the card disappears |
+| **Recent files shown** | 1–10 (8 by default), for files and folders |
+| **Show sample projects** | The Sample projects card |
+| **Show the moving background picker** | The Moving background card |
+| **Card opacity** | 20–100% |
+| **Card layout** | **Auto arrange** |
+| **Start page** | **Open now** goes to the start page |
+
+The kind, speed and automatic change of the moving background are set on the **Background** tab. Changes show on the start page right away.
+
+## Sample projects
+
+The **Sample projects** card holds 40 ready-made plans, five in each of eight fields. They are ordinary plans with phases, tasks, links, milestones, resources and costs, so every view and report has something to show.
+
+![The Sample projects card: eight groups of five; a green dot marks a plan already under way](docs/guide/images/en/02-start-samples.png)
+
+- **Click** a tile to open the sample as a new, unsaved tab in the current program language (a Korean UI opens the Korean version). The status bar says "Opened the sample …". Saving asks for a file name, so the original sample is never changed.
+- A **green dot** after the name marks a plan that is already **under way**: it has a baseline, progress up to a status date a few weeks after its start, and late or on-track tasks, so the Tracking Gantt, progress line, variances and reports show real numbers.
+- **Website Redesign** is the tutorial's own plan; it also has a baseline, progress, late work and an overallocated person.
+- The same samples are installed as files in the `samples` folder of the installation, named `<id>.en.mwp` and `<id>.ko.mwp` (for example `wedding.en.mwp`), together with `event-template.en.mwpt` / `event-template.ko.mwpt`. Open them with **Open…** like any plan.
+
+| Group | Sample | Description |
+|---|---|---|
+| IT & Software | Website Redesign | The tutorial plan: baseline, progress, late work and an overbooked person |
+| IT & Software | Mobile App Development ● | A shopping app under way: sprints, QA and app store review |
+| IT & Software | ERP Rollout | Business analysis, setup, data migration, training and go-live of an ERP |
+| IT & Software | Cloud Migration | Moving on-premises servers to a public cloud in waves |
+| IT & Software | Security Certification | Gap analysis, fixes and the audit for an ISO 27001 certificate |
+| Construction & Facilities | Apartment Remodeling ● | A three-bedroom apartment under way: demolition, trades and finishes |
+| Construction & Facilities | Road Resurfacing | Milling and repaving a worn road under traffic control |
+| Construction & Facilities | New Factory Building | Permits, foundations, steel frame, services and the occupancy permit |
+| Construction & Facilities | Bridge Repair | Safety inspection, bearing replacement, crack repair and repainting |
+| Construction & Facilities | Solar Farm | A 3 MW solar farm from the permits to grid connection |
+| Products & Manufacturing | Bluetooth Speaker Development | Concept, design, EVT/DVT prototypes, certification and production approval |
+| Products & Manufacturing | Production Line Expansion ● | New equipment, site works, installation and ramp-up, already under way |
+| Products & Manufacturing | Auto Part Production Approval | APQP planning, tooling, process validation and PPAP approval |
+| Products & Manufacturing | Packaging Redesign | Concepts, mock-ups, consumer test, printing and the switch-over |
+| Products & Manufacturing | ISO 9001 Certification | Gap analysis, documentation, internal audit and the certification audits |
+| Marketing & Sales | Brand Refresh ● | Research, strategy and a new identity rolled out to every channel, under way |
+| Marketing & Sales | Product Ad Campaign | Planning, video production, media buying, the flight and the results |
+| Marketing & Sales | International Trade Show | Booth, materials, travel, the show itself and buyer follow-up |
+| Marketing & Sales | Online Store Launch | Platform, store build, product listings and operations up to opening day |
+| Marketing & Sales | Customer Satisfaction Survey | Questionnaire, online and phone fieldwork, analysis, report and actions |
+| Events & Culture | Wedding Planning ● | Venue, studio, dress and makeup, invitations, the ceremony and the honeymoon |
+| Events & Culture | Outdoor Music Festival | Line-up, stage and sound, ticket sales, two days of shows and the teardown |
+| Events & Culture | International Academic Conference | Call for papers, peer review, keynotes, three conference days and the proceedings |
+| Events & Culture | Company Sports Day | Teams and events, the field, kit and catering, the day of games and the prizes |
+| Events & Culture | Short Film Production | Script, casting, location shoot, edit and sound, then festival submissions |
+| Business & Organization | Graduate Recruitment ● | Job posting, screening, aptitude tests, interviews, offers and onboarding |
+| Business & Organization | Annual Budget Planning | Guidelines, department requests, review rounds, board approval and allocation |
+| Business & Organization | Acquisition Due Diligence | NDA and data room, financial, legal, tax and IT review, valuation and signing |
+| Business & Organization | Leadership Training Program | Needs analysis, course design, materials, a pilot, three cohorts and evaluation |
+| Business & Organization | New Branch Opening | Site selection and lease, fit-out, hiring, systems go-live and the opening day |
+| Research, Education & Public | Clinical Trial | Protocol, IRB approval, enrollment, database lock and the study report |
+| Research, Education & Public | Master's Thesis ● | Topic, proposal, data collection, writing, the defense and final submission |
+| Research, Education & Public | New Course Curriculum | Needs analysis, course design, materials and videos, a pilot run and launch |
+| Research, Education & Public | Research Grant Proposal | Call analysis, proposal and budget, institutional sign-off, submission and pitch |
+| Research, Education & Public | Library Digitization | Selection, copyright checks, scanning, metadata and an online collection |
+| Personal & Home | Moving House | Finding a place, the lease, packing, moving day and settling in |
+| Personal & Home | Family Trip Abroad | Itinerary, budget, passports and visas, bookings, packing and the trip itself |
+| Personal & Home | Home Renovation ● | Contractor and design, demolition, services, tiles, wallpaper, floors and move-in |
+| Personal & Home | Certification Exam Prep | Registration, study plan, subjects, past papers, written and practical exams |
+| Personal & Home | Starting a Small Business | Market research, business plan, registration, brand, online store and opening |
+
+● = already under way (green dot on the tile).
+
+**Settings › Start page › Show sample projects** hides the card if you do not need it.
+
+## Tutorial and help
+
+### The interactive tutorial
+
+![The tutorial box over the Website Redesign sample, at the "Adding tasks" step](docs/guide/images/en/22-tutorial.png)
+
+Start it with **Help › Tutorial** (`F11`), the graduation-cap button at the right of the toolbar, **Start the tutorial** on the start page, or **Settings › General › Start the tutorial**. It opens the Website Redesign sample and shows every feature one by one in 68 steps, highlighting the button or area each step is about.
+
+- Move with **Next** and **Previous step**, or press **Auto play** (▶) and **Pause auto play**.
+- **Choose a chapter** jumps to Start page · Building a plan · Scheduling · Resources and costs · Tracking · Views · Reports · Files and printing · Customizing · Help. The box shows the chapter and the step number (for example "10 / 68").
+- Drag the tour box by its title to move it out of the way. `Esc` or ✕ ends the tutorial.
+- Your files are not changed, and the settings the tutorial changes (theme, language, background…) are put back at the end: "The tutorial has ended. Your settings were put back."
+
+### Tutorial document
+
+**Help › Tutorial document** (or the **Tutorial document** button on the start page) shows a document with every tutorial step and its screen in the middle of the window. The bar on top has:
+
+| Control | What it does |
+|---|---|
+| **Home** | Back to the start page |
+| **Go to chapter** | Jumps to a chapter |
+| **한국어** / **English** | Switches the document language |
+| **Start tutorial** | Starts the interactive tutorial |
+| **Open in browser** | Opens the document in your web browser |
+
+### Tutorial video
+
+![The Tutorial video page with Home, Go to chapter, Start tutorial and Open in browser](docs/guide/images/en/23-video.png)
+
+**Help › Tutorial video** (or the **Tutorial video** button on the start page) plays a recording of the whole tutorial inside the program, with the usual video controls (play, pause, seek, volume, full screen).
+
+- **Go to chapter** jumps the video to the start of a chapter.
+- **Start tutorial** starts the interactive tutorial; **Open in browser** plays the video in your browser; **Home** goes back to the start page.
+- The video file is `MyWorkPlan-Tutorial.mp4`. It is made with `npm run tutorial:video` in the project folder, which writes it to the project root and copies it, with its chapter list, into `docs/video`. When the video has not been made yet, the page says "The tutorial video has not been made yet. Run npm run tutorial:video in the project folder."
+
+### User's guide and other help
+
+| Command | What it does |
+|---|---|
+| **Help › User's guide** | Opens this guide |
+| **Help › Keyboard shortcuts…** | The Settings window on the **Shortcuts** tab |
+| **Help › Settings…** | The Settings window (`Ctrl+,`) |
+| **Help › About…** | Version, build date, commit, target, runtime, platform and author; **Copy** copies them (`F1`) |
+
+Every button and menu item has a tooltip, and the menus show each command's shortcut.
 
 ## The window
 
-![The window](docs/tutorial/images/07-layout.jpg)
+![The main window with the Website Redesign sample: menus, toolbar, Tools panel, task table and Gantt chart, Properties panel and status bar](docs/guide/images/en/04-gantt.png)
 
-From the top: the **menu bar** and the **toolbar** (one line); right under them the **Tools** panel on the left and the **Properties** panel on the right. Between the two panels, in the middle, are the **project tabs** with the **view** below them, and the **status bar** is at the bottom. Drag the separators between the panels to resize them, and the bottom-right corner to resize the window. The window never gets narrower than the toolbar needs.
+From the top: the **menu bar** and the **toolbar** (one line); right under them the **Tools** panel on the left and the **Properties** panel on the right. Between the two panels are the **project tabs** with the **view** below them and, under the view, the **bottom panel** (Schedule check); the **status bar** is at the bottom. Drag the separators between the panels to resize them, and the bottom-right corner to resize the window. The window never gets narrower than the toolbar needs.
 
 ### Menu bar
 
-The **Home** button at the start of the menu bar (`Ctrl+Shift+H`) goes back to the start page at any time; open projects stay in their tabs.
+The **Home** button at the start of the menu bar (`Ctrl+Shift+H`) goes back to the start page; open projects stay in their tabs. Long menus are grouped into submenus: click an item with › on the right (or press →) and its submenu opens beside it.
 
 | Menu | Commands |
 |---|---|
-| **File** | New project · Open… · Start page · Recent files… · Recent folders · Clear all recent files and folders · Save · Save as… · Save all · Save as template… · Import (MS Project XML · CSV)… · Export to MS Project XML… · Export to CSV… · Export Gantt chart as picture (PNG)… · Print… · Close tab · Close all tabs · Exit |
+| **File** | New project · Open… · Start page · Recent files… · Recent folders · Clear all recent files and folders · Save · Save as… · Save all · Save as template… · Open from database… · Save to database (desktop) · **Import and export** › (Import (MS Project XML · CSV)… · Export to MS Project XML… · Export to CSV… · Export Gantt chart as picture (PNG)…) · Print… · Close tab · Close all tabs · Exit |
 | **Edit** | Undo · Redo · Cut · Copy · Paste · Fill down · Delete · Select all · Clear selection · Find… · Replace… · Go to… |
-| **View** | Switch view and the 12 views · Table (column set) · Choose columns… · Filter · Clear filter, group and sort · Group · Sort · Highlight instead of filter · Show summary tasks only (collapse all) · Show all subtasks (expand all) · Zoom in · Zoom out · Zoom to 100% · Zoom in timescale · Zoom out timescale · Entire project · Scroll to task · Go to today · Show critical path · Show slack · Show baseline bars · Show progress line · Show/hide tool panel · Show/hide properties panel · Status bar · Random theme · Choose theme · Switch language · Change moving background · Background image… · Turn background off |
-| **Task** | Insert task · Insert summary task · Insert milestone · Recurring task… · Indent (make subtask) · Outdent · Move up · Move down · Link tasks · Unlink tasks · Information… · Notes… · Add to timeline · 0% complete … 100% complete · Mark on track · Update tasks… · Manually schedule · Auto schedule · Inactivate task |
+| **View** | **Switch view** › (the 12 views) · Switch view · **Table, filter and group** › (Table (column set) · Choose columns… · Filter · Clear filter, group and sort · Group · Sort · Highlight instead of filter · Show summary tasks only (collapse all) · Show all subtasks (expand all)) · **Zoom and timescale** › (Zoom in · Zoom out · Zoom to 100% · Zoom in timescale · Zoom out timescale · Entire project · Scroll to task · Go to today) · **Show** › (Show critical path · Show slack · Show baseline bars · Show progress line · Show/hide tool panel · Show/hide properties panel · Bottom panel (schedule check) · Fold / unfold the bottom panel · Status bar) · **Theme, language and background** › (Random theme · Choose theme · Switch language · Change moving background · Background image… · Turn background off) |
+| **Task** | Insert task · Insert summary task · Insert milestone · Recurring task… · Indent (make subtask) · Outdent · Move up · Move down · Link tasks · Unlink tasks · Information… · Notes… · Add to timeline · **Progress** › (0% complete … 100% complete · Mark on track · Update tasks…) · Manually schedule · Auto schedule · Inactivate task |
 | **Resource** | Add resource · Resource information… · Assign resources… · Level all · Clear leveling · Leveling options… · Next overallocation · Resource Sheet · Resource Usage · Resource Graph · Team Planner |
-| **Project** | Project information… · Change working time… · Project statistics… · Set baseline… · Clear baseline… · Update project… · Status date… · Calculate now · Insert another project… |
-| **Report** | Project overview · Cost overview · Work overview · Burndown · Critical tasks · Late tasks · Upcoming tasks · Milestone report · Resource overview · Export report (HTML, Markdown, Word, PDF) · Copy report · Print… |
-| **Help** | Tutorial · User's guide · Keyboard shortcuts… · Settings… · About… |
+| **Project** | Project information… · Change working time… · Project statistics… · Set baseline… · Clear baseline… · Update project… · Status date… · Calculate now · Find critical path · Insert another project… |
+| **Report** | The 10 reports (including Labor cost) · **Export report** › (HTML · Markdown · Word · PDF) · Copy report · Print… |
+| **Help** | Tutorial · Tutorial document · Tutorial video · User's guide · Keyboard shortcuts… · Settings… · About… |
 
 Every menu item shows an icon and its shortcut, and menus may extend outside the main window. Commands that cannot be used right now are dimmed.
 
@@ -84,14 +299,18 @@ Every menu item shows an icon and its shortcut, and menus may extend outside the
 
 | Where | Buttons |
 |---|---|
-| Left | New project · Open · Save · Print │ Undo · Redo │ Copy · Paste │ Insert task · Insert milestone · Indent · Outdent · Link tasks · Information │ Switch view (current view name ▾) │ Zoom `[−] 100% [+]` │ Zoom out / in timescale │ Tool panel · Properties panel |
-| Right | Tutorial (graduation cap) · Theme (random) + ▾ · Language (flag) · Settings · About (ⓘ) |
+| Left | New project · Open · Save · Print │ Undo · Redo │ Copy · Paste │ Insert task · Insert milestone · Indent · Outdent · Link tasks · Information │ Switch view (current view name ▾) │ Show critical path · Find critical path │ Zoom `[−] 100% [+]` │ Zoom out / in timescale │ Tool panel · Bottom panel · Properties panel |
+| Right | Tutorial (graduation cap) · Random theme + ▾ (Choose theme) · Switch language (flag) · Settings · About (ⓘ) |
 
 Every button has a tooltip. The Undo and Redo tooltips say what will be undone (for example "Undo: Change duration").
 
+### Colour icons
+
+Every icon in every window — toolbar, menus, Tools and Properties panels, tabs, popups and the start page — has its own colour by meaning: delete, close and critical items are red, new/add and zoom/find green, open and recent amber, save and database indigo, import/export teal, copy/paste cyan, help and information blue, settings slate, print purple, cost brown, and so on. Views, reports, templates and samples each keep a steady colour of their own, so one icon looks the same wherever it appears. The colours are deeper on light themes and brighter on dark themes, so they stay readable with any theme.
+
 ### Project tabs
 
-Each project gets a tab. When there are many, scroll them with the arrows at the ends or the mouse wheel; `Ctrl+Tab` goes to the next tab. Double-clicking the empty part of the tab strip creates a new project. A project with unsaved changes shows ● after its name at the right of the menu bar.
+Each project gets a tab. When there are many, scroll them with the arrows at the right end or the mouse wheel; `Ctrl+Tab` goes to the next tab and `Ctrl+Shift+Tab` to the previous one. Double-click the empty part of the tab strip, or press **+**, to create a new project. A project with unsaved changes shows ● after its name.
 
 ### Tools panel (left)
 
@@ -106,25 +325,42 @@ Each project gets a tab. When there are many, scroll them with the arrows at the
 
 ### Properties panel (right)
 
-Shows the properties of the selection and lets you change them in place. Change a value and press Enter; `Ctrl+Z` undoes it.
+Shows the properties of the selection and lets you change them in place. Change a value and press `Enter`; `Ctrl+Z` undoes it.
 
 | Selection | Shown |
 |---|---|
-| Nothing | The project: title, project start, finish, duration, status date, % complete, cost, work, number of tasks and resources, critical / late / overallocated / conflict counts, buttons (Project · Calendar · Baseline · Level) |
+| Nothing | The project: title, project start, finish, duration, status date, % complete, cost, work, number of tasks and resources, Critical / Late / Overallocated badges, buttons **Project** · **Calendar** · **Baseline** · **Level** |
 | One task | Task name, WBS, duration, start, finish, % complete slider, predecessors, resource names, mode, constraint type and date, deadline, priority, cost, work, total slack, badges (critical · running late · overallocated · finish variance), notes, bar color, **More…** · **Assign** · **Scroll to** |
 | Several tasks | Count, start and finish, cost, Link · Unlink · Indent · Outdent · 0% · 50% · 100% · Inactive · Info |
 | A resource | Name, type, initials, group, max. units, std. rate, cost/use, work, cost, assigned tasks |
 | A link | Predecessor, successor, type, lag, **Delete link** |
 
+### Bottom panel: schedule check
+
+![The bottom panel under the Gantt chart, on the Problems tab](docs/guide/images/en/26-bottom-panel.png)
+
+Under the view of the open plan sits the **Schedule check** panel. It lists what needs attention in the schedule and keeps itself up to date as you edit. It does not show on the start page or while the tutorial document or video is open.
+
+The header has the panel icon, the title **Schedule check** and five tabs, each with a badge counting its entries (red for errors, amber for warnings):
+
+| Tab | What it lists |
+|---|---|
+| **Problems** | Every problem with a **Severity** (**Error** · **Warning** · **Info**), the **Problem** and **Where** it is. Errors: link loops ("the task waits for itself"), calendar errors (a calendar with no working time), missed deadlines ("Finishes 3 day(s) after its deadline"). Warnings: constraint conflicts, overallocated people, late work ("Late: 46% done where 93% was due"). Info: unlinked tasks (no predecessor or successor), tasks without resources, manual tasks with no duration. Errors come first. When there are none: "The schedule has no problems." |
+| **Critical path** | A summary line (critical tasks, how many still to do, number of paths, finish and duration) and a table of the critical tasks (ID, Name, Start, Finish, Duration, Total Slack, % Complete). **Show on the chart** turns on [Find critical path](#critical-path-and-slack) |
+| **Overallocation** | Each overallocated person with Peak, Max. Units, **Days over**, **Period** and the **Overlapping tasks**, plus the buttons **Next overallocation** and **Level all** |
+| **Delays** | Tasks that are late, have missed their deadline or finish after the baseline, with the **Reason** and finish variance; tasks on the critical path are marked "On the critical path" |
+| **Milestones** | Every milestone with its date and **Status**: **Done** · **Deadline missed** · **Slipping** · **On track** |
+
+- **Click a row** to go to it: a task is selected and scrolled into view (the view switches to the Gantt Chart unless a task table view is already shown); a person is selected in the Resource Sheet.
+- **Fold / unfold**: the button at the right of the header folds the panel to its header line, which still shows the icon, the title and the tab counts. Clicking a tab unfolds it again.
+- **×** turns the panel off. The **Bottom panel** toolbar button (between the Tool panel and Properties panel buttons), `Ctrl+Shift+3` and **View › Show › Bottom panel (schedule check)** turn it on and off; **View › Show › Fold / unfold the bottom panel** folds it.
+- **Height**: drag the top edge of the panel. The height, the chosen tab and the folded state are kept for the next start.
+
 ### Status bar
 
-![Status bar](docs/tutorial/images/60-statusBar.jpg)
-
-From the left: the result of the last command (e.g. "Marked 3 tasks 50% complete."), **New tasks: auto scheduled / manually scheduled** (click to change), Saved / Modified, task count, selection count, project finish date, % complete, conflicts, Filter on, theme name, language, timescale slider, zoom and a clock. **View › Status bar** hides or shows it.
+From the left: the result of the last command (e.g. "Marked 3 tasks 50% complete."), **New tasks: auto scheduled / manually scheduled** (click to change), Saved / Modified, task count, selection count, Critical count (while the critical path is on), project finish date, % complete, conflicts, Filter on, theme name, language, timescale slider, zoom and a clock. **View › Show › Status bar** hides or shows it.
 
 ### Right-click menus
-
-![Right-click menus](docs/tutorial/images/45-contextMenu.jpg)
 
 Each place has its own menu.
 
@@ -137,7 +373,7 @@ Each place has its own menu.
 | Column header | Sort by this column · By ID (default) · Choose columns… · Table (column set) · Hide this column · Reset column width |
 | Resource row | Resource information… · Cut · Copy · Paste · Delete · Add resource · Level all · Next overallocation · Resource Graph · Resource Usage |
 | Tab | Save · Save as… · Save as template… · Project information… · Print… · Close tab · Close all tabs · New project |
-| Report | The 9 reports · Export report · Copy report · Print… |
+| Report | The 10 reports (including Labor cost) · Export report · Copy report · Print… |
 | Status bar | Status bar · Zoom in · Zoom out · Zoom to 100% · Zoom in / out timescale · Theme · Language |
 | Text field | Undo typing · Cut · Copy · Paste · Select all |
 
@@ -149,20 +385,16 @@ Windows such as Task information, Settings and Print preview are separate window
 
 ### Adding tasks
 
-![Adding tasks](docs/tutorial/images/08-insertTask.jpg)
-
 - **Task › Insert task** (`Insert`) puts a new task above the selected row and lets you type its name right away.
 - Typing a name into the empty row at the bottom of the table ("Type a new task name here") also creates a task.
 - **Insert summary task** (`Ctrl+Shift+K`) makes a summary task over the selected tasks.
 - Double-click a cell or press `F2` / `Enter` to edit it. While editing, `Enter` moves down, `Tab` moves right and `Esc` cancels.
 - Click a row number to select (`Ctrl`+click: several, `Shift`+click: a range) and drag rows up or down to move them; dragging left or right changes the outline level.
-- **Delete** (`Delete`) removes the selected tasks and their subtasks, after asking (Settings › General › **Ask before deleting**).
+- **Delete** (`Delete`) removes the selected tasks and their subtasks, after asking (**Settings › General › Ask before deleting**).
 
 ### Durations
 
-![Durations](docs/tutorial/images/09-duration.jpg)
-
-Type a number and a unit in the Duration column. Start and finish dates are calculated on the calendar automatically.
+Type a number and a unit in the **Duration** column. Start and finish dates are calculated on the calendar automatically.
 
 | Input | Meaning |
 |---|---|
@@ -180,31 +412,21 @@ How many hours make a day, a week and a month comes from **Settings › Schedule
 
 ### Milestones
 
-![Milestones](docs/tutorial/images/10-milestone.jpg)
-
-A task with a duration of 0 is a milestone (a diamond). Use **Task › Insert milestone** (`Ctrl+Shift+M`), type `0` as the duration, or turn on **Mark as milestone** in Task information.
+A task with a duration of 0 is a milestone (a diamond). Use **Task › Insert milestone** (`Ctrl+Shift+M`), type `0` as the duration, or turn on **Mark as milestone** in Task information. Use milestones for the end of a phase or an important date.
 
 ### Outline (summary tasks)
 
-![Outline](docs/tutorial/images/11-outline.jpg)
-
 - **Indent (make subtask)** (`Alt+Shift+→`) makes a task a subtask of the one above, which becomes a summary task that adds up duration, work, cost and % complete.
 - **Outdent** (`Alt+Shift+←`) undoes it. **Move up** · **Move down** (`Alt+Shift+↑/↓`) move a task together with its subtasks.
-- The triangle before a summary task collapses and expands it. **View › Show summary tasks only (collapse all)** · **Show all subtasks (expand all)** do it for all of them.
+- The triangle before a summary task collapses and expands it. **Show summary tasks only (collapse all)** and **Show all subtasks (expand all)** (View › Table, filter and group) do it for all of them.
 - WBS codes (1, 1.1, 1.2 …) follow the outline automatically.
 
-![Collapse and expand](docs/tutorial/images/12-collapse.jpg)
-
 ### Links and lags
-
-![Linking tasks](docs/tutorial/images/13-link.jpg)
 
 - Select two or more tasks and press **Link tasks** (`Ctrl+F2`) to chain them finish-to-start from top to bottom. **Unlink tasks** (`Ctrl+Shift+F2`) removes the links of the selected tasks.
 - Dragging a Gantt bar up or down onto another bar links them too.
 - The **Predecessors** column can be typed: task IDs with an optional link type and lag, separated by commas — `3`, `5SS+2d`, `7FF-1d`, `4FS+50%`.
 - Double-click a link line for the **Task dependency** window; right-click it for a menu that changes the type at once.
-
-![Link types and lag](docs/tutorial/images/21-linkInfo.jpg)
 
 | Link type | Meaning |
 |---|---|
@@ -216,8 +438,6 @@ A task with a duration of 0 is a milestone (a diamond). Use **Task › Insert mi
 Write the **Lag** as `2d` (2 days later), `-1d` (a 1-day lead) or `50%` (half the predecessor's duration). A link on a summary task applies to every task inside it. Links that would make a loop, or link a summary task with its own subtask, are refused.
 
 ### Dragging bars
-
-![Dragging bars](docs/tutorial/images/14-dragBar.jpg)
 
 | Drag | Changes |
 |---|---|
@@ -231,18 +451,14 @@ Double-click a bar for Task information.
 
 ### Undo, copy and paste
 
-![Undo and redo](docs/tutorial/images/15-undo.jpg)
-
 - Every edit is undone with `Ctrl+Z` and redone with `Ctrl+Y` (or `Ctrl+Shift+Z`). Each tab (project) has its own history.
 - `Ctrl+C` · `Ctrl+X` · `Ctrl+V` copy and move tasks (with their subtasks, links and assignments) or resources.
 - Lists copied from Excel or a text editor paste as tasks: indentation (two spaces or a tab) is the outline level and a value after a tab is the duration. Copied tasks paste into Excel as Name, Duration, Start and Finish columns.
 - **Fill down** (`Ctrl+D`): select several tasks, then a cell; the first task's value in that column is copied to the others.
 
-![Copy and paste](docs/tutorial/images/16-clipboard.jpg)
-
 ### Task information
 
-![Task information](docs/tutorial/images/17-taskInfo.jpg)
+![The Task information window](docs/guide/images/en/05-task-info.png)
 
 Double-click a task or use **Task › Information…** (`Shift+F2`). With several tasks selected it becomes **Multiple task information**: only the fields you change are applied to all of them.
 
@@ -258,8 +474,6 @@ Double-click a task or use **Task › Information…** (`Shift+F2`). With severa
 **Notes…** opens this window on the Notes tab.
 
 ### Recurring tasks
-
-![Recurring tasks](docs/tutorial/images/23-recurring.jpg)
 
 **Task › Recurring task…** creates repeating tasks such as a weekly meeting at once.
 
@@ -292,8 +506,6 @@ The result is one summary task with a task per occurrence, each pinned to its da
 
 ### Constraints
 
-![Constraints and deadlines](docs/tutorial/images/18-constraints.jpg)
-
 Set the **Constraint type** and **Constraint date** in Task information › **Advanced** (or the properties panel).
 
 | Constraint type | Meaning |
@@ -315,8 +527,6 @@ A **Deadline** does not move the task, but it limits the late dates, and a task 
 
 ### Calendars and working time
 
-![Change working time](docs/tutorial/images/22-calendar.jpg)
-
 Edit calendars with **Project › Change working time…**.
 
 - Built-in calendars: **Standard** (Mon–Fri 08:00-12:00, 13:00-17:00), **24 Hours** and **Night Shift**.
@@ -327,18 +537,16 @@ Edit calendars with **Project › Change working time…**.
 
 ### Critical path and slack
 
-![Critical path and slack](docs/tutorial/images/19-critical.jpg)
+![Find critical path turned on: critical tasks and links in red, the chain on the status bar](docs/guide/images/en/06-critical-path.png)
 
-- **Critical tasks** (red bars) have no slack: any delay delays the project finish. **View › Show critical path** turns the colouring on and off.
+- **Critical tasks** (red bars) have no slack: any delay delays the project finish. **Show critical path** (toolbar, **View › Show**) turns the colouring on and off.
 - **Show slack** draws free slack (how far a task can slip without delaying others) as a thin line after the bar.
 - **Total Slack**, **Free Slack** and **Early / Late Start / Finish** are in the **Schedule** table.
 - **Project information › Critical when slack is at most (days)** widens the critical path (default 0 days).
 
-**Find critical path button** — the Find critical path toolbar button (`Ctrl+Shift+P`, also in the **Project** menu) is a toggle. Pressing it recalculates the schedule front to back (earliest start and finish) and back to front (latest start and finish), then traces the tasks without slack into start-to-finish chains. Critical tasks and links turn red, everything else fades, and the chart scrolls to where the path begins. The status bar shows how many tasks are critical, and the message gives the chain (for example `12. Design system → … → 34. Project close`) and the finish date. Press it again, or the critical item in the status bar, to turn it off.
+**Find critical path** — the toolbar button next to Show critical path (`Ctrl+Shift+P`, also **Project › Find critical path**) is a toggle. Pressing it recalculates the schedule front to back (earliest start and finish) and back to front (latest start and finish), then traces the tasks without slack into start-to-finish chains. Critical tasks and links turn red, everything else fades, and the chart scrolls to where the path begins. The status bar shows **Critical** with the count, and the message gives the chain (for example "Critical path: 17 tasks · 2 chain(s) (2. Detailed design → … → 23. Plant completed) · finishes 2027-05-06"). Press it again, or click the Critical item on the status bar, to turn it off.
 
 ### Schedule from and project information
-
-![Project information](docs/tutorial/images/24-projectInfo.jpg)
 
 **Project › Project information…**
 
@@ -346,7 +554,7 @@ Edit calendars with **Project › Change working time…**.
 |---|---|
 | **General** | Title, **Schedule from** (Project start date / Project finish date), start date or finish date, project calendar, priority, currency (₩ · $ · € · ¥ · £), critical slack, honor constraint dates |
 | **Status** | Status date, today, % complete, late / critical / conflict counts |
-| **Statistics** | Current · baseline · actual · remaining start, finish, duration, work and cost; numbers of tasks, milestones and resources |
+| **Statistics** | Current · baseline · actual · remaining start, finish, duration, work, cost and labor cost; labor share; numbers of tasks, milestones and resources |
 | **Properties** | Subject, author, manager, company, category, keywords, comments |
 
 With **Schedule from** set to "Project finish date" the schedule is calculated backwards from the finish date and every task is placed as late as possible. **Project statistics…** opens this window on the Statistics tab, **Status date…** on the Status tab.
@@ -355,11 +563,15 @@ With **Schedule from** set to "Project finish date" the schedule is calculated b
 
 The schedule is recalculated after every edit. **Project › Calculate now** (`F9`) refreshes the values that depend on today's date (late tasks and so on).
 
+### Checking the schedule
+
+The **Problems** tab of the [bottom panel](#bottom-panel-schedule-check) gathers link loops, calendar errors, constraint conflicts and missed deadlines in one list, and its **Critical path** tab lists the critical tasks. Click an entry to jump to the task.
+
 ## Resources and costs
 
 ### Resource Sheet
 
-![Resource Sheet](docs/tutorial/images/25-resourceSheet.jpg)
+![The Resource Sheet view](docs/guide/images/en/13-resource-sheet.png)
 
 Enter resources in the **Resource › Resource Sheet** view: type a name into the empty bottom row or press **Add resource** (`Ctrl+Shift+R`).
 
@@ -372,8 +584,6 @@ Enter resources in the **Resource › Resource Sheet** view: type a name into th
 Double-click a resource for the **Resource information** window (General · Costs · Assignments · Notes tabs). Overallocated resources show in red.
 
 ### Assigning resources
-
-![Assigning resources](docs/tutorial/images/26-assign.jpg)
 
 Select tasks and open **Resource › Assign resources…** (`Alt+F10`). Tick resources and set their units (work resources in %, 50% = half time); work and cost are calculated. Type a new resource name at the bottom and press **Add and assign** to create and assign it at once.
 
@@ -394,25 +604,58 @@ With **Effort driven (more resources shorten the task)** on, adding work resourc
 ### Costs
 
 - Task cost = the cost of its assignments + **Fixed cost**. Summary tasks and the project add up their subtasks.
-- The **Cost** table shows fixed cost, cost, baseline cost, cost variance, actual cost and remaining cost. Actual cost follows % complete.
+- The **Cost** table shows fixed cost, labor cost, cost, baseline cost, cost variance, actual cost and remaining cost. Actual cost follows % complete.
 - Pick the currency symbol in **Project information › Currency**.
 
-### Overallocation
+### Wages and labor cost
 
-![Resource Usage](docs/tutorial/images/27-resourceUsage.jpg)
+![Resource information › Costs: a monthly wage of $13,600 turned into an hourly rate of $85.00](docs/guide/images/en/24-resource-wage.png)
+
+Each person (work resource) can be paid by the hour, day, week, month or year. The schedule always costs work by the hour, so the wage is turned into an hourly **Std. Rate** using the project's working time.
+
+**Setting a wage**
+
+1. Double-click the person in the Resource Sheet (or **Resource › Resource information…**) and open the **Costs** tab.
+2. Pick the **Pay basis**: Hourly · Daily · Weekly · Monthly · Yearly.
+3. Type the **Wage** for that period (the label shows the unit, e.g. "Wage ($/month)").
+4. **Hourly rate** shows the result as you type, for example "$85.00 an hour ($13,600.00 ÷ 160 h)".
+5. Press **OK**: the hourly rate becomes the person's Std. Rate, and work and costs are recalculated.
+
+| Pay basis | Hours in one period |
+|---|---|
+| **Hourly** | 1 |
+| **Daily** | Hours per day (8) |
+| **Weekly** | Hours per week (40) |
+| **Monthly** | Days per month × hours per day (20 × 8 = 160) |
+| **Yearly** | 12 × the monthly hours (1,920) |
+
+The numbers come from **Settings › Schedule** (**Hours per day**, **Hours per week**, **Days per month**). When you change them, the hourly rates of everyone paid daily, weekly, monthly or yearly are recalculated from their wages.
+
+**In the Resource Sheet** — choose the **Labor** table (**Table** list in the Tools panel or **View › Table, filter and group › Table (column set)**). It shows Name, Group, **Pay Basis**, **Wage**, **Std. Rate**, **Work**, **Cost** and **Share of Cost** (the person's share of the total project cost). Pay Basis and Wage can be edited right in the table; typing a Std. Rate directly makes the person hourly again. Material and cost resources leave these cells empty.
+
+**Where labor cost shows**
+
+| Place | What you see |
+|---|---|
+| Task **Cost** table | The **Labor Cost** column: the cost of the work resources on the task |
+| **Project information › Statistics** | A **Labor cost** line (current · baseline · actual · remaining) and **Labor share**, e.g. "97.5% — labor $53,310.00 of $54,690.00 (materials …, other costs …)" |
+| **Report › Labor cost** | The full breakdown (see [Reports](#reports-1)) |
+
+Labor cost = for every person, hours worked × hourly rate + cost per use.
+
+### Overallocation
 
 A resource is overallocated when more work overlaps on a day than it can do (max. units × that day's working time).
 
 - It is red in the Resource Sheet, and its tasks get "A resource is overallocated" in the indicators column.
 - The **Resource Usage** view shows the days over the limit in red.
-- The **Resource Graph** view shows one resource's work per day as columns against its availability as a line (per day / per week).
+- The **Resource Graph** view shows one resource's work per day as columns against its availability as a line.
 - **Resource › Next overallocation** jumps to the next overallocated task.
-
-![Resource Graph](docs/tutorial/images/28-resourceGraph.jpg)
+- The project's **Overallocated** badge in the properties panel counts them.
 
 ### Resource leveling
 
-![Resource leveling](docs/tutorial/images/29-leveling.jpg)
+![The Leveling options window](docs/guide/images/en/19-leveling.png)
 
 **Resource › Level all** delays lower-priority tasks until no resource is overallocated. The delay goes into the **Leveling Delay** field; **Clear leveling** puts the tasks back (only the selected ones when tasks are selected).
 
@@ -430,39 +673,34 @@ Tasks with priority 1000, manually scheduled tasks, tasks already started and "M
 
 ### Team Planner
 
-![Team Planner](docs/tutorial/images/30-teamPlanner.jpg)
-
-**Resource › Team Planner** shows one lane per person with their task blocks. Drag a block to another person's lane to reassign it, or from the **Unassigned tasks** lane at the bottom to assign it. Overallocated lanes are marked red.
+**Resource › Team Planner** shows one lane per person with their task blocks. Drag a block to another person's lane to reassign it, or from the **Unassigned tasks** lane at the bottom to assign it. Overallocated lanes are marked red. See [Team Planner](#team-planner-1) under Views for a picture.
 
 ## Tracking progress
 
 ### Baselines
 
-![Set baseline](docs/tutorial/images/31-baseline.jpg)
+![The Set baseline window](docs/guide/images/en/18-baseline.png)
 
-When the plan is agreed, **Project › Set baseline…** saves the current schedule (start · finish · duration · work · cost).
+When the plan is agreed, **Project › Set baseline…** saves the current schedule (start · finish · duration · work · cost) to compare later with the real progress.
 
-- Up to 11: **Baseline** and **Baseline 1–10**. The list shows when each was saved.
-- **For**: Entire project or the selected tasks.
+- **Action**: **Set** or **Clear**.
+- **Baseline**: up to 11 — **Baseline** and **Baseline 1–10**. The list shows when each was saved.
+- **For**: **Entire project** or **Selected tasks**.
 - When saving the Baseline again, **Keep the previous baseline as Baseline 1** keeps the old one.
 - **Clear baseline…** removes a saved baseline (the schedule does not change).
 - Variances (start, finish, duration, work, cost) and the gray Tracking Gantt bars compare with **Baseline** (number 0).
 
 ### % complete
 
-![Entering progress](docs/tutorial/images/32-progress.jpg)
-
-Select tasks and press **0% complete** · **25% complete** · **50% complete** · **75% complete** · **100% complete** (Task menu, Progress section of the Tools panel). Actual start and finish are recorded automatically and the dark part inside the bar shows the progress. The bar's progress handle and the slider in the properties panel change it too.
+Select tasks and press **0% complete** · **25% complete** · **50% complete** · **75% complete** · **100% complete** (**Task › Progress**, Progress section of the Tools panel). Actual start and finish are recorded automatically and the dark part inside the bar shows the progress. The bar's progress handle and the slider in the properties panel change it too.
 
 **Mark on track** sets the selected tasks to the progress they should have at the status date.
 
 ### Update tasks
 
-**Task › Update tasks…** (one task selected) enters % complete, actual duration, remaining duration, actual start and actual finish in detail.
+**Task › Progress › Update tasks…** (one task selected) enters % complete, actual duration, remaining duration, actual start and actual finish in detail.
 
 ### Update project
-
-![Update project](docs/tutorial/images/33-updateProject.jpg)
 
 **Project › Update project…**
 
@@ -479,19 +717,23 @@ The status date is the day progress is judged against (late tasks, progress line
 
 ### Tracking Gantt and progress line
 
-![Tracking Gantt](docs/tutorial/images/34-trackingGantt.jpg)
+![The Tracking Gantt view of the Mobile App Development sample, already under way](docs/guide/images/en/07-tracking.png)
 
-The **Tracking Gantt** view draws the current schedule on top and the baseline as a gray bar below. **View › Show progress line** connects how far each task got at the status date; a line bending to the left marks a late task. In the Gantt Chart, **Show baseline bars** shows the baseline too.
+The **Tracking Gantt** view draws the current schedule on top and the baseline as a gray bar below. **View › Show › Show progress line** connects how far each task got at the status date; a line bending to the left marks a late task. In the Gantt Chart, **Show baseline bars** shows the baseline too.
+
+The samples marked with a green dot on the start page (for example Mobile App Development) are already under way, so they are a quick way to see all of this.
+
+### Delays and milestones at a glance
+
+The **Delays** tab of the [bottom panel](#bottom-panel-schedule-check) lists late tasks, missed deadlines and tasks finishing after the baseline, marking those on the critical path; the **Milestones** tab shows each milestone as Done, Deadline missed, Slipping or On track. Overallocated people are on its **Overallocation** tab.
 
 ## Views
 
-![Switching views](docs/tutorial/images/35-viewMenu.jpg)
-
-Switch between the 12 views with the toolbar view button (current view name ▾), the Tools panel or the **View** menu. Each tab remembers its view; the first view of new projects is set in **Settings › General › Default view of new projects**.
+Switch between the 12 views with the toolbar view button (current view name ▾), the **Views** section of the Tools panel or **View › Switch view**. Each tab remembers its view; the first view of new projects is set in **Settings › General › Default view of new projects**.
 
 ### Gantt Chart
 
-The task table on the left, the Gantt chart on the right, a splitter between them. The chart has a two-tier timescale, shaded non-working time, the today and status-date lines, link arrows, deadlines, baseline bars and slack lines. **Settings › Gantt chart › Text next to bars** picks Name · Resources · % complete · None. See [The sample project](#the-sample-project) for a picture.
+The task table on the left, the Gantt chart on the right, a splitter between them. The chart has a two-tier timescale, shaded non-working time, the today and status-date lines, link arrows, deadlines, baseline bars and slack lines. Black brackets are summary tasks, diamonds are milestones and red bars are critical tasks. **Settings › Gantt chart › Text next to bars** picks Name · Resources · % complete · None. See [The window](#the-window) for a picture.
 
 ### Tracking Gantt
 
@@ -499,29 +741,31 @@ Compares the current schedule with the baseline. See [Tracking Gantt and progres
 
 ### Task Sheet
 
+![The Task Sheet view](docs/guide/images/en/08-task-sheet.png)
+
 The table alone, full width — handy for wide tables (Cost, Tracking, Variance…).
 
 ### Task Usage
 
-![Task Usage](docs/tutorial/images/40-taskUsage.jpg)
+![The Task Usage view](docs/guide/images/en/09-task-usage.png)
 
 Each task with its resources below it and the hours per day on the right. Zooming the timescale switches between days, weeks and months.
 
 ### Network Diagram
 
-![Network Diagram](docs/tutorial/images/37-network.jpg)
+![The Network Diagram view](docs/guide/images/en/10-network.png)
 
 Tasks as boxes (ID, name, dates, duration, resources), links as arrows. Red boxes are critical, X marks a finished task, a slash one in progress. Drag to move around, `Ctrl+wheel` to zoom, double-click a box for Task information.
 
 ### Calendar
 
-![Calendar](docs/tutorial/images/38-calendarView.jpg)
+![The Calendar view](docs/guide/images/en/11-calendar.png)
 
 A month calendar with bars over the days each task runs. **Previous month** · **Next month** · **This month** · **Project start month** or the mouse wheel turn the months. Weeks with too many tasks show "+N".
 
 ### Timeline
 
-![Timeline](docs/tutorial/images/39-timeline.jpg)
+![The Timeline view](docs/guide/images/en/12-timeline.png)
 
 The whole project on one line: top-level summary tasks (phases) as bars, milestones as diamonds and tasks added with **Add to timeline** as call-outs — good for reporting.
 
@@ -531,15 +775,21 @@ The resource table. See [Resource Sheet](#resource-sheet).
 
 ### Resource Usage
 
+![The Resource Usage view with overallocated days in red](docs/guide/images/en/14-resource-usage.png)
+
 Each resource with its assignments and hours per day; periods over the limit are red. See [Overallocation](#overallocation).
 
 ### Resource Graph
 
-Pick a resource on the left to see its work per day (columns) against its availability (line). Max. units · peak · total work are summed up at the top, and **per day** · **per week** switch the scale. Only work resources are graphed.
+![The Resource Graph view](docs/guide/images/en/15-resource-graph.png)
+
+Pick a resource on the left to see its work per day (columns) against its availability (line); red above the line is overallocation. Max. units · peak · total work are summed up at the top, and **per day** · **per week** switch the scale. Only work resources are graphed.
 
 ### Team Planner
 
-Task blocks in one lane per person; drag them to reassign. See [Team Planner](#team-planner).
+![The Team Planner view](docs/guide/images/en/16-team-planner.png)
+
+Task blocks in one lane per person; drag them to reassign. The bottom lane holds unassigned tasks. See [Team Planner](#team-planner) under Resources and costs.
 
 ### Reports
 
@@ -549,15 +799,13 @@ Dashboards built from the schedule. See [Reports](#reports-1).
 
 ### Tables (column sets)
 
-![Tables](docs/tutorial/images/41-tables.jpg)
-
-Switch the column set with **View › Table (column set)** or the **Table** list in the Tools panel.
+Switch the column set with **View › Table, filter and group › Table (column set)** or the **Table** list in the Tools panel.
 
 | Table | Columns |
 |---|---|
 | **Entry** | Indicators, Mode, Task Name, Duration, Start, Finish, Predecessors, Resource Names |
 | **Schedule** | Start, Finish, Late Start, Late Finish, Free Slack, Total Slack |
-| **Cost** | Fixed Cost, Cost, Baseline Cost, Cost Variance, Actual Cost, Remaining Cost |
+| **Cost** | Fixed Cost, Labor Cost, Cost, Baseline Cost, Cost Variance, Actual Cost, Remaining Cost |
 | **Work** | Work, Baseline Work, Work Variance, Actual Work, Remaining Work, % Complete |
 | **Tracking** | Actual Start, Actual Finish, % Complete, Actual Duration, Remaining Duration, Actual Cost, Actual Work |
 | **Variance** | Start, Finish, Baseline Start, Baseline Finish, Start Variance, Finish Variance |
@@ -565,19 +813,17 @@ Switch the column set with **View › Table (column set)** or the **Table** list
 | **Summary** | WBS, Duration, Start, Finish, % Complete, Cost, Work |
 | **Constraint dates** | Duration, Constraint Type, Constraint Date, Deadline, Priority, Task Type |
 
-The Resource Sheet has Entry · Cost · Work · Summary tables.
+The Resource Sheet has Entry · Cost · Labor · Work · Summary tables (Labor: Pay Basis, Wage, Std. Rate, Work, Cost, Share of Cost — see [Wages and labor cost](#wages-and-labor-cost)).
 
 ### Choosing columns
 
-- **View › Choose columns…**: reorder (Move up / Move down) and hide the **Columns shown** on the left, add from the **Available columns** on the right, or go back with **Default columns**. Each table keeps its own columns.
+- **Choose columns…**: reorder (Move up / Move down) and hide the **Columns shown** on the left, add from the **Available columns** on the right, or go back with **Default columns**. Each table keeps its own columns.
 - Right-click a column header to sort, **Hide this column** or **Reset column width**.
 - Drag a column border to resize it; double-click it to fit the content.
 
 ### Filters and highlighting
 
-![Filter, group and sort](docs/tutorial/images/42-filter.jpg)
-
-**View › Filter** or the **Filter** list in the Tools panel:
+**Filter** (View › Table, filter and group, or the **Filter** list in the Tools panel):
 
 All tasks · Active tasks · Completed tasks · Incomplete tasks · Critical tasks · Milestones · Summary tasks · Late tasks · Overallocated tasks · Unstarted tasks · Tasks in progress · Tasks with deadlines · Tasks with constraints · Manually scheduled tasks · Date range… · Using resource…
 
@@ -593,8 +839,6 @@ All tasks · Active tasks · Completed tasks · Incomplete tasks · Critical tas
 
 ### Find, replace, go to
 
-![Find](docs/tutorial/images/43-find.jpg)
-
 The **Find** window has four tabs.
 
 | Tab | Shortcut | Contents |
@@ -608,7 +852,7 @@ The window can stay open while you keep searching.
 
 ## Reports
 
-![Reports](docs/tutorial/images/46-reports.jpg)
+![The Reports view with the Project overview](docs/guide/images/en/17-reports.png)
 
 Pick a report from the **Report** menu or the list in the Reports view. Reports are judged at the status date.
 
@@ -623,32 +867,46 @@ Pick a report from the **Report** menu or the list in the Reports view. Reports 
 | **Upcoming tasks** | Tasks starting within two weeks of the status date |
 | **Milestone report** | All milestones and their variance against the baseline |
 | **Resource overview** | Work, cost, peak and overallocation per resource |
-
-![Cost report](docs/tutorial/images/47-reportCost.jpg)
+| **Labor cost** | What the people cost and their share of the total (below) |
 
 **Copy report** puts the report on the clipboard as text, ready to paste into a spreadsheet or document. **Print…** on the report screen opens the [print preview](#printing-and-preview) (it prints the task table and Gantt chart).
+
+### Labor cost report
+
+![Report › Labor cost: summary cards, the labor share donut, cost by kind and labor by phase](docs/guide/images/en/25-labor-report.png)
+
+**Report › Labor cost** shows how much of the plan is people's pay (see [Wages and labor cost](#wages-and-labor-cost)).
+
+| Part | Contents |
+|---|---|
+| Summary cards | **Total cost**, **Labor cost**, **Labor share**, **Labor paid (actual)**, **Labor remaining**, **Hours worked**, **Average labor rate** (per hour) |
+| **Labor in the total cost** | A donut with the labor share in the middle |
+| **Cost by kind** | Bars for **Labor**, **Materials**, **Cost resources (contractors, fees…)** and **Fixed costs** |
+| **Labor by phase** | Labor cost of each top-level phase; the bar below is the whole phase cost |
+| **Labor by person** | A table: Name, Group, Pay Basis, Wage, Std. Rate, Work, Cost, Actual Cost and Share of labor, with a **Total** row |
+
+Like every report it can be exported, copied and printed.
+
+### Exporting a report
 
 **Export report** saves the report you are looking at as a file. Pick the format from the **Report › Export report** submenu, the **Export report…** button in the report header, or the right-click menu on an empty part of the report.
 
 | Format | What you get |
 |---|---|
-| **HTML (.html)** | A single-file web page that opens in any browser. Charts are SVG pictures; open **Value** under a chart to see its numbers. Good for mail attachments and wikis. |
-| **Markdown (.md)** | Headings and GitHub tables; charts become tables of their numbers. For Git repositories, issues and note apps. |
-| **Word (.docx)** | An A4 Word document with headings, bordered tables (the header row repeats on every page) and the charts as pictures plus their numbers, in Malgun Gothic. Edit it in Word, Hancom Office or LibreOffice. |
-| **PDF (.pdf)** | The report drawn on A4 pages. The pages are stored as pictures so Korean text looks the same everywhere without embedding a font, which also means the text cannot be selected or copied. |
+| **HTML (.html)** | A single-file web page that opens in any browser. Charts are SVG pictures; open **Value** under a chart to see its numbers. Good for mail attachments and wikis |
+| **Markdown (.md)** | Headings and GitHub tables; charts become tables of their numbers. For Git repositories, issues and note apps |
+| **Word (.docx)** | An A4 Word document with headings, bordered tables (the header row repeats on every page) and the charts as pictures plus their numbers, in Malgun Gothic. Edit it in Word, Hancom Office or LibreOffice |
+| **PDF (.pdf)** | The report drawn on A4 pages. The pages are stored as pictures so Korean text looks the same everywhere without embedding a font, which also means the text cannot be selected or copied |
 
-The suggested file name is "project title - report name", and the progress popup appears when building the file takes a while.
-
-![Burndown](docs/tutorial/images/49-reportBurndown.jpg)
+The suggested file name is "project title - report name", and a progress window appears when building the file takes a while.
 
 ## Files
 
-![The File menu](docs/tutorial/images/50-fileMenu.jpg)
-
 ### Saving
 
-- **Save** (`Ctrl+S`) writes a MyWorkPlan project file (`.mwp`). The first save, and projects started from a template or an import, ask for a file name.
+- **Save** (`Ctrl+S`) writes a MyWorkPlan project file (`.mwp`). The first save, and plans started from a template, a sample or an import, ask for a file name.
 - **Save as…** (`Ctrl+Shift+S`), **Save all** (`Ctrl+Alt+S`: every modified tab).
+- When a database is set up (see [Database](#database)), **Save** writes the file and the database together.
 - Files are written to a temporary file first and then swapped in, so a problem while saving never breaks the original. Large files show a progress window.
 - With **Settings › General › Reopen last files when starting** on, the files that were open are opened again on the next start.
 
@@ -658,28 +916,37 @@ The suggested file name is "project title - report name", and the progress popup
 
 ### Import and export
 
+All four commands are in **File › Import and export**.
+
 | Command | Format | Notes |
 |---|---|---|
 | **Import (MS Project XML · CSV)…** | `.xml` (MS Project XML), `.csv` · `.tsv` · `.txt` | Reads tasks, outline, links, lags, constraints, calendars, resources, assignments and baselines. CSV headers may be English or MS Project's Korean names. An imported project becomes a `.mwp` when saved |
 | **Export to MS Project XML…** | `.xml` | MSPDI, opens in Microsoft Project 2010 and later |
 | **Export to CSV…** | `.csv` | UTF-8 (BOM), English headers: ID, WBS, Name, Outline Level, Duration, Start, Finish, Predecessors, Resource Names, % Complete, Cost, Work, Milestone, Notes |
-| **Export Gantt chart as picture (PNG)…** | `.png` | The table (name, duration, start, finish) and the whole Gantt chart in one picture |
+| **Export Gantt chart as picture (PNG)…** | `.png` · `.jpg` · `.webp` · `.bmp` · `.tiff` · `.svg` | Opens the **Export as image** window (below) |
 
 **Open…** (`Ctrl+O`) opens XML and CSV files too.
 
-### Recent files and folders
+The **Export as image** window:
 
-![Managing recent files](docs/tutorial/images/54-recentFiles.jpg)
+| Field | Choices |
+|---|---|
+| **File format** | PNG · JPEG · WebP · BMP · TIFF · SVG |
+| **Background** | **Transparent** or **White**. JPEG has no transparency, so it always gets a white background. A transparent image sits straight on top of documents and slides |
+| **Content** | **Table and chart** · **Chart only** · **Table only** |
+| **Scale** | 1× · 2× · 3× (SVG is a vector format and stays sharp at any size) |
+| **Quality** | 40–100% (JPEG and WebP) |
+| **Image size** | The resulting size in pixels; no side goes over 16,000 px |
+
+### Recent files and folders
 
 - **File › Recent files…** (`Ctrl+R`) opens a window with **Recent files** and **Recent folders** tabs, up to 10 of each.
 - Each entry has **Open** (folders: **Open from this folder**) and **Remove from the list**; **Clear all** · **Clear all folders** remove them all.
 - Files that no longer exist are marked **Missing**; opening one asks whether to remove it from the list.
 - **File › Recent folders** lists the folders as a menu, and **Clear all recent files and folders** clears both lists.
-- The start page and **Settings › Recent** manage the same lists.
+- The start page's Recent card and **Settings › Recent** manage the same lists.
 
 ### Drag and drop
-
-![Drag and drop](docs/tutorial/images/55-dragDrop.jpg)
 
 Drag files from the file manager onto the window:
 
@@ -695,12 +962,12 @@ Double-clicking a `.mwp` or `.mwpt` file opens it in MyWorkPlan too (the install
 ### Unsaved changes
 
 - Closing a tab (`Ctrl+W`) with unsaved changes asks **Save** · **Don't save** · **Cancel**.
-- Exiting (**File › Exit**, closing the window) lists the unsaved projects and asks the same.
+- Exiting (**File › Exit**, the **Exit** tile, closing the window) lists the unsaved projects and asks the same.
 - Only collapsing or expanding summary tasks does not count as a change.
 
 ## Database
 
-Plans can be kept in a database instead of files (desktop app only — a web browser cannot connect to a database, so the web version hides these commands).
+Plans can be kept in a database as well as in files (desktop app only — a web browser cannot connect to a database server or an SQLite file, so the web version hides these commands).
 
 ### Connection settings
 
@@ -710,49 +977,48 @@ Choose in **Settings › Database**.
 |---|---|
 | **Database type** | None · SQLite · MariaDB · MySQL · PostgreSQL |
 | **SQLite file** | For SQLite. **Browse…** picks an existing file or names a new one, which is created on the first connection |
-| **Server (host) · Port · Database name · User** | For a database server. Without a port of your own MariaDB/MySQL use 3306 and PostgreSQL 5432. The database itself must exist |
+| **Server (host)** · **Port** · **Database name** · **User** | For a database server. MariaDB and MySQL use port 3306 and PostgreSQL 5432 unless you enter another. The database itself must exist; its name may only use letters, digits, `_`, `$` and `-` |
 | **Password** | Not saved by default: remembered until the app closes. Turn on **Save the password in the settings** to store it with the settings |
-| **Test connection** | Connects, shows the server version and creates the table `myworkplan_plans` when it is missing. A failure shows the reason (never the password) |
+| **Test connection** | Connects, shows the server version ("Connected — …") and creates the table `myworkplan_plans` when it is missing. A failure shows the reason (never the password) |
 
 ### Saving and opening
 
-- **File › Save to database** stores the active plan with exactly the content of its `.mwp` file. Saving the same plan (same project ID) again replaces it. A plan opened from the database without a file counts as saved afterwards.
-- **File › Open from database…** lists the stored plans (title · last saved · size, newest first). **Open** opens one in a new tab; the bin button deletes it from the database (after asking; this cannot be undone).
-- Without a connection set up, both commands open the Database tab of the settings.
+- Once a database type is chosen, **Save** (`Ctrl+S`) writes the file and the database together; the file stays your local copy.
+- **File › Save to database** stores the active plan in the database only, with exactly the content of its `.mwp` file. Saving the same plan (same project ID) again replaces it. A plan opened from the database without a file counts as saved afterwards.
+- **File › Open from database…** lists the stored plans (title · last saved · size, newest first). **Open** opens one in a new tab; **Delete from database** removes it (after asking; this cannot be undone); **Refresh** reads the list again.
+- Without a connection set up, both commands say "Set up the connection in Settings › Database first" and open that tab.
 
 ## Printing and preview
 
-![Print preview](docs/tutorial/images/51-print.jpg)
+![The Print preview window](docs/guide/images/en/20-print.png)
 
-**File › Print…** (`Ctrl+P`) opens the **Print preview** window. The preview on the right follows every change; the arrows at the bottom turn the pages.
+**File › Print…** (`Ctrl+P`), the Print toolbar button or the **Print** tile on the start page opens the **Print preview** window. The preview on the right follows every change; **Previous page** · **Next page** at the bottom turn the pages.
 
 | Tab | Fields |
 |---|---|
-| **What to print** | Entire project · Current view (filtered tasks) · Custom (task ID range, date range, selected tasks only), and To print (tasks and pages) |
+| **What to print** | **Entire project** · **Current view (filtered tasks)** · **Custom** (Task ID range, Date range, Selected tasks only), and **To print** (tasks and pages) |
 | **Page setup** | Paper, orientation (portrait / landscape), margins (narrow · normal · wide), scale (50–150%), content (Table + Gantt chart · Table only · Gantt chart only), legend |
 | **Header and footer** | Header and footer on/off and their text |
 
 **Print** opens the system print dialog (Save as PDF lives there too). Prints are black on white whatever the theme; the timescale fits the page width and rows continue on the following pages. The page setup is kept for the next time.
 
+Printing from the start page with no plan open first asks for the plan file, opens it, and then shows the preview.
+
 ## Customizing
 
 ### Themes
 
-![Themes](docs/tutorial/images/56-theme.jpg)
-
 - The **Random theme** toolbar button picks a different theme at random on every press; its tooltip names the current theme.
 - The ▾ next to it (**Choose theme**) opens a window with **Dark (20)** and **Light (20)** in two columns, plus **System setting** (follows the OS) and **Custom** at the top.
-- **Settings › Theme** tab: Dark 20 · Light 20 · Custom groups. Custom lets you change Background · Surface · Panel · Text · Dim text · Border · Accent · Text on accent · Striped rows · Chart background · Toolbar · Status bar one by one, with **Copy the current theme's colors** and a **Dark theme** switch. Low contrast shows the warning "Text may be hard to read".
+- **Settings › Theme** tab: Dark · Light · Custom groups and **System setting**. Custom lets you change Background · Surface · Panel · Text · Dim text · Border · Accent · Text on accent · Striped rows · Chart background · Toolbar · Status bar one by one, with **Copy the current theme's colors** and a **Dark theme** switch. Low contrast shows the warning "Text may be hard to read".
+
+The start page follows the theme too; it has no theme card of its own.
 
 ### Language
 
-![Language](docs/tutorial/images/57-language.jpg)
-
-The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches between Korean and English: the UK flag shows while the UI is Korean, the Korean flag while it is English (press it to switch to that language). **Settings › General › Language** works too. Menus, popups, reports, error messages and backend messages all switch.
+The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches between Korean and English: the UK flag shows while the UI is Korean, the Korean flag while it is English (press it to switch to that language). The **한국어** / **English** tile on the start page and **Settings › General › Language** work too. Menus, popups, reports, error messages and backend messages all switch. Samples you open afterwards open in the new language.
 
 ### Font
-
-![Settings — Font](docs/tutorial/images/59-settings.jpg)
 
 **Settings › Font** picks any font installed on the system and sets **Size**, **Weight** (Light … Extra bold), **Style** (Normal / Italic), **Row height** and **Zoom**. The font applies to the tables and charts and the sample below shows it at once.
 
@@ -763,56 +1029,53 @@ The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches be
 | Field | Contents |
 |---|---|
 | **Background** | Moving · Image · None |
-| **Moving background** | Aurora · Waves · Particles · Constellation · Bubbles · Flowing grid · Gantt bars · Star field, **Change moving background** (`Ctrl+Shift+B`, random) |
+| **Moving background** | The 21 animations, **Change moving background** (`Ctrl+Shift+B`, random) |
 | **Motion speed** | 0–300% |
+| **Random background at start** | A different animation on every start |
+| **Start page background changes** | Off · Every 15 s · 30 s · 1 min · 2 min · 5 min, while the start page is open |
 | **Moving background on the start page only** | When on, nothing moves behind the views |
 | **Background image** | **Choose…** · **Remove**. Images of any size can be used; dropping an image file on the window also makes it the background |
 | **Background opacity (behind views)** | How strongly the background shows behind the views |
 | **Fit** | Fill · Fit · Tile · Center · Stretch |
 
-**View › Turn background off** removes the background image. Background colours follow the theme.
+**View › Theme, language and background › Turn background off** removes the background image. Background colours follow the theme.
 
 ### Panels
 
-![Collapsing panels](docs/tutorial/images/58-panels.jpg)
+![Both side panels folded to rails and the bottom panel folded to its header line](docs/guide/images/en/27-panels-folded.png)
 
-- Collapse and expand the Tools and Properties panels with the arrow in their header, **View › Show/hide tool panel** (`Ctrl+Shift+1`) · **Show/hide properties panel** (`Ctrl+Shift+2`) or the toolbar buttons.
-- Collapsed, a panel leaves a narrow rail with icons and a title; the **Expand** button is at the top. The rail still switches views and runs the main commands.
-- Drag the separators to change the panel widths.
+- Fold and unfold the Tools and Properties panels with the double-arrow button at the outer edge of their header, **Show/hide tool panel** (`Ctrl+Shift+1`) · **Show/hide properties panel** (`Ctrl+Shift+2`) or the toolbar buttons.
+- Folded, a side panel becomes a narrow rail: at the top the panel's icon and title (**Tools** or **Props**), then the **Expand** button, then icon buttons. The Tools rail still switches views; the Properties rail runs the main commands (Info, Resource, Project, Calendar, Baseline, Level).
+- The bottom panel folds to one header line (see [Bottom panel: schedule check](#bottom-panel-schedule-check)); `Ctrl+Shift+3` turns it off and on.
+- Drag the separators to change the panel widths, and the bottom panel's top edge to change its height.
 
 ### Zoom and timescale
-
-![Zoom and timescale](docs/tutorial/images/44-zoom.jpg)
 
 - **Zoom** (50–200%): `Ctrl+mouse wheel`, `Ctrl+=` · `Ctrl+-` · `Ctrl+0`, or the toolbar `[−] 100% [+]` (the value can be typed).
 - **Timescale**: `Ctrl+mouse wheel` over the chart, `Ctrl+Shift+=` · `Ctrl+Shift+-`, the toolbar buttons or the status bar slider; it moves between days, weeks, months and quarters.
 - **Entire project** fits the whole project to the chart width; **Go to today** scrolls to today.
 - Move the chart by dragging an empty area or with `Ctrl+drag`.
 
-### Status bar
-
-Hide or show it with **View › Status bar** or in **Settings › General**. **Settings › General › Clock on the status bar** turns the clock off.
-
 ### The Settings window
 
-**Help › Settings…** (`Ctrl+,`). Settings apply at once and are kept for the next start. **Defaults** puts every setting back (the language and the background image stay).
+**Help › Settings…** (`Ctrl+,`), the Settings button on the toolbar or the **Settings** tile on the start page. Settings apply at once and are kept for the next start. **Defaults** puts every setting back (the language and the background image stay); **Done** closes the window.
 
 | Tab | Fields |
 |---|---|
 | **General** | Language, date format (ISO · Korean · US · European), Show times with dates, Default view of new projects, Show the start page when starting, Reopen last files when starting, Ask before deleting, Clock on the status bar, Status bar, Last folder used, Start the tutorial |
+| **Start page** | What the start page shows, card opacity, card layout (see [Start page settings](#start-page-settings)) |
 | **Theme** | Dark · Light · Custom, System setting |
 | **Font** | Font, size, weight, style, row height, zoom |
-| **Background** | Background, moving background, motion speed, background image, background opacity, fit |
-| **Schedule** | Hours per day, Hours per week, Days per month, Mode of new tasks |
+| **Background** | Background, moving background, motion speed, random at start, automatic change, start page only, background image, background opacity, fit |
+| **Schedule** | Hours per day, Hours per week, Days per month (also used to turn wages into hourly rates), Mode of new tasks |
 | **Gantt chart** | Show critical path · slack · baseline bars · progress line, Show link lines, Show the today line, Shade non-working days, Text next to bars |
+| **Database** | Connection settings (see [Database](#database)) |
 | **Recent** | Recent files and folders, clearing them |
 | **Shortcuts** | Every keyboard shortcut |
 
 ## Keyboard shortcuts
 
-![Keyboard shortcuts](docs/tutorial/images/61-shortcuts.jpg)
-
-The same list is in **Settings › Shortcuts** (or **Help › Keyboard shortcuts…**), and the menus show the shortcuts next to each command. On macOS use `Cmd` instead of `Ctrl`.
+The same list is in **Settings › Shortcuts** (or **Help › Keyboard shortcuts…** and the **Keyboard shortcuts** tile on the start page), and the menus show the shortcuts next to each command. On macOS use `Cmd` instead of `Ctrl`.
 
 | Shortcut | Command |
 |---|---|
@@ -864,8 +1127,10 @@ Shortcuts that work but are not in the Settings list:
 
 | Shortcut | Command |
 |---|---|
+| `Ctrl+Shift+P` | Find critical path (on / off) |
 | `Ctrl+Shift+R` | Add resource |
 | `Ctrl+Shift+1` · `Ctrl+Shift+2` | Show/hide tool panel · properties panel |
+| `Ctrl+Shift+3` | Bottom panel (schedule check) on / off |
 | `Ctrl+Shift+F5` | Scroll to task |
 | `Ctrl+Q` (macOS) · `Alt+F4` (Windows) | Exit |
 | `Tab` · `Shift+Tab` (editing a cell) | Next · previous cell |
@@ -882,6 +1147,7 @@ Errors open an **Error** window with the message, **Time**, **Where** (what was 
 |---|---|
 | The file could not be opened | Not a MyWorkPlan file, made by a newer version, not a Microsoft Project XML file, a CSV without tasks |
 | Could not save · Could not export | A folder without write permission, another program holds the file |
+| Could not save to the database · The database operation failed | Wrong server, port, database name, user or password; the server is not running; no permission to create the table |
 | Input error | A duration, date or predecessor in the wrong form (the message gives examples), a link loop |
 | Could not print | A printer or print dialog problem |
 | The user's guide could not be opened | The `docs` folder of the installation was removed |
@@ -907,6 +1173,10 @@ Only one MyWorkPlan runs per user. Starting it again shows **MyWorkPlan — Star
 | The schedule looks wrong | Check the indicators column and the conflicts on the status bar, review constraints in the **Constraint dates** table, and check that the task is not manually scheduled |
 | Tasks are missing | Check filters, the search box and collapsed summary tasks; press **Clear filter, group and sort** |
 | Everything is too big or too small | `Ctrl+0` (Zoom to 100%) |
+| The start page cards are in a mess | **Auto arrange** on the start page (or **Settings › Start page › Card layout**) |
+| A start page card is missing | Turn it back on in **Settings › Start page** (Recent, Sample projects, Moving background) |
+| The start page does not show at startup | Turn on **Show the start page when starting**; the Home button (`Ctrl+Shift+H`) shows it any time |
+| The Tutorial video page shows only a message | The video has not been made yet: run `npm run tutorial:video` in the project folder |
 | Back to the original settings | **Settings › Defaults** |
 | A recent file does not open in the web version | The browser may require picking the file again with **Open** |
 
@@ -920,13 +1190,13 @@ Run `MyWorkPlan-Setup-1.0.0.exe`.
 2. **Settings from a previous installation go back to their defaults; your data stays.** At the first start after installing, theme, fonts, zoom, panels, view options, window and popup places, column widths and print choices start fresh, while recent files and folders, the list of open plans, the database connection, the background image and the tutorial history are kept. Plan files (.mwp) are never touched.
 3. A previous installation is removed completely before the new one goes in.
 4. `.mwp` (project) and `.mwpt` (template) files are registered with their own document icons and open with a double-click.
-5. The **MyWorkPlan** Start-menu folder gets the program and a **MyWorkPlan User's Guide** shortcut (this guide). The guides, the tutorial document and the sample projects are in the `docs` and `samples` folders of the installation.
+5. The **MyWorkPlan** Start-menu folder gets the program and a **MyWorkPlan User's Guide** shortcut (this guide). The guides, the tutorial document and video are in the `docs` folder of the installation, and the 40 sample projects (in English and Korean) and the event template are in the `samples` folder.
 
 It installs for the current user, without administrator rights. Remove it in **Settings › Apps** (or Control Panel › Uninstall a program).
 
 | Data | Location (Windows) |
 |---|---|
-| Settings, recent files and folders | `%LOCALAPPDATA%\com.shkwon.myworkplan` (WebView2 storage) |
+| Settings (including the start page arrangement), recent files and folders | `%LOCALAPPDATA%\com.shkwon.myworkplan` (WebView2 storage) |
 | Window position and size, background image, crash.log | `%APPDATA%\com.shkwon.myworkplan` |
 
 ### macOS
@@ -943,5 +1213,5 @@ Put the web build (`dist/`) on any static web server and use the same features i
 
 - Files are opened with the browser's file picker; saving goes back to the same file in browsers with File System Access (Edge, Chrome) and is a download elsewhere.
 - Popups float inside the page.
-- Features that need the OS — file type registration, the "already running" check — are desktop only. The system font list is read only when the browser allows it.
-- Settings and recent history stay in the browser's storage.
+- Features that need the OS — file type registration, the "already running" check, the database — are desktop only. The system font list is read only when the browser allows it.
+- Settings, the start page arrangement and recent history stay in the browser's storage.

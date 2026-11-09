@@ -75,7 +75,19 @@ try {
     await page.send('Page.startScreencast', { format: 'jpeg', quality: 88, maxWidth: WIDTH, maxHeight: HEIGHT, everyNthFrame: 1 });
     await sleep(500);
     await evalJs(`(${P}.actions.startTutorial({ autoplay: true }), 1)`);
-    await page.waitFor(ready(steps.length - 1), { timeout: 30 * 60000, message: 'auto play reaches the last step' });
+    // Chapter marks: when auto play enters each chapter (seconds from the first frame).
+    const marks = [];
+    const deadline = Date.now() + 30 * 60000;
+    for (;;) {
+      const state = await evalJs(`(() => { const s = ${tour}?.state(); return s ? { index: s.index, active: s.active } : null; })()`).catch(() => null);
+      if (state?.active) {
+        const chapter = steps[state.index]?.chapter;
+        if (chapter && marks.at(-1)?.chapter !== chapter && !marks.some((m) => m.chapter === chapter)) marks.push({ chapter, at: Date.now() });
+        if (state.index === steps.length - 1) break;
+      }
+      if (Date.now() > deadline) throw new Error('auto play did not reach the last step');
+      await sleep(250);
+    }
     await sleep(6000);
     await page.send('Page.stopScreencast');
     await evalJs(`${tour}.stop().then(() => 1)`);
@@ -86,6 +98,18 @@ try {
     const out = path.join(root, 'MyWorkPlan-Tutorial.mp4');
     execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', listFile, '-vf', `fps=30,scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p`, '-c:v', 'libx264', '-preset', 'medium', '-crf', '22', '-movflags', '+faststart', out], { stdio: 'inherit' });
     console.log(`${frames.length} frames → ${path.relative(root, out)} (${(fs.statSync(out).size / 1e6).toFixed(1)} MB)`);
+    // The in-app player (Help › Tutorial video) plays docs/video/ (copied to public/docs/video by build:docs),
+    // with the chapter list from the .json next to it.
+    const videoDir = path.join(root, 'docs', 'video');
+    fs.mkdirSync(videoDir, { recursive: true });
+    fs.copyFileSync(out, path.join(videoDir, 'MyWorkPlan-Tutorial.mp4'));
+    const dicts = {};
+    for (const lang of ['ko', 'en']) dicts[lang] = (await import(pathToFileURL(path.join(root, 'src', 'i18n', `${lang}.js`)).href)).default;
+    // Screencast timestamps are seconds; Date.now() marks are milliseconds of the same clock.
+    const first = frames[0].time * 1000;
+    const chaptersJson = marks.map((m) => ({ time: Math.max(0, Math.round((m.at - first) / 100) / 10), ko: dicts.ko[`tutorial.chapter.${m.chapter}`], en: dicts.en[`tutorial.chapter.${m.chapter}`] }));
+    fs.writeFileSync(path.join(videoDir, 'MyWorkPlan-Tutorial.json'), `${JSON.stringify({ video: 'MyWorkPlan-Tutorial.mp4', width: WIDTH, height: HEIGHT, chapters: chaptersJson }, null, 2)}\n`);
+    execFileSync(process.execPath, [path.join(root, 'scripts', 'build-docs.mjs')], { stdio: 'inherit' });
   }
   if (errors.length) {
     console.error(`page errors:\n${errors.join('\n')}`);

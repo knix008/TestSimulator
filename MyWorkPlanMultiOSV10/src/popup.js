@@ -32,6 +32,7 @@ import { ANIMATION_INTERVALS } from './domain/settings.js';
 import { intervalLabel } from './ui/startpage.js';
 import { IMAGE_FORMATS, IMAGE_SCALES, imageFormat, rasterSize } from './export/image-encode.js';
 import { schedule } from './domain/schedule.js';
+import { WAGE_BASES, hourlyFromWage, hoursPerBasis, wageOf } from './domain/labor.js';
 
 const desktop = native.isDesktop();
 const appWindow = desktop ? getCurrentWindow() : null;
@@ -240,6 +241,7 @@ function fitHeight() {
 
 const SETTINGS_TABS = [
   ['general', 'globe', 'settings.general'],
+  ['start', 'home', 'settings.startPage'],
   ['appearance', 'palette', 'settings.theme'],
   ['font', 'font', 'settings.font'],
   ['background', 'sparkles', 'settings.background'],
@@ -252,7 +254,7 @@ const SETTINGS_TABS = [
 
 function renderSettings() {
   const body = {
-    general: settingsGeneral, appearance: settingsAppearance, font: settingsFont, background: settingsBackground,
+    general: settingsGeneral, start: settingsStart, appearance: settingsAppearance, font: settingsFont, background: settingsBackground,
     schedule: settingsSchedule, gantt: settingsGantt, database: settingsDatabase, recent: settingsRecent, shortcuts: settingsShortcuts,
   }[state.tab]?.() ?? '';
   root.innerHTML = frame({
@@ -278,6 +280,23 @@ function settingsGeneral() {
     toggle('showStatusBar', t('action.statusBar'), 'statusBar'),
     row('folder', t('settings.lastDirectory'), `<span class="path" title="${escapeHtml(s().lastDirectory ?? '')}">${escapeHtml(s().lastDirectory ?? t('common.none'))}</span>`),
     row('tutorial', t('settings.tutorial'), button('start-tutorial', t('start.tutorialStart'), 'play', 'small')),
+  ].join('');
+}
+
+/** Settings › Start page: what the start page shows, the cards' opacity and arrangement. */
+function settingsStart() {
+  return [
+    toggle('showStartPage', t('settings.showStartPage'), 'home'),
+    toggle('startShowTutorialBanner', t('settings.startShowTutorialBanner'), 'bulb'),
+    toggle('startShowRecent', t('settings.startShowRecent'), 'recent'),
+    toggle('startShowFolders', t('settings.startShowFolders'), 'recentFolder'),
+    row('list', t('settings.startRecentCount'), select('data-select', 'startRecentCount', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => [n, String(n)]), s().startRecentCount, t('settings.startRecentCount'))),
+    toggle('startShowSamples', t('settings.startShowSamples'), 'samples'),
+    toggle('startShowBackground', t('settings.startShowBackground'), 'sparkles'),
+    row('opacity', t('start.cardOpacity'), select('data-select', 'startCardOpacity', [20, 30, 40, 50, 60, 70, 80, 90, 100].map((n) => [n, `${n}%`]), s().startCardOpacity, t('start.cardOpacity'))),
+    row('launcher', t('settings.startArrange'), button('arrange-start', t('start.arrange'), 'launcher', 'small')),
+    row('home', t('settings.startOpen'), button('open-start', t('settings.startOpenButton'), 'home', 'small')),
+    `<p class="muted hint">${escapeHtml(t('settings.startHint'))}</p>`,
   ].join('');
 }
 
@@ -1051,7 +1070,10 @@ function applyTask() {
 
 function renderResource() {
   const p = P();
-  if (!state.draft) state.draft = { ...p.resource, assignments: (p.assignments ?? []).map((a) => ({ ...a })) };
+  if (!state.draft) {
+    const wage = wageOf(p.resource);
+    state.draft = { ...p.resource, wageBasis: wage.basis, wageAmount: String(wage.amount), assignments: (p.assignments ?? []).map((a) => ({ ...a })) };
+  }
   const d = state.draft;
   const tab = ['general', 'costs', 'assignments', 'notes'].includes(state.tab) ? state.tab : 'general';
   const input = (key) => `<input type="text" data-draft="${key}" value="${escapeHtml(d[key] ?? '')}" title="${escapeHtml(t(`field.${key}`))}" aria-label="${escapeHtml(t(`field.${key}`))}" ${key === 'name' ? 'id="resource-name"' : ''} />`;
@@ -1071,7 +1093,11 @@ function renderResource() {
     ].join('');
   } else if (tab === 'costs') {
     body = [
-      d.type !== 'cost' ? row('money', `${t('field.stdRate')} (${currency}${d.type === 'work' ? t('unit.perHour') : ''})`, input('stdRate')) : '',
+      // People: the wage (by the hour, day, week, month or year) and the hourly rate it comes to.
+      d.type === 'work' ? row('coins', t('labor.wageBasis'), select('data-draft-select', 'wageBasis', WAGE_BASES.map((b) => [b, t(`labor.basis.${b}`)]), d.wageBasis ?? 'hour', t('labor.wageBasis'))) : '',
+      d.type === 'work' ? row('money', `${t('labor.wageAmount')} (${currency}/${t(`labor.per.${d.wageBasis ?? 'hour'}`)})`, `<input type="text" data-draft-wage value="${escapeHtml(d.wageAmount ?? '')}" title="${escapeHtml(t('labor.wageAmount'))}" aria-label="${escapeHtml(t('labor.wageAmount'))}" />`) : '',
+      d.type === 'work' ? row('clock', t('labor.hourly'), `<span id="wage-hourly">${escapeHtml(wageHourlyText(d, p.options, currency))}</span>`) : '',
+      d.type === 'material' ? row('money', `${t('field.stdRate')} (${currency})`, input('stdRate')) : '',
       d.type === 'work' ? row('money', `${t('field.ovtRate')} (${currency}${t('unit.perHour')})`, input('ovtRate')) : '',
       d.type !== 'cost' ? row('reportCost', `${t('field.costPerUse')} (${currency})`, input('costPerUse')) : '',
       row('clock', t('field.accrue'), segmented('accrue', ACCRUALS.map((a) => [a, t(`accrue.${a}`)]), d.accrue ?? 'prorated', 'data-draft-segment')),
@@ -1099,12 +1125,24 @@ function renderResource() {
   ready();
 }
 
+/** "₩25,000 an hour (₩4,000,000 ÷ 160 h)" for the wage being edited. */
+function wageHourlyText(d, options, currency) {
+  const amount = Number(String(d.wageAmount ?? 0).replace(/[^0-9.-]/g, '')) || 0;
+  const basis = d.wageBasis ?? 'hour';
+  const hourly = hourlyFromWage(basis, amount, options);
+  return basis === 'hour' ? `${formatMoney(hourly, currency)}${t('unit.perHour')}` : t('labor.hourlyFrom', { hourly: formatMoney(hourly, currency), amount: formatMoney(amount, currency), hours: hoursPerBasis(basis, options) });
+}
+
 function applyResource() {
   const d = state.draft;
   const money = (value) => Number(String(value ?? 0).replace(/[^0-9.-]/g, '')) || 0;
+  const basis = d.type === 'work' ? (d.wageBasis ?? 'hour') : 'hour';
+  const wageAmount = Math.max(0, money(d.wageAmount));
+  const wage = d.type === 'work' && basis !== 'hour' ? { basis, amount: wageAmount } : null;
+  const stdRate = d.type === 'work' ? hourlyFromWage(basis, wageAmount, P().options) : money(d.stdRate);
   const patch = {
     name: String(d.name ?? '').trim(), type: d.type, initials: d.initials ?? '', group: d.group ?? '', email: d.email ?? '', maxUnits: d.maxUnits ?? 1,
-    calendarId: d.calendarId || null, code: d.code ?? '', stdRate: money(d.stdRate), ovtRate: money(d.ovtRate), costPerUse: money(d.costPerUse), accrue: d.accrue ?? 'prorated',
+    calendarId: d.calendarId || null, code: d.code ?? '', stdRate, wage, ovtRate: money(d.ovtRate), costPerUse: money(d.costPerUse), accrue: d.accrue ?? 'prorated',
     materialLabel: d.materialLabel ?? '', notes: d.notes ?? '',
   };
   return close({ action: 'apply', patch, assignments: d.assignments.map((a) => ({ id: a.id, units: a.units })) });
@@ -1155,6 +1193,8 @@ function renderProject() {
       ${line(t('field.duration'), daysText(st.duration), '', daysText(Math.round(((st.duration ?? 0) * (st.percentComplete ?? 0)) / 100)), daysText(Math.round(((st.duration ?? 0) * (100 - (st.percentComplete ?? 0))) / 100)))}
       ${line(t('field.work'), hours(st.work), hours(st.baselineWork), hours(st.actualWork), hours((st.work ?? 0) - (st.actualWork ?? 0)))}
       ${line(t('field.cost'), money(st.cost), money(st.baselineCost), money(st.actualCost), money((st.cost ?? 0) - (st.actualCost ?? 0)))}
+      ${st.labor ? line(t('report.laborCost'), money(st.labor.labor), money(st.labor.baselineLabor), money(st.labor.actualLabor), money(st.labor.remainingLabor)) : ''}
+      ${st.labor ? row('reportLabor', t('report.laborShare'), `<span>${escapeHtml(t('stats.laborSplit', { share: (st.labor.laborShare * 100).toFixed(1), labor: money(st.labor.labor), total: money(st.labor.total), material: money(st.labor.material), other: money(st.labor.costResource + st.labor.fixed) }))}</span>`) : ''}
       ${row('list', t('props.taskCount'), `<span>${st.tasks ?? 0} · ${escapeHtml(t('stats.milestones', { count: st.milestones ?? 0 }))}</span>`)}
       ${row('user', t('props.resourceCount'), `<span>${st.resources ?? 0}</span>`)}
       ${row('percent', t('field.percentComplete'), `<span class="mini-progress wide"><i style="width:${st.percentComplete ?? 0}%"></i></span><b>${st.percentComplete ?? 0}%</b>`)}`;
@@ -1552,6 +1592,8 @@ root.addEventListener('click', async (event) => {
     case 'clear-background': return action('clear-background');
     case 'shuffle-background': return action('shuffle-background');
     case 'start-tutorial': await action('start-tutorial'); return close();
+    case 'arrange-start': return update({ startLayout: null });
+    case 'open-start': await action('open-start'); return close();
     case 'open-recent':
       await action('open-recent', { path: value });
       return kind === 'recent' ? close() : undefined;
@@ -1861,6 +1903,11 @@ root.addEventListener('input', (event) => {
     state.draft.touched?.add(target.dataset.draft);
   }
   if (target.dataset.predLag) state.draft.predecessors[Number(target.dataset.predLag)].lagText = target.value;
+  if ('draftWage' in target.dataset && state.draft) {
+    state.draft.wageAmount = target.value;
+    const out = document.getElementById('wage-hourly');
+    if (out) out.textContent = wageHourlyText(state.draft, P().options, P().options?.currency ?? '₩');
+  }
   if ('dbPassword' in target.dataset) state.dbPassword = target.value;
 });
 

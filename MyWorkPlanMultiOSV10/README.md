@@ -7,7 +7,7 @@ Windows · macOS · Linux · 웹에서 쓰는 프로젝트 계획·일정 관리
 - 버전: 1.0.0
 - 사용법: [UsersGuide.md](UsersGuide.md) (English: [UsersGuide.en.md](UsersGuide.en.md))
 - 구조: [ARCHITECTURE.md](ARCHITECTURE.md)
-- 튜토리얼 문서: [docs/tutorial/README.md](docs/tutorial/README.md), 동영상 `MyWorkPlan-Tutorial.mp4`
+- 튜토리얼 문서: [docs/tutorial/README.md](docs/tutorial/README.md), 동영상 `MyWorkPlan-Tutorial.mp4` (프로젝트 루트, 앱에서는 **도움말 › 튜토리얼 영상**)
 
 ## 주요 기능
 
@@ -20,7 +20,8 @@ Windows · macOS · Linux · 웹에서 쓰는 프로젝트 계획·일정 관리
 - **반복 작업** — 매일·매주·매월·매년, 횟수 또는 끝 날짜
 - **작업 정보 창** — 일반 · 선행 작업 · 자원 · 고급 · 메모 · 사용자 지정 필드 탭, 여러 작업 한꺼번에 고치기
 - **실행 취소/다시 실행**(탭마다 200단계), 복사·잘라내기·붙여넣기(엑셀·메모장 목록은 개요 그대로 작업이 됨), 아래로 채우기
-- **템플릿 7종** — 소프트웨어 개발 · 건축 공사 · 행사 기획 · 마케팅 캠페인 · 제품 출시 · 연구 프로젝트 · 사무실 이전, 예제 프로젝트(한국어/영어)
+- **템플릿 7종** — 소프트웨어 개발 · 건축 공사 · 행사 기획 · 마케팅 캠페인 · 제품 출시 · 연구 프로젝트 · 사무실 이전
+- **예제 프로젝트 40개** — IT·소프트웨어 · 건설·시설 · 제품·제조 · 마케팅·영업 · 행사·문화 · 경영·조직 · 연구·교육·공공 · 개인·생활 여덟 분야에 다섯 개씩(한국어/영어). 그중 8개는 이미 진행 중인 계획(기준 계획·완료율·상태 날짜)
 
 ### 일정 계산
 
@@ -74,7 +75,7 @@ Windows · macOS · Linux · 웹에서 쓰는 프로젝트 계획·일정 관리
 
 - **테마** — 다크 20 · 라이트 20 · 사용자 정의(12가지 색 편집, 글자 대비 경고) · 시스템 설정. 툴바의 테마 버튼은 누를 때마다 **무작위 테마**, 옆의 ▾는 다크 | 라이트 **두 줄 목록**
 - **한국어/영어** — 툴바의 **국기 버튼**(한국어일 때 영국 국기, 영어일 때 태극기), 백엔드 메시지까지 전환
-- **시작 페이지** — 템플릿, 최근 파일·폴더, 예제, 튜토리얼, **움직이는 배경 21가지**(오로라 · 물결 · 입자 · 별자리 · 거품 · 흐르는 격자 · 간트 막대 · 별빛 · 비 · 눈 · 반딧불 · 파문 · 코드 비 · 육각 격자 · 궤도 · 라바 램프 · 은하 나선 · 색종이 · 마일스톤 · 리본 · 불꽃놀이, 무작위 바꾸기, 속도)
+- **시작 페이지** — 움직이는 배경 위에 반투명 **카드 보드**(MyUMLMaker와 같은 3열 보드: 손잡이로 옮기기, 모서리로 크기 조절, 자동 정렬, 카드 불투명도, 배치 저장). 카드: 머리(사용 설명서 · 튜토리얼 문서 · 튜토리얼 영상 · 도움말 ▾ · 튜토리얼 시작), **바로 가기 10개**(열기 · 가져오기 · **인쇄** · 튜토리얼 · 단축키 · 언어 · 설정 · 시작 화면 설정 · 정보 · 끝내기), 최근 항목, 새로 만들기(템플릿 8), 예제 프로젝트 40, **움직이는 배경 21가지**(오로라 · 물결 · 입자 · 별자리 · 거품 · 흐르는 격자 · 간트 막대 · 별빛 · 비 · 눈 · 반딧불 · 파문 · 코드 비 · 육각 격자 · 궤도 · 라바 램프 · 은하 나선 · 색종이 · 마일스톤 · 리본 · 불꽃놀이, 무작위 바꾸기, 속도)
 - **튜토리얼** — 예제 프로젝트로 모든 기능을 장별로 보여 줌(자동 재생, 장 고르기, 끝나면 설정 원래대로)
 - **설정** — 일반 · 테마 · 글꼴(시스템 글꼴 전체·크기·굵기·기울임) · 배경(움직이는 배경/이미지, 배경 불투명도, 맞춤) · 일정 · 간트 차트 · 최근 기록 · 단축키. 모든 설정은 저장되어 다음 실행에 다시 쓰임
 - **패널** — 왼쪽 도구 모음과 오른쪽 속성 패널(선택한 작업·자원·연결·프로젝트를 바로 편집), 접으면 아이콘 레일, 구분자로 너비 조절
@@ -104,7 +105,8 @@ npm run build:all    # 지금 OS에서 만들 수 있는 전부
 npm run build:web    # 웹 빌드 → dist/ (아무 정적 웹 서버에 올리면 됨)
 npm run build:docs   # UsersGuide*.md · docs/tutorial/README*.md → docs/*.html, public/docs/
 npm run build:icons  # 아이콘 다시 만들기
-npm run samples      # samples/ 예제 프로젝트 다시 만들기
+npm run samples      # samples/ 예제 프로젝트 40개(한·영) 다시 만들기
+npm run guide:images # 사용 설명서 그림 → docs/guide/images/{ko,en}/ (웹 빌드를 헤드리스 Edge로 찍음)
 ```
 
 Tauri는 교차 빌드를 하지 않으므로 각 OS 설치 파일은 그 OS에서 만듭니다. Windows 설치 파일은 `release/`에 만들어지고 프로젝트 루트에 `MyWorkPlan-Setup-1.0.0.exe`로 사본이 놓입니다. 설치 파일에는 사용 설명서(HTML·Markdown), 튜토리얼 문서와 그림, 예제 프로젝트가 함께 들어갑니다.
@@ -138,11 +140,11 @@ npm test -- --installer          # 설치 파일 빌드·검사까지
 
 ```bash
 npm run tutorial:docs    # 튜토리얼 단계마다 화면을 캡처 → docs/tutorial/README.md (+ README.en.md), docs/tutorial/images/
-npm run tutorial:video   # 튜토리얼 자동 재생을 녹화 → MyWorkPlan-Tutorial.mp4 (프로젝트 루트)
+npm run tutorial:video   # 튜토리얼 자동 재생을 녹화 → MyWorkPlan-Tutorial.mp4 (프로젝트 루트) + docs/video/ (앱 안 영상 화면, 장 표시 .json)
 npm run build:docs       # 마크다운 → docs/UsersGuide.html · UsersGuide.en.html · Tutorial.html · Tutorial.en.html
 ```
 
-그림은 `docs/tutorial/images/NN-<단계 id>.jpg`(NN = 튜토리얼 단계 순서)로 저장되고, 사용 설명서도 이 그림을 씁니다. 앱의 **도움말 › 사용 설명서**는 설치된 `docs/UsersGuide.html`(영어 화면이면 `UsersGuide.en.html`)을 엽니다. 웹 빌드는 `public/docs/`를 `./docs/`로 함께 내보냅니다.
+튜토리얼 그림은 `docs/tutorial/images/NN-<단계 id>.jpg`(NN = 튜토리얼 단계 순서), 사용 설명서 그림은 `docs/guide/images/{ko,en}/NN-<화면>.png`(`npm run guide:images`)입니다. 앱의 **도움말 › 사용 설명서**는 설치된 `docs/UsersGuide.html`(영어 화면이면 `UsersGuide.en.html`)을 엽니다. 웹 빌드는 `public/docs/`를 `./docs/`로 함께 내보냅니다.
 
 ## 파일 형식
 

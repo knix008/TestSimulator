@@ -220,6 +220,7 @@ export function applyTheme(theme, root = globalThis.document?.documentElement) {
   if (!root) return;
   for (const [name, value] of Object.entries(themeVariables(theme))) root.style.setProperty(name, value);
   root.dataset.theme = theme.id;
+  root.dataset.mode = theme.dark ? 'dark' : 'light';
   root.style.colorScheme = theme.dark ? 'dark' : 'light';
 }
 

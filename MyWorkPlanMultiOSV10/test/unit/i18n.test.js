@@ -31,7 +31,7 @@ const text = sources.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const NAMESPACES = ['action', 'menu', 'view', 'viewShort', 'field', 'filter', 'groupBy', 'sortBy', 'tableName', 'group', 'mode', 'constraint', 'taskType', 'resourceType', 'accrue', 'linkType',
   'status', 'common', 'grid', 'panel', 'toolShort', 'props', 'ind', 'chart', 'network', 'calendar', 'timeline', 'team', 'graph', 'report', 'tabs', 'task', 'resource', 'drop', 'notice', 'error',
   'format', 'confirm', 'recent', 'start', 'animation', 'welcome', 'settings', 'bgKind', 'barText', 'dateFormat', 'colorKey', 'theme', 'stepper', 'shortcut', 'about', 'progress', 'print',
-  'taskInfo', 'resourceInfo', 'project', 'stats', 'link', 'baseline', 'update', 'leveling', 'recurring', 'find', 'columns', 'assign', 'tutorial', 'tip', 'op', 'unit', 'web', 'image', 'submenu', 'db'];
+  'taskInfo', 'resourceInfo', 'project', 'stats', 'link', 'baseline', 'update', 'leveling', 'recurring', 'find', 'columns', 'assign', 'tutorial', 'tip', 'op', 'unit', 'web', 'image', 'submenu', 'db', 'labor', 'bottom'];
 
 /** Every quoted string in the sources that looks like a key of a known namespace. */
 function literalKeys() {

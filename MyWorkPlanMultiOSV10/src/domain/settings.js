@@ -84,6 +84,21 @@ export function defaultSettings(language = 'ko') {
     defaultTaskMode: 'auto',
     tutorialOffered: false,
     tutorialDone: false,
+    // Settings › Start page: which parts the start page shows, where the user moved its
+    // cards (null: the default arrangement) and how opaque the cards are.
+    startShowRecent: true,
+    startShowFolders: true,
+    startShowSamples: true,
+    startShowBackground: true,
+    startShowTutorialBanner: true,
+    startRecentCount: 8,
+    startLayout: null,
+    startCardOpacity: 80,
+    // The bottom panel (schedule check): shown, folded to its header, its height and tab.
+    showBottomPanel: true,
+    bottomPanelCollapsed: false,
+    bottomPanelHeight: 230,
+    bottomPanelTab: 'problems',
     // Database (Settings › Database). The password is stored only with dbSavePassword;
     // otherwise it is kept for this run of the app only.
     dbKind: 'none',
@@ -137,8 +152,14 @@ export function normalizeSettings(raw = {}, language) {
   s.hoursPerWeek = Math.min(168, Math.max(1, Number(s.hoursPerWeek) || 40));
   s.daysPerMonth = Math.min(31, Math.max(1, Number(s.daysPerMonth) || 20));
   s.defaultTaskMode = s.defaultTaskMode === 'manual' ? 'manual' : 'auto';
+  s.startRecentCount = clamp(s.startRecentCount, 1, 10, 8);
+  s.startCardOpacity = clamp(s.startCardOpacity, 20, 100, 80);
+  s.bottomPanelHeight = clamp(s.bottomPanelHeight, 120, 640, 230);
+  s.bottomPanelTab = ['problems', 'critical', 'overallocation', 'delays', 'milestones'].includes(s.bottomPanelTab) ? s.bottomPanelTab : 'problems';
+  s.startLayout = s.startLayout && typeof s.startLayout === 'object' && !Array.isArray(s.startLayout) ? s.startLayout : null;
   for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showCritical', 'showLinks',
-    'showBaseline', 'showSlack', 'showProgressLine', 'showToday', 'shadeNonWorking', 'tutorialOffered', 'tutorialDone', 'animationOnStartOnly']) {
+    'showBaseline', 'showSlack', 'showProgressLine', 'showToday', 'shadeNonWorking', 'tutorialOffered', 'tutorialDone', 'animationOnStartOnly',
+    'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner', 'showBottomPanel', 'bottomPanelCollapsed']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];
   }
   s.dbKind = DB_KINDS.includes(s.dbKind) ? s.dbKind : 'none';

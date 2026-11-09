@@ -442,7 +442,7 @@ export function schedule(project, { delays = null, today = null } = {}) {
 function computeCosts(s, byId) {
   const project = s.project;
   for (const resource of project.resources) s.resources.set(resource.id, { id: resource.id, work: 0, cost: 0, actualWork: 0, actualCost: 0, overallocated: false, peak: 0, assignments: [] });
-  for (const info of s.tasks.values()) Object.assign(info, { work: 0, cost: 0, actualWork: 0, actualCost: 0, resourceNames: [] });
+  for (const info of s.tasks.values()) Object.assign(info, { work: 0, cost: 0, laborCost: 0, actualWork: 0, actualCost: 0, resourceNames: [] });
   for (const assignment of project.assignments) {
     const task = byId.get(assignment.taskId);
     const info = s.tasks.get(assignment.taskId);
@@ -464,6 +464,7 @@ function computeCosts(s, byId) {
     s.assignments.set(assignment.id, result);
     info.work += work;
     info.cost += cost;
+    if (resource.type === 'work') info.laborCost += cost;
     info.actualWork += result.actualWork;
     info.actualCost += result.actualCost;
     info.resourceNames.push(units !== 1 && resource.type === 'work' ? `${resource.name}[${Math.round(units * 100)}%]` : resource.type === 'material' ? `${resource.name}[${units}${resource.materialLabel ? ` ${resource.materialLabel}` : ''}]` : resource.name);
@@ -489,6 +490,7 @@ function computeCosts(s, byId) {
     const kids = info.children.map((kid) => s.tasks.get(kid)).filter((kid) => kid.active);
     info.work = kids.reduce((sum, kid) => sum + kid.work, 0);
     info.cost = kids.reduce((sum, kid) => sum + kid.cost, 0) + (Number(project.tasks[index].fixedCost) || 0);
+    info.laborCost = kids.reduce((sum, kid) => sum + kid.laborCost, 0);
     info.actualWork = kids.reduce((sum, kid) => sum + kid.actualWork, 0);
     info.actualCost = kids.reduce((sum, kid) => sum + kid.actualCost, 0);
   }
@@ -499,6 +501,8 @@ function computeCosts(s, byId) {
   const top = [...s.tasks.values()].filter((info) => !info.parentId && info.active);
   s.work = top.reduce((sum, info) => sum + info.work, 0);
   s.cost = top.reduce((sum, info) => sum + info.cost, 0);
+  // Labor: the cost of the people (work resources), part of the cost above (labor.js).
+  s.laborCost = top.reduce((sum, info) => sum + info.laborCost, 0);
   s.actualWork = top.reduce((sum, info) => sum + info.actualWork, 0);
   s.actualCost = top.reduce((sum, info) => sum + info.actualCost, 0);
   const weight = top.reduce((sum, info) => sum + Math.max(1, info.duration ?? 0), 0);

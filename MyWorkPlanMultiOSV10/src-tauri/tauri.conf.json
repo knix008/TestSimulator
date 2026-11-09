@@ -49,6 +49,7 @@
       "../UsersGuide.md": "docs/UsersGuide.md",
       "../README.md": "docs/README.md",
       "../docs/tutorial/images/": "docs/tutorial/images/",
+      "../docs/guide/images/": "docs/guide/images/",
       "../samples/": "samples/"
     },
     "fileAssociations": [

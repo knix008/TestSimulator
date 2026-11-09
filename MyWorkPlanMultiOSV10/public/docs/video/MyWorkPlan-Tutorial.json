@@ -1,0 +1,57 @@
+{
+  "video": "MyWorkPlan-Tutorial.mp4",
+  "width": 1440,
+  "height": 900,
+  "chapters": [
+    {
+      "time": 0.5,
+      "ko": "시작 페이지",
+      "en": "Start page"
+    },
+    {
+      "time": 48,
+      "ko": "계획 만들기",
+      "en": "Building a plan"
+    },
+    {
+      "time": 113.7,
+      "ko": "일정 잡기",
+      "en": "Scheduling"
+    },
+    {
+      "time": 160.9,
+      "ko": "자원과 비용",
+      "en": "Resources and costs"
+    },
+    {
+      "time": 200.5,
+      "ko": "진행 추적",
+      "en": "Tracking"
+    },
+    {
+      "time": 220.5,
+      "ko": "보기",
+      "en": "Views"
+    },
+    {
+      "time": 289.3,
+      "ko": "보고서",
+      "en": "Reports"
+    },
+    {
+      "time": 310.3,
+      "ko": "파일과 인쇄",
+      "en": "Files and printing"
+    },
+    {
+      "time": 351.4,
+      "ko": "꾸미기",
+      "en": "Customizing"
+    },
+    {
+      "time": 405.1,
+      "ko": "도움말",
+      "en": "Help"
+    }
+  ]
+}

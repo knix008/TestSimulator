@@ -82,11 +82,11 @@ export const cases = [
     assert.equal(await W(app, 'w.state.settings.tutorialOffered'), true, 'offered once');
   } },
   { group: '처음 실행', name: '시작 페이지: 템플릿 8개, 최근 파일·폴더, 예제, 튜토리얼 시작 버튼', async run(app) {
-    const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('[data-start="tutorial"]')), banner: Boolean(document.querySelector('.start-banner')), recent: Boolean(document.querySelector('.start-card.recent')), samples: document.querySelectorAll('[data-start="open-sample"], [data-start="builtin-sample"]').length })`);
+    const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('[data-start="tutorial"]')), banner: Boolean(document.querySelector('.start-banner')), recent: Boolean(document.querySelector('.start-card.recent')), samples: document.querySelectorAll('[data-start="sample"]').length })`);
     assert.ok(info.shown, 'start page shown');
     assert.equal(info.templates, 8);
     assert.ok(info.tutorial && info.banner && info.recent, JSON.stringify(info));
-    assert.ok(info.samples >= 1, 'sample projects listed');
+    assert.equal(info.samples, 40, '40 sample projects listed');
   } },
   { group: '처음 실행', name: '시작 페이지 배경이 움직이고 바꿀 수 있음', async run(app) {
     const frames = async () => app.main.eval(`(() => { const c = document.querySelector('.start-bg'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let y = 0; y < c.height; y += 7) for (let x = 0; x < c.width; x += 7) { const i = (y * c.width + x) * 4; h = (h * 31 + d[i] * 3 + d[i + 1] * 5 + d[i + 2]) >>> 0; } return h; })()`);
@@ -1181,7 +1181,10 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await W(app, 'a.startTutorial()');
     await app.main.waitFor(`window.__myworkplan.tutorial().state().active && !window.__myworkplan.tutorial().state().busy`);
     assert.ok(await app.main.eval(`Boolean(document.querySelector('.tour-card') && document.querySelector('.tour-outline'))`));
-    for (let i = 0; i < 6; i++) {
+    // The start-page steps, then the first step on the tutorial's own sample plan.
+    const sampleStep = await app.main.eval(`(async () => (await import('/src/ui/tutorial.js')).STEPS.findIndex((x) => x.id === 'sample'))()`);
+    assert.ok(sampleStep > 0, 'the tutorial has a sample step');
+    for (let i = 0; i < sampleStep; i++) {
       await app.main.click('[data-tour="next"]');
       await app.main.waitFor(`window.__myworkplan.tutorial().state().index === ${i + 1} && !window.__myworkplan.tutorial().state().busy`, { timeout: 30000 });
     }

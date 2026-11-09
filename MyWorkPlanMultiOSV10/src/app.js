@@ -31,6 +31,11 @@ import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from '.
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { AnimatedBackground } from './ui/background.js';
 import { startPageHtml } from './ui/startpage.js';
+import { startBoard } from './ui/startboard.js';
+import { laborBreakdown, refreshWages } from './domain/labor.js';
+import { scheduleInsights } from './domain/insights.js';
+import { bottomPanelHtml } from './ui/bottom-panel.js';
+import { SAMPLE_PROJECTS, buildSampleProject } from './domain/samples/index.js';
 import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
 import { GanttView } from './views/gantt.js';
 import { TaskSheetView, ResourceSheetView } from './views/sheet.js';
@@ -155,6 +160,24 @@ function openSampleBuiltin() {
   const doc = addDocument(new PlanDocument(project, { name: project.title }));
   doc.markSaved(null);
   return doc;
+}
+
+/** One of the start page's 40 sample plans, in the current language, as a new (unsaved) tab. */
+function openSample(id) {
+  const project = buildSampleProject(id, getLanguage());
+  if (!project) return null;
+  const doc = addDocument(new PlanDocument(project, { name: project.title }));
+  doc.markSaved(null);
+  notify('success', t('notice.sampleOpened', { name: project.title }));
+  return doc;
+}
+
+/** Print from the start page: the open plan, or a plan picked first when none is open. */
+async function printFromStart() {
+  if (activeDoc()) return openPrint();
+  notify('info', t('notice.printPick'));
+  await openWithDialog();
+  return activeDoc() ? openPrint() : undefined;
 }
 
 const calendarNames = () => ({ standard: t('calendar.standard'), allDay: t('calendar.allDay'), night: t('calendar.night') });
@@ -710,6 +733,7 @@ function renderView() {
   root.classList.toggle('on-reader', reading);
   start.hidden = !showStart;
   reader.hidden = !reading;
+  if (!reading) reader.querySelector('.reader-video')?.pause();
   host.hidden = showStart || reading;
   if (reading) {
     renderReader();
@@ -983,6 +1007,8 @@ const commands = {
   goToday: { icon: 'today', label: 'action.goToday', enabled: () => viewIs('gantt', 'tracking'), run: () => state.view?.scrollToDate?.(nowMin()) },
   leftPanel: { icon: 'panelLeft', label: 'action.leftPanel', key: 'Ctrl+Shift+1', checked: () => state.settings.showLeftPanel, run: () => updateSettings({ showLeftPanel: !state.settings.showLeftPanel }) },
   rightPanel: { icon: 'panelRight', label: 'action.rightPanel', key: 'Ctrl+Shift+2', checked: () => state.settings.showRightPanel, run: () => updateSettings({ showRightPanel: !state.settings.showRightPanel }) },
+  bottomPanel: { icon: 'panelBottom', label: 'action.bottomPanel', key: 'Ctrl+Shift+3', checked: () => state.settings.showBottomPanel, run: () => updateSettings({ showBottomPanel: !state.settings.showBottomPanel, bottomPanelCollapsed: false }) },
+  bottomPanelFold: { icon: 'foldDown', label: 'action.bottomPanelFold', checked: () => state.settings.showBottomPanel && !state.settings.bottomPanelCollapsed, run: () => updateSettings(state.settings.showBottomPanel ? { bottomPanelCollapsed: !state.settings.bottomPanelCollapsed } : { showBottomPanel: true, bottomPanelCollapsed: false }) },
   statusBar: { icon: 'statusBar', label: 'action.statusBar', checked: () => state.settings.showStatusBar, run: () => updateSettings({ showStatusBar: !state.settings.showStatusBar }) },
   criticalPath: { icon: 'criticalPath', label: 'action.criticalPath', key: 'Ctrl+Shift+P', enabled: hasDoc, checked: () => criticalMode, run: () => toggleCriticalPath() },
   showCritical: { icon: 'critical', label: 'action.showCritical', checked: () => state.settings.showCritical, run: () => updateSettings({ showCritical: !state.settings.showCritical }) },
@@ -1049,6 +1075,7 @@ const commands = {
   tutorial: { icon: 'tutorial', label: 'action.tutorial', key: 'F11', run: () => startTutorial() },
   userGuide: { icon: 'userGuide', label: 'action.userGuide', run: () => openUserGuide() },
   tutorialDoc: { icon: 'tutorialDoc', label: 'action.tutorialDoc', checked: () => state.reader?.doc === 'tutorial', run: () => openReader('tutorial') },
+  tutorialVideo: { icon: 'tutorialVideo', label: 'action.tutorialVideo', checked: () => state.reader?.doc === 'video', run: () => openReader('video') },
   shortcuts: { icon: 'keyboard', label: 'action.shortcuts', run: () => popups.open('settings', { tab: 'shortcuts' }) },
   settings: { icon: 'gear', label: 'action.settings', key: 'Ctrl+,', run: () => popups.open('settings', { tab: 'general' }) },
   about: { icon: 'info', label: 'action.about', key: 'F1', run: () => popups.open('about') },
@@ -1108,7 +1135,7 @@ const SUBMENUS = {
   views: { icon: 'viewSwitch', items: VIEWS.map((id) => `view:${id}`) },
   tableData: { icon: 'table', items: ['table', 'columns', '-', 'filter', 'clearFilter', 'group', 'sort', 'highlight', '-', 'outlineCollapse', 'outlineExpand'] },
   zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomReset', '-', 'timescaleIn', 'timescaleOut', 'fitProject', '-', 'scrollToTask', 'goToday'] },
-  show: { icon: 'eye', items: ['showCritical', 'showSlack', 'showBaseline', 'showProgressLine', '-', 'leftPanel', 'rightPanel', 'statusBar'] },
+  show: { icon: 'eye', items: ['showCritical', 'showSlack', 'showBaseline', 'showProgressLine', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'bottomPanelFold', 'statusBar'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
   progress: { icon: 'percent', items: ['pct0', 'pct25', 'pct50', 'pct75', 'pct100', '-', 'markOnTrack', 'updateTasks'] },
   reportExport: { icon: 'exportReport', items: ['exportReportHtml', 'exportReportMd', 'exportReportDocx', 'exportReportPdf'] },
@@ -1122,7 +1149,7 @@ const MENUS = {
   resource: ['addResource', 'resourceInfo', 'assign', '-', 'levelAll', 'clearLeveling', 'levelingOptions', 'nextOverallocation', '-', 'view:resourceSheet', 'view:resourceUsage', 'view:resourceGraph', 'view:teamPlanner'],
   project: ['projectInfo', 'calendar', 'statistics', '-', 'setBaseline', 'clearBaseline', 'updateProject', 'statusDate', '-', 'calculate', 'criticalPath', 'insertProject'],
   report: [...REPORTS.map(([id]) => `report:${id}`), '-', sub('reportExport'), 'copyReport', 'print'],
-  help: ['tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
+  help: ['tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', task: 'bar', resource: 'user', project: 'project', report: 'statistics', help: 'question' };
 
@@ -1135,7 +1162,7 @@ const TOOLBAR = [
   ['showCritical', 'criticalPath'],
   ['zoom'],
   ['timescaleOut', 'timescaleIn'],
-  ['leftPanel', 'rightPanel'],
+  ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
 /** Right end of the toolbar: start page, tutorial, theme (random + dropdown), language, settings, about. */
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
@@ -1156,6 +1183,8 @@ function renderShell() {
           <div id="reader-page" hidden></div>
           <div class="drop-overlay" aria-hidden="true"><div>${icon('drop')}<span></span></div></div>
         </div>
+        <div class="splitter horizontal bottom-split" data-split="bottom" title="${escapeHtml(t('tip.bottomSplitter'))}" role="separator" aria-orientation="horizontal"></div>
+        <section id="bottom-panel" aria-label="${escapeHtml(t('bottom.title'))}"></section>
       </section>
       <div class="splitter vertical panel-split" data-split="right" title="${escapeHtml(t('tip.panelSplitter'))}" role="separator" aria-orientation="vertical"></div>
       <aside id="right-panel" class="side-panel" aria-label="${escapeHtml(t('panel.rightTitle'))}"></aside>
@@ -1320,8 +1349,8 @@ function renderLeft() {
   const doc = activeDoc();
   if (!state.settings.showLeftPanel) {
     panel.innerHTML = `<div class="panel-rail">
-      <button class="rail-button expand" data-command="leftPanel" title="${escapeHtml(t('panel.expandLeft'))}" aria-label="${escapeHtml(t('panel.expandLeft'))}">${icon('chevronRight')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
       <div class="rail-title" title="${escapeHtml(t('panel.leftTitle'))}">${icon('viewSwitch')}<span>${escapeHtml(t('panel.toolsShort'))}</span></div>
+      <button class="rail-button expand" data-command="leftPanel" title="${escapeHtml(t('panel.expandLeft'))}" aria-label="${escapeHtml(t('panel.expandLeft'))}">${icon('foldRight')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
       ${VIEWS.map((id) => `<button class="rail-button ${doc && !state.showStart && doc.view.id === id ? 'active' : ''}" data-command="view:${id}" title="${escapeHtml(t(`view.${id}`))}" ${doc ? '' : 'disabled'}>${icon(VIEW_ICONS[id])}<span class="rail-label">${escapeHtml(t(`viewShort.${id}`))}</span></button>`).join('')}
     </div>`;
     return;
@@ -1330,7 +1359,7 @@ function renderLeft() {
   const options = (list, current, prefix) => list.map((value) => `<option value="${value}" ${value === current ? 'selected' : ''}>${escapeHtml(t(`${prefix}.${value}`))}</option>`).join('');
   panel.innerHTML = `
     <div class="panel-header">${icon('viewSwitch')}<span>${escapeHtml(t('panel.leftTitle'))}</span>
-      <button class="icon-button" data-command="leftPanel" title="${escapeHtml(t('panel.collapseLeft'))}" aria-label="${escapeHtml(t('panel.collapseLeft'))}">${icon('chevronLeft')}</button></div>
+      <button class="icon-button panel-fold" data-command="leftPanel" title="${escapeHtml(t('panel.collapseLeft'))}" aria-label="${escapeHtml(t('panel.collapseLeft'))}">${icon('foldLeft')}</button></div>
     <section class="panel-section">
       <h3>${icon('eye')}<span>${escapeHtml(t('panel.views'))}</span></h3>
       <div class="view-list">${VIEWS.map((id) => `<button class="view-button ${doc && !state.showStart && doc.view.id === id ? 'active' : ''}" data-command="view:${id}" title="${escapeHtml(t(`view.${id}`))}" ${doc ? '' : 'disabled'}>${icon(VIEW_ICONS[id])}<span>${escapeHtml(t(`view.${id}`))}</span></button>`).join('')}</div>
@@ -1361,7 +1390,7 @@ function setViewOptions(patch) {
   if (!doc) return;
   Object.assign(doc.view, patch);
   invalidateRows();
-  if ('table' in patch) { mountView(); renderView(); } else updateView();
+  if ('table' in patch || 'resourceTable' in patch) { mountView(); renderView(); } else updateView();
   renderLeft();
   renderStatus();
   renderToolbarState();
@@ -1374,8 +1403,8 @@ function renderRight() {
   if (!panel) return;
   if (!state.settings.showRightPanel) {
     panel.innerHTML = `<div class="panel-rail">
-      <button class="rail-button expand" data-command="rightPanel" title="${escapeHtml(t('panel.expandRight'))}" aria-label="${escapeHtml(t('panel.expandRight'))}">${icon('chevronLeft')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
       <div class="rail-title" title="${escapeHtml(t('panel.rightTitle'))}">${icon('taskInfo')}<span>${escapeHtml(t('panel.propsShort'))}</span></div>
+      <button class="rail-button expand" data-command="rightPanel" title="${escapeHtml(t('panel.expandRight'))}" aria-label="${escapeHtml(t('panel.expandRight'))}">${icon('foldLeft')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
       ${['taskInfo', 'resourceInfo', 'projectInfo', 'calendar', 'setBaseline', 'levelAll'].map((id) => `<button class="rail-button" data-command="${id}" title="${escapeHtml(commandTip(id))}" ${commandEnabled(id) ? '' : 'disabled'}>${icon(commands[id].icon)}<span class="rail-label">${escapeHtml(t(`toolShort.${id}`))}</span></button>`).join('')}
     </div>`;
     return;
@@ -1392,7 +1421,7 @@ function renderRight() {
   }
   panel.innerHTML = `
     <div class="panel-header">${icon('taskInfo')}<span>${escapeHtml(title)}</span>
-      <button class="icon-button" data-command="rightPanel" title="${escapeHtml(t('panel.collapseRight'))}" aria-label="${escapeHtml(t('panel.collapseRight'))}">${icon('chevronRight')}</button></div>
+      <button class="icon-button panel-fold" data-command="rightPanel" title="${escapeHtml(t('panel.collapseRight'))}" aria-label="${escapeHtml(t('panel.collapseRight'))}">${icon('foldRight')}</button></div>
     <div class="props">${body}</div>`;
 }
 
@@ -1566,8 +1595,57 @@ function renderStatus() {
   items.push(`<span class="status-item" title="${escapeHtml(t('status.language'))}">${icon('globe')}<span>${escapeHtml(t('status.language'))}</span></span>`);
   items.push(`<label class="status-item timescale" title="${escapeHtml(t('status.timescaleTip'))}">${icon('timescaleIn')}<input type="range" id="timescale-slider" min="0" max="${TIMESCALE.steps.length - 1}" step="1" value="${Math.max(0, TIMESCALE.steps.findIndex((step) => step >= s.timescale))}" aria-label="${escapeHtml(t('status.timescaleTip'))}" title="${escapeHtml(t('status.timescaleTip'))}" /></label>`);
   items.push(`<span class="status-item" title="${escapeHtml(t('tip.zoomValue'))}">${icon('zoomIn')}<span>${s.zoom}%</span></span>`);
+  renderBottom();
   if (s.statusClock) items.push(`<span class="status-item clock" title="${escapeHtml(t('status.clock'))}">${icon('clock')}<span id="status-clock">${escapeHtml(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</span></span>`);
   bar.innerHTML = items.join('');
+}
+
+// ───────────────────────── bottom panel (schedule check)
+
+let bottomCache = { sched: null, insights: null };
+let bottomLayout = '';
+
+/** The schedule check under the view: shown with a plan open (not on the start page or a document). */
+function renderBottom() {
+  const host = root.querySelector('#bottom-panel');
+  if (!host) return;
+  const doc = activeDoc();
+  const s = state.settings;
+  const shown = Boolean(doc) && !state.showStart && !state.reader && s.showBottomPanel;
+  host.hidden = !shown;
+  root.querySelector('.bottom-split')?.toggleAttribute('hidden', !shown || s.bottomPanelCollapsed);
+  root.classList.toggle('bottom-collapsed', shown && s.bottomPanelCollapsed);
+  root.style.setProperty('--bottom-height', `${s.bottomPanelHeight}px`);
+  // The view gets taller or shorter: redraw it once the layout has changed.
+  const layout = `${shown}:${s.bottomPanelCollapsed}:${s.bottomPanelHeight}`;
+  if (layout !== bottomLayout) {
+    bottomLayout = layout;
+    requestAnimationFrame(() => { state.view?.drawHeadAndBg?.(); state.view?.drawChart?.(); state.view?.grid?.drawRows?.(); state.view?.render?.(); });
+  }
+  if (!shown) { host.innerHTML = ''; return; }
+  if (bottomCache.sched !== doc.sched) bottomCache = { sched: doc.sched, insights: scheduleInsights(doc.project, doc.sched) };
+  const scroll = host.querySelector('.bp-body')?.scrollTop ?? 0;
+  host.innerHTML = bottomPanelHtml({
+    project: doc.project, sched: doc.sched, insights: bottomCache.insights, tab: s.bottomPanelTab, collapsed: s.bottomPanelCollapsed,
+    dateFormat: s.dateFormat, language: getLanguage(), options: doc.project.options,
+  });
+  const body = host.querySelector('.bp-body');
+  if (body) body.scrollTop = scroll;
+}
+
+/** A row of the bottom panel: its task in a task view, or its resource in the resource sheet. */
+function focusInsight(target) {
+  const doc = activeDoc();
+  if (!doc) return;
+  if (target.dataset.bottomTask) {
+    const id = target.dataset.bottomTask;
+    if (!['gantt', 'tracking', 'taskSheet', 'taskUsage'].includes(doc.view.id)) switchView('gantt');
+    const row = doc.sched.info(id)?.row;
+    if (row) goToTask({ row });
+  } else if (target.dataset.bottomResource) {
+    if (!['resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner'].includes(doc.view.id)) switchView('resourceSheet');
+    select('resource', [target.dataset.bottomResource]);
+  }
 }
 
 function renderAll() {
@@ -1592,9 +1670,20 @@ function renderAll() {
 
 // ───────────────────────── start page
 
+let startCards = null;
+
 function renderStartPage() {
   const host = root.querySelector('#start-page');
+  // Rebuilding the page must not scroll it back to the top.
+  const scrollTop = host.querySelector('.start-scroll')?.scrollTop ?? 0;
+  startCards?.destroy();
   host.innerHTML = startPageHtml(appApi);
+  startCards = startBoard(host.querySelector('.start-board'), {
+    saved: state.settings.startLayout,
+    reduced: Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches),
+    onSave: (layout) => { state.settings.startLayout = layout; storeSettings(globalThis.localStorage, state.settings); },
+  });
+  host.querySelector('.start-scroll').scrollTop = scrollTop;
   const canvas = host.querySelector('.start-bg');
   startBackground?.destroy();
   startBackground = new AnimatedBackground(canvas, { colors: backgroundColors, speed: () => state.settings.animationSpeed / 100, kind: state.settings.animation });
@@ -1629,9 +1718,20 @@ async function onStartAction(target) {
     case 'clear-folders': state.recentDirs = []; storeRecentDirs(globalThis.localStorage, []); return renderStartPage();
     case 'open-sample': return openPath(value);
     case 'builtin-sample': return openSampleBuiltin();
+    case 'sample': return openSample(value);
+    case 'print': return printFromStart();
+    case 'arrange': return startCards?.arrange();
+    case 'start-settings': return popups.open('settings', { tab: 'start' });
+    case 'settings': return run('settings');
+    case 'language': return run('language');
+    case 'about': return run('about');
+    case 'exit': return run('exit');
+    // The Help button of the start page: the same items as the Help menu, below the button.
+    case 'help-menu': return showMenu(menuItems(MENUS.help), anchorBelow(target), 'help');
     case 'tutorial': return startTutorial();
     case 'guide': return openUserGuide();
     case 'tutorial-doc': return openReader('tutorial');
+    case 'tutorial-video': return openReader('video');
     case 'shortcuts': return run('shortcuts');
     case 'animation': updateSettings({ animation: value, backgroundKind: 'animated' }); return notify('info', t('notice.animation', { name: t(`animation.${value}`) }));
     case 'shuffle': return shuffleBackground();
@@ -1822,7 +1922,7 @@ function applySettings(previous = {}) {
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
   for (const doc of state.docs) {
     for (const key of ['hoursPerDay', 'hoursPerWeek', 'daysPerMonth']) {
-      if (previous[key] != null && s[key] !== previous[key]) { doc.project.options[key] = s[key]; doc.touch(); doc.recalculate(); }
+      if (previous[key] != null && s[key] !== previous[key]) { doc.project.options[key] = s[key]; refreshWages(doc.project); doc.touch(); doc.recalculate(); }
     }
   }
   const needsRemount = ['zoom', 'rowHeight', 'timescale', 'language', 'dateFormat', 'showTime'].some((key) => s[key] !== previous[key]);
@@ -2546,6 +2646,7 @@ async function openProjectInfo(tab = 'general') {
     baselineFinish: baseline.length ? Math.max(...baseline.map((info) => info.baseline.finish)) : null,
     baselineCost: baseline.reduce((sum, info) => sum + (info.baseline.cost ?? 0), 0),
     baselineWork: baseline.reduce((sum, info) => sum + (info.baseline.work ?? 0), 0),
+    labor: laborBreakdown(doc.project, s),
     tasks: doc.project.tasks.length, milestones: doc.project.tasks.filter((x) => x.milestone).length, resources: doc.project.resources.length,
     critical: [...s.tasks.values()].filter((info) => info.critical && !info.summary).length, late: [...s.tasks.values()].filter((info) => info.late && !info.summary).length,
     conflicts: s.conflicts.length,
@@ -2786,7 +2887,11 @@ function goToTask({ row, date }) {
 
 // ───────────────────────── document reader (the tutorial document inside the program)
 
-const READER_DOCS = { tutorial: { file: 'Tutorial', title: 'action.tutorialDoc', glyph: 'tutorialDoc' } };
+const READER_DOCS = {
+  tutorial: { file: 'Tutorial', title: 'action.tutorialDoc', glyph: 'tutorialDoc' },
+  // The recording of the whole tutorial (npm run tutorial:video → docs/video/, copied to public/docs/video/).
+  video: { video: 'video/MyWorkPlan-Tutorial.mp4', chapters: 'video/MyWorkPlan-Tutorial.json', title: 'action.tutorialVideo', glyph: 'tutorialVideo' },
+};
 
 /** Shows a document from docs/ in the centre of the window (instead of a browser). */
 function openReader(doc = 'tutorial', lang = getLanguage()) {
@@ -2799,12 +2904,42 @@ function openReader(doc = 'tutorial', lang = getLanguage()) {
 
 function readerUrl() {
   const info = READER_DOCS[state.reader.doc];
+  if (info.video) return `docs/${info.video}`;
   return `docs/${info.file}${state.reader.lang === 'en' ? '.en' : ''}.html`;
+}
+
+/** The tutorial video page: the player, a chapter list from the recording's .json, and a note when there is no video yet. */
+function renderVideoReader(host, info) {
+  const url = readerUrl();
+  if (host.querySelector('.reader-video') && host.dataset.uiLang === getLanguage()) return;
+  host.dataset.uiLang = getLanguage();
+  host.innerHTML = `
+    <div class="reader-bar">
+      <button class="button" data-reader="home" title="${escapeHtml(t('tip.home'))}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button>
+      <h2 class="reader-title">${icon(info.glyph)}<span>${escapeHtml(t(info.title))}</span></h2>
+      <select class="reader-chapters" data-video-chapter title="${escapeHtml(t('reader.videoChapters'))}" aria-label="${escapeHtml(t('reader.videoChapters'))}"><option value="">${escapeHtml(t('reader.videoChapters'))}</option></select>
+      <span class="grow"></span>
+      <button class="button primary" data-reader="tutorial" title="${escapeHtml(commandTip('tutorial'))}">${icon('tutorial')}<span>${escapeHtml(t('reader.startTutorial'))}</span></button>
+      <button class="button" data-reader="external" title="${escapeHtml(t('reader.externalTip'))}">${icon('readerExternal')}<span>${escapeHtml(t('reader.external'))}</span></button>
+    </div>
+    <div class="reader-video-wrap">
+      <video class="reader-video" controls preload="metadata" src="${escapeHtml(url)}" title="${escapeHtml(t(info.title))}"></video>
+      <div class="reader-video-missing" hidden>${icon('info')}<span>${escapeHtml(t('reader.videoMissing'))}</span></div>
+    </div>`;
+  const video = host.querySelector('.reader-video');
+  video.addEventListener('error', () => { video.hidden = true; host.querySelector('.reader-video-missing').hidden = false; });
+  fetch(`docs/${info.chapters}`).then((r) => (r.ok ? r.json() : null)).then((data) => {
+    const select = host.querySelector('[data-video-chapter]');
+    if (!select || !Array.isArray(data?.chapters)) return;
+    select.innerHTML += data.chapters.map((c) => `<option value="${Number(c.time) || 0}">${escapeHtml(c[getLanguage()] ?? c.ko ?? c.en ?? '')}</option>`).join('');
+  }).catch(() => {});
 }
 
 function renderReader() {
   const host = root.querySelector('#reader-page');
   const info = READER_DOCS[state.reader.doc];
+  if (info.video) return renderVideoReader(host, info);
+  host.querySelector('.reader-video')?.pause();
   const url = readerUrl();
   const frame = host.querySelector('.reader-frame');
   if (frame && frame.dataset.url === url && host.dataset.uiLang === getLanguage()) return; // stays where it was scrolled
@@ -3132,6 +3267,10 @@ function bindEvents() {
     if (target.closest('[data-home]')) return showStartPage(true);
     const reader = target.closest('[data-reader]');
     if (reader) return onReaderAction(reader);
+    const bottomTab = target.closest('[data-bottom-tab]');
+    if (bottomTab) return updateSettings({ bottomPanelTab: bottomTab.dataset.bottomTab, bottomPanelCollapsed: false }, { quiet: true });
+    const insight = target.closest('[data-bottom-task], [data-bottom-resource]');
+    if (insight) return focusInsight(insight);
     const start = target.closest('[data-start]');
     if (start && !start.disabled) return onStartAction(start);
     const command = target.closest('[data-command]');
@@ -3211,6 +3350,12 @@ function bindEvents() {
     if ('propPercent' in target.dataset) return setProgress(selectedTasks(), Number(target.value));
     if (target.id === 'timescale-slider') return setTimescale(TIMESCALE.steps[Number(target.value)]);
     if ('startSpeed' in target.dataset) return updateSettings({ animationSpeed: Number(target.value) }, { quiet: true });
+    if ('startOpacity' in target.dataset) return updateSettings({ startCardOpacity: Number(target.value) }, { quiet: true });
+    if ('videoChapter' in target.dataset && target.value !== '') {
+      const video = root.querySelector('.reader-video');
+      if (video) { video.currentTime = Number(target.value); video.play().catch(() => {}); }
+      return undefined;
+    }
     if ('readerChapter' in target.dataset && target.value) {
       root.querySelector('.reader-frame')?.contentDocument?.getElementById(target.value)?.scrollIntoView({ block: 'start' });
       return undefined;
@@ -3233,6 +3378,10 @@ function bindEvents() {
     if ('startSpeed' in target.dataset) {
       target.parentElement.querySelector('output').textContent = `${target.value}%`;
       state.settings.animationSpeed = Number(target.value);
+    }
+    if ('startOpacity' in target.dataset) {
+      target.parentElement.querySelector('output').textContent = `${target.value}%`;
+      target.closest('.start-inner')?.style.setProperty('--start-card-alpha', `${target.value}%`);
     }
   });
 
@@ -3265,6 +3414,21 @@ function bindEvents() {
     const side = splitter.dataset.split;
     if ((side === 'left' && !state.settings.showLeftPanel) || (side === 'right' && !state.settings.showRightPanel)) return;
     event.preventDefault();
+    if (side === 'bottom') {
+      // The bottom panel: drag its top edge up and down.
+      const startHeight = state.settings.bottomPanelHeight;
+      const max = Math.max(160, (root.querySelector('#center')?.clientHeight ?? 600) - 160);
+      pointerDrag(event, {
+        cursor: 'row-resize',
+        move: (dx, dy) => {
+          const height = Math.max(120, Math.min(max, startHeight - dy));
+          root.style.setProperty('--bottom-height', `${height}px`);
+          state.settings.bottomPanelHeight = height;
+        },
+        end: (e, moved) => { if (moved) updateSettings({ bottomPanelHeight: state.settings.bottomPanelHeight }, { quiet: true }); },
+      });
+      return;
+    }
     const key = side === 'left' ? 'leftWidth' : 'rightWidth';
     const startWidth = state.settings[key];
     const minimum = side === 'left' ? PANEL_MIN.left : PANEL_MIN.right;
@@ -3366,7 +3530,7 @@ const SHORTCUTS = [
   ['a', false, 'selectAll'], ['p', false, 'print'], ['f', false, 'find'], ['h', false, 'replace'], ['g', false, 'goTo'], ['d', false, 'fillDown'],
   ['=', false, 'zoomIn'], ['+', false, 'zoomIn'], ['-', false, 'zoomOut'], ['0', false, 'zoomReset'], ['+', true, 'timescaleIn'], ['=', true, 'timescaleIn'], ['_', true, 'timescaleOut'], ['-', true, 'timescaleOut'],
   [',', false, 'settings'], ['l', true, 'language'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'],
-  ['@', true, 'rightPanel'], ['2', true, 'rightPanel'], ['q', false, 'exit'], ['k', true, 'insertSummary'], ['m', true, 'insertMilestone'], ['r', true, 'addResource'],
+  ['@', true, 'rightPanel'], ['2', true, 'rightPanel'], ['#', true, 'bottomPanel'], ['3', true, 'bottomPanel'], ['q', false, 'exit'], ['k', true, 'insertSummary'], ['m', true, 'insertMilestone'], ['r', true, 'addResource'],
   ['h', true, 'startPage'], ['b', true, 'shuffleBackground'], ['f2', false, 'link'], ['f2', true, 'unlink'],
 ];
 
@@ -3422,6 +3586,7 @@ function bindPopupActions() {
   popups.on('printed', () => notify('success', t('notice.printed')));
   popups.on('open-settings', (data) => popups.open('settings', { tab: data.tab ?? 'general', themeGroup: data.themeGroup }));
   popups.on('start-tutorial', () => startTutorial());
+  popups.on('open-start', () => showStartPage(true));
   popups.on('find-next', (data, kind) => popups.post(kind, { type: 'find-result', ...findNext(data) }));
   popups.on('replace-all', (data, kind) => popups.post(kind, { type: 'find-result', ...replaceAll(data) }));
   popups.on('go-to', (data) => goToTask(data));
@@ -3606,7 +3771,7 @@ window.__myworkplan = {
     contextMenu, activeDoc, toScreen, docName, scrollTabs, withProgress, switchView, showStartPage, exportAs, exportImage, exportReport, openTaskInfo, openResourceInfo, openLinkInfo,
     moveTaskBar, resizeTaskBar, setProgress, linkFromTo, levelNow, clearLeveling, openSampleBuiltin, shuffleBackground, findNext, replaceAll, goToTask,
     taskRows, fieldCtx, setViewOptions, toggleCollapse, setTimescale, stepTimescale, fitProject, startTutorial, rememberDirectory, reassignTask, addResource, indentSelected,
-    linkSelected, editTaskField, setOutlineLevel, applyTaskPatch,
+    linkSelected, editTaskField, setOutlineLevel, applyTaskPatch, openSample, printFromStart, openReader,
   },
   domain: { P, TEMPLATES, buildTemplate, buildSample, compactDuration, criticalPath, tutorialSteps: () => TUTORIAL_STEPS.length },
   tutorial: () => tutorial,

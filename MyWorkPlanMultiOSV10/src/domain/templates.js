@@ -11,6 +11,7 @@
 import { parseDuration, parseLag } from './duration.js';
 import { addException, addResource, assignResource, createProject, insertTask, linkTasks, setTaskDuration, updateTask } from './project.js';
 import { schedule } from './schedule.js';
+import { hoursPerBasis, setWage } from './labor.js';
 import { dayOf, dayStart, fromMin, isoDay, nowMin, parts, toMin, weekdayOfDay } from './time.js';
 
 const T = (ko, en) => ({ ko, en });
@@ -330,11 +331,11 @@ const SPECS = {
 const SAMPLE = {
   title: T('웹사이트 리뉴얼', 'Website Redesign'),
   resources: [
-    { k: 'pm', name: T('김지현', 'Emma Clark'), initials: T('지현', 'EC'), group: T('기획', 'Management'), rate: [90000, 85] },
-    { k: 'ux', name: T('박서준', 'Daniel Lee'), initials: T('서준', 'DL'), group: T('기획', 'Design'), rate: [70000, 65] },
-    { k: 'des', name: T('이하은', 'Sophie Turner'), initials: T('하은', 'ST'), group: T('디자인', 'Design'), rate: [65000, 60] },
+    { k: 'pm', name: T('김지현', 'Emma Clark'), initials: T('지현', 'EC'), group: T('기획', 'Management'), rate: [90000, 85], wage: 'month' },
+    { k: 'ux', name: T('박서준', 'Daniel Lee'), initials: T('서준', 'DL'), group: T('기획', 'Design'), rate: [70000, 65], wage: 'month' },
+    { k: 'des', name: T('이하은', 'Sophie Turner'), initials: T('하은', 'ST'), group: T('디자인', 'Design'), rate: [65000, 60], wage: 'day' },
     { k: 'fe', name: T('최민호', 'Ryan Patel'), initials: T('민호', 'RP'), group: T('개발', 'Engineering'), rate: [75000, 70] },
-    { k: 'be', name: T('정우진', 'Marcus Hill'), initials: T('우진', 'MH'), group: T('개발', 'Engineering'), rate: [80000, 75] },
+    { k: 'be', name: T('정우진', 'Marcus Hill'), initials: T('우진', 'MH'), group: T('개발', 'Engineering'), rate: [80000, 75], wage: 'year' },
     { k: 'qa', name: T('한유나', 'Olivia Brooks'), initials: T('유나', 'OB'), group: T('품질', 'Quality'), rate: [55000, 50] },
     { k: 'stock', type: 'material', name: T('스톡 이미지', 'Stock images'), initials: T('IMG', 'IMG'), group: T('자재', 'Materials'), rate: [15000, 12], label: T('장', 'images') },
     { k: 'hosting', type: 'cost', name: T('호스팅', 'Hosting'), initials: T('HS', 'HS'), group: T('비용', 'Costs') },
@@ -436,7 +437,7 @@ export function nextMondayStart(from = nowMin()) {
   return atClock(day, 480);
 }
 
-function buildSpec(spec, language, start) {
+export function buildSpec(spec, language, start) {
   const L = (text) => (text == null ? '' : typeof text === 'string' ? text : text[language] ?? text.en);
   const project = createProject({ title: L(spec.title), start, language, calendarNames: CALENDAR_NAMES[language] });
   const startDay = dayOf(toMin(project.start));
@@ -446,6 +447,8 @@ function buildSpec(spec, language, start) {
       name: L(r.name), type: r.type ?? 'work', initials: L(r.initials) || undefined, group: L(r.group),
       stdRate: r.rate ? r.rate[language === 'en' ? 1 : 0] : 0, maxUnits: r.max ?? 1, materialLabel: L(r.label),
     });
+    // wage: 'day' / 'week' / 'month' / 'year' — paid that way, at the same hourly rate.
+    if (r.wage && resource.type === 'work') setWage(resource, r.wage, resource.stdRate * hoursPerBasis(r.wage, project.options), project.options);
     resources.set(r.k, resource.id);
   }
   const ids = new Map();
@@ -475,6 +478,7 @@ function buildSpec(spec, language, start) {
       if (!resources.has(rk)) throw new Error(`template resource "${rk}" of ${key}`);
       assignResource(project, id, resources.get(rk), Number(units));
     }
+    for (const rk of Object.keys(o.cost ?? {})) if (!resources.has(rk)) throw new Error(`template cost resource "${rk}" of ${key}`);
     for (const [rk, amounts] of Object.entries(o.cost ?? {})) assignResource(project, id, resources.get(rk), 1, { cost: amounts[language === 'en' ? 1 : 0] });
   }
   // Holidays inside the plan, then deadlines a few days after the planned finish.
@@ -551,3 +555,51 @@ export function buildSample(language = 'ko', { today } = {}) {
   project.statusDate = fromMin(status);
   return project;
 }
+
+/**
+ * A plan from `spec` that is already under way: started `weeksAgo` weeks before
+ * `today` (on a Monday), baseline saved at the start, the work before today
+ * done, the tasks under way part done, and the first of them running behind.
+ * The start-page samples use it so tracking views have something to show.
+ */
+export function buildStarted(spec, language = 'ko', { today, weeksAgo = 3 } = {}) {
+  const l = lang(language);
+  const now = toMin(today) ?? nowMin();
+  const todayDay = dayOf(now);
+  let startDay = todayDay - Math.max(1, weeksAgo) * 7;
+  startDay -= (weekdayOfDay(startDay) + 6) % 7;
+  const { project } = buildSpec(spec, l, atClock(startDay, 480));
+  const planned = schedule(project);
+  for (const task of project.tasks) {
+    const info = planned.info(task.id);
+    task.baselines = { ...task.baselines, 0: { start: fromMin(info.start), finish: fromMin(info.finish), duration: info.duration ?? 0, work: info.work ?? 0, cost: info.cost ?? 0 } };
+  }
+  project.baselineDates = { 0: new Date(dayStart(startDay) * 60000 + 480 * 60000).toISOString() };
+  const status = dayStart(todayDay) + 1020;
+  const s = schedule(project, { today: status });
+  let behind = false;
+  for (const task of project.tasks) {
+    const info = s.info(task.id);
+    if (info.summary || info.start == null || info.start >= status) continue;
+    if (info.finish <= status) {
+      Object.assign(task, { percentComplete: 100, actualStart: fromMin(info.start), actualFinish: fromMin(info.finish) });
+      continue;
+    }
+    const expected = (s.projectCal.between(info.start, status) / Math.max(1, info.duration)) * 100;
+    const factor = behind ? 1 : 0.5;
+    behind = true;
+    const pct = Math.max(5, Math.min(95, Math.round(expected * factor)));
+    Object.assign(task, { percentComplete: pct, actualStart: fromMin(info.start), actualFinish: null });
+  }
+  // Nothing running at the status date (a weekend, or every task ends right there): the
+  // task that finished last is reopened, so the plan always has work under way.
+  if (!project.tasks.some((task) => task.percentComplete > 0 && task.percentComplete < 100)) {
+    const last = project.tasks.filter((task) => task.percentComplete === 100 && !task.milestone && !s.info(task.id).summary).sort((x, y) => s.info(y.id).finish - s.info(x.id).finish)[0];
+    if (last) Object.assign(last, { percentComplete: 80, actualFinish: null });
+  }
+  project.statusDate = fromMin(status);
+  return project;
+}
+
+/** A new plan from `spec`, starting on the Monday after today (or `start`). */
+export const buildFromSpec = (spec, language = 'ko', { start } = {}) => buildSpec(spec, lang(language), start ?? nextMondayStart()).project;
