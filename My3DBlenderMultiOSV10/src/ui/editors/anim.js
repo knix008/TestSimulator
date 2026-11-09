@@ -607,19 +607,22 @@ function createAnimEditor(app, el, area, kind) {
       ...(modeButtons.length ? [h('span', { className: 'hdr-group' }, modeButtons)] : []),
       h('span', { className: 'hdr-fill' }),
       h('span', { className: 'hdr-group' },
-        h('button', { type: 'button', className: 'hdr-btn', title: t('Jump to start', '처음으로'), onClick: () => app.setFrame(app.doc.frameStart) }, icon('first', 13)),
-        h('button', { type: 'button', className: 'hdr-btn', title: t('Previous frame', '이전 프레임'), onClick: () => app.setFrame(app.doc.frame - 1) }, icon('prev', 13)),
+        h('button', { type: 'button', className: 'hdr-btn', title: t('Jump to start', '처음으로'), dataset: { testid: `frame-first-${kind}` }, onClick: () => app.setFrame(app.doc.frameStart) }, icon('first', 13)),
+        h('button', { type: 'button', className: 'hdr-btn', title: t('Previous frame', '이전 프레임'), dataset: { testid: `frame-prev-${kind}` }, onClick: () => app.setFrame(app.doc.frame - 1) }, icon('prev', 13)),
         playBtn,
-        h('button', { type: 'button', className: 'hdr-btn', title: t('Next frame', '다음 프레임'), onClick: () => app.setFrame(app.doc.frame + 1) }, icon('next', 13)),
-        h('button', { type: 'button', className: 'hdr-btn', title: t('Jump to end', '끝으로'), onClick: () => app.setFrame(app.doc.frameEnd) }, icon('last', 13))),
+        h('button', { type: 'button', className: 'hdr-btn', title: t('Next frame', '다음 프레임'), dataset: { testid: `frame-next-${kind}` }, onClick: () => app.setFrame(app.doc.frame + 1) }, icon('next', 13)),
+        h('button', { type: 'button', className: 'hdr-btn', title: t('Jump to end', '끝으로'), dataset: { testid: `frame-last-${kind}` }, onClick: () => app.setFrame(app.doc.frameEnd) }, icon('last', 13))),
       frameField,
       h('span', { className: 'hdr-fill' }),
       h('span', { className: 'hdr-label' }, t('Start', '시작')), startField,
       h('span', { className: 'hdr-label' }, t('End', '끝')), endField,
     );
+    // Swap the icon only when the state flips: replacing it every frame while playing removes the
+    // element under the pointer between press and release, so the click (pause) never fires.
+    let shownPlaying = app.playing;
     syncHeader = () => {
       const doc = app.doc;
-      playBtn.replaceChildren(icon(app.playing ? 'pause' : 'play', 13));
+      if (shownPlaying !== app.playing) { shownPlaying = app.playing; playBtn.replaceChildren(icon(app.playing ? 'pause' : 'play', 13)); }
       if (app.widgetActive(hdr)) return;
       frameField.replaceChildren(numField({ value: doc.frame, int: true, step: 1, testid: `frame-${kind}`, onChange: (v) => app.setFrame(v) }));
       startField.replaceChildren(numField({ value: doc.frameStart, int: true, step: 1, testid: `frame-start-${kind}`, onChange: (v, final) => { doc.frameStart = v; app.changed('Frame Start', final); } }));

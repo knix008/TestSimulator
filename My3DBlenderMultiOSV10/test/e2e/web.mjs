@@ -2547,6 +2547,86 @@ await test('Space plays and stops; the frame advances and wraps', async () => {
   assert(seen.size >= 3, `frames ${[...seen]}`);
   assert(Math.max(...seen) <= 5, 'stays in the range');
 });
+await test('the timeline play button pauses while playing (a held press, as a person clicks)', async () => {
+  // The icon used to be rebuilt every frame while playing, so the pressed element vanished before the release and no click came.
+  const heldClick = async () => {
+    const r = await rect(tid('play-timeline'));
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: r.cx, y: r.cy });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: r.cx, y: r.cy, button: 'left', clickCount: 1 });
+    await sleep(150);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: r.cx, y: r.cy, button: 'left', clickCount: 1 });
+    await frame();
+  };
+  await waitFor(() => rect(tid('play-timeline')), 5000);
+  await heldClick();
+  assert(await js('window.__my3d.playing'), 'the button starts playback');
+  await sleep(400);
+  await heldClick();
+  assert(!(await js('window.__my3d.playing')), 'the button pauses playback');
+  const at = await doc('doc.frame');
+  await sleep(300);
+  eq(await doc('doc.frame'), at, 'the frame holds after pausing');
+});
+await test('every transport and view control works with held presses, stopped and while playing', async () => {
+  const held = async (id) => {
+    const r = await waitFor(() => rect(tid(id)), 5000);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: r.cx, y: r.cy });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: r.cx, y: r.cy, button: 'left', clickCount: 1 });
+    await sleep(120);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: r.cx, y: r.cy, button: 'left', clickCount: 1 });
+    await frame();
+  };
+  const frameNow = () => doc('doc.frame');
+  // Transport buttons, stopped.
+  await js('window.__my3d.doc.frameStart = 1; window.__my3d.doc.frameEnd = 40; window.__my3d.setFrame(10)');
+  await held('frame-next-timeline'); eq(await frameNow(), 11, 'next');
+  await held('frame-prev-timeline'); eq(await frameNow(), 10, 'previous');
+  await held('frame-last-timeline'); eq(await frameNow(), 40, 'jump to end');
+  await held('frame-first-timeline'); eq(await frameNow(), 1, 'jump to start');
+  // The view's own drag buttons and right-drag navigation, while playing (the header rebuilds every frame then).
+  await held('play-timeline');
+  assert(await js('window.__my3d.playing'), 'playing');
+  const v = () => js("(() => { const s = window.__my3d.editorsOf('view3d')[0].api.state; return { yaw: s.yaw, pitch: s.pitch, dist: s.dist, target: [...s.target] }; })()");
+  const dragFrom = async (from, to, button = 'left', modifiers = 0) => {
+    const buttons = button === 'right' ? 2 : 1;
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from[0], y: from[1], modifiers });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from[0], y: from[1], button, clickCount: 1, modifiers });
+    for (let i = 1; i <= 6; i++) {
+      await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from[0] + ((to[0] - from[0]) * i) / 6, y: from[1] + ((to[1] - from[1]) * i) / 6, buttons, modifiers });
+      await sleep(16);
+    }
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to[0], y: to[1], button, clickCount: 1, modifiers });
+    await frame();
+  };
+  let before = await v();
+  const pan = await rect(tid('nav-pan'));
+  await dragFrom([pan.cx, pan.cy], [pan.cx - 80, pan.cy + 40]);
+  assert(JSON.stringify((await v()).target) !== JSON.stringify(before.target), 'the hand button moves the view');
+  before = await v();
+  const zoom = await rect(tid('nav-zoom'));
+  await dragFrom([zoom.cx, zoom.cy], [zoom.cx, zoom.cy + 60]);
+  assert((await v()).dist !== before.dist, 'the magnifier button zooms');
+  const r = await viewRect();
+  before = await v();
+  await dragFrom([r.cx, r.cy], [r.cx + 70, r.cy + 30], 'right');
+  let now = await v();
+  assert(now.yaw !== before.yaw && now.pitch !== before.pitch, 'right drag turns the view');
+  before = now;
+  await dragFrom([r.cx, r.cy], [r.cx + 60, r.cy], 'right', 8);
+  assert(JSON.stringify((await v()).target) !== JSON.stringify(before.target), 'Shift + right drag moves the view');
+  before = await v();
+  await dragFrom([r.cx, r.cy], [r.cx, r.cy + 60], 'right', 2);
+  now = await v();
+  assert(now.dist !== before.dist && now.yaw === before.yaw, 'Ctrl + right drag zooms');
+  before = now;
+  await dragFrom([r.cx, r.cy], [r.cx + 70, r.cy + 30], 'left', 1);
+  now = await v();
+  assert(now.yaw !== before.yaw, 'Alt + left drag turns the view');
+  assert(await js('window.__my3d.playing'), 'still playing after navigating');
+  await held('frame-next-timeline');
+  await held('play-timeline');
+  assert(!(await js('window.__my3d.playing')), 'the play button pauses');
+});
 await test('Dope Sheet shows channels; dragging a key moves it in time', async () => {
   await click('ws-animation');
   await sleep(100);
