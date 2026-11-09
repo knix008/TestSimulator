@@ -16,6 +16,7 @@ import { inferShapes, nodeById } from '../../src/domain/graph.js';
 import { prepare, transformInput } from '../../src/domain/preprocess.js';
 import { cleanTrain, effectiveTask } from '../../src/domain/project.js';
 import { SAMPLE_IDS, sampleProject } from '../../src/domain/samples.js';
+import { modelProject } from './models.mjs';
 import { canonicalWeights } from '../../src/engine/tfbuild.js';
 import { Trainer } from '../../src/engine/trainer-core.js';
 import { registerWasmTrainingKernels } from '../../src/engine/wasm-kernels.js';
@@ -54,8 +55,8 @@ function fewClips(clips, n = 160) {
 }
 
 /** A briefly trained sample: weights (canonical), a raw test input and TF.js's output for it. */
-async function trained(id) {
-  const project = sampleProject(id, 'en');
+async function trained(entry) {
+  const project = modelProject(entry);
   const data = fromSource(project.dataset.source, { sounds: fewClips(soundsFor(project.dataset.source)), overrides: { n: 160, copies: 1 } });
   const prepared = prepare(data, project.dataset.steps, project.dataset.split);
   const task = effectiveTask(prepared.task, project.model, prepared.inputShape);
@@ -73,10 +74,12 @@ async function trained(id) {
   return { project, data, prepared, task, weights, rawX, expected };
 }
 
-for (const id of SAMPLE_IDS) {
-  test(`C and ONNX export match TensorFlow.js — ${id}`, { timeout: 600000 }, async () => {
-    const t = await trained(id);
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `mt-export-${id}-`));
+// Every sample's own model, and the choices whose layers no sample opens with (openWakeWord: a frequency average reshaped into embeddings).
+const EXPORTED = [...SAMPLE_IDS.map((id) => ({ id, variant: null, label: id })), { id: 'kwsKoAttend', variant: 'openWakeWord', label: 'kwsKoAttend/openWakeWord' }];
+for (const entry of EXPORTED) {
+  test(`C and ONNX export match TensorFlow.js — ${entry.label}`, { timeout: 600000 }, async () => {
+    const t = await trained(entry);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `mt-export-${entry.id}-`));
     try {
       const c = generateC({ project: t.project, prepared: t.prepared, weights: t.weights, rawShape: t.data.inputShape, labels: t.data.labels, task: t.task, example: { raw: t.rawX, expected: t.expected } });
       assert.deepEqual(c.errors, []);

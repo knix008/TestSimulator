@@ -211,7 +211,7 @@ A PyTorch run gets a folder (`runs/` in the app's data folder) with the script (
 | Tables (CSV) | Student pass prediction, house prices |
 | Pictures (CNN) | Digits (MLP), digits (CNN), shapes (CNN + BN + augmentation), coloured shapes (RGB CNN), objects (CNN), **VGG-style CNN**, **Inception blocks**, **DenseNet-style CNN**, **MobileNet-style CNN** |
 | Letters (OCR) | English capitals, Hangul consonants |
-| Speech | Speech commands (CNN · GRU), **keyword spotting DS-CNN · BC-ResNet (embedded)**, **Korean keyword spotting: 출근 · 퇴근 · 경비 · 해제** (Supertonic voices; ResNet CNN / DS-CNN / BC-ResNet), **Korean keyword spotting: 출근 · 퇴근 · 외출 · 복귀** (BC-ResNet+ by default — about 20 thousand parameters, for live use; compare with ResNet CNN / DS-CNN / BC-ResNet) |
+| Speech | Speech commands (CNN · GRU), **keyword spotting DS-CNN · BC-ResNet (embedded)**, **Korean keyword spotting: 출근 · 퇴근 · 경비 · 해제** (Supertonic voices; ResNet CNN / DS-CNN / BC-ResNet), **Korean keyword spotting: 출근 · 퇴근 · 외출 · 복귀** (BC-ResNet+ by default — about 20 thousand parameters, for live use; compare with openWakeWord / ResNet CNN / DS-CNN / BC-ResNet) |
 | Video | Action recognition (frames + LSTM, stacked-frame CNN) |
 | Language models (LLM) | **Mini GPT** (English · Korean, character-level transformer), LSTM language model |
 | Autoencoders | Autoencoder, convolutional autoencoder, **denoising autoencoder**, **anomaly detection (autoencoder)** |
@@ -230,7 +230,7 @@ A sample with several models lets you pick one under **Model** at the top of the
 | Overfitting and regularization (moons, 120 points) | big network · dropout · small network | the big network's validation loss rises again (overfitting); dropout and the small network draw a smooth boundary |
 | Vanishing gradients (8 layers) | 8 sigmoid layers · ReLU + batch norm · residual connections | 8 sigmoid layers stay at chance (33%), residual connections reach 99% — see the per-layer sizes in the Train tab's **gradient flow** |
 | RNN, GRU and LSTM compared (90-step signals) | LSTM · GRU · simple RNN | the signals are long: the gateless RNN forgets their beginning (about 50%), GRU and LSTM reach 100% |
-| Korean keyword spotting (both samples) | ResNet CNN · DS-CNN · BC-ResNet (· BC-ResNet+) | the table below |
+| Korean keyword spotting (both samples) | ResNet CNN · DS-CNN · BC-ResNet (· BC-ResNet+ · openWakeWord) | the table below |
 
 **BC-ResNet+**, the default model of **Korean keyword spotting: 출근 · 퇴근 · 외출 · 복귀** (clock in, clock out, going out, back), stacks ten BC-ResNet blocks in four stages, a 1×1 convolution widening the channels 16 → 24 → 32 → 40 at each (halving the size midway keeps the work low). Tested on 3605 clips of voices it never heard (PyTorch, 20 epochs):
 
@@ -242,6 +242,8 @@ A sample with several models lets you pick one under **Model** at the top of the
 | ResNet CNN | 127 k | 24.7 M | 97.1% | 95.3 · 99.4 · 97.3 · 96.4 |
 
 BC-ResNet+ decides on one second of speech in about 1.8 ms with the app's engine (TensorFlow.js WASM) — plenty for live microphone use — and matches DS-CNN with 1/5.6 of its work. It learned from synthetic voices: check real ones with the microphone in the Test tab.
+
+The **openWakeWord** model follows openWakeWord's two stages: a **speech embedding** of four convolutions (LeakyReLU) gives one 96-value embedding about every 0.12 s (8 time steps × 96), and openWakeWord's **DNN head** (dense 128 → layer norm → ReLU, twice) picks the word from those 8. openWakeWord itself freezes an embedding Google trained beforehand; this sample trains both stages together from scratch on the generated data. With 221 k parameters and 9.1 M MACs it is heavier than BC-ResNet+; on the same 3605 test clips it reached 96.4% overall (6 classes; BC-ResNet+ 95.2% in the same run).
 
 ## Files
 

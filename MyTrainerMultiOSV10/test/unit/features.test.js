@@ -104,7 +104,7 @@ test('the attendance keyword bank: 출근 · 퇴근 · 외출 · 복귀 and unkn
 test('Korean keyword samples: the first keeps its three models; the attendance one opens BC-ResNet+, small and fast enough for live use', () => {
   assert.deepEqual(sampleProject('kwsKo', 'ko').variants.list.map((v) => v.id), ['resCnn', 'dsCnn', 'bcResNet']);
   const project = sampleProject('kwsKoAttend', 'ko');
-  assert.deepEqual(project.variants.list.map((v) => v.id), ['bcResNetPlus', 'resCnn', 'dsCnn', 'bcResNet']);
+  assert.deepEqual(project.variants.list.map((v) => v.id), ['bcResNetPlus', 'openWakeWord', 'resCnn', 'dsCnn', 'bcResNet']);
   assert.equal(project.variants.current, 'bcResNetPlus');
   assert.equal(project.dataset.source.bank, 'kws-ko-attend');
   const measure = (model) => { const shapes = inferShapes(model, [32, 32, 1]); return { params: totalParams(shapes).total, macs: modelBudget(model, shapes).macs }; };
@@ -121,6 +121,21 @@ test('Korean keyword samples: the first keeps its three models; the attendance o
   const shapes = inferShapes(model, [32, 32, 1]);
   for (const add of adds) assert.ok(incoming(model, add.id).some((e) => shapes.get(e.from).shape[0] === 1), `${add.name}: one input is the frequency average (height 1)`);
   assert.ok(nodeById(model, adds[0].id));
+});
+
+test('Korean attendance keywords: the openWakeWord model is a speech embedding (8 steps × 96) and the openWakeWord DNN head', () => {
+  const project = sampleProject('kwsKoAttend', 'en');
+  const model = project.variants.list.find((v) => v.id === 'openWakeWord').model;
+  const shapes = inferShapes(model, [32, 32, 1]);
+  const byName = (name) => shapes.get(model.nodes.find((n) => n.name === name).id);
+  for (const node of model.nodes) assert.equal(shapes.get(node.id).error, null, node.name);
+  assert.deepEqual(byName('embeddings').shape, [8, 96]);
+  assert.deepEqual(byName('flatten').shape, [768]);
+  assert.deepEqual(byName('output').shape, [6]);
+  assert.equal(model.nodes.filter((n) => n.type === 'leakyRelu').length, 4);
+  assert.equal(model.nodes.filter((n) => n.type === 'layerNorm').length, 2);
+  const params = totalParams(shapes).total;
+  assert.ok(params > 150000 && params < 300000, `${params} parameters`);
 });
 
 test('every sample has an icon, a group, both languages, and is listed once', () => {
