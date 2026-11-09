@@ -75,6 +75,8 @@ const state = {
   dirty: false,
   history: new History(120),
   showStart: true,
+  /** The user has opened something to work on (a project, a sample, a tab): Home toggles back to it. The project behind the start page at startup does not count. */
+  hasWork: false,
   view: { tab: 'model', dataStage: 'raw', dataPage: 0, bottomTab: 'console' },
   data: null,
   dataError: null,
@@ -305,6 +307,7 @@ function loadProject(project, { path = null, handle = null, clean = true } = {})
   state.history.reset(snapshotOfProject());
   state.dirty = !clean;
   state.showStart = false;
+  state.hasWork = true;
   if (state.project.engine === 'torch' && !desktop) state.project.engine = 'tfjs';
   graphView?.select([]);
   renderAll();
@@ -1111,7 +1114,11 @@ const commands = {
   save: { label: 'menu.save', icon: 'save', key: 'Ctrl+S', run: () => saveFile(false) },
   saveAs: { label: 'menu.saveAs', icon: 'saveAs', key: 'Ctrl+Shift+S', run: () => saveFile(true) },
   exportPy: { label: 'menu.exportPy', icon: 'exportFile', run: () => codeAction('save') },
-  home: { label: 'menu.home', icon: 'home', run: () => { state.showStart = true; renderAll(); } },
+  // A toggle: the start page, and from there back to the work in progress (training keeps running meanwhile).
+  // With nothing opened yet the start page stays.
+  home: { label: 'menu.home', icon: 'home', run: () => {
+    if (!state.showStart) { state.showStart = true; renderAll(); } else if (state.hasWork) switchTab(state.view.tab);
+  } },
   exit: { label: 'menu.exit', icon: 'exit', run: () => requestExit() },
   undo: { label: 'menu.undo', icon: 'undo', key: 'Ctrl+Z', enabled: () => state.history.canUndo && !busy(), run: () => restore(state.history.undo()) },
   redo: { label: 'menu.redo', icon: 'redo', key: 'Ctrl+Y', enabled: () => state.history.canRedo && !busy(), run: () => restore(state.history.redo()) },
@@ -1732,7 +1739,7 @@ function renderMenubar() {
   const bar = root.querySelector('#menubar');
   const title = `${state.project.name}${state.dirty ? ' *' : ''}`;
   const brand = `<div class="app-brand" data-window-drag><img class="app-brand-icon" src="${appIcon}" alt="" data-window-drag/><span class="app-brand-name" data-window-drag>MyTrainer</span><span class="app-brand-version" data-window-drag>v${escapeHtml(VERSION)}</span></div>`;
-  const home = `<button class="menubar-item menubar-home ${state.showStart ? 'current' : ''}" data-command="home" title="${escapeHtml(t('menu.home'))}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button><span class="menubar-sep"></span>`;
+  const home = `<button class="menubar-item menubar-home ${state.showStart ? 'current' : ''}" data-command="home" title="${escapeHtml(t(state.showStart && state.hasWork ? 'menu.homeBack' : 'menu.home'))}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button><span class="menubar-sep"></span>`;
   const menus = Object.keys(MENUS).map((name) => `<button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('');
   const button = (id, glyph, key) => `<button class="window-button ${id === 'close' ? 'close' : ''}" data-window="${id}" title="${escapeHtml(t(key))}" aria-label="${escapeHtml(t(key))}">${icon(glyph)}</button>`;
   const controls = desktop ? `<div class="window-controls">${button('minimize', 'winMinimize', 'window.minimize')}${button('maximize', state.maximized ? 'winRestore' : 'winMaximize', state.maximized ? 'window.restore' : 'window.maximize')}${button('close', 'winClose', 'window.close')}</div>` : '';
@@ -2094,6 +2101,7 @@ function switchTab(tab) {
   if (!VIEW_TABS.includes(tab)) return;
   if (tab !== 'test' && (state.live.mode || state.live.camera)) stopLive();
   state.showStart = false;
+  state.hasWork = true;
   state.view.tab = tab;
   renderAll();
   if (tab === 'model') requestAnimationFrame(() => { if (!graphView?.fitted) { graphView?.fit(); if (graphView) graphView.fitted = true; } });
@@ -3423,6 +3431,7 @@ async function startApp() {
   } else {
     loadProject(sampleProject('spiral', lang()));
     state.showStart = state.settings.showStartPage;
+    state.hasWork = !state.showStart; // behind the start page this project is only a placeholder
     renderAll();
   }
   if (desktop) {

@@ -40,6 +40,20 @@ export async function runWebSuite({ log = console.log, report } = {}) {
       await page.waitFor(`__mytrainer.state.project.sample === 'moons' && !__mytrainer.state.showStart`);
       assert.equal(await state('s.problems.filter((p) => p.level === "error").length'), 0);
     });
+    await step('home button toggles between the start page and the work in progress', async () => {
+      await page.eval(`(() => { __mytrainer.switchTab('data'); return 1; })()`);
+      await page.click('.menubar-home');
+      await page.waitFor(`__mytrainer.state.showStart && document.querySelector('.menubar-home').classList.contains('current')`);
+      assert.match(await page.eval(`document.querySelector('.menubar-home').title`), /—/);
+      await page.click('.menubar-home');
+      await page.waitFor(`!__mytrainer.state.showStart && !document.querySelector('.menubar-home').classList.contains('current')`);
+      assert.equal(await state('s.view.tab'), 'data');
+      assert.equal(await state('s.project.sample'), 'moons');
+      // Nothing opened yet (the placeholder project behind the start page at startup): the start page stays.
+      await page.eval(`(() => { __mytrainer.state.hasWork = false; __mytrainer.state.showStart = true; __mytrainer.run('home'); return 1; })()`);
+      assert.equal(await state('s.showStart'), true);
+      await page.eval(`(() => { __mytrainer.switchTab('model'); return 1; })()`);
+    });
     await step('settings: a theme applies at once; Cancel puts it back, Reset and OK keep the defaults', async () => {
       const popup = `document.querySelector('.web-popup-settings iframe')?.contentDocument`;
       const open = async () => {

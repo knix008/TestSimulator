@@ -5,7 +5,7 @@ export default {
   'window.minimize': 'Minimize', 'window.maximize': 'Maximize', 'window.restore': 'Restore', 'window.close': 'Close', 'tip.resize': 'Resize the window',
 
   'menu.file': 'File', 'menu.edit': 'Edit', 'menu.view': 'View', 'menu.model': 'Model', 'menu.data': 'Data', 'menu.train': 'Train', 'menu.help': 'Help',
-  'menu.home': 'Home', 'menu.new': 'New project', 'menu.open': 'Open…', 'menu.recent': 'Recent files', 'menu.clearRecent': 'Clear the list', 'menu.samples': 'Sample models…',
+  'menu.home': 'Home', 'menu.homeBack': 'Home — back to the work in progress','menu.new': 'New project', 'menu.open': 'Open…', 'menu.recent': 'Recent files', 'menu.clearRecent': 'Clear the list', 'menu.samples': 'Sample models…',
   'menu.save': 'Save', 'menu.saveAs': 'Save as…', 'menu.exportPy': 'Export PyTorch code (.py)…', 'menu.exit': 'Exit',
   'menu.undo': 'Undo', 'menu.redo': 'Redo', 'menu.delete': 'Delete', 'menu.duplicate': 'Duplicate', 'menu.selectAll': 'Select all', 'menu.settings': 'Settings…',
   'menu.addLayer': 'Add layer', 'menu.autoLayout': 'Auto layout', 'menu.fit': 'Fit to window', 'menu.zoomIn': 'Zoom in', 'menu.zoomOut': 'Zoom out', 'menu.graphVertical': 'Top to bottom', 'menu.graphHorizontal': 'Left to right', 'menu.grid': 'Show grid',

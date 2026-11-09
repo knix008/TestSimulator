@@ -4,7 +4,7 @@ MyTrainer lets you **draw** neural networks, prepare data, train them and **watc
 
 - The same app runs in a web browser and on Windows, macOS and Linux (Tauri 2).
 - Two training engines: **TensorFlow** inside the app (TensorFlow.js — WebGPU · WebGL · CPU), and **PyTorch** through this computer's Python (desktop app).
-- **54 sample models**, all with data generated offline: perceptron, MLP, polynomial regression, **comparisons** (activation functions, overfitting and regularization, vanishing gradients, RNN · GRU · LSTM), CNN architectures (**VGG · Inception · DenseNet · MobileNet**), autoencoders (**denoising · anomaly detection** too), RNN · LSTM · GRU, Conv1D, **CNN + LSTM**, **transformers** (sentiment, forecasting, mini GPT), residual connections, wide & deep, speech (embedded DS-CNN · BC-ResNet, **two Korean keyword sets** and the live-ready **BC-ResNet+**), pictures, letters (OCR), video and tables (CSV).
+- **55 sample models**, all with data generated offline: perceptron, MLP, polynomial regression, **comparisons** (activation functions, overfitting and regularization, vanishing gradients, RNN · GRU · LSTM), CNN architectures (**VGG · Inception · DenseNet · MobileNet**), autoencoders (**denoising · anomaly detection** too), RNN · LSTM · GRU, Conv1D, **CNN + LSTM**, **transformers** (sentiment, forecasting, mini GPT), residual connections, wide & deep, speech (embedded DS-CNN · BC-ResNet, **two Korean keyword sets** and the live-ready **BC-ResNet+**), pictures, letters (OCR), video and tables (CSV).
 - New here? The **welcome window** at start offers the **tutorial** (19 steps pointing at the screen) and the **tutorial video**.
 
 ![Start page](docs/images/start.png)
@@ -211,7 +211,7 @@ A PyTorch run gets a folder (`runs/` in the app's data folder) with the script (
 | Tables (CSV) | Student pass prediction, house prices |
 | Pictures (CNN) | Digits (MLP), digits (CNN), shapes (CNN + BN + augmentation), coloured shapes (RGB CNN), objects (CNN), **VGG-style CNN**, **Inception blocks**, **DenseNet-style CNN**, **MobileNet-style CNN** |
 | Letters (OCR) | English capitals, Hangul consonants |
-| Speech | Speech commands (CNN · GRU), **keyword spotting DS-CNN · BC-ResNet (embedded)**, **Korean keyword spotting: 출근 · 퇴근 · 경비 · 해제** (Supertonic voices; ResNet CNN / DS-CNN / BC-ResNet), **Korean keyword spotting: 출근 · 퇴근 · 외출 · 복귀** (BC-ResNet+ by default — about 20 thousand parameters, for live use; compare with openWakeWord / ResNet CNN / DS-CNN / BC-ResNet) |
+| Speech | Speech commands (CNN · GRU), **keyword spotting DS-CNN · BC-ResNet (embedded)**, **Korean keyword spotting: 출근 · 퇴근 · 경비 · 해제** (Supertonic voices; ResNet CNN / DS-CNN / BC-ResNet), **Korean keyword spotting: 출근 · 퇴근 · 외출 · 복귀** (BC-ResNet+ by default — about 20 thousand parameters, for live use; compare with ResNet CNN / DS-CNN / BC-ResNet), **openWakeWord keyword spotting: 출근 · 퇴근 · 외출 · 복귀** (the same data, the openWakeWord structure on its own) |
 | Video | Action recognition (frames + LSTM, stacked-frame CNN) |
 | Language models (LLM) | **Mini GPT** (English · Korean, character-level transformer), LSTM language model |
 | Autoencoders | Autoencoder, convolutional autoencoder, **denoising autoencoder**, **anomaly detection (autoencoder)** |
@@ -230,7 +230,7 @@ A sample with several models lets you pick one under **Model** at the top of the
 | Overfitting and regularization (moons, 120 points) | big network · dropout · small network | the big network's validation loss rises again (overfitting); dropout and the small network draw a smooth boundary |
 | Vanishing gradients (8 layers) | 8 sigmoid layers · ReLU + batch norm · residual connections | 8 sigmoid layers stay at chance (33%), residual connections reach 99% — see the per-layer sizes in the Train tab's **gradient flow** |
 | RNN, GRU and LSTM compared (90-step signals) | LSTM · GRU · simple RNN | the signals are long: the gateless RNN forgets their beginning (about 50%), GRU and LSTM reach 100% |
-| Korean keyword spotting (both samples) | ResNet CNN · DS-CNN · BC-ResNet (· BC-ResNet+ · openWakeWord) | the table below |
+| Korean keyword spotting (both samples) | ResNet CNN · DS-CNN · BC-ResNet (· BC-ResNet+) | the table below |
 
 **BC-ResNet+**, the default model of **Korean keyword spotting: 출근 · 퇴근 · 외출 · 복귀** (clock in, clock out, going out, back), stacks ten BC-ResNet blocks in four stages, a 1×1 convolution widening the channels 16 → 24 → 32 → 40 at each (halving the size midway keeps the work low). Tested on 3605 clips of voices it never heard (PyTorch, 20 epochs):
 
@@ -243,7 +243,7 @@ A sample with several models lets you pick one under **Model** at the top of the
 
 BC-ResNet+ decides on one second of speech in about 1.8 ms with the app's engine (TensorFlow.js WASM) — plenty for live microphone use — and matches DS-CNN with 1/5.6 of its work. It learned from synthetic voices: check real ones with the microphone in the Test tab.
 
-The **openWakeWord** model follows openWakeWord's two stages: a **speech embedding** of four convolutions (LeakyReLU) gives one 96-value embedding about every 0.12 s (8 time steps × 96), and openWakeWord's **DNN head** (dense 128 → layer norm → ReLU, twice) picks the word from those 8. openWakeWord itself freezes an embedding Google trained beforehand; this sample trains both stages together from scratch on the generated data. With 221 k parameters and 9.1 M MACs it is heavier than BC-ResNet+; on the same 3605 test clips it reached 96.4% overall (6 classes; BC-ResNet+ 95.2% in the same run).
+The separate sample **openWakeWord keyword spotting: 출근 · 퇴근 · 외출 · 복귀** trains the same data with openWakeWord's two stages (no choice of models): a **speech embedding** of four convolutions (LeakyReLU) gives one 96-value embedding about every 0.12 s (8 time steps × 96), and openWakeWord's **DNN head** (dense 128 → layer norm → ReLU, twice) picks the word from those 8. openWakeWord itself freezes an embedding Google trained beforehand; this sample trains both stages together from scratch on the generated data. With 221 k parameters and 9.1 M MACs it is heavier than BC-ResNet+; on the same 3605 test clips it reached 96.4% overall (6 classes; BC-ResNet+ 95.2% in the same run).
 
 ## Files
 
@@ -253,7 +253,7 @@ The **openWakeWord** model follows openWakeWord's two stages: a **speech embeddi
 
 ## Start page
 
-Along the top: **Start the tutorial**, the tutorial document and video, the **user's guide** and the sample gallery. Below: the sample gallery, recent files and **twenty AI-themed moving backgrounds** (neural signals, gradient descent, attention, convolution, embedding space, tensors, activation functions, backpropagation, decision boundary, loss curves, dropout, token stream, diffusion, k-means, decision tree, firing neurons, weight matrix, latent space, recurrent network, GAN distributions). Pick one or a random one, set the speed and how often it changes. **Home** on the menu bar brings the page back.
+Along the top: **Start the tutorial**, the tutorial document and video, the **user's guide** and the sample gallery. Below: the sample gallery, recent files and **twenty AI-themed moving backgrounds** (neural signals, gradient descent, attention, convolution, embedding space, tensors, activation functions, backpropagation, decision boundary, loss curves, dropout, token stream, diffusion, k-means, decision tree, firing neurons, weight matrix, latent space, recurrent network, GAN distributions). Pick one or a random one, set the speed and how often it changes. **Home** on the menu bar brings the page back; pressing it again returns to the work in progress (the open project and tab, and a training run if one is going). With nothing opened yet the start page stays.
 
 ## Welcome window
 

@@ -74,8 +74,8 @@ async function trained(entry) {
   return { project, data, prepared, task, weights, rawX, expected };
 }
 
-// Every sample's own model, and the choices whose layers no sample opens with (openWakeWord: a frequency average reshaped into embeddings).
-const EXPORTED = [...SAMPLE_IDS.map((id) => ({ id, variant: null, label: id })), { id: 'kwsKoAttend', variant: 'openWakeWord', label: 'kwsKoAttend/openWakeWord' }];
+// Every sample (its own model).
+const EXPORTED = SAMPLE_IDS.map((id) => ({ id, variant: null, label: id }));
 for (const entry of EXPORTED) {
   test(`C and ONNX export match TensorFlow.js — ${entry.label}`, { timeout: 600000 }, async () => {
     const t = await trained(entry);

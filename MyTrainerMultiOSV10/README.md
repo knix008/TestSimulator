@@ -8,7 +8,7 @@
 - **테스트** — 테스트 샘플, 직접 그린 숫자, 평면의 점, 입력한 문장 · 값으로 예측. 혼동 행렬 · 클래스별 지표 · 틀린 샘플 · 회귀 그림 · 오토인코더의 **복원 오차가 큰 샘플**(이상 후보).
 - **두 엔진** — 앱 안의 **TensorFlow**(TensorFlow.js — WebGPU · WebGL · CPU), 그리고 데스크톱의 **PyTorch**: 이미 PyTorch 가 설치된 Python(conda · venv · PATH …)을 찾아 쓰고, 없을 때만 전용 가상 환경에 자동 설치합니다.
 - **PyTorch 코드** — 모델에서 만든 읽기 쉬운 PyTorch 스크립트를 보고 고쳐서 실행. Python 문법 강조 · 자동 완성 · 설명, Python/PyTorch **사전**(문법, 딕셔너리 메서드, torch · nn · optim …).
-- **샘플 54종** — 퍼셉트론 · MLP · 다항 회귀 · **비교 예제**(활성화 함수 · 과적합과 정규화 · 기울기 소실 · RNN/GRU/LSTM) · CNN(VGG · Inception · DenseNet · MobileNet) · 오토인코더(잡음 제거 · 이상 탐지) · Conv1D · CNN + LSTM · 트랜스포머(감성 · 시계열 · 미니 GPT) · 임베딩 · 잔차 · 와이드 & 딥 · OCR · 음성/키워드 인식(한국어 2종, ResNet CNN · DS-CNN · BC-ResNet · 실시간용 BC-ResNet+ · openWakeWord) · 영상.
+- **샘플 55종** — 퍼셉트론 · MLP · 다항 회귀 · **비교 예제**(활성화 함수 · 과적합과 정규화 · 기울기 소실 · RNN/GRU/LSTM) · CNN(VGG · Inception · DenseNet · MobileNet) · 오토인코더(잡음 제거 · 이상 탐지) · Conv1D · CNN + LSTM · 트랜스포머(감성 · 시계열 · 미니 GPT) · 임베딩 · 잔차 · 와이드 & 딥 · OCR · 음성/키워드 인식(한국어 3종, ResNet CNN · DS-CNN · BC-ResNet · 실시간용 BC-ResNet+ · openWakeWord) · 영상.
 - **시작 안내 창 · 튜토리얼** — 시작할 때 안내 창(다음부터 보이기 선택), 화면을 짚어 가는 19단계 튜토리얼과 그 문서 · 영상. 사용 설명서 창은 언어 · 글자 크기 · 글꼴을 바꾸고 앱 테마를 따릅니다.
 - 시작 화면의 **인공지능 테마 배경 20종**, 라이트 20 · 다크 20 테마, 한국어 / English.
 

@@ -104,7 +104,7 @@ test('the attendance keyword bank: 출근 · 퇴근 · 외출 · 복귀 and unkn
 test('Korean keyword samples: the first keeps its three models; the attendance one opens BC-ResNet+, small and fast enough for live use', () => {
   assert.deepEqual(sampleProject('kwsKo', 'ko').variants.list.map((v) => v.id), ['resCnn', 'dsCnn', 'bcResNet']);
   const project = sampleProject('kwsKoAttend', 'ko');
-  assert.deepEqual(project.variants.list.map((v) => v.id), ['bcResNetPlus', 'openWakeWord', 'resCnn', 'dsCnn', 'bcResNet']);
+  assert.deepEqual(project.variants.list.map((v) => v.id), ['bcResNetPlus', 'resCnn', 'dsCnn', 'bcResNet']);
   assert.equal(project.variants.current, 'bcResNetPlus');
   assert.equal(project.dataset.source.bank, 'kws-ko-attend');
   const measure = (model) => { const shapes = inferShapes(model, [32, 32, 1]); return { params: totalParams(shapes).total, macs: modelBudget(model, shapes).macs }; };
@@ -123,9 +123,12 @@ test('Korean keyword samples: the first keeps its three models; the attendance o
   assert.ok(nodeById(model, adds[0].id));
 });
 
-test('Korean attendance keywords: the openWakeWord model is a speech embedding (8 steps × 96) and the openWakeWord DNN head', () => {
-  const project = sampleProject('kwsKoAttend', 'en');
-  const model = project.variants.list.find((v) => v.id === 'openWakeWord').model;
+test('openWakeWord keyword spotting: its own sample (no choice of models) on the attendance words — a speech embedding (8 steps × 96) and the openWakeWord DNN head', () => {
+  const project = sampleProject('kwsKoOww', 'en');
+  assert.equal(project.variants, undefined);
+  assert.equal(project.dataset.source.bank, 'kws-ko-attend');
+  assert.ok(!sampleProject('kwsKoAttend', 'en').variants.list.some((v) => v.id === 'openWakeWord'));
+  const model = project.model;
   const shapes = inferShapes(model, [32, 32, 1]);
   const byName = (name) => shapes.get(model.nodes.find((n) => n.name === name).id);
   for (const node of model.nodes) assert.equal(shapes.get(node.id).error, null, node.name);

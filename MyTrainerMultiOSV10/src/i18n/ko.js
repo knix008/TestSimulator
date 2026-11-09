@@ -6,7 +6,7 @@ export default {
 
   // menus and commands
   'menu.file': '파일', 'menu.edit': '편집', 'menu.view': '보기', 'menu.model': '모델', 'menu.data': '데이터', 'menu.train': '학습', 'menu.help': '도움말',
-  'menu.home': '홈', 'menu.new': '새 프로젝트', 'menu.open': '열기…', 'menu.recent': '최근 파일', 'menu.clearRecent': '목록 지우기', 'menu.samples': '샘플 모델…',
+  'menu.home': '홈', 'menu.homeBack': '홈 — 진행 중인 작업으로 돌아가기','menu.new': '새 프로젝트', 'menu.open': '열기…', 'menu.recent': '최근 파일', 'menu.clearRecent': '목록 지우기', 'menu.samples': '샘플 모델…',
   'menu.save': '저장', 'menu.saveAs': '다른 이름으로 저장…', 'menu.exportPy': 'PyTorch 코드 내보내기 (.py)…', 'menu.exit': '끝내기',
   'menu.undo': '실행 취소', 'menu.redo': '다시 실행', 'menu.delete': '삭제', 'menu.duplicate': '복제', 'menu.selectAll': '모두 선택', 'menu.settings': '설정…',
   'menu.addLayer': '층 추가', 'menu.autoLayout': '자동 배치', 'menu.fit': '화면에 맞추기', 'menu.zoomIn': '확대', 'menu.zoomOut': '축소', 'menu.graphVertical': '위에서 아래로', 'menu.graphHorizontal': '왼쪽에서 오른쪽으로', 'menu.grid': '격자 보이기',

@@ -39,7 +39,7 @@
 | `src/domain/preprocess.js` | 층화 분할, 전처리 단계(학습 데이터로 맞추고 셋 모두 적용, 증강은 학습 데이터만), 정답 원-핫, `transformInput`(직접 입력에 같은 전처리) |
 | `src/domain/project.js` | `.mytrain` 형식(직렬화 · 파싱 · 복구), 학습 설정, `effectiveTask`(이진 분류 출력 1개/2개), 손실 선택, 학습률 일정 |
 | `src/domain/tutorial-text.js` · `src/ui/tutorial.js` | 튜토리얼: 장 · 단계 문구(한/영)와 단계(대상 선택자, 상태를 만드는 run, 자동 재생 시간). 순서가 같아야 함(단위 테스트). 튜토리얼 중에는 팝업이 페이지 안 틀(`popups.inline`) |
-| `src/domain/samples.js` | 샘플 54종(모델이 여럿인 샘플은 `variants`, 한국어 키워드 두 샘플은 `KWS_KO_MODELS` 공유, BC-ResNet 단계는 `bcStage`, `graphOf` 로 층 목록 → 그래프) |
+| `src/domain/samples.js` | 샘플 55종(모델이 여럿인 샘플은 `variants`, 한국어 키워드 두 샘플은 `KWS_KO_MODELS` 공유, BC-ResNet 단계는 `bcStage`, `graphOf` 로 층 목록 → 그래프) |
 | `src/domain/codegen.js` | 그래프 → PyTorch 스크립트. 텐서마다 배치(layout: flat · nhwc · nchw · nlc · ncl)를 추적해 필요한 `permute`/`transpose` 를 넣고, same 패딩(보폭 > 1)은 `ZeroPad2d`, Keras BN 모멘텀은 `1 − m` |
 | `src/domain/pydict.js` | Python · PyTorch 사전(편집기 완성 · 설명 · 사전 패널) |
 | `src/domain/metrics.js` | 혼동 행렬, 정밀도 · 재현율 · F1, MAE · RMSE · R² |
