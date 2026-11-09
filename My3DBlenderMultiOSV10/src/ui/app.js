@@ -5,7 +5,7 @@ import { coverage, FEATURES } from '../core/features.js';
 import { History } from '../core/history.js';
 import { adjustLast, allOps, canRun, getOp, run, touch } from '../core/ops.js';
 import { THEMES, resolveTheme, themeVars, themesByMode } from '../core/themes.js';
-import { appInfo, isTauri, onCloseRequested, onMaximizedChange, quit, setLanguageNative, setMinWidth, setWindowTheme, setWindowTitle, startupFiles, windowAction, windowReady, openExternal, startResize, invoke, readFont, listFonts, getUiZoom, setUiZoom } from '../platform/native.js';
+import { appInfo, isTauri, onCloseRequested, onMaximizedChange, quit, setLanguageNative, setMinWidth, setWindowTheme, setWindowTitle, startupFiles, windowAction, windowReady, openExternal, startResize, invoke, readFont, listFonts, getUiZoom, setUiZoom, toggleFullscreen } from '../platform/native.js';
 import { aboutMark, gripDots, h, replace, taegukgi, themeSwatch, unionJack } from './dom.js';
 import { ask, closeAllDialogs, dialogDocuments, openDialog, queryAll, showError } from './dialogs.js';
 import { createTimeline, createDopeSheet, createGraph, createNLA } from './editors/anim.js';
@@ -439,7 +439,7 @@ export function createApp(rootEl) {
     { label: t('Toggle Maximize Area', '영역 최대화 전환'), icon: 'maximize2', shortcut: 'Ctrl Space', onClick: () => { const area = activeArea ?? mounted[0]?.area; if (area) toggleMaximize(maximized ?? area); } },
     { label: t('Reset This Workspace Layout', '이 워크스페이스 배치 초기화'), icon: 'restore', onClick: () => { layouts[workspaceId] = workspaceById(workspaceId).make(); maximized = null; buildScreen(); app.invalidate(); } },
     null,
-    { label: t('Toggle Full Screen', '전체 화면 전환'), icon: 'fullscreen', shortcut: 'F11', onClick: () => import('../platform/native.js').then((m) => m.toggleFullscreen()) },
+    { label: t('Toggle Full Screen', '전체 화면 전환'), icon: 'fullscreen', shortcut: 'F11', onClick: () => toggleFullscreen() },
   ];
   const helpItems = () => [
     { label: t("User's Guide", '사용자 설명서'), icon: 'guide', testid: 'menu-guide', onClick: () => openDoc('UsersGuide') },
@@ -452,7 +452,7 @@ export function createApp(rootEl) {
   ];
   const openDoc = (base) => {
     const name = getLanguage() === 'en' ? `${base}.en.html` : `${base}.html`;
-    if (isTauri) import('../platform/native.js').then((m) => m.invoke('open_doc_window', { name, title: base === 'Tutorial' ? t('Tutorial', '튜토리얼') : base === 'TutorialVideo' ? t('Tutorial Video', '튜토리얼 동영상') : t("User's Guide", '사용자 설명서') })).catch((error) => showError(t('Could not open the document', '문서를 열 수 없습니다'), error));
+    if (isTauri) Promise.resolve().then(() => invoke('open_doc_window', { name, title: base === 'Tutorial' ? t('Tutorial', '튜토리얼') : base === 'TutorialVideo' ? t('Tutorial Video', '튜토리얼 동영상') : t("User's Guide", '사용자 설명서') })).catch((error) => showError(t('Could not open the document', '문서를 열 수 없습니다'), error));
     else window.open(`./doc/${name}`, 'my3d-docs', 'width=1040,height=820');
   };
 
@@ -1094,7 +1094,7 @@ export function createApp(rootEl) {
     if (ctrl && key === 'n') { stop(); app.op('wm.new'); return; }
     if (e.key === 'F3') { stop(); openSearch(); return; }
     if (e.key === 'F12') { stop(); app.op(e.ctrlKey ? 'render.animation' : 'render.render'); return; }
-    if (e.key === 'F11') { stop(); import('../platform/native.js').then((m) => m.toggleFullscreen()); return; }
+    if (e.key === 'F11') { stop(); toggleFullscreen(); return; }
     if (ctrl && key === ' ') { stop(); const area = hoverArea ?? activeArea; if (area || maximized) toggleMaximize(maximized ?? area); return; }
     if (key === ' ' ) { stop(); app.togglePlay(); return; }
     if (e.key === 'ArrowLeft' && !ctrl) { stop(); app.setFrame(ctx.doc.frame - 1); return; }
