@@ -313,6 +313,39 @@ The published files are clean HTML and CSS without hidden blocks or editing mark
 - **Putting it online** — upload the folder or the ZIP to GitHub Pages, Netlify, Cloudflare Pages or any web host.
 - **Contact forms and newsletters** — a static site cannot send e-mail by itself. Put the address of a form service such as Formspree or Getform in *Form address* and it mails the messages to you. Left empty, the form opens the visitor's e-mail program (`mailto:`).
 
+## Printing
+
+**File › Print…** (Ctrl+P, the **Print** button right of Save on the toolbar) lays the site's pages out on paper and previews them.
+
+- **Printer and copies** — on Windows, choose a printer and print straight away, with no dialog. Without a printer list, the system print dialog opens.
+- **Print range** — all pages, the current page, or a range (first–last)
+- **Page setup** — paper (A3, A4, A5, B4, B5, Letter, Legal), portrait or landscape, margins, **screen width** (as drawn on a desktop, tablet or phone), **size** (fit width: long pages go over several sheets / one sheet / scale), print backgrounds
+- **Header and footer** — site and page name with the date, sheet numbers; or your own text.
+- The preview on the right shows the real sheets; **< >** below, or PageUp and PageDown, move between them.
+
+**Preview** on the toolbar (F5) opens the site in the browser straight away.
+
+## Code editor
+
+**Tools › Code editor** (Ctrl+Shift+E) is a window of its own for HTML, CSS, JavaScript and JSON files. `.html`, `.css` and `.js` files opened with **File › Open** or dropped on the window open there too.
+
+- One tab per file; with many tabs, **< >** at the right moves along. Middle click or Ctrl+W closes one.
+- Syntax colours, line numbers, the current line, automatic indentation (Enter, Tab, Shift+Tab), comment toggling (Ctrl+/), word wrap, text size
+- **Find** (Ctrl+F), **Replace** (Ctrl+H, match case, regular expressions, replace all), **Go to line** (Ctrl+G)
+- **Format** (Shift+Alt+F) — Prettier tidies indentation and line breaks.
+- **Check** (F8) — JSHint for JavaScript, HTMLHint for HTML; JSON and CSS are checked by the program itself. Click a result to go to its line.
+- An HTML file shows its **preview** on the right as you type, and **Open in browser** too.
+- **Site CSS, JS, head** — code for the whole open site: the CSS after the design's style sheet, the JavaScript at the end of every page (`script.js` when published), the head HTML in every page's `<head>`. It applies to the canvas as you type and can be undone in the main window.
+- **Tools › Open this page as HTML code** opens the current page as an HTML file to change and save separately (the site stays as it is).
+
+## Packages
+
+The tools the code editor tidies and checks with (Prettier, JSHint, HTMLHint) are not in the installer: they are downloaded when needed from the internet (jsDelivr, else unpkg). Downloaded files are kept only after their SHA-256 matched.
+
+- At start, missing packages download by themselves (turn it off in Settings › Packages). The status bar shows the progress and **×** (cancel).
+- When a download fails, **Retry** stays in the status bar, and the packages window shows the error.
+- **Tools › Packages…** or **Settings › Packages** — each package's state, size and progress, **Download / Download again / Cancel / Remove**, **Download all missing**
+
 ## Settings
 
 ![Settings](images/en/17-settings.png)
@@ -326,7 +359,7 @@ The published files are clean HTML and CSS without hidden blocks or editing mark
 - **Background** — animated, picture or none; kind, speed, random, interval; background picture, opacity and fit
 - **Editor** — the design of new blank sites, the first device width, fit width on opening, icon-only Blocks panel, extract pictures when publishing
 - **Dictionary** — the spelling check and your dictionary (see above)
-- **Recent**, **Shortcuts**
+- **Recent**, **Packages** (download automatically; download, retry, cancel), **Shortcuts**
 
 **Defaults** resets the settings (recent files, the background picture and your dictionary stay).
 

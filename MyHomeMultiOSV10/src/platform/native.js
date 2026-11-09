@@ -62,6 +62,8 @@ const SITE_FILTERS = () => [
   { name: 'MyHomeMaker (*.myhome, *.mhomt)', extensions: ['myhome', 'mhomt', 'json'] },
   { name: 'MyHomeMaker Site (*.myhome)', extensions: ['myhome'] },
   { name: 'MyHomeMaker Template (*.mhomt)', extensions: ['mhomt'] },
+  // Opened in the code editor window.
+  { name: 'HTML, CSS, JavaScript (*.html, *.css, *.js)', extensions: ['html', 'htm', 'css', 'js', 'mjs', 'txt', 'md'] },
 ];
 /** Save types: the site, a template, a page, a ZIP archive. */
 export const SAVE_TYPES = {
@@ -70,6 +72,9 @@ export const SAVE_TYPES = {
   html: { name: 'HTML (*.html)', extensions: ['html', 'htm'] },
   zip: { name: 'ZIP (*.zip)', extensions: ['zip'] },
   json: { name: 'JSON (*.json)', extensions: ['json'] },
+  css: { name: 'CSS (*.css)', extensions: ['css'] },
+  js: { name: 'JavaScript (*.js)', extensions: ['js', 'mjs'] },
+  txt: { name: 'Text (*.txt, *.md)', extensions: ['txt', 'md'] },
 };
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'];
 
@@ -141,7 +146,7 @@ export const openExternal = (target) => (isDesktop() ? invoke('open_external', {
 
 export const hasFileSystemAccess = () => typeof globalThis.showOpenFilePicker === 'function';
 
-const WEB_TYPES = [{ description: 'MyHomeMaker', accept: { 'application/json': ['.myhome', '.mhomt', '.json'] } }];
+const WEB_TYPES = [{ description: 'MyHomeMaker', accept: { 'application/json': ['.myhome', '.mhomt', '.json'] } }, { description: 'HTML, CSS, JavaScript', accept: { 'text/plain': ['.html', '.htm', '.css', '.js', '.mjs', '.txt', '.md'] } }];
 const isBinaryName = () => false;
 const readContent = async (file) => (isBinaryName(file.name) ? new Uint8Array(await file.arrayBuffer()) : file.text());
 
@@ -160,7 +165,7 @@ export async function pickSiteFilesWeb() {
       return { name: file.name, content: await readContent(file), handle, size: file.size };
     }));
   }
-  const files = await pickWithInput('.myhome,.mhomt,.json,application/json', false);
+  const files = await pickWithInput('.myhome,.mhomt,.json,application/json,.html,.htm,.css,.js,.mjs,.txt,.md', false);
   return Promise.all(files.map(async (file) => ({ name: file.name, content: await readContent(file), handle: null, size: file.size })));
 }
 
@@ -303,3 +308,10 @@ export async function clipboardRead() {
   if (isDesktop()) return invoke('clipboard_read');
   return navigator.clipboard.readText();
 }
+
+/** The computer's printers: { printers, defaultPrinter }; none in the browser and outside Windows. */
+export const listPrinters = () => (isDesktop() ? invoke('list_printers') : Promise.resolve({ printers: [], defaultPrinter: '' }));
+/** Prints this window's print view straight to a printer, with no dialog. job: { printer, copies, widthMm, heightMm }. */
+export const printDirect = (job) => invoke('print_direct', { job });
+/** The system's print dialog for this window (the browser's in the web build). */
+export const printWindow = () => (isDesktop() ? invoke('print_window') : Promise.resolve(window.print()));

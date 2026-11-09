@@ -24,6 +24,12 @@ import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
 import { PopupHost } from './platform/popups.js';
+import { idbSet } from './platform/idb.js';
+import { PRINT_JOB_KEY } from './print/layout.js';
+import { missingPackages, packageView, PackageManager, refreshInstalled } from './platform/packages.js';
+import { packageById } from './domain/packages.js';
+import { CODE_INBOX_KEY, CODE_OUTBOX_KEY, CODE_SITE_KEY, drainQueue, pushQueue } from './domain/codebus.js';
+import { isCodeFileName } from './domain/highlight.js';
 import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from './themes.js';
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { AnimatedBackground } from './ui/background.js';
@@ -206,6 +212,7 @@ function openSampleBuiltin(id = SAMPLES[0].id, name = '') {
 function activate(id) {
   state.view?.finishEdit?.(true);
   state.active = id;
+  queueMicrotask(publishSiteCode);
   state.selected = null;
   state.showStart = false;
   state.preview = false;
@@ -226,6 +233,7 @@ function change(labelKey, mutate, { redraw = true } = {}) {
 
 function afterChange({ redraw = true } = {}) {
   const doc = activeDoc();
+  publishSiteCode();
   if (doc && state.selected && !S.findBlock(doc.site, state.selected)) state.selected = null;
   if (redraw) state.view?.render();
   renderTabs();
@@ -723,6 +731,14 @@ const commands = {
   publishZip: { icon: 'publishZip', label: 'action.publishZip', enabled: () => Boolean(activeDoc()), run: () => publishSite('zip') },
   exportPage: { icon: 'htmlPage', label: 'action.exportPage', enabled: hasDoc, run: () => publishSite('html') },
   copyPageHtml: { icon: 'copy', label: 'action.copyPageHtml', enabled: hasDoc, run: () => copyPageHtml() },
+  packages: { icon: 'importFile', label: 'action.packages', run: () => popups.open('packages', {}) },
+  codeEditor: { icon: 'blkHtml', label: 'action.codeEditor', key: 'Ctrl+Shift+E', run: () => openCodeWindow() },
+  openCode: { icon: 'folderOpen', label: 'action.openCode', run: () => openCodeFiles() },
+  editSiteCss: { icon: 'palette', label: 'action.editSiteCss', enabled: hasDoc, run: () => openCodeWindow({ type: 'site-code', field: 'css' }) },
+  editSiteJs: { icon: 'blkHtml', label: 'action.editSiteJs', enabled: hasDoc, run: () => openCodeWindow({ type: 'site-code', field: 'js' }) },
+  editSiteHead: { icon: 'htmlFile', label: 'action.editSiteHead', enabled: hasDoc, run: () => openCodeWindow({ type: 'site-code', field: 'head' }) },
+  pageHtmlCode: { icon: 'htmlFile', label: 'action.pageHtmlCode', enabled: hasDoc, run: () => openPageAsCode() },
+  print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: hasDoc, run: () => openPrint() },
   previewBrowser: { icon: 'previewBrowser', label: 'action.previewBrowser', key: 'F5', enabled: hasDoc, run: () => previewInBrowser() },
   siteProps: { icon: 'siteProps', label: 'action.siteProps', enabled: () => Boolean(activeDoc()), run: () => showEditorTab('site') },
   closeSite: { icon: 'closeTab', label: 'action.closeSite', key: 'Ctrl+W', enabled: () => Boolean(activeDoc()), run: () => closeDoc(activeDoc()) },
@@ -843,6 +859,7 @@ function showEditorTab(tab) {
 // ───────────────────────── layout
 
 const SUBMENUS = {
+  siteCode: { icon: 'blkHtml', items: ['editSiteCss', 'editSiteJs', 'editSiteHead'] },
   exportTo: { icon: 'publish', items: ['publish', '-', 'publishFolder', 'publishZip', 'exportPage', 'copyPageHtml', '-', 'previewBrowser'] },
   zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomReset', 'zoomFit'] },
   device: { icon: 'devDesktop', items: ['device:desktop', 'device:tablet', 'device:mobile'] },
@@ -852,24 +869,24 @@ const SUBMENUS = {
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
-  file: ['new', 'newFromTemplate', 'openSample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', 'saveTemplate', '-', 'previewBrowser', sub('exportTo'), '-', 'siteProps', '-', 'closeSite', '-', 'exit'],
+  file: ['new', 'newFromTemplate', 'openSample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', 'saveTemplate', '-', 'print', 'previewBrowser', sub('exportTo'), '-', 'siteProps', '-', 'closeSite', '-', 'exit'],
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'moveUp', 'moveDown', 'toggleHidden', '-', 'selectPrev', 'selectNext', 'clearSelection', 'editContent'],
   insert: ['addBlock', '-', ...BLOCK_GROUPS.filter((g) => g.id !== 'site').map((g) => sub(`insert:${g.id}`)), '-', 'editHeader', 'editFooter'],
   page: ['addPage', 'duplicatePage', 'renamePage', 'deletePage', '-', 'pageLeft', 'pageRight', '-', 'prevPage', 'nextPage', '-', 'pageProps'],
   view: [sub('device'), sub('zoom'), '-', 'previewMode', '-', sub('panels'), '-', sub('appearance')],
   design: ['designPicker', 'randomDesign', 'resetDesign', '-', 'siteProps'],
-  tools: ['checkSite', 'showProblems', 'spellCheck', 'dictionary', 'siteStats', '-', 'previewBrowser', 'publish', '-', 'settings'],
+  tools: ['codeEditor', 'openCode', sub('siteCode'), 'pageHtmlCode', '-', 'checkSite', 'showProblems', 'spellCheck', 'dictionary', 'siteStats', '-', 'previewBrowser', 'publish', '-', 'packages', 'settings'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', insert: 'addBlock', page: 'pageItem', view: 'eye', design: 'palette', tools: 'gear', help: 'question' };
 
 const TOOLBAR = [
-  ['new', 'open', 'save', 'publishSplit', 'previewBrowser'],
+  ['new', 'open', 'save', 'print', 'previewBrowser', 'publishSplit'],
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'delete'],
   ['addBlock', 'addPage'],
   ['moveUp', 'moveDown', 'duplicate', 'toggleHidden'],
-  ['device:desktop', 'device:tablet', 'device:mobile', 'zoom', 'zoomFit'],
+  ['device:desktop', 'device:tablet', 'device:mobile', 'zoom'],
   ['previewMode', 'designPicker'],
   ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
@@ -968,7 +985,7 @@ function renderToolbar() {
         <button class="tool-button stepper-button-tool" data-command="zoomIn" title="${escapeHtml(commandTip('zoomIn'))}" aria-label="${escapeHtml(t('action.zoomIn'))}">${icon('plus')}</button>
       </span>`;
     }
-    if (id === 'addBlock' || id === 'publish' || id === 'previewMode') return labeled(id);
+    if (id === 'addBlock' || id === 'publish' || id === 'previewBrowser') return labeled(id);
     if (id === 'publishSplit') return `<span class="split-button">${labeled('publish')}<button class="tool-button split-arrow" data-command="publishMenu" title="${escapeHtml(commandTip('publishMenu'))}" aria-label="${escapeHtml(t('action.publishMenu'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
     if (id === 'themeSplit') return `<span class="split-button">${plain('theme')}<button class="tool-button split-arrow" data-command="themeMenu" title="${escapeHtml(commandTip('themeMenu'))}" aria-label="${escapeHtml(t('action.themeChoose'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
     return plain(id);
@@ -1063,17 +1080,18 @@ function scrollActiveTabIntoView() {
 
 // ───────────────────────── left panel (Blocks)
 
+/** A folded panel: a thin strip with the panel's name written top to bottom; a click anywhere on it opens the panel. */
+function railHtml(command, chevron, glyph, name, tip) {
+  return `<button class="panel-rail" data-command="${command}" title="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${icon(chevron, 'icon rail-chevron')}${icon(glyph, 'icon rail-glyph')}<span class="rail-name">${escapeHtml(name)}</span></button>`;
+}
+
 function renderBlocksPanel() {
   const panel = root.querySelector('#left-panel');
   if (!panel) return;
   const L = lang();
   const compact = state.settings.toolboxCompact;
   if (!state.settings.showLeftPanel) {
-    panel.innerHTML = `<div class="panel-rail">
-      <button class="rail-button expand" data-command="leftPanel" title="${escapeHtml(t('panel.expandLeft'))}" aria-label="${escapeHtml(t('panel.expandLeft'))}">${icon('chevronRight')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
-      <div class="rail-title" title="${escapeHtml(t('panel.blocks'))}">${icon('toolbox')}<span>${escapeHtml(t('panel.blocksShort'))}</span></div>
-      ${['hero', 'heading', 'text', 'image', 'features', 'gallery', 'contact'].map((type) => `<button class="rail-button block-item" data-block-type="${type}" title="${escapeHtml(blockLabel(type, L))}">${icon(BLOCKS[type].icon)}</button>`).join('')}
-    </div>`;
+    panel.innerHTML = railHtml('leftPanel', 'chevronRight', 'toolbox', t('panel.blocks'), t('panel.expandLeft'));
     return;
   }
   const query = state.toolboxQuery.trim().toLowerCase();
@@ -1128,9 +1146,7 @@ function renderRight() {
   const panel = root.querySelector('#right-panel');
   if (!panel) return;
   if (!state.settings.showRightPanel) {
-    panel.innerHTML = `<div class="panel-rail">
-      <button class="rail-button expand" data-command="rightPanel" title="${escapeHtml(t('panel.expandRight'))}" aria-label="${escapeHtml(t('panel.expandRight'))}">${icon('chevronLeft')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
-      <div class="rail-title">${icon('pagesTree')}<span>${escapeHtml(t('panel.siteShort'))}</span></div></div>`;
+    panel.innerHTML = railHtml('rightPanel', 'chevronLeft', 'pagesTree', t('panel.site'), t('panel.expandRight'));
     return;
   }
   if (!panel.querySelector('#site-tree')) {
@@ -1206,6 +1222,8 @@ function renderStatus() {
   const s = state.settings;
   const notice = state.notice;
   const items = [];
+  const pkg = packageStatusItem();
+  if (pkg) items.push(pkg);
   items.push(`<span class="status-notice ${notice?.kind ?? ''}" title="${escapeHtml(notice?.text ?? t('status.ready'))}">${icon(notice?.kind === 'error' ? 'error' : notice?.kind === 'success' ? 'check' : 'info')}<span>${escapeHtml(notice?.text ?? t('status.ready'))}</span></span>`);
   if (doc && !state.showStart) {
     const stats = S.siteStats(doc.site);
@@ -1547,6 +1565,7 @@ function rememberDirectory(dir) {
 
 async function openPath(path, { quiet = false } = {}) {
   const name = baseName(path);
+  if (isCodeFileName(name) && !isSiteFileName(name)) return openCodeWindow({ type: 'open-path', path });
   const existing = findOpenDoc(path);
   if (existing) { if (!quiet) notify('info', t('notice.alreadyOpen', { name })); return existing; }
   if (!(await confirmReplace())) return null;
@@ -1564,6 +1583,7 @@ async function openPath(path, { quiet = false } = {}) {
 }
 
 async function openContent(name, content, handle = null) {
+  if (isCodeFileName(name) && !isSiteFileName(name)) return openCodeWindow({ type: 'open-content', name, content: String(content ?? '') });
   if (!(await confirmReplace())) return null;
   try {
     const template = isTemplateFileName(name);
@@ -1758,6 +1778,154 @@ async function publishSite(format, { extract = state.settings.publishExtractImag
   } catch (error) {
     showError('error.publish', error, name);
   }
+}
+
+// ───────────────────────── the code editor window
+
+/** Opens the code editor (desktop: its own window; web: a tab), with a request for it (a file, the site's code …). */
+async function openCodeWindow(request = null) {
+  popups.hideMenu();
+  publishSiteCode();
+  if (request && !pushQueue(CODE_INBOX_KEY, request)) { notify('error', t('code.tooLarge')); return null; }
+  const url = `${location.pathname}?viewer=code&lang=${getLanguage() === 'en' ? 'en' : 'ko'}`;
+  if (!desktop) {
+    globalThis.open(url, 'myhomemaker-code')?.focus?.();
+    return null;
+  }
+  const dark = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark;
+  try {
+    await native.invoke('open_doc_window', { kind: 'code', title: `${t('code.title')} — MyHomeMaker`, width: 1280, height: 820, dark });
+  } catch (error) {
+    showError('error.docWindow', error);
+  }
+  return null;
+}
+
+/** Tools › Open code file…: the files go to the code editor. */
+async function openCodeFiles() {
+  try {
+    if (desktop) {
+      const paths = await native.chooseFiles(state.settings.lastDirectory, [{ name: 'HTML, CSS, JavaScript', extensions: ['html', 'htm', 'css', 'js', 'mjs', 'json', 'txt', 'md'] }], true);
+      if (paths.length) for (const path of paths) await openCodeWindow({ type: 'open-path', path });
+    } else {
+      await openCodeWindow();
+    }
+  } catch (error) {
+    showError('error.open', error);
+  }
+}
+
+/** The current page as an HTML file in the code editor (its own copy: the site does not change). */
+function openPageAsCode() {
+  const doc = activeDoc();
+  if (!doc) return null;
+  state.view?.finishEdit?.(true);
+  return openCodeWindow({ type: 'open-content', name: pageFile(doc.page), content: singlePageHtml(doc.site, doc.page) });
+}
+
+/** The open site's code for the code editor window (written only when it changed). */
+function publishSiteCode() {
+  const doc = activeDoc();
+  const value = doc ? JSON.stringify({ siteId: doc.site.id, name: doc.site.meta?.title || doc.site.name, code: doc.site.code ?? { css: '', js: '', head: '' } }) : 'null';
+  if (publishSiteCode.last === value) return;
+  publishSiteCode.last = value;
+  try { globalThis.localStorage?.setItem(CODE_SITE_KEY, value); } catch { /* the code editor keeps what it has */ }
+}
+
+/** Messages from the code editor: the site's code typed there, Packages. */
+function readCodeOutbox() {
+  for (const message of drainQueue(CODE_OUTBOX_KEY)) {
+    if (message.type === 'site-code') {
+      const doc = activeDoc();
+      if (!doc || doc.site.id !== message.siteId || !['css', 'js', 'head'].includes(message.field)) continue;
+      if ((doc.site.code?.[message.field] ?? '') === message.value) continue;
+      change(`code.op.${message.field}`, (s) => { s.code = { css: '', js: '', head: '', ...(s.code ?? {}) }; s.code[message.field] = String(message.value ?? ''); });
+    } else if (message.type === 'open-packages') {
+      popups.open('packages', {});
+    } else if (message.type === 'install-packages') {
+      installPackages(message.ids ?? []);
+    }
+  }
+}
+
+// ───────────────────────── packages
+
+/** Downloads in the main window; the popups show the progress from localStorage and ask through actions. */
+const packages = new PackageManager({ onChange: () => renderStatus() });
+state.packageFailed = [];
+
+/**
+ * Downloads packages (ids), with the progress in the status bar. A failure says so and leaves "Retry" in the
+ * status bar and in Settings › Packages; a cancel just stops.
+ */
+async function installPackages(ids, { quiet = false } = {}) {
+  const list = ids.filter((id) => packageById(id));
+  if (!list.length) return null;
+  state.packageFailed = state.packageFailed.filter((id) => !list.includes(id));
+  if (!quiet) notify('info', t('packages.started', { names: list.map((id) => packageById(id).name).join(', ') }));
+  const outcome = await packages.install(list);
+  if (outcome.failed.length) {
+    state.packageFailed = [...new Set([...state.packageFailed, ...outcome.failed])];
+    const id = outcome.failed[0];
+    notify('error', t('packages.failedNotice', { name: packageById(id).name, error: packageView(id).error ?? '' }));
+  } else if (outcome.cancelled) {
+    notify('info', t('packages.cancelledNotice'));
+  } else if (outcome.ok.length) {
+    notify('success', t('packages.doneNotice', { names: outcome.ok.map((x) => packageById(x).name).join(', ') }));
+  }
+  renderStatus();
+  return outcome;
+}
+
+/** At start (a few seconds in, not during tests): the missing packages, when the setting allows it. */
+async function autoDownloadPackages() {
+  if (globalThis.__MYHOMEMAKER_NO_WELCOME || new URLSearchParams(location.search).has('nowelcome') || new URLSearchParams(location.search).has('nopackages')) return;
+  await refreshInstalled().catch(() => null);
+  if (!state.settings.autoDownloadPackages || packages.busy) return;
+  const missing = await missingPackages().catch(() => []);
+  if (missing.length) installPackages(missing, { quiet: true });
+}
+
+/** The status bar while a package downloads (percent, Stop) or after one failed (Retry). */
+function packageStatusItem() {
+  const running = packages.running?.id;
+  if (running) {
+    const view = packageView(running);
+    const pct = view.total ? Math.floor((view.received / view.total) * 100) : 0;
+    const name = packageById(running)?.name ?? running;
+    return `<span class="status-item package-status" title="${escapeHtml(t('packages.statusTip'))}"><button class="status-link" data-open-packages title="${escapeHtml(t('packages.statusTip'))}">${icon('importFile')}<span>${escapeHtml(t('packages.downloading', { name, pct }))}</span></button><span class="status-progress" aria-hidden="true"><i style="width:${pct}%"></i></span><button class="status-link danger" data-package-cancel title="${escapeHtml(t('packages.cancel'))}" aria-label="${escapeHtml(t('packages.cancel'))}">${icon('close')}</button></span>`;
+  }
+  if (state.packageFailed.length) {
+    return `<span class="status-item package-status failed" title="${escapeHtml(t('packages.failedTip'))}"><button class="status-link" data-open-packages title="${escapeHtml(t('packages.failedTip'))}">${icon('warning')}<span>${escapeHtml(t('packages.failedShort'))}</span></button><button class="status-link" data-package-retry title="${escapeHtml(t('packages.retry'))}">${icon('refresh')}<span>${escapeHtml(t('packages.retry'))}</span></button></span>`;
+  }
+  return '';
+}
+
+// ───────────────────────── print
+
+/**
+ * File › Print…: the print window lays the site's pages out on paper. The pages (with their pictures, any size) go
+ * through IndexedDB, which every window of the app shares; localStorage would be too small for them.
+ */
+async function openPrint() {
+  const doc = activeDoc();
+  if (!doc) return;
+  state.view?.finishEdit?.(true);
+  const job = {
+    at: Date.now(),
+    title: docName(doc),
+    siteName: doc.site.meta?.title || doc.site.name || '',
+    currentPageId: doc.page?.id ?? null,
+    device: doc.view.device ?? state.settings.defaultDevice,
+    pages: doc.site.pages.map((page) => ({ id: page.id, name: page.name || pageFile(page), file: pageFile(page), html: singlePageHtml(doc.site, page) })),
+  };
+  try {
+    await idbSet(PRINT_JOB_KEY, job);
+  } catch (error) {
+    showError('error.print', error);
+    return;
+  }
+  popups.open('print', { at: job.at });
 }
 
 /** Preview in the browser: the whole site in a temporary folder (desktop), or the page in a new tab (web). */
@@ -1958,7 +2126,7 @@ function contextMenu(event, kind, payload = {}) {
     else items.push(...menuItems(['toggleHidden']));
     return showMenu(items, anchor, 'context', { handlers, header: { icon: BLOCKS[found.block.type].icon, title: blockTitle(found.block) } });
   }
-  if (kind === 'canvas') return showMenu(menuItems(['addBlock', 'paste', '-', 'device:desktop', 'device:tablet', 'device:mobile', 'zoomFit', '-', 'previewMode', 'previewBrowser', '-', 'designPicker', 'pageProps']), anchor, 'context', { header: { icon: 'pageItem', title: currentPage()?.name ?? '' } });
+  if (kind === 'canvas') return showMenu(menuItems(['addBlock', 'paste', '-', 'device:desktop', 'device:tablet', 'device:mobile', 'zoomFit', '-', 'previewMode', 'previewBrowser', 'print', '-', 'designPicker', 'pageProps']), anchor, 'context', { header: { icon: 'pageItem', title: currentPage()?.name ?? '' } });
   if (kind === 'page') {
     const page = S.pageById(site(), payload.id);
     return showMenu(menuItems(['renamePage', 'duplicatePage', 'deletePage', '-', 'pageLeft', 'pageRight', '-', 'pageProps', 'addPage']), anchor, 'context', { header: { icon: 'pageItem', title: page?.name ?? '' } });
@@ -2035,6 +2203,7 @@ async function handleDroppedPaths(paths) {
     const name = baseName(path);
     try {
       if (isSiteFileName(name)) await openPath(path);
+      else if (isCodeFileName(name)) await openCodeWindow({ type: 'open-path', path });
       else if (isImageFileName(name) && hasBlock()) await dropPictureOnSelection(path);
       else if (isImageFileName(name)) await setBackgroundFromPath(path);
       else notify('error', t('notice.unsupportedDrop', { name }));
@@ -2058,6 +2227,7 @@ async function handleDroppedFiles(files) {
   for (const file of files) {
     try {
       if (isSiteFileName(file.name)) await openContent(file.name, await file.text());
+      else if (isCodeFileName(file.name)) await openCodeWindow({ type: 'open-content', name: file.name, content: await file.text() });
       else if ((isImageFileName(file.name) || file.type.startsWith('image/')) && hasBlock()) await dropPictureOnSelection(file);
       else if (isImageFileName(file.name) || file.type.startsWith('image/')) await setBackgroundFromFile(file);
       else notify('error', t('notice.unsupportedDrop', { name: file.name }));
@@ -2150,6 +2320,9 @@ function bindEvents() {
     }
     if (target.closest('[data-home]')) return showStartPage(!state.showStart || !activeDoc());
     if (target.closest('[data-problems-open]')) return problems.show();
+    if (target.closest('[data-open-packages]')) return popups.open('packages', {});
+    if (target.closest('[data-package-cancel]')) return packages.cancel();
+    if (target.closest('[data-package-retry]')) return installPackages(state.packageFailed);
     const start = target.closest('[data-start]');
     if (start && !start.disabled) return onStartAction(start);
     const command = target.closest('[data-command]');
@@ -2402,7 +2575,7 @@ function setUiZoom(value) {
 
 /** Ctrl+key shortcuts: [key, shift, command]. */
 const SHORTCUTS = [
-  ['n', false, 'new'], ['o', false, 'open'], ['s', false, 'save'], ['s', true, 'saveAs'], ['w', false, 'closeSite'], ['r', false, 'recent'],
+  ['n', false, 'new'], ['o', false, 'open'], ['s', false, 'save'], ['s', true, 'saveAs'], ['p', false, 'print'], ['w', false, 'closeSite'], ['r', false, 'recent'],
   ['z', false, 'undo'], ['y', false, 'redo'], ['z', true, 'redo'], ['x', false, 'cut'], ['c', false, 'copy'], ['v', false, 'paste'], ['d', false, 'duplicate'],
   ['arrowup', false, 'moveUp'], ['arrowdown', false, 'moveDown'], ['h', false, 'toggleHidden'], ['a', true, 'addBlock'], ['n', true, 'addPage'],
   ['=', false, 'zoomIn'], ['+', false, 'zoomIn'], ['-', false, 'zoomOut'], ['0', false, 'zoomReset'], ['w', true, 'zoomFit'], ['e', false, 'previewMode'],
@@ -2452,6 +2625,10 @@ function bindPopupActions() {
   popups.on('open-recent', (data) => openRecent(data.path));
   popups.on('open-folder', (data) => openWithDialog(data.path));
   popups.on('notice', (data) => notify(data.kind ?? 'info', data.text));
+  popups.on('printed', () => notify('success', t('notice.printed')));
+  popups.on('package-install', (data) => installPackages(data.ids ?? [], { quiet: false }));
+  popups.on('package-cancel', () => packages.cancel());
+  popups.on('package-remove', (data) => packages.remove(data.id));
   popups.on('open-settings', (data) => popups.open('settings', { tab: data.tab ?? 'general', themeGroup: data.themeGroup }));
   popups.on('start-tutorial', () => startTutorial());
   popups.on('show-start', () => showStartPage(true));
@@ -2580,7 +2757,15 @@ async function start() {
     await appWindow.setFocus();
     setTimeout(() => popups.prewarm('menu'), 400);
   }
-  if (state.settings.showWelcome && !globalThis.__MYHOMEMAKER_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome')) setTimeout(openWelcome, 600);
+  setTimeout(() => { autoDownloadPackages(); }, 4000);
+  window.addEventListener('storage', (event) => { if (event.key === CODE_OUTBOX_KEY) readCodeOutbox(); });
+  readCodeOutbox();
+  publishSiteCode();
+  // The welcome popup (start the tutorial, open a sample) at start, on the start page only: not over a restored site.
+  const onStartPage = () => state.showStart || !activeDoc();
+  if (state.settings.showWelcome && onStartPage() && !globalThis.__MYHOMEMAKER_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome')) {
+    setTimeout(() => { if (onStartPage() && !tutorial?.state().active) openWelcome(); }, 600);
+  }
 }
 
 /** The welcome popup (at start, and Help › Welcome): tutorial, sample, or later. */
@@ -2600,6 +2785,10 @@ window.__myhomemaker = {
   t,
   commands,
   popups,
+  packages,
+  installPackages,
+  openCodeWindow,
+  readCodeOutbox,
   run,
   menus: { MENUS, SUBMENUS, enabled: (id) => commandEnabled(id) },
   api: appApi,

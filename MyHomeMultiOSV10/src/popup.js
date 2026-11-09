@@ -22,6 +22,11 @@ import { intervalLabel } from './ui/startpage.js';
 import { DESIGNS, FONTS, designById } from './domain/designs.js';
 import { TEMPLATES } from './domain/templates.js';
 import { SAMPLE_GROUPS, SAMPLES } from './domain/samples.js';
+import { idbGet } from './platform/idb.js';
+import { formatSize, packageSize, PACKAGES } from './domain/packages.js';
+import { PACKAGES_STATE_KEY, packageView } from './platform/packages.js';
+import { defaultPrintOptions, FITS, MARGINS, normalizePrintOptions, PAPERS, PRINT_DEVICES, PRINT_JOB_KEY, PRINT_SETUP_KEY, RANGES, selectPrintPages } from './print/layout.js';
+import { fillFrames, jobLayout, measurePages, sheetsHtml, sheetsKey } from './print/window.js';
 
 const desktop = native.isDesktop();
 const appWindow = desktop ? getCurrentWindow() : null;
@@ -192,6 +197,7 @@ function render() {
     ({
       settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress, recent: renderRecent,
       menu: renderMenu, theme: renderThemePicker, welcome: renderWelcome, prompt: renderPrompt, design: renderDesign, template: renderTemplate, publish: renderPublish,
+      print: renderPrint, packages: renderPackages,
     })[kind]?.();
     alignRows();
     updateTabsNav();
@@ -244,13 +250,14 @@ const SETTINGS_TABS = [
   ['editor', 'siteProject', 'settings.editor'],
   ['dictionary', 'dictionary', 'settings.dictionary'],
   ['recent', 'recent', 'settings.recent'],
+  ['packages', 'importFile', 'settings.packages'],
   ['shortcuts', 'keyboard', 'settings.shortcuts'],
 ];
 
 function renderSettings() {
   const body = {
     general: settingsGeneral, start: settingsStart, appearance: settingsAppearance, font: settingsFont, background: settingsBackground,
-    editor: settingsEditor, dictionary: settingsDictionary, recent: settingsRecent, shortcuts: settingsShortcuts,
+    editor: settingsEditor, dictionary: settingsDictionary, recent: settingsRecent, packages: settingsPackages, shortcuts: settingsShortcuts,
   }[state.tab]?.() ?? '';
   root.innerHTML = frame({
     glyph: 'gear', title: t('settings.title'), tabs: tabsHtml(SETTINGS_TABS.map(([id, glyph, key]) => [id, glyph, t(key)]), state.tab),
@@ -980,9 +987,258 @@ function renderPublish() {
 
 // ───────────────────────── events
 
+// ───────────────────────── packages (Settings › Packages and the packages window)
+
+/** One card per package: what it is for, its state, a progress bar while it downloads, and its buttons. */
+function packagesHtml() {
+  const views = PACKAGES.map((pkg) => [pkg, packageView(pkg.id)]);
+  const busy = views.some(([, v]) => ['download', 'queued', 'saving'].includes(v.phase));
+  const missing = views.filter(([, v]) => v.state !== 'installed').map(([pkg]) => pkg.id);
+  const card = ([pkg, v]) => {
+    const running = v.phase === 'download' || v.phase === 'saving';
+    const queued = v.phase === 'queued';
+    const failed = v.phase === 'failed' && v.state !== 'installed';
+    const pct = v.total ? Math.floor((v.received / v.total) * 100) : 0;
+    const badge = running ? ['download', t('packages.state.downloading', { pct })] : queued ? ['queued', t('packages.state.queued')] : failed ? ['failed', t('packages.state.failed')]
+      : v.state === 'installed' ? ['installed', t('packages.state.installed', { version: pkg.version })] : v.state === 'outdated' ? ['outdated', t('packages.state.outdated', { version: v.installed })] : ['missing', t('packages.state.missing')];
+    const buttons = running || queued
+      ? button('package-cancel', t('packages.cancel'), 'stop', 'small danger')
+      : [
+        v.state === 'installed' ? button('package-install', t('packages.reinstall'), 'refresh', 'small', pkg.id) : button('package-install', failed ? t('packages.retry') : t('packages.install'), failed ? 'refresh' : 'importFile', 'small primary', pkg.id),
+        v.state !== 'missing' ? button('package-remove', t('packages.remove'), 'trash', 'small', pkg.id, busy ? 'disabled' : '') : '',
+      ].join('');
+    return `<section class="package-card ${badge[0]}" data-package="${pkg.id}">
+      <div class="package-head">${icon('importFile')}<b>${escapeHtml(pkg.name)}</b><span class="muted">${escapeHtml(pkg.version)} · ${escapeHtml(formatSize(packageSize(pkg)))} · ${escapeHtml(pkg.license)}</span><span class="grow"></span><span class="package-badge ${badge[0]}">${escapeHtml(badge[1])}</span></div>
+      <div class="package-purpose">${escapeHtml(pkg[L()] ?? pkg.en)}</div>
+      ${running || queued ? `<div class="progress-bar ${queued ? 'indeterminate' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${queued ? 30 : pct}%"></i></div><div class="muted package-bytes">${escapeHtml(t('packages.bytes', { done: formatSize(v.received), total: formatSize(v.total || packageSize(pkg)) }))}</div>` : ''}
+      ${failed && v.error ? `<div class="package-error">${icon('warning')}<span>${escapeHtml(t('packages.errorText', { error: v.error }))}</span></div>` : ''}
+      <div class="package-actions">${buttons}</div>
+    </section>`;
+  };
+  return `<div class="packages-view">
+    ${toggle('autoDownloadPackages', t('settings.autoDownloadPackages'), 'importFile')}
+    <div class="packages-list">${views.map(card).join('')}</div>
+    <div class="packages-foot"><span class="muted">${escapeHtml(t('packages.hint'))}</span><span class="grow"></span>
+      ${busy ? button('package-cancel', t('packages.cancelAll'), 'stop', 'small danger') : button('package-install-all', t('packages.installAll'), 'importFile', 'small primary', '', missing.length ? '' : 'disabled')}</div>
+  </div>`;
+}
+
+function settingsPackages() {
+  return packagesHtml();
+}
+
+function renderPackages() {
+  root.innerHTML = frame({
+    glyph: 'importFile', title: t('packages.title'),
+    body: packagesHtml(),
+    foot: `<span class="grow"></span>${button('close', t('common.close'), 'close', 'primary')}`,
+  });
+  ready();
+}
+
+// ───────────────────────── print
+
+/** The job (the site's pages) comes from IndexedDB; the window's own choices from localStorage. */
+async function loadPrintJob() {
+  state.printJob = 'loading';
+  try {
+    const job = await idbGet(PRINT_JOB_KEY);
+    state.printJob = job?.pages ? job : { pages: [], title: '' };
+  } catch {
+    state.printJob = { pages: [], title: '' };
+  }
+  state.print = null;
+  state.page = 0;
+  render();
+}
+
+function printSetup() {
+  if (!state.print) {
+    let saved = {};
+    try { saved = JSON.parse(globalThis.localStorage?.getItem(PRINT_SETUP_KEY) ?? '{}') ?? {}; } catch { saved = {}; }
+    const job = state.printJob && state.printJob !== 'loading' ? state.printJob : null;
+    state.print = normalizePrintOptions({ ...defaultPrintOptions(), device: job?.device in PRINT_DEVICES ? job.device : 'desktop', ...saved, range: 'all', from: 1, to: job?.pages.length || 1 });
+  }
+  return state.print;
+}
+
+function printLayout() {
+  const job = state.printJob;
+  if (!job || job === 'loading') return { sheets: [], count: 0, paper: { width: 210, height: 297 } };
+  return jobLayout(job, printSetup(), job.currentPageId, selectPrintPages);
+}
+
+let printHost = null;
+let printKey = '';
+let printFrames = Promise.resolve();
+
+function renderPrint() {
+  if (!state.printJob) loadPrintJob();
+  const job = state.printJob && state.printJob !== 'loading' ? state.printJob : { pages: [] };
+  const options = printSetup();
+  const count = job.pages.length;
+  const sel = (key, values, label) => select('data-print', key, values, options[key], label);
+  const check = (key, label, glyph) => row(glyph, label, `<label class="switch-wrap" title="${escapeHtml(label)}"><input type="checkbox" data-print-toggle="${key}" ${options[key] ? 'checked' : ''} aria-label="${escapeHtml(label)}" /><span class="switch" aria-hidden="true"></span></label>`);
+  // The printers are asked for once; until then, and without any, the system dialog prints.
+  if (!state.printers) {
+    state.printers = { printers: [], defaultPrinter: '' };
+    native.listPrinters().then((list) => { state.printers = list; if (list.printers.length) render(); }).catch(() => {});
+  }
+  const { printers, defaultPrinter } = state.printers;
+  const measured = state.printJob !== 'loading' && state.printMeasured === options.device;
+  const layout = measured ? printLayout() : { sheets: [], count: 0 };
+  const section = (glyph, title, rows) => `<section class="print-section"><h3>${icon(glyph)}<span>${escapeHtml(title)}</span></h3>${rows.join('')}</section>`;
+  state.page = Math.max(0, Math.min(state.page, Math.max(0, layout.count - 1)));
+  const summary = measured ? t('print.summaryText', { pages: selectPrintPages(job.pages, options, job.currentPageId).length, sheets: layout.count }) : t('print.measuring');
+  root.innerHTML = frame({
+    glyph: 'print', title: t('print.title'),
+    body: `<div class="print-view">
+      <div class="print-options">
+        <div class="print-column">
+        ${section('print', t('print.printer'), [
+          printers.length ? row('print', t('print.printer'), select('data-print', 'printer', [['', t('print.defaultPrinter', { name: defaultPrinter || '-' }), 'print'], ...printers.map((name) => [name, name, 'print'])], printers.includes(options.printer) ? options.printer : '', t('print.printer'))) : row('info', '', `<span class="muted">${escapeHtml(t('print.systemDialog'))}</span>`),
+          printers.length ? row('duplicate', t('print.copies'), numberField('print:copies', options.copies, 1, 99, 1, '', t('print.copies'))) : '',
+        ])}
+        ${section('list', t('print.tabRange'), [
+          ...RANGES.map((range) => `<label class="row radio-row" title="${escapeHtml(t(`print.range.${range}`))}"><input type="radio" name="range" data-print-range="${range}" ${options.range === range ? 'checked' : ''} /><span>${icon({ all: 'selectAll', current: 'eye', custom: 'filter' }[range])}${escapeHtml(t(`print.range.${range}`))}</span></label>`),
+          row('list', t('print.pages'), `${numberField('print:from', Math.min(options.from, Math.max(1, count)), 1, Math.max(1, count), 1, '', t('print.from'))}<span>–</span>${numberField('print:to', Math.min(options.to, Math.max(1, count)), 1, Math.max(1, count), 1, '', t('print.to'))}`, t('print.pages'), options.range === 'custom' ? '' : 'disabled-row'),
+          row('info', t('print.summary'), `<span class="muted" id="print-summary">${escapeHtml(summary)}${layout.truncated ? ` · ${escapeHtml(t('print.truncated'))}` : ''}</span>`),
+        ])}
+        ${section('notes', t('print.tabHeader'), [
+          check('header', t('print.header'), 'notes'),
+          row('edit', t('print.headerText'), `<input type="text" data-print-text="headerText" value="${escapeHtml(options.headerText)}" placeholder="${escapeHtml(job.siteName || job.title || '')}" title="${escapeHtml(t('print.headerText'))}" />`),
+          check('footer', t('print.footer'), 'pageSetup'),
+          row('edit', t('print.footerText'), `<input type="text" data-print-text="footerText" value="${escapeHtml(options.footerText)}" placeholder="MyHomeMaker" title="${escapeHtml(t('print.footerText'))}" />`),
+        ])}
+        </div>
+        <div class="print-column">
+        ${section('pageSetup', t('print.tabPage'), [
+          row('file', t('print.paper'), sel('paper', Object.keys(PAPERS).map((paper) => [paper, paper]), t('print.paper'))),
+          row('pageSetup', t('print.orientation'), segmented('orientation', [['portrait', t('print.portrait')], ['landscape', t('print.landscape')]], options.orientation, 'data-print-segment')),
+          row('fitPage', t('print.margin'), sel('margin', Object.keys(MARGINS).map((margin) => [margin, t(`print.margin.${margin}`)]), t('print.margin'))),
+          row('viewSwitch', t('print.device'), segmented('device', Object.keys(PRINT_DEVICES).map((device) => [device, t(`print.device.${device}`)]), options.device, 'data-print-segment')),
+          row('zoomIn', t('print.fit'), segmented('fit', FITS.map((fit) => [fit, t(`print.fit.${fit}`)]), options.fit, 'data-print-segment')),
+          row('zoomIn', t('print.scale'), numberField('print:scale', options.scale, 10, 400, 10, '%', t('print.scale')), t('print.scale'), options.fit === 'percent' ? '' : 'disabled-row'),
+          check('background', t('print.background'), 'fillColor'),
+        ])}
+        </div>
+      </div>
+      <div class="print-preview" id="print-preview">${count || state.printJob === 'loading' ? '' : `<div class="preview-empty">${icon('info')}<span>${escapeHtml(t('print.empty'))}</span></div>`}</div>
+    </div>`,
+    foot: `<button class="icon-button" data-action="page" data-value="-1" title="${escapeHtml(t('print.prev'))}" aria-label="${escapeHtml(t('print.prev'))}" ${state.page <= 0 ? 'disabled' : ''}>${icon('chevronLeft')}</button>
+      <span class="page-number" id="page-number">${escapeHtml(t('print.page', { n: layout.count ? state.page + 1 : 0, total: layout.count }))}</span>
+      <button class="icon-button" data-action="page" data-value="1" title="${escapeHtml(t('print.next'))}" aria-label="${escapeHtml(t('print.next'))}" ${state.page >= layout.count - 1 ? 'disabled' : ''}>${icon('chevronRight')}</button>
+      <span class="grow"></span>
+      <button class="button primary" data-action="print" title="${escapeHtml(t('print.print'))}" ${layout.count ? '' : 'disabled'}>${icon('print')}<span>${escapeHtml(t('print.print'))}</span></button>
+      ${button('close', t('common.close'), 'close')}`,
+  });
+  ready();
+  if (state.printJob === 'loading' || !count) { printHost?.replaceChildren(); printKey = ''; fitPreview(); return; }
+  if (!measured) {
+    const device = options.device;
+    measurePages(job, device).then(() => { state.printMeasured = device; render(); });
+    return;
+  }
+  drawSheets(job, layout, options);
+}
+
+function drawSheets(job, layout, options) {
+  if (!printHost) {
+    printHost = document.createElement('div');
+    printHost.id = 'print-host';
+    printHost.addEventListener('scroll', () => {
+      const sheets = [...printHost.querySelectorAll('.print-page')];
+      const zoom = Number(printHost.dataset.zoom) || 1;
+      const top = printHost.scrollTop + printHost.clientHeight / 3;
+      const index = Math.max(0, sheets.findLastIndex((sheet) => sheet.offsetTop * zoom <= top));
+      if (index !== state.page) { state.page = index; updatePageNumber(); }
+    }, { passive: true });
+    document.body.append(printHost);
+  }
+  const key = sheetsKey(options, layout);
+  if (key !== printKey) {
+    printKey = key;
+    printHost.innerHTML = `<div class="print-zoom">${sheetsHtml(job, layout, options, { t, siteName: job.siteName || job.title })}</div>`;
+    printFrames = fillFrames(printHost, job, options);
+  }
+  let style = document.querySelector('#page-style');
+  if (!style) { style = document.createElement('style'); style.id = 'page-style'; document.head.append(style); }
+  // A hair under the paper's height: a sheet exactly as tall as the page can round over it and print an empty page.
+  style.textContent = `@page { size: ${layout.paper.width}mm ${layout.paper.height}mm; margin: 0; }
+@media print { #print-host .print-page { height: ${layout.paper.height - 0.5}mm !important; } }`;
+  fitPreview();
+}
+
+function updatePageNumber() {
+  const total = printHost?.querySelectorAll('.print-page').length ?? 0;
+  const number = root.querySelector('#page-number');
+  if (number) number.textContent = t('print.page', { n: total ? state.page + 1 : 0, total });
+  const [prev, next] = root.querySelectorAll('[data-action="page"]');
+  if (prev) prev.disabled = state.page <= 0;
+  if (next) next.disabled = state.page >= total - 1;
+}
+
+/** The sheets over the preview area, zoomed so one whole sheet fits; scrolled to the current one. */
+function fitPreview() {
+  const area = root.querySelector('#print-preview');
+  const zoomBox = printHost?.querySelector('.print-zoom');
+  if (!printHost) return;
+  if (!area || !zoomBox) { printHost.hidden = true; return; }
+  printHost.hidden = false;
+  const box = area.getBoundingClientRect();
+  Object.assign(printHost.style, { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px` });
+  const sheet = zoomBox.querySelector('.print-page');
+  if (!sheet) return;
+  zoomBox.style.zoom = '1';
+  const zoom = Math.min((box.width - 40) / sheet.offsetWidth, (box.height - 32) / sheet.offsetHeight);
+  zoomBox.style.zoom = String(zoom);
+  printHost.dataset.zoom = String(zoom);
+  showSheet(state.page);
+}
+
+function showSheet(index) {
+  const sheets = printHost?.querySelectorAll('.print-page') ?? [];
+  const sheet = sheets[Math.min(index, sheets.length - 1)];
+  if (!sheet) return;
+  const zoom = Number(printHost.dataset.zoom) || 1;
+  printHost.scrollTop = Math.max(0, sheet.offsetTop * zoom - 16);
+  state.page = Math.min(index, sheets.length - 1);
+  updatePageNumber();
+}
+
+function changePrint(patch) {
+  state.print = normalizePrintOptions({ ...printSetup(), ...patch });
+  const { range, from, to, ...setup } = state.print;
+  void range; void from; void to;
+  try { globalThis.localStorage?.setItem(PRINT_SETUP_KEY, JSON.stringify(setup)); } catch { /* not kept */ }
+  render();
+}
+
+async function doPrint() {
+  const go = root.querySelector('[data-action="print"]');
+  if (go) go.disabled = true;
+  try {
+    await printFrames;
+    const layout = printLayout();
+    const options = printSetup();
+    const job = { printer: state.printers?.printers.includes(options.printer) ? options.printer : '', copies: options.copies ?? 1, widthMm: layout.paper.width, heightMm: layout.paper.height };
+    if (window.__myhomemakerPrintHook) await window.__myhomemakerPrintHook(layout, job);
+    else if (state.printers?.printers.length) await native.printDirect(job);
+    else await native.printWindow();
+    action('printed');
+  } catch (error) {
+    action('report-error', { titleKey: 'error.print', message: native.errorText(error), context: 'print' });
+  } finally {
+    if (go) go.disabled = false;
+  }
+}
+
+window.addEventListener('resize', () => { if (kind === 'print') fitPreview(); });
+
 root.addEventListener('click', async (event) => {
-  const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-theme-group], [data-pick-theme], [data-draft-segment], [data-pick-design], [data-pick-template], [data-pick-sample]');
+  const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-theme-group], [data-pick-theme], [data-draft-segment], [data-pick-design], [data-pick-template], [data-pick-sample], [data-print-segment]');
   if (!target || target.disabled) return undefined;
+  if (target.dataset.printSegment) return changePrint({ [target.dataset.printSegment]: target.dataset.value });
   if (target.classList.contains('menu-item')) return chooseMenu(target.dataset.id, target);
   if (target.dataset.setting) {
     const key = target.dataset.setting;
@@ -1047,6 +1303,12 @@ root.addEventListener('click', async (event) => {
     case 'design-apply': return close({ design: d.current, reset: d.reset });
     case 'template-create': return close(d.sample ? { sample: d.sample, name: d.name.trim() } : { template: d.template, name: d.name.trim(), design: d.design });
     case 'publish-apply': return close({ format: d.format, extract: d.extract });
+    case 'print': return doPrint();
+    case 'package-install': return action('package-install', { ids: [value] });
+    case 'package-install-all': return action('package-install', { ids: PACKAGES.filter((pkg) => packageView(pkg.id).state !== 'installed').map((pkg) => pkg.id) });
+    case 'package-cancel': return action('package-cancel');
+    case 'package-remove': return action('package-remove', { id: value });
+    case 'page': return showSheet(Math.max(0, state.page + Number(value)));
     default: return undefined;
   }
 });
@@ -1065,6 +1327,10 @@ root.addEventListener('change', (event) => {
   }
   if (target.dataset.draftSelect && d) { d[target.dataset.draftSelect] = target.value; return render(); }
   if (target.dataset.settingText) return update({ [target.dataset.settingText]: target.value.trim() });
+  if (target.dataset.printRange) return changePrint({ range: target.dataset.printRange });
+  if (target.dataset.printToggle) return changePrint({ [target.dataset.printToggle]: target.checked });
+  if (target.dataset.print) return changePrint({ [target.dataset.print]: target.value });
+  if (target.dataset.printText) return changePrint({ [target.dataset.printText]: target.value });
   return undefined;
 });
 
@@ -1088,6 +1354,8 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowRight' && document.activeElement?.classList.contains('has-sub')) { event.preventDefault(); chooseMenu(document.activeElement.dataset.id, document.activeElement); }
     if (event.key === 'ArrowLeft') { event.preventDefault(); closeInnermostSubmenu(); }
   }
+  if (kind === 'print' && event.key === 'PageDown') { event.preventDefault(); showSheet(state.page + 1); }
+  if (kind === 'print' && event.key === 'PageUp') { event.preventDefault(); showSheet(Math.max(0, state.page - 1)); }
   if (event.key === 'Enter' && event.target.id === 'dict-word') { event.preventDefault(); addDictionaryWord(); return; }
   if (event.key === 'Enter' && event.target.matches?.('input[type="text"]') && !event.target.matches('.stepper-value')) {
     const primary = { prompt: 'prompt-apply', template: 'template-create' }[kind];
@@ -1119,7 +1387,7 @@ window.addEventListener('blur', () => {
 });
 
 // Number fields (steppers).
-bindSteppers(root, (key, value) => update({ [key]: value }));
+bindSteppers(root, (key, value) => (key.startsWith('print:') ? changePrint({ [key.slice(6)]: value }) : update({ [key]: value })));
 
 // Menus close when they lose focus (a click anywhere else).
 window.addEventListener('blur', () => {
@@ -1154,6 +1422,8 @@ window.addEventListener('storage', (event) => {
     state.settings = loadSettings(globalThis.localStorage);
     applyLook();
     if (!['menu'].includes(kind)) render();
+  } else if (event.key === PACKAGES_STATE_KEY && (kind === 'packages' || (kind === 'settings' && state.tab === 'packages'))) {
+    render();
   } else if ((event.key === RECENT_KEY || event.key === RECENT_DIRS_KEY) && (kind === 'recent' || state.tab === 'recent')) {
     render();
   }
@@ -1180,6 +1450,7 @@ function refresh() {
   state.page = 0;
   state.pager = {};
   state.draft = null;
+  if (kind === 'print') { state.printJob = null; state.printMeasured = null; state.print = null; printKey = ''; }
   if (kind === 'theme') { state.placed = false; pickerDone = false; }
   if (kind === 'settings' && state.params.themeGroup) state.themeGroup = state.params.themeGroup;
   applyLook();
@@ -1206,4 +1477,4 @@ applyLook();
 render();
 
 // Test hook (E2E): state and actions of this popup.
-window.__myhomemakerPopup = { kind, state, render, close, errorReport, refresh };
+window.__myhomemakerPopup = { kind, state, render, close, errorReport, refresh, printLayout, printSetup, changePrint };

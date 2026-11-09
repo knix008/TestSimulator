@@ -28,6 +28,8 @@ export const POPUPS = {
   design: { width: 1000, height: 668 },
   template: { width: 1000, height: 560 },
   publish: { width: 760, height: 520 },
+  print: { width: 1240, height: 760 },
+  packages: { width: 760, height: 600 },
 };
 
 export const popupKey = (kind) => `myhomemaker.popup.${kind}`;

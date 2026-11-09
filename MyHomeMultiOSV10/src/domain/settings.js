@@ -100,6 +100,7 @@ export function defaultSettings(language = 'ko') {
     confirmPublish: true,
     publishExtractImages: true,
     autoSaveMinutes: 0,
+    autoDownloadPackages: true,
     rowHeight: 26,
     tutorialOffered: false,
     showWelcome: true,
@@ -112,7 +113,7 @@ const clamp = (value, min, max, fallback) => {
   return Number.isFinite(number) ? Math.min(max, Math.max(min, Math.round(number))) : fallback;
 };
 
-const BOOLEANS = ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'showBottomPanel', 'spellCheck', 'spellEnglish', 'spellKorean', 'restoreSession', 'confirmDelete', 'statusClock', 'autoFit', 'showHover', 'toolboxCompact',
+const BOOLEANS = ['autoDownloadPackages', 'showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'showBottomPanel', 'spellCheck', 'spellEnglish', 'spellKorean', 'restoreSession', 'confirmDelete', 'statusClock', 'autoFit', 'showHover', 'toolboxCompact',
   'confirmPublish', 'publishExtractImages', 'tutorialOffered', 'showWelcome', 'tutorialDone', 'animationOnStartOnly', 'animationRandom',
   'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner'];
 

@@ -2,6 +2,7 @@ pub mod files;
 pub mod fonts;
 pub mod i18n;
 pub mod instance;
+pub mod printing;
 pub mod window_state;
 
 use serde::Serialize;
@@ -15,7 +16,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 
 /// Popup windows. Each is an OS window of its own (label `popup-<kind>`), owned
 /// by the main window: it can sit outside the main window and closes with it.
-const POPUP_KINDS: &[&str] = &["settings", "about", "confirm", "error", "progress", "recent", "menu", "theme", "welcome", "prompt", "design", "template", "publish"];
+const POPUP_KINDS: &[&str] = &["settings", "about", "confirm", "error", "progress", "recent", "menu", "theme", "welcome", "prompt", "design", "template", "publish", "print", "packages"];
 
 #[derive(Default)]
 struct Shared {
@@ -266,10 +267,34 @@ async fn open_document(app: AppHandle, name: String) -> Result<PathBuf, String> 
     Ok(shown)
 }
 
+/// The OS print dialog for the calling window (the print window).
+#[tauri::command]
+fn print_window(window: WebviewWindow) -> Result<(), String> {
+    window.print().map_err(|error| tr!("인쇄를 시작할 수 없습니다: {error}", "Could not start printing: {error}"))
+}
+
+/// The printers of this computer (none: the print window uses the system dialog).
+#[tauri::command]
+fn list_printers() -> printing::PrinterList {
+    printing::printers()
+}
+
+/// Prints the calling window's sheets straight to a printer, with no dialog.
+#[tauri::command]
+async fn print_direct(window: WebviewWindow, job: printing::PrintJob) -> Result<(), String> {
+    printing::print(&window, job).await
+}
+
+/// The same sheets as a PDF file (the tests check what would be printed, on no paper).
+#[tauri::command]
+async fn print_pages_to_pdf(window: WebviewWindow, job: printing::PrintJob, path: String) -> Result<(), String> {
+    printing::print_to_pdf(&window, job, path).await
+}
+
 /// Document windows (label `doc-<kind>`): the user's guide, the tutorial document and the tutorial video
 /// (src/viewer.js). Each is an ordinary resizable window with the system title bar, not owned by the main
 /// window (it can go behind it and has its own taskbar button); the app ends with the main window anyway.
-const DOC_KINDS: &[&str] = &["guide", "tutorial"];
+const DOC_KINDS: &[&str] = &["guide", "tutorial", "code"];
 
 /// The tutorial video installed with the program (docs/video/), or MYHOMEMAKER_TUTORIAL_VIDEO (tests).
 const TUTORIAL_VIDEO: &str = "video/MyHomeMaker-Tutorial.mp4";
@@ -774,6 +799,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            print_window,
+            list_printers,
+            print_direct,
+            print_pages_to_pdf,
             app_info,
             set_language,
             startup_files,

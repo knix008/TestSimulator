@@ -1,7 +1,7 @@
 // Publishing: the site as the files a web server needs — one .html per page, style.css, and the
 // pictures (kept in the project as data: URLs) written once each into assets/. The same list is
 // written into a folder (desktop), packed into a ZIP (web and desktop), or opened as a preview.
-import { pageFile, pageHtml, siteCss } from './render.js';
+import { pageFile, pageHtml, siteStyles } from './render.js';
 
 /** FNV-1a: a short stable name for a picture. */
 function hash(text) {
@@ -56,7 +56,8 @@ export function siteFiles(site, { extractImages = true } = {}) {
   }) : text);
   const files = [];
   for (const page of site.pages) files.push({ path: pageFile(page), data: extract(pageHtml(site, page, { css: 'style.css' })) });
-  files.push({ path: 'style.css', data: siteCss(site.design) });
+  files.push({ path: 'style.css', data: siteStyles(site) });
+  if (String(site.code?.js ?? '').trim()) files.push({ path: 'script.js', data: `${String(site.code.js).trim()}\n` });
   for (const asset of assets.values()) files.push({ path: asset.path, data: asset.data });
   return files;
 }

@@ -6,6 +6,15 @@ import { effectiveDesign, FONTS } from './designs.js';
 
 const mixCss = (a, b, pct) => `color-mix(in srgb, ${a} ${pct}%, ${b})`;
 
+/** The design's style sheet and, after it, the site's own CSS (code editor). */
+export function siteStyles(site) {
+  const own = String(site?.code?.css ?? '').trim();
+  return own ? `${siteCss(site.design)}\n/* ── site CSS (MyHomeMaker code editor) ── */\n${own}\n` : siteCss(site?.design);
+}
+
+/** The site's own JavaScript, safe inside an inline <script> (a literal "</script" would end it). */
+export const inlineScript = (js) => String(js ?? '').replace(/<\/(script)/gi, '<\\/$1');
+
 /** The site's style sheet. */
 export function siteCss(designRef) {
   const d = effectiveDesign(designRef);
@@ -256,7 +265,10 @@ export function pageHtml(site, page, { css = 'style.css', generator = 'MyHomeMak
   const isHome = page.slug === 'index';
   const title = page.title || (isHome ? siteTitle : `${page.name} | ${siteTitle}`);
   const description = page.description || meta.description || '';
-  const style = css ? `<link rel="stylesheet" href="${esc(css)}" />` : `<style>${siteCss(site.design)}</style>`;
+  const style = css ? `<link rel="stylesheet" href="${esc(css)}" />` : `<style>${siteStyles(site)}</style>`;
+  const head = String(site.code?.head ?? '').trim();
+  const js = String(site.code?.js ?? '').trim();
+  const script = js ? (css ? '<script src="script.js"></script>\n' : `<script>\n${inlineScript(js)}\n</script>\n`) : '';
   const icon = meta.favicon ? `<link rel="icon" href="${esc(safeUrl(meta.favicon))}" />` : '';
   return `<!doctype html>
 <html lang="${esc(meta.language === 'en' ? 'en' : 'ko')}">
@@ -267,10 +279,10 @@ export function pageHtml(site, page, { css = 'style.css', generator = 'MyHomeMak
 ${description ? `<meta name="description" content="${esc(description)}" />\n` : ''}${meta.keywords ? `<meta name="keywords" content="${esc(meta.keywords)}" />\n` : ''}${meta.author ? `<meta name="author" content="${esc(meta.author)}" />\n` : ''}<meta property="og:title" content="${esc(title)}" />
 ${description ? `<meta property="og:description" content="${esc(description)}" />\n` : ''}<meta name="generator" content="${esc(generator)}" />
 ${icon}${style}
-</head>
+${head ? `${head}\n` : ''}</head>
 <body>
 ${pageBody(site, page)}
-</body>
+${script}</body>
 </html>
 `;
 }

@@ -556,7 +556,7 @@ for (const language of languages) {
 
     // ── popups
     report.group('popups');
-    for (const [kind, code] of [['settings', "a.popups.open('settings', { tab: 'general' })"], ['design', "a.run('designPicker')"], ['template', "a.popups.open('template', {})"], ['publish', "a.run('publish')"], ['about', "a.run('about')"], ['welcome', "a.popups.open('welcome', {})"], ['recent', "a.popups.open('recent', {})"], ['theme', "a.popups.open('theme', {})"], ['prompt', "a.popups.open('prompt', { title: 'x', label: 'y', value: 'z' })"], ['confirm', "a.popups.open('confirm', { title: 'x', message: 'y' })"], ['error', "a.popups.open('error', { title: 'x', message: 'y' })"], ['progress', "a.popups.open('progress', { title: 'x', name: 'y' })"]]) {
+    for (const [kind, code] of [['settings', "a.popups.open('settings', { tab: 'general' })"], ['design', "a.run('designPicker')"], ['template', "a.popups.open('template', {})"], ['publish', "a.run('publish')"], ['about', "a.run('about')"], ['welcome', "a.popups.open('welcome', {})"], ['recent', "a.popups.open('recent', {})"], ['theme', "a.popups.open('theme', {})"], ['prompt', "a.popups.open('prompt', { title: 'x', label: 'y', value: 'z' })"], ['confirm', "a.popups.open('confirm', { title: 'x', message: 'y' })"], ['error', "a.popups.open('error', { title: 'x', message: 'y' })"], ['progress', "a.popups.open('progress', { title: 'x', name: 'y' })"], ['packages', "a.run('packages')"], ['print', "a.run('print')"]]) {
       await report.check(tag(`popup "${kind}" fits without scrolling, every text translated`), async () => {
         await closePopups();
         await app(`void ${code}; return 1;`);
@@ -587,7 +587,7 @@ for (const language of languages) {
 
     // ── settings
     report.group('settings');
-    for (const tab of ['general', 'start', 'appearance', 'font', 'background', 'editor', 'recent', 'shortcuts']) {
+    for (const tab of ['general', 'start', 'appearance', 'font', 'background', 'editor', 'recent', 'packages', 'shortcuts']) {
       await report.check(tag(`settings tab "${tab}"`), async () => {
         await closePopups();
         await app(`void a.popups.open('settings', { tab: '${tab}' }); return 1;`);
@@ -682,6 +682,61 @@ for (const language of languages) {
     await report.check(tag('the tutorial ends and gives back the site, the settings and the dictionary'), async () => {
       await run('window.__myhomemaker.tutorial().stop().then(() => 1)');
       expect(await app("return !a.tutorial().active && !document.querySelector('.tour-card') && a.state.settings.userWords.length === 0 && a.state.settings.showBottomPanel === true;"), 'not given back');
+    });
+
+    // ── panels, toolbar, print, packages, the code editor
+    report.group('print & code');
+    await report.check(tag('the start page shows no side panels; folded panels are thin strips with their names written down'), async () => {
+      await closePopups();
+      await fresh();
+      const start = await app("A.showStartPage(true); await new Promise((r) => setTimeout(r, 50)); const hidden = ['#left-panel', '#right-panel'].every((s) => getComputedStyle(document.querySelector(s)).display === 'none') && [...document.querySelectorAll('.panel-split')].every((s) => getComputedStyle(s).display === 'none'); A.showStartPage(false); return hidden;");
+      expect(start, 'side panels on the start page');
+      const rails = await app("a.run('leftPanel'); a.run('rightPanel'); await new Promise((r) => setTimeout(r, 50)); const out = [...document.querySelectorAll('.panel-rail')].map((r) => ({ w: r.getBoundingClientRect().width, mode: getComputedStyle(r.querySelector('.rail-name')).writingMode, text: r.textContent.trim() })); a.run('leftPanel'); a.run('rightPanel'); return out;");
+      expect(rails.length === 2, 'two rails');
+      for (const rail of rails) expect(rail.w <= 30 && rail.mode === 'vertical-rl' && rail.text, `rail ${JSON.stringify(rail)}`);
+    });
+    await report.check(tag('print sits right of Save, then the labelled Preview; the toolbar fits 1440 px; tab arrows always shown'), async () => {
+      const info = await app("const ids = [...document.querySelectorAll('.toolbar-left .tool-group:first-child [data-command]')].map((b) => b.dataset.command); return { ids, preview: document.querySelector('[data-command=\"previewBrowser\"]').textContent.trim(), min: a.state.minWidth, arrows: [...document.querySelectorAll('#tabs .tab-scroll')].filter((b) => getComputedStyle(b.parentElement).display !== 'none').length };");
+      expect(info.ids.indexOf('print') === info.ids.indexOf('save') + 1 && info.ids.indexOf('previewBrowser') === info.ids.indexOf('print') + 1, info.ids.join());
+      expect(info.preview, 'Preview has no label');
+      expect(info.min <= 1440, `toolbar needs ${info.min} px`);
+      expect(info.arrows === 2, 'tab arrows hidden');
+    });
+    await report.check(tag('the print window lays the pages on sheets, follows its settings and prints'), async () => {
+      await closePopups();
+      await app("void a.run('print'); return 1;");
+      await waitPopup('print');
+      await page.waitFor(`(() => { const d = ${popupDoc('print')}; return d && d.querySelectorAll('#print-host .print-page').length > 0; })()`, { timeout: 15000 });
+      const first = await run(`(() => { const d = ${popupDoc('print')}; const w = d.defaultView; return { sheets: d.querySelectorAll('#print-host .print-page').length, frames: d.querySelectorAll('#print-host iframe').length, header: d.querySelector('.print-header')?.textContent.trim(), number: d.querySelector('#page-number').textContent, width: w.__myhomemakerPopup.printLayout().paper.width }; })()`);
+      expect(first.sheets >= 3 && first.frames === first.sheets && first.header && /1/.test(first.number) && first.width === 210, JSON.stringify(first));
+      await run(`(() => { const d = ${popupDoc('print')}; d.querySelector('[data-print-segment="orientation"][data-value="landscape"]').click(); d.querySelector('[data-print-range="current"]').click(); d.querySelector('[data-print-range="current"]').dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await sleep(400);
+      const second = await run(`(() => { const d = ${popupDoc('print')}; const w = d.defaultView; const l = w.__myhomemakerPopup.printLayout(); return { width: l.paper.width, pages: new Set(l.sheets.map((s) => s.pageId)).size, sheets: d.querySelectorAll('#print-host .print-page').length }; })()`);
+      expect(second.width === 297 && second.pages === 1 && second.sheets >= 1, JSON.stringify(second));
+      await run(`(() => { const w = ${popupDoc('print')}.defaultView; w.__printed = null; w.__myhomemakerPrintHook = async (layout, job) => { w.__printed = job; }; ${popupDoc('print')}.querySelector('[data-action="print"]').click(); return 1; })()`);
+      await page.waitFor(`!!${popupDoc('print')}?.defaultView.__printed`, { timeout: 10000 });
+      const job = await run(`${popupDoc('print')}.defaultView.__printed`);
+      expect(job.widthMm === 297 && job.heightMm === 210 && job.copies === 1, JSON.stringify(job));
+      await run(`(() => { localStorage.removeItem('myhomemaker.print'); return 1; })()`);
+    });
+    await report.check(tag('Packages: one card per package with its state, and Download / Retry / Cancel ask the main window'), async () => {
+      await closePopups();
+      await app("a.installPackages = a.installPackages; window.__pkgAsked = []; a.popups.on('package-install', (d) => window.__pkgAsked.push(d.ids)); localStorage.setItem('myhomemaker.packages.v1', JSON.stringify({ jshint: { phase: 'failed', error: 'HTTP 503', installed: null }, htmlhint: { phase: 'download', received: 15000, total: 30565, installed: null } })); void a.run('packages'); return 1;");
+      await waitPopup('packages');
+      const info = await run(`(() => { const d = ${popupDoc('packages')}; return { cards: d.querySelectorAll('.package-card').length, failed: !!d.querySelector('[data-package="jshint"] .package-error'), retry: d.querySelector('[data-package="jshint"] [data-action="package-install"]')?.textContent.trim(), bar: d.querySelector('[data-package="htmlhint"] .progress-bar')?.getAttribute('aria-valuenow'), cancel: !!d.querySelector('[data-package="htmlhint"] [data-action="package-cancel"]') }; })()`);
+      expect(info.cards === 3 && info.failed && info.retry && info.bar === '49' && info.cancel, JSON.stringify(info));
+      await run(`${popupDoc('packages')}.querySelector('[data-package="jshint"] [data-action="package-install"]').click(), 1`);
+      await page.waitFor('window.__pkgAsked.length > 0', { timeout: 5000 });
+      expect(await run("JSON.stringify(window.__pkgAsked[0]) === '[\"jshint\"]'"), 'retry did not ask for jshint');
+      await app("a.popups.on('package-install', (d) => a.installPackages(d.ids ?? [])); localStorage.removeItem('myhomemaker.packages.v1'); return 1;");
+    });
+    await report.check(tag('the code editor opens files, and the site code typed there changes the site (one undo)'), async () => {
+      await closePopups();
+      await fresh();
+      const opened = await app("window.__opened.length = 0; await a.openCodeWindow({ type: 'new', language: 'css' }); const inbox = JSON.parse(localStorage.getItem('myhomemaker.code.inbox')); localStorage.setItem('myhomemaker.code.inbox', '[]'); return { url: window.__opened[0] ?? '', inbox: inbox.at(-1)?.type };");
+      expect(/viewer=code/.test(opened.url) && opened.inbox === 'new', JSON.stringify(opened));
+      const site = await app("const shared = JSON.parse(localStorage.getItem('myhomemaker.code.site')); localStorage.setItem('myhomemaker.code.outbox', JSON.stringify([{ id: 'x1', type: 'site-code', siteId: doc().site.id, field: 'css', value: '.smoke-test { color: red; }' }])); a.readCodeOutbox(); await new Promise((r) => setTimeout(r, 100)); const applied = doc().site.code.css; const inCanvas = frame().getElementById('hm-site').textContent.includes('.smoke-test'); const shared2 = JSON.parse(localStorage.getItem('myhomemaker.code.site')).code.css; A.undo(); return { same: shared.siteId === doc().site.id, applied, inCanvas, shared2, undone: doc().site.code.css };");
+      expect(site.same && site.applied === '.smoke-test { color: red; }' && site.inCanvas && site.shared2 === site.applied && site.undone === '', JSON.stringify(site));
     });
 
     report.group('errors');
