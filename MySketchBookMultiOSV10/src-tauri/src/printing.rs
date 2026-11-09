@@ -27,6 +27,19 @@ fn one() -> i32 {
 pub struct PrinterList {
     pub printers: Vec<String>,
     pub default_printer: String,
+    /// Printers that write a file and ask for its name (Microsoft Print to PDF, the XPS writer: port
+    /// PORTPROMPT: or FILE:). WebView2 cannot print to them without a dialog, so the print window
+    /// saves a PDF (or opens the system dialog) for them instead.
+    #[serde(default)]
+    pub file_printers: Vec<String>,
+}
+
+/// Whether a printer port asks for a file name instead of printing (PORTPROMPT:, FILE:).
+pub fn is_file_port(port: &str) -> bool {
+    port.split(',').any(|p| {
+        let p = p.trim().to_ascii_uppercase();
+        p == "PORTPROMPT:" || p == "FILE:"
+    })
 }
 
 const MM_PER_INCH: f64 = 25.4;
@@ -43,22 +56,28 @@ mod platform {
     use webview2_com::Microsoft::Web::WebView2::Win32::*;
     use webview2_com::{PrintCompletedHandler, PrintToPdfCompletedHandler};
     use windows::core::{Interface, HSTRING, PCWSTR, PWSTR};
-    use windows::Win32::Graphics::Printing::{EnumPrintersW, GetDefaultPrinterW, PRINTER_ENUM_CONNECTIONS, PRINTER_ENUM_LOCAL, PRINTER_INFO_4W};
+    use windows::Win32::Graphics::Printing::{EnumPrintersW, GetDefaultPrinterW, PRINTER_ENUM_CONNECTIONS, PRINTER_ENUM_LOCAL, PRINTER_INFO_5W};
 
     pub fn printers() -> PrinterList {
         let mut names = Vec::new();
+        let mut file_printers = Vec::new();
         unsafe {
             let flags = PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS;
             let (mut needed, mut count) = (0u32, 0u32);
-            let _ = EnumPrintersW(flags, PCWSTR::null(), 4, None, &mut needed, &mut count);
+            // Level 5: the name and the port (a port that asks for a file name marks a file printer).
+            let _ = EnumPrintersW(flags, PCWSTR::null(), 5, None, &mut needed, &mut count);
             if needed > 0 {
                 // A u64 buffer keeps the records aligned.
                 let mut buffer = vec![0u64; (needed as usize).div_ceil(8)];
                 let bytes = std::slice::from_raw_parts_mut(buffer.as_mut_ptr().cast::<u8>(), needed as usize);
-                if EnumPrintersW(flags, PCWSTR::null(), 4, Some(bytes), &mut needed, &mut count).is_ok() {
-                    let records = std::slice::from_raw_parts(buffer.as_ptr().cast::<PRINTER_INFO_4W>(), count as usize);
+                if EnumPrintersW(flags, PCWSTR::null(), 5, Some(bytes), &mut needed, &mut count).is_ok() {
+                    let records = std::slice::from_raw_parts(buffer.as_ptr().cast::<PRINTER_INFO_5W>(), count as usize);
                     for record in records {
                         if let Ok(name) = record.pPrinterName.to_string() {
+                            let port = if record.pPortName.is_null() { String::new() } else { record.pPortName.to_string().unwrap_or_default() };
+                            if is_file_port(&port) {
+                                file_printers.push(name.clone());
+                            }
                             names.push(name);
                         }
                     }
@@ -73,7 +92,7 @@ mod platform {
                 String::new()
             };
             names.sort_by_key(|name| name.to_lowercase());
-            PrinterList { printers: names, default_printer }
+            PrinterList { printers: names, default_printer, file_printers }
         }
     }
 
@@ -206,9 +225,20 @@ mod tests {
     }
 
     #[test]
+    fn ports_that_ask_for_a_file_name() {
+        assert!(is_file_port("PORTPROMPT:"));
+        assert!(is_file_port("file:"));
+        assert!(is_file_port("LPT1:, FILE:"));
+        assert!(!is_file_port("USB001"));
+        assert!(!is_file_port("nul:"));
+        assert!(!is_file_port(""));
+    }
+
+    #[test]
     fn listing_printers_never_fails() {
         // Whatever this machine has: no panic, and the default is one of the list when both exist.
         let list = printers();
+        assert!(list.file_printers.iter().all(|name| list.printers.contains(name)));
         if !list.default_printer.is_empty() && !list.printers.is_empty() {
             assert!(list.printers.iter().any(|name| name == &list.default_printer) || list.default_printer.starts_with("\\\\"));
         }

@@ -1,0 +1,37 @@
+// Stairs tool, stair types and stair checks, both languages side by side (merged in i18n.js).
+const T = {
+  'tool.stairs': ['계단', 'Stairs'],
+  'tip.tool.stairs': ['계단 그리기: 일자 · ㄱ자(참/돌음) · U자(중간참) · 원형 · 곡선 · 위층까지 높이를 맞추고 위층 바닥에 계단실 구멍을 냅니다', 'Draw stairs: straight, L (landing or winders), U (half landing), spiral, curved · reaches the level above and cuts the stairwell in its floor'],
+  'hint.stairs': ['시작점(첫 단 가운데) 클릭 → 오르는 방향 클릭 → (ㄱ자·U자·원형) 꺾는 쪽 클릭 · Tab: 형태 · 폭 입력 + Enter · Shift: 방향 자유 · Esc: 처음부터', 'Click the start (middle of the first step) → click the direction it climbs → (L, U, spiral) click the side it turns to · Tab: type · Type a width + Enter · Shift: free direction · Esc: start again'],
+  'op.stairs': ['계단 그리기', 'Draw stairs'],
+  'stairs.type.straight': ['일자', 'Straight'],
+  'stairs.type.l': ['ㄱ자', 'L'],
+  'stairs.type.winder': ['돌음', 'Winder'],
+  'stairs.type.u': ['U자', 'U'],
+  'stairs.type.spiral': ['원형', 'Spiral'],
+  'stairs.type.curved': ['곡선', 'Curved'],
+  'stairs.type.straight.tip': ['일자 계단 (한 번에 오름)', 'Straight flight'],
+  'stairs.type.l.tip': ['ㄱ자 계단: 두 계단 사이에 네모난 참', 'L-shaped: two flights with a quarter landing'],
+  'stairs.type.winder.tip': ['ㄱ자 돌음 계단: 참 대신 부채꼴 디딤판 3개', 'L-shaped with three winders instead of the landing'],
+  'stairs.type.u.tip': ['U자 계단: 올라가서 중간참에서 돌아 다시 올라감 (계단 사이 틈 조절)', 'U / switchback: up, turn round on the half landing, up again (adjustable gap)'],
+  'stairs.type.spiral.tip': ['원형(나선) 계단: 가운데 기둥, 부채꼴 디딤판, 바깥 난간', 'Spiral: central pole, wedge treads, handrail outside'],
+  'stairs.type.curved.tip': ['곡선 계단: 가운데가 빈 원형 계단실', 'Curved (helical) round an open well'],
+  'stairs.width': ['폭', 'Width'],
+  'stairs.diameter': ['지름', 'Diameter'],
+  'stairs.turn.left': ['왼쪽으로 꺾음', 'Turns left'],
+  'stairs.turn.right': ['오른쪽으로 꺾음', 'Turns right'],
+  'stairs.turnTip': ['꺾는 방향 바꾸기 (세 번째 클릭으로도 정함)', 'Switch the turn (the third click also sets it)'],
+  'stairs.previewLabel': ['{n}단 × {riser} = {rise}', '{n} risers × {riser} = {rise}'],
+  'stairs.info.risers': ['단', 'Risers'],
+  'stairs.info.risersValue': ['{n}단 (디딤판 {treads}) × {riser}', '{n} ({treads} treads) × {riser}'],
+  'stairs.info.going': ['디딤폭 (보행선)', 'Going (walking line)'],
+  'stairs.info.blondel': ['2R + G', '2R + G'],
+  'stairs.info.comfortable': ['편안함 (600–650)', 'comfortable (600–650)'],
+  'stairs.info.uncomfortable': ['권장 600–650 밖', 'outside 600–650'],
+  'check.stairsRise': ['계단 높이({width})가 위층까지의 높이({length})와 다릅니다', 'The stairs rise {width} but the level above is {length} up'],
+  'check.stairsNoLevel': ['계단 위에 층이 없습니다', 'There is no level above the stairs'],
+  'check.stairsHeadroom': ['계단 위 머리 높이가 {height}뿐입니다 (위층 바닥에 계단실 구멍이 필요)', 'Only {height} headroom over the stairs (the floor above needs a stairwell opening)'],
+};
+
+export const ko = Object.fromEntries(Object.entries(T).map(([k, v]) => [k, v[0]]));
+export const en = Object.fromEntries(Object.entries(T).map(([k, v]) => [k, v[1]]));

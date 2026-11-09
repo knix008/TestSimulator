@@ -12,7 +12,6 @@ import { ANIMATION_KINDS } from './background.js';
 import { baseName } from '../domain/paths.js';
 import { ANIMATION_INTERVALS } from '../domain/settings.js';
 import { DARK_THEMES, LIGHT_THEMES } from '../themes.js';
-import { switchFlag } from '../flags.js';
 
 const GRIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="20" cy="20" r="2"/><circle cx="14" cy="20" r="2"/><circle cx="20" cy="14" r="2"/><circle cx="8" cy="20" r="2"/><circle cx="14" cy="14" r="2"/><circle cx="20" cy="8" r="2"/></svg>';
 
@@ -31,12 +30,16 @@ function card(id, glyph, title, body, { extra = '', bare = false, classes = '' }
 
 const tile = (start, glyph, label, tip, { value = '', flag = '', cls = 'start-tile' } = {}) => `<button type="button" class="${cls}" data-start="${start}" ${value ? `data-value="${escapeHtml(value)}"` : ''} title="${escapeHtml(tip)}">${flag ? `<span class="flag-slot">${flag}</span>` : icon(glyph)}<b>${escapeHtml(label)}</b><small>${escapeHtml(tip)}</small></button>`;
 
-function actionsBody(L) {
+function actionsBody(L, app) {
+  const last = app?.state?.recent?.[0]?.path ?? null;
+  const lastName = last ? baseName(last) : '';
   const items = [
     ['open', 'folderOpen', t('action.open'), t('start.tipOpen')],
     ['import', 'importModel', t('action.importModel'), t('start.tipImport')],
+    ['importPlan', 'importPlan', t('action.importPlan'), t('start.tipImportPlan')],
     ['tutorial', 'tutorial', t('start.tutorialStart'), t('start.tipTutorial')],
-    ['language', 'globe', L === 'ko' ? 'English' : '한국어', t('start.tipLanguage'), { flag: switchFlag(L) }],
+    // Continue where you left off (the language lives in the toolbar and Settings).
+    ['continue', 'recent', t('start.continue'), last ? lastName : t('start.continueNone'), { value: last ?? '' }],
     ['settings', 'gear', t('action.settings'), t('start.tipSettings')],
     ['start-settings', 'home', t('start.settings'), t('start.tipStartSettings')],
     ['about', 'info', t('action.about'), t('start.tipAbout')],
@@ -112,7 +115,7 @@ export function startPageHtml(app) {
   const templates = `<div class="template-grid">${TEMPLATES.map(([id, glyph]) => tile('template', glyph, t(`template.${id}`), t(`template.${id}.desc`), { value: id, cls: 'start-tile template-tile' })).join('')}</div>`;
   const cards = [
     card('hero', '', '', hero, { bare: true, classes: 'start-hero' }),
-    card('actions', 'launcher', t('start.actions'), actionsBody(L)),
+    card('actions', 'launcher', t('start.actions'), actionsBody(L, app)),
     settings.startShowRecent === false && settings.startShowFolders === false ? '' : card('recent', 'recent', t('start.recentCard'), recentBody(app, settings)),
     card('templates', 'fileNew', t('start.new'), templates, { extra: `<span class="start-card-note">${TEMPLATES.length}</span>` }),
     settings.startShowSamples === false ? '' : card('samples', 'samples', t('start.samples'), samplesBody(L), { extra: `<span class="start-card-note">${SAMPLE_PROJECTS.length}</span>` }),

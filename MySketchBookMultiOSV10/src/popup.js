@@ -19,6 +19,7 @@ import {
 import { bindSteppers, stepperHtml } from './stepper.js';
 import { intervalLabel } from './ui/startpage.js';
 import { renderView3dSettings, render3dPopup, popup3dAction, popup3dHostMessage } from './popups-3d.js';
+import { renderPrintPopup, printPopupAction, printHostMessage } from './print/popup.js';
 
 const desktop = native.isDesktop();
 const appWindow = desktop ? getCurrentWindow() : null;
@@ -186,7 +187,7 @@ function render() {
     ({
       settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress, recent: renderRecent,
       menu: renderMenu, theme: renderThemePicker, welcome: renderWelcome, color: renderColor, prompt: renderPrompt,
-    })[kind]?.() ?? render3dPopup(kind, popupApi);
+    })[kind]?.() ?? (render3dPopup(kind, popupApi) || renderPrintPopup(kind, popupApi));
     alignRows();
     updateTabsNav();
   } catch (error) {
@@ -880,7 +881,7 @@ const popupApi = { root, state, s, P, L, t, icon, escapeHtml, frame, button, row
 root.addEventListener('click', async (event) => {
   const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-theme-group], [data-pick-theme], [data-draft-segment], [data-pick-color]');
   if (!target || target.disabled) return undefined;
-  if (popup3dAction(kind, target, popupApi)) return undefined;
+  if (printPopupAction(kind, target, popupApi) || popup3dAction(kind, target, popupApi)) return undefined;
   if (target.classList.contains('menu-item')) return chooseMenu(target.dataset.id, target);
   if (target.dataset.setting) {
     const key = target.dataset.setting;
@@ -939,7 +940,7 @@ root.addEventListener('click', async (event) => {
 root.addEventListener('change', (event) => {
   const target = event.target;
   const d = state.draft;
-  if (popup3dAction(kind, target, popupApi, 'change')) return undefined;
+  if (printPopupAction(kind, target, popupApi, 'change') || popup3dAction(kind, target, popupApi, 'change')) return undefined;
   if (target.dataset.toggle) return update({ [target.dataset.toggle]: target.checked });
   if (target.dataset.select) { const key = target.dataset.select; return update({ [key]: typeof s()[key] === 'number' ? Number(target.value) : target.value }); }
   if (target.dataset.customColor) return update({ customTheme: { ...s().customTheme, [target.dataset.customColor]: target.value }, theme: CUSTOM });
@@ -961,7 +962,7 @@ root.addEventListener('change', (event) => {
 
 root.addEventListener('input', (event) => {
   const target = event.target;
-  if (popup3dAction(kind, target, popupApi, 'input')) return;
+  if (printPopupAction(kind, target, popupApi, 'input') || popup3dAction(kind, target, popupApi, 'input')) return;
   if (target.dataset.draft && state.draft) {
     state.draft[target.dataset.draft] = target.value;
   }
@@ -1020,7 +1021,7 @@ window.addEventListener('blur', () => {
 bindSteppers(root, (key, value) => {
   const [scope, field] = key.includes(':') ? key.split(':') : ['setting', key];
   if (scope === 'setting') update({ [field]: value });
-  else popup3dAction(kind, { dataset: { stepper: field, value } }, popupApi, 'stepper');
+  else if (!printPopupAction(kind, { dataset: { stepper: field, value } }, popupApi, 'stepper')) popup3dAction(kind, { dataset: { stepper: field, value } }, popupApi, 'stepper');
   return undefined;
 });
 
@@ -1069,7 +1070,7 @@ function onHostMessage(message) {
   } else if (message?.type === 'done' && kind === 'progress') {
     state.progress = state.progress ? { ...state.progress, done: state.progress.total } : null;
     render();
-  } else if (popup3dHostMessage(kind, message, popupApi)) {
+  } else if (printHostMessage(kind, message, popupApi) || popup3dHostMessage(kind, message, popupApi)) {
     /* handled by popups-3d.js */
   } else if (message?.type === 'refresh') {
     refresh();

@@ -1,6 +1,6 @@
 # MySketchBook 구조
 
-개발자를 위한 문서입니다. 무엇이 어디에 있고, 데이터가 어떻게 흐르고, 3D 화면이 왜 빠른지를 설명합니다. 모듈 사이의 약속(단위·축·카탈로그 항목·문서 형식)은 [CONTRACT.md](CONTRACT.md), 모델링 커널의 API와 규칙은 [src/modeling/README.md](src/modeling/README.md)에 있습니다. 사용법은 [doc/UsersGuide.md](doc/UsersGuide.md)를 보세요.
+개발자를 위한 문서입니다. 무엇이 어디에 있고, 데이터가 어떻게 흐르고, 3D 화면이 왜 빠른지를 설명합니다. 모듈 사이의 약속(단위·축·카탈로그 항목·문서 형식)은 [12장 모듈 계약](#12-모듈-계약-module-contracts), 모델링 커널의 API와 규칙은 [src/modeling/README.md](src/modeling/README.md)에 있습니다. 사용법은 [doc/UsersGuide.md](doc/UsersGuide.md)를 보세요.
 
 ## 1. 전체 그림
 
@@ -163,7 +163,7 @@ SketchUp의 "붙는 형상"을 순수 JS로 구현했습니다(DOM 없음, Node 
 
 ### 4.1 프로젝트
 
-`CONTRACT.md`의 형식이 기준입니다. 요약:
+12장 모듈 계약의 형식이 기준입니다. 요약:
 
 ```js
 {
@@ -287,7 +287,94 @@ three-gpu-pathtracer의 `WebGLPathTracer`를 **별도 WebGL 컨텍스트**(요�
 ## 11. 새 기능을 더할 때
 
 - **명령** — `commands`에 항목을 더하고(`label`은 i18n 키), 필요하면 `MENUS`/`SUBMENUS`/`TOOLBAR`/오른쪽 클릭 메뉴에 id를 넣습니다. 단축키는 `key` 또는 `SHORTCUTS`, 그리고 `src/popup.js`의 `SHORTCUT_LIST`와 두 사용 설명서의 단축키 표(문서 테스트가 확인).
-- **라이브러리 항목** — `src/library/parametric/<분류>.js`에 CONTRACT.md 형식으로. `test/unit/library.test.js`가 계약을 확인합니다.
+- **라이브러리 항목** — `src/library/parametric/<분류>.js`에 12장 모듈 계약의 형식으로. `test/unit/library.test.js`가 계약을 확인합니다.
 - **재질** — `MATERIAL_PRESETS`에 추가하고, 텍스처가 필요하면 `textures`에 Poly Haven 세트 id를 적고 `npm run assets -- --only textures`.
 - **문제 검사** — `engine/checks.js`에 `push(severity, code, entity, params)`, i18n에 `check.<code>`, 사용 설명서 15장 표.
-- **문서 형식** — `normalizeProject`에서 기본값을 채워 예전 파일이 열리게 하고, CONTRACT.md를 갱신합니다.
+- **문서 형식** — `normalizeProject`에서 기본값을 채워 예전 파일이 열리게 하고, 12장 모듈 계약을 갱신합니다.
+
+## 12. 모듈 계약 (Module contracts)
+
+모든 모듈이 따르는 약속입니다 (단위·축·카탈로그 항목·재질·문서 형식·모델링 커널). 예전 ARCHITECTURE.md §12의 내용이며, 영어 원문 그대로 둡니다.
+
+Shared rules every module follows, so the areas can be built separately and plugged together.
+
+### 12.1 Units and axes
+
+- World units are **metres**. **Y is up**, the floor is the XZ plane (y = 0 is the floor of level 0).
+- The 2D plan view looks straight down (−Y); plan "x" = world x, plan "y" = world z (z grows downwards on screen).
+- An object's **front faces +Z**. Rotation about Y is in radians, counter-clockwise seen from above.
+- Colours are `'#rrggbb'` strings.
+
+### 12.2 Library objects (`src/library/`)
+
+A catalog entry:
+
+```js
+{
+  id: 'sofa-modern',            // unique, kebab-case
+  category: 'living',           // one of CATEGORIES ids (src/library/categories.js)
+  ko: '모던 소파', en: 'Modern sofa',
+  kind: 'parametric' | 'asset',
+  placement: 'floor' | 'wall' | 'ceiling' | 'surface' | 'opening',  // 'opening' = door/window inside a wall
+  size: [w, h, d],              // default bounding size in metres (x, y, z)
+  params: [                     // editable in the Properties panel (parametric only; may be [])
+    { key: 'width', ko: '폭', en: 'Width', type: 'length', default: 2.2, min: 1.2, max: 4, step: 0.01 },
+    { key: 'seats', ko: '좌석 수', en: 'Seats', type: 'int', default: 3, min: 1, max: 5 },
+    { key: 'fabric', ko: '천', en: 'Fabric', type: 'material', default: 'fabric-linen-grey', filter: 'fabric' },
+    { key: 'legs', ko: '다리', en: 'Legs', type: 'enum', default: 'metal', options: [['metal','금속','Metal'], ['wood','나무','Wood']] },
+    { key: 'cushions', ko: '쿠션', en: 'Cushions', type: 'bool', default: true },
+    { key: 'color', ko: '색', en: 'Colour', type: 'color', default: '#8a8f99' },
+  ],
+  tags: ['sofa', '소파', ...],  // search words (ko + en)
+  build: (params, ctx) => THREE.Object3D,   // parametric only
+  asset: 'ArmChair_01',          // asset only: the id in public/library/models/manifest.json
+}
+```
+
+`build(params, ctx)`:
+- `params` = every param's value (defaults filled in).
+- `ctx.material(id, overrides?)` → a shared `THREE.Material` for a preset id of `src/engine/materials.js` (`overrides` = `{ color }` etc.; the same arguments give the same cached material). Never create textures yourself; ask for presets.
+- `ctx.wallThickness` (openings only), `ctx.quality` = `'high' | 'low'` (low: fewer segments, used for thumbnails of hundreds of items and for huge scenes).
+- Returns a `THREE.Group` whose **origin is the bottom centre of the footprint** (floor at y = 0, centred in x and z), front +Z. Openings: origin at the bottom centre of the opening, centred in the wall thickness (z = 0 is the wall's middle plane).
+- Every mesh: `castShadow = true; receiveShadow = true`. Geometry must have normals and UVs (UVs in metres, 1 unit = 1 m, so tiled textures keep their real scale). Rounded/bevelled edges for quality (no razor-sharp boxes on soft items).
+- Mark glass/emissive parts with `mesh.userData.part = 'glass' | 'light'`. Ceiling lamps/lamps may add `userData.light = { color, intensity, distance }` on a child `Object3D` at the bulb position (the scene builder creates the real light when the user turns lights on).
+- Pure: no DOM, no global state, works in Node (tests import it).
+
+### 12.3 Materials (`src/engine/materials.js`)
+
+```js
+export const MATERIAL_PRESETS   // [{ id, category, ko, en, color, roughness, metalness, ... }]
+export const MATERIAL_CATEGORIES // [{ id, ko, en }]: wood, fabric, leather, stone, tile, metal, glass, paint, plastic, ceramic, wall, floor, carpet, plant, other
+export function getMaterial(id, overrides = {})  // cached THREE.MeshPhysicalMaterial / MeshStandardMaterial
+export function presetOf(id)
+```
+
+Preset ids (stable; more may be added): see `MATERIAL_PRESETS` in the file.
+
+### 12.4 Documents (`src/engine/document.js`)
+
+A project (saved as `.msk`, a ZIP holding `project.json` + `assets/*`):
+
+```js
+{
+  format: 'mysketchbook', version: 1, name,
+  units: 'mm' | 'cm' | 'm' | 'in' | 'ft',
+  levels: [{ id, name, elevation, height }],
+  walls:  [{ id, level, a: [x, z], b: [x, z], thickness, height, material: { left, right, top } }],
+  openings: [{ id, wall, item, offset, width, height, sill, flip, params }],   // offset = distance of the centre from wall.a
+  rooms:  [{ id, level, name, points: [[x, z], ...], floor, ceiling, showCeiling }],
+  objects: [{ id, level, item, params, position: [x, y, z], rotation: [rx, ry, rz], scale: [sx, sy, sz], materials: { meshName: presetId }, tag, name, locked, hidden }],
+  models:  [{ id, level, name, mesh /* GeoMesh JSON, src/modeling */, position, rotation, scale, tag, component }],
+  tags:    [{ id, name, visible, color }],
+  scenes:  [{ id, name, camera: { position, target, fov, ortho }, style, shadows, tags }],
+  sun: { date, time, latitude, longitude, north },
+  style: { mode: 'textured' | 'shaded' | 'white' | 'wireframe' | 'xray' | 'hiddenline', edges, profiles, background },
+  guides: [], dimensions: [], texts: [], sections: [],
+  assets: { id: { name, mime, size } },  // the bytes are kept outside the JSON (ZIP entries)
+}
+```
+
+### 12.5 Modelling kernel (`src/modeling/`)
+
+SketchUp-style geometry: edges and faces that stick together. Pure JS (Node-testable), `three` only for math.
+See `src/modeling/README.md` (written with the kernel).

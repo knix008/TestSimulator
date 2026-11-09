@@ -78,6 +78,10 @@ export const SAVE_TYPES = {
   png: { name: 'PNG (*.png)', extensions: ['png'] },
   jpg: { name: 'JPEG (*.jpg)', extensions: ['jpg', 'jpeg'] },
   webp: { name: 'WebP (*.webp)', extensions: ['webp'] },
+  avif: { name: 'AVIF (*.avif)', extensions: ['avif'] },
+  bmp: { name: 'BMP (*.bmp)', extensions: ['bmp'] },
+  tiff: { name: 'TIFF (*.tif, *.tiff)', extensions: ['tif', 'tiff'] },
+  tga: { name: 'TGA (*.tga)', extensions: ['tga'] },
   svg: { name: 'SVG (*.svg)', extensions: ['svg'] },
   pdf: { name: 'PDF (*.pdf)', extensions: ['pdf'] },
 };
@@ -136,7 +140,8 @@ export async function chooseImage(defaultPath) {
 
 export const writeBase64File = (path, data, op) => invoke('write_base64_file', { path, data, op });
 /** Binary file contents as base64 (pictures). */
-export const readBase64File = (path, op) => invoke('read_base64_file', { path, op });
+// `op` names the progress events; the command requires it, so callers without one get ''.
+export const readBase64File = (path, op = '') => invoke('read_base64_file', { path, op: op ?? '' });
 
 export const openDocument = (name) => (isDesktop() ? invoke('open_document', { name }) : Promise.resolve(globalThis.open(`./docs/${name}`, '_blank')));
 export const openExternal = (target) => (isDesktop() ? invoke('open_external', { target }) : Promise.resolve(globalThis.open(target, '_blank', 'noopener')));

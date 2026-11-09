@@ -87,7 +87,8 @@ html.is-popup #app { min-width: 0; display: block; }
 .view-name > [data-view-name].off { visibility: hidden; }
 .split-button { display: inline-flex; align-items: center; }
 .split-button .tool-button:first-child:not(.wide) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-.split-button .split-arrow { width: 16px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+/* padding 0: the browser's default button padding (6px a side) would push the 12px chevron off-centre in 16px. */
+.split-button .split-arrow { width: 16px; padding: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .split-button .split-arrow .icon { width: 12px; height: 12px; }
 
 /* number steppers: [−] value [+] */
@@ -1706,3 +1707,15 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .dt-groups .icon-group { display: block; }
 .dt-groups .icon-group > h3 { margin: 0 0 3px; }
 .icon-tile { width: 50px; height: 38px; }
+
+/* ───────── Stairs tool: option strip over the view (type · width · turn) */
+.stairs-strip { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; max-width: calc(100% - 24px); padding: 5px 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); font-size: 0.86em; }
+.stairs-strip-group { display: inline-flex; align-items: center; gap: 3px; }
+.stairs-strip button:not(.stepper-button) { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 7px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--text); cursor: pointer; white-space: nowrap; }
+.stairs-strip button:not(.stepper-button):hover:not(:disabled) { background: var(--hover); color: var(--accent); }
+.stairs-strip button.active { border-color: var(--accent); background: var(--hover); color: var(--accent); font-weight: 600; }
+.stairs-strip button:disabled { opacity: 0.45; cursor: default; }
+.stairs-strip .icon { width: 18px; height: 18px; flex: none; }
+.stairs-strip-label { color: var(--text-muted, var(--text)); padding: 0 2px; }
+.stairs-strip-value { display: inline-flex; align-items: center; justify-content: center; min-width: 74px; padding: 0 6px; }
+.prop-value.warn { color: var(--danger, #c0392b); }

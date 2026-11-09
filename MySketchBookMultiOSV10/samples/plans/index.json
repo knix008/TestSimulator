@@ -1,0 +1,77 @@
+[
+ {
+  "id": "apartment-59",
+  "title": "59㎡ 아파트",
+  "files": [
+   "apartment-59.dxf",
+   "apartment-59.png",
+   "apartment-59-scan.png",
+   "apartment-59-binary.dxf"
+  ],
+  "walls": 8,
+  "doors": 4,
+  "windows": 5,
+  "rooms": 4
+ },
+ {
+  "id": "apartment-84",
+  "title": "84㎡ 아파트",
+  "files": [
+   "apartment-84.dxf",
+   "apartment-84.png"
+  ],
+  "walls": 10,
+  "doors": 7,
+  "windows": 7,
+  "rooms": 7
+ },
+ {
+  "id": "small-office",
+  "title": "Small office",
+  "files": [
+   "small-office.dxf",
+   "small-office.svg",
+   "small-office.png"
+  ],
+  "walls": 11,
+  "doors": 5,
+  "windows": 6,
+  "rooms": 5
+ },
+ {
+  "id": "house-2room",
+  "title": "방 2개 주택",
+  "files": [
+   "house-2room.dxf",
+   "house-2room.svg",
+   "house-2room.png"
+  ],
+  "walls": 8,
+  "doors": 5,
+  "windows": 5,
+  "rooms": 5
+ },
+ {
+  "id": "doors-variety",
+  "title": "미닫이·포켓·폴딩·양개문, 여러 창 기호",
+  "files": [
+   "doors-variety.dxf"
+  ],
+  "walls": 7,
+  "doors": 6,
+  "windows": 4,
+  "rooms": 4
+ },
+ {
+  "id": "living-curved",
+  "title": "곡선 벽 거실",
+  "files": [
+   "living-curved.dxf"
+  ],
+  "walls": 4,
+  "curves": 2,
+  "doors": 2,
+  "windows": 3,
+  "rooms": 2
+ }
+]

@@ -5,7 +5,7 @@ follow me, offset, intersect, solid tools and the inference engine. No DOM; `thr
 math only (`ShapeUtils` earcut, and callers may pass `THREE.Matrix4`). Everything runs in Node
 (`node --test test/unit/modeling*.test.js`).
 
-Units are **metres, Y up** (see `CONTRACT.md`).
+Units are **metres, Y up** (see `ARCHITECTURE.md §12`).
 
 | File | What |
 | --- | --- |

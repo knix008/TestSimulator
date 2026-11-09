@@ -3,6 +3,8 @@
 // size, photo-real render options and result, and a new material.
 // Each popup keeps its edits in state.draft and answers with close({ ok: true, … }).
 
+import { formatInfo, imageFormats } from './io/imageformats.js';
+
 const RESOLUTIONS = [['hd', 1280, 720], ['fhd', 1920, 1080], ['qhd', 2560, 1440], ['uhd', 3840, 2160], ['square', 2048, 2048], ['a4', 3508, 2480]];
 const SAMPLES = [64, 128, 256, 512, 1024, 2048];
 
@@ -41,11 +43,21 @@ export function renderView3dSettings(api) {
 
 /** Draws one of the 3D popups; returns true when `kind` is one of them. */
 export function render3dPopup(kind, api) {
-  const fn = { importmodel: importModel, snapshot, render: renderOptions, renderresult: renderResult, material }[kind];
+  const fn = { importmodel: importModel, importplan: importPlan, snapshot, render: renderOptions, renderresult: renderResult, material }[kind];
   if (!fn) return false;
   fn(api);
   return true;
 }
+
+/** Picture format choice + quality (lossy formats) + transparency (formats with alpha, when offered). */
+const formatRows = (api, d, { transparency = true } = {}) => {
+  const f = formatInfo(d.format);
+  const q = Math.round(Number(d.quality ?? 0.92) * 100);
+  return api.row('picture', api.t('snapshot.format'), `<span class="segmented wrap">${imageFormats().map((x) => `<button class="segment ${x.id === f.id ? 'active' : ''}" role="radio" aria-checked="${x.id === f.id}" data-draft-segment="format" data-value="${x.id}" title="${api.escapeHtml(api.t(`imageFormat.${x.id}`))}">${api.escapeHtml(x.label)}</button>`).join('')}</span>`, api.t('snapshot.format'), 'full')
+    + (f.quality || f.id === 'pdf' ? api.row('quality', api.t('snapshot.quality'), `<input type="range" min="0.4" max="1" step="0.01" data-draft="quality" value="${Number(d.quality ?? 0.92)}" aria-label="${api.escapeHtml(api.t('snapshot.quality'))}" /><output>${q}%</output>`) : '')
+    + (transparency && f.alpha ? draftToggle(api, 'transparent', api.t('snapshot.transparent'), 'styleWhite', d.transparent) : '')
+    + `<p class="muted hint">${api.icon('info')} ${api.escapeHtml(api.t(`imageFormat.${f.id}`))}</p>`;
+};
 
 const draftOf = (api, defaults) => { api.state.draft ??= { ...defaults, ...api.P() }; return api.state.draft; };
 const seg = (api, key, options, current) => `<span class="segmented" role="radiogroup">${options.map(([value, label, glyph]) => `<button class="segment ${String(current) === String(value) ? 'active' : ''}" role="radio" aria-checked="${String(current) === String(value)}" data-draft-segment="${key}" data-value="${api.escapeHtml(value)}" title="${api.escapeHtml(label)}">${glyph ? api.icon(glyph) : ''}${api.escapeHtml(label)}</button>`).join('')}</span>`;
@@ -78,14 +90,54 @@ function importModel(api) {
   api.ready();
 }
 
+/** Import › Floor plan: CAD options (units, layers, walls, target) or picture options (size, opacity, calibration). */
+function importPlan(api) {
+  const { frame, button, row, t, escapeHtml, icon, numberField } = api;
+  const d = draftOf(api, {});
+  const has = d.hasProject !== false;
+  const targets = d.mode === 'image'
+    ? [['level', t('plan.targetActive'), 'level'], ['new', t('plan.targetNew'), 'fileNew']]
+    : [['replace', t('plan.targetReplace'), 'level'], ['level', t('plan.targetLevel'), 'levelAdd'], ['new', t('plan.targetNew'), 'fileNew']];
+  const target = seg(api, 'target', targets.filter(([id]) => has || id === 'new'), has ? d.target : 'new');
+  const chip = `<div class="row file-list"><span class="file-chip" title="${escapeHtml(d.name ?? '')}">${icon(d.mode === 'image' ? 'picture' : 'plan2d')}<span>${escapeHtml(d.name ?? '')}</span></span>${d.mode === 'image' ? `<span class="muted">${escapeHtml(d.pixels ?? '')} px</span>` : `<span class="muted">${escapeHtml(t(d.guessed ? 'plan.unitsGuessed' : 'plan.unitsFile', { units: d.detected ?? '' }))}</span>`}</div>`;
+  let body;
+  if (d.mode === 'image') {
+    body = `${chip}
+      ${row('dimension', t('plan.imageWidth'), numberField('draft:imageWidth', Number(d.imageWidth), 1, 200, 0.5, 'm', t('plan.imageWidth')))}
+      ${row('styleXray', t('plan.opacity'), numberField('draft:opacityPct', Math.round(Number(d.opacity ?? 0.6) * 100), 5, 100, 5, '%', t('plan.opacity')))}
+      ${row('level', t('plan.target'), target)}
+      ${draftToggle(api, 'calibrate', t('plan.calibrate'), 'tapeMeasure', d.calibrate)}
+      ${draftToggle(api, 'detect', t('plan.detect'), 'wallTool', d.detect)}
+      <p class="muted hint">${icon('info')} ${escapeHtml(t('plan.imageHint'))}</p>`;
+  } else {
+    const layers = d.layers ?? [];
+    body = `${chip}
+      ${row('units', t('plan.units'), seg(api, 'units', [['auto', t('import.auto'), 'sparkles'], ['mm', 'mm'], ['cm', 'cm'], ['m', 'm'], ['in', 'in'], ['ft', 'ft']], d.units))}
+      ${row('wallTool', t('plan.walls'), seg(api, 'walls', [['auto', t('import.auto'), 'sparkles'], ['pairs', t('plan.wallsPairs')], ['single', t('plan.wallsSingle')]], d.walls))}
+      ${row('wallTool', t('settings.wallHeight'), numberField('draft:wallHeight', Number(d.wallHeight), 1.8, 6, 0.05, 'm', t('settings.wallHeight')))}
+      ${row('wallTool', t('plan.thickness'), numberField('draft:thickness', Number(d.thickness), 0.05, 0.6, 0.01, 'm', t('plan.thickness')))}
+      ${row('level', t('plan.target'), target)}
+      ${draftToggle(api, 'keepLines', t('plan.keepLines'), 'guide', d.keepLines !== false)}
+      <div class="row plan-layers-head"><span class="row-label">${icon('tagsPanel')}<span>${escapeHtml(t('plan.layers'))}</span></span><span class="muted">${escapeHtml(t('plan.layersHint'))}</span></div>
+      <div class="plan-layers" role="group" aria-label="${escapeHtml(t('plan.layers'))}">${layers.map((l, i) => `<label class="plan-layer" title="${escapeHtml(l.name)}"><input type="checkbox" data-plan-layer="${i}" ${l.on ? 'checked' : ''} /><span class="plan-layer-name">${escapeHtml(l.name)}</span><span class="muted">${escapeHtml(t('plan.layerCounts', { lines: l.lines, arcs: l.arcs, texts: l.texts }))}</span></label>`).join('')}</div>
+      <p class="muted hint">${icon('info')} ${escapeHtml(t('plan.hint'))}</p>`;
+  }
+  api.root.innerHTML = frame({
+    glyph: 'importPlan', title: t('plan.title'),
+    body: `<div class="editor">${body}</div>`,
+    foot: `<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('importplan-apply', t('import.go'), 'importPlan', 'primary')}`,
+  });
+  api.fitHeight();
+  api.ready();
+}
+
 function snapshot(api) {
   const { frame, button, t } = api;
-  const d = draftOf(api, { width: 1920, height: 1080, format: 'png', transparent: false });
+  const d = draftOf(api, { width: 1920, height: 1080, format: 'png', quality: 0.92, transparent: false });
   api.root.innerHTML = frame({
     glyph: 'exportImage', title: t('snapshot.title'),
     body: `<div class="editor">${sizeRows(api, d)}
-      ${api.row('picture', t('snapshot.format'), seg(api, 'format', [['png', 'PNG'], ['jpg', 'JPEG'], ['webp', 'WebP']], d.format))}
-      ${d.format === 'png' ? draftToggle(api, 'transparent', t('snapshot.transparent'), 'styleWhite', d.transparent) : ''}
+      ${formatRows(api, d)}
       <p class="muted hint">${api.icon('info')} ${api.escapeHtml(t('snapshot.hint'))}</p></div>`,
     foot: `<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('snapshot-apply', t('snapshot.save'), 'exportImage', 'primary')}`,
   });
@@ -111,9 +163,10 @@ function renderOptions(api) {
 function renderResult(api) {
   const { frame, button, t, escapeHtml } = api;
   const p = api.P();
+  const d = draftOf(api, { format: 'png', quality: 0.92 });
   api.root.innerHTML = frame({
     glyph: 'renderPhoto', title: t('render.result', { w: p.width, h: p.height }),
-    body: `<div class="render-result"><img src="${escapeHtml(p.image ?? '')}" alt="" /></div>`,
+    body: `<div class="render-result-wrap"><div class="render-result"><img src="${escapeHtml(p.image ?? '')}" alt="" /></div><div class="editor render-format">${formatRows(api, d, { transparency: false })}</div></div>`,
     foot: `<span class="grow"></span>${button('close', t('common.close'), 'close')}${button('render-save', t('render.save'), 'save', 'primary')}`,
   });
   api.ready();
@@ -148,7 +201,18 @@ export function popup3dAction(kind, target, api, type = 'click') {
     api.render();
     return true;
   }
+  if ((type === 'input' || type === 'change') && kind === 'importplan' && target.dataset.planLayer !== undefined && d) {
+    const layer = d.layers?.[Number(target.dataset.planLayer)];
+    if (layer) layer.on = target.checked;
+    return true;
+  }
   if (type === 'input' || type === 'change') {
+    if ((kind === 'snapshot' || kind === 'renderresult') && target.dataset.draft === 'quality' && d) {
+      d.quality = Number(target.value);
+      const out = target.parentElement?.querySelector('output');
+      if (out) out.textContent = `${Math.round(d.quality * 100)}%`;
+      return type === 'input';
+    }
     if (kind === 'material' && target.dataset.draft && d) {
       d[target.dataset.draft] = target.type === 'range' ? Number(target.value) : target.value;
       const out = target.parentElement?.querySelector('output');
@@ -168,9 +232,15 @@ export function popup3dAction(kind, target, api, type = 'click') {
       return true;
     case 'size-preset': { const [w, h] = target.dataset.value.split('x').map(Number); d.width = w; d.height = h; api.render(); return true; }
     case 'import-apply': api.close({ ok: true, units: d.units, upAxis: d.upAxis, optimize: d.optimize !== false }); return true;
-    case 'snapshot-apply': api.close({ ok: true, width: Math.round(Number(d.width)), height: Math.round(Number(d.height)), format: d.format, transparent: d.format === 'png' && Boolean(d.transparent) }); return true;
+    case 'importplan-apply': {
+      const targetOf = d.hasProject === false ? 'new' : d.target;
+      if (d.mode === 'image') api.close({ ok: true, imageWidth: Number(d.imageWidth) || 12, opacity: Math.max(5, Math.min(100, Number(d.opacityPct ?? Math.round((d.opacity ?? 0.6) * 100)))) / 100, target: targetOf, calibrate: Boolean(d.calibrate), detect: Boolean(d.detect) });
+      else api.close({ ok: true, units: d.units, walls: d.walls, wallHeight: Number(d.wallHeight), thickness: Number(d.thickness), target: targetOf, keepLines: d.keepLines !== false, layers: (d.layers ?? []).filter((l) => l.on).map((l) => l.name) });
+      return true;
+    }
+    case 'snapshot-apply': api.close({ ok: true, width: Math.round(Number(d.width)), height: Math.round(Number(d.height)), format: formatInfo(d.format).id, quality: Number(d.quality ?? 0.92), transparent: Boolean(formatInfo(d.format).alpha && d.transparent) }); return true;
     case 'render-apply': api.close({ ok: true, width: Math.round(Number(d.width)), height: Math.round(Number(d.height)), samples: Number(d.samples) }); return true;
-    case 'render-save': api.close({ save: true }); return true;
+    case 'render-save': api.close({ save: true, format: formatInfo(d?.format).id, quality: Number(d?.quality ?? 0.92) }); return true;
     case 'material-apply': api.close({ ok: true, name: d.name || api.t('materials.newName'), color: d.color, roughness: d.roughness, metalness: d.metalness }); return true;
     default: return false;
   }

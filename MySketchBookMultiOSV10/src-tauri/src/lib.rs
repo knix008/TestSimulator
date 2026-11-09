@@ -1,3 +1,4 @@
+pub mod dwg;
 pub mod files;
 pub mod fonts;
 pub mod i18n;
@@ -18,7 +19,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 /// by the main window: it can sit outside the main window and closes with it.
 const POPUP_KINDS: &[&str] = &[
     "settings", "about", "confirm", "error", "progress", "recent", "menu", "theme", "welcome", "color", "prompt",
-    "importmodel", "snapshot", "render", "renderresult", "material",
+    "importmodel", "importplan", "snapshot", "render", "renderresult", "material", "print",
 ];
 
 #[derive(Default)]
@@ -613,6 +614,14 @@ fn install_panic_hook(app: &AppHandle) {
     }));
 }
 
+/// Floor plan import: a DWG (base64) → DXF with a converter installed on this computer (dwg.rs).
+#[tauri::command]
+async fn convert_dwg(data: String) -> Result<dwg::Converted, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(data).map_err(|e| e.to_string())?;
+    blocking(move || dwg::convert(&bytes)).await
+}
+
 /// Test hook for the serious-error popup (only with MYSKETCHBOOK_TEST_COMMANDS set).
 #[tauri::command]
 async fn raise_test_panic() -> Result<(), String> {
@@ -743,6 +752,7 @@ pub fn run() {
             print_pages_to_pdf,
             quit_app,
             raise_test_panic,
+            convert_dwg,
         ])
         .run(tauri::generate_context!())
         .expect("error while running MySketchBook");

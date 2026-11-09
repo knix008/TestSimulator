@@ -7,8 +7,10 @@ import { icon } from '../icons.js';
 import { t, getLanguage } from '../i18n.js';
 import { CATEGORIES, catalogItem, categoryCounts, itemName, itemParams, searchItems } from '../library/catalog.js';
 import { MATERIAL_CATEGORIES, MATERIAL_PRESETS, customMaterials, presetOf } from '../engine/materials.js';
-import { formatArea, formatLength, polygonArea, toUnits, wallHeight } from '../engine/document.js';
+import { formatArea, formatLength, polygonArea, roomArea, toUnits, wallHeight } from '../engine/document.js';
 import { wallLength } from '../engine/walls.js';
+import { curveChain, curveInfo } from '../engine/planedit.js';
+import { doorSideRooms } from '../engine/doorswing.js';
 import { STYLE_MODES } from '../engine/viewport.js';
 
 const L = () => getLanguage();
@@ -18,7 +20,7 @@ const attr = escapeHtml;
 /** The tool palette (SketchUp's Large Tool Set), grouped; `active` = current tool id. */
 export const TOOL_GROUPS = [
   ['groupSelect', ['select', 'eraser', 'paint']],
-  ['groupInterior', ['wall', 'room', 'door', 'window']],
+  ['groupInterior', ['wall', 'column', 'stairs', 'room', 'door', 'window']],
   ['groupDraw', ['line', 'rectangle', 'circle', 'arc', 'polygon', 'freehand']],
   ['groupModify', ['pushpull', 'move', 'rotate', 'scale', 'offset', 'followme']],
   ['groupConstruct', ['tape', 'dimension', 'protractor', 'text', 'section', 'axes']],
@@ -131,6 +133,7 @@ const numberRow = (label, field, value, units, { step = null, min = null, title 
 const textRow = (label, field, value) => `<div class="prop-row"><span class="prop-label"><span>${escapeHtml(label)}</span></span><span class="prop-control"><input type="text" data-prop="${attr(field)}" value="${attr(value ?? '')}" /></span></div>`;
 const checkRow = (label, field, value) => `<label class="prop-row check"><span class="prop-label"><span>${escapeHtml(label)}</span></span><span class="prop-control"><input type="checkbox" data-prop="${attr(field)}" ${value ? 'checked' : ''} /></span></label>`;
 const selectRow = (label, field, value, options) => `<div class="prop-row"><span class="prop-label"><span>${escapeHtml(label)}</span></span><span class="prop-control"><select data-prop="${attr(field)}">${options.map(([v, l, glyph]) => `<option value="${attr(v)}" ${String(v) === String(value) ? 'selected' : ''} ${glyph ? `data-icon="${glyph}"` : ''}>${escapeHtml(l)}</option>`).join('')}</select></span></div>`;
+const valueRow = (label, value) => `<div class="prop-row"><span class="prop-label"><span>${escapeHtml(label)}</span></span><span class="prop-control"><b class="prop-value">${escapeHtml(value)}</b></span></div>`;
 const section = (glyph, title, body, extra = '') => `<section class="prop-section"><header><span class="section-toggle">${icon(glyph)}<span>${escapeHtml(title)}</span></span>${extra}</header><div class="props">${body}</div></section>`;
 
 export function entityInfoHtml(app) {
@@ -141,6 +144,16 @@ export function entityInfoHtml(app) {
   const len = (v) => formatLength(v, units, { suffix: false });
   if (!ids.length) return projectInfoHtml(app);
   if (ids.length > 1) {
+    // All the pieces of one curved wall (double-click on a piece): the curve as a whole.
+    const curveWalls = ids.map((id) => project.walls.find((w) => w.id === id));
+    const curve = curveWalls.every(Boolean) ? curveInfo(curveWalls) : null;
+    if (curve) {
+      return section('arcTool', t('entity.curve'), `
+        ${valueRow(t('entity.curveRadius'), formatLength(curve.r, units))}
+        ${valueRow(t('entity.curveSegments'), String(curve.segments))}
+        ${valueRow(t('entity.curveLength'), formatLength(curve.length, units))}
+        ${valueRow(t('entity.thickness'), formatLength(curveWalls[0].thickness ?? 0.15, units))}`, actionButtons(app, ['hide', 'lock', 'delete']));
+    }
     return section('selectAll', t('status.selected', { count: ids.length }), `<p class="panel-hint">${escapeHtml(t('entity.multi'))}</p>
       <div class="prop-actions">${['makeGroup', 'hide', 'lock', 'unlock', 'delete'].map((c) => app.commands[c] ? `<button class="button small" data-command="${c}">${icon(app.commands[c].icon)}<span>${escapeHtml(t(app.commands[c].label))}</span></button>` : '').join('')}</div>`);
   }
@@ -150,11 +163,16 @@ export function entityInfoHtml(app) {
   const common = `${checkRow(t('entity.hidden'), 'hidden', e.hidden)}${checkRow(t('entity.locked'), 'locked', e.locked)}`;
   if (kind === 'walls') {
     const h = wallHeight(project, e);
+    const curve = e.curve ? curveInfo(curveChain(project, e)) : null;
     return section('wallTool', t('kind.wall'), `
+      <p class="panel-hint">${icon('info')}<span>${escapeHtml(t(curve ? 'entity.curveHint' : 'entity.wallGrips'))}</span></p>
+      ${curve ? `${valueRow(t('entity.curveRadius'), formatLength(curve.r, units))}${valueRow(t('entity.curveSegments'), String(curve.segments))}` : ''}
       ${textRow(t('entity.name'), 'name', e.name)}
       ${numberRow(t('entity.length'), 'wall.length', len(wallLength(e)), units)}
       ${numberRow(t('entity.thickness'), 'wall.thickness', len(e.thickness ?? 0.15), units)}
+      ${selectRow(t('entity.wallAlign'), 'wall.align', e.align ?? 'center', [['center', t('entity.alignCenter'), 'alignCenter'], ['left', t('entity.alignLeft'), 'alignLeft'], ['right', t('entity.alignRight'), 'alignRight']])}
       ${numberRow(t('entity.height'), 'wall.height', len(h), units, { title: t('entity.heightTip') })}
+      ${checkRow(t('entity.heightLevel'), 'wall.heightAuto', e.height == null)}
       ${materialField(app, t('entity.sideLeft'), 'wall.left', e.material?.left ?? 'wall-paint-white')}
       ${materialField(app, t('entity.sideRight'), 'wall.right', e.material?.right ?? 'wall-paint-white')}
       ${tagRow(app, e)}${common}`, actionButtons(app, ['splitWall', 'flipWall']));
@@ -162,7 +180,7 @@ export function entityInfoHtml(app) {
   if (kind === 'rooms') {
     return section('roomTool', t('kind.room'), `
       ${textRow(t('entity.name'), 'name', e.name)}
-      <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('entity.area'))}</span></span><span class="prop-control"><b class="prop-value">${escapeHtml(formatArea(polygonArea(e.points), units))}</b> <small>(${escapeHtml((polygonArea(e.points) / 3.3058).toFixed(1))} ${escapeHtml(t('unit.pyeong'))})</small></span></div>
+      <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('entity.area'))}</span></span><span class="prop-control"><b class="prop-value">${escapeHtml(formatArea(roomArea(e), units))}</b> <small>(${escapeHtml((roomArea(e) / 3.3058).toFixed(1))} ${escapeHtml(t('unit.pyeong'))})</small></span></div>
       ${materialField(app, t('entity.floor'), 'room.floor', e.floor ?? 'floor-oak')}
       ${checkRow(t('entity.showCeiling'), 'showCeiling', e.showCeiling)}
       ${materialField(app, t('entity.ceiling'), 'room.ceiling', e.ceiling ?? 'wall-paint-white')}
@@ -170,14 +188,27 @@ export function entityInfoHtml(app) {
   }
   const item = catalogItem(e.item);
   if (kind === 'openings') {
+    // Swinging doors: the hinge jamb and the side the leaf opens to, named by the rooms on each side.
+    const door = doorSideRooms(project, e, item);
+    const roomSide = (s) => {
+      const name = door?.rooms[s];
+      if (name) return t('entity.swingInto', { room: name });
+      if (door?.rooms[s === 'left' ? 'right' : 'left']) return t('entity.swingOutside');
+      return t(s === 'left' ? 'entity.swingLeftFace' : 'entity.swingRightFace');
+    };
+    const direction = door ? `
+      ${door.hinge ? selectRow(t('entity.hingeSide'), 'doorHinge', door.hinge, [['left', t('entity.hingeLeft'), 'arrowStart'], ['right', t('entity.hingeRight'), 'arrowEnd']]) : ''}
+      ${selectRow(t('entity.swingTo'), 'doorSwing', door.swing, [['left', roomSide('left'), 'arrowUp'], ['right', roomSide('right'), 'arrowDown']])}
+      <p class="panel-hint">${escapeHtml(t(door.hinge ? 'entity.swingHint' : 'entity.swingHintPair'))}</p>` : `
+      ${checkRow(t('entity.flipHinge'), 'flip', e.flip)}
+      ${selectRow(t('entity.facing'), 'side', e.side ?? 'left', [['left', t('entity.facingLeft'), 'arrowUp'], ['right', t('entity.facingRight'), 'arrowDown']])}`;
     return section(item?.category === 'windows' ? 'windowTool' : 'doorTool', itemName(item, L()) || t('kind.opening'), `
       ${numberRow(t('entity.width'), 'op.width', len(e.width), units)}
       ${numberRow(t('entity.height'), 'op.height', len(e.height), units)}
       ${numberRow(t('entity.sill'), 'op.sill', len(e.sill ?? 0), units)}
       ${numberRow(t('entity.offset'), 'op.offset', len(e.offset), units, { title: t('entity.offsetTip') })}
-      ${checkRow(t('entity.flipHinge'), 'flip', e.flip)}
-      ${selectRow(t('entity.facing'), 'side', e.side ?? 'left', [['left', t('entity.facingLeft'), 'arrowUp'], ['right', t('entity.facingRight'), 'arrowDown']])}
-      ${paramsHtml(app, item, e, ['width', 'height', 'sill'])}`, actionButtons(app, ['replaceItem']));
+      ${direction}
+      ${paramsHtml(app, item, e, door?.hinge ? ['width', 'height', 'sill', 'hinge'] : ['width', 'height', 'sill'])}`, actionButtons(app, door ? ['flipDoorSwing', ...(door.hinge ? ['flipDoorHinge'] : []), 'replaceItem'] : ['replaceItem']));
   }
   if (kind === 'objects') {
     const deg = Math.round(((e.rotation[1] * 180) / Math.PI) * 10) / 10;
@@ -193,7 +224,8 @@ export function entityInfoHtml(app) {
       ${numberRow(t('entity.rotation'), 'rot.1', deg, '°')}
       ${numberRow(t('entity.scale'), 'scale', Number(e.scale[0].toFixed(3)), '×')}
       ${tagRow(app, e)}${common}`, actionButtons(app, ['rotate90', 'mirrorObject', 'replaceItem']))
-      + (item?.params?.length ? section('scaleTool', t('entity.parameters'), paramsHtml(app, item, e, [])) : '')
+      + lampHtml(app, e)
+      + (item?.params?.length ? section(/^column(-|$)/.test(e.item) ? 'columnTool' : 'scaleTool', t(/^column(-|$)/.test(e.item) ? 'entity.column' : 'entity.parameters'), paramsHtml(app, item, e, /^column(-|$)/.test(e.item) ? [...(e.params?.shape === 'rect' ? [] : ['depth']), ...(e.params?.fitLevel ? ['height'] : [])] : [])) : '')
       + materialsOfObjectHtml(app, e);
   }
   if (kind === 'models') {
@@ -205,6 +237,22 @@ export function entityInfoHtml(app) {
     return section(kind === 'texts' ? 'label3d' : kind === 'sections' ? 'sectionPlane' : kind === 'guides' ? 'guide' : 'dimension', t(`kind.${kind}`), kind === 'texts' ? textRow(t('text.label'), 'text', e.text) : kind === 'sections' ? checkRow(t('entity.activeSection'), 'active', e.active) : '');
   }
   return '';
+}
+
+/** A lamp's light: on/off, brightness, colour, reach and (spots) beam angle. */
+function lampHtml(app, e) {
+  const spec = app.builder?.lampInfo?.(e);
+  if (!spec) return '';
+  const units = app.units();
+  const lightsOn = Boolean(app.project()?.style?.lightsOn);
+  return section('lightsOn', t('lamp.title'), `
+    ${checkRow(t('lamp.on'), 'light.on', spec.on)}
+    ${numberRow(t('lamp.lumens'), 'light.lumens', spec.lumens, 'lm', { step: 50, min: 0 })}
+    <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('lamp.color'))}</span></span><span class="prop-control"><input type="color" data-prop="light.color" value="${attr(spec.color)}" /></span></div>
+    ${numberRow(t('lamp.distance'), 'light.distance', formatLength(spec.distance, units, { suffix: false }), units)}
+    ${spec.type === 'spot' ? numberRow(t('lamp.beam'), 'light.beam', spec.beam, '°', { step: 5, min: 5 }) : ''}
+    <p class="panel-hint small">${escapeHtml(t(lightsOn ? 'lamp.hint' : 'lamp.hintOff'))}</p>`,
+  `<span class="section-actions">${app.commands.lightsOn ? `<button class="icon-button ${lightsOn ? 'active' : ''}" data-command="lightsOn" title="${attr(app.commandTip('lightsOn'))}">${icon('lightsOn')}</button>` : ''}<button class="icon-button" data-command="resetLamp" title="${attr(t('lamp.reset'))}">${icon('undo')}</button></span>`);
 }
 
 function actionButtons(app, ids) {
@@ -221,7 +269,8 @@ function paramsHtml(app, item, e, skip) {
   if (!item?.params?.length) return '';
   const values = itemParams(item, e.params);
   const units = app.units();
-  return item.params.filter((p) => !skip.includes(p.key)).map((p) => {
+  // `showIf(values)`: a param that only matters for some choices (e.g. the gap of a U-shaped stair).
+  return item.params.filter((p) => !skip.includes(p.key) && !(p.showIf && !p.showIf(values))).map((p) => {
     const label = name(p);
     const v = values[p.key];
     const field = `param.${p.key}`;
@@ -232,7 +281,17 @@ function paramsHtml(app, item, e, skip) {
     if (p.type === 'material') return materialField(app, label, `param.${p.key}`, v);
     if (p.type === 'color') return `<div class="prop-row"><span class="prop-label"><span>${escapeHtml(label)}</span></span><span class="prop-control"><input type="color" data-prop="${attr(field)}" value="${attr(v)}" /></span></div>`;
     return textRow(label, field, v);
-  }).join('');
+  }).join('') + itemInfoHtml(item, values, units);
+}
+
+/** Read-only facts an item computes from its params (stairs: risers, riser height, going, 2R + G). */
+function itemInfoHtml(item, values, units) {
+  const info = item.info?.(values);
+  if (!info || info.n == null) return '';
+  const row = (label, value, warn = false) => `<div class="prop-row"><span class="prop-label"><span>${escapeHtml(label)}</span></span><span class="prop-control"><span class="prop-value ${warn ? 'warn' : ''}">${escapeHtml(value)}</span></span></div>`;
+  return row(t('stairs.info.risers'), t('stairs.info.risersValue', { n: info.n, treads: info.treads, riser: formatLength(info.riser, units) }), info.riser > 0.2)
+    + row(t('stairs.info.going'), formatLength(info.going, units), info.going < 0.22)
+    + row(t('stairs.info.blondel'), `${formatLength(info.blondel, units)} · ${t(info.comfortable ? 'stairs.info.comfortable' : 'stairs.info.uncomfortable')}`, !info.comfortable);
 }
 
 /** Materials used by a placed object: each can be swapped (stored as overrides). */
@@ -252,6 +311,7 @@ function projectInfoHtml(app) {
     ${selectRow(t('settings.units'), 'project.units', project.units, [['mm', t('unit.mm'), 'units'], ['cm', t('unit.cm'), 'units'], ['m', t('unit.m'), 'units'], ['in', t('unit.in'), 'units'], ['ft', t('unit.ft'), 'units']])}
     <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('entity.totalArea'))}</span></span><span class="prop-control"><b class="prop-value">${escapeHtml(formatArea(area, units))}</b> <small>(${escapeHtml((area / 3.3058).toFixed(1))} ${escapeHtml(t('unit.pyeong'))})</small></span></div>
     <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('entity.counts'))}</span></span><span class="prop-control"><span class="prop-value">${escapeHtml(t('entity.countsValue', { walls: project.walls.length, rooms: project.rooms.length, objects: project.objects.length, openings: project.openings.length }))}</span></span></div>`)
+    + (app.underlayHtml?.() ?? '') // plan pictures of the active level (ui/plan-import.js)
     + `<p class="panel-hint">${icon('info')}<span>${escapeHtml(t('entity.selectHint'))}</span></p>`;
 }
 
@@ -290,7 +350,7 @@ export function stylesHtml(app) {
   return section('styleTextured', t('editors.styles'), `<div class="seg-grid">${modes}</div>
       ${checkRow(t('style.edges'), 'style.edges', st.edges !== false)}
       ${checkRow(t('style.lightsOn'), 'style.lightsOn', st.lightsOn)}
-      ${selectRow(t('style.background'), 'style.background', st.background ?? 'sky', [['sky', t('style.bgSky'), 'sun'], ['white', t('style.bgWhite'), 'styleWhite'], ['dark', t('style.bgDark'), 'moon'], ['environment', t('style.bgEnvironment'), 'environment']])}
+      ${selectRow(t('style.background'), 'style.background', st.background ?? 'theme', [['theme', t('style.bgTheme'), 'palette'], ['sky', t('style.bgSky'), 'sun'], ['white', t('style.bgWhite'), 'styleWhite'], ['dark', t('style.bgDark'), 'moon'], ['environment', t('style.bgEnvironment'), 'environment']])}
       ${selectRow(t('style.environment'), 'style.environment', st.environment ?? 'room', envs.map((e) => [e.id, name(e), 'environment']))}
       <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('style.exposure'))}</span></span><span class="prop-control"><input type="range" min="0.3" max="2.5" step="0.05" data-prop="style.exposure" value="${attr(st.exposure ?? 1)}" /><output>${Number(st.exposure ?? 1).toFixed(2)}</output></span></div>`)
     + section('quality', t('editors.quality'), `
@@ -309,12 +369,22 @@ export function shadowsHtml(app) {
   const [hh, mi] = sun.time.split(':').map(Number);
   const dayOfYear = new Date(2026, mm - 1, dd).getTime();
   const doy = Math.round((dayOfYear - new Date(2026, 0, 1).getTime()) / 86400000) + 1;
-  return section('sun', t('editors.shadows'), `
+  const manual = sun.mode === 'manual';
+  const ang = app.sunAngles ? app.sunAngles(sun) : { azimuth: sun.azimuth ?? 0, altitude: sun.altitude ?? 45 };
+  const night = ang.altitude < 0;
+  return section('sun', t('sun.title'), `
+    ${checkRow(t('sun.on'), 'sun.on', sun.on !== false)}
     ${checkRow(t('shadows.show'), 'settings.shadows', s.shadows)}
-    <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('shadows.time'))}</span></span><span class="prop-control"><input type="range" min="300" max="1260" step="5" data-prop="sun.minutes" value="${hh * 60 + mi}" /><output>${escapeHtml(sun.time)}</output></span></div>
-    <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('shadows.date'))}</span></span><span class="prop-control"><input type="range" min="1" max="365" step="1" data-prop="sun.day" value="${doy}" /><output>${escapeHtml(`${mm}/${dd}`)}</output></span></div>
+    <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('sun.state'))}</span></span><span class="prop-control"><span class="prop-value">${icon(night ? 'moon' : 'sun')} ${escapeHtml(t(night ? 'sun.isNight' : 'sun.isDay'))} · ${escapeHtml(t('sun.angles', { az: ang.azimuth.toFixed(0), alt: ang.altitude.toFixed(0) }))}</span></span></div>
+    ${selectRow(t('sun.mode'), 'sun.mode', manual ? 'manual' : 'time', [['time', t('sun.modeTime'), 'clock'], ['manual', t('sun.modeManual'), 'sun']])}
+    ${manual ? numberRow(t('sun.azimuth'), 'sun.azimuth', Math.round(ang.azimuth * 10) / 10, '°', { step: 5, title: t('sun.azimuthTip') }) + numberRow(t('sun.altitude'), 'sun.altitude', Math.round(ang.altitude * 10) / 10, '°', { step: 5, title: t('sun.altitudeTip') }) : ''}
+    ${numberRow(t('sun.intensity'), 'sun.intensity', Math.round((sun.intensity ?? 1) * 100), '%', { step: 10, min: 0 })}
+    <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('sun.color'))}</span></span><span class="prop-control"><input type="color" data-prop="sun.color" value="${attr(sun.color ?? '#fff1dc')}" /></span></div>
+    <p class="panel-hint small">${escapeHtml(t('sun.hint'))}</p>
+    ${manual ? '' : `<div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('shadows.time'))}</span></span><span class="prop-control"><input type="range" min="0" max="1435" step="5" data-prop="sun.minutes" value="${hh * 60 + mi}" /><output>${escapeHtml(sun.time)}</output></span></div>`}
+    ${manual ? '' : `<div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('shadows.date'))}</span></span><span class="prop-control"><input type="range" min="1" max="365" step="1" data-prop="sun.day" value="${doy}" /><output>${escapeHtml(`${mm}/${dd}`)}</output></span></div>
     ${numberRow(t('shadows.latitude'), 'sun.latitude', sun.latitude, '°')}
-    ${numberRow(t('shadows.longitude'), 'sun.longitude', sun.longitude, '°')}
+    ${numberRow(t('shadows.longitude'), 'sun.longitude', sun.longitude, '°')}`}
     ${numberRow(t('shadows.north'), 'sun.north', sun.north ?? 0, '°', { title: t('shadows.northTip') })}
     ${selectRow(t('shadows.place'), 'sun.place', '', [['', t('shadows.placeChoose'), 'globe'], ...PLACES.map(([id, ko, en]) => [id, L() === 'ko' ? ko : en, 'globe'])])}`);
 }

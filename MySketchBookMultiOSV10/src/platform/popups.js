@@ -27,10 +27,12 @@ export const POPUPS = {
   color: { width: 300, height: 300 },
   prompt: { width: 520, height: 230 },
   importmodel: { width: 680, height: 420 },
+  importplan: { width: 720, height: 640 },
   snapshot: { width: 720, height: 430 },
   render: { width: 720, height: 430 },
   renderresult: { width: 1000, height: 680 },
   material: { width: 520, height: 400 },
+  print: { width: 1240, height: 780 },
 };
 
 export const popupKey = (kind) => `mysketchbook.popup.${kind}`;

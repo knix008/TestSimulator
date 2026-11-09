@@ -9,10 +9,16 @@
 // then records one undo step (History keeps the state of the last commit).
 import * as THREE from 'three';
 import { snapPlan } from './snap.js';
-import { detectRoom, nearestWall, wallDir, wallLength, wallNormal, projectOnSegment, pointInPolygon } from '../engine/walls.js';
+import { detectRoom, nearestWall, wallDir, wallFootprints, wallLength, wallNormal, projectOnSegment, pointInPolygon } from '../engine/walls.js';
 import { formatLength, newId, parseLength, polygonArea, formatArea, wallHeight } from '../engine/document.js';
 import { showInference } from '../engine/overlay.js';
+import { placeStairs as stairsPlace, riseToNextLevel as stairsRiseToNextLevel, stairInfo as stairsInfo, toWorld as stairsToWorld } from '../engine/stairs.js';
+import { catalogItem as stairsCatalogItem } from '../library/catalog.js';
 import { itemParams } from '../library/catalog.js';
+import {
+  arcCurve, arcFromRadius, arcFromThreePoints, arcWallSegments, attachColumn, columnFootprint, columnSnapPoints, columnsOf, curveChain, faceToCentre,
+  isColumn, moveWallEnd, moveWallParallel, offsetPolyline, planSnapshot, rectangleSegments, refitRooms, restorePlan, roomsAfterWalls, splitWallsAtColumns,
+} from '../engine/planedit.js';
 
 export class Tool {
   constructor(app) { this.app = app; }
@@ -34,14 +40,16 @@ function levelSnapData(app) {
   const project = app.project();
   const level = app.level();
   const walls = project.walls.filter((w) => w.level === level.id);
-  const points = project.rooms.filter((r) => r.level === level.id).flatMap((r) => r.points.map((q) => [q, 'endpoint']));
+  const points = [...columnSnapPoints(project, level.id), ...project.rooms.filter((r) => r.level === level.id).flatMap((r) => r.points.map((q) => [q, 'endpoint']))];
   return { walls, points };
 }
 
-function snapAt(app, e, from = null, lockDir = null) {
+function snapAt(app, e, from = null, lockDir = null, { exclude = null, extra = [] } = {}) {
   const ground = app.groundPoint(e);
   if (!ground) return null;
-  const { walls, points } = levelSnapData(app);
+  const data = levelSnapData(app);
+  const walls = exclude ? data.walls.filter((w) => !exclude.has(w.id)) : data.walls;
+  const points = [...data.points, ...extra];
   const s = app.settings();
   const snap = snapPlan(planOf(ground), { walls, points, from, lockDir, pixel: app.viewport.pixelSizeAt(ground), grid: s.snapToGrid ? (app.viewport.gridStep || s.gridSize) : null });
   const y = app.level().elevation;
@@ -57,23 +65,93 @@ function showSnap(app, snap, from) {
 
 // ───────────────────────── Select
 
+/**
+ * What is under the pointer for the Select tool. In the 2D plan a structural column wins over the walls it
+ * stands in (they are equally tall), and a wall is found by its footprint (the plan's section cut hides its
+ * top from the picking ray); doors, windows and furniture picked first stay first.
+ */
+function selectHit(app, e) {
+  const col = columnUnder(app, e);
+  if (col) return col;
+  const hit = app.viewport.pick(e.clientX, e.clientY, { lamps: true });
+  if (hit?.entity && hit.entity.kind !== 'room') return hit;
+  return wallUnder(app, e) ?? hit;
+}
+
+function wallUnder(app, e) {
+  if (!app.viewport.planMode) return null;
+  const g = app.groundPoint(e);
+  if (!g) return null;
+  const level = app.level().id;
+  const walls = app.project().walls.filter((w) => w.level === level && !w.hidden);
+  const fps = wallFootprints(walls);
+  const wall = walls.find((w) => fps.get(w.id) && pointInPolygon([g.x, g.z], fps.get(w.id)));
+  return wall ? { entity: { id: wall.id, kind: 'wall' }, point: g, object: null } : null;
+}
+
+/** In the 2D plan a structural column wins over the walls it stands in (they are equally tall), so it can be picked and dragged. */
+function columnUnder(app, e) {
+  if (!app.viewport.planMode) return null;
+  const g = app.groundPoint(e);
+  if (!g) return null;
+  const col = columnsOf(app.project(), app.level().id).find((o) => !o.hidden && pointInPolygon([g.x, g.z], columnFootprint(o)));
+  return col ? { entity: { id: col.id, kind: 'object' }, point: g, object: app.builder.objectOf(col.id) } : null;
+}
+
 export class SelectTool extends Tool {
   id = 'select';
   get cursor() { return 'default'; }
 
+  activate() { this.hotGrip = null; this.lastGrip = null; drawWallGrips(this.app, this); }
+  deactivate() { this.app.overlay.reset(); this.gripDrag = null; }
+  hint() { return wallGrips(this.app).length ? 'hint.wallGrip' : super.hint(); }
+
   down(e) {
     const app = this.app;
-    const hit = app.viewport.pick(e.clientX, e.clientY);
+    this.lastGrip = null;
+    // Grips of the selected wall come before anything in the scene.
+    const grip = gripAt(app, e);
+    if (grip) {
+      this.press = { x: e.clientX, y: e.clientY, grip: true };
+      const level = app.level().id;
+      this.gripDrag = { grip, wall: grip.wall, end: grip.kind, snap: planSnapshot(app.project(), level), level, started: false, startPlan: this.gripPlane(e, grip) };
+      return;
+    }
+    const hit = selectHit(app, e);
     const entity = hit?.entity;
     this.press = { x: e.clientX, y: e.clientY, entity, hit, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey };
+    if (entity?.kind === 'sun') {
+      // The sun marker: drag to move the light (2D: its direction), click for its properties.
+      this.sunDrag = { moved: false };
+      return;
+    }
+    if (entity?.lamp && !this.press.shift && !this.press.ctrl && !app.isLocked(entity.id)) {
+      // A lamp marker (2D and 3D) is a handle: press and drag moves the lamp at its own height right away.
+      if (!app.isSelected(entity.id)) app.select([entity.id]);
+      this.drag = { ids: app.selection().filter((id) => !app.isLocked(id)), start: hit.point.clone(), last: hit.point.clone(), started: false, lamp: true };
+      return;
+    }
     if (entity && app.isSelected(entity.id) && !this.press.shift && !this.press.ctrl && ['object', 'model'].includes(entity.kind) && !app.isLocked(entity.id)) {
       // Dragging a selected piece of furniture moves it on the floor (snapping to walls).
       this.drag = { ids: app.selection().filter((id) => !app.isLocked(id)), start: hit.point.clone(), last: hit.point.clone(), started: false };
     }
   }
 
+  /** The pointer on the horizontal plane through a grip, as a plan point. */
+  gripPlane(e, grip) {
+    const p = this.app.viewport.screenToWorldOnPlane(e.clientX, e.clientY, grip.world, new THREE.Vector3(0, 1, 0));
+    return p ? planOf(p) : null;
+  }
+
   move(e) {
     const app = this.app;
+    if (this.gripDrag) { this.dragGrip(e); return; }
+    if (this.sunDrag) {
+      if (!this.sunDrag.moved && Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) < 3) return;
+      this.sunDrag.moved = true;
+      app.dragSun(e.clientX, e.clientY);
+      return;
+    }
     if (this.drag) {
       const p = this.press;
       if (!this.drag.started && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 4) return;
@@ -86,14 +164,15 @@ export class SelectTool extends Tool {
       return;
     }
     if (this.press && (this.navigating || Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) > 4)) {
-      const orbitDrag = app.settings().leftDrag !== 'select' && !this.press.shift && !this.press.ctrl;
-      if (orbitDrag) {
+      // Left drag on empty space: rotate · Ctrl/⌘ (or Alt) + drag: move the view (as OrbitControls) · Shift + drag: box selection.
+      const panDrag = this.press.ctrl || e.ctrlKey || e.metaKey || e.altKey;
+      const navDrag = !this.press.shift && (panDrag || app.settings().leftDrag !== 'select');
+      if (navDrag) {
         const vp = app.viewport;
         if (!this.navigating) { this.navigating = { x: this.press.x, y: this.press.y, pivot: this.press.hit?.point ?? vp.target.clone() }; }
         const dx = e.clientX - this.navigating.x; const dy = e.clientY - this.navigating.y;
         this.navigating.x = e.clientX; this.navigating.y = e.clientY;
-        if (vp.planMode || e.altKey) vp.pan(dx, dy, this.navigating.pivot); else vp.orbit(dx, dy, this.navigating.pivot);
-        vp.touchInteraction();
+        vp.navigate(vp.planMode || panDrag ? 'pan' : 'orbit', dx, dy, this.navigating.pivot);
         return;
       }
       this.box = { x0: this.press.x, y0: this.press.y, x1: e.clientX, y1: e.clientY };
@@ -101,20 +180,98 @@ export class SelectTool extends Tool {
       return;
     }
     if (!this.press) {
-      const hit = app.viewport.pick(e.clientX, e.clientY);
-      app.setHover(hit?.entity?.id ?? null);
+      const grip = gripAt(app, e);
+      if ((grip?.kind ?? null) !== (this.hotGrip ?? null)) { this.hotGrip = grip?.kind ?? null; drawWallGrips(app, this); }
+      if (grip) { app.setHover(null); app.viewport.canvas.style.cursor = grip.kind === 'mid' ? 'move' : 'crosshair'; return; }
+      const hit = selectHit(app, e);
+      app.setHover(hit?.entity?.kind === 'sun' ? null : hit?.entity?.id ?? null);
+      app.viewport.canvas.style.cursor = hit?.entity?.kind === 'sun' || hit?.entity?.lamp ? 'grab' : this.cursor;
     }
+  }
+
+  /** Dragging a wall grip: every step starts again from the plan as it was when the drag began. */
+  dragGrip(e) {
+    const app = this.app;
+    const g = this.gripDrag;
+    if (!g.started && Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) < 3) return;
+    const cursor = this.gripPlane(e, g.grip);
+    if (!cursor || !g.startPlan) return;
+    g.started = true;
+    g.detach = e.altKey;
+    const project = app.project();
+    restorePlan(project, g.snap);
+    const wall = g.wall;
+    const y = app.level().elevation;
+    const pixel = app.viewport.pixelSizeAt(g.grip.world);
+    if (g.end === 'mid') {
+      const n = wallNormal(wall);
+      let s = (cursor[0] - g.startPlan[0]) * n[0] + (cursor[1] - g.startPlan[1]) * n[1];
+      // Line the wall up with a wall end or column centre near the cursor.
+      const others = project.walls.filter((w) => w.level === g.level && w !== wall);
+      const target = [g.grip.plan[0] + n[0] * s, g.grip.plan[1] + n[1] * s];
+      const snap = snapPlan(target, { walls: others.filter((w) => !touches(w, wall)), points: columnSnapPoints(project, g.level), pixel });
+      if (snap.kind === 'endpoint') s = (snap.point[0] - wall.a[0]) * n[0] + (snap.point[1] - wall.a[1]) * n[1];
+      this.applyGrip(s);
+      const from = v3(g.grip.plan[0], y, g.grip.plan[1]);
+      const to = v3(g.grip.plan[0] + n[0] * s, y, g.grip.plan[1] + n[1] * s);
+      showInference(app.overlay, { point: to, kind: snap.kind === 'endpoint' ? 'endpoint' : 'perpendicular', tooltip: snap.kind === 'endpoint' ? app.t('inf.endpoint') : '', lineFrom: from });
+      app.overlay.label('grip', to, formatLength(Math.abs(s), app.units()), { kind: 'length', dx: 0, dy: -26 });
+      app.setVcb('vcb.distance', formatLength(Math.abs(s), app.units(), { suffix: false }));
+      return;
+    }
+    const fixed = wall[g.end === 'a' ? 'b' : 'a'];
+    const snap = gripEndSnap(app, project, g, cursor, fixed, pixel);
+    if (Math.hypot(snap.point[0] - fixed[0], snap.point[1] - fixed[1]) < 0.05) { app.live(); return; }
+    this.applyGrip(snap.point);
+    const len = Math.hypot(snap.point[0] - fixed[0], snap.point[1] - fixed[1]);
+    const world = v3(snap.point[0], y, snap.point[1]);
+    showInference(app.overlay, { point: world, kind: snap.kind === 'aligned' ? 'parallel' : snap.kind === 'grid' || snap.kind === 'free' ? 'ground' : snap.kind, tooltip: snap.tip ?? (TIP[snap.kind] ? app.t(TIP[snap.kind]) : ''), lineFrom: snap.guideFrom ? v3(snap.guideFrom[0], y, snap.guideFrom[1]) : null }, { from: v3(fixed[0], y, fixed[1]) });
+    app.overlay.label('grip', v3((fixed[0] + snap.point[0]) / 2, y, (fixed[1] + snap.point[1]) / 2), formatLength(len, app.units()), { kind: 'length', dx: 0, dy: -22 });
+    app.setVcb('vcb.length', formatLength(len, app.units(), { suffix: false }));
+  }
+
+  /** One grip step from the drag's starting plan: an end to a point, or the middle by a sideways distance. */
+  applyGrip(value) {
+    const app = this.app;
+    const g = this.gripDrag ?? this.lastGrip;
+    const project = app.project();
+    restorePlan(project, g.snap);
+    if (g.end === 'mid') moveWallParallel(project, g.wall, value);
+    else moveWallEnd(project, g.wall, g.end, value, { detach: g.detach });
+    refitRooms(project, new Set([g.level]));
+    g.value = value;
+    app.live();
   }
 
   up(e) {
     const app = this.app;
     const press = this.press;
     this.press = null;
-    if (this.navigating) { this.navigating = null; this.app.cameraMoved?.(); return; }
+    if (this.gripDrag) {
+      const g = this.gripDrag;
+      this.gripDrag = null;
+      app.overlay.clearLabel('grip');
+      showInference(app.overlay, null);
+      if (g.started && g.value != null) {
+        app.commit(g.end === 'mid' ? 'op.wallOffset' : 'op.wallEnd', ['walls', 'objects', 'rooms', 'openings']);
+        this.lastGrip = g;
+      }
+      drawWallGrips(app, this);
+      return;
+    }
+    if (this.sunDrag) {
+      const moved = this.sunDrag.moved;
+      this.sunDrag = null;
+      if (moved) app.dragSun(null); else app.showSunPanel();
+      return;
+    }
+    if (this.navigating) { this.navigating = null; this.app.viewport.endNavigation(); this.app.cameraMoved?.(); return; }
     if (this.drag) {
       const drag = this.drag;
       this.drag = null;
-      if (drag.started) { app.commit('op.move', ['objects', 'models']); return; }
+      // Columns drag the walls joined to them, and the rooms follow the walls; a column dropped in a wall joins it.
+      if (drag.started) { attachColumns(app, drag.ids); app.commit('op.move', ['objects', 'models', 'walls', 'rooms', 'openings']); return; }
+      if (drag.lamp) return; // a click on a lamp marker selected it (in down)
     }
     if (this.box) {
       const box = this.box;
@@ -132,12 +289,68 @@ export class SelectTool extends Tool {
   }
 
   dblclick(e) {
-    const hit = this.app.viewport.pick(e.clientX, e.clientY);
-    if (hit?.entity) this.app.editEntity(hit.entity.id);
+    const app = this.app;
+    if (gripAt(app, e)) return;
+    const hit = selectHit(app, e);
+    if (!hit?.entity) return;
+    // A piece of a curved wall: the first double-click selects the whole curve.
+    if (hit.entity.kind === 'wall') {
+      const wall = app.project().walls.find((w) => w.id === hit.entity.id);
+      if (wall?.curve) {
+        const chain = curveChain(app.project(), wall).map((w) => w.id);
+        const sel = app.selection();
+        if (!(sel.length === chain.length && chain.every((id) => sel.includes(id)))) { app.select(chain); return; }
+      }
+    }
+    app.editEntity(hit.entity.id);
+  }
+
+  /** After a grip drag: a typed length (end grip) or distance (middle grip) sets it exactly. */
+  vcb(text) {
+    const app = this.app;
+    const g = this.gripDrag ?? this.lastGrip;
+    if (!g) return false;
+    const value = parseLength(text, app.units());
+    if (value == null) return false;
+    const v = Math.abs(Array.isArray(value) ? value[0] : value);
+    const wall = g.wall;
+    if (g.end === 'mid') {
+      const s = (g.value ?? 1) < 0 ? -v : v;
+      this.applyGrip(s);
+    } else {
+      if (!(v > 0.05)) return false;
+      // Along the wall's direction now (from the end that stayed).
+      const fixed = g.snap.walls.get(wall.id)[g.end === 'a' ? 'b' : 'a'];
+      const cur = wall[g.end];
+      const d = [cur[0] - fixed[0], cur[1] - fixed[1]];
+      const l = Math.hypot(d[0], d[1]) || 1;
+      this.applyGrip([fixed[0] + (d[0] / l) * v, fixed[1] + (d[1] / l) * v]);
+    }
+    const dragging = Boolean(this.gripDrag);
+    this.gripDrag = null;
+    this.press = null;
+    app.overlay.clearLabel('grip');
+    showInference(app.overlay, null);
+    if (dragging) app.commit(g.end === 'mid' ? 'op.wallOffset' : 'op.wallEnd', ['walls', 'objects', 'rooms', 'openings']);
+    else app.commit(g.end === 'mid' ? 'op.wallOffset' : 'op.wallLength', ['walls', 'objects', 'rooms', 'openings']);
+    this.lastGrip = g;
+    drawWallGrips(app, this);
+    return true;
   }
 
   key(e) {
     const app = this.app;
+    if (this.gripDrag) {
+      if (e.key === 'Escape') {
+        restorePlan(app.project(), this.gripDrag.snap);
+        this.gripDrag = null; this.press = null;
+        app.overlay.clearLabel('grip'); showInference(app.overlay, null);
+        app.live();
+        drawWallGrips(app, this);
+        return true;
+      }
+      return e.key === 'Alt';
+    }
     const ids = app.selection();
     if (!ids.length) return false;
     const step = e.shiftKey ? 0.01 : 0.1;
@@ -150,6 +363,118 @@ export class SelectTool extends Tool {
     }
     return false;
   }
+}
+
+// ───────────────────────── wall grips (the ends and the middle of one selected wall)
+
+const GRIP_PX = 9;
+
+/** Two walls share an end (within 1 cm). */
+function touches(w, wall) {
+  const n = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 0.01;
+  return n(w.a, wall.a) || n(w.a, wall.b) || n(w.b, wall.a) || n(w.b, wall.b);
+}
+
+/** Grips of the one selected wall of the active level: [{ kind: 'a' | 'b' | 'mid', wall, plan, world }] (else []). */
+export function wallGrips(app) {
+  const project = app.project?.();
+  if (!project) return [];
+  const ids = app.selection();
+  if (ids.length !== 1) return [];
+  const wall = project.walls.find((w) => w.id === ids[0]);
+  // Pieces of a curved wall are edited as one curve (double-click selects it), not end by end.
+  if (!wall || wall.locked || wall.hidden || wall.curve || wall.level !== app.level().id || wallLength(wall) < 0.02) return [];
+  // 2D: on the floor (under the plan's section cut); 3D: on top of the wall, where they are seen.
+  const y = app.level().elevation + (app.viewport.planMode ? 0.02 : wallHeight(project, wall) + 0.005);
+  const mid = [(wall.a[0] + wall.b[0]) / 2, (wall.a[1] + wall.b[1]) / 2];
+  // A wall only a few grips long on screen has no middle grip (the ends must stay easy to catch).
+  const sa = app.viewport.worldToScreen(v3(wall.a[0], y, wall.a[1])); const sb = app.viewport.worldToScreen(v3(wall.b[0], y, wall.b[1]));
+  const short = Math.hypot(sa.x - sb.x, sa.y - sb.y) < GRIP_PX * 5;
+  return [['a', wall.a], ['b', wall.b], ...(short ? [] : [['mid', mid]])].map(([kind, p]) => ({ kind, wall, plan: [p[0], p[1]], world: v3(p[0], y, p[1]) }));
+}
+
+/** The grip under the pointer (within GRIP_PX on screen), the nearest one. */
+function gripAt(app, e) {
+  let best = null;
+  for (const g of wallGrips(app)) {
+    const s = app.viewport.worldToScreen(g.world);
+    if (s.behind) continue;
+    const d = Math.hypot(e.clientX - s.x, e.clientY - s.y);
+    if (d <= GRIP_PX && (!best || d < best.d)) best = { ...g, d };
+  }
+  return best;
+}
+
+/**
+ * Draws the grips of the selected wall while the Select tool is active (called by the app whenever the
+ * selection or the scene changes): white squares framed in the selection blue, the middle one with a blue dot;
+ * the grip under the pointer is filled orange.
+ */
+export function drawWallGrips(app, tool) {
+  const overlay = app.overlay;
+  if (!overlay) return;
+  const grips = tool instanceof SelectTool && !tool.gripDrag?.started ? wallGrips(app) : [];
+  const layer = (name, list, color, size, order) => {
+    overlay.points(name, list, { color, size });
+    const o = overlay.layers.get(name)?.object;
+    if (o) { o.renderOrder = order; o.userData.noPick = true; }
+  };
+  if (!grips.length) { for (const n of ['grip-ring', 'grip-fill', 'grip-mid', 'grip-hot']) overlay.clear(n); return; }
+  const hot = grips.find((g) => g.kind === tool.hotGrip);
+  layer('grip-ring', grips.map((g) => g.world), '#2a5bd7', 13, 22);
+  layer('grip-fill', grips.map((g) => g.world), '#ffffff', 8, 23);
+  layer('grip-mid', grips.filter((g) => g.kind === 'mid').map((g) => g.world), '#2a5bd7', 4, 24);
+  layer('grip-hot', hot ? [hot.world] : [], '#f59f00', 8, 25);
+}
+
+/** Snapping of a dragged wall end: wall ends and columns (not those moving with it), axes, perpendicular to joined walls, along the wall. */
+function gripEndSnap(app, project, g, cursor, fixed, pixel) {
+  const wall = g.wall;
+  const node = g.snap.walls.get(wall.id)[g.end];
+  const close = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 0.01;
+  // Walls whose ends move with this one are left out (they would snap to themselves).
+  const moving = (w) => w === wall || (!g.detach && (close(w.a, node) || close(w.b, node)));
+  const walls = project.walls.filter((w) => w.level === g.level && !moving(w));
+  const points = [
+    ...columnsOf(project, g.level).filter((o) => g.detach || !close([o.position[0], o.position[2]], node)).map((o) => [[o.position[0], o.position[2]], 'endpoint']),
+    ...project.walls.filter((w) => w.level === g.level && w !== wall && moving(w)).map((w) => [close(w.a, node) ? w.b : w.a, 'endpoint']),
+  ];
+  const s = app.settings();
+  const snap = snapPlan(cursor, { walls, points, from: fixed, pixel, grid: s.snapToGrid ? (app.viewport.gridStep || s.gridSize) : null });
+  if (!['free', 'grid', 'aligned'].includes(snap.kind)) return snap;
+  // Perpendicular to a wall joined at the end that stays, or straight along the wall's own line.
+  const dx = cursor[0] - fixed[0]; const dz = cursor[1] - fixed[1];
+  const L = Math.hypot(dx, dz);
+  if (L < 1e-6) return snap;
+  const dirs = [];
+  const w0 = g.snap.walls.get(wall.id);
+  const own = [w0.b[0] - w0.a[0], w0.b[1] - w0.a[1]];
+  dirs.push({ d: own, kind: 'parallel', tip: app.t('inf.parallel') });
+  for (const w of project.walls) {
+    if (w === wall || w.level !== g.level || !(close(w.a, fixed) || close(w.b, fixed))) continue;
+    const wd = wallDir(w);
+    dirs.push({ d: [-wd[1], wd[0]], kind: 'perpendicular', tip: app.t('inf.perpendicular') });
+  }
+  for (const { d, kind, tip } of dirs) {
+    const l = Math.hypot(d[0], d[1]) || 1;
+    const u = [d[0] / l, d[1] / l];
+    const along = dx * u[0] + dz * u[1];
+    const sin = Math.abs(dx * u[1] - dz * u[0]) / L;
+    if (sin < Math.sin((3.5 * Math.PI) / 180)) return { point: [fixed[0] + u[0] * along, fixed[1] + u[1] * along], kind, tip, guideFrom: fixed };
+  }
+  return snap;
+}
+
+/** Columns among `ids` that were dropped in a wall join it (split it at their centre). Returns whether anything changed. */
+function attachColumns(app, ids) {
+  const project = app.project();
+  let changed = false;
+  for (const o of project.objects.filter((x) => ids.includes(x.id) && isColumn(x) && !x.locked)) {
+    const r = attachColumn(project, o, () => newId('w'));
+    if (r.moved || r.split.length) changed = true;
+  }
+  if (changed) app.live();
+  return changed;
 }
 
 // ───────────────────────── Place (library items, doors and windows)
@@ -305,79 +630,218 @@ export class PlaceTool extends Tool {
 
 export class WallTool extends Tool {
   id = 'wall';
+  /** Kept between uses: draw by the centre line or a face ('center' | 'left' | 'right'), straight or arc walls. */
+  static options = { align: 'center', mode: 'line' };
   get cursor() { return 'crosshair'; }
-  vcbLabel() { return 'vcb.length'; }
+  vcbLabel() { return this.arcEnd ? 'vcb.radius' : 'vcb.length'; }
+  hint() { return WallTool.options.mode === 'arc' ? 'hint.wallArc' : 'hint.wall'; }
+  hintParams() { return { align: this.app.t(ALIGN_LABEL[WallTool.options.align]) }; }
 
-  activate() { this.points = []; this.lock = null; }
+  /** The tool's choices for the status bar (segmented controls). */
+  options() {
+    const o = WallTool.options;
+    return [
+      { key: 'align', label: 'wallTool.align', value: o.align, choices: [['center', 'wallTool.alignCenter', 'alignCenter'], ['left', 'wallTool.alignLeft', 'alignLeft'], ['right', 'wallTool.alignRight', 'alignRight']] },
+      { key: 'mode', label: 'wallTool.mode', value: o.mode, choices: [['line', 'wallTool.line', 'wallTool'], ['arc', 'wallTool.arc', 'arcTool']] },
+    ];
+  }
+
+  setOption(key, value) {
+    const o = WallTool.options;
+    if (key === 'align' && ['center', 'left', 'right'].includes(value)) {
+      o.align = value;
+      // The chain being drawn follows (its walls move to the new centre line, one undo step).
+      if (this.walls.some(Boolean)) this.app.change('op.wall', (project) => this.applyChain(project), ['walls']);
+    } else if (key === 'mode' && ['line', 'arc'].includes(value)) {
+      o.mode = value;
+      this.arcEnd = null;
+    } else return;
+    this.app.renderStatus?.();
+    this.preview();
+  }
+
+  activate() { this.points = []; this.walls = []; this.curves = []; this.lock = null; this.arcEnd = null; this.thickness = null; }
 
   move(e) {
-    const from = this.points.at(-1) ?? null;
-    const snap = snapAt(this.app, e, from, this.lock);
+    const from = this.arcEnd ? null : this.points.at(-1) ?? null;
+    const snap = snapAt(this.app, e, from, this.arcEnd ? null : this.lock, this.snapOptions());
     this.snap = snap;
     if (!snap) return;
     showSnap(this.app, snap, from ? v3(from[0], this.app.level().elevation, from[1]) : null);
     this.preview();
   }
 
+  /** Drawing by a face: the chain's own walls lie half a thickness off the clicked points; snap to those points instead. */
+  snapOptions() {
+    if (WallTool.options.align === 'center' || !this.points.length) return {};
+    return { exclude: new Set(this.walls.filter(Boolean)), extra: this.points.map((q) => [q, 'endpoint']) };
+  }
+
+  /** The arc being drawn: from the last point to the arc's end, through `through` (or of radius `radius`). */
+  pendingArc(through, radius = null) {
+    const p0 = this.points.at(-1);
+    const p1 = this.arcEnd;
+    if (!p0 || !p1 || !through) return null;
+    const arc = radius ? arcFromRadius(p0, p1, radius, through) : arcFromThreePoints(p0, p1, through);
+    if (!arc) return null;
+    return { arc, points: arcWallSegments([arc.cx, arc.cz], arc.r, arc.a0, arc.a1, { start: p0, end: p1 }).map(([, b]) => b) };
+  }
+
   preview() {
     const app = this.app;
+    if (!this.points) return;
     const y = app.level().elevation;
-    const pts = this.points.map(([x, z]) => v3(x, y, z));
-    if (this.snap && pts.length) pts.push(this.snap.world);
-    app.overlay.polyline('wall', pts, { color: '#1f2937' });
-    // The wall's thickness as an outline, so the user sees what will be built.
-    const s = app.settings();
-    if (pts.length >= 2) {
-      const a = pts.at(-2); const b = pts.at(-1);
-      const d = b.clone().sub(a).setY(0);
-      const len = d.length();
-      if (len > 1e-6) {
-        d.normalize();
-        const n = v3(-d.z, 0, d.x).multiplyScalar(s.defaultWallThickness / 2);
-        app.overlay.polyline('wall-outline', [a.clone().add(n), b.clone().add(n), b.clone().sub(n), a.clone().sub(n)], { color: '#2a5bd7', closed: true });
-        app.overlay.label('len', a.clone().add(b).multiplyScalar(0.5), formatLength(len, app.units()), { kind: 'length', dx: 0, dy: -22 });
+    const thick = this.thickness ?? app.settings().defaultWallThickness;
+    let extra = [];
+    let radius = null;
+    if (this.snap && this.points.length) {
+      if (this.arcEnd) {
+        const pending = this.pendingArc(this.snap.point);
+        extra = pending ? pending.points : [this.arcEnd];
+        radius = pending?.arc.r ?? null;
+      } else extra = [this.snap.point];
+    }
+    const face = [...this.points, ...extra];
+    app.overlay.polyline('wall', face.map(([x, z]) => v3(x, y, z)), { color: '#1f2937' });
+    if (this.arcEnd) app.overlay.points('wall-arc-end', [v3(this.arcEnd[0], y, this.arcEnd[1])], { color: '#2a5bd7', size: 9 }); else app.overlay.clear('wall-arc-end');
+    const k = Math.max(0, this.points.length - 1);
+    if (face.length >= 2 && extra.length) {
+      // The walls that the next click makes, as their outline (thickness and mitres included).
+      const centre = faceToCentre(face, thick, WallTool.options.align).slice(k);
+      const left = offsetPolyline(centre, thick / 2); const right = offsetPolyline(centre, -thick / 2);
+      const pairs = [];
+      for (const side of [left, right]) for (let i = 0; i < side.length - 1; i++) pairs.push(side[i], side[i + 1]);
+      pairs.push(left[0], right[0], left.at(-1), right.at(-1));
+      app.overlay.lines('wall-outline', pairs.map(([x, z]) => v3(x, y, z)), { color: '#2a5bd7' });
+      if (this.arcEnd) {
+        if (radius) app.overlay.label('len', v3(...[this.snap.point[0], y, this.snap.point[1]]), `R ${formatLength(radius, app.units())}`, { kind: 'length', dx: 0, dy: -22 });
+        app.setVcb('vcb.radius', radius ? formatLength(radius, app.units(), { suffix: false }) : '');
+      } else {
+        const a = face.at(-2); const b = face.at(-1);
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        app.overlay.label('len', v3((a[0] + b[0]) / 2, y, (a[1] + b[1]) / 2), formatLength(len, app.units()), { kind: 'length', dx: 0, dy: -22 });
         app.setVcb('vcb.length', formatLength(len, app.units(), { suffix: false }));
       }
     } else { app.overlay.clear('wall-outline'); app.overlay.clearLabel('len'); }
   }
 
   up(e) {
-    const snap = this.snap ?? snapAt(this.app, e, this.points.at(-1) ?? null, this.lock);
+    const snap = this.snap ?? snapAt(this.app, e, this.points.at(-1) ?? null, this.lock, this.snapOptions());
     if (!snap) return;
+    if (WallTool.options.mode === 'arc' && this.points.length) { this.arcClick(snap.point); return; }
     this.addPoint(snap.point, snap);
   }
 
-  addPoint(point, snap = null) {
-    const app = this.app;
+  /** Arc mode after the start point: the first click is the arc's end, the next one a point it passes through. */
+  arcClick(point) {
+    const last = this.points.at(-1);
+    if (!this.arcEnd) {
+      if (Math.hypot(point[0] - last[0], point[1] - last[1]) < 0.01) { this.finish(); return; }
+      this.arcEnd = point;
+      this.app.setVcb('vcb.radius', '');
+      this.preview();
+      return;
+    }
+    this.addArc(this.pendingArc(point));
+  }
+
+  addArc(pending) {
+    const end = this.arcEnd;
+    this.arcEnd = null;
+    if (!pending) { this.addPoint(end); return; }
+    const { arc, points } = pending;
+    this.addSegments(points, { id: newId('cv'), arc }, 'op.wallArc');
+    this.afterAdd(end);
+  }
+
+  addPoint(point) {
     const last = this.points.at(-1);
     if (last && Math.hypot(point[0] - last[0], point[1] - last[1]) < 0.01) { this.finish(); return; }
-    if (last) {
-      const level = app.level();
-      const s = app.settings();
-      const id = newId('w');
-      app.change('op.wall', (project) => {
-        project.walls.push({ id, level: level.id, a: [...last], b: [...point], thickness: s.defaultWallThickness, height: null, material: {} });
-      }, ['walls']);
+    if (!last) { this.points.push(point); this.thickness = this.app.settings().defaultWallThickness; this.preview(); return; }
+    this.addSegments([point], null, 'op.wall');
+    this.afterAdd(point);
+  }
+
+  /** Closing the loop on the first point ends the chain (a room's walls are done). */
+  afterAdd(point) {
+    const first = this.points[0];
+    if (this.points.length > 2 && Math.hypot(point[0] - first[0], point[1] - first[1]) < 0.01) {
+      if (WallTool.options.align !== 'center') this.app.change('op.wall', (project) => this.applyChain(project, true), ['walls']);
+      this.finish();
+      return;
     }
-    this.points.push(point);
-    // Closing the loop on the first point ends the chain (a room's walls are done).
-    if (this.points.length > 2 && Math.hypot(point[0] - this.points[0][0], point[1] - this.points[0][1]) < 0.01) { this.finish(); return; }
-    if (snap?.kind === 'endpoint' && this.points.length > 1 && snap.ref && this.points.length > 2) { /* joined an existing wall: keep drawing */ }
     this.preview();
   }
 
+  /** New face points → new walls (one undo step); the whole chain's centre line is laid out again (mitres). */
+  addSegments(points, curve, label) {
+    const app = this.app;
+    const level = app.level();
+    const align = WallTool.options.align;
+    const ids = [];
+    app.change(label, (project) => {
+      for (const point of points) {
+        const last = this.points.at(-1);
+        // A straight wall drawn over an existing one (same line, both ends on it) is not doubled.
+        const twin = !curve && align === 'center' && project.walls.find((w) => w.level === level.id && projectOnSegment(last, w.a, w.b).distance < 0.01 && projectOnSegment(point, w.a, w.b).distance < 0.01);
+        let id = null;
+        if (!twin) {
+          id = newId('w');
+          project.walls.push({ id, level: level.id, a: [...last], b: [...point], thickness: this.thickness, height: null, material: {}, ...(align !== 'center' ? { align } : {}) });
+          ids.push(id);
+        }
+        this.points.push(point);
+        this.walls.push(id);
+        this.curves.push(curve);
+      }
+      this.applyChain(project);
+    }, ['walls']);
+    return ids;
+  }
+
+  /** The chain's walls on the centre line of the drawn points (offset by half the thickness when drawn by a face). */
+  applyChain(project, closed = false) {
+    const align = WallTool.options.align;
+    const pts = closed ? this.points.slice(0, -1) : this.points;
+    const centre = faceToCentre(pts, this.thickness, align, closed);
+    // For an arc drawn by a face the centre line's radius differs by half the thickness.
+    const off = align === 'left' ? -this.thickness / 2 : align === 'right' ? this.thickness / 2 : 0;
+    this.walls.forEach((id, i) => {
+      const w = id && project.walls.find((x) => x.id === id);
+      if (!w) return;
+      w.a = [...centre[i % centre.length]];
+      w.b = [...centre[(i + 1) % centre.length]];
+      if (align === 'center') delete w.align; else w.align = align;
+      const c = this.curves[i];
+      if (c) { const sweep = Math.sign(c.arc.a1 - c.arc.a0); w.curve = arcCurve(c.id, [c.arc.cx, c.arc.cz], c.arc.r - sweep * off, c.arc.a0, c.arc.a1); }
+    });
+  }
+
   finish() {
+    const created = (this.walls ?? []).filter(Boolean);
     this.points = [];
+    this.walls = [];
+    this.curves = [];
     this.lock = null;
+    this.arcEnd = null;
     this.app.overlay.reset();
     this.app.setVcb('vcb.length', '');
+    if (created.length) {
+      const split = splitAtColumns(this.app, created);
+      makeRoomsFor(this.app, [...created, ...split]);
+    }
   }
+
+  deactivate() { if (this.walls?.some(Boolean)) this.finish(); this.app.overlay.reset(); }
 
   dblclick() { this.finish(); }
 
   key(e) {
     const k = e.key.toLowerCase();
+    if (k === 'escape' && this.arcEnd) { this.arcEnd = null; this.preview(); return true; }
     if (k === 'escape' || k === 'enter') { if (this.points.length) { this.finish(); return true; } return false; }
+    if (k === 'tab') { const order = ['center', 'left', 'right']; this.setOption('align', order[(order.indexOf(WallTool.options.align) + 1) % 3]); return true; }
+    if (k === 'a' && !e.ctrlKey && !e.metaKey && !e.altKey) { this.setOption('mode', WallTool.options.mode === 'arc' ? 'line' : 'arc'); return true; }
     if (k === 'shift' && this.snap && this.points.length) {
       const from = this.points.at(-1);
       const d = [this.snap.point[0] - from[0], this.snap.point[1] - from[1]];
@@ -392,18 +856,37 @@ export class WallTool extends Tool {
 
   keyUp(e) { if (e.key === 'Shift') this.lock = null; }
 
-  /** Typed length: a wall of that length in the current direction. */
+  /** Typed length: a wall (or the arc's end) that far in the current direction; after an arc's end: its radius. */
   vcb(text) {
     const value = parseLength(text, this.app.units());
     const from = this.points.at(-1);
     if (value == null || !from || !this.snap) return false;
-    const len = Array.isArray(value) ? value[0] : value;
+    const len = Math.abs(Array.isArray(value) ? value[0] : value);
+    if (this.arcEnd) {
+      const pending = this.pendingArc(this.snap.point, len);
+      if (!pending) return false;
+      this.addArc(pending);
+      return true;
+    }
     const d = [this.snap.point[0] - from[0], this.snap.point[1] - from[1]];
     const l = Math.hypot(d[0], d[1]) || 1;
-    this.addPoint([from[0] + (d[0] / l) * len, from[1] + (d[1] / l) * len]);
+    const point = [from[0] + (d[0] / l) * len, from[1] + (d[1] / l) * len];
+    if (WallTool.options.mode === 'arc') this.arcClick(point); else this.addPoint(point);
     return true;
   }
 }
+
+const ALIGN_LABEL = { center: 'wallTool.alignCenter', left: 'wallTool.alignLeft', right: 'wallTool.alignRight' };
+
+/** Walls just drawn are split at the columns standing on them (one undo step when there are any). Returns the new ids. */
+function splitAtColumns(app, wallIds) {
+  const project = app.project();
+  const walls = project.walls.filter((w) => wallIds.includes(w.id));
+  const hit = walls.some((w) => columnsOf(project, w.level).some((o) => { const pr = projectOnSegment([o.position[0], o.position[2]], w.a, w.b); return pr.distance <= Math.max(0.01, (w.thickness ?? 0.15) / 2) && pr.t > 1e-6 && pr.t < 1 - 1e-6; }));
+  if (!hit) return [];
+  return app.change('op.split', (p) => splitWallsAtColumns(p, wallIds, () => newId('w')), ['walls', 'openings', 'objects']) ?? [];
+}
+
 
 // ───────────────────────── Room (click inside walls → room; or draw its outline)
 
@@ -411,20 +894,23 @@ export class RoomTool extends Tool {
   id = 'room';
   get cursor() { return 'crosshair'; }
   vcbLabel() { return 'vcb.length'; }
-  activate() { this.points = []; }
+  activate() { this.points = []; this.corner = null; }
 
   move(e) {
     const app = this.app;
-    const from = this.points.at(-1) ?? null;
+    const from = this.corner ?? this.points.at(-1) ?? null;
     const snap = snapAt(app, e, from);
     this.snap = snap;
     if (!snap) return;
     const y = app.level().elevation + 0.01;
+    if (this.corner) { this.previewRect(snap.point); showSnap(app, snap, v3(from[0], y, from[1])); return; }
     if (!this.points.length) {
       // Hovering inside walls: show the room that one click would make.
       const project = app.project();
       const walls = project.walls.filter((w) => w.level === app.level().id);
-      const poly = detectRoom(walls, snap.point, app.level().id);
+      let poly = detectRoom(walls, snap.point, app.level().id);
+      // On a wall or its corner (outside the room's inner faces) a click starts a rectangle instead.
+      if (poly && !pointInPolygon(snap.point, poly)) poly = null;
       this.detected = poly;
       if (poly) {
         app.overlay.polygon('room', poly.map(([x, z]) => v3(x, y, z)), { color: '#2a9d5b', opacity: 0.25 });
@@ -439,14 +925,54 @@ export class RoomTool extends Tool {
     app.overlay.polygon('room', pts, { color: '#2a9d5b', opacity: 0.18 });
   }
 
-  up() {
+  /** Rectangle from the first corner to `q`: its outline and the two side lengths. */
+  previewRect(q) {
+    const app = this.app;
+    const y = app.level().elevation + 0.01;
+    const c = this.corner;
+    const pts = [[c[0], c[1]], [q[0], c[1]], [q[0], q[1]], [c[0], q[1]]].map(([x, z]) => v3(x, y, z));
+    app.overlay.polyline('room-line', pts, { color: '#2a5bd7', closed: true });
+    app.overlay.polygon('room', pts, { color: '#2a9d5b', opacity: 0.15 });
+    const w = Math.abs(q[0] - c[0]); const d = Math.abs(q[1] - c[1]);
+    app.overlay.label('len', v3((c[0] + q[0]) / 2, y, Math.min(c[1], q[1])), formatLength(w, app.units()), { kind: 'length', dx: 0, dy: -18 });
+    app.overlay.label('area', v3(Math.max(c[0], q[0]), y, (c[1] + q[1]) / 2), formatLength(d, app.units()), { kind: 'length', dx: 34, dy: 0 });
+    app.setVcb('vcb.length', `${formatLength(w, app.units(), { suffix: false })},${formatLength(d, app.units(), { suffix: false })}`);
+  }
+
+  /** Four walls (sharing stretches that are already walled) and the room inside them. */
+  createRect(c, q) {
+    const app = this.app;
+    this.corner = null;
+    app.overlay.reset();
+    app.setVcb('vcb.length', '');
+    if (Math.abs(q[0] - c[0]) < 0.3 || Math.abs(q[1] - c[1]) < 0.3) return;
+    const level = app.level();
+    const s = app.settings();
+    const segs = rectangleSegments(app.project().walls.filter((w) => w.level === level.id), c, q);
+    const ids = segs.map(() => newId('w'));
+    if (ids.length) app.change('op.roomRect', (project) => { segs.forEach(([a, b], i) => project.walls.push({ id: ids[i], level: level.id, a, b, thickness: s.defaultWallThickness, height: null, material: {} })); }, ['walls']);
+    // Rooms: the rectangle (and any room it split); a rectangle drawn entirely on existing walls still gets its room.
+    const made = makeRoomsFor(app, [...ids, ...splitAtColumns(app, ids)], { quiet: true });
+    if (made.length) { app.select(made); return; }
+    const centre = [(c[0] + q[0]) / 2, (c[1] + q[1]) / 2];
+    const poly = detectRoom(app.project().walls.filter((w) => w.level === level.id), centre, level.id);
+    if (poly && !app.project().rooms.some((r) => r.level === level.id && pointInPolygon(centre, r.points))) this.create(poly);
+  }
+
+  up(e) {
     const app = this.app;
     const snap = this.snap;
     if (!snap) return;
-    if (!this.points.length && this.detected) {
+    if (this.corner) { this.createRect(this.corner, snap.point); return; }
+    // Inside walls that already hold a room, a click starts a rectangle (a room inside the room) instead.
+    const roomed = this.detected && app.project().rooms.some((r) => r.level === app.level().id && pointInPolygon(snap.point, r.points));
+    if (!this.points.length && this.detected && !roomed) {
       this.create(this.detected);
       return;
     }
+    // Elsewhere: the first corner of a rectangle of walls (Alt: the old free outline, a floor without walls).
+    if (!this.points.length && !e?.altKey) { this.corner = snap.point; app.overlay.clear('room'); app.overlay.clearLabel('area'); return; }
+
     if (this.points.length >= 3 && Math.hypot(snap.point[0] - this.points[0][0], snap.point[1] - this.points[0][1]) < 0.02) { this.create(this.points); return; }
     this.points.push(snap.point);
     app.overlay.clear('room');
@@ -467,8 +993,133 @@ export class RoomTool extends Tool {
   }
 
   dblclick() { if (this.points.length >= 3) this.create(this.points); }
-  key(e) { if (e.key === 'Escape' && this.points.length) { this.points = []; this.app.overlay.reset(); return true; } if (e.key === 'Enter' && this.points.length >= 3) { this.create(this.points); return true; } return false; }
+  key(e) { if (e.key === 'Escape' && (this.points.length || this.corner)) { this.points = []; this.corner = null; this.app.overlay.reset(); this.app.setVcb('vcb.length', ''); return true; } if (e.key === 'Enter' && this.points.length >= 3) { this.create(this.points); return true; } return false; }
+
+  /** Typed size after the first corner: "4000,3000" (width, depth) towards the cursor; one value = a square. */
+  vcb(text) {
+    const value = parseLength(text, this.app.units());
+    if (value == null || !this.corner) return false;
+    const [w, d] = Array.isArray(value) ? value : [value, value];
+    const c = this.corner;
+    const q = this.snap?.point ?? [c[0] + 1, c[1] + 1];
+    const sx = q[0] < c[0] ? -1 : 1; const sz = q[1] < c[1] ? -1 : 1;
+    this.createRect(c, [c[0] + sx * Math.abs(w), c[1] + sz * Math.abs(d ?? w)]);
+    return true;
+  }
 }
+
+/** Rooms for the areas that new walls closed (planedit.roomsAfterWalls), as one undo step. Returns the new room ids. */
+function makeRoomsFor(app, wallIds, { quiet = false } = {}) {
+  const project = app.project();
+  const walls = project.walls.filter((w) => wallIds.includes(w.id));
+  if (!walls.length) return [];
+  const level = walls[0].level;
+  // Dry run on copies first: an undo step is recorded only when rooms change.
+  const probe = roomsAfterWalls({ walls: project.walls, rooms: project.rooms.map((r) => ({ ...r })) }, level, walls, (points) => ({ id: 'probe', level, points }));
+  if (!probe.added.length && !probe.changed.length) return [];
+  let n = project.rooms.length;
+  let result = { added: [], changed: [] };
+  app.change('op.room', (p) => {
+    result = roomsAfterWalls(p, level, walls, (points, from) => {
+      n += 1;
+      return { id: newId('rm'), level, name: from ? `${from.name} (${n})` : app.t('room.defaultName', { n }), points, floor: from?.floor ?? 'floor-oak', ceiling: from?.ceiling ?? 'wall-paint-white', showCeiling: from?.showCeiling ?? false };
+    });
+  }, ['rooms']);
+  if (!quiet && result.added.length) app.notify('info', app.t('notice.roomsMade', { count: result.added.length }));
+  return result.added;
+}
+
+// ───────────────────────── Column (structure; engine/planedit.js)
+
+const COLUMN_SHAPES = ['square', 'round', 'rect'];
+
+export class ColumnTool extends Tool {
+  id = 'column';
+  static last = { shape: 'square', size: 0.4, depth: 0.6 };
+  get cursor() { return 'crosshair'; }
+  vcbLabel() { return 'vcb.length'; }
+  activate() { this.params = { ...ColumnTool.last }; this.rotation = 0; }
+
+  move(e) {
+    const app = this.app;
+    const snap = snapAt(app, e);
+    this.snap = snap;
+    if (!snap) return;
+    showSnap(app, snap, null);
+    this.preview();
+  }
+
+  preview() {
+    const app = this.app;
+    const snap = this.snap;
+    if (!snap) return;
+    this.rotation = this.alongWall(snap);
+    const y = app.level().elevation + 0.01;
+    const fp = columnFootprint(this.objectAt(snap.point));
+    app.overlay.polyline('column', fp.map(([x, z]) => v3(x, y, z)), { color: '#2a5bd7', closed: true });
+    const p = this.params;
+    const u = app.units();
+    app.overlay.label('column', snap.world, p.shape === 'rect' ? `${formatLength(p.size, u, { suffix: false })} × ${formatLength(p.depth, u)}` : formatLength(p.size, u), { kind: 'info', dx: 0, dy: -26 });
+    app.setVcb('vcb.length', p.shape === 'rect' ? `${formatLength(p.size, u, { suffix: false })},${formatLength(p.depth, u, { suffix: false })}` : formatLength(p.size, u, { suffix: false }));
+  }
+
+  /** On or at the end of a wall: turned with it (rectangular columns line up with the wall). */
+  alongWall(snap) {
+    const wall = snap.ref ? this.app.project().walls.find((w) => w.id === snap.ref) : null;
+    if (!wall) return 0;
+    const d = wallDir(wall);
+    const a = Math.atan2(-d[1], d[0]);
+    // Within ±90°, so square columns do not spin needlessly.
+    return Math.abs(a) > Math.PI / 2 + 1e-6 ? a - Math.sign(a) * Math.PI : a;
+  }
+
+  objectAt(point) {
+    return { item: 'column', params: { ...this.params }, position: [point[0], 0, point[1]], rotation: [0, this.rotation ?? 0, 0], scale: [1, 1, 1] };
+  }
+
+  up(e) {
+    const snap = this.snap ?? snapAt(this.app, e);
+    if (snap) this.place(snap.point);
+  }
+
+  place(point) {
+    const app = this.app;
+    const level = app.level();
+    if (columnsOf(app.project(), level.id).some((o) => Math.hypot(o.position[0] - point[0], o.position[2] - point[1]) < 0.05)) return;
+    const id = newId('ob');
+    const o = this.objectAt(point);
+    app.change('op.column', (project) => {
+      const column = { id, level: level.id, item: 'column', params: { ...o.params, fitLevel: true, height: level.height, trim: false, material: 'wall-paint-white' }, position: o.position, rotation: o.rotation, scale: [1, 1, 1], materials: {}, tag: 'untagged', name: '' };
+      project.objects.push(column);
+      // In the middle of a wall: the wall is split at the column, which becomes the joint of both pieces.
+      attachColumn(project, column, () => newId('w'));
+    }, ['objects', 'walls', 'openings']);
+    app.select([id]);
+  }
+
+  key(e) {
+    if (e.key !== 'Tab') return false;
+    const i = COLUMN_SHAPES.indexOf(this.params.shape);
+    this.params.shape = COLUMN_SHAPES[(i + 1) % COLUMN_SHAPES.length];
+    ColumnTool.last = { ...this.params };
+    this.preview();
+    return true;
+  }
+
+  /** Typed size: "400" (width or diameter) or "400,600" (a rectangular column). */
+  vcb(text) {
+    const value = parseLength(text, this.app.units());
+    if (value == null) return false;
+    const [w, d] = Array.isArray(value) ? value.map(Math.abs) : [Math.abs(value), null];
+    if (!(w >= 0.05) || (d != null && !(d >= 0.05))) return false;
+    this.params.size = w;
+    if (d != null) { this.params.depth = d; this.params.shape = 'rect'; } else if (this.params.shape === 'rect') this.params.shape = 'square';
+    ColumnTool.last = { ...this.params };
+    this.preview();
+    return true;
+  }
+}
+
 
 // ───────────────────────── Move / Rotate / Scale (selected entities; SketchUp two-click style)
 
@@ -526,6 +1177,7 @@ export class MoveTool extends Tool {
   }
 
   finish() {
+    attachColumns(this.app, this.ids);
     this.app.commit(this.copy ? 'op.copy' : 'op.move', ['objects', 'models', 'walls', 'rooms', 'openings', 'dimensions', 'texts']);
     this.lastMove = { ids: this.ids, vector: this.last.clone().sub(this.start), copy: this.copy };
     this.start = null;
@@ -946,3 +1598,229 @@ export class NavTool extends Tool {
 }
 
 export { pointInPolygon, wallHeight };
+
+// ───────────────────────── Stairs (engine/stairs.js: layouts, stairwell holes in the floor above)
+
+/** Small plan pictograms of the stair types for the tool's option strip. */
+const STAIR_GLYPHS = {
+  straight: '<rect x="8" y="2" width="8" height="20" rx="1"/><path d="M8 6h8M8 10h8M8 14h8M8 18h8"/>',
+  l: '<path d="M4 22V10h12v6H10v6z"/><path d="M4 18h6M4 14h6M14 10v6"/>',
+  winder: '<path d="M4 22V8h16v8H10v6z"/><path d="M4 18h6M10 16 4 8M10 16l4-8M20 12h-6"/>',
+  u: '<rect x="3" y="2" width="18" height="7" rx="1"/><path d="M3 9v13h7V9M14 9v13h7V9M3 13h7M3 17h7M14 13h7M14 17h7"/>',
+  spiral: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1.6"/><path d="M12 2v8M21.5 9l-8 2.4M17.5 20.5 13 13.5M5 19.5l6-6M2.5 9l8 2.4"/>',
+  curved: '<path d="M3 21A18 18 0 0 1 21 3v7a11 11 0 0 0-11 11z"/><path d="M5.5 14.5l6 2M9.5 8.5l4 4.5M15 5l1 6"/>',
+};
+const STAIR_TOOL_TYPES = ['straight', 'l', 'winder', 'u', 'spiral', 'curved'];
+
+/**
+ * Draws a `stairs` object: click the start (the middle of the first riser), then the direction it climbs,
+ * then (L, U, winder, spiral, curved) the side it turns to. The rise reaches the level above (or is the
+ * level's height on the top level); type, width and turn come from the option strip over the view
+ * (Tab: next type; typing a length: width, or diameter for a spiral).
+ */
+export class StairsTool extends Tool {
+  id = 'stairs';
+  static last = { type: 'u', width: 1.0, diameter: 1.6, turn: 'right' };
+  get cursor() { return 'crosshair'; }
+  vcbLabel() { return 'vcb.length'; }
+
+  activate() {
+    this.opts = { ...StairsTool.last };
+    this.phase = 0;
+    this.start = null;
+    this.dir = [0, -1];
+    this.strip = this.makeStrip();
+  }
+
+  deactivate() {
+    this.app.overlay.reset();
+    this.strip?.remove();
+    this.strip = null;
+    this.ghost = null;
+    this.ghostKey = '';
+  }
+
+  needsTurn() { return this.opts.type !== 'straight'; }
+
+  /** The params of the stair being drawn. */
+  params() {
+    const o = this.opts;
+    const spiral = o.type === 'spiral';
+    return {
+      type: o.type, rise: stairsRiseToNextLevel(this.app.project(), this.app.level().id), width: o.width, run: 0.27, maxRiser: 0.19, turn: o.turn,
+      landing: 0, gap: 0.1, angle: o.type === 'curved' ? 180 : 360, diameter: o.diameter, innerRadius: 0.5,
+      rail: 'baluster', railSides: 'auto', risers: spiral ? 'open' : 'closed', guard: false, stairwell: true, tread: 'wood-oak', riser: 'paint-white-matte',
+    };
+  }
+
+  // ── option strip (type · width · turn)
+
+  makeStrip() {
+    const host = this.app.viewport?.canvas?.closest?.('.view-host') ?? this.app.viewport?.canvas?.parentElement;
+    if (!host || typeof document === 'undefined') return null;
+    const el = document.createElement('div');
+    el.className = 'stairs-strip';
+    el.setAttribute('role', 'toolbar');
+    el.addEventListener('pointerdown', (event) => event.stopPropagation());
+    el.addEventListener('click', (event) => {
+      const b = event.target.closest('button');
+      if (!b) return;
+      if (b.dataset.stairType) this.opts.type = b.dataset.stairType;
+      else if (b.dataset.stairStep) this.stepWidth(Number(b.dataset.stairStep));
+      else if (b.dataset.stairTurn) this.opts.turn = this.opts.turn === 'left' ? 'right' : 'left';
+      this.remember();
+      this.preview();
+    });
+    host.appendChild(el);
+    this.renderStrip(el);
+    return el;
+  }
+
+  renderStrip(el = this.strip) {
+    if (!el) return;
+    const t = (k, p) => this.app.t(k, p);
+    const o = this.opts;
+    const u = this.app.units();
+    const spiral = o.type === 'spiral';
+    const svg = (body) => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">${body}</svg>`;
+    el.innerHTML = `<span class="stairs-strip-group">${STAIR_TOOL_TYPES.map((type) => `<button type="button" class="${o.type === type ? 'active' : ''}" data-stair-type="${type}" aria-pressed="${o.type === type}" title="${t(`stairs.type.${type}.tip`)}">${svg(STAIR_GLYPHS[type])}<span>${t(`stairs.type.${type}`)}</span></button>`).join('')}</span>
+      <span class="stairs-strip-group"><span class="stairs-strip-label">${t(spiral ? 'stairs.diameter' : 'stairs.width')}</span><span class="stepper"><button type="button" class="stepper-button" data-stair-step="-1" title="−">−</button><span class="stepper-value stairs-strip-value">${formatLength(spiral ? o.diameter : o.width, u)}</span><button type="button" class="stepper-button" data-stair-step="1" title="+">+</button></span></span>
+      <span class="stairs-strip-group"><button type="button" data-stair-turn="1" ${o.type === 'straight' ? 'disabled' : ''} title="${t('stairs.turnTip')}"><span>${t(o.turn === 'left' ? 'stairs.turn.left' : 'stairs.turn.right')}</span></button></span>`;
+  }
+
+  stepWidth(sign) {
+    if (this.opts.type === 'spiral') this.opts.diameter = Math.min(3.0, Math.max(1.2, Math.round((this.opts.diameter + sign * 0.1) * 100) / 100));
+    else this.opts.width = Math.min(2.0, Math.max(0.6, Math.round((this.opts.width + sign * 0.05) * 100) / 100));
+  }
+
+  remember() { StairsTool.last = { ...this.opts }; this.renderStrip(); }
+
+  // ── pointer
+
+  move(e) {
+    const app = this.app;
+    if (this.phase === 0) {
+      const snap = snapAt(app, e);
+      this.snap = snap;
+      if (!snap) return;
+      showSnap(app, snap, null);
+      this.start = snap.point;
+    } else {
+      const g = app.groundPoint(e);
+      if (!g) return;
+      const v = [g.x - this.start[0], g.z - this.start[1]];
+      if (this.phase === 1 && Math.hypot(v[0], v[1]) > 0.05) {
+        // Snapped to 15° steps (Shift: free).
+        let a = Math.atan2(v[1], v[0]);
+        if (!e.shiftKey) a = Math.round(a / (Math.PI / 12)) * (Math.PI / 12);
+        this.dir = [Math.cos(a), Math.sin(a)];
+      } else if (this.phase === 2) {
+        // The side of the climbing line the pointer is on: the way the stair turns.
+        const right = [-this.dir[1], this.dir[0]]; // the walker's right (rotation of `dir` by +90° in plan)
+        const side = v[0] * right[0] + v[1] * right[1];
+        if (Math.abs(side) > 0.05) this.opts.turn = side > 0 ? 'right' : 'left';
+      }
+    }
+    this.preview();
+  }
+
+  up(e) {
+    if (this.phase === 0) {
+      const snap = this.snap ?? snapAt(this.app, e);
+      if (!snap) return;
+      this.start = snap.point;
+      this.phase = 1;
+      return;
+    }
+    if (this.phase === 1 && this.needsTurn()) { this.phase = 2; this.preview(); return; }
+    this.place();
+  }
+
+  key(e) {
+    if (e.key === 'Tab') {
+      const i = STAIR_TOOL_TYPES.indexOf(this.opts.type);
+      this.opts.type = STAIR_TOOL_TYPES[(i + (e.shiftKey ? STAIR_TOOL_TYPES.length - 1 : 1)) % STAIR_TOOL_TYPES.length];
+      this.remember();
+      this.preview();
+      return true;
+    }
+    if (e.key === 'Escape' && this.phase > 0) { this.phase = 0; this.preview(); return true; }
+    return false;
+  }
+
+  /** Typed width (or the diameter of a spiral stair). */
+  vcb(text) {
+    const value = parseLength(text, this.app.units());
+    if (value == null || Array.isArray(value)) return false;
+    const v = Math.abs(value);
+    if (this.opts.type === 'spiral') { if (!(v >= 1.0 && v <= 4)) return false; this.opts.diameter = v; } else { if (!(v >= 0.5 && v <= 3)) return false; this.opts.width = v; }
+    this.remember();
+    this.preview();
+    return true;
+  }
+
+  /** The stair object for the current start, direction and options (local → world: engine/stairs.js placeStairs). */
+  objectNow() {
+    if (!this.start) return null;
+    const params = this.params();
+    const placed = stairsPlace(params, this.start, this.dir);
+    return { item: 'stairs', params, position: placed.position, rotation: placed.rotation, scale: [1, 1, 1], layout: placed.layout };
+  }
+
+  preview() {
+    const app = this.app;
+    this.renderStrip();
+    const o = this.objectNow();
+    if (!o) return;
+    const level = app.level();
+    const y = level.elevation;
+    const item = stairsCatalogItem('stairs');
+    const key = JSON.stringify(o.params);
+    if (item && app.builder?.instance && key !== this.ghostKey) {
+      const holder = new THREE.Group();
+      holder.add(app.builder.instance(item, o.params, {}));
+      holder.traverse((m) => { m.userData.noPick = true; if (m.isLineSegments) m.visible = false; });
+      this.ghost = holder;
+      this.ghostKey = key;
+      app.overlay.object('stairs-ghost', holder);
+      app.viewport.applyStyle?.(holder);
+    }
+    // The 2D plan shows the stair as its tread lines (the plan symbol); 3D shows the stair itself.
+    if (this.ghost) this.ghost.visible = !app.viewport.planMode;
+    const treadLines = [];
+    for (const st of o.layout.steps) {
+      const w = st.poly.map((q) => stairsToWorld(o, q));
+      for (let i = 0; i < w.length; i++) treadLines.push(new THREE.Vector3(w[i][0], y + 0.013, w[i][1]), new THREE.Vector3(w[(i + 1) % w.length][0], y + 0.013, w[(i + 1) % w.length][1]));
+    }
+    app.overlay.lines('stairs-treads', treadLines, { color: '#2a5bd7', opacity: 0.7 });
+    if (this.ghost) {
+      this.ghost.position.set(o.position[0], y, o.position[2]);
+      this.ghost.rotation.set(0, o.rotation[1], 0);
+      this.ghost.updateMatrixWorld(true);
+    }
+    const fp = o.layout.footprint.map((q) => stairsToWorld(o, q));
+    app.overlay.polyline('stairs-outline', fp.map(([x, z]) => new THREE.Vector3(x, y + 0.012, z)), { color: '#2a5bd7', closed: true });
+    // The climbing direction from the start point.
+    const s = this.start;
+    app.overlay.lines('stairs-dir', [new THREE.Vector3(s[0], y + 0.015, s[1]), new THREE.Vector3(s[0] + this.dir[0] * 0.8, y + 0.015, s[1] + this.dir[1] * 0.8)], { color: '#e0531f' });
+    const u = app.units();
+    const info = stairsInfo(o.params);
+    app.overlay.label('stairs', new THREE.Vector3(s[0], y, s[1]), app.t('stairs.previewLabel', { n: info.n, riser: formatLength(info.riser, u), rise: formatLength(o.params.rise, u) }), { kind: 'info', dx: 0, dy: -30 });
+    app.setVcb('vcb.length', formatLength(o.params.type === 'spiral' ? o.params.diameter : o.params.width, u, { suffix: false }));
+    app.viewport.requestRender();
+  }
+
+  place() {
+    const app = this.app;
+    const o = this.objectNow();
+    if (!o) return;
+    const level = app.level();
+    const id = newId('ob');
+    app.change('op.stairs', (project) => {
+      project.objects.push({ id, level: level.id, item: 'stairs', params: { ...o.params }, position: o.position, rotation: o.rotation, scale: [1, 1, 1], materials: {}, tag: 'untagged', name: '' });
+    }, ['objects']);
+    app.select([id]);
+    this.phase = 0;
+    this.app.overlay.clear('stairs-dir');
+  }
+}

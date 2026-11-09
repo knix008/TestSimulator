@@ -1,0 +1,198 @@
+{
+ "id": "doors-variety",
+ "title": "미닫이·포켓·폴딩·양개문, 여러 창 기호",
+ "units": "mm",
+ "walls": [
+  {
+   "a": [
+    10,
+    -27
+   ],
+   "b": [
+    20,
+    -27
+   ],
+   "thickness": 0.2
+  },
+  {
+   "a": [
+    20,
+    -27
+   ],
+   "b": [
+    20,
+    -20
+   ],
+   "thickness": 0.2
+  },
+  {
+   "a": [
+    20,
+    -20
+   ],
+   "b": [
+    10,
+    -20
+   ],
+   "thickness": 0.2
+  },
+  {
+   "a": [
+    10,
+    -20
+   ],
+   "b": [
+    10,
+    -27
+   ],
+   "thickness": 0.2
+  },
+  {
+   "a": [
+    14,
+    -27
+   ],
+   "b": [
+    14,
+    -20
+   ],
+   "thickness": 0.1
+  },
+  {
+   "a": [
+    14,
+    -23
+   ],
+   "b": [
+    20,
+    -23
+   ],
+   "thickness": 0.1
+  },
+  {
+   "a": [
+    17,
+    -23
+   ],
+   "b": [
+    17,
+    -20
+   ],
+   "thickness": 0.1
+  }
+ ],
+ "openings": [
+  {
+   "kind": "sliding",
+   "item": "door-sliding",
+   "center": [
+    12,
+    -20
+   ],
+   "width": 2,
+   "side": "left",
+   "hinge": "left",
+   "symbol": "sliding"
+  },
+  {
+   "kind": "double",
+   "item": "door-double",
+   "center": [
+    14,
+    -25
+   ],
+   "width": 1.6,
+   "side": "left",
+   "hinge": "left",
+   "symbol": "double"
+  },
+  {
+   "kind": "pocket",
+   "item": "door-pocket",
+   "center": [
+    14,
+    -21.5
+   ],
+   "width": 0.8,
+   "side": "left",
+   "hinge": "left",
+   "symbol": "pocket"
+  },
+  {
+   "kind": "folding",
+   "item": "door-folding",
+   "center": [
+    18.5,
+    -23
+   ],
+   "width": 1.5,
+   "side": "right",
+   "hinge": "left",
+   "symbol": "folding"
+  },
+  {
+   "kind": "door",
+   "item": "door-single",
+   "center": [
+    17,
+    -21.5
+   ],
+   "width": 0.8,
+   "side": "left",
+   "hinge": "left",
+   "symbol": "block"
+  },
+  {
+   "kind": "door",
+   "item": "door-entrance",
+   "center": [
+    20,
+    -25
+   ],
+   "width": 0.9,
+   "side": "left",
+   "hinge": "right"
+  },
+  {
+   "kind": "window",
+   "item": "window-casement",
+   "center": [
+    20,
+    -21.5
+   ],
+   "width": 1.2,
+   "symbol": "rect"
+  },
+  {
+   "kind": "window",
+   "item": "window-casement",
+   "center": [
+    17,
+    -27
+   ],
+   "width": 1.8,
+   "symbol": "glass"
+  },
+  {
+   "kind": "window",
+   "item": "window-casement",
+   "center": [
+    12,
+    -27
+   ],
+   "width": 1.2,
+   "symbol": "block"
+  },
+  {
+   "kind": "window",
+   "item": "window-sliding",
+   "center": [
+    10,
+    -23.5
+   ],
+   "width": 1.8,
+   "symbol": "block"
+  }
+ ],
+ "rooms": 4
+}

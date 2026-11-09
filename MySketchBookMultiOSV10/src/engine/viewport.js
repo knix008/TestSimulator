@@ -33,6 +33,14 @@ const QUALITY = {
 };
 const SHADOW_SIZE = { low: 1024, medium: 2048, high: 4096 };
 
+/**
+ * Daylight balance. The sun is the key light (it makes the shadows, also inside rooms); the sky light
+ * (hemisphere) and the environment's reflections only fill them. With a stronger fill the sun hardly
+ * changed the picture (switching it off looked the same) and indoor shadows were washed out.
+ */
+const SUN_STRENGTH = 4.6;
+const AMBIENT = 0.45;
+
 export class Viewport {
   /**
    * @param {HTMLElement} host
@@ -91,6 +99,21 @@ export class Viewport {
     this.planMode = false;
     this.selectionHelpers = new THREE.Group();
     this.overlay.add(this.selectionHelpers);
+    // Lamp markers: a bulb per lamp, drawn on top (not clipped by the plan cut), picked before the scene.
+    this.lampMarkers = new THREE.Group();
+    this.lampMarkers.name = 'lampMarkers';
+    this.overlay.add(this.lampMarkers);
+    // The sun: a marker on a sphere around the model (drag it to move the light), with a line to the centre.
+    this.sunMarker = new THREE.Group();
+    this.sunMarker.name = 'sunMarker';
+    this.sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTexture(true), depthTest: false, depthWrite: false, transparent: true }));
+    this.sunSprite.renderOrder = 21;
+    this.sunSprite.userData = { sunMarker: true };
+    this.sunLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 1, 0)]), new THREE.LineDashedMaterial({ color: '#f59f00', dashSize: 0.25, gapSize: 0.18, transparent: true, opacity: 0.7, depthTest: false }));
+    this.sunLine.renderOrder = 20;
+    this.sunMarker.add(this.sunLine, this.sunSprite);
+    this.sunMarker.visible = false;
+    this.overlay.add(this.sunMarker);
     this.animation = null;
     this.navTool = null;
 
@@ -171,7 +194,12 @@ export class Viewport {
       const solid = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), dir.clone().multiplyScalar(500)]), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.85 }));
       const dashed = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), dir.clone().multiplyScalar(-500)]), new THREE.LineDashedMaterial({ color, dashSize: 0.15, gapSize: 0.12, transparent: true, opacity: 0.55 }));
       dashed.computeLineDistances();
-      this.axes.add(solid, dashed);
+      // The 2D plan draws the negative half solid too (a plan's axes are plain lines through the origin).
+      const back = new THREE.Line(dashed.geometry, solid.material);
+      back.visible = false;
+      dashed.userData.axisDashed = true;
+      back.userData.axisPlanSolid = true;
+      this.axes.add(solid, dashed, back);
     };
     axis(new THREE.Vector3(1, 0, 0), AXIS_COLORS.x);
     axis(new THREE.Vector3(0, 1, 0), AXIS_COLORS.y);
@@ -228,6 +256,18 @@ export class Viewport {
     this.invalidateShadows();
   }
 
+  /** Fill light from lit lamps (their light bounced off the room), added to the sky light. */
+  setLampFill(value) {
+    this.lampFill = value;
+    this.hemi.intensity = (this.hemiBase ?? this.hemi.intensity) + value;
+    this.requestRender();
+  }
+
+  setGridColor(color) {
+    this.grid.material.uniforms.color.value.set(color);
+    this.requestRender();
+  }
+
   setSkyColors({ top, horizon, ground }) {
     const u = this.sky.material.uniforms;
     if (top) u.top.value.set(top);
@@ -239,7 +279,8 @@ export class Viewport {
   /** Environment lighting: the built-in room or an HDRI texture (PMREM) from library/environments.js. */
   setEnvironment(texture, { background = null, intensity = 0.55 } = {}) {
     this.scene.environment = texture ?? this.roomEnv;
-    this.scene.environmentIntensity = intensity;
+    this.envBase = intensity;
+    this.scene.environmentIntensity = intensity * AMBIENT * (this.dayFactor ?? 1);
     this.scene.background = background;
     this.sky.visible = !background;
     this.requestRender();
@@ -249,12 +290,21 @@ export class Viewport {
   setSun(sun, { enabled = true } = {}) {
     const d = sunDirection(sun);
     const up = Math.max(0, d.y);
-    const strength = enabled ? Math.min(1, up * 4) : 0;
-    this.sun.intensity = 2.6 * strength;
-    this.sun.color.setHSL(0.09, 0.6, 0.6 + 0.35 * Math.min(1, up * 2));
+    const on = enabled && sun.on !== false;
+    const strength = on ? Math.min(1, up * 4) : 0;
+    this.sun.intensity = SUN_STRENGTH * strength * (Number.isFinite(sun.intensity) ? sun.intensity : 1);
+    if (sun.color) this.sun.color.set(sun.color);
+    else this.sun.color.setHSL(0.09, 0.6, 0.6 + 0.35 * Math.min(1, up * 2));
     this.sunDir = new THREE.Vector3(d.x, Math.max(0.02, d.y), d.z).normalize();
+    // Day ↔ night: below the horizon the sky light and reflections fade (twilight over about ±6°).
+    this.night = d.altitude < 0;
+    this.dayFactor = 0.12 + 0.88 * Math.min(1, Math.max(0, (d.altitude + 6) / 12));
+    this.scene.environmentIntensity = (this.envBase ?? 0.55) * AMBIENT * this.dayFactor;
+    this.sunState = { on, altitude: d.altitude, dir: new THREE.Vector3(d.x, d.y, d.z).normalize() };
+    this.updateSunMarker();
     this.fitShadowCamera();
-    this.hemi.intensity = 0.25 + 0.25 * strength;
+    this.hemiBase = (0.1 + 0.1 * strength) * this.dayFactor;
+    this.hemi.intensity = this.hemiBase + (this.lampFill ?? 0);
     this.invalidateShadows();
   }
 
@@ -291,7 +341,7 @@ export class Viewport {
   requestRender() { this.dirty = true; }
   invalidateShadows() { this.shadowsDirty = true; this.dirty = true; }
   /** The content changed: fresh shadows and bounds. */
-  contentChanged() { this.fitShadowCamera(); this.invalidateShadows(); }
+  contentChanged() { this.fitShadowCamera(); this.invalidateShadows(); this.updateSunMarker(); }
   /** Objects moved (dragging): fresh shadows, but the shadow camera stays put so shadows don't shimmer. */
   contentMoved() { this.invalidateShadows(); }
 
@@ -328,6 +378,7 @@ export class Viewport {
     this.raf = requestAnimationFrame(this.loop);
     if (this.animation) this.stepAnimation(now);
     if (this.walk?.active) this.stepWalk(now);
+    this.stepGlide();
     if (!this.dirty) return;
     const s = this.settings();
     const minInterval = s.maxFps ? 1000 / s.maxFps : 0;
@@ -345,7 +396,8 @@ export class Viewport {
     // Ambient occlusion stays on while moving when the last full frame was cheap, so nothing pops on and off.
     this.aoPass.enabled = this.aoEnabled && this.styleMode !== 'wireframe' && (final || (this.lastFinalMs ?? 99) < 12);
     this.renderer.clippingPlanes = this.clipPlanes;
-    if (this.shadowsDirty && this.sun.castShadow) {
+    // Shadow maps (sun and lamps) are redrawn only when something changed.
+    if (this.shadowsDirty) {
       this.renderer.shadowMap.needsUpdate = true;
       this.shadowsDirty = false;
     }
@@ -357,6 +409,7 @@ export class Viewport {
     this.renderer.autoClear = false;
     this.renderer.clearDepth();
     this.renderer.clippingPlanes = [];
+    this.updateLampMarkerScale();
     this.renderer.render(this.overlay, this.camera);
     this.renderer.autoClear = true;
     const ms = performance.now() - t0;
@@ -389,8 +442,12 @@ export class Viewport {
   }
 
   /** Marks the start/continuation of an interaction; a full-quality frame follows when it ends. */
+  /** The user is moving the view or dragging in it (background work such as thumbnails waits). */
+  isBusy() { return Boolean(this.interacting || this.navDrag || this.animation || this.walk || this.pointerDown || performance.now() - (this.lastInteraction ?? 0) < 500); }
+
   touchInteraction(holdMs = 180) {
     this.interacting = true;
+    this.lastInteraction = performance.now();
     clearTimeout(this.idleTimer);
     this.idleTimer = setTimeout(() => { this.interacting = false; this.requestRender(); this.options.onCamera?.(this.cameraState()); }, holdMs);
     this.requestRender();
@@ -533,26 +590,86 @@ export class Viewport {
   }
 
   // ───────────────────────── navigation (SketchUp style)
-  //   middle drag: orbit · Shift+middle: pan · wheel: zoom at the cursor · double middle click: centre
-  //   the Orbit / Pan / Zoom tools do the same with the left button.
+  //   (the same as the other 3D apps): left drag rotates around the view centre (the select tool),
+  //   Ctrl/Alt + left drag and right drag move (pan), middle drag and the wheel zoom (at the cursor),
+  //   Shift + right drag rotates, double middle click centres there. Rotating and moving glide to a
+  //   stop after the button is released; a wheel notch is spread over a few frames.
+  //   The Orbit / Pan / Zoom tools do the same with the left button.
+
+  /** One navigation step (pixels); remembers the speed so the view can glide on after release. */
+  navigate(mode, dx, dy, pivot) {
+    this.glide = null;
+    if (this.planMode && mode === 'orbit') mode = 'pan';
+    if (mode === 'orbit') this.orbit(dx, dy, this.target.clone());
+    else if (mode === 'pan') this.pan(dx, dy, pivot ?? this.target);
+    else if (mode === 'zoom') this.dolly(Math.pow(1.01, dy), pivot ?? this.target);
+    const now = performance.now();
+    const v = this.navVelocity;
+    // Speed in pixels per frame, smoothed over the last moves.
+    const k = v && now - v.t < 80 ? 0.5 : 1;
+    this.navVelocity = { mode, pivot, t: now, vx: (v && k < 1 ? v.vx * (1 - k) : 0) + dx * k, vy: (v && k < 1 ? v.vy * (1 - k) : 0) + dy * k };
+    this.touchInteraction();
+    this.options.onNavigate?.();
+  }
+
+  /** The drag ended: rotating and moving glide on and slow down (as OrbitControls' damping does). */
+  endNavigation() {
+    const v = this.navVelocity;
+    this.navVelocity = null;
+    if (!v || performance.now() - v.t > 70 || (v.mode !== 'orbit' && v.mode !== 'pan') || this.settings().navInertia === false) return;
+    if (Math.hypot(v.vx, v.vy) < 1.5) return;
+    this.glide = { mode: v.mode, vx: v.vx, vy: v.vy, pivot: v.pivot };
+    this.requestRender();
+  }
+
+  stopGlide() { this.glide = null; this.zoomGlide = null; }
+
+  stepGlide() {
+    const g = this.glide;
+    if (g) {
+      g.vx *= 0.92; g.vy *= 0.92; // OrbitControls dampingFactor 0.08 (MyArchitecture)
+      if (Math.hypot(g.vx, g.vy) < 0.2) this.glide = null;
+      else {
+        if (this.planMode && g.mode === 'orbit') g.mode = 'pan';
+        if (g.mode === 'orbit') this.orbit(g.vx, g.vy, this.target.clone()); else this.pan(g.vx, g.vy, g.pivot ?? this.target);
+        this.touchInteraction();
+        this.options.onNavigate?.();
+      }
+    }
+    const z = this.zoomGlide;
+    if (z) {
+      const part = Math.abs(z.pending) < 2 ? z.pending : z.pending * 0.25; // a quarter per frame (MyArchitecture)
+      z.pending -= part;
+      this.dolly(Math.pow(1.0015, part * z.speed), z.pivot, z.x, z.y);
+      this.touchInteraction(220);
+      this.options.onNavigate?.();
+      if (Math.abs(z.pending) < 0.5) this.zoomGlide = null;
+    }
+  }
 
   bindNavigation() {
     const c = this.canvas;
     c.addEventListener('contextmenu', (e) => { if (this.navDrag?.moved) e.preventDefault(); });
-    // Pressing the wheel would start Chromium's auto-scroll (a round cursor) instead of orbiting.
+    // Pressing the wheel would start Chromium's auto-scroll (a round cursor) instead of zooming.
     c.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
     c.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
+    // Any press in the view (tools, selection drags) counts as busy until it is released, and stops a glide.
+    c.addEventListener('pointerdown', () => { this.pointerDown = true; this.glide = null; }, { capture: true });
+    window.addEventListener('pointerup', () => { this.pointerDown = false; }, { capture: true });
+    window.addEventListener('pointercancel', () => { this.pointerDown = false; }, { capture: true });
     c.addEventListener('pointerdown', (e) => {
       const tool = this.navTool;
       const middle = e.button === 1;
-      // Right-button drag orbits too (Shift: pans) — for mice and touchpads without a middle button.
       // A right click without moving still opens the context menu.
       const right = e.button === 2;
       const leftNav = e.button === 0 && (tool === 'orbit' || tool === 'pan' || tool === 'zoom');
       if (!middle && !right && !leftNav) return;
       if (!right) e.preventDefault();
       try { c.setPointerCapture(e.pointerId); } catch { /* synthetic pointer */ }
-      let mode = middle || right ? (e.shiftKey ? 'pan' : 'orbit') : tool;
+      let mode;
+      if (middle) mode = e.shiftKey ? 'pan' : 'zoom';
+      else if (right) mode = e.shiftKey ? 'orbit' : 'pan';
+      else mode = tool;
       if (this.planMode && mode === 'orbit') mode = 'pan';
       const pivot = this.pickPoint(e.clientX, e.clientY) ?? this.target.clone();
       this.navDrag = { mode, x: e.clientX, y: e.clientY, pivot, moved: false, id: e.pointerId };
@@ -566,51 +683,58 @@ export class Viewport {
       // The right button starts navigating only after a few pixels (a plain right click is the context menu).
       if (!d.moved && e.buttons === 2 && Math.hypot(dx, dy) < 4) return;
       d.x = e.clientX; d.y = e.clientY; d.moved = true;
-      if (d.mode === 'orbit') this.orbit(dx, dy, d.pivot);
-      else if (d.mode === 'pan') this.pan(dx, dy, d.pivot);
-      else if (d.mode === 'zoom') this.dolly(Math.pow(1.01, dy), d.pivot);
-      this.touchInteraction();
-      this.options.onNavigate?.();
+      this.navigate(d.mode, dx, dy, d.pivot);
     });
-    const end = (e) => { if (this.navDrag && this.navDrag.id === e.pointerId) { try { c.releasePointerCapture?.(e.pointerId); } catch { /* not captured */ } setTimeout(() => { this.navDrag = null; }, 0); } };
+    const end = (e) => { if (this.navDrag && this.navDrag.id === e.pointerId) { try { c.releasePointerCapture?.(e.pointerId); } catch { /* not captured */ } if (this.navDrag.moved) this.endNavigation(); setTimeout(() => { this.navDrag = null; }, 0); } };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
     c.addEventListener('wheel', (e) => {
-      if (e.ctrlKey && !this.isOrtho && Math.abs(e.deltaY) < 50 && e.deltaMode === 0 && !Number.isInteger(e.deltaY)) {
-        // pinch-zoom on touchpads arrives as ctrl+wheel with fractional deltas
-      }
       e.preventDefault();
+      this.glide = null;
       const s = this.settings();
       const speed = (s.zoomSpeed ?? 100) / 100;
       const delta = (e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY) * (s.invertZoom ? -1 : 1);
-      const factor = Math.pow(1.0015, delta * speed);
-      const pivot = this.pickPoint(e.clientX, e.clientY, { groundFallback: true }) ?? this.target.clone();
-      this.dolly(factor, pivot, e.clientX, e.clientY);
+      // Smooth zoom: the notch is spread over the next frames, towards the point under the cursor.
+      const z = this.zoomGlide;
+      const sameSpot = z && Math.hypot(z.x - e.clientX, z.y - e.clientY) < 3;
+      const pivot = sameSpot ? z.pivot : this.pickPoint(e.clientX, e.clientY, { groundFallback: true }) ?? this.target.clone();
+      this.zoomGlide = { pending: (sameSpot && Math.sign(z.pending) === Math.sign(delta) ? z.pending : 0) + delta, speed, pivot, x: e.clientX, y: e.clientY };
       this.touchInteraction(220);
-      this.options.onNavigate?.();
     }, { passive: false });
   }
 
   orbit(dx, dy, pivot) {
-    const speed = ((this.settings().orbitSpeed ?? 100) / 100) * 0.0055;
+    // A drag across the view's height turns a full circle (OrbitControls' rotateSpeed 1, as in MyArchitecture).
+    const speed = ((this.settings().orbitSpeed ?? 100) / 100) * ((2 * Math.PI) / Math.max(200, this.height || 600));
     const cam = this.camera;
     const yaw = -dx * speed;
     const pitch = -dy * speed;
     const offset = cam.position.clone().sub(pivot);
     const targetOffset = this.target.clone().sub(pivot);
     const qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-    const right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0).normalize();
-    // Keep the camera from flipping over the pole.
+    // The horizontal right vector (the camera's own may tilt when looking straight down/up).
     const forward = this.target.clone().sub(cam.position).normalize();
+    const camUp = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 1);
+    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
+    if (right.lengthSq() < 1e-8) right.crossVectors(forward, camUp);
+    right.setY(0);
+    if (right.lengthSq() < 1e-8) right.setFromMatrixColumn(cam.matrixWorld, 0).setY(0);
+    right.normalize();
+    // Rotating by +a about `right` raises the view direction by a: keep the new elevation inside
+    // (−90°, 90°) so the camera never flips over the pole (that flip made the view jump and spin).
     const elevation = Math.asin(THREE.MathUtils.clamp(forward.y, -1, 1));
-    const limited = THREE.MathUtils.clamp(pitch, -Math.PI / 2 + 0.02 + elevation, Math.PI / 2 - 0.02 + elevation);
+    const margin = 0.01;
+    const limited = THREE.MathUtils.clamp(pitch, -Math.PI / 2 + margin - elevation, Math.PI / 2 - margin - elevation);
     const qPitch = new THREE.Quaternion().setFromAxisAngle(right, limited);
     const q = qYaw.multiply(qPitch);
     offset.applyQuaternion(q);
     targetOffset.applyQuaternion(q);
     cam.position.copy(pivot).add(offset);
     this.target.copy(pivot).add(targetOffset);
-    cam.up.set(0, 1, 0);
+    // Looking (almost) straight down or up, world-up is degenerate for lookAt: keep the turned screen-up.
+    const newForward = this.target.clone().sub(cam.position).normalize();
+    if (Math.abs(newForward.y) > 0.9995) cam.up.copy(camUp.applyQuaternion(q).setY(0).normalize());
+    else cam.up.set(0, 1, 0);
     this.syncCameras();
   }
 
@@ -747,9 +871,156 @@ export class Viewport {
     return raycaster;
   }
 
+  /** Lamp markers (bulbs) as pickable handles: [{ id, position, on, lit }]. */
+  setLampMarkers(list) {
+    for (const child of [...this.lampMarkers.children]) { child.material.dispose(); this.lampMarkers.remove(child); }
+    for (const m of list) {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: lampTexture(m.lit ? 'lit' : m.on ? 'on' : 'off'), depthTest: false, depthWrite: false, transparent: true }));
+      sprite.position.copy(m.position);
+      sprite.renderOrder = 20;
+      sprite.userData = { entityId: m.id, entityKind: 'object', lampMarker: true };
+      this.lampMarkers.add(sprite);
+    }
+    this.lampMarkers.visible = this.settings().showLampMarkers !== false;
+    this.requestRender();
+  }
+
+  /** Where the sun marker sits: centre of the model and the radius of the sphere it moves on. */
+  sunSphere() {
+    const box = this.contentBox();
+    const center = box.isEmpty() ? new THREE.Vector3(0, this.groundY ?? 0, 0) : box.getCenter(new THREE.Vector3());
+    const radius = box.isEmpty() ? 6 : Math.max(4, box.getSize(new THREE.Vector3()).length() * 0.6);
+    return { center, radius };
+  }
+
+  updateSunMarker() {
+    const st = this.sunState;
+    if (!st) return;
+    this.sunSprite.material.map = sunTexture(st.on && st.altitude > 0);
+    this.placeSunMarker();
+    this.requestRender();
+  }
+
+  /** The marker on the line towards the sun, pulled in towards the model until it is on screen. */
+  placeSunMarker() {
+    const st = this.sunState;
+    if (!st) return;
+    const { center, radius } = this.sunDrag ?? this.sunSphere();
+    const cam = this.camera;
+    cam.updateMatrixWorld();
+    const pos = new THREE.Vector3();
+    let r = radius;
+    // While dragging, the radius stays fixed so the marker stays under the cursor.
+    for (let i = 0; i < 24 && !this.sunDrag; i++) {
+      pos.copy(center).addScaledVector(st.dir, r);
+      const p = pos.clone().project(cam);
+      const inFront = pos.clone().sub(cam.position).dot(new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 2).negate()) > 0;
+      if (inFront && Math.abs(p.x) < 0.88 && Math.abs(p.y) < 0.82) break;
+      r *= 0.85;
+      if (r < 0.6) break;
+    }
+    if (this.sunDrag) pos.copy(center).addScaledVector(st.dir, r);
+    this.sunSprite.position.copy(pos);
+    this.sunLine.geometry.setFromPoints([center, pos]);
+    this.sunLine.computeLineDistances();
+  }
+
+  /** Start dragging the sun: the sphere it moves on is the one the marker is on now. */
+  /** Start dragging the sun from the pointer at (x, y) with the sun at `angles` ({ azimuth, altitude }, north applied by the caller). */
+  beginSunDrag(x, y, angles, north = 0) {
+    const { center } = this.sunSphere();
+    const radius = Math.max(0.6, this.sunSprite.position.distanceTo(center));
+    // Which way a larger azimuth moves the marker on screen, so dragging right moves it right.
+    const deg = THREE.MathUtils.degToRad;
+    const at = (az) => { const r = deg(az + north); const e = deg(Math.min(80, angles.altitude)); return center.clone().add(new THREE.Vector3(Math.sin(r) * Math.cos(e), Math.sin(e), -Math.cos(r) * Math.cos(e)).multiplyScalar(radius)).project(this.camera).x; };
+    const azSign = Math.sign(at(angles.azimuth + 3) - at(angles.azimuth)) || 1;
+    this.sunDrag = { center, radius, start: { x, y }, angles: { ...angles }, azSign };
+  }
+
+  endSunDrag() { this.sunDrag = null; this.updateSunMarker(); }
+
+  /**
+   * Sun angles for the pointer while dragging the sun marker: on the sphere around the model in 3D,
+   * only the direction (azimuth) on the plan. Azimuth is clockwise from north (the model's north angle applied).
+   */
+  /**
+   * Sun angles while dragging its marker.
+   *  - 3D: up/down always changes the height (altitude: up = higher, 0.4° per pixel, −10°…89°) and
+   *    left/right turns it around the model (azimuth, in the direction the marker moves on screen),
+   *    counted from where the drag started, so the sun can be raised to the zenith in any view.
+   *  - Plan: the direction from the model's centre to the pointer (azimuth only).
+   */
+  sunAnglesAt(clientX, clientY, north = 0) {
+    const { center } = this.sunDrag ?? this.sunSphere();
+    if (this.planMode) {
+      const hit = this.ray(clientX, clientY).ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -center.y), new THREE.Vector3());
+      if (!hit) return null;
+      const dir = hit.sub(center).setY(0);
+      if (dir.lengthSq() < 1e-6) return null;
+      return { azimuth: (THREE.MathUtils.radToDeg(Math.atan2(dir.x, -dir.z)) - north + 720) % 360 };
+    }
+    const d = this.sunDrag;
+    if (!d?.start) return null;
+    const dx = clientX - d.start.x; const dy = clientY - d.start.y;
+    const perPx = 0.4;
+    const altitude = Math.max(-10, Math.min(89, d.angles.altitude - dy * perPx));
+    const azimuth = (((d.angles.azimuth + d.azSign * dx * perPx) % 360) + 360) % 360;
+    return { azimuth, altitude };
+  }
+
+  /** Markers keep a constant size on screen (22 px; the sun 30 px) in both projections. */
+  updateLampMarkerScale() {
+    this.lampMarkers.visible = this.settings().showLampMarkers !== false;
+    const cam = this.camera;
+    const forward = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 2).negate();
+    const perPixelAt = (position) => {
+      if (this.isOrtho) return (this.ortho.top - this.ortho.bottom) / (this.ortho.zoom * this.height);
+      const depth = Math.max(0.05, position.clone().sub(cam.position).dot(forward));
+      return (2 * depth * Math.tan(THREE.MathUtils.degToRad(this.perspective.fov / 2))) / this.height;
+    };
+    this.sunMarker.visible = Boolean(this.sunState?.on) && this.settings().showSunMarker !== false && !this.walk;
+    if (this.sunMarker.visible) {
+      this.placeSunMarker();
+      this.sunSprite.scale.setScalar(30 * perPixelAt(this.sunSprite.position));
+      this.sunLine.material.dashSize = 8 * perPixelAt(this.sunSprite.position);
+      this.sunLine.material.gapSize = 6 * perPixelAt(this.sunSprite.position);
+    }
+    if (!this.lampMarkers.children.length) return;
+    const px = 22;
+    for (const m of this.lampMarkers.children) {
+      let perPixel;
+      if (this.isOrtho) perPixel = (this.ortho.top - this.ortho.bottom) / (this.ortho.zoom * this.height);
+      else {
+        const depth = Math.max(0.05, m.position.clone().sub(cam.position).dot(forward));
+        perPixel = (2 * depth * Math.tan(THREE.MathUtils.degToRad(this.perspective.fov / 2))) / this.height;
+      }
+      m.scale.setScalar(px * perPixel);
+    }
+  }
+
+  /** The lamp marker (or the sun) under the cursor, as a pick result. */
+  pickLampMarker(raycaster, filter) {
+    this.updateLampMarkerScale();
+    raycaster.camera = this.camera;
+    if (this.sunMarker.visible) {
+      const hit = raycaster.intersectObject(this.sunSprite, false)[0];
+      if (hit) return { object: this.sunSprite, entity: { id: '__sun', kind: 'sun', object: this.sunSprite }, point: this.sunSprite.position.clone(), normal: null, faceIndex: null, distance: hit.distance, sun: true };
+    }
+    if (!this.lampMarkers.visible || !this.lampMarkers.children.length) return null;
+    for (const hit of raycaster.intersectObjects(this.lampMarkers.children, false)) {
+      const o = hit.object;
+      const entity = { id: o.userData.entityId, kind: 'object', object: o, lamp: true };
+      if (filter && !filter(entity, o, hit)) continue;
+      return { object: o, entity, point: o.position.clone(), normal: new THREE.Vector3(0, 1, 0), faceIndex: null, distance: hit.distance, lamp: true };
+    }
+    return null;
+  }
+
   /** The first visible content surface under the cursor: { object, entity (userData.entityId walk-up), point, normal, faceIndex, distance }. */
-  pick(clientX, clientY, { filter = null, includeLines = false } = {}) {
+  pick(clientX, clientY, { filter = null, includeLines = false, lamps = false } = {}) {
     const raycaster = this.ray(clientX, clientY);
+    const lamp = lamps ? this.pickLampMarker(raycaster, filter) : null;
+    if (lamp) return lamp;
     const hits = raycaster.intersectObjects(this.content.children, true);
     for (const hit of hits) {
       const o = hit.object;
@@ -826,6 +1097,10 @@ export class Viewport {
   /** Plan view: parallel top camera, everything above the cut height clipped (a floor plan). */
   setPlanMode(on, { elevation = 0, cutHeight = 1.2 } = {}) {
     this.planMode = on;
+    for (const line of this.axes.children) {
+      if (line.userData.axisDashed) line.visible = !on;
+      if (line.userData.axisPlanSolid) line.visible = on;
+    }
     if (on) {
       this.savedCamera = this.cameraState();
       this.setProjection(true);
@@ -914,6 +1189,51 @@ export class Viewport {
 }
 
 // ───────────────────────── helpers
+
+/** Sun marker icon: a shining sun (day, on) or a grey disc with a slash (off or below the horizon). */
+const SUN_TEXTURES = {};
+function sunTexture(lit) {
+  const key = lit ? 'lit' : 'off';
+  if (SUN_TEXTURES[key]) return SUN_TEXTURES[key];
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.lineCap = 'round';
+  g.strokeStyle = lit ? '#f08c00' : '#868e96';
+  g.lineWidth = 4;
+  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; g.beginPath(); g.moveTo(32 + Math.cos(a) * 19, 32 + Math.sin(a) * 19); g.lineTo(32 + Math.cos(a) * 29, 32 + Math.sin(a) * 29); g.stroke(); }
+  g.fillStyle = lit ? '#ffd43b' : '#ced4da';
+  g.strokeStyle = lit ? '#e67700' : '#495057';
+  g.lineWidth = 3;
+  g.beginPath(); g.arc(32, 32, 14, 0, Math.PI * 2); g.fill(); g.stroke();
+  if (!lit) { g.strokeStyle = '#e03131'; g.lineWidth = 4; g.beginPath(); g.moveTo(14, 14); g.lineTo(50, 50); g.stroke(); }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  SUN_TEXTURES[key] = tex;
+  return tex;
+}
+
+/** Bulb icons for lamp markers: lit (shining), on (switched on, lights off in the view), off. */
+const LAMP_TEXTURES = {};
+function lampTexture(state) {
+  if (LAMP_TEXTURES[state]) return LAMP_TEXTURES[state];
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const fill = state === 'lit' ? '#ffd43b' : state === 'on' ? '#fff3bf' : '#adb5bd';
+  if (state === 'lit') {
+    g.strokeStyle = '#f59f00'; g.lineWidth = 4; g.lineCap = 'round';
+    for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; g.beginPath(); g.moveTo(32 + Math.cos(a) * 20, 28 + Math.sin(a) * 20); g.lineTo(32 + Math.cos(a) * 29, 28 + Math.sin(a) * 29); g.stroke(); }
+  }
+  g.fillStyle = fill; g.strokeStyle = '#343a40'; g.lineWidth = 3;
+  g.beginPath(); g.arc(32, 26, 15, Math.PI * 0.8, Math.PI * 2.2); g.lineTo(39, 46); g.lineTo(25, 46); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = '#495057'; g.fillRect(25, 47, 14, 8);
+  if (state === 'off') { g.strokeStyle = '#e03131'; g.lineWidth = 4; g.beginPath(); g.moveTo(12, 12); g.lineTo(52, 52); g.stroke(); }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  LAMP_TEXTURES[state] = tex;
+  return tex;
+}
 
 export function entityOf(object) {
   let o = object;

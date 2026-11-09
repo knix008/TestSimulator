@@ -4,14 +4,18 @@
 // stands against walls by rules (sofa against an inside wall, bed head to a
 // wall, kitchen along the longest wall …), so every plan gets a sensible layout.
 import { buildTemplate } from './templates.js';
+import { buildPlan, PLANS } from './plans.js';
 import { newId } from './document.js';
 import { PARAMETRIC_ITEMS } from '../library/parametric/index.js';
+import { doorSwings, doorBlockers } from './checks.js';
+import { overlapDepth, wallQuad } from './doorswing.js';
 
 const ITEMS = new Map(PARAMETRIC_ITEMS.map((i) => [i.id, i]));
 
 export const SAMPLE_GROUPS = [
   { id: 'rooms', icon: 'libLiving', ko: '방 꾸미기', en: 'Rooms' },
   { id: 'homes', icon: 'plan2d', ko: '집 전체', en: 'Whole homes' },
+  { id: 'plans', icon: 'wallTool', ko: '평면도', en: 'Floor plans' },
 ];
 
 /** Styles: fabrics, woods, floors and wall paint that go together. */
@@ -27,7 +31,7 @@ const R = (id, template, style, ko, en, koDesc, enDesc, icon) => ({ id, group: '
 const H = (id, template, style, ko, en, koDesc, enDesc, icon = 'plan2d') => ({ id, group: 'homes', template, style, icon, ko: [ko, koDesc], en: [en, enDesc] });
 
 export const SAMPLE_PROJECTS = [
-  // ── 20 rooms
+  // ── 25 rooms
   R('living-modern', 'living', 'modern', '모던 거실', 'Modern living room', '소파·러그·TV·조명·식물', 'Sofa, rug, TV, lamps, plants', 'libLiving'),
   R('living-scandi', 'living', 'scandi', '스칸디 거실', 'Scandinavian living room', '부클레 소파·밝은 나무', 'Bouclé sofa, light wood', 'libLiving'),
   R('living-classic', 'living', 'classic', '클래식 거실', 'Classic living room', '벨벳 소파·헤링본 마루', 'Velvet sofa, herringbone floor', 'libLiving'),
@@ -48,7 +52,12 @@ export const SAMPLE_PROJECTS = [
   R('dressing-room', 'dressing', 'warm', '드레스룸', 'Dressing room', '붙박이장·화장대', 'Closets, vanity', 'libStorage'),
   R('laundry-room', 'laundry', 'modern', '다용도실', 'Laundry', '세탁기·건조기·선반', 'Washer, dryer, shelves', 'libAppliances'),
   R('reading-nook', 'room', 'warm', '독서 공간', 'Reading room', '라운지 체어·책장·화분', 'Lounge chair, books, plants', 'libDecor'),
-  // ── 20 homes
+  R('living-l-sofa', 'living', 'blue', 'ㄱ자 소파 거실', 'Living room with L-sofa', 'ㄱ자 소파·TV·러그', 'L-shaped sofa, TV, rug', 'libLiving'),
+  R('nursery', 'kidsroom', 'scandi', '아기 방', 'Nursery', '아기 침대·기저귀 교환대·수유 의자', 'Crib, changing table, nursing chair', 'libKids'),
+  R('kitchen-dining', 'dining', 'warm', '주방 겸 식당', 'Kitchen-diner', '싱크대·냉장고·2인 식탁', 'Counter, fridge, table for two', 'libKitchen'),
+  R('meeting-room', 'office', 'modern', '회의실', 'Meeting room', '6인 회의 테이블·화이트보드', 'Six-seat table, whiteboard', 'libWorkplace'),
+  R('team-office', 'office', 'scandi', '팀 사무실', 'Team office', '4인 워크스테이션·복합기·사물함', '4-desk cluster, printer, lockers', 'libWorkplace'),
+  // ── 25 homes
   H('studio-furnished', 'studio', 'scandi', '원룸 (스칸디)', 'Studio (Scandinavian)', '침대·책상·소파가 있는 원룸', 'Bed, desk and sofa in one room', 'floorTool'),
   H('studio-modern', 'studio', 'modern', '원룸 (모던)', 'Studio (modern)', '수납을 늘린 원룸', 'Studio with storage', 'floorTool'),
   H('officetel-a', 'officetel', 'modern', '오피스텔', 'Officetel', '1.5룸, 모던', '1.5 rooms, modern', 'floorTool'),
@@ -69,7 +78,20 @@ export const SAMPLE_PROJECTS = [
   H('house-b', 'house', 'classic', '단독주택 (클래식)', 'House (classic)', '방 2, 클래식', '2 bedrooms, classic', 'libStructure'),
   H('duplex-a', 'duplex', 'modern', '2층 주택', 'Two-storey house', '1층 거실·서재, 2층 침실', 'Living & study below, bedrooms above', 'stairsTool'),
   H('duplex-b', 'duplex', 'scandi', '2층 주택 (스칸디)', 'Two-storey house (Scandinavian)', '밝은 2층 주택', 'Bright two-storey house', 'stairsTool'),
+  H('apt74-c', 'apt74', 'classic', '74㎡ 아파트 (클래식)', '74 m² apartment (classic)', '방 3, 클래식', '3 bedrooms, classic'),
+  H('loft-a', 'loft', 'scandi', '복층 원룸', 'Loft studio', '아래층 거실·주방, 위층 침실', 'Living below, bedroom in the loft', 'stairsTool'),
+  H('loft-b', 'loft', 'modern', '복층 원룸 (모던)', 'Loft studio (modern)', '모던한 복층', 'Modern loft', 'stairsTool'),
+  H('house3-a', 'house3', 'modern', '3층 단독 주택', 'Three-storey house', '1층 거실·서재, 2·3층 침실', 'Living & study, bedrooms above', 'stairsTool'),
+  H('house3-b', 'house3', 'warm', '3층 단독 주택 (내추럴)', 'Three-storey house (natural)', '아이 방이 있는 3층 집', 'Three storeys with a kids room', 'stairsTool'),
 ];
+
+// ── floor plans (plans.js): every plan empty; the common homes also lightly furnished (main rooms only).
+const FURNISHED_PLANS = new Set(['apt59-flat', 'apt84-flat', 'villa', 'studio', 'officetel', 'house-1f']);
+const LIGHT_KEYS = new Set(['living', 'bedroom', 'bedroom2', 'kitchen', 'dining', 'bath']);
+for (const [plan, spec] of Object.entries(PLANS)) {
+  SAMPLE_PROJECTS.push({ id: `plan-${plan}`, group: 'plans', plan, template: plan, style: 'modern', icon: spec.icon, ko: spec.ko, en: spec.en });
+  if (FURNISHED_PLANS.has(plan)) SAMPLE_PROJECTS.push({ id: `plan-${plan}-furnished`, group: 'plans', plan, template: plan, style: 'scandi', furnish: true, icon: spec.icon, ko: [`${spec.ko[0]} · 가구 배치`, `${spec.ko[1]} · 기본 가구`], en: [`${spec.en[0]}, furnished`, `${spec.en[1]}; basic furniture`] });
+}
 
 const NAMES = {
   ko: { room: '방', living: '거실', bedroom: '안방', bedroom2: '침실 2', bedroom3: '침실 3', bedroom4: '침실 4', kitchen: '주방', bath: '욕실', bath2: '욕실 2', office: '서재', entry: '현관', kids: '아이 방', dining: '식당', dressing: '드레스룸', laundry: '다용도실', utility: '다용도실', hall: '복도' },
@@ -272,6 +294,54 @@ function reading(F, b) {
   F.wall(b, 's', 0.12, 'fiddle-leaf-fig');
 }
 
+function livingL(F, b) {
+  // ㄱ자 sofa in the north-west corner, TV across, rug and table in the middle.
+  // Tucked into the corner; its square footprint covers the corner, so the side table stands beside it.
+  const lw = ITEMS.get('sectional-l-3x2-left')?.size?.[0] ?? 2.7;
+  F.wall(b, 'n', (lw / 2 + 0.05) / (b.x1 - b.x0), 'sectional-l-3x2-left');
+  F.at(b, 0.35, 0.5, 'rug', 0);
+  F.add(b.level, 'side-table', b.x0 + lw + 0.35, b.z0 + 0.4, 0);
+  F.wall(b, 's', 0.42, 'tv-console');
+  F.wall(b, 's', 0.42, 'tv-55', { y: 0.5, off: 0.05 });
+  F.wall(b, 'e', 0.2, 'floor-lamp-arc');
+  F.wall(b, 'e', 0.85, 'monstera');
+}
+
+function nursery(F, b) {
+  F.wall(b, 'n', 0.32, 'kids-crib-convertible');
+  F.wall(b, 'n', 0.32, 'kids-mobile', { y: 1.0, off: 0.2 });
+  F.wall(b, 'e', 0.3, 'kids-changing-table');
+  F.at(b, 0.22, 0.72, 'kids-nursing-glider', Math.PI * 0.75);
+  F.at(b, 0.55, 0.6, 'kids-play-mat-puzzle', 0);
+  F.wall(b, 'w', 0.35, 'kids-toy-chest-bench');
+}
+
+function kitchenDining(F, b) {
+  F.wall(b, 'n', 0.42, 'kitchen-sink-counter-long', { params: { width: Math.min(2.6, b.x1 - b.x0 - 1.1) } });
+  F.wall(b, 'n', 0.92, 'refrigerator');
+  F.at(b, 0.42, 0.66, 'dining-table-bistro', 0);
+  F.at(b, 0.42, 0.66 - 0.6 / (b.z1 - b.z0), 'dining-chair', 0);
+  F.at(b, 0.42, 0.66 + 0.6 / (b.z1 - b.z0), 'dining-chair', Math.PI);
+  F.at(b, 0.42, 0.66, 'pendant-light', 0, { y: 1.415 });
+}
+
+function meetingRoom(F, b) {
+  F.at(b, 0.5, 0.52, 'wp-conf-6', 0);
+  const cx = (b.x0 + b.x1) / 2; const cz = b.z0 + (b.z1 - b.z0) * 0.52;
+  for (const dx of [-0.6, 0, 0.6]) { F.add(b.level, 'wp-boardroom-chair', cx + dx, cz - 0.82, 0); F.add(b.level, 'wp-boardroom-chair', cx + dx, cz + 0.82, Math.PI); }
+  F.wall(b, 'n', 0.5, 'wp-whiteboard-mobile');
+  F.wall(b, 'e', 0.5, 'wp-video-cart');
+  F.wall(b, 'w', 0.15, 'olive-tree');
+}
+
+function teamOffice(F, b) {
+  F.at(b, 0.45, 0.5, 'wp-cluster-4', 0);
+  F.wall(b, 'e', 0.25, 'wp-printer-station');
+  F.wall(b, 's', 0.8, 'wp-lockers');
+  F.wall(b, 'w', 0.3, 'wp-planter-divider');
+  F.wall(b, 's', 0.12, 'monstera');
+}
+
 /** Furnishes one room of a home by its kind. */
 function furnish(F, r, rects, sample, index) {
   const b = inner(r);
@@ -301,17 +371,159 @@ function furnish(F, r, rects, sample, index) {
     case 'dressing': return dressing(F, b);
     case 'laundry': case 'utility': return laundry(F, b);
     case 'entry': return entry(F, b);
+    case 'room': return reading(F, b);
     default: return undefined;
   }
 }
 
-/** Builds a sample (or null for an unknown id). */
-export function buildSampleProject(id, language = 'ko') {
+// ───────────────────────── doors: room to open them and to walk through
+
+const itemOf = (id) => ITEMS.get(id) ?? null;
+const HUBS = new Set(['living', 'kitchen', 'dining', 'hall', 'entry']);
+const hitsAny = (polys, quad, depth) => polys.some((poly) => overlapDepth(poly, quad) > depth);
+const SEAT = /chair|stool|bench/;
+/** Stairs and structural columns never move to make room for a door. */
+const FIXED = /^(stairs|column(-.*)?)$/;
+const BIG = /bed|sofa|wardrobe|closet|refrigerator|kitchen|vanity|bathtub|shower|toilet|washing|dryer|desk|tv-console|island|bookcase|dresser|sideboard|dining-table|shoe-cabinet/;
+const weightOf = (b) => {
+  if (FIXED.test(b.o.item)) return 50;
+  return BIG.test(b.o.item) ? 8 : 1;
+};
+const rectAt = (rects, level, [x, z]) =>rects.find((r) => r.level === level && x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1) ?? null;
+
+/**
+ * Makes every door of a furnished sample usable: each hinged door first gets the hinge side and
+ * swing (into the room, entrance doors outwards) that keeps its leaf clear of furniture, walls
+ * and other doors; furniture still in a swing or right in front of a doorway then slides along
+ * its wall (with what stands on it) or, when there is no free place, is left out.
+ */
+function clearDoors(p, rects) {
+  const walls = new Map(p.walls.map((w) => [w.id, w]));
+  const swingOf = (o) => doorSwings({ openings: [o], walls: p.walls }, itemOf, walls)[0] ?? null;
+  // 1. Hinge side and swing of each door.
+  const done = [];
+  for (const o of p.openings) {
+    const first = swingOf(o);
+    if (!first) continue;
+    if (!first.leaves.length) { done.push(first); continue; }
+    // Big pieces (and stairs, which never move) count more than a plant or a lamp.
+    const blockers = doorBlockers(p, itemOf).filter((b) => b.o.level === first.wall.level).map((b) => ({ ...b, weight: weightOf(b) }));
+    const entrance = /entrance|front/.test(o.item);
+    const wall = first.wall;
+    const L = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]);
+    const n = [-(wall.b[1] - wall.a[1]) / L, (wall.b[0] - wall.a[0]) / L];
+    const roomsAt = (t) => [1, -1].map((s) => rectAt(rects, wall.level, [wall.a[0] + ((wall.b[0] - wall.a[0]) * t) / L + n[0] * s * 0.4, wall.a[1] + ((wall.b[1] - wall.a[1]) * t) / L + n[1] * s * 0.4]));
+    const home = roomsAt(o.offset);
+    const sameRooms = (t, w = o.width) => [t - w / 2 - 0.06, t, t + w / 2 + 0.06].every((x) => roomsAt(x).every((r, i) => r === home[i]));
+    const free = (t, w = o.width) => p.openings.every((x) => x === o || x.wall !== o.wall || Math.abs(x.offset - t) > (x.width + w) / 2 + 0.1);
+    const orient = (offset, width = o.width) => {
+      let best = null;
+      for (const side of ['left', 'right']) {
+        for (const flip of [false, true]) {
+          const d = swingOf({ ...o, side, flip, offset, width });
+          let score = Math.abs(offset - o.offset) * 0.4;
+          for (const b of blockers) { if (hitsAny(d.zones, b.quad, 0.01)) score += 3 * b.weight; else if (hitsAny(d.ways, b.quad, 0.02)) score += b.weight; }
+          for (const w of p.walls) if (w.id !== o.wall && w.level === wall.level && hitsAny(d.sectors, wallQuad(w), 0.02)) score += 60;
+          for (const e of done) if (e.wall.level === wall.level && d.sectors.some((s) => hitsAny(e.sectors, s, 0.02))) score += 60;
+          // Into the room (the private one between two rooms); entrance doors open outwards.
+          const l = d.leaves[0];
+          const cx = d.leaves.reduce((s, x) => s + x.hinge[0], 0) / d.leaves.length; const cz = d.leaves.reduce((s, x) => s + x.hinge[1], 0) / d.leaves.length;
+          const into = rectAt(rects, wall.level, [cx + l.v[0] * 0.6, cz + l.v[1] * 0.6]);
+          const back = rectAt(rects, wall.level, [cx - l.v[0] * 0.6, cz - l.v[1] * 0.6]);
+          if (entrance) { if (into && !back) score += 2; } else if (!into) score += 2;
+          else if (back && HUBS.has(into.key) && !HUBS.has(back.key)) score += 1.5;
+          // The open leaf rests near a wall end rather than in the middle of the wall.
+          score += Math.min(...[wall.a, wall.b].map((q) => Math.hypot(q[0] - l.hinge[0], q[1] - l.hinge[1]))) * 0.02;
+          if (!best || score < best.score - 1e-9) best = { score, side, flip, offset, width, d };
+        }
+      }
+      return best;
+    };
+    let best = orient(o.offset);
+    // Still in the way of something: try the door elsewhere on its wall (between the same rooms,
+    // clear of the other openings); moving it costs a little, so it stays put when nothing gains.
+    // A door that still meets the stairs may also get a little narrower (down to 0.85 m).
+    if (best.score >= 1) {
+      for (const width of [o.width, 0.9, 0.85]) {
+        if (width > o.width || (width < o.width && best.score < 50)) continue;
+        for (let t = width / 2 + 0.12; t < L - width / 2 - 0.12; t += 0.05) {
+          if ((Math.abs(t - o.offset) < 1e-6 && width === o.width) || !free(t, width) || !sameRooms(t, width)) continue;
+          const c = orient(t, width);
+          if (c.score < best.score - 1e-9) best = c;
+        }
+      }
+    }
+    o.side = best.side;
+    o.flip = best.flip;
+    o.offset = best.offset;
+    o.width = best.width;
+    done.push(best.d);
+  }
+  // 2. Furniture out of swings and doorways.
+  const doors = done;
+  const kept = new Set();
+  const blocked = (quad, level) => doors.some((d) => d.wall.level === level && (hitsAny(d.zones, quad, 0.01) || hitsAny(d.ways, quad, 0.02)));
+  for (let guard = 0; guard < 200; guard++) {
+    const all = doorBlockers(p, itemOf);
+    const mover = all.find((b) => !FIXED.test(b.o.item) && !kept.has(b.o) && blocked(b.quad, b.o.level));
+    if (!mover) break;
+    const o = mover.o;
+    // What goes with it: things standing on it or hung above it, chairs tucked under it.
+    const grown = mover.quad.map(([x, z]) => [x + Math.sign(x - o.position[0]) * 0.05, z + Math.sign(z - o.position[2]) * 0.05]);
+    const group = p.objects.filter((x) => x === o || (x.level === o.level && ((x.position[1] > 0.03 || (itemOf(x.item)?.placement ?? 'floor') !== 'floor') && insideQuad([x.position[0], x.position[2]], grown))));
+    for (const b of all) if (b.o !== o && b.o.level === o.level && !group.includes(b.o) && SEAT.test(b.o.item) && overlapDepth(b.quad, mover.quad) > 0.05) group.push(b.o);
+    const members = new Set(group);
+    const others = all.filter((b) => !members.has(b.o) && b.o.level === o.level);
+    const room = rectAt(rects, o.level, [o.position[0], o.position[2]]);
+    const box = room ? inner(room) : null;
+    const ry = o.rotation[1];
+    const axis = [Math.cos(ry), -Math.sin(ry)];
+    const quads = all.filter((b) => members.has(b.o));
+    let moved = false;
+    for (let k = 1; k <= 60 && !moved; k++) {
+      for (const s of [1, -1]) {
+        const t = s * k * 0.05;
+        const shift = (q) => q.map(([x, z]) => [x + axis[0] * t, z + axis[1] * t]);
+        const ok = quads.every((b) => {
+          const q = shift(b.quad);
+          if (box && q.some(([x, z]) => x < box.x0 - 0.02 || x > box.x1 + 0.02 || z < box.z0 - 0.02 || z > box.z1 + 0.02)) return false;
+          if (blocked(q, o.level)) return false;
+          return !others.some((x) => overlapDepth(x.quad, q) > 0.02);
+        });
+        if (!ok) continue;
+        for (const x of group) { x.position[0] += axis[0] * t; x.position[2] += axis[1] * t; }
+        moved = true;
+        break;
+      }
+    }
+    if (moved) continue;
+    // Big pieces only in front of a doorway (not in a swing) stay: the passage is a hint, the piece is not optional.
+    if (weightOf(mover) > 1 && !doors.some((d) => d.wall.level === o.level && hitsAny(d.zones, mover.quad, 0.01))) { kept.add(o); continue; }
+    p.objects = p.objects.filter((x) => !members.has(x));
+  }
+}
+
+function insideQuad(pt, quad) {
+  let sign = 0;
+  for (let i = 0; i < quad.length; i++) {
+    const a = quad[i]; const b = quad[(i + 1) % quad.length];
+    const c = (b[0] - a[0]) * (pt[1] - a[1]) - (b[1] - a[1]) * (pt[0] - a[0]);
+    if (Math.abs(c) < 1e-12) continue;
+    if (sign === 0) sign = Math.sign(c); else if (Math.sign(c) !== sign) return false;
+  }
+  return true;
+}
+
+/**
+ * Builds a sample (or null for an unknown id). `doors: false` leaves the doors and furniture as
+ * the rules placed them (without making room for the doors; tests compare the two).
+ */
+export function buildSampleProject(id, language = 'ko', { doors = true } = {}) {
   const sample = SAMPLE_PROJECTS.find((s) => s.id === id);
   if (!sample) return null;
   const lang = language === 'en' ? 'en' : 'ko';
   const names = (k) => NAMES[lang][k] ?? k;
-  const p = buildTemplate(sample.template, { name: sample[lang][0], names });
+  const p = sample.plan ? buildPlan(sample.plan, { language: lang, name: sample[lang][0] }) : buildTemplate(sample.template, { name: sample[lang][0], names });
   const style = STYLES[sample.style] ?? STYLES.modern;
   const F = new Furnisher(p, style);
   const rects = p.rects ?? [];
@@ -341,11 +553,17 @@ export function buildSampleProject(id, language = 'ko') {
       case 'dressing-room': dressing(F, b); break;
       case 'laundry-room': laundry(F, b); break;
       case 'reading-nook': reading(F, b); break;
+      case 'living-l-sofa': livingL(F, b); break;
+      case 'nursery': nursery(F, b); break;
+      case 'kitchen-dining': kitchenDining(F, b); break;
+      case 'meeting-room': meetingRoom(F, b); break;
+      case 'team-office': teamOffice(F, b); break;
       default: break;
     }
-  } else {
-    for (const r of rects) furnish(F, r, rects, sample, index);
+  } else if (!sample.plan || sample.furnish) {
+    for (const r of rects) if (!sample.plan || LIGHT_KEYS.has(r.key)) furnish(F, r, rects, sample, index);
   }
+  if (doors) clearDoors(p, rects);
   p.style.lightsOn = false;
   return p;
 }

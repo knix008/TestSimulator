@@ -27,7 +27,7 @@ export class Page {
         this.pending.get(data.id)(data);
         this.pending.delete(data.id);
       } else if (data.method === 'Runtime.exceptionThrown') {
-        this.errors.push(data.params.exceptionDetails.exception?.description ?? data.params.exceptionDetails.text);
+        this.errors.push((data.params.exceptionDetails.exception?.description ?? data.params.exceptionDetails.text) + ' @ ' + (data.params.exceptionDetails.url ?? '') + ':' + data.params.exceptionDetails.lineNumber);
       } else if (data.method) {
         for (const listener of this.listeners.get(data.method) ?? []) listener(data.params);
       }

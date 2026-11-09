@@ -7,7 +7,7 @@ Windows · macOS · Linux · 웹에서 쓰는 **집 안 인테리어 배치와 S
 - 버전: 1.0.0
 - 사용법: [doc/UsersGuide.md](doc/UsersGuide.md) (English: [doc/UsersGuide.en.md](doc/UsersGuide.en.md)) — 앱 안에서는 **도움말 › 사용 설명서**
 - 튜토리얼 문서: [doc/Tutorial.html](doc/Tutorial.html) (English: [doc/Tutorial.en.html](doc/Tutorial.en.html)) — 앱 안에서는 **도움말 › 튜토리얼 문서**
-- 구조(개발자용): [ARCHITECTURE.md](ARCHITECTURE.md), 모듈 계약: [CONTRACT.md](CONTRACT.md), 모델링 커널: [src/modeling/README.md](src/modeling/README.md)
+- 구조(개발자용): [ARCHITECTURE.md](ARCHITECTURE.md) (12장: 모듈 계약), 모델링 커널: [src/modeling/README.md](src/modeling/README.md)
 
 ## 화면
 

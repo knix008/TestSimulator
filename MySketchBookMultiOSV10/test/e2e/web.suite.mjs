@@ -88,7 +88,8 @@ export const cases = [
         for (const s of list) {
           assert.ok(!s.error, `${s.id}: ${s.error}`);
           assert.ok(s.walls >= 4 && s.rooms >= 1, `${s.id}: walls/rooms`);
-          assert.ok(s.objects >= 3, `${s.id}: furnished (${s.objects} objects)`);
+          // Empty floor plans (plan-*, plans.js) carry no furniture; their furnished variants do.
+          if (!/^plan-/.test(s.id) || /-furnished$/.test(s.id)) assert.ok(s.objects >= 3, `${s.id}: furnished (${s.objects} objects)`);
           assert.deepEqual(s.missing, [], `${s.id}: every object built`);
         }
       },
@@ -116,6 +117,9 @@ export const cases = [
       name: '방 도구: 벽 안을 클릭하면 방이 생기고 면적이 맞음', desktop: true,
       async run(app) {
         const r = await app.run(`
+          // Drawing the closed walls made their room already: start from the bare walls.
+          A.actions.change('op.delete', (pr) => { pr.rooms = []; }, ['rooms']);
+          A.actions.select([]);
           A.actions.setTool('room');
           await T.clickWorld(2, 0, 1.5);
           await T.frames(2);
@@ -183,7 +187,7 @@ export const cases = [
       },
     },
     {
-      name: '선택 도구 끌기: 빈 곳 = 궤도 회전, Ctrl/Shift+끌기 = 선택 상자, 선택한 가구 끌기 = 이동, leftDrag=select = 옛 방식', desktop: true,
+      name: '선택 도구 끌기: 빈 곳 = 궤도 회전, Ctrl+끌기 = 화면 이동, Shift+끌기 = 선택 상자, 선택한 가구 끌기 = 이동, leftDrag=select = 옛 방식', desktop: true,
       async run(app) {
         const r = await app.run(`
           await T.fresh('room');
@@ -204,7 +208,16 @@ export const cases = [
           const cam1 = v.camera.position.toArray();
           const orbited = Math.hypot(...cam1.map((c, i) => c - cam0[i]));
           const selAfterOrbit = A.state.selection.length;
-          // Ctrl + drag: a window (left → right) round the armchair selects it, the camera stays.
+          v.stopGlide();
+          // Ctrl + drag on empty space moves (pans) the view: the target moves, the view direction stays.
+          const t0 = v.target.toArray();
+          const f0 = v.target.clone().sub(v.camera.position).normalize().toArray();
+          await T.drag(empty, { x: empty.x + 120, y: empty.y + 40 }, { ctrl: true });
+          v.stopGlide();
+          const panned = Math.hypot(...v.target.toArray().map((c, i) => c - t0[i]));
+          const turned = Math.hypot(...v.target.clone().sub(v.camera.position).normalize().toArray().map((c, i) => c - f0[i]));
+          const selAfterPan = A.state.selection.length;
+          // Shift + drag: a window (left → right) round the armchair selects it, the camera stays.
           await T.iso([[-1, 0, -1], [5, 2.5, 4.5]]);
           const box = A.builder.worldBox('ob-drag');
           const corners = [];
@@ -212,7 +225,7 @@ export const cases = [
           const x0 = Math.min(...corners.map((c) => c.x)) - 25, x1 = Math.max(...corners.map((c) => c.x)) + 25;
           const y0 = Math.min(...corners.map((c) => c.y)) - 25, y1 = Math.max(...corners.map((c) => c.y)) + 25;
           const cam2 = v.camera.position.toArray();
-          await T.drag({ x: x0, y: y0 }, { x: x1, y: y1 }, { ctrl: true });
+          await T.drag({ x: x0, y: y0 }, { x: x1, y: y1 }, { shift: true });
           const ctrlBox = A.state.selection.slice();
           const camStill = Math.hypot(...v.camera.position.toArray().map((c, i) => c - cam2[i]));
           // Dragging the selected armchair moves it (seen from above: no wall in front of it).
@@ -235,11 +248,14 @@ export const cases = [
           const plainBox = A.state.selection.slice();
           const camStill2 = Math.hypot(...v.camera.position.toArray().map((c, i) => c - cam3[i]));
           A.actions.updateSettings({ leftDrag: saved }, { quiet: true });
-          return { orbited, selAfterOrbit, ctrlBox, camStill, movedBy, plainBox, camStill2 };`);
+          return { orbited, selAfterOrbit, panned, turned, selAfterPan, ctrlBox, camStill, movedBy, plainBox, camStill2 };`);
         assert.ok(r.orbited > 0.3, `a left drag on empty space orbits the camera (moved ${r.orbited.toFixed(2)} m)`);
         assert.equal(r.selAfterOrbit, 0, 'orbiting selects nothing');
-        assert.ok(r.ctrlBox.includes('ob-drag'), `Ctrl + drag window selects the armchair (${r.ctrlBox})`);
-        assert.ok(r.camStill < 1e-6, 'Ctrl + drag does not orbit');
+        assert.ok(r.panned > 0.2, `Ctrl + drag moves the view (target moved ${r.panned.toFixed(2)} m)`);
+        assert.ok(r.turned < 1e-6, `Ctrl + drag does not turn the view (${r.turned})`);
+        assert.equal(r.selAfterPan, 0, 'Ctrl + drag on empty space selects nothing');
+        assert.ok(r.ctrlBox.includes('ob-drag'), `Shift + drag window selects the armchair (${r.ctrlBox})`);
+        assert.ok(r.camStill < 1e-6, 'Shift + drag does not orbit');
         assert.ok(r.movedBy > 0.05, `dragging the selected armchair moves it (${r.movedBy.toFixed(3)} m)`);
         assert.ok(r.plainBox.includes('ob-drag'), `leftDrag = select: a plain drag draws the selection box (${r.plainBox})`);
         assert.ok(r.camStill2 < 1e-6, 'leftDrag = select: no orbit');
@@ -780,6 +796,7 @@ export const COMMAND_HELPER = String.raw`(() => {
     if (['deleteGuides'].includes(id)) A.actions.change('op.guide', (pr) => { pr.guides.push({ id: 'gd-1', a: [0, 0, 0], b: [1, 0, 0] }); }, ['guides']);
     if (['clearSections', 'toggleSections'].includes(id)) A.actions.change('op.section', (pr) => { pr.sections.push({ id: 'sc-1', point: [1, 1, 1], normal: [1, 0, 0], active: true }); }, ['sections']);
     if (['prevScene', 'nextScene'].includes(id)) { A.actions.addScene(); A.actions.addScene(); }
+    if (id === 'levelUp' || id === 'levelDown') { await A.run('addLevel'); if (id === 'levelUp') await A.run('levelDown'); }
     if (id === 'redo') A.actions.undo();
     if (OBJECT.includes(id)) A.actions.select(['ob-cmd']);
     if (id === 'paste') { A.actions.select(['ob-cmd']); await A.run('copy'); }

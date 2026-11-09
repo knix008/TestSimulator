@@ -35,12 +35,21 @@ export function solarPosition({ date = '06-21', time = '12:00', latitude = 37.57
   return { azimuth, altitude };
 }
 
+/** Azimuth/altitude the sun light uses: set by hand (mode 'manual', dragged in the view) or from date, time and place. */
+export function sunAngles(sun) {
+  if (sun?.mode === 'manual' && Number.isFinite(sun.azimuth) && Number.isFinite(sun.altitude)) return { azimuth: sun.azimuth, altitude: sun.altitude };
+  return solarPosition(sun ?? {});
+}
+
+/** Night: the sun is below the horizon (its light is off and the sky is dark). */
+export const isNight = (sun) => sunAngles(sun).altitude < 0;
+
 /**
  * Unit vector pointing from the scene towards the sun. North is −Z rotated by `north` degrees
  * (clockwise seen from above), east is +X.
  */
 export function sunDirection(sun) {
-  const { azimuth, altitude } = solarPosition(sun);
+  const { azimuth, altitude } = sunAngles(sun);
   const az = rad(azimuth + (sun.north ?? 0));
   const alt = rad(Math.max(altitude, -5));
   return { x: Math.sin(az) * Math.cos(alt), y: Math.sin(alt), z: -Math.cos(az) * Math.cos(alt), altitude, azimuth };

@@ -243,6 +243,8 @@ A new room is named "Room 1, Room 2 …" and gets an oak floor and a white paint
 
 **Room properties**: Name · Area (m² and pyeong) · Floor · Show ceiling · Ceiling (material) · Hidden · Locked. Moving a room moves its floor outline.
 
+The **Stairs** tool (`Shift+S`, next to the column): pick the type (straight · L with a landing · L with winders · U with a half landing · spiral · curved) and the width (the diameter for a spiral) in the strip over the view, then click the **start** (the middle of the first step) → the **direction** it climbs → (all but straight) the **side it turns to**. The rise reaches the floor above (the level's height on the top level) in equal risers (190 mm at most). When there is a level above, its floor gets the stairwell opening (and the ceiling below too), which follows when the stairs move, change size or are deleted. The stair's properties set the width, tread run, landing depth, the gap of a U stair, the turn angle and diameter of a spiral, the handrail (glass / balusters / none, sides), closed or open risers and a guard rail round the opening above, and show the risers, riser height, going and 2R+G (comfortable at 600–650 mm). The Problems tab reports stairs that do not reach the level above or have under 2 m headroom.
+
 ### 4.3 Doors and windows
 
 ![Doors and windows](tutorial/images/en/08-doors.jpg)
@@ -507,6 +509,15 @@ Tags work like SketchUp's tags (formerly layers): they show or hide groups of th
 - Imported models are converted to GLB and **stored inside the project file (.msk)**: they come along to another PC. Once placed they move, turn, scale and paint like any other furniture.
 - **SketchUp (.skp)** files cannot be read directly (a proprietary format). In SketchUp use **File › Export › 3D Model** to save Collada (.dae) or glTF (.glb) and import that.
 
+### 11.1 Importing floor plans (DXF · SVG · pictures)
+
+**File › Import floor plan…**, **Import floor plan** on the start page, or drop the file on the window. Sample plans are in `samples/plans/` (59 m² and 84 m² apartments, a small office, a two-room house; `node scripts/make-plan-samples.mjs` makes them again).
+
+- **DXF / SVG** — walls are found as two lines a wall thickness apart, doors as an arc (radius = door width) with a leaf line, windows as lines across an opening; walls, doors and windows are made, and a room wherever walls close around a space (named after the text inside it). Blocks (INSERT), polylines and arcs are read; the units come from the file's `$INSUNITS` (else a guess from the size) or your choice.
+- The import window: **Drawing units**, **Walls drawn as** (Auto · Double lines · Single lines, with the single-line wall thickness), **Wall height**, **Put it** (Replace current level · Add as new level · New project), **Keep other lines as guides**, **Layers to use** (dimension, furniture and hatch layers start off).
+- **Pictures (PNG · JPG · WebP · BMP · GIF)** — lie half-transparent on the floor of the current level (2D and 3D). With **Set the scale with two points** click two points a known distance apart and type the real length (Esc cancels). Then trace with the Wall tool or use **Find walls automatically** (reads the outlines of black lines and filled walls into walls, door gaps and window gaps, then asks whether to keep them).
+- With nothing selected, **Entity Info › Plan picture** shows or hides it and sets the opacity, position X/Z, rotation and width (= scale), and has Scale, Find walls and Remove. The picture is saved inside the .msk file.
+
 ## 12. Saving, opening and exporting
 
 ### 12.1 Project files (.msk)
@@ -637,6 +648,8 @@ The same list as **Help › Keyboard shortcuts…** (Settings › Shortcuts). Si
 | `B` | Paint bucket |
 | `W` | Wall |
 | `Shift+R` | Room |
+| `Shift+C` | Column |
+| `Shift+S` | Stairs |
 | `L` | Line |
 | `R` | Rectangle |
 | `C` | Circle |

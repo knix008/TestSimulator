@@ -41,6 +41,7 @@ export const ICONS_3D = {
   axesTool: '<path d="M5 19V5M5 19h14M5 19l9-6"/><path d="M5 5l-2 2.5M5 5l2 2.5"/>',
   // ── interior
   wallTool: '<path d="M3 18V9h7v9M10 18V6h11v12"/><path d="M3 18h18M3 13h7M10 12h11M14 6v6M17 12v6M6 9v4"/>',
+  columnTool: '<path d="M6 4h12M7 4v2h10V4M8 6v12M16 6v12M7 18h10v2H7z"/><path d="M5 20h14M11 8v8M13 8v8"/>',
   roomTool: '<path d="M4 5h16v14H4z"/><path d="M4 5l3 3h10l3-3M7 8v8h10V8M4 19l3-3M20 19l-3-3"/>',
   roomAuto: '<path d="M4 4h16v16H4z" stroke-width="2.4"/><path d="M8 12l3 3 5-6"/>',
   doorTool: '<path d="M5 21V3h11v18M3 21h18"/><path d="M13 12h.01"/><path d="M16 3l3 2v16"/>',
@@ -53,6 +54,9 @@ export const ICONS_3D = {
   place: '<path d="M12 21s-7-6.5-7-11.5a7 7 0 0 1 14 0C19 14.5 12 21 12 21z"/><rect x="9" y="7" width="6" height="5" rx="1"/>',
   furniture: '<path d="M4 13V9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M2 13h20v4H2zM5 17v3M19 17v3"/>',
   importModel: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/><path d="M17 13v6M14.5 16.5L17 19l2.5-2.5" stroke-width="2"/>',
+  // Floor plan import (a plan sheet with walls, a door swing and an arrow in) and the plan underlay picture.
+  importPlan: '<path d="M3 3h12v18H3z"/><path d="M3 9h7v6M10 3v3M6 15a4 4 0 0 1 4-4"/><path d="M18 8v9M15.5 14.5L18 17l2.5-2.5" stroke-width="2"/>',
+  underlay: '<path d="M3 15l9 5 9-5-9-5z" opacity=".55"/><path d="M3 9l9 5 9-5-9-5z"/><path d="M8 7.5l4 2.2M12 9.7l4-2.2"/>',
   exportModel: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/><path d="M17 19v-6M14.5 15.5L17 13l2.5 2.5" stroke-width="2"/>',
   cube: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>',
   // ── camera
@@ -117,6 +121,7 @@ export const ICONS_3D = {
   libKitchen: '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 10h16M8 6.5v1M8 13v4"/><circle cx="14" cy="6.5" r="1"/>',
   libBathroom: '<path d="M3 12h18v2a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5z"/><path d="M6 12V5a2 2 0 0 1 3.5-1.3M7 19l-1 2M17 19l1 2"/>',
   libOffice: '<rect x="3" y="4" width="18" height="11" rx="1.5"/><path d="M9 21h6M12 15v6"/>',
+  libWorkplace: '<rect x="2" y="10" width="20" height="3" rx="1"/><path d="M5 13v8M19 13v8M7 10V6h4v4M13 10V4h4v6M12 4v6"/>',
   libKids: '<circle cx="12" cy="9" r="5"/><path d="M8 7.5h.01M16 7.5h.01M10 11a3 3 0 0 0 4 0"/><path d="M7 21l2-6h6l2 6"/>',
   libStorage: '<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M4 9h16M4 15h16M11 6h2M11 12h2M11 18h2"/>',
   libLighting: '<path d="M12 2v5"/><path d="M6 13a6 6 0 0 1 12 0z"/><path d="M10 17a2 2 0 0 0 4 0"/>',

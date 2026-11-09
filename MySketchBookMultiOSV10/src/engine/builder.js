@@ -8,9 +8,12 @@
 import * as THREE from 'three';
 import { ShapeUtils } from 'three';
 import { getMaterial } from './materials.js';
-import { wallCorners, wallFootprints, wallMesh, wallDir, wallNormal, wallLength } from './walls.js';
+import { wallCorners, wallFootprints, wallMesh, wallDir, wallNormal, wallLength, floorTriangles } from './walls.js';
 import { levelOf } from './document.js';
+import { swingMeta, doorSwingLines } from './doorswing.js';
+import { columnFootprint, columnsOf, isColumn } from './planedit.js';
 import { catalogItem, itemParams, assetApi } from '../library/catalog.js';
+import { holePolygons } from './stairs.js';
 
 const modelingModules = import.meta.glob('../modeling/mesh.js', { eager: true });
 const GeoMesh = () => Object.values(modelingModules)[0]?.GeoMesh ?? null;
@@ -61,12 +64,14 @@ export class SceneBuilder {
       const walls = project.walls.filter((w) => w.level === level.id);
       const ids = new Set(walls.map((w) => w.id));
       const openings = project.openings.filter((o) => ids.has(o.wall));
-      const key = JSON.stringify([level.elevation, level.height, walls, openings.map((o) => [o.wall, o.offset, o.width, o.height, o.sill])]);
+      const columns = columnsOf(project, level.id).filter((o) => !o.hidden);
+      const key = JSON.stringify([level.elevation, level.height, walls, openings.map((o) => [o.wall, o.offset, o.width, o.height, o.sill]), columns.map((o) => [o.position, o.rotation, o.scale, o.params])]);
       const prev = this.wallKeys.get(level.id);
       if (prev !== key) {
         this.removeWhere(this.groups.walls, (o) => o.userData.level === level.id);
         this.removeWhere(this.groups.cuts, (o) => o.userData.level === level.id);
         this.buildWalls(project, level, walls, openings);
+        this.buildColumnCuts(level, columns);
         this.wallKeys.set(level.id, key);
         changed = true;
       }
@@ -115,7 +120,7 @@ export class SceneBuilder {
 
     each(project.rooms, 'room', this.groups.rooms, (r) => JSON.stringify([r, levelOf(project, r.level).elevation, levelOf(project, r.level).height]), (r) => this.buildRoom(project, r));
     each(project.openings, 'opening', this.groups.openings, (o) => JSON.stringify([o, walls.get(o.wall), levelOf(project, walls.get(o.wall)?.level).elevation]), (o) => this.buildOpening(project, o, walls.get(o.wall)));
-    each(project.objects, 'object', this.groups.objects, (o) => JSON.stringify([o.item, o.params, o.materials, this.settings().quality ?? 'high']), (o) => this.buildObject(project, o), placeTransform);
+    each(project.objects, 'object', this.groups.objects, (o) => JSON.stringify([o.item, o.params, o.materials, this.settings().quality ?? 'high', o.params?.fitLevel ? levelOf(project, o.level).height : 0]), (o) => this.buildObject(project, o), placeTransform);
     each(project.models, 'model', this.groups.models, (m) => JSON.stringify([m.rev ?? 0, m.rev == null ? m.mesh : null]), (m) => this.buildModel(project, m), placeTransform);
 
     for (const [id, entry] of [...this.built]) {
@@ -124,11 +129,11 @@ export class SceneBuilder {
       this.built.delete(id);
       changed = true;
     }
-    if (moved && !changed) { this.updateLights(project); this.viewport.contentMoved(); }
-    if (changed) {
-      this.updateLights(project);
-      this.viewport.contentChanged();
-    }
+    if (changed) this.lampCache = null;
+    // Lights and lamp markers follow moves, visibility and per-lamp settings (cheap: only when their key changes).
+    this.updateLights(project);
+    if (moved && !changed) this.viewport.contentMoved();
+    if (changed) this.viewport.contentChanged();
     return changed;
   }
 
@@ -217,16 +222,35 @@ export class SceneBuilder {
     }
   }
 
+  /** Plan cut faces of the level's structural columns (dark like the walls' cut). */
+  buildColumnCuts(level, columns) {
+    for (const o of columns) {
+      const fp = columnFootprint(o);
+      const y = level.elevation + Math.min(level.height, 1.2) - 0.001;
+      const tris = ShapeUtils.triangulateShape(fp.map(([x, z]) => new THREE.Vector2(x, z)), []);
+      const cg = new THREE.BufferGeometry();
+      cg.setAttribute('position', new THREE.Float32BufferAttribute(fp.flatMap(([x, z]) => [x, y, z]), 3));
+      cg.setIndex(tris.flat());
+      const cut = new THREE.Mesh(cg, cutMaterial);
+      cut.userData = { level: level.id, ownsGeometry: true, noPick: true, helper: true, alwaysVisible: true, column: o.id };
+      this.groups.cuts.add(cut);
+    }
+  }
+
   // ───────────────────────── rooms
 
   buildRoom(project, room) {
     const level = levelOf(project, room.level);
     const group = new THREE.Group();
-    const floor = polygonMesh(room.points, level.elevation + 0.0005, getMaterial(room.floor ?? 'floor-oak'), true);
+    const floor = polygonMesh(room.points, level.elevation + 0.0005, getMaterial(room.floor ?? 'floor-oak'), true, room.holes);
     floor.userData.part = 'floor';
     group.add(floor);
+    // Stairwells: the slab's edge round each hole in the floor (down to the ceiling of the level below).
+    const below = project.levels.filter((l) => l.elevation < level.elevation - 0.01).sort((a, b) => b.elevation - a.elevation)[0];
+    const slab = below ? level.elevation - (below.elevation + below.height) : 0;
+    if (slab > 0.01) for (const hole of holePolygons(room.holes)) group.add(holeEdgeMesh(hole, level.elevation - slab, level.elevation + 0.0005, getMaterial(room.ceiling ?? 'wall-paint-white')));
     if (room.showCeiling) {
-      const ceiling = polygonMesh(room.points, level.elevation + level.height - 0.0005, getMaterial(room.ceiling ?? 'wall-paint-white'), false);
+      const ceiling = polygonMesh(room.points, level.elevation + level.height - 0.0005, getMaterial(room.ceiling ?? 'wall-paint-white'), false, room.ceilingHoles);
       ceiling.userData.part = 'ceiling';
       ceiling.castShadow = true;
       group.add(ceiling);
@@ -252,6 +276,9 @@ export class SceneBuilder {
     group.position.set(x, level.elevation + (opening.sill ?? 0), z);
     // The item's front (+Z) faces the wall's left side (+n); a flipped opening faces the other way.
     group.rotation.y = Math.atan2(n[0], n[1]) + (opening.side === 'right' ? Math.PI : 0);
+    // How the door opens, drawn on the floor for the 2D plan (arc + open leaf; arrows for sliding doors).
+    const swing = item?.category === 'doors' ? doorSwingLines(swingMeta(item, params, wall.thickness ?? 0.15), { width: opening.width, thickness: wall.thickness ?? 0.15, flip: opening.flip, y: 0.012 - (opening.sill ?? 0) }) : null;
+    if (swing) { swing.visible = Boolean(this.viewport.planMode); group.add(swing); }
     group.updateMatrix();
     return group;
   }
@@ -263,6 +290,8 @@ export class SceneBuilder {
     const level = levelOf(project, object.level);
     const group = new THREE.Group();
     const params = itemParams(item, object.params);
+    // Structural columns can follow the storey height (planedit.js).
+    if (isColumn(object) && params.fitLevel) params.height = level.height;
     let content;
     if (!item) content = placeholderBox(0.5, 0.5, 0.5);
     else if (item.kind === 'asset' || item.kind === 'user') content = this.assetInstance(item, object.id);
@@ -383,22 +412,95 @@ export class SceneBuilder {
     return group;
   }
 
-  // ───────────────────────── lights of lamps (Style › lights on)
+  // ───────────────────────── lamps: real lights (Style › lights on) and their markers (2D/3D handles)
 
-  updateLights(project) {
-    const group = this.groups.lights;
-    for (const child of [...group.children]) { group.remove(child); child.dispose?.(); }
-    if (!project.style?.lightsOn) return;
-    const found = [];
-    this.groups.objects.traverse((o) => { if (o.userData.light && o.parent) found.push(o); });
-    // Point lights are expensive per pixel: the nearest few to the scene centre, no shadows.
-    for (const o of found.slice(0, 12)) {
-      const spec = o.userData.light;
-      const light = new THREE.PointLight(spec.color ?? '#ffd9a0', spec.intensity ?? 6, spec.distance ?? 6, 2);
-      o.updateWorldMatrix(true, false);
-      light.position.setFromMatrixPosition(o.matrixWorld);
-      group.add(light);
+  /** Every light marker of the library lamps in the scene, with the object (entity) it belongs to. */
+  lampSources() {
+    if (!this.lampCache) {
+      const list = [];
+      this.groups.objects.traverse((o) => {
+        if (!o.userData.light) return;
+        let owner = o.parent;
+        while (owner && !owner.userData.entityId) owner = owner.parent;
+        if (owner) list.push({ marker: o, owner, id: owner.userData.entityId });
+      });
+      this.lampCache = list;
     }
+    return this.lampCache;
+  }
+
+  /** The light settings of a lamp object (template + its own), or null when the object has no light. */
+  lampInfo(object) {
+    const src = this.lampSources().find((x) => x.id === object.id);
+    return src ? lampSpec(src.marker.userData.light, object.light) : null;
+  }
+
+  /**
+   * Real lights for the lamps that are switched on (a fixed pool, so switching lamps never recompiles
+   * shaders; the lamps nearest the view centre get them) and a marker per lamp in the viewport.
+   */
+  updateLights(project, { force = false } = {}) {
+    const lightsOn = Boolean(project.style?.lightsOn);
+    const byId = new Map(project.objects.map((o) => [o.id, o]));
+    const seenIds = new Set();
+    const lamps = [];
+    for (const src of this.lampSources()) {
+      const e = byId.get(src.id);
+      if (!e || !src.marker.parent) continue;
+      src.marker.updateWorldMatrix(true, false);
+      const position = new THREE.Vector3().setFromMatrixPosition(src.marker.matrixWorld);
+      const down = new THREE.Vector3(0, -1, 0).applyQuaternion(src.marker.getWorldQuaternion(new THREE.Quaternion()));
+      // One marker per lamp object (a lamp with several bulbs is switched and moved as one).
+      const first = !seenIds.has(src.id);
+      seenIds.add(src.id);
+      lamps.push({ id: src.id, owner: src.owner, position, down, spec: lampSpec(src.marker.userData.light, e.light), visible: visibleUp(src.owner), first });
+    }
+    const shadowsOn = this.viewport.settings?.().shadows !== false;
+    const key = JSON.stringify([lightsOn, shadowsOn, lamps.map((l) => [l.id, l.owner.uuid, l.visible, l.spec, l.position.toArray().map((v) => Math.round(v * 1000))])]);
+    if (key === this.lightsKey && !force) return;
+    this.lightsKey = key;
+    // Bulbs and glowing shades glow only while the lamp is on and the view's lights are on.
+    for (const l of lamps) if (l.first) setLampGlow(l.owner, l.spec.on && lightsOn, this.viewport);
+    this.viewport.setLampMarkers?.(lamps.filter((l) => l.visible && l.first).map((l) => ({ id: l.id, position: l.position, on: l.spec.on, lit: l.spec.on && lightsOn })));
+    const group = this.groups.lights;
+    if (!lightsOn) {
+      for (const child of [...group.children]) { group.remove(child); child.shadow?.map?.dispose(); child.dispose?.(); }
+      this.lampPool = null;
+      this.viewport.setLampFill?.(0);
+      this.viewport.invalidateShadows();
+      return;
+    }
+    if (!this.lampPool) {
+      this.lampPool = { point: [], spot: [] };
+      // The first few of each kind cast shadows (fixed, so the shader never recompiles); they go to the lamps nearest the view.
+      // The shadow camera starts beyond the lamp's own shade and socket (35 cm, spots 25 cm): a fixture never shadows its own light.
+      const shadowed = (l, i, n, size) => { if (i >= n) return; l.userData.shadowCaster = true; l.shadow.mapSize.set(size, size); l.shadow.bias = -0.002; l.shadow.normalBias = 0.03; l.shadow.radius = 3; l.shadow.camera.near = l.isSpotLight ? 0.25 : 0.35; };
+      for (let i = 0; i < LAMP_POOL.point; i++) { const l = new THREE.PointLight('#ffffff', 0, 6, 2); shadowed(l, i, LAMP_POOL.pointShadows, 512); this.lampPool.point.push(l); group.add(l); }
+      for (let i = 0; i < LAMP_POOL.spot; i++) { const l = new THREE.SpotLight('#ffffff', 0, 6, 0.6, 0.35, 2); shadowed(l, i, LAMP_POOL.spotShadows, 1024); this.lampPool.spot.push(l); group.add(l, l.target); }
+    }
+    const centre = this.viewport.target ?? new THREE.Vector3();
+    const active = lamps.filter((l) => l.visible && l.spec.on).sort((a, b) => a.position.distanceToSquared(centre) - b.position.distanceToSquared(centre));
+    let pi = 0; let si = 0;
+    for (const l of active) {
+      const spot = l.spec.type === 'spot';
+      const light = spot ? this.lampPool.spot[si++] : this.lampPool.point[pi++];
+      if (!light) continue;
+      const half = THREE.MathUtils.degToRad(l.spec.beam / 2);
+      light.position.copy(l.position);
+      light.color.set(l.spec.color);
+      light.distance = l.spec.distance;
+      // Lumens → candela: a point lamp spreads over the whole sphere, a spot over its cone.
+      light.intensity = spot ? l.spec.lumens / (2 * Math.PI * (1 - Math.cos(half))) : l.spec.lumens / (4 * Math.PI);
+      if (spot) { light.angle = Math.min(Math.PI / 2 - 0.01, half); light.target.position.copy(l.position).add(l.down); light.target.updateMatrixWorld(); }
+    }
+    for (; pi < this.lampPool.point.length; pi++) this.lampPool.point[pi].intensity = 0;
+    for (; si < this.lampPool.spot.length; si++) this.lampPool.spot[si].intensity = 0;
+    // Light bounced off walls and ceiling: a little fill per lit lamp (strongest at night, when nothing else lights the room).
+    this.viewport.setLampFill?.(Math.min(0.32, 0.08 * active.length));
+    // Lamp shadows follow the Shadows switch like the sun's.
+    for (const l of [...this.lampPool.point, ...this.lampPool.spot]) l.castShadow = Boolean(l.userData.shadowCaster && shadowsOn);
+    for (const l of [...this.lampPool.point, ...this.lampPool.spot]) if (l.castShadow) { l.shadow.camera.far = Math.max(1, l.distance || 10); l.shadow.camera.updateProjectionMatrix(); }
+    this.viewport.invalidateShadows();
   }
 
   /** Materials and textures changed (e.g. textures finished loading): templates rebuild lazily. */
@@ -407,9 +509,61 @@ export class SceneBuilder {
 
 // ───────────────────────── helpers
 
-function polygonMesh(points, y, material, up) {
-  const contour = points.map(([x, z]) => new THREE.Vector2(x, z));
-  const tris = ShapeUtils.triangulateShape(contour, []);
+/** Real lights the scene keeps for lamps (fixed, so the shader light count never changes). */
+export const LAMP_POOL = { point: 12, spot: 6, pointShadows: 2, spotShadows: 4 };
+
+/**
+ * A lamp's light: the template's marker (Kit.light: relative intensity, spot angle in radians)
+ * with the object's own settings (`object.light`: on, lumens, color, distance, beam in degrees) over it.
+ */
+export function lampSpec(marker = {}, own = {}) {
+  const type = marker.type === 'spot' ? 'spot' : 'point';
+  return {
+    type,
+    on: own?.on !== false,
+    lumens: Number.isFinite(own?.lumens) ? own.lumens : Math.round((marker.intensity ?? 1) * 800),
+    color: own?.color ?? marker.color ?? '#ffe2b0',
+    distance: Number.isFinite(own?.distance) ? own.distance : (marker.distance ?? 6),
+    beam: Number.isFinite(own?.beam) ? own.beam : Math.round(THREE.MathUtils.radToDeg((marker.angle ?? 0.6) * 2)),
+  };
+}
+
+/** A switched-off copy of a glowing material (cached): no emission, the colour a little greyer. */
+const UNLIT = new WeakMap();
+function unlitMaterial(material) {
+  let off = UNLIT.get(material);
+  if (!off) {
+    off = material.clone();
+    off.emissiveIntensity = 0;
+    off.color?.multiplyScalar?.(0.86);
+    off.name = `${material.name || 'light'} (off)`;
+    UNLIT.set(material, off);
+  }
+  return off;
+}
+
+/** Swaps a lamp's glowing parts between their lit and switched-off materials (the view style is applied on top). */
+function setLampGlow(owner, glow, viewport) {
+  let changed = false;
+  owner.traverse((o) => {
+    if (!o.isMesh) return;
+    const lit = o.userData.litMaterial ?? o.userData.baseMaterial ?? o.material;
+    if (!lit || Array.isArray(lit) || !(lit.emissiveIntensity > 0) || !lit.emissive || lit.emissive.getHex() === 0) return;
+    o.userData.litMaterial = lit;
+    const want = glow ? lit : unlitMaterial(lit);
+    if ((o.userData.baseMaterial ?? o.material) !== want) { o.userData.baseMaterial = want; o.material = want; changed = true; }
+  });
+  if (changed) viewport.applyStyle?.(owner);
+}
+
+function visibleUp(object) {
+  for (let o = object; o; o = o.parent) if (!o.visible) return false;
+  return true;
+}
+
+function polygonMesh(outline, y, material, up, holes = null) {
+  // Holes (stairwells, engine/stairs.js) are cut out; their points follow the outline's.
+  const { points, triangles: tris } = floorTriangles(outline, holes);
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(points.flatMap(([x, z]) => [x, y, z]), 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(points.flatMap(() => [0, up ? 1 : -1, 0]), 3));
@@ -428,6 +582,34 @@ function polygonMesh(points, y, material, up) {
   const mesh = new THREE.Mesh(g, material);
   mesh.receiveShadow = true;
   mesh.userData.ownsGeometry = true;
+  return mesh;
+}
+
+/** Vertical faces round a floor hole from y0 to y1 (both sides, so they show from the stairwell and from above). */
+function holeEdgeMesh(hole, y0, y1, material) {
+  const pos = []; const nor = [];
+  for (let i = 0; i < hole.length; i++) {
+    const [ax, az] = hole[i]; const [bx, bz] = hole[(i + 1) % hole.length];
+    const L = Math.hypot(bx - ax, bz - az);
+    if (L < 1e-6) continue;
+    const nx = -(bz - az) / L; const nz = (bx - ax) / L;
+    for (const s of [1, -1]) {
+      const quad = s > 0 ? [[ax, y0, az], [bx, y0, bz], [bx, y1, bz], [ax, y0, az], [bx, y1, bz], [ax, y1, az]] : [[ax, y0, az], [bx, y1, bz], [bx, y0, bz], [ax, y0, az], [ax, y1, az], [bx, y1, bz]];
+      for (const q of quad) { pos.push(...q); nor.push(nx * s, 0, nz * s); }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(pos.length ? Array.from({ length: pos.length / 3 * 2 }, () => 0) : [], 2));
+  g.computeBoundingBox();
+  g.computeBoundingSphere();
+  if (pos.length) g.computeBoundsTree();
+  const mesh = new THREE.Mesh(g, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.userData.ownsGeometry = true;
+  mesh.userData.part = 'slabEdge';
   return mesh;
 }
 

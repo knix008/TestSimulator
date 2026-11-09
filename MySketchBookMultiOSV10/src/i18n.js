@@ -5,8 +5,10 @@ import en from './i18n/en.js';
 import ko3d from './i18n/ko3d.js';
 import en3d from './i18n/en3d.js';
 import { ko as koExtra, en as enExtra } from './i18n/extra3d.js';
+import { ko as koPrint, en as enPrint } from './i18n/print3d.js';
+import { ko as koStairs, en as enStairs } from './i18n/stairs3d.js';
 
-export const DICTIONARIES = { ko: { ...ko, ...ko3d, ...koExtra }, en: { ...en, ...en3d, ...enExtra } };
+export const DICTIONARIES = { ko: { ...ko, ...ko3d, ...koExtra, ...koPrint, ...koStairs }, en: { ...en, ...en3d, ...enExtra, ...enPrint, ...enStairs } };
 let language = 'ko';
 
 export function setLanguage(value) {

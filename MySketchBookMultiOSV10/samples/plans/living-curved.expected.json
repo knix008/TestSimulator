@@ -1,0 +1,126 @@
+{
+ "id": "living-curved",
+ "title": "곡선 벽 거실",
+ "units": "mm",
+ "walls": [
+  {
+   "a": [
+    11,
+    -20
+   ],
+   "b": [
+    16,
+    -20
+   ],
+   "thickness": 0.2
+  },
+  {
+   "a": [
+    10,
+    -15
+   ],
+   "b": [
+    16,
+    -15
+   ],
+   "thickness": 0.2
+  },
+  {
+   "a": [
+    10,
+    -19
+   ],
+   "b": [
+    10,
+    -15
+   ],
+   "thickness": 0.2
+  },
+  {
+   "a": [
+    13,
+    -20
+   ],
+   "b": [
+    13,
+    -15
+   ],
+   "thickness": 0.1
+  }
+ ],
+ "curves": [
+  {
+   "c": [
+    11,
+    -19
+   ],
+   "r": 1,
+   "a0": 3.141592653589793,
+   "a1": 4.71238898038469,
+   "thickness": 0.2
+  },
+  {
+   "c": [
+    16,
+    -17.5
+   ],
+   "r": 2.5,
+   "a0": -1.5707963267948966,
+   "a1": 1.5707963267948966,
+   "thickness": 0.2
+  }
+ ],
+ "openings": [
+  {
+   "kind": "window",
+   "item": "window-casement",
+   "center": [
+    14.6,
+    -20
+   ],
+   "width": 1.2
+  },
+  {
+   "kind": "window",
+   "item": "window-casement",
+   "center": [
+    11.6,
+    -15
+   ],
+   "width": 1.2
+  },
+  {
+   "kind": "window",
+   "item": "window-casement",
+   "center": [
+    18.5,
+    -17.5
+   ],
+   "width": 1.188513132135673,
+   "curved": true
+  },
+  {
+   "kind": "door",
+   "item": "door-entrance",
+   "center": [
+    10,
+    -16.55
+   ],
+   "width": 0.9,
+   "side": "right",
+   "hinge": "right"
+  },
+  {
+   "kind": "door",
+   "item": "door-single",
+   "center": [
+    13,
+    -18.55
+   ],
+   "width": 0.9,
+   "side": "right",
+   "hinge": "right"
+  }
+ ],
+ "rooms": 2
+}

@@ -2,7 +2,7 @@
 // butt joins where a wall ends on another wall's side, openings cut through,
 // and room detection from the wall centre lines.
 //
-// Plan coordinates [x, z] (CONTRACT.md). A wall runs from a to b; its "left"
+// Plan coordinates [x, z] (ARCHITECTURE.md §12). A wall runs from a to b; its "left"
 // side is +n with n = (-dz, dx)/|d| — on screen (z down) that is the side to
 // the right of the direction of travel, but only the naming matters.
 import { ShapeUtils, Vector2 } from 'three';
@@ -402,4 +402,20 @@ export function splitWall(wall, t, makeId) {
   const d = wallDir(wall);
   const m = add(wall.a, mul(d, t));
   return [{ ...wall, id: makeId(), b: m }, { ...wall, id: makeId(), a: m }];
+}
+
+/**
+ * Triangles of a room floor (or ceiling) with holes (stairwells): { points (outline, then each
+ * hole), triangles ([a, b, c] indices into points) }. Holes are polygons or { points } entries.
+ */
+export function floorTriangles(points, holes = []) {
+  const clean = (poly) => {
+    const out = poly.filter((q, i) => i === 0 || dist(q, poly[i - 1]) > EPS);
+    while (out.length > 2 && dist(out[0], out.at(-1)) <= EPS) out.pop();
+    return out;
+  };
+  const outline = clean(points);
+  const hs = (Array.isArray(holes) ? holes : []).map((h) => (Array.isArray(h) ? h : h?.points)).filter((h) => Array.isArray(h) && h.length >= 3).map(clean).filter((h) => h.length >= 3);
+  const tris = ShapeUtils.triangulateShape(outline.map(([x, z]) => new Vector2(x, z)), hs.map((h) => h.map(([x, z]) => new Vector2(x, z))));
+  return { points: [...outline, ...hs.flat()], triangles: tris };
 }

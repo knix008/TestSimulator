@@ -17,6 +17,8 @@ import { TEMPLATES, buildTemplate } from './engine/templates.js';
 import { buildSampleProject } from './engine/samples.js';
 import { packProject, unpackProject, isProjectName, isModelName } from './engine/fileformat.js';
 import { wallDir, wallLength, wallNormal, splitWall, projectOnSegment } from './engine/walls.js';
+import { columnNodesOf, fixOpenings, isColumn, mergeWallsAtNodes, moveJoined, refitRooms, setWallLength, setWallThickness } from './engine/planedit.js';
+import { SAMPLE_GROUPS, SAMPLE_PROJECTS } from './engine/samples.js';
 import { getMaterial, presetOf, defineCustomMaterial, MATERIAL_PRESETS, clearMaterialCache } from './engine/materials.js';
 import { CATEGORIES, catalogItem, itemName, itemParams, loadAssetItems, onCatalogChange, registerUserItem, searchItems, assetApi } from './library/catalog.js';
 import * as Tools from './tools/tools.js';
@@ -31,19 +33,25 @@ import { icon } from './icons.js';
 import * as native from './platform/native.js';
 import { idbGet, idbSet, idbDelete } from './platform/idb.js';
 import { PopupHost } from './platform/popups.js';
-import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from './themes.js';
+import { applyFont, applyTheme, mix, randomThemeId, resolveTheme, themeName } from './themes.js';
+import { encodeCanvas } from './io/imageformats.js';
+import { isNight, sunAngles } from './engine/sun.js';
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { AnimatedBackground } from './ui/background.js';
 import { startPageHtml } from './ui/startpage.js';
 import { startBoard } from './ui/startboard.js';
 import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
 import { entityInfoHtml, levelsHtml, libraryHtml, materialsHtml, outlinerHtml, paletteHtml, scenesHtml, shadowsHtml, stylesHtml, tagsHtml, PLACES } from './ui/panels.js';
-import { itemThumbnail, materialThumbnail, cancelThumbnails, cachedThumbnail } from './ui/thumbnails.js';
+import { itemThumbnail, materialThumbnail, cancelThumbnails, cachedThumbnail, setThumbnailGate } from './ui/thumbnails.js';
 import { Rulers } from './ui/rulers.js';
 import { ScaleBar } from './ui/scalebar.js';
 import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { bytesToBase64 } from './export/files.js';
 import { checkProject, countBySeverity } from './engine/checks.js';
+import { syncStairwells } from './engine/stairs.js';
+import { swingMeta, doorDirection, setDoorDirection } from './engine/doorswing.js';
+import { createPrintHost } from './print/host.js';
+import { createPlanImport, isPlanName, isPlanImageName } from './ui/plan-import.js';
 
 const modelingModules = import.meta.glob('./tools/modeling.js', { eager: true });
 const Modeling = Object.values(modelingModules)[0] ?? null;
@@ -166,6 +174,63 @@ const docName = (d = doc()) => (d ? (d.path ? baseName(d.path) : d.name ?? (d.pr
 
 function untitledName() { state.untitled += 1; return t('tabs.untitled', { n: state.untitled }); }
 
+/** Changes the sun light (one undo step) and everything that follows it: shadows, sky, day/night. */
+function setSun(patch, { quiet = false } = {}) {
+  const p = project();
+  if (!p) return;
+  change('op.sun', (pr) => { pr.sun = { ...pr.sun, ...patch }; }, []);
+  applyProjectView();
+  renderToolbarState();
+  renderRight();
+  if (!quiet && 'on' in patch) notify('info', t(patch.on ? 'notice.sunOn' : 'notice.sunOff'));
+}
+
+/** Day ↔ night: night puts the sun under the horizon (22:00, or −10° when set by hand) and switches the lamps on. */
+function toggleNight() {
+  const p = project();
+  if (!p) return;
+  const night = isNight(p.sun);
+  if (p.sun.mode === 'manual') setSun({ altitude: night ? 45 : -10 }, { quiet: true });
+  else setSun({ time: night ? (p.sun.dayTime ?? '14:00') : '22:00', dayTime: night ? p.sun.dayTime : p.sun.time }, { quiet: true });
+  if (!night && !p.style.lightsOn) setStyle({ lightsOn: true });
+  notify('info', t(night ? 'notice.day' : 'notice.night'));
+}
+
+/** Dragging the sun marker: live while moving (clientX/Y), one undo step when released (null). */
+function dragSun(clientX, clientY) {
+  const p = project();
+  if (!p) return;
+  if (clientX == null) { viewport.endSunDrag(); overlay?.clearLabel('sun'); if (state.sunDragged) { state.sunDragged = false; commit('op.sun', []); renderRight(); renderToolbarState(); } return; }
+  const now = sunAngles(p.sun);
+  if (!state.sunDragged) viewport.beginSunDrag(clientX, clientY, now, p.sun.north ?? 0);
+  const angles = viewport.sunAnglesAt(clientX, clientY, p.sun.north ?? 0);
+  if (!angles) { state.sunDragged = true; return; }
+  p.sun = { ...p.sun, mode: 'manual', azimuth: Math.round((angles.azimuth ?? now.azimuth) * 10) / 10, altitude: Math.round((angles.altitude ?? now.altitude) * 10) / 10 };
+  state.sunDragged = true;
+  applyProjectView();
+  const el = root.querySelector('#status-pointer');
+  if (el) el.textContent = t('sun.angles', { az: p.sun.azimuth.toFixed(0), alt: p.sun.altitude.toFixed(0) });
+  overlay?.label('sun', viewport.sunSprite.position, t('sun.angles', { az: p.sun.azimuth.toFixed(0), alt: p.sun.altitude.toFixed(0) }), { kind: 'info' });
+}
+
+function showSunPanel() {
+  if (!project()) return;
+  if (!state.settings.showRightPanel) updateSettings({ showRightPanel: true });
+  state.rightTab = 'shadows';
+  renderRight();
+}
+
+/** Back to the view the project opened with (2D: the whole plan from the top). */
+function resetView() {
+  if (!viewport || !project()) return;
+  viewport.stopGlide();
+  if (viewport.walk) { viewport.stopWalk(); if (state.tool === 'walk') setTool('select'); }
+  if (state.planView) { viewport.setView('top'); viewport.zoomExtents(); return; }
+  if (state.homeCamera) viewport.setCameraState(state.homeCamera, { animate: true });
+  else { viewport.setView('iso'); viewport.zoomExtents(); }
+  notify('info', t('notice.viewReset'));
+}
+
 function setDoc(d) {
   // Leaving the start page closes the welcome popup (the tutorial's own card stays while it runs).
   if (!tutorial?.active) popups.close('welcome');
@@ -180,6 +245,8 @@ function setDoc(d) {
   syncScene();
   applyProjectView();
   viewport.setCameraState(d.project.camera);
+  // The view the project opened with: the "reset view" button (Home) comes back to it.
+  state.homeCamera = d.project.camera ? JSON.parse(JSON.stringify(d.project.camera)) : viewport.cameraState();
   setTool('select');
   persistSession();
   scheduleProblems(0);
@@ -245,6 +312,8 @@ function change(labelKey, mutate, touch = null) {
 function commit(labelKey, touch = null) {
   const d = doc();
   if (!d) return;
+  // Stairwells follow their stairs (placed, moved, resized, deleted): the openings in the floors above (engine/stairs.js).
+  if (syncStairwells(d.project) && touch && !touch.includes('rooms')) touch = [...touch, 'rooms'];
   d.history.commit(d.project, t(labelKey), touch);
   d.revision += 1;
   afterChange();
@@ -319,6 +388,8 @@ function mountViewport() {
     onMove: (pos, { live }) => { if (live) state.settings.scaleBarPos = pos; else updateSettings({ scaleBarPos: pos }, { quiet: true }); },
     title: t('tip.scaleBar'),
   });
+  // Library thumbnails wait while the view is being moved, so orbiting and panning stay smooth.
+  setThumbnailGate(() => viewport.isBusy());
   viewport.applySettings();
   bindViewportEvents(host);
   bindNavPad(host);
@@ -330,7 +401,7 @@ function navPadHtml() {
   return `<div class="nav-pad" role="toolbar" aria-label="${escapeHtml(t('nav.title'))}">
     <div class="nav-ring nav-orbit" title="${escapeHtml(t('nav.orbitTip'))}">${b('orbit-up', 'chevronUp', 'nav.orbitUp')}${b('orbit-left', 'chevronLeft', 'nav.orbitLeft')}<span class="nav-center">${icon('orbitTool')}</span>${b('orbit-right', 'chevronRight', 'nav.orbitRight')}${b('orbit-down', 'chevronDown', 'nav.orbitDown')}</div>
     <div class="nav-ring nav-pan" title="${escapeHtml(t('nav.panTip'))}">${b('pan-up', 'chevronUp', 'nav.panUp')}${b('pan-left', 'chevronLeft', 'nav.panLeft')}<span class="nav-center">${icon('panTool')}</span>${b('pan-right', 'chevronRight', 'nav.panRight')}${b('pan-down', 'chevronDown', 'nav.panDown')}</div>
-    <div class="nav-column">${b('zoom-in', 'zoomIn', 'nav.zoomIn')}${b('zoom-out', 'zoomOut', 'nav.zoomOut')}${b('extents', 'zoomExtents', 'action.zoomExtents')}</div>
+    <div class="nav-column">${b('zoom-in', 'zoomIn', 'nav.zoomIn')}${b('zoom-out', 'zoomOut', 'nav.zoomOut')}${b('extents', 'zoomExtents', 'action.zoomExtents')}${b('home', 'home', 'action.resetView')}</div>
   </div>`;
 }
 
@@ -353,6 +424,7 @@ function bindNavPad(host) {
       case 'zoom-in': vp.dolly(0.94, pivot); break;
       case 'zoom-out': vp.dolly(1 / 0.94, pivot); break;
       case 'extents': vp.zoomExtents(); return false;
+      case 'home': resetView(); return false;
       default: return false;
     }
     vp.touchInteraction();
@@ -377,6 +449,7 @@ function syncScene() {
   if (!viewport || !doc()) return;
   const p = doc().project;
   builder.sync(p);
+  planImport.sync();
   viewport.groundY = levelOf(p, p.activeLevel).elevation;
   viewport.grid.position.y = viewport.groundY - 0.002;
   renderAnnotations();
@@ -390,13 +463,21 @@ function applyProjectView() {
   if (!p || !viewport) return;
   viewport.setStyle(p.style.mode, { edges: p.style.edges !== false });
   viewport.renderer.toneMappingExposure = p.style.exposure ?? 1;
-  viewport.setSun(p.sun, { enabled: state.settings.shadows !== false });
-  const bg = p.style.background ?? 'sky';
-  const dark = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark;
-  if (bg === 'white') viewport.setSkyColors({ top: '#ffffff', horizon: '#ffffff', ground: '#f3f3f3' });
+  viewport.setSun(p.sun);
+  const bg = p.style.background ?? 'theme';
+  const theme = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme);
+  const dark = theme.dark;
+  const c = theme.colors;
+  // The 2D plan is always drawn on the theme's drawing paper; 3D follows the project's background choice.
+  const plan = viewport.planMode;
+  if (plan) viewport.setSkyColors({ top: c.chart, horizon: c.chart, ground: c.chart });
+  else if (isNight(p.sun) && bg !== 'environment') viewport.setSkyColors(dark ? { top: '#05070d', horizon: '#141b2b', ground: '#0d0f14' } : { top: '#0b1224', horizon: '#26324d', ground: '#15181e' });
+  else if (bg === 'theme') viewport.setSkyColors({ top: mix(c.chart, c.accent, dark ? 0.22 : 0.16), horizon: c.chart, ground: mix(c.chart, c.text, dark ? 0.1 : 0.07) });
+  else if (bg === 'white') viewport.setSkyColors({ top: '#ffffff', horizon: '#ffffff', ground: '#f3f3f3' });
   else if (bg === 'dark') viewport.setSkyColors({ top: '#1b2230', horizon: '#2b3443', ground: '#20242b' });
   else viewport.setSkyColors(dark ? { top: '#5d7fa6', horizon: '#a9b8c8', ground: '#7d7a74' } : { top: '#9fc4ea', horizon: '#e8eef3', ground: '#d9d4cb' });
-  applyEnvironment(p.style.environment ?? 'room', bg === 'environment');
+  viewport.setGridColor(plan || bg === 'theme' ? mix(c.text, c.chart, 0.35) : '#5f6b7a');
+  applyEnvironment(p.style.environment ?? 'room', bg === 'environment' && !plan);
   viewport.requestRender();
 }
 
@@ -462,7 +543,7 @@ function bindViewportEvents(host) {
   canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     if (viewport.navDrag?.moved) return;
-    const hit = viewport.pick(e.clientX, e.clientY);
+    const hit = viewport.pick(e.clientX, e.clientY, { lamps: true });
     if (hit?.entity && !isSelected(hit.entity.id)) select([hit.entity.id]);
     contextMenu(e, hit?.entity ? 'entity' : 'canvas', { hit });
   });
@@ -532,6 +613,29 @@ function updateSelectionBoxes() {
   const hover = state.hover && !isSelected(state.hover) ? builder.orientedBox(state.hover) : null;
   viewport.setSelectionBoxes(boxes, { hover });
   if (state.erase.length) viewport.setSelectionBoxes([...boxes, ...state.erase.map((id) => builder.orientedBox(id)).filter(Boolean)], { color: '#d6303b' });
+  showDoorSwings();
+  // The selected wall's end and middle grips (Select tool; tools.js).
+  Tools.drawWallGrips(toolApi, state.toolObject);
+}
+
+/** The selected swinging door: { o (opening), meta (its swing, doorswing.js), dir (doorDirection) }, else null. */
+function selectedDoor() {
+  if (state.selection.length !== 1 || kindOf(state.selection[0]) !== 'opening') return null;
+  const o = entity(state.selection[0])?.entity;
+  const w = o && project()?.walls.find((x) => x.id === o.wall);
+  const item = o && catalogItem(o.item);
+  if (!w || item?.category !== 'doors') return null;
+  const meta = swingMeta(item, { ...(o.params ?? {}), width: o.width, height: o.height }, w.thickness ?? 0.15);
+  const dir = doorDirection(o, meta);
+  return dir ? { o, meta, dir } : null;
+}
+
+/** How doors open (arc + leaf on the floor, src/engine/doorswing.js): every door in the plan view, the selected ones in 3D. */
+function showDoorSwings() {
+  if (!builder) return;
+  const selected = new Set(state.selection);
+  for (const g of builder.groups.openings.children) for (const c of g.children) if (c.userData.doorSwing) c.visible = Boolean(state.planView) || selected.has(g.userData.entityId);
+  viewport?.requestRender();
 }
 
 /** Entities whose screen footprint is inside (window) or touches (crossing) a screen rectangle. */
@@ -580,11 +684,13 @@ function moveEntities(ids, delta, { live: isLive = true } = {}) {
   if (!p) return;
   const index = buildIndex(p);
   const moveWalls = new Set();
+  const moveColumns = new Set();
   for (const id of ids) {
     const hit = index.get(id);
     if (!hit || hit.entity.locked) continue;
     const e = hit.entity;
-    if (hit.kind === 'objects' || hit.kind === 'models') { e.position = [e.position[0] + delta.x, e.position[1] + delta.y, e.position[2] + delta.z]; }
+    if (hit.kind === 'objects' && isColumn(e)) moveColumns.add(e.id);
+    else if (hit.kind === 'objects' || hit.kind === 'models') { e.position = [e.position[0] + delta.x, e.position[1] + delta.y, e.position[2] + delta.z]; }
     else if (hit.kind === 'walls') moveWalls.add(e.id);
     else if (hit.kind === 'rooms') e.points = e.points.map(([x, z]) => [x + delta.x, z + delta.z]);
     else if (hit.kind === 'openings') {
@@ -594,16 +700,15 @@ function moveEntities(ids, delta, { live: isLive = true } = {}) {
     else if (hit.kind === 'texts') e.point = add3(e.point, delta);
     else if (hit.kind === 'guides') { e.a = add3(e.a, delta); e.b = add3(e.b, delta); }
   }
-  // Moving walls drags the ends of walls joined to them (SketchUp's sticky geometry).
-  if (moveWalls.size) {
-    const moved = p.walls.filter((w) => moveWalls.has(w.id));
-    const ends = moved.flatMap((w) => [w.a, w.b]).map((q) => [...q]);
-    const near = (q) => ends.some((e) => Math.hypot(e[0] - q[0], e[1] - q[1]) < 0.01);
-    for (const w of p.walls) {
-      if (moveWalls.has(w.id)) { w.a = [w.a[0] + delta.x, w.a[1] + delta.z]; w.b = [w.b[0] + delta.x, w.b[1] + delta.z]; continue; }
-      if (near(w.a)) w.a = [w.a[0] + delta.x, w.a[1] + delta.z];
-      if (near(w.b)) w.b = [w.b[0] + delta.x, w.b[1] + delta.z];
-    }
+  // Moving walls or columns drags the wall ends and columns joined to them (SketchUp's sticky geometry; planedit.js).
+  if (moveWalls.size || moveColumns.size) {
+    const ends = new Map(p.walls.map((w) => [w.id, { a: [...w.a], b: [...w.b] }]));
+    const moved = moveJoined(p, { walls: [...moveWalls], columns: [...moveColumns] }, [delta.x, delta.z]);
+    // Doors and windows of stretched walls stay where they were on them, inside the wall.
+    fixOpenings(p, ends);
+    // Rooms bounded by the moved walls take their new shape (rooms moved along keep theirs).
+    const levels = new Set(p.walls.filter((w) => moved.includes(w.id)).map((w) => w.level));
+    if (levels.size) refitRooms(p, levels, new Set(ids));
   }
   if (isLive) live();
 }
@@ -679,7 +784,8 @@ async function deleteEntities(ids, { live: isLive = false } = {}) {
   const list = ids.filter((id) => !isLocked(id));
   if (!list.length) return;
   if (isLive) { removeEntities(project(), list); live(); return; }
-  change('op.delete', (p) => removeEntities(p, list), null);
+  // A column that joined two pieces of one straight wall: they become one wall again (planedit.mergeWallsAt).
+  change('op.delete', (p) => { const nodes = columnNodesOf(p, list); removeEntities(p, list); mergeWallsAtNodes(p, nodes); }, null);
   notify('info', t('notice.deleted', { count: list.length }));
 }
 
@@ -758,6 +864,8 @@ function makeTool(id) {
   switch (id) {
     case 'select': return new Tools.SelectTool(toolApi);
     case 'wall': return new Tools.WallTool(toolApi);
+    case 'column': return new Tools.ColumnTool(toolApi);
+    case 'stairs': return new Tools.StairsTool(toolApi);
     case 'room': return new Tools.RoomTool(toolApi);
     case 'move': return new Tools.MoveTool(toolApi);
     case 'rotate': return new Tools.RotateTool(toolApi);
@@ -833,6 +941,7 @@ async function prompt({ title, label, value = '' }) {
 
 /** What the tools see of the app (tools/tools.js, tools/modeling.js). */
 const toolApi = {
+  dragSun, showSunPanel,
   get viewport() { return viewport; },
   get overlay() { return overlay; },
   get builder() { return builder; },
@@ -840,7 +949,7 @@ const toolApi = {
   change, commit, live, select, clearSelection, selection: () => state.selection, isSelected, isLocked, kindOf, setHover, markErase,
   moveEntities, rotateEntities, rotateSelection, scaleEntities, duplicateEntities, deleteEntities, paintHit, setTool, setVcb, groundPoint,
   entitiesInRect, showSelectionRect, editEntity, describeEntity, prompt, brush: () => state.brush, setBrush: (id) => { state.brush = id; renderLeft(); notify('info', t('notice.brush', { name: presetName(id) })); },
-  sync: () => syncScene(), renderRight: () => renderRight(),
+  sync: () => syncScene(), renderRight: () => renderRight(), renderStatus: () => renderStatus(),
   eraseModel: (e) => Modeling?.eraseAt?.(toolApi, e) ?? false,
   cameraMoved: () => { if (doc()) doc().project.camera = viewport.cameraState(); },
 };
@@ -859,14 +968,17 @@ const commands = {
   // file
   new: { icon: 'fileNew', label: 'action.new', key: 'Ctrl+N', run: () => newProjectAsk('empty') },
   newFromTemplate: { icon: 'template', label: 'action.newFromTemplate', run: (c) => templateMenu(c?.anchor) },
+  openExample: { icon: 'samples', label: 'action.openExample', run: (c) => examplesMenu(c?.anchor) },
   open: { icon: 'folderOpen', label: 'action.open', key: 'Ctrl+O', run: () => openWithDialog() },
   startPage: { icon: 'home', label: 'action.startPage', key: 'Ctrl+Shift+H', checked: () => state.showStart || !state.doc, run: () => showStartPage(!state.showStart || !state.doc) },
   save: { icon: 'save', label: 'action.save', key: 'Ctrl+S', enabled: hasDoc, run: () => saveDoc() },
+  print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: hasDoc, run: () => printHost.open() },
   saveAs: { icon: 'saveAs', label: 'action.saveAs', key: 'Ctrl+Shift+S', enabled: hasDoc, run: () => saveDoc({ saveAs: true }) },
   recent: { icon: 'recent', label: 'action.recent', key: 'Ctrl+R', run: () => popups.open('recent', {}) },
   recentFolders: { icon: 'recentFolder', label: 'action.recentFolders', run: (c) => recentFoldersMenu(c?.anchor) },
   clearRecent: { icon: 'clearHistory', label: 'action.clearRecent', enabled: () => state.recent.length > 0 || state.recentDirs.length > 0, run: () => clearRecentAll() },
   importModel: { icon: 'importModel', label: 'action.importModel', key: 'Ctrl+I', enabled: hasDoc, run: () => importModelDialog() },
+  importPlan: { icon: 'importPlan', label: 'action.importPlan', enabled: () => true, run: () => planImport.dialog() },
   exportMenu: { icon: 'chevronDown', label: 'action.exportMenu', enabled: hasDoc, run: (c) => showMenu(menuItems(SUBMENUS.exportTo.items), c?.anchor ?? anchorFor('exportMenu'), 'context', { header: { icon: 'exportFile', title: t('submenu.exportTo') } }) },
   exportImage: { icon: 'exportImage', label: 'action.exportImage', key: 'Ctrl+Shift+E', enabled: hasDoc, run: () => exportImage() },
   renderPhoto: { icon: 'renderPhoto', label: 'action.renderPhoto', key: 'F9', enabled: hasDoc, run: () => renderPhoto() },
@@ -901,6 +1013,8 @@ const commands = {
   resetMaterials: { icon: 'refresh', label: 'action.resetMaterials', enabled: () => state.selection.length === 1, run: () => change('op.paint', () => { const e = entity(state.selection[0])?.entity; if (e) e.materials = {}; }, ['objects', 'openings']) },
   replaceItem: { icon: 'library', label: 'action.replaceItem', enabled: () => state.selection.length === 1 && ['object', 'opening'].includes(kindOf(state.selection[0])), run: (c) => replaceItemMenu(c?.anchor) },
   splitWall: { icon: 'lineTool', label: 'action.splitWall', enabled: () => state.selection.length === 1 && kindOf(state.selection[0]) === 'wall', run: () => splitSelectedWall() },
+  flipDoorSwing: { icon: 'flipV', label: 'action.flipDoorSwing', enabled: () => Boolean(selectedDoor()), run: () => { const s = selectedDoor(); change('op.flip', () => { setDoorDirection(s.o, s.meta, { swing: s.dir.swing === 'left' ? 'right' : 'left' }); }, ['openings']); } },
+  flipDoorHinge: { icon: 'flipH', label: 'action.flipDoorHinge', enabled: () => Boolean(selectedDoor()?.dir.hinge), run: () => { const s = selectedDoor(); change('op.flip', () => { setDoorDirection(s.o, s.meta, { hinge: s.dir.hinge === 'left' ? 'right' : 'left' }); }, ['openings']); } },
   flipWall: { icon: 'flipTool', label: 'action.flipWall', enabled: () => state.selection.length === 1 && kindOf(state.selection[0]) === 'wall', run: () => change('op.flip', () => { const w = entity(state.selection[0]).entity; [w.a, w.b] = [w.b, w.a]; w.material = { left: w.material?.right, right: w.material?.left, top: w.material?.top }; for (const o of project().openings) if (o.wall === w.id) o.offset = wallLength(w) - o.offset; }, ['walls', 'openings']) },
   deleteGuides: { icon: 'guide', label: 'action.deleteGuides', enabled: () => Boolean(project()?.guides.length), run: () => change('op.delete', (p) => { p.guides = []; }, ['guides']) },
   makeGroup: { icon: 'makeGroup', label: 'action.makeGroup', key: 'G', enabled: () => Boolean(Modeling?.makeGroup) && sel(), run: () => Modeling.makeGroup(toolApi, state.selection) },
@@ -911,6 +1025,8 @@ const commands = {
   'tool:eraser': toolCommand('eraser', 'eraser', 'E'),
   'tool:paint': toolCommand('paint', 'paintBucket', 'B'),
   'tool:wall': toolCommand('wall', 'wallTool', 'W'),
+  'tool:column': toolCommand('column', 'columnTool', 'Shift+C'),
+  'tool:stairs': toolCommand('stairs', 'stairsTool', 'Shift+S'),
   'tool:room': toolCommand('room', 'roomTool', 'Shift+R'),
   door: { icon: 'doorTool', label: 'tool.door', enabled: hasDoc, checked: () => state.placeCategory === 'doors', run: () => { showLibrary('doors'); startPlacing(searchItems({ category: 'doors' })[0]?.id ?? 'door-single'); } },
   window: { icon: 'windowTool', label: 'tool.window', enabled: hasDoc, checked: () => state.placeCategory === 'windows', run: () => { showLibrary('windows'); startPlacing(searchItems({ category: 'windows' })[0]?.id ?? 'window-casement'); } },
@@ -938,6 +1054,11 @@ const commands = {
   'tool:walk': toolCommand('walk', 'walkTool'),
   'tool:lookAround': toolCommand('lookAround', 'lookAround'),
   zoomExtents: { icon: 'zoomExtents', label: 'action.zoomExtents', key: 'Shift+Z', enabled: hasDoc, run: () => viewport.zoomExtents() },
+  resetView: { icon: 'home', label: 'action.resetView', key: 'Home', enabled: hasDoc, run: () => resetView() },
+  sunOn: { icon: 'sun', label: 'action.sunOn', enabled: hasDoc, checked: () => project()?.sun?.on !== false, run: () => setSun({ on: project().sun.on === false }) },
+  dayNight: { icon: 'moon', label: 'action.night', enabled: hasDoc, checked: () => Boolean(project() && isNight(project().sun)), run: () => toggleNight() },
+  sunMarker: { icon: 'sun', label: 'action.sunMarker', checked: () => state.settings.showSunMarker !== false, run: () => updateSettings({ showSunMarker: state.settings.showSunMarker === false }) },
+  sunPanel: { icon: 'sun', label: 'action.sunPanel', enabled: hasDoc, run: () => showSunPanel() },
   zoomSelection: { icon: 'zoomSelection', label: 'action.zoomSelection', enabled: sel, run: () => { const b = new THREE.Box3(); for (const id of state.selection) { const wb = builder.worldBox(id); if (wb) b.union(wb); } viewport.zoomExtents(b); } },
   solidUnion: { icon: 'solidUnion', label: 'action.solidUnion', enabled: () => Boolean(Modeling?.solid) && state.selection.filter((id) => kindOf(id) === 'model').length >= 2, run: () => Modeling.solid(toolApi, 'union', state.selection) },
   solidSubtract: { icon: 'solidSubtract', label: 'action.solidSubtract', enabled: () => Boolean(Modeling?.solid) && state.selection.filter((id) => kindOf(id) === 'model').length === 2, run: () => Modeling.solid(toolApi, 'subtract', state.selection) },
@@ -962,6 +1083,11 @@ const commands = {
   shadows: { icon: 'shadowToggle', label: 'action.shadows', checked: () => state.settings.shadows !== false, run: () => { toggle('shadows'); } },
   lightsOn: { icon: 'lightsOn', label: 'action.lightsOn', enabled: hasDoc, checked: () => Boolean(project()?.style.lightsOn), run: () => setStyle({ lightsOn: !project().style.lightsOn }) },
   xray: { icon: 'styleXray', label: 'style.xray', enabled: hasDoc, checked: () => project()?.style.mode === 'xray', run: () => setStyle({ mode: project().style.mode === 'xray' ? 'textured' : 'xray' }) },
+  lampMarkers: { icon: 'lightsOn', label: 'action.lampMarkers', checked: () => state.settings.showLampMarkers !== false, run: () => updateSettings({ showLampMarkers: state.settings.showLampMarkers === false }) },
+  switchLamp: { icon: 'lightsOn', label: 'action.switchLamp', enabled: () => selectedLamps().length > 0, run: () => switchLamps(selectedLamps(), !selectedLamps().every((e) => e.light?.on !== false)) },
+  allLampsOn: { icon: 'lightsOn', label: 'action.allLampsOn', enabled: hasDoc, run: () => switchLamps(project().objects.filter((e) => builder.lampInfo(e)), true) },
+  allLampsOff: { icon: 'lightsOn', label: 'action.allLampsOff', enabled: hasDoc, run: () => switchLamps(project().objects.filter((e) => builder.lampInfo(e)), false) },
+  resetLamp: { icon: 'undo', label: 'lamp.reset', enabled: () => selectedLamps().some((e) => e.light), run: () => change('op.edit', () => { for (const e of selectedLamps()) delete e.light; }, ['objects']) },
   grid: { icon: 'grid', label: 'action.grid', checked: () => state.settings.showGrid, run: () => toggle('showGrid') },
   scaleBar: { icon: 'scaleBar', label: 'action.scaleBar', checked: () => state.settings.showScaleBar !== false, run: () => { toggle('showScaleBar'); viewport?.requestRender(); } },
   rulers: { icon: 'rulers', label: 'action.rulers', key: 'Ctrl+Shift+R', checked: () => state.settings.showRulers !== false, run: () => { toggle('showRulers'); viewport?.requestRender(); } },
@@ -1023,6 +1149,20 @@ function setStyle(patch) {
   renderRight();
 }
 
+/** Selected objects that are lamps (have a light). */
+function selectedLamps() {
+  if (!project() || !builder) return [];
+  return state.selection.map((id) => entity(id)).filter((h) => h?.kind === 'objects' && builder.lampInfo(h.entity)).map((h) => h.entity);
+}
+
+/** Switches lamps on or off in one undoable step (switching on also turns the view's lights on). */
+function switchLamps(lamps, on) {
+  if (!lamps.length) return;
+  change('op.edit', () => { for (const e of lamps) { e.light = { ...(e.light ?? {}), on }; if (on) delete e.light.on; if (!Object.keys(e.light).length) delete e.light; } }, ['objects']);
+  if (on && !project().style.lightsOn) setStyle({ lightsOn: true });
+  notify('info', t(on ? 'notice.lampsOn' : 'notice.lampsOff', { count: lamps.length }));
+}
+
 function setPlanView(on) {
   if (!viewport || !project()) return;
   state.planView = on;
@@ -1030,9 +1170,12 @@ function setPlanView(on) {
   syncScene();
   const level = levelOf(project(), project().activeLevel);
   viewport.setPlanMode(on, { elevation: level.elevation, cutHeight: Math.min(1.2, level.height - 0.05) });
+  applyProjectView();
   builder.groups.cuts.visible = on;
   root.querySelector('#view-host')?.classList.toggle('plan-mode', on);
   for (const c of builder.groups.cuts.children) c.visible = c.userData.level === level.id;
+  showDoorSwings();
+  Tools.drawWallGrips(toolApi, state.toolObject);
   dimsKey = '';
   renderAnnotations();
   renderToolbarState();
@@ -1169,10 +1312,10 @@ function sceneStep(dir) {
 
 const SUBMENUS = {
   exportTo: { icon: 'exportFile', items: ['exportImage', 'renderPhoto', 'exportPlan', '-', 'exportGlb', 'exportGltf', 'exportObj', 'exportStl', 'exportPly', 'exportUsdz', '-', 'exportSelection'] },
-  views: { icon: 'views', items: VIEWS.map((v) => `view:${v}`) },
+  views: { icon: 'views', items: ['resetView', '-', ...VIEWS.map((v) => `view:${v}`)] },
   faceStyle: { icon: 'styleTextured', items: STYLE_MODES.map((m) => `style:${m}`) },
   quality: { icon: 'quality', items: ['quality:fast', 'quality:balanced', 'quality:high'] },
-  show: { icon: 'eye', items: ['rulers', 'scaleBar', 'grid', 'axes', 'edges', 'shadows', 'lightsOn', 'fps', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar'] },
+  show: { icon: 'eye', items: ['rulers', 'scaleBar', 'grid', 'axes', 'edges', 'shadows', 'sunOn', 'dayNight', 'sunMarker', 'lightsOn', 'lampMarkers', 'fps', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
   drawShapes: { icon: 'rectTool', items: ['tool:line', 'tool:rectangle', 'tool:circle', 'tool:arc', 'tool:polygon', 'tool:freehand'] },
   modify: { icon: 'pushPull', items: ['tool:pushpull', 'tool:move', 'tool:rotate', 'tool:scale', 'tool:offset', 'tool:followme'] },
@@ -1186,10 +1329,10 @@ const SUBMENUS = {
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
-  file: ['new', 'newFromTemplate', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', '-', 'importModel', sub('exportTo'), '-', 'closeProject', 'exit'],
+  file: ['new', 'newFromTemplate', 'openExample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', '-', 'importModel', 'importPlan', sub('exportTo'), '-', 'print', '-', 'closeProject', 'exit'],
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'selectAll', 'clearSelection', '-', sub('transform'), sub('visibility'), '-', 'makeGroup', 'explodeModel', 'deleteGuides'],
   view: [sub('views'), 'perspective', 'planView', sub('levels'), '-', sub('faceStyle'), sub('show'), sub('quality'), '-', sub('scenes'), '-', sub('appearance')],
-  draw: ['tool:wall', 'tool:room', 'door', 'window', 'addLevel', '-', sub('drawShapes')],
+  draw: ['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window', 'addLevel', '-', sub('drawShapes')],
   tools: ['tool:select', 'tool:eraser', 'tool:paint', '-', sub('modify'), sub('solids'), '-', sub('construct'), sub('section'), '-', 'checkNow', 'showProblems', 'showMessages', '-', 'renderPhoto', 'settings'],
   camera: ['tool:orbit', 'tool:pan', 'tool:zoom', 'zoomExtents', 'zoomSelection', '-', 'tool:walk', '-', sub('views'), 'perspective', 'planView', '-', 'addScene', 'prevScene', 'nextScene'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
@@ -1197,18 +1340,18 @@ const MENUS = {
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', draw: 'wallTool', tools: 'tools', camera: 'orbitTool', help: 'question' };
 
 const TOOLBAR = [
-  ['new', 'open', 'save', 'exportSplit', 'importModel'],
+  ['new', 'open', 'save', 'print', 'exportSplit', 'importModel'],
   ['undo', 'redo'],
   ['tool:select', 'tool:eraser', 'tool:paint'],
-  ['tool:wall', 'tool:room', 'door', 'window'],
+  ['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window'],
   ['tool:move', 'tool:rotate', 'tool:pushpull', 'tool:tape'],
-  ['tool:orbit', 'tool:pan', 'zoomExtents', 'viewsSplit', 'planView', 'rulers', 'scaleBar'],
-  ['styleSplit', 'shadows', 'lightsOn'],
+  ['tool:orbit', 'tool:pan', 'zoomExtents', 'resetView', 'viewsSplit', 'planView', 'rulers', 'scaleBar'],
+  ['styleSplit', 'sunOn', 'dayNight', 'shadows', 'lightsOn'],
   ['renderPhoto'],
   ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
-const LABELED = new Set(['tool:wall', 'tool:room', 'door', 'window', 'planView', 'renderPhoto']);
+const LABELED = new Set(['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window', 'planView', 'renderPhoto']);
 
 // ───────────────────────── shell
 
@@ -1485,6 +1628,7 @@ function setProp(field, raw, input) {
   if (!p) return;
   const u = units();
   const len = (text) => { const v = parseLength(text, u); return Array.isArray(v) ? v[0] : v; };
+  if (field.startsWith('underlay.')) return planImport.setProp(field, raw, input);
   if (field.startsWith('project.')) { const k = field.slice(8); change('op.edit', () => { p[k] = raw; }, []); if (k === 'units') { dimsKey = ''; renderAll(); } return; }
   if (field.startsWith('settings.')) { const k = field.slice(9); updateSettings({ [k]: input.type === 'checkbox' ? input.checked : raw }); if (k === 'shadows') applyProjectView(); return; }
   if (field.startsWith('style.')) {
@@ -1496,13 +1640,25 @@ function setProp(field, raw, input) {
   if (field.startsWith('sun.')) {
     const k = field.slice(4);
     const sun = { ...p.sun };
+    if (k === 'on') { setSun({ on: input.checked }); return; }
+    if (k === 'mode') { const a = sunAngles(p.sun); setSun(raw === 'manual' ? { mode: 'manual', azimuth: Math.round(a.azimuth), altitude: Math.round(a.altitude) } : { mode: 'time' }); return; }
+    if (k === 'color') { setSun({ color: raw }); return; }
+    if (k === 'intensity' || k === 'azimuth' || k === 'altitude') {
+      let v = Number(raw);
+      if (!Number.isFinite(v)) return;
+      if (k === 'intensity') v = Math.max(0, Math.min(500, v)) / 100;
+      if (k === 'azimuth') v = ((v % 360) + 360) % 360;
+      if (k === 'altitude') v = Math.max(-10, Math.min(89, v));
+      setSun({ [k]: v, ...(k === 'intensity' ? {} : { mode: 'manual' }) });
+      return;
+    }
     if (k === 'minutes') { const m = Number(raw); sun.time = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
     else if (k === 'day') { const d = new Date(2026, 0, Number(raw)); sun.date = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
     else if (k === 'place') { const place = PLACES.find((x) => x[0] === raw); if (!place) return; [, , , sun.latitude, sun.longitude, sun.utcOffset] = place; }
     else sun[k] = Number(raw);
     p.sun = sun;
     doc().revision += 1;
-    viewport.setSun(sun, { enabled: state.settings.shadows !== false });
+    viewport.setSun(sun); applyProjectView();
     if (k === 'minutes' || k === 'day') { const out = input.parentElement.querySelector('output'); if (out) out.textContent = k === 'minutes' ? sun.time : sun.date.replace('-', '/'); return; }
     renderRight();
     return;
@@ -1514,14 +1670,26 @@ function setProp(field, raw, input) {
   const touch = [hit.kind];
   if (field === 'name' || field === 'text') return change('op.edit', () => { e[field] = raw; }, touch);
   if (['hidden', 'locked', 'showCeiling', 'flip', 'component', 'active'].includes(field)) { change('op.edit', () => { if (input.checked) e[field] = true; else delete e[field]; }, touch); if (field === 'active') updateSections(); return undefined; }
+  if (field === 'doorHinge' || field === 'doorSwing') { const s = selectedDoor(); if (s) change('op.edit', () => { setDoorDirection(s.o, s.meta, field === 'doorHinge' ? { hinge: raw } : { swing: raw }); }, ['openings']); return undefined; }
   if (field === 'tag' || field === 'side') return change('op.edit', () => { e[field] = raw; }, touch);
   if (field === 'wall.length') {
     const v = len(raw); if (!(v > 0.05)) return notify('error', t('notice.vcbInvalid', { text: raw }));
-    return change('op.edit', () => { const d = wallDir(e); const old = [...e.b]; e.b = [e.a[0] + d[0] * v, e.a[1] + d[1] * v]; for (const w of p.walls) { if (w === e) continue; if (Math.hypot(w.a[0] - old[0], w.a[1] - old[1]) < 0.01) w.a = [...e.b]; if (Math.hypot(w.b[0] - old[0], w.b[1] - old[1]) < 0.01) w.b = [...e.b]; } }, ['walls']);
+    return change('op.edit', () => { setWallLength(p, e, v); refitRooms(p, new Set([e.level])); }, ['walls', 'objects', 'rooms']);
   }
-  if (field === 'wall.thickness') { const v = len(raw); if (v > 0.01) change('op.edit', () => { e.thickness = v; }, ['walls']); return undefined; }
+  if (field === 'wall.thickness') { const v = len(raw); if (v > 0.01) change('op.edit', () => { setWallThickness(p, e, v, e.align ?? 'center'); refitRooms(p, new Set([e.level])); }, ['walls', 'objects', 'rooms']); return undefined; }
+  if (field === 'wall.align') return change('op.edit', () => { if (raw === 'center') delete e.align; else e.align = raw; }, ['walls']);
+  if (field === 'wall.heightAuto') return change('op.edit', () => { e.height = input.checked ? null : (e.height ?? levelOf(p, e.level).height); }, ['walls']);
   if (field === 'wall.height') { const v = len(raw); if (v > 0.1) change('op.edit', () => { e.height = v; }, ['walls']); return undefined; }
   if (field.startsWith('op.')) { const k = field.slice(3); const v = len(raw); if (v != null && v >= 0) change('op.edit', () => { e[k] = v; }, ['openings']); return undefined; }
+  if (field.startsWith('light.')) {
+    const k = field.slice(6);
+    const v = k === 'on' ? input.checked : k === 'color' ? raw : k === 'distance' ? len(raw) : Number(raw);
+    if (k !== 'on' && k !== 'color' && !(Number.isFinite(v) && v >= 0)) return undefined;
+    change('op.edit', () => { e.light = { ...(e.light ?? {}), [k]: k === 'beam' ? Math.min(170, Math.max(5, v)) : v }; }, touch);
+    // Switching a lamp on also turns the view's lights on, otherwise nothing would change on screen.
+    if (k === 'on' && v && !p.style.lightsOn) setStyle({ lightsOn: true });
+    return undefined;
+  }
   if (field.startsWith('pos.')) { const i = Number(field.slice(4)); const v = len(raw); if (v != null) change('op.move', () => { e.position = e.position.map((x, j) => (j === i ? v : x)); }, touch); return undefined; }
   if (field === 'rot.1') { const v = Number(raw); if (Number.isFinite(v)) change('op.rotate', () => { e.rotation = [e.rotation[0], (v * Math.PI) / 180, e.rotation[2]]; }, touch); return undefined; }
   if (field === 'scale') { const v = Number(raw); if (v > 0) change('op.scale', () => { e.scale = [Math.sign(e.scale[0]) * v, v, v]; }, touch); return undefined; }
@@ -1655,8 +1823,10 @@ function renderStatus() {
   const s = state.settings;
   const notice = state.notice;
   const tool = state.toolObject;
-  const hint = notice?.text ?? (hasDoc() && tool ? t(tool.hint?.() ?? `hint.${state.tool}`, null, t('status.ready')) : t('status.ready'));
+  const hint = notice?.text ?? (hasDoc() && tool ? t(tool.hint?.() ?? `hint.${state.tool}`, tool.hintParams?.() ?? null, t('status.ready')) : t('status.ready'));
   const items = [`<span class="status-notice ${notice?.kind ?? 'hint'}" title="${escapeHtml(hint)}">${icon(notice?.kind === 'error' ? 'error' : notice?.kind === 'success' ? 'check' : 'info')}<span>${escapeHtml(hint)}</span></span>`];
+  // Tool choices (e.g. the Wall tool: centre line / left face / right face, straight / arc) as segmented buttons.
+  if (hasDoc() && !state.showStart && tool?.options) for (const o of tool.options()) items.push(`<span class="status-item tool-option seg-toggle" role="group" title="${escapeHtml(t(o.label))}">${o.choices.map(([v, label, glyph]) => `<button type="button" class="${v === o.value ? 'active' : ''}" data-tool-option="${escapeHtml(o.key)}" data-value="${escapeHtml(v)}" aria-pressed="${v === o.value}" title="${escapeHtml(t(label))}">${icon(glyph)}<span>${escapeHtml(t(label))}</span></button>`).join('')}</span>`);
   const p = state.showStart ? null : project();
   if (p) {
     if (state.selection.length) items.push(`<span class="status-item" title="${escapeHtml(t('status.selectedTip'))}">${icon('selectAll')}<span>${escapeHtml(t('status.selected', { count: state.selection.length }))}</span></span>`);
@@ -1746,6 +1916,7 @@ async function onStartAction(target) {
     case 'template': return newProjectAsk(value);
     case 'open': return openWithDialog();
     case 'import': if (!state.doc) newProject('empty'); return importModelDialog();
+    case 'importPlan': return planImport.dialog();
     case 'open-recent': return openRecent(value);
     case 'remove-recent': state.recent = removeRecent(state.recent, value); storeRecent(globalThis.localStorage, state.recent); return renderStartPage();
     case 'clear-recent': state.recent = []; storeRecent(globalThis.localStorage, []); notify('success', t('notice.recentCleared')); return renderStartPage();
@@ -1759,6 +1930,7 @@ async function onStartAction(target) {
     case 'start-settings': return popups.open('settings', { tab: 'start' });
     case 'settings': return run('settings');
     case 'language': return run('language');
+    case 'continue': return value ? openRecent(value) : run('open');
     case 'about': return run('about');
     case 'exit': return run('exit');
     case 'help-menu': return showMenu(menuItems(MENUS.help), anchorBelow(target), 'help');
@@ -1771,6 +1943,19 @@ async function onStartAction(target) {
     case 'background-image': return chooseBackground();
     default: return undefined;
   }
+}
+
+/** File › Examples: the sample groups, then the samples of the chosen group. */
+function examplesMenu(anchor, group = null) {
+  const at = anchor ?? anchorBelow(root.querySelector('[data-menu="file"]'));
+  const handlers = {};
+  if (!group) {
+    const items = SAMPLE_GROUPS.map((g) => { handlers[`custom:group:${g.id}`] = () => examplesMenu(at, g.id); return { id: `custom:group:${g.id}`, label: `${g[lang()] ?? g.en} (${SAMPLE_PROJECTS.filter((x) => x.group === g.id).length})`, icon: g.icon }; });
+    return showMenu(items, at, 'context', { handlers, header: { icon: 'samples', title: t('action.openExample') } });
+  }
+  const g = SAMPLE_GROUPS.find((x) => x.id === group);
+  const items = SAMPLE_PROJECTS.filter((x) => x.group === group).map((x) => { handlers[`custom:sample:${x.id}`] = () => openSampleAsk(x.id); return { id: `custom:sample:${x.id}`, label: x[lang()]?.[0] ?? x.en[0], icon: x.icon }; });
+  return showMenu(items, at, 'context', { handlers, header: { icon: g?.icon ?? 'samples', title: g?.[lang()] ?? t('action.openExample') } });
 }
 
 function templateMenu(anchor) {
@@ -1853,7 +2038,8 @@ function applySettings(previous = {}) {
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
   if (viewport) {
     viewport.applySettings();
-    if (['shadows', 'theme', 'renderQuality'].some((k) => s[k] !== previous[k])) applyProjectView();
+    if (['shadows', 'theme', 'customTheme', 'renderQuality'].some((k) => s[k] !== previous[k])) applyProjectView();
+    if (s.shadows !== previous.shadows && project()) builder.updateLights(project());
     if (s.renderQuality !== previous.renderQuality && previous.renderQuality) { builder.clearTemplates(); syncScene(); }
   }
   renderAll();
@@ -1918,6 +2104,7 @@ async function readBytes(path, op) {
 async function openPath(path, { quiet = false } = {}) {
   const name = baseName(path);
   if (isModelName(name)) { if (!state.doc) newProject('empty'); return importModelFiles([{ name, path }]); }
+  if (isPlanName(name)) return planImport.importFiles([{ name, path }]);
   if (!(await confirmReplace())) return null;
   try {
     const bytes = await withProgress('progress.open', name, (op) => readBytes(path, op));
@@ -1932,6 +2119,7 @@ async function openPath(path, { quiet = false } = {}) {
 
 async function openContent(name, bytes, handle = null) {
   if (isModelName(name)) { if (!state.doc) newProject('empty'); return importModelFiles([{ name, bytes }]); }
+  if (isPlanName(name)) return planImport.importFiles([{ name, bytes }]);
   if (!(await confirmReplace())) return null;
   try {
     const { project: p, assets } = unpackProject(bytes);
@@ -2047,6 +2235,7 @@ async function closeProject({ force = false } = {}) {
 
 function registerProjectAssets(d) {
   for (const [id, info] of Object.entries(d.project.assets ?? {})) {
+    if (info.kind === 'underlay') continue; // plan pictures (ui/plan-import.js), not furniture
     registerUserItem({ id: `user:${id}`, ko: info.name, en: info.name, size: info.size, asset: id, load: () => loadUserAsset(d, id), kind: 'user' });
   }
 }
@@ -2061,6 +2250,19 @@ async function loadUserAsset(d, id) {
   userModelCache.set(id, gltf.scene);
   return gltf.scene.clone(true);
 }
+
+/** File › Import floor plan… (ui/plan-import.js): DXF / SVG plans and plan pictures (underlays). */
+const planImport = createPlanImport({
+  desktop, native, popups, t, notify, showError, ask, undo, withProgress, readBytes: (path) => readBytes(path),
+  doc, project, units, change, newProject, setPlanView,
+  settings: () => state.settings,
+  viewport: () => viewport,
+  overlay: () => overlay,
+  planView: () => state.planView,
+  levelMode: (p) => builder?.levelMode?.(p) ?? 'all',
+  afterImport: () => { syncScene(); viewport?.zoomExtents(); renderAll(); },
+  focusUnderlay: () => { clearSelection(); syncScene(); renderRight(); },
+});
 
 async function importModelDialog() {
   try {
@@ -2186,18 +2388,18 @@ async function canvasToBytes(canvas, type = 'image/png', quality = 0.92) {
 
 /** The current view as a picture at a chosen size (popup 'snapshot': size, format, transparent). */
 async function exportImage() {
-  const result = await popups.open('snapshot', { width: state.settings.renderWidth, height: state.settings.renderHeight, format: 'png', transparent: false });
+  const result = await popups.open('snapshot', { width: state.settings.renderWidth, height: state.settings.renderHeight, format: state.settings.imageFormat, quality: state.settings.imageQuality, transparent: false });
   if (!result?.ok) return;
-  updateSettings({ renderWidth: result.width, renderHeight: result.height }, { quiet: true });
+  updateSettings({ renderWidth: result.width, renderHeight: result.height, imageFormat: result.format, imageQuality: result.quality }, { quiet: true });
   try {
-    const bytes = await withProgress('progress.image', `${result.width} × ${result.height}`, async (op, report) => {
+    const encoded = await withProgress('progress.image', `${result.width} × ${result.height}`, async (op, report) => {
       report({ fraction: 0.2, text: t('progress.rendering') });
       await new Promise((r) => setTimeout(r, 30));
       const canvas = viewport.capture(result.width, result.height, { transparent: result.transparent });
       report({ fraction: 0.8, text: t('progress.encoding') });
-      return canvasToBytes(canvas, result.format === 'jpg' ? 'image/jpeg' : result.format === 'webp' ? 'image/webp' : 'image/png');
+      return encodeCanvas(canvas, result.format, { quality: result.quality, transparent: result.transparent });
     }, { delay: 150 });
-    await saveExport(`${safeName()}.${result.format}`, result.format, bytes, `image/${result.format === 'jpg' ? 'jpeg' : result.format}`);
+    await saveExport(`${safeName()}.${encoded.ext}`, result.format, encoded.bytes, encoded.mime);
   } catch (error) { showError('error.export', error); }
 }
 
@@ -2229,9 +2431,12 @@ async function renderPhoto() {
     const { renderPathTraced } = await import('./engine/photo.js');
     const canvas = await withProgress('progress.render', `${options.width} × ${options.height} · ${options.samples} spp`, (op, report, signal) => renderPathTraced(viewport, { width: options.width, height: options.height, samples: options.samples, signal, onProgress: (done, total, eta) => report({ fraction: done / total, text: t('progress.samples', { done, total, eta: Math.ceil(eta) }) }) }), { delay: 0, cancellable: true });
     if (!canvas) return;
-    const bytes = await canvasToBytes(canvas);
-    const choice = await popups.open('renderresult', { image: canvas.toDataURL('image/jpeg', 0.85), width: options.width, height: options.height });
-    if (choice?.save) await saveExport(`${safeName()} - render.png`, 'png', bytes, 'image/png');
+    const choice = await popups.open('renderresult', { image: canvas.toDataURL('image/jpeg', 0.85), width: options.width, height: options.height, format: state.settings.imageFormat, quality: state.settings.imageQuality });
+    if (choice?.save) {
+      updateSettings({ imageFormat: choice.format, imageQuality: choice.quality }, { quiet: true });
+      const encoded = await withProgress('progress.image', `${options.width} × ${options.height}`, () => encodeCanvas(canvas, choice.format, { quality: choice.quality }), { delay: 150 });
+      await saveExport(`${safeName()} - render.${encoded.ext}`, choice.format, encoded.bytes, encoded.mime);
+    }
   } catch (error) { showError('error.render', error); }
 }
 
@@ -2308,10 +2513,10 @@ function contextMenu(event, kind, payload = {}) {
     const k = kindOf(id);
     const e = entity(id)?.entity;
     const title = k === 'object' ? (e?.name || itemName(catalogItem(e?.item), lang())) : t(`kind.${k}`);
-    const extra = k === 'object' ? ['rotate90', 'rotateMinus90', 'mirrorObject', 'dropToFloor', 'replaceItem', 'resetMaterials'] : k === 'wall' ? ['splitWall', 'flipWall'] : k === 'model' ? ['editModel', 'explodeModel', sub('solids')] : k === 'opening' ? ['replaceItem'] : [];
+    const extra = k === 'object' ? [...(builder.lampInfo(e ?? {}) ? ['switchLamp'] : []), 'rotate90', 'rotateMinus90', 'mirrorObject', 'dropToFloor', 'replaceItem', 'resetMaterials'] : k === 'wall' ? ['splitWall', 'flipWall'] : k === 'model' ? ['editModel', 'explodeModel', sub('solids')] : k === 'opening' ? [...(selectedDoor() ? ['flipDoorSwing', ...(selectedDoor().dir.hinge ? ['flipDoorHinge'] : [])] : []), 'replaceItem'] : [];
     return showMenu(menuItems(['cut', 'copy', 'duplicate', 'delete', '-', ...extra, ...(extra.length ? ['-'] : []), 'tool:move', 'tool:rotate', 'tool:scale', '-', 'hide', 'lock', 'unlock', '-', 'zoomSelection']), anchor, 'context', { header: { icon: 'cube', title } });
   }
-  if (kind === 'canvas') return showMenu(menuItems(['paste', 'selectAll', '-', 'zoomExtents', sub('views'), 'perspective', 'planView', '-', sub('faceStyle'), sub('show'), '-', 'addScene', 'exportImage', 'renderPhoto']), anchor, 'context', { header: { icon: 'view3d', title: project()?.name || 'MySketchBook' } });
+  if (kind === 'canvas') return showMenu(menuItems(['paste', 'selectAll', '-', 'zoomExtents', 'resetView', sub('views'), 'perspective', 'planView', '-', sub('faceStyle'), sub('show'), '-', 'sunOn', 'dayNight', 'sunPanel', 'lightsOn', 'allLampsOn', 'allLampsOff', '-', 'addScene', 'exportImage', 'renderPhoto']), anchor, 'context', { header: { icon: 'view3d', title: project()?.name || 'MySketchBook' } });
   if (kind === 'problem') {
     const pr = state.problems.find((x) => x.id === payload.id);
     const handlers = {
@@ -2417,6 +2622,7 @@ async function handleDroppedPaths(paths) {
   const projects = paths.filter((p) => isProjectName(baseName(p)));
   if (projects.length) await openPath(projects[0]);
   if (models.some((p) => isModelName(baseName(p)))) { if (!state.doc) newProject('empty'); await importModelFiles(models.map((p) => ({ name: baseName(p), path: p }))); }
+  else if (!projects.length && paths.some((p) => isPlanName(baseName(p)) || isPlanImageName(baseName(p)))) await planImport.importFiles(paths.map((p) => ({ name: baseName(p), path: p })));
   else if (!projects.length) notify('error', t('notice.unsupportedDrop', { name: baseName(paths[0] ?? '') }));
 }
 
@@ -2424,6 +2630,7 @@ async function handleDroppedFiles(files) {
   const project0 = files.find((f) => isProjectName(f.name));
   if (project0) await openContent(project0.name, new Uint8Array(await project0.arrayBuffer()));
   if (files.some((f) => isModelName(f.name))) { if (!state.doc) newProject('empty'); await importModelFiles(await Promise.all(files.filter((f) => !isProjectName(f.name)).map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })))); }
+  else if (!project0) { const plan = files.find((f) => isPlanName(f.name) || isPlanImageName(f.name)); if (plan) await planImport.importFiles([{ name: plan.name, bytes: new Uint8Array(await plan.arrayBuffer()) }]); }
 }
 
 function setDropActive(active) {
@@ -2443,10 +2650,12 @@ function bindEvents() {
     if (target.closest('[data-home]')) return showStartPage(!state.showStart || !state.doc);
     const start = target.closest('[data-start]');
     if (start && !start.disabled) return onStartAction(start);
+    const toolOption = target.closest('[data-tool-option]');
+    if (toolOption) { state.toolObject?.setOption?.(toolOption.dataset.toolOption, toolOption.dataset.value); return renderStatus(); }
     const command = target.closest('[data-command]');
     if (command && !command.disabled) {
       const id = command.dataset.command;
-      const anchored = ['themeMenu', 'exportMenu', 'viewsMenu', 'styleMenu', 'recentFolders', 'quality', 'replaceItem', 'newFromTemplate'].includes(id);
+      const anchored = ['themeMenu', 'exportMenu', 'viewsMenu', 'styleMenu', 'recentFolders', 'quality', 'replaceItem', 'newFromTemplate', 'openExample'].includes(id);
       return run(id, { anchor: anchored ? anchorBelow(command.closest('.split-button') ?? command) : undefined });
     }
     const windowControl = target.closest('[data-window]');
@@ -2501,6 +2710,8 @@ function bindEvents() {
     if (tagVis) { const tag = project().tags.find((x) => x.id === tagVis.dataset.tagVisible); change('op.edit', () => { tag.visible = tag.visible === false; }, ['tags']); return undefined; }
     const tagDel = target.closest('[data-tag-delete]');
     if (tagDel) { const id = tagDel.dataset.tagDelete; change('op.delete', (p) => { p.tags = p.tags.filter((x) => x.id !== id); for (const k of ['objects', 'models', 'walls']) for (const e of p[k]) if (e.tag === id) e.tag = 'untagged'; }); return undefined; }
+    const underlayAction = target.closest('[data-underlay-action]');
+    if (underlayAction) return planImport.action(underlayAction.dataset.underlayAction);
     const paramStep = target.closest('[data-param-step]');
     if (paramStep) { const e = entity(state.selection[0])?.entity; const key = paramStep.dataset.paramStep; const item = catalogItem(e?.item); const cur = Number(itemParams(item, e.params)[key]); return setProp(`param.${key}`, String(cur + Number(paramStep.dataset.delta)), paramStep); }
     return undefined;
@@ -2541,6 +2752,7 @@ function bindEvents() {
     }
     if (target.id === 'outliner-search') { state.outlinerQuery = target.value; const ol = root.querySelector('#outliner'); if (ol) ol.innerHTML = outlinerHtml(panelApi); }
     // Live sliders (sun time and date, exposure) preview while dragging.
+    if (/^underlay\..+\.opacity$/.test(target.dataset.prop ?? '')) planImport.previewOpacity(target.dataset.prop, target.value, target);
     if (target.dataset.prop === 'sun.minutes' || target.dataset.prop === 'sun.day' || target.dataset.prop === 'style.exposure') {
       if (target.dataset.prop === 'style.exposure') { viewport.renderer.toneMappingExposure = Number(target.value); viewport.requestRender(); const out = target.parentElement.querySelector('output'); if (out) out.textContent = Number(target.value).toFixed(2); }
       else setProp(target.dataset.prop, target.value, target);
@@ -2581,6 +2793,8 @@ function bindEvents() {
   root.addEventListener('pointerdown', (event) => {
     const cardEl = event.button === 0 ? event.target.closest?.('.lib-card[data-item]') : null;
     if (!cardEl || !hasDoc()) return;
+    // No native image drag: it would show the browser's 'no drop' cursor (an X) over the view while our own drag places the item.
+    event.preventDefault();
     const start = { x: event.clientX, y: event.clientY };
     let ghost = null;
     const overView = (e) => document.elementFromPoint(e.clientX, e.clientY)?.closest('#view-host');
@@ -2594,12 +2808,16 @@ function bindEvents() {
         startPlacing(cardEl.dataset.item, { sticky: false });
       }
       ghost.style.transform = `translate(${e.clientX - 28}px, ${e.clientY - 28}px)`;
-      ghost.classList.toggle('over', Boolean(overView(e)));
-      if (overView(e)) state.toolObject?.move?.(e);
+      const over = Boolean(overView(e));
+      ghost.classList.toggle('over', over);
+      // One cursor for the whole drag: 'copy' where it can be dropped, 'grabbing' elsewhere.
+      document.documentElement.dataset.libDrag = over ? 'over' : 'out';
+      if (over) state.toolObject?.move?.(e);
     };
     const up = (e) => {
       window.removeEventListener('pointermove', move, true);
       window.removeEventListener('pointerup', up, true);
+      delete document.documentElement.dataset.libDrag;
       if (!ghost) return;
       ghost.remove();
       const swallow = (c) => { c.stopPropagation(); c.preventDefault(); };
@@ -2670,7 +2888,7 @@ function bindEvents() {
 
 /** Ctrl+key shortcuts: [key, shift, command]. Single letters (SketchUp) come from the commands' `key`. */
 const SHORTCUTS = [
-  ['n', false, 'new'], ['o', false, 'open'], ['s', false, 'save'], ['s', true, 'saveAs'], ['w', false, 'closeProject'], ['i', false, 'importModel'],
+  ['n', false, 'new'], ['o', false, 'open'], ['s', false, 'save'], ['s', true, 'saveAs'], ['p', false, 'print'], ['w', false, 'closeProject'], ['i', false, 'importModel'],
   ['z', false, 'undo'], ['y', false, 'redo'], ['z', true, 'redo'], ['x', false, 'cut'], ['c', false, 'copy'], ['v', false, 'paste'], ['d', false, 'duplicate'],
   ['a', false, 'selectAll'], [']', false, 'rotate90'], ['[', false, 'rotateMinus90'], ['e', true, 'exportImage'],
   [',', false, 'settings'], ['l', true, 'language'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'], ['@', true, 'rightPanel'], ['2', true, 'rightPanel'],
@@ -2701,6 +2919,7 @@ function onKeyDown(event) {
   try { if (state.toolObject?.key?.(event)) { event.preventDefault(); return; } } catch (error) { showError('error.tool', error); }
   if (key === 'delete' || key === 'backspace') { event.preventDefault(); run('delete'); return; }
   if (key === 'escape') { event.preventDefault(); if (state.tool !== 'select') setTool('select'); else if (Modeling?.editingModel?.()) { Modeling.stopEditing(); notify('info', t('notice.editDone')); } else clearSelection(); return; }
+  if (key === 'home') { event.preventDefault(); run('resetView'); return; }
   if (key === 'pageup' || key === 'pagedown') { event.preventDefault(); run(key === 'pageup' ? 'prevScene' : 'nextScene'); return; }
   // Typing a number or a length goes to the Measurements box (SketchUp's VCB).
   if (/^[0-9.,'"x*/-]$/.test(event.key) && !event.altKey) {
@@ -2713,6 +2932,12 @@ function onKeyDown(event) {
 }
 
 // ───────────────────────── popup actions
+
+// Printing (print/host.js): the print window asks this window for its pictures.
+const printHost = createPrintHost({
+  project, state, syncScene, applyProjectView, popups, t, notify, showError, saveExport, safeName, units,
+  viewport: () => viewport, builder: () => builder, language: () => getLanguage(),
+});
 
 function bindPopupActions() {
   popups.on('error', (error) => showError('error.unexpected', error));
@@ -2728,6 +2953,8 @@ function bindPopupActions() {
   popups.on('show-start', () => showStartPage(true));
   popups.on('progress-cancel', (data) => { popups.actions.get(`cancel:${data.op}`)?.(); });
   popups.on('raise-test-panic', () => native.invoke('raise_test_panic').catch((error) => showError('error.unexpected', error)));
+  popups.on('print-render', (data) => printHost.render(data));
+  popups.on('print-save-pdf', (data) => printHost.savePdf(data));
 }
 
 async function newCustomMaterial() {
@@ -2763,6 +2990,7 @@ async function restoreSession() {
 
 /** What the panels (ui/panels.js) and the start page read. */
 const panelApi = {
+  sunAngles,
   state, commands, commandTip, commandEnabled, t,
   settings: () => state.settings,
   version: () => state.info?.version ?? VERSION,
@@ -2774,6 +3002,7 @@ const panelApi = {
   materialsOf,
   environments: () => [{ id: 'room', ko: '기본 실내 조명', en: 'Built-in room light' }, ...(Env?.ENVIRONMENTS ?? [])],
   modelStats: (e) => Modeling?.modelStats?.(e) ?? '',
+  underlayHtml: () => planImport.panelHtml(),
 };
 
 /** What the tutorial and tests use. */
@@ -2855,7 +3084,8 @@ window.__mysketchbook = {
   api: appApi,
   get viewport() { return viewport; },
   get builder() { return builder; },
-  actions: { newProject, openPath, openContent, saveDoc, closeProject, select, change, undo, redo, setTool, startPlacing, setPlanView, exportImage, renderPhoto, importModelFiles, withProgress, showStartPage, updateSettings, addScene, goScene, moveEntities, rotateSelection, deleteEntities, duplicateEntities, applyProjectView, showLibrary },
+  planImport,
+  actions: { newProject, openSampleAsk, openPath, openContent, saveDoc, closeProject, select, change, undo, redo, setTool, startPlacing, setPlanView, exportImage, renderPhoto, importModelFiles, withProgress, showStartPage, updateSettings, addScene, goScene, moveEntities, rotateSelection, deleteEntities, duplicateEntities, applyProjectView, showLibrary },
   domain: { buildTemplate, TEMPLATES, catalogItem, searchItems, MATERIAL_PRESETS, tutorialSteps: () => TUTORIAL_STEPS.length },
   tutorial: () => tutorial,
 };

@@ -1,4 +1,4 @@
-// The project document (CONTRACT.md › Documents): creation, repair of loaded
+// The project document (ARCHITECTURE.md §12 › Documents): creation, repair of loaded
 // files, ids, lookups and undo/redo. Pure (no DOM, no three) so Node tests use it.
 //
 // Undo keeps snapshots per top-level collection: a change names the collections
@@ -8,7 +8,7 @@
 
 export const FORMAT = 'mysketchbook';
 export const FORMAT_VERSION = 1;
-export const COLLECTIONS = ['levels', 'walls', 'openings', 'rooms', 'objects', 'models', 'tags', 'scenes', 'guides', 'dimensions', 'texts', 'sections', 'materials', 'lights'];
+export const COLLECTIONS = ['levels', 'walls', 'openings', 'rooms', 'objects', 'models', 'tags', 'scenes', 'guides', 'dimensions', 'texts', 'sections', 'materials', 'lights', 'underlays'];
 const SETTINGS_KEYS = ['name', 'units', 'sun', 'style', 'camera', 'activeLevel', 'activeScene', 'assets', 'notes', 'author', 'created', 'modified'];
 
 let counter = 0;
@@ -19,7 +19,7 @@ export function newId(prefix = 'e') {
 }
 
 export const DEFAULT_SUN = { date: '06-21', time: '14:00', latitude: 37.57, longitude: 126.98, utcOffset: 9, north: 0 };
-export const DEFAULT_STYLE = { mode: 'textured', edges: true, profiles: false, background: 'sky', environment: 'room', exposure: 1, lightsOn: false };
+export const DEFAULT_STYLE = { mode: 'textured', edges: true, profiles: false, background: 'theme', environment: 'room', exposure: 1, lightsOn: false };
 
 /** A new, empty project with one level, the default tag and a 3/4 camera. */
 export function createProject({ name = '', units = 'mm', wallHeight = 2.4 } = {}) {
@@ -47,6 +47,7 @@ export function createProject({ name = '', units = 'mm', wallHeight = 2.4 } = {}
     sections: [],
     materials: [],
     lights: [],
+    underlays: [], // plan pictures on the floor (engine/underlay.js)
     sun: { ...DEFAULT_SUN },
     style: { ...DEFAULT_STYLE },
     camera: { position: [8, 7, 9], target: [0, 0.8, 0], fov: 50, ortho: false },
@@ -76,7 +77,13 @@ export function normalizeProject(raw) {
   p.openings = p.openings.filter((o) => wallIds.has(o.wall)).map((o) => ({ id: o.id ?? newId('op'), offset: 0.5, width: 0.9, height: 2.1, sill: 0, flip: false, params: {}, ...o }));
   p.rooms = p.rooms.filter((r) => Array.isArray(r.points) && r.points.length >= 3).map((r) => ({ id: r.id ?? newId('rm'), name: '', floor: 'floor-oak', ceiling: 'wall-paint-white', showCeiling: false, ...r }));
   p.rooms.forEach(fixLevel);
-  p.objects = p.objects.filter((o) => o.item).map((o) => ({ id: o.id ?? newId('ob'), params: {}, position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1], materials: {}, tag: 'untagged', name: '', ...o, position: vec(o.position, 3, [0, 0, 0]), rotation: vec(o.rotation, 3, [0, 0, 0]), scale: vec(o.scale, 3, [1, 1, 1]) }));
+  // Floor / ceiling openings (stairwells, engine/stairs.js): { points, stairs? } entries; broken ones dropped, old files have none.
+  for (const r of p.rooms) for (const field of ['holes', 'ceilingHoles']) {
+    if (r[field] == null) continue;
+    const list = (Array.isArray(r[field]) ? r[field] : []).map((h) => (Array.isArray(h) ? { points: h } : h)).filter((h) => isObject(h) && Array.isArray(h.points) && h.points.length >= 3 && h.points.every((q) => vec(q, 2)));
+    if (list.length) r[field] = list.map((h) => ({ ...h, points: h.points.map((q) => vec(q, 2)) })); else delete r[field];
+  }
+  p.objects =p.objects.filter((o) => o.item).map((o) => ({ id: o.id ?? newId('ob'), params: {}, position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1], materials: {}, tag: 'untagged', name: '', ...o, position: vec(o.position, 3, [0, 0, 0]), rotation: vec(o.rotation, 3, [0, 0, 0]), scale: vec(o.scale, 3, [1, 1, 1]) }));
   p.objects.forEach(fixLevel);
   p.models = p.models.filter((m) => isObject(m.mesh)).map((m) => ({ id: m.id ?? newId('md'), name: '', position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1], tag: 'untagged', ...m }));
   p.models.forEach(fixLevel);
@@ -233,6 +240,12 @@ export function polygonArea(points) {
     sum += x1 * z2 - x2 * z1;
   }
   return Math.abs(sum) / 2;
+}
+
+/** Floor area of a room: its polygon less its holes (stairwells). */
+export function roomArea(room) {
+  const holes = (Array.isArray(room?.holes) ? room.holes : []).map((h) => (Array.isArray(h) ? h : h?.points)).filter((h) => Array.isArray(h) && h.length >= 3);
+  return Math.max(0, polygonArea(room.points) - holes.reduce((s, h) => s + polygonArea(h), 0));
 }
 
 export function polygonCentroid(points) {

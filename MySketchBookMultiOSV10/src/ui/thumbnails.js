@@ -15,6 +15,26 @@ let renderer = null;
 let scene = null;
 let camera = null;
 let running = false;
+// Thumbnails share the GPU and the main thread with the 3D view: they wait while the user is moving the view.
+let busy = () => false;
+/** `fn()` returns true while thumbnails should wait (orbiting, panning, dragging, camera animation). */
+export function setThumbnailGate(fn) { busy = typeof fn === 'function' ? fn : () => false; }
+
+const idle = () => new Promise((resolve) => (globalThis.requestIdleCallback ? requestIdleCallback(resolve, { timeout: 600 }) : setTimeout(resolve, 16)));
+async function whenQuiet() {
+  for (;;) {
+    await idle();
+    if (!busy()) return;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+/** The canvas as a WebP data URL, encoded off the main thread (toBlob) instead of a blocking toDataURL. */
+async function canvasUrl(canvas) {
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.86));
+  if (!blob) return canvas.toDataURL('image/webp', 0.86);
+  return new Promise((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => resolve(''); r.readAsDataURL(blob); });
+}
 
 function setup() {
   if (renderer) return;
@@ -76,8 +96,8 @@ async function pump() {
     if (memory.has(job.key)) { job.onReady?.(memory.get(job.key)); continue; }
     let url = await idbGet(`thumb:${job.key}`).catch(() => null);
     if (!url) {
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      try { url = job.kind === 'item' ? renderItem(job) : renderMaterial(job.presetId); } catch (error) { console.warn('thumbnail', job.key, error); url = ''; }
+      await whenQuiet();
+      try { url = await (job.kind === 'item' ? renderItem(job) : renderMaterial(job.presetId)); } catch (error) { console.warn('thumbnail', job.key, error); url = ''; }
       if (url) idbSet(`thumb:${job.key}`, url).catch(() => {});
     }
     memory.set(job.key, url);
@@ -86,7 +106,7 @@ async function pump() {
   running = false;
 }
 
-function renderItem({ item, build }) {
+async function renderItem({ item, build }) {
   setup();
   const object = build();
   if (!object) return '';
@@ -100,12 +120,12 @@ function renderItem({ item, build }) {
   camera.lookAt(center);
   scene.getObjectByName('floor').position.y = box.min.y - 0.001;
   renderer.render(scene, camera);
-  const url = renderer.domElement.toDataURL('image/webp', 0.86);
+  const pending = canvasUrl(renderer.domElement); // the picture is taken now, encoded in the background
   scene.remove(object);
-  return url;
+  return pending;
 }
 
-function renderMaterial(presetId) {
+async function renderMaterial(presetId) {
   setup();
   const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.5, 48, 32), getMaterial(presetId));
   // Sphere UVs span 0..1; a metre-scaled texture would look too large on a 1 m ball: scale UVs up.
@@ -118,10 +138,10 @@ function renderMaterial(presetId) {
   camera.lookAt(0, 0.5, 0);
   scene.getObjectByName('floor').position.y = 0;
   renderer.render(scene, camera);
-  const url = renderer.domElement.toDataURL('image/webp', 0.86);
+  const pending = canvasUrl(renderer.domElement); // the picture is taken now, encoded in the background
   scene.remove(sphere);
   sphere.geometry.dispose();
-  return url;
+  return pending;
 }
 
 /** Textures of a preset may arrive after its thumbnail: forget that one so it renders again. */

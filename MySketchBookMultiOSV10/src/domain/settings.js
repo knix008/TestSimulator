@@ -2,6 +2,7 @@
 // (shared by the main window and the popup windows, which watch it). Loaded
 // again on the next start.
 import { normalizeCustom, THEME_IDS } from '../themes.js';
+import { normalizePrintSetup } from '../print/layout.js';
 
 export const STORAGE_KEY = 'mysketchbook.settings.v1';
 export const RECENT_KEY = 'mysketchbook.recent.v1';
@@ -100,6 +101,8 @@ export function defaultSettings(language = 'ko') {
     units: language === 'ko' ? 'mm' : 'mm',
     showGrid: true,
     showAxes: true,
+    showLampMarkers: true,
+    showSunMarker: true,
     showRulers: true,
     showScaleBar: true,
     // Where the user dragged the scale bar (fractions of the view; null = bottom left).
@@ -131,6 +134,8 @@ export function defaultSettings(language = 'ko') {
     renderWidth: 1920,
     renderHeight: 1080,
     renderSamples: 256,
+    imageFormat: 'png',
+    imageQuality: 0.92,
     explorerHeight: 45,
     autoSaveMinutes: 0,
     rowHeight: 26,
@@ -197,9 +202,11 @@ export function normalizeSettings(raw = {}, language) {
   s.renderWidth = clamp(s.renderWidth, 320, 7680, base.renderWidth);
   s.renderHeight = clamp(s.renderHeight, 240, 4320, base.renderHeight);
   s.renderSamples = clamp(s.renderSamples, 16, 4096, base.renderSamples);
+  s.imageFormat = ['png', 'jpg', 'webp', 'avif', 'bmp', 'tiff', 'tga', 'pdf'].includes(s.imageFormat) ? s.imageFormat : base.imageFormat;
+  s.imageQuality = clamp(s.imageQuality, 0.4, 1, base.imageQuality);
   s.explorerHeight = clamp(s.explorerHeight, 20, 85, base.explorerHeight);
   s.autoSaveMinutes = [0, 1, 5, 10, 30].includes(Number(s.autoSaveMinutes)) ? Number(s.autoSaveMinutes) : 0;
-  for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showBottomPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showGrid', 'showAxes', 'showRulers', 'showScaleBar',
+  for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showBottomPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showGrid', 'showAxes', 'showLampMarkers', 'showSunMarker', 'showRulers', 'showScaleBar',
     'snapToGrid', 'inference', 'antialias', 'ambientOcclusion', 'shadows', 'showFps', 'showEdges', 'showProfiles', 'invertZoom', 'explorerSort', 'toolboxCompact', 'tutorialOffered', 'showWelcome', 'tutorialDone', 'animationOnStartOnly',
     'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];
@@ -224,6 +231,25 @@ export function loadSettings(storage) {
 export function storeSettings(storage, settings) {
   try {
     storage?.setItem(STORAGE_KEY, JSON.stringify(settings));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The print window's page setup (paper, scale, title block, pages …), remembered apart from the settings. */
+export function loadPrintSetup(storage) {
+  try {
+    const raw = storage?.getItem(PRINT_KEY);
+    return normalizePrintSetup(raw ? JSON.parse(raw) : {});
+  } catch {
+    return normalizePrintSetup({});
+  }
+}
+
+export function storePrintSetup(storage, setup) {
+  try {
+    storage?.setItem(PRINT_KEY, JSON.stringify(normalizePrintSetup(setup)));
     return true;
   } catch {
     return false;

@@ -1,0 +1,209 @@
+{
+ "id": "apartment-59",
+ "title": "59㎡ 아파트",
+ "units": "mm",
+ "walls": [
+  {
+   "a": [
+    10,
+    -27.2
+   ],
+   "b": [
+    19.6,
+    -27.2
+   ],
+   "thickness": 0.25
+  },
+  {
+   "a": [
+    10,
+    -27.2
+   ],
+   "b": [
+    10,
+    -20
+   ],
+   "thickness": 0.25
+  },
+  {
+   "a": [
+    10,
+    -23.6
+   ],
+   "b": [
+    13.6,
+    -23.6
+   ],
+   "thickness": 0.12
+  },
+  {
+   "a": [
+    10,
+    -20
+   ],
+   "b": [
+    19.6,
+    -20
+   ],
+   "thickness": 0.25
+  },
+  {
+   "a": [
+    13.6,
+    -27.2
+   ],
+   "b": [
+    13.6,
+    -20
+   ],
+   "thickness": 0.12
+  },
+  {
+   "a": [
+    17.2,
+    -22.8
+   ],
+   "b": [
+    19.6,
+    -22.8
+   ],
+   "thickness": 0.12
+  },
+  {
+   "a": [
+    17.2,
+    -22.8
+   ],
+   "b": [
+    17.2,
+    -20
+   ],
+   "thickness": 0.12
+  },
+  {
+   "a": [
+    19.6,
+    -27.2
+   ],
+   "b": [
+    19.6,
+    -20
+   ],
+   "thickness": 0.25
+  }
+ ],
+ "openings": [
+  {
+   "kind": "door",
+   "item": "door-single",
+   "center": [
+    13.6,
+    -26.55
+   ],
+   "width": 0.9,
+   "side": "left",
+   "hinge": "left"
+  },
+  {
+   "kind": "door",
+   "item": "door-single",
+   "center": [
+    13.6,
+    -22.15
+   ],
+   "width": 0.9,
+   "side": "left",
+   "hinge": "left"
+  },
+  {
+   "kind": "door",
+   "item": "door-single",
+   "center": [
+    17.2,
+    -22.2
+   ],
+   "width": 0.8,
+   "side": "left",
+   "hinge": "left"
+  },
+  {
+   "kind": "door",
+   "item": "door-entrance",
+   "center": [
+    14.4,
+    -20
+   ],
+   "width": 1,
+   "side": "left",
+   "hinge": "left"
+  },
+  {
+   "kind": "window",
+   "item": "window-casement",
+   "center": [
+    11.8,
+    -27.2
+   ],
+   "width": 1.8
+  },
+  {
+   "kind": "window",
+   "item": "window-casement",
+   "center": [
+    11.8,
+    -20
+   ],
+   "width": 1.8
+  },
+  {
+   "kind": "window",
+   "item": "window-sliding",
+   "center": [
+    15.4,
+    -27.2
+   ],
+   "width": 2.8
+  },
+  {
+   "kind": "window",
+   "item": "window-casement",
+   "center": [
+    15.95,
+    -20
+   ],
+   "width": 1.8
+  },
+  {
+   "kind": "window",
+   "item": "window-casement",
+   "center": [
+    19.6,
+    -21.4
+   ],
+   "width": 0.6
+  }
+ ],
+ "rooms": 4,
+ "image": {
+  "file": "apartment-59.png",
+  "pxPerMetre": 80,
+  "width": 1008,
+  "height": 816,
+  "topLeft": [
+   8.5,
+   -28.7
+  ]
+ },
+ "scan": {
+  "file": "apartment-59-scan.png",
+  "angle": 7,
+  "source": [
+   1008,
+   816
+  ],
+  "size": [
+   1140,
+   973
+  ]
+ }
+}

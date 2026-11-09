@@ -60,7 +60,7 @@ export default defineConfig({
   // MYSKETCHBOOK_NO_HMR: test servers — an edit while tests run must not reload the app under test.
   server: { port: 5480, strictPort: true, hmr: process.env.MYSKETCHBOOK_NO_HMR ? false : undefined, watch: { ignored: ['**/src-tauri/**', '**/test-results/**', '**/doc/**', '**/docs/**', '**/samples/**', '**/library/**', '**/release/**', '**/dist/**'] } },
   // Only the app page is an entry (docs/*.html are standalone documents, tools/ are dev pages).
-  optimizeDeps: { entries: ['index.html'], exclude: ['manifold-3d'] },
+  optimizeDeps: { entries: ['index.html'], exclude: ['manifold-3d', '@jsquash/avif'] },
   build: {
     target: 'es2022',
     outDir: 'dist',
@@ -75,6 +75,8 @@ function chunkOf(id) {
   const file = id.replace(/\\/g, '/');
   if (file.includes('/node_modules/three-gpu-pathtracer/')) return 'pathtracer';
   if (file.includes('/node_modules/manifold-3d/')) return 'manifold';
+  // The AVIF encoder (loaded only when a picture is saved as AVIF and the canvas cannot write it).
+  if (file.includes('/node_modules/@jsquash/')) return 'avif';
   if (file.includes('/node_modules/three/examples/jsm/loaders/') || file.includes('/node_modules/three/examples/jsm/exporters/')) return 'io';
   if (file.includes('/node_modules/three')) return 'three';
   if (file.includes('/node_modules/')) return 'vendor';
