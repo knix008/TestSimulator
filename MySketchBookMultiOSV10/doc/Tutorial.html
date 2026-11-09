@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="MySketchBook scripts/build-docs.mjs" />
+<title>MySketchBook 튜토리얼</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f7f8fa; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #2f6fde; --accent-soft: #e8f0fe; --code-bg: #f1f3f7; --row-alt: #f8fafc; --shadow: 0 1px 3px rgba(20, 30, 50, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --surface: #1b1f27; --text: #e3e7ee; --muted: #9aa4b5; --border: #2e3440;
+    --accent: #6ea8ff; --accent-soft: #1f2b40; --code-bg: #242a35; --row-alt: #1f242d; --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+  font-family: "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.topbar .brand { font-weight: 700; color: var(--text); }
+.topbar .grow { flex: 1; }
+.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; }
+nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
+nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
+h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
+h1 { font-size: 2em; margin: 0 0 .6em; }
+h2 { font-size: 1.5em; margin: 2em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.anchor { opacity: 0; margin-left: 6px; font-weight: 400; color: var(--muted); }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: 14px; }
+blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
+blockquote p { margin: 6px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  main { padding: 20px 18px 32px; border-radius: 10px; }
+  .topbar { padding: 10px 14px; }
+}
+@media print {
+  .topbar, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  main { border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand">MySketchBook <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="Tutorial.en.html" hreflang="en">English</a></header>
+<div class="layout">
+<nav class="toc" aria-label="목차"><p class="toc-title">목차</p><ul><li class="h2"><a href="#튜토리얼-실행하기">튜토리얼 실행하기</a></li><li class="h2"><a href="#차례">차례</a></li><li class="h2"><a href="#1-시작">1. 시작</a></li><li class="h3"><a href="#1-mysketchbook에-오신-것을-환영합니다">1. MySketchBook에 오신 것을 환영합니다</a></li><li class="h3"><a href="#2-템플릿으로-시작">2. 템플릿으로 시작</a></li><li class="h3"><a href="#3-시작-화면">3. 시작 화면</a></li><li class="h2"><a href="#2-집-짓기">2. 집 짓기</a></li><li class="h3"><a href="#4-작업-화면">4. 작업 화면</a></li><li class="h3"><a href="#5-도구-모음">5. 도구 모음</a></li><li class="h3"><a href="#6-벽-그리기">6. 벽 그리기</a></li><li class="h3"><a href="#7-방-만들기">7. 방 만들기</a></li><li class="h3"><a href="#8-문과-창">8. 문과 창</a></li><li class="h3"><a href="#9-2d-평면도">9. 2D 평면도</a></li><li class="h2"><a href="#3-가구-배치">3. 가구 배치</a></li><li class="h3"><a href="#10-가구-라이브러리">10. 가구 라이브러리</a></li><li class="h3"><a href="#11-배치하기">11. 배치하기</a></li><li class="h3"><a href="#12-속성">12. 속성</a></li><li class="h3"><a href="#13-재질">13. 재질</a></li><li class="h3"><a href="#14-페인트-통">14. 페인트 통</a></li><li class="h2"><a href="#4-보기">4. 보기</a></li><li class="h3"><a href="#15-화면-돌려-보기">15. 화면 돌려 보기</a></li><li class="h3"><a href="#16-걷기">16. 걷기</a></li><li class="h3"><a href="#17-장면">17. 장면</a></li><li class="h2"><a href="#5-모델링">5. 모델링</a></li><li class="h3"><a href="#18-sketchup식-모델링">18. SketchUp식 모델링</a></li><li class="h3"><a href="#19-밀기당기기">19. 밀기/당기기</a></li><li class="h3"><a href="#20-측정값-상자">20. 측정값 상자</a></li><li class="h3"><a href="#21-내-3d-모델">21. 내 3D 모델</a></li><li class="h2"><a href="#6-모양">6. 모양</a></li><li class="h3"><a href="#22-면-스타일">22. 면 스타일</a></li><li class="h3"><a href="#23-햇빛과-그림자">23. 햇빛과 그림자</a></li><li class="h3"><a href="#24-테마">24. 테마</a></li><li class="h2"><a href="#7-저장내보내기">7. 저장·내보내기</a></li><li class="h3"><a href="#25-저장">25. 저장</a></li><li class="h3"><a href="#26-내보내기">26. 내보내기</a></li><li class="h3"><a href="#27-사실적-렌더링">27. 사실적 렌더링</a></li><li class="h2"><a href="#8-설정도움말">8. 설정·도움말</a></li><li class="h3"><a href="#28-설정">28. 설정</a></li><li class="h3"><a href="#29-단축키">29. 단축키</a></li><li class="h3"><a href="#30-다-봤습니다">30. 다 봤습니다</a></li></ul></nav>
+<main>
+<h1 id="mysketchbook-튜토리얼">MySketchBook 튜토리얼</h1>
+<p>앱 안의 <strong>튜토리얼</strong>과 같은 내용을 장과 단계별로 정리했습니다. 튜토리얼은 8개 장, 30단계로 되어 있고, 실제 프로그램을 움직이며 각 기능을 보여 줍니다. 그림은 웹 버전에서 튜토리얼을 실행하며 찍은 화면입니다 (<code>npm run tutorial:docs</code> 로 다시 찍습니다).</p>
+<h2 id="튜토리얼-실행하기">튜토리얼 실행하기 <a class="anchor" href="#튜토리얼-실행하기" aria-hidden="true">#</a></h2>
+<ul><li><strong>시작 페이지 › 튜토리얼 시작</strong>, 툴바 오른쪽의 <strong>튜토리얼</strong> 버튼, <strong>도움말 › 튜토리얼</strong> 또는 <strong>F11</strong>.</li><li>오른쪽 아래 카드에서 <strong>다음</strong> / <strong>이전 단계</strong>로 한 단계씩, <strong>자동 재생</strong>으로 끝까지 봅니다. 장 목록으로 원하는 장에 바로 가고, <strong>✕</strong> 또는 <strong>Esc</strong>로 언제든 끝냅니다. 카드는 머리글을 끌어 옮길 수 있습니다.</li><li>튜토리얼은 자기 프로젝트(84㎡ 아파트 템플릿)에서만 작업합니다. 열어 둔 프로젝트는 끝날 때 그대로 돌아오고, 바뀐 설정(테마·언어·패널 등)도 원래대로 돌려 놓습니다.</li><li>튜토리얼이 도는 동안에는 팝업(메뉴·설정·렌더링 창)이 별도의 창 대신 주 창 안에 열립니다.</li><li>모든 기능의 자세한 설명은 <a href="UsersGuide.html">사용 설명서</a>에 있습니다.</li></ul>
+<h2 id="차례">차례 <a class="anchor" href="#차례" aria-hidden="true">#</a></h2>
+<ol><li><a href="#1-시작">시작</a></li><li><a href="#2-집-짓기">집 짓기</a></li><li><a href="#3-가구-배치">가구 배치</a></li><li><a href="#4-보기">보기</a></li><li><a href="#5-모델링">모델링</a></li><li><a href="#6-모양">모양</a></li><li><a href="#7-저장내보내기">저장·내보내기</a></li><li><a href="#8-설정도움말">설정·도움말</a></li></ol>
+<h2 id="1-시작">1. 시작 <a class="anchor" href="#1-시작" aria-hidden="true">#</a></h2>
+<h3 id="1-mysketchbook에-오신-것을-환영합니다">1. MySketchBook에 오신 것을 환영합니다 <a class="anchor" href="#1-mysketchbook에-오신-것을-환영합니다" aria-hidden="true">#</a></h3>
+<p>벽을 그리고 가구를 놓아 집 안 인테리어를 3D로 꾸미는 프로그램입니다. 다음을 누르면 기능을 차례로 보여 드립니다.</p>
+<p><img src="tutorial/images/01-welcome.jpg" alt="MySketchBook에 오신 것을 환영합니다" loading="lazy" /></p>
+<h3 id="2-템플릿으로-시작">2. 템플릿으로 시작 <a class="anchor" href="#2-템플릿으로-시작" aria-hidden="true">#</a></h3>
+<p>방 하나, 원룸, 59㎡·84㎡ 아파트, 단독주택 템플릿에서 시작하면 벽·문·창·방이 이미 그려져 있습니다.</p>
+<p><img src="tutorial/images/02-templates.jpg" alt="템플릿으로 시작" loading="lazy" /></p>
+<h3 id="3-시작-화면">3. 시작 화면 <a class="anchor" href="#3-시작-화면" aria-hidden="true">#</a></h3>
+<p>메뉴 막대의 시작 버튼으로 언제든 이 화면으로 돌아옵니다. 작업 중인 프로젝트는 그대로 남습니다.</p>
+<p><img src="tutorial/images/03-home.jpg" alt="시작 화면" loading="lazy" /></p>
+<h2 id="2-집-짓기">2. 집 짓기 <a class="anchor" href="#2-집-짓기" aria-hidden="true">#</a></h2>
+<h3 id="4-작업-화면">4. 작업 화면 <a class="anchor" href="#4-작업-화면" aria-hidden="true">#</a></h3>
+<p>왼쪽은 라이브러리와 재질, 가운데는 3D 화면, 오른쪽은 개요(층·방·벽·가구 목록)와 속성입니다.</p>
+<p><img src="tutorial/images/04-workspace.jpg" alt="작업 화면" loading="lazy" /></p>
+<h3 id="5-도구-모음">5. 도구 모음 <a class="anchor" href="#5-도구-모음" aria-hidden="true">#</a></h3>
+<p>SketchUp처럼 선택·건축·그리기·수정·측정·카메라 도구가 모여 있습니다. 키보드 한 글자로도 고를 수 있습니다 (W 벽, R 사각형, P 밀기/당기기 …).</p>
+<p><img src="tutorial/images/05-palette.jpg" alt="도구 모음" loading="lazy" /></p>
+<h3 id="6-벽-그리기">6. 벽 그리기 <a class="anchor" href="#6-벽-그리기" aria-hidden="true">#</a></h3>
+<p>벽 도구로 점을 차례로 클릭합니다. 끝점·중점·축 방향에 자동으로 맞춰지고, 길이를 입력하고 Enter를 누르면 정확한 길이가 됩니다.</p>
+<p><img src="tutorial/images/06-walls.jpg" alt="벽 그리기" loading="lazy" /></p>
+<h3 id="7-방-만들기">7. 방 만들기 <a class="anchor" href="#7-방-만들기" aria-hidden="true">#</a></h3>
+<p>방 도구로 벽에 둘러싸인 곳을 클릭하면 바닥이 생기고 면적(㎡·평)이 계산됩니다.</p>
+<p><img src="tutorial/images/07-rooms.jpg" alt="방 만들기" loading="lazy" /></p>
+<h3 id="8-문과-창">8. 문과 창 <a class="anchor" href="#8-문과-창" aria-hidden="true">#</a></h3>
+<p>라이브러리의 문·창을 고르고 벽 위를 클릭하면 벽에 구멍이 뚫리며 들어갑니다. 크기는 속성에서 바꿉니다.</p>
+<p><img src="tutorial/images/08-doors.jpg" alt="문과 창" loading="lazy" /></p>
+<h3 id="9-2d-평면도">9. 2D 평면도 <a class="anchor" href="#9-2d-평면도" aria-hidden="true">#</a></h3>
+<p>2D 버튼(F4)을 누르면 1.2 m 높이에서 자른 평면도가 됩니다. 그대로 그리고 배치할 수 있습니다.</p>
+<p><img src="tutorial/images/09-plan.jpg" alt="2D 평면도" loading="lazy" /></p>
+<h2 id="3-가구-배치">3. 가구 배치 <a class="anchor" href="#3-가구-배치" aria-hidden="true">#</a></h2>
+<h3 id="10-가구-라이브러리">10. 가구 라이브러리 <a class="anchor" href="#10-가구-라이브러리" aria-hidden="true">#</a></h3>
+<p>거실·침실·주방·욕실·조명·식물 등 240여 개의 고품질 가구와 소품이 있습니다. HQ 표시는 실측 사진 모델입니다.</p>
+<p><img src="tutorial/images/10-library.jpg" alt="가구 라이브러리" loading="lazy" /></p>
+<h3 id="11-배치하기">11. 배치하기 <a class="anchor" href="#11-배치하기" aria-hidden="true">#</a></h3>
+<p>카드를 클릭하고 바닥을 클릭하거나 화면으로 끌어다 놓습니다. 벽 가까이 놓으면 등을 벽에 붙입니다. [ ] 로 회전합니다.</p>
+<p><img src="tutorial/images/11-place.jpg" alt="배치하기" loading="lazy" /></p>
+<h3 id="12-속성">12. 속성 <a class="anchor" href="#12-속성" aria-hidden="true">#</a></h3>
+<p>선택한 가구의 위치·회전·크기와 폭·좌석 수·천 같은 치수와 옵션을 바꿉니다.</p>
+<p><img src="tutorial/images/12-properties.jpg" alt="속성" loading="lazy" /></p>
+<h3 id="13-재질">13. 재질 <a class="anchor" href="#13-재질" aria-hidden="true">#</a></h3>
+<p>나무·패브릭·가죽·석재·타일·벽지 등 100여 가지 실사 재질입니다. 하나를 고르면 페인트 통이 켜집니다.</p>
+<p><img src="tutorial/images/13-materials.jpg" alt="재질" loading="lazy" /></p>
+<h3 id="14-페인트-통">14. 페인트 통 <a class="anchor" href="#14-페인트-통" aria-hidden="true">#</a></h3>
+<p>벽 한쪽 면, 바닥, 가구의 한 부분을 클릭해 칠합니다. Alt+클릭은 재질을 가져옵니다.</p>
+<p><img src="tutorial/images/14-paint.jpg" alt="페인트 통" loading="lazy" /></p>
+<h2 id="4-보기">4. 보기 <a class="anchor" href="#4-보기" aria-hidden="true">#</a></h2>
+<h3 id="15-화면-돌려-보기">15. 화면 돌려 보기 <a class="anchor" href="#15-화면-돌려-보기" aria-hidden="true">#</a></h3>
+<p>가운데 버튼 끌기는 궤도, Shift+가운데 버튼은 이동, 휠은 커서 쪽으로 확대합니다. 표준 보기 버튼도 있습니다.</p>
+<p><img src="tutorial/images/15-navigate.jpg" alt="화면 돌려 보기" loading="lazy" /></p>
+<h3 id="16-걷기">16. 걷기 <a class="anchor" href="#16-걷기" aria-hidden="true">#</a></h3>
+<p>걷기 도구로 사람 눈높이에서 W A S D로 집 안을 걸어 다닙니다. 벽은 통과하지 않습니다.</p>
+<p><img src="tutorial/images/16-walk.jpg" alt="걷기" loading="lazy" /></p>
+<h3 id="17-장면">17. 장면 <a class="anchor" href="#17-장면" aria-hidden="true">#</a></h3>
+<p>마음에 드는 시점을 장면으로 저장하면 탭을 눌러 언제든 돌아옵니다.</p>
+<p><img src="tutorial/images/17-scenes.jpg" alt="장면" loading="lazy" /></p>
+<h2 id="5-모델링">5. 모델링 <a class="anchor" href="#5-모델링" aria-hidden="true">#</a></h2>
+<h3 id="18-sketchup식-모델링">18. SketchUp식 모델링 <a class="anchor" href="#18-sketchup식-모델링" aria-hidden="true">#</a></h3>
+<p>선·사각형·원으로 닫힌 도형을 그리면 면이 생깁니다. 선이 면을 가로지르면 면이 나뉩니다.</p>
+<p><img src="tutorial/images/18-modeling.jpg" alt="SketchUp식 모델링" loading="lazy" /></p>
+<h3 id="19-밀기당기기">19. 밀기/당기기 <a class="anchor" href="#19-밀기당기기" aria-hidden="true">#</a></h3>
+<p>면을 클릭해 끌면 입체가 됩니다. 높이를 입력하고 Enter. 반대 면까지 밀면 구멍이 뚫립니다.</p>
+<p><img src="tutorial/images/19-pushpull.jpg" alt="밀기/당기기" loading="lazy" /></p>
+<h3 id="20-측정값-상자">20. 측정값 상자 <a class="anchor" href="#20-측정값-상자" aria-hidden="true">#</a></h3>
+<p>그리는 중에 숫자를 입력하면 이 상자에 들어갑니다: 길이 2400, 사각형 1200,800, 각도 45, 배열 x5.</p>
+<p><img src="tutorial/images/20-vcb.jpg" alt="측정값 상자" loading="lazy" /></p>
+<h3 id="21-내-3d-모델">21. 내 3D 모델 <a class="anchor" href="#21-내-3d-모델" aria-hidden="true">#</a></h3>
+<p>glTF·OBJ·FBX·STL·DAE·3DS·PLY 모델을 가져오면 라이브러리 › 내 객체에 들어가고 프로젝트 파일에 함께 저장됩니다.</p>
+<p><img src="tutorial/images/21-import.jpg" alt="내 3D 모델" loading="lazy" /></p>
+<h2 id="6-모양">6. 모양 <a class="anchor" href="#6-모양" aria-hidden="true">#</a></h2>
+<h3 id="22-면-스타일">22. 면 스타일 <a class="anchor" href="#22-면-스타일" aria-hidden="true">#</a></h3>
+<p>질감·색만·흰색 모형·X선·선만·숨은선 제거로 바꿔 봅니다. K 키로 차례로 바뀝니다.</p>
+<p><img src="tutorial/images/22-styles.jpg" alt="면 스타일" loading="lazy" /></p>
+<h3 id="23-햇빛과-그림자">23. 햇빛과 그림자 <a class="anchor" href="#23-햇빛과-그림자" aria-hidden="true">#</a></h3>
+<p>날짜·시각·도시를 정하면 실제 햇빛 방향으로 그림자가 집니다.</p>
+<p><img src="tutorial/images/23-shadows.jpg" alt="햇빛과 그림자" loading="lazy" /></p>
+<h3 id="24-테마">24. 테마 <a class="anchor" href="#24-테마" aria-hidden="true">#</a></h3>
+<p>밝은 테마 20개, 어두운 테마 20개와 직접 만든 테마가 있습니다.</p>
+<p><img src="tutorial/images/24-theme.jpg" alt="테마" loading="lazy" /></p>
+<h2 id="7-저장내보내기">7. 저장·내보내기 <a class="anchor" href="#7-저장내보내기" aria-hidden="true">#</a></h2>
+<h3 id="25-저장">25. 저장 <a class="anchor" href="#25-저장" aria-hidden="true">#</a></h3>
+<p>.msk 파일 하나에 프로젝트와 가져온 모델이 모두 담깁니다.</p>
+<p><img src="tutorial/images/25-save.jpg" alt="저장" loading="lazy" /></p>
+<h3 id="26-내보내기">26. 내보내기 <a class="anchor" href="#26-내보내기" aria-hidden="true">#</a></h3>
+<p>그림(최대 8K), 평면도, glTF·OBJ·STL·PLY·USDZ로 내보냅니다.</p>
+<p><img src="tutorial/images/26-export.jpg" alt="내보내기" loading="lazy" /></p>
+<h3 id="27-사실적-렌더링">27. 사실적 렌더링 <a class="anchor" href="#27-사실적-렌더링" aria-hidden="true">#</a></h3>
+<p>빛의 경로를 추적해 사진 같은 그림을 만듭니다. 진행률 창에서 남은 시간을 보고 취소할 수 있습니다.</p>
+<p><img src="tutorial/images/27-render.jpg" alt="사실적 렌더링" loading="lazy" /></p>
+<h2 id="8-설정도움말">8. 설정·도움말 <a class="anchor" href="#8-설정도움말" aria-hidden="true">#</a></h2>
+<h3 id="28-설정">28. 설정 <a class="anchor" href="#28-설정" aria-hidden="true">#</a></h3>
+<p>단위, 기본 벽 높이·두께, 화면 품질과 성능(구석 음영·그림자·프레임), 카메라 속도를 정합니다.</p>
+<p><img src="tutorial/images/28-settings.jpg" alt="설정" loading="lazy" /></p>
+<h3 id="29-단축키">29. 단축키 <a class="anchor" href="#29-단축키" aria-hidden="true">#</a></h3>
+<p>SketchUp과 같은 한 글자 단축키를 씁니다.</p>
+<p><img src="tutorial/images/29-shortcuts.jpg" alt="단축키" loading="lazy" /></p>
+<h3 id="30-다-봤습니다">30. 다 봤습니다 <a class="anchor" href="#30-다-봤습니다" aria-hidden="true">#</a></h3>
+<p>이제 직접 꾸며 보세요. 튜토리얼은 도움말 › 튜토리얼(F11)에서 다시 볼 수 있습니다.</p>
+<p><img src="tutorial/images/30-finish.jpg" alt="다 봤습니다" loading="lazy" /></p>
+<hr />
+<p>튜토리얼은 <strong>도움말 › 튜토리얼</strong>(F11)에서 언제든 다시 볼 수 있습니다. 전체를 녹화한 동영상은 <strong>도움말 › 튜토리얼 동영상</strong>에서 재생합니다 (만든 경우: <code>npm run tutorial:video</code>).</p>
+</main>
+</div>
+<footer>MySketchBook v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+</body>
+</html>

@@ -1,0 +1,108 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MySketchBook",
+  "mainBinaryName": "MySketchBook",
+  "version": "../package.json",
+  "identifier": "com.shkwon.mysketchbook",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:5480",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$APPDATA/**",
+          "$APPLOCALDATA/**",
+          "$APPCONFIG/**",
+          "$RESOURCE/doc/video/**",
+          "$RESOURCE/library/**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "Graphics and Design",
+    "shortDescription": "Interior design and 3D modelling",
+    "longDescription": "Draw walls, doors, windows and rooms, furnish them from a library of high-quality furniture and props, and model in 3D like SketchUp (push/pull, follow me, offset, solid tools). 2D floor plans and 3D views, scenes, tags, sections, sun and shadows, photo-real path-traced rendering, and 3D model import/export (glTF, OBJ, FBX, STL, DAE, 3DS, PLY, USDZ).",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "icons/project.ico": "project.ico",
+      "icons/project.icns": "project.icns",
+      "icons/project.png": "project.png",
+      "../library/": "library/",
+      "../doc/": "doc/",
+      "../samples/": "samples/"
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "msk"
+        ],
+        "name": "MySketchBook.Project",
+        "description": "MySketchBook Project",
+        "mimeType": "application/x-mysketchbook",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "Korean",
+          "English"
+        ],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh",
+        "startMenuFolder": "MySketchBook"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ],
+        "files": {
+          "/usr/share/mime/packages/mysketchbook.xml": "linux/mysketchbook.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mysketchbook.png": "icons/project.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3"
+        ],
+        "files": {
+          "/usr/share/mime/packages/mysketchbook.xml": "linux/mysketchbook.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mysketchbook.png": "icons/project.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      }
+    }
+  }
+}

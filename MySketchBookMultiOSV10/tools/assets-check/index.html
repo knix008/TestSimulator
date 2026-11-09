@@ -1,0 +1,140 @@
+<!doctype html>
+<!-- Dev-only check of the asset library: GLB props, textured material presets, an HDRI, and
+     import/export round trips in a real browser. Serve the project with Vite and open
+     /tools/assets-check/index.html (not part of the app build). -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Assets check</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #202124; color: #eee; font: 13px/1.4 system-ui, sans-serif; overflow: hidden; }
+    canvas { display: block; }
+    #log { position: absolute; left: 8px; top: 8px; background: rgba(0, 0, 0, 0.6); padding: 6px 10px; border-radius: 6px; white-space: pre; max-width: 46%; }
+    #swatches { position: absolute; right: 8px; top: 8px; display: grid; grid-template-columns: repeat(6, 64px); gap: 4px; }
+    #swatches img { width: 64px; height: 64px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="log">loading…</div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+    import { getMaterial } from '/src/engine/materials.js';
+    import { setLibraryBase, loadAssetManifest, assetCatalogItems, loadAssetModel, installTextureHook, setOnTexturesLoaded, texturesPending } from '/src/library/assets.js';
+    import { loadEnvironment } from '/src/library/environments.js';
+    import { importModel } from '/src/io/import.js';
+    import { exportModel } from '/src/io/export.js';
+
+    const log = (line) => { document.getElementById('log').textContent += `\n${line}`; };
+    document.getElementById('log').textContent = 'Assets check';
+    window.addEventListener('error', (e) => log(`ERROR ${e.message}`));
+    window.addEventListener('unhandledrejection', (e) => log(`ERROR ${e.reason?.message ?? e.reason}`));
+
+    setLibraryBase(new URL('/library/', location.href).href);
+    installTextureHook();
+    let dirty = true;
+    setOnTexturesLoaded(() => { dirty = true; });
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(1);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    document.body.prepend(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#d8d4cc');
+    const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 100);
+    camera.position.set(0.6, 2.2, 5.6);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0.7, 0);
+    controls.update();
+    const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+    sun.position.set(3, 6, 4);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 });
+    scene.add(sun);
+
+    // Room: textured floor, brick wall, plaster wall (UVs in metres like the app's geometry).
+    const metresUV = (geometry, w, h) => { const uv = geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w, uv.getY(i) * h); return geometry; };
+    const floor = new THREE.Mesh(metresUV(new THREE.PlaneGeometry(8, 6), 8, 6).rotateX(-Math.PI / 2), getMaterial('floor-herringbone'));
+    floor.receiveShadow = true;
+    scene.add(floor);
+    const wall = new THREE.Mesh(metresUV(new THREE.PlaneGeometry(8, 3), 8, 3).translate(0, 1.5, -3), getMaterial('wall-brick-white'));
+    wall.receiveShadow = true;
+    scene.add(wall);
+    // Material swatch blocks along the front.
+    const presets = ['wood-oak', 'wood-walnut', 'fabric-velvet-green', 'fabric-linen-beige', 'leather-cognac', 'tile-subway-white', 'wall-brick-red', 'carpet-grey', 'fabric-boucle', 'tile-terracotta', 'floor-concrete', 'wall-wood-panel'];
+    presets.forEach((id, i) => {
+      const mesh = new THREE.Mesh(metresUV(new THREE.BoxGeometry(0.42, 0.42, 0.42), 0.42, 0.42), getMaterial(id));
+      mesh.position.set(-2.9 + i * 0.52, 0.21, 2.0);
+      mesh.castShadow = mesh.receiveShadow = true;
+      scene.add(mesh);
+    });
+
+    // Draw only when something changed (software GL in headless checks is slow; idle pages let virtual time run).
+    renderer.setAnimationLoop(() => { if (dirty) { dirty = false; renderer.render(scene, camera); } });
+    const _add = scene.add.bind(scene); scene.add = (...o) => { dirty = true; return _add(...o); };
+    const t0 = performance.now();
+    try {
+      const env = await loadEnvironment('lythwood_room', renderer);
+      scene.environment = env.texture;
+      scene.environmentIntensity = 0.8;
+      log(`HDRI lythwood_room ✔ (${Math.round(performance.now() - t0)} ms)`);
+    } catch (err) { log(`HDRI ✖ ${err.message}`); }
+
+    const manifest = await loadAssetManifest();
+    const items = assetCatalogItems(manifest);
+    log(`manifest: ${manifest.length} models, catalog ${items.length}`);
+    const sw = document.createElement('div'); sw.id = 'swatches'; document.body.append(sw);
+    for (const item of items.slice(0, 18)) { const img = new Image(); img.src = item.thumb; img.title = item.ko; sw.append(img); }
+
+    const place = [['Sofa_01', -1.6, -2.1, 0], ['ArmChair_01', 1.7, -0.6, -0.7], ['CoffeeTable_01', -0.6, -0.9, 0], ['potted_plant_01', 2.9, -2.4, 0],
+      ['Chandelier_01', -0.6, -0.9, 0, 2.0], ['ceramic_vase_01', -0.8, -0.95, 0, 0.4], ['wooden_bookshelf_worn', 3.2, -2.6, 0]];
+    const loaded = [];
+    for (const [id, x, z, ry, y = 0] of place) {
+      const t = performance.now();
+      try {
+        const obj = await loadAssetModel(id);
+        obj.position.set(x, y, z);
+        obj.rotation.y = ry;
+        scene.add(obj);
+        loaded.push(obj);
+        let tris = 0; obj.traverse((n) => { if (n.isMesh) tris += (n.geometry.index?.count ?? n.geometry.attributes.position.count) / 3; });
+        log(`${id} ✔ ${Math.round(performance.now() - t)} ms · ${Math.round(tris)} tris`);
+      } catch (err) { log(`${id} ✖ ${err.message}`); }
+    }
+    // Clones share geometry and materials with the template.
+    const a = await loadAssetModel('ArmChair_01'), b = await loadAssetModel('ArmChair_01');
+    let shared = true; const ma = [], mb = [];
+    a.traverse((n) => n.isMesh && ma.push(n)); b.traverse((n) => n.isMesh && mb.push(n));
+    ma.forEach((m, i) => { if (m.geometry !== mb[i].geometry || m.material !== mb[i].material || m === mb[i]) shared = false; });
+    log(`clones share geometry+materials: ${shared ? '✔' : '✖'}`);
+    b.position.set(2.6, 0, -0.1); b.rotation.y = -1.2; scene.add(b);
+
+    // Import: OBJ+MTL fixture (cm) and a GLB exported from the placed sofa (browser GLTFExporter).
+    try {
+      const [objBytes, mtlBytes] = await Promise.all(['cube_cm.obj', 'cube.mtl'].map((f) => fetch(`/test/fixtures/io/${f}`).then((r) => r.arrayBuffer())));
+      const res = await importModel({ name: 'cube_cm.obj', bytes: objBytes, related: new Map([['cube.mtl', mtlBytes]]) }, {});
+      res.object.scale.setScalar(0.3); res.object.position.set(-3.4, 0, 0.6); scene.add(res.object);
+      log(`import OBJ+MTL ✔ ${res.stats.sizeMeters.join('×')} m, ${res.stats.units}, ${res.stats.materials} materials`);
+      const glb = await exportModel(loaded[0], 'glb');
+      const back = await importModel({ name: 'sofa.glb', bytes: glb.bytes });
+      back.object.position.set(1.4, 0, 1.0); back.object.rotation.y = -0.6; back.object.scale.setScalar(0.6); scene.add(back.object);
+      log(`export GLB ${(glb.bytes.length / 1048576).toFixed(1)} MB → import ✔ ${back.stats.sizeMeters.join('×')} m · ${back.stats.textures} textures`);
+      const usdz = await exportModel(loaded[2], 'usdz');
+      log(`export USDZ ✔ ${(usdz.bytes.length / 1024).toFixed(0)} KB`);
+    } catch (err) { log(`import/export ✖ ${err.message}`); }
+
+    const finish = async () => {
+      for (let i = 0; i < 200 && texturesPending() > 0; i++) await new Promise((r) => setTimeout(r, 50));
+      log(`textures pending: ${texturesPending()} · floor map: ${floor.material.map ? '✔' : '✖'} · ${renderer.info.render.calls} draw calls`);
+      log(`total ${Math.round(performance.now() - t0)} ms`);
+      dirty = true;
+      document.title = 'DONE';
+    };
+    finish();
+  </script>
+</body>
+</html>

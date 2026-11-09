@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="MySketchBook scripts/build-docs.mjs" />
+<title>MySketchBook 사용 설명서</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f7f8fa; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #2f6fde; --accent-soft: #e8f0fe; --code-bg: #f1f3f7; --row-alt: #f8fafc; --shadow: 0 1px 3px rgba(20, 30, 50, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --surface: #1b1f27; --text: #e3e7ee; --muted: #9aa4b5; --border: #2e3440;
+    --accent: #6ea8ff; --accent-soft: #1f2b40; --code-bg: #242a35; --row-alt: #1f242d; --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+  font-family: "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.topbar .brand { font-weight: 700; color: var(--text); }
+.topbar .grow { flex: 1; }
+.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; }
+nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
+nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
+h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
+h1 { font-size: 2em; margin: 0 0 .6em; }
+h2 { font-size: 1.5em; margin: 2em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.anchor { opacity: 0; margin-left: 6px; font-weight: 400; color: var(--muted); }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: 14px; }
+blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
+blockquote p { margin: 6px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  main { padding: 20px 18px 32px; border-radius: 10px; }
+  .topbar { padding: 10px 14px; }
+}
+@media print {
+  .topbar, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  main { border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand">MySketchBook <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="UsersGuide.en.html" hreflang="en">English</a></header>
+<div class="layout">
+<nav class="toc" aria-label="목차"><p class="toc-title">목차</p><ul><li class="h2"><a href="#1-시작하기">1. 시작하기</a></li><li class="h3"><a href="#11-설치와-실행">1.1 설치와 실행</a></li><li class="h3"><a href="#12-시작-화면">1.2 시작 화면</a></li><li class="h3"><a href="#13-템플릿과-예제">1.3 템플릿과 예제</a></li><li class="h2"><a href="#2-화면-구성">2. 화면 구성</a></li><li class="h3"><a href="#21-메뉴">2.1 메뉴</a></li><li class="h3"><a href="#22-툴바">2.2 툴바</a></li><li class="h3"><a href="#23-도구-모음">2.3 도구 모음</a></li><li class="h3"><a href="#24-왼쪽-패널-라이브러리와-재질">2.4 왼쪽 패널: 라이브러리와 재질</a></li><li class="h3"><a href="#25-오른쪽-패널-개요와-편집-탭">2.5 오른쪽 패널: 개요와 편집 탭</a></li><li class="h3"><a href="#26-하단-패널">2.6 하단 패널</a></li><li class="h3"><a href="#27-상태-표시줄과-측정값-상자">2.7 상태 표시줄과 측정값 상자</a></li><li class="h2"><a href="#3-카메라와-보기">3. 카메라와 보기</a></li><li class="h2"><a href="#4-집-짓기-벽--방--문--창">4. 집 짓기: 벽 · 방 · 문 · 창</a></li><li class="h3"><a href="#41-벽">4.1 벽</a></li><li class="h3"><a href="#42-방">4.2 방</a></li><li class="h3"><a href="#43-문과-창">4.3 문과 창</a></li><li class="h3"><a href="#44-2d-평면도에서-그리기">4.4 2D 평면도에서 그리기</a></li><li class="h2"><a href="#5-가구-배치">5. 가구 배치</a></li><li class="h3"><a href="#51-라이브러리">5.1 라이브러리</a></li><li class="h3"><a href="#52-배치하기">5.2 배치하기</a></li><li class="h3"><a href="#53-선택과-옮기기">5.3 선택과 옮기기</a></li><li class="h3"><a href="#54-가구-속성과-옵션">5.4 가구 속성과 옵션</a></li><li class="h2"><a href="#6-재질과-페인트-통">6. 재질과 페인트 통</a></li><li class="h2"><a href="#7-sketchup식-모델링">7. SketchUp식 모델링</a></li><li class="h3"><a href="#71-붙는-형상과-그룹">7.1 붙는 형상과 그룹</a></li><li class="h3"><a href="#72-추론과-축-고정">7.2 추론과 축 고정</a></li><li class="h3"><a href="#73-그리기-도구">7.3 그리기 도구</a></li><li class="h3"><a href="#74-밀기당기기--오프셋--경로-따라가기">7.4 밀기/당기기 · 오프셋 · 경로 따라가기</a></li><li class="h3"><a href="#75-이동--회전--크기-조절">7.5 이동 · 회전 · 크기 조절</a></li><li class="h3"><a href="#76-솔리드-도구와-그-밖의-편집">7.6 솔리드 도구와 그 밖의 편집</a></li><li class="h2"><a href="#8-측정과-주석">8. 측정과 주석</a></li><li class="h2"><a href="#9-스타일--그림자--환경--조명--표시-품질">9. 스타일 · 그림자 · 환경 · 조명 · 표시 품질</a></li><li class="h3"><a href="#91-스타일-탭">9.1 스타일 탭</a></li><li class="h3"><a href="#92-그림자-탭">9.2 그림자 탭</a></li><li class="h3"><a href="#93-보기--표시">9.3 보기 › 표시</a></li><li class="h3"><a href="#94-표시-품질과-성능">9.4 표시 품질과 성능</a></li><li class="h2"><a href="#10-장면--층--태그">10. 장면 · 층 · 태그</a></li><li class="h3"><a href="#101-장면">10.1 장면</a></li><li class="h3"><a href="#102-층">10.2 층</a></li><li class="h3"><a href="#103-태그">10.3 태그</a></li><li class="h2"><a href="#11-내-3d-모델-가져오기">11. 내 3D 모델 가져오기</a></li><li class="h2"><a href="#12-저장--열기--내보내기">12. 저장 · 열기 · 내보내기</a></li><li class="h3"><a href="#121-프로젝트-파일-msk">12.1 프로젝트 파일 (.msk)</a></li><li class="h3"><a href="#122-그림으로-저장">12.2 그림으로 저장</a></li><li class="h3"><a href="#123-평면도-그림">12.3 평면도 그림</a></li><li class="h3"><a href="#124-3d-파일로-내보내기">12.4 3D 파일로 내보내기</a></li><li class="h2"><a href="#13-사실적-렌더링">13. 사실적 렌더링</a></li><li class="h2"><a href="#14-튜토리얼과-도움말-창">14. 튜토리얼과 도움말 창</a></li><li class="h2"><a href="#15-문제-검사">15. 문제 검사</a></li><li class="h2"><a href="#16-설정">16. 설정</a></li><li class="h2"><a href="#17-단축키">17. 단축키</a></li><li class="h3"><a href="#도구">도구</a></li><li class="h3"><a href="#마우스와-입력">마우스와 입력</a></li><li class="h3"><a href="#파일과-편집">파일과 편집</a></li><li class="h3"><a href="#보기와-창">보기와 창</a></li><li class="h2"><a href="#18-성능을-위한-팁">18. 성능을 위한 팁</a></li><li class="h2"><a href="#19-자주-묻는-질문과-문제-해결">19. 자주 묻는 질문과 문제 해결</a></li></ul></nav>
+<main>
+<h1 id="mysketchbook-사용-설명서">MySketchBook 사용 설명서</h1>
+<p>MySketchBook은 벽·문·창·방을 그려 집을 만들고, 가구와 소품을 배치하고, SketchUp처럼 면을 밀고 당겨 3D로 모델링하는 프로그램입니다. Windows · macOS · Linux 데스크톱 앱과 웹 브라우저에서 같은 화면으로 동작합니다.</p>
+<p>이 설명서는 화면의 메뉴·버튼·패널 이름을 그대로 씁니다. 메뉴 경로는 <strong>파일 › 내보내기 › 그림으로 저장…</strong> 처럼 적습니다. 단축키의 <code>Ctrl</code>은 macOS에서 <code>⌘</code>입니다. 처음이라면 <a href="Tutorial.html">튜토리얼</a>(F11)을 먼저 따라 해 보세요. 8개 장, 30단계로 모든 기능을 차례로 보여 줍니다.</p>
+<h2 id="1-시작하기">1. 시작하기 <a class="anchor" href="#1-시작하기" aria-hidden="true">#</a></h2>
+<h3 id="11-설치와-실행">1.1 설치와 실행 <a class="anchor" href="#11-설치와-실행" aria-hidden="true">#</a></h3>
+<ul><li><strong>Windows</strong> — <code>MySketchBook-Setup-&lt;버전&gt;.exe</code>를 실행합니다. 설치 언어(한국어/English)를 고르면 프로그램도 그 언어로 시작합니다. 현재 사용자 계정에 설치되므로 관리자 권한이 필요 없습니다. 이미 설치된 MySketchBook이 있으면 먼저 지우고 다시 설치할지, 예전 사용자 데이터(설정·최근 파일 등)를 지울지 묻습니다.</li><li><strong>macOS</strong> — <code>.dmg</code>를 열고 MySketchBook을 응용 프로그램 폴더로 끌어다 놓습니다.</li><li><strong>Linux</strong> — <code>.deb</code>(Debian/Ubuntu), <code>.rpm</code>(Fedora 등) 또는 <code>.AppImage</code>.</li><li><strong>웹</strong> — 웹 버전(<code>dist/</code>)을 올린 주소를 Edge · Chrome · Firefox · Safari로 엽니다. 파일 저장·열기는 브라우저의 파일 대화상자(또는 내려받기)를 씁니다.</li></ul>
+<p>설치하면 <code>.msk</code> 파일이 MySketchBook에 연결되어, 탐색기·Finder에서 두 번 클릭하면 열립니다. 3D 화면은 WebGL 2를 쓰므로 그래픽 카드 드라이버를 최신으로 두면 좋습니다.</p>
+<h3 id="12-시작-화면">1.2 시작 화면 <a class="anchor" href="#12-시작-화면" aria-hidden="true">#</a></h3>
+<p>프로그램을 켜면 <strong>시작 화면</strong>이 나옵니다. 메뉴 막대 왼쪽의 <strong>시작</strong> 버튼(또는 <code>Ctrl+Shift+H</code>)으로 언제든 다시 열고 닫을 수 있으며, 작업 중인 프로젝트는 그대로 남아 있습니다.</p>
+<p><img src="tutorial/images/01-welcome.jpg" alt="시작 화면" loading="lazy" /></p>
+<p>시작 화면은 움직이는 배경 위의 카드로 되어 있습니다.</p>
+<div class="table-wrap"><table><thead><tr><th>카드</th><th>내용</th></tr></thead><tbody><tr><td>맨 위(제목)</td><td><strong>사용 설명서</strong> · <strong>튜토리얼 문서</strong> · <strong>튜토리얼 동영상</strong> 버튼, <strong>도움말</strong> 메뉴, <strong>튜토리얼 시작</strong></td></tr><tr><td><strong>바로 가기</strong></td><td>열기… · 3D 모델 가져오기… · 튜토리얼 시작 · 언어(English/한국어) · 설정… · 시작 화면 설정 · 프로그램 정보… · 끝내기</td></tr><tr><td><strong>최근 항목</strong></td><td>최근 파일과 최근 폴더. 클릭하면 열고(폴더는 그 폴더에서 열기 대화상자), ✕로 목록에서 지우고, <strong>모두 지우기</strong></td></tr><tr><td><strong>새 프로젝트</strong></td><td>템플릿 11가지 (아래 표)</td></tr><tr><td><strong>예제</strong></td><td>가구까지 배치된 예제 프로젝트: <strong>방 꾸미기</strong>(모던 거실 · 아늑한 침실 · 주방과 식탁 · 욕실 · 서재), <strong>집 전체</strong>(59㎡ 아파트 · 원룸)</td></tr><tr><td><strong>움직이는 배경</strong></td><td>배경 애니메이션 20가지, 움직이는 배경 바꾸기, 배경 이미지…, 움직임 속도, 카드 불투명도, 시작할 때 무작위, 자동 변경</td></tr></tbody></table></div>
+<ul><li>카드는 왼쪽 위의 손잡이(✥)를 끌어 옮기고, 오른쪽 아래 모서리를 끌어 크기를 바꿉니다(모서리를 두 번 누르면 내용에 맞춤). <strong>자동 정렬</strong>은 처음 배치로 되돌립니다.</li><li>위쪽의 <strong>시작할 때 시작 페이지 표시</strong>를 끄면 다음부터는 <strong>방 하나</strong> 템플릿 프로젝트로 바로 시작합니다.</li><li><strong>시작 화면 설정</strong>에서 최근 파일·최근 폴더·예제·움직이는 배경 카드와 튜토리얼 안내 띠를 보일지 정합니다.</li><li>처음 켤 때는 <strong>시작 안내 창</strong>이 뜹니다: 튜토리얼 시작, 아파트 템플릿(59㎡)으로 시작, 나중에. <strong>도움말 › 시작 안내 창</strong>으로 다시 열 수 있습니다.</li></ul>
+<h3 id="13-템플릿과-예제">1.3 템플릿과 예제 <a class="anchor" href="#13-템플릿과-예제" aria-hidden="true">#</a></h3>
+<div class="table-wrap"><table><thead><tr><th>템플릿</th><th>내용</th></tr></thead><tbody><tr><td>빈 프로젝트</td><td>아무것도 없는 땅에서 시작</td></tr><tr><td>방 하나</td><td>4.5 × 3.6 m 방, 문과 창</td></tr><tr><td>거실</td><td>6 × 4.5 m, 큰 창</td></tr><tr><td>침실</td><td>4.2 × 3.6 m</td></tr><tr><td>주방</td><td>4 × 3.2 m, 타일 바닥</td></tr><tr><td>욕실</td><td>2.4 × 2.1 m, 타일 벽</td></tr><tr><td>서재·사무실</td><td>5 × 4 m</td></tr><tr><td>원룸</td><td>방 · 욕실 · 현관</td></tr><tr><td>아파트 59㎡</td><td>방 2 · 거실 · 욕실 (투룸)</td></tr><tr><td>아파트 84㎡</td><td>방 3 · 거실 · 주방 · 욕실 2</td></tr><tr><td>단독주택</td><td>10 × 8 m, 방 2 · 거실</td></tr></tbody></table></div>
+<p>템플릿에는 벽(외벽 25 cm, 칸막이 12 cm, 높이 2.4 m)·문·창·방이 이미 그려져 있어 바로 가구를 배치할 수 있습니다. <strong>파일 › 템플릿에서 새로 만들기…</strong> 로도 고릅니다. 예제는 화면 언어에 맞는 방 이름으로 열립니다.</p>
+<h2 id="2-화면-구성">2. 화면 구성 <a class="anchor" href="#2-화면-구성" aria-hidden="true">#</a></h2>
+<p><img src="tutorial/images/04-workspace.jpg" alt="작업 화면" loading="lazy" /></p>
+<div class="table-wrap"><table><thead><tr><th>위치</th><th>이름</th><th>하는 일</th></tr></thead><tbody><tr><td>맨 위</td><td><strong>메뉴 막대</strong></td><td>프로그램 이름·버전, 프로젝트 이름(바뀌면 ● 표시), 시작 · 파일 · 편집 · 보기 · 그리기 · 도구 · 카메라 · 도움말. 데스크톱에서는 제목 표시줄을 겸합니다(끌어서 창 이동, 두 번 클릭해 최대화, 오른쪽 끝에 최소화·최대화·닫기)</td></tr><tr><td>그 아래</td><td><strong>툴바</strong></td><td>자주 쓰는 명령 (2.2)</td></tr><tr><td>왼쪽</td><td><strong>라이브러리 / 재질</strong> 패널</td><td>가구·소품 카드와 재질 견본</td></tr><tr><td>왼쪽 안쪽</td><td><strong>도구 모음</strong></td><td>SketchUp의 큰 도구 세트처럼 묶은 도구 (2.3)</td></tr><tr><td>가운데 위</td><td><strong>장면 탭</strong>, <strong>층 칩</strong>, <strong>3D / 2D</strong> 전환</td><td>저장한 시점, 작업 층 고르기, 3D 보기와 2D 평면도</td></tr><tr><td>가운데</td><td><strong>3D 화면</strong></td><td>모델. 오른쪽 위의 <strong>화면 조작</strong> 패드(궤도·이동 화살표, 확대·축소, 전체 보기)</td></tr><tr><td>가운데 아래</td><td><strong>하단 패널</strong></td><td>문제 · 메시지 · 정보 (2.6)</td></tr><tr><td>오른쪽</td><td><strong>개요</strong> + <strong>속성 · 스타일 · 그림자 · 태그 · 장면 · 층</strong> 탭</td><td>모델의 목록과 선택한 것의 속성 (2.5)</td></tr><tr><td>맨 아래</td><td><strong>상태 표시줄</strong></td><td>도움말·알림, 선택 개수, 커서 위치, 성능, 문제 개수, 단위, <strong>측정값</strong> 상자 (2.7)</td></tr></tbody></table></div>
+<p>패널 사이의 경계선을 끌어 왼쪽·오른쪽 패널의 폭과 하단 패널의 높이를 바꿉니다. 개요와 아래 탭 사이의 경계도 끌 수 있습니다. 패널 머리글의 ‹ › 버튼(또는 <code>Ctrl+Shift+1</code> / <code>Ctrl+Shift+2</code>, <code>Ctrl+J</code>)으로 접고 펼칩니다. 접힌 패널은 가장자리에 좁은 띠로 남아 클릭하면 다시 펼쳐집니다. 데스크톱에서는 오른쪽 아래 모서리의 그립을 끌어 창 크기를 바꿉니다.</p>
+<h3 id="21-메뉴">2.1 메뉴 <a class="anchor" href="#21-메뉴" aria-hidden="true">#</a></h3>
+<div class="table-wrap"><table><thead><tr><th>메뉴</th><th>항목</th></tr></thead><tbody><tr><td><strong>파일</strong></td><td>새 프로젝트 · 템플릿에서 새로 만들기… · 열기… · 시작 페이지 · 최근 파일… · 최근 폴더 · 최근 파일·폴더 기록 모두 지우기 · 저장 · 다른 이름으로 저장… · 3D 모델 가져오기… · <strong>내보내기</strong> ▸ (그림으로 저장… · 사실적 렌더링… · 평면도 그림 (.png) · glTF 바이너리 (.glb) · glTF (.gltf) · Wavefront OBJ (.obj) · STL (.stl, 3D 프린팅) · PLY (.ply) · USDZ (.usdz, AR) · 선택한 것만 .glb로) · 프로젝트 닫기 · 끝내기</td></tr><tr><td><strong>편집</strong></td><td>실행 취소 · 다시 실행 · 잘라내기 · 복사 · 붙여넣기 · 복제 · 삭제 · 모두 선택 · 선택 해제 · <strong>회전·대칭</strong> ▸ (90° 회전 (시계 방향) · 90° 회전 (반시계 방향) · 좌우 대칭 · 바닥에 내려놓기) · <strong>숨기기·잠금</strong> ▸ (숨기기 · 모두 보이기 · 잠금 · 잠금 해제) · 그룹 만들기 · 분해 · 안내선 모두 지우기</td></tr><tr><td><strong>보기</strong></td><td><strong>표준 보기</strong> ▸ (등각 보기 · 위 · 앞 · 뒤 · 왼쪽 · 오른쪽 · 아래) · 원근 투영 · 2D 평면도 · <strong>면 스타일</strong> ▸ · <strong>표시</strong> ▸ (눈금자 · 격자 · 축 · 모서리 선 · 그림자 · 조명 켜기 · 성능 표시 (FPS·삼각형) · 라이브러리 패널 · 개요·속성 패널 · 하단 패널 · 상태 표시줄) · <strong>표시 품질</strong> ▸ (빠르게 · 균형 · 고품질) · <strong>장면</strong> ▸ (장면 추가 · 이전 장면 · 다음 장면) · <strong>모양</strong> ▸ (테마 무작위로 바꾸기 · 테마 고르기 · 언어 전환 · 움직이는 배경 바꾸기 · 배경 이미지… · 배경 끄기)</td></tr><tr><td><strong>그리기</strong></td><td>벽 · 방 · 문 · 창문 · 층 추가 · <strong>도형 그리기</strong> ▸ (선 · 사각형 · 원 · 호 · 다각형 · 자유선)</td></tr><tr><td><strong>도구</strong></td><td>선택 · 지우개 · 페인트 통 · <strong>수정</strong> ▸ (밀기/당기기 · 이동 · 회전 · 크기 조절 · 오프셋 · 경로 따라가기) · <strong>솔리드 도구</strong> ▸ (합치기 · 빼기 · 교집합 · 면 교차 · 모서리 부드럽게) · <strong>측정·주석</strong> ▸ (줄자 · 치수 · 각도기 · 글 표시 · 축 지정 · 안내선 모두 지우기) · <strong>단면</strong> ▸ (단면 · 단면 켜기/끄기 · 단면 모두 지우기) · 지금 검사 · 문제 보기 · 메시지 보기 · 사실적 렌더링… · 설정…</td></tr><tr><td><strong>카메라</strong></td><td>궤도 · 이동(화면) · 확대/축소 · 전체 보기 · 선택한 것 보기 · 걷기 · 표준 보기 ▸ · 원근 투영 · 2D 평면도 · 장면 추가 · 이전 장면 · 다음 장면</td></tr><tr><td><strong>도움말</strong></td><td>시작 안내 창 · 튜토리얼 · 튜토리얼 문서 · 튜토리얼 동영상 · 사용 설명서 · 단축키 목록… · 설정… · 프로그램 정보…</td></tr></tbody></table></div>
+<p>메뉴 항목 오른쪽에는 단축키가, 지금 쓸 수 없는 항목은 흐리게 표시됩니다. 데스크톱에서 메뉴는 별도의 작은 창으로 열립니다.</p>
+<p><strong>오른쪽 클릭 메뉴</strong></p>
+<ul><li>모델 위의 물체: 잘라내기 · 복사 · 복제 · 삭제, 종류별 명령(가구: 90° 회전 · 좌우 대칭 · 바닥에 내려놓기 · 다른 항목으로 바꾸기 · 재질 되돌리기 / 벽: 벽 나누기 · 벽 방향 뒤집기 / 모델: 그룹 편집 · 분해 · 솔리드 도구 / 문·창: 다른 항목으로 바꾸기), 이동 · 회전 · 크기 조절, 숨기기 · 잠금 · 잠금 해제, 선택한 것 보기.</li><li>빈 곳: 붙여넣기 · 모두 선택 · 전체 보기 · 표준 보기 · 원근 투영 · 2D 평면도 · 면 스타일 · 표시 · 장면 추가 · 그림으로 저장… · 사실적 렌더링….</li><li>라이브러리 카드: 배치하기 · 선택한 가구를 이것으로 바꾸기. 재질 견본: 이 재질로 칠하기 · 선택한 벽·방에 적용.</li><li>개요의 행, 하단 패널의 문제·메시지, 상태 표시줄, 입력 칸(잘라내기·복사·붙여넣기·모두 선택)에도 각자의 메뉴가 있습니다.</li></ul>
+<h3 id="22-툴바">2.2 툴바 <a class="anchor" href="#22-툴바" aria-hidden="true">#</a></h3>
+<p>왼쪽부터 다음 묶음이 있습니다. 버튼에 마우스를 올리면 이름·단축키·설명이 나옵니다.</p>
+<div class="table-wrap"><table><thead><tr><th>묶음</th><th>버튼</th></tr></thead><tbody><tr><td>파일</td><td>새 프로젝트 · 열기 · 저장 · <strong>그림으로 저장</strong>(옆의 ▾ = 내보내기 메뉴) · 3D 모델 가져오기</td></tr><tr><td>편집</td><td>실행 취소 · 다시 실행</td></tr><tr><td>선택</td><td>선택 · 지우개 · 페인트 통</td></tr><tr><td>건축</td><td><strong>벽</strong> · <strong>방</strong> · <strong>문</strong> · <strong>창문</strong></td></tr><tr><td>수정</td><td>이동 · 회전 · 밀기/당기기 · 줄자</td></tr><tr><td>카메라</td><td>궤도 · 이동(화면) · 전체 보기 · <strong>등각 보기</strong>(▾ = 보기 방향) · <strong>2D 평면도</strong> · 눈금자</td></tr><tr><td>표현</td><td><strong>면 스타일 바꾸기</strong>(▾ = 면 스타일 고르기) · 그림자 · 조명 켜기</td></tr><tr><td>출력</td><td><strong>사실적 렌더링…</strong></td></tr><tr><td>패널</td><td>라이브러리 패널 · 하단 패널 · 개요·속성 패널</td></tr><tr><td>오른쪽</td><td>튜토리얼 · 테마 무작위로 바꾸기(▾ = 테마 고르기) · 언어 전환(국기) · 설정 · 프로그램 정보</td></tr></tbody></table></div>
+<p>창이 좁아져도 툴바가 잘리지 않도록 창의 최소 폭이 툴바에 맞춰 정해집니다.</p>
+<h3 id="23-도구-모음">2.3 도구 모음 <a class="anchor" href="#23-도구-모음" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/05-palette.jpg" alt="도구 모음" loading="lazy" /></p>
+<p>3D 화면 왼쪽의 도구 모음은 여섯 묶음입니다. 키보드 한 글자로도 고를 수 있습니다(괄호 안).</p>
+<div class="table-wrap"><table><thead><tr><th>묶음</th><th>도구</th></tr></thead><tbody><tr><td>선택</td><td>선택 (<code>Space</code>) · 지우개 (<code>E</code>) · 페인트 통 (<code>B</code>)</td></tr><tr><td>건축</td><td>벽 (<code>W</code>) · 방 (<code>Shift+R</code>) · 문 · 창문</td></tr><tr><td>그리기</td><td>선 (<code>L</code>) · 사각형 (<code>R</code>) · 원 (<code>C</code>) · 호 (<code>A</code>) · 다각형 (<code>Shift+P</code>) · 자유선</td></tr><tr><td>수정</td><td>밀기/당기기 (<code>P</code>) · 이동 (<code>M</code>) · 회전 (<code>Q</code>) · 크기 조절 (<code>S</code>) · 오프셋 (<code>F</code>) · 경로 따라가기</td></tr><tr><td>측정·주석</td><td>줄자 (<code>T</code>) · 치수 (<code>D</code>) · 각도기 · 글 표시 · 단면 · 축 지정</td></tr><tr><td>카메라</td><td>궤도 (<code>O</code>) · 이동(화면) (<code>H</code>) · 확대/축소 (<code>Z</code>) · 전체 보기 (<code>Shift+Z</code>) · 걷기 · 둘러보기</td></tr></tbody></table></div>
+<p>도구를 고르면 상태 표시줄 왼쪽에 사용법이 나옵니다. <code>Esc</code>는 진행 중인 동작을 취소하고, 한 번 더 누르면 선택 도구로 돌아갑니다.</p>
+<blockquote><p><strong>축 지정</strong> 도구는 아직 준비 중입니다. 고르면 &quot;이 도구는 아직 준비 중입니다&quot;라고 알리고 선택 도구로 돌아갑니다.</p></blockquote>
+<h3 id="24-왼쪽-패널-라이브러리와-재질">2.4 왼쪽 패널: 라이브러리와 재질 <a class="anchor" href="#24-왼쪽-패널-라이브러리와-재질" aria-hidden="true">#</a></h3>
+<ul><li><strong>라이브러리</strong> 탭 — 검색 칸(한국어·영어 이름과 태그), 3D 모델 가져오기 버튼, 카드 크기(작게·보통·크게) 버튼, 분류 칩(전체 · 거실 · 식당 · 침실 · 주방 · 욕실 · 서재·사무 · 아이 방 · 수납 · 조명 · 장식·소품 · 식물 · 가전 · 문 · 창문 · 구조·마감 · 실외 · 내 객체, 칩마다 개수), 카드 목록. 카드의 <strong>HQ</strong> 표시는 실측 사진 모델(Poly Haven), 자 모양 표시는 크기·재질을 바꿀 수 있는 매개변수 모델입니다. 자세한 사용법은 <a href="#5-가구-배치">5장</a>.</li><li><strong>재질</strong> 탭 — 지금 칠할 재질(붓), 페인트 통 버튼, 검색 칸, <strong>+</strong>(새 재질), 분류 칩(나무 · 바닥재 · 패브릭 · 가죽 · 석재 · 타일 · 벽 마감 · 금속 · 유리 · 도장 · 플라스틱 · 도자기 · 카펫·러그 · 식물 · 기타), 견본 목록. <a href="#6-재질과-페인트-통">6장</a>.</li></ul>
+<h3 id="25-오른쪽-패널-개요와-편집-탭">2.5 오른쪽 패널: 개요와 편집 탭 <a class="anchor" href="#25-오른쪽-패널-개요와-편집-탭" aria-hidden="true">#</a></h3>
+<p><strong>개요</strong>는 층마다 <strong>방 · 벽 · 문·창 · 가구·소품 · 모델</strong>을 묶어 보여 줍니다.</p>
+<ul><li>행을 클릭하면 선택, <code>Ctrl</code>+클릭은 추가, <code>Shift</code>+클릭은 선택 전환, 두 번 클릭하면 그것을 화면에 맞춰 보여 줍니다.</li><li>행 끝의 눈 아이콘으로 숨기고 보이기, 잠근 것에는 자물쇠가 붙습니다.</li><li>묶음 머리를 클릭해 접고 펼치고, 층 머리를 클릭하면 그 층이 <strong>작업 중</strong>인 층이 됩니다.</li><li>위쪽 <strong>찾기</strong> 칸은 이름으로 거릅니다.</li></ul>
+<p>아래 탭:</p>
+<div class="table-wrap"><table><thead><tr><th>탭</th><th>내용</th></tr></thead><tbody><tr><td><strong>속성</strong></td><td>선택한 것의 크기·재질·위치 (아무것도 선택하지 않으면 프로젝트 이름·단위·방 면적 합계·구성). 종류별 항목은 4–5장</td></tr><tr><td><strong>스타일</strong></td><td>면 스타일, 모서리 선, 조명 켜기, 배경, 환경 조명, 노출, 표시 품질 (9장)</td></tr><tr><td><strong>그림자</strong></td><td>그림자 표시, 시각, 날짜, 위도, 경도, 북쪽 각도, 도시 (9장)</td></tr><tr><td><strong>태그</strong></td><td>태그 목록, 보이기/숨기기, 이름, 개수, 추가·삭제 (10장)</td></tr><tr><td><strong>장면</strong></td><td>장면 목록, 이동·이름·현재 보기로 갱신·삭제, 추가 (10장)</td></tr><tr><td><strong>층</strong></td><td>층 목록, 작업 층, 이름·바닥 높이·층 높이, 보이기, 삭제, 추가 (10장)</td></tr></tbody></table></div>
+<h3 id="26-하단-패널">2.6 하단 패널 <a class="anchor" href="#26-하단-패널" aria-hidden="true">#</a></h3>
+<p><code>Ctrl+J</code>로 열고 닫습니다. 세 탭이 있습니다.</p>
+<ul><li><strong>문제</strong> — 모델 검사 결과(15장). 전체 · 오류 · 경고 · 참고로 거르고, <strong>지금 검사</strong>로 다시 검사합니다. 행을 클릭하면 대상을 선택하고 화면에 맞춰 보여 줍니다.</li><li><strong>메시지</strong> — 상태 표시줄에 잠깐 나왔던 알림과 오류가 시각과 함께 남습니다. <strong>메시지 복사</strong>, <strong>메시지 지우기</strong>.</li><li><strong>정보</strong> — 작업 층(이름·바닥 높이·층 높이), 면적(㎡와 평, 방마다), 구성(벽·방·가구·문·창·모델·장면 수), 화면(그리기 호출·삼각형·프레임 시간·FPS), 가져온 모델(개수·삼각형).</li></ul>
+<h3 id="27-상태-표시줄과-측정값-상자">2.7 상태 표시줄과 측정값 상자 <a class="anchor" href="#27-상태-표시줄과-측정값-상자" aria-hidden="true">#</a></h3>
+<p>왼쪽부터: 지금 도구의 사용법 또는 알림 · 선택 개수 · 커서 위치(X, Y, 높이) · 성능(FPS · 그리기 호출 · 삼각형 · 프레임 시간, <strong>보기 › 표시 › 성능 표시</strong>가 켜져 있을 때) · 문제 개수(오류 · 경고, 클릭하면 문제 탭) · 단위 · <strong>측정값</strong> 상자 · 테마 · 언어 · 시계.</p>
+<p><strong>측정값 상자</strong>는 SketchUp의 VCB입니다. 도구가 동작하는 중에 그냥 숫자를 치면 상자로 들어가고, <code>Enter</code>로 적용됩니다(<code>Esc</code>는 지우기). 상자의 이름은 도구에 따라 길이 · 거리 · 각도 · 배율 · 반지름 · 치수 · 간격으로 바뀝니다.</p>
+<div class="table-wrap"><table><thead><tr><th>입력</th><th>뜻</th></tr></thead><tbody><tr><td><code>2400</code></td><td>프로젝트 단위로 2400 (mm 프로젝트면 2.4 m)</td></tr><tr><td><code>2.4m</code> · <code>240cm</code> · <code>2400mm</code></td><td>단위를 붙이면 그 단위</td></tr><tr><td><code>8&#39;</code> · <code>8&#39;6</code> · <code>96in</code> · <code>96&quot;</code></td><td>피트·인치</td></tr><tr><td><code>1200,800</code> (또는 <code>1200x800</code>)</td><td>사각형의 가로, 세로</td></tr><tr><td><code>45</code></td><td>회전·각도기의 각도(°)</td></tr><tr><td><code>1.5</code></td><td>크기 조절 배율</td></tr><tr><td><code>6s</code></td><td>다각형의 변 수, 원의 분할 수</td></tr><tr><td><code>x5</code> · <code>*5</code> · <code>/5</code></td><td>이동 복사 직후: 같은 간격으로 5개 더 / 처음과 끝 사이를 5등분</td></tr></tbody></table></div>
+<h2 id="3-카메라와-보기">3. 카메라와 보기 <a class="anchor" href="#3-카메라와-보기" aria-hidden="true">#</a></h2>
+<p><img src="tutorial/images/15-navigate.jpg" alt="화면 돌려 보기" loading="lazy" /></p>
+<div class="table-wrap"><table><thead><tr><th>동작</th><th>마우스</th><th>도구·키</th></tr></thead><tbody><tr><td>궤도(돌려 보기)</td><td>가운데 버튼 끌기, 오른쪽 버튼 끌기, 선택 도구로 왼쪽 버튼 끌기(기본 설정)</td><td>궤도 <code>O</code> + 왼쪽 버튼 끌기</td></tr><tr><td>화면 이동</td><td><code>Shift</code> + 가운데(또는 오른쪽) 버튼 끌기, 선택 도구로 <code>Alt</code> + 왼쪽 버튼 끌기</td><td>이동(화면) <code>H</code></td></tr><tr><td>확대/축소</td><td>휠 (커서가 있는 곳을 향해)</td><td>확대/축소 <code>Z</code> + 위아래로 끌기</td></tr><tr><td>전체 보기</td><td>—</td><td><code>Shift+Z</code>, 화면 조작 패드의 전체 보기</td></tr><tr><td>그 점을 가운데로</td><td>가운데 버튼 두 번 클릭</td><td>—</td></tr><tr><td>선택한 것 보기</td><td>개요에서 두 번 클릭</td><td><strong>카메라 › 선택한 것 보기</strong></td></tr></tbody></table></div>
+<ul><li>궤도는 커서 아래의 점을 중심으로 돕니다. 오른쪽 버튼은 4 픽셀 넘게 끌어야 궤도가 되고, 그냥 클릭하면 오른쪽 클릭 메뉴가 열립니다(마우스 휠 버튼이 없는 노트북용).</li><li>3D 화면 오른쪽 위의 <strong>화면 조작</strong> 패드: 위 원은 궤도(위·아래·왼쪽·오른쪽으로 돌기), 아래 원은 화면 이동, 그 아래 확대 · 축소 · 전체 보기. 누르고 있으면 계속 움직입니다.</li><li><strong>표준 보기</strong> — 등각 보기 · 위 · 앞 · 뒤 · 왼쪽 · 오른쪽 · 아래 (툴바의 등각 보기 버튼과 ▾). 앞은 +Z 쪽에서 본 모습입니다.</li><li><strong>원근 투영</strong> — 끄면 평행 투영(정사영)이 됩니다. 보이는 크기는 유지됩니다.</li><li><strong>2D 평면도</strong> (<code>F4</code>, 화면 위의 <strong>3D / 2D</strong> 전환) — 작업 층을 위에서 내려다보는 평행 투영이며, 바닥에서 1.2 m 높이에서 잘라 벽 단면을 진하게 칠합니다. 이 상태에서도 벽을 그리고 가구를 배치할 수 있습니다. 2D에서는 궤도 대신 화면 이동이 되고, <strong>눈금자</strong>(<code>Ctrl+Shift+R</code>)가 위쪽과 왼쪽에 나와 커서 위치를 표시합니다.</li><li><strong>걷기</strong> — 눈높이 1.6 m의 1인칭 시점. <code>W</code> <code>A</code> <code>S</code> <code>D</code> 또는 <code>↑</code> <code>↓</code>로 걷고 <code>←</code> <code>→</code>로 돌며, <code>Shift</code>로 빨리, <code>Q</code>/<code>E</code>로 내려가고 올라가며, 왼쪽 버튼 끌기로 둘러봅니다. 벽과 가구에 부딪히면 멈춥니다.</li><li><strong>둘러보기</strong> — 제자리에서 끌어 고개를 돌립니다.</li></ul>
+<p><img src="tutorial/images/09-plan.jpg" alt="2D 평면도" loading="lazy" /></p>
+<h2 id="4-집-짓기-벽--방--문--창">4. 집 짓기: 벽 · 방 · 문 · 창 <a class="anchor" href="#4-집-짓기-벽--방--문--창" aria-hidden="true">#</a></h2>
+<h3 id="41-벽">4.1 벽 <a class="anchor" href="#41-벽" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/06-walls.jpg" alt="벽 그리기" loading="lazy" /></p>
+<p><strong>벽</strong> 도구(<code>W</code>)로 바닥 위의 점을 차례로 클릭하면 벽이 이어서 그려집니다.</p>
+<ol><li>시작점을 클릭합니다.</li><li>다음 점을 클릭할 때마다 벽 하나가 생기고, 마지막 점에서 계속 이어집니다. 그리는 동안 벽 두께의 윤곽과 길이가 보입니다.</li><li>정확한 길이: 방향을 마우스로 잡은 채 길이를 치고 <code>Enter</code> (예: <code>3600</code>, <code>3.6m</code>).</li><li>첫 점을 다시 클릭하면 닫히며 끝납니다. 두 번 클릭, <code>Enter</code>, <code>Esc</code>로도 끝냅니다.</li></ol>
+<ul><li><strong>추론</strong>: 다른 벽의 끝점 · 중점 · 벽 위, 빨간 축(X)·초록 축(Z) 방향, 다른 점과의 정렬에 자동으로 맞추고, 무엇에 맞췄는지 커서 옆에 표시합니다. <strong>격자에 맞춤</strong>(설정 › 3D 보기)을 켜면 격자 간격에도 맞춥니다.</li><li><strong>화살표 키</strong>: <code>→</code>/<code>←</code>는 빨간 축, <code>↑</code>/<code>↓</code>는 초록 축으로 방향을 고정(다시 누르면 풀림). <code>Shift</code>를 누르고 있으면 지금 방향으로 고정됩니다.</li><li>새 벽의 두께는 <strong>설정 › 3D 보기 › 기본 벽 두께</strong>(기본 150 mm)이고, 높이는 작업 층의 층 높이를 따릅니다.</li><li>벽이 만나는 곳은 자동으로 이어집니다: 끝과 끝이 만나면 비스듬히(마이터), 한 벽의 끝이 다른 벽의 옆면에 닿으면 맞대어 붙습니다(1 cm 안이면 만난 것으로 봅니다).</li></ul>
+<p><strong>벽 속성</strong> (벽을 클릭하고 <strong>속성</strong> 탭): 이름 · 길이 · 두께 · 높이 · 왼쪽 면 · 오른쪽 면(재질) · 태그 · 숨김 · 잠금. 길이를 바꾸면 끝점이 움직이고 그 끝에 이어진 벽도 함께 따라옵니다. 머리글의 버튼과 오른쪽 클릭 메뉴:</p>
+<ul><li><strong>벽 나누기</strong> — 벽을 가운데에서 둘로 나눕니다. 문·창은 있던 쪽 벽에 남습니다.</li><li><strong>벽 방향 뒤집기</strong> — 시작점과 끝점을 바꿉니다. 왼쪽/오른쪽 면 재질도 서로 바뀌고 문·창은 제자리에 있습니다.</li></ul>
+<p>벽을 옮기면(이동 도구, 화살표 키) 그 끝에 붙어 있던 다른 벽의 끝도 따라와 모서리가 떨어지지 않습니다.</p>
+<h3 id="42-방">4.2 방 <a class="anchor" href="#42-방" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/07-rooms.jpg" alt="방 만들기" loading="lazy" /></p>
+<p><strong>방</strong> 도구(<code>Shift+R</code>):</p>
+<ul><li><strong>벽으로 둘러싸인 곳을 클릭</strong> — 커서를 올리면 만들어질 바닥이 초록으로 미리 보이고 면적이 표시됩니다. 클릭하면 방이 생깁니다.</li><li><strong>빈 곳에서는 꼭짓점을 차례로 클릭</strong>해 윤곽을 그립니다. 첫 점을 다시 클릭하거나 두 번 클릭 또는 <code>Enter</code>로 닫습니다. <code>Esc</code>는 취소.</li></ul>
+<p>새 방은 &quot;방 1, 방 2 …&quot;라는 이름에 오크 바닥, 흰색 페인트 천장(천장은 숨김)으로 만들어집니다. 같은 윤곽의 방이 이미 있으면 다시 만들지 않습니다.</p>
+<p><strong>방 속성</strong>: 이름 · 면적(㎡와 평) · 바닥재 · 천장 표시 · 천장(재질) · 숨김 · 잠금. 방을 옮기면 바닥 윤곽이 함께 움직입니다.</p>
+<h3 id="43-문과-창">4.3 문과 창 <a class="anchor" href="#43-문과-창" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/08-doors.jpg" alt="문과 창" loading="lazy" /></p>
+<p>툴바·도구 모음의 <strong>문</strong> 또는 <strong>창문</strong>을 누르면 라이브러리가 문(또는 창문) 분류로 바뀌고 첫 항목의 배치가 시작됩니다. 다른 문·창은 카드를 고릅니다.</p>
+<ul><li>문 8가지: 여닫이 문 · 양개 문 · 미닫이 유리문 · 포켓 도어 · 바니 도어 · 프렌치 도어 · 현관문(철제) · 접이식 문.</li><li>창 7가지: 여닫이 창 · 오르내리 창 · 미서기 창 · 고정 창 · 들창 · 베이 윈도 · 지붕 창.</li></ul>
+<p>벽 위를 클릭하면 벽에 구멍이 뚫리며 문·창이 들어갑니다. 커서를 따라 벽을 미끄러지며 벽 시작점에서의 거리가 표시되고, 벽보다 넓으면 놓이지 않습니다(&quot;문·창은 벽 위에 놓아야 합니다&quot;). 클릭한 면이 여는 쪽이 됩니다. 창은 바닥에서 기본 높이(대개 0.9 m)에 놓입니다.</p>
+<p><strong>문·창 속성</strong>: 폭 · 높이 · 바닥에서 높이 · 벽 시작점에서(벽 시작점부터 중심까지의 거리) · 경첩 방향 바꾸기 · 여는 쪽(왼쪽 면/오른쪽 면) · 그 밖의 치수와 옵션(문짝 수, 손잡이, 재질 등 항목마다 다름) · <strong>다른 항목으로 바꾸기</strong>. 이동 도구나 화살표 키로 옮기면 벽을 따라서만 움직입니다.</p>
+<h3 id="44-2d-평면도에서-그리기">4.4 2D 평면도에서 그리기 <a class="anchor" href="#44-2d-평면도에서-그리기" aria-hidden="true">#</a></h3>
+<p><code>F4</code>로 2D 평면도를 켜면 위에서 본 도면 위에서 벽·방·문·창·가구를 그대로 다룰 수 있습니다. 치수 도구로 벽 길이를 표시하고, <strong>파일 › 내보내기 › 평면도 그림 (.png)</strong> 으로 도면을 그림으로 저장합니다(12장).</p>
+<h2 id="5-가구-배치">5. 가구 배치 <a class="anchor" href="#5-가구-배치" aria-hidden="true">#</a></h2>
+<p><img src="tutorial/images/10-library.jpg" alt="가구 라이브러리" loading="lazy" /></p>
+<h3 id="51-라이브러리">5.1 라이브러리 <a class="anchor" href="#51-라이브러리" aria-hidden="true">#</a></h3>
+<p>라이브러리에는 247개 항목이 있습니다.</p>
+<ul><li><strong>매개변수 모델 125개</strong> — 폭·깊이·높이·좌석 수 같은 치수와 천·나무·다리 모양 같은 옵션을 바꿀 수 있습니다. 16개 분류(거실 · 식당 · 침실 · 주방 · 욕실 · 서재·사무 · 아이 방 · 수납 · 조명 · 장식·소품 · 식물 · 가전 · 문 · 창문 · 구조·마감 · 실외)에 고루 있습니다.</li><li><strong>고품질 모델 122개</strong>(<strong>HQ</strong>) — Poly Haven의 실측 사진 모델(CC0)입니다. 크기는 원래대로이고 배율로만 바꿉니다.</li><li><strong>내 객체</strong> — 직접 가져온 3D 모델(11장).</li></ul>
+<p>카드에 마우스를 올리면 이름과 기본 크기가 나옵니다. 검색 칸은 한국어·영어 이름과 태그로 찾습니다.</p>
+<h3 id="52-배치하기">5.2 배치하기 <a class="anchor" href="#52-배치하기" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/11-place.jpg" alt="배치하기" loading="lazy" /></p>
+<ul><li><strong>카드를 클릭</strong>하고 3D 화면에서 놓을 곳을 클릭합니다. 반투명한 미리보기가 커서를 따라오며, 배치 도구는 <code>Esc</code>나 다른 도구를 고를 때까지 계속 같은 항목을 놓습니다.</li><li><strong>카드를 화면으로 끌어다 놓기</strong>도 됩니다(한 번만 놓음).</li><li><strong>벽 가까이</strong> 놓으면 등을 벽에 대고 벽에 붙습니다. <code>Alt</code>를 누르면 벽 붙이기가 꺼지고 켜집니다.</li><li><code>[</code> <code>]</code> (또는 <code>,</code> <code>.</code>, <code>R</code>)로 놓기 전에 90°씩, <code>Shift</code>와 함께 15°씩 돌립니다.</li><li>놓이는 곳은 항목마다 다릅니다: 바닥 가구는 바닥에, 그림·거울·벽등은 벽면에(정해진 높이), 천장 조명은 천장에, 작은 소품(화병·책 등)은 탁자나 선반의 윗면에.</li><li>놓은 것은 바로 선택되어 속성 탭에 나옵니다.</li></ul>
+<h3 id="53-선택과-옮기기">5.3 선택과 옮기기 <a class="anchor" href="#53-선택과-옮기기" aria-hidden="true">#</a></h3>
+<ul><li><strong>선택</strong>(<code>Space</code>): 클릭으로 선택, <code>Ctrl</code>+클릭 추가, <code>Shift</code>+클릭 전환, 빈 곳 클릭은 해제. 영역 선택: <strong>왼쪽→오른쪽</strong>으로 끌면 영역 안에 완전히 들어간 것만, <strong>오른쪽→왼쪽</strong>은 걸친 것까지. 기본 설정에서는 왼쪽 버튼 끌기가 화면 회전이므로 <code>Shift</code> 또는 <code>Ctrl</code>을 누른 채 끌어 영역을 선택합니다. <strong>설정 › 3D 보기 › 왼쪽 버튼 끌기</strong>를 <strong>선택 상자 (SketchUp)</strong>로 바꾸면 그냥 끌어도 영역 선택입니다.</li><li><strong>선택한 가구를 끌면</strong> 바닥 위에서 바로 옮겨집니다.</li><li><strong>화살표 키</strong>는 선택한 것을 10 cm씩, <code>Shift</code>와 함께 1 cm씩 옮깁니다.</li><li>정확한 이동·회전은 이동·회전 도구(7.5)나 속성의 숫자를 씁니다.</li><li><strong>복제</strong>(<code>Ctrl+D</code>)는 30 cm 옆에, <strong>붙여넣기</strong>(<code>Ctrl+V</code>)는 작업 층의 50 cm 옆에 사본을 만듭니다. 벽을 복사하면 그 벽의 문·창도 같이 복사됩니다.</li><li><strong>삭제</strong>(<code>Delete</code>), <strong>숨기기</strong>, <strong>잠금</strong>(잠근 것은 옮기거나 지울 수 없음), <strong>모두 보이기</strong>.</li></ul>
+<h3 id="54-가구-속성과-옵션">5.4 가구 속성과 옵션 <a class="anchor" href="#54-가구-속성과-옵션" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/12-properties.jpg" alt="속성" loading="lazy" /></p>
+<p>가구를 선택하면 <strong>속성</strong> 탭에 세 부분이 나옵니다.</p>
+<ol><li><strong>가구 이름 머리글</strong> — 이름 · 항목 · 크기(실제 너비×높이×깊이) · X · 높이(바닥 위) · Z · 회전(°) · 배율(×) · 태그 · 숨김 · 잠금. 머리글 버튼: 90° 회전 · 좌우 대칭 · 다른 항목으로 바꾸기.</li><li><strong>치수와 옵션</strong> — 매개변수 모델만. 예: 모던 소파 = 폭 · 좌석 수 · 깊이 · 높이 · 천 · 다리 · 팔걸이 · 쿠션 · 쿠션 수 · 쿠션 천. 길이는 프로젝트 단위로 입력하고, 개수는 −/+ 버튼, 재질은 재질 목록, 선택지는 펼침 목록, 켜고 끄는 것은 확인란입니다. 값은 항목이 허용하는 범위로 맞춰집니다.</li><li><strong>재질</strong> — 그 가구가 쓰는 재질(최대 12가지)이 부분마다 나오며, 각각을 다른 재질로 바꿀 수 있습니다. <strong>재질 되돌리기</strong>로 원래대로.</li></ol>
+<p>그 밖의 명령:</p>
+<ul><li><strong>다른 항목으로 바꾸기</strong> — 같은 분류의 다른 항목(최대 30개) 메뉴에서 고르면 자리와 방향을 유지한 채 바뀝니다. 라이브러리 카드의 오른쪽 클릭 › <strong>선택한 가구를 이것으로 바꾸기</strong>로 아무 항목으로나 바꿀 수 있습니다.</li><li><strong>좌우 대칭</strong> — 가구를 거울에 비친 모양으로 뒤집습니다.</li><li><strong>바닥에 내려놓기</strong> — 높이를 0으로.</li><li><strong>90° 회전</strong> — <code>Ctrl+]</code>(시계 방향), <code>Ctrl+[</code>(반시계 방향). 선택한 것들의 가운데를 중심으로 돕니다.</li></ul>
+<h2 id="6-재질과-페인트-통">6. 재질과 페인트 통 <a class="anchor" href="#6-재질과-페인트-통" aria-hidden="true">#</a></h2>
+<p><img src="tutorial/images/13-materials.jpg" alt="재질" loading="lazy" /></p>
+<p><strong>재질</strong> 탭에는 105가지 재질이 15개 분류로 있습니다. 나무·바닥재·타일·석재·벽 마감·패브릭·가죽 등 48가지는 Poly Haven의 사진 텍스처(색·요철·거칠기·음영)를 써서 실제 크기로 반복되고, 나머지는 색과 광택으로 표현합니다.</p>
+<ul><li>견본을 클릭하면 그 재질이 <strong>붓</strong>이 되고 <strong>페인트 통</strong> 도구가 켜집니다.</li><li><strong>페인트 통</strong>(<code>B</code>)으로 칠할 곳을 클릭합니다.
+<ul><li>벽: 클릭한 <strong>면</strong>(왼쪽 면·오른쪽 면·윗면)만 칠해집니다.</li><li>방: <strong>바닥</strong> 또는 (천장을 표시했다면) <strong>천장</strong>.</li><li>가구·문·창: 클릭한 <strong>부분</strong>의 재질만 바뀝니다(예: 소파의 천만, 다리만).</li><li>모델링한 면: 보이는 쪽(앞면 또는 뒷면)이 칠해집니다.</li></ul></li><li><code>Alt</code>+클릭은 <strong>스포이트</strong> — 클릭한 곳의 재질을 붓으로 가져옵니다.</li><li><strong>+</strong>(새 재질): 이름 · 색 · 거칠기 · 금속성으로 내 재질을 만듭니다. 프로젝트 파일에 저장되고 <strong>기타</strong> 분류에 나옵니다.</li><li>견본 오른쪽 클릭 › <strong>선택한 벽·방에 적용</strong>: 선택한 벽의 양쪽 면, 선택한 방의 바닥을 한 번에 칠합니다.</li><li>속성 탭의 재질 칸(벽의 왼쪽/오른쪽 면, 방의 바닥재/천장, 가구의 재질)을 누르면 알맞은 분류의 재질 목록이 열립니다.</li></ul>
+<p><img src="tutorial/images/14-paint.jpg" alt="페인트 통" loading="lazy" /></p>
+<h2 id="7-sketchup식-모델링">7. SketchUp식 모델링 <a class="anchor" href="#7-sketchup식-모델링" aria-hidden="true">#</a></h2>
+<p><img src="tutorial/images/18-modeling.jpg" alt="SketchUp식 모델링" loading="lazy" /></p>
+<h3 id="71-붙는-형상과-그룹">7.1 붙는 형상과 그룹 <a class="anchor" href="#71-붙는-형상과-그룹" aria-hidden="true">#</a></h3>
+<p>그리기 도구로 그린 선과 면은 SketchUp처럼 <strong>서로 붙습니다</strong>. 닫힌 선은 면이 되고, 면을 가로지르는 선은 면을 둘로 나누며, 면 안에 그린 닫힌 도형은 안쪽 면과 구멍이 됩니다. 점은 1/100 mm 안이면 하나로 합쳐집니다.</p>
+<ul><li>그룹 밖에서 그린 것은 층마다 하나인 <strong>모델</strong>(개요의 &quot;모델&quot; 묶음)에 들어가 서로 붙습니다.</li><li><strong>그룹 만들기</strong>(<code>G</code>): 선택한 모델을 그룹으로 바꿉니다. 그 뒤에 그리는 것은 새 모델로 들어가 그룹에 붙지 않습니다.</li><li>그룹을 <strong>두 번 클릭</strong>(또는 <strong>그룹 편집</strong>)하면 그 그룹을 편집합니다. 그리는 것이 모두 그룹 안으로 들어가며, <code>Esc</code>로 끝냅니다.</li><li><strong>분해</strong>: 그룹의 형상을 층의 모델로 되돌려 다시 붙게 합니다.</li><li>모델의 속성: 이름 · 컴포넌트 · 높이(바닥 위) · 태그 · 숨김 · 잠금 · 형상(면·모서리 수, 닫힌 솔리드면 부피 m³).</li></ul>
+<h3 id="72-추론과-축-고정">7.2 추론과 축 고정 <a class="anchor" href="#72-추론과-축-고정" aria-hidden="true">#</a></h3>
+<p>그리기 도구는 커서 근처의 <strong>끝점 · 중점 · 중심 · 교차점 · 모서리 위 · 면 위 · 빨간/초록/파란 축 방향 · 평행 · 수직</strong>에 맞추고, 커서 옆에 이름(예: &quot;끝점&quot;, &quot;빨간 축 방향&quot;)과 점선을 보여 줍니다. 벽의 아래·위 모서리와 안내선에도 맞춥니다.</p>
+<ul><li><code>→</code> 빨간 축(X), <code>←</code> 초록 축(Z), <code>↑</code>/<code>↓</code> 파란 축(위)으로 방향을 고정합니다(다시 누르면 풀림).</li><li><code>Shift</code>를 누르고 있으면 지금 추론한 방향으로 고정됩니다.</li><li>도형은 처음 클릭한 <strong>면의 평면</strong>(바닥·벽·모델의 면) 위에 그려지고, 빈 곳이면 바닥에 그려집니다.</li></ul>
+<h3 id="73-그리기-도구">7.3 그리기 도구 <a class="anchor" href="#73-그리기-도구" aria-hidden="true">#</a></h3>
+<div class="table-wrap"><table><thead><tr><th>도구</th><th>사용법</th><th>측정값 상자</th></tr></thead><tbody><tr><td><strong>선</strong> <code>L</code></td><td>점을 차례로 클릭. 닫히면 면이 생기고 새로 시작. 두 번 클릭이나 <code>Esc</code>로 끝</td><td>길이: 지금 방향으로 그 길이만큼</td></tr><tr><td><strong>사각형</strong> <code>R</code></td><td>두 모서리를 클릭 (첫 클릭의 평면에서, 변은 축 방향)</td><td><code>1200,800</code> = 가로, 세로</td></tr><tr><td><strong>원</strong> <code>C</code></td><td>중심, 반지름을 클릭 (기본 24분할)</td><td>반지름 · <code>48s</code> = 분할 수</td></tr><tr><td><strong>호</strong> <code>A</code></td><td>시작점, 끝점, 볼록한 정도를 차례로 클릭 (12분할)</td><td>—</td></tr><tr><td><strong>다각형</strong> <code>Shift+P</code></td><td>중심, 반지름을 클릭 (기본 6각형)</td><td>반지름 · <code>8s</code> = 변 수</td></tr><tr><td><strong>자유선</strong></td><td>누른 채 끌어서 그립니다. 끝이 처음 점에 가까우면 닫힙니다</td><td>—</td></tr></tbody></table></div>
+<h3 id="74-밀기당기기--오프셋--경로-따라가기">7.4 밀기/당기기 · 오프셋 · 경로 따라가기 <a class="anchor" href="#74-밀기당기기--오프셋--경로-따라가기" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/19-pushpull.jpg" alt="밀기/당기기" loading="lazy" /></p>
+<ul><li><strong>밀기/당기기</strong> <code>P</code> — 면 위에 커서를 올리면 파랗게 표시됩니다. 면을 클릭하고 움직인 뒤 다시 클릭(또는 누른 채 끌었다 놓기)합니다. 높이를 치고 <code>Enter</code>도 됩니다. 커서가 다른 형상의 끝점·중점·모서리에 닿으면 그 높이에 맞춥니다.
+<ul><li>옆면이 모두 직각인 상자의 면은 늘어나고(면 수 그대로), 그 밖에는 새 옆면이 생깁니다.</li><li>벽면이나 윗면에 그린 사각형을 밀어 넣으면 홈이, 당기면 돌출부가 됩니다. 반대쪽 면까지 밀면 <strong>구멍이 뚫립니다</strong>.</li><li>클릭할 때 <code>Ctrl</code>을 누르면 원래 면을 남기고 새로 뽑아냅니다.</li><li>다른 면을 <strong>두 번 클릭</strong>하면 직전 거리를 반복합니다.</li></ul></li><li><strong>오프셋</strong> <code>F</code> — 면을 클릭하고, 면의 가운데 쪽으로 움직이면 안쪽, 바깥쪽이면 바깥쪽으로 테두리를 복사합니다. 거리를 치면 양수는 안쪽, 음수는 바깥쪽입니다. 원은 원으로 유지됩니다. 너무 크면 &quot;간격이 너무 커서 오프셋할 수 없습니다&quot;.</li><li><strong>경로 따라가기</strong> — 단면이 될 면을 클릭한 뒤, 같은 모델 안에 그려 둔 경로(면에 속하지 않은 선·호가 이어진 것)의 모서리 하나를 클릭합니다. 단면이 경로를 따라 쓸려 몰딩·난간·파이프가 만들어집니다. 경로가 갈라지거나 끊겨 있으면 &quot;경로가 이어진 한 줄이 아닙니다&quot;.</li></ul>
+<h3 id="75-이동--회전--크기-조절">7.5 이동 · 회전 · 크기 조절 <a class="anchor" href="#75-이동--회전--크기-조절" aria-hidden="true">#</a></h3>
+<p>이 도구들은 가구·문·창·벽·방·모델·치수·글에 모두 씁니다. 선택한 것이 없으면 클릭한 것을 선택해 다룹니다.</p>
+<ul><li><strong>이동</strong> <code>M</code> — 기준점을 클릭하고 옮길 곳을 클릭합니다(또는 끌었다 놓기). 움직임은 기준점 높이의 수평면 위이며, 벽 끝점·축 방향에 맞춥니다. <code>→</code>/<code>←</code> 빨간 축, <code>↑</code>/<code>↓</code> 초록 축 고정. 거리를 치면 그 거리만큼 옮기고, 끝난 직후에 쳐도 직전 이동 거리를 고칩니다.
+<ul><li>처음 클릭할 때 <code>Ctrl</code>을 누르고 있으면 <strong>복사</strong>하며 옮깁니다. 복사 직후 <code>x5</code>를 치면 같은 간격으로 사본이 5개가 되도록 더 만들고, <code>/5</code>는 처음과 끝 사이를 5등분해 놓습니다(배열 복사).</li><li><code>Esc</code>는 이동을 취소합니다.</li></ul></li><li><strong>회전</strong> <code>Q</code> — 회전 중심, 시작 방향, 끝 방향을 차례로 클릭합니다. 각도기 눈금처럼 15°마다 맞춥니다. 각도를 치고 <code>Enter</code>도 됩니다. 회전 중이 아닐 때 각도를 치면 선택한 것을 자기 가운데를 중심으로 그 각도만큼 돌립니다. 회전은 수직 축(위에서 보아) 기준입니다.</li><li><strong>크기 조절</strong> <code>S</code> — 가구와 모델에 씁니다. 클릭하고 끌면 바닥 가운데를 기준으로 고르게 커지고 작아지며 0.1 단위에 맞춥니다. 배율을 치고 <code>Enter</code>(예: <code>1.5</code>). <code>Esc</code>는 취소.</li></ul>
+<h3 id="76-솔리드-도구와-그-밖의-편집">7.6 솔리드 도구와 그 밖의 편집 <a class="anchor" href="#76-솔리드-도구와-그-밖의-편집" aria-hidden="true">#</a></h3>
+<p><strong>도구 › 솔리드 도구</strong> (모델을 선택한 뒤):</p>
+<div class="table-wrap"><table><thead><tr><th>명령</th><th>조건</th><th>결과</th></tr></thead><tbody><tr><td><strong>합치기</strong></td><td>모델 2개 이상</td><td>하나의 솔리드로 합침</td></tr><tr><td><strong>빼기</strong></td><td>모델 정확히 2개</td><td>먼저 선택한 모델에서 나중 모델을 뺌</td></tr><tr><td><strong>교집합</strong></td><td>모델 정확히 2개</td><td>겹친 부분만 남김</td></tr><tr><td><strong>면 교차</strong></td><td>모델 선택</td><td>선택한 모델 안에서 서로 지나가는 면에 교선을 넣어 면을 나눔</td></tr><tr><td><strong>모서리 부드럽게</strong></td><td>모델 선택</td><td>20°보다 완만하게 만나는 모서리를 부드럽게(선을 감추고 매끈하게 음영)</td></tr></tbody></table></div>
+<p>솔리드 도구는 구멍 없이 닫힌 모델에만 씁니다. 아니면 &quot;닫힌 솔리드가 아닙니다&quot;. 결과는 첫 모델에 담기고 나머지 모델은 사라집니다.</p>
+<p><strong>지우개</strong> <code>E</code> — 클릭하거나 끌어서 지웁니다. 가구·벽·방 등은 통째로, 모델은 커서 아래의 <strong>모서리</strong>(원·호는 곡선 전체) 또는 <strong>면</strong>만 지웁니다. 같은 평면의 두 면을 나누던 선을 지우면 면이 다시 하나로 합쳐집니다. 잠근 것은 지우지 않습니다.</p>
+<h2 id="8-측정과-주석">8. 측정과 주석 <a class="anchor" href="#8-측정과-주석" aria-hidden="true">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>도구</th><th>사용법</th></tr></thead><tbody><tr><td><strong>줄자</strong> <code>T</code></td><td>두 점을 클릭하면 거리가 알림으로 나오고 <strong>안내선</strong>(점선)이 남습니다. 안내선은 다른 도구가 맞추는 기준이 됩니다</td></tr><tr><td><strong>치수</strong> <code>D</code></td><td>시작점, 끝점, 치수선 위치를 차례로 클릭. 길이는 프로젝트 단위로 표시되고 단위를 바꾸면 따라 바뀝니다</td></tr><tr><td><strong>각도기</strong></td><td>꼭짓점, 첫 방향, 둘째 방향을 클릭하면 각도가 알림으로 나오고 둘째 방향으로 3 m 안내선이 남습니다</td></tr><tr><td><strong>글 표시</strong></td><td>글을 붙일 곳을 클릭하고 내용을 입력합니다. 방을 클릭하면 이름과 면적, 벽은 길이, 가구는 이름이 미리 채워집니다</td></tr><tr><td><strong>단면</strong></td><td>자를 면을 클릭하면 그 면 앞쪽을 잘라 낸 단면 보기가 됩니다(새 단면이 켜지면 이전 단면은 꺼짐)</td></tr></tbody></table></div>
+<ul><li><strong>안내선 모두 지우기</strong> — <strong>편집</strong> 또는 <strong>도구 › 측정·주석</strong> 메뉴.</li><li><strong>단면 켜기/끄기</strong>, <strong>단면 모두 지우기</strong> — <strong>도구 › 단면</strong> 메뉴.</li><li>치수·글·안내선도 선택해 이동하고 지울 수 있습니다. 글은 속성 탭에서 내용을 고칩니다.</li></ul>
+<h2 id="9-스타일--그림자--환경--조명--표시-품질">9. 스타일 · 그림자 · 환경 · 조명 · 표시 품질 <a class="anchor" href="#9-스타일--그림자--환경--조명--표시-품질" aria-hidden="true">#</a></h2>
+<p><img src="tutorial/images/22-styles.jpg" alt="면 스타일" loading="lazy" /></p>
+<h3 id="91-스타일-탭">9.1 스타일 탭 <a class="anchor" href="#91-스타일-탭" aria-hidden="true">#</a></h3>
+<ul><li><strong>면 스타일</strong> — 질감(재질과 텍스처) · 색만(텍스처 없이 색) · 흰색 모형 · X선(반투명) · 선만 · 숨은선 제거. 툴바의 면 스타일 버튼이나 <code>K</code>로 차례로 바뀌고, ▾로 고릅니다.</li><li><strong>모서리 선</strong> — 물체의 윤곽선 표시.</li><li><strong>조명 켜기 (램프가 빛을 냄)</strong> — 천장등·스탠드 등 조명 가구가 실제 광원이 됩니다(툴바의 전구 버튼).</li><li><strong>배경</strong> — 하늘과 땅 · 흰색 · 어두운 색 · 환경 사진(HDRI).</li><li><strong>환경 조명</strong> — 기본 실내 조명, 또는 HDRI 8가지(밝은 거실 (흐린 낮) · 호텔 객실 · 바다 전망 스위트룸 · 촬영 스튜디오 · 맑은 낮 하늘 · 흐린 하늘 · 해 질 녘 · 밤). 반사와 주변광이 그 사진의 빛으로 바뀌며, 배경을 &quot;환경 사진(HDRI)&quot;으로 하면 사진이 배경으로 보입니다. 사실적 렌더링도 같은 HDRI로 비춥니다.</li><li><strong>노출</strong> — 0.3 ~ 2.5. 끄는 동안 바로 보입니다.</li><li><strong>표시 품질</strong> 묶음 — 표시 품질 · 구석 음영 (AO) · 계단 현상 제거 · 그림자 해상도 (9.4).</li></ul>
+<p>스타일은 장면마다 저장됩니다(10.1).</p>
+<h3 id="92-그림자-탭">9.2 그림자 탭 <a class="anchor" href="#92-그림자-탭" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/23-shadows.jpg" alt="햇빛과 그림자" loading="lazy" /></p>
+<ul><li><strong>그림자 표시</strong> — 툴바의 그림자 버튼과 같습니다.</li><li><strong>시각</strong>(05:00 ~ 21:00)과 <strong>날짜</strong> 막대 — 끌면 해의 위치와 그림자가 바로 바뀝니다.</li><li><strong>위도 · 경도</strong> — 집의 위치. <strong>도시</strong> 목록(서울 · 부산 · 제주 · 도쿄 · 뉴욕 · 런던 · 파리 · 시드니 · 싱가포르)에서 고르면 위도·경도·시간대가 들어갑니다.</li><li><strong>북쪽 각도</strong> — 평면도의 위쪽(−Z)과 실제 북쪽 사이의 각도.</li></ul>
+<h3 id="93-보기--표시">9.3 보기 › 표시 <a class="anchor" href="#93-보기--표시" aria-hidden="true">#</a></h3>
+<p>눈금자 · 격자 · 축(빨강 X, 초록 Z, 파랑 위) · 모서리 선 · 그림자 · 조명 켜기 · 성능 표시 · 각 패널과 상태 표시줄을 켜고 끕니다.</p>
+<h3 id="94-표시-품질과-성능">9.4 표시 품질과 성능 <a class="anchor" href="#94-표시-품질과-성능" aria-hidden="true">#</a></h3>
+<p><strong>보기 › 표시 품질</strong> 또는 스타일 탭에서 고릅니다.</p>
+<div class="table-wrap"><table><thead><tr><th>품질</th><th>구석 음영</th><th>그림자 맵</th><th>계단 현상 제거</th></tr></thead><tbody><tr><td>빠르게</td><td>없음</td><td>1024</td><td>없음</td></tr><tr><td>균형 (기본)</td><td>있음</td><td>2048</td><td>4×</td></tr><tr><td>고품질</td><td>있음</td><td>4096</td><td>8×</td></tr></tbody></table></div>
+<p>화면은 <strong>바뀐 것이 있을 때만</strong> 다시 그립니다. 카메라를 움직이는 동안에는 구석 음영을 빼고 빠르게 그리다가, 멈추면 한 번 최고 품질로 그립니다. 움직이는 동안 프레임이 느려지면 해상도를 잠시 낮췄다가 멈추면 되돌립니다. 그 밖의 설정은 <strong>설정 › 3D 보기</strong>(16장)에 있습니다.</p>
+<h2 id="10-장면--층--태그">10. 장면 · 층 · 태그 <a class="anchor" href="#10-장면--층--태그" aria-hidden="true">#</a></h2>
+<h3 id="101-장면">10.1 장면 <a class="anchor" href="#101-장면" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/17-scenes.jpg" alt="장면" loading="lazy" /></p>
+<p>장면은 저장한 <strong>시점</strong>입니다. 카메라 위치, 면 스타일과 배경 등 스타일, 태그 보이기 상태, 2D/3D 여부가 함께 저장됩니다.</p>
+<ul><li>3D 화면 위 장면 탭 줄의 <strong>+</strong>(또는 <strong>카메라 › 장면 추가</strong>)로 지금 보기를 장면으로 추가합니다.</li><li>탭을 클릭하면 그 장면으로 부드럽게 이동합니다. <code>PageUp</code> / <code>PageDown</code>은 이전·다음 장면.</li><li><strong>장면</strong> 탭: 이 장면 보기 · 이름 바꾸기 · <strong>현재 보기로 갱신</strong> · 장면 삭제.</li></ul>
+<h3 id="102-층">10.2 층 <a class="anchor" href="#102-층" aria-hidden="true">#</a></h3>
+<ul><li><strong>층 추가</strong>(<strong>그리기</strong> 메뉴, 층 칩 메뉴, 층 탭의 +)는 맨 위층 위에 같은 높이의 층을 만들고(&quot;2F&quot;, &quot;3F&quot; …, 바닥판 25 cm를 띄움) 그 층을 작업 층으로 합니다.</li><li>3D 화면 오른쪽 위의 <strong>층 칩</strong>에서 작업 층을 고릅니다. 벽·방·가구·도형은 <strong>작업 층에만</strong> 그려지고 놓이며, 2D 평면도도 작업 층을 자릅니다.</li><li><strong>층</strong> 탭: 이 층에서 작업 · 이름 · 바닥 높이 · 층 높이 · 보이기/숨기기 · 층 삭제(층이 둘 이상일 때, 그 층의 벽·방·가구·모델도 함께 삭제).</li><li>벽의 높이는 따로 정하지 않으면 층 높이를 따릅니다.</li></ul>
+<h3 id="103-태그">10.3 태그 <a class="anchor" href="#103-태그" aria-hidden="true">#</a></h3>
+<p>태그는 SketchUp의 태그(예전 레이어)처럼 물체를 묶어 한꺼번에 보이거나 숨깁니다.</p>
+<ul><li><strong>태그</strong> 탭의 <strong>+</strong>로 추가하고 이름을 바꿉니다. 눈 아이콘으로 보이기/숨기기, 오른쪽 숫자는 그 태그의 물체 수입니다.</li><li>벽·가구·모델의 속성 › <strong>태그</strong>에서 태그를 정합니다.</li><li>태그를 지우면 그 물체들은 &quot;태그 없음&quot;으로 돌아갑니다.</li></ul>
+<h2 id="11-내-3d-모델-가져오기">11. 내 3D 모델 가져오기 <a class="anchor" href="#11-내-3d-모델-가져오기" aria-hidden="true">#</a></h2>
+<p><img src="tutorial/images/21-import.jpg" alt="내 3D 모델" loading="lazy" /></p>
+<p><strong>파일 › 3D 모델 가져오기…</strong>(<code>Ctrl+I</code>), 라이브러리의 가져오기 버튼, 또는 파일을 창에 끌어다 놓습니다.</p>
+<div class="table-wrap"><table><thead><tr><th>형식</th><th>확장자</th><th>참고</th></tr></thead><tbody><tr><td>glTF / GLB</td><td><code>.glb</code> <code>.gltf</code></td><td>가장 권장. <code>.gltf</code>는 <code>.bin</code>·텍스처를 함께 고릅니다</td></tr><tr><td>Wavefront OBJ</td><td><code>.obj</code></td><td><code>.mtl</code>과 텍스처 그림을 함께 고르면 재질이 들어옵니다</td></tr><tr><td>Autodesk FBX</td><td><code>.fbx</code></td><td></td></tr><tr><td>Collada</td><td><code>.dae</code></td><td>SketchUp 내보내기 형식</td></tr><tr><td>STL</td><td><code>.stl</code></td><td>3D 프린팅</td></tr><tr><td>3D Studio</td><td><code>.3ds</code></td><td></td></tr><tr><td>PLY</td><td><code>.ply</code></td><td>스캔 데이터</td></tr><tr><td>3MF</td><td><code>.3mf</code></td><td>3D 프린팅</td></tr><tr><td>USDZ</td><td><code>.usdz</code></td><td></td></tr></tbody></table></div>
+<ul><li>가져오기 창에서 <strong>파일 단위</strong>(자동 · mm · cm · m · in · ft)와 <strong>위쪽 축</strong>(자동 · Y가 위 · Z가 위)을 고릅니다. 자동 단위는 모델 크기를 보고 실내 물건으로 그럴듯한 단위를 고르며(&quot;단위를 … (으)로 추정했습니다&quot;), 200 m보다 크면 단위를 확인하라고 알립니다.</li><li><strong>작은 부품 합치기 (빠르게)</strong> — 부품이 아주 많은 모델을 재질별로 합쳐 빠르게 그립니다.</li><li>가져오는 동안 진행률 창이 나오며 취소할 수 있습니다. 끝나면 삼각형 수를 알리고, 라이브러리가 <strong>내 객체</strong>로 바뀌며 바로 놓을 수 있습니다.</li><li>가져온 모델은 GLB로 바뀌어 <strong>프로젝트 파일(.msk) 안에 저장</strong>됩니다. 다른 PC에서 열어도 그대로입니다. 놓은 뒤에는 다른 가구처럼 옮기고 돌리고 배율을 바꾸고 칠할 수 있습니다.</li><li><strong>SketchUp(.skp)</strong> 파일은 비공개 형식이라 직접 읽을 수 없습니다. SketchUp에서 <strong>파일 › 내보내기 › 3D 모델</strong>로 Collada(.dae) 또는 glTF(.glb)를 저장해 가져오세요.</li></ul>
+<h2 id="12-저장--열기--내보내기">12. 저장 · 열기 · 내보내기 <a class="anchor" href="#12-저장--열기--내보내기" aria-hidden="true">#</a></h2>
+<h3 id="121-프로젝트-파일-msk">12.1 프로젝트 파일 (.msk) <a class="anchor" href="#121-프로젝트-파일-msk" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/25-save.jpg" alt="저장" loading="lazy" /></p>
+<ul><li><strong>저장</strong>(<code>Ctrl+S</code>), <strong>다른 이름으로 저장…</strong>(<code>Ctrl+Shift+S</code>). <code>.msk</code>는 ZIP 파일 하나에 프로젝트 내용(project.json), 작은 미리보기 그림, 가져온 모델이 모두 들어 있습니다.</li><li><strong>열기…</strong>(<code>Ctrl+O</code>)는 <code>.msk</code>와 3D 모델 파일을 모두 받습니다(3D 모델은 가져오기가 됩니다). <code>.msk</code> 파일을 창에 끌어다 놓아도 열립니다.</li><li><strong>최근 파일…</strong>(<code>Ctrl+R</code>), <strong>최근 폴더</strong>(그 폴더에서 열기 대화상자), <strong>최근 파일·폴더 기록 모두 지우기</strong>. 없어진 파일을 고르면 목록에서 지울지 묻습니다.</li><li>한 번에 프로젝트 하나를 엽니다. 저장하지 않은 변경이 있으면 새로 만들기·열기·닫기·끝내기 전에 <strong>저장 / 저장 안 함 / 취소</strong>를 묻습니다. 메뉴 막대의 프로젝트 이름 옆 ●가 저장하지 않은 변경 표시입니다.</li><li><strong>프로젝트 닫기</strong>(<code>Ctrl+W</code>)는 시작 화면으로 돌아갑니다.</li><li>데스크톱에서 <strong>설정 › 일반 › 시작할 때 지난번에 연 파일 다시 열기</strong>를 켜면 다음 실행 때 마지막 파일을 엽니다.</li><li>웹 버전: 저장은 브라우저의 저장 대화상자(지원하지 않는 브라우저는 내려받기)로, 최근 파일은 브라우저가 기억한 파일 핸들로 다시 엽니다(권한을 다시 물을 수 있음).</li></ul>
+<h3 id="122-그림으로-저장">12.2 그림으로 저장 <a class="anchor" href="#122-그림으로-저장" aria-hidden="true">#</a></h3>
+<p><strong>파일 › 내보내기 › 그림으로 저장…</strong>(<code>Ctrl+Shift+E</code>, 툴바의 그림 버튼):</p>
+<ul><li><strong>크기</strong>: HD · Full HD · QHD · 4K · 정사각 · A4 300dpi, 또는 가로 320~7680, 세로 240~4320 px.</li><li><strong>형식</strong>: PNG · JPEG · WebP. PNG는 <strong>배경 투명</strong>을 고를 수 있습니다.</li><li>창 크기와 상관없이 지금 시점을 최고 품질(그림자·구석 음영)로 그립니다.</li></ul>
+<h3 id="123-평면도-그림">12.3 평면도 그림 <a class="anchor" href="#123-평면도-그림" aria-hidden="true">#</a></h3>
+<p><strong>파일 › 내보내기 › 평면도 그림 (.png)</strong> — 2D 평면도와 숨은선 제거 스타일로 바꾸고 전체가 보이게 맞춘 뒤 3000 × 2000 PNG로 저장하고, 원래 보기로 돌아갑니다.</p>
+<h3 id="124-3d-파일로-내보내기">12.4 3D 파일로 내보내기 <a class="anchor" href="#124-3d-파일로-내보내기" aria-hidden="true">#</a></h3>
+<p><img src="tutorial/images/26-export.jpg" alt="내보내기" loading="lazy" /></p>
+<p><strong>파일 › 내보내기</strong>에서 glTF 바이너리 (.glb) · glTF (.gltf) · Wavefront OBJ (.obj) · STL (.stl, 3D 프린팅) · PLY (.ply) · USDZ (.usdz, AR) 중 하나를 고르면 벽·바닥·문·창·가구·모델 전체를 미터 단위, Y가 위인 좌표로 저장합니다. 격자·축·안내선·모서리 선 같은 보조 표시는 빠집니다. <strong>선택한 것만 .glb로</strong>는 선택한 물체만 내보냅니다.</p>
+<ul><li>glTF/GLB는 재질과 텍스처까지 들어가 다른 3D 프로그램·게임 엔진·SketchUp(확장 기능)·Blender에서 가장 잘 열립니다.</li><li>OBJ는 형상과 재질 이름만 쓰고 <code>.mtl</code> 파일은 만들지 않습니다.</li><li>USDZ는 iPhone·iPad의 AR 빠른 보기로 열 수 있습니다.</li></ul>
+<h2 id="13-사실적-렌더링">13. 사실적 렌더링 <a class="anchor" href="#13-사실적-렌더링" aria-hidden="true">#</a></h2>
+<p><img src="tutorial/images/27-render.jpg" alt="사실적 렌더링" loading="lazy" /></p>
+<p><strong>사실적 렌더링…</strong>(<code>F9</code>, 툴바)은 빛의 경로를 추적(path tracing)해 사진 같은 그림을 만듭니다.</p>
+<ol><li>렌더링 창에서 <strong>크기</strong>(그림으로 저장과 같은 프리셋, 가로·세로)와 <strong>샘플 수</strong>(64 · 128 · 256 · 512 · 1024 · 2048)를 고릅니다. 예상 시간이 나옵니다(그래픽 카드에 따라 다름).</li><li><strong>렌더링 시작</strong>을 누르면 진행률 창에 &quot;샘플 수 / 전체 · 약 몇 초 남음&quot;이 나옵니다. <strong>취소</strong>로 언제든 멈춥니다. 렌더링 중에도 프로그램은 응답합니다.</li><li>끝나면 결과 창에 그림이 나오고 <strong>PNG로 저장…</strong> 으로 저장합니다.</li></ol>
+<ul><li>지금 카메라 시점과 노출을 씁니다. 조명은 스타일 탭에서 고른 <strong>환경 조명(HDRI)</strong>이고, 기본 실내 조명이면 지금 하늘색으로 만든 하늘빛을 씁니다. 배경도 HDRI면 그 사진이 보입니다.</li><li>샘플이 많을수록 잡티가 줄고 오래 걸립니다. 먼저 64~128로 구도를 확인한 뒤 512 이상으로 마무리하세요.</li></ul>
+<h2 id="14-튜토리얼과-도움말-창">14. 튜토리얼과 도움말 창 <a class="anchor" href="#14-튜토리얼과-도움말-창" aria-hidden="true">#</a></h2>
+<ul><li><strong>튜토리얼</strong>(<code>F11</code>, 툴바, 시작 화면): 8개 장, 30단계로 실제 프로그램을 움직이며 기능을 보여 줍니다. 오른쪽 아래 카드에서 이전·다음·자동 재생·장 고르기·끝내기(<code>Esc</code>). 튜토리얼은 자기 예제 프로젝트에서 작업하고, 끝나면 원래 프로젝트와 설정을 되돌려 놓습니다. 단계별 내용은 <a href="Tutorial.html">튜토리얼 문서</a>에 있습니다.</li><li><strong>사용 설명서 · 튜토리얼 문서</strong> — 별도의 창(웹은 새 탭)에서 열립니다. 위쪽 막대에서 장으로 이동, 한국어/English, 문서에서 찾기(<code>Ctrl+F</code>, <code>Enter</code> 다음 · <code>Shift+Enter</code> 이전), 인쇄, 브라우저로 열기. 문서는 프로그램의 테마 색을 따릅니다.</li><li><strong>튜토리얼 동영상</strong> — 튜토리얼 자동 재생을 녹화한 동영상(<code>npm run tutorial:video</code>로 만든 경우). 장 표시, 재생 속도, 전체 화면(<code>F</code>), <code>Space</code> 재생/일시정지, <code>←</code>/<code>→</code> 5초.</li><li><strong>단축키 목록…</strong> — 설정의 단축키 탭.</li><li><strong>프로그램 정보…</strong>(<code>F1</code>) — 버전, 빌드 날짜, 커밋, 실행 환경, 만든 사람.</li></ul>
+<h2 id="15-문제-검사">15. 문제 검사 <a class="anchor" href="#15-문제-검사" aria-hidden="true">#</a></h2>
+<p>모델을 바꿀 때마다 잠시 뒤(0.4초) 자동으로 검사해 하단 패널의 <strong>문제</strong> 탭과 상태 표시줄에 개수를 보여 줍니다. <strong>도구 › 지금 검사</strong>로 바로 검사합니다.</p>
+<div class="table-wrap"><table><thead><tr><th>심각도</th><th>문제</th><th>뜻과 해결</th></tr></thead><tbody><tr><td>오류</td><td>문·창(…)이 벽(…)보다 넓습니다</td><td>문·창의 폭이 벽 길이보다 깁니다. 폭을 줄이거나 벽을 늘리세요</td></tr><tr><td>오류</td><td>문·창이 벽 끝을 벗어났습니다</td><td>위치(벽 시작점에서)가 벽 밖으로 나갔습니다. 문·창을 벽 안쪽으로 옮기세요</td></tr><tr><td>오류</td><td>문·창이 벽보다 높습니다</td><td>바닥에서 높이 + 높이가 벽 높이를 넘습니다</td></tr><tr><td>오류</td><td>문·창이 &#39;…&#39;와 겹칩니다</td><td>같은 벽의 두 문·창이 겹칩니다. 하나를 옮기세요</td></tr><tr><td>오류</td><td>라이브러리에 없는 항목입니다 (…)</td><td>파일이 가리키는 항목이 이 버전의 라이브러리에 없습니다(라이브러리를 받지 않았거나 다른 버전). <code>npm run assets</code> 또는 다른 항목으로 바꾸기</td></tr><tr><td>경고</td><td>벽이 너무 짧습니다 (10 cm 미만)</td><td>실수로 찍힌 짧은 벽일 수 있습니다. 지우거나 늘리세요</td></tr><tr><td>경고</td><td>어느 방에도 들어 있지 않습니다</td><td>가구의 중심이 그 층의 어느 방 바닥에도 없습니다(방이 있는 층만 검사)</td></tr><tr><td>경고</td><td>&#39;…&#39;와 …% 겹칩니다</td><td>바닥에 놓인 두 가구가 35%보다 많이 겹칩니다. 러그·카펫·쿠션은 검사하지 않습니다</td></tr><tr><td>참고</td><td>바닥에서 … 떠 있습니다</td><td>바닥 가구가 3 cm ~ 60 cm 떠 있습니다. <strong>바닥에 내려놓기</strong>로 고치세요</td></tr><tr><td>참고</td><td>벽은 있지만 방이 없습니다</td><td>벽만 있는 층입니다. 방 도구로 바닥을 만드세요</td></tr></tbody></table></div>
+<p>숨긴 가구는 검사하지 않습니다. 문제 행을 클릭하면 대상을 선택하고 보여 주며, 오른쪽 클릭 메뉴로 <strong>선택하고 보기 · 복사 · 대상 삭제</strong>를 합니다.</p>
+<h2 id="16-설정">16. 설정 <a class="anchor" href="#16-설정" aria-hidden="true">#</a></h2>
+<p><strong>도구 › 설정…</strong> 또는 <code>Ctrl+,</code>. 바꾼 것은 바로 적용되고 저장됩니다. 아래의 <strong>기본값으로</strong>는 모든 설정을 처음대로 되돌립니다.</p>
+<div class="table-wrap"><table><thead><tr><th>탭</th><th>항목</th></tr></thead><tbody><tr><td><strong>일반</strong></td><td>언어(한국어/English) · 시작할 때 지난번에 연 파일 다시 열기(데스크톱) · 모델에서 요소를 삭제하기 전에 묻기 · 상태 표시줄에 시계 표시 · 상태 표시줄 · 마지막으로 쓴 폴더 · 튜토리얼 시작</td></tr><tr><td><strong>시작 화면</strong></td><td>시작할 때 시작 페이지 표시 · 시작할 때 안내 창 표시 · 최근 파일 표시 · 표시할 최근 파일 수(1~10) · 최근 폴더 표시 · 예제 프로젝트 표시 · 움직이는 배경 고르기 표시 · 튜토리얼 안내 띠 표시 · 시작 화면 지금 열기</td></tr><tr><td><strong>테마</strong></td><td>다크 20 · 라이트 20 · 사용자 정의, 시스템 설정(운영 체제의 밝기를 따름). 사용자 정의: 사용자 정의 테마 사용 · 어두운 테마 · 지금 테마의 색 가져오기 · 색 12가지(바탕 · 표면 · 패널 · 글자 · 흐린 글자 · 테두리 · 강조 · 강조 위 글자 · 줄무늬 행 · 차트 바탕 · 툴바 · 상태 표시줄), 글자가 잘 안 보이면 경고</td></tr><tr><td><strong>글꼴</strong></td><td>글꼴(시스템에 설치된 글꼴) · 글자 크기(9~28 px) · 굵기 · 스타일(보통/기울임) · 행 높이 · 확대/축소(50~200%)</td></tr><tr><td><strong>배경</strong></td><td>배경 종류(움직이는 배경 · 이미지 · 없음) · 움직이는 배경 20가지 · 움직임 속도 · 시작할 때 배경 무작위 · 시작 페이지 배경 자동 변경(끄기 · 15초 · 30초 · 1분 · 2분 · 5분) · 움직이는 배경은 시작 페이지에서만 · 배경 이미지 고르기/지우기 · 배경 불투명도 · 맞춤(채우기 · 맞추기 · 바둑판 · 가운데 · 늘이기)</td></tr><tr><td><strong>3D 보기</strong></td><td>아래 표</td></tr><tr><td><strong>최근 기록</strong></td><td>최근 파일과 최근 폴더 목록(없어진 것 표시), 하나씩 또는 모두 지우기</td></tr><tr><td><strong>단축키</strong></td><td>단축키 목록 (17장)</td></tr></tbody></table></div>
+<p><strong>3D 보기</strong> 탭:</p>
+<div class="table-wrap"><table><thead><tr><th>묶음</th><th>항목</th><th>기본값</th></tr></thead><tbody><tr><td>모델링</td><td>단위 (mm · cm · m · in · ft) — 새 프로젝트의 단위</td><td>mm</td></tr><tr><td></td><td>기본 벽 높이 (1.8 ~ 6 m)</td><td>2.4 m</td></tr><tr><td></td><td>기본 벽 두께 (0.05 ~ 0.6 m) — 새 벽의 두께</td><td>0.15 m</td></tr><tr><td></td><td>추론(스냅) 사용</td><td>켬</td></tr><tr><td></td><td>격자에 맞춤 · 격자 간격 (0.05 ~ 2 m)</td><td>끔 · 0.5 m</td></tr><tr><td>화면 품질과 성능</td><td>표시 품질 (빠르게 · 균형 · 고품질)</td><td>균형</td></tr><tr><td></td><td>계단 현상 제거 · 구석 음영 (AO) · 그림자 표시</td><td>켬</td></tr><tr><td></td><td>그림자 해상도 (낮음 · 보통 · 고품질)</td><td>보통</td></tr><tr><td></td><td>최대 프레임 (30 · 60 · 120 · 제한 없음)</td><td>60</td></tr><tr><td></td><td>해상도 배율 (자동 · 75% · 100% · 150% · 200%)</td><td>자동</td></tr><tr><td></td><td>성능 표시 (FPS·삼각형)</td><td>켬</td></tr><tr><td>카메라 조작</td><td>왼쪽 버튼 끌기 — 회전 (빈 곳) · 선택 상자 (SketchUp). 선택 도구로 끌 때 화면을 돌릴지(<code>Alt</code>: 이동, 2D: 이동) 영역 선택을 할지</td><td>회전 (빈 곳)</td></tr><tr><td></td><td>시야각 (20 ~ 100°)</td><td>50°</td></tr><tr><td></td><td>궤도 속도 · 확대 속도 (20 ~ 300%)</td><td>100%</td></tr><tr><td></td><td>휠 방향 반대로 · 격자 · 축</td><td>끔 · 켬 · 켬</td></tr></tbody></table></div>
+<blockquote><p>지금 버전에서 <strong>기본 벽 높이</strong>와 <strong>추론(스냅) 사용</strong>, 일반 탭의 <strong>모델에서 요소를 삭제하기 전에 묻기</strong>, 배경 탭의 <strong>움직이는 배경은 시작 페이지에서만</strong>은 저장만 되고 동작에는 아직 반영되지 않습니다. 새 벽은 층 높이를 따르고, 추론은 늘 켜져 있으며, 삭제는 묻지 않고 실행 취소로 되돌립니다.</p></blockquote>
+<p>프로젝트마다의 단위는 아무것도 선택하지 않은 상태의 <strong>속성</strong> 탭에서 바꿉니다. 단위를 바꾸면 치수·속성·측정값 상자가 모두 그 단위로 바뀝니다.</p>
+<p>테마는 툴바의 테마 버튼(무작위)과 ▾(어두운/밝은 테마 두 줄 목록, 사용자 정의 테마 편집…), 언어는 국기 버튼이나 <code>Ctrl+Shift+L</code>로도 바꿉니다.</p>
+<h2 id="17-단축키">17. 단축키 <a class="anchor" href="#17-단축키" aria-hidden="true">#</a></h2>
+<p><strong>도움말 › 단축키 목록…</strong>(설정 › 단축키)과 같은 목록입니다. 한 글자 단축키는 SketchUp과 같습니다. 글을 입력하는 칸에 커서가 있을 때는 한 글자 단축키가 동작하지 않습니다.</p>
+<h3 id="도구">도구 <a class="anchor" href="#도구" aria-hidden="true">#</a></h3>
+<div class="table-wrap"><table><thead><tr><th>키</th><th>기능</th></tr></thead><tbody><tr><td><code>Space</code></td><td>선택</td></tr><tr><td><code>E</code></td><td>지우개</td></tr><tr><td><code>B</code></td><td>페인트 통</td></tr><tr><td><code>W</code></td><td>벽</td></tr><tr><td><code>Shift+R</code></td><td>방</td></tr><tr><td><code>L</code></td><td>선</td></tr><tr><td><code>R</code></td><td>사각형</td></tr><tr><td><code>C</code></td><td>원</td></tr><tr><td><code>A</code></td><td>호</td></tr><tr><td><code>Shift+P</code></td><td>다각형</td></tr><tr><td><code>P</code></td><td>밀기/당기기</td></tr><tr><td><code>M</code></td><td>이동</td></tr><tr><td><code>Q</code></td><td>회전</td></tr><tr><td><code>S</code></td><td>크기 조절</td></tr><tr><td><code>F</code></td><td>오프셋</td></tr><tr><td><code>T</code></td><td>줄자</td></tr><tr><td><code>D</code></td><td>치수</td></tr><tr><td><code>O</code></td><td>궤도</td></tr><tr><td><code>H</code></td><td>이동(화면)</td></tr><tr><td><code>Z</code></td><td>확대/축소</td></tr><tr><td><code>Shift+Z</code></td><td>전체 보기</td></tr><tr><td><code>K</code></td><td>면 스타일 바꾸기</td></tr><tr><td><code>G</code></td><td>그룹 만들기</td></tr><tr><td><code>F4</code></td><td>2D 평면도</td></tr><tr><td><code>F9</code></td><td>사실적 렌더링</td></tr></tbody></table></div>
+<h3 id="마우스와-입력">마우스와 입력 <a class="anchor" href="#마우스와-입력" aria-hidden="true">#</a></h3>
+<div class="table-wrap"><table><thead><tr><th>키</th><th>기능</th></tr></thead><tbody><tr><td><code>가운데 버튼 끌기</code></td><td>궤도 (오른쪽 버튼 끌기도 같음)</td></tr><tr><td><code>Shift + 가운데 버튼 끌기</code></td><td>이동(화면)</td></tr><tr><td><code>마우스 휠</code></td><td>확대/축소 (커서 쪽으로)</td></tr><tr><td><code>숫자 입력</code></td><td>측정값 상자에 길이·각도 입력 (<code>Enter</code>로 적용)</td></tr><tr><td><code>화살표 키</code></td><td>축 방향 고정 (그리기 중) · 선택한 것 10 cm 이동 (선택 도구, <code>Shift</code>: 1 cm)</td></tr><tr><td><code>Shift 누르기</code></td><td>추론 방향 고정</td></tr><tr><td><code>이동 중 Ctrl</code></td><td>복사하며 이동</td></tr><tr><td><code>x5 / /5</code></td><td>배열 복사 (복사 직후)</td></tr><tr><td><code>[ / ]</code></td><td>배치 중 회전 (90°, <code>Shift</code>: 15°)</td></tr><tr><td><code>Alt + 클릭 (페인트 통)</code></td><td>재질 가져오기</td></tr><tr><td><code>W A S D (걷기 도구)</code></td><td>걷기 (<code>Shift</code> 빠르게, <code>Q</code>/<code>E</code> 아래/위)</td></tr><tr><td><code>Esc</code></td><td>도구 끝내기 / 선택 해제 (그룹 편집 끝내기)</td></tr></tbody></table></div>
+<h3 id="파일과-편집">파일과 편집 <a class="anchor" href="#파일과-편집" aria-hidden="true">#</a></h3>
+<div class="table-wrap"><table><thead><tr><th>키</th><th>기능</th></tr></thead><tbody><tr><td><code>Ctrl+N</code></td><td>새 프로젝트</td></tr><tr><td><code>Ctrl+O</code></td><td>열기</td></tr><tr><td><code>Ctrl+S</code></td><td>저장</td></tr><tr><td><code>Ctrl+Shift+S</code></td><td>다른 이름으로 저장</td></tr><tr><td><code>Ctrl+R</code></td><td>최근 파일</td></tr><tr><td><code>Ctrl+W</code></td><td>프로젝트 닫기</td></tr><tr><td><code>Ctrl+I</code></td><td>3D 모델 가져오기</td></tr><tr><td><code>Ctrl+Shift+E</code></td><td>그림으로 저장</td></tr><tr><td><code>Ctrl+Z</code></td><td>실행 취소</td></tr><tr><td><code>Ctrl+Y</code></td><td>다시 실행 (<code>Ctrl+Shift+Z</code>도 같음)</td></tr><tr><td><code>Ctrl+X / C / V</code></td><td>잘라내기 · 복사 · 붙여넣기</td></tr><tr><td><code>Ctrl+D</code></td><td>복제</td></tr><tr><td><code>Delete</code></td><td>삭제 (<code>Backspace</code>도 같음)</td></tr><tr><td><code>Ctrl+A</code></td><td>모두 선택</td></tr><tr><td><code>Ctrl+] / [</code></td><td>90° 회전 (시계 방향) / 반시계 방향</td></tr></tbody></table></div>
+<h3 id="보기와-창">보기와 창 <a class="anchor" href="#보기와-창" aria-hidden="true">#</a></h3>
+<div class="table-wrap"><table><thead><tr><th>키</th><th>기능</th></tr></thead><tbody><tr><td><code>PageUp / PageDown</code></td><td>이전 장면 / 다음 장면</td></tr><tr><td><code>Ctrl+Shift+1 / 2</code></td><td>라이브러리 패널 / 개요·속성 패널</td></tr><tr><td><code>Ctrl+J</code></td><td>하단 패널</td></tr><tr><td><code>Ctrl+Shift+R</code></td><td>눈금자</td></tr><tr><td><code>Ctrl+Shift+L</code></td><td>언어 전환</td></tr><tr><td><code>Ctrl+Shift+H</code></td><td>시작 페이지</td></tr><tr><td><code>Ctrl+Shift+B</code></td><td>움직이는 배경 바꾸기</td></tr><tr><td><code>Ctrl+,</code></td><td>설정</td></tr><tr><td><code>F11</code></td><td>튜토리얼</td></tr><tr><td><code>F1</code></td><td>프로그램 정보</td></tr><tr><td><code>Alt+F4</code> (macOS <code>Ctrl+Q</code>)</td><td>끝내기</td></tr></tbody></table></div>
+<h2 id="18-성능을-위한-팁">18. 성능을 위한 팁 <a class="anchor" href="#18-성능을-위한-팁" aria-hidden="true">#</a></h2>
+<ul><li>화면은 바뀔 때만 그리므로 가만히 두면 그래픽 카드를 쓰지 않습니다. 상태 표시줄의 <strong>성능 표시</strong>(FPS · 그리기 호출 · 삼각형 · 프레임 시간)로 무엇이 느린지 봅니다.</li><li>느리면 <strong>표시 품질 › 빠르게</strong>, <strong>구석 음영</strong> 끄기, <strong>그림자 해상도</strong> 낮추기, <strong>해상도 배율</strong> 75%, <strong>최대 프레임</strong> 30 순서로 줄여 보세요.</li><li>같은 가구를 여러 개 놓아도 형상과 재질은 한 벌만 그래픽 카드에 올라가므로 부담이 적습니다. 반대로 수백만 삼각형짜리 모델을 가져오면 느려집니다. 가져올 때 <strong>작은 부품 합치기</strong>를 켜고, 필요하면 다른 프로그램에서 면 수를 줄이세요.</li><li>큰 집은 <strong>층</strong>이나 <strong>태그</strong>로 지금 필요 없는 부분을 숨기면 빨라집니다.</li><li>그림자는 장면이나 해가 바뀔 때만 다시 계산합니다. 시각 막대를 끄는 동안에는 그림자가 계속 다시 계산됩니다.</li><li>사실적 렌더링은 그래픽 카드를 오래 씁니다. 노트북은 전원을 연결하고, 낮은 샘플로 구도를 먼저 확인하세요.</li><li>웹 버전보다 데스크톱 앱이 파일 입출력이 빠르고 큰 파일을 다루기 좋습니다.</li></ul>
+<h2 id="19-자주-묻는-질문과-문제-해결">19. 자주 묻는 질문과 문제 해결 <a class="anchor" href="#19-자주-묻는-질문과-문제-해결" aria-hidden="true">#</a></h2>
+<p><strong>라이브러리에 HQ 모델이 없고 재질이 단색으로만 보입니다.</strong>
+내려받은 라이브러리(<code>library/</code>)가 없을 때입니다. 소스에서 실행한다면 <code>npm run assets</code>로 받으세요. 설치판에는 들어 있습니다. 매개변수 가구와 단색 재질은 라이브러리 없이도 씁니다.</p>
+<p><strong>SketchUp 파일(.skp)을 열 수 없습니다.</strong>
+.skp는 비공개 형식입니다. SketchUp에서 <strong>파일 › 내보내기 › 3D 모델</strong>로 .dae나 .glb를 저장해 가져오세요(11장).</p>
+<p><strong>가져온 모델이 너무 크거나 작고, 누워 있습니다.</strong>
+가져오기 창에서 <strong>파일 단위</strong>와 <strong>위쪽 축</strong>을 직접 고르세요. 놓은 뒤에는 속성의 배율이나 크기 조절 도구로도 맞춥니다.</p>
+<p><strong>OBJ를 가져왔더니 색이 없습니다.</strong>
+<code>.obj</code>와 함께 <code>.mtl</code> 파일과 텍스처 그림을 같이 골라(또는 같이 끌어다 놓아) 가져오세요.</p>
+<p><strong>문·창이 벽에 들어가지 않습니다.</strong>
+벽 위를 클릭해야 하며, 문·창의 폭이 벽 길이보다 짧아야 합니다. 2D 평면도에서 하면 쉽습니다.</p>
+<p><strong>방을 클릭해도 바닥이 생기지 않습니다.</strong>
+벽이 완전히 닫혀 있어야 합니다. 끝점에 맞춰(“끝점” 표시) 벽을 이으세요. 닫히지 않은 곳은 방 도구로 꼭짓점을 직접 찍어도 됩니다.</p>
+<p><strong>밀기/당기기를 할 면이 없습니다.</strong>
+밀기/당기기는 그리기 도구로 만든 면(모델)에만 씁니다. 벽은 속성의 높이·두께로 바꾸세요. 선이 닫혀 면이 생겼는지(면이 칠해지는지) 확인하세요.</p>
+<p><strong>솔리드 도구가 &quot;닫힌 솔리드가 아닙니다&quot;라고 합니다.</strong>
+구멍이나 남는 선이 없는 닫힌 입체만 됩니다. 모델 속성의 형상에 &quot;solid … m³&quot;가 나오는지 확인하세요.</p>
+<p><strong>2D 평면도에서 돌아왔더니 화면이 기울어져 보입니다.</strong>
+<strong>표준 보기 › 등각 보기</strong>(툴바의 등각 보기 버튼)를 누르면 바로잡힙니다.</p>
+<p><strong>사실적 렌더링이 너무 오래 걸립니다.</strong>
+샘플 수와 크기를 줄이세요. 진행률 창의 <strong>취소</strong>로 언제든 멈출 수 있습니다. 그래픽 카드가 작은 노트북에서는 Full HD·256 샘플도 몇 분 걸릴 수 있습니다.</p>
+<p><strong>화면이 검게 나오거나 3D 화면이 보이지 않습니다.</strong>
+그래픽 드라이버를 업데이트하세요. 브라우저라면 하드웨어 가속이 켜져 있는지 확인하세요. <strong>설정 › 3D 보기 › 해상도 배율</strong>을 낮추면 메모리가 적은 그래픽 카드에서 도움이 됩니다.</p>
+<p><strong>저장하지 않고 닫았습니다.</strong>
+저장하지 않은 프로젝트는 되돌릴 수 없습니다. 자주 <code>Ctrl+S</code>로 저장하세요. 실행 취소 기록(100단계)은 프로젝트를 닫으면 사라집니다.</p>
+<p><strong>설정을 처음대로 되돌리고 싶습니다.</strong>
+<strong>설정 › 기본값으로</strong>. Windows에서는 설치 프로그램을 다시 실행할 때 사용자 데이터를 지울지 물어봅니다.</p>
+<p><strong>오류 창이 떴습니다.</strong>
+오류 창의 내용(메시지·세부 정보·버전)은 복사할 수 있고, 하단 패널의 <strong>메시지</strong> 탭에도 남습니다. 문의할 때 함께 보내 주세요(SHKWON, knix008@naver.com).</p>
+</main>
+</div>
+<footer>MySketchBook v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+</body>
+</html>

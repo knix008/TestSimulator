@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Library Preview</title>
+  <!-- Dev-only: renders parametric library items for visual review (?cat=living, ?id=sofa-modern, ?ids=a,b, ?q=low, ?cols=4). -->
+  <style>
+    :root { --bg: #f4f2ee; --fg: #2b2a28; --muted: #7d7a74; }
+    html, body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.3 system-ui, sans-serif; }
+    #wrap { position: relative; }
+    canvas { display: block; }
+    .label { position: absolute; padding: 4px 8px; font-size: 12px; pointer-events: none; }
+    .label b { font-weight: 600; }
+    .label span { color: var(--muted); margin-left: 6px; }
+  </style>
+</head>
+<body>
+  <div id="wrap"></div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<!-- Dev-only gallery of library models rendered by three.js: /tools/assets-check/gallery.html?ids=a,b,c
+     (or ?from=N&count=M over the manifest order). Each model sits in its own cell on a 1 m grid floor with
+     its name, size and triangle count, so wrong scale, orientation or a missing texture shows at a glance.
+     Sets document.title to DONE when every model has loaded (for headless screenshots). -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Assets gallery</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #d8d4cc; color: #222; font: 12px/1.3 system-ui, sans-serif; overflow: hidden; }
+    canvas { display: block; position: absolute; inset: 0; }
+    .label { position: absolute; background: rgba(255, 255, 255, 0.8); padding: 2px 5px; border-radius: 3px; white-space: nowrap; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <script type="module">
+    import * as THREE from 'three';
+    import { setLibraryBase, loadAssetManifest, loadAssetModel, installTextureHook, texturesPending } from '/src/library/assets.js';
+    import { loadEnvironment } from '/src/library/environments.js';
+
+    setLibraryBase(new URL('/library/', location.href).href);
+    installTextureHook();
+    const q = new URLSearchParams(location.search);
+    const manifest = await loadAssetManifest();
+    let list = q.get('ids') ? q.get('ids').split(',').map((id) => manifest.find((e) => e.id === id)).filter(Boolean) : manifest;
+    if (q.get('from')) list = list.slice(Number(q.get('from')), Number(q.get('from')) + Number(q.get('count') ?? 12));
+    const cols = Math.ceil(Math.sqrt(list.length * innerWidth / innerHeight));
+    const rows = Math.ceil(list.length / cols);
+    const cw = innerWidth / cols, ch = innerHeight / rows;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(1);
+    renderer.setScissorTest(true);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    document.body.prepend(renderer.domElement);
+    let env = null;
+    try { env = (await loadEnvironment('lythwood_room', renderer)).texture; } catch { /* lights only */ }
+
+    const cells = [];
+    for (const [i, entry] of list.entries()) {
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color('#e9e6e0');
+      scene.environment = env;
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 0.6));
+      const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(2, 4, 3); scene.add(sun);
+      const span = Math.max(...entry.size, 0.2);
+      const grid = new THREE.GridHelper(Math.ceil(span * 1.6) + 1, Math.ceil(span * 1.6) + 1, 0x888888, 0xbbbbbb);
+      scene.add(grid);
+      const camera = new THREE.PerspectiveCamera(35, cw / ch, span / 50, span * 20);
+      const d = span * 2.4;
+      camera.position.set(d * 0.55, entry.size[1] * 0.6 + d * 0.35, d * 0.8);
+      camera.lookAt(0, entry.size[1] / 2, 0);
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.style.left = `${(i % cols) * cw + 4}px`; label.style.top = `${Math.floor(i / cols) * ch + 4}px`;
+      label.textContent = `${entry.id} · ${entry.ko} · ${entry.size.map((v) => v.toFixed(2)).join('×')} m · ${(entry.tris / 1000).toFixed(1)}k`;
+      document.body.append(label);
+      cells.push({ scene, camera, i });
+      try { scene.add(await loadAssetModel(entry.id)); } catch (err) { label.textContent += ` ✖ ${err.message}`; label.style.background = '#f88'; }
+    }
+    for (let i = 0; i < 200 && texturesPending() > 0; i++) await new Promise((r) => setTimeout(r, 50));
+    const draw = () => {
+      for (const { scene, camera, i } of cells) {
+        const x = (i % cols) * cw, y = innerHeight - (Math.floor(i / cols) + 1) * ch;
+        renderer.setViewport(x, y, cw, ch); renderer.setScissor(x, y, cw, ch);
+        renderer.render(scene, camera);
+      }
+    };
+    draw();
+    setTimeout(() => { draw(); document.title = 'DONE'; }, 300);
+  </script>
+</body>
+</html>

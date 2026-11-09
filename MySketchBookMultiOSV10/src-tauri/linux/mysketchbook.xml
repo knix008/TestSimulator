@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-mysketchbook">
+    <comment>MySketchBook Project</comment>
+    <comment xml:lang="ko">MySketchBook 프로젝트</comment>
+    <icon name="application-x-mysketchbook"/>
+    <glob pattern="*.msk"/>
+  </mime-type>
+</mime-info>

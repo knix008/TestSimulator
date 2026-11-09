@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="MySketchBook scripts/build-docs.mjs" />
+<title>MySketchBook tutorial</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f7f8fa; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #2f6fde; --accent-soft: #e8f0fe; --code-bg: #f1f3f7; --row-alt: #f8fafc; --shadow: 0 1px 3px rgba(20, 30, 50, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --surface: #1b1f27; --text: #e3e7ee; --muted: #9aa4b5; --border: #2e3440;
+    --accent: #6ea8ff; --accent-soft: #1f2b40; --code-bg: #242a35; --row-alt: #1f242d; --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+  font-family: "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.topbar .brand { font-weight: 700; color: var(--text); }
+.topbar .grow { flex: 1; }
+.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; }
+nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
+nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
+h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
+h1 { font-size: 2em; margin: 0 0 .6em; }
+h2 { font-size: 1.5em; margin: 2em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.anchor { opacity: 0; margin-left: 6px; font-weight: 400; color: var(--muted); }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: 14px; }
+blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
+blockquote p { margin: 6px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  main { padding: 20px 18px 32px; border-radius: 10px; }
+  .topbar { padding: 10px 14px; }
+}
+@media print {
+  .topbar, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  main { border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand">MySketchBook <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="Tutorial.html" hreflang="ko">한국어</a></header>
+<div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#running-the-tutorial">Running the tutorial</a></li><li class="h2"><a href="#contents">Contents</a></li><li class="h2"><a href="#1-start">1. Start</a></li><li class="h3"><a href="#1-welcome-to-mysketchbook">1. Welcome to MySketchBook</a></li><li class="h3"><a href="#2-start-from-a-template">2. Start from a template</a></li><li class="h3"><a href="#3-start-page">3. Start page</a></li><li class="h2"><a href="#2-building">2. Building</a></li><li class="h3"><a href="#4-the-workspace">4. The workspace</a></li><li class="h3"><a href="#5-tool-palette">5. Tool palette</a></li><li class="h3"><a href="#6-drawing-walls">6. Drawing walls</a></li><li class="h3"><a href="#7-making-rooms">7. Making rooms</a></li><li class="h3"><a href="#8-doors-and-windows">8. Doors and windows</a></li><li class="h3"><a href="#9-2d-floor-plan">9. 2D floor plan</a></li><li class="h2"><a href="#3-furnishing">3. Furnishing</a></li><li class="h3"><a href="#10-furniture-library">10. Furniture library</a></li><li class="h3"><a href="#11-placing">11. Placing</a></li><li class="h3"><a href="#12-properties">12. Properties</a></li><li class="h3"><a href="#13-materials">13. Materials</a></li><li class="h3"><a href="#14-paint-bucket">14. Paint Bucket</a></li><li class="h2"><a href="#4-viewing">4. Viewing</a></li><li class="h3"><a href="#15-navigating">15. Navigating</a></li><li class="h3"><a href="#16-walk">16. Walk</a></li><li class="h3"><a href="#17-scenes">17. Scenes</a></li><li class="h2"><a href="#5-modelling">5. Modelling</a></li><li class="h3"><a href="#18-sketchup-style-modelling">18. SketchUp-style modelling</a></li><li class="h3"><a href="#19-pushpull">19. Push/Pull</a></li><li class="h3"><a href="#20-measurements-box">20. Measurements box</a></li><li class="h3"><a href="#21-your-own-3d-models">21. Your own 3D models</a></li><li class="h2"><a href="#6-look">6. Look</a></li><li class="h3"><a href="#22-face-styles">22. Face styles</a></li><li class="h3"><a href="#23-sun-and-shadows">23. Sun and shadows</a></li><li class="h3"><a href="#24-themes">24. Themes</a></li><li class="h2"><a href="#7-saving--output">7. Saving &amp; output</a></li><li class="h3"><a href="#25-saving">25. Saving</a></li><li class="h3"><a href="#26-export">26. Export</a></li><li class="h3"><a href="#27-photo-real-rendering">27. Photo-real rendering</a></li><li class="h2"><a href="#8-settings--help">8. Settings &amp; help</a></li><li class="h3"><a href="#28-settings">28. Settings</a></li><li class="h3"><a href="#29-shortcuts">29. Shortcuts</a></li><li class="h3"><a href="#30-thats-it">30. That&#39;s it</a></li></ul></nav>
+<main>
+<h1 id="mysketchbook-tutorial">MySketchBook tutorial</h1>
+<p>The in-app <strong>Tutorial</strong>, chapter by chapter and step by step. It has 8 chapters and 30 steps and shows every feature by driving the real program. The pictures were taken while the tutorial ran in the web version (<code>npm run tutorial:docs</code> takes them again).</p>
+<h2 id="running-the-tutorial">Running the tutorial <a class="anchor" href="#running-the-tutorial" aria-hidden="true">#</a></h2>
+<ul><li><strong>Start page › Start the tutorial</strong>, the <strong>Tutorial</strong> button at the right of the toolbar, <strong>Help › Tutorial</strong> or <strong>F11</strong>.</li><li>In the card at the bottom right: <strong>Next</strong> / <strong>Previous step</strong> one step at a time, <strong>Auto play</strong> to the end, the chapter list to jump to a chapter, <strong>✕</strong> or <strong>Esc</strong> to stop at any time. Drag the card by its header to move it.</li><li>The tutorial works in a project of its own (the 84 m² apartment template). Your open project comes back when it ends, and the settings it changes (theme, language, panels …) are put back.</li><li>While it runs, popups (menus, Settings, the render window) open inside the main window instead of their own windows.</li><li>Every feature is explained in detail in the <a href="UsersGuide.en.html">User&#39;s guide</a>.</li></ul>
+<h2 id="contents">Contents <a class="anchor" href="#contents" aria-hidden="true">#</a></h2>
+<ol><li><a href="#1-start">Start</a></li><li><a href="#2-building">Building</a></li><li><a href="#3-furnishing">Furnishing</a></li><li><a href="#4-viewing">Viewing</a></li><li><a href="#5-modelling">Modelling</a></li><li><a href="#6-look">Look</a></li><li><a href="#7-saving--output">Saving &amp; output</a></li><li><a href="#8-settings--help">Settings &amp; help</a></li></ol>
+<h2 id="1-start">1. Start <a class="anchor" href="#1-start" aria-hidden="true">#</a></h2>
+<h3 id="1-welcome-to-mysketchbook">1. Welcome to MySketchBook <a class="anchor" href="#1-welcome-to-mysketchbook" aria-hidden="true">#</a></h3>
+<p>Draw walls, place furniture and design your home interior in 3D. Press Next to see each feature.</p>
+<p><img src="tutorial/images/en/01-welcome.jpg" alt="Welcome to MySketchBook" loading="lazy" /></p>
+<h3 id="2-start-from-a-template">2. Start from a template <a class="anchor" href="#2-start-from-a-template" aria-hidden="true">#</a></h3>
+<p>Templates (a room, a studio, 59 m² and 84 m² apartments, a house) come with walls, doors, windows and rooms drawn.</p>
+<p><img src="tutorial/images/en/02-templates.jpg" alt="Start from a template" loading="lazy" /></p>
+<h3 id="3-start-page">3. Start page <a class="anchor" href="#3-start-page" aria-hidden="true">#</a></h3>
+<p>The Start button of the menu bar brings this page back at any time; the project stays open.</p>
+<p><img src="tutorial/images/en/03-home.jpg" alt="Start page" loading="lazy" /></p>
+<h2 id="2-building">2. Building <a class="anchor" href="#2-building" aria-hidden="true">#</a></h2>
+<h3 id="4-the-workspace">4. The workspace <a class="anchor" href="#4-the-workspace" aria-hidden="true">#</a></h3>
+<p>Library and materials on the left, the 3D view in the middle, the outliner (levels, rooms, walls, furniture) and properties on the right.</p>
+<p><img src="tutorial/images/en/04-workspace.jpg" alt="The workspace" loading="lazy" /></p>
+<h3 id="5-tool-palette">5. Tool palette <a class="anchor" href="#5-tool-palette" aria-hidden="true">#</a></h3>
+<p>Select, building, drawing, modifying, measuring and camera tools as in SketchUp. Single keys pick them too (W wall, R rectangle, P push/pull …).</p>
+<p><img src="tutorial/images/en/05-palette.jpg" alt="Tool palette" loading="lazy" /></p>
+<h3 id="6-drawing-walls">6. Drawing walls <a class="anchor" href="#6-drawing-walls" aria-hidden="true">#</a></h3>
+<p>With the Wall tool click point after point. It snaps to endpoints, midpoints and axes; type a length and press Enter for an exact wall.</p>
+<p><img src="tutorial/images/en/06-walls.jpg" alt="Drawing walls" loading="lazy" /></p>
+<h3 id="7-making-rooms">7. Making rooms <a class="anchor" href="#7-making-rooms" aria-hidden="true">#</a></h3>
+<p>Click inside walls with the Room tool: the floor appears and its area (m², pyeong) is computed.</p>
+<p><img src="tutorial/images/en/07-rooms.jpg" alt="Making rooms" loading="lazy" /></p>
+<h3 id="8-doors-and-windows">8. Doors and windows <a class="anchor" href="#8-doors-and-windows" aria-hidden="true">#</a></h3>
+<p>Pick a door or window in the library and click on a wall: it cuts its opening. Change its size in the properties.</p>
+<p><img src="tutorial/images/en/08-doors.jpg" alt="Doors and windows" loading="lazy" /></p>
+<h3 id="9-2d-floor-plan">9. 2D floor plan <a class="anchor" href="#9-2d-floor-plan" aria-hidden="true">#</a></h3>
+<p>The 2D button (F4) shows the plan cut at 1.2 m. You can keep drawing and placing in it.</p>
+<p><img src="tutorial/images/en/09-plan.jpg" alt="2D floor plan" loading="lazy" /></p>
+<h2 id="3-furnishing">3. Furnishing <a class="anchor" href="#3-furnishing" aria-hidden="true">#</a></h2>
+<h3 id="10-furniture-library">10. Furniture library <a class="anchor" href="#10-furniture-library" aria-hidden="true">#</a></h3>
+<p>About 240 high-quality pieces of furniture and props in living, bedroom, kitchen, bath, lighting, plants … HQ marks photo-scanned models.</p>
+<p><img src="tutorial/images/en/10-library.jpg" alt="Furniture library" loading="lazy" /></p>
+<h3 id="11-placing">11. Placing <a class="anchor" href="#11-placing" aria-hidden="true">#</a></h3>
+<p>Click a card and then the floor, or drag it onto the view. Near a wall it backs against it; [ ] rotate.</p>
+<p><img src="tutorial/images/en/11-place.jpg" alt="Placing" loading="lazy" /></p>
+<h3 id="12-properties">12. Properties <a class="anchor" href="#12-properties" aria-hidden="true">#</a></h3>
+<p>Change the selected item&#39;s position, rotation, scale and its own options such as width, seats and fabric.</p>
+<p><img src="tutorial/images/en/12-properties.jpg" alt="Properties" loading="lazy" /></p>
+<h3 id="13-materials">13. Materials <a class="anchor" href="#13-materials" aria-hidden="true">#</a></h3>
+<p>About 100 realistic materials: wood, fabric, leather, stone, tile, wall finishes … Picking one switches to the Paint Bucket.</p>
+<p><img src="tutorial/images/en/13-materials.jpg" alt="Materials" loading="lazy" /></p>
+<h3 id="14-paint-bucket">14. Paint Bucket <a class="anchor" href="#14-paint-bucket" aria-hidden="true">#</a></h3>
+<p>Click a wall side, a floor or a part of furniture to paint it. Alt+click picks a material up.</p>
+<p><img src="tutorial/images/en/14-paint.jpg" alt="Paint Bucket" loading="lazy" /></p>
+<h2 id="4-viewing">4. Viewing <a class="anchor" href="#4-viewing" aria-hidden="true">#</a></h2>
+<h3 id="15-navigating">15. Navigating <a class="anchor" href="#15-navigating" aria-hidden="true">#</a></h3>
+<p>Middle-drag orbits, Shift+middle pans, the wheel zooms towards the cursor. Standard views are on the toolbar.</p>
+<p><img src="tutorial/images/en/15-navigate.jpg" alt="Navigating" loading="lazy" /></p>
+<h3 id="16-walk">16. Walk <a class="anchor" href="#16-walk" aria-hidden="true">#</a></h3>
+<p>With the Walk tool move through the house at eye level with W A S D; walls stop you.</p>
+<p><img src="tutorial/images/en/16-walk.jpg" alt="Walk" loading="lazy" /></p>
+<h3 id="17-scenes">17. Scenes <a class="anchor" href="#17-scenes" aria-hidden="true">#</a></h3>
+<p>Save good viewpoints as scenes; their tabs bring them back.</p>
+<p><img src="tutorial/images/en/17-scenes.jpg" alt="Scenes" loading="lazy" /></p>
+<h2 id="5-modelling">5. Modelling <a class="anchor" href="#5-modelling" aria-hidden="true">#</a></h2>
+<h3 id="18-sketchup-style-modelling">18. SketchUp-style modelling <a class="anchor" href="#18-sketchup-style-modelling" aria-hidden="true">#</a></h3>
+<p>Lines, rectangles and circles that close make faces; a line across a face splits it.</p>
+<p><img src="tutorial/images/en/18-modeling.jpg" alt="SketchUp-style modelling" loading="lazy" /></p>
+<h3 id="19-pushpull">19. Push/Pull <a class="anchor" href="#19-pushpull" aria-hidden="true">#</a></h3>
+<p>Click a face and drag to give it depth; type a height and press Enter. Push through to the back to cut a hole.</p>
+<p><img src="tutorial/images/en/19-pushpull.jpg" alt="Push/Pull" loading="lazy" /></p>
+<h3 id="20-measurements-box">20. Measurements box <a class="anchor" href="#20-measurements-box" aria-hidden="true">#</a></h3>
+<p>Typing while a tool works fills this box: length 2400, rectangle 1200,800, angle 45, array x5.</p>
+<p><img src="tutorial/images/en/20-vcb.jpg" alt="Measurements box" loading="lazy" /></p>
+<h3 id="21-your-own-3d-models">21. Your own 3D models <a class="anchor" href="#21-your-own-3d-models" aria-hidden="true">#</a></h3>
+<p>Import glTF, OBJ, FBX, STL, DAE, 3DS or PLY: they join Library › My objects and are saved inside the project.</p>
+<p><img src="tutorial/images/en/21-import.jpg" alt="Your own 3D models" loading="lazy" /></p>
+<h2 id="6-look">6. Look <a class="anchor" href="#6-look" aria-hidden="true">#</a></h2>
+<h3 id="22-face-styles">22. Face styles <a class="anchor" href="#22-face-styles" aria-hidden="true">#</a></h3>
+<p>Switch between textured, shaded, white, X-ray, wireframe and hidden line; K cycles them.</p>
+<p><img src="tutorial/images/en/22-styles.jpg" alt="Face styles" loading="lazy" /></p>
+<h3 id="23-sun-and-shadows">23. Sun and shadows <a class="anchor" href="#23-sun-and-shadows" aria-hidden="true">#</a></h3>
+<p>Set the date, time and city: shadows follow the real sun.</p>
+<p><img src="tutorial/images/en/23-shadows.jpg" alt="Sun and shadows" loading="lazy" /></p>
+<h3 id="24-themes">24. Themes <a class="anchor" href="#24-themes" aria-hidden="true">#</a></h3>
+<p>20 light and 20 dark themes, plus your own.</p>
+<p><img src="tutorial/images/en/24-theme.jpg" alt="Themes" loading="lazy" /></p>
+<h2 id="7-saving--output">7. Saving &amp; output <a class="anchor" href="#7-saving--output" aria-hidden="true">#</a></h2>
+<h3 id="25-saving">25. Saving <a class="anchor" href="#25-saving" aria-hidden="true">#</a></h3>
+<p>One .msk file holds the project and every imported model.</p>
+<p><img src="tutorial/images/en/25-save.jpg" alt="Saving" loading="lazy" /></p>
+<h3 id="26-export">26. Export <a class="anchor" href="#26-export" aria-hidden="true">#</a></h3>
+<p>Export pictures (up to 8K), floor plans, glTF, OBJ, STL, PLY and USDZ.</p>
+<p><img src="tutorial/images/en/26-export.jpg" alt="Export" loading="lazy" /></p>
+<h3 id="27-photo-real-rendering">27. Photo-real rendering <a class="anchor" href="#27-photo-real-rendering" aria-hidden="true">#</a></h3>
+<p>Path tracing makes photographic pictures; the progress window shows the time left and can cancel.</p>
+<p><img src="tutorial/images/en/27-render.jpg" alt="Photo-real rendering" loading="lazy" /></p>
+<h2 id="8-settings--help">8. Settings &amp; help <a class="anchor" href="#8-settings--help" aria-hidden="true">#</a></h2>
+<h3 id="28-settings">28. Settings <a class="anchor" href="#28-settings" aria-hidden="true">#</a></h3>
+<p>Units, default wall height and thickness, display quality and speed (AO, shadows, frame limit), camera speeds.</p>
+<p><img src="tutorial/images/en/28-settings.jpg" alt="Settings" loading="lazy" /></p>
+<h3 id="29-shortcuts">29. Shortcuts <a class="anchor" href="#29-shortcuts" aria-hidden="true">#</a></h3>
+<p>SketchUp&#39;s single-key shortcuts work here.</p>
+<p><img src="tutorial/images/en/29-shortcuts.jpg" alt="Shortcuts" loading="lazy" /></p>
+<h3 id="30-thats-it">30. That&#39;s it <a class="anchor" href="#30-thats-it" aria-hidden="true">#</a></h3>
+<p>Now design your own. Help › Tutorial (F11) shows this again.</p>
+<p><img src="tutorial/images/en/30-finish.jpg" alt="That&#39;s it" loading="lazy" /></p>
+<hr />
+<p>Run the tutorial again any time from <strong>Help › Tutorial</strong> (F11). A recording of the whole tour plays from <strong>Help › Tutorial video</strong> (once made with <code>npm run tutorial:video</code>).</p>
+</main>
+</div>
+<footer>MySketchBook v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+</body>
+</html>

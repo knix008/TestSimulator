@@ -1,0 +1,51 @@
+{
+  "name": "mysketchbook",
+  "productName": "MySketchBook",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Interior design and 3D modelling (SketchUp style) for Web, Windows, macOS and Linux (Tauri) — walls, doors, windows, rooms, push/pull modelling, high-quality furniture library, 3D import/export, photoreal rendering",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview --port 4175 --strictPort",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "test:quick": "node scripts/test.mjs --quick",
+    "test:unit": "node scripts/test.mjs --only js",
+    "test:web": "node scripts/test.mjs --only web",
+    "test:tutorial": "node scripts/test.mjs --only tutorial",
+    "test:desktop": "node scripts/test.mjs --only desktop --desktop",
+    "test:installer": "node scripts/test.mjs --only installer --installer",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:webapp": "vite build",
+    "build:all": "node scripts/build.mjs all",
+    "build:docs": "node scripts/build-docs.mjs",
+    "tutorial:docs": "node scripts/tutorial-capture.mjs docs",
+    "tutorial:video": "node scripts/tutorial-capture.mjs video",
+    "samples": "node scripts/make-samples.mjs",
+    "build:icons": "node scripts/render-icons.mjs",
+    "assets": "node scripts/fetch-assets.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "fflate": "^0.8.3",
+    "manifold-3d": "^3.5.4",
+    "three": "^0.187.0",
+    "three-gpu-pathtracer": "^0.0.28",
+    "three-mesh-bvh": "^0.9.18"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "@tauri-apps/cli": "^2.8.0",
+    "sharp": "^0.35.5",
+    "vite": "^7.1.7"
+  }
+}

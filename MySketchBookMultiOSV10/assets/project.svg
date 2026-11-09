@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- .msk project icon: a raised 3D page with a folded corner and a small furnished room. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#fbeedd"/>
+      <stop offset="1" stop-color="#e9b98a"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b8642f"/><stop offset="1" stop-color="#6a2d12"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7dcc0"/><stop offset="1" stop-color="#d38c55"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.18" cy="0.12" r="0.6">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="0.75" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0.45" stop-color="#5b2410" stop-opacity="0"/>
+      <stop offset="1" stop-color="#5b2410" stop-opacity="0.55"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-300%" width="160%" height="700%"><feGaussianBlur stdDeviation="22"/></filter>
+    <filter id="barShadow" x="-20%" y="-40%" width="140%" height="200%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#5b2410" flood-opacity="0.4"/></filter>
+    <radialGradient id="spark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="pageClip"><path d="M192 160a48 48 0 0 1 48-48h400l192 192v560a48 48 0 0 1-48 48H240a48 48 0 0 1-48-48z"/></clipPath>
+  </defs>
+  <ellipse cx="512" cy="950" rx="330" ry="30" fill="#4a1a06" opacity="0.45" filter="url(#shadow)"/>
+  <path d="M192 196a48 48 0 0 1 48-48h400l192 192v560a48 48 0 0 1-48 48H240a48 48 0 0 1-48-48z" fill="url(#side)" transform="translate(0 -36)"/>
+  <g clip-path="url(#pageClip)">
+    <rect x="192" y="112" width="640" height="800" fill="url(#face)"/>
+    <!-- small furnished room (isometric) -->
+    <path d="M300 560L512 454V290L300 396z" fill="#9bb59b"/>
+    <path d="M512 454L724 560V396L512 290z" fill="#f6eee0"/>
+    <path d="M512 454L300 560L512 666L724 560z" fill="#c98a52"/>
+    <path d="M572 452L652 492V420L572 380z" fill="#8fcff5" stroke="#ffffff" stroke-width="8"/>
+    <path d="M340 566L452 510V478L340 534z" fill="#2c4a78"/>
+    <path d="M340 566L376 584L488 528L452 510z" fill="#4d74ad"/>
+    <path d="M376 584L488 528V556L376 612z" fill="#25406a"/>
+    <path d="M640 590h40l-6 40h-28z" fill="#c76a3d"/>
+    <path d="M660 588c-26-24-40-26-52-44 22 0 40 12 52 44zM660 588c22-28 40-30 52-48-24 0-42 14-52 48zM660 588c-6-34 0-58 14-76 6 26 0 52-14 76z" fill="#3f8f56"/>
+    <rect x="192" y="112" width="640" height="800" fill="url(#shade)"/>
+    <rect x="192" y="112" width="640" height="800" fill="url(#glow)"/>
+  </g>
+  <!-- folded corner -->
+  <path d="M640 112v144a48 48 0 0 0 48 48h144z" fill="url(#fold)"/>
+  <path d="M640 112v144a48 48 0 0 0 48 48h144" fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="6"/>
+  <!-- file type label -->
+  <rect x="217" y="776" width="280" height="76" rx="22" fill="#9a4420"/>
+  <text x="357" y="830" font-family="Segoe UI, Arial, sans-serif" font-size="50" font-weight="800" fill="#ffffff" text-anchor="middle">MSK</text>
+  <circle cx="262" cy="186" r="62" fill="url(#spark)" opacity="0.95"/>
+  <path d="M262 122l10 52 52 10-52 10-10 52-10-52-52-10 52-10z" fill="#ffffff"/>
+</svg>

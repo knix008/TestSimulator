@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- MySketchBook app icon: a furnished room in isometric view — oak floor,
+       a sage and a cream wall with a sunny window, a sofa on a rug, a
+       pendant lamp and a potted plant — on a raised warm tile. The tile sits
+       in the exact centre (112…912 both ways); the border is transparent. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe6c2"/>
+      <stop offset="0.5" stop-color="#f0a865"/>
+      <stop offset="1" stop-color="#b8582c"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a3d1c"/>
+      <stop offset="1" stop-color="#5b2410"/>
+    </linearGradient>
+    <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#4a1a06" stop-opacity="0.55"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.2" cy="0.16" r="0.62">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="0.3" stop-color="#fff6ea" stop-opacity="0.45"/>
+      <stop offset="0.7" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="wallL" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7f9f86"/><stop offset="1" stop-color="#a9c2a9"/>
+    </linearGradient>
+    <linearGradient id="wallR" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fbf5ea"/><stop offset="1" stop-color="#e6d9c3"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d79a5e"/><stop offset="1" stop-color="#b8743d"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7cc4f2"/><stop offset="1" stop-color="#d8f0ff"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff7c9" stop-opacity="0.75"/><stop offset="1" stop-color="#fff7c9" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f5d27a"/><stop offset="1" stop-color="#b8862c"/>
+    </linearGradient>
+    <radialGradient id="lampGlow" cx="0.5" cy="0.2" r="0.6">
+      <stop offset="0" stop-color="#fff3c4" stop-opacity="0.95"/><stop offset="1" stop-color="#fff3c4" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-300%" width="160%" height="700%"><feGaussianBlur stdDeviation="22"/></filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#4a1a06" flood-opacity="0.45"/></filter>
+    <radialGradient id="spark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="0.35" stop-color="#ffffff" stop-opacity="0.85"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="faceClip"><rect x="112" y="112" width="800" height="760" rx="170"/></clipPath>
+    <clipPath id="floorClip"><path d="M512 500L222 645L512 790L802 645z"/></clipPath>
+  </defs>
+
+  <ellipse cx="512" cy="948" rx="370" ry="32" fill="#4a1a06" opacity="0.45" filter="url(#shadow)"/>
+  <rect x="112" y="152" width="800" height="760" rx="170" fill="url(#side)"/>
+  <rect x="112" y="112" width="800" height="760" rx="170" fill="url(#face)"/>
+
+  <g clip-path="url(#faceClip)">
+    <g filter="url(#drop)">
+      <!-- walls (cut open at the front, like a dollhouse) -->
+      <path d="M222 645L512 500V230L222 375z" fill="url(#wallL)"/>
+      <path d="M512 500L802 645V375L512 230z" fill="url(#wallR)"/>
+      <!-- wall tops (thickness) -->
+      <path d="M222 375L512 230L512 214L206 367z" fill="#e9efe6"/>
+      <path d="M512 230L802 375L818 367L512 214z" fill="#ffffff"/>
+      <!-- floor: oak planks -->
+      <path d="M512 500L222 645L512 790L802 645z" fill="url(#floor)"/>
+    </g>
+    <g clip-path="url(#floorClip)" stroke="#8f5427" stroke-opacity="0.35" stroke-width="4">
+      <path d="M154 611L444 756M212 582L502 727M270 553L560 698M328 524L618 669M386 495L676 640M444 466L734 611M502 437L792 582"/>
+    </g>
+    <!-- window on the cream wall with sunlight falling onto the floor -->
+    <path d="M592 424L712 484V368L592 308z" fill="#ffffff"/>
+    <path d="M602 418L702 468V376L602 326z" fill="url(#sky)"/>
+    <path d="M652 443V351M602 372L702 422" stroke="#ffffff" stroke-width="8"/>
+    <path d="M592 424L712 484L640 640L510 574z" fill="url(#sun)" opacity="0.7"/>
+    <!-- framed picture on the sage wall -->
+    <path d="M292 410L372 370V310L292 350z" fill="#f7efe1" stroke="#5c4a36" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M304 396L360 368L340 352L320 372L312 366z" fill="#e48a5a"/>
+    <!-- rug -->
+    <path d="M400 640L560 560L680 620L520 700z" fill="#f2e6d2"/>
+    <path d="M420 640L560 570L660 620L520 690z" fill="none" stroke="#d26b45" stroke-width="6" stroke-dasharray="14 10"/>
+    <!-- sofa against the sage wall (seat, back, arms, cushions) -->
+    <g>
+      <path d="M300 560L460 480L460 438L300 518z" fill="#2c4a78"/>
+      <path d="M300 560L350 585L510 505L460 480z" fill="#3c5f96"/>
+      <path d="M350 585L510 505L510 547L350 627z" fill="#25406a"/>
+      <path d="M300 560L350 585L350 627L300 602z" fill="#1d3457"/>
+      <path d="M300 518L350 543L350 585L300 560z" fill="#2c4a78"/>
+      <path d="M300 518L460 438L476 446L316 526z" fill="#4d74ad"/>
+      <path d="M318 548L390 512L428 531L356 567z" fill="#5a82bd"/>
+      <path d="M392 510L460 476L498 495L430 529z" fill="#5a82bd"/>
+      <path d="M340 516l34-17 6 34-34 17z" fill="#f0b45a"/>
+      <path d="M420 476l34-17 6 34-34 17z" fill="#f2e6d2"/>
+    </g>
+    <!-- coffee table -->
+    <ellipse cx="560" cy="626" rx="58" ry="29" fill="#6b4630"/>
+    <ellipse cx="560" cy="618" rx="58" ry="29" fill="#9a6a3c"/>
+    <path d="M540 640v34M580 640v34" stroke="#3e2a1e" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="572" cy="612" r="9" fill="#ffffff"/>
+    <!-- potted plant -->
+    <path d="M686 640h56l-8 56h-40z" fill="#c76a3d"/>
+    <ellipse cx="714" cy="640" rx="28" ry="10" fill="#4a3220"/>
+    <g fill="#3f8f56">
+      <path d="M714 636c-34-30-60-36-74-60 30-2 58 14 74 60z"/>
+      <path d="M714 636c30-36 58-42 74-66-32 0-60 18-74 66z" fill="#56a96a"/>
+      <path d="M714 636c-8-46 0-80 18-104 8 34 0 70-18 104z" fill="#2f7a45"/>
+      <path d="M714 636c-22-40-24-68-40-92 26 14 38 50 40 92z" fill="#4f9e62"/>
+    </g>
+    <!-- pendant lamp -->
+    <path d="M512 214V330" stroke="#3a2b1e" stroke-width="5"/>
+    <ellipse cx="512" cy="430" rx="110" ry="80" fill="url(#lampGlow)" filter="url(#soft)"/>
+    <path d="M472 372q40-52 80 0z" fill="url(#brass)"/>
+    <ellipse cx="512" cy="372" rx="40" ry="9" fill="#fff4cf"/>
+    <!-- gloss and glow -->
+    <path d="M112 112h800v260C700 320 400 330 112 420z" fill="url(#gloss)" opacity="0.45"/>
+    <rect x="112" y="112" width="800" height="760" fill="url(#glow)"/>
+  </g>
+  <rect x="120" y="120" width="784" height="744" rx="163" fill="none" stroke="url(#bevel)" stroke-width="16"/>
+  <circle cx="232" cy="214" r="70" fill="url(#spark)" opacity="0.85"/>
+  <path d="M232 142l12 60 60 12-60 12-12 60-12-60-60-12 60-12z" fill="#ffffff"/>
+</svg>
