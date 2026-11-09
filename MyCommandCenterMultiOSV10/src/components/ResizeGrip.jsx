@@ -22,7 +22,8 @@ export function ResizeGrip() {
   };
   return (
     <svg className="resize-grip" viewBox="0 0 16 16" onMouseDown={onDown} aria-hidden="true">
-      <path d="M15 1L1 15M15 6L6 15M15 11l-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+      {/* Six dots in a triangle, the same marker as the start page cards' corners. */}
+      {[[13, 13], [9, 13], [13, 9], [5, 13], [9, 9], [13, 5]].map(([cx, cy]) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.4" fill="currentColor" />)}
     </svg>
   );
 }
