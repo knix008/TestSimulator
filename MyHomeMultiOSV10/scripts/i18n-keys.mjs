@@ -39,7 +39,7 @@ export async function dynamicKeys() {
   const keys = new Set();
   const add = (k) => keys.add(k);
   for (const name of ['file', 'edit', 'insert', 'page', 'view', 'design', 'tools', 'help']) add(`menu.${name}`);
-  for (const key of ['exportTo', 'zoom', 'device', 'appearance', 'panels', 'insert:hero', 'insert:basic', 'insert:content', 'insert:showcase', 'insert:contact']) add(`submenu.${key}`);
+  for (const key of ['siteCode', 'exportTo', 'zoom', 'device', 'appearance', 'panels', 'insert:hero', 'insert:basic', 'insert:content', 'insert:showcase', 'insert:contact']) add(`submenu.${key}`);
   for (const [id] of TEMPLATES) { add(`template.${id}`); add(`template.${id}.desc`); }
   for (const type of PAGE_BLOCK_TYPES) add(`block.${type}`);
   for (const kind of ART_KINDS) add(`art.${kind}`);
@@ -57,7 +57,7 @@ export async function dynamicKeys() {
   for (const id of ['content', 'style', 'page', 'site']) add(`editors.${id}`);
   for (const kind of ['page']) { add(`confirm.delete.${kind}`); add(`confirm.delete.${kind}Title`); }
   for (const key of ['bg', 'surface', 'panel', 'text', 'muted', 'border', 'accent', 'accentText', 'gridAlt', 'chart', 'toolbar', 'status']) add(`colorKey.${key}`);
-  for (const id of ['addBlock', 'publish', 'previewMode']) add(`toolbar.${id}`);
+  for (const id of ['addBlock', 'publish', 'previewMode', 'previewBrowser']) add(`toolbar.${id}`);
   const { STEPS, CHAPTERS } = await import(url('src/ui/tutorial.js')).catch(() => ({ STEPS: [], CHAPTERS: [] }));
   for (const step of STEPS) { add(`tutorial.${step.id}.title`); add(`tutorial.${step.id}.text`); }
   for (const c of CHAPTERS) add(`tutorial.chapter.${c}`);

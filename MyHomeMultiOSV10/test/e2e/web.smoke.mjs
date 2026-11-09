@@ -65,13 +65,14 @@ for (const language of languages) {
     await report.check(tag('start page shows every card in the right language'), async () => {
       expect(await run('document.documentElement.lang') === language, 'language');
       const cards = await run("[...document.querySelectorAll('.start-card')].map((c) => c.dataset.card).join(',')");
-      for (const id of ['hero', 'actions', 'recent', 'templates', 'samples', 'theme', 'background']) expect(cards.includes(id), `card ${id}: ${cards}`);
+      for (const id of ['hero', 'actions', 'recent', 'templates', 'samples', 'background']) expect(cards.includes(id), `card ${id}: ${cards}`);
+      expect(!cards.includes('theme'), 'the app theme card is not on the start page');
     });
     for (const [action, effect] of [
-      ['language', `a.settings ? 1 : 1`], ['pick-theme', 'a.state.settings.theme === "midnight"'], ['animation', 'a.state.settings.animation === "waves"'],
+      ['language', `a.settings ? 1 : 1`], ['animation', 'a.state.settings.animation === "waves"'],
       ['shuffle', 'a.state.settings.backgroundKind === "animated"'], ['arrange', '!a.state.settings.startLayout || typeof a.state.settings.startLayout === "object"'],
-      ['help-menu', '!!document.querySelector(".web-popup-menu")'], ['start-settings', '!!document.querySelector(".web-popup-settings")'], ['theme-settings', '!!document.querySelector(".web-popup-settings")'],
-      ['about', '!!document.querySelector(".web-popup-about")'], ['guide', 'window.__opened.some((u) => u.includes("viewer=guide"))'], ['tutorial-doc', 'window.__opened.some((u) => u.includes("viewer=tutorial"))'],
+      ['help-menu', '!!document.querySelector(".web-popup-menu")'], ['start-settings', '!!document.querySelector(".web-popup-settings")'],
+      ['about', '!!document.querySelector(".web-popup-about")'], ['code-editor', 'window.__opened.some((u) => u.includes("viewer=code"))'], ['guide', 'window.__opened.some((u) => u.includes("viewer=guide"))'], ['tutorial-doc', 'window.__opened.some((u) => u.includes("viewer=tutorial"))'],
     ]) {
       await report.check(tag(`start page action "${action}"`), async () => {
         await closePopups();
@@ -364,7 +365,7 @@ for (const language of languages) {
       ['a misspelt word is listed and underlined on the canvas', `${setTypo} const row = ${typoRow}; return row && row.path === 'title' && a.state.view.spellRanges >= 1 && document.querySelector('#bottom-panel .problem-row.spelling') ? '' : JSON.stringify(a.problems.list().map((r) => r.word)) + ' ranges ' + a.state.view.spellRanges;`],
       ['conjugated and particle forms are not flagged', `A.commitText(doc().page.blocks[0].id, 'text', ${JSON.stringify(language === 'ko' ? '새로운 홈페이지를 만들어 보세요. 고마워요! 함께해요, 했습니다, 즐거운 시간을 보냈어요.' : "We're glad you didn't wait: it's ready, isn't it? Our café opens on Monday.")}); await a.problems.check(); const bad = a.problems.list().filter((r) => r.kind === 'spelling' && r.path === 'text').map((r) => r.word); return bad.length ? bad.join(',') : '';`],
       ['a click shows the place on the canvas', `const row = ${typoRow}; document.querySelector('#bottom-panel [data-problem="' + CSS.escape(row.key) + '"] .cell.msg').click(); await new Promise((r) => setTimeout(r, 120)); const shown = a.state.view.shownProblem; return a.state.selected === row.blockId && shown?.found && frame().querySelector('.hm-problem-flash') ? '' : JSON.stringify(shown);`],
-      ['a double click goes to the field with the word selected', `const row = ${typoRow}; document.querySelector('#bottom-panel [data-problem="' + CSS.escape(row.key) + '"] .cell.msg').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await new Promise((r) => setTimeout(r, 200)); const f = document.activeElement; return a.state.rightTab === 'content' && f?.dataset.prop === 'title' && f.value.slice(f.selectionStart, f.selectionEnd) === ${JSON.stringify(typoWord)} ? '' : (f?.dataset.prop + ' ' + f?.value?.slice(f.selectionStart, f.selectionEnd));`],
+      ['a double click goes to the field with the word selected', `const row = ${typoRow}; document.querySelector('#bottom-panel [data-problem="' + CSS.escape(row.key) + '"] .cell.msg').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); for (let i = 0; i < 20 && document.activeElement?.dataset?.prop !== 'title'; i++) await new Promise((r) => setTimeout(r, 100)); const f = document.activeElement; return a.state.rightTab === 'content' && f?.dataset.prop === 'title' && f.value.slice(f.selectionStart, f.selectionEnd) === ${JSON.stringify(typoWord)} ? '' : (f?.dataset.prop + ' ' + f?.value?.slice(f.selectionStart, f.selectionEnd));`],
       ['the right word comes first and its button fixes the text (one undo step)', `const row = ${typoRow}; const first = a.problems.suggest(row)[0]; if (first !== ${JSON.stringify(rightWord)}) return 'first ' + first; a.problems.select(row.key); const button = document.querySelector('#bottom-panel [data-problem-replace="' + CSS.escape(row.key) + '"]'); button.click(); await a.problems.check(); const fixed = doc().page.blocks[0].props.title.includes(${JSON.stringify(rightWord)}); A.undo(); return fixed && doc().page.blocks[0].props.title.includes(${JSON.stringify(typoWord)}) ? '' : 'not fixed';`],
       ['Add to dictionary: the word goes away and is kept in my dictionary', `await a.problems.check(); const row = ${typoRow}; document.querySelector('#bottom-panel [data-problem-add="' + CSS.escape(row.key) + '"]').click(); await new Promise((r) => setTimeout(r, 150)); await a.problems.check(); const kept = JSON.parse(localStorage.getItem('myhomemaker.settings.v1')).userWords; const gone = !${typoRow}; A.updateSettings({ userWords: [] }); await a.problems.check(); return gone && kept.includes(${JSON.stringify(typoWord)}) && ${typoRow} ? '' : 'gone ' + gone + ' kept ' + kept;`],
       ['F7 turns spelling off and on', "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F7', bubbles: true })); await a.problems.check(); const off = !a.state.settings.spellCheck && a.problems.counts().spelling === 0 && a.state.view.spellRanges === 0; document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F7', bubbles: true })); await a.problems.check(); return off && a.problems.counts().spelling > 0 ? '' : 'off ' + off;"],
@@ -556,7 +557,7 @@ for (const language of languages) {
 
     // ── popups
     report.group('popups');
-    for (const [kind, code] of [['settings', "a.popups.open('settings', { tab: 'general' })"], ['design', "a.run('designPicker')"], ['template', "a.popups.open('template', {})"], ['publish', "a.run('publish')"], ['about', "a.run('about')"], ['welcome', "a.popups.open('welcome', {})"], ['recent', "a.popups.open('recent', {})"], ['theme', "a.popups.open('theme', {})"], ['prompt', "a.popups.open('prompt', { title: 'x', label: 'y', value: 'z' })"], ['confirm', "a.popups.open('confirm', { title: 'x', message: 'y' })"], ['error', "a.popups.open('error', { title: 'x', message: 'y' })"], ['progress', "a.popups.open('progress', { title: 'x', name: 'y' })"]]) {
+    for (const [kind, code] of [['settings', "a.popups.open('settings', { tab: 'general' })"], ['design', "a.run('designPicker')"], ['template', "a.popups.open('template', {})"], ['publish', "a.run('publish')"], ['about', "a.run('about')"], ['welcome', "a.popups.open('welcome', {})"], ['recent', "a.popups.open('recent', {})"], ['theme', "a.popups.open('theme', {})"], ['prompt', "a.popups.open('prompt', { title: 'x', label: 'y', value: 'z' })"], ['confirm', "a.popups.open('confirm', { title: 'x', message: 'y' })"], ['error', "a.popups.open('error', { title: 'x', message: 'y' })"], ['progress', "a.popups.open('progress', { title: 'x', name: 'y' })"], ['packages', "a.run('packages')"], ['print', "a.run('print')"]]) {
       await report.check(tag(`popup "${kind}" fits without scrolling, every text translated`), async () => {
         await closePopups();
         await app(`void ${code}; return 1;`);
@@ -587,7 +588,7 @@ for (const language of languages) {
 
     // ── settings
     report.group('settings');
-    for (const tab of ['general', 'start', 'appearance', 'font', 'background', 'editor', 'recent', 'shortcuts']) {
+    for (const tab of ['general', 'start', 'appearance', 'font', 'background', 'editor', 'recent', 'packages', 'shortcuts']) {
       await report.check(tag(`settings tab "${tab}"`), async () => {
         await closePopups();
         await app(`void a.popups.open('settings', { tab: '${tab}' }); return 1;`);
@@ -682,6 +683,124 @@ for (const language of languages) {
     await report.check(tag('the tutorial ends and gives back the site, the settings and the dictionary'), async () => {
       await run('window.__myhomemaker.tutorial().stop().then(() => 1)');
       expect(await app("return !a.tutorial().active && !document.querySelector('.tour-card') && a.state.settings.userWords.length === 0 && a.state.settings.showBottomPanel === true;"), 'not given back');
+    });
+
+    // ── panels, toolbar, print, packages, the code editor
+    report.group('print & code');
+    await report.check(tag('the start page shows no side panels; folded panels are thin strips with their names written down'), async () => {
+      await closePopups();
+      await fresh();
+      const start = await app("A.showStartPage(true); await new Promise((r) => setTimeout(r, 50)); const hidden = ['#left-panel', '#right-panel'].every((s) => getComputedStyle(document.querySelector(s)).display === 'none') && [...document.querySelectorAll('.panel-split')].every((s) => getComputedStyle(s).display === 'none'); A.showStartPage(false); return hidden;");
+      expect(start, 'side panels on the start page');
+      const rails = await app("a.run('leftPanel'); a.run('rightPanel'); await new Promise((r) => setTimeout(r, 50)); const out = [...document.querySelectorAll('.panel-rail')].map((r) => ({ w: r.getBoundingClientRect().width, mode: getComputedStyle(r.querySelector('.rail-name')).writingMode, text: r.textContent.trim() })); a.run('leftPanel'); a.run('rightPanel'); return out;");
+      expect(rails.length === 2, 'two rails');
+      for (const rail of rails) expect(rail.w <= 30 && rail.mode === 'vertical-rl' && rail.text, `rail ${JSON.stringify(rail)}`);
+    });
+    await report.check(tag('print sits right of Save, then Preview; icons only, with tips; the toolbar fits 1440 px; tab arrows always shown'), async () => {
+      const info = await app("const ids = [...document.querySelectorAll('.toolbar-left .tool-group:first-child [data-command]')].map((b) => b.dataset.command); return { ids, labels: [...document.querySelectorAll('#toolbar .tool-button')].filter((b) => b.textContent.trim()).length, tips: [...document.querySelectorAll('#toolbar .tool-button[data-command]')].every((b) => b.title), design: !!document.querySelector('#toolbar [data-command=\"designPicker\"]'), min: a.state.minWidth, arrows: [...document.querySelectorAll('#tabs .tab-scroll')].filter((b) => getComputedStyle(b.parentElement).display !== 'none').length };");
+      expect(info.ids.indexOf('print') === info.ids.indexOf('save') + 1 && info.ids.indexOf('previewBrowser') === info.ids.indexOf('print') + 1, info.ids.join());
+      expect(info.labels === 0 && info.tips && !info.design, `toolbar: ${info.labels} labelled buttons, tips ${info.tips}, design button ${info.design}`);
+      expect(info.min <= 1440, `toolbar needs ${info.min} px`);
+      expect(info.arrows === 2, 'tab arrows hidden');
+    });
+    await report.check(tag('the print window lays the pages on sheets, follows its settings and prints'), async () => {
+      await closePopups();
+      await app("void a.run('print'); return 1;");
+      await waitPopup('print');
+      await page.waitFor(`(() => { const d = ${popupDoc('print')}; return d && d.querySelectorAll('#print-host .print-page').length > 0; })()`, { timeout: 15000 });
+      const first = await run(`(() => { const d = ${popupDoc('print')}; const w = d.defaultView; return { sheets: d.querySelectorAll('#print-host .print-page').length, frames: d.querySelectorAll('#print-host iframe').length, header: d.querySelector('.print-header')?.textContent.trim(), number: d.querySelector('#page-number').textContent, width: w.__myhomemakerPopup.printLayout().paper.width }; })()`);
+      expect(first.sheets >= 3 && first.frames === first.sheets && first.header && /1/.test(first.number) && first.width === 210, JSON.stringify(first));
+      await run(`(() => { const d = ${popupDoc('print')}; d.querySelector('[data-print-segment="orientation"][data-value="landscape"]').click(); d.querySelector('[data-print-range="current"]').click(); d.querySelector('[data-print-range="current"]').dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await sleep(400);
+      const second = await run(`(() => { const d = ${popupDoc('print')}; const w = d.defaultView; const l = w.__myhomemakerPopup.printLayout(); return { width: l.paper.width, pages: new Set(l.sheets.map((s) => s.pageId)).size, sheets: d.querySelectorAll('#print-host .print-page').length }; })()`);
+      expect(second.width === 297 && second.pages === 1 && second.sheets >= 1, JSON.stringify(second));
+      await run(`(() => { const w = ${popupDoc('print')}.defaultView; w.__printed = null; w.__myhomemakerPrintHook = async (layout, job) => { w.__printed = job; }; ${popupDoc('print')}.querySelector('[data-action="print"]').click(); return 1; })()`);
+      await page.waitFor(`!!${popupDoc('print')}?.defaultView.__printed`, { timeout: 10000 });
+      const job = await run(`${popupDoc('print')}.defaultView.__printed`);
+      expect(job.widthMm === 297 && job.heightMm === 210 && job.copies === 1, JSON.stringify(job));
+      await run(`(() => { localStorage.removeItem('myhomemaker.print'); return 1; })()`);
+    });
+    await report.check(tag('Packages: one card per package with its state, and Download / Retry / Cancel ask the main window'), async () => {
+      await closePopups();
+      await app("a.installPackages = a.installPackages; window.__pkgAsked = []; a.popups.on('package-install', (d) => window.__pkgAsked.push(d.ids)); localStorage.setItem('myhomemaker.packages.v1', JSON.stringify({ jshint: { phase: 'failed', error: 'HTTP 503', installed: null }, htmlhint: { phase: 'download', received: 15000, total: 30565, installed: null } })); void a.run('packages'); return 1;");
+      await waitPopup('packages');
+      const info = await run(`(() => { const d = ${popupDoc('packages')}; return { cards: d.querySelectorAll('.package-card').length, failed: !!d.querySelector('[data-package="jshint"] .package-error'), retry: d.querySelector('[data-package="jshint"] [data-action="package-install"]')?.textContent.trim(), bar: d.querySelector('[data-package="htmlhint"] .progress-bar')?.getAttribute('aria-valuenow'), cancel: !!d.querySelector('[data-package="htmlhint"] [data-action="package-cancel"]') }; })()`);
+      expect(info.cards === 3 && info.failed && info.retry && info.bar === '49' && info.cancel, JSON.stringify(info));
+      await run(`${popupDoc('packages')}.querySelector('[data-package="jshint"] [data-action="package-install"]').click(), 1`);
+      await page.waitFor('window.__pkgAsked.length > 0', { timeout: 5000 });
+      expect(await run("JSON.stringify(window.__pkgAsked[0]) === '[\"jshint\"]'"), 'retry did not ask for jshint');
+      await app("a.popups.on('package-install', (d) => a.installPackages(d.ids ?? [])); localStorage.removeItem('myhomemaker.packages.v1'); return 1;");
+    });
+    await report.check(tag('the code editor opens files, and the site code typed there changes the site (one undo)'), async () => {
+      await closePopups();
+      await fresh();
+      const opened = await app("window.__opened.length = 0; await a.openCodeWindow({ type: 'new', language: 'css' }); const inbox = JSON.parse(localStorage.getItem('myhomemaker.code.inbox')); localStorage.setItem('myhomemaker.code.inbox', '[]'); return { url: window.__opened[0] ?? '', inbox: inbox.at(-1)?.type };");
+      expect(/viewer=code/.test(opened.url) && opened.inbox === 'new', JSON.stringify(opened));
+      const site = await app("const shared = JSON.parse(localStorage.getItem('myhomemaker.code.site')); localStorage.setItem('myhomemaker.code.outbox', JSON.stringify([{ id: 'x1', type: 'site-code', siteId: doc().site.id, field: 'css', value: '.smoke-test { color: red; }' }])); a.readCodeOutbox(); await new Promise((r) => setTimeout(r, 100)); const applied = doc().site.code.css; const inCanvas = frame().getElementById('hm-site').textContent.includes('.smoke-test'); const shared2 = JSON.parse(localStorage.getItem('myhomemaker.code.site')).code.css; A.undo(); return { same: shared.siteId === doc().site.id, applied, inCanvas, shared2, undone: doc().site.code.css };");
+      expect(site.same && site.applied === '.smoke-test { color: red; }' && site.inCanvas && site.shared2 === site.applied && site.undone === '', JSON.stringify(site));
+    });
+
+    // ── the bulletin board and my themes
+    report.group('board & themes');
+    await report.check(tag('the board block draws its list in the canvas and its posts are edited in the Content tab'), async () => {
+      await closePopups();
+      await fresh('blank');
+      const info = await app("A.insertBlock('board'); await new Promise((r) => setTimeout(r, 200)); const b = frame().querySelector('.hm-board'); const block = doc().page.blocks.at(-1); return { type: block.type, rows: b.querySelectorAll('tbody tr[data-post]').length, scripts: b.querySelectorAll('script').length, posts: b.querySelectorAll('.hm-post').length, items: a.state.selected === doc().page.blocks.at(-1).id ? 99 : 0 };");
+      expect(info.type === 'board' && info.rows === 5 && info.scripts === 0 && info.posts === 0 && info.items >= 5, JSON.stringify(info));
+      const added = await app("const block = doc().page.blocks.at(-1); A.itemAction('add', block.id, 'items:0'); await new Promise((r) => setTimeout(r, 100)); return frame().querySelectorAll('.hm-board tbody tr[data-post]').length;");
+      expect(added === 6, `rows after adding: ${added}`);
+    });
+    await report.check(tag('the published board filters by category, searches, opens a post'), async () => {
+      const result = await app(`const files = A.publishSite ? null : null; const site = doc().site; const f = a.domain.siteFiles(site); const html = f.find((x) => x.path === 'index.html').data.replace('<link rel="stylesheet" href="style.css" />', '<style>' + f.find((x) => x.path === 'style.css').data + '</style>');
+        const holder = document.createElement('iframe'); holder.style.cssText = 'position:fixed;left:-3000px;width:1200px;height:800px'; document.body.append(holder);
+        await new Promise((r) => { holder.onload = r; holder.srcdoc = html; });
+        const d = holder.contentDocument; const b = d.querySelector('.hm-board'); const shown = () => [...b.querySelectorAll('tbody tr')].filter((r) => !r.hidden).length;
+        const all = shown(); const cats = [...b.querySelectorAll('[data-board-cat]')]; cats[cats.length - 1].click(); const one = shown();
+        cats[0].click(); const s = b.querySelector('.hm-board-search'); s.value = 'zzzz-none'; s.dispatchEvent(new Event('input')); const none = shown(); const empty = !b.querySelector('.hm-board-empty').hidden;
+        const hidden = getComputedStyle(d.querySelector('.hm-post')).display === 'none';
+        holder.remove(); return { all, one, none, empty, hidden };`);
+      expect(result.all === 6 && result.one > 0 && result.one < 6 && result.none === 0 && result.empty && result.hidden, JSON.stringify(result));
+    });
+    await report.check(tag('40 designs in the design window, 26 light without scrolling'), async () => {
+      await closePopups();
+      await app("void a.run('designPicker'); return 1;");
+      await waitPopup('design');
+      const info = await run(`(() => { const d = ${popupDoc('design')}; const b = d.querySelector('.popup-body'); return { cards: d.querySelectorAll('.design-card').length, overflow: b.scrollHeight - b.clientHeight, tabs: d.querySelectorAll('[data-action="design-group"]').length }; })()`);
+      expect(info.cards === 26 && info.overflow <= 2 && info.tabs === 3, JSON.stringify(info));
+    });
+    await report.check(tag('my themes: made in the editor from the site, saved, applied, kept in the settings, deleted'), async () => {
+      await run(`(() => { const d = ${popupDoc('design')}; d.querySelector('[data-action="design-group"][data-value="mine"]').click(); return 1; })()`);
+      await sleep(200);
+      await run(`(() => { const d = ${popupDoc('design')}; d.querySelector('[data-action="design-from-site"]').click(); return 1; })()`);
+      await sleep(200);
+      await run(`(() => { const d = ${popupDoc('design')}; const c = d.querySelector('[data-edit-design="primary"]'); c.value = '#cc2244'; c.dispatchEvent(new Event('input', { bubbles: true })); const n = d.querySelector('[data-edit-design="name"]'); n.value = 'Smoke Red'; n.dispatchEvent(new Event('input', { bubbles: true })); const r = d.querySelector('[data-edit-design="radius"]'); r.value = '22'; r.dispatchEvent(new Event('input', { bubbles: true })); return d.querySelector('#mine-preview .mp-hero').style.background; })()`);
+      await run(`${popupDoc('design')}.querySelector('[data-action="design-edit-apply"]').click(), 1`);
+      await page.waitFor("window.__myhomemaker.state.docs[0].site.design.name === 'Smoke Red'", { timeout: 5000 });
+      const applied = await app("const d = doc().site.design; return { primary: d.overrides.primary, radius: d.overrides.radius, mine: a.state.settings.customDesigns.map((x) => x.name), css: frame().getElementById('hm-site').textContent.includes('--primary:#cc2244'), status: document.querySelector('#statusbar').textContent.includes('Smoke Red') };");
+      expect(applied.primary === '#cc2244' && applied.radius === 22 && applied.mine.includes('Smoke Red') && applied.css && applied.status, JSON.stringify(applied));
+      // Another preset, then the theme again from the My themes tab; then delete it.
+      await app("A.setDesign({ id: 'forest' }, { reset: true }); void a.run('designPicker'); return 1;");
+      await waitPopup('design');
+      await run(`(() => { const d = ${popupDoc('design')}; d.querySelector('[data-action="design-group"][data-value="mine"]').click(); return 1; })()`);
+      await sleep(200);
+      await run(`(() => { const d = ${popupDoc('design')}; const card = [...d.querySelectorAll('.design-card[data-pick-design]')].find((c) => c.textContent.includes('Smoke Red')); card.click(); return 1; })()`);
+      await sleep(150);
+      await run(`(() => { const d = ${popupDoc('design')}; d.querySelector('[data-action="design-apply"]').click(); return 1; })()`);
+      await page.waitFor("window.__myhomemaker.state.docs[0].site.design.name === 'Smoke Red' && window.__myhomemaker.state.docs[0].site.design.overrides.primary === '#cc2244'", { timeout: 5000 });
+      await app("void a.run('designPicker'); return 1;");
+      await waitPopup('design');
+      await run(`(() => { const d = ${popupDoc('design')}; d.defaultView.confirm = () => true; const del = d.querySelector('[data-action="design-delete"]'); del.click(); return 1; })()`);
+      await page.waitFor("window.__myhomemaker.state.settings.customDesigns.length === 0", { timeout: 5000 });
+      expect(await app("return doc().site.design.overrides.primary === '#cc2244';"), 'the site lost the theme values');
+      await closePopups();
+    });
+    await report.check(tag('Save this design as my theme keeps the site design under a name'), async () => {
+      await app("A.setDesign({ id: 'rose' }, { reset: true }); A.setDesign({ accent: '#00aa11' }); void a.run('saveDesignAsMine'); return 1;");
+      await waitPopup('prompt');
+      await run(`(() => { const d = ${popupDoc('prompt')}; const i = d.querySelector('[data-draft="value"]'); i.value = 'Rose Green'; i.dispatchEvent(new Event('input', { bubbles: true })); d.querySelector('[data-action="prompt-apply"]').click(); return 1; })()`);
+      await page.waitFor("window.__myhomemaker.state.settings.customDesigns.some((x) => x.name === 'Rose Green' && x.values.accent === '#00aa11' && x.base === 'rose')", { timeout: 5000 });
+      expect(await app("return doc().site.design.name === 'Rose Green';"), 'name not on the site');
+      await app("A.updateSettings({ customDesigns: [] }); return 1;");
     });
 
     report.group('errors');

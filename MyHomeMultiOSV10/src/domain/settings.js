@@ -1,7 +1,7 @@
 // Application settings: defaults, validation, and persistence in localStorage (shared by the
 // main window and the popup windows, which watch it). Loaded again on the next start.
 import { normalizeCustom, THEME_IDS } from '../themes.js';
-import { DESIGN_IDS } from './designs.js';
+import { DESIGN_IDS, normalizeCustomDesigns } from './designs.js';
 
 export const STORAGE_KEY = 'myhomemaker.settings.v1';
 export const RECENT_KEY = 'myhomemaker.recent.v1';
@@ -28,6 +28,49 @@ export const ANIMATIONS = [
   'fireflies', 'ripples', 'coderain', 'hexagons', 'orbits', 'lava', 'spiral', 'confetti', 'nodes', 'ribbons',
 ];
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
+/** Where bulletin boards keep their posts when they use a database (Settings › Database; desktop app). SQLite3 is the default. */
+export const DB_KINDS = ['sqlite', 'mysql', 'mariadb', 'postgres', 'mssql'];
+export const DB_DEFAULT_PORTS = { mariadb: 3306, mysql: 3306, postgres: 5432, mssql: 1433 };
+export const usesDbServer = (kind) => kind === 'mariadb' || kind === 'mysql' || kind === 'postgres' || kind === 'mssql';
+/** The names the UI shows for each database kind. */
+export const DB_NAMES = { sqlite: 'SQLite3', mysql: 'MySQL', mariadb: 'MariaDB', postgres: 'PostgreSQL', mssql: 'MSSQL' };
+
+/** The port used: the one set, or the usual one of the server kind. */
+export const dbPortOf = (settings) => settings.dbPort ?? DB_DEFAULT_PORTS[settings.dbKind] ?? null;
+
+/** Problems that stop a connection (i18n keys), [] when the settings are complete. An empty SQLite file means the app's own. */
+export function dbProblems(settings) {
+  const problems = [];
+  if (!DB_KINDS.includes(settings.dbKind)) problems.push('db.needKind');
+  if (usesDbServer(settings.dbKind)) {
+    if (!String(settings.dbHost ?? '').trim()) problems.push('db.needHost');
+    const name = String(settings.dbName ?? '').trim();
+    if (!name) problems.push('db.needName');
+    else if (!/^[A-Za-z0-9_$-]+$/.test(name)) problems.push('db.badName');
+  }
+  return problems;
+}
+
+/** Connection settings for the backend (db.rs DbConfig). `password` = the one for this run when it is not saved. */
+export function dbConfig(settings, password = '') {
+  const server = usesDbServer(settings.dbKind);
+  return {
+    kind: settings.dbKind,
+    host: server ? settings.dbHost : null,
+    port: server ? dbPortOf(settings) : null,
+    database: server ? settings.dbName : null,
+    user: server ? settings.dbUser : null,
+    password: server ? (settings.dbSavePassword ? settings.dbPassword : password) || '' : null,
+    file: settings.dbKind === 'sqlite' ? settings.dbFile : null,
+  };
+}
+
+/** "MariaDB · me@localhost:3306/myhomemaker" / "SQLite3 · C:\…\board.db" (never the password). */
+export function dbDescribe(settings, defaultFile = '') {
+  if (settings.dbKind === 'sqlite') return `SQLite3 · ${settings.dbFile || defaultFile}`;
+  return `${DB_NAMES[settings.dbKind] ?? settings.dbKind} · ${settings.dbUser ? `${settings.dbUser}@` : ''}${settings.dbHost}:${dbPortOf(settings)}/${settings.dbName}`;
+}
+
 /** Canvas widths (views/canvas.js DEVICES). */
 export const DEVICE_IDS = ['desktop', 'tablet', 'mobile'];
 
@@ -100,6 +143,16 @@ export function defaultSettings(language = 'ko') {
     confirmPublish: true,
     publishExtractImages: true,
     autoSaveMinutes: 0,
+    autoDownloadPackages: true,
+    customDesigns: [],
+    dbKind: 'sqlite',
+    dbHost: 'localhost',
+    dbPort: null,
+    dbName: 'myhomemaker',
+    dbUser: '',
+    dbFile: '',
+    dbSavePassword: false,
+    dbPassword: '',
     rowHeight: 26,
     tutorialOffered: false,
     showWelcome: true,
@@ -112,7 +165,7 @@ const clamp = (value, min, max, fallback) => {
   return Number.isFinite(number) ? Math.min(max, Math.max(min, Math.round(number))) : fallback;
 };
 
-const BOOLEANS = ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'showBottomPanel', 'spellCheck', 'spellEnglish', 'spellKorean', 'restoreSession', 'confirmDelete', 'statusClock', 'autoFit', 'showHover', 'toolboxCompact',
+const BOOLEANS = ['autoDownloadPackages', 'showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'showBottomPanel', 'spellCheck', 'spellEnglish', 'spellKorean', 'restoreSession', 'confirmDelete', 'statusClock', 'autoFit', 'showHover', 'toolboxCompact',
   'confirmPublish', 'publishExtractImages', 'tutorialOffered', 'showWelcome', 'tutorialDone', 'animationOnStartOnly', 'animationRandom',
   'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner'];
 
@@ -147,6 +200,16 @@ export function normalizeSettings(raw = {}, language) {
   s.startCardOpacity = clamp(s.startCardOpacity, 20, 100, 80);
   s.startLayout = s.startLayout && typeof s.startLayout === 'object' && !Array.isArray(s.startLayout) ? s.startLayout : null;
   s.defaultDesign = DESIGN_IDS.includes(s.defaultDesign) ? s.defaultDesign : base.defaultDesign;
+  s.customDesigns = normalizeCustomDesigns(s.customDesigns);
+  s.dbKind = DB_KINDS.includes(s.dbKind) ? s.dbKind : 'sqlite';
+  s.dbHost = typeof s.dbHost === 'string' && s.dbHost.trim() ? s.dbHost.trim() : 'localhost';
+  const port = Number(s.dbPort);
+  s.dbPort = s.dbPort != null && s.dbPort !== '' && Number.isInteger(port) && port > 0 && port < 65536 ? port : null;
+  s.dbName = typeof s.dbName === 'string' ? s.dbName.trim() : 'myhomemaker';
+  s.dbUser = typeof s.dbUser === 'string' ? s.dbUser : '';
+  s.dbFile = typeof s.dbFile === 'string' ? s.dbFile.trim() : '';
+  s.dbSavePassword = s.dbSavePassword === true;
+  s.dbPassword = s.dbSavePassword && typeof s.dbPassword === 'string' ? s.dbPassword : '';
   s.defaultDevice = DEVICE_IDS.includes(s.defaultDevice) ? s.defaultDevice : base.defaultDevice;
   s.autoSaveMinutes = [0, 1, 5, 10, 30].includes(Number(s.autoSaveMinutes)) ? Number(s.autoSaveMinutes) : 0;
   for (const key of BOOLEANS) s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];
@@ -199,7 +262,7 @@ export const INSTALL_RESET_KEY = 'myhomemaker.installReset';
 /** Stored lists that are the user's own data, kept by a new installation. */
 const KEEP_KEYS = [RECENT_KEY, RECENT_DIRS_KEY, SESSION_KEY];
 /** Settings that are the user's data rather than preferences. */
-const KEEP_SETTINGS = ['userWords', 'backgroundImage', 'backgroundName', 'lastDirectory', 'lastPublishDirectory', 'tutorialOffered', 'tutorialDone'];
+const KEEP_SETTINGS = ['customDesigns', 'userWords', 'backgroundImage', 'backgroundName', 'lastDirectory', 'lastPublishDirectory', 'tutorialOffered', 'tutorialDone'];
 
 /** After the installer ran (it hands over `token`): preferences go back to their defaults, the user's data stays. Once per token. */
 export function resetForNewInstall(storage, token) {

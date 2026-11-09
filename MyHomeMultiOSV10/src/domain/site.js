@@ -50,6 +50,15 @@ export function createPage(site, { name = 'Page', slug = null, blocks = [], titl
   return { id: newId('p'), name, slug: slug ?? uniqueSlug(site, name), title, description, nav: true, blocks };
 }
 
+/** The site's own code, written in the code editor: CSS after the design's style sheet, JavaScript at the end of every page, HTML in every <head>. */
+export const CODE_FIELDS = ['css', 'js', 'head'];
+export const emptyCode = () => ({ css: '', js: '', head: '' });
+export function normalizeCode(raw) {
+  const code = emptyCode();
+  for (const key of CODE_FIELDS) if (typeof raw?.[key] === 'string') code[key] = raw[key];
+  return code;
+}
+
 /** An empty site: header, one home page with no blocks, footer. */
 export function createSite({ name = '', L = 'ko', designId = 'ocean' } = {}) {
   const design = { id: DESIGN_IDS.includes(designId) ? designId : 'ocean', overrides: {} };
@@ -58,6 +67,7 @@ export function createSite({ name = '', L = 'ko', designId = 'ocean' } = {}) {
     format: FORMAT, version: VERSION, id: newId('s'), name: title,
     meta: { title, description: '', language: L, author: '', keywords: '', favicon: '' },
     design,
+    code: emptyCode(),
     layout: { header: createBlock('navbar', { L, design, props: { brand: title } }), footer: createBlock('footer', { L, design }) },
     pages: [],
   };
@@ -83,7 +93,8 @@ export function normalizeSite(raw) {
   const site = {
     format: FORMAT, version: VERSION, id: str(raw.id) || newId('s'), name: str(raw.name, 'Site'),
     meta: { title: str(raw.meta?.title, str(raw.name, 'Site')), description: str(raw.meta?.description), language: L, author: str(raw.meta?.author), keywords: str(raw.meta?.keywords), favicon: str(raw.meta?.favicon) },
-    design: { id: DESIGN_IDS.includes(raw.design?.id) ? raw.design.id : 'ocean', overrides: raw.design?.overrides && typeof raw.design.overrides === 'object' ? { ...raw.design.overrides } : {} },
+    design: { id: DESIGN_IDS.includes(raw.design?.id) ? raw.design.id : 'ocean', overrides: raw.design?.overrides && typeof raw.design.overrides === 'object' ? { ...raw.design.overrides } : {}, ...(typeof raw.design?.name === 'string' && raw.design.name.trim() ? { name: raw.design.name.trim().slice(0, 40) } : {}) },
+    code: normalizeCode(raw.code),
     layout: { header: null, footer: null },
     pages: [],
   };

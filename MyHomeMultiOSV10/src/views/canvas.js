@@ -6,7 +6,7 @@
 // a double click on a picture chooses another; a double click on formatted text opens its field
 // in the Content tab. Blocks are moved by dragging their name tab, or with the ↑ ↓ buttons.
 // Dragging is done with pointer events (the desktop webview takes HTML drag and drop for files).
-import { EDITOR_CSS, pageBody, siteCss } from '../domain/render.js';
+import { EDITOR_CSS, pageBody, siteStyles } from '../domain/render.js';
 import { blockDef, blockLabel, fieldLabel } from '../domain/blocks.js';
 import { escapeHtml } from '../ui/dom.js';
 import { icon } from '../icons.js';
@@ -69,7 +69,7 @@ export class SiteCanvas {
     const page = tab.page;
     this.finishEdit(false);
     doc.documentElement.lang = site.meta.language;
-    doc.getElementById('hm-site').textContent = siteCss(site.design);
+    doc.getElementById('hm-site').textContent = siteStyles(site);
     const preview = Boolean(this.app.state.preview);
     doc.body.classList.toggle('hm-editor', !preview);
     this.overlay.hidden = preview;

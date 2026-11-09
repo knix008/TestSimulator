@@ -29,7 +29,9 @@ const framed = search.get('popup');
 const viewer = search.get('viewer');
 const label = framed ? `popup-${framed}` : viewer ? `doc-${viewer}` : window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label ?? 'main';
 
-if (label.startsWith('doc-')) {
+if (label === 'doc-code') {
+  import('./code.js');
+} else if (label.startsWith('doc-')) {
   import('./viewer.js');
 } else if (label.startsWith('popup-')) {
   document.documentElement.classList.add('is-popup');

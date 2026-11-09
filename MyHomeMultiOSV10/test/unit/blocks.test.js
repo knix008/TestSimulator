@@ -13,7 +13,7 @@ for (const type of BLOCK_TYPES) {
     const def = blockDef(type);
     for (const L of ['ko', 'en']) {
       const block = S.createBlock(type, { L });
-      for (const field of def.fields) assert.ok(field.key in block.props, `${L} ${field.key}`);
+      for (const field of def.fields.filter((x) => x.kind !== 'actions')) assert.ok(field.key in block.props, `${L} ${field.key}`);
       const editor = renderBlock(block, ctx(true, L));
       assert.match(editor, new RegExp(`data-block-type="${type}"`));
       assert.ok(!/undefined|NaN|\[object/.test(editor), `${L}: junk in the HTML`);

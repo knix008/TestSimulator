@@ -8,7 +8,8 @@ import { getCurrentWebview } from '@tauri-apps/api/webview';
 import APP_ICON from '../assets/icon-256.png';
 import * as S from './domain/site.js';
 import { BLOCK_GROUPS, BLOCKS, PAGE_BLOCK_TYPES, blockDef, blockLabel, normalizeStyle } from './domain/blocks.js';
-import { DESIGN_IDS, DESIGNS, designById } from './domain/designs.js';
+import { customAsDesign, customFromSiteDesign, DESIGN_IDS, DESIGNS, designById, normalizeCustomDesign, siteDesignFromCustom, siteDesignName } from './domain/designs.js';
+import { designCardHtml } from './ui/designcard.js';
 import { ART_KINDS, art } from './domain/art.js';
 import { buildTemplate, TEMPLATES } from './domain/templates.js';
 import { buildSample, SAMPLE_GROUPS, SAMPLES } from './domain/samples.js';
@@ -17,13 +18,20 @@ import { filesSize, publishChecks, siteFiles, singlePageHtml } from './domain/pu
 import { SiteDocument, baseName, directoryOf, extensionOf, fileSafe, isImageFileName, isSiteFileName, isTemplateFileName, stripExtension, withExtension } from './domain/document.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
-  ANIMATIONS, CANVAS_ZOOM, loadSettings, PANEL_MIN, RECENT_DIRS_KEY, RECENT_KEY, SESSION_KEY, STORAGE_KEY, storeSettings, ZOOM, zoomStep,
+  ANIMATIONS, CANVAS_ZOOM, dbConfig, dbDescribe, dbProblems, loadSettings, PANEL_MIN, RECENT_DIRS_KEY, RECENT_KEY, SESSION_KEY, STORAGE_KEY, storeSettings, ZOOM, zoomStep,
 } from './domain/settings.js';
 import { switchFlag } from './flags.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
 import { PopupHost } from './platform/popups.js';
+import { idbSet } from './platform/idb.js';
+import { PRINT_JOB_KEY } from './print/layout.js';
+import { missingPackages, packageView, PackageManager, refreshInstalled } from './platform/packages.js';
+import { packageById } from './domain/packages.js';
+import { boardServerFiles } from './export/board-server.js';
+import { CODE_INBOX_KEY, CODE_OUTBOX_KEY, CODE_SITE_KEY, drainQueue, pushQueue } from './domain/codebus.js';
+import { isCodeFileName } from './domain/highlight.js';
 import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from './themes.js';
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { AnimatedBackground } from './ui/background.js';
@@ -205,7 +213,9 @@ function openSampleBuiltin(id = SAMPLES[0].id, name = '') {
 
 function activate(id) {
   state.view?.finishEdit?.(true);
+  endDesignTrial(true);
   state.active = id;
+  queueMicrotask(publishSiteCode);
   state.selected = null;
   state.showStart = false;
   state.preview = false;
@@ -217,6 +227,7 @@ function activate(id) {
 
 /** Applies a change to the site as one undo step and redraws. mutate(site, page, doc). */
 function change(labelKey, mutate, { redraw = true } = {}) {
+  if (state.designTrial) endDesignTrial(true);
   const doc = activeDoc();
   if (!doc) return undefined;
   const result = doc.apply(t(labelKey), (value) => mutate(value, S.pageById(value, doc.view.pageId) ?? value.pages[0], doc));
@@ -226,6 +237,7 @@ function change(labelKey, mutate, { redraw = true } = {}) {
 
 function afterChange({ redraw = true } = {}) {
   const doc = activeDoc();
+  publishSiteCode();
   if (doc && state.selected && !S.findBlock(doc.site, state.selected)) state.selected = null;
   if (redraw) state.view?.render();
   renderTabs();
@@ -535,11 +547,81 @@ function setDesign(patch, { reset = false } = {}) {
 async function pickDesign() {
   const s = site();
   if (!s) return;
-  const result = await popups.open('design', { current: s.design.id, hasOverrides: Object.keys(s.design.overrides ?? {}).length > 0 });
-  if (result?.design && DESIGN_IDS.includes(result.design)) {
-    setDesign({ id: result.design }, { reset: result.reset !== false });
-    notify('success', t('notice.design', { name: designById(result.design)[lang()] }));
-  }
+  const mine = (state.settings.customDesigns ?? []).find((x) => x.name === s.design.name);
+  endDesignTrial(true);
+  const result = await popups.open('design', { current: mine?.id ?? s.design.id, hasOverrides: Object.keys(s.design.overrides ?? {}).length > 0 && !s.design.name, siteName: s.design.name ?? '', site: customFromSiteDesign(s.design, s.design.name || t('design.mineFromSite')) });
+  const chosen = designFromChoice(result);
+  if (!chosen) { endDesignTrial(false); return; }
+  tryDesign(chosen);
+  endDesignTrial(true);
+  notify('success', t('notice.design', { name: siteDesignName(chosen, lang()) }));
+}
+
+// ───────────────────────── trying designs: applied at once, kept (Apply) or put back (Cancel)
+
+/** A design window / Blocks panel choice as the design the site keeps: a preset (with or without the user's changes) or a theme of the user's own. */
+function designFromChoice(choice) {
+  if (!choice) return null;
+  const custom = choice.custom ? normalizeCustomDesign(choice.custom) : null;
+  if (custom) return siteDesignFromCustom(custom);
+  if (!DESIGN_IDS.includes(choice.design)) return null;
+  const before = state.designTrial?.original ?? site()?.design;
+  return { id: choice.design, overrides: choice.reset === false && !before?.name ? { ...(before?.overrides ?? {}) } : {} };
+}
+
+/** Shows a design on the site right away, without an undo step: the first try remembers the design to go back to. */
+function tryDesign(design) {
+  const doc = activeDoc();
+  if (!doc || !design) return;
+  if (!state.designTrial || state.designTrial.docId !== doc.id) state.designTrial = { docId: doc.id, original: JSON.parse(JSON.stringify(doc.site.design)) };
+  doc.site.design = JSON.parse(JSON.stringify(design));
+  doc.touch();
+  redrawDesign();
+}
+
+/** Ends trying designs: keep = one undo step from the old design to the one shown; otherwise the old design comes back. */
+function endDesignTrial(keep) {
+  const trial = state.designTrial;
+  if (!trial) return;
+  state.designTrial = null;
+  const doc = activeDoc();
+  if (!doc || doc.id !== trial.docId) { renderBlocksPanel(); return; }
+  const shown = doc.site.design;
+  doc.site.design = trial.original;
+  doc.touch();
+  if (keep && JSON.stringify(shown) !== JSON.stringify(trial.original)) change('op.design', (x) => { x.design = shown; });
+  else redrawDesign();
+  renderBlocksPanel();
+}
+
+function redrawDesign() {
+  state.view?.render();
+  renderRight();
+  renderStatus();
+  renderTitleProject();
+  renderBlocksPanel();
+}
+
+/** The design that is on the site now (for the Blocks panel's marks). */
+function currentDesignKey() {
+  const d = site()?.design;
+  if (!d) return '';
+  const mine = d.name ? (state.settings.customDesigns ?? []).find((x) => x.name === d.name) : null;
+  return mine ? mine.id : d.name ? '' : d.id;
+}
+
+/** Design › Save as my theme…: the site's design as it is now, under a name, for every site. */
+async function saveDesignAsMine() {
+  const s = site();
+  if (!s) return;
+  const result = await popups.open('prompt', { title: t('action.saveDesignAsMine'), label: t('design.mineName'), value: s.design.name || `${designById(s.design.id)[lang()]} 2`, icon: 'palette' });
+  const name = String(result?.value ?? '').trim();
+  if (!name) return;
+  const mine = customFromSiteDesign(s.design, name);
+  const list = [...(state.settings.customDesigns ?? []).filter((x) => x.name !== name), mine];
+  updateSettings({ customDesigns: list });
+  change('op.design', (x) => { x.design.name = name; });
+  notify('success', t('notice.designSaved', { name }));
 }
 
 function randomDesign() {
@@ -723,6 +805,18 @@ const commands = {
   publishZip: { icon: 'publishZip', label: 'action.publishZip', enabled: () => Boolean(activeDoc()), run: () => publishSite('zip') },
   exportPage: { icon: 'htmlPage', label: 'action.exportPage', enabled: hasDoc, run: () => publishSite('html') },
   copyPageHtml: { icon: 'copy', label: 'action.copyPageHtml', enabled: hasDoc, run: () => copyPageHtml() },
+  packages: { icon: 'importFile', label: 'action.packages', run: () => popups.open('packages', {}) },
+  codeEditor: { icon: 'blkHtml', label: 'action.codeEditor', key: 'Ctrl+Shift+E', run: () => openCodeWindow() },
+  openCode: { icon: 'folderOpen', label: 'action.openCode', run: () => openCodeFiles() },
+  editSiteCss: { icon: 'palette', label: 'action.editSiteCss', enabled: hasDoc, run: () => openCodeWindow({ type: 'site-code', field: 'css' }) },
+  editSiteJs: { icon: 'blkHtml', label: 'action.editSiteJs', enabled: hasDoc, run: () => openCodeWindow({ type: 'site-code', field: 'js' }) },
+  editSiteHead: { icon: 'htmlFile', label: 'action.editSiteHead', enabled: hasDoc, run: () => openCodeWindow({ type: 'site-code', field: 'head' }) },
+  dbSettings: { icon: 'database', label: 'action.dbSettings', run: () => popups.open('settings', { tab: 'database' }) },
+  boardDbLoad: { icon: 'dbOpen', label: 'action.boardDbLoad', enabled: () => selectedBlock()?.type === 'board', run: () => boardFromDatabase() },
+  boardDbSave: { icon: 'dbSave', label: 'action.boardDbSave', enabled: () => selectedBlock()?.type === 'board', run: () => boardToDatabase() },
+  saveDesignAsMine: { icon: 'palette', label: 'action.saveDesignAsMine', enabled: hasDoc, run: () => saveDesignAsMine() },
+  pageHtmlCode: { icon: 'htmlFile', label: 'action.pageHtmlCode', enabled: hasDoc, run: () => openPageAsCode() },
+  print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: hasDoc, run: () => openPrint() },
   previewBrowser: { icon: 'previewBrowser', label: 'action.previewBrowser', key: 'F5', enabled: hasDoc, run: () => previewInBrowser() },
   siteProps: { icon: 'siteProps', label: 'action.siteProps', enabled: () => Boolean(activeDoc()), run: () => showEditorTab('site') },
   closeSite: { icon: 'closeTab', label: 'action.closeSite', key: 'Ctrl+W', enabled: () => Boolean(activeDoc()), run: () => closeDoc(activeDoc()) },
@@ -819,12 +913,14 @@ async function run(id, context) {
 
 function undo() {
   state.view?.finishEdit?.(true);
+  endDesignTrial(true);
   const label = activeDoc()?.undo();
   if (label != null) afterHistory(t('notice.undone', { label }));
 }
 
 function redo() {
   state.view?.finishEdit?.(true);
+  endDesignTrial(true);
   const label = activeDoc()?.redo();
   if (label != null) afterHistory(t('notice.redone', { label }));
 }
@@ -843,6 +939,7 @@ function showEditorTab(tab) {
 // ───────────────────────── layout
 
 const SUBMENUS = {
+  siteCode: { icon: 'blkHtml', items: ['editSiteCss', 'editSiteJs', 'editSiteHead'] },
   exportTo: { icon: 'publish', items: ['publish', '-', 'publishFolder', 'publishZip', 'exportPage', 'copyPageHtml', '-', 'previewBrowser'] },
   zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomReset', 'zoomFit'] },
   device: { icon: 'devDesktop', items: ['device:desktop', 'device:tablet', 'device:mobile'] },
@@ -852,25 +949,25 @@ const SUBMENUS = {
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
-  file: ['new', 'newFromTemplate', 'openSample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', 'saveTemplate', '-', 'previewBrowser', sub('exportTo'), '-', 'siteProps', '-', 'closeSite', '-', 'exit'],
+  file: ['new', 'newFromTemplate', 'openSample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', 'saveTemplate', '-', 'print', 'previewBrowser', sub('exportTo'), '-', 'siteProps', '-', 'closeSite', '-', 'exit'],
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'moveUp', 'moveDown', 'toggleHidden', '-', 'selectPrev', 'selectNext', 'clearSelection', 'editContent'],
   insert: ['addBlock', '-', ...BLOCK_GROUPS.filter((g) => g.id !== 'site').map((g) => sub(`insert:${g.id}`)), '-', 'editHeader', 'editFooter'],
   page: ['addPage', 'duplicatePage', 'renamePage', 'deletePage', '-', 'pageLeft', 'pageRight', '-', 'prevPage', 'nextPage', '-', 'pageProps'],
   view: [sub('device'), sub('zoom'), '-', 'previewMode', '-', sub('panels'), '-', sub('appearance')],
-  design: ['designPicker', 'randomDesign', 'resetDesign', '-', 'siteProps'],
-  tools: ['checkSite', 'showProblems', 'spellCheck', 'dictionary', 'siteStats', '-', 'previewBrowser', 'publish', '-', 'settings'],
+  design: ['designPicker', 'randomDesign', 'resetDesign', '-', 'saveDesignAsMine', '-', 'siteProps'],
+  tools: ['codeEditor', 'openCode', sub('siteCode'), 'pageHtmlCode', '-', 'dbSettings', '-', 'checkSite', 'showProblems', 'spellCheck', 'dictionary', 'siteStats', '-', 'previewBrowser', 'publish', '-', 'packages', 'settings'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', insert: 'addBlock', page: 'pageItem', view: 'eye', design: 'palette', tools: 'gear', help: 'question' };
 
 const TOOLBAR = [
-  ['new', 'open', 'save', 'publishSplit', 'previewBrowser'],
+  ['new', 'open', 'save', 'print', 'previewBrowser', 'publishSplit'],
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'delete'],
   ['addBlock', 'addPage'],
   ['moveUp', 'moveDown', 'duplicate', 'toggleHidden'],
-  ['device:desktop', 'device:tablet', 'device:mobile', 'zoom', 'zoomFit'],
-  ['previewMode', 'designPicker'],
+  ['device:desktop', 'device:tablet', 'device:mobile', 'zoom'],
+  ['previewMode'],
   ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
 /** Right end of the toolbar: tutorial, theme (random + dropdown), language, settings, about. */
@@ -908,12 +1005,12 @@ function renderMenubar() {
   const menubar = root.querySelector('#menubar');
   const onStart = state.showStart || !activeDoc();
   const home = `<button class="menubar-item menubar-home ${onStart ? 'current' : ''}" data-home title="${escapeHtml(t('tip.home'))}" aria-label="${escapeHtml(t('menu.home'))}" aria-pressed="${onStart}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button><span class="menubar-sep" aria-hidden="true"></span>`;
-  const brand = `<div class="app-brand" data-window-drag title="${escapeHtml(`MyHomeMaker v${VERSION}`)}"><img class="app-brand-icon" src="${APP_ICON}" alt="" data-window-drag /><span class="app-brand-name" data-window-drag>MyHomeMaker</span><span class="app-brand-version" data-window-drag>v${escapeHtml(VERSION)}</span><span class="app-brand-project" data-window-drag><span class="app-brand-project-name" data-window-drag></span><span class="app-brand-dirty" data-window-drag>●</span></span></div>`;
+  const brand = `<div class="app-brand" data-window-drag title="${escapeHtml(`MyHomeMaker v${VERSION}`)}"><img class="app-brand-icon" src="${APP_ICON}" alt="" data-window-drag /><span class="app-brand-name" data-window-drag>MyHomeMaker</span><span class="app-brand-version" data-window-drag>v${escapeHtml(VERSION)}</span></div>`;
   const button = (id, glyph, key) => `<button class="window-button ${id === 'close' ? 'close' : ''}" data-window="${id}" title="${escapeHtml(t(key))}" aria-label="${escapeHtml(t(key))}">${icon(glyph)}</button>`;
   const controls = desktop ? `<div class="window-controls">${button('minimize', 'winMinimize', 'window.minimize')}${state.maximized ? button('maximize', 'winRestore', 'window.restore') : button('maximize', 'winMaximize', 'window.maximize')}${button('close', 'winClose', 'window.close')}</div>` : '';
   menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `
     <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('')
-    + `<div class="menubar-drag" data-window-drag></div>${controls}`;
+    + `<span class="app-brand-project app-title-project" data-window-drag><span class="app-brand-project-name" data-window-drag></span><span class="app-brand-dirty" data-window-drag>●</span></span><div class="menubar-drag" data-window-drag></div>${controls}`;
   renderTitleProject();
 }
 
@@ -959,7 +1056,6 @@ function renderToolbar() {
     const glyph = id === 'language' ? switchFlag(getLanguage()) : icon(command.icon);
     return `<button class="tool-button ${extra}" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(command.label))}">${glyph}</button>`;
   };
-  const labeled = (id) => `<button class="tool-button tool-labeled" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(commands[id].label))}">${icon(commands[id].icon)}<span>${escapeHtml(t(`toolbar.${id}`))}</span></button>`;
   const button = (id) => {
     if (id === 'zoom') {
       return `<span class="stepper toolbar-zoom" title="${escapeHtml(t('tip.zoomValue'))}">
@@ -968,8 +1064,7 @@ function renderToolbar() {
         <button class="tool-button stepper-button-tool" data-command="zoomIn" title="${escapeHtml(commandTip('zoomIn'))}" aria-label="${escapeHtml(t('action.zoomIn'))}">${icon('plus')}</button>
       </span>`;
     }
-    if (id === 'addBlock' || id === 'publish' || id === 'previewMode') return labeled(id);
-    if (id === 'publishSplit') return `<span class="split-button">${labeled('publish')}<button class="tool-button split-arrow" data-command="publishMenu" title="${escapeHtml(commandTip('publishMenu'))}" aria-label="${escapeHtml(t('action.publishMenu'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
+    if (id === 'publishSplit') return `<span class="split-button">${plain('publish')}<button class="tool-button split-arrow" data-command="publishMenu" title="${escapeHtml(commandTip('publishMenu'))}" aria-label="${escapeHtml(t('action.publishMenu'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
     if (id === 'themeSplit') return `<span class="split-button">${plain('theme')}<button class="tool-button split-arrow" data-command="themeMenu" title="${escapeHtml(commandTip('themeMenu'))}" aria-label="${escapeHtml(t('action.themeChoose'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
     return plain(id);
   };
@@ -1063,17 +1158,18 @@ function scrollActiveTabIntoView() {
 
 // ───────────────────────── left panel (Blocks)
 
+/** A folded panel: a thin strip with the panel's name written top to bottom; a click anywhere on it opens the panel. */
+function railHtml(command, chevron, glyph, name, tip) {
+  return `<button class="panel-rail" data-command="${command}" title="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${icon(chevron, 'icon rail-chevron')}${icon(glyph, 'icon rail-glyph')}<span class="rail-name">${escapeHtml(name)}</span></button>`;
+}
+
 function renderBlocksPanel() {
   const panel = root.querySelector('#left-panel');
   if (!panel) return;
   const L = lang();
   const compact = state.settings.toolboxCompact;
   if (!state.settings.showLeftPanel) {
-    panel.innerHTML = `<div class="panel-rail">
-      <button class="rail-button expand" data-command="leftPanel" title="${escapeHtml(t('panel.expandLeft'))}" aria-label="${escapeHtml(t('panel.expandLeft'))}">${icon('chevronRight')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
-      <div class="rail-title" title="${escapeHtml(t('panel.blocks'))}">${icon('toolbox')}<span>${escapeHtml(t('panel.blocksShort'))}</span></div>
-      ${['hero', 'heading', 'text', 'image', 'features', 'gallery', 'contact'].map((type) => `<button class="rail-button block-item" data-block-type="${type}" title="${escapeHtml(blockLabel(type, L))}">${icon(BLOCKS[type].icon)}</button>`).join('')}
-    </div>`;
+    panel.innerHTML = railHtml('leftPanel', 'chevronRight', 'toolbox', t('panel.blocks'), t('panel.expandLeft'));
     return;
   }
   const query = state.toolboxQuery.trim().toLowerCase();
@@ -1085,6 +1181,7 @@ function renderBlocksPanel() {
     return `<section class="tool-section ${collapsed ? 'collapsed' : ''}"><header><button class="stencil-toggle" data-toolbox-toggle="${group.id}" aria-expanded="${!collapsed}" title="${escapeHtml(group[L])}">${icon(collapsed ? 'caretRight' : 'caretDown', 'icon tiny')}${icon(group.icon)}<span>${escapeHtml(group[L])}</span><span class="count">${list.length}</span></button></header>
       ${collapsed ? '' : `<div class="tool-list block-list ${compact ? 'compact' : ''}">${list.map((type) => `<button class="tool-item block-item" data-block-type="${type}" title="${escapeHtml(`${blockLabel(type, L)} — ${t('blocks.tip')}`)}">${icon(BLOCKS[type].icon)}${compact ? '' : `<span>${escapeHtml(blockLabel(type, L))}</span>`}</button>`).join('')}</div>`}</section>`;
   }).join('');
+  const designs = designsSectionHtml(query, L);
   const s = site();
   const globals = s && !state.showStart ? `<section class="tool-section"><header><span class="stencil-toggle static">${icon('blkNavbar')}<span>${escapeHtml(BLOCK_GROUPS.find((g) => g.id === 'site')[L])}</span></span></header>
     <div class="tool-list block-list ${compact ? 'compact' : ''}"><button class="tool-item" data-command="editHeader" title="${escapeHtml(t('action.editHeader'))}">${icon('blkNavbar')}${compact ? '' : `<span>${escapeHtml(t('action.editHeader'))}</span>`}</button><button class="tool-item" data-command="editFooter" title="${escapeHtml(t('action.editFooter'))}">${icon('blkFooter')}${compact ? '' : `<span>${escapeHtml(t('action.editFooter'))}</span>`}</button></div></section>` : '';
@@ -1096,7 +1193,45 @@ function renderBlocksPanel() {
       <label class="search-box" title="${escapeHtml(t('blocks.searchTip'))}">${icon('search')}<input id="toolbox-search" type="search" value="${escapeHtml(state.toolboxQuery)}" placeholder="${escapeHtml(t('blocks.search'))}" aria-label="${escapeHtml(t('blocks.searchTip'))}" /></label>
       <p class="panel-hint small">${icon('info')}<span>${escapeHtml(t('blocks.hint'))}</span></p>
     </div>
-    <div class="stencils toolbox">${body || `<p class="panel-hint">${escapeHtml(t('blocks.none'))}</p>`}${query ? '' : globals}</div>`;
+    <div class="stencils toolbox">${body || designs ? `${body}` : `<p class="panel-hint">${escapeHtml(t('blocks.none'))}</p>`}${query ? '' : globals}${designs}</div>${designTrialHtml(L)}`;
+}
+
+/** The site designs in the Blocks panel: a card per design (its little page), grouped; a click shows it on the site at once. */
+function designsSectionHtml(query, L) {
+  if (!site() || state.showStart) return '';
+  const current = currentDesignKey();
+  const mine = (state.settings.customDesigns ?? []).map(customAsDesign);
+  const groups = [
+    ['design-mine', 'palette', t('design.mine', { count: mine.length }), mine],
+    ['design-light', 'sun', t('design.light', { count: DESIGNS.filter((x) => !x.dark).length }), DESIGNS.filter((x) => !x.dark)],
+    ['design-dark', 'moon', t('design.dark', { count: DESIGNS.filter((x) => x.dark).length }), DESIGNS.filter((x) => x.dark)],
+  ];
+  const sections = groups.map(([id, glyph, label, list]) => {
+    const shown = query ? list.filter((d) => `${d.ko} ${d.en} ${d.id}`.toLowerCase().includes(query)) : list;
+    if (!shown.length) return '';
+    const collapsed = !query && state.collapsedToolbox.has(id);
+    return `<div class="design-group"><button class="stencil-toggle sub" data-toolbox-toggle="${id}" aria-expanded="${!collapsed}" title="${escapeHtml(label)}">${icon(collapsed ? 'caretRight' : 'caretDown', 'icon tiny')}${icon(glyph)}<span>${escapeHtml(label)}</span></button>
+      ${collapsed ? '' : `<div class="panel-designs" role="radiogroup">${shown.map((d) => designCardHtml(d, { active: d.id === current, name: d[L], mockTitle: t('design.mockTitle'), attrs: `data-panel-design="${escapeHtml(d.id)}"`, cls: 'small' })).join('')}</div>`}</div>`;
+  }).join('');
+  if (!sections) return '';
+  const collapsed = !query && state.collapsedToolbox.has('designs');
+  return `<section class="tool-section designs-section ${collapsed ? 'collapsed' : ''}"><header><button class="stencil-toggle" data-toolbox-toggle="designs" aria-expanded="${!collapsed}" title="${escapeHtml(t('design.panelTitle'))}">${icon(collapsed ? 'caretRight' : 'caretDown', 'icon tiny')}${icon('designPicker')}<span>${escapeHtml(t('design.panelTitle'))}</span><span class="count">${DESIGNS.length + mine.length}</span></button></header>
+    ${collapsed ? '' : `<p class="panel-hint small">${icon('info')}<span>${escapeHtml(t('design.panelHint'))}</span></p>${sections}`}</section>`;
+}
+
+/** Apply / Cancel while a design is being tried: stuck to the bottom of the Blocks panel, always in sight. */
+function designTrialHtml(L) {
+  if (!state.designTrial || !site()) return '';
+  return `<div class="design-trial">${icon('eye')}<span>${escapeHtml(t('design.trying', { name: siteDesignName(site().design, L) }))}</span>
+      <button class="small-button primary" data-design-trial="keep" title="${escapeHtml(t('design.trialKeep'))}">${icon('check')}<span>${escapeHtml(t('design.trialKeep'))}</span></button>
+      <button class="small-button" data-design-trial="cancel" title="${escapeHtml(t('design.trialCancel'))}">${icon('close')}<span>${escapeHtml(t('design.trialCancel'))}</span></button></div>`;
+}
+
+/** A design card in the Blocks panel: tried on the site at once. */
+function pickPanelDesign(id) {
+  const custom = (state.settings.customDesigns ?? []).find((x) => x.id === id);
+  const choice = custom ? { custom } : DESIGN_IDS.includes(id) ? { design: id, reset: true } : null;
+  if (choice) tryDesign(designFromChoice(choice));
 }
 
 // ───────────────────────── right panel (Site tree + editors)
@@ -1128,9 +1263,7 @@ function renderRight() {
   const panel = root.querySelector('#right-panel');
   if (!panel) return;
   if (!state.settings.showRightPanel) {
-    panel.innerHTML = `<div class="panel-rail">
-      <button class="rail-button expand" data-command="rightPanel" title="${escapeHtml(t('panel.expandRight'))}" aria-label="${escapeHtml(t('panel.expandRight'))}">${icon('chevronLeft')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
-      <div class="rail-title">${icon('pagesTree')}<span>${escapeHtml(t('panel.siteShort'))}</span></div></div>`;
+    panel.innerHTML = railHtml('rightPanel', 'chevronLeft', 'pagesTree', t('panel.site'), t('panel.expandRight'));
     return;
   }
   if (!panel.querySelector('#site-tree')) {
@@ -1206,6 +1339,8 @@ function renderStatus() {
   const s = state.settings;
   const notice = state.notice;
   const items = [];
+  const pkg = packageStatusItem();
+  if (pkg) items.push(pkg);
   items.push(`<span class="status-notice ${notice?.kind ?? ''}" title="${escapeHtml(notice?.text ?? t('status.ready'))}">${icon(notice?.kind === 'error' ? 'error' : notice?.kind === 'success' ? 'check' : 'info')}<span>${escapeHtml(notice?.text ?? t('status.ready'))}</span></span>`);
   if (doc && !state.showStart) {
     const stats = S.siteStats(doc.site);
@@ -1219,7 +1354,7 @@ function renderStatus() {
     if (state.editingField) items.push(`<span class="status-item warn" title="${escapeHtml(t('status.editingTip'))}">${icon('textTool')}<span>${escapeHtml(t('status.editing', { field: state.editingField }))}</span></span>`);
     if (state.preview) items.push(`<button class="status-item warn" data-command="previewMode" title="${escapeHtml(commandTip('previewMode'))}">${icon('eye')}<span>${escapeHtml(t('status.preview'))}</span></button>`);
     items.push(`<span class="status-item" title="${escapeHtml(t('status.deviceTip'))}">${icon(`dev${doc.view.device[0].toUpperCase()}${doc.view.device.slice(1)}`)}<span>${escapeHtml(`${t(`device.${doc.view.device}`)} ${DEVICES[doc.view.device]}px`)}</span></span>`);
-    items.push(`<span class="status-item" title="${escapeHtml(t('status.designTip'))}">${icon('designPicker')}<span>${escapeHtml(designById(doc.site.design.id)[lang()])}</span></span>`);
+    items.push(`<span class="status-item" title="${escapeHtml(t('status.designTip'))}">${icon('designPicker')}<span>${escapeHtml(siteDesignName(doc.site.design, lang()))}</span></span>`);
   }
   items.push(`<span class="status-item" title="${escapeHtml(t('status.theme', { name: themeName(s.theme, getLanguage()) }))}">${icon('palette')}<span>${escapeHtml(themeName(s.theme, getLanguage()))}</span></span>`);
   items.push(`<span class="status-item" title="${escapeHtml(t('status.language'))}">${icon('globe')}<span>${escapeHtml(t('status.language'))}</span></span>`);
@@ -1297,6 +1432,7 @@ async function onStartAction(target) {
   const value = target.dataset.value;
   switch (target.dataset.start) {
     case 'new': return newSiteAsk();
+    case 'code-editor': return openCodeWindow();
     case 'template': return newSiteAsk(value);
     case 'open': return openWithDialog();
     case 'open-recent': return openRecent(value);
@@ -1547,6 +1683,7 @@ function rememberDirectory(dir) {
 
 async function openPath(path, { quiet = false } = {}) {
   const name = baseName(path);
+  if (isCodeFileName(name) && !isSiteFileName(name)) return openCodeWindow({ type: 'open-path', path });
   const existing = findOpenDoc(path);
   if (existing) { if (!quiet) notify('info', t('notice.alreadyOpen', { name })); return existing; }
   if (!(await confirmReplace())) return null;
@@ -1564,6 +1701,7 @@ async function openPath(path, { quiet = false } = {}) {
 }
 
 async function openContent(name, content, handle = null) {
+  if (isCodeFileName(name) && !isSiteFileName(name)) return openCodeWindow({ type: 'open-content', name, content: String(content ?? '') });
   if (!(await confirmReplace())) return null;
   try {
     const template = isTemplateFileName(name);
@@ -1640,6 +1778,7 @@ const safeName = (doc) => fileSafe(doc.path ? stripExtension(baseName(doc.path))
 
 /** Saves the site (.myhome). New sites, templates and samples ask for a file name. */
 async function saveDoc(doc, { saveAs = false } = {}) {
+  endDesignTrial(true);
   if (!doc) return false;
   state.view?.finishEdit?.(true);
   const text = doc.text();
@@ -1728,6 +1867,31 @@ async function openPublish() {
   await publishSite(result.format, { extract: result.extract !== false });
 }
 
+/**
+ * Boards that keep their posts in a database get the board server next to the site (server/). With SQLite3
+ * (desktop) the database file goes with it, so the published boards start with the posts saved from here.
+ */
+async function boardServerExtras(siteValue) {
+  const settings = loadSettings(globalThis.localStorage);
+  const config = dbConfig(settings, '');
+  const files = boardServerFiles(siteValue, config);
+  if (!files.length || config.kind !== 'sqlite' || !desktop) return files;
+  try {
+    const file = config.file || (await native.dbDefaultFile());
+    const [exists] = await native.pathsExist([file]);
+    if (exists) {
+      const base64 = await native.readBase64File(file, `op-${S.newId()}`);
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      files.push({ path: 'server/board.db', data: bytes });
+    }
+  } catch (error) {
+    notify('error', `${t('error.db')}: ${native.errorText(error)}`);
+  }
+  return files;
+}
+
 async function publishSite(format, { extract = state.settings.publishExtractImages } = {}) {
   const doc = activeDoc();
   if (!doc) return;
@@ -1739,7 +1903,7 @@ async function publishSite(format, { extract = state.settings.publishExtractImag
       await saveExport(`${page.slug === 'index' ? name : `${name}-${page.slug}`}.html`, 'html', singlePageHtml(doc.site, page));
       return;
     }
-    const files = siteFiles(doc.site, { extractImages: extract });
+    const files = [...siteFiles(doc.site, { extractImages: extract }), ...(await boardServerExtras(doc.site))];
     if (format === 'zip') {
       const archive = zip(files.map((file) => ({ name: `${name}/${file.path}`, data: file.data })));
       await saveExport(`${name}.zip`, 'zip', archive);
@@ -1758,6 +1922,228 @@ async function publishSite(format, { extract = state.settings.publishExtractImag
   } catch (error) {
     showError('error.publish', error, name);
   }
+}
+
+// ───────────────────────── the code editor window
+
+/** Opens the code editor (desktop: its own window; web: a tab), with a request for it (a file, the site's code …). */
+async function openCodeWindow(request = null) {
+  popups.hideMenu();
+  publishSiteCode();
+  if (request && !pushQueue(CODE_INBOX_KEY, request)) { notify('error', t('code.tooLarge')); return null; }
+  const url = `${location.pathname}?viewer=code&lang=${getLanguage() === 'en' ? 'en' : 'ko'}`;
+  if (!desktop) {
+    globalThis.open(url, 'myhomemaker-code')?.focus?.();
+    return null;
+  }
+  const dark = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark;
+  try {
+    await native.invoke('open_doc_window', { kind: 'code', title: `${t('code.title')} — MyHomeMaker`, width: 1280, height: 820, dark });
+  } catch (error) {
+    showError('error.docWindow', error);
+  }
+  return null;
+}
+
+/** Tools › Open code file…: the files go to the code editor. */
+async function openCodeFiles() {
+  try {
+    if (desktop) {
+      const paths = await native.chooseFiles(state.settings.lastDirectory, [{ name: 'HTML, CSS, JavaScript', extensions: ['html', 'htm', 'css', 'js', 'mjs', 'json', 'txt', 'md'] }], true);
+      if (paths.length) for (const path of paths) await openCodeWindow({ type: 'open-path', path });
+    } else {
+      await openCodeWindow();
+    }
+  } catch (error) {
+    showError('error.open', error);
+  }
+}
+
+/** The current page as an HTML file in the code editor (its own copy: the site does not change). */
+function openPageAsCode() {
+  const doc = activeDoc();
+  if (!doc) return null;
+  state.view?.finishEdit?.(true);
+  return openCodeWindow({ type: 'open-content', name: pageFile(doc.page), content: singlePageHtml(doc.site, doc.page) });
+}
+
+/** The open site's code for the code editor window (written only when it changed). */
+function publishSiteCode() {
+  const doc = activeDoc();
+  const value = doc ? JSON.stringify({ siteId: doc.site.id, name: doc.site.meta?.title || doc.site.name, code: doc.site.code ?? { css: '', js: '', head: '' } }) : 'null';
+  if (publishSiteCode.last === value) return;
+  publishSiteCode.last = value;
+  try { globalThis.localStorage?.setItem(CODE_SITE_KEY, value); } catch { /* the code editor keeps what it has */ }
+}
+
+/** Messages from the code editor: the site's code typed there, Packages. */
+function readCodeOutbox() {
+  for (const message of drainQueue(CODE_OUTBOX_KEY)) {
+    if (message.type === 'site-code') {
+      const doc = activeDoc();
+      if (!doc || doc.site.id !== message.siteId || !['css', 'js', 'head'].includes(message.field)) continue;
+      if ((doc.site.code?.[message.field] ?? '') === message.value) continue;
+      change(`code.op.${message.field}`, (s) => { s.code = { css: '', js: '', head: '', ...(s.code ?? {}) }; s.code[message.field] = String(message.value ?? ''); });
+    } else if (message.type === 'open-packages') {
+      popups.open('packages', {});
+    } else if (message.type === 'install-packages') {
+      installPackages(message.ids ?? []);
+    }
+  }
+}
+
+// ───────────────────────── bulletin boards in a database (Settings › Database; desktop)
+
+let dbSessionPassword = '';
+
+/** The connection when the settings are complete; otherwise Settings › Database opens and null comes back. */
+async function dbReady() {
+  if (!desktop) { notify('info', t('db.desktopOnly')); return null; }
+  const settings = loadSettings(globalThis.localStorage);
+  const problems = dbProblems(settings);
+  if (problems.length) {
+    notify('info', `${t('notice.dbSetup')} (${problems.map((code) => t(code)).join(' · ')})`);
+    popups.open('settings', { tab: 'database' });
+    return null;
+  }
+  const defaultFile = await native.dbDefaultFile().catch(() => '');
+  return { config: dbConfig(settings, dbSessionPassword), where: dbDescribe(settings, defaultFile) };
+}
+
+async function testDatabase(password, kind) {
+  const settings = loadSettings(globalThis.localStorage);
+  const problems = dbProblems(settings);
+  if (problems.length) return popups.post(kind, { type: 'db-result', ok: false, text: problems.map((code) => t(code)).join(' · ') });
+  try {
+    const version = await native.dbTest(dbConfig(settings, password || dbSessionPassword));
+    if (password && !settings.dbSavePassword) dbSessionPassword = password;
+    return popups.post(kind, { type: 'db-result', ok: true, text: t('db.testOk', { version }) });
+  } catch (error) {
+    return popups.post(kind, { type: 'db-result', ok: false, text: native.errorText(error) });
+  }
+}
+
+async function chooseDatabaseFile() {
+  const settings = loadSettings(globalThis.localStorage);
+  const fallback = settings.dbFile || (state.settings.lastDirectory ? `${state.settings.lastDirectory}/myhomemaker.db` : 'myhomemaker.db');
+  const file = await native.chooseDatabaseFile(fallback);
+  if (file) updateSettings({ dbFile: file });
+}
+
+/** The posts of a board block as the database keeps them (and back). */
+const postsToRows = (block) => (block.props.items ?? []).map((it) => ({ id: String(it.id ?? ''), title: String(it.title ?? ''), category: String(it.category ?? ''), author: String(it.author ?? ''), date: String(it.date ?? ''), views: Math.max(0, Math.round(Number(it.views) || 0)), notice: Boolean(it.notice), body: String(it.body ?? '') }));
+const rowsToPosts = (rows) => rows.map((r) => ({ id: r.id, title: r.title, category: r.category, author: r.author, date: r.date, views: Number(r.views) || 0, notice: Boolean(r.notice), body: r.body }));
+
+/** Content tab › Board › Load from database: the board's posts become the ones in the database (one undo step). */
+async function boardFromDatabase() {
+  const block = selectedBlock();
+  if (block?.type !== 'board') return;
+  const db = await dbReady();
+  if (!db) return;
+  try {
+    const rows = await withProgress('progress.dbLoad', db.where, () => native.dbBoardLoad(db.config, block.id));
+    if (!rows.length) { notify('info', t('notice.dbBoardEmpty', { where: db.where })); return; }
+    change('op.edit', (s) => { const found = S.findBlock(s, block.id); if (found) found.block.props.items = rowsToPosts(rows); });
+    notify('success', t('notice.dbBoardLoaded', { count: rows.length, where: db.where }));
+  } catch (error) {
+    showError('error.db', error, db.where);
+  }
+}
+
+/** Content tab › Board › Save to database: the database's posts of this board become the board's. */
+async function boardToDatabase() {
+  const block = selectedBlock();
+  if (block?.type !== 'board') return;
+  const db = await dbReady();
+  if (!db) return;
+  const choice = await ask({ icon: 'dbSave', title: t('action.boardDbSave'), message: t('confirm.dbBoardSave', { count: (block.props.items ?? []).length, where: db.where }), buttons: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'save', label: t('action.boardDbSave'), icon: 'dbSave', primary: true }] });
+  if (choice !== 'save') return;
+  try {
+    const count = await withProgress('progress.dbSave', db.where, () => native.dbBoardSave(db.config, block.id, postsToRows(block)));
+    notify('success', t('notice.dbBoardSaved', { count, where: db.where }));
+  } catch (error) {
+    showError('error.db', error, db.where);
+  }
+}
+
+// ───────────────────────── packages
+
+/** Downloads in the main window; the popups show the progress from localStorage and ask through actions. */
+const packages = new PackageManager({ onChange: () => renderStatus() });
+state.packageFailed = [];
+
+/**
+ * Downloads packages (ids), with the progress in the status bar. A failure says so and leaves "Retry" in the
+ * status bar and in Settings › Packages; a cancel just stops.
+ */
+async function installPackages(ids, { quiet = false } = {}) {
+  const list = ids.filter((id) => packageById(id));
+  if (!list.length) return null;
+  state.packageFailed = state.packageFailed.filter((id) => !list.includes(id));
+  if (!quiet) notify('info', t('packages.started', { names: list.map((id) => packageById(id).name).join(', ') }));
+  const outcome = await packages.install(list);
+  if (outcome.failed.length) {
+    state.packageFailed = [...new Set([...state.packageFailed, ...outcome.failed])];
+    const id = outcome.failed[0];
+    notify('error', t('packages.failedNotice', { name: packageById(id).name, error: packageView(id).error ?? '' }));
+  } else if (outcome.cancelled) {
+    notify('info', t('packages.cancelledNotice'));
+  } else if (outcome.ok.length) {
+    notify('success', t('packages.doneNotice', { names: outcome.ok.map((x) => packageById(x).name).join(', ') }));
+  }
+  renderStatus();
+  return outcome;
+}
+
+/** At start (a few seconds in, not during tests): the missing packages, when the setting allows it. */
+async function autoDownloadPackages() {
+  if (globalThis.__MYHOMEMAKER_NO_WELCOME || new URLSearchParams(location.search).has('nowelcome') || new URLSearchParams(location.search).has('nopackages')) return;
+  await refreshInstalled().catch(() => null);
+  if (!state.settings.autoDownloadPackages || packages.busy) return;
+  const missing = await missingPackages().catch(() => []);
+  if (missing.length) installPackages(missing, { quiet: true });
+}
+
+/** The status bar while a package downloads (percent, Stop) or after one failed (Retry). */
+function packageStatusItem() {
+  const running = packages.running?.id;
+  if (running) {
+    const view = packageView(running);
+    const pct = view.total ? Math.floor((view.received / view.total) * 100) : 0;
+    const name = packageById(running)?.name ?? running;
+    return `<span class="status-item package-status" title="${escapeHtml(t('packages.statusTip'))}"><button class="status-link" data-open-packages title="${escapeHtml(t('packages.statusTip'))}">${icon('importFile')}<span>${escapeHtml(t('packages.downloading', { name, pct }))}</span></button><span class="status-progress" aria-hidden="true"><i style="width:${pct}%"></i></span><button class="status-link danger" data-package-cancel title="${escapeHtml(t('packages.cancel'))}" aria-label="${escapeHtml(t('packages.cancel'))}">${icon('close')}</button></span>`;
+  }
+  if (state.packageFailed.length) {
+    return `<span class="status-item package-status failed" title="${escapeHtml(t('packages.failedTip'))}"><button class="status-link" data-open-packages title="${escapeHtml(t('packages.failedTip'))}">${icon('warning')}<span>${escapeHtml(t('packages.failedShort'))}</span></button><button class="status-link" data-package-retry title="${escapeHtml(t('packages.retry'))}">${icon('refresh')}<span>${escapeHtml(t('packages.retry'))}</span></button></span>`;
+  }
+  return '';
+}
+
+// ───────────────────────── print
+
+/**
+ * File › Print…: the print window lays the site's pages out on paper. The pages (with their pictures, any size) go
+ * through IndexedDB, which every window of the app shares; localStorage would be too small for them.
+ */
+async function openPrint() {
+  const doc = activeDoc();
+  if (!doc) return;
+  state.view?.finishEdit?.(true);
+  const job = {
+    at: Date.now(),
+    title: docName(doc),
+    siteName: doc.site.meta?.title || doc.site.name || '',
+    currentPageId: doc.page?.id ?? null,
+    device: doc.view.device ?? state.settings.defaultDevice,
+    pages: doc.site.pages.map((page) => ({ id: page.id, name: page.name || pageFile(page), file: pageFile(page), html: singlePageHtml(doc.site, page) })),
+  };
+  try {
+    await idbSet(PRINT_JOB_KEY, job);
+  } catch (error) {
+    showError('error.print', error);
+    return;
+  }
+  popups.open('print', { at: job.at });
 }
 
 /** Preview in the browser: the whole site in a temporary folder (desktop), or the page in a new tab (web). */
@@ -1958,7 +2344,7 @@ function contextMenu(event, kind, payload = {}) {
     else items.push(...menuItems(['toggleHidden']));
     return showMenu(items, anchor, 'context', { handlers, header: { icon: BLOCKS[found.block.type].icon, title: blockTitle(found.block) } });
   }
-  if (kind === 'canvas') return showMenu(menuItems(['addBlock', 'paste', '-', 'device:desktop', 'device:tablet', 'device:mobile', 'zoomFit', '-', 'previewMode', 'previewBrowser', '-', 'designPicker', 'pageProps']), anchor, 'context', { header: { icon: 'pageItem', title: currentPage()?.name ?? '' } });
+  if (kind === 'canvas') return showMenu(menuItems(['addBlock', 'paste', '-', 'device:desktop', 'device:tablet', 'device:mobile', 'zoomFit', '-', 'previewMode', 'previewBrowser', 'print', '-', 'designPicker', 'pageProps']), anchor, 'context', { header: { icon: 'pageItem', title: currentPage()?.name ?? '' } });
   if (kind === 'page') {
     const page = S.pageById(site(), payload.id);
     return showMenu(menuItems(['renamePage', 'duplicatePage', 'deletePage', '-', 'pageLeft', 'pageRight', '-', 'pageProps', 'addPage']), anchor, 'context', { header: { icon: 'pageItem', title: page?.name ?? '' } });
@@ -2035,6 +2421,7 @@ async function handleDroppedPaths(paths) {
     const name = baseName(path);
     try {
       if (isSiteFileName(name)) await openPath(path);
+      else if (isCodeFileName(name)) await openCodeWindow({ type: 'open-path', path });
       else if (isImageFileName(name) && hasBlock()) await dropPictureOnSelection(path);
       else if (isImageFileName(name)) await setBackgroundFromPath(path);
       else notify('error', t('notice.unsupportedDrop', { name }));
@@ -2058,6 +2445,7 @@ async function handleDroppedFiles(files) {
   for (const file of files) {
     try {
       if (isSiteFileName(file.name)) await openContent(file.name, await file.text());
+      else if (isCodeFileName(file.name)) await openCodeWindow({ type: 'open-content', name: file.name, content: await file.text() });
       else if ((isImageFileName(file.name) || file.type.startsWith('image/')) && hasBlock()) await dropPictureOnSelection(file);
       else if (isImageFileName(file.name) || file.type.startsWith('image/')) await setBackgroundFromFile(file);
       else notify('error', t('notice.unsupportedDrop', { name: file.name }));
@@ -2150,6 +2538,9 @@ function bindEvents() {
     }
     if (target.closest('[data-home]')) return showStartPage(!state.showStart || !activeDoc());
     if (target.closest('[data-problems-open]')) return problems.show();
+    if (target.closest('[data-open-packages]')) return popups.open('packages', {});
+    if (target.closest('[data-package-cancel]')) return packages.cancel();
+    if (target.closest('[data-package-retry]')) return installPackages(state.packageFailed);
     const start = target.closest('[data-start]');
     if (start && !start.disabled) return onStartAction(start);
     const command = target.closest('[data-command]');
@@ -2162,6 +2553,10 @@ function bindEvents() {
     if (blockItem) { if (!hasDoc()) return notify('info', t('blocks.noSite')); return insertBlock(blockItem.dataset.blockType); }
     const blockActionButton = target.closest('[data-block-action]');
     if (blockActionButton) return blockAction(blockActionButton.dataset.blockAction, blockActionButton);
+    const panelDesign = target.closest('[data-panel-design]');
+    if (panelDesign) return pickPanelDesign(panelDesign.dataset.panelDesign);
+    const trialButton = target.closest('[data-design-trial]');
+    if (trialButton) return endDesignTrial(trialButton.dataset.designTrial === 'keep');
     const tbToggle = target.closest('[data-toolbox-toggle]');
     if (tbToggle) { const id = tbToggle.dataset.toolboxToggle; if (state.collapsedToolbox.has(id)) state.collapsedToolbox.delete(id); else state.collapsedToolbox.add(id); return renderBlocksPanel(); }
     if (target.closest('[data-toolbox-compact]')) { updateSettings({ toolboxCompact: !state.settings.toolboxCompact }, { quiet: true }); return renderBlocksPanel(); }
@@ -2402,7 +2797,7 @@ function setUiZoom(value) {
 
 /** Ctrl+key shortcuts: [key, shift, command]. */
 const SHORTCUTS = [
-  ['n', false, 'new'], ['o', false, 'open'], ['s', false, 'save'], ['s', true, 'saveAs'], ['w', false, 'closeSite'], ['r', false, 'recent'],
+  ['n', false, 'new'], ['o', false, 'open'], ['s', false, 'save'], ['s', true, 'saveAs'], ['p', false, 'print'], ['w', false, 'closeSite'], ['r', false, 'recent'],
   ['z', false, 'undo'], ['y', false, 'redo'], ['z', true, 'redo'], ['x', false, 'cut'], ['c', false, 'copy'], ['v', false, 'paste'], ['d', false, 'duplicate'],
   ['arrowup', false, 'moveUp'], ['arrowdown', false, 'moveDown'], ['h', false, 'toggleHidden'], ['a', true, 'addBlock'], ['n', true, 'addPage'],
   ['=', false, 'zoomIn'], ['+', false, 'zoomIn'], ['-', false, 'zoomOut'], ['0', false, 'zoomReset'], ['w', true, 'zoomFit'], ['e', false, 'previewMode'],
@@ -2452,6 +2847,14 @@ function bindPopupActions() {
   popups.on('open-recent', (data) => openRecent(data.path));
   popups.on('open-folder', (data) => openWithDialog(data.path));
   popups.on('notice', (data) => notify(data.kind ?? 'info', data.text));
+  popups.on('printed', () => notify('success', t('notice.printed')));
+  popups.on('design-preview', (data) => tryDesign(designFromChoice(data)));
+  popups.on('db-password', (data) => { dbSessionPassword = String(data.password ?? ''); });
+  popups.on('db-test', (data, kind) => testDatabase(String(data.password ?? ''), kind));
+  popups.on('db-browse', () => chooseDatabaseFile());
+  popups.on('package-install', (data) => installPackages(data.ids ?? [], { quiet: false }));
+  popups.on('package-cancel', () => packages.cancel());
+  popups.on('package-remove', (data) => packages.remove(data.id));
   popups.on('open-settings', (data) => popups.open('settings', { tab: data.tab ?? 'general', themeGroup: data.themeGroup }));
   popups.on('start-tutorial', () => startTutorial());
   popups.on('show-start', () => showStartPage(true));
@@ -2580,7 +2983,15 @@ async function start() {
     await appWindow.setFocus();
     setTimeout(() => popups.prewarm('menu'), 400);
   }
-  if (state.settings.showWelcome && !globalThis.__MYHOMEMAKER_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome')) setTimeout(openWelcome, 600);
+  setTimeout(() => { autoDownloadPackages(); }, 4000);
+  window.addEventListener('storage', (event) => { if (event.key === CODE_OUTBOX_KEY) readCodeOutbox(); });
+  readCodeOutbox();
+  publishSiteCode();
+  // The welcome popup (start the tutorial, open a sample) at start, on the start page only: not over a restored site.
+  const onStartPage = () => state.showStart || !activeDoc();
+  if (state.settings.showWelcome && onStartPage() && !globalThis.__MYHOMEMAKER_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome')) {
+    setTimeout(() => { if (onStartPage() && !tutorial?.state().active) openWelcome(); }, 600);
+  }
 }
 
 /** The welcome popup (at start, and Help › Welcome): tutorial, sample, or later. */
@@ -2600,6 +3011,10 @@ window.__myhomemaker = {
   t,
   commands,
   popups,
+  packages,
+  installPackages,
+  openCodeWindow,
+  readCodeOutbox,
   run,
   menus: { MENUS, SUBMENUS, enabled: (id) => commandEnabled(id) },
   api: appApi,

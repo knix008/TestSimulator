@@ -48,7 +48,10 @@ for (const sample of SAMPLES) {
       const site = buildSample(sample.id, L);
       assert.equal(site.meta.title, sample[L][0]);
       assert.equal(site.design.id, sample.design);
-      assert.ok(site.pages.length === 3, 'three pages');
+      assert.ok(site.pages.length >= 3 && site.pages.length <= 5, 'three to five pages');
+      assert.equal(site.pages[0].slug, 'index');
+      assert.equal(site.pages.at(-1).slug, 'contact');
+      if (sample.board) assert.ok(site.pages.some((p) => p.slug === 'board' && p.blocks.some((b) => b.type === 'board' && b.props.items.length >= 4)), 'a board page');
       const files = siteFiles(site);
       for (const file of files.filter((f) => f.path.endsWith('.html'))) {
         for (const [, href] of file.data.matchAll(/href="([a-z0-9-]+\.html)"/g)) assert.ok(files.some((f) => f.path === href), `${file.path} links to missing ${href}`);
@@ -67,3 +70,19 @@ for (const kind of ART_KINDS) {
     assert.equal(decodeDataUrl(art(kind, '#2266aa', '#ee8800', 9)).data, svg, 'the data URL decodes back');
   });
 }
+
+test('samples are built in different ways: eight home arrangements, five samples each, many page sets', async () => {
+  const { RECIPES } = await import('../../src/domain/samples.js');
+  const ids = Object.values(RECIPES).flat();
+  assert.equal(new Set(ids).size, SAMPLES.length, 'every sample has exactly one arrangement');
+  for (const [name, list] of Object.entries(RECIPES)) assert.equal(list.length, 5, name);
+  const homes = new Set();
+  const sets = new Set();
+  for (const sample of SAMPLES) {
+    const site = buildSample(sample.id, 'ko');
+    homes.add(site.pages[0].blocks.map((b) => b.type).join('+'));
+    sets.add(site.pages.map((p) => p.slug).join(','));
+  }
+  assert.ok(homes.size >= 8, `home pages: ${homes.size}`);
+  assert.ok(sets.size >= 6, `page sets: ${sets.size}`);
+});

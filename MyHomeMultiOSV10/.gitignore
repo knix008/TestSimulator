@@ -4,6 +4,7 @@ node_modules/
 # Build output
 dist/
 src-tauri/target/
+src-tauri/target-test/
 src-tauri/gen/
 
 # Installers and the web package (npm run build:win / build:mac / build:linux / build:webapp / build:all)

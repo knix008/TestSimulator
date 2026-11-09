@@ -336,6 +336,94 @@ add('faq', 'content', 'blkFaq', '자주 묻는 질문', 'FAQ', {
   render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<div class="hm-faq">${items(p).map((it, i) => `<details${ctx.editor || i === 0 ? ' open' : ''}><summary${E(ctx, `items.${i}.q`)}>${esc(it.q)}</summary><p${E(ctx, `items.${i}.a`)}>${nl(it.a)}</p></details>`).join('')}</div>` }),
 });
 
+// ── bulletin board: a list of posts (notices first), each post's page, categories, search, pages, and a form to write
+
+/** The categories of a board ("공지, 자유, 질문" → ['공지', '자유', '질문']). */
+export const boardCategories = (p) => String(p?.categories ?? '').split(/[,，、]/).map((x) => x.trim()).filter(Boolean).slice(0, 12);
+/** The anchor of a post's own page, and of the board's list. */
+const postAnchor = (b, i) => `post-${b.id}-${i}`;
+const boardAnchor = (b) => `board-${b.id}`;
+
+/**
+ * The board's script on the published site: categories, search and pages over the rows. Without it (no
+ * JavaScript, the editor) every row shows and every post still opens by its anchor (CSS :target).
+ */
+const BOARD_SCRIPT = `(function(b){if(!b)return;var per=+b.getAttribute('data-per-page')||10,page=1,cat='',q='',api=b.getAttribute('data-api'),bid=b.getAttribute('data-board')||'';
+var tbody=b.querySelector('tbody'),rows=[].slice.call(b.querySelectorAll('tbody tr[data-post]'));var nav=b.querySelector('.hm-board-pages'),empty=b.querySelector('.hm-board-empty'),search=b.querySelector('.hm-board-search');
+var T=JSON.parse(b.getAttribute('data-text')||'{}');function e(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function draw(){var shown=rows.filter(function(r){return(!cat||r.getAttribute('data-cat')===cat||r.classList.contains('notice'))&&(!q||r.textContent.toLowerCase().indexOf(q)>=0);});var plain=shown.filter(function(r){return!r.classList.contains('notice');});var pages=Math.max(1,Math.ceil(plain.length/per));if(page>pages)page=pages;var on=plain.slice((page-1)*per,page*per);
+rows.forEach(function(r){r.hidden=r.classList.contains('notice')?shown.indexOf(r)<0:on.indexOf(r)<0;});if(empty)empty.hidden=shown.length>0;
+var h='';for(var i=1;i<=pages;i++)h+='<button type="button" data-board-page="'+i+'"'+(i===page?' aria-current="page"':'')+'>'+i+'</button>';nav.innerHTML=pages>1?h:'';
+[].forEach.call(b.querySelectorAll('[data-board-cat]'),function(x){x.setAttribute('aria-pressed',String(x.getAttribute('data-board-cat')===cat));});}
+function load(){if(!api)return;fetch(api+'/posts?board='+encodeURIComponent(bid),{headers:{Accept:'application/json'}}).then(function(r){if(!r.ok)throw r;return r.json();}).then(function(list){var views=!!b.querySelector('th.views');var n=list.filter(function(p){return!p.notice;}).length;
+list=list.slice().reverse().sort(function(x,y){return(y.notice?1:0)-(x.notice?1:0);});tbody.innerHTML=list.map(function(p){var no=p.notice?'<span class="hm-board-badge">'+e(T.notice)+'</span>':String(n--);return'<tr data-post="db" data-id="'+e(p.id)+'" data-cat="'+e(p.category)+'" class="'+(p.notice?'notice':'')+'"><td class="no">'+no+'</td><td class="cat">'+e(p.category)+'</td><td class="subject"><a href="#'+b.id+'-db">'+e(p.title)+'</a></td><td class="author">'+e(p.author)+'</td><td class="date">'+e(p.date)+'</td>'+(views?'<td class="views">'+(+p.views||0)+'</td>':'')+'</tr>';}).join('');
+rows=[].slice.call(tbody.querySelectorAll('tr[data-post]'));b.setAttribute('data-live','1');draw();}).catch(function(){});}
+function open(id){var box=b.querySelector('.hm-post-db');if(!box)return;fetch(api+'/posts/'+encodeURIComponent(id)+'?board='+encodeURIComponent(bid)).then(function(r){if(!r.ok)throw r;return r.json();}).then(function(p){box.innerHTML='<header><span class="hm-board-badge">'+e(p.notice?T.notice:p.category)+'</span><h3>'+e(p.title)+'</h3><p class="hm-post-meta">'+e(p.author)+' · '+e(p.date)+' · '+e(T.views)+' '+(+p.views||0)+'</p></header><div class="hm-post-body">'+e(p.body).replace(/\\n/g,'<br>')+'</div><footer><a class="hm-btn hm-btn-outline" href="#'+b.id+'">'+e(T.back)+'</a></footer>';location.hash=b.id+'-db';}).catch(function(){});}
+b.addEventListener('click',function(ev){var t=ev.target.closest('[data-board-page],[data-board-cat],tr[data-id] a');if(!t)return;if(t.hasAttribute('data-board-page'))page=+t.getAttribute('data-board-page');else if(t.hasAttribute('data-board-cat')){cat=t.getAttribute('data-board-cat');page=1;}else{ev.preventDefault();open(t.closest('tr').getAttribute('data-id'));return;}draw();});
+var form=b.querySelector('.hm-board-write');if(api&&form)form.addEventListener('submit',function(ev){ev.preventDefault();var d={board:bid};[].forEach.call(form.elements,function(x){if(x.name)d[x.name]=x.value;});var note=form.querySelector('.hm-board-note');
+fetch(api+'/posts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(function(r){if(!r.ok)throw r;form.reset();if(note)note.textContent=T.sent;load();location.hash=b.id;}).catch(function(){if(note)note.textContent=T.failed;});});
+if(search)search.addEventListener('input',function(){q=search.value.trim().toLowerCase();page=1;draw();});draw();load();})(document.currentScript&&document.currentScript.closest('.hm-board'));`;
+
+add('board', 'content', 'blkBoard', '게시판', 'Bulletin board', {
+  style: { padTop: 64, padBottom: 64 },
+  defaults: (L) => ({
+    title: tx(L, '게시판', 'Board'), subtitle: tx(L, '소식과 질문을 나누는 곳입니다.', 'News and questions, shared.'),
+    categories: tx(L, '공지, 자유, 질문', 'Notice, General, Question'), perPage: 10, search: true, views: true,
+    storage: 'site', api: '/api/board', write: true, writeLabel: tx(L, '글쓰기', 'Write'), endpoint: '', email: 'hello@example.com',
+    items: [
+      [tx(L, '게시판 이용 안내', 'How to use the board'), tx(L, '공지', 'Notice'), tx(L, '관리자', 'Admin'), '2026-11-01', 128, true, tx(L, '서로 존중하는 글을 남겨 주세요.\n광고와 비방 글은 알리지 않고 지웁니다.', 'Please be kind to each other.\nAds and abuse are removed without notice.')],
+      [tx(L, '새 홈페이지를 열었습니다', 'Our new website is open'), tx(L, '공지', 'Notice'), tx(L, '관리자', 'Admin'), '2026-11-05', 96, false, tx(L, '새 홈페이지에서 소식과 자료를 더 쉽게 찾을 수 있습니다.', 'News and files are easier to find on the new website.')],
+      [tx(L, '주말에도 문의할 수 있나요?', 'Can I ask at the weekend?'), tx(L, '질문', 'Question'), tx(L, '김하늘', 'Emma'), '2026-11-06', 42, false, tx(L, '토요일에도 답을 받을 수 있는지 궁금합니다.', 'I wonder whether questions are answered on Saturdays.')],
+      [tx(L, '모임 사진을 올립니다', 'Photos from our meetup'), tx(L, '자유', 'General'), tx(L, '이준호', 'Liam'), '2026-11-07', 57, false, tx(L, '함께해 주신 모든 분께 감사드립니다.', 'Thank you all for coming.')],
+      [tx(L, '자료실은 어디에 있나요?', 'Where are the downloads?'), tx(L, '질문', 'Question'), tx(L, '박서연', 'Olivia'), '2026-11-08', 23, false, tx(L, '지난 발표 자료를 받고 싶습니다.', 'I would like the slides of the last talk.')],
+    ].map(([title, category, author, date, views, notice, body]) => ({ title, category, author, date, views, notice, body })),
+  }),
+  fields: [f('title', 'textarea', '제목', 'Title'), f('subtitle', 'textarea', '설명', 'Text'), f('categories', 'text', '분류(쉼표로 나눔)', 'Categories (comma separated)'),
+    f('perPage', 'select', '한 쪽에 보일 글', 'Posts per page', { options: [opt(5, '5개', '5'), opt(10, '10개', '10'), opt(15, '15개', '15'), opt(20, '20개', '20')] }),
+    f('search', 'toggle', '검색 상자', 'Search box'), f('views', 'toggle', '조회 수 보이기', 'Show views'),
+    f('storage', 'select', '글 저장 위치', 'Posts are kept', { options: [opt('site', '사이트 안(정적)', 'In the site (static)'), opt('database', '데이터베이스(게시판 서버)', 'Database (board server)')] }),
+    f('api', 'url', '게시판 서버 주소', 'Board server address'),
+    f('db', 'actions', '데이터베이스', 'Database', { buttons: [{ command: 'boardDbLoad', icon: 'dbOpen', label: 'action.boardDbLoad' }, { command: 'boardDbSave', icon: 'dbSave', label: 'action.boardDbSave' }, { command: 'dbSettings', icon: 'database', label: 'action.dbSettings' }] }),
+    f('write', 'toggle', '글쓰기 버튼', 'Write button'), f('writeLabel', 'text', '글쓰기 버튼 이름', 'Write button label'),
+    f('endpoint', 'url', '글 보낼 주소(비우면 메일)', 'Form endpoint (empty: e-mail)'), f('email', 'text', '받을 이메일', 'E-mail'),
+    f('items', 'items', '글', 'Posts', { item: [f('title', 'text', '제목', 'Title'), f('category', 'text', '분류', 'Category'), f('author', 'text', '글쓴이', 'Author'), f('date', 'text', '날짜', 'Date'),
+      f('views', 'number', '조회 수', 'Views', { min: 0, max: 9999999 }), f('notice', 'toggle', '공지(맨 위에 고정)', 'Notice (pinned)'), f('body', 'md', '내용', 'Text')],
+    add: () => ({ title: '…', category: '', author: '', date: new Date().toISOString().slice(0, 10), views: 0, notice: false, body: '' }) })],
+  render: (b, p, ctx) => {
+    const L = ctx.L;
+    const list = items(p);
+    const cats = boardCategories(p);
+    // Notices first; the others numbered from the newest (last added) down.
+    const order = [...list.keys()].sort((a, c) => Number(Boolean(list[c].notice)) - Number(Boolean(list[a].notice)) || c - a);
+    let number = list.filter((it) => !it.notice).length;
+    const views = p.views !== false;
+    const rows = order.map((i) => {
+      const it = list[i];
+      const no = it.notice ? `<span class="hm-board-badge">${esc(tx(L, '공지', 'Notice'))}</span>` : String(number--);
+      return `<tr data-post="${i}" data-cat="${esc(String(it.category ?? '').trim())}" class="${it.notice ? 'notice' : ''}"><td class="no">${no}</td><td class="cat"${E(ctx, `items.${i}.category`)}>${esc(it.category)}</td><td class="subject"><a href="#${postAnchor(b, i)}"${E(ctx, `items.${i}.title`)}>${esc(it.title)}</a></td><td class="author"${E(ctx, `items.${i}.author`)}>${esc(it.author)}</td><td class="date"${E(ctx, `items.${i}.date`)}>${esc(it.date)}</td>${views ? `<td class="views">${esc(Number(it.views) || 0)}</td>` : ''}</tr>`;
+    }).join('');
+    const tools = `<div class="hm-board-bar">${cats.length ? `<div class="hm-board-cats"><button type="button" data-board-cat="" aria-pressed="true">${esc(tx(L, '전체', 'All'))}</button>${cats.map((c) => `<button type="button" data-board-cat="${esc(c)}" aria-pressed="false">${esc(c)}</button>`).join('')}</div>` : '<span></span>'}
+      <div class="hm-board-tools">${p.search !== false ? `<input type="search" class="hm-board-search" placeholder="${esc(tx(L, '제목·내용 검색', 'Search posts'))}" aria-label="${esc(tx(L, '검색', 'Search'))}" />` : ''}${p.write !== false ? `<a class="hm-btn hm-btn-primary" href="#${boardAnchor(b)}-write"${E(ctx, 'writeLabel')}>${esc(p.writeLabel || tx(L, '글쓰기', 'Write'))}</a>` : ''}</div></div>`;
+    const table = `<table class="hm-board-table"><thead><tr><th class="no">${esc(tx(L, '번호', 'No.'))}</th><th class="cat">${esc(tx(L, '분류', 'Category'))}</th><th class="subject">${esc(tx(L, '제목', 'Title'))}</th><th class="author">${esc(tx(L, '글쓴이', 'Author'))}</th><th class="date">${esc(tx(L, '날짜', 'Date'))}</th>${views ? `<th class="views">${esc(tx(L, '조회', 'Views'))}</th>` : ''}</tr></thead>
+      <tbody>${rows}</tbody></table><p class="hm-board-empty" hidden>${esc(tx(L, '글이 없습니다.', 'No posts.'))}</p><nav class="hm-board-pages" aria-label="${esc(tx(L, '쪽', 'Pages'))}"></nav>`;
+    const back = `<a class="hm-btn hm-btn-outline" href="#${boardAnchor(b)}">${esc(tx(L, '목록으로', 'Back to the list'))}</a>`;
+    const posts = ctx.editor ? '' : list.map((it, i) => `<article class="hm-post hm-card" id="${postAnchor(b, i)}"><header><span class="hm-board-badge">${esc(it.notice ? tx(L, '공지', 'Notice') : it.category)}</span><h3>${esc(it.title)}</h3><p class="hm-post-meta">${esc(it.author)} · ${esc(it.date)}${views ? ` · ${esc(tx(L, '조회', 'Views'))} ${esc(Number(it.views) || 0)}` : ''}</p></header><div class="hm-post-body">${md(it.body)}</div><footer>${back}</footer></article>`).join('');
+    const live = p.storage === 'database';
+    const action = live ? `${safeUrl(p.api || '/api/board')}/posts` : p.endpoint ? safeUrl(p.endpoint) : `mailto:${p.email ?? ''}`;
+    const write = p.write !== false && !ctx.editor ? `<form class="hm-post hm-card hm-form hm-board-write" id="${boardAnchor(b)}-write" method="post" action="${esc(action)}"${p.endpoint || live ? '' : ' enctype="text/plain"'}>
+      <h3>${esc(p.writeLabel || tx(L, '글쓰기', 'Write'))}</h3><p class="hm-post-meta">${esc(tx(L, '보내 주신 글은 확인한 뒤 게시판에 올립니다.', 'Posts are published after they are checked.'))}</p>
+      ${cats.length ? `<label>${esc(tx(L, '분류', 'Category'))}<select name="category">${cats.map((c) => `<option>${esc(c)}</option>`).join('')}</select></label>` : ''}
+      <label>${esc(tx(L, '제목', 'Title'))}<input name="title" required /></label><label>${esc(tx(L, '이름', 'Name'))}<input name="name" required /></label><label>${esc(tx(L, '이메일', 'E-mail'))}<input type="email" name="email" /></label>
+      <label>${esc(tx(L, '내용', 'Text'))}<textarea name="message" rows="6" required></textarea></label>
+      <p class="hm-board-note" aria-live="polite"></p><div class="hm-board-actions"><button class="hm-btn hm-btn-primary" type="submit">${esc(tx(L, '보내기', 'Send'))}</button>${back}</div></form>` : '';
+    const script = ctx.editor ? '' : `<script>${BOARD_SCRIPT}</script>`;
+    const liveBox = live && !ctx.editor ? `<article class="hm-post hm-card hm-post-db" id="${boardAnchor(b)}-db"></article>` : '';
+    const texts = esc(JSON.stringify({ notice: tx(L, '공지', 'Notice'), views: tx(L, '조회', 'Views'), back: tx(L, '목록으로', 'Back to the list'), sent: tx(L, '글을 올렸습니다.', 'Your post is up.'), failed: tx(L, '글을 보내지 못했습니다. 잠시 뒤 다시 해 보세요.', 'The post could not be sent. Please try again later.') }));
+    const liveAttrs = live && !ctx.editor ? ` data-api="${esc(safeUrl(p.api || '/api/board').replace(/\/+$/, ''))}" data-board="${esc(b.id)}"` : '';
+    return { inner: `<div class="hm-board" id="${boardAnchor(b)}" data-per-page="${esc(Number(p.perPage) || 10)}" data-text="${texts}"${liveAttrs}>${head(ctx, p)}${tools}${table}${posts}${liveBox}${write}${script}</div>` };
+  },
+});
+
 // ── showcase
 
 add('gallery', 'showcase', 'blkGallery', '사진첩', 'Gallery', {

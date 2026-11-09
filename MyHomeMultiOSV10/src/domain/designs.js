@@ -25,7 +25,7 @@ const d = (id, ko, en, dark, c, extra = {}) => ({
   ...extra,
 });
 
-/** 36 designs: 24 light, 12 dark. */
+/** 40 designs: 26 light, 14 dark. */
 export const DESIGNS = [
   d('ocean', '오션', 'Ocean', false, ['#1d6fd8', '#ffffff', '#00b4d8', '#ffffff', '#f2f7fd', '#14243b', '#5b6b80', '#dbe6f3', '#ffffff', '#14243b', '#0f2340', '#dfe9f7']),
   d('forest', '포레스트', 'Forest', false, ['#2f7d4f', '#ffffff', '#a3c13a', '#fbfdf9', '#eef5ec', '#1d2b20', '#5d6e60', '#d6e5d4', '#fbfdf9', '#1d2b20', '#1d3326', '#e3efe2']),
@@ -50,6 +50,8 @@ export const DESIGNS = [
   d('wood', '우드', 'Wood', false, ['#6f4e37', '#ffffff', '#c08552', '#fbf8f4', '#f2eadf', '#2b2018', '#6f6152', '#e2d5c3', '#6f4e37', '#ffffff', '#2b2018', '#efe2cf'], { headingFont: 'serif' }),
   d('fresh', '프레시', 'Fresh', false, ['#2b8a3e', '#ffffff', '#fcc419', '#ffffff', '#ebfbee', '#16301c', '#56705c', '#cdeed4'], { radius: 14 }),
   d('corporate', '코퍼레이트', 'Corporate', false, ['#0b5cad', '#ffffff', '#ff7a00', '#ffffff', '#f3f6fa', '#16202b', '#5a6776', '#dde4ec', '#0b5cad', '#ffffff', '#0a2540', '#dce6f2'], { headingFont: 'modern', bodyFont: 'modern', radius: 6 }),
+  d('sakura', '벚꽃', 'Sakura', false, ['#d9467a', '#ffffff', '#8ccf7e', '#fffafb', '#fdeef3', '#3a1f2a', '#80606c', '#f4d6e1', '#fffafb', '#3a1f2a', '#4a2233', '#fde4ec'], { headingFont: 'rounded', radius: 18 }),
+  d('nordic', '노르딕', 'Nordic', false, ['#4c6a85', '#ffffff', '#d08770', '#f7f8f6', '#eceff1', '#2e3440', '#68707c', '#d8dee4', '#f7f8f6', '#2e3440', '#2e3440', '#e5e9f0'], { headingFont: 'modern', bodyFont: 'modern', radius: 8 }),
   d('wedding', '웨딩', 'Wedding', false, ['#b08968', '#ffffff', '#ddb892', '#fffdf9', '#f8f1e8', '#3d2f24', '#7f6c5d', '#ecdfd0'], { headingFont: 'elegant', bodyFont: 'serif', radius: 30 }),
   d('midnight', '미드나잇', 'Midnight', true, ['#5c7cfa', '#ffffff', '#22b8cf', '#0d1324', '#161f38', '#e6ebff', '#94a0c4', '#26314f', '#0d1324', '#e6ebff', '#070b16', '#aab4d6']),
   d('carbon', '카본', 'Carbon', true, ['#f2f2f2', '#111111', '#ff6b6b', '#121212', '#1e1e1e', '#f2f2f2', '#9a9a9a', '#2e2e2e', '#121212', '#f2f2f2', '#0a0a0a', '#9a9a9a'], { headingFont: 'modern', bodyFont: 'modern', radius: 4 }),
@@ -62,6 +64,8 @@ export const DESIGNS = [
   d('forestnight', '밤의 숲', 'Night Forest', true, ['#69db7c', '#0b1f10', '#ffd43b', '#0e1a12', '#16271b', '#e6f7ea', '#93ad99', '#24402c']),
   d('galaxy', '갤럭시', 'Galaxy', true, ['#b197fc', '#160c33', '#f783ac', '#0f0b1f', '#1b1536', '#efeaff', '#a49ac4', '#2e2556'], { radius: 16 }),
   d('coffee', '커피', 'Coffee', true, ['#d4a373', '#20140a', '#e9c46a', '#1b1410', '#2a201a', '#f6ece2', '#b5a493', '#3e3128'], { headingFont: 'serif' }),
+  d('cyberpunk', '사이버펑크', 'Cyberpunk', true, ['#fcee0a', '#141400', '#00f0ff', '#0d0221', '#1a0b3b', '#f6f2ff', '#a99bc9', '#2e1a5e', '#0d0221', '#fcee0a', '#06010f', '#a99bc9'], { headingFont: 'modern', bodyFont: 'modern', radius: 0 }),
+  d('navy', '네이비', 'Navy', true, ['#e0b354', '#1c1404', '#7fb3ff', '#0c1830', '#132447', '#eef3ff', '#9fb0d1', '#22365f', '#0c1830', '#eef3ff', '#071021', '#9fb0d1'], { headingFont: 'serif', radius: 6 }),
   d('terminal', '터미널', 'Terminal', true, ['#39ff14', '#031000', '#00e5ff', '#050805', '#0d140d', '#d8ffd0', '#7fa878', '#1c2b1c'], { headingFont: 'mono', bodyFont: 'mono', radius: 0 }),
 ];
 export const DESIGN_IDS = DESIGNS.map((x) => x.id);
@@ -92,3 +96,52 @@ export function effectiveDesign(design = {}) {
 
 /** Five colours that show a design in a picker. */
 export const designSwatch = (design) => [design.bg, design.primary, design.accent, design.text, design.surface];
+
+// ───────────────────────── the user's own designs ("my themes")
+
+/** At most this many designs of the user's own. */
+export const CUSTOM_DESIGNS_MAX = 60;
+export const CUSTOM_PREFIX = 'my-';
+export const isCustomDesignId = (id) => typeof id === 'string' && /^my-[a-z0-9-]{1,40}$/i.test(id);
+
+/** A design of the user's own, as kept in the settings: { id, name, base, values } with every value valid. */
+export function normalizeCustomDesign(raw) {
+  if (!raw || typeof raw !== 'object' || !isCustomDesignId(raw.id)) return null;
+  const base = DESIGN_IDS.includes(raw.base) ? raw.base : 'ocean';
+  const name = String(raw.name ?? '').trim().slice(0, 40);
+  if (!name) return null;
+  const full = effectiveDesign({ id: base, overrides: raw.values ?? {} });
+  const values = Object.fromEntries(DESIGN_KEYS.map((key) => [key, full[key]]));
+  return { id: raw.id, name, base, dark: Boolean(raw.dark), values };
+}
+
+export function normalizeCustomDesigns(list) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(list) ? list : []) {
+    const item = normalizeCustomDesign(raw);
+    if (!item || seen.has(item.id)) continue;
+    seen.add(item.id);
+    out.push(item);
+    if (out.length >= CUSTOM_DESIGNS_MAX) break;
+  }
+  return out;
+}
+
+/** A new id for a design of the user's own. */
+export const newCustomDesignId = () => `${CUSTOM_PREFIX}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+/** A design of the user's own drawn like a preset (for the pickers): every value, its name in both languages. */
+export const customAsDesign = (custom) => ({ ...custom.values, id: custom.id, ko: custom.name, en: custom.name, dark: custom.dark, custom: true });
+
+/** What a site keeps when a design of the user's own is applied: the base preset, every value as an override, the name. */
+export const siteDesignFromCustom = (custom) => ({ id: custom.base, overrides: { ...custom.values }, name: custom.name });
+
+/** A design of the user's own made from a site's design as it is now (the base preset and its changes). */
+export function customFromSiteDesign(design, name) {
+  const full = effectiveDesign(design);
+  return normalizeCustomDesign({ id: newCustomDesignId(), name, base: design?.id, dark: designById(design?.id).dark, values: Object.fromEntries(DESIGN_KEYS.map((key) => [key, full[key]])) });
+}
+
+/** The name a site's design shows: its own name (a design of the user's own) or the preset's. */
+export const siteDesignName = (design, L = 'ko') => (design?.name ? design.name : designById(design?.id)[L === 'en' ? 'en' : 'ko']);

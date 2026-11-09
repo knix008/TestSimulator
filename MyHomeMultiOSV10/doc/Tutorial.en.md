@@ -50,7 +50,7 @@ It follows how sites are made today: one bold message on the first screen, featu
 
 ### 3. A new site
 
-New (Ctrl+N) starts from an empty site, one of 12 templates or one of 36 samples. Give it a name, choose a design and press Create. Here we start an empty site called “FlowNote”.
+New (Ctrl+N) starts from an empty site, one of 12 templates or one of 40 samples. Give it a name, choose a design and press Create. Here we start an empty site called “FlowNote”.
 
 ![A new site](images/en/tutorial/03-newSite.png)
 
@@ -275,4 +275,4 @@ From an empty site to a four-page, up-to-date homepage — checked and published
 ## Learn more
 
 - Every feature is described in the [User's guide](UsersGuide.en.md).
-- Open one of the 36 samples (File › Open sample) to see how they are made.
+- Open one of the 40 samples (File › Open sample) to see how they are made.

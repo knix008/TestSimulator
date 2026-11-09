@@ -2,6 +2,8 @@ pub mod files;
 pub mod fonts;
 pub mod i18n;
 pub mod instance;
+pub mod printing;
+pub mod db;
 pub mod window_state;
 
 use serde::Serialize;
@@ -15,7 +17,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 
 /// Popup windows. Each is an OS window of its own (label `popup-<kind>`), owned
 /// by the main window: it can sit outside the main window and closes with it.
-const POPUP_KINDS: &[&str] = &["settings", "about", "confirm", "error", "progress", "recent", "menu", "theme", "welcome", "prompt", "design", "template", "publish"];
+const POPUP_KINDS: &[&str] = &["settings", "about", "confirm", "error", "progress", "recent", "menu", "theme", "welcome", "prompt", "design", "template", "publish", "print", "packages"];
 
 #[derive(Default)]
 struct Shared {
@@ -266,10 +268,74 @@ async fn open_document(app: AppHandle, name: String) -> Result<PathBuf, String> 
     Ok(shown)
 }
 
+// ───────────────────────── bulletin boards in a database (Settings › Database, db.rs)
+
+/// The SQLite file used when none is chosen: board.db in the app's data folder.
+fn default_db_file(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(data_dir(app)?.join("board.db"))
+}
+
+/// The connection settings with the default SQLite file filled in.
+fn db_config(app: &AppHandle, mut config: db::DbConfig) -> Result<db::DbConfig, String> {
+    if config.dialect()? == db::Dialect::Sqlite && config.file.as_deref().map(str::trim).unwrap_or("").is_empty() {
+        let file = default_db_file(app)?;
+        if let Some(parent) = file.parent() {
+            std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        config.file = Some(file.to_string_lossy().to_string());
+    }
+    Ok(config)
+}
+
+#[tauri::command]
+fn db_default_file(app: AppHandle) -> Result<String, String> {
+    Ok(default_db_file(&app)?.to_string_lossy().to_string())
+}
+
+/// Connects (creating the posts table when it is missing) and answers the server's version.
+#[tauri::command]
+async fn db_test(app: AppHandle, config: db::DbConfig) -> Result<String, String> {
+    db::test(&db_config(&app, config)?).await
+}
+
+#[tauri::command]
+async fn db_board_load(app: AppHandle, config: db::DbConfig, board: String) -> Result<Vec<db::PostRow>, String> {
+    db::load(&db_config(&app, config)?, &board).await
+}
+
+#[tauri::command]
+async fn db_board_save(app: AppHandle, config: db::DbConfig, board: String, posts: Vec<db::PostRow>) -> Result<usize, String> {
+    db::save(&db_config(&app, config)?, &board, &posts).await
+}
+
+/// The OS print dialog for the calling window (the print window).
+#[tauri::command]
+fn print_window(window: WebviewWindow) -> Result<(), String> {
+    window.print().map_err(|error| tr!("인쇄를 시작할 수 없습니다: {error}", "Could not start printing: {error}"))
+}
+
+/// The printers of this computer (none: the print window uses the system dialog).
+#[tauri::command]
+fn list_printers() -> printing::PrinterList {
+    printing::printers()
+}
+
+/// Prints the calling window's sheets straight to a printer, with no dialog.
+#[tauri::command]
+async fn print_direct(window: WebviewWindow, job: printing::PrintJob) -> Result<(), String> {
+    printing::print(&window, job).await
+}
+
+/// The same sheets as a PDF file (the tests check what would be printed, on no paper).
+#[tauri::command]
+async fn print_pages_to_pdf(window: WebviewWindow, job: printing::PrintJob, path: String) -> Result<(), String> {
+    printing::print_to_pdf(&window, job, path).await
+}
+
 /// Document windows (label `doc-<kind>`): the user's guide, the tutorial document and the tutorial video
 /// (src/viewer.js). Each is an ordinary resizable window with the system title bar, not owned by the main
 /// window (it can go behind it and has its own taskbar button); the app ends with the main window anyway.
-const DOC_KINDS: &[&str] = &["guide", "tutorial"];
+const DOC_KINDS: &[&str] = &["guide", "tutorial", "code"];
 
 /// The tutorial video installed with the program (docs/video/), or MYHOMEMAKER_TUTORIAL_VIDEO (tests).
 const TUTORIAL_VIDEO: &str = "video/MyHomeMaker-Tutorial.mp4";
@@ -774,6 +840,14 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            db_test,
+            db_default_file,
+            db_board_load,
+            db_board_save,
+            print_window,
+            list_printers,
+            print_direct,
+            print_pages_to_pdf,
             app_info,
             set_language,
             startup_files,
