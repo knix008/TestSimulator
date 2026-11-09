@@ -6,7 +6,7 @@ import appIcon from '../assets/icon-256.png';
 import { loadRecent, loadRecentDirs, MAX_RECENT, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
   ANIMATIONS, ANIMATION_INTERVALS, BACKGROUND_FITS, BACKGROUND_KINDS, defaultSettings, DEVICE_IDS, FONT_SIZE, FONT_STYLES, FONT_WEIGHTS, loadSettings,
-  normalizeUserWords, RECENT_DIRS_KEY, RECENT_KEY, STORAGE_KEY, storeSettings, USER_WORDS_MAX, ZOOM,
+  DB_KINDS, DB_NAMES, dbPortOf, dbProblems, normalizeUserWords, RECENT_DIRS_KEY, RECENT_KEY, STORAGE_KEY, storeSettings, USER_WORDS_MAX, ZOOM,
 } from './domain/settings.js';
 import { normalizeWord, validUserWord } from './domain/spell.js';
 import { DICT_INFO } from './domain/dict-info.js';
@@ -19,7 +19,8 @@ import {
 } from './themes.js';
 import { bindSteppers, stepperHtml } from './stepper.js';
 import { intervalLabel } from './ui/startpage.js';
-import { DESIGNS, FONTS, designById } from './domain/designs.js';
+import { designCardHtml } from './ui/designcard.js';
+import { customAsDesign, DESIGN_IDS, DESIGN_KEYS, DESIGNS, FONTS, designById, isCustomDesignId, newCustomDesignId, normalizeCustomDesign } from './domain/designs.js';
 import { TEMPLATES } from './domain/templates.js';
 import { SAMPLE_GROUPS, SAMPLES } from './domain/samples.js';
 import { idbGet } from './platform/idb.js';
@@ -251,13 +252,14 @@ const SETTINGS_TABS = [
   ['dictionary', 'dictionary', 'settings.dictionary'],
   ['recent', 'recent', 'settings.recent'],
   ['packages', 'importFile', 'settings.packages'],
+  ['database', 'database', 'settings.database'],
   ['shortcuts', 'keyboard', 'settings.shortcuts'],
 ];
 
 function renderSettings() {
   const body = {
     general: settingsGeneral, start: settingsStart, appearance: settingsAppearance, font: settingsFont, background: settingsBackground,
-    editor: settingsEditor, dictionary: settingsDictionary, recent: settingsRecent, packages: settingsPackages, shortcuts: settingsShortcuts,
+    editor: settingsEditor, dictionary: settingsDictionary, recent: settingsRecent, packages: settingsPackages, database: settingsDatabase, shortcuts: settingsShortcuts,
   }[state.tab]?.() ?? '';
   root.innerHTML = frame({
     glyph: 'gear', title: t('settings.title'), tabs: tabsHtml(SETTINGS_TABS.map(([id, glyph, key]) => [id, glyph, t(key)]), state.tab),
@@ -905,31 +907,134 @@ function renderPrompt() {
 
 // ───────────────────────── site designs: a card per design, a small picture of a page in its colours
 
-function designCard(d, current) {
-  const font = (id) => FONTS[id]?.css ?? FONTS.sans.css;
-  const r = Math.min(d.radius, 14);
-  return `<button class="design-card ${current === d.id ? 'active' : ''}" data-pick-design="${d.id}" title="${escapeHtml(d[L()])}" role="radio" aria-checked="${current === d.id}">
-    <span class="design-mock" style="background:${d.bg};color:${d.text};border-color:${d.border}">
-      <span class="dm-nav" style="background:${d.headerBg};color:${d.headerText}"><b style="font-family:${escapeHtml(font(d.headingFont))}">Aa</b><i style="background:${d.primary};border-radius:${r}px"></i></span>
-      <span class="dm-hero" style="background:${d.primary};color:${d.primaryText}"><b style="font-family:${escapeHtml(font(d.headingFont))}">${escapeHtml(t('design.mockTitle'))}</b><i style="background:${d.primaryText};border-radius:${r}px"></i></span>
-      <span class="dm-cards">${[0, 1, 2].map(() => `<i style="background:${d.surface};border:1px solid ${d.border};border-radius:${r / 2}px"><em style="background:${d.accent}"></em></i>`).join('')}</span>
-      <span class="dm-foot" style="background:${d.footerBg}"></span>
-    </span>
-    <span class="design-name">${escapeHtml(d[L()])}${current === d.id ? icon('check', 'icon check') : ''}</span>
-  </button>`;
+const designCard = (d, current) => designCardHtml(d, { active: current === d.id, name: d[L()], mockTitle: t('design.mockTitle'), attrs: `data-pick-design="${d.id}"` });
+
+/** The designs of the user's own (settings), drawn like the presets. */
+const myDesigns = () => (s().customDesigns ?? []).map(customAsDesign);
+
+/** What the design window answers: a preset (with "keep my changes") or a design of the user's own. */
+function designResult() {
+  const d = state.draft;
+  if (isCustomDesignId(d.current)) {
+    const mine = (s().customDesigns ?? []).find((x) => x.id === d.current);
+    return mine ? { custom: mine } : null;
+  }
+  return { design: d.current, reset: d.reset };
+}
+
+/** The editor of one design of the user's own: name, base, colours, fonts, corners, width and text size, with a preview. */
+const EDIT_COLORS = ['primary', 'primaryText', 'accent', 'bg', 'surface', 'text', 'muted', 'border', 'headerBg', 'headerText', 'footerBg', 'footerText'];
+
+function designEditorHtml(edit) {
+  const font = (key) => `<select data-edit-design="${key}" aria-label="${escapeHtml(t(`design.${key}`))}">${Object.entries(FONTS).map(([id, x]) => `<option value="${id}" ${edit.values[key] === id ? 'selected' : ''}>${escapeHtml(x[L()])}</option>`).join('')}</select>`;
+  const number = (key, min, max, step) => `<input type="number" data-edit-design="${key}" min="${min}" max="${max}" step="${step}" value="${edit.values[key]}" aria-label="${escapeHtml(t(`design.${key}`))}" />`;
+  const color = (key) => `<label class="mine-color" title="${escapeHtml(t(`design.${key}`))}"><input type="color" data-edit-design="${key}" value="${escapeHtml(edit.values[key])}" /><span>${escapeHtml(t(`design.${key}`))}</span></label>`;
+  return `<div class="mine-editor">
+    <div class="mine-form">
+      <label class="mine-row"><span>${escapeHtml(t('design.mineName'))}</span><input type="text" data-edit-design="name" maxlength="40" value="${escapeHtml(edit.name)}" placeholder="${escapeHtml(t('design.mineNamePlaceholder'))}" /></label>
+      <label class="mine-row"><span>${escapeHtml(t('design.mineBase'))}</span><select data-edit-design="base" aria-label="${escapeHtml(t('design.mineBase'))}">${DESIGNS.map((x) => `<option value="${x.id}" data-icon="palette" ${edit.base === x.id ? 'selected' : ''}>${escapeHtml(x[L()])}${x.dark ? ` · ${escapeHtml(t('design.darkTag'))}` : ''}</option>`).join('')}</select></label>
+      <label class="mine-row"><span>${escapeHtml(t('design.mineDark'))}</span><input type="checkbox" data-edit-design="dark" ${edit.dark ? 'checked' : ''} /></label>
+      <div class="mine-colors">${EDIT_COLORS.map(color).join('')}</div>
+      <div class="mine-grid">
+        <label class="mine-row"><span>${escapeHtml(t('design.headingFont'))}</span>${font('headingFont')}</label>
+        <label class="mine-row"><span>${escapeHtml(t('design.bodyFont'))}</span>${font('bodyFont')}</label>
+        <label class="mine-row"><span>${escapeHtml(t('design.radius'))} (px)</span>${number('radius', 0, 40, 1)}</label>
+        <label class="mine-row"><span>${escapeHtml(t('design.width'))} (px)</span>${number('width', 720, 1600, 20)}</label>
+        <label class="mine-row"><span>${escapeHtml(t('design.baseSize'))} (px)</span>${number('baseSize', 13, 22, 1)}</label>
+      </div>
+    </div>
+    <div class="mine-preview" id="mine-preview">${minePreviewHtml(edit)}</div>
+  </div>`;
+}
+
+/** A small page in the design being edited: menu, a hero, cards, a button, text and the footer. */
+function minePreviewHtml(edit) {
+  const v = edit.values;
+  const font = (id) => escapeHtml(FONTS[id]?.css ?? FONTS.sans.css);
+  const r = Math.min(Number(v.radius) || 0, 24);
+  return `<div class="mp-page" style="background:${v.bg};color:${v.text};font-family:${font(v.bodyFont)};border-color:${v.border}">
+    <div class="mp-nav" style="background:${v.headerBg};color:${v.headerText};border-color:${v.border}"><b style="font-family:${font(v.headingFont)}">${escapeHtml(edit.name || t('design.mineNamePlaceholder'))}</b><span>${escapeHtml(t('design.mockMenu'))}</span><i style="background:${v.primary};color:${v.primaryText};border-radius:${r}px">${escapeHtml(t('design.mockButton'))}</i></div>
+    <div class="mp-hero" style="background:${v.primary};color:${v.primaryText}"><b style="font-family:${font(v.headingFont)}">${escapeHtml(t('design.mockTitle'))}</b><span>${escapeHtml(t('design.mockText'))}</span><i style="background:${v.primaryText};color:${v.primary};border-radius:${r}px">${escapeHtml(t('design.mockButton'))}</i></div>
+    <div class="mp-cards">${[0, 1, 2].map((i) => `<div style="background:${v.surface};border:1px solid ${v.border};border-radius:${r}px"><em style="background:${v.accent}"></em><b style="font-family:${font(v.headingFont)}">${escapeHtml(t('design.mockCard', { n: i + 1 }))}</b><small style="color:${v.muted}">${escapeHtml(t('design.mockText'))}</small></div>`).join('')}</div>
+    <div class="mp-foot" style="background:${v.footerBg};color:${v.footerText}">© MyHomeMaker</div>
+  </div>`;
+}
+
+function startEditing(source) {
+  const d = state.draft;
+  d.edit = { id: source?.id && isCustomDesignId(source.id) ? source.id : newCustomDesignId(), name: source?.name ?? '', base: source?.base ?? (DESIGN_IDS.includes(d.current) ? d.current : 'ocean'), dark: Boolean(source?.dark), values: { ...(source?.values ?? {}) } };
+  if (!source?.values) {
+    const base = designById(d.edit.base);
+    d.edit.values = Object.fromEntries(DESIGN_KEYS.map((key) => [key, base[key]]));
+    d.edit.dark = base.dark;
+    d.edit.name = t('design.mineNew', { name: base[L()] });
+  }
+  render();
+  root.querySelector('[data-edit-design="name"]')?.focus();
+}
+
+/** Keeps the edited design in the settings; answers it when asked to apply. */
+function saveEditing(apply) {
+  const d = state.draft;
+  const edit = normalizeCustomDesign({ ...d.edit, name: String(d.edit.name ?? '').trim() || t('design.mineNamePlaceholder') });
+  if (!edit) return undefined;
+  const list = (s().customDesigns ?? []).filter((x) => x.id !== edit.id);
+  const at = (s().customDesigns ?? []).findIndex((x) => x.id === edit.id);
+  list.splice(at < 0 ? list.length : at, 0, edit);
+  d.edit = null;
+  d.current = edit.id;
+  d.group = 'mine';
+  update({ customDesigns: list });
+  return apply ? close({ custom: edit }) : undefined;
+}
+
+function editDesignInput(target) {
+  const d = state.draft;
+  const key = target.dataset.editDesign;
+  if (!d?.edit) return;
+  if (key === 'name') d.edit.name = target.value;
+  else if (key === 'dark') d.edit.dark = target.checked;
+  else if (key === 'base') {
+    // Another base: its values, the name kept when the user typed one.
+    const base = designById(target.value);
+    d.edit.base = base.id;
+    d.edit.values = Object.fromEntries(DESIGN_KEYS.map((k) => [k, base[k]]));
+    d.edit.dark = base.dark;
+    render();
+    return;
+  } else if (['radius', 'width', 'baseSize'].includes(key)) d.edit.values[key] = Number(target.value);
+  else d.edit.values[key] = target.value;
+  const preview = root.querySelector('#mine-preview');
+  if (preview) preview.innerHTML = minePreviewHtml(d.edit);
 }
 
 function renderDesign() {
   const p = P();
-  if (!state.draft) state.draft = { group: DESIGNS.find((d) => d.id === p.current)?.dark ? 'dark' : 'light', current: p.current, reset: true };
+  const mine = myDesigns();
+  if (!state.draft) state.draft = { group: isCustomDesignId(p.current) ? 'mine' : DESIGNS.find((x) => x.id === p.current)?.dark ? 'dark' : 'light', current: p.current, reset: true, edit: null };
   const d = state.draft;
-  const list = DESIGNS.filter((x) => (d.group === 'dark' ? x.dark : !x.dark));
-  root.innerHTML = frame({
-    glyph: 'designPicker', title: t('design.title'),
-    tabs: tabsHtml([['light', 'sun', t('design.light', { count: DESIGNS.filter((x) => !x.dark).length })], ['dark', 'moon', t('design.dark', { count: DESIGNS.filter((x) => x.dark).length })]], d.group, 'design-group'),
-    body: `<div class="design-grid" role="radiogroup">${list.map((x) => designCard(x, d.current)).join('')}</div>`,
-    foot: `${p.hasOverrides ? `<label class="check-row" title="${escapeHtml(t('design.keepOverrides'))}"><input type="checkbox" data-draft-toggle="keep" ${d.reset ? '' : 'checked'} /><span>${escapeHtml(t('design.keepOverrides'))}</span></label>` : `<span class="muted">${escapeHtml(t('design.hint'))}</span>`}<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('design-apply', t('design.apply'), 'check', 'primary')}`,
-  });
+  const tabs = tabsHtml([
+    ['light', 'sun', t('design.light', { count: DESIGNS.filter((x) => !x.dark).length })],
+    ['dark', 'moon', t('design.dark', { count: DESIGNS.filter((x) => x.dark).length })],
+    ['mine', 'palette', t('design.mine', { count: mine.length })],
+  ], d.group, 'design-group');
+  let body;
+  let foot;
+  if (d.group === 'mine' && d.edit) {
+    body = designEditorHtml(d.edit);
+    foot = `<span class="muted">${escapeHtml(t('design.mineHint'))}</span><span class="grow"></span>${button('design-edit-cancel', t('common.cancel'), 'close')}${button('design-edit-save', t('design.mineSave'), 'save')}${button('design-edit-apply', t('design.mineSaveApply'), 'check', 'primary')}`;
+  } else if (d.group === 'mine') {
+    const selected = mine.find((x) => x.id === d.current);
+    const newCard = `<button class="design-card design-new" data-action="design-new" title="${escapeHtml(t('design.mineCreate'))}"><span class="design-mock design-plus">${icon('plus')}</span><span class="design-name">${escapeHtml(t('design.mineCreate'))}</span></button>`;
+    const fromSite = p.site ? `<button class="design-card design-new" data-action="design-from-site" title="${escapeHtml(t('design.mineFromSiteTip'))}"><span class="design-mock design-plus">${icon('copy')}</span><span class="design-name">${escapeHtml(t('design.mineFromSite'))}</span></button>` : '';
+    body = `<div class="design-grid" role="radiogroup">${mine.map((x) => designCard(x, d.current)).join('')}${newCard}${fromSite}</div>${mine.length ? '' : `<p class="muted design-mine-empty">${escapeHtml(t('design.mineEmpty'))}</p>`}`;
+    foot = `${selected ? `${button('design-edit', t('design.mineEdit'), 'edit', '', selected.id)}${button('design-copy', t('design.mineCopy'), 'copy', '', selected.id)}${button('design-delete', t('design.mineDelete'), 'trash', 'danger', selected.id)}` : `<span class="muted">${escapeHtml(t('design.mineHint'))}</span>`}<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('design-apply', t('design.apply'), 'check', 'primary', '', selected || !isCustomDesignId(d.current) ? '' : 'disabled')}`;
+  } else {
+    const list = DESIGNS.filter((x) => (d.group === 'dark' ? x.dark : !x.dark));
+    body = `<div class="design-grid" role="radiogroup">${list.map((x) => designCard(x, d.current)).join('')}</div>`;
+    foot = `${p.hasOverrides ? `<label class="check-row" title="${escapeHtml(t('design.keepOverrides'))}"><input type="checkbox" data-draft-toggle="keep" ${d.reset ? '' : 'checked'} /><span>${escapeHtml(t('design.keepOverrides'))}</span></label>` : `<span class="muted">${escapeHtml(t('design.hint'))}</span>`}<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('design-apply', t('design.apply'), 'check', 'primary')}`;
+  }
+  root.innerHTML = frame({ glyph: 'designPicker', title: t('design.title'), tabs, body, foot });
   ready();
 }
 
@@ -943,7 +1048,7 @@ function renderTemplate() {
   const card = (id, glyph, title, text, active, attr) => `<button class="dg-card ${active ? 'active' : ''}" ${attr}="${escapeHtml(id)}" title="${escapeHtml(`${title} — ${text}`)}" role="radio" aria-checked="${active}">${icon(glyph)}<b>${escapeHtml(title)}</b><small>${escapeHtml(text)}</small></button>`;
   const cards = d.group === 'templates'
     ? TEMPLATES.map(([id, , glyph]) => card(id, glyph, t(`template.${id}`), t(`template.${id}.desc`), !d.sample && d.template === id, 'data-pick-template')).join('')
-    : SAMPLES.filter((x) => x.group === d.group).map((x) => card(x.id, x.icon, x[L()][0], x[L()][1], d.sample === x.id, 'data-pick-sample')).join('');
+    : SAMPLES.filter((x) => x.group === d.group).map((x) => card(x.id, x.icon, x[L()][0], x.board ? `${x[L()][1]} · ${t('sample.withBoard')}` : x[L()][1], d.sample === x.id, 'data-pick-sample')).join('');
   const designSelect = `<select data-draft-select="design" aria-label="${escapeHtml(t('template.design'))}" ${d.sample || (d.template !== 'blank') ? 'disabled' : ''}>${DESIGNS.map((x) => `<option value="${x.id}" data-icon="palette" ${d.design === x.id ? 'selected' : ''}>${escapeHtml(x[L()])}</option>`).join('')}</select>`;
   root.innerHTML = frame({
     glyph: 'fileNew', title: t('template.title'),
@@ -986,6 +1091,50 @@ function renderPublish() {
 
 
 // ───────────────────────── events
+
+// ───────────────────────── Settings › Database (bulletin boards that keep their posts in a database)
+
+const dbText = (key, label, attrs = '') => `<input type="text" data-db-text="${key}" value="${escapeHtml(s()[key] ?? '')}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" spellcheck="false" autocomplete="off" ${attrs} />`;
+
+function settingsDatabase() {
+  if (!desktop) return [row('info', '', `<span class="muted">${escapeHtml(t('db.desktopOnly'))}</span>`, t('db.desktopOnly')), row('info', '', `<span class="muted">${escapeHtml(t('db.hint'))}</span>`, t('db.hint'))].join('');
+  const kind = s().dbKind;
+  if (state.dbDefaultFile == null) {
+    state.dbDefaultFile = '';
+    native.dbDefaultFile().then((file) => { state.dbDefaultFile = file; if (state.tab === 'database') render(); }).catch(() => {});
+  }
+  const rows = [row('database', t('db.kind'), segmented('dbKind', DB_KINDS.map((k) => [k, DB_NAMES[k]]), kind))];
+  if (kind === 'sqlite') {
+    rows.push(row('file', t('db.file'), `${dbText('dbFile', t('db.file'), `placeholder="${escapeHtml(state.dbDefaultFile || t('db.filePlaceholder'))}"`)}${button('db-browse', t('db.browse'), 'folder', 'small')}`));
+    rows.push(row('info', '', `<span class="muted">${escapeHtml(t('db.fileDefault', { file: state.dbDefaultFile || '—' }))}</span>`, t('db.fileDefault', { file: state.dbDefaultFile })));
+  } else {
+    const password = s().dbSavePassword ? s().dbPassword : state.dbPassword ?? '';
+    rows.push(
+      row('server', t('db.host'), dbText('dbHost', t('db.host'))),
+      row('plug', t('db.port'), numberField('dbPort', dbPortOf(s()), 1, 65535, 1, '', t('db.port'))),
+      row('layers', t('db.name'), dbText('dbName', t('db.name'))),
+      row('user', t('db.user'), dbText('dbUser', t('db.user'))),
+      row('key', t('db.password'), `<input type="password" data-db-password value="${escapeHtml(password)}" placeholder="${escapeHtml(s().dbSavePassword ? '' : t('db.passwordSession'))}" title="${escapeHtml(t('db.password'))}" aria-label="${escapeHtml(t('db.password'))}" autocomplete="new-password" />`),
+      toggle('dbSavePassword', t('db.savePassword'), 'save', s().dbSavePassword),
+    );
+  }
+  const result = state.dbResult;
+  const badge = result ? `<span class="badge ${result.ok === null ? '' : result.ok ? 'ok' : 'danger'} db-result" id="db-result" title="${escapeHtml(result.text)}">${icon(result.ok === null ? 'clock' : result.ok ? 'check' : 'warning')}<span>${escapeHtml(result.text)}</span></span>` : '';
+  rows.push(row('plug', t('db.test'), `${button('db-test', t('db.test'), 'plug', 'small')}${badge}`));
+  rows.push(row('info', '', `<span class="muted">${escapeHtml(t('db.hint'))}</span>`, t('db.hint')));
+  return rows.join('');
+}
+
+function testDatabase() {
+  const problems = dbProblems(s());
+  if (problems.length) {
+    state.dbResult = { ok: false, text: problems.map((code) => t(code)).join(' · ') };
+    return render();
+  }
+  state.dbResult = { ok: null, text: t('db.testing') };
+  render();
+  return action('db-test', { password: s().dbSavePassword ? '' : state.dbPassword ?? '' });
+}
 
 // ───────────────────────── packages (Settings › Packages and the packages window)
 
@@ -1251,7 +1400,10 @@ root.addEventListener('click', async (event) => {
   if (target.dataset.pickDesign) {
     d.current = target.dataset.pickDesign;
     for (const el of root.querySelectorAll('.design-card')) { const on = el.dataset.pickDesign === d.current; el.classList.toggle('active', on); el.setAttribute('aria-checked', String(on)); }
-    return event.detail >= 2 ? close({ design: d.current, reset: d.reset }) : undefined;
+    // The site shows the design at once (the main window puts the old one back on Cancel).
+    if (designResult()) action('design-preview', designResult());
+    if (d.group === 'mine') { render(); return event.detail >= 2 && designResult() ? close(designResult()) : undefined; }
+    return event.detail >= 2 ? close(designResult()) : undefined;
   }
   if (target.dataset.pickTemplate) { d.template = target.dataset.pickTemplate; d.sample = null; render(); return event.detail >= 2 ? close({ template: d.template, name: d.name, design: d.design }) : undefined; }
   if (target.dataset.pickSample) { d.sample = target.dataset.pickSample; render(); return event.detail >= 2 ? close({ sample: d.sample, name: d.name }) : undefined; }
@@ -1270,7 +1422,7 @@ root.addEventListener('click', async (event) => {
     case 'dict-add': return addDictionaryWord();
     case 'dict-remove': state.dictNote = null; return update({ userWords: (s().userWords ?? []).filter((w) => w !== value) });
     case 'dict-clear': state.dictNote = null; state.pager.dict = 0; return update({ userWords: [] });
-    case 'design-group': d.group = value; return render();
+    case 'design-group': d.group = value; d.edit = null; return render();
     case 'template-group': d.group = value; return render();
     case 'tabs-scroll': return scrollPopupTabs(Number(value));
     case 'pager': { const [name, step] = value.split(':'); state.pager[name] = (state.pager[name] ?? 0) + Number(step); return render(); }
@@ -1300,10 +1452,20 @@ root.addEventListener('click', async (event) => {
     case 'edit-custom': pickerDone = true; await action('open-settings', { tab: 'appearance', themeGroup: 'custom' }); return close();
     case 'random-theme': { const all = [...LIGHT_THEMES, ...DARK_THEMES].map((theme) => theme.id).filter((id) => id !== s().theme); pickerDone = true; return close({ theme: all[Math.floor(Math.random() * all.length)] }); }
     case 'prompt-apply': return close({ value: d.value, choice: d.choice });
-    case 'design-apply': return close({ design: d.current, reset: d.reset });
+    case 'design-apply': { const answer = designResult(); return answer ? close(answer) : undefined; }
+    case 'design-new': return startEditing(null);
+    case 'design-from-site': return startEditing({ ...P().site, id: newCustomDesignId() });
+    case 'design-edit': return startEditing((s().customDesigns ?? []).find((x) => x.id === value));
+    case 'design-copy': { const from = (s().customDesigns ?? []).find((x) => x.id === value); return from ? startEditing({ ...from, id: newCustomDesignId(), name: t('design.mineCopyName', { name: from.name }) }) : undefined; }
+    case 'design-delete': { const gone = (s().customDesigns ?? []).find((x) => x.id === value); if (!gone || !globalThis.confirm(t('design.mineDeleteAsk', { name: gone.name }))) return undefined; d.current = null; return update({ customDesigns: (s().customDesigns ?? []).filter((x) => x.id !== value) }); }
+    case 'design-edit-cancel': d.edit = null; return render();
+    case 'design-edit-save': return saveEditing(false);
+    case 'design-edit-apply': return saveEditing(true);
     case 'template-create': return close(d.sample ? { sample: d.sample, name: d.name.trim() } : { template: d.template, name: d.name.trim(), design: d.design });
     case 'publish-apply': return close({ format: d.format, extract: d.extract });
     case 'print': return doPrint();
+    case 'db-test': return testDatabase();
+    case 'db-browse': return action('db-browse');
     case 'package-install': return action('package-install', { ids: [value] });
     case 'package-install-all': return action('package-install', { ids: PACKAGES.filter((pkg) => packageView(pkg.id).state !== 'installed').map((pkg) => pkg.id) });
     case 'package-cancel': return action('package-cancel');
@@ -1315,6 +1477,7 @@ root.addEventListener('click', async (event) => {
 
 root.addEventListener('change', (event) => {
   const target = event.target;
+  if (target.dataset.editDesign) { editDesignInput(target); return undefined; }
   const d = state.draft;
   if (target.dataset.toggle) return update({ [target.dataset.toggle]: target.checked });
   if (target.dataset.select) { const key = target.dataset.select; return update({ [key]: typeof s()[key] === 'number' ? Number(target.value) : target.value }); }
@@ -1327,6 +1490,13 @@ root.addEventListener('change', (event) => {
   }
   if (target.dataset.draftSelect && d) { d[target.dataset.draftSelect] = target.value; return render(); }
   if (target.dataset.settingText) return update({ [target.dataset.settingText]: target.value.trim() });
+  if (target.dataset.dbText) return update({ [target.dataset.dbText]: target.value.trim() });
+  if ('dbPassword' in target.dataset) {
+    // Saved with the settings only when asked; otherwise the main window keeps it until the program closes.
+    if (s().dbSavePassword) update({ dbPassword: target.value });
+    else { state.dbPassword = target.value; state.dbResult = null; action('db-password', { password: target.value }); }
+    return undefined;
+  }
   if (target.dataset.printRange) return changePrint({ range: target.dataset.printRange });
   if (target.dataset.printToggle) return changePrint({ [target.dataset.printToggle]: target.checked });
   if (target.dataset.print) return changePrint({ [target.dataset.print]: target.value });
@@ -1336,6 +1506,7 @@ root.addEventListener('change', (event) => {
 
 root.addEventListener('input', (event) => {
   const target = event.target;
+  if (target.dataset.editDesign && target.type !== 'checkbox' && target.tagName !== 'SELECT') { editDesignInput(target); return; }
   if (target.dataset.draft && state.draft) state.draft[target.dataset.draft] = target.value;
   if (target.id === 'dict-word') state.dictDraft = target.value;
   if (target.id === 'dict-find') { state.dictQuery = target.value; state.pager.dict = 0; render(); const find = root.querySelector('#dict-find'); find?.focus(); find?.setSelectionRange(find.value.length, find.value.length); }
@@ -1430,6 +1601,11 @@ window.addEventListener('storage', (event) => {
 });
 
 function onHostMessage(message) {
+  if (message?.type === 'db-result') {
+    state.dbResult = { ok: Boolean(message.ok), text: String(message.text ?? '') };
+    if (kind === 'settings') render();
+    return;
+  }
   if (message?.type === 'progress') {
     state.progress = message;
     if (kind === 'progress') render();

@@ -3,6 +3,7 @@ pub mod fonts;
 pub mod i18n;
 pub mod instance;
 pub mod printing;
+pub mod db;
 pub mod window_state;
 
 use serde::Serialize;
@@ -265,6 +266,46 @@ async fn open_document(app: AppHandle, name: String) -> Result<PathBuf, String> 
     let shown = path.clone();
     blocking(move || files::open_with_system(&path)).await?;
     Ok(shown)
+}
+
+// ───────────────────────── bulletin boards in a database (Settings › Database, db.rs)
+
+/// The SQLite file used when none is chosen: board.db in the app's data folder.
+fn default_db_file(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(data_dir(app)?.join("board.db"))
+}
+
+/// The connection settings with the default SQLite file filled in.
+fn db_config(app: &AppHandle, mut config: db::DbConfig) -> Result<db::DbConfig, String> {
+    if config.dialect()? == db::Dialect::Sqlite && config.file.as_deref().map(str::trim).unwrap_or("").is_empty() {
+        let file = default_db_file(app)?;
+        if let Some(parent) = file.parent() {
+            std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        config.file = Some(file.to_string_lossy().to_string());
+    }
+    Ok(config)
+}
+
+#[tauri::command]
+fn db_default_file(app: AppHandle) -> Result<String, String> {
+    Ok(default_db_file(&app)?.to_string_lossy().to_string())
+}
+
+/// Connects (creating the posts table when it is missing) and answers the server's version.
+#[tauri::command]
+async fn db_test(app: AppHandle, config: db::DbConfig) -> Result<String, String> {
+    db::test(&db_config(&app, config)?).await
+}
+
+#[tauri::command]
+async fn db_board_load(app: AppHandle, config: db::DbConfig, board: String) -> Result<Vec<db::PostRow>, String> {
+    db::load(&db_config(&app, config)?, &board).await
+}
+
+#[tauri::command]
+async fn db_board_save(app: AppHandle, config: db::DbConfig, board: String, posts: Vec<db::PostRow>) -> Result<usize, String> {
+    db::save(&db_config(&app, config)?, &board, &posts).await
 }
 
 /// The OS print dialog for the calling window (the print window).
@@ -799,6 +840,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            db_test,
+            db_default_file,
+            db_board_load,
+            db_board_save,
             print_window,
             list_printers,
             print_direct,

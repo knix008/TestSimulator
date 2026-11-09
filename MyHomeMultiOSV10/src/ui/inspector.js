@@ -3,7 +3,7 @@
 // language, icon, and the design: colours, fonts, corners, width). Pure HTML; app.js handles
 // the data-* attributes.
 import { blockDef, blockLabel, fieldLabel, normalizeStyle, STYLE_ALIGNS, STYLE_BACKGROUNDS, STYLE_WIDTHS } from '../domain/blocks.js';
-import { designById, effectiveDesign, FONT_IDS, FONTS } from '../domain/designs.js';
+import { effectiveDesign, FONT_IDS, FONTS, siteDesignName } from '../domain/designs.js';
 import { pageFile } from '../domain/render.js';
 import { getPath } from '../domain/site.js';
 import { escapeHtml } from './dom.js';
@@ -52,6 +52,7 @@ function fieldControl(app, blockId, field, path, value) {
     case 'number': return row(label, stepper(`prop:${blockId}:${path}`, Number(value) || 0, field.min ?? 0, field.max ?? 9999, field.step ?? 1, '', label, t));
     case 'toggle': return row(label, switchHtml(data, Boolean(value), label));
     case 'select': return row(label, `<select ${data} aria-label="${e(label)}">${field.options.map((o) => `<option value="${e(o.value)}" ${String(o.value) === String(value) ? 'selected' : ''}>${e(L === 'en' ? o.en : o.ko)}</option>`).join('')}</select>`);
+    case 'actions': return row(label, `<span class="field-actions">${field.buttons.map((b) => `<button class="small-button" data-command="${e(b.command)}" title="${e(t(b.tip ?? b.label))}">${icon(b.icon)}<span>${e(t(b.label))}</span></button>`).join('')}</span>`, { tall: true });
     case 'color': return row(label, `<input type="color" ${data} value="${e(/^#[0-9a-f]{6}$/i.test(value ?? '') ? value : '#000000')}" />`);
     default: return row(label, `<input type="text" ${data} value="${e(value ?? '')}" spellcheck="false" />`);
   }
@@ -149,7 +150,6 @@ export function siteHtml(app, site) {
   const L = app.language();
   const m = site.meta;
   const d = effectiveDesign(site.design);
-  const preset = designById(site.design.id);
   const over = site.design.overrides ?? {};
   const info = [
     row(t('site.title'), `<input type="text" data-site-field="title" value="${e(m.title)}" spellcheck="false" />`),
@@ -162,8 +162,9 @@ export function siteHtml(app, site) {
   const color = (key) => `<span class="color-pair"><input type="color" data-design="${key}" value="${e(d[key])}" aria-label="${e(t(`design.${key}`))}" />${over[key] ? `<code>${e(over[key])}</code><button class="icon-button" data-design-clear="${key}" title="${e(t('style.clear'))}">${icon('close')}</button>` : `<span class="muted">${e(t('design.fromPreset'))}</span>`}</span>`;
   const font = (key) => `<select data-design="${key}">${FONT_IDS.map((id) => `<option value="${id}" ${d[key] === id ? 'selected' : ''}>${e(L === 'en' ? FONTS[id].en : FONTS[id].ko)}</option>`).join('')}</select>`;
   const design = [
-    `<div class="design-current"><span class="theme-swatch">${[d.bg, d.primary, d.accent, d.text].map((c) => `<i style="background:${c}"></i>`).join('')}</span><b>${e(L === 'en' ? preset.en : preset.ko)}</b><span class="grow"></span>
-      <button class="small-button" data-command="designPicker" title="${e(t('action.designPicker'))}">${icon('palette')}<span>${e(t('action.designPicker'))}</span></button></div>`,
+    `<div class="design-current"><span class="theme-swatch">${[d.bg, d.primary, d.accent, d.text].map((c) => `<i style="background:${c}"></i>`).join('')}</span><b>${e(siteDesignName(site.design, L))}</b><span class="grow"></span>
+      <button class="small-button" data-command="designPicker" title="${e(t('action.designPicker'))}">${icon('palette')}<span>${e(t('action.designPicker'))}</span></button>
+      <button class="small-button" data-command="saveDesignAsMine" title="${e(t('action.saveDesignAsMine'))}">${icon('save')}<span>${e(t('design.saveMineShort'))}</span></button></div>`,
     ...['primary', 'accent', 'bg', 'surface', 'text', 'headerBg', 'footerBg'].map((key) => row(t(`design.${key}`), color(key))),
     row(t('design.headingFont'), font('headingFont')),
     row(t('design.bodyFont'), font('bodyFont')),

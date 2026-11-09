@@ -4,9 +4,9 @@ MyHomeMaker is a graphical website builder: **you make a homepage by dragging bl
 
 | At a glance | |
 | --- | --- |
-| Blocks | 34 kinds (heroes, features, service cards, galleries, price tables, reviews, team, timelines, FAQs, contact forms, maps, videos …) + one header and one footer per site |
-| Designs | 36 (24 light · 12 dark): colours, heading and body fonts, corners, content width, text size |
-| Starting points | 12 templates and 36 finished sample sites (four groups × 9, in Korean and English) |
+| Blocks | 35 kinds (heroes, bulletin boards, features, service cards, galleries, price tables, reviews, team, timelines, FAQs, contact forms, maps, videos …) + one header and one footer per site |
+| Designs | 40 (26 light · 14 dark) + themes of your own: colours, heading and body fonts, corners, content width, text size |
+| Starting points | 12 templates and 40 finished sample sites (four groups × 10, 15 with a bulletin board, in Korean and English) |
 | Checking | the Problems panel: errors and warnings (before publishing) and spelling (275,000 English and 100,000 Korean words + your own dictionary) |
 | Seeing | desktop, tablet and phone widths, preview mode, your real browser |
 | Publishing | a folder, a ZIP, or one page as a single HTML file — a static site that works without JavaScript |
@@ -52,9 +52,9 @@ The results are copied to `release/` and to the project folder. While developing
 
 ![The editor](images/en/03-editor.png)
 
-1. **Menu bar row** — the app icon, name and version and the open site (● when there are unsaved changes), the **Start** button, the menus (File, Edit, Insert, Page, View, Design, Tools, Help), and minimize, maximize and close on the right. This row is the title bar: drag an empty part to move the window, double-click to maximize.
-2. **Toolbar** — New, Open, Save, Publish (▾ ways to publish), Preview in browser / Undo, Redo / Cut, Copy, Paste, Delete / Add block, Add page / Up, Down, Duplicate, Hide / device width and zoom, fit width / Preview, Change design / **the three panels (Blocks · Problems · Site)**. On the right: Tutorial, Theme (random, ▾ list), Language (flag), Settings, About. The window's minimum width follows the toolbar, so no button is ever cut off.
-3. **Blocks panel** (left) — the blocks in five groups with a search box.
+1. **Menu bar row** — the app icon, name and version, the **Start** button, the menus (File, Edit, Insert, Page, View, Design, Tools, Help), the open site right of the menus (● when there are unsaved changes), and minimize, maximize and close on the right. This row is the title bar: drag an empty part to move the window, double-click to maximize.
+2. **Toolbar** — every button shows its icon only; pointing at it shows its name and shortcut. New, Open, Save, Print, Preview in browser, Publish (▾ ways to publish) / Undo, Redo / Cut, Copy, Paste, Delete / Add block, Add page / Up, Down, Duplicate, Hide / device width and zoom / Preview mode / **the three panels (Blocks · Problems · Site)**. On the right: Tutorial, Theme (random, ▾ list), Language (flag), Settings, About. The window's minimum width follows the toolbar, so no button is ever cut off.
+3. **Blocks panel** (left) — the blocks in five groups, a search box, and the **Site designs** group (cards of my themes, light and dark designs). A design card shows on the site at once; **Apply** at the bottom of the panel keeps it, **Cancel** puts the old design back.
 4. **Page tabs and canvas** (middle) — one tab per page; the first tab is the home page (index.html). The canvas is drawn exactly like the published site.
 5. **Problems panel** (bottom middle) — what to fix and the spelling. Open and fold it with the middle panel button of the toolbar or **Ctrl+J**.
 6. **Site panel** (right) — top: the header, the blocks of each page, the footer. Bottom: the editor tabs (**Content · Style · Page · Site**).
@@ -99,7 +99,7 @@ Move a card by its handle and resize it from its corner. **Auto arrange** puts t
 
 ![Sample sites](images/en/23-samples.png)
 
-All 36 sample sites are finished sites with three pages: Home, About or Menu, and Contact. Open one to see how its blocks are put together, and make it your own (**File › Open sample**).
+The 40 sample sites are finished sites built in eight ways (classic, side hero with numbers, story, showcase, numbers and steps, team, notices, shop), with an *Our story*, *News* or *FAQ* page depending on the way. Fifteen also have a **bulletin board** page with posts of their own — the help desk forum, village market, fan club and apartment residents samples are built around it, and the community, clinic and coworking samples add one (their cards say *board*). Open one to see how its blocks are put together, and make it your own (**File › Open sample**).
 
 | Group | Samples |
 | --- | --- |
@@ -124,9 +124,21 @@ All 36 sample sites are finished sites with three pages: Home, About or Menu, an
 | --- | --- |
 | Heroes & banners | Hero banner, Split hero, Call to action, Newsletter, Notice bar |
 | Basic elements | Heading, Text, Picture, Button, Divider, Spacer, Text columns, Quote, Check list, Video (YouTube, Vimeo, mp4), Map, HTML code |
-| Content | Features, Service cards, Picture & text, Steps, Timeline, Numbers, FAQ |
+| Content | Features, Service cards, Picture & text, Steps, Timeline, Numbers, FAQ, Bulletin board |
 | Showcase | Gallery, Testimonials, Team, Logos, Pricing, Menu, Events, Blog posts |
 | Contact & social | Contact (form and map), Social links |
+
+### Bulletin board
+
+The **Bulletin board** block shows a list of posts (number, category, title, author, date, views) and each post's own text.
+
+- Posts are added and changed in the **Posts** list of the Content tab. Posts marked *Notice* stay on top; the others are numbered from the newest. The text can have **bold**, *italic* and links.
+- Choose the **categories** (comma separated), **posts per page** (5, 10, 15, 20), the **search box** and **show views**.
+- On the published site the category buttons, the search and the page numbers work, and a title opens its post (without JavaScript the list and the posts still show).
+- **Write** opens a form. A static site cannot keep posts by itself: what is sent goes to the *form endpoint* (a form service such as Formspree) or the *e-mail*, and you add it to the board in the Content tab after checking it.
+- **Posts are kept › Database (board server)** — the posts live in a database. Set up the connection in **Settings › Database** (or *Database connection…* in the Content tab): **SQLite3** (the default; an empty file means board.db in the app's data folder), MySQL, MariaDB, PostgreSQL or MSSQL. *Test the connection* checks it; the password is saved only when you ask.
+  - **Save posts to the database** in the Content tab makes the database's posts of this board these; **Load posts from the database** brings the database's posts (including the ones written on the website) into the board. The table `myhomemaker_board_posts` is made automatically.
+  - Publishing adds a **server** folder (a Node.js board server) next to the site. Started with `npm start` (for MySQL and the others `npm install` first; the password comes from the `DB_PASSWORD` environment variable), it serves the site and its boards, and posts written on the website go straight to the database. With SQLite3 the current database file goes along. server/README.md has the details.
 
 ### Selecting and moving
 
@@ -211,9 +223,16 @@ There is one of each per site, the same on every page. Click them on the canvas 
 
 ![Site design](images/en/12-design-picker.png)
 
-**Design › Change design…** (Ctrl+Shift+D) shows the 24 light and 12 dark designs as little page pictures. A design sets the primary and accent colours, background, text, header and footer colours, heading and body fonts, corners, content width and text size at once. In every design the text keeps enough contrast to read easily. Turn on *Keep my colours and fonts* to keep what you changed yourself.
+**Design › Change design…** (Ctrl+Shift+D) shows the 26 light and 14 dark designs as little page pictures. A design sets the primary and accent colours, background, text, header and footer colours, heading and body fonts, corners, content width and text size at once. In every design the text keeps enough contrast to read easily. Turn on *Keep my colours and fonts* to keep what you changed yourself.
 
 - **Random design**, **Reset design** (the values changed in the Site tab go back to the design's)
+
+**My themes** — the *My themes* tab of the design window makes designs of your own, for every site.
+
+- **New theme** — choose the design it is based on, then its name, whether it is dark, 12 colours (main, text on main, accent, background, light background, text, muted text, borders, header background/text, footer background/text), heading and body fonts, corners, content width and text size. The preview on the right follows at once.
+- **From this site** — starts from the site's design as you changed it. **Design › Save this design as my theme…** and **Save as mine** in the Site tab do the same.
+- Pick a theme and **Use this design** (or double click) applies it; **Edit · Duplicate · Delete** are below.
+- Your themes are kept with the settings (a new installation keeps them), and a site keeps the theme's values in its file: deleting the theme or opening the site on another computer does not change its look.
 
 ![Site tab](images/en/13-site-tab.png)
 
@@ -359,7 +378,7 @@ The tools the code editor tidies and checks with (Prettier, JSHint, HTMLHint) ar
 - **Background** — animated, picture or none; kind, speed, random, interval; background picture, opacity and fit
 - **Editor** — the design of new blank sites, the first device width, fit width on opening, icon-only Blocks panel, extract pictures when publishing
 - **Dictionary** — the spelling check and your dictionary (see above)
-- **Recent**, **Packages** (download automatically; download, retry, cancel), **Shortcuts**
+- **Recent**, **Packages** (download automatically; download, retry, cancel), **Database** (where boards keep their posts, with a connection test), **Shortcuts**
 
 **Defaults** resets the settings (recent files, the background picture and your dictionary stay).
 

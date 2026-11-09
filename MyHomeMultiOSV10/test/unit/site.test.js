@@ -18,7 +18,7 @@ test('every block kind has fields, defaults in both languages and renders', () =
     assert.ok(def.ko && def.en && def.icon && def.group, type);
     for (const L of ['ko', 'en']) {
       const block = S.createBlock(type, { L });
-      for (const field of def.fields) assert.ok(field.key in block.props, `${type}.${field.key}`);
+      for (const field of def.fields.filter((x) => x.kind !== 'actions')) assert.ok(field.key in block.props, `${type}.${field.key}`);
       const html = renderBlock(block, { editor: true, site, page: site.pages[0], pages: site.pages, L });
       assert.match(html, new RegExp(`data-block-id="${block.id}"`), type);
       assert.ok(!/undefined|NaN|\[object/.test(html), `${type} renders junk`);
@@ -45,7 +45,7 @@ test('text is escaped and links are made safe', () => {
 });
 
 test('designs have every colour and overrides are checked', () => {
-  assert.equal(DESIGNS.length, 36);
+  assert.equal(DESIGNS.length, 40);
   for (const d of DESIGNS) for (const key of ['primary', 'bg', 'text', 'surface', 'border']) assert.match(d[key], /^#[0-9a-f]{6}$/, `${d.id}.${key}`);
   const e = effectiveDesign({ id: 'forest', overrides: { primary: '#123456', radius: 99, bodyFont: 'nope', width: 10 } });
   assert.equal(e.primary, '#123456');
@@ -96,8 +96,8 @@ test('a saved site reads back the same, and broken files are refused', () => {
 
 test('every template and sample builds in both languages and publishes', () => {
   assert.equal(TEMPLATE_IDS.length, 12);
-  assert.equal(SAMPLES.length, 36);
-  for (const g of ['business', 'food', 'people', 'community']) assert.equal(SAMPLES.filter((s) => s.group === g).length, 9, g);
+  assert.equal(SAMPLES.length, 40);
+  for (const g of ['business', 'food', 'people', 'community']) assert.equal(SAMPLES.filter((s) => s.group === g).length, 10, g);
   for (const L of ['ko', 'en']) {
     for (const [kind, ids, build] of [['template', TEMPLATE_IDS, buildTemplate], ['sample', SAMPLE_IDS, buildSample]]) {
       for (const id of ids) {

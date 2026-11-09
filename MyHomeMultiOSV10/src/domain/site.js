@@ -93,7 +93,7 @@ export function normalizeSite(raw) {
   const site = {
     format: FORMAT, version: VERSION, id: str(raw.id) || newId('s'), name: str(raw.name, 'Site'),
     meta: { title: str(raw.meta?.title, str(raw.name, 'Site')), description: str(raw.meta?.description), language: L, author: str(raw.meta?.author), keywords: str(raw.meta?.keywords), favicon: str(raw.meta?.favicon) },
-    design: { id: DESIGN_IDS.includes(raw.design?.id) ? raw.design.id : 'ocean', overrides: raw.design?.overrides && typeof raw.design.overrides === 'object' ? { ...raw.design.overrides } : {} },
+    design: { id: DESIGN_IDS.includes(raw.design?.id) ? raw.design.id : 'ocean', overrides: raw.design?.overrides && typeof raw.design.overrides === 'object' ? { ...raw.design.overrides } : {}, ...(typeof raw.design?.name === 'string' && raw.design.name.trim() ? { name: raw.design.name.trim().slice(0, 40) } : {}) },
     code: normalizeCode(raw.code),
     layout: { header: null, footer: null },
     pages: [],

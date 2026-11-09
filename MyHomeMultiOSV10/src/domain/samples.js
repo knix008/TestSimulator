@@ -1,7 +1,8 @@
-// Sample sites (the start page's Samples card, File › Open sample): thirty-six finished websites
-// in four groups (nine each), each in Korean and English, to look at, take apart and start from. Every
+// Sample sites (the start page's Samples card, File › Open sample): forty finished websites
+// in four groups (ten each), each in Korean and English, to look at, take apart and start from. Every
 // sample is a short description (spec) turned into pages by compose().
 import { buildSite } from './templates.js';
+import { SAMPLE_BOARDS } from './sample-boards.js';
 
 export const SAMPLE_GROUPS = [
   { id: 'business', icon: 'smpBusiness', ko: '회사·전문 서비스', en: 'Business & services' },
@@ -264,6 +265,34 @@ const S = [
     features: [['🗣️', ['말하기 중심', 'Speaking first'], ['수업의 70%가 대화', '70% of class is talking']], ['👥', ['작은 반', 'Small classes'], ['한 반 6명', 'Six students a class']], ['📱', ['앱 복습', 'App practice'], ['수업 후 10분 복습', 'Ten minutes after class']]],
     items: [['기초반', 'Basic'], ['회화반', 'Conversation'], ['비즈니스반', 'Business']], phone: '02-555-6677',
   },
+  {
+    id: 'support', group: 'business', icon: 'smpSupport', design: 'nordic', art: 'tech', offer: 'board',
+    name: ['헬프데스크 플러스', 'HelpDesk Plus'], tip: ['고객 지원 포럼', 'A customer support forum'],
+    hero: ['궁금한 점은\n포럼에 물어보세요', 'Ask the forum,\nget an answer'], lead: ['사용자와 담당자가 함께 답을 찾는 고객 지원 게시판입니다.', 'A support board where users and our team find answers together.'],
+    features: [['💬', ['빠른 답변', 'Quick answers'], ['평일 하루 안에', 'Within a working day']], ['🐞', ['오류 신고', 'Bug reports'], ['바로 확인합니다', 'We look at once']], ['💡', ['제안', 'Ideas'], ['다음 버전에 반영', 'Shaping the next version']]],
+    items: [['질문', 'Questions'], ['오류 신고', 'Bug reports'], ['제안', 'Ideas']], phone: '1588-2400',
+  },
+  {
+    id: 'market', group: 'food', icon: 'smpMarket', design: 'sakura', art: 'food', offer: 'board',
+    name: ['우리 동네 장터', 'Village Market'], tip: ['동네 농산물 장터', 'A farmers market'],
+    hero: ['토요일 아침,\n동네 장터에서 만나요', 'Saturday morning\nat the village market'], lead: ['농부들이 직접 기른 채소와 과일을 팝니다.', 'Farmers sell the vegetables and fruit they grow.'],
+    features: [['🥕', ['제철 채소', 'Seasonal vegetables'], ['오늘 아침 수확', 'Picked this morning']], ['🍎', ['과일', 'Fruit'], ['맛보고 사세요', 'Taste before you buy']], ['🧺', ['장바구니', 'Bring a bag'], ['비닐 없는 장터', 'A plastic-free market']]],
+    items: [['채소', 'Vegetables'], ['과일', 'Fruit'], ['잼과 꿀', 'Jam and honey']], phone: '031-600-7070',
+  },
+  {
+    id: 'fanclub', group: 'people', icon: 'smpFan', design: 'cyberpunk', art: 'waves', offer: 'board',
+    name: ['별빛 팬클럽', 'Starlight Fan Club'], tip: ['밴드 팬 카페', 'A band fan club'],
+    hero: ['우리가 함께하면\n무대는 더 빛나요', 'Together we make\nthe stage shine'], lead: ['공연 소식, 응원 글, 사진을 나누는 팬들의 공간입니다.', 'A place for fans to share show news, messages and photos.'],
+    features: [['🎤', ['공연 소식', 'Show news'], ['예매 일정 안내', 'Ticket dates']], ['💌', ['응원 글', 'Messages'], ['밴드에게 전해요', 'Sent to the band']], ['📷', ['사진', 'Photos'], ['함께 보는 추억', 'Shared memories']]],
+    items: [['연말 공연', 'Year-end show', '12.24'], ['팬 모임', 'Fan meetup', '12.24'], ['새해 공연', 'New year show', '01.10']], phone: '',
+  },
+  {
+    id: 'apartment', group: 'community', icon: 'smpApartment', design: 'navy', art: 'city', offer: 'board',
+    name: ['푸른숲 아파트', 'Greenwood Apartments'], tip: ['아파트 입주민 모임', 'A residents community'],
+    hero: ['이웃과 함께\n더 살기 좋은 우리 단지', 'A better home\nwith our neighbours'], lead: ['관리 사무소 공지와 이웃 소식을 한곳에서 봅니다.', 'Notices from the office and news from neighbours in one place.'],
+    features: [['📢', ['공지', 'Notices'], ['점검과 행사 안내', 'Works and events']], ['🤝', ['나눔', 'Sharing'], ['필요한 이웃에게', 'For neighbours in need']], ['🌳', ['쾌적한 단지', 'A pleasant place'], ['함께 가꿔요', 'We look after it together']]],
+    items: [['관리 사무소', 'Office'], ['커뮤니티 센터', 'Community centre'], ['놀이터', 'Playground']], phone: '031-900-1200',
+  },
 ];
 
 const pick = (pair, L) => (Array.isArray(pair) ? pair[L === 'en' ? 1 : 0] : pair);
@@ -271,35 +300,100 @@ const pick = (pair, L) => (Array.isArray(pair) ? pair[L === 'en' ? 1 : 0] : pair
 /** The sample list for the start page: { id, group, icon, ko: [name, tip], en: [...] }. */
 const ORDER = ['business', 'food', 'people', 'community'];
 S.sort((a, b) => ORDER.indexOf(a.group) - ORDER.indexOf(b.group));
-export const SAMPLES = S.map((s) => ({ id: s.id, group: s.group, icon: s.icon, design: s.design, ko: [s.name[0], s.tip[0]], en: [s.name[1], s.tip[1]] }));
+export const SAMPLES = S.map((s) => ({ id: s.id, group: s.group, icon: s.icon, design: s.design, board: Boolean(SAMPLE_BOARDS[s.id]), ko: [s.name[0], s.tip[0]], en: [s.name[1], s.tip[1]] }));
 export const SAMPLE_IDS = SAMPLES.map((s) => s.id);
+
+/** A board block from a sample's board (sample-boards.js). */
+function boardBlock(k, board, L, extra = {}) {
+  return k.b('board', {
+    title: pick(board.title, L), subtitle: pick(board.text, L),
+    categories: board.cats.map((c) => pick(c, L)).join(', '),
+    items: board.posts.map(([title, cat, author, date, views, notice, body]) => ({ title: pick(title, L), category: pick(board.cats[cat], L), author: pick(author, L), date, views, notice, body: pick(body, L) })),
+    ...extra,
+  });
+}
+
+/**
+ * Home page arrangements: each sample has one, so the samples differ in their structure, not only in
+ * words and colours. Five samples each:
+ *   classic   hero · features · story · reviews or schedule · call to action
+ *   split     side hero · numbers · features · reviews · newsletter        (+ an "Our story" page)
+ *   story     hero · quote · story · timeline · schedule or news · call    (+ a News page)
+ *   showcase  side hero · gallery · logos · reviews · call
+ *   numbers   hero · numbers · steps · features · FAQ · call               (+ an FAQ page)
+ *   people    side hero · features · team · reviews or schedule · newsletter (+ an "Our story" page)
+ *   notice    notice bar · hero · columns · checklist · call               (+ a News page)
+ *   shop      side hero · products · photos · reviews · newsletter         (+ an FAQ page)
+ */
+export const RECIPES = {
+  classic: ['law', 'bakery', 'fanclub', 'yoga', 'accounting'],
+  split: ['startup', 'aistudio', 'developer', 'gym', 'mealkit'],
+  story: ['farm', 'wedding', 'writer', 'church', 'bookclub'],
+  showcase: ['interior', 'agency', 'photographer', 'illustrator', 'designer'],
+  numbers: ['realestate', 'clinic', 'coach', 'school', 'academy'],
+  people: ['brewery', 'musician', 'conference', 'volunteer', 'club'],
+  notice: ['coworking', 'market', 'apartment', 'creator', 'support'],
+  shop: ['flower', 'dessert', 'vegan', 'roastery', 'bistro'],
+};
+export const recipeOf = (id) => Object.entries(RECIPES).find(([, ids]) => ids.includes(id))?.[0] ?? 'classic';
+
+/** The name and file of each kind of second page. */
+const OFFER_PAGES = { services: ['서비스', 'Services', 'work'], pricing: ['요금 안내', 'Pricing', 'work'], gallery: ['작업', 'Work', 'work'], menu: ['메뉴', 'Menu', 'menu'], shop: ['상품', 'Shop', 'work'], events: ['안내', 'Details', 'work'] };
 
 function compose(s, L) {
   const tx = (ko, en) => (L === 'en' ? en : ko);
   const name = pick(s.name, L);
+  const board = SAMPLE_BOARDS[s.id] ?? null;
+  const recipe = recipeOf(s.id);
   return buildSite({ name, L, designId: s.design, description: pick(s.tip, L), header: { ctaLabel: tx('문의하기', 'Contact'), ctaUrl: 'contact.html' }, footer: { phone: s.phone || '', about: pick(s.lead, L) } }, (k) => {
     const features = s.features.map(([icon, title, text]) => ({ icon, title: pick(title, L), text: pick(text, L) }));
-    const heroImage = k.art(s.art, 1);
-    const home = [
-      s.group === 'people' && s.id !== 'wedding'
-        ? k.b('heroSplit', { eyebrow: pick(s.tip, L), title: pick(s.hero, L), text: pick(s.lead, L), button1: tx('작품 보기', 'See my work'), url1: 'work.html', image: k.art(s.id === 'developer' ? 'tech' : 'portrait', 3) })
-        : k.b('hero', { eyebrow: pick(s.tip, L), title: pick(s.hero, L), subtitle: pick(s.lead, L), button1: tx('자세히 보기', 'Learn more'), url1: s.offer === 'menu' ? 'menu.html' : 'work.html', button2: tx('문의하기', 'Contact'), url2: 'contact.html', image: heroImage }),
-      k.b('features', { title: tx(`${name}의 약속`, `Why ${name}`), subtitle: '', items: features }),
-      k.b('mediaText', { title: tx('우리 이야기', 'Our story'), image: k.art(s.art, 2) }),
-      s.offer === 'events' ? k.b('events', { title: tx('일정 안내', 'Schedule'), items: s.items.map(([ko, en, when]) => ({ date: when ?? '', time: '', title: pick([ko, en], L), place: '' })) }) : k.b('testimonials'),
-      k.b('cta', { title: tx('지금 연락해 보세요', 'Get in touch today'), url: 'contact.html' }),
-    ];
-    k.page(tx('홈', 'Home'), home);
+    const offerUrl = s.offer === 'menu' ? 'menu.html' : s.offer === 'board' ? 'board.html' : 'work.html';
+    const offerLabel = s.offer === 'board' ? tx('게시판 보기', 'See the board') : s.offer === 'menu' ? tx('메뉴 보기', 'See the menu') : s.offer === 'shop' ? tx('상품 보기', 'See the shop') : tx('자세히 보기', 'Learn more');
+    const hero = () => k.b('hero', { eyebrow: pick(s.tip, L), title: pick(s.hero, L), subtitle: pick(s.lead, L), button1: offerLabel, url1: offerUrl, button2: tx('문의하기', 'Contact'), url2: 'contact.html', image: k.art(s.art, 1) });
+    const heroSplit = () => k.b('heroSplit', { eyebrow: pick(s.tip, L), title: pick(s.hero, L), text: pick(s.lead, L), button1: offerLabel, url1: offerUrl, image: k.art(s.group === 'people' ? (s.id === 'developer' ? 'tech' : 'portrait') : s.art, 3) });
+    const featuresBlock = () => k.b('features', { title: tx(`${name}의 약속`, `Why ${name}`), subtitle: '', items: features });
+    const story = () => k.b('mediaText', { title: tx('우리 이야기', 'Our story'), image: k.art(s.art, 2) });
+    const schedule = () => k.b('events', { title: tx('일정 안내', 'Schedule'), items: s.items.map(([ko, en, when]) => ({ date: when ?? '', time: '', title: pick([ko, en], L), place: '' })) });
+    const reviewsOrSchedule = () => (s.offer === 'events' ? schedule() : k.b('testimonials'));
+    const call = () => k.b('cta', { title: tx('지금 연락해 보세요', 'Get in touch today'), url: 'contact.html' });
+    const gallery = (seed, title = '') => k.b('gallery', { title, items: [s.art, 'landscape', 'city', 'nature', 'abstract', 'pattern'].map((kind, i) => ({ image: k.art(kind, seed + i), caption: pick(s.items[i % s.items.length], L) })) });
+    const products = () => k.b('services', { title: tx('대표 상품', 'Favourites'), subtitle: '', items: s.items.map(([ko, en, price], i) => ({ image: k.art(i % 2 ? 'product' : s.art, 60 + i), title: pick([ko, en], L), text: price ? tx(`${price}원`, `$${Math.max(1, Math.round(Number(String(price).replace(/,/g, '')) / 1300))}`) : '', link: tx('주문하기', 'Order'), url: 'contact.html' })) });
+    const homes = {
+      classic: () => [hero(), featuresBlock(), story(), reviewsOrSchedule(), call()],
+      split: () => [heroSplit(), k.b('stats'), featuresBlock(), k.b('testimonials'), k.b('newsletter')],
+      story: () => [hero(), k.b('quote', { text: pick(s.lead, L), author: name, role: pick(s.tip, L) }), story(), k.b('timeline'), s.offer === 'events' ? schedule() : k.b('blog'), call()],
+      showcase: () => [heroSplit(), gallery(70, tx('작업 모음', 'Selected work')), k.b('logos'), k.b('testimonials'), call()],
+      numbers: () => [hero(), k.b('stats'), k.b('steps'), featuresBlock(), k.b('faq'), call()],
+      people: () => [heroSplit(), featuresBlock(), k.b('team'), reviewsOrSchedule(), k.b('newsletter')],
+      notice: () => [k.b('notice', { text: pick(s.tip, L), link: offerLabel, url: offerUrl }), hero(), k.b('columns'), k.b('checklist'), call()],
+      shop: () => [heroSplit(), products(), gallery(80, tx('사진', 'Photos')), k.b('testimonials'), k.b('newsletter')],
+    };
+    k.page(tx('홈', 'Home'), homes[recipe]());
     const offerPage = {
       services: () => [k.b('heading', { title: tx('서비스', 'Services'), subtitle: pick(s.lead, L) }, { padTop: 72 }), k.b('services', { title: '', subtitle: '', items: s.items.map(([ko, en], i) => ({ image: k.art(s.art, 10 + i), title: pick([ko, en], L), text: tx('전문가가 처음부터 끝까지 함께합니다.', 'Experts with you from start to finish.'), link: tx('문의', 'Ask'), url: 'contact.html' })) }, { bg: '' }), k.b('steps')],
       pricing: () => [k.b('heading', { title: tx('요금 안내', 'Pricing'), subtitle: '' }, { padTop: 72 }), k.b('pricing', { title: '', subtitle: '', items: k.b('pricing').props.items.map((plan, i) => ({ ...plan, name: pick(s.items[i] ?? [plan.name, plan.name], L) })) }), k.b('faq')],
-      gallery: () => [k.b('heading', { title: tx('작업', 'Work'), subtitle: pick(s.lead, L) }, { padTop: 72 }), k.b('gallery', { title: '', items: [s.art, 'landscape', 'city', 'nature', 'abstract', 'pattern'].map((kind, i) => ({ image: k.art(kind, 20 + i), caption: pick(s.items[i % s.items.length], L) })) }), k.b('logos')],
+      gallery: () => [k.b('heading', { title: tx('작업', 'Work'), subtitle: pick(s.lead, L) }, { padTop: 72 }), gallery(20), k.b('logos')],
       menu: () => [k.b('heading', { title: tx('메뉴', 'Menu'), subtitle: '' }, { padTop: 72 }), k.b('menu', { title: '', items: s.items.map(([ko, en, price]) => ({ name: pick([ko, en], L), desc: '', price: price ?? '' })) }), k.b('gallery', { title: tx('사진', 'Photos'), items: ['food', 'cafe', s.art].map((kind, i) => ({ image: k.art(kind, 30 + i), caption: '' })) })],
       shop: () => [k.b('heading', { title: tx('상품', 'Shop'), subtitle: '' }, { padTop: 72 }), k.b('services', { title: '', subtitle: '', items: s.items.map(([ko, en, price], i) => ({ image: k.art(i % 2 ? 'product' : s.art, 40 + i), title: pick([ko, en], L), text: price ? tx(`${price}원`, `$${Math.max(1, Math.round(Number(String(price).replace(/,/g, '')) / 1300))}`) : '', link: tx('주문하기', 'Order'), url: 'contact.html' })) }, { bg: '' }), k.b('faq')],
       events: () => [k.b('heading', { title: tx('안내', 'Details'), subtitle: pick(s.lead, L) }, { padTop: 72 }), k.b('gallery', { title: tx('사진', 'Photos'), items: [s.art, 'nature', 'landscape'].map((kind, i) => ({ image: k.art(kind, 50 + i), caption: '' })) }), k.b('faq')],
+      board: () => [boardBlock(k, board, L, { perPage: 5 })],
     }[s.offer]();
-    k.page(s.offer === 'menu' ? tx('메뉴', 'Menu') : tx('소개', 'Work'), offerPage, { slug: s.offer === 'menu' ? 'menu' : 'work' });
-    k.page(tx('문의', 'Contact'), [k.b('contact', { phone: s.phone || '', map: s.group === 'people' ? '' : tx('서울시청', 'City Hall') }), k.b('social')], { slug: 'contact' });
+    if (s.offer === 'board') k.page(pick(board.page, L), offerPage, { slug: 'board' });
+    else { const [ko, en, slug] = OFFER_PAGES[s.offer]; k.page(tx(ko, en), offerPage, { slug }); }
+    // A third page that depends on the arrangement: the story with the people, news, or questions.
+    const extra = {
+      split: () => [tx('우리 이야기', 'Our story'), 'about', [k.b('heading', { title: tx('우리 이야기', 'Our story'), subtitle: pick(s.lead, L) }, { padTop: 72 }), story(), k.b('team')]],
+      people: () => [tx('우리 이야기', 'Our story'), 'about', [k.b('heading', { title: tx('우리 이야기', 'Our story'), subtitle: pick(s.lead, L) }, { padTop: 72 }), story(), k.b('timeline')]],
+      story: () => [tx('소식', 'News'), 'news', [k.b('heading', { title: tx('소식', 'News'), subtitle: '' }, { padTop: 72 }), k.b('blog', { title: '' }), k.b('newsletter')]],
+      notice: () => (board ? null : [tx('소식', 'News'), 'news', [k.b('heading', { title: tx('소식', 'News'), subtitle: '' }, { padTop: 72 }), k.b('blog', { title: '' })]]),
+      numbers: () => [tx('자주 묻는 질문', 'FAQ'), 'faq', [k.b('heading', { title: tx('자주 묻는 질문', 'FAQ'), subtitle: '' }, { padTop: 72 }), k.b('faq', { title: '' }), k.b('checklist')]],
+      shop: () => [tx('자주 묻는 질문', 'FAQ'), 'faq', [k.b('heading', { title: tx('자주 묻는 질문', 'FAQ'), subtitle: '' }, { padTop: 72 }), k.b('faq', { title: '' }), k.b('map', {})]],
+    }[recipe]?.();
+    if (extra) k.page(extra[0], extra[2], { slug: extra[1] });
+    // A board of its own (community samples, the clinic, the coworking space): a page before Contact.
+    if (board && s.offer !== 'board') k.page(pick(board.page, L), [boardBlock(k, board, L)], { slug: 'board' });
+    const map = s.group === 'people' || recipe === 'shop' ? '' : tx('서울시청', 'City Hall');
+    k.page(tx('문의', 'Contact'), [k.b('contact', { phone: s.phone || '', map }), recipe === 'notice' || recipe === 'numbers' ? k.b('faq') : k.b('social')], { slug: 'contact' });
   });
 }
 

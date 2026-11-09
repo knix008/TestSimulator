@@ -315,3 +315,18 @@ export const listPrinters = () => (isDesktop() ? invoke('list_printers') : Promi
 export const printDirect = (job) => invoke('print_direct', { job });
 /** The system's print dialog for this window (the browser's in the web build). */
 export const printWindow = () => (isDesktop() ? invoke('print_window') : Promise.resolve(window.print()));
+
+// ───────────────────────── bulletin boards in a database (desktop; Settings › Database)
+
+/** Connects and answers the server's version (the posts table is made when missing). */
+export const dbTest = (config) => invoke('db_test', { config });
+/** The SQLite file used when none is chosen. */
+export const dbDefaultFile = () => (isDesktop() ? invoke('db_default_file') : Promise.resolve(''));
+/** A board's posts in the database. */
+export const dbBoardLoad = (config, board) => invoke('db_board_load', { config, board });
+/** Replaces a board's posts in the database; answers how many were written. */
+export const dbBoardSave = (config, board, posts) => invoke('db_board_save', { config, board, posts });
+/** Save dialog for a SQLite database file. */
+export async function chooseDatabaseFile(defaultPath) {
+  return (await saveDialog({ defaultPath: defaultPath ?? undefined, filters: [{ name: 'SQLite3 (*.db, *.sqlite, *.sqlite3)', extensions: ['db', 'sqlite', 'sqlite3'] }] })) ?? null;
+}

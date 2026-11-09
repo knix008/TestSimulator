@@ -11,7 +11,6 @@ import { SAMPLE_GROUPS, SAMPLES as SAMPLE_PROJECTS } from '../domain/samples.js'
 import { ANIMATION_KINDS } from './background.js';
 import { baseName } from '../domain/document.js';
 import { ANIMATION_INTERVALS } from '../domain/settings.js';
-import { DARK_THEMES, LIGHT_THEMES } from '../themes.js';
 import { switchFlag } from '../flags.js';
 
 const GRIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="20" cy="20" r="2"/><circle cx="14" cy="20" r="2"/><circle cx="20" cy="14" r="2"/><circle cx="8" cy="20" r="2"/><circle cx="14" cy="14" r="2"/><circle cx="20" cy="8" r="2"/></svg>';
@@ -36,7 +35,7 @@ function actionsBody(L) {
     ['new', 'fileNew', t('action.new'), t('start.tipNew')],
     ['open', 'folderOpen', t('action.open'), t('start.tipOpen')],
     ['tutorial', 'tutorial', t('start.tutorialStart'), t('start.tipTutorial')],
-    ['theme-settings', 'palette', t('start.themeSettings'), t('start.tipTheme')],
+    ['code-editor', 'blkHtml', t('action.codeEditor'), t('start.tipCodeEditor')],
     ['language', 'globe', L === 'ko' ? 'English' : '한국어', t('start.tipLanguage'), { flag: switchFlag(L) }],
     ['settings', 'gear', t('action.settings'), t('start.tipSettings')],
     ['start-settings', 'home', t('start.settings'), t('start.tipStartSettings')],
@@ -67,17 +66,11 @@ function samplesBody(L) {
     const items = SAMPLE_PROJECTS.filter((sample) => sample.group === group.id);
     return `<section class="sample-group" data-sample-group="${group.id}">
       <h3>${icon(group.icon)}<span>${escapeHtml(group[L])}</span><span class="sample-count">${items.length}</span></h3>
-      <div class="sample-tiles">${items.map((sample) => tile('sample', sample.icon, sample[L][0], sample[L][1], { value: sample.id })).join('')}</div>
+      <div class="sample-tiles">${items.map((sample) => tile('sample', sample.icon, sample[L][0], sample.board ? `${sample[L][1]} · ${t('sample.withBoard')}` : sample[L][1], { value: sample.id })).join('')}</div>
     </section>`;
   }).join('')}</div>`;
 }
 
-function themeBody(settings, L) {
-  const themeTile = (theme) => `<button type="button" role="radio" aria-checked="${settings.theme === theme.id}" class="bg-tile st-theme-tile ${settings.theme === theme.id ? 'on' : ''}" data-start="pick-theme" data-value="${theme.id}" title="${escapeHtml(theme.name[L])}">
-    <span class="st-theme-chip" aria-hidden="true" style="background:${theme.swatch[0]};border-color:${theme.swatch[2]}"><i style="background:${theme.swatch[1]}"></i><i style="background:${theme.swatch[2]}"></i></span><span>${escapeHtml(theme.name[L])}</span></button>`;
-  const group = (kind, glyph, label, themes) => `<section class="sample-group" data-theme-kind="${kind}"><h3>${icon(glyph)}<span>${escapeHtml(label)}</span><span class="sample-count">${themes.length}</span></h3><div class="bg-grid st-theme-tiles" role="radiogroup" aria-label="${escapeHtml(label)}">${themes.map(themeTile).join('')}</div></section>`;
-  return `<div class="sample-groups">${group('dark', 'moon', t('start.themeDark'), DARK_THEMES)}${group('light', 'sun', t('start.themeLight'), LIGHT_THEMES)}</div>`;
-}
 
 function backgroundBody(settings) {
   return `<div class="anim-chips bg-grid" role="radiogroup">${ANIMATION_KINDS.map((kind) => `<button class="anim-chip bg-tile ${settings.animation === kind && settings.backgroundKind === 'animated' ? 'active on' : ''}" data-start="animation" data-value="${kind}" role="radio" aria-checked="${settings.animation === kind}" title="${escapeHtml(t(`animation.${kind}`))}">${icon(animationIcon(kind))}<span>${escapeHtml(t(`animation.${kind}`))}</span></button>`).join('')}</div>
@@ -116,7 +109,6 @@ export function startPageHtml(app) {
     settings.startShowRecent === false && settings.startShowFolders === false ? '' : card('recent', 'recent', t('start.recentCard'), recentBody(app, settings)),
     card('templates', 'fileNew', t('start.new'), templates, { extra: `<span class="start-card-note">${TEMPLATES.length}</span>` }),
     settings.startShowSamples === false ? '' : card('samples', 'samples', t('start.samples'), samplesBody(L), { extra: `<span class="start-card-note">${SAMPLE_PROJECTS.length}</span>` }),
-    card('theme', 'palette', t('start.theme'), themeBody(settings, L), { extra: `<button class="start-btn small" data-start="theme-settings" title="${escapeHtml(t('start.tipTheme'))}">${icon('gear')}<span>${escapeHtml(t('start.themeSettings'))}</span></button>` }),
     settings.startShowBackground === false ? '' : card('background', 'sparkles', t('start.background'), backgroundBody(settings)),
   ];
   return `

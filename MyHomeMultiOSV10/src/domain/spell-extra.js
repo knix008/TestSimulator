@@ -13,7 +13,7 @@ instagram facebook youtube tiktok linkedin twitter kakao kakaotalk naver google 
 kubernetes docker americano latte espresso cappuccino macchiato barista brunch croissant
 myhomemaker myhome mhomt
 mondays tuesdays wednesdays thursdays fridays saturdays sundays macaron macarons meetup meetups roastery roasteries caffe ethiopia glasgow kyoto manchester
-liam olivia kim choi yoon park lee jung han mia jamie alex sophie minho hangyeol ondam brightway northwind contoso fabrikam litware cloudnote leonardo vinci da
+kg liam olivia kim choi yoon park lee jung han mia jamie alex sophie minho hangyeol ondam brightway northwind contoso fabrikam litware cloudnote leonardo vinci da
 `;
 
 const KO = `
@@ -23,7 +23,7 @@ const KO = `
 라테 라떼 아메리카노 바리스타 브런치 비건 크로스핏 코워킹 그라데이션 미니멀 다크모드 라이트모드 벤토 글래스모피즘 뉴모피즘 인터랙션 마이크로인터랙션 스크롤 패럴랙스
 더보기 바로가기 오시는길 자주묻는질문 특가 베스트 신상 신메뉴 원데이클래스 원데이 클래스 웨딩 일러스트레이터 트레이너 셰프 오너 굿즈 브루잉 브루 드립 디카페인 마카롱 크루아상 런치 디너 테이크아웃 브레이크타임 라스트오더
 재방문율 소금빵 솥밥 모닝 포근 뜨개 향초 셔틀 청년부 입문반 정규반 대회반 산악회 둘레길 관악산 무농약 작품집 비스트로 페어링 전월세 중개사 클라우드 클라우드노트 온담 루나 한빛
-김하늘 이준호 박서연 최민수 정유진 한지호 윤가은 김지우 이서준 민준 서연 레오나르도 다빈치
+김하늘 이준호 박서연 최민지 최민수 입주민 푸른숲 헬프데스크 그늘막 러닝머신 국수집 정유진 한지호 윤가은 김지우 이서준 민준 서연 레오나르도 다빈치
 마이홈메이커 누군가 누구든 아무개
 기초반 회화반 비즈니스반 입문반 네트워킹 다회용 달콤 라이프 로스터리 로스팅 리뉴얼 밀키트 병아리콩 보울 브루어리 세무 세무회계 세션 스무디 스타터 스페셜티 양조장 엔터프라이즈 자유석 커리 커리어 컨퍼런스 코칭 페일 포케 핸드 흑맥주
 `;
