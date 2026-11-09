@@ -1,0 +1,13 @@
+{
+  "format": "mycodechecker-project",
+  "version": 1,
+  "name": "Test01",
+  "key": "test01",
+  "source": ".",
+  "settings": {
+    "mainBranch": "main",
+    "exclusions": [],
+    "excludeDirs": []
+  },
+  "savedAt": "2026-11-06T10:44:13.882Z"
+}
