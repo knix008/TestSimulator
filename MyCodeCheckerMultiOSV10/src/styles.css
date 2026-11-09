@@ -1014,7 +1014,13 @@ svg.arch-graph:active { cursor: grabbing; }
 .card-handle { cursor: grab; color: var(--fg-muted); font-size: 14px; padding: 0 2px; user-select: none; touch-action: none; }
 .card-handle:hover { color: var(--accent); }
 .card-resize { position: absolute; right: 2px; bottom: 2px; z-index: 4; width: 16px; height: 16px; cursor: nwse-resize; touch-action: none; color: var(--fg-muted);
-  background: linear-gradient(135deg, transparent 0 55%, currentColor 55% 65%, transparent 65% 75%, currentColor 75% 85%, transparent 85%); opacity: .7; }
+  /* Six dots stacked 3-2-1 into a triangle in the bottom-right corner. */
+  --d: currentColor 1.3px, transparent 1.9px;
+  background:
+    radial-gradient(circle at 13px 3px, var(--d)),
+    radial-gradient(circle at 8px 8px, var(--d)), radial-gradient(circle at 13px 8px, var(--d)),
+    radial-gradient(circle at 3px 13px, var(--d)), radial-gradient(circle at 8px 13px, var(--d)), radial-gradient(circle at 13px 13px, var(--d));
+  opacity: .7; }
 .card-resize:hover { color: var(--accent); opacity: 1; }
 
 /* ── Close buttons: red on hover, like a window close button ─────────── */
