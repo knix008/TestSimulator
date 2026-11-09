@@ -77,12 +77,14 @@ try {
     await evalJs(`(${P}.actions.startTutorial({ autoplay: true }), 1)`);
     // Chapter marks: when auto play enters each chapter (seconds from the first frame).
     const marks = [];
+    const stepMarks = [];
     const deadline = Date.now() + 30 * 60000;
     for (;;) {
       const state = await evalJs(`(() => { const s = ${tour}?.state(); return s ? { index: s.index, active: s.active } : null; })()`).catch(() => null);
       if (state?.active) {
         const chapter = steps[state.index]?.chapter;
         if (chapter && marks.at(-1)?.chapter !== chapter && !marks.some((m) => m.chapter === chapter)) marks.push({ chapter, at: Date.now() });
+        if (stepMarks.at(-1)?.index !== state.index) stepMarks.push({ index: state.index, at: Date.now() });
         if (state.index === steps.length - 1) break;
       }
       if (Date.now() > deadline) throw new Error('auto play did not reach the last step');
@@ -92,7 +94,12 @@ try {
     await page.send('Page.stopScreencast');
     await evalJs(`${tour}.stop().then(() => 1)`);
     // Frames come only when something changes: hold each one until the next (concat demuxer durations).
-    const list = frames.map((f, i) => `file '${f.file.replace(/\\/g, '/')}'\nduration ${Math.max(0.04, ((frames[i + 1]?.time ?? f.time + 2) - f.time)).toFixed(3)}`).join('\n');
+    // Each frame's length in the video (as the concat list holds it) and where it starts there:
+    // a frame shorter than 40 ms is held 40 ms, so the video runs longer than the recording did.
+    const holds = frames.map((f, i) => Math.max(0.04, (frames[i + 1]?.time ?? f.time + 2) - f.time));
+    const startsAt = [];
+    holds.reduce((sum, hold, i) => { startsAt[i] = sum; return sum + hold; }, 0);
+    const list = frames.map((f, i) => `file '${f.file.replace(/\\/g, '/')}'\nduration ${holds[i].toFixed(3)}`).join('\n');
     const listFile = path.join(frameDir, 'list.txt');
     fs.writeFileSync(listFile, `${list}\nfile '${frames[frames.length - 1].file.replace(/\\/g, '/')}'\n`);
     const out = path.join(root, 'MyWorkPlan-Tutorial.mp4');
@@ -106,9 +113,15 @@ try {
     const dicts = {};
     for (const lang of ['ko', 'en']) dicts[lang] = (await import(pathToFileURL(path.join(root, 'src', 'i18n', `${lang}.js`)).href)).default;
     // Screencast timestamps are seconds; Date.now() marks are milliseconds of the same clock.
-    const first = frames[0].time * 1000;
-    const chaptersJson = marks.map((m) => ({ time: Math.max(0, Math.round((m.at - first) / 100) / 10), ko: dicts.ko[`tutorial.chapter.${m.chapter}`], en: dicts.en[`tutorial.chapter.${m.chapter}`] }));
-    fs.writeFileSync(path.join(videoDir, 'MyWorkPlan-Tutorial.json'), `${JSON.stringify({ video: 'MyWorkPlan-Tutorial.mp4', width: WIDTH, height: HEIGHT, chapters: chaptersJson }, null, 2)}\n`);
+    // A moment of the recording (Date.now() ms) → its time in the video (s).
+    const videoTime = (at) => {
+      let i = 0;
+      while (i + 1 < frames.length && frames[i + 1].time * 1000 <= at) i += 1;
+      return Math.max(0, Math.round((startsAt[i] + Math.max(0, Math.min(holds[i], at / 1000 - frames[i].time))) * 10) / 10);
+    };
+    const chaptersJson = marks.map((m) => ({ id: m.chapter, start: videoTime(m.at), title: { ko: dicts.ko[`tutorial.chapter.${m.chapter}`], en: dicts.en[`tutorial.chapter.${m.chapter}`] } }));
+    const stepsJson = stepMarks.map((m) => ({ id: steps[m.index].id, chapter: steps[m.index].chapter, start: videoTime(m.at), title: { ko: dicts.ko[`tutorial.${steps[m.index].id}.title`], en: dicts.en[`tutorial.${steps[m.index].id}.title`] } }));
+    fs.writeFileSync(path.join(videoDir, 'MyWorkPlan-Tutorial.json'), `${JSON.stringify({ video: 'MyWorkPlan-Tutorial.mp4', width: WIDTH, height: HEIGHT, duration: Math.round(holds.reduce((sum, hold) => sum + hold, 0) * 10) / 10, chapters: chaptersJson, steps: stepsJson }, null, 2)}\n`);
     execFileSync(process.execPath, [path.join(root, 'scripts', 'build-docs.mjs')], { stdio: 'inherit' });
   }
   if (errors.length) {

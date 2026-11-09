@@ -32,7 +32,7 @@ This tutorial shows every feature of MyWorkPlan on a sample project. Press Next 
 
 ### 2. The Home button
 
-The Home button at the start of the menu bar (or Ctrl+Shift+H) brings you back to this start page at any time; your open plans stay in their tabs. The side panels sit right under the toolbar, with the document tabs in the middle between them.
+The Home button (or Ctrl+Shift+H) is a toggle: from a plan it opens this start page, and pressed again it goes back to the plan (or to a new blank plan when none is open). The window has no system title bar: the menu bar shows the program icon, name and version on the left and minimise, maximise and close at its right end, and dragging its empty part moves the window. The side panels sit right under the toolbar, with the document tabs in the middle between them.
 
 ![The Home button](images/02-home.jpg)
 

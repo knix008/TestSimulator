@@ -6,7 +6,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { sleep } from './cdp.mjs';
+import { Page, sleep, waitTarget } from './cdp.mjs';
 import { root } from './harness.mjs';
 import { ALIGN_CHECK } from './align-check.mjs';
 import { CLIP_CHECK } from './clip-check.mjs';
@@ -28,6 +28,21 @@ const setClipboard = (text) => ps(`Set-Clipboard -Value @'\n${text}\n'@`);
 const W = (app, expression) => app.main.eval(`(() => { const w = window.__myworkplan; const a = w.actions; const api = w.api; return ${expression}; })()`);
 const resize = (app, width, height) => app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: ${width}, height: ${height} } } }).then(() => 1)`);
 const mainWindow = (app) => app.windowInfo().find((w) => w.owner === 0 && w.visible && w.title.startsWith('MyWorkPlan'));
+
+/** The document window of `kind` (OS window "doc-<kind>", page title the same), once its page has drawn. */
+async function docWindow(app, kind) {
+  const target = await waitTarget(app.port, (item) => item.title === `doc-${kind}`, 15000);
+  const page = await new Page(target).open();
+  await page.waitFor(`Boolean(window.__myworkplanViewer && (document.querySelector('.viewer-frame')?.contentDocument?.querySelector('h1') || document.querySelector('video')))`, { timeout: 15000 });
+  await sleep(300);
+  return page;
+}
+
+async function closeDocWindow(app, kind, page) {
+  await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|close', { label: 'doc-${kind}' }).then(() => 1, () => 1)`).catch(() => {});
+  page?.close();
+  await sleep(400);
+}
 
 async function closePopups(app) {
   await app.main.eval(`window.__myworkplan.popups.closeAll().then(() => 1)`).catch(() => {});
@@ -109,7 +124,8 @@ export const cases = [
     await freshSample(app);
     const layout = await app.main.eval(`(() => {
       const r = (s) => document.querySelector(s).getBoundingClientRect();
-      const first = document.querySelector('#menubar').firstElementChild;
+      // The program's icon, name and version come first (no system title bar), then Home and the menus.
+      const first = document.querySelector('#menubar .menubar-item');
       return { homeFirst: first.matches('[data-home]'), homeIcon: Boolean(first.querySelector('svg')), homeTitle: first.title,
         toolbarBottom: Math.round(r('#toolbar').bottom), leftTop: Math.round(r('#left-panel').top), rightTop: Math.round(r('#right-panel').top),
         tabsLeft: Math.round(r('#tabs').left), tabsRight: Math.round(r('#tabs').right), leftRight: Math.round(r('#left-panel').right), rightLeft: Math.round(r('#right-panel').left) };
@@ -123,12 +139,89 @@ export const cases = [
     await sleep(300);
     assert.equal(await app.main.eval(`!document.querySelector('#start-page').hidden`), true, 'Home shows the start page');
     assert.ok(await app.main.eval(`document.querySelector('#menubar [data-home]').classList.contains('current')`));
+    // Home is a toggle: pressed again it goes back to the plan.
+    const plans = await app.main.eval(`window.__myworkplan.state.docs.length`);
     await app.main.click('#menubar [data-home]');
     await sleep(200);
-    assert.equal(await app.main.eval(`!document.querySelector('#start-page').hidden`), true, 'pressing Home again stays home');
+    assert.equal(await app.main.eval(`document.querySelector('#start-page').hidden`), true, 'pressing Home again goes back to the plan');
+    assert.equal(await app.main.eval(`window.__myworkplan.state.docs.length`), plans, 'the same plan, no new one');
+    // With no plan open, Home on the start page shows a new blank plan.
+    await app.main.eval(`(() => { const w = window.__myworkplan; for (const doc of [...w.state.docs]) w.actions.closeDoc(doc, { force: true }); w.actions.showStartPage(true); return 1; })()`);
+    await sleep(200);
+    await app.main.click('#menubar [data-home]');
+    await sleep(300);
+    assert.deepEqual(await app.main.eval(`[document.querySelector('#start-page').hidden, window.__myworkplan.state.docs.length, window.__myworkplan.api.project().tasks.length]`), [true, 1, 0], 'a blank plan');
   } },
   { group: '창', name: '타이틀 바: 프로그램 이름과 버전', async run(app) {
     assert.equal(mainWindow(app)?.title, TITLE);
+  } },
+  { group: '창', name: '제목 표시줄 없음: 메뉴바 왼쪽에 아이콘·이름·버전, 오른쪽 끝에 최소화·최대화·닫기, 메뉴바로 창 이동', async run(app) {
+    await freshSample(app);
+    const main = mainWindow(app);
+    // Windows keeps the caption style bit on an undecorated Tauri window (DWM hides it): measure the frame instead.
+    const frame = await app.main.eval('({ h: innerHeight, dpr: devicePixelRatio })');
+    const extra = (main.bottom - main.top) - frame.h * frame.dpr;
+    assert.ok(extra < 24 * frame.dpr, `no system title bar: only the ${extra}px resize border is outside the page`);
+    assert.equal(await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|is_decorated', { label: 'main' })`), false);
+    const bar = await app.main.eval(`(() => {
+      const m = document.querySelector('#menubar');
+      const brand = m.querySelector('.menubar-brand');
+      const buttons = [...m.querySelectorAll('.window-controls [data-window]')];
+      const last = buttons.at(-1)?.getBoundingClientRect();
+      return { first: m.firstElementChild === brand, logo: Boolean(brand?.querySelector('img.menubar-logo')), text: brand?.textContent.replace(/\\s+/g, ' ').trim(),
+        buttons: buttons.map((b) => b.dataset.window), lastRight: last ? innerWidth - last.right : null, region: getComputedStyle(m).webkitAppRegion || getComputedStyle(m).appRegion,
+        buttonRegion: buttons[0] ? (getComputedStyle(buttons[0]).webkitAppRegion || getComputedStyle(buttons[0]).appRegion) : null };
+    })()`);
+    assert.ok(bar.first && bar.logo, 'the icon comes first');
+    assert.equal(bar.text, `MyWorkPlan v${VERSION}`);
+    assert.deepEqual(bar.buttons, ['minimize', 'maximize', 'close']);
+    assert.ok(bar.lastRight < 1, `close sits at the right edge (${bar.lastRight})`);
+    assert.equal(bar.region, 'drag', 'the menu bar moves the window');
+    assert.equal(bar.buttonRegion, 'no-drag');
+    // Maximise and back with the middle button.
+    const isMax = () => app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|is_maximized', { label: 'main' })`);
+    await app.main.click('#menubar [data-window="maximize"]');
+    await app.main.waitFor(`window.__TAURI_INTERNALS__.invoke('plugin:window|is_maximized', { label: 'main' })`, { timeout: 5000, message: 'maximised' });
+    await sleep(300);
+    assert.equal(await app.main.eval(`document.querySelector('#menubar [data-window="maximize"] svg').dataset.icon`), 'winRestore');
+    await app.main.click('#menubar [data-window="maximize"]');
+    await sleep(600);
+    assert.equal(await isMax(), false, 'restored');
+    // Minimise, then bring it back.
+    await app.main.click('#menubar [data-window="minimize"]');
+    await sleep(500);
+    assert.equal(await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|is_minimized', { label: 'main' })`), true, 'minimised');
+    await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|unminimize', { label: 'main' }).then(() => 1)`);
+    await sleep(500);
+  } },
+  { group: '창', name: '최소 크기: OS(SetWindowPos·Snap)로 줄여도 원래대로 돌아오고, 툴바는 한 줄·가려진 버튼 없음 (한국어·영어)', async run(app) {
+    await freshSample(app);
+    const shrink = (handle) => ps(`Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class S{[DllImport("user32.dll")]public static extern bool SetWindowPos(IntPtr h,IntPtr a,int x,int y,int cx,int cy,uint f);}';[void][S]::SetWindowPos([IntPtr]${handle},[IntPtr]::Zero,60,40,600,480,0x0014)`);
+    for (const language of ['ko', 'en']) {
+      await W(app, `(a.updateSettings({ language: '${language}' }), 1)`);
+      await sleep(600);
+      const min = await W(app, 'w.state.minWidth');
+      shrink(mainWindow(app).handle);
+      await sleep(900);
+      const result = await app.main.eval(`(() => {
+        const items = [...document.querySelectorAll('#toolbar .tool-button, #toolbar .stepper-value, #menubar .menubar-item, #menubar .window-button, #menubar .menubar-brand')];
+        const tools = [...document.querySelectorAll('#toolbar .tool-button')];
+        const toolbar = document.querySelector('#toolbar');
+        return {
+          width: innerWidth,
+          hidden: items.filter((b) => { const r = b.getBoundingClientRect(); return r.right > innerWidth + 0.5 || r.left < -0.5 || r.width < 12; }).map((b) => b.dataset.command ?? b.dataset.menu ?? b.dataset.window ?? b.className),
+          rows: new Set(tools.map((b) => Math.round(b.getBoundingClientRect().top + b.getBoundingClientRect().height / 2))).size,
+          overflow: toolbar.scrollWidth - toolbar.clientWidth, pageScroll: document.documentElement.scrollWidth - innerWidth,
+        };
+      })()`);
+      assert.ok(result.width >= min - 2, `${language}: the window came back to ${result.width}px ≥ ${min}px`);
+      assert.equal(result.rows, 1, `${language}: one toolbar row`);
+      assert.deepEqual(result.hidden, [], `${language}: nothing hidden`);
+      assert.ok(result.overflow <= 1 && result.pageScroll <= 1, `${language}: no overflow ${JSON.stringify(result)}`);
+    }
+    await W(app, `(a.updateSettings({ language: 'ko' }), 1)`);
+    await resize(app, 1480, 900);
+    await sleep(400);
   } },
   { group: '창', name: '이미 실행 중이면 오류 팝업 후 종료 (두 번째 실행)', async run(app) {
     const lockDir = tempDir('lock');
@@ -1141,39 +1234,61 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── help
-  { group: '도움말', name: '튜토리얼 문서를 프로그램 안에서 읽기 (홈 화면 항목)', async run(app) {
+  { group: '도움말', name: '튜토리얼 문서: 별도 OS 창, 장 이동, 국기 단추로 언어 전환, 글자 크기 − px + (기억됨)', async run(app) {
     await W(app, '(a.showStartPage(), 1)');
     await sleep(300);
     assert.ok(await app.main.eval(`Boolean(document.querySelector('#start-page [data-start="tutorial-doc"]'))`), 'the start page lists the tutorial document');
     await app.main.click('#start-page [data-start="tutorial-doc"]');
-    await app.main.waitFor(`document.querySelectorAll('[data-reader-chapter] option').length > 5`, { timeout: 15000 });
-    const doc = await app.main.eval(`(() => { const d = document.querySelector('.reader-frame').contentDocument; return { shown: !document.querySelector('#reader-page').hidden, h1: d.querySelector('h1').textContent, steps: d.querySelectorAll('h3').length, images: d.images.length, raw: d.body.innerText.includes('<a id='), chapters: [...document.querySelectorAll('[data-reader-chapter] option')].slice(1).map((o) => o.textContent) }; })()`);
-    assert.ok(doc.shown);
-    assert.match(doc.h1, /MyWorkPlan/);
-    const steps = await app.main.eval(`window.__myworkplan.domain.tutorialSteps()`);
-    assert.equal(doc.steps, steps, 'every tutorial step is in the document');
-    assert.equal(doc.images, steps, 'with a picture each');
-    assert.equal(doc.raw, false, 'no raw HTML shows as text');
-    assert.ok(doc.chapters.every((c) => !c.endsWith('#')), JSON.stringify(doc.chapters));
-    await app.main.eval(`(() => { const s = document.querySelector('[data-reader-chapter]'); s.value = s.options[4].value; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
-    await sleep(300);
-    assert.ok(await app.main.eval(`document.querySelector('.reader-frame').contentWindow.scrollY > 200`), 'a chapter can be picked');
-    await app.main.click('[data-reader="lang"][data-value="en"]');
-    await app.main.waitFor(`/tutorial/.test(document.querySelector('.reader-frame').contentDocument?.querySelector('h1')?.textContent ?? '')`, { timeout: 10000 });
-    assert.deepEqual(await app.main.eval(CLIP_CHECK), []);
-    await app.main.click('[data-reader="home"]');
-    await sleep(300);
-    assert.deepEqual(await app.main.eval(`[!document.querySelector('#reader-page').hidden, !document.querySelector('#start-page').hidden]`), [false, true], 'Home goes back to the start page');
+    const page = await docWindow(app, 'tutorial');
+    try {
+      assert.equal(await app.main.eval(`document.querySelector('#start-page').hidden`), false, 'the main window stays as it was');
+      const os = app.windowInfo().filter((w) => w.visible && w.title.includes('—'));
+      assert.ok(os.some((w) => /튜토리얼 문서|Tutorial/.test(w.title)), `a window of its own: ${os.map((w) => w.title)}`);
+      const doc = await page.eval(`(() => { const d = document.querySelector('.viewer-frame').contentDocument; return { h1: d.querySelector('h1').textContent, steps: d.querySelectorAll('h3').length, images: d.querySelectorAll('img').length, raw: d.body.innerText.includes('<a id='), font: getComputedStyle(d.body).fontSize }; })()`);
+      assert.match(doc.h1, /MyWorkPlan/);
+      const steps = await app.main.eval(`window.__myworkplan.domain.tutorialSteps()`);
+      assert.equal(doc.steps, steps, 'every tutorial step is in the document');
+      assert.equal(doc.images, steps, 'with a picture each');
+      assert.equal(doc.raw, false, 'no raw HTML shows as text');
+      // A chapter can be picked.
+      await page.eval(`(() => { const s = document.querySelector('[data-viewer-chapter]'); s.value = s.options[4].value; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await sleep(300);
+      assert.ok(await page.eval(`document.querySelector('.viewer-frame').contentWindow.scrollY > 200`), 'a chapter can be picked');
+      // Text size: − 16px +, applied to the page and remembered.
+      await page.eval(`(window.__myworkplanViewer.setFontSize(16), 1)`);
+      await page.click('[data-viewer="font-up"]');
+      await page.click('[data-viewer="font-up"]');
+      await sleep(200);
+      const font = await page.eval(`({ shown: document.querySelector('[data-font-size]').textContent, body: getComputedStyle(document.querySelector('.viewer-frame').contentDocument.body).fontSize, kept: localStorage.getItem('myworkplan.doc.fontSize') })`);
+      assert.deepEqual(font, { shown: '18px', body: '18px', kept: '18' });
+      const bar = await page.eval(`(() => { const s = document.querySelector('.viewer-font .stepper'); const [m, o, p] = [...s.children].map((e) => e.getBoundingClientRect()); return { order: m.right <= o.left + 1 && o.right <= p.left + 1, middle: Math.abs((o.top + o.bottom) / 2 - (m.top + m.bottom) / 2) < 2, centred: getComputedStyle(s.children[1]).textAlign }; })()`);
+      assert.deepEqual(bar, { order: true, middle: true, centred: 'center' }, 'the size sits centred between − and +');
+      // The language button shows the flag of the language it switches to.
+      const lang = await page.eval(`(() => { const b = document.querySelector('[data-viewer="lang"]'); return { to: b.dataset.value, flag: Boolean(b.querySelector('.flag-slot svg, .flag-slot img')), text: b.textContent.trim() }; })()`);
+      assert.deepEqual(lang, { to: 'en', flag: true, text: 'English' });
+      await page.click('[data-viewer="lang"]');
+      await page.waitFor(`/tutorial/i.test(document.querySelector('.viewer-frame').contentDocument?.querySelector('h1')?.textContent ?? '')`, { timeout: 10000 });
+      assert.equal(await page.eval(`getComputedStyle(document.querySelector('.viewer-frame').contentDocument.body).fontSize`), '18px', 'the size stays with the other language');
+      assert.equal(await page.eval(`document.querySelector('[data-viewer="lang"]').dataset.value`), 'ko');
+      await page.eval(`(window.__myworkplanViewer.setFontSize(16), 1)`);
+    } finally {
+      await closeDocWindow(app, 'tutorial', page);
+    }
   } },
-  { group: '도움말', name: '사용 설명서 열기 (설치된 문서)', async run(app) {
-    const log = path.join(tempDir('open'), 'open.log');
-    await app.restart([], { MYWORKPLAN_OPEN_LOG: log });
-    await app.popup('welcome').then((p) => p.close()).catch(() => {});
+  { group: '도움말', name: '사용 설명서: 별도 OS 창 (다시 고르면 같은 창), 국기 단추·글자 크기', async run(app) {
     await W(app, `(w.run('userGuide'), 1)`);
-    await sleep(800);
-    assert.match(fs.readFileSync(log, 'utf8'), /UsersGuide(\.en)?\.html/);
-    await app.restart();
-    await app.popup('welcome').then((p) => p.close()).catch(() => {});
+    const page = await docWindow(app, 'guide');
+    try {
+      assert.match(await page.eval(`document.querySelector('.viewer-frame').contentDocument.querySelector('h1').textContent`), /MyWorkPlan/);
+      assert.ok(await page.eval(`document.querySelector('.viewer-frame').contentDocument.querySelectorAll('h2').length >= 19`), 'the whole guide');
+      assert.ok(await page.eval(`Boolean(document.querySelector('[data-viewer="lang"] .flag-slot') && document.querySelector('[data-viewer="font-up"]') && document.querySelector('[data-font-size]'))`), 'language and text size in the bar');
+      // Picking the guide again brings back the same window (no second one).
+      await W(app, `(w.run('userGuide'), 1)`);
+      await sleep(800);
+      assert.equal((await app.targets()).filter((x) => x.title === 'doc-guide').length, 1, 'one guide window');
+    } finally {
+      await closeDocWindow(app, 'guide', page);
+    }
   } },
   { group: '도움말', name: '튜토리얼: 시작·다음·자동 재생·끝내면 원래대로', async run(app) {
     await freshSample(app);

@@ -1288,3 +1288,100 @@ html.is-web body { overflow-x: auto; }
    (the general .row grid has only two columns, which wrapped the four values onto extra lines). */
 .row.stat-row.stat-row:has(> .row-label):not(.col-row):not(.recent-row), .row.stat-row { display: grid; grid-template-columns: minmax(130px, 1fr) repeat(4, minmax(0, 132px)); column-gap: 8px; align-items: center; }
 .stat-row > span:not(.row-label) { width: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ───────── no system title bar: the menu bar is the title bar (icon, name, version · menus · window buttons) */
+#menubar { -webkit-app-region: drag; app-region: drag; min-height: 34px; padding-top: 0; padding-bottom: 0; padding-right: 0; }
+#menubar button, #menubar input, #menubar select { -webkit-app-region: no-drag; app-region: no-drag; }
+.menubar-brand { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 0 4px 0 2px; white-space: nowrap; user-select: none; cursor: default; }
+.menubar-logo { width: 20px; height: 20px; flex: none; pointer-events: none; }
+.menubar-brand b { font-size: 0.95em; letter-spacing: 0.01em; }
+.menubar-version { font-size: 0.78em; font-weight: 600; color: var(--accent); }
+.menubar-drag { align-self: stretch; min-width: 24px; }
+.window-controls { display: flex; align-self: stretch; flex: none; margin-left: 4px; }
+.window-button { display: grid; place-items: center; width: 46px; border: 0; border-radius: 0; background: none; color: var(--text); cursor: default; }
+.window-button .icon[data-tone] { width: 14px; height: 14px; color: var(--text) !important; }
+.window-button:hover { background: var(--hover); }
+.window-button.close:hover { background: #e81123; }
+.window-button.close:hover .icon[data-tone] { color: #fff !important; }
+
+/* ───────── folded side panels: a narrow rail of icons with the panel's icon and title on top */
+#app.no-left #workspace { grid-template-columns: 44px 0 minmax(0, 1fr) 5px var(--right-width); }
+#app.no-right #workspace { grid-template-columns: var(--left-width) 5px minmax(0, 1fr) 0 44px; }
+#app.no-left.no-right #workspace { grid-template-columns: 44px 0 minmax(0, 1fr) 0 44px; }
+.panel-rail { padding: 4px 0; gap: 2px; }
+.panel-rail .rail-button { width: 36px; min-height: 34px; padding: 3px 0; }
+.panel-rail .rail-button .rail-label { display: none; }
+.panel-rail .rail-button.expand { min-height: 30px; }
+.panel-rail .rail-title { width: 40px; padding: 4px 0 5px; font-size: 0.66em; text-align: center; }
+.panel-rail .rail-title span { display: block; max-width: 40px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ───────── window resize mark: six dots in a triangle, clearly visible */
+.resize-grip { width: 16px; height: 16px; opacity: 0.85; color: var(--muted); }
+.resize-grip .icon[data-tone] { width: 14px; height: 14px; color: var(--muted) !important; }
+.resize-grip:hover .icon[data-tone] { color: var(--accent) !important; }
+#statusbar { padding-right: 20px; }
+
+/* properties panel: every number is [ - ] value + unit [ + ], as wide as the other fields, value centred */
+.props .prop-control > .stepper { flex: 1 1 auto; width: 100%; min-width: 0; height: 28px; }
+.props .prop-control > .stepper .stepper-value { flex: 1 1 auto; width: auto; text-align: center; }
+.props .prop-control > .stepper .stepper-button { width: 28px; }
+.props .prop-control > input, .props .prop-control > select { height: 28px; box-sizing: border-box; }
+/* The start page fills the window whatever the panels are set to (after the narrow-rail rules above). */
+#app.on-start #workspace, #app.on-start.no-left #workspace, #app.on-start.no-right #workspace, #app.on-start.no-left.no-right #workspace { grid-template-columns: minmax(0, 1fr); }
+
+/* ───────────────────────── document and video windows (src/viewer.js) */
+html.is-viewer, html.is-viewer body { height: 100%; overflow: hidden; background: var(--bg); }
+html.is-viewer #app, html.is-viewer #app:not(:empty) { display: block; min-width: 0; height: 100vh; }
+.viewer { height: 100vh; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+.viewer-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--toolbar); flex: none; }
+.viewer-title { display: flex; align-items: center; gap: 8px; margin: 0 6px 0 0; font-size: 1.05em; white-space: nowrap; }
+.viewer-title .icon { color: var(--accent); width: 20px; height: 20px; }
+.viewer-chapters { max-width: 320px; min-width: 160px; }
+.viewer-find { display: inline-flex; align-items: center; gap: 4px; padding: 0 2px 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.viewer-find > .icon { width: 15px; height: 15px; color: var(--muted); }
+.viewer-find input[type="search"] { border: 0 !important; box-shadow: none !important; background: transparent; width: 170px; padding: 3px 2px; }
+.viewer-find output { min-width: 44px; text-align: right; color: var(--muted); font-size: 0.9em; white-space: nowrap; }
+.viewer-find .icon-button { width: 26px; height: 26px; }
+.viewer-speed { display: inline-flex; align-items: center; gap: 4px; }
+.viewer-speed .icon { color: var(--muted); }
+.viewer-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: var(--bg); display: block; }
+.viewer-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 32px; text-align: center; color: var(--muted); max-width: 640px; }
+.viewer-empty .icon { width: 56px; height: 56px; color: var(--accent); }
+.viewer-empty p { margin: 0; font-size: 1.1em; line-height: 1.6; color: var(--text); user-select: text; -webkit-user-select: text; }
+.video-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; }
+.video-body.no-chapters { grid-template-columns: minmax(0, 1fr); }
+.video-body.no-chapters .video-chapter-list { display: none; }
+.video-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+.video-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: #000; border-radius: 10px; overflow: hidden; }
+.video-stage:fullscreen { border-radius: 0; }
+.viewer-video.no-video .video-stage { background: var(--surface); border: 1px solid var(--border); }
+.viewer-video.no-video .video-marks, .viewer-video.no-video .video-keys, .viewer-video.no-video .video-chapter-list,
+.viewer-video.no-video [data-video-chapter], .viewer-video.no-video .viewer-speed, .viewer-video.no-video [data-viewer="fullscreen"], .viewer-video.no-video [data-viewer="external"] { display: none; }
+.viewer-video.no-video .video-body { grid-template-columns: minmax(0, 1fr); }
+.video-stage video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
+.video-marks { position: relative; height: 12px; border-radius: 6px; background: color-mix(in srgb, var(--border) 70%, transparent); cursor: pointer; flex: none; }
+.video-marks .video-played { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 6px; background: color-mix(in srgb, var(--accent) 55%, transparent); pointer-events: none; }
+.video-marks i { position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1px; border-radius: 2px; background: var(--accent); }
+.video-marks i:hover { background: var(--text); }
+.video-keys { margin: 0; font-size: 0.85em; flex: none; }
+.video-chapter-list { overflow: auto; border-left: 1px solid var(--border); background: var(--surface); padding: 8px; min-height: 0; }
+.video-chapter-list section { margin-bottom: 6px; }
+.video-chapter, .video-step { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 6px; width: 100%; text-align: left; border: 0; background: transparent; padding: 4px 6px; border-radius: 6px; cursor: pointer; color: var(--text); align-items: baseline; }
+.video-chapter:hover, .video-step:hover { background: var(--hover); }
+.video-chapter.active { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.video-chapter time, .video-step time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.9em; }
+.video-step { padding-left: 14px; font-size: 0.92em; }
+.video-step span { color: var(--muted); }
+/* A document window shown as a frame in the main window (while the tutorial runs). */
+.web-popup.web-popup-doc { inset: 5% 6% 7% 6%; z-index: 1000; }
+
+
+.viewer-lang .flag-slot { display: inline-flex; align-items: center; }
+.viewer-lang .flag-slot svg, .viewer-lang .flag-slot img { width: 20px; height: auto; }
+.viewer-font { display: inline-flex; align-items: center; gap: 6px; }
+.viewer-font .stepper { height: 30px; }
+.viewer-font .viewer-font-size { display: grid; place-items: center; width: 56px; text-align: center; font-weight: 600; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+
+/* A document window shown as a frame over the app while the tutorial runs. */
+.web-popup.web-popup-doc { inset: 5% 6% 7% 6%; width: auto !important; height: auto !important; z-index: 1000; visibility: visible; }
+.web-popup.web-popup-doc iframe { width: 100%; height: 100%; border: 0; }

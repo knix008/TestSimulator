@@ -60,7 +60,8 @@ const SHOTS = [
   ['print', async () => { await sample('speaker-development'); await A(`w.run('print')`); await settle(1800); }],
   ['settings-start', async () => { await closePopups(); await A(`a.showStartPage(); w.popups.open('settings', { tab: 'start' })`); await settle(900); }],
   ['tutorial', async () => { await closePopups(); await A(`a.startTutorial({ index: 9 })`); await settle(2500); }],
-  ['video', async () => { await A(`await w.tutorial?.()?.stop?.()`).catch(() => {}); await closePopups(); await A(`a.openReader('video')`); await settle(900); }],
+  // Document windows (their own windows in the app; drawn here as a frame over it, as during the tutorial).
+  ['video', async () => { await A(`await w.tutorial?.()?.stop?.()`).catch(() => {}); await closePopups(); await A(`a.showStartPage(); w.popups.inline = true; a.openDocWindow('video')`); await settle(1800); await A(`w.popups.inline = false`); }],
   // Wages: the Costs tab of a salaried person, and the labor cost report.
   ['resource-wage', async () => {
     await sample('website-redesign', 'resourceSheet');
@@ -73,6 +74,7 @@ const SHOTS = [
   // The bottom panel (schedule check): open on the overallocation tab, then folded with the side panels folded too.
   ['bottom-panel', async () => { await sample('website-redesign'); await A(`a.updateSettings({ showBottomPanel: true, bottomPanelCollapsed: false, bottomPanelTab: 'problems', bottomPanelHeight: 300 })`); }],
   ['panels-folded', async () => { await sample('website-redesign'); await A(`a.updateSettings({ showLeftPanel: false, showRightPanel: false, bottomPanelCollapsed: true })`); }],
+  ['guide-window', async () => { await closePopups(); await A(`a.showStartPage(); w.popups.inline = true; a.openDocWindow('guide')`); await settle(2200); await A(`w.popups.inline = false`); }],
 ];
 
 try {

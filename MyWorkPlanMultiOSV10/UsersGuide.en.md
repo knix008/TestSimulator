@@ -45,7 +45,7 @@ If you would rather look first, open one of the [40 sample projects](#sample-pro
 
 ## The start page
 
-The start page shows when the program starts (if **Show the start page when starting** is on) and whenever no project is open. The **Home** button at the left end of the menu bar (`Ctrl+Shift+H`) brings it back at any time; open projects stay in their tabs.
+The start page shows when the program starts (if **Show the start page when starting** is on) and whenever no project is open. The **Home** button on the menu bar (`Ctrl+Shift+H`) brings it back at any time; open projects stay in their tabs. Home is a toggle: pressed again on the start page it returns to the plan you were on, and with no plan open it creates a new blank plan.
 
 ![The start page: hero card, Quick actions, Recent, New and Sample projects cards over the moving background](docs/guide/images/en/01-start.png)
 
@@ -80,9 +80,9 @@ There is no theme card on the start page: themes are chosen with the theme butto
 
 | Button | What it does |
 |---|---|
-| **User's guide** | Opens this guide |
-| **Tutorial document** | Shows the tutorial document inside the program (every step with its screen) |
-| **Tutorial video** | Plays the recording of the whole tutorial inside the program |
+| **User's guide** | Opens this guide in its own window |
+| **Tutorial document** | Opens the tutorial document (every step with its screen) in its own window |
+| **Tutorial video** | Plays the recording of the whole tutorial in its own window |
 | **Help** ▾ | Drops down the same items as the **Help** menu: Tutorial · Tutorial document · Tutorial video · User's guide · Keyboard shortcuts… · Settings… · About… |
 | **Start the tutorial** | Starts the interactive tutorial |
 
@@ -239,33 +239,55 @@ Start it with **Help › Tutorial** (`F11`), the graduation-cap button at the ri
 - Drag the tour box by its title to move it out of the way. `Esc` or ✕ ends the tutorial.
 - Your files are not changed, and the settings the tutorial changes (theme, language, background…) are put back at the end: "The tutorial has ended. Your settings were put back."
 
-### Tutorial document
+### Document windows
 
-**Help › Tutorial document** (or the **Tutorial document** button on the start page) shows a document with every tutorial step and its screen in the middle of the window. The bar on top has:
+The **User's guide**, the **Tutorial document** and the **Tutorial video** each open in a window of their own, next to the main window, so you can read or watch while you work.
+
+| Where you run MyWorkPlan | The document opens in |
+|---|---|
+| Desktop app | Its own window with the normal system title bar. Its size and place are remembered; choosing the same document again brings that window back to the front instead of opening another |
+| Web version | A new browser tab |
+| While the tutorial runs | A frame over the program, closed with ✕ |
+
+Open them from the **Help** menu, the three buttons in the start page's hero card, or the **Help** ▾ button there.
+
+### User's guide and tutorial document
+
+![The User's guide window: chapter list, find box, text size, language button, Print and Open in browser](docs/guide/images/en/28-guide-window.png)
+
+**Help › User's guide** opens this guide; **Help › Tutorial document** opens a document with every tutorial step and its screen. Both windows have the same bar on top:
 
 | Control | What it does |
 |---|---|
-| **Home** | Back to the start page |
-| **Go to chapter** | Jumps to a chapter |
-| **한국어** / **English** | Switches the document language |
-| **Start tutorial** | Starts the interactive tutorial |
+| **Go to chapter** | Jumps to a chapter (a table of contents is also shown at the left of the page) |
+| **Find in document** | Type a word: the matches are highlighted and the count shown ("3 found" / "Not found"). ▲ ▼ go to the previous / next match; `Enter` / `Shift+Enter` and `F3` / `Shift+F3` do the same; `Esc` clears the box. `Ctrl+F` jumps to the box |
+| **Text size** | `A − 16px +`: 12–26 px. `Ctrl +` larger, `Ctrl −` smaller, `Ctrl 0` back to 16 px. The size is remembered for all document windows and kept when you switch language |
+| Language button | Shows the flag and name of the other language — 🇰🇷 **한국어** on the English page, 🇬🇧 **English** on the Korean page — and switches the document to it |
+| **Print** | Prints the document (`Ctrl+P`) |
 | **Open in browser** | Opens the document in your web browser |
 
 ### Tutorial video
 
-![The Tutorial video page with Home, Go to chapter, Start tutorial and Open in browser](docs/guide/images/en/23-video.png)
+![The Tutorial video window: chapter list, playback speed, full screen and the language button](docs/guide/images/en/23-video.png)
 
-**Help › Tutorial video** (or the **Tutorial video** button on the start page) plays a recording of the whole tutorial inside the program, with the usual video controls (play, pause, seek, volume, full screen).
+**Help › Tutorial video** plays a recording of the whole tutorial in its own window, with the usual video controls (play, pause, seek, volume).
 
-- **Go to chapter** jumps the video to the start of a chapter.
-- **Start tutorial** starts the interactive tutorial; **Open in browser** plays the video in your browser; **Home** goes back to the start page.
-- The video file is `MyWorkPlan-Tutorial.mp4`. It is made with `npm run tutorial:video` in the project folder, which writes it to the project root and copies it, with its chapter list, into `docs/video`. When the video has not been made yet, the page says "The tutorial video has not been made yet. Run npm run tutorial:video in the project folder."
+| Control | What it does |
+|---|---|
+| **Go to chapter** | Jumps the video to the start of a chapter |
+| **Playback speed** | 0.5× · 0.75× · 1× · 1.25× · 1.5× · 2× |
+| **Full screen** | Fills the screen (`F`; `Esc` leaves) |
+| Language button | The same flag-and-name button as in the documents: switches the window's language |
+| **Open in player** | Opens the video in the system's default video player (desktop) |
 
-### User's guide and other help
+Keys (shown under the video): `Space` or `K` play / pause · `←` / `→` 5 seconds back / forward · `F` full screen.
+
+The video file is `MyWorkPlan-Tutorial.mp4`. It is made with `npm run tutorial:video` in the project folder, which writes it to the project root and copies it, with its chapter list, into `docs/video`. When the video has not been made yet, the window says "The tutorial video has not been made yet. Run npm run tutorial:video in the project folder."
+
+### Other help
 
 | Command | What it does |
 |---|---|
-| **Help › User's guide** | Opens this guide |
 | **Help › Keyboard shortcuts…** | The Settings window on the **Shortcuts** tab |
 | **Help › Settings…** | The Settings window (`Ctrl+,`) |
 | **Help › About…** | Version, build date, commit, target, runtime, platform and author; **Copy** copies them (`F1`) |
@@ -276,11 +298,34 @@ Every button and menu item has a tooltip, and the menus show each command's shor
 
 ![The main window with the Website Redesign sample: menus, toolbar, Tools panel, task table and Gantt chart, Properties panel and status bar](docs/guide/images/en/04-gantt.png)
 
-From the top: the **menu bar** and the **toolbar** (one line); right under them the **Tools** panel on the left and the **Properties** panel on the right. Between the two panels are the **project tabs** with the **view** below them and, under the view, the **bottom panel** (Schedule check); the **status bar** is at the bottom. Drag the separators between the panels to resize them, and the bottom-right corner to resize the window. The window never gets narrower than the toolbar needs.
+From the top: the **menu bar** (which is also the title bar) and the **toolbar** (one line); right under them the **Tools** panel on the left and the **Properties** panel on the right. Between the two panels are the **project tabs** with the **view** below them and, under the view, the **bottom panel** (Schedule check); the **status bar** is at the bottom. Drag the separators between the panels to resize them.
 
-### Menu bar
+### Window size
 
-The **Home** button at the start of the menu bar (`Ctrl+Shift+H`) goes back to the start page; open projects stay in their tabs. Long menus are grouped into submenus: click an item with › on the right (or press →) and its submenu opens beside it.
+- Drag the six dots in a triangle at the bottom-right corner (or any window edge) to resize the window.
+- The window never gets narrower than the toolbar and menu bar need, so no toolbar button is ever hidden and the toolbar always stays on one line. Even when Windows Snap or another program makes the window smaller, it comes back to that minimum width.
+
+### Menu bar (title bar)
+
+The desktop app has no separate system title bar: the menu bar does that job.
+
+| Part | What it is |
+|---|---|
+| Left end | The program icon, **MyWorkPlan** and the version (v1.0.0) |
+| **Home** | Toggles the start page (below) |
+| Menus | **File** · **Edit** · **View** · **Task** · **Resource** · **Project** · **Report** · **Help** |
+| Right end | **Minimize** · **Maximize** (**Restore down** while maximised) · **Close**. Close asks about unsaved plans, like **File › Exit** |
+
+- Drag an empty part of the menu bar to move the window; double-click it to maximise or restore. Windows Snap works as usual (drag to a screen edge, or `Win+arrow`).
+- In the web version the menu bar shows the icon, name and version but no window buttons; the browser has its own.
+
+**Home** (`Ctrl+Shift+H`) is a toggle:
+
+- From a plan it opens the start page; open plans stay in their tabs.
+- Pressed again on the start page, it goes back to the plan you were on.
+- With no plan open, it creates a new blank plan.
+
+Long menus are grouped into submenus: click an item with › on the right (or press →) and its submenu opens beside it.
 
 | Menu | Commands |
 |---|---|
@@ -291,7 +336,7 @@ The **Home** button at the start of the menu bar (`Ctrl+Shift+H`) goes back to t
 | **Resource** | Add resource · Resource information… · Assign resources… · Level all · Clear leveling · Leveling options… · Next overallocation · Resource Sheet · Resource Usage · Resource Graph · Team Planner |
 | **Project** | Project information… · Change working time… · Project statistics… · Set baseline… · Clear baseline… · Update project… · Status date… · Calculate now · Find critical path · Insert another project… |
 | **Report** | The 10 reports (including Labor cost) · **Export report** › (HTML · Markdown · Word · PDF) · Copy report · Print… |
-| **Help** | Tutorial · Tutorial document · Tutorial video · User's guide · Keyboard shortcuts… · Settings… · About… |
+| **Help** | Tutorial · Tutorial document · Tutorial video · User's guide · Keyboard shortcuts… · Settings… · About… (the documents and the video open in their own windows) |
 
 Every menu item shows an icon and its shortcut, and menus may extend outside the main window. Commands that cannot be used right now are dimmed.
 
@@ -327,10 +372,24 @@ Each project gets a tab. When there are many, scroll them with the arrows at the
 
 Shows the properties of the selection and lets you change them in place. Change a value and press `Enter`; `Ctrl+Z` undoes it.
 
+Numbers are edited with steppers, `[−] value [+]`, with the value and its unit in the middle; all fields line up in one column.
+
+| Selection | Stepper | Range and step |
+|---|---|---|
+| Task | **Duration** | In the task's own unit (d, wk, h …), step 1 |
+| Task | **% Complete** | 0–100%, step 5 |
+| Task | **Priority** | 0–1000, step 50 |
+| Resource | **Max. Units** | %, step 10 |
+| Resource | **Std. Rate** | Per hour, step ₩1,000 (or $1 and so on in other currencies) |
+| Resource | **Cost/Use** | Amount per use |
+| Link | **Lag** | Days, −365 to 365. A lag written as a percentage (e.g. `50%`) stays a text field |
+
+Click − or + to step once, or hold the button to keep stepping. You can also type a value and press `Enter`, or press `↑` / `↓` in the field to step.
+
 | Selection | Shown |
 |---|---|
 | Nothing | The project: title, project start, finish, duration, status date, % complete, cost, work, number of tasks and resources, Critical / Late / Overallocated badges, buttons **Project** · **Calendar** · **Baseline** · **Level** |
-| One task | Task name, WBS, duration, start, finish, % complete slider, predecessors, resource names, mode, constraint type and date, deadline, priority, cost, work, total slack, badges (critical · running late · overallocated · finish variance), notes, bar color, **More…** · **Assign** · **Scroll to** |
+| One task | Task name, WBS, duration, start, finish, % complete, predecessors, resource names, mode, constraint type and date, deadline, priority, cost, work, total slack, badges (critical · running late · overallocated · finish variance), notes, bar color, **More…** · **Assign** · **Scroll to** |
 | Several tasks | Count, start and finish, cost, Link · Unlink · Indent · Outdent · 0% · 50% · 100% · Inactive · Info |
 | A resource | Name, type, initials, group, max. units, std. rate, cost/use, work, cost, assigned tasks |
 | A link | Predecessor, successor, type, lag, **Delete link** |
@@ -339,7 +398,7 @@ Shows the properties of the selection and lets you change them in place. Change 
 
 ![The bottom panel under the Gantt chart, on the Problems tab](docs/guide/images/en/26-bottom-panel.png)
 
-Under the view of the open plan sits the **Schedule check** panel. It lists what needs attention in the schedule and keeps itself up to date as you edit. It does not show on the start page or while the tutorial document or video is open.
+Under the view of the open plan sits the **Schedule check** panel. It lists what needs attention in the schedule and keeps itself up to date as you edit. It does not show on the start page.
 
 The header has the panel icon, the title **Schedule check** and five tabs, each with a badge counting its entries (red for errors, amber for warnings):
 
@@ -692,7 +751,7 @@ When the plan is agreed, **Project › Set baseline…** saves the current sched
 
 ### % complete
 
-Select tasks and press **0% complete** · **25% complete** · **50% complete** · **75% complete** · **100% complete** (**Task › Progress**, Progress section of the Tools panel). Actual start and finish are recorded automatically and the dark part inside the bar shows the progress. The bar's progress handle and the slider in the properties panel change it too.
+Select tasks and press **0% complete** · **25% complete** · **50% complete** · **75% complete** · **100% complete** (**Task › Progress**, Progress section of the Tools panel). Actual start and finish are recorded automatically and the dark part inside the bar shows the progress. The bar's progress handle and the % Complete stepper in the properties panel (step 5%) change it too.
 
 **Mark on track** sets the selected tasks to the progress they should have at the status date.
 
@@ -1045,7 +1104,7 @@ The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches be
 ![Both side panels folded to rails and the bottom panel folded to its header line](docs/guide/images/en/27-panels-folded.png)
 
 - Fold and unfold the Tools and Properties panels with the double-arrow button at the outer edge of their header, **Show/hide tool panel** (`Ctrl+Shift+1`) · **Show/hide properties panel** (`Ctrl+Shift+2`) or the toolbar buttons.
-- Folded, a side panel becomes a narrow rail: at the top the panel's icon and title (**Tools** or **Props**), then the **Expand** button, then icon buttons. The Tools rail still switches views; the Properties rail runs the main commands (Info, Resource, Project, Calendar, Baseline, Level).
+- Folded, a side panel becomes a narrow rail (44 px): at the top the panel's icon and short title (**Tools** or **Props**), then the **Expand** button, then icon-only buttons whose names are in their tooltips. The Tools rail still switches views; the Properties rail runs the main commands (Info, Resource, Project, Calendar, Baseline, Level).
 - The bottom panel folds to one header line (see [Bottom panel: schedule check](#bottom-panel-schedule-check)); `Ctrl+Shift+3` turns it off and on.
 - Drag the separators to change the panel widths, and the bottom panel's top edge to change its height.
 
@@ -1118,7 +1177,7 @@ The same list is in **Settings › Shortcuts** (or **Help › Keyboard shortcuts
 | `Ctrl+Tab` | Next tab (`Ctrl+Shift+Tab`: previous tab) |
 | `Ctrl+Shift+L` | Switch language |
 | `Ctrl+Shift+B` | Change moving background |
-| `Ctrl+Shift+H` | Start page |
+| `Ctrl+Shift+H` | Start page (Home: pressed again, back to the plan; with no plan, a new blank plan) |
 | `Ctrl+,` | Settings |
 | `F11` | Tutorial |
 | `F1` | About |
@@ -1176,7 +1235,7 @@ Only one MyWorkPlan runs per user. Starting it again shows **MyWorkPlan — Star
 | The start page cards are in a mess | **Auto arrange** on the start page (or **Settings › Start page › Card layout**) |
 | A start page card is missing | Turn it back on in **Settings › Start page** (Recent, Sample projects, Moving background) |
 | The start page does not show at startup | Turn on **Show the start page when starting**; the Home button (`Ctrl+Shift+H`) shows it any time |
-| The Tutorial video page shows only a message | The video has not been made yet: run `npm run tutorial:video` in the project folder |
+| The Tutorial video window shows only a message | The video has not been made yet: run `npm run tutorial:video` in the project folder |
 | Back to the original settings | **Settings › Defaults** |
 | A recent file does not open in the web version | The browser may require picking the file again with **Open** |
 

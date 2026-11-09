@@ -2,6 +2,7 @@
 // view (Gantt chart, sheets, network diagram, calendar, timeline, usage,
 // resource graph, team planner, reports), properties panel (right), status bar.
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import appIcon from '../assets/icon-256.png';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import * as P from './domain/project.js';
 import { PlanDocument } from './domain/document.js';
@@ -20,7 +21,7 @@ import {
   loadSettings, PANEL_MIN, PRINT_KEY, RECENT_DIRS_KEY, RECENT_KEY, SESSION_KEY, STORAGE_KEY, storeSettings, timescaleStep, TIMESCALE, VIEWS, ZOOM,
   dbConfig, dbDescribe, dbProblems, ANIMATIONS,
 } from './domain/settings.js';
-import { compactDuration, formatDuration, formatLag, formatMoney, parseDuration } from './domain/duration.js';
+import { compactDuration, formatDuration, formatLag, formatMoney, parseDuration, unitMinutes } from './domain/duration.js';
 import { dayOf, dayStart, formatDay, fromMin, nowMin, parseDay, toMin } from './domain/time.js';
 import { switchFlag } from './flags.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
@@ -32,8 +33,10 @@ import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/do
 import { AnimatedBackground } from './ui/background.js';
 import { startPageHtml } from './ui/startpage.js';
 import { startBoard } from './ui/startboard.js';
+import { bindSteppers, stepperHtml } from './stepper.js';
 import { laborBreakdown, refreshWages } from './domain/labor.js';
 import { scheduleInsights } from './domain/insights.js';
+import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { bottomPanelHtml } from './ui/bottom-panel.js';
 import { SAMPLE_PROJECTS, buildSampleProject } from './domain/samples/index.js';
 import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
@@ -954,7 +957,7 @@ const commands = {
   // file
   new: { icon: 'fileNew', label: 'action.new', key: 'Ctrl+N', run: () => newPlan() },
   open: { icon: 'folderOpen', label: 'action.open', key: 'Ctrl+O', run: () => openWithDialog() },
-  startPage: { icon: 'home', label: 'action.startPage', key: 'Ctrl+Shift+H', checked: () => state.showStart || !hasDoc(), run: () => showStartPage(!state.showStart || !hasDoc()) },
+  startPage: { icon: 'home', label: 'action.startPage', key: 'Ctrl+Shift+H', checked: () => state.showStart || !hasDoc(), run: () => toggleHome() },
   save: { icon: 'save', label: 'action.save', key: 'Ctrl+S', enabled: hasDoc, run: () => saveDoc(activeDoc()) },
   saveAs: { icon: 'saveAs', label: 'action.saveAs', key: 'Ctrl+Shift+S', enabled: hasDoc, run: () => saveDoc(activeDoc(), { saveAs: true }) },
   saveAll: { icon: 'saveAll', label: 'action.saveAll', key: 'Ctrl+Alt+S', enabled: () => state.docs.some((doc) => doc.dirty), run: () => saveAll() },
@@ -1073,9 +1076,9 @@ const commands = {
   exportReportPdf: { icon: 'reportPdf', label: 'action.exportReportPdf', enabled: hasDoc, run: () => exportReport('pdf') },
   // help
   tutorial: { icon: 'tutorial', label: 'action.tutorial', key: 'F11', run: () => startTutorial() },
-  userGuide: { icon: 'userGuide', label: 'action.userGuide', run: () => openUserGuide() },
-  tutorialDoc: { icon: 'tutorialDoc', label: 'action.tutorialDoc', checked: () => state.reader?.doc === 'tutorial', run: () => openReader('tutorial') },
-  tutorialVideo: { icon: 'tutorialVideo', label: 'action.tutorialVideo', checked: () => state.reader?.doc === 'video', run: () => openReader('video') },
+  userGuide: { icon: 'userGuide', label: 'action.userGuide', run: () => openDocWindow('guide') },
+  tutorialDoc: { icon: 'tutorialDoc', label: 'action.tutorialDoc', run: () => openDocWindow('tutorial') },
+  tutorialVideo: { icon: 'tutorialVideo', label: 'action.tutorialVideo', run: () => openDocWindow('video') },
   shortcuts: { icon: 'keyboard', label: 'action.shortcuts', run: () => popups.open('settings', { tab: 'shortcuts' }) },
   settings: { icon: 'gear', label: 'action.settings', key: 'Ctrl+,', run: () => popups.open('settings', { tab: 'general' }) },
   about: { icon: 'info', label: 'action.about', key: 'F1', run: () => popups.open('about') },
@@ -1194,12 +1197,52 @@ function renderShell() {
     <div id="tutorial-layer"></div>`;
 }
 
+/** Whether the window is maximised (the middle window button shows restore then). */
+let windowMaximized = false;
+
+/** The window buttons and moving the window by the menu bar (desktop, no system title bar). */
+function bindWindowChrome() {
+  if (!desktop) return;
+  const refresh = async () => {
+    const maximized = await appWindow.isMaximized().catch(() => false);
+    if (maximized !== windowMaximized) { windowMaximized = maximized; renderMenubar(); }
+    root.classList.toggle('window-maximized', maximized);
+  };
+  appWindow.onResized(() => { refresh(); }).catch(() => {});
+  refresh();
+  root.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-window]');
+    if (!button) return;
+    const action = button.dataset.window;
+    if (action === 'minimize') appWindow.minimize().catch(() => {});
+    else if (action === 'maximize') appWindow.toggleMaximize().then(refresh).catch(() => {});
+    else if (action === 'close') appWindow.close().catch(() => {});
+  });
+  // Windows moves the window from the CSS drag region (with Snap and double-click to maximise);
+  // macOS and Linux webviews ignore it, so the page starts the move itself there.
+  if (!/Windows/i.test(navigator.userAgent)) {
+    root.addEventListener('mousedown', (event) => {
+      if (event.button !== 0 || !event.target.closest('[data-window-drag]')) return;
+      if (event.detail === 2) appWindow.toggleMaximize().then(refresh).catch(() => {});
+      else appWindow.startDragging().catch(() => {});
+    });
+  }
+}
+
 function renderMenubar() {
   const menubar = root.querySelector('#menubar');
   const onStart = state.showStart || !activeDoc();
   const home = `<button class="menubar-item menubar-home ${onStart ? 'current' : ''}" data-home title="${escapeHtml(t('tip.home'))}" aria-label="${escapeHtml(t('menu.home'))}" aria-pressed="${onStart}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button><span class="menubar-sep" aria-hidden="true"></span>`;
-  menubar.innerHTML = home + Object.keys(MENUS).map((name) => `
-    <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('');
+  // No system title bar: the menu bar carries the program's icon, name and version on the
+  // left and (desktop) the window buttons on the right; its empty parts move the window.
+  const brand = `<span class="menubar-brand" data-window-drag title="${escapeHtml(`MyWorkPlan v${appApi.version()}`)}"><img src="${appIcon}" alt="" class="menubar-logo" draggable="false" /><b>MyWorkPlan</b> <small class="menubar-version">v${escapeHtml(appApi.version())}</small></span><span class="menubar-sep" aria-hidden="true"></span>`;
+  const controls = desktop ? `<span class="grow menubar-drag" data-window-drag aria-hidden="true"></span><span class="window-controls" role="group" aria-label="${escapeHtml(t('window.controls'))}">
+      <button type="button" class="window-button" data-window="minimize" title="${escapeHtml(t('window.minimize'))}" aria-label="${escapeHtml(t('window.minimize'))}">${icon('winMinimize')}</button>
+      <button type="button" class="window-button" data-window="maximize" title="${escapeHtml(t(windowMaximized ? 'window.restore' : 'window.maximize'))}" aria-label="${escapeHtml(t(windowMaximized ? 'window.restore' : 'window.maximize'))}">${icon(windowMaximized ? 'winRestore' : 'winMaximize')}</button>
+      <button type="button" class="window-button close" data-window="close" title="${escapeHtml(t('window.close'))}" aria-label="${escapeHtml(t('window.close'))}">${icon('winClose')}</button>
+    </span>` : '<span class="grow menubar-drag" aria-hidden="true"></span>';
+  menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `
+    <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('') + controls;
 }
 
 /** Language the toolbar was built in (renderAll rebuilds it only when that changes). */
@@ -1268,7 +1311,7 @@ function updateMinimumWidth() {
   requestAnimationFrame(() => {
     const toolbar = root.querySelector('#toolbar');
     const style = getComputedStyle(toolbar);
-    const menus = [...root.querySelectorAll('.menubar-item')].reduce((sum, el) => sum + el.offsetWidth + 2, 24);
+    const menus = [...root.querySelector('#menubar').children].filter((el) => !el.classList.contains('menubar-drag')).reduce((sum, el) => sum + el.getBoundingClientRect().width + 2, 40);
     const width = Math.ceil(Math.max(menus, left.scrollWidth + right.scrollWidth + 24 + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2));
     if (Math.abs(width - state.minWidth) < 1) return;
     state.minWidth = width;
@@ -1428,6 +1471,46 @@ function renderRight() {
 const propRow = (glyph, label, control, tall = false) => `<div class="prop-row ${tall ? 'tall' : ''}" title="${escapeHtml(label)}"><span class="prop-label">${icon(glyph)}<span>${escapeHtml(label)}</span></span><span class="prop-control">${control}</span></div>`;
 const propValue = (value) => `<span class="prop-value" title="${escapeHtml(value)}">${escapeHtml(value)}</span>`;
 
+// ── numbers in the properties panel: [ − ]  value + unit  [ + ], the value centred
+
+/** Short unit names of durations, as the steppers show them after the number. */
+const DURATION_UNITS = { ko: { m: '분', h: '시간', d: '일', w: '주', mo: '개월' }, en: { m: ' min', h: ' h', d: ' d', w: ' wk', mo: ' mo' } };
+const durationUnitOf = (task) => (['m', 'h', 'd', 'w', 'mo'].includes(task.durationUnit) ? task.durationUnit : 'd');
+const unitText = (unit) => DURATION_UNITS[getLanguage()]?.[unit] ?? DURATION_UNITS.en[unit];
+
+function propStepper(key, value, { min = 0, max = 100, step = 1, unit = '', label = '' } = {}) {
+  return stepperHtml({ key, value: Math.round(value * 100) / 100, min, max, step, unit, label, decreaseTip: `${label} −${step}`, increaseTip: `${label} +${step}` });
+}
+
+/** Money steps by 1,000 won or 1 dollar (and so on for other currencies). */
+const moneyStep = (doc) => (['₩', '¥', 'KRW', 'JPY'].includes(doc.project.options.currency) ? 1000 : 1);
+
+/** A stepper of the properties panel changed: the same edits as typing into the sheet. */
+function onPropStepper(key, value) {
+  const doc = activeDoc();
+  if (!doc) return;
+  const [kind, name] = key.split(':');
+  if (kind === 'task') {
+    const id = selectedTasks()[0];
+    const task = P.findTask(doc.project, id);
+    if (!task) return;
+    if (name === 'percent') return setProgress([id], value);
+    const text = name === 'duration' ? `${value}${durationUnitOf(task) === 'mo' ? 'mo' : durationUnitOf(task)}` : String(value);
+    return editTaskField({ item: task, info: doc.sched.info(id) }, TASK_FIELD_MAP.get(name), text);
+  }
+  if (kind === 'resource') {
+    const resource = P.findResource(doc.project, selectedResources()[0]);
+    if (!resource) return;
+    return editResourceField({ item: resource }, RESOURCE_FIELD_MAP.get(name), name === 'maxUnits' ? `${value}%` : String(value));
+  }
+  if (kind === 'link') {
+    const { from, to } = state.selection.link ?? {};
+    if (!from || !to) return;
+    return change('op.editLink', (project) => Object.assign(P.findTask(project, to).predecessors.find((x) => x.taskId === from), { lag: Math.round(value * unitMinutes('d', doc.project.options)), lagUnit: 'd' }));
+  }
+  return undefined;
+}
+
 function taskProps(doc, id) {
   const task = P.findTask(doc.project, id);
   const info = doc.sched.info(id);
@@ -1445,17 +1528,19 @@ function taskProps(doc, id) {
   const body = [
     propRow('edit', t('field.name'), input('name')),
     propRow('flag', t('field.wbs'), propValue(`${info.wbs} · ID ${info.row}`)),
-    propRow('hourglass', t('field.duration'), input('duration', leaf)),
+    propRow('hourglass', t('field.duration'), leaf && !task.milestone
+      ? propStepper('task:duration', (info.duration ?? 0) / unitMinutes(durationUnitOf(task), doc.project.options), { min: 0, max: 9999, step: 1, unit: unitText(durationUnitOf(task)), label: t('field.duration') })
+      : input('duration', leaf)),
     propRow('calendar', t('field.start'), input('start', leaf)),
     propRow('flag', t('field.finish'), input('finish', leaf)),
-    leaf ? `<div class="prop-row" title="${escapeHtml(t('field.percentComplete'))}"><span class="prop-label">${icon('percent')}<span>${escapeHtml(t('field.percentComplete'))}</span></span><span class="prop-control range-wrap"><input type="range" min="0" max="100" step="5" value="${pct}" data-prop-percent aria-label="${escapeHtml(t('field.percentComplete'))}" title="${escapeHtml(t('field.percentComplete'))}" /><output>${pct}%</output></span></div>` : propRow('percent', t('field.percentComplete'), propValue(`${pct}%`)),
+    leaf ? propRow('percent', t('field.percentComplete'), propStepper('task:percent', pct, { min: 0, max: 100, step: 5, unit: '%', label: t('field.percentComplete') })) : propRow('percent', t('field.percentComplete'), propValue(`${pct}%`)),
     propRow('link2', t('field.predecessors'), input('predecessors')),
     propRow('user', t('field.resourceNames'), input('resourceNames', leaf)),
     propRow('autoMode', t('field.mode'), `<select data-prop-field="mode" title="${escapeHtml(t('field.mode'))}">${['auto', 'manual'].map((m) => `<option value="${m}" ${(task.manual ? 'manual' : 'auto') === m ? 'selected' : ''}>${escapeHtml(t(`mode.${m}`))}</option>`).join('')}</select>`),
     propRow('constraint', t('field.constraintType'), `<select data-prop-field="constraintType" title="${escapeHtml(t('field.constraintType'))}">${P.CONSTRAINTS.map((c) => `<option value="${c}" ${task.constraint?.type === c ? 'selected' : ''}>${escapeHtml(t(`constraint.${c}`))}</option>`).join('')}</select>`),
     task.constraint?.date ? propRow('calendar', t('field.constraintDate'), input('constraintDate')) : '',
     propRow('deadline', t('field.deadline'), input('deadline')),
-    propRow('priority', t('field.priority'), input('priority')),
+    propRow('priority', t('field.priority'), propStepper('task:priority', task.priority ?? 500, { min: 0, max: 1000, step: 50, label: t('field.priority') })),
     propRow('money', t('field.cost'), propValue(text('cost'))),
     propRow('reportWork', t('field.work'), propValue(text('work'))),
     propRow('slack', t('field.totalSlack'), propValue(text('totalSlack'))),
@@ -1503,9 +1588,9 @@ function resourceProps(doc, id) {
     propRow('user', t('field.resourceType'), `<select data-prop-resource="resourceType" title="${escapeHtml(t('field.resourceType'))}">${P.RESOURCE_TYPES.map((type) => `<option value="${type}" ${resource.type === type ? 'selected' : ''}>${escapeHtml(t(`resourceType.${type}`))}</option>`).join('')}</select>`),
     propRow('tag', t('field.initials'), input('initials')),
     propRow('group', t('field.group'), input('group')),
-    resource.type === 'work' ? propRow('percent', t('field.maxUnits'), input('maxUnits')) : '',
-    resource.type !== 'cost' ? propRow('money', t('field.stdRate'), input('stdRate')) : '',
-    propRow('money', t('field.costPerUse'), input('costPerUse')),
+    resource.type === 'work' ? propRow('percent', t('field.maxUnits'), propStepper('resource:maxUnits', Math.round((resource.maxUnits ?? 1) * 100), { min: 0, max: 10000, step: 10, unit: '%', label: t('field.maxUnits') })) : '',
+    resource.type !== 'cost' ? propRow('money', t('field.stdRate'), propStepper('resource:stdRate', resource.stdRate ?? 0, { min: 0, max: 1e9, step: moneyStep(doc), unit: ` ${doc.project.options.currency}${resource.type === 'work' ? t('unit.perHour') : ''}`, label: t('field.stdRate') })) : '',
+    propRow('money', t('field.costPerUse'), propStepper('resource:costPerUse', resource.costPerUse ?? 0, { min: 0, max: 1e9, step: moneyStep(doc), unit: ` ${doc.project.options.currency}`, label: t('field.costPerUse') })),
     propRow('reportWork', t('field.work'), propValue(RESOURCE_FIELD_MAP.get('work').text(ctx, info?.work ?? 0, resource))),
     propRow('reportCost', t('field.cost'), propValue(RESOURCE_FIELD_MAP.get('cost').text(ctx, info?.cost ?? 0, resource))),
     info?.overallocated ? `<div class="prop-badges"><span class="badge danger">${icon('overallocation', 'icon')}${escapeHtml(t('ind.overallocatedResource'))}</span></div>` : '',
@@ -1526,7 +1611,7 @@ function linkProps(doc) {
     propRow('bar', t('link.from'), propValue(`${P.rowOf(doc.project, from)}. ${pred?.name ?? ''}`)),
     propRow('bar', t('link.to'), propValue(`${P.rowOf(doc.project, to)}. ${succ?.name ?? ''}`)),
     propRow('link2', t('link.type'), `<select data-prop-link="type" title="${escapeHtml(t('link.type'))}">${['FS', 'SS', 'FF', 'SF'].map((type) => `<option value="${type}" ${link.type === type ? 'selected' : ''}>${escapeHtml(t(`linkType.${type}`))}</option>`).join('')}</select>`),
-    propRow('hourglass', t('link.lag'), `<input type="text" data-prop-link="lag" value="${escapeHtml(link.lag ? formatLag(link.lag, link.lagUnit, doc.project.options) : '0d')}" title="${escapeHtml(t('link.lag'))}" aria-label="${escapeHtml(t('link.lag'))}" />`),
+    link.lagUnit !== '%' ? propRow('hourglass', t('link.lag'), propStepper('link:lag', (link.lag ?? 0) / unitMinutes('d', doc.project.options), { min: -365, max: 365, step: 1, unit: unitText('d'), label: t('link.lag') })) : propRow('hourglass', t('link.lag'), `<input type="text" data-prop-link="lag" value="${escapeHtml(link.lag ? formatLag(link.lag, link.lagUnit, doc.project.options) : '0d')}" title="${escapeHtml(t('link.lag'))}" aria-label="${escapeHtml(t('link.lag'))}" />`),
     `<div class="prop-actions"><button class="small-button danger" data-command="delete" title="${escapeHtml(t('link.delete'))}">${icon('unlink')}<span>${escapeHtml(t('link.delete'))}</span></button></div>`,
   ].join('');
   return { title: t('props.link'), body };
@@ -1694,6 +1779,17 @@ function renderStartPage() {
   host.classList.toggle('with-image', Boolean(state.backgroundUrl) && state.settings.backgroundKind === 'image');
 }
 
+/**
+ * The Home button is a toggle: from a plan it opens the start page; on the start page
+ * (or a document) it goes back to the plan — and with no plan open, to a new blank one.
+ */
+function toggleHome() {
+  const onStart = !state.reader && (state.showStart || !activeDoc());
+  if (!onStart) return showStartPage(true);
+  if (activeDoc()) return showStartPage(false);
+  return newPlan('blank');
+}
+
 function showStartPage(show = true) {
   state.showStart = show;
   state.reader = null;
@@ -1729,9 +1825,9 @@ async function onStartAction(target) {
     // The Help button of the start page: the same items as the Help menu, below the button.
     case 'help-menu': return showMenu(menuItems(MENUS.help), anchorBelow(target), 'help');
     case 'tutorial': return startTutorial();
-    case 'guide': return openUserGuide();
-    case 'tutorial-doc': return openReader('tutorial');
-    case 'tutorial-video': return openReader('video');
+    case 'guide': return openDocWindow('guide');
+    case 'tutorial-doc': return openDocWindow('tutorial');
+    case 'tutorial-video': return openDocWindow('video');
     case 'shortcuts': return run('shortcuts');
     case 'animation': updateSettings({ animation: value, backgroundKind: 'animated' }); return notify('info', t('notice.animation', { name: t(`animation.${value}`) }));
     case 'shuffle': return shuffleBackground();
@@ -2982,6 +3078,47 @@ async function onReaderAction(target) {
   }
 }
 
+// ───────────────────────── document windows (user's guide, tutorial document, tutorial video)
+
+/**
+ * Opens a document in its own window: an OS window "doc-<kind>" on the desktop (brought back
+ * when already open), a browser tab in the web build, and a frame over the app while the
+ * tutorial runs (so a recording shows it). The viewer is src/viewer.js.
+ */
+async function openDocWindow(kind) {
+  const info = DOC_KINDS[kind];
+  if (!info) return undefined;
+  popups.hideMenu();
+  const url = `${location.pathname}?viewer=${kind}&lang=${getLanguage() === 'en' ? 'en' : 'ko'}`;
+  if (popups.inline) return openDocFrame(kind, url);
+  if (!desktop) {
+    globalThis.open(url, `myworkplan-${docLabel(kind)}`)?.focus?.();
+    return undefined;
+  }
+  const dark = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark;
+  try {
+    await native.invoke('open_doc_window', { kind, title: docWindowTitle(t(info.title)), width: info.width, height: info.height, dark });
+  } catch (error) {
+    showError('error.docWindow', error);
+  }
+  return undefined;
+}
+
+/** The document window as a frame over the app (tutorial): closed with the other frames. */
+function openDocFrame(kind, url) {
+  const key = docLabel(kind);
+  let frame = popups.frames.get(key);
+  if (!frame) {
+    frame = document.createElement('div');
+    frame.className = `web-popup web-popup-doc web-popup-${key}`;
+    frame.dataset.kind = key;
+    frame.innerHTML = `<iframe title="${escapeHtml(key)}" src="${escapeHtml(url)}"></iframe>`;
+    document.body.append(frame);
+    popups.frames.set(key, frame);
+  }
+  return frame;
+}
+
 async function openUserGuide() {
   try {
     const name = getLanguage() === 'en' ? 'UsersGuide.en.html' : 'UsersGuide.html';
@@ -3264,7 +3401,7 @@ function bindEvents() {
       if (state.lastMenuClose.name === name && Date.now() - state.lastMenuClose.at < 300) return undefined;
       return openMenubarMenu(name);
     }
-    if (target.closest('[data-home]')) return showStartPage(true);
+    if (target.closest('[data-home]')) return toggleHome();
     const reader = target.closest('[data-reader]');
     if (reader) return onReaderAction(reader);
     const bottomTab = target.closest('[data-bottom-tab]');
@@ -3316,6 +3453,9 @@ function bindEvents() {
     if (event.target.closest('.side-panel, #toolbar, #menubar')) return contextMenu(event, 'panel');
     return contextMenu(event, 'default');
   });
+
+  // The steppers of the properties panel (the panel's content is redrawn; the panel stays).
+  bindSteppers(root.querySelector('#right-panel'), (key, value) => onPropStepper(key, value));
 
   root.addEventListener('change', (event) => {
     const target = event.target;
@@ -3631,6 +3771,7 @@ const appApi = {
   settings: () => viewSettings(),
   criticalMode: () => criticalMode,
   openReader: (doc, lang) => openReader(doc, lang),
+  openDocWindow: (kind) => openDocWindow(kind),
   closeReader: () => { if (state.reader) { state.reader = null; if (activeDoc()) mountView(); renderAll(); } },
   setCriticalMode: (on) => { if (Boolean(on) !== criticalMode) toggleCriticalPath(); },
   doc: () => activeDoc(),
@@ -3696,6 +3837,7 @@ const appApi = {
 async function start() {
   renderShell();
   bindEvents();
+  bindWindowChrome();
   bindPopupActions();
   await popups.init();
   state.info = await native.appInfo().catch(() => null);
@@ -3768,10 +3910,10 @@ window.__myworkplan = {
   actions: {
     newPlan, openPath, openText, saveDoc, closeDoc, insertTask, insertSummary, insertMilestone, select, selectTask, change, undo, redo, copySelection, pasteClipboard,
     setZoom, updateSettings, handleDroppedPaths, handleDroppedFiles, setBackgroundFromPath, removeBackground, confirmExit, openRecent, showError, openMenubarMenu,
-    contextMenu, activeDoc, toScreen, docName, scrollTabs, withProgress, switchView, showStartPage, exportAs, exportImage, exportReport, openTaskInfo, openResourceInfo, openLinkInfo,
+    contextMenu, activeDoc, toScreen, docName, scrollTabs, withProgress, switchView, showStartPage, toggleHome, exportAs, exportImage, exportReport, openTaskInfo, openResourceInfo, openLinkInfo,
     moveTaskBar, resizeTaskBar, setProgress, linkFromTo, levelNow, clearLeveling, openSampleBuiltin, shuffleBackground, findNext, replaceAll, goToTask,
     taskRows, fieldCtx, setViewOptions, toggleCollapse, setTimescale, stepTimescale, fitProject, startTutorial, rememberDirectory, reassignTask, addResource, indentSelected,
-    linkSelected, editTaskField, setOutlineLevel, applyTaskPatch, openSample, printFromStart, openReader,
+    linkSelected, editTaskField, setOutlineLevel, applyTaskPatch, openSample, printFromStart, openReader, openDocWindow,
   },
   domain: { P, TEMPLATES, buildTemplate, buildSample, compactDuration, criticalPath, tutorialSteps: () => TUTORIAL_STEPS.length },
   tutorial: () => tutorial,

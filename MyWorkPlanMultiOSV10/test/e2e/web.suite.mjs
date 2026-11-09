@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { sleep } from './cdp.mjs';
+import { Page, sleep } from './cdp.mjs';
 import { root } from './harness.mjs';
 import { ALIGN_CHECK } from './align-check.mjs';
 import { CLIP_CHECK } from './clip-check.mjs';
@@ -58,6 +58,25 @@ const lastClip = `(window.__clip ?? []).at(-1) ?? ''`;
 // Page errors and error popups from here on (the feature sweeps check that nothing went wrong).
 const TRACK_ERRORS = `(() => { window.__errs = []; if (!window.__errTrack) { window.__errTrack = true; window.addEventListener('error', (e) => window.__errs.push(String(e.message))); window.addEventListener('unhandledrejection', (e) => window.__errs.push(String(e.reason?.message ?? e.reason))); new MutationObserver(() => { for (const p of document.querySelectorAll('.web-popup-error')) { if (!p.dataset.seen) { p.dataset.seen = '1'; const f = p.querySelector('iframe'); window.__errs.push('error popup: ' + (f?.contentDocument?.body?.innerText ?? '').slice(0, 200)); } } }).observe(document.body, { childList: true, subtree: true }); } return 1; })()`;
 const ERRORS = `(window.__errs ?? []).slice()`;
+
+/** The browser tab a document window opened (index.html?viewer=<kind>), once drawn. */
+async function docTab(app, kind) {
+  const end = Date.now() + 15000;
+  while (Date.now() < end) {
+    const list = await (await fetch(`http://127.0.0.1:${app.port}/json/list`)).json();
+    const target = list.find((item) => item.type === 'page' && item.url.includes(`viewer=${kind}`));
+    if (target) {
+      const page = await new Page(target).open();
+      // Closing the connection leaves the tab in front of the app (its page then counts as hidden): close the tab.
+      const close = page.close.bind(page);
+      page.close = () => { close(); fetch(`http://127.0.0.1:${app.port}/json/close/${target.id}`).catch(() => {}); };
+      await page.waitFor(`Boolean(window.__myworkplanViewer && (document.querySelector('.viewer-frame')?.contentDocument?.querySelector('h1') || document.querySelector('video')))`, { timeout: 15000 });
+      return page;
+    }
+    await sleep(200);
+  }
+  throw new Error(`no ${kind} tab`);
+}
 
 const plan = (title, names) => JSON.stringify({ format: 'myworkplan', version: 1, project: { title, tasks: names.map((name, i) => ({ id: `w${i}`, name, duration: 480 })) } });
 
@@ -167,16 +186,18 @@ export const cases = [
     await app.waitFrame('print');
     await closeFrames(app);
   } },
-  { group: '시작 페이지', name: '튜토리얼 영상 단추: 프로그램 안 영상 화면, 홈으로 돌아가면 멈춤', async run(app) {
+  { group: '시작 페이지', name: '튜토리얼 영상 단추: 별도 창(브라우저 탭)의 영상 화면, 언어 국기 단추', async run(app) {
     await W(app, `(a.showStartPage(), 1)`);
     await sleep(300);
     await app.main.click('#start-page [data-start="tutorial-video"]');
-    await sleep(600);
-    const info = await app.main.eval(`({ reader: !document.querySelector('#reader-page').hidden, video: Boolean(document.querySelector('#reader-page video.reader-video')), src: document.querySelector('#reader-page video')?.getAttribute('src'), title: document.querySelector('#reader-page .reader-title').textContent.trim() })`);
-    assert.deepEqual(info, { reader: true, video: true, src: 'docs/video/MyWorkPlan-Tutorial.mp4', title: '튜토리얼 영상' });
-    await app.main.click('#reader-page [data-reader="home"]');
-    await sleep(300);
-    assert.equal(await app.main.eval(`!document.querySelector('#start-page').hidden && document.querySelector('#reader-page video').paused`), true);
+    const page = await docTab(app, 'video');
+    try {
+      const info = await page.eval(`({ video: Boolean(document.querySelector('video')), title: document.querySelector('.viewer-title')?.textContent.trim(), lang: document.querySelector('[data-viewer="lang"]')?.dataset.value, flag: Boolean(document.querySelector('[data-viewer="lang"] .flag-slot')) })`);
+      assert.deepEqual(info, { video: true, title: '튜토리얼 영상', lang: 'en', flag: true });
+      assert.equal(await app.main.eval(`document.querySelector('#start-page').hidden`), false, 'the main window stays as it was');
+    } finally {
+      page.close();
+    }
   } },
   { group: '시작 페이지', name: '설정 › 시작 화면: 항목 숨기기가 시작 화면에 바로 반영', async run(app) {
     await W(app, `(() => { a.showStartPage(); w.popups.open('settings', { tab: 'start' }); return 1; })()`);
@@ -204,7 +225,8 @@ export const cases = [
     await freshSample(app);
     const layout = await app.main.eval(`(() => {
       const r = (s) => document.querySelector(s).getBoundingClientRect();
-      const first = document.querySelector('#menubar').firstElementChild;
+      // The program's icon, name and version come first (no system title bar), then Home and the menus.
+      const first = document.querySelector('#menubar .menubar-item');
       return { homeFirst: first.matches('[data-home]'), homeIcon: Boolean(first.querySelector('svg')), homeTitle: first.title,
         toolbarBottom: Math.round(r('#toolbar').bottom), leftTop: Math.round(r('#left-panel').top), rightTop: Math.round(r('#right-panel').top),
         tabsLeft: Math.round(r('#tabs').left), tabsRight: Math.round(r('#tabs').right), leftRight: Math.round(r('#left-panel').right), rightLeft: Math.round(r('#right-panel').left) };
@@ -218,9 +240,18 @@ export const cases = [
     await sleep(300);
     assert.equal(await app.main.eval(`!document.querySelector('#start-page').hidden`), true, 'Home shows the start page');
     assert.ok(await app.main.eval(`document.querySelector('#menubar [data-home]').classList.contains('current')`));
+    // Home is a toggle: pressed again it goes back to the plan.
+    const plans = await app.main.eval(`window.__myworkplan.state.docs.length`);
     await app.main.click('#menubar [data-home]');
     await sleep(200);
-    assert.equal(await app.main.eval(`!document.querySelector('#start-page').hidden`), true, 'pressing Home again stays home');
+    assert.equal(await app.main.eval(`document.querySelector('#start-page').hidden`), true, 'pressing Home again goes back to the plan');
+    assert.equal(await app.main.eval(`window.__myworkplan.state.docs.length`), plans, 'the same plan, no new one');
+    // With no plan open, Home on the start page shows a new blank plan.
+    await app.main.eval(`(() => { const w = window.__myworkplan; for (const doc of [...w.state.docs]) w.actions.closeDoc(doc, { force: true }); w.actions.showStartPage(true); return 1; })()`);
+    await sleep(200);
+    await app.main.click('#menubar [data-home]');
+    await sleep(300);
+    assert.deepEqual(await app.main.eval(`[document.querySelector('#start-page').hidden, window.__myworkplan.state.docs.length, window.__myworkplan.api.project().tasks.length]`), [true, 1, 0], 'a blank plan');
   } },
   { group: '툴바', name: '모든 버튼에 툴팁, 한 줄, 투명도 조절 없음', async run(app) {
     assert.deepEqual(await app.main.eval(`[...document.querySelectorAll('button')].filter((b) => b.getClientRects().length && !(b.title || '').trim()).map((b) => b.outerHTML.slice(0, 80))`), []);
@@ -459,29 +490,42 @@ export const cases = [
     assert.deepEqual(await app.main.eval(CLIP_CHECK), [], 'nothing cut off');
     assert.equal(await app.main.eval(`Boolean(document.querySelector('.web-popup-error'))`), false);
   } })),
-  { group: '도움말', name: '튜토리얼 문서를 프로그램 안에서 읽기 (홈 화면 항목)', async run(app) {
+  { group: '도움말', name: '튜토리얼 문서: 별도 창(브라우저 탭), 장 이동, 국기 단추로 언어, 글자 크기 − px +', async run(app) {
     await W(app, '(a.showStartPage(), 1)');
     await sleep(300);
-    assert.ok(await app.main.eval(`Boolean(document.querySelector('#start-page [data-start="tutorial-doc"]'))`), 'the start page lists the tutorial document');
     await app.main.click('#start-page [data-start="tutorial-doc"]');
-    await app.main.waitFor(`document.querySelectorAll('[data-reader-chapter] option').length > 5`, { timeout: 15000 });
-    const doc = await app.main.eval(`(() => { const d = document.querySelector('.reader-frame').contentDocument; return { shown: !document.querySelector('#reader-page').hidden, h1: d.querySelector('h1').textContent, steps: d.querySelectorAll('h3').length, images: d.images.length, raw: d.body.innerText.includes('<a id='), chapters: [...document.querySelectorAll('[data-reader-chapter] option')].slice(1).map((o) => o.textContent) }; })()`);
-    assert.ok(doc.shown);
-    assert.match(doc.h1, /MyWorkPlan/);
-    const steps = await app.main.eval(`window.__myworkplan.domain.tutorialSteps()`);
-    assert.equal(doc.steps, steps, 'every tutorial step is in the document');
-    assert.equal(doc.images, steps, 'with a picture each');
-    assert.equal(doc.raw, false, 'no raw HTML shows as text');
-    assert.ok(doc.chapters.every((c) => !c.endsWith('#')), JSON.stringify(doc.chapters));
-    await app.main.eval(`(() => { const s = document.querySelector('[data-reader-chapter]'); s.value = s.options[4].value; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
-    await sleep(300);
-    assert.ok(await app.main.eval(`document.querySelector('.reader-frame').contentWindow.scrollY > 200`), 'a chapter can be picked');
-    await app.main.click('[data-reader="lang"][data-value="en"]');
-    await app.main.waitFor(`/tutorial/.test(document.querySelector('.reader-frame').contentDocument?.querySelector('h1')?.textContent ?? '')`, { timeout: 10000 });
-    assert.deepEqual(await app.main.eval(CLIP_CHECK), []);
-    await app.main.click('[data-reader="home"]');
-    await sleep(300);
-    assert.deepEqual(await app.main.eval(`[!document.querySelector('#reader-page').hidden, !document.querySelector('#start-page').hidden]`), [false, true], 'Home goes back to the start page');
+    const page = await docTab(app, 'tutorial');
+    try {
+      const doc = await page.eval(`(() => { const d = document.querySelector('.viewer-frame').contentDocument; return { h1: d.querySelector('h1').textContent, steps: d.querySelectorAll('h3').length, images: d.querySelectorAll('img').length, raw: d.body.innerText.includes('<a id=') }; })()`);
+      assert.match(doc.h1, /MyWorkPlan/);
+      const steps = await app.main.eval(`window.__myworkplan.domain.tutorialSteps()`);
+      assert.equal(doc.steps, steps, 'every tutorial step is in the document');
+      assert.equal(doc.images, steps, 'with a picture each');
+      assert.equal(doc.raw, false, 'no raw HTML shows as text');
+      await page.eval(`(() => { const s = document.querySelector('[data-viewer-chapter]'); s.value = s.options[4].value; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await sleep(300);
+      assert.ok(await page.eval(`document.querySelector('.viewer-frame').contentWindow.scrollY > 200`), 'a chapter can be picked');
+      await page.eval(`(window.__myworkplanViewer.setFontSize(16), 1)`);
+      await page.click('[data-viewer="font-up"]');
+      await sleep(150);
+      assert.deepEqual(await page.eval(`[document.querySelector('[data-font-size]').textContent, getComputedStyle(document.querySelector('.viewer-frame').contentDocument.body).fontSize]`), ['17px', '17px']);
+      await page.click('[data-viewer="font-down"]');
+      await page.click('[data-viewer="font-down"]');
+      await sleep(150);
+      assert.equal(await page.eval(`document.querySelector('[data-font-size]').textContent`), '15px');
+      await page.click('[data-viewer="lang"]');
+      await page.waitFor(`/tutorial/i.test(document.querySelector('.viewer-frame').contentDocument?.querySelector('h1')?.textContent ?? '')`, { timeout: 10000 });
+      assert.equal(await page.eval(`getComputedStyle(document.querySelector('.viewer-frame').contentDocument.body).fontSize`), '15px', 'the size stays with the other language');
+      await page.eval(`(window.__myworkplanViewer.setFontSize(16), 1)`);
+      // While the tutorial runs, the document opens as a frame over the app (so a recording shows it).
+      await W(app, `(w.popups.inline = true, a.openDocWindow('guide'), 1)`);
+      await app.main.waitFor(`Boolean(document.querySelector('.web-popup-doc-guide iframe')?.contentWindow?.__myworkplanViewer)`, { timeout: 10000 });
+      await W(app, `(w.popups.closeAll(), w.popups.inline = false, 1)`);
+      await sleep(200);
+      assert.equal(await app.main.eval(`document.querySelectorAll('.web-popup-doc').length`), 0, 'closed with the other frames');
+    } finally {
+      page.close();
+    }
   } },
   { group: '보기', name: '그래프·보고서 차트: 축 눈금과 눈금자 수치, 격자선, 겹치지 않는 눈금 글자', async run(app) {
     await freshSample(app);

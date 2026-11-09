@@ -265,7 +265,7 @@ export const STEPS = [
   // ── help
   { id: 'shortcuts', chapter: 'help', target: '.web-popup-settings', async run(a) { await a.sample('gantt'); a.popup(() => a.app.popups.open('settings', { tab: 'shortcuts' }), 'settings'); } },
   { id: 'about', chapter: 'help', target: '.web-popup-about', async run(a) { await a.sample('gantt'); a.popup(() => a.app.run('about'), 'about'); } },
-  { id: 'tutorialDoc', chapter: 'help', target: '#reader-page', dwell: 7000, async run(a) { await a.closeMenus(); a.app.openReader('tutorial'); } },
+  { id: 'tutorialDoc', chapter: 'help', target: '.web-popup-doc-tutorial', dwell: 7000, async run(a) { await a.closeMenus(); a.app.openDocWindow('tutorial'); } },
   { id: 'finish', chapter: 'help', target: '[data-command="tutorial"]', run: (a) => a.sample('gantt') },
 ];
 

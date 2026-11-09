@@ -166,6 +166,8 @@ export class PopupHost {
   }
 
   closeAll() {
+    // Document frames (guide / tutorial / video shown in the page while the tutorial runs) go too.
+    for (const key of [...this.frames.keys()]) if (key.startsWith('doc-')) this.removeFrame(key);
     return Promise.all(Object.keys(POPUPS).map((kind) => (kind === 'menu' ? this.hideMenu() : this.close(kind))));
   }
 

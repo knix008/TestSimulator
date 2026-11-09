@@ -165,6 +165,12 @@ const paths = {
   bug: '<rect x="7" y="7" width="10" height="13" rx="5"/><path d="M12 7v13M9 4l1.5 3M15 4l-1.5 3M3 13h4M17 13h4M4 8l3 2M20 8l-3 2M4 19l3-2M20 19l-3-2"/>',
   // ── generic UI glyphs (not commands)
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  // ── window buttons (the menu bar is the title bar)
+  fullscreen: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
+  winMinimize: '<path d="M5 12.5h14"/>',
+  winMaximize: '<rect x="5.5" y="5.5" width="13" height="13" rx="1"/>',
+  winRestore: '<rect x="5" y="8" width="11" height="11" rx="1"/><path d="M8 8V6a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-2"/>',
+  winClose: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
   clear: '<path d="M4 20h16"/><path d="M7 16l9.5-9.5a2.1 2.1 0 0 0-3-3L4 13l3 3z"/>',
   chevronLeft: '<path d="M15 5l-7 7 7 7"/>',
   chevronRight: '<path d="M9 5l7 7-7 7"/>',
