@@ -80,13 +80,50 @@ const E = (ctx, path) => (ctx.editor ? ` data-edit="${esc(path)}"` : '');
 /** Text that is edited in the Content tab (several lines with marks): a double click opens that field. */
 const EM = (ctx, path) => (ctx.editor ? ` data-edit-field="${esc(path)}"` : '');
 const img = (ctx, src, alt, path, cls = '') => (src ? `<img class="${cls}" src="${esc(safeUrl(src))}" alt="${esc(alt ?? '')}" loading="lazy"${ctx.editor ? ` data-edit-image="${esc(path)}"` : ''} />` : `<div class="hm-img-empty ${cls}"${ctx.editor ? ` data-edit-image="${esc(path)}"` : ''}>🖼</div>`);
-const btn = (ctx, label, url, style, path) => (label ? `<a class="hm-btn hm-btn-${esc(style || 'primary')}" href="${esc(safeUrl(url))}"${E(ctx, path)}>${esc(label)}</a>` : '');
+/** What a block is drawing now: in the editor or not, and its properties (the looks of its buttons, hidden items). Set by renderBlock. */
+let RENDER = { editor: false, props: {} };
+
+export const BUTTON_VARIANTS = ['primary', 'outline', 'link', 'light'];
+export const BUTTON_SIZES = ['small', 'large'];
+export const BUTTON_SHAPES = ['square', 'round', 'pill'];
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/** A button's own settings (Content tab › button properties), only the valid ones. */
+export function buttonLook(raw) {
+  const o = raw && typeof raw === 'object' ? raw : {};
+  return {
+    variant: BUTTON_VARIANTS.includes(o.variant) ? o.variant : '',
+    size: BUTTON_SIZES.includes(o.size) ? o.size : '',
+    shape: BUTTON_SHAPES.includes(o.shape) ? o.shape : '',
+    bg: HEX.test(o.bg ?? '') ? o.bg : '',
+    color: HEX.test(o.color ?? '') ? o.color : '',
+    icon: String(o.icon ?? '').slice(0, 8),
+    full: Boolean(o.full),
+    newTab: Boolean(o.newTab),
+  };
+}
+
+/** A link drawn as a button: the block's default style, changed by the button's own settings. */
+const btn = (ctx, label, url, style, path) => {
+  if (!label) return '';
+  const o = buttonLook(RENDER.props?.buttons?.[path]);
+  const variant = o.variant || style || 'primary';
+  const cls = ['hm-btn', `hm-btn-${esc(variant)}`, o.size ? `hm-btn-${o.size}` : '', o.shape ? `hm-btn-${o.shape}` : '', o.full ? 'hm-btn-full' : ''].filter(Boolean).join(' ');
+  const css = [o.bg ? `background:${o.bg};border-color:${o.bg}` : '', o.color ? `color:${o.color}` : ''].filter(Boolean).join(';');
+  return `<a class="${cls}" href="${esc(safeUrl(url))}"${o.newTab ? ' target="_blank" rel="noopener"' : ''}${css ? ` style="${css}"` : ''}>${o.icon ? `<span class="hm-btn-icon" aria-hidden="true">${esc(o.icon)}</span>` : ''}<span${E(ctx, path)}>${esc(label)}</span></a>`;
+};
+
+/** An item's own settings (Content tab › item properties): hidden, highlighted, its colours. */
+const IT = (it, i) => {
+  const css = [HEX.test(it?._bg ?? '') ? `background:${it._bg}` : '', HEX.test(it?._color ?? '') ? `color:${it._color}` : ''].filter(Boolean).join(';');
+  return `${RENDER.editor ? ` data-item="${i}"${it?._hidden ? ' data-item-hidden' : ''}` : ''}${it?._accent ? ' data-item-accent' : ''}${css ? ` style="${css}"` : ''}`;
+};
 const head = (ctx, p, { title = 'title', subtitle = 'subtitle' } = {}) => {
   const t = p[title] ? `<h2 class="hm-title"${E(ctx, title)}>${nl(p[title])}</h2>` : '';
   const s = p[subtitle] ? `<p class="hm-subtitle"${E(ctx, subtitle)}>${nl(p[subtitle])}</p>` : '';
   return t || s ? `<div class="hm-head">${t}${s}</div>` : '';
 };
-const items = (p) => (Array.isArray(p.items) ? p.items : []);
+const items = (p) => (Array.isArray(p.items) ? p.items : []).filter((it) => RENDER.editor || !it?._hidden);
 const cols = (n) => Math.min(4, Math.max(1, Number(n) || 3));
 
 /** The page file a link goes to ("index.html", "about.html"). */
@@ -134,7 +171,7 @@ add('footer', 'site', 'blkFooter', '바닥글', 'Footer', {
       <div><b class="hm-footer-brand">${esc(brand)}</b><p${E(ctx, 'about')}>${nl(p.about)}</p></div>
       <div class="hm-footer-links">${pages}</div>
       <div class="hm-footer-contact">${p.address ? `<p${E(ctx, 'address')}>${esc(p.address)}</p>` : ''}${p.phone ? `<p><a href="tel:${esc(String(p.phone).replace(/[^\d+]/g, ''))}"${E(ctx, 'phone')}>${esc(p.phone)}</a></p>` : ''}${p.email ? `<p><a href="mailto:${esc(p.email)}"${E(ctx, 'email')}>${esc(p.email)}</a></p>` : ''}
-        <div class="hm-social">${items(p).map((it, i) => `<a href="${esc(safeUrl(it.url))}"${E(ctx, `items.${i}.label`)}>${esc(it.label)}</a>`).join('')}</div></div>
+        <div class="hm-social">${items(p).map((it, i) => `<a${IT(it, i)} href="${esc(safeUrl(it.url))}"${E(ctx, `items.${i}.label`)}>${esc(it.label)}</a>`).join('')}</div></div>
       </div><p class="hm-copy"${E(ctx, 'copyright')}>${esc(p.copyright)}</p>` };
   },
 });
@@ -238,7 +275,7 @@ add('columns', 'basic', 'blkColumns', '여러 단 글', 'Text columns', {
   style: { padTop: 48, padBottom: 48 },
   defaults: (L) => ({ columns: 3, items: [1, 2, 3].map((n) => ({ title: tx(L, `제목 ${n}`, `Title ${n}`), body: tx(L, '짧은 설명을 쓰세요. **굵게** 쓸 수도 있습니다.', 'Write a short text. **Bold** works too.') })) }),
   fields: [f('columns', 'select', '단 수', 'Columns', { options: COLS }), f('items', 'items', '단', 'Columns', { item: [f('title', 'text', '제목', 'Title'), f('body', 'md', '글', 'Text')], add: () => ({ title: 'Title', body: 'Text' }) })],
-  render: (b, p, ctx) => ({ inner: `<div class="hm-grid cols-${cols(p.columns)}">${items(p).map((it, i) => `<div class="hm-col">${it.title ? `<h3${E(ctx, `items.${i}.title`)}>${esc(it.title)}</h3>` : ''}<div class="hm-prose"${EM(ctx, `items.${i}.body`)}>${md(it.body)}</div></div>`).join('')}</div>` }),
+  render: (b, p, ctx) => ({ inner: `<div class="hm-grid cols-${cols(p.columns)}">${items(p).map((it, i) => `<div${IT(it, i)} class="hm-col">${it.title ? `<h3${E(ctx, `items.${i}.title`)}>${esc(it.title)}</h3>` : ''}<div class="hm-prose"${EM(ctx, `items.${i}.body`)}>${md(it.body)}</div></div>`).join('')}</div>` }),
 });
 
 add('quote', 'basic', 'blkQuote', '인용', 'Quote', {
@@ -252,7 +289,7 @@ add('checklist', 'basic', 'blkList', '확인 목록', 'Check list', {
   style: { padTop: 40, padBottom: 40, width: 'narrow' },
   defaults: (L) => ({ title: tx(L, '이런 점이 좋습니다', 'Why people like it'), mark: '✔', items: [tx(L, '누구나 쉽게 쓸 수 있습니다', 'Anyone can use it'), tx(L, '휴대폰에서도 잘 보입니다', 'Looks great on phones'), tx(L, '언제든 고칠 수 있습니다', 'Change it any time')].map((text) => ({ text })) }),
   fields: [f('title', 'text', '제목', 'Title'), f('mark', 'text', '표시 기호', 'Marker'), f('items', 'items', '항목', 'Items', { item: [f('text', 'text', '내용', 'Text')], add: () => ({ text: '…' }) })],
-  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${esc(p.title)}</h2>` : ''}<ul class="hm-check">${items(p).map((it, i) => `<li><span class="hm-mark">${esc(p.mark || '✔')}</span><span${E(ctx, `items.${i}.text`)}>${esc(it.text)}</span></li>`).join('')}</ul>` }),
+  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${esc(p.title)}</h2>` : ''}<ul class="hm-check">${items(p).map((it, i) => `<li${IT(it, i)}><span class="hm-mark">${esc(p.mark || '✔')}</span><span${E(ctx, `items.${i}.text`)}>${esc(it.text)}</span></li>`).join('')}</ul>` }),
 });
 
 add('video', 'basic', 'blkVideo', '동영상', 'Video', {
@@ -288,7 +325,7 @@ add('features', 'content', 'blkFeatures', '특징 소개', 'Features', {
     items: [['⚡', tx(L, '빠른 속도', 'Fast'), tx(L, '기다림 없이 바로 결과를 확인하세요.', 'See results at once, no waiting.')], ['🛡️', tx(L, '믿을 수 있는', 'Reliable'), tx(L, '10년 넘게 쌓아 온 경험이 있습니다.', 'Over ten years of experience.')], ['💬', tx(L, '친절한 상담', 'Friendly support'), tx(L, '언제든 편하게 물어보세요.', 'Ask us anything, any time.')]].map(([icon, title, text]) => ({ icon, title, text })) }),
   fields: [f('title', 'textarea', '제목', 'Title'), f('subtitle', 'textarea', '부제목', 'Subtitle'), f('columns', 'select', '단 수', 'Columns', { options: COLS }),
     f('items', 'items', '특징', 'Features', { item: [f('icon', 'text', '아이콘(이모지)', 'Icon (emoji)'), f('title', 'text', '제목', 'Title'), f('text', 'textarea', '설명', 'Text')], add: () => ({ icon: '⭐', title: 'Feature', text: '…' }) })],
-  render: (b, p, ctx) => ({ inner: `${head(ctx, p)}<div class="hm-grid cols-${cols(p.columns)}">${items(p).map((it, i) => `<div class="hm-card hm-feature"><div class="hm-icon"${E(ctx, `items.${i}.icon`)}>${esc(it.icon)}</div><h3${E(ctx, `items.${i}.title`)}>${esc(it.title)}</h3><p${E(ctx, `items.${i}.text`)}>${nl(it.text)}</p></div>`).join('')}</div>` }),
+  render: (b, p, ctx) => ({ inner: `${head(ctx, p)}<div class="hm-grid cols-${cols(p.columns)}">${items(p).map((it, i) => `<div${IT(it, i)} class="hm-card hm-feature"><div class="hm-icon"${E(ctx, `items.${i}.icon`)}>${esc(it.icon)}</div><h3${E(ctx, `items.${i}.title`)}>${esc(it.title)}</h3><p${E(ctx, `items.${i}.text`)}>${nl(it.text)}</p></div>`).join('')}</div>` }),
 });
 
 add('services', 'content', 'blkServices', '서비스 카드', 'Service cards', {
@@ -297,7 +334,7 @@ add('services', 'content', 'blkServices', '서비스 카드', 'Service cards', {
     items: [[tx(L, '기획', 'Planning'), 'office'], [tx(L, '디자인', 'Design'), 'abstract'], [tx(L, '운영', 'Operations'), 'tech']].map(([title, kind], i) => ({ image: art(kind, c?.primary, c?.accent, 11 + i), title, text: tx(L, '전문가가 처음부터 끝까지 꼼꼼하게 챙깁니다.', 'Experts take care of every detail.'), link: tx(L, '자세히', 'More'), url: '#' })) }),
   fields: [f('title', 'textarea', '제목', 'Title'), f('subtitle', 'textarea', '부제목', 'Subtitle'), f('columns', 'select', '단 수', 'Columns', { options: COLS }),
     f('items', 'items', '카드', 'Cards', { item: [f('image', 'image', '그림', 'Picture'), f('title', 'text', '제목', 'Title'), f('text', 'textarea', '설명', 'Text'), f('link', 'text', '링크 글자', 'Link text'), f('url', 'url', '링크 주소', 'Link')], add: () => ({ image: '', title: 'Service', text: '…', link: '', url: '#' }) })],
-  render: (b, p, ctx) => ({ inner: `${head(ctx, p)}<div class="hm-grid cols-${cols(p.columns)}">${items(p).map((it, i) => `<article class="hm-card hm-media-card">${img(ctx, it.image, it.title, `items.${i}.image`, 'hm-card-img')}<div class="hm-card-body"><h3${E(ctx, `items.${i}.title`)}>${esc(it.title)}</h3><p${E(ctx, `items.${i}.text`)}>${nl(it.text)}</p>${it.link ? `<a class="hm-more" href="${esc(safeUrl(it.url))}"${E(ctx, `items.${i}.link`)}>${esc(it.link)} →</a>` : ''}</div></article>`).join('')}</div>` }),
+  render: (b, p, ctx) => ({ inner: `${head(ctx, p)}<div class="hm-grid cols-${cols(p.columns)}">${items(p).map((it, i) => `<article${IT(it, i)} class="hm-card hm-media-card">${img(ctx, it.image, it.title, `items.${i}.image`, 'hm-card-img')}<div class="hm-card-body"><h3${E(ctx, `items.${i}.title`)}>${esc(it.title)}</h3><p${E(ctx, `items.${i}.text`)}>${nl(it.text)}</p>${it.link ? `<a class="hm-more" href="${esc(safeUrl(it.url))}"${E(ctx, `items.${i}.link`)}>${esc(it.link)} →</a>` : ''}</div></article>`).join('')}</div>` }),
 });
 
 add('mediaText', 'content', 'blkMediaText', '그림과 글', 'Picture & text', {
@@ -312,28 +349,28 @@ add('steps', 'content', 'blkSteps', '진행 단계', 'Steps', {
   style: { padTop: 72, padBottom: 72, align: 'center' },
   defaults: (L) => ({ title: tx(L, '이렇게 진행됩니다', 'How it works'), subtitle: '', items: [[tx(L, '상담', 'Talk'), tx(L, '원하시는 것을 듣습니다.', 'We listen to what you need.')], [tx(L, '제안', 'Plan'), tx(L, '맞춤 계획을 드립니다.', 'We propose a plan.')], [tx(L, '완성', 'Deliver'), tx(L, '약속한 날에 전해 드립니다.', 'We deliver on time.')]].map(([title, text]) => ({ title, text })) }),
   fields: [f('title', 'textarea', '제목', 'Title'), f('subtitle', 'textarea', '부제목', 'Subtitle'), f('items', 'items', '단계', 'Steps', { item: [f('title', 'text', '제목', 'Title'), f('text', 'textarea', '설명', 'Text')], add: () => ({ title: 'Step', text: '…' }) })],
-  render: (b, p, ctx) => ({ inner: `${head(ctx, p)}<ol class="hm-steps">${items(p).map((it, i) => `<li><span class="hm-step-no">${i + 1}</span><h3${E(ctx, `items.${i}.title`)}>${esc(it.title)}</h3><p${E(ctx, `items.${i}.text`)}>${nl(it.text)}</p></li>`).join('')}</ol>` }),
+  render: (b, p, ctx) => ({ inner: `${head(ctx, p)}<ol class="hm-steps">${items(p).map((it, i) => `<li${IT(it, i)}><span class="hm-step-no">${i + 1}</span><h3${E(ctx, `items.${i}.title`)}>${esc(it.title)}</h3><p${E(ctx, `items.${i}.text`)}>${nl(it.text)}</p></li>`).join('')}</ol>` }),
 });
 
 add('timeline', 'content', 'blkTimeline', '연혁', 'Timeline', {
   style: { padTop: 72, padBottom: 72, width: 'narrow' },
   defaults: (L) => ({ title: tx(L, '걸어온 길', 'Our journey'), items: [['2018', tx(L, '창업', 'Founded'), tx(L, '세 명이 작은 사무실에서 시작했습니다.', 'Three people in a small office.')], ['2021', tx(L, '첫 해외 진출', 'First overseas office'), tx(L, '도쿄에 지사를 열었습니다.', 'We opened in Tokyo.')], ['2026', tx(L, '고객 1만 명', '10,000 customers'), tx(L, '많은 분들께 감사드립니다.', 'Thank you all.')]].map(([date, title, text]) => ({ date, title, text })) }),
   fields: [f('title', 'textarea', '제목', 'Title'), f('items', 'items', '항목', 'Entries', { item: [f('date', 'text', '날짜', 'Date'), f('title', 'text', '제목', 'Title'), f('text', 'textarea', '설명', 'Text')], add: () => ({ date: '2026', title: 'Event', text: '…' }) })],
-  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<ul class="hm-timeline">${items(p).map((it, i) => `<li><span class="hm-date"${E(ctx, `items.${i}.date`)}>${esc(it.date)}</span><div><h3${E(ctx, `items.${i}.title`)}>${esc(it.title)}</h3><p${E(ctx, `items.${i}.text`)}>${nl(it.text)}</p></div></li>`).join('')}</ul>` }),
+  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<ul class="hm-timeline">${items(p).map((it, i) => `<li${IT(it, i)}><span class="hm-date"${E(ctx, `items.${i}.date`)}>${esc(it.date)}</span><div><h3${E(ctx, `items.${i}.title`)}>${esc(it.title)}</h3><p${E(ctx, `items.${i}.text`)}>${nl(it.text)}</p></div></li>`).join('')}</ul>` }),
 });
 
 add('stats', 'content', 'blkStats', '숫자로 보기', 'Numbers', {
   style: { padTop: 56, padBottom: 56, align: 'center', bg: 'dark' },
   defaults: (L) => ({ items: [['12+', tx(L, '년의 경험', 'years')], ['3,400', tx(L, '만족한 고객', 'happy customers')], ['98%', tx(L, '재방문율', 'return rate')], ['24/7', tx(L, '상담 가능', 'support')]].map(([value, label]) => ({ value, label })) }),
   fields: [f('items', 'items', '숫자', 'Numbers', { item: [f('value', 'text', '숫자', 'Number'), f('label', 'text', '설명', 'Label')], add: () => ({ value: '100', label: '…' }) })],
-  render: (b, p, ctx) => ({ inner: `<div class="hm-stats">${items(p).map((it, i) => `<div><b${E(ctx, `items.${i}.value`)}>${esc(it.value)}</b><span${E(ctx, `items.${i}.label`)}>${esc(it.label)}</span></div>`).join('')}</div>` }),
+  render: (b, p, ctx) => ({ inner: `<div class="hm-stats">${items(p).map((it, i) => `<div${IT(it, i)}><b${E(ctx, `items.${i}.value`)}>${esc(it.value)}</b><span${E(ctx, `items.${i}.label`)}>${esc(it.label)}</span></div>`).join('')}</div>` }),
 });
 
 add('faq', 'content', 'blkFaq', '자주 묻는 질문', 'FAQ', {
   style: { padTop: 72, padBottom: 72, width: 'narrow' },
   defaults: (L) => ({ title: tx(L, '자주 묻는 질문', 'Frequently asked questions'), items: [[tx(L, '예약은 어떻게 하나요?', 'How do I book?'), tx(L, '전화나 아래 문의 양식으로 예약하실 수 있습니다.', 'Call us or use the contact form below.')], [tx(L, '주차할 수 있나요?', 'Is there parking?'), tx(L, '건물 지하에 무료 주차장이 있습니다.', 'Yes, free parking under the building.')], [tx(L, '환불이 되나요?', 'Can I get a refund?'), tx(L, '7일 안에는 전액 환불해 드립니다.', 'Full refund within 7 days.')]].map(([q, a]) => ({ q, a })) }),
   fields: [f('title', 'textarea', '제목', 'Title'), f('items', 'items', '질문', 'Questions', { item: [f('q', 'text', '질문', 'Question'), f('a', 'textarea', '답', 'Answer')], add: () => ({ q: '?', a: '…' }) })],
-  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<div class="hm-faq">${items(p).map((it, i) => `<details${ctx.editor || i === 0 ? ' open' : ''}><summary${E(ctx, `items.${i}.q`)}>${esc(it.q)}</summary><p${E(ctx, `items.${i}.a`)}>${nl(it.a)}</p></details>`).join('')}</div>` }),
+  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<div class="hm-faq">${items(p).map((it, i) => `<details${IT(it, i)}${ctx.editor || i === 0 ? ' open' : ''}><summary${E(ctx, `items.${i}.q`)}>${esc(it.q)}</summary><p${E(ctx, `items.${i}.a`)}>${nl(it.a)}</p></details>`).join('')}</div>` }),
 });
 
 // ── bulletin board: a list of posts (notices first), each post's page, categories, search, pages, and a form to write
@@ -430,21 +467,21 @@ add('gallery', 'showcase', 'blkGallery', '사진첩', 'Gallery', {
   style: { padTop: 72, padBottom: 72 },
   defaults: (L, c) => ({ title: tx(L, '사진첩', 'Gallery'), columns: 3, items: ['landscape', 'city', 'sea', 'nature', 'abstract', 'pattern'].map((kind, i) => ({ image: art(kind, c?.primary, c?.accent, 31 + i), caption: '' })) }),
   fields: [f('title', 'textarea', '제목', 'Title'), f('columns', 'select', '단 수', 'Columns', { options: COLS }), f('items', 'items', '사진', 'Pictures', { item: [f('image', 'image', '그림', 'Picture'), f('caption', 'text', '설명', 'Caption')], add: () => ({ image: '', caption: '' }) })],
-  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title hm-center"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<div class="hm-gallery cols-${cols(p.columns)}">${items(p).map((it, i) => `<figure>${img(ctx, it.image, it.caption, `items.${i}.image`)}${it.caption ? `<figcaption${E(ctx, `items.${i}.caption`)}>${esc(it.caption)}</figcaption>` : ''}</figure>`).join('')}</div>` }),
+  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title hm-center"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<div class="hm-gallery cols-${cols(p.columns)}">${items(p).map((it, i) => `<figure${IT(it, i)}>${img(ctx, it.image, it.caption, `items.${i}.image`)}${it.caption ? `<figcaption${E(ctx, `items.${i}.caption`)}>${esc(it.caption)}</figcaption>` : ''}</figure>`).join('')}</div>` }),
 });
 
 add('testimonials', 'showcase', 'blkTestimonials', '고객 후기', 'Testimonials', {
   style: { padTop: 80, padBottom: 80, bg: 'surface', align: 'center' },
   defaults: (L, c) => ({ title: tx(L, '고객들의 이야기', 'What people say'), items: [[tx(L, '정말 친절하고 꼼꼼했어요. 다음에도 꼭 다시 올게요!', 'So kind and careful. I will definitely come back!'), tx(L, '김하늘', 'Emma Stone'), tx(L, '회사원', 'Designer')], [tx(L, '기대 이상의 결과에 놀랐습니다.', 'The result was beyond my expectations.'), tx(L, '이준호', 'Liam Park'), tx(L, '대표', 'CEO')], [tx(L, '주변에 벌써 세 명이나 소개했어요.', 'I already told three friends about it.'), tx(L, '박서연', 'Olivia Kim'), tx(L, '학생', 'Student')]].map(([quote, name, role], i) => ({ quote, name, role, image: art('portrait', c?.primary, c?.accent, 41 + i) })) }),
   fields: [f('title', 'textarea', '제목', 'Title'), f('items', 'items', '후기', 'Reviews', { item: [f('quote', 'textarea', '후기', 'Review'), f('name', 'text', '이름', 'Name'), f('role', 'text', '직업', 'Role'), f('image', 'image', '사진', 'Photo')], add: () => ({ quote: '…', name: 'Name', role: '', image: '' }) })],
-  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<div class="hm-grid cols-${cols(Math.min(3, items(p).length || 3))}">${items(p).map((it, i) => `<figure class="hm-card hm-testimonial"><blockquote${E(ctx, `items.${i}.quote`)}>“${nl(it.quote)}”</blockquote><figcaption>${img(ctx, it.image, it.name, `items.${i}.image`, 'hm-avatar')}<span><b${E(ctx, `items.${i}.name`)}>${esc(it.name)}</b><small${E(ctx, `items.${i}.role`)}>${esc(it.role)}</small></span></figcaption></figure>`).join('')}</div>` }),
+  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<div class="hm-grid cols-${cols(Math.min(3, items(p).length || 3))}">${items(p).map((it, i) => `<figure${IT(it, i)} class="hm-card hm-testimonial"><blockquote${E(ctx, `items.${i}.quote`)}>“${nl(it.quote)}”</blockquote><figcaption>${img(ctx, it.image, it.name, `items.${i}.image`, 'hm-avatar')}<span><b${E(ctx, `items.${i}.name`)}>${esc(it.name)}</b><small${E(ctx, `items.${i}.role`)}>${esc(it.role)}</small></span></figcaption></figure>`).join('')}</div>` }),
 });
 
 add('team', 'showcase', 'blkTeam', '팀 소개', 'Team', {
   style: { padTop: 80, padBottom: 80, align: 'center' },
   defaults: (L, c) => ({ title: tx(L, '함께하는 사람들', 'Meet the team'), columns: 4, items: [[tx(L, '최민수', 'Noah Lee'), tx(L, '대표', 'Founder')], [tx(L, '정유진', 'Ava Choi'), tx(L, '디자이너', 'Designer')], [tx(L, '한지호', 'Mason Han'), tx(L, '개발자', 'Developer')], [tx(L, '윤가은', 'Mia Yoon'), tx(L, '매니저', 'Manager')]].map(([name, role], i) => ({ name, role, text: '', image: art('portrait', c?.primary, c?.accent, 51 + i) })) }),
   fields: [f('title', 'textarea', '제목', 'Title'), f('columns', 'select', '단 수', 'Columns', { options: COLS }), f('items', 'items', '사람', 'People', { item: [f('image', 'image', '사진', 'Photo'), f('name', 'text', '이름', 'Name'), f('role', 'text', '역할', 'Role'), f('text', 'textarea', '소개', 'About')], add: () => ({ image: '', name: 'Name', role: '', text: '' }) })],
-  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<div class="hm-grid cols-${cols(p.columns)}">${items(p).map((it, i) => `<div class="hm-person">${img(ctx, it.image, it.name, `items.${i}.image`, 'hm-avatar big')}<h3${E(ctx, `items.${i}.name`)}>${esc(it.name)}</h3><p class="hm-role"${E(ctx, `items.${i}.role`)}>${esc(it.role)}</p>${it.text ? `<p${E(ctx, `items.${i}.text`)}>${nl(it.text)}</p>` : ''}</div>`).join('')}</div>` }),
+  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<div class="hm-grid cols-${cols(p.columns)}">${items(p).map((it, i) => `<div${IT(it, i)} class="hm-person">${img(ctx, it.image, it.name, `items.${i}.image`, 'hm-avatar big')}<h3${E(ctx, `items.${i}.name`)}>${esc(it.name)}</h3><p class="hm-role"${E(ctx, `items.${i}.role`)}>${esc(it.role)}</p>${it.text ? `<p${E(ctx, `items.${i}.text`)}>${nl(it.text)}</p>` : ''}</div>`).join('')}</div>` }),
 });
 
 add('logos', 'showcase', 'blkLogos', '함께하는 곳', 'Logos', {
@@ -462,28 +499,28 @@ add('pricing', 'showcase', 'blkPricing', '가격표', 'Pricing', {
     { name: tx(L, '기업', 'Business'), price: tx(L, '문의', 'Ask'), period: '', features: tx(L, '맞춤 기능\n전담 매니저', 'Custom features\nDedicated manager'), button: tx(L, '상담', 'Contact'), url: '#contact', featured: false },
   ] }),
   fields: [f('title', 'textarea', '제목', 'Title'), f('subtitle', 'textarea', '부제목', 'Subtitle'), f('items', 'items', '요금제', 'Plans', { item: [f('name', 'text', '이름', 'Name'), f('price', 'text', '가격', 'Price'), f('period', 'text', '기간', 'Period'), f('features', 'textarea', '포함(한 줄에 하나)', 'Includes (one per line)'), f('button', 'text', '버튼', 'Button'), f('url', 'url', '버튼 주소', 'Button link'), f('featured', 'toggle', '강조', 'Highlight')], add: () => ({ name: 'Plan', price: '0', period: '', features: '', button: 'Choose', url: '#', featured: false }) })],
-  render: (b, p, ctx) => ({ inner: `${head(ctx, p)}<div class="hm-grid cols-${cols(items(p).length || 3)}">${items(p).map((it, i) => `<div class="hm-card hm-plan ${it.featured ? 'featured' : ''}"><h3${E(ctx, `items.${i}.name`)}>${esc(it.name)}</h3><p class="hm-price"><b${E(ctx, `items.${i}.price`)}>${esc(it.price)}</b><span${E(ctx, `items.${i}.period`)}>${esc(it.period)}</span></p><ul>${String(it.features ?? '').split(/\r?\n/).filter((x) => x.trim()).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>${btn(ctx, it.button, it.url, it.featured ? 'primary' : 'outline', `items.${i}.button`)}</div>`).join('')}</div>` }),
+  render: (b, p, ctx) => ({ inner: `${head(ctx, p)}<div class="hm-grid cols-${cols(items(p).length || 3)}">${items(p).map((it, i) => `<div${IT(it, i)} class="hm-card hm-plan ${it.featured ? 'featured' : ''}"><h3${E(ctx, `items.${i}.name`)}>${esc(it.name)}</h3><p class="hm-price"><b${E(ctx, `items.${i}.price`)}>${esc(it.price)}</b><span${E(ctx, `items.${i}.period`)}>${esc(it.period)}</span></p><ul>${String(it.features ?? '').split(/\r?\n/).filter((x) => x.trim()).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>${btn(ctx, it.button, it.url, it.featured ? 'primary' : 'outline', `items.${i}.button`)}</div>`).join('')}</div>` }),
 });
 
 add('menu', 'showcase', 'blkMenu', '메뉴판', 'Menu', {
   style: { padTop: 72, padBottom: 72, width: 'narrow' },
   defaults: (L) => ({ title: tx(L, '메뉴', 'Menu'), items: [[tx(L, '아메리카노', 'Americano'), tx(L, '깊고 고소한 맛', 'Deep and nutty'), '4,500'], [tx(L, '카페 라테', 'Café latte'), tx(L, '부드러운 우유 거품', 'Silky milk foam'), '5,000'], [tx(L, '수제 케이크', 'House cake'), tx(L, '매일 아침 굽습니다', 'Baked every morning'), '6,500'], [tx(L, '샌드위치', 'Sandwich'), tx(L, '신선한 채소와 햄', 'Fresh greens and ham'), '7,800']].map(([name, desc, price]) => ({ name, desc, price })) }),
   fields: [f('title', 'textarea', '제목', 'Title'), f('items', 'items', '메뉴', 'Dishes', { item: [f('name', 'text', '이름', 'Name'), f('desc', 'text', '설명', 'Description'), f('price', 'text', '가격', 'Price')], add: () => ({ name: 'Dish', desc: '', price: '0' }) })],
-  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title hm-center"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<ul class="hm-menu">${items(p).map((it, i) => `<li><div><b${E(ctx, `items.${i}.name`)}>${esc(it.name)}</b><small${E(ctx, `items.${i}.desc`)}>${esc(it.desc)}</small></div><span class="hm-dots"></span><span class="hm-menu-price"${E(ctx, `items.${i}.price`)}>${esc(it.price)}</span></li>`).join('')}</ul>` }),
+  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title hm-center"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<ul class="hm-menu">${items(p).map((it, i) => `<li${IT(it, i)}><div><b${E(ctx, `items.${i}.name`)}>${esc(it.name)}</b><small${E(ctx, `items.${i}.desc`)}>${esc(it.desc)}</small></div><span class="hm-dots"></span><span class="hm-menu-price"${E(ctx, `items.${i}.price`)}>${esc(it.price)}</span></li>`).join('')}</ul>` }),
 });
 
 add('events', 'showcase', 'blkEvents', '일정', 'Events', {
   style: { padTop: 72, padBottom: 72, width: 'narrow' },
   defaults: (L) => ({ title: tx(L, '다가오는 일정', 'Upcoming events'), items: [['11.21', '19:00', tx(L, '가을 음악회', 'Autumn concert'), tx(L, '시민회관 대강당', 'City hall')], ['12.05', '14:00', tx(L, '작품 전시회', 'Art exhibition'), tx(L, '2층 갤러리', 'Gallery, 2F')], ['12.24', '18:30', tx(L, '성탄 축제', 'Christmas festival'), tx(L, '중앙 광장', 'Central square')]].map(([date, time, title, place]) => ({ date, time, title, place })) }),
   fields: [f('title', 'textarea', '제목', 'Title'), f('items', 'items', '일정', 'Events', { item: [f('date', 'text', '날짜', 'Date'), f('time', 'text', '시간', 'Time'), f('title', 'text', '제목', 'Title'), f('place', 'text', '장소', 'Place')], add: () => ({ date: '1.1', time: '', title: 'Event', place: '' }) })],
-  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<ul class="hm-events">${items(p).map((it, i) => `<li><span class="hm-event-date"><b${E(ctx, `items.${i}.date`)}>${esc(it.date)}</b><small${E(ctx, `items.${i}.time`)}>${esc(it.time)}</small></span><span><h3${E(ctx, `items.${i}.title`)}>${esc(it.title)}</h3><p${E(ctx, `items.${i}.place`)}>${esc(it.place)}</p></span></li>`).join('')}</ul>` }),
+  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<ul class="hm-events">${items(p).map((it, i) => `<li${IT(it, i)}><span class="hm-event-date"><b${E(ctx, `items.${i}.date`)}>${esc(it.date)}</b><small${E(ctx, `items.${i}.time`)}>${esc(it.time)}</small></span><span><h3${E(ctx, `items.${i}.title`)}>${esc(it.title)}</h3><p${E(ctx, `items.${i}.place`)}>${esc(it.place)}</p></span></li>`).join('')}</ul>` }),
 });
 
 add('blog', 'showcase', 'blkBlog', '글 목록', 'Posts', {
   style: { padTop: 72, padBottom: 72 },
   defaults: (L, c) => ({ title: tx(L, '최근 소식', 'Latest news'), columns: 3, items: [[tx(L, '새 매장을 열었습니다', 'We opened a new store'), '2026.10.02', 'city'], [tx(L, '가을 신메뉴 소개', 'New autumn menu'), '2026.09.18', 'food'], [tx(L, '봉사 활동 이야기', 'A day of volunteering'), '2026.08.30', 'nature']].map(([title, date, kind], i) => ({ image: art(kind, c?.primary, c?.accent, 61 + i), date, title, text: tx(L, '자세한 이야기를 지금 읽어 보세요.', 'Read the whole story now.'), url: '#' })) }),
   fields: [f('title', 'textarea', '제목', 'Title'), f('columns', 'select', '단 수', 'Columns', { options: COLS }), f('items', 'items', '글', 'Posts', { item: [f('image', 'image', '그림', 'Picture'), f('date', 'text', '날짜', 'Date'), f('title', 'text', '제목', 'Title'), f('text', 'textarea', '요약', 'Summary'), f('url', 'url', '주소', 'Link')], add: () => ({ image: '', date: '', title: 'Post', text: '', url: '#' }) })],
-  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<div class="hm-grid cols-${cols(p.columns)}">${items(p).map((it, i) => `<article class="hm-card hm-media-card">${img(ctx, it.image, it.title, `items.${i}.image`, 'hm-card-img')}<div class="hm-card-body"><small class="hm-date"${E(ctx, `items.${i}.date`)}>${esc(it.date)}</small><h3><a href="${esc(safeUrl(it.url))}"${E(ctx, `items.${i}.title`)}>${esc(it.title)}</a></h3><p${E(ctx, `items.${i}.text`)}>${nl(it.text)}</p></div></article>`).join('')}</div>` }),
+  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${nl(p.title)}</h2>` : ''}<div class="hm-grid cols-${cols(p.columns)}">${items(p).map((it, i) => `<article${IT(it, i)} class="hm-card hm-media-card">${img(ctx, it.image, it.title, `items.${i}.image`, 'hm-card-img')}<div class="hm-card-body"><small class="hm-date"${E(ctx, `items.${i}.date`)}>${esc(it.date)}</small><h3><a href="${esc(safeUrl(it.url))}"${E(ctx, `items.${i}.title`)}>${esc(it.title)}</a></h3><p${E(ctx, `items.${i}.text`)}>${nl(it.text)}</p></div></article>`).join('')}</div>` }),
 });
 
 // ── contact & social
@@ -508,7 +545,7 @@ add('social', 'contact', 'blkSocial', '소셜 링크', 'Social links', {
   style: { padTop: 40, padBottom: 40, align: 'center' },
   defaults: (L) => ({ title: tx(L, '우리를 팔로우하세요', 'Follow us'), items: [['Instagram', 'https://instagram.com'], ['YouTube', 'https://youtube.com'], ['Facebook', 'https://facebook.com'], ['X', 'https://x.com']].map(([label, url]) => ({ label, url })) }),
   fields: [f('title', 'text', '제목', 'Title'), f('items', 'items', '링크', 'Links', { item: [f('label', 'text', '이름', 'Name'), f('url', 'url', '주소', 'Link')], add: () => ({ label: 'Link', url: 'https://' }) })],
-  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${esc(p.title)}</h2>` : ''}<div class="hm-social-pills">${items(p).map((it, i) => `<a href="${esc(safeUrl(it.url))}"${E(ctx, `items.${i}.label`)}>${esc(it.label)}</a>`).join('')}</div>` }),
+  render: (b, p, ctx) => ({ inner: `${p.title ? `<h2 class="hm-title"${E(ctx, 'title')}>${esc(p.title)}</h2>` : ''}<div class="hm-social-pills">${items(p).map((it, i) => `<a${IT(it, i)} href="${esc(safeUrl(it.url))}"${E(ctx, `items.${i}.label`)}>${esc(it.label)}</a>`).join('')}</div>` }),
 });
 
 /** Every block kind (navbar and footer included). */
@@ -554,7 +591,10 @@ export function renderBlock(block, ctx) {
   if (!def) return '';
   const s = normalizeStyle(block.style, def);
   if (s.hidden && !ctx.editor) return '';
-  const out = def.render(block, block.props ?? {}, ctx) ?? {};
+  const previous = RENDER;
+  RENDER = { editor: Boolean(ctx.editor), props: block.props ?? {} };
+  let out;
+  try { out = def.render(block, block.props ?? {}, ctx) ?? {}; } finally { RENDER = previous; }
   const tag = out.tag ?? 'section';
   const bg = s.bg === 'custom' && s.bgColor ? '' : s.bg;
   const classes = ['hm-block', `hm-${block.type}`, bg ? `tone-${bg}` : '', `align-${s.align}`, `w-${s.width}`, s.hideMobile ? 'hm-hide-mobile' : '', s.hidden ? 'hm-hidden' : '', s.radius ? 'hm-round-block' : '', out.cls ?? ''].filter(Boolean).join(' ');
@@ -569,4 +609,15 @@ export function renderBlock(block, ctx) {
   const id = s.anchor || (block.type === 'contact' ? 'contact' : '');
   const attrs = `${id ? ` id="${esc(id)}"` : ''} class="${esc(classes)}${image ? ' has-image' : ''}" style="${esc(styles.join(';'))}"${ctx.editor ? ` data-block-id="${esc(block.id)}" data-block-type="${esc(block.type)}"` : ''}`;
   return `<${tag}${attrs}><div class="hm-wrap">${out.inner ?? ''}</div></${tag}>`;
+}
+
+/** The text fields that are button labels: the Content tab shows their button properties. */
+const BUTTON_FIELDS = { navbar: ['ctaLabel'], hero: ['button1', 'button2'], heroSplit: ['button1'], cta: ['button'], button: ['label'], mediaText: ['button'], pricing: ['items/button'] };
+for (const [type, keys] of Object.entries(BUTTON_FIELDS)) {
+  for (const key of keys) {
+    const [a, b] = key.split('/');
+    const top = DEF[type]?.fields.find((x) => x.key === a);
+    const field = b ? top?.item?.find((x) => x.key === b) : top;
+    if (field) field.button = true;
+  }
 }

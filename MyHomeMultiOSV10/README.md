@@ -12,7 +12,7 @@ A graphical website builder: drag blocks onto pages, change the design at once, 
 - 게시: 폴더 · ZIP · 한 페이지 HTML (그림은 assets/ 파일로)
 - 시작 화면(카드 보드), 프로그램 테마, 앱 안 튜토리얼 37단계(빈 사이트에서 4개 페이지 홈페이지 만들기)와 동영상(MyHomeMaker-Tutorial.mp4), 사용 설명서·튜토리얼 문서 창
 
-문서 / Documents: [사용 설명서](doc/UsersGuide.md) · [User's guide](doc/UsersGuide.en.md) · [튜토리얼](doc/Tutorial.md) · [Tutorial](doc/Tutorial.en.md)
+문서 / Documents: [사용 설명서](doc/UsersGuide.md) · [User's guide](doc/UsersGuide.en.md) · [튜토리얼](doc/Tutorial.md) · [Tutorial](doc/Tutorial.en.md) · [사용자 가이드(요약)](USERSGUIDE.md) · [구조](ARCHITECTURE.md)
 
 ## 개발 / Development
 

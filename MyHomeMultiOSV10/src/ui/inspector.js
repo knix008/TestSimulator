@@ -2,7 +2,7 @@
 // spacing, alignment and width), Page (name, file name, title, description) and Site (title,
 // language, icon, and the design: colours, fonts, corners, width). Pure HTML; app.js handles
 // the data-* attributes.
-import { blockDef, blockLabel, fieldLabel, normalizeStyle, STYLE_ALIGNS, STYLE_BACKGROUNDS, STYLE_WIDTHS } from '../domain/blocks.js';
+import { blockDef, blockLabel, BUTTON_SHAPES, BUTTON_SIZES, BUTTON_VARIANTS, buttonLook, fieldLabel, normalizeStyle, STYLE_ALIGNS, STYLE_BACKGROUNDS, STYLE_WIDTHS } from '../domain/blocks.js';
 import { effectiveDesign, FONT_IDS, FONTS, siteDesignName } from '../domain/designs.js';
 import { pageFile } from '../domain/render.js';
 import { getPath } from '../domain/site.js';
@@ -38,7 +38,53 @@ function imageControl(app, blockId, path, value) {
   </div>`;
 }
 
-function fieldControl(app, blockId, field, path, value) {
+/** A part with settings of its own (a button, an item), folded under a small header; stays open while redrawn. */
+function propsBox(app, key, glyph, title, rows) {
+  const open = app.state.openProps?.has(key);
+  return `<details class="sub-props" data-props-key="${e(key)}" ${open ? 'open' : ''}><summary title="${e(title)}">${icon(glyph)}<span>${e(title)}</span></summary><div class="sub-props-body">${rows.join('')}</div></details>`;
+}
+
+/** A colour with its "automatic" state: the picker, the value, and × to go back to automatic. */
+const colorField = (attrs, value, label, clearAttrs, t) => `<span class="color-pair"><input type="color" ${attrs} value="${e(/^#[0-9a-f]{6}$/i.test(value ?? '') ? value : '#000000')}" aria-label="${e(label)}" />${value ? `<code>${e(value)}</code><button class="icon-button" ${clearAttrs} title="${e(t('style.clear'))}" aria-label="${e(t('style.clear'))}">${icon('close')}</button>` : `<span class="muted">${e(t('style.auto'))}</span>`}</span>`;
+
+/** The settings of one button: style, size, corners, colours, an icon, full width, a new tab. */
+function buttonProps(app, blockId, path, raw) {
+  const t = app.t;
+  const o = buttonLook(raw);
+  const a = (key) => `data-button-prop="${e(key)}" data-button-path="${e(path)}" data-block="${e(blockId)}"`;
+  const clear = (key) => `data-button-clear="${e(key)}" data-button-path="${e(path)}" data-block="${e(blockId)}"`;
+  const choose = (key, list) => `<select ${a(key)} aria-label="${e(t(`button.${key}`))}"><option value="">${e(t('button.default'))}</option>${list.map((v) => `<option value="${v}" ${o[key] === v ? 'selected' : ''}>${e(t(`button.${key}s.${v}`))}</option>`).join('')}</select>`;
+  return propsBox(app, `${blockId}:btn:${path}`, 'blkButton', t('button.props'), [
+    row(t('button.variant'), choose('variant', BUTTON_VARIANTS)),
+    row(t('button.size'), choose('size', BUTTON_SIZES)),
+    row(t('button.shape'), choose('shape', BUTTON_SHAPES)),
+    row(t('button.bg'), colorField(a('bg'), o.bg, t('button.bg'), clear('bg'), t)),
+    row(t('button.color'), colorField(a('color'), o.color, t('button.color'), clear('color'), t)),
+    row(t('button.icon'), `<input type="text" ${a('icon')} value="${e(o.icon)}" maxlength="8" placeholder="★ → ✉" spellcheck="false" />`),
+    row(t('button.full'), switchHtml(a('full'), o.full, t('button.full'))),
+    row(t('button.newTab'), switchHtml(a('newTab'), o.newTab, t('button.newTab'))),
+  ]);
+}
+
+/** The settings of one item of a list: hidden, highlighted, its colours. */
+function itemProps(app, blockId, base, item) {
+  const t = app.t;
+  const data = (key, kind) => `data-prop="${e(`${base}.${key}`)}" data-block="${e(blockId)}" data-kind="${kind}"`;
+  const clear = (key) => `data-prop-clear="${e(`${base}.${key}`)}" data-block="${e(blockId)}"`;
+  return propsBox(app, `${blockId}:item:${base}`, 'gear', t('item.props'), [
+    row(t('item.hidden'), switchHtml(data('_hidden', 'toggle'), Boolean(item?._hidden), t('item.hidden'))),
+    row(t('item.accent'), switchHtml(data('_accent', 'toggle'), Boolean(item?._accent), t('item.accent'))),
+    row(t('item.bg'), colorField(data('_bg', 'color'), item?._bg, t('item.bg'), clear('_bg'), t)),
+    row(t('item.color'), colorField(data('_color', 'color'), item?._color, t('item.color'), clear('_color'), t)),
+  ]);
+}
+
+function fieldControl(app, blockId, field, path, value, block = null) {
+  if (field.button && block) return fieldControlPlain(app, blockId, field, path, value) + buttonProps(app, blockId, path, block.props?.buttons?.[path]);
+  return fieldControlPlain(app, blockId, field, path, value);
+}
+
+function fieldControlPlain(app, blockId, field, path, value) {
   const L = app.language();
   const label = fieldLabel(field, L);
   const t = app.t;
@@ -73,7 +119,7 @@ function itemsControl(app, block, field) {
         <button class="icon-button" data-item-move="${e(`${field.key}:${i}:1`)}" data-block="${e(block.id)}" title="${e(t('items.down'))}" ${i === list.length - 1 ? 'disabled' : ''}>${icon('arrowDown')}</button>
         <button class="icon-button" data-item-copy="${e(`${field.key}:${i}`)}" data-block="${e(block.id)}" title="${e(t('items.duplicate'))}">${icon('duplicate')}</button>
         <button class="icon-button danger" data-item-delete="${e(`${field.key}:${i}`)}" data-block="${e(block.id)}" title="${e(t('items.delete'))}">${icon('trash')}</button></div>
-      ${collapsed ? '' : `<div class="item-body">${field.item.map((sub) => fieldControl(app, block.id, sub, `${field.key}.${i}.${sub.key}`, item[sub.key])).join('')}</div>`}
+      ${collapsed ? '' : `<div class="item-body">${field.item.map((sub) => fieldControl(app, block.id, sub, `${field.key}.${i}.${sub.key}`, item[sub.key], block)).join('')}${itemProps(app, block.id, `${field.key}.${i}`, item)}</div>`}
     </div>`;
   }).join('');
   return `<div class="items-field"><div class="items-head">${icon('list')}<b>${e(fieldLabel(field, L))}</b><span class="count">${list.length}</span><span class="grow"></span>
@@ -86,7 +132,7 @@ export function contentHtml(app, block) {
   if (!block) return `<p class="panel-hint">${icon('info')}<span>${e(t('editors.noBlock'))}</span></p>`;
   const def = blockDef(block.type);
   const L = app.language();
-  const simple = def.fields.filter((f) => f.kind !== 'items').map((f) => fieldControl(app, block.id, f, f.key, getPath(block.props, f.key))).join('');
+  const simple = def.fields.filter((f) => f.kind !== 'items').map((f) => fieldControl(app, block.id, f, f.key, getPath(block.props, f.key), block)).join('');
   const lists = def.fields.filter((f) => f.kind === 'items').map((f) => itemsControl(app, block, f)).join('');
   const actions = def.global ? '' : `<div class="editor-actions">
     <button class="small-button" data-block-action="up" title="${e(t('action.moveUp'))}">${icon('arrowUp')}<span>${e(t('action.moveUp'))}</span></button>
@@ -114,7 +160,7 @@ export function styleHtml(app, block) {
     row(t('style.padTop'), stepper(`style:${id}:padTop`, s.padTop, 0, 320, 8, 'px', t('style.padTop'), t)),
     row(t('style.padBottom'), stepper(`style:${id}:padBottom`, s.padBottom, 0, 320, 8, 'px', t('style.padBottom'), t)),
     row(t('style.align'), segmented(`data-style-set="align" data-block="${e(id)}" data-value`, STYLE_ALIGNS.map((a) => [a, t(`align.${a}`), `textAlign${a[0].toUpperCase()}${a.slice(1)}`]), s.align)),
-    row(t('style.width'), segmented(`data-style-set="width" data-block="${e(id)}" data-value`, STYLE_WIDTHS.map((w) => [w, t(`width.${w}`)]), s.width)),
+    row(t('style.width'), segmented(`data-style-set="width" data-block="${e(id)}" data-value`, STYLE_WIDTHS.map((w) => [w, t(`width.${w}`), `width${w[0].toUpperCase()}${w.slice(1)}`]), s.width)),
     row(t('style.anchor'), `<input type="text" data-style="anchor" data-block="${e(id)}" value="${e(s.anchor)}" placeholder="contact" spellcheck="false" />`, { title: t('style.anchorTip') }),
     row(t('style.radius'), switchHtml(`data-style="radius" data-block="${e(id)}"`, s.radius, t('style.radius'))),
     row(t('style.hideMobile'), switchHtml(`data-style="hideMobile" data-block="${e(id)}"`, s.hideMobile, t('style.hideMobile'))),
@@ -129,11 +175,11 @@ export function pageHtml(app, site, page) {
   const t = app.t;
   const index = site.pages.indexOf(page);
   const body = [
-    row(t('page.name'), `<input type="text" data-page-field="name" value="${e(page.name)}" spellcheck="false" />`),
-    row(t('page.file'), index === 0 ? `<span class="path" title="${e(t('page.homeTip'))}">index.html · ${e(t('page.home'))}</span>` : `<span class="slug-field"><input type="text" data-page-field="slug" value="${e(page.slug)}" spellcheck="false" /><span class="muted">.html</span></span>`),
-    row(t('page.title'), `<input type="text" data-page-field="title" value="${e(page.title)}" placeholder="${e(t('page.titleAuto'))}" spellcheck="false" />`),
-    row(t('page.description'), `<textarea data-page-field="description" rows="3" placeholder="${e(t('page.descriptionHint'))}">${e(page.description)}</textarea>`, { tall: true }),
-    row(t('page.nav'), switchHtml('data-page-field="nav"', page.nav !== false, t('page.nav'))),
+    row(t('page.name'), `<input type="text" data-page-field="name" data-page="${e(page.id)}" value="${e(page.name)}" spellcheck="false" />`),
+    row(t('page.file'), index === 0 ? `<span class="path" title="${e(t('page.homeTip'))}">index.html · ${e(t('page.home'))}</span>` : `<span class="slug-field"><input type="text" data-page-field="slug" data-page="${e(page.id)}" value="${e(page.slug)}" spellcheck="false" /><span class="muted">.html</span></span>`),
+    row(t('page.title'), `<input type="text" data-page-field="title" data-page="${e(page.id)}" value="${e(page.title)}" placeholder="${e(t('page.titleAuto'))}" spellcheck="false" />`),
+    row(t('page.description'), `<textarea data-page-field="description" data-page="${e(page.id)}" rows="3" placeholder="${e(t('page.descriptionHint'))}">${e(page.description)}</textarea>`, { tall: true }),
+    row(t('page.nav'), switchHtml(`data-page-field="nav" data-page="${e(page.id)}"`, page.nav !== false, t('page.nav'))),
     row(t('page.blocks'), `<span>${page.blocks.length}</span>`),
     `<div class="editor-actions">
       <button class="small-button" data-command="pageLeft" ${index === 0 ? 'disabled' : ''} title="${e(t('action.pageLeft'))}">${icon('chevronLeft')}<span>${e(t('action.pageLeft'))}</span></button>

@@ -508,7 +508,7 @@ async function checkRecent() {
 }
 
 export const SHORTCUT_LIST = [
-  ['Ctrl+N', 'action.new'], ['Ctrl+O', 'action.open'], ['Ctrl+S', 'action.save'], ['Ctrl+Shift+S', 'action.saveAs'], ['Ctrl+W', 'action.closeSite'], ['Ctrl+R', 'action.recent'],
+  ['Ctrl+N', 'action.new'], ['Ctrl+O', 'action.open'], ['Ctrl+S', 'action.save'], ['Ctrl+Shift+S', 'action.saveAs'], ['Ctrl+P', 'action.print'], ['Ctrl+Shift+E', 'action.codeEditor'], ['Ctrl+W', 'action.closeSite'], ['Ctrl+R', 'action.recent'],
   ['Ctrl+Z', 'action.undo'], ['Ctrl+Y', 'action.redo'], ['Ctrl+X', 'action.cut'], ['Ctrl+C', 'action.copy'], ['Ctrl+V', 'action.paste'], ['Ctrl+D', 'action.duplicate'],
   ['Delete', 'action.delete'], ['Ctrl+Up / Down', 'action.moveUp'], ['Ctrl+H', 'action.toggleHidden'], ['Alt+Up / Down', 'action.selectNext'], ['Enter', 'action.editContent'], ['Esc', 'action.clearSelection'],
   ['shortcut.click', 'shortcut.select'], ['shortcut.clickAgain', 'shortcut.inlineEdit'], ['shortcut.doubleClick', 'shortcut.doubleClickDo'], ['shortcut.drag', 'shortcut.dragDo'], ['shortcut.ctrlClick', 'shortcut.ctrlClickDo'],
@@ -1428,7 +1428,7 @@ root.addEventListener('click', async (event) => {
     case 'pager': { const [name, step] = value.split(':'); state.pager[name] = (state.pager[name] ?? 0) + Number(step); return render(); }
     case 'choice': return close({ choice: value });
     case 'reset-settings': {
-      const keep = { backgroundImage: s().backgroundImage, backgroundName: s().backgroundName, lastDirectory: s().lastDirectory, language: s().language, tutorialOffered: true, tutorialDone: s().tutorialDone };
+      const keep = { backgroundImage: s().backgroundImage, backgroundName: s().backgroundName, lastDirectory: s().lastDirectory, language: s().language, tutorialOffered: true, tutorialDone: s().tutorialDone, userWords: s().userWords, customDesigns: s().customDesigns };
       return update({ ...defaultSettings(s().language), ...keep });
     }
     case 'choose-background': return action('choose-background');

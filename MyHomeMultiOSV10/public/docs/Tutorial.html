@@ -32,7 +32,12 @@ a:hover { text-decoration: underline; }
 }
 .topbar .brand { font-weight: 700; color: var(--text); }
 .topbar .grow { flex: 1; }
-.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.topbar .langs { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; }
+.topbar .lang { display: inline-grid; place-items: center; padding: 3px 7px; border-radius: 5px; }
+.topbar .lang .flag { display: block; width: 24px; height: 16px; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); }
+.topbar a.lang .flag { opacity: 0.55; filter: grayscale(0.4); }
+.topbar a.lang:hover .flag { opacity: 1; filter: none; }
+.topbar .lang.on { background: color-mix(in srgb, currentColor 10%, transparent); }
 .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
 nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
 nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
@@ -78,7 +83,29 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 </style>
 </head>
 <body>
-<header class="topbar"><span class="brand">MyHomeMaker <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="Tutorial.en.html" hreflang="en">English</a></header>
+<header class="topbar"><span class="brand">MyHomeMaker <small>v1.0.0</small></span><span class="grow"></span><span class="langs"><span class="lang on" title="한국어" aria-label="한국어" aria-current="true"><svg class="flag" viewBox="-36 -24 72 48" aria-hidden="true">
+  <rect x="-36" y="-24" width="72" height="48" fill="#fff"/>
+  <g transform="rotate(-56.31)">
+    <g id="flag-kr-bars"><path id="flag-kr-bar" d="M-6-25H6M-6-22H6M-6-19H6" stroke="#000" stroke-width="2"/><use href="#flag-kr-bar" y="44"/></g>
+    <path d="M0 17v10" stroke="#fff"/>
+    <circle r="12" fill="#cd2e3a"/>
+    <path d="M0-12A6 6 0 0 0 0 0a6 6 0 0 1 0 12 12 12 0 0 1 0-24z" fill="#0047a0"/>
+  </g>
+  <g transform="rotate(-123.69)">
+    <use href="#flag-kr-bars"/>
+    <path d="M0-23.5v3M0 17v3.5M0 23.5v3" stroke="#fff"/>
+  </g>
+</svg></span><a class="lang" href="Tutorial.en.html" hreflang="en" title="English" aria-label="English"><svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <clipPath id="flag-uk-clip"><path d="M0 0v30h60V0z"/></clipPath>
+  <clipPath id="flag-uk-diag"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath>
+  <g clip-path="url(#flag-uk-clip)">
+    <path d="M0 0v30h60V0z" fill="#012169"/>
+    <path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/>
+    <path d="M0 0l60 30m0-30L0 30" clip-path="url(#flag-uk-diag)" stroke="#C8102E" stroke-width="4"/>
+    <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+    <path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/>
+  </g>
+</svg></a></span></header>
 <div class="layout">
 <nav class="toc" aria-label="목차"><p class="toc-title">목차</p><ul><li class="h2"><a href="#튜토리얼-실행하기">튜토리얼 실행하기</a></li><li class="h2"><a href="#이-튜토리얼이-따르는-요즘-홈페이지의-흐름">이 튜토리얼이 따르는 요즘 홈페이지의 흐름</a></li><li class="h2"><a href="#차례">차례</a></li><li class="h2"><a href="#1-시작하기">1. 시작하기</a></li><li class="h3"><a href="#1-myhomemaker에-오신-것을-환영합니다">1. MyHomeMaker에 오신 것을 환영합니다</a></li><li class="h3"><a href="#2-완성될-사이트-미리-보기">2. 완성될 사이트 미리 보기</a></li><li class="h3"><a href="#3-새-사이트-만들기">3. 새 사이트 만들기</a></li><li class="h3"><a href="#4-작업-화면">4. 작업 화면</a></li><li class="h2"><a href="#2-첫-페이지-만들기">2. 첫 페이지 만들기</a></li><li class="h3"><a href="#5-첫-화면-대표-배너">5. 첫 화면: 대표 배너</a></li><li class="h3"><a href="#6-글은-화면에서-바로-고칩니다">6. 글은 화면에서 바로 고칩니다</a></li><li class="h3"><a href="#7-버튼과-링크-다음-행동-하나">7. 버튼과 링크: 다음 행동 하나</a></li><li class="h3"><a href="#8-신뢰-함께하는-회사-로고">8. 신뢰: 함께하는 회사 로고</a></li><li class="h3"><a href="#9-벤토-격자로-기능-소개">9. 벤토 격자로 기능 소개</a></li><li class="h3"><a href="#10-숫자로-보여-주기">10. 숫자로 보여 주기</a></li><li class="h3"><a href="#11-고객-후기">11. 고객 후기</a></li><li class="h3"><a href="#12-마지막에-한-번-더-행동-유도">12. 마지막에 한 번 더: 행동 유도</a></li><li class="h3"><a href="#13-블록-순서-바꾸기">13. 블록 순서 바꾸기</a></li><li class="h3"><a href="#14-머리글-늘-보이는-메뉴">14. 머리글: 늘 보이는 메뉴</a></li><li class="h3"><a href="#15-바닥글">15. 바닥글</a></li><li class="h2"><a href="#3-페이지-늘리기">3. 페이지 늘리기</a></li><li class="h3"><a href="#16-페이지-더하기">16. 페이지 더하기</a></li><li class="h3"><a href="#17-요금제-페이지">17. 요금제 페이지</a></li><li class="h3"><a href="#18-소개-페이지">18. 소개 페이지</a></li><li class="h3"><a href="#19-문의-페이지">19. 문의 페이지</a></li><li class="h3"><a href="#20-메뉴는-저절로">20. 메뉴는 저절로</a></li><li class="h2"><a href="#4-디자인-다듬기">4. 디자인 다듬기</a></li><li class="h3"><a href="#21-디자인-고르기">21. 디자인 고르기</a></li><li class="h3"><a href="#22-다크-모드">22. 다크 모드</a></li><li class="h3"><a href="#23-나만의-색과-모서리">23. 나만의 색과 모서리</a></li><li class="h3"><a href="#24-구역마다-배경과-여백">24. 구역마다 배경과 여백</a></li><li class="h2"><a href="#5-휴대폰에서-보기">5. 휴대폰에서 보기</a></li><li class="h3"><a href="#25-태블릿과-휴대폰-너비">25. 태블릿과 휴대폰 너비</a></li><li class="h3"><a href="#26-미리-보기">26. 미리 보기</a></li><li class="h2"><a href="#6-점검하기">6. 점검하기</a></li><li class="h3"><a href="#27-문제점-패널">27. 문제점 패널</a></li><li class="h3"><a href="#28-맞춤법-고치기">28. 맞춤법 고치기</a></li><li class="h3"><a href="#29-새-단어는-사전에-추가">29. 새 단어는 사전에 추가</a></li><li class="h3"><a href="#30-검색엔진을-위한-설명">30. 검색엔진을 위한 설명</a></li><li class="h2"><a href="#7-게시하기">7. 게시하기</a></li><li class="h3"><a href="#31-저장">31. 저장</a></li><li class="h3"><a href="#32-게시하기">32. 게시하기</a></li><li class="h3"><a href="#33-브라우저에서-열어-보기">33. 브라우저에서 열어 보기</a></li><li class="h3"><a href="#34-인터넷에-올리기">34. 인터넷에 올리기</a></li><li class="h2"><a href="#8-마치며">8. 마치며</a></li><li class="h3"><a href="#35-나에게-맞게">35. 나에게 맞게</a></li><li class="h3"><a href="#36-도움말">36. 도움말</a></li><li class="h3"><a href="#37-완성">37. 완성!</a></li><li class="h2"><a href="#더-알아보기">더 알아보기</a></li></ul></nav>
 <main>

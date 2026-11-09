@@ -803,6 +803,195 @@ for (const language of languages) {
       await app("A.updateSettings({ customDesigns: [] }); return 1;");
     });
 
+    // ── the right panel: every field belongs to the block selected, and changes only that block
+    report.group('right panel');
+    /** A site with one block of every kind on its home page. */
+    const everyBlock = "A.newSite('blank'); for (const type of a.domain.PAGE_BLOCK_TYPES) A.insertBlock(type); await new Promise((r) => setTimeout(r, 120)); return doc().page.blocks.length;";
+    /** The site without the selected block: for "nothing else changed". */
+    const others = "(() => { const s = JSON.parse(JSON.stringify(doc().site)); const keep = a.state.selected; for (const p of s.pages) p.blocks = p.blocks.filter((b) => b.id !== keep); return JSON.stringify(s); })()";
+    await report.check(tag('every field of the Content and Style tabs belongs to the block selected, for every kind of block'), async () => {
+      await closePopups();
+      const count = await app(everyBlock);
+      expect(count >= 30, `blocks: ${count}`);
+      const wrong = await app(`const bad = [];
+        for (const block of doc().page.blocks) {
+          A.select(block.id);
+          for (const tab of ['content', 'style']) {
+            a.api.showEditorTab ? a.api.showEditorTab(tab) : document.querySelector('[data-editor-tab="' + tab + '"]').click();
+            await new Promise((r) => setTimeout(r, 0));
+            const fields = [...document.querySelectorAll('#editors [data-block]')];
+            if (!fields.length && !document.querySelector('#editors [data-stepper]') && tab === 'content') bad.push(block.type + ': no fields');
+            for (const f of fields) if (f.dataset.block !== block.id) bad.push(block.type + '/' + tab + ': ' + (f.dataset.prop || f.dataset.style || f.className) + ' → ' + f.dataset.block);
+            for (const s of document.querySelectorAll('#editors [data-stepper]')) { const k = s.dataset.stepper; if (/^(prop|style):/.test(k) && k.split(':')[1] !== block.id) bad.push(block.type + '/' + tab + ': stepper ' + k); }
+          }
+        }
+        document.querySelector('[data-editor-tab="content"]').click();
+        return bad.slice(0, 8).join(' | ');`, 60000);
+      expect(!wrong, wrong);
+    });
+    await report.check(tag('a field being typed in when another block is selected: the text goes to its own block, the fields change to the new block'), async () => {
+      const result = await app(`const [first, second] = doc().page.blocks.filter((b) => b.type === 'heading' || b.type === 'button');
+        A.select(first.id); document.querySelector('[data-editor-tab="content"]').click();
+        const field = document.querySelector('#editors input[type="text"][data-prop], #editors textarea[data-prop]');
+        field.focus(); field.value = 'Typed for the first'; field.dispatchEvent(new Event('input', { bubbles: true }));
+        const prop = field.dataset.prop;
+        // Selected another way than a click on the canvas: the field keeps the focus.
+        A.select(second.id); await new Promise((r) => setTimeout(r, 30));
+        const shown = [...document.querySelectorAll('#editors [data-block]')].map((f) => f.dataset.block);
+        const now = (id) => a.domain.S.findBlock(doc().site, id).block;
+        return { firstValue: now(first.id).props[prop], secondChanged: JSON.stringify(now(second.id).props).includes('Typed for the first'), shownForSecond: shown.length > 0 && shown.every((id) => id === second.id), focusLeft: !document.querySelector('#editors').contains(document.activeElement) };`);
+      expect(result.firstValue === 'Typed for the first' && !result.secondChanged && result.shownForSecond && result.focusLeft, JSON.stringify(result));
+    });
+    await report.check(tag('adding a block from the Blocks panel while typing: the fields are those of the new block'), async () => {
+      const result = await app(`const text = doc().page.blocks.find((b) => b.type === 'text'); A.select(text.id); document.querySelector('[data-editor-tab="content"]').click();
+        const field = document.querySelector('#editors textarea[data-prop], #editors input[type="text"][data-prop]'); field.focus();
+        const item = document.querySelector('#left-panel .block-item[data-block-type="button"]'); item.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 })); item.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, button: 0, pointerId: 1 })); item.click();
+        await new Promise((r) => setTimeout(r, 120));
+        const added = a.domain.S.findBlock(doc().site, a.state.selected)?.block;
+        const shown = [...document.querySelectorAll('#editors [data-block]')].map((f) => f.dataset.block);
+        return { type: added?.type, all: shown.length > 0 && shown.every((id) => id === a.state.selected) };`);
+      expect(result.type === 'button' && result.all, JSON.stringify(result));
+    });
+    await report.check(tag('a text, a toggle, a list and a picture-less select change only the block selected'), async () => {
+      const result = await app(`const bad = [];
+        for (const type of ['heading', 'text', 'button', 'hero', 'features', 'board', 'contact']) {
+          const block = doc().page.blocks.find((b) => b.type === type); A.select(block.id); document.querySelector('[data-editor-tab="content"]').click();
+          await new Promise((r) => setTimeout(r, 0));
+          const before = ${others};
+          const text = document.querySelector('#editors input[type="text"][data-prop]:not([data-prop^="items"]), #editors textarea[data-prop]:not([data-prop^="items"])');
+          if (text) { text.value = 'Changed ' + type; text.dispatchEvent(new Event('change', { bubbles: true })); }
+          const toggle = document.querySelector('#editors input[type="checkbox"][data-prop]');
+          if (toggle) { toggle.checked = !toggle.checked; toggle.dispatchEvent(new Event('change', { bubbles: true })); }
+          const sel = document.querySelector('#editors select[data-prop]');
+          if (sel && sel.options.length > 1) { sel.value = sel.options[sel.selectedIndex === 0 ? 1 : 0].value; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+          await new Promise((r) => setTimeout(r, 0));
+          const own = a.domain.S.findBlock(doc().site, block.id).block;
+          if (text && !JSON.stringify(own.props).includes('Changed ' + type)) bad.push(type + ': its text did not change');
+          if (${others} !== before) bad.push(type + ': another block changed');
+        }
+        return bad.join(' | ');`);
+      expect(!result, result);
+    });
+    await report.check(tag('items: changing one item changes that item only; Style tab steppers and swatches change the block selected only'), async () => {
+      const result = await app(`const block = doc().page.blocks.find((b) => b.type === 'features'); A.select(block.id); document.querySelector('[data-editor-tab="content"]').click();
+        await new Promise((r) => setTimeout(r, 0));
+        const before = JSON.stringify(a.domain.S.findBlock(doc().site, block.id).block.props.items);
+        const f = document.querySelector('#editors [data-prop="items.1.title"]');
+        if (!f) return 'no item field';
+        f.value = 'Second item'; f.dispatchEvent(new Event('change', { bubbles: true }));
+        const items = a.domain.S.findBlock(doc().site, block.id).block.props.items;
+        const old = JSON.parse(before);
+        if (items[1].title !== 'Second item' || JSON.stringify(items[0]) !== JSON.stringify(old[0]) || JSON.stringify(items[2]) !== JSON.stringify(old[2])) return 'items: ' + JSON.stringify(items.map((i) => i.title));
+        document.querySelector('[data-editor-tab="style"]').click(); await new Promise((r) => setTimeout(r, 0));
+        const otherBefore = ${others};
+        const up = document.querySelector('#editors [data-stepper^="style:"] .stepper-button[data-step-dir="1"]:not([data-at-limit])');
+        if (up) up.click();
+        const swatch = document.querySelector('#editors [data-style-set]');
+        if (swatch) swatch.click();
+        await new Promise((r) => setTimeout(r, 0));
+        if (${others} !== otherBefore) return 'style changed another block';
+        if (!up && !swatch) return 'no style controls';
+        document.querySelector('[data-editor-tab="content"]').click();
+        return '';`);
+      expect(!result, result);
+    });
+
+    await report.check(tag('the Page tab: a page name being typed when another page opens goes to its own page'), async () => {
+      const result = await app(`A.newSite('business'); await new Promise((r) => setTimeout(r, 80));
+        const [first, second] = doc().site.pages; A.openPage(first.id); document.querySelector('[data-editor-tab="page"]').click(); await new Promise((r) => setTimeout(r, 0));
+        const field = document.querySelector('#editors [data-page-field="title"]'); field.focus(); field.value = 'Title of the first page';
+        A.openPage(second.id); await new Promise((r) => setTimeout(r, 30));
+        const pages = doc().site.pages;
+        const shown = document.querySelector('#editors [data-page-field="title"]')?.dataset.page;
+        document.querySelector('[data-editor-tab="content"]').click();
+        return { first: pages[0].title, second: pages[1].title, shown: shown === second.id };`);
+      expect(result.first === 'Title of the first page' && result.second !== 'Title of the first page' && result.shown, JSON.stringify(result));
+    });
+
+    await report.check(tag('button settings: style, size, corners, colours, icon, full width and new tab, for that button only'), async () => {
+      const result = await app(`A.newSite('blank'); A.insertBlock('hero'); A.insertBlock('pricing'); await new Promise((r) => setTimeout(r, 100));
+        const hero = doc().page.blocks.filter((b) => b.type === 'hero').at(-1); A.select(hero.id); document.querySelector('[data-editor-tab="content"]').click(); await new Promise((r) => setTimeout(r, 0));
+        const box = document.querySelector('#editors details[data-props-key="' + hero.id + ':btn:button1"]'); if (!box) return 'no button settings';
+        box.open = true; box.dispatchEvent(new Event('toggle'));
+        const set = (key, value) => { const el = document.querySelector('#editors [data-button-path="button1"][data-button-prop="' + key + '"]'); if (el.type === 'checkbox') el.checked = value; else el.value = value; el.dispatchEvent(new Event('change', { bubbles: true })); };
+        set('variant', 'outline'); set('size', 'large'); set('shape', 'pill'); set('bg', '#112233'); set('color', '#ffeedd'); set('icon', '★'); set('full', true); set('newTab', true);
+        await new Promise((r) => setTimeout(r, 50));
+        const look = a.domain.S.findBlock(doc().site, hero.id).block.props.buttons;
+        const a1 = frame().querySelector('[data-block-id="' + hero.id + '"] .hm-btn');
+        const a2 = frame().querySelectorAll('[data-block-id="' + hero.id + '"] .hm-btn')[1];
+        const reopened = document.querySelector('#editors details[data-props-key="' + hero.id + ':btn:button1"]').open;
+        document.querySelector('#editors [data-button-clear="bg"][data-button-path="button1"]').click();
+        const cleared = !('bg' in a.domain.S.findBlock(doc().site, hero.id).block.props.buttons.button1);
+        const published = a.domain.siteFiles(doc().site).find((f) => f.path === 'index.html').data;
+        return JSON.stringify({ ok: look.button1.variant === 'outline' && look.button1.full === true && !look.button2,
+          classes: a1.className, second: a2.className, style: a1.getAttribute('style'), icon: a1.textContent.includes('★'), target: a1.getAttribute('target'), reopened, cleared,
+          publishedTarget: /target="_blank" rel="noopener"/.test(published) });`);
+      const r = JSON.parse(result.startsWith('{') ? result : '{"error":' + JSON.stringify(result) + '}');
+      expect(r.ok && /hm-btn-outline/.test(r.classes) && /hm-btn-large/.test(r.classes) && /hm-btn-pill/.test(r.classes) && /hm-btn-full/.test(r.classes) && !/hm-btn-large/.test(r.second) && /#ffeedd/.test(r.style) && r.icon && r.target === '_blank' && r.reopened && r.cleared && r.publishedTarget, result);
+    });
+    await report.check(tag('item settings: hide, highlight and colours of one item (and a button inside an item)'), async () => {
+      const result = await app(`const pricing = doc().page.blocks.find((b) => b.type === 'pricing'); A.select(pricing.id); document.querySelector('[data-editor-tab="content"]').click(); await new Promise((r) => setTimeout(r, 0));
+        const field = (path) => document.querySelector('#editors [data-prop="' + path + '"]');
+        const toggle = (path, on) => { const el = field(path); el.checked = on; el.dispatchEvent(new Event('change', { bubbles: true })); };
+        toggle('items.0._hidden', true); toggle('items.1._accent', true);
+        const bg = field('items.1._bg'); bg.value = '#334455'; bg.dispatchEvent(new Event('change', { bubbles: true }));
+        const variant = document.querySelector('#editors [data-button-path="items.2.button"][data-button-prop="variant"]'); variant.value = 'link'; variant.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise((r) => setTimeout(r, 50));
+        const block = a.domain.S.findBlock(doc().site, pricing.id).block;
+        const cards = frame().querySelectorAll('[data-block-id="' + pricing.id + '"] .hm-plan');
+        const published = a.domain.siteFiles(doc().site).find((f) => f.path === 'index.html').data;
+        const names = block.props.items.map((it) => it.name);
+        return JSON.stringify({ hiddenInEditor: cards[0].hasAttribute('data-item-hidden'), accent: cards[1].hasAttribute('data-item-accent'), bg: (cards[1].getAttribute('style') || '').includes('#334455'),
+          linkButton: cards[2].querySelector('.hm-btn').className.includes('hm-btn-link'), others: !block.props.items[0]._bg && !block.props.items[2]._accent,
+          published: !published.includes('>' + names[0] + '<') && published.includes('>' + names[1] + '<'), plansPublished: (published.match(/class="hm-card hm-plan/g) || []).length });`);
+      const r = JSON.parse(result);
+      expect(r.hiddenInEditor && r.accent && r.bg && r.linkButton && r.others && r.published && r.plansPublished === 2, result);
+    });
+
+    await report.check(tag('every button of both side panels has an icon, for every kind of block and every editor tab'), async () => {
+      const missing = await app(`A.newSite('blank'); for (const type of a.domain.PAGE_BLOCK_TYPES) A.insertBlock(type); await new Promise((r) => setTimeout(r, 150));
+        const out = new Set();
+        const scan = (where) => { for (const b of document.querySelectorAll('#left-panel button, #right-panel button')) { if (b.offsetParent === null || b.classList.contains('design-card') || b.querySelector('svg')) continue; out.add(where + ': ' + (b.textContent.trim() || b.title || b.className).slice(0, 30)); } };
+        scan('panels');
+        for (const block of [...doc().page.blocks, doc().site.layout.header, doc().site.layout.footer]) {
+          A.select(block.id);
+          for (const tab of ['content', 'style', 'page', 'site']) { document.querySelector('[data-editor-tab="' + tab + '"]').click(); await new Promise((r) => setTimeout(r, 0)); document.querySelectorAll('#editors details').forEach((d) => { d.open = true; }); scan(block.type + '/' + tab); }
+        }
+        document.querySelector('[data-editor-tab="content"]').click();
+        return [...out].slice(0, 8).join(' | ');`, 120000);
+      expect(!missing, missing);
+    });
+
+    // ── right-click menus: what cannot be done is greyed out
+    report.group('context menus');
+    const menuState = `(() => { const d = document.querySelector('.web-popup-menu iframe')?.contentDocument; if (!d) return null; return Object.fromEntries([...d.querySelectorAll('.menu-item[data-id]')].map((b) => [b.dataset.id, !b.disabled])); })()`;
+    const openMenu = async (code) => {
+      await closePopups();
+      await app(`${code}; return 1;`);
+      await waitPopup('menu');
+      await sleep(150);
+      return run(menuState);
+    };
+    await report.check(tag('block menu: Paste only with blocks to paste; Move up off for the first block; Delete page off for the only page'), async () => {
+      await app("A.newSite('blank'); A.insertBlock('heading'); A.insertBlock('text'); a.state.clipboard = null; window.__clip = ''; return 1;");
+      const first = await openMenu("const b = doc().page.blocks[0]; A.select(b.id); const r = document.querySelector('.site-frame').getBoundingClientRect(); void A.contextMenu({ clientX: r.left + 40, clientY: r.top + 40 }, 'block', { id: b.id })");
+      expect(first && first.paste === false && first.moveUp === false && first.moveDown === true && first.copy === true, `first block: ${JSON.stringify(first)}`);
+      const after = await openMenu("A.copyBlock(); const b = doc().page.blocks.at(-1); A.select(b.id); void A.contextMenu({ clientX: 200, clientY: 200 }, 'block', { id: b.id })");
+      expect(after && after.paste === true && after.moveDown === false && after.moveUp === true, `after copying, last block: ${JSON.stringify(after)}`);
+      const page = await openMenu("void A.contextMenu({ clientX: 200, clientY: 120 }, 'page', { id: doc().page.id })");
+      expect(page && page.deletePage === false && page.pageLeft === false && page.pageRight === false, `the only page: ${JSON.stringify(page)}`);
+      await closePopups();
+    });
+    await report.check(tag('text field menu: Cut and Copy need a selection, Paste needs text, Undo needs something to undo'), async () => {
+      await app("a.state.clipboard = null; window.__clip = ''; const b = doc().page.blocks[0]; A.select(b.id); document.querySelector('[data-editor-tab=\"content\"]').click(); return 1;");
+      const empty = await openMenu("const f = [...document.querySelectorAll('#editors input[type=\"text\"][data-prop], #editors textarea[data-prop]')].find((x) => x.value); f.focus(); f.setSelectionRange(0, 0); const r = f.getBoundingClientRect(); f.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 5, clientY: r.top + 5 }))");
+      expect(empty && empty['custom:cut'] === false && empty['custom:copy'] === false && empty['custom:paste'] === false && empty['custom:undo'] === false && empty['custom:selectAll'] === true, `no selection: ${JSON.stringify(empty)}`);
+      const full = await openMenu("window.__clip = 'some text'; const f = [...document.querySelectorAll('#editors input[type=\"text\"][data-prop], #editors textarea[data-prop]')].find((x) => x.value); f.focus(); f.select(); const r = f.getBoundingClientRect(); f.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 5, clientY: r.top + 5 }))");
+      expect(full && full['custom:cut'] === true && full['custom:copy'] === true && full['custom:paste'] === true, `with a selection and text to paste: ${JSON.stringify(full)}`);
+      await closePopups();
+      await app("window.__clip = ''; return 1;");
+    });
+
     report.group('errors');
     await report.check(tag('no script errors in the whole run'), async () => {
       const problems = errorsSoFar();

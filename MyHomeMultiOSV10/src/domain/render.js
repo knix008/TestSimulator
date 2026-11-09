@@ -66,6 +66,14 @@ p{margin:0 0 1em}
 .tone-primary .hm-btn-primary,.has-image .hm-btn-primary{background:#fff;color:${d.primary};border-color:#fff}
 .tone-primary .hm-btn-outline,.has-image .hm-btn-outline,.tone-dark .hm-btn-outline{color:#fff;border-color:currentColor}
 .hm-actions.large .hm-btn{font-size:1.15em;padding:.9em 2em}
+.hm-btn-small{font-size:.86em;padding:.5em 1em}
+.hm-btn-large{font-size:1.15em;padding:.9em 2em}
+.hm-btn-square{border-radius:0}
+.hm-btn-round{border-radius:calc(var(--radius) + 8px)}
+.hm-btn-pill{border-radius:999px}
+.hm-btn-full{display:flex;width:100%}
+.hm-btn-icon{line-height:1}
+[data-item-accent]{outline:2px solid var(--primary);outline-offset:3px}
 .hm-grid{display:grid;gap:24px;grid-template-columns:repeat(3,minmax(0,1fr));text-align:left}
 .hm-grid.cols-1{grid-template-columns:minmax(0,1fr)}
 .hm-grid.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -259,6 +267,7 @@ body{font-size:calc(var(--base) - 1px)}
 
 /** Extra rules on the editor canvas only: links do nothing, frames and forms do not take the mouse, hidden blocks show faded. */
 export const EDITOR_CSS = `
+[data-item-hidden]{opacity:.35;outline:1px dashed currentColor;outline-offset:2px}
 html,body{min-height:100%}
 body.hm-editor{cursor:default}
 body.hm-editor a{cursor:default}

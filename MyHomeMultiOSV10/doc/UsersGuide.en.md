@@ -177,6 +177,10 @@ Every field of the selected block:
 - **Pictures** — **File…** (big photos are reduced to 1920 px on the long side), **Built-in picture** (16 kinds, drawn in the site's colours), **Remove**, or a picture address
 - **Item lists** — features, cards, photos, plans, reviews, people, questions: **add · duplicate · up/down · delete**, ▸ folds an item
 - Numbers have − + buttons, on/off settings are switches
+- **Button settings** — under a button label (hero buttons, the header button, the Button block, plan buttons …), *Button settings* gives that button its own style (filled, outline, link, light), size (small, large), corners (square, rounder, pill), button and text colours, an icon (emoji), full width and opening in a new tab. Empty means the block default.
+- **Item settings** — under each item of a list, *Item settings* hides that item (left out when published, faded in the editor), highlights it, and sets its background and text colours.
+- When another block or page is chosen while you type, what you typed is saved to the block (page) it belongs to and the fields change to the new one.
+- Right-click menus grey out what cannot be done now (Paste with nothing to paste, Move up for the first block, Delete for the only page, Cut and Copy without a selection …).
 
 ### Header and footer
 

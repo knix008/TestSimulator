@@ -78,6 +78,7 @@ const state = {
   rightTab: 'content',
   collapsedEditors: new Set(),
   collapsedItems: new Set(),
+  openProps: new Set(),
   collapsedTree: new Set(),
   collapsedToolbox: new Set(),
   toolboxQuery: '',
@@ -509,16 +510,33 @@ function itemAction(kind, blockId, spec) {
   });
 }
 
+/** One setting of one button (props.buttons[path]); '' or false takes it away. */
+function setButtonProp(blockId, path, key, value) {
+  const found = site() && S.findBlock(site(), blockId);
+  if (!found || !path || !key) return;
+  const current = found.block.props?.buttons?.[path]?.[key];
+  if ((current ?? '') === value || (value === false && !current)) return;
+  change('op.edit', (s) => {
+    const props = S.findBlock(s, blockId).block.props;
+    props.buttons = props.buttons && typeof props.buttons === 'object' ? props.buttons : {};
+    const look = { ...(props.buttons[path] ?? {}) };
+    if (value === '' || value === false || value == null) delete look[key]; else look[key] = value;
+    if (Object.keys(look).length) props.buttons[path] = look; else delete props.buttons[path];
+  });
+}
+
 function setStyle(blockId, patch) {
   const found = site() && S.findBlock(site(), blockId);
   if (!found) return;
   change('op.style', (s) => { const b = S.findBlock(s, blockId).block; b.style = normalizeStyle({ ...b.style, ...patch }, blockDef(b.type)); });
 }
 
-function setPageField(key, value) {
-  const page = currentPage();
-  if (!page) return;
-  change('op.page', (s, p) => {
+/** A field of the Page tab, for the page it was drawn for (not whichever page is open when the change arrives). */
+function setPageField(key, value, pageId = currentPage()?.id) {
+  if (!pageId || !site() || !S.pageById(site(), pageId)) return;
+  change('op.page', (s) => {
+    const p = S.pageById(s, pageId);
+    if (!p) return;
     if (key === 'slug') p.slug = S.uniqueSlug(s, value || p.name, p.id);
     else if (key === 'nav') p.nav = Boolean(value);
     else p[key] = String(value ?? '');
@@ -754,7 +772,7 @@ function setFieldText(row, text) {
   if (row.scope === 'site') return setSiteField(row.path.replace(/^meta\./, ''), text);
   if (row.scope === 'page') {
     if (currentPage()?.id !== row.pageId) openPage(row.pageId);
-    return setPageField(row.path, text);
+    return setPageField(row.path, text, row.pageId);
   }
   return change('op.editText', (value) => { const found = S.findBlock(value, row.blockId); if (found) S.setPath(found.block.props, row.path, text); });
 }
@@ -1291,12 +1309,31 @@ function renderEditors() {
   const host = root.querySelector('#editors');
   const tabsHost = root.querySelector('#editor-tabs');
   if (!host || !tabsHost) return;
+  // What the editors show: the tab, the block and the page. While the user types in a field of the same thing, the
+  // fields are not redrawn under the caret. When it is another thing (another block was selected, a block was
+  // added, another page opened …), the field being typed in is finished first — its change goes to the block it
+  // belongs to — and the editors are drawn for the new one at once. Old fields must never stay on screen for a new
+  // selection: typing in them changed the block selected before (a text edit changing a button).
+  const docNow = activeDoc();
+  const key = `${state.rightTab}|${state.selected ?? ''}|${docNow?.page?.id ?? ''}|${docNow?.id ?? ''}|${state.showStart ? 1 : 0}`;
   const focused = document.activeElement;
-  if (focused && host.contains(focused) && focused.matches('input[type="text"], textarea, input[type="search"]')) {
-    clearTimeout(renderEditors.timer);
-    renderEditors.timer = setTimeout(() => { if (!host.contains(document.activeElement)) renderEditors(); }, 400);
-    return;
+  if (focused && host.contains(focused) && focused.matches('input[type="text"], textarea, input[type="search"], input[type="number"], input[type="color"], select')) {
+    if (host.dataset.key === key) {
+      clearTimeout(renderEditors.timer);
+      renderEditors.timer = setTimeout(() => { if (!host.contains(document.activeElement)) renderEditors(); }, 400);
+      return;
+    }
+    clearTimeout(bindEvents.typeTimer);
+    // What was typed goes to the block the field belongs to (its own data-block), then the field lets go.
+    const value = focused.type === 'checkbox' ? focused.checked : focused.value;
+    const field = { ...focused.dataset };
+    focused.blur();
+    if (field.prop && field.block) setProp(field.block, field.prop, value, field.kind);
+    else if (field.style && field.block) setStyle(field.block, { [field.style]: value });
+    else if (field.pageField && field.page) setPageField(field.pageField, String(value).trim(), field.page);
+    else if (field.buttonProp && field.block) setButtonProp(field.block, field.buttonPath, field.buttonProp, typeof value === 'string' ? value.trim() : value);
   }
+  host.dataset.key = key;
   tabsHost.innerHTML = EDITOR_TABS.map(([id, glyph]) => `<button class="editor-tab ${state.rightTab === id ? 'active' : ''}" data-editor-tab="${id}" role="tab" aria-selected="${state.rightTab === id}" title="${escapeHtml(t(`editors.${id}`))}">${icon(glyph)}<span>${escapeHtml(t(`editors.${id}`))}</span></button>`).join('');
   const doc = activeDoc();
   if (!doc || state.showStart) { host.innerHTML = `<p class="panel-hint">${icon('info')}<span>${escapeHtml(t('editors.noSite'))}</span></p>`; return; }
@@ -2331,7 +2368,12 @@ function openMenubarMenu(name) {
 }
 
 /** Context menus: a block, the canvas, a page tab, a tree row, the start page, panels … */
-function contextMenu(event, kind, payload = {}) {
+/** A menu's Paste item, off when there is nothing to paste. */
+const withPaste = (items, can) => items.map((item) => (item.id === 'paste' ? { ...item, disabled: item.disabled || !can } : item));
+
+async function contextMenu(event, kind, payload = {}) {
+  const request = ++menuRequest;
+  const latest = () => request === menuRequest;
   const point = toScreen(event.clientX, event.clientY);
   const anchor = { x: point.x + 1, y: point.y + 1, flipY: point.y };
   if (kind === 'block') {
@@ -2340,11 +2382,12 @@ function contextMenu(event, kind, payload = {}) {
     const global = blockDef(found.block.type)?.global;
     const handlers = { 'custom:content': () => focusField(payload.id, null), 'custom:style': () => { select(payload.id); showEditorTab('style'); }, 'custom:addAfter': () => addBlockMenu(anchor, found.index + 1), 'custom:addBefore': () => addBlockMenu(anchor, found.index) };
     const items = [{ id: 'custom:content', label: t('canvas.editContent'), icon: 'edit', shortcut: 'Enter' }, { id: 'custom:style', label: t('canvas.editStyle'), icon: 'formatShape' }, { separator: true }];
-    if (!global) items.push({ id: 'custom:addBefore', label: t('canvas.addBefore'), icon: 'arrowUp' }, { id: 'custom:addAfter', label: t('canvas.addAfter'), icon: 'addBlock' }, { separator: true }, ...menuItems(['cut', 'copy', 'paste', 'duplicate', '-', 'moveUp', 'moveDown', 'toggleHidden', '-', 'delete']));
+    if (!global) items.push({ id: 'custom:addBefore', label: t('canvas.addBefore'), icon: 'arrowUp' }, { id: 'custom:addAfter', label: t('canvas.addAfter'), icon: 'addBlock' }, { separator: true }, ...withPaste(menuItems(['cut', 'copy', 'paste', 'duplicate', '-', 'moveUp', 'moveDown', 'toggleHidden', '-', 'delete']), await blocksToPaste()));
+    if (!latest()) return undefined;
     else items.push(...menuItems(['toggleHidden']));
     return showMenu(items, anchor, 'context', { handlers, header: { icon: BLOCKS[found.block.type].icon, title: blockTitle(found.block) } });
   }
-  if (kind === 'canvas') return showMenu(menuItems(['addBlock', 'paste', '-', 'device:desktop', 'device:tablet', 'device:mobile', 'zoomFit', '-', 'previewMode', 'previewBrowser', 'print', '-', 'designPicker', 'pageProps']), anchor, 'context', { header: { icon: 'pageItem', title: currentPage()?.name ?? '' } });
+  if (kind === 'canvas') { const can = await blocksToPaste(); if (!latest()) return undefined; return showMenu(withPaste(menuItems(['addBlock', 'paste', '-', 'device:desktop', 'device:tablet', 'device:mobile', 'zoomFit', '-', 'previewMode', 'previewBrowser', 'print', '-', 'designPicker', 'pageProps']), can), anchor, 'context', { header: { icon: 'pageItem', title: currentPage()?.name ?? '' } }); }
   if (kind === 'page') {
     const page = S.pageById(site(), payload.id);
     return showMenu(menuItems(['renamePage', 'duplicatePage', 'deletePage', '-', 'pageLeft', 'pageRight', '-', 'pageProps', 'addPage']), anchor, 'context', { header: { icon: 'pageItem', title: page?.name ?? '' } });
@@ -2355,7 +2398,7 @@ function contextMenu(event, kind, payload = {}) {
   return showMenu(menuItems(['new', 'open', 'save', '-', 'undo', 'redo', '-', 'settings', 'about']), anchor, 'context', { header: { icon: 'siteProject', title: 'MyHomeMaker' } });
 }
 
-function textContextMenu(element, event) {
+async function textContextMenu(element, event) {
   const point = toScreen(event.clientX, event.clientY);
   const anchor = { x: point.x + 1, y: point.y + 1, flipY: point.y };
   const handlers = {
@@ -2365,15 +2408,41 @@ function textContextMenu(element, event) {
     'custom:selectAll': () => { element.focus(); element.select?.(); },
     'custom:undo': () => { element.focus(); document.execCommand('undo'); },
   };
+  // Each item only when it can do something: a selection to cut or copy, text to paste, something to undo or select.
   const hasSel = element.selectionStart !== element.selectionEnd;
+  const editable = !element.readOnly && !element.disabled;
+  element.focus({ preventScroll: true });
+  let canUndo = false;
+  try { canUndo = editable && document.queryCommandEnabled('undo'); } catch { canUndo = false; }
+  const request = ++menuRequest;
+  const pasteText = editable ? await clipboardTextSoon() : '';
+  if (request !== menuRequest) return undefined;
   return showMenu([
-    { id: 'custom:undo', label: t('action.undoText'), icon: 'undo', shortcut: keyLabel('Ctrl+Z') }, { separator: true },
-    { id: 'custom:cut', label: t('action.cut'), icon: 'cut', shortcut: keyLabel('Ctrl+X'), disabled: !hasSel },
+    { id: 'custom:undo', label: t('action.undoText'), icon: 'undo', shortcut: keyLabel('Ctrl+Z'), disabled: !canUndo }, { separator: true },
+    { id: 'custom:cut', label: t('action.cut'), icon: 'cut', shortcut: keyLabel('Ctrl+X'), disabled: !hasSel || !editable },
     { id: 'custom:copy', label: t('action.copy'), icon: 'copy', shortcut: keyLabel('Ctrl+C'), disabled: !hasSel },
-    { id: 'custom:paste', label: t('action.paste'), icon: 'paste', shortcut: keyLabel('Ctrl+V') }, { separator: true },
-    { id: 'custom:selectAll', label: t('action.selectText'), icon: 'selectAll', shortcut: keyLabel('Ctrl+A') },
+    { id: 'custom:paste', label: t('action.paste'), icon: 'paste', shortcut: keyLabel('Ctrl+V'), disabled: !pasteText }, { separator: true },
+    { id: 'custom:selectAll', label: t('action.selectText'), icon: 'selectAll', shortcut: keyLabel('Ctrl+A'), disabled: !element.value },
   ], anchor, 'context', { handlers, header: { icon: 'edit', title: t('menu.edit') } });
 }
+
+/** The clipboard's text, or '' when it cannot be read quickly (a menu never waits long for it). */
+async function clipboardTextSoon(ms = 300) {
+  try {
+    return String(await Promise.race([native.clipboardRead(), new Promise((resolve) => { setTimeout(() => resolve(''), ms); })]) ?? '');
+  } catch {
+    return '';
+  }
+}
+
+/** Blocks to paste: copied here (this run), or on the clipboard from another MyHomeMaker. */
+async function blocksToPaste() {
+  if (state.clipboard?.blocks?.length) return true;
+  return (await clipboardTextSoon()).includes('myhomemakerBlocks');
+}
+
+/** Only the newest right-click opens its menu (an older one still waiting for the clipboard gives way). */
+let menuRequest = 0;
 
 // ───────────────────────── document windows (user's guide, tutorial document)
 
@@ -2557,6 +2626,10 @@ function bindEvents() {
     if (panelDesign) return pickPanelDesign(panelDesign.dataset.panelDesign);
     const trialButton = target.closest('[data-design-trial]');
     if (trialButton) return endDesignTrial(trialButton.dataset.designTrial === 'keep');
+    const buttonClear = target.closest('[data-button-clear]');
+    if (buttonClear) return setButtonProp(buttonClear.dataset.block, buttonClear.dataset.buttonPath, buttonClear.dataset.buttonClear, '');
+    const propClear = target.closest('[data-prop-clear]');
+    if (propClear) return setProp(propClear.dataset.block, propClear.dataset.propClear, '', 'color');
     const tbToggle = target.closest('[data-toolbox-toggle]');
     if (tbToggle) { const id = tbToggle.dataset.toolboxToggle; if (state.collapsedToolbox.has(id)) state.collapsedToolbox.delete(id); else state.collapsedToolbox.add(id); return renderBlocksPanel(); }
     if (target.closest('[data-toolbox-compact]')) { updateSettings({ toolboxCompact: !state.settings.toolboxCompact }, { quiet: true }); return renderBlocksPanel(); }
@@ -2642,14 +2715,21 @@ function bindEvents() {
     return contextMenu(event, 'default');
   });
 
+  // A folded settings box (button, item) stays open or closed while the editors are drawn again.
+  root.addEventListener('toggle', (event) => {
+    const key = event.target.dataset?.propsKey;
+    if (key) { if (event.target.open) state.openProps.add(key); else state.openProps.delete(key); }
+  }, true);
+
   root.addEventListener('change', (event) => {
     const target = event.target;
+    if (target.dataset.buttonProp) return setButtonProp(target.dataset.block, target.dataset.buttonPath, target.dataset.buttonProp, target.type === 'checkbox' ? target.checked : target.value.trim());
     if (target.dataset.prop) return setProp(target.dataset.block, target.dataset.prop, target.type === 'checkbox' ? target.checked : target.value, target.dataset.kind);
     if (target.dataset.style) {
       const key = target.dataset.style;
       return setStyle(target.dataset.block, { [key]: target.type === 'checkbox' ? target.checked : target.value });
     }
-    if (target.dataset.pageField) return setPageField(target.dataset.pageField, target.type === 'checkbox' ? target.checked : target.value.trim());
+    if (target.dataset.pageField) return setPageField(target.dataset.pageField, target.type === 'checkbox' ? target.checked : target.value.trim(), target.dataset.page);
     if (target.dataset.siteField) return setSiteField(target.dataset.siteField, target.value.trim());
     if (target.dataset.design) return setDesign({ [target.dataset.design]: target.value });
     if ('startToggle' in target.dataset) return updateSettings({ showStartPage: target.checked }, { quiet: true });
@@ -2801,7 +2881,7 @@ const SHORTCUTS = [
   ['z', false, 'undo'], ['y', false, 'redo'], ['z', true, 'redo'], ['x', false, 'cut'], ['c', false, 'copy'], ['v', false, 'paste'], ['d', false, 'duplicate'],
   ['arrowup', false, 'moveUp'], ['arrowdown', false, 'moveDown'], ['h', false, 'toggleHidden'], ['a', true, 'addBlock'], ['n', true, 'addPage'],
   ['=', false, 'zoomIn'], ['+', false, 'zoomIn'], ['-', false, 'zoomOut'], ['0', false, 'zoomReset'], ['w', true, 'zoomFit'], ['e', false, 'previewMode'],
-  ['p', true, 'publish'], ['d', true, 'designPicker'], [',', false, 'settings'], ['l', true, 'language'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'],
+  ['p', true, 'publish'], ['e', true, 'codeEditor'], ['d', true, 'designPicker'], [',', false, 'settings'], ['l', true, 'language'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'],
   ['@', true, 'rightPanel'], ['2', true, 'rightPanel'], ['q', false, 'exit'], ['h', true, 'startPage'], ['b', true, 'shuffleBackground'],
   ['pageup', false, 'prevPage'], ['pagedown', false, 'nextPage'], ['j', false, 'bottomPanel'], ['m', true, 'showProblems'],
 ];

@@ -32,7 +32,12 @@ a:hover { text-decoration: underline; }
 }
 .topbar .brand { font-weight: 700; color: var(--text); }
 .topbar .grow { flex: 1; }
-.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.topbar .langs { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; }
+.topbar .lang { display: inline-grid; place-items: center; padding: 3px 7px; border-radius: 5px; }
+.topbar .lang .flag { display: block; width: 24px; height: 16px; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); }
+.topbar a.lang .flag { opacity: 0.55; filter: grayscale(0.4); }
+.topbar a.lang:hover .flag { opacity: 1; filter: none; }
+.topbar .lang.on { background: color-mix(in srgb, currentColor 10%, transparent); }
 .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
 nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
 nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
@@ -78,7 +83,29 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 </style>
 </head>
 <body>
-<header class="topbar"><span class="brand">MyHomeMaker <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="UsersGuide.html" hreflang="ko">한국어</a></header>
+<header class="topbar"><span class="brand">MyHomeMaker <small>v1.0.0</small></span><span class="grow"></span><span class="langs"><a class="lang" href="UsersGuide.html" hreflang="ko" title="한국어" aria-label="한국어"><svg class="flag" viewBox="-36 -24 72 48" aria-hidden="true">
+  <rect x="-36" y="-24" width="72" height="48" fill="#fff"/>
+  <g transform="rotate(-56.31)">
+    <g id="flag-kr-bars"><path id="flag-kr-bar" d="M-6-25H6M-6-22H6M-6-19H6" stroke="#000" stroke-width="2"/><use href="#flag-kr-bar" y="44"/></g>
+    <path d="M0 17v10" stroke="#fff"/>
+    <circle r="12" fill="#cd2e3a"/>
+    <path d="M0-12A6 6 0 0 0 0 0a6 6 0 0 1 0 12 12 12 0 0 1 0-24z" fill="#0047a0"/>
+  </g>
+  <g transform="rotate(-123.69)">
+    <use href="#flag-kr-bars"/>
+    <path d="M0-23.5v3M0 17v3.5M0 23.5v3" stroke="#fff"/>
+  </g>
+</svg></a><span class="lang on" title="English" aria-label="English" aria-current="true"><svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <clipPath id="flag-uk-clip"><path d="M0 0v30h60V0z"/></clipPath>
+  <clipPath id="flag-uk-diag"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath>
+  <g clip-path="url(#flag-uk-clip)">
+    <path d="M0 0v30h60V0z" fill="#012169"/>
+    <path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/>
+    <path d="M0 0l60 30m0-30L0 30" clip-path="url(#flag-uk-diag)" stroke="#C8102E" stroke-width="4"/>
+    <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+    <path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/>
+  </g>
+</svg></span></span></header>
 <div class="layout">
 <nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#getting-started-in-five-minutes">Getting started in five minutes</a></li><li class="h2"><a href="#installing-and-running">Installing and running</a></li><li class="h2"><a href="#the-window">The window</a></li><li class="h2"><a href="#start-page">Start page</a></li><li class="h2"><a href="#new-site-templates-and-samples">New site: templates and samples</a></li><li class="h2"><a href="#blocks">Blocks</a></li><li class="h3"><a href="#adding-blocks">Adding blocks</a></li><li class="h3"><a href="#bulletin-board">Bulletin board</a></li><li class="h3"><a href="#selecting-and-moving">Selecting and moving</a></li><li class="h2"><a href="#editing-content">Editing content</a></li><li class="h3"><a href="#right-on-the-page">Right on the page</a></li><li class="h3"><a href="#content-tab">Content tab</a></li><li class="h3"><a href="#header-and-footer">Header and footer</a></li><li class="h3"><a href="#style-tab">Style tab</a></li><li class="h2"><a href="#pages">Pages</a></li><li class="h2"><a href="#design">Design</a></li><li class="h2"><a href="#device-widths-and-preview">Device widths and preview</a></li><li class="h2"><a href="#problems-panel">Problems panel</a></li><li class="h2"><a href="#spelling-and-the-dictionary">Spelling and the dictionary</a></li><li class="h2"><a href="#saving-and-files">Saving and files</a></li><li class="h2"><a href="#publishing">Publishing</a></li><li class="h2"><a href="#printing">Printing</a></li><li class="h2"><a href="#code-editor">Code editor</a></li><li class="h2"><a href="#packages">Packages</a></li><li class="h2"><a href="#settings">Settings</a></li><li class="h2"><a href="#shortcuts">Shortcuts</a></li><li class="h2"><a href="#tutorial-and-help">Tutorial and help</a></li><li class="h2"><a href="#file-format">File format</a></li><li class="h2"><a href="#troubleshooting">Troubleshooting</a></li><li class="h2"><a href="#for-developers">For developers</a></li></ul></nav>
 <main>
@@ -137,7 +164,7 @@ npm run build:all      # web version + the installer of this system</code></pre>
 <h3 id="content-tab">Content tab <a class="anchor" href="#content-tab" aria-hidden="true">#</a></h3>
 <p><img src="images/en/07-content-tab.png" alt="Content tab" loading="lazy" /></p>
 <p>Every field of the selected block:</p>
-<ul><li><strong>Formatted text</strong> — <code>**bold**</code>, <code>*italic*</code>, <code>[link](address)</code>, a blank line for a new paragraph, <code>-</code> lists, <code>1.</code> numbered lists, <code>##</code> small headings</li><li><strong>Links</strong> — another page (pick from the list), a block&#39;s anchor (<code>#features</code>), a web address, <code>mailto:</code>, <code>tel:</code></li><li><strong>Pictures</strong> — <strong>File…</strong> (big photos are reduced to 1920 px on the long side), <strong>Built-in picture</strong> (16 kinds, drawn in the site&#39;s colours), <strong>Remove</strong>, or a picture address</li><li><strong>Item lists</strong> — features, cards, photos, plans, reviews, people, questions: <strong>add · duplicate · up/down · delete</strong>, ▸ folds an item</li><li>Numbers have − + buttons, on/off settings are switches</li></ul>
+<ul><li><strong>Formatted text</strong> — <code>**bold**</code>, <code>*italic*</code>, <code>[link](address)</code>, a blank line for a new paragraph, <code>-</code> lists, <code>1.</code> numbered lists, <code>##</code> small headings</li><li><strong>Links</strong> — another page (pick from the list), a block&#39;s anchor (<code>#features</code>), a web address, <code>mailto:</code>, <code>tel:</code></li><li><strong>Pictures</strong> — <strong>File…</strong> (big photos are reduced to 1920 px on the long side), <strong>Built-in picture</strong> (16 kinds, drawn in the site&#39;s colours), <strong>Remove</strong>, or a picture address</li><li><strong>Item lists</strong> — features, cards, photos, plans, reviews, people, questions: <strong>add · duplicate · up/down · delete</strong>, ▸ folds an item</li><li>Numbers have − + buttons, on/off settings are switches</li><li><strong>Button settings</strong> — under a button label (hero buttons, the header button, the Button block, plan buttons …), <em>Button settings</em> gives that button its own style (filled, outline, link, light), size (small, large), corners (square, rounder, pill), button and text colours, an icon (emoji), full width and opening in a new tab. Empty means the block default.</li><li><strong>Item settings</strong> — under each item of a list, <em>Item settings</em> hides that item (left out when published, faded in the editor), highlights it, and sets its background and text colours.</li><li>When another block or page is chosen while you type, what you typed is saved to the block (page) it belongs to and the fields change to the new one.</li><li>Right-click menus grey out what cannot be done now (Paste with nothing to paste, Move up for the first block, Delete for the only page, Cut and Copy without a selection …).</li></ul>
 <h3 id="header-and-footer">Header and footer <a class="anchor" href="#header-and-footer" aria-hidden="true">#</a></h3>
 <p>There is one of each per site, the same on every page. Click them on the canvas or use <strong>Insert › Edit header / Edit footer</strong>.</p>
 <ul><li><strong>Header</strong> — site name, logo, the button on the right (label and link), layout (logo left, centred), stick to the top. The menu lists every page with &quot;Show in menu&quot; on and folds into ☰ on phones.</li><li><strong>Footer</strong> — about text, address, phone, e-mail, links, copyright. Page links fill themselves in.</li></ul>

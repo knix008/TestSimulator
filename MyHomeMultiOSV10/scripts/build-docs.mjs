@@ -17,7 +17,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { languageFlag } from '../src/flags.js';
 
+/** The language switch of a document page: the Korean and British flags, the other one a link. */
+const languageSwitch = (lang, other) => `<span class="langs">${[['ko', '한국어'], ['en', 'English']].map(([id, name]) => (id === lang ? `<span class="lang on" title="${name}" aria-label="${name}" aria-current="true">${languageFlag(id)}</span>` : `<a class="lang" href="${escapeHtml(other)}" hreflang="${id}" title="${name}" aria-label="${name}">${languageFlag(id)}</a>`)).join('')}</span>`;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceDir = path.join(root, 'doc');
 const docsDir = path.join(root, 'public', 'docs');
@@ -303,7 +306,12 @@ a:hover { text-decoration: underline; }
 }
 .topbar .brand { font-weight: 700; color: var(--text); }
 .topbar .grow { flex: 1; }
-.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.topbar .langs { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; }
+.topbar .lang { display: inline-grid; place-items: center; padding: 3px 7px; border-radius: 5px; }
+.topbar .lang .flag { display: block; width: 24px; height: 16px; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); }
+.topbar a.lang .flag { opacity: 0.55; filter: grayscale(0.4); }
+.topbar a.lang:hover .flag { opacity: 1; filter: none; }
+.topbar .lang.on { background: color-mix(in srgb, currentColor 10%, transparent); }
 .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
 nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
 nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
@@ -360,7 +368,7 @@ function page({ title, lang, html, toc, other, otherLabel }) {
 <style>${CSS}</style>
 </head>
 <body>
-<header class="topbar"><span class="brand">MyHomeMaker <small>v${escapeHtml(version)}</small></span><span class="grow"></span>${other ? `<a class="lang" href="${escapeHtml(other)}" hreflang="${lang === 'ko' ? 'en' : 'ko'}">${escapeHtml(otherLabel)}</a>` : ''}</header>
+<header class="topbar"><span class="brand">MyHomeMaker <small>v${escapeHtml(version)}</small></span><span class="grow"></span>${other ? languageSwitch(lang, other) : ''}</header>
 <div class="layout">
 ${tocHtml}
 <main>

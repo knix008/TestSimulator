@@ -32,3 +32,6 @@ const korea = `<svg class="flag" viewBox="-36 -24 72 48" aria-hidden="true">
 
 /** Flag for the button that switches away from `language`. */
 export const switchFlag = (language) => (language === 'ko' ? unitedKingdom : korea);
+
+/** The flag of a language itself (the document windows show both: Korean and English). */
+export const languageFlag = (language) => (language === 'en' ? unitedKingdom : korea);

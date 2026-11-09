@@ -32,7 +32,12 @@ a:hover { text-decoration: underline; }
 }
 .topbar .brand { font-weight: 700; color: var(--text); }
 .topbar .grow { flex: 1; }
-.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.topbar .langs { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; }
+.topbar .lang { display: inline-grid; place-items: center; padding: 3px 7px; border-radius: 5px; }
+.topbar .lang .flag { display: block; width: 24px; height: 16px; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); }
+.topbar a.lang .flag { opacity: 0.55; filter: grayscale(0.4); }
+.topbar a.lang:hover .flag { opacity: 1; filter: none; }
+.topbar .lang.on { background: color-mix(in srgb, currentColor 10%, transparent); }
 .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
 nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
 nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
@@ -78,7 +83,29 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 </style>
 </head>
 <body>
-<header class="topbar"><span class="brand">MyHomeMaker <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="UsersGuide.en.html" hreflang="en">English</a></header>
+<header class="topbar"><span class="brand">MyHomeMaker <small>v1.0.0</small></span><span class="grow"></span><span class="langs"><span class="lang on" title="한국어" aria-label="한국어" aria-current="true"><svg class="flag" viewBox="-36 -24 72 48" aria-hidden="true">
+  <rect x="-36" y="-24" width="72" height="48" fill="#fff"/>
+  <g transform="rotate(-56.31)">
+    <g id="flag-kr-bars"><path id="flag-kr-bar" d="M-6-25H6M-6-22H6M-6-19H6" stroke="#000" stroke-width="2"/><use href="#flag-kr-bar" y="44"/></g>
+    <path d="M0 17v10" stroke="#fff"/>
+    <circle r="12" fill="#cd2e3a"/>
+    <path d="M0-12A6 6 0 0 0 0 0a6 6 0 0 1 0 12 12 12 0 0 1 0-24z" fill="#0047a0"/>
+  </g>
+  <g transform="rotate(-123.69)">
+    <use href="#flag-kr-bars"/>
+    <path d="M0-23.5v3M0 17v3.5M0 23.5v3" stroke="#fff"/>
+  </g>
+</svg></span><a class="lang" href="UsersGuide.en.html" hreflang="en" title="English" aria-label="English"><svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <clipPath id="flag-uk-clip"><path d="M0 0v30h60V0z"/></clipPath>
+  <clipPath id="flag-uk-diag"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath>
+  <g clip-path="url(#flag-uk-clip)">
+    <path d="M0 0v30h60V0z" fill="#012169"/>
+    <path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/>
+    <path d="M0 0l60 30m0-30L0 30" clip-path="url(#flag-uk-diag)" stroke="#C8102E" stroke-width="4"/>
+    <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+    <path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/>
+  </g>
+</svg></a></span></header>
 <div class="layout">
 <nav class="toc" aria-label="목차"><p class="toc-title">목차</p><ul><li class="h2"><a href="#5분-만에-시작하기">5분 만에 시작하기</a></li><li class="h2"><a href="#설치와-실행">설치와 실행</a></li><li class="h2"><a href="#화면-구성">화면 구성</a></li><li class="h2"><a href="#시작-화면">시작 화면</a></li><li class="h2"><a href="#새-사이트-템플릿과-예제">새 사이트: 템플릿과 예제</a></li><li class="h2"><a href="#블록">블록</a></li><li class="h3"><a href="#블록-넣기">블록 넣기</a></li><li class="h3"><a href="#게시판">게시판</a></li><li class="h3"><a href="#고르기와-옮기기">고르기와 옮기기</a></li><li class="h2"><a href="#내용-고치기">내용 고치기</a></li><li class="h3"><a href="#캔버스에서-바로">캔버스에서 바로</a></li><li class="h3"><a href="#내용-탭">내용 탭</a></li><li class="h3"><a href="#머리글과-바닥글">머리글과 바닥글</a></li><li class="h3"><a href="#스타일-탭">스타일 탭</a></li><li class="h2"><a href="#페이지">페이지</a></li><li class="h2"><a href="#디자인">디자인</a></li><li class="h2"><a href="#기기-너비와-미리-보기">기기 너비와 미리 보기</a></li><li class="h2"><a href="#문제점-패널">문제점 패널</a></li><li class="h2"><a href="#맞춤법과-사전">맞춤법과 사전</a></li><li class="h2"><a href="#저장과-파일">저장과 파일</a></li><li class="h2"><a href="#게시">게시</a></li><li class="h2"><a href="#인쇄">인쇄</a></li><li class="h2"><a href="#코드-편집기">코드 편집기</a></li><li class="h2"><a href="#패키지">패키지</a></li><li class="h2"><a href="#설정">설정</a></li><li class="h2"><a href="#단축키">단축키</a></li><li class="h2"><a href="#튜토리얼과-도움말">튜토리얼과 도움말</a></li><li class="h2"><a href="#파일-형식">파일 형식</a></li><li class="h2"><a href="#문제-해결">문제 해결</a></li><li class="h2"><a href="#개발자용">개발자용</a></li></ul></nav>
 <main>
@@ -137,7 +164,7 @@ npm run build:all      # 웹 버전 + 이 운영 체제의 설치 파일</code><
 <h3 id="내용-탭">내용 탭 <a class="anchor" href="#내용-탭" aria-hidden="true">#</a></h3>
 <p><img src="images/ko/07-content-tab.png" alt="내용 탭" loading="lazy" /></p>
 <p>선택한 블록의 모든 칸이 나옵니다.</p>
-<ul><li><strong>글(서식)</strong> — <code>**굵게**</code>, <code>*기울임*</code>, <code>[링크](주소)</code>, 빈 줄로 새 문단, <code>-</code> 목록, <code>1.</code> 번호 목록, <code>##</code> 작은 제목</li><li><strong>주소</strong> — 다른 페이지 파일(목록에서 고름), 블록의 이름표(<code>#features</code>), 웹 주소, <code>mailto:</code>, <code>tel:</code></li><li><strong>그림</strong> — <strong>파일…</strong>(큰 사진은 긴 변 1920px 로 줄임), <strong>내장 그림</strong>(16가지, 사이트 색으로 그려짐), <strong>지우기</strong>, 그림 주소</li><li><strong>항목 목록</strong> — 특징·카드·사진·요금제·후기·사람·질문처럼 여러 개인 것: <strong>추가 · 복제 · 위로/아래로 · 삭제</strong>, ▸ 로 접기</li><li>숫자 칸은 − + 단추와 직접 입력, 켜기/끄기는 스위치</li></ul>
+<ul><li><strong>글(서식)</strong> — <code>**굵게**</code>, <code>*기울임*</code>, <code>[링크](주소)</code>, 빈 줄로 새 문단, <code>-</code> 목록, <code>1.</code> 번호 목록, <code>##</code> 작은 제목</li><li><strong>주소</strong> — 다른 페이지 파일(목록에서 고름), 블록의 이름표(<code>#features</code>), 웹 주소, <code>mailto:</code>, <code>tel:</code></li><li><strong>그림</strong> — <strong>파일…</strong>(큰 사진은 긴 변 1920px 로 줄임), <strong>내장 그림</strong>(16가지, 사이트 색으로 그려짐), <strong>지우기</strong>, 그림 주소</li><li><strong>항목 목록</strong> — 특징·카드·사진·요금제·후기·사람·질문처럼 여러 개인 것: <strong>추가 · 복제 · 위로/아래로 · 삭제</strong>, ▸ 로 접기</li><li>숫자 칸은 − + 단추와 직접 입력, 켜기/끄기는 스위치</li><li><strong>버튼 속성</strong> — 버튼 글자 칸(배너 버튼, 머리글 버튼, 버튼 블록, 요금제 버튼 등) 아래의 <em>버튼 속성</em>을 펼치면 그 버튼만의 모양(채움·테두리·링크·밝게), 크기(작게·크게), 모서리(각지게·더 둥글게·알약), 버튼 색·글자 색, 아이콘(이모지), 가로로 꽉 채우기, 새 창에서 열기를 정합니다. 비워 두면 블록 기본값입니다.</li><li><strong>항목 속성</strong> — 목록의 각 항목 아래 <em>항목 속성</em>에서 그 항목만 숨기기(게시할 때 빠짐, 편집 화면에서는 흐리게), 강조 테두리, 배경색·글자색을 정합니다.</li><li>입력 중에 다른 블록이나 페이지를 고르면, 쓰던 내용은 원래 블록(페이지)에 저장되고 칸은 새로 고른 것으로 바뀝니다.</li><li>오른쪽 클릭 메뉴는 지금 할 수 없는 항목(붙여 넣을 것이 없을 때의 붙여넣기, 첫 블록의 위로 이동, 하나뿐인 페이지의 삭제, 선택한 글이 없을 때의 잘라내기·복사 등)을 흐리게 보여 줍니다.</li></ul>
 <h3 id="머리글과-바닥글">머리글과 바닥글 <a class="anchor" href="#머리글과-바닥글" aria-hidden="true">#</a></h3>
 <p>사이트마다 하나씩 있고 모든 페이지에 똑같이 나옵니다. 캔버스에서 누르거나 <strong>삽입 › 머리글(메뉴) 편집 / 바닥글 편집</strong>으로 고릅니다.</p>
 <ul><li><strong>머리글</strong> — 사이트 이름, 로고, 오른쪽 버튼(글자·주소), 배치(로고 왼쪽·가운데), 위에 고정. 메뉴에는 &quot;메뉴에 보이기&quot;가 켜진 페이지가 저절로 들어가고, 휴대폰에서는 ☰ 로 접힙니다.</li><li><strong>바닥글</strong> — 소개, 주소·전화·이메일, 링크 목록, 저작권 문구. 페이지 링크는 저절로 들어갑니다.</li></ul>

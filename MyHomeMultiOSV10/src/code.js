@@ -872,6 +872,89 @@ async function checkActive() {
   say(result.items.length ? 'info' : 'success', result.items.length ? t('code.problemsCount', { n: result.items.length }) : t('code.noProblems'));
 }
 
+// ───────────────────────── the right-click menu (the browser's own would offer Back, Reload …)
+
+function closeContextMenu() {
+  document.querySelector('.code-menu')?.remove();
+}
+
+async function openContextMenu(event) {
+  event.preventDefault();
+  closeContextMenu();
+  const tab = activeTab();
+  const input = editorInput();
+  const inEditor = Boolean(tab && input && event.target.closest('.code-editor'));
+  if (inEditor) input.focus({ preventScroll: true });
+  const hasSelection = inEditor && input.selectionStart !== input.selectionEnd;
+  const can = (command) => { try { return document.queryCommandEnabled(command); } catch { return false; } };
+  let clip = '';
+  if (inEditor) {
+    try { clip = String(await Promise.race([native.clipboardRead(), new Promise((resolve) => { setTimeout(() => resolve(''), 300); })]) ?? ''); } catch { clip = ''; }
+  }
+  const items = inEditor ? [
+    ['undo', 'undo', t('code.undo'), 'Ctrl+Z', can('undo')],
+    ['redo', 'redo', t('code.redo'), 'Ctrl+Y', can('redo')],
+    null,
+    ['cut', 'cut', t('action.cut'), 'Ctrl+X', hasSelection],
+    ['copy', 'copy', t('action.copy'), 'Ctrl+C', hasSelection],
+    ['paste', 'paste', t('action.paste'), 'Ctrl+V', Boolean(clip)],
+    ['select-all', 'selectAll', t('action.selectText'), 'Ctrl+A', Boolean(input.value)],
+    null,
+    ['comment', 'comment', t('code.comment'), 'Ctrl+/', Boolean(LANGUAGES[tab.language]?.comment)],
+    ['find', 'search', t('code.find'), 'Ctrl+F', true],
+    ['replace', 'replace', t('code.replace'), 'Ctrl+H', true],
+    ['goto', 'goTo', t('code.goto'), 'Ctrl+G', true],
+    null,
+    ['format', 'sparkles', t('code.format'), 'Shift+Alt+F', Boolean(PARSERS[tab.language])],
+    ['check', 'check', t('code.check'), 'F8', tab.language !== 'text'],
+    ['preview', 'eye', t('code.preview'), '', tab.language === 'html'],
+  ] : [
+    ['new-html', 'htmlFile', t('code.newHtml'), '', true],
+    ['new-css', 'fileNew', t('code.newCss'), '', true],
+    ['new-js', 'fileNew', t('code.newJs'), '', true],
+    ['open', 'folderOpen', t('code.open'), 'Ctrl+O', true],
+    null,
+    ['save', 'save', t('code.save'), 'Ctrl+S', Boolean(tab)],
+    ['save-all', 'saveAll', t('code.saveAll'), '', state.tabs.some((x) => x.dirty)],
+    ['close-active', 'close', t('code.closeTab'), 'Ctrl+W', Boolean(tab)],
+  ];
+  const menu = document.createElement('div');
+  menu.className = 'code-menu';
+  menu.setAttribute('role', 'menu');
+  menu.innerHTML = items.map((item) => (item ? `<button class="code-menu-item" role="menuitem" data-menu="${item[0]}" ${item[4] ? '' : 'disabled aria-disabled="true"'}>${icon(item[1])}<span>${escapeHtml(item[2])}</span><kbd>${escapeHtml(item[3])}</kbd></button>` : '<hr />')).join('');
+  document.body.append(menu);
+  const box = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(4, Math.min(event.clientX, innerWidth - box.width - 4))}px`;
+  menu.style.top = `${Math.max(4, event.clientY + box.height > innerHeight ? event.clientY - box.height : event.clientY)}px`;
+  menu.querySelector('.code-menu-item:not([disabled])')?.focus({ preventScroll: true });
+  menu.addEventListener('click', async (e) => {
+    const item = e.target.closest('.code-menu-item');
+    if (!item || item.disabled) return;
+    closeContextMenu();
+    const id = item.dataset.menu;
+    if (['undo', 'redo', 'cut', 'copy'].includes(id)) { input.focus(); document.execCommand(id); return; }
+    if (id === 'paste') { insert(clip, input.selectionStart, input.selectionEnd); afterEdit(); return; }
+    if (id === 'select-all') { input.focus(); input.select(); return; }
+    if (id === 'close-active') { if (activeTab()) await closeTab(activeTab().id); return; }
+    root.querySelector(`[data-code="${id}"]`)?.click();
+  });
+  menu.addEventListener('keydown', (e) => {
+    const list = [...menu.querySelectorAll('.code-menu-item:not([disabled])')];
+    const at = list.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); closeContextMenu(); input?.focus(); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); list[(at + 1) % list.length]?.focus(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); list[(at - 1 + list.length) % list.length]?.focus(); }
+  });
+}
+
+document.addEventListener('contextmenu', (event) => {
+  // The find and replace boxes keep a plain text menu of their own.
+  if (event.target.closest('.code-find input')) return;
+  openContextMenu(event);
+});
+document.addEventListener('pointerdown', (event) => { if (!event.target.closest('.code-menu')) closeContextMenu(); }, true);
+window.addEventListener('blur', closeContextMenu);
+
 // ───────────────────────── events
 
 root.addEventListener('click', async (event) => {
