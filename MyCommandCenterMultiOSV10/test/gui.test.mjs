@@ -628,6 +628,43 @@ describe('GUI operations', { concurrency: false }, () => {
     await waitFor(() => !document.querySelector('.start-page'));
   });
 
+  test('without a usable start directory new terminals take the left and right panel folders in turn', async () => {
+    const { call } = await import('../src/lib/backend.js');
+    const missing = path.join(scratch, 'no-such-start-dir');
+    const newTerm = async (n) => {
+      await press(document, { key: '`', ctrlKey: true, shiftKey: true });
+      for (let i = 0; i < 160; i += 1) {
+        const list = await call('term.list');
+        if (list.length >= n) return list;
+        await sleep(50);
+      }
+      throw new Error(`terminal ${n} did not open`);
+    };
+    const cwds = (list) => list.map((x) => x.cwd);
+    // The left panel's folder is gone: the right panel's folder is used, not a parent of the left one,
+    // and the next terminal goes back to the left side (still gone, so the right again).
+    // (Removed before any terminal runs: on Windows a shell sitting in a folder keeps it from being deleted.)
+    const gone = await boot({ 'a.txt': 'a' }, {}, { termCwd: '', autoRefresh: false });
+    fs.rmSync(gone.dirs.L, { recursive: true, force: true });
+    assert.deepEqual(cwds(await newTerm(1)), [gone.dirs.R]);
+    assert.deepEqual(cwds(await newTerm(2)), [gone.dirs.R, gone.dirs.R]);
+    for (const term of await call('term.list')) await call('term.kill', { id: term.id });
+
+    // A start directory that no longer exists: left, right, left, …
+    const ui = await boot({ 'a.txt': 'a' }, {}, { termCwd: missing, autoRefresh: false });
+    assert.deepEqual(cwds(await newTerm(1)), [ui.dirs.L]);
+    assert.deepEqual(cwds(await newTerm(2)), [ui.dirs.L, ui.dirs.R]);
+    assert.deepEqual(cwds(await newTerm(3)), [ui.dirs.L, ui.dirs.R, ui.dirs.L]);
+
+    // The shells sit in the scratch folders; stop them so the folders can be removed afterwards.
+    for (const term of await call('term.list')) await call('term.kill', { id: term.id });
+    for (const dir of [gone.dirs.R, ui.dirs.L, ui.dirs.R]) {
+      for (let i = 0; ; i += 1) {
+        try { fs.rmSync(dir, { recursive: true, force: true }); break; } catch (err) { if (i > 50) throw err; await sleep(100); }
+      }
+    }
+  });
+
   test('the hotlist, folder tree, drive menu, file info and the log dock all open from the panel', async () => {
     const ui = await boot({ 'info.txt': 'details' });
     await click(leftPanel().querySelector('.hot-btn'));

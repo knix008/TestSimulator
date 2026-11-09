@@ -163,6 +163,7 @@ export function SettingsDialog({ spec, done }) {
             scene={v.startScene}
             transparency={v.startTransparency}
             motion={v.startMotion}
+            cardOpacity={v.startCardOpacity ?? 80}
             showAtLaunch={v.startAtLaunch !== false}
             onChange={(patch) => setV((s) => ({ ...s, ...patch }))}
           />

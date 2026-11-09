@@ -89,6 +89,7 @@ const paths = {
   splitV: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 12h18" /></>,
   play: <><path d="M7 4l13 8-13 8z" /></>,
   pause: <><path d="M7 4h4v16H7zM13 4h4v16h-4z" /></>,
+  dragHandle: <><circle cx="9" cy="6" r="1.3" /><circle cx="15" cy="6" r="1.3" /><circle cx="9" cy="12" r="1.3" /><circle cx="15" cy="12" r="1.3" /><circle cx="9" cy="18" r="1.3" /><circle cx="15" cy="18" r="1.3" /></>,
   grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
   tabs: <><path d="M3 8h18v12H3z" /><path d="M3 8V5a1 1 0 0 1 1-1h6l2 2M12 4h4a1 1 0 0 1 1 1v3" /></>,
   tabNew: <><path d="M3 8h18v12H3z" /><path d="M3 8V5a1 1 0 0 1 1-1h6l2 2h4" /><path d="M12 11v6M9 14h6" /></>,

@@ -228,7 +228,7 @@ test('choosing a landscape, transparency and speed updates the page and leaves t
     assert.equal(view.host.querySelectorAll('.start-speed-value')[1].textContent, '100');
 
     await view.click(buttonNamed(view.host, '초기화'));
-    assert.deepEqual(log.patches.at(-1), { startTransparency: 0, startMotion: 20 });
+    assert.deepEqual(log.patches.at(-1), { startTransparency: 0, startMotion: 20, startCardOpacity: 80 });
     assert.equal(Object.prototype.hasOwnProperty.call(log.patches.at(-1), 'startAtLaunch'), false);
     assert.equal(bg().style.getPropertyValue('--start-opacity'), '1');
     assert.equal(view.host.querySelectorAll('.start-speed-value')[1].textContent, '20');

@@ -52,6 +52,7 @@ export const SETTINGS_DEFAULTS = {
   startScene: 'valley',
   startTransparency: 0,   // 0 = the landscape is solid, 100 = only the theme colour shows
   startMotion: 20,        // 0 = still, 20 = the default drift, 100 = fastest
+  startCardOpacity: 80,   // how solid the start page's cards are (20–100 %)
 };
 
 // Keys the Settings dialog edits (everything else in the session — paths, bounds, hotlist — is left alone).

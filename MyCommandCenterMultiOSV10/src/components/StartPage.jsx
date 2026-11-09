@@ -1,13 +1,17 @@
 // Start page opened from the Home button on the menu bar.
-// Translucent cards sit over a moving WebGL world. Twenty scenes share one
-// speed, a transparency slider and the choice to open this page at launch.
+// A moving WebGL world behind a board of translucent cards that can be moved (the handle) and
+// resized (the corner; a double click fits it again): the title card, ways to begin, recent
+// folders, tasks and the background. lib/startboard.js places the cards and the
+// arrangement is kept in the session (startLayout).
 import React, { useEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { StartBackground } from '../lib/startbg';
+import { startBoard } from '../lib/startboard';
 import { START_MOTION_DEFAULT, START_SCENE_DEFAULT, START_SCENES, motionScale, startSceneId } from '../lib/startscenes';
 import { Icon } from './Icons';
 
 export { START_MOTION_DEFAULT, START_SCENES };
+export const START_CARD_OPACITY_DEFAULT = 80;
 
 const TIP_COUNT = 5;
 
@@ -36,15 +40,19 @@ const TASKS = [
   ['newTab', 'tabNew', 'tab_new', 'start_desc_tab'],
 ];
 
-function SpeedRow({ label, value, onChange, suffix = '' }) {
-  const step = (by) => onChange(Math.min(100, Math.max(0, value + by)));
+const GRIP = (
+  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="20" cy="20" r="2" /><circle cx="14" cy="20" r="2" /><circle cx="20" cy="14" r="2" /><circle cx="8" cy="20" r="2" /><circle cx="14" cy="14" r="2" /><circle cx="20" cy="8" r="2" /></svg>
+);
+
+function SpeedRow({ label, value, onChange, suffix = '', min = 0, max = 100 }) {
+  const step = (by) => onChange(Math.min(max, Math.max(min, value + by)));
   const shown = `${value}${suffix}`;
   return (
     <div className="start-speed">
       <span>{label}</span>
-      <button type="button" className="num-btn" aria-label={`${label} ${t('start_less')}`} title={t('start_less')} disabled={value <= 0} onClick={() => step(-5)}>−</button>
-      <input type="range" min="0" max="100" step="5" value={value} aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value} aria-valuetext={shown} onChange={(e) => onChange(Number(e.target.value))} />
-      <button type="button" className="num-btn" aria-label={`${label} ${t('start_more')}`} title={t('start_more')} disabled={value >= 100} onClick={() => step(5)}>+</button>
+      <button type="button" className="num-btn" aria-label={`${label} ${t('start_less')}`} title={t('start_less')} disabled={value <= min} onClick={() => step(-5)}>−</button>
+      <input type="range" min={min} max={max} step="5" value={value} aria-label={label} aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} aria-valuetext={shown} onChange={(e) => onChange(Number(e.target.value))} />
+      <button type="button" className="num-btn" aria-label={`${label} ${t('start_more')}`} title={t('start_more')} disabled={value >= max} onClick={() => step(5)}>+</button>
       <span className="start-speed-value">{shown}</span>
     </div>
   );
@@ -104,7 +112,6 @@ function Tip() {
   );
 }
 
-// Scene buttons, transparency and overall speed. Shared by the start page and Settings.
 function StartCanvas({ scene, transparency, motion }) {
   const host = useRef(null);
   const picture = useRef(null);
@@ -129,7 +136,8 @@ function StartCanvas({ scene, transparency, motion }) {
   );
 }
 
-export function StartBackgroundControls({ scene, transparency, motion, showAtLaunch = true, launch = true, onChange }) {
+// Scene buttons, transparency, overall speed and (on the start page) card opacity. Shared by the start page and Settings.
+export function StartBackgroundControls({ scene, transparency, motion, cardOpacity, showAtLaunch = true, launch = true, onChange }) {
   useLanguage();
   const current = startSceneId(scene);
   const fade = clamp(transparency, 0, 100, 0);
@@ -144,7 +152,7 @@ export function StartBackgroundControls({ scene, transparency, motion, showAtLau
       )}
       <div className="start-scenes" role="group" aria-label={t('start_background')}>
         {START_SCENES.map((id) => (
-          <button key={id} type="button" className={`start-scene ${current === id ? 'on' : ''}`} aria-pressed={current === id} onClick={() => onChange({ startScene: id })}>
+          <button key={id} type="button" className={`start-scene ${current === id ? 'on' : ''}`} aria-pressed={current === id} title={t(`start_scene_${id}`)} onClick={() => onChange({ startScene: id })}>
             <span className="start-swatch" data-scene={id} />
             <span>{t(`start_scene_${id}`)}</span>
           </button>
@@ -153,64 +161,110 @@ export function StartBackgroundControls({ scene, transparency, motion, showAtLau
       <div className="start-speeds">
         <SpeedRow label={t('start_transparency')} value={fade} suffix="%" onChange={(n) => onChange({ startTransparency: n })} />
         <SpeedRow label={t('start_motion')} value={pace} onChange={(n) => onChange({ startMotion: n })} />
-        <button type="button" className="start-speed-reset" onClick={() => onChange({ startTransparency: 0, startMotion: START_MOTION_DEFAULT })}>{t('start_speed_reset')}</button>
+        {cardOpacity !== undefined && (
+          <SpeedRow label={t('start_card_opacity')} value={clamp(cardOpacity, 20, 100, START_CARD_OPACITY_DEFAULT)} suffix="%" min={20} max={100} onChange={(n) => onChange({ startCardOpacity: n })} />
+        )}
+        <button type="button" className="start-speed-reset" onClick={() => onChange({ startTransparency: 0, startMotion: START_MOTION_DEFAULT, ...(cardOpacity !== undefined ? { startCardOpacity: START_CARD_OPACITY_DEFAULT } : {}) })}>{t('start_speed_reset')}</button>
       </div>
     </div>
   );
 }
 
-export function StartPage({ recent = [], scene = START_SCENE_DEFAULT, transparency = 0, motion = START_MOTION_DEFAULT, showAtLaunch = true, onBackground, onRun, onRecent, onRecentRemove, onRecentClear }) {
+// One card: its handle and title (a bare card has a floating handle), its body and its resize corner.
+function Card({ id, icon, title, extra, bare = false, className = '', group, children }) {
+  const handle = (
+    <button type="button" className="card-handle" data-card-handle={id} title={t('start_move_card')} aria-label={t('start_move_card')}>
+      <Icon name="dragHandle" size={15} />
+    </button>
+  );
+  return (
+    <section className={`start-card start-card-${id}${bare ? ' bare' : ''}${className ? ` ${className}` : ''}`} data-card={id} data-group={group} aria-label={title || undefined}>
+      {bare
+        ? <span className="card-handle-float">{handle}</span>
+        : <h2>{handle}<Icon name={icon} size={16} /><span className="start-card-title">{title}</span><span className="grow" />{extra}</h2>}
+      <div className="card-body">{children}</div>
+      <span className="card-resize" data-card-resize={id} title={t('start_resize_card')}>{GRIP}</span>
+    </section>
+  );
+}
+
+export function StartPage({
+  recent = [], scene = START_SCENE_DEFAULT, transparency = 0, motion = START_MOTION_DEFAULT, cardOpacity = START_CARD_OPACITY_DEFAULT,
+  showAtLaunch = true, version = '', layout, onLayout, onBackground, onRun, onRecent, onRecentRemove, onRecentClear,
+}) {
   useLanguage();
   const current = startSceneId(scene);
   const fade = clamp(transparency, 0, 100, 0);
+  const alpha = clamp(cardOpacity, 20, 100, START_CARD_OPACITY_DEFAULT);
+  const boardRef = useRef(null);
+  const board = useRef(null);
+  const saveLayout = useRef(onLayout);
+  saveLayout.current = onLayout;
+  useEffect(() => {
+    const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    board.current = startBoard(boardRef.current, { saved: layout, reduced, onSave: (next) => saveLayout.current?.(next) });
+    return () => { board.current?.destroy(); board.current = null; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const name = t('appName');
+
   return (
     <div className="start-page">
       <StartCanvas scene={current} transparency={fade} motion={motion} />
       <div className="start-scroll">
-        <div className="start">
-          <header className="start-head">
-            <span className="start-logo"><img src="./icon.svg" alt="" width={32} height={32} draggable={false} /></span>
-            <div>
-              <h1>{t('appName')}</h1>
-              <p>{t('start_lead')}</p>
-            </div>
-            <label className="check start-launch">
+        <div className="start" style={{ '--start-card-alpha': `${alpha}%` }}>
+          <div className="start-tools">
+            <label className="start-btn check start-launch" title={t('start_at_launch')}>
               <input type="checkbox" checked={showAtLaunch !== false} onChange={(e) => onBackground({ startAtLaunch: e.target.checked })} />
               <span>{t('start_at_launch')}</span>
             </label>
-          </header>
-          <div className="start-board">
-            <section className="start-group" data-group="begin">
-              <h2><Icon name="play" size={16} />{t('start_begin')}</h2>
+            <button type="button" className="start-btn" title={t('settings')} onClick={() => onRun('settings')}><Icon name="settings" size={15} /><span>{t('settings')}</span></button>
+            <button type="button" className="start-btn" title={t('start_arrange_tip')} onClick={() => board.current?.arrange()}><Icon name="grid" size={15} /><span>{t('start_arrange')}</span></button>
+          </div>
+          <div className="start-board" ref={boardRef}>
+            <Card id="hero" bare className="start-head" title={name}>
+              <img src="./icon.svg" alt="" className="start-logo" width={64} height={64} draggable={false} />
+              <div className="start-hero-text">
+                <h1>{name}</h1>
+                <p>{t('start_lead')}</p>
+              </div>
+              <div className="start-hero-actions">
+                <button type="button" className="start-big" title={t('start_manual_text')} onClick={() => onRun('manual')}><Icon name="book" size={16} /><span>{t('start_manual')}</span></button>
+                <button type="button" className="start-big" title={t('start_about_text')} onClick={() => onRun('about')}><Icon name="info" size={16} /><span>{t('about')}</span></button>
+                <button type="button" className="start-big primary" title={t('start_tutorial_text')} onClick={() => onRun('tutorial')}><Icon name="play" size={16} /><span>{t('start_tutorial')}</span></button>
+              </div>
+            </Card>
+            <Card id="begin" icon="play" title={t('start_begin')} group="begin">
               <div className="start-actions">
                 {BEGIN.map(([id, icon, title, text, primary]) => (
-                  <button key={id} type="button" className="action-card" data-primary={primary ? '' : undefined} title={t(title)} onClick={() => onRun(id)}>
-                    <span className="action-icon"><Icon name={icon} size={16} /></span>
+                  <button key={id} type="button" className="action-card" data-primary={primary ? '' : undefined} title={t(text)} onClick={() => onRun(id)}>
+                    <span className="action-icon"><Icon name={icon} size={18} /></span>
                     <span className="action-text"><b>{t(title)}</b><small>{t(text)}</small></span>
                   </button>
                 ))}
               </div>
-            </section>
-            <section className="start-group" data-group="tasks">
-              <h2><Icon name="grid" size={16} />{t('start_tasks')}</h2>
+            </Card>
+            <Card id="recent" icon="history" title={t('start_recent_card')} group="recent">
+              <RecentFolders recent={recent} onOpen={onRecent} onRemove={onRecentRemove} onClear={onRecentClear} />
+              <Tip />
+            </Card>
+            <Card id="tasks" icon="grid" title={t('start_tasks')} group="tasks" extra={<span className="start-card-note">{TASKS.length}</span>}>
               <div className="task-grid">
                 {TASKS.map(([id, icon, title, text]) => (
-                  <button key={id} type="button" className="task-card" title={t(title)} onClick={() => onRun(id)}>
-                    <span className="task-icon"><Icon name={icon} size={16} /></span>
+                  <button key={id} type="button" className="task-card" title={t(text)} onClick={() => onRun(id)}>
+                    <span className="task-icon"><Icon name={icon} size={18} /></span>
                     <span className="task-text"><b>{t(title)}</b><small>{t(text)}</small></span>
                   </button>
                 ))}
               </div>
-            </section>
-            <section className="start-group" data-group="recent">
-              <RecentFolders recent={recent} onOpen={onRecent} onRemove={onRecentRemove} onClear={onRecentClear} />
-              <Tip />
-            </section>
-            <section className="start-group" data-group="scenes">
-              <h2><Icon name="image" size={16} />{t('start_background')}</h2>
-              <StartBackgroundControls scene={current} transparency={fade} motion={motion} launch={false} onChange={onBackground} />
-            </section>
+            </Card>
+            <Card id="scenes" icon="image" title={t('start_background')} group="scenes">
+              <StartBackgroundControls scene={current} transparency={fade} motion={motion} cardOpacity={alpha} launch={false} onChange={onBackground} />
+            </Card>
           </div>
+          <footer className="start-foot">
+            <Icon name="info" size={15} /><span className="grow">{name}{version ? ` · v${version}` : ''}</span>
+            <span className="start-muted">© SHKWON(knix008@naver.com)</span>
+          </footer>
         </div>
       </div>
     </div>

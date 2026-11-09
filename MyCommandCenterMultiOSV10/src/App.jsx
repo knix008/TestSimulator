@@ -113,6 +113,7 @@ export default function App() {
   const [terms, setTerms] = useState([]);
   const [shells, setShells] = useState([]);
   const termNo = useRef(1);
+  const termSide = useRef('left'); // which panel's folder the next terminal starts in (they alternate)
   const [busy, setBusy] = useState(0);
   const [selCount, setSelCount] = useState({ left: 0, right: 0 });
   const [selImage, setSelImage] = useState({ left: false, right: false });   // the one selected entry is an image (File › Preview)
@@ -251,15 +252,34 @@ export default function App() {
 
   // ── Bottom dock: log + terminals ──
   const showDock = (on) => saveSession({ dockVisible: on });
-  // New terminals start in the configured directory (settings › terminal), else the active panel's folder.
+  // New terminals start in the configured directory (settings › terminal). Without one (or when it is gone)
+  // they take the panels' folders in turn: left, right, left, … When that side's folder is not a real folder
+  // the other side's is used (and the next terminal takes the side after the one used). Only when neither is
+  // (inside an archive, deleted since) does it go up from them to the nearest folder that exists.
+  const isRealDir = (p) => call('fs.exists', { path: p }).then((r) => !!r.isDir).catch(() => false);
+  const panelTermDir = async () => {
+    const first = termSide.current;
+    const sides = [first, other(first)].map((side) => ({ side, path: pathOf(side) })).filter((x) => x.path);
+    const use = (side, p) => { termSide.current = other(side); return p; };
+    for (const x of sides) if (await isRealDir(x.path)) return use(x.side, x.path);
+    for (const x of sides) {
+      let p = x.path;
+      for (let up = 0; up < 32; up += 1) {
+        const parent = dirName(p);
+        if (!parent || samePath(parent, p)) break;
+        p = parent;
+        if (await isRealDir(p)) return use(x.side, p);
+      }
+    }
+    termSide.current = other(first);
+    return '';
+  };
   const newTerminal = async (shell) => {
     try {
       let cwd = session.termCwd || '';
-      if (cwd) {
-        const ok = await call('fs.exists', { path: cwd }).then((r) => r.isDir).catch(() => false);
-        if (!ok) { addLog('error', t('set_term_cwd_missing', { path: cwd })); cwd = ''; }
-      }
-      const r = await call('term.create', { cwd: cwd || pathOf(active), shell: shell || session.termShell || undefined });
+      if (cwd && !(await isRealDir(cwd))) { addLog('error', t('set_term_cwd_missing', { path: cwd })); cwd = ''; }
+      if (!cwd) cwd = await panelTermDir();
+      const r = await call('term.create', { cwd, shell: shell || session.termShell || undefined });
       const tm = { id: r.id, title: `${r.label} ${termNo.current++}`, shell: r.shell, cwd: r.cwd, exited: false, idle: true, buffer: [], seq: 0, git: undefined, gitCwd: null };
       setTerms((ts) => [...ts, tm]);
       setDockTab(r.id);
@@ -1274,6 +1294,10 @@ export default function App() {
           scene={session.startScene || 'valley'}
           transparency={session.startTransparency ?? 0}
           motion={session.startMotion ?? 20}
+          cardOpacity={session.startCardOpacity ?? 80}
+          version={(info && info.version) || ''}
+          layout={session.startLayout}
+          onLayout={(startLayout) => saveSession({ startLayout })}
           showAtLaunch={showStartAtLaunch(session)}
           onBackground={(patch) => saveSession(patch)}
           onRecent={(path) => { setStartOpen(false); navigate(active, path); }}
