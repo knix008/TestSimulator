@@ -575,7 +575,7 @@ const soundMemo = new WeakMap();
 
 function soundRecipe(source, overrides = {}) {
   const p = { ...source, ...overrides };
-  return { key: JSON.stringify([source.name, p.seconds, p.copies, p.noiseClass, p.seed, p.layout]), options: { name: source.name, seconds: p.seconds, copies: p.copies, noiseClass: p.noiseClass, seed: p.seed, layout: p.layout } };
+  return { key: JSON.stringify([source.name, p.seconds, p.copies, p.noiseClass, p.seed, p.layout, p.noiseEvents ?? 0]), options: { name: source.name, seconds: p.seconds, copies: p.copies, noiseClass: p.noiseClass, seed: p.seed, layout: p.layout, noiseEvents: p.noiseEvents ?? 0 } };
 }
 
 /** Is the dataset of these clips for this source made already (fromSource would return at once)? */

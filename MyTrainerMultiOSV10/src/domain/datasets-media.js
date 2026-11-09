@@ -720,7 +720,7 @@ export async function fromSoundsAsync(clips, options = {}, onProgress = () => {}
 }
 
 /** fromSounds as steps: yields the share done (0…1) every few dozen samples, returns the dataset. */
-function* soundSteps(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseClass = true, layout = 'image', seed = 1, labels = null, bands = 32, frames = 32, stretch = 1.25, balance = true } = {}) {
+function* soundSteps(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseClass = true, layout = 'image', seed = 1, labels = null, bands = 32, frames = 32, stretch = 1.25, balance = true, noiseEvents = 0 } = {}) {
   const r = rng(seed);
   const n = Math.round(RATE * seconds);
   const media = { type: 'audio', rate: RATE, layout, bands, frames, seconds, hop: soundHop(seconds, frames) };
@@ -825,6 +825,10 @@ function* soundSteps(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseCla
       if (r() < 0.3) lowPass(wave, 1600 + r() * 2200);
       // A knock or a click now and then: noise is not always steady.
       if (r() < 0.3) { const at = Math.floor(r() * (n - 200)); const level = 0.1 + r() * 0.5; for (let k = 0; k < 200; k++) wave[at + k] += level * gauss() * Math.exp(-k / 30); }
+      // Sounds that are no word but not steady either (noiseEvents = the share of noise samples with one):
+      // mains hum, a beep, a thump or two, a hum or grunt of the voice (음, 응), a breath. Without them a
+      // quiet window with a short dull sound in it looks most like the darkest keyword.
+      if (noiseEvents && r() < noiseEvents) noiseEvent(wave, r, gauss);
       push(wave, 'noise');
       if (ys.length % 96 === 0) yield ys.length / total;
     }
@@ -833,6 +837,41 @@ function* soundSteps(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseCla
   data.media = { ...media, waves };
   data.groups = Int32Array.from(groups);
   return data;
+}
+
+/** One non-word sound added in place to a noise sample (see soundSteps' noiseEvents). */
+function noiseEvent(wave, r, gauss) {
+  const n = wave.length;
+  const length = Math.round(RATE * (0.12 + r() * 0.6));
+  const at = Math.floor(r() * Math.max(1, n - length));
+  const level = 0.05 + r() * 0.6;
+  const envelope = (i) => Math.sin((Math.PI * i) / length) ** (r() < 0.5 ? 0.5 : 2);
+  const kind = Math.floor(r() * 5);
+  if (kind === 0) { // mains hum with harmonics, often the whole second
+    const f = r() < 0.5 ? 50 : 60; const all = r() < 0.6;
+    const h = [1, 0.3 + r() * 0.7, r() * 0.5, r() * 0.3];
+    for (let i = 0; i < n; i++) { if (!all && (i < at || i >= at + length)) continue; let s = 0; for (let k = 0; k < h.length; k++) s += h[k] * Math.sin((2 * Math.PI * f * (k + 1) * i) / RATE); wave[i] += level * 0.5 * s; }
+  } else if (kind === 1) { // a beep or a whistle
+    const f = 150 + r() * 2200;
+    for (let i = 0; i < length; i++) wave[at + i] += level * envelope(i) * Math.sin((2 * Math.PI * f * i) / RATE);
+  } else if (kind === 2) { // one to three thumps (a desk, a door, steps)
+    for (let t = 1 + Math.floor(r() * 3), k = 0; k < t; k++) {
+      const start = Math.floor(r() * (n - 800)); const decay = 40 + r() * 200; let y = 0;
+      for (let i = 0; i < 800; i++) { y += 0.08 * (gauss() - y); wave[start + i] += level * 4 * y * Math.exp(-i / decay); }
+    }
+  } else if (kind === 3) { // a hum or a grunt of the voice: harmonics of a low pitch, muffled (음, 응, 어)
+    const f0 = 85 + r() * 180; const glide = (r() - 0.5) * 0.4; const cutoff = 350 + r() * 900; const k1 = 1 - Math.exp((-2 * Math.PI * cutoff) / RATE);
+    let phase = 0; let y = 0; let y2 = 0;
+    for (let i = 0; i < length; i++) {
+      phase += (2 * Math.PI * f0 * (1 + glide * (i / length))) / RATE;
+      let s = 0; for (let k = 1; k <= 12; k++) s += Math.sin(k * phase) / k;
+      y += k1 * (s - y); y2 += k1 * (y - y2);
+      wave[at + i] += level * 0.8 * envelope(i) * y2;
+    }
+  } else { // a breath or a sigh: muffled noise
+    const cutoff = 300 + r() * 1500; const k1 = 1 - Math.exp((-2 * Math.PI * cutoff) / RATE); let y = 0;
+    for (let i = 0; i < length; i++) { y += k1 * (gauss() - y); wave[at + i] += level * 1.5 * envelope(i) * y; }
+  }
 }
 
 /** VTLP in place: every frame's mel bands read from band·warp (linear interpolation, the top band held). */
