@@ -1,0 +1,86 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "My3DObjects",
+  "mainBinaryName": "My3DObjects",
+  "version": "../package.json",
+  "identifier": "com.shkwon.my3dobjects",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5196",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "dmg",
+      "appimage",
+      "deb"
+    ],
+    "publisher": "SHKWON",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "license": "MIT",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "Image to 3D objects",
+    "longDescription": "Turn one picture into a 3D object with Stable Fast 3D, SPAR3D, TripoSR, TRELLIS or Hunyuan3D, on this computer (GPU when there is one, CPU otherwise); view 3D files on an endless grid with axes, rulers and movable lights, save them as GLB, glTF, OBJ, STL, PLY, USDZ and more, and export watertight 3MF / STL in millimetres for 3D printers.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../engine/my3dobjects/*.py": "engine/my3dobjects/",
+      "../engine/my3dobjects/models/*.py": "engine/my3dobjects/models/",
+      "../engine/shims/spar3d/transparent_background/*.py": "engine/shims/spar3d/transparent_background/",
+      "../engine/shims/texture_baker/*.py": "engine/shims/texture_baker/",
+      "../engine/shims/torchmcubes/*.py": "engine/shims/torchmcubes/",
+      "../engine/shims/trellis/kaolin/*.py": "engine/shims/trellis/kaolin/",
+      "../engine/shims/trellis/kaolin/utils/*.py": "engine/shims/trellis/kaolin/utils/",
+      "../engine/shims/trellis/open3d/*.py": "engine/shims/trellis/open3d/",
+      "../engine/shims/trellis/plyfile/*.py": "engine/shims/trellis/plyfile/",
+      "../engine/shims/trellis/spconv/*.py": "engine/shims/trellis/spconv/",
+      "../engine/shims/trellis/spconv/pytorch/*.py": "engine/shims/trellis/spconv/pytorch/",
+      "../engine/shims/trellis/utils3d/*.py": "engine/shims/trellis/utils3d/",
+      "../engine/shims/trellis/xformers/*.py": "engine/shims/trellis/xformers/",
+      "../engine/shims/trellis/xformers/ops/*.py": "engine/shims/trellis/xformers/ops/",
+      "../engine/shims/uv_unwrapper/*.py": "engine/shims/uv_unwrapper/",
+      "../LICENSE-MODELS.md": "LICENSE-MODELS.md",
+      "../NOTICE.md": "NOTICE.md"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": [
+          "Korean",
+          "English"
+        ],
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,52 @@
+[package]
+name = "my3dobjects"
+version = "1.0.0"
+description = "Image-to-3D objects with Stable Fast 3D, SPAR3D, TripoSR, TRELLIS and Hunyuan3D on this computer (GPU or CPU), with a 3D viewer, format converter and 3D-printer export"
+authors = ["SHKWON <knix008@naver.com>"]
+license = "MIT"
+edition = "2021"
+
+[lib]
+name = "my3dobjects_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Clipboard text and pictures (copying the log, the view).
+arboard = { version = "3.7", features = ["image-data"] }
+fontdb = "0.23"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+# Downloading uv for the engine, and the optional Stability AI API.
+ureq = "2.12"
+# Unpacking uv: a zip on Windows, a .tar.gz elsewhere.
+zip = { version = "2", default-features = false, features = ["deflate"] }
+flate2 = "1"
+tar = "0.4"
+
+# Printing straight to the printer chosen in the app (GDI), and showing the
+# pop-out window without activating it.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_Graphics_Printing",
+  "Win32_Storage_Xps",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

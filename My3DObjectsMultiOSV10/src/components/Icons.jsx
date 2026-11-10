@@ -1,0 +1,458 @@
+import React from 'react';
+
+// One shared stroke-based icon set. Every icon is a 24×24 line drawing that
+// inherits the current text colour, so it works in every theme.
+const S = ({ size = 18, children, fill = 'none', ...rest }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill={fill}
+    stroke="currentColor"
+    strokeWidth="1.7"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    focusable="false"
+    {...rest}
+  >
+    {children}
+  </svg>
+);
+
+export const IconOpen = (p) => (
+  <S {...p}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></S>
+);
+export const IconUrl = (p) => (
+  <S {...p}><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" /></S>
+);
+export const IconRecent = (p) => (
+  <S {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></S>
+);
+export const IconSave = (p) => (
+  <S {...p}><path d="M5 3h11l3 3v15H5z" /><path d="M8 3v6h8V3M8 21v-7h8v7" /></S>
+);
+export const IconSaveAs = (p) => (
+  <S {...p}><path d="M5 3h9l3 3v6" /><path d="M5 3v18h6" /><path d="M8 3v5h6" /><path d="m20 14-6 6v3h3l6-6z" transform="translate(-2 -1) scale(0.9)" /></S>
+);
+export const IconCopy = (p) => (
+  <S {...p}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></S>
+);
+// I-beam over a line of text: the "select text" tool.
+export const IconSelectText = (p) => (
+  <S {...p}><path d="M9 5h6M9 19h6M12 5v14" /><path d="M4 9V7h3M20 9V7h-3M4 15v2h3M20 15v2h-3" /></S>
+);
+export const IconSelectAll = (p) => (
+  <S {...p}><rect x="3" y="3" width="18" height="18" rx="2" strokeDasharray="3 3" /><path d="M7 9h10M7 13h10M7 17h6" /></S>
+);
+export const IconMarquee = (p) => (
+  <S {...p}><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" /><rect x="8" y="8" width="8" height="8" rx="1" strokeDasharray="2 2" /></S>
+);
+export const IconHand = (p) => (
+  <S {...p}><path d="M8 12V6.5a1.5 1.5 0 0 1 3 0V11M11 10.5V5a1.5 1.5 0 0 1 3 0v5.5M14 10.5V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.6a5 5 0 0 1-4.1-2.2L4 14.6a1.5 1.5 0 0 1 2.3-1.9L8 14.3V12" /></S>
+);
+export const IconImage = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9.5" r="1.8" /><path d="m4 18 5-5 3.5 3.5L16 13l4 4" /></S>
+);
+export const IconText = (p) => (
+  <S {...p}><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 13h8M8 17h5" /></S>
+);
+export const IconUndo = (p) => (
+  <S {...p}><path d="M4 9h11a5 5 0 0 1 0 10h-6" /><path d="m8 5-4 4 4 4" /></S>
+);
+export const IconHistory = (p) => (
+  <S {...p}><circle cx="12" cy="13" r="7" /><path d="M12 10v3.5L14.5 15M9 5h6M12 5V3" /></S>
+);
+export const IconRedo = (p) => (
+  <S {...p}><path d="M20 9H9a5 5 0 0 0 0 10h6" /><path d="m16 5 4 4-4 4" /></S>
+);
+export const IconZoomIn = (p) => (
+  <S {...p}><circle cx="11" cy="11" r="7" /><path d="M11 8v6M8 11h6M20 20l-3.6-3.6" /></S>
+);
+export const IconZoomOut = (p) => (
+  <S {...p}><circle cx="11" cy="11" r="7" /><path d="M8 11h6M20 20l-3.6-3.6" /></S>
+);
+export const IconCut = (p) => (
+  <S {...p}><circle cx="6" cy="17" r="3" /><circle cx="18" cy="17" r="3" /><path d="M8.2 15 18 4M15.8 15 6 4" /></S>
+);
+export const IconPaste = (p) => (
+  <S {...p}><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V3h6v1M9 9h6M9 13h6M9 17h4" /></S>
+);
+export const IconMove = (p) => (
+  <S {...p}><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" /></S>
+);
+export const IconMinus = (p) => (
+  <S {...p}><path d="M5 12h14" /></S>
+);
+export const IconFitWidth = (p) => (
+  <S {...p}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m7 12 2.5-2.5M7 12l2.5 2.5M17 12l-2.5-2.5M17 12l-2.5 2.5M7 12h10" /></S>
+);
+export const IconFitPage = (p) => (
+  <S {...p}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M7 10V7h3M17 10V7h-3M7 14v3h3M17 14v3h-3" /></S>
+);
+export const IconFitHeight = (p) => (
+  <S {...p}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="m12 7 -2.5 2.5M12 7l2.5 2.5M12 17l-2.5-2.5M12 17l2.5-2.5M12 7v10" /></S>
+);
+export const IconActual = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M8 15V9l-2 1.5M13 9h3v3h-3v3h3" /></S>
+);
+export const IconRotateLeft = (p) => (
+  <S {...p}><path d="M4 9a8 8 0 1 1 1.5 7" /><path d="M4 4v5h5" /></S>
+);
+export const IconRotateRight = (p) => (
+  <S {...p}><path d="M20 9A8 8 0 1 0 18.5 16" /><path d="M20 4v5h-5" /></S>
+);
+export const IconSearch = (p) => (
+  <S {...p}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></S>
+);
+export const IconSidebar = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></S>
+);
+export const IconRightPanel = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16" /></S>
+);
+// Panel collapse / expand: the panel outline with an arrow pointing the way
+// the panel moves.
+export const IconPanelLeftClose = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16M16 9l-3 3 3 3" /></S>
+);
+export const IconPanelLeftOpen = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16M13 9l3 3-3 3" /></S>
+);
+export const IconPanelRightClose = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16M8 9l3 3-3 3" /></S>
+);
+export const IconPanelRightOpen = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16M11 9l-3 3 3 3" /></S>
+);
+export const IconHighlight = (p) => (
+  <S {...p}><path d="m14 4 6 6-7.5 7.5H7l-1.5-3z" /><path d="M4 21h16" /></S>
+);
+export const IconSettings = (p) => (
+  <S {...p}><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.56V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.1a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></S>
+);
+export const IconInfo = (p) => (
+  <S {...p}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 7.6v.6" /></S>
+);
+export const IconLang = (p) => (
+  <S {...p}><path d="M3 6h11M8.5 4v2c0 4-2 7-5.5 9M6 12c1.6 3 4 4.8 7 5.6" /><path d="m13 21 4.2-10 4.2 10M14.6 17.5h5.2" /></S>
+);
+
+// Language flags. Drawn as filled 3:2 rectangles so they stay readable at
+// toolbar size; they do not use the stroke icon wrapper.
+function FlagSvg({ size = 18, children, ...rest }) {
+  const w = Number(size) || 18;
+  const h = Math.max(8, Math.round(w * 2 / 3));
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 36 24"
+      className="lang-flag"
+      aria-hidden="true"
+      focusable="false"
+      {...rest}
+    >
+      {children}
+    </svg>
+  );
+}
+
+// One trigram of the Taegukgi: three bars (solid or broken) stacked along the
+// flag's diagonal. `bars` from the inside out: true = solid.
+function Trigram({ x, y, angle, bars }) {
+  return (
+    <g transform={`translate(${x} ${y}) rotate(${angle})`} fill="#000">
+      {bars.map((solid, i) => {
+        const yy = (i - 1) * 1.7 - 0.55;
+        return solid
+          ? <rect key={i} x="-3" y={yy} width="6" height="1.1" />
+          : (
+            <g key={i}>
+              <rect x="-3" y={yy} width="2.55" height="1.1" />
+              <rect x="0.45" y={yy} width="2.55" height="1.1" />
+            </g>
+          );
+      })}
+    </g>
+  );
+}
+
+// The Taegukgi: the red-and-blue taeguk turned along the diagonal (red on
+// top), and geon ☰ · gam ☵ · ri ☲ · gon ☷ in the corners.
+export const FlagKo = (p) => (
+  <FlagSvg {...p}>
+    <rect width="36" height="24" rx="2.2" fill="#fff" />
+    <g transform="translate(18 12) rotate(33.69)">
+      <circle r="6" fill="#0047A0" />
+      <path d="M-6 0A6 6 0 0 1 6 0Z" fill="#CD2E3A" />
+      <circle cx="-3" r="3" fill="#CD2E3A" />
+      <circle cx="3" r="3" fill="#0047A0" />
+    </g>
+    <Trigram x={10.1} y={6.4} angle={-56.31} bars={[true, true, true]} />
+    <Trigram x={25.9} y={17.6} angle={-56.31} bars={[false, false, false]} />
+    <Trigram x={25.9} y={6.4} angle={56.31} bars={[false, true, false]} />
+    <Trigram x={10.1} y={17.6} angle={56.31} bars={[true, false, true]} />
+    <rect width="36" height="24" rx="2.2" fill="none" stroke="rgba(0,0,0,0.22)" strokeWidth="1" />
+  </FlagSvg>
+);
+
+export const FlagEn = (p) => (
+  <FlagSvg {...p}>
+    <rect width="36" height="24" rx="2.2" fill="#012169" />
+    <path d="M0 0L36 24M36 0L0 24" stroke="#fff" strokeWidth="5.2" />
+    <path d="M0 0L36 24M36 0L0 24" stroke="#C8102E" strokeWidth="2.2" />
+    <rect x="14.4" width="7.2" height="24" fill="#fff" />
+    <rect y="8.4" width="36" height="7.2" fill="#fff" />
+    <rect x="15.6" width="4.8" height="24" fill="#C8102E" />
+    <rect y="9.6" width="36" height="4.8" fill="#C8102E" />
+    <rect width="36" height="24" rx="2.2" fill="none" stroke="rgba(0,0,0,0.22)" strokeWidth="1" />
+  </FlagSvg>
+);
+
+export function IconFlag({ lang = 'ko', ...p }) {
+  return lang === 'en' ? <FlagEn {...p} /> : <FlagKo {...p} />;
+}
+export const IconTheme = (p) => (
+  <S {...p}>
+    <path d="M12 3.6c-4.6 0-8.4 3.5-8.4 7.9 0 3.2 2.1 5.8 5.1 5.8h1.3c.8 0 1.3.7 1 1.5-.3.8.3 1.6 1.1 1.6 4.1 0 7.7-3.9 7.7-9 0-4.1-3.4-7.8-7.8-7.8z" />
+    <circle cx="8.2" cy="10.2" r="1.05" fill="currentColor" stroke="none" />
+    <circle cx="11.4" cy="7.8" r="1.05" fill="currentColor" stroke="none" />
+    <circle cx="15.2" cy="8.6" r="1.05" fill="currentColor" stroke="none" />
+    <circle cx="16.2" cy="12.2" r="1.05" fill="currentColor" stroke="none" />
+  </S>
+);
+export const IconFirst = (p) => (<S {...p}><path d="M18 5v14M15 12l-8 6V6z" /></S>);
+export const IconLast = (p) => (<S {...p}><path d="M6 5v14M9 12l8 6V6z" /></S>);
+export const IconPrev = (p) => (<S {...p}><path d="m15 5-7 7 7 7" /></S>);
+export const IconNext = (p) => (<S {...p}><path d="m9 5 7 7-7 7" /></S>);
+export const IconUp = (p) => (<S {...p}><path d="m5 15 7-7 7 7" /></S>);
+export const IconDown = (p) => (<S {...p}><path d="m5 9 7 7 7-7" /></S>);
+export const IconClose = (p) => (<S {...p}><path d="M6 6l12 12M18 6 6 18" /></S>);
+export const IconTrash = (p) => (
+  <S {...p}><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></S>
+);
+export const IconBookmark = (p) => (
+  <S {...p}><path d="M6 4h12v17l-6-4-6 4z" /></S>
+);
+export const IconComment = (p) => (
+  <S {...p}><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-5l-4 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" /></S>
+);
+export const IconAlert = (p) => (
+  <S {...p}><path d="M12 3.5 22 20H2z" /><path d="M12 10v4M12 17v.6" /></S>
+);
+export const IconDownload = (p) => (
+  <S {...p}><path d="M12 3v12M8 11l4 4 4-4M4 20h16" /></S>
+);
+export const IconFolder = (p) => (
+  <S {...p}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></S>
+);
+export const IconFolderOpen = (p) => (
+  <S {...p}>
+    <path d="M3 10h18l-2.2 9.2A1.5 1.5 0 0 1 17.35 20.5H6.65a1.5 1.5 0 0 1-1.45-1.3L3 10z" />
+    <path d="M4 7.5h5l2 2" />
+  </S>
+);
+export const IconPdf = (p) => (
+  <S {...p}><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M14 3v5h5" /><path d="M8.5 15.5h3.2a1.6 1.6 0 0 0 0-3.2H8.5V18" /></S>
+);
+export const IconClip = (p) => (
+  <S {...p}><path d="M15 7 8.5 13.5a2.5 2.5 0 0 0 3.5 3.5L19 10a4.5 4.5 0 0 0-6.4-6.4L5.5 10.7a6.5 6.5 0 0 0 9.2 9.2L20 14.6" /></S>
+);
+export const IconOutline = (p) => (
+  <S {...p}><path d="M4 6h3M4 12h3M4 18h3M10 6h10M10 12h10M10 18h10" /></S>
+);
+// Outline star; pass filled to fill it (a favorite).
+export const IconStar = ({ filled, ...p }) => (
+  <S {...p} fill={filled ? 'currentColor' : 'none'}><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" /></S>
+);
+// A stack of pictures: the gallery of documents.
+export const IconGallery = (p) => (
+  <S {...p}><rect x="3" y="6" width="14" height="14" rx="2" /><path d="M7 3h11a3 3 0 0 1 3 3v11" /><path d="m3 16 4-4 4 4 2-2 4 4" /><circle cx="12.5" cy="10" r="1.2" /></S>
+);
+export const IconHome = (p) => (
+  <S {...p}><path d="M3 11 12 4l9 7" /><path d="M5.5 9.5V20h13V9.5" /><path d="M10 20v-5.5h4V20" /></S>
+);
+export const IconHelp = (p) => (
+  <S {...p}><circle cx="12" cy="12" r="9" /><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.6" /><path d="M12 16.8v.2" /></S>
+);
+// An open book: the program guide.
+export const IconGuide = (p) => (
+  <S {...p}><path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5z" /><path d="M12 6.5v13" /></S>
+);
+export const IconSparkles = (p) => (
+  <S {...p}><path d="m12 3 1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z" /><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" /></S>
+);
+export const IconDice = (p) => (
+  <S {...p}><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" /><circle cx="8.5" cy="8.5" r="1" fill="currentColor" /><circle cx="15.5" cy="15.5" r="1" fill="currentColor" /><circle cx="15.5" cy="8.5" r="1" fill="currentColor" /><circle cx="8.5" cy="15.5" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /></S>
+);
+export const IconSpeed = (p) => (
+  <S {...p}><path d="M4 17a8 8 0 1 1 16 0" /><path d="m12 17 4-5" /><circle cx="12" cy="17" r="1" /></S>
+);
+export const IconOpacity = (p) => (
+  <S {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 3.5v17" /><path d="M12 6h4M12 9.5h6.5M12 13h7M12 16.5h5.5" /></S>
+);
+export const IconClock = (p) => (
+  <S {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></S>
+);
+
+// One small picture per start-screen background (src/lib/startbg.js).
+export const BG_ICONS = {
+  books: (p) => (<S {...p}><rect x="4" y="5" width="6" height="13" rx="1" transform="rotate(-12 7 11.5)" /><rect x="12" y="4" width="7" height="14" rx="1" transform="rotate(9 15.5 11)" /></S>),
+  pages: (p) => (<S {...p}><path d="M6 4h8l4 4v12H6z" transform="rotate(-10 12 12)" /><path d="M8 11h7M8 14h5" transform="rotate(-10 12 12)" /></S>),
+  stars: (p) => (<S {...p}><path d="M12 12 4 6M12 12l8-5M12 12l-7 7M12 12l8 6M12 12v-9" /><circle cx="12" cy="12" r="1.2" /></S>),
+  letters: (p) => (<S {...p}><path d="M4 18 8 6l4 12M5.5 14h5" /><path d="M15 9h5M17.5 9v9" /></S>),
+  planes: (p) => (<S {...p}><path d="m3 11 18-7-6 16-3-7z" /><path d="m12 13 9-9" /></S>),
+  tunnel: (p) => (<S {...p}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5.5" /><circle cx="12" cy="12" r="2.2" /></S>),
+  waves: (p) => (<S {...p}><path d="M2 9c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5-1" /><path d="M2 15c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5-1" /></S>),
+  galaxy: (p) => (<S {...p}><path d="M12 12c3-3 7-1 7 2s-4 6-8 5-7-6-4-10 9-4 11 0" /><circle cx="12" cy="12" r="1" fill="currentColor" /></S>),
+  cubes: (p) => (<S {...p}><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" /><path d="m4 7.5 8 4.5 8-4.5M12 12v9" /></S>),
+  helix: (p) => (<S {...p}><path d="M8 3c0 4 8 5 8 9s-8 5-8 9" /><path d="M16 3c0 4-8 5-8 9s8 5 8 9" /><path d="M9 6.5h6M9 17.5h6" /></S>),
+  knot: (p) => (<S {...p}><path d="M12 4c4 0 6 3 4 6s-8 2-8 6 6 5 8 2-2-6-4-8-6-6 0-6z" /></S>),
+  sphere: (p) => (<S {...p}><circle cx="12" cy="12" r="8.5" /><ellipse cx="12" cy="12" rx="3.5" ry="8.5" /><path d="M3.5 12h17" /></S>),
+  bubbles: (p) => (<S {...p}><circle cx="8" cy="15" r="4" /><circle cx="16" cy="8" r="3" /><circle cx="17" cy="16.5" r="1.6" /></S>),
+  snow: (p) => (<S {...p}><path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9" /><path d="m9.5 4.5 2.5 2 2.5-2M9.5 19.5l2.5-2 2.5 2" /></S>),
+  fireflies: (p) => (<S {...p}><circle cx="7" cy="8" r="1.6" fill="currentColor" /><circle cx="16" cy="6" r="1.1" fill="currentColor" /><circle cx="14" cy="15" r="2" fill="currentColor" /><circle cx="6" cy="17" r="1" fill="currentColor" /><circle cx="14" cy="15" r="4.5" /></S>),
+  constellation: (p) => (<S {...p}><path d="m4 17 5-6 4 3 4-8 3 4" /><circle cx="4" cy="17" r="1.3" /><circle cx="9" cy="11" r="1.3" /><circle cx="13" cy="14" r="1.3" /><circle cx="17" cy="6" r="1.3" /><circle cx="20" cy="10" r="1.3" /></S>),
+  aurora: (p) => (<S {...p}><path d="M3 15c3-6 6-6 9-2s6 3 9-4" /><path d="M5 19v-4M9 19v-6M13 19v-4M17 19v-7M21 19V9" /></S>),
+  hexgrid: (p) => (<S {...p}><path d="m7 4 4 2.3v4.6L7 13.2 3 10.9V6.3zM17 4l4 2.3v4.6l-4 2.3-4-2.3V6.3zM12 12.8l4 2.3v4.6L12 22l-4-2.3v-4.6z" /></S>),
+  orbits: (p) => (<S {...p}><ellipse cx="12" cy="12" rx="9.5" ry="3.8" /><ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(60 12 12)" /><ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(-60 12 12)" /><circle cx="12" cy="12" r="1.3" fill="currentColor" /></S>),
+  terrain: (p) => (<S {...p}><path d="m2 18 5-7 4 4 3-5 8 8z" /><path d="m14 10 2-3 2 3" /></S>),
+  ink: (p) => (<S {...p}><path d="M12 3c2.5 3.2 4 5.3 4 7.2A4 4 0 0 1 8 10.2C8 8.3 9.5 6.2 12 3z" /><ellipse cx="12" cy="18.5" rx="8.5" ry="2.5" /><ellipse cx="12" cy="18.5" rx="4" ry="1.1" /></S>),
+};
+
+// Books standing on a shelf: the library of favorites.
+export const IconLibrary = (p) => (
+  <S {...p}><path d="M3 21h18" /><rect x="4" y="5" width="4" height="16" rx="0.8" /><rect x="9" y="3" width="4" height="18" rx="0.8" /><path d="m14.5 6.2 3.7-1 3.6 14.8-3.7 1z" /><path d="M4 9h4M9 7h4" /></S>
+);
+export const IconTiles = (p) => (
+  <S {...p}><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="8" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /><rect x="13" y="13" width="8" height="8" rx="1.5" /></S>
+);
+export const IconDetails = (p) => (
+  <S {...p}><path d="M3 5h18M3 10h18M3 15h18M3 20h18M9 5v15" /></S>
+);
+export const IconPlus = (p) => (<S {...p}><path d="M12 5v14M5 12h14" /></S>);
+export const IconGrid = (p) => (
+  <S {...p}><rect x="3" y="3" width="7" height="8" rx="1" /><rect x="14" y="3" width="7" height="8" rx="1" /><rect x="3" y="13" width="7" height="8" rx="1" /><rect x="14" y="13" width="7" height="8" rx="1" /></S>
+);
+// One sheet with lines: a single page, not a blank frame.
+export const IconPageSingle = (p) => (
+  <S {...p}><rect x="6.5" y="3.5" width="11" height="17" rx="1.5" /><path d="M9.5 8.5h5M9.5 12h5M9.5 15.5h3.5" /></S>
+);
+// A sheet you scroll through: lines plus a scrollbar, not the reading-menu bars.
+export const IconPageContinuous = (p) => (
+  <S {...p}><rect x="5" y="3" width="12" height="18" rx="1.5" /><path d="M8 7.5h6M8 11h6M8 14.5h4" /><path d="M19 5v14M19 5l-1.2 1.6M19 5l1.2 1.6M19 19l-1.2-1.6M19 19l1.2-1.6" /></S>
+);
+export const IconPageSpread = (p) => (
+  <S {...p}>
+    <rect x="2.5" y="4.5" width="8.5" height="15" rx="1.5" />
+    <rect x="13" y="4.5" width="8.5" height="15" rx="1.5" />
+    <path d="M12 3.5v17" />
+  </S>
+);
+export const IconEffectNone = (p) => (
+  <S {...p}><rect x="6" y="3" width="12" height="18" rx="1.5" /><path d="M4 6l16 12" /></S>
+);
+export const IconEffectFade = (p) => (
+  <S {...p}><rect x="4" y="5" width="10" height="14" rx="1.2" /><rect x="10" y="5" width="10" height="14" rx="1.2" /></S>
+);
+export const IconEffectSlide = (p) => (
+  <S {...p}><rect x="3" y="5" width="10" height="14" rx="1.2" /><path d="M15 12h6M18 9l3 3-3 3" /></S>
+);
+export const IconEffectFlip = (p) => (
+  <S {...p}><path d="M6 4h8v16H6z" /><path d="M14 4c4 2.2 5.6 5.2 5.6 8s-1.6 5.8-5.6 8" /></S>
+);
+// Tree disclosure arrow: points right when closed, down when open (rotated by
+// the `open` class so the change animates).
+export const IconChevron = ({ className = '', ...p }) => (
+  <S {...p} className={`chev ${className}`}><path d="m9 5 7 7-7 7" /></S>
+);
+export const IconExpandAll = (p) => (
+  <S {...p}><path d="m7 9 5 5 5-5" /><path d="m7 4 5 5 5-5" /></S>
+);
+export const IconCollapseAll = (p) => (
+  <S {...p}><path d="m7 15 5-5 5 5" /><path d="m7 20 5-5 5 5" /></S>
+);
+export const IconExtract = (p) => (
+  <S {...p}><rect x="4" y="3" width="16" height="11" rx="1.5" /><path d="M12 10v11M9 18l3 3 3-3" /></S>
+);
+// Printer: paper feeding out of the top of the machine.
+export const IconPrint = (p) => (
+  <S {...p}><path d="M7 9V4h10v5" /><path d="M7 18H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" /><rect x="7" y="14" width="10" height="7" rx="1" /></S>
+);
+// Overflow menu: the rest of the toolbar, behind one button.
+export const IconMore = (p) => (
+  <S {...p}><circle cx="5" cy="12" r="1.4" fill="currentColor" /><circle cx="12" cy="12" r="1.4" fill="currentColor" /><circle cx="19" cy="12" r="1.4" fill="currentColor" /></S>
+);
+export const IconCheck = (p) => (<S {...p}><path d="m5 12.5 4.5 4.5L19 7" /></S>);
+export const IconMinimize = (p) => (<S {...p} size={p.size || 14}><path d="M5 12h14" /></S>);
+export const IconMaximize = (p) => (<S {...p} size={p.size || 14}><rect x="5" y="5" width="14" height="14" rx="1.5" /></S>);
+export const IconRestore = (p) => (
+  <S {...p} size={p.size || 14}><rect x="4" y="8" width="12" height="12" rx="1.5" /><path d="M8 8V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-3" /></S>
+);
+
+// ── 3D ────────────────────────────────────────────────────
+// A 3D printer: frame, print head over the bed, a part on it.
+export const IconPrinter3D = (p) => (
+  <S {...p}><path d="M4 21V4h16v17" /><path d="M2 21h20" /><path d="M4 8h16" /><path d="M10 8v3h4V8M12 11v2" /><path d="M9 21v-4h6v4" /></S>
+);
+export const IconCube = (p) => (
+  <S {...p}><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9" /></S>
+);
+export const IconWand = (p) => (
+  <S {...p}><path d="m4 20 11-11M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 11l.6 1.4L21 13l-1.4.6L19 15l-.6-1.4L17 13l1.4-.6zM8 3l.5 1L9.5 4.5 8.5 5 8 6l-.5-1-1-.5 1-.5z" /></S>
+);
+export const IconStop = (p) => (
+  <S {...p}><rect x="6" y="6" width="12" height="12" rx="2" /></S>
+);
+export const IconAxes = (p) => (
+  <S {...p}><path d="M5 19V4M5 19h15M5 19l-3 3" /><path d="m3 6 2-2 2 2M18 17l2 2-2 2" /></S>
+);
+export const IconRuler = (p) => (
+  <S {...p}><path d="M3 17 17 3l4 4L7 21z" /><path d="m7 13 2 2M10 10l1.5 1.5M13 7l2 2M16 4l1.5 1.5" /></S>
+);
+export const IconBulb = (p) => (
+  <S {...p}><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z" /></S>
+);
+export const IconCamera = (p) => (
+  <S {...p}><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></S>
+);
+export const IconTerminal = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="m7 9 3 3-3 3M12 15h5" /></S>
+);
+export const IconOrbit = (p) => (
+  <S {...p}><ellipse cx="12" cy="12" rx="9" ry="4" /><path d="M18.5 9.5 21 12l-2.5 2.5" /><circle cx="12" cy="12" r="1.5" /></S>
+);
+export const IconBox = (p) => (
+  <S {...p}><path d="M4 7h16v13H4zM4 7l3-3h13v13l-0 0M20 4v3" /></S>
+);
+export const IconWireframe = (p) => (
+  <S {...p}><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z" /><path d="M4 7.5 20 16.5M20 7.5 4 16.5M12 3v18" /></S>
+);
+export const IconChip = (p) => (
+  <S {...p}><rect x="7" y="7" width="10" height="10" rx="1.5" /><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4" /></S>
+);
+export const IconLayers = (p) => (
+  <S {...p}><path d="m12 3 9 5-9 5-9-5z" /><path d="m3 13 9 5 9-5" /></S>
+);
+export const IconExport = (p) => (
+  <S {...p}><path d="M12 15V3M8 7l4-4 4 4" /><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" /></S>
+);
+export const IconFit = (p) => (
+  <S {...p}><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /><path d="M12 8 8 10v4l4 2 4-2v-4z" /></S>
+);
+export const IconPalette = (p) => (
+  <S {...p}><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-1-.8-1.4-.8-2.4 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z" /><circle cx="7.5" cy="11" r="1" /><circle cx="10" cy="7" r="1" /><circle cx="15" cy="7.5" r="1" /></S>
+);
+export const IconSliders = (p) => (
+  <S {...p}><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" /><circle cx="15" cy="6" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="17" cy="18" r="2" /></S>
+);
+export const IconRefresh = (p) => (
+  <S {...p}><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></S>
+);
+export const IconEye = (p) => (
+  <S {...p}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></S>
+);
+export const IconKey = (p) => (
+  <S {...p}><circle cx="8" cy="15" r="4" /><path d="m11 12 9-9M17 6l3 3M15 8l2 2" /></S>
+);

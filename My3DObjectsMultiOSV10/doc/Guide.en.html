@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My3DObjects User’s Guide</title>
+<style>
+  :root {
+    --bg: #f6f4f2; --panel: #ffffff; --text: #221d1b; --dim: #5d5551; --muted: #8b817c;
+    --border: #e2ddd9; --accent: #c33a32; --accent-soft: #fbe9e7; --code: #f1eeeb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14100f; --panel: #1e1918; --text: #efe8e5; --dim: #b3a8a4; --muted: #857a76;
+      --border: #38302e; --accent: #e0574d; --accent-soft: #3a1f1c; --code: #282221;
+    }
+  }
+  /* Every size is in rem: the text-size buttons in the top bar change the root size. */
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; font-size: 16px; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    font-size: 0.95rem; line-height: 1.7;
+  }
+  .layout { display: grid; grid-template-columns: 16rem minmax(0, 1fr); }
+  nav {
+    position: sticky; top: 0; height: 100vh; overflow: auto; padding: 1.2rem 1rem;
+    background: var(--panel); border-right: 1px solid var(--border);
+  }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav li a {
+    display: block; padding: 0.3rem 0.6rem; border-radius: 0.45rem; color: var(--dim); text-decoration: none; font-size: 0.85rem;
+  }
+  nav li a:hover { background: var(--accent-soft); color: var(--text); }
+  main { max-width: 64rem; padding: 2rem 2.75rem 5rem; }
+  header.hero {
+    display: flex; gap: 1.25rem; align-items: center; padding: 1.4rem 1.5rem; margin-bottom: 1.9rem;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 1rem;
+  }
+  header.hero img { width: 4.5rem; height: 4.5rem; }
+  header.hero h1 { margin: 0; font-size: 1.75rem; }
+  header.hero p { margin: 0.25rem 0 0; color: var(--dim); }
+  h2 { margin: 2.9rem 0 0.6rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--accent); font-size: 1.4rem; }
+  h3 { margin: 1.6rem 0 0.4rem; font-size: 1.08rem; }
+  ul, ol.steps { padding-left: 1.4rem; }
+  li + li { margin-top: 0.2rem; }
+  figure { margin: 1.1rem 0 1.4rem; }
+  figure img {
+    display: block; max-width: 100%; height: auto; border-radius: 0.6rem;
+    border: 1px solid var(--border); box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
+  }
+  figure.narrow img { max-width: 26rem; }
+  figure.strip img { box-shadow: none; }
+  figcaption { margin-top: 0.5rem; font-size: 0.82rem; color: var(--muted); text-align: center; }
+  kbd {
+    display: inline-block; padding: 0 0.4rem; border-radius: 0.3rem; border: 1px solid var(--border);
+    border-bottom-width: 2px; background: var(--code); font: 0.8rem/1.6 Consolas, monospace;
+  }
+  code { padding: 0.05rem 0.3rem; border-radius: 0.25rem; background: var(--code); font: 0.82rem Consolas, monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0 1.25rem; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel); }
+  .tip {
+    margin: 0.9rem 0; padding: 0.75rem 1rem; border-radius: 0.6rem; background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; }
+  footer { margin-top: 3.75rem; color: var(--muted); font-size: 0.82rem; }
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 1.5rem 1.1rem 4rem; }
+    .grid2, .grid4 { grid-template-columns: 1fr; }
+  }
+</style>
+<script src="theme.js"></script>
+
+<script src="theme.js"></script>
+<script src="guide.js"></script>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <ol>
+      <li><a href="#intro">1. Introduction</a></li>
+      <li><a href="#install">2. Installing and first run</a></li>
+      <li><a href="#screen">3. The window</a></li>
+      <li><a href="#start">4. Start screen</a></li>
+      <li><a href="#convert">5. Image to 3D</a></li>
+      <li><a href="#models">6. Choosing a model</a></li>
+      <li><a href="#device">7. GPU and CPU</a></li>
+      <li><a href="#open">8. Opening 3D files</a></li>
+      <li><a href="#view">9. Moving around</a></li>
+      <li><a href="#grid">10. Grid · axes · rulers</a></li>
+      <li><a href="#lights">11. Lights</a></li>
+      <li><a href="#material">12. Materials and display</a></li>
+      <li><a href="#transform">13. Rotating and scaling</a></li>
+      <li><a href="#save">14. Saving and converting</a></li>
+      <li><a href="#print3d">15. Printing in 3D</a></li>
+      <li><a href="#log">16. Log panel</a></li>
+      <li><a href="#settings">17. Settings</a></li>
+      <li><a href="#web">18. Web build</a></li>
+      <li><a href="#keys">19. Shortcuts</a></li>
+      <li><a href="#data">20. Data and uninstalling</a></li>
+      <li><a href="#trouble">21. Troubleshooting</a></li>
+      <li><a href="#license">22. Licenses</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <img src="images/icon.svg" alt="">
+      <div>
+        <h1>My3DObjects User’s Guide</h1>
+        <p>Turn one picture into a 3D object, look at 3D files, and save them in other formats or ready for a 3D printer.</p>
+      </div>
+    </header>
+
+    <h2 id="intro">1. Introduction</h2>
+    <p>My3DObjects runs <b>Stable Fast 3D</b> and <b>SPAR3D</b> (Stability AI), <b>TripoSR</b> (Tripo AI · Stability AI), <b>TRELLIS</b> (Microsoft) and <b>Hunyuan3D</b> (Tencent) <b>on this computer</b> to turn images into 3D objects. The Windows, macOS and Linux desktop apps and the web build share the same screen.</p>
+    <ul>
+      <li><b>Local by default</b> — images never leave the computer. The paid Stability AI API is only used when you switch it on in Settings.</li>
+      <li><b>The GPU when there is one, the CPU otherwise</b> — nothing to choose. A conversion that fails on the GPU is redone on the CPU automatically.</li>
+      <li><b>Installs itself</b> — Python, PyTorch and the models are installed on first run; every step shows in the log panel.</li>
+      <li><b>3D viewer and converter</b> — opens GLB, glTF, OBJ, STL, PLY, FBX, DAE, 3MF, 3DS, USDZ and more, exports GLB, glTF, OBJ, STL, PLY, USDZ, 3MF, AMF, DAE, VRML, VTK, PCD and XYZ, and prints views of the model on A4.</li>
+      <li><b>Straight to a 3D printer</b> — saves 3MF (with colours) or STL in millimetres, Z up, on the bed, with holes closed and faces wound consistently, and tells whether the mesh is watertight (<a href="#print3d">chapter 15</a>).</li>
+      <li><b>Tutorial and examples</b> — a 33-step tour on the real screen, and 17 example pictures and 3D files ready to open.</li>
+    </ul>
+    <figure><img src="images/main.en.png" alt="Main window with a converted model"><figcaption>The sample mug, converted, on the endless grid, with axes, rulers, light handles, the settings panel on the right and the log below</figcaption></figure>
+
+    <h2 id="install">2. Installing and first run</h2>
+    <ol class="steps">
+      <li>Run the installer (Windows <code>My3DObjects_1.0.0_x64-setup.exe</code>, macOS <code>.dmg</code>, Linux <code>.AppImage</code> / <code>.deb</code>).</li>
+      <li>On first start the <b>engine</b> installs itself:
+        <table>
+          <tr><th>Step</th><th>What</th><th>Size (about)</th></tr>
+          <tr><td>uv · Python</td><td>Python 3.11 for the engine only (the system Python is not touched)</td><td>60 MB</td></tr>
+          <tr><td>PyTorch</td><td>CUDA build with an NVIDIA GPU, CPU build without, default build on a Mac (Apple GPU)</td><td>CUDA 2.5 GB · CPU 200 MB</td></tr>
+          <tr><td>Libraries</td><td>transformers, trimesh, rembg …</td><td>500 MB</td></tr>
+          <tr><td>Background model</td><td>u2net</td><td>176 MB</td></tr>
+          <tr><td>Conversion model</td><td>the chosen model's code and weights (on first use)</td><td>SF3D 4 GB · SPAR3D 4.5 GB · TripoSR 1.7 GB · TRELLIS 3.9 GB · Hunyuan3D 3.8–7.4 GB</td></tr>
+        </table>
+      </li>
+      <li>When it is done the status bar shows <b>Ready · (device)</b>. Later starts skip the installation.</li>
+    </ol>
+    <div class="tip"><b>The Stable Fast 3D and SPAR3D weights require accepting a license.</b> Sign in on the model page (<a href="https://huggingface.co/stabilityai/stable-fast-3d">SF3D</a>, <a href="https://huggingface.co/stabilityai/stable-point-aware-3d">SPAR3D</a>) and accept it, create a Read token under <a href="https://huggingface.co/settings/tokens">Access Tokens</a> and paste it into <b>Settings → Engine → Hugging Face token</b>; the installation then continues. A box over the 3D view asks for it too. To start without a token, choose TripoSR or TRELLIS.</div>
+    <figure class="narrow"><img src="images/engine-install.en.png" alt="Engine installation"><figcaption>While installing, the step and its progress show over the 3D view</figcaption></figure>
+
+    <h2 id="screen">3. The window</h2>
+    <p>The window has no separate title bar: <b>the toolbar is the title bar</b>. The program icon sits at its left end, with the name and version when there is room. Drag an empty part of the toolbar to move the window, double-click it to maximise; <b>minimise · maximise · close</b> are at the right end, and the grip at the right end of the status bar (or the window edges) resizes it.</p>
+    <table>
+      <tr><th>Area</th><th>Contents</th></tr>
+      <tr><td>Toolbar (top)</td><td>Program icon, Home · File menu (with <b>Save for 3D printing</b>) · <b>Print</b>, open image / 3D file, the <b>model picker</b> and <b>Convert to 3D</b>, <b>Save · Export</b> · Save view, view controls (fit · directions · auto-rotate · wireframe · grid · axes · rulers · bounding box · light handles), panels. At the right end: theme · language · Help (guide · tutorial) · settings · about, then the window buttons</td></tr>
+      <tr><td>Input panel (left)</td><td>The input image, what the model saw (background removed), and this session's history</td></tr>
+      <tr><td>3D view (centre)</td><td>The model, endless grid, axes, rulers, lights, view cube (bottom right)</td></tr>
+      <tr><td>Settings panel (right)</td><td>Convert · Scene · Lights · Material · Model · Camera tabs</td></tr>
+      <tr><td>Log panel (bottom)</td><td>Everything installation and conversion do</td></tr>
+      <tr><td>Status bar</td><td>What is happening and its progress, vertex · triangle counts, the model, engine state and device</td></tr>
+    </table>
+    <p>The side panels run down to the status bar; the log panel sits in the middle between them. Drag the inner edge of a side panel to resize it and use its header button to collapse it; drag the top edge of the log panel to change its height.</p>
+
+    <h2 id="start">4. Start screen</h2>
+    <figure><img src="images/start.en.png" alt="Start screen"><figcaption>The start screen</figcaption></figure>
+    <p>The program opens on the start screen: open image, open 3D file, tutorial and guide buttons, the steps, recent files and <b>examples</b>, the engine state and the models, the supported formats and the background. The <b>Home</b> button shows or hides it at any time; untick <b>Show this screen when the program starts</b> to go straight to the 3D view. On the start screen the side and log panels are hidden and their toolbar buttons are off.</p>
+    <ul>
+      <li><b>Move and resize the panels</b>: drag the ⠿ before a title to move it, the bottom-right corner to resize it. Panels snap to a 12-column grid: while dragging, a dashed silhouette shows where the panel will land and the panels in the way slide down. <b>Auto arrange</b> (top right) puts them back. The arrangement is kept.</li>
+      <li><b>Background</b>: pick one of 21 moving backgrounds (cubes, galaxy, stars, waves …), its opacity, speed, automatic change and random order. Also in Settings → Screen.</li>
+    </ul>
+    <h3>Examples</h3>
+    <p>Open them from the start screen's <b>Examples</b> list or the File menu; they are also in <code>samples/</code>.</p>
+    <table>
+      <tr><th>Kind</th><th>Files</th></tr>
+      <tr><td>Pictures to convert — public examples (TRELLIS · TripoSR, MIT)</td><td>dragon · cottage · mushroom-house · mech · lantern · mailbox · biplane · locomotive · chair · hamburger · teapot · fox (teapot and fox have a grey background, to see background removal at work)</td></tr>
+      <tr><td>Pictures to convert — made here (transparent PNG)</td><td>robot · mug · pawn · tree · toy-car</td></tr>
+      <tr><td>3D files (one per format)</td><td>robot.glb · shapes.gltf · mug.obj(+mtl) · pawn.stl · tree.ply · toy-car.usdz</td></tr>
+      <tr><td>Conversion results</td><td>mug-sf3d.glb (Stable Fast 3D) · robot-triposr.glb (TripoSR)</td></tr>
+    </table>
+    <h3>Tutorial</h3>
+    <figure><img src="images/tutorial.en.png" alt="Tutorial"><figcaption>The tutorial outlines the part of the window each step is about and explains it on a card</figcaption></figure>
+    <p>At start-up the program asks <b>Run the tutorial?</b> — Start or Later; untick <b>Ask again next time</b> to stop the question (turn it back on in Settings → Screen → Tutorial). The tutorial also opens from the start screen, the toolbar's Help menu and Settings → Screen.</p>
+    <ul>
+      <li>8 chapters, 33 steps: start screen, the window, image to 3D, the 3D view, lights, material and model, save · export · print, settings and engine.</li>
+      <li>Each step opens an example, a tab or a menu to show it for real.</li>
+      <li><kbd>→</kbd>/<kbd>Space</kbd> next, <kbd>←</kbd> previous, <kbd>Esc</kbd> close. Drag the card by its head, jump with the chapter list, ▶ auto-plays. It remembers where you stopped.</li>
+    </ul>
+
+    <h2 id="convert">5. Image to 3D</h2>
+    <ol class="steps">
+      <li><b>Open image</b> (<kbd>Ctrl</kbd>+<kbd>O</kbd>), or drop a picture on the window. PNG, JPG (JFIF), WebP, AVIF, GIF (first frame), BMP, ICO, SVG and TIFF are read; a TIFF has no preview in the input panel but converts.</li>
+      <li>Pick a model in the toolbar's model menu (<a href="#models">chapter 6</a>).</li>
+      <li>Press <b>Convert to 3D</b> (<kbd>F5</kbd>). The steps (background → model → mesh → UV unwrap → texture bake) and progress show over the view; <b>Cancel</b> (<kbd>Esc</kbd>) stops it.</li>
+      <li>The result appears in the view and in the <b>History</b> on the left. <b>What the model saw</b> is the picture with its background removed and centred.</li>
+    </ol>
+    <h3>Options (Settings panel → Convert, or the conversion settings window)</h3>
+    <p>The button beside <b>Convert to 3D</b> on the toolbar (the sliders), or <b>Settings window</b> in the settings panel, opens the <b>Conversion settings</b> window. Its parameters come in three groups, <b>Input image · Model · Surface clean-up</b>, and changes are kept at once. ⟳ on a group puts that group back to the recommended values; <b>Reset all to defaults</b> puts back all of them.</p>
+    <table>
+      <tr><th>Option</th><th>What it does</th></tr>
+      <tr><td>Remove the background</td><td>Keeps only the object. A PNG that is already transparent is used as is.</td></tr>
+      <tr><td>Object size ratio</td><td>How much of the picture the object fills (0.5–1, default 0.85, SPAR3D 0.75)</td></tr>
+      <tr><td>Texture resolution (SF3D · SPAR3D)</td><td>Auto is 1024 px on a GPU, 512 on the CPU. 2048 is sharper but slower.</td></tr>
+      <tr><td>Remesh · vertex count (SF3D · SPAR3D)</td><td>Rebuilds an even mesh and reduces vertices (when the remeshing libraries are installed)</td></tr>
+      <tr><td>Mesh resolution · surface threshold (TripoSR)</td><td>Grid resolution for the surface (auto: GPU 256, CPU 192) and the density taken as surface</td></tr>
+      <tr><td>Stand upright</td><td>A photo taken from above gives a result that leans forward. A camera that was not held level makes it lean sideways too. When on (recommended), the angles within ±35° forwards-backwards (about X) and sideways (about Z) at which the object stands most squarely are found and applied. A tall object, such as a chess piece or a figure, is stood so that the line through the middles of its horizontal slices is vertical. Turn it off when the slant is the real shape.</td></tr>
+      <tr><td>Remove small pieces (%)</td><td>Removes loose pieces smaller than this share of the largest one (default 0.5); 0 keeps them all.</td></tr>
+      <tr><td>Subdivide faces</td><td>Splits each triangle in four before smoothing (×4 faces per level) so flat facets round off. Recommended 1 for SF3D, SPAR3D and TripoSR, 0 for TRELLIS.</td></tr>
+      <tr><td>Surface smoothing</td><td>Passes that even out a bumpy surface (the volume is kept); 0 leaves it. Recommended 10 for SF3D, SPAR3D and TripoSR, 2 for TRELLIS.</td></tr>
+      <tr><td>Inference steps · guidance · shape resolution · face limit · seed (Hunyuan3D)</td><td>The defaults are Tencent's demo values (30 steps, Turbo 5 · guidance 5 · resolution 256 · 40,000 faces · seed 1234). Another seed gives another shape.</td></tr>
+      <tr><td>Guidance · seed (SPAR3D)</td><td>Strength (default 3) and seed (default 0) of the diffusion model that draws the point cloud</td></tr>
+      <tr><td>Structure steps · structure guidance · detail steps · detail guidance · seed (TRELLIS)</td><td>Steps and strength of stage 1 (which voxels the object fills) and stage 2 (shape and colour in each voxel). The defaults are TRELLIS's demo values (12 · 7.5 · 12 · 3 · seed 0). Fewer steps are faster and rougher.</td></tr>
+    </table>
+    <p>Every option starts at the model's <b>recommended value</b>, which also ends its tooltip. <b>Recommended values</b> puts the model's (version's) options back. Options are kept per model and per version.</p>
+    <p><b>Apply to the result</b>: the surface clean-up group (small pieces · subdividing · smoothing · standing upright) can be applied to the result on screen without converting again. The engine keeps the mesh the model first made and cleans that up again, so trying several values never wears the result down. Only for a result this engine has just converted.</p>
+    <div class="tip">One object, large and centred, clearly separated from the background works best — ideally seen slightly from above and the side.</div>
+
+    <h2 id="models">6. Choosing a model</h2>
+    <figure class="narrow"><img src="images/model-menu.en.png" alt="Model menu"><figcaption>The model picker in the toolbar</figcaption></figure>
+    <table>
+      <tr><th></th><th>Stable Fast 3D</th><th>SPAR3D</th><th>TripoSR</th><th>TRELLIS</th></tr>
+      <tr><td>By</td><td>Stability AI</td><td>Stability AI</td><td>Tripo AI · Stability AI</td><td>Microsoft</td></tr>
+      <tr><td>Result</td><td>UV-unwrapped mesh with PBR textures (colour, normal, roughness, metalness)</td><td>Textured like SF3D, with a more faithful back</td><td>Vertex-coloured mesh</td><td>Vertex-coloured mesh, among the most detailed shapes and colours</td></tr>
+      <tr><td>Time (RTX 4070 laptop)</td><td>about 1.5 s</td><td>a few seconds</td><td>about 6 s</td><td>tens of seconds</td></tr>
+      <tr><td>Time (16-thread CPU)</td><td>about 30 s</td><td>about a minute</td><td>about 20 s</td><td>minutes</td></tr>
+      <tr><td>GPU memory</td><td>6 GB or more</td><td>10.5 GB (below 11 GB free: low-VRAM mode, about 7 GB)</td><td>4 GB or more</td><td>12 GB or more advised</td></tr>
+      <tr><td>License</td><td colspan="2">Stability AI Community License (acceptance and token required)</td><td colspan="2">MIT</td></tr>
+      <tr><td>Download</td><td>4 GB</td><td>3.6 GB + CLIP 0.9 GB</td><td>1.7 GB</td><td>2.7 GB + DINOv2 1.2 GB</td></tr>
+    </table>
+    <p>The SPAR3D and TRELLIS times are estimates from published figures.</p>
+    <p>A model is installed automatically the first time it converts (or when its download button in the menu is pressed). One model is in memory at a time; switching unloads the previous one.</p>
+    <h3>SPAR3D</h3>
+    <p>Stable Fast 3D's successor. A small diffusion model first draws a coloured point cloud of the whole object — the back the photo does not show included — and the mesh is then built from that point cloud and the photo. The result is a UV-unwrapped PBR-textured mesh like SF3D's. With less than 11 GB of GPU memory free it runs in its own low-VRAM mode, its parts taking turns on the GPU (a little slower). AlphaCLIP and the CLIP weights (0.9 GB) it uses to estimate materials and lighting are installed with it.</p>
+    <h3>TRELLIS</h3>
+    <p>Microsoft's 1.1 B-parameter model. Stage 1 finds which cells of a 64³ grid the object fills; stage 2 fills each of them with shape and colour, which is then turned into a mesh. This program decodes <b>the mesh only</b>, so the result is a vertex-coloured mesh (TRELLIS's Gaussians and texture baking need compiled CUDA renderers). Instead of xformers, spconv and kaolin it uses PyTorch code that computes the same, so it installs without a compiler and runs on Apple GPUs and the CPU too — minutes on a CPU. The DINOv2 image encoder (1.2 GB) is installed with it.</p>
+    <h3>Hunyuan3D and versions</h3>
+    <p><b>Hunyuan3D</b> (Tencent) comes in several versions: pick one with the <b>Version</b> buttons under Hunyuan3D in the model menu, or the <b>Version</b> box in the settings panel. Each version has its own weights, options and install state. It makes the shape only (no texture, light grey): the texture models need compiled CUDA extensions and 20+ GB of GPU memory, so they are not included.</p>
+    <table>
+      <tr><th>Version</th><th>What it is</th><th>Download</th></tr>
+      <tr><td>2.1</td><td>The latest open release (June 2025), the most detailed. 10 GB of GPU memory advised</td><td>7.4 GB</td></tr>
+      <tr><td>2.0 · 2.0 Turbo</td><td>The standard model and a 5-step fast version</td><td>4.9 · 5.3 GB</td></tr>
+      <tr><td>2.0 mini · mini Turbo</td><td>The small model (0.6B), light and fast</td><td>3.8 · 4.2 GB</td></tr>
+    </table>
+    <p>When the GPU has less free memory than a version wants, its image encoder, diffusion model and shape decoder take turns on the GPU (a little slower) — for example while another program uses GPU memory.</p>
+    <div class="tip"><b>Region-limited license</b> — the Tencent Hunyuan 3D Community License excludes <b>the European Union, the United Kingdom and South Korea</b> from its territory. The first time you pick it, a license window opens; it is installed only after you tick the box and press <b>Accept and use</b>. Using it only where and how the license allows is your responsibility.</div>
+
+    <h2 id="device">7. GPU and CPU</h2>
+    <ul>
+      <li><b>Auto</b> (default): an NVIDIA GPU (CUDA), the Apple GPU (MPS) on Apple-silicon Macs, the CPU otherwise.</li>
+      <li>When a conversion fails on the GPU (memory, driver), the model moves to the CPU and <b>the same image is converted again</b>. The log says so, and the Settings panel's <b>Last conversion</b> shows "GPU failed → CPU".</li>
+      <li>Settings panel → Convert → <b>Device</b> can fix it to the GPU or the CPU.</li>
+      <li>A computer without a GPU gets the CPU build of PyTorch (about 200 MB) from the start.</li>
+    </ul>
+
+    <h2 id="open">8. Opening 3D files</h2>
+    <p>Use <b>Open 3D file</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>) or drop the file on the window.</p>
+    <table>
+      <tr><th>Format</th><th>Extensions</th></tr>
+      <tr><td>glTF</td><td>.glb .gltf</td></tr>
+      <tr><td>Wavefront OBJ (+MTL, textures)</td><td>.obj</td></tr>
+      <tr><td>STL · PLY</td><td>.stl .ply</td></tr>
+      <tr><td>FBX · COLLADA · KMZ</td><td>.fbx .dae .kmz</td></tr>
+      <tr><td>3MF · AMF · 3DS · LightWave</td><td>.3mf .amf .3ds .lwo</td></tr>
+      <tr><td>USD</td><td>.usdz .usda .usdc .usd</td></tr>
+      <tr><td>VRML · VTK</td><td>.wrl .vrml .vtk .vtp</td></tr>
+      <tr><td>Point clouds</td><td>.pcd .xyz</td></tr>
+    </table>
+    <p>Files a model refers to — an OBJ's MTL and textures, a .gltf's .bin and pictures — are found in the same folder by the desktop app. In the web build, <b>select them together</b> in the open dialog or drop them together.</p>
+
+    <h2 id="view">9. Moving around</h2>
+    <table>
+      <tr><th>Mouse</th><th>Does</th></tr>
+      <tr><td>Left drag</td><td>Orbit around the model</td></tr>
+      <tr><td>Right drag (or <kbd>Shift</kbd>+left)</td><td>Pan</td></tr>
+      <tr><td>Wheel</td><td>Zoom</td></tr>
+      <tr><td>Click the view cube (bottom right)</td><td>Look along that axis</td></tr>
+    </table>
+    <p><b>Right-click menus</b>: right-click (without dragging) the 3D view, the input image, the history or the log for the commands that apply there, each with an icon — fit and directions, grid / axes / rulers, save · export · print · copy the view, clear the image, copy a log line and more.</p>
+    <p><b>Fit to view</b> (<kbd>F</kbd>) frames the model and the lights; its arrow menu offers front · back · left · right · top · bottom · isometric. <b>Auto-rotate</b> circles slowly (speed in the Camera tab).</p>
+
+    <h2 id="grid">10. Grid · axes · rulers</h2>
+    <figure><img src="images/scene.en.png" alt="Scene tab and bounding box"><figcaption>The Scene tab and the bounding box with dimensions</figcaption></figure>
+    <ul>
+      <li><b>Grid</b>: an endless plane on the ground (Y = 0). Each major cell is split <b>5 × 5</b> and the lines fade with distance. The major cell is automatic (a 1 m model gets 1 m cells with 20 cm squares) or chosen; divisions, strength and colour can be changed.</li>
+      <li><b>Axes</b>: X (red) · Y (green, up) · Z (blue); negative directions dashed.</li>
+      <li><b>Rulers</b>: ticks every small square along X and Z with the length at each major cell, and a height (Y) ruler at the model's back corner. Units: m · cm · mm · in or none.</li>
+      <li><b>Bounding box</b>: the box around the model with its X · Y · Z dimensions.</li>
+    </ul>
+    <p>The background (theme colour · solid · gradient · environment), environment reflections, tone mapping, exposure and shadows are in the Scene tab too.</p>
+
+    <h2 id="lights">11. Lights</h2>
+    <figure><img src="images/lights.en.png" alt="Lights tab"><figcaption>The Lights tab; the selected light carries a move handle</figcaption></figure>
+    <ul>
+      <li><b>Press a light ball in the 3D view and drag it</b> to move the light. The selected light carries a move handle: drag an arrow to move along one axis, a square to stay in one plane.</li>
+      <li>The dashed line shows where the light points (the model's centre).</li>
+      <li>Kinds: <b>Sun</b> (directional, shadows) · <b>Point</b> · <b>Spot</b> · <b>Sky</b> (sky / ground colours) · <b>Ambient</b>. Each has on/off, colour, intensity, position, shadows, angle …</li>
+      <li>Positions are kept in the model's size units, so lights keep their place around models of any size. The arrangement is remembered; <b>Default lights</b> restores the first three.</li>
+    </ul>
+
+    <h2 id="material">12. Materials and display</h2>
+    <table>
+      <tr><th>Material</th><th>Shows</th></tr>
+      <tr><td>Original</td><td>The file's textures and materials</td></tr>
+      <tr><td>Clay</td><td>Plain grey, shape only (colour adjustable)</td></tr>
+      <tr><td>Normals</td><td>Face directions as colours</td></tr>
+      <tr><td>Vertex</td><td>Colours stored in vertices (TripoSR results)</td></tr>
+    </table>
+    <p>Wireframe, flat shading and back faces can be switched on. Display materials only change the view; saving uses the original materials.</p>
+
+    <h2 id="transform">13. Rotating and scaling</h2>
+    <p>The Model tab shows the file (vertices · triangles · materials · textures, size) and sets rotation (degrees) and scale. Buttons like <b>X −90°</b> stand Z-up files upright. The model always stands on the ground; rotation and scale are applied when saving.</p>
+
+    <h2 id="save">14. Saving and converting</h2>
+    <p><b>Save</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>, right of the File button) writes the model as GLB (as it was, when not rotated or scaled). <b>Export</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>) offers the other formats and the view as a PNG picture. Whatever format a model came in, it can be exported in any of these:</p>
+    <table>
+      <tr><th>Format</th><th>Textures</th><th>For</th></tr>
+      <tr><td>glTF Binary (.glb)</td><td>included</td><td>web, game engines, Blender (recommended)</td></tr>
+      <tr><td>glTF (.gltf)</td><td>included (embedded)</td><td>readable JSON</td></tr>
+      <tr><td>Wavefront OBJ (.obj)</td><td>no</td><td>wide compatibility</td></tr>
+      <tr><td>STL (.stl, binary / ASCII)</td><td>no</td><td>3D printing (size and axes as they are — for a printer see <a href="#print3d">chapter 15</a>)</td></tr>
+      <tr><td>PLY (.ply, binary / ASCII)</td><td>vertex colours</td><td>point clouds, scans</td></tr>
+      <tr><td>USDZ (.usdz)</td><td>included</td><td>Apple AR Quick Look</td></tr>
+      <tr><td>3D Manufacturing (.3mf)</td><td>material and vertex colours</td><td>3D printing (slicers)</td></tr>
+      <tr><td>AMF (.amf)</td><td>material colours</td><td>3D printing</td></tr>
+      <tr><td>COLLADA (.dae)</td><td>material and vertex colours</td><td>SketchUp and many 3D programs</td></tr>
+      <tr><td>VRML 2.0 (.wrl)</td><td>material and vertex colours</td><td>older CAD and science tools</td></tr>
+      <tr><td>VTK (.vtk)</td><td>vertex colours</td><td>ParaView, scientific visualisation</td></tr>
+      <tr><td>PCD · XYZ (.pcd, .xyz)</td><td>point colours</td><td>point clouds (vertices only, no faces)</td></tr>
+    </table>
+    <p>3MF, AMF and DAE files record the <b>unit</b> from Settings → Scene (the numbers are kept as they are).</p>
+    <p><b>Save view</b> saves what the view shows as a PNG. A history item's save button saves that result as it is. Settings → Files can <b>save each result next to its image automatically</b> (desktop).</p>
+
+    <h3>Printing</h3>
+    <figure><img src="images/print.en.png" alt="Print dialog"><figcaption>The print dialog: choose on the left, preview on the right</figcaption></figure>
+    <p><b>Print</b> (<kbd>Ctrl</kbd>+<kbd>P</kbd>, right of Save) prints pictures of the model on A4.</p>
+    <table>
+      <tr><th>Option</th><th>Does</th></tr>
+      <tr><td>What to print</td><td>The view · 4 views on a sheet (front · right · top · isometric) · 6 views on a sheet · a sheet per view</td></tr>
+      <tr><td>Model details</td><td>Name, size, vertex · triangle · material · texture counts, source image and model, date at the top</td></tr>
+      <tr><td>White background · grid</td><td>An ink-saving white background; whether grid, axes and rulers show</td></tr>
+      <tr><td>Printer · copies · orientation (desktop)</td><td>The installed printers (default marked), 1–99 copies, auto · portrait · landscape. Print sends straight to that printer; System print window… opens the system's dialog</td></tr>
+      <tr><td>Preview</td><td>The sheets as they will print; ◀ ▶ when there are several</td></tr>
+    </table>
+
+    <h2 id="print3d">15. Printing in 3D</h2>
+    <figure><img src="images/print3d.en.png" alt="Save for 3D printing"><figcaption>Save for 3D printing: size and file type on the left, the print check on the right</figcaption></figure>
+    <p><b>Save for 3D printing</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>; in the File menu, the Export menu and the 3D view's right-click menu) saves the model on screen as a file a slicer (PrusaSlicer, Bambu Studio, OrcaSlicer, Cura …) can use straight away. A plain export writes the numbers as they are (conversion results are about one unit = 1 m, Y up); this does the following.</p>
+    <table>
+      <tr><th>Option</th><th>Meaning</th></tr>
+      <tr><td>Size (mm) · size applies to</td><td>The <b>height</b> or the <b>longest side</b> becomes this long (proportions kept). The 30 · 50 · 100 · 150 · 200 mm buttons pick one directly.</td></tr>
+      <tr><td>File type</td><td><b>3MF</b> (recommended) — carries the unit (mm) and colours. <b>STL</b> — binary, no colours, opens in nearly every slicer.</td></tr>
+      <tr><td>Close holes</td><td>Finds open rims and closes them so the object is watertight — slicers need that to tell inside from outside.</td></tr>
+      <tr><td>Keep colours (3MF)</td><td>Writes vertex or texture colours into the 3MF, for multi-colour printers (Bambu AMS, Prusa MMU).</td></tr>
+    </table>
+    <p>The model is saved as shown (the Model tab's rotation and scale included) with <b>Z up, its front towards the printer's front (−Y), centred on the bed at Z = 0</b>. Vertices that coincide are joined (texture seams split them), faces that lost a corner and repeated faces are removed, holes are closed, faces wound against their neighbours are turned, and an inside-out model is turned the right way.</p>
+    <p>The <b>Print check</b> on the right shows the outcome at once: whether the mesh is <b>watertight</b> (if not, how many open edges and edges shared by three or more faces), its size (X × Y × Z mm), triangles, volume (cm³), the PLA weight at 100 % infill (1.24 g/cm³ — the most it can take; a real print uses much less) and what was repaired.</p>
+    <div class="tip"><b>For a good print</b> — first turn the model in the Model tab so it stands flat on the bed (X −90° for one lying down, for instance). Thin parts (tails, feathers, legs) vanish when printed small: print larger or use supports. If it is still not watertight, the slicer's repair finishes the job (PrusaSlicer "Fix through Netfabb", Bambu Studio "Repair"). Examples with a broad base (chair, teapot, mushroom-house, lantern) make good first prints.</div>
+
+    <h2 id="log">16. Log panel</h2>
+    <figure><img src="images/log.en.png" alt="Log panel"><figcaption>The log panel</figcaption></figure>
+    <p>Installation (packages, model downloads), model loading, each conversion step and errors collect here in order. Filter by source (app · launcher · engine) and level (debug · info · warning · error); find, copy, save to a file or clear. <kbd>Ctrl</kbd>+<kbd>L</kbd> shows or hides it; clicking the engine state in the status bar opens it.</p>
+
+    <h2 id="settings">17. Settings</h2>
+    <figure><img src="images/settings-engine.en.png" alt="Settings – Engine"><figcaption>Settings → Engine</figcaption></figure>
+    <table>
+      <tr><th>Tab</th><th>Contents</th></tr>
+      <tr><td>Appearance</td><td>Themes (20 dark · 20 light · custom), language, font · size · style</td></tr>
+      <tr><td>Engine</td><td>How to convert (this computer · another computer's engine · Stability AI API), device, Hugging Face token, restart · open folder · reinstall</td></tr>
+      <tr><td>Screen</td><td>Start screen, toolbar labels, status bar, log panel</td></tr>
+      <tr><td>Files</td><td>Default format, automatic saving</td></tr>
+    </table>
+    <h3>How to convert</h3>
+    <ul>
+      <li><b>This computer (local engine)</b> — the default. Images stay on the computer.</li>
+      <li><b>Another computer's engine</b> — run the engine on a GPU machine with <code>npm run engine -- --host 0.0.0.0</code> and enter its address (e.g. <code>http://192.168.0.10:57660</code>).</li>
+      <li><b>Stability AI API (paid)</b> — off by default. Choosing it asks for confirmation and an API key; every conversion uses credits and uploads the image to Stability AI. While it is in use the status bar says "Stability AI API (paid)".</li>
+    </ul>
+
+    <h2 id="web">18. Web build</h2>
+    <p>The web build opens the same screen in a browser; conversions run in the engine on this computer.</p>
+    <ul>
+      <li><code>npm run web</code> — the dev server (<code>http://localhost:5196</code>) and the engine (<code>http://127.0.0.1:57660</code>) together. The engine shares the desktop app's folder, so it installs once.</li>
+      <li><code>npm run engine</code> — the engine alone; takes <code>--port</code>, <code>--host</code> and <code>--home</code>.</li>
+      <li><code>npm run build</code> — the web page in <code>dist/</code>, for any web server; the engine address is set in Settings → Engine.</li>
+    </ul>
+
+    <h2 id="keys">19. Shortcuts</h2>
+    <table>
+      <tr><th>Keys</th><th>Does</th></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Open image</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td><td>Open 3D file</td></tr>
+      <tr><td><kbd>F5</kbd> or <kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Convert to 3D</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Cancel the conversion</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save (GLB)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>Export (last format)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Print</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>Save for 3D printing</td></tr>
+      <tr><td><kbd>F1</kbd></td><td>User’s guide</td></tr>
+      <tr><td><kbd>F</kbd></td><td>Fit to view</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Log panel</td></tr>
+    </table>
+
+    <h2 id="data">20. Data and uninstalling</h2>
+    <table>
+      <tr><th>What</th><th>Windows</th><th>macOS / Linux</th></tr>
+      <tr><td>Settings</td><td><code>%APPDATA%\My3DObjects\settings.json</code></td><td><code>~/Library/Application Support/My3DObjects</code> · <code>~/.config/My3DObjects</code></td></tr>
+      <tr><td>Engine (Python, PyTorch, model code, background model, TRELLIS's DINOv2 · SPAR3D's CLIP)</td><td><code>%LOCALAPPDATA%\My3DObjects\engine</code></td><td><code>~/Library/Application Support/My3DObjects/engine</code> · <code>~/.local/share/My3DObjects/engine</code></td></tr>
+      <tr><td>Model weights</td><td colspan="2">The shared Hugging Face cache <code>~/.cache/huggingface</code> (used by other programs too)</td></tr>
+    </table>
+    <p>Uninstalling on Windows asks separately whether to remove the engine (several GB) and the settings. The shared Hugging Face cache is left alone. To install the engine afresh, use Settings → Engine → <b>Reinstall engine</b>.</p>
+
+    <h2 id="trouble">21. Troubleshooting</h2>
+    <table>
+      <tr><th>Symptom</th><th>Remedy</th></tr>
+      <tr><td>"Cannot reach the engine" (web)</td><td>Check that <code>npm run engine</code> is running and the address in Settings → Engine.</td></tr>
+      <tr><td>"Token needed"</td><td>Accept the license and enter a token as in <a href="#install">chapter 2</a>, or use TripoSR or TRELLIS.</td></tr>
+      <tr><td>Installation failed</td><td>Read the error in the log panel and press <b>Retry</b>. PyPI, download.pytorch.org, github.com and huggingface.co must be reachable (for TRELLIS also dl.fbaipublicfiles.com, for SPAR3D openaipublic.azureedge.net).</td></tr>
+      <tr><td>A GPU, but the CPU is used</td><td>Update the NVIDIA driver, then Settings → Engine → Reinstall engine.</td></tr>
+      <tr><td>Odd results</td><td>Try a plainer background, another object size ratio, or another model.</td></tr>
+      <tr><td>TRELLIS fails on the GPU and runs on the CPU</td><td>Not enough GPU memory (12 GB or more advised). Close other programs, lower the structure and detail steps, or let the CPU finish.</td></tr>
+      <tr><td>The slicer reports holes or non-manifold edges</td><td>Turn on <b>Close holes</b> in Save for 3D printing; if the print check still says not watertight, use the slicer's repair.</td></tr>
+    </table>
+    <div class="tip"><b>Copy the error</b> in the error dialog and the log panel's <b>Save to a file</b> pass on everything at once.</div>
+
+    <h2 id="license">22. Licenses</h2>
+    <p>My3DObjects is MIT-licensed. The models are not included; they are downloaded on first use under their own licenses.</p>
+    <ul>
+      <li><b>Stable Fast 3D</b> — Stability AI Community License; commercial use is free below USD 1M annual revenue (registration required). <b>Powered by Stability AI</b>. This Stability AI Model is licensed under the Stability AI Community License, Copyright © Stability AI Ltd. All Rights Reserved.</li>
+      <li><b>SPAR3D</b> — Stability AI Community License (as Stable Fast 3D). AlphaCLIP, installed with it, is Apache-2.0; the CLIP weights MIT.</li>
+      <li><b>TripoSR</b> — MIT (Tripo AI &amp; Stability AI)</li>
+      <li><b>TRELLIS</b> — MIT (Microsoft). FlexiCubes and DINOv2, installed with it, are Apache-2.0.</li>
+      <li><b>Hunyuan3D 2.0 · 2.1</b> — Tencent Hunyuan 3D Community License. The EU, the UK and South Korea are outside its territory; commercial use above 1 million monthly users needs a separate license.</li>
+    </ul>
+    <p>The compiled extensions (<code>texture_baker</code>, <code>uv_unwrapper</code>, <code>torchmcubes</code>, and TRELLIS's <code>xformers</code> · <code>spconv</code> · <code>kaolin</code>) are replaced by PyTorch / scikit-image code that does the same. Twelve example pictures (dragon … fox) are public examples from the TRELLIS and TripoSR repositories (MIT). See <code>NOTICE.md</code> and <code>LICENSE-MODELS.md</code> in the installation folder.</p>
+
+    <footer>My3DObjects 1.0.0 · © SHKWON (knix008@naver.com) · MIT License · Powered by Stability AI</footer>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My3DObjects 사용 설명서</title>
+<style>
+  :root {
+    --bg: #f6f4f2; --panel: #ffffff; --text: #221d1b; --dim: #5d5551; --muted: #8b817c;
+    --border: #e2ddd9; --accent: #c33a32; --accent-soft: #fbe9e7; --code: #f1eeeb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14100f; --panel: #1e1918; --text: #efe8e5; --dim: #b3a8a4; --muted: #857a76;
+      --border: #38302e; --accent: #e0574d; --accent-soft: #3a1f1c; --code: #282221;
+    }
+  }
+  /* Every size is in rem: the text-size buttons in the top bar change the root size. */
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; font-size: 16px; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    font-size: 0.95rem; line-height: 1.7;
+  }
+  .layout { display: grid; grid-template-columns: 16rem minmax(0, 1fr); }
+  nav {
+    position: sticky; top: 0; height: 100vh; overflow: auto; padding: 1.2rem 1rem;
+    background: var(--panel); border-right: 1px solid var(--border);
+  }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav li a {
+    display: block; padding: 0.3rem 0.6rem; border-radius: 0.45rem; color: var(--dim); text-decoration: none; font-size: 0.85rem;
+  }
+  nav li a:hover { background: var(--accent-soft); color: var(--text); }
+  main { max-width: 64rem; padding: 2rem 2.75rem 5rem; }
+  header.hero {
+    display: flex; gap: 1.25rem; align-items: center; padding: 1.4rem 1.5rem; margin-bottom: 1.9rem;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 1rem;
+  }
+  header.hero img { width: 4.5rem; height: 4.5rem; }
+  header.hero h1 { margin: 0; font-size: 1.75rem; }
+  header.hero p { margin: 0.25rem 0 0; color: var(--dim); }
+  h2 { margin: 2.9rem 0 0.6rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--accent); font-size: 1.4rem; }
+  h3 { margin: 1.6rem 0 0.4rem; font-size: 1.08rem; }
+  ul, ol.steps { padding-left: 1.4rem; }
+  li + li { margin-top: 0.2rem; }
+  figure { margin: 1.1rem 0 1.4rem; }
+  figure img {
+    display: block; max-width: 100%; height: auto; border-radius: 0.6rem;
+    border: 1px solid var(--border); box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
+  }
+  figure.narrow img { max-width: 26rem; }
+  figure.strip img { box-shadow: none; }
+  figcaption { margin-top: 0.5rem; font-size: 0.82rem; color: var(--muted); text-align: center; }
+  kbd {
+    display: inline-block; padding: 0 0.4rem; border-radius: 0.3rem; border: 1px solid var(--border);
+    border-bottom-width: 2px; background: var(--code); font: 0.8rem/1.6 Consolas, monospace;
+  }
+  code { padding: 0.05rem 0.3rem; border-radius: 0.25rem; background: var(--code); font: 0.82rem Consolas, monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0 1.25rem; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel); }
+  .tip {
+    margin: 0.9rem 0; padding: 0.75rem 1rem; border-radius: 0.6rem; background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; }
+  footer { margin-top: 3.75rem; color: var(--muted); font-size: 0.82rem; }
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 1.5rem 1.1rem 4rem; }
+    .grid2, .grid4 { grid-template-columns: 1fr; }
+  }
+</style>
+<script src="theme.js"></script>
+
+<script src="theme.js"></script>
+<script src="guide.js"></script>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <ol>
+      <li><a href="#intro">1. 소개</a></li>
+      <li><a href="#install">2. 설치와 첫 실행</a></li>
+      <li><a href="#screen">3. 화면 구성</a></li>
+      <li><a href="#start">4. 시작 화면</a></li>
+      <li><a href="#convert">5. 이미지를 3D로 변환</a></li>
+      <li><a href="#models">6. 모델 고르기</a></li>
+      <li><a href="#device">7. GPU와 CPU</a></li>
+      <li><a href="#open">8. 3D 파일 열기</a></li>
+      <li><a href="#view">9. 3D 화면 다루기</a></li>
+      <li><a href="#grid">10. 격자 · 좌표축 · 눈금자</a></li>
+      <li><a href="#lights">11. 광원</a></li>
+      <li><a href="#material">12. 재질과 표시</a></li>
+      <li><a href="#transform">13. 모델 회전 · 배율</a></li>
+      <li><a href="#save">14. 저장과 형식 변환</a></li>
+      <li><a href="#print3d">15. 3D 프린터로 뽑기</a></li>
+      <li><a href="#log">16. 로그 패널</a></li>
+      <li><a href="#settings">17. 설정</a></li>
+      <li><a href="#web">18. 웹 버전</a></li>
+      <li><a href="#keys">19. 단축키</a></li>
+      <li><a href="#data">20. 데이터와 제거</a></li>
+      <li><a href="#trouble">21. 문제 해결</a></li>
+      <li><a href="#license">22. 라이선스</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <img src="images/icon.svg" alt="">
+      <div>
+        <h1>My3DObjects 사용 설명서</h1>
+        <p>사진 한 장을 3D 물체로 바꾸고, 3D 파일을 열어 보고, 다른 형식이나 3D 프린터용 파일로 저장하는 프로그램입니다.</p>
+      </div>
+    </header>
+
+    <h2 id="intro">1. 소개</h2>
+    <p>My3DObjects는 <b>Stable Fast 3D</b> · <b>SPAR3D</b>(Stability AI), <b>TripoSR</b>(Tripo AI · Stability AI), <b>TRELLIS</b>(Microsoft), <b>Hunyuan3D</b>(Tencent)를 <b>이 컴퓨터에서 직접</b> 실행해 이미지를 3D 물체로 바꿉니다. Windows · macOS · Linux 데스크톱 앱과 웹 브라우저에서 같은 화면으로 동작합니다.</p>
+    <ul>
+      <li><b>로컬 실행이 기본</b> — 이미지가 컴퓨터 밖으로 나가지 않습니다. 유료 Stability AI API는 설정에서 직접 켜야만 쓰입니다.</li>
+      <li><b>GPU가 있으면 GPU, 없으면 CPU</b> — 따로 고를 필요가 없습니다. GPU에서 실패하면 자동으로 CPU에서 다시 변환합니다.</li>
+      <li><b>자동 설치</b> — Python, PyTorch, 모델을 처음 실행할 때 알아서 설치합니다. 과정은 하단 로그 패널에 보입니다.</li>
+      <li><b>3D 뷰어 · 변환기</b> — GLB, glTF, OBJ, STL, PLY, FBX, DAE, 3MF, 3DS, USDZ 등을 열고 GLB, glTF, OBJ, STL, PLY, USDZ, 3MF, AMF, DAE, VRML, VTK, PCD, XYZ로 내보냅니다. 여러 방향의 그림을 A4로 인쇄합니다.</li>
+      <li><b>3D 프린터로 바로</b> — mm 크기 · Z 위쪽 · 바닥에 놓기 · 구멍 메우기 · 면 방향 정리를 거친 3MF(색 포함) · STL로 저장하고, 닫힌(수밀) 메시인지 보여 줍니다 (<a href="#print3d">15장</a>).</li>
+      <li><b>튜토리얼과 예제</b> — 실제 화면을 움직이며 33단계로 안내하는 튜토리얼과, 바로 열어 볼 수 있는 예제 이미지 17장 · 3D 파일이 들어 있습니다.</li>
+    </ul>
+    <figure><img src="images/main.png" alt="변환 결과를 보여 주는 메인 화면"><figcaption>예제 머그컵을 변환한 모델. 무한 격자, 좌표축, 눈금자, 광원 손잡이, 오른쪽 설정 패널, 아래 로그 패널</figcaption></figure>
+
+    <h2 id="install">2. 설치와 첫 실행</h2>
+    <ol class="steps">
+      <li>설치 파일(Windows <code>My3DObjects_1.0.0_x64-setup.exe</code>, macOS <code>.dmg</code>, Linux <code>.AppImage</code>/<code>.deb</code>)을 실행합니다.</li>
+      <li>프로그램을 처음 열면 <b>엔진</b>이 자동으로 설치됩니다. 순서는 다음과 같습니다.
+        <table>
+          <tr><th>단계</th><th>내용</th><th>크기(대략)</th></tr>
+          <tr><td>uv · Python</td><td>엔진 전용 Python 3.11 (시스템 Python은 건드리지 않음)</td><td>60 MB</td></tr>
+          <tr><td>PyTorch</td><td>NVIDIA GPU가 있으면 CUDA 판, 없으면 CPU 판, Mac은 기본 판(Apple GPU)</td><td>CUDA 2.5 GB · CPU 200 MB</td></tr>
+          <tr><td>라이브러리</td><td>transformers, trimesh, rembg 등</td><td>500 MB</td></tr>
+          <tr><td>배경 제거 모델</td><td>u2net</td><td>176 MB</td></tr>
+          <tr><td>변환 모델</td><td>고른 모델의 코드와 가중치 (처음 쓸 때)</td><td>SF3D 4 GB · SPAR3D 4.5 GB · TripoSR 1.7 GB · TRELLIS 3.9 GB · Hunyuan3D 3.8–7.4 GB</td></tr>
+        </table>
+      </li>
+      <li>설치가 끝나면 상태 표시줄 오른쪽에 <b>준비됨 · (장치 이름)</b>이 나타납니다. 이후 실행에서는 설치를 건너뜁니다.</li>
+    </ol>
+    <div class="tip"><b>Stable Fast 3D · SPAR3D의 가중치는 약관 동의가 필요합니다.</b> Hugging Face 계정으로 모델 페이지(<a href="https://huggingface.co/stabilityai/stable-fast-3d">SF3D</a>, <a href="https://huggingface.co/stabilityai/stable-point-aware-3d">SPAR3D</a>)에서 약관에 동의하고, <a href="https://huggingface.co/settings/tokens">Access Tokens</a>에서 Read 토큰을 만들어 <b>설정 → 엔진 → Hugging Face 토큰</b>에 붙여 넣으면 설치가 이어집니다. 토큰이 필요하다는 안내 상자가 화면 위에도 나타납니다. 토큰 없이 바로 쓰려면 TripoSR이나 TRELLIS를 고르세요(약관 동의 불필요).</div>
+    <figure class="narrow"><img src="images/engine-install.png" alt="엔진 설치 진행"><figcaption>설치 중에는 3D 화면 위에 단계와 진행률이 보입니다</figcaption></figure>
+
+    <h2 id="screen">3. 화면 구성</h2>
+    <p>창에는 따로 제목 표시줄이 없고 <b>툴바가 그 역할</b>을 합니다. 맨 왼쪽에 프로그램 아이콘이 있고, 공간이 넉넉하면 이름과 버전도 보입니다. 툴바의 빈 곳을 끌면 창이 움직이고, 두 번 누르면 최대화됩니다. 맨 오른쪽에 <b>최소화 · 최대화 · 닫기</b> 단추가 있고, 창 크기는 상태 표시줄 오른쪽 끝의 손잡이나 창 가장자리를 끌어 바꿉니다.</p>
+    <table>
+      <tr><th>영역</th><th>내용</th></tr>
+      <tr><td>툴바 (위)</td><td>프로그램 아이콘, 홈 · 파일 메뉴(<b>3D 프린트용 저장</b> 포함) · <b>인쇄</b>, 이미지/3D 파일 열기, <b>모델 선택</b> 드롭다운과 <b>3D로 변환</b>, <b>저장 · 내보내기</b> · 화면 저장, 보기(화면 맞춤 · 방향 · 자동 회전 · 와이어프레임 · 격자 · 좌표축 · 눈금자 · 경계 상자 · 광원 손잡이), 패널 표시. 오른쪽 끝에 테마 · 언어 · 도움말(사용 설명서 · 튜토리얼) · 설정 · 정보, 그리고 창 단추</td></tr>
+      <tr><td>입력 패널 (왼쪽)</td><td>입력 이미지, 모델이 본 이미지(배경 제거 후), 이번 실행의 기록(변환 결과와 연 파일)</td></tr>
+      <tr><td>3D 화면 (가운데)</td><td>모델, 무한 격자, 좌표축, 눈금자, 광원, 방향 큐브(오른쪽 아래)</td></tr>
+      <tr><td>설정 패널 (오른쪽)</td><td>변환 · 장면 · 광원 · 재질 · 모델 · 카메라 탭</td></tr>
+      <tr><td>로그 패널 (아래)</td><td>설치와 변환의 모든 과정</td></tr>
+      <tr><td>상태 표시줄 (맨 아래)</td><td>지금 하는 일과 진행률, 정점 · 삼각형 수, 모델, 엔진 상태와 장치</td></tr>
+    </table>
+    <p>왼쪽 · 오른쪽 패널은 창 아래(상태 표시줄)까지 이어지고, 로그 패널은 그 사이 가운데에 있습니다. 패널은 안쪽 경계를 끌어 폭을 바꾸고 머리글의 버튼으로 접습니다. 로그 패널은 위쪽 경계를 끌어 높이를 바꿉니다.</p>
+
+    <h2 id="start">4. 시작 화면</h2>
+    <figure><img src="images/start.png" alt="시작 화면"><figcaption>시작 화면</figcaption></figure>
+    <p>프로그램을 열면 시작 화면이 나옵니다. 이미지 열기 · 3D 파일 열기 · 튜토리얼 · 사용 설명서 버튼, 사용 순서, 최근 파일과 <b>예제</b>, 엔진 상태와 모델 목록, 지원 형식, 배경 설정이 있습니다. 툴바의 <b>홈</b> 버튼으로 언제든 보이거나 숨길 수 있고, <b>프로그램을 시작할 때 이 화면 보이기</b>를 끄면 시작할 때 바로 3D 화면이 나옵니다. 시작 화면에서는 좌우 패널과 로그 패널이 보이지 않고, 툴바의 패널 단추도 꺼집니다.</p>
+    <ul>
+      <li><b>패널 옮기기 · 크기 바꾸기</b>: 제목 앞의 ⠿ 를 끌어 옮기고, 오른쪽 아래 모서리를 끌어 크기를 바꿉니다. 패널은 12열 격자에 맞춰 놓이며, 끄는 동안 놓일 자리가 점선 실루엣으로 보이고 그 자리에 있던 패널은 아래로 밀려납니다. 오른쪽 위 <b>자동 정렬</b>은 처음 배치로 되돌립니다. 배치는 저장됩니다.</li>
+      <li><b>배경</b>: 움직이는 배경 21가지(큐브, 은하, 별빛, 물결 …) 가운데 고르고, 투명도 · 움직임 속도 · 자동 변경 간격 · 무작위 순서를 정합니다. 설정 → 화면에도 있습니다.</li>
+    </ul>
+    <h3>예제</h3>
+    <p>시작 화면의 <b>예제</b> 목록과 파일 메뉴에서 바로 엽니다. 프로젝트의 <code>samples/</code>에도 있습니다.</p>
+    <table>
+      <tr><th>종류</th><th>파일</th></tr>
+      <tr><td>변환할 이미지 — 공개 예제 (TRELLIS · TripoSR, MIT)</td><td>dragon · cottage · mushroom-house · mech · lantern · mailbox · biplane · locomotive · chair · hamburger · teapot · fox (teapot · fox는 회색 배경이라 배경 자동 제거를 볼 수 있음)</td></tr>
+      <tr><td>변환할 이미지 — 직접 만든 것 (투명 배경 PNG)</td><td>robot · mug · pawn · tree · toy-car</td></tr>
+      <tr><td>3D 파일 (형식마다 하나)</td><td>robot.glb · shapes.gltf · mug.obj(+mtl) · pawn.stl · tree.ply · toy-car.usdz</td></tr>
+      <tr><td>변환 결과</td><td>mug-sf3d.glb (Stable Fast 3D) · robot-triposr.glb (TripoSR)</td></tr>
+    </table>
+    <h3>튜토리얼</h3>
+    <figure><img src="images/tutorial.png" alt="튜토리얼"><figcaption>튜토리얼: 화면의 해당 부분을 테두리로 표시하고 오른쪽 아래 카드로 설명합니다</figcaption></figure>
+    <p>프로그램을 시작하면 <b>튜토리얼을 실행할까요?</b> 창이 나옵니다. [튜토리얼 시작] 또는 [나중에]를 고르고, <b>다음에 시작할 때도 묻기</b>를 끄면 다시 묻지 않습니다(설정 → 화면 → 튜토리얼에서 다시 켬). 튜토리얼은 시작 화면의 [튜토리얼], 툴바의 도움말 메뉴, 설정 → 화면에서도 엽니다.</p>
+    <ul>
+      <li>8개 장 33단계: 시작 화면, 화면 구성, 이미지를 3D로, 3D 화면, 광원, 재질과 모델, 저장 · 내보내기 · 인쇄, 설정과 엔진.</li>
+      <li>단계마다 예제를 열거나 탭 · 메뉴를 펼쳐 그 상태를 직접 보여 줍니다.</li>
+      <li><kbd>→</kbd>/<kbd>Space</kbd> 다음, <kbd>←</kbd> 이전, <kbd>Esc</kbd> 닫기. 카드는 머리를 끌어 옮기고, 장 목록으로 건너뛰고, ▶ 자동 재생합니다. 멈춘 곳은 기억해 두었다가 이어서 봅니다.</li>
+    </ul>
+
+    <h2 id="convert">5. 이미지를 3D로 변환</h2>
+    <ol class="steps">
+      <li><b>이미지 열기</b>(<kbd>Ctrl</kbd>+<kbd>O</kbd>)로 사진을 엽니다. 창에 끌어다 놓아도 됩니다. PNG, JPG(JFIF), WebP, AVIF, GIF(첫 장면), BMP, ICO, SVG, TIFF를 읽습니다. TIFF는 입력 패널에서 미리 볼 수 없지만 변환은 됩니다.</li>
+      <li>툴바의 모델 드롭다운에서 모델을 고릅니다 (<a href="#models">6장</a>).</li>
+      <li><b>3D로 변환</b>(<kbd>F5</kbd>)을 누릅니다. 3D 화면에 단계(배경 제거 → 모델 계산 → 메시 만들기 → UV 펼치기 → 텍스처 굽기)와 진행률이 보이고, <b>취소</b>(<kbd>Esc</kbd>)로 멈출 수 있습니다.</li>
+      <li>끝나면 결과가 3D 화면에 나타나고 왼쪽 <b>기록</b>에 쌓입니다. 왼쪽 패널의 <b>모델이 본 이미지</b>는 배경을 지우고 가운데에 맞춘 그림입니다.</li>
+    </ol>
+    <h3>변환 옵션 (설정 패널 → 변환, 또는 변환 설정 창)</h3>
+    <p>툴바의 <b>3D로 변환</b> 옆 단추(슬라이더 모양)나 설정 패널의 <b>설정 창</b> 단추를 누르면 <b>변환 설정</b> 창이 열립니다. 매개변수가 <b>입력 이미지 · 모델 · 표면 다듬기</b> 세 묶음으로 나뉘어 있고, 바꾼 값은 바로 저장됩니다. 묶음마다 ⟳ 단추로 그 묶음만, 아래 <b>모두 기본값으로</b>로 전부를 추천값으로 되돌립니다.</p>
+    <table>
+      <tr><th>옵션</th><th>설명</th></tr>
+      <tr><td>배경 자동 제거</td><td>사진의 배경을 지우고 물체만 씁니다. 이미 투명 배경인 PNG는 그대로 씁니다.</td></tr>
+      <tr><td>물체 크기 비율</td><td>물체가 그림에서 차지하는 비율(0.5–1, 기본 0.85, SPAR3D 0.75)</td></tr>
+      <tr><td>텍스처 해상도 (SF3D · SPAR3D)</td><td>자동은 GPU 1024, CPU 512 픽셀. 2048은 선명하지만 느립니다.</td></tr>
+      <tr><td>리메시 · 정점 수 (SF3D · SPAR3D)</td><td>메시를 고르게 다시 만들고 정점 수를 줄입니다(리메시 라이브러리가 설치된 경우).</td></tr>
+      <tr><td>메시 해상도 · 표면 임계값 (TripoSR)</td><td>표면을 찾는 격자 해상도(자동은 GPU 256, CPU 192)와 표면으로 볼 밀도 값</td></tr>
+      <tr><td>똑바로 세우기</td><td>위에서 찍은 사진은 모델이 앞으로 기운 결과를 냅니다. 카메라가 기울어 있었으면 옆으로도 기웁니다. 켜 두면(추천) 앞뒤(X축)와 옆(Z축)으로 각각 ±35° 안에서 물체가 가장 반듯하게 서는 각도를 찾아 세웁니다. 체스 말이나 인형처럼 키가 큰 물체는 가로로 자른 단면들의 가운데를 잇는 중심선이 수직이 되게 세웁니다. 비스듬한 것이 원래 모양이면 끕니다.</td></tr>
+      <tr><td>작은 조각 지우기 (%)</td><td>가장 큰 덩어리보다 이 비율보다 작은, 떨어져 떠 있는 조각을 지웁니다(기본 0.5). 0이면 모두 남깁니다.</td></tr>
+      <tr><td>면 세분화</td><td>다듬기 전에 삼각형을 넷으로 나눕니다(단계마다 면 수 ×4). 각진 면이 둥글게 펴집니다. SF3D · SPAR3D · TripoSR 추천 1, TRELLIS 0.</td></tr>
+      <tr><td>표면 다듬기</td><td>울퉁불퉁한 표면을 고르게 하는 횟수(부피 유지). 0은 그대로. SF3D · SPAR3D · TripoSR 추천 10, TRELLIS 2.</td></tr>
+      <tr><td>추론 단계 · 이미지 따르기 강도 · 형상 해상도 · 최대 면 수 · 시드 (Hunyuan3D)</td><td>기본은 Tencent 데모의 추천값(단계 30, Turbo 5 · 강도 5 · 해상도 256 · 면 40,000 · 시드 1234)입니다. 시드를 바꾸면 다른 모양이 나옵니다.</td></tr>
+      <tr><td>이미지 따르기 강도 · 시드 (SPAR3D)</td><td>점 구름을 만드는 확산 모델의 강도(기본 3)와 시드(기본 0)</td></tr>
+      <tr><td>구조 단계 수 · 구조 이미지 따르기 · 세부 단계 수 · 세부 이미지 따르기 · 시드 (TRELLIS)</td><td>1단계(물체가 차지하는 칸 찾기)와 2단계(칸마다 모양 · 색 채우기)의 단계 수와 강도. 기본은 TRELLIS 데모값(12 · 7.5 · 12 · 3 · 시드 0)입니다. 단계를 줄이면 빨라지고 거칠어집니다.</td></tr>
+    </table>
+    <p>모든 옵션의 기본값은 각 모델의 <b>추천값</b>이고, 풍선 도움말 끝에 추천값이 적혀 있습니다. <b>추천값으로</b> 단추가 그 모델(버전)의 옵션을 되돌립니다. 옵션은 모델과 버전마다 따로 저장됩니다.</p>
+    <p><b>결과에 다시 적용</b>: 표면 다듬기 묶음(조각 지우기 · 세분화 · 다듬기 · 똑바로 세우기)은 다시 변환하지 않고 지금 보이는 결과에 바로 적용할 수 있습니다. 엔진이 모델이 처음 만든 메시를 가지고 있다가 그것부터 다시 다듬으므로, 여러 번 바꿔 봐도 결과가 뭉개지지 않습니다. 이 엔진에서 방금 변환한 결과에만 쓸 수 있습니다.</p>
+    <div class="tip">물체 하나가 가운데에 크게, 배경과 잘 구분되게 찍힌 사진이 가장 잘 됩니다. 정면보다 약간 위·옆에서 본 사진이 좋습니다.</div>
+
+    <h2 id="models">6. 모델 고르기</h2>
+    <figure class="narrow"><img src="images/model-menu.png" alt="모델 선택 메뉴"><figcaption>툴바의 모델 드롭다운</figcaption></figure>
+    <table>
+      <tr><th></th><th>Stable Fast 3D</th><th>SPAR3D</th><th>TripoSR</th><th>TRELLIS</th></tr>
+      <tr><td>만든 곳</td><td>Stability AI</td><td>Stability AI</td><td>Tripo AI · Stability AI</td><td>Microsoft</td></tr>
+      <tr><td>결과</td><td>UV 펼침 + PBR 텍스처(색, 법선, 거칠기, 금속성)</td><td>SF3D와 같은 텍스처 메시, 뒷면이 더 정확</td><td>정점 색 메시</td><td>정점 색 메시, 모양 · 색이 가장 정교한 편</td></tr>
+      <tr><td>시간 (RTX 4070 노트북)</td><td>약 1.5초</td><td>몇 초</td><td>약 6초</td><td>수십 초</td></tr>
+      <tr><td>시간 (CPU 16스레드)</td><td>약 30초</td><td>1분 안팎</td><td>약 20초</td><td>몇 분</td></tr>
+      <tr><td>GPU 메모리</td><td>6 GB 이상</td><td>10.5 GB (11 GB 미만이면 저메모리 모드 약 7 GB)</td><td>4 GB 이상</td><td>12 GB 이상 권장</td></tr>
+      <tr><td>라이선스</td><td colspan="2">Stability AI Community License (약관 동의 · 토큰 필요)</td><td colspan="2">MIT</td></tr>
+      <tr><td>내려받기</td><td>4 GB</td><td>3.6 GB + CLIP 0.9 GB</td><td>1.7 GB</td><td>2.7 GB + DINOv2 1.2 GB</td></tr>
+    </table>
+    <p>SPAR3D와 TRELLIS의 시간은 공개된 값을 바탕으로 한 어림입니다.</p>
+    <p>처음 고른 모델은 변환할 때(또는 메뉴의 내려받기 버튼을 누를 때) 자동으로 설치됩니다. 한 번에 한 모델만 메모리에 올라가며, 바꾸면 이전 모델을 내리고 새 모델을 불러옵니다.</p>
+    <h3>SPAR3D</h3>
+    <p>Stable Fast 3D의 후속판입니다. 작은 확산 모델이 물체 전체(사진에 안 보이는 뒷면 포함)의 색 점 구름을 먼저 그리고, 그 점 구름과 사진으로 메시를 만듭니다. 결과는 SF3D와 같은 UV + PBR 텍스처 메시입니다. GPU에 빈 메모리가 11 GB보다 적으면 부품을 번갈아 GPU에 올리는 저메모리 모드로 자동으로 돕니다(조금 느림). 재질 · 조명 추정에 쓰는 AlphaCLIP과 CLIP 가중치(0.9 GB)도 함께 설치됩니다.</p>
+    <h3>TRELLIS</h3>
+    <p>Microsoft의 1.1B 모델입니다. 1단계에서 64³ 격자 중 물체가 차지하는 칸을 찾고, 2단계에서 그 칸마다 모양과 색을 채운 뒤 메시로 꺼냅니다. 이 프로그램은 <b>메시만</b> 꺼내므로 결과는 정점 색 메시입니다(TRELLIS의 가우시안 · 텍스처 굽기는 CUDA 전용 컴파일 렌더러가 필요해 쓰지 않습니다). 원래 필요한 xformers · spconv · kaolin 대신 같은 계산을 하는 PyTorch 코드를 쓰므로 컴파일 없이 설치되고 CPU · Apple GPU에서도 돌지만, CPU에서는 몇 분 걸립니다. 이미지 인코더 DINOv2(1.2 GB)가 함께 설치됩니다.</p>
+    <h3>Hunyuan3D와 버전</h3>
+    <p><b>Hunyuan3D</b>(Tencent)는 버전이 여럿이라 모델 메뉴의 Hunyuan3D 아래 <b>버전</b> 단추나 설정 패널의 <b>버전</b> 상자로 고릅니다. 버전마다 가중치 · 옵션 · 설치 상태가 따로입니다. 형상만 만들며(텍스처 없음, 밝은 회색), 텍스처 모델은 컴파일된 CUDA 확장과 20 GB 이상의 GPU 메모리가 필요해 넣지 않았습니다.</p>
+    <table>
+      <tr><th>버전</th><th>특징</th><th>내려받기</th></tr>
+      <tr><td>2.1</td><td>최신 공개판(2025년 6월), 가장 세밀함. GPU 메모리 10 GB 권장</td><td>7.4 GB</td></tr>
+      <tr><td>2.0 · 2.0 Turbo</td><td>기본판과 5단계로 줄인 빠른 판</td><td>4.9 · 5.3 GB</td></tr>
+      <tr><td>2.0 mini · mini Turbo</td><td>작은 판(0.6B), 가볍고 빠름</td><td>3.8 · 4.2 GB</td></tr>
+    </table>
+    <p>GPU에 빈 메모리가 버전이 원하는 만큼 없으면 이미지 인코더 · 확산 모델 · 형상 디코더가 차례로 GPU에 올라갑니다(조금 느림). 다른 프로그램이 GPU 메모리를 쓰고 있으면 이렇게 됩니다.</p>
+    <div class="tip"><b>지역 제한 라이선스</b> — Tencent Hunyuan 3D Community License는 사용 지역에서 <b>유럽 연합 · 영국 · 대한민국</b>을 제외합니다. 처음 고르면 라이선스 확인 창이 뜨고, 내용을 읽고 확인란을 체크해 <b>동의하고 사용</b>을 눌러야 설치됩니다. 허락된 지역과 조건에서만 쓰는 것은 사용자의 책임입니다.</div>
+
+    <h2 id="device">7. GPU와 CPU</h2>
+    <ul>
+      <li><b>자동</b>(기본): NVIDIA GPU(CUDA)가 있으면 GPU, Apple Silicon Mac은 Apple GPU(MPS), 그 밖에는 CPU를 씁니다.</li>
+      <li>GPU 메모리가 모자라거나 드라이버 오류로 GPU에서 실패하면, 모델을 CPU로 옮겨 <b>같은 이미지를 자동으로 다시 변환</b>합니다. 로그에 경고가 남고, 설정 패널의 <b>마지막 변환</b>에 "GPU 실패 → CPU"가 표시됩니다.</li>
+      <li>설정 패널 → 변환 → <b>계산 장치</b>에서 GPU 또는 CPU로 고정할 수 있습니다.</li>
+      <li>GPU가 없는 컴퓨터에는 처음부터 CPU 판 PyTorch(약 200 MB)가 설치됩니다.</li>
+    </ul>
+
+    <h2 id="open">8. 3D 파일 열기</h2>
+    <p><b>3D 파일 열기</b>(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>) 또는 끌어다 놓기로 엽니다.</p>
+    <table>
+      <tr><th>형식</th><th>확장자</th></tr>
+      <tr><td>glTF</td><td>.glb .gltf</td></tr>
+      <tr><td>Wavefront OBJ (+MTL, 텍스처)</td><td>.obj</td></tr>
+      <tr><td>STL · PLY</td><td>.stl .ply</td></tr>
+      <tr><td>FBX · COLLADA · KMZ</td><td>.fbx .dae .kmz</td></tr>
+      <tr><td>3MF · AMF · 3DS · LightWave</td><td>.3mf .amf .3ds .lwo</td></tr>
+      <tr><td>USD</td><td>.usdz .usda .usdc .usd</td></tr>
+      <tr><td>VRML · VTK</td><td>.wrl .vrml .vtk .vtp</td></tr>
+      <tr><td>점 구름</td><td>.pcd .xyz</td></tr>
+    </table>
+    <p>OBJ의 MTL과 텍스처, .gltf의 .bin과 그림처럼 <b>함께 쓰는 파일</b>은 데스크톱 앱에서는 같은 폴더에서 자동으로 찾습니다. 웹 버전에서는 열기 대화상자에서 그 파일들을 <b>함께 선택</b>하거나 함께 끌어다 놓으세요.</p>
+
+    <h2 id="view">9. 3D 화면 다루기</h2>
+    <table>
+      <tr><th>마우스</th><th>동작</th></tr>
+      <tr><td>왼쪽 끌기</td><td>모델 주위로 회전</td></tr>
+      <tr><td>오른쪽 끌기 (또는 <kbd>Shift</kbd>+왼쪽)</td><td>화면 이동</td></tr>
+      <tr><td>휠</td><td>확대 · 축소</td></tr>
+      <tr><td>방향 큐브 (오른쪽 아래) 클릭</td><td>그 축 방향에서 보기</td></tr>
+    </table>
+    <p><b>오른쪽 클릭 메뉴</b>: 3D 화면, 입력 이미지, 기록, 로그에서 오른쪽 단추를 누르면(끌지 않고) 그 자리에서 쓸 수 있는 명령이 아이콘과 함께 나옵니다 — 화면 맞춤 · 방향, 격자 · 축 · 눈금자 켜고 끄기, 저장 · 내보내기 · 인쇄 · 화면 그림 복사, 이미지 비우기, 로그 줄 복사 등.</p>
+    <p>툴바의 <b>화면 맞춤</b>(<kbd>F</kbd>)은 모델과 광원이 보이게 카메라를 맞추고, 옆의 화살표 메뉴로 정면 · 뒷면 · 왼쪽 · 오른쪽 · 윗면 · 아랫면 · 등각 방향을 고릅니다. <b>자동 회전</b>은 모델 주위를 천천히 돕니다(속도는 카메라 탭).</p>
+
+    <h2 id="grid">10. 격자 · 좌표축 · 눈금자</h2>
+    <figure><img src="images/scene.png" alt="장면 설정과 경계 상자"><figcaption>장면 탭과 경계 상자 · 치수</figcaption></figure>
+    <ul>
+      <li><b>격자</b>: 바닥(Y=0)에 끝없이 이어지는 평면입니다. 큰 칸 하나가 <b>5×5</b>로 나뉘어 있고, 멀어질수록 흐려집니다. 큰 칸 크기는 자동(모델 크기에 맞춤: 1 m 모델이면 1 m 칸, 작은 칸 20 cm)이거나 직접 고릅니다. 나누기 수 · 진하기 · 색도 바꿀 수 있습니다.</li>
+      <li><b>좌표축</b>: X(빨강) · Y(초록, 위) · Z(파랑). 음의 방향은 점선으로 보입니다.</li>
+      <li><b>눈금자</b>: X · Z 축을 따라 작은 칸마다 눈금, 큰 칸마다 길이가 쓰여 있고, 모델 뒤 모서리에 높이(Y) 눈금자가 섭니다. 단위는 m · cm · mm · in 또는 표시 안 함.</li>
+      <li><b>경계 상자</b>: 모델을 감싸는 상자와 X · Y · Z 치수를 보입니다.</li>
+    </ul>
+    <p>배경(테마 색 · 단색 · 그라데이션 · 환경 그림), 환경 반사광, 톤 매핑, 노출, 그림자도 장면 탭에서 바꿉니다.</p>
+
+    <h2 id="lights">11. 광원</h2>
+    <figure><img src="images/lights.png" alt="광원 탭"><figcaption>광원 탭. 화면의 광원 공에 이동 손잡이가 붙어 있습니다</figcaption></figure>
+    <ul>
+      <li>3D 화면의 <b>광원 공을 눌러 끌면</b> 바로 옮겨집니다. 선택한 광원에는 이동 손잡이가 붙어, 화살표를 끌면 한 축으로만, 사각형을 끌면 한 평면 위로만 움직입니다.</li>
+      <li>점선은 광원이 비추는 방향(모델 가운데)을 가리킵니다.</li>
+      <li>광원 종류: <b>태양광</b>(방향광, 그림자) · <b>점광원</b> · <b>스포트라이트</b> · <b>하늘광</b>(위·아래 색) · <b>주변광</b>. 각 광원의 켜기/끄기, 색, 세기, 위치, 그림자, 각도 등을 바꿉니다.</li>
+      <li>위치는 모델 크기 단위로 저장되므로, 다른 크기의 모델을 열어도 광원이 같은 자리에 있습니다. 광원 배치는 다음 실행에도 그대로입니다. <b>기본 광원으로</b>는 처음 세 광원으로 되돌립니다.</li>
+    </ul>
+
+    <h2 id="material">12. 재질과 표시</h2>
+    <table>
+      <tr><th>재질</th><th>설명</th></tr>
+      <tr><td>원래 재질</td><td>파일에 든 텍스처와 재질</td></tr>
+      <tr><td>점토</td><td>색 없이 모양만 보이는 회색(색 변경 가능)</td></tr>
+      <tr><td>법선</td><td>면의 방향을 색으로</td></tr>
+      <tr><td>정점 색</td><td>정점에 저장된 색(TripoSR 결과)</td></tr>
+    </table>
+    <p>와이어프레임 · 면마다 평평하게(Flat) · 뒷면도 그리기를 켤 수 있습니다. 표시 재질은 보기만 바꾸며, 저장할 때는 원래 재질로 저장됩니다.</p>
+
+    <h2 id="transform">13. 모델 회전 · 배율</h2>
+    <p>설정 패널 → 모델 탭에서 파일 정보(정점 · 삼각형 · 재질 · 텍스처 수, 크기)를 보고, 회전(도)과 배율을 바꿉니다. <b>X −90°</b> 같은 버튼은 Z-up 파일을 바로 세울 때 편합니다. 모델은 항상 바닥 위에 놓이며, 회전과 배율은 저장할 때 함께 적용됩니다.</p>
+
+    <h2 id="save">14. 저장과 형식 변환</h2>
+    <p>파일 단추 바로 오른쪽의 <b>저장</b>(<kbd>Ctrl</kbd>+<kbd>S</kbd>)은 보이는 모델을 GLB로 저장합니다(회전 · 배율을 바꾸지 않았으면 원래 파일 그대로). <b>내보내기</b>(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>) 메뉴에서 다른 형식이나 화면 그림(PNG)을 고릅니다. 어떤 형식으로 연 파일이든 다른 형식으로 바꿔 내보낼 수 있습니다.</p>
+    <table>
+      <tr><th>형식</th><th>텍스처</th><th>쓰임</th></tr>
+      <tr><td>glTF Binary (.glb)</td><td>포함</td><td>웹 · 게임 엔진 · Blender (권장)</td></tr>
+      <tr><td>glTF (.gltf)</td><td>포함(파일 안에)</td><td>사람이 읽는 JSON</td></tr>
+      <tr><td>Wavefront OBJ (.obj)</td><td>없음</td><td>여러 프로그램 호환</td></tr>
+      <tr><td>STL (.stl, 바이너리 / ASCII)</td><td>없음</td><td>3D 프린팅 (크기 · 방향 그대로 — 프린터용은 <a href="#print3d">15장</a>)</td></tr>
+      <tr><td>PLY (.ply, 바이너리 / ASCII)</td><td>정점 색</td><td>점 구름 · 스캔 데이터</td></tr>
+      <tr><td>USDZ (.usdz)</td><td>포함</td><td>Apple AR Quick Look</td></tr>
+      <tr><td>3D Manufacturing (.3mf)</td><td>재질 색 · 정점 색</td><td>3D 프린팅 (슬라이서)</td></tr>
+      <tr><td>AMF (.amf)</td><td>재질 색</td><td>3D 프린팅</td></tr>
+      <tr><td>COLLADA (.dae)</td><td>재질 색 · 정점 색</td><td>SketchUp · 여러 3D 프로그램</td></tr>
+      <tr><td>VRML 2.0 (.wrl)</td><td>재질 색 · 정점 색</td><td>오래된 CAD · 과학 도구</td></tr>
+      <tr><td>VTK (.vtk)</td><td>정점 색</td><td>ParaView · 과학 시각화</td></tr>
+      <tr><td>PCD · XYZ (.pcd, .xyz)</td><td>점 색</td><td>점 구름 (정점만, 면 없음)</td></tr>
+    </table>
+    <p>3MF · AMF · DAE 파일에는 설정 → 장면의 <b>단위</b>가 함께 기록됩니다(숫자는 그대로).</p>
+    <p><b>화면 저장</b>은 지금 보이는 화면을 PNG로 저장합니다. 왼쪽 기록의 저장 버튼은 그 결과를 원래 파일 그대로 저장합니다. 설정 → 파일에서 <b>변환 결과를 원본 이미지 옆에 자동 저장</b>을 켤 수 있습니다(데스크톱).</p>
+
+    <h3>인쇄</h3>
+    <figure><img src="images/print.png" alt="인쇄 창"><figcaption>인쇄 창: 왼쪽에서 고르고 오른쪽에서 미리 봅니다</figcaption></figure>
+    <p>저장 단추 오른쪽의 <b>인쇄</b>(<kbd>Ctrl</kbd>+<kbd>P</kbd>)는 모델을 그림으로 A4에 인쇄합니다.</p>
+    <table>
+      <tr><th>항목</th><th>설명</th></tr>
+      <tr><td>인쇄할 내용</td><td>지금 화면 · 4방향 한 장(정면 · 오른쪽 · 윗면 · 등각) · 6방향 한 장 · 방향마다 한 장</td></tr>
+      <tr><td>모델 정보</td><td>이름, 크기, 정점 · 삼각형 · 재질 · 텍스처 수, 원본 이미지와 모델, 날짜를 위에 넣습니다</td></tr>
+      <tr><td>흰 배경 · 격자 함께</td><td>잉크를 아끼는 흰 배경, 격자 · 좌표축 · 눈금자를 넣을지</td></tr>
+      <tr><td>프린터 · 매수 · 용지 방향 (데스크톱)</td><td>설치된 프린터 목록(기본 표시), 1~99부, 자동 · 세로 · 가로. [인쇄]는 고른 프린터로 바로 보내고, [시스템 인쇄 창…]은 운영체제 인쇄 창을 엽니다</td></tr>
+      <tr><td>미리 보기</td><td>인쇄될 장을 그대로 보여 주고, 여러 장이면 ◀ ▶로 넘깁니다</td></tr>
+    </table>
+
+    <h2 id="print3d">15. 3D 프린터로 뽑기</h2>
+    <figure><img src="images/print3d.png" alt="3D 프린트용 저장 창"><figcaption>3D 프린트용 저장: 왼쪽에서 크기 · 형식을 고르고 오른쪽 프린트 점검에서 결과를 확인합니다</figcaption></figure>
+    <p>파일 메뉴 · 내보내기 메뉴 · 3D 화면의 오른쪽 클릭 메뉴의 <b>3D 프린트용 저장</b>(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>)은 보이는 모델을 슬라이서(PrusaSlicer · Bambu Studio · OrcaSlicer · Cura 등)가 바로 쓸 수 있는 파일로 저장합니다. 일반 내보내기는 숫자를 그대로 쓰지만(변환 결과는 약 1 단위 = 1 m 크기, Y 위쪽), 프린트용 저장은 다음을 해 줍니다.</p>
+    <table>
+      <tr><th>항목</th><th>설명</th></tr>
+      <tr><td>크기 (mm) · 크기 기준</td><td><b>높이</b> 또는 <b>가장 긴 변</b>을 이 길이로 맞춥니다(비율 유지). 30 · 50 · 100 · 150 · 200 mm 단추로 바로 고릅니다.</td></tr>
+      <tr><td>파일 형식</td><td><b>3MF</b>(권장) — 단위 mm와 색이 들어갑니다. <b>STL</b> — 바이너리, 색 없음, 거의 모든 슬라이서에서 열림.</td></tr>
+      <tr><td>구멍 메우기</td><td>열린 가장자리를 찾아 막아 닫힌(수밀) 물체로 만듭니다. 슬라이서가 안과 밖을 구별하려면 필요합니다.</td></tr>
+      <tr><td>색 넣기 (3MF)</td><td>정점 색이나 텍스처 색을 3MF에 넣습니다. 여러 색 프린터(Bambu AMS, Prusa MMU)에서 칠할 수 있습니다.</td></tr>
+    </table>
+    <p>저장할 때는 화면에 보이는 그대로(모델 탭의 회전 · 배율 포함) <b>Z축이 위, 모델 앞면이 프린터 앞(−Y), 바닥 가운데(Z = 0)</b>에 놓고, 겹친 정점을 합치고(텍스처 이음매에서 갈라진 정점), 꼭짓점이 겹친 면과 중복된 면을 지우고, 구멍을 메우고, 이웃과 반대로 감긴 면을 맞추고, 안팎이 뒤집혔으면 바로잡습니다.</p>
+    <p>오른쪽 <b>프린트 점검</b>에는 결과가 바로 나옵니다: <b>닫힌 메시</b>인지(아니면 열린 모서리 · 셋 이상 겹친 모서리 수), 크기(X × Y × Z mm), 삼각형 수, 부피(cm³), 속을 꽉 채웠을 때의 PLA 무게(1.24 g/cm³, 최대값 — 실제는 채움 비율에 따라 훨씬 적음), 고친 것.</p>
+    <div class="tip"><b>잘 뽑으려면</b> — 먼저 모델 탭에서 물체가 바닥에 반듯이 서도록 돌려 두세요(누운 물체는 X −90° 등). 꼬리 · 깃털 · 가는 다리처럼 얇은 부분은 작게 뽑으면 사라지므로 크게 뽑거나 서포트를 씁니다. 닫히지 않음이 남으면 슬라이서의 수리 기능(PrusaSlicer "Fix through Netfabb", Bambu Studio "Repair")으로 마저 고칩니다. 바닥이 넓은 예제(chair · teapot · mushroom-house · lantern)가 처음 뽑아 보기 좋습니다.</div>
+
+    <h2 id="log">16. 로그 패널</h2>
+    <figure><img src="images/log.png" alt="로그 패널"><figcaption>로그 패널</figcaption></figure>
+    <p>설치(패키지 내려받기, 모델 내려받기), 모델 불러오기, 변환의 각 단계, 오류가 시간 순서대로 쌓입니다. 출처(앱 · 실행기 · 엔진)와 수준(디버그 · 정보 · 경고 · 오류)으로 거르고, 찾기 · 복사 · 파일로 저장 · 지우기를 할 수 있습니다. <kbd>Ctrl</kbd>+<kbd>L</kbd>로 보이거나 숨기고, 상태 표시줄의 엔진 상태를 눌러도 열립니다.</p>
+
+    <h2 id="settings">17. 설정</h2>
+    <figure><img src="images/settings-engine.png" alt="설정 - 엔진"><figcaption>설정 → 엔진</figcaption></figure>
+    <table>
+      <tr><th>탭</th><th>내용</th></tr>
+      <tr><td>모양</td><td>테마(어둡게 20 · 밝게 20 · 사용자 정의), 언어, 글꼴 · 크기 · 모양</td></tr>
+      <tr><td>엔진</td><td>변환 방법(이 컴퓨터 · 다른 컴퓨터의 엔진 · Stability AI API), 계산 장치, Hugging Face 토큰, 엔진 다시 시작 · 폴더 열기 · 다시 설치</td></tr>
+      <tr><td>화면</td><td>시작 화면, 툴바 글자, 상태 표시줄, 로그 패널</td></tr>
+      <tr><td>파일</td><td>기본 저장 형식, 자동 저장</td></tr>
+    </table>
+    <h3>변환 방법</h3>
+    <ul>
+      <li><b>이 컴퓨터 (로컬 엔진)</b> — 기본값. 이미지가 밖으로 나가지 않습니다.</li>
+      <li><b>다른 컴퓨터의 엔진</b> — GPU가 있는 다른 컴퓨터에서 엔진을 <code>npm run engine -- --host 0.0.0.0</code> 으로 띄우고 그 주소(예: <code>http://192.168.0.10:57660</code>)를 넣습니다.</li>
+      <li><b>Stability AI API (유료)</b> — 기본으로 꺼져 있습니다. 고를 때 확인을 받고, API 키가 있어야 하며, 변환마다 크레딧이 차감되고 이미지가 Stability AI로 전송됩니다. 쓰는 동안 상태 표시줄에 "Stability AI API (유료)"가 보입니다.</li>
+    </ul>
+
+    <h2 id="web">18. 웹 버전</h2>
+    <p>웹 버전은 같은 화면을 브라우저에서 엽니다. 변환은 이 컴퓨터에서 도는 엔진이 합니다.</p>
+    <ul>
+      <li><code>npm run web</code> — 개발 서버(<code>http://localhost:5196</code>)와 엔진(<code>http://127.0.0.1:57660</code>)을 함께 띄웁니다. 엔진은 데스크톱 앱과 같은 폴더를 쓰므로 한 번만 설치됩니다.</li>
+      <li><code>npm run engine</code> — 엔진만 띄웁니다. <code>--port</code>, <code>--host</code>, <code>--home</code>을 줄 수 있습니다.</li>
+      <li><code>npm run build</code> — <code>dist/</code>에 웹 페이지를 만듭니다. 어느 웹 서버에 올려도 되고, 엔진 주소는 설정 → 엔진에서 정합니다.</li>
+    </ul>
+
+    <h2 id="keys">19. 단축키</h2>
+    <table>
+      <tr><th>키</th><th>동작</th></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>이미지 열기</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td><td>3D 파일 열기</td></tr>
+      <tr><td><kbd>F5</kbd> 또는 <kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>3D로 변환</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>변환 취소</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>저장 (GLB)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>내보내기 (마지막 형식)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>인쇄</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>3D 프린트용 저장</td></tr>
+      <tr><td><kbd>F1</kbd></td><td>사용 설명서</td></tr>
+      <tr><td><kbd>F</kbd></td><td>화면 맞춤</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>로그 패널</td></tr>
+    </table>
+
+    <h2 id="data">20. 데이터와 제거</h2>
+    <table>
+      <tr><th>무엇</th><th>Windows</th><th>macOS / Linux</th></tr>
+      <tr><td>설정</td><td><code>%APPDATA%\My3DObjects\settings.json</code></td><td><code>~/Library/Application Support/My3DObjects</code> · <code>~/.config/My3DObjects</code></td></tr>
+      <tr><td>엔진 (Python, PyTorch, 모델 코드, 배경 제거 모델, TRELLIS의 DINOv2 · SPAR3D의 CLIP)</td><td><code>%LOCALAPPDATA%\My3DObjects\engine</code></td><td><code>~/Library/Application Support/My3DObjects/engine</code> · <code>~/.local/share/My3DObjects/engine</code></td></tr>
+      <tr><td>모델 가중치</td><td colspan="2">Hugging Face 공용 캐시 <code>~/.cache/huggingface</code> (다른 프로그램과 함께 씀)</td></tr>
+    </table>
+    <p>Windows에서 제거할 때 엔진(수 GB)과 설정을 지울지 따로 묻습니다. 공용 Hugging Face 캐시는 지우지 않습니다. 엔진을 처음부터 다시 설치하려면 설정 → 엔진 → <b>엔진 다시 설치</b>를 누릅니다.</p>
+
+    <h2 id="trouble">21. 문제 해결</h2>
+    <table>
+      <tr><th>증상</th><th>해결</th></tr>
+      <tr><td>"엔진에 연결할 수 없음" (웹)</td><td><code>npm run engine</code>이 실행 중인지, 설정 → 엔진의 주소가 맞는지 확인합니다.</td></tr>
+      <tr><td>"토큰 필요"</td><td><a href="#install">2장</a>의 방법으로 약관에 동의하고 토큰을 넣거나 TripoSR · TRELLIS를 씁니다.</td></tr>
+      <tr><td>설치 실패</td><td>로그 패널의 오류를 확인하고 <b>다시 시도</b>를 누릅니다. 네트워크(회사 방화벽 등)가 PyPI, download.pytorch.org, github.com, huggingface.co(TRELLIS는 dl.fbaipublicfiles.com, SPAR3D는 openaipublic.azureedge.net도)에 닿아야 합니다.</td></tr>
+      <tr><td>GPU가 있는데 CPU로 돎</td><td>NVIDIA 드라이버를 최신으로 업데이트한 뒤 설정 → 엔진 → 엔진 다시 설치를 누릅니다.</td></tr>
+      <tr><td>결과가 이상함</td><td>배경이 단순한 사진, 물체 크기 비율 조정, 다른 모델을 시도합니다.</td></tr>
+      <tr><td>TRELLIS가 GPU에서 실패하고 CPU로 돎</td><td>GPU 메모리가 모자란 것입니다(12 GB 이상 권장). 다른 프로그램을 닫거나, 구조 · 세부 단계 수를 줄이거나, 그대로 CPU 결과를 기다립니다.</td></tr>
+      <tr><td>슬라이서가 "구멍" · "non-manifold"를 알림</td><td>3D 프린트용 저장에서 <b>구멍 메우기</b>를 켜고, 프린트 점검이 "닫히지 않음"이면 슬라이서의 수리 기능을 씁니다.</td></tr>
+    </table>
+    <div class="tip">오류 창의 <b>오류 내용 복사</b>와 로그 패널의 <b>파일로 저장</b>으로 전체 내용을 한 번에 전달할 수 있습니다.</div>
+
+    <h2 id="license">22. 라이선스</h2>
+    <p>My3DObjects는 MIT 라이선스입니다. 모델은 프로그램에 들어 있지 않고 처음 쓸 때 내려받으며, 각자의 라이선스를 따릅니다.</p>
+    <ul>
+      <li><b>Stable Fast 3D</b> — Stability AI Community License. 연 매출 100만 달러 미만은 상업적 사용도 무료(등록 필요). <b>Powered by Stability AI</b>. This Stability AI Model is licensed under the Stability AI Community License, Copyright © Stability AI Ltd. All Rights Reserved.</li>
+      <li><b>SPAR3D</b> — Stability AI Community License (Stable Fast 3D와 같음). 함께 받는 AlphaCLIP은 Apache-2.0, CLIP 가중치는 MIT.</li>
+      <li><b>TripoSR</b> — MIT (Tripo AI &amp; Stability AI)</li>
+      <li><b>TRELLIS</b> — MIT (Microsoft). 함께 받는 FlexiCubes · DINOv2는 Apache-2.0.</li>
+      <li><b>Hunyuan3D 2.0 · 2.1</b> — Tencent Hunyuan 3D Community License. 유럽 연합 · 영국 · 대한민국은 허락 지역에서 제외되며, 월 사용자 100만 명 이상의 상업적 사용은 별도 허가가 필요합니다.</li>
+    </ul>
+    <p>컴파일이 필요한 확장(<code>texture_baker</code>, <code>uv_unwrapper</code>, <code>torchmcubes</code>, TRELLIS의 <code>xformers</code> · <code>spconv</code> · <code>kaolin</code>)은 같은 일을 하는 PyTorch · scikit-image 코드로 바꿔 실행합니다. 예제 그림 12장(dragon … fox)은 TRELLIS · TripoSR 저장소의 공개 예제(MIT)입니다. 자세한 내용은 설치 폴더의 <code>NOTICE.md</code>, <code>LICENSE-MODELS.md</code>에 있습니다.</p>
+
+    <footer>My3DObjects 1.0.0 · © SHKWON (knix008@naver.com) · MIT License · Powered by Stability AI</footer>
+  </main>
+</div>
+</body>
+</html>

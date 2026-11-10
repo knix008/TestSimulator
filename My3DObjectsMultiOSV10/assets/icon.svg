@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- My3DObjects: a picture turning into a 3D model, on a tile that has
+       thickness, gloss and a shadow so the whole icon reads as an object. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff8a66"/>
+      <stop offset="0.5" stop-color="#e5554c"/>
+      <stop offset="1" stop-color="#8a34f2"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a8322c"/>
+      <stop offset="1" stop-color="#4a1796"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.42"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ffe3da"/>
+    </linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffc2ae"/>
+      <stop offset="1" stop-color="#e5826c"/>
+    </linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b8a0ff"/>
+      <stop offset="1" stop-color="#6d4fd8"/>
+    </linearGradient>
+    <linearGradient id="photo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9fd8ff"/>
+      <stop offset="1" stop-color="#e8f6ff"/>
+    </linearGradient>
+    <radialGradient id="drop" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="contact" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#2a0d55" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#2a0d55" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="7"/>
+      <feOffset dx="5" dy="10" result="b"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.4"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- the shadow the tile casts, its thickness, then its face and gloss -->
+  <ellipse cx="256" cy="478" rx="206" ry="22" fill="url(#drop)"/>
+  <rect x="34" y="52" width="444" height="420" rx="100" fill="url(#side)"/>
+  <rect x="34" y="28" width="444" height="420" rx="100" fill="url(#face)"/>
+  <rect x="34" y="28" width="444" height="420" rx="100" fill="url(#gloss)"/>
+  <rect x="37" y="31" width="438" height="414" rx="97" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="3"/>
+
+  <!-- the picture it starts from: a photo card standing off the tile -->
+  <g filter="url(#soft)" transform="rotate(-8 152 150)">
+    <rect x="72" y="84" width="164" height="132" rx="14" fill="#ffffff"/>
+    <rect x="84" y="96" width="140" height="96" rx="8" fill="url(#photo)"/>
+    <path d="M86 190 134 136l30 32 22-20 38 42z" fill="#e5554c"/>
+    <circle cx="198" cy="122" r="12" fill="#f6b73c"/>
+  </g>
+
+  <!-- the arrow from picture to model -->
+  <g filter="url(#soft)">
+    <path d="M140 238c0 56 22 88 66 104" fill="none" stroke="#ffffff" stroke-width="17" stroke-linecap="round"/>
+    <path d="m192 306 24 36-40 10" fill="none" stroke="#ffffff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- … and the model it becomes: a shaded cube on its contact shadow -->
+  <ellipse cx="318" cy="414" rx="118" ry="22" fill="url(#contact)"/>
+  <path d="M318 178 430 240 318 302 206 240z" fill="url(#top)"/>
+  <path d="M206 240 318 302 318 420 206 358z" fill="url(#left)"/>
+  <path d="M430 240 318 302 318 420 430 358z" fill="url(#right)"/>
+  <path d="M206 240 318 178 430 240" fill="none" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M318 302v118" stroke="#ffffff" stroke-opacity="0.55" stroke-width="4"/>
+  <path d="M318 178 430 240 430 358 318 420 206 358 206 240z" fill="none" stroke="#3a1a5c" stroke-opacity="0.35" stroke-width="5" stroke-linejoin="round"/>
+</svg>
