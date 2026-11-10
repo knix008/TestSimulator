@@ -1,12 +1,23 @@
 // c samples for the classroom algorithms (src/algorithms/classroom.js).
 // Each program reads the input box on stdin and prints exactly expectedOutput().
 
-// Reading stdin, "key: value" lines and lists of integers.
-const io = String.raw`#include <stdio.h>
+// Helper blocks; each program includes only the ones it uses.
+const base = String.raw`#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
+/* Remove spaces at both ends of s (in place). */
+static char *trim(char *s) {
+    while (*s && isspace((unsigned char)*s)) s++;
+    size_t len = strlen(s);
+    while (len && isspace((unsigned char)s[len - 1])) s[--len] = '\0';
+    return s;
+}
+`;
+
+// Reading stdin and "key: value" lines.
+const keys = String.raw`
 /* Read the whole of stdin into one string. */
 static char *read_all(void) {
     size_t cap = 4096, n = 0;
@@ -18,14 +29,6 @@ static char *read_all(void) {
     }
     buf[n] = '\0';
     return buf;
-}
-
-/* Remove spaces at both ends of s (in place). */
-static char *trim(char *s) {
-    while (*s && isspace((unsigned char)*s)) s++;
-    size_t len = strlen(s);
-    while (len && isspace((unsigned char)s[len - 1])) s[--len] = '\0';
-    return s;
 }
 
 #define MAX_KEYS 16
@@ -66,7 +69,10 @@ static const char *key_of(const char *name) {
     for (int i = 0; i < nkeys; i++) if (strcmp(key_name[i], name) == 0) return key_value[i];
     return NULL;
 }
+`;
 
+// Lists of integers.
+const ints = String.raw`
 /* Integers separated by spaces or commas. Returns how many were read. */
 static int parse_ints(const char *s, int *out, int cap) {
     int n = 0;
@@ -119,7 +125,7 @@ static int neighbours(int u, int out[4]) {
 `;
 
 export const c = {
-  'grid-bfs': String.raw`${io}${grid}
+  'grid-bfs': String.raw`${base}${grid}
 int main(void) {
     read_grid();
     int dist[MAX_CELLS], queue[MAX_CELLS], head = 0, tail = 0;
@@ -140,7 +146,7 @@ int main(void) {
 }
 `,
 
-  'greedy-best-first': String.raw`${io}${grid}
+  'greedy-best-first': String.raw`${base}${grid}
 /* h = Manhattan distance from cell i to the goal */
 static int h(int i) {
     return abs(i / cols - goal / cols) + abs(i % cols - goal % cols);
@@ -176,7 +182,7 @@ int main(void) {
 }
 `,
 
-  'maze-dfs': String.raw`${io}${grid}
+  'maze-dfs': String.raw`${base}${grid}
 static int parent[MAX_CELLS];
 static char visited[MAX_CELLS];
 
@@ -204,7 +210,7 @@ int main(void) {
 }
 `,
 
-  'subset-sum': String.raw`${io}
+  'subset-sum': String.raw`${base}${keys}${ints}
 static int a[64], taken[64], n, target;
 
 static int solve(int i, int sum) { // @0
@@ -233,7 +239,7 @@ int main(void) {
 }
 `,
 
-  permutations: String.raw`${io}
+  permutations: String.raw`${base}${keys}${ints}
 static int items[8], used[8], cur[8], n, len;
 
 static void permute(void) { // @0
@@ -261,7 +267,7 @@ int main(void) {
 }
 `,
 
-  sudoku: String.raw`${io}
+  sudoku: String.raw`${base}
 static int grid[81];   /* 0 = empty */
 
 /* Can digit d go in cell i? (cell i itself is not counted) */
@@ -311,7 +317,7 @@ int main(void) {
 }
 `,
 
-  huffman: String.raw`${io}
+  huffman: String.raw`${base}${keys}
 /* Nodes 0..nsym-1 are leaves, later ones are joined trees. */
 static int weight[256], parent[256], in_queue[256], nodes;
 
@@ -355,7 +361,7 @@ int main(void) {
 }
 `,
 
-  'fractional-knapsack': String.raw`${io}
+  'fractional-knapsack': String.raw`${base}${keys}${ints}
 static int w[16], v[16];
 
 /* Item a comes before item b when v[a]/w[a] > v[b]/w[b] (ties: smaller index first). */
@@ -395,7 +401,7 @@ int main(void) {
 }
 `,
 
-  'job-sequencing': String.raw`${io}
+  'job-sequencing': String.raw`${base}${ints}
 int main(void) {
     int deadline[16], profit[16], n = 0;
     char line[256];
@@ -429,7 +435,7 @@ int main(void) {
 }
 `,
 
-  'avl-tree': String.raw`${io}
+  'avl-tree': String.raw`${base}${keys}${ints}
 #define MAXN 64
 static int key[MAXN], left[MAXN], right[MAXN], height[MAXN], nnodes;   /* -1 = empty */
 
@@ -490,7 +496,7 @@ int main(void) {
 }
 `,
 
-  'binary-heap': String.raw`${io}
+  'binary-heap': String.raw`${base}${keys}${ints}
 static int a[64], n;
 
 static void swap(int i, int j) { int t = a[i]; a[i] = a[j]; a[j] = t; }
@@ -535,7 +541,7 @@ int main(void) {
 }
 `,
 
-  trie: String.raw`${io}
+  trie: String.raw`${base}${keys}
 #define MAXN 256
 static int child[MAXN][26], is_end[MAXN], nnodes = 1;   /* node 0 is the root; 0 = no child */
 static char word[16];
