@@ -31,7 +31,7 @@ export function expectedOutput(algorithm, input, frames) {
       return String(vars.result);
     case 'topological-sort':
       return view.result?.en === 'Cycle' ? 'cycle' : String(view.result).split(' → ').join(' ');
-    case 'astar':
+    case 'astar': case 'grid-bfs': case 'greedy-best-first': case 'maze-dfs':
       return vars.length === undefined ? 'none' : String(vars.length);
     case 'lcs':
       return vars.result;
@@ -47,6 +47,13 @@ export function expectedOutput(algorithm, input, frames) {
       return String(vars.result).split(',').join(' ');
     case 'hanoi':
       return String(vars.moves);
+    case 'subset-sum': case 'sudoku': case 'fractional-knapsack': case 'job-sequencing':
+    case 'avl-tree': case 'trie': case 'huffman':
+      return String(vars.result);
+    case 'permutations':
+      return view.output;
+    case 'binary-heap':
+      return vars.output;
     default:
       throw new Error(`no expected output for ${algorithm.id}`);
   }

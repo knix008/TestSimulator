@@ -10,7 +10,7 @@ export async function readTextFile() {
     return new Promise((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.c,.cpp,.cc,.java,.py,.go,.rs,.js,.txt';
+      input.accept = '.myalgo,.c,.cpp,.cc,.java,.py,.go,.rs,.js,.txt';
       input.onchange = async () => {
         const file = input.files?.[0];
         resolve(file ? { name: file.name, text: await file.text() } : null);
@@ -19,10 +19,10 @@ export async function readTextFile() {
     });
   }
   const { open } = await import('@tauri-apps/plugin-dialog');
-  const path = await open({ multiple: false, filters: [{ name: 'Source', extensions: ['c', 'cpp', 'cc', 'java', 'py', 'go', 'rs', 'js', 'txt'] }] });
+  const path = await open({ multiple: false, filters: [{ name: 'Source', extensions: ['c', 'cpp', 'cc', 'java', 'py', 'go', 'rs', 'js', 'txt'] }, { name: 'MyAlgorithmSimulator', extensions: ['myalgo'] }] });
   if (!path) return null;
   const { invoke } = await core();
-  return { name: String(path).split(/[\\/]/).pop(), text: await invoke('read_text_file', { path }) };
+  return { name: String(path).split(/[\\/]/).pop(), path: String(path), text: await invoke('read_text_file', { path }) };
 }
 
 export async function writeTextFile(name, text) {
@@ -85,7 +85,7 @@ export async function saveProjectFile(name, text, existingPath = '') {
     return existingPath;
   }
   const { save } = await import('@tauri-apps/plugin-dialog');
-  const path = await save({ defaultPath: name, filters: [{ name: 'MyAlgorithmSimulator', extensions: ['json'] }] });
+  const path = await save({ defaultPath: name, filters: [{ name: 'MyAlgorithmSimulator', extensions: ['myalgo'] }] });
   if (!path) return '';
   await invoke('write_text_file', { path, text });
   return String(path);
@@ -141,6 +141,17 @@ export async function takeInstallLanguage() {
     const { invoke } = await core();
     const lang = await invoke('take_install_language');
     return lang === 'ko' || lang === 'en' ? lang : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The .myalgo project the program was started with ({ path, text }), once. */
+export async function takeOpenFile() {
+  if (!isDesktop()) return null;
+  try {
+    const { invoke } = await core();
+    return (await invoke('take_open_file')) ?? null;
   } catch {
     return null;
   }

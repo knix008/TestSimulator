@@ -559,8 +559,10 @@ function drawString(ctx, w, h, view, theme, lang) {
 
 function drawTree(ctx, w, h, view, theme, lang) {
   const { nodes, root, colors, lists, probe } = view;
+  // `roots` draws a forest (Huffman); nodes with `children` arrays are n-ary (trie).
+  const roots = view.roots ?? (root === null ? [] : [root]);
   const listW = lists.length ? Math.min(200, w * 0.26) : 0;
-  if (root === null) {
+  if (!roots.length) {
     ctx.fillStyle = theme.muted;
     ctx.font = font(14, 500);
     ctx.textAlign = 'center';
@@ -570,29 +572,55 @@ function drawTree(ctx, w, h, view, theme, lang) {
     return;
   }
   const byId = new Map(nodes.map((n) => [n.id, n]));
+  const nary = nodes.some((n) => Array.isArray(n.children));
+  const kids = (id) => { const n = byId.get(id); return n.children ?? [n.left, n.right]; };
   const depth = new Map();
-  const walk = (id, d) => { if (id === null) return 0; depth.set(id, d); return 1 + Math.max(walk(byId.get(id).left, d + 1), walk(byId.get(id).right, d + 1)); };
-  const height = walk(root, 0);
-  const leaves = [];
-  const order = (id) => { if (id === null) return; order(byId.get(id).left); leaves.push(id); order(byId.get(id).right); };
-  order(root);
+  const walk = (id, d) => { if (id === null) return 0; depth.set(id, d); return 1 + Math.max(0, ...kids(id).map((c) => walk(c, d + 1))); };
+  const height = Math.max(...roots.map((id) => walk(id, 0)));
   const gw = w - listW;
-  const slot = (gw - 30) / leaves.length;
-  const xOf = new Map(leaves.map((id, i) => [id, 15 + slot * (i + 0.5)]));
+  const xOf = new Map();
+  if (nary) {
+    const leafCount = (id) => { const c = kids(id); return c.length ? c.reduce((s, k) => s + leafCount(k), 0) : 1; };
+    const slot = (gw - 30) / roots.reduce((s, id) => s + leafCount(id), 0);
+    let next = 0;
+    const place = (id) => {
+      const c = kids(id);
+      if (!c.length) { xOf.set(id, 15 + slot * (next++ + 0.5)); return; }
+      c.forEach(place);
+      xOf.set(id, (xOf.get(c[0]) + xOf.get(c[c.length - 1])) / 2);
+    };
+    roots.forEach(place);
+  } else {
+    const leaves = [];
+    const order = (id) => { if (id === null) return; order(byId.get(id).left); leaves.push(id); order(byId.get(id).right); };
+    roots.forEach(order);
+    const slot = (gw - 30) / leaves.length;
+    leaves.forEach((id, i) => xOf.set(id, 15 + slot * (i + 0.5)));
+  }
   const yOf = (id) => 36 + depth.get(id) * Math.min(78, (h - 60) / height);
 
   ctx.lineWidth = 1.6;
   for (const node of nodes) {
-    for (const child of [node.left, node.right]) {
-      if (child === null) continue;
+    if (!xOf.has(node.id)) continue;
+    kids(node.id).forEach((child, k) => {
+      if (child === null || !xOf.has(child)) return;
       ctx.strokeStyle = theme.dark ? '#475569' : '#94a3b8';
       ctx.beginPath();
       ctx.moveTo(xOf.get(node.id), yOf(node.id));
       ctx.lineTo(xOf.get(child), yOf(child));
       ctx.stroke();
-    }
+      if (view.bits && !nary) {
+        ctx.fillStyle = theme.accent;
+        ctx.font = font(11, 700);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const mx = (xOf.get(node.id) + xOf.get(child)) / 2 + (k === 0 ? -8 : 8);
+        ctx.fillText(String(k), mx, (yOf(node.id) + yOf(child)) / 2 - 4);
+      }
+    });
   }
   for (const node of nodes) {
+    if (!xOf.has(node.id)) continue;
     const x = xOf.get(node.id);
     const y = yOf(node.id);
     const state = colors[node.id];

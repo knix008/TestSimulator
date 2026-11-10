@@ -11,6 +11,10 @@
 !define MUI_LANGDLL_INFO "설치와 프로그램에 사용할 언어를 고르십시오.$\nChoose the language of the installer and the program."
 
 !macro NSIS_HOOK_POSTINSTALL
+  ; Saved projects (.myalgo) show the document icon, not the program icon that
+  ; the bundler's file association wrote. The class key is removed on uninstall.
+  WriteRegStr SHCTX "Software\Classes\MyAlgorithmSimulator.Project\DefaultIcon" "" "$INSTDIR\assets\file-icon.ico"
+
   ${IfNot} ${Silent}
   ${AndIf} $PassiveMode <> 1
     CreateDirectory "$APPDATA\${BUNDLEID}"

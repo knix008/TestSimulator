@@ -100,3 +100,67 @@ describe('results', () => {
     assert.equal(last(run('n-queens', 'n: 4\nmode: all')).vars.solutions, 2);
   });
 });
+
+describe('classroom algorithms', () => {
+  const run = (id, text) => {
+    const algo = ALGORITHMS.find((a) => a.id === id);
+    const frames = runAlgorithm(id, algo.input.parse(text ?? algo.input.default));
+    return frames[frames.length - 1];
+  };
+
+  it('BFS finds the shortest grid path and greedy best-first may not', () => {
+    const grid = 'S...#....\n.##.#.##.\n....#..#G\n.#.......';
+    assert.equal(run('grid-bfs', grid).vars.length, 12);
+    assert.equal(run('astar', grid).vars.length, 12);
+    assert.ok(run('greedy-best-first', grid).vars.length >= 12);
+    assert.ok(run('maze-dfs', grid).vars.length >= 12);
+    assert.equal(run('grid-bfs', 'S#.\n##.\n..G').vars.length, undefined);
+    assert.equal(run('maze-dfs', 'S#.\n##.\n..G').vars.length, undefined);
+  });
+
+  it('finds a subset with the target sum, or none', () => {
+    assert.equal(run('subset-sum').vars.result, '3 4 2');
+    assert.equal(run('subset-sum', 'values: 2 4 6\ntarget: 5').vars.result, 'none');
+  });
+
+  it('generates n! permutations', () => {
+    assert.equal(run('permutations', 'items: 1 2 3 4 5').vars.count, 120);
+    assert.equal(run('permutations').view.output, '1 2 3\n1 3 2\n2 1 3\n2 3 1\n3 1 2\n3 2 1');
+  });
+
+  it('solves the sudoku and keeps the givens', () => {
+    const algo = ALGORITHMS.find((a) => a.id === 'sudoku');
+    const { cells } = algo.input.parse(algo.input.default);
+    const solved = run('sudoku').vars.result.replace(/\n/g, '').split('').map(Number);
+    cells.forEach((v, i) => { if (v) assert.equal(solved[i], v); });
+    for (let k = 0; k < 9; k++) {
+      assert.equal(new Set(solved.slice(k * 9, k * 9 + 9)).size, 9);
+      assert.equal(new Set(solved.filter((_, i) => i % 9 === k)).size, 9);
+    }
+    assert.equal(run('sudoku', '55.......\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........').vars.result, 'none');
+  });
+
+  it('computes Huffman, fractional knapsack and job sequencing', () => {
+    assert.equal(run('huffman').vars.result, 23);
+    assert.equal(run('huffman', 'text: AAAA').vars.result, 4);
+    assert.equal(run('fractional-knapsack').vars.result, '240.00');
+    assert.equal(run('fractional-knapsack', 'weights: 3\nvalues: 1\ncapacity: 1').vars.result, '0.33');
+    assert.equal(run('job-sequencing').vars.result, 'J3 J1 J5\n142');
+  });
+
+  it('keeps the AVL tree balanced', () => {
+    assert.equal(run('avl-tree').vars.result, '30 20 10 25 40 50');
+    assert.equal(run('avl-tree', 'values: 1 2 3 4 5 6 7').vars.height, 3);
+  });
+
+  it('keeps the min-heap order and extracts in ascending order', () => {
+    const lastFrame = run('binary-heap');
+    assert.equal(lastFrame.vars.heap, '1 3 2 5 9 8 7');
+    assert.equal(lastFrame.vars.result, '1 2 3');
+  });
+
+  it('lists the words with a prefix from the trie', () => {
+    assert.equal(run('trie').vars.result, 'tea ten tent');
+    assert.equal(run('trie', 'words: car cat\nfind: d').vars.result, 'none');
+  });
+});

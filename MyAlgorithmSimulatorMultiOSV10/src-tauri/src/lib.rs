@@ -348,6 +348,24 @@ fn take_install_language(app: AppHandle) -> Option<String> {
     }
 }
 
+static OPEN_FILE_TAKEN: Mutex<bool> = Mutex::new(false);
+
+#[derive(Serialize)]
+struct OpenedFile { path: String, text: String }
+
+/// The project file the program was started with (double-clicking a .myalgo file), once.
+#[tauri::command]
+fn take_open_file() -> Option<OpenedFile> {
+    let mut taken = OPEN_FILE_TAKEN.lock().ok()?;
+    if *taken { return None; }
+    *taken = true;
+    let path = std::env::args_os().skip(1).map(PathBuf::from).find(|path| {
+        path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("myalgo")) && path.is_file()
+    })?;
+    let text = std::fs::read_to_string(&path).ok()?;
+    Some(OpenedFile { path: path.to_string_lossy().into_owned(), text })
+}
+
 #[tauri::command]
 fn list_printers() -> printing::PrinterList {
     printing::printers()
@@ -368,7 +386,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![toolchain_status, read_text_file, write_text_file, run_code, install_toolchain, quit, open_guide_window, open_print_window, set_print_payload, get_print_payload, list_printers, print_direct, take_install_language])
+        .invoke_handler(tauri::generate_handler![toolchain_status, read_text_file, write_text_file, run_code, install_toolchain, quit, open_guide_window, open_print_window, set_print_payload, get_print_payload, list_printers, print_direct, take_install_language, take_open_file])
         .run(tauri::generate_context!())
         .expect("error while running MyAlgorithmSimulator");
 }

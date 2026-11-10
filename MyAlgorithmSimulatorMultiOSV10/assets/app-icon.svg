@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- MyAlgorithmSimulator: a 3D mortarboard (graduation cap). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b8cff"/>
+      <stop offset="0.55" stop-color="#3a5ee6"/>
+      <stop offset="1" stop-color="#2236a8"/>
+    </linearGradient>
+    <linearGradient id="bgShine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <!-- the block's thickness, seen below the top face -->
+    <linearGradient id="side" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0f1a5c"/>
+      <stop offset="0.5" stop-color="#1c2c88"/>
+      <stop offset="1" stop-color="#0b144a"/>
+    </linearGradient>
+    <!-- bevel: lit from the top left -->
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c9d8ff"/>
+      <stop offset="0.45" stop-color="#7c9cff" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#14206e"/>
+    </linearGradient>
+    <!-- the inner panel is slightly domed -->
+    <radialGradient id="dome" cx="0.38" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#6f9bff"/>
+      <stop offset="0.55" stop-color="#3b5fe8"/>
+      <stop offset="1" stop-color="#22389f"/>
+    </radialGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#11131c"/>
+      <stop offset="0.38" stop-color="#3b4157"/>
+      <stop offset="0.55" stop-color="#2a2f42"/>
+      <stop offset="1" stop-color="#0d0f16"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4c5470"/>
+      <stop offset="0.5" stop-color="#2b3044"/>
+      <stop offset="1" stop-color="#171a26"/>
+    </linearGradient>
+    <linearGradient id="edgeL" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1b1e2b"/>
+      <stop offset="1" stop-color="#0c0d14"/>
+    </linearGradient>
+    <linearGradient id="edgeR" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0a0b11"/>
+      <stop offset="1" stop-color="#262a3a"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff2a8"/>
+      <stop offset="0.45" stop-color="#ffc83d"/>
+      <stop offset="1" stop-color="#c77a0a"/>
+    </linearGradient>
+    <linearGradient id="tassel" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#d98a12"/>
+      <stop offset="0.4" stop-color="#ffd453"/>
+      <stop offset="1" stop-color="#b86a05"/>
+    </linearGradient>
+    <radialGradient id="shadow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#000" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 3D tile: thickness, top face, bevel rim, domed inner panel, gloss -->
+  <rect x="12" y="34" width="488" height="470" rx="104" fill="url(#side)"/>
+  <rect x="12" y="12" width="488" height="464" rx="104" fill="url(#bg)"/>
+  <rect x="15" y="15" width="482" height="458" rx="101" fill="none" stroke="url(#rim)" stroke-width="6"/>
+  <rect x="36" y="36" width="440" height="416" rx="84" fill="url(#dome)"/>
+  <rect x="36" y="36" width="440" height="416" rx="84" fill="none" stroke="#0e1a66" stroke-opacity="0.45" stroke-width="4"/>
+  <path d="M120 38h272a82 82 0 0 1 82 82v34C370 200 142 200 38 154v-34A82 82 0 0 1 120 38z" fill="url(#bgShine)"/>
+  <g transform="translate(0 -12)">
+
+
+  <!-- ground shadow -->
+  <ellipse cx="256" cy="402" rx="132" ry="26" fill="url(#shadow)"/>
+
+  <!-- skull cap (cylinder) -->
+  <path d="M146 236v118c0 26 49 46 110 46s110-20 110-46V236z" fill="url(#body)"/>
+  <path d="M146 354c0 26 49 46 110 46s110-20 110-46" fill="none" stroke="#5a6280" stroke-opacity="0.55" stroke-width="4"/>
+
+  <!-- board thickness -->
+  <path d="M52 214L256 300L460 214v20L256 322L52 234z" fill="url(#edgeL)"/>
+  <path d="M256 300L460 214v20L256 322z" fill="url(#edgeR)"/>
+  <!-- board top -->
+  <path d="M52 214L256 120L460 214L256 300z" fill="url(#top)"/>
+  <path d="M52 214L256 120L460 214" fill="none" stroke="#8a93b8" stroke-opacity="0.65" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M120 196L256 136L330 170" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- tassel -->
+  <path d="M256 210Q340 200 398 232L398 318" fill="none" stroke="url(#gold)" stroke-width="9" stroke-linecap="round"/>
+  <ellipse cx="256" cy="208" rx="24" ry="14" fill="#a8650a"/>
+  <ellipse cx="256" cy="203" rx="22" ry="13" fill="url(#gold)"/>
+  <ellipse cx="249" cy="199" rx="8" ry="4" fill="#fff" fill-opacity="0.7"/>
+  <rect x="386" y="312" width="24" height="18" rx="6" fill="url(#gold)"/>
+  <path d="M384 326h28l10 74q-24 12-48 0z" fill="url(#tassel)"/>
+  <path d="M392 334l-4 62M398 334v66M404 334l4 62" stroke="#9a5604" stroke-opacity="0.55" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

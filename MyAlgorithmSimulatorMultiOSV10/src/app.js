@@ -7,7 +7,7 @@ import { t, setLanguage } from './i18n.js';
 import { DARK_THEMES, LIGHT_THEMES, SYSTEM, applyTheme, resolveTheme, themeName } from './themes.js';
 import { createEditor } from './ui/editor.js';
 import { CODE_LANGUAGES, extension, sample } from './samples/index.js';
-import { isDesktop, installToolchain, openPrintWindow, quit, readTextFile, runCode, saveProjectFile, takeInstallLanguage, toolchainStatus, writeTextFile } from './platform/native.js';
+import { isDesktop, installToolchain, openPrintWindow, quit, readTextFile, runCode, saveProjectFile, takeInstallLanguage, takeOpenFile, toolchainStatus, writeTextFile } from './platform/native.js';
 import { runJavaScript } from './runner/web.js';
 import { ANIMATION_KINDS, AnimatedBackground, backgroundKind } from './ui/background.js';
 import { startBoard } from './ui/startboard.js';
@@ -198,9 +198,9 @@ function randomInput() {
   applyInput();
 }
 
-/** Clicking the A* grid toggles a wall and reruns. */
+/** Clicking a pathfinding grid toggles a wall and reruns. */
 function onStageClick(event) {
-  if (state.algorithmId !== 'astar' || !state.frames.length) return;
+  if (algo().category !== 'path' || algo().view !== 'grid' || !state.frames.length) return;
   const canvas = document.getElementById('stage-canvas');
   const rect = canvas.getBoundingClientRect();
   const view = state.frames[state.frame].view;
@@ -767,8 +767,30 @@ function projectDocument() {
   };
 }
 
+/** Restores a saved .myalgo project. Returns false when the text is not one. */
+function openProjectDocument(text, path = '') {
+  let doc;
+  try { doc = JSON.parse(text); } catch { return false; }
+  if (!doc || typeof doc !== 'object' || !algorithmById(doc.algorithmId)) return false;
+  openAlgorithm(doc.algorithmId);
+  if (CODE_LANGUAGES.some((item) => item.id === doc.codeLang)) state.codeLang = doc.codeLang;
+  if (doc.code && typeof doc.code === 'object') {
+    for (const [key, value] of Object.entries(doc.code)) if (typeof value === 'string') state.code[key] = value;
+  }
+  if (typeof doc.inputText === 'string') state.inputText = doc.inputText;
+  state.projectPath = path;
+  render();
+  applyInput();
+  const frame = Number(doc.frame);
+  if (Number.isInteger(frame) && frame > 0 && state.frames.length) {
+    state.frame = Math.min(frame, state.frames.length - 1);
+    refreshFrame();
+  }
+  return true;
+}
+
 async function saveCurrentProject() {
-  const path = await saveProjectFile(`${state.algorithmId}.myalgo.json`, JSON.stringify(projectDocument(), null, 2), state.projectPath);
+  const path = await saveProjectFile(`${state.algorithmId}.myalgo`, JSON.stringify(projectDocument(), null, 2), state.projectPath);
   if (!path) return;
   state.projectPath = path;
   state.status = t('print.saved');
@@ -830,7 +852,13 @@ function openGuide() {
 
 const menuActions = {
   'menu-new'() { state.page = 'work'; state.inputText = algo().input.default; state.menu = null; render(); applyInput(); },
-  'menu-open': async () => { state.menu = null; const file = await readTextFile(); if (file) { state.code[codeKey()] = file.text; state.bottomTab = 'code'; state.page = 'work'; } render(); },
+  'menu-open': async () => {
+    state.menu = null;
+    const file = await readTextFile();
+    if (file && /\.myalgo$/i.test(file.name) && openProjectDocument(file.text, file.path ?? '')) return;
+    if (file) { state.code[codeKey()] = file.text; state.bottomTab = 'code'; state.page = 'work'; }
+    render();
+  },
   'menu-save': async () => { state.menu = null; render(); await writeTextFile(`${state.algorithmId}.${extension(state.codeLang)}`, editor ? editor.get() : currentCode()); },
   'menu-home'() { actions.home(); },
   'menu-exit': () => quit(),
@@ -1059,6 +1087,7 @@ export async function start() {
   bind();
   render();
   syncShuffleTimer();
+  takeOpenFile().then((file) => { if (file) openProjectDocument(file.text, file.path); });
   desktopWindow().then(async (win) => {
     if (!win) return;
     win.setDecorations(false).catch(() => {});

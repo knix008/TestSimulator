@@ -8,6 +8,7 @@ import { TREES } from './trees.js';
 import { BACKTRACKING } from './backtracking.js';
 import { MATH } from './math.js';
 import { TEXTBOOK } from './textbook.js';
+import { CLASSROOM } from './classroom.js';
 
 /** The catalogue, in the order it appears in the left panel. */
 export const CATEGORIES = [
@@ -23,7 +24,7 @@ export const CATEGORIES = [
   { id: 'math', name: { ko: '수학 · 재귀', en: 'Math & recursion' } },
 ];
 
-export const ALGORITHMS = [...SORTING, ...SEARCHING, ...GRAPH, ...PATHFINDING, ...DP, ...STRINGS, ...TREES, ...BACKTRACKING, ...MATH, ...TEXTBOOK];
+export const ALGORITHMS = [...SORTING, ...SEARCHING, ...GRAPH, ...PATHFINDING, ...DP, ...STRINGS, ...TREES, ...BACKTRACKING, ...MATH, ...TEXTBOOK, ...CLASSROOM];
 
 const byId = new Map(ALGORITHMS.map((a) => [a.id, a]));
 export const algorithmById = (id) => byId.get(id) ?? null;

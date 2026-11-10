@@ -35,7 +35,7 @@ export function gridToText({ rows, cols, start, goal, walls }) {
   return lines.join('\n');
 }
 
-function randomGrid() {
+export function randomGrid() {
   const rows = 12;
   const cols = 22;
   const walls = [];
