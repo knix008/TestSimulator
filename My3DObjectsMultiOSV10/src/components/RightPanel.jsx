@@ -10,6 +10,7 @@ import { OptionField, commonOptions, optionValues, valueOf } from './ConvertOpti
 import { DEFAULT_LIGHTS, DEFAULT_VIEW } from '../lib/settings.js';
 import { MOVABLE, VIEW_PRESETS, rulerText } from '../lib/viewer3d.js';
 import { formatDuration, openExternal } from '../lib/platform.js';
+import LinkText from './LinkText.jsx';
 import { groupFamilies, shownVersion } from '../lib/modelFamilies.js';
 
 export const RIGHT_TABS = [
@@ -104,7 +105,7 @@ function ConvertTab({
                   <button className="linkish" onClick={() => openExternal(model.page)}>{t('right.modelPage')}</button>
                   {model.licenseUrl ? <button className="linkish" onClick={() => openExternal(model.licenseUrl)}>{t('right.licenseText')}</button> : null}
                 </div>
-                {model.error ? <p className="panel-note error">{model.error}</p> : null}
+                {model.error ? <p className="panel-note error"><LinkText text={model.error} /></p> : null}
               </>
             ) : null}
           </>

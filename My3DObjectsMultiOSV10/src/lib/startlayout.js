@@ -5,7 +5,8 @@
 // resized, every card gets its own box — { x, y, w, h } in px from the top-left
 // of the board — and is drawn there until "Auto arrange" goes back to null.
 
-export const START_CARDS = ['hero', 'how', 'recent', 'engine', 'formats', 'bg'];
+// Top to bottom: each card is a full-width band (its contents run across).
+export const START_CARDS = ['hero', 'how', 'recent', 'samples', 'engine', 'formats', 'bg'];
 export const MIN_CARD_W = 220;
 export const MIN_CARD_H = 110;
 const GAP = 16;

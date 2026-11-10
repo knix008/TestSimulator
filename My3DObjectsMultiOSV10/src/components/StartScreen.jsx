@@ -203,7 +203,7 @@ export default function StartScreen({
               </>
             ))}
 
-            <div className="start-grid start-grid-4">
+            <div className="start-grid start-rows">
               {card('how', '', (
                 <>
                   <h2>{moveHandle('how')}<IconSparkles size={16} /> {t('start.howTitle')}</h2>
@@ -231,7 +231,7 @@ export default function StartScreen({
                     ) : null}
                   </h2>
                   {recent.length === 0 ? <p className="start-empty">{t('recent.empty')}</p> : (
-                    <div className="start-list">
+                    <div className="start-list start-hlist">
                       {recent.map((f) => (
                         <div className="start-row" key={f.path || f.name}>
                           <button className="start-link" onClick={() => onOpenRecent(f)} title={f.path || f.name}>
@@ -244,29 +244,45 @@ export default function StartScreen({
                       ))}
                     </div>
                   )}
+                </>
+              ))}
+
+              {card('samples', '', (
+                <>
+                  <h2>{moveHandle('samples')}<IconSparkles size={16} /> {t('samples.title')}</h2>
                   {samples ? (
-                    <>
-                      <h2><IconSparkles size={16} /> {t('samples.title')}</h2>
-                      <div className="start-list start-samples">
-                        {SAMPLE_GROUPS.flatMap((g) => samples[g].map((e) => (
-                          <button key={e.file} className="start-link" onClick={() => onOpenSample(e)} title={e.file} data-sample={e.file}>
-                            {g === 'images' ? <IconImage size={15} /> : g === 'results' ? <IconWand size={15} /> : <IconCube size={15} />}
-                            <span className="name">{sampleLabel(e, lang)}</span>
-                            <span className="path">{t(`samples.${g}`)} · {e.file.split('/').pop()}</span>
-                          </button>
-                        )))}
-                      </div>
-                    </>
-                  ) : null}
+                    <div className="start-samples">
+                      {SAMPLE_GROUPS.filter((g) => samples[g].length).map((g) => (
+                        <div className="start-sample-group" key={g}>
+                          <p className="start-formats-title">
+                            {g === 'images' ? <IconImage size={13} /> : g === 'results' ? <IconWand size={13} /> : <IconCube size={13} />} {t(`samples.${g}`)}
+                          </p>
+                          <div className="start-list start-hlist">
+                            {samples[g].map((e) => (
+                              <button key={e.file} className="start-link" onClick={() => onOpenSample(e)} title={e.file} data-sample={e.file}>
+                                {g === 'images' ? <IconImage size={15} /> : g === 'results' ? <IconWand size={15} /> : <IconCube size={15} />}
+                                <span className="name">{sampleLabel(e, lang)}</span>
+                                <span className="path">{e.file.split('/').pop()}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <p className="start-empty">{t('model.noEngine')}</p>}
                 </>
               ))}
 
               {card('engine', '', (
                 <>
+                  <div className="start-cols start-cols-engine">
+                  <div>
                   <h2>{moveHandle('engine')}<IconChip size={16} /> {t('start.engine')}</h2>
                   <EngineCard health={health} connection={connection} onRetry={onRetry} onToken={onToken} onShowLog={onShowLog} onUseModel={onPickModel} compact />
+                  </div>
+                  <div>
                   <h2><IconLayers size={16} /> {t('start.models')}</h2>
-                  <div className="start-list">
+                  <div className="start-list start-hlist">
                     {groupFamilies(models).map((fam) => {
                       const m = shownVersion(fam, settings.model, settings.modelVersions);
                       return (
@@ -284,18 +300,28 @@ export default function StartScreen({
                     })}
                     {models.length === 0 ? <p className="start-empty">{t('model.noEngine')}</p> : null}
                   </div>
+                  </div>
+                  </div>
                 </>
               ))}
 
               {card('formats', '', (
                 <>
                   <h2>{moveHandle('formats')}<IconCube size={16} /> {t('start.formats')}</h2>
-                  <p className="start-formats-title">{t('start.canOpen')}</p>
-                  <p className="start-formats">{IMPORT_FORMATS.map((f) => f.ext.map((e) => `.${e}`).join(' ')).join('  ')}</p>
-                  <p className="start-formats-title"><IconExport size={13} /> {t('start.canSave')}</p>
-                  <p className="start-formats">{[...new Set(EXPORT_FORMATS.map((f) => `.${f.ext}`))].join('  ')}</p>
-                  <p className="start-formats-title"><IconImage size={13} /> {t('start.images')}</p>
-                  <p className="start-formats">{IMAGE_EXTENSIONS.map((e) => `.${e}`).join(' ')}</p>
+                  <div className="start-cols">
+                    <div>
+                      <p className="start-formats-title"><IconCube size={13} /> {t('start.canOpen')}</p>
+                      <p className="start-formats">{IMPORT_FORMATS.map((f) => f.ext.map((e) => `.${e}`).join(' ')).join('  ')}</p>
+                    </div>
+                    <div>
+                      <p className="start-formats-title"><IconExport size={13} /> {t('start.canSave')}</p>
+                      <p className="start-formats">{[...new Set(EXPORT_FORMATS.map((f) => `.${f.ext}`))].join('  ')}</p>
+                    </div>
+                    <div>
+                      <p className="start-formats-title"><IconImage size={13} /> {t('start.images')}</p>
+                      <p className="start-formats">{IMAGE_EXTENSIONS.map((e) => `.${e}`).join(' ')}</p>
+                    </div>
+                  </div>
                 </>
               ))}
             </div>

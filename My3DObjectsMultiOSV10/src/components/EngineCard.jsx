@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconChip, IconAlert, IconCheck, IconKey, IconRefresh, IconTerminal } from './Icons.jsx';
 import { formatBytes, openExternal } from '../lib/platform.js';
+import LinkText from './LinkText.jsx';
 
 // Where the engine is: installing (with the step and a progress bar), waiting
 // for a Hugging Face token, failed, or ready on which device. Shown on the
@@ -76,7 +77,7 @@ export default function EngineCard({ health, connection, onRetry, onToken, onSho
       ) : null}
       {sel?.status === 'needs-token' && onToken ? <TokenForm onSubmit={onToken} compact={compact} page={sel.page} /> : null}
       {(health?.state === 'install-failed' || sel?.status === 'failed') ? (
-        <p className="engine-error">{health?.error || sel?.error}</p>
+        <p className="engine-error"><LinkText text={health?.error || sel?.error} /></p>
       ) : null}
       {!health && connection !== 'starting' && connection !== 'stability' ? <p className="engine-note">{t('engine.unreachableHelp')}</p> : null}
       <div className="row">

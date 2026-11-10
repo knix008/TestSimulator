@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Modal from './Modal.jsx';
 import { IconAlert, IconCopy, IconCheck } from './Icons.jsx';
 import { copyText, openExternal } from '../lib/platform.js';
+import LinkText from './LinkText.jsx';
 
 // ── License check ─────────────────────────────────────────
 // A model whose license limits where it may be used (Hunyuan3D) is installed
@@ -120,7 +121,7 @@ export function ErrorDialog({ error, onClose }) {
         {contextLabel ? (
           <p className="err-context">{t('error.what')}: <strong>{contextLabel}</strong></p>
         ) : null}
-        <p className="err-message">{error.message}</p>
+        <p className="err-message"><LinkText text={error.message} /></p>
         {error.file ? <p className="err-file" title={error.file}>{error.file}</p> : null}
 
         {error.details ? (
@@ -128,7 +129,7 @@ export function ErrorDialog({ error, onClose }) {
             <button className="linkish" onClick={() => setShowDetails((v) => !v)}>
               {showDetails ? t('error.hideDetails') : t('error.showDetails')}
             </button>
-            {showDetails ? <pre className="err-details">{error.details}</pre> : null}
+            {showDetails ? <pre className="err-details"><LinkText text={error.details} /></pre> : null}
           </>
         ) : null}
 

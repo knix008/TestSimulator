@@ -39,7 +39,7 @@ export const STEPS = [
   { id: 'start-cards', chapter: 'start', action: ['start'], target: '[data-start-arrange]',
     ko: ['패널 옮기기 · 크기 바꾸기', '시작 화면의 패널은 제목 앞의 ⠿ 를 끌어 옮기고, 오른쪽 아래 모서리를 끌어 크기를 바꿉니다. [자동 정렬]은 처음 배치로 되돌립니다.'],
     en: ['Move and resize the panels', 'Drag a panel by the ⠿ before its title, resize it by its bottom-right corner. Auto arrange puts them back.'] },
-  { id: 'start-samples', chapter: 'start', action: ['start'], target: ['.start-samples', '[data-card="recent"]'],
+  { id: 'start-samples', chapter: 'start', action: ['start'], target: ['[data-card="samples"]', '.start-samples'],
     ko: ['예제', '최근 파일 아래에 예제가 있습니다. 변환해 볼 이미지, 형식마다 하나씩인 3D 파일, 변환 결과를 바로 열 수 있습니다 (파일 메뉴에도 있습니다).'],
     en: ['Examples', 'Below the recent files: pictures to convert, one 3D file per format, and conversion results, ready to open (also in the File menu).'] },
   { id: 'start-engine', chapter: 'start', action: ['start'], target: '[data-card="engine"]',

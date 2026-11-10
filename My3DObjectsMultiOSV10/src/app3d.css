@@ -302,6 +302,22 @@ body.resizing-log { cursor: row-resize; user-select: none; }
   .start-hero-actions { flex-wrap: wrap; }
 }
 .start-steps { margin: 0 0 12px; padding: 0; list-style: none; display: grid; gap: 10px; }
+/* Every start card is a full-width band; what is in it runs across. */
+.start-grid.start-rows { display: flex; flex-direction: column; align-items: stretch; gap: 16px; }
+.start-rows .start-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+.start-list.start-hlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 2px 10px; }
+.start-samples { display: grid; gap: 10px; }
+.start-sample-group .start-formats-title { margin-top: 0; }
+.start-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; align-items: start; }
+.start-cols-engine { grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr); }
+.start-cols > div > .start-formats-title:first-child { margin-top: 0; }
+.start-cols h2 { margin-top: 0 !important; padding-top: 0 !important; border-top: 0 !important; }
+.start-rows .start-link .name { max-width: 70%; }
+@container (max-width: 900px) {
+  .start-rows .start-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .start-cols, .start-cols-engine { grid-template-columns: minmax(0, 1fr); }
+}
+@container (max-width: 520px) { .start-rows .start-steps { grid-template-columns: minmax(0, 1fr); } }
 .start-steps li { display: grid; gap: 2px; font-size: 12.5px; }
 .start-steps span { color: var(--text-dim); line-height: 1.45; }
 .start-check { font-size: 12.5px; }
@@ -481,3 +497,7 @@ body.resizing-log { cursor: row-resize; user-select: none; }
 
 .input-nopreview { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
   border: 1px dashed var(--border); border-radius: 8px; color: var(--text-dim); font-size: 12px; text-align: center; padding: 12px; }
+
+/* Web addresses inside messages (components/LinkText.jsx): open in the browser. */
+.text-link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; overflow-wrap: anywhere; }
+.text-link:hover { text-decoration-thickness: 2px; }

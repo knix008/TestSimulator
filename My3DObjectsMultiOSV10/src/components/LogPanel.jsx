@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { IconTerminal, IconCopy, IconSave, IconTrash, IconClose, IconDown, IconSearch } from './Icons.jsx';
 import { filterLines, formatLines, timeText } from '../lib/logs.js';
 import { clampLogHeight } from '../lib/settings.js';
+import LinkText from './LinkText.jsx';
 
 const SHOW_MAX = 1500;
 
@@ -116,7 +117,7 @@ export default function LogPanel({ settings, onSettings, lines, onClear, onCopy,
             <span className="log-time">{timeText(l.t)}</span>
             <span className="log-lvl">{l.level.toUpperCase()}</span>
             <span className="log-src">{l.src}</span>
-            <span className="log-msg">{l.msg}</span>
+            <span className="log-msg"><LinkText text={l.msg} /></span>
           </div>
         ))}
       </div>

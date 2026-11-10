@@ -7,6 +7,16 @@ import App from './App.jsx';
 import ThemePopup from './components/ThemePopup.jsx';
 import './App.css';
 import './app3d.css';
+import { openExternal } from './lib/platform.js';
+
+// Any web link in the page opens in the system's web browser, never inside
+// the app's own window (which would replace the program with the site).
+document.addEventListener('click', (e) => {
+  const a = e.target?.closest?.('a[href]');
+  if (!a || e.defaultPrevented || !/^https?:/i.test(a.getAttribute('href') || '')) return;
+  e.preventDefault();
+  Promise.resolve(openExternal(a.href)).catch(() => {});
+});
 
 // The host opens the theme popup with its kind and current theme set by an
 // init script; the query string is the same thing for a plain browser.
