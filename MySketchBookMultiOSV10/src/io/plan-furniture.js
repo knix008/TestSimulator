@@ -115,7 +115,7 @@ function filled(comp, w, h, wall = null) {
  * their swings are left out. Candidates: outlined things (line components with what they enclose) and solid colour
  * patches, as pixel index arrays.
  */
-export function furnitureScene(image, { metresPerPixel: m, rooms, doors = [], rest = null }) {
+export function furnitureScene(image, { metresPerPixel: m, rooms, doors = [], rest = null, walls = [] }) {
   const { width: w, height: h } = image;
   const { gray, rgb } = channels(image);
   const n = w * h;
@@ -130,15 +130,48 @@ export function furnitureScene(image, { metresPerPixel: m, rooms, doors = [], re
     const Y0 = Math.max(0, Math.floor(Math.min(...zs))); const Y1 = Math.min(h - 1, Math.ceil(Math.max(...zs)));
     for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) if (pointInPolygon([(x + 0.5) * m, (y + 0.5) * m], pts)) roomOf[y * w + x] = r;
   });
+  // Wall bands (and what lies inside a wall drawn with two lines) are no room.
+  for (const v of walls) {
+    const d = [v.b[0] - v.a[0], v.b[1] - v.a[1]]; const L = Math.hypot(d[0], d[1]);
+    if (L < 1e-6) continue;
+    const u = [d[0] / L, d[1] / L]; const nn = [-u[1], u[0]]; const half = v.thickness / 2 + m;
+    for (let s0 = -half; s0 <= L + half; s0 += m * 0.7) for (let t = -half; t <= half; t += m * 0.7) {
+      const x = Math.round((v.a[0] + u[0] * s0 + nn[0] * t) / m); const y = Math.round((v.a[1] + u[1] * s0 + nn[1] * t) / m);
+      if (x >= 0 && y >= 0 && x < w && y < h) roomOf[y * w + x] = -1;
+    }
+  }
   const inner = morph(Uint8Array.from(roomOf, (v) => (v >= 0 ? 1 : 0)), w, h, 2, true);
   for (let i = 0; i < n; i++) if (!inner[i]) roomOf[i] = -1;
-  // Door swings: the square in front of each door, on both sides of its wall.
+  // Door swings: only where a swing is drawn. Of the four quarter circles a door can sweep, the one over most dark
+  // pixels is its swing; that square (the door's width out from the wall face) is left out. A gap without an arc (a
+  // window read as a door, an opening) keeps what stands beside it.
   const blocked = new Uint8Array(n);
+  const darkAt = (p) => {
+    const x = Math.round(p[0] / m); const y = Math.round(p[1] / m);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const X = x + dx; const Y = y + dy;
+      if (X >= 0 && Y >= 0 && X < w && Y < h && gray[Y * w + X] < 140) return 1;
+    }
+    return 0;
+  };
   for (const d of doors) {
     const nrm = [-d.u[1], d.u[0]];
-    const half = d.width / 2 + 0.05; const reach = d.width + 0.08;
-    for (let s = -half; s <= half; s += m * 0.7) for (let t = -reach; t <= reach; t += m * 0.7) {
-      const x = Math.round((d.c[0] + d.u[0] * s + nrm[0] * t) / m); const y = Math.round((d.c[1] + d.u[1] * s + nrm[1] * t) / m);
+    const g = d.width; const T = d.thickness ?? 0.15;
+    let best = null;
+    for (const side of [1, -1]) for (const end of [1, -1]) {
+      const H = [d.c[0] + d.u[0] * end * (g / 2) + nrm[0] * side * (T / 2), d.c[1] + d.u[1] * end * (g / 2) + nrm[1] * side * (T / 2)];
+      let ink = 0; const N = 20;
+      for (let i = 1; i < N; i++) {
+        const a = (i / N) * (Math.PI / 2);
+        const dir = [-end * d.u[0] * Math.cos(a) + side * nrm[0] * Math.sin(a), -end * d.u[1] * Math.cos(a) + side * nrm[1] * Math.sin(a)];
+        ink += darkAt([H[0] + dir[0] * g * 0.97, H[1] + dir[1] * g * 0.97]);
+      }
+      if (!best || ink > best.ink) best = { ink, side, N };
+    }
+    if (!best || best.ink < best.N * 0.45) continue;
+    const half = g / 2 + 0.05;
+    for (let s0 = -half; s0 <= half; s0 += m * 0.7) for (let t = T / 2; t <= T / 2 + g + 0.05; t += m * 0.7) {
+      const x = Math.round((d.c[0] + d.u[0] * s0 + nrm[0] * best.side * t) / m); const y = Math.round((d.c[1] + d.u[1] * s0 + nrm[1] * best.side * t) / m);
       if (x >= 0 && y >= 0 && x < w && y < h) blocked[y * w + x] = 1;
     }
   }
@@ -175,7 +208,20 @@ export function furnitureScene(image, { metresPerPixel: m, rooms, doors = [], re
   // Solid: coloured patches (thin floor joints opened away), with the outline pixels around them.
   const solidOpen = morph(morph(solid, w, h, 1, true), w, h, 1, false);
   for (const comp of components(solidOpen, w, h, px(0.05))) candidates.push({ pixels: comp.pixels, kind: 'solid' });
-  return { width: w, height: h, rgb, ink, roomOf, floor, candidates: candidates.filter((c) => c.pixels.length >= px(0.06)) };
+  // Edges (Sobel on the strongest colour channel, 0 … 1): what the templates are compared with.
+  const edge = new Float32Array(n);
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    let best = 0;
+    for (let c = 0; c < 3; c++) {
+      const at = (dx, dy) => rgb[((y + dy) * w + x + dx) * 3 + c];
+      const gx = at(1, -1) + 2 * at(1, 0) + at(1, 1) - at(-1, -1) - 2 * at(-1, 0) - at(-1, 1);
+      const gy = at(-1, 1) + 2 * at(0, 1) + at(1, 1) - at(-1, -1) - 2 * at(0, -1) - at(1, -1);
+      const v = Math.abs(gx) + Math.abs(gy);
+      if (v > best) best = v;
+    }
+    edge[y * w + x] = Math.min(1, best / 400);
+  }
+  return { width: w, height: h, rgb, ink, solid, blocked, edge, roomOf, floor, candidates: candidates.filter((c) => c.pixels.length >= px(0.06)) };
 }
 
 // ───────────────────────── shape of a pixel set
@@ -311,14 +357,132 @@ export function nameShape(f, ctx) {
   return null;
 }
 
+// ───────────────────────── matching with library templates (what the item looks like from above)
+
+/**
+ * The items a region can be, with their footprint ranges (w: width, across the front; d: depth, front to back, m),
+ * where they stand (`wall`: the back to a wall; `free`: away from walls) and which rooms they belong in.
+ * `params(w, d)`: the item's size parameters for a footprint.
+ */
+export const MATCH_ITEMS = [
+  { item: 'bed', w: [0.85, 2.05], d: [1.85, 2.35], wall: true, rooms: 'dry', params: (w) => ({ bedSize: w < 1.05 ? 'single' : w < 1.3 ? 'supersingle' : w < 1.55 ? 'queen' : w < 1.75 ? 'king' : 'largeking' }) },
+  { item: 'sofa-modern', w: [1.7, 3.6], d: [0.75, 1.15], rooms: 'living', params: (w, d) => ({ width: w, depth: d }) },
+  { item: 'sofa-loveseat', w: [1.1, 1.75], d: [0.75, 1.1], rooms: 'living', params: (w, d) => ({ width: w, depth: d }) },
+  { item: 'sofa-sectional', w: [2, 4.5], d: [1.3, 2.4], rooms: 'living', params: (w, d) => ({ width: w, chaise: d }) },
+  { item: 'armchair', w: [0.62, 1.12], d: [0.62, 1.12], rooms: 'dry', params: (w) => ({ width: Math.min(1.1, w) }) },
+  { item: 'coffee-table', w: [0.5, 1.8], d: [0.38, 1.05], free: true, rooms: 'living', params: (w, d) => ({ width: w, depth: d }) },
+  { item: 'dining-table', w: [0.8, 3], d: [0.7, 1.25], free: true, rooms: 'living', params: (w, d) => ({ length: w, depth: d }) },
+  { item: 'desk', w: [0.8, 2.4], d: [0.45, 0.9], wall: true, rooms: 'dry', params: (w, d) => ({ width: w, depth: d }) },
+  { item: 'wardrobe', w: [0.8, 4.8], d: [0.53, 0.72], wall: true, rooms: 'dry', params: (w, d) => ({ width: w, depth: d }), rename: (w) => (w > 1.9 ? 'built-in-closet' : 'wardrobe') },
+  { item: 'dresser', w: [0.6, 1.8], d: [0.38, 0.55], wall: true, rooms: 'dry', params: (w) => ({ width: w }) },
+  { item: 'bookshelf', w: [0.4, 2.0], d: [0.2, 0.46], wall: true, rooms: 'dry', params: (w, d) => ({ width: w, depth: d }) },
+  { item: 'tv-console', w: [1.0, 2.8], d: [0.3, 0.55], wall: true, rooms: 'living', params: (w, d) => ({ width: w, depth: d }) },
+  { item: 'nightstand', w: [0.35, 0.75], d: [0.3, 0.6], wall: true, rooms: 'dry', params: (w) => ({ width: Math.min(0.7, Math.max(0.35, w)) }) },
+  { item: 'kitchen-sink-counter', w: [1.2, 4], d: [0.55, 0.72], wall: true, rooms: 'living', params: (w) => ({ width: Math.min(4, w) }) },
+  { item: 'refrigerator', w: [0.55, 1.0], d: [0.6, 0.98], wall: true, rooms: 'living', params: (w) => ({ width: Math.min(1, w) }) },
+  { item: 'toilet', w: [0.33, 0.47], d: [0.55, 0.82], wall: true, rooms: 'toilet', params: () => ({}) },
+  { item: 'washbasin-vanity', w: [0.45, 1.65], d: [0.35, 0.62], wall: true, rooms: 'wet', params: (w) => ({ width: Math.min(1.6, w) }) },
+  { item: 'shower-booth', w: [0.7, 1.45], d: [0.7, 1.45], rooms: 'wet', params: (w, d) => ({ width: w, depth: d }) },
+  { item: 'bathtub', w: [1.2, 2.05], d: [0.62, 0.98], wall: true, rooms: 'wet', params: (w, d) => ({ length: w, width: d }) },
+  { item: 'washing-machine', w: [0.55, 0.76], d: [0.5, 0.86], wall: true, rooms: 'laundry', params: () => ({}) },
+  { item: 'fiddle-leaf-fig', w: [0.4, 1.6], d: [0.4, 1.6], rooms: 'any', params: () => ({}) },
+  { item: 'rug', w: [1.0, 4], d: [0.6, 3.5], free: true, rooms: 'dry', params: (w, d) => ({ width: Math.min(4, w), depth: Math.min(3.5, d), shape: 'rect' }) },
+];
+
+const roomFits = (rooms, ctx) => {
+  const living = ['living', 'room', 'rest'].includes(ctx.room);
+  if (rooms === 'any') return true;
+  if (rooms === 'wet') return ctx.wet;
+  if (rooms === 'toilet') return ctx.wet || !['bedroom', 'living', 'rest'].includes(ctx.room);
+  if (rooms === 'laundry') return ctx.wet || ['storage', 'hall', 'rest', 'room'].includes(ctx.room);
+  if (rooms === 'living') return living;
+  return !ctx.wet; // dry
+};
+
+/** Pearson correlation of two grids (0 when either is flat). */
+function corr(a, b) {
+  const n = a.length; let ma = 0; let mb = 0;
+  for (let i = 0; i < n; i++) { ma += a[i]; mb += b[i]; }
+  ma /= n; mb /= n;
+  let ab = 0; let aa = 0; let bb = 0;
+  for (let i = 0; i < n; i++) { const x = a[i] - ma; const y = b[i] - mb; ab += x * y; aa += x * x; bb += y * y; }
+  return aa > 1e-9 && bb > 1e-9 ? ab / Math.sqrt(aa * bb) : 0;
+}
+
+/** A plain box from above (a rectangle with its border as edge): what any boxy region looks like. */
+function plainBox(size = 12) {
+  const occ = new Float32Array(size * size).fill(1); const edge = new Float32Array(size * size);
+  for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) if (i === 0 || j === 0 || i === size - 1 || j === size - 1) edge[j * size + i] = 1;
+  return { occ, edge };
+}
+const BOX = plainBox();
+
+/** Size fit (0 … 1): 1 inside the range, falling off outside it. */
+const fit = (v, [lo, hi]) => (v >= lo && v <= hi ? 1 : Math.exp(-(((v < lo ? lo - v : v - hi) / Math.max(0.12, (v < lo ? lo : hi) * 0.15)) ** 2)));
+
+/**
+ * The best library item for a shape, looking at what it looks like (templates), its size, room and wall contact:
+ * { item, params, score, front: [x, z], w, d } or null. `sample(f, front)` → { edge, occ } grids of the picture in
+ * that orientation; `templates(item)` → { edge, occ } or null.
+ */
+export function matchShape(f, ctx, templates, sample) {
+  const frame = [Math.cos(ctx.angle ?? 0), Math.sin(ctx.angle ?? 0)];
+  const V = [-frame[1], frame[0]];
+  const fronts = [V, [-V[0], -V[1]], frame, [-frame[0], -frame[1]]];
+  // The size rules' answer is a prior: the templates choose between what the size, room and walls allow.
+  const ruled = nameShape(f, ctx)?.item ?? null;
+  let best = null;
+  for (const F of fronts) {
+    const alongU = Math.abs(F[0] * frame[0] + F[1] * frame[1]) > 0.7; // the front points along the frame's u axis
+    const w = alongU ? f.dv : f.du; const d = alongU ? f.du : f.dv;
+    const back = f.sides.find((s) => s.dir[0] * -F[0] + s.dir[1] * -F[1] > 0.7);
+    const backDist = back ? back.dist : 9;
+    let grids = null;
+    let boxShape = null;
+    for (const spec of MATCH_ITEMS) {
+      if (!roomFits(spec.rooms, ctx)) continue;
+      if (spec.item === 'rug' && !ctx.carries) continue;
+      const size = fit(w, spec.w) * fit(d, spec.d);
+      if (size < 0.15) continue;
+      const wall = spec.wall ? (backDist <= 0.2 ? 1 : backDist <= 0.45 ? 0.5 : 0.15) : spec.free ? (f.wall > 0.15 ? 1 : 0.55) : 0.85;
+      // Shape evidence: how much better the item's top view explains the picture than a plain box does.
+      let evidence = 0;
+      const t = templates?.(spec.item);
+      if (t) {
+        grids ??= sample(f, F);
+        const look = (g) => 0.6 * corr(grids.edge, g.edge) + 0.4 * corr(grids.occ, g.occ);
+        boxShape ??= look(BOX);
+        evidence = look(t) - boxShape;
+      }
+      const agrees = ruled === spec.item || (ruled === 'built-in-closet' && spec.item === 'wardrobe');
+      if (!agrees && evidence < 0.08) continue;
+      let bonus = 0;
+      if (spec.item === 'fiddle-leaf-fig') bonus += ctx.plant ? 0.25 : -0.1;
+      if (spec.item === 'nightstand' && ctx.nearBed) bonus += 0.12;
+      if (spec.item === 'coffee-table' && ctx.nearSofa) bonus += 0.12;
+      if ((spec.item === 'refrigerator' || spec.item === 'kitchen-sink-counter') && ctx.nearCounter) bonus += 0.08;
+      if (spec.item === 'refrigerator') bonus += ctx.dark ? 0.08 : ctx.nearCounter ? 0 : -0.15;
+      // Beside a bed's head stands a nightstand rather than a dresser.
+      if (spec.item === 'dresser' && ctx.nearBed) bonus -= 0.12;
+      const score = 0.3 * size + 0.25 * wall + 0.3 + 0.8 * evidence + (agrees ? 0.15 : 0) + bonus;
+      if (!best || score > best.score) {
+        const item = spec.rename ? spec.rename(w, d) : spec.item;
+        best = { item, params: spec.params(w, d), score, front: F, w, d };
+      }
+    }
+  }
+  return best && best.score >= 0.62 ? best : null;
+}
+
 // ───────────────────────── recognition
 
 /**
  * The furniture of a plan picture: [{ item, params, position: [x, z], rotation (radians about +Y), size: [w, d],
  * score }] in picture metres (x right, z down). `result`: the recognised walls and openings of the same picture
- * (picture metres); `angle`: the walls' direction (radians; 0 for a square picture).
+ * (picture metres); `angle`: the walls' direction (radians; 0 for a square picture); `templates`: (item) → its top view
+ * (io/plan-templates.js) — with them the items are matched by what they look like, without them by the size rules.
  */
-export function detectFurniture(image, { metresPerPixel: m, result, angle = 0 }) {
+export function detectFurniture(image, { metresPerPixel: m, result, angle = 0, templates = null }) {
   if (!result?.walls?.length) return [];
   const built = planEntities({ ...result, texts: [] }, { level: 'f', keepLeftovers: false });
   const rooms = built.rooms;
@@ -327,13 +491,13 @@ export function detectFurniture(image, { metresPerPixel: m, result, angle = 0 })
   const doors = built.openings.filter((o) => o.item.startsWith('door')).map((o) => {
     const w = byId.get(o.wall); const L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]);
     const u = [(w.b[0] - w.a[0]) / L, (w.b[1] - w.a[1]) / L];
-    return { c: [w.a[0] + u[0] * o.offset, w.a[1] + u[1] * o.offset], u, width: o.width };
+    return { c: [w.a[0] + u[0] * o.offset, w.a[1] + u[1] * o.offset], u, width: o.width, thickness: w.thickness };
   });
   // What the recognised rooms leave out inside the building (a room whose walls did not close) is one more room.
   const xs = built.walls.flatMap((v) => [v.a[0], v.b[0]]); const zs = built.walls.flatMap((v) => [v.a[1], v.b[1]]);
   const t = Math.max(...built.walls.map((v) => v.thickness)) / 2;
   const rest = [[Math.min(...xs) + t, Math.min(...zs) + t], [Math.max(...xs) - t, Math.min(...zs) + t], [Math.max(...xs) - t, Math.max(...zs) - t], [Math.min(...xs) + t, Math.max(...zs) - t]];
-  const scene = furnitureScene(image, { metresPerPixel: m, rooms: rooms.map((r) => r.points), doors, rest });
+  const scene = furnitureScene(image, { metresPerPixel: m, rooms: rooms.map((r) => r.points), doors, rest, walls: built.walls });
   const n = scene.width * scene.height;
   // Distance from a point to the nearest wall face (m).
   const wallAt = (p) => {
@@ -362,6 +526,31 @@ export function detectFurniture(image, { metresPerPixel: m, result, angle = 0 })
     f.plant = hs.s > 0.3 && between(hs.h, 70, 170);
     shapes.push(f);
     return f;
+  };
+  // The picture in a template's frame: front F (row N−1 = the front), width across it; edge strength and the region's
+  // own pixels per cell.
+  const stamp = new Int32Array(n).fill(-1);
+  let stampId = 0;
+  const sample = (f, F) => {
+    const id = ++stampId;
+    for (const i of f.pixels) stamp[i] = id;
+    const N = 12; const X = [F[1], -F[0]];
+    const frame = [Math.cos(angle), Math.sin(angle)];
+    const alongU = Math.abs(F[0] * frame[0] + F[1] * frame[1]) > 0.7;
+    const w = alongU ? f.dv : f.du; const d = alongU ? f.du : f.dv;
+    const edgeG = new Float32Array(N * N); const occG = new Float32Array(N * N);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      let e = 0; let o = 0;
+      for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) {
+        const sx = -w / 2 + ((i + (a + 0.5) / 3) / N) * w; const sz = -d / 2 + ((j + (b + 0.5) / 3) / N) * d;
+        const px = Math.floor((f.centre[0] + X[0] * sx + F[0] * sz) / m); const py = Math.floor((f.centre[1] + X[1] * sx + F[1] * sz) / m);
+        if (px < 0 || py < 0 || px >= scene.width || py >= scene.height) continue;
+        const k = py * scene.width + px;
+        e += scene.edge[k]; if (stamp[k] === id) o++;
+      }
+      edgeG[j * N + i] = e / 9; occG[j * N + i] = o / 9;
+    }
+    return { edge: edgeG, occ: occG };
   };
   // Candidate trees: each candidate, and (up to two levels) the halves it can be cut into.
   const tree = (pixels, depth) => {
@@ -395,10 +584,14 @@ export function detectFurniture(image, { metresPerPixel: m, result, angle = 0 })
   // How much a name explains: its confidence times the area it covers (halves must explain clearly more than the whole).
   const weigh = (name, f) => (name ? name.score * f.area : 0);
   // Best way to explain a tree: the whole as one item, or its halves (each explained best).
+  // A room's name: a short flat thing at the middle of its room (furniture stands at walls or has some depth).
+  const centres = rooms.map((rm) => rm.points.reduce((acc, p) => [acc[0] + p[0] / rm.points.length, acc[1] + p[1] / rm.points.length], [0, 0]));
+  const roomName = (f) => f.short <= 0.35 && f.long <= 2.2 && centres[f.room] && Math.hypot(f.centre[0] - centres[f.room][0], f.centre[1] - centres[f.room][1]) <= 0.7;
   // A big patch reaching from wall to wall is floor (a corridor or a tiled area in another colour), not furniture.
   const floorPatch = (f) => f.area > 2.5 && ((f.sides[0].dist <= 0.15 && f.sides[1].dist <= 0.15) || (f.sides[2].dist <= 0.15 && f.sides[3].dist <= 0.15));
   const best = (node, all) => {
-    const name = floorPatch(node.f) ? null : nameShape(node.f, contextOf(node.f, all));
+    const ctx = { ...contextOf(node.f, all), angle };
+    const name = floorPatch(node.f) || roomName(node.f) ? null : templates ? matchShape(node.f, ctx, templates, sample) : nameShape(node.f, ctx);
     let pick = { items: name ? [{ f: node.f, name }] : [], weight: weigh(name, node.f) };
     for (const kids of node.children) {
       const parts = kids.map((k) => best(k, all));
@@ -449,13 +642,15 @@ export function detectFurniture(image, { metresPerPixel: m, result, angle = 0 })
   const order = [...chosen].sort((p, q) => q.name.score * q.f.area - p.name.score * p.f.area);
   const kept = [];
   for (const c of order) {
-    if (c.name.item !== 'rug' && kept.some((k) => k.name.item !== 'rug' && shared(box(k), box(c)) > Math.min(areaOf(box(k)), areaOf(box(c))) * 0.5)) continue;
+    if (c.name.item !== 'rug' && kept.some((k) => k.name.item !== 'rug' && shared(box(k), box(c)) > Math.min(areaOf(box(k)), areaOf(box(c))) * (k.name.item === c.name.item ? 0.25 : 0.5))) continue;
     if (c.name.item === 'rug' && kept.some((k) => k.name.item === 'rug' && shared(box(k), box(c)) > Math.min(areaOf(box(k)), areaOf(box(c))) * 0.5)) continue;
     kept.push(c);
   }
   chosen = kept;
   // Placement: centre of the rectangle; wall things with their back to the nearest wall.
   const placed = chosen.map(({ f, name }) => {
+    // Matched with a template: its front and footprint come with the match.
+    if (name.front && name.item !== 'rug') return { item: name.item, params: name.params, position: f.centre, rotation: Math.atan2(name.front[0], name.front[1]), size: [name.w, name.d], score: name.score, box: [f.u0, f.v0, f.u1, f.v1] };
     const endToWall = END_TO_WALL.has(name.item);
     // Nearly square things: whichever side is nearest a wall is the back.
     const square = f.long / f.short < 1.15;

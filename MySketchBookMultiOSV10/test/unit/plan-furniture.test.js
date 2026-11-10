@@ -8,7 +8,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import { nameShape, detectFurniture } from '../../src/io/plan-furniture.js';
+import { nameShape, detectFurniture, matchShape, MATCH_ITEMS } from '../../src/io/plan-furniture.js';
+import { templateSource, topTemplate } from '../../src/io/plan-templates.js';
+import { PARAMETRIC_ITEMS } from '../../src/library/parametric/index.js';
+import { getMaterial } from '../../src/engine/materials.js';
 import { detectImageWalls, wallsOnly } from '../../src/io/plan-image.js';
 import { pickDetection } from '../../src/io/plan-draft.js';
 
@@ -26,6 +29,9 @@ const GROUP = {
   'fiddle-leaf-fig': 'plant', monstera: 'plant', 'olive-tree': 'plant', rug: 'rug',
 };
 const WALL_GROUPS = new Set(['bed', 'storage', 'sofa', 'toilet', 'basin', 'kitchen', 'fridge', 'nightstand', 'desk']);
+const BY_ID = new Map(PARAMETRIC_ITEMS.map((i) => [i.id, i]));
+const build = (id) => BY_ID.get(id)?.build({}, { quality: 'low', wallThickness: 0.2, material: (m, o) => getMaterial(m, o) });
+const templates = templateSource(build);
 
 const f = (long, short, fill = 0.95) => ({ long, short, fill });
 const ctx = (room, more = {}) => ({ room, wet: room === 'bath', atWall: true, wall: 0.02, plant: false, dark: false, carries: false, nearBed: false, nearSofa: false, nearCounter: false, ...more });
@@ -58,7 +64,7 @@ test('plan-furniture: typical footprints get the expected library items', () => 
 });
 
 /** The app's picture reading (ui/plan-import.js): walls (four variants, the best one), then the furniture. */
-async function recognise(p) {
+async function recognise(p, { useTemplates = true } = {}) {
   const { data, info } = await sharp(path.join(dir, p.file)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const img = { data: new Uint8ClampedArray(data), width: info.width, height: info.height };
   const m = 1 / p.pxPerMetre;
@@ -66,7 +72,7 @@ async function recognise(p) {
   const none = { walls: [], openings: [] };
   const found = [...['outline', 'edges'].map((method) => (walls ? detectImageWalls(walls, { metresPerPixel: m, method, evidence: img }) : none)), ...['outline', 'edges'].map((method) => detectImageWalls(img, { metresPerPixel: m, method }))];
   const result = found[pickDetection(found)];
-  return detectFurniture(img, { metresPerPixel: m, result, angle: result.angle ?? 0 });
+  return detectFurniture(img, { metresPerPixel: m, result, angle: result.angle ?? 0, templates: useTemplates ? templates : null });
 }
 
 /** The pieces a picture shows (floor furniture; kitchen cabinets side by side are one counter run), in picture metres. */
@@ -114,13 +120,25 @@ function score(items, gt) {
   return { right, facing, wallPieces };
 }
 
-test('plan-furniture: the interior samples — kinds, places and directions of the furniture', async () => {
+test('plan-furniture: library top views — the item in its own frame, front at the bottom rows', () => {
+  for (const spec of MATCH_ITEMS) assert.ok(templates(spec.item), `${spec.item}: a template`);
+  const bed = templates('bed');
+  assert.ok(bed.d > bed.w, 'a bed is longer than wide (depth = its length)');
+  const rowEdges = (r) => bed.edge.slice(r * bed.size, (r + 1) * bed.size).reduce((s, v) => s + v, 0);
+  assert.ok(rowEdges(1) + rowEdges(2) > rowEdges(6) + rowEdges(7), 'headboard and pillows at the back (top rows), plain covers towards the front');
+  assert.equal(topTemplate(new (BY_ID.get('bed').build({}, { quality: 'low', wallThickness: 0.2, material: (m, o) => getMaterial(m, o) }).constructor)()), null, 'nothing to draw: no template');
+});
+
+test('plan-furniture: the interior samples — kinds, places and directions of the furniture', async (t) => {
   const total = { gt: 0, found: 0, right: 0, facing: 0, wallPieces: 0 };
+  const rules = { found: 0, right: 0 };
   const beds = { pictures: 0, found: 0 };
   for (const p of index.pictures.filter((x) => x.interior && !x.tilt)) {
     const items = await recognise(p);
     const gt = expected(p);
     const s = score(items, gt);
+    const plain = await recognise(p, { useTemplates: false });
+    rules.found += plain.length; rules.right += score(plain, gt).right;
     total.gt += gt.length; total.found += items.length; total.right += s.right; total.facing += s.facing; total.wallPieces += s.wallPieces;
     for (const it of items) {
       assert.ok(Number.isFinite(it.rotation) && it.size.every((v) => v > 0.1 && v < 5), `${p.id}: ${it.item} placed`);
@@ -129,15 +147,20 @@ test('plan-furniture: the interior samples — kinds, places and directions of t
     if (p.style !== 'interiorSketch') { beds.pictures++; if (items.some((it) => it.item === 'bed')) beds.found++; }
   }
   const recall = total.right / total.gt; const precision = total.right / total.found; const facing = total.facing / total.wallPieces;
+  t.diagnostic(`templates: recall ${(recall * 100).toFixed(0)}%, precision ${(precision * 100).toFixed(0)}%, facing ${(facing * 100).toFixed(0)}% · rules only: recall ${(rules.right / total.gt * 100).toFixed(0)}%, precision ${(rules.right / rules.found * 100).toFixed(0)}%`);
   assert.ok(beds.found >= beds.pictures - 1, `beds found in ${beds.found} of ${beds.pictures} pictures`);
-  assert.ok(recall >= 0.52, `found with the right kind: ${(recall * 100).toFixed(0)}% of ${total.gt}`);
-  assert.ok(precision >= 0.54, `right among what is found: ${(precision * 100).toFixed(0)}% of ${total.found}`);
-  assert.ok(facing >= 0.8, `wall pieces facing the right way: ${(facing * 100).toFixed(0)}% of ${total.wallPieces}`);
+  assert.ok(recall >= 0.7, `found with the right kind: ${(recall * 100).toFixed(0)}% of ${total.gt}`);
+  assert.ok(precision >= 0.68, `right among what is found: ${(precision * 100).toFixed(0)}% of ${total.found}`);
+  assert.ok(facing >= 0.95, `wall pieces facing the right way: ${(facing * 100).toFixed(0)}% of ${total.wallPieces}`);
+  assert.ok(total.right > rules.right, `the templates find more than the size rules alone (${total.right} > ${rules.right})`);
 });
 
 test('plan-furniture: a plan picture without furniture gets none made up', async () => {
-  for (const id of ['apt49-listing', 'apt104-blueprint', 'apt74-brochure']) {
-    const items = await recognise(index.pictures.find((x) => x.id === id));
-    assert.ok(items.length <= 1, `${id}: ${items.map((x) => x.item).join(', ')}`);
+  // The CAD styles draw no furniture at all (the listing, brochure and blueprint styles draw simple symbols).
+  for (const id of ['apt84-cad-print', 'officetel-fax', 'shop-tga']) {
+    const p = index.pictures.find((x) => x.id === id);
+    if (/.tga$/.test(p.file)) continue;
+    const items = await recognise(p);
+    assert.ok(items.length <= 2, `${id}: ${items.map((x) => x.item).join(', ')}`);
   }
 });

@@ -32,6 +32,9 @@ import { arcLines } from '../io/plan-recognize.js';
 import { backgroundCentre, backgroundPoint, fromProject, fromResult, pickDetection, toResult } from '../io/plan-draft.js';
 import { createPlanStudio } from './plan-studio.js';
 import { detectFurniture } from '../io/plan-furniture.js';
+import { templateSource } from '../io/plan-templates.js';
+import { getMaterial } from '../engine/materials.js';
+import { catalogItem } from '../library/catalog.js';
 
 /** Buildings: BIM models (IFC) and Sweet Home 3D homes — levels, walls, openings, rooms, furniture. */
 export const BUILDING_ACCEPT = '.ifc,.sh3d';
@@ -170,6 +173,8 @@ export function createPlanImport(app) {
   let calib = null; // the two-point pick in progress
   // The 2D workbench: recognised plans are cleaned up there before they become 3D.
   const studio = createPlanStudio(app);
+  // What library furniture looks like from above (built once per item, the first time a picture is read).
+  const furnitureTemplates = templateSource((id) => catalogItem(id)?.build?.({}, { quality: 'low', wallThickness: 0.2, material: (m, o) => getMaterial(m, o) }) ?? null);
 
   const layerOf = () => {
     const vp = app.viewport();
@@ -592,7 +597,7 @@ export function createPlanImport(app) {
         // Furniture in the rooms of the chosen walls (io/plan-furniture.js), on the picture as it is.
         if (raw.walls.length) {
           const { original, metresPerPixel } = picturePixels(bitmap, bg.k);
-          try { raw = { ...raw, furniture: detectFurniture(original, { metresPerPixel, result: raw, angle: raw.angle ?? 0 }) }; } catch (error) { console.warn('furniture', error); }
+          try { raw = { ...raw, furniture: detectFurniture(original, { metresPerPixel, result: raw, angle: raw.angle ?? 0, templates: furnitureTemplates }) }; } catch (error) { console.warn('furniture', error); }
         }
         return placeResult(raw, bg);
       }, { delay: 150 });
