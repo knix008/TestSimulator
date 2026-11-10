@@ -1,0 +1,34 @@
+.print-shell { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--bg); color: var(--text); }
+.print-bar {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px; flex: none;
+  background: var(--toolbar); border-bottom: 1px solid var(--hairline);
+}
+.print-bar h1 { margin: 0; font-size: 1em; display: flex; align-items: center; gap: 6px; }
+.print-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 280px 1fr; }
+.print-options { overflow: auto; padding: 12px; border-right: 1px solid var(--hairline); background: var(--panel); display: flex; flex-direction: column; gap: 12px; }
+.print-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.92em; }
+.print-field span { color: var(--muted); }
+.print-field select, .print-field input { height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); padding: 0 8px; }
+.print-copies { display: flex; align-items: center; gap: 6px; }
+.print-copies output { min-width: 28px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.print-preview { overflow: auto; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--bg) 86%, #000); }
+.sheet {
+  width: min(100%, 720px); background: #fff; color: #1a1a1a; padding: 28px 32px; box-shadow: var(--elev-2);
+  font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+}
+.sheet h2 { margin: 0 0 4px; font-size: 22px; }
+.sheet .summary { margin: 0 0 12px; color: #0b6e8e; font-weight: 650; }
+.sheet h3 { margin: 14px 0 6px; font-size: 14px; }
+.sheet p, .sheet li { line-height: 1.5; }
+.sheet img { display: block; width: 100%; max-height: 280px; object-fit: contain; border: 1px solid #d5dbe3; border-radius: 8px; background: #f7f9fb; }
+.sheet pre { white-space: pre-wrap; font-family: Consolas, monospace; font-size: 12px; background: #f4f7fa; padding: 8px 10px; border-radius: 8px; }
+.sheet table { border-collapse: collapse; width: 100%; }
+.sheet td { border-bottom: 1px solid #e4e8ee; padding: 3px 6px; vertical-align: top; }
+.sheet td:first-child { color: #526075; width: 28%; }
+.print-status { color: var(--muted); margin-left: 8px; }
+@media print {
+  .print-bar, .print-options, .print-status { display: none !important; }
+  .print-body { display: block; }
+  .print-preview { padding: 0; background: #fff; display: block; }
+  .sheet { width: auto; box-shadow: none; }
+}

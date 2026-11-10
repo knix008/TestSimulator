@@ -1,0 +1,29 @@
+[package]
+name = "myalgorithmsimulator"
+version = "1.0.0"
+description = "Step-by-step visual algorithm simulator"
+authors = ["SHKWON <knix008@naver.com>"]
+edition = "2021"
+
+[lib]
+name = "myalgorithmsimulator_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+
+# Direct printing on Windows, the same WebView2 versions Tauri uses.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Printing", "Win32_Security"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

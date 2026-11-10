@@ -1,0 +1,45 @@
+{
+  "name": "myalgorithmsimulator",
+  "productName": "MyAlgorithmSimulator",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Step-by-step visual algorithm simulator for students — sorting, searching, graphs, dynamic programming, strings, trees and more, with runnable sample code in C, C++, Java, Python, Go, Rust and JavaScript. Web, Windows, macOS and Linux (Tauri).",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview --port 4185 --strictPort",
+    "tauri": "tauri",
+    "test": "node --test test/",
+    "test:samples": "node scripts/check-samples.mjs",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "build:icons": "tauri icon public/icon.svg -o src-tauri/icons"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/lang-cpp": "^6.0.3",
+    "@codemirror/lang-go": "^6.0.1",
+    "@codemirror/lang-java": "^6.0.2",
+    "@codemirror/lang-javascript": "^6.2.4",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/lang-rust": "^6.0.2",
+    "@codemirror/language": "^6.11.2",
+    "@codemirror/search": "^6.5.11",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.1",
+    "@lezer/highlight": "^1.2.1",
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "codemirror": "^6.0.2",
+    "marked": "^16.3.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "vite": "^7.1.7"
+  }
+}

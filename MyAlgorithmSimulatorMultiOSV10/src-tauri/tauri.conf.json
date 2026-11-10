@@ -1,0 +1,29 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyAlgorithmSimulator",
+  "mainBinaryName": "MyAlgorithmSimulator",
+  "version": "../package.json",
+  "identifier": "com.shkwon.myalgorithmsimulator",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:5490",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      { "label": "main", "title": "MyAlgorithmSimulator", "width": 1480, "height": 900, "minWidth": 1100, "minHeight": 640, "center": true, "decorations": false, "shadow": true }
+    ],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "Education",
+    "shortDescription": "Step-by-step visual algorithm simulator",
+    "longDescription": "Watch sorting, searching, graph, dynamic-programming and other algorithms run step by step, then study and run the same algorithm in C, C++, Java, Python, Go, Rust and JavaScript.",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
+  }
+}

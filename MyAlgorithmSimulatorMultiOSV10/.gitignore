@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers (npm run build:win / build:mac / build:linux)
+release/
+/MyAlgorithmSimulator-*.exe
+/MyAlgorithmSimulator-*.msi
+/MyAlgorithmSimulator-*.dmg
+/MyAlgorithmSimulator-*.deb
+/MyAlgorithmSimulator-*.rpm
+/MyAlgorithmSimulator-*.AppImage
+
+# Sample check builds (npm run test:samples)
+.sample-build/
+test-results/
+*.log
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
