@@ -10,4 +10,35 @@ html.is-guide, html.is-guide body { height: 100%; overflow: hidden; }
 .guide-title .icon { color: var(--accent); }
 .guide-font { display: inline-flex; align-items: center; gap: 4px; }
 .guide-font output { min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
-.guide-frame { flex: 1; min-height: 0; width: 100%; border: 0; background: var(--bg); }
+.guide-body { flex: 1; min-height: 0; overflow: hidden; display: grid; grid-template-columns: 232px minmax(0, 1fr); background: var(--bg); color: var(--text); }
+.guide-body .layout { display: contents; }
+.guide-body nav.toc { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 10px; background: var(--panel); border-right: 1px solid var(--hairline); }
+.guide-body nav.toc p { margin: 0 8px 8px; font-size: 0.82em; color: var(--muted); font-weight: 650; }
+.guide-body nav.toc a { display: block; padding: 6px 8px; border-radius: 7px; color: var(--text); text-decoration: none; }
+.guide-body nav.toc a:hover { background: var(--hover); }
+.guide-body main { min-height: 0; overflow: auto; padding: 28px 40px 72px; min-width: 0; }
+.guide-body main section { max-width: 760px; margin: 0 auto 28px; }
+.guide-body h1 { margin: 0 0 18px; font-size: 1.6em; }
+.guide-body h2 { margin: 0 0 10px; font-size: 1.35em; scroll-margin-top: 16px; }
+.guide-body p { margin: 0 0 10px; }
+.guide-body ul { margin: 0 0 10px; padding-left: 1.2em; }
+.guide-body li { margin: 4px 0; }
+.guide-body code { padding: 1px 5px; border-radius: 4px; background: var(--hover); }
+.guide-body table { border-collapse: collapse; margin: 8px 0; }
+.guide-body th, .guide-body td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+.guide-body th { background: var(--panel); }
+.guide-body figure { margin: 4px 0 16px; }
+.guide-body img { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+.guide-body figcaption { margin-top: 6px; color: var(--muted); font-size: 0.86em; }
+.guide-status { margin: 24px; }
+@media print {
+  .guide-bar { display: none !important; }
+  html.is-guide, html.is-guide body, #guide, .guide-shell, .guide-body, .guide-body main, .guide-body nav.toc {
+    height: auto; max-height: none; overflow: visible; display: block;
+  }
+  .guide-body { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .guide-body { grid-template-columns: minmax(0, 1fr); }
+  .guide-body nav.toc { display: none; }
+}

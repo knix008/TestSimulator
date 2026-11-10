@@ -217,25 +217,60 @@ function onStageClick(event) {
 
 // ───────────────────────── code running
 
+function settleRun(result) {
+  return {
+    ok: !!result?.ok,
+    compiled: !!result?.compiled,
+    compile: result?.compile || '',
+    stdout: result?.stdout || '',
+    stderr: result?.stderr || '',
+    elapsedMs: result?.elapsedMs || 0,
+  };
+}
+
+function runLog(kind) {
+  if (state.running) return t('code.running');
+  const result = state.output;
+  if (!result) return t(kind === 'compile' ? 'compile.empty' : 'output.empty');
+  if (kind === 'compile') {
+    const log = String(result.compile || '').trim();
+    if (!result.compiled) return log || t('compile.direct');
+    if (!log) return (result.ok || result.stdout || result.stderr) ? t('compile.clean') : t('compile.failed');
+    return result.compile;
+  }
+  if (!result.ok && !result.stdout && !result.stderr) return t('compile.failed');
+  return `${result.stdout}${result.stderr ? `${result.stdout ? '\n' : ''}${result.stderr}` : ''}`;
+}
+
 async function executeCode() {
   if (state.running) return;
   const source = editor ? editor.get() : currentCode();
   state.code[codeKey()] = source;
+  const onWork = state.page === 'work' && document.getElementById('compile-log');
   state.running = true;
   state.page = 'work';
-  state.rightTab = 'output';
+  state.bottomTab = 'compile';
   state.output = null;
-  render();
+  const live = document.getElementById('compile-log');
+  if (onWork && live) {
+    live.querySelector('pre').textContent = t('code.running');
+    live.querySelector('pre').classList.remove('err');
+    actions.bottom({ dataset: { arg: 'compile' } });
+    const status = document.getElementById('status-text');
+    if (status) status.textContent = t('code.running');
+  } else render();
   let result;
   try {
-    if (state.codeLang === 'javascript') result = await runJavaScript(source, state.inputText);
-    else if (!isDesktop()) result = { ok: false, stdout: '', stderr: t('code.desktopOnly') };
-    else result = await runCode(state.codeLang, source, state.inputText);
+    if (state.codeLang === 'javascript') result = settleRun(await runJavaScript(source, state.inputText));
+    else if (!isDesktop()) result = settleRun({ ok: false, stderr: t('code.desktopOnly') });
+    else result = settleRun(await runCode(state.codeLang, source, state.inputText));
   } catch (error) {
-    result = { ok: false, stdout: '', stderr: String(error) };
+    result = settleRun({ ok: false, stderr: String(error) });
   }
   state.running = false;
   state.output = result;
+  const failedCompile = !result.ok && result.compiled && !result.stdout && !result.stderr;
+  state.bottomTab = failedCompile ? 'compile' : 'output';
   render();
 }
 
@@ -272,29 +307,25 @@ function rightPanel() {
     return `<div class="panel-rail"><button class="rail-button expand" data-act="menu-right" title="${esc(t('panel.detail'))}">${icon('panelRightOpen')}<span class="rail-label">${esc(t('panel.expand'))}</span></button><div class="rail-title">${icon('info')}<span>${esc(t('panel.detailShort'))}</span></div></div>`;
   }
   const current = algo();
-  const side = state.rightTab === 'vars' || state.rightTab === 'output' ? state.rightTab : 'explain';
-  const tabs = ['explain', 'vars', 'output'].map((id) => `<button class="editor-tab${side === id ? ' active' : ''}" data-act="tab" data-arg="${id}">${icon(TAB_ICON[id])}<span>${esc(t(`tab.${id}`))}</span></button>`).join('');
+  const side = state.rightTab === 'vars' ? 'vars' : 'explain';
+  const tabs = ['explain', 'vars'].map((id) => `<button class="editor-tab${side === id ? ' active' : ''}" data-act="tab" data-arg="${id}">${icon(TAB_ICON[id])}<span>${esc(t(`tab.${id}`))}</span></button>`).join('');
   let body = '';
   if (side === 'explain') {
     const legend = (LEGEND[current.view] ?? []).map(([name, label]) => `<span><i style="background:${INK_COLORS[name]}"></i>${esc(tx(label))}</span>`).join('');
     const complexity = Object.entries(current.complexity).map(([key, value]) => `<b>${esc(key)}</b><span>${esc(value)}</span>`).join('');
     body = `<div class="explain"><h3 class="algo-title">${icon(current.id)}<span>${esc(tx(current.name))}</span></h3><p class="muted">${esc(tx(current.summary))}</p>${rich(tx(current.description))}<h3>${esc(t('complexity.title'))}</h3><div class="complexity">${complexity}</div><p class="muted">${esc(tx(current.traits))}</p>${legend ? `<h3>${esc(t('legend.title'))}</h3><div class="legend">${legend}</div>` : ''}</div>`;
-  } else if (side === 'vars') {
-    body = `<div id="vars-host"></div>`;
   } else {
-    const result = state.output;
-    const text = state.running ? t('code.running') : result ? `${result.stdout ?? ''}${result.stderr ? `\n${result.stderr}` : ''}` : t('output.empty');
-    body = `<pre class="output${result && !result.ok ? ' err' : ''}">${esc(text)}</pre>`;
+    body = `<div id="vars-host"></div>`;
   }
   return `<div class="panel-header">${icon('info')}<span>${esc(t('panel.detail'))}</span><button class="icon-button" data-act="menu-right" title="${esc(t('cmd.right'))}">${icon('panelRightClose')}</button></div><div class="editor-tabs">${tabs}</div><div class="panel-body">${body}</div>`;
 }
 
 function programBar() {
   const options = CODE_LANGUAGES.map((item) => `<option value="${item.id}"${item.id === state.codeLang ? ' selected' : ''}>${item.name}</option>`).join('');
-  const codeOn = state.bottomTab === 'code';
+  const tabs = [['code', 'code', 'panel.editor'], ['pseudo', 'list', 'pseudo.title'], ['compile', 'gear', 'tab.compile'], ['output', 'terminal', 'tab.output']];
+  const buttons = tabs.map(([id, glyph, key]) => `<button class="editor-tab${state.bottomTab === id ? ' active' : ''}" data-act="bottom" data-arg="${id}">${icon(glyph)}<span>${esc(t(key))}</span></button>`).join('');
   return `<div class="problems-header">
-      <button class="editor-tab${codeOn ? ' active' : ''}" data-act="bottom" data-arg="code">${icon('code')}<span>${esc(t('panel.editor'))}</span></button>
-      <button class="editor-tab${codeOn ? '' : ' active'}" data-act="bottom" data-arg="pseudo">${icon('list')}<span>${esc(t('pseudo.title'))}</span></button>
+      ${buttons}
       <span class="grow"></span>
       <select class="tool-select" id="code-lang" title="${esc(t('code.language'))}">${options}</select>
       <button class="button" data-act="sample">${icon('book')}<span>${esc(t('code.sample'))}</span></button>
@@ -391,6 +422,26 @@ function animShuffle() {
   </div>`;
 }
 
+function settingsBody() {
+  const tabs = [
+    ['lang', 'globe', 'menu.lang'],
+    ['play', 'speed', 'settings.playback'],
+    ['background', 'star', 'settings.startBackground'],
+    ['tools', 'download', 'install.title'],
+  ];
+  const current = tabs.some(([id]) => id === state.modal.tab) ? state.modal.tab : 'lang';
+  const bar = tabs.map(([id, glyph, key]) => `<button class="editor-tab${current === id ? ' active' : ''}" role="tab" aria-selected="${current === id}" data-act="settings-tab" data-arg="${id}">${icon(glyph)}<span>${esc(t(key))}</span></button>`).join('');
+  const langs = [['ko', '한국어'], ['en', 'English']].map(([id, label]) => `<button class="button lang-choice${state.lang === id ? ' primary' : ''}" data-act="set-lang" data-arg="${id}">${languageFlag(id)}<span>${label}</span></button>`).join('');
+  const speeds = SPEEDS.map((speed) => `<option value="${speed}"${speed === state.speed ? ' selected' : ''}>${speed}×</option>`).join('');
+  const pages = {
+    lang: `<p class="settings-note">${esc(t('settings.langHint'))}</p><div class="lang-choices">${langs}</div>`,
+    play: `<p class="settings-note">${esc(t('settings.playbackHint'))}</p><div class="settings-line"><span class="step-label">${icon('speed')}<span>${esc(t('settings.playback'))}</span></span><select id="pref-speed" class="tool-select">${speeds}</select></div>`,
+    background: `${animationChips()}${animControls()}${animShuffle()}<div class="settings-actions"><button class="button" data-act="shuffle-bg">${icon('random')}<span>${esc(t('start.shuffle'))}</span></button></div>`,
+    tools: `<p class="settings-note">${esc(t('install.intro'))}</p><button class="button" data-act="menu-toolchains">${icon('download')}<span>${esc(t('cmd.toolchains'))}</span></button>`,
+  };
+  return `<div class="settings-tabs" role="tablist">${bar}</div><div class="settings-page" role="tabpanel">${pages[current]}</div>`;
+}
+
 function modalHtml() {
   if (!state.modal) return '';
   if (state.modal.type === 'about') {
@@ -404,16 +455,7 @@ function modalHtml() {
     const table = rows.map(([glyph, label, value]) => `<dt>${icon(glyph)}<span>${esc(label)}</span></dt><dd>${esc(value)}</dd>`).join('');
     return popup(t('cmd.about'), 'info', `<div class="about"><div class="about-top"><img class="about-icon" src="icon.svg" alt=""><div><div class="about-name">MyAlgorithmSimulator <span class="about-version">v${esc(__APP_VERSION__)}</span></div><div class="about-tagline">${esc(t('about.tagline'))}</div><p>${esc(t('about.text'))}</p></div></div><h3>${icon('gear')}<span>${esc(t('about.buildInfo'))}</span></h3><dl class="about-table">${table}</dl></div>`);
   }
-  if (state.modal.type === 'settings') {
-    const langs = [['ko', '한국어'], ['en', 'English']].map(([id, label]) => `<button class="button${state.lang === id ? ' primary' : ''}" data-act="set-lang" data-arg="${id}">${languageFlag(id)}<span>${label}</span></button>`).join('');
-    const speeds = SPEEDS.map((speed) => `<option value="${speed}"${speed === state.speed ? ' selected' : ''}>${speed}×</option>`).join('');
-    return popup(t('cmd.settings'), 'gear', `<section class="settings-block"><h3>${icon('globe')}<span>${esc(t('menu.lang'))}</span></h3><div class="row-buttons">${langs}</div></section>
-      <section class="settings-block"><h3>${icon('speed')}<span>${esc(t('speed.label'))}</span></h3><select id="pref-speed" class="tool-select">${speeds}</select></section>
-      <section class="settings-block"><h3>${icon('star')}<span>${esc(t('settings.startBackground'))}</span></h3>${animationChips()}${animControls()}${animShuffle()}
-        <div class="row-buttons"><button class="button" data-act="shuffle-bg">${icon('random')}<span>${esc(t('start.shuffle'))}</span></button></div>
-      </section>
-      <section class="settings-block"><h3>${icon('download')}<span>${esc(t('install.title'))}</span></h3><p class="muted">${esc(t('start.toolsTip'))}</p><div class="row-buttons"><button class="button" data-act="menu-toolchains">${icon('download')}<span>${esc(t('cmd.toolchains'))}</span></button></div></section>`, 'settings-popup');
-  }
+  if (state.modal.type === 'settings') return popup(t('cmd.settings'), 'gear', settingsBody(), 'settings-popup');
   if (state.modal.type === 'tools') {
     const rows = (state.modal.tools ?? []).map((tool) => `<div class="tool-row">${icon('terminal')}<b>${esc(tool.name)}</b><span class="grow muted">${esc(tool.version ?? '')}</span><span class="badge ${tool.installed ? 'ok' : 'no'}">${esc(tool.installed ? t('install.ok') : t('install.missing'))}</span>${tool.installed || !state.modal.desktop ? '' : `<button class="button" data-act="install" data-arg="${tool.id}">${esc(t('code.install'))}</button>`}</div>`).join('');
     const log = state.modal.log ? `<pre class="output">${esc(state.modal.log)}</pre>` : '';
@@ -508,7 +550,9 @@ function render() {
           ${programBar()}
           <div id="trace-banner"></div>
           <div id="program-pane"${state.bottomTab === 'code' ? '' : ' hidden'}><div id="editor-host"></div></div>
-          <div id="pseudo"${state.bottomTab === 'code' ? ' hidden' : ''}>${current.pseudo.map((line, index) => `<div class="pseudo-line"><span class="ln">${index + 1}</span><span>${esc(line)}</span></div>`).join('')}</div>
+          <div id="pseudo"${state.bottomTab === 'pseudo' ? '' : ' hidden'}>${current.pseudo.map((line, index) => `<div class="pseudo-line"><span class="ln">${index + 1}</span><span>${esc(line)}</span></div>`).join('')}</div>
+          <div id="compile-log"${state.bottomTab === 'compile' ? '' : ' hidden'}><pre class="output${state.output && state.output.compiled && !state.output.ok ? ' err' : ''}">${esc(runLog('compile'))}</pre></div>
+          <div id="run-output"${state.bottomTab === 'output' ? '' : ' hidden'}><pre class="output${state.output && !state.output.ok && (state.output.stdout || state.output.stderr) ? ' err' : ''}">${esc(runLog('output'))}</pre></div>
         </section>
       </section>
       <div class="splitter panel-split" data-split="right"></div>
@@ -633,13 +677,16 @@ const actions = {
   home() { stopPlayback(); state.page = 'start'; state.menu = null; render(); },
   tab(el) { state.rightTab = el.dataset.arg; state.page = 'work'; render(); },
   bottom(el) {
-    const tab = el.dataset.arg === 'pseudo' ? 'pseudo' : 'code';
+    const tab = ['pseudo', 'compile', 'output'].includes(el.dataset.arg) ? el.dataset.arg : 'code';
     state.bottomTab = tab;
-    const code = document.getElementById('program-pane');
-    const pseudo = document.getElementById('pseudo');
-    if (!code || !pseudo) { render(); return; }
-    code.hidden = tab !== 'code';
-    pseudo.hidden = tab === 'code';
+    const panes = {
+      code: document.getElementById('program-pane'),
+      pseudo: document.getElementById('pseudo'),
+      compile: document.getElementById('compile-log'),
+      output: document.getElementById('run-output'),
+    };
+    if (!panes.code || !panes.pseudo || !panes.compile || !panes.output) { render(); return; }
+    for (const [id, pane] of Object.entries(panes)) pane.hidden = id !== tab;
     document.querySelectorAll('#bottom-panel .editor-tab').forEach((button) => button.classList.toggle('active', button.dataset.arg === tab));
     if (tab === 'code') editor?.relayout();
     updatePseudo();
@@ -647,6 +694,13 @@ const actions = {
   run: executeCode,
   sample() { state.page = 'work'; loadSample(); },
   'set-lang'(el) { state.lang = el.dataset.arg === 'en' ? 'en' : 'ko'; setLanguage(state.lang); state.menu = null; save(); render(); },
+  'settings-tab'(el) {
+    if (state.modal?.type !== 'settings') return;
+    const tab = el.dataset.arg;
+    if (!['lang', 'play', 'background', 'tools'].includes(tab)) return;
+    state.modal.tab = tab;
+    render();
+  },
   'pick-animation'(el) {
     if (!ANIMATION_KINDS.includes(el.dataset.arg)) return;
     state.animation = el.dataset.arg;
@@ -760,6 +814,8 @@ function openGuide() {
   const theme = resolveTheme(state.themeId, matchMedia('(prefers-color-scheme: dark)').matches);
   const title = `MyAlgorithmSimulator — ${t('cmd.guide')}`;
   const params = new URLSearchParams({ lang: state.lang, theme: state.themeId });
+  const page = state.lang === 'en' ? 'doc/UsersGuide.en.html' : 'doc/UsersGuide.html';
+  const url = new URL(page, location.href).href;
   const popup = () => {
     const opened = window.open(`guide.html?${params}`, 'myalgorithmsimulator-guide', 'popup=yes,width=1120,height=800');
     if (!opened) return;
@@ -768,7 +824,7 @@ function openGuide() {
   };
   if (!isDesktop()) { popup(); return; }
   import('@tauri-apps/api/core').then(({ invoke }) => invoke('open_guide_window', {
-    title, lang: state.lang, theme: state.themeId, dark: theme.dark,
+    title, url, lang: state.lang, theme: state.themeId, dark: theme.dark,
   })).catch(() => popup());
 }
 
@@ -792,7 +848,7 @@ const menuActions = {
     state.menu = { id: 'theme', x, y };
     render();
   },
-  'menu-settings'() { state.menu = null; state.modal = { type: 'settings' }; render(); },
+  'menu-settings'() { state.menu = null; state.modal = { type: 'settings', tab: 'lang' }; render(); },
   'menu-ui-lang'() { state.lang = state.lang === 'ko' ? 'en' : 'ko'; setLanguage(state.lang); state.menu = null; save(); render(); },
   'menu-play'() { state.menu = null; render(); actions.play(); },
   'menu-stepForward'() { state.menu = null; actions['step-forward'](); },

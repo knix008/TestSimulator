@@ -11,25 +11,36 @@
   --accent: #0b6e8e; --panel: #f7fbfd; --toolbar: #ffffff;
 }
 * { box-sizing: border-box; }
+html, body { height: 100%; }
 html { scroll-behavior: smooth; }
 body {
-  margin: 0; background: var(--bg); color: var(--text); line-height: 1.65;
+  margin: 0; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--bg); color: var(--text); line-height: 1.65;
   font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
 }
 a { color: var(--accent); }
 .topbar {
-  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px;
+  flex: none; z-index: 2; display: flex; align-items: center; gap: 12px;
   padding: 10px 20px; background: var(--toolbar); border-bottom: 1px solid var(--border);
 }
 .topbar .brand { font-weight: 700; }
 .topbar .grow { flex: 1; }
-.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; text-decoration: none; }
-.layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100vh - 49px); }
-nav.toc { padding: 16px 12px; background: var(--panel); border-right: 1px solid var(--border); }
+.topbar button, .topbar output { font: inherit; }
+.topbar button { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 7px; padding: 2px 8px; cursor: pointer; }
+.topbar output { min-width: 1.6em; text-align: center; color: var(--muted); }
+.topbar .lang {
+  width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0;
+  border: 1px solid transparent; border-radius: 8px; background: none; text-decoration: none;
+}
+.topbar .lang:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.topbar .print { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px; border-radius: 8px; }
+.topbar .print svg { width: 16px; height: 16px; }
+.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 232px minmax(0, 1fr); overflow: hidden; }
+nav.toc { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 12px; background: var(--panel); border-right: 1px solid var(--border); }
 nav.toc p { margin: 0 8px 8px; font-size: 0.82em; color: var(--muted); font-weight: 650; }
 nav.toc a { display: block; padding: 6px 8px; border-radius: 7px; color: var(--text); text-decoration: none; }
 nav.toc a:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
-main { padding: 28px 40px 72px; }
+main { min-width: 0; min-height: 0; overflow: auto; padding: 28px 40px 72px; }
 main section { max-width: 760px; margin: 0 auto 28px; }
 h1 { font-size: 1.6em; margin: 0 0 18px; }
 h2 { font-size: 1.35em; margin: 0 0 10px; scroll-margin-top: 16px; }
@@ -44,13 +55,24 @@ figure { margin: 4px 0 16px; }
 img { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
 figcaption { margin-top: 6px; color: var(--muted); font-size: 0.86em; }
 @media (max-width: 760px) {
-  .layout { grid-template-columns: 1fr; }
-  nav.toc { border-right: 0; border-bottom: 1px solid var(--border); }
+  html, body { height: auto; overflow: auto; }
+  body { display: block; }
+  .topbar { position: sticky; top: 0; }
+  .layout { display: block; overflow: visible; }
+  nav.toc { position: sticky; top: 49px; z-index: 1; max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--border); }
+  main { overflow: visible; }
+}
+@media print {
+  html, body { height: auto; overflow: visible; display: block; }
+  .topbar { display: none; }
+  .layout, nav.toc, main { display: block; height: auto; max-height: none; overflow: visible; }
+  nav.toc { position: static; border: 0; }
+  img, table { break-inside: avoid; }
 }
 </style>
 </head>
 <body>
-<header class="topbar"><span class="brand">MyAlgorithmSimulator</span><span class="grow"></span><a class="lang" href="UsersGuide.html" hreflang="ko">한국어</a></header>
+<header class="topbar"><span class="brand">MyAlgorithmSimulator</span><span class="grow"></span><button type="button" id="font-down" title="Smaller text">A−</button><output id="font-size">16</output><button type="button" id="font-up" title="Larger text">A+</button><button type="button" id="print-guide" class="print" title="Print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/><path d="M17.5 12h.01"/></svg><span>Print</span></button><a class="lang" href="UsersGuide.html" hreflang="ko" title="한국어" aria-label="한국어"><svg class="flag" viewBox="-36 -24 72 48" aria-hidden="true"><rect x="-36" y="-24" width="72" height="48" fill="#fff"/><g transform="rotate(-56.31)"><g id="kr-bars"><path id="kr-bar" d="M-6-25H6M-6-22H6M-6-19H6" stroke="#000" stroke-width="2"/><use href="#kr-bar" y="44"/></g><path d="M0 17v10" stroke="#fff"/><circle r="12" fill="#cd2e3a"/><path d="M0-12A6 6 0 0 0 0 0a6 6 0 0 1 0 12 12 12 0 0 1 0-24z" fill="#0047a0"/></g><g transform="rotate(-123.69)"><use href="#kr-bars"/><path d="M0-23.5v3M0 17v3.5M0 23.5v3" stroke="#fff"/></g></svg></a></header>
 <div class="layout">
 <nav class="toc" aria-label="Contents"><p>Contents</p><a href="#start">Getting started</a><a href="#layout">The window</a><a href="#steps">Stepping through</a><a href="#code">Code and samples</a><a href="#run">Running code</a><a href="#input">Input</a><a href="#look">Theme, background and language</a><a href="#keys">Shortcuts</a></nav>
 <main>
@@ -92,7 +114,7 @@ figcaption { margin-top: 6px; color: var(--muted); font-size: 0.86em; }
     <p>A Java program's class must be named <code>Main</code>.</p></section>
 <section id="run"><h2>Running code</h2>
     <figure><img src="images/layout.png" alt="The Run button and the notes panel"><figcaption>The Run button and the notes panel</figcaption></figure>
-    <p><b>Run</b> compiles and runs the code you are editing, then shows the output on the right. A run stops if it takes longer than 15 seconds.</p>
+    <p><b>Run</b> compiles and runs the code you are editing, then shows the compile log and the program output on the <b>Compile</b> and <b>Output</b> tabs of the bottom panel. Compiling and running happen in another process, so the window stays responsive. A run stops if it takes longer than 15 seconds.</p>
     <p>The web browser runs JavaScript only. C, C++, Java, Python, Go and Rust run in the desktop app. If a compiler is missing, <b>Install developer tools</b> can install it: winget on Windows, Homebrew on macOS, and apt or dnf on Linux.</p></section>
 <section id="input"><h2>Input</h2>
     <figure><img src="images/layout.png" alt="The input box on the left"><figcaption>The input box on the left</figcaption></figure>
@@ -121,5 +143,21 @@ figcaption { margin-top: 6px; color: var(--muted); font-size: 0.86em; }
     </table></section>
 </main>
 </div>
+<script>
+(function () {
+  var key = 'myalgorithmsimulator.guideFont';
+  var size = Math.min(24, Math.max(13, Number(localStorage.getItem(key)) || 16));
+  var out = document.getElementById('font-size');
+  function apply() {
+    document.documentElement.style.fontSize = size + 'px';
+    out.textContent = String(size);
+    localStorage.setItem(key, String(size));
+  }
+  document.getElementById('font-down').onclick = function () { size = Math.max(13, size - 1); apply(); };
+  document.getElementById('font-up').onclick = function () { size = Math.min(24, size + 1); apply(); };
+  document.getElementById('print-guide').onclick = function () { window.print(); };
+  apply();
+})();
+</script>
 </body>
 </html>
