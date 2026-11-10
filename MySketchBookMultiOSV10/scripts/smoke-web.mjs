@@ -22,7 +22,9 @@ mkdirSync(out, { recursive: true });
 
 const browser = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe', '/usr/bin/google-chrome'].find((b) => existsSync(b));
 const port = await freeDevPort(5800);
-const vite = spawn(process.execPath, [path.join(root, 'node_modules/vite/bin/vite.js'), '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, MYSKETCHBOOK_NO_HMR: '1' } });
+// --dist: the production build in dist/ (vite preview; run `npm run build:web` first) instead of the dev server.
+const dist = args.includes('--dist');
+const vite = spawn(process.execPath, [path.join(root, 'node_modules/vite/bin/vite.js'), ...(dist ? ['preview'] : []), '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, MYSKETCHBOOK_NO_HMR: '1' } });
 let viteLog = '';
 vite.stdout.on('data', (d) => { viteLog += d; });
 vite.stderr.on('data', (d) => { viteLog += d; });

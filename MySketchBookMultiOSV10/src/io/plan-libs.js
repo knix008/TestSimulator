@@ -6,6 +6,9 @@
 // Not for Node: the tests pass pdfjs-dist/legacy and web-ifc's Node build to the readers directly.
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import ifcWasmUrl from 'web-ifc/web-ifc.wasm?url';
+// The module itself is one self-contained 5.9 MB file (no imports): shipped as a file and imported by its URL when an
+// IFC file comes, rather than bundled into a chunk of its own. (A relative path: the package exports only its .wasm.)
+import ifcModuleUrl from '../../node_modules/web-ifc/web-ifc-api.js?url';
 
 const PDF_FILES = import.meta.glob(['/node_modules/pdfjs-dist/cmaps/*.bcmap', '/node_modules/pdfjs-dist/standard_fonts/*.pfb', '/node_modules/pdfjs-dist/standard_fonts/*.ttf', '/node_modules/pdfjs-dist/wasm/*.wasm', '/node_modules/pdfjs-dist/wasm/*.js'], { query: '?url', import: 'default', exhaustive: true });
 const pdfFile = async (name) => {
@@ -36,7 +39,7 @@ let ifc = null;
 /** web-ifc, initialised: { WebIFC, api }. */
 export async function loadWebIfc() {
   if (!ifc) {
-    ifc = import('web-ifc').then(async (WebIFC) => {
+    ifc = import(/* @vite-ignore */ ifcModuleUrl).then(async (WebIFC) => {
       const api = new WebIFC.IfcAPI();
       await api.Init((path) => (path.endsWith('.wasm') ? ifcWasmUrl : path), true);
       return { WebIFC, api };

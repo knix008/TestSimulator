@@ -5,6 +5,8 @@
 // The shell (menus as popup windows, toolbar, panels, start page, settings,
 // themes, progress popups) follows MyUMLMaker; the 3D work is in engine/,
 // tools/ and library/.
+// GLTFLoader is loaded with the app anyway (library/assets.js reads the asset library with it).
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import * as THREE from 'three';
@@ -2414,7 +2416,6 @@ async function loadUserAsset(d, id) {
   if (userModelCache.has(id)) return userModelCache.get(id).clone(true);
   const bytes = d.assets.get(id);
   if (!bytes) throw new Error(`asset ${id} missing`);
-  const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
   const gltf = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
   // Point clouds: GLTFLoader draws points 1 px wide; the import stored their size in the node's extras.
   gltf.scene.traverse((n) => { if (n.isPoints && n.userData.pointSize) Object.assign(n.material, { size: n.userData.pointSize, sizeAttenuation: true }); });

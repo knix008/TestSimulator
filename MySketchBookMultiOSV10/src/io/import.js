@@ -11,6 +11,9 @@
 import * as THREE from 'three';
 import { unzipSync } from 'fflate';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+// Loaded with the app anyway (library/assets.js and the KTX2 texture reader use them): no dynamic import needed.
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { IMPORT_FORMATS, UNIT_SCALE, UNSUPPORTED_FORMATS, extOf } from './formats.js';
 
 export const TRIANGLE_WARNING = 2_000_000;
@@ -285,7 +288,6 @@ export async function parseModel(format, bytes, { manager, name = '', related } 
   const ext = extOf(name);
   switch (format) {
     case 'gltf': {
-      const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
       const { MeshoptDecoder } = await import('three/examples/jsm/libs/meshopt_decoder.module.js');
       const loader = new GLTFLoader(manager).setMeshoptDecoder(MeshoptDecoder);
       await useGltfDecoders(loader, gltfExtensions(bytes));
@@ -659,7 +661,6 @@ async function useGltfDecoders(loader, used) {
     loader.setDRACOLoader(dracoLoader);
   }
   if (used.has('KHR_texture_basisu')) {
-    const { KTX2Loader } = await import('three/examples/jsm/loaders/KTX2Loader.js');
     if (!ktx2Loader) {
       ktx2Loader = new KTX2Loader(await decoderManager());
       // Transcode to plain RGBA (no GPU formats): the model is re-saved as GLB in the project, and the glTF
