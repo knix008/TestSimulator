@@ -1,0 +1,1785 @@
+{
+ "format": "myworkplan",
+ "version": 1,
+ "kind": "plan",
+ "saved": "2026-11-09T12:18:06.525Z",
+ "project": {
+  "format": "myworkplan",
+  "version": 1,
+  "id": "prj-mw988rp61vob9ch",
+  "title": "ERP Rollout",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "comments": "",
+  "start": "2026-11-16T08:00",
+  "finish": null,
+  "scheduleFrom": "start",
+  "statusDate": null,
+  "calendarId": "standard",
+  "priority": 500,
+  "options": {
+   "hoursPerDay": 8,
+   "hoursPerWeek": 40,
+   "daysPerMonth": 20,
+   "defaultStart": 480,
+   "defaultFinish": 1020,
+   "weekStart": 1,
+   "currency": "$",
+   "defaultTaskMode": "auto",
+   "defaultDurationUnit": "d",
+   "defaultTaskType": "fixedUnits",
+   "effortDriven": false,
+   "criticalSlack": 0,
+   "honorConstraints": true,
+   "autoCalculate": true,
+   "defaultStdRate": 0,
+   "defaultOvtRate": 0,
+   "newTaskDuration": 1
+  },
+  "calendars": [
+   {
+    "id": "standard",
+    "name": "Standard",
+    "base": null,
+    "week": {
+     "0": [],
+     "1": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "2": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "3": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "4": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "5": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "6": []
+    },
+    "exceptions": [
+     {
+      "id": "ex-mw988rp81xf9nzl",
+      "name": "Christmas Eve",
+      "start": "2026-12-24",
+      "finish": "2026-12-24",
+      "working": false,
+      "periods": []
+     },
+     {
+      "id": "ex-mw988rp81xg3wnw",
+      "name": "Christmas Day",
+      "start": "2026-12-25",
+      "finish": "2026-12-25",
+      "working": false,
+      "periods": []
+     },
+     {
+      "id": "ex-mw988rp81xhl8iu",
+      "name": "New Year's Eve",
+      "start": "2026-12-31",
+      "finish": "2026-12-31",
+      "working": false,
+      "periods": []
+     }
+    ]
+   },
+   {
+    "id": "24hours",
+    "name": "24 Hours",
+    "base": null,
+    "week": {
+     "0": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "1": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "2": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "3": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "4": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "5": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "6": [
+      [
+       0,
+       1440
+      ]
+     ]
+    },
+    "exceptions": []
+   },
+   {
+    "id": "night",
+    "name": "Night Shift",
+    "base": null,
+    "week": {
+     "0": [],
+     "1": [
+      [
+       1380,
+       1440
+      ]
+     ],
+     "2": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "3": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "4": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "5": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "6": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ]
+     ]
+    },
+    "exceptions": []
+   }
+  ],
+  "resources": [
+   {
+    "id": "r-mw988rp61vpfi39",
+    "name": "David Miller (PMO Lead)",
+    "type": "work",
+    "initials": "DM",
+    "group": "Management",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 95,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rp61vqh709",
+    "name": "Finance Consultant",
+    "type": "work",
+    "initials": "FI",
+    "group": "Consulting",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 120,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rp61vr3ph2",
+    "name": "Supply Chain Consultant",
+    "type": "work",
+    "initials": "SC",
+    "group": "Consulting",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 115,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rp61vszuau",
+    "name": "ERP Developer",
+    "type": "work",
+    "initials": "DV",
+    "group": "Engineering",
+    "email": "",
+    "maxUnits": 3,
+    "stdRate": 85,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rp61vt4wqz",
+    "name": "Key Users",
+    "type": "work",
+    "initials": "KU",
+    "group": "Business",
+    "email": "",
+    "maxUnits": 8,
+    "stdRate": 50,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rp61vu3982",
+    "name": "ERP licenses",
+    "type": "cost",
+    "initials": "LI",
+    "group": "Costs",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 0,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   }
+  ],
+  "tasks": [
+   {
+    "id": "t-mw988rp61vv0oig",
+    "name": "Project preparation",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-16T08:00",
+    "scheduledFinish": "2026-11-19T12:00"
+   },
+   {
+    "id": "t-mw988rp61vweayg",
+    "name": "Kickoff meeting",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 240,
+    "durationUnit": "h",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-16T08:00",
+    "scheduledFinish": "2026-11-16T12:00"
+   },
+   {
+    "id": "t-mw988rp61vx9odw",
+    "name": "Team and schedule agreed",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1440,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61vweayg",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-16T13:00",
+    "scheduledFinish": "2026-11-19T12:00"
+   },
+   {
+    "id": "t-mw988rp61vyat4x",
+    "name": "Business blueprint",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-18T13:00",
+    "scheduledFinish": "2026-12-17T12:00"
+   },
+   {
+    "id": "t-mw988rp61vztyjz",
+    "name": "Finance as-is analysis",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 4800,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61vx9odw",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-19T13:00",
+    "scheduledFinish": "2026-12-03T12:00"
+   },
+   {
+    "id": "t-mw988rp61w0pshr",
+    "name": "Purchasing and inventory as-is",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 4800,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61vx9odw",
+      "type": "SS",
+      "lag": 960,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-18T13:00",
+    "scheduledFinish": "2026-12-02T12:00"
+   },
+   {
+    "id": "t-mw988rp61w13n6j",
+    "name": "Design the to-be processes",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 4800,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61vztyjz",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rp61w0pshr",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-03T13:00",
+    "scheduledFinish": "2026-12-17T12:00"
+   },
+   {
+    "id": "t-mw988rp61w2moju",
+    "name": "Blueprint signed off",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61w13n6j",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-17T12:00",
+    "scheduledFinish": "2026-12-17T12:00"
+   },
+   {
+    "id": "t-mw988rp61w3zfu4",
+    "name": "Realization",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-17T13:00",
+    "scheduledFinish": "2027-02-02T12:00"
+   },
+   {
+    "id": "t-mw988rp61w4xabe",
+    "name": "Buy licenses and set up the system",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61w2moju",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-17T13:00",
+    "scheduledFinish": "2026-12-28T12:00"
+   },
+   {
+    "id": "t-mw988rp61w5nvly",
+    "name": "Configure the standard modules",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 7200,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61w4xabe",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-28T13:00",
+    "scheduledFinish": "2027-01-19T12:00"
+   },
+   {
+    "id": "t-mw988rp61w6yw76",
+    "name": "Custom reports and interfaces",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 9600,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 800,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61w5nvly",
+      "type": "SS",
+      "lag": 2400,
+      "lagUnit": "w"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-01-05T13:00",
+    "scheduledFinish": "2027-02-02T12:00"
+   },
+   {
+    "id": "t-mw988rp61w7p7mf",
+    "name": "Unit testing",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61w6yw76",
+      "type": "FF",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-01-26T13:00",
+    "scheduledFinish": "2027-02-02T12:00"
+   },
+   {
+    "id": "t-mw988rp61w8r1oc",
+    "name": "Integration testing and migration",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-02T13:00",
+    "scheduledFinish": "2027-02-23T12:00"
+   },
+   {
+    "id": "t-mw988rp61w9fb1n",
+    "name": "Integration testing",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 4800,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61w7p7mf",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rp61w5nvly",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-02T13:00",
+    "scheduledFinish": "2027-02-16T12:00"
+   },
+   {
+    "id": "t-mw988rp61wa4qw2",
+    "name": "Migrate master data and balances",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 4800,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "Two migration rehearsals make sure the opening balances match.",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61w9fb1n",
+      "type": "SS",
+      "lag": 2400,
+      "lagUnit": "w"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-09T13:00",
+    "scheduledFinish": "2027-02-23T12:00"
+   },
+   {
+    "id": "t-mw988rp61wbfxfr",
+    "name": "End-user training",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61w9fb1n",
+      "type": "FS",
+      "lag": -1440,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-11T13:00",
+    "scheduledFinish": "2027-02-18T12:00"
+   },
+   {
+    "id": "t-mw988rp61wc4fiz",
+    "name": "Go/no-go decision",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61wa4qw2",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rp61wbfxfr",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-23T12:00",
+    "scheduledFinish": "2027-02-23T12:00"
+   },
+   {
+    "id": "t-mw988rp61wde7vx",
+    "name": "Go-live and support",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-23T13:00",
+    "scheduledFinish": "2027-03-18T12:00"
+   },
+   {
+    "id": "t-mw988rp61wejs80",
+    "name": "Cutover and go-live",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 960,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 900,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61wc4fiz",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-23T13:00",
+    "scheduledFinish": "2027-02-25T12:00"
+   },
+   {
+    "id": "t-mw988rp61wf7hno",
+    "name": "Hypercare",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 7200,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61wejs80",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-25T13:00",
+    "scheduledFinish": "2027-03-18T12:00"
+   },
+   {
+    "id": "t-mw988rp61wgpm0w",
+    "name": "Support the first month-end close",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1440,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61wf7hno",
+      "type": "FF",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-03-15T13:00",
+    "scheduledFinish": "2027-03-18T12:00"
+   },
+   {
+    "id": "t-mw988rp61whapbt",
+    "name": "Project closed",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": "2027-03-22T17:00",
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rp61wf7hno",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rp61wgpm0w",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-03-18T12:00",
+    "scheduledFinish": "2027-03-18T12:00"
+   }
+  ],
+  "assignments": [
+   {
+    "id": "a-mw988rp61wi88n5",
+    "taskId": "t-mw988rp61vweayg",
+    "resourceId": "r-mw988rp61vpfi39",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp61wjx6il",
+    "taskId": "t-mw988rp61vweayg",
+    "resourceId": "r-mw988rp61vqh709",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp61wkt1af",
+    "taskId": "t-mw988rp61vweayg",
+    "resourceId": "r-mw988rp61vr3ph2",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp61wla28g",
+    "taskId": "t-mw988rp61vweayg",
+    "resourceId": "r-mw988rp61vt4wqz",
+    "units": 2
+   },
+   {
+    "id": "a-mw988rp71wm80ju",
+    "taskId": "t-mw988rp61vx9odw",
+    "resourceId": "r-mw988rp61vpfi39",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71wnitj3",
+    "taskId": "t-mw988rp61vztyjz",
+    "resourceId": "r-mw988rp61vqh709",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71wozaa4",
+    "taskId": "t-mw988rp61vztyjz",
+    "resourceId": "r-mw988rp61vt4wqz",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71wptacd",
+    "taskId": "t-mw988rp61w0pshr",
+    "resourceId": "r-mw988rp61vr3ph2",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71wqyqra",
+    "taskId": "t-mw988rp61w0pshr",
+    "resourceId": "r-mw988rp61vt4wqz",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71wrgtic",
+    "taskId": "t-mw988rp61w13n6j",
+    "resourceId": "r-mw988rp61vqh709",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71wsgfad",
+    "taskId": "t-mw988rp61w13n6j",
+    "resourceId": "r-mw988rp61vr3ph2",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71wtfa5h",
+    "taskId": "t-mw988rp61w13n6j",
+    "resourceId": "r-mw988rp61vt4wqz",
+    "units": 2
+   },
+   {
+    "id": "a-mw988rp71wupt85",
+    "taskId": "t-mw988rp61w4xabe",
+    "resourceId": "r-mw988rp61vszuau",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71wv6hjr",
+    "taskId": "t-mw988rp61w4xabe",
+    "resourceId": "r-mw988rp61vu3982",
+    "units": 1,
+    "cost": 64000
+   },
+   {
+    "id": "a-mw988rp71ww5g6d",
+    "taskId": "t-mw988rp61w5nvly",
+    "resourceId": "r-mw988rp61vqh709",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71wxvosl",
+    "taskId": "t-mw988rp61w5nvly",
+    "resourceId": "r-mw988rp61vr3ph2",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71wy9zj6",
+    "taskId": "t-mw988rp61w6yw76",
+    "resourceId": "r-mw988rp61vszuau",
+    "units": 2
+   },
+   {
+    "id": "a-mw988rp71wzga68",
+    "taskId": "t-mw988rp61w7p7mf",
+    "resourceId": "r-mw988rp61vszuau",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71x0mmvr",
+    "taskId": "t-mw988rp61w7p7mf",
+    "resourceId": "r-mw988rp61vt4wqz",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71x1cgbe",
+    "taskId": "t-mw988rp61w9fb1n",
+    "resourceId": "r-mw988rp61vqh709",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71x2ndll",
+    "taskId": "t-mw988rp61w9fb1n",
+    "resourceId": "r-mw988rp61vr3ph2",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71x3fnay",
+    "taskId": "t-mw988rp61w9fb1n",
+    "resourceId": "r-mw988rp61vt4wqz",
+    "units": 3
+   },
+   {
+    "id": "a-mw988rp71x42acl",
+    "taskId": "t-mw988rp61wa4qw2",
+    "resourceId": "r-mw988rp61vszuau",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71x5tfui",
+    "taskId": "t-mw988rp61wa4qw2",
+    "resourceId": "r-mw988rp61vt4wqz",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71x6aj88",
+    "taskId": "t-mw988rp61wbfxfr",
+    "resourceId": "r-mw988rp61vt4wqz",
+    "units": 4
+   },
+   {
+    "id": "a-mw988rp71x7df71",
+    "taskId": "t-mw988rp61wejs80",
+    "resourceId": "r-mw988rp61vpfi39",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71x87a54",
+    "taskId": "t-mw988rp61wejs80",
+    "resourceId": "r-mw988rp61vszuau",
+    "units": 2
+   },
+   {
+    "id": "a-mw988rp71x9elz1",
+    "taskId": "t-mw988rp61wejs80",
+    "resourceId": "r-mw988rp61vt4wqz",
+    "units": 2
+   },
+   {
+    "id": "a-mw988rp71xa20du",
+    "taskId": "t-mw988rp61wf7hno",
+    "resourceId": "r-mw988rp61vqh709",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rp71xbwj20",
+    "taskId": "t-mw988rp61wf7hno",
+    "resourceId": "r-mw988rp61vr3ph2",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rp71xcbb57",
+    "taskId": "t-mw988rp61wf7hno",
+    "resourceId": "r-mw988rp61vszuau",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rp71xd5ehp",
+    "taskId": "t-mw988rp61wgpm0w",
+    "resourceId": "r-mw988rp61vqh709",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rp71xeo8mr",
+    "taskId": "t-mw988rp61wgpm0w",
+    "resourceId": "r-mw988rp61vt4wqz",
+    "units": 1
+   }
+  ],
+  "baselineDates": {},
+  "customFields": {
+   "text1": "",
+   "text2": "",
+   "text3": "",
+   "number1": "",
+   "flag1": ""
+  },
+  "created": "2026-11-09T21:18"
+ }
+}

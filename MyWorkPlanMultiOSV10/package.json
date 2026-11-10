@@ -25,7 +25,8 @@
     "build:docs": "node scripts/build-docs.mjs",
     "tutorial:docs": "node scripts/tutorial-capture.mjs docs",
     "tutorial:video": "node scripts/tutorial-capture.mjs video",
-    "samples": "node scripts/make-samples.mjs"
+    "samples": "node scripts/make-samples.mjs",
+    "guide:images": "node scripts/guide-shots.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

@@ -1,0 +1,702 @@
+{
+  "video": "MyWorkPlan-Tutorial.mp4",
+  "width": 1440,
+  "height": 900,
+  "duration": 519.3,
+  "chapters": [
+    {
+      "id": "start",
+      "start": 0.6,
+      "title": {
+        "ko": "시작 페이지",
+        "en": "Start page"
+      }
+    },
+    {
+      "id": "build",
+      "start": 57.2,
+      "title": {
+        "ko": "계획 만들기",
+        "en": "Building a plan"
+      }
+    },
+    {
+      "id": "schedule",
+      "start": 136.9,
+      "title": {
+        "ko": "일정 잡기",
+        "en": "Scheduling"
+      }
+    },
+    {
+      "id": "resources",
+      "start": 194,
+      "title": {
+        "ko": "자원과 비용",
+        "en": "Resources and costs"
+      }
+    },
+    {
+      "id": "tracking",
+      "start": 241.9,
+      "title": {
+        "ko": "진행 추적",
+        "en": "Tracking"
+      }
+    },
+    {
+      "id": "views",
+      "start": 266.3,
+      "title": {
+        "ko": "보기",
+        "en": "Views"
+      }
+    },
+    {
+      "id": "reports",
+      "start": 349.8,
+      "title": {
+        "ko": "보고서",
+        "en": "Reports"
+      }
+    },
+    {
+      "id": "files",
+      "start": 375.1,
+      "title": {
+        "ko": "파일과 인쇄",
+        "en": "Files and printing"
+      }
+    },
+    {
+      "id": "customize",
+      "start": 424.4,
+      "title": {
+        "ko": "꾸미기",
+        "en": "Customizing"
+      }
+    },
+    {
+      "id": "help",
+      "start": 489.8,
+      "title": {
+        "ko": "도움말",
+        "en": "Help"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "welcome",
+      "chapter": "start",
+      "start": 0.6,
+      "title": {
+        "ko": "MyWorkPlan에 오신 것을 환영합니다",
+        "en": "Welcome to MyWorkPlan"
+      }
+    },
+    {
+      "id": "home",
+      "chapter": "start",
+      "start": 6.5,
+      "title": {
+        "ko": "홈 버튼",
+        "en": "The Home button"
+      }
+    },
+    {
+      "id": "actions",
+      "chapter": "start",
+      "start": 13.4,
+      "title": {
+        "ko": "바로 가기 카드",
+        "en": "Quick actions"
+      }
+    },
+    {
+      "id": "templates",
+      "chapter": "start",
+      "start": 21.2,
+      "title": {
+        "ko": "새 프로젝트 만들기",
+        "en": "Creating a project"
+      }
+    },
+    {
+      "id": "samples",
+      "chapter": "start",
+      "start": 27,
+      "title": {
+        "ko": "예제 프로젝트 40개",
+        "en": "40 sample projects"
+      }
+    },
+    {
+      "id": "recent",
+      "chapter": "start",
+      "start": 36.1,
+      "title": {
+        "ko": "최근 파일과 폴더",
+        "en": "Recent files and folders"
+      }
+    },
+    {
+      "id": "background",
+      "chapter": "start",
+      "start": 42,
+      "title": {
+        "ko": "움직이는 배경",
+        "en": "Moving background"
+      }
+    },
+    {
+      "id": "sample",
+      "chapter": "build",
+      "start": 57.2,
+      "title": {
+        "ko": "예제 프로젝트",
+        "en": "The sample project"
+      }
+    },
+    {
+      "id": "layout",
+      "chapter": "build",
+      "start": 63.4,
+      "title": {
+        "ko": "화면 구성",
+        "en": "The window"
+      }
+    },
+    {
+      "id": "insertTask",
+      "chapter": "build",
+      "start": 69.1,
+      "title": {
+        "ko": "작업 추가",
+        "en": "Adding tasks"
+      }
+    },
+    {
+      "id": "duration",
+      "chapter": "build",
+      "start": 77.3,
+      "title": {
+        "ko": "기간 입력",
+        "en": "Durations"
+      }
+    },
+    {
+      "id": "milestone",
+      "chapter": "build",
+      "start": 85.1,
+      "title": {
+        "ko": "마일스톤",
+        "en": "Milestones"
+      }
+    },
+    {
+      "id": "outline",
+      "chapter": "build",
+      "start": 91.6,
+      "title": {
+        "ko": "개요 (요약 작업)",
+        "en": "Outline (summary tasks)"
+      }
+    },
+    {
+      "id": "collapse",
+      "chapter": "build",
+      "start": 100.5,
+      "title": {
+        "ko": "접고 펼치기",
+        "en": "Collapse and expand"
+      }
+    },
+    {
+      "id": "link",
+      "chapter": "build",
+      "start": 107.1,
+      "title": {
+        "ko": "작업 연결",
+        "en": "Linking tasks"
+      }
+    },
+    {
+      "id": "dragBar",
+      "chapter": "build",
+      "start": 115.6,
+      "title": {
+        "ko": "막대 끌기",
+        "en": "Dragging bars"
+      }
+    },
+    {
+      "id": "undo",
+      "chapter": "build",
+      "start": 123.6,
+      "title": {
+        "ko": "실행 취소·다시 실행",
+        "en": "Undo and redo"
+      }
+    },
+    {
+      "id": "clipboard",
+      "chapter": "build",
+      "start": 130.9,
+      "title": {
+        "ko": "복사와 붙여넣기",
+        "en": "Copy and paste"
+      }
+    },
+    {
+      "id": "taskInfo",
+      "chapter": "schedule",
+      "start": 136.9,
+      "title": {
+        "ko": "작업 정보",
+        "en": "Task information"
+      }
+    },
+    {
+      "id": "constraints",
+      "chapter": "schedule",
+      "start": 146.2,
+      "title": {
+        "ko": "제약 조건과 마감일",
+        "en": "Constraints and deadlines"
+      }
+    },
+    {
+      "id": "critical",
+      "chapter": "schedule",
+      "start": 154,
+      "title": {
+        "ko": "주 공정과 여유 시간",
+        "en": "Critical path and slack"
+      }
+    },
+    {
+      "id": "criticalPath",
+      "chapter": "schedule",
+      "start": 159.8,
+      "title": {
+        "ko": "주 공정 찾기 (토글)",
+        "en": "Find critical path (toggle)"
+      }
+    },
+    {
+      "id": "linkInfo",
+      "chapter": "schedule",
+      "start": 169,
+      "title": {
+        "ko": "연결 유형과 지연",
+        "en": "Link types and lag"
+      }
+    },
+    {
+      "id": "calendar",
+      "chapter": "schedule",
+      "start": 174.6,
+      "title": {
+        "ko": "작업 시간 변경",
+        "en": "Change working time"
+      }
+    },
+    {
+      "id": "recurring",
+      "chapter": "schedule",
+      "start": 182.5,
+      "title": {
+        "ko": "반복 작업",
+        "en": "Recurring tasks"
+      }
+    },
+    {
+      "id": "projectInfo",
+      "chapter": "schedule",
+      "start": 188.3,
+      "title": {
+        "ko": "프로젝트 정보",
+        "en": "Project information"
+      }
+    },
+    {
+      "id": "resourceSheet",
+      "chapter": "resources",
+      "start": 194,
+      "title": {
+        "ko": "자원 시트",
+        "en": "Resource Sheet"
+      }
+    },
+    {
+      "id": "assign",
+      "chapter": "resources",
+      "start": 199.9,
+      "title": {
+        "ko": "자원 할당",
+        "en": "Assigning resources"
+      }
+    },
+    {
+      "id": "resourceUsage",
+      "chapter": "resources",
+      "start": 207.6,
+      "title": {
+        "ko": "자원 사용",
+        "en": "Resource Usage"
+      }
+    },
+    {
+      "id": "resourceGraph",
+      "chapter": "resources",
+      "start": 213.3,
+      "title": {
+        "ko": "자원 그래프",
+        "en": "Resource Graph"
+      }
+    },
+    {
+      "id": "leveling",
+      "chapter": "resources",
+      "start": 219.3,
+      "title": {
+        "ko": "자원 평준화",
+        "en": "Resource leveling"
+      }
+    },
+    {
+      "id": "teamPlanner",
+      "chapter": "resources",
+      "start": 227.2,
+      "title": {
+        "ko": "팀 플래너",
+        "en": "Team Planner"
+      }
+    },
+    {
+      "id": "labor",
+      "chapter": "resources",
+      "start": 232.8,
+      "title": {
+        "ko": "개인별 임금과 인건비",
+        "en": "Wages and labor cost"
+      }
+    },
+    {
+      "id": "baseline",
+      "chapter": "tracking",
+      "start": 241.9,
+      "title": {
+        "ko": "기준 계획",
+        "en": "Baselines"
+      }
+    },
+    {
+      "id": "progress",
+      "chapter": "tracking",
+      "start": 247.7,
+      "title": {
+        "ko": "진행률 입력",
+        "en": "Entering progress"
+      }
+    },
+    {
+      "id": "updateProject",
+      "chapter": "tracking",
+      "start": 254.7,
+      "title": {
+        "ko": "프로젝트 업데이트",
+        "en": "Update project"
+      }
+    },
+    {
+      "id": "trackingGantt",
+      "chapter": "tracking",
+      "start": 260.4,
+      "title": {
+        "ko": "추적 간트",
+        "en": "Tracking Gantt"
+      }
+    },
+    {
+      "id": "viewMenu",
+      "chapter": "views",
+      "start": 266.3,
+      "title": {
+        "ko": "보기 전환",
+        "en": "Switching views"
+      }
+    },
+    {
+      "id": "submenus",
+      "chapter": "views",
+      "start": 273,
+      "title": {
+        "ko": "하위 메뉴로 묶인 긴 메뉴",
+        "en": "Long menus are grouped"
+      }
+    },
+    {
+      "id": "network",
+      "chapter": "views",
+      "start": 279.6,
+      "title": {
+        "ko": "네트워크 다이어그램",
+        "en": "Network Diagram"
+      }
+    },
+    {
+      "id": "calendarView",
+      "chapter": "views",
+      "start": 285.6,
+      "title": {
+        "ko": "일정표",
+        "en": "Calendar"
+      }
+    },
+    {
+      "id": "timeline",
+      "chapter": "views",
+      "start": 291.3,
+      "title": {
+        "ko": "시간 표시 막대",
+        "en": "Timeline"
+      }
+    },
+    {
+      "id": "taskUsage",
+      "chapter": "views",
+      "start": 296.9,
+      "title": {
+        "ko": "작업 사용",
+        "en": "Task Usage"
+      }
+    },
+    {
+      "id": "tables",
+      "chapter": "views",
+      "start": 302.8,
+      "title": {
+        "ko": "표 바꾸기",
+        "en": "Tables"
+      }
+    },
+    {
+      "id": "filter",
+      "chapter": "views",
+      "start": 314.1,
+      "title": {
+        "ko": "필터·그룹·정렬",
+        "en": "Filter, group and sort"
+      }
+    },
+    {
+      "id": "find",
+      "chapter": "views",
+      "start": 325.9,
+      "title": {
+        "ko": "찾기·바꾸기·이동",
+        "en": "Find, replace, go to"
+      }
+    },
+    {
+      "id": "zoom",
+      "chapter": "views",
+      "start": 331.5,
+      "title": {
+        "ko": "확대와 시간 눈금",
+        "en": "Zoom and timescale"
+      }
+    },
+    {
+      "id": "contextMenu",
+      "chapter": "views",
+      "start": 342.8,
+      "title": {
+        "ko": "오른쪽 클릭 메뉴",
+        "en": "Right-click menus"
+      }
+    },
+    {
+      "id": "reports",
+      "chapter": "reports",
+      "start": 349.8,
+      "title": {
+        "ko": "보고서",
+        "en": "Reports"
+      }
+    },
+    {
+      "id": "reportCost",
+      "chapter": "reports",
+      "start": 355.4,
+      "title": {
+        "ko": "비용 보고서",
+        "en": "Cost report"
+      }
+    },
+    {
+      "id": "reportExport",
+      "chapter": "reports",
+      "start": 361.1,
+      "title": {
+        "ko": "보고서 내보내기",
+        "en": "Exporting a report"
+      }
+    },
+    {
+      "id": "reportBurndown",
+      "chapter": "reports",
+      "start": 369.6,
+      "title": {
+        "ko": "번다운",
+        "en": "Burndown"
+      }
+    },
+    {
+      "id": "fileMenu",
+      "chapter": "files",
+      "start": 375.1,
+      "title": {
+        "ko": "파일 메뉴",
+        "en": "The File menu"
+      }
+    },
+    {
+      "id": "print",
+      "chapter": "files",
+      "start": 381.7,
+      "title": {
+        "ko": "인쇄와 미리 보기",
+        "en": "Printing and preview"
+      }
+    },
+    {
+      "id": "imageExport",
+      "chapter": "files",
+      "start": 390.8,
+      "title": {
+        "ko": "간트 차트를 이미지로",
+        "en": "The Gantt chart as an image"
+      }
+    },
+    {
+      "id": "database",
+      "chapter": "files",
+      "start": 399.9,
+      "title": {
+        "ko": "데이터베이스에 저장하기",
+        "en": "Keeping plans in a database"
+      }
+    },
+    {
+      "id": "recentFiles",
+      "chapter": "files",
+      "start": 409,
+      "title": {
+        "ko": "최근 파일 관리",
+        "en": "Managing recent files"
+      }
+    },
+    {
+      "id": "dragDrop",
+      "chapter": "files",
+      "start": 415,
+      "title": {
+        "ko": "끌어다 놓기",
+        "en": "Drag and drop"
+      }
+    },
+    {
+      "id": "theme",
+      "chapter": "customize",
+      "start": 424.4,
+      "title": {
+        "ko": "테마",
+        "en": "Themes"
+      }
+    },
+    {
+      "id": "language",
+      "chapter": "customize",
+      "start": 435.8,
+      "title": {
+        "ko": "언어",
+        "en": "Language"
+      }
+    },
+    {
+      "id": "panels",
+      "chapter": "customize",
+      "start": 445.3,
+      "title": {
+        "ko": "패널 접기",
+        "en": "Collapsing panels"
+      }
+    },
+    {
+      "id": "bottomPanel",
+      "chapter": "customize",
+      "start": 454.2,
+      "title": {
+        "ko": "하단 패널: 일정 점검",
+        "en": "Bottom panel: schedule check"
+      }
+    },
+    {
+      "id": "settings",
+      "chapter": "customize",
+      "start": 474.7,
+      "title": {
+        "ko": "설정",
+        "en": "Settings"
+      }
+    },
+    {
+      "id": "statusBar",
+      "chapter": "customize",
+      "start": 483.9,
+      "title": {
+        "ko": "상태 표시줄",
+        "en": "Status bar"
+      }
+    },
+    {
+      "id": "shortcuts",
+      "chapter": "help",
+      "start": 489.8,
+      "title": {
+        "ko": "단축키",
+        "en": "Keyboard shortcuts"
+      }
+    },
+    {
+      "id": "about",
+      "chapter": "help",
+      "start": 495.4,
+      "title": {
+        "ko": "프로그램 정보",
+        "en": "About"
+      }
+    },
+    {
+      "id": "tutorialDoc",
+      "chapter": "help",
+      "start": 501,
+      "title": {
+        "ko": "튜토리얼 문서 읽기",
+        "en": "Reading the tutorial document"
+      }
+    },
+    {
+      "id": "finish",
+      "chapter": "help",
+      "start": 510.1,
+      "title": {
+        "ko": "다 둘러봤습니다",
+        "en": "That's the tour"
+      }
+    }
+  ]
+}

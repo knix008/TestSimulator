@@ -1,0 +1,1749 @@
+{
+ "format": "myworkplan",
+ "version": 1,
+ "kind": "plan",
+ "saved": "2026-11-09T12:18:06.487Z",
+ "project": {
+  "format": "myworkplan",
+  "version": 1,
+  "id": "prj-mw988ro51gwfq29",
+  "title": "향토 자료 디지털화 사업",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "comments": "",
+  "start": "2026-11-16T08:00",
+  "finish": null,
+  "scheduleFrom": "start",
+  "statusDate": null,
+  "calendarId": "standard",
+  "priority": 500,
+  "options": {
+   "hoursPerDay": 8,
+   "hoursPerWeek": 40,
+   "daysPerMonth": 20,
+   "defaultStart": 480,
+   "defaultFinish": 1020,
+   "weekStart": 1,
+   "currency": "₩",
+   "defaultTaskMode": "auto",
+   "defaultDurationUnit": "d",
+   "defaultTaskType": "fixedUnits",
+   "effortDriven": false,
+   "criticalSlack": 0,
+   "honorConstraints": true,
+   "autoCalculate": true,
+   "defaultStdRate": 0,
+   "defaultOvtRate": 0,
+   "newTaskDuration": 1
+  },
+  "calendars": [
+   {
+    "id": "standard",
+    "name": "표준",
+    "base": null,
+    "week": {
+     "0": [],
+     "1": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "2": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "3": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "4": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "5": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "6": []
+    },
+    "exceptions": [
+     {
+      "id": "ex-mw988ro61iewn8d",
+      "name": "성탄절",
+      "start": "2026-12-25",
+      "finish": "2026-12-25",
+      "working": false,
+      "periods": []
+     },
+     {
+      "id": "ex-mw988ro61if7tl2",
+      "name": "신정",
+      "start": "2027-01-01",
+      "finish": "2027-01-01",
+      "working": false,
+      "periods": []
+     },
+     {
+      "id": "ex-mw988ro61iglxdp",
+      "name": "설날 연휴",
+      "start": "2027-02-06",
+      "finish": "2027-02-08",
+      "working": false,
+      "periods": []
+     }
+    ]
+   },
+   {
+    "id": "24hours",
+    "name": "24시간",
+    "base": null,
+    "week": {
+     "0": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "1": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "2": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "3": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "4": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "5": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "6": [
+      [
+       0,
+       1440
+      ]
+     ]
+    },
+    "exceptions": []
+   },
+   {
+    "id": "night",
+    "name": "야간 교대",
+    "base": null,
+    "week": {
+     "0": [],
+     "1": [
+      [
+       1380,
+       1440
+      ]
+     ],
+     "2": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "3": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "4": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "5": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "6": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ]
+     ]
+    },
+    "exceptions": []
+   }
+  ],
+  "resources": [
+   {
+    "id": "r-mw988ro51gxgxos",
+    "name": "조은숙 수석 사서",
+    "type": "work",
+    "initials": "수석",
+    "group": "도서관",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 55000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988ro51gyyghn",
+    "name": "자료 담당 사서",
+    "type": "work",
+    "initials": "사서",
+    "group": "도서관",
+    "email": "",
+    "maxUnits": 2,
+    "stdRate": 40000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988ro51gz5aje",
+    "name": "스캔 작업자",
+    "type": "work",
+    "initials": "스캔",
+    "group": "작업",
+    "email": "",
+    "maxUnits": 3,
+    "stdRate": 22000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988ro51h03zgc",
+    "name": "메타데이터 전문가",
+    "type": "work",
+    "initials": "메타",
+    "group": "도서관",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 45000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988ro51h1m58m",
+    "name": "전산 담당자",
+    "type": "work",
+    "initials": "전산",
+    "group": "정보화",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 50000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988ro51h2eu6g",
+    "name": "중성 보존 상자",
+    "type": "material",
+    "initials": "상자",
+    "group": "자재",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 12000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "상자",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988ro51h38o3f",
+    "name": "장비 임차",
+    "type": "cost",
+    "initials": "장비",
+    "group": "비용",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 0,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   }
+  ],
+  "tasks": [
+   {
+    "id": "t-mw988ro51h4z9ma",
+    "name": "사업 계획",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-16T08:00",
+    "scheduledFinish": "2026-12-11T17:00"
+   },
+   {
+    "id": "t-mw988ro51h59r4o",
+    "name": "소장 자료 조사",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 4800,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-16T08:00",
+    "scheduledFinish": "2026-11-27T17:00"
+   },
+   {
+    "id": "t-mw988ro51h6l9qg",
+    "name": "디지털화 대상 선정",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51h59r4o",
+      "type": "SS",
+      "lag": 50,
+      "lagUnit": "%"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-23T08:00",
+    "scheduledFinish": "2026-11-27T17:00"
+   },
+   {
+    "id": "t-mw988ro51h7i7pw",
+    "name": "저작권 확인",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 4800,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "저작권 보호 기간이 남은 자료는 열람 제한으로 공개합니다.",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51h6l9qg",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-30T08:00",
+    "scheduledFinish": "2026-12-11T17:00"
+   },
+   {
+    "id": "t-mw988ro51h850rg",
+    "name": "메타데이터 표준 결정",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1440,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51h6l9qg",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-30T08:00",
+    "scheduledFinish": "2026-12-02T17:00"
+   },
+   {
+    "id": "t-mw988ro51h94v2v",
+    "name": "작업 환경 구축",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-30T08:00",
+    "scheduledFinish": "2026-12-23T17:00"
+   },
+   {
+    "id": "t-mw988ro51hag26j",
+    "name": "스캐너 임차·설치",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1440,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51h6l9qg",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-30T08:00",
+    "scheduledFinish": "2026-12-02T17:00"
+   },
+   {
+    "id": "t-mw988ro51hbt900",
+    "name": "디지털 저장소 구축",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 7200,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hag26j",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988ro51h850rg",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-03T08:00",
+    "scheduledFinish": "2026-12-23T17:00"
+   },
+   {
+    "id": "t-mw988ro51hcgufn",
+    "name": "시험 스캔·품질 기준 확정",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1440,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hag26j",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-03T08:00",
+    "scheduledFinish": "2026-12-07T17:00"
+   },
+   {
+    "id": "t-mw988ro51hdi05q",
+    "name": "본 작업 착수",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hcgufn",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988ro51h7i7pw",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-11T17:00",
+    "scheduledFinish": "2026-12-11T17:00"
+   },
+   {
+    "id": "t-mw988ro51hef3ib",
+    "name": "디지털화",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-14T08:00",
+    "scheduledFinish": "2027-02-10T17:00"
+   },
+   {
+    "id": "t-mw988ro51hf7t42",
+    "name": "자료 정리·보존 처리",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 7200,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hdi05q",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-14T08:00",
+    "scheduledFinish": "2027-01-05T17:00"
+   },
+   {
+    "id": "t-mw988ro51hgsyc1",
+    "name": "스캔 작업",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 14400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 800,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hf7t42",
+      "type": "SS",
+      "lag": 2400,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-21T08:00",
+    "scheduledFinish": "2027-02-02T17:00"
+   },
+   {
+    "id": "t-mw988ro51hhmmgk",
+    "name": "메타데이터 입력",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 14400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hgsyc1",
+      "type": "SS",
+      "lag": 2400,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-29T08:00",
+    "scheduledFinish": "2027-02-10T17:00"
+   },
+   {
+    "id": "t-mw988ro51hirzpa",
+    "name": "품질 검수",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 12000,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hgsyc1",
+      "type": "FF",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-12-29T08:00",
+    "scheduledFinish": "2027-02-02T17:00"
+   },
+   {
+    "id": "t-mw988ro51hjbtqc",
+    "name": "서비스 개시",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-11T08:00",
+    "scheduledFinish": "2027-02-24T17:00"
+   },
+   {
+    "id": "t-mw988ro51hkzxye",
+    "name": "저장소 등록",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hhmmgk",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988ro51hirzpa",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988ro51hbt900",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-11T08:00",
+    "scheduledFinish": "2027-02-17T17:00"
+   },
+   {
+    "id": "t-mw988ro51hl7feu",
+    "name": "검색 서비스 시험 운영",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hkzxye",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-18T08:00",
+    "scheduledFinish": "2027-02-24T17:00"
+   },
+   {
+    "id": "t-mw988ro51hmml6v",
+    "name": "온라인 공개",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hl7feu",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-24T17:00",
+    "scheduledFinish": "2027-02-24T17:00"
+   },
+   {
+    "id": "t-mw988ro51hn18o8",
+    "name": "사업 종료",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-03T08:00",
+    "scheduledFinish": "2027-03-03T17:00"
+   },
+   {
+    "id": "t-mw988ro51hoafz1",
+    "name": "원본 서고 재배치",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hirzpa",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-03T08:00",
+    "scheduledFinish": "2027-02-10T17:00"
+   },
+   {
+    "id": "t-mw988ro51hpig9t",
+    "name": "결과 보고서 작성",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hmml6v",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-02-25T08:00",
+    "scheduledFinish": "2027-03-03T17:00"
+   },
+   {
+    "id": "t-mw988ro51hqg9lp",
+    "name": "사업 완료",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": "2027-03-08T17:00",
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988ro51hpig9t",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988ro51hoafz1",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2027-03-03T17:00",
+    "scheduledFinish": "2027-03-03T17:00"
+   }
+  ],
+  "assignments": [
+   {
+    "id": "a-mw988ro51hrtjyp",
+    "taskId": "t-mw988ro51h59r4o",
+    "resourceId": "r-mw988ro51gyyghn",
+    "units": 2
+   },
+   {
+    "id": "a-mw988ro51hsmm83",
+    "taskId": "t-mw988ro51h6l9qg",
+    "resourceId": "r-mw988ro51gxgxos",
+    "units": 1
+   },
+   {
+    "id": "a-mw988ro51hts8ux",
+    "taskId": "t-mw988ro51h6l9qg",
+    "resourceId": "r-mw988ro51gyyghn",
+    "units": 1
+   },
+   {
+    "id": "a-mw988ro51hunxv2",
+    "taskId": "t-mw988ro51h7i7pw",
+    "resourceId": "r-mw988ro51gyyghn",
+    "units": 1
+   },
+   {
+    "id": "a-mw988ro51hvellz",
+    "taskId": "t-mw988ro51h850rg",
+    "resourceId": "r-mw988ro51h03zgc",
+    "units": 1
+   },
+   {
+    "id": "a-mw988ro51hwoqbx",
+    "taskId": "t-mw988ro51h850rg",
+    "resourceId": "r-mw988ro51gxgxos",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988ro51hx8lbb",
+    "taskId": "t-mw988ro51hag26j",
+    "resourceId": "r-mw988ro51h1m58m",
+    "units": 1
+   },
+   {
+    "id": "a-mw988ro51hynz4r",
+    "taskId": "t-mw988ro51hag26j",
+    "resourceId": "r-mw988ro51h38o3f",
+    "units": 1,
+    "cost": 4500000
+   },
+   {
+    "id": "a-mw988ro51hz5ynq",
+    "taskId": "t-mw988ro51hbt900",
+    "resourceId": "r-mw988ro51h1m58m",
+    "units": 1
+   },
+   {
+    "id": "a-mw988ro51i0o8qi",
+    "taskId": "t-mw988ro51hcgufn",
+    "resourceId": "r-mw988ro51gz5aje",
+    "units": 1
+   },
+   {
+    "id": "a-mw988ro51i1mzsw",
+    "taskId": "t-mw988ro51hcgufn",
+    "resourceId": "r-mw988ro51h03zgc",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988ro51i2w0ug",
+    "taskId": "t-mw988ro51hf7t42",
+    "resourceId": "r-mw988ro51gyyghn",
+    "units": 1
+   },
+   {
+    "id": "a-mw988ro51i3bx2s",
+    "taskId": "t-mw988ro51hf7t42",
+    "resourceId": "r-mw988ro51h2eu6g",
+    "units": 40
+   },
+   {
+    "id": "a-mw988ro51i4lzp8",
+    "taskId": "t-mw988ro51hgsyc1",
+    "resourceId": "r-mw988ro51gz5aje",
+    "units": 3
+   },
+   {
+    "id": "a-mw988ro51i5xju9",
+    "taskId": "t-mw988ro51hhmmgk",
+    "resourceId": "r-mw988ro51h03zgc",
+    "units": 1
+   },
+   {
+    "id": "a-mw988ro51i63cve",
+    "taskId": "t-mw988ro51hhmmgk",
+    "resourceId": "r-mw988ro51gyyghn",
+    "units": 1
+   },
+   {
+    "id": "a-mw988ro51i7a7ou",
+    "taskId": "t-mw988ro51hirzpa",
+    "resourceId": "r-mw988ro51gxgxos",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988ro51i8a3hg",
+    "taskId": "t-mw988ro51hkzxye",
+    "resourceId": "r-mw988ro51h1m58m",
+    "units": 1
+   },
+   {
+    "id": "a-mw988ro51i9q1wq",
+    "taskId": "t-mw988ro51hkzxye",
+    "resourceId": "r-mw988ro51h03zgc",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988ro51ian9hv",
+    "taskId": "t-mw988ro51hl7feu",
+    "resourceId": "r-mw988ro51h1m58m",
+    "units": 1
+   },
+   {
+    "id": "a-mw988ro51ibplvh",
+    "taskId": "t-mw988ro51hl7feu",
+    "resourceId": "r-mw988ro51gxgxos",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988ro51icy6kb",
+    "taskId": "t-mw988ro51hoafz1",
+    "resourceId": "r-mw988ro51gyyghn",
+    "units": 2
+   },
+   {
+    "id": "a-mw988ro51id9yun",
+    "taskId": "t-mw988ro51hpig9t",
+    "resourceId": "r-mw988ro51gxgxos",
+    "units": 1
+   }
+  ],
+  "baselineDates": {},
+  "customFields": {
+   "text1": "",
+   "text2": "",
+   "text3": "",
+   "number1": "",
+   "flag1": ""
+  },
+  "created": "2026-11-09T21:18"
+ }
+}

@@ -8,11 +8,13 @@ import { t, getLanguage } from '../i18n.js';
 import { formatDuration, formatMoney } from '../domain/duration.js';
 import { dayOf, dayStart, formatDay, nowMin } from '../domain/time.js';
 import { assignmentLoad } from '../domain/schedule.js';
+import { laborBreakdown } from '../domain/labor.js';
 import { labelIndexes, valueAxis } from '../ui/axes.js';
 
 export const REPORTS = [
   ['overview', 'reportOverview'], ['cost', 'reportCost'], ['work', 'reportWork'], ['burndown', 'burndown'], ['critical', 'reportCritical'],
   ['late', 'reportLate'], ['upcoming', 'reportUpcoming'], ['milestones', 'reportMilestones'], ['resources', 'reportResources'],
+  ['labor', 'reportLabor'],
 ];
 
 /** Plain-text rows of a report (copy / tests). */
@@ -144,6 +146,38 @@ export function reportModel(app, id = 'overview') {
     }[id];
     blocks.push({ type: 'note', text: t(`report.${id}Hint`) });
     blocks.push(taskRows(reportData(id, project, sched), fields, ''));
+  } else if (id === 'labor') {
+    // Labor cost: what the people cost, out of the whole project cost.
+    const b = laborBreakdown(project, sched);
+    const pct = (value) => `${(value * 100).toFixed(1)}%`;
+    blocks.push({ type: 'kpis', items: [
+      { label: t('report.totalCost'), value: money(b.total) },
+      { label: t('report.laborCost'), value: money(b.labor) },
+      { label: t('report.laborShare'), value: pct(b.laborShare) },
+      { label: t('report.actualLabor'), value: money(b.actualLabor) },
+      { label: t('report.remainingLabor'), value: money(b.remainingLabor) },
+      { label: t('report.laborHours'), value: hours(b.laborWork) },
+      { label: t('report.averageHourly'), value: `${money(b.averageHourly)}${t('unit.perHour')}` },
+    ] });
+    blocks.push({ type: 'donut', title: t('report.laborShareTitle'), percent: Math.round(b.laborShare * 100), label: t('report.laborCost') });
+    blocks.push(bars(t('report.costByKind'), [
+      { label: t('report.kind.labor'), value: b.labor },
+      { label: t('report.kind.material'), value: b.material },
+      { label: t('report.kind.costResource'), value: b.costResource },
+      { label: t('report.kind.fixed'), value: b.fixed },
+    ], money));
+    blocks.push(bars(t('report.laborByPhase'), b.phases.map((p) => ({ label: p.name, value: p.labor, second: p.cost })), money,
+      [{ tone: 'scheduled', label: t('report.laborCost') }, { tone: 'planned', label: t('field.cost') }]));
+    blocks.push({
+      type: 'table', title: t('report.laborByPerson'), empty: t('graph.noResources'),
+      columns: [{ label: t('field.name') }, { label: t('field.group') }, { label: t('field.wageBasis') }, { label: t('field.wageAmount'), align: 'right' }, { label: t('field.stdRate'), align: 'right' },
+        { label: t('field.work'), align: 'right' }, { label: t('report.laborCost'), align: 'right' }, { label: t('field.actualCost'), align: 'right' }, { label: t('report.shareOfLabor'), align: 'right' }],
+      rows: [
+        ...b.people.map((p) => [p.name, p.group, t(`labor.basis.${p.basis}`), money(p.amount), `${money(p.hourly)}${t('unit.perHour')}`, hours(p.work), money(p.cost), money(p.actualCost), pct(p.share)]),
+        ...(b.people.length ? [[t('report.total'), '', '', '', '', hours(b.laborWork), money(b.labor), money(b.actualLabor), '100.0%']] : []),
+      ],
+    });
+    blocks.push({ type: 'note', text: t('report.laborHint') });
   } else if (id === 'resources') {
     blocks.push({
       type: 'table', title: '', empty: t('graph.noResources'),
@@ -219,7 +253,7 @@ export class ReportsView {
     const body = {
       overview: () => this.overview(), cost: () => this.costReport(), work: () => this.workReport(), burndown: () => this.burndown(),
       critical: () => this.taskTable('critical'), late: () => this.taskTable('late'), upcoming: () => this.taskTable('upcoming'),
-      milestones: () => this.taskTable('milestones'), resources: () => this.resourceTable(),
+      milestones: () => this.taskTable('milestones'), resources: () => this.resourceTable(), labor: () => this.laborReport(),
     }[id]?.() ?? '';
     this.host.innerHTML = `
       <nav class="report-tabs" role="tablist">${REPORTS.map(([report, glyph]) => `<button class="report-tab ${report === id ? 'active' : ''}" data-report="${report}" role="tab" aria-selected="${report === id}" title="${escapeHtml(t(`report.${report}`))}">${icon(glyph)}<span>${escapeHtml(t(`report.${report}`))}</span></button>`).join('')}</nav>
@@ -388,6 +422,34 @@ export class ReportsView {
     if (!rows.length) return `<div class="muted report-none">${icon('info')}${escapeHtml(t('graph.noResources'))}</div>`;
     return `<table class="report-table"><thead><tr><th>${escapeHtml(t('field.name'))}</th><th>${escapeHtml(t('field.resourceType'))}</th><th>${escapeHtml(t('field.work'))}</th><th>${escapeHtml(t('field.cost'))}</th><th>${escapeHtml(t('field.peak'))}</th><th>${escapeHtml(t('field.overallocated'))}</th></tr></thead>
       <tbody>${rows.map(({ r, info }) => `<tr class="${info?.overallocated ? 'over' : ''}"><td>${escapeHtml(r.name)}</td><td>${escapeHtml(t(`resourceType.${r.type}`))}</td><td class="right">${escapeHtml(r.type === 'work' ? this.hours(info?.work) : '')}</td><td class="right">${escapeHtml(this.money(info?.cost ?? 0))}</td><td class="right">${r.type === 'work' ? `${Math.round((info?.peak ?? 0) * 100)}%` : ''}</td><td class="center">${info?.overallocated ? icon('overallocation') : ''}</td></tr>`).join('')}</tbody></table>`;
+  }
+
+  /** Labor cost: what the people cost, out of the whole project cost, by kind, phase and person. */
+  laborReport() {
+    const project = this.app.project();
+    const sched = this.app.sched();
+    const b = laborBreakdown(project, sched);
+    const pct = (value) => `${(value * 100).toFixed(1)}%`;
+    const money = (v) => this.money(v);
+    const kinds = [
+      { label: t('report.kind.labor'), value: b.labor },
+      { label: t('report.kind.material'), value: b.material },
+      { label: t('report.kind.costResource'), value: b.costResource },
+      { label: t('report.kind.fixed'), value: b.fixed },
+    ];
+    const phases = b.phases.map((p) => ({ label: p.name, value: p.labor, second: p.cost }));
+    const head = [t('field.name'), t('field.group'), t('field.wageBasis'), t('field.wageAmount'), t('field.stdRate'), t('field.work'), t('report.laborCost'), t('field.actualCost'), t('report.shareOfLabor')];
+    const people = b.people.length ? `<table class="report-table labor-table"><thead><tr>${head.map((h, i) => `<th class="${i >= 3 ? 'right' : ''}">${escapeHtml(h)}</th>`).join('')}</tr></thead>
+      <tbody>${b.people.map((p) => `<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.group)}</td><td>${escapeHtml(t(`labor.basis.${p.basis}`))}</td><td class="right">${escapeHtml(money(p.amount))}</td><td class="right">${escapeHtml(`${money(p.hourly)}${t('unit.perHour')}`)}</td><td class="right">${escapeHtml(this.hours(p.work))}</td><td class="right"><b>${escapeHtml(money(p.cost))}</b></td><td class="right">${escapeHtml(money(p.actualCost))}</td><td class="right">${escapeHtml(pct(p.share))}</td></tr>`).join('')}
+      <tr class="total"><td><b>${escapeHtml(t('report.total'))}</b></td><td></td><td></td><td></td><td></td><td class="right">${escapeHtml(this.hours(b.laborWork))}</td><td class="right"><b>${escapeHtml(money(b.labor))}</b></td><td class="right">${escapeHtml(money(b.actualLabor))}</td><td class="right">100.0%</td></tr></tbody></table>`
+      : `<div class="muted report-none">${icon('info')}${escapeHtml(t('graph.noResources'))}</div>`;
+    return `<div class="kpis">${this.kpi('money', t('report.totalCost'), money(b.total))}${this.kpi('reportLabor', t('report.laborCost'), money(b.labor))}${this.kpi('percent', t('report.laborShare'), pct(b.laborShare))}${this.kpi('reportCost', t('report.actualLabor'), money(b.actualLabor))}${this.kpi('flag', t('report.remainingLabor'), money(b.remainingLabor))}${this.kpi('clock', t('report.laborHours'), this.hours(b.laborWork))}${this.kpi('coins', t('report.averageHourly'), `${money(b.averageHourly)}${t('unit.perHour')}`)}</div>
+      <div class="report-cards">
+        <section class="card"><h3>${icon('percent')}${escapeHtml(t('report.laborShareTitle'))}</h3><div class="donut-wrap">${this.donut(Math.round(b.laborShare * 100), t('report.laborCost'))}</div></section>
+        <section class="card"><h3>${icon('reportCost')}${escapeHtml(t('report.costByKind'))}</h3>${this.barChart(kinds, money, 'money')}</section>
+        <section class="card wide"><h3>${icon('summaryBar')}${escapeHtml(t('report.laborByPhase'))}</h3>${this.barChart(phases, money, 'money')}</section>
+        <section class="card wide"><h3>${icon('user')}${escapeHtml(t('report.laborByPerson'))}</h3>${people}<p class="muted report-hint">${escapeHtml(t('report.laborHint'))}</p></section>
+      </div>`;
   }
 
   /** The current report as text (Copy report). */

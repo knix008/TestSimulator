@@ -1,0 +1,1932 @@
+{
+ "format": "myworkplan",
+ "version": 1,
+ "kind": "plan",
+ "saved": "2026-11-09T12:18:06.579Z",
+ "project": {
+  "format": "myworkplan",
+  "version": 1,
+  "id": "prj-mw988rqp2nlz19k",
+  "title": "Wedding Planning",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "comments": "",
+  "start": "2026-09-28T08:00",
+  "finish": null,
+  "scheduleFrom": "start",
+  "statusDate": "2026-11-09T17:00",
+  "calendarId": "standard",
+  "priority": 500,
+  "options": {
+   "hoursPerDay": 8,
+   "hoursPerWeek": 40,
+   "daysPerMonth": 20,
+   "defaultStart": 480,
+   "defaultFinish": 1020,
+   "weekStart": 1,
+   "currency": "$",
+   "defaultTaskMode": "auto",
+   "defaultDurationUnit": "d",
+   "defaultTaskType": "fixedUnits",
+   "effortDriven": false,
+   "criticalSlack": 0,
+   "honorConstraints": true,
+   "autoCalculate": true,
+   "defaultStdRate": 0,
+   "defaultOvtRate": 0,
+   "newTaskDuration": 1
+  },
+  "calendars": [
+   {
+    "id": "standard",
+    "name": "Standard",
+    "base": null,
+    "week": {
+     "0": [],
+     "1": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "2": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "3": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "4": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "5": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "6": []
+    },
+    "exceptions": [
+     {
+      "id": "ex-mw988rqp2p81243",
+      "name": "Company holiday",
+      "start": "2026-10-21",
+      "finish": "2026-10-21",
+      "working": false,
+      "periods": []
+     }
+    ]
+   },
+   {
+    "id": "24hours",
+    "name": "24 Hours",
+    "base": null,
+    "week": {
+     "0": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "1": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "2": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "3": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "4": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "5": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "6": [
+      [
+       0,
+       1440
+      ]
+     ]
+    },
+    "exceptions": []
+   },
+   {
+    "id": "night",
+    "name": "Night Shift",
+    "base": null,
+    "week": {
+     "0": [],
+     "1": [
+      [
+       1380,
+       1440
+      ]
+     ],
+     "2": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "3": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "4": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "5": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "6": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ]
+     ]
+    },
+    "exceptions": []
+   }
+  ],
+  "resources": [
+   {
+    "id": "r-mw988rqp2nm1iiy",
+    "name": "The Couple",
+    "type": "work",
+    "initials": "CP",
+    "group": "Family",
+    "email": "",
+    "maxUnits": 2,
+    "stdRate": 0,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rqp2nn3qju",
+    "name": "Wedding Planner",
+    "type": "work",
+    "initials": "WP",
+    "group": "Vendors",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 45,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rqp2nons11",
+    "name": "Parents",
+    "type": "work",
+    "initials": "PA",
+    "group": "Family",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 0,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rqp2np11yy",
+    "name": "Photographer",
+    "type": "work",
+    "initials": "PH",
+    "group": "Vendors",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 70,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rqp2nqahbp",
+    "name": "Invitations",
+    "type": "material",
+    "initials": "IN",
+    "group": "Materials",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 1.5,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "cards",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rqp2nrfbn5",
+    "name": "Venue costs",
+    "type": "cost",
+    "initials": "VC",
+    "group": "Costs",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 0,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rqp2ns0k15",
+    "name": "Honeymoon costs",
+    "type": "cost",
+    "initials": "HM",
+    "group": "Costs",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 0,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   }
+  ],
+  "tasks": [
+   {
+    "id": "t-mw988rqp2nt4d5j",
+    "name": "The basics",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-09-28T08:00",
+      "finish": "2026-10-08T17:00",
+      "duration": 4320,
+      "work": 7680,
+      "cost": 3400
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-09-28T08:00",
+    "scheduledFinish": "2026-10-08T17:00"
+   },
+   {
+    "id": "t-mw988rqp2nurpp3",
+    "name": "Set the budget and guest count",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1440,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-09-28T08:00",
+    "actualFinish": "2026-09-30T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "Agree on both families' guest numbers first; they decide the size of the venue.",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-09-28T08:00",
+      "finish": "2026-09-30T17:00",
+      "duration": 1440,
+      "work": 3600,
+      "cost": 0
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-09-28T08:00",
+    "scheduledFinish": "2026-09-30T17:00"
+   },
+   {
+    "id": "t-mw988rqp2nvd6sp",
+    "name": "Tour wedding venues",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-01T08:00",
+    "actualFinish": "2026-10-07T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2nurpp3",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-01T08:00",
+      "finish": "2026-10-07T17:00",
+      "duration": 2400,
+      "work": 3600,
+      "cost": 900
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-01T08:00",
+    "scheduledFinish": "2026-10-07T17:00"
+   },
+   {
+    "id": "t-mw988rqp2nwt27m",
+    "name": "Book the venue",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-08T08:00",
+    "actualFinish": "2026-10-08T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 900,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2nvd6sp",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-08T08:00",
+      "finish": "2026-10-08T17:00",
+      "duration": 480,
+      "work": 480,
+      "cost": 2500
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-08T08:00",
+    "scheduledFinish": "2026-10-08T17:00"
+   },
+   {
+    "id": "t-mw988rqp2nxnsgz",
+    "name": "Wedding date fixed",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 100,
+    "actualStart": "2026-10-08T17:00",
+    "actualFinish": "2026-10-08T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2nwt27m",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-08T17:00",
+      "finish": "2026-10-08T17:00",
+      "duration": 0,
+      "work": 0,
+      "cost": 0
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-08T17:00",
+    "scheduledFinish": "2026-10-08T17:00"
+   },
+   {
+    "id": "t-mw988rqp2nygnhi",
+    "name": "Studio, dress and makeup",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-09T08:00",
+      "finish": "2026-11-11T17:00",
+      "duration": 11040,
+      "work": 7800,
+      "cost": 3560
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-09T08:00",
+    "scheduledFinish": "2026-11-11T17:00"
+   },
+   {
+    "id": "t-mw988rqp2nz54bj",
+    "name": "Choose the studio, dress and makeup",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-09T08:00",
+    "actualFinish": "2026-10-15T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2nxnsgz",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-09T08:00",
+      "finish": "2026-10-15T17:00",
+      "duration": 2400,
+      "work": 3600,
+      "cost": 900
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-09T08:00",
+    "scheduledFinish": "2026-10-15T17:00"
+   },
+   {
+    "id": "t-mw988rqp2o02sk6",
+    "name": "Dress fitting",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 960,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-16T08:00",
+    "actualFinish": "2026-10-19T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2nz54bj",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-16T08:00",
+      "finish": "2026-10-19T17:00",
+      "duration": 960,
+      "work": 960,
+      "cost": 0
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-16T08:00",
+    "scheduledFinish": "2026-10-19T17:00"
+   },
+   {
+    "id": "t-mw988rqp2o1pctm",
+    "name": "Pre-wedding photo shoot",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-20T08:00",
+    "actualFinish": "2026-10-20T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2o02sk6",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-20T08:00",
+      "finish": "2026-10-20T17:00",
+      "duration": 480,
+      "work": 1440,
+      "cost": 560
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-20T08:00",
+    "scheduledFinish": "2026-10-20T17:00"
+   },
+   {
+    "id": "t-mw988rqp2o2kovh",
+    "name": "Retouching and the album",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 7200,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 43,
+    "actualStart": "2026-10-22T08:00",
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2o1pctm",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-22T08:00",
+      "finish": "2026-11-11T17:00",
+      "duration": 7200,
+      "work": 1800,
+      "cost": 2100
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-22T08:00",
+    "scheduledFinish": "2026-11-11T17:00"
+   },
+   {
+    "id": "t-mw988rqp2o3ktfm",
+    "name": "Guests",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-13T08:00",
+      "finish": "2026-11-09T12:00",
+      "duration": 8880,
+      "work": 5160,
+      "cost": 900
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-13T08:00",
+    "scheduledFinish": "2026-11-09T12:00"
+   },
+   {
+    "id": "t-mw988rqp2o4phz9",
+    "name": "Draw up the guest list",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1440,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-13T08:00",
+    "actualFinish": "2026-10-15T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2nxnsgz",
+      "type": "SS",
+      "lag": 960,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-13T08:00",
+      "finish": "2026-10-15T17:00",
+      "duration": 1440,
+      "work": 2160,
+      "cost": 0
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-13T08:00",
+    "scheduledFinish": "2026-10-15T17:00"
+   },
+   {
+    "id": "t-mw988rqp2o5meg1",
+    "name": "Design and print the invitations",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-22T08:00",
+    "actualFinish": "2026-10-28T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "The invitations use a photo from the shoot, so they are ordered afterwards.",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2o1pctm",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rqp2o4phz9",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-22T08:00",
+      "finish": "2026-10-28T17:00",
+      "duration": 2400,
+      "work": 0,
+      "cost": 450
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-22T08:00",
+    "scheduledFinish": "2026-10-28T17:00"
+   },
+   {
+    "id": "t-mw988rqp2o6g3t4",
+    "name": "Send paper and mobile invitations",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-29T08:00",
+    "actualFinish": "2026-11-04T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2o5meg1",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-29T08:00",
+      "finish": "2026-11-04T17:00",
+      "duration": 2400,
+      "work": 2400,
+      "cost": 0
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-29T08:00",
+    "scheduledFinish": "2026-11-04T17:00"
+   },
+   {
+    "id": "t-mw988rqp2o7f54d",
+    "name": "Confirm the head count",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-11-02T13:00",
+    "actualFinish": "2026-11-09T12:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2o6g3t4",
+      "type": "SS",
+      "lag": 50,
+      "lagUnit": "%"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-02T13:00",
+      "finish": "2026-11-09T12:00",
+      "duration": 2400,
+      "work": 600,
+      "cost": 450
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-02T13:00",
+    "scheduledFinish": "2026-11-09T12:00"
+   },
+   {
+    "id": "t-mw988rqp2o8fpkb",
+    "name": "The wedding day",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-09T13:00",
+      "finish": "2026-11-10T17:00",
+      "duration": 720,
+      "work": 2880,
+      "cost": 1100
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-09T13:00",
+    "scheduledFinish": "2026-11-10T17:00"
+   },
+   {
+    "id": "t-mw988rqp2o9ofsn",
+    "name": "Ceremony rehearsal",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 240,
+    "durationUnit": "h",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-11-09T13:00",
+    "actualFinish": "2026-11-09T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2o7f54d",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-09T13:00",
+      "finish": "2026-11-09T17:00",
+      "duration": 240,
+      "work": 480,
+      "cost": 180
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-09T13:00",
+    "scheduledFinish": "2026-11-09T17:00"
+   },
+   {
+    "id": "t-mw988rqp2oae9bn",
+    "name": "The ceremony",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 900,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2o9ofsn",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-10T08:00",
+      "finish": "2026-11-10T17:00",
+      "duration": 480,
+      "work": 2400,
+      "cost": 920
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-10T08:00",
+    "scheduledFinish": "2026-11-10T17:00"
+   },
+   {
+    "id": "t-mw988rqp2ob9v6n",
+    "name": "Married",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2oae9bn",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-10T17:00",
+      "finish": "2026-11-10T17:00",
+      "duration": 0,
+      "work": 0,
+      "cost": 0
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-10T17:00",
+    "scheduledFinish": "2026-11-10T17:00"
+   },
+   {
+    "id": "t-mw988rqp2oc7q8w",
+    "name": "Honeymoon and wrap-up",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-10T17:00",
+      "finish": "2026-11-20T17:00",
+      "duration": 3840,
+      "work": 11520,
+      "cost": 5000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-10T17:00",
+    "scheduledFinish": "2026-11-20T17:00"
+   },
+   {
+    "id": "t-mw988rqp2od5zt6",
+    "name": "Honeymoon",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 10080,
+    "durationUnit": "ed",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2ob9v6n",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-10T17:00",
+      "finish": "2026-11-17T17:00",
+      "duration": 10080,
+      "work": 10080,
+      "cost": 5000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-10T17:00",
+    "scheduledFinish": "2026-11-17T17:00"
+   },
+   {
+    "id": "t-mw988rqp2oex8ha",
+    "name": "Thank-you notes and settling the bills",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1440,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2od5zt6",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rqp2o2kovh",
+      "type": "FF",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-18T08:00",
+      "finish": "2026-11-20T17:00",
+      "duration": 1440,
+      "work": 1440,
+      "cost": 0
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-18T08:00",
+    "scheduledFinish": "2026-11-20T17:00"
+   },
+   {
+    "id": "t-mw988rqp2oft9xv",
+    "name": "All wrapped up",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": "2026-11-23T17:00",
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rqp2oex8ha",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-20T17:00",
+      "finish": "2026-11-20T17:00",
+      "duration": 0,
+      "work": 0,
+      "cost": 0
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-20T17:00",
+    "scheduledFinish": "2026-11-20T17:00"
+   }
+  ],
+  "assignments": [
+   {
+    "id": "a-mw988rqp2oggr61",
+    "taskId": "t-mw988rqp2nurpp3",
+    "resourceId": "r-mw988rqp2nm1iiy",
+    "units": 2
+   },
+   {
+    "id": "a-mw988rqp2oh04oi",
+    "taskId": "t-mw988rqp2nurpp3",
+    "resourceId": "r-mw988rqp2nons11",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rqp2oi6g6k",
+    "taskId": "t-mw988rqp2nvd6sp",
+    "resourceId": "r-mw988rqp2nm1iiy",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rqp2oj7rlg",
+    "taskId": "t-mw988rqp2nvd6sp",
+    "resourceId": "r-mw988rqp2nn3qju",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rqp2okpbdw",
+    "taskId": "t-mw988rqp2nwt27m",
+    "resourceId": "r-mw988rqp2nm1iiy",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rqp2olqsal",
+    "taskId": "t-mw988rqp2nwt27m",
+    "resourceId": "r-mw988rqp2nrfbn5",
+    "units": 1,
+    "cost": 2500
+   },
+   {
+    "id": "a-mw988rqp2omnabl",
+    "taskId": "t-mw988rqp2nz54bj",
+    "resourceId": "r-mw988rqp2nm1iiy",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rqp2onyqi1",
+    "taskId": "t-mw988rqp2nz54bj",
+    "resourceId": "r-mw988rqp2nn3qju",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rqp2ooh0bd",
+    "taskId": "t-mw988rqp2o02sk6",
+    "resourceId": "r-mw988rqp2nm1iiy",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rqp2op33y3",
+    "taskId": "t-mw988rqp2o1pctm",
+    "resourceId": "r-mw988rqp2nm1iiy",
+    "units": 2
+   },
+   {
+    "id": "a-mw988rqp2oqfk7k",
+    "taskId": "t-mw988rqp2o1pctm",
+    "resourceId": "r-mw988rqp2np11yy",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rqp2orhy6k",
+    "taskId": "t-mw988rqp2o2kovh",
+    "resourceId": "r-mw988rqp2np11yy",
+    "units": 0.25
+   },
+   {
+    "id": "a-mw988rqp2osodvh",
+    "taskId": "t-mw988rqp2o4phz9",
+    "resourceId": "r-mw988rqp2nm1iiy",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rqp2ote6a6",
+    "taskId": "t-mw988rqp2o4phz9",
+    "resourceId": "r-mw988rqp2nons11",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rqp2ouopyj",
+    "taskId": "t-mw988rqp2o5meg1",
+    "resourceId": "r-mw988rqp2nqahbp",
+    "units": 300
+   },
+   {
+    "id": "a-mw988rqp2ov61he",
+    "taskId": "t-mw988rqp2o6g3t4",
+    "resourceId": "r-mw988rqp2nm1iiy",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rqp2owvq1d",
+    "taskId": "t-mw988rqp2o6g3t4",
+    "resourceId": "r-mw988rqp2nons11",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rqp2ox61fz",
+    "taskId": "t-mw988rqp2o7f54d",
+    "resourceId": "r-mw988rqp2nn3qju",
+    "units": 0.25
+   },
+   {
+    "id": "a-mw988rqp2oyrovl",
+    "taskId": "t-mw988rqp2o9ofsn",
+    "resourceId": "r-mw988rqp2nm1iiy",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rqp2ozgitv",
+    "taskId": "t-mw988rqp2o9ofsn",
+    "resourceId": "r-mw988rqp2nn3qju",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rqp2p0r01c",
+    "taskId": "t-mw988rqp2oae9bn",
+    "resourceId": "r-mw988rqp2nm1iiy",
+    "units": 2
+   },
+   {
+    "id": "a-mw988rqp2p19390",
+    "taskId": "t-mw988rqp2oae9bn",
+    "resourceId": "r-mw988rqp2nons11",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rqp2p2nmd6",
+    "taskId": "t-mw988rqp2oae9bn",
+    "resourceId": "r-mw988rqp2nn3qju",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rqp2p3w57w",
+    "taskId": "t-mw988rqp2oae9bn",
+    "resourceId": "r-mw988rqp2np11yy",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rqp2p49a69",
+    "taskId": "t-mw988rqp2od5zt6",
+    "resourceId": "r-mw988rqp2nm1iiy",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rqp2p5i3mi",
+    "taskId": "t-mw988rqp2od5zt6",
+    "resourceId": "r-mw988rqp2ns0k15",
+    "units": 1,
+    "cost": 5000
+   },
+   {
+    "id": "a-mw988rqp2p6pjwf",
+    "taskId": "t-mw988rqp2oex8ha",
+    "resourceId": "r-mw988rqp2nm1iiy",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rqp2p7vb6x",
+    "taskId": "t-mw988rqp2oex8ha",
+    "resourceId": "r-mw988rqp2nons11",
+    "units": 0.5
+   }
+  ],
+  "baselineDates": {
+   "0": "2026-09-28T08:00:00.000Z"
+  },
+  "customFields": {
+   "text1": "",
+   "text2": "",
+   "text3": "",
+   "number1": "",
+   "flag1": ""
+  },
+  "created": "2026-11-09T21:18"
+ }
+}

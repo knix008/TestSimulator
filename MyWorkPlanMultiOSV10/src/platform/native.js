@@ -289,7 +289,8 @@ export const setWindowTheme = (dark) => (isDesktop() ? getCurrentWindow().setThe
 export async function setMinimumSize(width, height) {
   if (!isDesktop()) return;
   const appWindow = getCurrentWindow();
-  await appWindow.setMinSize(new LogicalSize(width, height));
+  // Rust adds the invisible resize border to the minimum and holds the window to it (Snap included).
+  await invoke('set_window_min_size', { width, height });
   // An already narrower window grows to the new minimum at once.
   if (window.innerWidth < width - 1) await appWindow.setSize(new LogicalSize(width, Math.max(height, window.innerHeight)));
 }

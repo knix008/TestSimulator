@@ -1,0 +1,2072 @@
+{
+ "format": "myworkplan",
+ "version": 1,
+ "kind": "plan",
+ "saved": "2026-11-09T12:18:06.399Z",
+ "project": {
+  "format": "myworkplan",
+  "version": 1,
+  "id": "prj-mw988rln8fq4ad",
+  "title": "32평 아파트 리모델링",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "comments": "",
+  "start": "2026-10-05T08:00",
+  "finish": null,
+  "scheduleFrom": "start",
+  "statusDate": "2026-11-09T17:00",
+  "calendarId": "standard",
+  "priority": 500,
+  "options": {
+   "hoursPerDay": 8,
+   "hoursPerWeek": 40,
+   "daysPerMonth": 20,
+   "defaultStart": 480,
+   "defaultFinish": 1020,
+   "weekStart": 1,
+   "currency": "₩",
+   "defaultTaskMode": "auto",
+   "defaultDurationUnit": "d",
+   "defaultTaskType": "fixedUnits",
+   "effortDriven": false,
+   "criticalSlack": 0,
+   "honorConstraints": true,
+   "autoCalculate": true,
+   "defaultStdRate": 0,
+   "defaultOvtRate": 0,
+   "newTaskDuration": 1
+  },
+  "calendars": [
+   {
+    "id": "standard",
+    "name": "표준",
+    "base": null,
+    "week": {
+     "0": [],
+     "1": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "2": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "3": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "4": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "5": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "6": []
+    },
+    "exceptions": [
+     {
+      "id": "ex-mw988rloa0vmx2",
+      "name": "한글날",
+      "start": "2026-10-09",
+      "finish": "2026-10-09",
+      "working": false,
+      "periods": []
+     }
+    ]
+   },
+   {
+    "id": "24hours",
+    "name": "24시간",
+    "base": null,
+    "week": {
+     "0": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "1": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "2": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "3": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "4": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "5": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "6": [
+      [
+       0,
+       1440
+      ]
+     ]
+    },
+    "exceptions": []
+   },
+   {
+    "id": "night",
+    "name": "야간 교대",
+    "base": null,
+    "week": {
+     "0": [],
+     "1": [
+      [
+       1380,
+       1440
+      ]
+     ],
+     "2": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "3": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "4": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "5": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "6": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ]
+     ]
+    },
+    "exceptions": []
+   }
+  ],
+  "resources": [
+   {
+    "id": "r-mw988rln8gb5sq",
+    "name": "조영수 (현장 실장)",
+    "type": "work",
+    "initials": "영수",
+    "group": "관리",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 60000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rln8h8uks",
+    "name": "철거팀",
+    "type": "work",
+    "initials": "철거",
+    "group": "시공",
+    "email": "",
+    "maxUnits": 5,
+    "stdRate": 35000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rln8ixrs5",
+    "name": "설비 기사",
+    "type": "work",
+    "initials": "설비",
+    "group": "설비",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 45000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rln8j6ak8",
+    "name": "전기 기사",
+    "type": "work",
+    "initials": "전기",
+    "group": "설비",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 45000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rln8kc28m",
+    "name": "목수팀",
+    "type": "work",
+    "initials": "목공",
+    "group": "시공",
+    "email": "",
+    "maxUnits": 2,
+    "stdRate": 40000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rln8l3tvz",
+    "name": "타일·도배팀",
+    "type": "work",
+    "initials": "마감",
+    "group": "시공",
+    "email": "",
+    "maxUnits": 2,
+    "stdRate": 38000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rln8mmhjp",
+    "name": "바닥·벽 타일",
+    "type": "material",
+    "initials": "타일",
+    "group": "자재",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 32000,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "㎡",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mw988rln8n0s53",
+    "name": "주방·욕실 기구",
+    "type": "cost",
+    "initials": "기구",
+    "group": "비용",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 0,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "wage": null,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   }
+  ],
+  "tasks": [
+   {
+    "id": "t-mw988rln8of4zl",
+    "name": "공사 준비",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-05T08:00",
+      "finish": "2026-11-18T17:00",
+      "duration": 15360,
+      "work": 6240,
+      "cost": 6240000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-05T08:00",
+    "scheduledFinish": "2026-11-18T17:00"
+   },
+   {
+    "id": "t-mw988rln8poc2z",
+    "name": "실측 및 디자인 확정",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 4800,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-05T08:00",
+    "actualFinish": "2026-10-19T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-05T08:00",
+      "finish": "2026-10-19T17:00",
+      "duration": 4800,
+      "work": 2400,
+      "cost": 2400000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-05T08:00",
+    "scheduledFinish": "2026-10-19T17:00"
+   },
+   {
+    "id": "t-mw988rln8qm07p",
+    "name": "관리사무소 신고·이웃 동의",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-08T08:00",
+    "actualFinish": "2026-10-15T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "공동주택은 공사 전 이웃 동의서와 승강기 보양 신청이 필요합니다.",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln8poc2z",
+      "type": "SS",
+      "lag": 1440,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-08T08:00",
+      "finish": "2026-10-15T17:00",
+      "duration": 2400,
+      "work": 1200,
+      "cost": 1200000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-08T08:00",
+    "scheduledFinish": "2026-10-15T17:00"
+   },
+   {
+    "id": "t-mw988rln8rdt82",
+    "name": "주방 가구·창호 주문 제작",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 10560,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 34,
+    "actualStart": "2026-10-20T08:00",
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "맞춤 제작이라 발주 후 4주 남짓 걸립니다.",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln8poc2z",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-20T08:00",
+      "finish": "2026-11-18T17:00",
+      "duration": 10560,
+      "work": 2640,
+      "cost": 2640000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-20T08:00",
+    "scheduledFinish": "2026-11-18T17:00"
+   },
+   {
+    "id": "t-mw988rln8syaw1",
+    "name": "착공",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 100,
+    "actualStart": "2026-10-19T17:00",
+    "actualFinish": "2026-10-19T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln8poc2z",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rln8qm07p",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-19T17:00",
+      "finish": "2026-10-19T17:00",
+      "duration": 0,
+      "work": 0,
+      "cost": 0
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-19T17:00",
+    "scheduledFinish": "2026-10-19T17:00"
+   },
+   {
+    "id": "t-mw988rln8tzxim",
+    "name": "철거",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-20T08:00",
+      "finish": "2026-10-26T17:00",
+      "duration": 2400,
+      "work": 9360,
+      "cost": 5960000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-20T08:00",
+    "scheduledFinish": "2026-10-26T17:00"
+   },
+   {
+    "id": "t-mw988rln8u8jjy",
+    "name": "내부 철거",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-20T08:00",
+    "actualFinish": "2026-10-26T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln8syaw1",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-20T08:00",
+      "finish": "2026-10-26T17:00",
+      "duration": 2400,
+      "work": 8400,
+      "cost": 5400000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-20T08:00",
+    "scheduledFinish": "2026-10-26T17:00"
+   },
+   {
+    "id": "t-mw988rln8vv202",
+    "name": "폐기물 반출",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-26T08:00",
+    "actualFinish": "2026-10-26T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln8u8jjy",
+      "type": "FF",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-26T08:00",
+      "finish": "2026-10-26T17:00",
+      "duration": 480,
+      "work": 960,
+      "cost": 560000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-26T08:00",
+    "scheduledFinish": "2026-10-26T17:00"
+   },
+   {
+    "id": "t-mw988rln8w5srb",
+    "name": "설비 공사",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-27T08:00",
+      "finish": "2026-11-06T17:00",
+      "duration": 4320,
+      "work": 5760,
+      "cost": 4208000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-27T08:00",
+    "scheduledFinish": "2026-11-06T17:00"
+   },
+   {
+    "id": "t-mw988rln8x6r8x",
+    "name": "급배수 배관 교체",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-27T08:00",
+    "actualFinish": "2026-11-02T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln8u8jjy",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-27T08:00",
+      "finish": "2026-11-02T17:00",
+      "duration": 2400,
+      "work": 2400,
+      "cost": 1800000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-27T08:00",
+    "scheduledFinish": "2026-11-02T17:00"
+   },
+   {
+    "id": "t-mw988rln8y6t0f",
+    "name": "전기 배선·콘센트 이설",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-10-27T08:00",
+    "actualFinish": "2026-11-02T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln8u8jjy",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-10-27T08:00",
+      "finish": "2026-11-02T17:00",
+      "duration": 2400,
+      "work": 2400,
+      "cost": 1800000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-10-27T08:00",
+    "scheduledFinish": "2026-11-02T17:00"
+   },
+   {
+    "id": "t-mw988rln8z3xcl",
+    "name": "욕실 방수",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 960,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-11-03T08:00",
+    "actualFinish": "2026-11-04T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 800,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln8x6r8x",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-03T08:00",
+      "finish": "2026-11-04T17:00",
+      "duration": 960,
+      "work": 960,
+      "cost": 608000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-03T08:00",
+    "scheduledFinish": "2026-11-04T17:00"
+   },
+   {
+    "id": "t-mw988rln90wct7",
+    "name": "담수 시험",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 960,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 100,
+    "actualStart": "2026-11-05T08:00",
+    "actualFinish": "2026-11-06T17:00",
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "방수 후 48시간 물을 채워 누수를 확인합니다.",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln8z3xcl",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-05T08:00",
+      "finish": "2026-11-06T17:00",
+      "duration": 960,
+      "work": 0,
+      "cost": 0
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-05T08:00",
+    "scheduledFinish": "2026-11-06T17:00"
+   },
+   {
+    "id": "t-mw988rln91oc1r",
+    "name": "목공 및 타일",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-03T08:00",
+      "finish": "2026-11-23T17:00",
+      "duration": 7200,
+      "work": 17280,
+      "cost": 22140000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-03T08:00",
+    "scheduledFinish": "2026-11-23T17:00"
+   },
+   {
+    "id": "t-mw988rln924z7p",
+    "name": "천장·가벽 목공",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 4800,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 50,
+    "actualStart": "2026-11-03T08:00",
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln8y6t0f",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-03T08:00",
+      "finish": "2026-11-16T17:00",
+      "duration": 4800,
+      "work": 9600,
+      "cost": 6400000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-03T08:00",
+    "scheduledFinish": "2026-11-16T17:00"
+   },
+   {
+    "id": "t-mw988rln93icys",
+    "name": "욕실 타일",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 20,
+    "actualStart": "2026-11-09T08:00",
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln90wct7",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-09T08:00",
+      "finish": "2026-11-13T17:00",
+      "duration": 2400,
+      "work": 4800,
+      "cost": 4480000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-09T08:00",
+    "scheduledFinish": "2026-11-13T17:00"
+   },
+   {
+    "id": "t-mw988rln94scrp",
+    "name": "주방 가구 설치",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1440,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln924z7p",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rln8rdt82",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-19T08:00",
+      "finish": "2026-11-23T17:00",
+      "duration": 1440,
+      "work": 1440,
+      "cost": 7460000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-19T08:00",
+    "scheduledFinish": "2026-11-23T17:00"
+   },
+   {
+    "id": "t-mw988rln95drbm",
+    "name": "욕실 도기·수전 설치",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln93icys",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-16T08:00",
+      "finish": "2026-11-16T17:00",
+      "duration": 480,
+      "work": 480,
+      "cost": 3160000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-16T08:00",
+    "scheduledFinish": "2026-11-16T17:00"
+   },
+   {
+    "id": "t-mw988rln967szq",
+    "name": "창호 교체",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 960,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln8rdt82",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-19T08:00",
+      "finish": "2026-11-20T17:00",
+      "duration": 960,
+      "work": 960,
+      "cost": 640000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-19T08:00",
+    "scheduledFinish": "2026-11-20T17:00"
+   },
+   {
+    "id": "t-mw988rln97jjvh",
+    "name": "마감",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-17T08:00",
+      "finish": "2026-11-30T17:00",
+      "duration": 4800,
+      "work": 8160,
+      "cost": 8064000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-17T08:00",
+    "scheduledFinish": "2026-11-30T17:00"
+   },
+   {
+    "id": "t-mw988rln98y517",
+    "name": "도배",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln924z7p",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rln93icys",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-17T08:00",
+      "finish": "2026-11-23T17:00",
+      "duration": 2400,
+      "work": 4800,
+      "cost": 3040000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-17T08:00",
+    "scheduledFinish": "2026-11-23T17:00"
+   },
+   {
+    "id": "t-mw988rln99gn1q",
+    "name": "바닥재 시공",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1920,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln98y517",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-24T08:00",
+      "finish": "2026-11-27T17:00",
+      "duration": 1920,
+      "work": 1920,
+      "cost": 3904000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-24T08:00",
+    "scheduledFinish": "2026-11-27T17:00"
+   },
+   {
+    "id": "t-mw988rln9aftvu",
+    "name": "조명·스위치 설치",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln99gn1q",
+      "type": "FS",
+      "lag": -480,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-27T08:00",
+      "finish": "2026-11-27T17:00",
+      "duration": 480,
+      "work": 480,
+      "cost": 360000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-27T08:00",
+    "scheduledFinish": "2026-11-27T17:00"
+   },
+   {
+    "id": "t-mw988rln9bw64x",
+    "name": "입주 청소 및 점검",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 900,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln99gn1q",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rln9aftvu",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rln94scrp",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rln95drbm",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mw988rln967szq",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-30T08:00",
+      "finish": "2026-11-30T17:00",
+      "duration": 480,
+      "work": 960,
+      "cost": 760000
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-30T08:00",
+    "scheduledFinish": "2026-11-30T17:00"
+   },
+   {
+    "id": "t-mw988rln9cz4ma",
+    "name": "공사 완료",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": "2026-12-03T17:00",
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mw988rln9bw64x",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "timeline": false,
+    "levelingDelay": 0,
+    "baselines": {
+     "0": {
+      "start": "2026-11-30T17:00",
+      "finish": "2026-11-30T17:00",
+      "duration": 0,
+      "work": 0,
+      "cost": 0
+     }
+    },
+    "recurring": null,
+    "created": "2026-11-09T21:18",
+    "scheduledStart": "2026-11-30T17:00",
+    "scheduledFinish": "2026-11-30T17:00"
+   }
+  ],
+  "assignments": [
+   {
+    "id": "a-mw988rln9dn5fi",
+    "taskId": "t-mw988rln8poc2z",
+    "resourceId": "r-mw988rln8gb5sq",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rln9eqii5",
+    "taskId": "t-mw988rln8qm07p",
+    "resourceId": "r-mw988rln8gb5sq",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rln9f8tep",
+    "taskId": "t-mw988rln8rdt82",
+    "resourceId": "r-mw988rln8gb5sq",
+    "units": 0.25
+   },
+   {
+    "id": "a-mw988rln9g4ldv",
+    "taskId": "t-mw988rln8u8jjy",
+    "resourceId": "r-mw988rln8h8uks",
+    "units": 3
+   },
+   {
+    "id": "a-mw988rln9h41xf",
+    "taskId": "t-mw988rln8u8jjy",
+    "resourceId": "r-mw988rln8gb5sq",
+    "units": 0.5
+   },
+   {
+    "id": "a-mw988rln9iqyur",
+    "taskId": "t-mw988rln8vv202",
+    "resourceId": "r-mw988rln8h8uks",
+    "units": 2
+   },
+   {
+    "id": "a-mw988rln9jeu9b",
+    "taskId": "t-mw988rln8x6r8x",
+    "resourceId": "r-mw988rln8ixrs5",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rln9k3l3n",
+    "taskId": "t-mw988rln8y6t0f",
+    "resourceId": "r-mw988rln8j6ak8",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rln9lye4z",
+    "taskId": "t-mw988rln8z3xcl",
+    "resourceId": "r-mw988rln8l3tvz",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rln9m0sqh",
+    "taskId": "t-mw988rln924z7p",
+    "resourceId": "r-mw988rln8kc28m",
+    "units": 2
+   },
+   {
+    "id": "a-mw988rln9nrqsa",
+    "taskId": "t-mw988rln93icys",
+    "resourceId": "r-mw988rln8l3tvz",
+    "units": 2
+   },
+   {
+    "id": "a-mw988rln9okkhs",
+    "taskId": "t-mw988rln93icys",
+    "resourceId": "r-mw988rln8mmhjp",
+    "units": 45
+   },
+   {
+    "id": "a-mw988rln9p6blu",
+    "taskId": "t-mw988rln94scrp",
+    "resourceId": "r-mw988rln8kc28m",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rln9qjs17",
+    "taskId": "t-mw988rln94scrp",
+    "resourceId": "r-mw988rln8n0s53",
+    "units": 1,
+    "cost": 6500000
+   },
+   {
+    "id": "a-mw988rln9ru5md",
+    "taskId": "t-mw988rln95drbm",
+    "resourceId": "r-mw988rln8ixrs5",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rln9s2msg",
+    "taskId": "t-mw988rln95drbm",
+    "resourceId": "r-mw988rln8n0s53",
+    "units": 1,
+    "cost": 2800000
+   },
+   {
+    "id": "a-mw988rln9tc5z2",
+    "taskId": "t-mw988rln967szq",
+    "resourceId": "r-mw988rln8kc28m",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rln9u1imz",
+    "taskId": "t-mw988rln98y517",
+    "resourceId": "r-mw988rln8l3tvz",
+    "units": 2
+   },
+   {
+    "id": "a-mw988rln9vbvwd",
+    "taskId": "t-mw988rln99gn1q",
+    "resourceId": "r-mw988rln8l3tvz",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rln9wojp7",
+    "taskId": "t-mw988rln99gn1q",
+    "resourceId": "r-mw988rln8mmhjp",
+    "units": 84
+   },
+   {
+    "id": "a-mw988rln9x4n8d",
+    "taskId": "t-mw988rln9aftvu",
+    "resourceId": "r-mw988rln8j6ak8",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rln9yuln5",
+    "taskId": "t-mw988rln9bw64x",
+    "resourceId": "r-mw988rln8gb5sq",
+    "units": 1
+   },
+   {
+    "id": "a-mw988rln9zgifs",
+    "taskId": "t-mw988rln9bw64x",
+    "resourceId": "r-mw988rln8h8uks",
+    "units": 1
+   }
+  ],
+  "baselineDates": {
+   "0": "2026-10-05T08:00:00.000Z"
+  },
+  "customFields": {
+   "text1": "",
+   "text2": "",
+   "text3": "",
+   "number1": "",
+   "flag1": ""
+  },
+  "created": "2026-11-09T21:18"
+ }
+}

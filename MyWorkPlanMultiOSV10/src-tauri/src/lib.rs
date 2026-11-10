@@ -25,6 +25,9 @@ const POPUP_KINDS: &[&str] = &[
 struct Shared {
     /// Plan files given on the command line, handed to the UI once.
     startup_files: Vec<PathBuf>,
+    /// The smallest client size of the main window (logical px), measured by the page from its
+    /// toolbar and menu bar: the window is held to it however it is resized.
+    min_size: Option<(f64, f64)>,
 }
 
 type AppState = Mutex<Shared>;
@@ -317,6 +320,61 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
     Ok(())
 }
 
+/// The user's guide, the tutorial document and the tutorial video, each in an OS window of its own
+/// ("doc-<kind>", the page is index.html?viewer=<kind> handled by src/viewer.js).
+const DOC_KINDS: &[&str] = &["guide", "tutorial", "video"];
+
+
+/// Opens the document window of `kind`, or brings it back when it is already open. The page shows
+/// it once drawn (popup_ready); its place and size are remembered (window-state.doc-<kind>.json).
+#[tauri::command]
+async fn open_doc_window(app: AppHandle, kind: String, title: String, width: f64, height: f64, dark: Option<bool>) -> Result<(), String> {
+    if !DOC_KINDS.contains(&kind.as_str()) {
+        return Err(format!("unknown document {kind}"));
+    }
+    static CREATING: Mutex<()> = Mutex::new(());
+    let _guard = CREATING.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let label = format!("doc-{kind}");
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    let state_path = window_state::state_file(&app).map(|path| path.with_file_name(format!("window-state.{label}.json")));
+    let placement = state_path.as_deref().and_then(|path| window_state::saved_placement(&app, path));
+    let builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App("index.html".into()))
+        .title(title)
+        .decorations(true)
+        .resizable(true)
+        .maximizable(true)
+        .minimizable(true)
+        .min_inner_size(640.0, 420.0)
+        .theme(dark.map(|dark| if dark { tauri::Theme::Dark } else { tauri::Theme::Light }))
+        .visible(false)
+        .additional_browser_args(BROWSER_ARGS);
+    let builder = match placement {
+        Some((state, scale)) => builder
+            .position(f64::from(state.x) / scale, f64::from(state.y) / scale)
+            .inner_size(f64::from(state.width) / scale, f64::from(state.height) / scale)
+            .maximized(state.maximized),
+        None => builder.inner_size(width.clamp(640.0, 4000.0), height.clamp(420.0, 3000.0)).center(),
+    };
+    let window = builder.build().map_err(|error| error.to_string())?;
+    if let Some(path) = state_path {
+        window_state::track(&window, path);
+    }
+    // Shown by the page once drawn; if the page never says so (a load error), shown anyway.
+    let late = window.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(4));
+        if !late.is_visible().unwrap_or(true) {
+            let _ = late.show();
+        }
+    });
+    Ok(())
+}
+
 /// Called by a popup page once it has drawn itself.
 #[tauri::command]
 fn popup_ready(window: WebviewWindow) {
@@ -451,6 +509,39 @@ async fn raise_test_panic() -> Result<(), String> {
     Ok(())
 }
 
+/// The main window's minimum client size. The window has no system title bar, so Windows
+/// applies a minimum to the outer frame, which includes the invisible 8 px resize borders:
+/// that extra is added, or edge drags would stop 16 px under the minimum.
+#[tauri::command]
+fn set_window_min_size(window: WebviewWindow, state: tauri::State<'_, AppState>, width: f64, height: f64) -> Result<(), String> {
+    let width = width.max(400.0);
+    let height = height.max(300.0);
+    lock(&state).min_size = Some((width, height));
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let (extra_w, extra_h) = match (window.outer_size(), window.inner_size()) {
+        (Ok(outer), Ok(inner)) => (f64::from(outer.width.saturating_sub(inner.width)) / scale, f64::from(outer.height.saturating_sub(inner.height)) / scale),
+        _ => (0.0, 0.0),
+    };
+    window.set_min_size(Some(tauri::LogicalSize::new(width + extra_w, height + extra_h))).map_err(|e| e.to_string())?;
+    hold_min_size(&window, width, height);
+    Ok(())
+}
+
+/// Snap, other programs and SetWindowPos ignore the minimum: put the size back.
+fn hold_min_size(window: &WebviewWindow, width: f64, height: f64) {
+    if window.is_maximized().unwrap_or(false) || window.is_minimized().unwrap_or(false) {
+        return;
+    }
+    let scale = window.scale_factor().unwrap_or(1.0);
+    if let Ok(inner) = window.inner_size() {
+        let w = f64::from(inner.width) / scale;
+        let h = f64::from(inner.height) / scale;
+        if w + 0.5 < width || h + 0.5 < height {
+            let _ = window.set_size(tauri::LogicalSize::new(w.max(width), h.max(height)));
+        }
+    }
+}
+
 /// Ends the app after the UI has handled unsaved changes.
 #[tauri::command]
 fn quit_app(app: AppHandle) {
@@ -516,6 +607,10 @@ pub fn run() {
             let placement = state_path.as_deref().and_then(|path| window_state::saved_placement(app.handle(), path));
             let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title(app_title(app.package_info()))
+                // No system title bar: the menu bar carries the icon, name, version and the
+                // minimise / maximise / close buttons, and moves the window (CSS app-region).
+                .decorations(false)
+                .shadow(true)
                 .min_inner_size(1000.0, 600.0)
                 .visible(false)
                 .additional_browser_args(BROWSER_ARGS);
@@ -536,15 +631,23 @@ pub fn run() {
             }
             // Closing the main window ends the app: the popups go with it.
             let handle = app.handle().clone();
-            main.on_window_event(move |event| {
-                if let tauri::WindowEvent::Destroyed = event {
-                    handle.exit(0);
+            let held = main.clone();
+            main.on_window_event(move |event| match event {
+                tauri::WindowEvent::Destroyed => handle.exit(0),
+                tauri::WindowEvent::Resized(_) => {
+                    let min = lock(&held.state::<AppState>()).min_size;
+                    if let Some((width, height)) = min {
+                        hold_min_size(&held, width, height);
+                    }
                 }
+                _ => {}
             });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             app_info,
+            open_doc_window,
+            set_window_min_size,
             set_language,
             startup_files,
             read_text_file,

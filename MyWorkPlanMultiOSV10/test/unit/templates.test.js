@@ -13,6 +13,7 @@ import { criticalPath } from '../../src/domain/critical.js';
 import { schedule } from '../../src/domain/schedule.js';
 import { TEMPLATES, buildSample, buildTemplate } from '../../src/domain/templates.js';
 import { dayOf, toMin, weekdayOfDay } from '../../src/domain/time.js';
+import { SAMPLE_PROJECTS, sampleFileName } from '../../src/domain/samples/index.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const HANGUL = /[가-힣]/;
@@ -183,13 +184,13 @@ test('the sample started three weeks before any day of the week', () => {
 
 test('make-samples wrote the installed sample files and they open', () => {
   const dir = path.join(root, 'samples');
-  const expected = LANGUAGES.flatMap((l) => ['website-redesign', 'software-project', 'construction-project', 'event-plan'].map((n) => `${n}.${l}.mwp`).concat(`event-template.${l}.mwpt`));
+  const expected = LANGUAGES.flatMap((l) => SAMPLE_PROJECTS.map((sample) => sampleFileName(sample.id, l)).concat(`event-template.${l}.mwpt`));
   for (const name of expected) {
     const file = path.join(dir, name);
     assert.ok(fs.existsSync(file), `${name} (run: node scripts/make-samples.mjs)`);
     const { project, template } = parsePlan(fs.readFileSync(file, 'utf8'));
     assert.equal(template, name.endsWith('.mwpt'), name);
-    assert.ok(project.tasks.length >= 18, name);
+    assert.ok(project.tasks.length >= 15, name);
     assert.equal(HANGUL.test(project.title), name.includes('.ko.'), name);
     assertSchedulesCleanly(project, name);
   }

@@ -36,10 +36,13 @@ export const STEPS = [
   // ── start page
   { id: 'welcome', chapter: 'start', target: '.start-hero', run: (a) => a.start() },
   { id: 'home', chapter: 'start', target: '#menubar [data-home]', dwell: 5000, run: (a) => a.start() },
+  { id: 'actions', chapter: 'start', target: '.start-card.actions', dwell: 6000, run: (a) => a.start() },
   { id: 'templates', chapter: 'start', target: '.start-card.templates', run: (a) => a.start() },
+  { id: 'samples', chapter: 'start', target: '.start-card.samples', dwell: 7000, async run(a) { await a.start(); a.scrollStart('.start-card.samples'); } },
   { id: 'recent', chapter: 'start', target: '.start-card.recent', run: (a) => a.start() },
-  { id: 'background', chapter: 'start', target: '.start-card.side', dwell: 7000, async run(a) {
+  { id: 'background', chapter: 'start', target: '.start-card.background', dwell: 7000, async run(a) {
     await a.start();
+    a.scrollStart('.start-card.background');
     for (const kind of ['waves', 'constellation', 'gantt', 'aurora']) { a.app.updateSettings({ animation: kind, backgroundKind: 'animated' }); await sleep(1300); }
   } },
   // ── building a plan
@@ -146,6 +149,7 @@ export const STEPS = [
   { id: 'resourceGraph', chapter: 'resources', target: '#view-host', run: async (a) => { await a.sample(); const over = a.app.project().resources.find((r) => a.app.sched().resources.get(r.id)?.overallocated) ?? a.app.project().resources[0]; a.app.switchView('resourceGraph'); a.app.select('resource', [over.id]); } },
   { id: 'leveling', chapter: 'resources', target: '.web-popup-leveling', dwell: 6000, async run(a) { await a.sample('gantt'); a.popup(() => a.app.run('levelingOptions'), 'leveling'); } },
   { id: 'teamPlanner', chapter: 'resources', target: '#view-host', run: async (a) => { await a.sample(); a.app.switchView('teamPlanner'); } },
+  { id: 'labor', chapter: 'resources', target: '#view-host', dwell: 7000, run: async (a) => { await a.sample(); a.app.doc().view.report = 'labor'; a.app.switchView('reports'); } },
   // ── tracking
   { id: 'baseline', chapter: 'tracking', target: '.web-popup-baseline', async run(a) { await a.sample('gantt'); a.popup(() => a.app.run('setBaseline'), 'baseline'); } },
   { id: 'progress', chapter: 'tracking', target: '[data-command="pct50"]', dwell: 5000, async run(a) {
@@ -247,12 +251,21 @@ export const STEPS = [
     await sleep(900);
     a.app.updateSettings({ showLeftPanel: true, showRightPanel: true });
   } },
+  { id: 'bottomPanel', chapter: 'customize', target: '#bottom-panel', dwell: 9000, async run(a) {
+    await a.sample('gantt');
+    a.app.updateSettings({ showBottomPanel: true, bottomPanelCollapsed: false, bottomPanelTab: 'problems' }, { quiet: true });
+    for (const tab of ['critical', 'overallocation', 'delays', 'milestones', 'problems']) { await sleep(1100); a.app.updateSettings({ bottomPanelTab: tab }, { quiet: true }); }
+    await sleep(900);
+    a.app.updateSettings({ bottomPanelCollapsed: true }, { quiet: true });
+    await sleep(1200);
+    a.app.updateSettings({ bottomPanelCollapsed: false }, { quiet: true });
+  } },
   { id: 'settings', chapter: 'customize', target: '.web-popup-settings', dwell: 7000, async run(a) { await a.sample('gantt'); a.popup(() => a.app.popups.open('settings', { tab: 'font' }), 'settings'); } },
   { id: 'statusBar', chapter: 'customize', target: '#statusbar', run: (a) => a.sample('gantt') },
   // ── help
   { id: 'shortcuts', chapter: 'help', target: '.web-popup-settings', async run(a) { await a.sample('gantt'); a.popup(() => a.app.popups.open('settings', { tab: 'shortcuts' }), 'settings'); } },
   { id: 'about', chapter: 'help', target: '.web-popup-about', async run(a) { await a.sample('gantt'); a.popup(() => a.app.run('about'), 'about'); } },
-  { id: 'tutorialDoc', chapter: 'help', target: '#reader-page', dwell: 7000, async run(a) { await a.closeMenus(); a.app.openReader('tutorial'); } },
+  { id: 'tutorialDoc', chapter: 'help', target: '.web-popup-doc-tutorial', dwell: 7000, async run(a) { await a.closeMenus(); a.app.openDocWindow('tutorial'); } },
   { id: 'finish', chapter: 'help', target: '[data-command="tutorial"]', run: (a) => a.sample('gantt') },
 ];
 
@@ -278,7 +291,9 @@ export class Tutorial {
     const tutorial = this;
     return {
       app,
-      async start() { await tutorial.closeAll(); app.showStartPage(true); await sleep(250); },
+      async start() { await tutorial.closeAll(); app.showStartPage(true); const box = q('#start-page .start-scroll'); if (box) box.scrollTop = 0; await sleep(250); },
+      /** Scrolls the start page (not the window) so the card shows near the top. */
+      scrollStart(selector) { const card = q(selector); const box = q('#start-page .start-scroll'); if (card && box) box.scrollTop += card.getBoundingClientRect().top - box.getBoundingClientRect().top - 40; },
       async sample(view = null) {
         await tutorial.closeAll();
         let doc = app.state.docs.find((item) => item.id === tutorial.docId);

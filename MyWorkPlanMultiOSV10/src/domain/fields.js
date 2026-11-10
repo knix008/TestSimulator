@@ -10,6 +10,7 @@ import { formatDay, fromMin, parseDay } from './time.js';
 import { setPercentComplete } from './tracking.js';
 import { schedule } from './schedule.js';
 import { ancestors, descendants } from './project.js';
+import { WAGE_BASES, setWage, wageOf } from './labor.js';
 
 /** A summary and a task inside it cannot be linked. */
 const isFamily = (project, a, b) => ancestors(project, b).includes(a) || descendants(project, b).includes(a);
@@ -153,6 +154,8 @@ export const TASK_FIELDS = [
     text: (ctx, value) => money(ctx, value),
     set: (ctx, task, value) => { const n = parseMoney(value); if (n == null) throw new Error('field.badNumber'); task.fixedCost = n; return true; },
   }),
+  // The cost of the people working on the task (summaries: of everything below).
+  T('laborCost', 100, 'right', 'readonly', (ctx, task, info) => info?.laborCost ?? 0, { text: (ctx, value) => money(ctx, value) }),
   T('actualStart', 120, 'right', 'date', (ctx, task) => (task.actualStart ? ctx.toMin(task.actualStart) : null), {
     text: (ctx, value) => (value == null ? ctx.t('common.na') : date(ctx, value)),
     set: (ctx, task, value) => {
@@ -268,7 +271,19 @@ export const RESOURCE_FIELDS = [
   }),
   T('stdRate', 100, 'right', 'money', (ctx, r) => r.stdRate ?? 0, {
     text: (ctx, value, r) => (r.type === 'cost' ? '' : `${money(ctx, value)}${r.type === 'work' ? ctx.t('unit.perHour') : ''}`),
-    set: (ctx, r, value) => { const n = parseMoney(value); if (n == null) throw new Error('field.badNumber'); r.stdRate = n; return true; },
+    set: (ctx, r, value) => { const n = parseMoney(value); if (n == null) throw new Error('field.badNumber'); r.stdRate = n; r.wage = null; return true; },
+  }),
+  // A person's wage (by the hour, day, week, month or year); setting it sets the hourly rate too.
+  T('wageBasis', 90, 'left', 'select', (ctx, r) => wageOf(r).basis, {
+    options: WAGE_BASES, text: (ctx, value, r) => (r.type === 'work' ? ctx.t(`labor.basis.${value}`) : ''),
+    set: (ctx, r, value) => { if (r.type !== 'work') return false; setWage(r, value, wageOf(r).amount, opts(ctx)); return true; },
+  }),
+  T('wageAmount', 110, 'right', 'money', (ctx, r) => wageOf(r).amount, {
+    text: (ctx, value, r) => (r.type === 'work' ? `${money(ctx, value)}/${ctx.t(`labor.per.${wageOf(r).basis}`)}` : ''),
+    set: (ctx, r, value) => { if (r.type !== 'work') return false; const n = parseMoney(value); if (n == null || n < 0) throw new Error('field.badNumber'); setWage(r, wageOf(r).basis, n, opts(ctx)); return true; },
+  }),
+  T('laborShare', 80, 'right', 'readonly', (ctx, r) => (r.type === 'work' && ctx.sched.cost ? (ctx.sched.resources.get(r.id)?.cost ?? 0) / ctx.sched.cost : 0), {
+    text: (ctx, value, r) => (r.type === 'work' ? `${(value * 100).toFixed(1)}%` : ''),
   }),
   T('ovtRate', 100, 'right', 'money', (ctx, r) => r.ovtRate ?? 0, {
     text: (ctx, value, r) => (r.type === 'work' ? `${money(ctx, value)}${ctx.t('unit.perHour')}` : ''),
@@ -301,7 +316,7 @@ export const RESOURCE_FIELD_MAP = new Map(RESOURCE_FIELDS.map((field) => [field.
 export const TASK_TABLES = {
   entry: ['indicators', 'mode', 'name', 'duration', 'start', 'finish', 'predecessors', 'resourceNames'],
   schedule: ['indicators', 'name', 'start', 'finish', 'lateStart', 'lateFinish', 'freeSlack', 'totalSlack'],
-  cost: ['indicators', 'name', 'fixedCost', 'cost', 'baselineCost', 'costVariance', 'actualCost', 'remainingCost'],
+  cost: ['indicators', 'name', 'fixedCost', 'laborCost', 'cost', 'baselineCost', 'costVariance', 'actualCost', 'remainingCost'],
   work: ['indicators', 'name', 'work', 'baselineWork', 'workVariance', 'actualWork', 'remainingWork', 'percentComplete'],
   tracking: ['indicators', 'name', 'actualStart', 'actualFinish', 'percentComplete', 'actualDuration', 'remainingDuration', 'actualCost', 'actualWork'],
   variance: ['indicators', 'name', 'start', 'finish', 'baselineStart', 'baselineFinish', 'startVariance', 'finishVariance'],
@@ -312,6 +327,7 @@ export const TASK_TABLES = {
 export const RESOURCE_TABLES = {
   entry: ['indicators', 'name', 'resourceType', 'materialLabel', 'initials', 'group', 'maxUnits', 'stdRate', 'ovtRate', 'costPerUse', 'accrue', 'calendar', 'code'],
   cost: ['indicators', 'name', 'cost', 'actualCost', 'stdRate', 'costPerUse'],
+  labor: ['indicators', 'name', 'group', 'wageBasis', 'wageAmount', 'stdRate', 'work', 'cost', 'laborShare'],
   work: ['indicators', 'name', 'work', 'peak', 'maxUnits', 'overallocated'],
   summary: ['indicators', 'name', 'group', 'maxUnits', 'peak', 'stdRate', 'ovtRate', 'cost', 'work'],
 };

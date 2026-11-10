@@ -404,10 +404,13 @@ export function build() {
     written.push({ output, note: exists ? info.input : `${info.input} 없음 → 안내 페이지 (placeholder)` });
   }
   // Web build: public/docs/ (served at ./docs/).
-  fs.rmSync(path.join(publicDocs, 'tutorial', 'images'), { recursive: true, force: true });
+  for (const dir of ['tutorial/images', 'guide/images', 'video']) fs.rmSync(path.join(publicDocs, dir), { recursive: true, force: true });
   fs.mkdirSync(publicDocs, { recursive: true });
   for (const info of PAGES) fs.copyFileSync(path.join(docsDir, info.output), path.join(publicDocs, info.output));
   const images = copyDir(imagesDir, path.join(publicDocs, 'tutorial', 'images'));
+  // The user's guide pictures (npm run guide:images) and the tutorial video (npm run tutorial:video).
+  images.push(...copyDir(path.join(docsDir, 'guide', 'images'), path.join(publicDocs, 'guide', 'images')));
+  copyDir(path.join(docsDir, 'video'), path.join(publicDocs, 'video'));
   return { written, images };
 }
 
