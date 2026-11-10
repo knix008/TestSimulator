@@ -2,7 +2,6 @@
 // window's language and theme. Font size and the guide's language are chosen here.
 import './styles.css';
 import './guide.css';
-import { GUIDE } from './guide-content.js';
 import { switchFlag } from './flags.js';
 import { icon } from './icons.js';
 import { setLanguage, t } from './i18n.js';
@@ -22,11 +21,10 @@ const state = {
   lang: pickLang(params.get('lang') || boot.lang || saved.lang),
   themeId: String(params.get('theme') || boot.theme || saved.themeId || 'light'),
   font: clamp(Number(localStorage.getItem(FONT_KEY)) || 16),
-  current: GUIDE[0].id,
 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
-const text = (value) => value[state.lang] ?? value.ko;
+const docUrl = () => (state.lang === 'en' ? 'doc/UsersGuide.en.html' : 'doc/UsersGuide.html');
 
 function readSettings() {
   try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { return {}; }
@@ -41,6 +39,30 @@ function applyLook() {
   applyTheme(theme);
   document.documentElement.lang = state.lang;
   document.title = `MyAlgorithmSimulator — ${t('cmd.guide')}`;
+  styleDoc();
+}
+
+/** Paint the document in doc/ with this window's theme and font size. */
+function styleDoc() {
+  const doc = root.querySelector('.guide-frame')?.contentDocument;
+  if (!doc?.documentElement) return;
+  const css = getComputedStyle(document.documentElement);
+  const v = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+  let style = doc.getElementById('app-theme');
+  if (!style) {
+    style = doc.createElement('style');
+    style.id = 'app-theme';
+    doc.head.appendChild(style);
+  }
+  const accent = v('--accent', '#0b6e8e');
+  const surface = v('--surface', '#ffffff');
+  style.textContent = `:root {
+    --bg: ${v('--bg', '#f4f7fb')}; --surface: ${surface}; --text: ${v('--text', '#1d2330')}; --muted: ${v('--muted', '#5d6677')};
+    --border: ${v('--border', '#dde2ea')}; --accent: ${accent}; --panel: ${v('--panel', surface)}; --toolbar: ${v('--toolbar', surface)};
+    color-scheme: ${css.colorScheme || 'light'};
+  }
+  html, body { font-size: ${state.font}px !important; }
+  .topbar { display: none !important; }`;
 }
 
 function render() {
@@ -56,25 +78,17 @@ function render() {
       </span>
       <button type="button" class="tool-button" data-guide="lang" title="${esc(t('start.langTip'))}" aria-label="${esc(state.lang === 'ko' ? 'English' : '한국어')}">${switchFlag(state.lang)}</button>
     </header>
-    <div class="guide-body">
-      <nav class="guide-toc" aria-label="${esc(t('guide.contents'))}"><h2>${esc(t('guide.contents'))}</h2>
-        ${GUIDE.map((chapter) => `<button type="button" data-guide="chapter" data-arg="${chapter.id}" class="${chapter.id === state.current ? 'current' : ''}">${esc(text(chapter.title))}</button>`).join('')}
-      </nav>
-      <article class="guide-article" style="font-size:${state.font}px">
-        ${GUIDE.map((chapter) => `<section id="${chapter.id}"><h2>${esc(text(chapter.title))}</h2>${text(chapter.html)}</section>`).join('')}
-      </article>
-    </div>
+    <iframe class="guide-frame" title="${esc(t('cmd.guide'))}" src="${docUrl()}"></iframe>
   </div>`;
-  root.querySelector(`#${CSS.escape(state.current)}`)?.scrollIntoView();
+  root.querySelector('.guide-frame').addEventListener('load', styleDoc);
 }
 
 function setFont(next) {
   state.font = clamp(next);
   localStorage.setItem(FONT_KEY, String(state.font));
-  const article = root.querySelector('.guide-article');
   const label = root.querySelector('[data-font-label]');
-  if (article) article.style.fontSize = `${state.font}px`;
   if (label) label.textContent = `${state.font}px`;
+  styleDoc();
 }
 
 root.addEventListener('click', (event) => {
@@ -84,28 +98,8 @@ root.addEventListener('click', (event) => {
   else if (button.dataset.guide === 'lang') {
     state.lang = state.lang === 'ko' ? 'en' : 'ko';
     render();
-  } else if (button.dataset.guide === 'chapter') {
-    state.current = button.dataset.arg;
-    root.querySelectorAll('.guide-toc button').forEach((item) => item.classList.toggle('current', item.dataset.arg === state.current));
-    root.querySelector(`#${CSS.escape(state.current)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 });
-
-root.addEventListener('scroll', () => {}, true);
-const articleScroll = () => {
-  const article = root.querySelector('.guide-article');
-  if (!article) return;
-  const top = article.getBoundingClientRect().top + 24;
-  let current = GUIDE[0].id;
-  for (const chapter of GUIDE) {
-    const head = root.querySelector(`#${CSS.escape(chapter.id)} h2`);
-    if (head && head.getBoundingClientRect().top <= top) current = chapter.id;
-  }
-  if (current === state.current) return;
-  state.current = current;
-  root.querySelectorAll('.guide-toc button').forEach((item) => item.classList.toggle('current', item.dataset.arg === current));
-};
-root.addEventListener('scroll', (event) => { if (event.target?.classList?.contains('guide-article')) articleScroll(); }, true);
 
 window.addEventListener('storage', (event) => {
   if (event.key !== STORE || !event.newValue) return;

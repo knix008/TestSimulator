@@ -12,7 +12,7 @@
   },
   "app": {
     "windows": [
-      { "label": "main", "title": "MyAlgorithmSimulator", "width": 1480, "height": 900, "minWidth": 1100, "minHeight": 640, "center": true, "decorations": false, "shadow": true }
+      { "label": "main", "title": "MyAlgorithmSimulator", "width": 1480, "height": 900, "minWidth": 1320, "minHeight": 640, "center": true, "decorations": false, "shadow": true }
     ],
     "security": { "csp": null }
   },

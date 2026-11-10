@@ -3,7 +3,7 @@
   --font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
   --font-size: 13px;
   --radius: 8px;
-  --min-width: 1100px;
+  --min-width: 1320px;
   --left-width: 268px;
   --right-width: 380px;
   --bottom-height: 300px;
@@ -92,8 +92,8 @@ textarea, input, select, .cm-editor { user-select: text; }
 
 /* ── toolbar ── */
 #toolbar { padding: 3px 8px 6px; background: var(--toolbar); border-bottom: 1px solid var(--hairline); box-shadow: 0 1px 3px color-mix(in srgb, var(--shadow) 35%, transparent); }
-.toolbar-inner { display: flex; align-items: center; gap: 3px; width: 100%; min-width: 0; }
-.toolbar-left, .toolbar-right, .tool-group { display: inline-flex; align-items: center; gap: 2px; }
+.toolbar-inner { display: flex; align-items: center; gap: 3px; width: 100%; min-width: max-content; }
+.toolbar-left, .toolbar-right, .tool-group { display: inline-flex; align-items: center; gap: 2px; flex: none; }
 .toolbar-right { flex: none; padding-left: 8px; border-left: 1px solid var(--hairline); }
 .toolbar-right .button { flex: none; }
 .theme-button { max-width: 190px; }
@@ -136,7 +136,7 @@ textarea, input, select, .cm-editor { user-select: text; }
 .button.primary, .tool-button.primary { background: var(--accent); color: var(--accent-text, #fff); border-color: var(--accent); box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 45%, transparent); }
 .button.big { height: 36px; padding: 0 16px; border-radius: 10px; font-size: 1.02em; }
 .scrub-group { display: inline-flex; align-items: center; gap: 8px; width: min(200px, 16vw); min-width: 90px; }
-#toolbar { overflow-x: auto; }
+#toolbar { overflow: visible; }
 .scrub-group input[type="range"] { flex: 1; min-width: 60px; accent-color: var(--accent); }
 #step-label { min-width: 72px; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.92em; }
 .tool-select { height: 30px; padding: 0 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); }

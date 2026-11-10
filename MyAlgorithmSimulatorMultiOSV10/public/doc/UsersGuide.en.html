@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyAlgorithmSimulator User's Guide</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f4f7fb; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #0b6e8e; --panel: #f7fbfd; --toolbar: #ffffff;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.65;
+  font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+}
+a { color: var(--accent); }
+.topbar {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px;
+  padding: 10px 20px; background: var(--toolbar); border-bottom: 1px solid var(--border);
+}
+.topbar .brand { font-weight: 700; }
+.topbar .grow { flex: 1; }
+.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; text-decoration: none; }
+.layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100vh - 49px); }
+nav.toc { padding: 16px 12px; background: var(--panel); border-right: 1px solid var(--border); }
+nav.toc p { margin: 0 8px 8px; font-size: 0.82em; color: var(--muted); font-weight: 650; }
+nav.toc a { display: block; padding: 6px 8px; border-radius: 7px; color: var(--text); text-decoration: none; }
+nav.toc a:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+main { padding: 28px 40px 72px; }
+main section { max-width: 760px; margin: 0 auto 28px; }
+h1 { font-size: 1.6em; margin: 0 0 18px; }
+h2 { font-size: 1.35em; margin: 0 0 10px; scroll-margin-top: 16px; }
+p { margin: 0 0 10px; }
+ul { margin: 0 0 10px; padding-left: 1.2em; }
+li { margin: 4px 0; }
+code { padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--text) 8%, var(--surface)); }
+table { border-collapse: collapse; margin: 8px 0; }
+th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+th { background: var(--panel); }
+figure { margin: 4px 0 16px; }
+img { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+figcaption { margin-top: 6px; color: var(--muted); font-size: 0.86em; }
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; }
+  nav.toc { border-right: 0; border-bottom: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand">MyAlgorithmSimulator</span><span class="grow"></span><a class="lang" href="UsersGuide.html" hreflang="ko">한국어</a></header>
+<div class="layout">
+<nav class="toc" aria-label="Contents"><p>Contents</p><a href="#start">Getting started</a><a href="#layout">The window</a><a href="#steps">Stepping through</a><a href="#code">Code and samples</a><a href="#run">Running code</a><a href="#input">Input</a><a href="#look">Theme, background and language</a><a href="#keys">Shortcuts</a></nav>
+<main>
+<h1>User's guide</h1>
+<section id="start"><h2>Getting started</h2>
+    <figure><img src="images/start.png" alt="Start screen"><figcaption>Start screen</figcaption></figure>
+    <p>MyAlgorithmSimulator shows how an algorithm moves, one step at a time, and lets you read and run the same algorithm in several programming languages.</p>
+    <p>The program opens on the start screen. Pick an algorithm over the moving background, or choose <b>Continue</b> to reopen the one you looked at last.</p>
+    <ul>
+      <li><b>Settings</b> changes the playback speed, the start-screen background, and that background's speed and opacity.</li>
+      <li><b>About</b> shows the version and the author.</li>
+      <li><b>User's guide</b> opens this window.</li>
+    </ul></section>
+<section id="layout"><h2>The window</h2>
+    <figure><img src="images/layout.png" alt="The four parts of the algorithm window"><figcaption>The four parts of the algorithm window</figcaption></figure>
+    <p>Opening an algorithm splits the window into four parts.</p>
+    <ul>
+      <li><b>Left</b> is the algorithm list and the input. Algorithms are grouped by kind, and each one has its own icon.</li>
+      <li><b>Centre</b> is the picture of the current step. Comparisons, swaps, visited vertices and paths each have a colour.</li>
+      <li><b>Bottom</b> is the program panel. <b>Program</b> is the source code and <b>Pseudocode</b> is the statement for this step. The matching line is highlighted as the picture changes.</li>
+      <li><b>Right</b> is the explanation, the variables at this step, and the result of running the code.</li>
+    </ul>
+    <p>The <b>View</b> menu hides or shows the left panel, the right panel and the program panel.</p></section>
+<section id="steps"><h2>Stepping through</h2>
+    <figure><img src="images/step.png" alt="A comparison step and the slider"><figcaption>A comparison step and the slider</figcaption></figure>
+    <p>The toolbar moves the algorithm one step at a time, or plays it automatically.</p>
+    <ul>
+      <li><b>Back</b> and <b>Step</b> move one step backward and forward.</li>
+      <li><b>Auto run</b> keeps turning the picture until the end. Click it again to pause.</li>
+      <li><b>Start</b> returns to the first step.</li>
+      <li>The slider jumps straight to a step.</li>
+      <li>The speed menu runs from 0.25× to 8×.</li>
+    </ul>
+    <p>On every step the picture, the statement under it, the marked source line and the variables on the right all refer to the same step. Only a source line that carries a step marker lights up. Without a marker, the statement still changes.</p></section>
+<section id="code"><h2>Code and samples</h2>
+    <figure><img src="images/step.png" alt="The program with the running line marked"><figcaption>The program with the running line marked</figcaption></figure>
+    <p>Choosing a language in the program panel opens that language's sample. The languages are C, C++, Java, Python, Go, Rust and JavaScript.</p>
+    <p>A sample reads the left-hand input box as standard input and writes its result to standard output. Edit the code, and use <b>Sample</b> to load the original again. The <b>File</b> menu saves the code or opens an existing file.</p>
+    <p>A Java program's class must be named <code>Main</code>.</p></section>
+<section id="run"><h2>Running code</h2>
+    <figure><img src="images/layout.png" alt="The Run button and the notes panel"><figcaption>The Run button and the notes panel</figcaption></figure>
+    <p><b>Run</b> compiles and runs the code you are editing, then shows the output on the right. A run stops if it takes longer than 15 seconds.</p>
+    <p>The web browser runs JavaScript only. C, C++, Java, Python, Go and Rust run in the desktop app. If a compiler is missing, <b>Install developer tools</b> can install it: winget on Windows, Homebrew on macOS, and apt or dnf on Linux.</p></section>
+<section id="input"><h2>Input</h2>
+    <figure><img src="images/layout.png" alt="The input box on the left"><figcaption>The input box on the left</figcaption></figure>
+    <p>The box at the lower left is the value the algorithm receives. Sorting takes a list of integers, string algorithms take text, graphs take edges, and A* takes a grid.</p>
+    <ul>
+      <li><b>Apply</b> rebuilds the steps from the edited input.</li>
+      <li><b>Random</b> makes a new input.</li>
+      <li>On an A* grid, click the picture to add or remove a wall. <code>S</code> is the start, <code>G</code> is the goal and <code>#</code> is a wall.</li>
+    </ul>
+    <p>If the input does not match the expected form, the reason appears under the box and the picture keeps the previous steps.</p></section>
+<section id="look"><h2>Theme, background and language</h2>
+    <figure><img src="images/look.png" alt="Backgrounds, speed and opacity"><figcaption>Backgrounds, speed and opacity</figcaption></figure>
+    <p>The <b>Theme</b> button on the toolbar shows the current theme name and opens the light and dark themes. The theme you pick is applied to this guide window as well.</p>
+    <p>The start screen has twenty-one backgrounds, and each one is a picture of an algorithm moving: bars, a tree, a graph, a grid and the rest. Pick a name, or use <b>Change background</b>, and set the speed and opacity from 0 to 100% with the slider or the decrease and increase buttons. The speed starts at 20%. Turn on <b>Random</b> and the background changes every <b>shuffle interval</b>, from 5 to 120 seconds.</p>
+    <p>The language button is a flag. A Korean screen shows the UK flag, and an English screen shows the Korean flag. Clicking it switches the menus and the explanations. The flag in this window changes only the guide.</p></section>
+<section id="keys"><h2>Shortcuts</h2>
+    <figure><img src="images/step.png" alt="The step buttons on the toolbar"><figcaption>The step buttons on the toolbar</figcaption></figure>
+    <table>
+      <tr><th>Key</th><th>Action</th></tr>
+      <tr><td>Space</td><td>Auto run / pause</td></tr>
+      <tr><td>→</td><td>One step forward</td></tr>
+      <tr><td>←</td><td>One step back</td></tr>
+      <tr><td>Home</td><td>First step</td></tr>
+      <tr><td>R</td><td>Random input</td></tr>
+      <tr><td>Ctrl+Enter</td><td>Apply the input</td></tr>
+    </table></section>
+</main>
+</div>
+</body>
+</html>

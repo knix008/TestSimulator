@@ -491,7 +491,7 @@ function render() {
       <div class="toolbar-right">
         <button class="button theme-button${state.menu?.id === 'theme' ? ' open' : ''}" data-act="menu-theme" title="${esc(t('start.themeTip'))}" aria-haspopup="menu">${icon('palette')}<span>${esc(themeName(state.themeId, state.lang))}</span>${icon('chevronDown', 'icon tiny')}</button>
         <button class="tool-button" data-act="menu-ui-lang" title="${esc(t('start.langTip'))}" aria-label="${esc(state.lang === 'ko' ? 'English' : '한국어')}">${switchFlag(state.lang)}</button>
-        <button class="button" data-act="menu-about" title="${esc(t('start.aboutTip'))}">${icon('info')}<span>${esc(t('cmd.about'))}</span></button>
+        <button class="tool-button" data-act="menu-about" title="${esc(t('start.aboutTip'))}" aria-label="${esc(t('cmd.about'))}">${icon('info')}</button>
       </div>
     </div></div>
     <main id="workspace">

@@ -185,17 +185,21 @@ fn safe_token(value: &str) -> String {
 #[tauri::command]
 fn open_guide_window(app: AppHandle, title: String, lang: String, theme: String, dark: bool) -> Result<(), String> {
     let label = "doc-guide";
+    let lang = if safe_token(&lang) == "en" { "en" } else { "ko" };
+    let theme = safe_token(&theme);
+    let href = format!("/guide.html?lang={lang}&theme={theme}");
     if let Some(window) = app.get_webview_window(label) {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
         let _ = window.set_theme(Some(if dark { Theme::Dark } else { Theme::Light }));
-        let theme = safe_token(&theme);
-        let _ = window.eval(&format!("window.dispatchEvent(new CustomEvent('guide-theme',{{detail:'{theme}'}}))"));
-        return Ok(());
+        // A window opened before the page was ready stays blank. Reload it.
+        let script = format!(
+            "(function(){{try{{if(document.querySelector('.guide-shell')){{window.dispatchEvent(new CustomEvent('guide-theme',{{detail:'{theme}'}}));return;}}}}catch(e){{}}}}location.replace('{href}');}})()"
+        );
+        if window.eval(&script).is_ok() { return Ok(()); }
+        let _ = window.destroy();
     }
-    let lang = if safe_token(&lang) == "en" { "en" } else { "ko" };
-    let theme = safe_token(&theme);
     let script = format!("window.__GUIDE__={{lang:\"{lang}\",theme:\"{theme}\"}};");
     WebviewWindowBuilder::new(&app, label, WebviewUrl::App("guide.html".into()))
         .title(title)
