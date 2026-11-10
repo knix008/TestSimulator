@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- .mypcut project icon: a raised 3D page with a folded corner, showing a small caricature face. -->
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.6" stop-color="#fde8ef"/>
+      <stop offset="1" stop-color="#e3b4c8"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b0567d"/><stop offset="1" stop-color="#6b2347"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d79ab6"/>
+    </linearGradient>
+    <radialGradient id="skin" cx="0.42" cy="0.36" r="0.7">
+      <stop offset="0" stop-color="#ffe9d6"/><stop offset="1" stop-color="#f3ad80"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-300%" width="160%" height="700%"><feGaussianBlur stdDeviation="20"/></filter>
+  </defs>
+  <ellipse cx="512" cy="950" rx="300" ry="28" fill="#3a0f24" opacity="0.4" filter="url(#shadow)"/>
+  <path d="M226 132h420l172 172v600a40 40 0 0 1-40 40H226a40 40 0 0 1-40-40V172a40 40 0 0 1 40-40z" transform="translate(0 26)" fill="url(#side)"/>
+  <path d="M226 132h420l172 172v600a40 40 0 0 1-40 40H226a40 40 0 0 1-40-40V172a40 40 0 0 1 40-40z" fill="url(#page)" stroke="#b0567d" stroke-width="10"/>
+  <path d="M646 132v132a40 40 0 0 0 40 40h132z" fill="url(#fold)" stroke="#b0567d" stroke-width="10" stroke-linejoin="round"/>
+  <!-- the caricature -->
+  <circle cx="500" cy="560" r="190" fill="url(#skin)" stroke="#1a1030" stroke-width="14"/>
+  <path d="M318 520c-10-130 92-178 192-170 100 6 180 62 176 176-40-60-100-80-164-76-50 4-100 20-140 58z" fill="#3a1d10" stroke="#1a1030" stroke-width="12" stroke-linejoin="round"/>
+  <ellipse cx="440" cy="560" rx="50" ry="58" fill="#ffffff" stroke="#1a1030" stroke-width="10"/>
+  <ellipse cx="572" cy="560" rx="50" ry="58" fill="#ffffff" stroke="#1a1030" stroke-width="10"/>
+  <circle cx="450" cy="570" r="24" fill="#1a1030"/><circle cx="582" cy="570" r="24" fill="#1a1030"/>
+  <path d="M400 660q100 96 200 0q-30 96-100 96t-100-96z" fill="#8a1a2e" stroke="#1a1030" stroke-width="11" stroke-linejoin="round"/>
+  <rect x="300" y="820" width="400" height="34" rx="17" fill="#e3a2bf"/>
+</svg>

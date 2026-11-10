@@ -1,0 +1,15 @@
+[
+  { "wait": 1500, "shot": "01-start" },
+  { "eval": "return (async()=>{ const a=window.__myphotocut.actions; await a.openSample('pearl'); await a.idle(); a.select(window.__myphotocut.state.doc.items[0].id); return 'ok'; })()", "wait": 400, "shot": "02-gallery" },
+  { "eval": "return (async()=>{ const a=window.__myphotocut.actions; a.setLayout('list'); await a.idle(); return 'ok'; })()", "wait": 400, "shot": "03-layout-list" },
+  { "eval": "return (async()=>{ const a=window.__myphotocut.actions; a.setLayout('strip'); await a.idle(); return 'ok'; })()", "wait": 400, "shot": "04-layout-strip" },
+  { "eval": "return (async()=>{ const a=window.__myphotocut.actions; a.setLayout('grid'); a.select(window.__myphotocut.state.doc.items[1].id); a.setView('single'); await a.idle(); return 'ok'; })()", "wait": 500, "shot": "05-single" },
+  { "eval": "return (async()=>{ window.__myphotocut.run('compare'); await new Promise(r=>setTimeout(r,500)); return 'ok'; })()", "shot": "06-compare" },
+  { "eval": "return (async()=>{ const a=window.__myphotocut.actions; window.__myphotocut.run('compare'); a.select(window.__myphotocut.state.doc.items[0].id); a.addEffect('background'); a.addEffect('outline'); a.addEffect('frame'); a.addEffect('caption'); a.addEffect('sticker'); await a.idle(); document.querySelector('#right-panel').scrollTop = 9999; return 'ok'; })()", "wait": 600, "shot": "07-effects" },
+  { "eval": "return (async()=>{ document.querySelector('#right-panel').scrollTop = 0; window.__myphotocut.actions.setView('gallery'); window.__myphotocut.actions.openMenubarMenu('caricature'); return 'ok'; })()", "wait": 1000, "shot": "08-menu" },
+  { "eval": "return (async()=>{ window.__myphotocut.popups.hideMenu(); window.__myphotocut.run('styleSet'); return 'ok'; })()", "wait": 1200, "shot": "09-styles" },
+  { "eval": "return (async()=>{ window.__myphotocut.popups.close('styles'); window.__myphotocut.run('exportImage'); return 'ok'; })()", "wait": 1200, "shot": "10-export" },
+  { "eval": "return (async()=>{ window.__myphotocut.popups.close('image'); window.__myphotocut.run('print'); return 'ok'; })()", "wait": 4000, "shot": "11-print" },
+  { "eval": "return (async()=>{ window.__myphotocut.popups.close('print'); window.__myphotocut.popups.open('settings', {tab:'caricature'}); return 'ok'; })()", "wait": 1200, "shot": "12-settings" },
+  { "eval": "return (async()=>{ window.__myphotocut.popups.close('settings'); window.__myphotocut.run('themeMenu'); return 'ok'; })()", "wait": 1200, "shot": "13-theme" }
+]

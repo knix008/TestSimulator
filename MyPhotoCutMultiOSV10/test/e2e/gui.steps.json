@@ -1,0 +1,112 @@
+[
+ {
+  "wait": 1200,
+  "eval": "return (()=>{ const n=document.querySelectorAll('.sample-photo img').length; if (n!==10) throw new Error('samples '+n); if (document.querySelector('.start-card-theme')) throw new Error('theme card shown'); return 'start page: 10 samples, no theme card'; })()",
+  "shot": "01-start",
+  "name": "start page: 10 samples, no theme card"
+ },
+ {
+  "eval": "return (async()=>{ const imgs=[...document.querySelectorAll('.sample-photo img')]; await Promise.all(imgs.map(i=>i.decode().catch(()=>{throw new Error('sample image failed '+i.src)}))); return 'all sample images load'; })()",
+  "name": "start page: every sample picture loads"
+ },
+ {
+  "eval": "return (()=>{ document.querySelector('[data-home]').click(); if (window.__myphotocut.state.showStart) throw new Error('home did not toggle'); document.querySelector('[data-home]').click(); if (!window.__myphotocut.state.showStart) throw new Error('home did not toggle back'); return 'home toggles'; })()",
+  "name": "home button toggles start page and main window"
+ },
+ {
+  "eval": "return (async()=>{ const a=window.__myphotocut.actions; const t0=performance.now(); await a.openSample('einstein'); await a.idle(); const s=window.__myphotocut.state; if (s.doc.items.length!==40) throw new Error('items '+s.doc.items.length); const drawn=[...s.results.values()].filter(r=>r.canvas).length; if (drawn!==40) throw new Error('drawn '+drawn); return '40 caricatures in '+Math.round(performance.now()-t0)+' ms, face: '+s.doc.analysis.faceMethod; })()",
+  "shot": "02-gallery",
+  "name": "open a sample: 40 caricatures drawn"
+ },
+ {
+  "eval": "return (()=>{ const s=window.__myphotocut.state; if (s.doc.analysis.faceMethod!=='landmarks') throw new Error('face '+s.doc.analysis.faceMethod); return 'face model 478 points'; })()",
+  "name": "face found by the 478-point face model"
+ },
+ {
+  "eval": "return (async()=>{ const a=window.__myphotocut.actions; const s=window.__myphotocut.state; const id=s.doc.items[0].id; a.select(id); a.setItemValue('warp','head',1.8,'head'); await a.idle(); if (s.doc.items[0].warp.head!==1.8) throw new Error('warp not set'); a.undo(); await a.idle(); if (s.doc.items[0].warp.head===1.8) throw new Error('undo failed'); a.redo(); await a.idle(); return 'exaggeration + undo/redo'; })()",
+  "name": "exaggeration with undo and redo"
+ },
+ {
+  "eval": "return (async()=>{ const a=window.__myphotocut.actions; const s=window.__myphotocut.state; for (const fx of ['background','outline','caption','frame','sticker','vignette']) a.addEffect(fx); await a.idle(); a.setView('single'); await a.idle(); const c=s.results.get(s.doc.selected).canvas; if (!c || c.height<=s.doc.work.height) throw new Error('frame not drawn'); return 'effects: '+s.doc.items[0].effects.length; })()",
+  "wait": 300,
+  "shot": "03-single-effects",
+  "name": "effects: background, outline, caption, frame, sticker, vignette"
+ },
+ {
+  "eval": "return (async()=>{ window.__myphotocut.run('compare'); await new Promise(r=>setTimeout(r,200)); if (!document.querySelector('.compare-bar')) throw new Error('no compare bar'); window.__myphotocut.run('compare'); window.__myphotocut.actions.setView('gallery'); return 'compare view'; })()",
+  "shot": "04-compare",
+  "name": "compare view with the photo"
+ },
+ {
+  "eval": "return (async()=>{ const a=window.__myphotocut.actions; for (const l of ['large','compact','list','strip','grid']) { a.setLayout(l); await new Promise(r=>setTimeout(r,150)); if (!document.querySelector('#gallery.layout-'+l)) throw new Error('layout '+l); } return 'five layouts'; })()",
+  "name": "gallery layouts: large, compact, list, strip, grid"
+ },
+ {
+  "eval": "return (async()=>{ const a=window.__myphotocut.actions; const s=window.__myphotocut.state; const c=await a.exportCanvas(s.doc.items[0], 1200); if (Math.max(c.width,c.height)<1100) throw new Error('export size '+c.width+'x'+c.height); return 'export canvas '+c.width+'x'+c.height; })()",
+  "name": "export at full size"
+ },
+ {
+  "eval": "return (async()=>{ const { encodeCanvas } = await import('/src/ui/photo.js'); const c=document.createElement('canvas'); c.width=64; c.height=48; c.getContext('2d').fillRect(0,0,30,30); const out=[]; for (const t of ['png','jpg','webp','gif','bmp','tiff','tga','ppm','qoi','ico','pdf','svg']) { const b=await encodeCanvas(c,t,90); if (!b.length) throw new Error(t); out.push(t); } return 'encoders: '+out.join(','); })()",
+  "name": "image encoders (12 formats)"
+ },
+ {
+  "eval": "return (async()=>{ const a=window.__myphotocut.actions; const text=a.serialize(); const { parseProject } = await import('/src/domain/project.js'); const p=parseProject(text); if (p.items.length!==40) throw new Error('project items'); return 'project round-trip '+Math.round(text.length/1024)+' KB'; })()",
+  "name": "project file round trip"
+ },
+ {
+  "eval": "return (()=>{ window.__myphotocut.popups.open('settings', {tab:'caricature'}); return 'settings'; })()",
+  "wait": 1200,
+  "shot": "05-settings",
+  "name": "settings window"
+ },
+ {
+  "eval": "return (()=>{ window.__myphotocut.popups.close('settings'); window.__myphotocut.run('exportImage'); return 'export popup'; })()",
+  "wait": 1200,
+  "shot": "06-export",
+  "name": "export window"
+ },
+ {
+  "eval": "return (()=>{ window.__myphotocut.popups.close('image'); window.__myphotocut.run('styleSet'); return 'styles popup'; })()",
+  "wait": 1200,
+  "shot": "07-styles",
+  "name": "style chooser window"
+ },
+ {
+  "eval": "return (()=>{ window.__myphotocut.popups.close('styles'); window.__myphotocut.actions.updateSettings({ language: 'en' }); if (!document.querySelector('[data-menu=\"file\"]').textContent.includes('File')) throw new Error('language'); return 'English UI'; })()",
+  "wait": 400,
+  "shot": "08-english",
+  "name": "English user interface"
+ },
+ {
+  "eval": "return (()=>{ window.__myphotocut.actions.updateSettings({ language: 'ko', theme: 'dark' }); return 'dark theme'; })()",
+  "wait": 500,
+  "shot": "09-dark",
+  "name": "dark theme"
+ },
+ {
+  "name": "print window: all caricatures, 4 per sheet, straight to the printer",
+  "eval": "return (async()=>{ window.__myphotocut.actions.updateSettings({ language: 'ko' }); window.__myphotocut.run('print'); for (let i=0;i<60 && !document.querySelector('.web-popup-print iframe')?.contentDocument?.querySelector('.print-sheet .print-page');i++) await new Promise(r=>setTimeout(r,250)); let d=document.querySelector('.web-popup-print iframe').contentDocument; const sel=d.querySelector('[data-print=\"scope\"]'); sel.value='all'; sel.dispatchEvent(new Event('change',{bubbles:true})); for (let i=0;i<240;i++) { d=document.querySelector('.web-popup-print iframe').contentDocument; if (d.querySelectorAll('.print-sheet .print-page').length>1) break; await new Promise(r=>setTimeout(r,250)); } d.querySelector('[data-print-segment=\"perPage\"][data-value=\"4\"]').click(); await new Promise(r=>setTimeout(r,500)); d=document.querySelector('.web-popup-print iframe').contentDocument; const pages=d.querySelectorAll('.print-sheet .print-page').length; if (pages!==10) throw new Error('sheets '+pages); let job=null; const w=document.querySelector('.web-popup-print iframe').contentWindow; w.__myphotocutPrintHook=async(l,j)=>{job=j;}; d.querySelector('[data-action=\"print\"]').click(); for (let i=0;i<40 && !job;i++) await new Promise(r=>setTimeout(r,100)); if (!job) throw new Error('nothing printed'); window.__myphotocut.popups.close('print'); return pages+' sheets, A4 '+job.widthMm+'x'+job.heightMm; })()",
+  "shot": "10-print"
+ },
+ {
+  "name": "theme drop-down under the toolbar button",
+  "eval": "return (async()=>{ window.__myphotocut.run('themeMenu'); await new Promise(r=>setTimeout(r,900)); const d=document.querySelector('.web-popup-theme iframe')?.contentDocument; if (!d?.querySelector('.theme-dropdown')) throw new Error('no drop-down'); if (d.querySelector('.popup-head')) throw new Error('has a title bar'); const n=d.querySelectorAll('[data-pick-theme]').length; window.__myphotocut.popups.close('theme'); return n+' themes'; })()",
+  "shot": "11-theme"
+ },
+ {
+  "name": "fit exaggeration to this face",
+  "eval": "return (async()=>{ const a=window.__myphotocut.actions; const s=window.__myphotocut.state; a.select(s.doc.items[2].id); a.warpPreset('style'); const before=s.doc.items[2].warp.nose; a.warpPreset('personal'); await a.idle(); const { standoutFeatures } = await import('/src/engine/face.js'); return 'stands out: '+standoutFeatures(s.doc.features).map(x=>x.key+' '+(x.percent>0?'+':'')+x.percent+'%').join(', ')+'; nose '+before+' -> '+s.doc.items[2].warp.nose; })()"
+ },
+ {
+  "name": "film strip and strip layout scroll buttons",
+  "eval": "return (async()=>{ const a=window.__myphotocut.actions; a.setView('single'); await new Promise(r=>setTimeout(r,400)); const [l,r]=document.querySelectorAll('.film-nav'); const s=document.querySelector('#filmstrip'); r.click(); await new Promise(x=>setTimeout(x,600)); if (s.scrollLeft<=0) throw new Error('film strip did not move'); a.setView('gallery'); a.setLayout('strip'); await new Promise(x=>setTimeout(x,400)); const g=document.querySelector('#gallery'); document.querySelector('.strip-nav.right').click(); await new Promise(x=>setTimeout(x,600)); if (g.scrollLeft<=0) throw new Error('strip did not move'); a.setLayout('grid'); return 'both move'; })()"
+ },
+ {
+  "name": "right-click menus on a card and the large view",
+  "eval": "return (async()=>{ const card=document.querySelectorAll('.cari-card')[1]; const r=card.getBoundingClientRect(); card.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:r.x+30,clientY:r.y+30})); await new Promise(x=>setTimeout(x,800)); if (!window.__myphotocut.popups.isOpen('menu')) throw new Error('no card menu'); window.__myphotocut.popups.hideMenu(); return 'menus open'; })()"
+ },
+ {
+  "eval": "return (()=>{ window.__myphotocut.actions.updateSettings({ theme: 'light' }); return 'light theme'; })()",
+  "name": "light theme"
+ }
+]

@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- MyPhotoCut app icon: a raised 3D tile; behind, a tilted photo print; in front, two generic
+       person icons, a man and a woman, and a sparkle of the magic wand.
+       The tile sits in the exact centre (112…912 both ways); the border is transparent. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb3c7"/>
+      <stop offset="0.5" stop-color="#f0607f"/>
+      <stop offset="1" stop-color="#7a2b8f"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5a1d6b"/>
+      <stop offset="1" stop-color="#2e0c3a"/>
+    </linearGradient>
+    <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#2a0632" stop-opacity="0.6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.2" cy="0.16" r="0.62">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="0.3" stop-color="#fff0f5" stop-opacity="0.45"/>
+      <stop offset="0.7" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8fd3ff"/><stop offset="1" stop-color="#4a90d9"/>
+    </linearGradient>
+    <radialGradient id="skin" cx="0.42" cy="0.36" r="0.7">
+      <stop offset="0" stop-color="#ffe9d6"/><stop offset="0.7" stop-color="#ffc79e"/><stop offset="1" stop-color="#f0a477"/>
+    </radialGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6b3b22"/><stop offset="1" stop-color="#2d1409"/>
+    </linearGradient>
+    <linearGradient id="hairW" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a0522d"/><stop offset="0.6" stop-color="#6b2f16"/><stop offset="1" stop-color="#3a160a"/>
+    </linearGradient>
+    <radialGradient id="skinW" cx="0.42" cy="0.36" r="0.75">
+      <stop offset="0" stop-color="#fff0e4"/><stop offset="0.7" stop-color="#ffd2b4"/><stop offset="1" stop-color="#f2ad8a"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-300%" width="160%" height="700%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#2a0632" flood-opacity="0.45"/>
+    </filter>
+    <radialGradient id="spark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="faceClip"><rect x="112" y="112" width="800" height="760" rx="170"/></clipPath>
+    <clipPath id="printClip"><rect x="-150" y="-120" width="300" height="230" rx="10"/></clipPath>
+  </defs>
+
+  <!-- soft shadow on the ground -->
+  <ellipse cx="512" cy="948" rx="370" ry="32" fill="#2a0632" opacity="0.45" filter="url(#shadow)"/>
+  <!-- extruded side and face of the tile -->
+  <rect x="112" y="152" width="800" height="760" rx="170" fill="url(#side)"/>
+  <rect x="112" y="112" width="800" height="760" rx="170" fill="url(#face)"/>
+  <g clip-path="url(#faceClip)">
+    <!-- the photo print, tilted, behind the face -->
+    <g transform="translate(330 330) rotate(-14)" filter="url(#drop)">
+      <rect x="-172" y="-142" width="344" height="320" rx="18" fill="#ffffff"/>
+      <g clip-path="url(#printClip)">
+        <rect x="-150" y="-120" width="300" height="230" fill="url(#sky)"/>
+        <circle cx="0" cy="-10" r="52" fill="#ffd2b0"/>
+        <path d="M-52 -18c6-46 98-52 104 0-26-24-78-24-104 0z" fill="#4a2615"/>
+        <path d="M-110 110c10-60 60-82 110-82s100 22 110 82z" fill="#3a5f9e"/>
+      </g>
+      <rect x="-120" y="122" width="150" height="16" rx="8" fill="#d8c8e6"/>
+    </g>
+    <!-- two generic person icons in front of the print: a man (left) and a woman (right) -->
+    <g filter="url(#drop)">
+      <!-- man -->
+      <path d="M300 880c0-130 70-200 170-200s170 70 170 200z" fill="#3b7dd8" stroke="#1a1030" stroke-width="12" stroke-linejoin="round"/>
+      <path d="M430 690l40 60 40-60" fill="none" stroke="#ffffff" stroke-width="12" stroke-linejoin="round"/>
+      <circle cx="470" cy="560" r="112" fill="url(#skinW)" stroke="#1a1030" stroke-width="12"/>
+      <path d="M358 548c-6-86 50-132 116-130 66 2 112 44 108 122-28-40-70-58-118-56-40 2-76 22-106 64z" fill="#3a2414" stroke="#1a1030" stroke-width="11" stroke-linejoin="round"/>
+      <circle cx="432" cy="574" r="11" fill="#1a1030"/><circle cx="508" cy="574" r="11" fill="#1a1030"/>
+      <path d="M440 622q30 22 60 0" fill="none" stroke="#1a1030" stroke-width="9" stroke-linecap="round"/>
+      <!-- woman -->
+      <path d="M596 590c-30-120 30-200 118-200s156 80 126 200c-6 70 20 130 44 170-60 26-116 20-150-20-30 30-110 34-150 0 14-40 18-90 12-150z" fill="url(#hairW)" stroke="#1a1030" stroke-width="12" stroke-linejoin="round"/>
+      <path d="M560 880c0-120 64-186 160-186s160 66 160 186z" fill="#e8467c" stroke="#1a1030" stroke-width="12" stroke-linejoin="round"/>
+      <circle cx="716" cy="560" r="106" fill="url(#skinW)" stroke="#1a1030" stroke-width="12"/>
+      <path d="M612 540c10-76 64-114 116-108 56 6 96 48 92 112-36-46-80-62-122-54-14 30-48 46-86 50z" fill="url(#hairW)" stroke="#1a1030" stroke-width="11" stroke-linejoin="round"/>
+      <circle cx="680" cy="578" r="11" fill="#1a1030"/><circle cx="752" cy="578" r="11" fill="#1a1030"/>
+      <path d="M688 622q28 22 56 0" fill="none" stroke="#c4234f" stroke-width="10" stroke-linecap="round"/>
+      <ellipse cx="660" cy="606" rx="18" ry="10" fill="#ff7a9a" opacity="0.45"/><ellipse cx="772" cy="606" rx="18" ry="10" fill="#ff7a9a" opacity="0.45"/>
+    </g>
+    <!-- glossy top half and the top-left glow -->
+    <path d="M112 112h800v300C700 345 400 345 112 455z" fill="url(#gloss)" opacity="0.5"/>
+    <rect x="112" y="112" width="800" height="760" fill="url(#glow)"/>
+  </g>
+  <!-- bevel rim -->
+  <rect x="120" y="120" width="784" height="744" rx="163" fill="none" stroke="url(#bevel)" stroke-width="16"/>
+  <!-- sparkles of the magic wand -->
+  <circle cx="842" cy="232" r="66" fill="url(#spark)" opacity="0.85"/>
+  <path d="M842 164l12 56 56 12-56 12-12 56-12-56-56-12 56-12z" fill="#fff6a8"/>
+  <path d="M236 790l8 34 34 8-34 8-8 34-8-34-34-8 34-8z" fill="#ffffff" opacity="0.9"/>
+</svg>

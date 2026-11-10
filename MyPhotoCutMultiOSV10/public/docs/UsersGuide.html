@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>MyPhotoCut 사용 설명서</title>
+<style>
+:root{color-scheme:light dark;--bg:#fbf8fa;--text:#1d2433;--muted:#667085;--accent:#d94a7b;--line:#e6dbe1}
+@media (prefers-color-scheme:dark){:root{--bg:#17131a;--text:#ece6ee;--muted:#a59aa8;--accent:#ff7aa6;--line:#3a2f3d}}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.65 "Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+.layout{display:grid;grid-template-columns:260px minmax(0,1fr);max-width:1240px;margin:0 auto}
+nav.toc{position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto;padding:24px 10px 24px 18px;border-right:1px solid var(--line);font-size:14px}
+nav.toc b{display:block;margin:0 0 10px;color:var(--accent)}nav.toc a{display:block;padding:4px 8px;border-radius:6px;color:var(--text);text-decoration:none}nav.toc a.l3{padding-left:22px;color:var(--muted);font-size:13px}nav.toc a:hover,nav.toc a.on{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+@media (max-width:760px){.layout{grid-template-columns:1fr}nav.toc{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line)}}
+main{max-width:920px;padding:28px 24px 60px}
+h1{color:var(--accent);border-bottom:2px solid var(--line);padding-bottom:8px}h2{margin-top:2em;border-bottom:1px solid var(--line);padding-bottom:4px}
+table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}th{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+code{background:color-mix(in srgb,var(--accent) 12%,transparent);padding:1px 5px;border-radius:4px}
+figure{margin:14px 0 22px}figure img{display:block;max-width:100%;border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12)}figcaption{margin-top:6px;font-size:13px;color:var(--muted);text-align:center}
+</style></head><body><div class="layout"><nav class="toc" aria-label="목차"><b>목차</b><a class="l2" href="#s1">1. 시작하기</a><a class="l3" href="#s2">열 수 있는 형식</a><a class="l2" href="#s3">2. 화면 구성</a><a class="l2" href="#s4">3. 얼굴 특징점 바로잡기</a><a class="l2" href="#s5">4. 캐리커처 다루기</a><a class="l3" href="#s6">과장</a><a class="l3" href="#s7">스타일 옵션</a><a class="l2" href="#s8">5. 스타일 40가지</a><a class="l2" href="#s9">6. 효과</a><a class="l2" href="#s10">7. 저장과 내보내기</a><a class="l2" href="#s11">8. 설정</a><a class="l2" href="#s12">9. 바로 가기 키</a></nav><main><h1 id="s0">MyPhotoCut 사용 설명서</h1>
+<p>사진 한 장으로 40가지 화풍의 캐리커처를 한 번에 만드는 프로그램입니다. Windows · macOS · Linux 데스크톱 앱과 웹 브라우저에서 똑같이 동작합니다.</p>
+<h2 id="s1">1. 시작하기</h2>
+<ul>
+<li><strong>사진 열기</strong>: 툴바의 <strong>열기</strong>, 시작 화면의 <strong>사진 열기</strong>, 사진 파일을 창에 끌어 놓기, <code>Ctrl+V</code>(클립보드의 사진) 중 아무 방법이나 씁니다.</li>
+<li><strong>카메라</strong>: 툴바의 <strong>카메라</strong>로 웹캠 사진을 찍습니다. <code>스페이스</code>로 바로 찍거나 <strong>3초 뒤 찍기</strong>를 누릅니다.</li>
+<li><strong>예제 사진</strong>: 시작 화면의 예제 사진(모나리자, 진주 귀걸이를 한 소녀, 반 고흐, 아인슈타인, 마리 퀴리, 링컨, 더글러스, 베토벤, 모차르트, 흰 담비를 안은 여인 — 모두 퍼블릭 도메인)을 누르면 바로 시작합니다.</li>
+</ul>
+<p>사진을 열면 얼굴과 눈·코·입을 자동으로 찾고(얼굴 모델 478점, 인터넷 없이 동작), 고른 스타일(기본 40가지)마다 캐리커처를 한 장씩 그립니다.</p>
+<h3 id="s2">열 수 있는 형식</h3>
+<p>JPEG · PNG · WebP · AVIF · GIF · BMP · ICO · SVG(브라우저가 읽음), TIFF · TGA · PSD · QOI · PPM/PGM/PBM(프로그램이 직접 해독), <code>.mypcut</code> 프로젝트. HEIC는 환경에 따라 열리지 않을 수 있습니다.</p>
+<h2 id="s3">2. 화면 구성</h2>
+<figure><img src="images/01-start.jpg" alt="시작 화면: 사진 열기, 카메라, 예제 사진, 스타일 고르기" loading="lazy" /><figcaption>시작 화면: 사진 열기, 카메라, 예제 사진, 스타일 고르기</figcaption></figure>
+<figure><img src="images/02-gallery.jpg" alt="사진을 열면 40가지 스타일의 캐리커처가 갤러리에 그려집니다" loading="lazy" /><figcaption>사진을 열면 40가지 스타일의 캐리커처가 갤러리에 그려집니다</figcaption></figure>
+<table><thead><tr><th>영역</th><th>내용</th></tr></thead><tbody><tr><td>메뉴 막대</td><td>프로그램 이름·버전, 홈(시작 화면 ↔ 작업 화면 전환), 파일·편집·캐리커처·효과·보기·도움말, 열린 사진 이름, 창 단추</td></tr><tr><td>툴바</td><td>아이콘 + 이름. 창이 좁으면 이름만 숨겨집니다</td></tr><tr><td>왼쪽: 원본 사진</td><td>사진과 얼굴 특징점, 얼굴을 찾은 방법, 얼굴 다시 찾기·특징점 되돌리기·자르기, 스타일 추가 단추 40개</td></tr><tr><td>가운데</td><td>갤러리(모든 캐리커처) 또는 크게 보기(원본 비교, 확대/축소, 필름 띠)</td></tr><tr><td>오른쪽: 캐리커처 속성</td><td>이름·스타일, 과장(머리·눈·코·입·턱·이마·볼), 스타일 옵션, 효과</td></tr><tr><td>상태 표시줄</td><td>알림, 그리는 중인 장 수, 사진 크기, 얼굴 찾기 방법, 테마, 시계, 창 크기 조절 손잡이</td></tr></tbody></table>
+<h2 id="s4">3. 얼굴 특징점 바로잡기</h2>
+<p>왼쪽 패널의 <strong>두드러진 특징</strong>은 평균 얼굴과 비교한 차이(예: 입 +18%)입니다. <strong>특징 맞춤 과장</strong>은 이 차이를 더 키워 그 사람다운 캐리커처를 만듭니다(설정 › 캐리커처에서 켜고 끄고 세기를 조절).</p>
+<p>왼쪽 사진 위의 점(얼굴 중심·두 눈·코·입·턱·이마)을 끌면 모든 캐리커처가 다시 그려집니다. <strong>특징점 되돌리기</strong>는 자동으로 찾은 위치로, <strong>얼굴 다시 찾기</strong>는 처음부터 다시 찾습니다.</p>
+<p>얼굴이 작은 사진(전신 사진 등)은 <strong>얼굴 중심으로 자르기</strong>(<code>Ctrl+J</code>)가 머리·어깨만 잘라 크게 그립니다. 잘린 부분은 사진 위에 분홍 점선 상자로 보입니다.</p>
+<h2 id="s5">4. 캐리커처 다루기</h2>
+<ul>
+<li><strong>선택</strong>: 카드를 클릭하거나 <code>←</code> <code>→</code>.</li>
+<li><strong>크게 보기</strong>: 카드를 두 번 클릭하거나 <code>Enter</code>, 갤러리로는 <code>Esc</code>.</li>
+<li><strong>원본과 비교</strong>(<code>Ctrl+K</code>): 가운데 선을 끌어 원본과 캐리커처를 비교합니다.</li>
+<li><strong>보기 방식</strong>(툴바, <code>Ctrl+3</code>): 격자 · 큰 격자 · 작은 타일 · 목록(정보 포함) · 가로 띠.</li>
+<li><strong>변형 만들기</strong>(<code>Ctrl+R</code>): 같은 스타일로 조금 다른 한 장을 더 만듭니다. <strong>모두 다시 뽑기</strong>는 모든 캐리커처를 새로 뽑습니다.</li>
+<li><strong>복제</strong>(<code>Ctrl+D</code>), <strong>이름 바꾸기</strong>(<code>F2</code>), <strong>삭제</strong>(<code>Delete</code>).</li>
+<li><strong>모두 만들기</strong>(<code>F5</code>): 고른 스타일로 새로 그립니다(바꾸기 또는 뒤에 더하기).</li>
+<li><strong>기본 스타일 고르기</strong>: 새 사진에 그릴 스타일을 고릅니다(전체 40가지 / 클래식 10가지).</li>
+</ul>
+<figure><img src="images/03-layout-list.jpg" alt="보기 방식: 목록(정보 포함)" loading="lazy" /><figcaption>보기 방식: 목록(정보 포함)</figcaption></figure>
+<figure><img src="images/04-layout-strip.jpg" alt="보기 방식: 가로 띠 — 양쪽 ‹ › 버튼으로 넘깁니다" loading="lazy" /><figcaption>보기 방식: 가로 띠 — 양쪽 ‹ › 버튼으로 넘깁니다</figcaption></figure>
+<figure><img src="images/05-single.jpg" alt="크게 보기와 아래 필름 띠" loading="lazy" /><figcaption>크게 보기와 아래 필름 띠</figcaption></figure>
+<figure><img src="images/06-compare.jpg" alt="원본과 비교: 가운데 선을 끌어 비교합니다" loading="lazy" /><figcaption>원본과 비교: 가운데 선을 끌어 비교합니다</figcaption></figure>
+<h3 id="s6">과장</h3>
+<p>머리 크기, 눈, 코, 입, 턱 길이, 턱 너비, 이마, 볼·귀를 50~220%로, <strong>과장 강도</strong>로 전체를 0~200%로 조절합니다. <strong>스타일 기본값 / 과장 없음 / 무작위 과장</strong> 단추가 있습니다.</p>
+<h3 id="s7">스타일 옵션</h3>
+<p>선 굵기, 선 세밀도, 색 수, 매끄러움, 질감, 배경(스타일 · 사진 · 흰색), 무작위 값.</p>
+<h2 id="s8">5. 스타일 40가지</h2>
+<p>카툰, 빅헤드, 연필 스케치, 코믹북, 팝아트, 수채화, 잉크 펜, 유화, 치비, 목탄, 픽셀 아트, 네온, 클레이, 빈티지 포스터, 망가, 색연필, 모자이크 타일, 스테인드글라스, 목판화, 동판화, 크레용, 파스텔, 과슈, 마커, 청사진, 칠판, 열화상, 글리치, 레트로 게임, 우키요에, 누아르, 듀오톤, 팝아트 4분할, 스티커, 로우폴리, 큐비즘, 십자수, 그래피티, 수묵화, 종이 오리기.</p>
+<h2 id="s9">6. 효과</h2>
+<figure><img src="images/07-effects.jpg" alt="효과: 배경 바꾸기, 인물 테두리, 액자, 문구, 스티커" loading="lazy" /><figcaption>효과: 배경 바꾸기, 인물 테두리, 액자, 문구, 스티커</figcaption></figure>
+<p><strong>효과 추가</strong>로 선택한 캐리커처에 효과를 쌓습니다. 효과마다 켜기/끄기, 순서 바꾸기, 삭제가 있고 <strong>모두에 적용</strong>, <strong>효과 복사/붙여넣기</strong>로 다른 캐리커처에도 씁니다.</p>
+<ul>
+<li>그림 효과: 색 조정, 배경 바꾸기(단색·그라데이션·흐림·집중선·물방울), 인물 테두리, 비네팅, 필름 입자, 세피아, 흑백, 듀오톤, 반전, 흐림, 선명하게, 글로우, 엠보스, 포스터화, 망점, 모자이크</li>
+<li>꾸미기: 액자(단순·둥근·폴라로이드·필름·우표), 문구, 말풍선, 스티커(왕관·선글라스·하트·별·반짝이·꽃)</li>
+</ul>
+<h2 id="s10">7. 저장과 내보내기</h2>
+<figure><img src="images/10-export.jpg" alt="이미지로 저장: 범위, 형식, 크기, 품질" loading="lazy" /><figcaption>이미지로 저장: 범위, 형식, 크기, 품질</figcaption></figure>
+<figure><img src="images/11-print.jpg" alt="인쇄: 프린터, 페이지 설정, 오른쪽 미리보기 — 출력을 누르면 바로 인쇄됩니다" loading="lazy" /><figcaption>인쇄: 프린터, 페이지 설정, 오른쪽 미리보기 — 출력을 누르면 바로 인쇄됩니다</figcaption></figure>
+<ul>
+<li><strong>인쇄</strong>(<code>Ctrl+P</code>): 프린터와 매수, 인쇄할 것(선택·모두·모음 시트), 한 장에 넣을 수(1·2·4·6·9), 용지·방향·여백·맞춤·간격·머리글/바닥글을 정하고 미리보기를 보며 <strong>출력</strong>합니다. Windows에서는 대화상자 없이 고른 프린터로 바로 인쇄합니다.</li>
+</ul>
+<ul>
+<li><strong>프로젝트 저장</strong>(<code>Ctrl+S</code>): 사진·특징점·모든 캐리커처와 효과를 <code>.mypcut</code> 파일 하나에 담습니다.</li>
+<li><strong>이미지로 저장</strong>(<code>Ctrl+E</code>): 선택한 캐리커처 / 모두(ZIP) / 모음 시트를 고르고, 형식과 크기(긴 변 800~3000px), 품질을 정합니다. 저장할 때는 화면용보다 큰 해상도로 다시 그립니다.</li>
+<li>저장 형식: PNG, JPEG, WebP, AVIF(지원 환경), GIF, BMP, TIFF, TGA, PPM, QOI, ICO(최대 256px), PDF, SVG.</li>
+<li><strong>이미지 복사</strong>(<code>Ctrl+Shift+C</code>).</li>
+</ul>
+<h2 id="s11">8. 설정</h2>
+<figure><img src="images/12-settings.jpg" alt="설정 › 캐리커처" loading="lazy" /><figcaption>설정 › 캐리커처</figcaption></figure>
+<figure><img src="images/13-theme.jpg" alt="테마 드롭다운 (툴바)" loading="lazy" /><figcaption>테마 드롭다운 (툴바)</figcaption></figure>
+<figure><img src="images/08-menu.jpg" alt="캐리커처 메뉴" loading="lazy" /><figcaption>캐리커처 메뉴</figcaption></figure>
+<figure><img src="images/09-styles.jpg" alt="기본 스타일 고르기" loading="lazy" /><figcaption>기본 스타일 고르기</figcaption></figure>
+<ul>
+<li>일반: 언어, 세션 복원, 삭제 확인, 시계, 상태 표시줄</li>
+<li>캐리커처: 기본 스타일, 열면 바로 그리기, 자동 자르기, 얼굴 모델·인물 분리 모델 사용, 화면용 그림 크기(360~1024px), 저장 크기, 변형 정도, 갤러리 열 수</li>
+<li>시작 화면, 테마(다크·라이트·사용자 정의), 글꼴, 배경(움직이는 배경 16종·그림), 최근 기록, 바로 가기 키</li>
+</ul>
+<h2 id="s12">9. 바로 가기 키</h2>
+<table><thead><tr><th>키</th><th>동작</th><th>키</th><th>동작</th></tr></thead><tbody><tr><td>Ctrl+O</td><td>열기</td><td>Ctrl+Shift+O</td><td>카메라</td></tr><tr><td>Ctrl+S / Ctrl+Shift+S</td><td>저장 / 다른 이름</td><td>Ctrl+E / Ctrl+Shift+E</td><td>이미지 저장 / 모두 저장</td></tr><tr><td>Ctrl+Z / Ctrl+Y</td><td>실행 취소 / 다시</td><td>F5</td><td>모두 만들기</td></tr><tr><td>Ctrl+R / Ctrl+Shift+R</td><td>변형 / 모두 다시 뽑기</td><td>Ctrl+D</td><td>복제</td></tr><tr><td>Ctrl+1 / 2 / 3</td><td>갤러리 / 크게 / 보기 방식</td><td>Ctrl+K</td><td>원본 비교</td></tr><tr><td>Ctrl+= / Ctrl+- / Ctrl+0</td><td>확대 / 축소 / 맞춤</td><td>Ctrl+J</td><td>얼굴 중심 자르기</td></tr><tr><td>Ctrl+Shift+F</td><td>얼굴 다시 찾기</td><td>Ctrl+L</td><td>특징점 표시</td></tr><tr><td>Ctrl+Shift+H</td><td>시작 화면</td><td>Ctrl+,</td><td>설정</td></tr></tbody></table></main></div>
+<script>const links=[...document.querySelectorAll('nav.toc a')];const heads=links.map(a=>document.getElementById(a.hash.slice(1)));addEventListener('scroll',()=>{let i=0;heads.forEach((h,k)=>{if(h.getBoundingClientRect().top<120)i=k});links.forEach((a,k)=>a.classList.toggle('on',k===i))},{passive:true});</script></body></html>
