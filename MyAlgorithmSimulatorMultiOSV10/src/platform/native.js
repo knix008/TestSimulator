@@ -134,6 +134,18 @@ export async function printDirect(job) {
   return invoke('print_direct', { job });
 }
 
+/** The language chosen while installing ("ko" or "en"), once. Later starts use the saved choice. */
+export async function takeInstallLanguage() {
+  if (!isDesktop()) return null;
+  try {
+    const { invoke } = await core();
+    const lang = await invoke('take_install_language');
+    return lang === 'ko' || lang === 'en' ? lang : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function quit() {
   if (!isDesktop()) { window.close(); return; }
   const { invoke } = await core();

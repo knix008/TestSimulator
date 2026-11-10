@@ -10,6 +10,41 @@ use tauri::{AppHandle, Emitter, Manager, Theme, WebviewUrl, WebviewWindow, Webvi
 
 static PRINT_PAYLOAD: Mutex<String> = Mutex::new(String::new());
 
+/// The taskbar uses the window's large icon. Tauri assigns only the small icon,
+/// so Windows would show the generic application icon while the program is running.
+fn apply_taskbar_icon(window: &WebviewWindow) {
+    #[cfg(windows)]
+    {
+        use windows::core::PCWSTR;
+        use windows::Win32::Foundation::{HINSTANCE, LPARAM, WPARAM};
+        use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            GetSystemMetrics, LoadImageW, SendMessageW, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_SHARED,
+            SM_CXICON, SM_CXSMICON, SM_CYICON, SM_CYSMICON, WM_SETICON,
+        };
+        let Ok(hwnd) = window.hwnd() else { return };
+        let Ok(module) = (unsafe { GetModuleHandleW(PCWSTR::null()) }) else { return };
+        let instance = Some(HINSTANCE(module.0));
+        let name = PCWSTR(32512usize as *const u16);
+        let assign = |big: bool| {
+            let (width, height) = if big {
+                (unsafe { GetSystemMetrics(SM_CXICON) }, unsafe { GetSystemMetrics(SM_CYICON) })
+            } else {
+                (unsafe { GetSystemMetrics(SM_CXSMICON) }, unsafe { GetSystemMetrics(SM_CYSMICON) })
+            };
+            let Ok(icon) = (unsafe { LoadImageW(instance, name, IMAGE_ICON, width.max(1), height.max(1), LR_SHARED) }) else { return };
+            let kind = if big { ICON_BIG } else { ICON_SMALL };
+            unsafe { SendMessageW(hwnd, WM_SETICON, Some(WPARAM(kind as usize)), Some(LPARAM(icon.0 as isize))); }
+        };
+        assign(true);
+        assign(false);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = window;
+    }
+}
+
 #[derive(Serialize)]
 struct ToolchainStatus { desktop: bool, tools: serde_json::Map<String, serde_json::Value> }
 
@@ -252,6 +287,9 @@ async fn open_guide_window(app: AppHandle, title: String, url: String, lang: Str
         .initialization_script(&script)
         .build()
         .map_err(|error| error.to_string())?;
+    if let Some(window) = app.get_webview_window(label) {
+        apply_taskbar_icon(&window);
+    }
     Ok(())
 }
 
@@ -291,7 +329,23 @@ fn open_print_window(app: AppHandle, title: String, lang: String, theme: String,
         .initialization_script(&script)
         .build()
         .map_err(|error| error.to_string())?;
+    if let Some(window) = app.get_webview_window(label) {
+        apply_taskbar_icon(&window);
+    }
     Ok(())
+}
+
+/// The language chosen in the installer ("ko" or "en"), once. The next start uses the language saved in the app.
+#[tauri::command]
+fn take_install_language(app: AppHandle) -> Option<String> {
+    let path = app.path().app_config_dir().ok()?.join("install-language");
+    let text = std::fs::read_to_string(&path).ok()?;
+    let _ = std::fs::remove_file(&path);
+    match text.trim() {
+        "ko" => Some("ko".into()),
+        "en" => Some("en".into()),
+        _ => None,
+    }
 }
 
 #[tauri::command]
@@ -308,7 +362,13 @@ async fn print_direct(window: WebviewWindow, job: printing::PrintJob) -> Result<
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![toolchain_status, read_text_file, write_text_file, run_code, install_toolchain, quit, open_guide_window, open_print_window, set_print_payload, get_print_payload, list_printers, print_direct])
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                apply_taskbar_icon(&window);
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![toolchain_status, read_text_file, write_text_file, run_code, install_toolchain, quit, open_guide_window, open_print_window, set_print_payload, get_print_payload, list_printers, print_direct, take_install_language])
         .run(tauri::generate_context!())
         .expect("error while running MyAlgorithmSimulator");
 }

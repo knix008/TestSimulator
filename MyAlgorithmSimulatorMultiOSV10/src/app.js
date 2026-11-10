@@ -7,7 +7,7 @@ import { t, setLanguage } from './i18n.js';
 import { DARK_THEMES, LIGHT_THEMES, SYSTEM, applyTheme, resolveTheme, themeName } from './themes.js';
 import { createEditor } from './ui/editor.js';
 import { CODE_LANGUAGES, extension, sample } from './samples/index.js';
-import { isDesktop, installToolchain, openPrintWindow, quit, readTextFile, runCode, saveProjectFile, toolchainStatus, writeTextFile } from './platform/native.js';
+import { isDesktop, installToolchain, openPrintWindow, quit, readTextFile, runCode, saveProjectFile, takeInstallLanguage, toolchainStatus, writeTextFile } from './platform/native.js';
 import { runJavaScript } from './runner/web.js';
 import { ANIMATION_KINDS, AnimatedBackground, backgroundKind } from './ui/background.js';
 import { startBoard } from './ui/startboard.js';
@@ -1036,10 +1036,11 @@ function cssVar(name, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-export function start() {
+export async function start() {
   const saved = JSON.parse(localStorage.getItem(STORE) || '{}');
+  const installed = await takeInstallLanguage();
   Object.assign(state, {
-    lang: saved.lang ?? (navigator.language?.toLowerCase().startsWith('en') ? 'en' : 'ko'),
+    lang: installed ?? saved.lang ?? (navigator.language?.toLowerCase().startsWith('en') ? 'en' : 'ko'),
     themeId: saved.themeId ?? 'light', speed: saved.speed ?? 1, codeLang: saved.codeLang ?? 'python',
     algorithmId: saved.algorithmId ?? 'bubble-sort', recent: saved.recent ?? [],
     showLeft: saved.showLeft ?? true, showRight: saved.showRight ?? true, showPseudo: saved.showPseudo ?? true,
@@ -1052,6 +1053,7 @@ export function start() {
   });
   state.inputText = algo().input.default;
   setLanguage(state.lang);
+  if (installed) save();
   const theme = resolveTheme(state.themeId, matchMedia('(prefers-color-scheme: dark)').matches);
   applyTheme(theme);
   bind();
