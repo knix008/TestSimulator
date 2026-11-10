@@ -4,6 +4,10 @@
 // attached by `textures` (see library/assets.js); without them a preset still
 // looks right from its colour, roughness and physical options.
 import * as THREE from 'three';
+import { SOFT_MATERIAL_PRESETS } from './materials-soft.js';
+import { ARCH_MATERIAL_PRESETS } from './materials-arch.js';
+import { HARD_PRESETS } from './materials-hard.js';
+import { patternKey, renderPattern } from './patterns.js';
 
 export const MATERIAL_CATEGORIES = [
   { id: 'wood', ko: '나무', en: 'Wood' },
@@ -149,6 +153,9 @@ export const MATERIAL_PRESETS = [
   P('water', 'other', '물', 'Water', '#a8c8d8', 0.02, 0, { transmission: 0.95, ior: 1.33, transparent: true, opacity: 0.5 }),
   P('default', 'other', '기본', 'Default', '#d9d6d0', 0.8),
   P('back-face', 'other', '뒷면', 'Back face', '#a7b4c6', 0.9),
+  ...SOFT_MATERIAL_PRESETS,
+  ...ARCH_MATERIAL_PRESETS,
+  ...HARD_PRESETS,
 ];
 
 const BY_ID = new Map(MATERIAL_PRESETS.map((p) => [p.id, p]));
@@ -192,10 +199,43 @@ export function getMaterial(id, overrides = {}) {
   material.name = id;
   material.userData.preset = id;
   material.userData.repeat = spec.repeat ?? 1;
-  textureHook?.(spec, material);
+  if (spec.pattern) applyPattern(id, spec, material);
+  // The textures arrive later; `ready` settles when they are on the material (thumbnails wait for it).
+  material.userData.ready = Promise.resolve(textureHook?.(spec, material)).catch(() => false);
   if (spec.maps) userTextureHook?.(spec, material);
   cache.set(key, material);
   return material;
+}
+
+/**
+ * Procedural patterns (engine/patterns.js): one colour + bump CanvasTexture pair per distinct spec, repeated
+ * per metre of UV. The pattern carries its own colours, so the material colour only tints it when the user
+ * picked another colour than the preset's. Without a 2D canvas (Node) the flat colour stays.
+ */
+const patternTextures = new Map();
+function applyPattern(id, spec, material) {
+  const key = patternKey(spec.pattern);
+  let tex = patternTextures.get(key);
+  if (tex === undefined) {
+    let drawn = null;
+    try { drawn = renderPattern(spec.pattern); } catch (err) { console.warn(`Pattern for ${id} not drawn:`, err.message); }
+    tex = drawn && ['map', 'bump'].map((name) => {
+      const t = new THREE.CanvasTexture(drawn[name]);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(1 / drawn.layout.cover[0], 1 / drawn.layout.cover[1]);
+      t.anisotropy = 8;
+      t.colorSpace = name === 'map' ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+      return t;
+    });
+    patternTextures.set(key, tex);
+  }
+  if (!tex) return;
+  [material.map, material.bumpMap] = tex;
+  material.bumpScale = spec.pattern.bump ?? 1;
+  const base = (BY_ID.get(id) ?? spec).color;
+  const target = new THREE.Color(spec.color), from = new THREE.Color(base);
+  material.color.setRGB(...['r', 'g', 'b'].map((c) => (base === spec.color ? 1 : Math.min(4, target[c] / Math.max(from[c], 0.01)))));
+  material.userData.pattern = spec.pattern.kind;
 }
 
 /** Forgets cached materials (after textures arrive or quality changes); meshes keep theirs until rebuilt. */

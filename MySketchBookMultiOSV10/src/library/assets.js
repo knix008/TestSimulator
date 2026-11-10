@@ -195,7 +195,8 @@ export async function applyPresetTextures(spec, material) {
     const repeatX = 1 / (sizeX || 1), repeatY = 1 / (sizeY || sizeX || 1);
     const maps = info.maps ?? ['diff', 'nor', 'rough'];
     const loaded = Object.fromEntries(await Promise.all(maps.map(async (map) => [map, await tiledTexture(spec.textures, map, repeatX, repeatY)])));
-    if (loaded.diff) { material.map = loaded.diff; material.color.copy(textureTint(spec.color, info.avg)); }
+    // A procedural pattern (engine/patterns.js) supplies the colour; the set then only adds its relief.
+    if (loaded.diff && !spec.pattern) { material.map = loaded.diff; material.color.copy(textureTint(spec.color, info.avg)); }
     if (loaded.nor) material.normalMap = loaded.nor;
     if (loaded.rough) {
       material.roughnessMap = loaded.rough;
@@ -219,7 +220,8 @@ export async function applyPresetTextures(spec, material) {
  */
 export function installTextureHook(options = {}) {
   Object.assign(textureOptions, options);
-  setTextureHook((spec, material) => { applyPresetTextures(spec, material); });
+  // The promise is returned: materials.js keeps it as material.userData.ready (thumbnails wait for the textures).
+  setTextureHook((spec, material) => applyPresetTextures(spec, material));
 }
 
 /** Preloads the texture index (optional; the hook loads it on first use). */

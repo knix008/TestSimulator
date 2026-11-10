@@ -15,6 +15,7 @@ export function renderView3dSettings(api) {
   return [
     `<h3 class="section-title">${api.icon('units')}${api.escapeHtml(t('settings.sectionModel'))}</h3>`,
     row('units', t('settings.units'), segmented('units', api.UNITS.map((u) => [u, t(`unit.${u}`)]), set.units)),
+    row('wallTool', t('settings.planWall'), `<span class="plan-wall-fill">${segmented('planWallFill', [['color', t('settings.planWallColor'), 'palette'], ['material', t('settings.planWallMaterial'), 'materialsPanel']], set.planWallFill ?? 'color')}${(set.planWallFill ?? 'color') === 'color' ? `<input type="color" data-setting-text="planWallColor" value="${api.escapeHtml(set.planWallColor ?? '#000000')}" aria-label="${api.escapeHtml(t('settings.planWallColor'))}" />` : ''}</span>`),
     row('wallTool', t('settings.wallHeight'), numberField('defaultWallHeight', set.defaultWallHeight, 1.8, 6, 0.05, 'm', t('settings.wallHeight'))),
     row('wallTool', t('settings.wallThickness'), numberField('defaultWallThickness', set.defaultWallThickness, 0.05, 0.6, 0.01, 'm', t('settings.wallThickness'))),
     toggle('inference', t('settings.inference'), 'lineTool'),
@@ -108,7 +109,9 @@ function importPlan(api) {
   const chip = `<div class="row file-list"><span class="file-chip" title="${escapeHtml(d.name ?? '')}">${icon(glyph)}<span>${escapeHtml(d.name ?? '')}</span></span><span class="muted">${escapeHtml(note)}</span></div>`;
   const layersHtml = (layers) => `<div class="row plan-layers-head"><span class="row-label">${icon('tagsPanel')}<span>${escapeHtml(t('plan.layers'))}</span></span><span class="muted">${escapeHtml(t('plan.layersHint'))}</span></div>
       <div class="plan-layers" role="group" aria-label="${escapeHtml(t('plan.layers'))}">${layers.map((l, i) => `<label class="plan-layer" title="${escapeHtml(l.name)}"><input type="checkbox" data-plan-layer="${i}" ${l.on ? 'checked' : ''} /><span class="plan-layer-name">${escapeHtml(l.name)}</span><span class="muted">${escapeHtml(t('plan.layerCounts', { lines: l.lines, arcs: l.arcs, texts: l.texts }))}</span></label>`).join('')}</div>`;
-  const wallRows = () => `${row('wallTool', t('plan.walls'), seg(api, 'walls', [['auto', t('import.auto'), 'sparkles'], ['pairs', t('plan.wallsPairs')], ['single', t('plan.wallsSingle')]], d.walls))}
+  const refineRow = (key) => draftToggle(api, 'refine', t(key), 'planStudio', d.refine !== false);
+  const wallRows = () => `${refineRow('plan.refine')}
+      ${row('wallTool', t('plan.walls'), seg(api, 'walls', [['auto', t('import.auto'), 'sparkles'], ['pairs', t('plan.wallsPairs')], ['single', t('plan.wallsSingle')]], d.walls))}
       ${row('wallTool', t('settings.wallHeight'), numberField('draft:wallHeight', Number(d.wallHeight), 1.8, 6, 0.05, 'm', t('settings.wallHeight')))}
       ${row('wallTool', t('plan.thickness'), numberField('draft:thickness', Number(d.thickness), 0.05, 0.6, 0.01, 'm', t('plan.thickness')))}
       ${row('level', t('plan.target'), target)}
@@ -125,15 +128,16 @@ function importPlan(api) {
       ${row('dimension', t('plan.imageWidth'), numberField('draft:imageWidth', Number(d.imageWidth), 1, 200, 0.5, 'm', t('plan.imageWidth')))}
       ${row('styleXray', t('plan.opacity'), numberField('draft:opacityPct', Math.round(Number(d.opacity ?? 0.6) * 100), 5, 100, 5, '%', t('plan.opacity')))}
       ${row('level', t('plan.target'), target)}
-      ${draftToggle(api, 'calibrate', t('plan.calibrate'), 'tapeMeasure', d.calibrate)}
-      ${draftToggle(api, 'detect', t('plan.detect'), 'wallTool', d.detect)}
+      ${refineRow('plan.refineImage')}
+      ${d.refine === false ? `${draftToggle(api, 'calibrate', t('plan.calibrate'), 'tapeMeasure', d.calibrate)}
+      ${draftToggle(api, 'detect', t('plan.detect'), 'wallTool', d.detect)}` : ''}
       <p class="muted hint">${icon('info')} ${escapeHtml(t('plan.imageHint'))}</p>`;
   } else if (d.mode === 'pdf') {
     const layers = d.layers ?? [];
     body = `${chip}
       ${row('scaleTool', t('plan.scale'), numberField('draft:scale', Number(d.scale), 1, 5000, 1, '', t('plan.scale')))}
       <div class="row muted plan-note">${icon('info')}<span>${escapeHtml(d.scaleNote ?? '')}</span></div>
-      ${draftToggle(api, 'calibrate', t('plan.calibratePlan'), 'tapeMeasure', d.calibrate)}
+      ${d.refine === false ? draftToggle(api, 'calibrate', t('plan.calibratePlan'), 'tapeMeasure', d.calibrate) : ''}
       ${wallRows()}
       ${layers.length > 1 ? layersHtml(layers) : ''}
       <p class="muted hint">${icon('info')} ${escapeHtml(t('plan.pdfHint'))}</p>`;
@@ -178,13 +182,14 @@ function snapshot(api) {
 
 function renderOptions(api) {
   const { frame, button, t, escapeHtml, icon } = api;
-  const d = draftOf(api, { width: 1920, height: 1080, samples: 256 });
+  const d = draftOf(api, { width: 1920, height: 1080, samples: 256, transparent: false });
   const megapixels = (Number(d.width) * Number(d.height)) / 1e6;
   const estimate = Math.max(5, Math.round(megapixels * Number(d.samples) * 0.06));
   api.root.innerHTML = frame({
     glyph: 'renderPhoto', title: t('render.title'),
     body: `<div class="editor">${sizeRows(api, d)}
       ${api.row('quality', t('render.samples'), seg(api, 'samples', SAMPLES.map((n) => [n, String(n)]), d.samples))}
+      ${draftToggle(api, 'transparent', t('render.transparent'), 'styleWhite', d.transparent)}
       <div class="row muted">${icon('clock')}<span>${escapeHtml(t('render.estimate', { s: estimate }))}</span></div>
       <p class="muted hint">${icon('info')} ${escapeHtml(t('render.hint'))}</p></div>`,
     foot: `<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('render-apply', t('render.go'), 'renderPhoto', 'primary')}`,
@@ -195,10 +200,10 @@ function renderOptions(api) {
 function renderResult(api) {
   const { frame, button, t, escapeHtml } = api;
   const p = api.P();
-  const d = draftOf(api, { format: 'png', quality: 0.92 });
+  const d = draftOf(api, { format: 'png', quality: 0.92, transparent: false });
   api.root.innerHTML = frame({
     glyph: 'renderPhoto', title: t('render.result', { w: p.width, h: p.height }),
-    body: `<div class="render-result-wrap"><div class="render-result"><img src="${escapeHtml(p.image ?? '')}" alt="" /></div><div class="editor render-format">${formatRows(api, d, { transparency: false })}</div></div>`,
+    body: `<div class="render-result-wrap"><div class="render-result"><img src="${escapeHtml(p.image ?? '')}" alt="" /></div><div class="editor render-format">${formatRows(api, d, { transparency: Boolean(p.transparent) })}</div></div>`,
     foot: `<span class="grow"></span>${button('close', t('common.close'), 'close')}${button('render-save', t('render.save'), 'save', 'primary')}`,
   });
   api.ready();
@@ -295,14 +300,14 @@ export function popup3dAction(kind, target, api, type = 'click') {
       const targetOf = d.hasProject === false ? 'new' : d.target;
       if (d.mode === 'pages') api.close({ ok: true, page: Number(d.page) || 1 });
       else if (d.mode === 'building') api.close({ ok: true, target: targetOf === 'add' ? 'add' : 'new', furniture: d.furniture ?? 'library', rooms: d.rooms !== false });
-      else if (d.mode === 'pdf') api.close({ ok: true, scale: Number(d.scale) || 100, calibrate: Boolean(d.calibrate), walls: d.walls, wallHeight: Number(d.wallHeight), thickness: Number(d.thickness), target: targetOf, keepLines: d.keepLines !== false, layers: (d.layers ?? []).filter((l) => l.on).map((l) => l.name) });
-      else if (d.mode === 'image') api.close({ ok: true, imageWidth: Number(d.imageWidth) || 12, opacity: Math.max(5, Math.min(100, Number(d.opacityPct ?? Math.round((d.opacity ?? 0.6) * 100)))) / 100, target: targetOf, calibrate: Boolean(d.calibrate), detect: Boolean(d.detect) });
-      else api.close({ ok: true, units: d.units, walls: d.walls, wallHeight: Number(d.wallHeight), thickness: Number(d.thickness), target: targetOf, keepLines: d.keepLines !== false, layers: (d.layers ?? []).filter((l) => l.on).map((l) => l.name) });
+      else if (d.mode === 'pdf') api.close({ ok: true, refine: d.refine !== false, scale: Number(d.scale) || 100, calibrate: Boolean(d.calibrate), walls: d.walls, wallHeight: Number(d.wallHeight), thickness: Number(d.thickness), target: targetOf, keepLines: d.keepLines !== false, layers: (d.layers ?? []).filter((l) => l.on).map((l) => l.name) });
+      else if (d.mode === 'image') api.close({ ok: true, refine: d.refine !== false, imageWidth: Number(d.imageWidth) || 12, opacity: Math.max(5, Math.min(100, Number(d.opacityPct ?? Math.round((d.opacity ?? 0.6) * 100)))) / 100, target: targetOf, calibrate: Boolean(d.calibrate), detect: Boolean(d.detect) });
+      else api.close({ ok: true, refine: d.refine !== false, units: d.units, walls: d.walls, wallHeight: Number(d.wallHeight), thickness: Number(d.thickness), target: targetOf, keepLines: d.keepLines !== false, layers: (d.layers ?? []).filter((l) => l.on).map((l) => l.name) });
       return true;
     }
     case 'snapshot-apply': api.close({ ok: true, width: Math.round(Number(d.width)), height: Math.round(Number(d.height)), format: formatInfo(d.format).id, quality: Number(d.quality ?? 0.92), transparent: Boolean(formatInfo(d.format).alpha && d.transparent) }); return true;
-    case 'render-apply': api.close({ ok: true, width: Math.round(Number(d.width)), height: Math.round(Number(d.height)), samples: Number(d.samples) }); return true;
-    case 'render-save': api.close({ save: true, format: formatInfo(d?.format).id, quality: Number(d?.quality ?? 0.92) }); return true;
+    case 'render-apply': api.close({ ok: true, width: Math.round(Number(d.width)), height: Math.round(Number(d.height)), samples: Number(d.samples), transparent: Boolean(d.transparent) }); return true;
+    case 'render-save': api.close({ save: true, format: formatInfo(d?.format).id, quality: Number(d?.quality ?? 0.92), transparent: Boolean(d?.transparent) && formatInfo(d?.format).alpha }); return true;
     case 'material-apply': {
       // Maps: { slot: { token (picked now) | asset (kept), name } } — the main window owns the bytes.
       const maps = Object.fromEntries(Object.entries(d.maps ?? {}).filter(([, m]) => m).map(([slot, m]) => [slot, { token: m.token ?? null, asset: m.asset ?? null, name: m.name }]));

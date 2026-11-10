@@ -28,6 +28,9 @@ import { matchLibraryItem } from '../io/plan-match.js';
 import { allItems } from '../library/catalog.js';
 import { libraryUrl } from '../library/environments.js';
 import { UnderlayLayer, underlayToPlan, planToUnderlay } from '../engine/underlay.js';
+import { arcLines } from '../io/plan-recognize.js';
+import { backgroundCentre, backgroundPoint, fromProject, fromResult, pickDetection, toResult } from '../io/plan-draft.js';
+import { createPlanStudio } from './plan-studio.js';
 
 /** Buildings: BIM models (IFC) and Sweet Home 3D homes — levels, walls, openings, rooms, furniture. */
 export const BUILDING_ACCEPT = '.ifc,.sh3d';
@@ -164,6 +167,8 @@ async function renderPdfPage(doc, number) {
 export function createPlanImport(app) {
   let layer = null; // UnderlayLayer (made with the viewport)
   let calib = null; // the two-point pick in progress
+  // The 2D workbench: recognised plans are cleaned up there before they become 3D.
+  const studio = createPlanStudio(app);
 
   const layerOf = () => {
     const vp = app.viewport();
@@ -195,15 +200,18 @@ export function createPlanImport(app) {
     } catch (error) { app.showError('error.importPlan', error); }
   }
 
-  /** Files dropped, opened or chosen: the first drawing, building or picture is imported (with its options asked). */
-  async function importFiles(files) {
+  /**
+   * Files dropped, opened or chosen: the first drawing, building or picture is imported (with its options asked).
+   * `hints` for a picture: { imageWidth (m) } — the start page's samples know their real width.
+   */
+  async function importFiles(files, hints = {}) {
     const file = files.find((f) => isPlanImportName(f.name));
     if (!file) return null;
     try {
       const bytes = file.bytes ?? await app.readBytes(file.path);
       if (isPdfName(file.name)) return await importPdf(file.name, bytes);
       if (isBuildingName(file.name)) return await importBuilding(file.name, bytes);
-      return isPlanName(file.name) ? await importPlan(file.name, bytes) : await importImage(file.name, bytes);
+      return isPlanName(file.name) ? await importPlan(file.name, bytes) : await importImage(file.name, bytes, null, hints);
     } catch (error) {
       if (error?.code === 'sh3d-old') app.showError('error.importPlan', new Error(t('plan.sh3dOld', { name: file.name })), file.name);
       else app.showError('error.importPlan', error, file.name);
@@ -213,17 +221,42 @@ export function createPlanImport(app) {
 
   // ───────────────────────── CAD plans
 
-  /** A recognised plan into the project (walls, openings, rooms, guides) with the import options `o`. */
-  function applyRecognized(name, plan, o) {
-    const result = recognizePlan(plan, { mode: o.walls ?? 'auto', defaultThickness: Number(o.thickness) || 0.15 });
-    result.texts = plan.texts;
-    if (!result.walls.length) { app.notify('error', t('notice.planEmpty', { name })); return { result, applied: null }; }
-    if ((o.target ?? 'replace') === 'new' || !app.project()) app.newProject('empty');
-    const target = o.target === 'level' ? 'level' : 'replace';
-    const applied = app.change('op.importPlan', (p) => applyPlan(p, result, { target, wallHeight: Number(o.wallHeight) || null, keepLeftovers: o.keepLines !== false, levelName: stem(name) }), null);
+  /** Where an imported drawing can go (the workbench's foot and the import dialog). */
+  const planTargets = () => [['replace', t('plan.targetReplace'), 'level'], ['level', t('plan.targetLevel'), 'levelAdd'], ['new', t('plan.targetNew'), 'fileNew']].filter(([id]) => app.project() || id === 'new');
+
+  /**
+   * A recognised plan into the project (walls, openings, rooms, guides) with the import options `o`. With `o.refine`
+   * the plan is cleaned up in the 2D workbench first (over the drawing's own lines) and converted to 3D from there.
+   */
+  async function applyRecognized(name, plan, o) {
+    const recognise = (mode) => {
+      const r = recognizePlan(plan, { mode: mode ?? 'auto', defaultThickness: Number(o.thickness) || 0.15 });
+      r.texts = plan.texts;
+      return r;
+    };
+    const result = recognise(o.walls);
+    if (!result.walls.length && !o.refine) { app.notify('error', t('notice.planEmpty', { name })); return { result, applied: null }; }
+    let final = result;
+    let chosen = { target: o.target ?? 'replace', wallHeight: Number(o.wallHeight) || null, keepLines: o.keepLines !== false };
+    if (o.refine) {
+      // The drawing itself under the recognised walls: its lines and arcs (in the drawing's coordinates, as the plan).
+      const lines = [...(plan.lines ?? []).map((l) => ({ a: l.a, b: l.b })), ...(plan.arcs ?? []).flatMap((arc) => arcLines(arc).map(([a, b]) => ({ a, b })))];
+      const out = await studio.open(fromResult(result), {
+        name, background: { kind: 'lines', lines, k: 1, offset: [0, 0] },
+        targets: planTargets(), target: app.project() ? chosen.target : 'new', wallHeight: chosen.wallHeight || app.settings().defaultWallHeight || 2.4, keepLines: chosen.keepLines,
+        redetect: async (mode) => { const r = recognise(mode); if (!r.walls.length) { app.notify('error', t('notice.planEmpty', { name })); return null; } return fromResult(r); },
+        redetectModes: [['auto', t('import.auto')], ['pairs', t('plan.wallsPairs')], ['single', t('plan.wallsSingle')]], redetectMode: o.walls ?? 'auto',
+      });
+      if (!out) return { result, applied: null, cancelled: true };
+      final = toResult(out.draft);
+      chosen = { target: out.target, wallHeight: out.wallHeight, keepLines: out.keepLines };
+    }
+    if (chosen.target === 'new' || !app.project()) app.newProject('empty');
+    const target = chosen.target === 'level' ? 'level' : 'replace';
+    const applied = app.change('op.importPlan', (p) => applyPlan(p, final, { target, wallHeight: chosen.wallHeight, keepLeftovers: chosen.keepLines, levelName: stem(name) }), null);
     app.afterImport?.(applied);
-    app.notify('success', t('notice.planImported', { name, walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms }));
-    return { result, applied };
+    app.notify('success', t(o.refine ? 'studio.converted' : 'notice.planImported', { name, walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms }));
+    return { result: final, applied, refined: Boolean(o.refine) };
   }
 
   /**
@@ -247,7 +280,7 @@ export function createPlanImport(app) {
       if (!o?.ok) return null;
     }
     const read = readPlanFile(name, bytes, { units: o.units ?? 'auto', layers: o.layers ?? null });
-    const { result, applied } = applyRecognized(name, read.plan, o);
+    const { result, applied } = await applyRecognized(name, read.plan, o);
     return { result, applied, units: read.units };
   }
 
@@ -308,8 +341,9 @@ export function createPlanImport(app) {
       const denominator = Number(o.scale) > 0 ? Number(o.scale) : effective;
       const layerNames = page.layers.length > 1 && o.layers ? [...o.layers, ...page.layers.filter((l) => l.lines + l.arcs === 0).map((l) => l.name)] : null;
       const plan = pdfToPlan(page, POINT_METRES * denominator, { layers: layerNames });
-      const { result, applied } = applyRecognized(name, plan, o);
-      if (applied && o.calibrate) calibratePlan(applied.level);
+      const { result, applied } = await applyRecognized(name, plan, o);
+      // The workbench has its own two-point scale; without it the scale is set on the 3D floor afterwards.
+      if (applied && o.calibrate && !o.refine) calibratePlan(applied.level);
       return { result, applied, scale: denominator, page: number, source: scale.source };
     } finally {
       doc.destroy?.();
@@ -471,9 +505,125 @@ export function createPlanImport(app) {
     app.notify('success', t('notice.underlayAdded', { name }));
     app.focusUnderlay?.(id);
     frame(id);
-    if (o.calibrate) startCalibration(id, { detectAfter: Boolean(o.detect) });
+    if (o.refine) await refineUnderlay(id);
+    else if (o.calibrate) startCalibration(id, { detectAfter: Boolean(o.detect) });
     else if (o.detect) await detectWalls(id);
     return { id, asset, width, height };
+  }
+
+  /**
+   * Walls, doors and windows found in a picture: `k` metres per pixel of the original picture; points in metres from
+   * its top-left corner (x right, z down). method: 'outline' (clean drawings) | 'edges' (scans, photos).
+   */
+  function detectPicture(bitmap, { k, method = 'outline' }) {
+    const s = Math.min(1, MAX_DETECT_SIZE / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * s)); const h = Math.max(1, Math.round(bitmap.height * s));
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    const pixels = ctx.getImageData(0, 0, w, h);
+    const found = detectImageWalls({ data: pixels.data, width: w, height: h }, { metresPerPixel: (k * bitmap.width) / w, method });
+    return { ...found, leftovers: [], texts: [] };
+  }
+
+  /** A plan found in the picture (metres from its top-left corner) placed where the picture is (turned with it). */
+  const placeResult = (r, bg) => {
+    const at = (p) => backgroundPoint(bg, [p[0] / bg.k, p[1] / bg.k]);
+    return { ...r, walls: r.walls.map((x) => ({ ...x, a: at(x.a), b: at(x.b) })) };
+  };
+
+  /**
+   * The picture of an underlay as the workbench's background: its top-left corner unturned in plan metres, metres per
+   * pixel, and its turn (the workbench turns the other way round: rotation = −underlay rotation).
+   */
+  function underlayBackground(u, bitmap) {
+    return { kind: 'image', image: bitmap, width: bitmap.width, height: bitmap.height, k: u.scale, offset: underlayToPlan({ ...u, rotation: 0 }, [0, 0]), rotation: -(u.rotation ?? 0), centre: [bitmap.width / 2, bitmap.height / 2] };
+  }
+
+  /** The underlay follows what the workbench did to its picture: a two-point scale (size, place) and straightening (turn). */
+  function followBackground(u, out) {
+    const bg = out.background;
+    if (!u || bg?.kind !== 'image') return;
+    const position = backgroundCentre(bg);
+    const rotation = -(bg.rotation ?? 0);
+    if (Math.abs(bg.k - u.scale) > 1e-12 || Math.hypot(position[0] - u.position[0], position[1] - u.position[1]) > 1e-9 || Math.abs(rotation - (u.rotation ?? 0)) > 1e-12) {
+      app.change('op.underlay', () => { u.scale = bg.k; u.position = position; u.rotation = rotation; }, ['underlays']);
+    }
+  }
+
+  /**
+   * A plan picture (underlay) → walls found automatically → cleaned up in the 2D workbench over the picture (scale,
+   * missing walls, doors and windows) → 3D walls, doors, windows and rooms on the underlay's level.
+   */
+  async function refineUnderlay(id) {
+    const u = underlay(id);
+    const d = app.doc();
+    const bytes = u && d?.assets.get(u.asset);
+    if (!bytes) return null;
+    const { bitmap } = await decodeImage(bytes, d.project.assets[u.asset]?.mime ?? 'image/png');
+    try {
+      const background = underlayBackground(u, bitmap);
+      // 'auto': both methods, the one that leaves the least to clean up (clean drawings read best as outlines, scans,
+      // faxes and sketches as edges).
+      const detect = (method, bg) => app.withProgress('progress.detectWalls', u.name, async () => {
+        const run = (m) => placeResult(detectPicture(bitmap, { k: bg.k, method: m }), bg);
+        if (method !== 'auto') return run(method);
+        const found = [run('outline'), run('edges')];
+        return found[pickDetection(found)];
+      }, { delay: 150 });
+      const first = await detect('auto', background);
+      if (!first.walls.length) app.notify('info', t('underlay.detectNone'));
+      const hasWalls = app.project().walls.some((w) => w.level === u.level);
+      const out = await studio.open(fromResult(first), {
+        name: u.name, background,
+        targets: [['add', t('studio.targetAdd'), 'plus'], ['replace', t('plan.targetReplace'), 'level']], target: hasWalls ? 'add' : 'replace',
+        wallHeight: app.project().levels.find((l) => l.id === u.level)?.height ?? (app.settings().defaultWallHeight || 2.4), keepLines: false,
+        redetect: async (method, bg) => { const r = await detect(method, bg); if (!r.walls.length) { app.notify('error', t('underlay.detectNone')); return null; } return fromResult(r); },
+        redetectModes: [['auto', t('import.auto')], ['outline', t('plan.modeOutline')], ['edges', t('plan.modeEdges')]], redetectMode: 'auto',
+      });
+      if (!out) return null;
+      followBackground(u, out);
+      const result = toResult(out.draft);
+      // Pictures carry no room labels the app can read (no OCR): unnamed rooms get a name from size and shape.
+      const roomNames = (key, n) => { const base = t(`plan.roomGuess.${key}`); return n > 1 && key !== 'living' ? `${base} ${n}` : base; };
+      const applied = app.change('op.detectWalls', (p) => { p.activeLevel = u.level; return applyPlan(p, result, { target: out.target === 'replace' ? 'replace' : 'add', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines, roomNames, source: u.id }); }, null);
+      app.afterImport?.(applied);
+      app.notify('success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms }));
+      return applied;
+    } finally {
+      bitmap.close?.();
+    }
+  }
+
+  /**
+   * The active level's walls, doors, windows and rooms cleaned up again in the 2D workbench (over its plan picture,
+   * if it has one) and built again in 3D. Walls keep their heights and materials, rooms their finishes.
+   */
+  async function refineLevel() {
+    const p = app.project();
+    if (!p) return null;
+    const level = p.levels.find((l) => l.id === p.activeLevel) ?? p.levels[0];
+    const draft = fromProject(p, level.id);
+    if (!draft.walls.length) { app.notify('info', t('studio.noWalls')); return null; }
+    const u = (p.underlays ?? []).find((x) => x.level === level.id && !x.hidden);
+    const bytes = u && app.doc()?.assets.get(u.asset);
+    let bitmap = null;
+    if (bytes) { try { ({ bitmap } = await decodeImage(bytes, p.assets[u.asset]?.mime ?? 'image/png')); } catch { bitmap = null; } }
+    try {
+      const background = bitmap ? underlayBackground(u, bitmap) : null;
+      const out = await studio.open(draft, { name: level.name, title: t('studio.titleLevel', { level: level.name }), background, wallHeight: level.height, keepLines: true });
+      if (!out) return null;
+      if (background) followBackground(u, out);
+      const result = toResult(out.draft);
+      const applied = app.change('op.importPlan', (pp) => applyPlan(pp, result, { target: 'replace', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines }), null);
+      app.afterImport?.(applied);
+      app.notify('success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms }));
+      return applied;
+    } finally {
+      bitmap?.close?.();
+    }
   }
 
   const underlay = (id) => app.project()?.underlays?.find((u) => u.id === id) ?? null;
@@ -696,10 +846,10 @@ export function createPlanImport(app) {
   function action(spec) {
     const [name, id] = String(spec).split(':');
     if (name === 'calibrate') return startCalibration(id);
-    if (name === 'detect') return detectWalls(id);
+    if (name === 'detect') return refineUnderlay(id);
     if (name === 'remove') return remove(id);
     return undefined;
   }
 
-  return { dialog, importFiles, importPlan, importPdf, importBuilding, importImage, frame, calibrateWith, calibratePlanWith, startCalibration, calibratePlan, stopCalibration, detectWalls, remove, sync, panelHtml, setProp, previewOpacity, action, get calibrating() { return Boolean(calib); }, get layer() { return layer; } };
+  return { dialog, importFiles, importPlan, refineUnderlay, refineLevel, studio, importPdf, importBuilding, importImage, frame, calibrateWith, calibratePlanWith, startCalibration, calibratePlan, stopCalibration, detectWalls, remove, sync, panelHtml, setProp, previewOpacity, action, get calibrating() { return Boolean(calib); }, get layer() { return layer; } };
 }

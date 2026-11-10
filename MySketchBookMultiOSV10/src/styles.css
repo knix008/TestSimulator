@@ -1719,3 +1719,16 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .stairs-strip-label { color: var(--text-muted, var(--text)); padding: 0 2px; }
 .stairs-strip-value { display: inline-flex; align-items: center; justify-content: center; min-width: 74px; padding: 0 6px; }
 .prop-value.warn { color: var(--danger, #c0392b); }
+
+/* Start page › 2D plan samples (ui/startpage.js planSamplesBody): picture tiles with the format on the thumbnail. */
+.plan-sample-hint { display: flex; align-items: flex-start; gap: 6px; margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+.plan-sample-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.plan-sample-tile { display: flex; flex-direction: column; align-items: stretch; gap: 3px; min-width: 0; padding: 6px; text-align: left; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer; }
+.plan-sample-tile:hover { border-color: var(--accent); background: var(--hover); }
+.plan-sample-tile b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-sample-tile small { color: var(--muted); font-size: 11px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.plan-sample-thumb { position: relative; display: block; aspect-ratio: 32 / 22; border-radius: 7px; overflow: hidden; background: #ffffff; border: 1px solid var(--border); }
+.plan-sample-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.plan-sample-thumb i { position: absolute; top: 5px; font-style: normal; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; }
+.plan-sample-format { right: 5px; background: rgba(20, 24, 32, 0.78); color: #fff; letter-spacing: 0.04em; }
+.plan-sample-hard { left: 5px; background: #e8a33a; color: #222; }

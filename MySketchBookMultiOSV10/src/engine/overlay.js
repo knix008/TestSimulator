@@ -122,7 +122,8 @@ export class Overlay {
   }
 
   /** An HTML label anchored at a world point (offset in px). */
-  label(name, point, text, { kind = 'info', dx = 14, dy = 14 } = {}) {
+  /** `visible`: optional () => boolean checked when labels are placed (e.g. hidden behind the model). */
+  label(name, point, text, { kind = 'info', dx = 14, dy = 14, visible = null } = {}) {
     if (!point || !text) { this.clearLabel(name); return; }
     let entry = this.labels.get(name);
     if (!entry) {
@@ -134,6 +135,7 @@ export class Overlay {
     }
     entry.point = point.clone();
     entry.dx = dx; entry.dy = dy;
+    entry.visible = visible;
     entry.el.textContent = text;
     entry.el.dataset.kind = kind;
     this.viewport.requestRender();
@@ -151,7 +153,7 @@ export class Overlay {
     for (const entry of this.labels.values()) {
       const s = this.viewport.worldToScreen(entry.point);
       entry.el.style.transform = `translate(${Math.round(s.x - host.left + entry.dx)}px, ${Math.round(s.y - host.top + entry.dy)}px)`;
-      entry.el.hidden = s.behind || s.x < r.left || s.x > r.right || s.y < r.top || s.y > r.bottom;
+      entry.el.hidden = s.behind || s.x < r.left || s.x > r.right || s.y < r.top || s.y > r.bottom || (entry.visible ? !entry.visible() : false);
     }
   }
 

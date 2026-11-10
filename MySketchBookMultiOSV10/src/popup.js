@@ -276,6 +276,7 @@ function settingsStart() {
     row('list', t('settings.startRecentCount'), numberField('startRecentCount', s().startRecentCount, 1, 10, 1, '', t('settings.startRecentCount'))),
     toggle('startShowFolders', t('settings.startShowFolders'), 'recentFolder'),
     toggle('startShowSamples', t('settings.startShowSamples'), 'samples'),
+    toggle('startShowPlanSamples', t('settings.startShowPlanSamples'), 'planStudio'),
     toggle('startShowBackground', t('settings.startShowBackground'), 'sparkles'),
     toggle('startShowTutorialBanner', t('settings.startShowTutorialBanner'), 'bulb'),
     row('home', t('settings.startOpen'), button('show-start', t('settings.startOpenButton'), 'home', 'small')),

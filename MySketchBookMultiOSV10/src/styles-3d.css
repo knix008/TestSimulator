@@ -16,7 +16,9 @@
 .vp-label[data-kind="length"], .vp-label[data-kind="dimension"] { font-weight: 600; font-variant-numeric: tabular-nums; }
 .vp-label[data-kind="dimension"] { background: #fffbea; color: #1f2937; border-color: #d9c27a; }
 /* Plan dimensions: the length centred on its dimension line, small and quiet. */
-.vp-label[data-kind="plandim"] { translate: -50% -50%; padding: 0 4px; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; background: rgb(255 255 255 / 0.85); color: #1f2937; border-color: transparent; box-shadow: none; pointer-events: none; }
+.vp-label[data-kind="plandim"] { translate: -50% -50%; padding: 0; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; background: none; color: var(--plandim-color, #1f2933); border: 0; box-shadow: none; pointer-events: none; }
+/* Interior (clear) dimensions: the same, in their own colour (blue), slanted so they read apart from the outside ones. */
+.vp-label[data-kind="plandim-in"] { translate: -50% -50%; padding: 0; font-size: 11px; font-weight: 600; font-style: italic; font-variant-numeric: tabular-nums; background: none; color: var(--plandim-in-color, #1565c0); border: 0; box-shadow: none; pointer-events: none; }
 .vp-label[data-kind="text"] { background: #ffffff; color: #111827; border-color: #9ca3af; }
 .vp-label[data-kind="endpoint"] { color: #18a33a; }
 .vp-label[data-kind="midpoint"] { color: #1a8fb0; }
@@ -126,6 +128,13 @@ html[data-lib-drag="over"] *, html[data-lib-drag="over"] canvas { cursor: copy !
 .unit-input input { flex: 1; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .unit-input em { font-style: normal; color: var(--muted); font-size: 11.5px; min-width: 18px; }
 .unit-input.small input { width: 64px; flex: none; }
+/* Panel numbers: [−] value (centred) unit [+], filling the control column so every row lines up. */
+.prop-stepper { display: flex; width: 100%; min-width: 0; height: 28px; }
+.prop-stepper .stepper-value { flex: 1; width: auto; min-width: 0; text-align: center; border-right: 0 !important; }
+.prop-stepper .stepper-unit { display: grid; place-items: center; padding: 0 6px 0 2px; font-style: normal; font-size: 11.5px; color: var(--muted); background: var(--surface); border-right: 1px solid var(--border); white-space: nowrap; }
+.prop-stepper:not(:has(.stepper-unit)) .stepper-value { border-right: 1px solid var(--border) !important; }
+.prop-stepper.small { width: 112px; height: 24px; }
+.prop-stepper.small .stepper-button { width: 22px; min-height: 22px; }
 .prop-value { font-variant-numeric: tabular-nums; }
 .prop-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 8px; }
 .section-actions { display: inline-flex; gap: 2px; margin-left: auto; }
@@ -196,7 +205,8 @@ html[data-lib-drag="over"] *, html[data-lib-drag="over"] canvas { cursor: copy !
 .lib-chips .lib-chip:not(:has(.icon)) { grid-template-columns: minmax(0, 1fr); }
 .lib-chips .lib-chip:not(:has(.icon)) span { text-align: center; }
 .mat-current { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; }
-.mat-grid { grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); }
+/* Materials: always three to a row (the panel width shares them out). */
+.mat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .mat-card { height: 82px; justify-content: flex-start; }
 /* Property rows: one label column and one control column for every row. */
 #editors .props { display: grid; grid-template-columns: minmax(84px, 38%) minmax(0, 1fr); column-gap: 8px; row-gap: 4px; padding: 6px 10px; }
@@ -317,3 +327,57 @@ html[data-lib-drag="over"] *, html[data-lib-drag="over"] canvas { cursor: copy !
 /* Entity Info: plan picture (underlay) */
 .underlay-section input[type="range"] { flex: 1; min-width: 0; }
 .underlay-section .prop-actions { flex-wrap: wrap; }
+
+/* The orbit ring's centre: the same blue cube as the rotation centre drawn in 3D. */
+.nav-center.orbit-center { color: #1c7ed6; }
+
+/* ───────────── 2D plan workbench (ui/plan-studio.js): covers the window below the menu bar */
+body.plan-studio-open #menubar .menubar-item { pointer-events: none; opacity: 0.45; }
+.plan-studio { position: fixed; left: 0; right: 0; bottom: 0; z-index: 39; display: flex; flex-direction: column; background: var(--bg); color: var(--text); }
+.ps-toolbar { display: flex; align-items: center; gap: 2px; padding: 4px 8px; background: var(--toolbar); border-bottom: 1px solid var(--border); flex-wrap: nowrap; overflow: hidden; min-height: 50px; }
+.ps-title { display: flex; align-items: center; gap: 8px; padding-right: 6px; min-width: 0; flex: 0 1 auto; }
+.ps-title .icon { width: 24px; height: 24px; }
+.ps-title > span { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.ps-title b { white-space: nowrap; }
+.ps-title small { color: var(--muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-tools, .ps-shows { display: flex; gap: 2px; align-items: center; }
+.ps-toolbar .tool-button.labelled { flex: none; width: auto; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 46px; height: 42px; padding: 2px 6px; }
+.ps-toolbar .tool-button.labelled span { font-size: 11px; line-height: 1.1; white-space: nowrap; }
+.ps-toolbar .tool-button:disabled { opacity: 0.4; }
+.ps-body { flex: 1; display: flex; min-height: 0; }
+.ps-canvas-wrap { position: relative; flex: 1; min-width: 0; overflow: hidden; }
+.ps-canvas { position: absolute; inset: 0; display: block; touch-action: none; }
+.ps-hint { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); max-width: calc(100% - 24px); padding: 4px 12px; border-radius: 999px; background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--border); color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.ps-side { width: 300px; flex: none; overflow-y: auto; border-left: 1px solid var(--border); background: var(--surface); padding: 6px 0 12px; }
+.ps-section { border-bottom: 1px solid var(--border); padding: 6px 10px 10px; }
+.ps-section > header { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 6px; }
+.ps-section > header .badge { margin-left: auto; }
+.ps-section-body { display: flex; flex-direction: column; gap: 6px; }
+.ps-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 28px; }
+.ps-label { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-control { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ps-control input[type="range"] { flex: 1; min-width: 0; }
+.ps-control .ps-text { flex: 1; min-width: 0; }
+.ps-stepper .stepper-value { width: 64px; }
+.ps-stepper .stepper-unit { display: grid; place-items: center; padding: 0 6px; font-style: normal; color: var(--muted); font-size: 11px; border-right: 1px solid var(--border); background: var(--surface); }
+.ps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.ps-grid .button { display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; min-width: 0; }
+.ps-grid .button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-grid .button.primary { grid-column: 1 / -1; justify-content: center; }
+.ps-seg { display: flex; }
+.ps-seg.wrap { flex-wrap: wrap; border: 0; gap: 4px; }
+.ps-seg.wrap .segment { border: 1px solid var(--border); border-radius: 8px; padding: 3px 8px; }
+.ps-seg .segment.active { background: var(--accent); color: var(--accent-text); }
+.ps-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.ps-actions .button { display: inline-flex; align-items: center; gap: 6px; }
+.ps-note { margin: 0; color: var(--muted); font-size: 12px; display: flex; gap: 6px; align-items: flex-start; }
+.ps-note.ok { color: var(--success, var(--muted)); }
+.ps-empty { padding: 10px; }
+.ps-problems { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; }
+.ps-problems button { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; padding: 3px 6px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
+.ps-problems button:hover { background: var(--hover); }
+.ps-foot { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--toolbar); flex-wrap: nowrap; }
+.ps-status { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ps-foot-group { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ps-foot .button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ps-foot .button.primary { padding: 6px 16px; font-weight: 600; }

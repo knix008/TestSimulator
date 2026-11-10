@@ -66,11 +66,19 @@ function libraryCard(app, item) {
 
 // ───────────────────────── materials
 
+/** Icons of the material categories (icons.js mat*). */
+const MATERIAL_ICONS = { wood: 'matWood', floor: 'matFloor', fabric: 'matFabric', leather: 'matLeather', stone: 'matStone', tile: 'matTile', wall: 'matWall', metal: 'matMetal', glass: 'matGlass', paint: 'matPaint', plastic: 'matPlastic', ceramic: 'matCeramic', carpet: 'matCarpet', plant: 'matPlant', other: 'matOther' };
+
 export function materialsHtml(app) {
   const s = app.state;
   const cat = s.materialCategory;
   const list = [...MATERIAL_PRESETS, ...customMaterials()].filter((m) => (cat === 'all' || m.category === cat) && m.id !== 'back-face' && (!s.materialQuery || `${m.ko} ${m.en} ${m.id}`.toLowerCase().includes(s.materialQuery.toLowerCase())));
-  const chips = [['all', t('library.all')], ...MATERIAL_CATEGORIES.map((c) => [c.id, name(c)])].map(([id, label]) => `<button class="lib-chip ${cat === id ? 'active' : ''}" data-mat-category="${id}" aria-pressed="${cat === id}"><span>${escapeHtml(label)}</span></button>`).join('');
+  // Category buttons like the Library's: icon, name (left aligned) and how many materials it holds.
+  const all = [...MATERIAL_PRESETS, ...customMaterials()].filter((m) => m.id !== 'back-face');
+  const counts = {};
+  for (const m of all) counts[m.category] = (counts[m.category] ?? 0) + 1;
+  const chips = [['all', 'matAll', t('library.all'), all.length], ...MATERIAL_CATEGORIES.map((c) => [c.id, MATERIAL_ICONS[c.id] ?? 'matOther', name(c), counts[c.id] ?? 0])]
+    .map(([id, glyph, label, n]) => `<button class="lib-chip ${cat === id ? 'active' : ''}" data-mat-category="${id}" title="${attr(`${label} (${n})`)}" aria-pressed="${cat === id}">${icon(glyph)}<span>${escapeHtml(label)}</span><i>${n}</i></button>`).join('');
   const brush = app.brush();
   return `<div class="mat-current">${swatch(app, brush, true)}<div><b>${escapeHtml(name(presetOf(brush)))}</b><small>${escapeHtml(t('materials.brushHint'))}</small></div>
       <button class="button small" data-command="tool:paint" title="${attr(app.commandTip('tool:paint'))}">${icon('paintBucket')}<span>${escapeHtml(t('tool.paint'))}</span></button></div>
@@ -129,7 +137,17 @@ export function outlinerHtml(app) {
 
 // ───────────────────────── Entity Info (properties)
 
-const numberRow = (label, field, value, units, { step = null, min = null, title = '' } = {}) => `<div class="prop-row" title="${attr(title || label)}"><span class="prop-label"><span>${escapeHtml(label)}</span></span><span class="prop-control unit-input"><input type="text" inputmode="decimal" data-prop="${attr(field)}" value="${attr(value)}" ${step ? `data-step="${step}"` : ''} ${min != null ? `data-min="${min}"` : ''} /><em>${escapeHtml(units)}</em></span></div>`;
+/** Step of a number shown in `units` (lengths in the project's unit, angles, percentages). */
+const STEP_BY_UNIT = { mm: 10, cm: 1, m: 0.01, in: 0.5, ft: 0.1, '°': 5, '%': 5 };
+/**
+ * A number as a stepper: [−] value (centred) unit [+]. The buttons change the value in the box and fire its
+ * change event, so the box's own handler (data-prop, data-level-…) applies it as if it had been typed.
+ */
+export const numberStepper = (inputAttrs, value, units = '', { step = null, min = null, small = false } = {}) => {
+  const d = step ?? STEP_BY_UNIT[units] ?? 1;
+  return `<span class="stepper prop-stepper ${small ? 'small' : ''}" data-stepper><button type="button" class="stepper-button" data-num-step="${-d}" tabindex="-1" aria-label="−${d}">${icon('minus')}</button><input class="stepper-value" type="text" inputmode="decimal" ${inputAttrs} value="${attr(value)}" ${min != null ? `data-min="${min}"` : ''} />${units ? `<em class="stepper-unit">${escapeHtml(units)}</em>` : ''}<button type="button" class="stepper-button" data-num-step="${d}" tabindex="-1" aria-label="+${d}">${icon('plus')}</button></span>`;
+};
+const numberRow = (label, field, value, units, { step = null, min = null, title = '' } = {}) => `<div class="prop-row" title="${attr(title || label)}"><span class="prop-label"><span>${escapeHtml(label)}</span></span><span class="prop-control">${numberStepper(`data-prop="${attr(field)}"`, value, units, { step, min })}</span></div>`;
 const textRow = (label, field, value) => `<div class="prop-row"><span class="prop-label"><span>${escapeHtml(label)}</span></span><span class="prop-control"><input type="text" data-prop="${attr(field)}" value="${attr(value ?? '')}" /></span></div>`;
 const checkRow = (label, field, value) => `<label class="prop-row check"><span class="prop-label"><span>${escapeHtml(label)}</span></span><span class="prop-control"><input type="checkbox" data-prop="${attr(field)}" ${value ? 'checked' : ''} /></span></label>`;
 const selectRow = (label, field, value, options) => `<div class="prop-row"><span class="prop-label"><span>${escapeHtml(label)}</span></span><span class="prop-control"><select data-prop="${attr(field)}">${options.map(([v, l, glyph]) => `<option value="${attr(v)}" ${String(v) === String(value) ? 'selected' : ''} ${glyph ? `data-icon="${glyph}"` : ''}>${escapeHtml(l)}</option>`).join('')}</select></span></div>`;
@@ -415,8 +433,8 @@ export function levelsHtml(app) {
   return section('level', t('editors.levels'), `<div class="tag-list">${[...project.levels].reverse().map((level) => `<div class="tag-row ${project.activeLevel === level.id ? 'active' : ''}">
       <button class="icon-button" data-level-activate="${attr(level.id)}" title="${attr(t('levels.activate'))}">${icon(project.activeLevel === level.id ? 'check' : 'level')}</button>
       <input type="text" data-level-name="${attr(level.id)}" value="${attr(level.name)}" />
-      <span class="unit-input small"><input type="text" data-level-elevation="${attr(level.id)}" value="${attr(formatLength(level.elevation, units, { suffix: false }))}" title="${attr(t('levels.elevation'))}" /></span>
-      <span class="unit-input small"><input type="text" data-level-height="${attr(level.id)}" value="${attr(formatLength(level.height, units, { suffix: false }))}" title="${attr(t('levels.height'))}" /></span>
+      <span title="${attr(t('levels.elevation'))}">${numberStepper(`data-level-elevation="${attr(level.id)}"`, formatLength(level.elevation, units, { suffix: false }), '', { step: STEP_BY_UNIT[units] ? STEP_BY_UNIT[units] * 10 : 100, small: true })}</span>
+      <span title="${attr(t('levels.height'))}">${numberStepper(`data-level-height="${attr(level.id)}"`, formatLength(level.height, units, { suffix: false }), '', { step: STEP_BY_UNIT[units] ? STEP_BY_UNIT[units] * 10 : 100, small: true })}</span>
       <button class="ol-eye" data-level-visible="${attr(level.id)}" title="${attr(t(level.visible === false ? 'outliner.show' : 'outliner.hide'))}">${icon(level.visible === false ? 'eyeOff' : 'eye')}</button>
       ${project.levels.length > 1 ? `<button class="icon-button" data-level-delete="${attr(level.id)}" title="${attr(t('levels.delete'))}">${icon('trash')}</button>` : ''}</div>`).join('')}</div>
     <p class="panel-hint small">${escapeHtml(t('levels.hint', { units }))}</p>`,

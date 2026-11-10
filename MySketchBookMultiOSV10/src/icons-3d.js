@@ -132,6 +132,18 @@ export const ICONS_3D = {
   libWindow: '<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M12 3v18M4 12h16M4 21h16"/>',
   libStructure: '<path d="M3 21V9l9-6 9 6v12"/><path d="M8 21v-7h8v7M3 21h18"/>',
   libOutdoor: '<path d="M12 3a8 8 0 0 1 8 8H4a8 8 0 0 1 8-8z"/><path d="M12 11v10M8 21h8"/>',
+  // ── 2D plan workbench (ui/plan-studio.js)
+  planStudio: '<path d="M3 4h9v9H3z"/><path d="M3 9h4M8 4v3"/><path d="M14 9l7-3v9l-7 3z"/><path d="M14 9l-2-1M14 18l-2-1"/><path d="M12 13v2"/>',
+  studioPassage: '<path d="M4 4v16M20 4v16"/><path d="M4 12h16" stroke-dasharray="2.5 2.5"/><path d="M8 9l-3 3 3 3M16 9l3 3-3 3"/>',
+  studioStraighten: '<rect x="5" y="5" width="14" height="14" rx="1" transform="rotate(-12 12 12)" stroke-dasharray="2.5 2"/><rect x="6" y="6" width="12" height="12" rx="1"/><path d="M19 3a9 9 0 0 1 2 6M21 9l-2.5-.8M21 9l.8-2.4"/>',
+  studioSquare: '<path d="M5 19L18 6" stroke-dasharray="2 2.5"/><path d="M5 19h14M5 19V5"/><path d="M5 15h4v4"/>',
+  studioJoin: '<path d="M3 8h7M14 8h7"/><path d="M10 5l3 3-3 3"/><path d="M3 16h18"/><circle cx="12" cy="16" r="2"/>',
+  studioMerge: '<path d="M3 12h7M14 12h7"/><circle cx="12" cy="12" r="1.6"/><path d="M8 7l4 3 4-3M8 17l4-3 4 3"/>',
+  studioCrumbs: '<path d="M4 6h10M14 6v12"/><path d="M17 4l3 3M20 4l-3 3"/><path d="M6 14h3M7.5 12.5v3"/><path d="M4 20h5"/>',
+  studioDoubleDoor: '<path d="M3 20h18"/><path d="M3 20V12a8 8 0 0 1 8 8M21 20v-8a8 8 0 0 0-8 8"/><path d="M3 20V12M21 20v-8"/>',
+  studioSliding: '<path d="M3 20h18M3 4h18"/><path d="M5 8h8v8H5zM11 10h8v8"/><path d="M15 6l3 0M16.5 4.5L18 6l-1.5 1.5"/>',
+  studioFlip: '<path d="M12 3v18" stroke-dasharray="2 2"/><path d="M9 7L4 17h5zM15 7l5 10h-5z"/>',
+  studioHinge: '<path d="M4 20h16"/><path d="M6 20V8"/><path d="M6 8a12 12 0 0 1 12 12"/><circle cx="6" cy="20" r="2"/><path d="M14 6l3-2M17 4l-.4 3.4"/>',
   libMine: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 9l1 2 2.2.3-1.6 1.6.4 2.2-2-1.1-2 1.1.4-2.2-1.6-1.6L11 11z"/>',
   libAll: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
 };

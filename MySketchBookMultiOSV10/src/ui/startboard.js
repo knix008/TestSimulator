@@ -3,7 +3,7 @@
 // resizes it, a double click on the corner fits it again. The arrangement goes to the settings.
 import { autoArrange, cardsOf, COLS, GAP, layoutValue, compact, place, ROW, rowsFor } from './startlayout.js';
 
-export const START_CARD_SPAN = { hero: 3, actions: 2, recent: 1, templates: 3, samples: 3, theme: 3, background: 3 };
+export const START_CARD_SPAN = { hero: 3, actions: 2, recent: 1, templates: 3, samples: 3, plansamples: 3, theme: 3, background: 3 };
 
 /** Starts the board in `host` (a .start-board). onSave(saved layout). Returns { arrange, destroy }. */
 export function startBoard(host, { saved, onSave, reduced = false }) {

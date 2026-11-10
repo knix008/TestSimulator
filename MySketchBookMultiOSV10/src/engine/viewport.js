@@ -125,8 +125,7 @@ export class Viewport {
     this.sunMarker.visible = false;
     this.overlay.add(this.sunMarker);
     // The orbit centre (SketchUp): shown while the view turns around the point that was pressed.
-    this.pivotMarker = new THREE.Sprite(new THREE.SpriteMaterial({ map: pivotTexture(), depthTest: false, depthWrite: false, transparent: true, toneMapped: false, fog: false }));
-    this.pivotMarker.renderOrder = 22;
+    this.pivotMarker = pivotCube();
     this.pivotMarker.visible = false;
     this.overlay.add(this.pivotMarker);
     this.animation = null;
@@ -855,6 +854,19 @@ export class Viewport {
     }
     const toCam = cam.position.clone().sub(pivot);
     const dist = toCam.length();
+    // Close to what is under the cursor (inside a room) a proportional step would shrink to nothing and the
+    // camera could never get past the wall: below DOLLY_MIN_REACH it moves as if the point were that far,
+    // the view centre travelling with it (the direction stays), so zooming walks on through the building.
+    if (dist < DOLLY_MIN_REACH) {
+      const move = (1 - factor) * DOLLY_MIN_REACH;
+      const dir = toCam.multiplyScalar(-1 / Math.max(dist, 1e-6));
+      cam.position.addScaledVector(dir, move);
+      this.target.addScaledVector(dir, move);
+      const ahead = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 2).negate();
+      if (this.target.clone().sub(cam.position).dot(ahead) < 0.05) this.target.copy(cam.position).addScaledVector(ahead, 1);
+      this.syncCameras();
+      return;
+    }
     const newDist = THREE.MathUtils.clamp(dist * factor, 0.05, 5000);
     cam.position.copy(pivot).addScaledVector(toCam.normalize(), newDist);
     const toTarget = this.target.clone().sub(pivot).multiplyScalar(newDist / Math.max(dist, 1e-6));
@@ -1094,10 +1106,36 @@ export class Viewport {
       this.sunLine.material.dashSize = 8 * perPixelAt(this.sunSprite.position);
       this.sunLine.material.gapSize = 6 * perPixelAt(this.sunSprite.position);
     }
-    if (this.pivotMarker.visible) this.pivotMarker.scale.setScalar(24 * perPixelAt(this.pivotMarker.position));
+    if (this.pivotMarker.visible) this.pivotMarker.scale.setScalar(16 * perPixelAt(this.pivotMarker.position));
     if (!this.lampMarkers.children.length) return;
     const px = 22;
     for (const m of this.lampMarkers.children) m.scale.setScalar(px * perPixelAt(m.position));
+    this.occludeLampMarkers();
+  }
+
+  /**
+   * Lamp markers are drawn over everything (picked before the scene), so in 3D a lamp behind a wall would
+   * show through the building: a marker shows only when the first thing between the camera and it is the
+   * lamp itself (or nothing). The 2D plan shows them all. Re-checked at most every 100 ms while moving.
+   */
+  occludeLampMarkers() {
+    const now = performance.now();
+    if (this.planMode || this.isOrtho) { for (const m of this.lampMarkers.children) m.visible = true; return; }
+    if (now - (this.lampOcclusionAt ?? 0) < 100) { if (!this.lampOcclusionPending) { this.lampOcclusionPending = true; setTimeout(() => { this.lampOcclusionPending = false; this.lampOcclusionAt = 0; this.requestRender(); }, 110); } return; }
+    this.lampOcclusionAt = now;
+    const ray = (this.lampRay ??= Object.assign(new THREE.Raycaster(), { firstHitOnly: true }));
+    const cam = this.camera.position;
+    for (const m of this.lampMarkers.children) {
+      _markerDelta.subVectors(m.position, cam);
+      const far = _markerDelta.length();
+      if (far < 1e-3) { m.visible = true; continue; }
+      ray.set(cam, _markerDelta.divideScalar(far));
+      ray.far = far;
+      // Raycasts ignore visibility: hidden levels, tags and lines do not hide a lamp.
+      const hit = ray.intersectObject(this.content, true).find((h) => !h.object.isLine && !h.object.isLineSegments && !h.object.isPoints && visibleUp(h.object));
+      const id = hit ? entityOf(hit.object)?.id : null;
+      m.visible = !hit || id === m.userData.entityId || hit.distance > far - 0.02;
+    }
   }
 
   /** The lamp marker (or the sun) under the cursor, as a pick result. */
@@ -1111,6 +1149,7 @@ export class Viewport {
     if (!this.lampMarkers.visible || !this.lampMarkers.children.length) return null;
     for (const hit of raycaster.intersectObjects(this.lampMarkers.children, false)) {
       const o = hit.object;
+      if (!o.visible) continue; // behind the model (occludeLampMarkers)
       const entity = { id: o.userData.entityId, kind: 'object', object: o, lamp: true };
       if (filter && !filter(entity, o, hit)) continue;
       return { object: o, entity, point: o.position.clone(), normal: new THREE.Vector3(0, 1, 0), faceIndex: null, distance: hit.distance, lamp: true };
@@ -1257,7 +1296,10 @@ export class Viewport {
     this.selectionHelpers.visible = false;
     this.grid.visible = false;
     this.axes.visible = false;
-    if (transparent) this.sky.visible = false;
+    // Transparent: no sky, no ground plane, and a clear colour with alpha 0 (the model alone keeps its pixels).
+    const savedClearAlpha = this.renderer.getClearAlpha();
+    const groundVisible = this.ground?.visible;
+    if (transparent) { this.sky.visible = false; if (this.ground) this.ground.visible = false; this.renderer.setClearAlpha(0); }
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(width, height, false);
     this.composer.setPixelRatio(1);
@@ -1277,6 +1319,8 @@ export class Viewport {
     this.selectionHelpers.visible = true;
     this.helpers.visible = helpersVisible;
     this.sky.visible = true;
+    if (this.ground) this.ground.visible = groundVisible;
+    this.renderer.setClearAlpha(savedClearAlpha);
     this.resolutionScale = savedScale;
     this.width = savedW; this.height = savedH;
     this.applySettings();
@@ -1346,21 +1390,21 @@ class GpuTimer {
 
 /** Sun marker icon: a shining sun (day, on) or a grey disc with a slash (off or below the horizon). */
 const SUN_TEXTURES = {};
-/** The orbit centre: a ring with a dot (white outline, readable on light and dark surfaces). */
-let PIVOT_TEXTURE = null;
-function pivotTexture() {
-  if (PIVOT_TEXTURE) return PIVOT_TEXTURE;
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const g = c.getContext('2d');
-  const ring = (color, width, r) => { g.strokeStyle = color; g.lineWidth = width; g.beginPath(); g.arc(32, 32, r, 0, Math.PI * 2); g.stroke(); };
-  ring('#ffffff', 9, 22); ring('#1c7ed6', 4, 22);
-  g.fillStyle = '#ffffff'; g.beginPath(); g.arc(32, 32, 8, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#1c7ed6'; g.beginPath(); g.arc(32, 32, 5, 0, Math.PI * 2); g.fill();
-  PIVOT_TEXTURE = new THREE.CanvasTexture(c);
-  PIVOT_TEXTURE.colorSpace = THREE.SRGBColorSpace;
-  return PIVOT_TEXTURE;
+/** The orbit centre (SketchUp): a small cube — translucent faces and crisp edges, drawn over everything, 1 unit wide (scaled to pixels per frame). */
+function pivotCube() {
+  const geo = new THREE.BoxGeometry(1, 1, 1);
+  const faces = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#1c7ed6', transparent: true, opacity: 0.35, depthTest: false, depthWrite: false, toneMapped: false, fog: false }));
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: '#1864ab', depthTest: false, depthWrite: false, toneMapped: false, fog: false }));
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), new THREE.MeshBasicMaterial({ color: '#ffffff', depthTest: false, depthWrite: false, toneMapped: false, fog: false }));
+  for (const [o, order] of [[faces, 22], [edges, 23], [dot, 24]]) o.renderOrder = order;
+  const group = new THREE.Group();
+  group.add(faces, edges, dot);
+  group.name = 'orbitPivot';
+  return group;
 }
+
+/** Zooming moves at least as fast as if the point under the cursor were this far (metres): see dolly. */
+const DOLLY_MIN_REACH = 2.5;
 
 /** Dragging never takes the sun below this altitude (night is the day/night switch, as in MyArchitecture). */
 const SUN_MIN_DRAG_ALTITUDE = 2;

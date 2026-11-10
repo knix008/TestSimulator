@@ -77,6 +77,7 @@ export function defaultSettings(language = 'ko') {
     startShowRecent: true,
     startShowFolders: true,
     startShowSamples: true,
+    startShowPlanSamples: true,
     startShowBackground: true,
     startShowTutorialBanner: true,
     startRecentCount: 8,
@@ -105,6 +106,10 @@ export function defaultSettings(language = 'ko') {
     showSunMarker: true,
     showRulers: true,
     showScaleBar: true,
+    // 2D plan: walls (and columns) cut by the plan are filled with a colour ('color', black by default) or
+    // their 3D finish ('material').
+    planWallFill: 'color',
+    planWallColor: '#000000',
     // Wall dimensions of the active level in the 2D plan and 3D (toolbar: Dimensions).
     showPlanDims: true,
     // Where the user dragged the scale bar (fractions of the view; null = bottom left).
@@ -210,7 +215,7 @@ export function normalizeSettings(raw = {}, language) {
   s.autoSaveMinutes = [0, 1, 5, 10, 30].includes(Number(s.autoSaveMinutes)) ? Number(s.autoSaveMinutes) : 0;
   for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showBottomPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showGrid', 'showAxes', 'showLampMarkers', 'showSunMarker', 'showRulers', 'showScaleBar',
     'snapToGrid', 'inference', 'antialias', 'ambientOcclusion', 'shadows', 'showFps', 'showEdges', 'showProfiles', 'invertZoom', 'explorerSort', 'toolboxCompact', 'tutorialOffered', 'showWelcome', 'tutorialDone', 'animationOnStartOnly',
-    'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner']) {
+    'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowPlanSamples', 'startShowBackground', 'startShowTutorialBanner']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];
   }
   // The bottom panel was off by default in early builds: shown once for everybody, then the user decides.

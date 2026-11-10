@@ -55,10 +55,10 @@ export function planEntities(result, { level, shift = [0, 0], elevation = 0, kee
     const cc = mv([c.cx, c.cz]);
     return { id: curveIds.get(c.id), cx: cc[0], cz: cc[1], r: c.r, a0: c.a0, a1: c.a1 };
   };
-  const walls = result.walls.map((w) => ({ id: newId('w'), level, a: mv(w.a), b: mv(w.b), thickness: w.thickness, height: null, material: {}, ...(w.curve ? { curve: curveOf(w.curve) } : {}) }));
+  const walls = result.walls.map((w) => ({ id: newId('w'), level, a: mv(w.a), b: mv(w.b), thickness: w.thickness, height: null, material: {}, ...(w.curve ? { curve: curveOf(w.curve) } : {}), ...(w.keep ?? {}) }));
   const openings = result.openings.filter((op) => walls[op.wall]).map((op) => ({
     id: newId('op'), wall: walls[op.wall].id, item: op.item, offset: op.offset, width: op.width, height: op.height, sill: op.sill,
-    flip: false, side: op.side ?? 'left', params: op.hinge ? { hinge: op.hinge } : {}, ...(op.kind ? { kind: op.kind } : {}),
+    flip: false, side: op.side ?? 'left', params: op.hinge ? { hinge: op.hinge } : {}, ...(op.kind ? { kind: op.kind } : {}), ...(op.keep ?? {}),
   }));
   // Rooms: seeds beside every wall and at every label; the smallest wall cycle around each, once.
   const rooms = [];
@@ -86,7 +86,8 @@ export function planEntities(result, { level, shift = [0, 0], elevation = 0, kee
     if (polygonArea(points) < 0.8) continue;
     const labels = texts.filter((t) => pointInPolygon(t.p, points)).sort((a, b) => b.height - a.height);
     const name = labels.length ? labels[0].text : '';
-    rooms.push({ id: newId('rm'), level, name, points, floor: floorForName(name), ceiling: 'wall-paint-white', showCeiling: false });
+    // A floor cleaned up again in 2D (plan-draft.js fromProject): the room keeps its finishes through its label.
+    rooms.push({ id: newId('rm'), level, name, points, floor: floorForName(name), ceiling: 'wall-paint-white', showCeiling: false, ...(labels[0]?.keep ?? {}) });
   }
   // Rooms with no label (pictures): a guess from size and shape, for the caller to name (roomNames).
   const largest = Math.max(0, ...rooms.map((r) => polygonArea(r.points)));

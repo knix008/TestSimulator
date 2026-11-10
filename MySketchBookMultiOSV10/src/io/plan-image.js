@@ -433,8 +433,24 @@ function joinNeighbours(list, gap) {
  * A tilted picture (a scan, a photo, a plan drawn at an angle; up to ±45°) is turned square first and the walls
  * found are turned back, so they lie on the picture.
  */
+/**
+ * Mostly dark pictures (a blueprint, a dark-mode screen capture: light lines on a dark ground) as dark lines on a
+ * light ground, which is what the wall detection reads. Returns the picture itself when it is light already.
+ */
+export function lightGround(image) {
+  const { data, width: w, height: h } = image;
+  const gray = toGrayscale(data, w, h);
+  let sum = 0;
+  for (let i = 0; i < gray.length; i += 7) sum += gray[i];
+  if (sum / Math.ceil(gray.length / 7) >= 110) return image;
+  const out = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i += 4) { out[i] = 255 - data[i]; out[i + 1] = 255 - data[i + 1]; out[i + 2] = 255 - data[i + 2]; out[i + 3] = data[i + 3] ?? 255; }
+  return { ...image, data: out, inverted: true };
+}
+
 export function detectImageWalls(image, { metresPerPixel, method = 'outline', edgeThreshold = 0.25, minThickness = 0.09, maxThickness = 0.45, deskew = true } = {}) {
   const m = metresPerPixel;
+  image = lightGround(image);
   let work = image; let back = (p) => p; let angle = 0;
   if (deskew) {
     angle = dominantAngle(image);

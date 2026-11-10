@@ -114,14 +114,14 @@ export class Kit {
   /** Sharp-ish box with a tiny bevel (2 mm by default) so edges catch highlights. */
   box(role, mat, w, h, d, x = 0, y = 0, z = 0, o = {}) {
     const r = o.r ?? 0.002;
-    const geo = r > 0 && this.hi ? new RoundedBoxGeometry(w, h, d, o.segs ?? 1, Math.min(r, w / 2.01, h / 2.01, d / 2.01)) : new THREE.BoxGeometry(w, h, d);
+    const geo = r > 0 && this.hi ? roundedBox(w, h, d, o.segs ?? 1, Math.min(r, w / 2.01, h / 2.01, d / 2.01)) : new THREE.BoxGeometry(w, h, d);
     return this.add(role, mat, T(geo, x, y, z, o.rx ?? 0, o.ry ?? 0, o.rz ?? 0), o);
   }
 
   /** Soft rounded box (cushions, upholstered panels). */
   rbox(role, mat, w, h, d, r, x = 0, y = 0, z = 0, o = {}) {
     const segs = o.segs ?? this.seg(4, 1);
-    const geo = new RoundedBoxGeometry(w, h, d, segs, Math.min(r, w / 2.01, h / 2.01, d / 2.01));
+    const geo = roundedBox(w, h, d, segs, Math.min(r, w / 2.01, h / 2.01, d / 2.01));
     if (o.puff) puff(geo, w, h, d, o.puff);
     return this.add(role, mat, T(geo, x, y, z, o.rx ?? 0, o.ry ?? 0, o.rz ?? 0), o);
   }
@@ -324,12 +324,32 @@ export function roundedPath(points, r, steps = 6) {
 
 /* ------------------------------------------------------- soft geometry */
 
+// Furniture repeats the same pieces (cushions, panels, bevelled boards): rounded and soft boxes are built
+// once per size and copied after that (a copy is far cheaper than building and welding the vertices again).
+const GEOMETRY_CACHE = new Map();
+const GEOMETRY_CACHE_MAX = 600;
+function cachedGeometry(key, build) {
+  let geo = GEOMETRY_CACHE.get(key);
+  if (!geo) {
+    geo = build();
+    if (GEOMETRY_CACHE.size >= GEOMETRY_CACHE_MAX) GEOMETRY_CACHE.delete(GEOMETRY_CACHE.keys().next().value);
+    GEOMETRY_CACHE.set(key, geo);
+  }
+  return geo.clone();
+}
+const roundedBox = (w, h, d, segs, r) => cachedGeometry(`rbox|${w}|${h}|${d}|${segs}|${r}`, () => new RoundedBoxGeometry(w, h, d, segs, r));
+
+
 /**
  * Rounded box with `round` segments across each rounded edge and `flat` segments across the
  * flat part of each face; smooth normals across the face seams. `puff` bulges the faces,
  * `sag` dips the top centre (a sat-in seat).
  */
 export function softBoxGeo(w, h, d, r, { round = 3, flat = 5, puff: amount = 0, sag = 0 } = {}) {
+  return cachedGeometry(`soft|${w}|${h}|${d}|${r}|${round}|${flat}|${amount}|${sag}`, () => buildSoftBox(w, h, d, r, round, flat, amount, sag));
+}
+
+function buildSoftBox(w, h, d, r, round, flat, amount, sag) {
   r = Math.max(0.0005, Math.min(r, w / 2.01, h / 2.01, d / 2.01));
   const n = 2 * round + flat;
   const g = new THREE.BoxGeometry(2, 2, 2, n, n, n);

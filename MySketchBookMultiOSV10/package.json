@@ -28,6 +28,7 @@
     "tutorial:docs": "node scripts/tutorial-capture.mjs docs",
     "tutorial:video": "node scripts/tutorial-capture.mjs video",
     "samples": "node scripts/make-samples.mjs",
+    "samples:plans2d": "node scripts/make-plan-image-samples.mjs",
     "build:icons": "node scripts/render-icons.mjs",
     "assets": "node scripts/fetch-assets.mjs",
     "notices": "node scripts/make-notices.mjs"

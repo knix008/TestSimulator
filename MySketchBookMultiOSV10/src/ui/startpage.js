@@ -8,6 +8,7 @@ import { animationIcon, icon } from '../icons.js';
 import { t, getLanguage } from '../i18n.js';
 import { TEMPLATES } from '../engine/templates.js';
 import { SAMPLE_GROUPS, SAMPLE_PROJECTS } from '../engine/samples.js';
+import PLAN_SAMPLES from '../../samples/plan-images/index.json';
 import { ANIMATION_KINDS } from './background.js';
 import { baseName } from '../domain/paths.js';
 import { ANIMATION_INTERVALS } from '../domain/settings.js';
@@ -74,6 +75,23 @@ function samplesBody(L) {
   }).join('')}</div>`;
 }
 
+/** Every 2D sample (pictures first, then the CAD / PDF drawings): { id, file, format, title, note, hard, widthMetres }. */
+export const planSamples = () => [...PLAN_SAMPLES.pictures, ...PLAN_SAMPLES.drawings];
+
+/**
+ * 2D samples: plan pictures in many styles and formats and CAD / PDF drawings. A click imports one (File › Import floor
+ * plan…) — the plan is cleaned up in the 2D workbench and then converted to 3D.
+ */
+function planSamplesBody(L) {
+  const lang = L === 'en' ? 1 : 0;
+  const tileOf = (s) => `<button type="button" class="plan-sample-tile" data-start="plan-sample" data-value="${escapeHtml(s.id)}" title="${escapeHtml(`${s.title[lang]} — ${s.note[lang]}`)}">
+      <span class="plan-sample-thumb"><img src="./plan-samples/thumbs/${escapeHtml(s.id)}.webp" alt="" loading="lazy" draggable="false" /><i class="plan-sample-format">${escapeHtml(s.format.toUpperCase())}</i>${s.hard ? `<i class="plan-sample-hard">${escapeHtml(t('start.planSampleHard'))}</i>` : ''}</span>
+      <b>${escapeHtml(s.title[lang])}</b><small>${escapeHtml(s.note[lang])}</small></button>`;
+  const group = (id, glyph, label, items) => `<section class="sample-group" data-plan-sample-group="${id}"><h3>${icon(glyph)}<span>${escapeHtml(label)}</span><span class="sample-count">${items.length}</span></h3><div class="plan-sample-tiles">${items.map(tileOf).join('')}</div></section>`;
+  return `<p class="plan-sample-hint">${icon('planStudio')}<span>${escapeHtml(t('start.planSamplesHint'))}</span></p>
+    <div class="sample-groups">${group('pictures', 'picture', t('start.planSamplePictures'), PLAN_SAMPLES.pictures)}${group('drawings', 'plan2d', t('start.planSampleDrawings'), PLAN_SAMPLES.drawings)}</div>`;
+}
+
 function themeBody(settings, L) {
   const themeTile = (theme) => `<button type="button" role="radio" aria-checked="${settings.theme === theme.id}" class="bg-tile st-theme-tile ${settings.theme === theme.id ? 'on' : ''}" data-start="pick-theme" data-value="${theme.id}" title="${escapeHtml(theme.name[L])}">
     <span class="st-theme-chip" aria-hidden="true" style="background:${theme.swatch[0]};border-color:${theme.swatch[2]}"><i style="background:${theme.swatch[1]}"></i><i style="background:${theme.swatch[2]}"></i></span><span>${escapeHtml(theme.name[L])}</span></button>`;
@@ -119,6 +137,7 @@ export function startPageHtml(app) {
     settings.startShowRecent === false && settings.startShowFolders === false ? '' : card('recent', 'recent', t('start.recentCard'), recentBody(app, settings)),
     card('templates', 'fileNew', t('start.new'), templates, { extra: `<span class="start-card-note">${TEMPLATES.length}</span>` }),
     settings.startShowSamples === false ? '' : card('samples', 'samples', t('start.samples'), samplesBody(L), { extra: `<span class="start-card-note">${SAMPLE_PROJECTS.length}</span>` }),
+    settings.startShowPlanSamples === false ? '' : card('plansamples', 'planStudio', t('start.planSamples'), planSamplesBody(L), { extra: `<span class="start-card-note">${planSamples().length}</span>` }),
     // Themes are chosen from the toolbar and Settings; the start page keeps to starting work.
     settings.startShowBackground === false ? '' : card('background', 'sparkles', t('start.background'), backgroundBody(settings)),
   ];

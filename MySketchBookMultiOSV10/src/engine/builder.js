@@ -25,8 +25,33 @@ const GeoMesh = () => Object.values(modelingModules)[0]?.GeoMesh ?? null;
 
 const EDGE_COLOR = '#1d232b';
 const edgeMaterial = new THREE.LineBasicMaterial({ color: EDGE_COLOR, transparent: true, opacity: 0.55 });
-const cutMaterial = new THREE.MeshBasicMaterial({ color: '#2b2f36', side: THREE.DoubleSide });
-cutMaterial.userData.keepStyle = true;
+/** Flat plan-cut fills by colour (unlit, kept through the display styles). */
+const CUT_MATERIALS = new Map();
+function cutColorMaterial(color) {
+  let m = CUT_MATERIALS.get(color);
+  if (!m) {
+    m = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, toneMapped: false });
+    m.userData.keepStyle = true;
+    CUT_MATERIALS.set(color, m);
+  }
+  return m;
+}
+
+/** A plan cut face: the footprint [[x, z], …] as a horizontal face at height y, facing up (lit like a wall top). */
+function planCutGeometry(footprint, y) {
+  const tris = ShapeUtils.triangulateShape(footprint.map(([x, z]) => new THREE.Vector2(x, z)), []);
+  // Wound counter-clockwise seen from above, so the face (and its lighting) points up.
+  const index = tris.flatMap(([i, j, k]) => {
+    const [ax, az] = footprint[i]; const [bx, bz] = footprint[j]; const [cx, cz] = footprint[k];
+    return (bx - ax) * (cz - az) - (bz - az) * (cx - ax) < 0 ? [i, j, k] : [i, k, j];
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(footprint.flatMap(([x, z]) => [x, y, z]), 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(footprint.flatMap(() => [0, 1, 0]), 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(footprint.flatMap(([x, z]) => [x, z]), 2));
+  g.setIndex(index);
+  return g;
+}
 
 export class SceneBuilder {
   constructor(viewport, { settings, onAsync } = {}) {
@@ -70,12 +95,17 @@ export class SceneBuilder {
       const ids = new Set(walls.map((w) => w.id));
       const openings = project.openings.filter((o) => ids.has(o.wall));
       const columns = columnsOf(project, level.id).filter((o) => !o.hidden);
-      const key = JSON.stringify([level.elevation, level.height, walls, openings.map((o) => [o.wall, o.offset, o.width, o.height, o.sill]), columns.map((o) => [o.position, o.rotation, o.scale, o.params])]);
+      // Walls go up through the floor slab to the level above when that level is shown (else the slab
+      // band between the storeys would be an open gap and the floors would look as if they floated).
+      const above = project.levels.filter((l) => l.elevation > level.elevation + 0.01 && !hiddenLevels.has(l.id)).sort((a, b) => a.elevation - b.elevation)[0];
+      const gap = above && !hiddenLevels.has(level.id) ? above.elevation - (level.elevation + level.height) : 0;
+      const slabUp = gap > 0.005 && gap <= 1 ? Math.round(gap * 1000) / 1000 : 0;
+      const key = JSON.stringify([level.elevation, level.height, slabUp, walls, openings.map((o) => [o.wall, o.offset, o.width, o.height, o.sill]), columns.map((o) => [o.position, o.rotation, o.scale, o.params])]);
       const prev = this.wallKeys.get(level.id);
       if (prev !== key) {
         this.removeWhere(this.groups.walls, (o) => o.userData.level === level.id);
         this.removeWhere(this.groups.cuts, (o) => o.userData.level === level.id);
-        this.buildWalls(project, level, walls, openings);
+        this.buildWalls(project, level, walls, openings, slabUp);
         this.buildColumnCuts(level, columns);
         this.wallKeys.set(level.id, key);
         changed = true;
@@ -186,13 +216,14 @@ export class SceneBuilder {
 
   // ───────────────────────── walls
 
-  buildWalls(project, level, walls, openings) {
+  /** slabUp: metres the walls of default height continue up through the floor slab of the level above. */
+  buildWalls(project, level, walls, openings, slabUp = 0) {
     if (!walls.length) return;
     const corners = wallCorners(walls);
     const footprints = wallFootprints(walls, corners);
     for (const wall of walls) {
       if (wallLength(wall) < 1e-4) continue;
-      const height = wall.height ?? level.height;
+      const height = wall.height ?? level.height + slabUp;
       const data = wallMesh(wall, { corners, openings, height, base: level.elevation });
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
@@ -223,31 +254,39 @@ export class SceneBuilder {
       this.groups.walls.add(mesh);
       this.viewport.applyStyle(mesh);
 
-      // The cut face for plan views: the footprint at the cut height, dark.
-      const fp = footprints.get(wall.id);
-      const shape = fp.map(([x, z]) => new THREE.Vector2(x, z));
-      const tris = ShapeUtils.triangulateShape(shape, []);
-      const cg = new THREE.BufferGeometry();
-      cg.setAttribute('position', new THREE.Float32BufferAttribute(fp.flatMap(([x, z]) => [x, level.elevation + Math.min(height, 1.2) - 0.002, z]), 3));
-      cg.setIndex(tris.flat());
-      const cut = new THREE.Mesh(cg, cutMaterial);
-      cut.userData = { level: level.id, ownsGeometry: true, noPick: true, helper: true, alwaysVisible: true };
+      // The cut face for plan views: the footprint at the cut height, filled as Settings say (planCutMaterial).
+      const cut = new THREE.Mesh(planCutGeometry(footprints.get(wall.id), level.elevation + Math.min(height, 1.2) - 0.002));
+      cut.userData = { level: level.id, ownsGeometry: true, noPick: true, helper: true, alwaysVisible: true, finish: slotMaterial.top };
       this.groups.cuts.add(cut);
+      this.fillCut(cut);
     }
   }
 
-  /** Plan cut faces of the level's structural columns (dark like the walls' cut). */
+  /**
+   * The fill of a plan cut face (walls and columns in the 2D plan), from settings().planWall:
+   * { mode: 'color', color } — one flat colour (default black, as drawings are) — or { mode: 'material' } — the
+   * wall's own finish, as it looks in 3D.
+   */
+  fillCut(cut) {
+    const fill = this.settings().planWall ?? { mode: 'color', color: '#000000' };
+    if (fill.mode === 'material') { cut.material = getMaterial(cut.userData.finish ?? 'wall-paint-white'); this.viewport.applyStyle(cut); return; }
+    cut.material = cutColorMaterial(fill.color ?? '#000000');
+  }
+
+  /** Settings changed: every plan cut face is filled again (no wall is rebuilt). */
+  refillCuts() {
+    for (const cut of this.groups.cuts.children) this.fillCut(cut);
+    this.viewport.requestRender();
+  }
+
+  /** Plan cut faces of the level's structural columns (filled like the walls' cut). */
   buildColumnCuts(level, columns) {
     for (const o of columns) {
-      const fp = columnFootprint(o);
       const y = level.elevation + Math.min(level.height, 1.2) - 0.001;
-      const tris = ShapeUtils.triangulateShape(fp.map(([x, z]) => new THREE.Vector2(x, z)), []);
-      const cg = new THREE.BufferGeometry();
-      cg.setAttribute('position', new THREE.Float32BufferAttribute(fp.flatMap(([x, z]) => [x, y, z]), 3));
-      cg.setIndex(tris.flat());
-      const cut = new THREE.Mesh(cg, cutMaterial);
-      cut.userData = { level: level.id, ownsGeometry: true, noPick: true, helper: true, alwaysVisible: true, column: o.id };
+      const cut = new THREE.Mesh(planCutGeometry(columnFootprint(o), y));
+      cut.userData = { level: level.id, ownsGeometry: true, noPick: true, helper: true, alwaysVisible: true, column: o.id, finish: Object.values(o.materials ?? {})[0] ?? 'concrete' };
       this.groups.cuts.add(cut);
+      this.fillCut(cut);
     }
   }
 

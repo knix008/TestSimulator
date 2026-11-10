@@ -9,8 +9,9 @@ import { ko as koPrint, en as enPrint } from './i18n/print3d.js';
 import { ko as koStairs, en as enStairs } from './i18n/stairs3d.js';
 import { ko as koImport, en as enImport } from './i18n/import3d.js';
 import { ko as koPlans, en as enPlans } from './i18n/plans3d.js';
+import { ko as koStudio, en as enStudio } from './i18n/studio3d.js';
 
-export const DICTIONARIES = { ko: { ...ko, ...ko3d, ...koExtra, ...koPrint, ...koStairs, ...koImport, ...koPlans }, en: { ...en, ...en3d, ...enExtra, ...enPrint, ...enStairs, ...enImport, ...enPlans } };
+export const DICTIONARIES = { ko: { ...ko, ...ko3d, ...koExtra, ...koPrint, ...koStairs, ...koImport, ...koPlans, ...koStudio }, en: { ...en, ...en3d, ...enExtra, ...enPrint, ...enStairs, ...enImport, ...enPlans, ...enStudio } };
 let language = 'ko';
 
 export function setLanguage(value) {

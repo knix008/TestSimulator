@@ -103,12 +103,19 @@ export class SelectTool extends Tool {
   get cursor() { return 'default'; }
 
   activate() { this.hotGrip = null; this.lastGrip = null; drawWallGrips(this.app, this); }
-  deactivate() { this.app.overlay.reset(); this.gripDrag = null; }
+  deactivate() { this.app.overlay.reset(); this.gripDrag = null; this.rotDrag = null; }
   hint() { return wallGrips(this.app).length ? 'hint.wallGrip' : super.hint(); }
 
   down(e) {
     const app = this.app;
     this.lastGrip = null;
+    // The selected furniture's rotation grip: drag to turn it about its centre.
+    const turn = rotateGripAt(app, e);
+    if (turn) {
+      this.press = { x: e.clientX, y: e.clientY, grip: true };
+      this.rotDrag = { ...turn, startAngle: angleAround(turn, this.planAt(e, turn.world)), applied: 0, unwrapped: 0, last: null, started: false };
+      return;
+    }
     // Grips of the selected wall come before anything in the scene.
     const grip = gripAt(app, e);
     if (grip) {
@@ -137,6 +144,33 @@ export class SelectTool extends Tool {
     }
   }
 
+  /** The pointer on the horizontal plane through `point` (a world point), as a plan point. */
+  planAt(e, point) {
+    const p = this.app.viewport.screenToWorldOnPlane(e.clientX, e.clientY, point, new THREE.Vector3(0, 1, 0));
+    return p ? planOf(p) : null;
+  }
+
+  /** Turning the selection with its rotation grip: whole 15° steps, Shift turns freely. */
+  dragRotate(e) {
+    const app = this.app;
+    const r = this.rotDrag;
+    if (!r.started && Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) < 3) return;
+    const p = this.planAt(e, r.world);
+    if (!p || r.startAngle == null) return;
+    r.started = true;
+    // Unwrapped angle since the press (turning past ±180° keeps counting).
+    const a = angleAround(r, p);
+    if (r.last != null) { let d = a - r.last; if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; r.unwrapped += d; } else r.unwrapped = a - r.startAngle;
+    r.last = a;
+    const step = Math.PI / 12;
+    const target = e.shiftKey ? r.unwrapped : Math.round(r.unwrapped / step) * step;
+    if (Math.abs(target - r.applied) > 1e-9) { app.rotateEntities(r.ids, r.center, target - r.applied); r.applied = target; }
+    const deg = Math.round((r.applied * 180) / Math.PI * 10) / 10;
+    app.overlay.label('grip', r.world, `${deg > 0 ? '+' : ''}${deg}°`, { kind: 'length', dx: 14, dy: -26 });
+    app.setVcb('vcb.angle', String(deg));
+    drawWallGrips(app, this);
+  }
+
   /** The pointer on the horizontal plane through a grip, as a plan point. */
   gripPlane(e, grip) {
     const p = this.app.viewport.screenToWorldOnPlane(e.clientX, e.clientY, grip.world, new THREE.Vector3(0, 1, 0));
@@ -146,6 +180,7 @@ export class SelectTool extends Tool {
   move(e) {
     const app = this.app;
     if (this.gripDrag) { this.dragGrip(e); return; }
+    if (this.rotDrag) { this.dragRotate(e); return; }
     if (this.sunDrag) {
       if (!this.sunDrag.moved && Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) < 3) return;
       this.sunDrag.moved = true;
@@ -181,6 +216,7 @@ export class SelectTool extends Tool {
       return;
     }
     if (!this.press) {
+      if (rotateGripAt(app, e)) { app.setHover(null); app.viewport.canvas.style.cursor = 'grab'; return; }
       const grip = gripAt(app, e);
       if ((grip?.kind ?? null) !== (this.hotGrip ?? null)) { this.hotGrip = grip?.kind ?? null; drawWallGrips(app, this); }
       if (grip) { app.setHover(null); app.viewport.canvas.style.cursor = grip.kind === 'mid' ? 'move' : 'crosshair'; return; }
@@ -248,6 +284,14 @@ export class SelectTool extends Tool {
     const app = this.app;
     const press = this.press;
     this.press = null;
+    if (this.rotDrag) {
+      const r = this.rotDrag;
+      this.rotDrag = null;
+      app.overlay.clearLabel('grip');
+      if (r.started && Math.abs(r.applied) > 1e-9) app.commit('op.rotate', ['objects', 'models']);
+      drawWallGrips(app, this);
+      return;
+    }
     if (this.gripDrag) {
       const g = this.gripDrag;
       this.gripDrag = null;
@@ -341,6 +385,15 @@ export class SelectTool extends Tool {
 
   key(e) {
     const app = this.app;
+    if (this.rotDrag) {
+      if (e.key !== 'Escape') return false;
+      const r = this.rotDrag;
+      if (r.applied) app.rotateEntities(r.ids, r.center, -r.applied);
+      this.rotDrag = null; this.press = null;
+      app.overlay.clearLabel('grip');
+      drawWallGrips(app, this);
+      return true;
+    }
     if (this.gripDrag) {
       if (e.key === 'Escape') {
         restorePlan(app.project(), this.gripDrag.snap);
@@ -394,6 +447,57 @@ export function wallGrips(app) {
   return [['a', wall.a], ['b', wall.b], ...(short ? [] : [['mid', mid]])].map(([kind, p]) => ({ kind, wall, plan: [p[0], p[1]], world: v3(p[0], y, p[1]) }));
 }
 
+// ───────────────────────── rotation grip (selected furniture)
+
+/** Screen pixels between the furniture's outline and its rotation grip. */
+const ROTATE_GRIP_PX = 30;
+
+/**
+ * The rotation grip of the selection when it is only furniture / models (none locked): { ids, center, world }
+ * — in front of the piece (its own front, +Z turned with it) on its top in 3D, on the floor in the 2D plan.
+ */
+export function rotateGrip(app) {
+  const ids = app.selection?.() ?? [];
+  if (!ids.length || !app.builder) return null;
+  if (!ids.every((id) => ['object', 'model'].includes(app.kindOf(id)) && !app.isLocked(id))) return null;
+  const box = new THREE.Box3();
+  for (const id of ids) { const b = app.builder.worldBox(id); if (b) box.union(b); }
+  if (box.isEmpty()) return null;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const one = ids.length === 1 ? app.builder.objectOf?.(ids[0]) : null;
+  const ry = one ? new THREE.Euler().setFromQuaternion(one.getWorldQuaternion(new THREE.Quaternion()), 'YXZ').y : 0;
+  const y = app.viewport.planMode ? app.level().elevation + 0.02 : box.max.y + 0.01;
+  const at = new THREE.Vector3(center.x, y, center.z);
+  const reach = Math.max(size.x, size.z) / 2 + ROTATE_GRIP_PX * app.viewport.pixelSizeAt(at);
+  const world = at.clone().add(new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry)).multiplyScalar(reach));
+  return { ids, center: new THREE.Vector3(center.x, y, center.z), world };
+}
+
+/** Angle of a plan point around the grip's centre, counter-clockwise from above (rotateEntities' sense). */
+function angleAround(grip, p) {
+  if (!p) return null;
+  return Math.atan2(-(p[1] - grip.center.z), p[0] - grip.center.x);
+}
+
+function rotateGripAt(app, e) {
+  if (!(app.viewport && app.selection?.().length)) return null;
+  const g = rotateGrip(app);
+  if (!g) return null;
+  const s = app.viewport.worldToScreen(g.world);
+  return Math.hypot(s.x - e.clientX, s.y - e.clientY) <= GRIP_PX + 2 ? g : null;
+}
+
+function drawRotateGrip(app, tool) {
+  const overlay = app.overlay;
+  const g = tool instanceof SelectTool ? rotateGrip(app) : null;
+  if (!g) { for (const n of ['rgrip-line', 'rgrip-ring', 'rgrip-fill']) overlay.clear(n); return; }
+  overlay.lines('rgrip-line', [g.center, g.world], { color: '#f08c00', dashed: true });
+  overlay.points('rgrip-ring', [g.world], { color: '#f08c00', size: 15 });
+  overlay.points('rgrip-fill', [g.world], { color: '#ffffff', size: 8 });
+  for (const [n, order] of [['rgrip-ring', 22], ['rgrip-fill', 23], ['rgrip-line', 21]]) { const o = overlay.layers.get(n)?.object; if (o) { o.renderOrder = order; o.userData.noPick = true; } }
+}
+
 /** The grip under the pointer (within GRIP_PX on screen), the nearest one. */
 function gripAt(app, e) {
   let best = null;
@@ -414,6 +518,7 @@ function gripAt(app, e) {
 export function drawWallGrips(app, tool) {
   const overlay = app.overlay;
   if (!overlay) return;
+  drawRotateGrip(app, tool);
   const grips = tool instanceof SelectTool && !tool.gripDrag?.started ? wallGrips(app) : [];
   const layer = (name, list, color, size, order) => {
     overlay.points(name, list, { color, size });

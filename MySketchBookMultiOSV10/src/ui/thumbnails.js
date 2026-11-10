@@ -78,7 +78,8 @@ export function itemThumbnail(item, build, onReady) {
 }
 
 export function materialThumbnail(presetId, onReady) {
-  const key = `mat:${presetId}:${VERSION}`;
+  // mat2: thumbnails drawn before their textures had arrived (flat colour) are drawn again.
+  const key = `mat2:${presetId}:${VERSION}`;
   if (memory.has(key)) return memory.get(key);
   queue.push({ key, kind: 'material', presetId, onReady });
   pump();
@@ -127,7 +128,10 @@ async function renderItem({ item, build }) {
 
 async function renderMaterial(presetId) {
   setup();
-  const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.5, 48, 32), getMaterial(presetId));
+  const material = getMaterial(presetId);
+  // Wait for the preset's textures (wood grain, weave…), at most 4 s, so the swatch is not a flat colour.
+  await Promise.race([material.userData.ready, new Promise((resolve) => setTimeout(resolve, 4000))]);
+  const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.5, 48, 32), material);
   // Sphere UVs span 0..1; a metre-scaled texture would look too large on a 1 m ball: scale UVs up.
   const uv = sphere.geometry.attributes.uv;
   for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 3.14, uv.getY(i) * 1.57);
@@ -145,4 +149,4 @@ async function renderMaterial(presetId) {
 }
 
 /** Textures of a preset may arrive after its thumbnail: forget that one so it renders again. */
-export function forgetMaterialThumbnail(presetId) { memory.delete(`mat:${presetId}:${VERSION}`); idbSet(`thumb:mat:${presetId}:${VERSION}`, '').catch(() => {}); }
+export function forgetMaterialThumbnail(presetId) { memory.delete(`mat2:${presetId}:${VERSION}`); idbSet(`thumb:mat2:${presetId}:${VERSION}`, '').catch(() => {}); }

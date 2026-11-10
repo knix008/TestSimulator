@@ -38,14 +38,14 @@ import { encodeCanvas } from './io/imageformats.js';
 import { isNight, sunAngles } from './engine/sun.js';
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { AnimatedBackground } from './ui/background.js';
-import { startPageHtml } from './ui/startpage.js';
+import { planSamples, startPageHtml } from './ui/startpage.js';
 import { startBoard } from './ui/startboard.js';
 import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
 import { entityInfoHtml, levelsHtml, libraryHtml, materialsHtml, outlinerHtml, paletteHtml, scenesHtml, shadowsHtml, stylesHtml, tagsHtml, PLACES } from './ui/panels.js';
 import { itemThumbnail, materialThumbnail, cancelThumbnails, cachedThumbnail, setThumbnailGate } from './ui/thumbnails.js';
 import { Rulers } from './ui/rulers.js';
 import { ScaleBar } from './ui/scalebar.js';
-import { PlanDimensions } from './ui/plandims.js';
+import { PlanDimensions, dimensionColor, interiorDimensionColor } from './ui/plandims.js';
 import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { bytesToBase64 } from './export/files.js';
 import { checkProject, countBySeverity } from './engine/checks.js';
@@ -124,7 +124,8 @@ const state = {
 const doc = () => state.doc;
 const project = () => state.doc?.project ?? null;
 const hasDoc = () => Boolean(state.doc) && !state.showStart;
-const units = () => project()?.units ?? state.settings.units ?? 'mm';
+/** The length unit lengths are shown and typed in: Settings › Units (the open project follows it). */
+const units = () => state.settings.units ?? project()?.units ?? 'mm';
 
 // ───────────────────────── notices & errors
 
@@ -422,7 +423,7 @@ function mountViewport() {
     onCamera: (camera) => { if (doc()) doc().project.camera = camera; },
   });
   overlay = new Overlay(viewport, host.querySelector('.vp-labels'));
-  builder = new SceneBuilder(viewport, { settings: () => ({ quality: state.settings.renderQuality === 'fast' ? 'low' : 'high' }), onAsync: () => updateSelectionBoxes() });
+  builder = new SceneBuilder(viewport, { settings: () => ({ quality: state.settings.renderQuality === 'fast' ? 'low' : 'high', planWall: { mode: state.settings.planWallFill ?? 'color', color: state.settings.planWallColor ?? '#000000' } }), onAsync: () => updateSelectionBoxes() });
   builder.meshOf = Modeling?.meshOf ?? null;
   // The 2D plan always shows the active level alone; the 3D view follows the project's Level view.
   builder.levelMode = (p) => (state.planView ? 'active' : p.levelView ?? 'all');
@@ -439,7 +440,8 @@ function mountViewport() {
     enabled: () => state.settings.showPlanDims !== false && !viewport.walk,
     project,
     format: (m) => formatLength(m, units()),
-    color: () => (state.planView && resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark ? '#cbd5e1' : '#334155'),
+    color: () => dimensionColor(state.dimBackground ?? '#ffffff'),
+    innerColor: () => interiorDimensionColor(state.dimBackground ?? '#ffffff'),
   });
   // Library thumbnails wait while the view is being moved, so orbiting and panning stay smooth.
   setThumbnailGate(() => viewport.isBusy());
@@ -452,7 +454,7 @@ function mountViewport() {
 function navPadHtml() {
   const b = (nav, glyph, key) => `<button class="nav-button" data-nav="${nav}" title="${escapeHtml(t(key))}" aria-label="${escapeHtml(t(key))}">${icon(glyph)}</button>`;
   return `<div class="nav-pad" role="toolbar" aria-label="${escapeHtml(t('nav.title'))}">
-    <div class="nav-ring nav-orbit" title="${escapeHtml(t('nav.orbitTip'))}">${b('orbit-up', 'chevronUp', 'nav.orbitUp')}${b('orbit-left', 'chevronLeft', 'nav.orbitLeft')}<span class="nav-center">${icon('orbitTool')}</span>${b('orbit-right', 'chevronRight', 'nav.orbitRight')}${b('orbit-down', 'chevronDown', 'nav.orbitDown')}</div>
+    <div class="nav-ring nav-orbit" title="${escapeHtml(t('nav.orbitTip'))}">${b('orbit-up', 'chevronUp', 'nav.orbitUp')}${b('orbit-left', 'chevronLeft', 'nav.orbitLeft')}<span class="nav-center orbit-center">${icon('orbitCenter')}</span>${b('orbit-right', 'chevronRight', 'nav.orbitRight')}${b('orbit-down', 'chevronDown', 'nav.orbitDown')}</div>
     <div class="nav-ring nav-pan" title="${escapeHtml(t('nav.panTip'))}">${b('pan-up', 'chevronUp', 'nav.panUp')}${b('pan-left', 'chevronLeft', 'nav.panLeft')}<span class="nav-center">${icon('panTool')}</span>${b('pan-right', 'chevronRight', 'nav.panRight')}${b('pan-down', 'chevronDown', 'nav.panDown')}</div>
     <div class="nav-column">${b('zoom-in', 'zoomIn', 'nav.zoomIn')}${b('zoom-out', 'zoomOut', 'nav.zoomOut')}${b('extents', 'zoomExtents', 'action.zoomExtents')}${b('home', 'home', 'action.resetView')}</div>
   </div>`;
@@ -523,12 +525,14 @@ function applyProjectView() {
   const c = theme.colors;
   // The 2D plan is always drawn on the theme's drawing paper; 3D follows the project's background choice.
   const plan = viewport.planMode;
-  if (plan) viewport.setSkyColors({ top: c.chart, horizon: c.chart, ground: c.chart });
-  else if (isNight(p.sun) && bg !== 'environment') viewport.setSkyColors(dark ? { top: '#05070d', horizon: '#141b2b', ground: '#0d0f14' } : { top: '#0b1224', horizon: '#26324d', ground: '#15181e' });
-  else if (bg === 'theme') viewport.setSkyColors({ top: mix(c.chart, c.accent, dark ? 0.22 : 0.16), horizon: c.chart, ground: mix(c.chart, c.text, dark ? 0.1 : 0.07) });
-  else if (bg === 'white') viewport.setSkyColors({ top: '#ffffff', horizon: '#ffffff', ground: '#f3f3f3' });
-  else if (bg === 'dark') viewport.setSkyColors({ top: '#1b2230', horizon: '#2b3443', ground: '#20242b' });
-  else viewport.setSkyColors(dark ? { top: '#5d7fa6', horizon: '#a9b8c8', ground: '#7d7a74' } : { top: '#9fc4ea', horizon: '#e8eef3', ground: '#d9d4cb' });
+  // The ground colour is what the plan dimensions are drawn on: they pick light or dark figures from it.
+  const setSky = (sky) => { state.dimBackground = sky.ground; viewport.setSkyColors(sky); planDims?.invalidate(); };
+  if (plan) setSky({ top: c.chart, horizon: c.chart, ground: c.chart });
+  else if (isNight(p.sun) && bg !== 'environment') setSky(dark ? { top: '#05070d', horizon: '#141b2b', ground: '#0d0f14' } : { top: '#0b1224', horizon: '#26324d', ground: '#15181e' });
+  else if (bg === 'theme') setSky({ top: mix(c.chart, c.accent, dark ? 0.22 : 0.16), horizon: c.chart, ground: mix(c.chart, c.text, dark ? 0.1 : 0.07) });
+  else if (bg === 'white') setSky({ top: '#ffffff', horizon: '#ffffff', ground: '#f3f3f3' });
+  else if (bg === 'dark') setSky({ top: '#1b2230', horizon: '#2b3443', ground: '#20242b' });
+  else setSky(dark ? { top: '#5d7fa6', horizon: '#a9b8c8', ground: '#7d7a74' } : { top: '#9fc4ea', horizon: '#e8eef3', ground: '#d9d4cb' });
   viewport.setGridColor(plan || bg === 'theme' ? mix(c.text, c.chart, 0.35) : '#5f6b7a');
   applyEnvironment(p.style.environment ?? 'room', bg === 'environment' && !plan);
   viewport.requestRender();
@@ -562,7 +566,7 @@ function updateSections() {
 function renderAnnotations() {
   const p = project();
   if (!p || !overlay) return;
-  const key = JSON.stringify([p.dimensions, p.texts, p.guides, p.units, state.planView]);
+  const key = JSON.stringify([p.dimensions, p.texts, p.guides, units(), state.planView]);
   if (key === dimsKey) return;
   dimsKey = key;
   for (const name of [...overlay.labels.keys()]) if (name.startsWith('ann-')) overlay.clearLabel(name);
@@ -570,7 +574,7 @@ function renderAnnotations() {
   for (const d of p.dimensions) {
     const a = new THREE.Vector3(...d.a); const b = new THREE.Vector3(...d.b); const o = new THREE.Vector3(...d.offset);
     lines.push(...Tools.dimensionLines(a, b, o));
-    overlay.label(`ann-${d.id}`, a.clone().add(b).multiplyScalar(0.5).add(o), formatLength(a.distanceTo(b), p.units), { kind: 'dimension', dx: -20, dy: -20 });
+    overlay.label(`ann-${d.id}`, a.clone().add(b).multiplyScalar(0.5).add(o), formatLength(a.distanceTo(b), units()), { kind: 'dimension', dx: -20, dy: -20 });
   }
   overlay.lines('ann-dims', lines, { color: '#111827', depthTest: true });
   for (const tx of p.texts) overlay.label(`ann-${tx.id}`, new THREE.Vector3(...tx.point), tx.text, { kind: 'text', dx: 8, dy: -28 });
@@ -1036,6 +1040,8 @@ const commands = {
   clearRecent: { icon: 'clearHistory', label: 'action.clearRecent', enabled: () => state.recent.length > 0 || state.recentDirs.length > 0, run: () => clearRecentAll() },
   importModel: { icon: 'importModel', label: 'action.importModel', key: 'Ctrl+I', enabled: hasDoc, run: () => importModelDialog() },
   importPlan: { icon: 'importPlan', label: 'action.importPlan', enabled: () => true, run: () => planImport.dialog() },
+  // The active level's plan cleaned up again in the 2D workbench (ui/plan-studio.js), then built again in 3D.
+  refinePlan: { icon: 'planStudio', label: 'action.refinePlan', enabled: () => Boolean(state.doc) && !state.showStart && Boolean(project()?.walls.some((w) => w.level === project().activeLevel)), run: () => planImport.refineLevel() },
   importAny: { icon: 'importFile', label: 'action.importAny', enabled: () => true, run: () => importAnyDialog() },
   importTexture: { icon: 'materialsPanel', label: 'action.importTexture', enabled: () => true, run: () => importKindDialog('texture') },
   importEnvironment: { icon: 'environment', label: 'action.importEnvironment', enabled: () => true, run: () => importKindDialog('environment') },
@@ -1051,6 +1057,8 @@ const commands = {
   exportPlan: { icon: 'plan2d', label: 'action.exportPlan', enabled: hasDoc, run: () => exportPlanImage() },
   exportSelection: { icon: 'exportModel', label: 'action.exportSelection', enabled: () => hasDoc() && sel(), run: () => exportModel('glb', { selection: true }) },
   closeProject: { icon: 'closeTab', label: 'action.closeProject', key: 'Ctrl+W', enabled: () => Boolean(state.doc), run: () => closeProject() },
+  // Toolbar: leave 2D/3D work for the start page (asks to save changes first).
+  exitProject: { icon: 'exitProject', label: 'action.exitProject', enabled: () => Boolean(state.doc) && !state.showStart, run: () => closeProject() },
   exit: { icon: 'exit', label: 'action.exit', key: isMac ? 'Ctrl+Q' : 'Alt+F4', run: () => requestExit() },
   // edit
   undo: { icon: 'undo', label: 'action.undo', key: 'Ctrl+Z', enabled: () => Boolean(doc()?.history.canUndo), run: () => undo() },
@@ -1390,7 +1398,7 @@ const SUBMENUS = {
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
-  file: ['new', 'newFromTemplate', 'openExample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', '-', 'importAny', 'importModel', 'importPlan', 'importTexture', 'importEnvironment', sub('exportTo'), '-', 'print', '-', 'closeProject', 'exit'],
+  file: ['new', 'newFromTemplate', 'openExample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', '-', 'importAny', 'importModel', 'importPlan', 'refinePlan', 'importTexture', 'importEnvironment', sub('exportTo'), '-', 'print', '-', 'closeProject', 'exit'],
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'selectAll', 'clearSelection', '-', sub('transform'), sub('visibility'), '-', 'makeGroup', 'explodeModel', 'deleteGuides'],
   view: [sub('views'), 'perspective', 'planView', sub('levels'), '-', sub('faceStyle'), sub('show'), sub('quality'), '-', sub('scenes'), '-', sub('appearance')],
   draw: ['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window', 'addLevel', '-', sub('drawShapes')],
@@ -1401,7 +1409,7 @@ const MENUS = {
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', draw: 'wallTool', tools: 'tools', camera: 'orbitTool', help: 'question' };
 
 const TOOLBAR = [
-  ['new', 'open', 'save', 'print', 'exportSplit', 'importAny', 'importModel'],
+  ['new', 'open', 'save', 'exitProject', 'print', 'exportSplit', 'importAny', 'importModel'],
   ['undo', 'redo'],
   ['tool:select', 'tool:eraser', 'tool:paint'],
   ['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window'],
@@ -1540,6 +1548,24 @@ function fitToolbar() {
   state.toolbarHidden = TOOLBAR.slice(cut);
 }
 
+/**
+ * A panel stepper's − / + (ui/panels.js numberStepper): changes the number in its box by the button's step
+ * (kept at data-min) and fires the box's change event, so the box's own handler applies it.
+ */
+function stepNumber(button) {
+  const input = button.closest('[data-stepper]')?.querySelector('input');
+  if (!input) return;
+  const delta = Number(button.dataset.numStep);
+  const current = Number(String(input.value).replace(/[,\s]/g, '').replace(/[^\d.+-]/g, ''));
+  if (!Number.isFinite(delta) || !Number.isFinite(current)) return;
+  // Rounded to the step's decimals and to the value's own, so 0.1 + 0.2 shows 0.3.
+  const decimals = Math.max((String(Math.abs(delta)).split('.')[1] ?? '').length, (String(current).split('.')[1] ?? '').length);
+  const min = input.dataset.min != null ? Number(input.dataset.min) : -Infinity;
+  const next = Math.max(min, Number((current + delta).toFixed(decimals)));
+  input.value = String(next);
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 function showToolbarMore(button) {
   const ids = (state.toolbarHidden ?? []).flatMap((group, i) => [...(i ? ['-'] : []), ...group.map((id) => TOOLBAR_MAIN[id] ?? id)]).filter((id) => id === '-' || commands[id]);
   if (ids.length) showMenu(menuItems(ids), anchorBelow(button));
@@ -1565,12 +1591,19 @@ function updateMinimumWidth() {
     const toolbar = root.querySelector('#toolbar');
     const style = getComputedStyle(toolbar);
     const menus = [...root.querySelectorAll('.app-brand, .menubar-item, .window-controls')].reduce((sum, el) => sum + el.offsetWidth + 2, 48);
-    // The toolbar folds its groups into » when narrow: it needs only the first group, », and the right group.
-    const first = left.querySelector('[data-group="0"]')?.offsetWidth ?? 0;
-    const toolbarMin = first + 40 + right.scrollWidth + 24 + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2;
-    // Never wider than the screen: the window buttons (close!) must stay inside it.
+    // The whole toolbar must fit at the minimum size: measure it with every group shown. Its buttons are icons
+    // only (no text), so the width is the same in every language.
+    const folded = [...left.querySelectorAll('[data-group], [data-group-sep]')].filter((el) => el.hidden);
+    const more = left.querySelector('[data-toolbar-more]');
+    const moreHidden = more?.hidden;
+    for (const el of folded) el.hidden = false;
+    if (more) more.hidden = true;
+    const full = left.scrollWidth + right.scrollWidth + 24 + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2;
+    for (const el of folded) el.hidden = true;
+    if (more) more.hidden = moreHidden;
+    // Only a screen narrower than the toolbar caps it (then » holds the rest): the window buttons (close!) stay inside.
     const screenWidth = window.screen?.availWidth || Infinity;
-    const width = Math.ceil(Math.min(screenWidth, Math.max(menus, toolbarMin)));
+    const width = Math.ceil(Math.min(screenWidth, Math.max(menus, full)));
     if (Math.abs(width - state.minWidth) < 1) return;
     state.minWidth = width;
     document.documentElement.style.setProperty('--min-width', `${width}px`);
@@ -1609,15 +1642,18 @@ const LEFT_TABS = [['library', 'library'], ['materials', 'materialsPanel']];
 function renderLeft() {
   const panel = root.querySelector('#left-panel');
   if (!panel) return;
+  // The start page hides the side panels: the library (2000 cards) is built when a project opens, not at start-up.
+  if (state.showStart || !state.doc) { state.leftStale = true; return; }
+  state.leftStale = false;
   if (!state.settings.showLeftPanel) {
-    panel.innerHTML = `<div class="panel-rail"><button class="rail-button expand" data-command="leftPanel" title="${escapeHtml(t('panel.expandLeft'))}">${icon('chevronRight')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
+    panel.innerHTML = `<div class="panel-rail"><button class="rail-button expand" data-command="leftPanel" title="${escapeHtml(t('panel.expandLeft'))}">${icon('panelLeftOpen')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
       <div class="rail-title">${icon('library')}<span>${escapeHtml(t('panel.libraryShort'))}</span></div></div>`;
     return;
   }
   const scroll = panel.querySelector('.panel-body')?.scrollTop ?? 0;
   const body = state.leftTab === 'materials' ? materialsHtml(panelApi) : libraryHtml(panelApi);
   panel.innerHTML = `<div class="panel-header">${icon(state.leftTab === 'materials' ? 'materialsPanel' : 'library')}<span>${escapeHtml(t(`panel.${state.leftTab}`))}</span>
-      <button class="icon-button" data-command="leftPanel" title="${escapeHtml(t('panel.collapseLeft'))}">${icon('chevronLeft')}</button></div>
+      <button class="icon-button" data-command="leftPanel" title="${escapeHtml(t('panel.collapseLeft'))}">${icon('panelLeftClose')}</button></div>
     <div class="editor-tabs" role="tablist">${LEFT_TABS.map(([id, glyph]) => `<button class="editor-tab ${state.leftTab === id ? 'active' : ''}" data-left-tab="${id}" role="tab">${icon(glyph)}<span>${escapeHtml(t(`panel.${id}`))}</span></button>`).join('')}</div>
     <div class="panel-body ${state.leftTab}">${body}</div>`;
   panel.querySelector('.panel-body').scrollTop = scroll;
@@ -1667,7 +1703,7 @@ function renderRight() {
   const panel = root.querySelector('#right-panel');
   if (!panel) return;
   if (!state.settings.showRightPanel) {
-    panel.innerHTML = `<div class="panel-rail"><button class="rail-button expand" data-command="rightPanel" title="${escapeHtml(t('panel.expandRight'))}">${icon('chevronLeft')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
+    panel.innerHTML = `<div class="panel-rail"><button class="rail-button expand" data-command="rightPanel" title="${escapeHtml(t('panel.expandRight'))}">${icon('panelRightOpen')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
       <div class="rail-title">${icon('outliner')}<span>${escapeHtml(t('panel.outlinerShort'))}</span></div></div>`;
     return;
   }
@@ -1680,7 +1716,7 @@ function renderRight() {
   if (!panel.querySelector('#outliner')) {
     panel.innerHTML = `<div class="panel-header">${icon('outliner')}<span>${escapeHtml(t('panel.outliner'))}</span>
         <label class="search-box mini">${icon('search')}<input id="outliner-search" type="search" value="${escapeHtml(state.outlinerQuery)}" placeholder="${escapeHtml(t('outliner.search'))}" /></label>
-        <button class="icon-button" data-command="rightPanel" title="${escapeHtml(t('panel.collapseRight'))}">${icon('chevronRight')}</button></div>
+        <button class="icon-button" data-command="rightPanel" title="${escapeHtml(t('panel.collapseRight'))}">${icon('panelRightClose')}</button></div>
       <div id="outliner" class="explorer"></div>
       <div class="splitter horizontal" data-split="explorer" role="separator" aria-orientation="horizontal"></div>
       <div id="editor-tabs" class="editor-tabs" role="tablist"></div>
@@ -1728,7 +1764,13 @@ function setProp(field, raw, input) {
   const u = units();
   const len = (text) => { const v = parseLength(text, u); return Array.isArray(v) ? v[0] : v; };
   if (field.startsWith('underlay.')) return planImport.setProp(field, raw, input);
-  if (field.startsWith('project.')) { const k = field.slice(8); change('op.edit', () => { p[k] = raw; }, []); if (k === 'units') { dimsKey = ''; renderAll(); } return; }
+  if (field.startsWith('project.')) {
+    const k = field.slice(8);
+    // The unit is one setting for the whole app (Settings › Units): the project's field changes it too.
+    if (k === 'units') { updateSettings({ units: raw }); return; }
+    change('op.edit', () => { p[k] = raw; }, []);
+    return;
+  }
   if (field.startsWith('settings.')) { const k = field.slice(9); updateSettings({ [k]: input.type === 'checkbox' ? input.checked : raw }); if (k === 'shadows') applyProjectView(); return; }
   if (field.startsWith('style.')) {
     const k = field.slice(6);
@@ -1934,7 +1976,7 @@ function renderStatus() {
     if (s.showFps) items.push(`<span class="status-item stats" title="${escapeHtml(t('status.statsTip'))}">${icon('fps')}<span id="status-stats"></span></span>`);
     const counts = countBySeverity(state.problems);
     items.push(`<button class="status-item ${counts.error ? 'error-count' : ''}" data-command="showProblems" title="${escapeHtml(t('status.problemsTip'))}">${icon(counts.error ? 'error' : counts.warning ? 'warning' : 'check')}<span>${escapeHtml(t('status.problems', counts))}</span></button>`);
-    items.push(`<span class="status-item units" title="${escapeHtml(t('settings.units'))}">${icon('units')}<span>${escapeHtml(t(`unit.${p.units}`))}</span></span>`);
+    items.push(`<span class="status-item units" title="${escapeHtml(t('settings.units'))}">${icon('units')}<span>${escapeHtml(t(`unit.${units()}`))}</span></span>`);
     items.push(`<label class="vcb" title="${escapeHtml(t('status.vcbTip'))}">${icon('measurements')}<span id="vcb-label">${escapeHtml(t(state.vcb.label))}</span><input id="vcb" type="text" autocomplete="off" spellcheck="false" value="${escapeHtml(state.vcb.value)}" /></label>`);
   }
   items.push(`<span class="status-item" title="${escapeHtml(t('status.theme', { name: themeName(s.theme, getLanguage()) }))}">${icon('palette')}<span>${escapeHtml(themeName(s.theme, getLanguage()))}</span></span>`);
@@ -2010,6 +2052,24 @@ function showStartPage(show = true) {
   if (!state.showStart) viewport?.resize();
 }
 
+/**
+ * A 2D sample of the start page (public/plan-samples/, made by scripts/make-plan-image-samples.mjs) imported like a
+ * chosen file: the import window, the 2D workbench, then 3D. Pictures bring their real width.
+ */
+async function openPlanSample(id) {
+  const sample = planSamples().find((s) => s.id === id);
+  if (!sample) return null;
+  try {
+    const response = await fetch(new URL(`plan-samples/${sample.file}`, document.baseURI));
+    if (!response.ok) throw new Error(`${response.status} ${sample.file}`);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return await planImport.importFiles([{ name: sample.file, bytes }], sample.widthMetres ? { imageWidth: sample.widthMetres } : {});
+  } catch (error) {
+    showError('error.importPlan', error, sample.file);
+    return null;
+  }
+}
+
 async function onStartAction(target) {
   const value = target.dataset.value;
   switch (target.dataset.start) {
@@ -2024,6 +2084,7 @@ async function onStartAction(target) {
     case 'remove-folder': state.recentDirs = removeRecent(state.recentDirs, value); storeRecentDirs(globalThis.localStorage, state.recentDirs); return renderStartPage();
     case 'clear-folders': state.recentDirs = []; storeRecentDirs(globalThis.localStorage, []); return renderStartPage();
     case 'sample': return openSampleAsk(value);
+    case 'plan-sample': return openPlanSample(value);
     case 'arrange': return startCards?.arrange();
     case 'pick-theme': return updateSettings({ theme: value });
     case 'theme-settings': return popups.open('settings', { tab: 'appearance' });
@@ -2136,11 +2197,19 @@ function applySettings(previous = {}) {
   }
   if (s.backgroundImage !== previous.backgroundImage) loadBackground();
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
+  // A new length unit: the open project keeps it (saved with the file) and every length is shown again in it.
+  if (s.units !== previous.units && previous.units) {
+    if (project() && project().units !== s.units) { project().units = s.units; doc().revision += 1; }
+    dimsKey = '';
+    planDims?.invalidate();
+    notify('info', t('notice.units', { unit: t(`unit.${s.units}`) }));
+  }
   if (viewport) {
     viewport.applySettings();
     if (['shadows', 'theme', 'customTheme', 'renderQuality'].some((k) => s[k] !== previous[k])) applyProjectView();
     if (s.shadows !== previous.shadows && project()) builder.updateLights(project());
     if (s.renderQuality !== previous.renderQuality && previous.renderQuality) { builder.clearTemplates(); syncScene(); }
+    if (s.planWallFill !== previous.planWallFill || s.planWallColor !== previous.planWallColor) builder.refillCuts();
   }
   renderAll();
   updateMinimumWidth();
@@ -2526,6 +2595,8 @@ async function exportImage() {
 }
 
 async function exportPlanImage() {
+  const result = await popups.open('snapshot', { width: 3000, height: 2000, format: state.settings.imageFormat ?? 'png', quality: state.settings.imageQuality, transparent: false });
+  if (!result?.ok) return;
   const was = state.planView;
   if (!was) setPlanView(true);
   const mode = project().style.mode;
@@ -2533,9 +2604,9 @@ async function exportPlanImage() {
   viewport.zoomExtents();
   await new Promise((r) => setTimeout(r, 400));
   try {
-    const canvas = viewport.capture(3000, 2000);
-    const bytes = await canvasToBytes(canvas);
-    await saveExport(`${safeName()} - plan.png`, 'png', bytes, 'image/png');
+    const canvas = viewport.capture(result.width, result.height, { transparent: result.transparent });
+    const encoded = await encodeCanvas(canvas, result.format, { quality: result.quality, transparent: result.transparent });
+    await saveExport(`${safeName()} - plan.${encoded.ext}`, result.format, encoded.bytes, encoded.mime);
   } catch (error) { showError('error.export', error); }
   setStyle({ mode });
   if (!was) setPlanView(false);
@@ -2546,17 +2617,18 @@ async function exportPlanImage() {
  * in its own progress popup with a live sample counter and Cancel; the result can be saved.
  */
 async function renderPhoto() {
-  const options = await popups.open('render', { width: state.settings.renderWidth, height: state.settings.renderHeight, samples: state.settings.renderSamples });
+  const options = await popups.open('render', { width: state.settings.renderWidth, height: state.settings.renderHeight, samples: state.settings.renderSamples, transparent: Boolean(state.settings.renderTransparent) });
   if (!options?.ok) return;
-  updateSettings({ renderWidth: options.width, renderHeight: options.height, renderSamples: options.samples }, { quiet: true });
+  updateSettings({ renderWidth: options.width, renderHeight: options.height, renderSamples: options.samples, renderTransparent: options.transparent }, { quiet: true });
   try {
     const { renderPathTraced } = await import('./engine/photo.js');
-    const canvas = await withProgress('progress.render', `${options.width} × ${options.height} · ${options.samples} spp`, (op, report, signal) => renderPathTraced(viewport, { width: options.width, height: options.height, samples: options.samples, signal, onProgress: (done, total, eta) => report({ fraction: done / total, text: t('progress.samples', { done, total, eta: Math.ceil(eta) }) }) }), { delay: 0, cancellable: true });
+    const canvas = await withProgress('progress.render', `${options.width} × ${options.height} · ${options.samples} spp`, (op, report, signal) => renderPathTraced(viewport, { width: options.width, height: options.height, samples: options.samples, transparent: options.transparent, signal, onProgress: (done, total, eta) => report({ fraction: done / total, text: t('progress.samples', { done, total, eta: Math.ceil(eta) }) }) }), { delay: 0, cancellable: true });
     if (!canvas) return;
-    const choice = await popups.open('renderresult', { image: canvas.toDataURL('image/jpeg', 0.85), width: options.width, height: options.height, format: state.settings.imageFormat, quality: state.settings.imageQuality });
+    // A transparent render is previewed as PNG (JPEG has no alpha) and saved with its transparency where the format has it.
+    const choice = await popups.open('renderresult', { image: options.transparent ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.85), width: options.width, height: options.height, format: state.settings.imageFormat, quality: state.settings.imageQuality, transparent: options.transparent });
     if (choice?.save) {
       updateSettings({ imageFormat: choice.format, imageQuality: choice.quality }, { quiet: true });
-      const encoded = await withProgress('progress.image', `${options.width} × ${options.height}`, () => encodeCanvas(canvas, choice.format, { quality: choice.quality }), { delay: 150 });
+      const encoded = await withProgress('progress.image', `${options.width} × ${options.height}`, () => encodeCanvas(canvas, choice.format, { quality: choice.quality, transparent: choice.transparent }), { delay: 150 });
       await saveExport(`${safeName()} - render.${encoded.ext}`, choice.format, encoded.bytes, encoded.mime);
     }
   } catch (error) { showError('error.render', error); }
@@ -3020,6 +3092,8 @@ function bindEvents() {
     if (tagDel) { const id = tagDel.dataset.tagDelete; change('op.delete', (p) => { p.tags = p.tags.filter((x) => x.id !== id); for (const k of ['objects', 'models', 'walls']) for (const e of p[k]) if (e.tag === id) e.tag = 'untagged'; }); return undefined; }
     const underlayAction = target.closest('[data-underlay-action]');
     if (underlayAction) return planImport.action(underlayAction.dataset.underlayAction);
+    const numStep = target.closest('[data-num-step]');
+    if (numStep) return stepNumber(numStep);
     const paramStep = target.closest('[data-param-step]');
     if (paramStep) { const e = entity(state.selection[0])?.entity; const key = paramStep.dataset.paramStep; const item = catalogItem(e?.item); const cur = Number(itemParams(item, e.params)[key]); return setProp(`param.${key}`, String(cur + Number(paramStep.dataset.delta)), paramStep); }
     return undefined;

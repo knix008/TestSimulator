@@ -28,10 +28,12 @@ function gradientEnvironment(viewport) {
  * Renders the viewport's scene from its camera. Resolves with a canvas (null when cancelled).
  * onProgress(done, total, secondsLeft).
  */
-export async function renderPathTraced(viewport, { width, height, samples = 256, signal = {}, onProgress = () => {}, environment = null }) {
+export async function renderPathTraced(viewport, { width, height, samples = 256, signal = {}, onProgress = () => {}, environment = null, transparent = false }) {
   const canvas = document.createElement('canvas');
   canvas.width = width; canvas.height = height;
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+  // transparent: no background — the path tracer leaves alpha 0 where rays escape (scene.background = null).
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance', alpha: transparent, premultipliedAlpha: false });
+  if (transparent) renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(1);
   renderer.setSize(width, height, false);
   renderer.toneMapping = viewport.renderer.toneMapping;
@@ -46,7 +48,7 @@ export async function renderPathTraced(viewport, { width, height, samples = 256,
   const savedBg = scene.background;
   const env = environment ?? viewport.photoEnvironment ?? gradientEnvironment(viewport);
   scene.environment = env;
-  scene.background = savedBg && savedBg.isTexture && savedBg.mapping === THREE.EquirectangularReflectionMapping ? savedBg : env;
+  scene.background = transparent ? null : savedBg && savedBg.isTexture && savedBg.mapping === THREE.EquirectangularReflectionMapping ? savedBg : env;
 
   const camera = viewport.camera.clone();
   if (camera.isPerspectiveCamera) camera.aspect = width / height;

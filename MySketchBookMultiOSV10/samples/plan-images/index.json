@@ -1,0 +1,572 @@
+{
+ "pictures": [
+  {
+   "id": "apt49-listing",
+   "file": "apt49-listing.jpg",
+   "format": "jpg",
+   "template": "apt49",
+   "style": "solid",
+   "title": [
+    "49㎡ 아파트 · 부동산 평면도",
+    "49 m² apartment · listing plan"
+   ],
+   "note": [
+    "검은 벽, 방 이름과 넓이 (JPG)",
+    "Solid black walls, room names and areas (JPG)"
+   ],
+   "pxPerMetre": 70,
+   "size": [
+    728,
+    602
+   ],
+   "widthMetres": 10.4,
+   "tilt": 0,
+   "drawnSize": [
+    728,
+    602
+   ],
+   "topLeft": [
+    -5.2,
+    -4.3
+   ],
+   "counts": {
+    "walls": 8,
+    "doors": 4,
+    "windows": 5,
+    "rooms": 4
+   },
+   "bytes": 19812
+  },
+  {
+   "id": "apt59-photo",
+   "file": "apt59-photo.jpg",
+   "format": "jpg",
+   "template": "apt59",
+   "style": "solid",
+   "title": [
+    "59㎡ 아파트 · 휴대폰 사진",
+    "59 m² apartment · phone photo"
+   ],
+   "note": [
+    "인쇄물을 찍은 사진: 기울어짐, 그늘, 잡음 (JPG)",
+    "A photo of a printout: tilted, shaded, noisy (JPG)"
+   ],
+   "pxPerMetre": 60,
+   "size": [
+    763,
+    630
+   ],
+   "widthMetres": 12.72,
+   "tilt": 4,
+   "drawnSize": [
+    696,
+    552
+   ],
+   "topLeft": [
+    -5.8,
+    -4.6
+   ],
+   "counts": {
+    "walls": 8,
+    "doors": 4,
+    "windows": 5,
+    "rooms": 4
+   },
+   "bytes": 38706
+  },
+  {
+   "id": "apt74-brochure",
+   "file": "apt74-brochure.png",
+   "format": "png",
+   "template": "apt74",
+   "style": "brochure",
+   "title": [
+    "74㎡ 아파트 · 분양 홍보 컬러",
+    "74 m² apartment · colour brochure"
+   ],
+   "note": [
+    "바닥 색, 가구, 치수, 방위 (PNG)",
+    "Floor colours, furniture, dimensions, compass (PNG)"
+   ],
+   "pxPerMetre": 64,
+   "size": [
+    896,
+    704
+   ],
+   "widthMetres": 14,
+   "tilt": 0,
+   "drawnSize": [
+    896,
+    704
+   ],
+   "topLeft": [
+    -7,
+    -5.5
+   ],
+   "counts": {
+    "walls": 10,
+    "doors": 6,
+    "windows": 7,
+    "rooms": 6
+   },
+   "bytes": 13184
+  },
+  {
+   "id": "apt84-cad-print",
+   "file": "apt84-cad-print.png",
+   "format": "png",
+   "template": "apt84",
+   "style": "cad",
+   "title": [
+    "84㎡ 아파트 · CAD 출력(해치)",
+    "84 m² apartment · CAD print (hatched)"
+   ],
+   "note": [
+    "두 줄 벽과 빗금, 치수선 (PNG)",
+    "Double-line walls with hatching, dimension lines (PNG)"
+   ],
+   "pxPerMetre": 56,
+   "size": [
+    818,
+    650
+   ],
+   "widthMetres": 14.61,
+   "tilt": 0,
+   "drawnSize": [
+    818,
+    650
+   ],
+   "topLeft": [
+    -7.300000000000001,
+    -5.800000000000001
+   ],
+   "counts": {
+    "walls": 10,
+    "doors": 7,
+    "windows": 7,
+    "rooms": 7
+   },
+   "bytes": 11514
+  },
+  {
+   "id": "apt104-blueprint",
+   "file": "apt104-blueprint.png",
+   "format": "png",
+   "template": "apt104",
+   "style": "blueprint",
+   "title": [
+    "104㎡ 아파트 · 청사진",
+    "104 m² apartment · blueprint"
+   ],
+   "note": [
+    "파란 바탕에 흰 선 (PNG)",
+    "White lines on blue (PNG)"
+   ],
+   "pxPerMetre": 52,
+   "size": [
+    822,
+    619
+   ],
+   "widthMetres": 15.81,
+   "tilt": 0,
+   "drawnSize": [
+    822,
+    619
+   ],
+   "topLeft": [
+    -7.9,
+    -5.949999999999999
+   ],
+   "counts": {
+    "walls": 11,
+    "doors": 7,
+    "windows": 7,
+    "rooms": 7
+   },
+   "bytes": 10452
+  },
+  {
+   "id": "house-sketch",
+   "file": "house-sketch.jpg",
+   "format": "jpg",
+   "template": "house",
+   "style": "sketch",
+   "title": [
+    "단독주택 · 연필 스케치",
+    "House · pencil sketch"
+   ],
+   "note": [
+    "종이에 자를 대고 그린 연필 도면 (JPG)",
+    "Drawn in pencil with a ruler, on paper (JPG)"
+   ],
+   "pxPerMetre": 64,
+   "size": [
+    768,
+    640
+   ],
+   "widthMetres": 12,
+   "tilt": 0,
+   "drawnSize": [
+    768,
+    640
+   ],
+   "topLeft": [
+    -6,
+    -5
+   ],
+   "counts": {
+    "walls": 8,
+    "doors": 5,
+    "windows": 5,
+    "rooms": 5
+   },
+   "bytes": 59999
+  },
+  {
+   "id": "apt49-freehand",
+   "file": "apt49-freehand.jpg",
+   "format": "jpg",
+   "template": "apt49",
+   "style": "sketch",
+   "title": [
+    "49㎡ 아파트 · 손 스케치",
+    "49 m² apartment · freehand sketch"
+   ],
+   "note": [
+    "자 없이 그린 선: 자동 인식 뒤 2D 정리가 많이 필요합니다 (JPG)",
+    "Freehand lines: needs a lot of 2D cleanup after detection (JPG)"
+   ],
+   "hard": true,
+   "pxPerMetre": 64,
+   "size": [
+    666,
+    550
+   ],
+   "widthMetres": 10.41,
+   "tilt": 0,
+   "drawnSize": [
+    666,
+    550
+   ],
+   "topLeft": [
+    -5.2,
+    -4.3
+   ],
+   "counts": {
+    "walls": 8,
+    "doors": 4,
+    "windows": 5,
+    "rooms": 4
+   },
+   "bytes": 46565
+  },
+  {
+   "id": "officetel-fax",
+   "file": "officetel-fax.gif",
+   "format": "gif",
+   "template": "officetel",
+   "style": "cad",
+   "title": [
+    "오피스텔 · 팩스",
+    "Officetel · fax"
+   ],
+   "note": [
+    "흑백 1비트, 낮은 해상도 (GIF)",
+    "1-bit black and white, low resolution (GIF)"
+   ],
+   "pxPerMetre": 44,
+   "size": [
+    563,
+    370
+   ],
+   "widthMetres": 12.8,
+   "tilt": -1.5,
+   "drawnSize": [
+    524,
+    326
+   ],
+   "topLeft": [
+    -5.949999999999999,
+    -3.7
+   ],
+   "counts": {
+    "walls": 7,
+    "doors": 3,
+    "windows": 3,
+    "rooms": 3
+   },
+   "bytes": 3849
+  },
+  {
+   "id": "office-dark",
+   "file": "office-dark.webp",
+   "format": "webp",
+   "template": "smalloffice",
+   "style": "dark",
+   "title": [
+    "작은 사무실 · 어두운 화면 캡처",
+    "Small office · dark screen capture"
+   ],
+   "note": [
+    "어두운 바탕에 밝은 벽 (WebP)",
+    "Light walls on a dark background (WebP)"
+   ],
+   "pxPerMetre": 60,
+   "size": [
+    840,
+    660
+   ],
+   "widthMetres": 14,
+   "tilt": 0,
+   "drawnSize": [
+    840,
+    660
+   ],
+   "topLeft": [
+    -7,
+    -5.5
+   ],
+   "counts": {
+    "walls": 11,
+    "doors": 5,
+    "windows": 6,
+    "rooms": 5
+   },
+   "bytes": 7080
+  },
+  {
+   "id": "studio-bmp",
+   "file": "studio-bmp.bmp",
+   "format": "bmp",
+   "template": "studio",
+   "style": "solid",
+   "title": [
+    "원룸 · 비트맵",
+    "Studio flat · bitmap"
+   ],
+   "note": [
+    "압축 없는 24비트 (BMP)",
+    "Uncompressed 24-bit (BMP)"
+   ],
+   "pxPerMetre": 80,
+   "size": [
+    688,
+    544
+   ],
+   "widthMetres": 8.6,
+   "tilt": 0,
+   "drawnSize": [
+    688,
+    544
+   ],
+   "topLeft": [
+    -4.3,
+    -3.4
+   ],
+   "counts": {
+    "walls": 6,
+    "doors": 2,
+    "windows": 2,
+    "rooms": 2
+   },
+   "bytes": 1122870
+  },
+  {
+   "id": "shop-tga",
+   "file": "shop-tga.tga",
+   "format": "tga",
+   "template": "shop",
+   "style": "cad",
+   "title": [
+    "상가 · TGA",
+    "Shop · TGA"
+   ],
+   "note": [
+    "두 줄 벽 CAD 그림 (TGA)",
+    "Double-line CAD picture (TGA)"
+   ],
+   "pxPerMetre": 64,
+   "size": [
+    781,
+    749
+   ],
+   "widthMetres": 12.2,
+   "tilt": 0,
+   "drawnSize": [
+    781,
+    749
+   ],
+   "topLeft": [
+    -6.1,
+    -5.85
+   ],
+   "counts": {
+    "walls": 7,
+    "doors": 3,
+    "windows": 2,
+    "rooms": 3
+   },
+   "bytes": 114278
+  },
+  {
+   "id": "loft-avif",
+   "file": "loft-avif.avif",
+   "format": "avif",
+   "template": "loft",
+   "style": "brochure",
+   "title": [
+    "복층 1층 · 컬러",
+    "Loft ground floor · colour"
+   ],
+   "note": [
+    "홍보용 컬러 평면 (AVIF)",
+    "Colour sales plan (AVIF)"
+   ],
+   "pxPerMetre": 64,
+   "size": [
+    653,
+    717
+   ],
+   "widthMetres": 10.2,
+   "tilt": 0,
+   "drawnSize": [
+    653,
+    717
+   ],
+   "topLeft": [
+    -5.1,
+    -5.6
+   ],
+   "counts": {
+    "walls": 7,
+    "doors": 3,
+    "windows": 3,
+    "rooms": 2
+   },
+   "bytes": 6344
+  },
+  {
+   "id": "house3-scan",
+   "file": "house3-scan.tif",
+   "format": "tif",
+   "template": "house3",
+   "style": "cad",
+   "title": [
+    "3층 주택 1층 · 회색 스캔",
+    "3-storey house, ground floor · grey scan"
+   ],
+   "note": [
+    "스캐너로 읽은 회색조, 약간 기울어짐 (TIFF)",
+    "A greyscale scan, slightly tilted (TIFF)"
+   ],
+   "pxPerMetre": 72,
+   "size": [
+    1018,
+    949
+   ],
+   "widthMetres": 14.14,
+   "tilt": 2.5,
+   "drawnSize": [
+    950,
+    878
+   ],
+   "topLeft": [
+    -6.6,
+    -6.1
+   ],
+   "counts": {
+    "walls": 7,
+    "doors": 3,
+    "windows": 4,
+    "rooms": 3
+   },
+   "bytes": 902802
+  }
+ ],
+ "drawings": [
+  {
+   "id": "apartment-59-dxf",
+   "file": "apartment-59.dxf",
+   "format": "dxf",
+   "title": [
+    "59㎡ 아파트 · DXF",
+    "59 m² apartment · DXF"
+   ],
+   "note": [
+    "CAD 도면: 벽·문·창 레이어, 가구 블록",
+    "CAD drawing: wall, door, window layers, furniture blocks"
+   ],
+   "bytes": 9324
+  },
+  {
+   "id": "apartment-84-dxf",
+   "file": "apartment-84.dxf",
+   "format": "dxf",
+   "title": [
+    "84㎡ 아파트 · DXF",
+    "84 m² apartment · DXF"
+   ],
+   "note": [
+    "문 블록(회전·대칭), 폴리라인 벽",
+    "Door blocks (turned, mirrored), polyline walls"
+   ],
+   "bytes": 7751
+  },
+  {
+   "id": "house-2room-dxf",
+   "file": "house-2room.dxf",
+   "format": "dxf",
+   "title": [
+    "방 2개 주택 · DXF",
+    "Two-room house · DXF"
+   ],
+   "note": [
+    "단순한 CAD 도면",
+    "A simple CAD drawing"
+   ],
+   "bytes": 9863
+  },
+  {
+   "id": "small-office-svg",
+   "file": "small-office.svg",
+   "format": "svg",
+   "title": [
+    "작은 사무실 · SVG",
+    "Small office · SVG"
+   ],
+   "note": [
+    "선으로 그린 SVG 도면",
+    "An SVG line drawing"
+   ],
+   "bytes": 5690
+  },
+  {
+   "id": "apartment-59-pdf",
+   "file": "apartment-59.pdf",
+   "format": "pdf",
+   "title": [
+    "59㎡ 아파트 · PDF",
+    "59 m² apartment · PDF"
+   ],
+   "note": [
+    "CAD에서 내보낸 A3 PDF (축척 1:100)",
+    "An A3 PDF exported from CAD (1:100)"
+   ],
+   "bytes": 176641
+  },
+  {
+   "id": "apartment-59-scan",
+   "file": "apartment-59-scan.png",
+   "format": "png",
+   "title": [
+    "59㎡ 아파트 · 스캔",
+    "59 m² apartment · scan"
+   ],
+   "note": [
+    "7° 기울어진 스캔 (PNG)",
+    "A scan turned by 7° (PNG)"
+   ],
+   "bytes": 496144
+  }
+ ]
+}
