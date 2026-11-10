@@ -539,7 +539,9 @@ export function addLegs(k, role, mat, style, w, d, h, { inset = 0.05, r = 0.022,
       k.cyl(role, mat, r * 0.55, r * 0.5, h, x, 0, z, { segs: k.seg(12, 6) });
     } else if (style === 'hairpin') {
       const dx = Math.sign(x) * 0.0, s = 0.035;
-      k.tube(role, mat, [[x - s * Math.sign(x), h, z - s], [x - 0.002, h * 0.35, z], [x, 0.006, z], [x + 0.002 * Math.sign(x), h * 0.35, z], [x - s * Math.sign(x) + dx, h, z + s]], 0.005, { radial: k.seg(8, 4), segs: k.seg(28, 8) });
+      // Two rods meeting at the foot: a curve's end points are exact, so the foot touches the floor at any segment count.
+      k.tube(role, mat, [[x - s * Math.sign(x), h, z - s], [x - 0.002, h * 0.35, z - 0.004], [x, 0.005, z]], 0.005, { radial: k.seg(8, 4), segs: k.seg(14, 4) });
+      k.tube(role, mat, [[x, 0.005, z], [x + 0.002 * Math.sign(x), h * 0.35, z + 0.004], [x - s * Math.sign(x) + dx, h, z + s]], 0.005, { radial: k.seg(8, 4), segs: k.seg(14, 4) });
     } else if (style === 'block') {
       k.box(role, mat, 0.05, h, 0.05, x, h / 2, z, { r: 0.006, segs: 2 });
     } else if (style === 'cone') {

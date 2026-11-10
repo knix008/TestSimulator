@@ -204,7 +204,7 @@ const barrelChair = mk({
     const ang = PI * 1.2, H = 0.36, th = 0.07;
     const back = shellGeo(k.seg(24, 10), 3, (u, v) => { const a = PI / 2 - ang / 2 + u * ang; const rr = R + 0.01; return [Math.cos(a) * rr, sh + v * H, -Math.sin(a) * rr]; }, th);
     k.add('upholstery', p.fabric, back);
-    k.add('upholstery', p.fabric, T(torus(R - th / 2 + 0.01, th / 2, k.seg(8, 4), k.seg(24, 10), ang), 0, sh + H, 0, PI / 2, 0, -PI / 2 + ang / 2 + PI));
+    k.add('upholstery', p.fabric, T(torus(R + 0.01 - th / 2, th / 2, k.seg(8, 4), k.seg(24, 10), ang), 0, sh + H, 0, -PI / 2, 0, PI / 2 - ang / 2));
     return finish(k);
   },
 });
@@ -437,24 +437,36 @@ const cornerCabinet = mk({
   tags: ['corner cabinet', 'china cabinet', 'corner hutch', 'display cabinet', '코너장', '코너 그릇장', '진열장', '그릇장'],
   build: (p, ctx) => {
     const k = new Kit(ctx);
-    const D = 0.5, W = 2 * D, H = p.height, fw = 0.56, bh = 0.8;
-    // plan: right angle at the back corner (−z), diagonal front along x; cut the two acute tips
-    const plan = (inset = 0) => new THREE.Shape([new THREE.Vector2(-fw / 2 - inset, D / 2 - inset), new THREE.Vector2(fw / 2 + inset, D / 2 - inset), new THREE.Vector2(W / 2 - 0.2 + inset, D / 2 - 0.2 + 0), new THREE.Vector2(0, -D / 2), new THREE.Vector2(-W / 2 + 0.2 - inset, D / 2 - 0.2)]);
-    k.slab('body', p.body, plan(), 0.08, 0, { bevel: 0.002 });
+    const D = 0.5, H = p.height, fw = 0.56, bh = 0.8, t = 0.018;
+    // plan (x, z): right angle at the back corner (−z), two 45° wall edges, a short return each side
+    // and the flat front along x. `plan(s)` scales it about its centre (s < 1 = inset).
+    const P0 = [[-fw / 2, D / 2], [fw / 2, D / 2], [0.3, 0.05], [0, -D / 2 + 0.0], [-0.3, 0.05]];
+    const cz = 0.02;
+    const plan = (s = 1) => new THREE.Shape(P0.map(([x, z]) => new THREE.Vector2(x * s, cz + (z - cz) * s)));
+    k.slab('body', p.body, plan(0.97), 0.08, 0, { bevel: 0.002 });
     k.slab('body', p.body, plan(), bh - 0.11, 0.08, { bevel: 0.002 });
-    k.slab('body', p.body, plan(0.015), 0.03, bh - 0.03, { bevel: 0.004 });
-    k.slab('body', p.body, plan(-0.01), H - bh - 0.08, bh, { bevel: 0.002 });
-    k.slab('body', p.body, plan(0.02), 0.06, H - 0.08, { bevel: 0.006 });
-    k.slab('body', p.body, plan(0.035), 0.02, H - 0.02, { bevel: 0.004 });
+    k.slab('body', p.body, plan(1.04), 0.03, bh - 0.03, { bevel: 0.004 });
+    // glazed upper part: open carcass (two wall panels, side returns, top) so the shelves show
+    const uh = H - bh - 0.08, uy = bh + uh / 2;
+    const wallLen = Math.hypot(0.3, 0.3);
+    for (const sx of [-1, 1]) {
+      k.box('body', p.body, wallLen, uh, t, sx * 0.15, uy, -0.1, { r: 0.002, ry: -sx * PI / 4 });
+      k.box('body', p.body, t, uh, 0.21, sx * (fw / 2 + 0.005), uy, D / 2 - 0.1, { r: 0.002, ry: sx * 0.1 });
+    }
+    k.slab('body', p.body, plan(1.02), 0.06, H - 0.08, { bevel: 0.006 });
+    k.slab('body', p.body, plan(1.06), 0.02, H - 0.02, { bevel: 0.004 });
     // lower door and glazed upper door on the front face
-    k.box('doors', p.body, fw - 0.06, bh - 0.16, 0.02, 0, 0.08 + (bh - 0.16) / 2 + 0.01, D / 2 + 0.01, { r: 0.003 });
-    k.panel('doors', p.body, frameShape(fw - 0.06, H - bh - 0.14, 0.045), 0.02, 0, bh + 0.02 + (H - bh - 0.14) / 2, D / 2 + 0.0, { bevel: 0.002 });
-    k.box('glass', 'glass-clear', fw - 0.14, H - bh - 0.22, 0.004, 0, bh + 0.02 + (H - bh - 0.14) / 2, D / 2 - 0.002, { r: 0 });
-    addHandle(k, 'handles', 'metal-brass', 'knob', fw / 2 - 0.08, bh - 0.12, D / 2 + 0.02);
-    addHandle(k, 'handles', 'metal-brass', 'knob', fw / 2 - 0.08, bh + 0.25, D / 2 + 0.01);
-    const shelves = [bh + (H - bh - 0.1) / 3, bh + (2 * (H - bh - 0.1)) / 3];
-    for (const y of shelves) k.slab('body', p.body, plan(-0.04), 0.018, y, { bevel: 0.002 });
-    if (p.plates) for (const y of [bh, ...shelves]) for (const x of [-0.12, 0.12]) k.cyl('plates', 'ceramic-white', 0.1, 0.1, 0.012, x, y + 0.12, -0.02 + Math.abs(x) * -0.5 + 0.06, { rx: PI / 2 - 0.2, segs: k.seg(20, 8) });
+    k.box('doors', p.body, fw - 0.02, bh - 0.16, 0.02, 0, 0.08 + (bh - 0.16) / 2 + 0.01, D / 2 + 0.01, { r: 0.003 });
+    k.panel('doors', p.body, frameShape(fw - 0.02, uh - 0.01, 0.045), 0.02, 0, uy, D / 2 + 0.01, { bevel: 0.002 });
+    k.box('glass', 'glass-clear', fw - 0.1, uh - 0.08, 0.004, 0, uy, D / 2 + 0.008, { r: 0 });
+    addHandle(k, 'handles', 'metal-brass', 'knob', fw / 2 - 0.06, bh - 0.12, D / 2 + 0.02);
+    addHandle(k, 'handles', 'metal-brass', 'knob', fw / 2 - 0.06, bh + 0.25, D / 2 + 0.02);
+    const shelves = [bh + uh / 3, bh + (2 * uh) / 3];
+    for (const y of shelves) k.slab('body', p.body, plan(0.94), t, y, { bevel: 0.002 });
+    if (p.plates) for (const y of [bh, ...shelves]) {
+      for (const x of [-0.11, 0.11]) k.cyl('plates', 'ceramic-white', 0.1, 0.1, 0.012, x, y + 0.115, -0.06 + Math.abs(x) * 0.4, { rx: PI / 2 - 0.25, segs: k.seg(20, 8) });
+      k.lathe('plates', 'ceramic-white', [[0, 0], [0.04, 0], [0.06, 0.06], [0.055, 0.065], [0, 0.01]], 0, y + t, 0.12, { segs: k.seg(16, 6) });
+    }
     return finish(k);
   },
 });

@@ -149,7 +149,7 @@ const princessBed = mk({
     k.add('frame', 'metal-gold', T(torus(0.22, 0.012, k.seg(6, 4), k.seg(24, 8)), cx + 0.15, top, 0, PI / 2, 0, 0));
     k.cyl('frame', 'metal-gold', 0.08, 0.22, 0.1, cx + 0.15, top - 0.02, 0, { open: true, segs: k.seg(20, 8) });
     k.add('canopy', p.canopy, shellGeo(k.seg(28, 10), k.seg(12, 5), (u, v) => {
-      const a = PI * 0.15 + u * PI * 1.7, y = top - v * (top - 0.35);
+      const a = PI * 0.3 + u * PI * 1.4, y = top - v * (top - 0.35);
       const R = 0.2 + v * 0.45;
       return [cx + 0.15 + Math.cos(a) * R * 0.9 + v * 0.1, y, Math.sin(a) * R * (1 + v * 0.3) + 0.015 * Math.sin(u * PI * 12) * v];
     }, 0.006));
@@ -329,13 +329,13 @@ const carSeat = mk({
       kk.soft('fabric', p.fabric, 0.26, 0.08, 0.12, 0.03, 0, 0.1, -0.24, { puff: 0.01 });
       for (const sx of [-1, 1]) kk.box('straps', 'fabric-wool-charcoal', 0.03, 0.005, 0.25, sx * 0.06, 0.105, -0.03, { r: 0.002 });
       kk.cyl('straps', 'metal-steel', 0.02, 0.02, 0.01, 0, 0.1, 0.12, { segs: 10 });
+      for (const sx of [-1, 1]) kk.bentTube('shell', p.shell, [[sx * 0.12, 0.05, 0.25], [sx * 0.13, -0.02, 0.12], [sx * 0.13, -0.02, -0.12], [sx * 0.12, 0.05, -0.25]], 0.016, 0.08);
       kk.add('handle', p.shell, T(torus(0.225, 0.016, k.seg(6, 4), k.seg(20, 8), PI), 0, 0.22, 0.02));
       for (const sx of [-1, 1]) kk.cyl('handle', p.shell, 0.035, 0.035, 0.03, sx * 0.225, 0.22, 0.02, { rz: PI / 2, segs: 12 });
       kk.sphere('canopy', p.fabric, 0.21, 0, 0.2, -0.17, { thetaLength: PI / 2, segs: k.seg(16, 6), rings: k.seg(5, 3), scale: [1.02, 0.7, 1.2], rx: -0.9 });
     }, 0, 0.06, 0, 0);
     // tip the whole tub back (head end up) about x through the front rocker contact
     for (const part of k.parts.values()) for (const g of part.geos) { g.translate(0, -0.06, -0.3); g.rotateX(tilt); g.translate(0, 0.06, 0.3); }
-    for (const sx of [-1, 1]) k.bentTube('shell', p.shell, [[sx * 0.17, 0.08, 0.3], [sx * 0.18, 0.012, 0.12], [sx * 0.18, 0.012, -0.12], [sx * 0.17, 0.12, -0.3]], 0.016, 0.12);
     return finish(k);
   },
 });

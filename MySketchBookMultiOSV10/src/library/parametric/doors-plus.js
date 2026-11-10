@@ -27,10 +27,24 @@ const RY = (a) => new THREE.Matrix4().makeRotationY(a);
 /* ------------------------------------------------------------------ helpers */
 
 /** Runs fn(zc) with the parts placed on a leaf hinged at (hx, y0, zFace) and opened by angle (side −1: opens to −Z). */
-function swingAt(k, { hx, dir, zFace, angle, lt, side = 1, y0 = 0.008 }, fn) {
+function swingAt(k, { hx, dir, zFace, angle, lt, side = 1, y0 = 0.008, inset = 0 }, fn) {
   const m = pivot(0, 0, 0, { ry: -dir * side * angle });
+  // inset: the hinge axis sits that far inside the leaf (offset pivot hinge); the closed leaf does not move
+  if (inset) { m.premultiply(M4(dir * inset, 0, 0)); m.multiply(M4(-dir * inset, 0, 0)); }
   m.premultiply(M4(hx, y0, zFace));
   withMatrix(k, m, () => fn(-side * lt / 2));
+}
+
+/**
+ * Steel face flanges (architrave) of a plain frame on both wall faces, `ov` past each jamb: they
+ * also keep an opened thick leaf's hinge-side hardware within a frame centred on the hole.
+ */
+function faceFlanges(k, mat, W, H, t, ov = 0.05) {
+  for (const z of [-1, 1]) {
+    const zz = z * (t / 2 + 0.005);
+    for (const s of [-1, 1]) k.box('frame', mat, ov + 0.01, H + ov, 0.01, s * (W / 2 + ov / 2 - 0.005), (H + ov) / 2, zz, { r: 0.002 });
+    k.box('frame', mat, W + 2 * ov, ov, 0.01, 0, H + ov / 2, zz, { r: 0.002 });
+  }
 }
 
 /** Hinge barrels on a leaf's hinge edge. */
@@ -325,6 +339,7 @@ const coldRoom = hingedDoor({
   leafMat: 'metal-steel', frameMat: 'metal-steel', handleMat: 'metal-chrome', lt: 0.08, handles: false,
   tags: ['door', 'cold room door', 'freezer door', 'walk-in cooler', 'strip curtain', '문', '냉동 창고 문', '냉장실 문', '스트립 커튼'],
   frameExtra: (k, p, { t, W, H }) => {
+    faceFlanges(k, p.frameMat, W, H, t, 0.05);
     const iw = W - 2 * JAMB, z = t / 2 + 0.02;
     k.box('frame', p.frameMat, iw, 0.04, 0.03, 0, H - JAMB - 0.02, z, { r: 0.002 });
     const n = Math.ceil(iw / 0.17), sw = 0.2, sh = H - JAMB - 0.05 - 0.012;
@@ -462,6 +477,7 @@ const grille = hingedDoor({
 const entranceStrip = hingedDoor({
   id: 'door-entrance-glassstrip', ko: '원목 현관문(세로 유리띠·롱 핸들)', en: 'Wooden entrance door with glass strip', w: 1.0, wr: [0.85, 1.3], hr: [1.9, 2.5],
   side: -1, frame: 'plain', threshold: true, leafMat: 'wood-walnut', frameMat: 'paint-black-matte', handleMat: 'metal-black', lt: 0.06, handles: false,
+  frameExtra: (k, p, { t, W, H }) => faceFlanges(k, p.frameMat, W, H, t, 0.05),
   tags: ['door', 'entrance door', 'front door', 'wooden door', 'long pull handle', '문', '현관문', '원목 현관문', '롱 핸들', '디지털 도어락'],
   extra: [glassP('glass-frosted')],
   leaf: (k, o) => {
@@ -608,6 +624,7 @@ const carriage = hingedDoor({
 const vault = hingedDoor({
   id: 'door-vault', ko: '금고형 안전실 문(핸들 휠)', en: 'Vault door with wheel handle', w: 1.0, wr: [0.8, 1.3], hr: [1.9, 2.4], frame: 'plain',
   leafMat: 'metal-steel', frameMat: 'metal-steel', handleMat: 'metal-chrome', lt: 0.08, handles: false,
+  frameExtra: (k, p, { t, W, H }) => faceFlanges(k, p.frameMat, W, H, t, 0.05),
   tags: ['door', 'vault door', 'safe room door', 'bank vault', 'wine vault', '문', '금고 문', '안전실 문', '볼트 도어'],
   leaf: (k, { lw, lh, lt, X, zc, mat: m, p, dir }) => {
     k.box('leaf', m, lw, lh, lt, X(lw / 2), lh / 2, zc, { r: 0.012, segs: 2 });
@@ -932,7 +949,7 @@ const showerHinged = item({
     const zFace = t / 2 - 0.025, lw = W - 0.024 - 2 * GAP - 0.004, lh = H - 0.04 - 0.012 - 0.01, dir = p.hinge === 'right' ? -1 : 1;
     const hx = dir * -(W / 2 - 0.012 - GAP);
     for (const hy of [0.3, lh - 0.3]) k.rbox('frame', p.handleMat, 0.03, 0.07, 0.05, 0.006, hx - dir * 0.01, 0.046 + hy, zFace - 0.005, { segs: k.seg(2, 1) });
-    swingAt(k, { hx, dir, zFace, angle: p.open * DEG, lt, y0: 0.046 }, (zc) => {
+    swingAt(k, { hx, dir, zFace, angle: p.open * DEG, lt, y0: 0.046, inset: 0.06 }, (zc) => {
       const X = (x) => dir * x;
       k.box('leaf', p.glassMat, lw, lh, 0.008, X(lw / 2), lh / 2, zc, { r: 0.002 });
       for (const hy of [0.3, lh - 0.3]) k.rbox('hardware', p.handleMat, 0.07, 0.07, 0.03, 0.006, X(0.04), hy, zc, { segs: k.seg(2, 1) });
@@ -1345,7 +1362,8 @@ const moonGate = item({
   build: (p, ctx) => {
     const k = new Kit(ctx);
     const t = wallT(ctx), W = p.width, H = p.height, n = k.seg(64, 20);
-    const R = W / 2 - 0.03, cy = H - 0.03 - R, full = cy - R > 0.005;
+    // a closed ring only when the ring moulding (0.02 out + 0.025 tube) clears the floor; otherwise it stands on the floor
+    const R = W / 2 - 0.03, cy = H - 0.03 - R, full = cy - R > 0.046;
     const th0 = full ? -PI / 2 : Math.asin(clamp(-cy / R, -1, 1)), th1 = PI - th0;
     const arc = (r, a0, a1, m) => Array.from({ length: m + 1 }, (_, i) => { const a = a0 + ((a1 - a0) * i) / m; return [r * Math.cos(a), cy + r * Math.sin(a)]; });
     let shape;
@@ -1430,7 +1448,9 @@ const ship = item({
       k.panel('frame', p.frameMat, lip, 0.016, 0, 0, side * (t / 2 + 0.008), { bevel: 0.003 });
     }
     const lw = hw + 0.06, lhh = hh + 0.06, zFace = t / 2 + 0.016, dir = p.hinge === 'right' ? -1 : 1, hx = dir * -(lw / 2);
-    const m = pivot(0, 0, 0, { ry: -dir * p.open * DEG });
+    // offset pivot hinge (axis 0.09 m inside the leaf): the dogs on the hinge side stay inside the frame when open
+    const ins = 0.09, m = pivot(0, 0, 0, { ry: -dir * p.open * DEG });
+    m.premultiply(M4(dir * ins, 0, 0)); m.multiply(M4(-dir * ins, 0, 0));
     m.premultiply(M4(hx, 0, zFace));
     withMatrix(k, m, () => {
       const X = (x) => dir * x, zc = lt / 2, cx = X(lw / 2);

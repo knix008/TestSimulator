@@ -146,16 +146,6 @@ test('catalog: ≥ 10 sofas each for 1, 2, 3 and 4 seats (entry.seats), seat cou
 // Known failures of the param-extremes check (reported, still run as `todo` so they show up
 // without failing the suite): remove an entry once its item is fixed.
 const EXTREMES_TODO = {
-  'coffee-table': 'legs=hairpin floats 4 cm above the floor',
-  'decor-macrame': 'max params: low-quality triangles over budget',
-  'kitchen-wine-rack': 'max params: low-quality triangles over budget',
-  'kitchen-wine-rack-large': 'max params: low-quality triangles over budget',
-  'door-cold-room': 'max params: frame not centred in x',
-  'door-entrance-glassstrip': 'max params: frame not centred in x',
-  'door-ship-watertight': 'max params: frame not centred in x',
-  'door-shower-hinged': 'max params: frame not centred in x',
-  'door-vault': 'max params: frame not centred in x',
-  'door-moon-gate': 'max params: dips 1.4 cm below the floor',
 };
 
 for (const entry of PARAMETRIC_ITEMS) {

@@ -5,6 +5,10 @@
 //
 // Library items are built once per (item, params, quality) as a template; every
 // placed copy is a clone that shares geometry, BVH and materials with it.
+//
+// Draw calls: a template's opaque parts of one material are merged into one mesh (after its
+// edges are taken), a wall draws one group per material (not per side), and placed objects
+// and template parts keep fixed matrices (no per-frame matrix work; placeTransform updates them).
 import * as THREE from 'three';
 import { ShapeUtils } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -196,17 +200,20 @@ export class SceneBuilder {
       g.setAttribute('uv', new THREE.BufferAttribute(data.uvs, 2));
       const slotMaterial = { left: wall.material?.left ?? 'wall-paint-white', right: wall.material?.right ?? 'wall-paint-white', top: wall.material?.top ?? 'wall-paint-white', reveal: wall.material?.left ?? 'wall-paint-white', end: wall.material?.left ?? 'wall-paint-white' };
       // One draw call per material, not per side: the triangles are ordered by material (a wall painted
-      // one colour is a single group); `slotRanges` still tells which side each triangle belongs to (paint bucket).
+      // one colour is a single group); `wallSlotOf` still tells which side each triangle belongs to (paint bucket).
       const { indices, groups, slotRanges, presets } = groupByMaterial(data.indices, data.groups, slotMaterial);
       g.setIndex(new THREE.BufferAttribute(indices, 1));
       for (const grp of groups) g.addGroup(grp.start, grp.count, grp.materialIndex);
       g.computeBoundingBox();
       g.computeBoundingSphere();
+      // The BVH reorders triangles inside each group, so the sides are looked up per triangle afterwards.
+      const sideOf = triangleKeys(indices, slotRanges);
       g.computeBoundsTree();
+      WALL_SIDES.set(g, slotsAfterReorder(g.index.array, sideOf));
       const mesh = new THREE.Mesh(g, presets.map((p) => getMaterial(p)));
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-      mesh.userData = { entityId: wall.id, entityKind: 'wall', level: level.id, ownsGeometry: true, tag: wall.tag, slotRanges };
+      mesh.userData = { entityId: wall.id, entityKind: 'wall', level: level.id, ownsGeometry: true, tag: wall.tag };
       mesh.matrixAutoUpdate = false;
       mesh.updateMatrix();
       const edges = new THREE.LineSegments(new THREE.EdgesGeometry(g, 25), edgeMaterial);
@@ -561,12 +568,33 @@ function groupByMaterial(source, sourceGroups, slotMaterial) {
   return { indices, groups, slotRanges, presets };
 }
 
-/** The wall side ('left', 'right', 'top', …) of the triangle a pick hit (see groupByMaterial). */
+const WALL_SLOTS = ['left', 'right', 'top', 'reveal', 'end'];
+/** Wall geometry → side code per triangle (kept out of userData, which the exporters write out). */
+const WALL_SIDES = new WeakMap();
+const triKey = (a, b, c) => { const lo = Math.min(a, b, c); const hi = Math.max(a, b, c); return `${lo},${a + b + c - lo - hi},${hi}`; };
+
+/** Triangle (its three vertex indices) → side, before the BVH reorders the index. */
+function triangleKeys(indices, slotRanges) {
+  const map = new Map();
+  for (const r of slotRanges) {
+    const code = Math.max(0, WALL_SLOTS.indexOf(r.slot));
+    for (let i = r.start; i < r.start + r.count; i += 3) map.set(triKey(indices[i], indices[i + 1], indices[i + 2]), code);
+  }
+  return map;
+}
+
+/** Side code per triangle of the (reordered) index: Uint8Array indexed by faceIndex. */
+function slotsAfterReorder(indices, sideOf) {
+  const out = new Uint8Array(indices.length / 3);
+  for (let t = 0; t < out.length; t++) out[t] = sideOf.get(triKey(indices[t * 3], indices[t * 3 + 1], indices[t * 3 + 2])) ?? 0;
+  return out;
+}
+
+/** The wall side ('left', 'right', 'top', 'reveal', 'end') of the triangle a pick hit. */
 export function wallSlotOf(hit) {
-  const ranges = hit?.object?.userData?.slotRanges;
-  if (!ranges || hit.faceIndex == null) return null;
-  const i = hit.faceIndex * 3;
-  return ranges.find((r) => i >= r.start && i < r.start + r.count)?.slot ?? null;
+  const codes = WALL_SIDES.get(hit?.object?.geometry);
+  if (!codes || hit.faceIndex == null) return null;
+  return WALL_SLOTS[codes[hit.faceIndex]] ?? null;
 }
 
 /**

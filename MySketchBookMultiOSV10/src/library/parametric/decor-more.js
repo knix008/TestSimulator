@@ -1128,9 +1128,13 @@ const macrame = item({
       const yEnd = rowY(rows - 1) - 0.06;
       const c = (n - 1) / 2, yb = 0.18 * (L / 0.8) * (Math.abs(i - c) / c) + rand() * 0.01;
       pts.push([xs[i], yEnd, 0.006], [xs[i] + (rand() - 0.5) * 0.01, Math.min(yEnd - 0.05, yb + (yEnd - yb) * 0.5), 0.007], [xs[i] + (rand() - 0.5) * 0.012, yb, 0.008]);
-      k.tube('cord', p.cord, pts, 0.0032, { segs: k.seg(L * 90, 16), radial: k.seg(6, 3) });
+      k.tube('cord', p.cord, pts, 0.0032, { segs: k.hi ? Math.round(L * 90) : 24, radial: k.seg(6, 3) });
     }
-    for (const [x, y] of knots) k.sphere('cord', p.cord, 0.0085, x, y, 0.008, { scale: [1.2, 1, 0.7], segs: k.seg(10, 4), rings: k.seg(7, 3) });
+    // A large hanging has a few hundred knots: small boxes at low quality.
+    for (const [x, y] of knots) {
+      if (k.hi) k.sphere('cord', p.cord, 0.0085, x, y, 0.008, { scale: [1.2, 1, 0.7], segs: 10, rings: 7 });
+      else k.box('cord', p.cord, 0.02, 0.017, 0.012, x, y, 0.008);
+    }
     for (let i = 0; i < n; i += 2) k.cyl('cord', p.cord, 0.007, 0.007, 0.014, (xs[i] + xs[i + 1]) / 2, top - 0.035, 0.006, { segs: k.seg(10, 4) });
     recentre(k);
     return k.group();

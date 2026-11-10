@@ -8,6 +8,12 @@
 // - Shadow maps update only when the scene or the sun changed (shadowMap.autoUpdate = false).
 // - Picking uses BVH trees (three-mesh-bvh), so hovering a 1M-triangle model stays instant.
 // - When frames get slow during interaction the resolution steps down, and back up when fast.
+//   "Slow" includes GPU time (timer query, GpuTimer below): on a GPU-bound laptop the CPU side of a frame
+//   looks cheap. The same measure decides whether ambient occlusion stays on while moving; when it was left
+//   out, it fades back in (AO_FADE_MS) instead of popping.
+// - The fps cap keeps ~half a display frame of tolerance (75/90 Hz screens are not halved); glides are
+//   scaled by the real frame step, so they feel the same at 60, 120 or 144 Hz.
+// - Per-frame helpers (marker scaling, grid) use scratch vectors, no allocations.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -351,6 +357,7 @@ export class Viewport {
   invalidateShadows() { this.shadowsDirty = true; this.dirty = true; }
   /** The content changed: fresh shadows and bounds. */
   contentChanged() { this.fitShadowCamera(); this.invalidateShadows(); this.updateSunMarker(); }
+
   /** Objects moved (dragging): fresh shadows, but the shadow camera stays put so shadows don't shimmer. */
   contentMoved() { this.invalidateShadows(); }
 
@@ -396,9 +403,9 @@ export class Viewport {
     if (!this.dirty) { this.renderedLastTick = false; return; }
     const s = this.settings();
     const minInterval = s.maxFps ? 1000 / s.maxFps : 0;
-    // Frame cap with half a display frame of tolerance: 60 fps on 120 Hz, and a 75 Hz screen is not cut to every
-    // second frame (37 fps) — the old "interval − 1 ms" test dropped alternate frames whenever the rates did not divide.
-    if (minInterval && this.lastFrame && now - this.lastFrame < minInterval - (this.vsync ?? 16.667) / 2) return;
+    // Frame cap with ~half a display frame of tolerance: 60 fps on 120 Hz, while 75 or 90 Hz screens are not cut to
+    // every second frame (37/45 fps) — the old "interval − 1 ms" test did that whenever the rates did not divide.
+    if (minInterval && this.lastFrame && now - this.lastFrame < minInterval - (this.vsync ?? 16.667) * 0.6) return;
     this.dirty = false;
     // Interval to the previous frame when this one followed it directly (a real measure of a slow GPU when no timer query exists).
     this.frameInterval = this.renderedLastTick && this.lastFrame ? now - this.lastFrame : 0;
@@ -1082,7 +1089,7 @@ export class Viewport {
     const perPixelAt = (position) => (this.isOrtho ? orthoPerPixel : Math.max(0.05, _markerDelta.subVectors(position, cam.position).dot(forward)) * perspK);
     this.sunMarker.visible = Boolean(this.sunState?.on) && this.settings().showSunMarker !== false && !this.walk;
     if (this.sunMarker.visible) {
-      this.placeSunMarker();
+      // The marker's place is fixed world coordinates (placed when the sun changes); only its size follows the zoom.
       this.sunSprite.scale.setScalar(30 * perPixelAt(this.sunSprite.position));
       this.sunLine.material.dashSize = 8 * perPixelAt(this.sunSprite.position);
       this.sunLine.material.gapSize = 6 * perPixelAt(this.sunSprite.position);
@@ -1259,6 +1266,9 @@ export class Viewport {
     this.updateProjection();
     this.interacting = false;
     this.shadowsDirty = true;
+    // A saved image has its full ambient occlusion at once (no fade-in).
+    this.aoFade = null;
+    this.aoShown = true;
     this.renderFrame();
     const out = document.createElement('canvas');
     out.width = width; out.height = height;

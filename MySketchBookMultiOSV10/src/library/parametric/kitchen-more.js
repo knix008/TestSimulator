@@ -537,7 +537,7 @@ const wineRack = make({
     const rand = rng(p.cols * 7 + p.rows);
     for (let r = 0; r < rows; r++) {
       const yb = 0.03 + r * rh;
-      for (const z of [d / 2 - 0.045, -d / 2 + 0.035]) k.panel('frame', p.wood, board(), 0.014, 0, yb, z, { bevel: 0.0015, curveSegs: 10 });
+      for (const z of [d / 2 - 0.045, -d / 2 + 0.035]) k.panel('frame', p.wood, board(), 0.014, 0, yb, z, { bevel: k.hi ? 0.0015 : 0, curveSegs: k.seg(10, 4) });
       for (let c = 0; c < cols; c++) {
         if (rand() > p.fill) continue;
         const cx = -cols * cw / 2 + (c + 0.5) * cw;
