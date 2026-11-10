@@ -48,6 +48,7 @@ export function drawFrame(ctx, w, h, view, theme, lang = 'ko') {
   const draw = {
     array: drawArray, graph: drawGraph, grid: drawGrid, table: drawTable,
     string: drawString, tree: drawTree, board: drawBoard, hanoi: drawHanoi,
+    intervals: drawIntervals,
   }[view.kind];
   if (draw) draw(ctx, w, h, view, theme, lang);
 }
@@ -58,10 +59,13 @@ function drawArray(ctx, w, h, view, theme) {
   const { values, colors, done, pointers, range, aux, buckets } = view;
   const n = values.length;
   const doneSet = new Set(done);
-  const auxH = aux ? 52 : 0;
+  const heap = Number.isInteger(view.heapSize) ? view.heapSize : null;
+  const auxH = aux ? (aux.span ? 64 : 52) : 0;
   const bucketH = buckets ? 78 : 0;
   const top = 30;
-  const bottom = h - 26 - auxH - bucketH;
+  const room = h - top - 26 - auxH - bucketH;
+  const heapH = heap === null ? 0 : Math.min(Math.max(0, room - 56), Math.min(210, Math.max(88, room * 0.46)));
+  const bottom = h - 26 - auxH - bucketH - heapH;
   const slot = Math.min(64, (w - 24) / n);
   const x0 = (w - slot * n) / 2;
   const min = Math.min(0, ...values);
@@ -117,16 +121,20 @@ function drawArray(ctx, w, h, view, theme) {
     ctx.fill();
   }
 
-  if (aux) drawStrip(ctx, aux.label, aux.values, aux.colors ?? {}, x0, bottom + 30, slot, theme);
-  if (buckets) drawBuckets(ctx, buckets, 12, h - bucketH + 4, w - 24, bucketH - 10, theme);
+  if (aux) drawStrip(ctx, aux.label, aux.values, aux.colors ?? {}, x0, bottom + 30, aux.span ? slot * Math.max(n, 1) : slot, theme, !!aux.span);
+  if (buckets) drawBuckets(ctx, buckets, 12, h - heapH - bucketH + 4, w - 24, bucketH - 10, theme);
+  if (heap !== null) drawHeapTree(ctx, values, colors, doneSet, heap, 20, h - heapH + 4, w - 40, heapH - 12, theme);
 }
 
-function drawStrip(ctx, label, values, colors, x, y, slot, theme) {
+function drawStrip(ctx, label, values, colors, x, y, slotOrWidth, theme, span = false) {
+  const count = values.length;
+  if (!count) return;
+  const slot = span ? slotOrWidth / count : slotOrWidth;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.font = font(11, 700);
   ctx.fillStyle = theme.muted;
-  ctx.fillText(label, x - Math.min(36, x - 4), y + 11);
+  ctx.fillText(label, Math.max(4, x - 40), y + 11);
   values.forEach((v, i) => {
     if (v === null || v === undefined || v === '') return;
     const bx = x + i * slot + slot * 0.12;
@@ -137,7 +145,54 @@ function drawStrip(ctx, label, values, colors, x, y, slot, theme) {
     ctx.font = font(Math.min(12, slot * 0.4));
     ctx.textAlign = 'center';
     ctx.fillText(String(v), bx + slot * 0.38, y + 11);
+    if (span && slot > 16) {
+      ctx.fillStyle = theme.muted;
+      ctx.font = font(Math.min(10, slot * 0.32), 400);
+      ctx.fillText(String(i), bx + slot * 0.38, y + 34);
+    }
   });
+}
+
+/** The first `heapSize` values drawn as the complete binary tree they represent. */
+function drawHeapTree(ctx, values, colors, doneSet, heapSize, x, y, w, h, theme) {
+  const n = Math.min(heapSize, values.length);
+  if (n <= 0 || h < 28 || w < 28) return;
+  const levels = Math.floor(Math.log2(n)) + 1;
+  const rowH = h / levels;
+  const pos = [];
+  for (let i = 0; i < n; i++) {
+    const level = Math.floor(Math.log2(i + 1));
+    const index = i - (2 ** level - 1);
+    const count = 2 ** level;
+    pos.push({ x: x + ((index + 0.5) / count) * w, y: y + (level + 0.5) * rowH });
+  }
+  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = theme.dark ? '#475569' : '#94a3b8';
+  for (let i = 1; i < n; i++) {
+    const parent = (i - 1) >> 1;
+    ctx.beginPath();
+    ctx.moveTo(pos[parent].x, pos[parent].y);
+    ctx.lineTo(pos[i].x, pos[i].y);
+    ctx.stroke();
+  }
+  const radius = Math.max(8, Math.min(15, rowH * 0.34, (w / 2 ** (levels - 1)) * 0.32));
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < n; i++) {
+    const state = colors[i];
+    ctx.beginPath();
+    ctx.arc(pos[i].x, pos[i].y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = INK[state] ?? (doneSet.has(i) ? INK.done : (theme.dark ? '#1e293b' : '#ffffff'));
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = state ? INK[state] : theme.border;
+    ctx.stroke();
+    if (radius >= 9) {
+      ctx.fillStyle = state && !['compare', 'frontier', 'active', 'source', 'path'].includes(state) ? '#ffffff' : theme.text;
+      ctx.font = font(Math.min(12, radius), 700);
+      ctx.fillText(String(values[i]), pos[i].x, pos[i].y);
+    }
+  }
 }
 
 function drawBuckets(ctx, buckets, x, y, w, h, theme) {
@@ -365,6 +420,65 @@ function drawTable(ctx, w, h, view, theme, lang) {
     ctx.font = font(13, 700);
     ctx.fillText(tx(footer, lang), w / 2, h - 14);
   }
+}
+
+// ───────────────────────── intervals (activity selection)
+
+function drawIntervals(ctx, w, h, view, theme) {
+  const { items, mark } = view;
+  const min = Math.min(...items.map((item) => item.s));
+  const max = Math.max(...items.map((item) => item.f), mark ?? 0);
+  const span = Math.max(1, max - min);
+  const labelW = 28;
+  const x0 = labelW + 20;
+  const width = Math.max(40, w - x0 - 16);
+  const top = 28;
+  const rowH = Math.min(32, (h - top - 16) / Math.max(1, items.length));
+  const fillOf = {
+    current: INK.active, taken: INK.write, found: INK.found, skip: INK.dim,
+  };
+  ctx.strokeStyle = theme.border;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x0, top - 6);
+  ctx.lineTo(x0 + width, top - 6);
+  ctx.stroke();
+  ctx.fillStyle = theme.muted;
+  ctx.font = font(11, 600);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(String(min), x0, top - 10);
+  ctx.fillText(String(max), x0 + width, top - 10);
+  if (mark !== null && mark !== undefined && mark >= min) {
+    const mx = x0 + ((mark - min) / span) * width;
+    ctx.strokeStyle = INK.pivot;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(mx, top - 4);
+    ctx.lineTo(mx, top + items.length * rowH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  items.forEach((item, i) => {
+    const y = top + i * rowH + 4;
+    const bh = Math.max(8, rowH - 10);
+    const x = x0 + ((item.s - min) / span) * width;
+    const bw = Math.max(6, ((item.f - item.s) / span) * width);
+    ctx.fillStyle = fillOf[item.state] ?? (theme.dark ? '#334155' : '#e2e8f0');
+    roundRect(ctx, x, y, bw, bh, 4);
+    ctx.fill();
+    ctx.fillStyle = theme.muted;
+    ctx.font = font(11, 700);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(i + 1), x0 - 8, y + bh / 2);
+    if (bw > 28) {
+      ctx.fillStyle = item.state && item.state !== 'skip' ? '#0f172a' : theme.text;
+      ctx.font = font(Math.min(12, bh * 0.7), 700);
+      ctx.textAlign = 'center';
+      ctx.fillText(`${item.s}–${item.f}`, x + bw / 2, y + bh / 2);
+    }
+  });
 }
 
 // ───────────────────────── strings (KMP, Rabin–Karp)
@@ -595,6 +709,7 @@ export const LEGEND = {
   tree: [['compare', legend('비교', 'Compare')], ['write', legend('삽입', 'Inserted')], ['visited', legend('경로', 'Path')], ['current', legend('방문', 'Visiting')], ['done', legend('완료', 'Done')], ['found', legend('발견', 'Found')]],
   board: [['error', legend('공격받음', 'Attacked')], ['found', legend('해', 'Solution')]],
   hanoi: [],
+  intervals: [['active', legend('살펴보는 중', 'Considering')], ['write', legend('선택', 'Chosen')], ['dim', legend('겹침', 'Overlap')], ['pivot', legend('마지막 끝', 'Last finish')], ['found', legend('결과', 'Result')]],
 };
 
 export const INK_COLORS = INK;

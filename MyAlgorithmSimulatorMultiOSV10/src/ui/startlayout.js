@@ -4,7 +4,7 @@ export const COLS = 3;
 export const ROW = 20;
 export const GAP = 14;
 // Raised when the default arrangement changes: an older saved one starts over once.
-export const LAYOUT_VERSION = 1;
+export const LAYOUT_VERSION = 2;
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 

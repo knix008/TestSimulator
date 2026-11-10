@@ -89,10 +89,12 @@ export const combSort = {
         swapped = false;
         r.step(3, L(`간격 ${gap}`, `Gap ${gap}`), show(a), { gap });
         for (let i = 0; i + gap < a.length; i++) {
-          if (a[i] > a[i + gap]) {
-            r.step(4, L(`A[${i}]=${a[i]} > A[${i + gap}]=${a[i + gap]} → 교환`, `A[${i}]=${a[i]} > A[${i + gap}]=${a[i + gap]} → swap`), show(a, { colors: { [i]: 'swap', [i + gap]: 'swap' } }), { i, gap });
+          const out = a[i] > a[i + gap];
+          r.step(4, L(`간격 ${gap}: A[${i}]=${a[i]} ${out ? '>' : '≤'} A[${i + gap}]=${a[i + gap]}`, `Gap ${gap}: A[${i}]=${a[i]} ${out ? '>' : '≤'} A[${i + gap}]=${a[i + gap]}`), show(a, { colors: { [i]: 'compare', [i + gap]: 'compare' } }), { i, gap });
+          if (out) {
             [a[i], a[i + gap]] = [a[i + gap], a[i]];
             swapped = true;
+            r.step(4, L(`A[${i}] 와 A[${i + gap}] 교환`, `Swap A[${i}] and A[${i + gap}]`), show(a, { colors: { [i]: 'swap', [i + gap]: 'swap' } }), { i, gap });
           }
         }
         if (gap === 1 && !swapped) break;
@@ -179,13 +181,20 @@ export const countingSort = {
     return record((r) => {
       const max = Math.max(...a);
       const count = Array(max + 1).fill(0);
-      r.step(0, L('각 값이 몇 번 나오는지 셉니다.', 'Count how often each value appears.'), show(a), { max });
-      for (const v of a) count[v] += 1;
+      const counts = (colors = {}) => ({ label: 'count', values: count.map(String), colors, span: true });
+      r.step(0, L('각 값이 몇 번 나오는지 셉니다.', 'Count how often each value appears.'), show(a, { aux: counts() }), { max });
+      a.forEach((v, i) => {
+        count[v] += 1;
+        r.step(1, L(`A[${i}]=${v} → count[${v}] = ${count[v]}`, `A[${i}]=${v} → count[${v}] = ${count[v]}`), show(a, { colors: { [i]: 'active' }, aux: counts({ [v]: 'write' }) }), { i, v });
+      });
       let i = 0;
       for (let v = 0; v <= max; v++) {
         if (!count[v]) continue;
-        r.step(4, L(`${v} 을(를) ${count[v]}번 씁니다.`, `Write ${v}, ${count[v]} time(s).`), show(a, { colors: Object.fromEntries(Array.from({ length: count[v] }, (_, k) => [i + k, 'write'])) }), { v, count: count[v] });
-        for (let c = 0; c < count[v]; c++) a[i++] = v;
+        for (let c = 0; c < count[v]; c++) {
+          a[i] = v;
+          r.step(4, L(`${v} 을(를) A[${i}]에 씁니다. (${c + 1}/${count[v]})`, `Write ${v} at A[${i}] (${c + 1}/${count[v]}).`), show(a, { colors: { [i]: 'write' }, aux: counts({ [v]: 'source' }) }), { v, i });
+          i += 1;
+        }
       }
       finishSorted(r, a, 4);
     });
@@ -369,7 +378,15 @@ export const quickselect = {
       r.step(0, L(`${k}번째로 작은 값을 찾습니다.`, `Find the ${k}-th smallest.`), show(a), { k });
       while (lo <= hi) {
         const pivot = a[hi]; let i = lo;
-        for (let j = lo; j < hi; j++) if (a[j] < pivot) { [a[i], a[j]] = [a[j], a[i]]; i += 1; }
+        r.step(1, L(`[${lo}..${hi}] 피벗 = ${pivot}`, `Partition [${lo}..${hi}], pivot = ${pivot}`), show(a, { colors: { [hi]: 'pivot' }, range: [lo, hi], pointers: { i } }), { lo, hi, k });
+        for (let j = lo; j < hi; j++) {
+          r.step(1, L(`A[${j}]=${a[j]} < 피벗 ${pivot} ?`, `Is A[${j}]=${a[j]} < pivot ${pivot}?`), show(a, { colors: { [hi]: 'pivot', [j]: 'compare' }, range: [lo, hi], pointers: { i, j } }), { j, k });
+          if (a[j] < pivot) {
+            [a[i], a[j]] = [a[j], a[i]];
+            r.step(1, L(`A[${i}] 와 A[${j}] 교환`, `Swap A[${i}] and A[${j}]`), show(a, { colors: { [hi]: 'pivot', [i]: 'swap', [j]: 'swap' }, range: [lo, hi] }), { i, j });
+            i += 1;
+          }
+        }
         [a[i], a[hi]] = [a[hi], a[i]];
         r.step(1, L(`피벗 ${a[i]} 이(가) 인덱스 ${i}에 놓였습니다.`, `Pivot ${a[i]} landed at index ${i}.`), show(a, { colors: { [i]: 'pivot' }, range: [lo, hi] }), { i, k });
         if (i === want) {
@@ -471,21 +488,36 @@ export const lis = {
     const a = [...input];
     return record((r) => {
       const length = Array(a.length).fill(1);
-      r.step(1, L('각 위치로 끝나는 길이를 1로 둡니다.', 'Every element is an increasing subsequence of length 1.'), show(a), {});
+      const prev = Array(a.length).fill(-1);
+      const lens = (colors = {}) => ({ label: 'len', values: length.map(String), colors });
+      r.step(1, L('각 위치로 끝나는 길이를 1로 둡니다.', 'Every element is an increasing subsequence of length 1.'), show(a, { aux: lens() }), {});
       for (let i = 1; i < a.length; i++) {
         for (let j = 0; j < i; j++) {
-          if (a[j] < a[i]) length[i] = Math.max(length[i], length[j] + 1);
+          const can = a[j] < a[i];
+          const better = can && length[j] + 1 > length[i];
+          r.step(3, L(`A[${j}]=${a[j]} ${can ? '<' : '≥'} A[${i}]=${a[i]}${better ? `, 길이 ${length[j] + 1}` : ''}`, `A[${j}]=${a[j]} ${can ? '<' : '≥'} A[${i}]=${a[i]}${better ? `, length ${length[j] + 1}` : ''}`), show(a, { colors: { [i]: 'active', [j]: 'compare' }, aux: lens({ [i]: 'active', [j]: 'compare' }) }), { i, j });
+          if (better) {
+            length[i] = length[j] + 1;
+            prev[i] = j;
+            r.step(4, L(`A[${i}]로 끝나는 길이 ← ${length[i]}`, `Length ending at A[${i}] ← ${length[i]}`), show(a, { colors: { [i]: 'write', [j]: 'source' }, aux: lens({ [i]: 'write', [j]: 'source' }) }), { i, length: length[i] });
+          }
         }
-        r.step(4, L(`A[${i}]=${a[i]} 로 끝나는 길이 ${length[i]}`, `Length ending at A[${i}]=${a[i]} is ${length[i]}`), show(a, { colors: { [i]: 'write' } }), { i, length: length[i] });
       }
       const best = Math.max(...length);
-      r.step(4, L(`최장 길이는 ${best}입니다.`, `The longest length is ${best}.`), show(a, { colors: Object.fromEntries(length.map((v, i) => [i, v === best ? 'found' : 'dim'])) }), { result: best });
+      let at = length.indexOf(best);
+      const chain = [];
+      while (at >= 0) { chain.push(at); at = prev[at]; }
+      const order = chain.reverse();
+      const colors = Object.fromEntries(a.map((_, i) => [i, order.includes(i) ? 'found' : 'dim']));
+      const auxColors = Object.fromEntries(order.map((i) => [i, 'found']));
+      const seq = order.map((i) => a[i]).join(' → ');
+      r.step(4, L(`최장 길이는 ${best}입니다. 수열 ${seq}`, `The longest length is ${best}. One subsequence: ${seq}`), show(a, { colors, aux: lens(auxColors) }), { result: best });
     });
   },
 };
 
 export const activitySelection = {
-  id: 'activity-selection', category: 'greedy', view: 'table',
+  id: 'activity-selection', category: 'greedy', view: 'intervals',
   name: L('활동 선택', 'Activity Selection'),
   summary: L('겹치지 않게 고를 수 있는 활동의 최대 개수입니다.', 'The most activities that do not overlap.'),
   description: L(
@@ -514,19 +546,24 @@ export const activitySelection = {
   run(input) {
     const items = [...input].sort((a, b) => a.f - b.f || a.s - b.s);
     return record((r) => {
-      const cells = () => items.map((a) => [a.s, a.f]);
-      const view = (colors) => tableView({ colHeaders: ['start', 'finish'], rowHeaders: items.map((_, i) => String(i + 1)), cells: cells(), colors });
+      const state = items.map(() => 'wait');
+      const view = (focus = -1, mark = null) => ({
+        kind: 'intervals',
+        mark,
+        items: items.map((a, i) => ({ s: a.s, f: a.f, state: i === focus ? 'current' : state[i] })),
+      });
       const chosen = [];
       let last = -1;
-      r.step(1, L('끝나는 시각이 빠른 순으로 정렬했습니다.', 'Sorted by finishing time.'), view({}), {});
+      r.step(1, L('끝나는 시각이 빠른 순으로 정렬했습니다.', 'Sorted by finishing time.'), view(), {});
       items.forEach((a, i) => {
         const ok = a.s >= last;
-        r.step(3, L(ok ? `(${a.s}, ${a.f}) 선택` : `(${a.s}, ${a.f}) 겹쳐서 건너뜀`, ok ? `Take (${a.s}, ${a.f})` : `Skip (${a.s}, ${a.f}), it overlaps`), view({ [`${i},0`]: ok ? 'write' : 'dim', [`${i},1`]: ok ? 'write' : 'dim' }), { start: a.s, finish: a.f });
+        r.step(3, L(ok ? `(${a.s}, ${a.f}) 을(를) 살펴봅니다.` : `(${a.s}, ${a.f}) 은(는) ${last} 이전에 시작해 겹칩니다.`, ok ? `Consider (${a.s}, ${a.f}).` : `(${a.s}, ${a.f}) starts before ${last}, so it overlaps.`), view(i, last < 0 ? null : last), { start: a.s, finish: a.f });
+        state[i] = ok ? 'taken' : 'skip';
         if (ok) { chosen.push(i); last = a.f; }
+        r.step(3, L(ok ? `(${a.s}, ${a.f}) 선택` : `(${a.s}, ${a.f}) 건너뜀`, ok ? `Take (${a.s}, ${a.f})` : `Skip (${a.s}, ${a.f})`), view(-1, last < 0 ? null : last), { start: a.s, finish: a.f });
       });
-      const colors = {};
-      chosen.forEach((i) => { colors[`${i},0`] = 'found'; colors[`${i},1`] = 'found'; });
-      r.step(3, L(`${chosen.length}개를 골랐습니다.`, `Selected ${chosen.length}.`), view(colors), { result: chosen.length });
+      chosen.forEach((i) => { state[i] = 'found'; });
+      r.step(3, L(`${chosen.length}개를 골랐습니다.`, `Selected ${chosen.length}.`), view(-1, last < 0 ? null : last), { result: chosen.length });
     });
   },
 };
@@ -550,10 +587,17 @@ export const factorial = {
   run(n) {
     return record((r) => {
       const f = [1n];
-      const view = (i) => tableView({ colHeaders: ['i', 'i!'], rowHeaders: [String(i)], cells: [[i, String(f[i])]], colors: { '0,1': 'write' } });
-      r.step(1, L('0! = 1', '0! = 1'), tableView({ colHeaders: ['i', 'i!'], rowHeaders: ['0'], cells: [[0, '1']] }), { n });
+      const rows = [[0, '1']];
+      const view = (row) => tableView({
+        colHeaders: ['i', 'i!'],
+        rowHeaders: rows.map((item) => String(item[0])),
+        cells: rows.map((item) => [item[0], item[1]]),
+        colors: { [`${row},1`]: 'write' },
+      });
+      r.step(1, L('0! = 1', '0! = 1'), view(0), { n });
       for (let i = 1; i <= n; i++) {
         f[i] = f[i - 1] * BigInt(i);
+        rows.push([i, String(f[i])]);
         r.step(3, L(`${i}! = ${i - 1}! × ${i} = ${f[i]}`, `${i}! = ${i - 1}! × ${i} = ${f[i]}`), view(i), { i });
       }
       r.step(4, L(`${n}! = ${f[n]}`, `${n}! = ${f[n]}`), view(n), { result: String(f[n]) });
@@ -583,15 +627,21 @@ export const fastPower = {
   run({ a, b }) {
     return record((r) => {
       let base = BigInt(a); let exp = b; let result = 1n;
-      const view = () => tableView({ colHeaders: ['result', 'base', 'exp'], rowHeaders: [''], cells: [[String(result), String(base), exp]] });
-      r.step(1, L(`${a}^${b} 를 지수를 반으로 줄이며 계산합니다.`, `Compute ${a}^${b} by halving the exponent.`), view(), { a, b });
-      if (exp === 0) { r.step(4, L('지수가 0이면 1입니다.', 'Any a⁰ is 1.'), view(), { result: '1' }); return; }
+      const rows = [];
+      const view = (col) => {
+        const colors = {};
+        if (col !== null && rows.length) colors[`${rows.length - 1},${col}`] = 'write';
+        return tableView({ colHeaders: ['result', 'base', 'exp'], rowHeaders: rows.map((_, i) => String(i + 1)), cells: rows.map((row) => [...row]), colors });
+      };
+      const snap = (col) => { rows.push([String(result), String(base), String(exp)]); return view(col); };
+      r.step(1, L(`${a}^${b} 를 지수를 반으로 줄이며 계산합니다.`, `Compute ${a}^${b} by halving the exponent.`), snap(null), { a, b });
+      if (exp === 0) { r.step(4, L('지수가 0이면 1입니다.', 'Any a⁰ is 1.'), view(0), { result: '1' }); return; }
       while (exp > 0) {
-        if (exp % 2) { result *= base; r.step(3, L(`홀수 지수: 결과에 ${base}를 곱해 ${result}`, `Odd exponent: result × ${base} = ${result}`), view(), { exp }); }
+        if (exp % 2) { result *= base; r.step(3, L(`홀수 지수: 결과에 ${base}를 곱해 ${result}`, `Odd exponent: result × ${base} = ${result}`), snap(0), { exp }); }
         exp = Math.floor(exp / 2);
-        if (exp) { base *= base; r.step(4, L(`밑을 제곱하고 지수를 반으로: base=${base}, exp=${exp}`, `Square the base and halve the exponent: base=${base}, exp=${exp}`), view(), { exp }); }
+        if (exp) { base *= base; r.step(4, L(`밑을 제곱하고 지수를 반으로: base=${base}, exp=${exp}`, `Square the base and halve the exponent: base=${base}, exp=${exp}`), snap(1), { exp }); }
       }
-      r.step(4, L(`답은 ${result}입니다.`, `The result is ${result}.`), view(), { result: String(result) });
+      r.step(4, L(`답은 ${result}입니다.`, `The result is ${result}.`), view(0), { result: String(result) });
     });
   },
 };

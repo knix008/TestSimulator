@@ -16,8 +16,10 @@ import { planEntities } from '../io/plan-build.js';
 import {
   addOpening, addText, addWall, cleanupAll, cloneDraft, deleteItems, draftBounds, draftProblems, draftStats, joinEnds, mergeCollinear,
   moveVertex, moveWalls, openingAt, openingKind, pointAlong, removeShort, scaleDraft, setThickness, setWallLength, snapPoint, squareUp,
-  textAt, toResult, wallAt, wallDir, wallLength, alongOf, endsAt, dominantAngle, rotateDraft, backgroundPoint, backgroundCentre,
+  textAt, toResult, wallAt, wallDir, wallLength, alongOf, endsAt, dominantAngle, rotateDraft, backgroundPoint, backgroundCentre, furnitureAt, furnitureCorners,
 } from '../io/plan-draft.js';
+import { allItems, catalogItem, itemName } from '../library/catalog.js';
+import { getLanguage } from '../i18n.js';
 import { openingDefaults } from '../io/plan-recognize.js';
 
 const TOOLS = [
@@ -40,6 +42,8 @@ const CLEANUPS = [
 ];
 const OPENING_KINDS = [['door', 'doorTool'], ['double', 'studioDoubleDoor'], ['sliding', 'studioSliding'], ['window', 'windowTool'], ['passage', 'studioPassage']];
 const SNAP_PX = 10;
+/** Furniture offered for any piece (after the items of its own category). */
+const COMMON_FURNITURE = ['bed', 'nightstand', 'wardrobe', 'dresser', 'sofa-modern', 'sofa-loveseat', 'sofa-sectional', 'armchair', 'coffee-table', 'tv-console', 'bookshelf', 'rug', 'dining-table', 'dining-chair', 'desk', 'office-chair', 'kitchen-sink-counter', 'kitchen-base-cabinet', 'refrigerator', 'toilet', 'washbasin-vanity', 'shower-booth', 'bathtub', 'washing-machine', 'fiddle-leaf-fig'];
 
 /** Theme colours the canvas uses (read from the CSS variables when the workbench opens). */
 function themeColours(el) {
@@ -68,7 +72,7 @@ export function createPlanStudio(app) {
         undo: [], redo: [],
         tool: 'select', selection: new Set(), hover: null, snap: null,
         view: { scale: 40, ox: 0, oy: 0 },
-        show: { background: true, leftovers: true, rooms: true, lengths: true, problems: true },
+        show: { background: true, leftovers: true, rooms: true, lengths: true, problems: true, furniture: true },
         bgOpacity: 0.55,
         background: normaliseBackground(options.background),
         wallThickness: 0.15, openingWidth: { door: 0.9, double: 1.4, sliding: 1.8, window: 1.2, passage: 0.9 }, doorKind: 'door',
@@ -127,7 +131,7 @@ export function createPlanStudio(app) {
         <button class="tool-button labelled" data-ps="delete" title="${escapeHtml(t('studio.delete'))} (Delete)">${icon('trash')}<span>${escapeHtml(t('studio.delete'))}</span></button>
         <button class="tool-button labelled" data-ps="fit" title="${escapeHtml(t('studio.fit'))} (F)">${icon('zoomExtents')}<span>${escapeHtml(t('studio.fit'))}</span></button>
         <span class="grow"></span>
-        <div class="ps-shows">${['background', 'leftovers', 'rooms', 'lengths', 'problems'].map((k) => `<button class="tool-button ps-toggle" data-ps-show="${k}" title="${escapeHtml(t(`studio.show.${k}`))}" aria-pressed="false">${icon({ background: 'picture', leftovers: 'guide', rooms: 'roomTool', lengths: 'dimension', problems: 'warning' }[k])}</button>`).join('')}</div>
+        <div class="ps-shows">${['background', 'leftovers', 'rooms', 'furniture', 'lengths', 'problems'].map((k) => `<button class="tool-button ps-toggle" data-ps-show="${k}" title="${escapeHtml(t(`studio.show.${k}`))}" aria-pressed="false">${icon({ background: 'picture', leftovers: 'guide', rooms: 'roomTool', furniture: 'furniture', lengths: 'dimension', problems: 'warning' }[k])}</button>`).join('')}</div>
       </div>
       <div class="ps-body">
         <div class="ps-canvas-wrap"><canvas class="ps-canvas"></canvas><div class="ps-hint"></div></div>
@@ -213,8 +217,25 @@ export function createPlanStudio(app) {
         + row(t('studio.sill'), stepper('op.sill', o.sill ?? 0, 0.05))
         + (isDoor ? `<div class="ps-actions"><button class="button small" data-ps="flipSide" title="${escapeHtml(t('studio.flipSideTip'))}">${icon('studioFlip')}<span>${escapeHtml(t('studio.flipSide'))}</span></button><button class="button small" data-ps="flipHinge" title="${escapeHtml(t('studio.flipHingeTip'))}">${icon('studioHinge')}<span>${escapeHtml(t('studio.flipHinge'))}</span></button></div>` : ''));
     }
+    const pieces = (s.draft.furniture ?? []).filter((x) => s.selection.has(x.id));
+    if (pieces.length === 1) {
+      const p = pieces[0];
+      const entry = catalogItem(p.item);
+      const keys = new Set((entry?.params ?? []).map((q) => q.key));
+      const lang = getLanguage();
+      // Same category first, then everything that stands on the floor of that kind of room.
+      const same = allItems().filter((i) => i.kind !== 'user' && entry && i.category === entry.category);
+      const choices = [...same, ...COMMON_FURNITURE.map((id) => catalogItem(id)).filter((i) => i && !same.includes(i))];
+      if (entry && !choices.includes(entry)) choices.unshift(entry);
+      out += section('furniture', t('studio.piece'),
+        row(t('studio.item'), `<select class="ps-select" data-ps-item="${escapeHtml(p.id)}">${choices.map((i) => `<option value="${escapeHtml(i.id)}" ${i.id === p.item ? 'selected' : ''}>${escapeHtml(itemName(i, lang))}</option>`).join('')}</select>`)
+        + (keys.has('width') || keys.has('length') ? row(t('studio.width'), stepper('piece.width', p.size[0], 0.05)) : '')
+        + (keys.has('depth') ? row(t('studio.depth'), stepper('piece.depth', p.size[1], 0.05)) : '')
+        + `<div class="ps-actions"><button class="button small" data-ps="turnLeft" title="${escapeHtml(t('studio.turnLeft'))} (Shift+R)">${icon('rotateLeft')}<span>${escapeHtml(t('studio.turnLeft'))}</span></button><button class="button small" data-ps="turnRight" title="${escapeHtml(t('studio.turnRight'))} (R)">${icon('rotateRight')}<span>${escapeHtml(t('studio.turnRight'))}</span></button></div>`);
+    }
     if (texts.length === 1) out += section('textTool', t('studio.label'), row(t('studio.name'), `<input type="text" class="ps-text" data-ps-text="${escapeHtml(texts[0].id)}" value="${escapeHtml(texts[0].text)}" />`));
     if (!sel.length && !['wall', 'door', 'window', 'passage', 'scale'].includes(s.tool)) out += `<p class="ps-note ps-empty">${icon('info')}<span>${escapeHtml(t('studio.selectHint'))}</span></p>`;
+    if (s.draft.furniture?.length && !pieces.length) out += section('furniture', t('studio.furniture'), `<p class="ps-note">${escapeHtml(t('studio.furnitureHint', { n: s.draft.furniture.length }))}</p><div class="ps-actions"><button class="button small" data-ps="clearFurniture" title="${escapeHtml(t('studio.clearFurnitureTip'))}">${icon('trash')}<span>${escapeHtml(t('studio.clearFurniture'))}</span></button></div>`);
     // Cleanup.
     out += section('sparkles', t('studio.cleanup'),
       `<div class="ps-grid">${CLEANUPS.map(([id, glyph]) => `<button class="button small ${id === 'all' ? 'primary' : ''}" data-ps-clean="${id}" title="${escapeHtml(t(`studio.clean.${id}Tip`))}">${icon(glyph)}<span>${escapeHtml(t(`studio.clean.${id}`))}</span></button>`).join('')}</div>`
@@ -254,7 +275,7 @@ export function createPlanStudio(app) {
     el.querySelector('[data-ps="delete"]').disabled = !s.selection.size;
     el.querySelector('[data-ps="convert"]').disabled = !s.draft.walls.length;
     const st = draftStats(s.draft);
-    el.querySelector('.ps-status').textContent = t('studio.status', { walls: st.walls, doors: st.doors, windows: st.windows, rooms: s.rooms?.length ?? 0, problems: s.problems.length });
+    el.querySelector('.ps-status').textContent = t('studio.status', { walls: st.walls, doors: st.doors, windows: st.windows, rooms: s.rooms?.length ?? 0, furniture: st.furniture, problems: s.problems.length });
     el.querySelector('.ps-hint').textContent = t(`studio.hint.${s.tool}`);
   }
 
@@ -268,7 +289,7 @@ export function createPlanStudio(app) {
       try { s.rooms = s.draft.walls.length ? planEntities(toResult(s.draft), { level: 'studio', keepLeftovers: false }).rooms : []; } catch { s.rooms = []; }
     }
     s.problems = draftProblems(s.draft);
-    for (const id of [...s.selection]) if (!s.draft.walls.some((w) => w.id === id) && !s.draft.openings.some((o) => o.id === id) && !s.draft.texts.some((x) => x.id === id)) s.selection.delete(id);
+    for (const id of [...s.selection]) if (!s.draft.walls.some((w) => w.id === id) && !s.draft.openings.some((o) => o.id === id) && !s.draft.texts.some((x) => x.id === id) && !(s.draft.furniture ?? []).some((x) => x.id === id)) s.selection.delete(id);
     if (side) renderSide();
     renderBars();
     draw();
@@ -376,6 +397,7 @@ export function createPlanStudio(app) {
       ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
     }
     if (s.show.rooms) drawRooms(ctx);
+    if (s.show.furniture) drawFurniture(ctx);
     drawWalls(ctx);
     drawOpenings(ctx);
     drawTexts(ctx);
@@ -551,6 +573,34 @@ export function createPlanStudio(app) {
     }
   }
 
+  /** Furniture: its footprint, a tick at its front and its name (the selected and hovered ones in the accent colour). */
+  function drawFurniture(ctx) {
+    const s = session;
+    const c = s.colours;
+    const lang = getLanguage();
+    for (const p of s.draft.furniture ?? []) {
+      const selected = s.selection.has(p.id); const hover = s.hover?.id === p.id;
+      const pts = furnitureCorners(p).map(toScreen);
+      ctx.beginPath(); pts.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath();
+      ctx.fillStyle = c.accent; ctx.globalAlpha = selected ? 0.3 : p.item === 'rug' ? 0.06 : 0.14; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = c.accent; ctx.lineWidth = selected ? 2.5 : hover ? 2 : 1.2;
+      if (p.item === 'rug') ctx.setLineDash([5, 3]);
+      ctx.stroke(); ctx.setLineDash([]);
+      // Front: a short tick from the middle of the front side.
+      const fr = [Math.sin(p.rotation ?? 0), Math.cos(p.rotation ?? 0)];
+      const a = toScreen([p.position[0] + (fr[0] * p.size[1]) / 2, p.position[1] + (fr[1] * p.size[1]) / 2]);
+      const b = toScreen([p.position[0] + (fr[0] * (p.size[1] / 2 + 0.18)), p.position[1] + (fr[1] * (p.size[1] / 2 + 0.18))]);
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineWidth = 2; ctx.stroke();
+      if (s.view.scale * Math.min(...p.size) > 26) {
+        const m = toScreen(p.position);
+        ctx.font = '600 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const label = itemName(catalogItem(p.item), lang) || p.item;
+        ctx.lineWidth = 3; ctx.strokeStyle = c.bg; ctx.strokeText(label, m[0], m[1]);
+        ctx.fillStyle = selected ? c.accent : c.text; ctx.fillText(label, m[0], m[1]);
+      }
+    }
+  }
+
   function drawTexts(ctx) {
     const s = session;
     const c = s.colours;
@@ -687,6 +737,8 @@ export function createPlanStudio(app) {
     if (text) return { kind: 'text', id: text.id, item: text };
     const op = openingAt(s.draft, p, tol);
     if (op) return { kind: 'opening', id: op.id, item: op };
+    const piece = s.show.furniture ? furnitureAt(s.draft, p) : null;
+    if (piece && !wallAt(s.draft, p, 0)) return { kind: 'piece', id: piece.id, item: piece };
     // Any corner (also of unselected walls) when the pointer is right on it.
     for (const w of s.draft.walls) for (const end of ['a', 'b']) if (Math.hypot(w[end][0] - p[0], w[end][1] - p[1]) <= tol) return { kind: 'vertex', at: [...w[end]], id: w.id };
     const wall = wallAt(s.draft, p, tol);
@@ -763,7 +815,7 @@ export function createPlanStudio(app) {
     const drag = s.drag;
     if (drag?.kind === 'pan') { s.view.ox = drag.ox + x - drag.x; s.view.oy = drag.oy + y - drag.y; draw(); return; }
     if (drag?.kind === 'box') { drag.now = s.cursor; draw(); return; }
-    if (drag && ['vertex', 'wall', 'opening', 'text'].includes(drag.kind)) { dragTo(e); return; }
+    if (drag && ['vertex', 'wall', 'opening', 'text', 'piece'].includes(drag.kind)) { dragTo(e); return; }
     // Hover and snapping hints.
     if (s.tool === 'select') {
       const hit = pickAt(e);
@@ -819,6 +871,9 @@ export function createPlanStudio(app) {
     } else if (drag.kind === 'text') {
       const x = d.texts.find((tx) => tx.id === drag.hit.id);
       x.p = [drag.hit.item.p[0] + delta[0], drag.hit.item.p[1] + delta[1]];
+    } else if (drag.kind === 'piece') {
+      // The selected furniture moves together.
+      for (const piece of d.furniture ?? []) if (s.selection.has(piece.id)) { const from = drag.base.furniture.find((x) => x.id === piece.id); piece.position = [from.position[0] + delta[0], from.position[1] + delta[1]]; }
     }
     s.draft = d;
     refresh({ side: false });
@@ -841,11 +896,12 @@ export function createPlanStudio(app) {
         const byWall = new Map(s.draft.walls.map((w) => [w.id, w]));
         for (const o of s.draft.openings) { const w = byWall.get(o.wall); if (w && inside(pointAlong(w, o.offset))) s.selection.add(o.id); }
         for (const x of s.draft.texts) if (inside(x.p)) s.selection.add(x.id);
+        if (s.show.furniture) for (const x of s.draft.furniture ?? []) if (inside(x.position)) s.selection.add(x.id);
       }
       refresh();
       return;
     }
-    if (['vertex', 'wall', 'opening', 'text'].includes(drag.kind)) {
+    if (['vertex', 'wall', 'opening', 'text', 'piece'].includes(drag.kind)) {
       s.snap = null;
       if (drag.moved) commit(drag.base); else refresh();
     }
@@ -950,6 +1006,16 @@ export function createPlanStudio(app) {
     commit(before);
   }
 
+  /** Turns the selected furniture by a quarter turn about its centre (+1 clockwise on screen). */
+  function turnPieces(dir) {
+    const s = session;
+    edit((d) => {
+      let n = 0;
+      for (const p of d.furniture ?? []) if (s.selection.has(p.id)) { p.rotation = (p.rotation ?? 0) - dir * (Math.PI / 2); n++; }
+      return n > 0;
+    });
+  }
+
   function deleteSelection() {
     const s = session;
     if (!s.selection.size) return;
@@ -1024,6 +1090,9 @@ export function createPlanStudio(app) {
       case 'convert': return convert();
       case 'redetect': return redetect();
       case 'allThickness': return edit((dr) => setThickness(dr, null, s.wallThickness) > 0);
+      case 'turnLeft': return turnPieces(-1);
+      case 'turnRight': return turnPieces(1);
+      case 'clearFurniture': return edit((dr) => { const had = dr.furniture?.length ?? 0; dr.furniture = []; return had > 0; });
       case 'flipSide': return edit((dr) => { const op = dr.openings.find((o) => s.selection.has(o.id)); if (!op) return false; op.side = op.side === 'right' ? 'left' : 'right'; return true; });
       case 'flipHinge': return edit((dr) => { const op = dr.openings.find((o) => s.selection.has(o.id)); if (!op) return false; op.hinge = op.hinge === 'right' ? 'left' : 'right'; return true; });
       default: return undefined;
@@ -1039,6 +1108,15 @@ export function createPlanStudio(app) {
     if (field === 'squareTol') { s.squareTol = Math.max(1, Math.min(30, value)); return renderSide(); }
     if (field === 'joinTol') { s.joinTol = Math.max(0.02, Math.min(2, value)); return renderSide(); }
     if (field.startsWith('openingWidth.')) { s.openingWidth[field.slice(13)] = Math.max(0.3, Math.min(6, value)); return renderSide(); }
+    if (field === 'piece.width' || field === 'piece.depth') {
+      return edit((d) => {
+        const p = (d.furniture ?? []).find((x) => s.selection.has(x.id));
+        if (!p) return false;
+        const v = Math.max(0.2, Math.min(6, value));
+        if (field === 'piece.width') { p.size[0] = v; if ('length' in (p.params ?? {}) && !('width' in p.params)) p.params.length = v; else p.params.width = v; } else { p.size[1] = v; p.params.depth = v; }
+        return true;
+      });
+    }
     if (field === 'sel.thickness') return edit((d) => setThickness(d, [...s.selection], Math.max(0.03, Math.min(1, value))) > 0);
     if (field === 'sel.length') return edit((d) => { const w = d.walls.find((x) => s.selection.has(x.id)); return w ? setWallLength(d, w, value) : false; });
     if (field.startsWith('op.')) {
@@ -1061,6 +1139,22 @@ export function createPlanStudio(app) {
       const unit = input.dataset.unit;
       const v = unit === 'length' ? lengthOf(input.value) : Number(input.value);
       if (v != null && Number.isFinite(v)) applyNumber(input.dataset.psNum, v); else renderSide();
+      return;
+    }
+    if (input.dataset.psItem) {
+      // Another item in the same place: the size parameters it has follow the footprint.
+      const id = input.dataset.psItem; const item = input.value;
+      edit((d) => {
+        const p = (d.furniture ?? []).find((x) => x.id === id);
+        if (!p || p.item === item) return false;
+        const keys = new Set((catalogItem(item)?.params ?? []).map((q) => q.key));
+        p.item = item;
+        p.params = {};
+        if (keys.has('width')) p.params.width = p.size[0];
+        else if (keys.has('length')) p.params.length = p.size[0];
+        if (keys.has('depth')) p.params.depth = p.size[1];
+        return true;
+      });
       return;
     }
     if (input.dataset.psText) {
@@ -1105,6 +1199,7 @@ export function createPlanStudio(app) {
     }
     if (e.key === 'Enter') { if (s.chain) { s.chain = null; draw(); } return; }
     if (key === 'f') { fit(); return; }
+    if (key === 'r' && [...s.selection].some((id) => (s.draft.furniture ?? []).some((x) => x.id === id))) { turnPieces(e.shiftKey ? -1 : 1); return; }
     const tool = TOOLS.find(([, , k]) => k.toLowerCase() === key);
     if (tool) setTool(tool[0]);
   }

@@ -18,7 +18,7 @@ import { readDxf, flattenDxf, dxfUnits, extentOf, dxfToPlan, layerStats, SKIP_LA
 import { readSvgPlan, svgUnits, svgToPlan } from '../io/plan-svg.js';
 import { recognizePlan } from '../io/plan-recognize.js';
 import { applyPlan, floorForName, scalePlanLevel } from '../io/plan-build.js';
-import { detectImageWalls, MAX_DETECT_SIZE } from '../io/plan-image.js';
+import { detectImageWalls, MAX_DETECT_SIZE, wallsOnly } from '../io/plan-image.js';
 import { dwgToDxf, dwgVersion, isDwgName, desktopDwgConverter, wasmDwgConverter } from '../io/plan-dwg.js';
 import { isPdfName, openPdf, pdfPages, readPdfPage, pdfScale, pdfToPlan, POINT_METRES } from '../io/plan-pdf.js';
 import { isIfcName, readIfc } from '../io/plan-ifc.js';
@@ -31,6 +31,7 @@ import { UnderlayLayer, underlayToPlan, planToUnderlay } from '../engine/underla
 import { arcLines } from '../io/plan-recognize.js';
 import { backgroundCentre, backgroundPoint, fromProject, fromResult, pickDetection, toResult } from '../io/plan-draft.js';
 import { createPlanStudio } from './plan-studio.js';
+import { detectFurniture } from '../io/plan-furniture.js';
 
 /** Buildings: BIM models (IFC) and Sweet Home 3D homes — levels, walls, openings, rooms, furniture. */
 export const BUILDING_ACCEPT = '.ifc,.sh3d';
@@ -255,7 +256,7 @@ export function createPlanImport(app) {
     const target = chosen.target === 'level' ? 'level' : 'replace';
     const applied = app.change('op.importPlan', (p) => applyPlan(p, final, { target, wallHeight: chosen.wallHeight, keepLeftovers: chosen.keepLines, levelName: stem(name) }), null);
     app.afterImport?.(applied);
-    app.notify('success', t(o.refine ? 'studio.converted' : 'notice.planImported', { name, walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms }));
+    app.notify('success', t(o.refine ? 'studio.converted' : 'notice.planImported', { name, walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0 }));
     return { result: final, applied, refined: Boolean(o.refine) };
   }
 
@@ -515,7 +516,8 @@ export function createPlanImport(app) {
    * Walls, doors and windows found in a picture: `k` metres per pixel of the original picture; points in metres from
    * its top-left corner (x right, z down). method: 'outline' (clean drawings) | 'edges' (scans, photos).
    */
-  function detectPicture(bitmap, { k, method = 'outline' }) {
+  /** The picture at the size it is read at (≤ MAX_DETECT_SIZE): { original (RGBA pixels), metresPerPixel }. */
+  function picturePixels(bitmap, k) {
     const s = Math.min(1, MAX_DETECT_SIZE / Math.max(bitmap.width, bitmap.height));
     const w = Math.max(1, Math.round(bitmap.width * s)); const h = Math.max(1, Math.round(bitmap.height * s));
     const canvas = document.createElement('canvas');
@@ -524,14 +526,24 @@ export function createPlanImport(app) {
     ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
     ctx.drawImage(bitmap, 0, 0, w, h);
     const pixels = ctx.getImageData(0, 0, w, h);
-    const found = detectImageWalls({ data: pixels.data, width: w, height: h }, { metresPerPixel: (k * bitmap.width) / w, method });
+    return { original: { data: pixels.data, width: w, height: h }, metresPerPixel: (k * bitmap.width) / w };
+  }
+
+  function detectPicture(bitmap, { k, method = 'outline', walls = false }) {
+    const { original, metresPerPixel } = picturePixels(bitmap, k);
+    // walls: the picture's walls alone (furniture, coloured floors, hatching and text left out; plan-image.js wallsOnly),
+    // the door swings still read from the original.
+    const picture = walls ? wallsOnly(original, { metresPerPixel }) : original;
+    if (!picture) return { walls: [], openings: [], leftovers: [], texts: [], stats: { doors: 0, windows: 0 } };
+    const found = detectImageWalls(picture, { metresPerPixel, method, evidence: walls ? original : null });
     return { ...found, leftovers: [], texts: [] };
   }
 
   /** A plan found in the picture (metres from its top-left corner) placed where the picture is (turned with it). */
   const placeResult = (r, bg) => {
     const at = (p) => backgroundPoint(bg, [p[0] / bg.k, p[1] / bg.k]);
-    return { ...r, walls: r.walls.map((x) => ({ ...x, a: at(x.a), b: at(x.b) })) };
+    // Furniture turns with the picture: a plan turned by a turns a front (sin θ, cos θ) to θ − a.
+    return { ...r, walls: r.walls.map((x) => ({ ...x, a: at(x.a), b: at(x.b) })), furniture: (r.furniture ?? []).map((f) => ({ ...f, position: at(f.position), rotation: f.rotation - (bg.rotation ?? 0) })) };
   };
 
   /**
@@ -568,10 +580,21 @@ export function createPlanImport(app) {
       // 'auto': both methods, the one that leaves the least to clean up (clean drawings read best as outlines, scans,
       // faxes and sketches as edges).
       const detect = (method, bg) => app.withProgress('progress.detectWalls', u.name, async () => {
-        const run = (m) => placeResult(detectPicture(bitmap, { k: bg.k, method: m }), bg);
-        if (method !== 'auto') return run(method);
-        const found = [run('outline'), run('edges')];
-        return found[pickDetection(found)];
+        const run = (m, walls = false) => detectPicture(bitmap, { k: bg.k, method: m, walls });
+        let raw;
+        if (method === 'walls') raw = run('outline', true);
+        else if (method !== 'auto') raw = run(method);
+        else {
+          // The walls-only picture first (plans with furniture and coloured floors), then the picture as it is.
+          const found = [run('outline', true), run('edges', true), run('outline'), run('edges')];
+          raw = found[pickDetection(found.map((r) => placeResult(r, bg)))];
+        }
+        // Furniture in the rooms of the chosen walls (io/plan-furniture.js), on the picture as it is.
+        if (raw.walls.length) {
+          const { original, metresPerPixel } = picturePixels(bitmap, bg.k);
+          try { raw = { ...raw, furniture: detectFurniture(original, { metresPerPixel, result: raw, angle: raw.angle ?? 0 }) }; } catch (error) { console.warn('furniture', error); }
+        }
+        return placeResult(raw, bg);
       }, { delay: 150 });
       const first = await detect('auto', background);
       if (!first.walls.length) app.notify('info', t('underlay.detectNone'));
@@ -581,7 +604,7 @@ export function createPlanImport(app) {
         targets: [['add', t('studio.targetAdd'), 'plus'], ['replace', t('plan.targetReplace'), 'level']], target: hasWalls ? 'add' : 'replace',
         wallHeight: app.project().levels.find((l) => l.id === u.level)?.height ?? (app.settings().defaultWallHeight || 2.4), keepLines: false,
         redetect: async (method, bg) => { const r = await detect(method, bg); if (!r.walls.length) { app.notify('error', t('underlay.detectNone')); return null; } return fromResult(r); },
-        redetectModes: [['auto', t('import.auto')], ['outline', t('plan.modeOutline')], ['edges', t('plan.modeEdges')]], redetectMode: 'auto',
+        redetectModes: [['auto', t('import.auto')], ['walls', t('plan.modeWalls')], ['outline', t('plan.modeOutline')], ['edges', t('plan.modeEdges')]], redetectMode: 'auto',
       });
       if (!out) return null;
       followBackground(u, out);
@@ -590,7 +613,7 @@ export function createPlanImport(app) {
       const roomNames = (key, n) => { const base = t(`plan.roomGuess.${key}`); return n > 1 && key !== 'living' ? `${base} ${n}` : base; };
       const applied = app.change('op.detectWalls', (p) => { p.activeLevel = u.level; return applyPlan(p, result, { target: out.target === 'replace' ? 'replace' : 'add', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines, roomNames, source: u.id }); }, null);
       app.afterImport?.(applied);
-      app.notify('success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms }));
+      app.notify('success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0 }));
       return applied;
     } finally {
       bitmap.close?.();
@@ -619,7 +642,7 @@ export function createPlanImport(app) {
       const result = toResult(out.draft);
       const applied = app.change('op.importPlan', (pp) => applyPlan(pp, result, { target: 'replace', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines }), null);
       app.afterImport?.(applied);
-      app.notify('success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms }));
+      app.notify('success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0 }));
       return applied;
     } finally {
       bitmap?.close?.();

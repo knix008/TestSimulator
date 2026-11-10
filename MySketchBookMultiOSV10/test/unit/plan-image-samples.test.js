@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import { detectImageWalls, lightGround, MAX_DETECT_SIZE } from '../../src/io/plan-image.js';
+import { detectImageWalls, lightGround, MAX_DETECT_SIZE, wallsOnly } from '../../src/io/plan-image.js';
 import { decodeTga, decodeTiff } from '../../src/io/plan-raster.js';
 import { fromResult, toResult, cleanupAll, dominantAngle, rotateDraft, draftProblems, pickDetection } from '../../src/io/plan-draft.js';
 import { applyPlan } from '../../src/io/plan-build.js';
@@ -81,6 +81,18 @@ test('plan image samples: index, files in samples/ and public/, thumbnails, form
   assert.ok(total < 6 * 1024 * 1024, `the samples stay small for the app bundle (${(total / 1048576).toFixed(1)} MB)`);
 });
 
+test('plan image samples: interiors carry their furniture (library items seen from above)', () => {
+  const interiors = index.pictures.filter((p) => p.interior);
+  assert.ok(interiors.length >= 8, 'eight interior pictures');
+  assert.ok(new Set(interiors.map((p) => p.style)).size >= 4, 'colour, line, catalogue and sketch interiors');
+  for (const p of interiors) {
+    assert.ok(p.furniture.length >= 8, `${p.id}: furniture listed (${p.furniture.length})`);
+    for (const x of p.furniture) assert.ok(typeof x.item === 'string' && x.size.every((v) => v > 0 && v < 6), `${p.id}: ${x.item} footprint`);
+  }
+  const items = new Set(interiors.flatMap((p) => p.furniture.map((x) => x.item)));
+  for (const item of ['bed', 'sofa-sectional', 'toilet', 'refrigerator', 'wardrobe']) assert.ok(items.has(item), `a ${item} somewhere`);
+});
+
 test('plan image samples: light lines on a dark ground are read as dark lines on a light ground', () => {
   const dark = { data: new Uint8ClampedArray([20, 30, 60, 255, 240, 240, 240, 255, 20, 30, 60, 255, 20, 30, 60, 255]), width: 2, height: 2 };
   const light = lightGround(dark);
@@ -95,7 +107,14 @@ for (const p of index.pictures) {
     const raw = await decode(p.file);
     assert.deepEqual([raw.width, raw.height], p.size, 'decoded size');
     const { img, k } = await detectable(raw);
-    const found = ['outline', 'edges'].map((method) => detectImageWalls(img, { metresPerPixel: 1 / (p.pxPerMetre * k), method }));
+    // As the workbench's 'auto' (ui/plan-import.js): the walls-only picture first, then the picture as it is.
+    const m = 1 / (p.pxPerMetre * k);
+    const walls = wallsOnly(img, { metresPerPixel: m });
+    const none = { walls: [], openings: [] };
+    const found = [
+      ...['outline', 'edges'].map((method) => (walls ? detectImageWalls(walls, { metresPerPixel: m, method, evidence: img }) : none)),
+      ...['outline', 'edges'].map((method) => detectImageWalls(img, { metresPerPixel: m, method })),
+    ];
     const best = found[pickDetection(found)];
     const d = fromResult({ ...best, texts: [] });
     rotateDraft(d, [0, 0], -dominantAngle(d));

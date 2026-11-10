@@ -1,11 +1,13 @@
 // 2D cleanup of a recognised floor plan before it becomes 3D (the plan workbench, ui/plan-studio.js).
 // A draft is the recogniser's result with ids: walls (centre lines + thickness), openings on walls (centre
-// offset from the wall's start), texts (room names) and leftovers (reference lines). Every edit here keeps
+// offset from the wall's start), texts (room names), leftovers (reference lines) and furniture (library items found
+// in a picture, io/plan-furniture.js: item, params, position [x, z], rotation about +Y, footprint size [w, d]). Every edit here keeps
 // connected wall ends together and the openings where they are in the plan; `toResult` turns the draft back
 // into the recogniser's shape for plan-build.js applyPlan (the 3D conversion).
 // Pure (no DOM, no three): unit-tested in test/unit/plan-draft.test.js.
 import { newId } from '../engine/document.js';
 import { openingDefaults } from './plan-recognize.js';
+import { planEntities } from './plan-build.js';
 
 const EPS = 1e-6;
 /** Wall ends closer than this are one corner. */
@@ -60,7 +62,8 @@ export function fromResult(result, extra = {}) {
   });
   const texts = (result.texts ?? []).filter((t) => t && Array.isArray(t.p)).map((t) => ({ ...t, id: newId('dt'), p: copyPt(t.p), height: t.height ?? 0.3 }));
   const leftovers = (result.leftovers ?? []).map((l) => ({ a: copyPt(l.a), b: copyPt(l.b) }));
-  return { walls, openings, texts, leftovers, ...extra };
+  const furniture = (result.furniture ?? []).map((f) => ({ ...f, id: newId('df'), params: { ...(f.params ?? {}) }, position: copyPt(f.position), size: [...(f.size ?? [0.6, 0.6])] }));
+  return { walls, openings, texts, leftovers, furniture, ...extra };
 }
 
 /** A draft → the recogniser's result shape (openings by wall index, kept within their walls). */
@@ -82,6 +85,8 @@ export function toResult(draft) {
     walls, openings,
     texts: draft.texts.map(({ id, ...t }) => ({ ...t, p: copyPt(t.p) })),
     leftovers: draft.leftovers.map((l) => ({ a: copyPt(l.a), b: copyPt(l.b) })),
+    furniture: (draft.furniture ?? []).map(({ id, ...f }) => ({ ...f, position: copyPt(f.position) })),
+    ...(draft.replaceObjects ? { replaceObjects: true } : {}),
   };
 }
 
@@ -102,8 +107,17 @@ export function fromProject(project, levelId) {
     openings: project.openings.filter((o) => ids.has(o.wall)).map((o) => ({ wall: index.get(o.wall), item: o.item, offset: o.offset, width: o.width, height: o.height, sill: o.sill, side: o.side, ...(o.params?.hinge ? { hinge: o.params.hinge } : {}), keep: { flip: o.flip ?? false, params: o.params ?? {}, ...(o.material ? { material: o.material } : {}) } })),
     texts: project.rooms.filter((r) => r.level === levelId && r.name).map((r) => ({ text: r.name, p: polygonCentre(r.points), height: 1, keep: { floor: r.floor, ceiling: r.ceiling, showCeiling: r.showCeiling ?? false } })),
     leftovers: (project.guides ?? []).filter((g) => g.level === levelId && g.source === 'plan').map((g) => ({ a: [g.a[0], g.a[2]], b: [g.b[0], g.b[2]] })),
+    // Everything else on the level (furniture, lamps, stairs …) keeps all of its settings; only place and turn are edited.
+    furniture: (project.objects ?? []).filter((o) => o.level === levelId).map((o) => {
+      const { id, level, position, rotation, ...rest } = o;
+      const w = Number(o.params?.width ?? o.params?.length) || 0.6; const d = Number(o.params?.depth ?? o.params?.width) || 0.6;
+      return { item: o.item, params: { ...(o.params ?? {}) }, position: [position[0], position[2]], rotation: rotation?.[1] ?? 0, size: [w, d], keep: { ...rest, y: position[1], rx: rotation?.[0] ?? 0, rz: rotation?.[2] ?? 0 } };
+    }),
+    replaceObjects: true,
   };
-  return fromResult(result);
+  const draft = fromResult(result);
+  draft.replaceObjects = true;
+  return draft;
 }
 
 /** Area centroid of a polygon (its vertex mean when degenerate). */
@@ -221,12 +235,14 @@ export function addWall(draft, a, b, thickness = 0.15) {
 /** Deletes walls (with their openings), openings and texts by id. Returns how many things went. */
 export function deleteItems(draft, ids) {
   const set = new Set(ids);
-  const before = draft.walls.length + draft.openings.length + draft.texts.length;
+  const count = () => draft.walls.length + draft.openings.length + draft.texts.length + (draft.furniture?.length ?? 0);
+  const before = count();
   const gone = new Set(draft.walls.filter((w) => set.has(w.id)).map((w) => w.id));
   draft.walls = draft.walls.filter((w) => !gone.has(w.id));
   draft.openings = draft.openings.filter((o) => !set.has(o.id) && !gone.has(o.wall));
   draft.texts = draft.texts.filter((t) => !set.has(t.id));
-  return before - (draft.walls.length + draft.openings.length + draft.texts.length);
+  if (draft.furniture) draft.furniture = draft.furniture.filter((f) => !set.has(f.id));
+  return before - count();
 }
 
 /**
@@ -480,6 +496,11 @@ export function scaleDraft(draft, origin, k) {
   for (const o of draft.openings) { o.offset *= k; o.width *= k; }
   for (const t of draft.texts) t.p = s(t.p);
   for (const l of draft.leftovers) { l.a = s(l.a); l.b = s(l.b); }
+  // Furniture moves with the plan; its size follows (a picture at the wrong scale had it at the wrong size too).
+  for (const f of draft.furniture ?? []) {
+    f.position = s(f.position); f.size = f.size.map((v) => v * k);
+    for (const key of ['width', 'depth', 'length', 'chaise']) if (typeof f.params?.[key] === 'number') f.params[key] *= k;
+  }
   return true;
 }
 
@@ -511,6 +532,8 @@ export function rotateDraft(draft, centre, angle) {
   }
   for (const t of draft.texts) t.p = R(t.p);
   for (const l of draft.leftovers) { l.a = R(l.a); l.b = R(l.b); }
+  // Turning the plan by a turns each piece's front (sin θ, cos θ) to (sin(θ − a), cos(θ − a)).
+  for (const f of draft.furniture ?? []) { f.position = R(f.position); f.rotation -= angle; }
   return true;
 }
 
@@ -654,7 +677,7 @@ export function textAt(draft, p, tol) {
 
 /** Bounds of what is drawn ({ min, max } or null). */
 export function draftBounds(draft, { leftovers = true } = {}) {
-  const pts = [...draft.walls.flatMap((w) => [w.a, w.b]), ...draft.texts.map((t) => t.p), ...(leftovers ? draft.leftovers.flatMap((l) => [l.a, l.b]) : [])];
+  const pts = [...draft.walls.flatMap((w) => [w.a, w.b]), ...draft.texts.map((t) => t.p), ...(draft.furniture ?? []).map((f) => f.position), ...(leftovers ? draft.leftovers.flatMap((l) => [l.a, l.b]) : [])];
   if (!pts.length) return null;
   return { min: [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1]))], max: [Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))] };
 }
@@ -662,30 +685,51 @@ export function draftBounds(draft, { leftovers = true } = {}) {
 /** Counts for the status line. */
 export function draftStats(draft) {
   const kinds = draft.openings.map(openingKind);
-  return { walls: draft.walls.length, doors: kinds.filter((k) => k === 'door').length, windows: kinds.filter((k) => k === 'window').length, passages: kinds.filter((k) => k === 'passage').length, texts: draft.texts.length };
+  return { walls: draft.walls.length, doors: kinds.filter((k) => k === 'door').length, windows: kinds.filter((k) => k === 'window').length, passages: kinds.filter((k) => k === 'passage').length, texts: draft.texts.length, furniture: draft.furniture?.length ?? 0 };
 }
 
 /**
- * How much cleaning up a recognised plan would still need: { problems, walls } after the automatic cleanup
- * (straightened, squared, joined, merged) of a copy. Used to choose between wall detection methods.
+ * How good a recognised plan of a picture is after the automatic cleanup (straightened, squared, joined, merged) of a
+ * copy: { problems, rooms, walls, score } — score = 2 × problems − rooms (lower is better: little to fix by hand,
+ * closed rooms). Used to choose between the wall detection variants.
  */
 export function detectionScore(result) {
   const d = fromResult({ ...result, texts: [] });
   rotateDraft(d, [0, 0], -dominantAngle(d));
   cleanupAll(d);
-  return { problems: draftProblems(d).length, walls: d.walls.length };
+  const problems = draftProblems(d).length;
+  let rooms = 0;
+  try { rooms = planEntities(toResult(d), { level: 'score', keepLeftovers: false }).rooms.length; } catch { rooms = 0; }
+  return { problems, rooms, walls: d.walls.length, score: 2 * problems - rooms };
 }
 
 /**
- * The best of several recognised plans of one picture (index): the one with the fewest problems left after the
- * cleanup; on a tie the earlier one. Plans without walls never win while another has some.
+ * The best of several recognised plans of one picture (index), given in order of preference: the first whose score
+ * is within `slack` of the best one (so a preferred variant — the walls-only picture — wins unless another is clearly
+ * better). Plans without walls never win while another has some.
  */
-export function pickDetection(results) {
-  let best = -1; let bestScore = null;
-  results.forEach((r, i) => {
-    if (!r?.walls?.length) return;
-    const s = detectionScore(r);
-    if (!bestScore || s.problems < bestScore.problems) { best = i; bestScore = s; }
-  });
-  return Math.max(0, best);
+export function pickDetection(results, { slack = 2 } = {}) {
+  const scores = results.map((r) => (r?.walls?.length ? detectionScore(r).score : Infinity));
+  const best = Math.min(...scores);
+  if (!Number.isFinite(best)) return 0;
+  return scores.findIndex((s) => s <= best + slack);
+}
+
+/** Corners of a piece of furniture's footprint (plan metres): its rectangle turned by its rotation. */
+export function furnitureCorners(f) {
+  const [w, d] = f.size; const r = f.rotation ?? 0;
+  const u = [Math.cos(r), -Math.sin(r)]; const fr = [Math.sin(r), Math.cos(r)];
+  return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [f.position[0] + (u[0] * a * w) / 2 + (fr[0] * b * d) / 2, f.position[1] + (u[1] * a * w) / 2 + (fr[1] * b * d) / 2]);
+}
+
+/** The piece of furniture under `p` (the smallest one, so a chair on a rug wins), else null. */
+export function furnitureAt(draft, p, tol = 0) {
+  let best = null;
+  for (const f of draft.furniture ?? []) {
+    const r = f.rotation ?? 0;
+    const dx = p[0] - f.position[0]; const dz = p[1] - f.position[1];
+    const a = dx * Math.cos(r) - dz * Math.sin(r); const b = dx * Math.sin(r) + dz * Math.cos(r);
+    if (Math.abs(a) <= f.size[0] / 2 + tol && Math.abs(b) <= f.size[1] / 2 + tol && (!best || f.size[0] * f.size[1] < best.size[0] * best.size[1])) best = f;
+  }
+  return best;
 }

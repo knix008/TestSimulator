@@ -110,7 +110,12 @@ export function planEntities(result, { level, shift = [0, 0], elevation = 0, kee
   const xs = walls.flatMap((w) => [w.a[0], w.b[0]]);
   const zs = walls.flatMap((w) => [w.a[1], w.b[1]]);
   const bounds = xs.length ? { min: [Math.min(...xs), Math.min(...zs)], max: [Math.max(...xs), Math.max(...zs)] } : null;
-  return { walls, openings, rooms, guides, bounds };
+  // Furniture (recognised in a picture, or the level's own objects cleaned up in 2D): library objects on the level.
+  const objects = (result.furniture ?? []).filter((f) => f.item).map((f) => {
+    const { y = 0, rx = 0, rz = 0, ...keep } = f.keep ?? {};
+    return { tag: 'untagged', name: '', materials: {}, scale: [1, 1, 1], ...keep, id: newId('ob'), level, item: f.item, params: { ...(f.params ?? {}) }, position: [f.position[0] + shift[0], y, f.position[1] + shift[1]], rotation: [rx, f.rotation ?? 0, rz] };
+  });
+  return { walls, openings, rooms, guides, objects, bounds };
 }
 
 /**
@@ -161,6 +166,8 @@ export function applyPlan(project, result, { target = 'replace', wallHeight = nu
     project.openings = project.openings.filter((o) => !wallIds.has(o.wall));
     project.rooms = project.rooms.filter((r) => r.level !== level.id);
     project.guides = project.guides.filter((g) => !(g.source === 'plan' && g.level === level.id));
+    // A floor cleaned up again in 2D brings its objects back (plan-draft.js fromProject): the old ones go.
+    if (result.replaceObjects) project.objects = project.objects.filter((o) => o.level !== level.id);
     if (wallHeight) level.height = wallHeight;
   }
   const center = planCenter(result);
@@ -188,5 +195,7 @@ export function applyPlan(project, result, { target = 'replace', wallHeight = nu
   project.openings.push(...built.openings);
   project.rooms.push(...built.rooms);
   project.guides.push(...built.guides);
-  return { level: level.id, walls: built.walls.length, openings: built.openings.length, doors: built.openings.filter((o) => o.item.startsWith('door-') && o.item !== 'door-cased-opening').length, windows: built.openings.filter((o) => o.item.startsWith('window')).length, rooms: built.rooms.length, roomIds: built.rooms.map((r) => r.id), guides: built.guides.length, bounds: built.bounds };
+  project.objects ??= [];
+  project.objects.push(...built.objects);
+  return { level: level.id, objects: built.objects.length, walls: built.walls.length, openings: built.openings.length, doors: built.openings.filter((o) => o.item.startsWith('door-') && o.item !== 'door-cased-opening').length, windows: built.openings.filter((o) => o.item.startsWith('window')).length, rooms: built.rooms.length, roomIds: built.rooms.map((r) => r.id), guides: built.guides.length, bounds: built.bounds };
 }

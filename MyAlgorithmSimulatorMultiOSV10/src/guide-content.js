@@ -7,14 +7,14 @@ export const GUIDE = [
     <p>MyAlgorithmSimulator는 알고리즘이 한 단계씩 어떻게 움직이는지 그림으로 보고, 같은 알고리즘을 여러 프로그래밍 언어로 읽어 보고 실행해 보는 학습 프로그램입니다.</p>
     <p>처음 열면 시작 화면이 나옵니다. 움직이는 배경 위에서 알고리즘을 고르거나, <b>이어서 학습</b>으로 최근에 보던 알고리즘을 다시 엽니다.</p>
     <ul>
-      <li><b>설정</b>은 재생 속도와 배경을 바꿉니다.</li>
+      <li><b>설정</b>은 재생 속도, 시작 화면 배경, 배경 속도와 투명도를 바꿉니다.</li>
       <li><b>프로그램 정보</b>는 버전과 만든 이를 보여 줍니다.</li>
       <li><b>사용 설명서</b>는 지금 보고 있는 이 창을 엽니다.</li>
     </ul>`, `
     <p>MyAlgorithmSimulator shows how an algorithm moves, one step at a time, and lets you read and run the same algorithm in several programming languages.</p>
     <p>The program opens on the start screen. Pick an algorithm over the moving background, or choose <b>Continue</b> to reopen the one you looked at last.</p>
     <ul>
-      <li><b>Settings</b> changes the playback speed and the background.</li>
+      <li><b>Settings</b> changes the playback speed, the start-screen background, and that background's speed and opacity.</li>
       <li><b>About</b> shows the version and the author.</li>
       <li><b>User's guide</b> opens this window.</li>
     </ul>`),
@@ -83,10 +83,10 @@ export const GUIDE = [
     <p>If the input does not match the expected form, the reason appears under the box and the picture keeps the previous steps.</p>`),
   chapter('look', '테마, 배경, 언어', 'Theme, background and language', `
     <p>도구 모음의 <b>테마</b> 버튼은 지금 테마 이름을 보여 주고, 누르면 밝은 테마와 어두운 테마 목록이 열립니다. 고른 테마는 이 설명서 창에도 그대로 적용됩니다.</p>
-    <p>시작 화면의 배경은 스물한 가지입니다. 이름을 고르거나 <b>배경 바꾸기</b>로 다른 배경을 고르고, 속도와 투명도는 감소·증가 버튼으로 바꿉니다.</p>
+    <p>시작 화면의 배경은 스물한 가지이고, 막대·트리·그래프·격자처럼 알고리즘이 움직이는 그림입니다. 이름을 고르거나 <b>배경 바꾸기</b>로 다른 배경을 고르고, 속도와 투명도는 슬라이드와 감소·증가 버튼으로 0~100% 사이에서 바꿉니다. 속도의 기본값은 20%입니다. <b>무작위 선택</b>을 켜면 <b>섞기 간격</b>마다 다른 배경으로 바뀝니다. 간격은 5초에서 120초입니다.</p>
     <p>언어 버튼은 국기로 표시됩니다. 화면이 한국어이면 영국 국기, 영어이면 한국 국기입니다. 누르면 메뉴와 설명이 그 언어로 바뀝니다. 이 창의 국기 버튼은 설명서의 언어만 바꿉니다.</p>`, `
     <p>The <b>Theme</b> button on the toolbar shows the current theme name and opens the light and dark themes. The theme you pick is applied to this guide window as well.</p>
-    <p>The start screen has twenty-one backgrounds. Pick a name, or use <b>Change background</b>, and change the speed and opacity with the decrease and increase buttons.</p>
+    <p>The start screen has twenty-one backgrounds, and each one is a picture of an algorithm moving: bars, a tree, a graph, a grid and the rest. Pick a name, or use <b>Change background</b>, and set the speed and opacity from 0 to 100% with the slider or the decrease and increase buttons. The speed starts at 20%. Turn on <b>Random</b> and the background changes every <b>shuffle interval</b>, from 5 to 120 seconds.</p>
     <p>The language button is a flag. A Korean screen shows the UK flag, and an English screen shows the Korean flag. Clicking it switches the menus and the explanations. The flag in this window changes only the guide.</p>`),
   chapter('keys', '단축키', 'Shortcuts', `
     <table>

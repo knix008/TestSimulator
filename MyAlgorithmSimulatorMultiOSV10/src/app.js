@@ -9,7 +9,7 @@ import { createEditor } from './ui/editor.js';
 import { CODE_LANGUAGES, extension, sample } from './samples/index.js';
 import { isDesktop, installToolchain, openPrintWindow, quit, readTextFile, runCode, saveProjectFile, toolchainStatus, writeTextFile } from './platform/native.js';
 import { runJavaScript } from './runner/web.js';
-import { ANIMATION_KINDS, AnimatedBackground } from './ui/background.js';
+import { ANIMATION_KINDS, AnimatedBackground, backgroundKind } from './ui/background.js';
 import { startBoard } from './ui/startboard.js';
 
 const STORE = 'myalgorithmsimulator.settings';
@@ -21,11 +21,12 @@ const state = {
   frames: [], frame: 0, playing: false, speed: 1, error: '', status: '', query: '',
   collapsed: {}, rightTab: 'explain', codeLang: 'python', code: {}, output: null, running: false,
   showLeft: true, showRight: true, showPseudo: true, bottomTab: 'code', recent: [], menu: null, modal: null, maximized: false,
-  animation: 'aurora', animationSpeed: 100, animationOpacity: 100, startLayout: null, projectPath: '',
+  animation: 'bars', animationSpeed: 20, animationOpacity: 100, animationRandom: false, animationShuffle: 30, startLayout: null, projectPath: '',
 };
 
 let editor = null;
 let timer = null;
+let shuffleTimer = null;
 let backdrop = null;
 let board = null;
 const CARD_GRIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="20" cy="20" r="2"/><circle cx="14" cy="20" r="2"/><circle cx="20" cy="14" r="2"/><circle cx="8" cy="20" r="2"/><circle cx="14" cy="14" r="2"/><circle cx="20" cy="8" r="2"/></g></svg>';
@@ -36,7 +37,8 @@ function save() {
     lang: state.lang, themeId: state.themeId, speed: state.speed, codeLang: state.codeLang,
     algorithmId: state.algorithmId, recent: state.recent, showLeft: state.showLeft,
     showRight: state.showRight, showPseudo: state.showPseudo,
-    animation: state.animation, animationSpeed: state.animationSpeed, animationOpacity: state.animationOpacity, startLayout: state.startLayout,
+    animation: state.animation, animationSpeed: state.animationSpeed, animationOpacity: state.animationOpacity,
+    animationRandom: state.animationRandom, animationShuffle: state.animationShuffle, startLayout: state.startLayout,
   }));
 }
 
@@ -355,8 +357,8 @@ function menuHtml() {
   return `<div class="menu" style="left:${state.menu.x}px;top:${state.menu.y}px">${buttons}</div>`;
 }
 
-function popup(title, glyph, body) {
-  return `<div class="modal-back"><div class="popup" role="dialog"><div class="popup-head">${icon(glyph)}<span>${esc(title)}</span><button class="icon-button" data-act="close-modal">${icon('close')}</button></div><div class="popup-body">${body}</div><div class="popup-foot"><button class="button primary" data-act="close-modal">OK</button></div></div></div>`;
+function popup(title, glyph, body, extraClass = '') {
+  return `<div class="modal-back"><div class="popup ${extraClass}" role="dialog"><div class="popup-head">${icon(glyph)}<span>${esc(title)}</span><button class="icon-button" data-act="close-modal">${icon('close')}</button></div><div class="popup-body">${body}</div><div class="popup-foot"><button class="button primary" data-act="close-modal">OK</button></div></div></div>`;
 }
 
 function animationChips() {
@@ -364,13 +366,29 @@ function animationChips() {
 }
 
 function animControls() {
-  const stepper = (which, glyph, label, value) => `<div class="anim-stepper">
+  const stepper = (which, glyph, label, value, max) => `<div class="anim-stepper">
       <span class="step-label">${icon(glyph)}<span>${esc(label)}</span></span>
       <button type="button" class="step-btn" data-act="nudge-anim" data-arg="${which}" data-delta="-10" title="${esc(t('nudge.down'))}" aria-label="${esc(t('nudge.down'))}">${icon('minus')}</button>
+      <input type="range" class="anim-range" data-range="${which}" min="0" max="${max}" step="10" value="${value}" aria-label="${esc(label)}">
       <output data-readout="${which}">${value}%</output>
       <button type="button" class="step-btn" data-act="nudge-anim" data-arg="${which}" data-delta="10" title="${esc(t('nudge.up'))}" aria-label="${esc(t('nudge.up'))}">${icon('plus')}</button>
     </div>`;
-  return `<div class="anim-controls">${stepper('speed', 'speed', t('settings.animationSpeed'), state.animationSpeed)}${stepper('opacity', 'opacity', t('settings.opacity'), state.animationOpacity)}</div>`;
+  return `<div class="anim-controls">${stepper('speed', 'speed', t('settings.animationSpeed'), state.animationSpeed, 100)}${stepper('opacity', 'opacity', t('settings.opacity'), state.animationOpacity, 100)}</div>`;
+}
+
+function animShuffle() {
+  const seconds = state.animationShuffle;
+  const label = t('settings.shuffleInterval');
+  return `<div class="anim-shuffle">
+    <button type="button" class="button${state.animationRandom ? ' primary' : ''}" data-act="toggle-anim-random" aria-pressed="${state.animationRandom}">${icon('random')}<span>${esc(t('settings.animationRandom'))}</span></button>
+    <div class="anim-stepper">
+      <span class="step-label">${icon('clock')}<span>${esc(label)}</span></span>
+      <button type="button" class="step-btn" data-act="nudge-anim" data-arg="interval" data-delta="-5" title="${esc(t('nudge.down'))}" aria-label="${esc(t('nudge.down'))}">${icon('minus')}</button>
+      <input type="range" class="anim-range" data-range="interval" min="5" max="120" step="5" value="${seconds}" aria-label="${esc(label)}">
+      <output data-readout="interval">${esc(shuffleText(seconds))}</output>
+      <button type="button" class="step-btn" data-act="nudge-anim" data-arg="interval" data-delta="5" title="${esc(t('nudge.up'))}" aria-label="${esc(t('nudge.up'))}">${icon('plus')}</button>
+    </div>
+  </div>`;
 }
 
 function modalHtml() {
@@ -391,10 +409,10 @@ function modalHtml() {
     const speeds = SPEEDS.map((speed) => `<option value="${speed}"${speed === state.speed ? ' selected' : ''}>${speed}×</option>`).join('');
     return popup(t('cmd.settings'), 'gear', `<section class="settings-block"><h3>${icon('globe')}<span>${esc(t('menu.lang'))}</span></h3><div class="row-buttons">${langs}</div></section>
       <section class="settings-block"><h3>${icon('speed')}<span>${esc(t('speed.label'))}</span></h3><select id="pref-speed" class="tool-select">${speeds}</select></section>
-      <section class="settings-block"><h3>${icon('star')}<span>${esc(t('start.background'))}</span></h3>${animationChips()}${animControls()}
+      <section class="settings-block"><h3>${icon('star')}<span>${esc(t('settings.startBackground'))}</span></h3>${animationChips()}${animControls()}${animShuffle()}
         <div class="row-buttons"><button class="button" data-act="shuffle-bg">${icon('random')}<span>${esc(t('start.shuffle'))}</span></button></div>
       </section>
-      <section class="settings-block"><h3>${icon('download')}<span>${esc(t('install.title'))}</span></h3><p class="muted">${esc(t('start.toolsTip'))}</p><div class="row-buttons"><button class="button" data-act="menu-toolchains">${icon('download')}<span>${esc(t('cmd.toolchains'))}</span></button></div></section>`);
+      <section class="settings-block"><h3>${icon('download')}<span>${esc(t('install.title'))}</span></h3><p class="muted">${esc(t('start.toolsTip'))}</p><div class="row-buttons"><button class="button" data-act="menu-toolchains">${icon('download')}<span>${esc(t('cmd.toolchains'))}</span></button></div></section>`, 'settings-popup');
   }
   if (state.modal.type === 'tools') {
     const rows = (state.modal.tools ?? []).map((tool) => `<div class="tool-row">${icon('terminal')}<b>${esc(tool.name)}</b><span class="grow muted">${esc(tool.version ?? '')}</span><span class="badge ${tool.installed ? 'ok' : 'no'}">${esc(tool.installed ? t('install.ok') : t('install.missing'))}</span>${tool.installed || !state.modal.desktop ? '' : `<button class="button" data-act="install" data-arg="${tool.id}">${esc(t('code.install'))}</button>`}</div>`).join('');
@@ -526,7 +544,7 @@ function mountBackground() {
   if (!canvas) return;
   backdrop = new AnimatedBackground(canvas, {
     vivid: true,
-    kind: ANIMATION_KINDS.includes(state.animation) ? state.animation : 'aurora',
+    kind: backgroundKind(state.animation),
     speed: () => (Number(state.animationSpeed) || 0) / 100,
     opacity: (Number(state.animationOpacity) || 0) / 100,
     colors: () => {
@@ -586,8 +604,8 @@ function startPage() {
     <div class="start-board">
       ${startCard('actions', 'home', t('start.actions'), `<div class="start-actions">${actions}</div>`)}
       ${startCard('recent', 'star', t('start.recent'), `<div class="start-list">${recent}</div>`)}
-      ${startCard('background', 'theme', t('start.background'), `${animationChips()}${animControls()}`)}
       ${startCard('algorithms', 'layers', t('start.algorithms'), groups, { extra: `<span class="start-card-note">${ALGORITHMS.length}</span>` })}
+      ${startCard('background', 'theme', t('start.background'), `${animationChips()}${animControls()}${animShuffle()}`)}
     </div>
     <footer class="start-foot"><button class="start-link" data-act="menu-about">${icon('info')}<span class="name">MyAlgorithmSimulator v${esc(__APP_VERSION__)}</span></button><span class="grow"></span><span class="muted">© SHKWON (knix008@naver.com)</span></footer>
   </div></div>`;
@@ -641,24 +659,39 @@ const actions = {
     });
   },
   'nudge-anim'(el) {
-    const which = el.dataset.arg === 'opacity' ? 'opacity' : 'speed';
+    const which = el.dataset.arg;
     const delta = Number(el.dataset.delta) || 0;
-    if (which === 'opacity') {
+    if (which === 'interval') {
+      state.animationShuffle = clampShuffle(state.animationShuffle + delta);
+      save();
+      syncShuffleTimer();
+      paintAnim('interval', state.animationShuffle, shuffleText(state.animationShuffle));
+      return;
+    }
+    const key = which === 'opacity' ? 'opacity' : 'speed';
+    if (key === 'opacity') {
       state.animationOpacity = Math.max(0, Math.min(100, state.animationOpacity + delta));
       backdrop?.setOpacity(state.animationOpacity / 100);
-    } else state.animationSpeed = Math.max(0, Math.min(300, state.animationSpeed + delta));
+    } else state.animationSpeed = Math.max(0, Math.min(100, state.animationSpeed + delta));
     save();
-    const value = which === 'opacity' ? state.animationOpacity : state.animationSpeed;
-    document.querySelectorAll(`[data-readout="${which}"]`).forEach((node) => { node.textContent = `${value}%`; });
+    const value = key === 'opacity' ? state.animationOpacity : state.animationSpeed;
+    paintAnim(key, value, `${value}%`);
+  },
+  'toggle-anim-random'() {
+    state.animationRandom = !state.animationRandom;
+    save();
+    syncShuffleTimer();
+    document.querySelectorAll('[data-act="toggle-anim-random"]').forEach((button) => {
+      button.classList.toggle('primary', state.animationRandom);
+      button.setAttribute('aria-pressed', String(state.animationRandom));
+    });
   },
   'save-project': saveCurrentProject,
   print() { openPrint(); },
   'shuffle-bg'() {
     const others = ANIMATION_KINDS.filter((kind) => kind !== state.animation);
-    state.animation = others[Math.floor(Math.random() * others.length)] ?? 'aurora';
+    showAnimation(others[Math.floor(Math.random() * others.length)] ?? 'bars');
     save();
-    backdrop?.setKind(state.animation);
-    document.querySelectorAll('[data-act="pick-animation"]').forEach((button) => button.classList.toggle('on', button.dataset.arg === state.animation));
   },
   'close-modal'() { state.modal = null; render(); },
   'set-theme'(el) {
@@ -833,13 +866,28 @@ function bind() {
     if (event.target.id === 'algo-search') { state.query = event.target.value; const body = document.getElementById('algo-list'); if (body) body.innerHTML = algorithmList(); }
     if (event.target.id === 'scrubber') { stopPlayback(); state.frame = Number(event.target.value); refreshFrame(); }
     if (event.target.id === 'algo-input') state.inputText = event.target.value;
-    if (event.target.classList.contains('anim-speed')) {
-      state.animationSpeed = Number(event.target.value);
+    if (event.target.classList.contains('anim-range')) {
+      const which = event.target.dataset.range;
+      if (which === 'interval') {
+        const value = clampShuffle(event.target.value);
+        state.animationShuffle = value;
+        save();
+        paintAnim('interval', value, shuffleText(value), event.target);
+        return;
+      }
+      const key = which === 'opacity' ? 'opacity' : 'speed';
+      const value = Math.max(0, Math.min(100, Number(event.target.value) || 0));
+      if (key === 'opacity') {
+        state.animationOpacity = value;
+        backdrop?.setOpacity(value / 100);
+      } else state.animationSpeed = value;
       save();
+      paintAnim(key, value, `${value}%`, event.target);
     }
   });
   root.addEventListener('change', (event) => {
     if (event.target.id === 'speed' || event.target.id === 'pref-speed') { state.speed = Number(event.target.value); save(); }
+    if (event.target.dataset.range === 'interval') syncShuffleTimer();
     if (event.target.id === 'code-lang') { if (editor) state.code[codeKey()] = editor.get(); state.codeLang = event.target.value; save(); render(); }
   });
   root.addEventListener('keydown', (event) => { if (event.key === 'Enter' && event.ctrlKey && event.target.id === 'algo-input') { event.preventDefault(); applyInput(); } });
@@ -889,6 +937,44 @@ function bind() {
   new ResizeObserver(() => paint()).observe(root);
 }
 
+const clampPercent = (value, fallback) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : fallback;
+};
+
+const clampShuffle = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 30;
+  return Math.max(5, Math.min(120, Math.round(n / 5) * 5));
+};
+
+const shuffleText = (seconds) => `${seconds}${t('settings.seconds')}`;
+
+function paintAnim(which, value, text, source) {
+  document.querySelectorAll(`[data-readout="${which}"]`).forEach((node) => { node.textContent = text; });
+  document.querySelectorAll(`[data-range="${which}"]`).forEach((node) => { if (node !== source) node.value = String(value); });
+}
+
+function showAnimation(kind) {
+  state.animation = backgroundKind(kind);
+  backdrop?.setKind(state.animation);
+  document.querySelectorAll('[data-act="pick-animation"]').forEach((button) => {
+    const on = button.dataset.arg === state.animation;
+    button.classList.toggle('on', on);
+    button.setAttribute('aria-checked', String(on));
+  });
+}
+
+function syncShuffleTimer() {
+  if (shuffleTimer) { clearInterval(shuffleTimer); shuffleTimer = null; }
+  if (!state.animationRandom) return;
+  shuffleTimer = setInterval(() => {
+    const others = ANIMATION_KINDS.filter((kind) => kind !== state.animation);
+    showAnimation(others[Math.floor(Math.random() * others.length)] ?? 'bars');
+    save();
+  }, state.animationShuffle * 1000);
+}
+
 function cssVar(name, fallback) {
   const value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
   return Number.isFinite(value) ? value : fallback;
@@ -901,9 +987,11 @@ export function start() {
     themeId: saved.themeId ?? 'light', speed: saved.speed ?? 1, codeLang: saved.codeLang ?? 'python',
     algorithmId: saved.algorithmId ?? 'bubble-sort', recent: saved.recent ?? [],
     showLeft: saved.showLeft ?? true, showRight: saved.showRight ?? true, showPseudo: saved.showPseudo ?? true,
-    animation: ANIMATION_KINDS.includes(saved.animation) ? saved.animation : 'aurora',
-    animationSpeed: Number.isFinite(saved.animationSpeed) ? saved.animationSpeed : 100,
-    animationOpacity: Number.isFinite(saved.animationOpacity) ? saved.animationOpacity : 100,
+    animation: backgroundKind(saved.animation),
+    animationRandom: saved.animationRandom === true,
+    animationShuffle: clampShuffle(saved.animationShuffle),
+    animationSpeed: clampPercent(saved.animationSpeed === 100 ? undefined : saved.animationSpeed, 20),
+    animationOpacity: clampPercent(saved.animationOpacity, 100),
     startLayout: saved.startLayout ?? null,
   });
   state.inputText = algo().input.default;
@@ -912,6 +1000,7 @@ export function start() {
   applyTheme(theme);
   bind();
   render();
+  syncShuffleTimer();
   desktopWindow().then(async (win) => {
     if (!win) return;
     win.setDecorations(false).catch(() => {});

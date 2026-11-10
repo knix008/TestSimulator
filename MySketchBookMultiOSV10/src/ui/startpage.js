@@ -79,7 +79,7 @@ function samplesBody(L) {
 export const planSamples = () => [...PLAN_SAMPLES.pictures, ...PLAN_SAMPLES.drawings];
 
 /**
- * 2D samples: plan pictures in many styles and formats and CAD / PDF drawings. A click imports one (File › Import floor
+ * 2D samples: plan pictures in many styles and formats, furnished plans (interiors) and CAD / PDF drawings. A click imports one (File › Import floor
  * plan…) — the plan is cleaned up in the 2D workbench and then converted to 3D.
  */
 function planSamplesBody(L) {
@@ -89,7 +89,7 @@ function planSamplesBody(L) {
       <b>${escapeHtml(s.title[lang])}</b><small>${escapeHtml(s.note[lang])}</small></button>`;
   const group = (id, glyph, label, items) => `<section class="sample-group" data-plan-sample-group="${id}"><h3>${icon(glyph)}<span>${escapeHtml(label)}</span><span class="sample-count">${items.length}</span></h3><div class="plan-sample-tiles">${items.map(tileOf).join('')}</div></section>`;
   return `<p class="plan-sample-hint">${icon('planStudio')}<span>${escapeHtml(t('start.planSamplesHint'))}</span></p>
-    <div class="sample-groups">${group('pictures', 'picture', t('start.planSamplePictures'), PLAN_SAMPLES.pictures)}${group('drawings', 'plan2d', t('start.planSampleDrawings'), PLAN_SAMPLES.drawings)}</div>`;
+    <div class="sample-groups">${group('pictures', 'picture', t('start.planSamplePictures'), PLAN_SAMPLES.pictures.filter((p) => !p.interior))}${group('interiors', 'libLiving', t('start.planSampleInteriors'), PLAN_SAMPLES.pictures.filter((p) => p.interior))}${group('drawings', 'plan2d', t('start.planSampleDrawings'), PLAN_SAMPLES.drawings)}</div>`;
 }
 
 function themeBody(settings, L) {

@@ -10,7 +10,7 @@ import {
   fromResult, toResult, cloneDraft, fromProject, moveVertex, moveWalls, splitWall, addWall, deleteItems, addOpening, addText,
   squareUp, joinEnds, mergeCollinear, removeShort, setThickness, setWallLength, scaleDraft, cleanupAll, draftProblems, openEnds,
   snapPoint, openingAt, wallAt, textAt, draftBounds, draftStats, wallLength, pointAlong, openingKind, corners,
-  dominantAngle, rotateDraft, backgroundPoint, backgroundCentre,
+  dominantAngle, rotateDraft, backgroundPoint, backgroundCentre, furnitureAt, furnitureCorners,
 } from '../../src/io/plan-draft.js';
 import { applyPlan } from '../../src/io/plan-build.js';
 import { readDxf, flattenDxf, dxfUnits, extentOf, dxfToPlan } from '../../src/io/plan-dxf.js';
@@ -51,7 +51,7 @@ test('plan-draft: result → draft → result keeps walls, openings (by index), 
   assert.equal(r.texts[0].text, '거실');
   assert.equal(r.leftovers.length, 1);
   assert.ok(!('id' in r.walls[0]) && !('id' in r.openings[0]));
-  assert.deepEqual(draftStats(d), { walls: 4, doors: 1, windows: 1, passages: 0, texts: 1 });
+  assert.deepEqual(draftStats(d), { walls: 4, doors: 1, windows: 1, passages: 0, texts: 1, furniture: 0 });
   assert.equal(openingKind({ item: 'door-cased-opening' }), 'passage');
   const copy = cloneDraft(d);
   copy.walls[0].a[0] = 9;
@@ -288,4 +288,53 @@ test('plan-draft: a turned plan picture (underlay) and the workbench background 
   const bg = { offset: underlayToPlan({ ...u, rotation: 0 }, [0, 0]), k: u.scale, rotation: -u.rotation, centre: [u.width / 2, u.height / 2] };
   for (const q of [[0, 0], [800, 0], [123, 456], [800, 600]]) assert.ok(near(backgroundPoint(bg, q), underlayToPlan(u, q), 1e-9), String(q));
   assert.ok(near(backgroundCentre(bg), u.position, 1e-9));
+});
+
+test('plan-draft: furniture moves, turns, scales, is picked and deleted with the plan, and becomes objects in 3D', () => {
+  const d = box();
+  d.furniture = fromResult({ walls: [], furniture: [{ item: 'bed', params: { bedSize: 'queen' }, position: [1, 1.5], rotation: Math.PI / 2, size: [1.5, 2.1] }, { item: 'rug', params: { width: 2, depth: 1.4 }, position: [3, 1.5], rotation: 0, size: [2, 1.4] }] }).furniture;
+  assert.equal(draftStats(d).furniture, 2);
+  assert.equal(furnitureAt(d, [1.9, 1.5])?.item, 'bed', 'the bed turned 90°: its 2.1 m runs along x');
+  assert.equal(furnitureAt(d, [1, 2.3]), null);
+  assert.ok(near(furnitureCorners(d.furniture[1])[0], [2, 0.8], 1e-9));
+  rotateDraft(d, [0, 0], Math.PI / 2);
+  assert.ok(near(d.furniture[0].position, [-1.5, 1], 1e-9));
+  assert.ok(Math.abs(d.furniture[0].rotation) < 1e-9, 'front turned with the plan');
+  scaleDraft(d, [0, 0], 2);
+  assert.ok(near(d.furniture[1].position, [-3, 6], 1e-9));
+  assert.deepEqual(d.furniture[1].size, [4, 2.8]);
+  assert.equal(d.furniture[1].params.width, 4);
+  assert.equal(deleteItems(d, [d.furniture[1].id]), 1);
+  const r = toResult(d);
+  assert.equal(r.furniture.length, 1);
+  assert.ok(!('id' in r.furniture[0]));
+  const p = createProject();
+  const applied = applyPlan(p, toResult(box()), { target: 'replace', shift: [0, 0] });
+  assert.equal(applied.objects, 0);
+  const withBed = toResult(box());
+  withBed.furniture = [{ item: 'bed', params: { bedSize: 'queen' }, position: [2, 1.5], rotation: Math.PI, size: [1.5, 2.1] }];
+  const applied2 = applyPlan(p, withBed, { target: 'replace', shift: [0, 0] });
+  assert.equal(applied2.objects, 1);
+  const bed = p.objects.find((o) => o.item === 'bed');
+  assert.deepEqual(bed.position, [2, 0, 1.5]);
+  assert.deepEqual(bed.rotation, [0, Math.PI, 0]);
+  assert.equal(bed.level, applied2.level);
+});
+
+test('plan-draft: a floor cleaned up again keeps its objects (all their settings) and does not double them', () => {
+  const p = createProject();
+  const level = p.levels[0].id;
+  applyPlan(p, toResult(box()), { target: 'replace', shift: [0, 0] });
+  p.objects.push({ id: 'ob1', level, item: 'sofa-modern', params: { width: 2.2, depth: 0.9 }, position: [2, 0, 1], rotation: [0, 0.5, 0], scale: [1, 1, 1], materials: { fabric: 'fabric-velvet-green' }, tag: 'living', name: 'Sofa' });
+  const d = fromProject(p, level);
+  assert.equal(d.furniture.length, 1);
+  d.furniture[0].position = [2.5, 1];
+  applyPlan(p, toResult(d), { target: 'replace', shift: [0, 0] });
+  const sofas = p.objects.filter((o) => o.item === 'sofa-modern');
+  assert.equal(sofas.length, 1, 'replaced, not doubled');
+  assert.deepEqual(sofas[0].position, [2.5, 0, 1]);
+  assert.equal(sofas[0].rotation[1], 0.5);
+  assert.equal(sofas[0].materials.fabric, 'fabric-velvet-green');
+  assert.equal(sofas[0].name, 'Sofa');
+  assert.equal(sofas[0].tag, 'living');
 });

@@ -336,8 +336,14 @@ button.status-item:hover { color: var(--accent); }
   width: min(640px, calc(100vw - 48px)); max-height: calc(100vh - 72px); display: flex; flex-direction: column;
   border-radius: 12px; background: var(--surface); border: 1px solid var(--hairline); box-shadow: var(--elev-2); overflow: hidden;
 }
+.popup.settings-popup { width: min(920px, calc(100vw - 32px)); }
+.settings-popup .anim-controls { flex-direction: column; align-items: stretch; gap: 8px; }
+.settings-popup .anim-stepper { width: 100%; }
+.settings-popup .anim-stepper .step-label { width: 148px; flex: none; }
 .popup-head { display: flex; align-items: center; gap: 8px; padding: 10px 8px 10px 14px; border-bottom: 1px solid var(--hairline); font-weight: 700; }
 .popup-head span { flex: 1; }
+.popup-head .icon-button:hover { background: #c42b1c; color: #fff; }
+.popup-head .icon-button:hover .icon { color: #fff !important; }
 .popup-body { padding: 14px 16px; overflow: auto; }
 .popup-body p { margin: 0 0 8px; line-height: 1.55; }
 .popup-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--hairline); background: color-mix(in srgb, var(--panel) 60%, var(--surface)); }
@@ -381,7 +387,13 @@ button.status-item:hover { color: var(--accent); }
 }
 .step-btn .icon { width: 14px; height: 14px; }
 .step-btn:hover { border-color: var(--accent); background: var(--hover); color: var(--accent); }
+.anim-stepper input[type="range"] { flex: 1; min-width: 72px; height: 28px; margin: 0; accent-color: var(--accent); }
 .anim-stepper output { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; color: var(--text); font-weight: 650; }
+.anim-shuffle { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.anim-shuffle .anim-stepper { flex: 1; }
+.anim-shuffle > .button { flex: none; }
+.settings-popup .anim-shuffle { flex-direction: column; align-items: stretch; }
+.settings-popup .anim-shuffle > .button { align-self: flex-start; }
 .settings-block { margin: 0 0 14px; }
 .settings-block h3, .about h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 0.95em; }
 .settings-block h3 .icon, .about h3 .icon { color: var(--accent); width: 16px; height: 16px; }

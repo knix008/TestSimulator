@@ -448,15 +448,106 @@ export function lightGround(image) {
   return { ...image, data: out, inverted: true };
 }
 
-export function detectImageWalls(image, { metresPerPixel, method = 'outline', edgeThreshold = 0.25, minThickness = 0.09, maxThickness = 0.45, deskew = true } = {}) {
+/** Two Otsu thresholds (three tone classes: ink, middle, paper) and the share of pixels in the middle class. */
+function otsu3(gray) {
+  const hist = new Float64Array(256);
+  for (const v of gray) hist[v]++;
+  const n = gray.length;
+  const P = new Float64Array(257); const S = new Float64Array(257);
+  for (let i = 0; i < 256; i++) { P[i + 1] = P[i] + hist[i]; S[i + 1] = S[i] + i * hist[i]; }
+  const part = (a, b) => { const w = P[b] - P[a]; return w > 0 ? ((S[b] - S[a]) ** 2) / w : 0; };
+  let best = -1; let t1 = 85; let t2 = 170;
+  for (let a = 8; a < 248; a += 2) for (let b = a + 8; b < 252; b += 2) {
+    const v = part(0, a) + part(a, b) + part(b, 256);
+    if (v > best) { best = v; t1 = a; t2 = b; }
+  }
+  return { t1, t2, middle: (P[t2] - P[t1]) / n };
+}
+
+/**
+ * The walls of a picture alone, for plans with furniture and coloured floors: a black-on-white picture of the
+ * darkest tones (coloured floors and pale furniture drop out), without strokes thinner than a wall (the lines of
+ * furniture, hatching, dimension lines and text drop out), keeping only large connected shapes (the wall network,
+ * not a dark appliance in the middle of a room). Returns null when nothing wall-like is left.
+ * `minThickness` (m) is the thinnest wall to keep.
+ */
+export function wallsOnly(image, { metresPerPixel, minThickness = 0.09 } = {}) {
+  const src = lightGround(image);
+  const { width: w, height: h } = src;
+  const gray = toGrayscale(src.data, w, h);
+  // Coloured floors / furniture fills form a large middle tone: the walls are the class below it.
+  const { t1, middle } = otsu3(gray);
+  const level = middle > 0.12 ? t1 : otsu(gray);
+  let ink = new Uint8Array(w * h);
+  for (let i = 0; i < ink.length; i++) ink[i] = gray[i] <= level ? 1 : 0;
+  // Opening (erode, then dilate) by a square of radius r: strokes thinner than 2r + 1 pixels vanish.
+  const r = Math.max(1, Math.floor((minThickness * 0.8) / metresPerPixel / 2));
+  // Separable square window: `all` = erosion (every pixel of the window is ink), else dilation (any pixel is).
+  const filter = (mask, all, r) => {
+    const tmp = new Uint8Array(w * h); const out = new Uint8Array(w * h);
+    const along = (get, n, set) => {
+      for (let i = 0; i < n; i++) {
+        let v = all ? 1 : 0;
+        for (let d = -r; d <= r; d++) {
+          const s = get(i + d);
+          if (all ? !s : s) { v = all ? 0 : 1; break; }
+        }
+        set(i, v);
+      }
+    };
+    for (let y = 0; y < h; y++) along((x) => (x < 0 || x >= w ? 0 : mask[y * w + x]), w, (x, v) => { tmp[y * w + x] = v; });
+    for (let x = 0; x < w; x++) along((y) => (y < 0 || y >= h ? 0 : tmp[y * w + x]), h, (y, v) => { out[y * w + x] = v; });
+    return out;
+  };
+  // First a closing by one pixel: walls drawn as hatching or pencil strokes become solid (the hairline gaps
+  // between the strokes fill; separate furniture lines stay apart). Then the opening.
+  ink = filter(filter(ink, false, 1), true, 1);
+  ink = filter(filter(ink, true, r), false, r);
+  // Large connected shapes only (a span of at least 0.8 m: a wall stub between a door and a window still counts).
+  const label = new Int32Array(w * h).fill(-1);
+  const span = Math.max(8, 0.8 / metresPerPixel);
+  const keepComp = [];
+  const stack = [];
+  let comps = 0;
+  for (let i = 0; i < ink.length; i++) {
+    if (!ink[i] || label[i] >= 0) continue;
+    let x0 = w; let x1 = 0; let y0 = h; let y1 = 0;
+    stack.push(i); label[i] = comps;
+    while (stack.length) {
+      const j = stack.pop(); const x = j % w; const y = (j / w) | 0;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (const k of [x > 0 ? j - 1 : -1, x < w - 1 ? j + 1 : -1, y > 0 ? j - w : -1, y < h - 1 ? j + w : -1]) if (k >= 0 && ink[k] && label[k] < 0) { label[k] = comps; stack.push(k); }
+    }
+    keepComp.push(Math.max(x1 - x0, y1 - y0) >= span);
+    comps++;
+  }
+  const data = new Uint8ClampedArray(w * h * 4);
+  let kept = 0;
+  for (let i = 0; i < ink.length; i++) {
+    const on = ink[i] && keepComp[label[i]];
+    if (on) kept++;
+    const v = on ? 0 : 255;
+    data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = v; data[i * 4 + 3] = 255;
+  }
+  return kept > 0 ? { data, width: w, height: h } : null;
+}
+
+/**
+ * Walls, doors and windows of a plan picture. `evidence`: the picture the door swings are read from (the original
+ * when `image` is its walls-only copy, see wallsOnly) — the same size; by default `image` itself.
+ */
+export function detectImageWalls(image, { metresPerPixel, method = 'outline', edgeThreshold = 0.25, minThickness = 0.09, maxThickness = 0.45, deskew = true, evidence = null } = {}) {
   const m = metresPerPixel;
   image = lightGround(image);
+  let swings = evidence && evidence.width === image.width && evidence.height === image.height ? lightGround(evidence) : image;
   let work = image; let back = (p) => p; let angle = 0;
   if (deskew) {
     angle = dominantAngle(image);
     if (Math.abs(angle) > 0.3 * Math.PI / 180) {
       const turned = rotateImage(image, angle);
       work = turned.image;
+      if (swings !== image) swings = rotateImage(swings, angle).image;
+      else swings = work;
       back = (p) => { const q = turned.toSource([p[0] / m, p[1] / m]); return [q[0] * m, q[1] * m]; };
     } else angle = 0;
   }
@@ -467,7 +558,7 @@ export function detectImageWalls(image, { metresPerPixel, method = 'outline', ed
     : imageMaskSegments(work, { minSegment, gap: 1, window: Math.max(15, Math.round(0.8 / m)) | 1, turned: work !== image });
   const lines = found.segments.map((sg) => ({ a: [sg.a[0] * m, sg.a[1] * m], b: [sg.b[0] * m, sg.b[1] * m], layer: 'IMAGE' }));
   const result = recognizePlan({ lines }, { mode: 'image', minThickness: Math.max(minThickness, 2.5 * m), maxThickness, angleTol: 1, minWall: Math.max(0.3, 6 * m), bandTolerance: Math.max(0.02, 4 * m) });
-  doorSwings(work, result, m);
+  doorSwings(swings === image ? work : swings, result, m);
   const turn = (x) => ({ ...x, a: back(x.a), b: back(x.b) });
   return { ...result, walls: result.walls.map(turn), leftovers: result.leftovers.map(turn), segments: lines.map(turn), angle, scanned: Boolean(found.scanned) };
 }

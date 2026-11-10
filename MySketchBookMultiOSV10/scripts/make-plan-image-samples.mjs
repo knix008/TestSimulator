@@ -16,6 +16,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { buildTemplate } from '../src/engine/templates.js';
+import { buildSampleProject } from '../src/engine/samples.js';
+import { MATERIAL_PRESETS } from '../src/engine/materials.js';
+import { topView } from './lib/topview.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(root, 'samples', 'plan-images');
@@ -51,6 +54,16 @@ const SAMPLES = [
   { id: 'shop-tga', template: 'shop', style: 'cad', format: 'tga', ppm: 64, english: true, title: ['상가 · TGA', 'Shop · TGA'], note: ['두 줄 벽 CAD 그림 (TGA)', 'Double-line CAD picture (TGA)'] },
   { id: 'loft-avif', template: 'loft', style: 'brochure', format: 'avif', ppm: 64, title: ['복층 1층 · 컬러', 'Loft ground floor · colour'], note: ['홍보용 컬러 평면 (AVIF)', 'Colour sales plan (AVIF)'] },
   { id: 'house3-scan', template: 'house3', style: 'cad', format: 'tif', ppm: 72, effects: { tilt: 2.5, light: 0.18, noise: 9, grey: true, specks: true }, title: ['3층 주택 1층 · 회색 스캔', '3-storey house, ground floor · grey scan'], note: ['스캐너로 읽은 회색조, 약간 기울어짐 (TIFF)', 'A greyscale scan, slightly tilted (TIFF)'] },
+  // ── Interiors: the start page's furnished homes (engine/samples.js), their furniture drawn from the library models
+  //    seen from above (scripts/lib/topview.mjs) and their floors in the floor materials' colours.
+  { id: 'apt59-interior', project: 'apt59-furnished', style: 'interior', format: 'png', ppm: 72, title: ['59㎡ 아파트 · 인테리어 컬러 평면', '59 m² apartment · interior colour plan'], note: ['가구·바닥재가 보이는 위에서 본 평면, 그림자 (PNG)', 'Furniture and floors seen from above, with shadows (PNG)'] },
+  { id: 'apt84-interior', project: 'apt84-a', style: 'interior', format: 'jpg', ppm: 60, title: ['84㎡ 아파트 · 인테리어 평면', '84 m² apartment · interior plan'], note: ['방 7개 가구 배치, 치수와 방위 (JPG)', 'Seven furnished rooms, dimensions and compass (JPG)'] },
+  { id: 'apt74-furniture-lines', project: 'apt74-b', style: 'interiorLine', format: 'png', ppm: 64, title: ['74㎡ 아파트 · 가구 배치 도면', '74 m² apartment · furniture layout drawing'], note: ['흑백 선으로 그린 가구와 벽 (PNG)', 'Furniture and walls in black lines (PNG)'] },
+  { id: 'apt104-catalog', project: 'apt104-a', style: 'interiorCatalog', format: 'webp', ppm: 56, title: ['104㎡ 아파트 · 분양 카탈로그', '104 m² apartment · sales catalogue'], note: ['연한 바닥색과 가구 윤곽 (WebP)', 'Pale floors and furniture outlines (WebP)'] },
+  { id: 'house-interior-sketch', project: 'house-a', style: 'interiorSketch', format: 'jpg', ppm: 64, effects: { paper: true, noise: 4, quality: 82 }, title: ['단독주택 · 인테리어 수채 스케치', 'House · watercolour interior sketch'], note: ['종이 위 연필 가구와 옅은 물감 바닥 (JPG)', 'Pencil furniture and washed floors on paper (JPG)'] },
+  { id: 'officetel-interior-photo', project: 'officetel-a', style: 'interior', format: 'jpg', ppm: 80, effects: { tilt: -3, light: 0.28, tint: [1.0, 0.97, 0.92], noise: 6, blur: 0.6, quality: 74 }, title: ['오피스텔 · 인테리어 평면 사진', 'Officetel · photo of an interior plan'], note: ['인쇄된 컬러 평면을 찍은 사진 (JPG)', 'A photo of a printed colour plan (JPG)'] },
+  { id: 'studio-interior', project: 'studio-furnished', style: 'interior', format: 'avif', ppm: 88, title: ['원룸 · 인테리어 컬러', 'Studio · interior colour'], note: ['침대·책상·소파가 있는 원룸 (AVIF)', 'Bed, desk and sofa in one room (AVIF)'] },
+  { id: 'apt49-furniture-lines', project: 'apt49-b', style: 'interiorLine', format: 'gif', ppm: 70, title: ['49㎡ 아파트 · 가구 선 도면', '49 m² apartment · furniture line plan'], note: ['아이 방이 있는 투룸, 선 도면 (GIF)', 'Two rooms with a kids room, line drawing (GIF)'] },
 ];
 
 // The drawings and pictures of samples/plans offered next to these (start page card).
@@ -75,7 +88,8 @@ const seedOf = (text) => [...text].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >
 // ───────────────────────── plan of a template (ground floor)
 
 function planOf(sample) {
-  const project = buildTemplate(sample.template, {});
+  // A furnished home of the start page (with its furniture), else the bare template.
+  const project = sample.project ? buildSampleProject(sample.project, 'ko') : buildTemplate(sample.template, {});
   const level = project.levels[0].id;
   const walls = project.walls.filter((w) => w.level === level);
   const ids = new Set(walls.map((w) => w.id));
@@ -84,7 +98,8 @@ function planOf(sample) {
   const xs = walls.flatMap((w) => [w.a[0], w.b[0]]); const zs = walls.flatMap((w) => [w.a[1], w.b[1]]);
   const box = { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
   const doors = openings.filter((o) => o.item.startsWith('door') && o.item !== 'door-cased-opening').length;
-  return { walls, openings, rooms, box, counts: { walls: walls.length, doors, windows: openings.length - doors, rooms: rooms.length } };
+  const objects = project.objects.filter((o) => o.level === level);
+  return { walls, openings, rooms, objects, box, counts: { walls: walls.length, doors, windows: openings.length - doors, rooms: rooms.length } };
 }
 
 const area = (pts) => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0) / 2);
@@ -99,6 +114,11 @@ const STYLES = {
   cad: { bg: '#ffffff', ink: '#000000', wall: 'hatch', wallFill: '#ffffff', text: '#000000', sub: '#444444', areas: false, furniture: null, dims: true, font: 'Malgun Gothic' },
   blueprint: { bg: '#1d4f91', ink: '#eef6ff', wall: 'outline', wallFill: '#1d4f91', text: '#eef6ff', sub: '#b8d4f5', areas: true, furniture: '#7fa8d8', dims: true, grid: '#2d63a8', font: 'Malgun Gothic' },
   sketch: { bg: '#f6f1e4', ink: '#33322f', wall: 'pencil', wallFill: '#4a4844', text: '#3b3a37', sub: '#6b6862', areas: false, furniture: '#8a867d', dims: false, font: 'Segoe Print, Comic Sans MS, Malgun Gothic' },
+  // Interiors (furniture from the library models seen from above, floors in their materials' colours).
+  interior: { bg: '#f3f1ec', ink: '#2b2b2b', wall: 'fill', wallFill: '#2e2e2e', text: '#222222', sub: '#6d6253', areas: true, floors: 'materials', floorMix: 0.08, gapFill: '#e8e1d4', furniture: null, interior: { mode: 'colour', ink: [45, 42, 38] }, dims: true, compass: true, font: 'Malgun Gothic' },
+  interiorLine: { bg: '#ffffff', ink: '#111111', wall: 'fill', wallFill: '#151515', text: '#111111', sub: '#555555', areas: true, furniture: null, interior: { mode: 'line', ink: [25, 25, 25] }, dims: true, font: 'Malgun Gothic' },
+  interiorCatalog: { bg: '#fcfbf8', ink: '#5a5046', wall: 'fill', wallFill: '#5b5754', text: '#3a332c', sub: '#8c7d6b', areas: true, floors: 'materials', floorMix: 0.62, gapFill: '#f1ebe0', furniture: null, interior: { mode: 'flat', ink: [122, 106, 85], flatTone: [255, 253, 249] }, dims: false, compass: true, font: 'Malgun Gothic' },
+  interiorSketch: { bg: '#f6f1e4', ink: '#33322f', wall: 'pencil', wallFill: '#4a4844', text: '#3b3a37', sub: '#6b6862', areas: false, floors: 'materials', floorMix: 0.55, floorOpacity: 0.6, floorPattern: false, furniture: null, interior: { mode: 'line', ink: [70, 66, 60] }, dims: false, font: 'Segoe Print, Comic Sans MS, Malgun Gothic' },
   dark: { bg: '#1c1f24', ink: '#e8eaed', wall: 'fill', wallFill: '#d9dce1', text: '#e8eaed', sub: '#9aa0a6', areas: true, furniture: '#5f6670', dims: false, font: 'Segoe UI, Malgun Gothic' },
 };
 const FLOOR_COLOURS = { bath: '#c9d8de', bath2: '#c9d8de', toilet: '#c9d8de', laundry: '#d6d6cf', utility: '#d6d6cf', entry: '#dcd6cb', hall: '#e6dccb', kitchen: '#e9e2d4', pantry: '#e9e2d4' };
@@ -124,17 +144,20 @@ function drawSvg(sample, plan) {
     for (let y = 0; y < H; y += k * 0.5) g.push(`<line x1="0" y1="${f(y)}" x2="${W}" y2="${f(y)}"/>`);
     out.push(`<g stroke="${st.grid}" stroke-width="1">${g.join('')}</g>`);
   }
-  // Floors (brochure): wood in the rooms, tiles in wet rooms.
+  // Floors: the brochure's wood and tiles, or (interiors) each room's own floor material.
   if (st.floors) {
     for (const room of plan.rooms) {
-      const colour = FLOOR_COLOURS[room.key] ?? '#ead8b8';
-      out.push(`<polygon points="${room.points.map((p) => `${f(X(p[0]))},${f(Z(p[1]))}`).join(' ')}" fill="${colour}"/>`);
-      if (!FLOOR_COLOURS[room.key]) {
+      const preset = st.floors === 'materials' ? MATERIAL_PRESETS.find((p) => p.id === room.floor) : null;
+      const wet = preset ? /tile|stone|marble|terrazzo|concrete|ceramic/.test(`${preset.id} ${preset.category}`) : Boolean(FLOOR_COLOURS[room.key]);
+      const colour = preset ? mixHex(preset.color, '#ffffff', st.floorMix ?? 0) : FLOOR_COLOURS[room.key] ?? '#ead8b8';
+      out.push(`<polygon points="${room.points.map((p) => `${f(X(p[0]))},${f(Z(p[1]))}`).join(' ')}" fill="${colour}" fill-opacity="${st.floorOpacity ?? 1}"/>`);
+      if (st.floorPattern === false) continue;
+      if (!wet) {
         // Plank lines.
         const xs = room.points.map((p) => p[0]); const zs = room.points.map((p) => p[1]);
         const lines = [];
         for (let z = Math.min(...zs) + 0.18; z < Math.max(...zs); z += 0.18) lines.push(`<line x1="${f(X(Math.min(...xs)))}" y1="${f(Z(z))}" x2="${f(X(Math.max(...xs)))}" y2="${f(Z(z))}"/>`);
-        out.push(`<g stroke="#d9c39c" stroke-width="1">${lines.join('')}</g>`);
+        out.push(`<g stroke="${preset ? mixHex(colour, '#000000', 0.12) : '#d9c39c'}" stroke-width="1">${lines.join('')}</g>`);
       } else {
         const xs = room.points.map((p) => p[0]); const zs = room.points.map((p) => p[1]);
         const lines = [];
@@ -145,6 +168,8 @@ function drawSvg(sample, plan) {
     }
   }
   if (st.furniture) out.push(furniture(plan, st, X, Z, k, r));
+  // What is drawn from here on lies over the furniture (interiors put their furniture picture in between).
+  const split = out.length;
   // Walls: bands extended by half a thickness at their ends (corners close).
   const bands = plan.walls.map((w) => {
     const h = w.thickness / 2;
@@ -152,7 +177,7 @@ function drawSvg(sample, plan) {
     const z0 = Math.min(w.a[1], w.b[1]) - h; const z1 = Math.max(w.a[1], w.b[1]) + h;
     return `<rect x="${f(X(x0))}" y="${f(Z(z0))}" width="${f((x1 - x0) * k)}" height="${f((z1 - z0) * k)}"/>`;
   }).join('');
-  const gapFill = st.floors ? '#ead8b8' : st.bg;
+  const gapFill = st.gapFill ?? (st.floors ? '#ead8b8' : st.bg);
   if (st.wall === 'fill') out.push(`<g fill="${st.wallFill}">${bands}</g>`);
   else {
     // The outline of the union of the bands: every band stroked wide, then filled over (inner edges vanish).
@@ -203,7 +228,7 @@ function drawSvg(sample, plan) {
   for (const room of plan.rooms) {
     const [cx, cz] = centroid(room.points);
     const label = nameOf(room.key, lang);
-    out.push(`<text x="${f(X(cx))}" y="${f(Z(cz))}" font-family="${st.font}" font-size="${f(fs1)}" font-weight="600" text-anchor="middle" fill="${st.text}">${label}</text>`);
+    out.push(`<text x="${f(X(cx))}" y="${f(Z(cz))}" font-family="${st.font}" font-size="${f(fs1)}" font-weight="600" text-anchor="middle" fill="${st.text}"${st.interior ? ` stroke="${st.bg}" stroke-width="${f(fs1 * 0.22)}" stroke-linejoin="round" paint-order="stroke"` : ''}>${label}</text>`);
     if (st.areas) out.push(`<text x="${f(X(cx))}" y="${f(Z(cz) + fs1 * 1.05)}" font-family="${st.font}" font-size="${f(fs2)}" text-anchor="middle" fill="${st.sub}">${area(room.points).toFixed(2)}㎡</text>`);
   }
   if (st.dims) out.push(dimensions(plan, st, X, Z, k, lw));
@@ -212,7 +237,11 @@ function drawSvg(sample, plan) {
     out.push(`<g stroke="${st.ink}" stroke-width="1.5" fill="none"><circle cx="${f(cx)}" cy="${f(cy)}" r="${f(R)}"/><path d="M${f(cx)} ${f(cy - R)} L${f(cx + R * 0.3)} ${f(cy + R * 0.5)} L${f(cx)} ${f(cy + R * 0.2)} L${f(cx - R * 0.3)} ${f(cy + R * 0.5)} Z" fill="${st.ink}"/></g><text x="${f(cx)}" y="${f(cy - R - 4)}" font-family="${st.font}" font-size="${f(fs2)}" text-anchor="middle" fill="${st.text}">N</text>`);
   }
   out.push('</svg>');
-  return { svg: out.join('\n'), width: W, height: H, topLeft: [box.x0 - margin, box.z0 - margin] };
+  return {
+    svg: out.join('\n'), width: W, height: H, topLeft: [box.x0 - margin, box.z0 - margin],
+    under: [...out.slice(0, split), '</svg>'].join('\n'), over: [out[0], out[1], ...out.slice(split)].join('\n'),
+    toPixel: ([x, z]) => [X(x), Z(z)],
+  };
 }
 
 /** Furniture symbols by room kind (beds, sofa, table, bath fixtures), clear of the room's walls. */
@@ -319,6 +348,11 @@ async function applyEffects(png, e, seed, bg) {
   return { data: out, width: W, height: H };
 }
 const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
+/** a → b by t (0 … 1), as #rrggbb. */
+function mixHex(a, b, t) {
+  const p = hex(a); const q = hex(b);
+  return `#${p.map((v, i) => Math.round(v + (q[i] - v) * t).toString(16).padStart(2, '0')).join('')}`;
+}
 
 // ───────────────────────── encoders (BMP, TGA: by hand; the rest: sharp)
 
@@ -380,7 +414,18 @@ const index = { pictures: [], drawings: [] };
 for (const sample of SAMPLES) {
   const plan = planOf(sample);
   const drawn = drawSvg(sample, plan);
-  const png = await sharp(Buffer.from(drawn.svg)).png().toBuffer();
+  let png;
+  let furniture = null;
+  const interior = STYLES[sample.style].interior;
+  if (interior) {
+    // Floors, then the furniture seen from above, then walls, openings and names over it.
+    const view = topView(plan.objects, { width: drawn.width, height: drawn.height, k: sample.ppm, toPixel: drawn.toPixel }, interior);
+    furniture = view.footprints;
+    png = await sharp(Buffer.from(drawn.under)).composite([
+      { input: view.rgba, raw: { width: drawn.width, height: drawn.height, channels: 4 } },
+      { input: await sharp(Buffer.from(drawn.over)).png().toBuffer() },
+    ]).png().toBuffer();
+  } else png = await sharp(Buffer.from(drawn.svg)).png().toBuffer();
   const e = sample.effects ?? {};
   const pixels = await applyEffects(png, e, seedOf(sample.id), STYLES[sample.style].bg);
   const bytes = await encode(pixels, sample.format, e);
@@ -393,6 +438,9 @@ for (const sample of SAMPLES) {
     // The picture's real width (m) when it is not tilted (the import asks for it; tilted pictures are a little wider).
     pxPerMetre: sample.ppm, size: [pixels.width, pixels.height], widthMetres: Math.round((pixels.width / sample.ppm) * 100) / 100, tilt: e.tilt ?? 0,
     drawnSize: [drawn.width, drawn.height], topLeft: drawn.topLeft, counts: plan.counts, bytes: bytes.length,
+    // Interiors: the furniture in the picture (library item, plan position, turn, footprint) — what a furniture
+    // recognition would have to find.
+    ...(furniture ? { interior: true, furniture: furniture.map((x) => ({ item: x.item, position: x.position.map((v) => Math.round(v * 1000) / 1000), rotation: Math.round(x.rotation * 1000) / 1000, size: [Math.round((x.max[0] - x.min[0]) * 100) / 100, Math.round((x.max[1] - x.min[1]) * 100) / 100] })) } : {}),
   });
   console.log(`  ${file.padEnd(26)} ${String(pixels.width).padStart(5)} × ${String(pixels.height).padEnd(5)} ${(bytes.length / 1024).toFixed(0).padStart(5)} KB  ${sample.style}${e.tilt ? ` · ${e.tilt}°` : ''}`);
 }
