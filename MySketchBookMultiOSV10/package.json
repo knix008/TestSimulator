@@ -32,7 +32,9 @@
     "samples:plans2d": "node scripts/make-plan-image-samples.mjs",
     "build:icons": "node scripts/render-icons.mjs",
     "assets": "node scripts/fetch-assets.mjs",
-    "notices": "node scripts/make-notices.mjs"
+    "notices": "node scripts/make-notices.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
   },
   "dependencies": {
     "@jsquash/avif": "2.1.1",

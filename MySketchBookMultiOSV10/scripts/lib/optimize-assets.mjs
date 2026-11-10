@@ -15,12 +15,22 @@ import { meshopt, prune, textureCompress } from '@gltf-transform/functions';
 
 export const QUALITY = { diff: 82, nor: 92, rough: 80, ao: 80, arm: 80, disp: 80, other: 80 };
 
+// meshopt() quantises the geometry and warns "quantize: Skipping TEXCOORD_0; out of [0,1] range." for every model
+// whose texture tiles (UVs past 1, common in the Poly Haven models). Those UVs simply stay full floats - nothing is
+// wrong with the result - so that one expected warning is dropped; every other warning still prints.
+class AssetLogger extends Logger {
+  warn(text) {
+    if (/^quantize: Skipping \w+; out of \[/.test(text)) return;
+    super.warn(text);
+  }
+}
+
 let ioPromise = null;
 /** A glTF reader/writer with every extension and the meshopt codec. */
 export async function gltfIO() {
   ioPromise ??= (async () => {
     await MeshoptDecoder.ready; await MeshoptEncoder.ready;
-    return new NodeIO().setLogger(new Logger(Logger.Verbosity.WARN)).registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder, 'meshopt.encoder': MeshoptEncoder });
+    return new NodeIO().setLogger(new AssetLogger(Logger.Verbosity.WARN)).registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder, 'meshopt.encoder': MeshoptEncoder });
   })();
   return ioPromise;
 }

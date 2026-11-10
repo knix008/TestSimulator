@@ -120,6 +120,8 @@ npm test             # 모든 테스트
 | `npm run tutorial:video` | 튜토리얼 자동 재생을 녹화한 `doc/video/MySketchBook-Tutorial.mp4` (ffmpeg 필요) |
 | `npm run samples` | 예제 프로젝트 `samples/*.msk` 다시 만들기 |
 | `npm run build:icons` | 아이콘(앱·.msk 파일) 다시 만들기 |
+| `npm run clean` | 빌드 결과 지우기: `dist/`, `src-tauri/target/`, `src-tauri/gen/`, `release/`, `test-results/`, 루트의 설치 파일, Vite 캐시. `library/`는 남깁니다. 미리 보기: `npm run clean -- --dry-run` |
+| `npm run clean:all` | 위 + `node_modules/` (다음에 `npm install` 필요) |
 
 Tauri는 교차 빌드를 하지 않으므로 각 OS의 설치 파일은 그 OS에서 만듭니다. 만든 설치 파일은 `release/`와 프로젝트 루트에 복사됩니다. 설치 파일에는 라이브러리(`library/`), 문서(`doc/`), 예제(`samples/`)가 리소스로 들어갑니다.
 
