@@ -149,7 +149,8 @@ export class SelectTool extends Tool {
     if (this.sunDrag) {
       if (!this.sunDrag.moved && Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) < 3) return;
       this.sunDrag.moved = true;
-      app.dragSun(e.clientX, e.clientY);
+      // The press point anchors the drag: the marker stays exactly where it was grabbed.
+      app.dragSun(e.clientX, e.clientY, this.press);
       return;
     }
     if (this.drag) {
@@ -169,7 +170,7 @@ export class SelectTool extends Tool {
       const navDrag = !this.press.shift && (panDrag || app.settings().leftDrag !== 'select');
       if (navDrag) {
         const vp = app.viewport;
-        if (!this.navigating) { this.navigating = { x: this.press.x, y: this.press.y, pivot: this.press.hit?.point ?? vp.target.clone() }; }
+        if (!this.navigating) { this.navigating = { x: this.press.x, y: this.press.y, pivot: panDrag ? this.press.hit?.point ?? vp.target.clone() : vp.orbitPivotAt(this.press.x, this.press.y) }; }
         const dx = e.clientX - this.navigating.x; const dy = e.clientY - this.navigating.y;
         this.navigating.x = e.clientX; this.navigating.y = e.clientY;
         vp.navigate(vp.planMode || panDrag ? 'pan' : 'orbit', dx, dy, this.navigating.pivot);

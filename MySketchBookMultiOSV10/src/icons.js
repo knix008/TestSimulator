@@ -107,6 +107,7 @@ const base = {
   imageFormat: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><circle cx="10" cy="12" r="1.4"/><path d="M18 17l-4-3-6 5"/>',
   transparentBg: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h5V4M9 9v5h5V9h6M14 14v6M4 14h5v6M14 4v5" stroke-dasharray="0"/>',
   whiteBg: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8v8H8z" opacity="0.35"/>',
+  toolbarMore: '<path d="M6 7l5 5-5 5M13 7l5 5-5 5"/>',
   ruler: '<rect x="2.5" y="8" width="19" height="8" rx="1.5"/><path d="M6 8v3M9.5 8v4M13 8v3M16.5 8v4"/>',
   quality: '<path d="M12 3l2.4 5 5.6.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.6-.8z"/><path d="M12 3v12.6"/>',
   minus: '<path d="M5 12h14"/>',

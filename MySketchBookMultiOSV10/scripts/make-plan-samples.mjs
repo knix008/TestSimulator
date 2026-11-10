@@ -2,7 +2,7 @@
 // drawings (millimetres) of a 59 m² and an 84 m² Korean apartment, a small office
 // and a two-room house, plus SVG line drawings and PNG pictures of them.
 //
-//   node scripts/make-plan-samples.mjs        → samples/plans/*
+//   node scripts/make-plan-samples.mjs        → samples/plans/* (then scripts/make-building-samples.mjs)
 //
 // The plans come from the app's templates (src/engine/templates.js), so the
 // expected walls / doors / windows are known exactly; each sample has an
@@ -505,3 +505,5 @@ for (const sample of SAMPLES) {
   console.log(`living-curved: ${expected.walls.length} straight walls, ${expected.curves.length} curved walls, ${expected.openings.length} openings, ${expected.rooms} rooms → living-curved.dxf`);
 }
 fs.writeFileSync(path.join(outDir, 'index.json'), `${JSON.stringify(index, null, 1)}\n`);
+// The PDF, IFC, Sweet Home 3D, TIFF and TGA samples are made from these files (and add to their expected.json).
+await import('./make-building-samples.mjs');

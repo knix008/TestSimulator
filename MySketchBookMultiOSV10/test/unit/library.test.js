@@ -143,6 +143,21 @@ test('catalog: ≥ 10 sofas each for 1, 2, 3 and 4 seats (entry.seats), seat cou
   }
 });
 
+// Known failures of the param-extremes check (reported, still run as `todo` so they show up
+// without failing the suite): remove an entry once its item is fixed.
+const EXTREMES_TODO = {
+  'coffee-table': 'legs=hairpin floats 4 cm above the floor',
+  'decor-macrame': 'max params: low-quality triangles over budget',
+  'kitchen-wine-rack': 'max params: low-quality triangles over budget',
+  'kitchen-wine-rack-large': 'max params: low-quality triangles over budget',
+  'door-cold-room': 'max params: frame not centred in x',
+  'door-entrance-glassstrip': 'max params: frame not centred in x',
+  'door-ship-watertight': 'max params: frame not centred in x',
+  'door-shower-hinged': 'max params: frame not centred in x',
+  'door-vault': 'max params: frame not centred in x',
+  'door-moon-gate': 'max params: dips 1.4 cm below the floor',
+};
+
 for (const entry of PARAMETRIC_ITEMS) {
   test(`${entry.id}: builds (high + low), contract shape, budgets, presets`, () => {
     const used = new Set();
@@ -189,6 +204,25 @@ for (const entry of PARAMETRIC_ITEMS) {
         const st = checkShape(entry, root, `${entry.id} random#${seed} ${quality} ${JSON.stringify(params)}`, { strictSize: false });
         assert.ok(st.tris <= (quality === 'high' ? BUDGET.high * 1.5 : BUDGET.low * 1.5), `${entry.id} random#${seed}: ${st.tris} triangles (${quality})`);
       }
+    }
+    for (const id of used) assert.ok(PRESETS.has(id), `${entry.id}: unknown material preset ${id}`);
+  });
+
+  // Every numeric param at its min and at its max (the rest at defaults), plus every enum option and
+  // both bool values one at a time: still on the floor, centred, finite, within budget.
+  test(`${entry.id}: param extremes stay valid`, { todo: EXTREMES_TODO[entry.id] }, () => {
+    const used = new Set();
+    const cases = [];
+    const nums = entry.params.filter((p) => ['length', 'number', 'int'].includes(p.type));
+    if (nums.length) for (const end of ['min', 'max']) cases.push([end, Object.fromEntries(nums.map((p) => [p.key, p[end]]))]);
+    for (const p of entry.params) {
+      if (p.type === 'enum') for (const [v] of p.options) if (v !== p.default) cases.push([`${p.key}=${v}`, { [p.key]: v }]);
+      if (p.type === 'bool') cases.push([`${p.key}=${!p.default}`, { [p.key]: !p.default }]);
+    }
+    for (const [label, params] of cases) {
+      const root = entry.build(params, makeCtx('low', used));
+      const st = checkShape(entry, root, `${entry.id} ${label}`, { strictSize: false });
+      assert.ok(st.tris <= BUDGET.low * 1.5, `${entry.id} ${label}: ${st.tris} triangles (low)`);
     }
     for (const id of used) assert.ok(PRESETS.has(id), `${entry.id}: unknown material preset ${id}`);
   });

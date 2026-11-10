@@ -1,10 +1,15 @@
-// Imports the user's own 3D files (glTF/GLB, OBJ+MTL, FBX, Collada, STL, 3DS, PLY, 3MF, USD/USDZ, VRML)
-// as one THREE.Group in metres, Y up, bottom centre at the origin, with MeshStandardMaterials — so an
-// imported model behaves like a library asset (shadows, shared materials, the paint bucket).
+// Imports the user's own 3D files (glTF/GLB with Draco/KTX2, OBJ+MTL, FBX, Collada, STL, 3DS, PLY, 3MF,
+// USD/USDZ, VRML, AMF, LightWave, VTK, OFF, KMZ, point clouds (PCD/XYZ), CAD solids (STEP/IGES/BREP),
+// Rhino 3DM and .zip bundles) as one THREE.Group in metres, Y up, bottom centre at the origin, with
+// MeshStandardMaterials — so an imported model behaves like a library asset (shadows, shared materials,
+// the paint bucket). The format list lives in formats.js.
 //
 // The pure steps (unit guessing, axis, centring, material conversion, merging, stats) are exported
 // separately so Node tests can check them without a DOM; the loaders themselves come from three.
+// Heavy readers (OpenCASCADE for STEP/IGES/BREP, rhino3dm, the Draco and Basis decoders) are WebAssembly
+// files shipped with the app and loaded only when a file needs them — never from the network.
 import * as THREE from 'three';
+import { unzipSync } from 'fflate';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { IMPORT_FORMATS, UNIT_SCALE, UNSUPPORTED_FORMATS, extOf } from './formats.js';
 
@@ -60,9 +65,10 @@ export function guessUnits(maxDimension, prior = null) {
 }
 
 /** What a format's numbers usually are (metres, millimetres, or unknown → guess by size). */
-export const UNIT_PRIOR = { gltf: 'm', usdz: 'm', dae: 'm', vrml: 'm', stl: 'mm', '3mf': 'mm', obj: null, fbx: null, '3ds': null, ply: null };
-/** Formats whose files are usually Z-up (CAD, printing, 3ds Max, Blender PLY) and which the loader does not rotate. */
-export const Z_UP_FORMATS = new Set(['stl', '3ds', '3mf', 'ply']);
+// (STEP/IGES/AMF/3DM files state their units: the readers set userData.fileUnits and no guess is made.)
+export const UNIT_PRIOR = { gltf: 'm', usdz: 'm', dae: 'm', vrml: 'm', lwo: 'm', stl: 'mm', '3mf': 'mm', brep: 'mm', amf: 'mm', obj: null, fbx: null, '3ds': null, ply: null, off: null, vtk: null, pcd: null, xyz: null };
+/** Formats whose files are usually Z-up (CAD, printing, 3ds Max, Blender PLY, Rhino, scanners) and which the loader does not rotate. */
+export const Z_UP_FORMATS = new Set(['stl', '3ds', '3mf', 'ply', 'step', 'iges', 'brep', '3dm', 'amf', 'pcd', 'xyz']);
 
 /** Resolves upAxis 'auto' for a format. Collada/FBX loaders convert axes themselves. */
 export function resolveUpAxis(upAxis, format) {
@@ -170,7 +176,7 @@ export function mergeByMaterial(root) {
   const buckets = new Map();
   const keep = [];
   root.traverse((node) => {
-    if (!node.isMesh) return;
+    if (!node.isMesh) { if (node.isPoints || node.isLine) keep.push(node); return; } // point clouds, CAD curves
     if (node.isSkinnedMesh || node.isInstancedMesh || node.morphTargetInfluences?.length || Array.isArray(node.material) || !node.visible) { keep.push(node); return; }
     const geometry = node.geometry.index ? node.geometry.toNonIndexed() : node.geometry.clone();
     geometry.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverseRoot, node.matrixWorld));
@@ -194,7 +200,7 @@ export function mergeByMaterial(root) {
     group.add(mesh);
   }
   for (const node of keep) {
-    const clone = node.clone();
+    const clone = node.clone(false); // its children are visited (and placed) on their own
     clone.matrixAutoUpdate = false;
     clone.matrix.multiplyMatrices(inverseRoot, node.matrixWorld);
     group.add(clone);
@@ -205,9 +211,10 @@ export function mergeByMaterial(root) {
 // ───────────────────────── statistics
 
 export function computeStats(root) {
-  let meshes = 0, triangles = 0;
+  let meshes = 0, triangles = 0, points = 0;
   const materials = new Set(), textures = new Set();
   root.traverse((node) => {
+    if (node.isPoints) points += node.geometry.attributes.position?.count ?? 0;
     if (!node.isMesh) return;
     meshes++;
     const g = node.geometry;
@@ -221,7 +228,7 @@ export function computeStats(root) {
   });
   const box = boundsOf(root);
   const size = box.isEmpty() ? [0, 0, 0] : box.getSize(new THREE.Vector3()).toArray().map((v) => Math.round(v * 1e4) / 1e4);
-  return { meshes, triangles, materials: materials.size, textures: textures.size, sizeMeters: size };
+  return { meshes, triangles, points, materials: materials.size, textures: textures.size, sizeMeters: size };
 }
 
 // ───────────────────────── side files (textures, .mtl, .bin)
@@ -281,9 +288,56 @@ export async function parseModel(format, bytes, { manager, name = '', related } 
       const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
       const { MeshoptDecoder } = await import('three/examples/jsm/libs/meshopt_decoder.module.js');
       const loader = new GLTFLoader(manager).setMeshoptDecoder(MeshoptDecoder);
+      await useGltfDecoders(loader, gltfExtensions(bytes));
       const data = ext === 'gltf' ? toText(bytes) : toArrayBuffer(bytes);
       const gltf = await new Promise((resolve, reject) => loader.parse(data, '', resolve, reject));
-      return gltf.scene ?? gltf.scenes?.[0];
+      const scene = gltf.scene ?? gltf.scenes?.[0];
+      if (scene) uncompressTextures(scene);
+      return scene;
+    }
+    case 'step': case 'iges': case 'brep': {
+      const object = cadToObject(await readCad(format, bytes), name);
+      // Asked in metres (STEP/IGES carry their units); BREP has none — OpenCASCADE's millimetres.
+      object.userData.fileUnits = format === 'brep' ? 'mm' : 'm';
+      return object;
+    }
+    case '3dm': {
+      const { Rhino3dmLoader } = await import('three/examples/jsm/loaders/3DMLoader.js');
+      rhinoLoader ??= new Rhino3dmLoader(await decoderManager()).setLibraryPath('');
+      const object = await rhinoLoader.parseAsync(toUint8(bytes).slice().buffer); // the buffer moves to a worker
+      const units = rhinoUnits(object.userData?.settings?.modelUnitSystem);
+      if (units) object.userData.fileUnits = units;
+      rhinoDisplayColours(object);
+      return object;
+    }
+    case 'amf': {
+      const { AMFLoader } = await import('three/examples/jsm/loaders/AMFLoader.js');
+      const object = new AMFLoader(manager).parse(toArrayBuffer(bytes));
+      object.userData.fileUnits = 'mm'; // the loader scales every AMF unit to millimetres
+      return object;
+    }
+    case 'lwo': {
+      const { LWOLoader } = await import('three/examples/jsm/loaders/LWOLoader.js');
+      const { meshes } = new LWOLoader(manager).parse(toArrayBuffer(bytes), '', String(name).replace(/\.[^.]+$/, ''));
+      const group = new THREE.Group();
+      for (const mesh of meshes) group.add(mesh);
+      frontSideOnly(group);
+      return group;
+    }
+    case 'vtk': {
+      const { VTKLoader } = await import('three/examples/jsm/loaders/VTKLoader.js');
+      return meshOrPoints(new VTKLoader(manager).parse(toArrayBuffer(bytes)), name);
+    }
+    case 'off':
+      return meshFromGeometry(parseOff(toText(bytes)), name);
+    case 'pcd': {
+      const { PCDLoader } = await import('three/examples/jsm/loaders/PCDLoader.js');
+      const points = new PCDLoader(manager).parse(toArrayBuffer(bytes));
+      return makePoints(points.geometry, name);
+    }
+    case 'xyz': {
+      const { XYZLoader } = await import('three/examples/jsm/loaders/XYZLoader.js');
+      return makePoints(new XYZLoader(manager).parse(cleanXyz(toText(bytes))), name);
     }
     case 'obj': {
       const { OBJLoader } = await import('three/examples/jsm/loaders/OBJLoader.js');
@@ -315,12 +369,7 @@ export async function parseModel(format, bytes, { manager, name = '', related } 
     }
     case 'ply': {
       const { PLYLoader } = await import('three/examples/jsm/loaders/PLYLoader.js');
-      const geometry = new PLYLoader(manager).parse(toArrayBuffer(bytes));
-      // Point clouds (no faces) become points, everything else a mesh.
-      if (!geometry.index) {
-        return new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.005, vertexColors: Boolean(geometry.attributes.color) }));
-      }
-      return meshFromGeometry(geometry, name);
+      return meshOrPoints(new PLYLoader(manager).parse(toArrayBuffer(bytes)), name);
     }
     case '3ds': {
       const { TDSLoader } = await import('three/examples/jsm/loaders/TDSLoader.js');
@@ -365,18 +414,336 @@ export function meshFromGeometry(geometry, name = '') {
   return mesh;
 }
 
+/** Point clouds (PLY/VTK without faces, PCD, XYZ) stay points; sizePoints() gives them a dot size once in metres. */
+export function makePoints(geometry, name = '') {
+  const material = new THREE.PointsMaterial({ size: 0.01, color: geometry.attributes.color ? 0xffffff : 0x8a8f96, vertexColors: Boolean(geometry.attributes.color) });
+  material.name = 'points';
+  const points = new THREE.Points(geometry, material);
+  points.name = String(name).replace(/\.[^.]+$/, '') || 'points';
+  return points;
+}
+/**
+ * LWOLoader mirrors x (LightWave is left-handed) and draws the then inside-out faces with BackSide. glTF has no
+ * BackSide (the model is stored as GLB), so the winding is reversed instead and the faces drawn FrontSide.
+ */
+export function frontSideOnly(root) {
+  const flipped = new Set();
+  const meshes = [];
+  root.traverse((node) => { if (node.isMesh && [node.material].flat().every((m) => m?.side === THREE.BackSide)) meshes.push(node); });
+  for (const node of meshes) {
+    const materials = [node.material].flat();
+    const g = node.geometry;
+    if (flipped.has(g)) continue;
+    if (g.index) { const a = g.index.array; for (let i = 0; i + 2 < a.length; i += 3) { const t = a[i + 1]; a[i + 1] = a[i + 2]; a[i + 2] = t; } g.index.needsUpdate = true; } else {
+      for (const attribute of Object.values(g.attributes)) {
+        const { array: a, itemSize: n } = attribute;
+        for (let v = 0; v + 2 < attribute.count; v += 3) for (let k = 0; k < n; k++) { const t = a[(v + 1) * n + k]; a[(v + 1) * n + k] = a[(v + 2) * n + k]; a[(v + 2) * n + k] = t; }
+        attribute.needsUpdate = true;
+      }
+    }
+    const normal = g.attributes.normal; // the loader's normals follow the inside-out winding
+    if (normal) { for (let i = 0; i < normal.array.length; i++) normal.array[i] = -normal.array[i]; normal.needsUpdate = true; }
+    flipped.add(g);
+    for (const m of materials) m.side = THREE.FrontSide;
+  }
+}
+
+const meshOrPoints = (geometry, name) => (geometry.index ? meshFromGeometry(geometry, name) : makePoints(geometry, name));
+
+/**
+ * Dot size of every point cloud from its density (metres, after normalising): about the spacing of the points on
+ * the cloud's surfaces, so scans read as surfaces without blobbing. Meshing a scan is a separate job (it guesses
+ * surfaces and needs normals most files lack); clouds are placed and moved like any object.
+ */
+export function sizePoints(root) {
+  root.updateMatrixWorld(true);
+  root.traverse((node) => {
+    if (!node.isPoints) return;
+    const count = node.geometry.attributes.position?.count ?? 0;
+    const s = new THREE.Box3().setFromObject(node).getSize(new THREE.Vector3());
+    const area = Math.max(2 * (s.x * s.y + s.y * s.z + s.z * s.x), 1e-6);
+    const size = THREE.MathUtils.clamp(2 * Math.sqrt(area / Math.max(count, 1)), 0.002, 0.05);
+    for (const m of [node.material].flat()) if (m?.isPointsMaterial) { m.size = size; m.sizeAttenuation = true; }
+    node.userData.pointSize = size; // kept in the stored GLB (extras): GLTFLoader brings points back 1 px wide
+  });
+}
+
+/** XYZ text → what XYZLoader reads: commas as separators; x y z (+ r g b when they look like 0–255 colours). */
+export function cleanXyz(text) {
+  return text.split(/\r?\n/).map((line) => {
+    const v = line.trim().replace(/[,;]/g, ' ').split(/\s+/);
+    if (!line.trim() || line.trim().startsWith('#') || v.length < 3 || v.slice(0, 3).some((x) => !Number.isFinite(Number(x)))) return '';
+    const rgb = v.slice(3, 6);
+    return (rgb.length === 3 && rgb.every((x) => /^\d+$/.test(x) && Number(x) <= 255) ? v.slice(0, 6) : v.slice(0, 3)).join(' ');
+  }).filter(Boolean).join('\n');
+}
+
+/**
+ * OFF (Object File Format: OFF / COFF / NOFF / STOFF headers, ASCII) → BufferGeometry. Polygons are fanned
+ * into triangles; vertex colours (COFF) and per-face colours are kept as vertex colours.
+ */
+export function parseOff(text) {
+  const lines = text.split(/\r?\n/).map((l) => l.replace(/#.*/, '').trim()).filter(Boolean);
+  const head = lines.shift()?.split(/\s+/) ?? [];
+  const kind = head.shift() ?? '';
+  if (!/^(ST)?C?N?4?n?OFF$/.test(kind)) throw importError('parse-failed', 'Not an OFF file (the first line must be OFF)');
+  if (head[0] === 'BINARY') throw importError('parse-failed', 'Binary OFF files are not supported (save as ASCII OFF)');
+  const counts = (head.length >= 2 ? head : lines.shift()?.split(/\s+/) ?? []).map(Number);
+  const [nv, nf] = counts;
+  if (!(nv > 0) || !(nf >= 0) || lines.length < nv + nf) throw importError('parse-failed', 'OFF file is truncated');
+  const hasNormal = kind.includes('N'), hasColor = kind.includes('C');
+  const colour = (vals) => { const c = vals.slice(0, 3).map(Number); return c.some((x) => x > 1) ? c.map((x) => x / 255) : c; };
+  const pos = [], vcol = [];
+  for (let i = 0; i < nv; i++) {
+    const v = lines[i].split(/\s+/).map(Number);
+    pos.push(v[0], v[1], v[2]);
+    if (hasColor) vcol.push(...colour(v.slice(hasNormal ? 6 : 3)));
+  }
+  const tris = [], fcol = [];
+  for (let i = 0; i < nf; i++) {
+    const v = lines[nv + i].split(/\s+/).map(Number);
+    const n = v[0];
+    const extra = v.slice(1 + n);
+    const c = extra.length >= 3 ? colour(extra) : null;
+    for (let k = 1; k + 1 < n; k++) { tris.push(v[1], v[1 + k], v[2 + k]); fcol.push(c, c, c); }
+  }
+  const geometry = new THREE.BufferGeometry();
+  if (fcol.some(Boolean)) {
+    // Face colours: unshared corners so each face keeps its own colour.
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(tris.flatMap((i) => pos.slice(i * 3, i * 3 + 3)), 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(tris.flatMap((i, k) => fcol[k] ?? (hasColor ? vcol.slice(i * 3, i * 3 + 3) : [0.75, 0.75, 0.75])), 3));
+  } else {
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    if (hasColor) geometry.setAttribute('color', new THREE.Float32BufferAttribute(vcol, 3));
+    geometry.setIndex(tris);
+  }
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+// ───────────────────────── CAD solids (STEP / IGES / BREP) via OpenCASCADE
+
+const CAD_PARAMS = { linearUnit: 'meter', linearDeflectionType: 'bounding_box_ratio', linearDeflection: 0.001, angularDeflection: 0.5 };
+
+/**
+ * Tessellates a STEP/IGES/BREP file with occt-import-js: in a worker in the browser (big assemblies take seconds),
+ * directly in Node (tests). Returns its result { success, root: { name, meshes, children }, meshes: [...] }.
+ */
+export async function readCad(format, bytes) {
+  const buffer = toUint8(bytes).slice().buffer; // moves to the worker
+  if (typeof Worker === 'function' && typeof window !== 'undefined') {
+    const worker = new Worker(new URL('./cad-worker.js', import.meta.url), { type: 'module' });
+    try {
+      const reply = await new Promise((resolve, reject) => {
+        worker.onmessage = (event) => resolve(event.data);
+        worker.onerror = (event) => reject(new Error(event.message || 'the CAD reader could not start'));
+        worker.postMessage({ format, buffer, params: CAD_PARAMS }, [buffer]);
+      });
+      if (reply.error) throw new Error(reply.error);
+      return reply.result;
+    } finally { worker.terminate(); } // frees OpenCASCADE's memory (~100 MB) until the next CAD file
+  }
+  const spec = 'occt-import-js'; // Node only: kept out of the web bundle (the worker carries its own copy)
+  const occtimportjs = (await import(/* @vite-ignore */ spec)).default;
+  occtModule ??= occtimportjs();
+  return (await occtModule).ReadFile(format, new Uint8Array(buffer), CAD_PARAMS);
+}
+let occtModule = null;
+
+/** occt-import-js result → a Group mirroring the file's assembly tree; face colours become (shared) materials. */
+export function cadToObject(result, name = '') {
+  if (!result?.success) throw importError('parse-failed', 'OpenCASCADE could not read the CAD file');
+  const materials = new Map();
+  const materialOf = (rgb) => {
+    const color = rgb ? new THREE.Color().setRGB(rgb[0], rgb[1], rgb[2], THREE.SRGBColorSpace) : new THREE.Color(0xb8b8b8);
+    const key = color.getHexString();
+    if (!materials.has(key)) materials.set(key, Object.assign(new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0 }), { name: `#${key}` }));
+    return materials.get(key);
+  };
+  const meshes = (result.meshes ?? []).map((m, i) => {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(m.attributes.position.array, 3));
+    if (m.attributes.normal) geometry.setAttribute('normal', new THREE.Float32BufferAttribute(m.attributes.normal.array, 3));
+    geometry.setIndex(m.index.array);
+    const faces = (m.brep_faces ?? []).filter((f) => f.color);
+    let material = materialOf(m.color);
+    if (faces.length) {
+      // Faces coloured unlike their solid: one draw group per face (index ranges are in triangles).
+      const list = [];
+      for (const f of m.brep_faces) {
+        const mat = f.color ? materialOf(f.color) : material;
+        let slot = list.indexOf(mat);
+        if (slot < 0) slot = list.push(mat) - 1;
+        geometry.addGroup(f.first * 3, (f.last - f.first + 1) * 3, slot);
+      }
+      material = list.length === 1 ? list[0] : list;
+      if (list.length === 1) geometry.clearGroups();
+    }
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = m.name || `${String(name).replace(/\.[^.]+$/, '')}-${i + 1}`;
+    return mesh;
+  });
+  const used = new Set();
+  const build = (node) => {
+    const group = new THREE.Group();
+    group.name = node?.name ?? '';
+    for (const i of node?.meshes ?? []) if (meshes[i]) group.add(used.has(i) ? meshes[i].clone() : (used.add(i), meshes[i]));
+    for (const child of node?.children ?? []) group.add(build(child));
+    return group;
+  };
+  const root = build(result.root);
+  if (!root.name) root.name = String(name).replace(/\.[^.]+$/, '');
+  return root;
+}
+
+// ───────────────────────── Rhino, Draco, KTX2: decoders shipped with the app (never fetched from a CDN)
+
+let rhinoLoader = null, dracoLoader = null, ktx2Loader = null;
+
+/** A LoadingManager answering the decoders' file requests (draco_decoder.wasm, rhino3dm.js …) with the shipped copies. */
+async function decoderManager() {
+  let DECODER_URLS;
+  try { ({ DECODER_URLS } = await import('./decoders.js')); } catch (err) { throw importError('parse-failed', `The decoder for this file is not available here (${err.message ?? err})`); }
+  const manager = new THREE.LoadingManager();
+  manager.setURLModifier((url) => DECODER_URLS[String(url).split(/[?#]/)[0].split('/').pop()] ?? url);
+  return manager;
+}
+
+/** Rhino's model unit system (enum value or name) → our unit, when it is one we know. */
+export function rhinoUnits(system) {
+  const value = typeof system === 'object' ? system?.value ?? system?.name : system;
+  const byValue = { 2: 'mm', 3: 'cm', 4: 'm', 8: 'in', 9: 'ft' };
+  if (byValue[value]) return byValue[value];
+  const n = String(value ?? '').toLowerCase();
+  return /milli/.test(n) ? 'mm' : /centi/.test(n) ? 'cm' : /^(unitsystem_)?meters?$/.test(n) ? 'm' : /inch/.test(n) ? 'in' : /feet|foot/.test(n) ? 'ft' : null;
+}
+
+/**
+ * Objects without a render material get the 3DM loader's white, 80 % metal default; Rhino shows them in their
+ * display colour (layer or object colour), so that colour is used — as a matte material, shared per colour.
+ */
+export function rhinoDisplayColours(root) {
+  const byColour = new Map();
+  root.traverse((node) => {
+    const c = node.userData?.attributes?.drawColor;
+    if (!node.isMesh || !c || node.material?.name !== THREE.Loader.DEFAULT_MATERIAL_NAME) return;
+    const colour = new THREE.Color().setRGB(c.r / 255, c.g / 255, c.b / 255, THREE.SRGBColorSpace);
+    const key = colour.getHexString();
+    if (!byColour.has(key)) byColour.set(key, new THREE.MeshStandardMaterial({ name: `#${key}`, color: colour, roughness: 0.6, metalness: 0, side: node.material.side, vertexColors: node.material.vertexColors }));
+    node.material = byColour.get(key);
+  });
+}
+
+/** extensionsUsed/Required of a glTF or GLB (read from its JSON without parsing the rest). */
+export function gltfExtensions(bytes) {
+  const u8 = toUint8(bytes);
+  try {
+    let json;
+    if (u8[0] === 0x67 && u8[1] === 0x6c && u8[2] === 0x54 && u8[3] === 0x46) {
+      const length = new DataView(u8.buffer, u8.byteOffset, u8.byteLength).getUint32(12, true);
+      json = new TextDecoder().decode(u8.subarray(20, 20 + length));
+    } else json = toText(u8);
+    const data = JSON.parse(json);
+    return new Set([...(data.extensionsUsed ?? []), ...(data.extensionsRequired ?? [])]);
+  } catch { return new Set(); }
+}
+
+/**
+ * Draco meshes and KTX2/Basis textures: the decoders are set up only for files that use them, with the local
+ * decoder files of decoders.js (see there why the loaders' own default paths are not enough).
+ */
+async function useGltfDecoders(loader, used) {
+  if (used.has('KHR_draco_mesh_compression')) {
+    const { DRACOLoader } = await import('three/examples/jsm/loaders/DRACOLoader.js');
+    dracoLoader ??= new DRACOLoader(await decoderManager());
+    loader.setDRACOLoader(dracoLoader);
+  }
+  if (used.has('KHR_texture_basisu')) {
+    const { KTX2Loader } = await import('three/examples/jsm/loaders/KTX2Loader.js');
+    if (!ktx2Loader) {
+      ktx2Loader = new KTX2Loader(await decoderManager());
+      // Transcode to plain RGBA (no GPU formats): the model is re-saved as GLB in the project, and the glTF
+      // exporter writes ordinary pixels only; it also needs no renderer here.
+      ktx2Loader.workerConfig = { astcSupported: false, astcHDRSupported: false, etc1Supported: false, etc2Supported: false, dxtSupported: false, bptcSupported: false, pvrtcSupported: false };
+    }
+    loader.setKTX2Loader(ktx2Loader);
+  }
+}
+
+/** Uncompressed "compressed" textures (KTX2 transcoded to RGBA) → DataTextures the exporter and renderer both take. */
+export function uncompressTextures(root) {
+  const done = new Map();
+  const convert = (texture) => {
+    if (!texture?.isCompressedTexture || texture.format !== THREE.RGBAFormat || texture.type !== THREE.UnsignedByteType) return texture;
+    if (done.has(texture.uuid)) return done.get(texture.uuid);
+    const level = texture.mipmaps?.[0];
+    if (!level?.data) return texture;
+    const data = new THREE.DataTexture(level.data, level.width, level.height, THREE.RGBAFormat, THREE.UnsignedByteType);
+    for (const key of ['name', 'mapping', 'channel', 'wrapS', 'wrapT', 'anisotropy', 'colorSpace', 'flipY', 'userData']) data[key] = texture[key];
+    data.offset.copy(texture.offset); data.repeat.copy(texture.repeat); data.center.copy(texture.center); data.rotation = texture.rotation;
+    data.magFilter = THREE.LinearFilter; data.minFilter = THREE.LinearMipmapLinearFilter; data.generateMipmaps = true;
+    data.needsUpdate = true;
+    done.set(texture.uuid, data);
+    return data;
+  };
+  root.traverse((node) => {
+    for (const m of [node.material].flat()) {
+      if (!m) continue;
+      for (const key of Object.keys(m)) if (m[key]?.isTexture) m[key] = convert(m[key]);
+    }
+  });
+}
+
+// ───────────────────────── .zip bundles and KMZ
+
+/** Which file of a bundle is the model: glTF/GLB, then FBX, OBJ, Collada, then any other readable format. */
+const BUNDLE_ORDER = ['gltf', 'fbx', 'obj', 'dae'];
+
+/**
+ * A .zip (model + textures / .mtl / .bin) or .kmz (KML + Collada) → { name, bytes, related } like picking all
+ * those files: the main model is chosen (by BUNDLE_ORDER, then the shallowest), everything else is a side file.
+ * KMZ goes this way rather than through KMZLoader so its textures resolve like any side file's.
+ */
+export function unpackBundle(file) {
+  let entries;
+  try { entries = unzipSync(toUint8(file.bytes)); } catch (err) { throw importError('parse-failed', `${file.name} is not a readable ZIP archive (${err.message ?? err})`); }
+  const files = Object.entries(entries).filter(([path, data]) => !path.endsWith('/') && data.length && !/(^|\/)(__MACOSX|\.DS_Store)/.test(path));
+  const formatOf = (path) => IMPORT_FORMATS.find((f) => f.ext.includes(extOf(path)) && f.id !== 'zip' && f.id !== 'kmz')?.id ?? null;
+  const rank = (path) => { const i = BUNDLE_ORDER.indexOf(formatOf(path)); return i < 0 ? BUNDLE_ORDER.length : i; };
+  const depth = (path) => path.split('/').length;
+  // KMZ: the KML names its model (<Model><Link><href>models/x.dae</href>).
+  const kml = files.find(([path]) => /\.kml$/i.test(path));
+  const href = kml ? /<Model[\s\S]*?<href>\s*([^<]+?)\s*<\/href>/i.exec(new TextDecoder().decode(kml[1]))?.[1] : null;
+  const candidates = files.filter(([path]) => formatOf(path)).sort((a, b) => rank(a[0]) - rank(b[0]) || depth(a[0]) - depth(b[0]) || a[0].localeCompare(b[0]));
+  const main = (href && candidates.find(([path]) => path.toLowerCase().endsWith(href.replace(/^\.?\//, '').toLowerCase()))) || candidates[0];
+  if (!main) {
+    const unsupported = files.find(([path]) => UNSUPPORTED_FORMATS.some((f) => f.ext.includes(extOf(path))));
+    if (unsupported) detectFormat(unsupported[0]); // throws its explanation (e.g. SketchUp)
+    throw importError('zip-no-model', `${file.name} contains no 3D model file`);
+  }
+  const related = new Map(file.related ?? []);
+  for (const [path, data] of files) if (path !== main[0]) related.set(path, data);
+  return { name: main[0].split('/').pop(), bytes: main[1], related, bundle: file.name };
+}
+
 // ───────────────────────── the whole import
 
 /**
  * importModel({ name, bytes, related? }, options) → { object, stats, warnings }
  *   options: units 'auto'|'mm'|'cm'|'m'|'in'|'ft' · upAxis 'auto'|'y'|'z' · center (true) · optimize (true)
  *            onProgress(fraction, phase) with phase 'parse' | 'materials' | 'optimize' | 'normalize' | 'done'
- * Errors carry `code`: 'skp-unsupported', 'format-unsupported', 'parse-failed', 'empty-model'.
+ * Errors carry `code`: 'skp-unsupported', 'format-unsupported', 'parse-failed', 'empty-model', 'zip-no-model'.
  */
 export async function importModel(file, options = {}) {
   const { units = 'auto', upAxis = 'auto', center = true, optimize = true, onProgress } = options;
   const progress = async (fraction, phase) => { onProgress?.(fraction, phase); await nextFrame(); };
   const format = detectFormat(file.name, file.bytes);
+  if (format === 'zip' || format === 'kmz') {
+    const inner = unpackBundle(file);
+    const result = await importModel(inner, options);
+    result.stats.bundle = file.name;
+    return result;
+  }
   const warnings = [];
   const missing = new Set();
   const manager = relatedFilesManager(file.related, missing);
@@ -410,7 +777,10 @@ export async function importModel(file, options = {}) {
   }
 
   await progress(0.8, 'normalize');
-  const norm = normalizeObject(object, { format, units, upAxis, center });
+  // Files that state their units (STEP, IGES, AMF, 3DM) need no guess unless the user picked units.
+  const fileUnits = units === 'auto' && UNIT_SCALE[object.userData?.fileUnits] ? object.userData.fileUnits : units;
+  const norm = normalizeObject(object, { format, units: fileUnits, upAxis, center });
+  sizePoints(norm.group);
   norm.group.name = String(file.name).replace(/\.[^.]+$/, '');
   norm.group.userData.import = { name: file.name, format, units: norm.units, upAxis: norm.upAxis };
   if (norm.unitsGuessed) warnings.push({ code: 'units-guessed', units: norm.units, en: `Units guessed as ${norm.units}`, ko: `단위를 ${norm.units}(으)로 추정했습니다` });

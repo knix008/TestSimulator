@@ -34,4 +34,4 @@ desktop.ini
 
 # Local database servers for the integration tests (credentials stay on this machine)
 test/db.local.json
-library/
+/library/

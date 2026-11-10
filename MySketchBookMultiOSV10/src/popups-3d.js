@@ -90,18 +90,37 @@ function importModel(api) {
   api.ready();
 }
 
-/** Import › Floor plan: CAD options (units, layers, walls, target) or picture options (size, opacity, calibration). */
+/**
+ * Import › Floor plan: CAD / PDF options (units or scale, layers, walls, target), picture options (size, opacity,
+ * calibration), building options (IFC, Sweet Home 3D: target, furniture, rooms) or the choice of a page (PDF, TIFF).
+ */
 function importPlan(api) {
   const { frame, button, row, t, escapeHtml, icon, numberField } = api;
   const d = draftOf(api, {});
   const has = d.hasProject !== false;
   const targets = d.mode === 'image'
     ? [['level', t('plan.targetActive'), 'level'], ['new', t('plan.targetNew'), 'fileNew']]
-    : [['replace', t('plan.targetReplace'), 'level'], ['level', t('plan.targetLevel'), 'levelAdd'], ['new', t('plan.targetNew'), 'fileNew']];
+    : d.mode === 'building' ? [['new', t('plan.targetNew'), 'fileNew'], ['add', t('plan.targetAddBuilding'), 'levelAdd']]
+      : [['replace', t('plan.targetReplace'), 'level'], ['level', t('plan.targetLevel'), 'levelAdd'], ['new', t('plan.targetNew'), 'fileNew']];
   const target = seg(api, 'target', targets.filter(([id]) => has || id === 'new'), has ? d.target : 'new');
-  const chip = `<div class="row file-list"><span class="file-chip" title="${escapeHtml(d.name ?? '')}">${icon(d.mode === 'image' ? 'picture' : 'plan2d')}<span>${escapeHtml(d.name ?? '')}</span></span>${d.mode === 'image' ? `<span class="muted">${escapeHtml(d.pixels ?? '')} px</span>` : `<span class="muted">${escapeHtml(t(d.guessed ? 'plan.unitsGuessed' : 'plan.unitsFile', { units: d.detected ?? '' }))}</span>`}</div>`;
+  const glyph = d.mode === 'image' ? 'picture' : d.mode === 'building' ? 'levelAdd' : 'plan2d';
+  const note = d.mode === 'image' ? `${d.pixels ?? ''} px` : d.mode === 'pdf' ? [t('plan.page', { n: d.page ?? 1 }), d.paper].filter(Boolean).join(' · ') : d.mode === 'building' ? d.format ?? '' : d.mode === 'pages' ? '' : t(d.guessed ? 'plan.unitsGuessed' : 'plan.unitsFile', { units: d.detected ?? '' });
+  const chip = `<div class="row file-list"><span class="file-chip" title="${escapeHtml(d.name ?? '')}">${icon(glyph)}<span>${escapeHtml(d.name ?? '')}</span></span><span class="muted">${escapeHtml(note)}</span></div>`;
+  const layersHtml = (layers) => `<div class="row plan-layers-head"><span class="row-label">${icon('tagsPanel')}<span>${escapeHtml(t('plan.layers'))}</span></span><span class="muted">${escapeHtml(t('plan.layersHint'))}</span></div>
+      <div class="plan-layers" role="group" aria-label="${escapeHtml(t('plan.layers'))}">${layers.map((l, i) => `<label class="plan-layer" title="${escapeHtml(l.name)}"><input type="checkbox" data-plan-layer="${i}" ${l.on ? 'checked' : ''} /><span class="plan-layer-name">${escapeHtml(l.name)}</span><span class="muted">${escapeHtml(t('plan.layerCounts', { lines: l.lines, arcs: l.arcs, texts: l.texts }))}</span></label>`).join('')}</div>`;
+  const wallRows = () => `${row('wallTool', t('plan.walls'), seg(api, 'walls', [['auto', t('import.auto'), 'sparkles'], ['pairs', t('plan.wallsPairs')], ['single', t('plan.wallsSingle')]], d.walls))}
+      ${row('wallTool', t('settings.wallHeight'), numberField('draft:wallHeight', Number(d.wallHeight), 1.8, 6, 0.05, 'm', t('settings.wallHeight')))}
+      ${row('wallTool', t('plan.thickness'), numberField('draft:thickness', Number(d.thickness), 0.05, 0.6, 0.01, 'm', t('plan.thickness')))}
+      ${row('level', t('plan.target'), target)}
+      ${draftToggle(api, 'keepLines', t('plan.keepLines'), 'guide', d.keepLines !== false)}`;
   let body;
-  if (d.mode === 'image') {
+  if (d.mode === 'pages') {
+    const pages = d.pages ?? [];
+    body = `${chip}
+      <div class="row plan-layers-head"><span class="row-label">${icon('layers')}<span>${escapeHtml(t('plan.choosePage'))}</span></span></div>
+      <div class="segmented plan-pages" role="radiogroup" aria-label="${escapeHtml(t('plan.choosePage'))}">${pages.map((p) => `<button class="segment ${String(d.page) === String(p.number) ? 'active' : ''}" role="radio" aria-checked="${String(d.page) === String(p.number)}" data-draft-segment="page" data-value="${p.number}" title="${escapeHtml(p.label)}">${icon(p.raster ? 'picture' : 'plan2d')}<span>${escapeHtml(p.label)}</span></button>`).join('')}</div>
+      <p class="muted hint">${icon('info')} ${escapeHtml(t('plan.pagesHint'))}</p>`;
+  } else if (d.mode === 'image') {
     body = `${chip}
       ${row('dimension', t('plan.imageWidth'), numberField('draft:imageWidth', Number(d.imageWidth), 1, 200, 0.5, 'm', t('plan.imageWidth')))}
       ${row('styleXray', t('plan.opacity'), numberField('draft:opacityPct', Math.round(Number(d.opacity ?? 0.6) * 100), 5, 100, 5, '%', t('plan.opacity')))}
@@ -109,23 +128,36 @@ function importPlan(api) {
       ${draftToggle(api, 'calibrate', t('plan.calibrate'), 'tapeMeasure', d.calibrate)}
       ${draftToggle(api, 'detect', t('plan.detect'), 'wallTool', d.detect)}
       <p class="muted hint">${icon('info')} ${escapeHtml(t('plan.imageHint'))}</p>`;
+  } else if (d.mode === 'pdf') {
+    const layers = d.layers ?? [];
+    body = `${chip}
+      ${row('scaleTool', t('plan.scale'), numberField('draft:scale', Number(d.scale), 1, 5000, 1, '', t('plan.scale')))}
+      <div class="row muted plan-note">${icon('info')}<span>${escapeHtml(d.scaleNote ?? '')}</span></div>
+      ${draftToggle(api, 'calibrate', t('plan.calibratePlan'), 'tapeMeasure', d.calibrate)}
+      ${wallRows()}
+      ${layers.length > 1 ? layersHtml(layers) : ''}
+      <p class="muted hint">${icon('info')} ${escapeHtml(t('plan.pdfHint'))}</p>`;
+  } else if (d.mode === 'building') {
+    body = `${chip}
+      <div class="row plan-note">${icon('levelAdd')}<span>${escapeHtml(d.summary ?? '')}</span></div>
+      <div class="row muted plan-note">${icon('furniture')}<span>${escapeHtml(d.furnitureNote ?? '')}</span></div>
+      ${d.warning ? `<p class="badge warning">${icon('warning')} ${escapeHtml(d.warning)}</p>` : ''}
+      ${row('level', t('plan.target'), target)}
+      ${row('furniture', t('plan.furniture'), seg(api, 'furniture', [['models', t('plan.furnitureModels')], ['library', t('plan.furnitureLibrary')], ['none', t('plan.furnitureNone')]], d.furniture))}
+      ${draftToggle(api, 'rooms', t('plan.buildingRooms'), 'roomTool', d.rooms !== false)}
+      <p class="muted hint">${icon('info')} ${escapeHtml(t('plan.buildingHint'))}</p>`;
   } else {
     const layers = d.layers ?? [];
     body = `${chip}
       ${row('units', t('plan.units'), seg(api, 'units', [['auto', t('import.auto'), 'sparkles'], ['mm', 'mm'], ['cm', 'cm'], ['m', 'm'], ['in', 'in'], ['ft', 'ft']], d.units))}
-      ${row('wallTool', t('plan.walls'), seg(api, 'walls', [['auto', t('import.auto'), 'sparkles'], ['pairs', t('plan.wallsPairs')], ['single', t('plan.wallsSingle')]], d.walls))}
-      ${row('wallTool', t('settings.wallHeight'), numberField('draft:wallHeight', Number(d.wallHeight), 1.8, 6, 0.05, 'm', t('settings.wallHeight')))}
-      ${row('wallTool', t('plan.thickness'), numberField('draft:thickness', Number(d.thickness), 0.05, 0.6, 0.01, 'm', t('plan.thickness')))}
-      ${row('level', t('plan.target'), target)}
-      ${draftToggle(api, 'keepLines', t('plan.keepLines'), 'guide', d.keepLines !== false)}
-      <div class="row plan-layers-head"><span class="row-label">${icon('tagsPanel')}<span>${escapeHtml(t('plan.layers'))}</span></span><span class="muted">${escapeHtml(t('plan.layersHint'))}</span></div>
-      <div class="plan-layers" role="group" aria-label="${escapeHtml(t('plan.layers'))}">${layers.map((l, i) => `<label class="plan-layer" title="${escapeHtml(l.name)}"><input type="checkbox" data-plan-layer="${i}" ${l.on ? 'checked' : ''} /><span class="plan-layer-name">${escapeHtml(l.name)}</span><span class="muted">${escapeHtml(t('plan.layerCounts', { lines: l.lines, arcs: l.arcs, texts: l.texts }))}</span></label>`).join('')}</div>
+      ${wallRows()}
+      ${layersHtml(layers)}
       <p class="muted hint">${icon('info')} ${escapeHtml(t('plan.hint'))}</p>`;
   }
   api.root.innerHTML = frame({
-    glyph: 'importPlan', title: t('plan.title'),
+    glyph: 'importPlan', title: t(d.mode === 'building' ? 'plan.buildingTitle' : 'plan.title'),
     body: `<div class="editor">${body}</div>`,
-    foot: `<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('importplan-apply', t('import.go'), 'importPlan', 'primary')}`,
+    foot: `<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('importplan-apply', t(d.mode === 'pages' ? 'common.ok' : 'import.go'), d.mode === 'pages' ? 'check' : 'importPlan', 'primary')}`,
   });
   api.fitHeight();
   api.ready();
@@ -172,17 +204,42 @@ function renderResult(api) {
   api.ready();
 }
 
+/** Map slots of a custom material (engine/usertextures.js TEXTURE_SLOTS): [slot, label key, icon]. */
+const MAP_SLOTS = [['color', 'materials.mapColor', 'picture'], ['normal', 'materials.mapNormal', 'styleShaded'], ['roughness', 'materials.mapRoughness', 'quality']];
+
+/** One map row: the chosen picture (preview + file name) with Choose… and Remove. */
+const mapRow = (api, slot, labelKey, glyph, map) => {
+  const { row, t, escapeHtml, icon } = api;
+  const chip = map
+    ? `<span class="file-chip mat-map" title="${escapeHtml(map.name)}">${map.preview ? `<img class="mat-map-preview" src="${escapeHtml(map.preview)}" alt="" />` : icon('picture')}<span>${escapeHtml(map.name)}</span></span>`
+    : `<span class="muted mat-map-none">${escapeHtml(t('materials.mapNone'))}</span>`;
+  const choose = `<button class="button" data-action="material-pick" data-value="${slot}" title="${escapeHtml(t('materials.mapChoose'))}">${icon('folderOpen')}<span>${escapeHtml(t('materials.mapChoose'))}</span></button>`;
+  const clear = map ? `<button class="icon-button" data-action="material-clear" data-value="${slot}" title="${escapeHtml(t('materials.mapRemove'))}" aria-label="${escapeHtml(t('materials.mapRemove'))}">${icon('close')}</button>` : '';
+  return row(glyph, t(labelKey), `<span class="mat-map-row">${chip}${choose}${clear}</span>`);
+};
+
 function material(api) {
-  const { frame, button, row, t, escapeHtml } = api;
-  const d = draftOf(api, { name: '', color: '#a0a0a0', roughness: 0.7, metalness: 0 });
+  const { frame, button, row, t, escapeHtml, icon, numberField } = api;
+  const d = draftOf(api, { name: '', color: '#a0a0a0', roughness: 0.7, metalness: 0, maps: {}, tileW: 1, tileH: 1 });
+  d.maps ??= {};
+  const textured = Boolean(d.maps.color);
+  const preview = d.maps.color?.preview;
+  const swatch = preview
+    ? `background:url('${escapeHtml(preview)}') center / cover, ${escapeHtml(d.color)}; background-blend-mode: multiply`
+    : `background:radial-gradient(circle at 35% 30%, #ffffff ${Math.round((1 - d.roughness) * 40)}%, ${escapeHtml(d.color)} 60%, #000 140%)`;
+  const anyMap = MAP_SLOTS.some(([slot]) => d.maps[slot]);
   api.root.innerHTML = frame({
-    glyph: 'materialsPanel', title: t('materials.new'),
+    glyph: 'materialsPanel', title: t(d.edit ? 'materials.edit' : 'materials.new'),
     body: `<div class="editor">
       ${row('textTool', t('materials.name'), `<input type="text" data-draft="name" value="${escapeHtml(d.name)}" />`)}
-      ${row('palette', t('materials.color'), `<input type="color" data-draft="color" value="${escapeHtml(d.color)}" />`)}
-      ${row('styleShaded', t('materials.roughness'), `<input type="range" min="0" max="1" step="0.01" data-draft="roughness" value="${escapeHtml(d.roughness)}" /><output>${Number(d.roughness).toFixed(2)}</output>`)}
+      ${row('palette', t(textured ? 'materials.tint' : 'materials.color'), `<input type="color" data-draft="color" value="${escapeHtml(d.color)}" />`)}
+      ${row('styleShaded', t('materials.roughness'), `<input type="range" min="0" max="1" step="0.01" data-draft="roughness" value="${escapeHtml(d.roughness)}" ${d.maps.roughness ? 'disabled' : ''} /><output>${Number(d.roughness).toFixed(2)}</output>`)}
       ${row('metalness', t('materials.metalness'), `<input type="range" min="0" max="1" step="0.01" data-draft="metalness" value="${escapeHtml(d.metalness)}" /><output>${Number(d.metalness).toFixed(2)}</output>`)}
-      <div class="row"><span class="mat-preview" style="background:radial-gradient(circle at 35% 30%, #ffffff ${Math.round((1 - d.roughness) * 40)}%, ${escapeHtml(d.color)} 60%, #000 140%)"></span></div>
+      ${MAP_SLOTS.map(([slot, label, glyph]) => mapRow(api, slot, label, glyph, d.maps[slot])).join('')}
+      ${anyMap ? row('dimension', t('materials.tileWidth'), numberField('draft:tileW', Number(d.tileW) || 1, 0.01, 50, 0.05, 'm', t('materials.tileWidth'))) : ''}
+      ${anyMap ? row('dimension', t('materials.tileHeight'), numberField('draft:tileH', Number(d.tileH) || 1, 0.01, 50, 0.05, 'm', t('materials.tileHeight'))) : ''}
+      <div class="row"><span class="mat-preview" style="${swatch}"></span></div>
+      ${anyMap ? `<div class="row muted mat-hint">${icon('info')}<span>${escapeHtml(t('materials.mapHint'))}</span></div>` : ''}
     </div>`,
     foot: `<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('material-apply', t('common.ok'), 'check', 'primary')}`,
   });
@@ -215,10 +272,12 @@ export function popup3dAction(kind, target, api, type = 'click') {
     }
     if (kind === 'material' && target.dataset.draft && d) {
       d[target.dataset.draft] = target.type === 'range' ? Number(target.value) : target.value;
+      if (target.dataset.draft === 'color') d.colorSet = true;
       const out = target.parentElement?.querySelector('output');
       if (out) out.textContent = Number(target.value).toFixed(2);
       const preview = api.root.querySelector('.mat-preview');
-      if (preview) preview.style.background = `radial-gradient(circle at 35% 30%, #ffffff ${Math.round((1 - d.roughness) * 40)}%, ${d.color} 60%, #000 140%)`;
+      if (preview && d.maps?.color?.preview) preview.style.backgroundColor = d.color;
+      else if (preview) preview.style.background = `radial-gradient(circle at 35% 30%, #ffffff ${Math.round((1 - d.roughness) * 40)}%, ${d.color} 60%, #000 140%)`;
       return type === 'input';
     }
     return false;
@@ -234,17 +293,40 @@ export function popup3dAction(kind, target, api, type = 'click') {
     case 'import-apply': api.close({ ok: true, units: d.units, upAxis: d.upAxis, optimize: d.optimize !== false }); return true;
     case 'importplan-apply': {
       const targetOf = d.hasProject === false ? 'new' : d.target;
-      if (d.mode === 'image') api.close({ ok: true, imageWidth: Number(d.imageWidth) || 12, opacity: Math.max(5, Math.min(100, Number(d.opacityPct ?? Math.round((d.opacity ?? 0.6) * 100)))) / 100, target: targetOf, calibrate: Boolean(d.calibrate), detect: Boolean(d.detect) });
+      if (d.mode === 'pages') api.close({ ok: true, page: Number(d.page) || 1 });
+      else if (d.mode === 'building') api.close({ ok: true, target: targetOf === 'add' ? 'add' : 'new', furniture: d.furniture ?? 'library', rooms: d.rooms !== false });
+      else if (d.mode === 'pdf') api.close({ ok: true, scale: Number(d.scale) || 100, calibrate: Boolean(d.calibrate), walls: d.walls, wallHeight: Number(d.wallHeight), thickness: Number(d.thickness), target: targetOf, keepLines: d.keepLines !== false, layers: (d.layers ?? []).filter((l) => l.on).map((l) => l.name) });
+      else if (d.mode === 'image') api.close({ ok: true, imageWidth: Number(d.imageWidth) || 12, opacity: Math.max(5, Math.min(100, Number(d.opacityPct ?? Math.round((d.opacity ?? 0.6) * 100)))) / 100, target: targetOf, calibrate: Boolean(d.calibrate), detect: Boolean(d.detect) });
       else api.close({ ok: true, units: d.units, walls: d.walls, wallHeight: Number(d.wallHeight), thickness: Number(d.thickness), target: targetOf, keepLines: d.keepLines !== false, layers: (d.layers ?? []).filter((l) => l.on).map((l) => l.name) });
       return true;
     }
     case 'snapshot-apply': api.close({ ok: true, width: Math.round(Number(d.width)), height: Math.round(Number(d.height)), format: formatInfo(d.format).id, quality: Number(d.quality ?? 0.92), transparent: Boolean(formatInfo(d.format).alpha && d.transparent) }); return true;
     case 'render-apply': api.close({ ok: true, width: Math.round(Number(d.width)), height: Math.round(Number(d.height)), samples: Number(d.samples) }); return true;
     case 'render-save': api.close({ save: true, format: formatInfo(d?.format).id, quality: Number(d?.quality ?? 0.92) }); return true;
-    case 'material-apply': api.close({ ok: true, name: d.name || api.t('materials.newName'), color: d.color, roughness: d.roughness, metalness: d.metalness }); return true;
+    case 'material-apply': {
+      // Maps: { slot: { token (picked now) | asset (kept), name } } — the main window owns the bytes.
+      const maps = Object.fromEntries(Object.entries(d.maps ?? {}).filter(([, m]) => m).map(([slot, m]) => [slot, { token: m.token ?? null, asset: m.asset ?? null, name: m.name }]));
+      api.close({ ok: true, name: d.name || api.t('materials.newName'), color: d.color, roughness: d.roughness, metalness: d.metalness, maps, tileW: Number(d.tileW) || 1, tileH: Number(d.tileH) || Number(d.tileW) || 1 });
+      return true;
+    }
+    case 'material-pick': api.action('material-texture', { slot: target.dataset.value }); return true;
+    case 'material-clear': if (d?.maps) { d.maps[target.dataset.value] = null; api.render(); } return true;
     default: return false;
   }
 }
 
-/** Messages from the main window to these popups (none beyond progress yet). */
-export function popup3dHostMessage() { return false; }
+/**
+ * Messages from the main window to these popups. 'material-texture': the picture chosen for a map slot
+ * ({ slot, token, name, preview, aspect }); the tile height follows the picture's aspect.
+ */
+export function popup3dHostMessage(kind, message, api) {
+  if (kind !== 'material' || message?.type !== 'material-texture') return false;
+  const d = api.state.draft;
+  if (!d) return true;
+  d.maps ??= {};
+  d.maps[message.slot] = { token: message.token, name: message.name, preview: message.preview ?? null };
+  if (message.slot === 'color' && message.aspect > 0) d.tileH = Math.round((Number(d.tileW) || 1) * message.aspect * 1000) / 1000;
+  if (message.slot === 'color' && !d.colorSet) d.color = '#ffffff';
+  api.render();
+  return true;
+}

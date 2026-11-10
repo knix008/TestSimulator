@@ -32,6 +32,9 @@ const QUALITY = {
   high: { ao: true, shadowMap: 4096, samples: 8 },
 };
 const SHADOW_SIZE = { low: 1024, medium: 2048, high: 4096 };
+/** Ambient occlusion strength, and how long it takes to fade in when it was left out while moving (ms). */
+const AO_BLEND = 0.85;
+const AO_FADE_MS = 160;
 
 /**
  * Daylight balance. The sun is the key light (it makes the shadows, also inside rooms); the sky light
@@ -64,6 +67,7 @@ export class Viewport {
     renderer.info.autoReset = false;
     renderer.localClippingEnabled = true;
     this.renderer = renderer;
+    this.gpuTimer = GpuTimer.create(renderer.getContext(), (ms, tag) => this.gpuResult(ms, tag));
 
     this.scene = new THREE.Scene();
     this.scene.matrixWorldAutoUpdate = true;
@@ -114,6 +118,11 @@ export class Viewport {
     this.sunMarker.add(this.sunLine, this.sunSprite);
     this.sunMarker.visible = false;
     this.overlay.add(this.sunMarker);
+    // The orbit centre (SketchUp): shown while the view turns around the point that was pressed.
+    this.pivotMarker = new THREE.Sprite(new THREE.SpriteMaterial({ map: pivotTexture(), depthTest: false, depthWrite: false, transparent: true, toneMapped: false, fog: false }));
+    this.pivotMarker.renderOrder = 22;
+    this.pivotMarker.visible = false;
+    this.overlay.add(this.pivotMarker);
     this.animation = null;
     this.navTool = null;
 
@@ -216,7 +225,7 @@ export class Viewport {
     this.composer.addPass(this.renderPass);
     this.aoPass = new GTAOPass(this.scene, this.camera, size.x, size.y);
     this.aoPass.output = GTAOPass.OUTPUT.Default;
-    this.aoPass.blendIntensity = 0.85;
+    this.aoPass.blendIntensity = AO_BLEND;
     this.aoPass.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.5, thickness: 1.5, scale: 1, samples: 12 });
     this.aoPass.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
     this.composer.addPass(this.aoPass);
@@ -291,16 +300,16 @@ export class Viewport {
     const d = sunDirection(sun);
     const up = Math.max(0, d.y);
     const on = enabled && sun.on !== false;
-    const strength = on ? Math.min(1, up * 4) : 0;
+    const strength = on ? Math.min(1, Math.max(0, d.altitude / 2)) : 0;
     this.sun.intensity = SUN_STRENGTH * strength * (Number.isFinite(sun.intensity) ? sun.intensity : 1);
     if (sun.color) this.sun.color.set(sun.color);
     else this.sun.color.setHSL(0.09, 0.6, 0.6 + 0.35 * Math.min(1, up * 2));
     this.sunDir = new THREE.Vector3(d.x, Math.max(0.02, d.y), d.z).normalize();
     // Day ↔ night: below the horizon the sky light and reflections fade (twilight over about ±6°).
     this.night = d.altitude < 0;
-    this.dayFactor = 0.12 + 0.88 * Math.min(1, Math.max(0, (d.altitude + 6) / 12));
+    this.dayFactor = 0.12 + 0.88 * Math.min(1, Math.max(0, (d.altitude + 3) / 3));
     this.scene.environmentIntensity = (this.envBase ?? 0.55) * AMBIENT * this.dayFactor;
-    this.sunState = { on, altitude: d.altitude, dir: new THREE.Vector3(d.x, d.y, d.z).normalize() };
+    this.sunState = { on, altitude: d.altitude, dir: new THREE.Vector3(d.x, d.y, d.z).normalize(), center: Array.isArray(sun.center) ? new THREE.Vector3().fromArray(sun.center) : null, distance: Number.isFinite(sun.distance) && sun.distance > 0 ? sun.distance : null };
     this.updateSunMarker();
     this.fitShadowCamera();
     this.hemiBase = (0.1 + 0.1 * strength) * this.dayFactor;
@@ -376,25 +385,50 @@ export class Viewport {
 
   loop(now) {
     this.raf = requestAnimationFrame(this.loop);
+    // The display's frame interval (the shortest recent rAF step; it creeps up slowly after a change of screen).
+    const tick = this.lastTick ? now - this.lastTick : 0;
+    this.lastTick = now;
+    if (tick > 2 && tick < 100) this.vsync = this.vsync ? Math.min(tick, this.vsync + 0.05) : tick;
+    this.tickScale = tick > 0 ? Math.min(4, tick / 16.667) : 1;
     if (this.animation) this.stepAnimation(now);
     if (this.walk?.active) this.stepWalk(now);
     this.stepGlide();
-    if (!this.dirty) return;
+    if (!this.dirty) { this.renderedLastTick = false; return; }
     const s = this.settings();
     const minInterval = s.maxFps ? 1000 / s.maxFps : 0;
-    if (minInterval && this.lastFrame && now - this.lastFrame < minInterval - 1) return;
+    // Frame cap with half a display frame of tolerance: 60 fps on 120 Hz, and a 75 Hz screen is not cut to every
+    // second frame (37 fps) — the old "interval − 1 ms" test dropped alternate frames whenever the rates did not divide.
+    if (minInterval && this.lastFrame && now - this.lastFrame < minInterval - (this.vsync ?? 16.667) / 2) return;
     this.dirty = false;
+    // Interval to the previous frame when this one followed it directly (a real measure of a slow GPU when no timer query exists).
+    this.frameInterval = this.renderedLastTick && this.lastFrame ? now - this.lastFrame : 0;
     this.renderFrame(now);
+    this.renderedLastTick = true;
   }
 
   renderFrame(now = performance.now()) {
     const t0 = performance.now();
+    this.gpuTimer?.poll();
     this.renderer.info.reset();
     const final = !this.interacting && !this.animation;
     this.renderPass.camera = this.camera;
     this.aoPass.camera = this.camera;
-    // Ambient occlusion stays on while moving when the last full frame was cheap, so nothing pops on and off.
-    this.aoPass.enabled = this.aoEnabled && this.styleMode !== 'wireframe' && (final || (this.lastFinalMs ?? 99) < 12);
+    // Ambient occlusion stays on while moving when the last full frame was cheap (CPU and GPU time), so nothing
+    // pops on and off; on a slow GPU it is left out while moving and fades back in when the view stops.
+    const aoAllowed = this.aoEnabled && this.styleMode !== 'wireframe';
+    const ao = aoAllowed && (final || this.finalCost() < 12);
+    if (ao && !this.aoShown && final && this.lastFrame) this.aoFade = performance.now();
+    if (!ao) this.aoFade = null;
+    let fade = 1;
+    if (this.aoFade != null) {
+      const k = Math.min(1, (performance.now() - this.aoFade) / AO_FADE_MS);
+      fade = k * k * (3 - 2 * k);
+      if (k < 1) this.dirty = true; else this.aoFade = null;
+    }
+    this.aoPass.enabled = ao;
+    this.aoPass.blendIntensity = AO_BLEND * fade;
+    this.aoShown = ao;
+    this.gpuTimer?.begin({ final: final && fade === 1, ao });
     this.renderer.clippingPlanes = this.clipPlanes;
     // Shadow maps (sun and lamps) are redrawn only when something changed.
     if (this.shadowsDirty) {
@@ -412,8 +446,9 @@ export class Viewport {
     this.updateLampMarkerScale();
     this.renderer.render(this.overlay, this.camera);
     this.renderer.autoClear = true;
+    this.gpuTimer?.end();
     const ms = performance.now() - t0;
-    if (final) this.lastFinalMs = ms;
+    if (final && fade === 1) this.lastFinalMs = ms;
     const info = sceneInfo;
     this.stats.calls = info.calls;
     this.stats.triangles = info.triangles;
@@ -425,8 +460,22 @@ export class Viewport {
       this.stats.fps = this.interacting || this.animation ? Math.round(1000 / Math.max(1, avg)) : this.stats.fps;
     }
     this.lastFrame = now;
-    this.adaptResolution(ms);
+    // CPU time alone says nothing on a GPU-bound machine (the GPU works after the call returns): the frame's
+    // GPU time (timer query, a frame or two late) or, without one, the interval between back-to-back frames.
+    const cost = Math.max(ms, this.interacting ? (this.gpuTimer ? this.gpuMoveMs ?? 0 : this.frameInterval ?? 0) : 0);
+    this.adaptResolution(cost);
     this.options.onStats?.(this.stats, final);
+  }
+
+  /** What the last full-quality frame cost (the larger of CPU and GPU time, ms). */
+  finalCost() {
+    return Math.max(this.lastFinalMs ?? 99, this.gpuFinalMs ?? 0);
+  }
+
+  /** GPU time of finished frames (EXT_disjoint_timer_query_webgl2), split into full-quality and moving frames. */
+  gpuResult(ms, tag) {
+    if (tag?.final && tag.ao) this.gpuFinalMs = ms;
+    else if (!tag?.final) this.gpuMoveMs = ms;
   }
 
   /** Slow interactive frames lower the resolution a step; fast ones restore it (hysteresis, not per frame). */
@@ -456,7 +505,7 @@ export class Viewport {
   /** Grid step for the current zoom (also used by grid snapping). */
   updateGrid() {
     const perPx = this.pixelSizeAt(this.target);
-    const steps = [0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100];
+    const steps = GRID_STEPS;
     const minimum = this.settings().gridSize || 0;
     // The smallest round cell at least ~18 px wide (and never finer than the grid size set in Settings when it is coarser).
     const step = Math.max(minimum && minimum > 0.05 ? 0 : 0, steps.find((s) => s / perPx >= 18) ?? steps.at(-1));
@@ -590,7 +639,7 @@ export class Viewport {
   }
 
   // ───────────────────────── navigation (SketchUp style)
-  //   (the same as the other 3D apps): left drag rotates around the view centre (the select tool),
+  //   (the same as the other 3D apps): left drag rotates around the point pressed (the view centre over empty space),
   //   Ctrl/Alt + left drag and right drag move (pan), middle drag and the wheel zoom (at the cursor),
   //   Shift + right drag rotates, double middle click centres there. Rotating and moving glide to a
   //   stop after the button is released; a wheel notch is spread over a few frames.
@@ -600,7 +649,7 @@ export class Viewport {
   navigate(mode, dx, dy, pivot) {
     this.glide = null;
     if (this.planMode && mode === 'orbit') mode = 'pan';
-    if (mode === 'orbit') this.orbit(dx, dy, this.target.clone());
+    if (mode === 'orbit') { const centre = pivot ?? this.target.clone(); this.showPivot(centre); this.orbit(dx, dy, centre); }
     else if (mode === 'pan') this.pan(dx, dy, pivot ?? this.target);
     else if (mode === 'zoom') this.dolly(Math.pow(1.01, dy), pivot ?? this.target);
     const now = performance.now();
@@ -616,29 +665,55 @@ export class Viewport {
   endNavigation() {
     const v = this.navVelocity;
     this.navVelocity = null;
-    if (!v || performance.now() - v.t > 70 || (v.mode !== 'orbit' && v.mode !== 'pan') || this.settings().navInertia === false) return;
-    if (Math.hypot(v.vx, v.vy) < 1.5) return;
+    if (!v || performance.now() - v.t > 70 || (v.mode !== 'orbit' && v.mode !== 'pan') || this.settings().navInertia === false) { if (v?.mode === 'orbit') this.settleTarget(v.pivot); this.showPivot(null); return; }
+    if (Math.hypot(v.vx, v.vy) < 1.5) { if (v.mode === 'orbit') this.settleTarget(v.pivot); this.showPivot(null); return; }
     this.glide = { mode: v.mode, vx: v.vx, vy: v.vy, pivot: v.pivot };
     this.requestRender();
   }
 
-  stopGlide() { this.glide = null; this.zoomGlide = null; }
+  stopGlide() { this.glide = null; this.zoomGlide = null; this.showPivot(null); }
+
+  /** After turning around `pivot`: the view centre moves along the view axis to the pivot's depth. */
+  settleTarget(pivot) {
+    if (!pivot || this.isOrtho) return;
+    const cam = this.camera;
+    const forward = this.target.clone().sub(cam.position).normalize();
+    const depth = pivot.clone().sub(cam.position).dot(forward);
+    if (depth > 0.2) this.target.copy(cam.position).addScaledVector(forward, depth);
+  }
+
+  /** Orbit centre for a press at (x, y): the model point under the cursor, else the view centre. */
+  orbitPivotAt(clientX, clientY) {
+    return this.pickPoint(clientX, clientY, { groundFallback: false }) ?? this.target.clone();
+  }
+
+  /** Shows the orbit centre marker at `point` (null hides it). */
+  showPivot(point) {
+    if (!this.pivotMarker) return;
+    if (point) this.pivotMarker.position.copy(point);
+    if (this.pivotMarker.visible !== Boolean(point)) { this.pivotMarker.visible = Boolean(point); this.requestRender(); }
+  }
 
   stepGlide() {
     const g = this.glide;
     if (g) {
-      g.vx *= 0.92; g.vy *= 0.92; // OrbitControls dampingFactor 0.08 (MyArchitecture)
-      if (Math.hypot(g.vx, g.vy) < 0.2) this.glide = null;
+      // OrbitControls dampingFactor 0.08 (MyArchitecture) per 60 Hz frame; on faster screens each tick moves and
+      // slows by its share of that frame, so the glide lasts as long and goes as far at 60, 120 or 144 Hz.
+      const ts = this.tickScale ?? 1;
+      const decay = Math.pow(0.92, ts);
+      g.vx *= decay; g.vy *= decay;
+      if (Math.hypot(g.vx, g.vy) < 0.2) { this.glide = null; if (g.mode === 'orbit') this.settleTarget(g.pivot); this.showPivot(null); }
       else {
         if (this.planMode && g.mode === 'orbit') g.mode = 'pan';
-        if (g.mode === 'orbit') this.orbit(g.vx, g.vy, this.target.clone()); else this.pan(g.vx, g.vy, g.pivot ?? this.target);
+        if (g.mode === 'orbit') this.orbit(g.vx * ts, g.vy * ts, g.pivot ?? this.target.clone()); else this.pan(g.vx * ts, g.vy * ts, g.pivot ?? this.target);
         this.touchInteraction();
         this.options.onNavigate?.();
       }
     }
     const z = this.zoomGlide;
     if (z) {
-      const part = Math.abs(z.pending) < 2 ? z.pending : z.pending * 0.25; // a quarter per frame (MyArchitecture)
+      // A quarter per 60 Hz frame (MyArchitecture), the same speed in time on faster screens.
+      const part = Math.abs(z.pending) < 2 ? z.pending : z.pending * (1 - Math.pow(0.75, this.tickScale ?? 1));
       z.pending -= part;
       this.dolly(Math.pow(1.0015, part * z.speed), z.pivot, z.x, z.y);
       this.touchInteraction(220);
@@ -654,7 +729,7 @@ export class Viewport {
     c.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
     c.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
     // Any press in the view (tools, selection drags) counts as busy until it is released, and stops a glide.
-    c.addEventListener('pointerdown', () => { this.pointerDown = true; this.glide = null; }, { capture: true });
+    c.addEventListener('pointerdown', () => { this.pointerDown = true; if (this.glide) { if (this.glide.mode === 'orbit') this.settleTarget(this.glide.pivot); this.glide = null; this.showPivot(null); } }, { capture: true });
     window.addEventListener('pointerup', () => { this.pointerDown = false; }, { capture: true });
     window.addEventListener('pointercancel', () => { this.pointerDown = false; }, { capture: true });
     c.addEventListener('pointerdown', (e) => {
@@ -671,7 +746,7 @@ export class Viewport {
       else if (right) mode = e.shiftKey ? 'orbit' : 'pan';
       else mode = tool;
       if (this.planMode && mode === 'orbit') mode = 'pan';
-      const pivot = this.pickPoint(e.clientX, e.clientY) ?? this.target.clone();
+      const pivot = mode === 'orbit' ? this.orbitPivotAt(e.clientX, e.clientY) : this.pickPoint(e.clientX, e.clientY) ?? this.target.clone();
       this.navDrag = { mode, x: e.clientX, y: e.clientY, pivot, moved: false, id: e.pointerId };
       if (middle && e.detail === 2) { this.centerOn(pivot); this.navDrag = null; }
     });
@@ -685,7 +760,7 @@ export class Viewport {
       d.x = e.clientX; d.y = e.clientY; d.moved = true;
       this.navigate(d.mode, dx, dy, d.pivot);
     });
-    const end = (e) => { if (this.navDrag && this.navDrag.id === e.pointerId) { try { c.releasePointerCapture?.(e.pointerId); } catch { /* not captured */ } if (this.navDrag.moved) this.endNavigation(); setTimeout(() => { this.navDrag = null; }, 0); } };
+    const end = (e) => { if (this.navDrag && this.navDrag.id === e.pointerId) { try { c.releasePointerCapture?.(e.pointerId); } catch { /* not captured */ } if (this.navDrag.moved) this.endNavigation(); else this.showPivot(null); setTimeout(() => { this.navDrag = null; }, 0); } };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
     c.addEventListener('wheel', (e) => {
@@ -885,12 +960,46 @@ export class Viewport {
     this.requestRender();
   }
 
-  /** Where the sun marker sits: centre of the model and the radius of the sphere it moves on. */
+  /**
+   * The sun marker's frame: the centre it turns around and its distance from it. Both are fixed world
+   * values — the project's sun.center / sun.distance, else a default taken once from the model when the
+   * project opened (resetSunAnchor) — so zooming, orbiting or models finishing loading never move it.
+   */
   sunSphere() {
-    const box = this.contentBox();
-    const center = box.isEmpty() ? new THREE.Vector3(0, this.groundY ?? 0, 0) : box.getCenter(new THREE.Vector3());
-    const radius = box.isEmpty() ? 6 : Math.max(4, box.getSize(new THREE.Vector3()).length() * 0.6);
-    return { center, radius };
+    if (!this.sunAnchor) {
+      const box = this.contentBox();
+      const c = box.isEmpty() ? new THREE.Vector3(0, this.groundY ?? 0, 0) : box.getCenter(new THREE.Vector3());
+      const round = (v) => Math.round(v * 10) / 10;
+      const center = new THREE.Vector3(round(c.x), round(c.y), round(c.z));
+      let radius = box.isEmpty() ? 6 : Math.max(4, box.getSize(new THREE.Vector3()).length() * 0.6);
+      // Once, in the view the project opens with: short enough that the marker is on screen to be grabbed.
+      const dir = this.sunState?.dir;
+      if (dir) {
+        const cam = this.camera;
+        cam.updateMatrixWorld();
+        const forward = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 2).negate();
+        for (let i = 0; i < 24 && radius > 1; i++) {
+          const pos = center.clone().addScaledVector(dir, radius);
+          const p = pos.clone().project(cam);
+          if (pos.clone().sub(cam.position).dot(forward) > 0 && Math.abs(p.x) < 0.85 && Math.abs(p.y) < 0.8) break;
+          radius *= 0.88;
+        }
+      }
+      this.sunAnchor = { center, radius: Math.max(1, Math.round(radius * 2) / 2) };
+    }
+    const st = this.sunState;
+    return { center: (st?.center ?? this.sunAnchor.center).clone(), radius: st?.distance ?? this.sunAnchor.radius };
+  }
+
+  /** A new project: the default sun centre and distance are taken again from its model. */
+  resetSunAnchor() { this.sunAnchor = null; }
+
+  /** The sun marker's world position (metres). */
+  sunPosition() {
+    const st = this.sunState;
+    if (!st) return null;
+    const { center, radius } = this.sunSphere();
+    return center.addScaledVector(st.dir, radius);
   }
 
   updateSunMarker() {
@@ -901,25 +1010,12 @@ export class Viewport {
     this.requestRender();
   }
 
-  /** The marker on the line towards the sun, pulled in towards the model until it is on screen. */
+  /** The marker at the sun's own coordinates (centre + direction × distance): the view never moves it. */
   placeSunMarker() {
     const st = this.sunState;
     if (!st) return;
-    const { center, radius } = this.sunDrag ?? this.sunSphere();
-    const cam = this.camera;
-    cam.updateMatrixWorld();
-    const pos = new THREE.Vector3();
-    let r = radius;
-    // While dragging, the radius stays fixed so the marker stays under the cursor.
-    for (let i = 0; i < 24 && !this.sunDrag; i++) {
-      pos.copy(center).addScaledVector(st.dir, r);
-      const p = pos.clone().project(cam);
-      const inFront = pos.clone().sub(cam.position).dot(new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 2).negate()) > 0;
-      if (inFront && Math.abs(p.x) < 0.88 && Math.abs(p.y) < 0.82) break;
-      r *= 0.85;
-      if (r < 0.6) break;
-    }
-    if (this.sunDrag) pos.copy(center).addScaledVector(st.dir, r);
+    const { center, radius } = this.sunSphere();
+    const pos = center.clone().addScaledVector(st.dir, radius);
     this.sunSprite.position.copy(pos);
     this.sunLine.geometry.setFromPoints([center, pos]);
     this.sunLine.computeLineDistances();
@@ -928,30 +1024,37 @@ export class Viewport {
   /** Start dragging the sun: the sphere it moves on is the one the marker is on now. */
   /** Start dragging the sun from the pointer at (x, y) with the sun at `angles` ({ azimuth, altitude }, north applied by the caller). */
   beginSunDrag(x, y, angles, north = 0) {
-    const { center } = this.sunSphere();
-    const radius = Math.max(0.6, this.sunSprite.position.distanceTo(center));
-    // Which way a larger azimuth moves the marker on screen, so dragging right moves it right.
-    const deg = THREE.MathUtils.degToRad;
-    const at = (az) => { const r = deg(az + north); const e = deg(Math.min(80, angles.altitude)); return center.clone().add(new THREE.Vector3(Math.sin(r) * Math.cos(e), Math.sin(e), -Math.cos(r) * Math.cos(e)).multiplyScalar(radius)).project(this.camera).x; };
-    const azSign = Math.sign(at(angles.azimuth + 3) - at(angles.azimuth)) || 1;
-    this.sunDrag = { center, radius, start: { x, y }, angles: { ...angles }, azSign };
+    const { center, radius } = this.sunSphere();
+    // The marker moves like an object under the cursor: on the plane through it facing the camera
+    // (the ground plane in the 2D plan), keeping the offset between the press and the marker's centre.
+    const at = this.sunSprite.position.clone();
+    const normal = this.planMode ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 2);
+    const hit = this.screenToWorldOnPlane(x, y, at, normal);
+    this.sunDrag = { center, radius, start: { x, y }, angles: { ...angles }, at, normal, grab: hit ? at.clone().sub(hit) : new THREE.Vector3(), north };
   }
 
   endSunDrag() { this.sunDrag = null; this.updateSunMarker(); }
 
   /**
-   * Sun angles for the pointer while dragging the sun marker: on the sphere around the model in 3D,
-   * only the direction (azimuth) on the plan. Azimuth is clockwise from north (the model's north angle applied).
-   */
-  /**
-   * Sun angles while dragging its marker.
-   *  - 3D: up/down always changes the height (altitude: up = higher, 0.4° per pixel, −10°…89°) and
-   *    left/right turns it around the model (azimuth, in the direction the marker moves on screen),
-   *    counted from where the drag started, so the sun can be raised to the zenith in any view.
-   *  - Plan: the direction from the model's centre to the pointer (azimuth only).
+   * Sun while dragging its marker: the marker follows the cursor on the plane through it (facing the
+   * camera in 3D, the ground plane in the 2D plan); its position seen from the sun's centre gives
+   * { azimuth (clockwise from north, the model's north applied), altitude (2°…89°), distance }.
    */
   sunAnglesAt(clientX, clientY, north = 0) {
     const { center } = this.sunDrag ?? this.sunSphere();
+    const drag = this.sunDrag;
+    if (drag?.normal) {
+      // Where the marker is dropped → its direction and distance from the sun's centre.
+      const hit = this.screenToWorldOnPlane(clientX, clientY, drag.at, drag.normal);
+      if (!hit) return null;
+      const dir = hit.add(drag.grab).sub(center);
+      const distance = dir.length();
+      if (distance < 0.2) return null;
+      dir.divideScalar(distance);
+      const azimuth = (((THREE.MathUtils.radToDeg(Math.atan2(dir.x, -dir.z)) - north) % 360) + 360) % 360;
+      const altitude = Math.max(SUN_MIN_DRAG_ALTITUDE, Math.min(89, THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1)))));
+      return { azimuth, altitude, distance: Math.max(1, distance) };
+    }
     if (this.planMode) {
       const hit = this.ray(clientX, clientY).ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -center.y), new THREE.Vector3());
       if (!hit) return null;
@@ -971,13 +1074,12 @@ export class Viewport {
   /** Markers keep a constant size on screen (22 px; the sun 30 px) in both projections. */
   updateLampMarkerScale() {
     this.lampMarkers.visible = this.settings().showLampMarkers !== false;
+    // Runs every frame: no allocations (scratch vectors).
     const cam = this.camera;
-    const forward = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 2).negate();
-    const perPixelAt = (position) => {
-      if (this.isOrtho) return (this.ortho.top - this.ortho.bottom) / (this.ortho.zoom * this.height);
-      const depth = Math.max(0.05, position.clone().sub(cam.position).dot(forward));
-      return (2 * depth * Math.tan(THREE.MathUtils.degToRad(this.perspective.fov / 2))) / this.height;
-    };
+    const forward = _markerForward.setFromMatrixColumn(cam.matrixWorld, 2).negate();
+    const orthoPerPixel = this.isOrtho ? (this.ortho.top - this.ortho.bottom) / (this.ortho.zoom * this.height) : 0;
+    const perspK = this.isOrtho ? 0 : (2 * Math.tan(THREE.MathUtils.degToRad(this.perspective.fov / 2))) / this.height;
+    const perPixelAt = (position) => (this.isOrtho ? orthoPerPixel : Math.max(0.05, _markerDelta.subVectors(position, cam.position).dot(forward)) * perspK);
     this.sunMarker.visible = Boolean(this.sunState?.on) && this.settings().showSunMarker !== false && !this.walk;
     if (this.sunMarker.visible) {
       this.placeSunMarker();
@@ -985,17 +1087,10 @@ export class Viewport {
       this.sunLine.material.dashSize = 8 * perPixelAt(this.sunSprite.position);
       this.sunLine.material.gapSize = 6 * perPixelAt(this.sunSprite.position);
     }
+    if (this.pivotMarker.visible) this.pivotMarker.scale.setScalar(24 * perPixelAt(this.pivotMarker.position));
     if (!this.lampMarkers.children.length) return;
     const px = 22;
-    for (const m of this.lampMarkers.children) {
-      let perPixel;
-      if (this.isOrtho) perPixel = (this.ortho.top - this.ortho.bottom) / (this.ortho.zoom * this.height);
-      else {
-        const depth = Math.max(0.05, m.position.clone().sub(cam.position).dot(forward));
-        perPixel = (2 * depth * Math.tan(THREE.MathUtils.degToRad(this.perspective.fov / 2))) / this.height;
-      }
-      m.scale.setScalar(px * perPixel);
-    }
+    for (const m of this.lampMarkers.children) m.scale.setScalar(px * perPixelAt(m.position));
   }
 
   /** The lamp marker (or the sun) under the cursor, as a pick result. */
@@ -1062,8 +1157,8 @@ export class Viewport {
   /** World size of one screen pixel at `point` (for tolerances and handle sizes). */
   pixelSizeAt(point) {
     if (this.isOrtho) return (this.ortho.top - this.ortho.bottom) / Math.max(1, this.height);
-    const forward = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 2).negate();
-    const depth = Math.max(0.01, point.clone().sub(this.camera.position).dot(forward));
+    const forward = _forward.setFromMatrixColumn(this.camera.matrixWorld, 2).negate();
+    const depth = Math.max(0.01, _delta.subVectors(point, this.camera.position).dot(forward));
     return (2 * depth * Math.tan(THREE.MathUtils.degToRad(this.perspective.fov / 2))) / Math.max(1, this.height);
   }
 
@@ -1190,8 +1285,76 @@ export class Viewport {
 
 // ───────────────────────── helpers
 
+/**
+ * GPU time per frame with EXT_disjoint_timer_query_webgl2 (WebView2/Chromium have it): one query around a
+ * frame, read back a frame or two later without waiting. Null where the extension is missing.
+ */
+class GpuTimer {
+  static create(gl, onResult) {
+    let ext = null;
+    try { ext = gl?.getExtension?.('EXT_disjoint_timer_query_webgl2'); } catch { ext = null; }
+    return ext ? new GpuTimer(gl, ext, onResult) : null;
+  }
+
+  constructor(gl, ext, onResult) {
+    this.gl = gl;
+    this.ext = ext;
+    this.onResult = onResult;
+    this.pending = [];
+    this.active = null;
+  }
+
+  begin(tag) {
+    if (this.active || this.pending.length > 3) return;
+    try {
+      this.active = { query: this.gl.createQuery(), tag };
+      this.gl.beginQuery(this.ext.TIME_ELAPSED_EXT, this.active.query);
+    } catch { this.active = null; }
+  }
+
+  end() {
+    if (!this.active) return;
+    try { this.gl.endQuery(this.ext.TIME_ELAPSED_EXT); this.pending.push(this.active); } catch { /* lost context */ }
+    this.active = null;
+  }
+
+  poll() {
+    const gl = this.gl;
+    while (this.pending.length) {
+      const p = this.pending[0];
+      let ready = false;
+      try { ready = gl.getQueryParameter(p.query, gl.QUERY_RESULT_AVAILABLE); } catch { ready = true; }
+      if (!ready) break;
+      this.pending.shift();
+      try {
+        if (!gl.getParameter(this.ext.GPU_DISJOINT_EXT)) this.onResult(gl.getQueryParameter(p.query, gl.QUERY_RESULT) / 1e6, p.tag);
+        gl.deleteQuery(p.query);
+      } catch { /* lost context */ }
+    }
+  }
+}
+
 /** Sun marker icon: a shining sun (day, on) or a grey disc with a slash (off or below the horizon). */
 const SUN_TEXTURES = {};
+/** The orbit centre: a ring with a dot (white outline, readable on light and dark surfaces). */
+let PIVOT_TEXTURE = null;
+function pivotTexture() {
+  if (PIVOT_TEXTURE) return PIVOT_TEXTURE;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const ring = (color, width, r) => { g.strokeStyle = color; g.lineWidth = width; g.beginPath(); g.arc(32, 32, r, 0, Math.PI * 2); g.stroke(); };
+  ring('#ffffff', 9, 22); ring('#1c7ed6', 4, 22);
+  g.fillStyle = '#ffffff'; g.beginPath(); g.arc(32, 32, 8, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#1c7ed6'; g.beginPath(); g.arc(32, 32, 5, 0, Math.PI * 2); g.fill();
+  PIVOT_TEXTURE = new THREE.CanvasTexture(c);
+  PIVOT_TEXTURE.colorSpace = THREE.SRGBColorSpace;
+  return PIVOT_TEXTURE;
+}
+
+/** Dragging never takes the sun below this altitude (night is the day/night switch, as in MyArchitecture). */
+const SUN_MIN_DRAG_ALTITUDE = 2;
+
 function sunTexture(lit) {
   const key = lit ? 'lit' : 'off';
   if (SUN_TEXTURES[key]) return SUN_TEXTURES[key];
@@ -1249,6 +1412,12 @@ function visibleUp(object) {
   while (o) { if (!o.visible) return false; o = o.parent; }
   return true;
 }
+
+const _forward = new THREE.Vector3();
+const _delta = new THREE.Vector3();
+const _markerForward = new THREE.Vector3();
+const _markerDelta = new THREE.Vector3();
+const GRID_STEPS = [0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100];
 
 const BOX_EDGES = [[0, 1], [1, 3], [3, 2], [2, 0], [4, 5], [5, 7], [7, 6], [6, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
 function boxCorners(b) {

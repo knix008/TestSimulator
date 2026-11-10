@@ -204,5 +204,13 @@
    8.5,
    -29.5
   ]
+ },
+ "tga": {
+  "file": "house-2room.tga"
+ },
+ "tiffPages": {
+  "file": "house-2room-2p.tif",
+  "pages": 2,
+  "planPage": 2
  }
 }

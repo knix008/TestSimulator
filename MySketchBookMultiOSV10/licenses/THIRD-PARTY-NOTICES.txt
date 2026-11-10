@@ -1,0 +1,33 @@
+MySketchBook — third-party software
+
+This application includes the following open-source packages. Their licence texts are in this folder.
+Packages under the LGPL (OpenCASCADE via occt-import-js) are loaded from separate files and can be replaced.
+
+@jsquash/avif 2.1.1 — Apache-2.0
+  jsquash-avif.LICENSE.txt
+@tauri-apps/api 2.12.4 — Apache-2.0 OR MIT — https://github.com/tauri-apps/tauri#readme
+  tauri-apps-api.LICENSE-APACHE-2.0.txt, tauri-apps-api.LICENSE-MIT.txt, tauri-apps-api.LICENSE.spdx.txt
+@tauri-apps/plugin-dialog 2.8.4 — MIT OR Apache-2.0
+  tauri-apps-plugin-dialog.LICENSE.spdx.txt
+fflate 0.8.3 — MIT — https://101arrowz.github.io/fflate
+  fflate.LICENSE.txt
+manifold-3d 3.5.4 — Apache-2.0 — https://github.com/elalish/manifold#readme
+  manifold-3d.LICENSE.txt
+occt-import-js 0.0.23 — LGPL-2.1
+  occt-import-js.LICENSE.txt, occt-import-js.license.occt-import-js.txt, occt-import-js.license.occt.txt
+pako 1.0.11 — (MIT AND Zlib) — https://github.com/nodeca/pako
+  pako.LICENSE.txt
+pdfjs-dist 5.4.394 — Apache-2.0 — https://mozilla.github.io/pdf.js/
+  pdfjs-dist.LICENSE.txt
+rhino3dm 8.32.1 — MIT — https://github.com/mcneel/rhino3dm#readme
+  (no licence file in the package; licence as stated above)
+three 0.187.0 — MIT — https://threejs.org/
+  three.LICENSE.txt
+three-gpu-pathtracer 0.0.28 — MIT — https://github.com/gkjohnson/three-gpu-pathtracer#readme
+  three-gpu-pathtracer.LICENSE.txt
+three-mesh-bvh 0.9.18 — MIT — https://github.com/gkjohnson/three-mesh-bvh#readme
+  three-mesh-bvh.LICENSE.txt
+utif 3.1.0 — MIT — https://github.com/photopea/UTIF.js
+  utif.LICENSE.txt
+web-ifc 0.0.78 — MPL-2.0
+  web-ifc.LICENSE.txt

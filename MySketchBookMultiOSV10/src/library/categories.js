@@ -1,0 +1,21 @@
+// Library categories (the left panel's Library tab). Every catalog entry has one of these ids.
+export const CATEGORIES = [
+  { id: 'living', ko: '거실', en: 'Living room', icon: 'libLiving' },
+  { id: 'dining', ko: '식당', en: 'Dining', icon: 'libDining' },
+  { id: 'bedroom', ko: '침실', en: 'Bedroom', icon: 'libBedroom' },
+  { id: 'kitchen', ko: '주방', en: 'Kitchen', icon: 'libKitchen' },
+  { id: 'bathroom', ko: '욕실', en: 'Bathroom', icon: 'libBathroom' },
+  { id: 'office', ko: '서재·사무', en: 'Study & office', icon: 'libOffice' },
+  { id: 'workplace', ko: '회사 사무', en: 'Workplace', icon: 'libWorkplace' },
+  { id: 'kids', ko: '아이 방', en: 'Kids', icon: 'libKids' },
+  { id: 'storage', ko: '수납', en: 'Storage', icon: 'libStorage' },
+  { id: 'lighting', ko: '조명', en: 'Lighting', icon: 'libLighting' },
+  { id: 'decor', ko: '장식·소품', en: 'Decor', icon: 'libDecor' },
+  { id: 'plants', ko: '식물', en: 'Plants', icon: 'libPlants' },
+  { id: 'appliances', ko: '가전', en: 'Appliances', icon: 'libAppliances' },
+  { id: 'doors', ko: '문', en: 'Doors', icon: 'libDoor' },
+  { id: 'windows', ko: '창문', en: 'Windows', icon: 'libWindow' },
+  { id: 'structure', ko: '구조·마감', en: 'Structure', icon: 'libStructure' },
+  { id: 'outdoor', ko: '실외', en: 'Outdoor', icon: 'libOutdoor' },
+  { id: 'mine', ko: '내 객체', en: 'My objects', icon: 'libMine' },
+];

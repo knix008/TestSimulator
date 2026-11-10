@@ -42,6 +42,9 @@ if (process.platform === 'win32') {
   spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { stdio: 'ignore' });
 }
 
+// Third-party licence texts (licenses/, an installer resource) follow the installed dependencies.
+spawnSync(process.execPath, [path.join(root, 'scripts', 'make-notices.mjs')], { stdio: 'inherit' });
+
 const bundles = targets[requested].bundles;
 console.log(`> tauri build --bundles ${bundles.join(',')}`);
 const result = spawnSync(process.execPath, [path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js'), 'build', '--bundles', bundles.join(',')], {

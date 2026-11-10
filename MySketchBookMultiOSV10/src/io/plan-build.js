@@ -112,6 +112,26 @@ export function planEntities(result, { level, shift = [0, 0], elevation = 0, kee
   return { walls, openings, rooms, guides, bounds };
 }
 
+/**
+ * Scales the plan of a level by `k` about `origin` [x, z] (a drawing imported at the wrong scale, e.g. a PDF without a
+ * scale, after a two-point calibration): walls (ends, thickness, arcs), the openings in them (place and width), rooms
+ * and the plan's reference lines. Heights stay.
+ */
+export function scalePlanLevel(project, levelId, origin, k) {
+  if (!(k > 0) || Math.abs(k - 1) < 1e-9) return 0;
+  const s = (p) => [origin[0] + (p[0] - origin[0]) * k, origin[1] + (p[1] - origin[1]) * k];
+  const walls = project.walls.filter((w) => w.level === levelId);
+  const ids = new Set(walls.map((w) => w.id));
+  for (const w of walls) {
+    w.a = s(w.a); w.b = s(w.b); w.thickness *= k;
+    if (w.curve) { const c = s([w.curve.cx, w.curve.cz]); w.curve = { ...w.curve, cx: c[0], cz: c[1], r: w.curve.r * k }; }
+  }
+  for (const o of project.openings) if (ids.has(o.wall)) { o.offset *= k; o.width *= k; }
+  for (const r of project.rooms) if (r.level === levelId) { r.points = r.points.map(s); if (Array.isArray(r.holes)) r.holes = r.holes.map((h) => (Array.isArray(h) ? h.map(s) : h?.points ? { ...h, points: h.points.map(s) } : h)); }
+  for (const g of project.guides ?? []) if (g.level === levelId && g.source === 'plan') { const a = s([g.a[0], g.a[2]]); const b = s([g.b[0], g.b[2]]); g.a = [a[0], g.a[1], a[1]]; g.b = [b[0], g.b[1], b[1]]; }
+  return walls.length;
+}
+
 /** Centre of the recognised walls (used to put an imported plan around the origin). */
 export function planCenter(result) {
   const xs = result.walls.flatMap((w) => [w.a[0], w.b[0]]);

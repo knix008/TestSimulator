@@ -5,7 +5,8 @@ import { convertFileSrc, invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { emitTo as tauriEmitTo, listen as tauriListen } from '@tauri-apps/api/event';
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
-import { t } from '../i18n.js';
+import { getLanguage, t } from '../i18n.js';
+import { MODEL_EXTENSIONS, dialogFilters } from '../io/formats.js';
 import { idbDelete, idbGet, idbSet } from './idb.js';
 
 // A popup shown as a frame inside the main window (web build, tutorial) works like the web build.
@@ -58,10 +59,10 @@ export const readTextFile = (path, op) => invoke('read_text_file', { path, op })
 export const writeTextFile = (path, content, op) => invoke('write_text_file', { path, content, op });
 export const pathsExist = (paths) => (isDesktop() ? invoke('paths_exist', { paths }) : Promise.resolve(paths.map(() => true)));
 
-const MODEL_EXTENSIONS = ['glb', 'gltf', 'obj', 'fbx', 'stl', 'dae', '3ds', 'ply', '3mf', 'usdz', 'usda', 'usd', 'wrl', 'vrml', 'skp'];
+// Model extensions come from io/formats.js (the one list of importable 3D formats).
 const PROJECT_FILTERS = () => [
   { name: 'MySketchBook (*.msk)', extensions: ['msk'] },
-  { name: '3D models (*.glb, *.gltf, *.obj, *.fbx, *.stl, *.dae, *.3ds, *.ply, *.3mf)', extensions: MODEL_EXTENSIONS },
+  { name: '3D models (*.glb, *.fbx, *.obj, *.step, *.3dm …)', extensions: MODEL_EXTENSIONS },
 ];
 /** Save types: the drawing, a template, StarUML, pictures, documents. */
 export const SAVE_TYPES = {
@@ -114,7 +115,8 @@ export async function chooseDiagramsToOpen(defaultPath) {
 export async function chooseModelFiles(defaultPath) {
   const picked = testPick('__mysketchbookModelPicks');
   if (picked) return [].concat(picked.value ?? []);
-  const result = await openDialog({ multiple: true, directory: false, defaultPath: defaultPath ?? undefined, filters: [{ name: '3D models', extensions: [...MODEL_EXTENSIONS, 'mtl', 'png', 'jpg', 'jpeg', 'bin'] }] });
+  // First filter: every model plus side files (.mtl, textures, .bin), then one per format.
+  const result = await openDialog({ multiple: true, directory: false, defaultPath: defaultPath ?? undefined, filters: dialogFilters(getLanguage() === 'ko' ? 'ko' : 'en', 'import') });
   if (!result) return [];
   return Array.isArray(result) ? result : [result];
 }
@@ -171,6 +173,26 @@ export async function pickDiagramFilesWeb() {
   }
   const files = await pickWithInput(['.msk', ...MODEL_EXTENSIONS.map((e) => `.${e}`)].join(','), true);
   return Promise.all(files.map(async (file) => ({ name: file.name, content: await readContent(file), handle: null, size: file.size })));
+}
+
+/**
+ * Web: files for File › Import… with grouped filters ([{ name, extensions }], the first preselected) — the
+ * File System Access picker shows them as file types; elsewhere an <input> accepting the first group.
+ * Returns File objects ([] when cancelled).
+ */
+export async function pickImportFilesWeb(filters, multiple = true) {
+  if (hasFileSystemAccess()) {
+    try {
+      const types = filters.map((f) => ({ description: f.name, accept: { 'application/octet-stream': f.extensions.map((e) => `.${e}`) } }));
+      const handles = await globalThis.showOpenFilePicker({ id: 'mysketchbook-import', multiple, types });
+      return Promise.all(handles.map((handle) => handle.getFile()));
+    } catch (error) {
+      if (error?.name === 'AbortError') return [];
+      // A browser that refuses one of the extensions as a file type: the plain input below.
+      if (error?.name !== 'TypeError') throw error;
+    }
+  }
+  return pickWithInput((filters[0]?.extensions ?? []).map((e) => `.${e}`).join(','), multiple);
 }
 
 export function pickWithInput(accept, multiple = false) {

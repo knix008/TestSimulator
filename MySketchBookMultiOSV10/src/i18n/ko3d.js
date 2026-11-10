@@ -108,6 +108,12 @@ export default {
   'sun.azimuth': "방위각",
   'sun.azimuthTip': "북쪽에서 시계 방향 각도 (0° 북, 90° 동, 180° 남, 270° 서)",
   'sun.altitude': "고도",
+  'sun.x': "태양 X",
+  'sun.y': "태양 Y (높이)",
+  'sun.z': "태양 Z",
+  'sun.distance': "중심에서 거리",
+  'sun.coordTip': "태양 표시의 좌표입니다. 값을 입력하거나 3D 화면에서 태양을 끌어 옮기세요. 확대·축소해도 바뀌지 않습니다.",
+  'sun.distanceTip': "태양 표시가 모델 중심에서 떨어진 거리입니다 (빛의 방향은 바뀌지 않습니다).",
   'sun.altitudeTip': "지평선 위 각도 (0° 아래면 밤)",
   'sun.intensity': "밝기",
   'sun.color': "빛 색",
@@ -584,6 +590,7 @@ export default {
   'error.code.format-unsupported': "지원하지 않는 파일 형식입니다",
   'error.code.parse-failed': "파일을 읽는 중 오류가 났습니다",
   'error.code.empty-model': "파일에 그릴 수 있는 형상이 없습니다",
+  'error.code.zip-no-model': "ZIP 파일 안에 3D 모델(.glb, .fbx, .obj, .dae …)이 없습니다",
   'error.code.not-solid': "닫힌 솔리드가 아닙니다 (구멍이 없는 모델에만 쓸 수 있습니다)",
 
   // shortcuts list

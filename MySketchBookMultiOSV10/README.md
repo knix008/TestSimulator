@@ -37,7 +37,7 @@ Windows · macOS · Linux · 웹에서 쓰는 **집 안 인테리어 배치와 S
 - **라이브러리 247개** — 크기·재질·옵션을 바꿀 수 있는 **매개변수 모델 125개**(16개 분류: 거실 · 식당 · 침실 · 주방 · 욕실 · 서재 · 아이 방 · 수납 · 조명 · 장식 · 식물 · 가전 · 문 · 창문 · 구조·마감 · 실외)와 **Poly Haven CC0 고품질 실측 모델 122개**(HQ 표시). 이름 검색(한국어/영어), 카드 크기 3단계.
 - 카드를 클릭하고 놓을 곳을 클릭하거나 화면으로 끌어다 놓기. 벽 가까이 놓으면 **등을 벽에 붙여** 놓고, 벽 장식은 벽면에, 천장 조명은 천장에, 작은 소품은 탁자 위에 놓입니다. `[` `]`로 90°(Shift: 15°) 회전.
 - 속성 패널에서 위치·회전·배율과 **치수와 옵션**(예: 소파의 폭·좌석 수·깊이·천·다리·팔걸이·쿠션), **부분별 재질 바꾸기**, 다른 항목으로 바꾸기, 좌우 대칭, 바닥에 내려놓기.
-- **내 3D 모델 가져오기** — glTF/GLB · OBJ(+MTL) · FBX · STL · Collada(DAE) · 3DS · PLY · 3MF · USDZ. 단위(자동·mm·cm·m·in·ft)와 위쪽 축(자동·Y·Z)을 고르고, 작은 부품을 합쳐 빠르게 그립니다. 가져온 모델은 **라이브러리 › 내 객체**에 들어가고 프로젝트 파일에 함께 저장됩니다. (.skp는 비공개 형식이라 SketchUp에서 DAE/glTF로 내보낸 뒤 가져옵니다.)
+- **내 3D 모델 가져오기** — glTF/GLB(Draco·KTX2) · OBJ(+MTL) · FBX · STL · Collada(DAE) · 3DS · PLY · 3MF · USDZ · VRML · AMF · LightWave(LWO) · VTK · OFF · KMZ · CAD 솔리드(STEP · IGES · BREP) · Rhino(3DM) · 포인트 클라우드(PCD · XYZ) · 모델과 텍스처를 묶은 ZIP. 단위(자동·mm·cm·m·in·ft)와 위쪽 축(자동·Y·Z)을 고르고, 작은 부품을 합쳐 빠르게 그립니다. 가져온 모델은 **라이브러리 › 내 객체**에 들어가고 프로젝트 파일에 함께 저장됩니다. (.skp는 비공개 형식이라 SketchUp에서 DAE/glTF로 내보낸 뒤 가져옵니다.)
 
 ### 재질
 
@@ -158,3 +158,4 @@ MySketchBookMultiOSV10/
 - 프로그램: © SHKWON (knix008@naver.com).
 - `library/`의 3D 모델 122개, 텍스처 34세트, HDRI 8개는 모두 [Poly Haven](https://polyhaven.com)의 자료이며 **CC0 1.0 (퍼블릭 도메인)** 입니다. 상업적 이용·수정·재배포에 출처 표시가 필요 없지만, 만든 분들을 [library/LICENSES.md](library/LICENSES.md)에 하나하나 적어 두었습니다. 모델은 GLB로 바꾸고 원점을 바닥 가운데로 맞추고 텍스처를 1024 px 이하로 줄였을 뿐 다른 것은 바꾸지 않았습니다.
 - 사용한 오픈 소스: three.js, three-mesh-bvh, three-gpu-pathtracer, manifold-3d, fflate, Tauri (각 패키지의 라이선스를 따릅니다).
+- 3D 모델 가져오기의 판독기: **occt-import-js 0.0.23**(Open CASCADE Technology, **LGPL-2.1** — STEP·IGES·BREP. 앱 코드와 섞이지 않은 별도 WebAssembly 파일 `occt-import-js-*.wasm`로 배포되고 그 파일을 열 때만 불러오므로 같은 이름의 다른 빌드로 바꿔 넣을 수 있습니다. 라이선스 원문: `node_modules/occt-import-js/dist/license.occt*.txt`), **rhino3dm 8.32.1**(MIT — Rhino .3dm), Draco·Basis Universal 디코더(Apache-2.0, three.js에 포함). 모두 앱과 함께 배포되어 인터넷 없이 동작합니다.

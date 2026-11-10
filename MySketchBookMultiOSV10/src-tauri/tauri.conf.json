@@ -47,7 +47,8 @@
       "icons/project.png": "project.png",
       "../library/": "library/",
       "../doc/": "doc/",
-      "../samples/": "samples/"
+      "../samples/": "samples/",
+      "../licenses/": "licenses/"
     },
     "fileAssociations": [
       {

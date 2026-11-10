@@ -352,12 +352,24 @@ export function stylesHtml(app) {
       ${checkRow(t('style.lightsOn'), 'style.lightsOn', st.lightsOn)}
       ${selectRow(t('style.background'), 'style.background', st.background ?? 'theme', [['theme', t('style.bgTheme'), 'palette'], ['sky', t('style.bgSky'), 'sun'], ['white', t('style.bgWhite'), 'styleWhite'], ['dark', t('style.bgDark'), 'moon'], ['environment', t('style.bgEnvironment'), 'environment']])}
       ${selectRow(t('style.environment'), 'style.environment', st.environment ?? 'room', envs.map((e) => [e.id, name(e), 'environment']))}
+      <div class="prop-row"><span class="prop-label"></span><span class="prop-control"><button class="button" data-command="importEnvironment" title="${attr(app.commandTip('importEnvironment'))}">${icon('environment')}<span>${escapeHtml(t('style.importEnvironment'))}</span></button></span></div>
       <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('style.exposure'))}</span></span><span class="prop-control"><input type="range" min="0.3" max="2.5" step="0.05" data-prop="style.exposure" value="${attr(st.exposure ?? 1)}" /><output>${Number(st.exposure ?? 1).toFixed(2)}</output></span></div>`)
     + section('quality', t('editors.quality'), `
       ${selectRow(t('settings.renderQuality'), 'settings.renderQuality', s.renderQuality, [['fast', t('quality.fast'), 'fps'], ['balanced', t('quality.balanced'), 'quality'], ['high', t('quality.high'), 'renderPhoto']])}
       ${checkRow(t('settings.ambientOcclusion'), 'settings.ambientOcclusion', s.ambientOcclusion)}
       ${checkRow(t('settings.antialias'), 'settings.antialias', s.antialias)}
       ${selectRow(t('settings.shadowQuality'), 'settings.shadowQuality', s.shadowQuality, [['low', t('quality.low'), 'shadowToggle'], ['medium', t('quality.medium'), 'shadowToggle'], ['high', t('quality.high'), 'shadowToggle']])}`);
+}
+
+/** The sun's X/Y/Z and distance in the project's units (typing one moves the sun there). */
+function sunCoordinateRows(app) {
+  const at = app.sunCoordinates?.();
+  if (!at) return '';
+  const units = app.units();
+  const len = (v) => formatLength(v, units, { suffix: false });
+  const distance = app.sunDistance?.();
+  return ['x', 'y', 'z'].map((axis, i) => numberRow(t(`sun.${axis}`), `sun.${axis}`, len(at[i]), units, { title: t('sun.coordTip') })).join('')
+    + (distance != null ? numberRow(t('sun.distance'), 'sun.distance', len(distance), units, { title: t('sun.distanceTip') }) : '');
 }
 
 export function shadowsHtml(app) {
@@ -378,6 +390,7 @@ export function shadowsHtml(app) {
     <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('sun.state'))}</span></span><span class="prop-control"><span class="prop-value">${icon(night ? 'moon' : 'sun')} ${escapeHtml(t(night ? 'sun.isNight' : 'sun.isDay'))} · ${escapeHtml(t('sun.angles', { az: ang.azimuth.toFixed(0), alt: ang.altitude.toFixed(0) }))}</span></span></div>
     ${selectRow(t('sun.mode'), 'sun.mode', manual ? 'manual' : 'time', [['time', t('sun.modeTime'), 'clock'], ['manual', t('sun.modeManual'), 'sun']])}
     ${manual ? numberRow(t('sun.azimuth'), 'sun.azimuth', Math.round(ang.azimuth * 10) / 10, '°', { step: 5, title: t('sun.azimuthTip') }) + numberRow(t('sun.altitude'), 'sun.altitude', Math.round(ang.altitude * 10) / 10, '°', { step: 5, title: t('sun.altitudeTip') }) : ''}
+    ${sunCoordinateRows(app)}
     ${numberRow(t('sun.intensity'), 'sun.intensity', Math.round((sun.intensity ?? 1) * 100), '%', { step: 10, min: 0 })}
     <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('sun.color'))}</span></span><span class="prop-control"><input type="color" data-prop="sun.color" value="${attr(sun.color ?? '#fff1dc')}" /></span></div>
     <p class="panel-hint small">${escapeHtml(t('sun.hint'))}</p>

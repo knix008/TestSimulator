@@ -158,6 +158,9 @@ export const hasPreset = (id) => BY_ID.has(id);
 /** Hooks a texture loader in (library/assets.js): (preset, material) → void. Set once by the app. */
 let textureHook = null;
 export function setTextureHook(hook) { textureHook = hook; }
+/** Hooks the user's own pictures in (engine/usertextures.js): specs with `maps` (asset ids). Set once by the app. */
+let userTextureHook = null;
+export function setUserTextureHook(hook) { userTextureHook = hook; }
 
 const cache = new Map();
 
@@ -190,6 +193,7 @@ export function getMaterial(id, overrides = {}) {
   material.userData.preset = id;
   material.userData.repeat = spec.repeat ?? 1;
   textureHook?.(spec, material);
+  if (spec.maps) userTextureHook?.(spec, material);
   cache.set(key, material);
   return material;
 }

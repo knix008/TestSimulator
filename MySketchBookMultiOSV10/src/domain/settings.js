@@ -105,6 +105,8 @@ export function defaultSettings(language = 'ko') {
     showSunMarker: true,
     showRulers: true,
     showScaleBar: true,
+    // Wall dimensions of the active level in the 2D plan and 3D (toolbar: Dimensions).
+    showPlanDims: true,
     // Where the user dragged the scale bar (fractions of the view; null = bottom left).
     scaleBarPos: null,
     // Left-button drag on empty space: 'orbit' (interior-design apps) or 'select' (a selection box, SketchUp).

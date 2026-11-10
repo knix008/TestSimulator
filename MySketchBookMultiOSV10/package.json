@@ -29,7 +29,8 @@
     "tutorial:video": "node scripts/tutorial-capture.mjs video",
     "samples": "node scripts/make-samples.mjs",
     "build:icons": "node scripts/render-icons.mjs",
-    "assets": "node scripts/fetch-assets.mjs"
+    "assets": "node scripts/fetch-assets.mjs",
+    "notices": "node scripts/make-notices.mjs"
   },
   "dependencies": {
     "@jsquash/avif": "2.1.1",
@@ -37,15 +38,21 @@
     "@tauri-apps/plugin-dialog": "^2.4.0",
     "fflate": "^0.8.3",
     "manifold-3d": "^3.5.4",
+    "occt-import-js": "0.0.23",
+    "pdfjs-dist": "5.4.394",
+    "rhino3dm": "8.32.1",
     "three": "^0.187.0",
     "three-gpu-pathtracer": "^0.0.28",
-    "three-mesh-bvh": "^0.9.18"
+    "three-mesh-bvh": "^0.9.18",
+    "utif": "3.1.0",
+    "web-ifc": "0.0.78"
   },
   "devDependencies": {
     "@gltf-transform/core": "^4.5.1",
     "@gltf-transform/extensions": "^4.5.1",
     "@gltf-transform/functions": "^4.5.1",
     "@tauri-apps/cli": "^2.8.0",
+    "draco3dgltf": "1.5.7",
     "sharp": "^0.35.5",
     "vite": "^7.1.7"
   }

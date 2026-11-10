@@ -7,6 +7,7 @@
 // placed copy is a clone that shares geometry, BVH and materials with it.
 import * as THREE from 'three';
 import { ShapeUtils } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { getMaterial } from './materials.js';
 import { wallCorners, wallFootprints, wallMesh, wallDir, wallNormal, wallLength, floorTriangles } from './walls.js';
 import { levelOf } from './document.js';
@@ -98,6 +99,9 @@ export class SceneBuilder {
         if (!object) continue;
         object.userData.entityId = entity.id;
         object.userData.entityKind = kind;
+        // Placed objects only move through placeTransform (which updates the matrix): no per-frame matrix work.
+        object.updateMatrix();
+        object.matrixAutoUpdate = false;
         object.visible = !entity.hidden && !hiddenTags.has(entity.tag ?? 'untagged') && !hiddenLevels.has(entity.level ?? levelOfWall(entity));
         group.add(object);
         this.viewport.applyStyle(object);
@@ -114,6 +118,7 @@ export class SceneBuilder {
       p.set(e.position[0], y, e.position[2]);
       r.set(e.rotation[0], e.rotation[1], e.rotation[2], 'YXZ');
       s.set(e.scale[0], e.scale[1], e.scale[2]);
+      object.updateMatrix();
       object.updateMatrixWorld(true);
       return true;
     };
@@ -189,17 +194,19 @@ export class SceneBuilder {
       g.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
       g.setAttribute('normal', new THREE.BufferAttribute(data.normals, 3));
       g.setAttribute('uv', new THREE.BufferAttribute(data.uvs, 2));
-      g.setIndex(new THREE.BufferAttribute(data.indices, 1));
       const slotMaterial = { left: wall.material?.left ?? 'wall-paint-white', right: wall.material?.right ?? 'wall-paint-white', top: wall.material?.top ?? 'wall-paint-white', reveal: wall.material?.left ?? 'wall-paint-white', end: wall.material?.left ?? 'wall-paint-white' };
-      const slots = Object.keys(slotMaterial);
-      for (const grp of data.groups) g.addGroup(grp.start, grp.count, slots.indexOf(grp.slot));
+      // One draw call per material, not per side: the triangles are ordered by material (a wall painted
+      // one colour is a single group); `slotRanges` still tells which side each triangle belongs to (paint bucket).
+      const { indices, groups, slotRanges, presets } = groupByMaterial(data.indices, data.groups, slotMaterial);
+      g.setIndex(new THREE.BufferAttribute(indices, 1));
+      for (const grp of groups) g.addGroup(grp.start, grp.count, grp.materialIndex);
       g.computeBoundingBox();
       g.computeBoundingSphere();
       g.computeBoundsTree();
-      const mesh = new THREE.Mesh(g, slots.map((s) => getMaterial(slotMaterial[s])));
+      const mesh = new THREE.Mesh(g, presets.map((p) => getMaterial(p)));
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-      mesh.userData = { entityId: wall.id, entityKind: 'wall', level: level.id, ownsGeometry: true, tag: wall.tag, slots };
+      mesh.userData = { entityId: wall.id, entityKind: 'wall', level: level.id, ownsGeometry: true, tag: wall.tag, slotRanges };
       mesh.matrixAutoUpdate = false;
       mesh.updateMatrix();
       const edges = new THREE.LineSegments(new THREE.EdgesGeometry(g, 25), edgeMaterial);
@@ -320,11 +327,18 @@ export class SceneBuilder {
         if (o.isMesh) {
           o.castShadow = o.userData.part !== 'glass';
           o.receiveShadow = true;
+        }
+      });
+      // Edges first (from the parts as built), then the parts of one material are merged.
+      addEdges(template, this.edgeCache);
+      mergeByMaterial(template);
+      template.traverse((o) => {
+        if (o.isMesh) {
           if (!o.geometry.boundsTree) o.geometry.computeBoundsTree();
           if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
         }
       });
-      addEdges(template, this.edgeCache);
+      freezeMatrices(template);
       this.templates.set(key, template);
       // Keep the cache bounded: drop the oldest templates (their clones keep the geometry alive).
       if (this.templates.size > 600) this.templates.delete(this.templates.keys().next().value);
@@ -346,8 +360,11 @@ export class SceneBuilder {
     if (!pending) {
       pending = Promise.resolve(load(item.asset ?? item.id)).then((model) => {
         if (!model) throw new Error(`no model ${item.id}`);
-        model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (!o.geometry.boundsTree) o.geometry.computeBoundsTree(); } });
+        model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
         addEdges(model, this.edgeCache, 40);
+        mergeByMaterial(model);
+        model.traverse((o) => { if (o.isMesh && !o.geometry.boundsTree) o.geometry.computeBoundsTree(); });
+        freezeMatrices(model);
         this.templates.set(`asset|${item.id}`, model);
         return model;
       });
@@ -504,10 +521,110 @@ export class SceneBuilder {
   }
 
   /** Materials and textures changed (e.g. textures finished loading): templates rebuild lazily. */
-  clearTemplates() { this.templates.clear(); this.built.clear(); for (const g of Object.values(this.groups)) g.clear(); this.wallKeys.clear(); }
+  clearTemplates() {
+    this.templates.clear();
+    this.built.clear();
+    // Geometry the scene's own objects made (walls, floors, cuts, models) is freed on the GPU, not only dropped.
+    for (const g of Object.values(this.groups)) { for (const child of [...g.children]) this.disposeObject(child, null); g.clear(); }
+    this.wallKeys.clear();
+  }
 }
 
 // ───────────────────────── helpers
+
+/**
+ * Reorders a wall's triangles so each material is one contiguous group (one draw call). Returns the new
+ * index array, the groups ({ start, count, materialIndex } into `presets`) and which side (slot) each
+ * index range came from: [{ start, count, slot }] in the new order.
+ */
+function groupByMaterial(source, sourceGroups, slotMaterial) {
+  const presets = [];
+  const byPreset = new Map();
+  for (const grp of sourceGroups) {
+    const preset = slotMaterial[grp.slot] ?? 'wall-paint-white';
+    if (!byPreset.has(preset)) { byPreset.set(preset, []); presets.push(preset); }
+    byPreset.get(preset).push(grp);
+  }
+  const indices = new source.constructor(source.length);
+  const groups = [];
+  const slotRanges = [];
+  let at = 0;
+  presets.forEach((preset, materialIndex) => {
+    const start = at;
+    for (const grp of byPreset.get(preset)) {
+      indices.set(source.subarray(grp.start, grp.start + grp.count), at);
+      slotRanges.push({ start: at, count: grp.count, slot: grp.slot });
+      at += grp.count;
+    }
+    groups.push({ start, count: at - start, materialIndex });
+  });
+  return { indices, groups, slotRanges, presets };
+}
+
+/** The wall side ('left', 'right', 'top', …) of the triangle a pick hit (see groupByMaterial). */
+export function wallSlotOf(hit) {
+  const ranges = hit?.object?.userData?.slotRanges;
+  if (!ranges || hit.faceIndex == null) return null;
+  const i = hit.faceIndex * 3;
+  return ranges.find((r) => i >= r.start && i < r.start + r.count)?.slot ?? null;
+}
+
+/**
+ * Meshes of a template that share one material (and the same shadow flags) under the same parent are
+ * merged into one mesh, in the parent's space: every placed copy then costs fewer draw calls (in the
+ * main pass, the ambient-occlusion pass and the shadow maps). Transparent and transmissive materials stay
+ * separate (their sorting must not change), as do mirrored, multi-material, instanced or parent meshes.
+ */
+function mergeByMaterial(root) {
+  const buckets = new Map();
+  root.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || o.morphTargetInfluences || o.children.length || !o.parent) return;
+    const m = o.material;
+    if (!m || Array.isArray(m) || m.transparent || m.transmission > 0 || o.userData.placeholder) return;
+    const g = o.geometry;
+    if (!g?.attributes?.position || Object.keys(g.morphAttributes ?? {}).length) return;
+    o.updateMatrix();
+    if (o.matrix.determinant() <= 0) return;
+    const attrs = Object.entries(g.attributes).map(([k, a]) => `${k}${a.itemSize}${a.normalized ? 'n' : ''}${a.isInterleavedBufferAttribute ? 'i' : ''}`).sort().join(',');
+    const key = [o.parent.uuid, m.uuid, o.castShadow, o.receiveShadow, o.visible, o.renderOrder, o.frustumCulled, o.layers.mask, o.userData.part ?? '', g.index ? 'i' : 'n', attrs].join('|');
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(o);
+  });
+  for (const list of buckets.values()) {
+    if (list.length < 2) continue;
+    if (list.some((o) => o.geometry.attributes.position.isInterleavedBufferAttribute)) continue;
+    const geos = list.map((o) => o.geometry.clone().applyMatrix4(o.matrix));
+    let merged = null;
+    try { merged = mergeGeometries(geos, false); } catch { merged = null; }
+    for (const g of geos) g.dispose();
+    if (!merged) continue;
+    merged.computeBoundingBox();
+    merged.computeBoundingSphere();
+    const first = list[0];
+    const mesh = new THREE.Mesh(merged, first.material);
+    mesh.name = first.name;
+    mesh.castShadow = first.castShadow;
+    mesh.receiveShadow = first.receiveShadow;
+    mesh.renderOrder = first.renderOrder;
+    mesh.userData = { ...first.userData, roles: list.map((o) => o.name), merged: true };
+    const parent = first.parent;
+    const at = parent.children.indexOf(first);
+    for (const o of list) parent.remove(o);
+    parent.add(mesh);
+    parent.children.pop();
+    parent.children.splice(Math.min(at, parent.children.length), 0, mesh);
+  }
+}
+
+/** Objects inside a template never move against their item: their matrices are computed once, not every frame. */
+function freezeMatrices(root) {
+  root.updateMatrixWorld(true);
+  root.traverse((o) => {
+    if (o === root) return;
+    o.updateMatrix();
+    o.matrixAutoUpdate = false;
+  });
+}
 
 /** Real lights the scene keeps for lamps (fixed, so the shader light count never changes). */
 export const LAMP_POOL = { point: 12, spot: 6, pointShadows: 2, spotShadows: 4 };

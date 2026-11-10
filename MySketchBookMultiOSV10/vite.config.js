@@ -60,7 +60,10 @@ export default defineConfig({
   // MYSKETCHBOOK_NO_HMR: test servers — an edit while tests run must not reload the app under test.
   server: { port: 5480, strictPort: true, hmr: process.env.MYSKETCHBOOK_NO_HMR ? false : undefined, watch: { ignored: ['**/src-tauri/**', '**/test-results/**', '**/doc/**', '**/docs/**', '**/samples/**', '**/library/**', '**/release/**', '**/dist/**'] } },
   // Only the app page is an entry (docs/*.html are standalone documents, tools/ are dev pages).
-  optimizeDeps: { entries: ['index.html'], exclude: ['manifold-3d', '@jsquash/avif'] },
+  // occt-import-js (CommonJS) is imported only by the STEP/IGES worker, which the scan does not see: pre-bundle it so
+  // opening the first CAD file does not make Vite re-optimise and reload the page. The same for the plan import's
+  // pdf.js, web-ifc and UTIF (loaded only when a PDF, IFC or TIFF file comes).
+  optimizeDeps: { entries: ['index.html'], include: ['occt-import-js', 'pdfjs-dist', 'web-ifc', 'utif'], exclude: ['manifold-3d', '@jsquash/avif'] },
   build: {
     target: 'es2022',
     outDir: 'dist',
@@ -77,6 +80,10 @@ function chunkOf(id) {
   if (file.includes('/node_modules/manifold-3d/')) return 'manifold';
   // The AVIF encoder (loaded only when a picture is saved as AVIF and the canvas cannot write it).
   if (file.includes('/node_modules/@jsquash/')) return 'avif';
+  // The plan import's readers (pdf.js, web-ifc, UTIF): reached only through dynamic imports, so Rollup gives them chunks
+  // of their own that load when a PDF, an IFC or a TIFF file is imported. Naming them here (or leaving them to
+  // 'vendor') would make the app shell preload them.
+  if (['/node_modules/pdfjs-dist/', '/node_modules/web-ifc/', '/node_modules/utif/', '/node_modules/pako/'].some((dir) => file.includes(dir))) return undefined;
   if (file.includes('/node_modules/three/examples/jsm/loaders/') || file.includes('/node_modules/three/examples/jsm/exporters/')) return 'io';
   if (file.includes('/node_modules/three')) return 'three';
   if (file.includes('/node_modules/')) return 'vendor';

@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import APP_ICON from '../assets/icon-256.png';
 import { createProject, History, newId, normalizeProject, buildIndex, removeEntities, levelOf, formatLength, parseLength, fromUnits, toUnits, polygonArea, polygonCentroid, formatArea } from './engine/document.js';
 import { Viewport, VIEWS, STYLE_MODES } from './engine/viewport.js';
-import { SceneBuilder } from './engine/builder.js';
+import { SceneBuilder, wallSlotOf } from './engine/builder.js';
 import { Overlay } from './engine/overlay.js';
 import { TEMPLATES, buildTemplate } from './engine/templates.js';
 import { buildSampleProject } from './engine/samples.js';
@@ -45,6 +45,7 @@ import { entityInfoHtml, levelsHtml, libraryHtml, materialsHtml, outlinerHtml, p
 import { itemThumbnail, materialThumbnail, cancelThumbnails, cachedThumbnail, setThumbnailGate } from './ui/thumbnails.js';
 import { Rulers } from './ui/rulers.js';
 import { ScaleBar } from './ui/scalebar.js';
+import { PlanDimensions } from './ui/plandims.js';
 import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { bytesToBase64 } from './export/files.js';
 import { checkProject, countBySeverity } from './engine/checks.js';
@@ -52,6 +53,13 @@ import { syncStairwells } from './engine/stairs.js';
 import { swingMeta, doorDirection, setDoorDirection } from './engine/doorswing.js';
 import { createPrintHost } from './print/host.js';
 import { createPlanImport, isPlanName, isPlanImageName } from './ui/plan-import.js';
+import * as ModelFormats from './io/formats.js';
+import { appImportRouter } from './io/importers.js';
+import * as PlanImportModule from './ui/plan-import.js';
+import { groupTextureSets } from './io/texformats.js';
+import * as UserTextures from './engine/usertextures.js';
+import { setUserTextureHook } from './engine/materials.js';
+import { forgetMaterialThumbnail } from './ui/thumbnails.js';
 
 const modelingModules = import.meta.glob('./tools/modeling.js', { eager: true });
 const Modeling = Object.values(modelingModules)[0] ?? null;
@@ -197,20 +205,51 @@ function toggleNight() {
 }
 
 /** Dragging the sun marker: live while moving (clientX/Y), one undo step when released (null). */
-function dragSun(clientX, clientY) {
+function dragSun(clientX, clientY, from = null) {
   const p = project();
   if (!p) return;
   if (clientX == null) { viewport.endSunDrag(); overlay?.clearLabel('sun'); if (state.sunDragged) { state.sunDragged = false; commit('op.sun', []); renderRight(); renderToolbarState(); } return; }
   const now = sunAngles(p.sun);
-  if (!state.sunDragged) viewport.beginSunDrag(clientX, clientY, now, p.sun.north ?? 0);
+  if (!state.sunDragged) viewport.beginSunDrag(from?.x ?? clientX, from?.y ?? clientY, now, p.sun.north ?? 0);
   const angles = viewport.sunAnglesAt(clientX, clientY, p.sun.north ?? 0);
   if (!angles) { state.sunDragged = true; return; }
-  p.sun = { ...p.sun, mode: 'manual', azimuth: Math.round((angles.azimuth ?? now.azimuth) * 10) / 10, altitude: Math.round((angles.altitude ?? now.altitude) * 10) / 10 };
+  // The sun keeps its coordinates' frame: the centre and distance it was dragged on are stored with it.
+  const frame = viewport.sunSphere();
+  p.sun = { ...p.sun, mode: 'manual', azimuth: Math.round((angles.azimuth ?? now.azimuth) * 10) / 10, altitude: Math.round((angles.altitude ?? now.altitude) * 10) / 10, center: p.sun.center ?? frame.center.toArray().map((v) => Math.round(v * 1000) / 1000), distance: Math.round((angles.distance ?? p.sun.distance ?? frame.radius) * 1000) / 1000 };
   state.sunDragged = true;
   applyProjectView();
   const el = root.querySelector('#status-pointer');
-  if (el) el.textContent = t('sun.angles', { az: p.sun.azimuth.toFixed(0), alt: p.sun.altitude.toFixed(0) });
-  overlay?.label('sun', viewport.sunSprite.position, t('sun.angles', { az: p.sun.azimuth.toFixed(0), alt: p.sun.altitude.toFixed(0) }), { kind: 'info' });
+  const at = sunCoordinates();
+  const text = `${t('sun.angles', { az: p.sun.azimuth.toFixed(0), alt: p.sun.altitude.toFixed(0) })} · ${at.map((v) => formatLength(v, units())).join(', ')}`;
+  if (el) el.textContent = text;
+  overlay?.label('sun', viewport.sunSprite.position, text, { kind: 'info' });
+}
+
+/** The sun's coordinates (metres, [x, y, z]): where its marker is drawn. */
+function sunCoordinates() {
+  return (viewport?.sunPosition()?.toArray() ?? [0, 0, 0]).map((v) => Math.round(v * 1000) / 1000);
+}
+
+/**
+ * Typed sun coordinates (axis 'x' | 'y' | 'z', or 'distance'): the direction from the sun's centre gives
+ * azimuth and altitude (set by hand from then on), the length its distance.
+ */
+function setSunCoordinate(axis, value) {
+  const p = project();
+  if (!p || !viewport || !Number.isFinite(value)) return;
+  const frame = viewport.sunSphere();
+  const center = frame.center;
+  if (axis === 'distance') { setSun({ center: center.toArray(), distance: Math.max(0.5, value) }); return; }
+  const pos = viewport.sunPosition();
+  pos[axis] = value;
+  const dir = pos.sub(center);
+  const distance = dir.length();
+  if (distance < 0.5) return;
+  dir.divideScalar(distance);
+  const north = p.sun.north ?? 0;
+  const azimuth = (((THREE.MathUtils.radToDeg(Math.atan2(dir.x, -dir.z)) - north) % 360) + 360) % 360;
+  const altitude = Math.max(2, Math.min(89, THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1)))));
+  setSun({ mode: 'manual', azimuth: Math.round(azimuth * 10) / 10, altitude: Math.round(altitude * 10) / 10, center: center.toArray(), distance: Math.round(distance * 1000) / 1000 });
 }
 
 function showSunPanel() {
@@ -239,12 +278,18 @@ function setDoc(d) {
   state.hover = null;
   state.showStart = false;
   registerProjectAssets(d);
+  // The user's textures and environments are decoded again from the new document's assets.
+  if (state.texturesDoc !== d) { UserTextures.clearUserTextures(); UserTextures.clearUserEnvironments(); state.texturesDoc = d; }
   for (const m of d.project.materials ?? []) defineCustomMaterial(m);
   mountViewport();
   builder.clearTemplates();
   syncScene();
+  viewport.resetSunAnchor();
   applyProjectView();
   viewport.setCameraState(d.project.camera);
+  // The sun's default place is chosen once, in the view the project opens with (it stays there after).
+  viewport.resetSunAnchor();
+  viewport.updateSunMarker();
   // The view the project opened with: the "reset view" button (Home) comes back to it.
   state.homeCamera = d.project.camera ? JSON.parse(JSON.stringify(d.project.camera)) : viewport.cameraState();
   setTool('select');
@@ -364,6 +409,7 @@ let builder = null;
 let overlay = null;
 let rulers = null;
 let scaleBar = null;
+let planDims = null;
 let dimsKey = '';
 
 function mountViewport() {
@@ -387,6 +433,13 @@ function mountViewport() {
     position: () => state.settings.scaleBarPos,
     onMove: (pos, { live }) => { if (live) state.settings.scaleBarPos = pos; else updateSettings({ scaleBarPos: pos }, { quiet: true }); },
     title: t('tip.scaleBar'),
+  });
+  // Wall dimensions of the active level, in the 2D plan and in 3D (toolbar: Dimensions).
+  planDims = new PlanDimensions(viewport, overlay, {
+    enabled: () => state.settings.showPlanDims !== false && !viewport.walk,
+    project,
+    format: (m) => formatLength(m, units()),
+    color: () => (state.planView && resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark ? '#cbd5e1' : '#334155'),
   });
   // Library thumbnails wait while the view is being moved, so orbiting and panning stay smooth.
   setThumbnailGate(() => viewport.isBusy());
@@ -484,9 +537,14 @@ function applyProjectView() {
 let envToken = 0;
 async function applyEnvironment(id, asBackground) {
   const token = ++envToken;
-  if (!Env?.loadEnvironment || id === 'room') { viewport.setEnvironment(null, { intensity: 0.55 }); viewport.photoEnvironment = null; return; }
+  const userAsset = UserTextures.userEnvironmentAsset(id);
+  if (!Env?.loadEnvironment || id === 'room' || (userAsset && !project()?.assets?.[userAsset])) { viewport.setEnvironment(null, { intensity: 0.55 }); viewport.photoEnvironment = null; return; }
   try {
-    const env = await withProgress('progress.environment', id, () => Env.loadEnvironment(id, viewport.renderer), { delay: 400 });
+    // The user's own environment (a project asset) or one of the library's HDRIs.
+    const load = userAsset
+      ? async () => { const { equirect } = await UserTextures.assetEnvironment(userAsset); return Env.environmentFromEquirect(userAsset, equirect, viewport.renderer); }
+      : () => Env.loadEnvironment(id, viewport.renderer);
+    const env = await withProgress('progress.environment', userAsset ? project().assets[userAsset].name : id, load, { delay: 400 });
     if (token !== envToken) return;
     viewport.setEnvironment(env.texture, { background: asBackground ? env.background ?? env.texture : null, intensity: 0.8 });
     // The path tracer lights the photo with the same HDRI (an equirectangular texture, not the PMREM).
@@ -797,8 +855,7 @@ function paintHit(hit, preset) {
   const e = entity(ent.id)?.entity;
   if (!e) return;
   if (ent.kind === 'wall') {
-    const slots = hit.object.userData.slots ?? [];
-    const slot = slots[Tools.geometryGroupOf(hit)] ?? 'left';
+    const slot = wallSlotOf(hit) ?? 'left';
     const side = slot === 'right' ? 'right' : slot === 'top' ? 'top' : 'left';
     change('op.paint', () => { e.material = { ...(e.material ?? {}), [side]: preset }; }, ['walls']);
   } else if (ent.kind === 'room') {
@@ -979,6 +1036,9 @@ const commands = {
   clearRecent: { icon: 'clearHistory', label: 'action.clearRecent', enabled: () => state.recent.length > 0 || state.recentDirs.length > 0, run: () => clearRecentAll() },
   importModel: { icon: 'importModel', label: 'action.importModel', key: 'Ctrl+I', enabled: hasDoc, run: () => importModelDialog() },
   importPlan: { icon: 'importPlan', label: 'action.importPlan', enabled: () => true, run: () => planImport.dialog() },
+  importAny: { icon: 'importFile', label: 'action.importAny', enabled: () => true, run: () => importAnyDialog() },
+  importTexture: { icon: 'materialsPanel', label: 'action.importTexture', enabled: () => true, run: () => importKindDialog('texture') },
+  importEnvironment: { icon: 'environment', label: 'action.importEnvironment', enabled: () => true, run: () => importKindDialog('environment') },
   exportMenu: { icon: 'chevronDown', label: 'action.exportMenu', enabled: hasDoc, run: (c) => showMenu(menuItems(SUBMENUS.exportTo.items), c?.anchor ?? anchorFor('exportMenu'), 'context', { header: { icon: 'exportFile', title: t('submenu.exportTo') } }) },
   exportImage: { icon: 'exportImage', label: 'action.exportImage', key: 'Ctrl+Shift+E', enabled: hasDoc, run: () => exportImage() },
   renderPhoto: { icon: 'renderPhoto', label: 'action.renderPhoto', key: 'F9', enabled: hasDoc, run: () => renderPhoto() },
@@ -1089,6 +1149,7 @@ const commands = {
   allLampsOff: { icon: 'lightsOn', label: 'action.allLampsOff', enabled: hasDoc, run: () => switchLamps(project().objects.filter((e) => builder.lampInfo(e)), false) },
   resetLamp: { icon: 'undo', label: 'lamp.reset', enabled: () => selectedLamps().some((e) => e.light), run: () => change('op.edit', () => { for (const e of selectedLamps()) delete e.light; }, ['objects']) },
   grid: { icon: 'grid', label: 'action.grid', checked: () => state.settings.showGrid, run: () => toggle('showGrid') },
+  planDims: { icon: 'dimension', label: 'action.planDims', checked: () => state.settings.showPlanDims !== false, run: () => { toggle('showPlanDims'); planDims?.invalidate(); } },
   scaleBar: { icon: 'scaleBar', label: 'action.scaleBar', checked: () => state.settings.showScaleBar !== false, run: () => { toggle('showScaleBar'); viewport?.requestRender(); } },
   rulers: { icon: 'rulers', label: 'action.rulers', key: 'Ctrl+Shift+R', checked: () => state.settings.showRulers !== false, run: () => { toggle('showRulers'); viewport?.requestRender(); } },
   axes: { icon: 'axesTool', label: 'action.axes', checked: () => state.settings.showAxes, run: () => toggle('showAxes') },
@@ -1315,7 +1376,7 @@ const SUBMENUS = {
   views: { icon: 'views', items: ['resetView', '-', ...VIEWS.map((v) => `view:${v}`)] },
   faceStyle: { icon: 'styleTextured', items: STYLE_MODES.map((m) => `style:${m}`) },
   quality: { icon: 'quality', items: ['quality:fast', 'quality:balanced', 'quality:high'] },
-  show: { icon: 'eye', items: ['rulers', 'scaleBar', 'grid', 'axes', 'edges', 'shadows', 'sunOn', 'dayNight', 'sunMarker', 'lightsOn', 'lampMarkers', 'fps', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar'] },
+  show: { icon: 'eye', items: ['rulers', 'planDims', 'scaleBar', 'grid', 'axes', 'edges', 'shadows', 'sunOn', 'dayNight', 'sunMarker', 'lightsOn', 'lampMarkers', 'fps', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
   drawShapes: { icon: 'rectTool', items: ['tool:line', 'tool:rectangle', 'tool:circle', 'tool:arc', 'tool:polygon', 'tool:freehand'] },
   modify: { icon: 'pushPull', items: ['tool:pushpull', 'tool:move', 'tool:rotate', 'tool:scale', 'tool:offset', 'tool:followme'] },
@@ -1329,7 +1390,7 @@ const SUBMENUS = {
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
-  file: ['new', 'newFromTemplate', 'openExample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', '-', 'importModel', 'importPlan', sub('exportTo'), '-', 'print', '-', 'closeProject', 'exit'],
+  file: ['new', 'newFromTemplate', 'openExample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', '-', 'importAny', 'importModel', 'importPlan', 'importTexture', 'importEnvironment', sub('exportTo'), '-', 'print', '-', 'closeProject', 'exit'],
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'selectAll', 'clearSelection', '-', sub('transform'), sub('visibility'), '-', 'makeGroup', 'explodeModel', 'deleteGuides'],
   view: [sub('views'), 'perspective', 'planView', sub('levels'), '-', sub('faceStyle'), sub('show'), sub('quality'), '-', sub('scenes'), '-', sub('appearance')],
   draw: ['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window', 'addLevel', '-', sub('drawShapes')],
@@ -1340,12 +1401,12 @@ const MENUS = {
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', draw: 'wallTool', tools: 'tools', camera: 'orbitTool', help: 'question' };
 
 const TOOLBAR = [
-  ['new', 'open', 'save', 'print', 'exportSplit', 'importModel'],
+  ['new', 'open', 'save', 'print', 'exportSplit', 'importAny', 'importModel'],
   ['undo', 'redo'],
   ['tool:select', 'tool:eraser', 'tool:paint'],
   ['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window'],
   ['tool:move', 'tool:rotate', 'tool:pushpull', 'tool:tape'],
-  ['tool:orbit', 'tool:pan', 'zoomExtents', 'resetView', 'viewsSplit', 'planView', 'rulers', 'scaleBar'],
+  ['tool:orbit', 'tool:pan', 'zoomExtents', 'resetView', 'viewsSplit', 'planView', 'rulers', 'planDims', 'scaleBar'],
   ['styleSplit', 'sunOn', 'dayNight', 'shadows', 'lightsOn'],
   ['renderPhoto'],
   ['leftPanel', 'bottomPanel', 'rightPanel'],
@@ -1443,12 +1504,45 @@ function renderToolbar() {
     return plain(id);
   };
   toolbar.innerHTML = `<div class="toolbar-inner">
-    <div class="toolbar-left">${TOOLBAR.map((group) => `<div class="tool-group">${group.map(button).join('')}</div>`).join('<span class="tool-sep" aria-hidden="true"></span>')}</div>
+    <div class="toolbar-left">${TOOLBAR.map((group, i) => `${i ? `<span class="tool-sep" data-group-sep="${i}" aria-hidden="true"></span>` : ''}<div class="tool-group" data-group="${i}">${group.map(button).join('')}</div>`).join('')}<button class="tool-button toolbar-more" data-toolbar-more hidden title="${escapeHtml(t('toolbar.more'))}" aria-label="${escapeHtml(t('toolbar.more'))}" aria-haspopup="true">${icon('toolbarMore')}</button></div>
     <span class="grow"></span>
     <div class="toolbar-right tool-group">${TOOLBAR_RIGHT.map(button).join('')}</div>
   </div>`;
   renderToolbarState();
   updateMinimumWidth();
+  fitToolbar();
+}
+
+/** Main command of a toolbar entry (split buttons: the button part) — what the » menu lists. */
+const TOOLBAR_MAIN = { exportSplit: 'exportImage', themeSplit: 'theme', viewsSplit: 'view:iso', styleSplit: 'styleCycle' };
+
+/**
+ * A window narrower than the toolbar: the left groups that do not fit are hidden from the end and listed in
+ * the » menu instead, so the right group (tutorial, theme, language, settings) and the window buttons always show.
+ */
+function fitToolbar() {
+  const inner = root.querySelector('.toolbar-inner');
+  const left = root.querySelector('.toolbar-left');
+  const right = root.querySelector('.toolbar-right');
+  const more = root.querySelector('[data-toolbar-more]');
+  if (!inner || !left || !right || !more) return;
+  const groups = [...left.querySelectorAll('[data-group]')];
+  for (const el of left.querySelectorAll('[data-group], [data-group-sep]')) el.hidden = false;
+  more.hidden = true;
+  const room = inner.clientWidth - right.offsetWidth - 12;
+  if (left.scrollWidth <= room) { state.toolbarHidden = []; return; }
+  more.hidden = false;
+  const limit = room - more.offsetWidth - 6;
+  const start = left.getBoundingClientRect().left;
+  let cut = groups.length;
+  for (const [i, g] of groups.entries()) if (g.getBoundingClientRect().right - start > limit) { cut = Math.max(1, i); break; }
+  for (const el of left.querySelectorAll('[data-group], [data-group-sep]')) el.hidden = Number(el.dataset.group ?? el.dataset.groupSep) >= cut;
+  state.toolbarHidden = TOOLBAR.slice(cut);
+}
+
+function showToolbarMore(button) {
+  const ids = (state.toolbarHidden ?? []).flatMap((group, i) => [...(i ? ['-'] : []), ...group.map((id) => TOOLBAR_MAIN[id] ?? id)]).filter((id) => id === '-' || commands[id]);
+  if (ids.length) showMenu(menuItems(ids), anchorBelow(button));
 }
 
 function renderToolbarState() {
@@ -1471,7 +1565,12 @@ function updateMinimumWidth() {
     const toolbar = root.querySelector('#toolbar');
     const style = getComputedStyle(toolbar);
     const menus = [...root.querySelectorAll('.app-brand, .menubar-item, .window-controls')].reduce((sum, el) => sum + el.offsetWidth + 2, 48);
-    const width = Math.ceil(Math.max(menus, left.scrollWidth + right.scrollWidth + 24 + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2));
+    // The toolbar folds its groups into » when narrow: it needs only the first group, », and the right group.
+    const first = left.querySelector('[data-group="0"]')?.offsetWidth ?? 0;
+    const toolbarMin = first + 40 + right.scrollWidth + 24 + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2;
+    // Never wider than the screen: the window buttons (close!) must stay inside it.
+    const screenWidth = window.screen?.availWidth || Infinity;
+    const width = Math.ceil(Math.min(screenWidth, Math.max(menus, toolbarMin)));
     if (Math.abs(width - state.minWidth) < 1) return;
     state.minWidth = width;
     document.documentElement.style.setProperty('--min-width', `${width}px`);
@@ -1643,6 +1742,7 @@ function setProp(field, raw, input) {
     if (k === 'on') { setSun({ on: input.checked }); return; }
     if (k === 'mode') { const a = sunAngles(p.sun); setSun(raw === 'manual' ? { mode: 'manual', azimuth: Math.round(a.azimuth), altitude: Math.round(a.altitude) } : { mode: 'time' }); return; }
     if (k === 'color') { setSun({ color: raw }); return; }
+    if (k === 'x' || k === 'y' || k === 'z' || k === 'distance') { setSunCoordinate(k, len(raw)); return; }
     if (k === 'intensity' || k === 'azimuth' || k === 'altitude') {
       let v = Number(raw);
       if (!Number.isFinite(v)) return;
@@ -2235,7 +2335,7 @@ async function closeProject({ force = false } = {}) {
 
 function registerProjectAssets(d) {
   for (const [id, info] of Object.entries(d.project.assets ?? {})) {
-    if (info.kind === 'underlay') continue; // plan pictures (ui/plan-import.js), not furniture
+    if (info.kind === 'underlay' || info.kind === 'texture' || info.kind === 'environment') continue; // plan pictures (ui/plan-import.js), material textures and skies: not furniture
     registerUserItem({ id: `user:${id}`, ko: info.name, en: info.name, size: info.size, asset: id, load: () => loadUserAsset(d, id), kind: 'user' });
   }
 }
@@ -2247,6 +2347,8 @@ async function loadUserAsset(d, id) {
   if (!bytes) throw new Error(`asset ${id} missing`);
   const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
   const gltf = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
+  // Point clouds: GLTFLoader draws points 1 px wide; the import stored their size in the node's extras.
+  gltf.scene.traverse((n) => { if (n.isPoints && n.userData.pointSize) Object.assign(n.material, { size: n.userData.pointSize, sizeAttenuation: true }); });
   userModelCache.set(id, gltf.scene);
   return gltf.scene.clone(true);
 }
@@ -2262,6 +2364,9 @@ const planImport = createPlanImport({
   levelMode: (p) => builder?.levelMode?.(p) ?? 'all',
   afterImport: () => { syncScene(); viewport?.zoomExtents(); renderAll(); },
   focusUnderlay: () => { clearSelection(); syncScene(); renderRight(); },
+  // Furniture of IFC / Sweet Home 3D files that has no library item: its own model in My objects.
+  modelIo: () => Object.values(ioImport)[0]?.(),
+  addUserObject,
 });
 
 async function importModelDialog() {
@@ -2270,7 +2375,7 @@ async function importModelDialog() {
       const paths = await native.chooseModelFiles(state.settings.lastDirectory);
       if (paths.length) await importModelFiles(paths.map((p) => ({ name: baseName(p), path: p })));
     } else {
-      const files = await native.pickWithInput('.glb,.gltf,.obj,.mtl,.fbx,.stl,.dae,.3ds,.ply,.3mf,.usdz,.usda,.wrl,.vrml,.skp,.png,.jpg,.jpeg,.bin', true);
+      const files = await native.pickWithInput(ModelFormats.importAccept(), true);
       if (files.length) await importModelFiles(await Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }))));
     }
   } catch (error) { showError('error.import', error); }
@@ -2283,7 +2388,7 @@ async function importModelDialog() {
 async function importModelFiles(files) {
   const loader = Object.values(ioImport)[0];
   if (!loader) { notify('error', t('notice.ioMissing')); return; }
-  const mainFiles = files.filter((f) => /\.(glb|gltf|obj|fbx|stl|dae|3ds|ply|3mf|usdz|usda|usd|wrl|vrml|skp)$/i.test(f.name));
+  const mainFiles = files.filter((f) => isModelName(f.name));
   if (!mainFiles.length) { notify('error', t('notice.noModelFile')); return; }
   const options = await popups.open('importmodel', { names: mainFiles.map((f) => f.name), units: 'auto', upAxis: 'auto', optimize: true });
   if (!options?.ok) return;
@@ -2303,17 +2408,8 @@ async function importModelFiles(files) {
         return { ...imported, glb: glb?.bytes ?? null };
       }, { delay: 0, cancellable: true });
       if (!result) continue;
-      if (result.warnings?.length) notify('info', result.warnings.join(' · '));
-      const d = doc();
-      const id = newId('as');
-      const size = result.stats?.sizeMeters ?? [1, 1, 1];
-      const name = stripExtension(file.name);
-      if (result.glb) d.assets.set(id, result.glb);
-      d.project.assets[id] = { name, ext: 'glb', size, triangles: result.stats?.triangles ?? 0, source: file.name };
-      userModelCache.set(id, result.object);
-      registerUserItem({ id: `user:${id}`, ko: name, en: name, size, asset: id, load: () => loadUserAsset(d, id), kind: 'user', thumb: null });
-      d.revision += 1;
-      lastId = `user:${id}`;
+      if (result.warnings?.length) notify('info', result.warnings.map((w) => w?.[lang()] ?? w?.en ?? String(w)).join(' · '));
+      lastId = addUserModel({ name: stripExtension(file.name), object: result.object, glb: result.glb, size: result.stats?.sizeMeters, triangles: result.stats?.triangles, source: file.name });
       notify('success', t('notice.imported', { name: file.name, tris: (result.stats?.triangles ?? 0).toLocaleString() }));
     } catch (error) {
       if (error?.code === 'skp-unsupported') showError('error.import', error, file.name);
@@ -2321,6 +2417,32 @@ async function importModelFiles(files) {
     }
   }
   if (lastId) { showLibrary('mine'); startPlacing(lastId, { sticky: false }); }
+}
+
+/**
+ * An imported model (three.js object, bottom centre at the origin, metres) → a GLB asset of the project and an item of
+ * My objects. Used by the model import and by the plan import (furniture of IFC / Sweet Home 3D files). → the item id.
+ */
+function addUserModel({ name, object, glb = null, size = null, triangles = 0, source = '' }) {
+  const d = doc();
+  const id = newId('as');
+  const sizeM = size ?? [1, 1, 1];
+  if (glb) d.assets.set(id, glb);
+  d.project.assets[id] = { name, ext: 'glb', size: sizeM, triangles: triangles ?? 0, source };
+  userModelCache.set(id, object);
+  registerUserItem({ id: `user:${id}`, ko: name, en: name, size: sizeM, asset: id, load: () => loadUserAsset(d, id), kind: 'user', thumb: null });
+  d.revision += 1;
+  return `user:${id}`;
+}
+
+/** addUserModel for an object made here (plan import): packs it as GLB first. → { item, size }. */
+async function addUserObject(object, { name, source = '' }) {
+  const io = await Object.values(ioImport)[0]?.();
+  const ex = await Object.values(ioExport)[0]?.();
+  const stats = io?.computeStats ? io.computeStats(object) : null;
+  const glb = ex ? await ex.exportModel(object, 'glb') : null;
+  const size = stats?.sizeMeters ?? [1, 1, 1];
+  return { item: addUserModel({ name, object, glb: glb?.bytes ?? null, size, triangles: stats?.triangles ?? 0, source }), size };
 }
 
 // ───────────────────────── export
@@ -2552,7 +2674,10 @@ function contextMenu(event, kind, payload = {}) {
   if (kind === 'material') {
     const handlers = { 'custom:brush': () => { state.brush = payload.id; setTool('paint'); renderLeft(); }, 'custom:apply': () => { for (const id of state.selection) { const e = entity(id)?.entity; const k = kindOf(id); if (!e) continue; change('op.paint', () => { if (k === 'wall') e.material = { left: payload.id, right: payload.id, top: e.material?.top }; else if (k === 'room') e.floor = payload.id; }, ['walls', 'rooms']); } } };
     const canApply = state.selection.some((id) => ['wall', 'room'].includes(kindOf(id)));
-    return showMenu([{ id: 'custom:brush', label: t('materials.useBrush'), icon: 'paintBucket', disabled: !hasDoc() }, { id: 'custom:apply', label: t('materials.applySelected'), icon: 'materialsPanel', disabled: !canApply }], anchor, 'context', { handlers, header: { icon: 'materialsPanel', title: presetName(payload.id) } });
+    // The project's own materials can be edited (colour, pictures, tile size).
+    const own = project()?.materials?.find((m) => m.id === payload.id);
+    if (own) handlers['custom:edit'] = () => materialDialog(own);
+    return showMenu([{ id: 'custom:brush', label: t('materials.useBrush'), icon: 'paintBucket', disabled: !hasDoc() }, { id: 'custom:apply', label: t('materials.applySelected'), icon: 'materialsPanel', disabled: !canApply }, ...(own ? [{ separator: true }, { id: 'custom:edit', label: t('materials.editMenu'), icon: 'edit' }] : [])], anchor, 'context', { handlers, header: { icon: 'materialsPanel', title: presetName(payload.id) } });
   }
   if (kind === 'panel') return showMenu(menuItems(['leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', '-', 'settings']), anchor, 'context', { header: { icon: 'panelLeft', title: t('menu.view') } });
   if (kind === 'start') return showMenu(menuItems(['new', 'open', 'recent', '-', 'shuffleBackground', 'backgroundImage', '-', 'tutorial', 'about']), anchor, 'context', { header: { icon: 'home', title: t('action.startPage') } });
@@ -2615,22 +2740,203 @@ function openDocFrame(kind, url) {
 }
 function closeDocFrames() { for (const kind of Object.keys(DOC_KINDS)) if (popups.frames.has(docLabel(kind))) popups.close(docLabel(kind)); }
 
-// ───────────────────────── external drag & drop
+// ───────────────────────── import of any file: File › Import…, drag & drop (io/routing.js picks the importer)
+
+/** Every importer's name tests and extensions (io/importers.js: from the importers' own format lists). */
+const importRouter = appImportRouter(PlanImportModule);
+const IMPORT_FILTER_LABELS = { all: 'import.filterAll', project: 'import.filterProject', model: 'import.filterModel', plan: 'import.filterPlan', texture: 'import.filterTexture', environment: 'import.filterEnvironment' };
+const importFilterLabel = (id) => t(IMPORT_FILTER_LABELS[id] ?? id);
+
+/** "3D models (.glb .gltf …) · Textures (…)": what can be imported, for the "cannot open" notice. */
+const supportedImportList = () => importRouter.filters(importFilterLabel).slice(1)
+  .map((f) => `${f.name} (${f.extensions.slice(0, 7).map((e) => `.${e}`).join(' ')}${f.extensions.length > 7 ? ' …' : ''})`).join(' · ');
+
+/** A file to import ({ name, path } on the desktop, { name, bytes } on the web) → its bytes. */
+const importBytes = (file, op) => (file.bytes ? Promise.resolve(file.bytes) : readBytes(file.path, op));
+
+/**
+ * The file dialog for importing: grouped filters (All supported, Projects, 3D models, Floor plans & buildings,
+ * Textures, Environments); `kinds` limits it to some of them. → [{ name, path } | { name, bytes }].
+ */
+async function pickImportFiles(kinds = null, multiple = true) {
+  let filters = importRouter.filters(importFilterLabel);
+  if (kinds) {
+    const only = filters.filter((f) => kinds.includes(f.id));
+    filters = only.length > 1 ? [{ ...filters[0], extensions: [...new Set(only.flatMap((f) => f.extensions))] }, ...only] : only;
+  }
+  if (desktop) {
+    const paths = await native.chooseFiles(state.settings.lastDirectory, filters.map(({ name, extensions }) => ({ name, extensions })), multiple);
+    return paths.map((p) => ({ name: baseName(p), path: p }));
+  }
+  const files = await native.pickImportFilesWeb(filters, multiple);
+  return Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })));
+}
+
+/** File › Import…: any importable file(s), each to its importer. */
+async function importAnyDialog() {
+  try { await importFiles(await pickImportFiles()); } catch (error) { showError('error.import', error); }
+}
+
+/** File › Import texture… / Import environment…: the same dialog limited to one kind. */
+async function importKindDialog(kind) {
+  try {
+    const files = await pickImportFiles([kind]);
+    if (!files.length) return;
+    if (kind === 'texture') await importTextureFiles(files);
+    else await importEnvironmentFiles(files);
+  } catch (error) { showError(kind === 'texture' ? 'error.texture' : 'error.environmentImport', error); }
+}
+
+/** A picture that can be a plan underlay, a texture or a sky: the user says which. → 'plan' | 'texture' | 'environment' | null. */
+async function askImageUse(files) {
+  const uses = ['plan', 'texture', 'environment'].filter((use) => files.every((f) => importRouter.usesOf(f.name).includes(use)));
+  if (uses.length <= 1) return uses[0] ?? null;
+  const LOOK = { plan: ['import.usePlan', 'importPlan'], texture: ['import.useTexture', 'materialsPanel'], environment: ['import.useEnvironment', 'environment'] };
+  const choice = await ask({ icon: 'picture', title: t('import.useTitle'), message: t('import.useMessage', { names: files.map((f) => f.name).join(', ') }), buttons: [{ id: 'cancel', label: t('common.cancel') }, ...uses.map((use, i) => ({ id: use, label: t(LOOK[use][0]), icon: LOOK[use][1], primary: i === 0 }))] });
+  return uses.includes(choice) ? choice : null;
+}
+
+/**
+ * Imports files of any kind: a project opens, 3D models (with their .mtl / .bin / textures) import as objects,
+ * plans and buildings go to the plan import, textures become materials, panoramas become environments.
+ * Files nothing can read are reported with the list of what can be.
+ */
+async function importFiles(files) {
+  if (!files?.length) return;
+  const groups = importRouter.route(files);
+  if (groups.unknown.length) {
+    const names = groups.unknown.map((f) => f.name).join(', ');
+    if (groups.unknown.length === files.length) { notify('error', `${t('notice.unsupportedDrop', { name: names })} ${t('import.supported', { list: supportedImportList() })}`); return; }
+    notify('info', t('import.skipped', { names }));
+  }
+  if (groups.image.length) {
+    const use = await askImageUse(groups.image);
+    if (use) groups[use].push(...groups.image);
+  }
+  if (groups.project.length) {
+    const first = groups.project[0];
+    await (first.path ? openPath(first.path) : openContent(first.name, first.bytes));
+  }
+  if (groups.model.length) { if (!state.doc) newProject('empty'); await importModelFiles(groups.model); }
+  for (const file of [...groups.plan, ...groups.building]) await planImport.importFiles([file]);
+  if (groups.texture.length) await importTextureFiles(groups.texture);
+  if (groups.environment.length) await importEnvironmentFiles(groups.environment);
+}
 
 async function handleDroppedPaths(paths) {
-  const models = paths.filter((p) => isModelName(baseName(p)) || /\.(mtl|png|jpe?g|bin)$/i.test(p));
-  const projects = paths.filter((p) => isProjectName(baseName(p)));
-  if (projects.length) await openPath(projects[0]);
-  if (models.some((p) => isModelName(baseName(p)))) { if (!state.doc) newProject('empty'); await importModelFiles(models.map((p) => ({ name: baseName(p), path: p }))); }
-  else if (!projects.length && paths.some((p) => isPlanName(baseName(p)) || isPlanImageName(baseName(p)))) await planImport.importFiles(paths.map((p) => ({ name: baseName(p), path: p })));
-  else if (!projects.length) notify('error', t('notice.unsupportedDrop', { name: baseName(paths[0] ?? '') }));
+  await importFiles(paths.map((p) => ({ name: baseName(p), path: p })));
 }
 
 async function handleDroppedFiles(files) {
-  const project0 = files.find((f) => isProjectName(f.name));
-  if (project0) await openContent(project0.name, new Uint8Array(await project0.arrayBuffer()));
-  if (files.some((f) => isModelName(f.name))) { if (!state.doc) newProject('empty'); await importModelFiles(await Promise.all(files.filter((f) => !isProjectName(f.name)).map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })))); }
-  else if (!project0) { const plan = files.find((f) => isPlanName(f.name) || isPlanImageName(f.name)); if (plan) await planImport.importFiles([{ name: plan.name, bytes: new Uint8Array(await plan.arrayBuffer()) }]); }
+  await importFiles(await Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }))));
+}
+
+// ───────────────────────── the user's textures (custom materials) and environments (engine/usertextures.js)
+
+/** Pictures chosen in the material popup but not saved yet: token → { name, bytes, texture }. */
+const stagedTextures = new Map();
+
+/** Reads and decodes a texture file, keeps it until the material is saved. → { token, name, preview, aspect }. */
+async function stageTexture(file) {
+  const bytes = await withProgress('progress.texture', file.name, (op) => importBytes(file, op), { delay: 300 });
+  const io = await import('./io/textures.js');
+  const texture = await withProgress('progress.texture', file.name, () => io.decodeTexture(file.name, bytes, { renderer: viewport?.renderer }), { delay: 300 });
+  const token = newId('tt');
+  stagedTextures.set(token, { name: file.name, bytes, texture });
+  const { width = 0, height = 0 } = texture.userData;
+  return { token, name: file.name, preview: io.texturePreview(texture), aspect: width ? height / width : 1 };
+}
+
+/** Texture files → materials: files of one set (brick_diff + brick_nor_gl + brick_rough) make one material. */
+async function importTextureFiles(files) {
+  if (!state.doc) newProject('empty');
+  for (const set of groupTextureSets(files.map((f) => f.name))) {
+    const maps = {};
+    try {
+      for (const slot of ['color', 'normal', 'roughness']) if (set[slot]) maps[slot] = await stageTexture(files.find((f) => f.name === set[slot]));
+    } catch (error) { showError('error.texture', error, set.name); continue; }
+    await materialDialog(null, { name: set.name, maps, color: '#ffffff', roughness: maps.roughness ? 1 : 0.7, tileW: 1, tileH: Math.round((maps.color?.aspect ?? 1) * 1000) / 1000 });
+  }
+}
+
+/** A small picture of a texture already in the project (the material popup's chips). */
+async function assetPreview(assetId) {
+  try { const texture = await UserTextures.assetTexture(assetId); return (await import('./io/textures.js')).texturePreview(texture); } catch { return null; }
+}
+
+/**
+ * New material (spec null) or editing a custom one: the material popup, then the spec with its pictures
+ * (new pictures become project assets). `preset` fills a new one (name, maps from stageTexture, tile size …).
+ */
+async function materialDialog(spec = null, preset = {}) {
+  const p = project();
+  const assetMaps = {};
+  for (const [slot, id] of Object.entries(spec?.maps ?? {})) if (id && p?.assets?.[id]) assetMaps[slot] = { asset: id, name: p.assets[id].source ?? p.assets[id].name, preview: await assetPreview(id) };
+  const [tileW, tileH] = spec?.textureSize ?? [preset.tileW ?? 1, preset.tileH ?? preset.tileW ?? 1];
+  const result = await popups.open('material', {
+    name: spec ? (lang() === 'en' ? spec.en : spec.ko) ?? spec.en : preset.name ?? t('materials.newName'),
+    color: spec?.color ?? preset.color ?? '#a0a0a0', roughness: spec?.roughness ?? preset.roughness ?? 0.7, metalness: spec?.metalness ?? 0,
+    maps: spec ? assetMaps : (preset.maps ?? {}), tileW, tileH, edit: Boolean(spec), colorSet: Boolean(spec),
+  });
+  const staged = new Map(stagedTextures);
+  stagedTextures.clear();
+  const d = doc();
+  if (!result?.ok || !d) return null;
+  const added = {};
+  const maps = {};
+  for (const [slot, m] of Object.entries(result.maps ?? {})) {
+    if (m?.asset && d.project.assets[m.asset]) { maps[slot] = m.asset; continue; }
+    const pick = m?.token && staged.get(m.token);
+    if (!pick) continue;
+    const id = newId('tx');
+    d.assets.set(id, pick.bytes);
+    added[id] = { kind: 'texture', name: stripExtension(pick.name), ext: extensionOf(pick.name) || 'png', source: pick.name, bytes: pick.bytes.length };
+    UserTextures.primeTexture(id, pick.texture);
+    maps[slot] = id;
+  }
+  const next = { ...(spec ?? { id: newId('mat'), category: 'other' }), ko: result.name, en: result.name, color: result.color, roughness: Number(result.roughness), metalness: Number(result.metalness) };
+  if (Object.keys(maps).length) { next.maps = maps; next.textureSize = [Number(result.tileW) || 1, Number(result.tileH) || Number(result.tileW) || 1]; }
+  else { delete next.maps; delete next.textureSize; }
+  change('op.material', (pr) => {
+    Object.assign(pr.assets, added);
+    const i = pr.materials.findIndex((m) => m.id === next.id);
+    if (i >= 0) pr.materials[i] = next; else pr.materials.push(next);
+  }, ['materials']);
+  defineCustomMaterial(next);
+  forgetMaterialThumbnail(next.id);
+  // Meshes keep the material they were built with: an edited material rebuilds the scene.
+  if (spec) { builder.clearTemplates(); syncScene(); }
+  state.brush = next.id;
+  renderLeft();
+  notify('success', t(spec ? 'notice.materialEdited' : 'notice.textureMaterial', { name: result.name }));
+  return next;
+}
+
+/** Environment pictures (.hdr, .exr, equirectangular .jpg/.png …) → project assets; the last one lights the scene. */
+async function importEnvironmentFiles(files) {
+  if (!state.doc) newProject('empty');
+  let last = null;
+  for (const file of files) {
+    try {
+      const bytes = await withProgress('progress.environmentImport', file.name, (op) => importBytes(file, op), { delay: 300 });
+      const io = await import('./io/textures.js');
+      const decoded = await withProgress('progress.environmentImport', file.name, () => io.decodeEnvironment(file.name, bytes), { delay: 300 });
+      const d = doc();
+      const id = newId('env');
+      d.assets.set(id, bytes);
+      d.project.assets[id] = { kind: 'environment', name: stripExtension(file.name), ext: extensionOf(file.name) || 'hdr', source: file.name, bytes: bytes.length, pixels: [decoded.width, decoded.height] };
+      UserTextures.primeEnvironment(id, decoded);
+      last = { id, name: stripExtension(file.name) };
+    } catch (error) { showError('error.environmentImport', error, file.name); }
+  }
+  if (!last) return;
+  setStyle({ environment: `${UserTextures.USER_ENV_PREFIX}${last.id}`, background: 'environment' });
+  notify('success', t('notice.environmentImported', { name: last.name }));
+}
+
+/** The project's own environments for the Styles panel: [{ id: 'user:<asset>', ko, en }]. */
+function userEnvironments() {
+  return Object.entries(project()?.assets ?? {}).filter(([, info]) => info.kind === 'environment').map(([id, info]) => ({ id: `${UserTextures.USER_ENV_PREFIX}${id}`, ko: `${info.name} (내 환경)`, en: `${info.name} (my environment)` }));
 }
 
 function setDropActive(active) {
@@ -2652,6 +2958,8 @@ function bindEvents() {
     if (start && !start.disabled) return onStartAction(start);
     const toolOption = target.closest('[data-tool-option]');
     if (toolOption) { state.toolObject?.setOption?.(toolOption.dataset.toolOption, toolOption.dataset.value); return renderStatus(); }
+    const toolbarMore = target.closest('[data-toolbar-more]');
+    if (toolbarMore) return showToolbarMore(toolbarMore);
     const command = target.closest('[data-command]');
     if (command && !command.disabled) {
       const id = command.dataset.command;
@@ -2865,7 +3173,7 @@ function bindEvents() {
     native.invoke('window_drag', { edge: 'SouthEast' }).catch(() => appWindow?.startResizeDragging('SouthEast').catch(() => {}));
   });
 
-  window.addEventListener('resize', frameThrottle(() => { if (desktop && state.minWidth && window.innerWidth < state.minWidth - 1) native.setMinimumSize(state.minWidth, 640).catch(() => {}); }));
+  window.addEventListener('resize', frameThrottle(() => { fitToolbar(); if (desktop && state.minWidth && window.innerWidth < state.minWidth - 1) native.setMinimumSize(state.minWidth, 640).catch(() => {}); }));
   document.addEventListener('keydown', onKeyDown, true);
   document.addEventListener('keyup', (event) => { try { state.toolObject?.keyUp?.(event); } catch { /* ignore */ } }, true);
 
@@ -2955,16 +3263,19 @@ function bindPopupActions() {
   popups.on('raise-test-panic', () => native.invoke('raise_test_panic').catch((error) => showError('error.unexpected', error)));
   popups.on('print-render', (data) => printHost.render(data));
   popups.on('print-save-pdf', (data) => printHost.savePdf(data));
+  // Material popup › Choose… (a map slot): the picture is read here and its preview sent back.
+  popups.on('material-texture', async (data) => {
+    try {
+      const [file] = await pickImportFiles(['texture'], false);
+      if (!file) return;
+      popups.post('material', { type: 'material-texture', slot: data.slot, ...(await stageTexture(file)) });
+    } catch (error) { showError('error.texture', error); }
+  });
 }
 
+/** Materials panel [+]: a new material (colour, roughness, metalness, optional pictures: materialDialog). */
 async function newCustomMaterial() {
-  const result = await popups.open('material', { name: t('materials.newName'), color: '#a0a0a0', roughness: 0.7, metalness: 0 });
-  if (!result?.ok) return;
-  const spec = { id: newId('mat'), ko: result.name, en: result.name, color: result.color, roughness: Number(result.roughness), metalness: Number(result.metalness), category: 'other' };
-  change('op.material', (p) => { p.materials.push(spec); }, ['materials']);
-  defineCustomMaterial(spec);
-  state.brush = spec.id;
-  renderLeft();
+  await materialDialog(null);
 }
 
 // ───────────────────────── tutorial
@@ -2991,6 +3302,8 @@ async function restoreSession() {
 /** What the panels (ui/panels.js) and the start page read. */
 const panelApi = {
   sunAngles,
+  sunCoordinates: () => (viewport?.sunPosition() ? sunCoordinates() : null),
+  sunDistance: () => viewport?.sunSphere().radius ?? null,
   state, commands, commandTip, commandEnabled, t,
   settings: () => state.settings,
   version: () => state.info?.version ?? VERSION,
@@ -3000,7 +3313,7 @@ const panelApi = {
   brush: () => state.brush,
   thumbnailOf, materialThumbnail: (id) => materialThumbnail(id, null),
   materialsOf,
-  environments: () => [{ id: 'room', ko: '기본 실내 조명', en: 'Built-in room light' }, ...(Env?.ENVIRONMENTS ?? [])],
+  environments: () => [{ id: 'room', ko: '기본 실내 조명', en: 'Built-in room light' }, ...(Env?.ENVIRONMENTS ?? []), ...userEnvironments()],
   modelStats: (e) => Modeling?.modelStats?.(e) ?? '',
   underlayHtml: () => planImport.panelHtml(),
 };
@@ -3041,6 +3354,13 @@ async function start() {
   }
   assetApi()?.installTextureHook?.();
   assetApi()?.setOnTexturesLoaded?.(() => { viewport?.requestRender(); });
+  // The user's own textures (custom materials) come from the open project's assets.
+  UserTextures.configureUserTextures({
+    bytesOf: (id) => { const d = doc(); const info = d?.project.assets?.[id]; const bytes = d?.assets.get(id); return info && bytes ? { name: `${info.name}.${info.ext}`, bytes } : null; },
+    renderer: () => viewport?.renderer ?? null,
+    onLoaded: (material, spec) => { forgetMaterialThumbnail(spec.id); viewport?.requestRender(); if (state.leftTab === 'materials') renderLeft(); },
+  });
+  setUserTextureHook(UserTextures.applyUserTextures);
   loadAssetItems().then(() => { if (state.leftTab === 'library') renderLeft(); });
   onCatalogChange(() => { if (state.leftTab === 'library') renderLeft(); });
 
@@ -3085,7 +3405,9 @@ window.__mysketchbook = {
   get viewport() { return viewport; },
   get builder() { return builder; },
   planImport,
-  actions: { newProject, openSampleAsk, openPath, openContent, saveDoc, closeProject, select, change, undo, redo, setTool, startPlacing, setPlanView, exportImage, renderPhoto, importModelFiles, withProgress, showStartPage, updateSettings, addScene, goScene, moveEntities, rotateSelection, deleteEntities, duplicateEntities, applyProjectView, showLibrary },
+  importRouter: () => importRouter,
+  userTextures: UserTextures,
+  actions: { newProject, openSampleAsk, openPath, openContent, saveDoc, closeProject, select, change, undo, redo, setTool, startPlacing, setPlanView, exportImage, renderPhoto, importModelFiles, importFiles, importTextureFiles, importEnvironmentFiles, materialDialog, withProgress, showStartPage, updateSettings, addScene, goScene, moveEntities, rotateSelection, deleteEntities, duplicateEntities, applyProjectView, showLibrary },
   domain: { buildTemplate, TEMPLATES, catalogItem, searchItems, MATERIAL_PRESETS, tutorialSteps: () => TUTORIAL_STEPS.length },
   tutorial: () => tutorial,
 };

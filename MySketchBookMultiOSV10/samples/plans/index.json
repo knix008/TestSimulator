@@ -6,7 +6,9 @@
    "apartment-59.dxf",
    "apartment-59.png",
    "apartment-59-scan.png",
-   "apartment-59-binary.dxf"
+   "apartment-59-binary.dxf",
+   "apartment-59.pdf",
+   "apartment-59-bw.tif"
   ],
   "walls": 8,
   "doors": 4,
@@ -44,7 +46,9 @@
   "files": [
    "house-2room.dxf",
    "house-2room.svg",
-   "house-2room.png"
+   "house-2room.png",
+   "house-2room.tga",
+   "house-2room-2p.tif"
   ],
   "walls": 8,
   "doors": 5,
@@ -73,5 +77,19 @@
   "doors": 2,
   "windows": 3,
   "rooms": 2
+ },
+ {
+  "id": "duplex",
+  "title": "복층 주택 (IFC · Sweet Home 3D)",
+  "files": [
+   "duplex.ifc",
+   "duplex.sh3d"
+  ],
+  "levels": 2,
+  "walls": 15,
+  "doors": 7,
+  "windows": 7,
+  "rooms": 7,
+  "furniture": 10
  }
 ]

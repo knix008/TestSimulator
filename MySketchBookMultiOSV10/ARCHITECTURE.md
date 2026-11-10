@@ -134,10 +134,16 @@ SketchUp의 "붙는 형상"을 순수 JS로 구현했습니다(DOM 없음, Node 
 ### 3.6 3D 파일 — `src/io/`
 
 - `formats.js` — 가져오기/내보내기 형식 표, 지원하지 않는 형식(.skp)의 설명, 단위 배율.
-- `import.js` — 형식 판별(내용 확인 포함) → three 로더(GLTF, OBJ+MTL, FBX, Collada, STL, 3DS, PLY, 3MF, USDZ, VRML) → 재질을 MeshStandardMaterial로 변환 → 부품이 64개를 넘으면 재질별로 합치기 → 단위 추측(실내 물건 크기 기준)·위쪽 축·바닥 가운데로 맞춤 → 통계와 경고. 순수 단계는 따로 내보내 Node에서 시험합니다.
+- `import.js` — 형식 판별(내용 확인 포함) → three 로더(GLTF(Draco·KTX2), OBJ+MTL, FBX, Collada, STL, 3DS, PLY, 3MF, USDZ, VRML, AMF, LWO, VTK/VTP, PCD, XYZ, Rhino 3DM)·자체 OFF 판독기·OpenCASCADE(occt-import-js, `cad-worker.js` 워커에서 STEP/IGES/BREP 삼각분할)·.zip/.kmz 묶음(주 모델을 골라 나머지는 곁 파일로) → 재질을 MeshStandardMaterial로 변환 → 부품이 64개를 넘으면 재질별로 합치기 → 단위 추측(실내 물건 크기 기준)·위쪽 축·바닥 가운데로 맞춤 → 통계와 경고. 순수 단계는 따로 내보내 Node에서 시험합니다. 무거운 WebAssembly 판독기(OpenCASCADE 7.6 MB, rhino3dm 2.7 MB, Draco)는 Vite가 dist에 별도 파일로 내보내고 그 형식을 열 때만 불러옵니다(CDN 없음, `decoders.js`). 파일이 단위를 적는 형식(STEP/IGES/AMF/3DM)은 단위를 추측하지 않고, 포인트 클라우드는 점 간격으로 점 크기를 정해 `userData.pointSize`로 GLB에 남깁니다. 표본: `samples/models/`(`node scripts/make-model-samples.mjs`).
 - `export.js` — 원본을 건드리지 않고 복제(형상·재질 공유)에 단위·축 변환을 씌워 GLB · glTF · OBJ(+MTL zip 선택) · STL · PLY · USDZ로 씁니다.
 
 앱은 가져온 모델을 GLB로 다시 내보내 문서의 `assets`에 보관하고(`project.assets[id] = { name, ext, size, triangles, source }`), 카탈로그에 `user:<id>` 항목으로 등록합니다.
+
+**파일 › 가져오기…와 끌어다 놓기** — `routing.js`(순수)의 `createImportRouter(sources)`가 파일 이름을 `classify(name)` → `'project' | 'model' | 'plan' | 'building' | 'texture' | 'environment' | 'image'`(도면 밑그림·텍스처·하늘 중 사용자가 고름) `| 'companion'`(.mtl/.bin) `| null`로 나누고, `route(files)`가 묶음으로 나눕니다(모델이 있으면 .mtl·.bin·그림은 모델과 함께). `filters(label)`은 묶은 파일 형식 목록(모두 · 프로젝트 · 3D 모델 · 도면·건물 · 텍스처 · 환경)입니다. `importers.js`의 `appImportRouter(planModule)`이 각 가져오기의 형식 목록(`formats.js`, `ui/plan-import.js`, `texformats.js`)으로 연결하므로 형식을 더하면 그대로 따라옵니다.
+
+**텍스처와 환경** — `texformats.js`(형식 표, 텍스처 세트의 `_nor`/`_rough` 꼬리말), `textures.js`(PNG·JPEG·WebP·AVIF·GIF·BMP는 `<img>`, TGA·TIFF·DDS·EXR·HDR은 three 로더의 `parse`, 환경은 선형 등장방형 DataTexture), `ktx2.js`(KTX2Loader + 번들한 Basis 변환기, 오프라인). `engine/usertextures.js`가 자산 id별로 해독한 텍스처를 공유하고 재질마다 타일(미터 UV → `repeat = 1 / 타일 크기`)을 입힙니다(`materials.js setUserTextureHook`). 사용자 재질: `{ …, maps: { color, normal, roughness } /* 자산 id */, textureSize: [w, h] }`. 내 환경: `style.environment = 'user:<자산 id>'`, `environments.js environmentFromEquirect`가 PMREM을 만들고 경로 추적은 원본 등장방형을 씁니다. 그림 바이트는 `project.assets[id] = { kind: 'texture' | 'environment', name, ext, source, bytes }`로 .msk 안에 저장됩니다(설정이 아니라 프로젝트: 프로젝트와 함께 옮겨 가고, 몇 MB짜리 HDR을 localStorage에 넣지 않기 위해).
+
+**도면과 건물** — `ui/plan-import.js`가 읽는 것: CAD(`plan-dxf.js` ASCII·바이너리 DXF, `plan-dwg.js` 변환기, `plan-svg.js`) → `plan-recognize.js`(선·호 → 벽·문·창) → `plan-build.js applyPlan`; **PDF**(`plan-pdf.js`: pdf.js 연산 목록의 경로·베지어(원 위면 호로)·글자·선택적 콘텐츠 레이어 → DXF와 같은 선·호·글자, 축척은 "1:100"·용지 글자 / 문 호 / 1:100, 스캔한 쪽은 그림으로 그려 밑그림); **IFC**(`plan-ifc.js`: web-ifc의 형상에서 벽 중심선·두께(최소 외접 사각형 + `joinWallEnds`), IfcRelFillsElement/IfcRelVoidsElement로 문·창의 벽, IfcSpace 바닥 윤곽, 층, 계단, 가구) · **Sweet Home 3D**(`plan-sh3d.js`: ZIP의 Home.xml, cm·y 아래, `arcExtent` 곡선 벽, 들어 있는 모델) → 중립 "building"(`plan-building.js applyBuilding`: 층 · 곡선 벽 조각 · 벽 안 개구부 · 방 · 계단 `stairsItem` · 가구는 `plan-match.js`가 이름·크기로 라이브러리 항목을 찾고 `fitItem`으로 크기를 맞춤, 없으면 app.js `addUserObject`로 내 개체) — 한 번의 change. 그림은 브라우저가 읽는 형식 그대로, TIFF(여러 쪽)·TGA는 `plan-raster.js`(UTIF.js) → PNG, AVIF는 없으면 번들 디코더, HEIC는 시스템이 읽을 때만. pdf.js(Apache-2.0: 워커·CMap·표준 글꼴·wasm)와 web-ifc(MPL-2.0: 단일 스레드 .wasm)는 `plan-libs.js`가 PDF·IFC를 열 때만 불러오는 로컬 파일입니다(오프라인, 청크 `pdf`·`ifc`·`tiff`). 표본: `samples/plans/`(`make-plan-samples.mjs` → `make-building-samples.mjs`가 PDF·IFC·SH3D·TIFF·TGA를 직접 씀), 시험: `test/unit/plan-formats.test.js`.
 
 ### 3.7 UI — `src/ui/`, `src/popup.js`, `src/viewer.js`
 
@@ -199,6 +205,7 @@ fflate로 만든 ZIP입니다.
 project.json        프로젝트 JSON (+ modified 시각), 압축 수준 6
 thumbnail.png       320 × 200 미리보기 (최근 파일·탐색기용), 저장만
 assets/<id>.glb     가져온 모델 (이미 압축된 GLB라 저장만)
+assets/<id>.<ext>   도면 그림, 재질 텍스처, 내 환경 (kind: underlay · texture · environment)
 ```
 
 읽을 때 ZIP이 아니고 `{`로 시작하면 맨 JSON도 받습니다. `normalizeProject`가 빠진 필드를 채워 예전 파일도 열립니다.

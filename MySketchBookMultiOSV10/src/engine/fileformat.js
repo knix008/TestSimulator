@@ -3,6 +3,7 @@
 // fflate keeps it fast; models (already compressed GLB) are stored, not deflated.
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { normalizeProject } from './document.js';
+import { isModelFileName } from '../io/formats.js';
 
 /** project + assets (Map id → Uint8Array) + optional PNG thumbnail → .msk bytes. */
 export function packProject(project, assets = new Map(), thumbnail = null) {
@@ -36,4 +37,5 @@ export function unpackProject(bytes) {
 }
 
 export const isProjectName = (name) => /\.msk$/i.test(name);
-export const isModelName = (name) => /\.(glb|gltf|obj|fbx|stl|dae|3ds|ply|3mf|usdz|usda|usd|wrl|vrml|skp)$/i.test(name);
+/** 3D model files (io/formats.js is the one list, so new formats are routed without changes here). */
+export const isModelName = isModelFileName;

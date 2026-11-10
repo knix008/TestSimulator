@@ -205,5 +205,29 @@
    1140,
    973
   ]
+ },
+ "pdf": {
+  "file": "apartment-59.pdf",
+  "pages": 2,
+  "planPage": 1,
+  "scanPage": 2,
+  "scale": 50,
+  "paper": "A3",
+  "offset": [
+   -7.542,
+   16.758
+  ],
+  "layers": [
+   "A-DIMS",
+   "A-DOOR",
+   "A-FURN",
+   "A-TEXT",
+   "A-WALL",
+   "A-WIND"
+  ]
+ },
+ "bilevel": {
+  "file": "apartment-59-bw.tif",
+  "compression": "lzw"
  }
 }

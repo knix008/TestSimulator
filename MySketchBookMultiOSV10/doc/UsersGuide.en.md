@@ -79,7 +79,7 @@ Drag the borders between panels to change the width of the left and right panels
 |---|---|
 | **File** | New project · New from template… · Open… · Start page · Recent files… · Recent folders · Clear all recent files and folders · Save · Save as… · Import 3D model… · **Export** ▸ (Save as picture… · Photo-real render… · Floor plan picture (.png) · glTF binary (.glb) · glTF (.gltf) · Wavefront OBJ (.obj) · STL (.stl, 3D printing) · PLY (.ply) · USDZ (.usdz, AR) · Selection only as .glb) · Close project · Exit |
 | **Edit** | Undo · Redo · Cut · Copy · Paste · Duplicate · Delete · Select all · Clear selection · **Rotate & mirror** ▸ (Rotate 90° clockwise · Rotate 90° counter-clockwise · Mirror · Drop to floor) · **Hide & lock** ▸ (Hide · Unhide all · Lock · Unlock) · Make group · Explode · Delete all guides |
-| **View** | **Standard views** ▸ (Iso · Top · Front · Back · Left · Right · Bottom) · Perspective · 2D floor plan · **Face style** ▸ · **Show** ▸ (Rulers · Grid · Axes · Edges · Shadows · Lights on · Performance (FPS, triangles) · Library panel · Outliner & properties · Bottom panel · Status bar) · **Display quality** ▸ (Fast · Balanced · High) · **Scenes** ▸ (Add scene · Previous scene · Next scene) · **Appearance** ▸ (Random theme · Choose theme · Switch language · Change moving background · Background image… · Turn background off) |
+| **View** | **Standard views** ▸ (Iso · Top · Front · Back · Left · Right · Bottom) · Perspective · 2D floor plan · **Face style** ▸ · **Show** ▸ (Rulers · Dimensions · Scale bar · Grid · Axes · Edges · Shadows · Lights on · Performance (FPS, triangles) · Library panel · Outliner & properties · Bottom panel · Status bar) · **Display quality** ▸ (Fast · Balanced · High) · **Scenes** ▸ (Add scene · Previous scene · Next scene) · **Appearance** ▸ (Random theme · Choose theme · Switch language · Change moving background · Background image… · Turn background off) |
 | **Draw** | Wall · Room · Door · Window · Add level · **Shapes** ▸ (Line · Rectangle · Circle · Arc · Polygon · Freehand) |
 | **Tools** | Select · Eraser · Paint bucket · **Modify** ▸ (Push/Pull · Move · Rotate · Scale · Offset · Follow Me) · **Solid tools** ▸ (Union · Subtract · Intersect · Intersect faces · Soften edges) · **Measure & annotate** ▸ (Tape measure · Dimension · Protractor · Text label · Axes · Delete all guides) · **Section** ▸ (Section plane · Sections on/off · Delete all sections) · Check now · Show problems · Show messages · Photo-real render… · Settings… |
 | **Camera** | Orbit · Pan · Zoom · Zoom extents · Zoom to selection · Walk · Standard views ▸ · Perspective · 2D floor plan · Add scene · Previous scene · Next scene |
@@ -105,7 +105,7 @@ From the left, the toolbar has these groups. Hover a button for its name, shortc
 | Select | Select · Eraser · Paint bucket |
 | Building | **Wall** · **Room** · **Door** · **Window** |
 | Modify | Move · Rotate · Push/Pull · Tape measure |
-| Camera | Orbit · Pan · Zoom extents · **Iso** (▾ = view direction) · **2D floor plan** · Rulers |
+| Camera | Orbit · Pan · Zoom extents · **Iso** (▾ = view direction) · **2D floor plan** · Rulers · Dimensions · Scale bar |
 | Look | **Cycle face style** (▾ = Choose face style) · Shadows · Lights on |
 | Output | **Photo-real render…** |
 | Panels | Library panel · Bottom panel · Outliner & properties |
@@ -200,6 +200,8 @@ The **Measurements** box is SketchUp's VCB. While a tool works, just type: the n
 - **Standard views** — Iso · Top · Front · Back · Left · Right · Bottom (the toolbar's Iso button and its ▾). Front looks from the +Z side.
 - **Perspective** — off gives a parallel (orthographic) view of the same size.
 - **2D floor plan** (`F4`, the **3D / 2D** switch above the view) — a parallel view straight down on the active level, cut 1.2 m above its floor with the cut walls filled dark. You can keep drawing walls and placing furniture in it. Orbiting pans in 2D, and the **Rulers** (`Ctrl+Shift+R`) along the top and left show the pointer position.
+- **Dimensions** (toolbar · View › Show) — the active level's wall lengths outside the walls like an architectural plan: a chain split at every wall centre line and the overall length behind it. They show in the 2D plan and in 3D (in 3D only on the sides facing the camera), and keep the same size on screen when you zoom. The button turns them on and off.
+- **Scale bar** (toolbar · View › Show) — a bar of a round length (10 cm, 1 m, 2 m …) that follows the zoom, and in 2D the drawing scale (1:50 and so on). Drag it anywhere in the view with the mouse; its place is remembered. The button turns it on and off.
 - **Walk** — first person at 1.6 m eye height. `W` `A` `S` `D` or `↑` `↓` walk, `←` `→` turn, `Shift` is faster, `Q`/`E` go down and up, dragging with the left button looks around. Walls and furniture stop you.
 - **Look around** — drag to turn your head on the spot.
 
@@ -326,7 +328,7 @@ The **Materials** tab has 105 materials in 15 categories. 48 of them (wood, floo
   - Furniture, doors and windows: only the clicked **part** (the sofa's fabric only, the legs only …).
   - Modelled faces: the side you see (front or back).
 - `Alt`+click is the **eyedropper**: the clicked material becomes the brush.
-- **+** (New material): make your own from a Name, Colour, Roughness and Metalness. It is saved in the project file and listed under **Other**.
+- **+** (New material): make your own from a Name, Colour, Roughness and Metalness and, if you like, colour / normal / roughness pictures with a tile size (11.3). It is saved in the project file with its pictures and listed under **Other**. Right-click your material's swatch › **Edit material…** to change it.
 - A swatch's right-click › **Apply to the selected walls/rooms** paints both faces of the selected walls and the floors of the selected rooms at once.
 - The material fields of the Properties tab (a wall's left/right face, a room's floor/ceiling, an item's materials) open a list of fitting materials.
 
@@ -427,7 +429,7 @@ Solid tools work only on closed models without holes; otherwise "Not a closed so
 - **Edges** — outlines of the objects.
 - **Lights on (lamps glow)** — ceiling lights, lamps and other light fittings become real light sources (the toolbar's bulb button).
 - **Background** — Sky and ground · White · Dark · Environment photo (HDRI).
-- **Environment light** — the Built-in room light, or one of 8 HDRIs (Bright living room (overcast day) · Hotel room · Sea-view suite · Photo studio · Daylight sky · Overcast sky · Sunset · Night). Reflections and ambient light come from the photo; with the background set to "Environment photo (HDRI)" the photo is the background. Photo-real rendering is lit by the same HDRI.
+- **Environment light** — the Built-in room light, or one of 8 HDRIs (Bright living room (overcast day) · Hotel room · Sea-view suite · Photo studio · Daylight sky · Overcast sky · Sunset · Night). Reflections and ambient light come from the photo; with the background set to "Environment photo (HDRI)" the photo is the background. Photo-real rendering is lit by the same HDRI. **Import my environment…** adds your own HDRI (.hdr, .exr) or panorama picture (11.4).
 - **Exposure** — 0.3 to 2.5, shown while you drag.
 - **Display quality** group — Display quality · Ambient occlusion · Anti-aliasing · Shadow resolution (9.4).
 
@@ -509,14 +511,57 @@ Tags work like SketchUp's tags (formerly layers): they show or hide groups of th
 - Imported models are converted to GLB and **stored inside the project file (.msk)**: they come along to another PC. Once placed they move, turn, scale and paint like any other furniture.
 - **SketchUp (.skp)** files cannot be read directly (a proprietary format). In SketchUp use **File › Export › 3D Model** to save Collada (.dae) or glTF (.glb) and import that.
 
-### 11.1 Importing floor plans (DXF · SVG · pictures)
+### 11.1 Importing floor plans (DXF · SVG · PDF · IFC · Sweet Home 3D · pictures)
 
-**File › Import floor plan…**, **Import floor plan** on the start page, or drop the file on the window. Sample plans are in `samples/plans/` (59 m² and 84 m² apartments, a small office, a two-room house; `node scripts/make-plan-samples.mjs` makes them again).
+**File › Import floor plan…**, **Import floor plan** on the start page, or drop the file on the window. Sample plans are in `samples/plans/` (59 m² and 84 m² apartments, a small office, a two-room house, a PDF drawing, a two-storey house as IFC and Sweet Home 3D files, TIFF and TGA pictures; `node scripts/make-plan-samples.mjs` makes them again).
 
 - **DXF / SVG** — walls are found as two lines a wall thickness apart, doors as an arc (radius = door width) with a leaf line, windows as lines across an opening; walls, doors and windows are made, and a room wherever walls close around a space (named after the text inside it). Blocks (INSERT), polylines and arcs are read; the units come from the file's `$INSUNITS` (else a guess from the size) or your choice.
 - The import window: **Drawing units**, **Walls drawn as** (Auto · Double lines · Single lines, with the single-line wall thickness), **Wall height**, **Put it** (Replace current level · Add as new level · New project), **Keep other lines as guides**, **Layers to use** (dimension, furniture and hatch layers start off).
-- **Pictures (PNG · JPG · WebP · BMP · GIF)** — lie half-transparent on the floor of the current level (2D and 3D). With **Set the scale with two points** click two points a known distance apart and type the real length (Esc cancels). Then trace with the Wall tool or use **Find walls automatically** (reads the outlines of black lines and filled walls into walls, door gaps and window gaps, then asks whether to keep them).
+- **PDF drawings** — pages drawn with lines (most drawings exported from CAD) are read like a DXF: lines, arcs, texts (Korean too) and PDF layers. With several pages you choose one (each shows its number of lines, or that it is scanned). A PDF has no units, so you set the **Scale 1 :** — read from a "SCALE 1:100", "1/50" or "1:200" text on the drawing, and adjusted when the drawing says "1:100 (A1)" but was printed on a smaller paper (A3). Without a scale it is guessed from the door sizes and **Set the scale with two points after the import** is on (click two points and type the real length: the walls, doors, windows and rooms of that level are scaled to fit). Scanned pages (one picture) are drawn as a picture and come in as an underlay.
+- **IFC (BIM: Revit · ArchiCAD · Vectorworks · FreeCAD …)** — the whole building: levels (IfcBuildingStorey, with their heights), walls (thickness and height, joined at their centre lines), doors and windows (in their wall, with width, height and sill; single, double, sliding …), rooms (name and shape of each IfcSpace), stairs and furniture. The units (mm, m, ft) come from the file. Walls that are not straight (curved or bent) are left out and reported; slabs (IfcSlab) are shown by the room floors.
+- **Sweet Home 3D (.sh3d)** — levels, walls (curved ones too), doors and windows (in the nearest wall), rooms (name; floor and ceiling colours become new materials), furniture groups and stairs. Files saved by Sweet Home 3D before 5.3 (without Home.xml) cannot be read: open them in Sweet Home 3D and save them again.
+- **The building import window** (IFC, Sweet Home 3D) shows the numbers of levels, walls, doors, windows, rooms and furniture (matching a library item / with a model of their own) and asks **Put it** (New project · Add levels to this project), **Furniture** (Library + own models · Library only · None) and **Import rooms**. Furniture becomes the library item of the same name (English, Korean, French, German … and catalogue names) and size, fitted to its size; a piece without one brings its own model from the file (Sweet Home 3D's OBJ …, the IFC shape) into **My objects**. One undo takes it all back.
+- **Pictures (PNG · JPG · WebP · BMP · GIF · TIFF · TGA · AVIF · HEIC)** — a TIFF with several pages (scans, faxes) asks for the page; black-and-white, grey and colour TIFFs with the usual compressions are read. HEIC (iPhone photos) comes in where the system can read it (macOS); elsewhere you are asked to save it as JPG or PNG. Pictures lie half-transparent on the floor of the current level (2D and 3D). With **Set the scale with two points** click two points a known distance apart and type the real length (Esc cancels). Then trace with the Wall tool or use **Find walls automatically** (reads the outlines of black lines and filled walls into walls, door gaps and window gaps, then asks whether to keep them).
 - With nothing selected, **Entity Info › Plan picture** shows or hides it and sets the opacity, position X/Z, rotation and width (= scale), and has Scale, Find walls and Remove. The picture is saved inside the .msk file.
+
+### 11.2 Importing anything (File › Import…)
+
+**File › Import…** (the Import button of the toolbar) picks every importable file in one dialog. Its file types are grouped — **All supported files · MySketchBook projects · 3D models · Floor plans & buildings · Textures (materials) · Environments (sky, HDRI)** — and each chosen file goes where it belongs. **Dropping** files on the window sorts them the same way. The separate commands (Import 3D model · Import floor plan · Import texture · Import environment) still work.
+
+| Kind | Extensions | Goes to |
+|---|---|---|
+| Project | `.msk` | Opens (12.1) |
+| 3D model | `.glb` `.gltf` `.obj` `.fbx` `.dae` `.stl` `.3ds` `.ply` `.3mf` `.usdz` `.usda` `.usdc` `.usd` `.wrl` `.vrml` `.step` `.stp` `.iges` `.igs` `.brep` `.brp` `.3dm` `.amf` `.kmz` `.lwo` `.vtk` `.vtp` `.off` `.pcd` `.xyz` `.zip` (+ `.mtl` `.bin` textures) | My objects (chapter 11) |
+| Floor plan | `.dxf` `.dwg` `.svg` `.pdf` | Walls, doors, windows, rooms (11.1) |
+| Building | `.ifc` `.sh3d` | Levels, walls, doors, windows, rooms, furniture (11.1) |
+| Plan picture | `.png` `.jpg` `.jpeg` `.webp` `.bmp` `.gif` `.tif` `.tiff` `.tga` `.avif` `.heic` `.heif` | Underlay on the floor (11.1) |
+| Texture | `.png` `.jpg` `.jpeg` `.webp` `.avif` `.gif` `.bmp` `.tga` `.tif` `.tiff` `.dds` `.ktx2` `.exr` `.hdr` | A new material (11.3) |
+| Environment | `.hdr` `.exr` (HDR panoramas), `.jpg` `.png` `.webp` `.avif` (equirectangular panoramas) | Sky and lighting (11.4) |
+
+<!-- When 3D model, plan or building formats are added, list them in the matching row above (as io/formats.js and ui/plan-import.js list them). -->
+
+- A 3D model chosen or dropped together with its `.mtl`, `.bin` and texture pictures imports as one model.
+- A picture that can be several things (PNG, JPEG …) asks whether it is a **Floor plan**, a **Material texture** or the **Sky (environment)**. `.hdr` and `.exr` files become environments (use Import texture to make one a texture).
+- Files nothing can read are skipped; when there are only such files, the notice lists the formats that can be imported.
+- Sample pictures are in `samples/textures/` (a brick set in TGA, PNG and TIFF, DDS tiles, KTX2 terrazzo, EXR marble, WebP oak) and `samples/environments/` (HDR sunset sky, EXR overcast sky, JPEG meadow panorama); `node scripts/make-texture-samples.mjs` makes them again.
+
+### 11.3 Materials from textures
+
+**File › Import texture (material)…**, the Import dialog, dropping, or the **+** (New material) window of the **Materials** tab.
+
+- The material window: Name · Colour (with a texture it is a **Tint** multiplied with the picture; white = the picture as it is) · Roughness · Metalness, and for each of **Colour texture · Normal map · Roughness map** a **Choose…** and **Remove** button, plus **Tile width · Tile height** (the real length one copy of the picture covers, in metres). Choosing a colour texture sets the tile height from the picture's aspect ratio.
+- Formats read: PNG · JPEG · WebP · AVIF · GIF · BMP · TGA · TIFF · DDS (DXT/BC compressed) · KTX2 (Basis Universal; the transcoder is built in, no internet needed) · OpenEXR · Radiance HDR.
+- Choosing a texture set at once (e.g. `brick_diff.tga` + `brick_nor_gl.png` + `brick_rough.tif`) recognises the normal and roughness maps by suffixes such as `_nor`, `_normal`, `_rough` and makes one material. DirectX-style normal maps (`_nor_dx`) get their green channel flipped.
+- With a roughness map the map sets the roughness (the Roughness slider is off).
+- The pictures are **saved inside the project file (.msk)**, so the project opens the same on another computer. The material is listed under **Other**; right-click its swatch › **Edit material…** to change its pictures, colour or tile size.
+
+### 11.4 Importing your own environment (sky, HDRI)
+
+**File › Import environment (sky, HDRI)…**, the Import dialog, dropping, or **Import my environment…** in the **Styles** tab of the right panel.
+
+- Use an HDR panorama (`.hdr`, `.exr`) or a 2:1 equirectangular panorama picture (`.jpg`, `.png`, `.webp`, `.avif`).
+- After the import it is the **Environment lighting** and the **Background** switches to "Environment photo (HDRI)", so it shows as the sky. Reflections, ambient light and **photo-real rendering** (chapter 13) use the same light.
+- The file is **saved inside the project file** and listed as "(my environment)" among the environments. Each project can have its own sky, and it travels with the project.
 
 ## 12. Saving, opening and exporting
 

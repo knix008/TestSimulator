@@ -15,6 +15,8 @@
 }
 .vp-label[data-kind="length"], .vp-label[data-kind="dimension"] { font-weight: 600; font-variant-numeric: tabular-nums; }
 .vp-label[data-kind="dimension"] { background: #fffbea; color: #1f2937; border-color: #d9c27a; }
+/* Plan dimensions: the length centred on its dimension line, small and quiet. */
+.vp-label[data-kind="plandim"] { translate: -50% -50%; padding: 0 4px; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; background: rgb(255 255 255 / 0.85); color: #1f2937; border-color: transparent; box-shadow: none; pointer-events: none; }
 .vp-label[data-kind="text"] { background: #ffffff; color: #111827; border-color: #9ca3af; }
 .vp-label[data-kind="endpoint"] { color: #18a33a; }
 .vp-label[data-kind="midpoint"] { color: #1a8fb0; }
@@ -30,6 +32,8 @@
 /* ── tool palette (left edge of the view) ─────────────── */
 #palette-host { flex: none; z-index: 4; background: var(--panel); border-right: 1px solid var(--border); overflow-y: auto; overflow-x: hidden; }
 #palette-host[hidden] { display: none; }
+/* Toolbar groups folded into » in a narrow window. */
+#toolbar .tool-group[hidden], #toolbar .tool-sep[hidden], #toolbar .toolbar-more[hidden] { display: none; }
 .tool-palette { display: flex; flex-direction: column; gap: 4px; padding: 6px 4px; }
 .palette-group { display: grid; grid-template-columns: repeat(2, 34px); gap: 2px; padding-bottom: 4px; border-bottom: 1px solid var(--hairline); }
 .palette-group:last-child { border-bottom: none; }
@@ -161,6 +165,13 @@ html[data-lib-drag="over"] *, html[data-lib-drag="over"] canvas { cursor: copy !
 .render-result { display: grid; min-height: 0; place-items: center; height: 100%; background: repeating-conic-gradient(#e5e5e5 0 25%, #fafafa 0 50%) 0 0 / 20px 20px; border-radius: 8px; overflow: hidden; }
 .render-result img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .mat-preview { display: block; width: 96px; height: 96px; border-radius: 50%; margin: 6px auto; box-shadow: 0 4px 12px rgb(0 0 0 / 0.25); }
+/* Material maps (colour / normal / roughness): picture chip, Choose…, remove */
+.mat-map-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mat-map-row .file-chip { min-width: 0; flex: 0 1 auto; }
+.mat-map-preview { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; flex: none; }
+.mat-map-none { flex: 0 1 auto; min-width: 0; }
+.row.mat-hint { white-space: normal; align-items: flex-start; gap: 6px; padding: 6px 0; border-bottom: 0; font-size: 0.92em; }
+.row.mat-hint .icon { flex: none; width: 15px; height: 15px; margin-top: 2px; }
 
 /* ── start page: no side panels, palette or bottom panel (the cards use the whole window) ── */
 #app.on-start #left-panel, #app.on-start #right-panel, #app.on-start .panel-split, #app.on-start #palette-host, #app.on-start #tabs { display: none !important; }
@@ -297,6 +308,12 @@ html[data-lib-drag="over"] *, html[data-lib-drag="over"] canvas { cursor: copy !
 .plan-layer { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; min-width: 0; font-size: 12px; }
 .plan-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plan-layer .muted { font-size: 11px; white-space: nowrap; }
+/* Import floor plan: the pages of a PDF / TIFF (one per row) and the notes under the scale and the building summary */
+.plan-pages { display: flex; flex-direction: column; align-items: stretch; max-height: 260px; overflow: auto; }
+.plan-pages .segment { justify-content: flex-start; gap: 8px; text-align: left; min-width: 0; }
+.plan-pages .segment span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-note { gap: 8px; align-items: flex-start; font-size: 12px; }
+.plan-note span { min-width: 0; overflow-wrap: anywhere; }
 /* Entity Info: plan picture (underlay) */
 .underlay-section input[type="range"] { flex: 1; min-width: 0; }
 .underlay-section .prop-actions { flex-wrap: wrap; }
