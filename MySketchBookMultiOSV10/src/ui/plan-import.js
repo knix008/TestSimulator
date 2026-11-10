@@ -31,7 +31,7 @@ import { UnderlayLayer, underlayToPlan, planToUnderlay } from '../engine/underla
 import { arcLines } from '../io/plan-recognize.js';
 import { backgroundCentre, backgroundPoint, fromProject, fromResult, pickDetection, toResult } from '../io/plan-draft.js';
 import { createPlanStudio } from './plan-studio.js';
-import { detectFurniture } from '../io/plan-furniture.js';
+import { detectFurniture, MATCH_ITEMS } from '../io/plan-furniture.js';
 import { templateSource } from '../io/plan-templates.js';
 import { getMaterial } from '../engine/materials.js';
 import { catalogItem } from '../library/catalog.js';
@@ -175,6 +175,45 @@ export function createPlanImport(app) {
   const studio = createPlanStudio(app);
   // What library furniture looks like from above (built once per item, the first time a picture is read).
   const furnitureTemplates = templateSource((id) => catalogItem(id)?.build?.({}, { quality: 'low', wallThickness: 0.2, material: (m, o) => getMaterial(m, o) }) ?? null);
+  let templatesReady = false;
+
+  /** A moment for the screen: the progress window opens and redraws between the steps of a long job. */
+  const breathe = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /**
+   * A long job in steps, with the progress window open from the start: `body(step)` calls `await step(text)` before
+   * each step (about `total` of them) — the window shows the text and how far the job is, and the screen gets a frame
+   * to draw it (the steps themselves are computations that hold the page while they run).
+   */
+  function inSteps(titleKey, name, total, body) {
+    return app.withProgress(titleKey, name, async (op, report) => {
+      let done = 0;
+      const step = async (text) => {
+        report({ fraction: Math.min(0.98, done / Math.max(1, total)), text });
+        done++;
+        // A frame for the window to show the new text (it is up already: withProgress waits until it is drawn).
+        await breathe(40);
+      };
+      const out = await body(step);
+      report({ fraction: 1, text: t('progress.step.done') });
+      await breathe(60);
+      return out;
+    }, { delay: 0 });
+  }
+
+  /**
+   * The cleaned-up plan into the project and the 3D scene built from it, with progress: `apply()` makes the one
+   * change (one Undo step); then the scene (walls, rooms, furniture) is built.
+   */
+  async function convertTo3d(name, apply, furniture = 0) {
+    return inSteps('progress.convert3d', name, 2, async (step) => {
+      await step(t('progress.step.buildPlan'));
+      const applied = apply();
+      await step(furniture ? t('progress.step.buildSceneFurniture', { n: furniture }) : t('progress.step.buildScene'));
+      app.afterImport?.(applied);
+      return applied;
+    });
+  }
 
   const layerOf = () => {
     const vp = app.viewport();
@@ -240,7 +279,7 @@ export function createPlanImport(app) {
       r.texts = plan.texts;
       return r;
     };
-    const result = recognise(o.walls);
+    const result = await inSteps('progress.readPlan', name, 1, async (step) => { await step(t('progress.step.recognise')); return recognise(o.walls); });
     if (!result.walls.length && !o.refine) { app.notify('error', t('notice.planEmpty', { name })); return { result, applied: null }; }
     let final = result;
     let chosen = { target: o.target ?? 'replace', wallHeight: Number(o.wallHeight) || null, keepLines: o.keepLines !== false };
@@ -259,8 +298,7 @@ export function createPlanImport(app) {
     }
     if (chosen.target === 'new' || !app.project()) app.newProject('empty');
     const target = chosen.target === 'level' ? 'level' : 'replace';
-    const applied = app.change('op.importPlan', (p) => applyPlan(p, final, { target, wallHeight: chosen.wallHeight, keepLeftovers: chosen.keepLines, levelName: stem(name) }), null);
-    app.afterImport?.(applied);
+    const applied = await convertTo3d(name, () => app.change('op.importPlan', (p) => applyPlan(p, final, { target, wallHeight: chosen.wallHeight, keepLeftovers: chosen.keepLines, levelName: stem(name) }), null), final.furniture?.length ?? 0);
     app.notify('success', t(o.refine ? 'studio.converted' : 'notice.planImported', { name, walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0 }));
     return { result: final, applied, refined: Boolean(o.refine) };
   }
@@ -272,7 +310,7 @@ export function createPlanImport(app) {
   async function importPlan(name, source, options = null) {
     // DWG: converted to DXF first (read as DXF from here on).
     const bytes = isDwgName(name) ? await app.withProgress('progress.convertDwg', name, () => convertDwg(app, name, source), { delay: 150 }) : source;
-    const first = readPlanFile(name, bytes);
+    const first = await inSteps('progress.readPlan', name, 1, async (step) => { await step(t('progress.step.readDrawing')); return readPlanFile(name, bytes); });
     const settings = app.settings();
     const hasWalls = Boolean(app.project()?.walls.length);
     let o = options;
@@ -285,7 +323,7 @@ export function createPlanImport(app) {
       });
       if (!o?.ok) return null;
     }
-    const read = readPlanFile(name, bytes, { units: o.units ?? 'auto', layers: o.layers ?? null });
+    const read = await inSteps('progress.readPlan', name, 1, async (step) => { await step(t('progress.step.readDrawing')); return readPlanFile(name, bytes, { units: o.units ?? 'auto', layers: o.layers ?? null }); });
     const { result, applied } = await applyRecognized(name, read.plan, o);
     return { result, applied, units: read.units };
   }
@@ -534,11 +572,12 @@ export function createPlanImport(app) {
     return { original: { data: pixels.data, width: w, height: h }, metresPerPixel: (k * bitmap.width) / w };
   }
 
-  function detectPicture(bitmap, { k, method = 'outline', walls = false }) {
-    const { original, metresPerPixel } = picturePixels(bitmap, k);
-    // walls: the picture's walls alone (furniture, coloured floors, hatching and text left out; plan-image.js wallsOnly),
-    // the door swings still read from the original.
-    const picture = walls ? wallsOnly(original, { metresPerPixel }) : original;
+  /**
+   * Walls, doors and windows of a picture read once (picturePixels): `walls` — its walls alone (plan-image.js wallsOnly:
+   * furniture, coloured floors, hatching and text left out; the door swings still read from the original).
+   */
+  function detectOn(original, wallsPicture, { metresPerPixel, method = 'outline', walls = false }) {
+    const picture = walls ? wallsPicture : original;
     if (!picture) return { walls: [], openings: [], leftovers: [], texts: [], stats: { doors: 0, windows: 0 } };
     const found = detectImageWalls(picture, { metresPerPixel, method, evidence: walls ? original : null });
     return { ...found, leftovers: [], texts: [] };
@@ -584,23 +623,41 @@ export function createPlanImport(app) {
       const background = underlayBackground(u, bitmap);
       // 'auto': both methods, the one that leaves the least to clean up (clean drawings read best as outlines, scans,
       // faxes and sketches as edges).
-      const detect = (method, bg) => app.withProgress('progress.detectWalls', u.name, async () => {
-        const run = (m, walls = false) => detectPicture(bitmap, { k: bg.k, method: m, walls });
-        let raw;
-        if (method === 'walls') raw = run('outline', true);
-        else if (method !== 'auto') raw = run(method);
-        else {
-          // The walls-only picture first (plans with furniture and coloured floors), then the picture as it is.
-          const found = [run('outline', true), run('edges', true), run('outline'), run('edges')];
-          raw = found[pickDetection(found.map((r) => placeResult(r, bg)))];
-        }
-        // Furniture in the rooms of the chosen walls (io/plan-furniture.js), on the picture as it is.
-        if (raw.walls.length) {
+      // 'auto': the walls-only picture first (plans with furniture and coloured floors), then the picture as it is;
+      // the best of the four is kept.
+      const VARIANTS = { auto: [['outline', true], ['edges', true], ['outline', false], ['edges', false]], walls: [['outline', true]], outline: [['outline', false]], edges: [['edges', false]] };
+      const detect = (method, bg) => {
+        const variants = VARIANTS[method] ?? VARIANTS.auto;
+        const total = 1 + variants.length + (variants.length > 1 ? 1 : 0) + (templatesReady ? 0 : 1) + 1;
+        return inSteps('progress.detectWalls', u.name, total, async (step) => {
+          await step(t('progress.step.readPicture'));
           const { original, metresPerPixel } = picturePixels(bitmap, bg.k);
-          try { raw = { ...raw, furniture: detectFurniture(original, { metresPerPixel, result: raw, angle: raw.angle ?? 0, templates: furnitureTemplates }) }; } catch (error) { console.warn('furniture', error); }
-        }
-        return placeResult(raw, bg);
-      }, { delay: 150 });
+          let wallsPicture = null;
+          const found = [];
+          for (const [i, [m, walls]] of variants.entries()) {
+            await step(t(walls ? 'progress.step.findWallsOnly' : 'progress.step.findWalls', { n: i + 1, total: variants.length }));
+            if (walls) wallsPicture ??= wallsOnly(original, { metresPerPixel });
+            found.push(detectOn(original, wallsPicture, { metresPerPixel, method: m, walls }));
+          }
+          let raw = found[0];
+          if (found.length > 1) {
+            await step(t('progress.step.chooseWalls'));
+            raw = found[pickDetection(found.map((r) => placeResult(r, bg)))];
+          }
+          // Furniture in the rooms of the chosen walls (io/plan-furniture.js), on the picture as it is.
+          if (raw.walls.length) {
+            if (!templatesReady) {
+              // What the library's furniture looks like from above: built once, the first time a picture is read.
+              await step(t('progress.step.furnitureShapes'));
+              for (const [i, spec] of MATCH_ITEMS.entries()) { furnitureTemplates(spec.item); if (i % 4 === 3) await breathe(0); }
+              templatesReady = true;
+            }
+            await step(t('progress.step.findFurniture'));
+            try { raw = { ...raw, furniture: detectFurniture(original, { metresPerPixel, result: raw, angle: raw.angle ?? 0, templates: furnitureTemplates }) }; } catch (error) { console.warn('furniture', error); }
+          }
+          return placeResult(raw, bg);
+        });
+      };
       const first = await detect('auto', background);
       if (!first.walls.length) app.notify('info', t('underlay.detectNone'));
       const hasWalls = app.project().walls.some((w) => w.level === u.level);
@@ -616,8 +673,7 @@ export function createPlanImport(app) {
       const result = toResult(out.draft);
       // Pictures carry no room labels the app can read (no OCR): unnamed rooms get a name from size and shape.
       const roomNames = (key, n) => { const base = t(`plan.roomGuess.${key}`); return n > 1 && key !== 'living' ? `${base} ${n}` : base; };
-      const applied = app.change('op.detectWalls', (p) => { p.activeLevel = u.level; return applyPlan(p, result, { target: out.target === 'replace' ? 'replace' : 'add', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines, roomNames, source: u.id }); }, null);
-      app.afterImport?.(applied);
+      const applied = await convertTo3d(u.name, () => app.change('op.detectWalls', (p) => { p.activeLevel = u.level; return applyPlan(p, result, { target: out.target === 'replace' ? 'replace' : 'add', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines, roomNames, source: u.id }); }, null), result.furniture?.length ?? 0);
       app.notify('success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0 }));
       return applied;
     } finally {
@@ -645,8 +701,7 @@ export function createPlanImport(app) {
       if (!out) return null;
       if (background) followBackground(u, out);
       const result = toResult(out.draft);
-      const applied = app.change('op.importPlan', (pp) => applyPlan(pp, result, { target: 'replace', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines }), null);
-      app.afterImport?.(applied);
+      const applied = await convertTo3d(level.name, () => app.change('op.importPlan', (pp) => applyPlan(pp, result, { target: 'replace', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines }), null), result.furniture?.length ?? 0);
       app.notify('success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0 }));
       return applied;
     } finally {

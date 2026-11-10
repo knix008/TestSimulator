@@ -28,6 +28,7 @@
     "tutorial:docs": "node scripts/tutorial-capture.mjs docs",
     "tutorial:video": "node scripts/tutorial-capture.mjs video",
     "samples": "node scripts/make-samples.mjs",
+    "assets:optimize": "node scripts/optimize-assets.mjs",
     "samples:plans2d": "node scripts/make-plan-image-samples.mjs",
     "build:icons": "node scripts/render-icons.mjs",
     "assets": "node scripts/fetch-assets.mjs",
@@ -54,6 +55,7 @@
     "@gltf-transform/functions": "^4.5.1",
     "@tauri-apps/cli": "^2.8.0",
     "draco3dgltf": "1.5.7",
+    "meshoptimizer": "^1.3.0",
     "sharp": "^0.35.5",
     "vite": "^7.1.7"
   }

@@ -606,6 +606,8 @@ function renderProgress() {
     foot: p.cancellable ? `<span class="grow"></span>${button('progress-cancel', state.cancelled ? t('progress.cancelling') : t('common.cancel'), 'close', 'danger', '', state.cancelled ? 'disabled' : '')}` : '',
   });
   ready();
+  // The host waits for this before a long computation starts (it would hold the page before the window is drawn).
+  requestAnimationFrame(() => send('drawn'));
 }
 
 // ───────────────────────── recent files and folders

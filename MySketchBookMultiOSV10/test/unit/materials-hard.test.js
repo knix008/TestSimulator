@@ -93,7 +93,9 @@ test('texture sets are fetchable Poly Haven ids; in index.json when the library 
     assert.match(set, /^[a-z0-9_]+$/, set);
     if (index) {
       assert.ok(index[set], `${set} in library/textures/index.json (run npm run assets -- --only textures)`);
-      for (const map of ['diff', 'nor', 'rough']) assert.ok(fs.existsSync(path.join(root, 'library', 'textures', set, `${map}.jpg`)), `${set}/${map}.jpg`);
+      // WebP after scripts/optimize-assets.mjs (index.json `ext`), JPEG before.
+      const ext = index[set].ext ?? 'jpg';
+      for (const map of ['diff', 'nor', 'rough']) assert.ok(fs.existsSync(path.join(root, 'library', 'textures', set, `${map}.${ext}`)), `${set}/${map}.${ext}`);
     }
   }
 });

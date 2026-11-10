@@ -138,7 +138,8 @@ function baseTexture(set, map) {
   let promise = baseTextures.get(key);
   if (!promise) {
     textureLoader ??= new THREE.TextureLoader();
-    promise = textureLoader.loadAsync(libraryUrl(`textures/${set}/${map}.jpg`));
+    // The set's file type: WebP once scripts/optimize-assets.mjs has run (index.json `ext`), JPEG before.
+    promise = loadTextureIndex().then((index) => textureLoader.loadAsync(libraryUrl(`textures/${set}/${map}.${index[set]?.ext ?? 'jpg'}`)));
     promise.catch(() => baseTextures.delete(key));
     baseTextures.set(key, promise);
   }

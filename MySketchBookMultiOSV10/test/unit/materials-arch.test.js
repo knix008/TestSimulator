@@ -65,7 +65,9 @@ test('texture sets named by arch presets are fetched (library/textures/index.jso
   for (const p of ARCH_MATERIAL_PRESETS) if (p.textures) {
     const info = textureIndex[p.textures];
     assert.ok(info, `${p.id}: set ${p.textures} missing — run npm run assets -- --only textures`);
-    assert.ok(fs.existsSync(path.join(root, 'library', 'textures', p.textures, 'diff.jpg')), `${p.textures}/diff.jpg`);
+    // WebP after scripts/optimize-assets.mjs (index.json `ext`), JPEG before.
+    const file = `diff.${info.ext ?? 'jpg'}`;
+    assert.ok(fs.existsSync(path.join(root, 'library', 'textures', p.textures, file)), `${p.textures}/${file}`);
   }
 });
 

@@ -2234,7 +2234,11 @@ async function withProgress(titleKey, name, task, { delay = 250, cancellable = f
   let shown = false;
   let last = null;
   const signal = { cancelled: false };
-  const timer = setTimeout(() => { shown = true; popups.open('progress', { title: t(titleKey), name, op, last, cancellable }).then((r) => { if (r?.cancel) signal.cancelled = true; }); }, delay);
+  const show = () => { shown = true; popups.open('progress', { title: t(titleKey), name, op, last, cancellable }).then((r) => { if (r?.cancel) signal.cancelled = true; }); };
+  // delay 0 (a job known to be long, done in steps): the window opens now and the job starts once it is drawn.
+  let timer = null;
+  if (delay > 0) timer = setTimeout(show, delay);
+  else { const drawn = popups.whenDrawn('progress'); show(); await drawn; }
   const unlisten = await native.listen('io-progress', (progress) => { if (progress.op !== op) return; last = progress; if (shown) popups.post('progress', { type: 'progress', ...progress }); });
   popups.on(`cancel:${op}`, () => { signal.cancelled = true; });
   try {

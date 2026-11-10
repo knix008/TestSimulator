@@ -53,7 +53,20 @@ export class PopupHost {
     /** Frames instead of OS windows on the desktop (tutorial recording). */
     this.inline = false;
     this.opened = [];
+    this.drawn = new Map();
     this.open = this.open.bind(this);
+  }
+
+  /**
+   * Resolves once the popup `kind` has drawn itself (it sends 'drawn'; the progress window does), or after
+   * `timeout` ms at the latest — a long computation starts after it, so the window is on screen with its text.
+   */
+  whenDrawn(kind, timeout = 1500) {
+    return new Promise((resolve) => {
+      const done = () => { clearTimeout(timer); this.drawn.delete(kind); resolve(); };
+      const timer = setTimeout(done, timeout);
+      this.drawn.set(kind, done);
+    });
   }
 
   get useFrames() {
@@ -96,6 +109,7 @@ export class PopupHost {
   }
 
   receive({ kind, type, data }, fromFrame) {
+    if (type === 'drawn') { this.drawn.get(kind)?.(); return; }
     if (type === 'result') {
       this.answeredAt = { ...this.answeredAt, [kind]: this.openCount?.[kind] ?? 0 };
       this.settle(kind, data ?? null);

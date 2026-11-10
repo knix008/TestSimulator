@@ -8,6 +8,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { NodeIO, getBounds } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
+import { MeshoptDecoder } from 'meshoptimizer';
 import * as THREE from 'three';
 import { MATERIAL_PRESETS } from '../../src/engine/materials.js';
 import { CATEGORIES } from '../../src/library/categories.js';
@@ -55,7 +56,9 @@ test('model manifest: valid entries, files present, sizes sane', () => {
 });
 
 test('model GLBs: valid glTF 2.0, bottom centre at the origin, bounds match the manifest', async () => {
-  const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
+  // The library is meshopt-compressed (scripts/optimize-assets.mjs); the app's GLTFLoader has the same decoder.
+  await MeshoptDecoder.ready;
+  const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
   for (const e of manifest) {
     const bytes = fs.readFileSync(path.join(lib, 'models', e.file));
     assert.equal(bytes.toString('latin1', 0, 4), 'glTF', e.id);
@@ -83,8 +86,10 @@ test('material presets: every texture set exists with diff/nor/rough and an inde
     const info = index[p.textures];
     assert.ok(info, `${p.id} → ${p.textures} in index.json`);
     for (const map of ['diff', 'nor', 'rough']) {
-      assert.ok(exists(`textures/${p.textures}/${map}.jpg`), `${p.textures}/${map}.jpg`);
-      assert.ok(size(`textures/${p.textures}/${map}.jpg`) > 10000, `${p.textures}/${map}.jpg size`);
+      const file = `textures/${p.textures}/${map}.${index[p.textures].ext ?? 'jpg'}`;
+      assert.ok(exists(file), file);
+      // Not empty (a smooth roughness map in WebP is only a few kB).
+      assert.ok(size(file) > 1000, `${file} size`);
       assert.ok(info.maps.includes(map));
     }
     assert.match(info.avg, /^#[0-9a-f]{6}$/);

@@ -1,7 +1,7 @@
 // npm run assets — downloads the CC0 asset library from Poly Haven into library/:
 //
 //   models/<id>.glb + models/manifest.json + models/thumbs/<id>.webp   interior props (1k glTF packed into one GLB)
-//   textures/<set>/{diff,nor,rough,ao}.jpg + textures/index.json        material preset textures (src/engine/materials.js `textures`)
+//   textures/<set>/{diff,nor,rough,ao}.webp + textures/index.json        material preset textures (src/engine/materials.js `textures`)
 //   hdri/<id>.hdr (+ <id>_2k.hdr) + hdri/thumbs/<id>.webp                environments (src/library/environments.js)
 //   LICENSES.md                                                           CC0 statement + every asset with its URL and authors
 //
@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { Logger, NodeIO, getBounds } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { dedup, prune, textureCompress } from '@gltf-transform/functions';
+import { optimiseGlb, optimiseTextureSet } from './lib/optimize-assets.mjs';
 import sharp from 'sharp';
 import { MATERIAL_PRESETS } from '../src/engine/materials.js';
 import { ENVIRONMENTS } from '../src/library/environments.js';
@@ -557,6 +558,8 @@ async function buildModel(io, id, glbFile, info, options = {}) {
   if (bytes.byteLength > MAX_BYTES) throw new Error(`too big: ${mb(bytes.byteLength)} (budget ${mb(MAX_BYTES)})`);
   fs.writeFileSync(`${glbFile}.part`, bytes);
   fs.renameSync(`${glbFile}.part`, glbFile);
+  // Smaller with the same look: WebP textures, meshopt geometry (scripts/lib/optimize-assets.mjs).
+  await optimiseGlb(glbFile);
   return { size, tris: Math.round(tris) };
 }
 
@@ -587,7 +590,9 @@ async function fetchTextures() {
       const hex = stats.channels.slice(0, 3).map((c) => Math.round(c.mean).toString(16).padStart(2, '0')).join('');
       const dims = info.dimensions?.length ? info.dimensions.map((v) => Math.round(v) / 1000) : [1, 1];
       const roughAvg = maps.rough ? Math.round((await sharp(path.join(dir, 'rough.jpg')).stats()).channels[0].mean / 255 * 1000) / 1000 : null;
-      index[set] = { name: info.name, size: dims, avg: `#${hex}`, roughAvg, maps: Object.keys(maps), author: authorsOf(info), url: `https://polyhaven.com/a/${set}` };
+      // Then the maps as WebP (the averages above are read from the downloaded originals).
+      const { ext } = await optimiseTextureSet(dir, Object.keys(maps));
+      index[set] = { name: info.name, size: dims, avg: `#${hex}`, roughAvg, maps: Object.keys(maps), ext, author: authorsOf(info), url: `https://polyhaven.com/a/${set}` };
       progress(++done, sets.length, set, `${dims.join('×')} m · avg #${hex}`);
     } catch (err) { progress(++done, sets.length, red(set), err.message); }
   });
