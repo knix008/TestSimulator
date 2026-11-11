@@ -552,6 +552,7 @@ export default {
   'settings.weight.600': "Semibold",
   'settings.weight.700': "Bold",
   'settings.weight.800': "Extra bold",
+  'settings.wordWrap': "Automatic word wrap",
   'settings.zoom': "Zoom",
   // ── shape
   'shape.sample': "Block",
@@ -950,7 +951,9 @@ export default {
   'action.editSiteHead': "Edit site <head> HTML",
   'action.pageHtmlCode': "Edit this page's HTML",
   'action.sourceMode': "Edit files",
+  'action.wordWrap': "Word Wrap",
   'tip.sourceMode': "Edit this site's HTML, CSS and JavaScript in the editor",
+  'tip.wordWrap': "Wrap long lines in the editor (Alt+Z)",
   'submenu.siteCode': "Site code",
   'toolbar.previewBrowser': "Preview",
   'code.op.css': "Edit site CSS",

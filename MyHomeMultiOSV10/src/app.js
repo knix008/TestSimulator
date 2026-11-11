@@ -916,6 +916,7 @@ const commands = {
   saveDesignAsMine: { icon: 'palette', label: 'action.saveDesignAsMine', enabled: hasDoc, run: () => saveDesignAsMine() },
   pageHtmlCode: { icon: 'htmlFile', label: 'action.pageHtmlCode', enabled: hasDoc, run: () => showSource('page') },
   sourceMode: { icon: 'htmlFile', label: 'action.sourceMode', key: 'Ctrl+Shift+U', enabled: hasDoc, checked: () => state.sourceMode, run: () => toggleSourceMode() },
+  wordWrap: { icon: 'textAlignLeft', label: 'action.wordWrap', key: 'Alt+Z', checked: () => state.settings.wordWrap, run: () => toggle('wordWrap') },
   revertPageSource: { icon: 'refresh', label: 'source.revertPage', enabled: () => pageHasSource(currentPage()), run: () => { state.sourceView?.commit?.(); change('code.op.revertPage', (s, page) => { delete page.source; }); } },
   revertCssFile: { icon: 'refresh', label: 'source.revertCss', enabled: () => cssHasSource(site()), run: () => { state.sourceView?.commit?.(); change('code.op.revertCss', (s) => { if (s.files) s.files.css = ''; }); } },
   print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: hasDoc, run: () => openPrint() },
@@ -1057,7 +1058,7 @@ const MENUS = {
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'moveUp', 'moveDown', 'toggleHidden', '-', 'selectPrev', 'selectNext', 'clearSelection', 'editContent'],
   insert: ['addBlock', '-', ...BLOCK_GROUPS.filter((g) => g.id !== 'site').map((g) => sub(`insert:${g.id}`)), '-', 'editHeader', 'editFooter'],
   page: ['addPage', 'duplicatePage', 'renamePage', 'deletePage', '-', 'pageLeft', 'pageRight', '-', 'prevPage', 'nextPage', '-', 'pageProps'],
-  view: [sub('device'), sub('zoom'), '-', 'previewMode', 'sourceMode', '-', sub('panels'), '-', sub('appearance')],
+  view: [sub('device'), sub('zoom'), '-', 'previewMode', 'sourceMode', 'wordWrap', '-', sub('panels'), '-', sub('appearance')],
   design: ['designPicker', 'randomDesign', 'resetDesign', '-', 'saveDesignAsMine', '-', 'siteProps'],
   tools: ['codeEditor', 'openCode', sub('siteCode'), 'pageHtmlCode', '-', 'dbSettings', '-', 'checkSite', 'showProblems', 'spellCheck', 'dictionary', 'siteStats', '-', 'previewBrowser', 'publish', '-', 'packages', 'settings'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
@@ -1071,7 +1072,7 @@ const TOOLBAR = [
   ['addBlock', 'addPage'],
   ['moveUp', 'moveDown', 'duplicate', 'toggleHidden'],
   ['device:desktop', 'device:tablet', 'device:mobile', 'zoom'],
-  ['previewMode', 'sourceMode'],
+  ['previewMode', 'sourceMode', 'wordWrap'],
   ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
 /** Right end of the toolbar: tutorial, theme (random + dropdown), language, settings, about. */
@@ -1171,6 +1172,10 @@ function renderToolbar() {
     }
     if (id === 'publishSplit') return `<span class="split-button">${plain('publish')}<button class="tool-button split-arrow" data-command="publishMenu" title="${escapeHtml(commandTip('publishMenu'))}" aria-label="${escapeHtml(t('action.publishMenu'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
     if (id === 'themeSplit') return `<span class="split-button">${plain('theme')}<button class="tool-button split-arrow" data-command="themeMenu" title="${escapeHtml(commandTip('themeMenu'))}" aria-label="${escapeHtml(t('action.themeChoose'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
+    if (id === 'wordWrap') {
+      const command = commands[id];
+      return `<button class="tool-button wide" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(command.label))}">${icon(command.icon)}<span>${escapeHtml(t(command.label))}</span></button>`;
+    }
     return plain(id);
   };
   toolbar.innerHTML = `<div class="toolbar-inner">
@@ -2984,6 +2989,7 @@ function onKeyDown(event) {
   if (tutorial?.active && key === 'escape') { event.preventDefault(); tutorial.stop(); return; }
   const editing = event.target.closest?.('input, textarea, select, [contenteditable="true"], [contenteditable="plaintext-only"]');
   const mod = event.ctrlKey || event.metaKey;
+  if (event.altKey && !mod && !event.shiftKey && key === 'z') { event.preventDefault(); run('wordWrap'); return; }
   if (mod && !event.altKey) {
     if (editing && ['x', 'c', 'v', 'z', 'y', 'a', 'arrowup', 'arrowdown', 'h'].includes(key)) return;
     if (key === 'tab') { event.preventDefault(); pageStep(event.shiftKey ? -1 : 1); return; }

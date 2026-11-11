@@ -552,6 +552,7 @@ export default {
   'settings.weight.600': "조금 굵게",
   'settings.weight.700': "굵게",
   'settings.weight.800': "아주 굵게",
+  'settings.wordWrap': "자동 Word Wrap",
   'settings.zoom': "확대/축소",
   // ── shape
   'shape.sample': "블록",
@@ -950,7 +951,9 @@ export default {
   'action.editSiteHead': "사이트 <head> HTML 편집",
   'action.pageHtmlCode': "현재 페이지 HTML 편집",
   'action.sourceMode': "파일 편집",
+  'action.wordWrap': "Word Wrap",
   'tip.sourceMode': "이 사이트의 HTML, CSS, JavaScript를 편집창에서 직접 고칩니다",
+  'tip.wordWrap': "편집 창에서 긴 줄을 다음 줄로 넘깁니다 (Alt+Z)",
   'submenu.siteCode': "사이트 코드",
   'toolbar.previewBrowser': "미리 보기",
   'code.op.css': "사이트 CSS 편집",

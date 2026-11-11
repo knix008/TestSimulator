@@ -359,7 +359,7 @@ The published files are clean HTML and CSS without hidden blocks or editing mark
 - **Check** (F8) — JSHint for JavaScript, HTMLHint for HTML; JSON and CSS are checked by the program itself. Click a result to go to its line.
 - An HTML file shows its **preview** on the right as you type, and **Open in browser** too.
 - **Site CSS, JS, head** — code for the whole open site: the CSS after the design's style sheet, the JavaScript at the end of every page (`script.js` when published), the head HTML in every page's `<head>`. It applies to the canvas as you type and can be undone in the main window.
-- **View › Edit files** (Ctrl+Shift+U) edits this site's HTML, `style.css` and `script.js` under the page, with the menus and the page still showing. What you type is applied to the page at once, and **Save** stores the site. An unclosed tag, a brace or a syntax error is marked on its line and listed in the **Problems** panel below. Double-click a problem to go to that line. A page's HTML or `style.css` can be rebuilt from the blocks or the design.
+- **View › Edit files** (Ctrl+Shift+U) edits this site's HTML, `style.css` and `script.js` under the page, with the menus and the page still showing. What you type is applied to the page at once, and **Save** stores the site. **Word Wrap** on the toolbar (Alt+Z) folds long lines, and **Settings › Editor › Automatic word wrap** keeps that choice. An unclosed tag, a brace or a syntax error is marked on its line and listed in the **Problems** panel below. Double-click a problem to go to that line. A page's HTML or `style.css` can be rebuilt from the blocks or the design.
 - **Tools › Edit this page's HTML** opens that editor on the current page.
 
 ## Packages
@@ -381,7 +381,7 @@ The tools the code editor tidies and checks with (Prettier, JSHint, HTMLHint) ar
 - **Theme** — 20 dark, 20 light and a custom theme (your own colours, with a contrast warning)
 - **Font** — the program's font, size, weight, italic, zoom
 - **Background** — animated, picture or none; kind, speed, random, interval; background picture, opacity and fit
-- **Editor** — the design of new blank sites, the first device width, fit width on opening, icon-only Blocks panel, extract pictures when publishing
+- **Editor** — the design of new blank sites, the first device width, fit width on opening, automatic word wrap, icon-only Blocks panel, extract pictures when publishing
 - **Dictionary** — the spelling check and your dictionary (see above)
 - **Recent**, **Packages** (missing ones download and install automatically; download, retry, cancel), **Database** (where boards keep their posts, with a connection test), **Shortcuts**
 

@@ -342,6 +342,7 @@ function settingsEditor() {
     row('designPicker', t('settings.defaultDesign'), select('data-select', 'defaultDesign', DESIGNS.map((d) => [d.id, `${d[L()]}${d.dark ? ` · ${t('design.darkTag')}` : ''}`, 'palette']), s().defaultDesign, t('settings.defaultDesign'))),
     row('devDesktop', t('settings.defaultDevice'), segmented('defaultDevice', DEVICE_IDS.map((id) => [id, t(`device.${id}`), `dev${id[0].toUpperCase()}${id.slice(1)}`]), s().defaultDevice)),
     toggle('autoFit', t('settings.autoFit'), 'zoomFit'),
+    toggle('wordWrap', t('settings.wordWrap'), 'textAlignLeft'),
     toggle('toolboxCompact', t('settings.toolboxCompact'), 'gridView'),
     toggle('publishExtractImages', t('settings.publishExtractImages'), 'picture'),
     row('info', '', `<span class="muted">${escapeHtml(t('settings.editorHint'))}</span>`, t('settings.editorHint')),

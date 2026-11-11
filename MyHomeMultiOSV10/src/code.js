@@ -11,7 +11,7 @@
 //   myhomemaker.code.site   — the open site's code as the main window has it now.
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ask as askDialog } from '@tauri-apps/plugin-dialog';
-import { loadSettings, STORAGE_KEY } from './domain/settings.js';
+import { loadSettings, storeSettings, STORAGE_KEY } from './domain/settings.js';
 import { CODE_EXTENSIONS, findAll, highlight, languageOf, LANGUAGES, lineColumn, lineOffset, toggleComment } from './domain/highlight.js';
 import { checkCode, formatCode, PARSERS } from './domain/codetools.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
@@ -40,7 +40,7 @@ try { session = JSON.parse(storageGet(CODE_SESSION_KEY) ?? '{}') ?? {}; } catch 
 const state = {
   tabs: [],
   active: null,
-  wrap: Boolean(session.wrap),
+  wrap: Boolean(settings.wordWrap),
   preview: session.preview !== false,
   fontSize: Math.min(FONT.max, Math.max(FONT.min, Number(session.fontSize) || 14)),
   find: { open: false, replace: false, query: '', replacement: '', regex: false, caseSensitive: false, index: -1 },
@@ -65,6 +65,13 @@ function applyLook() {
     appWindow.setTitle(activeTab() ? `${tabName(activeTab())}${activeTab().dirty ? ' ●' : ''} — ${title}` : title).catch(() => {});
     appWindow.setTheme(theme.dark ? 'dark' : 'light').catch(() => {});
   }
+}
+
+/** Word wrap follows Settings and the toolbar button in every editor window. */
+function setWordWrap(on) {
+  settings = { ...settings, wordWrap: Boolean(on) };
+  storeSettings(globalThis.localStorage, settings);
+  state.wrap = settings.wordWrap;
 }
 
 // ───────────────────────── tabs
@@ -378,7 +385,7 @@ function toolbarHtml() {
     </div>${sep}<div class="tool-group">
       ${toolButton('format', 'sparkles', `${t('code.format')} (Shift+Alt+F)`, { disabled: none || !PARSERS[tab.language], text: t('code.formatShort') })}${toolButton('check', 'check', `${t('code.check')} (F8)`, { disabled: none || tab.language === 'text', text: t('code.checkShort') })}
     </div>${sep}<div class="tool-group">
-      ${toolButton('wrap', 'textAlignLeft', t('code.wrap'), { active: state.wrap })}${toolButton('preview', 'eye', t('code.preview'), { active: state.preview, disabled: none || tab.language !== 'html', text: t('code.previewShort') })}
+      ${toolButton('wrap', 'textAlignLeft', t('code.wrap'), { active: state.wrap, text: t('code.wrap') })}${toolButton('preview', 'eye', t('code.preview'), { active: state.preview, disabled: none || tab.language !== 'html', text: t('code.previewShort') })}
       ${toolButton('font-down', 'fontDown', t('code.fontDown'))}<span class="code-font-size" title="${escapeHtml(t('code.fontSize'))}">${state.fontSize}px</span>${toolButton('font-up', 'fontUp', t('code.fontUp'))}
     </div>
     <span class="grow"></span>
@@ -986,7 +993,7 @@ root.addEventListener('click', async (event) => {
     case 'comment': commentLines(); break;
     case 'format': await formatActive(); break;
     case 'check': await checkActive(); break;
-    case 'wrap': rememberView(); state.wrap = !state.wrap; saveSession(); render(); break;
+    case 'wrap': rememberView(); setWordWrap(!settings.wordWrap); saveSession(); render(); break;
     case 'preview': rememberView(); state.preview = !state.preview; saveSession(); render(); break;
     case 'preview-browser': await previewInBrowser(); break;
     case 'font-down': case 'font-up': rememberView(); state.fontSize = Math.min(FONT.max, Math.max(FONT.min, state.fontSize + (target.dataset.code === 'font-up' ? 1 : -1))); saveSession(); render(); break;
@@ -1076,7 +1083,7 @@ window.addEventListener('keydown', (event) => {
     if ((key === '=' || key === '+') && !event.shiftKey) return run(() => root.querySelector('[data-code="font-up"]')?.click());
     if (key === '-') return run(() => root.querySelector('[data-code="font-down"]')?.click());
   }
-  if (event.shiftKey && event.altKey && key === 'f' && tab) return run(formatActive);
+  if (event.altKey && !mod && !event.shiftKey && key === 'z') return run(() => { rememberView(); setWordWrap(!settings.wordWrap); saveSession(); render(); });
   if (key === 'f8' && tab) return run(checkActive);
   if (key === 'f3' && tab) return run(() => (state.find.open ? findStep(event.shiftKey ? -1 : 1) : openFind(false)));
   if (key === 'escape' && state.find.open) return run(() => root.querySelector('[data-code="find-close"]')?.click());
@@ -1086,7 +1093,7 @@ window.addEventListener('keydown', (event) => {
 window.addEventListener('storage', (event) => {
   if (event.key === CODE_INBOX_KEY) readInbox();
   else if (event.key === CODE_SITE_KEY) { siteChanged(); if (!activeTab()) render(); }
-  else if (event.key === STORAGE_KEY) { settings = loadSettings(globalThis.localStorage); rememberView(); render(); }
+  else if (event.key === STORAGE_KEY) { settings = loadSettings(globalThis.localStorage); state.wrap = Boolean(settings.wordWrap); rememberView(); render(); }
   else if (event.key === PACKAGES_STATE_KEY) renderStatus();
 });
 

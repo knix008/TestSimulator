@@ -92,9 +92,10 @@ export class SourceEditor {
     this.key = key;
     const file = this.file();
     const t = this.app.t;
+    const wrap = Boolean(this.app.state.settings.wordWrap);
     const tab = (id, glyph, label) => `<button type="button" class="source-file ${file === id ? 'active' : ''}" data-source-file="${id}" role="tab" aria-selected="${file === id}" title="${escapeHtml(label)}">${icon(glyph)}<span>${escapeHtml(label)}</span></button>`;
     const pageName = pageFile(doc.page);
-    this.host.innerHTML = `<div class="source-view">
+    this.host.innerHTML = `<div class="source-view ${wrap ? 'wrap' : ''}">
       <div class="source-bar">
         <div class="source-files" role="tablist">
           ${tab('page', 'htmlFile', pageName)}
@@ -102,6 +103,7 @@ export class SourceEditor {
           ${tab('js', 'blkHtml', 'script.js')}
         </div>
         <span class="source-note"></span>
+        <button type="button" class="small-button source-wrap ${wrap ? 'active' : ''}" data-command="wordWrap" title="${escapeHtml(t('tip.wordWrap'))}" aria-pressed="${wrap}">${icon('textAlignLeft')}<span>${escapeHtml(t('action.wordWrap'))}</span></button>
         <button type="button" class="small-button source-save" data-command="save" title="${escapeHtml(t('action.save'))} (Ctrl+S)">${icon('save')}<span>${escapeHtml(t('action.save'))}</span></button>
         <button type="button" class="small-button source-revert" data-command="revertPageSource" hidden>${icon('refresh')}<span></span></button>
       </div>
@@ -110,7 +112,7 @@ export class SourceEditor {
         <div class="code-scroll"><div class="code-layer">
           <div class="code-current" aria-hidden="true"></div>
           <pre class="code-hl" aria-hidden="true"></pre>
-          <textarea class="code-input" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" aria-label="${escapeHtml(file === 'page' ? pageName : file === 'css' ? 'style.css' : 'script.js')}"></textarea>
+          <textarea class="code-input" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="${wrap ? 'soft' : 'off'}" aria-label="${escapeHtml(file === 'page' ? pageName : file === 'css' ? 'style.css' : 'script.js')}"></textarea>
         </div></div>
       </div>
     </div>`;
@@ -143,6 +145,7 @@ export class SourceEditor {
     const pageName = pageFile(doc.page);
     const pageTab = this.host.querySelector('[data-source-file="page"] span');
     if (pageTab) pageTab.textContent = pageName;
+    this.applyWrap();
     if (file === 'css') {
       note.textContent = t(cssHasSource(doc.site) ? 'source.hint.cssCustom' : 'source.hint.css');
       revert.hidden = !cssHasSource(doc.site);
@@ -161,6 +164,23 @@ export class SourceEditor {
     }
   }
 
+  /** Turns long lines onto the next row when Word Wrap is on. */
+  applyWrap() {
+    const on = Boolean(this.app.state.settings.wordWrap);
+    const view = this.host.querySelector('.source-view');
+    const input = this.input;
+    const button = this.host.querySelector('.source-wrap');
+    if (!view || !input) return;
+    const was = view.classList.contains('wrap');
+    view.classList.toggle('wrap', on);
+    input.wrap = on ? 'soft' : 'off';
+    if (button) {
+      button.classList.toggle('active', on);
+      button.setAttribute('aria-pressed', String(on));
+    }
+    if (was !== on) this.paint();
+  }
+
   paint() {
     const input = this.input;
     const hl = this.host.querySelector('.code-hl');
@@ -171,10 +191,17 @@ export class SourceEditor {
     hl.innerHTML = linesHtml(coloured);
     const lines = text.split('\n').length;
     const editor = this.host.querySelector('.code-editor');
+    const gutter = this.host.querySelector('.code-gutter-inner');
     editor.style.setProperty('--gutter-digits', String(Math.max(2, String(lines).length)));
-    let gutter = '';
-    for (let i = 1; i <= lines; i += 1) gutter += `<div>${i}</div>`;
-    this.host.querySelector('.code-gutter-inner').innerHTML = gutter;
+    const wrapped = this.host.querySelector('.source-view')?.classList.contains('wrap');
+    if (wrapped) {
+      const rows = hl.querySelectorAll('.cl');
+      gutter.innerHTML = [...rows].map((row, i) => `<div style="height:${row.offsetHeight}px">${i + 1}</div>`).join('');
+    } else {
+      let html = '';
+      for (let i = 1; i <= lines; i += 1) html += `<div>${i}</div>`;
+      gutter.innerHTML = html;
+    }
     this.paintCurrent();
     this.paintMarks();
   }

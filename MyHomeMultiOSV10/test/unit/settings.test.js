@@ -33,7 +33,8 @@ test('bad stored values are repaired', () => {
   assert.equal(normalizeSettings({ boardBackend: 'python' }).boardBackend, 'python');
   assert.equal(normalizeSettings({ boardBackend: 'ruby' }).boardBackend, 'node');
   assert.equal(defaultSettings('ko').language, 'ko');
-  assert.equal(defaultSettings('ko').boardBackend, 'node');
+  assert.equal(defaultSettings('ko').wordWrap, false);
+  assert.equal(normalizeSettings({ wordWrap: true }).wordWrap, true);
 });
 
 test('a new installation resets preferences once and keeps the user data', () => {

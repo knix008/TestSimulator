@@ -140,6 +140,7 @@ export function defaultSettings(language = 'ko') {
     defaultDesign: 'ocean',
     defaultDevice: 'desktop',
     autoFit: true,
+    wordWrap: false,
     showHover: true,
     toolboxCompact: false,
     confirmPublish: true,
@@ -168,7 +169,7 @@ const clamp = (value, min, max, fallback) => {
   return Number.isFinite(number) ? Math.min(max, Math.max(min, Math.round(number))) : fallback;
 };
 
-const BOOLEANS = ['autoDownloadPackages', 'showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'showBottomPanel', 'spellCheck', 'spellEnglish', 'spellKorean', 'restoreSession', 'confirmDelete', 'statusClock', 'autoFit', 'showHover', 'toolboxCompact',
+const BOOLEANS = ['autoDownloadPackages', 'showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'showBottomPanel', 'spellCheck', 'spellEnglish', 'spellKorean', 'restoreSession', 'confirmDelete', 'statusClock', 'autoFit', 'wordWrap', 'showHover', 'toolboxCompact',
   'confirmPublish', 'publishExtractImages', 'tutorialOffered', 'showWelcome', 'tutorialDone', 'animationOnStartOnly', 'animationRandom',
   'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner'];
 
