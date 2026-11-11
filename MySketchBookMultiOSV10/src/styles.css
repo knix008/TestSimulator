@@ -1722,7 +1722,11 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 
 /* Start page › 2D plan samples (ui/startpage.js planSamplesBody): picture tiles with the format on the thumbnail. */
 .plan-sample-hint { display: flex; align-items: flex-start; gap: 6px; margin: 0 0 8px; color: var(--muted); font-size: 12px; }
-.plan-sample-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+/* Five to a row like the other start-page groups (each group holds a multiple of five, so no row ends half empty);
+   a card made narrow falls back to as many as fit. */
+.sample-group[data-plan-sample-group] { container-type: inline-size; }
+.plan-sample-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+@container (max-width: 640px) { .plan-sample-tiles { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
 .plan-sample-tile { display: flex; flex-direction: column; align-items: stretch; gap: 3px; min-width: 0; padding: 6px; text-align: left; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer; }
 .plan-sample-tile:hover { border-color: var(--accent); background: var(--hover); }
 .plan-sample-tile b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

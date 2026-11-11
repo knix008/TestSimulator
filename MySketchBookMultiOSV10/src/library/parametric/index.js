@@ -66,6 +66,9 @@ import { ITEMS as outdoorPlus } from './outdoor-plus.js';
 import { ITEMS as windowsPlus } from './windows-plus.js';
 import { ITEMS as structurePlus } from './structure-plus.js';
 import { ITEMS as doorsPlus } from './doors-plus.js';
+// The accessories (소품) category: everyday props (*-plus.js, *-plus2.js)
+import { ITEMS as accessoriesPlus } from './accessories-plus.js';
+import { ITEMS as accessoriesPlus2 } from './accessories-plus2.js';
 
 export const PARAMETRIC_ITEMS = [
   ...living, ...dining, ...bedroom, ...kitchen, ...appliances, ...bathroom, ...office, ...kids,
@@ -78,6 +81,7 @@ export const PARAMETRIC_ITEMS = [
   ...windowsPlus,
   ...structurePlus,
   ...doorsPlus,
+  ...accessoriesPlus, ...accessoriesPlus2,
 ];
 
 const BY_ID = new Map(PARAMETRIC_ITEMS.map((e) => [e.id, e]));

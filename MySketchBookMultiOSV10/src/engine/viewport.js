@@ -398,6 +398,7 @@ export class Viewport {
     this.tickScale = tick > 0 ? Math.min(4, tick / 16.667) : 1;
     if (this.animation) this.stepAnimation(now);
     if (this.walk?.active) this.stepWalk(now);
+    if (this.tour && !this.animation) this.tour.step(now);
     this.stepGlide();
     if (!this.dirty) { this.renderedLastTick = false; return; }
     const s = this.settings();
@@ -498,7 +499,7 @@ export class Viewport {
 
   /** Marks the start/continuation of an interaction; a full-quality frame follows when it ends. */
   /** The user is moving the view or dragging in it (background work such as thumbnails waits). */
-  isBusy() { return Boolean(this.interacting || this.navDrag || this.animation || this.walk || this.pointerDown || performance.now() - (this.lastInteraction ?? 0) < 500); }
+  isBusy() { return Boolean(this.interacting || this.navDrag || this.animation || this.walk || this.tour || this.pointerDown || performance.now() - (this.lastInteraction ?? 0) < 500); }
 
   touchInteraction(holdMs = 180) {
     this.interacting = true;
@@ -1099,7 +1100,7 @@ export class Viewport {
     const orthoPerPixel = this.isOrtho ? (this.ortho.top - this.ortho.bottom) / (this.ortho.zoom * this.height) : 0;
     const perspK = this.isOrtho ? 0 : (2 * Math.tan(THREE.MathUtils.degToRad(this.perspective.fov / 2))) / this.height;
     const perPixelAt = (position) => (this.isOrtho ? orthoPerPixel : Math.max(0.05, _markerDelta.subVectors(position, cam.position).dot(forward)) * perspK);
-    this.sunMarker.visible = Boolean(this.sunState?.on) && this.settings().showSunMarker !== false && !this.walk;
+    this.sunMarker.visible = Boolean(this.sunState?.on) && this.settings().showSunMarker !== false && !this.walk && !this.tour;
     if (this.sunMarker.visible) {
       // The marker's place is fixed world coordinates (placed when the sun changes); only its size follows the zoom.
       this.sunSprite.scale.setScalar(30 * perPixelAt(this.sunSprite.position));

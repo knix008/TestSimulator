@@ -125,7 +125,7 @@ export class PopupHost {
    * nothing to centre it over the main window. Resolves with the popup's result
    * (null when it closes without one).
    */
-  open(kind, params = {}, { anchor = null } = {}) {
+  open(kind, params = {}, { anchor = null, delay = 0 } = {}) {
     const size = POPUPS[kind];
     try {
       globalThis.localStorage?.setItem(popupKey(kind), JSON.stringify({ ...params, anchor, at: Date.now() }));
@@ -137,7 +137,8 @@ export class PopupHost {
     if (!this.useFrames) {
       const x = anchor ? anchor.x : window.screenX + (window.outerWidth - size.width) / 2;
       const y = anchor ? anchor.y : window.screenY + Math.max(40, (window.outerHeight - size.height) / 2);
-      invoke('open_popup', { kind, x: Math.round(x), y: Math.round(y), width: size.width, height: size.height, show: true })
+      // delay (progress): the window is shown by the backend after that long, unless hidden before.
+      invoke('open_popup', { kind, x: Math.round(x), y: Math.round(y), width: size.width, height: size.height, show: true, delay: Math.max(0, Math.round(delay)) })
         .catch((error) => { this.settle(kind, null); this.actions.get('error')?.(error); });
     } else {
       this.openFrame(kind, anchor);
@@ -146,9 +147,13 @@ export class PopupHost {
   }
 
   /** Creates a hidden popup ahead of time so it opens instantly later (menus). */
-  prewarm(kind) {
-    // Never touches the popup's parameters: a menu opened meanwhile keeps its items.
+  prewarm(kind, { warm = false } = {}) {
+    // Never touches the popup's parameters (a menu opened meanwhile keeps its items) — except `warm`: the
+    // page then draws nothing and does not show itself (progress, which shows only when asked).
     if (this.useFrames || this.pending.has(kind)) return Promise.resolve();
+    if (warm) {
+      try { globalThis.localStorage?.setItem(popupKey(kind), JSON.stringify({ warm: true })); } catch { /* defaults */ }
+    }
     const size = POPUPS[kind];
     return invoke('open_popup', { kind, x: -32000, y: -32000, width: size.width, height: size.height, show: false }).catch(() => {});
   }
@@ -176,6 +181,13 @@ export class PopupHost {
 
   closeAll() {
     return Promise.all(Object.keys(POPUPS).map((kind) => (kind === 'menu' ? this.hideMenu() : this.close(kind))));
+  }
+
+  /** Hides a popup but keeps its window for the next time (progress: opening it again is then instant). */
+  hide(kind) {
+    this.settle(kind, null);
+    if (this.frames.has(kind)) { this.removeFrame(kind); return Promise.resolve(); }
+    return isDesktop() ? invoke('hide_popup', { kind }).catch(() => {}) : Promise.resolve();
   }
 
   hideMenu() {

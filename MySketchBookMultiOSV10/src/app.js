@@ -55,6 +55,7 @@ import { syncStairwells } from './engine/stairs.js';
 import { swingMeta, doorDirection, setDoorDirection } from './engine/doorswing.js';
 import { createPrintHost } from './print/host.js';
 import { createPlanImport, isPlanName, isPlanImageName } from './ui/plan-import.js';
+import { createTour } from './ui/tour.js';
 import * as ModelFormats from './io/formats.js';
 import { appImportRouter } from './io/importers.js';
 import * as PlanImportModule from './ui/plan-import.js';
@@ -266,6 +267,7 @@ function showSunPanel() {
 function resetView() {
   if (!viewport || !project()) return;
   viewport.stopGlide();
+  tour.stop({ restore: false });
   if (viewport.walk) { viewport.stopWalk(); if (state.tool === 'walk') setTool('select'); }
   if (state.planView) { viewport.setView('top'); viewport.zoomExtents(); return; }
   if (state.homeCamera) viewport.setCameraState(state.homeCamera, { animate: true });
@@ -274,6 +276,7 @@ function resetView() {
 }
 
 function setDoc(d) {
+  tour.stop({ restore: false });
   // Leaving the start page closes the welcome popup (the tutorial's own card stays while it runs).
   if (!tutorial?.active) popups.close('welcome');
   state.doc = d;
@@ -325,16 +328,46 @@ async function confirmReplace() {
 
 async function newProjectAsk(templateId = 'empty') {
   if (!(await confirmReplace())) return null;
-  return newProject(templateId);
+  if (templateId === 'empty') return newProject(templateId);
+  return busy('progress.template', t(`template.${templateId}`), () => newProject(templateId));
 }
 
 async function openSampleAsk(id) {
   if (!(await confirmReplace())) return null;
-  const p = buildSampleProject(id, lang());
-  if (!p) return null;
-  const d = new Doc(normalizeProject(p), { name: p.name });
-  setDoc(d);
-  return d;
+  const entry = SAMPLE_PROJECTS.find((x) => x.id === id);
+  return busy('progress.sample', entry?.[lang()]?.[0] ?? entry?.en?.[0] ?? id, () => {
+    const p = buildSampleProject(id, lang());
+    if (!p) return null;
+    const d = new Doc(normalizeProject(p), { name: p.name });
+    setDoc(d);
+    return d;
+  });
+}
+
+/**
+ * A job that holds the page for a while (a project and its 3D scene being built): the progress window shows
+ * after `delay` — the backend shows it, the page cannot while it is held — and stays until the new scene's
+ * first frames are drawn (shaders and textures are prepared then, the rest of the wait).
+ */
+async function busy(titleKey, name, job, { delay = 300 } = {}) {
+  return withProgress(titleKey, name, async (op, report) => {
+    report({ fraction: 0.05, text: t('progress.step.buildProject') });
+    // One turn of the event loop: the request for the window leaves before the page is held.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const out = await job();
+    report({ fraction: 0.7, text: t('progress.step.firstFrame') });
+    await drawnFrames(2);
+    return out;
+  }, { delay });
+}
+
+/** Resolves after `n` frames have been drawn (at most ~1 s: a hidden window draws none). */
+function drawnFrames(n) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, 1000);
+    const step = (left) => requestAnimationFrame(() => (left <= 1 ? (clearTimeout(timer), setTimeout(resolve, 0)) : step(left - 1)));
+    step(n);
+  });
 }
 
 function persistSession() {
@@ -439,7 +472,7 @@ function mountViewport() {
   });
   // Wall dimensions of the active level, in the 2D plan and in 3D (toolbar: Dimensions).
   planDims = new PlanDimensions(viewport, overlay, {
-    enabled: () => state.settings.showPlanDims !== false && !viewport.walk,
+    enabled: () => state.settings.showPlanDims !== false && !viewport.walk && !viewport.tour,
     project,
     format: (m) => formatLength(m, units()),
     color: () => dimensionColor(state.dimBackground ?? '#ffffff'),
@@ -586,6 +619,9 @@ function renderAnnotations() {
 function bindViewportEvents(host) {
   const canvas = viewport.canvas;
   const toolOf = () => state.toolObject;
+  // A press or the wheel pauses the automatic walk-through: the view is the user's again until play.
+  canvas.addEventListener('pointerdown', () => tour.interrupt(), { capture: true });
+  canvas.addEventListener('wheel', () => tour.interrupt(), { capture: true, passive: true });
   canvas.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || viewport.navTool) return;
     canvas.focus();
@@ -948,6 +984,7 @@ function makeTool(id) {
 /** Activates a tool by id (or a PlaceTool for a library item: { item }). */
 function setTool(id, options = {}) {
   if (!viewport) return;
+  if (id !== 'select' && id !== state.tool) tour.stop({ restore: false });
   try { state.toolObject?.deactivate(); } catch { /* ignore */ }
   overlay.reset();
   renderAnnotations();
@@ -1122,6 +1159,7 @@ const commands = {
   'tool:pan': toolCommand('pan', 'panTool', 'H'),
   'tool:zoom': toolCommand('zoom', 'zoomTool', 'Z'),
   'tool:walk': toolCommand('walk', 'walkTool'),
+  tour: { icon: 'tour', label: 'action.tour', key: 'F6', enabled: () => hasDoc() && !state.planView && !state.showStart, checked: () => tour.active, run: () => tour.toggle() },
   'tool:lookAround': toolCommand('lookAround', 'lookAround'),
   zoomExtents: { icon: 'zoomExtents', label: 'action.zoomExtents', key: 'Shift+Z', enabled: hasDoc, run: () => viewport.zoomExtents() },
   resetView: { icon: 'home', label: 'action.resetView', key: 'Home', enabled: hasDoc, run: () => resetView() },
@@ -1236,6 +1274,7 @@ function switchLamps(lamps, on) {
 
 function setPlanView(on) {
   if (!viewport || !project()) return;
+  if (on) tour.stop({ restore: false });
   state.planView = on;
   // The plan shows the active level alone: hide or bring back the other levels.
   syncScene();
@@ -1405,7 +1444,7 @@ const MENUS = {
   view: [sub('views'), 'perspective', 'planView', sub('levels'), '-', sub('faceStyle'), sub('show'), sub('quality'), '-', sub('scenes'), '-', sub('appearance')],
   draw: ['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window', 'addLevel', '-', sub('drawShapes')],
   tools: ['tool:select', 'tool:eraser', 'tool:paint', '-', sub('modify'), sub('solids'), '-', sub('construct'), sub('section'), '-', 'checkNow', 'showProblems', 'showMessages', '-', 'renderPhoto', 'settings'],
-  camera: ['tool:orbit', 'tool:pan', 'tool:zoom', 'zoomExtents', 'zoomSelection', '-', 'tool:walk', '-', sub('views'), 'perspective', 'planView', '-', 'addScene', 'prevScene', 'nextScene'],
+  camera: ['tool:orbit', 'tool:pan', 'tool:zoom', 'zoomExtents', 'zoomSelection', '-', 'tool:walk', 'tour', '-', sub('views'), 'perspective', 'planView', '-', 'addScene', 'prevScene', 'nextScene'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', draw: 'wallTool', tools: 'tools', camera: 'orbitTool', help: 'question' };
@@ -1416,13 +1455,13 @@ const TOOLBAR = [
   ['tool:select', 'tool:eraser', 'tool:paint'],
   ['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window'],
   ['tool:move', 'tool:rotate', 'tool:pushpull', 'tool:tape'],
-  ['tool:orbit', 'tool:pan', 'zoomExtents', 'resetView', 'viewsSplit', 'planView', 'rulers', 'planDims', 'scaleBar'],
+  ['tool:orbit', 'tool:pan', 'zoomExtents', 'resetView', 'viewsSplit', 'planView', 'tour', 'rulers', 'planDims', 'scaleBar'],
   ['styleSplit', 'sunOn', 'dayNight', 'shadows', 'lightsOn'],
   ['renderPhoto'],
   ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
-const LABELED = new Set(['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window', 'planView', 'renderPhoto']);
+const LABELED = new Set(['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window', 'planView', 'tour', 'renderPhoto']);
 
 // ───────────────────────── shell
 
@@ -2047,6 +2086,7 @@ function renderStartPage() {
 }
 
 function showStartPage(show = true) {
+  if (show) tour.stop({ restore: false });
   state.showStart = show && true;
   if (!state.doc) state.showStart = true;
   if (state.tool !== 'select' && viewport) setTool('select');
@@ -2160,7 +2200,7 @@ function tickStartBackground() {
   if (!showing) { startBackgroundChangedAt = Date.now(); return; }
   if (Date.now() - startBackgroundChangedAt >= s.animationInterval * 1000) { startBackgroundChangedAt = Date.now(); updateSettings({ animation: randomAnimation(s.animation) }, { quiet: true }); startBackground?.setKind(state.settings.animation); }
 }
-function shuffleBackground() { const next = (startBackground ?? appBackground)?.shuffle() ?? 'aurora'; updateSettings({ animation: next, backgroundKind: 'animated' }); notify('info', t('notice.animation', { name: t(`animation.${next}`) })); }
+function shuffleBackground() { const next = (startBackground ?? appBackground)?.shuffle() ?? ANIMATIONS[0]; updateSettings({ animation: next, backgroundKind: 'animated' }); notify('info', t('notice.animation', { name: t(`animation.${next}`) })); }
 async function loadBackground() {
   try { state.backgroundUrl = await native.backgroundUrl(state.settings); } catch (error) { state.backgroundUrl = null; showError('error.background', error); }
   updateBackgroundState();
@@ -2229,16 +2269,23 @@ async function openThemePicker(anchor) {
  * Runs task(op, report) and shows the progress popup when it takes longer than `delay` ms.
  * report({ fraction, text }) updates it; a cancel in the popup sets `signal.cancelled`.
  */
+const progressJobs = [];
 async function withProgress(titleKey, name, task, { delay = 250, cancellable = false } = {}) {
   const op = `op-${newId()}`;
   let shown = false;
   let last = null;
   const signal = { cancelled: false };
-  const show = () => { shown = true; popups.open('progress', { title: t(titleKey), name, op, last, cancellable }).then((r) => { if (r?.cancel) signal.cancelled = true; }); };
-  // delay 0 (a job known to be long, done in steps): the window opens now and the job starts once it is drawn.
+  const job = { op, reopen: null };
+  const show = (wait = 0) => { shown = true; popups.open('progress', { title: t(titleKey), name, op, last, cancellable, delay: wait }, { delay: wait }).then((r) => { if (r?.cancel) signal.cancelled = true; }); };
+  job.reopen = () => show(0);
+  progressJobs.push(job);
+  // Desktop: the window (made ahead of time, hidden) is asked for now and the backend shows it after
+  // `delay` — a timer here would not fire while a long computation holds the page. delay 0 (a job known
+  // to be long, done in steps): shown at once, and the job starts once it is drawn.
   let timer = null;
-  if (delay > 0) timer = setTimeout(show, delay);
-  else { const drawn = popups.whenDrawn('progress'); show(); await drawn; }
+  if (delay <= 0) { const drawn = popups.whenDrawn('progress'); show(0); await drawn; }
+  else if (desktop && !popups.useFrames) show(delay);
+  else timer = setTimeout(() => show(0), delay);
   const unlisten = await native.listen('io-progress', (progress) => { if (progress.op !== op) return; last = progress; if (shown) popups.post('progress', { type: 'progress', ...progress }); });
   popups.on(`cancel:${op}`, () => { signal.cancelled = true; });
   try {
@@ -2249,7 +2296,15 @@ async function withProgress(titleKey, name, task, { delay = 250, cancellable = f
   } finally {
     clearTimeout(timer);
     unlisten();
-    if (shown) { popups.post('progress', { type: 'done' }); setTimeout(() => popups.close('progress'), 300); }
+    progressJobs.splice(progressJobs.indexOf(job), 1);
+    if (shown) {
+      popups.post('progress', { type: 'done' });
+      // Hidden, not closed (the next job opens it at once) — unless another job has the window by then;
+      // a job this one ran inside gets it back.
+      const outer = progressJobs.at(-1);
+      // A moment's grace: a job that follows straight on (read the picture → find the walls) keeps the window up.
+      setTimeout(() => { if (progressJobs.at(-1) !== outer) return; if (outer) outer.reopen(); else popups.hide('progress'); }, 700);
+    }
   }
 }
 
@@ -2285,7 +2340,7 @@ async function openPath(path, { quiet = false } = {}) {
     const bytes = await withProgress('progress.open', name, (op) => readBytes(path, op));
     const { project: p, assets } = await withProgress('progress.open', name, async () => unpackProject(bytes), { delay: 150 });
     const d = new Doc(p, { path, assets });
-    setDoc(d);
+    await busy('progress.open', name, () => setDoc(d), { delay: 150 });
     rememberRecent({ path, title: p.name });
     if (!quiet) notify('success', t('notice.opened', { name }));
     return d;
@@ -2299,7 +2354,7 @@ async function openContent(name, bytes, handle = null) {
   try {
     const { project: p, assets } = unpackProject(bytes);
     const d = new Doc(p, { name, handle, assets });
-    setDoc(d);
+    await busy('progress.open', name, () => setDoc(d), { delay: 150 });
     rememberRecent({ path: name, title: p.name, web: true });
     notify('success', t('notice.opened', { name }));
     return d;
@@ -2428,6 +2483,14 @@ async function loadUserAsset(d, id) {
 }
 
 /** File › Import floor plan… (ui/plan-import.js): DXF / SVG plans and plan pictures (underlays). */
+/** Automatic walk-through (Camera › Auto tour, F6): ui/tour.js + engine/tour.js. */
+const tour = createTour({
+  viewport: () => viewport, project, t, notify: (...a) => notify(...a),
+  host: () => root.querySelector('#view-host'),
+  settings: () => state.settings, updateSettings: (patch) => updateSettings(patch, { quiet: true }),
+  onChange: () => { renderToolbarState(); planDims?.update?.(); },
+});
+
 const planImport = createPlanImport({
   desktop, native, popups, t, notify, showError, ask, undo, withProgress, readBytes: (path) => readBytes(path),
   doc, project, units, change, newProject, setPlanView,
@@ -3299,9 +3362,11 @@ function onKeyDown(event) {
   if (key === 'f1') { event.preventDefault(); run('about'); return; }
   if (key === 'f4') { event.preventDefault(); run('planView'); return; }
   if (key === 'f9') { event.preventDefault(); run('renderPhoto'); return; }
+  if (key === 'f6') { event.preventDefault(); run('tour'); return; }
   if (key === 'f11') { event.preventDefault(); run('tutorial'); return; }
   if (editing) { if (key === 'escape') event.target.blur(); return; }
   if (!hasDoc()) return;
+  if (tour.active && tour.key(event)) { event.preventDefault(); return; }
   // The active tool first (arrow locks, Shift locks, rotation keys, walk keys).
   try { if (state.toolObject?.key?.(event)) { event.preventDefault(); return; } } catch (error) { showError('error.tool', error); }
   if (key === 'delete' || key === 'backspace') { event.preventDefault(); run('delete'); return; }
@@ -3412,6 +3477,10 @@ async function start() {
   bindEvents();
   bindPopupActions();
   await popups.init();
+  // The welcome popup's window is made now, hidden, while the app starts (making a window takes about a second):
+  // the start page then shows it at once.
+  const welcomeLikely = desktop && state.settings.showWelcome && state.settings.showStartPage !== false && !globalThis.__MYSKETCHBOOK_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome');
+  if (welcomeLikely) popups.prewarm('welcome');
   state.info = await native.appInfo().catch(() => null);
   state.instance = await native.instanceInfo().catch(() => ({ first: true, others: 0 }));
   if (state.settings.animationRandom) updateSettings({ animation: randomAnimation(state.settings.animation) }, { quiet: true });
@@ -3464,9 +3533,18 @@ async function start() {
   if (!state.doc && !state.settings.showStartPage) newProject('room');
   state.showStart = !state.doc;
   renderAll();
-  if (desktop) { await appWindow.show(); await appWindow.setFocus(); setTimeout(() => popups.prewarm('menu'), 400); }
-  // The welcome popup belongs to the start page: not when the app opens straight into a project.
-  if (state.settings.showWelcome && state.showStart && !globalThis.__MYSKETCHBOOK_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome')) setTimeout(() => { if (state.showStart || !state.doc) openWelcome(); }, 600);
+  // The welcome popup belongs to the start page: not when the app opens straight into a project. Its window is
+  // asked for first, as soon as the main window shows (making a window takes about a second; the menu and progress
+  // windows made ahead of time wait for it — one window is made at a time).
+  const welcome = state.settings.showWelcome && state.showStart && !globalThis.__MYSKETCHBOOK_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome');
+  if (desktop) await appWindow.show();
+  if (welcome) openWelcome();
+  else if (welcomeLikely) popups.close('welcome');
+  if (desktop) {
+    if (!welcome) await appWindow.setFocus();
+    const warm = () => { popups.prewarm('menu').then(() => popups.prewarm('progress', { warm: true })); };
+    if (welcome) popups.whenDrawn('welcome', 1500).then(() => setTimeout(warm, 200)); else setTimeout(warm, 400);
+  }
 }
 
 async function openWelcome() {
@@ -3484,6 +3562,7 @@ window.__mysketchbook = {
   get viewport() { return viewport; },
   get builder() { return builder; },
   planImport,
+  tour,
   importRouter: () => importRouter,
   userTextures: UserTextures,
   actions: { newProject, openSampleAsk, openPath, openContent, saveDoc, closeProject, select, change, undo, redo, setTool, startPlacing, setPlanView, exportImage, renderPhoto, importModelFiles, importFiles, importTextureFiles, importEnvironmentFiles, materialDialog, withProgress, showStartPage, updateSettings, addScene, goScene, moveEntities, rotateSelection, deleteEntities, duplicateEntities, applyProjectView, showLibrary },

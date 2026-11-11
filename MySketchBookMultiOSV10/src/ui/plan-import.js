@@ -523,7 +523,7 @@ export function createPlanImport(app) {
         page = (Number(choice.page) || 1) - 1;
       }
     }
-    const picture = await planPicture(name, bytes, { page });
+    const picture = await app.withProgress('progress.readPlan', name, async (op, report) => { report({ fraction: 0.1, text: t('progress.step.readPicture') }); return planPicture(name, bytes, { page }); }, { delay: 150 });
     const { width, height } = picture;
     let o = options;
     if (!o) {

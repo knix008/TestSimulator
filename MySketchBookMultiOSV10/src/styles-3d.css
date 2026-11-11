@@ -381,3 +381,18 @@ body.plan-studio-open #menubar .menubar-item { pointer-events: none; opacity: 0.
 .ps-foot-group { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .ps-foot .button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .ps-foot .button.primary { padding: 6px 16px; font-weight: 600; }
+
+/* Automatic walk-through (ui/tour.js): the controls at the bottom of the 3D view while it runs. */
+.tour-bar { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 4px; max-width: calc(100% - 24px); padding: 5px 8px; border-radius: 14px; background: color-mix(in srgb, var(--panel) 86%, transparent); border: 1px solid var(--border); box-shadow: 0 6px 18px rgb(0 0 0 / 0.18); backdrop-filter: blur(8px); color: var(--text); font-size: 0.92em; white-space: nowrap; }
+.tour-title { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 4px; }
+.tour-title .icon { width: 18px; height: 18px; color: var(--accent); flex: none; }
+.tour-title b { overflow: hidden; text-overflow: ellipsis; min-width: 5em; max-width: 14em; }
+.tour-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.tour-sep { width: 1px; align-self: stretch; margin: 2px 4px; background: var(--border); }
+.tour-button { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text); cursor: pointer; }
+.tour-button:hover:not(:disabled) { background: var(--hover); border-color: var(--border); }
+.tour-button:active:not(:disabled) { background: var(--soft-accent, var(--hover)); border-color: var(--accent); }
+.tour-button:disabled { opacity: 0.4; cursor: default; }
+.tour-button .icon { width: 18px; height: 18px; }
+.tour-button[data-tour="stop"] { color: var(--danger, #d9534f); }
+.tour-speed { min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }

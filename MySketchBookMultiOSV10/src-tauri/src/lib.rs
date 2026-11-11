@@ -370,7 +370,11 @@ async fn list_files(dir: PathBuf, extensions: Vec<String>) -> Result<Vec<PathBuf
 /// It is shown by `popup_ready` / `place_popup` once drawn, so it never flashes
 /// empty. Async: creating a window from a synchronous command deadlocks on Windows.
 #[tauri::command]
-async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, height: f64, show: Option<bool>) -> Result<(), String> {
+///
+/// `delay` (ms, progress): shown from here after that long unless hidden or closed before — the page
+/// does not show it itself then.
+async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, height: f64, show: Option<bool>, delay: Option<u64>) -> Result<(), String> {
+    let delay = delay.unwrap_or(0);
     if !POPUP_KINDS.contains(&kind.as_str()) {
         return Err(format!("unknown popup {kind}"));
     }
@@ -383,7 +387,10 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
         let _ = window.set_size(tauri::LogicalSize::new(width, height));
         let _ = window.set_position(tauri::LogicalPosition::new(x, y));
         let _ = app.emit_to(label.as_str(), "popup-refresh", kind.clone());
-        if show.unwrap_or(true) && kind != "menu" {
+        if show.unwrap_or(true) && kind != "menu" && delay > 0 {
+            show_later(&app, &kind, delay);
+        } else if show.unwrap_or(true) && kind != "menu" {
+            bump_show_seq(&kind);
             let _ = window.show();
             let _ = window.unminimize();
             let _ = window.set_focus();
@@ -417,7 +424,46 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
         builder = builder.parent(&main).map_err(|error| error.to_string())?;
     }
     builder.build().map_err(|error| error.to_string())?;
+    if show.unwrap_or(true) && delay > 0 {
+        show_later(&app, &kind, delay);
+    }
     Ok(())
+}
+
+/// Per popup kind: a number that changes whenever the popup is shown, hidden or closed — a delayed
+/// show started before that belongs to a job that has ended and is dropped.
+static SHOW_SEQ: Mutex<Option<std::collections::HashMap<String, u64>>> = Mutex::new(None);
+
+fn bump_show_seq(kind: &str) -> u64 {
+    let mut guard = SHOW_SEQ.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let map = guard.get_or_insert_with(Default::default);
+    let next = map.get(kind).copied().unwrap_or(0) + 1;
+    map.insert(kind.to_string(), next);
+    next
+}
+
+fn show_seq(kind: &str) -> u64 {
+    let guard = SHOW_SEQ.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    guard.as_ref().and_then(|map| map.get(kind).copied()).unwrap_or(0)
+}
+
+/// Shows the popup `kind` after `delay` ms unless it is shown, hidden or closed before. The timer
+/// runs here, not in the page: a long computation holds the main window's page, and a timer there
+/// would only fire once it is over.
+fn show_later(app: &AppHandle, kind: &str, delay: u64) {
+    let seq = bump_show_seq(kind);
+    let app = app.clone();
+    let kind = kind.to_string();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(delay));
+        if show_seq(&kind) != seq {
+            return;
+        }
+        if let Some(window) = app.get_webview_window(&format!("popup-{kind}")) {
+            let _ = window.show();
+            let _ = window.unminimize();
+        }
+    });
 }
 
 /// Moves (`edge` = None) or resizes the window with the mouse, from a press in the page (the menu bar's
@@ -537,6 +583,7 @@ fn place_popup(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64, f
 /// Hides a popup but keeps it for the next time (menus open instantly that way).
 #[tauri::command]
 fn hide_popup(app: AppHandle, kind: String) {
+    bump_show_seq(&kind);
     if let Some(window) = app.get_webview_window(&format!("popup-{kind}")) {
         let _ = window.hide();
     }
@@ -547,6 +594,7 @@ fn hide_popup(app: AppHandle, kind: String) {
 
 #[tauri::command]
 fn close_popup(app: AppHandle, kind: String) {
+    bump_show_seq(&kind);
     if let Some(window) = app.get_webview_window(&format!("popup-{kind}")) {
         let _ = window.destroy();
     }

@@ -60,6 +60,8 @@ function ready() {
   shown = true;
   if (desktop) native.invoke('popup_ready').catch(() => {});
   else send('ready');
+  // The host may wait for this (popups.whenDrawn), e.g. before making the next window.
+  if (kind !== 'progress') requestAnimationFrame(() => send('drawn'));
 }
 
 const state = {
@@ -590,6 +592,8 @@ const formatBytes = (bytes) => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(
 
 function renderProgress() {
   const p = P();
+  // Created ahead of time (prewarm), hidden until a job asks for it: nothing to draw yet.
+  if (p.warm) { root.innerHTML = ''; return; }
   const progress = state.progress ?? p.last ?? null;
   const percent = progress?.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : null;
   // `text` (phase, "120 / 256 samples · 14 s left") wins over byte or step counts.
@@ -599,13 +603,14 @@ function renderProgress() {
   root.innerHTML = frame({
     glyph: 'hourglass', title: p.title ?? t('progress.wait'),
     body: `<div class="progress-view">
-      <div class="row">${icon('file')}<span class="path" title="${escapeHtml(p.name ?? '')}">${escapeHtml(p.name ?? '')}</span><span class="grow"></span><span class="muted">${escapeHtml(t('progress.elapsed', { s: elapsed }))}</span></div>
+      <div class="row">${icon('file')}<span class="path" title="${escapeHtml(p.name ?? '')}">${escapeHtml(p.name ?? '')}</span><span class="grow"></span><span class="muted" id="progress-elapsed">${escapeHtml(t('progress.elapsed', { s: elapsed }))}</span></div>
       <div data-scrolls class="progress-bar ${percent == null ? 'indeterminate' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent ?? 0}"><i style="width:${percent ?? 30}%"></i></div>
       <div class="row muted"><span id="progress-text">${escapeHtml(text)}</span><span class="grow"></span><b id="progress-percent">${percent == null ? '' : `${percent}%`}</b></div>
     </div>`,
     foot: p.cancellable ? `<span class="grow"></span>${button('progress-cancel', state.cancelled ? t('progress.cancelling') : t('common.cancel'), 'close', 'danger', '', state.cancelled ? 'disabled' : '')}` : '',
   });
-  ready();
+  // With a delay the backend shows the window when it is due (open_popup): not at once from here.
+  if (!(p.delay > 0)) ready();
   // The host waits for this before a long computation starts (it would hold the page before the window is drawn).
   requestAnimationFrame(() => send('drawn'));
 }
@@ -1073,6 +1078,9 @@ function onHostMessage(message) {
   } else if (message?.type === 'done' && kind === 'progress') {
     state.progress = state.progress ? { ...state.progress, done: state.progress.total } : null;
     render();
+    // The window is kept (hidden) for the next job: cleared once hidden, so it never comes back showing "done".
+    const stamp = (state.doneAt = Date.now());
+    setTimeout(() => { if (state.doneAt === stamp) root.innerHTML = ''; }, 1500);
   } else if (printHostMessage(kind, message, popupApi) || popup3dHostMessage(kind, message, popupApi)) {
     /* handled by popups-3d.js */
   } else if (message?.type === 'refresh') {
@@ -1094,6 +1102,9 @@ function refresh() {
   state.tab = state.params.tab ?? 'general';
   state.copied = false;
   state.progress = null;
+  state.progressStart = null;
+  state.cancelled = false;
+  state.doneAt = null;
   state.page = 0;
   state.pager = {};
   state.draft = null;
@@ -1107,6 +1118,11 @@ if (desktop) {
   native.listen('popup-message', onHostMessage);
   native.listen('popup-refresh', () => refresh());
   if (kind === 'progress') {
+    // The elapsed seconds keep counting during a long step that sends no news (the job is still alive).
+    setInterval(() => {
+      const el = root.querySelector('#progress-elapsed');
+      if (el && state.progressStart != null && state.doneAt == null) el.textContent = t('progress.elapsed', { s: Math.round((Date.now() - state.progressStart) / 1000) });
+    }, 1000);
     native.listen('io-progress', (progress) => {
       if (progress.op !== state.params.op) return;
       state.progress = progress;

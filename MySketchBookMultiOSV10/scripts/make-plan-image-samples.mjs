@@ -19,6 +19,12 @@ import { buildTemplate } from '../src/engine/templates.js';
 import { buildSampleProject } from '../src/engine/samples.js';
 import { MATERIAL_PRESETS } from '../src/engine/materials.js';
 import { topView } from './lib/topview.mjs';
+import * as WebIFC from 'web-ifc';
+import { readDxf, flattenDxf, extentOf } from '../src/io/plan-dxf.js';
+import { readIfc } from '../src/io/plan-ifc.js';
+import { readSh3d } from '../src/io/plan-sh3d.js';
+import { applyBuilding } from '../src/io/plan-building.js';
+import { createProject } from '../src/engine/document.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(root, 'samples', 'plan-images');
@@ -30,6 +36,8 @@ const NAMES = {
   bedroom4: ['침실4', 'Bedroom 4'], bath: ['욕실', 'Bath'], bath2: ['욕실2', 'Bath 2'], dressing: ['드레스룸', 'Dressing'], laundry: ['다용도실', 'Laundry'], utility: ['다용도실', 'Utility'],
   hall: ['복도', 'Hall'], entry: ['현관', 'Entry'], reception: ['RECEPTION', 'Reception'], openoffice: ['OPEN OFFICE', 'Open office'], meeting: ['MEETING', 'Meeting'], director: ['DIRECTOR', 'Director'],
   pantry: ['PANTRY', 'Pantry'], toilet: ['WC', 'WC'], office: ['서재', 'Study'], room: ['방', 'Room'], shop: ['매장', 'Shop'], hall2: ['매장', 'Sales floor'], storage: ['창고', 'Storage'], studio: ['원룸', 'Studio'], loft: ['거실', 'Living'],
+  waiting: ['대기실', 'Waiting'], consult: ['진료실1', 'Consult 1'], consult2: ['진료실2', 'Consult 2'], treatment: ['처치실', 'Treatment'], prep: ['준비실', 'Prep'], toilet2: ['WC', 'WC'],
+  classroom: ['교실1', 'Class 1'], classroom2: ['교실2', 'Class 2'], corridor: ['복도', 'Corridor'],
 };
 const nameOf = (key, lang = 0) => (NAMES[key] ?? [key, key])[lang];
 
@@ -54,6 +62,14 @@ const SAMPLES = [
   { id: 'shop-tga', template: 'shop', style: 'cad', format: 'tga', ppm: 64, english: true, title: ['상가 · TGA', 'Shop · TGA'], note: ['두 줄 벽 CAD 그림 (TGA)', 'Double-line CAD picture (TGA)'] },
   { id: 'loft-avif', template: 'loft', style: 'brochure', format: 'avif', ppm: 64, title: ['복층 1층 · 컬러', 'Loft ground floor · colour'], note: ['홍보용 컬러 평면 (AVIF)', 'Colour sales plan (AVIF)'] },
   { id: 'house3-scan', template: 'house3', style: 'cad', format: 'tif', ppm: 72, effects: { tilt: 2.5, light: 0.18, noise: 9, grey: true, specks: true }, title: ['3층 주택 1층 · 회색 스캔', '3-storey house, ground floor · grey scan'], note: ['스캐너로 읽은 회색조, 약간 기울어짐 (TIFF)', 'A greyscale scan, slightly tilted (TIFF)'] },
+  // The start page's plan homes and shops (engine/samples.js plan-*) drawn the same ways, without their furniture.
+  { id: 'villa-listing', project: 'plan-villa', style: 'solid', format: 'jpg', ppm: 76, title: ['빌라 투룸 · 부동산 평면도', 'Villa, two rooms · listing plan'], note: ['매물 광고에 흔한 검은 벽 평면, 방 넓이 (JPG)', 'The solid-wall plan of a rental listing (JPG)'] },
+  { id: 'apt84-3bay-brochure', project: 'plan-apt84-3bay', style: 'brochure', format: 'webp', ppm: 60, title: ['84㎡ 3베이 · 분양 홍보 컬러', '84 m² three-bay · colour brochure'], note: ['남향 방 셋이 나란한 판상형, 치수와 방위 (WebP)', 'Three south-facing rooms side by side, dimensions, compass (WebP)'] },
+  { id: 'apt74-tower-cad', project: 'plan-apt74-tower', style: 'cad', format: 'png', ppm: 58, english: true, title: ['74㎡ 타워형 · 영문 CAD 도면', '74 m² tower type · CAD print in English'], note: ['영문 방 이름, 두 줄 벽과 빗금 (PNG)', 'English room names, hatched double-line walls (PNG)'] },
+  { id: 'cafe-blueprint', project: 'plan-cafe', style: 'blueprint', format: 'png', ppm: 60, title: ['카페 · 청사진', 'Café · blueprint'], note: ['매장·창고·화장실, 파란 바탕에 흰 선 (PNG)', 'Sales floor, storage and WC in white on blue (PNG)'] },
+  { id: 'clinic-photo', project: 'plan-clinic', style: 'solid', format: 'jpg', ppm: 50, effects: { tilt: -3, light: 0.26, tint: [0.97, 0.98, 1.0], noise: 6, blur: 0.6, shadow: true, quality: 74 }, title: ['의원 · 휴대폰 사진', 'Clinic · phone photo'], note: ['진료실 둘과 처치실, 기울어지고 그늘진 사진 (JPG)', 'Two consulting rooms and a treatment room, tilted and shaded (JPG)'] },
+  { id: 'academy-sketch', project: 'plan-academy', style: 'sketch', format: 'jpg', ppm: 50, effects: { paper: true, noise: 5, quality: 80 }, title: ['학원 · 연필 스케치', 'Academy · pencil sketch'], note: ['교실·회의실·대표실, 자를 대고 그린 연필 도면 (JPG)', 'Classrooms, meeting and director’s rooms in pencil (JPG)'] },
+  { id: 'classroom-scan', project: 'plan-classroom', style: 'cad', format: 'jpg', ppm: 56, effects: { tilt: -1.5, light: 0.15, noise: 8, grey: true, specks: true, quality: 80 }, title: ['교실 2칸 · 회색 스캔', 'Two classrooms · grey scan'], note: ['긴 복도가 있는 학교 도면의 회색조 스캔, 약간 기울어짐 (JPG)', 'A school plan with a long corridor, greyscale scan, slightly tilted (JPG)'] },
   // ── Interiors: the start page's furnished homes (engine/samples.js), their furniture drawn from the library models
   //    seen from above (scripts/lib/topview.mjs) and their floors in the floor materials' colours.
   { id: 'apt59-interior', project: 'apt59-furnished', style: 'interior', format: 'png', ppm: 72, title: ['59㎡ 아파트 · 인테리어 컬러 평면', '59 m² apartment · interior colour plan'], note: ['가구·바닥재가 보이는 위에서 본 평면, 그림자 (PNG)', 'Furniture and floors seen from above, with shadows (PNG)'] },
@@ -64,6 +80,13 @@ const SAMPLES = [
   { id: 'officetel-interior-photo', project: 'officetel-a', style: 'interior', format: 'jpg', ppm: 80, effects: { tilt: -3, light: 0.28, tint: [1.0, 0.97, 0.92], noise: 6, blur: 0.6, quality: 74 }, title: ['오피스텔 · 인테리어 평면 사진', 'Officetel · photo of an interior plan'], note: ['인쇄된 컬러 평면을 찍은 사진 (JPG)', 'A photo of a printed colour plan (JPG)'] },
   { id: 'studio-interior', project: 'studio-furnished', style: 'interior', format: 'avif', ppm: 88, title: ['원룸 · 인테리어 컬러', 'Studio · interior colour'], note: ['침대·책상·소파가 있는 원룸 (AVIF)', 'Bed, desk and sofa in one room (AVIF)'] },
   { id: 'apt49-furniture-lines', project: 'apt49-b', style: 'interiorLine', format: 'gif', ppm: 70, title: ['49㎡ 아파트 · 가구 선 도면', '49 m² apartment · furniture line plan'], note: ['아이 방이 있는 투룸, 선 도면 (GIF)', 'Two rooms with a kids room, line drawing (GIF)'] },
+  { id: 'villa-interior', project: 'plan-villa-furnished', style: 'interior', format: 'png', ppm: 80, title: ['빌라 투룸 · 인테리어 컬러 평면', 'Villa, two rooms · interior colour plan'], note: ['가구와 바닥재가 보이는 빌라, 그림자 (PNG)', 'A furnished villa, floors and shadows (PNG)'] },
+  { id: 'apt49-interior', project: 'apt49-a', style: 'interior', format: 'jpg', ppm: 64, title: ['49㎡ 아파트 · 인테리어 평면', '49 m² apartment · interior plan'], note: ['신혼집 투룸 가구 배치, 치수와 방위 (JPG)', 'A furnished two-room starter home, dimensions, compass (JPG)'] },
+  { id: 'apt59-classic-catalog', project: 'apt59-classic', style: 'interiorCatalog', format: 'webp', ppm: 60, title: ['59㎡ 클래식 · 분양 카탈로그', '59 m² classic · sales catalogue'], note: ['클래식 가구의 윤곽과 연한 바닥색 (WebP)', 'Classic furniture outlines on pale floors (WebP)'] },
+  { id: 'apt104-furniture-lines-en', project: 'apt104-b', style: 'interiorLine', format: 'png', ppm: 64, english: true, title: ['104㎡ 아파트 · 영문 가구 도면', '104 m² apartment · furniture drawing in English'], note: ['방 넷의 가구 배치, 영문 방 이름, 흑백 선 (PNG)', 'Four furnished bedrooms, English room names, black lines (PNG)'] },
+  { id: 'house-b-catalog', project: 'house-b', style: 'interiorCatalog', format: 'avif', ppm: 60, title: ['단독주택 B · 인테리어 카탈로그', 'House B · interior catalogue'], note: ['복도를 사이에 둔 방 둘과 거실 (AVIF)', 'Two bedrooms and a living room off a hall (AVIF)'] },
+  { id: 'loft-furniture-lines', project: 'loft-b', style: 'interiorLine', format: 'png', ppm: 64, title: ['복층 1층 · 가구 선 도면', 'Loft ground floor · furniture line plan'], note: ['층고 높은 거실과 욕실, 흑백 선 (PNG)', 'A tall living room and bath in black lines (PNG)'] },
+  { id: 'apt59-scandi-photo', project: 'apt59-scandi', style: 'interior', format: 'jpg', ppm: 70, effects: { tilt: 3.5, light: 0.3, tint: [1.0, 0.97, 0.9], noise: 6, blur: 0.6, shadow: true, quality: 74 }, title: ['59㎡ 북유럽풍 · 인테리어 평면 사진', '59 m² Scandinavian · photo of an interior plan'], note: ['모델하우스 안내판을 찍은 사진: 기울어짐, 그늘 (JPG)', 'A photo of a show-home board: tilted, shaded (JPG)'] },
 ];
 
 // The drawings and pictures of samples/plans offered next to these (start page card).
@@ -74,6 +97,11 @@ const CAD_SAMPLES = [
   { id: 'small-office-svg', file: 'small-office.svg', thumbFrom: 'small-office.png', title: ['작은 사무실 · SVG', 'Small office · SVG'], note: ['선으로 그린 SVG 도면', 'An SVG line drawing'] },
   { id: 'apartment-59-pdf', file: 'apartment-59.pdf', thumbFrom: 'apartment-59.png', title: ['59㎡ 아파트 · PDF', '59 m² apartment · PDF'], note: ['CAD에서 내보낸 A3 PDF (축척 1:100)', 'An A3 PDF exported from CAD (1:100)'] },
   { id: 'apartment-59-scan', file: 'apartment-59-scan.png', thumbFrom: 'apartment-59-scan.png', title: ['59㎡ 아파트 · 스캔', '59 m² apartment · scan'], note: ['7° 기울어진 스캔 (PNG)', 'A scan turned by 7° (PNG)'] },
+  // No picture of their own: the thumbnail is drawn from the file itself (the app's DXF / IFC / SH3D readers).
+  { id: 'living-curved-dxf', file: 'living-curved.dxf', render: 'dxf', title: ['곡선 벽 거실 · DXF', 'Curved living room · DXF'], note: ['원호와 볼록 폴리라인으로 그린 둥근 벽', 'Round walls drawn as arcs and bulged polylines'] },
+  { id: 'doors-variety-dxf', file: 'doors-variety.dxf', render: 'dxf', title: ['여러 가지 문 · DXF', 'Many kinds of doors · DXF'], note: ['미닫이·포켓·폴딩·양개문과 창 기호', 'Sliding, pocket, folding and double doors, window symbols'] },
+  { id: 'duplex-ifc', file: 'duplex.ifc', render: 'ifc', title: ['복층 주택 · IFC (BIM)', 'Duplex · IFC (BIM)'], note: ['층·벽·문·창·공간·계단·가구가 든 BIM 모델', 'A BIM model: storeys, walls, openings, spaces, stairs, furniture'] },
+  { id: 'duplex-sh3d', file: 'duplex.sh3d', render: 'sh3d', title: ['복층 주택 · Sweet Home 3D', 'Duplex · Sweet Home 3D'], note: ['두 층의 벽·방·가구가 든 집 파일 (SH3D)', 'A home file with two floors of walls, rooms and furniture (SH3D)'] },
 ];
 
 // ───────────────────────── seeded randomness
@@ -89,7 +117,11 @@ const seedOf = (text) => [...text].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >
 
 function planOf(sample) {
   // A furnished home of the start page (with its furniture), else the bare template.
-  const project = sample.project ? buildSampleProject(sample.project, 'ko') : buildTemplate(sample.template, {});
+  return planOfProject(sample.project ? buildSampleProject(sample.project, 'ko') : buildTemplate(sample.template, {}));
+}
+
+/** The ground floor of a project: walls, openings (with their wall), rooms, objects, extent and counts. */
+function planOfProject(project) {
   const level = project.levels[0].id;
   const walls = project.walls.filter((w) => w.level === level);
   const ids = new Set(walls.map((w) => w.id));
@@ -173,7 +205,14 @@ function drawSvg(sample, plan) {
   // Walls: bands extended by half a thickness at their ends (corners close).
   const bands = plan.walls.map((w) => {
     const h = w.thickness / 2;
-    const x0 = Math.min(w.a[0], w.b[0]) - h; const x1 = Math.max(w.a[0], w.b[0]) + h;
+    const L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]);
+    if (Math.abs(w.a[0] - w.b[0]) > 1e-6 && Math.abs(w.a[1] - w.b[1]) > 1e-6 && L > 1e-9) {
+      // A slanted piece (a curved wall's chain): its own turned band.
+      const u = [((w.b[0] - w.a[0]) / L) * h, ((w.b[1] - w.a[1]) / L) * h]; const n = [-u[1], u[0]];
+      const pts = [[w.a[0] - u[0] + n[0], w.a[1] - u[1] + n[1]], [w.b[0] + u[0] + n[0], w.b[1] + u[1] + n[1]], [w.b[0] + u[0] - n[0], w.b[1] + u[1] - n[1]], [w.a[0] - u[0] - n[0], w.a[1] - u[1] - n[1]]];
+      return `<polygon points="${pts.map((p) => `${f(X(p[0]))},${f(Z(p[1]))}`).join(' ')}"/>`;
+    }
+    const x0 =Math.min(w.a[0], w.b[0]) - h; const x1 = Math.max(w.a[0], w.b[0]) + h;
     const z0 = Math.min(w.a[1], w.b[1]) - h; const z1 = Math.max(w.a[1], w.b[1]) + h;
     return `<rect x="${f(X(x0))}" y="${f(Z(z0))}" width="${f((x1 - x0) * k)}" height="${f((z1 - z0) * k)}"/>`;
   }).join('');
@@ -408,6 +447,48 @@ async function encode(pixels, format, e = {}) {
   throw new Error(`format ${format}`);
 }
 
+// ───────────────────────── thumbnails of the drawings without a picture
+
+const ROOM_KEYS = new Map(Object.entries(NAMES).map(([key, [ko]]) => [ko, key]));
+const LAYER_INK = [[/wall|벽/i, '#111111', 2.4], [/door|문/i, '#1f7a3a', 1.2], [/wind|창/i, '#1f5fa8', 1.2], [/furn|가구/i, '#8a8a8a', 1], [/text|글/i, '#555555', 1]];
+
+/** A DXF (lines and arcs, coloured by layer like a CAD screen), an IFC or a Sweet Home 3D file → PNG of its ground floor. */
+async function renderDrawing(kind, bytes) {
+  if (kind === 'dxf') {
+    const doc = readDxf(bytes);
+    const flat = flattenDxf(doc);
+    const ext = extentOf(flat);
+    const k = 900 / Math.max(ext.max[0] - ext.min[0], ext.max[1] - ext.min[1]);
+    const pad = 40;
+    const W = Math.round((ext.max[0] - ext.min[0]) * k + 2 * pad); const H = Math.round((ext.max[1] - ext.min[1]) * k + 2 * pad);
+    const P = ([x, y]) => [f((x - ext.min[0]) * k + pad), f((ext.max[1] - y) * k + pad)];
+    const inkOf = (layer) => LAYER_INK.find(([re]) => re.test(layer ?? '')) ?? [null, '#333333', 1];
+    const out = [`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="#ffffff"/><g fill="none" stroke-linecap="round">`];
+    for (const l of flat.lines) { const [, ink, w] = inkOf(l.layer); const a = P(l.a); const b = P(l.b); out.push(`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${ink}" stroke-width="${w}"/>`); }
+    for (const a of flat.arcs) {
+      const [, ink, w] = inkOf(a.layer); const p0 = P(a.p0); const p1 = P(a.p1); const r = f(a.r * k);
+      // Counter-clockwise with y up is anticlockwise on the screen too (y flipped): SVG sweep flag 0.
+      if (a.sweep >= 2 * Math.PI - 1e-6) { const c = P(a.c); out.push(`<circle cx="${c[0]}" cy="${c[1]}" r="${r}" stroke="${ink}" stroke-width="${w}"/>`); continue; }
+      out.push(`<path d="M${p0[0]} ${p0[1]} A${r} ${r} 0 ${a.sweep > Math.PI ? 1 : 0} 0 ${p1[0]} ${p1[1]}" stroke="${ink}" stroke-width="${w}"/>`);
+    }
+    out.push('</g></svg>');
+    return sharp(Buffer.from(out.join(''))).png().toBuffer();
+  }
+  // Buildings: read as the import does, put into a project, ground floor drawn like the CAD print / the brochure.
+  let building;
+  if (kind === 'ifc') {
+    const api = new WebIFC.IfcAPI();
+    await api.Init();
+    building = readIfc(WebIFC, api, bytes).building;
+  } else building = readSh3d(bytes).building;
+  const project = createProject();
+  applyBuilding(project, building, { target: 'new', furniture: false });
+  const plan = planOfProject(project);
+  for (const room of plan.rooms) room.key = ROOM_KEYS.get(room.name) ?? room.name;
+  const drawn = drawSvg({ id: kind, style: kind === 'ifc' ? 'cad' : 'brochure', ppm: 60 }, plan);
+  return sharp(Buffer.from(drawn.svg)).png().toBuffer();
+}
+
 // ───────────────────────── run
 
 const index = { pictures: [], drawings: [] };
@@ -450,7 +531,8 @@ const plansDir = path.join(root, 'samples', 'plans');
 for (const d of CAD_SAMPLES) {
   const src = path.join(plansDir, d.file);
   if (!fs.existsSync(src)) { console.warn(`  (missing ${d.file}: run scripts/make-plan-samples.mjs)`); continue; }
-  const thumb = await sharp(path.join(plansDir, d.thumbFrom)).flatten({ background: '#ffffff' }).resize(320, 220, { fit: 'contain', background: '#ffffff' }).webp({ quality: 80 }).toBuffer();
+  const picture = d.render ? await renderDrawing(d.render, new Uint8Array(fs.readFileSync(src))) : path.join(plansDir, d.thumbFrom);
+  const thumb = await sharp(picture).flatten({ background: '#ffffff' }).resize(320, 220, { fit: 'contain', background: '#ffffff' }).webp({ quality: 80 }).toBuffer();
   fs.writeFileSync(path.join(outDir, 'thumbs', `${d.id}.webp`), thumb);
   index.drawings.push({ id: d.id, file: d.file, format: path.extname(d.file).slice(1), title: d.title, note: d.note, bytes: fs.statSync(src).size });
 }

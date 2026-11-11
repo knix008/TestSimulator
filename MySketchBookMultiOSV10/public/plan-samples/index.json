@@ -483,6 +483,258 @@
    "bytes": 902802
   },
   {
+   "id": "villa-listing",
+   "file": "villa-listing.jpg",
+   "format": "jpg",
+   "style": "solid",
+   "title": [
+    "빌라 투룸 · 부동산 평면도",
+    "Villa, two rooms · listing plan"
+   ],
+   "note": [
+    "매물 광고에 흔한 검은 벽 평면, 방 넓이 (JPG)",
+    "The solid-wall plan of a rental listing (JPG)"
+   ],
+   "pxPerMetre": 76,
+   "size": [
+    722,
+    654
+   ],
+   "widthMetres": 9.5,
+   "tilt": 0,
+   "drawnSize": [
+    722,
+    654
+   ],
+   "topLeft": [
+    -4.75,
+    -4.3
+   ],
+   "counts": {
+    "walls": 10,
+    "doors": 5,
+    "windows": 5,
+    "rooms": 5
+   },
+   "bytes": 22124
+  },
+  {
+   "id": "apt84-3bay-brochure",
+   "file": "apt84-3bay-brochure.webp",
+   "format": "webp",
+   "style": "brochure",
+   "title": [
+    "84㎡ 3베이 · 분양 홍보 컬러",
+    "84 m² three-bay · colour brochure"
+   ],
+   "note": [
+    "남향 방 셋이 나란한 판상형, 치수와 방위 (WebP)",
+    "Three south-facing rooms side by side, dimensions, compass (WebP)"
+   ],
+   "pxPerMetre": 60,
+   "size": [
+    876,
+    642
+   ],
+   "widthMetres": 14.6,
+   "tilt": 0,
+   "drawnSize": [
+    876,
+    642
+   ],
+   "topLeft": [
+    -7.300000000000001,
+    -5.35
+   ],
+   "counts": {
+    "walls": 12,
+    "doors": 7,
+    "windows": 7,
+    "rooms": 7
+   },
+   "bytes": 19628
+  },
+  {
+   "id": "apt74-tower-cad",
+   "file": "apt74-tower-cad.png",
+   "format": "png",
+   "style": "cad",
+   "title": [
+    "74㎡ 타워형 · 영문 CAD 도면",
+    "74 m² tower type · CAD print in English"
+   ],
+   "note": [
+    "영문 방 이름, 두 줄 벽과 빗금 (PNG)",
+    "English room names, hatched double-line walls (PNG)"
+   ],
+   "pxPerMetre": 58,
+   "size": [
+    812,
+    638
+   ],
+   "widthMetres": 14,
+   "tilt": 0,
+   "drawnSize": [
+    812,
+    638
+   ],
+   "topLeft": [
+    -7,
+    -5.5
+   ],
+   "counts": {
+    "walls": 13,
+    "doors": 6,
+    "windows": 6,
+    "rooms": 5
+   },
+   "bytes": 14481
+  },
+  {
+   "id": "cafe-blueprint",
+   "file": "cafe-blueprint.png",
+   "format": "png",
+   "style": "blueprint",
+   "title": [
+    "카페 · 청사진",
+    "Café · blueprint"
+   ],
+   "note": [
+    "매장·창고·화장실, 파란 바탕에 흰 선 (PNG)",
+    "Sales floor, storage and WC in white on blue (PNG)"
+   ],
+   "pxPerMetre": 60,
+   "size": [
+    732,
+    702
+   ],
+   "widthMetres": 12.2,
+   "tilt": 0,
+   "drawnSize": [
+    732,
+    702
+   ],
+   "topLeft": [
+    -6.1,
+    -5.85
+   ],
+   "counts": {
+    "walls": 7,
+    "doors": 3,
+    "windows": 2,
+    "rooms": 3
+   },
+   "bytes": 5377
+  },
+  {
+   "id": "clinic-photo",
+   "file": "clinic-photo.jpg",
+   "format": "jpg",
+   "style": "solid",
+   "title": [
+    "의원 · 휴대폰 사진",
+    "Clinic · phone photo"
+   ],
+   "note": [
+    "진료실 둘과 처치실, 기울어지고 그늘진 사진 (JPG)",
+    "Two consulting rooms and a treatment room, tilted and shaded (JPG)"
+   ],
+   "pxPerMetre": 50,
+   "size": [
+    879,
+    638
+   ],
+   "widthMetres": 17.58,
+   "tilt": -3,
+   "drawnSize": [
+    820,
+    565
+   ],
+   "topLeft": [
+    -8.2,
+    -5.65
+   ],
+   "counts": {
+    "walls": 12,
+    "doors": 8,
+    "windows": 7,
+    "rooms": 8
+   },
+   "bytes": 43190
+  },
+  {
+   "id": "academy-sketch",
+   "file": "academy-sketch.jpg",
+   "format": "jpg",
+   "style": "sketch",
+   "title": [
+    "학원 · 연필 스케치",
+    "Academy · pencil sketch"
+   ],
+   "note": [
+    "교실·회의실·대표실, 자를 대고 그린 연필 도면 (JPG)",
+    "Classrooms, meeting and director’s rooms in pencil (JPG)"
+   ],
+   "pxPerMetre": 50,
+   "size": [
+    925,
+    505
+   ],
+   "widthMetres": 18.5,
+   "tilt": 0,
+   "drawnSize": [
+    925,
+    505
+   ],
+   "topLeft": [
+    -9.25,
+    -5.05
+   ],
+   "counts": {
+    "walls": 13,
+    "doors": 9,
+    "windows": 8,
+    "rooms": 9
+   },
+   "bytes": 64968
+  },
+  {
+   "id": "classroom-scan",
+   "file": "classroom-scan.jpg",
+   "format": "jpg",
+   "style": "cad",
+   "title": [
+    "교실 2칸 · 회색 스캔",
+    "Two classrooms · grey scan"
+   ],
+   "note": [
+    "긴 복도가 있는 학교 도면의 회색조 스캔, 약간 기울어짐 (JPG)",
+    "A school plan with a long corridor, greyscale scan, slightly tilted (JPG)"
+   ],
+   "pxPerMetre": 56,
+   "size": [
+    1287,
+    797
+   ],
+   "widthMetres": 22.98,
+   "tilt": -1.5,
+   "drawnSize": [
+    1238,
+    734
+   ],
+   "topLeft": [
+    -11.049999999999999,
+    -6.550000000000001
+   ],
+   "counts": {
+    "walls": 7,
+    "doors": 4,
+    "windows": 3,
+    "rooms": 4
+   },
+   "bytes": 142121
+  },
+  {
    "id": "apt59-interior",
    "file": "apt59-interior.png",
    "format": "png",
@@ -3829,6 +4081,2919 @@
      ]
     }
    ]
+  },
+  {
+   "id": "villa-interior",
+   "file": "villa-interior.png",
+   "format": "png",
+   "style": "interior",
+   "title": [
+    "빌라 투룸 · 인테리어 컬러 평면",
+    "Villa, two rooms · interior colour plan"
+   ],
+   "note": [
+    "가구와 바닥재가 보이는 빌라, 그림자 (PNG)",
+    "A furnished villa, floors and shadows (PNG)"
+   ],
+   "pxPerMetre": 80,
+   "size": [
+    856,
+    784
+   ],
+   "widthMetres": 10.7,
+   "tilt": 0,
+   "drawnSize": [
+    856,
+    784
+   ],
+   "topLeft": [
+    -5.35,
+    -4.9
+   ],
+   "counts": {
+    "walls": 10,
+    "doors": 5,
+    "windows": 5,
+    "rooms": 5
+   },
+   "bytes": 24668,
+   "interior": true,
+   "furniture": [
+    {
+     "item": "bed",
+     "position": [
+      -1.675,
+      -1.5
+     ],
+     "rotation": -1.571,
+     "size": [
+      2.15,
+      1.3
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -0.81,
+      -0.07
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.43,
+      0.51
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -0.81,
+      -0.58
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.43,
+      0.51
+     ]
+    },
+    {
+     "item": "table-lamp",
+     "position": [
+      -0.81,
+      -0.07
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.36,
+      0.36
+     ]
+    },
+    {
+     "item": "wardrobe",
+     "position": [
+      -3.012,
+      -2.84
+     ],
+     "rotation": 0,
+     "size": [
+      1.2,
+      0.64
+     ]
+    },
+    {
+     "item": "sofa-loveseat",
+     "position": [
+      1.65,
+      -0.31
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.55,
+      0.92
+     ]
+    },
+    {
+     "item": "rug",
+     "position": [
+      1.65,
+      -1.5
+     ],
+     "rotation": 3.142,
+     "size": [
+      2,
+      1.4
+     ]
+    },
+    {
+     "item": "coffee-table",
+     "position": [
+      1.847,
+      -1.333
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.2,
+      0.6
+     ]
+    },
+    {
+     "item": "lounge-chair",
+     "position": [
+      0.271,
+      -1.667
+     ],
+     "rotation": 4.712,
+     "size": [
+      0.83,
+      0.71
+     ]
+    },
+    {
+     "item": "tv-console",
+     "position": [
+      1.65,
+      -2.93
+     ],
+     "rotation": 0,
+     "size": [
+      1.8,
+      0.44
+     ]
+    },
+    {
+     "item": "tv",
+     "position": [
+      1.65,
+      -2.92
+     ],
+     "rotation": 0,
+     "size": [
+      1.45,
+      0.24
+     ]
+    },
+    {
+     "item": "monstera",
+     "position": [
+      0.074,
+      -0.335
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.17,
+      1.38
+     ]
+    },
+    {
+     "item": "wall-art",
+     "position": [
+      1.65,
+      0.125
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.7,
+      0.03
+     ]
+    },
+    {
+     "item": "pendant-light",
+     "position": [
+      1.65,
+      -1.333
+     ],
+     "rotation": 0,
+     "size": [
+      0.4,
+      0.4
+     ]
+    },
+    {
+     "item": "vase-stems",
+     "position": [
+      1.729,
+      -1.333
+     ],
+     "rotation": 0,
+     "size": [
+      0.49,
+      0.38
+     ]
+    },
+    {
+     "item": "bookshelf",
+     "position": [
+      3.147,
+      -2.98
+     ],
+     "rotation": 0,
+     "size": [
+      0.9,
+      0.32
+     ]
+    },
+    {
+     "item": "bed",
+     "position": [
+      -2.25,
+      1.525
+     ],
+     "rotation": 0,
+     "size": [
+      1.2,
+      2.15
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -3.12,
+      0.66
+     ],
+     "rotation": 0,
+     "size": [
+      0.51,
+      0.43
+     ]
+    },
+    {
+     "item": "table-lamp",
+     "position": [
+      -3.12,
+      0.66
+     ],
+     "rotation": 0,
+     "size": [
+      0.36,
+      0.36
+     ]
+    },
+    {
+     "item": "wardrobe",
+     "position": [
+      -3.29,
+      2.622
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.64,
+      1.2
+     ]
+    },
+    {
+     "item": "refrigerator",
+     "position": [
+      -0.13,
+      0.91
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.97,
+      0.91
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      -0.29,
+      1.71
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.62,
+      0.6
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      -0.29,
+      2.31
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.62,
+      0.6
+     ]
+    },
+    {
+     "item": "cooktop",
+     "position": [
+      -0.29,
+      2.31
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.52,
+      0.6
+     ]
+    },
+    {
+     "item": "washbasin-vanity",
+     "position": [
+      2.332,
+      0.71
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.5
+     ]
+    },
+    {
+     "item": "mirror-cabinet",
+     "position": [
+      2.332,
+      0.535
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.13
+     ]
+    },
+    {
+     "item": "toilet",
+     "position": [
+      3.27,
+      1.052
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.64,
+      0.36
+     ]
+    },
+    {
+     "item": "shower-booth",
+     "position": [
+      2.24,
+      1.19
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.9,
+      0.91
+     ]
+    },
+    {
+     "item": "towel-rail",
+     "position": [
+      1.86,
+      1.174
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.1,
+      0.52
+     ]
+    }
+   ]
+  },
+  {
+   "id": "apt49-interior",
+   "file": "apt49-interior.jpg",
+   "format": "jpg",
+   "style": "interior",
+   "title": [
+    "49㎡ 아파트 · 인테리어 평면",
+    "49 m² apartment · interior plan"
+   ],
+   "note": [
+    "신혼집 투룸 가구 배치, 치수와 방위 (JPG)",
+    "A furnished two-room starter home, dimensions, compass (JPG)"
+   ],
+   "pxPerMetre": 64,
+   "size": [
+    742,
+    627
+   ],
+   "widthMetres": 11.59,
+   "tilt": 0,
+   "drawnSize": [
+    742,
+    627
+   ],
+   "topLeft": [
+    -5.800000000000001,
+    -4.9
+   ],
+   "counts": {
+    "walls": 8,
+    "doors": 4,
+    "windows": 5,
+    "rooms": 4
+   },
+   "bytes": 48326,
+   "interior": true,
+   "furniture": [
+    {
+     "item": "bed",
+     "position": [
+      -2.125,
+      -1.5
+     ],
+     "rotation": -1.571,
+     "size": [
+      2.15,
+      1.3
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -1.26,
+      -0.07
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.43,
+      0.51
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -1.26,
+      -0.58
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.43,
+      0.51
+     ]
+    },
+    {
+     "item": "table-lamp",
+     "position": [
+      -1.26,
+      -0.07
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.36,
+      0.36
+     ]
+    },
+    {
+     "item": "wardrobe",
+     "position": [
+      -3.462,
+      -2.84
+     ],
+     "rotation": 0,
+     "size": [
+      1.2,
+      0.64
+     ]
+    },
+    {
+     "item": "bed",
+     "position": [
+      -2.55,
+      1.525
+     ],
+     "rotation": 0,
+     "size": [
+      1.2,
+      2.15
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -3.42,
+      0.66
+     ],
+     "rotation": 0,
+     "size": [
+      0.51,
+      0.43
+     ]
+    },
+    {
+     "item": "table-lamp",
+     "position": [
+      -3.42,
+      0.66
+     ],
+     "rotation": 0,
+     "size": [
+      0.36,
+      0.36
+     ]
+    },
+    {
+     "item": "wardrobe",
+     "position": [
+      -3.74,
+      2.622
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.64,
+      1.2
+     ]
+    },
+    {
+     "item": "sofa-loveseat",
+     "position": [
+      1.65,
+      0.29
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.55,
+      0.92
+     ]
+    },
+    {
+     "item": "rug",
+     "position": [
+      1.65,
+      -1.2
+     ],
+     "rotation": 3.142,
+     "size": [
+      2,
+      1.4
+     ]
+    },
+    {
+     "item": "coffee-table",
+     "position": [
+      1.892,
+      -1.003
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.2,
+      0.6
+     ]
+    },
+    {
+     "item": "lounge-chair",
+     "position": [
+      -0.044,
+      -1.397
+     ],
+     "rotation": 4.712,
+     "size": [
+      0.83,
+      0.71
+     ]
+    },
+    {
+     "item": "tv-console",
+     "position": [
+      1.65,
+      -2.93
+     ],
+     "rotation": 0,
+     "size": [
+      1.8,
+      0.44
+     ]
+    },
+    {
+     "item": "tv",
+     "position": [
+      1.65,
+      -2.92
+     ],
+     "rotation": 0,
+     "size": [
+      1.45,
+      0.24
+     ]
+    },
+    {
+     "item": "floor-lamp-tripod",
+     "position": [
+      3.392,
+      0.46
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.54,
+      0.55
+     ]
+    },
+    {
+     "item": "monstera",
+     "position": [
+      -0.286,
+      0.265
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.17,
+      1.38
+     ]
+    },
+    {
+     "item": "wall-art",
+     "position": [
+      1.65,
+      0.725
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.7,
+      0.03
+     ]
+    },
+    {
+     "item": "pendant-light",
+     "position": [
+      1.65,
+      -1.003
+     ],
+     "rotation": 0,
+     "size": [
+      0.4,
+      0.4
+     ]
+    },
+    {
+     "item": "vase-stems",
+     "position": [
+      1.747,
+      -1.003
+     ],
+     "rotation": 0,
+     "size": [
+      0.49,
+      0.38
+     ]
+    },
+    {
+     "item": "fiddle-leaf-fig",
+     "position": [
+      0.014,
+      -2.715
+     ],
+     "rotation": 0,
+     "size": [
+      0.61,
+      0.77
+     ]
+    },
+    {
+     "item": "bookshelf",
+     "position": [
+      3.489,
+      -2.98
+     ],
+     "rotation": 0,
+     "size": [
+      0.9,
+      0.32
+     ]
+    },
+    {
+     "item": "refrigerator",
+     "position": [
+      -0.29,
+      1.52
+     ],
+     "rotation": 0,
+     "size": [
+      0.91,
+      0.97
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      0.51,
+      1.36
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.62
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      1.11,
+      1.36
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.62
+     ]
+    },
+    {
+     "item": "cooktop",
+     "position": [
+      1.11,
+      1.36
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.52
+     ]
+    },
+    {
+     "item": "washbasin-vanity",
+     "position": [
+      2.782,
+      1.31
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.5
+     ]
+    },
+    {
+     "item": "mirror-cabinet",
+     "position": [
+      2.782,
+      1.135
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.13
+     ]
+    },
+    {
+     "item": "toilet",
+     "position": [
+      3.72,
+      1.672
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.64,
+      0.36
+     ]
+    },
+    {
+     "item": "shower-booth",
+     "position": [
+      2.69,
+      2.69
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.9,
+      0.91
+     ]
+    },
+    {
+     "item": "towel-rail",
+     "position": [
+      2.31,
+      2.314
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.1,
+      0.52
+     ]
+    }
+   ]
+  },
+  {
+   "id": "apt59-classic-catalog",
+   "file": "apt59-classic-catalog.webp",
+   "format": "webp",
+   "style": "interiorCatalog",
+   "title": [
+    "59㎡ 클래식 · 분양 카탈로그",
+    "59 m² classic · sales catalogue"
+   ],
+   "note": [
+    "클래식 가구의 윤곽과 연한 바닥색 (WebP)",
+    "Classic furniture outlines on pale floors (WebP)"
+   ],
+   "pxPerMetre": 60,
+   "size": [
+    696,
+    552
+   ],
+   "widthMetres": 11.6,
+   "tilt": 0,
+   "drawnSize": [
+    696,
+    552
+   ],
+   "topLeft": [
+    -5.8,
+    -4.6
+   ],
+   "counts": {
+    "walls": 8,
+    "doors": 4,
+    "windows": 5,
+    "rooms": 4
+   },
+   "bytes": 20476,
+   "interior": true,
+   "furniture": [
+    {
+     "item": "bed",
+     "position": [
+      -2.425,
+      -1.8
+     ],
+     "rotation": -1.571,
+     "size": [
+      2.15,
+      1.3
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -1.56,
+      -0.37
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.43,
+      0.51
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -1.56,
+      -0.88
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.43,
+      0.51
+     ]
+    },
+    {
+     "item": "table-lamp",
+     "position": [
+      -1.56,
+      -0.37
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.36,
+      0.36
+     ]
+    },
+    {
+     "item": "wardrobe",
+     "position": [
+      -4.002,
+      -3.14
+     ],
+     "rotation": 0,
+     "size": [
+      1.2,
+      0.64
+     ]
+    },
+    {
+     "item": "bed",
+     "position": [
+      -3,
+      1.225
+     ],
+     "rotation": 0,
+     "size": [
+      1.2,
+      2.15
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -3.87,
+      0.36
+     ],
+     "rotation": 0,
+     "size": [
+      0.51,
+      0.43
+     ]
+    },
+    {
+     "item": "table-lamp",
+     "position": [
+      -3.87,
+      0.36
+     ],
+     "rotation": 0,
+     "size": [
+      0.36,
+      0.36
+     ]
+    },
+    {
+     "item": "wardrobe",
+     "position": [
+      -4.34,
+      2.802
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.64,
+      1.2
+     ]
+    },
+    {
+     "item": "sofa-modern",
+     "position": [
+      1.8,
+      0.18
+     ],
+     "rotation": 3.142,
+     "size": [
+      2.2,
+      0.94
+     ]
+    },
+    {
+     "item": "rug",
+     "position": [
+      1.8,
+      -1.4
+     ],
+     "rotation": 3.142,
+     "size": [
+      2,
+      1.4
+     ]
+    },
+    {
+     "item": "coffee-table",
+     "position": [
+      2.087,
+      -1.193
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.2,
+      0.6
+     ]
+    },
+    {
+     "item": "armchair",
+     "position": [
+      -0.209,
+      -1.607
+     ],
+     "rotation": 4.712,
+     "size": [
+      0.9,
+      0.86
+     ]
+    },
+    {
+     "item": "tv-console",
+     "position": [
+      1.8,
+      -3.23
+     ],
+     "rotation": 0,
+     "size": [
+      1.8,
+      0.44
+     ]
+    },
+    {
+     "item": "tv",
+     "position": [
+      1.8,
+      -3.22
+     ],
+     "rotation": 0,
+     "size": [
+      1.45,
+      0.24
+     ]
+    },
+    {
+     "item": "floor-lamp-tripod",
+     "position": [
+      3.866,
+      0.36
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.54,
+      0.55
+     ]
+    },
+    {
+     "item": "monstera",
+     "position": [
+      -0.496,
+      0.165
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.17,
+      1.38
+     ]
+    },
+    {
+     "item": "wall-art",
+     "position": [
+      1.8,
+      0.625
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.7,
+      0.03
+     ]
+    },
+    {
+     "item": "pendant-light",
+     "position": [
+      1.8,
+      -1.193
+     ],
+     "rotation": 0,
+     "size": [
+      0.4,
+      0.4
+     ]
+    },
+    {
+     "item": "vase-stems",
+     "position": [
+      1.915,
+      -1.193
+     ],
+     "rotation": 0,
+     "size": [
+      0.49,
+      0.38
+     ]
+    },
+    {
+     "item": "fiddle-leaf-fig",
+     "position": [
+      -0.296,
+      -3.015
+     ],
+     "rotation": 0,
+     "size": [
+      0.61,
+      0.77
+     ]
+    },
+    {
+     "item": "bookshelf",
+     "position": [
+      3.981,
+      -3.28
+     ],
+     "rotation": 0,
+     "size": [
+      0.9,
+      0.32
+     ]
+    },
+    {
+     "item": "refrigerator",
+     "position": [
+      -0.59,
+      1.42
+     ],
+     "rotation": 0,
+     "size": [
+      0.91,
+      0.97
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      0.21,
+      1.26
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.62
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      0.81,
+      1.26
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.62
+     ]
+    },
+    {
+     "item": "cooktop",
+     "position": [
+      0.81,
+      1.26
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.52
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      1.41,
+      1.26
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.62
+     ]
+    },
+    {
+     "item": "washbasin-vanity",
+     "position": [
+      3.172,
+      1.21
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.5
+     ]
+    },
+    {
+     "item": "mirror-cabinet",
+     "position": [
+      3.172,
+      1.035
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.13
+     ]
+    },
+    {
+     "item": "toilet",
+     "position": [
+      4.32,
+      1.692
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.64,
+      0.36
+     ]
+    },
+    {
+     "item": "shower-booth",
+     "position": [
+      3.065,
+      2.99
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.9,
+      0.91
+     ]
+    },
+    {
+     "item": "towel-rail",
+     "position": [
+      2.61,
+      2.454
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.1,
+      0.52
+     ]
+    }
+   ]
+  },
+  {
+   "id": "apt104-furniture-lines-en",
+   "file": "apt104-furniture-lines-en.png",
+   "format": "png",
+   "style": "interiorLine",
+   "title": [
+    "104㎡ 아파트 · 영문 가구 도면",
+    "104 m² apartment · furniture drawing in English"
+   ],
+   "note": [
+    "방 넷의 가구 배치, 영문 방 이름, 흑백 선 (PNG)",
+    "Four furnished bedrooms, English room names, black lines (PNG)"
+   ],
+   "pxPerMetre": 64,
+   "size": [
+    1011,
+    762
+   ],
+   "widthMetres": 15.8,
+   "tilt": 0,
+   "drawnSize": [
+    1011,
+    762
+   ],
+   "topLeft": [
+    -7.9,
+    -5.949999999999999
+   ],
+   "counts": {
+    "walls": 11,
+    "doors": 7,
+    "windows": 7,
+    "rooms": 7
+   },
+   "bytes": 14851,
+   "interior": true,
+   "furniture": [
+    {
+     "item": "bed",
+     "position": [
+      -3.325,
+      -1.95
+     ],
+     "rotation": -1.571,
+     "size": [
+      2.15,
+      1.7
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -2.46,
+      -3.07
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.43,
+      0.51
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -2.46,
+      -0.83
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.43,
+      0.51
+     ]
+    },
+    {
+     "item": "table-lamp",
+     "position": [
+      -2.46,
+      -3.07
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.36,
+      0.36
+     ]
+    },
+    {
+     "item": "wardrobe",
+     "position": [
+      -5.84,
+      -2.858
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.64,
+      1.2
+     ]
+    },
+    {
+     "item": "dresser",
+     "position": [
+      -5.9,
+      -0.679
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.52,
+      1.21
+     ]
+    },
+    {
+     "item": "sofa-sectional",
+     "position": [
+      -1.115,
+      -1.57
+     ],
+     "rotation": 1.571,
+     "size": [
+      1.66,
+      2.9
+     ]
+    },
+    {
+     "item": "rug",
+     "position": [
+      0.3,
+      -1.95
+     ],
+     "rotation": 1.571,
+     "size": [
+      1.4,
+      2
+     ]
+    },
+    {
+     "item": "coffee-table",
+     "position": [
+      0.845,
+      -1.723
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.6,
+      1.2
+     ]
+    },
+    {
+     "item": "armchair",
+     "position": [
+      0.527,
+      -3.539
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.86,
+      0.9
+     ]
+    },
+    {
+     "item": "tv-console",
+     "position": [
+      2.33,
+      -1.95
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.44,
+      1.8
+     ]
+    },
+    {
+     "item": "tv",
+     "position": [
+      2.32,
+      -1.95
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.24,
+      1.45
+     ]
+    },
+    {
+     "item": "wall-art",
+     "position": [
+      -1.925,
+      -2
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.03,
+      0.7
+     ]
+    },
+    {
+     "item": "pendant-light",
+     "position": [
+      0.073,
+      -1.95
+     ],
+     "rotation": 0,
+     "size": [
+      0.4,
+      0.4
+     ]
+    },
+    {
+     "item": "vase-stems",
+     "position": [
+      0.073,
+      -1.859
+     ],
+     "rotation": 0,
+     "size": [
+      0.49,
+      0.38
+     ]
+    },
+    {
+     "item": "fiddle-leaf-fig",
+     "position": [
+      2.115,
+      -3.766
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.77,
+      0.61
+     ]
+    },
+    {
+     "item": "bookshelf",
+     "position": [
+      2.38,
+      -0.225
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.32,
+      0.9
+     ]
+    },
+    {
+     "item": "bunk-bed",
+     "position": [
+      3.4,
+      -3.055
+     ],
+     "rotation": 1.571,
+     "size": [
+      1.12,
+      2.1
+     ]
+    },
+    {
+     "item": "kids-desk",
+     "position": [
+      5.865,
+      -2.946
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.55,
+      1
+     ]
+    },
+    {
+     "item": "toy-box",
+     "position": [
+      5.915,
+      -1.235
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.46,
+      0.81
+     ]
+    },
+    {
+     "item": "rug",
+     "position": [
+      4.901,
+      -2.218
+     ],
+     "rotation": 0,
+     "size": [
+      1.2,
+      1.2
+     ]
+    },
+    {
+     "item": "washbasin-vanity",
+     "position": [
+      3.832,
+      -0.04
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.5
+     ]
+    },
+    {
+     "item": "mirror-cabinet",
+     "position": [
+      3.832,
+      -0.215
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.13
+     ]
+    },
+    {
+     "item": "toilet",
+     "position": [
+      5.82,
+      0.142
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.64,
+      0.36
+     ]
+    },
+    {
+     "item": "shower-booth",
+     "position": [
+      3.665,
+      0.74
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.9,
+      0.91
+     ]
+    },
+    {
+     "item": "towel-rail",
+     "position": [
+      2.91,
+      0.604
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.1,
+      0.52
+     ]
+    },
+    {
+     "item": "desk",
+     "position": [
+      4.166,
+      1.86
+     ],
+     "rotation": 0,
+     "size": [
+      1.4,
+      0.7
+     ]
+    },
+    {
+     "item": "monitor",
+     "position": [
+      4.166,
+      1.76
+     ],
+     "rotation": 0,
+     "size": [
+      0.62,
+      0.18
+     ]
+    },
+    {
+     "item": "office-chair",
+     "position": [
+      4.166,
+      2.302
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.65,
+      0.69
+     ]
+    },
+    {
+     "item": "bookcase-cabinet",
+     "position": [
+      3.832,
+      4
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.8,
+      0.39
+     ]
+    },
+    {
+     "item": "bookshelf",
+     "position": [
+      5.001,
+      4.03
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.9,
+      0.32
+     ]
+    },
+    {
+     "item": "desk-lamp",
+     "position": [
+      4.166,
+      1.835
+     ],
+     "rotation": 0,
+     "size": [
+      0.17,
+      0.45
+     ]
+    },
+    {
+     "item": "olive-tree",
+     "position": [
+      5.769,
+      1.92
+     ],
+     "rotation": 0,
+     "size": [
+      0.83,
+      0.93
+     ]
+    },
+    {
+     "item": "bed",
+     "position": [
+      -3.925,
+      2.4
+     ],
+     "rotation": -1.571,
+     "size": [
+      2.15,
+      1.2
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -3.06,
+      1.53
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.43,
+      0.51
+     ]
+    },
+    {
+     "item": "table-lamp",
+     "position": [
+      -3.06,
+      1.53
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.36,
+      0.36
+     ]
+    },
+    {
+     "item": "wardrobe",
+     "position": [
+      -5.502,
+      0.91
+     ],
+     "rotation": 0,
+     "size": [
+      1.2,
+      0.64
+     ]
+    },
+    {
+     "item": "refrigerator",
+     "position": [
+      -0.28,
+      1.06
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.97,
+      0.91
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      -0.44,
+      1.86
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.62,
+      0.6
+     ]
+    },
+    {
+     "item": "kitchen-sink-counter",
+     "position": [
+      -0.44,
+      3.06
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.62,
+      1.8
+     ]
+    },
+    {
+     "item": "kitchen-wall-cabinet",
+     "position": [
+      -0.565,
+      3.06
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.39,
+      0.8
+     ]
+    }
+   ]
+  },
+  {
+   "id": "house-b-catalog",
+   "file": "house-b-catalog.avif",
+   "format": "avif",
+   "style": "interiorCatalog",
+   "title": [
+    "단독주택 B · 인테리어 카탈로그",
+    "House B · interior catalogue"
+   ],
+   "note": [
+    "복도를 사이에 둔 방 둘과 거실 (AVIF)",
+    "Two bedrooms and a living room off a hall (AVIF)"
+   ],
+   "pxPerMetre": 60,
+   "size": [
+    720,
+    600
+   ],
+   "widthMetres": 12,
+   "tilt": 0,
+   "drawnSize": [
+    720,
+    600
+   ],
+   "topLeft": [
+    -6,
+    -5
+   ],
+   "counts": {
+    "walls": 8,
+    "doors": 5,
+    "windows": 5,
+    "rooms": 5
+   },
+   "bytes": 10617,
+   "interior": true,
+   "furniture": [
+    {
+     "item": "sofa-modern",
+     "position": [
+      -2.25,
+      -0.12
+     ],
+     "rotation": 3.142,
+     "size": [
+      2.2,
+      0.94
+     ]
+    },
+    {
+     "item": "rug",
+     "position": [
+      -2.25,
+      -1.75
+     ],
+     "rotation": 3.142,
+     "size": [
+      2,
+      1.4
+     ]
+    },
+    {
+     "item": "coffee-table",
+     "position": [
+      -1.988,
+      -1.538
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.2,
+      0.6
+     ]
+    },
+    {
+     "item": "armchair",
+     "position": [
+      -4.084,
+      -1.962
+     ],
+     "rotation": 4.712,
+     "size": [
+      0.9,
+      0.86
+     ]
+    },
+    {
+     "item": "tv-console",
+     "position": [
+      -2.25,
+      -3.63
+     ],
+     "rotation": 0,
+     "size": [
+      1.8,
+      0.44
+     ]
+    },
+    {
+     "item": "tv",
+     "position": [
+      -2.25,
+      -3.62
+     ],
+     "rotation": 0,
+     "size": [
+      1.45,
+      0.24
+     ]
+    },
+    {
+     "item": "wall-art",
+     "position": [
+      -2.25,
+      0.325
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.7,
+      0.03
+     ]
+    },
+    {
+     "item": "pendant-light",
+     "position": [
+      -2.25,
+      -1.538
+     ],
+     "rotation": 0,
+     "size": [
+      0.4,
+      0.4
+     ]
+    },
+    {
+     "item": "vase-stems",
+     "position": [
+      -2.145,
+      -1.538
+     ],
+     "rotation": 0,
+     "size": [
+      0.49,
+      0.38
+     ]
+    },
+    {
+     "item": "fiddle-leaf-fig",
+     "position": [
+      -4.346,
+      -3.415
+     ],
+     "rotation": 0,
+     "size": [
+      0.61,
+      0.77
+     ]
+    },
+    {
+     "item": "bookshelf",
+     "position": [
+      -0.259,
+      -3.68
+     ],
+     "rotation": 0,
+     "size": [
+      0.9,
+      0.32
+     ]
+    },
+    {
+     "item": "refrigerator",
+     "position": [
+      1.12,
+      -3.39
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.97,
+      0.91
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      0.96,
+      -2.59
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.62,
+      0.6
+     ]
+    },
+    {
+     "item": "kitchen-sink-counter",
+     "position": [
+      0.96,
+      -1.39
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.62,
+      1.8
+     ]
+    },
+    {
+     "item": "kitchen-wall-cabinet",
+     "position": [
+      0.835,
+      -1.39
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.39,
+      0.8
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      0.96,
+      -0.19
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.62,
+      0.6
+     ]
+    },
+    {
+     "item": "cooktop",
+     "position": [
+      0.96,
+      -0.19
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.52,
+      0.6
+     ]
+    },
+    {
+     "item": "bed",
+     "position": [
+      -3,
+      1.725
+     ],
+     "rotation": 0,
+     "size": [
+      1.7,
+      2.15
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -1.37,
+      0.86
+     ],
+     "rotation": 0,
+     "size": [
+      0.51,
+      0.43
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -1.88,
+      0.86
+     ],
+     "rotation": 0,
+     "size": [
+      0.51,
+      0.43
+     ]
+    },
+    {
+     "item": "table-lamp",
+     "position": [
+      -1.37,
+      0.86
+     ],
+     "rotation": 0,
+     "size": [
+      0.36,
+      0.36
+     ]
+    },
+    {
+     "item": "wardrobe",
+     "position": [
+      -4.54,
+      3.222
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.64,
+      1.2
+     ]
+    },
+    {
+     "item": "bed",
+     "position": [
+      3,
+      1.725
+     ],
+     "rotation": 0,
+     "size": [
+      1.2,
+      2.15
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      2.13,
+      0.86
+     ],
+     "rotation": 0,
+     "size": [
+      0.51,
+      0.43
+     ]
+    },
+    {
+     "item": "table-lamp",
+     "position": [
+      2.13,
+      0.86
+     ],
+     "rotation": 0,
+     "size": [
+      0.36,
+      0.36
+     ]
+    },
+    {
+     "item": "wardrobe",
+     "position": [
+      1.46,
+      2.022
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.64,
+      1.2
+     ]
+    },
+    {
+     "item": "washbasin-vanity",
+     "position": [
+      2.252,
+      2.91
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.5
+     ]
+    },
+    {
+     "item": "mirror-cabinet",
+     "position": [
+      2.252,
+      2.735
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.13
+     ]
+    },
+    {
+     "item": "toilet",
+     "position": [
+      4.52,
+      3.002
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.64,
+      0.36
+     ]
+    },
+    {
+     "item": "shower-booth",
+     "position": [
+      2.065,
+      3.39
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.9,
+      0.91
+     ]
+    },
+    {
+     "item": "towel-rail",
+     "position": [
+      1.21,
+      3.374
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.1,
+      0.52
+     ]
+    }
+   ]
+  },
+  {
+   "id": "loft-furniture-lines",
+   "file": "loft-furniture-lines.png",
+   "format": "png",
+   "style": "interiorLine",
+   "title": [
+    "복층 1층 · 가구 선 도면",
+    "Loft ground floor · furniture line plan"
+   ],
+   "note": [
+    "층고 높은 거실과 욕실, 흑백 선 (PNG)",
+    "A tall living room and bath in black lines (PNG)"
+   ],
+   "pxPerMetre": 64,
+   "size": [
+    653,
+    717
+   ],
+   "widthMetres": 10.2,
+   "tilt": 0,
+   "drawnSize": [
+    653,
+    717
+   ],
+   "topLeft": [
+    -5.1,
+    -5.6
+   ],
+   "counts": {
+    "walls": 7,
+    "doors": 3,
+    "windows": 3,
+    "rooms": 2
+   },
+   "bytes": 7312,
+   "interior": true,
+   "furniture": [
+    {
+     "item": "stairs",
+     "position": [
+      1,
+      2.25
+     ],
+     "rotation": 0,
+     "size": [
+      1,
+      3.67
+     ]
+    },
+    {
+     "item": "sofa-loveseat",
+     "position": [
+      0,
+      -0.11
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.55,
+      0.92
+     ]
+    },
+    {
+     "item": "rug",
+     "position": [
+      0,
+      -1.75
+     ],
+     "rotation": 3.142,
+     "size": [
+      2,
+      1.4
+     ]
+    },
+    {
+     "item": "coffee-table",
+     "position": [
+      0.337,
+      -1.538
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.2,
+      0.6
+     ]
+    },
+    {
+     "item": "lounge-chair",
+     "position": [
+      -2.359,
+      -1.962
+     ],
+     "rotation": 4.712,
+     "size": [
+      0.83,
+      0.71
+     ]
+    },
+    {
+     "item": "tv-console",
+     "position": [
+      0,
+      -3.63
+     ],
+     "rotation": 0,
+     "size": [
+      1.8,
+      0.44
+     ]
+    },
+    {
+     "item": "tv",
+     "position": [
+      0,
+      -3.62
+     ],
+     "rotation": 0,
+     "size": [
+      1.45,
+      0.24
+     ]
+    },
+    {
+     "item": "floor-lamp-tripod",
+     "position": [
+      2.426,
+      0.06
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.54,
+      0.55
+     ]
+    },
+    {
+     "item": "monstera",
+     "position": [
+      -2.745,
+      -0.135
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.17,
+      1.38
+     ]
+    },
+    {
+     "item": "wall-art",
+     "position": [
+      0,
+      0.325
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.7,
+      0.03
+     ]
+    },
+    {
+     "item": "pendant-light",
+     "position": [
+      0,
+      -1.538
+     ],
+     "rotation": 0,
+     "size": [
+      0.4,
+      0.4
+     ]
+    },
+    {
+     "item": "vase-stems",
+     "position": [
+      0.135,
+      -1.538
+     ],
+     "rotation": 0,
+     "size": [
+      0.49,
+      0.38
+     ]
+    },
+    {
+     "item": "fiddle-leaf-fig",
+     "position": [
+      -2.496,
+      -3.415
+     ],
+     "rotation": 0,
+     "size": [
+      0.61,
+      0.77
+     ]
+    },
+    {
+     "item": "bookshelf",
+     "position": [
+      2.561,
+      -3.68
+     ],
+     "rotation": 0,
+     "size": [
+      0.9,
+      0.32
+     ]
+    },
+    {
+     "item": "refrigerator",
+     "position": [
+      -2.89,
+      1.12
+     ],
+     "rotation": 0,
+     "size": [
+      0.91,
+      0.97
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      -2.09,
+      0.96
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.62
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      -1.49,
+      0.96
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.62
+     ]
+    },
+    {
+     "item": "cooktop",
+     "position": [
+      -1.49,
+      0.96
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.52
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      -0.89,
+      0.96
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.62
+     ]
+    },
+    {
+     "item": "washbasin-vanity",
+     "position": [
+      2.502,
+      0.91
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.5
+     ]
+    },
+    {
+     "item": "mirror-cabinet",
+     "position": [
+      2.502,
+      0.735
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.13
+     ]
+    },
+    {
+     "item": "toilet",
+     "position": [
+      3.02,
+      1.602
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.64,
+      0.36
+     ]
+    },
+    {
+     "item": "shower-booth",
+     "position": [
+      2.44,
+      3.39
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.9,
+      0.91
+     ]
+    },
+    {
+     "item": "towel-rail",
+     "position": [
+      2.21,
+      2.574
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.1,
+      0.52
+     ]
+    }
+   ]
+  },
+  {
+   "id": "apt59-scandi-photo",
+   "file": "apt59-scandi-photo.jpg",
+   "format": "jpg",
+   "style": "interior",
+   "title": [
+    "59㎡ 북유럽풍 · 인테리어 평면 사진",
+    "59 m² Scandinavian · photo of an interior plan"
+   ],
+   "note": [
+    "모델하우스 안내판을 찍은 사진: 기울어짐, 그늘 (JPG)",
+    "A photo of a show-home board: tilted, shaded (JPG)"
+   ],
+   "pxPerMetre": 70,
+   "size": [
+    969,
+    812
+   ],
+   "widthMetres": 13.84,
+   "tilt": 3.5,
+   "drawnSize": [
+    896,
+    728
+   ],
+   "topLeft": [
+    -6.4,
+    -5.2
+   ],
+   "counts": {
+    "walls": 8,
+    "doors": 4,
+    "windows": 5,
+    "rooms": 4
+   },
+   "bytes": 70668,
+   "interior": true,
+   "furniture": [
+    {
+     "item": "bed",
+     "position": [
+      -2.425,
+      -1.8
+     ],
+     "rotation": -1.571,
+     "size": [
+      2.15,
+      1.3
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -1.56,
+      -0.37
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.43,
+      0.51
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -1.56,
+      -0.88
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.43,
+      0.51
+     ]
+    },
+    {
+     "item": "table-lamp",
+     "position": [
+      -1.56,
+      -0.37
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.36,
+      0.36
+     ]
+    },
+    {
+     "item": "wardrobe",
+     "position": [
+      -4.002,
+      -3.14
+     ],
+     "rotation": 0,
+     "size": [
+      1.2,
+      0.64
+     ]
+    },
+    {
+     "item": "bed",
+     "position": [
+      -3,
+      1.225
+     ],
+     "rotation": 0,
+     "size": [
+      1.2,
+      2.15
+     ]
+    },
+    {
+     "item": "nightstand",
+     "position": [
+      -3.87,
+      0.36
+     ],
+     "rotation": 0,
+     "size": [
+      0.51,
+      0.43
+     ]
+    },
+    {
+     "item": "table-lamp",
+     "position": [
+      -3.87,
+      0.36
+     ],
+     "rotation": 0,
+     "size": [
+      0.36,
+      0.36
+     ]
+    },
+    {
+     "item": "wardrobe",
+     "position": [
+      -4.34,
+      2.802
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.64,
+      1.2
+     ]
+    },
+    {
+     "item": "sofa-loveseat",
+     "position": [
+      1.8,
+      0.19
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.55,
+      0.92
+     ]
+    },
+    {
+     "item": "rug",
+     "position": [
+      1.8,
+      -1.4
+     ],
+     "rotation": 3.142,
+     "size": [
+      2,
+      1.4
+     ]
+    },
+    {
+     "item": "coffee-table",
+     "position": [
+      2.087,
+      -1.193
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.2,
+      0.6
+     ]
+    },
+    {
+     "item": "lounge-chair",
+     "position": [
+      -0.209,
+      -1.607
+     ],
+     "rotation": 4.712,
+     "size": [
+      0.83,
+      0.71
+     ]
+    },
+    {
+     "item": "tv-console",
+     "position": [
+      1.8,
+      -3.23
+     ],
+     "rotation": 0,
+     "size": [
+      1.8,
+      0.44
+     ]
+    },
+    {
+     "item": "tv",
+     "position": [
+      1.8,
+      -3.22
+     ],
+     "rotation": 0,
+     "size": [
+      1.45,
+      0.24
+     ]
+    },
+    {
+     "item": "floor-lamp-tripod",
+     "position": [
+      3.866,
+      0.36
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.54,
+      0.55
+     ]
+    },
+    {
+     "item": "monstera",
+     "position": [
+      -0.496,
+      0.165
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.17,
+      1.38
+     ]
+    },
+    {
+     "item": "wall-art",
+     "position": [
+      1.8,
+      0.625
+     ],
+     "rotation": 3.142,
+     "size": [
+      0.7,
+      0.03
+     ]
+    },
+    {
+     "item": "pendant-light",
+     "position": [
+      1.8,
+      -1.193
+     ],
+     "rotation": 0,
+     "size": [
+      0.4,
+      0.4
+     ]
+    },
+    {
+     "item": "vase-stems",
+     "position": [
+      1.915,
+      -1.193
+     ],
+     "rotation": 0,
+     "size": [
+      0.49,
+      0.38
+     ]
+    },
+    {
+     "item": "fiddle-leaf-fig",
+     "position": [
+      -0.296,
+      -3.015
+     ],
+     "rotation": 0,
+     "size": [
+      0.61,
+      0.77
+     ]
+    },
+    {
+     "item": "bookshelf",
+     "position": [
+      3.981,
+      -3.28
+     ],
+     "rotation": 0,
+     "size": [
+      0.9,
+      0.32
+     ]
+    },
+    {
+     "item": "refrigerator",
+     "position": [
+      -0.59,
+      1.42
+     ],
+     "rotation": 0,
+     "size": [
+      0.91,
+      0.97
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      0.21,
+      1.26
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.62
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      0.81,
+      1.26
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.62
+     ]
+    },
+    {
+     "item": "cooktop",
+     "position": [
+      0.81,
+      1.26
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.52
+     ]
+    },
+    {
+     "item": "kitchen-base-cabinet",
+     "position": [
+      1.41,
+      1.26
+     ],
+     "rotation": 0,
+     "size": [
+      0.6,
+      0.62
+     ]
+    },
+    {
+     "item": "washbasin-vanity",
+     "position": [
+      3.172,
+      1.21
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.5
+     ]
+    },
+    {
+     "item": "mirror-cabinet",
+     "position": [
+      3.172,
+      1.035
+     ],
+     "rotation": 0,
+     "size": [
+      0.8,
+      0.13
+     ]
+    },
+    {
+     "item": "toilet",
+     "position": [
+      4.32,
+      1.692
+     ],
+     "rotation": -1.571,
+     "size": [
+      0.64,
+      0.36
+     ]
+    },
+    {
+     "item": "bathtub",
+     "position": [
+      3.707,
+      3.04
+     ],
+     "rotation": 3.142,
+     "size": [
+      1.87,
+      0.8
+     ]
+    },
+    {
+     "item": "towel-rail",
+     "position": [
+      2.61,
+      2.454
+     ],
+     "rotation": 1.571,
+     "size": [
+      0.1,
+      0.52
+     ]
+    }
+   ]
   }
  ],
  "drawings": [
@@ -3915,6 +7080,62 @@
     "A scan turned by 7° (PNG)"
    ],
    "bytes": 496144
+  },
+  {
+   "id": "living-curved-dxf",
+   "file": "living-curved.dxf",
+   "format": "dxf",
+   "title": [
+    "곡선 벽 거실 · DXF",
+    "Curved living room · DXF"
+   ],
+   "note": [
+    "원호와 볼록 폴리라인으로 그린 둥근 벽",
+    "Round walls drawn as arcs and bulged polylines"
+   ],
+   "bytes": 4479
+  },
+  {
+   "id": "doors-variety-dxf",
+   "file": "doors-variety.dxf",
+   "format": "dxf",
+   "title": [
+    "여러 가지 문 · DXF",
+    "Many kinds of doors · DXF"
+   ],
+   "note": [
+    "미닫이·포켓·폴딩·양개문과 창 기호",
+    "Sliding, pocket, folding and double doors, window symbols"
+   ],
+   "bytes": 9718
+  },
+  {
+   "id": "duplex-ifc",
+   "file": "duplex.ifc",
+   "format": "ifc",
+   "title": [
+    "복층 주택 · IFC (BIM)",
+    "Duplex · IFC (BIM)"
+   ],
+   "note": [
+    "층·벽·문·창·공간·계단·가구가 든 BIM 모델",
+    "A BIM model: storeys, walls, openings, spaces, stairs, furniture"
+   ],
+   "bytes": 43169
+  },
+  {
+   "id": "duplex-sh3d",
+   "file": "duplex.sh3d",
+   "format": "sh3d",
+   "title": [
+    "복층 주택 · Sweet Home 3D",
+    "Duplex · Sweet Home 3D"
+   ],
+   "note": [
+    "두 층의 벽·방·가구가 든 집 파일 (SH3D)",
+    "A home file with two floors of walls, rooms and furniture (SH3D)"
+   ],
+   "bytes": 2250
   }
  ]
 }

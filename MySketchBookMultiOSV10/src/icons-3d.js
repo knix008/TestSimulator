@@ -2,6 +2,12 @@
 export const ICONS_3D = {
   scaleBar: '<path d="M3 15h18"/><path d="M3 11v8M12 13v4M21 11v8"/><path d="M3 15h9" stroke-width="3.2"/><path d="M7 6h10M9 4l-2 2 2 2M15 4l2 2-2 2"/>',
   tools: '<path d="M14.5 6.5a4 4 0 0 0 5 5L12 19a2.1 2.1 0 0 1-3-3z"/><path d="M3 21l3-3M4 4l4 4M3 6l3-3 3 3-3 3z"/>',
+  // ── automatic walk-through (engine/tour.js)
+  tour: '<circle cx="15" cy="4" r="1.7"/><path d="M12.5 20l1.6-5 2.6 2.6V21M12 11l2.6-2.8 2.4 2 2.5.6M14.6 8.2l-1 5"/><path d="M3 21c1.5-3 4-3 5-6s1-5 3-7" stroke-dasharray="1.6 2.4"/>',
+  skipPrev: '<path d="M6 5v14"/><path d="M18 6l-8 6 8 6z"/>',
+  skipNext: '<path d="M18 5v14"/><path d="M6 6l8 6-8 6z"/>',
+  speedDown: '<path d="M12 6l-7 6 7 6zM20 6l-7 6 7 6z"/>',
+  speedUp: '<path d="M12 6l7 6-7 6zM4 6l7 6-7 6z"/>',
   arrowDown: '<path d="M12 4v15M6 13l6 6 6-6"/><path d="M4 21h16"/>',
   // ── selection and editing
   select: '<path d="M5 3l13 7.5-5.5 1.5L10 18z"/><path d="M12.5 12l4.5 6"/>',
@@ -126,6 +132,7 @@ export const ICONS_3D = {
   libStorage: '<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M4 9h16M4 15h16M11 6h2M11 12h2M11 18h2"/>',
   libLighting: '<path d="M12 2v5"/><path d="M6 13a6 6 0 0 1 12 0z"/><path d="M10 17a2 2 0 0 0 4 0"/>',
   libDecor: '<path d="M8 21h8M9 21l-1-8h8l-1 8"/><path d="M12 13V8M12 8c-2-3-5-3-6-1M12 8c2-3 5-3 6-1M12 8c0-3 0-5 0-5"/>',
+  libAccessories: '<path d="M4 10h16l-1.5 10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/><path d="M8 10V8a4 4 0 0 1 8 0v2"/><path d="M9 14h6"/>',
   libPlants: '<path d="M7 15h10l-1.5 6h-7z"/><path d="M12 15V9M12 9c0-3 2-5 5-5 0 3-2 5-5 5zM12 11c0-2.5-2-4.5-5-4.5 0 2.5 2 4.5 5 4.5z"/>',
   libAppliances: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14M8 5v2M8 12v4"/>',
   libDoor: '<path d="M6 21V3h12v18M3 21h18"/><circle cx="15" cy="12" r="1"/>',
