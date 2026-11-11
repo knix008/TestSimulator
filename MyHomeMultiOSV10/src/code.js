@@ -268,18 +268,24 @@ function post(message) {
   storageSet(CODE_OUTBOX_KEY, JSON.stringify(queue.slice(-50)));
 }
 
-let siteTimer = 0;
+let siteFrame = 0;
+let sitePending = null;
 function sendSiteCode(tab, now = false) {
-  clearTimeout(siteTimer);
+  sitePending = tab;
   const go = () => {
-    if (!state.site || tab.siteId !== state.site.siteId) { say('error', t('code.siteGone')); return; }
-    post({ type: 'site-code', siteId: tab.siteId, field: tab.field, value: tab.text });
-    tab.saved = tab.text;
-    tab.dirty = false;
-    state.site.code[tab.field] = tab.text;
+    siteFrame = 0;
+    const current = sitePending;
+    sitePending = null;
+    if (!current) return;
+    if (!state.site || current.siteId !== state.site.siteId) { say('error', t('code.siteGone')); return; }
+    post({ type: 'site-code', siteId: current.siteId, field: current.field, value: current.text });
+    current.saved = current.text;
+    current.dirty = false;
+    state.site.code[current.field] = current.text;
     renderTabsOnly();
   };
-  if (now) go(); else siteTimer = setTimeout(go, 450);
+  if (now) { cancelAnimationFrame(siteFrame); go(); return; }
+  if (!siteFrame) siteFrame = requestAnimationFrame(go);
 }
 
 function readSite() {
@@ -364,7 +370,7 @@ function toolbarHtml() {
   const sep = '<span class="tool-sep" aria-hidden="true"></span>';
   return `<div class="tool-group">
       ${toolButton('new-html', 'htmlFile', t('code.newHtml'), { text: 'HTML' })}${toolButton('new-css', 'fileNew', t('code.newCss'), { text: 'CSS' })}${toolButton('new-js', 'fileNew', t('code.newJs'), { text: 'JS' })}
-      ${toolButton('open', 'folderOpen', `${t('code.open')} (Ctrl+O)`)}${toolButton('save', 'save', `${t('code.save')} (Ctrl+S)`, { disabled: none })}${toolButton('save-as', 'saveAs', `${t('code.saveAs')} (Ctrl+Shift+S)`, { disabled: none || tab.kind === 'site' })}${toolButton('save-all', 'saveAll', t('code.saveAll'), { disabled: !state.tabs.some((x) => x.dirty) })}
+      ${toolButton('open', 'folderOpen', `${t('code.open')} (Ctrl+O)`)}${toolButton('save', 'save', `${t('code.save')} (Ctrl+S)`, { disabled: none, text: t('code.save') })}${toolButton('save-as', 'saveAs', `${t('code.saveAs')} (Ctrl+Shift+S)`, { disabled: none || tab.kind === 'site' })}${toolButton('save-all', 'saveAll', t('code.saveAll'), { disabled: !state.tabs.some((x) => x.dirty) })}
     </div>${sep}<div class="tool-group">
       ${toolButton('undo', 'undo', `${t('code.undo')} (Ctrl+Z)`, { disabled: none })}${toolButton('redo', 'redo', `${t('code.redo')} (Ctrl+Y)`, { disabled: none })}
     </div>${sep}<div class="tool-group">
@@ -609,15 +615,16 @@ function say(kind, text) {
 
 // ───────────────────────── preview
 
-let previewTimer = 0;
+let previewFrame = 0;
 function refreshPreview(now = false) {
-  clearTimeout(previewTimer);
   const go = () => {
+    previewFrame = 0;
     const frame = root.querySelector('.code-preview iframe');
     const input = editorInput();
     if (frame && input) frame.srcdoc = input.value;
   };
-  if (now) go(); else previewTimer = setTimeout(go, 350);
+  if (now) { cancelAnimationFrame(previewFrame); go(); return; }
+  if (!previewFrame) previewFrame = requestAnimationFrame(go);
 }
 
 async function previewInBrowser() {

@@ -72,7 +72,7 @@ When the program starts (you can turn this off) you see cards on an animated bac
 - **Recent** — recent files and folders (× removes one from the list)
 - **New site** — the 12 templates
 - **Sample sites** — four groups, nine samples each
-- **Themes** and **Animated background** (20 kinds, random, speed, card transparency, change interval, background picture)
+- **Themes** and **Animated background** (20 kinds, random, speed, background opacity, change interval, background picture)
 
 Move a card by its handle and resize it from its corner. **Auto arrange** puts them back. The **Start** button on the menu bar (Ctrl+Shift+H) switches between the start page and the editor.
 
@@ -138,7 +138,7 @@ The **Bulletin board** block shows a list of posts (number, category, title, aut
 - **Write** opens a form. A static site cannot keep posts by itself: what is sent goes to the *form endpoint* (a form service such as Formspree) or the *e-mail*, and you add it to the board in the Content tab after checking it.
 - **Posts are kept › Database (board server)** — the posts live in a database. Set up the connection in **Settings › Database** (or *Database connection…* in the Content tab): **SQLite3** (the default; an empty file means board.db in the app's data folder), MySQL, MariaDB, PostgreSQL or MSSQL. *Test the connection* checks it; the password is saved only when you ask.
   - **Save posts to the database** in the Content tab makes the database's posts of this board these; **Load posts from the database** brings the database's posts (including the ones written on the website) into the board. The table `myhomemaker_board_posts` is made automatically.
-  - Publishing adds a **server** folder (a Node.js board server) next to the site. Started with `npm start` (for MySQL and the others `npm install` first; the password comes from the `DB_PASSWORD` environment variable), it serves the site and its boards, and posts written on the website go straight to the database. With SQLite3 the current database file goes along. server/README.md has the details.
+  - Publishing adds a **server** folder (a board server) next to the site. **Settings › Database** chooses the server language: Node.js (the default), Go, Rust or Python. Those languages are not part of the program. **Install the server language** on the same page installs a missing one (the web app opens its download page). Node.js starts with `npm start` (for MySQL and the others, `npm install` first), Go with `go mod tidy` then `go run .`, Rust with `cargo run --release`, and Python with `python server.py` (for anything but SQLite3, `pip install -r requirements.txt` first). The password comes from the `DB_PASSWORD` environment variable. The server shows the site and its boards, and posts written on the website go straight to the database. With SQLite3 the current database file goes along. server/README.md has the details.
 
 ### Selecting and moving
 
@@ -359,13 +359,14 @@ The published files are clean HTML and CSS without hidden blocks or editing mark
 - **Check** (F8) — JSHint for JavaScript, HTMLHint for HTML; JSON and CSS are checked by the program itself. Click a result to go to its line.
 - An HTML file shows its **preview** on the right as you type, and **Open in browser** too.
 - **Site CSS, JS, head** — code for the whole open site: the CSS after the design's style sheet, the JavaScript at the end of every page (`script.js` when published), the head HTML in every page's `<head>`. It applies to the canvas as you type and can be undone in the main window.
-- **Tools › Open this page as HTML code** opens the current page as an HTML file to change and save separately (the site stays as it is).
+- **View › Edit files** (Ctrl+Shift+U) edits this site's HTML, `style.css` and `script.js` under the page, with the menus and the page still showing. What you type is applied to the page at once, and **Save** stores the site. An unclosed tag, a brace or a syntax error is marked on its line and listed in the **Problems** panel below. Double-click a problem to go to that line. A page's HTML or `style.css` can be rebuilt from the blocks or the design.
+- **Tools › Edit this page's HTML** opens that editor on the current page.
 
 ## Packages
 
 The tools the code editor tidies and checks with (Prettier, JSHint, HTMLHint) are not in the installer: they are downloaded when needed from the internet (jsDelivr, else unpkg). Downloaded files are kept only after their SHA-256 matched.
 
-- At start, missing packages download by themselves (turn it off in Settings › Packages). The status bar shows the progress and **×** (cancel).
+- At start, missing packages download and install by themselves. Opening **Settings › Packages**, or turning its switch on, does the same at once; progress shows in that window and in the status bar. The switch turns it off, and **×** cancels.
 - When a download fails, **Retry** stays in the status bar, and the packages window shows the error.
 - **Tools › Packages…** or **Settings › Packages** — each package's state, size and progress, **Download / Download again / Cancel / Remove**, **Download all missing**
 
@@ -382,7 +383,7 @@ The tools the code editor tidies and checks with (Prettier, JSHint, HTMLHint) ar
 - **Background** — animated, picture or none; kind, speed, random, interval; background picture, opacity and fit
 - **Editor** — the design of new blank sites, the first device width, fit width on opening, icon-only Blocks panel, extract pictures when publishing
 - **Dictionary** — the spelling check and your dictionary (see above)
-- **Recent**, **Packages** (download automatically; download, retry, cancel), **Database** (where boards keep their posts, with a connection test), **Shortcuts**
+- **Recent**, **Packages** (missing ones download and install automatically; download, retry, cancel), **Database** (where boards keep their posts, with a connection test), **Shortcuts**
 
 **Defaults** resets the settings (recent files, the background picture and your dictionary stay).
 

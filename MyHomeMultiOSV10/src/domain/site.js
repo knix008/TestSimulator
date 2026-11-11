@@ -68,6 +68,7 @@ export function createSite({ name = '', L = 'ko', designId = 'ocean' } = {}) {
     meta: { title, description: '', language: L, author: '', keywords: '', favicon: '' },
     design,
     code: emptyCode(),
+    files: { css: '' },
     layout: { header: createBlock('navbar', { L, design, props: { brand: title } }), footer: createBlock('footer', { L, design }) },
     pages: [],
   };
@@ -95,6 +96,7 @@ export function normalizeSite(raw) {
     meta: { title: str(raw.meta?.title, str(raw.name, 'Site')), description: str(raw.meta?.description), language: L, author: str(raw.meta?.author), keywords: str(raw.meta?.keywords), favicon: str(raw.meta?.favicon) },
     design: { id: DESIGN_IDS.includes(raw.design?.id) ? raw.design.id : 'ocean', overrides: raw.design?.overrides && typeof raw.design.overrides === 'object' ? { ...raw.design.overrides } : {}, ...(typeof raw.design?.name === 'string' && raw.design.name.trim() ? { name: raw.design.name.trim().slice(0, 40) } : {}) },
     code: normalizeCode(raw.code),
+    files: { css: typeof raw.files?.css === 'string' ? raw.files.css : '' },
     layout: { header: null, footer: null },
     pages: [],
   };
@@ -108,6 +110,7 @@ export function normalizeSite(raw) {
     const blocks = (Array.isArray(page.blocks) ? page.blocks : []).map(normalizeBlock).filter((b) => b && !blockDef(b.type).global);
     for (const b of blocks) { if (ids.has(b.id)) b.id = newId(); ids.add(b.id); }
     const entry = { id: str(page.id) || newId('p'), name: str(page.name, 'Page') || 'Page', slug: '', title: str(page.title), description: str(page.description), nav: page.nav !== false, blocks };
+    if (typeof page.source === 'string' && page.source) entry.source = page.source;
     site.pages.push(entry);
     entry.slug = site.pages.length === 1 ? 'index' : uniqueSlug(site, str(page.slug) || entry.name, entry.id);
   }

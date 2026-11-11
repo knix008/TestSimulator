@@ -5,6 +5,7 @@
 // "Add to dictionary" and "Ignore". The toolbar's panel button (Ctrl+J) opens and closes it.
 import { blockLabel, blockDef, fieldLabel } from '../domain/blocks.js';
 import { countProblems, filterProblems, groupProblems, occurrenceIndex, replaceRange, siteProblems } from '../domain/problems.js';
+import { loadPackage } from '../platform/packages.js';
 import { decodeWordList, SpellChecker } from '../domain/spell.js';
 import { SPELL_EXTRA } from '../domain/spell-extra.js';
 import { normalizeUserWords, PANEL_MIN, BOTTOM_MAX_SHARE } from '../domain/settings.js';
@@ -81,7 +82,12 @@ export class ProblemsPanel {
     if (this.checker && this.userWordsKey !== s.userWords.join('\n')) { this.checker.setUserWords(s.userWords); this.userWordsKey = s.userWords.join('\n'); }
     const started = performance.now();
     const ignored = this.ignored.get(doc.site.id) ?? new Set();
-    this.rows = siteProblems(doc.site, { checker: spelling ? this.checker : null })
+    let tools = null;
+    if (this.app.state.sourceMode || doc.page?.source || doc.site?.files?.css || doc.site?.code?.js) {
+      const [js, html] = await Promise.all([loadPackage('jshint').catch(() => null), loadPackage('htmlhint').catch(() => null)]);
+      tools = { ...(js ?? {}), ...(html ?? {}) };
+    }
+    this.rows = siteProblems(doc.site, { checker: spelling ? this.checker : null, page: doc.page, tools, editing: Boolean(this.app.state.sourceMode) })
       .filter((r) => r.kind !== 'spelling' || ((/[가-힣]/.test(r.word) ? s.spellKorean : s.spellEnglish) && !ignored.has(r.word)));
     this.ms = performance.now() - started;
     this.docId = doc.id;
@@ -91,6 +97,7 @@ export class ProblemsPanel {
     this.render();
     this.app.renderStatus();
     this.markCanvas();
+    this.app.state.sourceView?.paintMarks?.();
     return this.rows;
   }
 
@@ -104,6 +111,7 @@ export class ProblemsPanel {
 
   message(r) {
     if (r.kind === 'spelling') return this.t('problems.unknownWord', { word: r.word });
+    if (r.kind === 'code') return this.t('problems.code', r.params);
     return this.t(r.code, r.params);
   }
 
@@ -115,6 +123,7 @@ export class ProblemsPanel {
   /** [page or "Site", block, field] for a row. */
   where(r) {
     const t = this.t;
+    if (r.kind === 'code') return [r.params?.file || '', `${r.line ?? ''}:${r.column ?? ''}`];
     const L = this.app.language();
     const site = this.app.activeDoc()?.site;
     const page = r.pageId ? site?.pages.find((p) => p.id === r.pageId) : null;
@@ -272,6 +281,11 @@ export class ProblemsPanel {
    * `edit` also opens its field in the editor with the word selected. */
   reveal(row, { edit = false } = {}) {
     const app = this.app;
+    if (row.kind === 'code') {
+      app.showSource?.(row.path);
+      requestAnimationFrame(() => app.state.sourceView?.jumpTo?.(row.line, row.column));
+      return;
+    }
     if (row.scope === 'site') { if (edit) app.focusEditor('site', `[data-site-field="${CSS.escape(row.path.replace('meta.', ''))}"]`, row); return; }
     if (row.pageId && row.pageId !== app.currentPage()?.id && !(row.scope === 'block' && app.isGlobalBlock(row.blockId))) app.openPage(row.pageId);
     if (row.scope === 'page') { app.focusEditor('page', `[data-page-field="${CSS.escape(row.path)}"]`, edit ? row : null); return; }

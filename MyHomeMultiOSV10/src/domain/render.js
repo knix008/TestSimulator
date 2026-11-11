@@ -6,8 +6,10 @@ import { effectiveDesign, FONTS } from './designs.js';
 
 const mixCss = (a, b, pct) => `color-mix(in srgb, ${a} ${pct}%, ${b})`;
 
-/** The design's style sheet and, after it, the site's own CSS (code editor). */
+/** The design's style sheet and, after it, the site's own CSS. A saved style.css replaces both. */
 export function siteStyles(site) {
+  const file = site?.files?.css;
+  if (typeof file === 'string' && file.length) return file.endsWith('\n') ? file : `${file}\n`;
   const own = String(site?.code?.css ?? '').trim();
   return own ? `${siteCss(site.design)}\n/* ── site CSS (MyHomeMaker code editor) ── */\n${own}\n` : siteCss(site?.design);
 }

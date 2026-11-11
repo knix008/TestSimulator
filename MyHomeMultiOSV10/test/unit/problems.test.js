@@ -82,6 +82,20 @@ test('rows: stable keys, counts, filters, groups', () => {
   assert.equal(siteProblems(s, { checker, spelling: false }).filter((r) => r.kind === 'spelling').length, 0);
 });
 
+test('a saved style sheet and a page file report the broken line', () => {
+  const s = site();
+  const page = s.pages[0];
+  assert.equal(siteProblems(s, { page, spelling: false }).filter((r) => r.kind === 'code').length, 0, 'a generated page is not listed until it is edited');
+  s.files = { ...(s.files ?? {}), css: 'h1 { color: red' };
+  page.source = '<div><p>열린 태그';
+  const rows = siteProblems(s, { page, spelling: false }).filter((r) => r.kind === 'code');
+  assert.ok(rows.some((r) => r.path === 'css' && r.severity === 'error' && r.line >= 1));
+  assert.ok(rows.some((r) => r.path === 'page' && r.params.file.endsWith('.html')));
+  s.code = { ...(s.code ?? {}), js: 'function (' };
+  const js = siteProblems(s, { page, spelling: false }).find((r) => r.path === 'js');
+  assert.equal(js?.severity, 'error');
+});
+
 test('fixing a word: the range is replaced, the n-th occurrence is found again', () => {
   const text = 'Teh websiet teh';
   assert.equal(replaceRange(text, 4, 11, 'website'), 'Teh website teh');

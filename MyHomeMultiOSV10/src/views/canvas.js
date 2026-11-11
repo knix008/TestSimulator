@@ -7,6 +7,7 @@
 // in the Content tab. Blocks are moved by dragging their name tab, or with the ↑ ↓ buttons.
 // Dragging is done with pointer events (the desktop webview takes HTML drag and drop for files).
 import { EDITOR_CSS, pageBody, siteStyles } from '../domain/render.js';
+import { customPageView, pageHasSource } from '../domain/sourcefiles.js';
 import { blockDef, blockLabel, fieldLabel } from '../domain/blocks.js';
 import { escapeHtml } from '../ui/dom.js';
 import { icon } from '../icons.js';
@@ -20,7 +21,7 @@ export class SiteCanvas {
     this.hoverId = null;
     this.editing = null;
     this.destroyed = false;
-    host.innerHTML = `<div class="canvas-wrap"><div class="canvas-scroll" tabindex="-1">
+    host.innerHTML = `<div class="canvas-wrap"><div class="source-banner" hidden></div><div class="canvas-scroll" tabindex="-1">
       <div class="canvas-stage"><div class="device-frame">
         <iframe class="site-frame" title="page" scrolling="no"></iframe>
         <div class="canvas-overlay" aria-hidden="false">
@@ -69,11 +70,27 @@ export class SiteCanvas {
     const page = tab.page;
     this.finishEdit(false);
     doc.documentElement.lang = site.meta.language;
-    doc.getElementById('hm-site').textContent = siteStyles(site);
+    const custom = pageHasSource(page);
+    const banner = this.host.querySelector('.source-banner');
+    if (banner) {
+      banner.hidden = !custom;
+      if (custom) banner.innerHTML = `<span>${escapeHtml(this.app.t('source.banner'))}</span><button type="button" class="small-button" data-command="revertPageSource" title="${escapeHtml(this.app.t('source.revertPage'))}">${icon('refresh')}<span>${escapeHtml(this.app.t('source.revertPage'))}</span></button><button type="button" class="small-button" data-command="sourceMode" title="${escapeHtml(this.app.t('action.sourceMode'))}">${icon('htmlFile')}<span>${escapeHtml(this.app.t('action.sourceMode'))}</span></button>`;
+    }
     const preview = Boolean(this.app.state.preview);
-    doc.body.classList.toggle('hm-editor', !preview);
-    this.overlay.hidden = preview;
-    doc.getElementById('hm-root').innerHTML = pageBody(site, page, { editor: !preview, L: site.meta.language, emptyText: [this.app.t('canvas.emptyTitle'), this.app.t('canvas.emptyText')] });
+    if (custom) {
+      const view = customPageView(page.source, site);
+      doc.getElementById('hm-site').textContent = view.css;
+      doc.getElementById('hm-editor').textContent = '';
+      doc.body.classList.remove('hm-editor');
+      this.overlay.hidden = true;
+      doc.getElementById('hm-root').innerHTML = view.body;
+    } else {
+      doc.getElementById('hm-site').textContent = siteStyles(site);
+      doc.getElementById('hm-editor').textContent = EDITOR_CSS;
+      doc.body.classList.toggle('hm-editor', !preview);
+      this.overlay.hidden = preview;
+      doc.getElementById('hm-root').innerHTML = pageBody(site, page, { editor: !preview, L: site.meta.language, emptyText: [this.app.t('canvas.emptyTitle'), this.app.t('canvas.emptyText')] });
+    }
     this.layout();
     this.updateOverlay();
     this.applyMarks();

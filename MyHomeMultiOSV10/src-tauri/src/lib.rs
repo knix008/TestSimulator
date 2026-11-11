@@ -4,6 +4,7 @@ pub mod i18n;
 pub mod instance;
 pub mod printing;
 pub mod db;
+pub mod toolchains;
 pub mod window_state;
 
 use serde::Serialize;
@@ -413,6 +414,16 @@ fn tutorial_video(app: AppHandle) -> VideoInfo {
 }
 
 /// Opens a web address, a file or a folder with the system (published site, its folder).
+#[tauri::command]
+fn toolchain_status() -> Vec<toolchains::ToolStatus> {
+    toolchains::probe()
+}
+
+#[tauri::command]
+fn toolchain_install(id: String) -> Result<toolchains::InstallStarted, String> {
+    toolchains::install(&id)
+}
+
 #[tauri::command]
 async fn open_external(target: String) -> Result<(), String> {
     let lower = target.to_lowercase();
@@ -867,6 +878,8 @@ pub fn run() {
             open_doc_window,
             tutorial_video,
             open_external,
+            toolchain_status,
+            toolchain_install,
             write_site_files,
             preview_site,
             open_popup,

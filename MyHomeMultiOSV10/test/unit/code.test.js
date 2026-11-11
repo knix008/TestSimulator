@@ -10,6 +10,7 @@ import { drainQueue, pushQueue, readQueue } from '../../src/domain/codebus.js';
 import * as S from '../../src/domain/site.js';
 import { inlineScript, pageHtml, siteCss, siteStyles } from '../../src/domain/render.js';
 import { siteFiles, singlePageHtml } from '../../src/domain/publish.js';
+import { assignCssFile, assignPageSource, cssFileText, customPageView, generatedCss, pageFileText, publishedPageHtml } from '../../src/domain/sourcefiles.js';
 import { defaultSettings, loadSettings } from '../../src/domain/settings.js';
 
 class MemoryStorage {
@@ -314,4 +315,38 @@ test('site code: CSS after the design, JavaScript at the end of every page, HTML
   assert.deepEqual(opened.code, { css: '', js: '', head: '' });
   assert.equal(siteFiles(opened).some((f) => f.path === 'script.js'), false);
   assert.deepEqual(S.normalizeSite({ ...old, code: { css: 1, js: 'x', extra: 'y' } }).code, { css: '', js: 'x', head: '' });
+});
+
+test('site files: page HTML and style.css can be edited, and match the blocks until they change', () => {
+  const site = S.createSite({ L: 'ko' });
+  const page = site.pages[0];
+  const generated = pageFileText(site, page);
+  assert.equal(generated, pageHtml(site, page, { css: 'style.css' }));
+  assert.equal(cssFileText(site), siteStyles(site));
+  assignPageSource(site, page, generated);
+  assert.equal(page.source, undefined);
+  assignPageSource(site, page, '<!doctype html><html><head><link rel="stylesheet" href="style.css" /></head><body><h1>직접</h1><script src="script.js"></script></body></html>');
+  assert.match(siteFiles(site).find((f) => f.path === 'index.html').data, /직접/);
+  const single = singlePageHtml(site, page);
+  assert.match(single, /<style>/);
+  assert.doesNotMatch(single, /href="style.css"/);
+  assert.doesNotMatch(single, /src="script.js"/);
+  const view = customPageView(page.source, site);
+  assert.match(view.body, /<h1>직접<\/h1>/);
+  assert.doesNotMatch(view.body, /<script/);
+  assert.match(view.css, /:root\{--primary/);
+  const saved = S.parseSite(S.serializeSite(site));
+  assert.match(publishedPageHtml(saved, saved.pages[0]), /직접/);
+  assignCssFile(site, 'body{color:pink}\n');
+  assert.match(siteStyles(site), /^body\{color:pink/);
+  assert.match(siteFiles(site).find((f) => f.path === 'style.css').data, /pink/);
+  assignCssFile(site, generatedCss(site));
+  assert.equal(site.files.css, '');
+  assert.equal(siteStyles(site), siteCss(site.design));
+  const raw = JSON.parse(S.serializeSite(S.createSite({ L: 'en' })));
+  raw.pages[0].source = 4;
+  raw.files = { css: 9 };
+  const opened = S.normalizeSite(raw);
+  assert.equal(opened.pages[0].source, undefined);
+  assert.equal(opened.files.css, '');
 });

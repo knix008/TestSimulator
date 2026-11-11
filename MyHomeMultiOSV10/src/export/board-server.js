@@ -1,10 +1,12 @@
 // The board server written next to a published site whose bulletin boards keep their posts in a
-// database (board block "Posts are kept: Database"): server/server.js serves the site and the
-// board API (/api/board by default) on the database chosen in Settings › Database — SQLite3
-// through Node's own node:sqlite, MySQL/MariaDB (mysql2), PostgreSQL (pg) or MSSQL (mssql).
-// The table is the one the editor reads and writes (src-tauri/src/db.rs), so posts written on the
-// website appear in the editor (Load posts from the database) and the other way round.
-// The password is never written: the server reads it from the DB_PASSWORD environment variable.
+// database (board block "Posts are kept: Database"). Settings › Database chooses the language
+// (Node.js, Go, Rust or Python; Node is the default) and the database — SQLite3, MySQL, MariaDB,
+// PostgreSQL or MSSQL. The table is the one the editor reads and writes (src-tauri/src/db.rs), so
+// posts written on the website appear in the editor (Load posts from the database) and the other
+// way round. The password is never written: the server reads it from the DB_PASSWORD environment variable.
+import { goServerFiles } from './board-go.js';
+import { pythonServerFiles } from './board-python.js';
+import { rustServerFiles } from './board-rust.js';
 
 /** The boards of a site that use a database: [{ id, page, api, posts }]. */
 export function databaseBoards(site) {
@@ -31,10 +33,11 @@ const DRIVERS = { mysql: { name: 'mysql2', version: '^3.11.0' }, mariadb: { name
  * The files of the board server (paths under server/), or [] when no board uses a database.
  * db: the connection settings (settings.js dbConfig shape; the password is left out on purpose).
  */
-export function boardServerFiles(site, db, { L = site?.meta?.language === 'en' ? 'en' : 'ko', sqliteFile = 'board.db' } = {}) {
+export function boardServerFiles(site, db, { L = site?.meta?.language === 'en' ? 'en' : 'ko', sqliteFile = 'board.db', language = 'node' } = {}) {
   const boards = databaseBoards(site);
   if (!boards.length) return [];
   const kind = ['sqlite', 'mysql', 'mariadb', 'postgres', 'mssql'].includes(db?.kind) ? db.kind : 'sqlite';
+  const lang = ['node', 'go', 'rust', 'python'].includes(language) ? language : 'node';
   const apis = [...new Set(boards.map((b) => b.api))];
   const config = {
     port: 8080,
@@ -45,6 +48,13 @@ export function boardServerFiles(site, db, { L = site?.meta?.language === 'en' ?
       : { kind, host: db?.host || 'localhost', port: db?.port ?? null, database: db?.database || 'myhomemaker', user: db?.user || '' },
     boards: Object.fromEntries(boards.map((b) => [b.id, { page: `${b.page === 'index' ? 'index' : b.page}.html`, seed: b.posts }])),
   };
+  const shared = [
+    { path: 'server/config.json', data: `${JSON.stringify(config, null, 2)}\n` },
+    { path: 'server/README.md', data: readme(kind, config, L, lang) },
+  ];
+  if (lang === 'go') return [...goServerFiles(kind), ...shared];
+  if (lang === 'rust') return [...rustServerFiles(kind), ...shared];
+  if (lang === 'python') return [...pythonServerFiles(kind), ...shared];
   const driver = DRIVERS[kind];
   const pkg = {
     name: 'myhomemaker-board-server',
@@ -60,15 +70,24 @@ export function boardServerFiles(site, db, { L = site?.meta?.language === 'en' ?
   return [
     { path: 'server/server.js', data: SERVER_JS },
     { path: 'server/package.json', data: `${JSON.stringify(pkg, null, 2)}\n` },
-    { path: 'server/config.json', data: `${JSON.stringify(config, null, 2)}\n` },
-    { path: 'server/README.md', data: readme(kind, config, L) },
+    ...shared,
   ];
 }
 
-function readme(kind, config, L) {
+function readme(kind, config, L, language) {
   const names = { sqlite: 'SQLite3', mysql: 'MySQL', mariadb: 'MariaDB', postgres: 'PostgreSQL', mssql: 'MSSQL' };
-  const install = kind === 'sqlite' ? '' : 'npm install\n';
   const password = kind === 'sqlite' ? '' : L === 'en' ? 'set DB_PASSWORD=your-password      (macOS/Linux: export DB_PASSWORD=your-password)\n' : 'set DB_PASSWORD=비밀번호      (macOS/Linux: export DB_PASSWORD=비밀번호)\n';
+  const install = language === 'node' && kind !== 'sqlite' ? 'npm install\n' : language === 'python' && kind !== 'sqlite' ? 'pip install -r requirements.txt\n' : '';
+  const run = { go: 'go mod tidy\ngo run .', rust: 'cargo run --release', python: 'python server.py' }[language] ?? 'npm start';
+  const need = language === 'go'
+    ? (L === 'en' ? 'Go is needed.' : 'Go 가 필요합니다.')
+    : language === 'rust'
+      ? (L === 'en' ? 'Rust (cargo) is needed.' : 'Rust(cargo)가 필요합니다.')
+      : language === 'python'
+        ? (L === 'en' ? 'Python 3 is needed.' : 'Python 3 이 필요합니다.')
+        : (L === 'en'
+          ? `Node.js ${kind === 'sqlite' ? '22.13 or later' : '18 or later'} is needed.`
+          : `Node.js ${kind === 'sqlite' ? '22.13 이상' : '18 이상'}이 필요합니다.`);
   if (L === 'en') {
     return `# Board server
 
@@ -76,10 +95,10 @@ The bulletin boards of this site keep their posts in a database (${names[kind]})
 
 ## Run it
 
-Node.js ${kind === 'sqlite' ? '22.13 or later' : '18 or later'} is needed. In this folder:
+${need} In this folder:
 
 \`\`\`
-${install}${password}npm start
+${install}${password}${run}
 \`\`\`
 
 Then open http://localhost:${config.port}/ (another port: \`set PORT=3000\`).
@@ -96,10 +115,10 @@ Then open http://localhost:${config.port}/ (another port: \`set PORT=3000\`).
 
 ## 실행
 
-Node.js ${kind === 'sqlite' ? '22.13 이상' : '18 이상'}이 필요합니다. 이 폴더에서:
+${need} 이 폴더에서:
 
 \`\`\`
-${install}${password}npm start
+${install}${password}${run}
 \`\`\`
 
 그다음 http://localhost:${config.port}/ 을 엽니다(다른 포트: \`set PORT=3000\`).

@@ -77,6 +77,61 @@ export function checkHtml(tools, text) {
   return sortItems(hint.verify(text).map((m) => item(m.line, m.col, m.type === 'error' ? 'error' : 'warning', m.message, m.rule?.id ?? '')));
 }
 
+const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
+
+/** HTML without HTMLHint: tags and comments that are not closed. */
+export function checkHtmlBasic(text) {
+  const items = [];
+  const comment = text.indexOf('<!--');
+  if (comment >= 0 && text.indexOf('-->', comment + 4) < 0) {
+    const at = lineColumn(text, comment);
+    items.push(item(at.line, at.column, 'error', 'unclosed comment', 'comment'));
+  }
+  const stack = [];
+  const re = /<!--[\s\S]*?-->|<\/?([A-Za-z][\w:-]*)\b[^>]*?>/g;
+  let match = re.exec(text);
+  while (match) {
+    const tag = match[0];
+    if (!tag.startsWith('<!--')) {
+      const name = match[1].toLowerCase();
+      const at = lineColumn(text, match.index);
+      if (tag.startsWith('</')) {
+        const top = stack.pop();
+        if (!top || top.name !== name) items.push(item(at.line, at.column, 'error', `unexpected </${name}>`, 'tag-pair'));
+        if (top && top.name !== name) stack.push(top);
+      } else if (!tag.endsWith('/>') && !VOID_TAGS.has(name)) stack.push({ name, ...at });
+    }
+    match = re.exec(text);
+  }
+  for (const open of stack) items.push(item(open.line, open.column, 'error', `<${open.name}> is not closed`, 'tag-pair'));
+  return sortItems(items);
+}
+
+/** JavaScript without JSHint: the first syntax error the engine reports. */
+export function checkJsSyntax(text) {
+  if (!String(text ?? '').trim()) return [];
+  const body = String(text).replace(/^\s*import\b[^;]*;?/gm, '').replace(/^\s*export\s+default\s+/gm, '').replace(/^\s*export\s+/gm, '');
+  try {
+    // Syntax only. The function is never called.
+    // eslint-disable-next-line no-new-func
+    new Function(body);
+    return [];
+  } catch (error) {
+    const message = String(error?.message ?? error).split('\n')[0];
+    const at = /:(\d+):(\d+)/.exec(String(error?.stack ?? ''));
+    return [item(at?.[1] ?? 1, at?.[2] ?? 1, 'error', message, 'syntax')];
+  }
+}
+
+/** The problems of a text, using a package when it is installed and a small check otherwise. */
+export function checkSource(tools, text, language) {
+  if (language === 'json') return { tool: 'JSON', items: checkJson(text) };
+  if (language === 'css') return { tool: 'CSS', items: checkCss(text) };
+  if (language === 'js') return tools?.JSHINT ? { tool: 'JSHint', items: checkJs(tools, text) } : { tool: 'JavaScript', items: checkJsSyntax(text) };
+  if (language === 'html') return tools?.HTMLHint ? { tool: 'HTMLHint', items: checkHtml(tools, text) } : { tool: 'HTML', items: checkHtmlBasic(text) };
+  return { tool: '', items: [] };
+}
+
 /** The problems of a text: { tool, items: [{ line, column, severity, message, rule }] }. */
 export function checkCode(tools, text, language) {
   if (language === 'json') return { tool: 'JSON', items: checkJson(text) };

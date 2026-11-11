@@ -6,7 +6,7 @@ import appIcon from '../assets/icon-256.png';
 import { loadRecent, loadRecentDirs, MAX_RECENT, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
   ANIMATIONS, ANIMATION_INTERVALS, BACKGROUND_FITS, BACKGROUND_KINDS, defaultSettings, DEVICE_IDS, FONT_SIZE, FONT_STYLES, FONT_WEIGHTS, loadSettings,
-  DB_KINDS, DB_NAMES, dbPortOf, dbProblems, normalizeUserWords, RECENT_DIRS_KEY, RECENT_KEY, STORAGE_KEY, storeSettings, USER_WORDS_MAX, ZOOM,
+  BOARD_BACKENDS, DB_KINDS, DB_NAMES, dbPortOf, dbProblems, normalizeUserWords, RECENT_DIRS_KEY, RECENT_KEY, STORAGE_KEY, storeSettings, USER_WORDS_MAX, ZOOM,
 } from './domain/settings.js';
 import { normalizeWord, validUserWord } from './domain/spell.js';
 import { DICT_INFO } from './domain/dict-info.js';
@@ -25,6 +25,7 @@ import { TEMPLATES } from './domain/templates.js';
 import { SAMPLE_GROUPS, SAMPLES } from './domain/samples.js';
 import { idbGet } from './platform/idb.js';
 import { formatSize, packageSize, PACKAGES } from './domain/packages.js';
+import { TOOLCHAINS } from './domain/toolchains.js';
 import { PACKAGES_STATE_KEY, packageView } from './platform/packages.js';
 import { defaultPrintOptions, FITS, MARGINS, normalizePrintOptions, PAPERS, PRINT_DEVICES, PRINT_JOB_KEY, PRINT_SETUP_KEY, RANGES, selectPrintPages } from './print/layout.js';
 import { fillFrames, jobLayout, measurePages, sheetsHtml, sheetsKey } from './print/window.js';
@@ -513,7 +514,7 @@ export const SHORTCUT_LIST = [
   ['Delete', 'action.delete'], ['Ctrl+Up / Down', 'action.moveUp'], ['Ctrl+H', 'action.toggleHidden'], ['Alt+Up / Down', 'action.selectNext'], ['Enter', 'action.editContent'], ['Esc', 'action.clearSelection'],
   ['shortcut.click', 'shortcut.select'], ['shortcut.clickAgain', 'shortcut.inlineEdit'], ['shortcut.doubleClick', 'shortcut.doubleClickDo'], ['shortcut.drag', 'shortcut.dragDo'], ['shortcut.ctrlClick', 'shortcut.ctrlClickDo'],
   ['Ctrl+Shift+A', 'action.addBlock'], ['Ctrl+Shift+N', 'action.addPage'], ['F2', 'action.renamePage'], ['Ctrl+PageUp / PageDown', 'action.nextPage'], ['Ctrl+Tab', 'action.nextPage'],
-  ['Ctrl+= / Ctrl+-', 'action.zoomIn'], ['Ctrl+0', 'action.zoomReset'], ['Ctrl+Shift+W', 'action.zoomFit'], ['shortcut.wheel', 'action.zoomIn'], ['Ctrl+E', 'action.previewMode'],
+  ['Ctrl+= / Ctrl+-', 'action.zoomIn'], ['Ctrl+0', 'action.zoomReset'], ['Ctrl+Shift+W', 'action.zoomFit'], ['shortcut.wheel', 'action.zoomIn'], ['Ctrl+E', 'action.previewMode'], ['Ctrl+Shift+U', 'action.sourceMode'],
   ['F5', 'action.previewBrowser'], ['Ctrl+Shift+P', 'action.publish'], ['Ctrl+Shift+D', 'action.designPicker'], ['Ctrl+Shift+1 / 2', 'action.blocksPanel'], ['Ctrl+Shift+L', 'action.language'],
   ['Ctrl+Shift+B', 'action.shuffleBackground'], ['Ctrl+Shift+H', 'action.startPage'], ['Ctrl+,', 'action.settings'], ['F11', 'action.tutorial'], ['F1', 'action.about'],
 ];
@@ -1096,14 +1097,34 @@ function renderPublish() {
 
 const dbText = (key, label, attrs = '') => `<input type="text" data-db-text="${key}" value="${escapeHtml(s()[key] ?? '')}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" spellcheck="false" autocomplete="off" ${attrs} />`;
 
+function toolRow() {
+  if (!state.toolsAsked) {
+    state.toolsAsked = true;
+    action('toolchain-status');
+  }
+  const known = new Map((state.tools ?? []).map((tool) => [tool.id, tool]));
+  const chips = TOOLCHAINS.map((tool) => {
+    const checked = Array.isArray(state.tools);
+    const info = known.get(tool.id);
+    const ready = Boolean(info?.found);
+    const label = t(`db.backend.${tool.id}`);
+    const status = !checked ? t('db.tool.unknown') : ready ? t('db.tool.ready', { version: info.version }) : t('db.tool.missing');
+    const install = ready ? '' : button('toolchain-install', t('db.tool.install'), 'importFile', 'small', tool.id);
+    return `<span class="tool-chip ${ready ? 'ok' : ''}">${escapeHtml(label)} <span class="muted">${escapeHtml(status)}</span></span>${install}`;
+  }).join('');
+  return row('server', t('db.tools'), `<span class="tool-row">${chips}</span>`, t('db.tool.hint'));
+}
+
 function settingsDatabase() {
-  if (!desktop) return [row('info', '', `<span class="muted">${escapeHtml(t('db.desktopOnly'))}</span>`, t('db.desktopOnly')), row('info', '', `<span class="muted">${escapeHtml(t('db.hint'))}</span>`, t('db.hint'))].join('');
+  const backend = row('server', t('db.backend'), segmented('boardBackend', BOARD_BACKENDS.map((k) => [k, t(`db.backend.${k}`)]), s().boardBackend || 'node'));
+  const tools = toolRow();
+  if (!desktop) return [backend, tools, row('info', '', `<span class="muted">${escapeHtml(t('db.desktopOnly'))}</span>`, t('db.desktopOnly')), row('info', '', `<span class="muted">${escapeHtml(t('db.hint'))}</span>`, t('db.hint'))].join('');
   const kind = s().dbKind;
   if (state.dbDefaultFile == null) {
     state.dbDefaultFile = '';
     native.dbDefaultFile().then((file) => { state.dbDefaultFile = file; if (state.tab === 'database') render(); }).catch(() => {});
   }
-  const rows = [row('database', t('db.kind'), segmented('dbKind', DB_KINDS.map((k) => [k, DB_NAMES[k]]), kind))];
+  const rows = [backend, tools, row('database', t('db.kind'), segmented('dbKind', DB_KINDS.map((k) => [k, DB_NAMES[k]]), kind))];
   if (kind === 'sqlite') {
     rows.push(row('file', t('db.file'), `${dbText('dbFile', t('db.file'), `placeholder="${escapeHtml(state.dbDefaultFile || t('db.filePlaceholder'))}"`)}${button('db-browse', t('db.browse'), 'folder', 'small')}`));
     rows.push(row('info', '', `<span class="muted">${escapeHtml(t('db.fileDefault', { file: state.dbDefaultFile || '—' }))}</span>`, t('db.fileDefault', { file: state.dbDefaultFile })));
@@ -1174,6 +1195,16 @@ function packagesHtml() {
 
 function settingsPackages() {
   return packagesHtml();
+}
+
+/** Missing packages, when automatic download is on: the main window downloads and installs them. */
+function requestAutoPackages() {
+  if (!s().autoDownloadPackages) return;
+  const ids = PACKAGES.filter((pkg) => {
+    const view = packageView(pkg.id);
+    return view.state !== 'installed' && !['download', 'queued', 'saving'].includes(view.phase);
+  }).map((pkg) => pkg.id);
+  if (ids.length) action('package-install', { ids, auto: true });
 }
 
 function renderPackages() {
@@ -1418,7 +1449,7 @@ root.addEventListener('click', async (event) => {
     case 'close':
       if (kind === 'menu') return chooseMenu(null);
       return close(kind === 'confirm' || kind === 'welcome' ? { choice: 'cancel' } : null);
-    case 'tab': state.tab = value; state.dictNote = null; return render();
+    case 'tab': state.tab = value; state.dictNote = null; render(); if (value === 'packages') requestAutoPackages(); return undefined;
     case 'dict-add': return addDictionaryWord();
     case 'dict-remove': state.dictNote = null; return update({ userWords: (s().userWords ?? []).filter((w) => w !== value) });
     case 'dict-clear': state.dictNote = null; state.pager.dict = 0; return update({ userWords: [] });
@@ -1465,6 +1496,7 @@ root.addEventListener('click', async (event) => {
     case 'publish-apply': return close({ format: d.format, extract: d.extract });
     case 'print': return doPrint();
     case 'db-test': return testDatabase();
+    case 'toolchain-install': return action('toolchain-install', { id: value });
     case 'db-browse': return action('db-browse');
     case 'package-install': return action('package-install', { ids: [value] });
     case 'package-install-all': return action('package-install', { ids: PACKAGES.filter((pkg) => packageView(pkg.id).state !== 'installed').map((pkg) => pkg.id) });
@@ -1479,7 +1511,11 @@ root.addEventListener('change', (event) => {
   const target = event.target;
   if (target.dataset.editDesign) { editDesignInput(target); return undefined; }
   const d = state.draft;
-  if (target.dataset.toggle) return update({ [target.dataset.toggle]: target.checked });
+  if (target.dataset.toggle) {
+    update({ [target.dataset.toggle]: target.checked });
+    if (target.dataset.toggle === 'autoDownloadPackages' && target.checked) requestAutoPackages();
+    return undefined;
+  }
   if (target.dataset.select) { const key = target.dataset.select; return update({ [key]: typeof s()[key] === 'number' ? Number(target.value) : target.value }); }
   if (target.dataset.customColor) return update({ customTheme: { ...s().customTheme, [target.dataset.customColor]: target.value }, theme: CUSTOM });
   if ('customDark' in target.dataset) return update({ customTheme: { ...s().customTheme, dark: target.checked }, theme: CUSTOM });
@@ -1606,6 +1642,11 @@ function onHostMessage(message) {
     if (kind === 'settings') render();
     return;
   }
+  if (message?.type === 'toolchain-status') {
+    state.tools = Array.isArray(message.tools) ? message.tools : [];
+    if (kind === 'settings' && state.tab === 'database') render();
+    return;
+  }
   if (message?.type === 'progress') {
     state.progress = message;
     if (kind === 'progress') render();
@@ -1631,6 +1672,7 @@ function refresh() {
   if (kind === 'settings' && state.params.themeGroup) state.themeGroup = state.params.themeGroup;
   applyLook();
   render();
+  if (kind === 'settings' && state.tab === 'packages') requestAutoPackages();
 }
 
 if (desktop) {
@@ -1651,6 +1693,7 @@ if (desktop) {
 
 applyLook();
 render();
+if (kind === 'settings' && state.tab === 'packages') requestAutoPackages();
 
 // Test hook (E2E): state and actions of this popup.
 window.__myhomemakerPopup = { kind, state, render, close, errorReport, refresh, printLayout, printSetup, changePrint };

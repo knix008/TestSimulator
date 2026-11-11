@@ -3,6 +3,8 @@
 // Every row says where it is, so a double click can show it: { scope: 'site' | 'page' | 'block',
 // pageId, blockId, path, start, end }.
 import { blockDef, pageFile } from './blocks.js';
+import { checkSource } from './codetools.js';
+import { cssFileText, cssHasSource, jsFileText, pageFileText, pageHasSource } from './sourcefiles.js';
 import { words } from './spell.js';
 
 /** Text a block keeps in a field kind that is spelling-checked. */
@@ -102,6 +104,27 @@ export function siteChecks(site) {
   return out;
 }
 
+/** Problems in the site's HTML, CSS and JavaScript. Generated files are checked while they are
+ * open in the editor; a saved override is checked even after the editor is closed. */
+export function codeProblems(site, page, tools, { editing = false } = {}) {
+  if (!site) return [];
+  const out = [];
+  const add = (file, language, name, text, pageId) => {
+    for (const found of checkSource(tools, text, language).items.slice(0, 40)) {
+      out.push({
+        kind: 'code', severity: found.severity === 'error' ? 'error' : 'warning', code: 'problems.code',
+        params: { file: name, line: found.line, column: found.column, message: found.message },
+        message: found.message, scope: 'code', pageId, blockId: null, path: file, line: found.line, column: found.column,
+      });
+    }
+  };
+  if (page && (editing || pageHasSource(page))) add('page', 'html', pageFile(page), pageFileText(site, page), page.id);
+  if (editing || cssHasSource(site)) add('css', 'css', 'style.css', cssFileText(site), page?.id ?? null);
+  const js = jsFileText(site);
+  if (js.trim()) add('js', 'js', 'script.js', js, page?.id ?? null);
+  return out;
+}
+
 /** Words the checker does not know: { severity: 'spelling', word, suggestions: [] (filled later), … where }. */
 export function spellingProblems(site, checker, { limit = 2000 } = {}) {
   const out = [];
@@ -117,8 +140,8 @@ export function spellingProblems(site, checker, { limit = 2000 } = {}) {
 }
 
 /** The panel's rows with a stable key each (the same problem keeps its key after an edit elsewhere). */
-export function siteProblems(site, { checker = null, spelling = true } = {}) {
-  const list = [...siteChecks(site), ...(spelling && checker ? spellingProblems(site, checker) : [])];
+export function siteProblems(site, { checker = null, spelling = true, page = null, tools = null, editing = false } = {}) {
+  const list = [...siteChecks(site), ...(spelling && checker ? spellingProblems(site, checker) : []), ...codeProblems(site, page, tools, { editing })];
   const counts = new Map();
   return list.map((p) => {
     const base = `${p.kind}|${p.code}|${p.pageId ?? ''}|${p.blockId ?? ''}|${p.path}|${p.word ?? ''}`;
@@ -140,7 +163,7 @@ export function countProblems(rows) {
 export function filterProblems(rows, { severity = 'all', pageId = null, query = '', text = (r) => r.code } = {}) {
   const q = query.trim().toLowerCase();
   return rows.filter((r) => (severity === 'all' || r.severity === severity)
-    && (!pageId || r.pageId === pageId || r.scope === 'site')
+    && (!pageId || r.pageId === pageId || r.scope === 'site' || r.kind === 'code')
     && (!q || text(r).toLowerCase().includes(q)));
 }
 

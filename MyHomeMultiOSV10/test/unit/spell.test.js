@@ -24,6 +24,7 @@ const checker = new SpellChecker({ en, ko, extra: SPELL_EXTRA });
 test('word lists: front coding round trip, sizes, licences', () => {
   const list = ['a', 'ab', 'abc', 'abd', 'b', '가', '가나', '가나다'];
   assert.deepEqual(decodeWordList(encodeWordList(list)), list);
+  assert.deepEqual(decodeWordList(encodeWordList(['web', 'website']).replace(/\n/g, '\r\n')), ['web', 'website']);
   assert.equal(en.length, DICT_INFO.en);
   assert.equal(ko.length, DICT_INFO.ko);
   assert.ok(en.length > 200_000 && ko.length > 90_000);

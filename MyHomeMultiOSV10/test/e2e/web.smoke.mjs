@@ -543,7 +543,7 @@ for (const language of languages) {
       if (id === 'exit') continue;
       await report.check(tag(`command "${id}" runs`), async () => {
         await closePopups();
-        await app(`if (a.state.preview) A.togglePreview(); if (!doc() || a.state.showStart) A.newSite('business'); if (a.tutorial()?.active) await a.tutorial().stop(); const p = doc().page; if (!a.state.selected) A.select(p.blocks[1].id); window.__before = JSON.stringify(a.state.settings); return 1;`);
+        await app(`if (a.state.sourceMode) a.run('sourceMode'); if (a.state.preview) A.togglePreview(); if (!doc() || a.state.showStart) A.newSite('business'); if (a.tutorial()?.active) await a.tutorial().stop(); const p = doc().page; if (!a.state.selected) A.select(p.blocks[1].id); window.__before = JSON.stringify(a.state.settings); return 1;`);
         errorsSoFar();
         const enabled = await app(`return a.menus.enabled('${id}');`);
         await app(`void a.run('${id}', { anchor: { x: 200, y: 200 } }); await new Promise((r) => setTimeout(r, 250)); return 1;`);
@@ -596,6 +596,14 @@ for (const language of languages) {
         expect(await run(`!!${popupDoc('settings')}.querySelector('.settings-${tab}')`), 'tab not drawn');
       });
     }
+    await report.check(tag('Settings › Packages downloads and installs the packages that are missing'), async () => {
+      await closePopups();
+      await app("window.__pkgAsked = []; a.popups.on('package-install', (d) => window.__pkgAsked.push(d)); localStorage.setItem('myhomemaker.packages.v1', JSON.stringify({ jshint: { phase: 'done', installed: '2.13.6' }, htmlhint: { phase: 'download', received: 1, total: 10, installed: null } })); void a.popups.open('settings', { tab: 'packages' }); return 1;");
+      await waitPopup('settings');
+      await page.waitFor('window.__pkgAsked.length > 0', { timeout: 5000 });
+      const asked = await app("const first = window.__pkgAsked[0]; a.popups.on('package-install', (d) => a.installPackages(d.ids ?? [], { quiet: !!d.auto })); localStorage.removeItem('myhomemaker.packages.v1'); return first;");
+      expect(asked.auto === true && asked.ids.length === 1 && asked.ids[0] === 'prettier', JSON.stringify(asked));
+    });
     for (const [name, code, check] of [
       ['a switch in Settings changes the app', "d.querySelector('[data-toggle=\"statusClock\"]').click();", 'a.state.settings.statusClock === false'],
       ['the editor tab sets the default device', "d.querySelector('[data-setting=\"defaultDevice\"][data-value=\"tablet\"]').click();", "a.state.settings.defaultDevice === 'tablet'"],
@@ -738,6 +746,19 @@ for (const language of languages) {
       expect(/viewer=code/.test(opened.url) && opened.inbox === 'new', JSON.stringify(opened));
       const site = await app("const shared = JSON.parse(localStorage.getItem('myhomemaker.code.site')); localStorage.setItem('myhomemaker.code.outbox', JSON.stringify([{ id: 'x1', type: 'site-code', siteId: doc().site.id, field: 'css', value: '.smoke-test { color: red; }' }])); a.readCodeOutbox(); await new Promise((r) => setTimeout(r, 100)); const applied = doc().site.code.css; const inCanvas = frame().getElementById('hm-site').textContent.includes('.smoke-test'); const shared2 = JSON.parse(localStorage.getItem('myhomemaker.code.site')).code.css; A.undo(); return { same: shared.siteId === doc().site.id, applied, inCanvas, shared2, undone: doc().site.code.css };");
       expect(site.same && site.applied === '.smoke-test { color: red; }' && site.inCanvas && site.shared2 === site.applied && site.undone === '', JSON.stringify(site));
+    });
+    await report.check(tag('the editor edits the page HTML, style.css and script.js, and undo puts the blocks back'), async () => {
+      await closePopups();
+      await fresh('blank');
+      const opened = await app("a.run('pageHtmlCode'); await new Promise((r) => setTimeout(r, 80)); const tabs = [...document.querySelectorAll('.source-file')].map((b) => b.textContent.trim()); const text = document.querySelector('#source-host .code-input')?.value ?? ''; return { mode: a.state.sourceMode, file: a.state.sourceFile, tabs, hasHtml: text.includes('<!doctype html>'), canvas: !!document.querySelector('.site-frame'), menu: !!document.querySelector('#menubar'), toolbar: !!document.querySelector('#toolbar'), save: (document.querySelector('.source-save')?.textContent ?? '').trim().length > 0 };");
+      expect(opened.mode && opened.file === 'page' && opened.tabs.includes('index.html') && opened.tabs.includes('style.css') && opened.tabs.includes('script.js') && opened.hasHtml && opened.canvas && opened.menu && opened.toolbar && opened.save, JSON.stringify(opened));
+      const live = await app("const input = document.querySelector('#source-host .code-input'); input.focus(); input.value = '<!doctype html><html><head><link rel=\"stylesheet\" href=\"style.css\" /></head><body><h1 id=\"live\">LIVE</h1></body></html>'; input.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); return { source: (doc().site.pages[0].source ?? '').includes('LIVE'), shown: frame().body.textContent.includes('LIVE'), menu: !!document.querySelector('#menubar') };");
+      expect(live.source && live.shown && live.menu, JSON.stringify(live));
+      expect(await app("document.querySelector('#source-host .code-input').blur(); A.undo(); return doc().site.pages[0].source ?? '';") === '', 'live edit did not undo');
+      const edited = await app("a.api.commitSource('page', '<!doctype html><html><head><link rel=\"stylesheet\" href=\"style.css\" /></head><body><h1 class=\"from-file\">FILE</h1></body></html>'); a.api.commitSource('css', 'h1.from-file{color:pink}\\n'); a.api.commitSource('js', 'window.__fromFile = 1\\n'); const site = doc().site; const files = a.domain.siteFiles(site); const heading = frame().querySelector('h1.from-file'); return { html: !!site.pages[0].source?.includes('from-file'), css: site.files.css.includes('pink'), js: site.code.js.includes('__fromFile'), published: files.find((f) => f.path === 'index.html').data.includes('from-file'), sheet: files.find((f) => f.path === 'style.css').data.includes('pink'), script: files.find((f) => f.path === 'script.js').data.includes('__fromFile'), shown: frame().body.textContent.includes('FILE'), color: heading ? getComputedStyle(heading).color : '', gui: !!document.querySelector('#menubar') && !!document.querySelector('.site-frame') };");
+      expect(edited.html && edited.css && edited.js && edited.published && edited.sheet && edited.script && edited.shown && edited.color === 'rgb(255, 192, 203)' && edited.gui, JSON.stringify(edited));
+      const back = await app("A.undo(); A.undo(); A.undo(); a.run('sourceMode'); await new Promise((r) => setTimeout(r, 50)); const page = doc().site.pages[0]; return { source: page.source ?? '', css: doc().site.files.css, js: doc().site.code.js, canvas: !!document.querySelector('.site-frame') };");
+      expect(back.source === '' && back.css === '' && back.js === '' && back.canvas, JSON.stringify(back));
     });
 
     // ── the bulletin board and my themes

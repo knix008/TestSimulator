@@ -101,14 +101,14 @@
 ```
 편집기 ──(Tauri: db_board_load / db_board_save)──► db.rs ──► SQLite3 · MySQL · MariaDB · PostgreSQL · MSSQL
                                                               ▲
-게시한 사이트 ──fetch /api/board──► server/server.js ─────────┘   (같은 표 myhomemaker_board_posts)
+게시한 사이트 ──fetch /api/board──► server/ (Node · Go · Rust · Python) ──┘   (같은 표 myhomemaker_board_posts)
 ```
 
 - 게시판 블록의 *글 저장 위치*가 `site`(기본)이면 글은 사이트 파일 안에 있고, `database` 이면 DB 에 둡니다.
 - `src-tauri/src/db.rs`: sqlx(Any 드라이버)로 SQLite·MySQL/MariaDB·PostgreSQL, tiberius 로 MSSQL. 표는 처음 쓸 때 만듭니다(`board_id, post_id` 기본 키, 한국어는 utf8mb4 / NVARCHAR). 저장은 게시판 단위로 한 트랜잭션에서 지우고 다시 넣습니다. 오류 문구에 비밀번호는 넣지 않습니다.
 - SQLite3 파일을 비워 두면 앱 데이터 폴더의 `board.db` 를 씁니다(`db_default_file`).
 - 연결 설정은 설정(localStorage)에 있고, 비밀번호는 사용자가 켤 때만 저장합니다(아니면 실행하는 동안만 메인 창이 기억).
-- 게시할 때 DB 게시판이 있으면 `export/board-server.js` 가 `server/`(server.js, package.json, config.json, README.md)를 함께 씁니다. SQLite3 는 Node 내장 `node:sqlite`, 나머지는 mysql2 · pg · mssql. 비밀번호는 쓰지 않고 `DB_PASSWORD` 환경 변수에서 읽습니다. 표가 비어 있으면 페이지에 있던 글로 시작합니다. SQLite3 이면 지금 DB 파일도 `server/board.db` 로 함께 갑니다.
+- 게시할 때 DB 게시판이 있으면 `export/board-server.js` 가 `server/` 를 함께 씁니다. 언어는 설정의 `boardBackend`(기본 `node`): Node 는 server.js · package.json, Go 는 main.go · go.mod(`export/board-go.js`), Rust 는 Cargo.toml · src/main.rs(`export/board-rust.js`), Python 은 server.py · requirements.txt(`export/board-python.js`). config.json 과 README.md 는 같습니다. SQLite3 · MySQL · MariaDB · PostgreSQL · MSSQL 중 고른 DB 의 드라이버만 들어갑니다. 비밀번호는 쓰지 않고 `DB_PASSWORD` 환경 변수에서 읽습니다. 표가 비어 있으면 페이지에 있던 글로 시작합니다. SQLite3 이면 지금 DB 파일도 `server/board.db` 로 함께 갑니다. Node.js · Go · Rust · Python 은 프로그램에 포함되지 않습니다. 데스크톱은 `toolchains.rs` 가 PATH 를 보고, 없으면 winget 으로 설치를 시작합니다.
 
 ## 디자인과 내 테마
 
@@ -137,7 +137,7 @@
 
 - 사전은 `npm run build:dict` 가 `public/dict/{en,ko}.txt` 로 만듭니다. 한국어 사전은 NFD(자모)로 저장돼 있어 NFC 로 정규화하고, `spell.js` 가 조사·어미를 떼어 기본형을 찾습니다.
 - 내장 콘텐츠(템플릿·예제·블록 기본값·튜토리얼)는 맞춤법 문제가 0 개여야 합니다. 새 글이 걸리면 `spell-extra.js` 에 단어를 더합니다(단위 테스트가 잡음).
-- 캔버스 밑줄은 CSS Custom Highlight API(`hm-spell`, `hm-problem`)입니다.
+- 캔버스 밑줄은 CSS Custom Highlight API(`hm-spell`, `hm-problem`)입니다. 파일 편집의 HTML·CSS·JavaScript 오류는 줄 번호와 그 줄에 표시되고, 문제점 목록(`kind: code`)에도 들어갑니다. 그 줄을 두 번 누르면 편집창의 그 위치로 갑니다.
 
 ## 플랫폼 경계와 저장 위치
 

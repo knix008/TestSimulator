@@ -1,7 +1,8 @@
 // Publishing: the site as the files a web server needs — one .html per page, style.css, and the
 // pictures (kept in the project as data: URLs) written once each into assets/. The same list is
 // written into a folder (desktop), packed into a ZIP (web and desktop), or opened as a preview.
-import { pageFile, pageHtml, siteStyles } from './render.js';
+import { pageFile, siteStyles } from './render.js';
+import { publishedPageHtml } from './sourcefiles.js';
 
 /** FNV-1a: a short stable name for a picture. */
 function hash(text) {
@@ -55,7 +56,7 @@ export function siteFiles(site, { extractImages = true } = {}) {
     return path;
   }) : text);
   const files = [];
-  for (const page of site.pages) files.push({ path: pageFile(page), data: extract(pageHtml(site, page, { css: 'style.css' })) });
+  for (const page of site.pages) files.push({ path: pageFile(page), data: extract(publishedPageHtml(site, page, { css: 'style.css' })) });
   files.push({ path: 'style.css', data: siteStyles(site) });
   if (String(site.code?.js ?? '').trim()) files.push({ path: 'script.js', data: `${String(site.code.js).trim()}\n` });
   for (const asset of assets.values()) files.push({ path: asset.path, data: asset.data });
@@ -63,7 +64,7 @@ export function siteFiles(site, { extractImages = true } = {}) {
 }
 
 /** One page as a single file with its style and pictures inside (e-mail, a quick share). */
-export const singlePageHtml = (site, page) => pageHtml(site, page, { css: null });
+export const singlePageHtml = (site, page) => publishedPageHtml(site, page, { css: null });
 
 /** Total size in bytes of a file list. */
 export const filesSize = (files) => files.reduce((sum, f) => sum + (typeof f.data === 'string' ? new TextEncoder().encode(f.data).length : f.data.length), 0);

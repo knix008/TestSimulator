@@ -14,6 +14,7 @@ import { ART_KINDS, art } from './domain/art.js';
 import { buildTemplate, TEMPLATES } from './domain/templates.js';
 import { buildSample, SAMPLE_GROUPS, SAMPLES } from './domain/samples.js';
 import { pageFile } from './domain/render.js';
+import { assignCssFile, assignPageSource, cssHasSource, pageHasSource } from './domain/sourcefiles.js';
 import { filesSize, publishChecks, siteFiles, singlePageHtml } from './domain/publish.js';
 import { SiteDocument, baseName, directoryOf, extensionOf, fileSafe, isImageFileName, isSiteFileName, isTemplateFileName, stripExtension, withExtension } from './domain/document.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
@@ -30,6 +31,7 @@ import { PRINT_JOB_KEY } from './print/layout.js';
 import { missingPackages, packageView, PackageManager, refreshInstalled } from './platform/packages.js';
 import { packageById } from './domain/packages.js';
 import { boardServerFiles } from './export/board-server.js';
+import { toolchainById } from './domain/toolchains.js';
 import { CODE_INBOX_KEY, CODE_OUTBOX_KEY, CODE_SITE_KEY, drainQueue, pushQueue } from './domain/codebus.js';
 import { isCodeFileName } from './domain/highlight.js';
 import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from './themes.js';
@@ -41,6 +43,7 @@ import { CHAPTERS as TUTORIAL_CHAPTERS, STEPS as TUTORIAL_STEPS, Tutorial } from
 import { contentHtml, EDITOR_TABS, pageHtml as pageEditorHtml, pagesDatalist, siteHtml, styleHtml } from './ui/inspector.js';
 import { bindSteppers } from './stepper.js';
 import { DEVICES, SiteCanvas } from './views/canvas.js';
+import { SourceEditor } from './views/source.js';
 import { bytesToBase64, zip } from './export/files.js';
 import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { ProblemsPanel } from './ui/problems.js';
@@ -74,6 +77,10 @@ const state = {
   clipboard: null,
   showStart: false,
   view: null,
+  /** The site's HTML, CSS and JavaScript, edited in the main window. */
+  sourceMode: false,
+  sourceFile: 'page',
+  sourceView: null,
   preview: false,
   rightTab: 'content',
   collapsedEditors: new Set(),
@@ -214,6 +221,7 @@ function openSampleBuiltin(id = SAMPLES[0].id, name = '') {
 
 function activate(id) {
   state.view?.finishEdit?.(true);
+  state.sourceView?.commit?.();
   endDesignTrial(true);
   state.active = id;
   queueMicrotask(publishSiteCode);
@@ -241,6 +249,7 @@ function afterChange({ redraw = true } = {}) {
   publishSiteCode();
   if (doc && state.selected && !S.findBlock(doc.site, state.selected)) state.selected = null;
   if (redraw) state.view?.render();
+  if (state.sourceMode) { if (redraw) state.sourceView?.syncFromSite(); else state.sourceView?.refreshChrome(); }
   renderTabs();
   renderTitleProject();
   renderToolbarState();
@@ -292,12 +301,14 @@ function openPage(id) {
   const doc = activeDoc();
   if (!doc || !S.pageById(doc.site, id)) return;
   state.view?.finishEdit?.(true);
+  state.sourceView?.commit?.();
   if (doc.view.pageId !== id) {
-    doc.view.scroll[doc.view.pageId] = state.view?.scroll.scrollTop ?? 0;
+    doc.view.scroll[doc.view.pageId] = state.view?.scroll?.scrollTop ?? 0;
     doc.view.pageId = id;
     state.selected = null;
   }
-  if (state.showStart) { state.showStart = false; mountView(); renderAll(); } else { state.view?.render(); afterChange({ redraw: false }); }
+  if (state.showStart) { state.showStart = false; mountView(); renderAll(); }
+  else { state.view?.render(); if (state.sourceMode) state.sourceView?.render(); afterChange({ redraw: false }); }
   if (state.view) state.view.scroll.scrollTop = doc.view.scroll[id] ?? 0;
   scrollActiveTabIntoView();
   problems.markCanvas();
@@ -740,12 +751,62 @@ function setDevice(device) {
 }
 
 function togglePreview() {
-  state.preview = !state.preview;
+  state.sourceView?.commit?.();
+  if (state.sourceMode) { state.sourceMode = false; state.preview = true; }
+  else state.preview = !state.preview;
   state.selected = null;
-  state.view?.render();
+  mountView();
   renderAll();
   problems.markCanvas();
   notify('info', t(state.preview ? 'notice.previewOn' : 'notice.previewOff'));
+}
+
+/** The main window edits the open site's HTML, CSS and JavaScript. */
+function showSource(file) {
+  if (!activeDoc()) return;
+  state.sourceView?.commit?.();
+  state.sourceFile = file || state.sourceFile || 'page';
+  const entered = !state.sourceMode;
+  state.sourceMode = true;
+  state.preview = false;
+  mountView();
+  renderToolbarState();
+  renderStatus();
+  problems.schedule(0);
+  if (entered) notify('info', t('notice.sourceOn'));
+}
+
+function toggleSourceMode() {
+  if (!activeDoc()) return;
+  if (state.sourceMode) {
+    state.sourceView?.commit?.();
+    state.sourceMode = false;
+    mountView();
+    renderToolbarState();
+    renderStatus();
+    notify('info', t('notice.sourceOff'));
+    return;
+  }
+  showSource(state.sourceFile || 'page');
+}
+
+/** The file editor wrote `text` into the open site. `live` keeps one undo step for a burst of typing and redraws the page at once. */
+function commitSource(kind, text, { live = false } = {}) {
+  const doc = activeDoc();
+  if (!doc) return;
+  const labelKey = kind === 'css' ? 'code.op.cssFile' : kind === 'js' ? 'code.op.js' : 'code.op.page';
+  const mutate = (s, page) => {
+    if (kind === 'css') assignCssFile(s, text);
+    else if (kind === 'js') s.code = { css: '', js: '', head: '', ...(s.code ?? {}), js: text };
+    else assignPageSource(s, page, text);
+  };
+  if (live && doc.history.undoLabel === t(labelKey)) {
+    mutate(doc.site, S.pageById(doc.site, doc.view.pageId) ?? doc.site.pages[0], doc);
+    doc.touch();
+    afterChange({ redraw: true });
+    return;
+  }
+  change(labelKey, mutate, { redraw: true });
 }
 
 // ───────────────────────── problems: going to a field, fixing a word
@@ -792,9 +853,29 @@ function mountView() {
   const showStart = state.showStart || !activeDoc();
   host.hidden = showStart;
   start.hidden = !showStart;
-  if (showStart) { state.view?.destroy(); state.view = null; renderStartPage(); return; }
+  root.classList.toggle('source-editing', state.sourceMode && !showStart);
+  if (showStart) {
+    state.view?.destroy(); state.view = null;
+    state.sourceView?.destroy(); state.sourceView = null;
+    root.querySelector('#source-host').hidden = true;
+    renderStartPage();
+    return;
+  }
   if (!state.view) state.view = new SiteCanvas(appApi, host);
   state.view.render();
+  const sourceHost = root.querySelector('#source-host');
+  if (state.sourceMode) {
+    sourceHost.hidden = false;
+    if (!state.sourceView || state.sourceView.host !== sourceHost) {
+      state.sourceView?.destroy();
+      state.sourceView = new SourceEditor(appApi, sourceHost);
+    }
+    state.sourceView.render();
+  } else {
+    state.sourceView?.destroy();
+    state.sourceView = null;
+    sourceHost.hidden = true;
+  }
   problems.markCanvas();
 }
 
@@ -833,7 +914,10 @@ const commands = {
   boardDbLoad: { icon: 'dbOpen', label: 'action.boardDbLoad', enabled: () => selectedBlock()?.type === 'board', run: () => boardFromDatabase() },
   boardDbSave: { icon: 'dbSave', label: 'action.boardDbSave', enabled: () => selectedBlock()?.type === 'board', run: () => boardToDatabase() },
   saveDesignAsMine: { icon: 'palette', label: 'action.saveDesignAsMine', enabled: hasDoc, run: () => saveDesignAsMine() },
-  pageHtmlCode: { icon: 'htmlFile', label: 'action.pageHtmlCode', enabled: hasDoc, run: () => openPageAsCode() },
+  pageHtmlCode: { icon: 'htmlFile', label: 'action.pageHtmlCode', enabled: hasDoc, run: () => showSource('page') },
+  sourceMode: { icon: 'htmlFile', label: 'action.sourceMode', key: 'Ctrl+Shift+U', enabled: hasDoc, checked: () => state.sourceMode, run: () => toggleSourceMode() },
+  revertPageSource: { icon: 'refresh', label: 'source.revertPage', enabled: () => pageHasSource(currentPage()), run: () => { state.sourceView?.commit?.(); change('code.op.revertPage', (s, page) => { delete page.source; }); } },
+  revertCssFile: { icon: 'refresh', label: 'source.revertCss', enabled: () => cssHasSource(site()), run: () => { state.sourceView?.commit?.(); change('code.op.revertCss', (s) => { if (s.files) s.files.css = ''; }); } },
   print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: hasDoc, run: () => openPrint() },
   previewBrowser: { icon: 'previewBrowser', label: 'action.previewBrowser', key: 'F5', enabled: hasDoc, run: () => previewInBrowser() },
   siteProps: { icon: 'siteProps', label: 'action.siteProps', enabled: () => Boolean(activeDoc()), run: () => showEditorTab('site') },
@@ -931,6 +1015,7 @@ async function run(id, context) {
 
 function undo() {
   state.view?.finishEdit?.(true);
+  state.sourceView?.commit?.();
   endDesignTrial(true);
   const label = activeDoc()?.undo();
   if (label != null) afterHistory(t('notice.undone', { label }));
@@ -938,6 +1023,7 @@ function undo() {
 
 function redo() {
   state.view?.finishEdit?.(true);
+  state.sourceView?.commit?.();
   endDesignTrial(true);
   const label = activeDoc()?.redo();
   if (label != null) afterHistory(t('notice.redone', { label }));
@@ -971,7 +1057,7 @@ const MENUS = {
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'moveUp', 'moveDown', 'toggleHidden', '-', 'selectPrev', 'selectNext', 'clearSelection', 'editContent'],
   insert: ['addBlock', '-', ...BLOCK_GROUPS.filter((g) => g.id !== 'site').map((g) => sub(`insert:${g.id}`)), '-', 'editHeader', 'editFooter'],
   page: ['addPage', 'duplicatePage', 'renamePage', 'deletePage', '-', 'pageLeft', 'pageRight', '-', 'prevPage', 'nextPage', '-', 'pageProps'],
-  view: [sub('device'), sub('zoom'), '-', 'previewMode', '-', sub('panels'), '-', sub('appearance')],
+  view: [sub('device'), sub('zoom'), '-', 'previewMode', 'sourceMode', '-', sub('panels'), '-', sub('appearance')],
   design: ['designPicker', 'randomDesign', 'resetDesign', '-', 'saveDesignAsMine', '-', 'siteProps'],
   tools: ['codeEditor', 'openCode', sub('siteCode'), 'pageHtmlCode', '-', 'dbSettings', '-', 'checkSite', 'showProblems', 'spellCheck', 'dictionary', 'siteStats', '-', 'previewBrowser', 'publish', '-', 'packages', 'settings'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
@@ -985,7 +1071,7 @@ const TOOLBAR = [
   ['addBlock', 'addPage'],
   ['moveUp', 'moveDown', 'duplicate', 'toggleHidden'],
   ['device:desktop', 'device:tablet', 'device:mobile', 'zoom'],
-  ['previewMode'],
+  ['previewMode', 'sourceMode'],
   ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
 /** Right end of the toolbar: tutorial, theme (random + dropdown), language, settings, about. */
@@ -1003,6 +1089,7 @@ function renderShell() {
         <div id="tabs"></div>
         <div id="center-body">
           <div id="view-host" class="view-host"></div>
+          <div id="source-host" hidden></div>
           <div id="start-page" hidden></div>
           <div class="drop-overlay" aria-hidden="true"><div>${icon('drop')}<span></span></div></div>
         </div>
@@ -1389,6 +1476,9 @@ function renderStatus() {
     const block = selectedBlock();
     if (block) items.push(`<span class="status-item" title="${escapeHtml(t('status.blockTip'))}">${icon(BLOCKS[block.type].icon)}<span>${escapeHtml(blockLabel(block.type, lang()))}</span></span>`);
     if (state.editingField) items.push(`<span class="status-item warn" title="${escapeHtml(t('status.editingTip'))}">${icon('textTool')}<span>${escapeHtml(t('status.editing', { field: state.editingField }))}</span></span>`);
+    if (state.sourceMode) items.push(`<button class="status-item warn" data-command="sourceMode" title="${escapeHtml(commandTip('sourceMode'))}">${icon('htmlFile')}<span>${escapeHtml(t('status.source'))}</span></button>`);
+    else if (pageHasSource(doc.page)) items.push(`<button class="status-item warn" data-command="sourceMode" title="${escapeHtml(t('source.banner'))}">${icon('htmlFile')}<span>${escapeHtml(t('status.sourcePage'))}</span></button>`);
+    else if (cssHasSource(doc.site)) items.push(`<button class="status-item warn" data-command="sourceMode" title="${escapeHtml(t('source.hint.cssCustom'))}">${icon('palette')}<span>${escapeHtml(t('status.sourceCss'))}</span></button>`);
     if (state.preview) items.push(`<button class="status-item warn" data-command="previewMode" title="${escapeHtml(commandTip('previewMode'))}">${icon('eye')}<span>${escapeHtml(t('status.preview'))}</span></button>`);
     items.push(`<span class="status-item" title="${escapeHtml(t('status.deviceTip'))}">${icon(`dev${doc.view.device[0].toUpperCase()}${doc.view.device.slice(1)}`)}<span>${escapeHtml(`${t(`device.${doc.view.device}`)} ${DEVICES[doc.view.device]}px`)}</span></span>`);
     items.push(`<span class="status-item" title="${escapeHtml(t('status.designTip'))}">${icon('designPicker')}<span>${escapeHtml(siteDesignName(doc.site.design, lang()))}</span></span>`);
@@ -1418,6 +1508,7 @@ function renderAll() {
   root.classList.toggle('start-shown', state.showStart || !activeDoc());
   root.style.setProperty('--bottom-height', `${problems.height()}px`);
   root.classList.toggle('previewing', state.preview);
+  root.classList.toggle('source-editing', state.sourceMode);
   root.style.setProperty('--left-width', `${state.settings.leftWidth}px`);
   root.style.setProperty('--right-width', `${state.settings.rightWidth}px`);
   root.style.setProperty('--zoom', String(state.settings.zoom / 100));
@@ -1426,6 +1517,7 @@ function renderAll() {
   renderTabs();
   renderBlocksPanel();
   if (!state.showStart && activeDoc() && !state.view) mountView();
+  if (state.sourceMode) state.sourceView?.refreshChrome();
   renderRight();
   renderStatus();
   problems.render();
@@ -1453,7 +1545,8 @@ function renderStartPage() {
   if (state.settings.backgroundKind === 'animated') startBackground.start();
   else startBackground.draw();
   canvas.classList.toggle('static', state.settings.backgroundKind !== 'animated');
-  host.querySelector('.start-scroll').style.setProperty('--start-image', state.backgroundUrl && state.settings.backgroundKind === 'image' ? `url("${state.backgroundUrl}")` : 'none');
+  host.style.setProperty('--start-bg-opacity', String((state.settings.startBgOpacity ?? 80) / 100));
+  host.style.setProperty('--start-image', state.backgroundUrl && state.settings.backgroundKind === 'image' ? `url("${state.backgroundUrl}")` : 'none');
   host.classList.toggle('with-image', Boolean(state.backgroundUrl) && state.settings.backgroundKind === 'image');
 }
 
@@ -1818,6 +1911,7 @@ async function saveDoc(doc, { saveAs = false } = {}) {
   endDesignTrial(true);
   if (!doc) return false;
   state.view?.finishEdit?.(true);
+  state.sourceView?.commit?.();
   const text = doc.text();
   const suggested = `${safeName(doc)}.myhome`;
   try {
@@ -1893,6 +1987,7 @@ async function openPublish() {
   const doc = activeDoc();
   if (!doc) return;
   state.view?.finishEdit?.(true);
+  state.sourceView?.commit?.();
   const files = siteFiles(doc.site, { extractImages: true });
   const checks = publishChecks(doc.site).map((c) => t(c.key, c.params));
   const result = await popups.open('publish', {
@@ -1911,7 +2006,7 @@ async function openPublish() {
 async function boardServerExtras(siteValue) {
   const settings = loadSettings(globalThis.localStorage);
   const config = dbConfig(settings, '');
-  const files = boardServerFiles(siteValue, config);
+  const files = boardServerFiles(siteValue, config, { language: settings.boardBackend });
   if (!files.length || config.kind !== 'sqlite' || !desktop) return files;
   try {
     const file = config.file || (await native.dbDefaultFile());
@@ -1933,6 +2028,7 @@ async function publishSite(format, { extract = state.settings.publishExtractImag
   const doc = activeDoc();
   if (!doc) return;
   state.view?.finishEdit?.(true);
+  state.sourceView?.commit?.();
   const name = safeName(doc);
   try {
     if (format === 'html') {
@@ -1996,14 +2092,6 @@ async function openCodeFiles() {
   }
 }
 
-/** The current page as an HTML file in the code editor (its own copy: the site does not change). */
-function openPageAsCode() {
-  const doc = activeDoc();
-  if (!doc) return null;
-  state.view?.finishEdit?.(true);
-  return openCodeWindow({ type: 'open-content', name: pageFile(doc.page), content: singlePageHtml(doc.site, doc.page) });
-}
-
 /** The open site's code for the code editor window (written only when it changed). */
 function publishSiteCode() {
   const doc = activeDoc();
@@ -2020,7 +2108,10 @@ function readCodeOutbox() {
       const doc = activeDoc();
       if (!doc || doc.site.id !== message.siteId || !['css', 'js', 'head'].includes(message.field)) continue;
       if ((doc.site.code?.[message.field] ?? '') === message.value) continue;
-      change(`code.op.${message.field}`, (s) => { s.code = { css: '', js: '', head: '', ...(s.code ?? {}) }; s.code[message.field] = String(message.value ?? ''); });
+      const labelKey = `code.op.${message.field}`;
+      const applyCode = (s) => { s.code = { css: '', js: '', head: '', ...(s.code ?? {}) }; s.code[message.field] = String(message.value ?? ''); };
+      if (doc.history.undoLabel === t(labelKey)) { applyCode(doc.site); doc.touch(); afterChange({ redraw: true }); }
+      else change(labelKey, applyCode);
     } else if (message.type === 'open-packages') {
       popups.open('packages', {});
     } else if (message.type === 'install-packages') {
@@ -2166,6 +2257,7 @@ async function openPrint() {
   const doc = activeDoc();
   if (!doc) return;
   state.view?.finishEdit?.(true);
+  state.sourceView?.commit?.();
   const job = {
     at: Date.now(),
     title: docName(doc),
@@ -2188,6 +2280,7 @@ async function previewInBrowser() {
   const doc = activeDoc();
   if (!doc) return;
   state.view?.finishEdit?.(true);
+  state.sourceView?.commit?.();
   try {
     if (desktop) {
       const files = siteFiles(doc.site, { extractImages: true });
@@ -2736,7 +2829,7 @@ function bindEvents() {
     if (target.id === 'zoom-value') return setZoom(parseFloat(target.value) || 100);
     if (target.id === 'zoom-slider') return setZoom(CANVAS_ZOOM.steps[Number(target.value)]);
     if ('startSpeed' in target.dataset) return updateSettings({ animationSpeed: Number(target.value) }, { quiet: true });
-    if ('startOpacity' in target.dataset) return updateSettings({ startCardOpacity: Number(target.value) }, { quiet: true });
+    if ('startOpacity' in target.dataset) return updateSettings({ startBgOpacity: Number(target.value) }, { quiet: true });
     if ('startRandom' in target.dataset) return updateSettings({ animationRandom: target.checked }, { quiet: true });
     if ('startInterval' in target.dataset) { startBackgroundChangedAt = Date.now(); return updateSettings({ animationInterval: Number(target.value) }, { quiet: true }); }
     return undefined;
@@ -2761,7 +2854,7 @@ function bindEvents() {
       bindEvents.typeTimer = setTimeout(() => setProp(target.dataset.block, target.dataset.prop, target.value, target.dataset.kind), 700);
     }
     if ('startSpeed' in target.dataset) { target.parentElement.querySelector('output').textContent = `${target.value}%`; state.settings.animationSpeed = Number(target.value); }
-    if ('startOpacity' in target.dataset) { target.parentElement.querySelector('output').textContent = `${target.value}%`; root.querySelector('.start-inner')?.style.setProperty('--start-card-alpha', `${target.value}%`); }
+    if ('startOpacity' in target.dataset) { target.parentElement.querySelector('output').textContent = `${target.value}%`; root.querySelector('#start-page')?.style.setProperty('--start-bg-opacity', String(Number(target.value) / 100)); }
   });
 
   bindSteppers(root, (key, value) => {
@@ -2880,7 +2973,7 @@ const SHORTCUTS = [
   ['n', false, 'new'], ['o', false, 'open'], ['s', false, 'save'], ['s', true, 'saveAs'], ['p', false, 'print'], ['w', false, 'closeSite'], ['r', false, 'recent'],
   ['z', false, 'undo'], ['y', false, 'redo'], ['z', true, 'redo'], ['x', false, 'cut'], ['c', false, 'copy'], ['v', false, 'paste'], ['d', false, 'duplicate'],
   ['arrowup', false, 'moveUp'], ['arrowdown', false, 'moveDown'], ['h', false, 'toggleHidden'], ['a', true, 'addBlock'], ['n', true, 'addPage'],
-  ['=', false, 'zoomIn'], ['+', false, 'zoomIn'], ['-', false, 'zoomOut'], ['0', false, 'zoomReset'], ['w', true, 'zoomFit'], ['e', false, 'previewMode'],
+  ['=', false, 'zoomIn'], ['+', false, 'zoomIn'], ['-', false, 'zoomOut'], ['0', false, 'zoomReset'], ['w', true, 'zoomFit'], ['e', false, 'previewMode'], ['u', true, 'sourceMode'],
   ['p', true, 'publish'], ['e', true, 'codeEditor'], ['d', true, 'designPicker'], [',', false, 'settings'], ['l', true, 'language'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'],
   ['@', true, 'rightPanel'], ['2', true, 'rightPanel'], ['q', false, 'exit'], ['h', true, 'startPage'], ['b', true, 'shuffleBackground'],
   ['pageup', false, 'prevPage'], ['pagedown', false, 'nextPage'], ['j', false, 'bottomPanel'], ['m', true, 'showProblems'],
@@ -2932,7 +3025,34 @@ function bindPopupActions() {
   popups.on('db-password', (data) => { dbSessionPassword = String(data.password ?? ''); });
   popups.on('db-test', (data, kind) => testDatabase(String(data.password ?? ''), kind));
   popups.on('db-browse', () => chooseDatabaseFile());
-  popups.on('package-install', (data) => installPackages(data.ids ?? [], { quiet: false }));
+  popups.on('package-install', (data) => {
+    if (data.auto && (globalThis.__MYHOMEMAKER_NO_WELCOME || new URLSearchParams(location.search).has('nopackages'))) return;
+    installPackages(data.ids ?? [], { quiet: Boolean(data.auto) });
+  });
+  popups.on('toolchain-status', (_data, popupKind) => {
+    if (!native.isDesktop()) return popups.post(popupKind, { type: 'toolchain-status', tools: [] });
+    return native.invoke('toolchain_status').then(
+      (tools) => popups.post(popupKind, { type: 'toolchain-status', tools }),
+      () => popups.post(popupKind, { type: 'toolchain-status', tools: [] }),
+    );
+  });
+  popups.on('toolchain-install', async (data, popupKind) => {
+    const tool = toolchainById(data.id);
+    if (!tool) return;
+    if (!native.isDesktop()) {
+      await native.openExternal(tool.url);
+      return;
+    }
+    try {
+      const result = await native.invoke('toolchain_install', { id: tool.id });
+      if (!result?.started) await native.openExternal(result?.url || tool.url);
+      else notify('info', t('db.tool.installing', { name: t(`db.backend.${tool.id}`) }));
+    } catch (error) {
+      await native.openExternal(tool.url);
+      notify('info', native.errorText(error));
+    }
+    popups.post(popupKind, { type: 'toolchain-status', tools: await native.invoke('toolchain_status').catch(() => []) });
+  });
   popups.on('package-cancel', () => packages.cancel());
   popups.on('package-remove', (data) => packages.remove(data.id));
   popups.on('open-settings', (data) => popups.open('settings', { tab: data.tab ?? 'general', themeGroup: data.themeGroup }));
@@ -2971,6 +3091,8 @@ const appApi = {
   version: () => (state.info?.version ?? VERSION),
   settings: () => state.settings,
   doc: () => activeDoc(),
+  showSource,
+  commitSource,
   site: () => site(),
   page: () => currentPage(),
   selectedId,

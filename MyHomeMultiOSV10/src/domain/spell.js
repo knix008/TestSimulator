@@ -24,7 +24,8 @@ export function encodeWordList(words) {
 export function decodeWordList(text) {
   const words = [];
   let previous = '';
-  for (const line of String(text ?? '').split('\n')) {
+  for (const raw of String(text ?? '').split('\n')) {
+    const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
     if (!line) continue;
     const same = parseInt(line[0], 36);
     previous = previous.slice(0, same) + line.slice(1);

@@ -25,8 +25,15 @@ test('bad stored values are repaired', () => {
   assert.equal(s.defaultDevice, 'desktop');
   assert.equal(s.leftWidth, 230);
   assert.equal(s.autoFit, true);
-  assert.equal(s.startCardOpacity, 20);
+  assert.equal(s.startBgOpacity, 5);
+  assert.equal(normalizeSettings({ startCardOpacity: 40 }).startBgOpacity, 40);
+  assert.equal(normalizeSettings({}).startBgOpacity, 80);
+  assert.equal(s.boardBackend, 'node');
+  assert.equal(normalizeSettings({ boardBackend: 'rust' }).boardBackend, 'rust');
+  assert.equal(normalizeSettings({ boardBackend: 'python' }).boardBackend, 'python');
+  assert.equal(normalizeSettings({ boardBackend: 'ruby' }).boardBackend, 'node');
   assert.equal(defaultSettings('ko').language, 'ko');
+  assert.equal(defaultSettings('ko').boardBackend, 'node');
 });
 
 test('a new installation resets preferences once and keeps the user data', () => {

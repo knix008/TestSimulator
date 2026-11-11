@@ -30,6 +30,8 @@ export const ANIMATIONS = [
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 /** Where bulletin boards keep their posts when they use a database (Settings › Database; desktop app). SQLite3 is the default. */
 export const DB_KINDS = ['sqlite', 'mysql', 'mariadb', 'postgres', 'mssql'];
+/** The language of the board server written next to a published site. Node stays the default. */
+export const BOARD_BACKENDS = ['node', 'go', 'rust', 'python'];
 export const DB_DEFAULT_PORTS = { mariadb: 3306, mysql: 3306, postgres: 5432, mssql: 1433 };
 export const usesDbServer = (kind) => kind === 'mariadb' || kind === 'mysql' || kind === 'postgres' || kind === 'mssql';
 /** The names the UI shows for each database kind. */
@@ -115,7 +117,7 @@ export function defaultSettings(language = 'ko') {
     startShowTutorialBanner: true,
     startRecentCount: 8,
     startLayout: null,
-    startCardOpacity: 80,
+    startBgOpacity: 80,
     showLeftPanel: true,
     showRightPanel: true,
     showStatusBar: true,
@@ -146,6 +148,7 @@ export function defaultSettings(language = 'ko') {
     autoDownloadPackages: true,
     customDesigns: [],
     dbKind: 'sqlite',
+    boardBackend: 'node',
     dbHost: 'localhost',
     dbPort: null,
     dbName: 'myhomemaker',
@@ -197,11 +200,14 @@ export function normalizeSettings(raw = {}, language) {
   s.explorerHeight = clamp(s.explorerHeight, 15, 80, base.explorerHeight);
   s.rowHeight = clamp(s.rowHeight, 20, 44, 26);
   s.startRecentCount = clamp(s.startRecentCount, 1, 10, 8);
-  s.startCardOpacity = clamp(s.startCardOpacity, 20, 100, 80);
+  if (raw && typeof raw === 'object' && raw.startBgOpacity == null && raw.startCardOpacity != null) s.startBgOpacity = raw.startCardOpacity;
+  s.startBgOpacity = clamp(s.startBgOpacity, 0, 100, 80);
+  delete s.startCardOpacity;
   s.startLayout = s.startLayout && typeof s.startLayout === 'object' && !Array.isArray(s.startLayout) ? s.startLayout : null;
   s.defaultDesign = DESIGN_IDS.includes(s.defaultDesign) ? s.defaultDesign : base.defaultDesign;
   s.customDesigns = normalizeCustomDesigns(s.customDesigns);
   s.dbKind = DB_KINDS.includes(s.dbKind) ? s.dbKind : 'sqlite';
+  s.boardBackend = BOARD_BACKENDS.includes(s.boardBackend) ? s.boardBackend : 'node';
   s.dbHost = typeof s.dbHost === 'string' && s.dbHost.trim() ? s.dbHost.trim() : 'localhost';
   const port = Number(s.dbPort);
   s.dbPort = s.dbPort != null && s.dbPort !== '' && Number.isInteger(port) && port > 0 && port < 65536 ? port : null;

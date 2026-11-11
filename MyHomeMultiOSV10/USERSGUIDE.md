@@ -113,14 +113,25 @@ npm run build:win      # 설치 파일 (build:mac / build:linux / build:webapp /
 
 DB 게시판이 있는 사이트를 게시하면 `server/` 폴더가 함께 생깁니다.
 
+서버 언어는 **설정 › 데이터베이스**에서 고릅니다. 기본은 Node.js 이고, Go, Rust, Python 도 같은 API 와 같은 데이터베이스를 씁니다. 이 언어는 프로그램에 포함되어 있지 않습니다. 없는 것은 같은 화면의 **서버 언어 설치**로 받습니다.
+
 ```bash
 cd <게시한 폴더>/server
+# Node.js
 npm install                   # MySQL · MariaDB · PostgreSQL · MSSQL 일 때
 set DB_PASSWORD=비밀번호        # macOS/Linux: export DB_PASSWORD=…
 npm start                     # http://localhost:8080/
+# Go
+go mod tidy
+go run .
+# Rust
+cargo run --release
+# Python
+pip install -r requirements.txt   # SQLite3 가 아니면
+python server.py
 ```
 
-- SQLite3 는 Node.js 22.13 이상이면 따로 설치할 것이 없고, 지금 DB 파일이 `server/board.db` 로 함께 갑니다.
+- SQLite3 의 Node.js 서버는 22.13 이상이면 따로 설치할 것이 없고, 지금 DB 파일이 `server/board.db` 로 함께 갑니다.
 - 비밀번호는 게시 파일에 쓰지 않습니다(`DB_PASSWORD` 환경 변수에서 읽음).
 - 자세한 내용은 `server/README.md` 에 있습니다. 서버 없이 HTML 만 열어도 페이지에 들어 있던 글은 보입니다.
 
@@ -134,11 +145,11 @@ npm start                     # http://localhost:8080/
 - HTML 은 오른쪽에 **실시간 미리 보기**, *브라우저에서 보기*
 - **정리**(Shift+Alt+F, Prettier) · **검사**(F8, JSHint · HTMLHint · JSON · CSS)
 - **사이트 CSS · JS · head** — 사이트 전체에 들어가는 코드. 입력하는 대로 캔버스에 적용되고 게시할 때 `style.css` · `script.js` · 모든 페이지의 `<head>` 에 들어갑니다.
-- **도구 › 현재 페이지를 HTML 코드로 열기** — 지금 페이지를 HTML 파일로 따로 고쳐 저장
+- **보기 › 파일 편집**(Ctrl+Shift+U) — 메뉴와 페이지는 그대로 두고, 아래에서 페이지 HTML · `style.css` · `script.js` 를 고칩니다. 입력은 페이지에 바로 반영되고 **저장**은 사이트를 저장합니다. 오류가 있는 줄은 표시되고, 아래 **문제점** 탭에도 나옵니다. **도구 › 현재 페이지 HTML 편집**은 그 페이지의 HTML을 엽니다.
 
 ### 패키지
 
-정리·검사 도구(Prettier, JSHint, HTMLHint)는 처음에 인터넷(jsDelivr, 안 되면 unpkg)에서 자동으로 받습니다. 상태 표시줄에 진행률과 **×**(취소), 실패하면 **다시 받기**가 보입니다. **도구 › 패키지…** 와 **설정 › 패키지**에서 받기·다시 받기·취소·삭제, 자동 받기 끄기를 합니다. 받은 파일은 SHA-256 이 맞을 때만 보관합니다.
+정리·검사 도구(Prettier, JSHint, HTMLHint)는 처음에, 그리고 **설정 › 패키지**를 열거나 자동 설치를 켜면, 인터넷(jsDelivr, 안 되면 unpkg)에서 받아 설치됩니다. 진행률은 그 창과 상태 표시줄에 보이고 **×**로 취소합니다. 실패하면 **다시 받기**가 남습니다. 받은 파일은 SHA-256 이 맞을 때만 보관합니다.
 
 ---
 
@@ -164,7 +175,7 @@ npm start                     # http://localhost:8080/
 | ZIP | 같은 파일을 ZIP 하나로 |
 | 이 페이지만 | 스타일과 그림이 들어간 HTML 파일 하나 |
 
-게시한 사이트는 자바스크립트 없이도 동작합니다(휴대폰 메뉴, 질문 펼치기, 게시판 글 열기). GitHub Pages, Netlify, Cloudflare Pages 나 웹 호스팅에 올리면 됩니다. DB 게시판은 게시판 서버를 띄울 수 있는 곳(Node.js)이 필요합니다.
+게시한 사이트는 자바스크립트 없이도 동작합니다(휴대폰 메뉴, 질문 펼치기, 게시판 글 열기). GitHub Pages, Netlify, Cloudflare Pages 나 웹 호스팅에 올리면 됩니다. DB 게시판은 게시판 서버를 띄울 수 있는 곳(Node.js, Go, Rust 또는 Python)이 필요합니다.
 
 ---
 
@@ -210,6 +221,6 @@ npm start                     # http://localhost:8080/
 
 - **패키지를 받지 못함** — 인터넷 연결을 확인하고 상태 표시줄의 **다시 받기** 또는 설정 › 패키지에서 다시 받습니다. 오류 내용이 카드에 나옵니다.
 - **DB 연결 실패** — 설정 › 데이터베이스에서 서버 주소·포트·이름·사용자를 확인하고 *연결 테스트*를 누릅니다. 오류 문구에 비밀번호는 나오지 않습니다.
-- **게시판 서버가 시작되지 않음** — SQLite3 는 Node.js 22.13 이상, 다른 DB 는 `npm install` 과 `DB_PASSWORD` 가 필요합니다. `server/README.md` 를 보세요.
+- **게시판 서버가 시작되지 않음** — 고른 언어가 설치되어 있어야 합니다. 설정 › 데이터베이스의 **서버 언어 설치**를 쓰세요. Node.js 의 SQLite3 는 22.13 이상, 다른 DB 는 `npm install` 과 `DB_PASSWORD` 가 필요합니다. Go 는 `go mod tidy` 다음 `go run .`, Rust 는 `cargo run --release`, Python 은 `python server.py` 입니다. `server/README.md` 를 보세요.
 - **창이 너무 좁음** — 툴바 단추가 가려지지 않도록 창의 최소 폭이 툴바에 맞춰집니다. 패널을 접으면 캔버스가 넓어집니다.
 - **프로그램이 갑자기 닫힘** — 앱 데이터 폴더의 `crash.log` 와 함께 알려 주세요.
