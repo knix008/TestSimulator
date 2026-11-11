@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyBoard — 사용 설명서</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 28px 28px 60px; }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body><main>
+<h1>MyBoard — 사용 설명서</h1>
+<p>MyBoard 는 칸반 보드와 이슈 관리 프로그램입니다. 프로젝트마다 보드·백로그·보고서·설정이 있고, 카드를 열 사이로 옮겨 일의 상태를 바꿉니다. 데이터는 데이터베이스(기본: 이 컴퓨터의 SQLite)에 저장되므로 따로 &quot;저장&quot; 할 것이 없습니다.</p>
+<h3 id="시작-화면">시작 화면</h3>
+<p>프로그램을 열면 움직이는 배경 위에 반투명 카드들이 나옵니다.</p>
+<ul>
+<li><b>시작</b> 카드: 새 프로젝트, 열기, 데이터베이스 연결, 가져오기, 따라하기, 마지막 보드 이어서, 설정, 시작 화면 설정, 프로그램 정보, 끝내기.</li>
+<li><b>데이터베이스</b> 카드: 지금 쓰는 데이터베이스의 종류·이름·연결 상태. &quot;바꾸기…&quot; 로 다른 데이터베이스에 연결합니다. 코어에 연결되지 않으면 빨간 알림과 &quot;다시 연결&quot; 단추가 나옵니다.</li>
+<li><b>최근 보드와 프로젝트</b>: 최근에 연 보드. × 로 목록에서 뺍니다.</li>
+<li><b>새 프로젝트 — 템플릿</b>: 칸반, 소프트웨어 팀, 버그 추적, 간단한 개인용.</li>
+<li><b>샘플 프로젝트</b>: 이슈가 들어 있는 프로젝트 3가지 (지금 데이터베이스에 새로 만들어집니다).</li>
+<li><b>배경</b>: 움직이는 배경의 종류, 속도, 카드 불투명도, 자동 바꾸기.</li>
+</ul>
+<p>카드는 왼쪽 위 손잡이로 옮기고 오른쪽 아래 모서리로 크기를 바꿉니다. 모서리를 두 번 누르면 내용에 맞는 높이로 돌아갑니다. &quot;자동 정렬&quot; 은 기본 배치로 되돌립니다.</p>
+<h3 id="작업-화면">작업 화면</h3>
+<p>프로젝트나 보드를 열면 작업 화면이 됩니다.</p>
+<ul>
+<li><b>툴바</b> (창의 제목 표시줄 역할): 새 프로젝트, 열기, 나가기, 가져오기, 내보내기, 실행 취소/다시 실행, 이슈 만들기, 찾기, 새로 고침, 보기 전환, 데이터베이스, 패널 단추. 오른쪽의 따라하기·테마·언어·설정·정보는 창이 좁아도 늘 보이고, 왼쪽 단추들은 » 안으로 접힙니다.</li>
+<li><b>프로젝트 패널</b> (왼쪽): 프로젝트마다 보드, 백로그, 보고서, 프로젝트 설정. 오른쪽 클릭으로 아이콘 바꾸기, 키 복사.</li>
+<li><b>보드</b> (가운데): 열과 카드. </li>
+<li><b>이슈 상세</b> (오른쪽): 고른 이슈의 설명, 댓글, 첨부, 기록. 위의 단추로 접습니다.</li>
+<li><b>하단 패널</b>: 활동(누가 무엇을 바꿨는지), 메시지(알림과 오류), 정보(데이터베이스, 사용자, 이슈 수). Ctrl+J.</li>
+<li><b>상태 표시줄</b>: 알림, 데이터베이스 종류, 사용자, 실시간 연결, 이슈 수, 테마, 언어, 시계. 오른쪽 아래 손잡이로 창 크기를 바꿉니다.</li>
+</ul>
+<p>패널 사이의 경계를 끌어 너비와 높이를 바꾸며, 창의 위치와 크기와 함께 기억됩니다.</p>
+<h3 id="아이콘">아이콘</h3>
+<p>프로젝트, 보드, 이슈 유형, 우선순위, 사용자 등 아이콘이 들어가는 곳은 모두 같은 <b>아이콘 고르기</b> 창을 씁니다.</p>
+<ul>
+<li><b>기본 아이콘</b>: 400가지가 넘는 그림 (이슈 유형, 상태, 우선순위, 사물, 사람, 화살표, 차트, 기술, 자연 …). 한국어·영어로 찾습니다.</li>
+<li><b>이모지</b>: 1000개가 넘는 이모지를 분류별로, 한국어·영어로 찾습니다.</li>
+<li><b>올린 그림</b>: PNG·JPEG·GIF·WebP·BMP·ICO·SVG·AVIF 를 올립니다 (단추, 끌어 놓기, Ctrl+V 붙여넣기). 그림은 256px 이하로 줄여 데이터베이스에 저장하고, 움직이는 GIF·WebP 는 512KB 까지 그대로 둡니다.</li>
+<li><b>글자</b>: 1–2 글자를 색 위에.</li>
+<li><b>색</b>: 기본 아이콘과 글자의 색.</li>
+</ul>
+<h3 id="데이터베이스">데이터베이스</h3>
+<p>설정 › 데이터베이스 (또는 시작 화면의 &quot;바꾸기…&quot;) 에서 SQLite, MySQL, MariaDB, PostgreSQL, SQL Server 중 하나에 연결합니다. &quot;연결 시험&quot; 으로 확인하고 &quot;이 데이터베이스로 바꾸기&quot; 를 누르면 표를 만들거나 새 판으로 고친 뒤 연결합니다. &quot;모든 데이터 복사&quot; 는 지금 데이터를 대상 데이터베이스로 옮깁니다. 비밀번호는 이 컴퓨터에 암호화되어 저장됩니다.</p>
+<h3 id="웹에서-쓰기">웹에서 쓰기</h3>
+<p><code>npm run web</code> 으로 웹 서버를 실행하면 브라우저에서 같은 화면을 씁니다. 여러 사람이 같은 보드를 열면 바뀐 내용이 실시간으로 보이고, 상태 표시줄에 보고 있는 사람 수가 나옵니다.</p>
+<h3 id="단축키">단축키</h3>
+<table><thead><tr><th>키</th><th>하는 일</th></tr></thead><tbody><tr><td>Ctrl+N</td><td>새 프로젝트</td></tr><tr><td>Ctrl+O</td><td>열기</td></tr><tr><td>Ctrl+I / Ctrl+E</td><td>가져오기 / 내보내기</td></tr><tr><td>Ctrl+Z / Ctrl+Y</td><td>실행 취소 / 다시 실행</td></tr><tr><td>C</td><td>이슈 만들기</td></tr><tr><td>Ctrl+F</td><td>찾기</td></tr><tr><td>F5</td><td>새로 고침</td></tr><tr><td>Ctrl+J</td><td>하단 패널</td></tr><tr><td>Ctrl+Shift+1 / 2</td><td>왼쪽 / 오른쪽 패널</td></tr><tr><td>Ctrl+Shift+L</td><td>언어</td></tr><tr><td>Ctrl+Shift+H</td><td>시작 화면</td></tr><tr><td>Ctrl+,</td><td>설정</td></tr><tr><td>F11</td><td>따라하기</td></tr><tr><td>F1</td><td>프로그램 정보</td></tr></tbody></table>
+</main></body>
+</html>

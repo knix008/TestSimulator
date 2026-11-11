@@ -1,0 +1,86 @@
+// Texts of the backlog / search view (Korean and English), registered with the shell's i18n.
+// L('name') is t('bl.name'); E('name') is the key itself (for ctx.showError, which translates it).
+import { registerTexts, t } from '../../i18n.js';
+
+const ko = {
+  listLabel: '이슈 목록', loading: '불러오는 중…', retry: '다시 시도', noMatch: '맞는 항목이 없습니다', searchList: '목록에서 찾기',
+  modeBasic: '기본', modeJql: 'JQL', modeBasicTip: '기본 검색: 드롭다운 필터로 찾기', modeJqlTip: '고급 검색: 질의어(JQL)로 찾기',
+  filters: '저장된 필터', filtersTip: '저장된 필터 열기 · 저장 · 이름 바꾸기 · 공유 · 별표 · 삭제',
+  groupBy: '묶기', groupTip: '목록을 묶는 기준', group_column: '보드 열', group_status: '상태', group_epic: '에픽', group_assignee: '담당자', group_none: '묶지 않음',
+  columns: '열', columnsTip: '보일 열 고르기', side: '에픽·버전', sideTip: '에픽·버전 패널 보이기/숨기기', sideHide: '패널 숨기기',
+  exportCsv: 'CSV', exportTip: '지금 결과를 CSV 파일로 내보내기', create: '이슈 만들기', createTip: '목록 아래에서 새 이슈 만들기 (C)',
+  run: '검색', runTip: '질의 실행 (Enter)', jqlLabel: 'JQL 질의', jqlPlaceholder: '예: project = SHOP AND status = "In Progress" ORDER BY priority DESC',
+  jqlValid: '올바른 질의', errSyntax: '문법 오류', errField: '알 수 없는 필드', errOperator: '쓸 수 없는 연산자', errValue: '잘못된 값', errFunction: '알 수 없는 함수', errAt: ' ({pos}번째 글자)',
+  textPlaceholder: '요약·설명·키에서 찾기', any: '전체', me: '나', unassigned: '담당자 없음',
+  fProject: '프로젝트', fType: '유형', fStatus: '상태', fAssignee: '담당자', fPriority: '우선순위', fLabels: '레이블',
+  hideDone: '완료 숨기기', hideDoneTip: '완료 범주의 이슈를 숨깁니다', clear: '초기화', clearTip: '필터를 모두 지웁니다',
+  epic: '에픽', version: '버전', noEpic: '에픽 없음', removeFilter: '이 필터 빼기', epics: '에픽', versions: '버전', allIssues: '모든 이슈', allVersions: '모든 버전',
+  released: '출시됨', noVersions: '버전이 없습니다',
+  selected: '{n}개 선택', bTransition: '상태 바꾸기', bAssign: '담당자', bPriority: '우선순위', bLabels: '레이블', bDelete: '삭제', bDeleteTip: '고른 이슈를 삭제합니다',
+  bDeleteAsk: '이슈 {n}개를 삭제할까요? 삭제는 되돌릴 수 없습니다.', deselect: '선택 해제', deselectTip: '선택을 모두 풉니다 (Esc)',
+  cancel: '취소', delete: '삭제',
+  col_type: '유형', col_key: '키', col_summary: '요약', col_status: '상태', col_assignee: '담당자', col_reporter: '보고자', col_priority: '우선순위', col_labels: '레이블', col_epic: '에픽',
+  col_points: '점수', col_due: '기한', col_created: '만든 날', col_updated: '바뀐 날',
+  cat_todo: '할 일', cat_inprogress: '진행 중', cat_done: '완료',
+  sortTip: '{name} 순으로 정렬 (다시 누르면 반대로, 세 번째는 순위)', selectAll: '모두 고르기', selectRow: '{key} 고르기', dragTip: '끌어서 순위 바꾸기 (Alt+↑/↓)',
+  demoTitle: '연습용 작업 공간', demoText: '백로그는 데이터베이스의 프로젝트에서 보입니다. 샘플이나 새 프로젝트를 여세요.',
+  offlineTitle: '코어에 연결되지 않음', offlineText: '데이터베이스에 연결되면 이슈 목록이 보입니다.', errorTitle: '목록을 불러오지 못했습니다',
+  emptyTitle: '맞는 이슈가 없습니다', emptyText: '필터를 바꾸거나 새 이슈를 만들어 보세요.',
+  notOnBoard: '보드에 없는 상태', points: '{n}점', backlogBadge: '백로그', groupEmpty: '이슈 없음 — 여기로 끌어 놓을 수 있습니다', expand: '펼치기', collapse: '접기',
+  createInline: '이슈 만들기', createTypeTip: '새 이슈의 유형', createPlaceholder: '무엇을 해야 하나요? (Enter 로 만들기, Esc 로 닫기)', createSubmit: '만들기', createSubmitTip: '이슈 만들기 (Enter)', createCancel: '닫기 (Esc)',
+  range: '{from}–{to} / 전체 {total}개', rankOff: '순위 정렬일 때만 끌어서 순위를 바꿀 수 있습니다', prevPage: '이전 쪽', nextPage: '다음 쪽', pageOf: '{page} / {pages} 쪽', perPage: '쪽당 {n}개', pageSizeTip: '한 쪽에 보일 이슈 수',
+  labelAddNew: '새 레이블 붙이기…', labelAdd: '"{label}" 붙이기', labelRemove: '"{label}" 떼기', labelName: '레이블',
+  myFilters: '내 필터', sharedFilters: '공유된 필터', shared: '공유', filterSaveAs: '새 필터로 저장…', filterSave: '"{name}" 에 저장', filterRename: '이름 바꾸기…',
+  filterShare: '공유하기', filterUnshare: '공유 끄기', filterStar: '별표', filterUnstar: '별표 빼기', filterDelete: '필터 삭제', filterClose: '필터 닫기',
+  filterName: '필터 이름', filterDefaultName: '{key} 필터', filterSaved: '필터 "{name}" 저장됨', filterDeleted: '필터 "{name}" 삭제됨', filterDeleteAsk: '필터 "{name}" 을(를) 삭제할까요?',
+  exported: '{name} 저장됨 ({n}개 이슈)', createdIssue: '{key} 만들었습니다',
+  wipWarning: '열의 최대 개수({max})를 넘었습니다: {count}개', bulkDone: '{label}: {n}개 완료', bulkPartial: '{ok}개 완료, {failed}개 실패 ({keys}): {reason}', bulkNothing: '바꿀 이슈가 없습니다',
+  opRank: '{key} 순위 바꾸기', opCreate: '{key} 만들기', opTransition: '{n}개 → {status}', opAssign: '{n}개 담당자 → {name}', opPriority: '{n}개 우선순위 → {name}',
+  opLabelAdd: '{n}개에 "{label}" 붙이기', opLabelRemove: '{n}개에서 "{label}" 떼기', opDelete: '{n}개 삭제', opFilterSave: '필터 "{name}" 저장',
+  loadFailed: '백로그를 불러오지 못했습니다', filterFailed: '필터 작업 실패', exportFailed: 'CSV 내보내기 실패', createFailed: '이슈를 만들지 못했습니다', rankFailed: '순위를 바꾸지 못했습니다', bulkFailed: '일괄 변경 실패',
+};
+
+const en = {
+  listLabel: 'Issue list', loading: 'Loading…', retry: 'Try again', noMatch: 'Nothing matches', searchList: 'Search the list',
+  modeBasic: 'Basic', modeJql: 'JQL', modeBasicTip: 'Basic search: drop-down filters', modeJqlTip: 'Advanced search: the query language (JQL)',
+  filters: 'Saved filters', filtersTip: 'Open, save, rename, share, star or delete saved filters',
+  groupBy: 'Group', groupTip: 'What the list is grouped by', group_column: 'Board column', group_status: 'Status', group_epic: 'Epic', group_assignee: 'Assignee', group_none: 'No groups',
+  columns: 'Columns', columnsTip: 'Choose the columns', side: 'Epics & versions', sideTip: 'Show or hide the epics and versions panel', sideHide: 'Hide the panel',
+  exportCsv: 'CSV', exportTip: 'Export the result as a CSV file', create: 'Create issue', createTip: 'Create a new issue under the list (C)',
+  run: 'Search', runTip: 'Run the query (Enter)', jqlLabel: 'JQL query', jqlPlaceholder: 'e.g. project = SHOP AND status = "In Progress" ORDER BY priority DESC',
+  jqlValid: 'Valid query', errSyntax: 'Syntax error', errField: 'Unknown field', errOperator: 'Operator not allowed', errValue: 'Bad value', errFunction: 'Unknown function', errAt: ' (character {pos})',
+  textPlaceholder: 'Search summary, description, key', any: 'All', me: 'Me', unassigned: 'Unassigned',
+  fProject: 'Project', fType: 'Type', fStatus: 'Status', fAssignee: 'Assignee', fPriority: 'Priority', fLabels: 'Labels',
+  hideDone: 'Hide done', hideDoneTip: 'Hide issues in the done category', clear: 'Reset', clearTip: 'Clear every filter',
+  epic: 'Epic', version: 'Version', noEpic: 'No epic', removeFilter: 'Remove this filter', epics: 'Epics', versions: 'Versions', allIssues: 'All issues', allVersions: 'All versions',
+  released: 'Released', noVersions: 'No versions',
+  selected: '{n} selected', bTransition: 'Status', bAssign: 'Assignee', bPriority: 'Priority', bLabels: 'Labels', bDelete: 'Delete', bDeleteTip: 'Delete the selected issues',
+  bDeleteAsk: 'Delete {n} issues? This cannot be undone.', deselect: 'Clear selection', deselectTip: 'Clear the selection (Esc)',
+  cancel: 'Cancel', delete: 'Delete',
+  col_type: 'Type', col_key: 'Key', col_summary: 'Summary', col_status: 'Status', col_assignee: 'Assignee', col_reporter: 'Reporter', col_priority: 'Priority', col_labels: 'Labels', col_epic: 'Epic',
+  col_points: 'Points', col_due: 'Due', col_created: 'Created', col_updated: 'Updated',
+  cat_todo: 'To do', cat_inprogress: 'In progress', cat_done: 'Done',
+  sortTip: 'Sort by {name} (again: reverse, third time: rank)', selectAll: 'Select all', selectRow: 'Select {key}', dragTip: 'Drag to rank (Alt+↑/↓)',
+  demoTitle: 'Practice workspace', demoText: 'The backlog shows a project from the database. Open a sample or a new project.',
+  offlineTitle: 'Not connected to the core', offlineText: 'The issues show once the database is connected.', errorTitle: 'The list could not be loaded',
+  emptyTitle: 'No issues match', emptyText: 'Change the filters or create a new issue.',
+  notOnBoard: 'Statuses not on the board', points: '{n} pts', backlogBadge: 'Backlog', groupEmpty: 'No issues — drop one here', expand: 'Expand', collapse: 'Collapse',
+  createInline: 'Create issue', createTypeTip: 'Type of the new issue', createPlaceholder: 'What needs to be done? (Enter creates, Esc closes)', createSubmit: 'Create', createSubmitTip: 'Create the issue (Enter)', createCancel: 'Close (Esc)',
+  range: '{from}–{to} of {total}', rankOff: 'Drag to rank works when the list is sorted by rank', prevPage: 'Previous page', nextPage: 'Next page', pageOf: 'Page {page} of {pages}', perPage: '{n} per page', pageSizeTip: 'Issues per page',
+  labelAddNew: 'Add a new label…', labelAdd: 'Add "{label}"', labelRemove: 'Remove "{label}"', labelName: 'Label',
+  myFilters: 'My filters', sharedFilters: 'Shared filters', shared: 'shared', filterSaveAs: 'Save as a new filter…', filterSave: 'Save to "{name}"', filterRename: 'Rename…',
+  filterShare: 'Share', filterUnshare: 'Stop sharing', filterStar: 'Star', filterUnstar: 'Remove the star', filterDelete: 'Delete filter', filterClose: 'Close the filter',
+  filterName: 'Filter name', filterDefaultName: '{key} filter', filterSaved: 'Filter "{name}" saved', filterDeleted: 'Filter "{name}" deleted', filterDeleteAsk: 'Delete the filter "{name}"?',
+  exported: '{name} saved ({n} issues)', createdIssue: 'Created {key}',
+  wipWarning: 'The column is over its maximum ({max}): {count}', bulkDone: '{label}: {n} done', bulkPartial: '{ok} done, {failed} failed ({keys}): {reason}', bulkNothing: 'Nothing to change',
+  opRank: 'Rank {key}', opCreate: 'Create {key}', opTransition: '{n} → {status}', opAssign: 'Assign {n} → {name}', opPriority: 'Priority of {n} → {name}',
+  opLabelAdd: 'Add "{label}" to {n}', opLabelRemove: 'Remove "{label}" from {n}', opDelete: 'Delete {n}', opFilterSave: 'Save filter "{name}"',
+  loadFailed: 'The backlog could not be loaded', filterFailed: 'Filter action failed', exportFailed: 'CSV export failed', createFailed: 'The issue could not be created', rankFailed: 'The rank could not be changed', bulkFailed: 'Bulk change failed',
+};
+
+const prefix = (dict) => Object.fromEntries(Object.entries(dict).map(([k, v]) => [`bl.${k}`, v]));
+registerTexts({ ko: prefix(ko), en: prefix(en) });
+
+export const TEXTS = { ko, en };
+export const L = (key, params) => t(`bl.${key}`, params);
+export const E = (key) => `bl.${key}`;

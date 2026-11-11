@@ -1,0 +1,95 @@
+/* Shared view parts: issue cards, avatars, labels, epic chips, progress, due dates, the IconRef dropdown.
+   Only theme variables (styles.css / themes.js), so every theme and dark mode apply. */
+
+.mb-avatar { border-radius: 50%; flex: none; }
+img.mb-avatar { object-fit: cover; }
+.mb-avatar-none { display: inline-block; border-radius: 50%; border: 1.5px dashed color-mix(in srgb, var(--muted) 70%, transparent); box-sizing: border-box; flex: none; }
+.mb-avatar-stack { display: inline-flex; align-items: center; }
+.mb-avatar-stack > * + * { margin-left: -6px; }
+.mb-avatar-stack > .iconref, .mb-avatar-stack > .mb-avatar-none { box-shadow: 0 0 0 2px var(--surface); }
+.mb-avatar-more { display: inline-grid; place-items: center; padding: 0 5px; border-radius: 99px; background: var(--hover); color: var(--muted); font-size: 0.75em; box-shadow: 0 0 0 2px var(--surface); box-sizing: border-box; }
+
+.mb-labels { display: inline-flex; flex-wrap: wrap; gap: 3px; min-width: 0; }
+.mb-label { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 6px; border-radius: 4px; font-size: 0.74em; line-height: 17px;
+  color: color-mix(in srgb, var(--label) 80%, var(--text)); background: color-mix(in srgb, var(--label) 16%, transparent); border: 1px solid color-mix(in srgb, var(--label) 35%, transparent); }
+.mb-label.more { --label: var(--muted); }
+.mb-epic { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 6px; border-radius: 4px; font-size: 0.74em; line-height: 17px; font-weight: 600;
+  color: color-mix(in srgb, var(--epic) 75%, var(--text)); background: color-mix(in srgb, var(--epic) 20%, transparent); }
+
+.mb-progress { display: inline-flex; align-items: center; gap: 3px; font-size: 0.78em; color: var(--muted); position: relative; padding-bottom: 2px; }
+.mb-progress i { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 1px; background: color-mix(in srgb, var(--muted) 25%, transparent); }
+.mb-progress i::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: var(--pct); border-radius: 1px; background: var(--accent); }
+.mb-progress.full { color: #2f9e44; }
+.mb-progress.full i::after { background: #2f9e44; }
+.mb-progress .icon { width: 13px; height: 13px; }
+
+.mb-due { display: inline-flex; align-items: center; gap: 3px; font-size: 0.78em; color: var(--muted); padding: 0 4px; border-radius: 4px; white-space: nowrap; }
+.mb-due .icon { width: 13px; height: 13px; }
+.mb-due.overdue { color: #fff; background: var(--danger); }
+.mb-due.overdue .icon { color: inherit !important; }
+.mb-due.today { color: #fff; background: #e8590c; }
+.mb-due.today .icon { color: inherit !important; }
+.mb-due.soon { color: #e8590c; background: color-mix(in srgb, #e8590c 14%, transparent); }
+.mb-due.done { text-decoration: line-through; }
+
+.mb-days { display: flex; gap: 3px; margin-top: 4px; }
+.mb-days i { width: 5px; height: 5px; border-radius: 50%; background: color-mix(in srgb, var(--muted) 55%, transparent); }
+.mb-days.warm i { background: #f08c00; }
+.mb-days.hot i { background: var(--danger); }
+
+/* ── the card ── */
+.mb-card { position: relative; display: flex; flex-direction: column; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--shadow, #000) 14%, transparent); overflow: hidden; cursor: grab; outline: none; user-select: none; contain: layout style; }
+.mb-card.colored { box-shadow: inset 4px 0 0 var(--card-color), 0 1px 2px color-mix(in srgb, var(--shadow, #000) 14%, transparent); }
+.mb-card.colored .mb-card-body { padding-left: 12px; }
+.mb-card:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.mb-card:focus-visible, .mb-card.focused { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+.mb-card.colored:focus-visible, .mb-card.colored.focused { box-shadow: inset 4px 0 0 var(--card-color), 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+.mb-card.selected { background: color-mix(in srgb, var(--accent) 13%, var(--surface)); border-color: var(--accent); }
+.mb-card.flagged { background: color-mix(in srgb, #f59f00 13%, var(--surface)); }
+.mb-card.flagged.selected { background: color-mix(in srgb, var(--accent) 16%, color-mix(in srgb, #f59f00 10%, var(--surface))); }
+.mb-card-body { display: flex; flex-direction: column; gap: 5px; padding: 7px 9px 7px; min-width: 0; }
+.mb-card-title { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.mb-card-title .mb-summary { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.32; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.mb-card-title .mb-card-icon { margin-top: 1px; }
+.mb-card-tags { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; min-width: 0; }
+.mb-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; min-width: 0; font-size: 0.95em; }
+.mb-key { font-size: 0.78em; color: var(--muted); font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
+.mb-key.resolved { text-decoration: line-through; }
+.mb-flag .icon { width: 14px; height: 14px; color: #f08c00 !important; }
+.mb-points { min-width: 18px; padding: 0 5px; border-radius: 99px; background: var(--hover); color: var(--text); font-size: 0.74em; line-height: 17px; text-align: center; font-weight: 600; }
+.mb-count, .mb-time, .mb-meta { display: inline-flex; align-items: center; gap: 2px; font-size: 0.78em; color: var(--muted); white-space: nowrap; }
+.mb-meta { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.mb-count .icon, .mb-time .icon, .mb-meta .icon { width: 13px; height: 13px; }
+.mb-cover { height: 56px; flex: none; display: grid; place-items: center; }
+.mb-cover.image { height: auto; max-height: 140px; overflow: hidden; background: var(--hover); }
+.mb-cover.image img { display: block; width: 100%; height: auto; max-height: 140px; object-fit: cover; }
+.mb-cover.color { height: 30px; }
+.mb-card.resolved .mb-summary { color: color-mix(in srgb, var(--text) 75%, var(--muted)); }
+
+/* one line (backlog rows) */
+.mb-card.compact { flex-direction: row; align-items: center; gap: 7px; padding: 4px 8px; border-radius: 6px; }
+.mb-card.compact .mb-summary { flex: 1 1 auto; min-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mb-card.compact .grow { flex: 1; }
+.mb-card.compact.colored { padding-left: 11px; }
+
+/* ── IconRef dropdown (views/shared/refdropdown.js), looks like ui/dropdown.js ── */
+.mb-refbutton { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; height: 28px; padding: 0 6px 0 8px; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--surface); color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+.mb-refbutton:hover:not(:disabled) { border-color: var(--accent); }
+.mb-refbutton:disabled { opacity: 0.5; cursor: default; }
+.mb-refbutton[aria-expanded="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.mb-refbutton > .icon, .mb-refbutton > .iconref { width: 16px; height: 16px; }
+.mb-refbutton-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mb-refbutton-chips { flex: 1; min-width: 0; display: flex; gap: 3px; overflow: hidden; }
+.mb-refchip { display: inline-flex; align-items: center; gap: 3px; padding: 0 5px; border-radius: 5px; background: var(--hover); font-size: 0.86em; white-space: nowrap; }
+.mb-refbutton-caret { margin-left: auto; display: inline-flex; color: var(--muted); }
+.mb-refbutton-caret .icon { width: 13px; height: 13px; }
+.mb-reflist { display: flex; flex-direction: column; padding: 0 !important; overflow: hidden !important; }
+.mb-reflist-search { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.mb-reflist-search[hidden] { display: none; }
+.mb-reflist-search .icon { width: 14px; height: 14px; color: var(--muted); }
+.mb-reflist-search input { flex: 1; min-width: 0; border: 0 !important; outline: 0; background: none !important; padding: 2px 0 !important; font: inherit; color: var(--text); }
+.mb-reflist-items { overflow: auto; padding: 4px; min-height: 0; }
+.mb-reflist-items .dd-item > .iconref { width: 16px !important; height: 16px !important; }
+.mb-reflist-empty { padding: 8px 10px; }

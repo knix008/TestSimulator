@@ -1,0 +1,21 @@
+/* The `form` popup (ui/formpopup.js): one row per field, labels aligned (popup.js alignRows). */
+.popup-form .popup-body { overflow: auto; padding-top: 8px; padding-bottom: 8px; scrollbar-width: thin; }
+.ff { display: flex; flex-direction: column; gap: 2px; }
+.ff-intro { margin: 0 0 6px; }
+.ff-field .row { min-height: 34px; }
+.ff-field .row.ff-type-textarea { align-items: flex-start; }
+.ff-field .row.ff-type-textarea .row-label { padding-top: 6px; }
+.ff-textarea { width: 100%; min-height: 84px; resize: vertical; font: inherit; box-sizing: border-box; }
+.ff-field .row-control > .mb-refbutton { flex: 1; min-width: 0; }
+.ff-field .mb-refbutton.invalid { border-color: var(--danger); }
+.ff-note { padding: 0 0 4px calc(var(--label-col, 140px) + 12px); margin-top: -2px; }
+.ff-note small { display: block; }
+.ff-date, .ff-icon { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.ff-date input { flex: 1; min-width: 0; }
+.ff-icon-button .iconref { width: 18px; height: 18px; }
+.ff-colors { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.ff-colors .swatch { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--border); background: var(--swatch); cursor: pointer; padding: 0; }
+.ff-colors .swatch.active { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.ff-colors input[type="color"] { width: 28px; height: 24px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: none; cursor: pointer; }
+.ff-duration-note { white-space: nowrap; }
+.popup-form .popup-foot .ff-required { font-size: 0.86em; }

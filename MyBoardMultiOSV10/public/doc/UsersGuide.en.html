@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyBoard — User’s Guide</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 28px 28px 60px; }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body><main>
+<h1>MyBoard — User’s Guide</h1>
+<p>MyBoard is a Kanban board and issue tracker. Each project has boards, a backlog, reports and settings; you change the state of work by moving cards across the columns. Data is stored in a database (by default SQLite on this computer), so there is nothing to &quot;save&quot;.</p>
+<h3 id="start-page">Start page</h3>
+<p>When the program opens, translucent cards sit over a moving background.</p>
+<ul>
+<li><b>Start</b> card: new project, open, connect a database, import, tutorial, continue the last board, settings, start page settings, about, quit.</li>
+<li><b>Database</b> card: the kind, name and connection of the database in use. &quot;Change…&quot; connects to another database. When the core cannot be reached, a red notice and a &quot;Reconnect&quot; button appear.</li>
+<li><b>Recent boards and projects</b>: the boards opened lately; × removes one from the list.</li>
+<li><b>New project — templates</b>: Kanban, Software team, Bug tracking, Simple personal.</li>
+<li><b>Sample projects</b>: three projects with issues in them (created in the current database).</li>
+<li><b>Background</b>: the kind of moving background, its speed, the card opacity and the automatic change.</li>
+</ul>
+<p>Move a card by the handle at its top left, resize it by its bottom-right corner; a double click on the corner fits its height again. &quot;Auto arrange&quot; restores the default layout.</p>
+<h3 id="workspace">Workspace</h3>
+<p>Opening a project or board shows the workspace.</p>
+<ul>
+<li><b>Toolbar</b> (it is also the title bar): new project, open, leave, import, export, undo/redo, create issue, find, refresh, view switch, database, panel buttons. Tutorial, theme, language, settings and about on the right always stay; the left buttons fold into » in a narrow window.</li>
+<li><b>Projects panel</b> (left): each project's boards, backlog, reports and settings. Right-click to change its icon or copy its key.</li>
+<li><b>Board</b> (centre): the columns and cards.</li>
+<li><b>Issue detail</b> (right): the chosen issue's description, comments, attachments and history. Its button folds it.</li>
+<li><b>Bottom panel</b>: activity (who changed what), messages (notices and errors) and information (database, user, issue counts). Ctrl+J.</li>
+<li><b>Status bar</b>: notices, the database kind, the user, the realtime connection, issue counts, theme, language, clock. The grip at the bottom right resizes the window.</li>
+</ul>
+<p>Drag the borders between the panels to resize them; sizes are remembered with the window's place and size.</p>
+<h3 id="icons">Icons</h3>
+<p>Every place that takes an icon — projects, boards, issue types, priorities, users — uses the same <b>icon picker</b>:</p>
+<ul>
+<li><b>Built-in</b>: over 400 pictures (issue types, status, priority, objects, people, arrows, charts, technology, nature …), searchable in English and Korean.</li>
+<li><b>Emoji</b>: over 1000 emoji by category, searchable in English and Korean.</li>
+<li><b>Uploaded</b>: upload PNG, JPEG, GIF, WebP, BMP, ICO, SVG or AVIF (button, drag and drop, or paste with Ctrl+V). Pictures are scaled to at most 256 px and stored in the database; animated GIF and WebP stay as they are up to 512 KB.</li>
+<li><b>Letters</b>: one or two letters on a colour.</li>
+<li><b>Colour</b>: tints built-in icons and colours letters.</li>
+</ul>
+<h3 id="database">Database</h3>
+<p>Settings › Database (or &quot;Change…&quot; on the start page) connects to SQLite, MySQL, MariaDB, PostgreSQL or SQL Server. &quot;Test connection&quot; checks it; &quot;Switch to this database&quot; creates or upgrades the tables and connects. &quot;Copy all data&quot; moves the current data into the target database. The password is stored encrypted on this computer.</p>
+<h3 id="on-the-web">On the web</h3>
+<p><code>npm run web</code> starts the web server, and a browser shows the same window. When several people open one board, changes appear in real time and the status bar shows how many are viewing it.</p>
+<h3 id="shortcuts">Shortcuts</h3>
+<table><thead><tr><th>Key</th><th>Does</th></tr></thead><tbody><tr><td>Ctrl+N</td><td>New project</td></tr><tr><td>Ctrl+O</td><td>Open</td></tr><tr><td>Ctrl+I / Ctrl+E</td><td>Import / export</td></tr><tr><td>Ctrl+Z / Ctrl+Y</td><td>Undo / redo</td></tr><tr><td>C</td><td>Create issue</td></tr><tr><td>Ctrl+F</td><td>Find</td></tr><tr><td>F5</td><td>Refresh</td></tr><tr><td>Ctrl+J</td><td>Bottom panel</td></tr><tr><td>Ctrl+Shift+1 / 2</td><td>Left / right panel</td></tr><tr><td>Ctrl+Shift+L</td><td>Language</td></tr><tr><td>Ctrl+Shift+H</td><td>Start page</td></tr><tr><td>Ctrl+,</td><td>Settings</td></tr><tr><td>F11</td><td>Tutorial</td></tr><tr><td>F1</td><td>About</td></tr></tbody></table>
+</main></body>
+</html>

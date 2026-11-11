@@ -1,0 +1,14 @@
+node_modules/
+dist/
+release/
+test-results/
+src-tauri/target/
+src-tauri/gen/
+/MyBoard-*.exe
+/MyBoard-*.msi
+/MyBoard-*.dmg
+/MyBoard-*.deb
+/MyBoard-*.rpm
+/MyBoard-*.AppImage
+*.log
+.vite/

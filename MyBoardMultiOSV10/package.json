@@ -1,0 +1,54 @@
+{
+  "name": "myboard",
+  "productName": "MyBoard",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Kanban and issue tracking board for Web, Windows, macOS and Linux (Tauri) with SQLite, MySQL, MariaDB, PostgreSQL and SQL Server storage",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "test:core": "node --test --test-reporter=spec --test-concurrency=1 \"test/core/**/*.test.js\"",
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "dev:web": "node scripts/dev-web.mjs",
+    "web": "node server/web.js",
+    "build:web": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "stage": "node scripts/stage-runtime.mjs",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "build:icons": "node scripts/render-icons.mjs",
+    "build:docs": "node scripts/build-docs.mjs",
+    "test": "node scripts/test.mjs",
+    "test:quick": "node scripts/test.mjs --quick",
+    "test:ui": "node scripts/test.mjs --only ui,i18n",
+    "test:web": "node scripts/test.mjs --only web",
+    "test:tutorial": "node scripts/test.mjs --only tutorial",
+    "test:desktop": "node scripts/test.mjs --only desktop --desktop",
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "smoke": "node scripts/smoke-web.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.4",
+    "mssql": "^12.7.14",
+    "mysql2": "^3.24.6",
+    "pg": "^8.23.1",
+    "ws": "^8.22.2"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
+    "@tauri-apps/cli": "^2.12.4",
+    "esbuild": "^0.28.2",
+    "sharp": "^0.35.5",
+    "vite": "^7.3.8"
+  }
+}

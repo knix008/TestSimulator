@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyBoard — 따라하기</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 28px 28px 60px; }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body><main>
+<h1>MyBoard — 따라하기</h1>
+<p class="muted">프로그램 안의 따라하기(도움말 › 따라하기, F11)와 같은 단계입니다.</p>
+<h2 id="start">시작 화면</h2>
+<div class="step"><h3 id="step-welcome">1. 시작 화면</h3><p>움직이는 배경 위의 카드들이 시작 화면입니다. 카드는 손잡이로 옮기고 모서리로 크기를 바꿉니다.</p></div>
+<div class="step"><h3 id="step-actions">2. 시작 카드</h3><p>새 프로젝트, 열기, 데이터베이스 연결, 가져오기, 마지막 보드 이어서 같은 일이 모두 여기 있습니다.</p></div>
+<div class="step"><h3 id="step-templates">3. 템플릿</h3><p>칸반, 소프트웨어 팀, 버그 추적, 개인용 중 하나로 프로젝트를 만들면 상태·유형·보드가 함께 만들어집니다.</p></div>
+<div class="step"><h3 id="step-database">4. 데이터베이스</h3><p>지금 쓰는 데이터베이스의 종류와 연결 상태입니다. 바꾸기로 MySQL·PostgreSQL·SQL Server 등에 연결합니다.</p></div>
+<div class="step"><h3 id="step-home">5. 홈 단추</h3><p>작업 중에도 홈 단추로 언제든 시작 화면에 돌아옵니다.</p></div>
+<h2 id="workspace">작업 화면</h2>
+<div class="step"><h3 id="step-sidebar">6. 프로젝트 패널</h3><p>프로젝트마다 보드, 백로그, 보고서, 설정이 나무 모양으로 있습니다. 오른쪽 클릭으로 아이콘을 바꿉니다.</p></div>
+<div class="step"><h3 id="step-board">7. 보드</h3><p>가운데가 보드입니다. 카드를 열 사이로 끌어 상태를 바꿉니다.</p></div>
+<div class="step"><h3 id="step-detail">8. 이슈 상세</h3><p>카드를 누르면 오른쪽에 설명, 댓글, 첨부, 기록이 나옵니다. 단추로 접어 둘 수 있습니다.</p></div>
+<div class="step"><h3 id="step-bottom">9. 하단 패널</h3><p>활동(누가 무엇을 바꿨는지), 메시지, 정보를 봅니다. Ctrl+J 로 켜고 끕니다.</p></div>
+<div class="step"><h3 id="step-status">10. 상태 표시줄</h3><p>데이터베이스, 사용자, 실시간 연결, 이슈 수를 보여 줍니다.</p></div>
+<div class="step"><h3 id="step-theme">11. 테마</h3><p>팔레트 단추는 테마를 무작위로, 옆의 화살표는 40가지 테마 목록을 엽니다.</p></div>
+<h2 id="help">설정과 도움말</h2>
+<div class="step"><h3 id="step-settings">12. 설정</h3><p>언어, 시작 화면, 테마, 글꼴, 배경, 보드 표시, 데이터베이스, 최근 목록을 바꿉니다.</p></div>
+<div class="step"><h3 id="step-shortcuts">13. 단축키</h3><p>자주 쓰는 일의 단축키입니다. C 는 이슈 만들기입니다.</p></div>
+<div class="step"><h3 id="step-finish">14. 끝</h3><p>따라하기는 도움말 메뉴나 F11 로 다시 볼 수 있습니다.</p></div>
+
+</main></body>
+</html>

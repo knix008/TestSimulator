@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyBoard — Tutorial</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 28px 28px 60px; }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body><main>
+<h1>MyBoard — Tutorial</h1>
+<p class="muted">The same steps the tutorial shows in the program (Help › Tutorial, F11).</p>
+<h2 id="start">Start page</h2>
+<div class="step"><h3 id="step-welcome">1. The start page</h3><p>Cards over a moving background make the start page. Move a card by its handle, resize it by its corner.</p></div>
+<div class="step"><h3 id="step-actions">2. Start card</h3><p>New project, open, connect a database, import, continue the last board — all here.</p></div>
+<div class="step"><h3 id="step-templates">3. Templates</h3><p>Create a project from Kanban, Software team, Bug tracking or Simple personal: its statuses, types and board come with it.</p></div>
+<div class="step"><h3 id="step-database">4. Database</h3><p>The kind of database in use and its connection. Change… connects to MySQL, PostgreSQL, SQL Server and more.</p></div>
+<div class="step"><h3 id="step-home">5. Home button</h3><p>The Home button brings you back to the start page at any time.</p></div>
+<h2 id="workspace">Workspace</h2>
+<div class="step"><h3 id="step-sidebar">6. Projects panel</h3><p>Each project lists its boards, backlog, reports and settings as a tree. Right-click to change its icon.</p></div>
+<div class="step"><h3 id="step-board">7. Board</h3><p>The board is in the middle. Drag cards across the columns to change their status.</p></div>
+<div class="step"><h3 id="step-detail">8. Issue detail</h3><p>Click a card to see its description, comments, attachments and history on the right. Fold the panel with its button.</p></div>
+<div class="step"><h3 id="step-bottom">9. Bottom panel</h3><p>Activity (who changed what), messages and information. Ctrl+J shows or hides it.</p></div>
+<div class="step"><h3 id="step-status">10. Status bar</h3><p>The database, the user, the realtime connection and the issue counts.</p></div>
+<div class="step"><h3 id="step-theme">11. Themes</h3><p>The palette button picks a random theme; the arrow beside it lists all 40.</p></div>
+<h2 id="help">Settings and help</h2>
+<div class="step"><h3 id="step-settings">12. Settings</h3><p>Language, start page, theme, fonts, background, board display, database and the recent list.</p></div>
+<div class="step"><h3 id="step-shortcuts">13. Shortcuts</h3><p>Shortcuts for frequent work. C creates an issue.</p></div>
+<div class="step"><h3 id="step-finish">14. Done</h3><p>Run the tutorial again from the Help menu or with F11.</p></div>
+
+</main></body>
+</html>
