@@ -2,6 +2,7 @@
 // title bar), resizes (drag the corner grip; also from the gadget's menu with the keyboard) and configures
 // (a form popup per gadget type). The layout is saved to the dashboard: { columns, gadgets: [{ id, type,
 // config, col, row, w, h }] }. Every layout change is one Undo/Redo step.
+import { showViewMenu } from '../shared/index.js';
 import { escapeHtml } from '../../ui/dom.js';
 import { icon } from '../../icons.js';
 import { renderIconRef } from '../../ui/iconref.js';
@@ -255,10 +256,19 @@ export class Dashboards {
       if (this.view.isEmpty(id, data)) { el.innerHTML = this.stateHtml(L(id === 'control' ? 'noCompleted' : 'noData')); return; }
       const width = Math.max(160, el.clientWidth - 8);
       const legendH = id === 'breakdown' && width >= 380 ? 0 : 26;
-      const height = Math.max(110, el.clientHeight - legendH - 6);
       const opts = { ...(g.config ?? {}), chart: 'pie', metric: g.config?.metric };
-      const chart = REPORTS[id].draw(data, opts, { width, height }, palette(this.view.root), this.view.cx);
-      el.innerHTML = `<div class="db-chart">${chart.svg}</div>${chart.legend ?? ''}`;
+      const colors = palette(this.view.root);
+      const drawAt = (height) => {
+        const out = REPORTS[id].draw(data, opts, { width, height }, colors, this.view.cx);
+        el.innerHTML = `<div class="db-chart">${out.svg}</div>${out.legend ?? ''}`;
+        return out;
+      };
+      let height = Math.max(110, el.clientHeight - legendH - 6);
+      let chart = drawAt(height);
+      // A chart never scrolls in its gadget: when the legend (or anything) needs more room than reserved, draw it
+      // again that much lower.
+      const over = el.scrollHeight - el.clientHeight;
+      if (over > 0) { height = Math.max(80, height - over - 2); chart = drawAt(height); }
       const holder = el.querySelector('.db-chart');
       const prev = this.untips.findIndex((x) => x.id === g.id);
       if (prev >= 0) { this.untips[prev](); this.untips.splice(prev, 1); }
@@ -458,24 +468,21 @@ export class Dashboards {
     if (act === 'config') return this.configure(g);
     if (act === 'menu') {
       const cols = this.columns;
-      return openPicker(button, {
-        items: [
-          { value: 'config', label: L('gadgetConfig'), icon: icon('gear') },
+      return showViewMenu(this.view.ctx, button, [
+          { value: 'config', label: L('gadgetConfig'), glyph: 'gear' },
           { separator: true },
-          { value: 'left', label: L('moveLeft'), icon: icon('chevronLeft'), disabled: g.col <= 0 },
-          { value: 'right', label: L('moveRight'), icon: icon('chevronRight'), disabled: g.col + g.w >= cols },
-          { value: 'up', label: L('moveUp'), icon: icon('chevronUp'), disabled: g.row <= 0 },
-          { value: 'down', label: L('moveDown'), icon: icon('chevronDown') },
+          { value: 'left', label: L('moveLeft'), glyph: 'chevronLeft', disabled: g.col <= 0 },
+          { value: 'right', label: L('moveRight'), glyph: 'chevronRight', disabled: g.col + g.w >= cols },
+          { value: 'up', label: L('moveUp'), glyph: 'chevronUp', disabled: g.row <= 0 },
+          { value: 'down', label: L('moveDown'), glyph: 'chevronDown' },
           { separator: true },
-          { value: 'wider', label: L('wider'), icon: icon('distributeH'), disabled: g.w >= cols },
-          { value: 'narrower', label: L('narrower'), icon: icon('distributeH'), disabled: g.w <= 1 },
-          { value: 'taller', label: L('taller'), icon: icon('distributeV'), disabled: g.h >= 6 },
-          { value: 'shorter', label: L('shorter'), icon: icon('distributeV'), disabled: g.h <= 1 },
+          { value: 'wider', label: L('wider'), glyph: 'distributeH', disabled: g.w >= cols },
+          { value: 'narrower', label: L('narrower'), glyph: 'distributeH', disabled: g.w <= 1 },
+          { value: 'taller', label: L('taller'), glyph: 'distributeV', disabled: g.h >= 6 },
+          { value: 'shorter', label: L('shorter'), glyph: 'distributeV', disabled: g.h <= 1 },
           { separator: true },
-          { value: 'remove', label: L('gadgetRemove'), icon: icon('trash'), danger: true },
-        ],
-        onPick: (v) => this.gadgetMenu(g, v),
-      });
+          { value: 'remove', label: L('gadgetRemove'), glyph: 'trash', danger: true },
+        ], (v) => this.gadgetMenu(g, v), { icon: 'grid', title: L(`g_${g.type}`) });
     }
     return undefined;
   }
@@ -581,7 +588,12 @@ export class Dashboards {
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
       if (grip) {
-        target = { col: g.col, row: g.row, w: Math.max(1, Math.min(this.columns - g.col, g.w + Math.round(dx / (cs.colW + GAP)))), h: Math.max(1, Math.min(6, g.h + Math.round(dy / (cs.rowH + GAP)))) };
+        // the size follows the pointer (a cell is taken once the corner is past a third of it), and the card itself
+        // takes that size at once — not only an outline
+        const steps = (d, size) => Math.sign(d) * Math.floor(Math.abs(d) / size + 2 / 3);
+        target = { col: g.col, row: g.row, w: Math.max(1, Math.min(this.columns - g.col, g.w + steps(dx, cs.colW + GAP))), h: Math.max(1, Math.min(6, g.h + steps(dy, cs.rowH + GAP))) };
+        card.style.gridColumn = `${target.col + 1} / span ${target.w}`;
+        card.style.gridRow = `${target.row + 1} / span ${target.h}`;
       } else {
         card.style.transform = `translate(${dx}px, ${dy}px)`;
         target = { col: Math.max(0, Math.min(this.columns - g.w, g.col + Math.round(dx / (cs.colW + GAP)))), row: Math.max(0, g.row + Math.round(dy / (cs.rowH + GAP))), w: g.w, h: g.h };

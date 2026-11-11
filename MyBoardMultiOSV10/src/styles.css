@@ -554,17 +554,6 @@ html.is-popup, html.is-popup body { background: var(--surface); overflow: hidden
 .theme-preview { gap: 10px; margin-top: 8px; padding: 6px 10px; border: 1px solid; border-radius: 8px; }
 .preview-chip { padding: 3px 10px; border-radius: 6px; font-size: 0.86em; }
 .popup-theme .popup-body { padding: 8px 12px; }
-.theme-picker { display: flex; flex-direction: column; gap: 6px; height: 100%; }
-.picker-top { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.picker-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; flex: 1; min-height: 0; }
-.picker-column h3 { display: flex; align-items: center; gap: 6px; margin: 2px 0 4px; font-size: 0.8em; color: var(--muted); text-transform: uppercase; }
-.picker-column h3 .icon { width: 14px; height: 14px; }
-.picker-item { display: flex; align-items: center; gap: 8px; width: 100%; height: 23px; padding: 0 8px; border: 0; border-radius: 6px; background: none; cursor: pointer; text-align: left; white-space: nowrap; }
-.picker-top .picker-item { height: 30px; border: 1px solid var(--border); }
-.picker-item:hover { background: var(--hover); }
-.picker-item.active { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-weight: 600; }
-.picker-item .theme-swatch i { width: 11px; height: 15px; }
-.picker-item .icon { width: 15px; height: 15px; }
 .theme-row { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border: 0; border-radius: 7px; background: none; cursor: pointer; text-align: left; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
 .theme-row:hover { background: var(--hover); }
 .theme-row.active { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600; }
@@ -1656,7 +1645,9 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .st-theme-chip > i { display: block; flex: 1 1 0; border-radius: 2px; }
 
 .start-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 10px; font-size: 0.92em; }
-.start-controls .start-speed { flex: 0 1 300px; margin: 0; min-width: 200px; }
+.start-controls .start-speed { flex: 0 1 360px; margin: 0; min-width: 280px; }
+.start-speed output { flex: none; }
+.start-speed input[type="range"] { min-width: 60px; }
 .start-controls .start-speed > span { white-space: nowrap; }
 .start-foot { background: color-mix(in srgb, var(--surface) var(--start-card-alpha), transparent); }
 .start-foot > .icon { width: 15px; height: 15px; }
@@ -1736,3 +1727,15 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .plan-sample-thumb i { position: absolute; top: 5px; font-style: normal; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; }
 .plan-sample-format { right: 5px; background: rgba(20, 24, 32, 0.78); color: #fff; letter-spacing: 0.04em; }
 .plan-sample-hard { left: 5px; background: #e8a33a; color: #222; }
+/* a colour swatch in a menu item's icon place (the theme drop-down) */
+.menu-icon .menu-swatch { box-shadow: 0 0 0 1px var(--border); }
+.menu-icon .menu-swatch i { width: 6px; height: 14px; }
+/* a menu with columns side by side (the theme drop-down: dark | light, all on one level) */
+.popup-menu .menu-columns { display: grid; grid-template-columns: repeat(2, minmax(190px, 1fr)); gap: 0 8px; }
+.popup-menu .menu-column { display: flex; flex-direction: column; min-width: 0; }
+.popup-menu .menu-group { display: flex; align-items: center; gap: 6px; padding: 4px 10px 3px; font-size: 0.8em; font-weight: 700; color: var(--muted); }
+.popup-menu .menu-group .icon { width: 14px; height: 14px; }
+/* the start page's sliders: a small square − / + on both sides, as tall as the bar's box; the value right of + */
+.start-speed .slider-step { flex: none; width: 22px; height: 22px; padding: 0; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); font: 600 14px/1 inherit; cursor: pointer; }
+.start-speed .slider-step:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.start-speed .slider-step:disabled { opacity: 0.4; cursor: default; }

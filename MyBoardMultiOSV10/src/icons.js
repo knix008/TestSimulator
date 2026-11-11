@@ -155,6 +155,9 @@ const base = {
   tag: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
   hyperlink: '<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  trendDown: '<path d="M3 6l6 6 4-4 8 8"/><path d="M15 16h6v-6"/>',
+  folderSettings: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2.5"/><path d="M3 7v10a2 2 0 0 0 2 2h6.5"/><circle cx="17.5" cy="16.5" r="2.2"/><path d="M17.5 12.8v1.3M17.5 18.9v1.3M21.2 16.5h-1.3M15.1 16.5h-1.3M20.1 13.9l-.9.9M15.8 18.2l-.9.9M20.1 19.1l-.9-.9M15.8 14.8l-.9-.9"/>',
   moon: '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/>',
   play: '<path d="M7 4l13 8-13 8z"/>',
   pause: '<path d="M7 4v16M17 4v16"/>',
@@ -359,29 +362,26 @@ const base = {
   mmOutline: '<path d="M4 5h.01M4 12h.01M4 19h.01"/><path d="M8 5h12M11 12h9M14 19h6"/><path d="M8 12h1M8 19h4"/>',
   mmRelayout: '<rect x="9" y="10" width="6" height="4" rx="1.5"/><path d="M9 12H5M15 12h4M5 7v10M19 7v10"/><path d="M20 3a9 9 0 0 0-9-1.5M4 21a9 9 0 0 0 9 1.5"/><path d="M17 2.5l3 .5-.5 3"/>',
   // ── moving backgrounds (start page chips): anim + the ANIMATIONS name, capitalised
-  animBlueprint: '<rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18" opacity="0.35"/><path d="M6 17v-5l6-4.5 6 4.5v5z"/>',
-  animFloorplan: '<rect x="3" y="4" width="18" height="16" rx="0.5"/><path d="M12 4v6M12 14v6M3 12h5M16 12h5"/><path d="M12 10a4 4 0 0 1-4 2" opacity="0.6"/>',
-  animIsometric: '<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5v8l8 4.5 8-4.5v-8M12 12v8"/>',
-  animWireframe: '<path d="M4 11l8-6 8 6M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5M6 20l3-3h9" opacity="0.5"/>',
-  animSunlight: '<path d="M4 4l4 1M3 8l3 1" opacity="0.6"/><path d="M9 9h5l6 11h-5z"/><path d="M11.5 9l3 11M10.5 14.5h6.5"/>',
-  animDust: '<path d="M6 3l12 18M10 3l12 14" opacity="0.5"/><circle cx="10" cy="9" r="1" fill="currentColor"/><circle cx="14" cy="13" r="1.2" fill="currentColor"/><circle cx="12.5" cy="6.5" r="0.7" fill="currentColor"/><circle cx="16.5" cy="17" r="0.8" fill="currentColor"/><circle cx="5" cy="15" r="0.7" fill="currentColor"/>',
-  animFabric: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M15 3v18M3 8h18M3 15h18"/><path d="M3 11l10 10M11 3l10 10" opacity="0.4"/>',
-  animWoodgrain: '<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 9c4-1.5 7 1.5 11 0s5-1 7-.5M3 14c3 0 5-2.5 7-2.5s2 2 4 2 4-1 7-1"/><ellipse cx="12" cy="12" rx="1.6" ry="0.9" opacity="0.7"/><path d="M3 18c5-1 9 .5 18-.5" opacity="0.5"/>',
-  animTiles: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><path d="M13 17a4 4 0 0 1 4-4" opacity="0.6"/><path d="M17 21v-1M13 21h1" opacity="0.6"/>',
-  animDimensions: '<path d="M3 7v6M21 7v6M3 10h18"/><path d="M2 11l2-2M20 11l2-2"/><path d="M8 16h8M8 19h5" opacity="0.6"/>',
-  animSwatches: '<rect x="3" y="4" width="7" height="16" rx="1.5"/><path d="M10 7.5l4.5-2.2a1.5 1.5 0 0 1 2 .7l4 8.3a1.5 1.5 0 0 1-.7 2L10 20"/><path d="M3 15h7M6.5 17.5h.01"/>',
-  animLamps: '<path d="M8 2v6M17 2v4"/><path d="M4 12a4 4 0 0 1 8 0z"/><path d="M14.5 9l1-3h3l1 3z"/><path d="M5 15l-1.5 5M11 15l1.5 5M15.5 11.5l-1 4M18.5 11.5l1 4" opacity="0.5"/>',
-  animCurtains: '<path d="M3 3h18"/><path d="M4 3v18c2 0 4-1 6-3 0-5-1-10 0-15M20 3v18c-2 0-4-1-6-3 0-5 1-10 0-15"/><path d="M6.5 5v13M17.5 5v13" opacity="0.5"/>',
-  animLeaves: '<path d="M8 21h8M12 21v-8"/><path d="M12 13C8 13 5 10 5 5c5 0 7 3 7 8zM12 15c3 0 6-2 7-6-4 0-6 2-7 6z"/>',
-  animPerspective: '<path d="M2 12h20" opacity="0.5"/><path d="M12 4v16M12 4L5 9v7l7 4M12 4l7 5v7l-7 4"/><path d="M2 12l3-3M22 12l-3-3" opacity="0.5"/>',
-  animBricks: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9.3h18M3 14.6h18M10 4v5.3M16 4v5.3M7 9.3v5.3M14 9.3v5.3M10 14.6V20M17 14.6V20"/>',
-  animFurniture: '<path d="M5 10V4M5 12h14v3H5zM6.5 15v4M17.5 15v4"/><path d="M5 10h3a1 1 0 0 1 1 1v1"/>',
-  animSunpath: '<circle cx="12" cy="13" r="8"/><path d="M5 15c2-6 12-6 14 0" opacity="0.6"/><circle cx="16" cy="10.5" r="1.4" fill="currentColor"/><path d="M12 2.5v2.5M11 2.5l1-1 1 1"/><rect x="10" y="12" width="4" height="3" rx="0.5"/>',
-  animParquet: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 12h18M12 3v18M3 6h9M3 9h9M15 12v9M18 12v9M15 3v9M18 3v9M3 15h9M3 18h9"/>',
-  animContours: '<path d="M3 17c3-5 6-1 9-4s6-6 9-3" /><path d="M5 20c3-3 6 0 9-2s5-4 7-2M3 12c2-3 4-1 6-3s3-5 7-4" opacity="0.6"/><path d="M14 10c1-1 2-1 2 0s-1 1.5-2 1-1 0 0-1z"/>',
+  animFlowBoard: '<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1" opacity="0.6"/><rect x="4" y="7" width="3" height="2.5" rx="0.5" fill="currentColor"/><path d="M8.5 12.5h3M10.5 11l1.5 1.5-1.5 1.5"/>',
+  animStickyWall: '<path d="M4 4h11l5 5v11H4z"/><path d="M15 4v5h5"/><path d="M7 11h7M7 14.5h9M7 18h5" opacity="0.6"/>',
+  animCumulativeFlow: '<path d="M3 20h18"/><path d="M3 20c4-2 7-6 10-8s5-6 8-8v16z" opacity="0.35" fill="currentColor"/><path d="M3 20c5-1 9-3 12-4s4-2 6-3"/>',
+  animBurndownLine: '<path d="M3 3v18h18"/><path d="M6 6l14 13" stroke-dasharray="2 2" opacity="0.6"/><path d="M6 6h3v4h3v2h3v5h4"/>',
+  animThroughput: '<path d="M3 21h18"/><rect x="5" y="12" width="3" height="9" rx="0.5"/><rect x="10.5" y="7" width="3" height="14" rx="0.5"/><rect x="16" y="10" width="3" height="11" rx="0.5"/><path d="M3 11h18" stroke-dasharray="2 2" opacity="0.6"/>',
+  animControlDots: '<path d="M3 3v18h18"/><circle cx="7" cy="15" r="1.2" fill="currentColor"/><circle cx="10" cy="11" r="1.2" fill="currentColor"/><circle cx="13" cy="14" r="1.2" fill="currentColor"/><circle cx="16" cy="8" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/><path d="M6 14c3-2 5-1 7-1.5s4-2 6-2" opacity="0.6"/>',
+  animIssueGraph: '<rect x="3" y="4" width="6" height="4" rx="1"/><rect x="15" y="4" width="6" height="4" rx="1"/><rect x="9" y="16" width="6" height="4" rx="1"/><path d="M9 6h6M6 8l4.5 8M18 8l-4.5 8"/>',
+  animSwimlanes: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9.3h18M3 14.6h18"/><rect x="6" y="5.5" width="4" height="2.5" rx="0.5" fill="currentColor"/><rect x="12" y="10.8" width="4" height="2.5" rx="0.5" fill="currentColor"/><rect x="8" y="16.1" width="4" height="2.5" rx="0.5" fill="currentColor"/>',
+  animChecklist: '<rect x="3" y="4" width="4" height="4" rx="1"/><path d="M4 6l1 1 1.5-2"/><rect x="3" y="10" width="4" height="4" rx="1"/><path d="M4 12l1 1 1.5-2"/><rect x="3" y="16" width="4" height="4" rx="1"/><path d="M10 6h11M10 12h11M10 18h8"/>',
+  animTimeline: '<path d="M3 4v16"/><rect x="5" y="5" width="9" height="3" rx="1.5"/><rect x="9" y="10.5" width="10" height="3" rx="1.5"/><rect x="6" y="16" width="7" height="3" rx="1.5"/><path d="M16 3v18" stroke-dasharray="2 2"/>',
+  animWorkflow: '<rect x="2" y="9" width="5" height="6" rx="1"/><rect x="9.5" y="9" width="5" height="6" rx="1"/><rect x="17" y="9" width="5" height="6" rx="1"/><path d="M7 12h2.5M14.5 12H17M8 11l1 1-1 1M15.5 11l1 1-1 1"/>',
+  animLabels: '<path d="M3 8h9l3 3-3 3H3z"/><path d="M9 15h8l3 3-3 3H9z" opacity="0.6"/><path d="M12 3h7l2 2-2 2h-7z" opacity="0.6"/>',
+
+  animWipGauge: '<path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.2" fill="currentColor"/>',
+  animDueCalendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><rect x="7" y="13" width="3" height="2" rx="0.5" fill="currentColor"/><rect x="14" y="16" width="3" height="2" rx="0.5" fill="currentColor"/>',
+  animHandoff: '<circle cx="6" cy="8" r="2.5"/><circle cx="18" cy="8" r="2.5"/><path d="M2 19c0-3 2-5 4-5s4 2 4 5M14 19c0-3 2-5 4-5s4 2 4 5"/><rect x="10" y="3" width="4" height="3" rx="0.5"/><path d="M9 4.5H8M16 4.5h-1"/>',
+  animPipeline: '<path d="M3 6h5v12H3zM10 8h4v8h-4zM16 10h5v4h-5z"/><path d="M8 12h2M14 12h2"/>',
 };
 
-/** The icon for a moving background kind (`blueprint` → `animBlueprint`). */
+/** The icon for a moving background kind (`flowBoard` → `animFlowBoard`). */
 export const animationIcon = (kind) => `anim${kind[0].toUpperCase()}${kind.slice(1)}`;
 const paths = { ...base, ...ICONS_3D };
 

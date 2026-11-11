@@ -3,6 +3,7 @@ pub mod files;
 pub mod fonts;
 pub mod i18n;
 pub mod instance;
+pub mod printing;
 pub mod window_state;
 
 use serde::Serialize;
@@ -18,7 +19,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 /// by the main window: it can sit outside the main window and closes with it.
 /// The same list as src/platform/popups.js POPUPS.
 const POPUP_KINDS: &[&str] = &[
-    "settings", "about", "confirm", "error", "progress", "recent", "menu", "theme", "welcome", "color", "prompt", "iconpicker", "login", "form",
+    "settings", "about", "confirm", "error", "progress", "recent", "menu", "welcome", "color", "prompt", "iconpicker", "login", "form", "print",
 ];
 
 #[derive(Default)]
@@ -60,6 +61,30 @@ struct AppInfo {
     tauri: &'static str,
     os: &'static str,
     arch: &'static str,
+}
+
+/// The OS print dialog for the calling window (the print window, when there is no printer list).
+#[tauri::command]
+fn print_window(window: WebviewWindow) -> Result<(), String> {
+    window.print().map_err(|error| tr!("인쇄를 시작할 수 없습니다: {error}", "Could not start printing: {error}"))
+}
+
+/// The printers of this computer (none: the print window uses the system dialog).
+#[tauri::command]
+fn list_printers() -> printing::PrinterList {
+    printing::printers()
+}
+
+/// Prints the calling window's pages straight to a printer, with no dialog.
+#[tauri::command]
+async fn print_direct(window: WebviewWindow, job: printing::PrintJob) -> Result<(), String> {
+    printing::print(&window, job).await
+}
+
+/// The same pages as a PDF file.
+#[tauri::command]
+async fn print_pages_to_pdf(window: WebviewWindow, job: printing::PrintJob, path: String) -> Result<(), String> {
+    printing::print_to_pdf(&window, job, path).await
 }
 
 #[tauri::command]
@@ -410,7 +435,7 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
         .position(x, y)
         .inner_size(width, height)
         .additional_browser_args(BROWSER_ARGS);
-    if kind == "menu" || kind == "progress" || kind == "theme" {
+    if kind == "menu" || kind == "progress" {
         builder = builder.always_on_top(true);
     }
     // A menu holds its open submenus as panels side by side (popup.js): the window is transparent
@@ -739,6 +764,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            print_window,
+            list_printers,
+            print_direct,
+            print_pages_to_pdf,
             app_info,
             set_language,
             startup_files,

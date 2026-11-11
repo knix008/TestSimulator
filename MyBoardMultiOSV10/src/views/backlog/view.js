@@ -3,6 +3,7 @@
 // (JQL with live validation and autocomplete), sortable and choosable columns, paging, saved filters,
 // CSV export, multi-select with bulk changes, rank by drag and keyboard, inline create, the epics / versions /
 // saved filters in the left panel (sidebar.js), Undo/Redo of every change, and live updates from other users.
+import { showViewMenu } from '../shared/menu.js';
 import { escapeHtml } from '../../ui/dom.js';
 import { icon } from '../../icons.js';
 import { renderIconRef } from '../../ui/iconref.js';
@@ -739,17 +740,17 @@ export class BacklogView {
   openFilters(button) {
     const f = this.filter;
     const items = [
-      { value: 'saveAs', label: L('filterSaveAs'), icon: icon('saveAs') },
+      { value: 'saveAs', label: L('filterSaveAs'), glyph: 'saveAs' },
       ...(f?.mine ? [
-        { value: 'save', label: L('filterSave', { name: f.name }), icon: icon('save') },
-        { value: 'rename', label: L('filterRename'), icon: icon('edit') },
-        { value: 'share', label: L(f.shared ? 'filterUnshare' : 'filterShare'), icon: icon(f.shared ? 'lock' : 'globe') },
-        { value: 'star', label: L(f.favourite ? 'filterUnstar' : 'filterStar'), icon: icon('star') },
-        { value: 'delete', label: L('filterDelete'), icon: icon('trash'), danger: true },
+        { value: 'save', label: L('filterSave', { name: f.name }), glyph: 'save' },
+        { value: 'rename', label: L('filterRename'), glyph: 'edit' },
+        { value: 'share', label: L(f.shared ? 'filterUnshare' : 'filterShare'), glyph: f.shared ? 'lock' : 'globe' },
+        { value: 'star', label: L(f.favourite ? 'filterUnstar' : 'filterStar'), glyph: 'star' },
+        { value: 'delete', label: L('filterDelete'), glyph: 'trash', danger: true },
       ] : []),
-      ...(f ? [{ value: 'close', label: L('filterClose'), icon: icon('close') }] : []),
+      ...(f ? [{ value: 'close', label: L('filterClose'), glyph: 'close' }] : []),
     ];
-    openPicker(button, { items, width: 260, onPick: (v) => this.filterAction(v) });
+    showViewMenu(this.ctx, button, items, (v) => this.filterAction(v), { icon: 'filter', title: L('filters') });
   }
 
   async filterAction(value) {

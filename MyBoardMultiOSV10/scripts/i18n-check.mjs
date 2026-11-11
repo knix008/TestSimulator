@@ -46,7 +46,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   });
   // Feature modules register their own texts (registerTexts): every src/views/**/texts.js exports { ko, en }
   // (or TEXTS / default = { ko, en }).
-  for (const file of walk(path.join(src, 'views')).filter((f) => path.basename(f) === 'texts.js')) {
+  for (const file of [...walk(path.join(src, 'views')), ...walk(path.join(src, 'print'))].filter((f) => path.basename(f) === 'texts.js')) {
     const mod = await import(pathToFileURL(file).href);
     const extra = mod.TEXTS ?? mod.default ?? mod;
     Object.assign(DICTIONARIES.ko, extra.ko ?? {});

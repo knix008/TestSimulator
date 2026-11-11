@@ -5,8 +5,8 @@ import assert from 'node:assert/strict';
 
 export const cases = [
   {
-    group: '시작 화면',
-    name: '카드 보드: 영웅·시작·데이터베이스·최근·템플릿·샘플·배경 카드, 움직이는 배경',
+    group: 'Start page',
+    name: 'Card board: hero, start, database, recent, templates, samples and background cards over the moving background',
     desktop: true,
     async run(app) {
       const r = await app.run(`await T.reset(); await T.until(() => document.querySelector('.start-board .start-card'), 8000, 'cards');
@@ -22,8 +22,8 @@ export const cases = [
     },
   },
   {
-    group: '시작 화면',
-    name: '데이터베이스 카드: 코어 상태 (연결됨 또는 "코어에 연결 안 됨" + 다시 연결)',
+    group: 'Start page',
+    name: 'Database card: core status (connected, or "not connected to the core" + reconnect)',
     desktop: true,
     async run(app) {
       const r = await app.run(`await T.reset(); await T.until(() => A.state.core.status !== 'connecting', 20000, 'core status');
@@ -33,8 +33,8 @@ export const cases = [
     },
   },
   {
-    group: '시작 화면',
-    name: '카드 정렬: 다시 배치하면 기본 배치, 겹침 없음',
+    group: 'Start page',
+    name: 'Card arrangement: auto-arrange restores the default layout without overlaps',
     async run(app) {
       const r = await app.run(`await T.reset(); document.querySelector('[data-start="arrange"]').click(); await T.frames(4);
         const rects = [...document.querySelectorAll('.start-board > .start-card')].map((c) => c.getBoundingClientRect());
@@ -45,8 +45,28 @@ export const cases = [
     },
   },
   {
-    group: '작업 화면',
-    name: '레이아웃: 툴바 · 사이드바(프로젝트 트리) · #workspace · #detail · 하단 패널 3탭 · 상태 표시줄',
+    group: 'Workspace',
+    name: 'Project tree: the open project\'s arrow folds and unfolds it',
+    async run(app) {
+      const r = await app.run(`await T.reset({ workspace: true }); await T.frames(2);
+        const pid = A.state.doc.project.id; const node = () => document.querySelector('[data-project-node="' + pid + '"]');
+        const leaves = () => node().querySelectorAll('.nav-leaf').length;
+        const open = leaves();
+        node().querySelector('[data-nav-toggle]').click(); await T.frames(2);
+        const folded = leaves(); const arrow = node().querySelector('[data-nav-toggle]').getAttribute('aria-expanded');
+        const nodes = [...document.querySelectorAll('#left-panel .nav-project')]; const last = nodes[nodes.length - 1].getBoundingClientRect().bottom; const gap = document.querySelector('#left-panel > .left-split').getBoundingClientRect().top - last;
+        node().querySelector('[data-nav-toggle]').click(); await T.frames(2);
+        return { open, folded, arrow, gap, many: nodes.length, again: leaves() };`);
+      assert.ok(r.open >= 4, 'open at first');
+      assert.equal(r.folded, 0, 'folded: no leaves');
+      assert.equal(r.arrow, 'false');
+      if (r.many < 6) assert.ok(r.gap >= 0 && r.gap < 16, 'folded: the lower section starts right under the tree (gap ' + r.gap + ' px)');
+      assert.equal(r.again, r.open, 'unfolded again');
+    },
+  },
+  {
+    group: 'Workspace',
+    name: 'Layout: toolbar, sidebar (project tree), #workspace, #detail, bottom panel with 3 tabs, status bar',
     desktop: true,
     async run(app) {
       const r = await app.run(`await T.reset({ workspace: true }); await T.frames(3);
@@ -55,14 +75,14 @@ export const cases = [
       for (const key of ['left', 'ws', 'detail', 'bottom', 'status', 'toolbar']) assert.ok(r[key]?.visible, `${key} visible`);
       assert.ok(r.left.x < r.ws.x && r.ws.x < r.detail.x, 'sidebar | workspace | detail');
       assert.ok(r.bottom.y > r.ws.y, 'bottom panel under the workspace');
-      assert.deepEqual(r.tabs, ['activity', 'messages', 'info']);
+      assert.deepEqual(r.tabs, ['problems', 'activity', 'messages', 'info']);
       assert.ok(r.nav >= 4, 'board, backlog, reports, settings leaves');
       assert.equal(r.views, 4);
     },
   },
   {
-    group: '작업 화면',
-    name: '보기 전환 (보드·백로그·보고서·설정) 과 사이드바 항목',
+    group: 'Workspace',
+    name: 'View switching (board, backlog, reports, settings) and sidebar items',
     async run(app) {
       const r = await app.run(`await T.reset({ workspace: true }); const seen = [];
         for (const view of ['backlog', 'reports', 'projectSettings', 'board']) { await A.run('view:' + view); await T.frames(2); seen.push([A.state.doc.view, document.querySelector('.nav-leaf.active')?.textContent.trim() ?? '', document.querySelector('#tabs .seg-toggle .active') ? 1 : 0]); }
@@ -72,8 +92,8 @@ export const cases = [
     },
   },
   {
-    group: '작업 화면',
-    name: '패널 접기/펴기: 왼쪽·오른쪽은 레일, 하단은 숨김 (설정에 저장)',
+    group: 'Workspace',
+    name: 'Collapsing panels: left and right become rails, bottom hides (saved in settings)',
     desktop: true,
     async run(app) {
       const r = await app.run(`await T.reset({ workspace: true });
@@ -86,8 +106,8 @@ export const cases = [
     },
   },
   {
-    group: '작업 화면',
-    name: '보드의 카드를 누르면 이슈 상세 패널에 열림 (연습용 보드)',
+    group: 'Workspace',
+    name: 'Clicking a board card opens the issue detail panel (practice board)',
     async run(app) {
       const r = await app.run(`await T.reset({ workspace: true }); const card = await T.until(() => document.querySelector('#workspace .mb-card'), 8000, 'card'); card.click(); await T.frames(2); return { id: A.state.selectedIssue, card: card.dataset.id, panel: Boolean(document.querySelector('#detail')) };`);
       assert.ok(r.id);
@@ -96,8 +116,8 @@ export const cases = [
     },
   },
   {
-    group: '툴바',
-    name: '좁은 창: 왼쪽 그룹이 » 로 접히고 언어·테마·설정은 항상 보임',
+    group: 'Toolbar',
+    name: 'Narrow window: left groups fold into », language, theme and settings always stay visible',
     async run(app) {
       await app.main.send('Emulation.setDeviceMetricsOverride', { width: 760, height: 900, deviceScaleFactor: 1, mobile: false });
       try {
@@ -113,8 +133,8 @@ export const cases = [
     },
   },
   {
-    group: '메뉴',
-    name: '메뉴 표시줄의 모든 메뉴가 팝업 메뉴로 열림 (하위 메뉴 포함)',
+    group: 'Menus',
+    name: 'Every menu bar menu opens as a popup menu (submenus included)',
     async run(app) {
       const r = await app.run(`await T.reset({ workspace: true }); const out = {};
         for (const name of Object.keys(A.menus.MENUS)) { A.app.openMenubarMenu(name); await T.popupReady('menu'); const d = T.popupDoc('menu'); out[name] = { items: d.querySelectorAll('.menu-item').length, subs: d.querySelectorAll('.menu-item.has-sub').length }; await A.popups.hideMenu(); await T.frames(2); }
@@ -124,8 +144,8 @@ export const cases = [
     },
   },
   {
-    group: '팝업',
-    name: '설정: 모든 탭 (일반·시작 화면·테마·글꼴·배경·보드·데이터베이스·최근·단축키)',
+    group: 'Popups',
+    name: 'Settings: every tab (general, start page, theme, font, background, board, database, recent, shortcuts)',
     desktop: true,
     async run(app) {
       const r = await app.run(`await T.reset(); A.popups.open('settings', { tab: 'general' }); await T.popupReady('settings');
@@ -137,8 +157,8 @@ export const cases = [
     },
   },
   {
-    group: '팝업',
-    name: '아이콘 고르기: 기본 아이콘 검색(한/영)·분류, 이모지, 글자, 색 → IconRef',
+    group: 'Popups',
+    name: 'Icon picker: built-in icon search (ko/en) and categories, emoji, letters, colour → IconRef',
     desktop: true,
     async run(app) {
       const r = await app.run(`await T.reset(); const result = A.actions.pickIcon('b:bug'); await T.popupReady('iconpicker'); const d = () => T.popupDoc('iconpicker');
@@ -161,20 +181,28 @@ export const cases = [
     },
   },
   {
-    group: '팝업',
-    name: '테마 고르기: 어두운/밝은 목록에서 고르면 바로 적용',
+    group: 'Popups',
+    name: 'Theme drop-down: one menu level, dark and light themes side by side (all visible, with swatches); choosing applies at once',
     async run(app) {
-      const r = await app.run(`await T.reset(); const before = A.state.settings.theme; A.run('themeMenu'); await T.popupReady('theme'); const d = T.popupDoc('theme');
-        const items = [...d.querySelectorAll('[data-pick-theme]')].map((b) => b.dataset.pickTheme); const target = items.find((id) => id !== before && id !== 'system' && id !== 'custom');
-        d.querySelector('[data-pick-theme="' + target + '"]').click(); await T.until(() => A.state.settings.theme === target, 5000, 'theme');
-        const mode = document.documentElement.dataset.mode; A.actions.updateSettings({ theme: before }); return { count: items.length, target, mode };`);
-      assert.ok(r.count >= 40, `${r.count} themes`);
-      assert.ok(['dark', 'light'].includes(r.mode));
+      const r = await app.run(`await T.reset(); const before = A.state.settings.theme; A.run('themeMenu'); await T.popupReady('menu'); const d = T.popupDoc('menu');
+        const top = [...d.querySelectorAll('.popup-menu[data-level="0"] .menu-item')].map((b) => b.dataset.id);
+        const cols = [...d.querySelectorAll('.menu-column')].map((c) => ({ n: c.querySelectorAll('.menu-item').length, swatches: c.querySelectorAll('.menu-swatch').length }));
+        const target = [...d.querySelectorAll('.menu-column')][0].querySelectorAll('.menu-item')[1].dataset.id;
+        d.querySelector('.menu-item[data-id="' + target + '"]').click(); const id = target.slice('custom:theme:'.length);
+        await T.until(() => A.state.settings.theme === id, 5000, 'theme');
+        const mode = document.documentElement.dataset.mode; A.actions.updateSettings({ theme: before });
+        return { top, cols, mode, submenus: d.querySelectorAll('.has-sub').length, levels: d.querySelectorAll('.popup-menu').length, noWindow: !document.querySelector('.web-popup-theme') };`);
+      for (const id of ['custom:theme:system', 'custom:theme:custom', 'custom:theme-edit', 'custom:theme-random']) assert.ok(r.top.includes(id), `menu item ${id}`);
+      assert.deepEqual(r.cols.map((c) => c.n >= 20 && c.swatches === c.n), [true, true], 'dark and light columns, every theme with its swatch');
+      assert.equal(r.submenus, 0, 'no submenus');
+      assert.equal(r.levels, 1, 'one level');
+      assert.equal(r.mode, 'dark', 'a dark theme applied');
+      assert.ok(r.noWindow, 'no theme window');
     },
   },
   {
-    group: '팝업',
-    name: '프로그램 정보 · 환영 · 확인 · 오류 · 진행 팝업',
+    group: 'Popups',
+    name: 'About, welcome, confirm, error and progress popups',
     async run(app) {
       const r = await app.run(`await T.reset(); const out = {};
         A.popups.open('about'); await T.popupReady('about'); out.about = T.popupDoc('about').querySelector('.about-name').textContent; await A.popups.close('about');
@@ -189,8 +217,8 @@ export const cases = [
     },
   },
   {
-    group: '모양',
-    name: '언어 전환 (한국어 ↔ English): 메뉴와 시작 화면 글자가 바뀜',
+    group: 'Appearance',
+    name: 'Language switch (Korean ↔ English): menus and start page texts change',
     desktop: true,
     async run(app) {
       const r = await app.run(`await T.reset(); const ko = document.querySelector('[data-menu="file"]').textContent.trim();
@@ -203,8 +231,8 @@ export const cases = [
     },
   },
   {
-    group: '실행 취소',
-    name: '실행 취소/다시 실행 배관: 기록 → 툴바 사용 가능 → 되돌리기 → 다시',
+    group: 'Undo',
+    name: 'Undo/redo plumbing: record → toolbar enabled → undo → redo',
     async run(app) {
       const r = await app.run(`await T.reset({ workspace: true }); const log = [];
         A.history.record({ label: 'test step', undo: async () => log.push('undo'), redo: async () => log.push('redo') }); await T.frames(1);
@@ -215,8 +243,8 @@ export const cases = [
     },
   },
   {
-    group: '실시간',
-    name: 'WsChannel: hello·구독, 끊기면 다시 연결해 다시 구독, 자기 이벤트는 무시',
+    group: 'Realtime',
+    name: 'WsChannel: hello and subscribe, reconnect and resubscribe after a drop, own events ignored',
     async run(app) {
       const r = await app.run(`const { WsChannel } = await import('/src/live/channel.js');
         const sockets = []; class Fake { constructor(url) { this.url = url; this.sent = []; this.readyState = 0; sockets.push(this); setTimeout(() => { this.readyState = 1; this.onopen?.(); }, 5); } send(t) { this.sent.push(JSON.parse(t)); } close() { this.readyState = 3; this.onclose?.(); } }
@@ -235,7 +263,7 @@ export const cases = [
   },
   {
     group: 'API',
-    name: 'API 클라이언트: X-Client-Id · 오류 JSON → code/status/details · 연결 실패 → unreachable',
+    name: 'API client: X-Client-Id, error JSON → code/status/details, connection failure → unreachable',
     async run(app) {
       const r = await app.run(`const { ApiClient } = await import('/src/api/client.js'); const seen = [];
         const fetchImpl = async (url, init) => { seen.push([url, init.headers['X-Client-Id'] ? 1 : 0, init.headers.Authorization ?? '']); if (url.includes('/boom')) return new Response(JSON.stringify({ error: { code: 'conflict', message: 'changed', details: { current: { rev: 3 } } } }), { status: 409, headers: { 'content-type': 'application/json' } }); throw new TypeError('Failed to fetch'); };
@@ -255,7 +283,7 @@ export async function commandCases(app) {
   const ids = await app.run(`return Object.keys(A.commands);`);
   const SKIP = new Set(['exit', 'import', 'exportProject', 'backgroundImage', 'logout', 'tutorial', 'userGuide', 'tutorialDoc', 'newProject', 'newFromTemplate', 'openSample', 'open', 'database', 'iconPicker', 'reconnect', 'refresh', 'closeProject', 'exitProject', 'startPage']);
   return ids.filter((id) => !SKIP.has(id)).map((id) => ({
-    group: '명령',
+    group: 'Commands',
     name: id,
     async run(a) {
       const r = await a.run(`await T.reset({ workspace: true }); const settings = JSON.parse(JSON.stringify(A.state.settings));

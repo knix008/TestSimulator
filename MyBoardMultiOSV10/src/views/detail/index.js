@@ -1375,7 +1375,13 @@ class DetailView {
       this.act(() => this.api.post(`/issues/${encodeURIComponent(this.issueId)}/checklist`, { text })).then(() => this.host?.querySelector('[data-draft="cl:new"]')?.focus());
     },
     'cl-edit'(el) { const id = el.dataset.id; const item = this.issue.checklist.find((x) => x.id === id); if (!item) return; this.editing.add(`cl:${id}`); this.drafts.set(`cl:${id}`, item.text); this.render(); const box = this.host.querySelector(`[data-draft="cl:${CSS.escape(id)}"]`); box?.focus(); box?.select(); },
-    'cl-delete'(el) { const id = el.dataset.id; this.issue.checklist = this.issue.checklist.filter((x) => x.id !== id); this.render(); this.act(() => this.api.del(`/checklist/${encodeURIComponent(id)}`)); },
+    async 'cl-delete'(el) {
+      const id = el.dataset.id;
+      const item = this.issue.checklist.find((x) => x.id === id);
+      const choice = await this.ctx.app?.ask?.({ kind: 'delete', icon: 'trash', title: t('detail.cl.deleteTitle'), message: t('detail.cl.deleteMessage'), items: item?.text ? [item.text] : undefined, buttons: [{ id: 'cancel', label: t('detail.cancel') }, { id: 'delete', label: t('detail.delete'), icon: 'trash', danger: true, primary: true }] });
+      if (choice !== 'delete') return;
+      this.issue.checklist = this.issue.checklist.filter((x) => x.id !== id); this.render(); this.act(() => this.api.del(`/checklist/${encodeURIComponent(id)}`));
+    },
     // subtasks
     async 'sub-add'() {
       const text = (this.drafts.get('sub:new') ?? '').trim();
@@ -1414,7 +1420,12 @@ class DetailView {
       });
       if (out) { this.linkForm = null; this.drafts.delete('link:key'); this.render(); }
     },
-    'link-remove'(el) { const id = el.dataset.id; this.issue.links = this.issue.links.filter((x) => x.id !== id); this.render(); this.act(() => this.api.del(`/links/${encodeURIComponent(id)}`)); },
+    async 'link-remove'(el) {
+      const id = el.dataset.id;
+      const choice = await this.ctx.app?.ask?.({ kind: 'delete', icon: 'trash', title: t('detail.link.removeTitle'), message: t('detail.link.removeMessage'), buttons: [{ id: 'cancel', label: t('detail.cancel') }, { id: 'delete', label: t('detail.delete'), icon: 'trash', danger: true, primary: true }] });
+      if (choice !== 'delete') return;
+      this.issue.links = this.issue.links.filter((x) => x.id !== id); this.render(); this.act(() => this.api.del(`/links/${encodeURIComponent(id)}`));
+    },
     // attachments
     async 'att-upload'() { const files = await this.chooseFiles({ multiple: true }); if (files.length) await this.uploadFiles(files); },
     'att-preview'(el) { const a = this.attachments?.find((x) => x.id === el.dataset.id); if (!a) return; if (isImage(a.mime)) { this.preview = a.id; this.render(); } else this.download(a); },

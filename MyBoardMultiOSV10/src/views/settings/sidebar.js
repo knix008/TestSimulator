@@ -30,5 +30,5 @@ function act(v, el) {
 }
 
 export function createSettingsSidebar(getView) {
-  return linkSidebar(getView, { id: 'projectSettings', icon: 'gear', render, title, act });
+  return linkSidebar(getView, { id: 'projectSettings', icon: 'folderSettings', render, title, act });
 }

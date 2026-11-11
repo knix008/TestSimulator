@@ -22,9 +22,10 @@ import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
 import { PopupHost } from './platform/popups.js';
-import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from './themes.js';
+import { applyFont, applyTheme, CUSTOM, customTheme, DARK_THEMES, LIGHT_THEMES, randomThemeId, resolveTheme, SYSTEM, themeName } from './themes.js';
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { AnimatedBackground } from './ui/background.js';
+import { findProblems, countBySeverity } from './ui/problems.js';
 import { startPageHtml } from './ui/startpage.js';
 import { startBoard } from './ui/startboard.js';
 import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
@@ -32,6 +33,8 @@ import { renderIconRef, setIconApiBase } from './ui/iconref.js';
 import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { getView, onViewRegistered, registerView } from './views/registry.js';
 import './views/index.js';
+import './print/texts.js';
+import { gatherPrintContent } from './print/host.js';
 
 /** The left panel's lower section (the view's sidebar): its smallest and default height; the tree keeps TREE_MIN. */
 const SIDE_MIN = 120;
@@ -60,6 +63,7 @@ const state = {
   projects: [],
   boardsByProject: new Map(),
   expanded: new Set(),
+  collapsed: new Set(),
   sidebarQuery: '',
   selectedIssue: null,
   counts: null,
@@ -74,7 +78,8 @@ const state = {
   showStart: false,
   dynamicMenus: new Map(),
   // Bottom panel: Activity (what changed, from the live channel and this window), Messages (notices and errors), Information.
-  bottomTab: 'activity',
+  bottomTab: 'problems',
+  problems: { boardId: null, list: [], loading: false, at: 0 },
   activity: [],
   log: [],
 };
@@ -178,7 +183,9 @@ function bindLive() {
     getView(doc()?.view ?? 'board')?.update?.(viewContext({ event }));
     updateSide({ event });
     if (/^(project|board)\./.test(event.type)) refreshProjects();
+    refreshProblems();
   });
+  window.addEventListener('myboard:event', () => refreshProblems());
 }
 
 function describeEvent(event) {
@@ -357,6 +364,13 @@ async function restoreSession() {
   await openTarget(target.kind, target.id, { view: session.view, quiet: true });
 }
 
+/** The start page's slider steppers: − off at the minimum, + off at the maximum. */
+function syncSliderSteps(holder) {
+  const input = holder?.querySelector('input[type="range"]');
+  if (!input) return;
+  for (const button of holder.querySelectorAll('[data-slider-step]')) button.disabled = Number(button.dataset.sliderStep) < 0 ? Number(input.value) <= Number(input.min) : Number(input.value) >= Number(input.max);
+}
+
 /** A copied issue link (`…#issue=KEY`, views/board/menu.js): opens the issue's project board and its detail panel. */
 const hashIssueKey = () => { const m = /(?:^#|&)issue=([^&]+)/.exec(globalThis.location?.hash ?? ''); return m ? decodeURIComponent(m[1]) : null; };
 async function openIssueLink(key = hashIssueKey()) {
@@ -405,6 +419,44 @@ async function freeKey(key) {
   if (!taken.has(key)) return key;
   for (let n = 2; n < 100; n++) { const next = `${key.slice(0, 8)}${n}`; if (!taken.has(next)) return next; }
   return `${key.slice(0, 6)}${Date.now() % 10000}`;
+}
+
+/** Deletes a project after the user confirms; the project is exported first, so Undo brings it back. */
+async function deleteProjectAsk(id) {
+  const p = state.projects.find((x) => x.id === id) ?? (doc()?.project?.id === id ? doc().project : null);
+  if (!p || id === 'demo' || !coreReady()) return false;
+  const label = `${p.name} (${p.key})`;
+  const choice = await ask({ icon: 'trash', title: t('confirm.deleteProjectTitle'), message: t('confirm.deleteProjectMessage'), items: [label],
+    buttons: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'delete', label: t('action.deleteProject'), icon: 'trash', danger: true, primary: true }] });
+  if (choice !== 'delete') return false;
+  try {
+    const backup = await client.exportProject(id);
+    let current = id;
+    const remove = async () => {
+      // the open project goes: its neighbour in the list opens instead (the start page only when none is left)
+      const wasOpen = doc()?.project?.id === current;
+      const order = state.projects.map((x) => x.id);
+      const at = order.indexOf(current);
+      await client.deleteProject(current);
+      state.boardsByProject.delete(current);
+      state.expanded.delete(current);
+      state.collapsed.delete(current);
+      await refreshProjects();
+      if (!wasOpen) return;
+      const left = state.projects.filter((x) => x.id !== current);
+      const next = left.find((x) => x.id === order[at + 1]) ?? left.find((x) => x.id === order[at - 1]) ?? left[0];
+      if (!next || !(await openTarget('project', next.id, { quiet: true }))) await closeProject();
+    };
+    await remove();
+    history.record({
+      label: t('op.deleteProject', { name: label }),
+      undo: async () => { const row = await client.importMyBoard({ file: backup, key: p.key, name: p.name }); current = row?.id ?? current; await refreshProjects(); },
+      redo: remove,
+    });
+    notify('success', t('notice.projectDeleted', { name: label }));
+    logActivity({ kind: 'local', type: 'project.deleted', text: t('op.deleteProject', { name: label }) });
+    return true;
+  } catch (error) { showError('error.deleteProject', error); return false; }
 }
 
 function recordProjectCreate(row) {
@@ -488,6 +540,55 @@ async function exportProject() {
   }
 }
 
+// ───────────────────────── save (Ctrl+S): the open project as a .myboard file
+// Desktop: the first save (and Save as…) asks where; the path is remembered per project (and database), so the next
+// Ctrl+S writes the same file at once. Web: a download each time. The data itself always lives in the database.
+const SAVE_PATHS_KEY = 'myboard.savePaths.v1';
+const savePaths = () => { try { return JSON.parse(globalThis.localStorage?.getItem(SAVE_PATHS_KEY) ?? '{}') ?? {}; } catch { return {}; } };
+const savePathKey = (p) => `${p.id}@${dbLabel()}`;
+
+/** Save (Ctrl+S): the database. Every change is written as it is made; what a view keeps as unsaved changes (the
+ * workflow editor's) is written now. */
+async function saveToDatabase() {
+  const p = project();
+  if (!p || state.doc.demo) return;
+  try {
+    const command = getView(doc()?.view ?? '')?.commands?.save;
+    if (command) await command.run(viewContext());
+    notify('success', t('notice.savedDb', { name: p.name }));
+  } catch (error) {
+    showError('error.save', error, p.name);
+  }
+}
+
+/** Save to file (Ctrl+Shift+S): the project as a .myboard file (the database stays the place it lives). */
+async function saveProject({ as = false } = {}) {
+  const p = project();
+  if (!p || state.doc.demo) return;
+  try {
+    const data = await withProgress('progress.save', p.name, () => client.exportProject(p.id));
+    const text = JSON.stringify(data, null, 2);
+    const name = `${fileSafe(p.key || p.name)}.myboard`;
+    if (desktop) {
+      const paths = savePaths();
+      let path = as ? null : paths[savePathKey(p)] ?? null;
+      if (!path) {
+        path = await native.chooseSavePath(state.settings.lastDirectory ? `${state.settings.lastDirectory}/${name}` : name, ['myboard']);
+        if (!path) return;
+        if (!/\.myboard$/i.test(path)) path += '.myboard';
+      }
+      await native.writeTextFile(path, text, '');
+      try { globalThis.localStorage?.setItem(SAVE_PATHS_KEY, JSON.stringify({ ...paths, [savePathKey(p)]: path })); } catch { /* storage off */ }
+      notify('success', t('notice.saved', { name: baseName(path) }));
+    } else {
+      const saved = await native.saveFileWeb(text, { name, mime: 'application/json' });
+      if (saved) notify('success', t('notice.saved', { name: saved.name }));
+    }
+  } catch (error) {
+    showError('error.save', error, p.name);
+  }
+}
+
 /** File › Open: projects with their boards (a menu of submenus). */
 async function openMenu(anchor) {
   if (!coreReady()) { notify('warning', t('core.notReady')); return undefined; }
@@ -545,8 +646,13 @@ const commands = {
   clearRecent: { icon: 'clearHistory', label: 'action.clearRecent', enabled: () => state.recent.length > 0, run: () => clearRecentAll() },
   import: { icon: 'importFile', label: 'action.import', key: 'Ctrl+I', enabled: coreReady, run: () => importDialog() },
   exportProject: { icon: 'exportFile', label: 'action.exportProject', key: 'Ctrl+E', enabled: () => hasDoc() && !doc().demo, run: () => exportProject() },
+  save: { icon: 'save', label: 'action.save', key: 'Ctrl+S', enabled: () => hasDoc() && !doc().demo, run: () => saveToDatabase() },
+  saveFile: { icon: 'saveAs', label: 'action.saveFile', key: 'Ctrl+Shift+S', enabled: () => hasDoc() && !doc().demo, run: () => saveProject() },
+  print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: () => hasDoc() && !doc().demo, run: () => popups.open('print', { at: Date.now() }) },
+  saveFileAs: { icon: 'exportFile', label: 'action.saveFileAs', enabled: () => hasDoc() && !doc().demo, run: () => saveProject({ as: true }) },
   database: { icon: 'database', label: 'action.connectDatabase', enabled: () => !(state.core.info?.mode === 'web' && state.core.info?.user?.role !== 'admin'), run: () => popups.open('settings', { tab: 'database' }) },
   reconnect: { icon: 'refresh', label: 'action.reconnect', run: () => connectCore() },
+  deleteProject: { icon: 'trash', label: 'action.deleteProject', enabled: () => coreReady() && hasDoc() && !doc().demo, run: (c) => deleteProjectAsk(c?.id ?? doc()?.project?.id) },
   closeProject: { icon: 'closeTab', label: 'action.closeProject', key: 'Ctrl+W', enabled: () => Boolean(state.doc), run: () => closeProject() },
   exitProject: { icon: 'exitProject', label: 'action.exitProject', enabled: () => Boolean(state.doc) && !state.showStart, run: () => closeProject() },
   logout: { icon: 'user', label: 'action.logout', enabled: () => Boolean(state.core.info?.needsLogin !== undefined && state.core.info?.mode === 'web' && state.core.info?.user), run: async () => { await client.logout().catch(() => {}); await connectCore(); } },
@@ -555,17 +661,21 @@ const commands = {
   undo: { icon: 'undo', label: 'action.undo', key: 'Ctrl+Z', enabled: () => history.canUndo, run: () => undo() },
   redo: { icon: 'redo', label: 'action.redo', key: 'Ctrl+Y', enabled: () => history.canRedo, run: () => redo() },
   createIssue: { icon: 'plus', label: 'action.createIssue', key: 'C', enabled: () => hasDoc() && !doc().demo, run: () => runViewCommand('createIssue') },
+  // A column on the open board (views/board/addcolumn.js); on another view it opens the board first.
+  addColumn: { icon: 'columns', label: 'action.addColumn', enabled: () => hasDoc() && !doc().demo && (getView('board')?.commands?.addColumn?.enabled?.() ?? true), run: async () => { if (doc()?.view !== 'board') { setView('board'); await new Promise((r) => setTimeout(r, 300)); } return getView('board')?.commands?.addColumn?.run(viewContext()); } },
   find: { icon: 'search', label: 'action.find', key: 'Ctrl+F', enabled: hasDoc, run: () => runViewCommand('find') },
   refresh: { icon: 'refresh', label: 'action.refresh', key: 'F5', enabled: () => hasDoc() || !coreReady(), run: () => (coreReady() ? (refreshProjects(), reloadWorkspace()) : connectCore()) },
   // view
   'view:board': viewCommand('board', 'columns'),
   'view:backlog': viewCommand('backlog', 'list'),
   'view:reports': viewCommand('reports', 'viewReports'),
-  'view:projectSettings': viewCommand('projectSettings', 'gear'),
+  'view:projectSettings': viewCommand('projectSettings', 'folderSettings'),
   leftPanel: { icon: 'panelLeft', label: 'action.leftPanel', key: 'Ctrl+Shift+1', checked: () => state.settings.showLeftPanel, run: () => toggle('showLeftPanel') },
   rightPanel: { icon: 'panelRight', label: 'action.rightPanel', key: 'Ctrl+Shift+2', checked: () => state.settings.showRightPanel, run: () => toggle('showRightPanel') },
   statusBar: { icon: 'statusBar', label: 'action.statusBar', checked: () => state.settings.showStatusBar, run: () => toggle('showStatusBar') },
   bottomPanel: { icon: 'panelBottom', label: 'action.bottomPanel', key: 'Ctrl+J', checked: () => state.settings.showBottomPanel, run: () => toggle('showBottomPanel') },
+  refreshProblems: { icon: 'refresh', label: 'bottom.problemsRefresh', enabled: () => hasDoc(), run: () => { showBottomTab('problems'); refreshProblems({ now: true }); } },
+  showProblems: { icon: 'warning', label: 'action.showProblems', run: () => showBottomTab('problems') },
   showActivity: { icon: 'recent', label: 'action.showActivity', run: () => showBottomTab('activity') },
   showMessages: { icon: 'info', label: 'action.showMessages', run: () => showBottomTab('messages') },
   showInformation: { icon: 'database', label: 'action.showInformation', run: () => showBottomTab('info') },
@@ -616,29 +726,28 @@ async function run(id, context) {
 const SUBMENUS = {
   importFrom: { icon: 'importFile', items: ['import'] },
   views: { icon: 'columns', items: ['view:board', 'view:backlog', 'view:reports', 'view:projectSettings'] },
-  show: { icon: 'eye', items: ['leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', '-', 'showActivity', 'showMessages', 'showInformation'] },
+  show: { icon: 'eye', items: ['leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', '-', 'showProblems', 'showActivity', 'showMessages', 'showInformation'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
   newFrom: { icon: 'fileNew', items: ['newProject', 'newFromTemplate', 'openSample'] },
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
-  file: [sub('newFrom'), 'open', 'startPage', 'recent', 'clearRecent', '-', 'import', 'exportProject', '-', 'database', 'reconnect', '-', 'closeProject', 'logout', 'exit'],
-  edit: ['undo', 'redo', '-', 'createIssue', 'find', '-', 'iconPicker'],
+  file: [sub('newFrom'), 'open', 'save', 'saveFile', 'saveFileAs', '-', 'print', '-', 'startPage', 'recent', 'clearRecent', '-', 'import', 'exportProject', '-', 'database', 'reconnect', '-', 'closeProject', 'deleteProject', '-', 'logout', 'exit'],
+  edit: ['undo', 'redo', '-', 'createIssue', 'addColumn', 'find', '-', 'iconPicker'],
   view: [sub('views'), 'refresh', '-', sub('show'), '-', sub('appearance')],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', help: 'question' };
 
 const TOOLBAR = [
-  ['newProject', 'open', 'exitProject', 'import', 'exportProject'],
+  ['newProject', 'open', 'save', 'print', 'exitProject', 'import', 'exportProject'],
   ['undo', 'redo'],
-  ['createIssue', 'find', 'refresh'],
+  ['createIssue', 'addColumn', 'find', 'refresh'],
   ['view:board', 'view:backlog', 'view:reports', 'view:projectSettings'],
-  ['database'],
   ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
-const LABELED = new Set(['newProject', 'createIssue', 'view:board', 'view:backlog', 'view:reports']);
+const LABELED = new Set(['newProject', 'createIssue', 'addColumn', 'view:board', 'view:backlog', 'view:reports']);
 /** Main command of a toolbar entry (split buttons: the button part) — what the » menu lists. */
 const TOOLBAR_MAIN = { themeSplit: 'theme' };
 
@@ -829,7 +938,8 @@ function renderLeft() {
   const list = d?.demo ? [d.project] : state.projects;
   const shown = list.filter((p) => !query || `${p.name} ${p.key}`.toLowerCase().includes(query));
   const node = (p) => {
-    const open = state.expanded.has(p.id) || Boolean(query) || p.id === d?.project?.id;
+    // the open project starts expanded, but its arrow folds it like any other
+    const open = Boolean(query) || state.expanded.has(p.id) || (p.id === d?.project?.id && !state.collapsed.has(p.id));
     const boards = d?.demo && p.id === 'demo' ? [d.board] : state.boardsByProject.get(p.id) ?? [];
     const here = (view, boardId = null) => d?.project?.id === p.id && d.view === view && (!boardId || d.board?.id === boardId);
     const leaf = (attrs, glyph, label, active, extra = '') => `<button class="nav-leaf ${active ? 'active' : ''}" ${attrs} title="${escapeHtml(label)}" ${active ? 'aria-current="page"' : ''}>${glyph}<span>${escapeHtml(label)}</span>${extra}</button>`;
@@ -837,7 +947,7 @@ function renderLeft() {
         ${boards.length ? boards.map((b) => leaf(`data-nav-board="${escapeHtml(b.id)}" data-nav-project="${escapeHtml(p.id)}"`, renderIconRef(b.icon, { size: 16, fallback: 'b:kanban' }), b.name, here('board', b.id))).join('') : `<span class="nav-empty muted">${escapeHtml(state.boardsByProject.has(p.id) ? t('nav.noBoards') : t('nav.loading'))}</span>`}
         ${leaf(`data-nav-view="backlog" data-nav-project="${escapeHtml(p.id)}"`, icon('list'), t('view.backlog'), here('backlog'))}
         ${leaf(`data-nav-view="reports" data-nav-project="${escapeHtml(p.id)}"`, icon('viewReports'), t('view.reports'), here('reports'))}
-        ${leaf(`data-nav-view="projectSettings" data-nav-project="${escapeHtml(p.id)}"`, icon('gear'), t('view.projectSettings'), here('projectSettings'))}
+        ${leaf(`data-nav-view="projectSettings" data-nav-project="${escapeHtml(p.id)}"`, icon('folderSettings'), t('view.projectSettings'), here('projectSettings'))}
       </div>` : '';
     if (open && !state.boardsByProject.has(p.id) && !d?.demo) boardsOf(p.id).then(() => renderLeft());
     return `<div class="nav-project ${d?.project?.id === p.id ? 'current' : ''}" data-project-node="${escapeHtml(p.id)}">
@@ -864,7 +974,7 @@ function renderLeft() {
 // Board, backlog, reports and project settings show their own navigation and information here, under a
 // title of their own; the section and the divider above it stay while the project tree above is redrawn.
 
-const SIDE_GLYPHS = { board: 'columns', backlog: 'list', reports: 'viewReports', projectSettings: 'gear' };
+const SIDE_GLYPHS = { board: 'columns', backlog: 'list', reports: 'viewReports', projectSettings: 'folderSettings' };
 
 function ensureLeftLayout(panel) {
   if (panel.querySelector(':scope > .left-top')) return;
@@ -985,7 +1095,7 @@ function renderWorkspace() {
 /** Until the board view is registered: what will be here, with the board's columns when the core has them. */
 function placeholderHtml(d) {
   const columns = d.view === 'board' ? [t('placeholder.colTodo'), t('placeholder.colSelected'), t('placeholder.colProgress'), t('placeholder.colDone')] : [];
-  const glyph = { board: 'columns', backlog: 'list', reports: 'viewReports', projectSettings: 'gear' }[d.view] ?? 'columns';
+  const glyph = { board: 'columns', backlog: 'list', reports: 'viewReports', projectSettings: 'folderSettings' }[d.view] ?? 'columns';
   return `<div class="ws-placeholder">
     <div class="ws-placeholder-head">${icon(glyph)}<div><h2>${escapeHtml(t(`view.${d.view}`))} — ${escapeHtml(d.board?.name ?? d.project?.name ?? '')}</h2><p class="muted">${escapeHtml(t('placeholder.text'))}</p></div></div>
     ${columns.length ? `<div class="ws-columns">${columns.map((name, i) => `<section class="ws-column"><h3>${escapeHtml(name)}<i>${i === 0 ? 3 : i === 3 ? 1 : 2}</i></h3>${Array.from({ length: i === 0 ? 3 : i === 3 ? 1 : 2 }, (_, k) => `<div class="ws-card-ghost" data-issue-ghost="${i}-${k}"><span></span><span></span><small>${escapeHtml(d.project?.key ?? 'KAN')}-${i * 3 + k + 1}</small></div>`).join('')}</section>`).join('')}</div>` : ''}
@@ -1030,6 +1140,32 @@ onViewRegistered((id) => { if (doc()?.view === id) { unmountSide(); renderSide()
 const logLine = (e) => `[${e.at.toLocaleTimeString()}] ${e.kind.toUpperCase()} ${e.text}${e.detail ? `\n${e.detail}` : ''}`;
 const SEV_ICON = { error: 'error', warning: 'warning', info: 'info', success: 'check' };
 
+/** The Problems tab's list: the board's problems (loaded) and the app's own (now). */
+function currentProblems() {
+  const errors = state.log.filter((e) => e.kind === 'error').length;
+  const system = findProblems(null, { coreOk: coreReady() || Boolean(doc()?.demo), errors });
+  return [...system, ...state.problems.list];
+}
+
+let problemsTimer = null;
+/** Looks for problems again: soon after a change (several changes, one check), or at once. */
+function refreshProblems({ now = false } = {}) {
+  clearTimeout(problemsTimer);
+  problemsTimer = setTimeout(loadProblems, now ? 0 : 500);
+}
+async function loadProblems() {
+  const d = doc();
+  const b = d && !d.demo ? board() : null;
+  state.problems = { ...state.problems, boardId: b?.id ?? null, loading: Boolean(b && coreReady()) };
+  let list = [];
+  if (b && coreReady()) {
+    try { list = findProblems(await client.boardData(b.id), { coreOk: true, errors: 0 }); } catch { list = []; }
+  }
+  if ((board()?.id ?? null) !== (b?.id ?? null)) { state.problems.loading = false; return; }
+  state.problems = { boardId: b?.id ?? null, list, loading: false, at: Date.now() };
+  renderBottom();
+}
+
 function showBottomTab(tab) {
   state.bottomTab = tab;
   if (!state.settings.showBottomPanel) updateSettings({ showBottomPanel: true }); else renderBottom();
@@ -1039,11 +1175,24 @@ function renderBottom() {
   const host = root.querySelector('#bottom-panel');
   if (!host) return;
   if (!state.settings.showBottomPanel || state.showStart || !state.doc) { host.innerHTML = ''; return; }
-  const tabs = [['activity', 'recent', t('bottom.activity'), state.activity.length], ['messages', 'info', t('bottom.messages'), state.log.length], ['info', 'database', t('bottom.info'), null]];
+  const shownBoard = doc()?.demo ? null : board()?.id ?? null;
+  if (state.problems.boardId !== shownBoard && !state.problems.loading) refreshProblems({ now: true });
+  const problems = currentProblems();
+  const sev = countBySeverity(problems);
+  const tabs = [['problems', sev.error ? 'error' : 'warning', t('bottom.problems'), problems.length], ['activity', 'recent', t('bottom.activity'), state.activity.length], ['messages', 'info', t('bottom.messages'), state.log.length], ['info', 'database', t('bottom.info'), null]];
   const tabHtml = `<span class="segmented" role="tablist">${tabs.map(([id, glyph, label, n]) => `<button class="segment ${state.bottomTab === id ? 'active' : ''}" data-bottom-tab="${id}" role="tab" aria-selected="${state.bottomTab === id}" title="${escapeHtml(label)}">${icon(glyph)}<span>${escapeHtml(label)}</span>${n != null ? `<i class="bottom-count">${n}</i>` : ''}</button>`).join('')}</span>`;
   let tools = '';
   let body = '';
-  if (state.bottomTab === 'activity') {
+  if (state.bottomTab === 'problems') {
+    const chip = (k, glyph) => `<span class="problems-chip sev-${k}" title="${escapeHtml(t(`problems.sev.${k}`))}">${icon(glyph)}<span>${sev[k]}</span></span>`;
+    tools = `<span class="problems-counts">${chip('error', 'error')}${chip('warning', 'warning')}${chip('info', 'info')}</span><span class="grow"></span><button class="small-button" data-command="refreshProblems" ${state.problems.loading ? 'disabled' : ''}>${icon(state.problems.loading ? 'hourglass' : 'refresh')}<span>${escapeHtml(t('bottom.problemsRefresh'))}</span></button>`;
+    body = problems.length ? problems.map((p, i) => {
+      const glyph = { error: 'error', warning: 'warning', info: 'info' }[p.severity];
+      const text = t(`problems.${p.kind}`, p.params);
+      const where = p.issueKey ?? p.params?.column ?? p.params?.status ?? '';
+      return `<div class="problem-row bottom-row problems-row sev-${p.severity} ${p.issueId || p.kind === 'messages' || p.kind === 'core' ? 'link' : ''}" data-problem="${i}" title="${escapeHtml(text)}"><span class="cell sev">${icon(glyph)}</span><span class="cell">${escapeHtml(text)}</span><span class="cell muted">${escapeHtml(where)}</span><span class="cell muted">${escapeHtml(t(`problems.sev.${p.severity}`))}</span></div>`;
+    }).join('') : `<p class="problems-empty">${icon(state.problems.loading ? 'hourglass' : 'check')}<span>${escapeHtml(t(state.problems.loading ? 'bottom.problemsChecking' : 'bottom.noProblems'))}</span></p>`;
+  } else if (state.bottomTab === 'activity') {
     tools = `<span class="grow"></span><span class="muted live-chip ${state.live.state}">${icon(liveGlyph())}<span>${escapeHtml(liveText())}</span></span><button class="small-button danger" data-command="clearActivity" ${state.activity.length ? '' : 'disabled'}>${icon('clearHistory')}<span>${escapeHtml(t('action.clearActivity'))}</span></button>`;
     body = state.activity.length ? state.activity.map((e, i) => `<div class="problem-row bottom-row activity-row" data-activity="${i}" title="${escapeHtml(e.text)}"><span class="cell sev">${icon(e.kind === 'live' ? 'globe' : 'user')}</span><span class="cell">${escapeHtml(e.text)}</span><span class="cell muted">${escapeHtml(e.type ?? '')}</span><span class="cell muted">${escapeHtml(e.at.toLocaleTimeString())}</span></div>`).join('') : `<p class="problems-empty">${icon('info')}<span>${escapeHtml(t('bottom.noActivity'))}</span></p>`;
   } else if (state.bottomTab === 'messages') {
@@ -1141,9 +1290,13 @@ function renderStartPage() {
     onSave: (layout) => { state.settings.startLayout = layout; storeSettings(globalThis.localStorage, state.settings); },
   });
   host.querySelector('.start-scroll').scrollTop = scrollTop;
+  for (const holder of host.querySelectorAll('.start-speed')) syncSliderSteps(holder);
   const canvas = host.querySelector('.start-bg');
+  // drawn again (another setting changed): the scene carries on where it was instead of starting over
+  const carry = startBackground ? { time: startBackground.time, kind: startBackground.kind } : null;
   startBackground?.destroy();
   startBackground = new AnimatedBackground(canvas, { colors: backgroundColors, speed: () => state.settings.animationSpeed / 100, kind: state.settings.animation, vivid: true });
+  if (carry && carry.kind === startBackground.kind) startBackground.time = carry.time;
   if (state.settings.backgroundKind === 'animated') startBackground.start(); else startBackground.draw();
   canvas.classList.toggle('static', state.settings.backgroundKind !== 'animated');
   host.querySelector('.start-scroll').style.setProperty('--start-image', state.backgroundUrl && state.settings.backgroundKind === 'image' ? `url("${state.backgroundUrl}")` : 'none');
@@ -1267,10 +1420,30 @@ function applySettings(previous = {}) {
   updateMinimumWidth();
 }
 
+/** The toolbar's theme ▾: a drop-down menu like the others — follow the system, the custom theme, then every dark and
+ * light theme side by side on the same level (each with its colour swatch, the current one ticked), edit custom, random. */
 async function openThemePicker(anchor) {
   const element = root.querySelector('.split-button [data-command="themeMenu"]')?.closest('.split-button') ?? root.querySelector('[data-command="themeMenu"]');
-  const result = await popups.open('theme', { current: state.settings.theme }, { anchor: anchor ?? anchorBelow(element) });
-  if (result?.theme) updateSettings({ theme: result.theme });
+  const current = state.settings.theme;
+  const handlers = {};
+  const item = (theme, glyph = null) => {
+    const id = `custom:theme:${theme.id ?? theme}`;
+    handlers[id] = () => updateSettings({ theme: theme.id ?? theme });
+    return { id, label: themeName(theme.id ?? theme, lang()), icon: glyph ?? 'palette', swatch: theme.swatch ?? null, checked: current === (theme.id ?? theme) };
+  };
+  handlers['custom:theme-edit'] = () => popups.open('settings', { tab: 'appearance', themeGroup: 'custom' });
+  handlers['custom:theme-random'] = () => updateSettings({ theme: randomThemeId(current) });
+  const items = [
+    item(SYSTEM, 'monitor'),
+    item(customTheme(state.settings.customTheme), 'palette'),
+    { separator: true },
+    // every theme at once: dark | light side by side, no submenus
+    { columns: [DARK_THEMES.map((x) => item(x)), LIGHT_THEMES.map((x) => item(x))], heads: [t('theme.darkGroup', { count: DARK_THEMES.length }), t('theme.lightGroup', { count: LIGHT_THEMES.length })], headIcons: ['moon', 'sun'] },
+    { separator: true },
+    { id: 'custom:theme-edit', label: t('settings.editCustom'), icon: 'edit' },
+    { id: 'custom:theme-random', label: t('action.themeRandom'), icon: 'dice' },
+  ];
+  await showMenu(items, anchor ?? anchorBelow(element), 'theme', { handlers, header: { icon: 'palette', title: t('action.themeChoose') } });
 }
 
 /** The icon picker popup (ui/iconpicker.js) → an IconRef ('' = none, null = cancelled). */
@@ -1425,7 +1598,7 @@ function contextMenu(event, kind, payload = {}) {
     const handlers = { 'custom:copy': () => native.clipboardWrite(logLine(e)).then(() => notify('success', t('notice.copiedText'))) };
     return showMenu([{ id: 'custom:copy', label: t('bottom.copy'), icon: 'copy', disabled: !e }, { separator: true }, ...menuItems(['copyMessages', 'clearMessages', '-', 'bottomPanel'])], anchor, 'context', { handlers, header: { icon: 'info', title: t('bottom.messages') } });
   }
-  if (kind === 'bottom') return showMenu(menuItems(['showActivity', 'showMessages', 'showInformation', '-', 'copyMessages', 'clearMessages', 'clearActivity', '-', 'bottomPanel']), anchor, 'context', { header: { icon: 'panelBottom', title: t('bottom.title') } });
+  if (kind === 'bottom') return showMenu(menuItems(['showProblems', 'refreshProblems', '-', 'showActivity', 'showMessages', 'showInformation', '-', 'copyMessages', 'clearMessages', 'clearActivity', '-', 'bottomPanel']), anchor, 'context', { header: { icon: 'panelBottom', title: t('bottom.title') } });
   if (kind === 'project') {
     const p = state.projects.find((x) => x.id === payload.id) ?? (doc()?.project?.id === payload.id ? doc().project : null);
     const handlers = {
@@ -1434,12 +1607,19 @@ function contextMenu(event, kind, payload = {}) {
       'custom:settings': () => openTarget('project', payload.id, { view: 'projectSettings' }),
       'custom:icon': async () => { const ref = await pickIcon(p?.icon ?? ''); if (ref != null && p && !doc()?.demo) await changeProjectIcon(p, ref); },
       'custom:copyKey': () => native.clipboardWrite(p?.key ?? '').then(() => notify('success', t('notice.copiedText'))),
+      'custom:delete': () => deleteProjectAsk(payload.id),
     };
     return showMenu([
-      { id: 'custom:open', label: t('nav.openProject'), icon: 'folderOpen' }, { id: 'custom:backlog', label: t('view.backlog'), icon: 'list' }, { id: 'custom:settings', label: t('view.projectSettings'), icon: 'gear' },
+      { id: 'custom:open', label: t('nav.openProject'), icon: 'folderOpen' }, { id: 'custom:backlog', label: t('view.backlog'), icon: 'list' }, { id: 'custom:settings', label: t('view.projectSettings'), icon: 'folderSettings' },
       { separator: true }, { id: 'custom:icon', label: t('nav.changeIcon'), icon: 'iconInsert', disabled: !p || doc()?.demo }, { id: 'custom:copyKey', label: t('nav.copyKey'), icon: 'copy' },
       { separator: true }, ...menuItems(['newProject', 'exportProject', 'refresh']),
+      { separator: true }, { id: 'custom:delete', label: t('action.deleteProject'), icon: 'trash', danger: true, disabled: !p || payload.id === 'demo' || !coreReady() },
     ], anchor, 'context', { handlers, header: { icon: 'folder', title: p ? `${p.name} (${p.key})` : t('panel.projects') } });
+  }
+  // The centre (backlog, reports, project settings … where nothing has a menu of its own): the view's commands.
+  if (kind === 'workspace') {
+    const view = doc()?.view ?? 'board';
+    return showMenu(menuItems(['createIssue', 'addColumn', 'find', 'refresh', '-', 'view:board', 'view:backlog', 'view:reports', 'view:projectSettings', '-', 'leftPanel', 'rightPanel', 'bottomPanel']), anchor, 'context', { header: { icon: SIDE_GLYPHS[view] ?? 'columns', title: t(`view.${view}`) } });
   }
   if (kind === 'panel') return showMenu(menuItems(['leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', '-', 'settings']), anchor, 'context', { header: { icon: 'panelLeft', title: t('menu.view') } });
   if (kind === 'start') return showMenu(menuItems(['newProject', 'open', 'recent', '-', 'database', '-', 'shuffleBackground', 'backgroundImage', '-', 'tutorial', 'about']), anchor, 'context', { header: { icon: 'home', title: t('action.startPage') } });
@@ -1547,11 +1727,13 @@ function bindEvents() {
     const windowControl = target.closest('[data-window]');
     if (windowControl) return windowButton(windowControl.dataset.window);
     const navToggle = target.closest('[data-nav-toggle]');
-    if (navToggle) { const id = navToggle.dataset.navToggle; if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id); return renderLeft(); }
+    if (navToggle) { const id = navToggle.dataset.navToggle; if (navToggle.getAttribute('aria-expanded') === 'true') { state.expanded.delete(id); state.collapsed.add(id); } else { state.collapsed.delete(id); state.expanded.add(id); } return renderLeft(); }
     const nav = target.closest('[data-nav-board], [data-nav-view], [data-nav-open-project]');
     if (nav) return onNav(nav);
     const bottomTab = target.closest('[data-bottom-tab]');
     if (bottomTab) { state.bottomTab = bottomTab.dataset.bottomTab; return renderBottom(); }
+    const problemRow = target.closest('[data-problem]');
+    if (problemRow) { const p = currentProblems()[Number(problemRow.dataset.problem)]; if (p?.issueId) return openIssue(p.issueId); if (p?.kind === 'messages') return showBottomTab('messages'); if (p?.kind === 'core') return connectCore(); return undefined; }
     const ghost = target.closest('[data-issue-ghost]');
     if (ghost) return openIssue(ghost.dataset.issueGhost);
     return undefined;
@@ -1574,18 +1756,43 @@ function bindEvents() {
     if ('startOpacity' in target.dataset) { target.parentElement.querySelector('output').textContent = `${target.value}%`; root.querySelector('.start-inner')?.style.setProperty('--start-card-alpha', `${target.value}%`); }
   });
 
+  // The start page's sliders: − / + beside them move one step (held down: again and again), as dragging would.
+  const sliderStep = (button) => {
+    const input = button.parentElement.querySelector('input[type="range"]');
+    if (!input) return false;
+    const before = input.value;
+    input.value = String(Math.max(Number(input.min), Math.min(Number(input.max), Number(input.value) + Number(button.dataset.sliderStep) * Number(input.step || 1))));
+    if (input.value === before) return false;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    syncSliderSteps(input.parentElement);
+    return true;
+  };
+  root.addEventListener('pointerdown', (event) => {
+    const button = event.target.closest?.('[data-slider-step]');
+    if (!button || event.button !== 0 || button.disabled) return;
+    event.preventDefault();
+    if (!sliderStep(button)) return;
+    let timer = setTimeout(function again() { if (sliderStep(button)) timer = setTimeout(again, 90); }, 420);
+    const stop = () => { clearTimeout(timer); window.removeEventListener('pointerup', stop, true); window.removeEventListener('pointercancel', stop, true); };
+    window.addEventListener('pointerup', stop, true);
+    window.addEventListener('pointercancel', stop, true);
+  });
+  root.addEventListener('input', (event) => { if (event.target.matches?.('.start-speed input[type="range"]')) syncSliderSteps(event.target.parentElement); });
+
   root.addEventListener('contextmenu', (event) => {
     const editable = event.target.closest('input:not([type="range"]):not([type="checkbox"]), textarea');
     if (editable) { event.preventDefault(); return textContextMenu(editable, event); }
+    // A view that shows its own menu calls preventDefault (the board's cards and columns …); anything else gets the
+    // app's menu below — never the browser's own (it has no icons and does not match the app).
     if (event.defaultPrevented) return undefined;
-    // The workspace view handles its own context menus (it calls preventDefault).
-    if (event.target.closest('#workspace') && getView(doc()?.view ?? '')) return undefined;
     event.preventDefault();
     const activityRow = event.target.closest('[data-activity]');
     if (activityRow) return contextMenu(event, 'activity', { index: Number(activityRow.dataset.activity) });
     const logRow = event.target.closest('[data-log]');
     if (logRow) return contextMenu(event, 'log', { index: Number(logRow.dataset.log) });
     if (event.target.closest('#bottom-panel')) return contextMenu(event, 'bottom');
+    if (event.target.closest('#workspace')) return contextMenu(event, 'workspace');
     const projectNode = event.target.closest('[data-project-node]');
     if (projectNode) return contextMenu(event, 'project', { id: projectNode.dataset.projectNode });
     if (event.target.closest('#left-panel, #right-panel')) return contextMenu(event, 'panel');
@@ -1667,7 +1874,7 @@ function bindEvents() {
 
 /** Ctrl+key shortcuts: [key, shift, command]. */
 const SHORTCUTS = [
-  ['n', false, 'newProject'], ['o', false, 'open'], ['w', false, 'closeProject'], ['i', false, 'import'], ['e', false, 'exportProject'], ['f', false, 'find'],
+  ['n', false, 'newProject'], ['o', false, 'open'], ['s', false, 'save'], ['s', true, 'saveFile'], ['p', false, 'print'], ['w', false, 'closeProject'], ['i', false, 'import'], ['e', false, 'exportProject'], ['f', false, 'find'],
   ['z', false, 'undo'], ['y', false, 'redo'], ['z', true, 'redo'],
   [',', false, 'settings'], ['l', true, 'language'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'], ['@', true, 'rightPanel'], ['2', true, 'rightPanel'],
   ['q', false, 'exit'], ['h', true, 'startPage'], ['b', true, 'shuffleBackground'], ['r', false, 'recent'], ['j', false, 'bottomPanel'],
@@ -1707,6 +1914,13 @@ function bindPopupActions() {
   popups.on('show-start', () => showStartPage(true));
   popups.on('progress-cancel', (data) => { popups.actions.get(`cancel:${data.op}`)?.(); });
   // The form popup's icon fields (ui/formpopup.js): the picker opens from here, the choice goes back to the form.
+  // The print window asks for what to print (print/host.js): the project, the board, the reports, the issues.
+  popups.on('print-content', async () => {
+    try {
+      const content = await gatherPrintContent({ api: client, project, board, t, language: lang });
+      popups.post('print', { type: 'print-content', content });
+    } catch (error) { showError('print.failed', error, project()?.name ?? ''); }
+  });
   popups.on('form-pick-icon', async (data) => { const ref = await pickIcon(data.value ?? '', { title: data.title ?? '', category: data.category ?? null }); if (ref != null) popups.post('form', { type: 'form-icon', name: data.name, ref }); });
   popups.on('raise-test-panic', () => native.invoke('raise_test_panic').catch((error) => showError('error.unexpected', error)));
   // Settings › Database switched or copied the database: everything is read again.
@@ -1813,9 +2027,10 @@ window.__myboard = {
   menus: { MENUS, SUBMENUS, enabled: (id) => commandEnabled(id) },
   app: appApi,
   renderSideHeader,
-  actions: { connectCore, openTarget, openDemo, setView, closeProject, showStartPage, updateSettings, newProjectAsk, openSampleAsk, importText, exportProject, pickIcon, openIssue, undo, redo, withProgress, refreshProjects },
+  actions: { deleteProjectAsk, connectCore, openTarget, openDemo, setView, closeProject, showStartPage, updateSettings, newProjectAsk, openSampleAsk, importText, exportProject, pickIcon, openIssue, undo, redo, withProgress, refreshProjects },
   domain: { TEMPLATES, SAMPLES, tutorialSteps: () => TUTORIAL_STEPS.length },
   tutorial: () => tutorial,
+  startBackground: () => startBackground,
 };
 
 start()

@@ -8,7 +8,17 @@
   :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
   @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
-  main { max-width: 860px; margin: 0 auto; padding: 28px 28px 60px; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 20px 24px; }
+  main { min-width: 0; max-width: 860px; padding: 8px 0 60px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; padding: 8px 8px 8px 0; border-right: 1px solid var(--border); }
+  nav.toc .toc-title { font-weight: 700; color: var(--muted); font-size: 12px; letter-spacing: .04em; margin: 0 0 8px 10px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); text-decoration: none; border-radius: 0 6px 6px 0; }
+  nav.toc li a:hover { background: var(--code); }
+  nav.toc li a.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; padding: 12px; } nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; } }
+  @media print { nav.toc { display: none; } .layout { display: block; } }
   h1 { font-size: 1.9em; margin: 0 0 18px; }
   h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
   h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
@@ -22,45 +32,73 @@
   .muted { color: var(--muted); }
 </style>
 </head>
-<body><main>
+<body><div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h3"><a href="#start-page">Start page</a></li><li class="h3"><a href="#workspace">Workspace</a></li><li class="h3"><a href="#board">Board</a></li><li class="h3"><a href="#issue-detail">Issue detail</a></li><li class="h3"><a href="#backlog-and-search">Backlog and search</a></li><li class="h3"><a href="#reports-and-dashboards">Reports and dashboards</a></li><li class="h3"><a href="#project-settings">Project settings</a></li><li class="h3"><a href="#saving-and-files">Saving and files</a></li><li class="h3"><a href="#printing">Printing</a></li><li class="h3"><a href="#icons">Icons</a></li><li class="h3"><a href="#database">Database</a></li><li class="h3"><a href="#on-the-web">On the web</a></li><li class="h3"><a href="#shortcuts">Shortcuts</a></li></ul></nav>
+<main>
 <h1>MyBoard — User’s Guide</h1>
-<p>MyBoard is a Kanban board and issue tracker. Each project has boards, a backlog, reports and settings; you change the state of work by moving cards across the columns. Data is stored in a database (by default SQLite on this computer), so there is nothing to &quot;save&quot;.</p>
+<p>MyBoard is a Kanban board and issue tracker. Every project has a board, a backlog, reports and project settings; moving cards between columns changes the state of the work. Data goes to the database (by default SQLite on this computer) as you work. A project can also be saved to a <code>.myboard</code> file.</p>
 <h3 id="start-page">Start page</h3>
-<p>When the program opens, translucent cards sit over a moving background.</p>
+<p>The program opens on translucent cards over a moving background.</p>
 <ul>
-<li><b>Start</b> card: new project, open, connect a database, import, tutorial, continue the last board, settings, start page settings, about, quit.</li>
-<li><b>Database</b> card: the kind, name and connection of the database in use. &quot;Change…&quot; connects to another database. When the core cannot be reached, a red notice and a &quot;Reconnect&quot; button appear.</li>
-<li><b>Recent boards and projects</b>: the boards opened lately; × removes one from the list.</li>
-<li><b>New project — templates</b>: Kanban, Software team, Bug tracking, Simple personal.</li>
-<li><b>Sample projects</b>: three projects with issues in them (created in the current database).</li>
-<li><b>Background</b>: the kind of moving background, its speed, the card opacity and the automatic change.</li>
+<li><b>Start</b>: new project, open, database, import, tutorial, continue the last board, settings, start page settings, about, exit.</li>
+<li><b>Database</b>: the type, name and state of the database in use; &quot;Change…&quot; connects to another one.</li>
+<li><b>Recent boards and projects</b>, <b>New project — templates</b> (Kanban, software team, bug tracking, simple personal), <b>Sample projects</b>, <b>Background</b> (kind, speed, card opacity).</li>
 </ul>
-<p>Move a card by the handle at its top left, resize it by its bottom-right corner; a double click on the corner fits its height again. &quot;Auto arrange&quot; restores the default layout.</p>
+<p>Move a card by its top-left grip and resize it from its bottom-right corner; cards side by side take the same height. &quot;Auto-arrange&quot; restores the default layout.</p>
 <h3 id="workspace">Workspace</h3>
-<p>Opening a project or board shows the workspace.</p>
 <ul>
-<li><b>Toolbar</b> (it is also the title bar): new project, open, leave, import, export, undo/redo, create issue, find, refresh, view switch, database, panel buttons. Tutorial, theme, language, settings and about on the right always stay; the left buttons fold into » in a narrow window.</li>
-<li><b>Projects panel</b> (left): each project's boards, backlog, reports and settings. Right-click to change its icon or copy its key.</li>
-<li><b>Board</b> (centre): the columns and cards.</li>
-<li><b>Issue detail</b> (right): the chosen issue's description, comments, attachments and history. Its button folds it.</li>
-<li><b>Bottom panel</b>: activity (who changed what), messages (notices and errors) and information (database, user, issue counts). Ctrl+J.</li>
-<li><b>Status bar</b>: notices, the database kind, the user, the realtime connection, issue counts, theme, language, clock. The grip at the bottom right resizes the window.</li>
+<li><b>Toolbar</b>: new project, open, save, print, leave, import, export, undo/redo, create issue, add column, find, refresh, the views (board, backlog, reports, project settings) and the panel buttons. Tutorial, theme, language, settings and about on the right always stay visible.</li>
+<li><b>Left panel, top</b>: the projects, each with its board, backlog, reports and project settings.</li>
+<li><b>Left panel, bottom</b>: what the current view lets you choose — the board's quick filters, swimlanes and columns; the backlog's saved filters, epics and versions; the reports and dashboards; the project settings' sections. Drag the divider to resize it.</li>
+<li><b>Centre</b>: the board, backlog, reports or project settings. <b>Right panel</b>: the issue detail.</li>
+<li><b>Bottom panel</b>: activity, messages, information (Ctrl+J). <b>Status bar</b>: database, user, realtime, issue count, theme, language.</li>
 </ul>
-<p>Drag the borders between the panels to resize them; sizes are remembered with the window's place and size.</p>
+<p>A right-click anywhere opens a menu with an icon on every item.</p>
+<h3 id="board">Board</h3>
+<ul>
+<li><b>Cards</b>: click for the issue detail on the right, double-click for the edit form (summary, description, assignee, priority, labels, points, due date, icon). Only what changed is saved, and it can be undone.</li>
+<li><b>Moving</b>: drag a card to another column to change its status, within a column to change its rank. Columns the workflow forbids dim while dragging. Keyboard: arrows move, Enter opens the detail, Ctrl+→ moves to the next column.</li>
+<li><b>Add column</b> (toolbar, or the button next to &quot;Show older done&quot;): name, icon (one matching the name is chosen first; over 100 column icons to pick from), position (default: first) and the column's status (a new one with your name and category, an existing one, or none). The workflow follows the position — placed after Backlog, it links Backlog ⇄ new status ⇄ the next column.</li>
+<li><b>Columns</b>: reorder from the header menu or with Ctrl+Shift+←/→; click the icon to change it. The collapse button sits at the right end of the header.</li>
+<li><b>Quick filters and swimlanes</b>: in the tool row above the cards or in the left panel's lower part. A column over its WIP limit turns red.</li>
+</ul>
+<h3 id="issue-detail">Issue detail</h3>
+<p>Fields are grouped (people, planning, time, dates, appearance, custom fields); empty fields are hidden (&quot;Show empty fields&quot;). The chips at the top jump to description, checklist, subtasks, links, attachments and activity. Use the status button for transitions; descriptions take Markdown, <code>:icon[…]</code> and @mentions. When someone else edits the same issue, the conflict is shown and you choose.</p>
+<h3 id="backlog-and-search">Backlog and search</h3>
+<p>Group the issues by column, status, epic or assignee, drag to rank, select several to change them together. Basic search (drop-downs) and JQL search (errors while typing, autocompletion); save a search as a filter; export CSV.</p>
+<h3 id="reports-and-dashboards">Reports and dashboards</h3>
+<ul>
+<li><b>Reports</b>: cumulative flow, control chart, throughput, <b>burndown</b> (issues left against an ideal line to zero), created vs resolved, workload, version burn-up, breakdown. Choose the period and export PNG, SVG or CSV.</li>
+<li><b>Reference column</b>: reports count an issue as done once it is in this column. By default the board's rightmost column; click the &quot;Reference column&quot; chip above a report to change it (saved in the board settings, for everyone).</li>
+<li><b>Dashboards</b>: add gadgets, drag a title bar to move one, drag its bottom-right corner to resize it.</li>
+</ul>
+<h3 id="project-settings">Project settings</h3>
+<p>Details (name, key, icon), members and roles, user accounts (administrators), issue types, statuses, priorities, resolutions, components, versions, labels, custom fields, workflows, board configuration (columns, WIP, swimlanes, quick filters, card colours, card layout), automation, import and export.</p>
+<ul>
+<li><b>Adding members</b>: pick a user and a role on the line under Members and roles. Someone not in the list is first created under &quot;User accounts&quot;.</li>
+<li><b>Workflows</b>: editing the name, initial status, box positions or the transition table shows an &quot;unsaved changes&quot; bar; <b>Save</b> (or Ctrl+S) writes them and <b>Discard</b> drops them. The transition form has its own Save.</li>
+</ul>
+<h3 id="saving-and-files">Saving and files</h3>
+<ul>
+<li><b>Save</b> (Ctrl+S): the database. Data is saved as you edit; changes still kept as unsaved (workflow edits) are written too.</li>
+<li><b>Save to file</b> (Ctrl+Shift+S): the project as a <code>.myboard</code> file. It asks where only the first time and then writes the same file; <b>Save to another file</b> asks again.</li>
+<li><b>Import</b> (Ctrl+I): <code>.myboard</code>, CSV, other board apps' JSON.</li>
+</ul>
+<h3 id="printing">Printing</h3>
+<p>The Print button (right of Save) or Ctrl+P opens the print window: printer, copies, paper, orientation, margins, colour, header/footer and what to print (project information, board, reports, issue list) on the left, a page-by-page preview on the right. <b>Print</b> prints straight to the chosen printer (on the web, the browser's print dialog). <b>Save as PDF</b> is there too.</p>
 <h3 id="icons">Icons</h3>
-<p>Every place that takes an icon — projects, boards, issue types, priorities, users — uses the same <b>icon picker</b>:</p>
-<ul>
-<li><b>Built-in</b>: over 400 pictures (issue types, status, priority, objects, people, arrows, charts, technology, nature …), searchable in English and Korean.</li>
-<li><b>Emoji</b>: over 1000 emoji by category, searchable in English and Korean.</li>
-<li><b>Uploaded</b>: upload PNG, JPEG, GIF, WebP, BMP, ICO, SVG or AVIF (button, drag and drop, or paste with Ctrl+V). Pictures are scaled to at most 256 px and stored in the database; animated GIF and WebP stay as they are up to 512 KB.</li>
-<li><b>Letters</b>: one or two letters on a colour.</li>
-<li><b>Colour</b>: tints built-in icons and colours letters.</li>
-</ul>
+<p>Every icon is chosen in the same <b>icon picker</b>: built-in icons (over 460, searched in Korean or English), emoji, uploaded pictures (PNG, JPEG, GIF, WebP, BMP, ICO, SVG, AVIF), letters, colour.</p>
 <h3 id="database">Database</h3>
-<p>Settings › Database (or &quot;Change…&quot; on the start page) connects to SQLite, MySQL, MariaDB, PostgreSQL or SQL Server. &quot;Test connection&quot; checks it; &quot;Switch to this database&quot; creates or upgrades the tables and connects. &quot;Copy all data&quot; moves the current data into the target database. The password is stored encrypted on this computer.</p>
+<p>Settings › Database connects to SQLite, MySQL, MariaDB, PostgreSQL or SQL Server. &quot;Test connection&quot; checks it, &quot;Switch to this database&quot; connects. &quot;Copy all data&quot; moves the current data to the target database.</p>
 <h3 id="on-the-web">On the web</h3>
-<p><code>npm run web</code> starts the web server, and a browser shows the same window. When several people open one board, changes appear in real time and the status bar shows how many are viewing it.</p>
+<p><code>npm run web</code> runs the web server; the same screens work in a browser, and several people on the same board see each other's changes live.</p>
 <h3 id="shortcuts">Shortcuts</h3>
-<table><thead><tr><th>Key</th><th>Does</th></tr></thead><tbody><tr><td>Ctrl+N</td><td>New project</td></tr><tr><td>Ctrl+O</td><td>Open</td></tr><tr><td>Ctrl+I / Ctrl+E</td><td>Import / export</td></tr><tr><td>Ctrl+Z / Ctrl+Y</td><td>Undo / redo</td></tr><tr><td>C</td><td>Create issue</td></tr><tr><td>Ctrl+F</td><td>Find</td></tr><tr><td>F5</td><td>Refresh</td></tr><tr><td>Ctrl+J</td><td>Bottom panel</td></tr><tr><td>Ctrl+Shift+1 / 2</td><td>Left / right panel</td></tr><tr><td>Ctrl+Shift+L</td><td>Language</td></tr><tr><td>Ctrl+Shift+H</td><td>Start page</td></tr><tr><td>Ctrl+,</td><td>Settings</td></tr><tr><td>F11</td><td>Tutorial</td></tr><tr><td>F1</td><td>About</td></tr></tbody></table>
-</main></body>
+<table><thead><tr><th>Key</th><th>Does</th></tr></thead><tbody><tr><td>Ctrl+N / Ctrl+O</td><td>New project / open</td></tr><tr><td>Ctrl+S / Ctrl+Shift+S</td><td>Save / save to file</td></tr><tr><td>Ctrl+P</td><td>Print</td></tr><tr><td>Ctrl+I / Ctrl+E</td><td>Import / export</td></tr><tr><td>Ctrl+Z / Ctrl+Y</td><td>Undo / redo</td></tr><tr><td>C</td><td>Create issue</td></tr><tr><td>Ctrl+F</td><td>Find</td></tr><tr><td>F5</td><td>Refresh</td></tr><tr><td>Ctrl+J</td><td>Bottom panel</td></tr><tr><td>Ctrl+Shift+1 / 2</td><td>Left / right panel</td></tr><tr><td>Ctrl+Shift+L</td><td>Language</td></tr><tr><td>Ctrl+Shift+H</td><td>Start page</td></tr><tr><td>Ctrl+,</td><td>Settings</td></tr><tr><td>F11</td><td>Tutorial</td></tr><tr><td>F1</td><td>About</td></tr></tbody></table>
+</main></div>
+<script>
+  // the section being read is marked in the contents
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const mark = () => { let current = null; for (const a of links) { const h = document.getElementById(decodeURIComponent(a.hash.slice(1))); if (h && h.getBoundingClientRect().top < 120) current = a; } links.forEach((a) => a.classList.toggle('active', a === current)); };
+  addEventListener('scroll', mark, { passive: true }); mark();
+</script></body>
 </html>

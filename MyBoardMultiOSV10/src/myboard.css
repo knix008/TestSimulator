@@ -35,10 +35,12 @@
 /* Left panel: the project tree on top, the current view's own sidebar below (app.js renderSide). */
 #left-panel:has(> .left-top) { display: flex; flex-direction: column; overflow: hidden; }
 /* The tree takes only the height it needs (the lower section starts right under it), and scrolls when long. */
-#left-panel > .left-top { flex: 0 1 auto; min-height: 140px; display: flex; flex-direction: column; overflow: hidden; }
+/* Folded projects: only their rows stay, no empty space; a long tree stops above the lower section and scrolls. */
+#left-panel > .left-top { flex: none; min-height: 0; max-height: max(140px, calc(100% - var(--left-view-height, 240px) - 5px)); display: flex; flex-direction: column; overflow: hidden; }
+#left-panel > .left-top > .panel-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
 #left-panel > .left-split { flex: none; height: 5px; cursor: row-resize; background: transparent; border-top: 1px solid var(--border); }
 #left-panel > .left-split:hover, #left-panel > .left-split:active { background: color-mix(in srgb, var(--accent) 40%, transparent); }
-#left-panel > .left-view { flex: 1 0 var(--left-view-height, 240px); min-height: 120px; display: flex; flex-direction: column; overflow: hidden; }
+#left-panel > .left-view { flex: 1 1 var(--left-view-height, 240px); min-height: 120px; display: flex; flex-direction: column; overflow: hidden; }
 #left-panel > .left-split[hidden], #left-panel > .left-view[hidden] { display: none; }
 .left-view-header { position: static; }
 .left-view-header .left-view-glyph { display: inline-flex; flex: none; color: var(--accent); }
@@ -226,3 +228,16 @@
 .iconref-b[data-tone="cyan"] { color: var(--tone-cyan); }
 .iconref-b[data-tone="slate"] { color: var(--tone-slate); }
 .iconref-b[data-tone="brown"] { color: var(--tone-brown); }
+/* the icon picker asks before an uploaded picture is deleted */
+.ip-confirm { display: flex; align-items: center; gap: 8px; margin: 6px 0; padding: 6px 8px; border: 1px solid var(--danger); border-radius: 6px; background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.ip-confirm > .icon { color: var(--danger); flex: none; }
+.ip-confirm .ip-confirm-pic { display: inline-flex; }
+/* bottom panel, Problems tab: severity colours, counts in the header, rows that lead somewhere */
+.problems-counts { display: inline-flex; gap: 6px; margin-left: 8px; }
+.problems-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--muted); }
+.problems-chip .icon { width: 14px; height: 14px; }
+.problems-chip.sev-error .icon, .problems-row.sev-error .sev .icon { color: var(--danger); }
+.problems-chip.sev-warning .icon, .problems-row.sev-warning .sev .icon { color: #e2a03f; }
+.problems-chip.sev-info .icon, .problems-row.sev-info .sev .icon { color: var(--accent); }
+.problems-row.link { cursor: pointer; }
+.problems-row.link:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }

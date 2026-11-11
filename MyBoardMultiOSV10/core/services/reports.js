@@ -7,12 +7,14 @@ import { requireUser, assertProject, accessibleProjectIds, nowOf, parseJson, tod
 const DAY = 86400000;
 
 /** 'YYYY-MM-DD' | epoch ms | undefined → epoch ms (local midnight for dates). */
-function toMs(v, fallback) {
+/** A date: epoch ms, or YYYY-MM-DD (local midnight; with endOfDay the last moment of that day, so a "to" date includes it). */
+function toMs(v, fallback, { endOfDay = false } = {}) {
   if (v == null || v === '') return fallback;
   if (typeof v === 'number' || /^\d{10,}$/.test(String(v))) return Number(v);
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v));
   if (!m) throw new ValidationError('INVALID_DATE', 'Dates are YYYY-MM-DD or epoch milliseconds');
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime();
+  const start = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime();
+  return endOfDay ? addDays(start, 1) - 1 : start;
 }
 const startOfDay = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const addDays = (ms, n) => { const d = new Date(ms); d.setDate(d.getDate() + n); return d.getTime(); };
@@ -41,7 +43,11 @@ export function createReports(core) {
    * The reference ("done") column of a board: its RIGHTMOST column, whatever its statuses' categories say.
    * It follows column reordering. → { id, name, icon, statusIds } | null (no columns).
    */
-  const referenceOf = (cols) => (cols.length ? cols[cols.length - 1] : null);
+  // The reference ("done") column: the one chosen in the board settings (reportColumnId) while it exists, else the rightmost.
+  const referenceOf = (cols, board = null) => {
+    const chosen = parseJson(board?.settings, {})?.reportColumnId;
+    return (chosen && cols.find((c) => c.id === chosen)) || (cols.length ? cols[cols.length - 1] : null);
+  };
   const refOut = (c) => (c ? { id: c.id, name: c.name, icon: c.icon ?? null } : null);
 
   /**
@@ -56,7 +62,7 @@ export function createReports(core) {
       if (board.project_id) await assertProject(db(), ctx, board.project_id, 'viewer');
       const { where, params } = await S().boards.boardWhere(ctx, board);
       const cols = await boardColumns(board.id);
-      return { where, params, columns: cols, board, reference: referenceOf(cols) };
+      return { where, params, columns: cols, board, reference: referenceOf(cols, board) };
     }
     if (q.projectId) {
       await assertProject(db(), ctx, q.projectId, 'viewer');
@@ -151,7 +157,7 @@ export function createReports(core) {
 
   function range(ctx, q, days) {
     const now = nowOf(ctx);
-    const to = Math.min(toMs(q.to, now), now);
+    const to = Math.min(toMs(q.to, now, { endOfDay: true }), now);
     const from = toMs(q.from, startOfDay(addDays(to, -days)));
     check(from <= to, 'INVALID_RANGE', 'from must be before to');
     check((to - from) / DAY <= 3660, 'INVALID_RANGE', 'The range is limited to 10 years');
@@ -289,7 +295,7 @@ export function createReports(core) {
       if (q.boardId) {
         const board = await S().boards.loadRaw(q.boardId);
         if (board.project_id) await assertProject(db(), ctx, board.project_id, 'viewer');
-        reference = referenceOf(await boardColumns(board.id));
+        reference = referenceOf(await boardColumns(board.id), board);
       }
       const sc = { where: 'i."id" IN (SELECT "issue_id" FROM "issue_versions" WHERE "version_id" = ? AND "kind" = \'fix\')', params: [versionId] };
       const tls = await timelines(sc);

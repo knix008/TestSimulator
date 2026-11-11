@@ -171,6 +171,11 @@ img.dt-avatar { object-fit: cover; }
 .dt-flabel .icon, .dt-flabel .iconref { width: 14px; height: 14px; flex: none; }
 .dt-fvalue { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; }
 .dt-field.wrap { align-items: start; }
+/* a narrow group (the narrowest panel): the label goes above its control, which then has the full width */
+@container dtgroup (max-width: 300px) {
+  .dt-field { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
+  .dt-flabel { height: auto; min-height: 18px; }
+}
 
 /* the control box */
 .dt-ctl { position: relative; display: flex; align-items: center; gap: 6px; width: 100%; height: var(--dt-h); min-height: var(--dt-h); margin: 0; padding: 0; box-sizing: border-box;
@@ -183,7 +188,7 @@ img.dt-avatar { object-fit: cover; }
 .dt-ctl > .dt-fbtn:focus-visible, .dt-ctl > .dt-cbtn:focus-visible { outline: none; }
 .dt-ctl .icon { width: 15px; height: 15px; color: var(--muted); flex: none; }
 .dt-ctl .dt-val, .dt-ctl > .dt-fbtn > span:not(.dt-chips):not(.dt-swatch):not(.dt-cover-chip):not(.iconref), .dt-ctl > .dt-cbtn > span { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dt-ctl .dt-sub { margin-left: 6px; color: var(--muted); font-size: 0.86em; }
+.dt-ctl .dt-sub { flex: none; margin-left: 6px; color: var(--muted); font-size: 0.86em; white-space: nowrap; }
 .dt-ctl .dt-chev { width: 12px; height: 12px; margin-left: auto; opacity: 0.55; }
 .dt-ctl:hover .dt-chev, .dt-ctl:focus-within .dt-chev { opacity: 1; }
 .dt-ctl .dt-chips { flex: 1 1 auto; flex-wrap: nowrap; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }

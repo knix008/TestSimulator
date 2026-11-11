@@ -3,7 +3,7 @@
 // (inputs, dropdowns, buttons, drag and drop of status chips, steppers), then checks the core's data.
 import assert from 'node:assert/strict';
 
-const GROUP = '프로젝트 설정';
+const GROUP = 'Project settings';
 
 /** Page-side prelude: the sample project open in the settings view, and small helpers. */
 const PREP = String.raw`
@@ -48,7 +48,7 @@ function expectRefused(app, pattern) {
 export const cases = [
   {
     group: GROUP,
-    name: '기본 정보: 이름·설명·아이콘(IconRef) 저장, 실행 취소/다시 실행, 키는 고정',
+    name: 'Details: name, description, icon (IconRef) saved, undo/redo, key editable',
     async run(app) {
       const r = await run(app, `
         const sec = await go('details');
@@ -68,7 +68,7 @@ export const cases = [
         await A.actions.undo(); await A.actions.undo(); await A.actions.undo(); await idle();
         const p4 = await A.api.project(shop.id);
         return { before, name: p1.name, description: p1.description, icon: p1.icon, iconShown, undoIcon: p2.icon, redoIcon: p3.icon, restored: p4.name,
-          keyDisabled: $('[data-field="key"]').disabled, keyHint: document.querySelector('.ps-row .ps-hint')?.textContent ?? '', shellName: A.state.doc.project.name };`);
+          keyEditable: !$('[data-field="key"]').disabled && Boolean(document.querySelector('[data-act="key-rename"]')), keyHint: document.querySelector('.ps-row .ps-hint')?.textContent ?? '', shellName: A.state.doc.project.name };`);
       assert.equal(r.name, `${r.before} 2`);
       assert.equal(r.description, '설명 바꿈');
       assert.equal(r.icon, 'e:🛒');
@@ -76,13 +76,13 @@ export const cases = [
       assert.notEqual(r.undoIcon, 'e:🛒', 'undo puts the old icon back');
       assert.equal(r.redoIcon, 'e:🛒', 'redo sets it again');
       assert.equal(r.restored, r.before, 'three undos restore the name');
-      assert.ok(r.keyDisabled, 'the key is fixed');
+      assert.ok(r.keyEditable, 'the key can be changed (Change key button)');
       assert.match(r.keyHint, /SHOP/);
     },
   },
   {
     group: GROUP,
-    name: '보드 열: 상태 추가 → 새 열에 끌어 놓기 → 보드 데이터에 반영',
+    name: 'Board columns: add a status → drag it into a new column → reflected in the board data',
     async run(app) {
       const r = await run(app, `
         await go('board');
@@ -104,11 +104,18 @@ export const cases = [
         document.querySelector('[data-status-chip="' + sid + '"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
         await idle();
         const after = (await A.api.boardData(board.id)).columns.find((c) => c.id === qa.id);
+        // the board's own columns show a lock instead of the bin; the added one keeps its bin
+        const locks = data.columns.filter((c) => c.builtIn).map((c) => Boolean(document.querySelector('[data-col="' + c.id + '"] .ps-col-lock')) && !document.querySelector('[data-col="' + c.id + '"] [data-act="col-delete"]'));
+        const qaBin = Boolean(document.querySelector('[data-col="' + qa.id + '"] [data-act="col-delete"]'));
         // clean up: delete the column (twice = confirm) and the status
-        document.querySelector('[data-col="' + qa.id + '"] [data-act="col-delete"]').click(); await idle();
-        document.querySelector('[data-col="' + qa.id + '"] [data-act="col-delete"]').click(); await idle();
+        document.querySelector('[data-col="' + qa.id + '"] [data-act="col-delete"]').click();
+        await T.popupReady('confirm'); const asked = T.popupDoc('confirm').body.textContent.includes('QA'); T.popupDoc('confirm').querySelector('.button.primary').click(); await idle();
+        await T.until(async () => !(await A.api.boardData(board.id)).columns.some((c) => c.id === qa.id), 5000, 'column deleted');
         await A.api.del('/projects/' + shop.id + '/statuses/' + sid);
-        return { sid: Boolean(sid), inUnmapped, mapped: qa?.statusIds.includes(sid), chipInColumn, left: after.statusIds.includes(sid), errors: banner() };`);
+        return { sid: Boolean(sid), inUnmapped, mapped: qa?.statusIds.includes(sid), chipInColumn, left: after.statusIds.includes(sid), locks, qaBin, asked, errors: banner() };`);
+      assert.ok(r.locks.length > 0 && r.locks.every(Boolean), 'default columns: a lock, no bin');
+      assert.ok(r.qaBin, 'an added column can be deleted');
+      assert.ok(r.asked, 'deleting a column asks first (the confirmation names it)');
       assert.ok(r.sid, 'status created');
       assert.ok(r.inUnmapped, 'a new status starts in the unmapped area');
       assert.ok(r.mapped, `the board data maps the status to the new column (${r.errors})`);
@@ -118,7 +125,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '상태 순서: 손잡이를 끌어 바꾸면 저장됨, 쓰이는 상태 삭제는 대신 쓸 상태를 물음',
+    name: 'Status order: dragging the grip saves it; deleting a used status asks for a replacement',
     async run(app) {
       const r = await run(app, `
         await go('statuses');
@@ -148,7 +155,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: 'WIP 한도: − / + 스테퍼 → 보드 데이터의 wipMax, 스테퍼 정렬',
+    name: 'WIP limits: −/+ steppers → wipMax in the board data, steppers aligned',
     async run(app) {
       const r = await run(app, `
         await go('board');
@@ -176,7 +183,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '스윔레인·빠른 필터·카드 색 만들기, 잘못된 JQL 은 오류로 보임',
+    name: 'Creating swimlanes, quick filters and card colours; invalid JQL shows an error',
     async run(app) {
       const r = await run(app, `
         await go('board');
@@ -216,7 +223,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '워크플로: 규칙(댓글 필수) 있는 전환 추가 → 그 규칙이 이동을 거절, 다이어그램에 화살표',
+    name: 'Workflow: add a transition with a rule (comment required) → the rule refuses a move, arrow in the diagram',
     async run(app) {
       const r = await run(app, `
         await go('workflow');
@@ -257,7 +264,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '사용자 정의 필드: 선택 필드 + 선택 항목(아이콘·색), 필수',
+    name: 'Custom fields: select field + options (icon, colour), required',
     async run(app) {
       const r = await run(app, `
         await go('fields');
@@ -285,7 +292,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '버전 출시: 끝나지 않은 이슈를 다음 버전으로 옮김',
+    name: 'Version release: unfinished issues move to the next version',
     async run(app) {
       const r = await run(app, `
         await go('versions');
@@ -312,7 +319,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '구성원: 역할 바꾸기, 마지막 관리자 삭제는 오류로 보임',
+    name: 'Members: change roles; removing the last admin shows an error',
     async run(app) {
       const r = await run(app, `
         await go('members');
@@ -340,7 +347,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '자동화: 규칙 만들기(직접 실행, 레이블 붙이기) → 지금 실행 결과 { matched, acted }',
+    name: 'Automation: create a rule (manual, add label) → run now result { matched, acted }',
     async run(app) {
       const r = await run(app, `
         await go('automation');
@@ -371,7 +378,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: 'CSV 가져오기 마법사: 열 읽기 → 짝짓기 → 미리 검사(줄별 오류) → 가져오기',
+    name: 'CSV import wizard: read columns → map → dry run (errors per row) → import',
     async run(app) {
       const r = await run(app, `
         await go('exchange');
@@ -402,7 +409,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '한국어/English: 모든 섹션·보드 탭·편집기에 빠진 문자열 없음',
+    name: 'Korean/English: no missing texts in any section, board tab or editor',
     async run(app) {
       const r = await run(app, `
         const out = {};
@@ -426,7 +433,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '좁은 창·어두운 테마: 가운데는 섹션 편집기만(목록은 좌측 패널 아래), 잘리거나 넘치는 것 없음',
+    name: 'Narrow window and dark theme: only the section editor in the centre (list in the left panel), nothing clipped or overflowing',
     async run(app) {
       // the app's minimum window (900 × 600): with the project list open (workspace ≈ 480 px) and without it
       await app.main.send('Emulation.setDeviceMetricsOverride', { width: 900, height: 600, deviceScaleFactor: 1, mobile: false });
@@ -472,7 +479,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '권한: 프로젝트 관리자가 아니면 읽기 전용 (입력·버튼 꺼짐)',
+    name: 'Permissions: read-only unless project admin (inputs and buttons disabled)',
     async run(app) {
       const r = await run(app, `
         await go('types');
@@ -492,7 +499,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '해결 방법 아이콘·색, 구성 요소 기본 담당자(아바타 목록) — 저장, 실행 취소, 잘림 없음',
+    name: 'Resolution icons and colours, component default assignee (avatar list) — saved, undo, nothing clipped',
     async run(app) {
       const r = await run(app, `
         let sec = await go('resolutions');
@@ -533,7 +540,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '사용자 정의 필드: 기본값(숫자 스테퍼·선택 아이콘 목록)과 쓰는 이슈 유형 칩 → 이슈 만들 때 채워짐, 정렬',
+    name: 'Custom fields: defaults (number stepper, icon option list) and issue type chips → filled when creating issues, aligned',
     async run(app) {
       const r = await run(app, `
         await go('fields');
@@ -587,7 +594,7 @@ export const cases = [
   },
   {
     group: GROUP,
-    name: '워크플로 그림: 상자를 끌면 DB 에 저장(rev), 예전 localStorage 배치는 첫 저장 때 옮겨짐, 실행 취소',
+    name: 'Workflow diagram: dragged boxes are unsaved changes until Save (bar) → saved to the DB (rev), an old localStorage layout moves on first save, undo',
     async run(app) {
       const r = await run(app, `
         const wf0 = listOf(await A.api.projectPart(shop.id, 'workflows'))[0];
@@ -606,14 +613,21 @@ export const cases = [
         for (let i = 1; i <= 5; i++) pe('pointermove', r0.left + 20 + i * 20, r0.top + 10 + i * 10);
         pe('pointerup', r0.left + 120, r0.top + 60);
         await idle();
+        // an unsaved change until Save: nothing in the database yet, the bar shows it
+        const beforeSave = listOf(await A.api.projectPart(shop.id, 'workflows')).find((w) => w.id === wf0.id).layout;
+        const bar = Boolean($('.ps-wf-savebar [data-act="wf-save"]'));
+        await press('[data-act="wf-save"]');
+        const barGone = !document.querySelector('.ps-wf-savebar');
         const wf1 = listOf(await A.api.projectPart(shop.id, 'workflows')).find((w) => w.id === wf0.id);
         const migrated = localStorage.getItem('myboard.workflowLayout.' + wf0.id);
         await A.actions.undo(); await idle();
         const wf2 = listOf(await A.api.projectPart(shop.id, 'workflows')).find((w) => w.id === wf0.id);
-        await press('[data-act="wf-autolayout"]');
+        await press('[data-act="wf-autolayout"]'); await press('[data-act="wf-save"]');
         const wf3 = listOf(await A.api.projectPart(shop.id, 'workflows')).find((w) => w.id === wf0.id);
-        return { legacyShown, moved: wf1.layout?.[s1.id], kept: wf1.layout?.[s2.id], rev: [wf0.rev, wf1.rev], migrated, undone: wf2.layout, auto: wf3.layout };`);
+        return { beforeSave, bar, barGone, legacyShown, moved: wf1.layout?.[s1.id], kept: wf1.layout?.[s2.id], rev: [wf0.rev, wf1.rev], migrated, undone: wf2.layout, auto: wf3.layout };`);
       assert.match(r.legacyShown, /translate\(600 200\)/, 'the old browser layout is shown before it is saved');
+      assert.equal(r.beforeSave, null, 'not written before Save');
+      assert.ok(r.bar && r.barGone, 'the unsaved-changes bar with Save, gone after saving');
       assert.ok(r.moved && r.moved.x > 0 && r.moved.y > 0, `the dragged box is stored: ${JSON.stringify(r.moved)}`);
       assert.deepEqual(r.kept, { x: 600, y: 200 }, 'the old browser layout moved into the DB');
       assert.ok(r.rev[1] > r.rev[0] + 1, 'saved with rev');

@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 
 export const cases = [
   {
-    group: '이슈 링크',
-    name: '#issue=KEY 주소: 시작 화면에서도 그 프로젝트 보드와 이슈 상세가 열리고 주소의 해시는 지워짐',
+    group: 'Issue links',
+    name: `#issue=KEY address: opens that project's board and the issue detail even from the start page, and clears the hash`,
     async run(app) {
       const r = await app.run(String.raw`await T.until(() => A.state.core.status === 'ready', 30000, 'core');
         await T.reset();

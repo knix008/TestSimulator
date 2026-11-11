@@ -25,8 +25,9 @@ export const BACKGROUND_KINDS = ['animated', 'image', 'none'];
 export const ANIMATION_INTERVALS = [0, 15, 30, 60, 120, 300];
 /** The moving backgrounds of the start page (ui/background.js draws each). */
 export const ANIMATIONS = [
-  'blueprint', 'floorplan', 'isometric', 'wireframe', 'sunlight', 'dust', 'fabric', 'woodgrain', 'tiles', 'dimensions',
-  'swatches', 'lamps', 'curtains', 'leaves', 'perspective', 'bricks', 'furniture', 'sunpath', 'parquet', 'contours',
+  'flowBoard', 'stickyWall', 'cumulativeFlow', 'burndownLine', 'throughput', 'controlDots',
+  'issueGraph', 'swimlanes', 'checklist', 'timeline', 'workflow', 'labels',
+  'wipGauge', 'dueCalendar', 'handoff', 'pipeline',
 ];
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const DATE_FORMATS = ['iso', 'ko', 'us', 'eu'];
@@ -60,7 +61,7 @@ export function defaultSettings(language = 'ko') {
     fontStyle: 'normal',
     zoom: 100,
     backgroundKind: 'animated',
-    animation: 'blueprint',
+    animation: 'flowBoard',
     animationSpeed: 100,
     animationRandom: true,
     animationInterval: 30,

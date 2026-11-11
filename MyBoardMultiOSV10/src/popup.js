@@ -23,6 +23,7 @@ import { IconPicker } from './ui/iconpicker.js';
 import { renderIconRef, setIconApiBase } from './ui/iconref.js';
 import { parseRecentPath } from './domain/recent.js';
 import { formHostMessage, renderFormPopup, resetFormPopup } from './ui/formpopup.js';
+import { renderPrintPopup, printPopupAction, printHostMessage } from './print/popup.js';
 
 const desktop = native.isDesktop();
 const appWindow = desktop ? getCurrentWindow() : null;
@@ -191,8 +192,8 @@ function render() {
   try {
     ({
       settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress, recent: renderRecent,
-      menu: renderMenu, theme: renderThemePicker, welcome: renderWelcome, color: renderColor, prompt: renderPrompt,
-      iconpicker: renderIconPicker, login: renderLogin, form: renderForm,
+      menu: renderMenu, welcome: renderWelcome, color: renderColor, prompt: renderPrompt,
+      iconpicker: renderIconPicker, login: renderLogin, form: renderForm, print: () => renderPrintPopup(kind, popupApi),
     })[kind]?.();
     alignRows();
     updateTabsNav();
@@ -337,38 +338,6 @@ function customThemeEditor() {
     </div>`;
 }
 
-// ───────────────────────── theme dropdown (toolbar): two columns, dark | light
-
-let pickerDone = false;
-function renderThemePicker() {
-  const current = s().theme;
-  const column = (glyph, title, list) => `<div class="picker-column">
-    <h3>${icon(glyph)}<span>${escapeHtml(title)}</span></h3>
-    ${list.map((theme) => `<button class="picker-item ${current === theme.id ? 'active' : ''}" data-pick-theme="${theme.id}" title="${escapeHtml(themeName(theme.id, L()))}">
-      <span class="theme-swatch">${theme.swatch.map((color) => `<i style="background:${color}"></i>`).join('')}</span>
-      <span class="theme-name">${escapeHtml(themeName(theme.id, L()))}</span>${current === theme.id ? icon('check', 'icon check') : ''}
-    </button>`).join('')}
-  </div>`;
-  root.innerHTML = frame({
-    glyph: 'palette', title: t('theme.pickTitle'),
-    body: `<div class="theme-picker">
-      <div class="picker-top">
-        <button class="picker-item ${current === SYSTEM ? 'active' : ''}" data-pick-theme="${SYSTEM}" title="${escapeHtml(themeName(SYSTEM, L()))}">${icon('sun')}<span class="theme-name">${escapeHtml(themeName(SYSTEM, L()))}</span>${current === SYSTEM ? icon('check', 'icon check') : ''}</button>
-        <button class="picker-item ${current === CUSTOM ? 'active' : ''}" data-pick-theme="${CUSTOM}" title="${escapeHtml(themeName(CUSTOM, L()))}">${icon('palette')}<span class="theme-name">${escapeHtml(themeName(CUSTOM, L()))}</span>${current === CUSTOM ? icon('check', 'icon check') : ''}</button>
-      </div>
-      <div class="picker-columns">${column('moon', t('theme.darkGroup', { count: DARK_THEMES.length }), DARK_THEMES)}${column('sun', t('theme.lightGroup', { count: LIGHT_THEMES.length }), LIGHT_THEMES)}</div>
-    </div>`,
-    foot: `<button class="button small" data-action="edit-custom" title="${escapeHtml(t('settings.editCustom'))}">${icon('edit')}<span>${escapeHtml(t('settings.editCustom'))}</span></button><button class="button small" data-action="random-theme" title="${escapeHtml(t('action.themeRandom'))}">${icon('dice')}<span>${escapeHtml(t('action.themeRandom'))}</span></button><span class="grow"></span>${button('close', t('common.close'), 'close')}`,
-  });
-  const anchor = P().anchor;
-  if (anchor && !state.placed) {
-    state.placed = true;
-    const size = POPUPS.theme;
-    if (desktop) native.invoke('place_popup', { x: anchor.x, y: anchor.y, width: size.width, height: size.height, flipY: anchor.flipY ?? null, show: true }).catch(() => {});
-    else send('place', { x: anchor.x, y: anchor.y, width: size.width, height: size.height, flipY: anchor.flipY ?? null });
-  }
-  ready();
-}
 
 function settingsFont() {
   const fonts = state.fonts ?? [];
@@ -715,15 +684,24 @@ if (kind === 'menu' && menuGlass) document.documentElement.classList.add('menu-g
 let menuPanels = [];
 let menuTimer = 0;
 
-function menuPanelHtml(items, level, label) {
-  return `<div class="popup-menu" role="menu" data-level="${level}" aria-label="${escapeHtml(label ?? '')}">${items.map((item, index) => (item.separator
-    ? '<div class="menu-sep" role="separator"></div>'
-    : `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.submenu ? 'aria-haspopup="menu" aria-expanded="false"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
-        <span class="menu-icon">${icon(item.icon)}</span>
+/** One menu row (a command, a group that opens a submenu, a theme with its colour swatch). */
+function menuItemHtml(item, index) {
+  return `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.submenu ? 'aria-haspopup="menu" aria-expanded="false"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
+        <span class="menu-icon">${item.swatch ? `<span class="theme-swatch menu-swatch">${item.swatch.map((color) => `<i style="background:${escapeHtml(color)}"></i>`).join('')}</span>` : icon(item.icon)}</span>
         <span class="menu-label">${escapeHtml(item.label)}</span>
         <span class="menu-key">${escapeHtml(item.shortcut ?? '')}</span>
         <span class="menu-check">${item.submenu ? icon('chevronRight') : item.checked ? icon('check') : ''}</span>
-      </button>`)).join('')}</div>`;
+      </button>`;
+}
+
+/**
+ * A panel. Besides rows and separators an item can be { columns: [[rows], [rows]], heads?, headIcons? }: the rows
+ * side by side under their headings, all on one level (the theme drop-down's dark and light themes).
+ */
+function menuPanelHtml(items, level, label) {
+  const row = (item, index) => (item.separator ? '<div class="menu-sep" role="separator"></div>' : menuItemHtml(item, index));
+  const columns = (item, index) => `<div class="menu-columns">${item.columns.map((col, k) => `<div class="menu-column" role="group" aria-label="${escapeHtml(item.heads?.[k] ?? '')}">${item.heads?.[k] ? `<div class="menu-group">${icon(item.headIcons?.[k] ?? 'dot')}<span>${escapeHtml(item.heads[k])}</span></div>` : ''}${col.map((x, j) => row(x, `${index}.${k}.${j}`)).join('')}</div>`).join('')}</div>`;
+  return `<div class="popup-menu${items.some((x) => x.columns) ? ' has-columns' : ''}" role="menu" data-level="${level}" aria-label="${escapeHtml(label ?? '')}">${items.map((item, index) => (item.columns ? columns(item, index) : row(item, index))).join('')}</div>`;
 }
 
 /** Adds a panel (hidden until placed) and measures it. */
@@ -994,8 +972,9 @@ const popupApi = { root, state, s, P, L, t, icon, escapeHtml, frame, button, row
 // ───────────────────────── events
 
 root.addEventListener('click', async (event) => {
-  const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-theme-group], [data-pick-theme], [data-draft-segment], [data-pick-color], [data-db-type]');
+  const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-theme-group], [data-draft-segment], [data-pick-color], [data-db-type]');
   if (!target || target.disabled) return undefined;
+  if (printPopupAction(kind, target, popupApi)) return undefined;
   if (target.classList.contains('menu-item')) return chooseMenu(target.dataset.id, target);
   if (target.dataset.setting) {
     const key = target.dataset.setting;
@@ -1004,7 +983,6 @@ root.addEventListener('click', async (event) => {
   }
   if (target.dataset.dbType) { state.db.draft = { ...state.db.draft, type: target.dataset.dbType, port: '' }; return render(); }
   if (target.dataset.themeGroup) { state.themeGroup = target.dataset.themeGroup; return render(); }
-  if (target.dataset.pickTheme) { pickerDone = true; return close({ theme: target.dataset.pickTheme }); }
   if (target.dataset.pickColor) { colorDone = true; return close({ color: target.dataset.pickColor }); }
   const d = state.draft;
   if (target.dataset.draftSegment) {
@@ -1042,8 +1020,6 @@ root.addEventListener('click', async (event) => {
       return copyText([...root.querySelectorAll('#about-rows dt')].map((dt) => `${dt.textContent.trim()}: ${dt.nextElementSibling.textContent.trim()}`).join('\n')).then(() => action('notice', { kind: 'success', text: t('error.copied') }));
     case 'use-custom': return update({ theme: CUSTOM });
     case 'copy-theme': { const from = resolveTheme(s().theme === CUSTOM ? 'light' : s().theme, prefersDark(), s().customTheme); return update({ customTheme: customFrom(from) }); }
-    case 'edit-custom': pickerDone = true; await action('open-settings', { tab: 'appearance', themeGroup: 'custom' }); return close();
-    case 'random-theme': { const all = [...LIGHT_THEMES, ...DARK_THEMES].map((theme) => theme.id).filter((id) => id !== s().theme); pickerDone = true; return close({ theme: all[Math.floor(Math.random() * all.length)] }); }
     case 'prompt-apply': return close({ value: d.value });
     case 'login-apply': return close({ username: d.username, password: d.password });
     case 'db-test': case 'db-switch': case 'db-copy': return databaseAction(target.dataset.action);
@@ -1055,6 +1031,7 @@ root.addEventListener('click', async (event) => {
 root.addEventListener('change', (event) => {
   const target = event.target;
   const d = state.draft;
+  if (printPopupAction(kind, target, popupApi, 'change')) return undefined;
   if (target.dataset.dbField) { const key = target.dataset.dbField; state.db.draft = { ...state.db.draft, [key]: target.type === 'checkbox' ? target.checked : target.value }; return undefined; }
   if (target.dataset.toggle) return update({ [target.dataset.toggle]: target.checked });
   if (target.dataset.select) { const key = target.dataset.select; return update({ [key]: typeof s()[key] === 'number' ? Number(target.value) : target.value }); }
@@ -1125,10 +1102,9 @@ function regainedFromMain(lostAt) {
   return true;
 }
 
-// The theme dropdown and the colour picker close when they lose focus.
+// The colour picker closes when it loses focus.
 window.addEventListener('blur', () => {
   const lostAt = Date.now();
-  if (kind === 'theme' && !pickerDone) setTimeout(() => { if (!document.hasFocus() && !pickerDone && !regainedFromMain(lostAt)) { pickerDone = true; close(); } }, 150);
   if (kind === 'color' && !colorDone) setTimeout(() => { if (!document.hasFocus() && !colorDone && !document.querySelector('[data-color-custom]:focus') && !regainedFromMain(lostAt)) { colorDone = true; close(); } }, 200);
 });
 
@@ -1136,6 +1112,7 @@ window.addEventListener('blur', () => {
 bindSteppers(root, (key, value) => {
   const [scope, field] = key.includes(':') ? key.split(':') : ['setting', key];
   if (scope === 'setting') update({ [field]: value });
+  if (scope === 'print') printPopupAction(kind, { dataset: { stepper: field, value } }, popupApi, 'stepper');
   return undefined;
 });
 
@@ -1189,6 +1166,8 @@ function onHostMessage(message) {
     setTimeout(() => { if (state.doneAt === stamp) root.innerHTML = ''; }, 1500);
   } else if (message?.type === 'refresh') {
     refresh();
+  } else if (printHostMessage(kind, message, popupApi)) {
+    // the print content from the main window
   } else if (kind === 'form' && String(message?.type ?? '').startsWith('form-')) {
     formHostMessage(popupApi, message);
   }
@@ -1214,7 +1193,7 @@ function refresh() {
   state.page = 0;
   state.pager = {};
   state.draft = null;
-  if (kind === 'theme' || kind === 'color') { state.placed = false; pickerDone = false; colorDone = false; }
+  if (kind === 'color') { state.placed = false; colorDone = false; }
   if (kind === 'iconpicker') picker = null;
   if (kind === 'form') resetFormPopup(popupApi);
   if (kind === 'settings') state.db = null;

@@ -10,12 +10,14 @@ import { escapeHtml } from '../../ui/dom.js';
 import { renderIconRef } from '../../ui/iconref.js';
 
 /** Reports whose "done" is the board's rightmost column (board scope). */
-export const REF_REPORTS = new Set(['cfd', 'control', 'throughput', 'createdResolved', 'workload', 'version']);
+export const REF_REPORTS = new Set(['cfd', 'control', 'throughput', 'burndown', 'createdResolved', 'workload', 'version']);
 
 /** The "기준 열: <column>" chip: the reference (rightmost) column with its icon. `col` = { id, name, icon }. */
-export function refChipHtml(col, L, { size = 14 } = {}) {
+export function refChipHtml(col, L, { size = 14, changeable = false } = {}) {
   if (!col) return '';
-  return `<span class="rp-ref-chip" data-ref-column="${escapeHtml(col.id)}" title="${escapeHtml(L('refColumnTip', { name: col.name }))}">${renderIconRef(col.icon, { size, fallback: 'b:check' })}<span>${escapeHtml(L('refColumn'))}: <b>${escapeHtml(col.name)}</b></span></span>`;
+  // a button: it opens the choice of the reference column (the reports view; plain text inside a dashboard gadget)
+  const tag = changeable ? 'button' : 'span';
+  return `<${tag} ${changeable ? 'type="button" data-act="ref-column" ' : ''}class="rp-ref-chip${changeable ? ' changeable' : ''}" data-ref-column="${escapeHtml(col.id)}" title="${escapeHtml(L('refColumnTip', { name: col.name }))}">${renderIconRef(col.icon, { size, fallback: 'b:check' })}<span>${escapeHtml(L('refColumn'))}: <b>${escapeHtml(col.name)}</b></span>${changeable ? '<span class="rp-ref-caret" aria-hidden="true">▾</span>' : ''}</${tag}>`;
 }
 
 const DAY = 86400000;
@@ -126,6 +128,46 @@ export const REPORTS = {
     summary(data, opts, ctx) {
       const total = data.buckets.reduce((a, b) => a + b.count, 0);
       return [{ label: ctx.L('completedIssues'), value: total }, { label: ctx.L('storyPoints'), value: data.buckets.reduce((a, b) => a + b.points, 0) }, { label: ctx.L(data.interval === 'day' ? 'perDay' : 'perWeek'), value: Math.round(data.average * 10) / 10 }];
+    },
+  },
+
+  // Burndown: the work left each day — issues not (yet) in the reference ("done") column, from the cumulative
+  // flow data — against the ideal line from the first day's amount down to zero on the last day, and the scope.
+  burndown: {
+    icon: 'trendDown',
+    fetch: (api, q) => api.report('cfd', q),
+    remaining(data) {
+      const done = data.doneColumnId ?? data.referenceColumn?.id ?? data.columns.at(-1)?.id;
+      const scope = data.days.map((_, i) => data.series.reduce((a, s) => a + (s.values[i] ?? 0), 0));
+      const left = data.days.map((_, i) => data.series.reduce((a, s) => a + (s.columnId === done ? 0 : s.values[i] ?? 0), 0));
+      // the ideal line starts on the first day with any work (a new board has nothing before) and reaches 0 on the last day
+      const n = data.days.length;
+      const first = Math.max(0, scope.findIndex((v) => v > 0));
+      const start = left[first] ?? 0;
+      const span = n - 1 - first;
+      const ideal = data.days.map((_, i) => (i < first ? null : span <= 0 ? 0 : Math.round((start * (1 - (i - first) / span)) * 10) / 10));
+      return { scope, left, ideal, first };
+    },
+    draw(data, opts, size, colors, ctx) {
+      const { scope, left, ideal } = this.remaining(data);
+      const series = [
+        { name: ctx.L('remainingIssues'), color: colors.series[0], values: left, area: true },
+        { name: ctx.L('idealLine'), color: colors.text, values: ideal, dash: true },
+        { name: ctx.L('scope'), color: colors.series[4], values: scope },
+      ];
+      const out = lines({ ...size, colors, labels: data.days, series, formatLabel: (d, long) => shortDate(d, ctx.lang, long), title: ctx.L('r_burndown') });
+      return { ...out, legend: legendHtml(series) };
+    },
+    csv(data) {
+      const { scope, left, ideal } = this.remaining(data);
+      return [['Date', 'Remaining issues', 'Ideal', 'Scope'], ...data.days.map((d, i) => [d, left[i], ideal[i], scope[i]])];
+    },
+    summary(data, opts, ctx) {
+      const { scope, left, first } = this.remaining(data);
+      const last = left.at(-1) ?? 0;
+      // burned = what reached the reference column over the period (the done count now minus on the first day)
+      const burned = Math.max(0, ((scope.at(-1) ?? 0) - last) - ((scope[first] ?? 0) - (left[first] ?? 0)));
+      return [{ label: ctx.L('remainingIssues'), value: last }, { label: ctx.L('burned'), value: burned }, { label: ctx.L('scope'), value: scope.at(-1) ?? 0 }, { label: ctx.L('scopeChange'), value: (scope.at(-1) ?? 0) - (scope[first] ?? 0) }];
     },
   },
 

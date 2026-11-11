@@ -3,6 +3,8 @@
    (.ps-tiny); wide tables scroll inside themselves, never the page. */
 
 #workspace.ps-host { overflow: hidden; }
+.ps-wf-savebar { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 6px 8px 6px 12px; border: 1px solid color-mix(in srgb, var(--warning, #e8a33d) 55%, var(--border)); border-radius: 10px; background: color-mix(in srgb, var(--warning, #e8a33d) 14%, var(--surface)); font-weight: 600; }
+.ps-wf-savebar .icon { color: var(--warning, #c97a10); }
 .ps-root { display: grid; grid-template-columns: minmax(0, 1fr); height: 100%; min-height: 0; background: var(--bg); color: var(--text); }
 .ps-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .ps-content { flex: 1; min-height: 0; overflow: auto; }
@@ -322,3 +324,5 @@ select.ps-select { height: 30px; min-width: 0; width: 100%; font: inherit; color
 .ps-typechip:hover:not(:disabled) { border-color: var(--accent); }
 .ps-typechip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); font-weight: 600; }
 .ps-typechip:disabled { cursor: default; opacity: 0.7; }
+/* a default column: a lock where the bin would be */
+.ps-col-lock { cursor: default; opacity: 0.55; }

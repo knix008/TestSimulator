@@ -30,8 +30,8 @@ const ANSWER_PROMPT = `async function answerPrompt(value) {
 
 export const cases = [
   {
-    group: '백로그',
-    name: '샘플 불러오기 → 목록이 API 결과와 같음 (보드 열로 묶음, 쪽 크기, 에픽·버전 패널)',
+    group: 'Backlog',
+    name: 'Samples loaded → the list matches the API (grouped by board column, page size, epic and version lists)',
     async run(app) {
       const r = await app.run(`${OPEN}
         const api = await A.api.issues({ jql: v.currentJql(), limit: 50 });
@@ -52,8 +52,8 @@ export const cases = [
     },
   },
   {
-    group: '백로그',
-    name: '끌어서 순위 바꾸기 (실제 포인터) → API 순서가 바뀜, 실행 취소로 되돌림',
+    group: 'Backlog',
+    name: 'Drag to rank (real pointer) → API order changes, undo restores it',
     async run(app) {
       const before = await app.run(`${OPEN}
         const group = document.querySelector('.bl-group .bl-group-body');
@@ -75,8 +75,8 @@ export const cases = [
     },
   },
   {
-    group: '백로그',
-    name: '키보드로 순위 (Alt+↓) 와 커서 이동 (↓, Enter → 상세)',
+    group: 'Backlog',
+    name: 'Keyboard ranking (Alt+↓) and cursor moves (↓, Enter → detail)',
     async run(app) {
       const r = await app.run(`${OPEN}
         const rows = [...document.querySelector('.bl-group .bl-group-body').querySelectorAll('.bl-row')];
@@ -95,8 +95,8 @@ export const cases = [
     },
   },
   {
-    group: '백로그',
-    name: '여러 개 고르기 (Ctrl/Shift) → 일괄 상태 바꾸기·담당자 → API 확인, 실행 취소',
+    group: 'Backlog',
+    name: 'Multi-select (Ctrl/Shift) → bulk status and assignee → checked in the API, undo',
     async run(app) {
       const r = await app.run(`${OPEN}
         const rows = [...document.querySelectorAll('.bl-row')];
@@ -129,8 +129,8 @@ export const cases = [
     },
   },
   {
-    group: '백로그',
-    name: '인라인 이슈 만들기 (Enter) → API 에 생기고 목록에 보임, 실행 취소는 삭제',
+    group: 'Backlog',
+    name: 'Inline issue creation (Enter) → created in the API and listed, undo deletes it',
     async run(app) {
       const r = await app.run(`${OPEN}
         const total = v.total;
@@ -152,8 +152,8 @@ export const cases = [
     },
   },
   {
-    group: '백로그',
-    name: '기본 검색: 유형·상태 드롭다운 + 글자 → JQL 과 개수가 API 와 같음',
+    group: 'Backlog',
+    name: 'Basic search: type and status drop-downs + text → JQL and count match the API',
     async run(app) {
       const r = await app.run(`${OPEN}
         const pick = async (drop, label) => {
@@ -182,8 +182,8 @@ export const cases = [
     },
   },
   {
-    group: '백로그',
-    name: 'JQL: 올바른 질의 · 문법 오류 위치에 밑줄 · 자동 완성 (필드·값)',
+    group: 'Backlog',
+    name: 'JQL: valid query, syntax error underlined at its position, autocomplete (fields and values)',
     async run(app) {
       const r = await app.run(`${OPEN}
         document.querySelector('.bl-mode [data-value="jql"]').click();
@@ -220,8 +220,8 @@ export const cases = [
     },
   },
   {
-    group: '백로그',
-    name: '열 머리글로 정렬 (ORDER BY) · 열 고르기 · 쪽 넘기기',
+    group: 'Backlog',
+    name: 'Sorting by column header (ORDER BY), column chooser, paging',
     async run(app) {
       const r = await app.run(`${OPEN}
         document.querySelector('[data-sort="priority"]').click(); await T.until(() => v.lastJql.includes('ORDER BY priority ASC'), 4000, 'asc'); await settle();
@@ -248,23 +248,22 @@ export const cases = [
     },
   },
   {
-    group: '백로그',
-    name: '저장된 필터: 저장(이름 입력) → 목록 → 별표 → 삭제(확인) → API 에서 사라짐',
+    group: 'Backlog',
+    name: 'Saved filters: save (name prompt) → listed → star → delete (confirm) → gone from the API',
     async run(app) {
       const r = await app.run(`${OPEN}
         ${ANSWER_PROMPT}
         const name = 'E2E 필터 ' + Date.now();
         v.filters.hideDone = true; await v.search();
-        document.querySelector('[data-drop="filters"]').click(); await T.until(() => document.querySelector('.mbv-pop'), 3000, 'menu');
-        document.querySelector('.mbv-pop-item[data-value="saveAs"]').click();
+        document.querySelector('[data-drop="filters"]').click(); await T.popupReady('menu'); T.popupDoc('menu').querySelector('.menu-item[data-id="custom:view-menu:saveAs"]').click();
         await answerPrompt(name);
         await T.until(() => v.filter?.name === name, 8000, 'saved');
         const saved = (await A.api.filters()).find((f) => f.name === name);
         await v.filterAction('star');
         const starred = (await A.api.filters()).find((f) => f.name === name)?.favourite;
-        document.querySelector('[data-drop="filters"]').click(); await T.until(() => document.querySelector('.mbv-pop'), 3000, 'menu 2');
+        document.querySelector('[data-drop="filters"]').click(); await T.popupReady('menu');
         await T.frames(2); const listed = [...document.querySelectorAll('.left-view-body [data-vs-act="filter"] .vs-label')].some((x) => x.textContent === name);
-        document.querySelector('.mbv-pop-item[data-value="delete"]').click();
+        T.popupDoc('menu').querySelector('.menu-item[data-id="custom:view-menu:delete"]').click();
         await answerConfirm('delete');
         await T.until(() => !v.filter, 8000, 'deleted');
         const after = (await A.api.filters()).some((f) => f.name === name);
@@ -276,8 +275,8 @@ export const cases = [
     },
   },
   {
-    group: '백로그',
-    name: 'CSV 내보내기: 지금 질의의 이슈가 모두 들어 있음',
+    group: 'Backlog',
+    name: 'CSV export: contains every issue of the current query',
     async run(app) {
       const r = await app.run(`${OPEN}
         const text0 = document.querySelector('[data-input="text"]'); text0.value = 'checkout'; text0.dispatchEvent(new Event('input', { bubbles: true }));
@@ -301,8 +300,8 @@ export const cases = [
     },
   },
   {
-    group: '백로그',
-    name: '에픽 패널로 거르기 · Ctrl+F 는 검색 칸 · 이슈 만들기 명령은 양식 팝업',
+    group: 'Backlog',
+    name: 'Filtering by epic in the sidebar, Ctrl+F focuses search, the create command opens the form popup',
     async run(app) {
       const r = await app.run(`${OPEN}
         const epicBtn = [...document.querySelectorAll('.left-view-body [data-vs-act="epic"]')].find((b) => b.dataset.vsValue && b.dataset.vsValue !== '*');
@@ -334,8 +333,8 @@ export const cases = [
     },
   },
   {
-    group: '백로그',
-    name: '영어로 바꾸면 글자가 바뀜 (ko ↔ en)',
+    group: 'Backlog',
+    name: 'Switching to English changes the texts (ko ↔ en)',
     async run(app) {
       const r = await app.run(`${OPEN}
         const ko = document.querySelector('.bl-create-open').textContent.trim();
@@ -350,8 +349,8 @@ export const cases = [
     },
   },
   {
-    group: '백로그',
-    name: '좁은 창 · 어두운 테마: 페이지 가로 스크롤 없음, 도구가 잘리지 않음',
+    group: 'Backlog',
+    name: 'Narrow window and dark theme: no page-level horizontal scroll, tools not clipped',
     async run(app) {
       await app.main.send('Emulation.setDeviceMetricsOverride', { width: 1000, height: 760, deviceScaleFactor: 1, mobile: false });
       try {

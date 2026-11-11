@@ -44,6 +44,8 @@ export function createBoards(core) {
     check(['cards', 'parent'].includes(s.subtasks), 'INVALID_SETTINGS', 'subtasks must be cards or parent');
     check(['issueCount', 'none'].includes(s.columnConstraint), 'INVALID_SETTINGS', 'columnConstraint must be issueCount or none');
     s.doneHideDays = s.doneHideDays == null || s.doneHideDays === '' ? null : Math.max(0, Number(s.doneHideDays));
+    // the reports' reference ("done") column; null = the rightmost column
+    s.reportColumnId = s.reportColumnId ? String(s.reportColumnId) : null;
     return s;
   }
 
@@ -103,7 +105,13 @@ export function createBoards(core) {
       if (!v.ok) throw new ValidationError(v.error.code, v.error.message, v.error.details);
     }
   };
+  /** The board's own columns (made with the board, at the same moment) stay: only columns added later can go. */
+  const isBuiltIn = (col, board) => Boolean(board) && Number(col.created_at) <= Number(board.created_at);
   const columns = crud(core, {
+    beforeRemove: async (d, col) => {
+      const board = await d.get('SELECT "created_at" FROM "boards" WHERE "id" = ?', [col.board_id]);
+      check(!isBuiltIn(col, board), 'BUILT_IN_COLUMN', 'A default column of the board cannot be deleted');
+    },
     table: 'board_columns', entity: 'column', parent: 'board_id', projectOf: boardProject, topics: boardTopics,
     fields: ['name', 'icon', 'position', 'wip_min', 'wip_max', 'status_ids'],
     defaults: async () => ({ status_ids: [] }),
@@ -158,7 +166,7 @@ export function createBoards(core) {
       const cols = await columnsOf(b.id);
       return {
         ...boardOut(b),
-        columns: cols.map((c) => toApi('board_columns', c)),
+        columns: cols.map((c) => ({ ...toApi('board_columns', c), builtIn: isBuiltIn(c, b) })),
         swimlanes: (await db().select('swimlanes', { board_id: b.id }, { order: 'position' })).map((r) => toApi('swimlanes', r)),
         quickFilters: (await db().select('quick_filters', { board_id: b.id }, { order: 'position' })).map((r) => toApi('quick_filters', r)),
         cardColors: (await db().select('card_colors', { board_id: b.id }, { order: 'position' })).map((r) => toApi('card_colors', r)),
@@ -385,7 +393,7 @@ export function createBoards(core) {
         board: { ...boardOut(board), settings },
         columns: cols.map((c) => ({
           id: c.id, name: c.name, icon: c.icon, position: c.position, wipMin: c.wip_min, wipMax: c.wip_max, statusIds: c.ids, rev: c.rev,
-          backlog: c.ids.length > 0 && c.ids.every((s) => backlogStatus.has(s)), done: doneCols.has(c.id),
+          backlog: c.ids.length > 0 && c.ids.every((s) => backlogStatus.has(s)), done: doneCols.has(c.id), builtIn: isBuiltIn(c, board),
           count: colStats[c.id].count, points: colStats[c.id].points,
           overMax: c.wip_max != null && colStats[c.id].count > Number(c.wip_max), underMin: c.wip_min != null && colStats[c.id].count < Number(c.wip_min),
         })),

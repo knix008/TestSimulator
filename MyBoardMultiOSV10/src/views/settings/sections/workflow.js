@@ -3,6 +3,9 @@
 // (conditions, validators, post functions — ARCHITECTURE §3.4) in a structured editor. Box positions are kept on
 // the workflow (`layout` { statusId: { x, y } }, PATCH with rev, undo-able), so every user sees the same diagram.
 // Older versions kept them in localStorage: such a layout is shown until the first save moves it into the DB.
+// Edits of the workflow itself (name, initial status, box positions, transition rows, removed transitions) are kept
+// as unsaved changes and written together with the Save button (one undo step); Discard drops them. The transition
+// editor (new / edit with its rules) keeps its own Save.
 import { tr, esc, icon, btn, ibtn, select, input, textarea, card, note, userOptions, CATEGORY_ICON } from '../util.js';
 import { table, bindTables } from './collection.js';
 import { jqlInput, bindJql } from './jql.js';
@@ -30,11 +33,86 @@ export function legacyLayout(wfId) {
 }
 function dropLegacyLayout(wfId) { try { globalThis.localStorage?.removeItem(layoutKey(wfId)); } catch { /* private window */ } }
 /** The stored positions: the workflow's own, else (not saved yet) the browser's old ones. */
-const loadLayout = (wf) => (wf.layout && typeof wf.layout === 'object' ? wf.layout : legacyLayout(wf.id) ?? {});
-/** Saves positions on the workflow (undo-able; null = automatic layout); the browser's old copy is dropped. */
+const loadLayout = (wf) => (wf.autoLayout ? {} : wf.layout && typeof wf.layout === 'object' ? wf.layout : legacyLayout(wf.id) ?? {});
+/** New box positions (null = automatic layout): an unsaved change until Save. */
 function saveLayout(S, wf, layout) {
-  const item = { ...wf, layout: wf.layout ?? legacyLayout(wf.id) };
-  return S.patch(tr('wf.opLayout', { name: wf.name }), S.url('workflows', wf.id), item, { layout }, { after: () => dropLegacyLayout(wf.id) });
+  stageOf(S, wf.id).layout = layout ? { ...layout } : null;
+  S.render();
+}
+
+// ───────────────────────── unsaved changes (Save / Discard)
+
+/** The unsaved changes of a workflow: { fields { name, initialStatusId }, layout (undefined = none), transitions { id: patch }, removed [ids] }. */
+function stageOf(S, wfId) {
+  S.pending.wfStage ??= {};
+  return (S.pending.wfStage[wfId] ??= { fields: {}, layout: undefined, transitions: {}, removed: [] });
+}
+const stageCount = (st) => Object.keys(st.fields).length + (st.layout !== undefined ? 1 : 0) + Object.keys(st.transitions).length + st.removed.length;
+/** The workflow as it will be after Save (what the section shows). */
+function staged(S, wf) {
+  const st = stageOf(S, wf.id);
+  return {
+    ...wf, ...st.fields,
+    ...(st.layout !== undefined ? { layout: st.layout, autoLayout: st.layout === null } : {}),
+    transitions: (wf.transitions ?? []).filter((t) => !st.removed.includes(t.id)).map((t) => ({ ...t, ...(st.transitions[t.id] ?? {}) })),
+  };
+}
+
+/** Writes the unsaved changes (workflow fields + layout, transition rows, removals) as one undo step. */
+async function saveStage(S, wf) {
+  const st = stageOf(S, wf.id);
+  if (!stageCount(st)) return;
+  const wfUrl = S.url('workflows', wf.id);
+  const trUrl = (id) => S.url('transitions', id);
+  const revOf = (url, item) => S.revs.get(url) ?? item?.rev;
+  const forward = { fields: { ...st.fields, ...(st.layout !== undefined ? { layout: st.layout } : {}) }, transitions: structuredClone(st.transitions), removed: [...st.removed] };
+  const back = { fields: Object.fromEntries(Object.keys(forward.fields).map((k) => [k, k === 'layout' ? wf.layout ?? legacyLayout(wf.id) ?? null : wf[k] ?? null])), transitions: {} };
+  for (const [id, p] of Object.entries(forward.transitions)) {
+    const t = (wf.transitions ?? []).find((x) => x.id === id);
+    if (t) back.transitions[id] = Object.fromEntries(Object.keys(p).map((k) => [k, t[k] ?? null]));
+  }
+  let removedRows = (wf.transitions ?? []).filter((t) => forward.removed.includes(t.id)).map((t) => structuredClone(t));
+  const patchWf = async (fields) => { if (!Object.keys(fields).length) return; const r = await S.api.patch(wfUrl, { ...fields, rev: revOf(wfUrl, wf) }); S.sawRev(wfUrl, r); };
+  const patchTr = async (map) => { for (const [id, p] of Object.entries(map)) { const t = (wf.transitions ?? []).find((x) => x.id === id); const r = await S.api.patch(trUrl(id), { ...p, rev: revOf(trUrl(id), t) }); S.sawRev(trUrl(id), r); } };
+  const remove = async (ids) => { for (const id of ids) await S.api.del(trUrl(id)); };
+  const recreate = async (rows) => {
+    const out = [];
+    for (const t of rows) { let r = await S.api.post(S.url('transitions'), { workflowId: wf.id, name: t.name, fromStatusId: t.fromStatusId ?? null, toStatusId: t.toStatusId, rules: t.rules }); r = r?.transition ?? r; out.push({ ...t, id: r.id, rev: r.rev }); }
+    return out;
+  };
+  const done = await S.run(async () => {
+    await patchWf(forward.fields);
+    await patchTr(forward.transitions);
+    await remove(forward.removed);
+    if ('layout' in forward.fields) dropLegacyLayout(wf.id);
+    delete S.pending.wfStage[wf.id];
+  }, { ok: tr('wf.saved', { name: forward.fields.name ?? wf.name }) });
+  if (!done) return;
+  S.ctx.history?.record({
+    label: tr('wf.opSave', { name: forward.fields.name ?? wf.name }),
+    undo: async () => { await patchWf(back.fields); await patchTr(back.transitions); removedRows = await recreate(removedRows); await S.refresh(); },
+    redo: async () => { await patchWf(forward.fields); await patchTr(forward.transitions); await remove(removedRows.map((t) => t.id)); await S.refresh(); },
+  });
+}
+
+/** The app's Save (Ctrl+S): every workflow with unsaved changes. → how many were saved. */
+export async function saveAllStages(S) {
+  let saved = 0;
+  for (const [id, st] of Object.entries(S.pending.wfStage ?? {})) {
+    const wf = S.config?.workflows?.find((w) => w.id === id);
+    if (!wf || !stageCount(st)) continue;
+    await saveStage(S, wf);
+    saved += 1;
+  }
+  return saved;
+}
+export const unsavedCount = (S) => Object.values(S.pending?.wfStage ?? {}).reduce((n, st) => n + stageCount(st), 0);
+
+/** The bar above the editor while there are unsaved changes. */
+function stageBar(S, wf) {
+  const n = stageCount(stageOf(S, wf.id));
+  if (!n) return '';
+  return `<div class="ps-wf-savebar" role="status">${icon('warning')}<span>${esc(tr('wf.unsaved', { n }))}</span><span class="grow"></span>${btn('wf-discard', tr('wf.discard'), 'undo')}${btn('wf-save', tr('common.save'), 'save', { cls: 'primary', disabled: !S.canEdit })}</div>`;
 }
 
 /** Box positions: stored ones, the rest in columns by category (to do · in progress · done). */
@@ -193,9 +271,10 @@ function draftEditor(S, draft) {
 export const workflowSection = {
   id: 'workflow', glyph: 'routeOrtho',
   render(S) {
-    const wf = currentWorkflow(S);
+    const current = currentWorkflow(S);
     const wfs = S.config.workflows;
-    if (!wf) return `${note(tr('wf.none'))}${newWorkflowLine(S)}`;
+    if (!current) return `${note(tr('wf.none'))}${newWorkflowLine(S)}`;
+    const wf = staged(S, current);
     const layout = layoutOf(S.config.statuses, loadLayout(wf));
     const usedBy = S.config.types.filter((t) => t.workflowId === wf.id);
     const sel = S.pending.wfSel && S.config.statuses.find((s) => s.id === S.pending.wfSel);
@@ -207,6 +286,7 @@ export const workflowSection = {
         <span class="grow"></span>
         ${btn('wf-delete', tr('wf.delete'), 'trash', { cls: 'danger', disabled: !S.canEdit })}
       </div>
+      ${stageBar(S, current)}
       <p class="ps-p muted">${esc(usedBy.length ? tr('wf.usedBy', { types: usedBy.map((t) => t.name).join(', ') }) : tr('wf.unused'))}</p>
       ${S.pending.wfDelete ? wfDeleteConfirm(S, wf, usedBy) : ''}
       ${card(tr('wf.diagram'), 'diagram', `<div class="ps-wf-bar">${sel ? `<span class="ps-chip">${icon('flag')}<span>${esc(sel.name)}</span></span>${btn('tr-new-from', tr('wf.newFrom', { name: sel.name }), 'plus', { disabled: !S.canEdit })}${btn('tr-new-to', tr('wf.newTo', { name: sel.name }), 'arrowEnd', { disabled: !S.canEdit })}` : `<span class="muted">${esc(tr('wf.diagramHint'))}</span>`}<span class="grow"></span>${btn('wf-autolayout', tr('wf.autoLayout'), 'autoArrange')}</div>
@@ -227,11 +307,18 @@ export const workflowSection = {
       ${newWorkflowLine(S)}`;
   },
   bind(S, el) {
-    const wf = currentWorkflow(S);
+    const current = currentWorkflow(S);
     bindJql(S, el);
-    if (!wf) { bindNewWorkflow(S, el); return; }
+    if (!current) { bindNewWorkflow(S, el); return; }
+    const wf = staged(S, current);
+    const st = stageOf(S, current.id);
     const findT = (id) => (wf.transitions ?? []).find((t) => t.id === id);
-    bindTables(S, el, { transitions: { find: findT, remove: (id) => S.api.del(S.url('transitions', id)) } });
+    // table edits and removals are unsaved changes until Save
+    bindTables(S, el, { transitions: {
+      find: findT,
+      onField: (item, name, value) => { st.transitions[item.id] = { ...(st.transitions[item.id] ?? {}), [name]: value }; S.render(); },
+      remove: async (id) => { st.removed.push(id); delete st.transitions[id]; },
+    } });
     bindNewWorkflow(S, el);
     const openDraft = (t, preset = {}) => {
       S.pending.trDraft = t
@@ -246,7 +333,8 @@ export const workflowSection = {
       if (target.dataset.wf) {
         const value = target.value;
         if (target.dataset.wf === 'name' && !value.trim()) { S.say('danger', tr('err.REQUIRED')); S.render(); return; }
-        S.patch(tr('op.edit', { name: wf.name }), S.url('workflows', wf.id), wf, { [target.dataset.wf]: value || null });
+        st.fields[target.dataset.wf] = value || null;
+        S.render();
         return;
       }
       const draft = S.pending.trDraft;
@@ -282,7 +370,9 @@ export const workflowSection = {
         }
         case 'rule-delete': draft.rules[button.dataset.rkind].splice(Number(button.dataset.ridx), 1); S.render(); break;
         case 'draft-save': await saveDraft(S, wf, draft); break;
-        case 'wf-autolayout': if (wf.layout || legacyLayout(wf.id)) await saveLayout(S, wf, null); break;
+        case 'wf-autolayout': if (wf.layout || legacyLayout(wf.id) || st.layout) saveLayout(S, wf, null); break;
+        case 'wf-save': await saveStage(S, current); break;
+        case 'wf-discard': delete S.pending.wfStage[current.id]; S.render(); break;
         case 'wf-delete': S.pending.wfDelete = true; S.render(); break;
         case 'wf-delete-cancel': S.pending.wfDelete = false; S.render(); break;
         case 'wf-delete-do': {

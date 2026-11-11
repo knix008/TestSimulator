@@ -63,6 +63,14 @@ export function markdown(text) {
   return html.join('\n');
 }
 
+/** The contents on the left: every h2 / h3 of the page (they carry ids), linked. */
+function tocOf(body, lang) {
+  const items = [...body.matchAll(/<h([23]) id="([^"]+)"[^>]*>([\s\S]*?)<\/h\1>/g)].map(([, level, id, inner]) => ({ level: Number(level), id, text: inner.replace(/<[^>]+>/g, '') }));
+  if (!items.length) return '<nav class="toc" aria-hidden="true"></nav>';
+  const title = lang === 'en' ? 'Contents' : '목차';
+  return `<nav class="toc" aria-label="${title}"><p class="toc-title">${title}</p><ul>${items.map((item) => `<li class="h${item.level}"><a href="#${esc(item.id)}">${item.text}</a></li>`).join('')}</ul></nav>`;
+}
+
 function page(title, lang, body) {
   return `<!doctype html>
 <html lang="${lang}">
@@ -74,7 +82,17 @@ function page(title, lang, body) {
   :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
   @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
-  main { max-width: 860px; margin: 0 auto; padding: 28px 28px 60px; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 20px 24px; }
+  main { min-width: 0; max-width: 860px; padding: 8px 0 60px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; padding: 8px 8px 8px 0; border-right: 1px solid var(--border); }
+  nav.toc .toc-title { font-weight: 700; color: var(--muted); font-size: 12px; letter-spacing: .04em; margin: 0 0 8px 10px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); text-decoration: none; border-radius: 0 6px 6px 0; }
+  nav.toc li a:hover { background: var(--code); }
+  nav.toc li a.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; padding: 12px; } nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; } }
+  @media print { nav.toc { display: none; } .layout { display: block; } }
   h1 { font-size: 1.9em; margin: 0 0 18px; }
   h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
   h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
@@ -88,9 +106,17 @@ function page(title, lang, body) {
   .muted { color: var(--muted); }
 </style>
 </head>
-<body><main>
+<body><div class="layout">
+${tocOf(body, lang)}
+<main>
 ${body}
-</main></body>
+</main></div>
+<script>
+  // the section being read is marked in the contents
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const mark = () => { let current = null; for (const a of links) { const h = document.getElementById(decodeURIComponent(a.hash.slice(1))); if (h && h.getBoundingClientRect().top < 120) current = a; } links.forEach((a) => a.classList.toggle('active', a === current)); };
+  addEventListener('scroll', mark, { passive: true }); mark();
+</script></body>
 </html>
 `;
 }

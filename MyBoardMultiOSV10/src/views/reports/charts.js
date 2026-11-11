@@ -36,6 +36,11 @@ export function palette(el = document.documentElement) {
   };
 }
 
+/** Colours for paper (printing): always light, whatever the app's theme. */
+export function printPalette() {
+  return { dark: false, surface: '#ffffff', text: '#1b1f24', muted: '#5f6670', grid: '#dfe3e8', accent: '#3a6cf0', good: '#2f9e44', bad: '#e03131', series: SERIES.light, other: OTHER.light, font: 'Segoe UI, Malgun Gothic, sans-serif' };
+}
+
 export const seriesColor = (colors, i) => (i < colors.series.length ? colors.series[i] : colors.other);
 
 const r1 = (n) => Math.round(n * 10) / 10;

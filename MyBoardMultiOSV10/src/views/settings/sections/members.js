@@ -28,6 +28,12 @@ export const membersSection = {
       ${select('new-role', 'member', roleOptions(), { disabled: !S.canEdit || !others.length, title: tr('col.role'), glyph: 'key' })}
       ${btn('add-member', tr('members.add'), 'plus', { cls: 'primary', disabled: !S.canEdit || !others.length })}
     </div>
+    ${S.isGlobalAdmin ? `<div class="ps-add" data-add="new-person">
+      ${input('new-person', '', { placeholder: tr('members.newName'), disabled: !S.canEdit, attrs: 'data-new-person maxlength="80" autocomplete="off"' })}
+      ${select('new-person-role', 'member', roleOptions(), { disabled: !S.canEdit, title: tr('col.role'), glyph: 'key' })}
+      ${btn('create-member', tr('members.create'), 'user', { cls: 'primary', disabled: !S.canEdit })}
+    </div>
+    ${note(tr('members.createHint'))}` : ''}
     ${card(tr('members.roles'), 'key', `<ul class="ps-list">${['viewer', 'member', 'admin'].map((r) => `<li>${icon(ROLE_ICON[r])}<b>${esc(tr(`role.${r}`))}</b><span>${esc(tr(`role.${r}Text`))}</span></li>`).join('')}</ul>${admins <= 1 ? note(tr('members.lastAdmin'), 'warning') : ''}`)}`;
   },
   bind(S, el) {
@@ -39,7 +45,27 @@ export const membersSection = {
         remove: (id) => S.api.del(S.url('members', id)),
       },
     });
+    // A new person: a user without a password (assignable at once; no sign-in, so a single-user desktop stays
+    // without a login), then a member of this project. The user name comes from the name (made unique).
+    const createPerson = async () => {
+      const name = el.querySelector('[data-new-person]')?.value.trim();
+      const role = el.querySelector('[data-field="new-person-role"]')?.value || 'member';
+      if (!name) { S.say('danger', tr('err.REQUIRED')); S.render(); return; }
+      const base = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9._-]+/g, '') || 'member';
+      await S.run(async () => {
+        let user = null;
+        for (let n = 0; n < 50 && !user; n++) {
+          const username = `${base.slice(0, 40)}${n ? n + 1 : ''}${base === 'member' && !n ? Date.now() % 1000 : ''}`;
+          try { user = await S.api.post('/users', { username, displayName: name, role: 'user' }); }
+          catch (error) { if (error?.code !== 'USERNAME_TAKEN') throw error; }
+        }
+        user = user?.user ?? user;
+        await S.api.post(S.url('members'), { userId: user.id, role });
+      }, { ok: tr('members.created', { name }) });
+    };
+    el.addEventListener('keydown', (event) => { if (event.key === 'Enter' && event.target.matches?.('[data-new-person]')) { event.preventDefault(); createPerson(); } });
     el.addEventListener('click', (event) => {
+      if (event.target.closest('[data-act="create-member"]:not([disabled])')) { createPerson(); return; }
       const button = event.target.closest('[data-act="add-member"]');
       if (!button || button.disabled) return;
       const userId = el.querySelector('[data-field="new-user"]').value;

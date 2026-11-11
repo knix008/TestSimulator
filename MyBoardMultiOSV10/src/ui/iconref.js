@@ -10,6 +10,7 @@
 // renderIconRef returns HTML (safe to insert: every value is escaped or validated). Unknown or empty refs
 // render a neutral dot, so a broken row never breaks a page.
 import { CATALOG } from '../icons-catalog.js';
+import { EMOJI } from './emoji-data.js';
 import { toneOf } from '../icon-tones.js';
 import { escapeHtml } from './dom.js';
 
@@ -141,10 +142,18 @@ export function renderIconRefsInHtml(html, { size = 16 } = {}) {
 }
 
 /** A short readable name of a ref (tooltips, screen readers). */
+// An emoji's readable name: its keywords in the emoji list (ko or en), e.g. '돋보기 검색', else ''.
+let emojiNames = null;
+function emojiName(emoji, language) {
+  emojiNames ??= new Map(EMOJI.map(([e, , en, ko]) => [e.replace(/️/g, ''), { en: String(en ?? ''), ko: String(ko ?? '') }]));
+  const entry = emojiNames.get(String(emoji).replace(/️/g, ''));
+  return entry ? (language === 'en' ? entry.en : entry.ko || entry.en) : '';
+}
+
 export function iconRefLabel(ref, language = 'ko') {
   const p = parseIconRef(ref);
   if (p.kind === 'builtin') return CATALOG[p.name]?.[language === 'en' ? 'en' : 'ko'] ?? p.name;
-  if (p.kind === 'emoji') return p.emoji;
+  if (p.kind === 'emoji') return emojiName(p.emoji, language) || p.emoji;
   if (p.kind === 'letters') return p.text;
   if (p.kind === 'upload') return language === 'en' ? 'Uploaded picture' : '올린 그림';
   return '';

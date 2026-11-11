@@ -72,6 +72,21 @@ for (const target of TARGETS) {
       assert.deepEqual(icons(ok(await A('GET', `/api/boards/${ko.boardId}`)).columns), [['할 일', 'b:todo'], ['하는 중', 'b:inProgress'], ['완료', 'b:done']]);
     });
 
+    test('the default columns of a board cannot be deleted; columns added later can', async () => {
+      const p = ok(await A('POST', '/api/projects', { key: 'BIC', name: 'Built-in columns', template: 'kanban' }));
+      const B = `/api/boards/${p.boardId}`;
+      const own = ok(await A('GET', B)).columns;
+      assert.ok(own.length > 0 && own.every((c) => c.builtIn === true), 'template columns are built in');
+      const added = ok(await A('POST', `${B}/columns`, { name: 'Extra', statusIds: [] }));
+      const data = ok(await A('GET', `${B}/data`)).columns;
+      assert.deepEqual(data.map((c) => c.builtIn), [...own.map(() => true), false], '/data marks them too');
+      const refused = await A('DELETE', `${B}/columns/${own[0].id}`);
+      assert.equal(refused.status, 400, 'deleting a default column is refused');
+      assert.equal(refused.data?.error?.code, 'BUILT_IN_COLUMN');
+      ok(await A('DELETE', `${B}/columns/${added.id}`), 'an added column can go');
+      assert.equal(ok(await A('GET', B)).columns.length, own.length);
+    });
+
     test('a column without an icon gets the default; icons round trip; clearing gives the default back', async () => {
       const p = ok(await A('POST', '/api/projects', { key: 'CI', name: 'Column icons', template: 'kanban' }));
       const B = `/api/boards/${p.boardId}`;

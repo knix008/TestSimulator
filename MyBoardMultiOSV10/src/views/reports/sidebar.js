@@ -37,8 +37,8 @@ function render(v, ctx, refresh) {
   const mine = list.filter((d) => d.mine);
   const others = list.filter((d) => !d.mine);
   const newButton = `<button type="button" class="icon-button" data-vs-act="newDashboard" data-vs-key="newDashboard:" title="${escapeHtml(L('dashNew'))}" aria-label="${escapeHtml(L('dashNew'))}">${icon('plus')}</button>`;
-  return `${sideHeadHtml(icon('viewReports'), L('reports'))}
-    <div class="vs-list" data-vs-list="reports">${reports}</div>
+  // the reports list right under the section's own title ("보고서"): no second heading of the same name
+  return `<div class="vs-list" data-vs-list="reports">${reports}</div>
     ${sideHeadHtml(icon('grid'), L('dashboards'), newButton)}
     <div class="vs-list" data-vs-list="dashboards">
       ${list.length ? '' : sideNoteHtml(loading ? '…' : L('noDashboard'))}

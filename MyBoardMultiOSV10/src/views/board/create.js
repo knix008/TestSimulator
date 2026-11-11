@@ -126,3 +126,63 @@ export async function openCreateForm(view, { columnId = null } = {}) {
     return null;
   }
 }
+
+// ───────────────────────── edit (double-click a card)
+
+// form field → issue key
+const EDIT_FIELDS = Object.fromEntries([['type', 'typeId'], ['summary', 'summary'], ['description', 'description'], ['assignee', 'assigneeId'], ['priority', 'priorityId'], ['labels', 'labels'], ['components', 'componentIds'], ['epic', 'epicId'], ['parent', 'parentId'], ['storyPoints', 'storyPoints'], ['dueDate', 'dueDate'], ['icon', 'icon']]);
+const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/** Double-clicking a card: the same form as "create issue", filled with the issue → PATCH of what changed (rev), undoable. */
+export async function openEditForm(view, id) {
+  const t = view.t;
+  if (view.demo || !view.data) { view.ctx.openIssue(id); return null; }
+  let issue;
+  try { issue = await view.api.issue(id); issue = issue?.issue ?? issue; } catch (error) { view.ctx.notify('error', `${t('board.updateFailed')}: ${errorMessage(error, t)}`); return null; }
+  const level = view.L.type(issue.typeId)?.level ?? 0;
+  const values = { type: issue.typeId, summary: issue.summary ?? '', description: issue.description ?? '', assignee: issue.assigneeId ?? '', priority: issue.priorityId ?? '', labels: issue.labels ?? [], components: issue.componentIds ?? [], epic: issue.epicId ?? '', parent: issue.parentId ?? '', storyPoints: issue.storyPoints ?? null, dueDate: issue.dueDate ?? '', icon: issue.icon ?? '' };
+  const { fields } = createFields(view);
+  const editFields = fields.filter((f) => Object.hasOwn(EDIT_FIELDS, f.name)).map((f) => {
+    const field = { ...f, value: values[f.name] ?? f.value };
+    // the type: only types of the same level in the issue's project (a subtask stays a subtask)
+    if (f.name === 'type') field.options = (f.options ?? []).filter((o) => (view.data.types ?? []).some((x) => x.id === o.value && (x.level ?? 0) === level && (!x.projectId || x.projectId === issue.projectId))).map((o) => ({ ...o, when: undefined }));
+    if (f.name === 'parent' || f.name === 'epic') field.when = undefined;
+    if (f.name === 'parent' && level !== 1) return null;
+    if (f.name === 'epic' && level !== 0) return null;
+    if (f.name === 'parent') field.required = true;
+    if (f.options) field.options = field.options.filter((o) => !o.when || !o.when.project || o.when.project === issue.projectId).map((o) => ({ ...o, when: undefined }));
+    return field;
+  }).filter(Boolean);
+  const result = await view.ctx.popups.open('form', { title: t('board.edit.title', { key: issue.key }), icon: 'edit', submitLabel: t('board.edit.submit'), fields: editFields });
+  const v = result?.values;
+  if (!v) return null;
+  const patch = {};
+  const before = {};
+  for (const [name, key] of Object.entries(EDIT_FIELDS)) {
+    if (!(name in v)) continue;
+    const next = Array.isArray(v[name]) ? v[name] : v[name] === '' ? null : v[name];
+    const old = Array.isArray(issue[key]) ? issue[key] : issue[key] ?? null;
+    if (same(next, old)) continue;
+    patch[key] = next;
+    before[key] = old;
+  }
+  if (!Object.keys(patch).length) return issue;
+  try {
+    let saved = await view.api.updateIssue(issue.id, { ...patch, rev: issue.rev });
+    saved = saved?.issue ?? saved;
+    let rev = saved.rev;
+    view.ctx.notify('success', t('board.edit.saved', { key: issue.key }));
+    view.ctx.history.record({
+      label: t('board.edit.op', { key: issue.key }),
+      undo: async () => { const x = await view.api.updateIssue(issue.id, { ...before, rev }); rev = (x?.issue ?? x).rev; view.scheduleRefetch(100); },
+      redo: async () => { const x = await view.api.updateIssue(issue.id, { ...patch, rev }); rev = (x?.issue ?? x).rev; view.scheduleRefetch(100); },
+    });
+    try { window.dispatchEvent(new CustomEvent('myboard:event', { detail: { type: 'issue.updated', id: issue.id, rev, data: saved, local: true } })); } catch { /* no window */ }
+    view.scheduleRefetch(100);
+    return saved;
+  } catch (error) {
+    view.ctx.notify('error', `${t('board.updateFailed')}: ${errorMessage(error, t)}`);
+    view.scheduleRefetch(100);
+    return null;
+  }
+}

@@ -23,7 +23,9 @@ export async function freshConfig(target) {
 }
 
 export const configured = (t) => !t.env || !!process.env[t.env];
-export const skipMessage = (t) => `${t.name} not configured: set ${t.env} to a connection URL (e.g. ${t.env === 'MYBOARD_TEST_MSSQL' ? 'mssql' : t.env === 'MYBOARD_TEST_MARIADB' ? 'mariadb' : 'mysql'}://user:password@localhost/myboard_test) to run this suite`;
+// Skipped on purpose when no server is configured; set the variable to a connection URL
+// (mysql:// · mariadb:// · mssql://user:password@localhost/myboard_test) to run the suite.
+export const skipMessage = (t) => `no ${t.name} server (${t.env})`;
 
 /** Assert a promise rejects with an AppError code (and HTTP status). */
 export async function rejectsCode(assert, promise, code, status) {

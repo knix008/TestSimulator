@@ -11,7 +11,7 @@ import { buildLayout, byRank, dropNeighbours, GROUP_ICONS, groupChoices, groupMo
 import { CardDrag } from './dnd.js';
 import { demoBoardData } from './demo.js';
 import { openBoardMenu, openCardMenu } from './menu.js';
-import { openCreateForm } from './create.js';
+import { openCreateForm, openEditForm } from './create.js';
 import { canAddColumn, openAddColumn } from './addcolumn.js';
 import { ColumnDrag, changeColumnIcon, columnKey, editColumn, openColumnMenu } from './columns.js';
 
@@ -91,7 +91,8 @@ export class BoardView {
     this.colDrag = new ColumnDrag(this);
     this.root.addEventListener('dblclick', (e) => {
       const el = e.target.closest('.mb-card');
-      if (el) { this.ctx.openIssue(el.dataset.id); return; }
+      // a card: the edit form (the detail panel opens on the single click already)
+      if (el) { openEditForm(this, el.dataset.id); return; }
       // a column header: its icon → the icon picker, elsewhere → name + icon (columns.js)
       const head = e.target.closest('.bv-heads .bv-col-head[data-col]');
       if (head && !e.target.closest('button') && !this.demo) { if (e.target.closest('.bv-col-icon')) changeColumnIcon(this, head.dataset.col); else editColumn(this, head.dataset.col); }
@@ -249,6 +250,7 @@ export class BoardView {
     const any = this.prefs.quick.length || this.prefs.mine || this.prefs.recent || this.prefs.search.trim();
     el.innerHTML = `${builtins}${quick}${any ? `<button class="small-button bv-clear" data-clear-filters title="${escapeHtml(t('board.clearFilters'))}">${glyph('filterClear')}<span>${escapeHtml(t('board.clearFilters'))}</span></button>` : ''}`;
   }
+
 
   groupItems() {
     const t = this.t;

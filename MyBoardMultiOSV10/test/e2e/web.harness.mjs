@@ -46,7 +46,9 @@ export async function startVite({ from = 5800, apiTarget = null } = {}) {
   for (const file of ['/src/main.js', '/src/app.js', '/src/popup.js', '/src/ui/iconpicker.js']) {
     try { await (await fetch(url + file, { signal: AbortSignal.timeout(90000) })).text(); } catch { /* the page load reports it */ }
   }
-  return { port, url, process: child, log: () => log };
+  const vite = { port, url, process: child, log: () => log, exited: null };
+  child.on('exit', (code, signal) => { vite.exited = { code, signal, log: log.slice(-1500) }; });
+  return vite;
 }
 
 /** What the app logs: page exceptions and console errors are failures; warnings are kept apart. */
@@ -81,7 +83,10 @@ export async function startWebCore({ from = 5900 } = {}) {
     if (Date.now() > end) { child.kill(); throw new Error(`the web core did not answer on ${url}: ${log.slice(-800)}`); }
     await sleep(200);
   }
-  return { url, process: child, data, log: () => log };
+  // Once running, an exit is reported with the case that was running (WebApp.takeErrors).
+  const core = { url, process: child, data, log: () => log, exited: null };
+  child.on('exit', (code, signal) => { core.exited = { code, signal, log: log.slice(-1500) }; });
+  return core;
 }
 
 export class WebApp {
@@ -97,7 +102,7 @@ export class WebApp {
 
   async start() {
     const browser = BROWSERS.find((file) => fs.existsSync(file));
-    if (!browser) throw new Error('Edge 또는 Chrome 이 필요합니다');
+    if (!browser) throw new Error('Edge or Chrome is required');
     if (this.core) this.webCore = await startWebCore();
     this.vite = await startVite({ apiTarget: this.webCore?.url ?? null });
     this.url = `${this.vite.url}/`;
@@ -157,6 +162,14 @@ export class WebApp {
   /** Errors since the last call (page exceptions, console errors, failed requests). */
   takeErrors() {
     const list = [...this.main.errors.splice(0), ...this.errors.splice(0)];
+    if (this.vite?.exited && !this.vite.reported) {
+      this.vite.reported = true;
+      list.unshift(`Vite stopped (exit ${this.vite.exited.code ?? this.vite.exited.signal}): ${this.vite.exited.log}`);
+    }
+    if (this.webCore?.exited && !this.webCore.reported) {
+      this.webCore.reported = true;
+      list.unshift(`the web core stopped (exit ${this.webCore.exited.code ?? this.webCore.exited.signal}): ${this.webCore.exited.log}`);
+    }
     this.warnings.length = 0;
     return list;
   }

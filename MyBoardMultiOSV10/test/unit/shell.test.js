@@ -101,7 +101,7 @@ test('the icon picker searches in Korean and English and sizes uploads', () => {
 test('every text the UI uses exists in Korean and English', async () => {
   // Views register their own texts (src/views/**/texts.js → registerTexts), as scripts/i18n-check.mjs reads them.
   const { registerTexts } = await import('../../src/i18n.js');
-  for (const file of walk(path.join(src, 'views')).filter((f) => path.basename(f) === 'texts.js')) {
+  for (const file of [...walk(path.join(src, 'views')), ...walk(path.join(src, 'print'))].filter((f) => path.basename(f) === 'texts.js')) {
     const mod = await import(pathToFileURL(file).href);
     registerTexts(mod.TEXTS ?? mod.default ?? mod);
   }

@@ -14,11 +14,12 @@ import { copyText, saveFile, safeName, toCsv } from '../backlog/download.js';
 import { bindTooltip, palette, svgFile, svgToPng } from './charts.js';
 import { BREAKDOWN_FIELDS, isoDay, REF_REPORTS, REPORT_IDS, REPORTS, refChipHtml } from './defs.js';
 import { Dashboards } from './dashboards.js';
+import { showViewMenu } from '../shared/menu.js';
 import { L, E } from './texts.js';
 
 const PREFS_KEY = 'myboard.reports.v1';
 const RANGES = [7, 14, 30, 60, 90, 180, 365];
-const DEFAULT_RANGE = { cfd: 30, control: 90, throughput: 84, createdResolved: 30, workload: 0, version: 0, breakdown: 0 };
+const DEFAULT_RANGE = { cfd: 30, control: 90, throughput: 84, burndown: 30, createdResolved: 30, workload: 0, version: 0, breakdown: 0 };
 const loadPrefs = () => { try { return JSON.parse(globalThis.localStorage?.getItem(PREFS_KEY) ?? '{}') ?? {}; } catch { return {}; } };
 const storePrefs = (p) => { try { globalThis.localStorage?.setItem(PREFS_KEY, JSON.stringify(p)); } catch { /* private mode */ } };
 
@@ -111,7 +112,39 @@ export class ReportsView {
   }
 
   /** Board scope: the reference "done" column of the reports = the board's rightmost column. */
-  get referenceColumn() { return this.board ? this.columns?.at(-1) ?? null : null; }
+  /** The board's reference ("done") column: the one chosen in the board settings, else the rightmost. */
+  get referenceColumn() {
+    if (!this.board) return null;
+    const chosen = (this.boardData?.board ?? this.board)?.settings?.reportColumnId;
+    return this.columns?.find((c) => c.id === chosen) ?? this.columns?.at(-1) ?? null;
+  }
+
+  /** The reference chip's menu: the rightmost column (default) or any column → saved in the board settings. */
+  chooseReferenceColumn(button) {
+    const cols = this.columns ?? [];
+    if (!this.board || !cols.length) return undefined;
+    const chosen = (this.boardData?.board ?? this.board)?.settings?.reportColumnId ?? null;
+    const items = [
+      { value: '__rightmost', label: L('refRightmost', { name: cols.at(-1).name }), glyph: 'chevronRight', checked: !chosen || !cols.some((c) => c.id === chosen) },
+      { separator: true },
+      ...cols.map((c) => ({ value: c.id, label: c.name, glyph: 'columns', checked: c.id === chosen })),
+    ];
+    return showViewMenu(this.ctx, button, items, (value) => this.setReferenceColumn(value === '__rightmost' ? null : value), { icon: 'check', title: L('refColumn') });
+  }
+
+  async setReferenceColumn(columnId) {
+    try {
+      const current = await this.api.board(this.board.id);
+      const b = current?.board ?? current;
+      await this.api.updateBoard(this.board.id, { settings: { reportColumnId: columnId }, rev: b.rev });
+      try { window.dispatchEvent(new CustomEvent('myboard:event', { detail: { type: 'board.updated', id: this.board.id, local: true } })); } catch { /* no window */ }
+      this.boardData = null;
+      await this.refreshColumns();
+      this.ctx.notify('success', L('refChanged', { name: this.referenceColumn?.name ?? '' }));
+    } catch (error) {
+      this.ctx.notify('error', `${L('refFailed')}: ${error?.message ?? error}`);
+    }
+  }
 
   /** The board's columns changed (reorder, add, rename, delete): re-read them, then redraw / reload. */
   async refreshColumns() {
@@ -229,7 +262,7 @@ export class ReportsView {
     const cols = this.columns ?? [];
     const colNames = (ids) => (ids?.length ? cols.filter((c) => ids.includes(c.id)).map((c) => c.name).join(', ') : L('auto'));
     const ref = this.referenceColumn;
-    if (ref && REF_REPORTS.has(id)) parts.push(refChipHtml(ref, L));
+    if (ref && REF_REPORTS.has(id)) parts.push(refChipHtml(ref, L, { changeable: true }));
     switch (id) {
       case 'control':
         parts.push(dropButtonHtml({ id: 'startCols', iconHtml: icon('play'), label: `${L('startColumns')}: ${colNames(o.startColumnIds ?? this.data?.startColumnIds)}`, tip: L('startColumnsTip') }));
@@ -305,6 +338,7 @@ export class ReportsView {
 
   onAct(act, value) {
     switch (act) {
+      case 'ref-column': return this.chooseReferenceColumn(this.el.body.querySelector('[data-act="ref-column"]'));
       case 'tab': return value === 'dashboards' ? this.pickDashboard() : this.pickReport(this.prefs.report);
       case 'png': return this.exportPng();
       case 'svg': return this.exportSvg();

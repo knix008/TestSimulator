@@ -15,14 +15,14 @@ import { emitTo, invoke, isDesktop, listen } from './native.js';
 /** Logical size of each popup, measured to fit its content (Korean and English, full lists) without scrolling
  * or empty space. Fixed; confirm, about, welcome and prompt then follow their content height (fitHeight). */
 export const POPUPS = {
-  settings: { width: 1100, height: 700 },
+  // measured: every tab, Korean and English, fits without scrolling or clipping at 880 × 560 (a little room added)
+  settings: { width: 900, height: 580 },
   about: { width: 740, height: 600 },
   confirm: { width: 540, height: 270 },
   error: { width: 720, height: 500 },
   progress: { width: 520, height: 220 },
   recent: { width: 800, height: 510 },
   menu: { width: 300, height: 200 },
-  theme: { width: 620, height: 680 },
   welcome: { width: 640, height: 470 },
   color: { width: 300, height: 300 },
   prompt: { width: 520, height: 230 },
@@ -30,6 +30,8 @@ export const POPUPS = {
   iconpicker: { width: 640, height: 600 },
   // Sign in (a server with accounts) or create the administrator (a new web server).
   login: { width: 480, height: 300 },
+  // Printing (print/popup.js): settings on the left, the page preview on the right.
+  print: { width: 1180, height: 760 },
   // A dialog drawn from a list of fields (ui/formpopup.js): create issue and other views' forms; height follows the fields.
   form: { width: 620, height: 560 },
 };

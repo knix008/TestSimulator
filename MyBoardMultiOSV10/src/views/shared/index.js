@@ -15,4 +15,5 @@ export {
   formatDuration, parseDuration, formatPoints, hashColor, initials,
 } from './format.js';
 export { errorMessage, isConflict } from './errors.js';
+export { showViewMenu } from './menu.js';
 export { refButtonHtml, openRefList, closeRefList, refListOpen } from './refdropdown.js';

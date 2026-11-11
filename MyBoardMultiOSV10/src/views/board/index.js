@@ -6,6 +6,7 @@ import '../shared/index.js';
 import { ko, en } from './texts.js';
 import { BoardView } from './view.js';
 import { createBoardSidebar } from './sidebar.js';
+import { canAddColumn, openAddColumn } from './addcolumn.js';
 import './board.css';
 
 registerTexts({ ko, en });
@@ -21,6 +22,8 @@ registerView('board', {
   sidebar: side.sidebar,
   commands: {
     createIssue: { icon: 'plus', label: 'action.createIssue', key: 'C', run: () => current?.createIssue() },
+    // the main toolbar's "열 추가" (app.js addColumn): only for those who may change the board's columns
+    addColumn: { icon: 'columns', label: 'action.addColumn', enabled: () => !current?.data || canAddColumn(current), run: () => current && openAddColumn(current) },
     find: { icon: 'search', label: 'action.find', key: 'Ctrl+F', run: () => current?.focusSearch() },
   },
 });

@@ -29,6 +29,9 @@
 .rp-ref-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 0.84em; white-space: nowrap; min-width: 0; max-width: 100%;
   color: var(--text); background: color-mix(in srgb, var(--good, var(--accent)) 14%, transparent); border: 1px solid color-mix(in srgb, var(--good, var(--accent)) 40%, transparent); }
 .rp-ref-chip > span { overflow: hidden; text-overflow: ellipsis; }
+.rp-ref-chip.changeable { border: 1px solid var(--border); background: var(--surface); color: inherit; font: inherit; font-size: 0.84em; cursor: pointer; }
+.rp-ref-chip.changeable:hover { border-color: var(--accent); }
+.rp-ref-chip .rp-ref-caret { opacity: 0.6; }
 .rp-ref-chip .iconref { flex: none; }
 .db-ghead .rp-ref-chip { font-size: 0.76em; padding: 1px 6px; flex: 0 1 auto; }
 .db-ghead .rp-ref-chip b { font-weight: 600; }
@@ -98,7 +101,8 @@ button.rp-leg.off { opacity: 0.45; text-decoration: line-through; }
 .db-chart { position: relative; }
 .db-gbody .rp-legend { padding-top: 2px; font-size: 0.8em; }
 .db-grip { position: absolute; right: 2px; bottom: 2px; width: 16px; height: 16px; cursor: nwse-resize; color: var(--muted); display: flex; touch-action: none; }
-.db-ghost { border: 2px dashed var(--accent); border-radius: 10px; background: color-mix(in srgb, var(--accent) 10%, transparent); pointer-events: none; }
+.db-ghost { position: relative; z-index: 3; border: 2px dashed var(--accent); border-radius: 10px; background: color-mix(in srgb, var(--accent) 10%, transparent); pointer-events: none; }
+.db-gadget.moving { z-index: 4; }
 .db-empty { min-height: 200px; }
 .db-issues { list-style: none; margin: 0; padding: 0; }
 .db-issue { display: flex; align-items: center; gap: 6px; width: 100%; padding: 4px 4px; border: 0; background: none; border-radius: 6px; cursor: pointer; text-align: left; min-width: 0; }

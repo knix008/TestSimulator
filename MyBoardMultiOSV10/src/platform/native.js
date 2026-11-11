@@ -132,6 +132,12 @@ export async function chooseImage(defaultPath) {
 }
 
 export const writeBase64File = (path, data, op) => invoke('write_base64_file', { path, data, op });
+
+// Printing (src-tauri/src/printing.rs): the printers (none on the web and outside Windows → the system dialog),
+// a silent print of the calling window to a printer, and the system / browser print dialog.
+export const listPrinters = () => (isDesktop() ? invoke('list_printers') : Promise.resolve({ printers: [], defaultPrinter: '', filePrinters: [] }));
+export const printDirect = (job) => invoke('print_direct', { job });
+export const printWindow = () => (isDesktop() ? invoke('print_window') : Promise.resolve(window.print()));
 /** Binary file contents as base64 (pictures). */
 // `op` names the progress events; the command requires it, so callers without one get ''.
 export const readBase64File = (path, op = '') => invoke('read_base64_file', { path, op: op ?? '' });

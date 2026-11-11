@@ -7,8 +7,8 @@ import { cases } from './web.suite.mjs';
 
 export const desktopCases = [
   {
-    group: '데스크톱',
-    name: '백엔드 응답: 앱 정보(이름·버전·OS), 첫 실행 판별',
+    group: 'Desktop',
+    name: 'Backend answers: app info (name, version, OS), first-run detection',
     async run(app) {
       const r = await app.run(`return { info: A.state.info, instance: A.state.instance, title: document.title, desktop: Boolean(window.__TAURI_INTERNALS__) };`);
       assert.ok(r.desktop, 'Tauri IPC present');
@@ -20,8 +20,8 @@ export const desktopCases = [
   },
   ...cases.filter((c) => c.desktop),
   {
-    group: '데스크톱',
-    name: '팝업은 자기 OS 창 (popup-about · popup-settings) 으로 열리고 닫힘',
+    group: 'Desktop',
+    name: 'Popups open and close as their own OS windows (popup-about, popup-settings)',
     async run(app) {
       for (const kind of ['about', 'settings']) {
         await app.run(`A.popups.open(${JSON.stringify(kind)}, ${kind === 'settings' ? "{ tab: 'general' }" : '{}'}); return 1;`);

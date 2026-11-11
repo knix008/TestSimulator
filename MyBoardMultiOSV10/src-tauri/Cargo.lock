@@ -1965,6 +1965,8 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "tempfile",
+ "webview2-com",
+ "windows",
 ]
 
 [[package]]

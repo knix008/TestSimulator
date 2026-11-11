@@ -55,8 +55,8 @@ const PICK = String.raw`
 
 export const cases = [
   {
-    group: '보드',
-    name: '샘플 보드: 열 머리(이름·개수·WIP)와 카드(키·요약·유형·우선순위·담당자)가 그려짐',
+    group: 'Board',
+    name: 'Sample board: column heads (name, count, WIP) and cards (key, summary, type, priority, assignee) are drawn',
     async run(app) {
       const r = await app.run(`${H} await openBoard(0);
         const b = B(); const data = b.data;
@@ -77,8 +77,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '끌어서 다른 열로 옮기기 → POST /issues/:id/move, 상태가 그 열의 상태로 바뀜',
+    group: 'Board',
+    name: `Drag to another column → POST /issues/:id/move, status becomes that column's status`,
     async run(app) {
       const r = await app.run(`${H} await openBoard(0, { prefs: { groupBy: 'none' } }); ${PICK}
         await drag(card.id, () => cellPoint('all|' + to.id)); await idle();
@@ -90,8 +90,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '같은 열 안에서 순서 바꾸기 (rank): 맨 아래 카드를 맨 위로 → 다시 읽어도 맨 위',
+    group: 'Board',
+    name: 'Rank within a column: bottom card to the top → still on top after reload',
     async run(app) {
       const r = await app.run(`${H} await openBoard(0, { prefs: { groupBy: 'none' } });
         const L = B().layout; const col = L.columns.find((c) => (L.cells.get('all|' + c.id) ?? []).length >= 3 && !c.collapsed && !c.backlog);
@@ -106,8 +106,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: 'WIP: 최대를 넘은 열은 경고 색, 그 열로 옮기면 WIP_LIMIT 경고 알림',
+    group: 'Board',
+    name: 'WIP: a column over its maximum is coloured, moving into it shows a WIP_LIMIT notice',
     async run(app) {
       const r = await app.run(`${H} await openBoard(0, { prefs: { groupBy: 'none' } });
         const L = B().layout; const over = L.columns.find((c) => c.wipMax != null && c.total > c.wipMax);
@@ -123,8 +123,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '워크플로가 막는 이동: 번역된 오류, 카드는 제자리로',
+    group: 'Board',
+    name: 'A move the workflow forbids: translated error, the card goes back',
     async run(app) {
       const r = await app.run(`${H} await openBoard(1, { prefs: { groupBy: 'none' } });
         // Bug tracker: Open → Closed has no transition.
@@ -140,8 +140,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '빠른 필터와 검색: 카드가 줄고, 보드마다 기억 (localStorage)',
+    group: 'Board',
+    name: 'Quick filters and search: fewer cards, remembered per board (localStorage)',
     async run(app) {
       const r = await app.run(`${H} const p = await openBoard(0, { prefs: { groupBy: 'none' } });
         const all = B().layout.shown;
@@ -165,8 +165,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '스윔레인: 없음·담당자·에픽·우선순위·유형·하위 작업 — 레인과 개수, 접기, 기억',
+    group: 'Board',
+    name: 'Swimlanes: none, assignee, epic, priority, type, subtasks — lanes and counts, collapsing, remembered',
     async run(app) {
       const r = await app.run(`${H} const p = await openBoard(0);
         const out = {};
@@ -193,8 +193,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '담당자 레인으로 끌면 담당자가 바뀜 (보드 설정이 아닌 레인: PATCH)',
+    group: 'Board',
+    name: 'Dragging into an assignee lane changes the assignee (PATCH)',
     async run(app) {
       const r = await app.run(`${H} await openBoard(0, { prefs: { groupBy: 'assignee' } });
         const L = B().layout; const lanes = L.lanes.filter((l) => l.id !== 'none'); const a = lanes[0]; const b = lanes[1];
@@ -208,8 +208,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '실행 취소/다시 실행: 열 이동을 되돌리고 다시 함 (데이터베이스 상태로 확인)',
+    group: 'Board',
+    name: 'Undo/redo: a column move is undone and redone (checked in the database)',
     async run(app) {
       const r = await app.run(`${H} await openBoard(0, { prefs: { groupBy: 'none' } }); ${PICK}
         const before = (await issue(card.id)).statusId;
@@ -226,8 +226,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '키보드: 화살표로 카드 이동, Enter 로 상세, Ctrl+→ 로 다음 열에 옮기기',
+    group: 'Board',
+    name: 'Keyboard: arrows move between cards, Enter opens detail, Ctrl+→ moves to the next column',
     async run(app) {
       const r = await app.run(`${H} await openBoard(0, { prefs: { groupBy: 'none' } }); ${PICK}
         B().setFocus(card.id); const key = (k, o = {}) => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
@@ -246,8 +246,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '여러 개 고르기 (Ctrl+클릭) → 일괄 막대 → 나에게 할당 (POST /issues/bulk) → 실행 취소',
+    group: 'Board',
+    name: 'Multi-select (Ctrl+click) → bulk bar → assign to me (POST /issues/bulk) → undo',
     async run(app) {
       const r = await app.run(`${H} await openBoard(0, { prefs: { groupBy: 'none' } });
         const me = A.state.core.info.user.id;
@@ -265,8 +265,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '이슈 만들기 (C): form 팝업 → 요약·우선순위·라벨·스토리 포인트 → 카드가 생김 → 실행 취소로 지움',
+    group: 'Board',
+    name: 'Create issue (C): form popup → summary, priority, label, story points → card appears → undo deletes it',
     async run(app) {
       const r = await app.run(`${H} await openBoard(0, { prefs: { groupBy: 'none' } });
         document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', bubbles: true, cancelable: true }));
@@ -297,8 +297,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: 'form 팝업 계약: 필수 칸 검사, 모든 형식(checkbox·duration·color·date·multiselect·number) 값, 취소는 null',
+    group: 'Board',
+    name: `Form popup contract: required check, every type's value (checkbox, duration, color, date, multiselect, number), cancel is null`,
     async run(app) {
       const r = await app.run(`${H} await T.reset({ workspace: true });
         const fields = [
@@ -332,8 +332,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '카드 컨텍스트 메뉴: 셸 메뉴 팝업, 플래그 표시 → 데이터베이스에 저장, 열로 옮기기 하위 메뉴',
+    group: 'Board',
+    name: 'Card context menu: shell menu popup, flag → saved in the database, move-to-column submenu',
     async run(app) {
       const r = await app.run(`${H} await openBoard(0, { prefs: { groupBy: 'none' } });
         const card = B().allCards().find((c) => !c.flagged && cardEl(c.id));
@@ -354,8 +354,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '한국어 ↔ English: 보드 글자(검색·필터·스윔레인·열 버튼)가 바뀜',
+    group: 'Board',
+    name: 'Korean ↔ English: board texts (search, filters, swimlanes, column buttons) change',
     async run(app) {
       const r = await app.run(`${H} await openBoard(0);
         const read = () => ({ search: document.querySelector('[data-bv-search]').placeholder, mine: document.querySelector('[data-builtin="mine"]').textContent.trim(), lanes: document.querySelector('.bv-tool-label').textContent.trim(), add: document.querySelector('.bv-col-add')?.title, count: document.querySelector('.bv-count').textContent });
@@ -370,8 +370,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '실시간: 다른 클라이언트의 변경이 다시 읽지 않고 반영 (요약 바뀜, 삭제)',
+    group: 'Board',
+    name: `Realtime: another client's changes apply without a reload (summary changed, deleted)`,
     async run(app) {
       const r = await app.run(`${H} await openBoard(2, { prefs: { groupBy: 'none' } });
         if (A.live().state !== 'open') await T.until(() => A.live().state === 'open', 10000, 'live');
@@ -389,8 +389,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '이 창의 다른 보기(상세 패널)가 바꾼 이슈: myboard:event 로 보드에 바로 반영',
+    group: 'Board',
+    name: 'An issue changed by another view of this window (detail panel) reaches the board through myboard:event',
     async run(app) {
       const r = await app.run(`${H} await openBoard(2, { prefs: { groupBy: 'none' } });
         const card = B().allCards().find((c) => cardEl(c.id));
@@ -404,8 +404,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '가장 좁은 창 · 어두운 테마: 페이지 가로 스크롤 없음, 막대가 잘리지 않음, 열은 보드 안에서 가로 스크롤',
+    group: 'Board',
+    name: 'Narrowest window and dark theme: no page-level horizontal scroll, bars not clipped, columns scroll inside the board',
     async run(app) {
       const min = await app.run('return A.state.minWidth || 900;');
       await app.main.send('Emulation.setDeviceMetricsOverride', { width: min, height: 600, deviceScaleFactor: 1, mobile: false });
@@ -432,8 +432,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '빈 보드: 안내와 "이슈 만들기" 버튼, 열은 그대로 보임',
+    group: 'Board',
+    name: 'Empty board: hint and "Create issue" button, columns still shown',
     async run(app) {
       const r = await app.run(`${H} await T.reset();
         const key = 'E' + Date.now().toString(36).slice(-5).toUpperCase(); const p = await A.api.createProject({ key, name: 'Empty ' + key, template: 'simple' });
@@ -444,8 +444,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '큰 보드: 이슈 2000개 — 빨리 그리고 긴 열은 나눠서 그림 (스크롤하면 더 그림)',
+    group: 'Board',
+    name: 'Large board: 2000 issues — drawn fast, long columns drawn in chunks (more on scroll)',
     async run(app) {
       const r = await app.run(`${H} await T.reset();
         const key = 'BIG' + Date.now().toString(36).slice(-4).toUpperCase(); const p = await A.api.createProject({ key, name: 'Big ' + key, template: 'simple' });
@@ -466,8 +466,8 @@ export const cases = [
     },
   },
   {
-    group: '보드',
-    name: '이슈 만들기: 사용자 정의 필드는 그 유형에서만 보이고 기본값이 채워짐, 담당자 없이 구성 요소 → 그 기본 담당자, 해결된 카드에 해결 방법 아이콘',
+    group: 'Board',
+    name: `Create issue: custom fields only for their types with defaults filled, components without assignee → the component's default assignee, resolution icon on resolved cards`,
     async run(app) {
       const r = await app.run(`${H}
         const s = await samples();

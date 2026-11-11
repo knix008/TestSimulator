@@ -309,7 +309,8 @@ export function fieldItems(v) {
   add('dates', 'startDate', 'calendar', t('detail.field.startDate'), dateCtl(v, 'startDate', issue.startDate ?? '', { label: t('detail.field.startDate') }), { empty: !issue.startDate });
   const overdue = Boolean(issue.dueDate && !issue.resolvedAt && issue.dueDate < new Date().toISOString().slice(0, 10));
   add('dates', 'dueDate', 'calendar', t('detail.field.dueDate'), dateCtl(v, 'dueDate', issue.dueDate ?? '', { label: t('detail.field.dueDate'), overdue }), { empty: !issue.dueDate });
-  const when = (ms, ic) => staticCtl(`${icon(ic)}<span class="dt-val">${esc(fmtDateTime(ms))}</span><small class="dt-sub">${esc(relTime(ms))}</small>`, fmtDateTime(ms));
+  // The date (short); "3 hours ago" beside it only while that says more than the date (it turns into the date after a week).
+  const when = (ms, ic) => { const date = fmtDate(ms); const rel = relTime(ms); return staticCtl(`${icon(ic)}<span class="dt-val">${esc(date)}</span>${rel && rel !== date && !rel.includes(date) ? `<small class="dt-sub">${esc(rel)}</small>` : ''}`, fmtDateTime(ms)); };
   add('dates', 'created', 'fileNew', t('detail.created'), when(issue.createdAt, 'fileNew'), { cls: 'static' });
   add('dates', 'updated', 'refresh', t('detail.updated'), when(issue.updatedAt, 'refresh'), { cls: 'static' });
   if (issue.resolvedAt) add('dates', 'resolved', 'check', t('detail.resolved'), when(issue.resolvedAt, 'check'), { cls: 'static' });

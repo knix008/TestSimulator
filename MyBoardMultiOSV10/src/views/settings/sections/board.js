@@ -86,7 +86,7 @@ function columnsTab(S) {
     const isDone = ids.length > 0 && ids.every((id) => byId[id].category === 'done');
     const isBacklog = Boolean(backlog.enabled && ids.length && ids.every((id) => (backlog.statusIds ?? []).includes(id)));
     return `<div class="ps-col ${isBacklog ? 'backlog' : ''} ${isDone ? 'done' : ''}" data-id="${esc(c.id)}" data-col="${esc(c.id)}">
-      <div class="ps-col-head"><span class="ps-grip" draggable="${e}" title="${esc(tr('board.dragColumn'))}" aria-label="${esc(tr('board.dragColumn'))}" tabindex="0">${icon('grip')}</span><button type="button" class="ps-iconpick ps-col-icon" data-act="col-icon" ${e ? '' : 'disabled'} title="${esc(tr('board.columnIcon'))}" aria-label="${esc(tr('board.columnIcon'))}">${renderIconRef(c.icon || 'b:circle', { size: 18 })}</button>${input('col-name', c.name, { disabled: !e, attrs: 'data-colfield="name"', placeholder: tr('col.name') })}${ibtn('col-delete', tr('board.deleteColumn'), 'trash', { cls: 'danger', disabled: !e })}</div>
+      <div class="ps-col-head"><span class="ps-grip" draggable="${e}" title="${esc(tr('board.dragColumn'))}" aria-label="${esc(tr('board.dragColumn'))}" tabindex="0">${icon('grip')}</span><button type="button" class="ps-iconpick ps-col-icon" data-act="col-icon" ${e ? '' : 'disabled'} title="${esc(tr('board.columnIcon'))}" aria-label="${esc(tr('board.columnIcon'))}">${renderIconRef(c.icon || 'b:circle', { size: 18 })}</button>${input('col-name', c.name, { disabled: !e, attrs: 'data-colfield="name"', placeholder: tr('col.name') })}${c.builtIn ? `<span class="icon-button ps-ibtn ps-col-lock" title="${esc(tr('board.builtInColumn'))}" aria-label="${esc(tr('board.builtInColumn'))}">${icon('lock')}</span>` : ibtn('col-delete', tr('board.deleteColumn'), 'trash', { cls: 'danger', disabled: !e })}</div>
       <div class="ps-col-badges">${isBacklog ? `<span class="ps-chip">${icon('list')}<span>${esc(tr('board.backlogColumn'))}</span></span>` : ''}${isDone ? `<span class="ps-chip ok">${icon('check')}<span>${esc(tr('board.doneColumn'))}</span></span>` : ''}${!ids.length ? `<span class="ps-chip warn">${icon('warning')}<span>${esc(tr('board.noStatuses'))}</span></span>` : ''}</div>
       <div class="ps-col-drop" data-drop="${esc(c.id)}" aria-label="${esc(tr('board.dropHere'))}">${ids.map((id) => chip(byId[id])).join('') || `<span class="ps-drop-hint">${esc(tr('board.dropHere'))}</span>`}</div>
       <div class="ps-col-wip">
@@ -157,7 +157,11 @@ function bindColumns(S, el) {
         break;
       }
       case 'col-delete':
-        if (S.pending.colDelete === c.id) { S.pending.colDelete = null; await S.run(() => S.api.del(S.url('columns', c.id)), { ok: tr('del.done') }); } else { S.pending.colDelete = c.id; S.say('warning', tr('board.deleteAgain', { name: c.name })); S.render(); }
+        if (c.builtIn) break;
+        {
+          const choice = await S.ctx.app?.ask?.({ kind: 'delete', icon: 'trash', title: tr('board.deleteColumnTitle'), message: tr('board.deleteColumnMessage'), items: [c.name], buttons: [{ id: 'cancel', label: tr('board.cancel') }, { id: 'delete', label: tr('board.deleteColumn'), icon: 'trash', danger: true, primary: true }] });
+          if (choice === 'delete') await S.run(() => S.api.del(S.url('columns', c.id)), { ok: tr('del.done') });
+        }
         break;
       case 'col-mark-done':
         await S.run(async () => { for (const id of c.statusIds ?? []) { const s = S.config.statuses.find((x) => x.id === id); if (s && s.category !== 'done') await S.api.patch(S.url('statuses', id), { category: 'done', rev: s.rev }); } }, { ok: tr('board.markedDone', { name: c.name }) });

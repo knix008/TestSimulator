@@ -26,7 +26,8 @@ import { COMMAND_HELPER } from './web.suite.mjs';
 import { startVite, watchConsole } from './web.harness.mjs';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-export const exe = path.join(root, 'src-tauri', 'target', 'debug', process.platform === 'win32' ? 'myboard.exe' : 'myboard');
+// MYBOARD_E2E_EXE: a build of its own (e.g. CARGO_TARGET_DIR=src-tauri/target/e2e) while the user's npm start keeps target/debug in use.
+export const exe = process.env.MYBOARD_E2E_EXE || path.join(root, 'src-tauri', 'target', 'debug', process.platform === 'win32' ? 'myboard.exe' : 'myboard');
 
 /** The dev server URL compiled into the debug exe (http://127.0.0.1:NNNN or localhost). */
 export function compiledDevUrl(file = exe) {
@@ -46,11 +47,11 @@ export class DesktopApp {
 
   /** Resolves { skipped: reason } when it cannot run without another program's server; throws on a real failure. */
   async start() {
-    if (!fs.existsSync(exe)) return { skipped: `${path.relative(root, exe)} 가 없습니다 (npm start 로 한 번 빌드하세요; 이 검사는 빌드하지 않습니다)` };
+    if (!fs.existsSync(exe)) return { skipped: `${path.relative(root, exe)} is missing (build it once with npm start; this check does not build)` };
     const devUrl = compiledDevUrl();
     if (!devUrl) throw new Error('the dev URL compiled into the exe was not found');
     const port = Number(new URL(devUrl).port);
-    this.notes.push(`exe 에 컴파일된 devUrl: ${devUrl} (TAURI_CONFIG 는 실행 시 적용되지 않음 — 컴파일 때만 읽힘)`);
+    this.notes.push(`devUrl compiled into the exe: ${devUrl} (TAURI_CONFIG is read at compile time only)`);
     this.work = fs.mkdtempSync(path.join(os.tmpdir(), 'myboard-desktop-'));
     for (const dir of ['profile', 'config', 'data', 'bin']) fs.mkdirSync(path.join(this.work, dir), { recursive: true });
     let program = exe;
@@ -69,7 +70,7 @@ export class DesktopApp {
       while (at >= 0) { to.copy(bytes, at); count += 1; at = bytes.indexOf(from, at + 1); }
       program = path.join(this.work, 'bin', path.basename(exe));
       fs.writeFileSync(program, bytes);
-      this.notes.push(`포트 ${port} 는 다른 프로그램이 사용 중 → exe 복사본의 devUrl 을 ${this.vite.url} 로 바꿔 실행 (${count}곳, 원본·사용자 서버는 그대로)`);
+      this.notes.push(`port ${port} is used by another program → running a copy of the exe with devUrl ${this.vite.url} (${count} places; the original and the user's server untouched)`);
     }
     this.port = await freeDevPort(port + 100);
     const env = {

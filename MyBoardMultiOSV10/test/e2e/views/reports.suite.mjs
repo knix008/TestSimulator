@@ -45,8 +45,8 @@ const DASH = (name) => `${ANSWER}
 
 export const cases = [
   {
-    group: '보고서',
-    name: '누적 흐름도 · 관리도 · 처리량: 그림의 점·막대 수가 API 숫자와 같음',
+    group: 'Reports',
+    name: 'Cumulative flow, control chart, throughput: points and bars drawn equal the API numbers',
     async run(app) {
       const r = await app.run(`${OPEN}
         const q = { boardId: board.id };
@@ -75,8 +75,8 @@ export const cases = [
     },
   },
   {
-    group: '보고서',
-    name: '생성 대 해결 · 작업량 · 버전 · 분포: API 숫자와 같음',
+    group: 'Reports',
+    name: 'Created vs resolved, workload, version, breakdown: equal the API numbers',
     async run(app) {
       const r = await app.run(`${OPEN}
         await show('createdResolved');
@@ -102,8 +102,8 @@ export const cases = [
     },
   },
   {
-    group: '보고서',
-    name: '기간 바꾸기 (최근 7일 · 직접 지정) → 다시 불러와 점 수가 바뀜',
+    group: 'Reports',
+    name: 'Changing the period (last 7 days, custom) → reloaded, the point count changes',
     async run(app) {
       const r = await app.run(`${OPEN}
         await show('cfd');
@@ -127,8 +127,8 @@ export const cases = [
     },
   },
   {
-    group: '보고서',
-    name: '내보내기: PNG · SVG 파일, CSV 복사·저장 (내용 확인)',
+    group: 'Reports',
+    name: 'Export: PNG and SVG files, CSV copy and save (contents checked)',
     async run(app) {
       const r = await app.run(`${OPEN}
         await show('throughput');
@@ -155,8 +155,8 @@ export const cases = [
     },
   },
   {
-    group: '보고서',
-    name: '마우스를 올리면 도움말 (값) · 범례로 열 숨기기 · 관리도 시작/끝 열',
+    group: 'Reports',
+    name: 'Hover tooltips (values), hiding columns from the legend, control chart start/end columns',
     async run(app) {
       const r = await app.run(`${OPEN}
         await show('cfd');
@@ -186,8 +186,8 @@ export const cases = [
     },
   },
   {
-    group: '대시보드',
-    name: '만들기 → 가젯 추가 · 옮기기(메뉴) · 끌어서 옮기기 · 크기 · 설정(양식) → 다시 열어도 그대로',
+    group: 'Dashboards',
+    name: 'Create → add gadget, move (menu), drag, resize, configure (form) → unchanged after reopening',
     async run(app) {
       const name = `E2E 대시보드 ${Date.now()}`;
       const r1 = await app.run(`${OPEN}
@@ -202,8 +202,7 @@ export const cases = [
         const g = db.gadgets.find((x) => x.type === 'throughput');
         await settleGadgets();
         const card = document.querySelector('[data-gadget="' + g.id + '"]');
-        card.querySelector('[data-gact="menu"]').click(); await T.until(() => document.querySelector('.mbv-pop'), 3000, 'menu');
-        document.querySelector('.mbv-pop-item[data-value="right"]').click();
+        card.querySelector('[data-gact="menu"]').click(); await T.popupReady('menu'); T.popupDoc('menu').querySelector('.menu-item[data-id="custom:view-menu:right"]').click();
         await T.until(() => db.gadgets.find((x) => x.id === g.id).col === 1, 8000, 'moved right');
         await db.saving;
         const head = document.querySelector('[data-gadget="' + g.id + '"] .db-ghead').getBoundingClientRect();
@@ -252,8 +251,8 @@ export const cases = [
     },
   },
   {
-    group: '대시보드',
-    name: '가젯 종류마다 내용 (필터 결과 수 = API, 메모 Markdown) · 실행 취소 · 이름 바꾸기 · 삭제',
+    group: 'Dashboards',
+    name: `Every gadget type's content (filter result count = API, Markdown note), undo, rename, delete`,
     async run(app) {
       const r = await app.run(`${OPEN}
         ${DASH('E2E 가젯')}
@@ -286,8 +285,8 @@ export const cases = [
     },
   },
   {
-    group: '보고서',
-    name: '한국어 ↔ English · 어두운 테마 · 좁은 창 (가로 스크롤 없음, 도구 안 잘림)',
+    group: 'Reports',
+    name: 'Korean ↔ English, dark theme, narrow window (no horizontal scroll, tools not clipped)',
     async run(app) {
       await app.main.send('Emulation.setDeviceMetricsOverride', { width: 1000, height: 760, deviceScaleFactor: 1, mobile: false });
       try {

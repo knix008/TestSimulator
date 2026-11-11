@@ -8,6 +8,7 @@
 // Non-admins see everything read-only.
 import { registerView } from '../registry.js';
 import { createSettingsSidebar } from './sidebar.js';
+import { saveAllStages, unsavedCount } from './sections/workflow.js';
 import { registerTexts } from '../../i18n.js';
 import { TEXTS } from './texts.js';
 import './settings.css';
@@ -349,6 +350,10 @@ registerView('projectSettings', {
   update: (ctx) => view.update(ctx),
   unmount: () => { view.unmount(); side.refresh(); },
   sidebar: side.sidebar,
+  commands: {
+    // the app's Save (Ctrl+S): what is kept as unsaved changes here (workflow edits) goes to the database
+    save: { icon: 'save', label: 'action.save', run: () => (view.host && view.data ? saveAllStages(view) : 0), pending: () => (view.host ? unsavedCount(view) : 0) },
+  },
 });
 
 export { view as settingsView };

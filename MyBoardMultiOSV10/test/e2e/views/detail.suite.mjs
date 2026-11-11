@@ -31,6 +31,8 @@ async function ensure({ fresh = false } = {}) {
   if (!A.state.settings.showRightPanel) A.actions.updateSettings({ showRightPanel: true });
   if (A.state.selectedIssue !== window.__dt.id || D()?.state !== 'ready') A.actions.openIssue(window.__dt.id);
   await T.until(() => D()?.state === 'ready' && D().issueId === window.__dt.id, 20000, 'detail ready');
+  // Every field visible (empty ones are hidden by default; that is checked by its own case).
+  if (!D().showEmpty) { D().showEmpty = true; D().render(); }
   await settle();
   return window.__dt;
 }
@@ -47,8 +49,8 @@ function expectOnly(app, pattern) {
 
 export const cases = [
   {
-    group: '이슈 상세',
-    name: '이슈 열기: 머리글(키·유형·제목·동작) · 상태 · 필드 열 · 설명 · 부분 · 활동 탭',
+    group: 'Issue detail',
+    name: 'Opening an issue: header (key, type, summary, actions), status, field column, description, parts, activity tabs',
     async run(app) {
       const r = await run(app, String.raw`await ensure({ fresh: true });
         return { key: q('.dt-key')?.textContent.trim(), summary: q('.dt-summary-text')?.textContent, status: Boolean(q('.dt-status-button')), type: Boolean(q('.dt-type svg, .dt-type .iconref')),
@@ -67,8 +69,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '제목 고치기 (e 키, Enter 저장) · 설명 편집기 (Markdown 미리 보기 · :icon[] · @멘션 자동 완성)',
+    group: 'Issue detail',
+    name: 'Editing the summary (e, Enter saves), description editor (Markdown preview, :icon[], @mention autocomplete)',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         document.activeElement?.blur(); press(document.body, 'e'); await T.frames(2);
@@ -96,8 +98,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '필드: 담당자(나에게 맡기기 포함)·우선순위·레이블 만들기·스토리 포인트 −/+·날짜·카드 색 (아이콘 드롭다운)',
+    group: 'Issue detail',
+    name: 'Fields: assignee (incl. assign to me), priority, new label, story points −/+, dates, card colour (icon drop-downs)',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         q('[data-act="pick"][data-field="assignee"]').click();
@@ -133,8 +135,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '이슈 아이콘: 아이콘 고르기(ctx.pickIcon) → IconRef 저장, 머리글에 표시',
+    group: 'Issue detail',
+    name: 'Issue icon: icon picker (ctx.pickIcon) → IconRef saved and shown in the header',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         q('[data-act="pick-icon"]').click(); await T.popupReady('iconpicker'); const d = () => T.popupDoc('iconpicker');
@@ -147,8 +149,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '상태 전환: 완료로(해결 고르기 폼) · 되돌리기 · 조건/검증 실패는 코드별 번역',
+    group: 'Issue detail',
+    name: 'Transitions: to done (resolution form), back again, condition/validator failures translated by code',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         const cfg = window.__dt.cfg; const done = cfg.statuses.find((s) => s.category === 'done'); const prog = cfg.statuses.find((s) => s.category === 'inprogress');
@@ -195,8 +197,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '체크리스트: 추가(Enter) · 체크 · 끌어서 순서 바꾸기 · Alt+↑ · 글 고치기 · 삭제 · 진행 막대',
+    group: 'Issue detail',
+    name: 'Checklist: add (Enter), tick, drag to reorder, Alt+↑, edit text, delete, progress bar',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         for (const text of ['하나', '둘', '셋']) { const box = q('[data-draft="cl:new"]'); typeInto(box, text); press(box, 'Enter'); await settle(); }
@@ -216,7 +218,7 @@ export const cases = [
         const keyed = (await issueNow()).checklist.map((c) => c.text);
         q('[data-act="cl-edit"]').click(); await T.frames(1); const edit = q('.dt-cl-input'); typeInto(edit, '셋 (고침)'); press(edit, 'Enter'); await settle();
         const edited = (await issueNow()).checklist.map((c) => c.text);
-        q('[data-act="cl-delete"]').click(); await settle();
+        q('[data-act="cl-delete"]').click(); await confirmYes(); await settle();
         const final = await issueNow();
         return { added, progress, marker, dragged, server1, keyed, edited, final: final.checklist.map((c) => [c.text, c.done]) };`);
       assert.deepEqual(r.added, ['하나', '둘', '셋']);
@@ -230,8 +232,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '하위 작업: 바로 만들기 · 상태 표시 · 열기 (상위 이슈 이동) · 돌아오기',
+    group: 'Issue detail',
+    name: 'Subtasks: create inline, status shown, open (go to the subtask), come back',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         const box = q('[data-draft="sub:new"]'); typeInto(box, 'E2E 하위 작업'); press(box, 'Enter'); await settle();
@@ -251,8 +253,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '연결: 종류 고르기 + 키로 추가 · 종류별 묶음 · 반대쪽에도 보임 · 끊기',
+    group: 'Issue detail',
+    name: 'Links: choose kind + add by key, grouped by kind, shown on the other side too, unlink',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         const other = (await A.api.issues({ jql: 'project = "' + window.__dt.projectKey + '"', limit: 5 })).items.find((i) => i.id !== window.__dt.id && !i.parentId);
@@ -261,7 +263,7 @@ export const cases = [
         typeInto(q('[data-draft="link:key"]'), other.key); q('[data-act="link-save"]').click(); await settle();
         const group = q('.dt-link-group h4')?.textContent; const row = q('[data-link] b')?.textContent;
         const theirs = (await A.api.issue(other.id)).links.map((l) => l.kind + ':' + l.direction + ':' + l.issue.key);
-        q('[data-act="link-remove"]').click(); await settle();
+        q('[data-act="link-remove"]').click(); await confirmYes(); await settle();
         return { group, row, key: other.key, mine: window.__dt.key, theirs, after: (await issueNow()).links.length };`);
       assert.equal(r.group, '막힘');
       assert.equal(r.row, r.key);
@@ -270,8 +272,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '첨부: 끌어 놓기로 올리기 · 썸네일 · 내려받기 · 미리 보기 · 표지로 · 삭제(확인) · 50 MB 제한',
+    group: 'Issue detail',
+    name: 'Attachments: drop to upload, thumbnail, download, preview, use as cover, delete (confirm), 50 MB limit',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         const canvas = Object.assign(document.createElement('canvas'), { width: 24, height: 16 }); const g = canvas.getContext('2d'); g.fillStyle = '#e5484d'; g.fillRect(0, 0, 24, 16);
@@ -303,8 +305,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '댓글: m 키로 쓰기(@멘션·:icon[]) · 고치기 · 지우기(확인) · 최신/오래된 순',
+    group: 'Issue detail',
+    name: 'Comments: m to write (@mention, :icon[]), edit, delete (confirm), newest/oldest order',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         if (D().order !== 'newest') { q('[data-act="order"]').click(); await T.frames(1); }
@@ -340,8 +342,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '작업 로그: 처음 추정 4h → "1h 30m" 기록 (남은 추정 자동) · 직접 정하기 · 잘못된 시간 · 고치기 · 지우기',
+    group: 'Issue detail',
+    name: 'Work log: original estimate 4h → log "1h 30m" (remaining auto), set manually, invalid time, edit, delete',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         await D().setField('originalEstimate', 4 * 3600); await D().setField('remainingEstimate', null); await settle();
@@ -372,8 +374,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '기록 탭: 바뀐 필드가 읽기 쉽게 (이름·전 → 후) · 모두 탭은 댓글·기록·작업 로그를 섞음',
+    group: 'Issue detail',
+    name: 'History tab: readable field changes (name, from → to); the All tab mixes comments, history and work log',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         q('[data-act="tab"][data-tab="history"]').click(); await settle();
@@ -392,8 +394,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '실행 취소 / 다시 실행: 우선순위 바꾸기 → 되돌리기 → 다시 (패널과 코어 모두)',
+    group: 'Issue detail',
+    name: 'Undo / redo: change priority → undo → redo (panel and core)',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         const before = (await issueNow()).priorityId;
@@ -410,8 +412,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '실시간: 다른 클라이언트의 변경이 고치는 중인 글을 잃지 않고 반영 · 함께 보는 사람 표시',
+    group: 'Issue detail',
+    name: `Realtime: another client's change applies without losing text being edited, viewers shown`,
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         if (A.live().state !== 'open') return { skipped: 'no realtime (' + A.live().state + ')' };
@@ -440,8 +442,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '409 충돌: 낡은 rev 는 CONFLICT · 다른 필드만 바뀌면 병합 · 같은 필드면 배너(내 것 저장/저쪽 것)',
+    group: 'Issue detail',
+    name: '409 conflict: old rev is CONFLICT, other fields merge, same field shows a banner (keep mine / take theirs)',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         const { ApiClient } = await import('/src/api/client.js');
@@ -482,8 +484,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '동작 메뉴: 지켜보기 · 깃발 · 복제 · 넓게 보기 · 삭제(확인) → 없어진 이슈 · Esc 로 닫기',
+    group: 'Issue detail',
+    name: 'Actions menu: watch, flag, clone, open wide, delete (confirm) → deleted issue, Esc closes',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         const w0 = (await issueNow()).watching;
@@ -492,7 +494,7 @@ export const cases = [
         const allIcons = [...document.querySelectorAll('.dt-picker .dd-item')].every((i) => i.querySelector('svg'));
         await pick((i) => i.dataset.value === 'flag'); await settle(); const flagged = (await issueNow()).flagged;
         const width0 = T.rect('#detail').w;
-        q('[data-act="wide"]').click(); await T.frames(3); const wide = T.rect('#detail').w; const twoCols = getComputedStyle(q('.dt-columns')).display;
+        q('[data-act="wide"]').click(); await T.frames(3); const wide = T.rect('#detail').w; const twoCols = getComputedStyle(q('.dt-groups')).gridTemplateColumns.split(' ').length;
         q('[data-act="wide"]').click(); await T.frames(3); const back = T.rect('#detail').w;
         q('[data-act="menu"]').click(); await pick((i) => i.dataset.value === 'clone');
         await T.until(() => D().issueId !== window.__dt.id && D().state === 'ready', 10000, 'clone opened'); await settle();
@@ -511,7 +513,7 @@ export const cases = [
       assert.ok(r.allIcons, 'every menu item has an icon');
       assert.equal(r.flagged, true);
       assert.ok(r.widths[1] >= 600 && r.widths[2] < 600, `widths ${r.widths}`);
-      assert.equal(r.twoCols, 'grid', 'two columns when wide');
+      assert.equal(r.twoCols, 2, 'two columns of field groups when wide');
       assert.ok(r.cloneLinks.includes('clones'));
       assert.ok(r.gone, 'the clone was deleted');
       assert.ok(r.editorClosed, 'Esc closes the editor first');
@@ -520,8 +522,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '읽기 전용(보기 역할): 고치는 단추가 없고 숫자는 사용 안 함 상태의 −/+',
+    group: 'Issue detail',
+    name: 'Read-only (viewer role): no edit buttons, numbers as disabled −/+ steppers',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         const role = D().cfg.project.myRole; D().cfg.project.myRole = 'viewer'; D().render(); await T.frames(1);
@@ -534,8 +536,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '없는 이슈 · 로딩 상태, 한국어/English 전환',
+    group: 'Issue detail',
+    name: 'Missing issue and loading states, Korean/English switch',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         A.actions.openIssue('NOPE-99999'); await T.until(() => D().state === 'missing', 10000, 'missing');
@@ -554,8 +556,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '모양: 가장 좁은 패널(300px)과 어두운 테마에서 잘림 없음 · 넓으면 두 단',
+    group: 'Issue detail',
+    name: 'Appearance: nothing clipped at the narrowest panel (300 px) and in a dark theme, two columns when wide',
     async run(app) {
       const r = await run(app, String.raw`await ensure();
         const settings = { rightWidth: A.state.settings.rightWidth, theme: A.state.settings.theme };
@@ -575,7 +577,7 @@ export const cases = [
         const lum = (c) => { const m = c.replace(/^color\(srgb/, '').match(/[\d.]+/g).map(Number); const k = c.startsWith('color(') ? 1 : 255; return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / k; };
         const dark = { mode: document.documentElement.dataset.mode, ...clipped(), text: lum(getComputedStyle(q('.dt-summary')).color), bg: lum(getComputedStyle(document.querySelector('#right-panel')).backgroundColor) };
         A.actions.updateSettings({ rightWidth: 720 }); await T.frames(4);
-        const wide = { ...clipped(), cols: getComputedStyle(q('.dt-columns')).gridTemplateColumns.split(' ').length };
+        const wide = { ...clipped(), cols: getComputedStyle(q('.dt-groups')).gridTemplateColumns.split(' ').length };
         A.actions.updateSettings(settings); await T.frames(3);
         q('[data-act="tab"][data-tab="comments"]').click(); await settle();
         return { narrow, dark, wide };`);
@@ -591,8 +593,8 @@ export const cases = [
     },
   },
   {
-    group: '이슈 상세',
-    name: '유형별 사용자 정의 필드: 다른 유형이면 숨김(값은 남음), 기본값 · 해결 방법 아이콘 칩',
+    group: 'Issue detail',
+    name: 'Custom fields by issue type: hidden for other types (value kept), defaults, resolution icon chip',
     async run(app) {
       const r = await run(app, `
         const dt = await ensure();
@@ -618,8 +620,9 @@ export const cases = [
         await T.until(() => D()?.state === 'ready' && D().issueId === made.id && q('.dt-chip.resolution'), 20000, 'resolved'); await settle();
         const chip = q('.dt-chip.resolution');
         const chipIcon = Boolean(chip.querySelector('.iconref')); const chipText = chip.textContent.trim();
+        // leave the issue first: the panel would otherwise read the deleted one again (a 404 in the page)
+        A.actions.openIssue(dt.id); await T.until(() => D()?.state === 'ready' && D().issueId === dt.id, 10000, 'back');
         await A.api.deleteIssue(made.id); await A.api.del('/projects/' + dt.projectId + '/fields/' + f.id);
-        A.actions.openIssue(dt.id);
         return { rowShown, shownText, hiddenAfter, kept, chipIcon, chipText };`);
       assert.ok(r.rowShown, 'the field shows for its type');
       assert.equal(r.shownText, '기본 메모', 'filled with its default');
@@ -627,6 +630,38 @@ export const cases = [
       assert.equal(r.kept, '기본 메모', 'the value stays stored');
       assert.ok(r.chipIcon, 'resolution chip with the resolution icon');
       assert.ok(r.chipText.length > 0);
+    },
+  },
+  {
+    group: 'Issue detail',
+    name: 'Organised panel: field groups, empty fields hidden by default (toggle), section bar jumps, every control on one grid, icon row shows a name',
+    async run(app) {
+      const r = await run(app, String.raw`await ensure();
+        await A.api.updateIssue(window.__dt.id, { icon: 'e:🔍', rev: (await issueNow()).rev });
+        await D().reload(); D().showEmpty = false; D().render(); await settle();
+        await T.until(async () => q('.dt-field[data-field="icon"] .dt-val')?.textContent.includes('돋보기'), 8000, 'icon name');
+        const groups = qa('.dt-group').map((g) => g.dataset.group);
+        const before = qa('.dt-field').length;
+        const toggle = q('.dt-empty-toggle'); toggle.click(); await settle();
+        const after = qa('.dt-field').length; const hiddenEmpty = after > before; const shownEmpty = after > before && qa('.dt-field').some((x) => x.querySelector('.dt-none, .dt-empty'));
+        // one grid: label columns equal, control boxes share left edge, width and height
+        const boxes = qa('.dt-groups .dt-group:first-child .dt-field:not(.wrap) .dt-fvalue > .dt-ctl').map((b) => b.getBoundingClientRect());
+        const labels = qa('.dt-groups .dt-group:first-child .dt-flabel').map((l) => Math.round(l.getBoundingClientRect().width));
+        const spread = (xs) => Math.max(...xs) - Math.min(...xs);
+        const align = { left: spread(boxes.map((b) => b.left)), width: spread(boxes.map((b) => b.width)), height: spread(boxes.map((b) => b.height)), labels: spread(labels), n: boxes.length };
+        const iconText = q('.dt-field[data-field="icon"]').textContent;
+        q('.dt-sb-chip[data-jump="activity"]').click(); await T.sleep(500);
+        const box = document.querySelector('.dt-host').getBoundingClientRect(); const act = q('[data-section="activity"]').getBoundingClientRect();
+        D().showEmpty = true; D().render(); await settle();
+        return { groups, hiddenEmpty, shownEmpty, align, iconText, jumped: act.top >= box.top && act.top < box.bottom - 40, scrolled: document.querySelector('.dt-host').scrollTop > 0 };`);
+      for (const g of ['people', 'planning', 'dates', 'look']) assert.ok(r.groups.includes(g), `group ${g} (${r.groups})`); // an all-empty group (time here) hides with its fields
+      assert.ok(r.hiddenEmpty, 'an empty field is hidden by default');
+      assert.ok(r.shownEmpty, 'the toggle shows the empty fields');
+      assert.ok(r.align.n >= 3, 'controls measured');
+      assert.ok(r.align.left <= 1 && r.align.width <= 1 && r.align.height <= 1, `controls on one grid ${JSON.stringify(r.align)}`);
+      assert.ok(r.align.labels <= 1, 'label column equal');
+      assert.ok(!/e:🔍|b:/.test(r.iconText) && /돋보기/.test(r.iconText), `the icon row shows a name, not the ref (${r.iconText})`);
+      assert.ok(r.jumped && r.scrolled, 'the section bar scrolls the section into view');
     },
   },
 ];

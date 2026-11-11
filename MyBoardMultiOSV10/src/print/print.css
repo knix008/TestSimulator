@@ -1,0 +1,62 @@
+/* The print window (print/popup.js) on top of styles.css's print preview rules, and the printed pages (print/pages.js):
+   page boxes in millimetres, row heights the same as pages.js's estimates (H), so preview and paper match. */
+.mb-print-view { grid-template-columns: 560px minmax(0, 1fr); }
+.mb-print-view .print-options { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden auto; }
+.mb-print-view .print-column { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+/* orientation, margins, colour: the label and its buttons on one line */
+.mb-print-view .print-options .row.inline { display: grid !important; grid-template-columns: 62px minmax(0, 1fr); align-items: center; gap: 6px; padding: 3px 0; }
+.mb-print-view .print-options .row.inline .row-label { white-space: nowrap; }
+.mb-print-view .print-options .row.inline .segmented .segment { padding: 4px 4px; }
+.mb-print-view .print-plain { padding: 4px 0; }
+.mb-print-view .print-plain .row-control { width: 100%; }
+.mb-print-view .print-note { margin: 4px 0; font-size: 0.9em; line-height: 1.4; }
+.popup-print .print-status { margin-left: 8px; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.popup-print .popup-foot .button[disabled] { opacity: 0.5; }
+.print-preview .preview-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); }
+
+/* ── a page */
+.pp-page { box-sizing: border-box; display: flex; flex-direction: column; background: #fff; color: #1b1f24; font: 9pt/1.35 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; overflow: hidden; }
+.pp-page.grey { filter: grayscale(1); }
+.pp-head, .pp-foot { display: flex; align-items: center; gap: 3mm; flex: none; color: #5f6670; font-size: 8pt; }
+.pp-head { height: 10mm; border-bottom: 0.3mm solid #c9ced6; margin-bottom: 0; }
+.pp-head b { color: #1b1f24; font-size: 9.5pt; }
+.pp-foot { height: 8mm; border-top: 0.3mm solid #c9ced6; }
+.pp-head .grow, .pp-foot .grow { flex: 1; }
+.pp-body { flex: 1; min-height: 0; overflow: hidden; padding-top: 1mm; }
+.pp-title { display: flex; align-items: baseline; gap: 3mm; height: 11mm; margin: 0; padding-top: 2mm; box-sizing: border-box; font-size: 13pt; font-weight: 700; }
+.pp-title small { font-size: 8.5pt; font-weight: 400; color: #5f6670; }
+.pp-sub { height: 8mm; margin: 0; padding-top: 2mm; box-sizing: border-box; font-size: 10pt; font-weight: 700; }
+.pp-muted { margin: 0; height: 5.2mm; color: #5f6670; font-size: 8.5pt; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pp-desc p { margin: 0 0 2mm; white-space: normal; }
+.pp-error { color: #c92a2a; }
+
+/* tables: one row = 6.2 mm, the header 7 mm */
+.pp-table, .pp-kv { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 4mm; }
+.pp-table th, .pp-table td { height: 6.2mm; padding: 0 1.6mm; border-bottom: 0.2mm solid #e3e6ea; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-table th { height: 7mm; background: #f1f3f6; border-bottom: 0.3mm solid #c9ced6; font-weight: 600; font-size: 8.5pt; }
+.pp-table .pp-none { color: #8a9099; font-style: italic; }
+.pp-kv th, .pp-kv td { height: 6.2mm; padding: 0 1.6mm; border-bottom: 0.2mm solid #e3e6ea; text-align: left; vertical-align: middle; }
+.pp-kv th { width: 32mm; color: #5f6670; font-weight: 600; }
+.pp-kv.wrap td { white-space: normal; padding: 1.2mm 1.6mm; }
+
+/* tiles (summaries, issues by category): 15 mm */
+.pp-tiles { display: flex; gap: 3mm; height: 13mm; margin-bottom: 2mm; }
+.pp-tile { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 3mm; border: 0.3mm solid #dfe3e8; border-radius: 2mm; }
+.pp-tile span { color: #5f6670; font-size: 7.5pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-tile b { font-size: 12pt; }
+.pp-tile.cat-todo { border-left: 1.2mm solid #868e96; }
+.pp-tile.cat-inprogress { border-left: 1.2mm solid #1c7ed6; }
+.pp-tile.cat-done { border-left: 1.2mm solid #2f9e44; }
+
+/* a report: the chart picture scales to the page width */
+.pp-report { margin-bottom: 4mm; break-inside: avoid; }
+.pp-chart svg { display: block; width: 100%; height: 100%; }
+.pp-legend { min-height: 5.2mm; font-size: 7.5pt; }
+.pp-legend .rp-legend { display: flex; flex-wrap: wrap; gap: 1mm 4mm; padding: 1mm 0; }
+.pp-legend button { pointer-events: none; border: 0; background: none; padding: 0; font: inherit; color: inherit; display: inline-flex; align-items: center; gap: 1mm; }
+
+/* printing: only the pages */
+@media print {
+  .print-sheet .pp-page { break-after: page; page-break-after: always; }
+  .print-sheet .pp-page:last-child { break-after: auto; page-break-after: auto; }
+}

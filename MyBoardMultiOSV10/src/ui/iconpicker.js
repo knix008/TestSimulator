@@ -279,6 +279,7 @@ export class IconPicker {
         <input type="file" data-ip-file hidden multiple accept="${UPLOAD_EXTENSIONS.map((e) => `.${e}`).join(',')},image/*" />
       </div>
       <p class="ip-hint muted">${escapeHtml(this.t('iconpicker.uploadHint'))}</p>
+      ${this.pendingDelete ? `<div class="ip-confirm" role="alertdialog">${icon('trash')}<span>${escapeHtml(this.t('iconpicker.deleteAsk'))}</span><span class="ip-confirm-pic">${renderIconRef(`u:${this.pendingDelete}`, { size: 22 })}</span><span class="grow"></span><button type="button" class="button small" data-ip-act="delete-no">${escapeHtml(this.t('iconpicker.deleteNo'))}</button><button type="button" class="button small danger" data-ip-act="delete-yes">${icon('trash')}<span>${escapeHtml(this.t('iconpicker.deleteYes'))}</span></button></div>` : ''}
       <div class="ip-grid upload-grid" role="listbox" aria-label="${escapeHtml(this.t('iconpicker.tab.upload'))}">${grid}</div>`;
   }
 
@@ -347,7 +348,7 @@ export class IconPicker {
       if (!el || el.disabled) return;
       if (el.dataset.ipTab) { this.tab = el.dataset.ipTab; this.render(); return; }
       if (el.dataset.ipCat) { const [kind, cat] = el.dataset.ipCat.split(':'); this.category[kind] = cat; this.renderBody(); return; }
-      if (el.dataset.ipDelete) { this.deleteUpload(el.dataset.ipDelete); return; }
+      if (el.dataset.ipDelete) { this.pendingDelete = el.dataset.ipDelete; this.renderBody(); host.querySelector('[data-ip-act="delete-yes"]')?.focus(); return; }
       if (el.dataset.ipRef != null) {
         this.setValue(el.dataset.ipRef);
         if (event.detail === 2) this.apply();
@@ -365,6 +366,8 @@ export class IconPicker {
       else if (act === 'cancel') this.o.onCancel?.();
       else if (act === 'clear') this.o.onApply?.('');
       else if (act === 'upload') host.querySelector('[data-ip-file]')?.click();
+      else if (act === 'delete-yes') { const id = this.pendingDelete; this.pendingDelete = null; if (id) this.deleteUpload(id); }
+      else if (act === 'delete-no') { this.pendingDelete = null; this.renderBody(); }
     });
     host.addEventListener('input', (event) => {
       const target = event.target;
