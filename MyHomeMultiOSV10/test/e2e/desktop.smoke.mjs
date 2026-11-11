@@ -90,6 +90,43 @@ try {
   });
 
   report.group('popups');
+  // A popup that fits its content (the start screen's tutorial popup, settings …) must never be seen at two heights:
+  // it opened at the default size (470 px) and shrank to its content (373 px) half a second later, and opened again
+  // the backend reset it to 470 and showed it at once. Sampled every 25 ms through the window API, first open and reopen.
+  for (const [kind, params] of [['welcome', '{}'], ['settings', "{ tab: 'general' }"], ['confirm', "{ title: 'x', message: 'y' }"]]) {
+    await report.check(`popup "${kind}" is shown only at its final size (first open and opened again)`, async () => {
+      const seen = [];
+      for (let round = 0; round < 2; round++) {
+        const samples = await evalApp(`(async () => {
+          const invoke = window.__TAURI_INTERNALS__.invoke;
+          const label = 'popup-${kind}';
+          void window.__myhomemaker.popups.open('${kind}', ${params});
+          const out = [];
+          const end = performance.now() + 2500;
+          while (performance.now() < end) {
+            const visible = await invoke('plugin:window|is_visible', { label }).catch(() => false);
+            if (visible) {
+              const size = await invoke('plugin:window|inner_size', { label }).catch(() => null);
+              const scale = await invoke('plugin:window|scale_factor', { label }).catch(() => 1);
+              if (size) out.push(Math.round(size.height / scale));
+            }
+            await new Promise((r) => setTimeout(r, 25));
+          }
+          // First round: hidden, so the second open reuses the same window (the backend's reopen path).
+          if (${round} === 0) await invoke('hide_popup', { kind: '${kind}' });
+          else await window.__myhomemaker.popups.close('${kind}');
+          await new Promise((r) => setTimeout(r, 300));
+          return out;
+        })()`);
+        seen.push(samples);
+      }
+      for (const [round, samples] of seen.entries()) {
+        expect(samples.length > 10, `${round ? 'reopened' : 'first'}: never shown (${samples.length} samples)`);
+        const heights = [...new Set(samples)];
+        expect(heights.length === 1, `${round ? 'reopened' : 'first'}: shown at heights ${heights.join(' → ')}`);
+      }
+    });
+  }
   for (const [kind, command] of [['settings', "window.__myhomemaker.run('settings')"], ['design', "window.__myhomemaker.run('designPicker')"], ['publish', "window.__myhomemaker.run('publish')"], ['template', "window.__myhomemaker.popups.open('template', {})"]]) {
     await report.check(`popup "${kind}" opens as its own window`, async () => {
       await evalApp(`void ${command}, 1`);

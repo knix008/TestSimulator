@@ -1,5 +1,5 @@
 // The Rust board server written next to a published site. Cargo.toml depends on the one database
-// driver for the kind chosen in Settings › Database. The HTTP API matches server.js.
+// driver for the kind chosen in Settings › Board server. The HTTP API matches server.js.
 
 const RUST_DRIVER = {
   sqlite: { crate: 'rusqlite', line: 'rusqlite = { version = "0.32", features = ["bundled"] }' },

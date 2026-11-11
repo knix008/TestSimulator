@@ -1,5 +1,5 @@
 // The Go board server written next to a published site. One database driver, the one chosen in
-// Settings › Database, so `go mod tidy` only fetches that driver. The HTTP API matches server.js.
+// Settings › Board server, so `go mod tidy` only fetches that driver. The HTTP API matches server.js.
 
 const GO_DRIVER = {
   sqlite: { module: 'modernc.org/sqlite', version: 'v1.37.0', name: 'sqlite' },

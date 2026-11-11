@@ -13,10 +13,12 @@
 import { emitTo, invoke, isDesktop, listen } from './native.js';
 
 /** Logical size of each popup, measured to fit its content (Korean and English, full lists) without scrolling
- * or empty space. Fixed; confirm, about, welcome, prompt and settings then follow their content height (fitHeight).
+ * or empty space. Fixed (welcome, the start screen's tutorial popup, never changes); confirm, about, prompt and
+ * publish then follow their content height (fitHeight); settings keeps
+ * one height for every tab (its tallest tab, fitSettingsHeight).
  * Settings cannot be resized by the user and does not scroll. */
 export const POPUPS = {
-  settings: { width: 1120, height: 520 },
+  settings: { width: 1120, height: 555 },
   about: { width: 740, height: 600 },
   confirm: { width: 560, height: 270 },
   error: { width: 720, height: 500 },
@@ -24,7 +26,7 @@ export const POPUPS = {
   recent: { width: 800, height: 510 },
   menu: { width: 300, height: 200 },
   theme: { width: 620, height: 680 },
-  welcome: { width: 640, height: 470 },
+  welcome: { width: 640, height: 373 }, // fixed: never resized (it showed long, then short)
   prompt: { width: 560, height: 230 },
   design: { width: 1000, height: 668 },
   template: { width: 1000, height: 560 },
@@ -32,6 +34,10 @@ export const POPUPS = {
   print: { width: 1240, height: 760 },
   packages: { width: 760, height: 600 },
 };
+
+/** Popups whose height follows their content. They are shown only once measured — as a window (lib.rs
+ * FITTED_POPUPS) and as a frame — otherwise they appeared at the default height first and then jumped. */
+export const FITTED_POPUPS = ['settings', 'about', 'confirm', 'prompt', 'publish'];
 
 export const popupKey = (kind) => `myhomemaker.popup.${kind}`;
 
@@ -186,15 +192,26 @@ export class PopupHost {
       document.body.append(frame);
       this.frames.set(kind, frame);
       if (kind === 'menu') this.addMenuShield(frame);
+    } else if (FITTED_POPUPS.includes(kind)) {
+      // New content, new height: hidden until the page has measured it ('ready').
+      frame.style.visibility = 'hidden';
+      this.post(kind, { type: 'refresh' });
     } else {
       this.post(kind, { type: 'refresh' });
     }
+    const fitted = FITTED_POPUPS.includes(kind);
+    // A fitted frame keeps the height its page set (it changes it with 'resize'); the default is only the first guess.
+    const height = fitted && frame.style.height ? parseFloat(frame.style.height) : size.height;
     frame.style.width = `${size.width}px`;
-    frame.style.height = `${size.height}px`;
+    frame.style.height = `${height}px`;
     const left = anchor ? anchor.x - window.screenX : (window.innerWidth - size.width) / 2;
     const top = anchor ? anchor.y - window.screenY : Math.max(20, (window.innerHeight - size.height) / 2);
-    this.placeFrame(frame, left, top, size.width, size.height);
-    if (kind !== 'menu') frame.style.visibility = '';
+    this.placeFrame(frame, left, top, size.width, height);
+    // Shown when its page says 'ready' (drawn and measured). If that never comes, shown anyway.
+    if (kind !== 'menu') {
+      clearTimeout(frame.revealTimer);
+      frame.revealTimer = setTimeout(() => { frame.style.visibility = ''; }, 1500);
+    }
   }
 
   /** A transparent layer behind a menu frame: clicking outside closes it. */
@@ -227,7 +244,7 @@ export class PopupHost {
   frameMessage(kind, type, data = {}) {
     const frame = this.frames.get(kind);
     if (!frame) return;
-    if (type === 'ready') frame.style.visibility = '';
+    if (type === 'ready') { clearTimeout(frame.revealTimer); frame.style.visibility = ''; }
     else if (type === 'place') {
       const left = data.x - window.screenX;
       const top = data.y - window.screenY;

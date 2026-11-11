@@ -78,7 +78,7 @@ function barHtml() {
       <button class="segment ${L === 'ko' ? 'active' : ''}" data-viewer="lang" data-value="ko" role="radio" aria-checked="${L === 'ko'}" title="한국어" aria-label="한국어">${languageFlag('ko')}</button>
       <button class="segment ${L === 'en' ? 'active' : ''}" data-viewer="lang" data-value="en" role="radio" aria-checked="${L === 'en'}" title="English" aria-label="English">${languageFlag('en')}</button>
     </span>`;
-  const close = inFrame ? `<button class="icon-button" data-viewer="close" title="${escapeHtml(t('common.close'))}" aria-label="${escapeHtml(t('common.close'))}">${icon('close')}</button>` : '';
+  const close = inFrame ? `<button class="icon-button popup-close" data-viewer="close" title="${escapeHtml(t('common.close'))}" aria-label="${escapeHtml(t('common.close'))}">${icon('close')}</button>` : '';
   const title = `<h1 class="viewer-title">${icon(info.glyph)}<span>${escapeHtml(t(info.title))}</span></h1>`;
   if (kind === 'video') {
     return `${title}

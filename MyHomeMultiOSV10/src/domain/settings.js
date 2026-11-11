@@ -28,7 +28,7 @@ export const ANIMATIONS = [
   'fireflies', 'ripples', 'coderain', 'hexagons', 'orbits', 'lava', 'spiral', 'confetti', 'nodes', 'ribbons',
 ];
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
-/** Where bulletin boards keep their posts when they use a database (Settings › Database; desktop app). SQLite3 is the default. */
+/** Where bulletin boards keep their posts when they use a database (Settings › Board server; desktop app). SQLite3 is the default. */
 export const DB_KINDS = ['sqlite', 'mysql', 'mariadb', 'postgres', 'mssql'];
 /** The language of the board server written next to a published site. Node stays the default. */
 export const BOARD_BACKENDS = ['node', 'go', 'rust', 'python'];
@@ -150,6 +150,8 @@ export function defaultSettings(language = 'ko') {
     customDesigns: [],
     dbKind: 'sqlite',
     boardBackend: 'node',
+    // Installs the board server's language when it is missing (system software: off until the user turns it on).
+    autoInstallServerTool: false,
     dbHost: 'localhost',
     dbPort: null,
     dbName: 'myhomemaker',
@@ -169,7 +171,7 @@ const clamp = (value, min, max, fallback) => {
   return Number.isFinite(number) ? Math.min(max, Math.max(min, Math.round(number))) : fallback;
 };
 
-const BOOLEANS = ['autoDownloadPackages', 'showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'showBottomPanel', 'spellCheck', 'spellEnglish', 'spellKorean', 'restoreSession', 'confirmDelete', 'statusClock', 'autoFit', 'wordWrap', 'showHover', 'toolboxCompact',
+const BOOLEANS = ['autoDownloadPackages', 'autoInstallServerTool','showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'showBottomPanel', 'spellCheck', 'spellEnglish', 'spellKorean', 'restoreSession', 'confirmDelete', 'statusClock', 'autoFit', 'wordWrap', 'showHover', 'toolboxCompact',
   'confirmPublish', 'publishExtractImages', 'tutorialOffered', 'showWelcome', 'tutorialDone', 'animationOnStartOnly', 'animationRandom',
   'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner'];
 

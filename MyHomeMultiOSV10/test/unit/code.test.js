@@ -5,7 +5,7 @@ import { bandTexts, layoutSheets, normalizePrintOptions, PAPERS, paperSize, prin
 import { fileUrls, formatSize, PACKAGES, packageProgress, packageSize, packageState, sha256Hex } from '../../src/domain/packages.js';
 import { PackageManager, packageView, readPackageStates } from '../../src/platform/packages.js';
 import { findAll, highlight, isCodeFileName, languageOf, lineColumn, lineOffset, plainOf, toggleComment } from '../../src/domain/highlight.js';
-import { checkCode, checkCss, checkJson, formatCode, PARSERS } from '../../src/domain/codetools.js';
+import { checkCode, checkCss, checkJson, checkSource, formatCode, htmlHinter, PARSERS } from '../../src/domain/codetools.js';
 import { drainQueue, pushQueue, readQueue } from '../../src/domain/codebus.js';
 import * as S from '../../src/domain/site.js';
 import { inlineScript, pageHtml, siteCss, siteStyles } from '../../src/domain/render.js';
@@ -265,6 +265,15 @@ test('code: checks without packages (JSON, CSS) and with them (fake JSHint, HTML
   assert.deepEqual(js.items.map((p) => [p.line, p.column, p.severity]), [[1, 10, 'warning'], [2, 5, 'error']]);
   const HTMLHint = { verify: () => [{ type: 'error', message: 'Tag must be paired', line: 3, col: 2, rule: { id: 'tag-pair' } }] };
   assert.deepEqual(checkCode({ HTMLHint }, '<div>', 'html').items[0], { line: 3, column: 2, severity: 'error', message: 'Tag must be paired', rule: 'tag-pair' });
+  // The real browser build (UMD) puts the module's exports on globalThis.HTMLHint: the linter is HTMLHint.HTMLHint.
+  const umd = { HTMLHint: { HTMLHint, HTMLParser: class {}, HTMLRules: {}, Reporter: class {} } };
+  assert.equal(htmlHinter(umd), HTMLHint);
+  assert.equal(checkCode(umd, '<div>', 'html').items[0].rule, 'tag-pair');
+  assert.equal(checkSource(umd, '<div>', 'html').tool, 'HTMLHint');
+  // Loaded but not usable (another shape): the small check, never an error (the problems panel runs this on every edit).
+  assert.equal(htmlHinter({ HTMLHint: { HTMLParser: class {} } }), null);
+  assert.equal(checkSource({ HTMLHint: { HTMLParser: class {} } }, '<div>', 'html').tool, 'HTML');
+  assert.equal(checkSource({ JSHINT: {} }, 'var a = 1;', 'js').tool, 'JavaScript');
   assert.throws(() => checkCode({}, 'x', 'js'), /JSHint/);
 
   const seen = [];

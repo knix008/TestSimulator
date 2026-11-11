@@ -325,6 +325,22 @@ function openSiteCode(field) {
   return addTab({ kind: 'site', field, siteId: site.siteId, siteName: site.name, name: `site.${field === 'head' ? 'head.html' : field}`, language, text: site.code[field] ?? '' });
 }
 
+/** The project being worked on: its own CSS, JavaScript and <head> HTML, each in a tab (CSS in front). No project:
+ * the default files instead. */
+function openProject() {
+  siteChanged();
+  if (!state.site) { openDefaultFiles(); return; }
+  for (const field of ['head', 'js', 'css']) openSiteCode(field);
+}
+
+/** No project open: a starter page, style sheet and script — only when the editor has nothing open yet. */
+function openDefaultFiles() {
+  if (state.tabs.length) return;
+  for (const [language, name] of [['js', 'script.js'], ['css', 'style.css'], ['html', 'index.html']]) {
+    addTab({ kind: 'file', name, path: null, text: starterText(language), language, untitled: true });
+  }
+}
+
 /** Requests from the main window (open a file, the site's code, a page as HTML). Each is done once. */
 async function readInbox() {
   const queue = readQueue(CODE_INBOX_KEY);
@@ -337,6 +353,8 @@ async function readInbox() {
     else if (request.type === 'open-content') openContent(request.name, request.content);
     else if (request.type === 'site-code') { siteChanged(); openSiteCode(request.field ?? 'css'); }
     else if (request.type === 'new') newFile(request.language ?? 'html');
+    else if (request.type === 'project') openProject();
+    else if (request.type === 'default') openDefaultFiles();
   }
   if (appWindow) { appWindow.unminimize().catch(() => {}); appWindow.setFocus().catch(() => {}); }
 }

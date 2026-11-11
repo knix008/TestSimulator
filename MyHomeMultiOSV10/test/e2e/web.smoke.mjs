@@ -568,6 +568,50 @@ for (const language of languages) {
         expect(!info.raw, `untranslated: ${info.raw}`);
       });
     }
+    // The start screen's tutorial popup was shown at the default 470 px, then 148–164 px, then 373 px: a frame was made
+    // visible before its page had drawn and measured itself. Sampled on every frame: first open and opened again.
+    for (const [kind, code] of [['welcome', "a.popups.open('welcome', {})"], ['confirm', "a.popups.open('confirm', { title: 'x', message: 'y' })"], ['about', "a.run('about')"]]) {
+      await report.check(tag(`popup "${kind}" is seen at one height only (first open and opened again)`), async () => {
+        await closePopups();
+        const rounds = await app(`const sample = async () => { const out = []; const end = performance.now() + 1800; while (performance.now() < end) { const f = document.querySelector('.web-popup-${kind}'); if (f && getComputedStyle(f).visibility !== 'hidden') out.push(f.offsetHeight); await new Promise((r) => requestAnimationFrame(r)); } return out; };
+          void ${code}; const first = await sample(); void ${code}; const again = await sample(); return [first, again];`, 20000);
+        await closePopups();
+        for (const [i, samples] of rounds.entries()) {
+          expect(samples.length > 5, `${i ? 'again' : 'first'}: never shown`);
+          const heights = [...new Set(samples)];
+          expect(heights.length === 1, `${i ? 'again' : 'first'}: seen at ${heights.join(' → ')} px`);
+          // The tutorial popup has one fixed size; its content must fill it exactly (no blank space, no scrolling).
+          if (kind === 'welcome') expect(heights[0] === 373, `welcome is ${heights[0]} px, not its fixed 373 px`);
+        }
+        if (kind === 'welcome') {
+          await app("void a.popups.open('welcome', {}); return 1;");
+          await waitPopup('welcome');
+          await sleep(300);
+          const fill = await run(`(() => { const d = ${popupDoc('welcome')}; const p = d.querySelector('.popup'); p.classList.add('fit'); const content = Math.ceil(p.getBoundingClientRect().height); p.classList.remove('fit'); return { content, window: d.defaultView.innerHeight }; })()`);
+          await closePopups();
+          expect(Math.abs(fill.content - fill.window) <= 2, `content ${fill.content} px in a ${fill.window} px window`);
+        }
+      });
+    }
+    // Every popup's × turns red under the pointer (the caption buttons' grey hover used to win). A real pointer move.
+    await report.check(tag('every popup\'s × turns red under the pointer'), async () => {
+      const wrong = [];
+      for (const [kind, code] of [['settings', "a.popups.open('settings', { tab: 'general' })"], ['about', "a.run('about')"], ['welcome', "a.popups.open('welcome', {})"], ['confirm', "a.popups.open('confirm', { title: 'x', message: 'y' })"], ['error', "a.popups.open('error', { title: 'x', message: 'y' })"], ['prompt', "a.popups.open('prompt', { title: 'x', label: 'y', value: 'z' })"], ['recent', "a.popups.open('recent', {})"], ['theme', "a.popups.open('theme', {})"], ['template', "a.popups.open('template', {})"], ['design', "a.run('designPicker')"], ['publish', "a.run('publish')"], ['packages', "a.run('packages')"], ['print', "a.run('print')"]]) {
+        await closePopups();
+        await app(`void ${code}; return 1;`);
+        await waitPopup(kind);
+        await sleep(250);
+        const at = await run(`(() => { const f = document.querySelector('.web-popup-${kind}'); const b = f.querySelector('iframe').contentDocument.querySelector('.popup-head [data-action="close"]'); if (!b) return null; const o = f.querySelector('iframe').getBoundingClientRect(); const r = b.getBoundingClientRect(); return { x: o.left + r.left + r.width / 2, y: o.top + r.top + r.height / 2, cls: b.className }; })()`);
+        if (!at) { wrong.push(`${kind}: no ×`); continue; }
+        await page.mouse('mouseMoved', at.x, at.y);
+        await sleep(120);
+        const bg = await run(`getComputedStyle(${popupDoc(kind)}.querySelector('.popup-head [data-action="close"]')).backgroundColor`);
+        if (bg !== 'rgb(196, 43, 28)') wrong.push(`${kind}: ${bg} (${at.cls})`);
+        await page.mouse('mouseMoved', 5, 5);
+      }
+      await closePopups();
+      expect(!wrong.length, wrong.join(', '));
+    });
     await report.check(tag('the new site window creates a site and a sample'), async () => {
       await closePopups();
       await app("A.newSite('blank'); doc().markSaved(null); void a.run('new'); return 1;");
@@ -596,6 +640,20 @@ for (const language of languages) {
         expect(await run(`!!${popupDoc('settings')}.querySelector('.settings-${tab}')`), 'tab not drawn');
       });
     }
+    await report.check(tag('Settings keeps one size on every tab, and no tab scrolls'), async () => {
+      await closePopups();
+      await app("void a.popups.open('settings', { tab: 'general' }); return 1;");
+      await waitPopup('settings');
+      await sleep(300);
+      const sizes = [];
+      for (const tab of ['general', 'start', 'appearance', 'font', 'background', 'editor', 'dictionary', 'recent', 'packages', 'database', 'shortcuts']) {
+        await run(`(() => { ${popupDoc('settings')}.querySelector('.tab[data-value="${tab}"]').click(); return 1; })()`);
+        await sleep(150);
+        sizes.push(await run(`(() => { const f = document.querySelector('.web-popup-settings'); const b = ${popupDoc('settings')}.querySelector('.popup-body'); return '${tab} ' + f.offsetWidth + 'x' + f.offsetHeight + (b.scrollHeight - b.clientHeight > 2 ? ' scrolls' : ''); })()`));
+      }
+      const distinct = new Set(sizes.map((s) => s.split(' ').slice(1).join(' ')));
+      expect(distinct.size === 1 && !sizes.some((s) => s.endsWith('scrolls')), sizes.join(', '));
+    });
     await report.check(tag('Settings › Packages downloads and installs the packages that are missing'), async () => {
       await closePopups();
       await app("window.__pkgAsked = []; a.popups.on('package-install', (d) => window.__pkgAsked.push(d)); localStorage.setItem('myhomemaker.packages.v1', JSON.stringify({ jshint: { phase: 'done', installed: '2.13.6' }, htmlhint: { phase: 'download', received: 1, total: 10, installed: null } })); void a.popups.open('settings', { tab: 'packages' }); return 1;");
@@ -727,6 +785,53 @@ for (const language of languages) {
       const job = await run(`${popupDoc('print')}.defaultView.__printed`);
       expect(job.widthMm === 297 && job.heightMm === 210 && job.copies === 1, JSON.stringify(job));
       await run(`(() => { localStorage.removeItem('myhomemaker.print'); return 1; })()`);
+    });
+    // The real packages, not fakes: HTMLHint's browser build puts its exports on globalThis.HTMLHint (the linter is
+    // HTMLHint.HTMLHint). With a fake of the wrong shape the problems panel threw "HTMLHint is not loaded" on every
+    // edit of a site with its own HTML. Downloaded from the CDN like the app does (SHA-256 checked), removed afterwards.
+    await report.check(tag('the real HTMLHint and JSHint check the site\'s own HTML and JavaScript in the problems panel, with no error'), async () => {
+      await fresh();
+      errorsSoFar();
+      const out = await app(`const o = await a.installPackages(['htmlhint', 'jshint'], { quiet: true });
+        if (!o || o.failed.length || o.ok.length !== 2) return { failed: JSON.stringify(o) + ' ' + localStorage.getItem('myhomemaker.packages.v1') };
+        a.api.commitSource('page', '<!doctype html><html><head><title>t</title></head><body><div><p>open</p></body></html>');
+        a.api.commitSource('js', 'var x = 1\\nfoo(');
+        let rows;
+        try { rows = await a.problems.check(); } catch (e) { return { threw: String(e?.message ?? e) }; }
+        const code = rows.filter((r) => r.kind === 'code');
+        const html = code.filter((r) => r.path === 'page').map((r) => r.message);
+        const js = code.filter((r) => r.path === 'js').map((r) => r.message);
+        const errorPopup = !!document.querySelector('.web-popup-error');
+        for (const id of ['htmlhint', 'jshint']) await a.packages.remove(id);
+        return { html, js, errorPopup };`, 180000);
+      const thrown = errorsSoFar();
+      await fresh();
+      expect(!out.failed, `download: ${out.failed}`);
+      expect(!out.threw, `problems panel threw: ${out.threw}`);
+      expect(!out.errorPopup && !thrown.length, `error shown: ${out.errorPopup} ${JSON.stringify(thrown)}`);
+      // "Tag must be paired" is HTMLHint's own wording (the small built-in check says "<div> is not closed").
+      expect(out.html.some((m) => /must be paired/i.test(m)), `HTMLHint did not run: ${JSON.stringify(out.html)}`);
+      expect(out.js.length > 0, `JSHint found nothing: ${JSON.stringify(out.js)}`);
+    });
+    // Tools › Code editor opened plainly shows the project being worked on (its CSS, JavaScript and <head> HTML), and
+    // with no project the default files (it used to open an empty start screen either way).
+    await report.check(tag('the code editor opens the open project\'s code, or the default files when no project is open'), async () => {
+      const editorTabs = async () => {
+        await run(`(() => { document.querySelector('#code-probe')?.remove(); localStorage.removeItem('myhomemaker.code.session'); const f = document.createElement('iframe'); f.id = 'code-probe'; f.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:700px;z-index:99999'; f.src = location.pathname + '?viewer=code&lang=${language}'; document.body.append(f); return 1; })()`);
+        await page.waitFor("document.querySelector('#code-probe')?.contentDocument?.querySelectorAll('.code-tab').length > 0", { timeout: 15000 });
+        await sleep(200);
+        return run("(() => { const d = document.querySelector('#code-probe').contentDocument; const tabs = [...d.querySelectorAll('.code-tab')]; const out = { names: tabs.map((t) => t.querySelector('.code-tab-name').textContent.trim()), site: tabs.filter((t) => t.classList.contains('site')).length, active: d.querySelector('.code-tab.active .code-tab-name')?.textContent.trim(), text: d.querySelector('.code-input')?.value ?? '' }; document.querySelector('#code-probe').remove(); return out; })()");
+      };
+      await fresh();
+      await app("A.change('op.code', (s) => { s.code = { css: '.probe-css { color: red; }', js: 'window.__probe = 1;', head: '<meta name=\"probe\" content=\"1\" />' }; }); localStorage.setItem('myhomemaker.code.inbox', '[]'); window.__opened.length = 0; await a.openCodeWindow(); return 1;");
+      const project = await editorTabs();
+      expect(project.site === 3 && project.names.length === 3, `project: ${JSON.stringify(project)}`);
+      expect(project.text.includes('.probe-css'), `the site's CSS is not in front: ${JSON.stringify(project)}`);
+      await app("while (a.state.docs.length) { a.state.docs[0].markSaved?.(null); await A.closeDoc(a.state.docs[0], { force: true }); } localStorage.setItem('myhomemaker.code.inbox', '[]'); await a.openCodeWindow(); return 1;");
+      const none = await editorTabs();
+      expect(none.site === 0 && ['index.html', 'style.css', 'script.js'].every((n) => none.names.includes(n)), `no project: ${JSON.stringify(none)}`);
+      expect(none.text.includes('<!doctype html>'), `index.html not in front: ${JSON.stringify(none)}`);
+      await fresh();
     });
     await report.check(tag('Packages: one card per package with its state, and Download / Retry / Cancel ask the main window'), async () => {
       await closePopups();

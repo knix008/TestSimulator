@@ -1,5 +1,5 @@
 // The board server written next to a published site whose bulletin boards keep their posts in a
-// database (board block "Posts are kept: Database"). Settings › Database chooses the language
+// database (board block "Posts are kept: Database"). Settings › Board server chooses the language
 // (Node.js, Go, Rust or Python; Node is the default) and the database — SQLite3, MySQL, MariaDB,
 // PostgreSQL or MSSQL. The table is the one the editor reads and writes (src-tauri/src/db.rs), so
 // posts written on the website appear in the editor (Load posts from the database) and the other

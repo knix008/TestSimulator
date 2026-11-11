@@ -1162,7 +1162,7 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 .props .check-row { margin: 4px 0; }
 
 /* Settings: short rows sit in two columns. Notes, samples and wide controls take the whole width.
-   The window follows that content (fitHeight), so a short tab does not leave a blank area, and nothing scrolls. */
+   The window has one fixed size for every tab (the tallest tab, fitSettingsHeight), and nothing scrolls. */
 .settings-general, .settings-start, .settings-background, .settings-font, .settings-editor, .settings-database, .settings-dictionary {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; align-content: start;
 }
@@ -1968,8 +1968,22 @@ html.is-code #app { height: 100vh; }
 .code-gutter-inner > div.problem-error { color: var(--danger); opacity: 1; font-weight: 700; }
 .code-gutter-inner > div.problem-warning { color: var(--warning); opacity: 1; font-weight: 700; }
 .code-hl > div.problem-error { background: color-mix(in srgb, var(--danger) 16%, transparent); }
-.tool-row { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
-.tool-chip.ok { color: var(--ok, var(--accent)); font-weight: 600; }
+/* Settings › Board server: the server languages in a 2 × 2 grid, each cell one line — icon, name, state, button.
+   The cells keep one height whether the check is pending (no button) or done, so the window's measured size holds. */
+.tool-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; width: 100%; padding: 3px 0; }
+.tool-cell {
+  display: grid; grid-template-columns: 18px 72px minmax(0, 1fr) auto; align-items: center; column-gap: 8px;
+  height: 36px; padding: 0 6px 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); white-space: nowrap;
+}
+.tool-cell > .icon { width: 16px; height: 16px; color: var(--muted); }
+.tool-cell.ok > .icon { color: var(--ok, #16a34a); }
+.tool-cell.missing > .icon { color: var(--warning, #d97706); }
+.tool-cell.chosen { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.tool-cell .tool-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.tool-cell .tool-status { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.tool-cell .button { justify-self: end; }
+.tool-auto { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; }
+.tool-auto > .muted { overflow: hidden; text-overflow: ellipsis; }
 .code-scroll { flex: 1; min-width: 0; overflow: auto; position: relative; scrollbar-width: thin; }
 .code-layer { position: relative; min-width: 100%; width: max-content; min-height: 100%; }
 .wrap .code-layer { width: 100%; }
@@ -2141,3 +2155,8 @@ html.is-code #app { height: 100vh; }
 .prop-control .color-pair, .sub-props-body .color-pair { align-self: flex-start; justify-content: flex-start; }
 .prop-control > .color-pair { margin-left: 0; }
 .sub-props-body .prop-row { grid-template-columns: 99px minmax(0, 1fr) !important; }
+
+/* Every popup's × (popup windows, the tutorial step, documents in a frame) turns red under the pointer, like the
+   main window's close button. After the caption buttons' grey hover (.window-button:hover), which otherwise wins. */
+.popup-close:hover, .window-button.popup-close:hover, .icon-button.popup-close:hover { background: #c42b1c; color: #fff; }
+.popup-close:hover .icon, .popup-close:hover svg { color: #fff; }

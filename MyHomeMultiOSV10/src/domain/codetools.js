@@ -71,9 +71,22 @@ export function checkJs(tools, text) {
   return sortItems((jshint.errors ?? []).filter(Boolean).map((e) => item(e.line, e.character, String(e.code ?? '').startsWith('E') ? 'error' : 'warning', e.reason, e.code ?? '')));
 }
 
+/**
+ * The HTMLHint linter. The browser build (htmlhint.min.js, UMD) puts the module's exports on
+ * globalThis.HTMLHint — { HTMLHint, HTMLParser, HTMLRules, Reporter } — so the object with verify()
+ * is globalThis.HTMLHint.HTMLHint. A linter handed over directly (tests) works too.
+ */
+export function htmlHinter(tools) {
+  const global = tools?.HTMLHint;
+  if (typeof global?.verify === 'function') return global;
+  if (typeof global?.HTMLHint?.verify === 'function') return global.HTMLHint;
+  if (typeof global?.default?.verify === 'function') return global.default;
+  return null;
+}
+
 export function checkHtml(tools, text) {
-  const hint = tools?.HTMLHint;
-  if (!hint?.verify) throw new Error('HTMLHint is not loaded');
+  const hint = htmlHinter(tools);
+  if (!hint) throw new Error('HTMLHint is not loaded');
   return sortItems(hint.verify(text).map((m) => item(m.line, m.col, m.type === 'error' ? 'error' : 'warning', m.message, m.rule?.id ?? '')));
 }
 
@@ -127,8 +140,8 @@ export function checkJsSyntax(text) {
 export function checkSource(tools, text, language) {
   if (language === 'json') return { tool: 'JSON', items: checkJson(text) };
   if (language === 'css') return { tool: 'CSS', items: checkCss(text) };
-  if (language === 'js') return tools?.JSHINT ? { tool: 'JSHint', items: checkJs(tools, text) } : { tool: 'JavaScript', items: checkJsSyntax(text) };
-  if (language === 'html') return tools?.HTMLHint ? { tool: 'HTMLHint', items: checkHtml(tools, text) } : { tool: 'HTML', items: checkHtmlBasic(text) };
+  if (language === 'js') return typeof tools?.JSHINT === 'function' ? { tool: 'JSHint', items: checkJs(tools, text) } : { tool: 'JavaScript', items: checkJsSyntax(text) };
+  if (language === 'html') return htmlHinter(tools) ?{ tool: 'HTMLHint', items: checkHtml(tools, text) } : { tool: 'HTML', items: checkHtmlBasic(text) };
   return { tool: '', items: [] };
 }
 

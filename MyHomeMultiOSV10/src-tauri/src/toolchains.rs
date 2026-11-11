@@ -63,9 +63,18 @@ pub fn probe() -> Vec<ToolStatus> {
     ]
 }
 
+/// The winget arguments for installing a language; `reinstall` installs it again over a copy that is there.
+pub fn winget_args(package: &str, reinstall: bool) -> Vec<&str> {
+    let mut args = vec!["install", "-e", "--accept-package-agreements", "--accept-source-agreements", "--id", package];
+    if reinstall {
+        args.push("--force");
+    }
+    args
+}
+
 /// Starts the OS installer. On Windows that is winget, in its own console. Elsewhere the caller
 /// opens the download page (`started` is false).
-pub fn install(id: &str) -> Result<InstallStarted, String> {
+pub fn install(id: &str, reinstall: bool) -> Result<InstallStarted, String> {
     let url = download_url(id).to_string();
     let Some(package) = winget_id(id) else {
         return Err(format!("unknown tool {id}"));
@@ -75,7 +84,7 @@ pub fn install(id: &str) -> Result<InstallStarted, String> {
         use std::os::windows::process::CommandExt;
         const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
         Command::new("winget")
-            .args(["install", "-e", "--accept-package-agreements", "--accept-source-agreements", "--id", package])
+            .args(winget_args(package, reinstall))
             .creation_flags(CREATE_NEW_CONSOLE)
             .spawn()
             .map_err(|error| format!("{error}"))?;
@@ -83,7 +92,7 @@ pub fn install(id: &str) -> Result<InstallStarted, String> {
     }
     #[cfg(not(windows))]
     {
-        let _ = package;
+        let _ = (package, reinstall);
         Ok(InstallStarted { started: false, url })
     }
 }
@@ -99,5 +108,12 @@ mod tests {
             assert!(download_url(id).starts_with("https://"));
         }
         assert!(winget_id("ruby").is_none());
+    }
+
+    #[test]
+    fn reinstall_forces_winget_over_an_installed_copy() {
+        let first = winget_args("OpenJS.NodeJS.LTS", false);
+        assert!(first.contains(&"OpenJS.NodeJS.LTS") && !first.contains(&"--force"));
+        assert_eq!(winget_args("GoLang.Go", true).last(), Some(&"--force"));
     }
 }

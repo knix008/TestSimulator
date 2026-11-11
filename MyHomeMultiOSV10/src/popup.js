@@ -13,7 +13,7 @@ import { DICT_INFO } from './domain/dict-info.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
-import { POPUPS, popupParams } from './platform/popups.js';
+import { FITTED_POPUPS, POPUPS, popupParams } from './platform/popups.js';
 import {
   applyFont, applyTheme, contrast, CUSTOM, CUSTOM_KEYS, customFrom, DARK_THEMES, LIGHT_THEMES, resolveTheme, SYSTEM, themeName,
 } from './themes.js';
@@ -25,7 +25,7 @@ import { TEMPLATES } from './domain/templates.js';
 import { SAMPLE_GROUPS, SAMPLES } from './domain/samples.js';
 import { idbGet } from './platform/idb.js';
 import { formatSize, packageSize, PACKAGES } from './domain/packages.js';
-import { TOOLCHAINS } from './domain/toolchains.js';
+import { shortVersion, TOOLCHAINS } from './domain/toolchains.js';
 import { PACKAGES_STATE_KEY, packageView } from './platform/packages.js';
 import { defaultPrintOptions, FITS, MARGINS, normalizePrintOptions, PAPERS, PRINT_DEVICES, PRINT_JOB_KEY, PRINT_SETUP_KEY, RANGES, selectPrintPages } from './print/layout.js';
 import { fillFrames, jobLayout, measurePages, sheetsHtml, sheetsKey } from './print/window.js';
@@ -64,12 +64,36 @@ async function hide(value = null) {
   else send('hide');
 }
 
+/** Popups whose height follows their content (fitHeight / fitSettingsHeight). */
+const FITTED = new Set(FITTED_POPUPS);
+/** The window's last size change. It is shown only once that is done: shown first, it opened at the default
+ * size and shrank half a second later (the start screen's tutorial popup: 470 px, then 373 px). */
+let resizing = Promise.resolve();
+
+const frameDone = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+/**
+ * A fitted popup waits for its web fonts and pictures (at most half a second) before it is shown: measured with
+ * the fallback font it came out taller, was shown so, and shrank when the font arrived — which happened or not
+ * depending on load timing (`npm start` serves every module separately, so there it happened often).
+ */
+function settled() {
+  if (!FITTED.has(kind)) return resizing;
+  const images = [...root.querySelectorAll('img')].filter((img) => !img.complete).map((img) => img.decode().catch(() => {}));
+  const loaded = Promise.all([document.fonts?.ready ?? Promise.resolve(), ...images]);
+  return Promise.race([loaded, new Promise((resolve) => setTimeout(resolve, 500))])
+    .then(frameDone)
+    .then(() => { if (kind === 'settings') fitSettingsHeight(); else fitHeightNow(); return resizing; });
+}
+
 let shown = false;
 function ready() {
   if (shown && kind !== 'menu') return;
   shown = true;
-  if (desktop) native.invoke('popup_ready').catch(() => {});
-  else send('ready');
+  settled().catch(() => {}).then(() => {
+    if (desktop) native.invoke('popup_ready').catch(() => {});
+    else send('ready');
+  });
 }
 
 const state = {
@@ -123,7 +147,7 @@ function frame({ glyph, title, body, foot = '', tabs = '' }) {
   return `<div class="popup popup-${kind}" role="dialog" aria-labelledby="popup-title">
     <header class="popup-head" data-window-drag data-drag-region>
       <h2 id="popup-title" data-window-drag>${icon(glyph)}<span data-window-drag>${escapeHtml(title)}</span></h2>
-      <button class="window-button" data-action="close" title="${escapeHtml(t('common.close'))}" aria-label="${escapeHtml(t('common.close'))}">${icon('close')}</button>
+      <button class="window-button popup-close" data-action="close" title="${escapeHtml(t('common.close'))}" aria-label="${escapeHtml(t('common.close'))}">${icon('close')}</button>
     </header>
     ${tabs}
     <div class="popup-body">${body}</div>
@@ -226,19 +250,26 @@ function alignRows() {
 function fitHeight() {
   fitHeightNow();
   document.fonts?.ready.then(() => requestAnimationFrame(fitHeightNow)).catch(() => {});
-  for (const img of root.querySelectorAll('img')) if (!img.complete) img.addEventListener('load', fitHeightNow, { once: true });
+  for (const img of root.querySelectorAll('img')) if (!img.complete) img.addEventListener('load', () => fitHeightNow(), { once: true });
 }
 
-function fitHeightNow() {
+/** Natural height of the popup as drawn now (content height, no stretching). */
+function naturalHeight() {
   const popup = root.querySelector('.popup');
-  if (!popup) return;
+  if (!popup) return 0;
   popup.classList.add('fit');
   const height = Math.ceil(popup.getBoundingClientRect().height);
   popup.classList.remove('fit');
+  return height;
+}
+
+/** `height`: a number measured elsewhere (settings: its tallest tab); anything else measures the popup now. */
+function fitHeightNow(height) {
+  if (typeof height !== 'number' || !Number.isFinite(height)) height = naturalHeight();
   if (height < 120) return;
   const target = Math.min(height, window.screen.availHeight - 40);
   if (Math.abs(target - window.innerHeight) <= 1) return;
-  if (desktop) appWindow.setSize(new LogicalSize(window.innerWidth, target)).catch(() => {});
+  if (desktop) resizing = appWindow.setSize(new LogicalSize(window.innerWidth, target)).catch(() => {});
   else send('resize', { height: target });
 }
 
@@ -268,10 +299,55 @@ function renderSettings() {
     body: `<div class="settings-page settings-${state.tab}">${body}</div>`,
     foot: `${button('reset-settings', t('settings.reset'), 'refresh')}<span class="grow"></span>${button('close', t('common.done'), 'check', 'primary')}`,
   });
-  fitHeight();
+  fitSettingsHeight();
   if (state.tab === 'font' && !state.fonts && !state.fontError) loadFonts();
   if (state.tab === 'recent') checkRecent();
   ready();
+}
+
+/**
+ * Settings keeps one fixed size whichever tab is shown: the height of its tallest tab, measured once
+ * (again when the language changes, and once web fonts have loaded). Switching tabs never resizes it.
+ */
+function fitSettingsHeight() {
+  const measure = () => {
+    const key = getLanguage();
+    if (state.settingsHeight?.key === key && state.settingsHeight.done) return fitHeightNow(state.settingsHeight.height);
+    const page = root.querySelector('.settings-page');
+    if (!page) return;
+    const current = page.innerHTML;
+    const currentClass = page.className;
+    const pager = { ...state.pager };
+    let tallest = naturalHeight();
+    for (const [id] of SETTINGS_TABS) {
+      const body = {
+        general: settingsGeneral, start: settingsStart, appearance: settingsAppearance, font: settingsFont, background: settingsBackground,
+        editor: settingsEditor, dictionary: settingsDictionary, recent: settingsRecent, packages: settingsPackages, database: settingsDatabase, shortcuts: settingsShortcuts,
+      }[id];
+      try {
+        page.className = `settings-page settings-${id}`;
+        state.measuring = true;
+        page.innerHTML = body();
+        state.measuring = false;
+        alignRows();
+        tallest = Math.max(tallest, naturalHeight());
+      } catch { /* that tab is measured when it is shown */ } finally { state.measuring = false; }
+    }
+    page.className = currentClass;
+    page.innerHTML = current;
+    state.pager = pager;
+    alignRows();
+    const height = Math.max(tallest, state.settingsHeight?.key === key ? state.settingsHeight.height : 0);
+    state.settingsHeight = { key, height, done: true };
+    fitHeightNow(height);
+  };
+  measure();
+  if (state.settingsFontsChecked) return;
+  state.settingsFontsChecked = true;
+  document.fonts?.ready.then(() => requestAnimationFrame(() => {
+    if (state.settingsHeight) state.settingsHeight.done = false;
+    measure();
+  })).catch(() => {});
 }
 
 function settingsGeneral() {
@@ -598,7 +674,7 @@ function renderWelcome() {
     </div>`,
     foot: `${button('choice', t('welcome.later'), 'close', '', 'later')}<span class="grow"></span>${button('choice', t('welcome.sample'), 'samples', '', 'sample')}${button('choice', t('welcome.start'), 'play', 'primary', 'tutorial')}`,
   });
-  fitHeight();
+  // Fixed size (POPUPS.welcome, measured for Korean and English): never resized, so it never shows long first.
   root.querySelector('.button.primary')?.focus();
   ready();
 }
@@ -1096,26 +1172,36 @@ function renderPublish() {
 
 // ───────────────────────── events
 
-// ───────────────────────── Settings › Database (bulletin boards that keep their posts in a database)
+// ───────────────────────── Settings › Board server (bulletin boards that keep their posts in a database)
 
 const dbText = (key, label, attrs = '') => `<input type="text" data-db-text="${key}" value="${escapeHtml(s()[key] ?? '')}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" spellcheck="false" autocomplete="off" ${attrs} />`;
 
 function toolRow() {
-  if (!state.toolsAsked) {
+  if (!state.toolsAsked && !state.measuring) {
     state.toolsAsked = true;
     action('toolchain-status');
   }
   const known = new Map((state.tools ?? []).map((tool) => [tool.id, tool]));
-  const chips = TOOLCHAINS.map((tool) => {
-    const checked = Array.isArray(state.tools);
+  const checked = Array.isArray(state.tools);
+  const chosen = s().boardBackend || 'node';
+  // One cell per language in a 2 × 2 grid: name, state with a short version, and its own Install / Reinstall button.
+  const cells = TOOLCHAINS.map((tool) => {
     const info = known.get(tool.id);
     const ready = Boolean(info?.found);
+    const started = state.toolsStarted?.has(tool.id);
     const label = t(`db.backend.${tool.id}`);
-    const status = !checked ? t('db.tool.unknown') : ready ? t('db.tool.ready', { version: info.version }) : t('db.tool.missing');
-    const install = ready ? '' : button('toolchain-install', t('db.tool.install'), 'importFile', 'small', tool.id);
-    return `<span class="tool-chip ${ready ? 'ok' : ''}">${escapeHtml(label)} <span class="muted">${escapeHtml(status)}</span></span>${install}`;
+    const status = !checked ? t('db.tool.unknown') : started && !ready ? t('db.tool.started') : ready ? t('db.tool.ready', { version: shortVersion(info.version) }) : t('db.tool.missing');
+    const tip = ready ? info.version : status;
+    const act = !checked ? '' : ready
+      ? button('toolchain-reinstall', t('db.tool.reinstall'), 'refresh', 'small', tool.id, `title="${escapeHtml(t('db.tool.reinstallTip', { name: label }))}"`)
+      : button('toolchain-install', t('db.tool.install'), 'importFile', 'small primary', tool.id);
+    const look = !checked ? 'unknown' : ready ? 'ok' : 'missing';
+    return `<div class="tool-cell ${look} ${tool.id === chosen ? 'chosen' : ''}" data-tool="${tool.id}">${icon(!checked ? 'clock' : ready ? 'check' : 'warning')}<span class="tool-name">${escapeHtml(label)}</span><span class="tool-status" title="${escapeHtml(tip)}">${escapeHtml(status)}</span>${act}</div>`;
   }).join('');
-  return row('server', t('db.tools'), `<span class="tool-row">${chips}</span>`, t('db.tool.hint'), 'full');
+  return [
+    row('server', t('db.tools'), `<div class="tool-grid">${cells}</div>`, t('db.tool.hint'), 'full'),
+    row('importFile', t('db.tool.auto'), `<span class="tool-auto"><label class="switch-wrap" title="${escapeHtml(t('db.tool.autoTip'))}"><input type="checkbox" data-toggle="autoInstallServerTool" ${s().autoInstallServerTool ? 'checked' : ''} aria-label="${escapeHtml(t('db.tool.auto'))}" /><span class="switch" aria-hidden="true"></span></label><span class="muted">${escapeHtml(t('db.tool.autoTip'))}</span><span class="grow"></span>${button('toolchain-refresh', t('db.tool.refresh'), 'refresh', 'small')}</span>`, t('db.tool.autoTip'), 'full'),
+  ].join('');
 }
 
 function settingsDatabase() {
@@ -1123,7 +1209,7 @@ function settingsDatabase() {
   const tools = toolRow();
   if (!desktop) return [backend, tools, row('info', '', `<span class="muted">${escapeHtml(t('db.desktopOnly'))}</span>`, t('db.desktopOnly')), row('info', '', `<span class="muted">${escapeHtml(t('db.hint'))}</span>`, t('db.hint'))].join('');
   const kind = s().dbKind;
-  if (state.dbDefaultFile == null) {
+  if (state.dbDefaultFile == null && !state.measuring) {
     state.dbDefaultFile = '';
     native.dbDefaultFile().then((file) => { state.dbDefaultFile = file; if (state.tab === 'database') render(); }).catch(() => {});
   }
@@ -1426,7 +1512,10 @@ root.addEventListener('click', async (event) => {
   if (target.dataset.setting) {
     const key = target.dataset.setting;
     const raw = target.dataset.value;
-    return update({ [key]: typeof s()[key] === 'number' ? Number(raw) : raw });
+    const result = update({ [key]: typeof s()[key] === 'number' ? Number(raw) : raw });
+    // Another server language: the main window checks it (and installs it, when that is turned on).
+    if (key === 'boardBackend') action('toolchain-status');
+    return result;
   }
   if (target.dataset.themeGroup) { state.themeGroup = target.dataset.themeGroup; return render(); }
   if (target.dataset.pickTheme) { pickerDone = true; return close({ theme: target.dataset.pickTheme }); }
@@ -1500,6 +1589,8 @@ root.addEventListener('click', async (event) => {
     case 'print': return doPrint();
     case 'db-test': return testDatabase();
     case 'toolchain-install': return action('toolchain-install', { id: value });
+    case 'toolchain-reinstall': return action('toolchain-install', { id: value, reinstall: true });
+    case 'toolchain-refresh': state.tools = null; render(); return action('toolchain-status');
     case 'db-browse': return action('db-browse');
     case 'package-install': return action('package-install', { ids: [value] });
     case 'package-install-all': return action('package-install', { ids: PACKAGES.filter((pkg) => packageView(pkg.id).state !== 'installed').map((pkg) => pkg.id) });
@@ -1517,6 +1608,7 @@ root.addEventListener('change', (event) => {
   if (target.dataset.toggle) {
     update({ [target.dataset.toggle]: target.checked });
     if (target.dataset.toggle === 'autoDownloadPackages' && target.checked) requestAutoPackages();
+    if (target.dataset.toggle === 'autoInstallServerTool' && target.checked) action('toolchain-status');
     return undefined;
   }
   if (target.dataset.select) { const key = target.dataset.select; return update({ [key]: typeof s()[key] === 'number' ? Number(target.value) : target.value }); }
@@ -1650,6 +1742,11 @@ function onHostMessage(message) {
     if (kind === 'settings' && state.tab === 'database') render();
     return;
   }
+  if (message?.type === 'toolchain-started') {
+    state.toolsStarted = new Set([...(state.toolsStarted ?? []), message.id]);
+    if (kind === 'settings' && state.tab === 'database') render();
+    return;
+  }
   if (message?.type === 'progress') {
     state.progress = message;
     if (kind === 'progress') render();
@@ -1673,6 +1770,8 @@ function refresh() {
   if (kind === 'print') { state.printJob = null; state.printMeasured = null; state.print = null; printKey = ''; }
   if (kind === 'theme') { state.placed = false; pickerDone = false; }
   if (kind === 'settings' && state.params.themeGroup) state.themeGroup = state.params.themeGroup;
+  // Opened again: the main window leaves a fitted popup hidden; it shows once its new content is measured.
+  if (FITTED.has(kind)) shown = false;
   applyLook();
   render();
   if (kind === 'settings' && state.tab === 'packages') requestAutoPackages();

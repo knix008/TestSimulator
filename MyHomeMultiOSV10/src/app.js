@@ -31,7 +31,7 @@ import { PRINT_JOB_KEY } from './print/layout.js';
 import { missingPackages, packageView, PackageManager, refreshInstalled } from './platform/packages.js';
 import { packageById } from './domain/packages.js';
 import { boardServerFiles } from './export/board-server.js';
-import { toolchainById } from './domain/toolchains.js';
+import { autoInstallTarget, toolchainById } from './domain/toolchains.js';
 import { CODE_INBOX_KEY, CODE_OUTBOX_KEY, CODE_SITE_KEY, drainQueue, pushQueue } from './domain/codebus.js';
 import { isCodeFileName } from './domain/highlight.js';
 import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from './themes.js';
@@ -1172,10 +1172,6 @@ function renderToolbar() {
     }
     if (id === 'publishSplit') return `<span class="split-button">${plain('publish')}<button class="tool-button split-arrow" data-command="publishMenu" title="${escapeHtml(commandTip('publishMenu'))}" aria-label="${escapeHtml(t('action.publishMenu'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
     if (id === 'themeSplit') return `<span class="split-button">${plain('theme')}<button class="tool-button split-arrow" data-command="themeMenu" title="${escapeHtml(commandTip('themeMenu'))}" aria-label="${escapeHtml(t('action.themeChoose'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
-    if (id === 'wordWrap') {
-      const command = commands[id];
-      return `<button class="tool-button wide" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(command.label))}">${icon(command.icon)}<span>${escapeHtml(t(command.label))}</span></button>`;
-    }
     return plain(id);
   };
   toolbar.innerHTML = `<div class="toolbar-inner">
@@ -2068,7 +2064,9 @@ async function publishSite(format, { extract = state.settings.publishExtractImag
 async function openCodeWindow(request = null) {
   popups.hideMenu();
   publishSiteCode();
-  if (request && !pushQueue(CODE_INBOX_KEY, request)) { notify('error', t('code.tooLarge')); return null; }
+  // Opened plainly (menu, toolbar, start page): the open project's code; with no project, the default files.
+  if (!request) request = activeDoc() ? { type: 'project' } : { type: 'default' };
+  if (!pushQueue(CODE_INBOX_KEY, request)) { notify('error', t('code.tooLarge')); return null; }
   const url = `${location.pathname}?viewer=code&lang=${getLanguage() === 'en' ? 'en' : 'ko'}`;
   if (!desktop) {
     globalThis.open(url, 'myhomemaker-code')?.focus?.();
@@ -2125,11 +2123,11 @@ function readCodeOutbox() {
   }
 }
 
-// ───────────────────────── bulletin boards in a database (Settings › Database; desktop)
+// ───────────────────────── bulletin boards in a database (Settings › Board server; desktop)
 
 let dbSessionPassword = '';
 
-/** The connection when the settings are complete; otherwise Settings › Database opens and null comes back. */
+/** The connection when the settings are complete; otherwise Settings › Board server opens and null comes back. */
 async function dbReady() {
   if (!desktop) { notify('info', t('db.desktopOnly')); return null; }
   const settings = loadSettings(globalThis.localStorage);
@@ -2203,6 +2201,8 @@ async function boardToDatabase() {
 
 /** Downloads in the main window; the popups show the progress from localStorage and ask through actions. */
 const packages = new PackageManager({ onChange: () => renderStatus() });
+/** Server languages whose installer was started in this session (installed automatically at most once). */
+const toolchainsStarted = new Set();
 state.packageFailed = [];
 
 /**
@@ -3035,30 +3035,39 @@ function bindPopupActions() {
     if (data.auto && (globalThis.__MYHOMEMAKER_NO_WELCOME || new URLSearchParams(location.search).has('nopackages'))) return;
     installPackages(data.ids ?? [], { quiet: Boolean(data.auto) });
   });
-  popups.on('toolchain-status', (_data, popupKind) => {
+  popups.on('toolchain-status', async (_data, popupKind) => {
     if (!native.isDesktop()) return popups.post(popupKind, { type: 'toolchain-status', tools: [] });
-    return native.invoke('toolchain_status').then(
-      (tools) => popups.post(popupKind, { type: 'toolchain-status', tools }),
-      () => popups.post(popupKind, { type: 'toolchain-status', tools: [] }),
-    );
+    const tools = await native.invoke('toolchain_status').catch(() => []);
+    popups.post(popupKind, { type: 'toolchain-status', tools });
+    // "Install automatically": the board server's language, once per session, when the check says it is missing.
+    const auto = autoInstallTarget(loadSettings(globalThis.localStorage), tools, toolchainsStarted);
+    if (auto) {
+      toolchainsStarted.add(auto);
+      await installToolchain(auto, popupKind);
+    }
+    return undefined;
   });
   popups.on('toolchain-install', async (data, popupKind) => {
-    const tool = toolchainById(data.id);
+    toolchainsStarted.add(data.id);
+    await installToolchain(data.id, popupKind, Boolean(data.reinstall));
+  });
+  async function installToolchain(id, popupKind, reinstall = false) {
+    const tool = toolchainById(id);
     if (!tool) return;
     if (!native.isDesktop()) {
       await native.openExternal(tool.url);
       return;
     }
     try {
-      const result = await native.invoke('toolchain_install', { id: tool.id });
+      const result = await native.invoke('toolchain_install', { id: tool.id, reinstall });
       if (!result?.started) await native.openExternal(result?.url || tool.url);
       else notify('info', t('db.tool.installing', { name: t(`db.backend.${tool.id}`) }));
     } catch (error) {
       await native.openExternal(tool.url);
       notify('info', native.errorText(error));
     }
-    popups.post(popupKind, { type: 'toolchain-status', tools: await native.invoke('toolchain_status').catch(() => []) });
-  });
+    popups.post(popupKind, { type: 'toolchain-started', id: tool.id });
+  }
   popups.on('package-cancel', () => packages.cancel());
   popups.on('package-remove', (data) => packages.remove(data.id));
   popups.on('open-settings', (data) => popups.open('settings', { tab: data.tab ?? 'general', themeGroup: data.themeGroup }));

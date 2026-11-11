@@ -316,7 +316,7 @@ export const printDirect = (job) => invoke('print_direct', { job });
 /** The system's print dialog for this window (the browser's in the web build). */
 export const printWindow = () => (isDesktop() ? invoke('print_window') : Promise.resolve(window.print()));
 
-// ───────────────────────── bulletin boards in a database (desktop; Settings › Database)
+// ───────────────────────── bulletin boards in a database (desktop; Settings › Board server)
 
 /** Connects and answers the server's version (the posts table is made when missing). */
 export const dbTest = (config) => invoke('db_test', { config });

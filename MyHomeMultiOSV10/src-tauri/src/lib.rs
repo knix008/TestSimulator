@@ -19,6 +19,10 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 /// Popup windows. Each is an OS window of its own (label `popup-<kind>`), owned
 /// by the main window: it can sit outside the main window and closes with it.
 const POPUP_KINDS: &[&str] = &["settings", "about", "confirm", "error", "progress", "recent", "menu", "theme", "welcome", "prompt", "design", "template", "publish", "print", "packages"];
+/// Popups whose height follows their content (popup.js FITTED). Opened again, they keep their size and stay
+/// hidden until the page has measured the new content (popup_ready): shown at once, they appeared at the
+/// default size and then jumped to their real one.
+const FITTED_POPUPS: &[&str] = &["settings", "about", "confirm", "prompt", "publish"]; // = popups.js FITTED_POPUPS
 
 #[derive(Default)]
 struct Shared {
@@ -420,8 +424,8 @@ fn toolchain_status() -> Vec<toolchains::ToolStatus> {
 }
 
 #[tauri::command]
-fn toolchain_install(id: String) -> Result<toolchains::InstallStarted, String> {
-    toolchains::install(&id)
+fn toolchain_install(id: String, reinstall: Option<bool>) -> Result<toolchains::InstallStarted, String> {
+    toolchains::install(&id, reinstall.unwrap_or(false))
 }
 
 #[tauri::command]
@@ -472,9 +476,24 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
     let _guard = CREATING.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let label = format!("popup-{kind}");
     if let Some(window) = app.get_webview_window(&label) {
-        let _ = window.set_size(tauri::LogicalSize::new(width, height));
+        let fitted = FITTED_POPUPS.contains(&kind.as_str());
+        if !fitted {
+            let _ = window.set_size(tauri::LogicalSize::new(width, height));
+        }
         let _ = window.set_position(tauri::LogicalPosition::new(x, y));
         let _ = app.emit_to(label.as_str(), "popup-refresh", kind.clone());
+        if fitted && show.unwrap_or(true) {
+            // The page shows it (popup_ready) once measured; if it never says so, it is shown anyway.
+            let late = window.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(1500));
+                if !late.is_visible().unwrap_or(true) {
+                    let _ = late.show();
+                    let _ = late.set_focus();
+                }
+            });
+            return Ok(());
+        }
         if show.unwrap_or(true) && kind != "menu" {
             let _ = window.show();
             let _ = window.unminimize();
@@ -919,6 +938,21 @@ fn offset_window(window: &WebviewWindow, copies: usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fitted_popups_match_the_page() {
+        // The page shows these only after measuring; the backend must not show them first (they jumped in size).
+        let source = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../src/platform/popups.js")).unwrap();
+        let start = source.find("export const FITTED_POPUPS = [").unwrap();
+        let list = &source[start..start + source[start..].find("];").unwrap()];
+        let page: Vec<&str> = list.split('\'').skip(1).step_by(2).collect();
+        let mut backend = FITTED_POPUPS.to_vec();
+        let mut page_sorted = page.clone();
+        backend.sort_unstable();
+        page_sorted.sort_unstable();
+        assert_eq!(backend, page_sorted);
+        assert!(FITTED_POPUPS.iter().all(|kind| POPUP_KINDS.contains(kind)));
+    }
 
     #[test]
     fn every_popup_of_the_page_is_known_to_the_backend() {
