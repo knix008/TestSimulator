@@ -235,6 +235,7 @@ function fitHeightNow() {
   popup.classList.add('fit');
   const height = Math.ceil(popup.getBoundingClientRect().height);
   popup.classList.remove('fit');
+  if (height < 120) return;
   const target = Math.min(height, window.screen.availHeight - 40);
   if (Math.abs(target - window.innerHeight) <= 1) return;
   if (desktop) appWindow.setSize(new LogicalSize(window.innerWidth, target)).catch(() => {});
@@ -267,6 +268,7 @@ function renderSettings() {
     body: `<div class="settings-page settings-${state.tab}">${body}</div>`,
     foot: `${button('reset-settings', t('settings.reset'), 'refresh')}<span class="grow"></span>${button('close', t('common.done'), 'check', 'primary')}`,
   });
+  fitHeight();
   if (state.tab === 'font' && !state.fonts && !state.fontError) loadFonts();
   if (state.tab === 'recent') checkRecent();
   ready();
@@ -314,8 +316,8 @@ function settingsDictionary() {
     toggle('spellCheck', t('settings.spellCheck'), 'spellCheck'),
     toggle('spellEnglish', t('settings.spellEnglish'), 'globe'),
     toggle('spellKorean', t('settings.spellKorean'), 'globe'),
-    row('addWord', t('settings.dictWord'), `<span class="dict-add"><input type="text" id="dict-word" maxlength="40" placeholder="${escapeHtml(t('settings.dictPlaceholder'))}" aria-label="${escapeHtml(t('settings.dictWord'))}" spellcheck="false" value="${escapeHtml(state.dictDraft ?? '')}" />${button('dict-add', t('settings.dictAdd'), 'plus', 'small primary')}</span>${note}`),
-    row('dictionary', t('settings.dictWords', { count: words.length }), `<span class="dict-tools"><label class="search-box" title="${escapeHtml(t('settings.dictFind'))}">${icon('search')}<input type="search" id="dict-find" placeholder="${escapeHtml(t('settings.dictFind'))}" value="${escapeHtml(state.dictQuery ?? '')}" spellcheck="false" /></label>${pager}<span class="grow"></span>${button('dict-clear', t('settings.dictClear'), 'trash', 'small danger', '', words.length ? '' : 'disabled')}</span>`),
+    row('addWord', t('settings.dictWord'), `<span class="dict-add"><input type="text" id="dict-word" maxlength="40" placeholder="${escapeHtml(t('settings.dictPlaceholder'))}" aria-label="${escapeHtml(t('settings.dictWord'))}" spellcheck="false" value="${escapeHtml(state.dictDraft ?? '')}" />${button('dict-add', t('settings.dictAdd'), 'plus', 'small primary')}</span>${note}`, t('settings.dictWord'), 'full'),
+    row('dictionary', t('settings.dictWords', { count: words.length }), `<span class="dict-tools"><label class="search-box" title="${escapeHtml(t('settings.dictFind'))}">${icon('search')}<input type="search" id="dict-find" placeholder="${escapeHtml(t('settings.dictFind'))}" value="${escapeHtml(state.dictQuery ?? '')}" spellcheck="false" /></label>${pager}<span class="grow"></span>${button('dict-clear', t('settings.dictClear'), 'trash', 'small danger', '', words.length ? '' : 'disabled')}</span>`, t('settings.dictWords', { count: words.length }), 'full'),
     `<div class="dict-list">${chips}</div>`,
     row('info', '', `<span class="muted">${escapeHtml(t('settings.dictSizes', { en: DICT_INFO.en.toLocaleString(), ko: DICT_INFO.ko.toLocaleString() }))}</span>`, t('settings.dictSizes', { en: DICT_INFO.en, ko: DICT_INFO.ko })),
   ].join('');
@@ -522,7 +524,7 @@ export const SHORTCUT_LIST = [
 
 
 function settingsShortcuts() {
-  const [list, pager] = paged('shortcuts', SHORTCUT_LIST, 36);
+  const [list, pager] = paged('shortcuts', SHORTCUT_LIST, SHORTCUT_LIST.length);
   return `<div class="shortcut-grid">${list.map(([key, label]) => `<div class="shortcut-row" title="${escapeHtml(t(label))}"><kbd>${escapeHtml(key.startsWith('shortcut.') ? t(key) : key)}</kbd><span>${escapeHtml(t(label).replace(/…$/, ''))}</span></div>`).join('')}</div>${pager ? `<div class="row">${pager}</div>` : ''}`;
 }
 
@@ -1113,11 +1115,11 @@ function toolRow() {
     const install = ready ? '' : button('toolchain-install', t('db.tool.install'), 'importFile', 'small', tool.id);
     return `<span class="tool-chip ${ready ? 'ok' : ''}">${escapeHtml(label)} <span class="muted">${escapeHtml(status)}</span></span>${install}`;
   }).join('');
-  return row('server', t('db.tools'), `<span class="tool-row">${chips}</span>`, t('db.tool.hint'));
+  return row('server', t('db.tools'), `<span class="tool-row">${chips}</span>`, t('db.tool.hint'), 'full');
 }
 
 function settingsDatabase() {
-  const backend = row('server', t('db.backend'), segmented('boardBackend', BOARD_BACKENDS.map((k) => [k, t(`db.backend.${k}`)]), s().boardBackend || 'node'));
+  const backend = row('server', t('db.backend'), segmented('boardBackend', BOARD_BACKENDS.map((k) => [k, t(`db.backend.${k}`)]), s().boardBackend || 'node'), t('db.backend'), 'full');
   const tools = toolRow();
   if (!desktop) return [backend, tools, row('info', '', `<span class="muted">${escapeHtml(t('db.desktopOnly'))}</span>`, t('db.desktopOnly')), row('info', '', `<span class="muted">${escapeHtml(t('db.hint'))}</span>`, t('db.hint'))].join('');
   const kind = s().dbKind;
@@ -1125,9 +1127,9 @@ function settingsDatabase() {
     state.dbDefaultFile = '';
     native.dbDefaultFile().then((file) => { state.dbDefaultFile = file; if (state.tab === 'database') render(); }).catch(() => {});
   }
-  const rows = [backend, tools, row('database', t('db.kind'), segmented('dbKind', DB_KINDS.map((k) => [k, DB_NAMES[k]]), kind))];
+  const rows = [backend, tools, row('database', t('db.kind'), segmented('dbKind', DB_KINDS.map((k) => [k, DB_NAMES[k]]), kind), t('db.kind'), 'full')];
   if (kind === 'sqlite') {
-    rows.push(row('file', t('db.file'), `${dbText('dbFile', t('db.file'), `placeholder="${escapeHtml(state.dbDefaultFile || t('db.filePlaceholder'))}"`)}${button('db-browse', t('db.browse'), 'folder', 'small')}`));
+    rows.push(row('file', t('db.file'), `${dbText('dbFile', t('db.file'), `placeholder="${escapeHtml(state.dbDefaultFile || t('db.filePlaceholder'))}"`)}${button('db-browse', t('db.browse'), 'folder', 'small')}`, t('db.file'), 'full'));
     rows.push(row('info', '', `<span class="muted">${escapeHtml(t('db.fileDefault', { file: state.dbDefaultFile || '—' }))}</span>`, t('db.fileDefault', { file: state.dbDefaultFile })));
   } else {
     const password = s().dbSavePassword ? s().dbPassword : state.dbPassword ?? '';

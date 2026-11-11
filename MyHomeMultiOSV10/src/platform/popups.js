@@ -13,9 +13,10 @@
 import { emitTo, invoke, isDesktop, listen } from './native.js';
 
 /** Logical size of each popup, measured to fit its content (Korean and English, full lists) without scrolling
- * or empty space. Fixed; confirm, about, welcome and prompt then follow their content height (fitHeight). */
+ * or empty space. Fixed; confirm, about, welcome, prompt and settings then follow their content height (fitHeight).
+ * Settings cannot be resized by the user and does not scroll. */
 export const POPUPS = {
-  settings: { width: 1060, height: 640 },
+  settings: { width: 980, height: 520 },
   about: { width: 740, height: 600 },
   confirm: { width: 560, height: 270 },
   error: { width: 720, height: 500 },

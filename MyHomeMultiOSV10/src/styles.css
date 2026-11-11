@@ -544,7 +544,7 @@ html.is-popup, html.is-popup body { background: var(--surface); overflow: hidden
 .switch-wrap input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
 .inline-check { display: inline-flex; align-items: center; gap: 4px; font-size: 0.9em; }
 .pager { display: inline-flex; align-items: center; gap: 4px; font-size: 0.85em; color: var(--muted); font-variant-numeric: tabular-nums; }
-.theme-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; margin-top: 4px; }
+.theme-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 10px; margin-top: 4px; }
 .theme-head { gap: 8px; }
 .theme-row.compact { height: 30px; border: 1px solid var(--border); flex: none; }
 .custom-actions { gap: 8px; }
@@ -569,11 +569,11 @@ html.is-popup, html.is-popup body { background: var(--surface); overflow: hidden
 .theme-row { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border: 0; border-radius: 7px; background: none; cursor: pointer; text-align: left; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
 .theme-row:hover { background: var(--hover); }
 .theme-row.active { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600; }
-.theme-name { flex: 1; }
+.theme-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .theme-swatch { display: inline-flex; border-radius: 5px; overflow: hidden; box-shadow: 0 0 0 1px var(--border); }
 .theme-swatch i { width: 14px; height: 20px; }
 .font-sample { justify-content: center; min-height: 56px; border: 1px dashed var(--border); border-radius: 8px; margin-top: 8px; }
-.shortcut-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+.shortcut-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
 .shortcut-row { display: flex; align-items: center; gap: 10px; height: 25px; white-space: nowrap; overflow: hidden; border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent); font-size: 0.92em; }
 .shortcut-row span { overflow: hidden; text-overflow: ellipsis; }
 kbd { min-width: 128px; font-family: Consolas, Menlo, monospace; font-size: 0.82em; padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--surface2); }
@@ -1160,10 +1160,25 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 .props .range-wrap input[type="range"] { flex: 1; }
 .props .check-row { margin: 4px 0; }
 
-/* Settings: short rows side by side in two columns; notes, samples and wide controls take the full width. */
-.settings-general, .settings-start, .settings-background, .settings-drawing, .settings-defaults, .settings-font { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; align-content: start; }
-.settings-page > .row { --label-col: 280px; }
-.settings-page > .row:has(> .row-label > span:empty), .settings-page > .font-sample, .settings-page > .row.full { grid-column: 1 / -1; }
+/* Settings: short rows sit in two columns. Notes, samples and wide controls take the whole width.
+   The window follows that content (fitHeight), so a short tab does not leave a blank area, and nothing scrolls. */
+.settings-general, .settings-start, .settings-background, .settings-font, .settings-editor, .settings-database, .settings-dictionary {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; align-content: start;
+}
+.settings-page > .row { --label-col: 220px; }
+.settings-page > .row:has(> .row-label > span:empty),
+.settings-page > .font-sample,
+.settings-page > .row.full,
+.settings-page > .dict-list,
+.settings-page > .section-title,
+.settings-page > .theme-head,
+.settings-page > .theme-list,
+.settings-page > .shortcut-grid,
+.settings-page > .packages-view { grid-column: 1 / -1; }
+.popup-settings .row { min-height: 30px; padding: 1px 0; }
+html.popup-kind-settings, html.popup-kind-settings body { overflow: hidden; scrollbar-width: none; }
+html.popup-kind-settings ::-webkit-scrollbar { width: 0; height: 0; }
+.popup-settings, .popup-settings .popup-body { overflow: hidden; }
 
 /* A shape dragged from the Shapes panel follows the pointer. */
 .stencil-ghost { position: fixed; left: 0; top: 0; z-index: 9999; width: 44px; height: 44px; padding: 4px; border-radius: 8px; background: var(--surface); border: 1px dashed var(--border); opacity: 0.85; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); }
@@ -1879,7 +1894,7 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .dict-tools { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .dict-tools .search-box { width: 200px; flex: 0 1 200px; margin: 0; }
 .dict-tools .grow { flex: 1; }
-.dict-list { min-height: 168px; padding: 6px 0 4px; }
+.dict-list { padding: 4px 0 2px; }
 .dict-words { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .dict-word { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; height: 30px; padding: 0 4px 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
 .dict-word > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1889,12 +1904,12 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .dict-empty { margin: 10px 2px; }
 
 /* ───────── packages (Settings › Packages, the packages window, the status bar) */
-.packages-view { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }
-.packages-list { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: auto; scrollbar-width: thin; }
+.packages-view { display: flex; flex-direction: column; gap: 8px; }
+.packages-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; overflow: hidden; }
 .package-card { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 .package-card.failed { border-color: color-mix(in srgb, #d33 60%, var(--border)); }
 .package-card.installed { border-color: color-mix(in srgb, #2a9d58 50%, var(--border)); }
-.package-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.package-head { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
 .package-head > .icon { color: var(--accent); }
 .package-head .muted { font-size: 0.86em; white-space: nowrap; }
 .package-purpose { font-size: 0.92em; color: var(--muted); }
