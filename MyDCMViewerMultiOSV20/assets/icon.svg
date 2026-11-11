@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="0.55" stop-color="#1e3a8a"/>
+      <stop offset="1" stop-color="#0b1224"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0.2" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.42"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="0.45" stop-color="#94a3b8"/>
+      <stop offset="1" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#cbd5e1"/>
+    </linearGradient>
+    <clipPath id="tile"><rect x="8" y="8" width="240" height="240" rx="52"/></clipPath>
+    <clipPath id="screenClip"><rect x="38" y="34" width="180" height="144" rx="10"/></clipPath>
+  </defs>
+
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#bg)"/>
+  <g clip-path="url(#tile)">
+    <path d="M8 8h240v78c-70 36-160 42-240 16z" fill="url(#gloss)"/>
+  </g>
+  <rect x="10" y="10" width="236" height="236" rx="50" fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="2"/>
+
+  <!-- viewer bezel and the image -->
+  <rect x="30" y="26" width="196" height="160" rx="16" fill="url(#bezel)"/>
+  <rect x="38" y="34" width="180" height="144" rx="10" fill="url(#screen)"/>
+  <g clip-path="url(#screenClip)">
+    <!-- axial CT: soft tissue, bright skull, gray brain, one anterior air space, midline -->
+    <ellipse cx="128" cy="106" rx="66" ry="54" fill="#64748b"/>
+    <ellipse cx="128" cy="108" rx="56" ry="45" fill="#f8fafc"/>
+    <ellipse cx="128" cy="112" rx="42" ry="33" fill="#3b4654"/>
+    <ellipse cx="128" cy="86" rx="14" ry="8" fill="#0f172a"/>
+    <path d="M128 94v28" stroke="#e2e8f0" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
+  <!-- radiological orientation and a length scale, so this reads as an image -->
+  <text x="200" y="52" text-anchor="end" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#f8fafc">R</text>
+  <path d="M52 162h32M52 156v12M84 156v12" stroke="#e2e8f0" stroke-width="2.6" stroke-linecap="round"/>
+  <rect x="38" y="34" width="180" height="144" rx="10" fill="none" stroke="#7dd3fc" stroke-opacity="0.55" stroke-width="1.5"/>
+
+  <text x="128" y="230" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700" fill="url(#chrome)" letter-spacing="3">DCM</text>
+</svg>
