@@ -39,6 +39,16 @@ npm run build:all      # 웹 버전 + 이 운영 체제의 설치 파일
 
 결과는 `release/` 와 프로젝트 루트에 복사됩니다. Tauri 는 자기 운영 체제용 설치 파일만 만듭니다.
 
+## 정리 / Clean
+
+```
+npm run clean          # 빌드 결과·테스트 결과·캐시·설치 파일 삭제 (node_modules 는 남김)
+npm run clean:all      # 위 + node_modules (다시 npm install)
+npm run clean:dry      # 지울 목록만 보여 줌 / list only, delete nothing
+```
+
+git 이 추적하는 파일(public/docs, doc/video 등)은 지우지 않습니다. `npm start` 가 실행 중이면 src-tauri/target 이 잠겨 있어 먼저 앱을 닫아야 합니다.
+
 ## 기타 스크립트 / Other scripts
 
 | 명령 | 하는 일 |

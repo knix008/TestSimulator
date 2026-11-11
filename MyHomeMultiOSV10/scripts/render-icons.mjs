@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { closeBrowser } from '../test/e2e/web-harness.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const svg = fs.readFileSync(path.join(root, 'assets', 'icon.svg'), 'utf8');
@@ -106,7 +107,8 @@ const images = await evaluate(`(async () => {
   return { icon: icon.png, projectIcon: projectIcon.png, projectSmall: projectSmall.png, templateIcon: templateIcon.png, templateSmall: templateSmall.png, header, sidebar };
 })()`);
 ws.close();
-child.kill();
+// The whole browser: child.kill() alone leaves Edge's own processes running (test/e2e/web-harness.mjs).
+await closeBrowser(port, child, profile);
 
 /** 24-bit bottom-up BMP, the format NSIS expects. */
 function bmp({ width, height, rgba }) {

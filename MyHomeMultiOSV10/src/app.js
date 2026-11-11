@@ -14,7 +14,7 @@ import { ART_KINDS, art } from './domain/art.js';
 import { buildTemplate, TEMPLATES } from './domain/templates.js';
 import { buildSample, SAMPLE_GROUPS, SAMPLES } from './domain/samples.js';
 import { pageFile } from './domain/render.js';
-import { assignCssFile, assignPageSource, cssHasSource, pageHasSource } from './domain/sourcefiles.js';
+import { assignCssFile, assignPageSource, cssFileText, cssHasSource, jsFileText, pageFileText, pageHasSource } from './domain/sourcefiles.js';
 import { filesSize, publishChecks, siteFiles, singlePageHtml } from './domain/publish.js';
 import { SiteDocument, baseName, directoryOf, extensionOf, fileSafe, isImageFileName, isSiteFileName, isTemplateFileName, stripExtension, withExtension } from './domain/document.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
@@ -2063,6 +2063,7 @@ async function publishSite(format, { extract = state.settings.publishExtractImag
 /** Opens the code editor (desktop: its own window; web: a tab), with a request for it (a file, the site's code …). */
 async function openCodeWindow(request = null) {
   popups.hideMenu();
+  state.codeEditorUsed = true;
   publishSiteCode();
   // Opened plainly (menu, toolbar, start page): the open project's code; with no project, the default files.
   if (!request) request = activeDoc() ? { type: 'project' } : { type: 'default' };
@@ -2096,18 +2097,56 @@ async function openCodeFiles() {
 }
 
 /** The open site's code for the code editor window (written only when it changed). */
+/** The project's files as the code editor shows them: each page's HTML, style.css and script.js — the same text
+ * the site publishes (a saved file, or what the blocks and the design write). */
+function projectFiles(site) {
+  return [
+    ...site.pages.map((page) => ({ key: `page:${page.id}`, name: pageFile(page), language: 'html', text: pageFileText(site, page) })),
+    { key: 'css', name: 'style.css', language: 'css', text: cssFileText(site) },
+    { key: 'js', name: 'script.js', language: 'js', text: jsFileText(site) },
+  ];
+}
+
 function publishSiteCode() {
   const doc = activeDoc();
-  const value = doc ? JSON.stringify({ siteId: doc.site.id, name: doc.site.meta?.title || doc.site.name, code: doc.site.code ?? { css: '', js: '', head: '' } }) : 'null';
+  const base = doc ? { siteId: doc.site.id, name: doc.site.meta?.title || doc.site.name, code: doc.site.code ?? { css: '', js: '', head: '' } } : null;
+  // The files only once the code editor was opened (they are made again after every change).
+  const value = base ? JSON.stringify(state.codeEditorUsed ? { ...base, files: projectFiles(doc.site) } : base) : 'null';
   if (publishSiteCode.last === value) return;
   publishSiteCode.last = value;
-  try { globalThis.localStorage?.setItem(CODE_SITE_KEY, value); } catch { /* the code editor keeps what it has */ }
+  try {
+    globalThis.localStorage?.setItem(CODE_SITE_KEY, value);
+  } catch {
+    // Too large for localStorage (pictures written into a page): the editor gets the site without its files.
+    try { globalThis.localStorage?.setItem(CODE_SITE_KEY, base ? JSON.stringify(base) : 'null'); } catch { /* it keeps what it has */ }
+  }
+}
+
+/** A project file typed in the code editor: a page's HTML, style.css or script.js (one undo per run of typing). */
+function applyProjectFile(doc, key, value) {
+  const text = String(value ?? '');
+  const pageId = key.startsWith('page:') ? key.slice(5) : null;
+  if (pageId && !S.pageById(doc.site, pageId)) return;
+  const current = key === 'css' ? cssFileText(doc.site) : key === 'js' ? jsFileText(doc.site) : pageFileText(doc.site, S.pageById(doc.site, pageId));
+  if (current === text) return;
+  const labelKey = key === 'css' ? 'code.op.cssFile' : key === 'js' ? 'code.op.js' : 'code.op.page';
+  const mutate = (s) => {
+    if (key === 'css') assignCssFile(s, text);
+    else if (key === 'js') s.code = { css: '', js: '', head: '', ...(s.code ?? {}), js: text };
+    else assignPageSource(s, S.pageById(s, pageId), text);
+  };
+  if (doc.history.undoLabel === t(labelKey) && state.lastProjectFile === key) { mutate(doc.site); doc.touch(); afterChange({ redraw: true }); }
+  else change(labelKey, mutate);
+  state.lastProjectFile = key;
 }
 
 /** Messages from the code editor: the site's code typed there, Packages. */
 function readCodeOutbox() {
   for (const message of drainQueue(CODE_OUTBOX_KEY)) {
-    if (message.type === 'site-code') {
+    if (message.type === 'site-code' && String(message.field).startsWith('file:')) {
+      const doc = activeDoc();
+      if (doc && doc.site.id === message.siteId) applyProjectFile(doc, String(message.field).slice(5), message.value);
+    } else if (message.type === 'site-code') {
       const doc = activeDoc();
       if (!doc || doc.site.id !== message.siteId || !['css', 'js', 'head'].includes(message.field)) continue;
       if ((doc.site.code?.[message.field] ?? '') === message.value) continue;

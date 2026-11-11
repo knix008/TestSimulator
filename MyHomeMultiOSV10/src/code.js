@@ -78,7 +78,7 @@ function setWordWrap(on) {
 
 let nextId = 1;
 const activeTab = () => state.tabs.find((tab) => tab.id === state.active) ?? null;
-const tabName = (tab) => (tab.kind === 'site' ? t(`code.site.${tab.field}`) : tab.name);
+const tabName = (tab) => (tab.kind === 'site' && !tab.field.startsWith('file:') ? t(`code.site.${tab.field}`) : tab.name);
 const baseName = (path) => String(path ?? '').split(/[\\/]/).pop();
 const dirName = (path) => String(path ?? '').replace(/[\\/][^\\/]*$/, '');
 
@@ -288,11 +288,24 @@ function sendSiteCode(tab, now = false) {
     post({ type: 'site-code', siteId: current.siteId, field: current.field, value: current.text });
     current.saved = current.text;
     current.dirty = false;
-    state.site.code[current.field] = current.text;
+    setSiteValue(state.site, current.field, current.text);
     renderTabsOnly();
   };
   if (now) { cancelAnimationFrame(siteFrame); go(); return; }
   if (!siteFrame) siteFrame = requestAnimationFrame(go);
+}
+
+/** A site tab's text in the main window's site: its own code (css, js, head) or, for "file:<key>", one of the
+ * project's files (a page's HTML, style.css, script.js). Undefined when the site has no such file. */
+function siteValue(site, field) {
+  if (!site) return undefined;
+  if (field.startsWith('file:')) return site.files?.find((file) => file.key === field.slice(5))?.text;
+  return site.code?.[field] ?? '';
+}
+
+function setSiteValue(site, field, text) {
+  if (field.startsWith('file:')) { const file = site.files?.find((x) => x.key === field.slice(5)); if (file) file.text = text; return; }
+  site.code[field] = text;
 }
 
 function readSite() {
@@ -304,13 +317,22 @@ function siteChanged() {
   const site = readSite();
   state.site = site;
   let changed = false;
+  const gone = [];
   for (const tab of state.tabs.filter((x) => x.kind === 'site')) {
+    const value = siteValue(site, tab.field);
     if (!site || site.siteId !== tab.siteId) {
-      if (site) { tab.siteId = site.siteId; tab.siteName = site.name; tab.text = site.code[tab.field] ?? ''; tab.saved = tab.text; tab.dirty = false; changed = true; }
+      // Another project: its files take the tabs' place; a page it does not have closes.
+      if (site && value === undefined) gone.push(tab.id);
+      else if (site) { tab.siteId = site.siteId; tab.siteName = site.name; tab.text = value; tab.saved = tab.text; tab.dirty = false; changed = true; }
       continue;
     }
-    const value = site.code[tab.field] ?? '';
+    if (value === undefined) { if (!tab.dirty) gone.push(tab.id); continue; }
     if (!tab.dirty && value !== tab.text) { tab.text = value; tab.saved = value; changed = true; }
+  }
+  if (gone.length) {
+    state.tabs = state.tabs.filter((tab) => !gone.includes(tab.id));
+    if (gone.includes(state.active)) state.active = state.tabs.at(-1)?.id ?? null;
+    changed = true;
   }
   if (changed) render();
 }
@@ -325,12 +347,24 @@ function openSiteCode(field) {
   return addTab({ kind: 'site', field, siteId: site.siteId, siteName: site.name, name: `site.${field === 'head' ? 'head.html' : field}`, language, text: site.code[field] ?? '' });
 }
 
-/** The project being worked on: its own CSS, JavaScript and <head> HTML, each in a tab (CSS in front). No project:
- * the default files instead. */
+/** One of the project's files in a tab (it follows the site, and what is typed goes to the site). */
+function openProjectFile(file) {
+  const field = `file:${file.key}`;
+  const existing = state.tabs.find((tab) => tab.kind === 'site' && tab.field === field);
+  if (existing) return existing;
+  return addTab({ kind: 'site', field, siteId: state.site.siteId, siteName: state.site.name, name: file.name, language: file.language, text: file.text ?? '' });
+}
+
+/** The project being worked on: its files — each page's HTML, style.css and script.js, as the site publishes them —
+ * with the first page in front. No project: the default files instead. */
 function openProject() {
   siteChanged();
   if (!state.site) { openDefaultFiles(); return; }
-  for (const field of ['head', 'js', 'css']) openSiteCode(field);
+  const files = state.site.files ?? [];
+  if (!files.length) { for (const field of ['head', 'js', 'css']) openSiteCode(field); return; }
+  const tabs = files.map(openProjectFile);
+  activate(tabs[0].id);
+  render();
 }
 
 /** No project open: a starter page, style sheet and script — only when the editor has nothing open yet. */
@@ -640,13 +674,29 @@ function say(kind, text) {
 
 // ───────────────────────── preview
 
+/** The text of one of the project's files: its tab's (what is typed there) or the site's. */
+function projectFileText(key) {
+  const tab = state.tabs.find((x) => x.kind === 'site' && x.field === `file:${key}`);
+  return tab ? tab.text : siteValue(state.site, `file:${key}`) ?? '';
+}
+
+/** A project page links style.css and script.js, which the preview frame cannot fetch: they go in as they are now. */
+function previewText(tab, text) {
+  if (tab?.kind !== 'site' || !tab.field.startsWith('file:page:')) return text;
+  const css = projectFileText('css');
+  const js = projectFileText('js').trim();
+  return text
+    .replace(/<link\b[^>]*\bhref=(["'])style\.css\1[^>]*>/i, () => `<style>\n${css.replace(/<\/style/gi, '<\\/style')}\n</style>`)
+    .replace(/<script\b[^>]*\bsrc=(["'])script\.js\1[^>]*>\s*<\/script>/i, () => (js ? `<script>\n${js.replace(/<\/script/gi, '<\\/script')}\n</script>` : ''));
+}
+
 let previewFrame = 0;
 function refreshPreview(now = false) {
   const go = () => {
     previewFrame = 0;
     const frame = root.querySelector('.code-preview iframe');
     const input = editorInput();
-    if (frame && input) frame.srcdoc = input.value;
+    if (frame && input) frame.srcdoc = previewText(activeTab(), input.value);
   };
   if (now) { cancelAnimationFrame(previewFrame); go(); return; }
   if (!previewFrame) previewFrame = requestAnimationFrame(go);

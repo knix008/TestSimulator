@@ -30,7 +30,10 @@
     "tutorial:docs": "node scripts/tutorial-capture.mjs docs",
     "tutorial:video": "node scripts/tutorial-capture.mjs video",
     "tutorial:check": "node scripts/tutorial-capture.mjs check",
-    "build:dict": "node scripts/build-dict.mjs"
+    "build:dict": "node scripts/build-dict.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all",
+    "clean:dry": "node scripts/clean.mjs --all --dry-run"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

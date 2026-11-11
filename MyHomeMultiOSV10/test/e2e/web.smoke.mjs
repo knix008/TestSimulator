@@ -813,24 +813,44 @@ for (const language of languages) {
       expect(out.html.some((m) => /must be paired/i.test(m)), `HTMLHint did not run: ${JSON.stringify(out.html)}`);
       expect(out.js.length > 0, `JSHint found nothing: ${JSON.stringify(out.js)}`);
     });
-    // Tools › Code editor opened plainly shows the project being worked on (its CSS, JavaScript and <head> HTML), and
-    // with no project the default files (it used to open an empty start screen either way).
-    await report.check(tag('the code editor opens the open project\'s code, or the default files when no project is open'), async () => {
-      const editorTabs = async () => {
+    // Tools › Code editor opened plainly shows the project being worked on — each page's HTML, style.css and script.js
+    // with what they hold (the tabs used to be the site's empty extra-code fields) — and typing there changes the site.
+    // With no project it shows the default files (it used to open an empty start screen either way).
+    await report.check(tag('the code editor opens the open project\'s files with their content, edits reach the site; default files with no project'), async () => {
+      const openEditor = async () => {
         await run(`(() => { document.querySelector('#code-probe')?.remove(); localStorage.removeItem('myhomemaker.code.session'); const f = document.createElement('iframe'); f.id = 'code-probe'; f.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:700px;z-index:99999'; f.src = location.pathname + '?viewer=code&lang=${language}'; document.body.append(f); return 1; })()`);
         await page.waitFor("document.querySelector('#code-probe')?.contentDocument?.querySelectorAll('.code-tab').length > 0", { timeout: 15000 });
-        await sleep(200);
-        return run("(() => { const d = document.querySelector('#code-probe').contentDocument; const tabs = [...d.querySelectorAll('.code-tab')]; const out = { names: tabs.map((t) => t.querySelector('.code-tab-name').textContent.trim()), site: tabs.filter((t) => t.classList.contains('site')).length, active: d.querySelector('.code-tab.active .code-tab-name')?.textContent.trim(), text: d.querySelector('.code-input')?.value ?? '' }; document.querySelector('#code-probe').remove(); return out; })()");
+        await sleep(300);
+        // Every tab's name and text (the editor draws only the active one, so each tab is clicked in turn).
+        return run("(async () => { const d = document.querySelector('#code-probe').contentDocument; const active = d.querySelector('.code-tab.active .code-tab-name')?.textContent.trim(); await new Promise((r) => setTimeout(r, 100)); const preview = d.querySelector('.code-preview iframe')?.srcdoc ?? ''; const out = []; for (let i = 0; i < d.querySelectorAll('.code-tab').length; i++) { d.querySelectorAll('.code-tab')[i].click(); await new Promise((r) => setTimeout(r, 30)); out.push({ name: d.querySelectorAll('.code-tab')[i].querySelector('.code-tab-name').textContent.trim(), site: d.querySelectorAll('.code-tab')[i].classList.contains('site'), text: d.querySelector('.code-input')?.value ?? '' }); } return { active, preview, tabs: out }; })()");
       };
+      const closeEditor = () => run("(() => { document.querySelector('#code-probe')?.remove(); return 1; })()");
       await fresh();
-      await app("A.change('op.code', (s) => { s.code = { css: '.probe-css { color: red; }', js: 'window.__probe = 1;', head: '<meta name=\"probe\" content=\"1\" />' }; }); localStorage.setItem('myhomemaker.code.inbox', '[]'); window.__opened.length = 0; await a.openCodeWindow(); return 1;");
-      const project = await editorTabs();
-      expect(project.site === 3 && project.names.length === 3, `project: ${JSON.stringify(project)}`);
-      expect(project.text.includes('.probe-css'), `the site's CSS is not in front: ${JSON.stringify(project)}`);
+      await app("A.change('op.code', (s) => { s.code = { css: '.probe-css { color: red; }', js: 'window.__probe = 1;', head: '' }; }); localStorage.setItem('myhomemaker.code.inbox', '[]'); await a.openCodeWindow(); return 1;");
+      const project = await openEditor();
+      const pages = await app('return doc().site.pages.length;');
+      const byName = Object.fromEntries(project.tabs.map((x) => [x.name, x]));
+      expect(project.tabs.length === pages + 2 && project.tabs.every((x) => x.site), 'tabs: ' + project.tabs.map((x) => x.name).join(', '));
+      expect(project.active === 'index.html', 'in front: ' + project.active);
+      // The preview cannot fetch style.css: the page shows with the project's style sheet put in (it was unstyled).
+      expect(project.preview.includes('.probe-css') && !/href=["']style\.css["']/.test(project.preview), 'the page preview has no style.css');
+      expect(project.tabs.filter((x) => x.name.endsWith('.html')).every((x) => x.text.includes('<!doctype html>') && x.text.length > 500), 'a page file is empty');
+      expect(byName['style.css']?.text.includes('.probe-css') && byName['style.css'].text.length > 500, 'style.css is empty or misses the site CSS');
+      expect(byName['script.js']?.text.includes('window.__probe = 1;'), 'script.js misses the site JavaScript');
+      // Typing in style.css changes the site's style.css (the canvas uses it) with one undo.
+      await run("(async () => { const d = document.querySelector('#code-probe').contentDocument; [...d.querySelectorAll('.code-tab')].find((x) => x.querySelector('.code-tab-name').textContent.trim() === 'style.css').click(); await new Promise((r) => setTimeout(r, 30)); const input = d.querySelector('.code-input'); input.value += '\\n.typed-in-editor { color: blue; }\\n'; input.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()");
+      await page.waitFor("(window.__myhomemaker.state.docs[0].site.files?.css ?? '').includes('.typed-in-editor')", { timeout: 5000 });
+      const shown = await app("return frame().getElementById('hm-site')?.textContent.includes('.typed-in-editor') ?? false;");
+      await closeEditor();
+      expect(shown, 'the canvas does not use the edited style.css');
+      await app('A.undo(); return 1;');
+      expect(!(await app("return (doc().site.files?.css ?? '').includes('.typed-in-editor');")), 'the edit does not undo');
       await app("while (a.state.docs.length) { a.state.docs[0].markSaved?.(null); await A.closeDoc(a.state.docs[0], { force: true }); } localStorage.setItem('myhomemaker.code.inbox', '[]'); await a.openCodeWindow(); return 1;");
-      const none = await editorTabs();
-      expect(none.site === 0 && ['index.html', 'style.css', 'script.js'].every((n) => none.names.includes(n)), `no project: ${JSON.stringify(none)}`);
-      expect(none.text.includes('<!doctype html>'), `index.html not in front: ${JSON.stringify(none)}`);
+      const none = await openEditor();
+      await closeEditor();
+      const names = none.tabs.map((x) => x.name);
+      expect(none.tabs.every((x) => !x.site) && ['index.html', 'style.css', 'script.js'].every((n) => names.includes(n)), 'no project: ' + names.join(', '));
+      expect(none.active === 'index.html' && none.tabs.find((x) => x.name === 'index.html').text.includes('<!doctype html>'), 'no project, in front: ' + none.active);
       await fresh();
     });
     await report.check(tag('Packages: one card per package with its state, and Download / Retry / Cancel ask the main window'), async () => {
