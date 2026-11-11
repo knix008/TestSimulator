@@ -3,7 +3,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  rewriteSql, quoteIdent, limitClause, columnType, createTableSql, createIndexSql, addColumnSql, listTablesSql, listColumnsSql, likeEscape, DIALECTS,
+  rewriteSql, quoteIdent, limitClause, columnType, createTableSql, createIndexSql, addColumnSql, listTablesSql, listColumnsSql, likeEscape, concatSql, DIALECTS,
 } from '../../core/db/sqlgen.js';
 import { TABLE, TABLES } from '../../core/db/schema.js';
 import { parseDbUrl } from '../../core/db/index.js';
@@ -43,6 +43,17 @@ describe('identifier quoting', () => {
   });
   test('rejects unsafe names', () => {
     for (const d of DIALECTS) assert.throws(() => quoteIdent(d, 'a"; DROP TABLE x; --'), /bad identifier/);
+  });
+});
+
+describe('string concatenation', () => {
+  test('|| or CONCAT per dialect, literals survive the rewrite', () => {
+    assert.equal(concatSql('sqlite', "'AB-'", '"number"'), "('AB-' || \"number\")");
+    assert.equal(concatSql('postgres', "'AB-'", '"number"'), "('AB-' || \"number\")");
+    assert.equal(concatSql('mysql', "'AB-'", '"number"'), "CONCAT('AB-', \"number\")");
+    assert.equal(rewriteSql('mysql', `UPDATE "issues" SET "key" = ${concatSql('mysql', "'AB-'", '"number"')}`), "UPDATE `issues` SET `key` = CONCAT('AB-', `number`)");
+    assert.equal(rewriteSql('mssql', `SET "key" = ${concatSql('mssql', "'AB-'", '"number"')}`), "SET [key] = CONCAT('AB-', [number])");
+    assert.equal(concatSql('mssql', "'X-'", '"number"'), "CONCAT('X-', \"number\")");
   });
 });
 

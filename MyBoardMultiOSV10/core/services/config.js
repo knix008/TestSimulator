@@ -2,7 +2,7 @@
 // custom fields, and the global priorities / resolutions. Built on the crud() factory with the extra rules.
 import { newId } from '../ids.js';
 import { AppError, NotFoundError, ValidationError, check } from '../errors.js';
-import { crud, toApi, emit, nowOf, assertProject, requireAdmin, requireUser, today, checkDate } from './common.js';
+import { crud, toApi, emit, nowOf, assertProject, requireAdmin, requireUser, today, checkDate, parseJson, snake } from './common.js';
 import { customValueColumns } from '../jql/index.js';
 
 export const CUSTOM_FIELD_TYPES = ['text', 'textarea', 'number', 'date', 'select', 'multiselect', 'user', 'checkbox', 'url', 'labels'];
@@ -33,7 +33,16 @@ export function createConfig(core) {
       check(r.name && String(r.name).trim(), 'REQUIRED', 'name is required', { field: 'name' });
       check([-1, 0, 1].includes(Number(r.level ?? 0)), 'INVALID_LEVEL', 'level must be -1 (epic), 0 or 1 (subtask)');
     },
-    beforeRemove: async (d, row, opts) => replaceOrRefuse('issues', 'type_id', row, opts, 'This issue type'),
+    beforeRemove: async (d, row, opts) => {
+      await replaceOrRefuse('issues', 'type_id', row, opts, 'This issue type');
+      // custom fields limited to this type: the replacement takes its place (none left = every type again)
+      for (const f of await d.all('SELECT "id", "issue_type_ids" FROM "custom_fields" WHERE "issue_type_ids" IS NOT NULL')) {
+        const ids = parseJson(f.issue_type_ids, null);
+        if (!Array.isArray(ids) || !ids.includes(row.id)) continue;
+        const next = [...new Set(ids.map((x) => (x === row.id ? opts.replaceWith || null : x)).filter(Boolean))];
+        await d.run('UPDATE "custom_fields" SET "issue_type_ids" = ?, "rev" = "rev" + 1 WHERE "id" = ?', [next.length ? JSON.stringify(next) : null, f.id]);
+      }
+    },
   });
 
   const statuses = crud(core, {
@@ -75,10 +84,11 @@ export function createConfig(core) {
 
   const workflows = crud(core, {
     table: 'workflows', entity: 'workflow', parent: 'project_id', projectOf: projectIdOf, order: 'name',
-    fields: ['name', 'initial_status_id'],
+    fields: ['name', 'initial_status_id', 'layout'],
     validate: async (d, r) => {
       check(r.name && String(r.name).trim(), 'REQUIRED', 'name is required', { field: 'name' });
       if (r.initial_status_id) await statusOfProject(d, r.initial_status_id, r.project_id);
+      checkLayout(r.layout);
     },
     beforeRemove: async (d, row) => {
       const n = await d.count('issue_types', { workflow_id: row.id });
@@ -109,8 +119,13 @@ export function createConfig(core) {
 
   const components = crud(core, {
     table: 'components', entity: 'component', parent: 'project_id', projectOf: projectIdOf, order: 'name',
-    fields: ['name', 'description', 'lead_id', 'icon'],
-    validate: async (d, r) => check(r.name && String(r.name).trim(), 'REQUIRED', 'name is required', { field: 'name' }),
+    fields: ['name', 'description', 'lead_id', 'icon', 'default_assignee_id'],
+    validate: async (d, r) => {
+      check(r.name && String(r.name).trim(), 'REQUIRED', 'name is required', { field: 'name' });
+      for (const [col, field] of [['lead_id', 'leadId'], ['default_assignee_id', 'defaultAssigneeId']]) {
+        if (r[col] && !(await d.get('SELECT "id" FROM "users" WHERE "id" = ?', [r[col]]))) throw new ValidationError('INVALID_USER', 'Unknown user', { field });
+      }
+    },
     beforeRemove: async (d, row) => d.remove('issue_components', { component_id: row.id }),
   });
 
@@ -153,7 +168,7 @@ export function createConfig(core) {
 
   const fields = crud(core, {
     table: 'custom_fields', entity: 'field', parent: 'project_id', projectOf: projectIdOf,
-    fields: ['name', 'type', 'options', 'required', 'position', 'description'],
+    fields: ['name', 'type', 'options', 'required', 'position', 'description', 'default_value', 'issue_type_ids'],
     validate: async (d, r, existing) => {
       check(r.name && String(r.name).trim(), 'REQUIRED', 'name is required', { field: 'name' });
       check(CUSTOM_FIELD_TYPES.includes(r.type), 'INVALID_FIELD_TYPE', `type must be one of ${CUSTOM_FIELD_TYPES.join(', ')}`);
@@ -176,9 +191,54 @@ export function createConfig(core) {
     const rows = await db().all('SELECT * FROM "custom_fields" WHERE "project_id" = ? OR "project_id" IS NULL ORDER BY "position"', [projectId]);
     return rows.map((r) => toApi('custom_fields', r));
   };
+  /**
+   * defaultValue / issueTypeIds of a field body, normalised for storing (`existing`: the stored row on update).
+   * The default is checked like a value (customValue); stored as JSON text. A select default follows its option
+   * when the option is renamed, and is dropped when the option is deleted. issueTypeIds: [] / null = every type.
+   */
+  async function fieldExtras(body, existing, projectId) {
+    const has = (k) => body && (k in body || snake(k) in body);
+    const get = (k) => (k in body ? body[k] : body[snake(k)]);
+    const out = {};
+    const type = existing?.type ?? body?.type ?? 'text';
+    const options = has('options') ? (get('options') ?? []).map((o) => (typeof o === 'string' ? { value: o } : o)) : (parseJson(existing?.options, []) ?? []);
+    if (has('issueTypeIds')) {
+      let ids = get('issueTypeIds');
+      if (typeof ids === 'string') ids = parseJson(ids, null);
+      check(ids == null || (Array.isArray(ids) && ids.every((x) => typeof x === 'string')), 'INVALID_TYPE', 'issueTypeIds must be an array of issue type ids', { field: 'issueTypeIds' });
+      ids = [...new Set(ids ?? [])];
+      const pid = existing ? existing.project_id : projectId;
+      for (const tid of ids) {
+        const t = await db().get(`SELECT "id" FROM "issue_types" WHERE "id" = ?${pid ? ' AND "project_id" = ?' : ''}`, pid ? [tid, pid] : [tid]);
+        if (!t) throw new ValidationError('INVALID_TYPE', 'Unknown issue type', { field: 'issueTypeIds', id: tid });
+      }
+      out.issueTypeIds = ids.length ? ids : null;
+    }
+    const cf = { id: existing?.id ?? 'new', name: body?.name ?? existing?.name ?? '', type, options };
+    let raw;
+    if (has('defaultValue')) raw = get('defaultValue');
+    else if (existing && has('options') && existing.default_value != null && (type === 'select' || type === 'multiselect')) {
+      // options changed: follow renamed options by id, drop deleted ones
+      const old = parseJson(existing.options, []) ?? [];
+      const follow = (v) => { const o = old.find((x) => String(x.value) === String(v)); const n = o && options.find((x) => x.id && x.id === o.id); return n ? n.value : options.some((x) => String(x.value) === String(v)) ? v : null; };
+      const def = parseJson(existing.default_value, null);
+      raw = Array.isArray(def) ? def.map(follow).filter((v) => v != null) : def == null ? null : follow(def);
+    } else return out;
+    let v = await core.services.issues.customValue(cf, raw);
+    if (type === 'checkbox' && v === false) v = undefined; // unchecked is no default
+    out.defaultValue = v === undefined ? null : JSON.stringify(v);
+    return out;
+  }
+  const createField = fields.create;
+  fields.create = async (ctx, projectId, body = {}) => createField(ctx, projectId, { ...body, ...(await fieldExtras(body, null, projectId)) });
+
   /** Option values renamed → re-index stored query columns. */
   const updateField = fields.update;
   fields.update = async (ctx, id, body) => {
+    // validate() normalises a copy; the stored options must get their ids here (as create does)
+    if (Array.isArray(body?.options)) body = { ...body, options: body.options.map((o) => (typeof o === 'string' ? { id: newId(), value: o } : { ...o, id: o?.id || newId() })) };
+    const stored = await db().get('SELECT * FROM "custom_fields" WHERE "id" = ?', [id]);
+    if (stored) body = { ...body, ...(await fieldExtras(body, stored, stored.project_id)) };
     const f = await updateField(ctx, id, body);
     if (body.options) await reindexCustomField(db(), id);
     return f;
@@ -194,7 +254,7 @@ export function createConfig(core) {
     },
   });
   const resolutions = crud(core, {
-    table: 'resolutions', entity: 'resolution', projectOf: globalOf, fields: ['name', 'description', 'position'],
+    table: 'resolutions', entity: 'resolution', projectOf: globalOf, fields: ['name', 'description', 'icon', 'color', 'position'],
     validate: async (d, r) => check(r.name && String(r.name).trim(), 'REQUIRED', 'name is required', { field: 'name' }),
     beforeRemove: async (d, row, opts) => replaceOrRefuse('issues', 'resolution_id', row, opts, 'This resolution'),
   });
@@ -216,6 +276,19 @@ export function normaliseRules(rules) {
     for (const item of r[k]) check(item && RULE_TYPES[k].includes(item.type), 'INVALID_RULES', `Unknown ${k} type: ${item?.type}`, { kind: k, type: item?.type });
   }
   return r;
+}
+
+/** A workflow diagram layout: { <statusId>: { x, y } } (null = automatic). */
+function checkLayout(value) {
+  const layout = typeof value === 'string' ? JSON.parse(value) : value;
+  if (layout == null) return;
+  check(typeof layout === 'object' && !Array.isArray(layout), 'INVALID_LAYOUT', 'layout must be an object { statusId: { x, y } }');
+  const entries = Object.entries(layout);
+  check(entries.length <= 500, 'INVALID_LAYOUT', 'layout has too many entries');
+  for (const [k, p] of entries) {
+    check(k.length <= 64 && p && typeof p === 'object' && Number.isFinite(p.x) && Number.isFinite(p.y) && Math.abs(p.x) < 1e6 && Math.abs(p.y) < 1e6,
+      'INVALID_LAYOUT', `layout.${k} must be { x, y } numbers`, { status: k });
+  }
 }
 
 async function statusOfProject(d, statusId, projectId) {

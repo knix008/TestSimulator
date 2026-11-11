@@ -958,7 +958,7 @@ function renderIconPicker() {
   // The upload list needs the core: connect first (desktop: core_info), the picker works without it.
   client().connection().catch(() => null).then((conn) => {
     picker = new IconPicker(root.querySelector('.iconpicker-host'), {
-      value: p.value ?? '', recent: p.recent ?? s().recentIcons ?? [], t, language: L, icon, api: conn ? client() : null, allowNone: p.allowNone !== false,
+      value: p.value ?? '', recent: p.recent ?? s().recentIcons ?? [], t, language: L, icon, api: conn ? client() : null, allowNone: p.allowNone !== false, category: p.category ?? null,
       onApply: (ref) => close({ ref }), onCancel: () => close(null),
       onNotice: (kindName, text) => action('notice', { kind: kindName, text }),
     });

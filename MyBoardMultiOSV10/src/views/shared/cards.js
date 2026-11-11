@@ -15,6 +15,7 @@ export function createLookups(data = {}) {
   const maps = {
     users: byId(data.users), types: byId(data.types), priorities: byId(data.priorities), statuses: byId(data.statuses),
     epics: byId(data.epics), projects: byId(data.projects), versions: byId(data.versions), components: byId(data.components), columns: byId(data.columns),
+    resolutions: byId(data.resolutions),
   };
   const columnOfStatus = new Map();
   for (const column of data.columns ?? []) for (const id of column.statusIds ?? []) columnOfStatus.set(id, column.id);
@@ -28,6 +29,7 @@ export function createLookups(data = {}) {
     project: (id) => maps.projects.get(id) ?? null,
     version: (id) => maps.versions.get(id) ?? null,
     component: (id) => maps.components.get(id) ?? null,
+    resolution: (id) => (id ? maps.resolutions.get(id) ?? null : null),
     column: (id) => maps.columns.get(id) ?? null,
     columnOfStatus: (statusId) => columnOfStatus.get(statusId) ?? null,
   };
@@ -65,6 +67,13 @@ export function typeIconHtml(type, { size = 16, t = null } = {}) {
 export function priorityIconHtml(priority, { size = 16, t = null } = {}) {
   if (!priority) return '';
   return renderIconRef(priority.icon, { size, title: t ? t('shared.priority', { name: priority.name }) : priority.name, className: 'mb-priority', fallback: 'b:priority-medium' });
+}
+
+/** A resolution's icon (IconRef; a tinted check when it has none) on a resolved card / row. */
+export function resolutionIconHtml(resolution, { size = 14, t = null } = {}) {
+  if (!resolution) return '';
+  const title = t ? t('shared.resolution', { name: resolution.name }) : resolution.name;
+  return `<span class="mb-resolution" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${renderIconRef(resolution.icon || `b:check${resolution.color && /^#[0-9a-f]{6}$/i.test(resolution.color) ? resolution.color : ''}`, { size, fallback: 'b:check' })}</span>`;
 }
 
 /** The colour of a label chip (stable per text). */
@@ -144,6 +153,8 @@ export function cardHtml(card, L, opts = {}) {
   const parts = [];
   parts.push(typeIconHtml(type, { t }));
   parts.push(`<span class="mb-key ${resolved ? 'resolved' : ''}">${escapeHtml(card.key)}</span>`);
+  const resolution = card.resolutionId ? L.resolution?.(card.resolutionId) : null;
+  if (resolution) parts.push(resolutionIconHtml(resolution, { t }));
   if (card.flagged) parts.push(`<span class="mb-flag" title="${escapeHtml(t('shared.flagged'))}">${glyph('flag')}</span>`);
   if (want('priority') && priority) parts.push(priorityIconHtml(priority, { t }));
   if (want('storyPoints') && card.storyPoints != null) parts.push(`<span class="mb-points" title="${escapeHtml(t('shared.storyPoints', { n: formatPoints(card.storyPoints) }))}">${escapeHtml(formatPoints(card.storyPoints))}</span>`);

@@ -10,6 +10,7 @@
 // IconRefs used: built-in b:rocket b:bug b:target b:lightning b:trophy b:shield b:globe b:code b:user b:flag
 // b:clock b:star b:chart b:calendar b:cloud b:heart b:lock b:gear b:fire (several tinted, b:<name>#rrggbb),
 // emoji e:…, letter avatars l:…, and one uploaded SVG (u:…).
+import { projectKeyOwner } from './services/relocation.js';
 
 const DAY = 86400000;
 const HOUR = 3600000;
@@ -191,7 +192,7 @@ export async function createSamples(core, { language = 'en', user = null, now = 
 
   async function freeKey(base) {
     let k = base;
-    for (let n = 2; await db.get('SELECT "id" FROM "projects" WHERE "key" = ?', [k]); n++) k = `${base}${n}`;
+    for (let n = 2; await projectKeyOwner(db, k); n++) k = `${base}${n}`;
     return k;
   }
   async function addMembers(projectId) {
@@ -250,7 +251,7 @@ export async function createSamples(core, { language = 'en', user = null, now = 
       await S.versions.create(ctx, p.id, { name: '1.2', description: L('Loyalty program and security', '멤버십과 보안 강화'), startDate: ymd(now - 15 * DAY), releaseDate: ymd(now + 20 * DAY) }),
     ];
     const impact = await S.fields.create(ctx, p.id, { name: L('Customer impact', '고객 영향'), type: 'select', options: ko ? ['낮음', '보통', '높음', '심각'] : ['Low', 'Medium', 'High', 'Critical'] });
-    const value = await S.fields.create(ctx, p.id, { name: L('Business value', '비즈니스 가치'), type: 'number' });
+    const value = await S.fields.create(ctx, p.id, { name: L('Business value', '비즈니스 가치'), type: 'number', issueTypeIds: [T.story.id] });
     const impactValues = impact.options.map((o) => o.value);
 
     // --- plans ---------------------------------------------------------------------------------------------
@@ -444,13 +445,14 @@ export async function createSamples(core, { language = 'en', user = null, now = 
     const T = { bug: cfg.types.find((t) => t.name === (typeNames.bug || 'Bug')), improvement: cfg.types.find((t) => t.name === (typeNames.improvement || 'Improvement')) };
     const st = cfg.statuses; // Open, In Progress, Resolved, Closed
     const comps = [];
-    for (const [en, k, icon] of BUG_COMPONENTS) comps.push(await S.components.create(ctx, p.id, { name: L(en, k), icon }));
+    // each area has someone who takes its new, unassigned reports
+    for (const [i, [en, k, icon]] of BUG_COMPONENTS.entries()) comps.push(await S.components.create(ctx, p.id, { name: L(en, k), icon, defaultAssigneeId: team[i % team.length].id }));
     const versions = [
       await S.versions.create(ctx, p.id, { name: '2.3', releaseDate: ymd(now - 50 * DAY), released: true }),
       await S.versions.create(ctx, p.id, { name: '2.4', releaseDate: ymd(now - 20 * DAY), released: true }),
       await S.versions.create(ctx, p.id, { name: '2.5', releaseDate: ymd(now + 25 * DAY) }),
     ];
-    const env = await S.fields.create(ctx, p.id, { name: L('Environment', '환경'), type: 'text' });
+    const env = await S.fields.create(ctx, p.id, { name: L('Environment', '환경'), type: 'text', issueTypeIds: [T.bug.id], defaultValue: 'Windows 11' });
     const issues = [];
     for (const [i, [t, en, k, comp]] of BUGS.entries()) {
       const created = start + 5 * DAY + (i / BUGS.length) * 52 * DAY + between(0, 1) * DAY;

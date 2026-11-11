@@ -12,6 +12,7 @@ import { createReports } from './reports.js';
 import { createAutomation } from './automation.js';
 import { createExchange } from './exchange.js';
 import { createSearch } from './search.js';
+import { createMoves, createLabels } from './relocation.js';
 
 export function createServices(core) {
   const config = createConfig(core);
@@ -41,6 +42,8 @@ export function createServices(core) {
     automation: createAutomation(core),
     exchange: createExchange(core),
     parseTimeSpent,
+    moves: createMoves(core),
+    labels: createLabels(core),
   };
   services.search = createSearch(core);
   return services;

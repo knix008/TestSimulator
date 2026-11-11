@@ -1,7 +1,9 @@
 // Custom fields: every type the core supports, required, description, order, and for (multi)select fields the
 // options with icon, colour and order.
-import { tr, esc, icon, btn, ibtn, select, input, textarea, checkbox, colorInput, iconButton, card, note, sortable } from '../util.js';
+import { tr, esc, icon, btn, ibtn, select, input, textarea, checkbox, colorInput, iconButton, card, note, sortable, stepper, renderIconRef } from '../util.js';
 import { table, bindTables } from './collection.js';
+import { refPick, userItems, bindRefPicks } from './refpick.js';
+import { bindSteppers } from '../../../stepper.js';
 
 export const FIELD_TYPES = ['text', 'textarea', 'number', 'date', 'select', 'multiselect', 'user', 'checkbox', 'url', 'labels'];
 export const FIELD_ICON = { text: 'textTool', textarea: 'notes', number: 'percent', date: 'calendar', select: 'list', multiselect: 'selectAll', user: 'user', checkbox: 'check', url: 'hyperlink', labels: 'tag' };
@@ -47,6 +49,14 @@ export const fieldsSection = {
       const f = field();
       if (act === 'field-edit') { const id = button.closest('[data-id]').dataset.id; S.pending.field = S.pending.field === id ? null : id; S.render(); return; }
       if (!f) return;
+      if (act === 'default-clear') { S.patch(tr('op.edit', { name: f.name }), S.url('fields', f.id), f, { defaultValue: null }); return; }
+      if (act === 'ftype-all' || act === 'ftype-toggle') {
+        const ids = Array.isArray(f.issueTypeIds) ? f.issueTypeIds : [];
+        const id = button.dataset.type;
+        const next = act === 'ftype-all' ? [] : ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
+        S.patch(tr('op.edit', { name: f.name }), S.url('fields', f.id), f, { issueTypeIds: next.length ? next : null });
+        return;
+      }
       if (act === 'field-close') { S.pending.field = null; S.render(); } else if (act === 'opt-add') {
         const box = el.querySelector('[data-new="option"]');
         const value = box.value.trim();
@@ -76,10 +86,66 @@ export const fieldsSection = {
       if (key === 'value' && !value.trim()) { S.say('danger', tr('err.REQUIRED')); S.render(); return; }
       saveOptions(f.options.map((o) => (o.id === optId ? { ...o, [key]: value } : o)));
     });
+    const saveDefault = (value) => { const f = field(); if (f) S.patch(tr('op.edit', { name: f.name }), S.url('fields', f.id), f, { defaultValue: value }); };
+    let stepTimer = null;
+    bindSteppers(el, (key, value) => {
+      if (key !== 'field-default') return;
+      clearTimeout(stepTimer);
+      stepTimer = setTimeout(() => saveDefault(value), 450);
+    });
+    bindRefPicks(el, {
+      'field-default': () => {
+        const f = field();
+        if (!f) return null;
+        if (f.type === 'user') return { items: userItems(S.people, { none: tr('fields.noDefault') }), value: f.defaultValue ?? '', onPick: (v) => saveDefault(v || null) };
+        if (f.type === 'select') return { items: [{ value: '', label: tr('fields.noDefault'), glyph: 'close' }, ...optionItems(f)], value: f.defaultValue ?? '', onPick: (v) => saveDefault(v || null) };
+        if (f.type === 'multiselect') {
+          // saved when the list closes (one undo step for all the ticks)
+          let values = Array.isArray(f.defaultValue) ? [...f.defaultValue] : [];
+          const before = JSON.stringify(values);
+          return { items: optionItems(f), multi: true, values, onPick: (v, all) => { values = all; }, onClose: () => { if (JSON.stringify(values) !== before) saveDefault(values.length ? values : null); } };
+        }
+        return null;
+      },
+    });
     const list = el.querySelector('.ps-options');
     if (list && canEditField(S, field() ?? {})) sortable(list, (ids) => { const f = field(); saveOptions(ids.map((id) => f.options.find((o) => o.id === id)).filter(Boolean)); }, { rowSelector: '[data-opt]' });
   },
 };
+
+/** Items of a (multi)select field's options for the ref dropdown (their own icons). */
+const optionItems = (f) => (f.options ?? []).map((o) => ({ value: o.value, label: o.value, iconRef: o.icon || null, glyph: 'list' }));
+
+/** The default value's editor, matching the field's type. */
+function defaultControl(S, f, e) {
+  const v = f.defaultValue;
+  const clear = v != null && v !== '' && !(Array.isArray(v) && !v.length) ? ibtn('default-clear', tr('fields.defaultClear'), 'close', { disabled: !e }) : '';
+  switch (f.type) {
+    case 'number':
+      return `${stepper('field-default', v ?? '', { min: Math.min(0, Number(v) || 0), max: Math.max(999999, Number(v) || 0), step: 1, label: tr('fields.default'), disabled: !e })}${clear}`;
+    case 'date': return input('f-default', v ?? '', { type: 'date', disabled: !e, attrs: 'data-ffield="defaultValue"', title: tr('fields.default') });
+    case 'textarea': return textarea('f-default', v ?? '', { disabled: !e, rows: 2, attrs: 'data-ffield="defaultValue"', placeholder: tr('fields.noDefault') });
+    case 'checkbox': return checkbox('f-default', Boolean(v), tr('fields.defaultChecked'), { disabled: !e, attrs: 'data-ffield="defaultValue"' });
+    case 'labels': return `${input('f-default', Array.isArray(v) ? v.join(' ') : v ?? '', { disabled: !e, attrs: 'data-ffield="defaultValue"', placeholder: tr('fields.labelsDefault') })}`;
+    case 'select': return refPick('field-default', [{ value: '', label: tr('fields.noDefault'), glyph: 'close' }, ...optionItems(f)], v ?? '', { disabled: !e, title: tr('fields.default') });
+    case 'multiselect': return `${refPick('field-default', optionItems(f), Array.isArray(v) ? v : [], { disabled: !e, title: tr('fields.default'), placeholder: tr('fields.noDefault') })}${clear}`;
+    case 'user': {
+      const people = S.people.some((p) => p.id === v) || !v ? S.people : [...S.people, ...S.users.filter((u) => u.id === v).map((u) => ({ id: u.id, displayName: u.displayName, username: u.username, avatar: u.avatar }))];
+      return refPick('field-default', userItems(people, { none: tr('fields.noDefault') }), v ?? '', { disabled: !e, title: tr('fields.default') });
+    }
+    default: return input('f-default', v ?? '', { disabled: !e, attrs: 'data-ffield="defaultValue"', placeholder: tr('fields.noDefault'), type: f.type === 'url' ? 'url' : 'text' });
+  }
+}
+
+/** "Applies to" chips: every type (no list) or the chosen issue types of the project. */
+function typeChips(S, f, e) {
+  const ids = Array.isArray(f.issueTypeIds) ? f.issueTypeIds : [];
+  const chip = (on, act, attrs, face, title) => `<button type="button" class="ps-chip ps-typechip ${on ? 'on' : ''}" data-act="${act}" ${attrs} aria-pressed="${on}" title="${esc(title)}" ${e ? '' : 'disabled'}>${face}</button>`;
+  return `<div class="ps-typechips" role="group" aria-label="${esc(tr('fields.appliesTo'))}">
+    ${chip(!ids.length, 'ftype-all', '', `${icon('selectAll')}<span>${esc(tr('fields.allTypes'))}</span>`, tr('fields.allTypes'))}
+    ${S.config.types.map((t) => chip(ids.includes(t.id), 'ftype-toggle', `data-type="${esc(t.id)}"`, `${renderIconRef(t.icon, { size: 14, fallback: 'b:task' })}<span>${esc(t.name)}</span>`, t.name)).join('')}
+  </div>`;
+}
 
 function editor(S, f) {
   const e = canEditField(S, f);
@@ -98,5 +164,7 @@ function editor(S, f) {
       <div class="ps-row"><div class="ps-row-label">${icon('field')}<span>${esc(tr('col.type'))}</span></div><div class="ps-row-control"><span class="ps-chip">${icon(FIELD_ICON[f.type])}<span>${esc(tr(`ftype.${f.type}`))}</span></span><div class="ps-hint">${esc(tr('fields.typeFixed'))}</div></div></div>
       <div class="ps-row"><div class="ps-row-label">${icon('notes')}<span>${esc(tr('col.description'))}</span></div><div class="ps-row-control">${textarea('f-description', f.description, { disabled: !e, rows: 2, attrs: 'data-ffield="description"' })}</div></div>
       <div class="ps-row"><div class="ps-row-label">${icon('warning')}<span>${esc(tr('fields.required'))}</span></div><div class="ps-row-control"><label class="ps-check"><input type="checkbox" data-ffield="required" ${f.required ? 'checked' : ''} ${e ? '' : 'disabled'} /><span>${esc(tr('fields.requiredText'))}</span></label></div></div>
-    </div>${optionsHtml}`, { actions: ibtn('field-close', tr('common.close'), 'close'), cls: 'ps-field-editor', attrs: `data-field-editor="${esc(f.id)}"` });
+      <div class="ps-row" data-default-row><div class="ps-row-label">${icon('star')}<span>${esc(tr('fields.default'))}</span></div><div class="ps-row-control"><div class="ps-inline ps-default">${defaultControl(S, f, e)}</div><div class="ps-hint">${esc(tr('fields.defaultHint'))}</div></div></div>
+      <div class="ps-row" data-types-row><div class="ps-row-label">${icon('layers')}<span>${esc(tr('fields.appliesTo'))}</span></div><div class="ps-row-control">${typeChips(S, f, e)}<div class="ps-hint">${esc(tr('fields.appliesHint'))}</div></div></div>
+    </div>${optionsHtml}`,{ actions: ibtn('field-close', tr('common.close'), 'close'), cls: 'ps-field-editor', attrs: `data-field-editor="${esc(f.id)}"` });
 }

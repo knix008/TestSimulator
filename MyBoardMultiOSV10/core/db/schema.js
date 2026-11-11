@@ -10,7 +10,10 @@
 /** @typedef {{ name: string, type: string, size?: number, notNull: boolean, default?: any }} Column */
 /** @typedef {{ name: string, columns: Column[], pk: string[], unique: string[][], indexes: string[][], mutable: boolean }} Table */
 
-export const SCHEMA_VERSION = 1;
+// 2: resolutions.icon/color (the default resolutions get theirs), components.default_assignee_id,
+//    custom_fields.default_value/issue_type_ids, workflows.layout
+// board_columns.icon is filled by migrate() whenever a column has none (no version step: any DB, any time).
+export const SCHEMA_VERSION = 2;
 
 const T = {
   meta: [{ key: 'string(64)!', value: 'text' }, { pk: ['key'] }],
@@ -27,15 +30,17 @@ const T = {
   }, {}],
 
   priorities: [{ id: 'id!', name: 'string(100)!', icon: 'string(255)', color: 'string(16)', position: 'int!=0', created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1' }, {}],
-  resolutions: [{ id: 'id!', name: 'string(100)!', description: 'text', position: 'int!=0', created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1' }, {}],
+  resolutions: [{ id: 'id!', name: 'string(100)!', description: 'text', icon: 'string(255)', color: 'string(16)', position: 'int!=0', created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1' }, {}],
 
   projects: [{
     id: 'id!', key: 'string(10)!', name: 'string(200)!', description: 'text', icon: 'string(255)', color: 'string(16)', lead_id: 'id',
     issue_seq: 'int!=0', default_assignee_id: 'id', archived: 'bool!=0', template: 'string(32)', created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1',
   }, { unique: [['key']] }],
   project_members: [{ project_id: 'id!', user_id: 'id!', role: 'string(16)!=member', created_at: 'bigint!' }, { pk: ['project_id', 'user_id'], indexes: [['user_id']] }],
+  // a project's earlier keys (after a key rename): they keep resolving and no other project may take them
+  project_key_aliases: [{ key: 'string(10)!', project_id: 'id!', created_at: 'bigint!' }, { pk: ['key'], indexes: [['project_id']] }],
 
-  workflows: [{ id: 'id!', project_id: 'id!', name: 'string(200)!', initial_status_id: 'id', created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1' }, { indexes: [['project_id']] }],
+  workflows: [{ id: 'id!', project_id: 'id!', name: 'string(200)!', initial_status_id: 'id', layout: 'json', created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1' }, { indexes: [['project_id']] }],
   statuses: [{
     id: 'id!', project_id: 'id!', name: 'string(100)!', category: 'string(16)!=todo', color: 'string(16)', position: 'int!=0',
     created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1',
@@ -49,7 +54,7 @@ const T = {
     position: 'int!=0', created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1',
   }, { indexes: [['project_id']] }],
   components: [{
-    id: 'id!', project_id: 'id!', name: 'string(100)!', description: 'text', lead_id: 'id', icon: 'string(255)',
+    id: 'id!', project_id: 'id!', name: 'string(100)!', description: 'text', lead_id: 'id', icon: 'string(255)', default_assignee_id: 'id',
     created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1',
   }, { indexes: [['project_id']] }],
   versions: [{
@@ -58,7 +63,7 @@ const T = {
   }, { indexes: [['project_id']] }],
   custom_fields: [{
     id: 'id!', project_id: 'id', name: 'string(100)!', type: 'string(16)!=text', options: 'json', required: 'bool!=0', position: 'int!=0',
-    description: 'text', created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1',
+    description: 'text', default_value: 'json', issue_type_ids: 'json', created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1',
   }, {}],
 
   issues: [{
@@ -72,6 +77,8 @@ const T = {
     unique: [['key']],
     indexes: [['project_id', 'rank'], ['status_id'], ['assignee_id'], ['parent_id'], ['epic_id'], ['updated_at']],
   }],
+  // an issue's earlier keys (project key rename, move to another project); never equal to a live issues.key
+  issue_key_aliases: [{ key: 'string(32)!', issue_id: 'id!', created_at: 'bigint!' }, { pk: ['key'], indexes: [['issue_id']] }],
   issue_labels: [{ issue_id: 'id!', label: 'string(100)!' }, { pk: ['issue_id', 'label'], indexes: [['label']] }],
   issue_components: [{ issue_id: 'id!', component_id: 'id!' }, { pk: ['issue_id', 'component_id'], indexes: [['component_id']] }],
   issue_versions: [{ issue_id: 'id!', version_id: 'id!', kind: 'string(8)!=fix' }, { pk: ['issue_id', 'version_id', 'kind'], indexes: [['version_id']] }],
@@ -93,7 +100,7 @@ const T = {
     created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1',
   }, { indexes: [['project_id']] }],
   board_columns: [{
-    id: 'id!', board_id: 'id!', name: 'string(100)!', position: 'int!=0', wip_min: 'int', wip_max: 'int', status_ids: 'json',
+    id: 'id!', board_id: 'id!', name: 'string(100)!', icon: 'string(255)', position: 'int!=0', wip_min: 'int', wip_max: 'int', status_ids: 'json',
     created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1',
   }, { indexes: [['board_id']] }],
   swimlanes: [{ id: 'id!', board_id: 'id!', name: 'string(100)!', jql: 'text', position: 'int!=0', created_at: 'bigint!', updated_at: 'bigint!', rev: 'int!=1' }, { indexes: [['board_id']] }],

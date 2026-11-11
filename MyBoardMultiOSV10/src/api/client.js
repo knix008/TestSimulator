@@ -200,11 +200,24 @@ export class ApiClient {
   transition(id, data) { return this.post(`/issues/${enc(id)}/transition`, data); }
   move(id, data) { return this.post(`/issues/${enc(id)}/move`, data); }
   bulk(data) { return this.post('/issues/bulk', data); }
+  /** Where an issue can move: { issue, projects: [{ id, key, name, types, statuses, fields, defaults, lost, problem }] }. */
+  moveTargets(idOrKey) { return this.get(`/issues/${enc(idOrKey)}/move-project`); }
+  /** Move to another project: { projectId, typeId?, statusId?, subtaskTypeId?, statusMap?, fieldMap?, components?, versions?, rev? } → { issue, fromKey, fromProjectId, subtasks }. */
+  moveToProject(idOrKey, data) { return this.post(`/issues/${enc(idOrKey)}/move-project`, data); }
+  // labels of a project (projectId) or of every project (null)
+  labels(projectId = null) { return this.get(labelBase(projectId)); }
+  /** { from, to } — `to` in use = merge → { from, to, merged, count, issueIds, addedIds } */
+  renameLabel(projectId, from, to) { return this.post(`${labelBase(projectId)}/rename`, { from, to }); }
+  /** → { label, count, issueIds } */
+  deleteLabel(projectId, label) { return this.del(`${labelBase(projectId)}/${enc(label)}`); }
+  /** [{ label, add?: issueIds, remove?: issueIds }] (undo of rename / merge / delete) → { count } */
+  applyLabels(projectId, changes) { return this.post(`${labelBase(projectId)}/apply`, { changes }); }
   /** /issues/:id/{comments,attachments,worklogs,links,checklist,watchers,votes,history} */
   issuePart(id, part, query) { return this.get(`/issues/${enc(id)}/${part}`, query); }
   createIssuePart(id, part, data) { return this.post(`/issues/${enc(id)}/${part}`, data); }
-  updateIssuePart(id, part, partId, patch) { return this.patch(`/issues/${enc(id)}/${part}/${enc(partId)}`, patch); }
-  deleteIssuePart(id, part, partId) { return this.del(`/issues/${enc(id)}/${part}/${enc(partId)}`); }
+  // A part is changed by its own id: /comments/:id, /checklist/:id, /worklogs/:id, /links/:id, /attachments/:id (§5).
+  updateIssuePart(id, part, partId, patch) { return this.patch(`/${part}/${enc(partId)}`, patch); }
+  deleteIssuePart(id, part, partId) { return this.del(`/${part}/${enc(partId)}`); }
   // boards
   boards(query) { return this.get('/boards', query); }
   board(id) { return this.get(`/boards/${enc(id)}`); }
@@ -234,6 +247,7 @@ export class ApiClient {
 }
 
 const enc = (value) => encodeURIComponent(String(value));
+const labelBase = (projectId) => (projectId ? `/projects/${enc(projectId)}/labels` : '/labels');
 
 /**
  * The client for this window: desktop → the core the shell started (core_info), web → same origin.

@@ -1,8 +1,8 @@
 // HTML of the detail panel: header (breadcrumb, key, type, summary, actions), status row, banners and the
 // field column. Pure builders over the view object `v` (index.js); events are wired by data-act attributes.
 import { icon } from '../../icons.js';
-import { t } from '../../i18n.js';
-import { renderIconRef, normalizeColor, readableOn } from '../../ui/iconref.js';
+import { getLanguage, t } from '../../i18n.js';
+import { renderIconRef, normalizeColor, readableOn, parseIconRef, iconRefLabel } from '../../ui/iconref.js';
 import { avatarHtml, esc, fmtDate, fmtDateTime, fmtDuration, hoursOf, relTime, userName } from './util.js';
 import { editorHtml } from './editor.js';
 import { renderMarkdown } from './markdown.js';
@@ -70,7 +70,7 @@ export function statusRowHtml(v) {
   return `<div class="dt-statusrow">
     <button type="button" class="dt-status-button cat-${esc(s?.category ?? 'todo')}" data-act="status" data-picker-anchor="status" aria-haspopup="listbox"${v.readOnly ? ' disabled' : ''} title="${esc(t('detail.changeStatus'))}">
       <span>${esc(s?.name ?? '?')}</span>${v.readOnly ? '' : icon('chevronDown')}</button>
-    ${resolution ? `<span class="dt-chip resolution" title="${esc(t('detail.field.resolution'))}">${icon('check')}<span>${esc(resolution.name)}</span></span>` : ''}
+    ${resolution ? `<span class="dt-chip resolution" title="${esc(`${t('detail.field.resolution')}: ${resolution.name}`)}"${normalizeColor(resolution.color) ? ` style="--resolution:${normalizeColor(resolution.color)}"` : ''}>${resolutionIcon(resolution)}<span>${esc(resolution.name)}</span></span>` : ''}
     ${v.readOnly ? `<span class="dt-chip readonly" title="${esc(t('detail.readOnlyTip'))}">${icon('lock')}<span>${esc(t('detail.readOnly'))}</span></span>` : ''}
     ${v.saving ? `<span class="dt-saving">${icon('refresh')}<span>${esc(t('detail.saving'))}</span></span>` : ''}
   </div>
@@ -83,7 +83,7 @@ function transitionFormHtml(v) {
   const rows = [];
   if (f.needsResolution) {
     const res = v.cfg.resolutions.find((r) => r.id === f.resolutionId);
-    rows.push(`<label class="dt-tf-row"><span>${icon('check')}${esc(t('detail.field.resolution'))}</span><button type="button" class="dt-fbtn" data-act="tf-resolution" data-picker-anchor="tf-resolution">${icon('check')}<span>${esc(res?.name ?? t('detail.choose'))}</span>${icon('chevronDown')}</button></label>`);
+    rows.push(`<label class="dt-tf-row"><span>${icon('check')}${esc(t('detail.field.resolution'))}</span><button type="button" class="dt-fbtn" data-act="tf-resolution" data-picker-anchor="tf-resolution">${resolutionIcon(res, 16)}<span>${esc(res?.name ?? t('detail.choose'))}</span>${icon('chevronDown')}</button></label>`);
   }
   for (const field of f.fields) {
     const value = f.values[field] ?? '';
@@ -124,29 +124,81 @@ export function bannersHtml(v) {
 
 // ───────────────────────── fields
 
-const fbtn = (v, field, inner, { title = '', disabled = false } = {}) => `<button type="button" class="dt-fbtn" data-act="pick" data-field="${esc(field)}" data-picker-anchor="${esc(field)}" aria-haspopup="listbox"${disabled || v.readOnly ? ' disabled' : ''}${title ? ` title="${esc(title)}"` : ''}>${inner}${disabled || v.readOnly ? '' : icon('chevronDown', 'icon dt-chev')}</button>`;
+// Every value is one control box (.dt-ctl): the whole value column wide, one row high, the same left edge.
+// Inside: the picker button (.dt-fbtn, grows), then small in-box buttons (clear ×, assign to me).
+
+const clearBtn = (v, field, show) => (show && !v.readOnly ? `<button type="button" class="icon-button dt-clear" data-act="clear" data-field="${esc(field)}" title="${esc(t('detail.clear'))}" aria-label="${esc(t('detail.clear'))}">${icon('close')}</button>` : '');
+
+const fbtn = (v, field, inner, { title = '', disabled = false, clear = false, extra = '' } = {}) => {
+  const off = disabled || v.readOnly;
+  return `<span class="dt-ctl dt-ctl-pick${off ? ' off' : ''}"><button type="button" class="dt-fbtn" data-act="pick" data-field="${esc(field)}" data-picker-anchor="${esc(field)}" aria-haspopup="listbox"${off ? ' disabled' : ''}${title ? ` title="${esc(title)}"` : ''}>${inner}${off ? '' : icon('chevronDown', 'icon dt-chev')}</button>${extra}${clearBtn(v, field, clear)}</span>`;
+};
 
 const none = (text = t('detail.noneValue')) => `<span class="dt-none">${esc(text)}</span>`;
 
-/** A −/+ stepper (the shell's .stepper look); value '' shows an empty box. */
-export function stepper(v, key, value, { min = 0, max = 9999, step = 1, unit = '', label = '', disabled = false } = {}) {
+/** A −/+ stepper (the shell's .stepper look) as a full-width control box; value '' shows "—". */
+export function stepper(v, key, value, { min = 0, max = 9999, step = 1, unit = '', label = '', disabled = false, clear = false } = {}) {
   const off = disabled || v.readOnly;
   const shown = value === '' || value == null ? '' : `${value}${unit}`;
-  return `<span class="stepper dt-stepper${off ? ' disabled' : ''}" data-stepper="${esc(key)}" data-min="${min}" data-max="${max}" data-step="${step}" data-unit="${esc(unit)}" title="${esc(label)}">
+  return `<span class="stepper dt-stepper dt-ctl${off ? ' disabled' : ''}" data-stepper="${esc(key)}" data-min="${min}" data-max="${max}" data-step="${step}" data-unit="${esc(unit)}" title="${esc(label)}">
     <button type="button" class="stepper-button" data-step-dir="-1" aria-label="${esc(`${label} −${step}`)}" title="${esc(`${label} −${step}`)}"${off ? ' disabled' : ''}>${icon('minus')}</button>
-    <input class="stepper-value" type="text" inputmode="decimal" value="${esc(shown)}" aria-label="${esc(label)}" placeholder="—"${off ? ' disabled' : ''} />
+    <input class="stepper-value" type="text" inputmode="decimal" value="${esc(shown)}" aria-label="${esc(label)}" placeholder="—"${off ? ' disabled' : ''} />${clearBtn(v, key, clear && !off)}
     <button type="button" class="stepper-button" data-step-dir="1" aria-label="${esc(`${label} +${step}`)}" title="${esc(`${label} +${step}`)}"${off ? ' disabled' : ''}>${icon('plus')}</button>
   </span>`;
 }
 
-const clearBtn = (v, field, show) => (show && !v.readOnly ? `<button type="button" class="icon-button dt-clear" data-act="clear" data-field="${esc(field)}" title="${esc(t('detail.clear'))}" aria-label="${esc(t('detail.clear'))}">${icon('close')}</button>` : '');
+/** A date as a control box: the formatted date (or "None"), the browser's date picker on click (the input stays for typing / tests). */
+function dateCtl(v, field, value, { label = '', overdue = false } = {}) {
+  const off = v.readOnly;
+  return `<span class="dt-ctl dt-datebox${overdue ? ' overdue' : ''}${off ? ' off' : ''}">
+    <button type="button" class="dt-fbtn dt-date-open" data-act="date-open" data-field="${esc(field)}" title="${esc(value ? `${label}: ${value}` : t('detail.pickDate'))}"${off ? ' disabled' : ''}>${icon('calendar')}${value ? `<span class="dt-val">${esc(fmtDate(value))}</span>` : none()}</button>
+    <input type="date" class="dt-input dt-date${overdue ? ' overdue' : ''}" data-act="date" data-field="${esc(field)}" value="${esc(value ?? '')}" tabindex="-1" aria-label="${esc(label)}"${off ? ' disabled' : ''} />${clearBtn(v, field, Boolean(value))}
+  </span>`;
+}
+
+/** A read-only value in the same box (created / updated …). */
+const staticCtl = (inner, title = '') => `<span class="dt-ctl dt-ctl-static"${title ? ` title="${esc(title)}"` : ''}>${inner}</span>`;
 
 function chips(items) {
-  return items.length ? `<span class="dt-chips">${items.map((x) => `<span class="dt-chip">${x.iconHtml ?? ''}<span>${esc(x.label)}</span></span>`).join('')}</span>` : none();
+  return items.length ? `<span class="dt-chips" title="${esc(items.map((x) => x.label).join(', '))}">${items.map((x) => `<span class="dt-chip">${x.iconHtml ?? ''}<span>${esc(x.label)}</span></span>`).join('')}</span>` : none();
 }
 
 function row(field, ic, label, value, { extra = '', cls = '' } = {}) {
-  return `<div class="dt-field ${cls}" data-field="${esc(field)}"><div class="dt-flabel">${ic.startsWith('<') ? ic : icon(ic)}<span>${esc(label)}</span></div><div class="dt-fvalue">${value}${extra}</div></div>`;
+  return `<div class="dt-field ${cls}" data-field="${esc(field)}"><div class="dt-flabel" title="${esc(label)}">${ic.startsWith('<') ? ic : icon(ic)}<span>${esc(label)}</span></div><div class="dt-fvalue">${value}${extra}</div></div>`;
+}
+
+/** A readable colour name ("purple", "light blue") of a #rrggbb, by hue / lightness. */
+export function colorName(hex) {
+  const c = normalizeColor(hex);
+  if (!c || !/^#[0-9a-f]{6}$/i.test(c)) return c ?? '';
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b); const min = Math.min(r, g, b); const l = (max + min) / 2; const d = max - min;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  let h = 0;
+  if (d) h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  let base;
+  if (s < 0.15 || d < 0.08) base = l > 0.9 ? 'white' : l < 0.12 ? 'black' : 'gray';
+  else if (h < 15 || h >= 345) base = 'red';
+  else if (h < 40) base = l < 0.4 ? 'brown' : 'orange';
+  else if (h < 65) base = 'yellow';
+  else if (h < 160) base = 'green';
+  else if (h < 190) base = 'teal';
+  else if (h < 225) base = 'blue';
+  else if (h < 255) base = 'indigo';
+  else if (h < 295) base = 'purple';
+  else base = 'pink';
+  const name = t(`detail.colorName.${base}`);
+  if (['white', 'black', 'gray', 'brown'].includes(base)) return name;
+  return l > 0.72 ? t('detail.colorLight', { c: name }) : l < 0.3 ? t('detail.colorDark', { c: name }) : name;
+}
+
+/** Icon + readable name of an IconRef (never the raw ref text). */
+function iconRefNameHtml(ref) {
+  const p = parseIconRef(ref);
+  const name = iconRefLabel(ref, getLanguage()) || t('detail.field.icon');
+  const color = normalizeColor(p.color);
+  return `${renderIconRef(ref, { size: 18, title: name })}<span class="dt-val">${esc(name)}${color ? `<small class="dt-sub">${esc(colorName(color))}</small>` : ''}</span>`;
 }
 
 function trackingHtml(issue) {
@@ -162,10 +214,10 @@ function trackingHtml(issue) {
 
 function coverHtml(v, cover) {
   if (!cover) return none();
-  if (cover.color) return `<span class="dt-cover-chip" style="background:${esc(normalizeColor(cover.color) ?? '#888')}"></span><span>${esc(cover.color)}</span>`;
+  if (cover.color) return `<span class="dt-cover-chip" style="background:${esc(normalizeColor(cover.color) ?? '#888')}"></span><span class="dt-val">${esc(colorName(cover.color) || cover.color)}</span>`;
   if (cover.attachmentId) {
     const a = v.attachments?.find((x) => x.id === cover.attachmentId);
-    return `<img class="dt-cover-thumb" src="${esc(v.attachmentUrl(cover.attachmentId, true))}" alt="" /><span>${esc(a?.fileName ?? t('detail.cover.image'))}</span>`;
+    return `<img class="dt-cover-thumb" src="${esc(v.attachmentUrl(cover.attachmentId, true))}" alt="" /><span class="dt-val">${esc(a?.fileName ?? t('detail.cover.image'))}</span>`;
   }
   return none();
 }
@@ -177,12 +229,12 @@ function customFieldHtml(v, field) {
   const options = Array.isArray(field.options) ? field.options : [];
   const optionOf = (val) => options.find((o) => o.value === val || o.id === val);
   switch (field.type) {
-    case 'number': return stepper(v, key, value ?? '', { min: -1e9, max: 1e9, step: 1, label: field.name }) + clearBtn(v, key, !empty);
-    case 'checkbox': return `<label class="dt-check"><input type="checkbox" data-act="custom-check" data-field="${esc(key)}"${value ? ' checked' : ''}${v.readOnly ? ' disabled' : ''} /><span>${esc(value ? t('detail.yes') : t('detail.no'))}</span></label>`;
-    case 'date': return `<input type="date" class="dt-input dt-date" data-act="date" data-field="${esc(key)}" value="${esc(value ?? '')}"${v.readOnly ? ' disabled' : ''} />${clearBtn(v, key, !empty)}`;
+    case 'number': return stepper(v, key, value ?? '', { min: -1e9, max: 1e9, step: 1, label: field.name, clear: !empty });
+    case 'checkbox': return `<label class="dt-ctl dt-check"><input type="checkbox" data-act="custom-check" data-field="${esc(key)}"${value ? ' checked' : ''}${v.readOnly ? ' disabled' : ''} /><span>${esc(value ? t('detail.yes') : t('detail.no'))}</span></label>`;
+    case 'date': return dateCtl(v, key, value ?? '', { label: field.name });
     case 'select': {
       const o = optionOf(value);
-      return fbtn(v, key, empty ? `${icon('list')}${none()}` : `${o?.icon ? renderIconRef(o.icon, { size: 16 }) : icon('tag')}<span>${esc(o?.value ?? value)}</span>`);
+      return fbtn(v, key, empty ? `${icon('list')}${none()}` : `${o?.icon ? renderIconRef(o.icon, { size: 16 }) : icon('tag')}<span class="dt-val">${esc(o?.value ?? value)}</span>`, { clear: !empty });
     }
     case 'multiselect': case 'labels':
       return fbtn(v, key, chips((value ?? []).map((x) => { const o = optionOf(x); return { label: o?.value ?? x, iconHtml: o?.icon ? renderIconRef(o.icon, { size: 14 }) : icon('tag') }; })));
@@ -196,61 +248,131 @@ function customFieldHtml(v, field) {
         return `<div class="dt-field-edit">${input}<div class="dt-inline-actions">${btn('field-save', 'check', t('detail.save'), { cls: 'button small primary', text: true, attrs: `data-field="${esc(key)}"` })}${btn('field-cancel', 'close', t('detail.cancel'), { cls: 'button small', text: true, attrs: `data-field="${esc(key)}"` })}</div></div>`;
       }
       const shown = empty ? none() : field.type === 'url' && /^https?:\/\//i.test(value) ? `<a href="${esc(value)}" target="_blank" rel="noopener noreferrer">${esc(value)}</a>` : `<span class="dt-text">${esc(value)}</span>`;
-      return `<div class="dt-textfield${v.readOnly ? '' : ' editable'}" ${v.readOnly ? '' : `data-act="field-edit" data-field="${esc(key)}" tabindex="0"`}>${shown}</div>`;
+      return `<div class="dt-ctl dt-textfield${v.readOnly ? '' : ' editable'}" ${v.readOnly ? '' : `data-act="field-edit" data-field="${esc(key)}" tabindex="0"`}>${shown}</div>`;
     }
     default: return `<span class="dt-text">${esc(JSON.stringify(value ?? ''))}</span>`;
   }
 }
 
+/** Does a custom field apply to issues of this type? (no `issueTypeIds` list = every type) */
+export const fieldApplies = (field, typeId) => !Array.isArray(field.issueTypeIds) || !field.issueTypeIds.length || field.issueTypeIds.includes(typeId);
+
+/** A resolution's icon (its IconRef, tinted chip colour) — a check when it has none. */
+export const resolutionIcon = (r, size = 14) => (r?.icon ? renderIconRef(r.icon, { size, title: r.name }) : icon('check'));
+
 const FIELD_ICONS = { text: 'textTool', textarea: 'notes', number: 'percent', date: 'calendar', select: 'list', multiselect: 'list', user: 'user', checkbox: 'check', url: 'hyperlink', labels: 'tag' };
 
-export function fieldsHtml(v) {
+/** The field groups (people, planning, time, dates, look, custom): [id, icon]. */
+export const FIELD_GROUPS = [['people', 'user'], ['planning', 'flag'], ['time', 'clock'], ['dates', 'calendar'], ['look', 'palette'], ['custom', 'field']];
+/** Fields always shown, even empty (like Jira's pinned fields). */
+const PINNED = new Set(['assignee', 'reporter', 'priority']);
+
+/**
+ * Every field of the issue as { group, field, html, empty }: the rows of the "Details" section. Empty fields are
+ * hidden unless "show empty fields" is on, the field was touched in this panel (v.keepShown) or is being edited.
+ */
+export function fieldItems(v) {
   const issue = v.issue;
   const level = Number(v.typeOf(issue.typeId)?.level ?? 0);
   const users = v.users;
   const pr = v.cfg.priorities.find((p) => p.id === issue.priorityId);
   const comps = v.cfg.components.filter((c) => (issue.componentIds ?? []).includes(c.id));
   const vers = (ids) => v.cfg.versions.filter((x) => (ids ?? []).includes(x.id)).map((x) => ({ label: x.name, iconHtml: icon(x.released ? 'check' : 'tag') }));
-  const rows = [];
-  rows.push(row('assignee', 'user', t('detail.field.assignee'), fbtn(v, 'assignee', `${avatarHtml(users.get(issue.assigneeId), 18)}<span>${esc(issue.assigneeId ? userName(users, issue.assigneeId) : t('detail.unassigned'))}</span>`),
-    { extra: !v.readOnly && issue.assigneeId !== v.me?.id ? `<button type="button" class="dt-link-button" data-act="assign-me">${icon('user')}<span>${esc(t('detail.assignToMe'))}</span></button>` : '' }));
-  rows.push(row('reporter', 'user', t('detail.field.reporter'), fbtn(v, 'reporter', `${avatarHtml(users.get(issue.reporterId), 18)}<span>${esc(issue.reporterId ? userName(users, issue.reporterId) : t('detail.noneValue'))}</span>`)));
-  rows.push(row('priority', 'flag', t('detail.field.priority'), fbtn(v, 'priority', pr ? `${renderIconRef(pr.icon, { size: 16 })}<span>${esc(pr.name)}</span>` : `${icon('flag')}${none()}`)));
-  rows.push(row('labels', 'tag', t('detail.field.labels'), fbtn(v, 'labels', chips((issue.labels ?? []).map((l) => ({ label: l, iconHtml: icon('tag') }))))));
-  rows.push(row('components', 'layers', t('detail.field.components'), fbtn(v, 'components', chips(comps.map((c) => ({ label: c.name, iconHtml: renderIconRef(c.icon || 'b:layers', { size: 14 }) }))))));
-  rows.push(row('fixVersions', 'tag', t('detail.field.fixVersions'), fbtn(v, 'fixVersions', chips(vers(issue.fixVersionIds)))));
-  rows.push(row('affectedVersions', 'bug', t('detail.field.affectedVersions'), fbtn(v, 'affectedVersions', chips(vers(issue.affectedVersionIds)))));
+  const items = [];
+  const add = (group, field, ic, label, value, { empty = false, extra = '', cls = '' } = {}) => items.push({ group, field, empty, html: row(field, ic, label, value, { extra, cls }) });
+  // people
+  const assignMe = !v.readOnly && issue.assigneeId !== v.me?.id ? `<button type="button" class="icon-button dt-in-btn" data-act="assign-me" title="${esc(t('detail.assignToMe'))}" aria-label="${esc(t('detail.assignToMe'))}">${icon('user')}</button>` : '';
+  add('people', 'assignee', 'user', t('detail.field.assignee'), fbtn(v, 'assignee', `${avatarHtml(users.get(issue.assigneeId), 18)}${issue.assigneeId ? `<span class="dt-val">${esc(userName(users, issue.assigneeId))}</span>` : none(t('detail.unassigned'))}`, { extra: assignMe }), { empty: !issue.assigneeId });
+  add('people', 'reporter', 'user', t('detail.field.reporter'), fbtn(v, 'reporter', `${avatarHtml(users.get(issue.reporterId), 18)}${issue.reporterId ? `<span class="dt-val">${esc(userName(users, issue.reporterId))}</span>` : none()}`), { empty: !issue.reporterId });
+  const watchers = Number(issue.watcherCount ?? 0);
+  add('people', 'watchers', 'eye', t('detail.field.watchers'), `<span class="dt-ctl dt-ctl-pick"><button type="button" class="dt-cbtn dt-watch-ctl" data-act="watch" title="${esc(issue.watching ? t('detail.unwatch') : t('detail.watch'))}">${icon('eye')}${watchers ? `<span class="dt-val">${esc(t('detail.watchersN', { n: watchers }))}${issue.watching ? `<small class="dt-sub">${esc(t('detail.watchingMe'))}</small>` : ''}</span>` : none()}</button></span>`, { empty: !watchers });
+  // planning
+  add('planning', 'priority', 'flag', t('detail.field.priority'), fbtn(v, 'priority', pr ? `${renderIconRef(pr.icon, { size: 16 })}<span class="dt-val">${esc(pr.name)}</span>` : `${icon('flag')}${none()}`), { empty: !pr });
+  add('planning', 'labels', 'tag', t('detail.field.labels'), fbtn(v, 'labels', chips((issue.labels ?? []).map((l) => ({ label: l, iconHtml: icon('tag') })))), { empty: !(issue.labels ?? []).length });
+  add('planning', 'components', 'layers', t('detail.field.components'), fbtn(v, 'components', chips(comps.map((c) => ({ label: c.name, iconHtml: renderIconRef(c.icon || 'b:layers', { size: 14 }) })))), { empty: !comps.length });
+  add('planning', 'fixVersions', 'tag', t('detail.field.fixVersions'), fbtn(v, 'fixVersions', chips(vers(issue.fixVersionIds))), { empty: !(issue.fixVersionIds ?? []).length });
+  add('planning', 'affectedVersions', 'bug', t('detail.field.affectedVersions'), fbtn(v, 'affectedVersions', chips(vers(issue.affectedVersionIds))), { empty: !(issue.affectedVersionIds ?? []).length });
   if (level === 1) {
-    rows.push(row('parent', 'link', t('detail.field.parent'), fbtn(v, 'parent', issue.parent ? `${icon('link')}<span>${esc(`${issue.parent.key} ${issue.parent.summary ?? ''}`)}</span>` : none())));
-    rows.push(row('epic', renderIconRef('b:epic', { size: 15 }), t('detail.field.epic'), issue.epic ? `<span class="dt-text muted">${esc(`${issue.epic.key} ${issue.epic.summary ?? ''}`)}</span>` : none(t('detail.epicFromParent'))));
+    add('planning', 'parent', 'link', t('detail.field.parent'), fbtn(v, 'parent', issue.parent ? `${icon('link')}<span class="dt-val">${esc(`${issue.parent.key} ${issue.parent.summary ?? ''}`)}</span>` : none()), { empty: !issue.parent });
+    add('planning', 'epic', renderIconRef('b:epic', { size: 15 }), t('detail.field.epic'), staticCtl(issue.epic ? `${renderIconRef('b:epic', { size: 16 })}<span class="dt-val">${esc(`${issue.epic.key} ${issue.epic.summary ?? ''}`)}</span>` : none(t('detail.epicFromParent'))), { empty: !issue.epic });
   } else if (level !== -1) {
-    rows.push(row('epic', renderIconRef('b:epic', { size: 15 }), t('detail.field.epic'), fbtn(v, 'epic', issue.epic ? `${renderIconRef('b:epic', { size: 16 })}<span>${esc(`${issue.epic.key} ${issue.epic.summary ?? ''}`)}</span>` : none()) + clearBtn(v, 'epic', Boolean(issue.epic))));
+    add('planning', 'epic', renderIconRef('b:epic', { size: 15 }), t('detail.field.epic'), fbtn(v, 'epic', issue.epic ? `${renderIconRef('b:epic', { size: 16 })}<span class="dt-val">${esc(`${issue.epic.key} ${issue.epic.summary ?? ''}`)}</span>` : none(), { clear: Boolean(issue.epic) }), { empty: !issue.epic });
   }
-  rows.push(row('storyPoints', 'percent', t('detail.field.storyPoints'), stepper(v, 'storyPoints', issue.storyPoints ?? '', { min: 0, max: 1000, step: 1, label: t('detail.field.storyPoints') }) + clearBtn(v, 'storyPoints', issue.storyPoints != null)));
-  rows.push(row('originalEstimate', 'hourglass', t('detail.field.originalEstimate'), stepper(v, 'originalEstimate', hoursOf(issue.originalEstimate), { min: 0, max: 10000, step: 0.5, unit: 'h', label: t('detail.field.originalEstimate') }) + clearBtn(v, 'originalEstimate', issue.originalEstimate != null)));
-  rows.push(row('remainingEstimate', 'hourglass', t('detail.field.remainingEstimate'), stepper(v, 'remainingEstimate', hoursOf(issue.remainingEstimate), { min: 0, max: 10000, step: 0.5, unit: 'h', label: t('detail.field.remainingEstimate') }) + clearBtn(v, 'remainingEstimate', issue.remainingEstimate != null)));
-  rows.push(row('timeSpent', 'clock', t('detail.field.timeSpent'), stepper(v, 'timeSpent', hoursOf(issue.timeSpent ?? 0), { unit: 'h', label: t('detail.field.timeSpent'), disabled: true }) + trackingHtml(issue), { cls: 'wrap' }));
-  rows.push(row('startDate', 'calendar', t('detail.field.startDate'), `<input type="date" class="dt-input dt-date" data-act="date" data-field="startDate" value="${esc(issue.startDate ?? '')}"${v.readOnly ? ' disabled' : ''} aria-label="${esc(t('detail.field.startDate'))}" />${clearBtn(v, 'startDate', Boolean(issue.startDate))}`));
-  const overdue = issue.dueDate && !issue.resolvedAt && issue.dueDate < new Date().toISOString().slice(0, 10);
-  rows.push(row('dueDate', 'calendar', t('detail.field.dueDate'), `<input type="date" class="dt-input dt-date${overdue ? ' overdue' : ''}" data-act="date" data-field="dueDate" value="${esc(issue.dueDate ?? '')}"${v.readOnly ? ' disabled' : ''} aria-label="${esc(t('detail.field.dueDate'))}" />${clearBtn(v, 'dueDate', Boolean(issue.dueDate))}`));
+  // estimates and time
+  add('time', 'storyPoints', 'percent', t('detail.field.storyPoints'), stepper(v, 'storyPoints', issue.storyPoints ?? '', { min: 0, max: 1000, step: 1, label: t('detail.field.storyPoints'), clear: issue.storyPoints != null }), { empty: issue.storyPoints == null });
+  add('time', 'originalEstimate', 'hourglass', t('detail.field.originalEstimate'), stepper(v, 'originalEstimate', hoursOf(issue.originalEstimate), { min: 0, max: 10000, step: 0.5, unit: 'h', label: t('detail.field.originalEstimate'), clear: issue.originalEstimate != null }), { empty: issue.originalEstimate == null });
+  add('time', 'remainingEstimate', 'hourglass', t('detail.field.remainingEstimate'), stepper(v, 'remainingEstimate', hoursOf(issue.remainingEstimate), { min: 0, max: 10000, step: 0.5, unit: 'h', label: t('detail.field.remainingEstimate'), clear: issue.remainingEstimate != null }), { empty: issue.remainingEstimate == null });
+  const tracked = Number(issue.timeSpent ?? 0) > 0 || issue.originalEstimate != null || issue.remainingEstimate != null;
+  const logWork = v.readOnly ? '' : `<button type="button" class="dt-link-button dt-logwork" data-act="log-work">${icon('clock')}<span>${esc(t('detail.logWork'))}</span></button>`;
+  add('time', 'timeSpent', 'clock', t('detail.field.timeSpent'), stepper(v, 'timeSpent', hoursOf(issue.timeSpent ?? 0), { unit: 'h', label: t('detail.field.timeSpent'), disabled: true }), { extra: `${trackingHtml(issue)}${logWork}`, cls: 'wrap', empty: !tracked });
+  // dates
+  add('dates', 'startDate', 'calendar', t('detail.field.startDate'), dateCtl(v, 'startDate', issue.startDate ?? '', { label: t('detail.field.startDate') }), { empty: !issue.startDate });
+  const overdue = Boolean(issue.dueDate && !issue.resolvedAt && issue.dueDate < new Date().toISOString().slice(0, 10));
+  add('dates', 'dueDate', 'calendar', t('detail.field.dueDate'), dateCtl(v, 'dueDate', issue.dueDate ?? '', { label: t('detail.field.dueDate'), overdue }), { empty: !issue.dueDate });
+  const when = (ms, ic) => staticCtl(`${icon(ic)}<span class="dt-val">${esc(fmtDateTime(ms))}</span><small class="dt-sub">${esc(relTime(ms))}</small>`, fmtDateTime(ms));
+  add('dates', 'created', 'fileNew', t('detail.created'), when(issue.createdAt, 'fileNew'), { cls: 'static' });
+  add('dates', 'updated', 'refresh', t('detail.updated'), when(issue.updatedAt, 'refresh'), { cls: 'static' });
+  if (issue.resolvedAt) add('dates', 'resolved', 'check', t('detail.resolved'), when(issue.resolvedAt, 'check'), { cls: 'static' });
+  // look
   const color = normalizeColor(issue.color);
-  rows.push(row('color', 'palette', t('detail.field.color'), fbtn(v, 'color', color ? `<span class="dt-swatch" style="background:${color};color:${readableOn(color)}"></span><span>${esc(color)}</span>` : `${icon('palette')}${none()}`) + clearBtn(v, 'color', Boolean(color))));
-  rows.push(row('cover', 'picture', t('detail.field.cover'), fbtn(v, 'cover', coverHtml(v, issue.cover)) + clearBtn(v, 'cover', Boolean(issue.cover))));
-  rows.push(row('icon', 'iconInsert', t('detail.field.icon'), `<button type="button" class="dt-fbtn" data-act="pick-icon"${v.readOnly ? ' disabled' : ''}>${issue.icon ? renderIconRef(issue.icon, { size: 18 }) : icon('iconInsert')}<span>${esc(issue.icon ? issue.icon : t('detail.noneValue'))}</span>${v.readOnly ? '' : icon('edit', 'icon dt-chev')}</button>${clearBtn(v, 'icon', Boolean(issue.icon))}`));
-  for (const field of v.cfg.fields ?? []) rows.push(row(`custom:${field.id}`, FIELD_ICONS[field.type] ?? 'field', field.name, customFieldHtml(v, field), { cls: `custom type-${field.type}` }));
-  const times = `<div class="dt-times">
-    <span title="${esc(fmtDateTime(issue.createdAt))}">${icon('fileNew')}${esc(t('detail.created'))} <b>${esc(relTime(issue.createdAt))}</b></span>
-    <span title="${esc(fmtDateTime(issue.updatedAt))}">${icon('refresh')}${esc(t('detail.updated'))} <b>${esc(relTime(issue.updatedAt))}</b></span>
-    ${issue.resolvedAt ? `<span title="${esc(fmtDateTime(issue.resolvedAt))}">${icon('check')}${esc(t('detail.resolved'))} <b>${esc(relTime(issue.resolvedAt))}</b></span>` : ''}
-  </div>`;
-  return section(v, 'fields', 'docProps', t('detail.section.details'), `<div class="dt-fields">${rows.join('')}</div>${times}`);
+  add('look', 'color', 'palette', t('detail.field.color'), fbtn(v, 'color', color ? `<span class="dt-swatch" style="background:${color};color:${readableOn(color)}"></span><span class="dt-val">${esc(colorName(color))}<small class="dt-sub">${esc(color.toUpperCase())}</small></span>` : `${icon('palette')}${none()}`, { clear: Boolean(color) }), { empty: !color });
+  add('look', 'cover', 'picture', t('detail.field.cover'), fbtn(v, 'cover', coverHtml(v, issue.cover), { clear: Boolean(issue.cover) }), { empty: !issue.cover });
+  const off = v.readOnly;
+  add('look', 'icon', 'iconInsert', t('detail.field.icon'), `<span class="dt-ctl dt-ctl-pick${off ? ' off' : ''}"><button type="button" class="dt-fbtn" data-act="pick-icon"${off ? ' disabled' : ''} title="${esc(issue.icon ? iconRefLabel(issue.icon, getLanguage()) : t('detail.field.icon'))}">${issue.icon ? iconRefNameHtml(issue.icon) : `${icon('iconInsert')}${none()}`}${off ? '' : icon('edit', 'icon dt-chev')}</button>${clearBtn(v, 'icon', Boolean(issue.icon))}</span>`, { empty: !issue.icon });
+  // custom fields: those limited to other issue types are hidden (their values stay stored, §3 custom_fields.issue_type_ids)
+  for (const field of (v.cfg.fields ?? []).filter((f) => fieldApplies(f, issue.typeId))) {
+    const value = issue.custom?.[field.id];
+    const empty = value == null || value === '' || value === false || (Array.isArray(value) && !value.length);
+    add('custom', `custom:${field.id}`, FIELD_ICONS[field.type] ?? 'field', field.name, customFieldHtml(v, field), { cls: `custom type-${field.type}`, empty });
+  }
+  return items;
+}
+
+/** Is this field row shown? */
+export const fieldShown = (v, item) => !item.empty || PINNED.has(item.field) || v.showEmpty || v.keepShown?.has(item.field) || v.editing.has(item.field);
+
+export function fieldsHtml(v) {
+  const items = fieldItems(v);
+  const hidden = items.filter((it) => !fieldShown(v, it)).length;
+  const emptyCount = items.filter((it) => it.empty && !PINNED.has(it.field)).length;
+  const groups = FIELD_GROUPS.map(([id, ic]) => {
+    const all = items.filter((it) => it.group === id);
+    const shown = all.filter((it) => fieldShown(v, it));
+    if (!shown.length) return '';
+    const closed = v.collapsed.has(`group:${id}`);
+    const filled = all.filter((it) => !it.empty).length;
+    return `<div class="dt-group${closed ? ' collapsed' : ''}" data-group="${id}">
+      <button type="button" class="dt-group-head" data-act="toggle-group" data-group="${id}" aria-expanded="${!closed}" title="${esc(t(`detail.group.${id}`))}">${icon(ic)}<span>${esc(t(`detail.group.${id}`))}</span><i class="dt-count-badge" title="${esc(t('detail.group.filled', { n: filled, m: all.length }))}">${filled}/${all.length}</i>${icon(closed ? 'chevronRight' : 'chevronDown', 'icon dt-caret')}</button>
+      ${closed ? '' : `<div class="dt-fields">${shown.map((it) => it.html).join('')}</div>`}
+    </div>`;
+  }).join('');
+  const toggle = emptyCount ? `<button type="button" class="dt-link-button dt-empty-toggle" data-act="toggle-empty" aria-pressed="${Boolean(v.showEmpty)}">${icon(v.showEmpty ? 'eye' : 'plus')}<span>${esc(v.showEmpty ? t('detail.empty.hide') : t('detail.empty.show', { n: hidden || emptyCount }))}</span></button>` : '';
+  const filled = items.filter((it) => !it.empty && !it.html.includes('dt-field static')).length;
+  return section(v, 'fields', 'docProps', t('detail.section.details'), `<div class="dt-groups">${groups}</div>${toggle}`, { count: filled });
+}
+
+/** The sticky bar of section chips at the top: jump to a section (with its count). */
+export function sectionBarHtml(v) {
+  const issue = v.issue;
+  const level = Number(v.typeOf(issue.typeId)?.level ?? 0);
+  const list = issue.checklist ?? [];
+  const chips = [
+    ['fields', 'docProps', t('detail.section.details'), fieldItems(v).filter((it) => !it.empty && !it.html.includes('dt-field static')).length],
+    ['desc', 'notes', t('detail.section.description'), (issue.description ?? '').trim() ? '✓' : ''],
+    ['checklist', 'check', t('detail.section.checklist'), list.length ? `${list.filter((i) => i.done).length}/${list.length}` : 0],
+    ...(level === 1 ? [] : [['subtasks', 'list', t('detail.section.subtasks'), (issue.subtasks ?? []).length]]),
+    ['links', 'link', t('detail.section.links'), (issue.links ?? []).length],
+    ['attachments', 'picture', t('detail.section.attachments'), (v.attachments ?? []).length],
+    ['activity', 'comment', t('detail.section.activity'), (v.comments ?? []).length],
+  ];
+  return `<nav class="dt-secbar" aria-label="${esc(t('detail.sections'))}">${chips.map(([id, ic, label, n]) => `<button type="button" class="dt-sb-chip${v.activeSection === id ? ' active' : ''}" data-act="jump" data-jump="${id}" title="${esc(t('detail.jumpTo', { name: label }))}">${icon(ic)}<span class="dt-sb-label">${esc(label)}</span>${n ? `<i>${esc(n)}</i>` : ''}</button>`).join('')}</nav>`;
 }
 
 /** A collapsible section. */
 export function section(v, id, ic, title, body, { count = null, actions = '', cls = '' } = {}) {
   const closed = v.collapsed.has(id);
   return `<section class="dt-section ${cls}${closed ? ' collapsed' : ''}" data-section="${esc(id)}">
-    <div class="dt-section-head"><button type="button" class="dt-section-toggle" data-act="toggle-section" data-section="${esc(id)}" aria-expanded="${!closed}">${icon(closed ? 'caretRight' : 'caretDown')}${icon(ic)}<span>${esc(title)}</span>${count != null ? `<i class="dt-count-badge">${esc(count)}</i>` : ''}</button><div class="dt-section-actions">${actions}</div></div>
+    <div class="dt-section-head"><button type="button" class="dt-section-toggle" data-act="toggle-section" data-section="${esc(id)}" aria-expanded="${!closed}">${icon(ic)}<span>${esc(title)}</span>${count != null ? `<i class="dt-count-badge">${esc(count)}</i>` : ''}${icon(closed ? 'chevronRight' : 'chevronDown', 'icon dt-caret')}</button><div class="dt-section-actions">${actions}</div></div>
     ${closed ? '' : `<div class="dt-section-body">${body}</div>`}
   </section>`;
 }

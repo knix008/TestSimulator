@@ -52,11 +52,12 @@ class Builder {
           `(SELECT MIN(${Q('position')}) FROM ${Q('priorities')} WHERE ${Q('id')} = ${this.p(x.value)} OR LOWER(${Q('name')}) = ${this.p(x.value)})))`;
       }
       case 'key': {
-        const inner = `(${this.col('key')} IN (${this.list(x.keys)}) OR ${this.col('id')} IN (${this.list(x.ids)}))`;
+        // earlier keys (project key rename, move to another project) keep matching
+        const inner = `(${this.col('key')} IN (${this.list(x.keys)}) OR ${this.col('id')} IN (${this.list(x.ids)}) OR ${this.col('id')} IN (SELECT ${Q('issue_id')} FROM ${Q('issue_key_aliases')} WHERE ${Q('key')} IN (${this.list(x.keys)})))`;
         return x.neg ? `(NOT ${inner})` : inner;
       }
       case 'keyCmp':
-        return `(${this.col('project_id')} IN (SELECT ${Q('id')} FROM ${Q('projects')} WHERE ${Q('key')} = ${this.p(x.project)}) AND ${this.col('number')} ${x.cmp} ${this.p(x.number)})`;
+        return `((${this.col('project_id')} IN (SELECT ${Q('id')} FROM ${Q('projects')} WHERE ${Q('key')} = ${this.p(x.project)}) OR ${this.col('project_id')} IN (SELECT ${Q('project_id')} FROM ${Q('project_key_aliases')} WHERE ${Q('key')} = ${this.p(x.project)})) AND ${this.col('number')} ${x.cmp} ${this.p(x.number)})`;
       case 'multi': return (x.neg ? 'NOT ' : '') + this.multiExists(x.f, (al) => this.multiMatch(x.f, al, x.values));
       case 'multiLike': {
         if (x.f.multi.type !== 'labels') throw new Error('~ only on labels');
@@ -88,6 +89,9 @@ class Builder {
   /** Lookup subquery: ids of `table` rows whose id or lower-cased name/key is in `values`. */
   lookup(lookup, values) {
     const conds = lookup.cols.map(([sqlCol]) => (sqlCol === 'id' ? `${Q('id')} IN (${this.list(values)})` : `LOWER(${Q(sqlCol)}) IN (${this.list(values)})`));
+    // a project's / an issue's earlier keys resolve too (keys are stored upper-case, values come lower-cased)
+    const alias = { projects: ['project_key_aliases', 'project_id'], issues: ['issue_key_aliases', 'issue_id'] }[lookup.table];
+    if (alias && lookup.cols.some(([c]) => c === 'key')) conds.push(`${Q('id')} IN (SELECT ${Q(alias[1])} FROM ${Q(alias[0])} WHERE LOWER(${Q('key')}) IN (${this.list(values)}))`);
     return `SELECT ${Q('id')} FROM ${Q(lookup.table)} WHERE ${conds.join(' OR ')}`;
   }
 

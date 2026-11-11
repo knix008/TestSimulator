@@ -5,14 +5,14 @@
 // GET /boards/:id/data the next time it draws.
 import { tr, esc, icon, btn, ibtn, select, input, checkbox, colorInput, iconButton, card, note, stepper, renderIconRef, CATEGORY_ICON } from '../util.js';
 import { bindSteppers } from '../../../stepper.js';
-import { table, addLine, bindTables, nameCell } from './collection.js';
+import { table, bindTables, nameCell } from './collection.js';
 import { jqlInput, bindJql } from './jql.js';
 import { categoryOptions } from './lists.js';
 import { sortable } from '../util.js';
 
-const TABS = [['columns', 'columns'], ['swimlanes', 'rows'], ['quickfilters', 'filter'], ['cardcolors', 'palette'], ['layout', 'layout'], ['general', 'gear']];
-const SWIMLANES = { none: 'stereoNone', assignee: 'user', epic: 'layers', project: 'folder', queries: 'search', priority: 'sort', type: 'file' };
-const CARD_COLORS = { none: 'stereoNone', type: 'file', priority: 'sort', assignee: 'user', queries: 'search' };
+const TABS = [['columns', 'columns'], ['swimlanes', 'menu'], ['quickfilters', 'filter'], ['cardcolors', 'palette'], ['layout', 'layout'], ['general', 'gear']];
+const SWIMLANES = { none: 'clear', assignee: 'user', epic: 'layers', project: 'folder', queries: 'search', priority: 'sort', type: 'file' };
+const CARD_COLORS = { none: 'clear', type: 'file', priority: 'sort', assignee: 'user', queries: 'search' };
 export const CARD_FIELDS = ['priority', 'assignee', 'storyPoints', 'dueDate', 'startDate', 'labels', 'components', 'fixVersions', 'epic', 'originalEstimate', 'remainingEstimate'];
 const CARD_FIELD_ICON = { priority: 'sort', assignee: 'user', storyPoints: 'percent', dueDate: 'calendar', startDate: 'calendar', labels: 'tag', components: 'container', fixVersions: 'calendar', epic: 'layers', originalEstimate: 'clock', remainingEstimate: 'hourglass' };
 const DAYS = [1, 2, 3, 4, 5, 6, 0];
@@ -60,10 +60,11 @@ function saveSettings(S, patch, label = tr('op.board', { name: S.board.name })) 
   const before = settingsOf(S);
   const values = {};
   for (const key of Object.keys(patch)) values[key] = before[key] ?? null;
+  const url = S.url('board');
   return S.run(async () => {
-    const row = await S.api.patch(S.url('board'), { settings: patch, rev: S.board.rev });
-    let rev = row?.rev;
-    const apply = async (settings) => { const r = await S.api.patch(S.url('board'), { settings, ...(rev != null ? { rev } : {}) }); rev = r?.rev; };
+    const row = await S.api.patch(url, { settings: patch, rev: S.board.rev });
+    S.sawRev(url, row);
+    const apply = async (settings) => { const rev = S.revs.get(url); const r = await S.api.patch(url, { settings, ...(rev != null ? { rev } : {}) }); S.sawRev(url, r); };
     S.ctx.history?.record({ label, undo: () => apply(values), redo: () => apply(patch) });
     return row;
   });
@@ -85,12 +86,12 @@ function columnsTab(S) {
     const isDone = ids.length > 0 && ids.every((id) => byId[id].category === 'done');
     const isBacklog = Boolean(backlog.enabled && ids.length && ids.every((id) => (backlog.statusIds ?? []).includes(id)));
     return `<div class="ps-col ${isBacklog ? 'backlog' : ''} ${isDone ? 'done' : ''}" data-id="${esc(c.id)}" data-col="${esc(c.id)}">
-      <div class="ps-col-head"><span class="ps-grip" draggable="${e}" title="${esc(tr('board.dragColumn'))}" aria-label="${esc(tr('board.dragColumn'))}" tabindex="0">${icon('grip')}</span>${input('col-name', c.name, { disabled: !e, attrs: 'data-colfield="name"', placeholder: tr('col.name') })}${ibtn('col-delete', tr('board.deleteColumn'), 'trash', { cls: 'danger', disabled: !e })}</div>
+      <div class="ps-col-head"><span class="ps-grip" draggable="${e}" title="${esc(tr('board.dragColumn'))}" aria-label="${esc(tr('board.dragColumn'))}" tabindex="0">${icon('grip')}</span><button type="button" class="ps-iconpick ps-col-icon" data-act="col-icon" ${e ? '' : 'disabled'} title="${esc(tr('board.columnIcon'))}" aria-label="${esc(tr('board.columnIcon'))}">${renderIconRef(c.icon || 'b:circle', { size: 18 })}</button>${input('col-name', c.name, { disabled: !e, attrs: 'data-colfield="name"', placeholder: tr('col.name') })}${ibtn('col-delete', tr('board.deleteColumn'), 'trash', { cls: 'danger', disabled: !e })}</div>
       <div class="ps-col-badges">${isBacklog ? `<span class="ps-chip">${icon('list')}<span>${esc(tr('board.backlogColumn'))}</span></span>` : ''}${isDone ? `<span class="ps-chip ok">${icon('check')}<span>${esc(tr('board.doneColumn'))}</span></span>` : ''}${!ids.length ? `<span class="ps-chip warn">${icon('warning')}<span>${esc(tr('board.noStatuses'))}</span></span>` : ''}</div>
       <div class="ps-col-drop" data-drop="${esc(c.id)}" aria-label="${esc(tr('board.dropHere'))}">${ids.map((id) => chip(byId[id])).join('') || `<span class="ps-drop-hint">${esc(tr('board.dropHere'))}</span>`}</div>
       <div class="ps-col-wip">
-        <div class="ps-wip-row"><span>${icon('arrowDown')}${esc(tr('board.wipMin'))}</span>${stepper(`wipMin:${c.id}`, c.wipMin ?? 0, { min: 0, max: 999, label: tr('board.wipMin'), disabled: !e })}</div>
-        <div class="ps-wip-row"><span>${icon('arrowUp')}${esc(tr('board.wipMax'))}</span>${stepper(`wipMax:${c.id}`, c.wipMax ?? 0, { min: 0, max: 999, label: tr('board.wipMax'), disabled: !e })}</div>
+        <div class="ps-wip-row"><span>${icon('chevronDown')}${esc(tr('board.wipMin'))}</span>${stepper(`wipMin:${c.id}`, c.wipMin ?? 0, { min: 0, max: 999, label: tr('board.wipMin'), disabled: !e })}</div>
+        <div class="ps-wip-row"><span>${icon('chevronUp')}${esc(tr('board.wipMax'))}</span>${stepper(`wipMax:${c.id}`, c.wipMax ?? 0, { min: 0, max: 999, label: tr('board.wipMax'), disabled: !e })}</div>
       </div>
       <div class="ps-col-flags">${checkbox('col-backlog', isBacklog, tr('board.markBacklog'), { disabled: !e || !ids.length, attrs: 'data-colfield="backlog"' })}
         ${isDone ? `<span class="ps-hint">${esc(tr('board.doneHint'))}</span>` : btn('col-mark-done', tr('board.markDone'), 'check', { disabled: !e || !ids.length, cls: 'small' })}</div>
@@ -140,7 +141,19 @@ function bindColumns(S, el) {
       case 'col-add': {
         const name = el.querySelector('[data-new="column"]').value.trim();
         if (!name) { S.say('danger', tr('err.REQUIRED')); S.render(); return; }
-        await S.run(() => S.api.post(S.url('columns'), { name, statusIds: [] }), { ok: tr('created', { name }) });
+        // a new column goes first (as on the board); the core gives it the default icon of its name
+        await S.run(async () => {
+          let made = await S.api.post(S.url('columns'), { name, statusIds: [] });
+          made = made?.column ?? made;
+          if (made?.id) await S.api.post(`${S.url('columns')}/order`, { ids: [made.id, ...columns().map((x) => x.id).filter((id) => id !== made.id)] });
+          return made;
+        }, { ok: tr('created', { name }) });
+        break;
+      }
+      case 'col-icon': {
+        const ref = await S.ctx.pickIcon?.(c.icon ?? '', { title: tr('board.columnIcon'), category: 'columns' });
+        // '' = back to the default icon of the name (the core fills it; every column keeps an icon)
+        if (ref != null) S.patch(tr('op.icon', { name: c.name }), S.url('columns', c.id), c, { icon: ref || null });
         break;
       }
       case 'col-delete':
@@ -226,19 +239,19 @@ function bindColumns(S, el) {
 
 // ───────────────────────── swimlanes, quick filters
 
-const modeSelect = (name, value, modes, prefix, disabled) => select(name, value, Object.entries(modes).map(([id, glyph]) => ({ value: id, label: tr(`${prefix}.${id}`), icon: glyph })), { disabled, title: tr(`${prefix}.title`), glyph: 'rows' });
+const modeSelect = (name, value, modes, prefix, disabled) => select(name, value, Object.entries(modes).map(([id, glyph]) => ({ value: id, label: tr(`${prefix}.${id}`), icon: glyph })), { disabled, title: tr(`${prefix}.title`), glyph: 'menu' });
 
 function swimlanesTab(S) {
   const mode = settingsOf(S).swimlanes ?? 'none';
   const e = S.canEditBoard;
-  return `<div class="ps-form">${`<div class="ps-row"><div class="ps-row-label">${icon('rows')}<span>${esc(tr('lane.title'))}</span></div><div class="ps-row-control">${modeSelect('lane-mode', mode, SWIMLANES, 'lane', !e)}<div class="ps-hint">${esc(tr(`lane.${mode}Hint`))}</div></div></div>`}</div>
+  return `<div class="ps-form">${`<div class="ps-row"><div class="ps-row-label">${icon('menu')}<span>${esc(tr('lane.title'))}</span></div><div class="ps-row-control">${modeSelect('lane-mode', mode, SWIMLANES, 'lane', !e)}<div class="ps-hint">${esc(tr(`lane.${mode}Hint`))}</div></div></div>`}</div>
     ${mode === 'queries' ? `${table(S, {
       kind: 'swimlanes', rows: S.board.swimlanes ?? [], order: true, editable: e,
       cols: [
         { head: tr('col.name'), width: 'minmax(110px, 0.8fr)', cell: nameCell(tr('col.name')) },
         { head: 'JQL', width: 'minmax(200px, 2fr)', cell: (x, ed) => jqlInput('jql', x.jql, { disabled: !ed }) },
       ],
-      emptyText: tr('lane.none'),
+      emptyText: tr('lane.empty'),
     })}
     <div class="ps-add" data-add="swimlanes">${input('new-name', '', { placeholder: tr('lane.newName'), attrs: 'data-new="name"', disabled: !e })}${jqlInput('new-jql', '', { attrs: 'data-new="jql"', disabled: !e })}${btn('add', tr('common.add'), 'plus', { cls: 'primary', disabled: !e, attrs: 'data-kind="swimlanes"' })}</div>
     ${note(tr('lane.queriesHint'))}` : ''}`;
@@ -341,9 +354,9 @@ function layoutTab(S) {
       <div class="ps-checkgrid">${all.map((f) => `<label class="ps-check ${!chosen.includes(f.id) && full ? 'off' : ''}" title="${esc(f.name)}"><input type="checkbox" data-cardfield="${esc(f.id)}" ${chosen.includes(f.id) ? 'checked' : ''} ${!e || (!chosen.includes(f.id) && full) ? 'disabled' : ''} />${icon(f.glyph)}<span>${esc(f.name)}</span></label>`).join('')}</div>
       <div class="ps-hint">${esc(tr('layout.fieldsHint'))}</div></div></div>
     <div class="ps-row"><div class="ps-row-label">${icon('percent')}<span>${esc(tr('layout.estimation'))}</span></div><div class="ps-row-control">${select('set-estimation', s.estimation ?? 'storyPoints', ['storyPoints', 'originalEstimate', 'count'].map((v) => ({ value: v, label: tr(`est.${v}`), icon: { storyPoints: 'percent', originalEstimate: 'clock', count: 'list' }[v] })), { disabled: !e, attrs: 'data-setting="estimation"', title: tr('layout.estimation'), glyph: 'percent' })}</div></div>
-    <div class="ps-row"><div class="ps-row-label">${icon('clock')}<span>${esc(tr('layout.daysInColumn'))}</span></div><div class="ps-row-control">${checkbox('set-days', s.daysInColumn !== false, tr('layout.daysInColumnText'), { disabled: !e, attrs: 'data-setting="daysInColumn"' })}</div></div>
+    <div class="ps-row"><div class="ps-row-label">${icon('clock')}<span>${esc(tr('layout.daysInColumn'))}</span></div><div class="ps-row-control">${checkbox('set-days', s.daysInColumn === true || (s.cardFields ?? []).includes('daysInColumn'), tr('layout.daysInColumnText'), { disabled: !e, attrs: 'data-setting="daysInColumn"' })}</div></div>
     <div class="ps-row"><div class="ps-row-label">${icon('list')}<span>${esc(tr('layout.subtasks'))}</span></div><div class="ps-row-control">${select('set-subtasks', s.subtasks ?? 'cards', [{ value: 'cards', label: tr('layout.subtasksCards'), icon: 'list' }, { value: 'parent', label: tr('layout.subtasksParent'), icon: 'file' }], { disabled: !e, attrs: 'data-setting="subtasks"', title: tr('layout.subtasks'), glyph: 'list' })}</div></div>
-    <div class="ps-row"><div class="ps-row-label">${icon('warning')}<span>${esc(tr('layout.constraint'))}</span></div><div class="ps-row-control">${select('set-constraint', s.columnConstraint ?? 'issueCount', [{ value: 'issueCount', label: tr('layout.constraintCount'), icon: 'list' }, { value: 'none', label: tr('layout.constraintNone'), icon: 'stereoNone' }], { disabled: !e, attrs: 'data-setting="columnConstraint"', title: tr('layout.constraint'), glyph: 'warning' })}</div></div>
+    <div class="ps-row"><div class="ps-row-label">${icon('warning')}<span>${esc(tr('layout.constraint'))}</span></div><div class="ps-row-control">${select('set-constraint', s.columnConstraint ?? 'issueCount', [{ value: 'issueCount', label: tr('layout.constraintCount'), icon: 'list' }, { value: 'none', label: tr('layout.constraintNone'), icon: 'clear' }], { disabled: !e, attrs: 'data-setting="columnConstraint"', title: tr('layout.constraint'), glyph: 'warning' })}</div></div>
   </div>`;
 }
 
@@ -376,6 +389,8 @@ function bindSettings(S, el) {
       const id = target.dataset.cardfield;
       const next = target.checked ? [...chosen.filter((x) => x !== id), id].slice(0, 3) : chosen.filter((x) => x !== id);
       saveSettings(S, { cardFields: next });
+    } else if (target.dataset.setting === 'daysInColumn') {
+      saveSettings(S, { daysInColumn: target.checked, cardFields: (settingsOf(S).cardFields ?? []).filter((x) => x !== 'daysInColumn') });
     } else if (target.dataset.setting) {
       saveSettings(S, { [target.dataset.setting]: target.type === 'checkbox' ? target.checked : target.value });
     } else if (target.dataset.showall != null) {

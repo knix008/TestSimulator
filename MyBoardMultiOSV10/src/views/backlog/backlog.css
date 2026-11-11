@@ -86,21 +86,6 @@
 .bl-bulk { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .bl-bulk-count { display: inline-flex; align-items: center; gap: 5px; margin-right: 6px; }
 .bl-main { flex: 1; display: flex; min-height: 0; min-width: 0; border-top: 1px solid var(--border); }
-.bl-side { width: 220px; flex: none; overflow-y: auto; border-right: 1px solid var(--border); background: var(--panel); padding: 4px 0 10px; }
-.bl-root.no-side .bl-side { display: none; }
-.bl-side-head { display: flex; align-items: center; gap: 6px; padding: 8px 10px 4px; font-size: 0.8em; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
-.bl-side-head span { flex: 1; }
-.bl-side-head .icon { width: 14px; height: 14px; }
-.bl-side-head .icon-button { padding: 1px; }
-.bl-side-list { display: flex; flex-direction: column; padding: 0 6px; }
-.bl-side-item { display: flex; align-items: center; gap: 7px; padding: 4px 6px; border: 0; background: none; border-radius: 6px; cursor: pointer; text-align: left; min-width: 0; }
-.bl-side-item:hover { background: var(--hover); }
-.bl-side-item.active { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--text); font-weight: 600; }
-.bl-side-item > span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bl-side-item .icon { width: 14px; height: 14px; }
-.bl-side-item small { color: var(--muted); font-size: 0.78em; }
-.bl-side-count { font-style: normal; font-size: 0.78em; color: var(--muted); font-variant-numeric: tabular-nums; }
-.bl-side-empty { padding: 4px 8px; margin: 0; font-size: 0.85em; }
 .bl-epic-dot { width: 10px; height: 10px; border-radius: 3px; flex: none; display: inline-block; }
 .bl-cat-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; background: var(--muted); }
 .bl-cat-dot.inprogress { background: var(--accent); }
@@ -145,8 +130,9 @@
   background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
 .bl-lozenge.inprogress { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 .bl-lozenge.done { background: color-mix(in srgb, var(--success) 18%, var(--surface)); color: var(--text); border-color: color-mix(in srgb, var(--success) 45%, var(--border)); }
-.bl-person, .bl-prio { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
-.bl-person > span, .bl-prio > span { overflow: hidden; text-overflow: ellipsis; }
+.bl-person, .bl-prio, .bl-res { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+.bl-person > span, .bl-prio > span, .bl-res > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bl-lozenge + .mb-resolution { margin-left: 5px; flex: none; }
 .bl-label { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 0.78em; background: var(--surface2); border: 1px solid var(--border); max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 .bl-epic { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: 0 7px; border-radius: 4px; font-size: 0.78em; font-weight: 600;
   background: color-mix(in srgb, var(--epic) 18%, var(--surface)); color: var(--text); border: 1px solid color-mix(in srgb, var(--epic) 45%, var(--border)); }
@@ -169,8 +155,13 @@
 .bl-total, .bl-rank-hint { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
 .bl-rank-hint span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* narrow windows: the side panel goes, labels of the less used tools fold */
-.bl-root.narrow .bl-side { position: absolute; z-index: 6; height: calc(100% - 2px); box-shadow: 4px 0 18px var(--shadow); }
+/* narrow windows: the side panel lies over the list (opened on demand), the filters fold behind a button */
+.bl-filters-toggle { display: none; }
+.bl-main { min-height: 180px; }
+.bl-root.tiny { overflow-y: auto; }
+.bl-root.tiny .bl-filters-toggle { display: inline-flex; }
+.bl-root.tiny:not(.filters-open) .bl-basic .mbv-drop, .bl-root.tiny:not(.filters-open) .bl-hide-done, .bl-root.tiny:not(.filters-open) .bl-basic [data-act="clear"] { display: none; }
+.bl-root.tiny .bl-text { max-width: none; }
 .bl-root.narrow .bl-main { position: relative; }
 .bl-root.tiny .bl-tool:not(.primary) span, .bl-root.tiny .bl-mode .segment span { display: none; }
 .bl-root.tiny .mbv-drop { max-width: 170px; }

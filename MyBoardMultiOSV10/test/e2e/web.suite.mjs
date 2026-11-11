@@ -87,11 +87,12 @@ export const cases = [
   },
   {
     group: '작업 화면',
-    name: '자리표시 카드를 누르면 이슈 상세 패널에 표시',
+    name: '보드의 카드를 누르면 이슈 상세 패널에 열림 (연습용 보드)',
     async run(app) {
-      const r = await app.run(`await T.reset({ workspace: true }); document.querySelector('[data-issue-ghost]').click(); await T.frames(2); return { id: A.state.selectedIssue, text: document.querySelector('#detail').textContent };`);
+      const r = await app.run(`await T.reset({ workspace: true }); const card = await T.until(() => document.querySelector('#workspace .mb-card'), 8000, 'card'); card.click(); await T.frames(2); return { id: A.state.selectedIssue, card: card.dataset.id, panel: Boolean(document.querySelector('#detail')) };`);
       assert.ok(r.id);
-      assert.match(r.text, new RegExp(r.id));
+      assert.equal(r.id, r.card);
+      assert.ok(r.panel);
     },
   },
   {

@@ -13,26 +13,26 @@ export const ISSUE_TYPES = {
 };
 
 /**
- * statuses: [name, category]; columns: [name, [status indexes], { backlog?, wipMax?, wipMin? }];
+ * statuses: [name, category]; columns: [name, [status indexes], { backlog?, wipMax?, wipMin?, icon? (IconRef, §3.6) }];
  * transitions: null = "any status to any status" (one global transition per status), else [name, fromIdx|null, toIdx]
  */
 export const TEMPLATES = {
   kanban: {
     statuses: [['Backlog', 'todo'], ['Selected for Development', 'todo'], ['In Progress', 'inprogress'], ['Done', 'done']],
     types: ['epic', 'story', 'task', 'bug', 'subtask'],
-    columns: [['Backlog', [0], { backlog: true }], ['Selected for Development', [1]], ['In Progress', [2], { wipMax: 5 }], ['Done', [3]]],
+    columns: [['Backlog', [0], { backlog: true, icon: 'b:backlog' }], ['Selected for Development', [1], { icon: 'b:ready' }], ['In Progress', [2], { wipMax: 5, icon: 'b:inProgress' }], ['Done', [3], { icon: 'b:done' }]],
     transitions: null,
   },
   software: {
     statuses: [['Backlog', 'todo'], ['To Do', 'todo'], ['In Progress', 'inprogress'], ['In Review', 'inprogress'], ['Done', 'done']],
     types: ['epic', 'story', 'task', 'bug', 'subtask'],
-    columns: [['Backlog', [0], { backlog: true }], ['To Do', [1]], ['In Progress', [2], { wipMax: 4 }], ['In Review', [3], { wipMax: 3 }], ['Done', [4]]],
+    columns: [['Backlog', [0], { backlog: true, icon: 'b:backlog' }], ['To Do', [1], { icon: 'b:todo' }], ['In Progress', [2], { wipMax: 4, icon: 'b:inProgress' }], ['In Review', [3], { wipMax: 3, icon: 'b:review' }], ['Done', [4], { icon: 'b:done' }]],
     transitions: null,
   },
   bugs: {
     statuses: [['Open', 'todo'], ['In Progress', 'inprogress'], ['Resolved', 'done'], ['Closed', 'done']],
     types: ['bug', 'improvement', 'task', 'subtask'],
-    columns: [['Open', [0]], ['In Progress', [1], { wipMax: 6 }], ['Resolved', [2]], ['Closed', [3]]],
+    columns: [['Open', [0], { icon: 'b:inbox' }], ['In Progress', [1], { wipMax: 6, icon: 'b:debug' }], ['Resolved', [2], { icon: 'b:resolved' }], ['Closed', [3], { icon: 'b:lock' }]],
     transitions: [
       ['Start progress', 0, 1], ['Stop progress', 1, 0], ['Resolve', 0, 2], ['Resolve', 1, 2],
       ['Close', 2, 3], ['Reopen', 2, 0], ['Reopen', 3, 0],
@@ -41,7 +41,7 @@ export const TEMPLATES = {
   simple: {
     statuses: [['To Do', 'todo'], ['Doing', 'inprogress'], ['Done', 'done']],
     types: ['task', 'subtask'],
-    columns: [['To Do', [0]], ['Doing', [1]], ['Done', [2]]],
+    columns: [['To Do', [0], { icon: 'b:todo' }], ['Doing', [1], { icon: 'b:inProgress' }], ['Done', [2], { icon: 'b:done' }]],
     transitions: null,
   },
 };

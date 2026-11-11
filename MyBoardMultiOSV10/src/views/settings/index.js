@@ -7,6 +7,7 @@
 // saves with `rev` (409 → a notice and a reload), errors are shown by code, simple edits go to ctx.history.
 // Non-admins see everything read-only.
 import { registerView } from '../registry.js';
+import { createSettingsSidebar } from './sidebar.js';
 import { registerTexts } from '../../i18n.js';
 import { TEXTS } from './texts.js';
 import './settings.css';
@@ -56,8 +57,18 @@ class SettingsView {
     this.banner = null;
     this.pending = {};      // per-section UI state (open editors, confirmations)
     this.loading = null;
+    this.busy = 0;          // saves and loads under way (the tests wait for 0)
+    this.revs = new Map();  // url → the rev of our last write (undo / redo)
     this.observer = null;
-    this.queueRefresh = debounce(() => this.refresh(), 250);
+    // A live change by someone else: reload, but not under the user's typing (then after the field is left).
+    this.queueRefresh = debounce(() => {
+      const active = globalThis.document?.activeElement;
+      if (this.content?.contains(active) && active.matches('input, textarea')) {
+        active.addEventListener('blur', () => this.queueRefresh(), { once: true });
+        return;
+      }
+      this.refresh();
+    }, 250);
   }
 
   // ───────────────────────── view interface
@@ -66,14 +77,10 @@ class SettingsView {
     this.host = host;
     this.ctx = ctx;
     host.classList.add('ps-host');
-    host.innerHTML = `<div class="ps-root"><nav class="ps-nav" aria-label="${esc(tr('nav.title'))}"></nav><div class="ps-main"><div class="ps-content"></div></div></div>`;
+    // The section list is the left panel's sidebar (sidebar.js); the centre holds only the open section.
+    host.innerHTML = `<div class="ps-root"><div class="ps-main"><div class="ps-content"></div></div></div>`;
     this.root = host.querySelector('.ps-root');
-    this.nav = host.querySelector('.ps-nav');
     this.content = host.querySelector('.ps-content');
-    this.nav.addEventListener('click', (event) => {
-      const item = event.target.closest('[data-section]');
-      if (item) this.go(item.dataset.section);
-    });
     this.observer = new ResizeObserver(() => this.fit());
     this.observer.observe(host);
     this.fit();
@@ -88,6 +95,8 @@ class SettingsView {
     if (ctx.reload) { this.refresh(); return; }
     if (ctx.settingsChanged) { this.render(); return; }
     const event = ctx.event;
+    // labels renamed / merged / deleted by someone else: the labels section reads them again
+    if (/^label\./.test(event?.type ?? '') && this.data) { this.pending.labels = null; if (this.section === 'labels') this.queueRefresh(); return; }
     if (event && this.data && this.relevant(event)) this.queueRefresh();
   }
 
@@ -99,7 +108,9 @@ class SettingsView {
     this.host = null;
   }
 
+  /** Live events that change what the settings show (issue edits by others do not). */
   relevant(event) {
+    if (!/^(project|member|issueType|status|workflow|transition|component|version|field|rule|board|column|swimlane|quickFilter|cardColor|user|priority|resolution)\./.test(event.type ?? '')) return false;
     const topics = event.topics ?? [];
     return topics.includes(`project:${this.pid}`) || (this.boardId && topics.includes(`board:${this.boardId}`)) || topics.includes('users');
   }
@@ -151,6 +162,7 @@ class SettingsView {
     if (!this.pid || this.workspace?.demo) { this.data = null; this.render(); return; }
     const token = (this.loading = Symbol('load'));
     if (!this.data) this.render();
+    this.busy += 1;
     try {
       const data = await this.load();
       if (token !== this.loading || !this.host) return;
@@ -159,6 +171,8 @@ class SettingsView {
     } catch (error) {
       if (token !== this.loading) return;
       this.loadError = error;
+    } finally {
+      this.busy -= 1;
     }
     this.render();
   }
@@ -171,12 +185,9 @@ class SettingsView {
     if (!this.host) return;
     const sections = this.visibleSections();
     if (!sections.some((s) => s.id === this.section)) this.section = sections[0].id;
-    let group = '';
-    this.nav.innerHTML = sections.map((s) => {
-      const head = s.group !== group ? `<div class="ps-nav-group">${esc(tr(`group.${(group = s.group)}`))}</div>` : '';
-      return `${head}<button type="button" class="ps-nav-item ${s.id === this.section ? 'active' : ''}" data-section="${s.id}" title="${esc(tr(`section.${s.id}`))}" aria-current="${s.id === this.section}">${icon(s.glyph)}<span>${esc(tr(`section.${s.id}`))}</span></button>`;
-    }).join('');
+    side.refresh();
     const scroll = this.content.scrollTop;
+    const focus = focusKey(this.content);
     const section = sections.find((s) => s.id === this.section);
     let body;
     if (this.workspace?.demo) body = `<div class="ps-section">${note(tr('demo'), 'info')}</div>`;
@@ -204,12 +215,15 @@ class SettingsView {
       try { section.bind(this, el); } catch (error) { console.error(error); }
     }
     this.content.scrollTop = scroll;
+    if (focus) restoreFocus(this.content, focus);
   }
 
   go(id) {
     if (id === this.section) return;
     this.section = id;
     this.banner = null;
+    // questions that belong to the section left behind (drafts of transitions / rules are kept)
+    for (const key of ['del', 'release', 'reset', 'colDelete', 'wfDelete', 'runResult']) this.pending[key] = null;
     writeStored(SECTION_KEY, id);
     this.content.scrollTop = 0;
     this.render();
@@ -222,15 +236,27 @@ class SettingsView {
 
   /** Runs a change; errors go to the banner (409: reload notice). Resolves to the result or null. */
   async run(fn, { reload = true, ok = '' } = {}) {
+    this.busy += 1;
     try {
       const out = await fn();
       this.banner = ok ? { kind: 'success', text: ok } : null;
+      this.announce();
       if (reload) await this.refresh(); else this.render();
       return out ?? true;
     } catch (error) {
       this.fail(error);
       return null;
+    } finally {
+      this.busy -= 1;
     }
+  }
+
+  /**
+   * Tells the other views of this window (the live channel drops this window's own events) that the project or
+   * board configuration changed, shaped like a live event (§6); the board reloads its data on it.
+   */
+  announce(type = 'board.updated') {
+    try { globalThis.dispatchEvent?.(new CustomEvent('myboard:event', { detail: { type, id: this.boardId, topics: [`board:${this.boardId}`, `project:${this.pid}`] } })); } catch { /* no window */ }
   }
 
   fail(error) {
@@ -254,12 +280,29 @@ class SettingsView {
     for (const key of Object.keys(patch)) before[key] = item?.[key] ?? null;
     return this.run(async () => {
       const row = await this.api.patch(url, { ...patch, ...(item?.rev != null ? { rev: item.rev } : {}) });
-      let rev = row?.rev ?? null;
-      const apply = async (values) => { const r = await this.api.patch(url, { ...values, ...(rev != null ? { rev } : {}) }); rev = r?.rev ?? null; await after?.(r); };
+      this.sawRev(url, row);
+      const apply = async (values) => {
+        const rev = this.revs.get(url);
+        const r = await this.api.patch(url, { ...values, ...(rev != null ? { rev } : {}) });
+        this.sawRev(url, r);
+        await after?.(r);
+      };
       this.ctx.history?.record({ label, undo: () => apply(before), redo: () => apply(patch) });
       await after?.(row);
       return row;
     }, { reload });
+  }
+
+  /**
+   * The rev this window last wrote for an item (by URL): undo steps of one item chain without conflicts, while a
+   * change by someone else in between still answers 409.
+   */
+  sawRev(url, row) { if (row?.rev != null) this.revs.set(url, row.rev); }
+
+  /** Counts an API call as busy work (the tests wait until nothing is busy). */
+  async track(fn) {
+    this.busy += 1;
+    try { return await fn(); } finally { this.busy -= 1; }
   }
 
   /** URLs of the things the sections edit. */
@@ -284,11 +327,28 @@ class SettingsView {
   }
 }
 
+// A save redraws the section: the field the user moved to (Tab) keeps the focus.
+const FOCUS_ATTRS = ['field', 'ffield', 'dfield', 'rf', 'tf', 'colfield', 'bfield', 'new', 'ai', 'af', 'rkind', 'ridx', 'rparam', 'act', 'map', 'opt', 'ofield', 'cond', 'statusChip', 'section'];
+const keyOf = (el) => [el.tagName, el.closest('[data-id]')?.dataset.id ?? '', el.closest('[data-opt]')?.dataset.opt ?? '', ...FOCUS_ATTRS.map((a) => el.dataset[a] ?? '')].join('|');
+function focusKey(root) {
+  const el = globalThis.document?.activeElement;
+  return el && el !== root && root.contains(el) ? keyOf(el) : null;
+}
+function restoreFocus(root, key) {
+  const active = globalThis.document.activeElement;
+  if (active && active !== root && root.contains(active)) return;
+  const el = [...root.querySelectorAll(key.split('|')[0])].find((x) => keyOf(x) === key);
+  el?.focus({ preventScroll: true });
+}
+
 const view = new SettingsView();
+// The section list: the lower part of the left panel (sidebar.js), drawn from this view.
+const side = createSettingsSidebar(() => (view.host ? view : null));
 registerView('projectSettings', {
-  mount: (host, ctx) => view.mount(host, ctx),
+  mount: (host, ctx) => { view.mount(host, ctx); side.refresh(); },
   update: (ctx) => view.update(ctx),
-  unmount: () => view.unmount(),
+  unmount: () => { view.unmount(); side.refresh(); },
+  sidebar: side.sidebar,
 });
 
 export { view as settingsView };

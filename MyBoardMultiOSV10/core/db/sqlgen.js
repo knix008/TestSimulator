@@ -75,6 +75,16 @@ export function limitClause(dialect, limit, offset) {
   return ` LIMIT ${lim}` + (off ? ` OFFSET ${off}` : '');
 }
 
+/**
+ * String concatenation of SQL expressions: `a || b` (SQLite, PostgreSQL — text || integer works in both) or
+ * `CONCAT(a, b)` (MySQL/MariaDB, where || is OR; SQL Server, where + would add numbers). Pass literals or
+ * columns; a `?` parameter has no type in PostgreSQL's `||`, so callers inline validated literals instead.
+ */
+export function concatSql(dialect, ...exprs) {
+  if (dialect === 'mysql' || dialect === 'mssql') return `CONCAT(${exprs.join(', ')})`;
+  return `(${exprs.join(' || ')})`;
+}
+
 const MSSQL_BIN = ' COLLATE Latin1_General_100_BIN2';
 
 /** SQL type of a logical column type. */

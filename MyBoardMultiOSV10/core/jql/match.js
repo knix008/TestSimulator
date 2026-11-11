@@ -79,7 +79,10 @@ function cmpOp(a, op, b) {
 
 /** Candidate strings a lookup object matches on (id + lower-cased names), per field lookup.cols. */
 function candidates(obj, lookup) {
-  return lookup.cols.map(([, prop]) => lc(obj[prop])).filter((x) => x != null);
+  const out = lookup.cols.map(([, prop]) => lc(obj[prop])).filter((x) => x != null);
+  // earlier keys of a project / issue (hydrate() gives keyAliases) match like the key
+  if (obj.keyAliases && lookup.cols.some(([, prop]) => prop === 'key')) for (const k of obj.keyAliases) out.push(lc(k));
+  return out;
 }
 
 function multiItems(issue, f) {
@@ -119,11 +122,12 @@ function evalPred(x, issue, env) {
       return own != null && cmpOp(own, x.cmp, pos);
     }
     case 'key': {
-      const hit = x.keys.includes(String(issue.key).toUpperCase()) || x.ids.includes(lc(issue.id));
+      const hit = x.keys.includes(String(issue.key).toUpperCase()) || x.ids.includes(lc(issue.id))
+        || (issue.keyAliases || []).some((k) => x.keys.includes(String(k).toUpperCase()));
       return x.neg ? !hit : hit;
     }
     case 'keyCmp':
-      return String(issue.project?.key).toUpperCase() === x.project && cmpOp(issue.number, x.cmp, x.number);
+      return (String(issue.project?.key).toUpperCase() === x.project || (issue.project?.keyAliases || []).includes(x.project)) && cmpOp(issue.number, x.cmp, x.number);
     case 'multi': {
       const items = multiItems(issue, x.f);
       const hit = x.f.multi.type === 'labels'

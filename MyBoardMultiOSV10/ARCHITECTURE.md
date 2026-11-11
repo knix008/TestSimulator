@@ -106,13 +106,13 @@ All tables have `id` (string pk) unless noted; `created_at`, `updated_at` bigint
 | project_members | project_id, user_id, role ('admin'\|'member'\|'viewer') — pk(project_id,user_id) |
 | issue_types | project_id, name, icon, color, level (0 = standard, 1 = subtask, -1 = epic), workflow_id, position |
 | priorities | name, icon, color, position (global) |
-| resolutions | name, description, position (global) |
+| resolutions | name, description, icon (IconRef), color, position (global) — shown with the resolution in the detail panel, on resolved cards and backlog rows |
 | statuses | project_id, name, category ('todo'\|'inprogress'\|'done'), color, position |
-| workflows | project_id, name, initial_status_id |
+| workflows | project_id, name, initial_status_id, layout json { &lt;statusId&gt;: { x, y } } (diagram box positions; null = automatic; `INVALID_LAYOUT`) |
 | transitions | workflow_id, name, from_status_id (null = from any), to_status_id, rules json {conditions[], validators[], postFunctions[]}, position |
-| components | project_id, name, description, lead_id, icon |
+| components | project_id, name, description, lead_id, icon, default_assignee_id (§3.6) |
 | versions | project_id, name, description, start_date, release_date, released, archived, position |
-| custom_fields | project_id (null = all), name, type ('text'\|'textarea'\|'number'\|'date'\|'select'\|'multiselect'\|'user'\|'checkbox'\|'url'\|'labels'), options json [{id,value,icon,color}], required, position, description |
+| custom_fields | project_id (null = all), name, type ('text'\|'textarea'\|'number'\|'date'\|'select'\|'multiselect'\|'user'\|'checkbox'\|'url'\|'labels'), options json [{id,value,icon,color}], required, position, description, default_value json (a value as the API takes it), issue_type_ids json (null = every type; §3.6) |
 | issues | project_id, number, key uniq ('KAN-12'), type_id, status_id, resolution_id, priority_id, summary, description (text, Markdown), assignee_id, reporter_id, parent_id (subtask → parent), epic_id, story_points float, original_estimate, remaining_estimate, time_spent (seconds), due_date, start_date, rank, color, cover json, icon, flagged, archived, resolved_at, status_changed_at |
 | issue_labels | issue_id, label — pk both |
 | issue_components | issue_id, component_id |
@@ -137,11 +137,15 @@ All tables have `id` (string pk) unless noted; `created_at`, `updated_at` bigint
 | notifications | user_id, issue_id, kind, payload json, read |
 | change_log | seq string (rank-ordered, newId), topic, type, payload json, at — feed for future multi-server realtime |
 
+Issue `cover` json: `{ color: '#rrggbb' }` or `{ attachmentId }` (an image attachment of the same issue, shown from
+`GET /attachments/:id?inline=1`); `null` = no cover. The detail view writes both forms.
+
 ### 3.1 Defaults created with a project (template 'kanban' | 'software' | 'bugs' | 'simple')
 Statuses Backlog / Selected for Development / In Progress / Done; types Epic, Story, Task, Bug, Subtask; one workflow
 (all transitions allowed, "Done" sets resolution Done); one board with columns Backlog(kanban backlog) / Selected / In
-Progress / Done. Global priorities Highest/High/Medium/Low/Lowest and resolutions Done/Won't Do/Duplicate are created
-by the first migration.
+Progress / Done. Global priorities Highest/High/Medium/Low/Lowest and resolutions Done (`b:done` #2b8a3e) / Won't Do
+(`b:ban` #868e96) / Duplicate (`b:files` #7048e8) are created by the first migration (schema v2 gives existing default
+resolutions without an icon these icons/colours, once).
 
 | template | statuses (category) | types | board columns (WIP max) | workflow |
 |---|---|---|---|---|
@@ -201,6 +205,25 @@ Automation rule:
 (comma separated ids; the labels hold names), `custom:<fieldId>` (JSON values), `attachment`, `link`. `from_label` /
 `to_label` hold display names (status name, user display name, issue key …).
 
+### 3.6 Defaults on create, field applicability, workflow layout
+- **Assignee on create** (`POST /issues`, also CSV import / clone / automation, which use the same service): an explicit
+  `assigneeId` (also `null` = unassigned) wins; without one, the first of `componentIds` (in the order given) whose
+  component has an active `defaultAssigneeId`, else the project's `defaultAssigneeId`. Like the project default this
+  happens only on creation — setting components later on an unassigned issue does not assign it.
+- **Custom field defaults** (`defaultValue`, checked and normalised like a value: select = option value text, which
+  follows a renamed option and is dropped with a deleted one; checkbox `false` = no default): on create, a field that
+  applies to the type and is not named in `custom` (by id or name) gets its default; an explicit `null`/`''` stays empty.
+  CSV import empty cells get defaults; clone copies the source's values only (no defaults).
+- **Applies to** (`issueTypeIds`, ids of the project's types; `[]`/null = every type): the detail panel and the board's
+  create form show a field only for those types; a value that would change a field that does not apply is refused with
+  400 `FIELD_NOT_APPLICABLE` (create and PATCH) — sending back an unchanged value or clearing one is allowed, so values
+  stay stored when an issue changes type (as Jira keeps them). Not applicable = not required. CSV import leaves such
+  cells out; clone copies applicable fields only. Deleting an issue type removes it from the lists (the replacement
+  takes its place; an emptied list = every type).
+- **Workflow layout**: `PATCH /projects/:id/workflows/:wid { layout, rev }`; the settings editor saves it on drag end
+  / after arrow keys rest (undo-able) and moves a layout older versions kept in localStorage into the DB on the first
+  save. `.myboard` export/import maps the status-id keys (json keys that are ids are re-mapped), DB copy carries it.
+
 ## 4. Icons (input everywhere)
 
 An **IconRef** is a string stored in any `icon`/`avatar` column and usable in Markdown text as `:icon[<ref>]`:
@@ -222,7 +245,7 @@ Uploaded (library of the DB's icons, upload / drop / paste), Letters, plus colou
 **Built-in names the core writes** (templates, migrations, samples) — the UI catalogue must provide all of them:
 `bug story task epic subtask check flag star rocket bolt user folder calendar clock tag link comment paperclip chart
 shield gear home heart fire bookmark lightning cloud database code globe lock bell search layers target trophy
-priority-highest priority-high priority-medium priority-low priority-lowest`.
+priority-highest priority-high priority-medium priority-low priority-lowest done ban files`.
 Templates: Epic `b:epic`, Story `b:story`, Task `b:task`, Bug `b:bug`, Subtask `b:subtask`, Improvement `b:rocket`,
 boards `b:layers`; priorities `b:priority-*`. Uploads: `POST /icons` checks the bytes (magic numbers), ≤ 512 KB.
 
@@ -275,17 +298,17 @@ Auth per mode (desktop details in §7):
 | | `GET/POST /issues/:id/checklist` {text, done?, afterId?, beforeId?}, `PATCH/DELETE /checklist/:id` (PATCH can also move with afterId/beforeId) |
 | | `GET/POST /issues/:id/watchers` {userId? (default: me)}, `DELETE /issues/:id/watchers[/:userId]`; `GET/POST/DELETE /issues/:id/votes`; `GET /issues/:id/history` |
 | boards | `GET /boards[?projectId]`; `POST /boards` {name, projectId? \| filterJql, icon?, settings?, columns?}; `GET /boards/:id` (+ columns, swimlanes, quickFilters, cardColors); `PATCH /boards/:id` {name?, icon?, filterJql?, settings? (merged), rev}; `DELETE /boards/:id`; children `columns swimlanes quickfilters cardcolors`: `GET/POST /boards/:id/<x>`, `PATCH/DELETE /boards/:id/<x>/:itemId`, `POST /boards/:id/<x>/order` {ids} |
-| board data | `GET /boards/:id/data?quick=<id,id>&search=<text>&includeAllDone=1` → { board (settings normalised), columns [{ id, name, position, wipMin, wipMax, statusIds, backlog, done, count, points, overMax, underMin }], swimlanes [{ id, name, count, … mode extras; lane ids 'none' / 'other' / 'all' are the empty / rest / single lanes }], quickFilters, cardColors, issues [cards], backlog [cards], statuses, types, priorities, users, epics, versions, components, projects, elapsedMs } |
+| board data | `GET /boards/:id/data?quick=<id,id>&search=<text>&includeAllDone=1` → { board (settings normalised), columns [{ id, name, position, wipMin, wipMax, statusIds, backlog, done, count, points, overMax, underMin }], swimlanes [{ id, name, count, … mode extras; lane ids 'none' / 'other' / 'all' are the empty / rest / single lanes }], quickFilters, cardColors, issues [cards], backlog [cards], statuses, types, priorities, resolutions, fields (custom fields of the board's projects + global ones, for the create form), users, epics, versions, components, projects, elapsedMs } |
 | | card = { id, key, projectId, summary, typeId, statusId, priorityId, assigneeId, epicId, parentId, storyPoints, originalEstimate, remainingEstimate, timeSpent, dueDate, rank, color, cover, icon, flagged, resolutionId, resolvedAt, statusChangedAt, createdAt, updatedAt, rev, labels, componentIds, fixVersionIds, subtasks { total, done } \| null, checklist { total, done } \| null, commentCount, attachmentCount, columnId, lane, cardColor } |
 | search | `POST /jql/validate` {jql} → { ok } or { ok: false, error { code, message, details { position, length, expected? } } }; `GET /jql/suggest?text=&caret=` → { kind, prefix, start, end, field?, items [{ label, insert, detail? }] }; `GET /jql/fields`; `GET/POST /filters`, `GET/PATCH/DELETE /filters/:id` (rows + `mine`) |
 | dashboards | `GET/POST /dashboards`, `GET/PATCH/DELETE /dashboards/:id`; gadget types: filterResults, pie, createdVsResolved, cfd, control, throughput, workload, version, assignedToMe, activity, markdown |
-| reports | scope `boardId` or `projectId` (+ `jql`); `from` / `to` as YYYY-MM-DD or epoch ms |
-| | `GET /reports/cfd` → { days[], columns[], series [{ columnId, values[] }] } |
-| | `GET /reports/control?startColumnIds&endColumnIds` → { points [{ issueId, key, summary, typeId, completedAt, cycleTime, leadTime }] (ms), cycle / lead { count, average, median, min, max, stddev }, rolling [{ at, average }], window } |
-| | `GET /reports/throughput?interval=week\|day` → { buckets [{ start, date, count, points }], average } |
-| | `GET /reports/created-resolved` → { days [{ date, created, resolved, cumulativeCreated, cumulativeResolved }] } |
-| | `GET /reports/workload` → { items [{ userId, name, avatar, count, points, remaining }] } |
-| | `GET /reports/version/:id` → { version, total, byCategory, points, issues, burnup [{ date, scope, done }], unit, predictedReleaseDate } |
+| reports | scope `boardId` or `projectId` (+ `jql`); `from` / `to` as YYYY-MM-DD or epoch ms. **Board scope: the board's rightmost column is the reference "done" column** of every report and dashboard gadget, whatever its statuses' categories or the column's `done` flag say; it follows column reordering. "Done" = the issue's current status is in that column, dated by its *last* entry into it (from `issue_history` status changes mapped to columns at report time; an issue that left it again is not done). Board-scoped answers carry `referenceColumn` { id, name, icon } (the UI shows it as the "기준 열" chip and refreshes on `board.updated` / `column.*`). Project scope (no board): done = done-category statuses / the resolution (unchanged), `referenceColumn: null`. The board view's own done columns (`doneHideDays`, card styling) stay category based (§3.2) |
+| | `GET /reports/cfd` → { days[], columns[] (board order, left → right), series [{ columnId, values[] }], referenceColumn, doneColumnId } — the UI stacks the rightmost (done) band at the bottom |
+| | `GET /reports/control?startColumnIds&endColumnIds` (defaults: end = the rightmost column; start = the in-progress-category columns other than the end, else the columns after the leading backlog / to-do ones) → { referenceColumn, startColumnIds, endColumnIds, points [{ issueId, key, summary, typeId, completedAt, cycleTime, leadTime }] (ms), cycle / lead { count, average, median, min, max, stddev }, rolling [{ at, average }], window } |
+| | `GET /reports/throughput?interval=week\|day` (issues entering the end column — board: the rightmost — per bucket, not by resolution) → { referenceColumn, buckets [{ start, date, count, points }], average } |
+| | `GET /reports/created-resolved` (board: resolved = entered the rightmost column; project: `resolved_at`) → { referenceColumn, resolvedBy: 'column'\|'resolution', days [{ date, created, resolved, cumulativeCreated, cumulativeResolved }] } |
+| | `GET /reports/workload` (board: open = not in the rightmost column; project: unresolved) → { referenceColumn, items [{ userId, name, avatar, count, points, remaining }] } |
+| | `GET /reports/version/:id?boardId` (with `boardId`: done = in that board's rightmost column, a done-category status elsewhere counts as in progress, for byCategory / points / burn-up) → { referenceColumn, version, total, byCategory, points, issues, burnup [{ date, scope, done }], unit, predictedReleaseDate } |
 | | `GET /reports/breakdown?jql&field=status\|assignee\|priority\|type\|project\|reporter\|epic\|resolution\|labels\|component` → { items [{ key, count }], total } |
 | notifications | `GET /notifications?unread=1&limit&offset` → { items, total, unread } (kinds: assigned, updated, transitioned, commented, mentioned; payload { key, summary, by, … }); `POST /notifications/read` {ids?} (none = all) |
 | exchange | `GET /projects/:id/export` (.myboard JSON download); `POST /import/myboard` {file (object or text), key?, name?} (409 `PROJECT_KEY_TAKEN` with `details.suggested`) |
@@ -377,12 +400,14 @@ Forked from MySketchBook's shell; the 3D/interior parts were left out. Every win
 | file | role |
 |---|---|
 | `app.js` | main window: menu bar (= title bar), toolbar (icon + label; folds into » when narrow; language, theme, min/max/close never hidden), sidebar, `#workspace`, `#detail`, bottom panel (Activity · Messages · Information), status bar with grip; commands, menus, context menus, start page wiring, settings, progress, recent list, Undo/Redo, tutorial; test hook `window.__myboard` |
-| `popup.js` | popups: settings (general, start page, theme, font, background, board, database, recent, shortcuts), about, confirm, error, progress, recent, menu (with submenus), theme, colour, prompt, welcome, login, iconpicker |
+| `popup.js` | popups: settings (general, start page, theme, font, background, board, database, recent, shortcuts), about, confirm, error, progress, recent, menu (with submenus), theme, colour, prompt, welcome, login, iconpicker, form |
 | `api/client.js` | `api()` → ApiClient: base + token from `core_info` (desktop) or same origin (web); `X-Client-Id`; errors → `ApiError { code, status, details }` (no JSON answer / nothing behind a proxy → `code: 'unreachable'`); typed helpers per §5 resource |
 | `live/channel.js` | §6: `WsChannel` (web: reconnect with backoff, hello + re-subscribe + presence again, own events dropped, `state` with `resync`) and `NullChannel` (desktop) — same interface |
-| `views/registry.js` | where the workspace views plug in: `registerView(id, { mount(host, ctx), update?, unmount?, commands? })`, ids `board`, `backlog`, `reports`, `projectSettings` (centre `#workspace`) and `detail` (right `#detail`); placeholders until registered |
+| `views/registry.js` | where the workspace views plug in: `registerView(id, { mount(host, ctx), update?, unmount?, commands? })`, ids `board`, `backlog`, `reports`, `projectSettings` (centre `#workspace`) and `detail` (right `#detail`); placeholders until registered. Optional `sidebar: { icon, title(ctx), mount, update?, unmount? }` = the view's own selection list in the **lower part of the left panel** under its own title (app.js `renderSide`; helpers `views/shared/sidebar.js` `linkSidebar`): board — quick filters, swimlane mode, columns to jump to; backlog — saved filters, epics, versions; reports — reports and dashboards; project settings — the sections. The tree on top takes only its height; the divider is draggable (`leftViewHeight`) |
 | `ui/iconref.js` | `renderIconRef(ref, { size, title, fallback })` for `b:` `e:` `u:` `l:`; built-in names are lowerCamelCase, hyphenated spellings and `ICON_ALIASES` resolve (`b:priority-highest` → `highest`); `:icon[ref]` in HTML text |
 | `ui/iconpicker.js` | the icon picker component (popup `iconpicker`, `app.pickIcon(value)` → ref / '' / null): built-in (search ko/en + categories), emoji, uploaded (GET/POST/DELETE `/api/icons`, button/drop/paste, rasters → ≤256 px PNG, animated GIF/WebP ≤512 KB kept, SVG raw), letters, colour, recent |
+| `views/shared/` | helpers for every view (import `views/shared/index.js`): `createLookups(boardData)`, `cardHtml(card, L, opts)`, `issueToCard`, `avatarHtml`, `typeIconHtml`, `priorityIconHtml`, `labelChipsHtml`, `epicChipHtml`, `dueChipHtml`, `progressHtml`, dates/durations (`formatDate`, `relativeTime`, `formatDuration`, `parseDuration`, `dueState`), `errorMessage(error, t)` (by code), `openRefList` / `refButtonHtml` (IconRef dropdown) |
+| `ui/formpopup.js` | popup `form`: `popups.open('form', { title, icon, intro?, submitLabel?, fields: [{ name, type: text\|textarea\|number\|select\|multiselect\|user\|date\|icon\|checkbox\|duration\|color, label, value, options [{ value, label, iconRef?, glyph?, when? }], required, placeholder, hint, min/max/step, allowNew, when { field: value(s) } }] })` → `{ values }` or null; IconRef dropdowns (`views/shared/refdropdown.js`), −/+ steppers, icon fields ask the host (`form-pick-icon`); date → 'YYYY-MM-DD'\|null, duration → seconds, empty number → null |
 | `icons.js`, `icon-tones.js` | the app's own command icons (coloured by meaning) |
 | `icons-catalog.js`, `ui/emoji-data.js` | IconRef data: 421 built-in icons in 17 categories (ko/en names + keywords), 1029 emoji with en/ko keywords |
 | `ui/startpage.js`, `startboard.js`, `startlayout.js`, `background.js` | start page: moving background, movable/resizable translucent cards (hero, start, database, recent, templates, samples, background); no side/bottom panels there |

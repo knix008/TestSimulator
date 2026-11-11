@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const src = path.join(root, 'src');
@@ -98,7 +98,13 @@ test('the icon picker searches in Korean and English and sizes uploads', () => {
   assert.equal(isAnimated(riff, 'image/webp'), true);
 });
 
-test('every text the UI uses exists in Korean and English', () => {
+test('every text the UI uses exists in Korean and English', async () => {
+  // Views register their own texts (src/views/**/texts.js → registerTexts), as scripts/i18n-check.mjs reads them.
+  const { registerTexts } = await import('../../src/i18n.js');
+  for (const file of walk(path.join(src, 'views')).filter((f) => path.basename(f) === 'texts.js')) {
+    const mod = await import(pathToFileURL(file).href);
+    registerTexts(mod.TEXTS ?? mod.default ?? mod);
+  }
   const { used } = collectKeys(sources);
   const missing = [...used].filter((k) => !(k in DICTIONARIES.ko) || !(k in DICTIONARIES.en));
   assert.deepEqual(missing, []);

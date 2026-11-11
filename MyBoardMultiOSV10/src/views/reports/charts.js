@@ -4,9 +4,10 @@
 //
 // Every function takes ({ width, height, colors, ... }) and returns { svg, tips } — `svg` a complete
 // <svg> string with concrete colours (so it can be exported as a file), `tips` the hover texts the marks
-// and hover bands point to with data-tip="<index>". Colours come from palette() (the theme's text, grid
+// and hover bands point to with data-rp-tip="<index>". Colours come from palette() (the theme's text, grid
 // and surface, and a categorical series order chosen for colour-vision safety, light and dark).
 import { escapeHtml } from '../../ui/dom.js';
+import { renderIconRef } from '../../ui/iconref.js';
 
 // Categorical series colours (fixed order, never cycled): light and dark steps of the same hues.
 const SERIES = {
@@ -80,7 +81,7 @@ function labelIndexes(n, width, every = 70) {
   const step = Math.ceil(n / max);
   const out = [];
   for (let i = 0; i < n; i += step) out.push(i);
-  if (out.at(-1) !== n - 1 && n - 1 - out.at(-1) > step / 2) out.push(n - 1);
+  if (out.at(-1) !== n - 1 && n - 1 - out.at(-1) > step * 0.75) out.push(n - 1);
   return out;
 }
 
@@ -94,7 +95,7 @@ function bands(plot, xs) {
   for (let i = 0; i < xs.length; i++) {
     const a = i === 0 ? plot.left : (xs[i - 1] + xs[i]) / 2;
     const b = i === xs.length - 1 ? plot.right : (xs[i] + xs[i + 1]) / 2;
-    out += `<rect class="rp-band" data-tip="${i}" data-x="${r1(xs[i])}" x="${r1(a)}" y="${plot.top}" width="${r1(Math.max(1, b - a))}" height="${plot.h}" fill="transparent"/>`;
+    out += `<rect class="rp-band" data-rp-tip="${i}" data-x="${r1(xs[i])}" x="${r1(a)}" y="${plot.top}" width="${r1(Math.max(1, b - a))}" height="${plot.h}" fill="transparent"/>`;
   }
   return out;
 }
@@ -176,7 +177,7 @@ export function bars({ width, height, colors, labels, values, average = null, co
     const rad = Math.min(4, bw / 2, h);
     tips.push({ title: formatLabel(labels[i], true), rows: [{ color, name: valueName, value: v }, ...(average != null ? [{ color: colors.text, name: averageName, value: Math.round(average * 10) / 10 }] : [])] });
     if (v > 0) body += `<path class="rp-bar" d="M${r1(cx - bw / 2)},${plot.bottom}V${r1(top + rad)}Q${r1(cx - bw / 2)},${r1(top)} ${r1(cx - bw / 2 + rad)},${r1(top)}H${r1(cx + bw / 2 - rad)}Q${r1(cx + bw / 2)},${r1(top)} ${r1(cx + bw / 2)},${r1(top + rad)}V${plot.bottom}Z" fill="${color}" data-value="${v}"/>`;
-    body += `<rect class="rp-hit" data-tip="${i}" x="${r1(plot.left + slot * i)}" y="${plot.top}" width="${r1(slot)}" height="${plot.h}" fill="transparent"/>`;
+    body += `<rect class="rp-hit" data-rp-tip="${i}" x="${r1(plot.left + slot * i)}" y="${plot.top}" width="${r1(slot)}" height="${plot.h}" fill="transparent"/>`;
   });
   if (average != null) {
     const ay = r1(y(average));
@@ -207,7 +208,7 @@ export function hbars({ width, colors, rows, color, valueName = '', format = (v)
     body += `<text x="${labelW}" y="${top + bh / 2 + 4}" text-anchor="end" fill="${colors.text}">${esc(label)}</text>`;
     if (w > 0) body += `<path class="rp-bar" d="M${plot.left},${top}H${r1(plot.left + w - Math.min(4, w))}Q${r1(plot.left + w)},${top} ${r1(plot.left + w)},${top + Math.min(4, w)}V${top + bh - Math.min(4, w)}Q${r1(plot.left + w)},${top + bh} ${r1(plot.left + w - Math.min(4, w))},${top + bh}H${plot.left}Z" fill="${color}" data-value="${row.value}"/>`;
     body += `<text x="${r1(plot.left + w + 5)}" y="${top + bh / 2 + 4}" fill="${colors.muted}">${esc(format(row.value))}</text>`;
-    body += `<rect class="rp-hit" data-tip="${i}" x="0" y="${top - 5}" width="${width}" height="${rowH}" fill="transparent"/>`;
+    body += `<rect class="rp-hit" data-rp-tip="${i}" x="0" y="${top - 5}" width="${width}" height="${rowH}" fill="transparent"/>`;
   });
   return { svg: frame({ width, height, colors, title }, body), tips, height, counts: { bars: rows.filter((r) => r.value > 0).length } };
 }
@@ -238,7 +239,7 @@ export function scatter({ width, height, colors, points, line = [], band = [], m
   const tips = [];
   points.forEach((p, i) => {
     tips.push({ title: p.key, rows: [{ color: colors.series[0], name: names.cycle, value: formatY(p.y, true) }, { name: names.done, value: formatX(p.x, true) }, ...(p.summary ? [{ name: '', value: p.summary }] : [])] });
-    body += `<circle class="rp-point" data-tip="${i}" cx="${r1(x(p.x))}" cy="${r1(y(p.y))}" r="4.5" fill="${colors.series[0]}" fill-opacity="0.85" stroke="${colors.surface}" stroke-width="2"/>`;
+    body += `<circle class="rp-point" data-rp-tip="${i}" cx="${r1(x(p.x))}" cy="${r1(y(p.y))}" r="4.5" fill="${colors.series[0]}" fill-opacity="0.85" stroke="${colors.surface}" stroke-width="2"/>`;
   });
   return { svg: frame({ width, height, colors, title }, body), tips, counts: { points: points.length, days } };
 }
@@ -264,7 +265,7 @@ export function donut({ width, height, colors, items, total, centerLabel = '', t
     const d = frac >= 0.9999
       ? `M${p(R, -Math.PI / 2)}A${r1(R)},${r1(R)} 0 1 1 ${p(R, Math.PI * 1.5 - 0.0001)}L${p(r, Math.PI * 1.5 - 0.0001)}A${r1(r)},${r1(r)} 0 1 0 ${p(r, -Math.PI / 2)}Z`
       : `M${p(R, a0)}A${r1(R)},${r1(R)} 0 ${large} 1 ${p(R, a1)}L${p(r, a1)}A${r1(r)},${r1(r)} 0 ${large} 0 ${p(r, a0)}Z`;
-    body += `<path class="rp-slice" data-tip="${i}" d="${d}" fill="${it.color}" stroke="${colors.surface}" stroke-width="2"/>`;
+    body += `<path class="rp-slice" data-rp-tip="${i}" d="${d}" fill="${it.color}" stroke="${colors.surface}" stroke-width="2"/>`;
     a0 = a1;
   });
   body += `<text x="${r1(cx)}" y="${r1(cy - 2)}" text-anchor="middle" font-size="${Math.max(14, Math.round(R / 3))}" font-weight="700" fill="${colors.text}">${esc(String(total ?? sum))}</text>`;
@@ -278,7 +279,7 @@ export function donut({ width, height, colors, items, total, centerLabel = '', t
       const yy = top + i * rowH + 12;
       const label = it.label.length > 22 ? `${it.label.slice(0, 21)}…` : it.label;
       body += `<rect x="${r1(lx)}" y="${r1(yy - 9)}" width="10" height="10" rx="2" fill="${it.color}"/><text x="${r1(lx + 16)}" y="${r1(yy)}" fill="${colors.text}">${esc(label)}</text><text x="${width - 6}" y="${r1(yy)}" text-anchor="end" fill="${colors.muted}">${it.value}</text>`;
-      body += `<rect class="rp-hit" data-tip="${i}" x="${r1(lx)}" y="${r1(yy - 13)}" width="${r1(legendW)}" height="${rowH}" fill="transparent"/>`;
+      body += `<rect class="rp-hit" data-rp-tip="${i}" x="${r1(lx)}" y="${r1(yy - 13)}" width="${r1(legendW)}" height="${rowH}" fill="transparent"/>`;
     });
   }
   return { svg: frame({ width, height, colors, title }, body), tips, counts: { slices: items.filter((x) => x.value > 0).length } };
@@ -287,25 +288,25 @@ export function donut({ width, height, colors, items, total, centerLabel = '', t
 /** An HTML legend (identity is never colour alone: names next to swatches). */
 export function legendHtml(series, { toggles = false, hidden = new Set() } = {}) {
   return `<div class="rp-legend">${series.map((s) => (toggles
-    ? `<button class="rp-leg ${hidden.has(s.id) ? 'off' : ''}" data-toggle-series="${esc(s.id)}" aria-pressed="${!hidden.has(s.id)}" title="${esc(s.name)}"><i style="background:${s.color}"></i><span>${esc(s.name)}</span></button>`
-    : `<span class="rp-leg"><i style="background:${s.color}${s.dash ? ';height:2px;border-radius:0' : ''}"></i><span>${esc(s.name)}</span></span>`)).join('')}</div>`;
+    ? `<button class="rp-leg ${hidden.has(s.id) ? 'off' : ''}" data-toggle-series="${esc(s.id)}" aria-pressed="${!hidden.has(s.id)}" title="${esc(s.name)}"><i style="background:${s.color}"></i>${s.icon ? renderIconRef(s.icon, { size: 14 }) : ''}<span>${esc(s.name)}</span></button>`
+    : `<span class="rp-leg"><i style="background:${s.color}${s.dash ? ';height:2px;border-radius:0' : ''}"></i>${s.icon ? renderIconRef(s.icon, { size: 14 }) : ''}<span>${esc(s.name)}</span></span>`)).join('')}</div>`;
 }
 
 /**
  * Hover tooltips for a chart host: marks with data-tip show `tips[i]`; a band also moves the crosshair.
  * Returns an unbind function.
  */
-export function bindTooltip(host, getTips, format = (v) => String(v)) {
+export function bindTooltip(host, getTips, format = (v) => (typeof v === 'number' ? String(Math.round(v * 10) / 10) : String(v))) {
   const tip = document.createElement('div');
   tip.className = 'rp-tip';
   tip.hidden = true;
   host.append(tip);
   const hide = () => { tip.hidden = true; const cross = host.querySelector('.rp-cross'); if (cross) cross.setAttribute('visibility', 'hidden'); host.querySelector('.rp-hover')?.classList.remove('rp-hover'); };
   const move = (event) => {
-    const el = event.target.closest?.('[data-tip]');
+    const el = event.target.closest?.('[data-rp-tip]');
     const tips = getTips();
     if (!el || !tips || !host.contains(el)) { hide(); return; }
-    const t = tips[Number(el.dataset.tip)];
+    const t = tips[Number(el.dataset.rpTip)];
     if (!t) { hide(); return; }
     host.querySelector('.rp-hover')?.classList.remove('rp-hover');
     el.classList.add('rp-hover');

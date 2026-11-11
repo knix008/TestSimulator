@@ -82,7 +82,6 @@ export const grip = (title) => `<span class="ps-grip" draggable="true" title="${
 
 // ───────────────────────── errors
 
-const KNOWN = new Set();
 /** A translated message for an API error (by code), with the server message as detail when it adds something. */
 export function errorText(error) {
   const code = String(error?.code ?? 'error');
@@ -92,7 +91,6 @@ export function errorText(error) {
   if (/^INVALID_/.test(code)) return `${tr('err.INVALID')} (${code})${error.message ? `: ${error.message}` : ''}`;
   if (/^VALIDATOR_|^CONDITION_/.test(code)) return `${tr('err.RULE')}: ${error.message ?? code}`;
   if (/_NOT_FOUND$/.test(code)) return tr('err.NOT_FOUND');
-  KNOWN.add(code);
   return error?.message ? String(error.message) : code;
 }
 
@@ -143,9 +141,6 @@ export function sortable(list, onOrder, { rowSelector = '[data-id]', disabled = 
     onOrder([...rowEl.parentElement.children].filter((el) => el.matches(rowSelector)).map((el) => el.dataset.id));
   });
 }
-
-/** Moves `id` from its place to `to` in a copy of `ids`. */
-export const moveId = (ids, id, to) => { const out = ids.filter((x) => x !== id); out.splice(Math.max(0, Math.min(out.length, to)), 0, id); return out; };
 
 export const items = (value) => (Array.isArray(value) ? value : value?.items ?? []);
 

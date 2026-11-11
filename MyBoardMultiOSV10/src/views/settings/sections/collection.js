@@ -91,18 +91,20 @@ export function bindTables(S, el, kinds) {
       const k = box.dataset.kind;
       const replaceWith = box.querySelector('[data-field="replaceWith"]')?.value || '';
       const pending = S.pending.del;
-      try {
-        if (kinds[k]?.remove) await kinds[k].remove(id, replaceWith);
-        else await S.api.del(S.url(k, id), replaceWith ? { replaceWith } : undefined);
-        S.pending.del = null;
-        S.say('success', tr('del.done'));
-        await S.refresh();
-      } catch (error) {
-        if (error?.code === 'IN_USE') {
-          S.pending.del = { ...pending, inUse: true, count: error.details?.count };
-          S.render();
-        } else S.fail(error);
-      }
+      await S.track(async () => {
+        try {
+          if (kinds[k]?.remove) await kinds[k].remove(id, replaceWith);
+          else await S.api.del(S.url(k, id), replaceWith ? { replaceWith } : undefined);
+          S.pending.del = null;
+          S.say('success', tr('del.done'));
+          await S.refresh();
+        } catch (error) {
+          if (error?.code === 'IN_USE') {
+            S.pending.del = { ...pending, inUse: true, count: error.details?.count };
+            S.render();
+          } else { S.pending.del = null; S.fail(error); }
+        }
+      });
     } else if (act === 'add' && spec?.create) {
       const form = button.closest('.ps-add');
       const nameEl = form?.querySelector('[data-new="name"]');

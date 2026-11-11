@@ -4,7 +4,7 @@
 //   const drag = new CardDrag(root, scroller, {
 //     ids(cardEl) → the ids that move (the selection when the card is part of it),
 //     canDrop(targetCell) → true | false (a column the workflow forbids is dimmed),
-//     onStart(ids, cardEl), onDrop({ ids, cell, index }), onCancel()
+//     onStart(ids, cardEl), onDrop({ ids, cell, index }), onRefused() (let go over a refused column), onCancel()
 //   });
 //
 // A cell is an element with data-cell="<lane>|<column>" holding the cards (.mb-card). A collapsed column's
@@ -157,11 +157,12 @@ export class CardDrag {
     if (!s) return;
     const started = s.started;
     const drop = started && s.cell && event.type === 'pointerup' ? { ids: s.ids, cell: s.cell, index: s.index } : null;
+    const refused = started && !s.cell && s.refused && event.type === 'pointerup';
     this.cleanup();
     if (!started) return;
     this.suppressClick = true;
     setTimeout(() => { this.suppressClick = false; }, 0);
-    if (drop) this.h.onDrop?.(drop); else this.h.onCancel?.();
+    if (drop) this.h.onDrop?.(drop); else { if (refused) this.h.onRefused?.(); this.h.onCancel?.(); }
   }
 
   cancel() {

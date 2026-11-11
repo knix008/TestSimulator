@@ -3,6 +3,7 @@
 import { TABLES, SCHEMA_VERSION } from './schema.js';
 import { createTableSql, createIndexSql, addColumnSql, listTablesSql, listColumnsSql } from './sqlgen.js';
 import { newId } from '../ids.js';
+import { defaultColumnIcon } from '../columnicons.js';
 
 /** Default global priorities (position 0 = highest) and resolutions. */
 export const DEFAULT_PRIORITIES = [
@@ -13,9 +14,9 @@ export const DEFAULT_PRIORITIES = [
   { name: 'Lowest', icon: 'b:priority-lowest', color: '#1c7ed6' },
 ];
 export const DEFAULT_RESOLUTIONS = [
-  { name: 'Done', description: 'Work has been completed.' },
-  { name: "Won't Do", description: 'This will not be worked on.' },
-  { name: 'Duplicate', description: 'The problem is a duplicate of an existing issue.' },
+  { name: 'Done', description: 'Work has been completed.', icon: 'b:done', color: '#2b8a3e' },
+  { name: "Won't Do", description: 'This will not be worked on.', icon: 'b:ban', color: '#868e96' },
+  { name: 'Duplicate', description: 'The problem is a duplicate of an existing issue.', icon: 'b:files', color: '#7048e8' },
 ];
 
 /**
@@ -38,6 +39,8 @@ export async function migrate(db) {
   const row = await db.get('SELECT "value" FROM "meta" WHERE "key" = ?', ['schema_version']);
   const from = row ? Number(row.value) : 0;
   if (from < 1) await seedGlobals(db);
+  if (from >= 1 && from < 2) await resolutionIcons(db);
+  await fillColumnIcons(db);
   if (from !== SCHEMA_VERSION) {
     await db.tx(async () => {
       await db.run('DELETE FROM "meta" WHERE "key" = ?', ['schema_version']);
@@ -58,6 +61,41 @@ async function seedGlobals(db) {
       for (const r of DEFAULT_RESOLUTIONS) await db.insert('resolutions', { id: newId(), ...r, position: i++ });
     }
   });
+}
+
+/** v2: resolutions got icon/colour — the default ones that have no icon yet get the defaults' icon and colour. */
+async function resolutionIcons(db) {
+  await db.tx(async () => {
+    for (const r of DEFAULT_RESOLUTIONS) {
+      await db.run('UPDATE "resolutions" SET "icon" = ?, "color" = ? WHERE LOWER("name") = ? AND "icon" IS NULL', [r.icon, r.color, r.name.toLowerCase()]);
+    }
+  });
+}
+
+/**
+ * Every board column has an icon: columns without one (databases from before board_columns.icon, rows copied or
+ * imported from such a database) get the default of their name / statuses (core/columnicons.js). Idempotent —
+ * runs on every migrate and touches only columns whose icon is NULL or ''.
+ */
+export async function fillColumnIcons(db) {
+  const cols = await db.all('SELECT c."id", c."name", c."status_ids", c."board_id" FROM "board_columns" c WHERE c."icon" IS NULL OR c."icon" = \'\'');
+  if (!cols.length) return 0;
+  const parse = (v) => { try { const x = typeof v === 'string' ? JSON.parse(v) : v; return Array.isArray(x) ? x : []; } catch { return []; } };
+  const statuses = Object.fromEntries((await db.all('SELECT "id", "category" FROM "statuses"')).map((s) => [s.id, s.category]));
+  const backlogOf = {};
+  for (const b of await db.all('SELECT "id", "settings" FROM "boards"')) {
+    let s = null;
+    try { s = typeof b.settings === 'string' ? JSON.parse(b.settings) : b.settings; } catch { /* bad json */ }
+    backlogOf[b.id] = s?.backlog?.enabled ? new Set(s.backlog.statusIds || []) : new Set();
+  }
+  await db.tx(async () => {
+    for (const c of cols) {
+      const ids = parse(c.status_ids);
+      const backlog = ids.length > 0 && ids.every((id) => backlogOf[c.board_id]?.has(id));
+      await db.run('UPDATE "board_columns" SET "icon" = ? WHERE "id" = ?', [defaultColumnIcon(c.name, ids.map((id) => statuses[id]).filter(Boolean), { backlog }), c.id]);
+    }
+  });
+  return cols.length;
 }
 
 /** Drop every MyBoard table (tests and "copy into a non-empty database" with overwrite). */

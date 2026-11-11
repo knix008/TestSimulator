@@ -7,6 +7,8 @@ import { check } from '../../errors.js';
 import { nowOf, toApi, emit, today } from '../common.js';
 import { CATEGORY_COLOR } from '../templates.js';
 import { writeHistory } from '../history.js';
+import { projectKeyOwner } from '../relocation.js';
+import { defaultColumnIcon } from '../../columnicons.js';
 
 const COLORS = { green: '#61bd4f', yellow: '#f2d600', orange: '#ff9f1a', red: '#eb5a46', purple: '#c377e0', blue: '#0079bf', sky: '#00c2e0', lime: '#51e898', pink: '#ff78cb', black: '#344563' };
 const DONE_RE = /\b(done|complete[d]?|finished|closed|shipped|released)\b|완료|끝/i;
@@ -34,7 +36,7 @@ export async function importCardBoard(core, ctx, data, opts = {}) {
   const S = core.services;
   const now = nowOf(ctx);
   let key = String(opts.key || keyFrom(data.name)).toUpperCase();
-  for (let n = 2; await db.get('SELECT "id" FROM "projects" WHERE "key" = ?', [key]); n++) key = keyFrom(data.name).slice(0, 10 - String(n).length) + n;
+  for (let n = 2; await projectKeyOwner(db, key); n++) key = keyFrom(data.name).slice(0, 10 - String(n).length) + n;
 
   const lists = data.lists.filter((l) => !l.closed).sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
   check(lists.length > 0, 'INVALID_FILE', 'The board has no open lists');
@@ -55,7 +57,7 @@ export async function importCardBoard(core, ctx, data, opts = {}) {
       const st = await db.insert('statuses', { id: newId(), project_id: pid, name: String(l.name).slice(0, 100), category, color: CATEGORY_COLOR[category], position: i, created_at: now, updated_at: now });
       statusOf[l.id] = st;
       await db.insert('transitions', { id: newId(), workflow_id: wf.id, name: st.name, from_status_id: null, to_status_id: st.id, rules: { conditions: [], validators: [], postFunctions: [] }, position: i, created_at: now, updated_at: now });
-      await db.insert('board_columns', { id: newId(), board_id: boardId, name: st.name, position: i, status_ids: [st.id], created_at: now, updated_at: now });
+      await db.insert('board_columns', { id: newId(), board_id: boardId, name: st.name, icon: defaultColumnIcon(st.name, category), position: i, status_ids: [st.id], created_at: now, updated_at: now });
     }
     await db.update('workflows', wf.id, { initial_status_id: statusOf[lists[0].id].id });
     const settings = { ...(JSON.parse((await db.get('SELECT "settings" FROM "boards" WHERE "id" = ?', [boardId])).settings)), backlog: { enabled: false, statusIds: [] }, doneHideDays: null };

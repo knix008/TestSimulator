@@ -56,6 +56,8 @@ img.mb-avatar { object-fit: cover; }
 .mb-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; min-width: 0; font-size: 0.95em; }
 .mb-key { font-size: 0.78em; color: var(--muted); font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
 .mb-key.resolved { text-decoration: line-through; }
+.mb-resolution { display: inline-flex; align-items: center; flex: none; }
+.mb-resolution .iconref, .mb-resolution .icon { width: 14px; height: 14px; }
 .mb-flag .icon { width: 14px; height: 14px; color: #f08c00 !important; }
 .mb-points { min-width: 18px; padding: 0 5px; border-radius: 99px; background: var(--hover); color: var(--text); font-size: 0.74em; line-height: 17px; text-align: center; font-weight: 600; }
 .mb-count, .mb-time, .mb-meta { display: inline-flex; align-items: center; gap: 2px; font-size: 0.78em; color: var(--muted); white-space: nowrap; }

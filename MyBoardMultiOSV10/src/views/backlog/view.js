@@ -1,8 +1,8 @@
 // The backlog / search view (registered as 'backlog'): the project's issues as a ranked list grouped by
 // board column (or status, epic, assignee), with a basic search (drop-down filters) and an advanced one
 // (JQL with live validation and autocomplete), sortable and choosable columns, paging, saved filters,
-// CSV export, multi-select with bulk changes, rank by drag and keyboard, inline create, an epics and
-// versions panel, Undo/Redo of every change, and live updates from other users.
+// CSV export, multi-select with bulk changes, rank by drag and keyboard, inline create, the epics / versions /
+// saved filters in the left panel (sidebar.js), Undo/Redo of every change, and live updates from other users.
 import { escapeHtml } from '../../ui/dom.js';
 import { icon } from '../../icons.js';
 import { renderIconRef } from '../../ui/iconref.js';
@@ -11,6 +11,7 @@ import { openPicker, closePicker, dropButtonHtml } from './picker.js';
 import { JqlEditor } from './jql-editor.js';
 import { andJql, basicJql, quoted, SORT_FIELD, splitOrder, withOrder } from './jql-util.js';
 import { Lookups } from './lookups.js';
+import { resolutionIconHtml } from '../shared/cards.js';
 import { saveFile, safeName } from './download.js';
 import { L, E } from './texts.js';
 
@@ -20,6 +21,7 @@ const COLUMNS = {
   key: { w: '96px', icon: 'key' },
   summary: { w: 'minmax(200px, 1fr)', icon: 'notes', fixed: true },
   status: { w: '136px', icon: 'flag' },
+  resolution: { w: '130px', icon: 'check' },
   assignee: { w: '150px', icon: 'user' },
   reporter: { w: '140px', icon: 'user' },
   priority: { w: '104px', icon: 'sort' },
@@ -47,8 +49,9 @@ const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(
 const initials = (name) => String(name ?? '?').split(/\s+/).map((w) => [...w][0] ?? '').join('').slice(0, 2).toUpperCase() || '?';
 
 export class BacklogView {
-  constructor(host, ctx) {
+  constructor(host, ctx, { onSideChange = null } = {}) {
     this.host = host;
+    this.onSideChange = onSideChange;   // the left panel's sidebar redraws (sidebar.js)
     this.ctx = ctx;
     this.api = ctx.api;
     this.lookups = new Lookups(ctx.api);
@@ -97,7 +100,6 @@ export class BacklogView {
       <div class="bl-search"></div>
       <div class="bl-bulk" hidden></div>
       <div class="bl-main">
-        <aside class="bl-side"></aside>
         <section class="bl-list" tabindex="0" aria-label="${escapeHtml(L('listLabel'))}" role="grid" aria-multiselectable="true">
           <div class="bl-table"><div class="bl-head" role="row"></div><div class="bl-body"></div><div class="bl-create"></div></div>
         </section>
@@ -105,11 +107,14 @@ export class BacklogView {
       <div class="bl-foot"></div>
     </div>`;
     this.root = this.host.firstElementChild;
-    this.el = Object.fromEntries(['bar', 'search', 'bulk', 'side', 'list', 'head', 'body', 'create', 'foot'].map((k) => [k, this.root.querySelector(`.bl-${k}`)]));
+    this.el = Object.fromEntries(['bar', 'search', 'bulk', 'list', 'head', 'body', 'create', 'foot'].map((k) => [k, this.root.querySelector(`.bl-${k}`)]));
     this.bindEvents();
     this.resizer = new ResizeObserver(() => this.fit());
     this.resizer.observe(this.root);
     globalThis.__myboardBacklog = this;
+    // Changes made in this window by other views (the issue detail panel) come as window events.
+    this.onLocalEvent = (e) => { if (e.detail && e.detail.source !== 'backlog') this.update({ event: e.detail }); };
+    window.addEventListener('myboard:event', this.onLocalEvent);
     if (!this.live) { this.state = this.doc?.demo ? 'demo' : 'offline'; this.renderAll(); return; }
     this.filters.projects = [this.project.key];
     this.renderAll();
@@ -117,6 +122,7 @@ export class BacklogView {
   }
 
   destroy() {
+    window.removeEventListener('myboard:event', this.onLocalEvent);
     closePicker();
     this.resizer?.disconnect();
     this.editor?.destroy();
@@ -130,6 +136,15 @@ export class BacklogView {
   }
 
   savePrefs() { storePrefs(this.prefs); }
+
+  /** Tells the other views of this window (the board, the detail panel) what changed: the live channel drops own events. */
+  async announce(type, ids) {
+    for (const id of [].concat(ids ?? []).slice(0, 100)) {
+      let data = { id };
+      if (type !== 'issue.deleted') { try { data = await this.api.issue(id); } catch { continue; } }
+      try { window.dispatchEvent(new CustomEvent('myboard:event', { detail: { type, id, rev: data.rev, data, local: true, source: 'backlog' } })); } catch { /* no window */ }
+    }
+  }
 
   // ───────────────────────── data
 
@@ -167,7 +182,7 @@ export class BacklogView {
 
   /** The query without the side panel's epic/version and without ORDER BY. */
   baseWhere() {
-    if (this.mode === 'jql') return splitOrder(this.editor?.value ?? this.jqlText ?? '').where;
+    if (this.mode === 'jql') return splitOrder(this.jqlText ?? '').where;
     return basicJql(this.filters);
   }
 
@@ -181,7 +196,7 @@ export class BacklogView {
 
   effectiveOrder() {
     if (this.mode === 'jql') {
-      const own = splitOrder(this.editor?.value ?? this.jqlText ?? '').order;
+      const own = splitOrder(this.jqlText ?? '').order;
       if (own.length) return own;
     }
     return this.order.length ? this.order : [{ field: 'rank', dir: 'asc' }];
@@ -267,17 +282,16 @@ export class BacklogView {
       <span class="grow"></span>
       ${dropButtonHtml({ id: 'group', iconHtml: icon(GROUPS[this.prefs.group]), label: `${L('groupBy')}: ${L(`group_${this.prefs.group}`)}`, tip: L('groupTip') })}
       ${dropButtonHtml({ id: 'columns', iconHtml: icon('table'), label: L('columns'), tip: L('columnsTip') })}
-      <button class="small-button bl-tool" data-act="side" aria-pressed="${this.prefs.side}" title="${escapeHtml(L('sideTip'))}">${icon('panelLeft')}<span>${escapeHtml(L('side'))}</span></button>
       <button class="small-button bl-tool" data-act="export" ${live ? '' : 'disabled'} title="${escapeHtml(L('exportTip'))}">${icon('csvFile')}<span>${escapeHtml(L('exportCsv'))}</span></button>
       <button class="button primary small bl-tool" data-act="create" ${live ? '' : 'disabled'} title="${escapeHtml(L('createTip'))}">${icon('plus')}<span>${escapeHtml(L('create'))}</span></button>`;
-    this.el.bar.querySelector('[data-act="side"]').classList.toggle('active', this.prefs.side);
+    this.onSideChange?.();
   }
 
   renderSearch() {
     if (this.mode === 'jql') {
       if (!this.el.search.querySelector('.mbv-jql')) {
         this.el.search.innerHTML = `<div class="bl-jql-row"><div class="bl-jql-host"></div><button class="button primary small" data-act="run" title="${escapeHtml(L('runTip'))}">${icon('search')}<span>${escapeHtml(L('run'))}</span></button></div><div class="bl-chips"></div>`;
-        this.editor = new JqlEditor(this.el.search.querySelector('.bl-jql-host'), { api: this.api, value: this.jqlText ?? '', onSubmit: () => this.search(), onChange: (text) => { this.jqlText = text; } });
+        this.editor = new JqlEditor(this.el.search.querySelector('.bl-jql-host'), { api: this.api, value: this.jqlText ?? '', onSubmit: (text) => { this.jqlText = text; this.search(); } });
       }
       this.renderChips();
       return;
@@ -289,6 +303,7 @@ export class BacklogView {
     const nameList = (values, fn) => (values.length ? values.map(fn).join(', ') : L('any'));
     const user = (v) => (v === 'me' ? L('me') : v === '' ? L('unassigned') : lk.usersList().find((u) => u.username === v)?.displayName ?? v);
     this.el.search.innerHTML = `<div class="bl-basic">
+      <button class="small-button bl-filters-toggle" data-act="filtersToggle" title="${escapeHtml(L('filtersToggleTip'))}">${icon('filter')}<span>${escapeHtml(L('filtersToggle'))}</span>${[f.types, f.statuses, f.assignees, f.priorities, f.labels].filter((x) => x.length).length ? `<i class="mbv-count">${[f.types, f.statuses, f.assignees, f.priorities, f.labels].filter((x) => x.length).length}</i>` : ''}</button>
       <label class="search-box bl-text">${icon('search')}<input type="search" data-input="text" value="${escapeHtml(f.text)}" placeholder="${escapeHtml(L('textPlaceholder'))}" aria-label="${escapeHtml(L('textPlaceholder'))}" /></label>
       ${dropButtonHtml({ id: 'f:projects', iconHtml: icon('folder'), label: `${L('fProject')}: ${nameList(f.projects, (k) => k)}`, cls: f.projects.length ? 'on' : '' })}
       ${dropButtonHtml({ id: 'f:types', iconHtml: icon('layers'), label: `${L('fType')}: ${nameList(f.types, (x) => x)}`, cls: f.types.length ? 'on' : '' })}
@@ -329,28 +344,16 @@ export class BacklogView {
       <button class="small-button" data-act="deselect" title="${escapeHtml(L('deselectTip'))}">${icon('deselect')}<span>${escapeHtml(L('deselect'))}</span></button>`;
   }
 
-  renderSide() {
-    const side = this.el.side;
-    this.root.classList.toggle('no-side', !this.prefs.side);
-    if (!this.prefs.side) { side.innerHTML = ''; return; }
-    if (!this.live) { side.innerHTML = ''; return; }
-    const epics = [...this.lookups.epics.values()].filter((e) => e.projectId === this.project.id);
-    const counts = this.epicCounts;
-    const count = (k) => (counts ? `<i class="bl-side-count">${counts.get(k) ?? 0}</i>` : '');
-    const item = (kind, value, active, glyph, label, extra = '', tip = label) => `<button class="bl-side-item ${active ? 'active' : ''}" data-side="${kind}" data-value="${escapeHtml(value)}" title="${escapeHtml(tip)}" aria-pressed="${active}">${glyph}<span>${escapeHtml(label)}</span>${extra}</button>`;
-    const versions = this.lookups.versionsOf(this.project.id);
-    side.innerHTML = `<div class="bl-side-head">${icon('star')}<span>${escapeHtml(L('epics'))}</span><button class="icon-button" data-act="side" title="${escapeHtml(L('sideHide'))}">${icon('panelLeftClose')}</button></div>
-      <div class="bl-side-list">
-        ${item('epic', '*', this.side.epic == null, icon('list'), L('allIssues'), counts ? `<i class="bl-side-count">${this.epicTotal ?? ''}</i>` : '')}
-        ${epics.map((e) => item('epic', e.key, this.side.epic === e.key, `<span class="bl-epic-dot" style="background:${escapeHtml(e.color || '#7e4fd8')}"></span>`, e.summary, count(e.id), `${e.key} ${e.summary}`)).join('')}
-        ${item('epic', '', this.side.epic === '', icon('dot'), L('noEpic'), count(''))}
-      </div>
-      <div class="bl-side-head">${icon('tag')}<span>${escapeHtml(L('versions'))}</span></div>
-      <div class="bl-side-list">
-        ${item('version', '*', !this.side.version, icon('list'), L('allVersions'))}
-        ${versions.length ? versions.map((v) => item('version', v.name, this.side.version === v.name, icon(v.released ? 'check' : 'calendar'), v.name, v.released ? `<i class="badge ok">${escapeHtml(L('released'))}</i>` : v.releaseDate ? `<small>${escapeHtml(fmtDate(v.releaseDate))}</small>` : '')).join('') : `<p class="muted bl-side-empty">${escapeHtml(L('noVersions'))}</p>`}
-      </div>`;
+  /** The epics, versions and saved filters are drawn by the left panel's sidebar (sidebar.js) from this state. */
+  renderSide() { this.onSideChange?.(); }
+
+  /** The project's epics and versions (the sidebar lists them; counts are this.epicCounts, null while loading). */
+  sideEpics() {
+    if (!this.live) return [];
+    return [...this.lookups.epics.values()].filter((e) => e.projectId === this.project.id);
   }
+
+  sideVersions() { return this.live ? this.lookups.versionsOf(this.project.id) : []; }
 
   /** Groups of the rows: [{ id, name, glyph, rows, kind }] in board / status order. */
   groups() {
@@ -362,7 +365,7 @@ export class BacklogView {
     const byKey = new Map();
     const add = (id, name, glyph, extra = {}) => { const g = { id, name, glyph, rows: [], ...extra }; out.push(g); byKey.set(id, g); return g; };
     if (mode === 'column' && this.boardData?.columns?.length) {
-      for (const c of this.boardData.columns) add(`col:${c.id}`, c.name, icon(c.backlog ? 'list' : c.done ? 'check' : 'columns'), { columnId: c.id, backlog: c.backlog, done: c.done, statusIds: c.statusIds });
+      for (const c of this.boardData.columns) add(`col:${c.id}`, c.name, c.icon ? renderIconRef(c.icon, { size: 16 }) : icon(c.backlog ? 'list' : c.done ? 'check' : 'columns'), { columnId: c.id, backlog: c.backlog, done: c.done, statusIds: c.statusIds });
       const other = add('col:other', L('notOnBoard'), icon('question'), { other: true });
       for (const row of items) {
         const g = out.find((x) => x.statusIds?.includes(row.statusId)) ?? other;
@@ -377,9 +380,9 @@ export class BacklogView {
       const k = keyOf(row);
       let g = byKey.get(k);
       if (!g) {
-        if (mode === 'epic') { const e = lk.epicOf(k); g = add(k, e ? `${e.key} ${e.summary}` : L('noEpic'), e ? `<span class="bl-epic-dot" style="background:${escapeHtml(e.color || '#7e4fd8')}"></span>` : icon('dot'), { sort: e ? e.key : '~' }); }
+        if (mode === 'epic') { const e = lk.epicOf(k); g = add(k, e ? `${e.key} ${e.summary}` : L('noEpic'), e ? `<i class="bl-epic-dot" style="background:${escapeHtml(e.color || "#7e4fd8")}"></i>` : icon('dot'), { sort: e ? e.key : '~' }); }
         else if (mode === 'assignee') { const u = lk.users.get(k); g = add(k, u ? lk.userName(k) : L('unassigned'), u ? renderIconRef(u.avatar, { size: 18, fallback: `l:${initials(lk.userName(k))}` }) : icon('user'), { sort: u ? lk.userName(k) : '~' }); }
-        else { const s = lk.statuses.get(k); g = add(k, s?.name ?? '?', `<span class="bl-cat-dot ${s?.category ?? 'todo'}"></span>`, { statusId: k, sort: `${s?.projectId === this.project.id ? 0 : 1}${String(s?.position ?? 99).padStart(3, '0')}` }); }
+        else { const s = lk.statuses.get(k); g = add(k, s?.name ?? '?', `<i class="bl-cat-dot ${s?.category ?? 'todo'}"></i>`, { statusId: k, sort: `${s?.projectId === this.project.id ? 0 : 1}${String(s?.position ?? 99).padStart(3, '0')}` }); }
       }
       g.rows.push(row);
     }
@@ -447,7 +450,16 @@ export class BacklogView {
       case 'type': { const ty = lk.types.get(r.typeId); return renderIconRef(ty?.icon, { size: 16, title: ty?.name ?? '', fallback: 'b:task' }); }
       case 'key': return `<span class="bl-key ${r.resolutionId ? 'resolved' : ''}">${escapeHtml(r.key)}</span>`;
       case 'summary': return `<span class="bl-summary" title="${escapeHtml(r.summary)}">${r.flagged ? icon('flag', 'icon tiny bl-flag') : ''}${escapeHtml(r.summary)}</span>`;
-      case 'status': { const s = lk.statuses.get(r.statusId); return s ? `<span class="bl-lozenge ${s.category}" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</span>` : ''; }
+      case 'status': {
+        const s = lk.statuses.get(r.statusId);
+        // a resolved row shows its resolution's icon next to the status (unless the resolution column is shown)
+        const res = r.resolutionId && !this.prefs.columns.includes('resolution') ? lk.resolutions.get(r.resolutionId) : null;
+        return s ? `<span class="bl-lozenge ${s.category}" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</span>${res ? resolutionIconHtml(res) : ''}` : '';
+      }
+      case 'resolution': {
+        const res = r.resolutionId ? lk.resolutions.get(r.resolutionId) : null;
+        return res ? `<span class="bl-res">${resolutionIconHtml(res)}<span>${escapeHtml(res.name)}</span></span>` : '';
+      }
       case 'assignee':
       case 'reporter': {
         const id = c === 'assignee' ? r.assigneeId : r.reporterId;
@@ -545,7 +557,7 @@ export class BacklogView {
       case 'mode': return this.setMode(value);
       case 'run': return this.editor?.submit();
       case 'clear': this.filters = { projects: [this.project.key], types: [], statuses: [], assignees: [], priorities: [], labels: [], text: '', hideDone: false }; this.side = { epic: null, version: null }; this.renderSearch(); this.renderSide(); return this.search();
-      case 'side': this.prefs.side = !this.prefs.side; this.savePrefs(); this.renderBar(); return this.renderSide();
+      case 'filtersToggle': this.root.classList.toggle('filters-open'); return undefined;
       case 'unside': this.side[value] = null; this.renderChips(); this.renderSide(); return this.search();
       case 'export': return this.exportCsv();
       case 'create': return this.openCreate();
@@ -601,7 +613,7 @@ export class BacklogView {
     if (cur?.field?.toLowerCase() === field.toLowerCase()) order = cur.dir === 'asc' ? [{ field, dir: 'desc' }] : [];
     else order = [{ field, dir: 'asc' }];
     if (this.mode === 'jql') {
-      this.jqlText = withOrder(this.editor?.value ?? '', order);
+      this.jqlText = withOrder(this.jqlText ?? '', order);
       this.editor?.setValue(this.jqlText);
     }
     this.order = order;
@@ -699,7 +711,7 @@ export class BacklogView {
     switch (id) {
       case 'f:projects': return multi('projects', [...lk.projects.values()].filter((p) => !p.archived).map((p) => ({ value: p.key, label: p.name, detail: p.key, icon: renderIconRef(p.icon, { size: 16, fallback: `l:${String(p.key).slice(0, 2)}` }) })));
       case 'f:types': return multi('types', uniqueNames(inProjects([...lk.types.values()]).sort((a, b) => a.position - b.position)).map((x) => ({ value: x.name, label: x.name, icon: renderIconRef(x.icon, { size: 16, fallback: 'b:task' }) })));
-      case 'f:statuses': return multi('statuses', uniqueNames(inProjects([...lk.statuses.values()]).sort((a, b) => a.position - b.position)).map((x) => ({ value: x.name, label: x.name, icon: `<span class="bl-cat-dot ${x.category}"></span>`, detail: L(`cat_${x.category}`) })));
+      case 'f:statuses': return multi('statuses', uniqueNames(inProjects([...lk.statuses.values()]).sort((a, b) => a.position - b.position)).map((x) => ({ value: x.name, label: x.name, icon: `<i class="bl-cat-dot ${x.category}"></i>`, detail: L(`cat_${x.category}`) })));
       case 'f:assignees': return multi('assignees', [{ value: 'me', label: L('me'), icon: icon('user') }, { value: '', label: L('unassigned'), icon: icon('close') }, { separator: true }, ...lk.usersList().map((u) => ({ value: u.username, label: lk.userName(u.id), detail: u.username, icon: renderIconRef(u.avatar, { size: 18, fallback: `l:${initials(lk.userName(u.id))}` }) }))]);
       case 'f:priorities': return multi('priorities', lk.prioritiesList().map((p) => ({ value: p.name, label: p.name, icon: renderIconRef(p.icon, { size: 16 }) })));
       case 'f:labels': return multi('labels', this.labelsList.map((l) => ({ value: l, label: l, icon: icon('tag') })));
@@ -725,15 +737,8 @@ export class BacklogView {
   // ───────────────────────── saved filters
 
   openFilters(button) {
-    const mine = this.savedFilters.filter((f) => f.mine);
-    const shared = this.savedFilters.filter((f) => !f.mine);
-    const row = (f) => ({ value: `open:${f.id}`, label: f.name, detail: f.shared ? L('shared') : '', icon: icon(f.favourite ? 'star' : 'filter'), tip: f.jql });
-    const sortFav = (list) => [...list].sort((a, b) => Number(b.favourite) - Number(a.favourite) || a.name.localeCompare(b.name));
     const f = this.filter;
     const items = [
-      ...(mine.length ? [{ group: L('myFilters') }, ...sortFav(mine).map(row)] : []),
-      ...(shared.length ? [{ group: L('sharedFilters') }, ...sortFav(shared).map(row)] : []),
-      ...(this.savedFilters.length ? [{ separator: true }] : []),
       { value: 'saveAs', label: L('filterSaveAs'), icon: icon('saveAs') },
       ...(f?.mine ? [
         { value: 'save', label: L('filterSave', { name: f.name }), icon: icon('save') },
@@ -799,6 +804,21 @@ export class BacklogView {
     }
   }
 
+  /** Star / unstar a saved filter of one's own (the sidebar's star button). */
+  async starFilter(id) {
+    const row = this.savedFilters.find((x) => x.id === id);
+    if (!row?.mine) return;
+    try {
+      const next = await this.api.patch(`/filters/${encodeURIComponent(id)}`, { favourite: !row.favourite, rev: row.rev });
+      if (this.filter?.id === id) this.filter = next;
+      await this.loadFilters();
+      if (this.filter) this.filter = this.savedFilters.find((x) => x.id === this.filter.id) ?? this.filter;
+      this.renderBar();
+    } catch (error) {
+      this.ctx.showError(E('filterFailed'), error);
+    }
+  }
+
   recordFilterCreate(row) {
     let current = row;
     this.ctx.history.record({
@@ -834,6 +854,46 @@ export class BacklogView {
     input?.focus();
   }
 
+  /** Edit › Create issue (C): the full form (popup), then the new issue shows in the list. Undoable. */
+  async createWithForm() {
+    if (!this.live) return null;
+    const lk = this.lookups;
+    const pid = this.project.id;
+    const types = this.createTypes();
+    const priorities = lk.prioritiesList();
+    const fields = [
+      { name: 'type', type: 'select', label: L('col_type'), value: (types.find((x) => x.level === 0) ?? types[0])?.id ?? '', required: true, glyph: 'layers', options: types.map((x) => ({ value: x.id, label: x.name, iconRef: x.icon })) },
+      { name: 'summary', type: 'text', label: L('col_summary'), value: '', required: true, placeholder: L('createPlaceholderShort'), maxLength: 255 },
+      { name: 'description', type: 'textarea', label: L('description'), value: '', rows: 4 },
+      { name: 'assignee', type: 'user', label: L('col_assignee'), value: '', options: lk.usersList().map((u) => ({ value: u.id, label: lk.userName(u.id), iconRef: u.avatar || `l:${initials(lk.userName(u.id))}`, hint: u.username })), noneLabel: L('unassigned') },
+      { name: 'priority', type: 'select', label: L('col_priority'), value: priorities[Math.floor(priorities.length / 2)]?.id ?? '', glyph: 'flag', options: priorities.map((p) => ({ value: p.id, label: p.name, iconRef: p.icon })) },
+      { name: 'labels', type: 'multiselect', label: L('col_labels'), value: [], options: this.labelsList.map((l) => ({ value: l, label: l, glyph: 'tag' })), allowNew: true },
+      { name: 'epic', type: 'select', label: L('col_epic'), value: this.side.epic ? [...lk.epics.values()].find((e) => e.key === this.side.epic)?.id ?? '' : '', glyph: 'star', noneLabel: L('noEpic'), options: [...lk.epics.values()].filter((e) => e.projectId === pid).map((e) => ({ value: e.id, label: `${e.key} ${e.summary}`, glyph: 'star' })) },
+      { name: 'storyPoints', type: 'number', label: L('col_points'), value: null, min: 0, max: 999, step: 1 },
+      { name: 'dueDate', type: 'date', label: L('col_due'), value: '' },
+    ];
+    const out = await this.ctx.popups.open('form', { title: L('createTitle', { key: this.project.key }), icon: 'plus', submitLabel: L('createSubmit'), fields });
+    const v = out?.values;
+    if (!v) return null;
+    const body = {
+      projectId: pid, typeId: v.type || undefined, summary: v.summary, description: v.description || undefined, assigneeId: v.assignee || undefined,
+      priorityId: v.priority || undefined, labels: v.labels?.length ? v.labels : undefined, epicId: v.epic || undefined, storyPoints: v.storyPoints ?? undefined, dueDate: v.dueDate || undefined,
+    };
+    try {
+      let created = await this.api.createIssue(body);
+      this.ctx.notify('success', L('createdIssue', { key: created.key }));
+      this.ctx.history.record({ label: L('opCreate', { key: created.key }), undo: async () => { await this.api.deleteIssue(created.id); }, redo: async () => { created = await this.api.createIssue(body); } });
+      this.cursor = created.id;
+      this.announce('issue.created', created.id);
+      await this.search({ keepPage: true, quiet: true });
+      this.flash(created.id);
+      return created;
+    } catch (error) {
+      this.ctx.showError(E('createFailed'), error);
+      return null;
+    }
+  }
+
   async submitCreate() {
     const input = this.el.create.querySelector('.bl-create-input');
     const summary = input?.value.trim();
@@ -849,6 +909,7 @@ export class BacklogView {
         undo: async () => { await this.api.deleteIssue(created.id); },
         redo: async () => { created = await this.api.createIssue(body); },
       });
+      this.announce('issue.created', created.id);
       this.renderCreate();
       const next = this.el.create.querySelector('.bl-create-input');
       next.value = '';
@@ -958,7 +1019,9 @@ export class BacklogView {
       const { epicChange, assigneeChange, ...rest } = b;
       if (epicChange !== undefined) await this.api.updateIssue(id, { epicId: epicChange });
       if (assigneeChange !== undefined) await this.api.updateIssue(id, { assigneeId: assigneeChange });
-      return this.api.move(id, rest);
+      const res = await this.api.move(id, rest);
+      this.announce('issue.updated', id);
+      return res;
     };
     try {
       const out = await doMove(body);
@@ -1018,7 +1081,7 @@ export class BacklogView {
     const names = new Map();
     for (const pid of projectIds) for (const s of this.lookups.statusesOf(pid)) if (!names.has(s.name)) names.set(s.name, s);
     openPicker(button, {
-      items: [...names.values()].map((s) => ({ value: s.name, label: s.name, icon: `<span class="bl-cat-dot ${s.category}"></span>`, detail: L(`cat_${s.category}`) })),
+      items: [...names.values()].map((s) => ({ value: s.name, label: s.name, icon: `<i class="bl-cat-dot ${s.category}"></i>`, detail: L(`cat_${s.category}`) })),
       onPick: (name) => this.bulkTransition(name),
     });
   }
@@ -1042,6 +1105,7 @@ export class BacklogView {
         all.ok.push(...(out?.ok ?? []));
         all.failed.push(...(out?.failed ?? []));
       }
+      this.announce('issue.updated', all.ok);
       return all;
     };
     const forward = [...byStatus].map(([statusId, list]) => [statusId, list.map((r) => r.id)]);
@@ -1071,6 +1135,7 @@ export class BacklogView {
       : L('opPriority', { n: ids.length, name: this.lookups.priorities.get(value)?.name ?? '' });
     try {
       const out = await this.api.bulk({ ids, patch: { [field]: value } });
+      this.announce('issue.updated', out?.ok ?? []);
       this.bulkReport(out, label);
       const done = new Set(out?.ok ?? []);
       if (done.size) {
@@ -1106,7 +1171,7 @@ export class BacklogView {
     const apply = async (pick) => {
       const out = { ok: [], failed: [] };
       for (const c of changes) {
-        try { await this.api.updateIssue(c.id, { labels: c[pick] }); out.ok.push(c.id); } catch (error) { out.failed.push({ id: c.id, error: { message: error.message } }); }
+        try { await this.api.updateIssue(c.id, { labels: c[pick] }); out.ok.push(c.id); this.announce('issue.updated', c.id); } catch (error) { out.failed.push({ id: c.id, error: { message: error.message } }); }
       }
       return out;
     };
@@ -1131,6 +1196,7 @@ export class BacklogView {
     if (choice !== 'delete') return;
     try {
       const out = await this.api.bulk({ ids: rows.map((r) => r.id), delete: true });
+      this.announce('issue.deleted', out?.ok ?? []);
       this.bulkReport(out, L('opDelete', { n: out?.ok?.length ?? 0 }));
       this.selected.clear();
     } catch (error) {
@@ -1152,6 +1218,8 @@ export class BacklogView {
     if (!type.startsWith('issue.')) {
       if (/^(version|status|issueType)\./.test(type)) { this.lookups.loadedProjects.delete(this.project.id); this.lookups.project(this.project.id).then(() => this.renderAll()); }
       if (/^filter\./.test(type)) this.loadFilters().then(() => this.renderBar());
+      // labels renamed / merged / deleted, or the project key renamed: the rows show other labels / keys now
+      if (/^label\./.test(type) || (type === 'project.updated' && event.data?.oldKey)) { clearTimeout(this.liveTimer); this.liveTimer = setTimeout(() => { this.loadLabels?.(); this.search({ keepPage: true, quiet: true }); }, 250); }
       return;
     }
     const at = this.items.findIndex((r) => r.id === event.id);

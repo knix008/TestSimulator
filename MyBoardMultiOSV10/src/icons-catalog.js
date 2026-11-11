@@ -6,6 +6,8 @@
 
 export const CATALOG_CATEGORIES = [
   { id: 'issue', ko: '이슈 유형', en: 'Issue types' },
+  // listed first by the board's column icon fields (iconpicker category option); holds icons of other categories too
+  { id: 'columns', ko: '열 / 단계', en: 'Columns / stages', names: 'COLUMN_ICONS' },
   { id: 'status', ko: '상태', en: 'Status' },
   { id: 'priority', ko: '우선순위', en: 'Priority' },
   { id: 'objects', ko: '사물', en: 'Objects' },
@@ -52,6 +54,49 @@ export const CATALOG = {
   vulnerability: { c: 'issue', ko: '취약점', en: 'Vulnerability', k: '보안 위험 security risk cve', d: '<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M12 8v5"/><circle cx="12" cy="16.3" r="1" fill="currentColor"/>' },
   serviceRequest: { c: 'issue', ko: '서비스 요청', en: 'Service request', k: '요청 호출벨 request desk bell', d: '<path d="M4 17a8 8 0 0 1 16 0z"/><path d="M2 20h20M12 9V6M10 6h4"/>' },
   backlog: { c: 'issue', ko: '백로그', en: 'Backlog', k: '대기 목록 쌓임 queue pile', d: '<rect x="3" y="4" width="18" height="4" rx="1.5"/><rect x="3" y="10" width="18" height="4" rx="1.5"/><rect x="3" y="16" width="12" height="4" rx="1.5"/>' },
+
+  // ── columns / workflow stages (the "columns" category also lists many icons of other categories: COLUMN_ICONS)
+  triage: { c: 'columns', ko: '분류', en: 'Triage', k: '선별 나누기 정리 sort split route', d: '<path d="M12 3v5M12 8l-6.5 5M12 8l6.5 5M12 8v5"/><rect x="3" y="15" width="5" height="5" rx="1"/><rect x="9.5" y="15" width="5" height="5" rx="1"/><rect x="16" y="15" width="5" height="5" rx="1"/>' },
+  planned: { c: 'columns', ko: '계획됨', en: 'Planned', k: '계획 예정 일정 plan roadmap calendar', d: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M7 14h2M11 14h6M7 17.5h2M11 17.5h6"/>' },
+  estimate: { c: 'columns', ko: '추정', en: 'Estimate', k: '스토리 포인트 견적 카드 points poker sizing', d: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 4 2L9.5 16h5"/>' },
+  ready: { c: 'columns', ko: '준비됨', en: 'Ready', k: '시작 대기 선택됨 selected ready to start', d: '<circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l5.5-3.5z" fill="currentColor"/>' },
+  upNext: { c: 'columns', ko: '다음 차례', en: 'Up next', k: '다음 대기열 순서 next queue', d: '<path d="M4 6h10M4 12h7M4 18h10"/><path d="M15 9l5 3-5 3z" fill="currentColor"/>' },
+  scheduled: { c: 'columns', ko: '예약됨', en: 'Scheduled', k: '예약 일정 시간 schedule timed calendar clock', d: '<path d="M20 10V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h6M3 10h17M8 3v4M15 3v4"/><circle cx="17" cy="17" r="4.5"/><path d="M17 15v2l1.5 1"/>' },
+  inQueue: { c: 'columns', ko: '대기열', en: 'In queue', k: '큐 줄 쌓기 queue line stack', d: '<path d="M4 6h16M4 10h16M4 14h9"/><path d="M17 13v7M14 17l3 3 3-3"/>' },
+  writing: { c: 'columns', ko: '작성 중', en: 'Writing', k: '글쓰기 집필 펜 write author pen', d: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4M14 20h6"/>' },
+  editing: { c: 'columns', ko: '편집 중', en: 'Editing', k: '편집 교정 수정 edit proofread revise', d: '<path d="M12 21H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h8l5 5v3"/><path d="M14 3v5h5M8 12h6M8 16h3"/><path d="M14 21v-2.5l5-5 2.5 2.5-5 5z"/>' },
+  codeReview: { c: 'columns', ko: '코드 리뷰', en: 'Code review', k: '코드 검토 리뷰 pr review inspect', d: '<path d="M8 7l-5 5 5 5"/><circle cx="14.5" cy="11.5" r="4"/><path d="M17.5 14.5L21 18"/>' },
+  signature: { c: 'columns', ko: '서명', en: 'Sign-off', k: '결재 서명 확정 sign signature approve', d: '<path d="M3 17c2-4 3.5-9 5-9s-1 9 1 9 2.5-5 4-5-.5 4 1 4 2-2 3-2"/><path d="M3 21h18"/>' },
+  qaCheck: { c: 'columns', ko: '품질 검사', en: 'QA check', k: 'qa 검사 검증 테스트 inspect verify quality', d: '<path d="M9 4H6a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h5M15 4h3a1 1 0 0 1 1 1v5"/><rect x="9" y="2.5" width="6" height="3" rx="1"/><circle cx="16" cy="16" r="3.5"/><path d="M18.5 18.5L21 21"/>' },
+  staging: { c: 'columns', ko: '스테이징', en: 'Staging', k: '스테이징 단계 환경 올리기 stage environment promote', d: '<path d="M3 16l9 4.5 9-4.5"/><path d="M3 12l9 4.5 9-4.5"/><path d="M12 12V3M8.5 6.5L12 3l3.5 3.5"/>' },
+  deploy: { c: 'columns', ko: '배포', en: 'Deploy', k: '배포 서버 올리기 deploy ship server push', d: '<rect x="3" y="13" width="18" height="7" rx="1.5"/><circle cx="7" cy="16.5" r="1" fill="currentColor"/><path d="M12 10V3M8.5 6.5L12 3l3.5 3.5"/>' },
+  published: { c: 'columns', ko: '게시됨', en: 'Published', k: '게시 발행 공개 publish live online', d: '<path d="M20.5 12A8.5 8.5 0 1 0 12 20.5"/><path d="M3.5 12h17M12 3.5c-2.3 2.4-3.5 5.2-3.5 8.5s1.2 6.1 3.5 8.5M12 3.5c2 2.1 3.1 4.4 3.4 7"/><path d="M14.5 18.5l2 2 4-4.5"/>' },
+  escalated: { c: 'columns', ko: '에스컬레이션', en: 'Escalated', k: '상향 보고 계단 escalate stairs raise', d: '<path d="M3 20h5v-5h5v-5h5V5h3"/><path d="M4 11l6-6M6 5h4v4"/>' },
+  reopened: { c: 'columns', ko: '다시 열림', en: 'Reopened', k: '재오픈 되돌림 reopen again back', d: '<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 3.5V8h4.5"/><circle cx="12" cy="12" r="2" fill="currentColor"/>' },
+  rejected: { c: 'columns', ko: '반려됨', en: 'Rejected', k: '거절 반려 기각 reject decline denied', d: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9.5 12.5l5 5M14.5 12.5l-5 5"/>' },
+  resolved: { c: 'columns', ko: '해결됨', en: 'Resolved', k: '해결 티켓 완료 resolve fixed ticket', d: '<path d="M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>' },
+  dependency: { c: 'columns', ko: '의존 대기', en: 'Dependency', k: '의존성 선행 연결 depends prerequisite linked', d: '<rect x="3" y="3.5" width="7" height="6" rx="1.5"/><rect x="14" y="14.5" width="7" height="6" rx="1.5"/><path d="M6.5 9.5v4a4 4 0 0 0 4 4H14"/><path d="M11.5 15l2.5 2.5-2.5 2.5"/>' },
+  handoff: { c: 'columns', ko: '인계', en: 'Hand-off', k: '넘기기 전달 이관 handover transfer pass', d: '<path d="M3 12h13M12 7l5 5-5 5"/><path d="M20.5 4v16"/>' },
+  waitingCustomer: { c: 'columns', ko: '고객 대기', en: 'Waiting for customer', k: '고객 응답 대기 customer reply pending', d: '<circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 9-5.2"/><circle cx="17" cy="16.5" r="4"/><path d="M17 14.5v2l1.3 1"/>' },
+  ordered: { c: 'columns', ko: '주문됨', en: 'Ordered', k: '주문 발주 장바구니 order purchase cart', d: '<path d="M3 4h2.5l2.2 10.5h10.6L20.5 7H6.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/><path d="M10.5 10.5l2 2 3-3.5"/>' },
+  packed: { c: 'columns', ko: '포장됨', en: 'Packed', k: '포장 상자 출고 준비 pack box parcel', d: '<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8M7.5 5.5l9 5"/>' },
+  delivered: { c: 'columns', ko: '배달됨', en: 'Delivered', k: '배달 도착 납품 deliver arrived received', d: '<path d="M21 11V8l-9-5-9 5v8l9 5"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="M15 18l2 2 4-4.5"/>' },
+  returned: { c: 'columns', ko: '반품됨', en: 'Returned', k: '반품 반송 돌려보냄 return refund back', d: '<path d="M21 12V8l-9-5-9 5v8l9 5"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="M21.5 19H16M18.5 16.5L16 19l2.5 2.5"/>' },
+  paid: { c: 'columns', ko: '결제됨', en: 'Paid', k: '결제 지급 입금 영수증 payment receipt settled', d: '<path d="M5 3h14v18l-2.5-1.5L14 21l-2-1.5L10 21l-2.5-1.5L5 21z"/><path d="M8.5 11l2.5 2.5 4.5-5"/>' },
+  applied: { c: 'columns', ko: '지원 접수', en: 'Applied', k: '채용 지원서 이력서 applicant resume cv', d: '<path d="M12 21H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h8l5 5v3"/><path d="M14 3v5h5M8 12h4M8 16h2"/><circle cx="17" cy="15" r="2"/><path d="M13.5 21a3.5 3.5 0 0 1 7 0"/>' },
+  screening: { c: 'columns', ko: '서류 심사', en: 'Screening', k: '심사 검토 후보 screen candidate review', d: '<circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 9-5.2"/><circle cx="16.5" cy="15.5" r="3"/><path d="M18.7 17.7L21 20"/>' },
+  interview: { c: 'columns', ko: '면접', en: 'Interview', k: '면접 대화 미팅 interview talk meeting', d: '<circle cx="6.5" cy="11" r="2.5"/><circle cx="17.5" cy="11" r="2.5"/><path d="M2 20a4.5 4.5 0 0 1 9 0M13 20a4.5 4.5 0 0 1 9 0"/><path d="M9.5 2.5h5a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-3l-2 1.5V3.5a1 1 0 0 1 1-1z"/>' },
+  offer: { c: 'columns', ko: '합격 제안', en: 'Offer', k: '오퍼 제안 편지 offer letter accepted', d: '<path d="M21 11V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h9"/><path d="M3 7l9 6 9-6"/><path d="M15.5 18l2 2 4-4.5"/>' },
+  onboarding: { c: 'columns', ko: '온보딩', en: 'Onboarding', k: '입사 적응 시작 onboard new hire start', d: '<circle cx="9" cy="7.5" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M18 21V11l3.5 1.5L18 14"/>' },
+  prospect: { c: 'columns', ko: '잠재 고객', en: 'Prospect', k: '발굴 탐색 쌍안경 prospect scout binoculars', d: '<circle cx="6.5" cy="15.5" r="3.5"/><circle cx="17.5" cy="15.5" r="3.5"/><path d="M10 15.5h4M3.5 13.5L6 5h3l1 8M20.5 13.5L18 5h-3l-1 8"/>' },
+  qualified: { c: 'columns', ko: '적격', en: 'Qualified', k: '적격 검증된 리드 깔때기 qualified lead funnel', d: '<path d="M3 4h14l-5.5 7v6l-3 2.5V11z"/><path d="M14.5 17l2 2 4.5-5"/>' },
+  proposal: { c: 'columns', ko: '제안서', en: 'Proposal', k: '제안 견적 보내기 quote send proposal', d: '<path d="M12 21H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h8l5 5v5"/><path d="M14 3v5h5M8 12h5M8 16h3"/><path d="M15 18.5h6M18.5 16L21 18.5 18.5 21"/>' },
+  negotiation: { c: 'columns', ko: '협상', en: 'Negotiation', k: '협상 조율 주고받기 negotiate deal exchange', d: '<path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-9l-5 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M8 8.5h8l-2-2M16 11.5H8l2 2"/>' },
+  step1: { c: 'columns', ko: '1단계', en: 'Step 1', k: '단계 하나 첫째 stage one first number', d: '<circle cx="12" cy="12" r="9"/><path d="M10 9.2l2.4-1.7v9"/>' },
+  step2: { c: 'columns', ko: '2단계', en: 'Step 2', k: '단계 둘 둘째 stage two second number', d: '<circle cx="12" cy="12" r="9"/><path d="M9.3 9.6a2.7 2.7 0 1 1 4.5 2L9.3 16.5h5.4"/>' },
+  step3: { c: 'columns', ko: '3단계', en: 'Step 3', k: '단계 셋 셋째 stage three third number', d: '<circle cx="12" cy="12" r="9"/><path d="M9.3 7.5h5.2l-2.9 3.2a2.8 2.8 0 1 1-2.5 4.5"/>' },
+  step4: { c: 'columns', ko: '4단계', en: 'Step 4', k: '단계 넷 넷째 stage four fourth number', d: '<circle cx="12" cy="12" r="9"/><path d="M13.5 16.5v-9L8.8 13.6h6.4"/>' },
+  step5: { c: 'columns', ko: '5단계', en: 'Step 5', k: '단계 다섯 다섯째 stage five fifth number', d: '<circle cx="12" cy="12" r="9"/><path d="M14.5 7.5h-4.4l-.6 3.8a3 3 0 1 1-.3 4.1"/>' },
 
   // ── status
   check: { c: 'status', ko: '체크', en: 'Check', k: '확인 완료 ok yes tick', d: '<path d="M5 12.5l4.5 4.5L19 7"/>' },
@@ -482,3 +527,25 @@ export const CATALOG = {
 };
 
 export const CATALOG_NAMES = Object.keys(CATALOG);
+
+/**
+ * The "Columns / stages" category: workflow-stage icons for board columns in flow order (intake → plan → work →
+ * review → test → release → done → problems → support → commerce → hiring → sales → steps and shapes).
+ * Icons drawn for it have c: 'columns'; the others are shared with their own category.
+ */
+export const COLUMN_ICONS = [
+  'inbox', 'triage', 'backlog', 'idea', 'snowflake', 'parking', 'question',
+  'planned', 'todo', 'circle', 'estimate', 'checklist', 'listChecks', 'list', 'ready', 'upNext', 'inQueue', 'scheduled', 'calendar', 'target', 'milestone',
+  'inProgress', 'play', 'loading', 'design', 'code', 'research', 'writing', 'editing', 'gitBranch',
+  'review', 'eye', 'codeReview', 'pullRequest', 'gitMerge', 'feedback', 'signature',
+  'test', 'qaCheck', 'debug', 'bug', 'shieldCheck',
+  'staging', 'deploy', 'cloudUpload', 'release', 'rocket', 'published',
+  'done', 'check', 'checkCircle', 'approved', 'resolved', 'stamp', 'trophy', 'finish', 'flag', 'lock', 'archive',
+  'blocked', 'dependency', 'ban', 'stop', 'pause', 'onHold', 'waiting', 'waitingCustomer', 'hourglass', 'snooze', 'warning', 'escalated', 'reopened', 'rejected', 'cancel', 'thumbsDown',
+  'support', 'comments', 'handoff',
+  'ordered', 'packed', 'truck', 'delivered', 'returned', 'invoice', 'paid',
+  'applied', 'screening', 'interview', 'offer', 'userCheck', 'onboarding',
+  'prospect', 'userAdd', 'qualified', 'proposal', 'negotiation', 'handshake', 'contract',
+  'step1', 'step2', 'step3', 'step4', 'step5', 'star', 'sparkles', 'fire',
+];
+for (const c of CATALOG_CATEGORIES) if (c.names === 'COLUMN_ICONS') c.names = COLUMN_ICONS;

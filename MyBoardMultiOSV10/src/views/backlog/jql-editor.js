@@ -92,6 +92,9 @@ export class JqlEditor {
   }
 
   async submit() {
+    clearTimeout(this.st);
+    this.seq++;
+    this.closeList();
     const result = await this.validate();
     if (result.ok) this.onSubmit?.(this.input.value);
   }

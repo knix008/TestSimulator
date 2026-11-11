@@ -32,6 +32,21 @@
 /* ── projects sidebar: a tree of projects → boards / backlog / reports / settings ── */
 .nav-search { padding: 4px 8px 6px; }
 .nav-search .search-box { width: 100%; max-width: none; margin: 0; }
+/* Left panel: the project tree on top, the current view's own sidebar below (app.js renderSide). */
+#left-panel:has(> .left-top) { display: flex; flex-direction: column; overflow: hidden; }
+/* The tree takes only the height it needs (the lower section starts right under it), and scrolls when long. */
+#left-panel > .left-top { flex: 0 1 auto; min-height: 140px; display: flex; flex-direction: column; overflow: hidden; }
+#left-panel > .left-split { flex: none; height: 5px; cursor: row-resize; background: transparent; border-top: 1px solid var(--border); }
+#left-panel > .left-split:hover, #left-panel > .left-split:active { background: color-mix(in srgb, var(--accent) 40%, transparent); }
+#left-panel > .left-view { flex: 1 0 var(--left-view-height, 240px); min-height: 120px; display: flex; flex-direction: column; overflow: hidden; }
+#left-panel > .left-split[hidden], #left-panel > .left-view[hidden] { display: none; }
+.left-view-header { position: static; }
+.left-view-header .left-view-glyph { display: inline-flex; flex: none; color: var(--accent); }
+.left-view-header .left-view-glyph .icon { width: 18px; height: 18px; }
+.left-view-header #left-view-title { flex: none; }
+.left-view-header .left-view-sub { flex: 1; min-width: 0; font-weight: 500; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.left-view-header .left-view-sub::before { content: '›'; margin: 0 6px 0 2px; color: var(--muted); }
+.left-view-body { flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; }
 .nav-tree { flex: 1; min-height: 0; overflow: auto; padding: 2px 6px 10px; }
 .nav-project { margin: 1px 0; border-radius: 8px; }
 .nav-project.current { background: color-mix(in srgb, var(--accent) 6%, transparent); }

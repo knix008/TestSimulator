@@ -87,6 +87,9 @@ export function defaultSettings(language = 'ko') {
     showBottomPanel: true,
     bottomHeight: 170,
     leftWidth: 380,
+    // The left panel's lower section (the current view's own navigation): height in px, shown or not.
+    leftViewHeight: 240,
+    showViewSide: true,
     rightWidth: 380,
     lastDirectory: null,
     restoreSession: true,
@@ -141,6 +144,8 @@ export function normalizeSettings(raw = {}, language) {
   s.backgroundImage = typeof s.backgroundImage === 'string' && s.backgroundImage ? s.backgroundImage : null;
   s.lastDirectory = typeof s.lastDirectory === 'string' && s.lastDirectory ? s.lastDirectory : null;
   s.leftWidth = clamp(s.leftWidth, PANEL_MIN.left, 800, base.leftWidth);
+  s.leftViewHeight = clamp(s.leftViewHeight, 120, 2000, base.leftViewHeight);
+  s.showViewSide = s.showViewSide !== false;
   s.rightWidth = clamp(s.rightWidth, PANEL_MIN.right, 800, base.rightWidth);
   s.bottomHeight = clamp(s.bottomHeight, PANEL_MIN.bottom, 2000, base.bottomHeight);
   s.dateFormat = DATE_FORMATS.includes(s.dateFormat) ? s.dateFormat : base.dateFormat;

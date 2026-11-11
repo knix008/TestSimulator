@@ -1,7 +1,8 @@
 // Workflow editor: per workflow the statuses and transitions as a diagram (status boxes you can drag, arrows,
 // "from any" transitions, the initial status) and as a table; transitions are added / edited with their rules
-// (conditions, validators, post functions — ARCHITECTURE §3.4) in a structured editor. Box positions are kept
-// per workflow in localStorage (the workflow row has no layout column).
+// (conditions, validators, post functions — ARCHITECTURE §3.4) in a structured editor. Box positions are kept on
+// the workflow (`layout` { statusId: { x, y } }, PATCH with rev, undo-able), so every user sees the same diagram.
+// Older versions kept them in localStorage: such a layout is shown until the first save moves it into the DB.
 import { tr, esc, icon, btn, ibtn, select, input, textarea, card, note, userOptions, CATEGORY_ICON } from '../util.js';
 import { table, bindTables } from './collection.js';
 import { jqlInput, bindJql } from './jql.js';
@@ -23,8 +24,18 @@ const FIELD_ICON = { assignee: 'user', assigneeId: 'user', resolution: 'check', 
 const BOX_W = 156;
 const BOX_H = 42;
 const layoutKey = (wfId) => `myboard.workflowLayout.${wfId}`;
-function loadLayout(wfId) { try { return JSON.parse(globalThis.localStorage?.getItem(layoutKey(wfId)) ?? '{}') ?? {}; } catch { return {}; } }
-function saveLayout(wfId, layout) { try { globalThis.localStorage?.setItem(layoutKey(wfId), JSON.stringify(layout)); } catch { /* private window */ } }
+/** A layout an older version left in this browser (null when there is none). */
+export function legacyLayout(wfId) {
+  try { const v = JSON.parse(globalThis.localStorage?.getItem(layoutKey(wfId)) ?? 'null'); return v && typeof v === 'object' && Object.keys(v).length ? v : null; } catch { return null; }
+}
+function dropLegacyLayout(wfId) { try { globalThis.localStorage?.removeItem(layoutKey(wfId)); } catch { /* private window */ } }
+/** The stored positions: the workflow's own, else (not saved yet) the browser's old ones. */
+const loadLayout = (wf) => (wf.layout && typeof wf.layout === 'object' ? wf.layout : legacyLayout(wf.id) ?? {});
+/** Saves positions on the workflow (undo-able; null = automatic layout); the browser's old copy is dropped. */
+function saveLayout(S, wf, layout) {
+  const item = { ...wf, layout: wf.layout ?? legacyLayout(wf.id) };
+  return S.patch(tr('wf.opLayout', { name: wf.name }), S.url('workflows', wf.id), item, { layout }, { after: () => dropLegacyLayout(wf.id) });
+}
 
 /** Box positions: stored ones, the rest in columns by category (to do · in progress · done). */
 export function layoutOf(statuses, stored = {}) {
@@ -110,7 +121,7 @@ export function diagramSvg(S, wf, layout) {
     return `<g class="ps-wf-node cat-${esc(s.category)} ${selected ? 'selected' : ''} ${initial ? 'initial' : ''}" data-status="${esc(s.id)}" transform="translate(${x} ${y})" tabindex="0" role="button" aria-label="${esc(s.name)}">
       <title>${esc(`${s.name} · ${tr(`category.${s.category}`)}${initial ? ` · ${tr('wf.initial')}` : ''}`)}</title>
       <rect width="${BOX_W}" height="${BOX_H}" rx="9" style="--sc:${esc(s.color || '#888')}"/><rect class="ps-wf-stripe" width="6" height="${BOX_H}" rx="3" style="fill:${esc(s.color || '#888')}"/>
-      ${initial ? `<path class="ps-wf-start" d="M-22 ${BOX_H / 2 - 7} l12 7 l-12 7 z"/>` : ''}
+      ${initial ? `<path class="ps-wf-start" d="M14 ${BOX_H / 2 - 6} l10 6 l-10 6 z"/>` : ''}
       <text x="${BOX_W / 2 + 3}" y="${BOX_H / 2 + 5}" text-anchor="middle">${esc(trim(s.name))}</text></g>`;
   }).join('');
   return `<svg class="ps-wf-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(tr('wf.diagram'))}">
@@ -185,7 +196,7 @@ export const workflowSection = {
     const wf = currentWorkflow(S);
     const wfs = S.config.workflows;
     if (!wf) return `${note(tr('wf.none'))}${newWorkflowLine(S)}`;
-    const layout = layoutOf(S.config.statuses, loadLayout(wf.id));
+    const layout = layoutOf(S.config.statuses, loadLayout(wf));
     const usedBy = S.config.types.filter((t) => t.workflowId === wf.id);
     const sel = S.pending.wfSel && S.config.statuses.find((s) => s.id === S.pending.wfSel);
     const transitions = (wf.transitions ?? []).map((t) => ({ ...t }));
@@ -271,7 +282,7 @@ export const workflowSection = {
         }
         case 'rule-delete': draft.rules[button.dataset.rkind].splice(Number(button.dataset.ridx), 1); S.render(); break;
         case 'draft-save': await saveDraft(S, wf, draft); break;
-        case 'wf-autolayout': saveLayout(wf.id, {}); S.render(); break;
+        case 'wf-autolayout': if (wf.layout || legacyLayout(wf.id)) await saveLayout(S, wf, null); break;
         case 'wf-delete': S.pending.wfDelete = true; S.render(); break;
         case 'wf-delete-cancel': S.pending.wfDelete = false; S.render(); break;
         case 'wf-delete-do': {
@@ -366,13 +377,14 @@ function bindNewWorkflow(S, el) {
 function bindDiagram(S, el, wf) {
   const canvas = el.querySelector('[data-wf-canvas]');
   if (!canvas) return;
+  let keyLayout = null;
+  let keyTimer = null;
   canvas.addEventListener('pointerdown', (event) => {
     const node = event.target.closest('.ps-wf-node');
     if (!node || event.button !== 0) return;
     event.preventDefault();
     const id = node.dataset.status;
-    const stored = loadLayout(wf.id);
-    const layout = layoutOf(S.config.statuses, stored);
+    const layout = layoutOf(S.config.statuses, loadLayout(wf));
     const start = { x: event.clientX, y: event.clientY, ox: layout[id].x, oy: layout[id].y };
     let moved = false;
     const svgOf = () => canvas.querySelector('svg');
@@ -389,7 +401,7 @@ function bindDiagram(S, el, wf) {
     const up = () => {
       window.removeEventListener('pointermove', move, true);
       window.removeEventListener('pointerup', up, true);
-      if (moved) { saveLayout(wf.id, layout); return; }
+      if (moved) { saveLayout(S, wf, layout); return; }
       S.pending.wfSel = S.pending.wfSel === id ? null : id;
       S.render();
     };
@@ -404,11 +416,18 @@ function bindDiagram(S, el, wf) {
     if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); S.pending.wfSel = node.dataset.status; S.render(); return; }
     if (!d) return;
     event.preventDefault();
-    const layout = layoutOf(S.config.statuses, loadLayout(wf.id));
+    // arrow presses move the box at once; the positions are saved once the keys rest (one undo step)
+    keyLayout ??= layoutOf(S.config.statuses, loadLayout(wf));
+    const layout = keyLayout;
     const id = node.dataset.status;
     layout[id] = { x: Math.max(40, layout[id].x + d[0]), y: Math.max(8, layout[id].y + d[1]) };
-    saveLayout(wf.id, layout);
     canvas.innerHTML = diagramSvg(S, wf, layout);
     canvas.querySelector(`[data-status="${CSS.escape(id)}"]`)?.focus();
+    clearTimeout(keyTimer);
+    keyTimer = setTimeout(async () => {
+      keyLayout = null;
+      await saveLayout(S, wf, layout);
+      el.ownerDocument.querySelector(`[data-wf-canvas] [data-status="${CSS.escape(id)}"]`)?.focus();
+    }, 600);
   });
 }

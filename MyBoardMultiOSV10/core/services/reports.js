@@ -31,9 +31,23 @@ export function createReports(core) {
   const db = () => core.db;
   const S = () => core.services;
 
+  /** Columns of a board in board order (left → right). */
+  async function boardColumns(boardId) {
+    return (await db().select('board_columns', { board_id: boardId }, { order: 'position' }))
+      .map((c) => ({ id: c.id, name: c.name, icon: c.icon ?? null, statusIds: parseJson(c.status_ids, []) || [] }));
+  }
+
+  /**
+   * The reference ("done") column of a board: its RIGHTMOST column, whatever its statuses' categories say.
+   * It follows column reordering. → { id, name, icon, statusIds } | null (no columns).
+   */
+  const referenceOf = (cols) => (cols.length ? cols[cols.length - 1] : null);
+  const refOut = (c) => (c ? { id: c.id, name: c.name, icon: c.icon ?? null } : null);
+
   /**
    * Issue scope + columns of a report. q: { boardId } or { projectId } (or { jql }).
-   * Columns come from the board, or one per status of the project.
+   * Columns come from the board, or one per status of the project. `reference` = the board's rightmost
+   * column (board scope only; null for a project scope, whose "done" stays the done-category / resolution).
    */
   async function scope(ctx, q) {
     requireUser(ctx);
@@ -41,8 +55,8 @@ export function createReports(core) {
       const board = await S().boards.loadRaw(q.boardId);
       if (board.project_id) await assertProject(db(), ctx, board.project_id, 'viewer');
       const { where, params } = await S().boards.boardWhere(ctx, board);
-      const cols = (await db().select('board_columns', { board_id: board.id }, { order: 'position' })).map((c) => ({ id: c.id, name: c.name, statusIds: parseJson(c.status_ids, []) || [] }));
-      return { where, params, columns: cols, board };
+      const cols = await boardColumns(board.id);
+      return { where, params, columns: cols, board, reference: referenceOf(cols) };
     }
     if (q.projectId) {
       await assertProject(db(), ctx, q.projectId, 'viewer');
@@ -51,6 +65,7 @@ export function createReports(core) {
       return {
         where: 'i."project_id" = ? AND i."archived" = 0' + (extra ? ` AND (${extra.where})` : ''), params: [q.projectId, ...(extra?.params || [])],
         columns: sts.map((s) => ({ id: s.id, name: s.name, statusIds: [s.id] })),
+        reference: null,
       };
     }
     throw new ValidationError('REQUIRED', 'boardId or projectId is required', { field: 'boardId' });
@@ -108,10 +123,31 @@ export function createReports(core) {
     const allIds = sc.columns.flatMap((c) => c.statusIds);
     const cat = await statusCategories(allIds);
     const pick = (ids) => new Set(sc.columns.filter((c) => ids.includes(c.id)).flatMap((c) => c.statusIds));
-    const startCols = q.startColumnIds ? String(q.startColumnIds).split(',') : sc.columns.filter((c) => c.statusIds.some((s) => cat[s] === 'inprogress')).map((c) => c.id);
-    const endCols = q.endColumnIds ? String(q.endColumnIds).split(',') : sc.columns.filter((c) => c.statusIds.length && c.statusIds.every((s) => cat[s] === 'done')).map((c) => c.id);
+    // Board scope: the end is the rightmost column. Project scope: the done-category statuses.
+    const endCols = q.endColumnIds ? String(q.endColumnIds).split(',')
+      : sc.reference ? [sc.reference.id]
+        : sc.columns.filter((c) => c.statusIds.length && c.statusIds.every((s) => cat[s] === 'done')).map((c) => c.id);
+    let startCols;
+    if (q.startColumnIds) startCols = String(q.startColumnIds).split(',');
+    else {
+      // Columns with an in-progress status (never an end column); without any (a board whose columns are
+      // all to-do / done statuses) the columns after the leading "not started" ones, else the one before the end.
+      const notEnd = sc.columns.filter((c) => !endCols.includes(c.id));
+      startCols = notEnd.filter((c) => c.statusIds.some((s) => cat[s] === 'inprogress')).map((c) => c.id);
+      if (!startCols.length && sc.reference) {
+        const settings = parseJson(sc.board?.settings, {}) || {};
+        const backlog = new Set(settings.backlog?.enabled ? settings.backlog.statusIds || [] : []);
+        const notStarted = (c) => !c.statusIds.length || c.statusIds.every((s) => backlog.has(s) || cat[s] === 'todo');
+        const first = notEnd.findIndex((c) => !notStarted(c));
+        if (first >= 0) startCols = notEnd.slice(first).map((c) => c.id);
+        else if (notEnd.length > 1) startCols = [notEnd[notEnd.length - 1].id];
+      }
+    }
     return { startSet: pick(startCols), endSet: pick(endCols), startCols, endCols, cat };
   }
+
+  /** Status ids that count as done in a board scope (the rightmost column's), or null for a project scope. */
+  const doneSetOf = (sc) => (sc.reference ? new Set(sc.reference.statusIds) : null);
 
   function range(ctx, q, days) {
     const now = nowOf(ctx);
@@ -144,8 +180,10 @@ export function createReports(core) {
       }
       return {
         from, to, days: days.map((d) => today(d)),
-        columns: sc.columns.map((c) => ({ id: c.id, name: c.name, statusIds: c.statusIds })),
+        columns: sc.columns.map((c) => ({ id: c.id, name: c.name, icon: c.icon ?? null, statusIds: c.statusIds })),
         series: sc.columns.map((c) => ({ columnId: c.id, values: series[c.id] })),
+        // board order left → right; the last (rightmost) column is the done band
+        referenceColumn: refOut(sc.reference), doneColumnId: sc.reference?.id ?? null,
       };
     },
 
@@ -170,7 +208,7 @@ export function createReports(core) {
         const win = points.slice(Math.max(0, k - w + 1), k + 1);
         return { at: p.completedAt, average: win.reduce((a, b) => a + b.cycleTime, 0) / win.length };
       });
-      return { from, to, startColumnIds: startCols, endColumnIds: endCols, points, cycle: stats(points.map((p) => p.cycleTime)), lead: stats(points.map((p) => p.leadTime)), rolling, window: w };
+      return { from, to, referenceColumn: refOut(sc.reference), startColumnIds: startCols, endColumnIds: endCols, points, cycle: stats(points.map((p) => p.cycleTime)), lead: stats(points.map((p) => p.leadTime)), rolling, window: w };
     },
 
     /** Throughput: completed issues (and points) per day or week. */
@@ -190,14 +228,25 @@ export function createReports(core) {
         if (b) { b.count++; b.points += Number(tl.issue.story_points || 0); }
       }
       const list = [...buckets.values()];
-      return { from, to, interval, buckets: list, average: list.length ? list.reduce((a, b) => a + b.count, 0) / list.length : 0 };
+      return { from, to, interval, referenceColumn: refOut(sc.reference), buckets: list, average: list.length ? list.reduce((a, b) => a + b.count, 0) / list.length : 0 };
     },
 
-    /** Created vs resolved per day (with cumulative totals). */
+    /**
+     * Created vs resolved per day (with cumulative totals). Board scope: "resolved" = the (last) entry into the
+     * board's rightmost column of an issue still there; project scope: the issue's resolution date.
+     */
     async createdResolved(ctx, q = {}) {
       const sc = await scope(ctx, q);
       const { from, to } = range(ctx, q, 30);
-      const rows = await db().all(`SELECT i."created_at", i."resolved_at" FROM "issues" i WHERE ${sc.where}`, sc.params);
+      let rows;
+      const doneSet = doneSetOf(sc);
+      if (doneSet) {
+        rows = [];
+        for (const tl of (await timelines(sc)).values()) {
+          const c = cycle(tl, doneSet, doneSet);
+          rows.push({ created_at: tl.issue.created_at, resolved_at: c?.doneAt ?? null });
+        }
+      } else rows = await db().all(`SELECT i."created_at", i."resolved_at" FROM "issues" i WHERE ${sc.where}`, sc.params);
       const days = [];
       for (let d = startOfDay(from); d <= to; d = addDays(d, 1)) days.push({ start: d, date: today(d), created: 0, resolved: 0, cumulativeCreated: 0, cumulativeResolved: 0 });
       const idx = (ms) => { if (ms == null || ms < days[0].start || ms > to) return -1; return Math.floor((startOfDay(ms) - days[0].start) / DAY + 0.5); };
@@ -207,33 +256,49 @@ export function createReports(core) {
       }
       let cc = 0; let cr = 0;
       for (const d of days) { cc += d.created; cr += d.resolved; d.cumulativeCreated = cc; d.cumulativeResolved = cr; }
-      return { from, to, days, created: cc, resolved: cr };
+      return { from, to, referenceColumn: refOut(sc.reference), resolvedBy: doneSet ? 'column' : 'resolution', days, created: cc, resolved: cr };
     },
 
-    /** Workload: unresolved issues per assignee. */
+    /** Workload: open issues per assignee (board scope: not in the rightmost column; project scope: unresolved). */
     async workload(ctx, q = {}) {
       const sc = await scope(ctx, q);
+      const done = sc.reference ? sc.reference.statusIds : null;
+      const open = done ? (done.length ? `i."status_id" NOT IN (${done.map(() => '?').join(', ')})` : '1 = 1') : 'i."resolution_id" IS NULL';
       const rows = await db().all(
         `SELECT i."assignee_id", COUNT(*) AS n, SUM(COALESCE(i."story_points", 0)) AS points,
            SUM(CASE WHEN i."remaining_estimate" IS NOT NULL THEN i."remaining_estimate" WHEN i."original_estimate" IS NOT NULL THEN i."original_estimate" - i."time_spent" ELSE 0 END) AS remaining
-         FROM "issues" i WHERE ${sc.where} AND i."resolution_id" IS NULL GROUP BY i."assignee_id"`, sc.params);
+         FROM "issues" i WHERE ${sc.where} AND ${open} GROUP BY i."assignee_id"`, [...sc.params, ...(done || [])]);
       const users = Object.fromEntries((await db().all('SELECT "id", "display_name", "avatar" FROM "users"')).map((u) => [u.id, u]));
       const items = rows.map((r) => ({
         userId: r.assignee_id || null, name: r.assignee_id ? users[r.assignee_id]?.display_name || null : null, avatar: r.assignee_id ? users[r.assignee_id]?.avatar || null : null,
         count: Number(r.n), points: Number(r.points || 0), remaining: Math.max(0, Number(r.remaining || 0)),
       })).sort((a, b) => b.count - a.count);
-      return { items, total: items.reduce((a, b) => a + b.count, 0) };
+      return { referenceColumn: refOut(sc.reference), items, total: items.reduce((a, b) => a + b.count, 0) };
     },
 
-    /** Version report: progress, burn-up from history, predicted release date by recent velocity. */
-    async version(ctx, versionId) {
+    /**
+     * Version report: progress, burn-up from history, predicted release date by recent velocity.
+     * q.boardId: done = in that board's rightmost column (the categories of the other statuses stay, a
+     * done-category status outside it counts as in progress); without it done = the done category.
+     */
+    async version(ctx, versionId, q = {}) {
       const v = await db().get('SELECT * FROM "versions" WHERE "id" = ?', [versionId]);
       if (!v) throw new NotFoundError('VERSION_NOT_FOUND', 'Version not found');
       await assertProject(db(), ctx, v.project_id, 'viewer');
+      let reference = null;
+      if (q.boardId) {
+        const board = await S().boards.loadRaw(q.boardId);
+        if (board.project_id) await assertProject(db(), ctx, board.project_id, 'viewer');
+        reference = referenceOf(await boardColumns(board.id));
+      }
       const sc = { where: 'i."id" IN (SELECT "issue_id" FROM "issue_versions" WHERE "version_id" = ? AND "kind" = \'fix\')', params: [versionId] };
       const tls = await timelines(sc);
       const allStatus = [...new Set([...tls.values()].flatMap((t) => t.steps.map((s) => s[1])))];
       const cat = await statusCategories(allStatus);
+      if (reference) {
+        const doneSet = new Set(reference.statusIds);
+        for (const s of allStatus) if (doneSet.has(s)) cat[s] = 'done'; else if (cat[s] === 'done') cat[s] = 'inprogress';
+      }
       const now = nowOf(ctx);
       const created = [...tls.values()].map((t) => t.steps[0][0]);
       const start = v.start_date ? toMs(v.start_date) : created.length ? startOfDay(Math.min(...created)) : startOfDay(now);
@@ -274,7 +339,7 @@ export function createReports(core) {
       }
       return {
         version: { id: v.id, name: v.name, releaseDate: v.release_date, startDate: v.start_date, released: !!Number(v.released) },
-        total: tls.size, byCategory: byCat, points: pts, issues, burnup, unit: pts.total > 0 ? 'storyPoints' : 'count', predictedReleaseDate: predicted,
+        referenceColumn: refOut(reference), total: tls.size, byCategory: byCat, points: pts, issues, burnup, unit: pts.total > 0 ? 'storyPoints' : 'count', predictedReleaseDate: predicted,
       };
     },
 

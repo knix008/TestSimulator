@@ -4,7 +4,7 @@
 // what changed and offers to keep mine (merge) or take theirs, unsaved text kept. Live events of the issue
 // refresh it without losing an edit in progress; presence shows who else views / edits. Field edits are
 // undoable through ctx.history.
-import { registerView, getView } from '../registry.js';
+import { registerView } from '../registry.js';
 import { icon } from '../../icons.js';
 import { getLanguage, t } from '../../i18n.js';
 import { renderIconRef } from '../../ui/iconref.js';
@@ -12,10 +12,11 @@ import { bindSteppers, stepperValue } from '../../stepper.js';
 import { CLIENT_ID } from '../../api/client.js';
 import './texts.js';
 import './detail.css';
-import { headerHtml, statusRowHtml, bannersHtml, fieldsHtml, descriptionHtml, COLORS, typeIcon } from './render.js';
+import { headerHtml, statusRowHtml, bannersHtml, fieldsHtml, sectionBarHtml, descriptionHtml, COLORS, typeIcon, resolutionIcon } from './render.js';
 import { checklistHtml, subtasksHtml, linksHtml, attachmentsHtml, activityHtml, previewHtml, LINK_OPTIONS, linkLabel } from './parts.js';
 import { formatAction, insertUploads, mentionInput } from './editor.js';
 import { openPicker, closePicker, pickerOpen, reanchorPicker } from './picker.js';
+import { openMoveForm } from './move.js';
 import { avatarHtml, debounce, errorText, esc, fileBase64, fmtDuration, isImage, isoDate, parseDuration, sameValue, userName } from './util.js';
 
 const MAX_ATTACHMENT = 50 * 1024 * 1024;
@@ -28,7 +29,7 @@ const API_FIELD = {
   summary: 'summary', description: 'description', type: 'typeId', assignee: 'assigneeId', reporter: 'reporterId', priority: 'priorityId',
   labels: 'labels', components: 'componentIds', fixVersions: 'fixVersionIds', affectedVersions: 'affectedVersionIds', epic: 'epicId',
   parent: 'parentId', storyPoints: 'storyPoints', originalEstimate: 'originalEstimate', remainingEstimate: 'remainingEstimate',
-  startDate: 'startDate', dueDate: 'dueDate', color: 'color', cover: 'cover', icon: 'icon', flagged: 'flagged', status: 'statusId',
+  startDate: 'startDate', dueDate: 'dueDate', color: 'color', cover: 'cover', 'icon': 'icon', flagged: 'flagged', status: 'statusId',
 };
 const COMPARED = ['summary', 'description', 'type', 'status', 'assignee', 'reporter', 'priority', 'labels', 'components', 'fixVersions', 'affectedVersions', 'epic', 'parent', 'storyPoints', 'originalEstimate', 'remainingEstimate', 'startDate', 'dueDate', 'color', 'cover', 'icon', 'flagged'];
 const HISTORY_FIELD = { typeId: 'type', statusId: 'status', assigneeId: 'assignee', reporterId: 'reporter', priorityId: 'priority', componentIds: 'components', fixVersionIds: 'fixVersions', affectedVersionIds: 'affectedVersions', epicId: 'epic', parentId: 'parent' };
@@ -52,6 +53,9 @@ class DetailView {
     this.collapsed = new Set(prefs.collapsed ?? []);
     this.tab = prefs.tab ?? 'comments';
     this.order = prefs.order ?? 'newest';
+    this.showEmpty = Boolean(prefs.showEmpty); // "show empty fields" in Details
+    this.keepShown = new Set(); // empty fields the user touched in this issue: never hidden under their hands
+    this.activeSection = null;
     this.comments = null; this.attachments = null; this.worklogs = null; this.history = null; this.transitions = null;
     this.presence = [];
     this.configs = new Map();
@@ -78,6 +82,7 @@ class DetailView {
     host.addEventListener('pointerdown', (e) => this.onPointerDown(e));
     for (const type of ['dragenter', 'dragover', 'dragleave', 'drop']) host.addEventListener(type, (e) => this.onDrag(e));
     host.addEventListener('focusin', (e) => this.onFocus(e));
+    host.addEventListener('scroll', () => this.onScroll(), { passive: true });
     bindSteppers(host, (key, value, el) => this.onStep(key, value, el));
     this.globalKey = (e) => this.onGlobalKey(e);
     document.addEventListener('keydown', this.globalKey);
@@ -85,6 +90,7 @@ class DetailView {
     if (live?.on) {
       this.offs.push(live.on('event', (event) => this.onLive(event)));
       this.offs.push(live.on('presence', (p) => this.onPresence(p)));
+      this.offs.push(live.on('subscribed', ({ topics }) => { if (this.topic && (topics ?? []).includes(this.topic)) { this.topicReady = true; this.lastPresence = null; this.sendPresence(); } }));
       this.offs.push(live.on('state', (s) => { if (s?.resync && this.issueId) this.reload({ quiet: true }); }));
     }
     window.__myboardDetail = this;
@@ -127,11 +133,12 @@ class DetailView {
   // ───────────────────────── loading
 
   show(id) {
+    if (this.issueId !== id) closePicker();
     if (this.issueId && this.issueId !== id) this.leavePresence();
     const changed = this.issueId !== id;
     this.issueId = id;
     if (changed) {
-      this.drafts.clear(); this.editing.clear(); this.editBase.clear(); this.previews.clear();
+      this.drafts.clear(); this.editing.clear(); this.editBase.clear(); this.previews.clear(); this.keepShown.clear();
       this.issue = null; this.server = null; this.comments = null; this.attachments = null; this.worklogs = null; this.history = null; this.transitions = null;
       this.conflict = null; this.notice = null; this.remoteNote = null; this.statusForm = null; this.linkForm = null; this.preview = null; this.presence = [];
       closePicker();
@@ -169,7 +176,8 @@ class DetailView {
       try {
         const issue = await this.api.issue(this.issueId);
         this.setServer(issue);
-        if (this.state !== 'ready') { this.cfg = await this.config(issue.projectId); this.state = 'ready'; }
+        // moved to another project (here or by someone else): that project's types, statuses and fields
+        if (this.state !== 'ready' || (this.cfg?.project?.id && this.cfg.project.id !== issue.projectId)) { this.cfg = await this.config(issue.projectId); this.state = 'ready'; }
         this.render();
         await Promise.all([this.loadParts(parts ?? ['comments', 'attachments', ...(this.history ? ['history'] : []), ...(this.worklogs ? ['worklogs'] : [])]), this.loadTransitions()]);
       } catch (error) {
@@ -179,16 +187,13 @@ class DetailView {
   }
 
   /**
-   * This window's own changes come back without a live event (the channel drops them): the centre view
-   * (board, backlog …) hears about them as if they were one, marked `local: true`.
+   * This window's own changes come back without a live event (the channel drops them): the other views
+   * (board, backlog …) hear about them through the window event `myboard:event`, marked `local: true`.
    */
   tellWorkspace(type, issue) {
-    const app = this.ctx.app;
-    const viewId = app?.state?.doc?.view;
-    if (!viewId || !issue) return;
+    if (!issue) return;
     const event = { type, id: issue.id, rev: issue.rev, data: issue, topics: [`project:${issue.projectId}`, `issue:${issue.id}`], by: this.me?.id ?? null, at: Date.now(), local: true };
-    try { getView(viewId)?.update?.({ ...this.ctx, issueId: undefined, event }); } catch (error) { console.warn('workspace update', error); }
-    try { window.dispatchEvent(new CustomEvent('myboard:issue-changed', { detail: event })); } catch { /* old engine */ }
+    try { window.dispatchEvent(new CustomEvent('myboard:event', { detail: event })); } catch (error) { console.warn('myboard:event', error); }
   }
 
   setServer(issue, { tell = false, type = 'issue.updated' } = {}) {
@@ -259,12 +264,17 @@ class DetailView {
     if (!live?.subscribe) return;
     if (this.topic && this.topic !== `issue:${issue.id}`) live.unsubscribe?.([this.topic]);
     this.topic = `issue:${issue.id}`;
+    // The hub accepts presence only once the subscription is confirmed (it checks access asynchronously):
+    // presence goes out now when the topic is already subscribed, else on the 'subscribed' answer.
+    const already = live.topics?.has?.(this.topic);
     live.subscribe([this.topic]);
-    this.sendPresence();
+    this.lastPresence = null;
+    this.topicReady = Boolean(already || !live.realtime);
+    if (this.topicReady) this.sendPresence();
   }
 
   sendPresence() {
-    if (!this.topic || this.ctx.settings?.realtimePresence === false) return;
+    if (!this.topic || !this.topicReady || this.ctx.settings?.realtimePresence === false) return;
     const editing = [...this.editing].find((k) => k === 'summary' || k === 'desc' || k.startsWith('custom:') || k.startsWith('comment:')) ?? null;
     const state = { view: 'issue', issueId: this.issueId, ...(editing ? { editing: editing === 'desc' ? 'description' : editing.startsWith('comment:') ? 'comment' : editing } : {}) };
     const key = JSON.stringify(state);
@@ -277,6 +287,7 @@ class DetailView {
     if (!this.topic) return;
     try { this.ctx.live?.setPresence?.(this.topic, null); this.ctx.live?.unsubscribe?.([this.topic]); } catch { /* closed */ }
     this.topic = null;
+    this.topicReady = false;
     this.lastPresence = null;
   }
 
@@ -302,6 +313,8 @@ class DetailView {
     if (/^(field|version|component|status|issueType|workflow|transition|member|project)\./.test(type) && this.issue && (event.topics ?? []).includes(`project:${this.issue.projectId}`)) {
       this.configs.delete(this.issue.projectId);
       this.debouncedConfig();
+      // a project key rename re-keys the shown issue too
+      if (type === 'project.updated' && event.data?.oldKey) this.debouncedRefresh();
       return;
     }
     if (!this.concerns(event)) return;
@@ -350,11 +363,10 @@ class DetailView {
     const active = document.activeElement;
     const focusKey = host.contains(active) ? active.dataset?.draft ?? (active.dataset?.act ? `act:${active.dataset.act}:${active.dataset.field ?? active.dataset.id ?? ''}` : null) : null;
     const caret = focusKey && 'selectionStart' in active ? [active.selectionStart, active.selectionEnd] : null;
-    const scroll = host.querySelector('.dt-root')?.scrollTop ?? host.scrollTop;
+    const scroll = host.scrollTop;
     const areaScroll = active?.tagName === 'TEXTAREA' ? active.scrollTop : 0;
     host.innerHTML = this.html();
-    const root = host.querySelector('.dt-root');
-    if (root) root.scrollTop = scroll; else host.scrollTop = scroll;
+    host.scrollTop = scroll;
     if (focusKey) {
       const el = focusKey.startsWith('act:')
         ? host.querySelector(`[data-act="${CSS.escape(focusKey.split(':')[1])}"]${focusKey.split(':')[2] ? `[data-field="${CSS.escape(focusKey.split(':')[2])}"], [data-act="${CSS.escape(focusKey.split(':')[1])}"][data-id="${CSS.escape(focusKey.split(':')[2])}"]` : ''}`)
@@ -384,6 +396,7 @@ class DetailView {
       ${headerHtml(v)}
       ${statusRowHtml(v)}
       ${bannersHtml(v)}
+      ${sectionBarHtml(v)}
       <div class="dt-columns"><div class="dt-main">${main}</div><aside class="dt-side">${fieldsHtml(v)}</aside></div>
       ${previewHtml(v)}
       <input type="file" class="dt-file" hidden multiple />
@@ -460,8 +473,8 @@ class DetailView {
 
   /** Undo / Redo: sets a field of an issue that may not be shown any more. */
   async remote(id, field, value) {
-    const shown = this.issueId === id && this.server;
-    const rev = shown ? this.server.rev : (await this.api.issue(id)).rev;
+    // The newest rev: automation may have changed the issue after my own change (those events carry my client id).
+    const rev = (await this.api.issue(id)).rev;
     const out = await this.api.updateIssue(id, { ...this.patchFor(field, value), rev });
     if (this.issueId === id) { this.setServer(out, { tell: true }); this.render(); this.loadParts(this.history ? ['history'] : []); this.loadTransitions(); } else this.tellWorkspace('issue.updated', out);
     return out;
@@ -479,7 +492,7 @@ class DetailView {
         return true;
       } catch (error) {
         if (this.issueId !== id) return false;
-        if (error?.status === 409 && error.details?.current) return this.onConflict(patch, fields, base, error.details.current);
+        if (error?.status === 409 && error.details?.current) return await this.onConflict(patch, fields, base, error.details.current);
         this.issue = clone(this.server);
         this.fail(error);
         return false;
@@ -609,6 +622,8 @@ class DetailView {
     const el = event.target.closest('[data-act]');
     if (!el || !this.host.contains(el)) return;
     const act = el.dataset.act;
+    const fieldRow = el.closest('.dt-field');
+    if (fieldRow?.dataset.field) this.keepShown.add(fieldRow.dataset.field);
     if (el.tagName === 'INPUT' && (el.type === 'checkbox' || el.type === 'date')) return; // change event
     if (act === 'att-download') return; // the link downloads
     if (el.tagName === 'A' && !act) return;
@@ -638,6 +653,7 @@ class DetailView {
 
   onStep(key, value, el) {
     if (this.readOnly || !this.issue) return;
+    this.keepShown.add(key);
     // Steps arrive one by one while a button is held: saved once the value rests.
     clearTimeout(this.stepTimer);
     const typed = el.querySelector('.stepper-value');
@@ -647,6 +663,42 @@ class DetailView {
       else if (key === 'originalEstimate' || key === 'remainingEstimate') this.setField(key, empty ? null : Math.round(value * 3600));
       else if (key.startsWith('custom:')) this.setField(key, empty ? null : value);
     }, document.activeElement === typed ? 0 : 450);
+  }
+
+  /** The section bar's active chip follows the scroll (no re-render). */
+  onScroll() {
+    if (this.scrollQueued || !this.host) return;
+    this.scrollQueued = true;
+    requestAnimationFrame(() => {
+      this.scrollQueued = false;
+      const host = this.host;
+      const bar = host?.querySelector('.dt-secbar');
+      if (!bar) return;
+      const line = bar.getBoundingClientRect().bottom + 8;
+      let current = null;
+      for (const sec of host.querySelectorAll('.dt-section[data-section]')) if (sec.getBoundingClientRect().top <= line) current = sec.dataset.section;
+      if (host.scrollTop < 4) current = null;
+      if (current === this.activeSection) return;
+      this.activeSection = current;
+      for (const chip of bar.querySelectorAll('.dt-sb-chip')) chip.classList.toggle('active', chip.dataset.jump === current);
+    });
+  }
+
+  /** Scrolls a section to just under the sticky section bar, opening it, and flashes it. */
+  jumpTo(id) {
+    if (this.collapsed.has(id)) { this.collapsed.delete(id); this.persist(); this.render(); }
+    const host = this.host;
+    const sec = host?.querySelector(`.dt-section[data-section="${CSS.escape(id)}"]`);
+    if (!sec) return;
+    const bar = host.querySelector('.dt-secbar');
+    const top = sec.getBoundingClientRect().top - host.getBoundingClientRect().top + host.scrollTop - (bar?.offsetHeight ?? 0) - 6;
+    host.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+    this.activeSection = id;
+    for (const chip of host.querySelectorAll('.dt-sb-chip')) chip.classList.toggle('active', chip.dataset.jump === id);
+    sec.classList.remove('dt-flash'); void sec.offsetWidth; sec.classList.add('dt-flash');
+    clearTimeout(this.flashTimer);
+    this.flashTimer = setTimeout(() => sec.classList.remove('dt-flash'), 1300);
+    sec.querySelector('.dt-section-toggle')?.focus({ preventScroll: true });
   }
 
   onFocus(event) {
@@ -899,11 +951,13 @@ class DetailView {
     const single = (items, value, apply) => openPicker(anchor, { key: field, items, value: value ?? '', onPick: (x) => apply(x === '' ? null : x) });
     const multi = (items, value, { create } = {}) => {
       const before = this.valueOf(field) ?? [];
+      const id = this.issueId;
       openPicker(anchor, {
         key: field, items, value: before, multi: true, create,
         onPick: (values) => { this.applyLocal(field, values); this.renderSoon(); },
-        onCreate: (text) => { const now = this.valueOf(field) ?? []; this.applyLocal(field, [...now, text.trim().replace(/\s+/g, '-')]); this.commitMulti(field, before); },
-        onClose: () => this.commitMulti(field, before),
+        // The picker closes right after: onClose saves the toggles and the new value in one step.
+        onCreate: (text) => { const now = this.valueOf(field) ?? []; const label = text.trim().replace(/\s+/g, '-'); if (!now.includes(label)) this.applyLocal(field, [...now, label]); },
+        onClose: () => this.commitMulti(field, before, id),
       });
     };
     switch (field) {
@@ -953,7 +1007,8 @@ class DetailView {
 
   memberIds() { return new Set((this.cfg?.members ?? []).map((m) => m.userId ?? m.id)); }
 
-  commitMulti(field, before) {
+  commitMulti(field, before, issueId = this.issueId) {
+    if (!this.issue || this.issueId !== issueId || this.state !== 'ready') return;
     const now = this.valueOf(field) ?? [];
     if (sameValue(now, before)) { this.render(); return; }
     // The shown value is already new: save against the value it started from.
@@ -1047,8 +1102,7 @@ class DetailView {
   }
 
   async remoteStatus(id, statusId, resolutionId) {
-    const shown = this.issueId === id && this.server;
-    const rev = shown ? this.server.rev : (await this.api.issue(id)).rev;
+    const rev = (await this.api.issue(id)).rev;
     const out = await this.api.transition(id, { statusId, rev, ...(resolutionId ? { resolutionId } : {}) });
     if (this.issueId === id) { this.setServer(out, { tell: true, type: 'issue.transitioned' }); this.render(); this.loadTransitions(); if (this.history) this.loadParts(['history']); } else this.tellWorkspace('issue.transitioned', out);
     return out;
@@ -1067,6 +1121,7 @@ class DetailView {
       { value: 'copy-link', label: t('detail.copyLink'), icon: 'hyperlink' },
       { value: 'copy-key', label: t('detail.copyKey'), icon: 'copy' },
       { value: 'clone', label: t('detail.clone'), icon: 'duplicate', disabled: ro },
+      { value: 'move-project', label: t('detail.moveProject'), icon: 'folderOpen', disabled: ro || Boolean(issue.parentId), hint: issue.parentId ? t('detail.move.subtaskHint') : '' },
       { value: 'wide', label: this.isWide() ? t('detail.narrow') : t('detail.wide'), icon: 'fullscreen' },
       { value: 'refresh', label: t('detail.refresh'), icon: 'refresh' },
       { value: 'delete', label: t('detail.delete'), icon: 'trash', danger: true, disabled: ro },
@@ -1075,7 +1130,7 @@ class DetailView {
     openPicker(anchor ?? this.host.querySelector('[data-act="menu"]'), {
       key: 'menu', items, value: null, search: false,
       onPick: (x) => {
-        const map = { watch: 'watch', vote: 'vote', flag: 'flag', icon: 'pick-icon', 'copy-link': 'copy-link', 'copy-key': 'copy-key', clone: 'clone', wide: 'wide', refresh: 'retry', delete: 'delete', close: 'close' };
+        const map = { watch: 'watch', vote: 'vote', flag: 'flag', icon: 'pick-icon', 'copy-link': 'copy-link', 'copy-key': 'copy-key', clone: 'clone', 'move-project': 'move-project', wide: 'wide', refresh: 'retry', delete: 'delete', close: 'close' };
         this.actions[map[x]]?.call(this, this.host.querySelector('[data-act="menu"]'));
       },
     });
@@ -1095,9 +1150,29 @@ class DetailView {
   // ───────────────────────── the actions (data-act)
 
   actions = {
-    retry() { if (this.issueId) { this.state = this.issue ? this.state : 'loading'; this.show(this.issueId); if (this.issue) this.reload({ quiet: false }); } },
+    retry() {
+      if (!this.issueId) return;
+      if (this.state === 'ready') { this.configs.clear(); this.reload({ quiet: false }); return; }
+      this.state = 'loading';
+      this.render();
+      this.track(this.load(this.issueId));
+    },
     close() { this.closePanel(); },
     open(el) { const id = el.dataset.id; if (id) this.ctx.openIssue(id); },
+    'toggle-group'(el) { const id = `group:${el.dataset.group}`; if (this.collapsed.has(id)) this.collapsed.delete(id); else this.collapsed.add(id); this.persist(); this.render(); },
+    'toggle-empty'() { this.showEmpty = !this.showEmpty; this.persist(); this.render(); },
+    jump(el) { this.jumpTo(el.dataset.jump); },
+    'date-open'(el) {
+      const input = el.parentElement?.querySelector('input[type="date"]');
+      if (!input || input.disabled) return;
+      try { input.showPicker(); } catch { input.focus(); }
+    },
+    'log-work'() {
+      this.collapsed.delete('activity');
+      this.actions.tab.call(this, { dataset: { tab: 'worklog' } });
+      this.jumpTo('activity');
+      requestAnimationFrame(() => this.host?.querySelector('[data-draft="wl:time"]')?.focus({ preventScroll: true }));
+    },
     'toggle-section'(el) { const id = el.dataset.section; if (this.collapsed.has(id)) this.collapsed.delete(id); else this.collapsed.add(id); this.persist(); this.render(); },
     'dismiss-note'() { this.remoteNote = null; this.render(); },
     'dismiss-notice'() { this.notice = null; this.render(); },
@@ -1128,6 +1203,7 @@ class DetailView {
       const out = await this.act(() => this.api.post(`/issues/${encodeURIComponent(this.issueId)}/clone`, {}), { issue: false });
       if (out?.id) { this.tellWorkspace('issue.created', out); this.ctx.notify?.('success', t('detail.cloned', { key: out.key })); this.ctx.openIssue(out.id); }
     },
+    'move-project'() { return openMoveForm(this); },
     async delete() {
       const issue = this.issue;
       const subs = issue.subtasks?.length ?? 0;
@@ -1262,7 +1338,7 @@ class DetailView {
     // transitions
     'tf-resolution'(el) {
       const f = this.statusForm;
-      openPicker(el, { key: 'tf-resolution', items: this.cfg.resolutions.map((r) => ({ value: r.id, label: r.name, hint: r.description ?? '', icon: 'check' })), value: f.resolutionId, onPick: (x) => { f.resolutionId = x; this.render(); } });
+      openPicker(el, { key: 'tf-resolution', items: this.cfg.resolutions.map((r) => ({ value: r.id, label: r.name, hint: r.description ?? '', iconHtml: resolutionIcon(r, 16) })), value: f.resolutionId, onPick: (x) => { f.resolutionId = x; this.render(); } });
     },
     'tf-assignee'(el) {
       const f = this.statusForm;
@@ -1401,7 +1477,7 @@ class DetailView {
     link.remove();
   }
 
-  persist() { savePrefs({ collapsed: [...this.collapsed], tab: this.tab, order: this.order }); }
+  persist() { savePrefs({ collapsed: [...this.collapsed], tab: this.tab, order: this.order, showEmpty: this.showEmpty }); }
 }
 
 let instance = null;

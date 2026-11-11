@@ -59,7 +59,8 @@ function onKey(event) {
     case 'PageUp': go(at - 8); break;
     case 'Enter':
       event.preventDefault(); event.stopPropagation();
-      if (open.active) choose(open.active.dataset.value);
+      if (open.active?.dataset.new) choose(open.query.trim(), true);
+      else if (open.active) choose(open.active.dataset.value);
       else if (open.allowNew && open.query.trim()) choose(open.query.trim(), true);
       break;
     case 'Escape': event.preventDefault(); event.stopPropagation(); closeRefList(); break;

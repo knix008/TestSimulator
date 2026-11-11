@@ -6,6 +6,8 @@ import { t } from '../../i18n.js';
 import { esc } from './util.js';
 
 let current = null;
+/** The value of the "create" entry (a NUL would not survive the HTML parser). */
+export const CREATE = ':create:';
 
 export const pickerOpen = () => Boolean(current);
 export const pickerFor = () => current?.key ?? null;
@@ -56,7 +58,7 @@ export function openPicker(anchor, options) {
     rows = items.filter((item, i) => !item.group || (items[i + 1] && !items[i + 1].group));
     const text = (input?.value ?? '').trim();
     const createLabel = options.create && text && !options.items.some((item) => !item.group && String(item.label).toLowerCase() === text.toLowerCase()) ? options.create(text) : null;
-    if (createLabel) rows.push({ value: `\u0000create`, label: createLabel, icon: 'plus', create: text });
+    if (createLabel) rows.push({ value: CREATE, label: createLabel, icon: 'plus', create: text });
     const selectable = rows.filter((row) => !row.group && !row.disabled);
     active = Math.min(Math.max(active, selectable.length ? 0 : -1), selectable.length - 1);
     if (query && active < 0 && selectable.length) active = 0;
@@ -88,7 +90,7 @@ export function openPicker(anchor, options) {
     if (!rowEl || rowEl.classList.contains('disabled')) return;
     const value = rowEl.dataset.value;
     const row = rows.find((r) => !r.group && String(r.value) === value);
-    if (row?.create != null) { closePicker(); options.onCreate?.(row.create); return; }
+    if (row?.create != null) { options.onCreate?.(row.create); closePicker(); return; }
     if (multi) {
       if (chosen.has(row.value)) chosen.delete(row.value); else chosen.add(row.value);
       draw();

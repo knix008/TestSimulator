@@ -63,6 +63,9 @@ export class WsChannel extends Emitter {
     this.pingInterval = pingInterval;
     this.topics = new Set();
     this.presence = new Map();
+    // Topics the hub has confirmed on this socket: presence for a topic is sent only after its `subscribed`
+    // answer (the hub checks access asynchronously and rejects presence before that with NOT_SUBSCRIBED).
+    this.confirmed = new Set();
     this.state = 'idle';
     this.realtime = true;
     this.attempt = 0;
@@ -95,9 +98,9 @@ export class WsChannel extends Emitter {
       const resync = this.everOpened;
       this.everOpened = true;
       this.attempt = 0;
+      this.confirmed.clear();
       this.send({ op: 'hello', clientId: this.clientId });
       if (this.topics.size) this.send({ op: 'sub', topics: [...this.topics] });
-      for (const [topic, state] of this.presence) this.send({ op: 'presence', topic, state });
       clearInterval(this.pingTimer);
       this.pingTimer = setInterval(() => this.send({ op: 'ping' }), this.pingInterval);
       this.setState('open', { resync });
@@ -135,6 +138,11 @@ export class WsChannel extends Emitter {
     } else if (message?.op === 'subscribed') {
       const denied = [].concat(message.denied ?? []);
       for (const topic of denied) { this.topics.delete(topic); this.presence.delete(topic); }
+      for (const topic of [].concat(message.topics ?? [])) {
+        if (!this.topics.has(topic) || this.confirmed.has(topic)) continue;
+        this.confirmed.add(topic);
+        if (this.presence.has(topic)) this.send({ op: 'presence', topic, state: this.presence.get(topic) });
+      }
       this.emit('subscribed', { topics: message.topics ?? [], denied });
     } else if (message?.op === 'error') {
       this.emit('error', { code: message.code ?? 'ERROR', message: message.message ?? '' });
@@ -154,13 +162,14 @@ export class WsChannel extends Emitter {
 
   unsubscribe(topics) {
     const removed = [].concat(topics ?? []).filter((topic) => this.topics.delete(topic));
-    for (const topic of removed) this.presence.delete(topic);
+    for (const topic of removed) { this.presence.delete(topic); this.confirmed.delete(topic); }
     if (removed.length) this.send({ op: 'unsub', topics: removed });
   }
 
   setPresence(topic, state) {
     if (state) this.presence.set(topic, state); else this.presence.delete(topic);
-    this.send({ op: 'presence', topic, state: state ?? null });
+    // Not confirmed yet: sent when the `subscribed` answer arrives (a clear needs no wait).
+    if (this.confirmed.has(topic) || !state) this.send({ op: 'presence', topic, state: state ?? null });
   }
 
   close() {

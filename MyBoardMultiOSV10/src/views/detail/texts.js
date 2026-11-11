@@ -12,6 +12,16 @@ const ko = {
   'detail.breadcrumb': '위치', 'detail.watch': '지켜보기', 'detail.unwatch': '지켜보기 그만', 'detail.watched': '이 이슈를 지켜봅니다', 'detail.unwatched': '지켜보기를 그만두었습니다',
   'detail.vote': '투표', 'detail.unvote': '투표 취소', 'detail.votes': '투표 수', 'detail.flag': '깃발 달기', 'detail.unflag': '깃발 떼기', 'detail.flagged': '깃발',
   'detail.setIcon': '이슈 아이콘 정하기…', 'detail.copyLink': '링크 복사', 'detail.copyKey': '키 복사', 'detail.copied': '복사했습니다: {text}',
+  'detail.moveProject': '다른 프로젝트로 이동', 'detail.move.title': '{key} 을(를) 다른 프로젝트로 이동', 'detail.move.submit': '이동',
+  'detail.move.intro': '{key} 은(는) 대상 프로젝트에서 새 키를 받습니다. 옛 키로도 계속 찾을 수 있습니다.',
+  'detail.move.introSubs': '{key} 은(는) 대상 프로젝트에서 새 키를 받고 하위 작업 {n}개도 함께 옮겨집니다. 옛 키로도 계속 찾을 수 있습니다.',
+  'detail.move.project': '대상 프로젝트', 'detail.move.type': '유형', 'detail.move.status': '상태', 'detail.move.subtaskType': '하위 작업 유형',
+  'detail.move.subtaskStatusHint': '하위 작업의 상태는 같은 이름의 상태로, 없으면 처음 상태로 갑니다.',
+  'detail.move.keepParts': '같은 이름의 컴포넌트·버전 유지', 'detail.move.keepPartsHint': '끄면 컴포넌트와 버전을 모두 비웁니다. 대상에 없는 필드 값은 빠집니다(프로젝트 목록에 표시).',
+  'detail.move.lostFields': '빠지는 필드: {names}', 'detail.move.lostComponents': '빠지는 컴포넌트: {names}', 'detail.move.lostVersions': '빠지는 버전: {names}', 'detail.move.nothingLost': '모든 값이 그대로 옮겨집니다',
+  'detail.move.none': '옮길 수 있는 다른 프로젝트가 없습니다 (두 프로젝트 모두의 구성원이어야 합니다)', 'detail.move.subtaskHint': '하위 작업은 상위 이슈와 함께 옮겨집니다',
+  'detail.move.done': '{from} → {to} 로 옮겼습니다', 'detail.move.failed': '옮기지 못했습니다', 'detail.move.conflict': '그 사이 다른 사람이 이 이슈를 바꿨습니다. 다시 읽었으니 한 번 더 해 보세요.',
+  'detail.field.project': '프로젝트', 'detail.field.key': '키',
   'detail.clone': '복제', 'detail.cloned': '{key} 로 복제했습니다', 'detail.wide': '넓게 보기', 'detail.narrow': '보통 너비로',
   'detail.deleteTitle': '{key} 삭제', 'detail.deleteMessage': '{key} 와(과) 댓글, 첨부, 기록을 모두 지웁니다. 되돌릴 수 없습니다.', 'detail.deleteMessageSubs': '{key} 와(과) 하위 작업 {n}개, 댓글, 첨부, 기록을 모두 지웁니다. 되돌릴 수 없습니다.', 'detail.deleted': '{key} 를 삭제했습니다',
   'detail.changeType': '이슈 유형 바꾸기', 'detail.changeStatus': '상태 바꾸기', 'detail.editSummaryTip': '눌러서 제목 고치기 (E)',
@@ -68,6 +78,15 @@ const ko = {
   'detail.err.parent_required': '하위 작업에는 상위 이슈가 있어야 합니다', 'detail.err.parent_only_for_subtasks': '하위 작업만 상위 이슈를 가집니다', 'detail.err.invalid_parent': '그 이슈는 상위 이슈가 될 수 없습니다', 'detail.err.invalid_epic': '에픽 유형의 이슈만 에픽이 될 수 있습니다',
   'detail.err.invalid_type': '알 수 없는 이슈 유형입니다', 'detail.err.invalid_user': '알 수 없는 사용자입니다', 'detail.err.invalid_date': '날짜가 맞지 않습니다', 'detail.err.invalid_number': '0 이상의 숫자를 넣으세요', 'detail.err.invalid_option': '고를 수 없는 값입니다', 'detail.err.invalid_other': '값이 맞지 않습니다',
   'detail.err.not_author': '작성자만 할 수 있습니다', 'detail.err.project_permission': '이 프로젝트에서 이 일을 할 권한이 없습니다', 'detail.err.forbidden': '권한이 없습니다', 'detail.err.too_long': '글이 너무 깁니다', 'detail.err.required': '꼭 넣어야 하는 값이 비었습니다',
+
+  // field groups, empty fields, the section bar
+  'detail.group.people': '사람', 'detail.group.planning': '계획', 'detail.group.time': '추정·시간', 'detail.group.dates': '날짜', 'detail.group.look': '모양', 'detail.group.custom': '사용자 정의 필드',
+  'detail.group.filled': '{m}개 중 {n}개 채움', 'detail.empty.show': '빈 필드 {n}개 보기', 'detail.empty.hide': '빈 필드 숨기기',
+  'detail.sections': '섹션', 'detail.jumpTo': '{name}(으)로 가기', 'detail.pickDate': '날짜 고르기', 'detail.logWork': '작업 기록하기',
+  'detail.field.watchers': '지켜보는 사람', 'detail.watchersN': '{n}명', 'detail.watchingMe': '나도 지켜봄',
+  'detail.colorName.red': '빨강', 'detail.colorName.orange': '주황', 'detail.colorName.yellow': '노랑', 'detail.colorName.green': '초록', 'detail.colorName.teal': '청록', 'detail.colorName.blue': '파랑',
+  'detail.colorName.indigo': '남색', 'detail.colorName.purple': '보라', 'detail.colorName.pink': '분홍', 'detail.colorName.gray': '회색', 'detail.colorName.brown': '갈색', 'detail.colorName.black': '검정', 'detail.colorName.white': '흰색',
+  'detail.colorLight': '연한 {c}', 'detail.colorDark': '짙은 {c}',
 };
 
 const en = {
@@ -81,6 +100,16 @@ const en = {
   'detail.breadcrumb': 'Location', 'detail.watch': 'Watch', 'detail.unwatch': 'Stop watching', 'detail.watched': 'You are watching this issue', 'detail.unwatched': 'You stopped watching',
   'detail.vote': 'Vote', 'detail.unvote': 'Remove vote', 'detail.votes': 'Votes', 'detail.flag': 'Add flag', 'detail.unflag': 'Remove flag', 'detail.flagged': 'Flagged',
   'detail.setIcon': 'Set issue icon…', 'detail.copyLink': 'Copy link', 'detail.copyKey': 'Copy key', 'detail.copied': 'Copied: {text}',
+  'detail.moveProject': 'Move to another project', 'detail.move.title': 'Move {key} to another project', 'detail.move.submit': 'Move',
+  'detail.move.intro': '{key} gets a new key in the target project. The old key keeps working.',
+  'detail.move.introSubs': '{key} gets a new key in the target project and its {n} subtasks move with it. The old keys keep working.',
+  'detail.move.project': 'Target project', 'detail.move.type': 'Type', 'detail.move.status': 'Status', 'detail.move.subtaskType': 'Subtask type',
+  'detail.move.subtaskStatusHint': 'Subtasks go to the status of the same name, else to the first status.',
+  'detail.move.keepParts': 'Keep components and versions with the same name', 'detail.move.keepPartsHint': 'Off clears components and versions. Field values the target lacks are dropped (shown in the project list).',
+  'detail.move.lostFields': 'Fields dropped: {names}', 'detail.move.lostComponents': 'Components dropped: {names}', 'detail.move.lostVersions': 'Versions dropped: {names}', 'detail.move.nothingLost': 'Everything moves along',
+  'detail.move.none': 'There is no other project you can move it to (you need to be a member of both)', 'detail.move.subtaskHint': 'A subtask moves with its parent issue',
+  'detail.move.done': 'Moved {from} → {to}', 'detail.move.failed': 'Could not move the issue', 'detail.move.conflict': 'Someone changed this issue meanwhile. It was reloaded; please try again.',
+  'detail.field.project': 'Project', 'detail.field.key': 'Key',
   'detail.clone': 'Clone', 'detail.cloned': 'Cloned as {key}', 'detail.wide': 'Open wide', 'detail.narrow': 'Normal width',
   'detail.deleteTitle': 'Delete {key}', 'detail.deleteMessage': '{key} and its comments, attachments and history are removed. This cannot be undone.', 'detail.deleteMessageSubs': '{key}, its {n} subtasks, comments, attachments and history are removed. This cannot be undone.', 'detail.deleted': '{key} was deleted',
   'detail.changeType': 'Change issue type', 'detail.changeStatus': 'Change status', 'detail.editSummaryTip': 'Click to edit the summary (E)',
@@ -137,6 +166,15 @@ const en = {
   'detail.err.parent_required': 'A subtask needs a parent issue', 'detail.err.parent_only_for_subtasks': 'Only subtasks have a parent', 'detail.err.invalid_parent': 'That issue cannot be the parent', 'detail.err.invalid_epic': 'Only an issue of an epic type can be the epic',
   'detail.err.invalid_type': 'Unknown issue type', 'detail.err.invalid_user': 'Unknown user', 'detail.err.invalid_date': 'The date is not valid', 'detail.err.invalid_number': 'Enter a number of 0 or more', 'detail.err.invalid_option': 'That value cannot be chosen', 'detail.err.invalid_other': 'A value is not valid',
   'detail.err.not_author': 'Only the author can do this', 'detail.err.project_permission': 'You may not do this in this project', 'detail.err.forbidden': 'Not allowed', 'detail.err.too_long': 'The text is too long', 'detail.err.required': 'A required value is empty',
+
+  // field groups, empty fields, the section bar
+  'detail.group.people': 'People', 'detail.group.planning': 'Planning', 'detail.group.time': 'Estimates & time', 'detail.group.dates': 'Dates', 'detail.group.look': 'Appearance', 'detail.group.custom': 'Custom fields',
+  'detail.group.filled': '{n} of {m} filled', 'detail.empty.show': 'Show {n} empty fields', 'detail.empty.hide': 'Hide empty fields',
+  'detail.sections': 'Sections', 'detail.jumpTo': 'Go to {name}', 'detail.pickDate': 'Pick a date', 'detail.logWork': 'Log work',
+  'detail.field.watchers': 'Watchers', 'detail.watchersN': '{n}', 'detail.watchingMe': 'including you',
+  'detail.colorName.red': 'Red', 'detail.colorName.orange': 'Orange', 'detail.colorName.yellow': 'Yellow', 'detail.colorName.green': 'Green', 'detail.colorName.teal': 'Teal', 'detail.colorName.blue': 'Blue',
+  'detail.colorName.indigo': 'Indigo', 'detail.colorName.purple': 'Purple', 'detail.colorName.pink': 'Pink', 'detail.colorName.gray': 'Grey', 'detail.colorName.brown': 'Brown', 'detail.colorName.black': 'Black', 'detail.colorName.white': 'White',
+  'detail.colorLight': 'Light {c}', 'detail.colorDark': 'Dark {c}',
 };
 
 registerTexts({ ko, en });

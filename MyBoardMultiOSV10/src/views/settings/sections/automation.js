@@ -72,12 +72,14 @@ export const automationSection = {
         case 'rule-edit': { const r = findR(id); S.pending.ruleDraft = structuredClone({ id: r.id, rev: r.rev, name: r.name, enabled: r.enabled, trigger: r.trigger ?? { type: 'manual' }, conditions: r.conditions ?? [], actions: r.actions ?? [] }); S.render(); break; }
         case 'rule-run': {
           const r = findR(id);
-          try {
-            const result = await S.api.post(`${S.url('automation', r.id)}/run`, {});
-            S.pending.runResult = { id: r.id, result };
-            S.say('success', tr('auto.ran', { name: r.name }));
-          } catch (error) { S.pending.runResult = null; S.fail(error); return; }
-          await S.refresh();
+          await S.track(async () => {
+            try {
+              const result = await S.api.post(`${S.url('automation', r.id)}/run`, {});
+              S.pending.runResult = { id: r.id, result };
+              S.say('success', tr('auto.ran', { name: r.name }));
+            } catch (error) { S.pending.runResult = null; S.fail(error); return; }
+            await S.refresh();
+          });
           break;
         }
         case 'cond-add': draft.conditions.push({ jql: '' }); S.render(); break;

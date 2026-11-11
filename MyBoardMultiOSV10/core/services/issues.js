@@ -40,7 +40,9 @@ export function createIssues(core) {
 
   // ---- loading ----------------------------------------------------------------------------------------------
   async function load(idOrKey) {
-    const row = await db().get('SELECT * FROM "issues" WHERE "id" = ? OR "key" = ?', [idOrKey, String(idOrKey).toUpperCase()]);
+    let row = await db().get('SELECT * FROM "issues" WHERE "id" = ? OR "key" = ?', [idOrKey, String(idOrKey).toUpperCase()]);
+    // an earlier key (project key rename, move to another project) still finds the issue
+    if (!row) row = await db().get('SELECT i.* FROM "issues" i JOIN "issue_key_aliases" a ON a."issue_id" = i."id" WHERE a."key" = ?', [String(idOrKey).toUpperCase()]);
     if (!row) throw new NotFoundError('ISSUE_NOT_FOUND', 'Issue not found');
     return row;
   }
@@ -210,7 +212,11 @@ export function createIssues(core) {
     }
   }
 
-  /** Set custom values given in `custom` ({ fieldId | fieldName: value }); returns history entries. */
+  /**
+   * Set custom values given in `custom` ({ fieldId | fieldName: value }); returns history entries.
+   * A field that does not apply to the issue's type (custom_fields.issue_type_ids) refuses a new value
+   * (FIELD_NOT_APPLICABLE); an unchanged value or clearing it is allowed (values stay stored when the type changes).
+   */
   async function setCustom(issue, custom, fields, { creating = false } = {}) {
     const hist = [];
     const existing = Object.fromEntries((await db().select('custom_values', { issue_id: issue.id })).map((r) => [r.field_id, parseJson(r.value)]));
@@ -220,15 +226,18 @@ export function createIssues(core) {
       const v = await customValue(cf, raw);
       const before = existing[cf.id];
       if (JSON.stringify(before ?? null) === JSON.stringify(v ?? null)) continue;
+      const applies = fieldApplies(cf, issue.type_id);
+      if (!applies && v !== undefined) throw new ValidationError('FIELD_NOT_APPLICABLE', `${cf.name} does not apply to this issue type`, { field: cf.id });
       await db().run('DELETE FROM "custom_values" WHERE "issue_id" = ? AND "field_id" = ?', [issue.id, cf.id]);
       if (v !== undefined) {
         const cols = customValueColumns(cf, v);
         await db().insert('custom_values', { issue_id: issue.id, field_id: cf.id, value: JSON.stringify(v), ...cols });
-      } else if (cf.required) throw new ValidationError('REQUIRED', `${cf.name} is required`, { field: cf.id });
+      } else if (Number(cf.required) && applies) throw new ValidationError('REQUIRED', `${cf.name} is required`, { field: cf.id });
       if (!creating) hist.push({ field: `custom:${cf.id}`, from_value: before == null ? null : JSON.stringify(before), to_value: v == null ? null : JSON.stringify(v), from_label: fmt(before), to_label: fmt(v) });
     }
     if (creating) {
       for (const cf of fields) {
+        if (!fieldApplies(cf, issue.type_id)) continue;
         if (Number(cf.required) && !(await db().get('SELECT 1 AS x FROM "custom_values" WHERE "issue_id" = ? AND "field_id" = ?', [issue.id, cf.id]))) {
           throw new ValidationError('REQUIRED', `${cf.name} is required`, { field: cf.id });
         }
@@ -237,6 +246,22 @@ export function createIssues(core) {
     return hist;
   }
   const fmt = (v) => (v == null ? null : Array.isArray(v) ? v.join(', ') : String(v));
+
+  /**
+   * `custom` for a new issue with the fields' default values added: a field that applies to the type, has a
+   * default and is not named in `custom` (by id or name) gets its default. An explicit null/'' stays empty.
+   */
+  function withDefaults(custom, fields, typeId) {
+    const out = { ...(custom || {}) };
+    const given = new Set(Object.keys(out).map((k) => String(k).toLowerCase()));
+    for (const cf of fields) {
+      const def = parseJson(cf.default_value, null);
+      if (def == null || (Array.isArray(def) && !def.length) || !fieldApplies(cf, typeId)) continue;
+      if (given.has(String(cf.id).toLowerCase()) || given.has(String(cf.name).toLowerCase())) continue;
+      out[cf.id] = def;
+    }
+    return out;
+  }
 
   async function addWatcher(issueId, userId, at) {
     if (!userId) return;
@@ -579,15 +604,27 @@ export function createIssues(core) {
         const defPriority = patch.priority_id || (await defaultPriorityId());
         const r = await nextRank(body.afterId, body.beforeId);
         const resolved = status.category === 'done';
+        // no assignee given: the first of the issue's components with a default assignee, else the project's
+        let assigneeId = patch.assignee_id;
+        if (assigneeId === undefined) {
+          for (const cid of Array.isArray(body.componentIds) ? body.componentIds : []) {
+            const comp = await db().get('SELECT "default_assignee_id" FROM "components" WHERE "id" = ? AND "project_id" = ?', [cid, project.id]);
+            if (comp?.default_assignee_id && (await db().get('SELECT "id" FROM "users" WHERE "id" = ? AND "active" = 1', [comp.default_assignee_id]))) { assigneeId = comp.default_assignee_id; break; }
+          }
+          if (assigneeId === undefined) assigneeId = project.default_assignee_id;
+        }
         const issue = await db().insert('issues', {
           ...patch, id: shell.id, project_id: project.id, number, key: `${project.key}-${number}`, type_id: typeId, status_id: statusId,
           priority_id: defPriority, reporter_id: patch.reporter_id !== undefined ? patch.reporter_id : userId,
-          assignee_id: patch.assignee_id !== undefined ? patch.assignee_id : project.default_assignee_id,
+          assignee_id: assigneeId ?? null,
           resolution_id: resolved ? (body.resolutionId || (await db().value('SELECT "id" FROM "resolutions" ORDER BY "position"'))) : null,
           resolved_at: resolved ? now : null, rank: r, status_changed_at: now, time_spent: 0, created_at: now, updated_at: now,
         });
+        // a key once used by a moved-away issue of a deleted project: the live issue wins (aliases never equal live keys)
+        await db().run('DELETE FROM "issue_key_aliases" WHERE "key" = ?', [issue.key]);
         await setMulti(issue, body, { labels: [], componentIds: [], fixVersionIds: [], affectedVersionIds: [] });
-        await setCustom(issue, body.custom || {}, await customFieldsFor(project.id), { creating: true });
+        const projectFields = await customFieldsFor(project.id);
+        await setCustom(issue, withDefaults(body.custom, projectFields, typeId), projectFields, { creating: true });
         if (Array.isArray(body.checklist) && body.checklist.length) {
           const keys = rank.initial(body.checklist.length);
           await db().insertMany('checklist_items', body.checklist.map((it, i) => ({
@@ -760,12 +797,14 @@ export function createIssues(core) {
     /** Clone an issue (fields, labels, components, versions, custom values, checklist) and link it 'clones'. */
     async clone(ctx, idOrKey, body = {}) {
       const src = await svc.get(ctx, idOrKey);
+      // every field that applies to the type, as the source has it (an empty one stays empty: no defaults)
+      const custom = Object.fromEntries((await customFieldsFor(src.projectId)).filter((f) => fieldApplies(f, src.typeId)).map((f) => [f.id, src.custom?.[f.id] ?? null]));
       const copy = await svc.create(ctx, {
         projectId: src.projectId, typeId: src.typeId, summary: body.summary || `${src.summary}`.slice(0, 500), description: src.description,
         priorityId: src.priorityId, assigneeId: src.assigneeId, parentId: src.parentId, epicId: src.epicId, storyPoints: src.storyPoints,
         originalEstimate: src.originalEstimate, dueDate: src.dueDate, startDate: src.startDate, color: src.color, cover: src.cover, icon: src.icon,
         labels: src.labels, componentIds: src.componentIds, fixVersionIds: src.fixVersionIds, affectedVersionIds: src.affectedVersionIds,
-        custom: src.custom, checklist: src.checklist.map((c) => ({ text: c.text, done: false })), afterId: src.id,
+        custom, checklist: src.checklist.map((c) => ({ text: c.text, done: false })), afterId: src.id,
       });
       await S().links.add(ctx, copy.id, { targetId: src.id, kind: 'clones' });
       return svc.get(ctx, copy.id);
@@ -843,6 +882,11 @@ export function createIssues(core) {
         ];
         const m = (arr) => Object.fromEntries(arr.map((x) => [x.id, x]));
         const P = m(projects); const T = m(types); const St = m(statuses); const Pr = m(prios); const R = m(ress); const U = m(users); const Ref = m(refs);
+        // earlier keys (JQL `key = OLD-12`, `project = OLD`, `parent = OLD-3` match them too)
+        const aliasIds = [...new Set([...chunk, ...refs.map((x) => x.id)])];
+        const IA = {}; const PA = {};
+        for (const a of await d.all(`SELECT "key", "issue_id" FROM "issue_key_aliases" WHERE "issue_id" IN (${aliasIds.map(() => '?').join(', ')})`, aliasIds)) (IA[a.issue_id] ||= []).push(a.key);
+        for (const a of pids.length ? await d.all(`SELECT "key", "project_id" FROM "project_key_aliases" WHERE "project_id" IN (${pph})`, pids) : []) (PA[a.project_id] ||= []).push(a.key);
         const user = (id) => (id && U[id] ? { id, username: U[id].username, displayName: U[id].display_name } : null);
         const group = (arr, fn) => { const g = {}; for (const x of arr) (g[x.issue_id] ||= []).push(fn(x)); return g; };
         const L = group(labels, (x) => x.label); const C = group(comps, (x) => ({ id: x.id, name: x.name }));
@@ -852,7 +896,8 @@ export function createIssues(core) {
         for (const c of cvs) (CV[c.issue_id] ||= {})[c.field_id] = parseJson(c.value);
         for (const r of rows) {
           out.push({
-            id: r.id, key: r.key, number: r.number, projectId: r.project_id, project: P[r.project_id] ? { id: r.project_id, key: P[r.project_id].key, name: P[r.project_id].name } : null,
+            id: r.id, key: r.key, keyAliases: IA[r.id] || [], number: r.number, projectId: r.project_id,
+            project: P[r.project_id] ? { id: r.project_id, key: P[r.project_id].key, name: P[r.project_id].name, keyAliases: PA[r.project_id] || [] } : null,
             type: T[r.type_id] ? { id: r.type_id, name: T[r.type_id].name, position: T[r.type_id].position } : null,
             status: St[r.status_id] ? { id: r.status_id, name: St[r.status_id].name, category: St[r.status_id].category, position: St[r.status_id].position } : null,
             priority: Pr[r.priority_id] ? { id: r.priority_id, name: Pr[r.priority_id].name, position: Pr[r.priority_id].position } : null,
@@ -860,8 +905,8 @@ export function createIssues(core) {
             assignee: user(r.assignee_id), reporter: user(r.reporter_id),
             labels: L[r.id] || [], components: C[r.id] || [], fixVersions: FV[r.id] || [], affectedVersions: AV[r.id] || [],
             created: r.created_at, updated: r.updated_at, resolved: r.resolved_at, due: r.due_date, summary: r.summary, description: r.description,
-            epic: Ref[r.epic_id] ? { id: r.epic_id, key: Ref[r.epic_id].key, summary: Ref[r.epic_id].summary } : null,
-            parent: Ref[r.parent_id] ? { id: r.parent_id, key: Ref[r.parent_id].key } : null,
+            epic: Ref[r.epic_id] ? { id: r.epic_id, key: Ref[r.epic_id].key, summary: Ref[r.epic_id].summary, keyAliases: IA[r.epic_id] || [] } : null,
+            parent: Ref[r.parent_id] ? { id: r.parent_id, key: Ref[r.parent_id].key, keyAliases: IA[r.parent_id] || [] } : null,
             flagged: !!Number(r.flagged), storyPoints: r.story_points, rank: r.rank, archived: !!Number(r.archived), custom: CV[r.id] || {},
           });
         }
@@ -880,15 +925,23 @@ export function createIssues(core) {
     addWatcher,
     customFieldsFor,
     allFields,
+    /** Normalise + validate a value of a custom field (undefined = empty) — the fields service checks defaults with it. */
+    customValue,
   };
   return svc;
 }
 
 const needsRebalanceKey = (k) => rank.needsRebalance(k);
 
+/** Does a custom field (row or API object) apply to issues of `typeId`? No list (null / []) = every type. */
+export function fieldApplies(cf, typeId) {
+  const ids = parseJson(cf.issue_type_ids ?? cf.issueTypeIds, null);
+  return !Array.isArray(ids) || !ids.length || ids.includes(typeId);
+}
+
 /** Delete an issue row and everything hanging off it. */
 export async function deleteIssueRows(db, issueId) {
-  for (const t of ['issue_labels', 'issue_components', 'issue_versions', 'issue_watchers', 'issue_votes', 'custom_values', 'checklist_items', 'comments', 'attachments', 'worklogs', 'issue_history', 'notifications']) {
+  for (const t of ['issue_labels', 'issue_components', 'issue_versions', 'issue_watchers', 'issue_votes', 'custom_values', 'checklist_items', 'comments', 'attachments', 'worklogs', 'issue_history', 'notifications', 'issue_key_aliases']) {
     await db.run(`DELETE FROM ${db.q(t)} WHERE "issue_id" = ?`, [issueId]);
   }
   await db.run('DELETE FROM "issue_links" WHERE "source_id" = ? OR "target_id" = ?', [issueId, issueId]);

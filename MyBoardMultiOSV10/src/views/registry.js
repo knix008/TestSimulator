@@ -8,6 +8,12 @@
 //   update?(ctx)           the context changed (another board, a live event, settings)
 //   unmount?()             the shell is about to show something else
 //   commands?: { id: { icon, label, run(ctx), enabled?(ctx), checked?(ctx), key? } }   extra commands for menus
+//   sidebar?: {            the view's own navigation/information in the lower part of the LEFT panel
+//     icon?,               app icon name for the section title (default: the view's icon)
+//     title?(ctx),         text after the view's name in the section title ("보고서 › 누적 흐름"); the shell
+//                          redraws the title after update() and when the view calls ctx.app.renderSideHeader()
+//     mount(host, ctx), update?(ctx), unmount?()   like the view itself; host scrolls on its own
+//   }
 // }
 // ctx = { api, live, workspace, settings, t, icon, renderIconRef, notify, showError, history, openIssue(id), popups, app }
 //

@@ -1,13 +1,14 @@
 // Texts of the backlog / search view (Korean and English), registered with the shell's i18n.
-// L('name') is t('bl.name'); E('name') is the key itself (for ctx.showError, which translates it).
+// L(key) is t("bl." + key); E('name') is the key itself (for ctx.showError, which translates it).
 import { registerTexts, t } from '../../i18n.js';
 
 const ko = {
-  listLabel: '이슈 목록', loading: '불러오는 중…', retry: '다시 시도', noMatch: '맞는 항목이 없습니다', searchList: '목록에서 찾기',
+  sideNoFilters: '저장된 필터가 없습니다', sideOthers: '다른 사람', sideOffline: '코어에 연결되면 에픽·버전·필터가 보입니다', sideDemo: '데모 보드에는 에픽·버전·필터가 없습니다',
+  listLabel: '이슈 목록', description: '설명', createTitle: '{key} 에 이슈 만들기', createPlaceholderShort: '무엇을 해야 하나요?', filtersToggle: '필터', filtersToggleTip: '필터 보이기/숨기기', loading: '불러오는 중…', retry: '다시 시도', noMatch: '맞는 항목이 없습니다', searchList: '목록에서 찾기',
   modeBasic: '기본', modeJql: 'JQL', modeBasicTip: '기본 검색: 드롭다운 필터로 찾기', modeJqlTip: '고급 검색: 질의어(JQL)로 찾기',
-  filters: '저장된 필터', filtersTip: '저장된 필터 열기 · 저장 · 이름 바꾸기 · 공유 · 별표 · 삭제',
+  filters: '저장된 필터', filtersTip: '지금 검색을 필터로 저장 · 이름 바꾸기 · 공유 · 별표 · 삭제 (필터 열기는 왼쪽 패널)',
   groupBy: '묶기', groupTip: '목록을 묶는 기준', group_column: '보드 열', group_status: '상태', group_epic: '에픽', group_assignee: '담당자', group_none: '묶지 않음',
-  columns: '열', columnsTip: '보일 열 고르기', side: '에픽·버전', sideTip: '에픽·버전 패널 보이기/숨기기', sideHide: '패널 숨기기',
+  columns: '열', columnsTip: '보일 열 고르기',
   exportCsv: 'CSV', exportTip: '지금 결과를 CSV 파일로 내보내기', create: '이슈 만들기', createTip: '목록 아래에서 새 이슈 만들기 (C)',
   run: '검색', runTip: '질의 실행 (Enter)', jqlLabel: 'JQL 질의', jqlPlaceholder: '예: project = SHOP AND status = "In Progress" ORDER BY priority DESC',
   jqlValid: '올바른 질의', errSyntax: '문법 오류', errField: '알 수 없는 필드', errOperator: '쓸 수 없는 연산자', errValue: '잘못된 값', errFunction: '알 수 없는 함수', errAt: ' ({pos}번째 글자)',
@@ -20,7 +21,7 @@ const ko = {
   bDeleteAsk: '이슈 {n}개를 삭제할까요? 삭제는 되돌릴 수 없습니다.', deselect: '선택 해제', deselectTip: '선택을 모두 풉니다 (Esc)',
   cancel: '취소', delete: '삭제',
   col_type: '유형', col_key: '키', col_summary: '요약', col_status: '상태', col_assignee: '담당자', col_reporter: '보고자', col_priority: '우선순위', col_labels: '레이블', col_epic: '에픽',
-  col_points: '점수', col_due: '기한', col_created: '만든 날', col_updated: '바뀐 날',
+  col_resolution: '해결 방법', col_points: '점수', col_due: '기한', col_created: '만든 날', col_updated: '바뀐 날',
   cat_todo: '할 일', cat_inprogress: '진행 중', cat_done: '완료',
   sortTip: '{name} 순으로 정렬 (다시 누르면 반대로, 세 번째는 순위)', selectAll: '모두 고르기', selectRow: '{key} 고르기', dragTip: '끌어서 순위 바꾸기 (Alt+↑/↓)',
   demoTitle: '연습용 작업 공간', demoText: '백로그는 데이터베이스의 프로젝트에서 보입니다. 샘플이나 새 프로젝트를 여세요.',
@@ -41,11 +42,12 @@ const ko = {
 };
 
 const en = {
-  listLabel: 'Issue list', loading: 'Loading…', retry: 'Try again', noMatch: 'Nothing matches', searchList: 'Search the list',
+  sideNoFilters: 'No saved filters', sideOthers: 'others', sideOffline: 'Epics, versions and filters show once the core is connected', sideDemo: 'The demo board has no epics, versions or filters',
+  listLabel: 'Issue list', description: 'Description', createTitle: 'Create an issue in {key}', createPlaceholderShort: 'What needs to be done?', filtersToggle: 'Filters', filtersToggleTip: 'Show or hide the filters', loading: 'Loading…', retry: 'Try again', noMatch: 'Nothing matches', searchList: 'Search the list',
   modeBasic: 'Basic', modeJql: 'JQL', modeBasicTip: 'Basic search: drop-down filters', modeJqlTip: 'Advanced search: the query language (JQL)',
-  filters: 'Saved filters', filtersTip: 'Open, save, rename, share, star or delete saved filters',
+  filters: 'Saved filters', filtersTip: 'Save the search as a filter, rename, share, star or delete it (open filters in the left panel)',
   groupBy: 'Group', groupTip: 'What the list is grouped by', group_column: 'Board column', group_status: 'Status', group_epic: 'Epic', group_assignee: 'Assignee', group_none: 'No groups',
-  columns: 'Columns', columnsTip: 'Choose the columns', side: 'Epics & versions', sideTip: 'Show or hide the epics and versions panel', sideHide: 'Hide the panel',
+  columns: 'Columns', columnsTip: 'Choose the columns',
   exportCsv: 'CSV', exportTip: 'Export the result as a CSV file', create: 'Create issue', createTip: 'Create a new issue under the list (C)',
   run: 'Search', runTip: 'Run the query (Enter)', jqlLabel: 'JQL query', jqlPlaceholder: 'e.g. project = SHOP AND status = "In Progress" ORDER BY priority DESC',
   jqlValid: 'Valid query', errSyntax: 'Syntax error', errField: 'Unknown field', errOperator: 'Operator not allowed', errValue: 'Bad value', errFunction: 'Unknown function', errAt: ' (character {pos})',
@@ -58,7 +60,7 @@ const en = {
   bDeleteAsk: 'Delete {n} issues? This cannot be undone.', deselect: 'Clear selection', deselectTip: 'Clear the selection (Esc)',
   cancel: 'Cancel', delete: 'Delete',
   col_type: 'Type', col_key: 'Key', col_summary: 'Summary', col_status: 'Status', col_assignee: 'Assignee', col_reporter: 'Reporter', col_priority: 'Priority', col_labels: 'Labels', col_epic: 'Epic',
-  col_points: 'Points', col_due: 'Due', col_created: 'Created', col_updated: 'Updated',
+  col_resolution: 'Resolution', col_points: 'Points', col_due: 'Due', col_created: 'Created', col_updated: 'Updated',
   cat_todo: 'To do', cat_inprogress: 'In progress', cat_done: 'Done',
   sortTip: 'Sort by {name} (again: reverse, third time: rank)', selectAll: 'Select all', selectRow: 'Select {key}', dragTip: 'Drag to rank (Alt+↑/↓)',
   demoTitle: 'Practice workspace', demoText: 'The backlog shows a project from the database. Open a sample or a new project.',
@@ -79,8 +81,8 @@ const en = {
 };
 
 const prefix = (dict) => Object.fromEntries(Object.entries(dict).map(([k, v]) => [`bl.${k}`, v]));
-registerTexts({ ko: prefix(ko), en: prefix(en) });
+export const TEXTS = { ko: prefix(ko), en: prefix(en) };
+registerTexts(TEXTS);
 
-export const TEXTS = { ko, en };
 export const L = (key, params) => t(`bl.${key}`, params);
 export const E = (key) => `bl.${key}`;

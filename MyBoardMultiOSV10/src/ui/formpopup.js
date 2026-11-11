@@ -12,13 +12,17 @@
 // checkbox (boolean) · duration (seconds | null; '1h 30m', '2d', '1주 2일') · color ('#rrggbb' | '').
 // options: [{ value, label, iconRef?, glyph?, hint?, when? }] — an option with `when` shows only while the other
 // field has that value (types of the chosen project). An icon field asks the main window for the picker
-// (action 'form-pick-icon' → host message { type: 'form-icon', name, ref }).
+// (action 'form-pick-icon' → host message { type: 'form-icon', name, ref }). Icon field extras: `category` (the
+// picker opens on that built-in category, e.g. 'columns'); `suggest: 'columnIcon'` + `suggestFrom: '<text field>'`
+// (+ `suggestCategory: '<select field>'`): until the user picks an icon, it follows the default column icon of
+// the typed name (core/columnicons.js).
 import { stepperHtml, stepperValue } from '../stepper.js';
 import { renderIconRef } from './iconref.js';
 import { openRefList, refButtonHtml, closeRefList } from '../views/shared/refdropdown.js';
 import { formatDuration, parseDuration } from '../views/shared/format.js';
 import { registerTexts } from '../i18n.js';
 import { ko, en } from '../views/shared/texts.js';
+import { defaultColumnIcon } from '../../core/columnicons.js';
 import '../views/shared/shared.css';
 import './formpopup.css';
 
@@ -42,6 +46,17 @@ function initialValue(field) {
   }
 }
 
+/** Icon fields with `suggest` follow their source field until the user chose an icon. → names changed */
+function suggestIcons(fields, values, touched = {}) {
+  const changed = [];
+  for (const field of fields) {
+    if (field.type !== 'icon' || field.suggest !== 'columnIcon' || touched[field.name]) continue;
+    const ref = defaultColumnIcon(values[field.suggestFrom] ?? '', field.suggestCategory ? values[field.suggestCategory] || null : null);
+    if (values[field.name] !== ref) { values[field.name] = ref; changed.push(field.name); }
+  }
+  return changed;
+}
+
 /** The options of a field that apply now (their `when` matches). */
 const optionsOf = (field, values) => (field.options ?? []).filter((o) => visibleWhen(o.when, values));
 
@@ -51,8 +66,8 @@ function settle(fields, values) {
     if (!['select', 'user', 'multiselect'].includes(field.type)) continue;
     const opts = optionsOf(field, values);
     if (field.type === 'multiselect') { if (!field.allowNew) values[field.name] = values[field.name].filter((v) => opts.some((o) => String(o.value) === String(v))); continue; }
-    if (values[field.name] !== '' && values[field.name] != null && !opts.some((o) => String(o.value) === String(values[field.name]))) values[field.name] = field.required && opts[0] ? opts[0].value : '';
-    if (field.required && (values[field.name] === '' || values[field.name] == null) && opts[0] && field.type === 'select') values[field.name] = opts[0].value;
+    if (values[field.name] !== '' && values[field.name] != null && !opts.some((o) => String(o.value) === String(values[field.name]))) values[field.name] = field.required && opts[0] && field.autoFirst !== false ? opts[0].value : '';
+    if (field.required && field.autoFirst !== false && (values[field.name] === '' || values[field.name] == null) && opts[0] && field.type === 'select') values[field.name] = opts[0].value;
   }
 }
 
@@ -61,8 +76,10 @@ export function renderFormPopup(api) {
   const p = P();
   const fields = Array.isArray(p.fields) ? p.fields : [];
   if (!form || form.at !== p.at) {
-    form = { at: p.at, values: Object.fromEntries(fields.map((f) => [f.name, initialValue(f)])), errors: {} };
+    form = { at: p.at, values: Object.fromEntries(fields.map((f) => [f.name, initialValue(f)])), errors: {}, touched: {} };
+    for (const f of fields) if (f.type === 'icon' && f.suggest && f.value) form.touched[f.name] = true;
     settle(fields, form.values);
+    suggestIcons(fields, form.values, form.touched);
   }
   const values = form.values;
   const control = (field) => {
@@ -158,7 +175,13 @@ function validate(api, fields) {
 function bind(api, getFields) {
   const { root, render, close, action, icon, t } = api;
   const fields = () => (api.fields ? api.fields() : getFields());
-  const redraw = () => { collect(root, fields()); settle(fields(), form.values); render(); };
+  const redraw = () => { collect(root, fields()); settle(fields(), form.values); suggestIcons(fields(), form.values, form.touched); render(); };
+  /** The icon button of a suggested icon field, redrawn in place (typing keeps its caret). */
+  const refreshIconButton = (name) => {
+    const button = root.querySelector(`[data-ff-icon="${CSS.escape(name)}"]`);
+    const value = form.values[name];
+    if (button) button.innerHTML = `${value ? renderIconRef(value, { size: 18 }) : icon('iconInsert')}<span>${api.escapeHtml(value ? t('form.changeIcon') : t('form.pickIcon'))}</span>`;
+  };
   const submit = () => {
     collect(root, fields());
     if (!validate(api, fields())) { render(); root.querySelector('.ff-field .invalid, .ff-field .ff-ref.invalid')?.focus(); return; }
@@ -174,7 +197,11 @@ function bind(api, getFields) {
   };
   root.addEventListener('input', (event) => {
     const el = event.target;
-    if (el.dataset.ff) { form.values[el.dataset.ff] = el.value; if (form.errors[el.dataset.ff]) { delete form.errors[el.dataset.ff]; el.classList.remove('invalid'); } }
+    if (el.dataset.ff) {
+      form.values[el.dataset.ff] = el.value;
+      if (form.errors[el.dataset.ff]) { delete form.errors[el.dataset.ff]; el.classList.remove('invalid'); }
+      for (const name of suggestIcons(fields(), form.values, form.touched)) refreshIconButton(name);
+    }
     if (el.dataset.ffDuration) {
       form.durationText = { ...form.durationText, [el.dataset.ffDuration]: el.value };
       const parsed = parseDuration(el.value);
@@ -218,14 +245,15 @@ function bind(api, getFields) {
       return;
     }
     const clear = event.target.closest('[data-ff-clear]');
-    if (clear) { form.values[clear.dataset.ffClear] = ''; redraw(); return; }
+    if (clear) { form.values[clear.dataset.ffClear] = ''; form.touched = { ...form.touched, [clear.dataset.ffClear]: true }; redraw(); return; }
     const swatch = event.target.closest('[data-ff-color]');
     if (swatch) { form.values[swatch.dataset.ffColor] = swatch.dataset.value; redraw(); return; }
     const iconButton = event.target.closest('[data-ff-icon]');
     if (iconButton) {
       collect(root, fields());
       const field = fields().find((f) => f.name === iconButton.dataset.ffIcon);
-      action('form-pick-icon', { name: field?.name, value: form.values[field?.name] ?? '', title: field?.label ?? '' });
+      if (field) form.touched = { ...form.touched, [field.name]: true };
+      action('form-pick-icon', { name: field?.name, value: form.values[field?.name] ?? '', title: field?.label ?? '', category: field?.category ?? null });
     }
   });
   root.addEventListener('submit', (event) => { event.preventDefault(); submit(); });

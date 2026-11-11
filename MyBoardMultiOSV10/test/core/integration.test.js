@@ -9,7 +9,7 @@ import path from 'node:path';
 import { createCore } from '../../core/app.js';
 import { migrate } from '../../core/db/migrate.js';
 import { openDatabase } from '../../core/db/index.js';
-import { TABLES } from '../../core/db/schema.js';
+import { TABLES, SCHEMA_VERSION } from '../../core/db/schema.js';
 import { createMatcher } from '../../core/jql/index.js';
 import { TARGETS, freshConfig, configured, skipMessage, rejectsCode, dayAt } from './helpers/targets.js';
 
@@ -36,7 +36,7 @@ function suite(target) {
 
   test('migrate is idempotent and seeds global lists', async () => {
     const again = await migrate(core.db);
-    assert.equal(again.from, 1);
+    assert.equal(again.from, SCHEMA_VERSION);
     assert.deepEqual(again.created, []);
     assert.equal(await core.db.count('priorities'), 5);
     assert.equal(await core.db.count('resolutions'), 3);
@@ -101,6 +101,8 @@ function suite(target) {
     await rejectsCode(assert, S.issues.create(BOB, { projectId: proj.id, summary: 'nope' }), 'PROJECT_PERMISSION', 403);
     await rejectsCode(assert, S.projects.update(ALICE, proj.id, { name: 'x' }), 'PROJECT_PERMISSION', 403);
     await rejectsCode(assert, S.projects.removeMember(A, proj.id, admin.id), 'LAST_PROJECT_ADMIN');
+    // demoting the only administrator is refused the same way
+    await rejectsCode(assert, S.projects.setMember(A, proj.id, { userId: admin.id, role: 'member' }), 'LAST_PROJECT_ADMIN');
     const members = await S.projects.members(A, proj.id);
     assert.deepEqual(members.map((m) => m.username).sort(), ['admin', 'alice', 'bob']);
     const up = await S.projects.update(A, proj.id, { description: 'The **shop**', rev: proj.rev });
@@ -123,6 +125,13 @@ function suite(target) {
     await rejectsCode(assert, S.fields.create(A, proj.id, { name: 'customer IMPACT', type: 'text' }), 'FIELD_NAME_TAKEN');
     await rejectsCode(assert, S.fields.create(A, proj.id, { name: 'X', type: 'weird' }), 'INVALID_FIELD_TYPE');
     await rejectsCode(assert, S.fields.update(A, fValue.id, { type: 'text' }), 'FIELD_TYPE_IMMUTABLE');
+    // options added by an update get ids too (the settings editor adds { value } and then edits options by id)
+    const fTmp = await S.fields.create(A, proj.id, { name: 'Tmp options', type: 'select', options: ['One'] });
+    const fTmp2 = await S.fields.update(A, fTmp.id, { options: [...fTmp.options, { value: 'Two' }, 'Three'], rev: fTmp.rev });
+    assert.equal(fTmp2.options.length, 3);
+    assert.equal(fTmp2.options[0].id, fTmp.options[0].id);
+    assert.ok(fTmp2.options.every((o) => o.id && o.value));
+    await S.fields.remove(A, fTmp.id);
     // a new status gets a global transition in the open workflow
     const qa = await S.statuses.create(A, proj.id, { name: 'QA', category: 'inprogress' });
     const c2 = await S.projects.config(A, proj.id);

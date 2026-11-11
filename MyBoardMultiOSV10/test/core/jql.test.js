@@ -235,10 +235,12 @@ describe('jql compile', () => {
   });
   test('key and key ranges', () => {
     const r = c('key in (kan-1, KAN-2)');
-    assert.deepEqual(r.params, ['KAN-1', 'KAN-2', 'kan-1', 'kan-2']);
+    // live key, id, or an earlier key (issue_key_aliases)
+    assert.deepEqual(r.params, ['KAN-1', 'KAN-2', 'kan-1', 'kan-2', 'KAN-1', 'KAN-2']);
+    assert.match(r.where, /i\."id" IN \(SELECT "issue_id" FROM "issue_key_aliases" WHERE "key" IN \(\?, \?\)\)/);
     const g = c('key >= KAN-10');
-    assert.equal(g.where, '(i."project_id" IN (SELECT "id" FROM "projects" WHERE "key" = ?) AND i."number" >= ?)');
-    assert.deepEqual(g.params, ['KAN', 10]);
+    assert.equal(g.where, '((i."project_id" IN (SELECT "id" FROM "projects" WHERE "key" = ?) OR i."project_id" IN (SELECT "project_id" FROM "project_key_aliases" WHERE "key" = ?)) AND i."number" >= ?)');
+    assert.deepEqual(g.params, ['KAN', 'KAN', 10]);
   });
   test('custom fields', () => {
     const n = c('"Story Size" >= 3');

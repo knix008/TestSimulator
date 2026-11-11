@@ -44,9 +44,11 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     const board = await import(pathToFileURL(path.join(src, 'i18n', 'board.js')).href);
     return { DICTIONARIES: { ko: { ...ko, ...board.ko }, en: { ...en, ...board.en } } };
   });
-  // Feature modules register their own texts (registerTexts): every src/views/**/texts.js exports { ko, en }.
+  // Feature modules register their own texts (registerTexts): every src/views/**/texts.js exports { ko, en }
+  // (or TEXTS / default = { ko, en }).
   for (const file of walk(path.join(src, 'views')).filter((f) => path.basename(f) === 'texts.js')) {
-    const extra = await import(pathToFileURL(file).href);
+    const mod = await import(pathToFileURL(file).href);
+    const extra = mod.TEXTS ?? mod.default ?? mod;
     Object.assign(DICTIONARIES.ko, extra.ko ?? {});
     Object.assign(DICTIONARIES.en, extra.en ?? {});
   }

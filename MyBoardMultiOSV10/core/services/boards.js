@@ -7,6 +7,7 @@ import {
   crud, toApi, fromApi, emit, nowOf, requireText, requireUser, assertProject, accessibleProjectIds, isAdmin, parseJson,
 } from './common.js';
 import { defaultBoardSettings } from './templates.js';
+import { defaultColumnIcon } from '../columnicons.js';
 
 const SWIMLANE_MODES = ['none', 'assignee', 'epic', 'project', 'queries', 'priority', 'type'];
 const CARD_COLOR_MODES = ['none', 'type', 'priority', 'assignee', 'queries'];
@@ -69,8 +70,24 @@ export function createBoards(core) {
     return { where: parts.join(' AND '), params };
   }
 
+  /** The default icon of a column of `boardId` named `name` holding statuses `ids` (core/columnicons.js). */
+  async function columnDefaultIcon(d, boardId, name, ids = []) {
+    const list = [].concat(ids || []);
+    const cats = list.length ? (await d.all(`SELECT "category" FROM "statuses" WHERE "id" IN (${list.map(() => '?').join(', ')})`, list)).map((s) => s.category) : [];
+    let backlog = false;
+    if (list.length && boardId) {
+      const b = await d.get('SELECT "settings" FROM "boards" WHERE "id" = ?', [boardId]);
+      const st = parseJson(b?.settings, {}) || {};
+      backlog = Boolean(st.backlog?.enabled) && list.every((s) => (st.backlog.statusIds || []).includes(s));
+    }
+    return defaultColumnIcon(name, cats, { backlog });
+  }
+
   async function columnsOf(boardId) {
-    return (await db().select('board_columns', { board_id: boardId }, { order: 'position' })).map((c) => ({ ...c, ids: parseJson(c.status_ids, []) || [] }));
+    const rows = (await db().select('board_columns', { board_id: boardId }, { order: 'position' })).map((c) => ({ ...c, ids: parseJson(c.status_ids, []) || [] }));
+    // rows written around the API (an old import, a copy from an old database) get their default on the way out
+    for (const c of rows) if (!c.icon) c.icon = await columnDefaultIcon(db(), boardId, c.name, c.ids);
+    return rows;
   }
 
   // ---- child config entities --------------------------------------------------------------------------------
@@ -88,12 +105,15 @@ export function createBoards(core) {
   };
   const columns = crud(core, {
     table: 'board_columns', entity: 'column', parent: 'board_id', projectOf: boardProject, topics: boardTopics,
-    fields: ['name', 'position', 'wip_min', 'wip_max', 'status_ids'],
+    fields: ['name', 'icon', 'position', 'wip_min', 'wip_max', 'status_ids'],
     defaults: async () => ({ status_ids: [] }),
-    validate: async (d, r) => {
+    validate: async (d, r, existing) => {
       requireText(r.name, 'name', 100);
       const ids = typeof r.status_ids === 'string' ? JSON.parse(r.status_ids) : r.status_ids || [];
       check(Array.isArray(ids), 'INVALID_STATUS_IDS', 'statusIds must be an array');
+      if (r.icon != null && r.icon !== '') requireText(r.icon, 'icon', 255);
+      // every column has an icon: a new one without gets the default of its name / statuses (§3.6)
+      if (!existing && !r.icon) r.icon = await columnDefaultIcon(d, r.board_id, r.name, ids);
       if (r.wip_min != null && r.wip_max != null) check(Number(r.wip_min) <= Number(r.wip_max), 'INVALID_WIP', 'The minimum must not exceed the maximum');
       // a status belongs to one column only
       const others = await d.all('SELECT "id", "status_ids" FROM "board_columns" WHERE "board_id" = ? AND "id" <> ?', [r.board_id, r.id]);
@@ -104,6 +124,19 @@ export function createBoards(core) {
       }
     },
   });
+  /** PATCH with icon '' / null → the default icon again (never an empty icon). */
+  const columnUpdate = columns.update;
+  columns.update = async (ctx, id, body = {}) => {
+    const clear = body && ('icon' in body) && !body.icon;
+    if (clear) {
+      const c = await db().get('SELECT * FROM "board_columns" WHERE "id" = ?', [id]);
+      if (c) {
+        const ids = body.statusIds ?? body.status_ids ?? parseJson(c.status_ids, []) ?? [];
+        body = { ...body, icon: await columnDefaultIcon(db(), c.board_id, body.name ?? c.name, ids) };
+      }
+    }
+    return columnUpdate(ctx, id, body);
+  };
   const swimlanes = crud(core, { table: 'swimlanes', entity: 'swimlane', parent: 'board_id', projectOf: boardProject, topics: boardTopics, fields: ['name', 'jql', 'position'], validate: async (d, r) => { requireText(r.name, 'name', 100); await jqlCheck(d, r); } });
   const quickFilters = crud(core, { table: 'quick_filters', entity: 'quickFilter', parent: 'board_id', projectOf: boardProject, topics: boardTopics, fields: ['name', 'jql', 'icon', 'position'], validate: async (d, r) => { requireText(r.name, 'name', 100); await jqlCheck(d, r); } });
   const cardColors = crud(core, { table: 'card_colors', entity: 'cardColor', parent: 'board_id', projectOf: boardProject, topics: boardTopics, fields: ['jql', 'color', 'position'], validate: async (d, r) => { requireText(r.color, 'color', 16); await jqlCheck(d, r); } });
@@ -143,16 +176,17 @@ export function createBoards(core) {
       const name = requireText(body.name, 'name', 200);
       const board = await db().tx(async () => {
         let cols = body.columns;
-        if (!cols && projectId) {
-          const sts = await db().select('statuses', { project_id: projectId }, { order: 'position' });
-          cols = sts.map((s) => ({ name: s.name, statusIds: [s.id] }));
-        }
+        const sts = projectId ? await db().select('statuses', { project_id: projectId }, { order: 'position' }) : [];
+        const statusCat = Object.fromEntries(sts.map((s) => [s.id, s.category]));
+        if (!cols && projectId) cols = sts.map((s) => ({ name: s.name, statusIds: [s.id] }));
         const b = await db().insert('boards', {
           id: newId(), project_id: projectId, name, icon: body.icon || 'b:layers', filter_jql: body.filterJql || null,
           settings: normaliseSettings(body.settings), created_by: ctx.user?.id || null, created_at: now, updated_at: now,
         });
         for (const [i, c] of (cols || []).entries()) {
-          await db().insert('board_columns', { id: newId(), board_id: b.id, name: requireText(c.name, 'name', 100), position: i, wip_min: c.wipMin ?? null, wip_max: c.wipMax ?? null, status_ids: c.statusIds || [], created_at: now, updated_at: now });
+          const cname = requireText(c.name, 'name', 100);
+          const cicon = c.icon || defaultColumnIcon(cname, (c.statusIds || []).map((sid) => statusCat[sid]).filter(Boolean));
+          await db().insert('board_columns', { id: newId(), board_id: b.id, name: cname, icon: cicon, position: i, wip_min: c.wipMin ?? null, wip_max: c.wipMax ?? null, status_ids: c.statusIds || [], created_at: now, updated_at: now });
         }
         return b;
       });
@@ -283,6 +317,8 @@ export function createBoards(core) {
         await d.all(`SELECT * FROM "components" WHERE "project_id" ${inP} ORDER BY "name"`, pids),
         await d.all(`SELECT "id", "key", "name", "icon", "color" FROM "projects" WHERE "id" ${inP}`, pids),
       ];
+      const resolutions = await d.select('resolutions', {}, { order: 'position' });
+      const customFields = await d.all(`SELECT * FROM "custom_fields" WHERE "project_id" ${inP} OR "project_id" IS NULL ORDER BY "position"`, pids);
       const typeById = Object.fromEntries(types.map((t) => [t.id, t]));
       const prioById = Object.fromEntries(priorities.map((p) => [p.id, p]));
       const userColor = (uid) => { if (!uid) return null; let h = 0; for (const ch of uid) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 55% 50%)`; };
@@ -348,7 +384,7 @@ export function createBoards(core) {
       return {
         board: { ...boardOut(board), settings },
         columns: cols.map((c) => ({
-          id: c.id, name: c.name, position: c.position, wipMin: c.wip_min, wipMax: c.wip_max, statusIds: c.ids, rev: c.rev,
+          id: c.id, name: c.name, icon: c.icon, position: c.position, wipMin: c.wip_min, wipMax: c.wip_max, statusIds: c.ids, rev: c.rev,
           backlog: c.ids.length > 0 && c.ids.every((s) => backlogStatus.has(s)), done: doneCols.has(c.id),
           count: colStats[c.id].count, points: colStats[c.id].points,
           overMax: c.wip_max != null && colStats[c.id].count > Number(c.wip_max), underMin: c.wip_min != null && colStats[c.id].count < Number(c.wip_min),
@@ -361,6 +397,8 @@ export function createBoards(core) {
         statuses: statusRows.map((s) => toApi('statuses', s)),
         types: types.map((t) => toApi('issue_types', t)),
         priorities: priorities.map((p) => toApi('priorities', p)),
+        resolutions: resolutions.map((r) => toApi('resolutions', r)),
+        fields: customFields.map((f) => toApi('custom_fields', f)),
         users: users.map((u) => ({ id: u.id, username: u.username, displayName: u.display_name, avatar: u.avatar, active: !!Number(u.active) })),
         epics: epics.map((e) => ({ id: e.id, key: e.key, summary: e.summary, color: e.color, statusId: e.status_id, projectId: e.project_id })),
         versions: versions.map((v) => toApi('versions', v)),

@@ -7,7 +7,7 @@ import './shared.css';
 registerTexts({ ko, en });
 
 export {
-  createLookups, letterAvatar, avatarHtml, avatarStackHtml, typeIconHtml, priorityIconHtml, labelColor, labelChipsHtml, epicChipHtml,
+  createLookups, letterAvatar, avatarHtml, avatarStackHtml, typeIconHtml, priorityIconHtml, resolutionIconHtml, labelColor, labelChipsHtml, epicChipHtml,
   progressHtml, dueChipHtml, daysDotsHtml, coverHtml, cardHtml, issueToCard, CARD_FIELDS,
 } from './cards.js';
 export {

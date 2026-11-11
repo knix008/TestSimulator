@@ -27,9 +27,12 @@ const norm = (text) => String(text ?? '').toLowerCase().normalize('NFKC');
 /** Built-in names matching `query` (every word must appear in a name or keyword) in `category` ('all' for any). */
 export function searchBuiltin(query, category = 'all') {
   const words = norm(query).split(/\s+/).filter(Boolean);
-  return CATALOG_NAMES.filter((name) => {
+  // a category with its own `names` list (Columns / stages) shows those icons, in that order
+  const listed = CATALOG_CATEGORIES.find((c) => c.id === category && Array.isArray(c.names))?.names;
+  return (listed ?? CATALOG_NAMES).filter((name) => {
     const e = CATALOG[name];
-    if (category !== 'all' && e.c !== category) return false;
+    if (!e) return false;
+    if (!listed && category !== 'all' && e.c !== category) return false;
     if (!words.length) return true;
     const hay = norm(`${name} ${e.ko} ${e.en} ${e.k ?? ''}`);
     return words.every((w) => hay.includes(w));
@@ -155,7 +158,10 @@ export class IconPicker {
     this.color = p.color ?? '';
     this.letters = p.kind === 'letters' ? p.text : '';
     this.query = { builtin: '', emoji: '' };
-    this.category = { builtin: 'all', emoji: 'all' };
+    // options.category: open the Built-in tab on that category (column icon fields: 'columns')
+    const startCategory = CATALOG_CATEGORIES.some((c) => c.id === options.category) ? options.category : 'all';
+    this.category = { builtin: startCategory, emoji: 'all' };
+    if (startCategory !== 'all' && p.kind !== 'emoji' && p.kind !== 'upload' && p.kind !== 'letters') this.tab = 'builtin';
     this.uploads = null;
     this.uploadError = '';
     this.busy = false;

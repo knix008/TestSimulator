@@ -33,6 +33,11 @@ import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { getView, onViewRegistered, registerView } from './views/registry.js';
 import './views/index.js';
 
+/** The left panel's lower section (the view's sidebar): its smallest and default height; the tree keeps TREE_MIN. */
+const SIDE_MIN = 120;
+const SIDE_DEFAULT = 240;
+const TREE_MIN = 140;
+
 const root = document.querySelector('#app');
 const desktop = native.isDesktop();
 const appWindow = desktop ? getCurrentWindow() : null;
@@ -171,14 +176,18 @@ function bindLive() {
   live.on('event', (event) => {
     logActivity({ kind: 'live', type: event.type, text: describeEvent(event), by: event.by, id: event.id });
     getView(doc()?.view ?? 'board')?.update?.(viewContext({ event }));
+    updateSide({ event });
     if (/^(project|board)\./.test(event.type)) refreshProjects();
   });
 }
 
 function describeEvent(event) {
   const [entity, verb] = String(event.type ?? '').split('.');
-  const name = event.data?.key ?? event.data?.name ?? event.data?.summary ?? event.id ?? '';
-  return t('activity.event', { entity: t(`entity.${entity}`, null, entity), verb: t(`verb.${verb}`, null, verb), name });
+  // A readable name, never a raw row id (a notification carries its issue in `payload`).
+  const d = event.data ?? {};
+  const p = d.payload ?? {};
+  const name = [d.key ?? p.key, d.name ?? d.summary ?? p.summary].filter(Boolean).join(' ') || d.title || '';
+  return t('activity.event', { entity: t(`entity.${entity}`, null, entity), verb: t(`verb.${verb}`, null, verb), name }).replace(/:\s*$/, '');
 }
 
 /**
@@ -299,6 +308,7 @@ function setView(view) {
 async function reloadWorkspace() {
   if (!state.doc || state.doc.demo) return;
   getView(state.doc.view)?.update?.(viewContext({ reload: true }));
+  updateSide({ reload: true });
   loadCounts();
 }
 
@@ -345,6 +355,28 @@ async function restoreSession() {
   const target = parseRecentPath(session.path);
   if (!target || (target.db && target.db !== dbLabel())) return;
   await openTarget(target.kind, target.id, { view: session.view, quiet: true });
+}
+
+/** A copied issue link (`…#issue=KEY`, views/board/menu.js): opens the issue's project board and its detail panel. */
+const hashIssueKey = () => { const m = /(?:^#|&)issue=([^&]+)/.exec(globalThis.location?.hash ?? ''); return m ? decodeURIComponent(m[1]) : null; };
+async function openIssueLink(key = hashIssueKey()) {
+  if (!key || !coreReady()) return false;
+  try {
+    const row = await client.issue(key);
+    const issue = row?.issue ?? row;
+    if (!issue?.id) return false;
+    const projectId = issue.projectId ?? issue.project_id;
+    if (project()?.id !== projectId || state.showStart) await openTarget('project', projectId, { view: project()?.id === projectId ? doc().view : 'board', quiet: true });
+    if (project()?.id !== projectId) return false;
+    openIssue(issue.id);
+    return true;
+  } catch (error) {
+    showError('error.open', error, key);
+    return false;
+  } finally {
+    // Used once: a later reload goes back to the saved session, not to this issue.
+    if (hashIssueKey() === key) globalThis.history?.replaceState?.(null, '', location.pathname + location.search);
+  }
 }
 
 // ───────────────────────── projects: new, from template, sample, import, export
@@ -783,11 +815,14 @@ function renderLeft() {
   if (!panel) return;
   if (state.showStart || !state.doc) return;
   if (!state.settings.showLeftPanel) {
+    unmountSide();
     panel.innerHTML = `<div class="panel-rail"><button class="rail-button expand" data-command="leftPanel" title="${escapeHtml(t('panel.expandLeft'))}">${icon('panelLeftOpen')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
       <div class="rail-title">${icon('folder')}<span>${escapeHtml(t('panel.projectsShort'))}</span></div></div>`;
     return;
   }
-  const scroll = panel.querySelector('.panel-body')?.scrollTop ?? 0;
+  ensureLeftLayout(panel);
+  const top = panel.querySelector(':scope > .left-top');
+  const scroll = top.querySelector('.panel-body')?.scrollTop ?? 0;
   const focused = document.activeElement?.id === 'sidebar-search';
   const query = state.sidebarQuery.trim().toLowerCase();
   const d = doc();
@@ -814,14 +849,83 @@ function renderLeft() {
   const body = !coreReady() && !d?.demo
     ? `<p class="panel-hint">${icon('warning')}<span>${escapeHtml(t('core.unreachableShort'))}</span></p><button class="small-button" data-command="reconnect">${icon('refresh')}<span>${escapeHtml(t('action.reconnect'))}</span></button>`
     : shown.length ? shown.map(node).join('') : `<p class="panel-hint">${icon('info')}<span>${escapeHtml(t(query ? 'nav.noMatch' : 'nav.noProjects'))}</span></p>`;
-  panel.innerHTML = `<div class="panel-header">${icon('folder')}<span>${escapeHtml(t('panel.projects'))}</span>
+  top.innerHTML = `<div class="panel-header">${icon('folder')}<span>${escapeHtml(t('panel.projects'))}</span>
       <button class="icon-button" data-command="newProject" title="${escapeHtml(commandTip('newProject'))}">${icon('plus')}</button>
       <button class="icon-button" data-command="leftPanel" title="${escapeHtml(t('panel.collapseLeft'))}">${icon('panelLeftClose')}</button></div>
     <div class="nav-search"><label class="search-box mini">${icon('search')}<input id="sidebar-search" type="search" value="${escapeHtml(state.sidebarQuery)}" placeholder="${escapeHtml(t('nav.search'))}" aria-label="${escapeHtml(t('nav.search'))}" /></label></div>
     <div class="panel-body nav-tree" role="tree">${body}</div>`;
-  panel.querySelector('.panel-body').scrollTop = scroll;
-  if (focused) { const input = panel.querySelector('#sidebar-search'); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
-  for (const b of panel.querySelectorAll('[data-command]')) b.disabled = !commandEnabled(b.dataset.command);
+  top.querySelector('.panel-body').scrollTop = scroll;
+  if (focused) { const input = top.querySelector('#sidebar-search'); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+  for (const b of top.querySelectorAll('[data-command]')) b.disabled = !commandEnabled(b.dataset.command);
+  renderSide();
+}
+
+// ───────────────────────── left panel, lower part: the current view's sidebar (views/registry.js `sidebar`)
+// Board, backlog, reports and project settings show their own navigation and information here, under a
+// title of their own; the section and the divider above it stay while the project tree above is redrawn.
+
+const SIDE_GLYPHS = { board: 'columns', backlog: 'list', reports: 'viewReports', projectSettings: 'gear' };
+
+function ensureLeftLayout(panel) {
+  if (panel.querySelector(':scope > .left-top')) return;
+  panel.innerHTML = `<div class="left-top"></div>
+    <div class="left-split" role="separator" aria-orientation="horizontal" title="${escapeHtml(t('panel.sideResize'))}"></div>
+    <section class="left-view" aria-labelledby="left-view-title"><div class="panel-header left-view-header"><span class="left-view-glyph"></span><span id="left-view-title"></span><span class="left-view-sub"></span></div><div class="left-view-body"></div></section>`;
+  mounted.side = null;
+}
+
+function unmountSide() {
+  if (!mounted.side) return;
+  try { mounted.side.side?.unmount?.(); } catch (error) { console.error(error); }
+  mounted.side = null;
+}
+
+/** The title row of the lower section: the view's icon and name, and what the view adds (its `title(ctx)`). */
+function renderSideHeader() {
+  const panel = root.querySelector('#left-panel');
+  const section = panel?.querySelector(':scope > .left-view');
+  if (!section) return;
+  const d = state.showStart ? null : doc();
+  const id = d?.view ?? null;
+  const side = id ? getView(id)?.sidebar ?? null : null;
+  let sub = '';
+  try { sub = side?.title?.(viewContext()) ?? ''; } catch { sub = ''; }
+  section.querySelector('.left-view-glyph').innerHTML = icon(side?.icon ?? SIDE_GLYPHS[id] ?? 'columns');
+  section.querySelector('#left-view-title').textContent = id ? t(`view.${id}`) : '';
+  const subEl = section.querySelector('.left-view-sub');
+  subEl.textContent = sub ? sub : '';
+  subEl.hidden = !sub;
+  section.title = [id ? t(`view.${id}`) : '', sub].filter(Boolean).join(' — ');
+}
+
+function renderSide() {
+  const panel = root.querySelector('#left-panel');
+  const section = panel?.querySelector(':scope > .left-view');
+  const host = section?.querySelector('.left-view-body');
+  const d = state.showStart ? null : doc();
+  const id = d?.view ?? null;
+  const side = id ? getView(id)?.sidebar ?? null : null;
+  if (mounted.side && (mounted.side.host !== host || mounted.side.side !== side || mounted.side.doc !== d || mounted.side.id !== id)) unmountSide();
+  if (!section) return;
+  const show = Boolean(d) && state.settings.showViewSide !== false;
+  section.hidden = !show;
+  panel.querySelector(':scope > .left-split').hidden = !show;
+  panel.style.setProperty('--left-view-height', `${state.settings.leftViewHeight}px`);
+  if (!show) { unmountSide(); return; }
+  renderSideHeader();
+  if (mounted.side) return;
+  mounted.side = { host, side, doc: d, id };
+  host.innerHTML = '';
+  if (!side) { host.innerHTML = `<p class="panel-hint">${icon('info')}<span>${escapeHtml(t('panel.sideEmpty'))}</span></p>`; return; }
+  try { side.mount(host, viewContext()); } catch (error) { showError('error.view', error, `${id}:sidebar`); }
+}
+
+/** A view's sidebar hears what its view hears (live events, reloads, settings). */
+function updateSide(extra) {
+  const side = mounted.side?.side;
+  if (!side?.update) return;
+  try { side.update(viewContext(extra)); } catch (error) { console.error(error); }
+  renderSideHeader();
 }
 
 async function onNav(target) {
@@ -845,7 +949,7 @@ async function onNav(target) {
 
 // ───────────────────────── centre workspace and right detail panel (views)
 
-let mounted = { workspace: null, detail: null };
+let mounted = { workspace: null, detail: null, side: null };
 
 /** What a view gets (views/registry.js). */
 function viewContext(extra = {}) {
@@ -919,7 +1023,7 @@ function renderRight() {
   host.innerHTML = `<div class="detail-empty">${icon('notes', 'icon big')}<p>${escapeHtml(state.selectedIssue ? t('detail.loading', { id: state.selectedIssue }) : t('detail.none'))}</p><small class="muted">${escapeHtml(t('detail.hint'))}</small></div>`;
 }
 
-onViewRegistered((id) => { if (id === 'detail') { mounted.detail = null; renderRight(); } else if (doc()?.view === id) { mounted.workspace = null; renderWorkspace(); } });
+onViewRegistered((id) => { if (doc()?.view === id) { unmountSide(); renderSide(); } if (id === 'detail') { mounted.detail = null; renderRight(); } else if (doc()?.view === id) { mounted.workspace = null; renderWorkspace(); } });
 
 // ───────────────────────── bottom panel (activity, messages, information)
 
@@ -1159,6 +1263,7 @@ function applySettings(previous = {}) {
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
   renderAll();
   getView(doc()?.view ?? '')?.update?.(viewContext({ settingsChanged: true }));
+  updateSide({ settingsChanged: true });
   updateMinimumWidth();
 }
 
@@ -1169,8 +1274,8 @@ async function openThemePicker(anchor) {
 }
 
 /** The icon picker popup (ui/iconpicker.js) → an IconRef ('' = none, null = cancelled). */
-async function pickIcon(value = '', { title = '' } = {}) {
-  const result = await popups.open('iconpicker', { value, title, recent: state.settings.recentIcons });
+async function pickIcon(value = '', { title = '', category = null } = {}) {
+  const result = await popups.open('iconpicker', { value, title, category, recent: state.settings.recentIcons });
   if (!result || result.ref == null) return null;
   if (result.ref) updateSettings({ recentIcons: [result.ref, ...state.settings.recentIcons.filter((r) => r !== result.ref)].slice(0, 24) }, { quiet: true });
   return result.ref;
@@ -1502,6 +1607,22 @@ function bindEvents() {
     });
   }));
 
+  root.addEventListener('pointerdown', (event) => {
+    const split = event.target.closest?.('#left-panel > .left-split');
+    if (!split || event.button !== 0) return;
+    event.preventDefault();
+    const panel = split.parentElement;
+    // From the height shown now (the section also grows into the room the tree leaves).
+    const start = Math.round(panel.querySelector(':scope > .left-view')?.getBoundingClientRect().height ?? state.settings.leftViewHeight);
+    const max = () => Math.max(SIDE_MIN, panel.getBoundingClientRect().height - TREE_MIN);
+    pointerDrag(event, {
+      cursor: 'row-resize',
+      move: (dx, dy) => { const h = Math.round(Math.max(SIDE_MIN, Math.min(max(), start - dy))); panel.style.setProperty('--left-view-height', `${h}px`); state.settings.leftViewHeight = h; },
+      end: (e, moved) => { if (moved) updateSettings({ leftViewHeight: state.settings.leftViewHeight }, { quiet: true }); },
+    });
+  });
+  root.addEventListener('dblclick', (event) => { if (event.target.closest?.('#left-panel > .left-split')) updateSettings({ leftViewHeight: SIDE_DEFAULT }); });
+
   root.querySelector('[data-split="bottom"]')?.addEventListener('pointerdown', (event) => {
     if (!state.settings.showBottomPanel) return;
     event.preventDefault();
@@ -1586,7 +1707,7 @@ function bindPopupActions() {
   popups.on('show-start', () => showStartPage(true));
   popups.on('progress-cancel', (data) => { popups.actions.get(`cancel:${data.op}`)?.(); });
   // The form popup's icon fields (ui/formpopup.js): the picker opens from here, the choice goes back to the form.
-  popups.on('form-pick-icon', async (data) => { const ref = await pickIcon(data.value ?? '', { title: data.title ?? '' }); if (ref != null) popups.post('form', { type: 'form-icon', name: data.name, ref }); });
+  popups.on('form-pick-icon', async (data) => { const ref = await pickIcon(data.value ?? '', { title: data.title ?? '', category: data.category ?? null }); if (ref != null) popups.post('form', { type: 'form-icon', name: data.name, ref }); });
   popups.on('raise-test-panic', () => native.invoke('raise_test_panic').catch((error) => showError('error.unexpected', error)));
   // Settings › Database switched or copied the database: everything is read again.
   popups.on('database-changed', async () => { await closeProject(); state.projects = []; state.boardsByProject.clear(); await connectCore(); });
@@ -1618,6 +1739,8 @@ const appApi = {
   // Views' context menus: showMenu(items, anchor, name, { handlers, header }); anchorAt(clientX, clientY) → a menu anchor.
   showMenu, anchorAt: (x, y) => { const point = toScreen(x, y); return { x: point.x + 1, y: point.y + 1, flipY: point.y }; }, openDocWindow, closeDocFrames,
   closeProject, openTarget, setView, openIssue, pickIcon, withProgress, logActivity, registerView, version: () => state.info?.version ?? VERSION,
+  // A view's sidebar changed what its subtitle says (the left panel's lower section).
+  renderSideHeader,
   // The tutorial keeps the user's workspace: it swaps in its own and puts the user's back afterwards.
   takeDoc: () => state.doc, putDoc: (d) => { if (d) setDoc(d); else closeProject(); },
   openTemplate: (id) => openDemo(id),
@@ -1660,7 +1783,8 @@ async function start() {
   // The window shows now with the start page; the core may still be starting (desktop: core.rs, in the background).
   if (desktop) await appWindow.show();
   await connectCore({ quiet: true });
-  await restoreSession();
+  if (!(await openIssueLink())) await restoreSession();
+  window.addEventListener('hashchange', () => { if (hashIssueKey()) openIssueLink(); });
   for (const path of await native.startupFiles().catch(() => [])) await handleDroppedPaths([path]);
   if (!state.doc) state.showStart = true;
   renderAll();
@@ -1688,6 +1812,7 @@ window.__myboard = {
   live: () => live,
   menus: { MENUS, SUBMENUS, enabled: (id) => commandEnabled(id) },
   app: appApi,
+  renderSideHeader,
   actions: { connectCore, openTarget, openDemo, setView, closeProject, showStartPage, updateSettings, newProjectAsk, openSampleAsk, importText, exportProject, pickIcon, openIssue, undo, redo, withProgress, refreshProjects },
   domain: { TEMPLATES, SAMPLES, tutorialSteps: () => TUTORIAL_STEPS.length },
   tutorial: () => tutorial,

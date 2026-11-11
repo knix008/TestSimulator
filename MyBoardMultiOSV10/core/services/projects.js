@@ -5,15 +5,17 @@ import {
   toApi, fromApi, requireUser, emit, nowOf, requireText, assertProject, accessibleProjectIds, isAdmin, projectRole,
 } from './common.js';
 import { TEMPLATES, ISSUE_TYPES, CATEGORY_COLOR, defaultBoardSettings } from './templates.js';
-
-const KEY_RE = /^[A-Z][A-Z0-9]{1,9}$/;
+import { KEY_RE, projectKeyFree, rekeyProject, deleteProjectAliases } from './relocation.js';
+import { defaultColumnIcon } from '../columnicons.js';
 const PROJECT_FIELDS = ['name', 'description', 'icon', 'color', 'lead_id', 'default_assignee_id', 'archived'];
 
 export function createProjects(core) {
   const db = () => core.db;
 
   async function load(idOrKey) {
-    const row = await db().get('SELECT * FROM "projects" WHERE "id" = ? OR "key" = ?', [idOrKey, String(idOrKey).toUpperCase()]);
+    let row = await db().get('SELECT * FROM "projects" WHERE "id" = ? OR "key" = ?', [idOrKey, String(idOrKey).toUpperCase()]);
+    // an earlier key (after a key rename) still finds the project
+    if (!row) row = await db().get('SELECT p.* FROM "projects" p JOIN "project_key_aliases" a ON a."project_id" = p."id" WHERE a."key" = ?', [String(idOrKey).toUpperCase()]);
     if (!row) throw new NotFoundError('PROJECT_NOT_FOUND', 'Project not found');
     return row;
   }
@@ -57,7 +59,7 @@ export function createProjects(core) {
       const names = body.names || {};
 
       const result = await db().tx(async () => {
-        if (await db().get('SELECT "id" FROM "projects" WHERE "key" = ?', [key])) {
+        if (!(await projectKeyFree(db(), key))) {
           throw new AppError('PROJECT_KEY_TAKEN', `The key ${key} is already used`, 409);
         }
         const extra = fromApi('projects', body, PROJECT_FIELDS);
@@ -99,7 +101,7 @@ export function createProjects(core) {
         });
         for (const [i, [cname, idx, opts = {}]] of tpl.columns.entries()) {
           await db().insert('board_columns', {
-            id: newId(), board_id: board.id, name: names.columns?.[i] || cname, position: i, wip_min: opts.wipMin ?? null, wip_max: opts.wipMax ?? null,
+            id: newId(), board_id: board.id, name: names.columns?.[i] || cname, icon: opts.icon || defaultColumnIcon(cname, idx.map((k) => tpl.statuses[k][1]), { backlog: opts.backlog }), position: i, wip_min: opts.wipMin ?? null, wip_max: opts.wipMax ?? null,
             status_ids: idx.map((k) => statuses[k].id), created_at: now, updated_at: now,
           });
         }
@@ -114,11 +116,21 @@ export function createProjects(core) {
       await assertProject(db(), ctx, existing.id, 'admin');
       const patch = fromApi('projects', body, PROJECT_FIELDS);
       if (patch.name !== undefined) patch.name = requireText(patch.name, 'name', 200);
-      if (body.key !== undefined && String(body.key).toUpperCase() !== existing.key) {
-        throw new AppError('PROJECT_KEY_IMMUTABLE', 'The project key cannot be changed', 400);
-      }
-      const row = await db().update('projects', existing.id, patch, { rev: body?.rev });
-      emit(core, ctx, 'project.updated', [`project:${row.id}`, 'projects'], { id: row.id, rev: row.rev, data: toApi('projects', row) });
+      // a new key re-keys every issue (OLD-12 → NEW-12); the old keys keep resolving (relocation.js)
+      const newKey = body.key !== undefined && body.key !== null ? String(body.key).trim().toUpperCase() : existing.key;
+      const rekey = newKey !== existing.key;
+      if (rekey) check(KEY_RE.test(newKey), 'INVALID_PROJECT_KEY', 'The key must be 2-10 letters or digits and start with a letter', { field: 'key' });
+      const row = await db().tx(async () => {
+        if (rekey) {
+          if (!(await projectKeyFree(db(), newKey, existing.id))) throw new AppError('PROJECT_KEY_TAKEN', `The key ${newKey} is already used`, 409, { field: 'key' });
+          patch.key = newKey;
+        }
+        const updated = await db().update('projects', existing.id, patch, { rev: body?.rev });
+        if (rekey) await rekeyProject(db(), existing, newKey, nowOf(ctx));
+        return updated;
+      });
+      const data = { ...toApi('projects', row), ...(rekey ? { oldKey: existing.key } : {}) };
+      emit(core, ctx, 'project.updated', [`project:${row.id}`, 'projects'], { id: row.id, rev: row.rev, data });
       return toApi('projects', row);
     },
 
@@ -146,6 +158,10 @@ export function createProjects(core) {
       await assertProject(db(), ctx, p.id, 'admin');
       check(['admin', 'member', 'viewer'].includes(role), 'INVALID_ROLE', 'Role must be admin, member or viewer');
       if (!(await db().get('SELECT "id" FROM "users" WHERE "id" = ?', [userId]))) throw new NotFoundError('USER_NOT_FOUND', 'User not found');
+      if (role !== 'admin') {
+        const admins = await db().all('SELECT "user_id" FROM "project_members" WHERE "project_id" = ? AND "role" = ?', [p.id, 'admin']);
+        check(!(admins.length === 1 && admins[0].user_id === userId), 'LAST_PROJECT_ADMIN', 'A project needs at least one administrator');
+      }
       await db().tx(async () => {
         await db().remove('project_members', { project_id: p.id, user_id: userId });
         await db().insert('project_members', { project_id: p.id, user_id: userId, role, created_at: nowOf(ctx) });
@@ -208,6 +224,7 @@ export async function deleteProjectData(db, projectId) {
   const issues = 'SELECT "id" FROM "issues" WHERE "project_id" = ?';
   const boards = 'SELECT "id" FROM "boards" WHERE "project_id" = ?';
   await db.tx(async () => {
+    await deleteProjectAliases(db, projectId);
     for (const t of ['issue_labels', 'issue_components', 'issue_versions', 'issue_watchers', 'issue_votes', 'custom_values', 'checklist_items', 'comments', 'attachments', 'worklogs', 'issue_history', 'notifications']) {
       await db.run(`DELETE FROM ${db.q(t)} WHERE "issue_id" IN (${issues})`, [projectId]);
     }

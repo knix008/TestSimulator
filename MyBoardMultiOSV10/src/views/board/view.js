@@ -12,6 +12,8 @@ import { CardDrag } from './dnd.js';
 import { demoBoardData } from './demo.js';
 import { openBoardMenu, openCardMenu } from './menu.js';
 import { openCreateForm } from './create.js';
+import { canAddColumn, openAddColumn } from './addcolumn.js';
+import { ColumnDrag, changeColumnIcon, columnKey, editColumn, openColumnMenu } from './columns.js';
 
 const CHUNK = 40;
 const CHUNK_LANES = 20;
@@ -81,10 +83,19 @@ export class BoardView {
       canDrop: (cell) => this.canDrop(cell),
       onStart: (ids) => this.dragStarted(ids),
       onDrop: (drop) => this.dropped(drop),
+      onRefused: () => this.ctx.notify('warning', this.t('board.dropNotAllowed')),
       onCancel: () => this.dragEnded(),
     });
+    this.boardEl.setAttribute('aria-label', t('board.keyboardHelp'));
     this.root.addEventListener('click', (e) => this.onClick(e));
-    this.root.addEventListener('dblclick', (e) => { const el = e.target.closest('.mb-card'); if (el) this.ctx.openIssue(el.dataset.id); });
+    this.colDrag = new ColumnDrag(this);
+    this.root.addEventListener('dblclick', (e) => {
+      const el = e.target.closest('.mb-card');
+      if (el) { this.ctx.openIssue(el.dataset.id); return; }
+      // a column header: its icon → the icon picker, elsewhere → name + icon (columns.js)
+      const head = e.target.closest('.bv-heads .bv-col-head[data-col]');
+      if (head && !e.target.closest('button') && !this.demo) { if (e.target.closest('.bv-col-icon')) changeColumnIcon(this, head.dataset.col); else editColumn(this, head.dataset.col); }
+    });
     this.root.addEventListener('keydown', (e) => this.onKey(e));
     this.root.addEventListener('contextmenu', (e) => this.onContextMenu(e));
     this.root.addEventListener('focusin', (e) => { const el = e.target.closest?.('.mb-card'); if (el) this.setFocus(el.dataset.id, { scroll: false, focus: false }); });
@@ -98,6 +109,11 @@ export class BoardView {
       if (e.key === 'Enter') { e.preventDefault(); clearTimeout(this.searchTimer); this.prefs.search = this.searchInput.value; this.savePrefs(); this.load({ quiet: true }); }
     });
     this.bindLive();
+    // This window's own changes made elsewhere (the detail panel, the backlog): the live channel drops events of
+    // this window, so other views tell the board with a DOM event shaped like a live event (§6):
+    //   window.dispatchEvent(new CustomEvent('myboard:event', { detail: { type: 'issue.updated', id, rev, data: issue } }))
+    this.onLocalEvent = (e) => { if (e.detail?.type) this.onLiveEvent(e.detail, { local: true }); };
+    window.addEventListener('myboard:event', this.onLocalEvent);
     this.renderState();
     this.load();
     window.__myboardBoard = this;
@@ -107,8 +123,10 @@ export class BoardView {
     clearTimeout(this.refetchTimer);
     clearTimeout(this.searchTimer);
     this.offPresence?.();
+    window.removeEventListener('myboard:event', this.onLocalEvent);
     this.observer?.disconnect();
     this.drag?.destroy();
+    this.colDrag?.destroy();
     closeRefList({ focus: false });
     if (window.__myboardBoard === this) window.__myboardBoard = null;
     this.host.innerHTML = '';
@@ -187,6 +205,7 @@ export class BoardView {
   /** Puts a changed card into the data (issues or backlog by its column). */
   putCard(card) {
     const data = this.data;
+    if (this.settings.cardColors && this.settings.cardColors !== 'queries' && this.L) card.cardColor = this.cardColorOf(card, card);
     data.issues = data.issues.filter((c) => c.id !== card.id);
     data.backlog = (data.backlog ?? []).filter((c) => c.id !== card.id);
     if (!card.columnId) { this.cards.delete(card.id); return; }
@@ -221,6 +240,7 @@ export class BoardView {
   }
 
   renderFilters() {
+    this.onSideChange?.();   // the left panel's sidebar shows the same filters (sidebar.js)
     const t = this.t;
     const el = this.root.querySelector('.bv-filters');
     const chip = (attrs, pressed, iconHtml, label, tip) => `<button class="bv-chip" ${attrs} aria-pressed="${pressed}" title="${escapeHtml(tip ?? label)}">${iconHtml}<span>${escapeHtml(label)}</span></button>`;
@@ -254,6 +274,7 @@ export class BoardView {
       ${lanes > 1 ? `<button class="small-button" data-lanes="${allCollapsed ? 'expand' : 'collapse'}" title="${escapeHtml(t(allCollapsed ? 'board.lanes.expandAll' : 'board.lanes.collapseAll'))}">${glyph(allCollapsed ? 'chevronDown' : 'chevronUp')}<span>${escapeHtml(t(allCollapsed ? 'board.lanes.expandAll' : 'board.lanes.collapseAll'))}</span></button>` : ''}
       ${hasBacklog ? `<button class="bv-chip" data-toggle-backlog aria-pressed="${this.prefs.showBacklog}" title="${escapeHtml(t('board.showBacklogTip'))}">${glyph('list')}<span>${escapeHtml(t('board.showBacklog'))}</span></button>` : ''}
       ${hidesDone && !this.demo ? `<button class="bv-chip" data-toggle-done aria-pressed="${this.prefs.showAllDone}" title="${escapeHtml(t('board.showAllDoneTip', { days: this.settings.doneHideDays }))}">${glyph('check')}<span>${escapeHtml(t('board.showAllDone'))}</span></button>` : ''}
+      ${canAddColumn(this) ? `<button class="small-button bv-add-column" data-col-new title="${escapeHtml(t('board.addColumn.tip'))}">${glyph('columns')}<span>${escapeHtml(t('board.addColumn.button'))}</span></button>` : ''}
       <span class="bv-count muted">${escapeHtml(count)}</span>
       ${presence}`;
   }
@@ -274,8 +295,9 @@ export class BoardView {
 
   /** The whole board (columns, lanes, cards); keeps the scroll position and the focused card. */
   render() {
+    this.onSideChange?.();
     if (!this.data) return;
-    if (this.drag?.active) { this.pendingRender = true; return; }
+    if (this.drag?.active || this.colDrag?.active) { this.pendingRender = true; return; }
     this.pendingRender = false;
     const t = this.t;
     const layout = buildLayout(this.data, this.L, { prefs: this.prefs, me: this.me, t });
@@ -288,6 +310,7 @@ export class BoardView {
       this.renderTools();
       return;
     }
+    // "Add column" is in the toolbar (renderTools), next to "show older done".
     const template = layout.columns.map((c) => (c.collapsed ? '42px' : 'minmax(244px, 1fr)')).join(' ');
     this.boardEl.style.setProperty('--bv-cols', template);
     this.boardEl.style.minWidth = `${layout.columns.reduce((w, c) => w + (c.collapsed ? 42 : 244) + 10, 14)}px`;
@@ -334,20 +357,25 @@ export class BoardView {
     const countTip = c.shown === c.total ? t('board.column.count', { n: c.total }) : t('board.column.countFiltered', { n: c.shown, total: c.total });
     const cls = ['bv-col-head', c.over ? 'over' : '', c.under ? 'under' : '', c.collapsed ? 'collapsed' : '', c.done ? 'done' : '', c.backlog ? 'backlog' : ''].filter(Boolean).join(' ');
     const doneTip = c.done ? (days != null && !this.prefs.showAllDone ? t('board.column.done', { days }) : t('board.column.doneAll')) : '';
+    // every column has an icon (the core fills a default); the backlog column's icon replaces the old list glyph
+    const movable = canAddColumn(this);
+    const iconTip = c.backlog ? t('board.backlogTip') : movable ? t('board.column.iconTip') : c.name;
+    const iconHtml = `<span class="bv-col-icon" title="${escapeHtml(iconTip)}">${renderIconRef(c.icon || (c.backlog ? 'b:backlog' : c.done ? 'b:done' : 'b:circle'), { size: 16 })}</span>`;
+    const headAttrs = `tabindex="0" ${movable ? `data-col-movable aria-roledescription="${escapeHtml(t('board.column.movable'))}"` : ''}`;
     if (c.collapsed) {
-      return `<div class="${cls}" data-col="${escapeHtml(c.id)}" data-drop-column="${escapeHtml(c.id)}" role="columnheader" title="${escapeHtml(`${c.name} — ${countTip}${warn ? ` — ${warn}` : ''}`)}">
+      return `<div class="${cls}" data-col="${escapeHtml(c.id)}" data-drop-column="${escapeHtml(c.id)}" role="columnheader" ${headAttrs} title="${escapeHtml(`${c.name} — ${countTip}${warn ? ` — ${warn}` : ''}`)}">
         <button class="icon-button bv-col-toggle" data-col-toggle="${escapeHtml(c.id)}" title="${escapeHtml(t('board.column.expand'))}" aria-label="${escapeHtml(t('board.column.expand'))}" aria-expanded="false">${glyph('chevronRight')}</button>
-        <span class="bv-col-count">${escapeHtml(countText)}</span><span class="bv-col-name vertical">${escapeHtml(c.name)}</span></div>`;
+        ${iconHtml}<span class="bv-col-count">${escapeHtml(countText)}</span><span class="bv-col-name vertical">${escapeHtml(c.name)}</span></div>`;
     }
-    return `<div class="${cls}" data-col="${escapeHtml(c.id)}" role="columnheader" title="${escapeHtml(warn || countTip)}">
-      <button class="icon-button bv-col-toggle" data-col-toggle="${escapeHtml(c.id)}" title="${escapeHtml(t('board.column.collapse'))}" aria-label="${escapeHtml(t('board.column.collapse'))}" aria-expanded="true">${glyph('chevronDown')}</button>
-      ${c.backlog ? `<span class="bv-col-kind" title="${escapeHtml(t('board.backlogTip'))}">${glyph('list')}</span>` : ''}
+    return `<div class="${cls}" data-col="${escapeHtml(c.id)}" role="columnheader" ${headAttrs} title="${escapeHtml(warn || countTip)}">
+      ${this.demo ? '' : `<button class="icon-button bv-col-add" data-col-create="${escapeHtml(c.id)}" title="${escapeHtml(t('board.column.create'))}" aria-label="${escapeHtml(t('board.column.create'))}">${glyph('plus')}</button>`}
+      ${iconHtml}
       <span class="bv-col-name">${escapeHtml(c.name)}</span>
       <span class="bv-col-count" title="${escapeHtml(countTip)}">${escapeHtml(countText)}</span>
       ${constrained && wip ? `<span class="bv-wip ${c.over ? 'over' : c.under ? 'under' : ''}" title="${escapeHtml(warn || wip)}">${c.over || c.under ? glyph('warning') : ''}${escapeHtml(wip)}</span>` : ''}
       ${c.done ? `<span class="bv-col-kind done" title="${escapeHtml(doneTip)}">${glyph('check')}</span>` : ''}
       <span class="grow"></span>
-      ${this.demo ? '' : `<button class="icon-button bv-col-add" data-col-create="${escapeHtml(c.id)}" title="${escapeHtml(t('board.column.create'))}" aria-label="${escapeHtml(t('board.column.create'))}">${glyph('plus')}</button>`}
+      <button class="icon-button bv-col-toggle" data-col-toggle="${escapeHtml(c.id)}" title="${escapeHtml(t('board.column.collapse'))}" aria-label="${escapeHtml(t('board.column.collapse'))}" aria-expanded="true">${glyph('chevronDown')}</button>
     </div>`;
   }
 
@@ -390,7 +418,7 @@ export class BoardView {
     const tmp = this.root.ownerDocument.createElement('div');
     tmp.innerHTML = this.cellHtml(lane, col, this.layout.lanes.length > 1 ? CHUNK_LANES : CHUNK);
     const fresh = tmp.firstElementChild;
-    if (el.contains(this.observedMore)) this.observer.unobserve(this.observedMore);
+    for (const more of el.querySelectorAll('.bv-more')) this.observer.unobserve(more);
     el.replaceWith(fresh);
     for (const more of fresh.querySelectorAll('.bv-more')) this.observer.observe(more);
     this.applyFocus(false);
@@ -485,25 +513,26 @@ export class BoardView {
 
   onClick(event) {
     const target = event.target;
-    const t = (sel) => target.closest(sel);
+    const at = (sel) => target.closest(sel);
     let el;
-    if ((el = t('[data-bv-retry]'))) return this.load();
-    if ((el = t('[data-bv-create]'))) return this.createIssue();
-    if ((el = t('[data-col-toggle]'))) return this.toggleColumn(el.dataset.colToggle);
-    if ((el = t('[data-col-create]'))) return this.createIssue({ columnId: el.dataset.colCreate });
-    if ((el = t('[data-lane-toggle]'))) return this.toggleLane(el.dataset.laneToggle);
-    if ((el = t('[data-more]'))) return this.showMore(el.dataset.more);
-    if ((el = t('[data-quick]'))) { const id = el.dataset.quick; this.prefs.quick = this.prefs.quick.includes(id) ? this.prefs.quick.filter((q) => q !== id) : [...this.prefs.quick, id]; this.savePrefs(); this.renderFilters(); return this.load({ quiet: true }); }
-    if ((el = t('[data-builtin]'))) { const key = el.dataset.builtin; this.prefs[key] = !this.prefs[key]; this.savePrefs(); this.renderFilters(); return this.render(); }
-    if ((el = t('[data-clear-filters]'))) return this.clearFilters();
-    if ((el = t('[data-lanes]'))) return this.setAllLanes(el.dataset.lanes === 'collapse');
-    if ((el = t('[data-toggle-backlog]'))) { this.prefs.showBacklog = !this.prefs.showBacklog; this.savePrefs(); return this.render(); }
-    if ((el = t('[data-toggle-done]'))) { this.prefs.showAllDone = !this.prefs.showAllDone; this.savePrefs(); return this.load({ quiet: true }); }
-    if ((el = t('[data-ref-dd="groupBy"]'))) {
+    if ((el = at('[data-bv-retry]'))) return this.load();
+    if ((el = at('[data-bv-create]'))) return this.createIssue();
+    if ((el = at('[data-col-toggle]'))) return this.toggleColumn(el.dataset.colToggle);
+    if ((el = at('[data-col-create]'))) return this.createIssue({ columnId: el.dataset.colCreate });
+    if ((el = at('[data-col-new]'))) return openAddColumn(this);
+    if ((el = at('[data-lane-toggle]'))) return this.toggleLane(el.dataset.laneToggle);
+    if ((el = at('[data-more]'))) return this.showMore(el.dataset.more);
+    if ((el = at('[data-quick]'))) { const id = el.dataset.quick; this.prefs.quick = this.prefs.quick.includes(id) ? this.prefs.quick.filter((q) => q !== id) : [...this.prefs.quick, id]; this.savePrefs(); this.renderFilters(); return this.load({ quiet: true }); }
+    if ((el = at('[data-builtin]'))) { const key = el.dataset.builtin; this.prefs[key] = !this.prefs[key]; this.savePrefs(); this.renderFilters(); return this.render(); }
+    if ((el = at('[data-clear-filters]'))) return this.clearFilters();
+    if ((el = at('[data-lanes]'))) return this.setAllLanes(el.dataset.lanes === 'collapse');
+    if ((el = at('[data-toggle-backlog]'))) { this.prefs.showBacklog = !this.prefs.showBacklog; this.savePrefs(); return this.render(); }
+    if ((el = at('[data-toggle-done]'))) { this.prefs.showAllDone = !this.prefs.showAllDone; this.savePrefs(); return this.load({ quiet: true }); }
+    if ((el = at('[data-ref-dd="groupBy"]'))) {
       return openRefList(el, { items: this.groupItems(), value: this.mode, icon, onPick: (mode) => this.setGroup(mode) });
     }
-    if ((el = t('[data-bulk]'))) return this.onBulk(el.dataset.bulk, el);
-    const card = t('.mb-card');
+    if ((el = at('[data-bulk]'))) return this.onBulk(el.dataset.bulk, el);
+    const card = at('.mb-card');
     if (card && this.boardEl.contains(card)) {
       const id = card.dataset.id;
       if (event.ctrlKey || event.metaKey) { this.select([id], { toggle: true }); this.anchorId = id; this.setFocus(id, { scroll: false }); return undefined; }
@@ -518,6 +547,7 @@ export class BoardView {
 
   onKey(event) {
     if (event.target === this.searchInput) return;
+    if (columnKey(this, event)) return;
     const el = event.target.closest?.('.mb-card');
     if (!el) return;
     const id = el.dataset.id;
@@ -555,6 +585,8 @@ export class BoardView {
   onContextMenu(event) {
     if (event.target.closest('input, textarea')) return;
     event.preventDefault();
+    const head = event.target.closest('.bv-heads .bv-col-head[data-col]');
+    if (head && this.boardEl.contains(head)) { openColumnMenu(this, head.dataset.col, event.clientX, event.clientY); return; }
     const el = event.target.closest('.mb-card');
     if (el && this.boardEl.contains(el)) {
       const id = el.dataset.id;
@@ -720,6 +752,11 @@ export class BoardView {
       const nb = neighbours(this.layout.cells.get(key) ?? [], c.id);
       if (sameCell && nb.aboveId === afterId && nb.belowId === beforeId) return;
     }
+    // A column the workflow does not reach: said at once, nothing is sent (the drag already dims those columns).
+    if (!this.demo && cards.length === 1 && cards[0].columnId !== columnId) {
+      const refusal = await this.transitionRefusal(cards[0], columnId);
+      if (refusal) { this.ctx.notify('error', `${t('board.moveFailed')}: ${refusal}`); return; }
+    }
     const before = cards.map((c) => {
       const k = this.cellKeyOf(c.id);
       return { card: { ...c }, lane: laneOf(c, mode), ...neighbours(this.layout.cells.get(k) ?? [], c.id) };
@@ -791,6 +828,20 @@ export class BoardView {
       else this.ctx.notify('error', `${t('board.moveFailed')}: ${errorMessage(error, t)}`);
       this.scheduleRefetch(cards.length > 1 || isConflict(error) ? 0 : 400);
     }
+  }
+
+  /** Why the workflow keeps `card` out of a column (translated), or '' when a transition reaches it. */
+  async transitionRefusal(card, columnId) {
+    const col = this.L.column(columnId);
+    if (!col || col.statusIds.includes(card.statusId)) return '';
+    let list;
+    try { list = await this.api.get(`/issues/${encodeURIComponent(card.id)}/transitions`); } catch { return ''; }
+    const items = Array.isArray(list) ? list : list?.items ?? [];
+    const into = items.filter((x) => col.statusIds.includes(x.toStatusId ?? x.to_status_id));
+    if (into.some((x) => x.available !== false)) return '';
+    const reason = into.find((x) => x.reason)?.reason;
+    if (reason) return errorMessage(typeof reason === 'object' ? reason : { code: String(reason), message: '' }, this.t);
+    return errorMessage({ code: 'TRANSITION_NOT_ALLOWED' }, this.t);
   }
 
   /** Several cards to a column (menu, bulk bar): one bulk transition, single moves for those it refuses. */
@@ -911,6 +962,7 @@ export class BoardView {
       this.searchInput.placeholder = t('board.search');
       this.searchInput.setAttribute('aria-label', t('board.search'));
       this.searchInput.closest('label').title = t('board.searchTip');
+      this.boardEl.setAttribute('aria-label', t('board.keyboardHelp'));
       if (this.demo && this.demoData && this.demoLang !== this.lang) { this.demoData = null; }
       this.demoLang = this.lang;
       if (this.demo) return this.load();
@@ -921,14 +973,28 @@ export class BoardView {
     return undefined;
   }
 
-  onLiveEvent(event) {
+  /** The board's card colour of a card (§3.2 cardColors) — the core's rule; 'queries' keeps the last known. */
+  cardColorOf(card, prev = null) {
+    switch (this.settings.cardColors) {
+      case 'type': return this.L.type(card.typeId)?.color || null;
+      case 'priority': return this.L.priority(card.priorityId)?.color || null;
+      case 'assignee': { if (!card.assigneeId) return null; let h = 0; for (const ch of card.assigneeId) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 55% 50%)`; }
+      case 'queries': return prev?.cardColor ?? null;
+      default: return null;
+    }
+  }
+
+  onLiveEvent(event, { local = false } = {}) {
     if (!this.data || this.demo) return;
+    if (!local && event.client && event.client === this.api?.clientId) return;
     const type = String(event.type ?? '');
     const data = event.data ?? {};
     if (/^issue\./.test(type)) {
       const id = event.id ?? data.id;
       if (type === 'issue.deleted') { if (this.card(id)) { this.removeCard(id); this.render(); } return; }
       if (type === 'issue.created') { this.scheduleRefetch(200); return; }
+      // moved to another project: off this board now (a cross-project board gets it back from the refetch)
+      if (type === 'issue.projectMoved') { if (this.card(id)) { this.removeCard(id); this.render(); } this.scheduleRefetch(200); return; }
       const prev = this.card(id);
       if (!prev) {
         // Not on the board yet: it may have moved into one of its columns.
@@ -937,15 +1003,17 @@ export class BoardView {
       }
       if (prev.rev != null && event.rev != null && Number(event.rev) < Number(prev.rev)) return;
       const next = issueToCard(data, { prev, L: this.L });
-      if (this.mode === 'queries' || this.settings.cardColors !== 'none' || this.filtersActive() || data.archived) this.scheduleRefetch(300);
+      next.cardColor = this.cardColorOf(next, prev);
+      if (this.mode === 'queries' || this.settings.cardColors === 'queries' || this.filtersActive() || data.archived) this.scheduleRefetch(300);
       if (data.archived) { this.removeCard(id); this.render(); return; }
       this.putCard(next);
+      if (local) { this.render(); return; }
       this.flash.set(id, Date.now());
       setTimeout(() => { this.flash.delete(id); this.cardEl(id)?.classList.remove('bv-flash'); }, 1600);
       this.render();
       return;
     }
-    if (/^(comment|attachment|checklist|worklog|link)\./.test(type)) { this.scheduleRefetch(600); return; }
+    if (/^(comment|attachment|checklist|worklog|link|label)\./.test(type)) { this.scheduleRefetch(600); return; }
     if (/^(board|column|swimlane|quickFilter|cardColor|status|issueType|workflow|transition|version|component|priority|user|member|project)\./.test(type)) {
       if (type === 'board.deleted' && (event.id === this.boardId || data.id === this.boardId)) { this.status = 'error'; this.error = { code: 'BOARD_NOT_FOUND' }; this.renderState(); return; }
       this.scheduleRefetch(300);

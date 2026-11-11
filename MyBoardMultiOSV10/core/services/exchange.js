@@ -8,6 +8,8 @@ import { parseCsv, formatCsv, detectDelimiter } from './csv.js';
 import { parseTimeSpent } from './parts.js';
 import { VERSION } from '../version.js';
 import { importCardBoard } from './import/trello.js';
+import { projectKeyFree } from './relocation.js';
+import { fillColumnIcons } from '../db/migrate.js';
 
 /** Project tables in insert order, each with how to select the project's rows. */
 const PROJECT_TABLES = [
@@ -15,8 +17,9 @@ const PROJECT_TABLES = [
   ['versions', 'project'], ['custom_fields', 'project'], ['issues', 'project'], ['issue_labels', 'issue'], ['issue_components', 'issue'],
   ['issue_versions', 'issue'], ['issue_watchers', 'issue'], ['issue_votes', 'issue'], ['issue_links', 'link'], ['custom_values', 'issue'],
   ['checklist_items', 'issue'], ['comments', 'issue'], ['attachments', 'issue'], ['worklogs', 'issue'], ['issue_history', 'issue'],
+  ['issue_key_aliases', 'issue'],
   ['boards', 'project'], ['board_columns', 'board'], ['swimlanes', 'board'], ['quick_filters', 'board'], ['card_colors', 'board'],
-  ['automation_rules', 'project'], ['project_members', 'project'],
+  ['automation_rules', 'project'], ['project_members', 'project'], ['project_key_aliases', 'project'],
 ];
 
 const B64 = '__b64:';
@@ -85,7 +88,7 @@ export function createExchange(core) {
       const oldKey = data.project.key;
       const key = String(opts.key || oldKey).toUpperCase();
       check(/^[A-Z][A-Z0-9]{1,9}$/.test(key), 'INVALID_PROJECT_KEY', 'The key must be 2-10 letters or digits and start with a letter');
-      if (await db().get('SELECT "id" FROM "projects" WHERE "key" = ?', [key])) {
+      if (!(await projectKeyFree(db(), key))) {
         throw new AppError('PROJECT_KEY_TAKEN', `The key ${key} is already used`, 409, { suggested: await freeKey(key) });
       }
       const now = nowOf(ctx);
@@ -130,7 +133,8 @@ export function createExchange(core) {
           if (/^[0-9a-z]{20}(,[0-9a-z]{20})+$/.test(v)) return v.split(',').map((x) => map.get(x) || x).join(',');
           return v;
         };
-        const deep = (v) => (Array.isArray(v) ? v.map(deep) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deep(x)])) : mapStr(v));
+        // keys that are ids are mapped too (a workflow layout is { <statusId>: { x, y } })
+        const deep = (v) => (Array.isArray(v) ? v.map(deep) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [map.get(k) ?? k, deep(x)])) : mapStr(v));
         const convert = (table, r) => {
           const out = {};
           for (const c of TABLE[table].columns) {
@@ -151,8 +155,27 @@ export function createExchange(core) {
           if (t === 'custom_fields') rows = rows.map((r) => ({ ...r, project_id: pid }));
           if (t === 'issues') rows = rows.map((r) => ({ ...r, key: `${key}-${r.number}` }));
           if (t === 'project_members') rows = rows.filter((r) => r.user_id !== user?.id);
+          // earlier keys travel as they were (not re-keyed); ones this database already uses stay with their owner
+          if (t === 'issue_key_aliases' || t === 'project_key_aliases') {
+            const src = data.tables[t] || [];
+            const kept = [];
+            const seen = new Set();
+            for (const [i, r] of rows.entries()) {
+              const k = String(src[i].key || '').toUpperCase();
+              if (!k || seen.has(k) || k === key) continue;
+              const used = t === 'issue_key_aliases'
+                ? (await db().get('SELECT "id" FROM "issues" WHERE "key" = ?', [k])) || (await db().get('SELECT "key" FROM "issue_key_aliases" WHERE "key" = ?', [k]))
+                : !(await projectKeyFree(db(), k));
+              if (used) continue;
+              seen.add(k);
+              kept.push({ ...r, key: k, created_at: r.created_at ?? now });
+            }
+            rows = kept;
+          }
           await db().insertMany(t, rows);
         }
+        // files from before board_columns.icon: the columns get their default icons
+        await fillColumnIcons(db());
         if (user) {
           await db().remove('project_members', { project_id: pid, user_id: user.id });
           await db().insert('project_members', { project_id: pid, user_id: user.id, role: 'admin', created_at: now });
@@ -242,6 +265,12 @@ export function createExchange(core) {
             const f = mapping[h];
             if (f && f.startsWith('custom:')) { const v = row[headers.indexOf(h)]; if (v != null && v.trim()) custom[f.slice(7)] = v.trim(); }
           }
+          // cells of fields that do not apply to the row's issue type are left out (the issue keeps no value)
+          const rowType = issue.typeId || cfg.types.find((t) => Number(t.level ?? 0) === 0)?.id;
+          for (const fid of Object.keys(custom)) {
+            const ids = cfg.fields.find((x) => x.id === fid)?.issueTypeIds;
+            if (Array.isArray(ids) && ids.length && !ids.includes(rowType)) delete custom[fid];
+          }
           for (const [fid, v] of Object.entries(custom)) {
             const cf = cfg.fields.find((x) => x.id === fid);
             if (cf && ['multiselect', 'labels'].includes(cf.type)) custom[fid] = splitList(v);
@@ -288,7 +317,7 @@ export function createExchange(core) {
   async function freeKey(key) {
     for (let n = 2; n < 100; n++) {
       const k = (key.slice(0, 10 - String(n).length) + n).toUpperCase();
-      if (!(await db().get('SELECT "id" FROM "projects" WHERE "key" = ?', [k]))) return k;
+      if (await projectKeyFree(db(), k)) return k;
     }
     return null;
   }

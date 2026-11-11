@@ -112,6 +112,13 @@ export function registerApi(r, core, host) {
   r.patch('/api/projects/:id/automation/:ruleId', ({ ctx, params, body }) => S().automation.update(ctx, params.ruleId, body));
   r.delete('/api/projects/:id/automation/:ruleId', ({ ctx, params }) => S().automation.remove(ctx, params.ruleId));
   r.post('/api/projects/:id/automation/:ruleId/run', ({ ctx, params }) => S().automation.run(ctx, params.ruleId));
+  // labels: of a project (its admins rename / merge / delete) or of every project (global admins)
+  for (const [base, scope] of [['/api/projects/:id/labels', (params) => params.id], ['/api/labels', () => null]]) {
+    r.get(base, ({ ctx, params }) => S().labels.list(ctx, scope(params)));
+    r.post(`${base}/rename`, ({ ctx, params, body }) => S().labels.rename(ctx, scope(params), body || {}));
+    r.post(`${base}/apply`, ({ ctx, params, body }) => S().labels.apply(ctx, scope(params), body || {}));
+    r.delete(`${base}/:label`, ({ ctx, params }) => S().labels.remove(ctx, scope(params), params.label));
+  }
   // export
   r.get('/api/projects/:id/export', async ({ ctx, params }) => {
     const data = await S().exchange.exportProject(ctx, params.id);
@@ -139,6 +146,9 @@ export function registerApi(r, core, host) {
   r.post('/api/issues/:id/transition', ({ ctx, params, body }) => S().issues.transition(ctx, params.id, body));
   r.post('/api/issues/:id/move', ({ ctx, params, body }) => S().issues.move(ctx, params.id, body));
   r.post('/api/issues/:id/clone', ({ ctx, params, body }) => S().issues.clone(ctx, params.id, body || {}));
+  // move to another project (new key; subtasks move along; the old key keeps resolving)
+  r.get('/api/issues/:id/move-project', ({ ctx, params }) => S().moves.targets(ctx, params.id));
+  r.post('/api/issues/:id/move-project', ({ ctx, params, body }) => S().moves.move(ctx, params.id, body || {}));
 
   // issue parts
   r.get('/api/issues/:id/comments', ({ ctx, params }) => S().comments.list(ctx, params.id));
@@ -224,7 +234,7 @@ export function registerApi(r, core, host) {
   r.get('/api/reports/created-resolved', ({ ctx, query }) => S().reports.createdResolved(ctx, query));
   r.get('/api/reports/workload', ({ ctx, query }) => S().reports.workload(ctx, query));
   r.get('/api/reports/breakdown', ({ ctx, query }) => S().reports.breakdown(ctx, query));
-  r.get('/api/reports/version/:id', ({ ctx, params }) => S().reports.version(ctx, params.id));
+  r.get('/api/reports/version/:id', ({ ctx, params, query }) => S().reports.version(ctx, params.id, query));
 
   // ---- notifications ------------------------------------------------------------------------------------------
   r.get('/api/notifications', ({ ctx, query }) => S().notifications.list(ctx, { ...query, unread: query.unread === '1' || query.unread === 'true' }));

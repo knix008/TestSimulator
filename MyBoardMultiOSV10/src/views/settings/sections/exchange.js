@@ -1,7 +1,7 @@
 // Import / export: the project as .myboard, issues as CSV (by JQL), the CSV import wizard (upload → columns,
 // sample and suggested mapping from POST /import/csv → mapping table → dry run → import with per-row errors)
 // and the card-board JSON (Trello-style) import.
-import { tr, esc, icon, btn, select, input, textarea, checkbox, card, note, items } from '../util.js';
+import { tr, esc, icon, btn, select, input, textarea, checkbox, card, note } from '../util.js';
 import * as native from '../../../platform/native.js';
 
 const FIELD_ICON = {
@@ -206,4 +206,3 @@ async function exportCsv(S, jql) {
   } catch (error) { S.fail(error); }
 }
 
-export { items };

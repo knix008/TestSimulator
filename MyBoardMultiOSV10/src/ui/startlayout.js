@@ -73,6 +73,35 @@ export function compact(cards) {
   return out;
 }
 
+/**
+ * Evens out each row: cards that start on the same row side by side take the height of the tallest of them,
+ * so their bottoms line up (fit cards grow and are marked `stretch`; a card the user sized keeps its height
+ * unless a neighbour is taller and it is fit). A card the user sized is never shorter than its content
+ * (`natural`, in rows), so no card shows a scroll bar. Rows below move down and are evened out in turn.
+ */
+export function alignRows(cards, natural = {}) {
+  let out = {};
+  for (const [id, c] of Object.entries(cards)) out[id] = { ...c, stretch: false, h: !c.fit && natural[id] ? Math.max(c.h, natural[id]) : c.h };
+  for (let pass = 0; pass < 40; pass += 1) {
+    out = compact(out);
+    const rows = new Map();
+    for (const [id, c] of Object.entries(out)) rows.set(c.row, [...(rows.get(c.row) ?? []), id]);
+    let changed = false;
+    for (const ids of rows.values()) {
+      if (ids.length < 2) continue;
+      const tallest = Math.max(...ids.map((id) => out[id].h));
+      for (const id of ids) {
+        const c = out[id];
+        if (!c.fit) continue;
+        if (!c.stretch) out[id] = { ...out[id], stretch: true };
+        if (c.h < tallest) { out[id] = { ...out[id], h: tallest }; changed = true; }
+      }
+    }
+    if (!changed) break;
+  }
+  return out;
+}
+
 /** The board from the saved layout (or the default), for these cards; fit cards take their measured heights. */
 export function cardsOf(saved, ids, defaultSpan, measured = {}, fallbackRows = 8) {
   const rows = (id) => measured[id] || fallbackRows;
@@ -90,18 +119,19 @@ export function cardsOf(saved, ids, defaultSpan, measured = {}, fallbackRows = 8
     cards = pack([...ids], (id) => defaultSpan[id] || 1, rows);
   }
   for (const id of Object.keys(cards)) if (cards[id].fit && measured[id]) cards[id] = { ...cards[id], h: measured[id] };
-  return compact(resolve(cards, null));
+  return alignRows(compact(resolve(cards, null)), measured);
 }
 
-/** The board with one card moved or resized. */
-export const place = (cards, id, target) => compact(resolve({ ...cards, [id]: { ...cards[id], ...target } }, id));
+/** The board with one card moved or resized (`measured`: natural heights in rows, for alignRows). */
+export const place = (cards, id, target, measured = {}) => alignRows(compact(resolve({ ...cards, [id]: { ...cards[id], ...(cards[id]?.fit && measured[id] ? { h: measured[id] } : {}), ...target } }, id)), measured);
 
 /** The default arrangement. */
-export const autoArrange = (ids, defaultSpan, measured = {}, fallbackRows = 8) => compact(pack([...ids], (id) => defaultSpan[id] || 1, (id) => measured[id] || fallbackRows));
+export const autoArrange = (ids, defaultSpan, measured = {}, fallbackRows = 8) => alignRows(compact(pack([...ids], (id) => defaultSpan[id] || 1, (id) => measured[id] || fallbackRows)), measured);
 
 /** The form saved in the settings. */
 export function layoutValue(cards) {
   const out = {};
+  // A fit card is saved without the height alignRows gave it: it is measured again on the next start.
   for (const [id, c] of Object.entries(cards)) out[id] = { col: c.col, row: c.row, w: c.w, h: c.h, fit: c.fit };
   return { version: LAYOUT_VERSION, cards: out };
 }
