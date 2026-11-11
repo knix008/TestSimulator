@@ -59,6 +59,9 @@ npm run build:mac      # macOS .app + .dmg (macOS에서)
 npm run build:linux    # AppImage + .deb (Linux에서)
 npm run build:all      # 지금 OS의 설치 파일 전부
 npm run build:web      # 정적 웹 배포용 dist/ (페이지 + vendor/ 코덱 + samples/)
+npm run clean          # 빌드 결과 삭제: dist/, src-tauri/target·resources·gen/schemas, 루트의 설치 파일, 테스트 임시 폴더
+npm run clean:all      # clean + node_modules/ 까지 삭제 (다음에 npm install 필요)
+npm run clean -- --dry-run  # 지우지 않고 지울 목록만 보기
 ```
 
 ### Windows 설치 프로그램 (`src-tauri/windows/hooks.nsh`)
