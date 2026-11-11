@@ -559,7 +559,11 @@ export function detectImageWalls(image, { metresPerPixel, method = 'outline', ed
   const lines = found.segments.map((sg) => ({ a: [sg.a[0] * m, sg.a[1] * m], b: [sg.b[0] * m, sg.b[1] * m], layer: 'IMAGE' }));
   const result = recognizePlan({ lines }, { mode: 'image', minThickness: Math.max(minThickness, 2.5 * m), maxThickness, angleTol: 1, minWall: Math.max(0.3, 6 * m), bandTolerance: Math.max(0.02, 4 * m) });
   const evidencePicture = swings === image ? work : swings;
-  if (result.walls.length) placeDoorSwings(result, findDoorSwings(evidencePicture, result.walls, m), work, m);
+  if (result.walls.length) {
+    const swingsFound = findDoorSwings(evidencePicture, result.walls, m);
+    windowPanes(result, swingsFound, evidencePicture, m);
+    placeDoorSwings(result, swingsFound, work, m);
+  }
   doorSwings(evidencePicture, result, m);
   const turn = (x) => ({ ...x, a: back(x.a), b: back(x.b) });
   return { ...result, walls: result.walls.map(turn), leftovers: result.leftovers.map(turn), segments: lines.map(turn), angle, scanned: Boolean(found.scanned) };
@@ -664,6 +668,48 @@ function findDoorSwings(image, walls, m) {
   const kept = [];
   for (const sw of found) if (!kept.some((k) => Math.hypot(k.H[0] - sw.H[0], k.H[1] - sw.H[1]) < 0.25 && k.f * k.n[0] === sw.f * sw.n[0] && k.f * k.n[1] === sw.f * sw.n[1])) kept.push(sw);
   return kept;
+}
+
+/**
+ * Small windows read as doors: a picture's door gap is a door by default (the short pane lines of a 0.5–0.6 m window
+ * fall under the shortest line kept), so a door gap with no swing drawn at it (findDoorSwings) and two or more lines
+ * running across it inside the wall — the panes and frame — is a window.
+ */
+function windowPanes(result, swings, image, m) {
+  const { width: w, height: h } = image;
+  const ink = lineInk(image, m);
+  const at = (x, z) => { const X = Math.round(x / m); const Y = Math.round(z / m); return X >= 0 && Y >= 0 && X < w && Y < h ? ink[Y * w + X] : 0; };
+  for (const op of result.openings) {
+    if (op.kind !== 'door') continue;
+    const wall = result.walls[op.wall];
+    const L = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]);
+    if (L < 1e-6) continue;
+    const u = [(wall.b[0] - wall.a[0]) / L, (wall.b[1] - wall.a[1]) / L];
+    const n = [-u[1], u[0]];
+    const c = [wall.a[0] + u[0] * op.offset, wall.a[1] + u[1] * op.offset];
+    const half = op.width / 2;
+    // A swing hinged at either jamb of this gap whose closed leaf spans the gap (not one beside it, or tile lines): a door.
+    const swung = swings.some((sw) => {
+      if (Math.abs(sw.u[0] * u[1] - sw.u[1] * u[0]) >= 0.05) return false;
+      if (Math.abs(sw.n[0] * (sw.H[0] - c[0]) + sw.n[1] * (sw.H[1] - c[1])) > wall.thickness / 2 + 0.1) return false;
+      const along = sw.u[0] * (c[0] - sw.H[0]) + sw.u[1] * (c[1] - sw.H[1]);
+      return Math.abs(Math.abs(along) - half) <= 0.2 && sw.d * along > 0 && sw.r >= op.width * 0.7 && sw.r <= op.width * 1.4 + 0.1;
+    });
+    if (swung) continue;
+    // Lines across the gap: depths (across the wall) where ink runs along most of the gap.
+    const T = wall.thickness;
+    let lines = 0; let inLine = false;
+    for (let t = -T / 2 - m; t <= T / 2 + m; t += m) {
+      let n1 = 0; let hit = 0;
+      for (let s = -half * 0.8; s <= half * 0.8; s += m) { n1++; hit += at(c[0] + u[0] * s + n[0] * t, c[1] + u[1] * s + n[1] * t); }
+      const full = n1 > 0 && hit / n1 >= 0.8;
+      if (full && !inLine) lines++;
+      inLine = full;
+    }
+    if (lines < 2) continue;
+    for (const key of ['side', 'hinge', 'swing', 'hingeS']) delete op[key];
+    Object.assign(op, { kind: 'window', ...openingDefaults('window', op.width) });
+  }
 }
 
 /**
