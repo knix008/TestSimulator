@@ -15,12 +15,14 @@ const args = new Set(process.argv.slice(2));
 const DRY = args.has('--dry-run') || args.has('-n');
 const ALL = args.has('--all');
 
+// src-tauri/target goes first: while a build (cargo/rustc) or the app is running its files are
+// locked, and stopping right there keeps dist/ and src-tauri/resources intact for that build.
 const targets = [
+  'src-tauri/target',
   'dist',
   'dist-web',
   'release',
   'out',
-  'src-tauri/target',
   'src-tauri/resources',
   'src-tauri/gen/schemas',
   'test/tmp',
@@ -53,7 +55,9 @@ for (const rel of targets) {
     total += bytes; removed++;
   } catch (e) {
     failed++;
-    console.error(`  could not delete ${rel}: ${e.code || e.message}${e.code === 'EBUSY' || e.code === 'EPERM' ? ' — is MyDCMViewer (npm start) still running?' : ''}`);
+    console.error(`  could not delete ${rel}: ${e.code || e.message}${e.code === 'EBUSY' || e.code === 'EPERM' ? ' — is a build (npm run build:*) or MyDCMViewer (npm start) still running?' : ''}`);
+    console.error('  Stopped; nothing after it was deleted.');
+    break;
   }
 }
 console.log(removed
