@@ -848,6 +848,7 @@ html.menu-glass .popup-menu { box-shadow: 0 6px 18px -4px var(--shadow), 0 1px 3
 .tabs-strip { display: flex; gap: 2px; flex: 1; min-width: 0; overflow: hidden; }
 .tabs .tab { flex: none; white-space: nowrap; }
 .tabs-nav { display: inline-flex; align-items: center; gap: 2px; flex: none; align-self: center; padding-left: 6px; border-left: 1px solid var(--hairline); }
+.popup-settings .tabs-nav:not(:has(.tabs-scroll:not(:disabled))) { display: none; }
 .tabs-scroll { display: inline-grid; place-items: center; width: 26px; height: 24px; border: 0; border-radius: 7px; background: none; color: var(--muted); cursor: pointer; }
 .tabs-scroll .icon { width: 14px; height: 14px; }
 .tabs-scroll:hover:not(:disabled) { background: var(--hover); color: var(--text); }

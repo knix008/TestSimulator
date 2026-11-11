@@ -16,7 +16,7 @@ import { emitTo, invoke, isDesktop, listen } from './native.js';
  * or empty space. Fixed; confirm, about, welcome, prompt and settings then follow their content height (fitHeight).
  * Settings cannot be resized by the user and does not scroll. */
 export const POPUPS = {
-  settings: { width: 980, height: 520 },
+  settings: { width: 1120, height: 520 },
   about: { width: 740, height: 600 },
   confirm: { width: 560, height: 270 },
   error: { width: 720, height: 500 },
