@@ -287,7 +287,7 @@ export function createPlanImport(app) {
       // The drawing itself under the recognised walls: its lines and arcs (in the drawing's coordinates, as the plan).
       const lines = [...(plan.lines ?? []).map((l) => ({ a: l.a, b: l.b })), ...(plan.arcs ?? []).flatMap((arc) => arcLines(arc).map(([a, b]) => ({ a, b })))];
       const out = await studio.open(fromResult(result), {
-        name, background: { kind: 'lines', lines, k: 1, offset: [0, 0] },
+        name, background: { kind: 'lines', lines, k: 1, offset: [0, 0] }, straighten: true,
         targets: planTargets(), target: app.project() ? chosen.target : 'new', wallHeight: chosen.wallHeight || app.settings().defaultWallHeight || 2.4, keepLines: chosen.keepLines,
         redetect: async (mode) => { const r = recognise(mode); if (!r.walls.length) { app.notify('error', t('notice.planEmpty', { name })); return null; } return fromResult(r); },
         redetectModes: [['auto', t('import.auto')], ['pairs', t('plan.wallsPairs')], ['single', t('plan.wallsSingle')]], redetectMode: o.walls ?? 'auto',
@@ -662,7 +662,7 @@ export function createPlanImport(app) {
       if (!first.walls.length) app.notify('info', t('underlay.detectNone'));
       const hasWalls = app.project().walls.some((w) => w.level === u.level);
       const out = await studio.open(fromResult(first), {
-        name: u.name, background,
+        name: u.name, background, straighten: true,
         targets: [['add', t('studio.targetAdd'), 'plus'], ['replace', t('plan.targetReplace'), 'level']], target: hasWalls ? 'add' : 'replace',
         wallHeight: app.project().levels.find((l) => l.id === u.level)?.height ?? (app.settings().defaultWallHeight || 2.4), keepLines: false,
         redetect: async (method, bg) => { const r = await detect(method, bg); if (!r.walls.length) { app.notify('error', t('underlay.detectNone')); return null; } return fromResult(r); },

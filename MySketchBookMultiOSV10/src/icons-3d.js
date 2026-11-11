@@ -4,6 +4,7 @@ export const ICONS_3D = {
   tools: '<path d="M14.5 6.5a4 4 0 0 0 5 5L12 19a2.1 2.1 0 0 1-3-3z"/><path d="M3 21l3-3M4 4l4 4M3 6l3-3 3 3-3 3z"/>',
   // ── automatic walk-through (engine/tour.js)
   tour: '<circle cx="15" cy="4" r="1.7"/><path d="M12.5 20l1.6-5 2.6 2.6V21M12 11l2.6-2.8 2.4 2 2.5.6M14.6 8.2l-1 5"/><path d="M3 21c1.5-3 4-3 5-6s1-5 3-7" stroke-dasharray="1.6 2.4"/>',
+  exitFullscreen: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
   skipPrev: '<path d="M6 5v14"/><path d="M18 6l-8 6 8 6z"/>',
   skipNext: '<path d="M18 5v14"/><path d="M6 6l8 6-8 6z"/>',
   speedDown: '<path d="M12 6l-7 6 7 6zM20 6l-7 6 7 6z"/>',

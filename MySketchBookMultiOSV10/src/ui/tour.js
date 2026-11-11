@@ -1,6 +1,6 @@
 // Automatic walk-through, the controls: a bar at the bottom of the 3D view while it runs — the room it is in
 // (n / total), previous / pause / next room, slower / speed / faster, stop. engine/tour.js plans and walks.
-//   Esc stops, Space pauses, ← / → previous / next room; a press in the view pauses (look round yourself),
+//   F full screen (Esc leaves it first), Esc stops, Space pauses, ← / → previous / next room; a press in the view pauses (look round yourself),
 //   the play button goes on from where the tour was.
 import { planTour, TourPlayer } from '../engine/tour.js';
 import { icon } from '../icons.js';
@@ -15,6 +15,15 @@ export function createTour(app) {
   let player = null;
   let bar = null;
   let last = null;
+  let full = false;
+
+  /** Full screen: the 3D view alone over the whole screen (menus, toolbar and panels out of the way). */
+  function setFull(on) {
+    if (full === on) return;
+    full = on;
+    app.setFullscreen?.(on);
+    render();
+  }
 
   const speedIndex = () => { const s = app.settings().tourSpeed ?? 1; const i = SPEEDS.indexOf(s); return i < 0 ? 2 : i; };
 
@@ -40,6 +49,7 @@ export function createTour(app) {
     if (!player) return;
     const p = player;
     player = null;
+    setFull(false);
     p.stop({ restore });
     bar?.remove();
     bar = null;
@@ -78,6 +88,7 @@ export function createTour(app) {
       else if (what === 'next') player.skip(1);
       else if (what === 'slower') setSpeedIndex(speedIndex() - 1);
       else if (what === 'faster') setSpeedIndex(speedIndex() + 1);
+      else if (what === 'full') setFull(!full);
     });
     app.host().append(bar);
     render();
@@ -98,14 +109,16 @@ export function createTour(app) {
       <span class="tour-sep"></span>
       ${btn('slower', 'minus', t('tour.slower'), sp <= SPEEDS[0] ? 'disabled' : '')}<span class="tour-speed" title="${escapeHtml(t('tour.speed'))}">×${sp}</span>${btn('faster', 'plus', t('tour.faster'), sp >= SPEEDS.at(-1) ? 'disabled' : '')}
       <span class="tour-sep"></span>
-      ${btn('stop', 'close', t('tour.stop'))}`;
+      ${btn('full', full ? 'exitFullscreen' : 'fullscreen', full ? t('tour.exitFull') : t('tour.full'), `aria-pressed="${full}"`)}${btn('stop', 'close', t('tour.stop'))}`;
   }
 
   /** Keys while the tour runs; true when used. */
   function key(event) {
     if (!player) return false;
     const k = event.key.toLowerCase();
-    if (k === 'escape') { stop(); return true; }
+    // Esc leaves full screen first, then ends the tour.
+    if (k === 'escape') { if (full) setFull(false); else stop(); return true; }
+    if (k === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey) { setFull(!full); return true; }
     if (k === ' ' || k === 'spacebar') { setPaused(!player.paused); return true; }
     if (k === 'arrowright') { player.skip(1); return true; }
     if (k === 'arrowleft') { player.skip(-1); return true; }
@@ -116,7 +129,10 @@ export function createTour(app) {
   function interrupt() { if (player && !player.paused) setPaused(true); }
 
   return {
-    start, stop, toggle, key, interrupt,
+    start, stop, toggle, key, interrupt, setFull,
+    /** The browser left full screen by itself (its own Esc): the view goes back into the window too. */
+    fullscreenLeft() { if (full) { full = false; app.setFullscreen?.(false); render(); } },
+    get full() { return full; },
     get active() { return Boolean(player); },
     get state() { return player ? { ...last, paused: player.paused, speed: player.speed, moves: player.moves, index: player.index } : null; },
     debug: () => player,

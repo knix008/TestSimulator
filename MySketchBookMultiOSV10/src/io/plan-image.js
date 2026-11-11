@@ -8,7 +8,7 @@
 //
 // Pure (works on { data: RGBA bytes, width, height }); the app decodes the picture
 // with a canvas, the tests with sharp.
-import { recognizePlan } from './plan-recognize.js';
+import { recognizePlan, openingDefaults } from './plan-recognize.js';
 
 export const MAX_DETECT_SIZE = 1400;
 
@@ -558,9 +558,213 @@ export function detectImageWalls(image, { metresPerPixel, method = 'outline', ed
     : imageMaskSegments(work, { minSegment, gap: 1, window: Math.max(15, Math.round(0.8 / m)) | 1, turned: work !== image });
   const lines = found.segments.map((sg) => ({ a: [sg.a[0] * m, sg.a[1] * m], b: [sg.b[0] * m, sg.b[1] * m], layer: 'IMAGE' }));
   const result = recognizePlan({ lines }, { mode: 'image', minThickness: Math.max(minThickness, 2.5 * m), maxThickness, angleTol: 1, minWall: Math.max(0.3, 6 * m), bandTolerance: Math.max(0.02, 4 * m) });
-  doorSwings(swings === image ? work : swings, result, m);
+  const evidencePicture = swings === image ? work : swings;
+  if (result.walls.length) placeDoorSwings(result, findDoorSwings(evidencePicture, result.walls, m), work, m);
+  doorSwings(evidencePicture, result, m);
   const turn = (x) => ({ ...x, a: back(x.a), b: back(x.b) });
   return { ...result, walls: result.walls.map(turn), leftovers: result.leftovers.map(turn), segments: lines.map(turn), angle, scanned: Boolean(found.scanned) };
+}
+
+/** `mask` grown by `r` pixels (a square): lookups then forgive a line drawn a pixel or two off. */
+function dilate(mask, w, h, r) {
+  const tmp = new Uint8Array(w * h); const out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    let last = -1e9;
+    for (let x = 0; x < w + r; x++) {
+      if (x < w && mask[y * w + x]) last = x;
+      const t = x - r;
+      if (t >= 0 && t < w && x - last <= 2 * r) tmp[y * w + t] = 1;
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let last = -1e9;
+    for (let y = 0; y < h + r; y++) {
+      if (y < h && tmp[y * w + x]) last = y;
+      const t = y - r;
+      if (t >= 0 && t < h && y - last <= 2 * r) out[t * w + x] = 1;
+    }
+  }
+  return out;
+}
+
+/**
+ * Thin dark lines of a picture (1 = line): pixels clearly darker than their neighbourhood (~0.3 m around), so
+ * lines on coloured floors count and the inside of a solid wall does not.
+ */
+function lineInk(image, m) {
+  const { data, width: w, height: h } = image;
+  const gray = toGrayscale(data, w, h);
+  const W1 = w + 1;
+  const integral = new Float64Array(W1 * (h + 1));
+  for (let y = 0; y < h; y++) { let row = 0; for (let x = 0; x < w; x++) { row += gray[y * w + x]; integral[(y + 1) * W1 + x + 1] = integral[y * W1 + x + 1] + row; } }
+  const r = Math.max(4, Math.round(0.15 / m));
+  const ink = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - r); const y1 = Math.min(h, y + r + 1);
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.max(0, x - r); const x1 = Math.min(w, x + r + 1);
+      const mean = (integral[y1 * W1 + x1] - integral[y0 * W1 + x1] - integral[y1 * W1 + x0] + integral[y0 * W1 + x0]) / ((x1 - x0) * (y1 - y0));
+      if (gray[y * w + x] < mean - 30) ink[y * w + x] = 1;
+    }
+  }
+  return ink;
+}
+
+/**
+ * Door swings drawn in a picture (a leaf line standing out of a wall face and a quarter circle around its hinge,
+ * radius 0.5–1.3 m), looked for on the face lines of the walls found — beyond their ends too, where a door between
+ * two walls left no wall of its own. Points in picture metres (`m` metres per pixel), as the walls.
+ * Returns [{ u, n, o, thickness, f (face: ±1 along n, the side it opens to), s (hinge along u), d (±1: the closed
+ * leaf runs along d·u), r, score }].
+ */
+function findDoorSwings(image, walls, m) {
+  const { width: w, height: h } = image;
+  const ink = lineInk(image, m);
+  const near1 = dilate(ink, w, h, 1); const near2 = dilate(ink, w, h, 2);
+  const at = (mask, x, z) => { const X = Math.round(x / m); const Y = Math.round(z / m); return X >= 0 && Y >= 0 && X < w && Y < h ? mask[Y * w + X] : 0; };
+  const rMin = 0.5; const rMax = 1.3; const EXT = 2;
+  const N = 24;
+  const cs = Array.from({ length: N }, (_, k) => { const t = ((10 + (70 * (k + 0.5)) / N) * Math.PI) / 180; return [Math.cos(t), Math.sin(t)]; });
+  const found = [];
+  for (const wall of walls) {
+    const L = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]);
+    if (L < 1e-6) continue;
+    let u = [(wall.b[0] - wall.a[0]) / L, (wall.b[1] - wall.a[1]) / L];
+    if (u[0] < -0.7 || (Math.abs(u[0]) <= 0.7 && u[1] < 0)) u = [-u[0], -u[1]];
+    const n = [-u[1], u[0]];
+    const o = n[0] * wall.a[0] + n[1] * wall.a[1];
+    const sa = u[0] * wall.a[0] + u[1] * wall.a[1]; const sb = u[0] * wall.b[0] + u[1] * wall.b[1];
+    const T = wall.thickness;
+    for (let s = Math.min(sa, sb) - EXT; s <= Math.max(sa, sb) + EXT; s += m) {
+      for (const f of [1, -1]) {
+        const H = [u[0] * s + n[0] * (o + (f * T) / 2), u[1] * s + n[1] * (o + (f * T) / 2)];
+        const leafAt = (t) => at(near1, H[0] + f * n[0] * t, H[1] + f * n[1] * t);
+        // The leaf: a line out of the face, at least as long as the smallest door.
+        const t0 = Math.max(0.08, 3 * m);
+        let t = t0; let leaf = t0; let miss = 0;
+        while (t <= rMax + 4 * m) { if (leafAt(t)) { leaf = t; miss = 0; } else if (++miss > 2) break; t += m; }
+        if (leaf < rMin - 2 * m) continue;
+        let best = null;
+        for (let r = rMin; r <= Math.min(rMax, leaf + 3 * m); r += m) {
+          const scores = [1, -1].map((d) => {
+            let hits = 0;
+            for (const [c, sn] of cs) hits += at(near2, H[0] + r * (c * d * u[0] + sn * f * n[0]), H[1] + r * (c * d * u[1] + sn * f * n[1]));
+            return hits / N;
+          });
+          // Both ways round: a circle (a table, a compass), not a door.
+          if (scores[0] >= 0.75 && scores[1] >= 0.75) continue;
+          for (const [i, d] of [[0, 1], [1, -1]]) if (scores[i] >= 0.75 && (!best || scores[i] > best.score + 1e-9 || (Math.abs(scores[i] - best.score) < 1e-9 && r > best.r))) best = { score: scores[i], r, d };
+        }
+        if (best) found.push({ u, n, o, thickness: T, f, s, H, ...best });
+      }
+    }
+  }
+  // One swing per hinge (neighbouring pixels and walls on one line find the same door).
+  found.sort((p, q) => q.score - p.score || q.r - p.r);
+  const kept = [];
+  for (const sw of found) if (!kept.some((k) => Math.hypot(k.H[0] - sw.H[0], k.H[1] - sw.H[1]) < 0.25 && k.f * k.n[0] === sw.f * sw.n[0] && k.f * k.n[1] === sw.f * sw.n[1])) kept.push(sw);
+  return kept;
+}
+
+/**
+ * The door swings found (findDoorSwings) as doors of the plan: a door gap that has one stays a door; a window gap
+ * with a swing at one end is a door (or a door and a window side by side, when the short wall between them was lost);
+ * a swing over an empty stretch of a wall opens a door there; a swing between two walls with no wall of its own
+ * gets one (a door filling the whole wall between them).
+ */
+function placeDoorSwings(result, swings, work, m) {
+  if (!swings.length) return;
+  const { data, width: w, height: h } = work;
+  const gray = toGrayscale(data, w, h);
+  const level = otsu(gray);
+  const dark = (p) => { const X = Math.round(p[0] / m); const Y = Math.round(p[1] / m); return X >= 0 && Y >= 0 && X < w && Y < h && gray[Y * w + X] < level; };
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
+  const geo = (wall) => { const L = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]) || 1; const u = [(wall.b[0] - wall.a[0]) / L, (wall.b[1] - wall.a[1]) / L]; return { L, u, n: [-u[1], u[0]] }; };
+  /** Share of the stretch [lo, hi] of a line drawn in wall ink (the middle of a door gap is not). */
+  const filled = (sw, lo, hi) => {
+    let n = 0; let ink = 0;
+    for (let s = lo; s <= hi; s += m) { n++; if (dark([sw.u[0] * s + sw.n[0] * sw.o, sw.u[1] * s + sw.n[1] * sw.o])) ink++; }
+    return n ? ink / n : 1;
+  };
+  const doorEntry = (wall, offset, width) => ({ wall, kind: 'door', offset, width, ...openingDefaults('door', width) });
+  for (const sw of swings) {
+    const lo = Math.min(sw.s, sw.s + sw.d * sw.r); const hi = Math.max(sw.s, sw.s + sw.d * sw.r);
+    const at = (s) => [sw.u[0] * s + sw.n[0] * sw.o, sw.u[1] * s + sw.n[1] * sw.o];
+    // Walls on the swing's line.
+    const hosts = [];
+    result.walls.forEach((wall, i) => {
+      const g = geo(wall);
+      if (Math.abs(g.u[0] * sw.u[1] - g.u[1] * sw.u[0]) > Math.sin((2 * Math.PI) / 180)) return;
+      if (Math.abs(dot(sw.n, wall.a) - sw.o) > Math.max(0.05, Math.max(wall.thickness, sw.thickness) / 2)) return;
+      const s0 = Math.min(dot(sw.u, wall.a), dot(sw.u, wall.b)); const s1 = Math.max(dot(sw.u, wall.a), dot(sw.u, wall.b));
+      hosts.push({ i, wall, g, s0, s1 });
+    });
+    // An opening there already.
+    let hit = null;
+    for (const host of hosts) {
+      for (const op of result.openings) {
+        if (op.wall !== host.i) continue;
+        const c = dot(sw.u, [host.wall.a[0] + host.g.u[0] * op.offset, host.wall.a[1] + host.g.u[1] * op.offset]);
+        const ov = Math.min(hi, c + op.width / 2) - Math.max(lo, c - op.width / 2);
+        if (ov >= sw.r * 0.5 && (!hit || ov > hit.ov)) hit = { host, op, ov, lo: c - op.width / 2, hi: c + op.width / 2 };
+      }
+    }
+    if (hit) {
+      const { op, host } = hit;
+      if (op.kind !== 'window') continue;
+      if (op.width <= sw.r * 1.3 + 0.1) { Object.assign(op, { kind: 'door', ...openingDefaults('door', op.width) }); continue; }
+      // A door beside a window (the wall between them lost): the door at the end of the gap its hinge is at.
+      const low = Math.abs(lo - hit.lo) <= Math.abs(hi - hit.hi);
+      const door = low ? [hit.lo, hit.lo + sw.r] : [hit.hi - sw.r, hit.hi];
+      const stub = Math.max(0.1, host.wall.thickness);
+      const win = low ? [door[1] + stub, hit.hi] : [hit.lo, door[0] - stub];
+      const offsetOf = (s) => dot(host.g.u, [at(s)[0] - host.wall.a[0], at(s)[1] - host.wall.a[1]]);
+      if (win[1] - win[0] >= 0.4) Object.assign(op, { offset: offsetOf((win[0] + win[1]) / 2), width: win[1] - win[0], ...openingDefaults('window', win[1] - win[0]) });
+      else result.openings.splice(result.openings.indexOf(op), 1);
+      result.openings.push(doorEntry(host.i, offsetOf((door[0] + door[1]) / 2), sw.r));
+      continue;
+    }
+    // The gap must be open (no wall drawn across it).
+    if (filled(sw, lo + sw.r * 0.15, hi - sw.r * 0.15) > 0.3) continue;
+    const host = hosts.find((x) => Math.min(hi, x.s1) - Math.max(lo, x.s0) >= sw.r * 0.9);
+    if (host) {
+      const c = Math.max(host.s0 + sw.r / 2, Math.min(host.s1 - sw.r / 2, (lo + hi) / 2));
+      result.openings.push(doorEntry(host.i, dot(host.g.u, [at(c)[0] - host.wall.a[0], at(c)[1] - host.wall.a[1]]), sw.r));
+      continue;
+    }
+    // No wall of its own: one from the wall at the hinge to the wall at the other jamb.
+    const ends = [];
+    for (const s of [lo, hi]) {
+      const E = at(s); const out = s === lo ? -1 : 1;
+      let best = null;
+      for (const host of hosts) {
+        // A wall on the same line ending here: the new wall starts where it ends.
+        const tip = out < 0 ? host.s1 : host.s0;
+        const d = (tip - s) * out;
+        if (d >= -sw.r * 0.3 && d <= sw.thickness / 2 + 0.12 && (!best || Math.abs(d) < best.d)) best = { d: Math.abs(d), s: tip };
+      }
+      for (const wall of result.walls) {
+        const g = geo(wall);
+        const den = sw.u[0] * g.u[1] - sw.u[1] * g.u[0];
+        if (Math.abs(den) < Math.sin((20 * Math.PI) / 180)) continue;
+        // The line meets this wall's centre line at s = sI.
+        const tv = ((E[0] - wall.a[0]) * sw.u[1] - (E[1] - wall.a[1]) * sw.u[0]) / den;
+        const I = [wall.a[0] + g.u[0] * tv, wall.a[1] + g.u[1] * tv];
+        const sI = dot(sw.u, I);
+        const d = (sI - s) * out;
+        if (d < -wall.thickness / 2 - 0.03 || d > wall.thickness / 2 + 0.12) continue;
+        if (tv < -sw.thickness / 2 - 0.06 || tv > g.L + sw.thickness / 2 + 0.06) continue;
+        if (!best || Math.abs(d) < best.d) best = { d: Math.abs(d), s: sI };
+      }
+      if (!best) break;
+      ends.push(best.s);
+    }
+    if (ends.length < 2 || ends[1] - ends[0] < sw.r * 0.8 || ends[1] - ends[0] > sw.r + 0.6) continue;
+    const index = result.walls.length;
+    result.walls.push({ a: at(ends[0]), b: at(ends[1]), thickness: Math.round(sw.thickness * 1000) / 1000 });
+    result.openings.push(doorEntry(index, (lo + hi) / 2 - ends[0], sw.r));
+  }
+  result.stats = { ...result.stats, walls: result.walls.length, doors: result.openings.filter((x) => x.kind !== 'window' && x.kind !== 'passage').length, windows: result.openings.filter((x) => x.kind === 'window').length };
 }
 
 /**

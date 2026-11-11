@@ -1461,7 +1461,8 @@ const TOOLBAR = [
   ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
-const LABELED = new Set(['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window', 'planView', 'tour', 'renderPhoto']);
+// Icons only (the names are in the tooltips): labels made the toolbar wider than smaller screens.
+const LABELED = new Set();
 
 // ───────────────────────── shell
 
@@ -2489,7 +2490,16 @@ const tour = createTour({
   host: () => root.querySelector('#view-host'),
   settings: () => state.settings, updateSettings: (patch) => updateSettings(patch, { quiet: true }),
   onChange: () => { renderToolbarState(); planDims?.update?.(); },
+  // The 3D view alone over the whole screen: the window goes full screen (desktop) or the page does (browser).
+  setFullscreen: (on) => {
+    document.body.classList.toggle('tour-full', on);
+    if (desktop) appWindow.setFullscreen(on).catch(() => {});
+    else if (on) document.documentElement.requestFullscreen?.().catch(() => {});
+    else if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  },
 });
+// The browser's own Esc leaves full screen: the view goes back into the page too.
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && tour.full && !desktop) tour.fullscreenLeft(); });
 
 const planImport = createPlanImport({
   desktop, native, popups, t, notify, showError, ask, undo, withProgress, readBytes: (path) => readBytes(path),

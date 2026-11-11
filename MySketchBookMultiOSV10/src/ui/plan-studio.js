@@ -84,6 +84,7 @@ export function createPlanStudio(app) {
       build();
       fit();
       refresh();
+      if (options.straighten) autoStraighten();
     });
   }
 
@@ -971,18 +972,35 @@ export function createPlanStudio(app) {
     draw();
   }
 
+  /** Straighten: the plan and its background turn together until the walls run square to the axes (° turned). */
+  function straightenDraft(d) {
+    const s = session;
+    const angle = dominantAngle(d);
+    if (Math.abs(angle) < 1e-4) return 0;
+    const centre = s.background ? backgroundCentre(s.background) : (() => { const b = draftBounds(d, { leftovers: false }); return b ? [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2] : [0, 0]; })();
+    rotateDraft(d, centre, -angle);
+    if (s.background) s.background.rotation = (s.background.rotation ?? 0) - angle;
+    return Math.round((-angle * 180) / Math.PI * 10) / 10;
+  }
+
+  /**
+   * A plan that came in tilted (a photo or scan held at an angle, a drawing turned on its sheet) is straightened as it
+   * opens — one Undo step, so the tilt can be had back. Only small tilts: a plan more than 20° off is taken as meant.
+   */
+  function autoStraighten() {
+    const deg = Math.abs((dominantAngle(session.draft) * 180) / Math.PI);
+    if (deg < 0.2 || deg > 20) return;
+    let turned = 0;
+    if (edit((d) => { turned = straightenDraft(d); return turned !== 0; })) {
+      app.notify?.('success', t('studio.autoStraightened', { angle: Math.abs(turned) }));
+      fit();
+    }
+  }
+
   function cleanup(kind) {
     const s = session;
     let report = null;
-    // Straighten: the plan and its background turn together until the walls run square to the screen.
-    const straighten = (d) => {
-      const angle = dominantAngle(d);
-      if (Math.abs(angle) < 1e-4) return 0;
-      const centre = s.background ? backgroundCentre(s.background) : (() => { const b = draftBounds(d, { leftovers: false }); return b ? [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2] : [0, 0]; })();
-      rotateDraft(d, centre, -angle);
-      if (s.background) s.background.rotation = (s.background.rotation ?? 0) - angle;
-      return Math.round((-angle * 180) / Math.PI * 10) / 10;
-    };
+    const straighten = straightenDraft;
     const changed = edit((d) => {
       if (kind === 'all') { const turned = straighten(d); report = { ...cleanupAll(d, { squareTolDeg: s.squareTol, joinTol: s.joinTol }), turned }; return true; }
       if (kind === 'straighten') { report = { turned: straighten(d) }; return report.turned !== 0; }

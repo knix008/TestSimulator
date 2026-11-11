@@ -396,3 +396,8 @@ body.plan-studio-open #menubar .menubar-item { pointer-events: none; opacity: 0.
 .tour-button .icon { width: 18px; height: 18px; }
 .tour-button[data-tour="stop"] { color: var(--danger, #d9534f); }
 .tour-speed { min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
+/* Auto tour in full screen: the 3D view over everything, only the tour's controls on it. */
+body.tour-full #view-host { position: fixed; inset: 0; z-index: 60; }
+body.tour-full #view-host .nav-pad, body.tour-full #view-host .scale-bar, body.tour-full #view-host .ruler, body.tour-full #view-host .rulers { display: none !important; }
+body.tour-full .tour-bar { bottom: 22px; }
+body.tour-full #statusbar, body.tour-full #menubar, body.tour-full #toolbar, body.tour-full .resize-grip { visibility: hidden; }
