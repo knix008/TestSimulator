@@ -47,6 +47,8 @@ npm run test:gui     # 웹 GUI만
 | `npm run build:icons` | 앱·문서 아이콘, 설치 화면 그림 생성 |
 | `npm run build:docs` | 사용 설명서 HTML 생성 |
 | `npm run i18n` | 번역 사전(src/i18n) 생성 |
+| `npm run clean` | 빌드·테스트 결과물 삭제 (dist, release, src-tauri/gen, test-results) |
+| `npm run clean:all` | 위에 더해 node_modules, public/mediapipe, src-tauri/target 까지 삭제 → 다시 `npm install` |
 
 ## 문서
 

@@ -25,7 +25,9 @@
     "build:docs": "node scripts/build-docs.mjs",
     "guide:shots": "node scripts/smoke-web.mjs --out docs/images --steps test/e2e/guide.steps.json --width 1440 --height 900 --jpeg",
     "i18n": "node scripts/make-i18n.mjs",
-    "samples": "node scripts/fetch-samples.mjs"
+    "samples": "node scripts/fetch-samples.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.2.2",
