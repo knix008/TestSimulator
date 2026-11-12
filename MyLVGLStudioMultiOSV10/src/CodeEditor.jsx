@@ -804,11 +804,12 @@ export function CodeEditorWindow({ t, language, spell, tabSize = 4, onSpell, onP
     </button>
   );
   const spellTool = { id: "spell", icon: "spell", label: t("spell.toggleTip"), keys: "", pressed: spell.enabled, run: () => onSpell({ ...spell, enabled: !spell.enabled }) };
-  // The file list and the bottom panel: on or off, from the toolbar's right end and from their own title bars.
+  // The file list and the bottom panel: on or off, from the toolbar's right end (the main window's
+  // panel buttons: same icons, pressed while shown) and from their own title bars.
   const toggleFiles = () => changePrefs({ files: !prefs.files });
   const toggleBottom = () => changePrefs({ bottom: !prefs.bottom });
-  const filesTool = { id: "files", icon: prefs.files ? "foldLeft" : "unfoldLeft", label: t(prefs.files ? "editor.tb.filesHide" : "editor.tb.filesShow"), pressed: prefs.files, run: toggleFiles };
-  const bottomTool = { id: "bottom", icon: prefs.bottom ? "foldBottom" : "unfoldBottom", label: t(prefs.bottom ? "editor.tb.bottomHide" : "editor.tb.bottomShow"), pressed: prefs.bottom, run: toggleBottom };
+  const filesTool = { id: "files", icon: "panelLeft", label: t(prefs.files ? "editor.tb.filesHide" : "editor.tb.filesShow"), pressed: prefs.files, run: toggleFiles };
+  const bottomTool = { id: "bottom", icon: "panelBottom", label: t(prefs.bottom ? "editor.tb.bottomHide" : "editor.tb.bottomShow"), pressed: prefs.bottom, run: toggleBottom };
   const showOutput = (tab) => {
     setBottom(tab);
     if (!prefs.bottom) changePrefs({ bottom: true });
