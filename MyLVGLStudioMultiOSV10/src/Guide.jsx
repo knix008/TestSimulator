@@ -9,6 +9,7 @@ import { inlinePieces, parseMarkdown } from "./markdown.js";
 const DOCUMENTS = {
   guide: { ko: () => import("../doc/UsersGuide.md?raw"), en: () => import("../doc/UsersGuide.en.md?raw") },
   tutorial: { ko: () => import("../doc/Tutorial.md?raw"), en: () => import("../doc/Tutorial.en.md?raw") },
+  editor: { ko: () => import("../doc/CodeEditor.md?raw"), en: () => import("../doc/CodeEditor.en.md?raw") },
 };
 const FONT_KEY = "mls.guide.fontSize";
 const LANGUAGE_KEY = "mls.guide.language";
@@ -75,6 +76,8 @@ function Block({ block, id }) {
   }
 }
 
+const DOCUMENT_ICONS = { guide: "guide", tutorial: "tutorial", editor: "codeEditor" };
+
 export function GuideDialog({ language: appLanguage, initial = "guide", onClose }) {
   const [document_, setDocument] = useState(initial);
   // Until a language is chosen here, the guide follows the app's.
@@ -135,7 +138,7 @@ export function GuideDialog({ language: appLanguage, initial = "guide", onClose 
     <Dialog title={t("guide.title")} icon="guide" onClose={onClose} id="guide" width={980} height={700} bare standsFree footer={<button type="button" className="primary" data-command="guide-close" onClick={onClose}><Icon name="close" size={14} /> {t("dialog.close")}</button>}>
       <div className="guide-window" style={{ "--guide-font": `${fontSize}px` }}>
         <div className="guide-bar" data-window-drag="">
-          <span className="guide-bar-title" data-dialog-title=""><Icon name={document_ === "guide" ? "guide" : "tutorial"} /><span>{t(`guide.${document_}`)}</span></span>
+          <span className="guide-bar-title" data-dialog-title=""><Icon name={DOCUMENT_ICONS[document_]} /><span>{t(`guide.${document_}`)}</span></span>
           <span className="guide-bar-gap" />
           <button type="button" className="guide-language" data-command="guide-language" data-language={language} title={t("guide.switchLanguage")} aria-label={t("guide.switchLanguage")} onClick={switchLanguage}>
             <Flag country={other === "en" ? "gb" : "kr"} />
@@ -152,7 +155,7 @@ export function GuideDialog({ language: appLanguage, initial = "guide", onClose 
           <nav className="conf-sections" data-guide-nav="">
             {Object.keys(DOCUMENTS).map((key) => (
               <button type="button" key={key} data-guide-document={key} className={key === document_ ? "active" : undefined} onClick={() => setDocument(key)}>
-                <span><Icon name={key === "guide" ? "guide" : "tutorial"} size={14} /> {t(`guide.${key}`)}</span>
+                <span><Icon name={DOCUMENT_ICONS[key]} size={14} /> {t(`guide.${key}`)}</span>
               </button>
             ))}
             <hr />

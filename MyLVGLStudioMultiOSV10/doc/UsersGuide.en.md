@@ -57,7 +57,7 @@ Drag the dotted handle at the top left of a card to move it, and drag its bottom
 Under **Tools > Preferences** you can change the following.
 
 - **General:** language, showing the start screen at startup, reopening the last project at startup, the default LVGL version, screen size and location for new projects, rulers, drag step (px), clearing recent projects
-- **Theme:** 20 light themes, 20 dark themes, your own themes
+- **Theme:** 20 light themes, 20 dark themes, your own themes. The theme button at the right of the toolbar shows the colours and name of the theme now, and each press moves on to the next theme. The ▾ beside it opens the list of every theme and the theme settings.
 - **Start Screen:** the start screen's card options and backgrounds, restoring defaults
 
 ### Custom Themes
@@ -418,10 +418,13 @@ Edit the logic and the generated code in a window of its own, and run it from th
 
 | Part | Contents |
 |---|---|
+| Title bar | **User guide** (F1, the code editor's own guide), **Settings**, **About** |
 | Left, **Logic (src/app)** | Your logic files. New file (+), rename, delete (press twice). Subfolders work too (`tools/util.c`). |
 | Left, **Generated code** | The files made from the design. Those with a lock are read only. |
-| Centre | Line numbers and C colours. Typing `vm_` or `mv_` completes the ViewModel and library functions (arrow keys, Enter, Esc). Lines with a problem are marked. |
-| Top, **Run** (F5) | Saves everything, even what was just typed, builds with gcc and runs it in a window of its own (native run). Pressed while running, it stops. |
+| Centre | A CodeMirror editor: line numbers, C/C++ colours, matching brackets, code folding, several selections (Alt+drag). Each file has its own undo history, kept when you switch tabs. Typing completes ViewModel functions, library functions and C words (arrow keys, Enter, Esc, Ctrl+Space). A line with a problem is marked beside its number; point at it to read the problem. |
+| Top, toolbar | New file, save, rename, delete / undo, redo / cut, copy, paste / find, replace, go to line / comment, indent, outdent / **Build** (Ctrl+B: saves and only builds), **Run** (F5: saves everything, even what was just typed, builds with gcc and runs it in a window of its own), **Stop** (Shift+F5), **Clean build** (deletes the native build of this LVGL version; the next run builds everything again, LVGL too). Editing buttons are off in a read-only file. |
+| Right-click | Code: undo, redo, cut, copy, paste, delete, select all, comment, indent, outdent, find, replace, go to line, run, stop, and, on a `vm_` name, open that ViewModel's file. File list and tabs: open, rename, delete, new file, copy path. |
+| Bottom, status line | Save state and logic folder, line and column, characters selected, font size (smaller, bigger) and word wrap. Font size and word wrap are remembered. |
 | Bottom, **Build**, **Program output**, **Problems** | The build output, what the program prints with `printf`, and the problems of the code. An entry with a file and a line goes to that line. |
 
 - **Saved automatically:** a logic file is saved to the logic folder as you type (0.4 s after). The logic folder is saved apart from the GUI: the logic is saved even when the GUI project is not. The status line shows when and where.
@@ -442,7 +445,8 @@ Edit the logic and the generated code in a window of its own, and run it from th
 | Del | Delete |
 | Arrow keys, Shift+arrow keys | Move by 1 pixel, 10 pixels |
 | F5, Shift+F5 | Run inside the app, native run |
-| Ctrl+E | Code editor (in the editor, F5 saves and runs natively, Ctrl+S saves at once) |
+| Ctrl+B | Build only (without running) |
+| Ctrl+E | Code editor (in it: F5 run, Shift+F5 stop, Ctrl+S save, Ctrl+Z / Ctrl+Y undo / redo, Ctrl+F find, Ctrl+H replace, Ctrl+G go to line, Ctrl+/ comment, Ctrl+] / Ctrl+[ indent / outdent; Esc never closes the window) |
 
 ## 11. Troubleshooting
 

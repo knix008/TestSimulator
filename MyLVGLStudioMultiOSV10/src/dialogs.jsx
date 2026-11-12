@@ -46,7 +46,7 @@ function DialogPanel({ title, icon, onClose, children, footer, width, panel, bar
 }
 
 /** The dialog in a window of its own, which can go anywhere, also outside the program. */
-function WindowDialog({ pop, onClose, id, height, ...rest }) {
+function WindowDialog({ pop, onClose, id, height, keepOnEscape, ...rest }) {
   const panel = useRef(null);
   const closing = useRef(onClose);
   closing.current = onClose;
@@ -87,7 +87,7 @@ function WindowDialog({ pop, onClose, id, height, ...rest }) {
 
   useEffect(() => {
     const key = (event) => {
-      if (event.key === "Escape") closing.current();
+      if (event.key === "Escape" && !keepOnEscape) closing.current();
     };
     pop.win.addEventListener("keydown", key);
     return () => pop.win.removeEventListener("keydown", key);
@@ -128,10 +128,10 @@ function WindowDialog({ pop, onClose, id, height, ...rest }) {
   );
 }
 
-function InlineDialog({ id, onClose, ...rest }) {
+function InlineDialog({ id, onClose, keepOnEscape, ...rest }) {
   useEffect(() => {
     const key = (event) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !keepOnEscape) onClose();
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
@@ -143,7 +143,8 @@ function InlineDialog({ id, onClose, ...rest }) {
   );
 }
 
-export function Dialog({ title, icon, onClose, children, footer, width = 460, id, bare = false, standsFree = false, height }) {
+/** `keepOnEscape`: Escape belongs to what is inside (an editor), and does not close the dialog. */
+export function Dialog({ title, icon, onClose, children, footer, width = 460, id, bare = false, standsFree = false, height, keepOnEscape = false }) {
   // undefined: the window is being opened. null: no window, so inside the page.
   const [pop, setPop] = useState(canPopOut() ? undefined : null);
   const closing = useRef(onClose);
@@ -173,7 +174,7 @@ export function Dialog({ title, icon, onClose, children, footer, width = 460, id
   useEffect(() => {
     if (pop) pop.win.document.title = title;
   }, [pop, title]);
-  const props = { title, icon, onClose, footer, width, id, bare };
+  const props = { title, icon, onClose, footer, width, id, bare, keepOnEscape };
   if (pop === undefined) return null;
   if (pop === null) return <InlineDialog {...props}>{children}</InlineDialog>;
   return <WindowDialog pop={pop} height={height} {...props}>{children}</WindowDialog>;

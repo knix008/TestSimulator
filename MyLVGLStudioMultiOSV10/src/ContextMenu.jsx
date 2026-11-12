@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "./icons.jsx";
 
 /** A list of items; one with `children` opens its own list when pointed at or clicked. */
-function MenuItems({ items, onClose }) {
+export function MenuItems({ items, onClose }) {
   const [open, setOpen] = useState(null);
   return items.map((item, index) => {
     if (item === "-") return <div className="sep" key={index} />;

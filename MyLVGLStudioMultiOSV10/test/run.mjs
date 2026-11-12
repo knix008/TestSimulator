@@ -4,6 +4,7 @@
 import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { FILE_EXTENSION, FORMAT_VERSION, addNode, addScreen, cloneNode, createNode, findNode, isInside, joinPath, moveNode, newProject, parseProject, removeNode, sanitizeName, serializeProject, setProp, uniqueName, validProjectName } from "../src/lvgl/project.js";
@@ -246,6 +247,35 @@ await test("A project folder has the project file and structured code", () => {
     "src/ui/ui.c", "src/ui/ui.h", "src/ui/ui_events.c", "src/ui/ui_events.h",
     "src/glue/glue.c", "src/glue/glue.h", "lib/mvvm/mvvm.c", "lib/mvvm/mvvm.h", "lib/mvvm/mvvm_lvgl.c", "lib/mvvm/mvvm_lvgl.h",
   ].sort());
+});
+await test("npm run clean removes build output only, and can keep the Rust build", async () => {
+  const { clean } = await import("../scripts/clean.mjs");
+  const make = () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mls-clean-"));
+    const files = ["dist/index.html", "build/wasm/a.o", "test-results/report.json", "src-tauri/gen/schemas/x.json", "src-tauri/target/debug/app.exe", "My LVGL Studio_1.0.0_x64-setup.exe",
+      "src/App.jsx", "src-tauri/src/main.rs", "public/engine/lvgl-9.6.0.js", "samples/index.json", "third_party/lvgl-9.6.0/lvgl.h", "MyLVGLStudio-Tutorial.mp4", "package.json"];
+    for (const file of files) {
+      fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
+      fs.writeFileSync(path.join(dir, file), "x".repeat(10));
+    }
+    return dir;
+  };
+  const kept = ["src/App.jsx", "src-tauri/src/main.rs", "public/engine/lvgl-9.6.0.js", "samples/index.json", "third_party/lvgl-9.6.0/lvgl.h", "MyLVGLStudio-Tutorial.mp4", "package.json"];
+  const dir = make();
+  const preview = clean(dir, { dryRun: true });
+  assert.ok(fs.existsSync(path.join(dir, "dist")), "a dry run removes nothing");
+  assert.deepEqual(preview.removed.map((item) => item.path).sort(), ["My LVGL Studio_1.0.0_x64-setup.exe", "build", "dist", "src-tauri/gen", "src-tauri/target", "test-results"]);
+  const result = clean(dir);
+  assert.deepEqual(result.kept, []);
+  for (const gone of ["dist", "build", "test-results", "src-tauri/gen", "src-tauri/target", "My LVGL Studio_1.0.0_x64-setup.exe"]) assert.ok(!fs.existsSync(path.join(dir, gone)), gone);
+  for (const file of kept) assert.ok(fs.existsSync(path.join(dir, file)), file);
+  const second = make();
+  const light = clean(second, { keepRust: true });
+  assert.ok(fs.existsSync(path.join(second, "src-tauri/target/debug/app.exe")), "--keep-rust keeps the Rust build");
+  assert.ok(!fs.existsSync(path.join(second, "dist")));
+  assert.deepEqual(light.kept, [{ path: "src-tauri/target", reason: "--keep-rust" }]);
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(second, { recursive: true, force: true });
 });
 await test("The application's own code is apart from what is generated", () => {
   const { project } = sampleProject("9.6.0");

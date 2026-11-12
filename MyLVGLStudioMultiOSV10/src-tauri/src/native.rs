@@ -156,6 +156,8 @@ struct NativeHandles {
 pub struct UserCode {
     starters: BTreeMap<String, String>,
     project: Option<PathBuf>,
+    /// Only build: the program is not started (the code editor's Build).
+    build_only: bool,
 }
 
 /// The build folder is shared by every project of one LVGL version, so the application code
@@ -226,6 +228,10 @@ fn build_and_run(app: &AppHandle, state: &NativeHandles, version: &str, files: &
     }
     if code != Some(0) {
         return Err("build failed".into());
+    }
+    if user.build_only {
+        emit_line(app, "build", "Build finished");
+        return Ok("built");
     }
 
     let exe = build.join(if cfg!(windows) { "app.exe" } else { "app" });
@@ -320,8 +326,8 @@ pub fn tools_install(app: AppHandle, state: tauri::State<NativeState>, only: Opt
 
 /// Starts in the background and returns at once; the page follows the events.
 #[tauri::command]
-pub fn native_run(app: AppHandle, state: tauri::State<NativeState>, version: String, files: BTreeMap<String, String>, binaries: BTreeMap<String, String>, user_files: Option<BTreeMap<String, String>>, project_dir: Option<String>) -> Result<(), String> {
-    let user = UserCode { starters: user_files.unwrap_or_default(), project: project_dir.map(PathBuf::from) };
+pub fn native_run(app: AppHandle, state: tauri::State<NativeState>, version: String, files: BTreeMap<String, String>, binaries: BTreeMap<String, String>, user_files: Option<BTreeMap<String, String>>, project_dir: Option<String>, build_only: Option<bool>) -> Result<(), String> {
+    let user = UserCode { starters: user_files.unwrap_or_default(), project: project_dir.map(PathBuf::from), build_only: build_only.unwrap_or(false) };
     if state.running.swap(true, Ordering::SeqCst) {
         return Err("already running".into());
     }

@@ -156,16 +156,17 @@ export function TutorialAsk({ t, ask, onAsk, onStart, onLater }) {
       width={480}
       footer={(
         <>
+          {/* The option sits on the buttons' row, at its left end. */}
+          <span className="tutorial-again" data-tutorial-again="">
+            <Toggle id="tutorialAskAgain" label={t("pref.askTutorial")} checked={ask} onChange={onAsk} />
+            <span>{t("pref.askTutorial")}</span>
+          </span>
           <button type="button" className="primary" data-command="tutorial-start" onClick={onStart}><Icon name="run" /> {t("tutorial.start")}</button>
           <button type="button" data-command="tutorial-later" onClick={onLater}><Icon name="clock" size={14} /> {t("tutorial.later")}</button>
         </>
       )}
     >
       <p className="dialog-message">{t("tutorial.askText")}</p>
-      <div className="tutorial-again">
-        <Toggle id="tutorialAskAgain" label={t("pref.askTutorial")} checked={ask} onChange={onAsk} />
-        <span>{t("pref.askTutorial")}</span>
-      </div>
     </Dialog>
   );
 }

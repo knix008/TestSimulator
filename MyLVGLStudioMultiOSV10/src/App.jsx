@@ -8,7 +8,7 @@ import { Flag, Icon } from "./icons.jsx";
 import { ContextMenu, readOnlyTextItems, textFieldItems } from "./ContextMenu.jsx";
 import { host, isDesktop } from "./host.js";
 import { translator } from "./i18n.js";
-import { applyTheme, setCustomThemes, THEMES, themeById } from "./themes.js";
+import { applyTheme, nextThemeId, setCustomThemes, THEMES, themeById } from "./themes.js";
 import { addRecent, removeRecent, sanitizeGeneral, sanitizeStartScreen } from "./settings.js";
 import { StartScreen } from "./StartScreen.jsx";
 import { PreferencesDialog } from "./Preferences.jsx";
@@ -891,13 +891,15 @@ export function App({ initialSettings }) {
     };
   }, [addBuildLine, log]);
 
+  /** The next native build only builds (Build) or also runs the program (Native run). */
+  const nativeBuildOnly = useRef(false);
   const startNative = async () => {
     const current = store.get();
     setBottomTab("build");
     setBuildLines([]);
     setNative("building");
     try {
-      await host.nativeRun(current.lvgl, generateCode(current), fontFiles(current, `native:${current.lvgl}`), starterFiles(current), folderOf(path) ?? appOrigin);
+      await host.nativeRun(current.lvgl, generateCode(current), fontFiles(current, `native:${current.lvgl}`), starterFiles(current), folderOf(path) ?? appOrigin, nativeBuildOnly.current);
       markFontsWritten(current, `native:${current.lvgl}`);
     } catch (error) {
       setNative("idle");
@@ -956,11 +958,12 @@ export function App({ initialSettings }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const cmdNative = async () => {
+  const cmdNative = async (buildOnly = false) => {
     if (native !== "idle") {
-      await host.nativeStop();
+      if (buildOnly !== true) await host.nativeStop();
       return;
     }
+    nativeBuildOnly.current = buildOnly === true;
     if (!isDesktop) {
       showError(t("native.desktopOnly"));
       return;
@@ -1227,12 +1230,13 @@ export function App({ initialSettings }) {
       }),
     },
     samples: { id: "samples", icon: "samples", label: t("cmd.samples"), run: () => setDialog({ kind: "samples" }) },
-    codeEditor: { id: "codeEditor", icon: "code", label: t("cmd.codeEditor"), keys: "Ctrl+E", disabled: !designing || !isDesktop, pressed: editorOpen, run: () => openEditor() },
+    codeEditor: { id: "codeEditor", icon: "codeEditor", label: t("cmd.codeEditor"), keys: "Ctrl+E", disabled: !designing || !isDesktop, pressed: editorOpen, run: () => openEditor() },
     code: { id: "code", icon: "code", label: t("view.code"), disabled: !designing, pressed: view !== "design", run: () => setView((value) => (value === "design" ? "split" : "design")) },
     panelLeft: { id: "panelLeft", icon: "panelLeft", label: t("panel.toggleLeft"), disabled: !designing, pressed: !collapsed.left, run: () => togglePanel("left") },
     panelRight: { id: "panelRight", icon: "panelRight", label: t("panel.toggleRight"), disabled: !designing, pressed: !collapsed.right, run: () => togglePanel("right") },
     panelBottom: { id: "panelBottom", icon: "panelBottom", label: t("panel.toggleBottom"), disabled: !designing, pressed: !collapsed.bottom, run: () => togglePanel("bottom") },
     rulers: { id: "rulers", icon: "ruler", label: t("cmd.rulers"), disabled: !designing, pressed: rulers, run: toggleRulers },
+    nativeBuild: { id: "nativeBuild", icon: "build", label: t("cmd.nativeBuild"), keys: "Ctrl+B", disabled: !designing || native !== "idle", run: () => void cmdNative(true) },
     native: { id: "native", icon: native === "idle" ? "native" : "stop", label: t(native === "idle" ? "cmd.nativeRun" : "cmd.nativeStop"), keys: "Shift+F5", disabled: !designing && native === "idle", pressed: native !== "idle", run: cmdNative },
     settings: { id: "settings", icon: "project", label: t("cmd.settings"), run: () => setDialog({ kind: "settings" }) },
     lvConf: { id: "lvconf", icon: "conf", label: t("cmd.lvConf"), run: () => setDialog({ kind: "lvconf" }) },
@@ -1255,7 +1259,7 @@ export function App({ initialSettings }) {
     { id: "file", items: [c.new, c.open, c.samples, "-", c.save, c.saveAs, "-", c.exit] },
     { id: "edit", items: [c.undo, c.redo, "-", c.cut, c.copy, c.paste, c.duplicate, c.delete, "-", c.forward, c.backward] },
     { id: "view", items: [c.start, "-", c.panelLeft, c.panelBottom, c.panelRight, c.rulers, c.code, c.codeEditor, "-", c.zoomIn, c.zoomOut, c.zoomFit] },
-    { id: "run", items: [c.run, c.native, "-", c.cleanBuild] },
+    { id: "run", items: [c.run, c.native, c.nativeBuild, "-", c.cleanBuild] },
     { id: "tools", items: [c.settings, c.fonts, c.lvConf, c.manager, "-", c.preferences] },
     { id: "help", items: [c.tutorial, c.guide, "-", c.about] },
   ];
@@ -1396,6 +1400,7 @@ export function App({ initialSettings }) {
         if (letter === "n") return fire(cmd.new);
         if (letter === "o") return fire(cmd.open);
         if (letter === "e") return fire(cmd.codeEditor);
+        if (letter === "b") return fire(cmd.nativeBuild);
         if (typing) return undefined;
         if (letter === "=" || letter === "+") return fire(cmd.zoomIn);
         if (letter === "-") return fire(cmd.zoomOut);
@@ -1679,7 +1684,23 @@ export function App({ initialSettings }) {
         </span>
         <div className="toolbar-end">
           <div className="popup-host">
-            <button type="button" className={popup === "theme" ? "tool active" : "tool"} data-command="theme" aria-label={t("cmd.theme")} title={t("cmd.theme")} onClick={() => setPopup(popup === "theme" ? null : "theme")}><Icon name="theme" /></button>
+            {(() => {
+              // The theme now: pressing it moves on to the next one; the arrow beside it lists them all.
+              const current = themeById(themeId);
+              const custom = customThemes.find((item) => item.id === themeId);
+              const name = custom ? custom.name : language === "en" ? current.nameEn : current.nameKo;
+              const swatch = custom ? [custom.colors.bg, custom.colors.panel, custom.colors.accent] : current.swatch;
+              return (
+                <span className="theme-split">
+                  <button type="button" className="tool theme-current" data-command="theme-next" data-theme-current={themeId} aria-label={t("theme.nextTip", { name })} title={t("theme.nextTip", { name })} onClick={() => changeTheme(nextThemeId(themeId))}>
+                    <Icon name="theme" />
+                    <span className="swatches">{swatch.map((color, index) => <i key={index} style={{ background: color }} />)}</span>
+                    <span className="theme-name">{name}</span>
+                  </button>
+                  <button type="button" className={popup === "theme" ? "tool theme-drop active" : "tool theme-drop"} data-command="theme" aria-label={t("cmd.theme")} title={t("cmd.theme")} aria-haspopup="menu" aria-expanded={popup === "theme"} onClick={() => setPopup(popup === "theme" ? null : "theme")}><Icon name="dropDown" size={14} /></button>
+                </span>
+              );
+            })()}
             {popup === "theme" && (
               <div className="menu-pop theme-pop" role="menu">
                 <div className="theme-pop-top" data-theme-group="top">
@@ -1977,10 +1998,11 @@ export function App({ initialSettings }) {
         />
       )}
       {dialog?.kind === "tutorialAsk" && showStart && <TutorialAsk t={t} ask={general.askTutorial} onAsk={(askTutorial) => changeGeneral({ askTutorial })} onStart={beginTutorial} onLater={() => setDialog(null)} />}
-      {guideOpen && <GuideDialog language={language} onClose={() => setGuideOpen(false)} />}
+      {guideOpen && <GuideDialog key={guideOpen === true ? "guide" : guideOpen} initial={guideOpen === true ? "guide" : guideOpen} language={language} onClose={() => setGuideOpen(false)} />}
       {editorOpen && (
         <CodeEditorWindow
           t={t}
+          language={language}
           project={project}
           projectName={project.name}
           generated={editorCode}
@@ -1992,6 +2014,16 @@ export function App({ initialSettings }) {
           onEditGenerated={editGenerated}
           native={native}
           onRun={() => void commands.current.native.run()}
+          onStop={() => void host.nativeStop()}
+          onBuild={() => commands.current.nativeBuild.run()}
+          onSettings={() => commands.current.preferences.run()}
+          onGuide={() => {
+            // The editor's own guide: the guide window opens on it (or turns to it).
+            if (guideOpen === "editor" && focusPopout("guide")) return;
+            setGuideOpen("editor");
+          }}
+          onAbout={() => commands.current.about.run()}
+          onClean={() => commands.current.cleanBuild.run()}
           buildLines={buildLines}
           logLines={logLines}
           problems={problems}

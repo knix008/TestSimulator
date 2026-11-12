@@ -21,7 +21,7 @@ LVGL 애플리케이션의 화면을 그래픽으로 설계하고, 바로 실행
 - **값 연결과 애니메이션:** 슬라이더를 끌면 다른 콘트롤이 함께 움직이게 연결, 값의 자동 왕복
 - **원형 화면:** 프로젝트 설정에서 켜고, 원 밖으로 나간 콘트롤을 알려 줌
 - **코드 보기:** 디자인/분할/코드 전환. 화면 코드를 고치면 그래픽이 바뀌고, 그래픽을 고치면 코드가 바뀝니다.
-- **코드 편집기 (Ctrl+E):** 별도 창에서 로직(`src/app`)과 생성 코드를 편집하고 바로 빌드·실행. 로직은 GUI와 따로 자동 저장, 바인딩·뷰모델 파일도 코드로 편집, `vm_` 자동 완성
+- **코드 편집기 (Ctrl+E):** 별도 창의 CodeMirror 편집기에서 로직(`src/app`)과 생성 코드를 편집하고 바로 빌드·실행·멈춤·빌드 정리. 파일별 실행 취소, 찾기·바꾸기, 줄로 이동, 주석·들여쓰기, 코드 접기, 오른쪽 클릭 메뉴, 자동 완성, 줄 표시. 로직은 GUI와 따로 자동 저장, 바인딩·뷰모델 파일도 코드로 편집
 - **화면 크기:** 툴바에서 14가지 크기 중 고르거나 너비와 높이를 직접 입력
 - **글꼴:** TTF, OTF, TTC, OTC 파일을 읽어 설계 화면과 코드에 그대로 사용. Noto Sans CJK처럼 언어별 면이 있는 글꼴은 언어로 면을 선택
 - **LVGL 설정:** 그 버전의 `lv_conf_template.h`를 읽어 `lv_conf.h`의 모든 설정을 창으로 표시
@@ -98,6 +98,7 @@ MSYS2의 Emscripten 패키지는 Node도 함께 설치합니다. `ucrt64\bin`이
 | `npm run tutorial:video` | 릴리스 앱으로 튜토리얼을 진행하며 녹화해 `MyLVGLStudio-Tutorial.mp4`를 프로젝트 루트에 저장(한국어, 무음, ffmpeg 필요). 녹화 중에는 앱 창이 화면에 뜹니다. |
 | `npm run fetch:lvgl` | 엔진 빌드용 LVGL 소스를 `third_party/`에 받기 |
 | `npm run build:engine` | WebAssembly 엔진을 빌드해 `public/engine/`에 저장 |
+| `npm run clean` | 빌드와 테스트가 남긴 것을 지움: `dist/`, `build/`, `test-results/`, `src-tauri/gen/`, `src-tauri/target/`, 루트의 설치 파일 복사본. `-- --keep-rust`는 Rust 빌드를 남기고, `-- --dry-run`은 목록만 보여 줌. 소스, 엔진, 샘플, `third_party/`는 지우지 않음 |
 | `npm run mvvm-source` | `engine/mvvm`의 바인딩 라이브러리를 생성기용 `src/lvgl/mvvmSource.js`로 복사 (라이브러리를 고친 뒤 엔진 빌드와 함께) |
 | `npm run icons` | 앱 아이콘과 프로젝트 파일 아이콘 생성 |
 | `npm run build:win` | Windows 설치 파일 빌드 (`build:mac`, `build:linux`도 있음) |

@@ -131,6 +131,23 @@ async function click(selector) {
   assert.ok(point, `no element ${selector}`);
   await clickAt(point.x, point.y);
 }
+/**
+ * Clicks once the element has stopped moving: a list that is still filling (the LVGL manager's
+ * releases, which come from GitHub) moves its rows after they first appear.
+ */
+async function clickWhenStill(selector, ms = 10000) {
+  const where = () => js(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) return null; const r = e.getBoundingClientRect(); return Math.round(r.left) + "," + Math.round(r.top); })()`);
+  const until = Date.now() + ms;
+  let last = await where();
+  let still = 0;
+  while (Date.now() < until && still < 3) {
+    await sleep(250);
+    const now = await where();
+    still = now && now === last ? still + 1 : 0;
+    last = now;
+  }
+  await click(selector);
+}
 // On a busy page a click is sometimes lost, or sent again and closes what it opened: look, and press again.
 async function openUntil(button, opened) {
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -1317,7 +1334,7 @@ await step("Downloading LVGL shows what, how far and how long in a window of its
   })()`);
   await click('[data-command="manager"]');
   await page.until('document.querySelector(\'[data-version="9.6.0"] [data-action="install"]\')', 15000);
-  await click('[data-version="9.6.0"] [data-action="install"]');
+  await clickWhenStill('[data-version="9.6.0"] [data-action="install"]');
   await page.until('document.querySelector("[data-dialog=lvgl-progress] [data-tools-item=lvgl][data-state=download]")', 3000);
   // The manager is modal: it must not stay and lock the main window during the download.
   assert.equal(await js('!!document.querySelector("[data-dialog=manager]")'), false, "the manager stayed open");
@@ -1344,7 +1361,7 @@ await step("Downloading LVGL shows what, how far and how long in a window of its
   // A failure stays on screen and can be tried again.
   await click('[data-command="manager"]');
   await page.until('document.querySelector(\'[data-version="9.6.0"] [data-action="install"]:not(:disabled)\')', 15000);
-  await click('[data-version="9.6.0"] [data-action="install"]');
+  await clickWhenStill('[data-version="9.6.0"] [data-action="install"]');
   await page.until('window.__lvgl.calls === 2 && document.querySelector("[data-dialog=lvgl-progress]")', 3000);
   await js('window.__lvgl.fail("no network")');
   await page.until('document.querySelector("[data-tools-error]")', 3000);
@@ -2737,7 +2754,7 @@ if (!skipNative) {
   });
 
   await step("It downloads and installs LVGL 9.6.0", async () => {
-    await click('[data-version="9.6.0"] [data-action="install"]');
+    await clickWhenStill('[data-version="9.6.0"] [data-action="install"]');
     await page.until('document.querySelector("[data-dialog=lvgl-progress]")', 5000);
     await page.until('!document.querySelector("[data-dialog=lvgl-progress]")', 180000);
     const dir = path.join(data, "settings", "lvgl", "9.6.0");

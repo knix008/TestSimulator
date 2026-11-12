@@ -1716,7 +1716,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
     });
     await test("Both languages of the documents match, block by block", () => {
       const shape = (name) => parseMarkdown(docText(name)).map((block) => (block.type === "heading" ? `h${block.level}` : block.type === "table" ? `table:${block.head.length}x${block.rows.length}` : block.type === "list" ? `list:${block.items.length}` : block.type));
-      for (const [ko, en] of [["doc/UsersGuide.md", "doc/UsersGuide.en.md"], ["doc/Tutorial.md", "doc/Tutorial.en.md"]]) {
+      for (const [ko, en] of [["doc/UsersGuide.md", "doc/UsersGuide.en.md"], ["doc/Tutorial.md", "doc/Tutorial.en.md"], ["doc/CodeEditor.md", "doc/CodeEditor.en.md"]]) {
         assert.deepEqual(shape(en), shape(ko), en);
         assert.deepEqual([...docText(en).matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => m[1]), [...docText(ko).matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => m[1]), `${en}: images`);
         assert.doesNotMatch(docText(en), /^(?!.*(한국어|시속)).*[\uAC00-\uD7A3]{2,}/m, `${en} still has Korean`);

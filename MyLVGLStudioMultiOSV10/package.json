@@ -17,6 +17,7 @@
     "samples": "node scripts/generate-samples.mjs",
     "conf-templates": "node scripts/generate-conf-templates.mjs",
     "mvvm-source": "node scripts/generate-mvvm-source.mjs",
+    "clean": "node scripts/clean.mjs",
     "tauri": "node node_modules/@tauri-apps/cli/tauri.js",
     "build:win": "node node_modules/@tauri-apps/cli/tauri.js build --bundles nsis && node scripts/copy-installer.mjs",
     "build:mac": "node node_modules/@tauri-apps/cli/tauri.js build --bundles dmg && node scripts/copy-installer.mjs",
@@ -27,8 +28,10 @@
     "test:gui": "node scripts/build-e2e.mjs && node test/gui.mjs"
   },
   "dependencies": {
+    "@codemirror/lang-cpp": "^6.0.3",
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.0.0",
+    "codemirror": "^6.0.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

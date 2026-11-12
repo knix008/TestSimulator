@@ -69,8 +69,9 @@ export const host = {
   toolsInstall: (only = null) => (isDesktop ? invoke("tools_install", { only }) : desktopOnly()),
   nativeClean: (version) => (isDesktop ? invoke("native_clean", { version }) : desktopOnly()),
   samplesList: () => (isDesktop ? invoke("samples_list") : Promise.resolve({ dir: "", items: [] })),
-  /** Builds with the application code of `projectDir` (src/app), or `userFiles` where it has none. */
-  nativeRun: (version, files, binaries = {}, userFiles = {}, projectDir = null) => (isDesktop ? invoke("native_run", { version, files, binaries, userFiles, projectDir }) : desktopOnly()),
+  /** Builds with the application code of `projectDir` (src/app), or `userFiles` where it has none,
+   *  and runs the program unless `buildOnly`. */
+  nativeRun: (version, files, binaries = {}, userFiles = {}, projectDir = null, buildOnly = false) => (isDesktop ? invoke("native_run", { version, files, binaries, userFiles, projectDir, buildOnly }) : desktopOnly()),
   nativeStop: () => (isDesktop ? invoke("native_stop") : Promise.resolve()),
 
   runOpen: (payload, width, height) => (isDesktop ? invoke("run_open", { payload, width, height }) : desktopOnly()),
