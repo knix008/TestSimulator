@@ -46,11 +46,17 @@ function readOnlyReason(file) {
   return "code.readOnly";
 }
 
+// The file list's width and the bottom panel's height, moved with the splitters.
+const TREE_WIDTH = [140, 600];
+const BOTTOM_HEIGHT = [60, 700];
+const within = ([low, high], value, fallback) => (Number.isFinite(Number(value)) ? Math.round(Math.min(high, Math.max(low, Number(value)))) : fallback);
+const DEFAULT_PREFS = { font: 13, wrap: false, files: true, bottom: true, treeWidth: 240, bottomHeight: 180 };
 const readPrefs = () => {
   try {
-    return { font: 13, wrap: false, files: true, bottom: true, ...JSON.parse(localStorage.getItem(PREFS) ?? "{}") };
+    const prefs = { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS) ?? "{}") };
+    return { ...prefs, treeWidth: within(TREE_WIDTH, prefs.treeWidth, 240), bottomHeight: within(BOTTOM_HEIGHT, prefs.bottomHeight, 180) };
   } catch {
-    return { font: 13, wrap: false, files: true, bottom: true };
+    return { ...DEFAULT_PREFS };
   }
 };
 const writePrefs = (prefs) => {
@@ -671,6 +677,39 @@ export function CodeEditorWindow({ t, language, spell, tabSize = 4, onSpell, onP
     writePrefs(next);
     return next;
   });
+  /**
+   * Moving a splitter: the file list's width ("treeWidth", sign 1) or the bottom panel's height
+   * ("bottomHeight", sign -1). The pointer is captured by the splitter, so it works the same in the
+   * editor's own window and inline; the code keeps room enough.
+   */
+  const beginSplit = (field, sign) => (start) => {
+    if (start.button !== 0) return;
+    start.preventDefault();
+    const bar = start.currentTarget;
+    const across = field === "treeWidth";
+    const room = across ? bar.parentElement.clientWidth - 300 : bar.parentElement.clientHeight - 260;
+    const [low, high] = across ? TREE_WIDTH : BOTTOM_HEIGHT;
+    const limit = [low, Math.max(low, Math.min(high, room))];
+    const from = prefs[field];
+    let latest = from;
+    bar.setPointerCapture?.(start.pointerId);
+    bar.classList.add("dragging");
+    const move = (event) => {
+      const delta = across ? event.clientX - start.clientX : event.clientY - start.clientY;
+      latest = Math.round(Math.max(limit[0], Math.min(limit[1], from + sign * delta)));
+      setPrefs((value) => (value[field] === latest ? value : { ...value, [field]: latest }));
+    };
+    const up = () => {
+      bar.removeEventListener("pointermove", move);
+      bar.removeEventListener("pointerup", up);
+      bar.removeEventListener("pointercancel", up);
+      bar.classList.remove("dragging");
+      changePrefs({ [field]: latest });
+    };
+    bar.addEventListener("pointermove", move);
+    bar.addEventListener("pointerup", up);
+    bar.addEventListener("pointercancel", up);
+  };
   // A build or a run starts: its output is shown, even with the bottom panel folded.
   useEffect(() => {
     if (native !== "idle") setPrefs((value) => (value.bottom ? value : { ...value, bottom: true }));
@@ -700,7 +739,7 @@ export function CodeEditorWindow({ t, language, spell, tabSize = 4, onSpell, onP
     autoIndent: { id: "autoIndent", icon: "autoIndent", label: t("editor.tb.autoIndent"), keys: "Shift+Alt+F", disabled: !canEdit, run: () => p()?.autoIndent() },
     outdent: { id: "outdent", icon: "outdent", label: t("editor.tb.outdent"), keys: "Ctrl+[", disabled: !canEdit, run: () => p()?.outdent() },
     build: { id: "build", icon: "hammer", label: t("editor.tb.build"), keys: "Ctrl+B", disabled: running, run: () => void build() },
-    run: { id: "run", icon: "native", label: t("editor.run"), keys: "F5", disabled: running, run: () => void run() },
+    run: { id: "run", icon: "run", label: t("editor.run"), keys: "F5", disabled: running, run: () => void run() },
     stop: { id: "stop", icon: "stop", label: t("editor.tb.stop"), keys: "Shift+F5", disabled: !running, run: stop },
     clean: { id: "clean", icon: "broom", label: t("editor.clean"), disabled: running, run: onClean },
     smaller: { id: "fontSmaller", icon: "zoomOut", label: t("editor.tb.smaller"), disabled: prefs.font <= FONT_SIZES[0], run: () => fontStep(-1) },
@@ -900,7 +939,7 @@ export function CodeEditorWindow({ t, language, spell, tabSize = 4, onSpell, onP
             <span className={group[0].id === "files" ? "editor-tool-group editor-tool-end" : "editor-tool-group"} key={index}>{group.map((command) => tool(command, { iconOnly: true }))}</span>
           ))}
         </div>
-        <div className={prefs.files ? "editor-main" : "editor-main no-files"}>
+        <div className={prefs.files ? "editor-main" : "editor-main no-files"} style={{ gridTemplateColumns: prefs.files ? `${prefs.treeWidth}px 5px minmax(0, 1fr)` : "28px minmax(0, 1fr)" }}>
           {!prefs.files && (
             <button type="button" className="panel-strip editor-strip" data-editor-expand="files" title={t("editor.tb.filesShow")} aria-label={t("editor.tb.filesShow")} onClick={toggleFiles}>
               <Icon name="unfoldLeft" size={16} />
@@ -917,6 +956,7 @@ export function CodeEditorWindow({ t, language, spell, tabSize = 4, onSpell, onP
             {treeGroup(t("editor.appGroup"), "viewModel", appFiles, true)}
             {treeGroup(t("editor.generatedGroup"), "build", generatedFiles, false)}
           </nav>
+          {prefs.files && <div className="splitter editor-splitter" data-editor-splitter="files" role="separator" aria-orientation="vertical" onPointerDown={beginSplit("treeWidth", 1)} />}
           <div className="editor-body">
             <div className="code-tab-bar">
               <div className="code-tabs">
@@ -948,15 +988,16 @@ export function CodeEditorWindow({ t, language, spell, tabSize = 4, onSpell, onP
             />
           </div>
         </div>
-        <div className={prefs.bottom ? "editor-bottom" : "editor-bottom folded"} data-editor-bottom-panel={prefs.bottom ? "open" : "folded"}>
+        {prefs.bottom && <div className="splitter h editor-splitter" data-editor-splitter="bottom" role="separator" aria-orientation="horizontal" onPointerDown={beginSplit("bottomHeight", -1)} />}
+        <div className={prefs.bottom ? "editor-bottom" : "editor-bottom folded"} data-editor-bottom-panel={prefs.bottom ? "open" : "folded"} style={prefs.bottom ? { flexBasis: prefs.bottomHeight } : undefined}>
           <div className="bottom-tabs">
-            <button type="button" data-editor-bottom="build" className={bottom === "build" && prefs.bottom ? "active" : undefined} onClick={() => showOutput("build")}><Icon name="build" /> {t("panel.build")}</button>
+            <button type="button" data-editor-bottom="build" className={bottom === "build" && prefs.bottom ? "active" : undefined} onClick={() => showOutput("build")}><Icon name="hammer" /> {t("panel.build")}</button>
             <button type="button" data-editor-bottom="log" className={bottom === "log" && prefs.bottom ? "active" : undefined} onClick={() => showOutput("log")}><Icon name="log" /> {t("editor.output")}</button>
             <button type="button" data-editor-bottom="problems" className={bottom === "problems" && prefs.bottom ? "active" : undefined} onClick={() => showOutput("problems")}>
               <Icon name="problems" /> {t("panel.problems")}
               {codeProblems.length > 0 && <b className="problem-count" data-errors={codeProblems.some((item) => item.severity === "error") ? "" : undefined}>{codeProblems.length}</b>}
             </button>
-            <button type="button" className="mini bottom-fold" data-editor-fold="bottom" title={t(prefs.bottom ? "editor.tb.bottomHide" : "editor.tb.bottomShow")} aria-label={t(prefs.bottom ? "editor.tb.bottomHide" : "editor.tb.bottomShow")} onClick={toggleBottom}><Icon name={prefs.bottom ? "collapseDown" : "collapseUp"} size={14} /></button>
+            <button type="button" className="mini bottom-fold" data-editor-fold="bottom" title={t(prefs.bottom ? "editor.tb.bottomHide" : "editor.tb.bottomShow")} aria-label={t(prefs.bottom ? "editor.tb.bottomHide" : "editor.tb.bottomShow")} onClick={toggleBottom}><Icon name={prefs.bottom ? "foldBottom" : "unfoldBottom"} size={16} /></button>
           </div>
           {!prefs.bottom ? null : bottom === "problems" ? (
             <div className="editor-list" data-editor-problems="" ref={listRef}>

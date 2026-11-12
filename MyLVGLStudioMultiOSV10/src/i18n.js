@@ -1,7 +1,7 @@
 // Korean and English strings.
 const KO = {
   "menu.file": "파일", "menu.edit": "편집", "menu.view": "보기", "menu.run": "실행", "menu.tools": "도구", "menu.help": "도움말",
-  "cmd.new": "새 프로젝트…", "cmd.open": "열기…", "cmd.save": "저장", "cmd.saveAs": "다른 이름으로 저장…", "cmd.exit": "끝내기",
+  "cmd.new": "새 프로젝트…", "cmd.open": "열기…", "cmd.save": "저장", "cmd.saveAs": "다른 이름으로 저장…", "cmd.closeProject": "프로젝트 닫기", "cmd.exit": "끝내기",
   "cmd.preferences": "환경 설정…", "pref.general": "일반", "pref.startup": "시작", "pref.reopenLast": "시작할 때 마지막 프로젝트 열기", "pref.newProject": "새 프로젝트 기본값", "pref.locationHint": "문서 폴더", "pref.editor": "편집", "pref.snap": "끌기 이동 간격", "pref.recentCount": "{count}개 기록됨",
   "start.short": "시작", "start.settings": "시작 화면 설정", "start.arrange": "자동 정렬", "start.arrangeTip": "카드를 기본 배치로 정렬합니다", "start.moveCard": "카드 옮기기", "start.resizeCard": "카드 크기 조절 (두 번 클릭하면 내용에 맞춤)", "start.clearRecent": "모두 지우기", "start.shuffleShort": "자동 변경", "start.themeSettings": "테마 설정",
   "start.tipNew": "폴더를 만들고 새 LVGL 프로젝트를 시작합니다", "start.tipOpen": ".mylvgl 프로젝트를 엽니다", "start.tipContinue": "저장하지 않은 프로젝트로 바로 설계합니다", "start.tipManager": "LVGL 버전을 내려받고 관리합니다", "start.tipSettings": "LVGL 버전, 화면 크기, 테마, 이미지", "start.tipTheme": "사용자 테마를 만들고 편집합니다", "start.tipLanguage": "한국어와 English를 전환합니다", "start.tipPreferences": "언어, 테마, 시작 화면", "start.tipStart": "배경, 속도, 카드 불투명도", "start.tipAbout": "버전과 라이선스 정보", "start.tipExit": "My LVGL Studio를 끝냅니다",
@@ -87,7 +87,7 @@ const KO = {
 
 const EN = {
   "menu.file": "File", "menu.edit": "Edit", "menu.view": "View", "menu.run": "Run", "menu.tools": "Tools", "menu.help": "Help",
-  "cmd.new": "New Project…", "cmd.open": "Open…", "cmd.save": "Save", "cmd.saveAs": "Save As…", "cmd.exit": "Exit",
+  "cmd.new": "New Project…", "cmd.open": "Open…", "cmd.save": "Save", "cmd.saveAs": "Save As…", "cmd.closeProject": "Close Project", "cmd.exit": "Exit",
   "cmd.preferences": "Preferences…", "pref.general": "General", "pref.startup": "Startup", "pref.reopenLast": "Reopen the last project at startup", "pref.newProject": "New project defaults", "pref.locationHint": "Documents folder", "pref.editor": "Editing", "pref.snap": "Drag step", "pref.recentCount": "{count} listed",
   "start.short": "Start", "start.settings": "Start Screen Settings", "start.arrange": "Auto Arrange", "start.arrangeTip": "Put the cards back in their default arrangement", "start.moveCard": "Move card", "start.resizeCard": "Resize card (double-click to fit its content)", "start.clearRecent": "Clear All", "start.shuffleShort": "Auto change", "start.themeSettings": "Theme Settings",
   "start.tipNew": "Create a folder and start a new LVGL project", "start.tipOpen": "Open a .mylvgl project", "start.tipContinue": "Start designing in an unsaved project", "start.tipManager": "Download and manage LVGL versions", "start.tipSettings": "LVGL version, screen size, theme, images", "start.tipTheme": "Create and edit your own themes", "start.tipLanguage": "Switch between Korean and English", "start.tipPreferences": "Language, themes, start screen", "start.tipStart": "Background, speed, card opacity", "start.tipAbout": "Version and license information", "start.tipExit": "Quit My LVGL Studio",

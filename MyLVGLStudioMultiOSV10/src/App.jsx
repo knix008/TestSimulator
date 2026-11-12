@@ -321,6 +321,18 @@ export function App({ initialSettings }) {
 
   const cmdNew = () => guardUnsaved(() => askProjectFolder(false));
 
+  /**
+   * Closes the project (asking about unsaved changes first): the code editor and a native run go
+   * with it, and what comes next follows the start screen setting: the start screen, or an empty
+   * project to work on.
+   */
+  const cmdCloseProject = () => guardUnsaved(() => {
+    setEditorOpen(false);
+    if (native !== "idle") void host.nativeStop().catch(() => {});
+    load(newProject(), null);
+    setShowStart(start.showOnStartup);
+  });
+
   /** A recent project that cannot be read any more leaves the list; a damaged one stays. */
   const forgetIfMissing = (file, error) => {
     if (/os error [23]\b|not found|cannot find/i.test(String(error?.message ?? error))) forgetRecent(file);
@@ -1207,6 +1219,7 @@ export function App({ initialSettings }) {
     open: { id: "open", icon: "open", label: t("cmd.open"), keys: "Ctrl+O", run: cmdOpen },
     save: { id: "save", icon: "save", label: t("cmd.save"), keys: "Ctrl+S", disabled: !store.dirty && !!path, run: cmdSave },
     saveAs: { id: "saveAs", icon: "save", label: t("cmd.saveAs"), keys: "Ctrl+Shift+S", run: cmdSaveAs },
+    closeProject: { id: "closeProject", icon: "closeProject", label: t("cmd.closeProject"), keys: "Ctrl+W", disabled: showStart, run: cmdCloseProject },
     undo: { id: "undo", icon: "undo", label: t("cmd.undo"), keys: "Ctrl+Z", disabled: !store.canUndo || !editing, run: store.undo },
     redo: { id: "redo", icon: "redo", label: t("cmd.redo"), keys: "Ctrl+Y", disabled: !store.canRedo || !editing, run: store.redo },
     cut: {
@@ -1274,7 +1287,7 @@ export function App({ initialSettings }) {
   };
 
   const menus = [
-    { id: "file", items: [c.new, c.open, c.samples, "-", c.save, c.saveAs, "-", c.exit] },
+    { id: "file", items: [c.new, c.open, c.samples, "-", c.save, c.saveAs, "-", c.closeProject, "-", c.exit] },
     { id: "edit", items: [c.undo, c.redo, "-", c.cut, c.copy, c.paste, c.duplicate, c.delete, "-", c.forward, c.backward] },
     { id: "view", items: [c.start, "-", c.panelLeft, c.panelBottom, c.panelRight, c.rulers, c.code, c.codeEditor, "-", c.zoomIn, c.zoomOut, c.zoomFit] },
     { id: "run", items: [c.run, c.native, c.nativeBuild, "-", c.cleanBuild] },
@@ -1283,7 +1296,7 @@ export function App({ initialSettings }) {
   ];
 
   const toolbarGroups = [
-    [c.new, c.open, c.save],
+    [c.new, c.open, c.save, c.closeProject],
     [c.undo, c.redo],
     [c.copy, c.paste, c.duplicate, c.delete],
     [c.backward, c.forward],
@@ -1417,6 +1430,7 @@ export function App({ initialSettings }) {
         if (letter === "s") return fire(event.shiftKey ? cmd.saveAs : cmd.save);
         if (letter === "n") return fire(cmd.new);
         if (letter === "o") return fire(cmd.open);
+        if (letter === "w") return fire(cmd.closeProject);
         if (letter === "e") return fire(cmd.codeEditor);
         if (letter === "b") return fire(cmd.nativeBuild);
         if (typing) return undefined;
@@ -1878,7 +1892,7 @@ export function App({ initialSettings }) {
           <div className="bottom-panel">
             <div className="bottom-tabs">
               <button type="button" data-bottom="log" className={bottomTab === "log" ? "active" : undefined} onClick={() => setBottomTab("log")}><Icon name="log" /> {t("panel.log")}</button>
-              <button type="button" data-bottom="build" className={bottomTab === "build" ? "active" : undefined} onClick={() => setBottomTab("build")}><Icon name="build" /> {t("panel.build")}</button>
+              <button type="button" data-bottom="build" className={bottomTab === "build" ? "active" : undefined} onClick={() => setBottomTab("build")}><Icon name="hammer" /> {t("panel.build")}</button>
               <button type="button" data-bottom="viewmodels" className={bottomTab === "viewmodels" ? "active" : undefined} title={t("vm.tabTip")} onClick={() => setBottomTab("viewmodels")}><Icon name="viewModel" /> {t("panel.viewModels")}</button>
               <button type="button" data-bottom="problems" className={bottomTab === "problems" ? "active" : undefined} title={t("problem.tabTip")} onClick={() => setBottomTab("problems")}>
                 <Icon name="problems" /> {t("panel.problems")}
@@ -1888,7 +1902,7 @@ export function App({ initialSettings }) {
                 <button type="button" className="mini" data-command="clear-output" disabled={bottomTab === "problems" || bottomTab === "viewmodels" || (bottomTab === "log" ? logLines : buildLines).length === 0} title={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} aria-label={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} onClick={() => (bottomTab === "log" ? setLogLines([]) : setBuildLines([]))}><Icon name="clearOutput" size={14} /></button>
                 <button type="button" className="mini" data-command="clean-build" disabled={c.cleanBuild.disabled} title={c.cleanBuild.label} aria-label={c.cleanBuild.label} onClick={c.cleanBuild.run}><Icon name="broom" size={14} /></button>
               </span>
-              <button type="button" className="mini" data-collapse="bottom" title={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} aria-label={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} onClick={() => togglePanel("bottom")}><Icon name={collapsed.bottom ? "collapseUp" : "collapseDown"} size={14} /></button>
+              <button type="button" className="mini" data-collapse="bottom" title={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} aria-label={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} onClick={() => togglePanel("bottom")}><Icon name={collapsed.bottom ? "unfoldBottom" : "foldBottom"} size={16} /></button>
             </div>
             {collapsed.bottom ? null : bottomTab === "viewmodels" ? (
               <ViewModelsView t={t} store={store} live={liveVm} onLive={setLive} readOnly={!designing} onSelectNode={select} />

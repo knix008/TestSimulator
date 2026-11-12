@@ -1,6 +1,7 @@
 // The icon drawings: name → [hue, SVG body]. src/icons.jsx renders them.
 export const PATHS = {
   new: [["blue", '<path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/><path d="M12.5 12v6M9.5 15h6"/>']],
+  closeProject: [["red", '<path d="M12 20H4a1 1 0 0 1-1-1V7h6l2 2h10v4"/><path d="m15.5 15.5 5 5M20.5 15.5l-5 5"/>']],
   open: [["amber", '<path d="M3 7h6l2 2h10v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 12h18"/>']],
   save: [["indigo", '<path d="M4 4h13l3 3v13H4z"/><path d="M8 4v5h7V4"/><path d="M8 20v-6h8v6"/>']],
   export: [["teal", '<path d="M4 4h10l4 4v5"/><path d="M14 4v4h4"/><path d="M4 4v16h9"/><path d="M15 18h6M18 15l3 3-3 3"/>']],

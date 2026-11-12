@@ -626,6 +626,11 @@ html.popout-dialog .popout-free .dialog-body:has(.editor-window) { height: 100% 
 .editor-state { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .editor-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
 .editor-main.no-files { grid-template-columns: 28px minmax(0, 1fr); }
+/* The splitters: as the main window's; the line they draw takes the place of the panels' borders. */
+.editor-window .editor-splitter { flex: 0 0 5px; min-width: 0; min-height: 5px; }
+.editor-window .editor-splitter.dragging { background: var(--accent); }
+.editor-main:not(.no-files) .editor-tree { border-right: 0; }
+.editor-window .editor-splitter.h + .editor-bottom { border-top: 0; }
 .editor-strip { border-right: 1px solid var(--line); }
 .editor-tree { display: flex; flex-direction: column; }
 .editor-panel-title { position: sticky; top: -4px; z-index: 1; flex: 0 0 auto; display: flex; align-items: center; gap: 6px; height: 28px; margin: -4px 0 4px; padding: 0 4px 0 8px; font-weight: 600; background: var(--header); border-bottom: 1px solid var(--line); }

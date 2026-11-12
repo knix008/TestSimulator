@@ -78,6 +78,8 @@ To start from a sample, pick one on the **Sample Projects** card of the start sc
 
 Open a project with **File > Open**. In the installed version you can also double-click a `.mylvgl` file. A new project folder can only be created where no folder exists or in an empty folder, so existing files are never overwritten.
 
+**File > Close Project** (the Close Project button of the toolbar, Ctrl+W) closes the project. Unsaved changes are asked about first, and the code editor and a native run close with it. Then, with **Show the start screen at startup** on, the start screen comes back; with it off, an empty untitled project.
+
 ### Changing the LVGL Version
 
 Press the **LVGL version** button on the toolbar to open the list of versions. When you pick one, the design surface's engine, the controls in the left panel and the generated code change to suit that version straight away. You can reverse this with Undo. A control that the version does not have stays in the document but is left out of the screen and the code, and the **Problems** tab opens to tell you.
@@ -439,6 +441,7 @@ Edit the logic and the generated code in a window of its own, and run it from th
 | Key | Action |
 |---|---|
 | Ctrl+N, Ctrl+O | New Project, Open |
+| Ctrl+W | Close Project |
 | Ctrl+S, Ctrl+Shift+S | Save, Save As |
 | Ctrl+Z, Ctrl+Y | Undo, Redo |
 | Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+D | Cut, Copy, Paste, Duplicate |
