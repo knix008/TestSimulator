@@ -18,7 +18,9 @@ import { DialogHost, useDialogs } from './dialogs/Dialogs';
 import { BottomDock } from './components/BottomDock';
 import { SearchDialog } from './dialogs/SearchDialog';
 import { applyTheme, themeById, nextThemeId, DEFAULT_THEME, setCustomThemes, allThemes, themeWindowColors } from './themes';
-import { SETTINGS_DEFAULTS, SETTINGS_KEYS, isTextFile, showStartAtLaunch } from './lib/settings';
+import { SETTINGS_DEFAULTS, SETTINGS_KEYS, isTextFile, showStartAtLaunch, showTutorialPrompt } from './lib/settings';
+import { TutorialPrompt } from './components/TutorialPrompt';
+import { isResizeObserverNotice } from './lib/errors';
 import { History } from './lib/history';
 import { ResizeGrip } from './components/ResizeGrip';
 import { canPrintData } from './lib/print';
@@ -104,6 +106,10 @@ export default function App() {
   const [manualOpen, setManualOpen] = useState(false);
   const [tutorial, setTutorial] = useState(false);
   const tutSnap = useRef({ dock: false });
+  // "Run the tutorial?" — asked once at startup over the start screen; it goes away by itself
+  // as soon as the start screen gives way to the file panels.
+  const [tutPrompt, setTutPrompt] = useState(false);
+  useEffect(() => { if (!startOpen) setTutPrompt(false); }, [startOpen]);
   const [active, setActive] = useState('left');
   const [status, setStatusText] = useState('');
   // Bottom dock: the log collects every status message and error; terminal
@@ -192,6 +198,9 @@ export default function App() {
       if (s.activeSide === 'right') setActive('right');
       if (s.logOpen === false) s.dockVisible = false;   // nothing to show yet (search and terminals start empty)
       if (showStartAtLaunch(s)) setStartOpen(true);
+      // The tutorial popup belongs to the start screen: with the start screen off at startup
+      // the program opens on the file panels, and the popup would close at once anyway.
+      if (showStartAtLaunch(s) && showTutorialPrompt(s)) setTutPrompt(true);
       setStatus(t('ready', { app: t('appName') }));
     })().catch((err) => setStatus(String(err && err.message ? err.message : err)));
   }, []);
@@ -398,7 +407,12 @@ export default function App() {
   // same dialog: message, details (code / path / stack) and a copy button.
   const showError = useCallback((err, extra) => dialogs.error(err, extra), [dialogs]);
   useEffect(() => {
-    const onError = (e) => { showError(e.error || e.message); };
+    const onError = (e) => {
+      // Not a failure: the browser's notice that some resize notifications wait for the next
+      // frame (the spec calls it harmless). It has no error object and must not open a dialog.
+      if (!e.error && isResizeObserverNotice(e.message)) { e.preventDefault?.(); return; }
+      showError(e.error || e.message);
+    };
     const onRejection = (e) => { showError(e.reason); };
     window.addEventListener('error', onError);
     window.addEventListener('unhandledrejection', onRejection);
@@ -1383,6 +1397,14 @@ export default function App() {
           onCopyTo={(side, paths) => copyPathsTo(side, paths)} />
       )}
       <DialogHost stack={dialogs.stack} resolve={dialogs.resolve} />
+      {tutPrompt && startOpen && !tutorial && (
+        <TutorialPrompt
+          showNext={showTutorialPrompt(session)}
+          onShowNext={(on) => saveSession({ tutorialPrompt: on })}
+          onClose={() => setTutPrompt(false)}
+          onRun={() => { setTutPrompt(false); tutSnap.current = { dock: !!session.dockVisible }; setTutorial(true); }}
+        />
+      )}
       {tutorial && (
         <Tutorial
           onClose={() => { setTutorial(false); setStartOpen(true); if (!tutSnap.current.dock) showDock(false); }}

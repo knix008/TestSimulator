@@ -165,6 +165,7 @@ export function SettingsDialog({ spec, done }) {
             motion={v.startMotion}
             cardOpacity={v.startCardOpacity ?? 80}
             showAtLaunch={v.startAtLaunch !== false}
+            tutorialPrompt={v.tutorialPrompt !== false}
             onChange={(patch) => setV((s) => ({ ...s, ...patch }))}
           />
           <RecentFolders

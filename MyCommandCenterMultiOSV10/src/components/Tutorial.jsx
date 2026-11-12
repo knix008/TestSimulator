@@ -48,13 +48,25 @@ export function Tutorial({ onClose, onPrepare }) {
     };
     measure();
     const watched = document.querySelector(step.target);
-    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    // Re-measure on the next frame, not inside the observer's callback (that would be a
+    // "ResizeObserver loop" — scrollIntoView and the outline change the layout it watches).
+    let frame = 0;
+    const later = () => {
+      if (frame) return;
+      if (typeof requestAnimationFrame !== 'function') { measure(); return; }
+      frame = requestAnimationFrame(() => { frame = 0; measure(); });
+    };
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(later) : null;
     if (observer) {
       if (watched) observer.observe(watched);
       observer.observe(document.documentElement);
     }
     window.addEventListener('resize', measure);
-    return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
+    return () => {
+      observer?.disconnect();
+      if (frame && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame);
+      window.removeEventListener('resize', measure);
+    };
   }, [step]);
 
   useEffect(() => {

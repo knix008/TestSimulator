@@ -1,7 +1,7 @@
 // Start page opened from the Home button on the menu bar.
-// A moving WebGL world behind a board of translucent cards that can be moved (the handle) and
-// resized (the corner; a double click fits it again): the title card, ways to begin, recent
-// folders, tasks and the background. lib/startboard.js places the cards and the
+// A moving WebGL world behind a fixed title card (name, one line, guide / about / tutorial) and a
+// board of translucent cards that can be moved (the handle) and resized (the corner; a double
+// click fits it again): ways to begin, recent folders, tasks and the background. lib/startboard.js places the cards and the
 // arrangement is kept in the session (startLayout).
 import React, { useEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
@@ -137,7 +137,7 @@ function StartCanvas({ scene, transparency, motion }) {
 }
 
 // Scene buttons, transparency, overall speed and (on the start page) card opacity. Shared by the start page and Settings.
-export function StartBackgroundControls({ scene, transparency, motion, cardOpacity, showAtLaunch = true, launch = true, onChange }) {
+export function StartBackgroundControls({ scene, transparency, motion, cardOpacity, showAtLaunch = true, tutorialPrompt = true, launch = true, onChange }) {
   useLanguage();
   const current = startSceneId(scene);
   const fade = clamp(transparency, 0, 100, 0);
@@ -148,6 +148,12 @@ export function StartBackgroundControls({ scene, transparency, motion, cardOpaci
         <label className="check start-launch">
           <input type="checkbox" checked={showAtLaunch !== false} onChange={(e) => onChange({ startAtLaunch: e.target.checked })} />
           <span>{t('start_at_launch')}</span>
+        </label>
+      )}
+      {launch && (
+        <label className="check start-launch start-tut-prompt">
+          <input type="checkbox" checked={tutorialPrompt !== false} onChange={(e) => onChange({ tutorialPrompt: e.target.checked })} />
+          <span>{t('start_tutorial_prompt')}</span>
         </label>
       )}
       <div className="start-scenes" role="group" aria-label={t('start_background')}>
@@ -220,8 +226,9 @@ export function StartPage({
             <button type="button" className="start-btn" title={t('settings')} onClick={() => onRun('settings')}><Icon name="settings" size={15} /><span>{t('settings')}</span></button>
             <button type="button" className="start-btn" title={t('start_arrange_tip')} onClick={() => board.current?.arrange()}><Icon name="grid" size={15} /><span>{t('start_arrange')}</span></button>
           </div>
-          <div className="start-board" ref={boardRef}>
-            <Card id="hero" bare className="start-head" title={name}>
+          {/* The title card is fixed: always on top, full width, no move handle and no resize corner. */}
+          <section className="start-card start-card-hero start-head bare fixed-card" aria-label={name}>
+            <div className="card-body">
               <img src="./icon.svg" alt="" className="start-logo" width={64} height={64} draggable={false} />
               <div className="start-hero-text">
                 <h1>{name}</h1>
@@ -232,7 +239,9 @@ export function StartPage({
                 <button type="button" className="start-big" title={t('start_about_text')} onClick={() => onRun('about')}><Icon name="info" size={16} /><span>{t('about')}</span></button>
                 <button type="button" className="start-big primary" title={t('start_tutorial_text')} onClick={() => onRun('tutorial')}><Icon name="play" size={16} /><span>{t('start_tutorial')}</span></button>
               </div>
-            </Card>
+            </div>
+          </section>
+          <div className="start-board" ref={boardRef}>
             <Card id="begin" icon="play" title={t('start_begin')} group="begin">
               <div className="start-actions">
                 {BEGIN.map(([id, icon, title, text, primary]) => (

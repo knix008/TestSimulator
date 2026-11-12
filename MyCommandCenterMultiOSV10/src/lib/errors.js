@@ -14,3 +14,9 @@ export function describeError(err, extra) {
   if (err.stack) lines.push('', err.stack);
   return { message: err.message || String(err), detail: lines.join('\n').trim() };
 }
+
+// The browser's "ResizeObserver loop …" notice: harmless (the remaining notifications come
+// on the next frame), sent as an error event without an error object. Never shown as an error.
+export function isResizeObserverNotice(message) {
+  return /^(?:Uncaught )?(?:Error: )?ResizeObserver loop (?:completed with undelivered notifications|limit exceeded)/i.test(String(message || ''));
+}

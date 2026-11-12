@@ -3,7 +3,8 @@
 // resizes it, a double click on the corner fits it again. The arrangement goes to the settings.
 import { autoArrange, cardsOf, COLS, GAP, layoutValue, compact, place, ROW, rowsFor } from './startlayout.js';
 
-export const START_CARD_SPAN = { hero: 3, begin: 2, recent: 1, tasks: 3, scenes: 3 };
+// The title card (hero) is not on the board: it stays on top and cannot be moved or resized.
+export const START_CARD_SPAN = { begin: 2, recent: 1, tasks: 3, scenes: 3 };
 
 /** Starts the board in `host` (a .start-board). onSave(saved layout). Returns { arrange, destroy }. */
 export function startBoard(host, { saved, onSave, reduced = false }) {
@@ -192,7 +193,17 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
   };
   host.addEventListener('pointerdown', onPointerDown);
   host.addEventListener('dblclick', onDoubleClick);
-  const observer = globalThis.ResizeObserver ? new ResizeObserver(() => measure()) : null;
+  // Measuring changes card heights, which the observer sees again. Doing it inside the
+  // observer's callback makes the browser report "ResizeObserver loop completed with
+  // undelivered notifications"; measuring on the next frame (once per frame) does not.
+  let frame = 0;
+  const later = () => {
+    if (frame) return;
+    const raf = globalThis.requestAnimationFrame;
+    if (typeof raf !== 'function') { measure(); return; }
+    frame = raf(() => { frame = 0; measure(); });
+  };
+  const observer = globalThis.ResizeObserver ? new ResizeObserver(later) : null;
   if (observer) { for (const id of ids) observer.observe(cardEl(id)); observer.observe(host); }
 
   paint();
@@ -203,6 +214,8 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
     arrange() { save(autoArrange(ids, START_CARD_SPAN, measured)); },
     destroy() {
       observer?.disconnect();
+      if (frame) globalThis.cancelAnimationFrame?.(frame);
+      frame = 0;
       host.removeEventListener('pointerdown', onPointerDown);
       host.removeEventListener('dblclick', onDoubleClick);
     },

@@ -351,3 +351,120 @@ test('the written tutorial describes the launch checkbox', () => {
   assert.match(doc, /시작 시 홈 보여주기/);
   assert.match(doc, /시작 화면 탭/);
 });
+
+test('the title card is fixed: no move handle, no resize corner, not on the card board', async () => {
+  setLanguage('ko');
+  const { START_CARD_SPAN } = await import('../src/lib/startboard.js');
+  assert.equal('hero' in START_CARD_SPAN, false);
+  const log = { patches: [], run: null, recent: null };
+  const page = await mount(React.createElement(LiveStart, { log }));
+  try {
+    const hero = page.host.querySelector('.start-head');
+    assert.ok(hero, 'the title card is shown');
+    assert.match(hero.textContent, /Command Center|커맨드|Center/i);
+    assert.equal(hero.querySelector('.card-handle, [data-card-handle], .card-resize, [data-card-resize]'), null);
+    assert.equal(hero.hasAttribute('data-card'), false);
+    assert.equal(hero.closest('.start-board'), null);
+    // The other cards still move and resize.
+    for (const id of Object.keys(START_CARD_SPAN)) {
+      const card = page.host.querySelector(`.start-board > [data-card="${id}"]`);
+      assert.ok(card, id);
+      assert.ok(card.querySelector(`[data-card-handle="${id}"]`), `${id} handle`);
+      assert.ok(card.querySelector(`[data-card-resize="${id}"]`), `${id} corner`);
+    }
+    await page.click(buttonNamed(hero, '튜토리얼'));
+    assert.equal(log.run, 'tutorial');
+  } finally {
+    await page.unmount();
+  }
+});
+
+test('the tutorial popup at startup is on by default and has a "show next time" box', async () => {
+  const { showTutorialPrompt } = await import('../src/lib/settings.js');
+  const { TutorialPrompt } = await import('../src/components/TutorialPrompt.jsx');
+  assert.equal(SETTINGS_DEFAULTS.tutorialPrompt, true);
+  assert.ok(SETTINGS_KEYS.includes('tutorialPrompt'));
+  assert.equal(showTutorialPrompt(null), true);
+  assert.equal(showTutorialPrompt({}), true);
+  assert.equal(showTutorialPrompt({ tutorialPrompt: false }), false);
+
+  setLanguage('ko');
+  const log = { next: [], run: 0, closed: 0 };
+  function Live() {
+    const [on, setOn] = React.useState(true);
+    return React.createElement(TutorialPrompt, {
+      showNext: on,
+      onShowNext(v) { log.next.push(v); setOn(v); },
+      onRun() { log.run += 1; },
+      onClose() { log.closed += 1; },
+    });
+  }
+  const popup = await mount(React.createElement(Live));
+  try {
+    const dlg = popup.host.querySelector('[role="dialog"]');
+    assert.ok(dlg);
+    assert.match(dlg.textContent, /튜토리얼/);
+    const box = popup.host.querySelector('.tut-prompt-again input');
+    assert.equal(box.checked, true);
+    assert.match(box.closest('label').textContent, /다음에도 이 창 보여주기/);
+    await popup.click(box);
+    assert.deepEqual(log.next, [false]);
+    assert.equal(box.checked, false);
+    await popup.click(buttonNamed(popup.host, '튜토리얼 실행'));
+    assert.equal(log.run, 1);
+    await popup.click(buttonNamed(popup.host, '나중에'));
+    assert.equal(log.closed, 1);
+  } finally {
+    await popup.unmount();
+  }
+});
+
+test('the settings start-screen tab turns the tutorial popup on and off', async () => {
+  setLanguage('ko');
+  const seen = [];
+  const dialog = await mount(React.createElement(SettingsDialog, {
+    spec: {
+      values: { ...SETTINGS_DEFAULTS, tutorialPrompt: false },
+      shells: [],
+      recent: [],
+      onRecent() {},
+      onChange(v) { seen.push(v.tutorialPrompt); },
+    },
+    done() {},
+  }));
+  try {
+    await dialog.click(buttonNamed(dialog.host, '시작 화면'));
+    const box = dialog.host.querySelector('.start-tut-prompt input');
+    assert.ok(box, 'the checkbox is on the start-screen tab');
+    assert.match(box.closest('label').textContent, /튜토리얼 실행 팝업창/);
+    assert.equal(box.checked, false);
+    await dialog.click(box);
+    assert.equal(box.checked, true);
+    assert.equal(seen.at(-1), true);
+  } finally {
+    await dialog.unmount();
+  }
+});
+
+test('the app shows the popup only over the start screen and drops it when the file panels come back', () => {
+  const app = fs.readFileSync(path.join(rootDir, 'src/App.jsx'), 'utf8');
+  assert.match(app, /if \(!startOpen\) setTutPrompt\(false\)/);
+  assert.match(app, /tutPrompt && startOpen && !tutorial/);
+  assert.match(app, /showStartAtLaunch\(s\) && showTutorialPrompt\(s\)\) setTutPrompt\(true\)/);
+});
+
+test('the harmless "ResizeObserver loop" notice never opens the error dialog', async () => {
+  const { isResizeObserverNotice } = await import('../src/lib/errors.js');
+  assert.equal(isResizeObserverNotice('ResizeObserver loop completed with undelivered notifications.'), true);
+  assert.equal(isResizeObserverNotice('Uncaught ResizeObserver loop limit exceeded'), true);
+  assert.equal(isResizeObserverNotice('ResizeObserver is not defined'), false);
+  assert.equal(isResizeObserverNotice(''), false);
+  assert.equal(isResizeObserverNotice(undefined), false);
+  const app = fs.readFileSync(path.join(rootDir, 'src/App.jsx'), 'utf8');
+  assert.match(app, /isResizeObserverNotice\(e\.message\)/);
+  // The board and the tutorial outline measure on the next frame, not inside the observer.
+  const board = fs.readFileSync(path.join(rootDir, 'src/lib/startboard.js'), 'utf8');
+  assert.match(board, /new ResizeObserver\(later\)/);
+  const tour = fs.readFileSync(path.join(rootDir, 'src/components/Tutorial.jsx'), 'utf8');
+  assert.match(tour, /new ResizeObserver\(later\)/);
+});

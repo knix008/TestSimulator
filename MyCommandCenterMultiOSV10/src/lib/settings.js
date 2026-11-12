@@ -53,6 +53,7 @@ export const SETTINGS_DEFAULTS = {
   startTransparency: 0,   // 0 = the landscape is solid, 100 = only the theme colour shows
   startMotion: 20,        // 0 = still, 20 = the default drift, 100 = fastest
   startCardOpacity: 80,   // how solid the start page's cards are (20–100 %)
+  tutorialPrompt: true,   // ask "run the tutorial?" when the program starts (the popup's own "show next time" box)
 };
 
 // Keys the Settings dialog edits (everything else in the session — paths, bounds, hotlist — is left alone).
@@ -61,6 +62,11 @@ export const SETTINGS_KEYS = Object.keys(SETTINGS_DEFAULTS);
 // A missing value shows the start screen, the same as the default. Only an explicit false skips it.
 export function showStartAtLaunch(session) {
   return !session || session.startAtLaunch !== false;
+}
+
+// The same for the tutorial popup at startup: shown unless it was explicitly turned off.
+export function showTutorialPrompt(session) {
+  return !session || session.tutorialPrompt !== false;
 }
 
 // Extension → is it a "text file" under the current setting?

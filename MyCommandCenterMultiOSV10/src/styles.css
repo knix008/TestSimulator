@@ -162,8 +162,14 @@ button:disabled { cursor: default; opacity: 0.45; }
 .card-resize svg { display: block; width: 14px; height: 14px; margin: 2px 0 0 2px; fill: currentColor; stroke: none; }
 .card-resize:hover { color: var(--accent); }
 
-/* The title card: icon, name, one line, the guide / about / tutorial buttons. */
+/* The title card: icon, name, one line, the guide / about / tutorial buttons. Fixed above the
+   board (no handle, no resize corner), so it needs no room on the left for a handle. */
 .start-card.bare { justify-content: center; padding: 14px 20px 14px 30px; border-radius: 16px; }
+.start-card.bare.fixed-card { flex: none; padding-left: 20px; }
+/* The "run the tutorial?" popup at startup: the "show next time" box sits left in the footer. */
+.tutorial-prompt .dlg-body p { margin: 0; line-height: 1.6; }
+.tut-prompt-again { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg-muted); cursor: pointer; }
+.tut-prompt-again input { margin: 0; accent-color: var(--accent); }
 .start-card-hero > .card-body { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; row-gap: 12px; }
 .start-logo { width: 64px; height: 64px; flex: none; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.3)); }
 .start-hero-text { flex: 1 1 260px; min-width: 0; }
