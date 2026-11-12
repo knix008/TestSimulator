@@ -2,6 +2,7 @@
 /* Project: LegacyMeter - LVGL 8.4.0 */
 #include "ui.h"
 #include "ui_events.h"
+#include "glue.h"
 
 lv_obj_t * ui_Gauges;
 lv_obj_t * ui_meter1;
@@ -13,6 +14,7 @@ lv_obj_t * ui_label2;
 
 void ui_init(void)
 {
+    glue_init();
     lv_disp_t * display = lv_disp_get_default();
     lv_theme_t * theme = lv_theme_default_init(display, lv_color_hex(0x2196f3), lv_color_hex(0xf44336), false, LV_FONT_DEFAULT);
     lv_disp_set_theme(display, theme);

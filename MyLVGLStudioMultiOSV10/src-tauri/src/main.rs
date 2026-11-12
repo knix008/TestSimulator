@@ -124,6 +124,119 @@ fn read_text(path: String) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| e.to_string())
 }
 
+/// The application code of a project folder (src/app, with its subfolders): source files only,
+/// keyed by their path inside the project ("src/app/app.c"). Missing folder: an empty map.
+/// The studio reads it to warn when the logic uses ViewModel names the design no longer has.
+#[tauri::command(async)]
+fn read_app_code(dir: String) -> BTreeMap<String, String> {
+    const MAX_FILE: u64 = 1 << 20;
+    const MAX_FILES: usize = 500;
+    fn visit(folder: &Path, relative: &str, files: &mut BTreeMap<String, String>) {
+        let Ok(entries) = std::fs::read_dir(folder) else { return };
+        let mut entries: Vec<_> = entries.flatten().collect();
+        entries.sort_by_key(|entry| entry.file_name());
+        for entry in entries {
+            if files.len() >= MAX_FILES {
+                return;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            let path = entry.path();
+            let inside = format!("{relative}/{name}");
+            if path.is_dir() {
+                visit(&path, &inside, files);
+                continue;
+            }
+            let source = ["c", "h", "cpp", "hpp", "cc", "cxx", "hh"].iter().any(|ext| name.to_lowercase().ends_with(&format!(".{ext}")));
+            let small = entry.metadata().map(|meta| meta.len() <= MAX_FILE).unwrap_or(false);
+            if source && small {
+                if let Ok(text) = std::fs::read_to_string(&path) {
+                    files.insert(inside, text);
+                }
+            }
+        }
+    }
+    let mut files = BTreeMap::new();
+    visit(&PathBuf::from(dir).join("src").join("app"), "src/app", &mut files);
+    files
+}
+
+/// A path of the application code: inside src/app of the project, and nowhere else.
+fn app_path(dir: &str, path: &str) -> Result<PathBuf, String> {
+    if !path.starts_with("src/app/") {
+        return Err(format!("not application code: {path}"));
+    }
+    Ok(PathBuf::from(dir).join(safe_relative(path)?))
+}
+
+/// Saves one file of the application code (the code editor saves by itself, as you type).
+#[tauri::command(async)]
+fn app_file_write(dir: String, path: String, text: String) -> Result<(), String> {
+    let file = app_path(&dir, &path)?;
+    if let Some(parent) = file.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&file, text).map_err(|e| e.to_string())
+}
+
+#[tauri::command(async)]
+fn app_file_delete(dir: String, path: String) -> Result<(), String> {
+    std::fs::remove_file(app_path(&dir, &path)?).map_err(|e| e.to_string())
+}
+
+/// Renames a file of the application code; an existing file of the new name is never replaced.
+#[tauri::command(async)]
+fn app_file_rename(dir: String, from: String, to: String) -> Result<(), String> {
+    let source = app_path(&dir, &from)?;
+    let target = app_path(&dir, &to)?;
+    if target.exists() {
+        return Err(format!("already exists: {to}"));
+    }
+    if let Some(parent) = target.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::rename(source, target).map_err(|e| e.to_string())
+}
+
+/// Gives a project folder the starter application code, where it has none.
+#[tauri::command(async)]
+fn app_files_init(dir: String, files: BTreeMap<String, String>) -> Result<(), String> {
+    let root = PathBuf::from(&dir);
+    for name in files.keys() {
+        app_path(&dir, name)?;
+    }
+    write_missing(&root, &files)
+}
+
+/// A folder of its own for the application code of a project that has no folder yet. It starts
+/// as a copy of `from`'s src/app (a sample's), and goes along when the project is first saved.
+/// Folders of earlier sessions that were never saved are cleared after a week.
+#[tauri::command(async)]
+fn app_draft(from: Option<String>) -> Result<String, String> {
+    let drafts = data_dir().join("drafts");
+    if let Ok(entries) = std::fs::read_dir(&drafts) {
+        let week = std::time::Duration::from_secs(7 * 24 * 3600);
+        for entry in entries.flatten() {
+            let old = entry.metadata().and_then(|meta| meta.modified()).map(|time| time.elapsed().unwrap_or_default() > week).unwrap_or(false);
+            if old {
+                let _ = std::fs::remove_dir_all(entry.path());
+            }
+        }
+    }
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|time| time.as_millis()).unwrap_or(0);
+    let mut dir = drafts.join(format!("project-{stamp}"));
+    for n in 1.. {
+        if !dir.exists() {
+            break;
+        }
+        dir = drafts.join(format!("project-{stamp}-{n}"));
+    }
+    std::fs::create_dir_all(dir.join("src").join("app")).map_err(|e| e.to_string())?;
+    if let Some(from) = from {
+        copy_dir(&PathBuf::from(from).join("src").join("app"), &dir.join("src").join("app"))?;
+    }
+    Ok(dir.to_string_lossy().to_string())
+}
+
 /// A generated path, checked: relative, with "/" separators, and staying inside its folder.
 pub fn safe_relative(name: &str) -> Result<PathBuf, String> {
     let bad = name.is_empty()
@@ -186,19 +299,60 @@ fn dir_state(dir: String) -> String {
     .to_string()
 }
 
-/// Saves a project folder. In `generated_dirs`, which hold only generated code, C files that
-/// are no longer part of the project (a removed screen) are deleted.
+/// Copies a folder with everything in it; a folder that does not exist copies nothing.
+pub fn copy_dir(from: &Path, to: &Path) -> Result<(), String> {
+    let Ok(entries) = std::fs::read_dir(from) else { return Ok(()) };
+    std::fs::create_dir_all(to).map_err(|e| e.to_string())?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let target = to.join(entry.file_name());
+        if path.is_dir() {
+            copy_dir(&path, &target)?;
+        } else {
+            std::fs::copy(&path, &target).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+/// Writes only the files that do not exist yet: what is there belongs to the user.
+pub fn write_missing(root: &Path, files: &BTreeMap<String, String>) -> Result<(), String> {
+    for (name, text) in files {
+        let path = root.join(safe_relative(name)?);
+        if path.exists() {
+            continue;
+        }
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        std::fs::write(&path, text).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Saves a project folder. In `generated_dirs`, which hold only generated code, C files and
+/// headers that are no longer part of the project (a removed screen) are deleted.
+/// `user_files` are the application's own code (src/app): written once, when they are missing,
+/// and never again, so the logic survives every change of the design.
 #[tauri::command]
-fn write_project(dir: String, files: BTreeMap<String, String>, binaries: BTreeMap<String, String>, generated_dirs: Vec<String>) -> Result<(), String> {
+fn write_project(dir: String, files: BTreeMap<String, String>, binaries: BTreeMap<String, String>, generated_dirs: Vec<String>, user_files: Option<BTreeMap<String, String>>, app_from: Option<String>) -> Result<(), String> {
     let root = PathBuf::from(dir);
     write_tree(&root, &files)?;
     write_binaries(&root, &binaries)?;
+    // Save As: the application code of the folder the project came from comes along.
+    if let Some(from) = app_from {
+        let target = root.join("src").join("app");
+        if !target.exists() {
+            copy_dir(&PathBuf::from(from).join("src").join("app"), &target)?;
+        }
+    }
+    write_missing(&root, &user_files.unwrap_or_default())?;
     for generated in generated_dirs {
         let folder = root.join(safe_relative(&generated)?);
         let Ok(entries) = std::fs::read_dir(&folder) else { continue };
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
-            if entry.path().is_file() && name.ends_with(".c") && !files.contains_key(&format!("{generated}/{name}")) {
+            if entry.path().is_file() && (name.ends_with(".c") || name.ends_with(".h")) && !files.contains_key(&format!("{generated}/{name}")) {
                 std::fs::remove_file(entry.path()).map_err(|e| e.to_string())?;
             }
         }
@@ -421,6 +575,12 @@ fn main() {
             startup_file,
             read_base64,
             read_text,
+            read_app_code,
+            app_file_write,
+            app_file_delete,
+            app_file_rename,
+            app_files_init,
+            app_draft,
             dir_state,
             write_project,
             window_ready,

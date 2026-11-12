@@ -2,6 +2,7 @@
 /* Project: FactoryPanel - LVGL 9.6.0 */
 #include "ui.h"
 #include "ui_events.h"
+#include "glue.h"
 
 lv_obj_t * ui_Panel;
 lv_obj_t * ui_grid1;
@@ -25,6 +26,7 @@ lv_obj_t * ui_button1_label;
 
 void ui_init(void)
 {
+    glue_init();
     lv_display_t * display = lv_display_get_default();
     lv_theme_t * theme = lv_theme_default_init(display, lv_color_hex(0x2196f3), lv_color_hex(0xf44336), false, LV_FONT_DEFAULT);
     lv_display_set_theme(display, theme);

@@ -2,6 +2,7 @@
 /* Project: Greenhouse - LVGL 9.6.0 */
 #include "ui.h"
 #include "ui_events.h"
+#include "glue.h"
 
 lv_obj_t * ui_Climate;
 lv_obj_t * ui_label1;
@@ -29,6 +30,7 @@ lv_obj_t * ui_switch3;
 
 void ui_init(void)
 {
+    glue_init();
     lv_display_t * display = lv_display_get_default();
     lv_theme_t * theme = lv_theme_default_init(display, lv_color_hex(0x2e7d32), lv_color_hex(0xf9a825), false, LV_FONT_DEFAULT);
     lv_display_set_theme(display, theme);

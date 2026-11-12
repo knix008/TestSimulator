@@ -6,7 +6,8 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { addNode, addScreen, createNode, newProject } from "../src/lvgl/project.js";
-import { projectFiles } from "../src/lvgl/codegen.js";
+import { projectFiles, starterFiles } from "../src/lvgl/codegen.js";
+import { MOTOR_APP, motorControl } from "./sample-motor.mjs";
 import { addImage, clearImages, imageFiles } from "../src/lvgl/images.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -636,7 +637,11 @@ export const SAMPLES = [
   { id: "Typography", icon: "span", build: typography, ko: ["글자와 그림", "Spangroup, Canvas, Line, 글꼴 크기"], en: ["Text and Drawing", "Spangroup, Canvas, Line, font sizes"] },
   { id: "ModernScale", icon: "scale", build: modernScale, ko: ["LVGL 9 계기판", "Scale, Barcode, QR Code, Arc Label"], en: ["LVGL 9 Instruments", "Scale, Barcode, QR Code, Arc Label"] },
   { id: "LegacyMeter", icon: "meter", build: legacyMeter, ko: ["LVGL 8 계기판", "Meter, Color Wheel (LVGL 8.4)"], en: ["LVGL 8 Gauges", "Meter, Color Wheel (LVGL 8.4)"] },
+  { id: "MotorControl", icon: "viewModel", build: motorControl, app: MOTOR_APP, ko: ["모터 제어 (MVVM)", "화면과 로직 분리: 뷰모델 바인딩, src/app의 로직과 단위 시험"], en: ["Motor Control (MVVM)", "Screens apart from logic: ViewModel bindings, logic and a unit test in src/app"] },
 ];
+
+/** Every file of a sample's folder: the project, its generated code, and its application code. */
+export const sampleFiles = (sample, project) => ({ ...projectFiles(project, sample.id), ...(sample.app ?? starterFiles(project)) });
 
 function main() {
   fs.rmSync(out, { recursive: true, force: true });
@@ -645,7 +650,7 @@ function main() {
     clearImages();
     const project = sample.build();
     const folder = path.join(out, sample.id);
-    for (const [name, text] of Object.entries(projectFiles(project, sample.id))) {
+    for (const [name, text] of Object.entries(sampleFiles(sample, project))) {
       const file = path.join(folder, name);
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, text);

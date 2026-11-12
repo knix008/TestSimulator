@@ -16,6 +16,7 @@
     "icons": "node scripts/generate-icons.mjs",
     "samples": "node scripts/generate-samples.mjs",
     "conf-templates": "node scripts/generate-conf-templates.mjs",
+    "mvvm-source": "node scripts/generate-mvvm-source.mjs",
     "tauri": "node node_modules/@tauri-apps/cli/tauri.js",
     "build:win": "node node_modules/@tauri-apps/cli/tauri.js build --bundles nsis && node scripts/copy-installer.mjs",
     "build:mac": "node node_modules/@tauri-apps/cli/tauri.js build --bundles dmg && node scripts/copy-installer.mjs",

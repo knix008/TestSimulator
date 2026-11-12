@@ -1,8 +1,9 @@
 // Turns a project into a flat list of operations. The engine replays them to draw the
 // design surface; the generator prints them as C. Having one list is what keeps the
 // design surface and the generated code from drifting apart.
-import { ALIGNS, CHART_TYPES, FLEX_FLOWS, FONT_SIZES, SCALE_MODES, TRIGGERS, WIDGETS, availableIn } from "./schema.js";
+import { ALIGNS, BIND_ATTRS, BIND_MODES, CHART_TYPES, CONVERTERS, FLEX_FLOWS, FONT_SIZES, SCALE_MODES, TRIGGERS, VM_TYPES, WIDGETS, availableIn, bindableKeys } from "./schema.js";
 import { sanitizeName, walk } from "./project.js";
+import { bindViewRange, modeOf, resolveBinding, viewModels } from "./viewmodel.js";
 
 /** The size of a project font on a widget that names no size. */
 export const DEFAULT_FONT_SIZE = 16;
@@ -73,6 +74,8 @@ function propOps(node) {
  *   { op: "link", id, target }               a keyboard's text area, after all objects exist
  *   { op: "font", id, name, size }           a font of the project: its name and size
  *   { op: "event", id, trigger, action, target, text }
+ *   { op: "vmprop", index, vm, name, type, value, min, max }   a ViewModel property, first of all
+ *   { op: "bind", id, key, attr, index, mode, conv, viewMin, viewMax, format }   after the links
  * `ids` maps a node's string id to the small integer the engine uses.
  */
 export function emit(project) {
@@ -80,6 +83,17 @@ export function emit(project) {
   walk(project, (node) => ids.set(node.id, ids.size));
   const ops = [];
   const created = new Set();
+  // ViewModel properties come first: bindings name them by their index.
+  const vmIndex = new Map();
+  for (const vm of viewModels(project)) {
+    for (const prop of vm.props) {
+      const index = vmIndex.size;
+      vmIndex.set(prop, index);
+      const value = prop.type === "string" ? String(prop.value ?? "") : prop.type === "bool" ? (prop.value ? 1 : 0) : Math.trunc(Number(prop.value) || 0);
+      const ranged = prop.type === "int" && Number.isInteger(prop.min) && Number.isInteger(prop.max);
+      ops.push({ op: "vmprop", index, vm: vm.name, name: prop.name, type: prop.type, typeId: VM_TYPES.indexOf(prop.type), value, min: ranged ? prop.min : 0, max: ranged ? prop.max : 0 });
+    }
+  }
   const imageIndex = (name) => (project.images ?? []).findIndex((image) => image.name === name);
   walk(project, (node, parent) => {
     // A widget this LVGL version does not have stays in the document, for when it changes back.
@@ -151,6 +165,31 @@ export function emit(project) {
   walk(project, (node) => {
     if (node.type === "keyboard" && created.has(node.id) && created.has(node.props.target)) ops.push({ op: "link", id: ids.get(node.id), target: ids.get(node.props.target) });
   });
+  // Bindings, once every object exists.
+  walk(project, (node) => {
+    if (!created.has(node.id)) return;
+    for (const binding of node.bindings ?? []) {
+      if (!bindableKeys(node.type).includes(binding.prop)) continue;
+      const found = resolveBinding(project, node, binding);
+      if (!found) continue;
+      const conv = CONVERTERS[binding.converter ?? "none"] ?? 0;
+      const [viewMin, viewMax] = conv & CONVERTERS.range ? bindViewRange(node, binding.prop) : [0, 0];
+      ops.push({
+        op: "bind",
+        id: ids.get(node.id),
+        key: binding.prop,
+        attr: BIND_ATTRS[bindAttrOf(binding.prop)],
+        index: vmIndex.get(found.prop),
+        vm: found.vm.name,
+        path: found.prop.name,
+        mode: BIND_MODES.indexOf(modeOf(node, binding)),
+        conv,
+        viewMin,
+        viewMax,
+        format: binding.prop === "text" && binding.format ? String(binding.format) : null,
+      });
+    }
+  });
   // Events last: an action may point at an object created after its source.
   walk(project, (node) => {
     for (const event of node.events) {
@@ -169,6 +208,8 @@ export function emit(project) {
   });
   return { ops, ids };
 }
+
+const bindAttrOf = (key) => (["text", "checked", "hidden", "disabled"].includes(key) ? key : "value");
 
 /**
  * Object names in generated C: ui_<name>, unique even after sanitising. Names that differ

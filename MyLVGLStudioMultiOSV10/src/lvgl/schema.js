@@ -248,3 +248,48 @@ export const DEVICES = [
   { id: "circle466", w: 466, h: 466, shape: "round" },
   { id: "circle480", w: 480, h: 480, shape: "round" },
 ];
+
+/* ------------------------------------------------------------ data binding (MVVM) */
+// The numbers mirror engine/mvvm/mvvm.h and mvvm_lvgl.h, which the engine and the generated
+// code share.
+
+/** ViewModel property types, in the order of mv_type_t. */
+export const VM_TYPES = ["int", "bool", "string"];
+/** Binding modes, in the order of mv_mode_t. "default" picks one from the widget. */
+export const BIND_MODES = ["oneWay", "twoWay", "oneWayToSource", "oneTime"];
+/** Converters: the mv_conv flags they set. */
+export const CONVERTERS = { none: 0, invert: 1, range: 2 };
+/** The widget attributes of mv_attr_t. */
+export const BIND_ATTRS = { value: 0, text: 1, checked: 2, hidden: 3, disabled: 4 };
+
+/** The property of each widget type that holds its value, as the inspector names it. */
+const VALUE_KEYS = { slider: "value", bar: "value", arc: "value", spinbox: "value", dropdown: "selected", roller: "selected", led: "ledBright", image: "rotation" };
+const CHECK_KEYS = new Set(["switch", "checkbox"]);
+const TEXT_KEYS = new Set(["label", "button", "checkbox", "textarea", "arclabel"]);
+/** What a user changes on these, a two-way binding passes back. */
+const INPUT_KEYS = new Set(["slider:value", "arc:value", "spinbox:value", "dropdown:selected", "roller:selected", "switch:checked", "checkbox:checked", "textarea:text"]);
+
+/** The inspector properties of a widget type that can be bound, in inspector order. */
+export function bindableKeys(type) {
+  if (type === "screen") return [];
+  const keys = [];
+  if (VALUE_KEYS[type]) keys.push(VALUE_KEYS[type]);
+  if (CHECK_KEYS.has(type)) keys.push("checked");
+  if (TEXT_KEYS.has(type)) keys.push("text");
+  keys.push("hidden", "disabled");
+  return keys;
+}
+
+/** The mv_attr_t name a bound inspector property is shown through. */
+export function bindAttr(key) {
+  if (key === "text" || key === "checked" || key === "hidden" || key === "disabled") return key;
+  return "value";
+}
+
+/** The mode "default" stands for: two-way where the user changes the widget. */
+export function defaultMode(type, key) {
+  return INPUT_KEYS.has(`${type}:${key}`) ? "twoWay" : "oneWay";
+}
+
+/** Can the user change this property of the widget, so a value can flow back? */
+export const isInputKey = (type, key) => INPUT_KEYS.has(`${type}:${key}`);

@@ -2,6 +2,7 @@
 /* Project: LightDimmer - LVGL 9.6.0 */
 #include "ui.h"
 #include "ui_events.h"
+#include "glue.h"
 
 lv_obj_t * ui_Lights;
 lv_obj_t * ui_label1;
@@ -19,6 +20,7 @@ lv_obj_t * ui_label6;
 
 void ui_init(void)
 {
+    glue_init();
     lv_display_t * display = lv_display_get_default();
     lv_theme_t * theme = lv_theme_default_init(display, lv_color_hex(0xffb300), lv_color_hex(0x42a5f5), true, LV_FONT_DEFAULT);
     lv_display_set_theme(display, theme);

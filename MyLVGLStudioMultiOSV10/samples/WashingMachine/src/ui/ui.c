@@ -2,6 +2,7 @@
 /* Project: WashingMachine - LVGL 9.6.0 */
 #include "ui.h"
 #include "ui_events.h"
+#include "glue.h"
 
 lv_obj_t * ui_Program;
 lv_obj_t * ui_roller1;
@@ -14,6 +15,7 @@ lv_obj_t * ui_bar1;
 
 void ui_init(void)
 {
+    glue_init();
     lv_display_t * display = lv_display_get_default();
     lv_theme_t * theme = lv_theme_default_init(display, lv_color_hex(0x0288d1), lv_color_hex(0xff7043), false, LV_FONT_DEFAULT);
     lv_display_set_theme(display, theme);

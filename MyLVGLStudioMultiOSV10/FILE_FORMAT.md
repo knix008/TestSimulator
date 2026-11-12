@@ -135,6 +135,54 @@ My LVGL Studio 프로젝트 파일 형식 1판입니다. UTF-8 JSON 텍스트이
 
 대상이 없는 이벤트와 알 수 없는 `trigger`는 코드에 포함하지 않습니다.
 
+## 뷰모델과 바인딩 (형식 2)
+
+뷰모델이 있는 프로젝트는 `formatVersion` 2로 저장됩니다. 없으면 1이므로 이전 버전의 앱도 읽을 수 있습니다.
+
+```json
+"viewModels": [
+  { "name": "Main", "props": [
+    { "name": "speed", "type": "int", "value": 1500, "min": 0, "max": 3000 },
+    { "name": "running", "type": "bool", "value": false },
+    { "name": "status", "type": "string", "value": "Ready" }
+  ] }
+]
+```
+
+| 항목 | 내용 |
+|---|---|
+| `viewModels[].name` | C 이름(영문자, 숫자, `_`, 키워드 제외). 대소문자를 무시해도 서로 달라야 합니다. 생성 파일은 `src/glue/vm_<소문자 이름>.c` |
+| `props[].name` | C 이름. 한 뷰모델 안에서 대소문자를 무시해도 달라야 합니다. |
+| `props[].type` | `int`, `bool`, `string` |
+| `props[].value` | 형식에 맞는 초깃값 |
+| `props[].min`, `max` | `int`만. 둘 다 있고 min < max이면 값이 이 범위로 제한되고 범위 환산에 쓰입니다. |
+
+`viewModelRenames`는 뷰모델(`"Main"`)과 속성(`"Main.speed"`)의 이름 바꾸기 기록입니다(오래된 것부터, 최근 100개). 로직(`src/app/`)이 옛 이름을 쓸 때 새 이름을 알려 주는 데만 쓰입니다.
+
+```json
+"viewModelRenames": [{ "from": "Main.speed", "to": "Main.rpm" }, { "from": "Main", "to": "Motor" }]
+```
+
+화면 노드의 `dataContext`는 그 화면의 바인딩이 기본으로 쓰는 뷰모델 이름입니다. 없거나 없는 이름이면 첫 뷰모델입니다.
+
+노드의 `bindings`는 속성마다 하나입니다.
+
+```json
+"bindings": [
+  { "prop": "value", "path": "speed", "converter": "range" },
+  { "prop": "text", "path": "status", "vm": "Other", "mode": "oneWay", "format": "%s" }
+]
+```
+
+| 항목 | 내용 |
+|---|---|
+| `prop` | 연결한 속성 키: `value`, `selected`, `checked`, `ledBright`, `rotation`, `text`, `hidden`, `disabled` (위젯마다 가능한 것만) |
+| `path` | 뷰모델 속성 이름 |
+| `vm` | 생략하면 화면의 데이터 컨텍스트 |
+| `mode` | `oneWay`, `twoWay`, `oneWayToSource`, `oneTime`. 생략하면 위젯이 정함(입력 위젯은 `twoWay`) |
+| `converter` | `range`(뷰모델 범위 → 위젯 범위), `invert`(참/거짓 반전). 생략하면 없음 |
+| `format` | `text`만. 첫 `%d` 또는 `%s`가 값, `%%`는 `%` |
+
 ## 읽기 규칙
 
 다음 경우에는 파일을 열지 않고 이유를 표시합니다.

@@ -9,6 +9,7 @@
  */
 #define LV_USE_PRIVATE_API 1 /* 9.6 keeps the image cache functions behind this. */
 #include "lvgl.h"
+#include "mvvm/mvvm_lvgl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -206,6 +207,101 @@ static void free_actions(void)
     }
 }
 
+/* ------------------------------------------------------------ view models */
+/* The ViewModel properties of the project, by index, and the bindings to them. The library is
+ * the one the generated code uses (engine/mvvm), so the surface binds the way the program does. */
+#define MAX_VM_PROPS 1024
+static mv_prop_t vm_props[MAX_VM_PROPS];
+static char * vm_names[MAX_VM_PROPS];
+static int vm_count;
+static int vm_changes;
+
+static void count_change(mv_prop_t * prop, void * user)
+{
+    LV_UNUSED(prop);
+    LV_UNUSED(user);
+    vm_changes++;
+}
+
+/* After the objects are gone: their bindings have already let go of the properties. */
+static void free_view_models(void)
+{
+    for(int i = 0; i < vm_count; i++) {
+        mv_prop_deinit(&vm_props[i]);
+        free(vm_names[i]);
+        vm_names[i] = NULL;
+    }
+    vm_count = 0;
+    vm_changes = 0;
+}
+
+static mv_prop_t * vm_prop(int index)
+{
+    return index >= 0 && index < vm_count ? &vm_props[index] : NULL;
+}
+
+/* Properties come in order: index is the number of those before it. */
+int ml_vm_prop(int index, int type, int value, int min, int max, const char * text, const char * name)
+{
+    if(index != vm_count || index >= MAX_VM_PROPS) return -1;
+    vm_names[index] = strdup(name ? name : "");
+    if(type == MV_STRING) mv_prop_init_string(&vm_props[index], vm_names[index], text);
+    else if(type == MV_BOOL) mv_prop_init_bool(&vm_props[index], vm_names[index], value != 0);
+    else mv_prop_init_int(&vm_props[index], vm_names[index], value, min, max);
+    mv_observe(&vm_props[index], count_change, NULL);
+    vm_count++;
+    return 0;
+}
+
+int ml_bind(int id, int index, int attr, int mode, int conv, int view_min, int view_max, const char * format)
+{
+    mv_prop_t * prop = vm_prop(index);
+    if(id < 0 || id >= MAX_OBJECTS || !objects[id] || !prop) return -1;
+    lv_obj_t * obj = objects[id];
+    /* A button's text is its inner label, which mv_bind finds by itself. */
+    mv_binding_desc_t desc = MV_BINDING_DEFAULT((mv_attr_t)attr);
+    desc.mode = (mv_mode_t)mode;
+    desc.conv = (uint8_t)conv;
+    desc.view_min = view_min;
+    desc.view_max = view_max;
+    desc.format = format && format[0] ? keep(strdup(format)) : NULL;
+    return mv_bind(obj, prop, &desc) ? 0 : -1;
+}
+
+int ml_vm_get_int(int index)
+{
+    mv_prop_t * prop = vm_prop(index);
+    return prop ? mv_get_int(prop) : 0;
+}
+
+const char * ml_vm_get_text(int index)
+{
+    mv_prop_t * prop = vm_prop(index);
+    return prop ? mv_get_string(prop) : "";
+}
+
+int ml_vm_set_int(int index, int value)
+{
+    mv_prop_t * prop = vm_prop(index);
+    if(!prop) return -1;
+    mv_set_int(prop, value);
+    return 0;
+}
+
+int ml_vm_set_text(int index, const char * text)
+{
+    mv_prop_t * prop = vm_prop(index);
+    if(!prop) return -1;
+    mv_set_string(prop, text);
+    return 0;
+}
+
+/* Grows with every change of any property: the variable panel reads again only then. */
+int ml_vm_changes(void)
+{
+    return vm_changes;
+}
+
 /* Removes every designed object; the display and its blank screen stay. */
 void ml_clear(void)
 {
@@ -227,6 +323,7 @@ void ml_clear(void)
     lv_img_cache_invalidate_src(NULL);
 #endif
     free_kept();
+    free_view_models();
     log_head = log_tail = 0;
     input_head = input_tail = 0;
     last_down = 0;

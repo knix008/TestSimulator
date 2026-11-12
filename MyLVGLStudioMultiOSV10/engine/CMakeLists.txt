@@ -3,12 +3,12 @@ cmake_minimum_required(VERSION 3.16)
 project(lvgl_engine C)
 
 file(GLOB_RECURSE LVGL_SOURCES CONFIGURE_DEPENDS "${LVGL_DIR}/src/*.c")
-add_executable(engine runtime.c ${LVGL_SOURCES})
+add_executable(engine runtime.c mvvm/mvvm.c mvvm/mvvm_lvgl.c ${LVGL_SOURCES})
 target_include_directories(engine PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${LVGL_DIR}")
 target_compile_definitions(engine PRIVATE LV_CONF_INCLUDE_SIMPLE)
 target_compile_options(engine PRIVATE -O2 -w)
 
-set(EXPORTS "_malloc,_free,_ml_get_value,_ml_font_load,_ml_default_font,_ml_setup,_ml_clear,_ml_theme,_ml_create,_ml_range,_ml_set_i,_ml_set_s,_ml_event,_ml_next_log,_ml_show,_ml_render,_ml_tick,_ml_pointer,_ml_framebuffer,_ml_coords,_ml_content_origin,_ml_version,_ml_image_load,_ml_link,_ml_date,_ml_digits,_ml_qr_size,_ml_canvas,_ml_grid,_ml_cell")
+set(EXPORTS "_malloc,_free,_ml_get_value,_ml_font_load,_ml_default_font,_ml_setup,_ml_clear,_ml_theme,_ml_create,_ml_range,_ml_set_i,_ml_set_s,_ml_event,_ml_next_log,_ml_show,_ml_render,_ml_tick,_ml_pointer,_ml_framebuffer,_ml_coords,_ml_content_origin,_ml_version,_ml_image_load,_ml_link,_ml_date,_ml_digits,_ml_qr_size,_ml_canvas,_ml_grid,_ml_cell,_ml_vm_prop,_ml_bind,_ml_vm_get_int,_ml_vm_get_text,_ml_vm_set_int,_ml_vm_set_text,_ml_vm_changes")
 target_link_options(engine PRIVATE
   -O2
   -sMODULARIZE=1

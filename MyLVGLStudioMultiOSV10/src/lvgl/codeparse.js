@@ -10,6 +10,7 @@ import { generateCode, SCREENS_DIR, UI_DIR } from "./codegen.js";
 import { cNames } from "./emit.js";
 import { removeNode, sanitizeName, walk } from "./project.js";
 import { overridesFromText, validConfName, validConfValue } from "./lvconf.js";
+import { BINDINGS_FILE, GlueError, applyBindings, applyViewModel, isGlueCode } from "./glueparse.js";
 
 const MAIN_FILE = "src/main.c";
 const UI_FILE = `${UI_DIR}/ui.c`;
@@ -19,7 +20,7 @@ const MAX_DEVICE = 4096;
 
 /** Files whose edits reach the design. Everything else is derived from them. */
 export function isEditableCode(file) {
-  return file === MAIN_FILE || file === UI_FILE || file === CONF_FILE || (file.startsWith(`${SCREENS_DIR}/`) && file.endsWith(".c"));
+  return file === MAIN_FILE || file === UI_FILE || file === CONF_FILE || (file.startsWith(`${SCREENS_DIR}/`) && file.endsWith(".c")) || isGlueCode(file);
 }
 
 class CodeError extends Error {
@@ -674,10 +675,14 @@ export function applyCodeEdit(project, file, text) {
     if (file === MAIN_FILE) applyMain(draft, normal);
     else if (file === UI_FILE) applyUi(draft, normal);
     else if (file === CONF_FILE) applyConf(draft, normal);
+    else if (file === BINDINGS_FILE) applyBindings(draft, normal);
+    else if (isGlueCode(file)) applyViewModel(draft, file, normal);
     else applyScreen(draft, file, normal, baseline);
     const generated = generateCode(draft, { imageData: false });
     let unused = [];
-    if (file === MAIN_FILE || file === UI_FILE || file === CONF_FILE) {
+    if (isGlueCode(file)) {
+      // Only the mv_bind and mv_prop_init statements are read; every other line follows from them.
+    } else if (file === MAIN_FILE || file === UI_FILE || file === CONF_FILE) {
       unused = unusedLines(normal, generated[file]);
     } else {
       // The proof: the design now prints what the edit says.
@@ -694,7 +699,7 @@ export function applyCodeEdit(project, file, text) {
     const changed = !same(draft, project);
     return { project: changed ? draft : project, changed, errors: [], unused };
   } catch (error) {
-    if (error instanceof CodeError) return { project, changed: false, errors: [{ code: error.code, line: error.line, params: error.params }], unused: [] };
+    if (error instanceof CodeError || error instanceof GlueError) return { project, changed: false, errors: [{ code: error.code, line: error.line, params: error.params }], unused: [] };
     throw error;
   }
 }

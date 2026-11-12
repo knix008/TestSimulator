@@ -3,15 +3,17 @@
 import { DEFAULT_VERSION, isSupported } from "./versions.js";
 import { CONTAINERS, DEVICES, WIDGETS } from "./schema.js";
 import { validConfName, validConfValue } from "./lvconf.js";
+import { checkMvvm, usesMvvm } from "./viewmodel.js";
 
 export const FORMAT = "mylvgl";
 export const FILE_EXTENSION = "mylvgl";
-export const FORMAT_VERSION = 1;
+/** Format 2 adds ViewModels and bindings; a project without them is still written as 1. */
+export const FORMAT_VERSION = 2;
 
 export function newProject(name = "Untitled") {
   return {
     format: FORMAT,
-    formatVersion: FORMAT_VERSION,
+    formatVersion: 1,
     name,
     lvgl: DEFAULT_VERSION,
     device: { w: DEVICES[0].w, h: DEVICES[0].h },
@@ -114,6 +116,7 @@ export function parseProject(text) {
   }
   const ids = new Set();
   for (const screen of data.screens) checkNode(screen, ids, true);
+  checkMvvm(data);
   // New ids must never collide, whatever nextId says.
   let highest = 0;
   for (const id of ids) highest = Math.max(highest, Number(/^n(\d+)$/.exec(id)?.[1] ?? 0));
@@ -121,7 +124,7 @@ export function parseProject(text) {
   return data;
 }
 
-export const serializeProject = (project) => `${JSON.stringify(project, null, 2)}\n`;
+export const serializeProject = (project) => `${JSON.stringify({ ...project, formatVersion: usesMvvm(project) ? 2 : 1 }, null, 2)}\n`;
 
 const RESERVED_NAMES = /^(con|prn|aux|nul|com\d|lpt\d)$/i;
 

@@ -33,7 +33,13 @@ export function RunWindow({ language }) {
     engine.width = 0;
     engine.load(project, project.screens[0].id, { events: true });
     engineRef.current = engine;
+    vmSeen.current = -1;
   }, []);
+  /** The ViewModel change count last sent to the main window's ViewModels tab. */
+  const vmSeen = useRef(-1);
+
+  // The main window's ViewModels tab sets a value as the application logic would.
+  useEffect(() => host.on("run-vm-set", ({ key, value }) => engineRef.current?.setVm(key, value)), []);
 
   useEffect(() => {
     start().catch((failure) => setError(String(failure?.message ?? failure))).finally(() => void host.ready());
@@ -67,6 +73,11 @@ export function RunWindow({ language }) {
         context.putImageData(image, 0, 0);
       }
       for (const line of engine.drainLog()) void host.emit("run-log", line);
+      const changes = engine.vmChanges();
+      if (changes !== vmSeen.current) {
+        vmSeen.current = changes;
+        void host.emit("run-vm", engine.vmValues());
+      }
     };
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);

@@ -32,5 +32,6 @@ My LVGL Studio의 샘플 프로젝트입니다. `npm run samples`로 생성합�
 | `Typography` | 글자와 그림: Spangroup, Canvas, Line, 글꼴 크기 | 9.6.0 |
 | `ModernScale` | LVGL 9 계기판: Scale, Barcode, QR Code, Arc Label | 9.6.0 |
 | `LegacyMeter` | LVGL 8 계기판: Meter, Color Wheel (LVGL 8.4) | 8.4.0 |
+| `MotorControl` | 모터 제어 (MVVM): 화면과 로직 분리: 뷰모델 바인딩, src/app의 로직과 단위 시험 | 9.6.0 |
 
 LVGL 소스는 들어 있지 않습니다. 설계와 실행 화면은 앱에 내장된 엔진으로 동작하고, 네이티브 실행이 필요할 때만 해당 버전을 내려받습니다.

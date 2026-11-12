@@ -50,8 +50,8 @@
 |---|---|---|---|
 | UI | `App.jsx`, `Surface.jsx`, `StartScreen.jsx`, `Preferences.jsx`, `panels.jsx`, `dialogs.jsx`, `controls.jsx`, `start/backgrounds.js` | 화면, 명령, 입력 처리 | 문서는 `store.update()`로만 변경 |
 | 상태 | `store.js`, `settings.js`, `themes.js` | 현재 문서와 Undo 기록, 앱 설정의 규칙과 검증, 테마 표 | 문서 변경은 복사본에 적용, 읽은 설정은 `sanitizeSettings()`를 거침 |
-| 문서 | `src/lvgl/project.js`, `schema.js`, `emit.js`, `codegen.js`, `versions.js` | 문서 규칙, 연산 목록, C 생성 | UI와 데스크톱 API에 의존하지 않으므로 Node 테스트에서 그대로 실행 |
-| 엔진 | `src/lvgl/engine.js`, `public/engine/`, `engine/runtime.c` | LVGL 구동, 프레임과 좌표 제공 | 문서를 직접 읽지 않고 연산만 재생 |
+| 문서 | `src/lvgl/project.js`, `schema.js`, `emit.js`, `codegen.js`, `gluegen.js`, `viewmodel.js`, `versions.js` | 문서 규칙, 뷰모델과 바인딩, 연산 목록, C 생성 | UI와 데스크톱 API에 의존하지 않으므로 Node 테스트에서 그대로 실행 |
+| 엔진 | `src/lvgl/engine.js`, `public/engine/`, `engine/runtime.c`, `engine/mvvm/` | LVGL 구동, 프레임과 좌표 제공, 바인딩 | 문서를 직접 읽지 않고 연산만 재생. 바인딩은 생성 코드와 같은 `engine/mvvm` 라이브러리로 |
 | 호스트 | `src/host.js` | 데스크톱 기능 호출 | Tauri API는 이 파일에서만 호출 |
 | 셸 | `src-tauri/src/*.rs` | 파일, 네트워크, 프로세스 | 프런트엔드가 넘긴 경로와 버전 문자열을 검사 |
 
@@ -133,8 +133,9 @@ F5 → 이벤트를 포함해 engine.load() → requestAnimationFrame마다 ml_t
 #### 저장
 
 ```
-Ctrl+S → projectFiles() (경로 → 내용 표) → host.writeProject() → write_project
-  → 프로젝트 폴더에 쓰기 → src/ui/screens/ 의 불필요한 .c 삭제
+Ctrl+S → projectFiles() (경로 → 내용 표) + starterFiles() (src/app) → host.writeProject() → write_project
+  → 생성 파일 쓰기 → src/app/ 은 없는 파일만 쓰기 (다른 이름으로 저장이면 원래 폴더의 src/app/ 복사)
+  → GENERATED_DIRS 의 불필요한 .c, .h 삭제
 ```
 
 #### 네이티브 빌드와 실행
@@ -180,6 +181,14 @@ Shift+F5 → native_check (도구 확인) → lvgl_installed (없으면 LVGL 관
 | `src/lvgl/emit.js` | 문서를 연산 목록으로 변환 |
 | `src/lvgl/engine.js` | WebAssembly 엔진 구동. 앱과 Node 테스트에서 함께 사용합니다. |
 | `src/lvgl/codegen.js` | C 코드 생성 |
+| `src/lvgl/viewmodel.js` | 뷰모델과 바인딩의 문서 연산(추가, 이름 바꾸기, 삭제, 연결), 데이터 컨텍스트 해석, 파일 검증 |
+| `src/CodeEditor.jsx` | 코드 편집기 창: 로직 자동 저장, 생성 코드 편집, 자동 완성, 줄 표시, 빌드·출력·문제점, 실행 |
+| `src/lvgl/glueparse.js` | `ui_bindings.c`, `vm_<이름>.c`를 읽어 바인딩과 뷰모델 속성에 반영 |
+| `src/lvgl/appcheck.js` | 로직(`src/app/`)이 쓰는 뷰모델 이름 중 설계에 없는 것을 찾기(이름 바꾸기 기록으로 새 이름 제시) |
+| `src/lvgl/gluegen.js` | MVVM 층의 C 생성: `lib/mvvm/`, `src/glue/`, `ui_bindings.c`, 사용자 시작 파일 `src/app/` |
+| `src/lvgl/mvvmSource.js` | `engine/mvvm`의 사본 (`npm run mvvm-source`로 생성, 테스트가 일치를 확인) |
+| `src/ViewModels.jsx` | 뷰모델 탭, 속성 패널의 연결 편집기, 데이터 컨텍스트 선택 |
+| `engine/mvvm/` | 바인딩 라이브러리 C 소스: `mvvm.c`(LVGL 없음), `mvvm_lvgl.c`(위젯 바인딩, 타이머). 엔진과 생성 프로젝트가 함께 씁니다. |
 | `src/lvgl/codeparse.js` | 고친 C 코드를 읽어 문서에 반영 |
 | `src/lvgl/lvconf.js` | `lv_conf_template.h` 해석, 조건 평가, 프로젝트별 `lv_conf.h` 생성 |
 | `src/lvgl/confTemplates.js` | 내장 엔진 버전의 `lv_conf_template.h` (`npm run conf-templates`로 생성) |
@@ -211,10 +220,34 @@ Shift+F5 → native_check (도구 확인) → lvgl_installed (없으면 LVGL 관
 
 - **경로 검사:** Rust의 `safe_relative()`가 절대 경로와 `..`를 거부합니다.
 - **기존 폴더 보호:** 새 프로젝트와 다른 이름으로 저장은 `dir_state`가 `other`이면 거부합니다.
-- **정리 범위:** `GENERATED_DIRS`(`src/ui/screens`)에 있으면서 현재 표에 없는 `.c`만 지웁니다.
-- **빌드 목록:** CMake는 glob 없이 생성한 파일 목록을 사용하므로 네이티브 빌드 폴더에 남은 옛 화면이 함께 컴파일되지 않습니다.
+- **정리 범위:** `GENERATED_DIRS`(`src/ui/screens`, `src/ui/images`, `src/ui/fonts`, `src/glue`)에 있으면서 현재 표에 없는 `.c`, `.h`만 지웁니다.
+- **사용자 코드 보호:** `src/app/`은 생성 표에 없고 `GENERATED_DIRS`에도 없습니다. `write_missing`이 없는 파일만 쓰므로 한 번 만든 뒤에는 앱이 절대 덮어쓰지 않습니다.
+- **빌드 목록:** CMake는 생성한 파일을 목록으로 적으므로 네이티브 빌드 폴더에 남은 옛 화면이 함께 컴파일되지 않습니다. 사용자 코드만 `src/app/*.c`, `*.cpp`를 glob으로 찾습니다(C++이 있으면 `enable_language(CXX)`). 네이티브 실행은 빌드 폴더의 `src/app/`을 지우고 프로젝트 폴더(또는 샘플 폴더)의 것을 복사합니다.
 - **파일 이름 충돌:** 화면 이름이 파일 이름이 되므로 `cNames()`는 대소문자만 다른 이름도 충돌로 처리합니다.
 - **파일 연결:** 설치본은 `.mylvgl`을 앱에 연결합니다. 첫 실행은 `startup_file`, 실행 중에는 single-instance 플러그인이 보내는 `open-file` 이벤트로 엽니다.
+
+## 화면과 로직 분리 (MVVM)
+
+생성 코드와 사용자 로직이 섞이면 설계를 바꿀 때 로직이 사라집니다. 그래서 WPF의 MVVM처럼 세 층으로 나누고, 그 사이를 생성되는 뷰모델(glue)로만 잇습니다.
+
+```
+  src/ui/  (View, 생성)                src/glue/ (ViewModel, 생성)          src/app/ (사용자)
+  ┌───────────────────────┐  mv_bind   ┌──────────────────────────┐  get/set   ┌──────────────────┐
+  │ ui_slider1 ◄──────────┼───────────►│ vm_main.c                │◄───────────┤ app.c (로직)     │
+  │ ui_label1  ◄──────────┼────────────┤  speed  running  status  │ mv_observe │ motor.c (Model)  │
+  │ ui_bindings.c         │ VALUE_     │ glue.h (lvgl.h 없음)     ├───────────►│ tests/ (LVGL 없이)│
+  └───────────────────────┘ CHANGED    └──────────────────────────┘            └──────────────────┘
+              ▲                                     ▲
+              └────── lib/mvvm (mvvm.c: 속성·관찰자·형식, mvvm_lvgl.c: 위젯 바인딩·타이머) ──┘
+```
+
+- **문서:** `project.viewModels`(이름, 속성: 형식·초깃값·범위), 화면의 `dataContext`, 노드의 `bindings`(속성 키, 경로, 뷰모델, 방향, 변환기, 형식). 자세한 내용은 [FILE_FORMAT.md](FILE_FORMAT.md).
+- **연산:** `emit()`이 `vmprop`(맨 앞, 번호로 가리킴)과 `bind`(모든 객체를 만든 뒤)를 냅니다. 엔진은 `ml_vm_prop`, `ml_bind`로 재생하고, 생성기는 `vm_<이름>.c`와 `ui_bindings.c`로 출력합니다. 같은 연산, 같은 C 라이브러리이므로 설계 화면과 네이티브 프로그램의 바인딩 결과가 픽셀까지 같습니다(테스트로 확인).
+- **라이브러리:** `mvvm.c`는 표준 C만 씁니다. 값이 바뀔 때만 관찰자에게 알리고, 바인딩이 스스로 낸 변경은 그 바인딩에 다시 알리지 않으며(`mv_set_*_from`), 같은 속성의 연쇄 변경은 `MV_MAX_DEPTH`에서 멈춥니다. 형식 문자열은 직접 해석해 값 하나만 읽습니다. `mvvm_lvgl.c`는 `lv_obj_check_type`으로 위젯 종류를 알아내고 `LV_EVENT_VALUE_CHANGED`로 화면 → 뷰모델 방향을, `LV_EVENT_DELETE`로 정리를 합니다.
+- **설계 화면:** 바인딩은 설계 모드에서도 적용되어 뷰모델의 초깃값이 보입니다. 실행 중의 값은 엔진의 `ml_vm_changes` 카운터가 바뀔 때만 읽어 뷰모델 탭에 보냅니다(분리 실행 창은 `run-vm` 이벤트, 탭에서 바꾼 값은 `run-vm-set`).
+- **로직 점검:** `read_app_code`가 `src/app/`의 소스를 읽고(프로젝트를 열 때, 저장 뒤, 창이 다시 앞에 올 때), `appcheck.js`가 주석과 문자열을 지운 코드에서 `vm_<모델>_get_/set_/prop_<속성>`, `vm_<모델>_init`, `#include "vm_<모델>.h"` 중 생성되지 않는 이름을 찾아 문제점(파일과 줄)으로 냅니다. 새 이름은 `viewModelRenames` 기록으로 찾고(추측 아님), 한두 글자 오타만 비슷한 이름을 제안합니다. 로직이 직접 정의한 `vm_` 함수는 제외합니다. 로직 파일은 읽기만 합니다.
+- **코드 편집기 (`CodeEditor.jsx`):** 독립 창(`standsFree` 대화상자). 로직은 `app_file_write`로 입력 0.4초 뒤 저장(`src/app/` 밖은 Rust가 거부), 저장 안 된 프로젝트는 `app_draft`가 만든 데이터 폴더의 `drafts/project-*`에 쓰고 `appOrigin`으로 첫 저장 때 복사. 생성 파일 편집은 `applyCodeEdit`로 설계에 반영하고 폴더가 있으면 1.2초 뒤 프로젝트 저장. 실행은 보류 중인 저장을 끝낸 뒤 네이티브 실행.
+- **코드 편집:** `ui_bindings.c`의 `mv_bind`와 `src/glue/vm_<이름>.c`의 `mv_prop_init_*`는 `glueparse.js`가 설계로 되돌립니다(같은 자리의 이름 변경은 rename으로 연결 유지). 나머지 glue 파일과 `lib/mvvm/`은 읽기 전용입니다. 화면 파일에서 위젯 이름을 바꾸면 노드가 유지되므로 바인딩도 유지됩니다.
 
 ## 엔진
 

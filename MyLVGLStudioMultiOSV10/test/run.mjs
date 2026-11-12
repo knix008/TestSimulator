@@ -7,15 +7,18 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { FILE_EXTENSION, FORMAT_VERSION, addNode, addScreen, cloneNode, createNode, findNode, isInside, joinPath, moveNode, newProject, parseProject, removeNode, sanitizeName, serializeProject, setProp, uniqueName, validProjectName } from "../src/lvgl/project.js";
-import { BUNDLED_ENGINES, apiFor, engineFor, isSupported, sortReleases } from "../src/lvgl/versions.js";
+import { BUNDLED_ENGINES, apiFor, engineFor, isSupported, parseVersion, sortReleases } from "../src/lvgl/versions.js";
 import { ALIGNS, FONT_SIZES, PALETTE, PROP_IDS, STR_IDS, TYPE_IDS, WIDGETS } from "../src/lvgl/schema.js";
 import { cNames, emit } from "../src/lvgl/emit.js";
-import { GENERATED_DIRS, cString, generateCode, projectFiles } from "../src/lvgl/codegen.js";
+import { GENERATED_DIRS, cString, generateCode, projectFiles, starterFiles } from "../src/lvgl/codegen.js";
 import { Engine } from "../src/lvgl/engine.js";
 import { STRING_TABLES, translator } from "../src/i18n.js";
 import lvConfText from "../src/lvgl/lvConfText.js";
 import { createReporter, displayWidth, fit, formatTime } from "./reporter.mjs";
 import { everythingProject, registerFeatureTests } from "./features.mjs";
+import { boundProject, registerMvvmTests } from "./mvvm.mjs";
+import { findProblems, parseBuildProblems } from "../src/lvgl/problems.js";
+import { renameVmProp } from "../src/lvgl/viewmodel.js";
 import { sampleProject } from "./sample.js";
 import { addFont, clearFonts } from "../src/lvgl/fonts.js";
 import { addImage, clearImages } from "../src/lvgl/images.js";
@@ -68,7 +71,7 @@ await test("The file format is mylvgl, and its text says so", () => {
   assert.equal(FILE_EXTENSION, "mylvgl");
   const data = JSON.parse(serializeProject(newProject()));
   assert.equal(data.format, "mylvgl");
-  assert.equal(data.formatVersion, FORMAT_VERSION);
+  assert.equal(data.formatVersion, 1, "a project without ViewModels stays readable by older versions");
 });
 await test("Loading something else is refused", () => {
   assert.throws(() => parseProject("not json"), /not JSON/);
@@ -241,7 +244,15 @@ await test("A project folder has the project file and structured code", () => {
   assert.deepEqual(Object.keys(projectFiles(project, "App")).sort(), [
     "App.mylvgl", "CMakeLists.txt", "config/lv_conf.h", "src/main.c", "src/ui/screens/ui_Screen1.c", `src/ui/screens/ui_${second.name}.c`,
     "src/ui/ui.c", "src/ui/ui.h", "src/ui/ui_events.c", "src/ui/ui_events.h",
+    "src/glue/glue.c", "src/glue/glue.h", "lib/mvvm/mvvm.c", "lib/mvvm/mvvm.h", "lib/mvvm/mvvm_lvgl.c", "lib/mvvm/mvvm_lvgl.h",
   ].sort());
+});
+await test("The application's own code is apart from what is generated", () => {
+  const { project } = sampleProject("9.6.0");
+  const starters = starterFiles(project);
+  assert.deepEqual(Object.keys(starters).sort(), ["src/app/app.c", "src/app/app.h"]);
+  for (const file of Object.keys(projectFiles(project, "App"))) assert.ok(!file.startsWith("src/app/"), `${file} would overwrite the application code`);
+  assert.ok(!GENERATED_DIRS.some((dir) => dir.startsWith("src/app")), "src/app is never cleaned");
 });
 await test("The project file in the folder reloads as the same project", () => {
   const { project } = sampleProject("9.6.0");
@@ -258,7 +269,7 @@ await test("A removed screen's file is not generated", () => {
   assert.ok(!Object.keys(generateCode(project)).some((file) => file.includes(second.name)));
 });
 await test("Only the generated code folders are cleaned on save", () => {
-  assert.deepEqual(GENERATED_DIRS, ["src/ui/screens", "src/ui/images", "src/ui/fonts"]);
+  assert.deepEqual(GENERATED_DIRS, ["src/ui/screens", "src/ui/images", "src/ui/fonts", "src/glue"]);
 });
 await test("Screens differing only by case get different files", () => {
   const project = newProject();
@@ -387,6 +398,7 @@ for (const version of BUNDLED_ENGINES) {
 }
 
 await registerFeatureTests({ category, test, engines, versions: BUNDLED_ENGINES });
+await registerMvvmTests({ category, test, engines });
 
 /* ----------------------------------------------------------------- parity */
 const toolPath = process.platform === "win32" && fs.existsSync("C:/Msys64/ucrt64/bin") ? `C:\\Msys64\\ucrt64\\bin;${process.env.PATH}` : process.env.PATH;
@@ -405,7 +417,25 @@ function writeRetrying(file, text) {
   }
 }
 
-function nativeFrame(version, project, binaries = {}) {
+/**
+ * Builds the project with gcc and runs it headless: the frame it drew. `app` replaces the
+ * starter application code (src/app); the program's standard output comes back as `.output`.
+ */
+/** Every file under `dir`/`sub`, keyed by its path relative to `dir`. */
+function filesUnder(dir, sub) {
+  const files = {};
+  const visit = (relative) => {
+    for (const entry of fs.readdirSync(path.join(dir, relative), { withFileTypes: true })) {
+      const next = `${relative}/${entry.name}`;
+      if (entry.isDirectory()) visit(next);
+      else files[next] = fs.readFileSync(path.join(dir, next), "utf8");
+    }
+  };
+  if (fs.existsSync(path.join(dir, sub))) visit(sub);
+  return files;
+}
+
+function nativeFrame(version, project, binaries = {}, app = null) {
   const dir = path.join(root, "build", "parity", version);
   const source = path.join(dir, "project");
   const build = path.join(dir, "build");
@@ -414,7 +444,8 @@ function nativeFrame(version, project, binaries = {}) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     if (!fs.existsSync(file) || !fs.readFileSync(file).equals(bytes)) fs.writeFileSync(file, bytes);
   }
-  for (const [name, text] of Object.entries(generateCode(project))) {
+  fs.rmSync(path.join(source, "src", "app"), { recursive: true, force: true });
+  for (const [name, text] of Object.entries({ ...generateCode(project), ...(app ?? starterFiles(project)) })) {
     const file = path.join(source, name);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     if (!fs.existsSync(file) || fs.readFileSync(file, "utf8") !== text) writeRetrying(file, text);
@@ -444,8 +475,46 @@ function nativeFrame(version, project, binaries = {}) {
     }
   }
   const output = path.join(dir, "frame.bin");
-  execFileSync(path.join(build, process.platform === "win32" ? "app.exe" : "app"), [output], { env, stdio: "pipe" });
-  return fs.readFileSync(output);
+  const printed = execFileSync(path.join(build, process.platform === "win32" ? "app.exe" : "app"), [output], { env, stdio: "pipe" }).toString();
+  const frame = fs.readFileSync(output);
+  frame.output = printed;
+  return frame;
+}
+
+/* ------------------------------------------------- the MVVM library, without LVGL */
+category("MVVM library in C, without LVGL");
+if (skipNative) note("skipped: --no-native");
+else {
+  const work = path.join(root, "build", "mvvm");
+  fs.mkdirSync(work, { recursive: true });
+  const runC = (name, args) => {
+    const exe = path.join(work, process.platform === "win32" ? `${name}.exe` : name);
+    execFileSync("gcc", [...args, "-o", exe], { env, stdio: "pipe" });
+    return execFileSync(exe, [], { env, stdio: "pipe" }).toString().trim();
+  };
+  await test("The core builds with every warning on, and its own unit test passes", () => {
+    const output = runC("core", ["-std=c99", "-Wall", "-Wextra", "-pedantic", "-Werror", `-I${path.join(root, "engine", "mvvm")}`, path.join(root, "test", "mvvm_core_test.c"), path.join(root, "engine", "mvvm", "mvvm.c")]);
+    assert.equal(output, "all passed");
+  });
+  await test("Application logic is tested without LVGL: the MotorControl sample's own test passes", () => {
+    const sample = path.join(root, "samples", "MotorControl");
+    const at = (file) => path.join(sample, file);
+    const output = runC("test_motor", ["-std=c99", "-Wall", "-Wextra", "-Werror", `-I${at("src/app")}`, `-I${at("src/glue")}`, `-I${at("lib/mvvm")}`, at("src/app/tests/test_motor.c"), at("src/app/motor.c"), at("src/glue/glue.c"), at("src/glue/vm_motor.c"), at("lib/mvvm/mvvm.c")]);
+    assert.equal(output, "all passed");
+  });
+  for (const version of BUNDLED_ENGINES) {
+    await test(`The LVGL bindings compile without a warning of their own for LVGL ${version}`, () => {
+      const lvgl = path.join(root, "third_party", `lvgl-${version}`);
+      let output = "";
+      try {
+        output = execFileSync("gcc", ["-std=c99", "-Wall", "-Wextra", "-fsyntax-only", "-DLV_CONF_INCLUDE_SIMPLE", `-I${path.join(root, "engine")}`, `-I${lvgl}`, path.join(root, "engine", "mvvm", "mvvm_lvgl.c")], { env, stdio: "pipe" }).toString();
+      } catch (error) {
+        output = String(error.stderr ?? error.message);
+        throw new Error(output.split("\n").filter((line) => /error/.test(line)).slice(0, 6).join("\n"));
+      }
+      assert.ok(!/mvvm_lvgl\.c:\d+:\d+: warning/.test(output), output);
+    });
+  }
 }
 
 for (const version of BUNDLED_ENGINES) {
@@ -512,7 +581,7 @@ for (const version of BUNDLED_ENGINES) {
         const bytes = fs.readFileSync(path.join(root, "samples", sample.id, image.file));
         addImage(image.name, { w: image.w, h: image.h, rgba: new Uint8ClampedArray(image.w * image.h * 4).fill(200), base64: bytes.toString("base64") });
       }
-      const frame = nativeFrame(version, variant);
+      const frame = nativeFrame(version, variant, {}, filesUnder(path.join(root, "samples", sample.id), "src/app"));
       assert.equal(frame.length, variant.device.w * variant.device.h * 4, sample.id);
     }
     clearImages();
@@ -533,6 +602,91 @@ for (const version of BUNDLED_ENGINES) {
       assert.ok(new Set(frame).size > 8, "the frame is blank");
     });
   }
+  // MVVM: the bindings draw the same, and logic in src/app reaches the screens and back.
+  await test("ViewModels: every pixel of the bound design matches the built program", () => {
+    const { project: bound } = boundProject(version);
+    comparePixels(nativeFrame(version, bound), bound.screens[0].id, bound);
+  });
+  await test("ViewModels: what the logic sets reaches the widgets, pixel for pixel as on the surface", () => {
+    const { project: bound, toggle } = boundProject(version);
+    // LVGL 9.6 animates a switch whose state changes once it has been drawn. The surface has
+    // drawn it before the values change and the program has not, so the switch stays unbound
+    // here; its binding is tested by the next test and by the plain pixel comparison above.
+    delete toggle.bindings;
+    const app = {
+      ...starterFiles(bound),
+      "src/app/app.c": '#include "app.h"\n#include "glue.h"\n\nvoid app_init(void)\n{\n    vm_main_set_speed(2400);\n    vm_main_set_running(true);\n    vm_main_set_status("Logic was here");\n}\n',
+    };
+    const frame = nativeFrame(version, bound, {}, app);
+    engine.load(bound, bound.screens[0].id);
+    engine.setVm("Main.speed", 2400);
+    engine.setVm("Main.running", true);
+    engine.setVm("Main.status", "Logic was here");
+    engine.m._ml_render();
+    const surface = engine.frame();
+    let different = 0;
+    for (let i = 0; i < surface.length; i += 4) if (frame[i] !== surface[i] || frame[i + 1] !== surface[i + 1] || frame[i + 2] !== surface[i + 2]) different++;
+    assert.equal(different, 0, `${different} pixels differ`);
+  });
+  await test("ViewModels: what the user changes reaches the logic, which observes it", () => {
+    const { project: bound } = boundProject(version);
+    const send = parseVersion(version).major >= 9 ? "lv_obj_send_event" : "lv_event_send";
+    const app = {
+      ...starterFiles(bound),
+      "src/app/app.c": `#include "app.h"
+#include "glue.h"
+#include "ui.h"
+#include <stdio.h>
+
+static int told;
+static void on_running(mv_prop_t * prop, void * user) { (void)user; told++; vm_main_set_status(mv_get_bool(prop) ? "on" : "off"); }
+
+void app_init(void)
+{
+    mv_observe(vm_main_prop_running(), on_running, NULL);
+    lv_slider_set_value(ui_slider1, 25, LV_ANIM_OFF);
+    ${send}(ui_slider1, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_state(ui_switch1, LV_STATE_CHECKED);
+    ${send}(ui_switch1, LV_EVENT_VALUE_CHANGED, NULL);
+    printf("speed=%d running=%d status=%s told=%d label=%s\\n", (int)vm_main_get_speed(), vm_main_get_running(), vm_main_get_status(), told, lv_label_get_text(ui_label1));
+}
+`,
+    };
+    const output = nativeFrame(version, bound, {}, app).output.trim();
+    assert.equal(output, "speed=750 running=1 status=on told=1 label=750 rpm");
+  });
+  if (version === "9.6.0") {
+    await test("ViewModels: what the problems view says of the logic after a rename is what the compiler says", () => {
+      const { project: bound } = boundProject(version);
+      const app = { ...starterFiles(bound), "src/app/app.c": '#include "app.h"\n#include "glue.h"\n\nvoid app_init(void)\n{\n    vm_main_set_speed(2400);\n}\n' };
+      nativeFrame(version, bound, {}, app);
+      renameVmProp(bound, "Main", "speed", "rpm");
+      const predicted = findProblems(bound, { appCode: app }).filter((problem) => problem.code.startsWith("app")).map((problem) => `${problem.where} ${problem.params.name}`);
+      assert.deepEqual(predicted, ["src/app/app.c:6 vm_main_set_speed"]);
+      let output = "";
+      try {
+        nativeFrame(version, bound, {}, app);
+      } catch (error) {
+        output = `${error.stdout ?? ""}\n${error.message}`;
+      }
+      assert.ok(output, "the build should have failed");
+      const reported = parseBuildProblems(output.split("\n")).filter((problem) => problem.file === "src/app/app.c").map((problem) => problem.where);
+      assert.ok(reported.includes("src/app/app.c:6"), reported.join(", ") || output.slice(0, 400));
+    });
+  }
+  await test("ViewModels: C++ in src/app is built with the C code", () => {
+    const { project: bound } = boundProject(version);
+    const app = {
+      "src/app/app.h": starterFiles(bound)["src/app/app.h"],
+      "src/app/app.cpp": '#include "app.h"\n#include "glue.h"\n\nnamespace { struct Start { int value = 77; }; }\n\nvoid app_init(void)\n{\n    Start start;\n    vm_main_set_speed(start.value);\n}\n',
+    };
+    const frame = nativeFrame(version, bound, {}, app);
+    engine.load(bound, bound.screens[0].id);
+    engine.setVm("Main.speed", 77);
+    engine.m._ml_render();
+    assert.ok(Buffer.from(engine.frame()).equals(frame.subarray(0, frame.length)), "the C++ logic set the speed");
+  });
+
   // Each screen of the everything-project goes first in turn, because ui_init loads the first.
   const everything = everythingProject(version);
   const names = ["all widgets and properties", "flex and size forms", "every align", "image and data widgets", "grid", "every font"];

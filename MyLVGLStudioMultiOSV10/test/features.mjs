@@ -7,6 +7,7 @@ import fs from "node:fs";
 import { addNode, addScreen, createNode, findNode, imageNameFor, newProject, parseProject, removeImageFromProject, removeNode, safeRelativePath, serializeProject } from "../src/lvgl/project.js";
 import { ACTION_IDS, ALIGNS, DEVICES, FLEX_FLOWS, FONT_SIZES, GRID_CELL_PROPS, PALETTE, TRIGGERS, WIDGETS, availableIn, normalDevice, sameDevice } from "../src/lvgl/schema.js";
 import { cNames, emit, valueFormat } from "../src/lvgl/emit.js";
+import { allBindings, modeOf, resolveBinding } from "../src/lvgl/viewmodel.js";
 import { confActive, confDefault, confValue, evaluateCondition, generateLvConf, overridesFromText, parseConfTemplate, readDefines, setConfValue, unknownOverrides } from "../src/lvgl/lvconf.js";
 import { CONF_TEMPLATES } from "../src/lvgl/confTemplates.js";
 import { FONT_LANGUAGES, addFont, clearFonts, faceForLanguage, fontBytesForFace, fontData, fontFiles, fontNameFor, markFontsWritten, readFontFile, removeFontFromProject } from "../src/lvgl/fonts.js";
@@ -631,11 +632,11 @@ export function registerFeatureTests({ category, test, engines, versions }) {
       });
     }
     await test("The samples are up to date with the generator", async () => {
-      const { SAMPLES } = await import("../scripts/generate-samples.mjs");
+      const { SAMPLES, sampleFiles } = await import("../scripts/generate-samples.mjs");
       assert.deepEqual(SAMPLES.map((sample) => sample.id), sampleIndex.map((sample) => sample.id));
       for (const sample of SAMPLES) {
         clearImages();
-        const expected = projectFiles(sample.build(), sample.id);
+        const expected = sampleFiles(sample, sample.build());
         for (const [name, text] of Object.entries(expected)) {
           const saved = fs.readFileSync(new URL(`../samples/${sample.id}/${name}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
           assert.equal(saved, text, `${sample.id}/${name}: run npm run samples`);
@@ -1160,14 +1161,24 @@ export function registerFeatureTests({ category, test, engines, versions }) {
 
     /* ---------------------------------------------- values that move other widgets */
     category("Interaction and animation");
+    /** A slider, arc or roller that moves something else: by an event, or through a ViewModel property another widget shows. */
+    const drivesOthers = (project, node) => {
+      if (!["slider", "arc", "roller"].includes(node.type)) return false;
+      if (node.events.some((event) => event.action === "setValue" || event.action === "showValue")) return true;
+      return (node.bindings ?? []).some((binding) => {
+        const mode = modeOf(node, binding);
+        const found = resolveBinding(project, node, binding);
+        return found && (mode === "twoWay" || mode === "oneWayToSource")
+          && allBindings(project).some((other) => other.node !== node && resolveBinding(project, other.node, other.binding)?.prop === found.prop);
+      });
+    };
     await test("Every sample has something to drag that moves something else", () => {
-      const DRAGGED = new Set(["slider", "arc", "roller"]);
       assert.ok(sampleIndex.length >= 28, String(sampleIndex.length));
       for (const sample of sampleIndex) {
         const project = parseProject(fs.readFileSync(new URL(`../samples/${sample.file}`, import.meta.url), "utf8"));
         let drags = 0;
         const step = (node) => {
-          if (DRAGGED.has(node.type) && node.events.some((event) => event.action === "setValue" || event.action === "showValue")) drags++;
+          if (drivesOthers(project, node)) drags++;
           node.children.forEach(step);
         };
         project.screens.forEach(step);
@@ -1182,7 +1193,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
           for (const image of project.images) addImage(image.name, { w: image.w, h: image.h, rgba: new Uint8ClampedArray(image.w * image.h * 4).fill(200), base64: "AAAA" });
           let dragged = null;
           const step = (node) => {
-            if (!dragged && (node.type === "slider" || node.type === "roller" || node.type === "arc") && node.events.some((event) => event.action === "setValue" || event.action === "showValue")) dragged = node;
+            if (!dragged && drivesOthers(project, node)) dragged = node;
             node.children.forEach(step);
           };
           const screen = project.screens.find((item) => {
@@ -1714,7 +1725,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
     await test("The guide names every sample, and the new features", () => {
       const guide = docText("doc/UsersGuide.md");
       for (const sample of sampleIndex) assert.ok(guide.includes(`\`${sample.id}\``), sample.id);
-      for (const word of ["튜토리얼", "탐색기", "원형 화면", "값 연결", "LVGL 설정", "글꼴", "자동 왕복"]) assert.ok(guide.includes(word), word);
+      for (const word of ["튜토리얼", "탐색기", "원형 화면", "값 연결", "LVGL 설정", "글꼴", "자동 왕복", "MVVM", "뷰모델", "데이터 컨텍스트", "src/app/", "glue.h", "코드 편집기", "자동 저장", "drafts"]) assert.ok(guide.includes(word), word);
     });
     await test("The dev server leaves the LVGL sources and the build output alone", () => {
       const config = docText("vite.config.js");

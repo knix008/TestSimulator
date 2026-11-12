@@ -18,6 +18,11 @@ import { findProblems, locateInCode, parseBuildProblems } from "./lvgl/problems.
 import { cNames } from "./lvgl/emit.js";
 import { setTipTranslator } from "./tooltips.js";
 import { Attributes, CodeView, Explorer, ProblemsView, ComponentTree, LogView, Palette, PanelTitle } from "./panels.jsx";
+import { ViewModelsView } from "./ViewModels.jsx";
+import { CodeEditorWindow } from "./CodeEditor.jsx";
+
+/** The folder a file is in, with the separator the path uses; null for no file. */
+const folderOf = (file) => (file ? file.split(/[\\/]/).slice(0, -1).join(file.includes("\\") ? "\\" : "/") : null);
 import { AboutDialog, ConfirmDialog, LvglManager, ToolsProgress, MessageDialog, NewProjectDialog, ProjectSettings, SamplesDialog } from "./dialogs.jsx";
 import { useInstallJob } from "./useInstallJob.js";
 import { useProjectStore } from "./store.js";
@@ -25,7 +30,7 @@ import { FILE_EXTENSION, serializeProject, addNode, addScreen, cloneNode, create
 import { CONTAINERS, DEVICES, PALETTE, WIDGETS, availableIn, normalDevice, sameDevice } from "./lvgl/schema.js";
 import { Stepper } from "./controls.jsx";
 import { LvConfDialog } from "./LvConfDialog.jsx";
-import { GENERATED_DIRS, generateCode, projectFiles } from "./lvgl/codegen.js";
+import { GENERATED_DIRS, generateCode, projectFiles, starterFiles } from "./lvgl/codegen.js";
 import { applyCodeEdit } from "./lvgl/codeparse.js";
 import { addImage, clearImages, decodeImage, extensionOf, imageData, imageFiles } from "./lvgl/images.js";
 import { FONT_LANGUAGES, addFont, base64ToBytes, clearFonts, faceForLanguage, fontData, fontFiles, fontNameFor, markFontsWritten } from "./lvgl/fonts.js";
@@ -115,6 +120,17 @@ export function App({ initialSettings }) {
   const [activeId, setActiveId] = useState(project.screens[0].id);
   const [selected, setSelected] = useState(project.screens[0].id);
   const [path, setPath] = useState(null);
+  /** Where the application code (src/app) of a project not saved yet comes from: a sample's folder. */
+  const [appOrigin, setAppOrigin] = useState(null);
+  /** The application code (src/app) as it is on disk: { path: text }. Read, never written. */
+  const [appCode, setAppCode] = useState({});
+  /** The code editor window: open or not, the folder its application code is saved in, a line to show. */
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorDir, setEditorDir] = useState(null);
+  const [editorRequest, setEditorRequest] = useState(null);
+  /** The draft folder made for a project without a folder of its own (see app_draft). */
+  const draftDir = useRef(null);
+  const autosaveTimer = useRef(null);
   const [mode, setMode] = useState("design"); // design | run
   const [view, setView] = useState("design"); // design | split | code
   const [zoom, setZoom] = useState(2);
@@ -133,6 +149,8 @@ export function App({ initialSettings }) {
   const [dialog, setDialog] = useState(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [bottomTab, setBottomTab] = useState("log");
+  /** ViewModel values of the running design ({ "Model.prop": value }), or null when nothing runs. */
+  const [liveVm, setLiveVm] = useState(null);
   const [chosenProblem, setChosenProblem] = useState(null);
   const [codeFocus, setCodeFocus] = useState(null);
   const [logLines, setLogLines] = useState([]);
@@ -271,6 +289,7 @@ export function App({ initialSettings }) {
     if (filePath) rememberRecent(filePath);
     store.replace(next);
     setPath(filePath);
+    setAppOrigin(null);
     setActiveId(next.screens[0].id);
     setSelected(next.screens[0].id);
     setMode("design");
@@ -337,6 +356,7 @@ export function App({ initialSettings }) {
       const document = parseProject(await host.readText(file));
       await loadProjectImages(document, file);
       load(document, null);
+      setAppOrigin(folderOf(file));
       log(t("log.sampleOpened", { name: sample.id }));
       log(t("log.sampleTip"));
       const list = (await host.lvglInstalled()).map((item) => item.version);
@@ -376,10 +396,15 @@ export function App({ initialSettings }) {
     return host.on("open-file", (file) => openFileRef.current(file));
   }, []);
 
-  /** Writes the project file and all generated code into the project folder. */
-  const writeFolder = async (folder, baseName, document) => {
-    await host.writeProject(folder, projectFiles(document, baseName), { ...imageFiles(document), ...fontFiles(document, folder) }, GENERATED_DIRS);
+  /**
+   * Writes the project file and all generated code into the project folder. The application
+   * code (src/app) is written only where it is missing; a Save As passes the folder it came
+   * from as `appFrom`, whose application code goes along.
+   */
+  const writeFolder = async (folder, baseName, document, appFrom = null) => {
+    await host.writeProject(folder, projectFiles(document, baseName), { ...imageFiles(document), ...fontFiles(document, folder) }, GENERATED_DIRS, starterFiles(document), appFrom && appFrom !== folder ? appFrom : null);
     markFontsWritten(document, folder);
+    setAppCode(await host.readAppCode(folder).catch(() => ({})));
     log(t("log.saved", { path: folder }));
   };
 
@@ -394,8 +419,9 @@ export function App({ initialSettings }) {
       clearImages();
       clearFonts();
     }
-    await writeFolder(folder, name, document);
+    await writeFolder(folder, name, document, saveOnly ? folderOf(path) ?? appOrigin : null);
     if (saveOnly) {
+      setAppOrigin(null);
       store.update((draft) => {
         draft.name = name;
       });
@@ -669,15 +695,43 @@ export function App({ initialSettings }) {
 
   useEffect(() => {
     const offLog = host.on("run-log", (line) => log(line));
+    const offVm = host.on("run-vm", (values) => setLiveVm(values));
     const offClosed = host.on("run-closed", () => {
       setRunOpen(false);
+      setLiveVm(null);
       log(t("log.runStop"));
     });
     return () => {
       offLog();
+      offVm();
       offClosed();
     };
   }, [log, t]);
+
+  // The design running in place (the browser build): its ViewModel values, when they change.
+  useEffect(() => {
+    if (mode !== "run") {
+      if (!runOpen) setLiveVm(null);
+      return undefined;
+    }
+    let seen = -1;
+    const timer = setInterval(() => {
+      const engine = surface.current?.engine();
+      if (!engine) return;
+      const changes = engine.vmChanges();
+      if (changes === seen) return;
+      seen = changes;
+      setLiveVm(engine.vmValues());
+    }, 120);
+    return () => clearInterval(timer);
+  }, [mode, runOpen]);
+
+  /** A value typed into the ViewModels tab while running: as if the application logic set it. */
+  const setLive = useCallback((key, value) => {
+    if (runOpen) void host.emit("run-vm-set", { key, value });
+    else surface.current?.engine()?.setVm(key, value);
+    setLiveVm((values) => (values ? { ...values, [key]: value } : values));
+  }, [runOpen]);
 
   const toggleRun = () => {
     if (isDesktop) {
@@ -717,6 +771,73 @@ export function App({ initialSettings }) {
     return result;
   };
 
+  /**
+   * The folder the application code is saved in, made ready: the project's folder (given the
+   * starter files it lacks), or, for a project without a folder, a draft folder of its own that
+   * starts as a copy of a sample's code and goes along when the project is first saved.
+   */
+  const ensureAppDir = async () => {
+    const document = store.get();
+    if (path) {
+      const dir = folderOf(path);
+      await host.appFilesInit(dir, starterFiles(document));
+      return dir;
+    }
+    if (appOrigin && appOrigin === draftDir.current) return appOrigin;
+    const dir = await host.appDraft(appOrigin);
+    await host.appFilesInit(dir, starterFiles(document));
+    draftDir.current = dir;
+    setAppOrigin(dir);
+    return dir;
+  };
+
+  const openEditor = (request = null) => {
+    if (request) setEditorRequest(request);
+    if (!editorOpen) setEditorOpen(true);
+    else focusPopout("editor");
+  };
+
+  // The editor's folder follows the project: opened, saved under a new name, replaced.
+  useEffect(() => {
+    if (!editorOpen || !isDesktop) return undefined;
+    let alive = true;
+    void ensureAppDir().then(async (dir) => {
+      if (!alive) return;
+      setEditorDir(dir);
+      const files = await host.readAppCode(dir).catch(() => ({}));
+      if (alive) setAppCode(files);
+    }, showError);
+    return () => {
+      alive = false;
+    };
+    // ensureAppDir reads the state it needs; these say when it is due again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorOpen, path, appOrigin]);
+
+  /** The editor saves the application code by itself: one file, as it is typed. */
+  const writeApp = async (file, text) => {
+    const dir = editorDir ?? (await ensureAppDir());
+    await host.appFileWrite(dir, file, text);
+    setAppCode((files) => ({ ...files, [file]: text }));
+  };
+  const renameApp = async (from, to) => {
+    await host.appFileRename(editorDir, from, to);
+    setAppCode(({ [from]: text, ...rest }) => ({ ...rest, [to]: text }));
+  };
+  const deleteApp = async (file) => {
+    await host.appFileDelete(editorDir, file);
+    setAppCode(({ [file]: _gone, ...rest }) => rest);
+  };
+  /** Generated code edited in the editor reaches the design, and a project with a folder is saved by itself. */
+  const editGenerated = (file, text) => {
+    const result = applyCode(file, text);
+    if (result.changed && path) {
+      clearTimeout(autosaveTimer.current);
+      autosaveTimer.current = setTimeout(() => void commands.current.save.run(), 1200);
+    }
+    return result;
+  };
+
   /** The screen size from the toolbar. Consecutive edits of the fields are one undo step. */
   const changeDevice = (device, coalesce = null) => {
     const next = normalDevice(device);
@@ -728,6 +849,11 @@ export function App({ initialSettings }) {
   };
 
   const goToCode = (problem) => {
+    // The application code is edited in the code editor.
+    if (problem.file?.startsWith("src/app/")) {
+      openEditor({ file: problem.file, line: problem.line, at: Date.now() });
+      return;
+    }
     const current = store.get();
     const focus = problem.file
       ? { file: problem.file, line: problem.line }
@@ -771,7 +897,7 @@ export function App({ initialSettings }) {
     setBuildLines([]);
     setNative("building");
     try {
-      await host.nativeRun(current.lvgl, generateCode(current), fontFiles(current, `native:${current.lvgl}`));
+      await host.nativeRun(current.lvgl, generateCode(current), fontFiles(current, `native:${current.lvgl}`), starterFiles(current), folderOf(path) ?? appOrigin);
       markFontsWritten(current, `native:${current.lvgl}`);
     } catch (error) {
       setNative("idle");
@@ -1101,6 +1227,7 @@ export function App({ initialSettings }) {
       }),
     },
     samples: { id: "samples", icon: "samples", label: t("cmd.samples"), run: () => setDialog({ kind: "samples" }) },
+    codeEditor: { id: "codeEditor", icon: "code", label: t("cmd.codeEditor"), keys: "Ctrl+E", disabled: !designing || !isDesktop, pressed: editorOpen, run: () => openEditor() },
     code: { id: "code", icon: "code", label: t("view.code"), disabled: !designing, pressed: view !== "design", run: () => setView((value) => (value === "design" ? "split" : "design")) },
     panelLeft: { id: "panelLeft", icon: "panelLeft", label: t("panel.toggleLeft"), disabled: !designing, pressed: !collapsed.left, run: () => togglePanel("left") },
     panelRight: { id: "panelRight", icon: "panelRight", label: t("panel.toggleRight"), disabled: !designing, pressed: !collapsed.right, run: () => togglePanel("right") },
@@ -1127,7 +1254,7 @@ export function App({ initialSettings }) {
   const menus = [
     { id: "file", items: [c.new, c.open, c.samples, "-", c.save, c.saveAs, "-", c.exit] },
     { id: "edit", items: [c.undo, c.redo, "-", c.cut, c.copy, c.paste, c.duplicate, c.delete, "-", c.forward, c.backward] },
-    { id: "view", items: [c.start, "-", c.panelLeft, c.panelBottom, c.panelRight, c.rulers, c.code, "-", c.zoomIn, c.zoomOut, c.zoomFit] },
+    { id: "view", items: [c.start, "-", c.panelLeft, c.panelBottom, c.panelRight, c.rulers, c.code, c.codeEditor, "-", c.zoomIn, c.zoomOut, c.zoomFit] },
     { id: "run", items: [c.run, c.native, "-", c.cleanBuild] },
     { id: "tools", items: [c.settings, c.fonts, c.lvConf, c.manager, "-", c.preferences] },
     { id: "help", items: [c.tutorial, c.guide, "-", c.about] },
@@ -1138,7 +1265,7 @@ export function App({ initialSettings }) {
     [c.undo, c.redo],
     [c.copy, c.paste, c.duplicate, c.delete],
     [c.backward, c.forward],
-    [c.run, c.native, c.code],
+    [c.run, c.native, c.code, c.codeEditor],
     [c.settings, c.fonts, c.lvConf, c.manager],
     [c.panelLeft, c.panelBottom, c.panelRight, c.rulers],
   ];
@@ -1268,6 +1395,7 @@ export function App({ initialSettings }) {
         if (letter === "s") return fire(event.shiftKey ? cmd.saveAs : cmd.save);
         if (letter === "n") return fire(cmd.new);
         if (letter === "o") return fire(cmd.open);
+        if (letter === "e") return fire(cmd.codeEditor);
         if (typing) return undefined;
         if (letter === "=" || letter === "+") return fire(cmd.zoomIn);
         if (letter === "-") return fire(cmd.zoomOut);
@@ -1342,6 +1470,7 @@ export function App({ initialSettings }) {
       runOpen: () => runOpen,
       importFont: (file) => importFontFile(file),
       openFile: (file) => openFile(file),
+      openSample: (sample, directory) => openSample(sample, directory),
       collapsed: () => collapsed,
       contextMenu: () => contextMenu,
       language: () => language,
@@ -1351,7 +1480,30 @@ export function App({ initialSettings }) {
   });
 
   const code = useMemo(() => (view === "design" ? null : generateCode(project, { imageData: false })), [project, view]);
-  const problems = useMemo(() => [...parseBuildProblems(buildLines.map((line) => line.text)), ...findProblems(project, { installed })], [project, installed, buildLines]);
+  const editorCode = useMemo(() => (editorOpen ? generateCode(project, { imageData: false }) : {}), [project, editorOpen]);
+  // The application code: read when the project's folder changes, and again whenever the window
+  // comes back to the front, since it is edited in another editor.
+  const appDir = folderOf(path) ?? appOrigin;
+  useEffect(() => {
+    let alive = true;
+    const read = () => {
+      if (!appDir) {
+        setAppCode({});
+        return;
+      }
+      void host.readAppCode(appDir).then((files) => {
+        if (alive) setAppCode((old) => (JSON.stringify(old) === JSON.stringify(files) ? old : files));
+      }, () => {});
+    };
+    read();
+    window.addEventListener("focus", read);
+    return () => {
+      alive = false;
+      window.removeEventListener("focus", read);
+    };
+  }, [appDir]);
+
+  const problems = useMemo(() => [...parseBuildProblems(buildLines.map((line) => line.text)), ...findProblems(project, { installed, appCode })], [project, installed, buildLines, appCode]);
   const problemCounts = { error: 0, warning: 0, info: 0 };
   for (const problem of problems) problemCounts[problem.severity]++;
 
@@ -1368,13 +1520,15 @@ export function App({ initialSettings }) {
   // The project as a folder: what saving writes, also before it is saved for the first time.
   const explorerPaths = useMemo(() => {
     if (showStart || collapsed.left || collapsed.explorer) return [];
-    return [projectFile, ...Object.keys(generateCode(project, { imageData: false })), ...(project.images ?? []).map((image) => image.file), ...(project.fonts ?? []).map((font) => font.file)];
-  }, [project, projectFile, showStart, collapsed.left, collapsed.explorer]);
+    return [projectFile, ...Object.keys(generateCode(project, { imageData: false })), ...Object.keys(appCode), ...(project.images ?? []).map((image) => image.file), ...(project.fonts ?? []).map((font) => font.file)];
+  }, [project, projectFile, showStart, collapsed.left, collapsed.explorer, appCode]);
 
   // Files the code view shows but does not generate.
   const extraFiles = useMemo(() => {
     if (view === "design") return {};
     const files = { [projectFile]: { text: serializeProject(project) } };
+    // The application's own code, to read here; it is edited in the user's editor.
+    for (const [file, text] of Object.entries(appCode)) files[file] = { text };
     for (const image of project.images ?? []) {
       const data = imageData(image.name);
       const extension = extensionOf(image.file);
@@ -1390,7 +1544,7 @@ export function App({ initialSettings }) {
       };
     }
     return files;
-  }, [project, projectFile, t, view]);
+  }, [project, projectFile, t, view, appCode]);
   const [openName, setOpenName] = useState(null);
 
 
@@ -1681,17 +1835,20 @@ export function App({ initialSettings }) {
             <div className="bottom-tabs">
               <button type="button" data-bottom="log" className={bottomTab === "log" ? "active" : undefined} onClick={() => setBottomTab("log")}><Icon name="log" /> {t("panel.log")}</button>
               <button type="button" data-bottom="build" className={bottomTab === "build" ? "active" : undefined} onClick={() => setBottomTab("build")}><Icon name="build" /> {t("panel.build")}</button>
+              <button type="button" data-bottom="viewmodels" className={bottomTab === "viewmodels" ? "active" : undefined} title={t("vm.tabTip")} onClick={() => setBottomTab("viewmodels")}><Icon name="viewModel" /> {t("panel.viewModels")}</button>
               <button type="button" data-bottom="problems" className={bottomTab === "problems" ? "active" : undefined} title={t("problem.tabTip")} onClick={() => setBottomTab("problems")}>
                 <Icon name="problems" /> {t("panel.problems")}
                 {problemCounts.error + problemCounts.warning > 0 && <b className="problem-count" data-problem-count="" data-errors={problemCounts.error ? "" : undefined}>{problemCounts.error + problemCounts.warning}</b>}
               </button>
               <span className="bottom-actions">
-                <button type="button" className="mini" data-command="clear-output" disabled={bottomTab === "problems" || (bottomTab === "log" ? logLines : buildLines).length === 0} title={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} aria-label={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} onClick={() => (bottomTab === "log" ? setLogLines([]) : setBuildLines([]))}><Icon name="clearOutput" size={14} /></button>
+                <button type="button" className="mini" data-command="clear-output" disabled={bottomTab === "problems" || bottomTab === "viewmodels" || (bottomTab === "log" ? logLines : buildLines).length === 0} title={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} aria-label={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} onClick={() => (bottomTab === "log" ? setLogLines([]) : setBuildLines([]))}><Icon name="clearOutput" size={14} /></button>
                 <button type="button" className="mini" data-command="clean-build" disabled={c.cleanBuild.disabled} title={c.cleanBuild.label} aria-label={c.cleanBuild.label} onClick={c.cleanBuild.run}><Icon name="delete" size={14} /></button>
               </span>
               <button type="button" className="mini" data-collapse="bottom" title={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} aria-label={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} onClick={() => togglePanel("bottom")}><Icon name={collapsed.bottom ? "collapseUp" : "collapseDown"} size={14} /></button>
             </div>
-            {collapsed.bottom ? null : bottomTab === "problems" ? (
+            {collapsed.bottom ? null : bottomTab === "viewmodels" ? (
+              <ViewModelsView t={t} store={store} live={liveVm} onLive={setLive} readOnly={!designing} onSelectNode={select} />
+            ) : bottomTab === "problems" ? (
               <ProblemsView t={t} problems={problems} chosen={chosenProblem} onChoose={chooseProblem} onControl={(problem) => { setChosenProblem(problem.key); select(problem.node); }} onCode={(problem) => { setChosenProblem(problem.key); if (problem.node) select(problem.node); goToCode(problem); }} onManager={() => setDialog({ kind: "manager" })} />
             ) : bottomTab === "log" ? <LogView id="log" lines={logLines} /> : <LogView id="build" lines={buildLines} />}
           </div>
@@ -1821,6 +1978,27 @@ export function App({ initialSettings }) {
       )}
       {dialog?.kind === "tutorialAsk" && showStart && <TutorialAsk t={t} ask={general.askTutorial} onAsk={(askTutorial) => changeGeneral({ askTutorial })} onStart={beginTutorial} onLater={() => setDialog(null)} />}
       {guideOpen && <GuideDialog language={language} onClose={() => setGuideOpen(false)} />}
+      {editorOpen && (
+        <CodeEditorWindow
+          t={t}
+          project={project}
+          projectName={project.name}
+          generated={editorCode}
+          appCode={appCode}
+          appDir={editorDir}
+          writeApp={writeApp}
+          renameApp={renameApp}
+          deleteApp={deleteApp}
+          onEditGenerated={editGenerated}
+          native={native}
+          onRun={() => void commands.current.native.run()}
+          buildLines={buildLines}
+          logLines={logLines}
+          problems={problems}
+          request={editorRequest}
+          onClose={() => setEditorOpen(false)}
+        />
+      )}
       {touring && <Tutorial t={t} project={project} ran={tutorialRan} onPrepare={prepareTutorialStep} onFinishStep={finishTutorialStep} onClose={() => { setTouring(false); setView("design"); log(t("tutorial.closed")); }} />}
       {dialog?.kind === "fonts" && <FontsDialog t={t} store={store} onImport={importFont} onClose={() => setDialog(null)} />}
       {dialog?.kind === "lvconf" && <LvConfDialog t={t} store={store} installed={installed} onVersion={changeVersion} onClose={() => setDialog(null)} />}

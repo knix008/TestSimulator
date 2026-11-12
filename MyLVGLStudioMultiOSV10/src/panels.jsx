@@ -2,7 +2,9 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { Icon } from "./icons.jsx";
 import { ColorField, IconSelect, SizeField, Stepper, Toggle } from "./controls.jsx";
-import { ACTION_IDS, FONT_SIZES, GRID_CELL_PROPS, PALETTE, TEXT_TARGETS, TRIGGERS, VALUE_TARGETS, WIDGETS, availableIn } from "./lvgl/schema.js";
+import { ACTION_IDS, FONT_SIZES, GRID_CELL_PROPS, PALETTE, TEXT_TARGETS, TRIGGERS, VALUE_TARGETS, WIDGETS, availableIn, bindableKeys } from "./lvgl/schema.js";
+import { bindingOf } from "./lvgl/viewmodel.js";
+import { BindingEditor, DataContextField, bindNew } from "./ViewModels.jsx";
 import { DEFAULT_FONT_SIZE } from "./lvgl/emit.js";
 import { fontData } from "./lvgl/fonts.js";
 import { findNode, findParent, sanitizeName, setProp, walk } from "./lvgl/project.js";
@@ -304,17 +306,37 @@ export function Attributes({ t, store, selected, readOnly, onImportImage, onOpen
             }}
           />
         </Field>
+        {node.type === "screen" && (project.viewModels ?? []).length > 0 && (
+          <Field label={t("vm.dataContext")}>
+            <DataContextField t={t} store={store} screen={node} />
+          </Field>
+        )}
       </Group>
       {groups.map((group) => {
         const props = definition.props.filter((prop) => prop.group === group);
         if (!props.length) return null;
         return (
           <Group key={group} t={t} id={`attr:${group}`} icon={GROUP_ICONS[group]} title={t(`group.${group}`)} folds={folds}>
-            {props.map((prop) => (
-              <Field key={prop.key} label={t(`prop.${prop.key}`)}>
-                <PropInput t={t} node={node} prop={prop} edit={edit} project={project} onImportImage={onImportImage} onOpenFonts={onOpenFonts} />
-              </Field>
-            ))}
+            {props.map((prop) => {
+              const input = <PropInput t={t} node={node} prop={prop} edit={edit} project={project} onImportImage={onImportImage} onOpenFonts={onOpenFonts} />;
+              const binding = bindingOf(node, prop.key);
+              if (binding) {
+                return (
+                  <Field key={prop.key} label={<span className="bound-label" title={t("bind.bound")}><Icon name="link" size={12} /> {t(`prop.${prop.key}`)}</span>}>
+                    <BindingEditor t={t} store={store} node={node} binding={binding} />
+                  </Field>
+                );
+              }
+              if (!bindableKeys(node.type).includes(prop.key) || !available) return <Field key={prop.key} label={t(`prop.${prop.key}`)}>{input}</Field>;
+              return (
+                <Field key={prop.key} label={t(`prop.${prop.key}`)}>
+                  <span className="bindable">
+                    {input}
+                    <button type="button" className="mini bind-button" data-bind={prop.key} title={t("bind.bind")} aria-label={t("bind.bind")} onClick={() => store.update((draft) => void bindNew(draft, node.id, prop.key))}><Icon name="link" size={14} /></button>
+                  </span>
+                </Field>
+              );
+            })}
           </Group>
         );
       })}
@@ -472,7 +494,10 @@ export function CodeView({ t, files, extra = {}, focus, readOnly, onEdit, width,
     }
   }, [name, text]);
 
-  let status = <span className="code-note" data-code-status="readonly"><Icon name="info" size={14} /> {t("code.readOnly")}</span>;
+  // The application's own code is shown, never written: it is edited in the user's editor.
+  let status = name.startsWith("src/app/")
+    ? <span className="code-note" data-code-status="appfile"><Icon name="info" size={14} /> {t("code.appFile")}</span>
+    : <span className="code-note" data-code-status="readonly"><Icon name="info" size={14} /> {t("code.readOnly")}</span>;
   if (error) {
     status = (
       <button type="button" className="code-note code-note-error" data-code-status="error" data-code-error={error.code} title={t("code.goToLine")} onClick={() => showLine(error.line)}>

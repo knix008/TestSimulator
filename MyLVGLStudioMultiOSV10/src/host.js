@@ -37,8 +37,19 @@ export const host = {
   /** The project file the app was started with (a double-click in the file manager). */
   startupFile: () => (isDesktop ? invoke("startup_file") : Promise.resolve(null)),
   readText: (path) => (isDesktop ? invoke("read_text", { path }) : desktopOnly()),
+  /** The application code (src/app) of a project folder: { "src/app/app.c": text, ... }. */
+  readAppCode: (dir) => (isDesktop ? invoke("read_app_code", { dir }) : Promise.resolve({})),
+  /** The code editor's file operations: only inside src/app of `dir`. */
+  appFileWrite: (dir, path, text) => (isDesktop ? invoke("app_file_write", { dir, path, text }) : desktopOnly()),
+  appFileDelete: (dir, path) => (isDesktop ? invoke("app_file_delete", { dir, path }) : desktopOnly()),
+  appFileRename: (dir, from, to) => (isDesktop ? invoke("app_file_rename", { dir, from, to }) : desktopOnly()),
+  appFilesInit: (dir, files) => (isDesktop ? invoke("app_files_init", { dir, files }) : desktopOnly()),
+  /** A folder for the application code of a project not saved yet; `from` is copied into it. */
+  appDraft: (from = null) => (isDesktop ? invoke("app_draft", { from }) : desktopOnly()),
   dirState: (dir) => (isDesktop ? invoke("dir_state", { dir }) : desktopOnly()),
-  writeProject: (dir, files, binaries, generatedDirs) => (isDesktop ? invoke("write_project", { dir, files, binaries, generatedDirs }) : desktopOnly()),
+  /** `userFiles` (the application code in src/app) are written only when they do not exist yet;
+   *  `appFrom` is the folder whose src/app a Save As takes along. */
+  writeProject: (dir, files, binaries, generatedDirs, userFiles = {}, appFrom = null) => (isDesktop ? invoke("write_project", { dir, files, binaries, generatedDirs, userFiles, appFrom }) : desktopOnly()),
   pickImage: () => (isDesktop ? open({ filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "bmp", "gif", "webp", "svg"] }] }) : desktopOnly()),
   pickFont: () => (isDesktop ? open({ filters: [{ name: "TrueType / OpenType", extensions: ["ttf", "otf", "ttc", "otc"] }] }) : desktopOnly()),
   readBase64: (path) => (isDesktop ? invoke("read_base64", { path }) : desktopOnly()),
@@ -58,7 +69,8 @@ export const host = {
   toolsInstall: (only = null) => (isDesktop ? invoke("tools_install", { only }) : desktopOnly()),
   nativeClean: (version) => (isDesktop ? invoke("native_clean", { version }) : desktopOnly()),
   samplesList: () => (isDesktop ? invoke("samples_list") : Promise.resolve({ dir: "", items: [] })),
-  nativeRun: (version, files, binaries = {}) => (isDesktop ? invoke("native_run", { version, files, binaries }) : desktopOnly()),
+  /** Builds with the application code of `projectDir` (src/app), or `userFiles` where it has none. */
+  nativeRun: (version, files, binaries = {}, userFiles = {}, projectDir = null) => (isDesktop ? invoke("native_run", { version, files, binaries, userFiles, projectDir }) : desktopOnly()),
   nativeStop: () => (isDesktop ? invoke("native_stop") : Promise.resolve()),
 
   runOpen: (payload, width, height) => (isDesktop ? invoke("run_open", { payload, width, height }) : desktopOnly()),

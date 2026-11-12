@@ -10,6 +10,7 @@ LVGL 애플리케이션의 화면을 그래픽으로 설계하고, 바로 실행
 - **콘트롤:** 프로젝트의 LVGL 버전에 있는 위젯을 모두 표시 (v8.4 35종, v9.2 35종, v9.6 36종). Grid 레이아웃 포함
 - **이미지:** PNG, JPG, BMP, GIF, WebP, SVG 가져오기, 회전과 배율. 원본은 프로젝트에 보관하고 LVGL 버전에 맞는 C 배열로 생성
 - **이벤트:** 코드 없이 화면 전환, 텍스트 변경, 표시 전환, 로그 출력을 연결
+- **화면과 로직 분리 (MVVM):** 위젯 속성을 뷰모델 속성에 데이터 바인딩(단방향, 양방향, 변환기, 형식). 로직은 `src/app/`에 두며 앱이 덮어쓰지 않고, 생성된 `glue.h`만 쓰므로 LVGL 없이 시험 가능. 설계 화면과 생성 코드가 같은 C 바인딩 라이브러리를 사용
 - **두 가지 실행 방식**
   - 실행 화면(F5): 분리된 창에서 바로 동작. 컴파일러와 LVGL 소스가 필요 없음
   - 네이티브 실행(Shift+F5): 생성한 C 코드를 gcc와 SDL2로 빌드해 별도 창에서 실행
@@ -20,6 +21,7 @@ LVGL 애플리케이션의 화면을 그래픽으로 설계하고, 바로 실행
 - **값 연결과 애니메이션:** 슬라이더를 끌면 다른 콘트롤이 함께 움직이게 연결, 값의 자동 왕복
 - **원형 화면:** 프로젝트 설정에서 켜고, 원 밖으로 나간 콘트롤을 알려 줌
 - **코드 보기:** 디자인/분할/코드 전환. 화면 코드를 고치면 그래픽이 바뀌고, 그래픽을 고치면 코드가 바뀝니다.
+- **코드 편집기 (Ctrl+E):** 별도 창에서 로직(`src/app`)과 생성 코드를 편집하고 바로 빌드·실행. 로직은 GUI와 따로 자동 저장, 바인딩·뷰모델 파일도 코드로 편집, `vm_` 자동 완성
 - **화면 크기:** 툴바에서 14가지 크기 중 고르거나 너비와 높이를 직접 입력
 - **글꼴:** TTF, OTF, TTC, OTC 파일을 읽어 설계 화면과 코드에 그대로 사용. Noto Sans CJK처럼 언어별 면이 있는 글꼴은 언어로 면을 선택
 - **LVGL 설정:** 그 버전의 `lv_conf_template.h`를 읽어 `lv_conf.h`의 모든 설정을 창으로 표시
@@ -41,13 +43,17 @@ MyApp/
 ├─ assets/images/          가져온 이미지 원본
 ├─ CMakeLists.txt          데스크톱 빌드
 ├─ config/lv_conf.h        데스크톱 빌드용 LVGL 설정
+├─ lib/mvvm/               바인딩 라이브러리 (생성)
 └─ src/
-   ├─ main.c               데스크톱 실행 진입점
-   └─ ui/                  펌웨어에 넣는 폴더
-      ├─ ui.h, ui.c        객체 선언과 ui_init()
-      ├─ ui_events.h, ui_events.c
-      ├─ screens/ui_<화면>.c   화면마다 한 파일
-      └─ images/ui_img_<이미지>.c   이미지마다 한 파일
+   ├─ main.c               데스크톱 실행 진입점 (ui_init() 다음 app_init())
+   ├─ ui/                  화면 (View, 생성)
+   │  ├─ ui.h, ui.c        객체 선언과 ui_init()
+   │  ├─ ui_events.h, ui_events.c
+   │  ├─ ui_bindings.c     위젯과 뷰모델 속성의 연결
+   │  ├─ screens/ui_<화면>.c   화면마다 한 파일
+   │  └─ images/ui_img_<이미지>.c   이미지마다 한 파일
+   ├─ glue/                뷰모델 (생성): glue.h, vm_<이름>.h/.c
+   └─ app/                 사용자 로직: 없을 때만 한 번 만들고 다시는 덮어쓰지 않음
 ```
 
 ## 내장 엔진과 LVGL 소스
@@ -92,12 +98,14 @@ MSYS2의 Emscripten 패키지는 Node도 함께 설치합니다. `ucrt64\bin`이
 | `npm run tutorial:video` | 릴리스 앱으로 튜토리얼을 진행하며 녹화해 `MyLVGLStudio-Tutorial.mp4`를 프로젝트 루트에 저장(한국어, 무음, ffmpeg 필요). 녹화 중에는 앱 창이 화면에 뜹니다. |
 | `npm run fetch:lvgl` | 엔진 빌드용 LVGL 소스를 `third_party/`에 받기 |
 | `npm run build:engine` | WebAssembly 엔진을 빌드해 `public/engine/`에 저장 |
+| `npm run mvvm-source` | `engine/mvvm`의 바인딩 라이브러리를 생성기용 `src/lvgl/mvvmSource.js`로 복사 (라이브러리를 고친 뒤 엔진 빌드와 함께) |
 | `npm run icons` | 앱 아이콘과 프로젝트 파일 아이콘 생성 |
 | `npm run build:win` | Windows 설치 파일 빌드 (`build:mac`, `build:linux`도 있음) |
 
 ## 현재 제약
 
-- 사용자 C 코드 연결은 아직 없습니다.
+- 실행 화면(F5)은 내장 엔진이라 `src/app/`의 사용자 로직은 네이티브 실행에서만 동작합니다. 실행 화면에서는 뷰모델 탭에서 값을 바꿔 로직을 대신합니다.
+- 뷰모델의 컬렉션(목록, 표 항목) 바인딩, 명령(Command), 다른 스레드에서의 값 설정은 아직 없습니다.
 - 탭 뷰의 탭 안에 위젯을 배치하는 기능은 아직 없습니다. 탭에는 이름만 표시됩니다.
 - 외부 라이브러리나 장치가 필요한 위젯(Lottie, rlottie, GIF, FFmpeg, GStreamer, 3D Texture)과 입력기(Pinyin)는 넣지 않았습니다.
 - 앱 안에서 실행할 때 PC 키보드 입력은 LVGL로 전달되지 않습니다. 텍스트 입력에는 키보드 위젯을 사용합니다.

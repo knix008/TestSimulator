@@ -14,13 +14,25 @@ target_include_directories(lvgl PUBLIC "${LVGL_DIR}" "${CMAKE_CURRENT_SOURCE_DIR
 target_compile_definitions(lvgl PUBLIC LV_CONF_INCLUDE_SIMPLE)
 target_compile_options(lvgl PRIVATE -O2 -w)
 
+# The application's own code: every C and C++ file in src/app, however many there are.
+file(GLOB APP_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/app/*.c")
+file(GLOB APP_CXX_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/app/*.cpp")
+if(APP_CXX_SOURCES)
+  enable_language(CXX)
+endif()
+
 add_executable(app
   src/main.c
+  lib/mvvm/mvvm.c
+  lib/mvvm/mvvm_lvgl.c
+  src/glue/glue.c
   src/ui/screens/ui_Calculator.c
   src/ui/ui.c
   src/ui/ui_events.c
+  ${APP_SOURCES}
+  ${APP_CXX_SOURCES}
 )
-target_include_directories(app PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/ui")
+target_include_directories(app PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/ui" "${CMAKE_CURRENT_SOURCE_DIR}/src/glue" "${CMAKE_CURRENT_SOURCE_DIR}/src/app" "${CMAKE_CURRENT_SOURCE_DIR}/lib/mvvm")
 target_link_libraries(app PRIVATE lvgl)
 target_compile_definitions(app PRIVATE UI_FONT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts")
 if(ML_HEADLESS)

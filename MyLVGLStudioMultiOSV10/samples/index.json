@@ -507,5 +507,23 @@
       "LVGL 8 Gauges",
       "Meter, Color Wheel (LVGL 8.4)"
     ]
+  },
+  {
+    "id": "MotorControl",
+    "icon": "viewModel",
+    "file": "MotorControl/MotorControl.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "모터 제어 (MVVM)",
+      "화면과 로직 분리: 뷰모델 바인딩, src/app의 로직과 단위 시험"
+    ],
+    "en": [
+      "Motor Control (MVVM)",
+      "Screens apart from logic: ViewModel bindings, logic and a unit test in src/app"
+    ]
   }
 ]

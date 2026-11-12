@@ -1,6 +1,9 @@
 // What is wrong with a project: read from the document, so the list is always current, and
 // from the compiler's output after a native build. Every entry says where it can be fixed.
-import { ALIGNS, FLEX_FLOWS, TEXT_TARGETS, VALUE_SOURCES, VALUE_TARGETS, availableIn } from "./schema.js";
+import { ALIGNS, FLEX_FLOWS, TEXT_TARGETS, VALUE_SOURCES, VALUE_TARGETS, availableIn, bindableKeys, isInputKey } from "./schema.js";
+import { findViewModel, modeOf, resolveBinding, viewModels } from "./viewmodel.js";
+import { glueIdentifiers } from "./gluegen.js";
+import { missingGlueNames } from "./appcheck.js";
 import { cNames } from "./emit.js";
 import { sanitizeName, walk } from "./project.js";
 import { engineFor } from "./versions.js";
@@ -51,8 +54,14 @@ function gridCells(grid) {
   }));
 }
 
-/** Finds the problems of a project. `installed` lists the LVGL versions on this computer. */
-export function findProblems(project, { installed = null } = {}) {
+/** At most this many places in the application code are listed; the build names the rest. */
+const APP_LIMIT = 50;
+
+/**
+ * Finds the problems of a project. `installed` lists the LVGL versions on this computer;
+ * `appCode` is the application code (src/app) as { path: text }, when the project has a folder.
+ */
+export function findProblems(project, { installed = null, appCode = null } = {}) {
   const list = [];
   const version = project.lvgl;
   const names = cNames(project);
@@ -206,6 +215,56 @@ export function findProblems(project, { installed = null } = {}) {
     });
   }
 
+  // Bindings: what they point at, and what they can do on that widget.
+  for (const screen of project.screens) {
+    if (screen.dataContext !== undefined && !findViewModel(project, screen.dataContext)) add("error", "contextMissing", screen, { vm: screen.dataContext });
+  }
+  walk(project, (node) => {
+    for (const binding of node.bindings ?? []) {
+      const params = { prop: binding.prop, path: binding.vm ? `${binding.vm}.${binding.path}` : binding.path };
+      if (!bindableKeys(node.type).includes(binding.prop)) {
+        add("error", "bindNotHere", node, params);
+        continue;
+      }
+      const found = resolveBinding(project, node, binding);
+      if (!found) {
+        add("error", "bindMissing", node, params);
+        continue;
+      }
+      const mode = modeOf(node, binding);
+      if ((mode === "twoWay" || mode === "oneWayToSource") && !isInputKey(node.type, binding.prop)) add("warning", "bindNoInput", node, { ...params, mode });
+      if (binding.converter === "range" && found.prop.type === "int" && !(found.prop.min < found.prop.max)) add("warning", "bindNoRange", node, params);
+      if (binding.converter === "range" && found.prop.type === "string") add("warning", "bindNoRange", node, params);
+      if (binding.converter === "invert" && found.prop.type !== "bool") add("warning", "bindInvert", node, params);
+    }
+  });
+  const seenC = new Set();
+  for (const name of glueIdentifiers(project)) {
+    if (seenC.has(name)) add("error", "vmClash", null, { name });
+    seenC.add(name);
+  }
+  for (const vm of viewModels(project)) if (!vm.props.length) add("info", "vmEmpty", null, { vm: vm.name });
+
+  // The application code uses ViewModel names the design no longer has (renamed or deleted):
+  // it would not compile. Said now, before a build; the code itself is never changed.
+  for (const use of missingGlueNames(project, appCode).slice(0, APP_LIMIT)) {
+    const code = (use.header ? "appHeader" : "appName") + (use.suggest ? "Suggest" : "");
+    list.push({
+      key: `app:${use.file}:${use.line}:${use.name}`,
+      severity: "error",
+      code,
+      params: { version, name: use.name, suggest: use.suggest ?? "" },
+      node: null,
+      nodeName: "",
+      type: null,
+      screen: "",
+      hasCode: true,
+      file: use.file,
+      line: use.line,
+      where: `${use.file}:${use.line}`,
+    });
+  }
+
   // Positions: only what can be worked out without LVGL's layout.
   const visit = (node, size, isScreen) => {
     if (node.type !== "screen" && node.type !== "container") return;
@@ -235,7 +294,7 @@ export function findProblems(project, { installed = null } = {}) {
   return list.sort((a, b) => order[a.severity] - order[b.severity]);
 }
 
-const PROJECT_FILE = /(?:^|\/)(src\/main\.c|src\/ui\/[^:]+\.[ch]|config\/lv_conf\.h):(\d+)(?::\d+)?:\s*(fatal error|error|warning):\s*(.*)$/;
+const PROJECT_FILE = /(?:^|\/)(src\/main\.c|src\/(?:ui|glue|app)\/[^:]+\.(?:c|h|cpp)|lib\/mvvm\/[^:]+\.[ch]|config\/lv_conf\.h):(\d+)(?::\d+)?:\s*(fatal error|error|warning):\s*(.*)$/;
 const OTHER_ERROR = /^(.+?\.(?:c|h|cpp|cmake)):(\d+)(?::\d+)?:\s*(?:fatal )?error:\s*(.*)$/;
 
 /** Compiler messages as problems. Only those in the project's own files lead to code. */

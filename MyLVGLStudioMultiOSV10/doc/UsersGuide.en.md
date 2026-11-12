@@ -228,6 +228,49 @@ Select a widget, press **Add Event** in the Attributes panel, then choose when (
 | Toggle visible, Show, Hide | Shows or hides the given widget |
 | Write to log | Writes a message to the log panel (in native runs, through standard output to the log panel) |
 
+### Screens Apart from Logic (MVVM, Data Binding)
+
+This keeps the screens (GUI) and the logic completely apart, as MVVM does in WPF. The screens are bound only to the properties of **ViewModels**, and the logic only reads and writes those properties. The logic lives in `src/app/`. The app writes the files of that folder once, when they are missing, and never changes or deletes them afterwards. However much you change the screens and regenerate the code, the logic stays.
+
+| Layer | Folder | Made by |
+|---|---|---|
+| Screens (View) | `src/ui/` | The app (overwritten on every save) |
+| ViewModels | `src/glue/` | The app (overwritten on every save) |
+| Binding library | `lib/mvvm/` | The app (the same code as the design engine) |
+| Logic and Model | `src/app/` | You (the app writes it once, only when missing) |
+
+1. In the Attributes panel, press the link button beside the property to bind (value, selection, checked, text, hidden, disabled). A property with the widget's current value and range appears in the screen's data context ViewModel (`Main` is made when there is none), and it is bound at once.
+2. The bound property shows a binding editor instead. Choose the ViewModel property, the direction (ViewModel → screen, two-way, screen → ViewModel, once at the start), a converter (scale, invert true/false) and a text format (e.g. `%d rpm`). Widgets the user can change (sliders, arcs, switches, drop-downs, text areas and so on) bind two-way by default. The unbind button brings the plain input back.
+3. In the **ViewModels** tab at the bottom, add ViewModels and properties, and change their names, types (integer, true/false, text), initial values and ranges. Renaming carries the bindings along. Each property lists the widgets bound to it; press one to select it.
+4. Select a screen to choose its **Data context** in the Attributes panel: the ViewModel its bindings use by default.
+5. While running (F5) the ViewModels tab shows the **Now** values. Change one and the bound widgets follow as if the logic had set it, so bindings can be tried without any logic.
+
+The logic includes only the generated `glue.h`. `glue.h` does not include `lvgl.h`, so the logic also compiles, and can be unit-tested, on a PC without LVGL.
+
+```c
+#include "app.h"
+#include "glue.h"
+
+static void on_running(mv_prop_t * prop, void * user)
+{
+    vm_main_set_status(mv_get_bool(prop) ? "Running" : "Stopped");
+}
+
+void app_init(void)   /* called once, after ui_init() */
+{
+    vm_main_set_speed(1200);                              /* every bound widget follows */
+    mv_observe(vm_main_prop_running(), on_running, NULL); /* called when the user changes it */
+}
+```
+
+- For each property `speed` of the ViewModel `Main`, `vm_main_get_speed()`, `vm_main_set_speed()` and `vm_main_prop_speed()` are generated. Observers hear only of real changes.
+- Periodic work uses `mv_timer_start(period_ms, function, NULL)`, again without `lvgl.h`.
+- Every `.c` and `.cpp` file in `src/app/` is built (subfolders are not, so tests can live there). C++ works too.
+- A native run builds with the `src/app/` of the saved project. The Run window (F5) uses the built-in engine, so your logic does not run there.
+- Save As copies `src/app/` to the new folder. A sample's logic is copied when it is first saved.
+- Rename or delete a ViewModel or a property, and the Problems tab at once lists, as errors, the places in the logic (`src/app/`) that still use the old name, before any build. For a rename it gives the new name too (the renames are kept in the project file, so it still knows after reopening). The app does not change the logic. The code button of an entry opens that line in the code editor. Edited in another editor, they are read again when you come back to the app.
+- The `MotorControl` sample shows a Model (`motor.c`), logic (`app.c`) and a unit test without LVGL (`tests/test_motor.c`).
+
 ## Sample Projects
 
 Open a copy from the start screen or from **File > Sample Projects**. All of them have something you can drag to move. The design surface stays still, so choose **Run (F5)** and try dragging.
@@ -264,6 +307,7 @@ Open a copy from the start screen or from **File > Sample Projects**. All of the
 | `Typography` | Text and Drawing: Spangroup, Canvas, Line, font sizes |
 | `ModernScale` | LVGL 9 Instruments: Scale, Barcode, QR Code, Arc Label |
 | `LegacyMeter` | LVGL 8 Gauges: Meter, Color Wheel (LVGL 8.4) |
+| `MotorControl` | Motor Control (MVVM): screens apart from logic, ViewModel bindings, logic and a unit test in `src/app` |
 
 ## 6. Running
 
@@ -322,12 +366,14 @@ The code and the graphics follow each other. Change the graphics and the code is
 | `src/ui/screens/ui_*.c` | Adding and deleting controls, and every attribute in the design, such as name, order, parent, position, size, colour, text and value |
 | `src/main.c` | `#define WIDTH`, `#define HEIGHT` (screen size) |
 | `src/ui/ui.c` | The colours and the dark theme value of `lv_theme_default_init` |
+| `src/ui/ui_bindings.c` | The `mv_bind` lines: the bindings of widgets to ViewModels |
+| `src/glue/vm_<name>.c` | The `mv_prop_init_*` lines: the name, type, initial value and range of each ViewModel property |
 | Other files | Read only. They are generated automatically from the design. |
 
 - Code that cannot be turned into the design (your own functions, `if` statements and so on) and syntax errors are shown below the code window with line numbers, and the graphics stay as they are until you fix them. Press such a line to go to it.
 - The code is tidied into the design's format. Comments and line formatting disappear when you leave the input area, and `lv_obj_set_pos` becomes `lv_obj_set_x` and `lv_obj_set_y`.
 - Change screen names and events in the Attributes panel, not in the code.
-- Code edited in an editor outside the app is not read, and saving overwrites it.
+- Generated code edited in an editor outside the app is not read, and saving overwrites it. The logic (`src/app/`) can be edited in any editor.
 
 Saving creates the following files in the project folder.
 
@@ -339,26 +385,51 @@ Saving creates the following files in the project folder.
 | `src/ui/ui_events.h`, `ui_events.c` | Event actions |
 | `src/ui/screens/ui_<screen>.c` | One file per screen |
 | `src/ui/images/ui_img_<image>.c` | One file per image |
+| `src/ui/ui_bindings.c` | The bindings between widgets and ViewModel properties |
+| `src/glue/` | The ViewModels: `glue.h`, and `vm_<name>.h`, `.c` for each ViewModel |
+| `lib/mvvm/` | The binding library (`mvvm.h` works without LVGL) |
+| `src/app/` | Your logic. Written once, when missing, and never overwritten. |
 | `assets/images/` | The original imported images |
 | `src/main.c`, `CMakeLists.txt`, `config/lv_conf.h` | Files for running on the desktop |
 
-If you delete a screen or image and save, `src/ui/screens/` and `src/ui/images/` also lose its `.c` file. Do not keep files you wrote yourself in these two folders.
+If you delete a screen, an image or a ViewModel and save, `src/ui/screens/`, `src/ui/images/` and `src/glue/` lose its files too. Keep the files you write yourself in `src/app/`, not in these folders.
 
 The image C files of an LVGL v8 project hold data for both 32-bit and 16-bit colour depths (including `LV_COLOR_16_SWAP`). In v9 they are stored as ARGB8888 and LVGL converts them for display.
 
-In your firmware, put the `src/ui/` folder into the project and add it to the include path. After initialising LVGL and the display, call `ui_init()` once.
+In your firmware, put the `src/ui/`, `src/glue/`, `lib/mvvm/` and `src/app/` folders into the project and add them to the include path. After initialising LVGL and the display, call `ui_init()` and then `app_init()` once.
 
 ```c
 #include "ui.h"
+#include "app.h"
 
 lv_init();
 /* Initialise the board's display and input drivers */
 ui_init();
+app_init();   /* the logic in src/app */
 ```
 
 If you edit generated files other than the project file directly, saving again overwrites them. `ui.h` declares a `ui_<name>` variable for each widget, and you reach the widget through it.
 
 In the firmware's `lv_conf.h`, the fonts (`LV_FONT_MONTSERRAT_*`) and widgets you use must be turned on. The generated `lv_conf.h` is for PC simulation, so do not use it as it is on a board with little memory.
+
+### Code Editor (Ctrl+E)
+
+Edit the logic and the generated code in a window of its own, and run it from there. Open it with the code editor button of the toolbar, **View > Code editor**, or Ctrl+E. It works alongside the main window and can be resized.
+
+| Part | Contents |
+|---|---|
+| Left, **Logic (src/app)** | Your logic files. New file (+), rename, delete (press twice). Subfolders work too (`tools/util.c`). |
+| Left, **Generated code** | The files made from the design. Those with a lock are read only. |
+| Centre | Line numbers and C colours. Typing `vm_` or `mv_` completes the ViewModel and library functions (arrow keys, Enter, Esc). Lines with a problem are marked. |
+| Top, **Run** (F5) | Saves everything, even what was just typed, builds with gcc and runs it in a window of its own (native run). Pressed while running, it stops. |
+| Bottom, **Build**, **Program output**, **Problems** | The build output, what the program prints with `printf`, and the problems of the code. An entry with a file and a line goes to that line. |
+
+- **Saved automatically:** a logic file is saved to the logic folder as you type (0.4 s after). The logic folder is saved apart from the GUI: the logic is saved even when the GUI project is not. The status line shows when and where.
+- **Logic folder:** for a saved project, `src/app/` of its folder. A project not saved yet (a sample too) keeps it in a folder of its own under `drafts` in the app's data folder, which goes to `src/app/` when the project is first saved. Draft folders never saved are cleared after a week.
+- **Editing generated code:** the generated files that hold the design (screen files, `ui.c`, `main.c`, `lv_conf.h`, the bindings file `src/ui/ui_bindings.c` and the ViewModel files `src/glue/vm_<name>.c`) take edits into the design, so they survive the next generation. A project with a folder is saved automatically too. Undo in the main window takes the edits back.
+- **Bindings file:** each `mv_bind` line is one binding. Add or delete lines, and change the direction (`MV_ONE_WAY` and so on), the converter (`MV_CONV_RANGE`, `MV_CONV_INVERT`) and the format.
+- **ViewModel files:** each `mv_prop_init_int`, `_bool` or `_string` line is one property. Change its name, type, initial value and range, or add and delete lines. A name changed in its place keeps its bindings, and the logic is told the new name.
+- **Read-only generated files:** the binding library (`lib/mvvm/`), `glue.h`, `glue.c`, the ViewModel headers, `ui.h`, the event files and `CMakeLists.txt` are made from other files, so they cannot be edited; the status line says where to change them.
 
 ## 10. Keyboard Shortcuts
 
@@ -371,6 +442,7 @@ In the firmware's `lv_conf.h`, the fonts (`LV_FONT_MONTSERRAT_*`) and widgets yo
 | Del | Delete |
 | Arrow keys, Shift+arrow keys | Move by 1 pixel, 10 pixels |
 | F5, Shift+F5 | Run inside the app, native run |
+| Ctrl+E | Code editor (in the editor, F5 saves and runs natively, Ctrl+S saves at once) |
 
 ## 11. Troubleshooting
 

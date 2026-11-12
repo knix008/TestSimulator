@@ -2,6 +2,7 @@
 /* Project: CompassDial - LVGL 9.6.0 */
 #include "ui.h"
 #include "ui_events.h"
+#include "glue.h"
 
 lv_obj_t * ui_Compass;
 lv_obj_t * ui_arc1;
@@ -11,6 +12,7 @@ lv_obj_t * ui_label2;
 
 void ui_init(void)
 {
+    glue_init();
     lv_display_t * display = lv_display_get_default();
     lv_theme_t * theme = lv_theme_default_init(display, lv_color_hex(0x26c6da), lv_color_hex(0xef5350), true, LV_FONT_DEFAULT);
     lv_display_set_theme(display, theme);

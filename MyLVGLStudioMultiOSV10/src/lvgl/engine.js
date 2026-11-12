@@ -16,6 +16,8 @@ export class Engine {
     this.errors = [];
     this.imagePixels = new Map();
     this.fontSlots = new Map();
+    /** "Model.speed" -> { index, type } of the ViewModel properties loaded. */
+    this.vmProps = new Map();
   }
 
   /** Copies a font's file into engine memory once per face, and gives it a slot. */
@@ -79,6 +81,7 @@ export class Engine {
     const { ops, ids } = emit(project);
     this.ids = ids;
     this.errors = [];
+    this.vmProps = new Map();
     const check = (code, op) => {
       if (code !== 0) this.errors.push(op);
     };
@@ -107,6 +110,13 @@ export class Engine {
         case "image":
           if (imageData(op.name)) check(this.m._ml_set_i(op.id, PROP_IDS.image, op.index), op);
           break;
+        case "vmprop":
+          this.vmProps.set(`${op.vm}.${op.name}`, { index: op.index, type: op.type });
+          check(this.withString(op.type === "string" ? op.value : "", (text) => this.withString(op.name, (name) => this.m._ml_vm_prop(op.index, op.typeId, op.type === "string" ? 0 : op.value, op.min, op.max, text, name))), op);
+          break;
+        case "bind":
+          check(this.withString(op.format ?? "", (format) => this.m._ml_bind(op.id, op.index, op.attr, op.mode, op.conv, op.viewMin, op.viewMax, format)), op);
+          break;
         case "event":
           if (events) {
             check(this.withString(op.text, (p) => this.m._ml_event(op.id, TRIGGERS.indexOf(op.trigger), ACTION_IDS[op.action], op.target, p)), op);
@@ -119,6 +129,31 @@ export class Engine {
     this.m._ml_show(start);
     this.m._ml_render();
     this.m._ml_tick(0);
+  }
+
+  /** Every ViewModel property as it is now: { "Model.speed": 40, "Model.name": "text", ... }. */
+  vmValues() {
+    const values = {};
+    for (const [key, { index, type }] of this.vmProps) {
+      if (type === "string") values[key] = this.m.UTF8ToString(this.m._ml_vm_get_text(index));
+      else if (type === "bool") values[key] = this.m._ml_vm_get_int(index) !== 0;
+      else values[key] = this.m._ml_vm_get_int(index);
+    }
+    return values;
+  }
+
+  /** Sets a ViewModel property ("Model.speed"), as the application logic would. */
+  setVm(key, value) {
+    const prop = this.vmProps.get(key);
+    if (!prop) return false;
+    if (prop.type === "string") this.withString(String(value ?? ""), (text) => this.m._ml_vm_set_text(prop.index, text));
+    else this.m._ml_vm_set_int(prop.index, prop.type === "bool" ? (value ? 1 : 0) : Math.trunc(Number(value) || 0));
+    return true;
+  }
+
+  /** A number that grows with every change of a ViewModel property. */
+  vmChanges() {
+    return this.m._ml_vm_changes();
   }
 
   tick(ms) {

@@ -510,8 +510,8 @@ html.popout-dialog .popout-free .dialog > footer { padding-right: 26px; }
 .dialog > header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 8px 14px; background: var(--header); border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; }
 .dialog-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px 14px; }
 .dialog > footer { flex: 0 0 auto; display: flex; justify-content: flex-end; gap: 6px; padding: 8px 14px; border-top: 1px solid var(--line); }
-.dialog button:not(.mini):not(.toggle):not(.icon-select-button):not(.menu-pop button):not(.stepper button):not(.range-step):not(.bg-tile):not(.theme-row):not(.pref-tabs button):not(.conf-sections button):not(.samples-list button):not(.window-controls button):not(.grip) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 76px; height: 28px; padding: 0 10px; border: 1px solid var(--button-border); border-radius: 4px; background: var(--button); white-space: nowrap; }
-.dialog button:not(.mini):not(.toggle):not(.icon-select-button):not(.primary):not(.stepper button):not(.range-step):not(.bg-tile):not(.theme-row):not(.pref-tabs button):not(.conf-sections button):not(.samples-list button):not(.window-controls button):not(.grip):hover:not(:disabled) { background: var(--hover); }
+.dialog button:not(.mini):not(.toggle):not(.icon-select-button):not(.menu-pop button):not(.stepper button):not(.range-step):not(.bg-tile):not(.theme-row):not(.pref-tabs button):not(.conf-sections button):not(.samples-list button):not(.window-controls button):not(.grip):not(.editor-window button) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 76px; height: 28px; padding: 0 10px; border: 1px solid var(--button-border); border-radius: 4px; background: var(--button); white-space: nowrap; }
+.dialog button:not(.mini):not(.toggle):not(.icon-select-button):not(.primary):not(.stepper button):not(.range-step):not(.bg-tile):not(.theme-row):not(.pref-tabs button):not(.conf-sections button):not(.samples-list button):not(.window-controls button):not(.grip):not(.editor-window button):hover:not(:disabled) { background: var(--hover); }
 .dialog button:disabled { opacity: 0.5; cursor: default; }
 .dialog .icon-select-list button { display: flex; justify-content: flex-start; min-width: 0; height: auto; padding: 6px 8px; border: 0; background: transparent; }
 .dialog .icon-select-list button:hover { background: var(--accent-soft); }
@@ -566,3 +566,97 @@ button.primary { background: var(--accent) !important; border-color: var(--accen
 .dialog .theme-editor .text-input, .theme-editor .color-text { height: 24px; }
 .theme-editor .swatch { width: 22px; height: 24px; flex-basis: 22px; }
 .theme-color-row > span { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ViewModels (MVVM): the bottom tab, and bound properties in the Attributes panel. */
+.vm-view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; font-size: 12px; }
+.vm-toolbar { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 3px 8px; border-bottom: 1px solid var(--line); }
+.vm-toolbar .tool-button { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--button-border); border-radius: 3px; background: transparent; white-space: nowrap; }
+.vm-toolbar .tool-button:hover:not(:disabled) { background: var(--hover); }
+.vm-hint { min-width: 0; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.vm-view[data-running] .vm-hint { color: var(--accent-ink); font-weight: 600; }
+.vm-table { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.vm-head, .vm-row { display: grid; grid-template-columns: minmax(90px, 1.1fr) 112px minmax(118px, 1fr) 112px 112px minmax(118px, 1fr) minmax(120px, 1.6fr) 26px; align-items: center; gap: 6px; padding: 0 8px; }
+.vm-head { flex: 0 0 22px; color: var(--muted); font-weight: 600; background: var(--header); border-bottom: 1px solid var(--line); }
+.vm-head > span, .vm-row > span { min-width: 0; }
+.vm-rows { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.vm-model { display: flex; align-items: center; gap: 8px; padding: 3px 8px; background: color-mix(in srgb, var(--header) 60%, transparent); border-bottom: 1px solid var(--line); }
+.vm-model-name { display: flex; align-items: center; gap: 6px; font-weight: 600; min-width: 0; }
+.vm-model-name .vm-name { width: 160px; font-weight: 600; }
+.vm-model-note { flex: 1 1 auto; min-width: 0; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.vm-row { min-height: 30px; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.vm-row .text-input { height: 24px; }
+.vm-name.invalid { border-color: var(--danger); }
+.vm-prop-name { font-family: var(--mono, monospace); }
+.vm-empty-row { padding: 4px 30px; color: var(--muted); border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.vm-users { display: flex; flex-wrap: wrap; gap: 3px; }
+.vm-user { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 5px; border: 1px solid var(--line); border-radius: 10px; background: transparent; font-size: 11px; white-space: nowrap; }
+.vm-user:hover { background: var(--hover); border-color: var(--accent-line); }
+.vm-unused { color: var(--muted); }
+.vm-actions { display: flex; justify-content: flex-end; gap: 2px; }
+.vm-model .vm-actions { flex: 0 0 auto; }
+.vm-now { font-weight: 600; }
+.bindable { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.bindable > :first-child { flex: 1 1 auto; min-width: 0; }
+.bind-button { opacity: 0.55; }
+.bind-button:hover, .field:hover .bind-button { opacity: 1; }
+.bound-label { display: inline-flex; align-items: center; gap: 3px; color: var(--accent-ink); font-weight: 600; }
+.binding { display: grid; gap: 3px; padding: 4px; border: 1px solid var(--accent-line); border-radius: 4px; background: color-mix(in srgb, var(--selected) 45%, transparent); }
+.binding-head { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.binding-head > :nth-child(2) { flex: 1 1 auto; min-width: 0; }
+
+/* -------------------------------------------------------- the code editor window */
+.dialog-body:has(.editor-window) { padding: 0; height: 680px; max-height: calc(100vh - 80px); overflow: hidden; }
+html.popout-dialog .popout-free .dialog-body:has(.editor-window) { height: 100% !important; max-height: none; }
+.editor-window { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.editor-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 0 0 14px; background: var(--header); border-bottom: 1px solid var(--line); }
+.editor-bar .window-controls { margin-left: 0; height: auto; }
+.editor-bar-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.editor-run { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 12px; border: 1px solid var(--button-border); border-radius: 4px; background: var(--button); white-space: nowrap; font-weight: 600; }
+.editor-run:hover { background: var(--hover); }
+.editor-run.stop { border-color: var(--danger); color: var(--danger); }
+.editor-state { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.editor-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
+.editor-tree { min-height: 0; overflow: auto; padding: 4px 0; border-right: 1px solid var(--line); background: var(--panel); font-size: 12px; }
+.editor-group h4 { display: flex; align-items: center; gap: 6px; margin: 6px 0 2px; padding: 0 6px 0 10px; font-size: 12px; color: var(--muted); }
+.editor-group h4 span { flex: 1 1 auto; }
+.editor-file { display: flex; align-items: center; min-width: 0; padding-right: 4px; }
+.editor-file:hover { background: var(--hover); }
+.editor-file.selected { background: var(--selected); color: var(--accent-ink); }
+.editor-file .mini { width: 20px; height: 20px; opacity: 0; }
+.editor-file:hover .mini, .editor-file .mini.armed { opacity: 1; }
+.editor-file .mini.armed { background: var(--danger); color: #fff; }
+.editor-file-name { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 5px; height: 24px; padding: 0 6px 0 18px; border: 0; background: transparent; color: inherit; text-align: left; white-space: nowrap; overflow: hidden; }
+.editor-file-name span { overflow: hidden; text-overflow: ellipsis; }
+.editor-file-name .icon[data-icon="error"] { flex: 0 0 auto; }
+.editor-dirty { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.editor-name { margin: 2px 8px 2px 18px; width: calc(100% - 26px); height: 24px; }
+.editor-name.invalid { border-color: var(--danger); }
+.editor-body { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--panel); }
+.editor-tab { display: inline-flex; align-items: center; height: 100%; border-right: 1px solid var(--line); }
+.editor-tab > button:first-child { height: 100%; padding: 0 6px 0 10px; border: 0; background: transparent; color: inherit; white-space: nowrap; }
+.editor-tab .mini { width: 18px; height: 18px; margin-right: 4px; }
+.editor-tab.active { background: var(--panel); font-weight: 600; }
+.editor-pane { flex: 1 1 auto; min-height: 0; display: flex; }
+.editor-gutter { flex: 0 0 auto; min-width: 44px; overflow: hidden; padding: 8px 6px 0 0; text-align: right; color: var(--muted); font: 12px/1.45 Consolas, "Cascadia Mono", "Malgun Gothic", monospace; background: var(--header); border-right: 1px solid var(--line); user-select: none; }
+.editor-gutter-end { height: 40px; }
+.editor-line-number.error { color: var(--danger); font-weight: 700; }
+.editor-line-number.warning { color: var(--tone-orange); font-weight: 700; }
+.editor-pane .code-edit { flex: 1 1 auto; min-width: 0; }
+.editor-pane pre, .editor-pane textarea { position: absolute; inset: 0; margin: 0; padding: 8px 10px; font: 12px/1.45 Consolas, "Cascadia Mono", "Malgun Gothic", monospace; tab-size: 4; white-space: pre; }
+.editor-pane pre { padding-bottom: 40px; overflow: hidden; pointer-events: none; }
+.editor-pane textarea { width: 100%; height: 100%; border: 0; outline: 0; resize: none; overflow: auto; background: transparent; color: transparent; caret-color: var(--ink); user-select: text; }
+.editor-pane textarea::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); color: transparent; }
+.editor-mark.error { background: color-mix(in srgb, var(--danger) 18%, transparent); border-left-color: var(--danger); }
+.editor-mark.warning { background: color-mix(in srgb, var(--tone-orange) 16%, transparent); border-left-color: var(--tone-orange); }
+.c-glue { color: var(--tone-teal); font-weight: 600; }
+.editor-complete { position: absolute; z-index: 5; min-width: 220px; max-width: 420px; max-height: 240px; overflow: auto; padding: 3px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); box-shadow: 0 6px 18px rgb(0 0 0 / 25%); }
+.editor-complete button { display: flex; align-items: center; gap: 6px; width: 100%; height: 22px; padding: 0 8px; border: 0; border-radius: 3px; background: transparent; color: inherit; text-align: left; font: 12px Consolas, "Cascadia Mono", monospace; white-space: nowrap; }
+.editor-complete button.active { background: var(--selected); color: var(--accent-ink); }
+.editor-dir { margin-left: 8px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.editor-body .code-status .code-note { display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.editor-empty { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.editor-bottom { flex: 0 0 180px; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); background: var(--panel); }
+.editor-list { flex: 1 1 auto; min-height: 0; overflow: auto; font-size: 12px; }
+.editor-problem, .editor-jump { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 22px; padding: 0 8px; border: 0; background: transparent; color: inherit; text-align: left; }
+.editor-problem:hover, .editor-jump:hover { background: var(--hover); }
+.editor-where { font-family: Consolas, "Cascadia Mono", monospace; color: var(--accent-ink); white-space: nowrap; }

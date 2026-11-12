@@ -1,0 +1,333 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 2,
+  "name": "MotorControl",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 480,
+    "h": 320
+  },
+  "images": [],
+  "theme": {
+    "dark": true,
+    "primary": "#26c6da",
+    "secondary": "#ffa726"
+  },
+  "nextId": 17,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Motor",
+      "props": {
+        "bgColor": "#12161c",
+        "bgOpa": 255
+      },
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Motor control - MVVM",
+            "x": 16,
+            "y": 12,
+            "font": 20,
+            "textColor": "#e0f7fa"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "arc",
+          "name": "set_point",
+          "props": {
+            "width": 200,
+            "height": 200,
+            "min": 0,
+            "max": 100,
+            "value": 40,
+            "x": 16,
+            "y": 52
+          },
+          "events": [],
+          "children": [],
+          "bindings": [
+            {
+              "prop": "value",
+              "path": "target",
+              "converter": "range"
+            }
+          ]
+        },
+        {
+          "id": "n4",
+          "type": "label",
+          "name": "target_text",
+          "props": {
+            "text": "1200 rpm",
+            "x": 66,
+            "y": 132,
+            "width": 100,
+            "font": 20,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": [],
+          "bindings": [
+            {
+              "prop": "text",
+              "path": "target",
+              "format": "%d rpm"
+            }
+          ]
+        },
+        {
+          "id": "n5",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "Drag the ring",
+            "x": 76,
+            "y": 262,
+            "textColor": "#80deea"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "Run",
+            "x": 250,
+            "y": 60,
+            "textColor": "#b0bec5"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "switch",
+          "name": "run_switch",
+          "props": {
+            "width": 56,
+            "height": 28,
+            "x": 300,
+            "y": 56
+          },
+          "events": [],
+          "children": [],
+          "bindings": [
+            {
+              "prop": "checked",
+              "path": "running"
+            }
+          ]
+        },
+        {
+          "id": "n8",
+          "type": "led",
+          "name": "run_lamp",
+          "props": {
+            "width": 20,
+            "height": 20,
+            "ledBright": 255,
+            "x": 380,
+            "y": 60,
+            "hidden": true
+          },
+          "events": [],
+          "children": [],
+          "bindings": [
+            {
+              "prop": "hidden",
+              "path": "running",
+              "converter": "invert"
+            }
+          ]
+        },
+        {
+          "id": "n9",
+          "type": "label",
+          "name": "status_text",
+          "props": {
+            "text": "Stopped",
+            "x": 250,
+            "y": 98,
+            "font": 16,
+            "textColor": "#ffcc80"
+          },
+          "events": [],
+          "children": [],
+          "bindings": [
+            {
+              "prop": "text",
+              "path": "status"
+            }
+          ]
+        },
+        {
+          "id": "n10",
+          "type": "label",
+          "name": "label4",
+          "props": {
+            "text": "Speed",
+            "x": 250,
+            "y": 140,
+            "textColor": "#b0bec5"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n11",
+          "type": "label",
+          "name": "speed_text",
+          "props": {
+            "text": "0 rpm",
+            "x": 330,
+            "y": 140,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": [],
+          "bindings": [
+            {
+              "prop": "text",
+              "path": "speed",
+              "format": "%d rpm"
+            }
+          ]
+        },
+        {
+          "id": "n12",
+          "type": "bar",
+          "name": "speed_bar",
+          "props": {
+            "width": 200,
+            "height": 12,
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "x": 250,
+            "y": 166
+          },
+          "events": [],
+          "children": [],
+          "bindings": [
+            {
+              "prop": "value",
+              "path": "speed",
+              "converter": "range"
+            }
+          ]
+        },
+        {
+          "id": "n13",
+          "type": "label",
+          "name": "label5",
+          "props": {
+            "text": "Load",
+            "x": 250,
+            "y": 200,
+            "textColor": "#b0bec5"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n14",
+          "type": "bar",
+          "name": "load_bar",
+          "props": {
+            "width": 200,
+            "height": 12,
+            "min": 0,
+            "max": 100,
+            "value": 0,
+            "x": 250,
+            "y": 226
+          },
+          "events": [],
+          "children": [],
+          "bindings": [
+            {
+              "prop": "value",
+              "path": "load"
+            }
+          ]
+        },
+        {
+          "id": "n15",
+          "type": "spinner",
+          "name": "spinner1",
+          "props": {
+            "width": 30,
+            "height": 30,
+            "x": 436,
+            "y": 10
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n16",
+          "type": "label",
+          "name": "label6",
+          "props": {
+            "text": "Logic: src/app (native run)",
+            "x": 250,
+            "y": 266,
+            "textColor": "#78909c"
+          },
+          "events": [],
+          "children": []
+        }
+      ],
+      "dataContext": "Motor"
+    }
+  ],
+  "viewModels": [
+    {
+      "name": "Motor",
+      "props": [
+        {
+          "name": "target",
+          "type": "int",
+          "value": 1200,
+          "min": 0,
+          "max": 3000
+        },
+        {
+          "name": "speed",
+          "type": "int",
+          "value": 0,
+          "min": 0,
+          "max": 3000
+        },
+        {
+          "name": "running",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "value": "Stopped"
+        },
+        {
+          "name": "load",
+          "type": "int",
+          "value": 0,
+          "min": 0,
+          "max": 100
+        }
+      ]
+    }
+  ]
+}
