@@ -9,11 +9,12 @@ The code editor is a window of its own for editing, building and running the log
 | Part | Contents |
 |---|---|
 | Title bar | The project's name, build or run state, **User guide** (F1), **Settings**, **About**, the window buttons |
-| Toolbar | Icon buttons (point at one for its name and key): fold or unfold the file list / new file, save, rename, delete / undo, redo / cut, copy, paste / find, replace, go to line / comment, indent, outdent, auto indent / spell checking, spelling dictionary / build (hammer), run, stop, clean build (broom) |
+| Toolbar | Icon buttons (point at one for its name and key): new file, save, rename, delete / undo, redo / cut, copy, paste / find, replace, go to line / comment, indent, outdent, auto indent / spell checking, spelling dictionary / build (hammer), run, stop, clean build (broom) / at the right end, fold or unfold the file list and the bottom panel |
 | File list, left | **Logic (src/app)**: the files you write. **Generated code**: the files made from the design (a lock means read only) |
 | Centre | The tabs of the open files, and the editing area |
 | Status line | Save state and logic folder, line and column, characters selected, number of lines, kind of file, font size (smaller, bigger), **word wrap**, and at the right end the size grip (drag it to resize the window) |
 | Bottom | **Build** (build output), **Program output** (`printf`), **Problems** (problems of the code) |
+| Folding panels | The file list and the bottom panel fold and unfold with the button at the right of their title bar, or at the right end of the toolbar. Folded, only icons and titles show (the file list as a strip at the left, the bottom panel as its tab row). A build or run unfolds the bottom panel |
 
 ## 2. Logic Files and Automatic Saving
 

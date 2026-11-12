@@ -53,6 +53,9 @@ function mirrorDocument(doc) {
 /** Open windows that stand free, by dialog name. */
 const free = new Map();
 
+/** The window label of an open free window (the code editor), or null. */
+export const popoutLabel = (name) => (inline ? null : free.get(name)?.label ?? null);
+
 /** Brings a free window forward if it is open. */
 export function focusPopout(name) {
   const pop = free.get(name);

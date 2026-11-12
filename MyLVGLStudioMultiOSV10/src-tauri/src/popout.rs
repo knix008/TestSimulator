@@ -19,6 +19,44 @@ const FREE_MIN: (f64, f64) = (560.0, 360.0);
 /// only while the mouse sizes a window; a size set any other way is held to it here.
 static MINIMUMS: std::sync::Mutex<Vec<(String, f64, f64)>> = std::sync::Mutex::new(Vec::new());
 
+/// The window a dialog was opened from when that is not the main window (the code editor): the
+/// dialog belongs to it, comes up centred on it and gives it the focus back. Asked for by name just
+/// before the page opens the dialog (popout_owner), taken by the window built next with that name.
+static NEXT_OWNER: std::sync::Mutex<Option<(String, String, std::time::Instant)>> = std::sync::Mutex::new(None);
+/// (dialog label, owner label) of the dialogs open now that have an owner of their own.
+static OWNERS: std::sync::Mutex<Vec<(String, String)>> = std::sync::Mutex::new(Vec::new());
+
+/// The dialog's name in its label: `dialog-free-guide-3` and `dialog-guide-3` are both "guide".
+fn name_of(label: &str) -> &str {
+    let rest = label.strip_prefix(FREE_PREFIX).or_else(|| label.strip_prefix(PREFIX)).unwrap_or(label);
+    rest.rsplit_once('-').map_or(rest, |(name, _)| name)
+}
+
+fn owner_of(label: &str) -> Option<String> {
+    OWNERS.lock().ok()?.iter().find(|(dialog, _)| dialog == label).map(|(_, owner)| owner.clone())
+}
+
+/// The next dialog of this name belongs to the window `owner` (a dialog window itself), not to the
+/// main window. None takes the wish back.
+#[tauri::command]
+pub fn popout_owner(app: AppHandle, name: String, owner: Option<String>) -> bool {
+    let Ok(mut next) = NEXT_OWNER.lock() else {
+        return false;
+    };
+    *next = owner.filter(|label| is_dialog(label) && app.get_webview_window(label).is_some()).map(|label| (name, label, std::time::Instant::now()));
+    next.is_some()
+}
+
+/// Takes the owner asked for this dialog, if it was asked for it a moment ago.
+fn take_owner(label: &str) -> Option<String> {
+    let mut next = NEXT_OWNER.lock().ok()?;
+    let fits = next.as_ref().is_some_and(|(name, _, at)| name == name_of(label) && at.elapsed().as_secs() < 5);
+    if !fits {
+        return None;
+    }
+    next.take().map(|(_, owner, _)| owner)
+}
+
 fn minimum_of(label: &str) -> Option<(f64, f64)> {
     MINIMUMS.lock().ok()?.iter().find(|(name, _, _)| name == label).map(|(_, w, h)| (*w, *h))
 }
@@ -56,6 +94,13 @@ pub fn new_window(app: &AppHandle, owner: &WebviewWindow, url: &Url, features: N
         return NewWindowResponse::Deny;
     };
     let free = is_free(&label);
+    let over = take_owner(&label).and_then(|name| app.get_webview_window(&name).map(|window| (name, window)));
+    if let Ok(mut owners) = OWNERS.lock() {
+        owners.retain(|(dialog, _)| dialog != &label);
+        if let Some((name, _)) = &over {
+            owners.push((label.clone(), name.clone()));
+        }
+    }
     let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(blank))
         .window_features(features)
         .title("My LVGL Studio")
@@ -70,7 +115,9 @@ pub fn new_window(app: &AppHandle, owner: &WebviewWindow, url: &Url, features: N
     let built = if free {
         builder.min_inner_size(FREE_MIN.0, FREE_MIN.1).build()
     } else {
-        let Ok(owned) = builder.parent(owner) else {
+        // Owned by the window it was opened from: activating it never brings the main window forward.
+        let parent = over.as_ref().map_or(owner, |(_, window)| window);
+        let Ok(owned) = builder.parent(parent) else {
             return NewWindowResponse::Deny;
         };
         owned.build()
@@ -107,7 +154,8 @@ pub fn clamp_to_area(x: f64, y: f64, w: f64, h: f64, area: (f64, f64, f64, f64))
     (x.round(), y.round())
 }
 
-/// Sizes a dialog to the content the page measured, centres it over the main window and shows it.
+/// Sizes a dialog to the content the page measured, centres it over the window it was opened from
+/// (the main window, or the code editor) and shows it.
 #[tauri::command]
 pub fn popout_show(app: AppHandle, options: ShowOptions) -> bool {
     if !is_dialog(&options.label) || !options.width.is_finite() || !options.height.is_finite() {
@@ -126,8 +174,10 @@ pub fn popout_show(app: AppHandle, options: ShowOptions) -> bool {
         return true;
     }
     let main = app.get_webview_window(crate::MAIN);
+    let over = owner_of(&options.label).and_then(|name| app.get_webview_window(&name));
+    let anchor = over.clone().or_else(|| main.clone());
     let scale = window.scale_factor().unwrap_or(1.0);
-    let (x, y) = main
+    let (x, y) = anchor
         .as_ref()
         .and_then(|m| {
             let factor = m.scale_factor().ok()?;
@@ -145,6 +195,9 @@ pub fn popout_show(app: AppHandle, options: ShowOptions) -> bool {
     if is_modal(&options.label) {
         if let Some(m) = &main {
             let _ = m.set_enabled(false);
+        }
+        if let Some(o) = &over {
+            let _ = o.set_enabled(false);
         }
         for (other, under) in app.webview_windows() {
             if is_modal(&other) && other != options.label {
@@ -237,9 +290,19 @@ pub fn popout_inline() -> bool {
 /// place, and otherwise to the main window. The page drops its dialog when the window went some
 /// other way (Alt+F4).
 pub fn closed(app: &AppHandle, label: &str) {
+    let over = owner_of(label).and_then(|name| app.get_webview_window(&name));
+    if let Ok(mut owners) = OWNERS.lock() {
+        owners.retain(|(dialog, owner)| dialog != label && owner != label);
+    }
     if is_free(label) {
+        if let Some(o) = &over {
+            let _ = o.set_focus();
+        }
         let _ = app.emit_to(crate::MAIN, "popout-closed", label);
         return;
+    }
+    if let Some(o) = &over {
+        let _ = o.set_enabled(true);
     }
     let mut others = false;
     for (other, window) in app.webview_windows() {
@@ -254,7 +317,15 @@ pub fn closed(app: &AppHandle, label: &str) {
     if !others {
         if let Some(main) = app.get_webview_window(crate::MAIN) {
             let _ = main.set_enabled(true);
-            let _ = main.set_focus();
+            // Back to the window it was opened from: the code editor stays in front.
+            match &over {
+                Some(o) => {
+                    let _ = o.set_focus();
+                }
+                None => {
+                    let _ = main.set_focus();
+                }
+            }
         }
     }
     let _ = app.emit_to(crate::MAIN, "popout-closed", label);
@@ -263,6 +334,13 @@ pub fn closed(app: &AppHandle, label: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dialog_names_from_labels() {
+        assert_eq!(name_of("dialog-free-guide-3"), "guide");
+        assert_eq!(name_of("dialog-preferences-12"), "preferences");
+        assert_eq!(name_of("dialog-lvgl-progress-4"), "lvgl-progress");
+    }
 
     #[test]
     fn labels_only_for_dialogs() {

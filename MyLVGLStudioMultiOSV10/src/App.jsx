@@ -39,7 +39,17 @@ import { FontsDialog } from "./FontsDialog.jsx";
 import { Tutorial, TutorialAsk } from "./Tutorial.jsx";
 import { GuideDialog } from "./Guide.jsx";
 import { GripDots } from "./controls.jsx";
-import { focusPopout } from "./popout.js";
+import { focusPopout, popoutLabel } from "./popout.js";
+
+/**
+ * Opens a dialog from the code editor's window: it belongs to the editor, comes up centred on it
+ * and gives it the focus back, so the main window never jumps in front of the editor.
+ */
+async function openOverEditor(name, open) {
+  const editor = popoutLabel("editor");
+  if (editor) await host.popoutOwner(name, editor).catch(() => false);
+  open();
+}
 import { finishStep, stepSelection, tasksOf, tutorialProject } from "./lvgl/tutorial.js";
 import { clearDragCursor, setDragCursor } from "./cursor.js";
 import { engineFor } from "./lvgl/versions.js";
@@ -2036,13 +2046,16 @@ export function App({ initialSettings }) {
           onRun={() => void commands.current.native.run()}
           onStop={() => void host.nativeStop()}
           onBuild={() => commands.current.nativeBuild.run()}
-          onSettings={() => commands.current.preferences.run()}
+          onSettings={() => void openOverEditor("preferences", () => commands.current.preferences.run())}
           onGuide={() => {
-            // The editor's own guide: the guide window opens on it (or turns to it).
-            if (guideOpen === "editor" && focusPopout("guide")) return;
-            setGuideOpen("editor");
+            // The editor's own guide: the guide window opens on it (or turns to it, in front).
+            if (focusPopout("guide")) {
+              setGuideOpen("editor");
+              return;
+            }
+            void openOverEditor("guide", () => setGuideOpen("editor"));
           }}
-          onAbout={() => commands.current.about.run()}
+          onAbout={() => void openOverEditor("about", () => commands.current.about.run())}
           onClean={() => commands.current.cleanBuild.run()}
           buildLines={buildLines}
           logLines={logLines}

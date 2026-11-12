@@ -46,6 +46,8 @@ export const PATHS = {
   unfoldRight: [["teal", '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M17.5 8h1M17.5 11h1M17.5 14h1"/><path d="m11 9-3 3 3 3"/>']],
   panelLeft: [["blue", '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>']],
   panelRight: [["teal", '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>']],
+  foldBottom: [["purple", '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15h18"/><path d="M7 17.5h1M11 17.5h1M15 17.5h1"/><path d="m9 8 3 3 3-3"/>']],
+  unfoldBottom: [["purple", '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15h18"/><path d="M7 17.5h1M11 17.5h1M15 17.5h1"/><path d="m9 11 3-3 3 3"/>']],
   panelBottom: [["purple", '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15h18"/>']],
   ruler: [["amber", '<rect x="2" y="8" width="20" height="8" rx="1"/><path d="M6 8v3M10 8v4M14 8v3M18 8v4"/>']],
   collapseLeft: [["slate", '<path d="m14 7-5 5 5 5"/>']],

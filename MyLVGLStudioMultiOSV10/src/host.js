@@ -104,6 +104,7 @@ export const host = {
   /** The smallest size of a free-standing window, in CSS pixels of its content. */
   popoutMinSize: (label, width, height) => invoke("popout_min_size", { label, width, height }),
   popoutFocus: (label) => invoke("popout_focus", { label }),
+  popoutOwner: (name, owner) => (isDesktop ? invoke("popout_owner", { name, owner }) : Promise.resolve(false)),
   popoutClose: (label) => invoke("popout_close", { label }),
   startDrag: () => isDesktop && getCurrentWindow().startDragging(),
   startResize: () => isDesktop && getCurrentWindow().startResizeDragging("SouthEast"),

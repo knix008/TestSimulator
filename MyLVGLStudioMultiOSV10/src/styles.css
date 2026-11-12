@@ -625,7 +625,11 @@ html.popout-dialog .popout-free .dialog-body:has(.editor-window) { height: 100% 
 .editor-run.stop { border-color: var(--danger); color: var(--danger); }
 .editor-state { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .editor-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
-.editor-main.no-files { grid-template-columns: minmax(0, 1fr); }
+.editor-main.no-files { grid-template-columns: 28px minmax(0, 1fr); }
+.editor-strip { border-right: 1px solid var(--line); }
+.editor-tree { display: flex; flex-direction: column; }
+.editor-panel-title { position: sticky; top: -4px; z-index: 1; flex: 0 0 auto; display: flex; align-items: center; gap: 6px; height: 28px; margin: -4px 0 4px; padding: 0 4px 0 8px; font-weight: 600; background: var(--header); border-bottom: 1px solid var(--line); }
+.editor-panel-title > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-main.no-files .editor-tree { display: none; }
 .editor-tree { min-height: 0; overflow: auto; padding: 4px 0; border-right: 1px solid var(--line); background: var(--panel); font-size: 12px; }
 .editor-group h4 { display: flex; align-items: center; gap: 6px; margin: 6px 0 2px; padding: 0 6px 0 10px; font-size: 12px; color: var(--muted); }
@@ -653,6 +657,9 @@ html.popout-dialog .popout-free .dialog-body:has(.editor-window) { height: 100% 
 .editor-toolbar { flex: 0 0 auto; display: flex; flex-wrap: nowrap; overflow: hidden; align-items: center; gap: 0; padding: 3px 6px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .editor-tool-group { display: inline-flex; align-items: center; gap: 0; padding: 0 3px; border-right: 1px solid var(--line); }
 .editor-tool-group:last-child { border-right: 0; }
+/* The file list's on/off button: alone at the right end of the toolbar. */
+.editor-tool-group.editor-tool-end { margin-left: auto; padding-right: 0; }
+.editor-tool-group:has(+ .editor-tool-end) { border-right: 0; }
 .editor-tool { display: inline-flex; align-items: center; gap: 3px; height: 28px; padding: 0 4px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: inherit; font-size: 12px; white-space: nowrap; }
 .editor-tool:hover:not(:disabled) { background: var(--hover); border-color: var(--button-border); }
 .editor-tool:disabled { opacity: 0.4; cursor: default; }
@@ -687,6 +694,10 @@ html.popout-dialog .popout-free .dialog-body:has(.editor-window) { height: 100% 
 .editor-body .code-status .code-note { display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; white-space: nowrap; }
 .editor-empty { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; color: var(--muted); }
 .editor-bottom { flex: 0 0 180px; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); background: var(--panel); }
+/* Folded: only the title bar, the tabs' icons and titles. */
+.editor-bottom.folded { flex: 0 0 auto; }
+.editor-bottom.folded .bottom-tabs { border-bottom: 0; }
+.editor-bottom .bottom-tabs .bottom-fold { margin-left: auto; padding: 0; width: 22px; justify-content: center; }
 .editor-list { flex: 1 1 auto; min-height: 0; overflow: auto; font-size: 12px; }
 .editor-problem, .editor-jump { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 22px; padding: 0 8px; border: 0; background: transparent; color: inherit; text-align: left; }
 .editor-problem:hover, .editor-jump:hover { background: var(--hover); }

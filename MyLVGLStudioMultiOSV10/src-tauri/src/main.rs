@@ -606,6 +606,7 @@ fn main() {
             popout::popout_drag,
             popout::popout_minimize,
             popout::popout_focus,
+            popout::popout_owner,
             popout::popout_close,
             popout::popout_reset,
             popout::popout_inline,

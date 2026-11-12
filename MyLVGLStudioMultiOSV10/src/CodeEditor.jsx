@@ -48,9 +48,9 @@ function readOnlyReason(file) {
 
 const readPrefs = () => {
   try {
-    return { font: 13, wrap: false, files: true, ...JSON.parse(localStorage.getItem(PREFS) ?? "{}") };
+    return { font: 13, wrap: false, files: true, bottom: true, ...JSON.parse(localStorage.getItem(PREFS) ?? "{}") };
   } catch {
-    return { font: 13, wrap: false, files: true };
+    return { font: 13, wrap: false, files: true, bottom: true };
   }
 };
 const writePrefs = (prefs) => {
@@ -671,6 +671,10 @@ export function CodeEditorWindow({ t, language, spell, tabSize = 4, onSpell, onP
     writePrefs(next);
     return next;
   });
+  // A build or a run starts: its output is shown, even with the bottom panel folded.
+  useEffect(() => {
+    if (native !== "idle") setPrefs((value) => (value.bottom ? value : { ...value, bottom: true }));
+  }, [native]);
   const fontStep = (step) => {
     const at = FONT_SIZES.indexOf(prefs.font);
     changePrefs({ font: FONT_SIZES[Math.min(FONT_SIZES.length - 1, Math.max(0, (at < 0 ? 3 : at) + step))] });
@@ -800,10 +804,16 @@ export function CodeEditorWindow({ t, language, spell, tabSize = 4, onSpell, onP
     </button>
   );
   const spellTool = { id: "spell", icon: "spell", label: t("spell.toggleTip"), keys: "", pressed: spell.enabled, run: () => onSpell({ ...spell, enabled: !spell.enabled }) };
-  // The file list: on or off, from the toolbar's first button.
-  const filesTool = { id: "files", icon: prefs.files ? "foldLeft" : "unfoldLeft", label: t(prefs.files ? "editor.tb.filesHide" : "editor.tb.filesShow"), pressed: prefs.files, run: () => changePrefs({ files: !prefs.files }) };
+  // The file list and the bottom panel: on or off, from the toolbar's right end and from their own title bars.
+  const toggleFiles = () => changePrefs({ files: !prefs.files });
+  const toggleBottom = () => changePrefs({ bottom: !prefs.bottom });
+  const filesTool = { id: "files", icon: prefs.files ? "foldLeft" : "unfoldLeft", label: t(prefs.files ? "editor.tb.filesHide" : "editor.tb.filesShow"), pressed: prefs.files, run: toggleFiles };
+  const bottomTool = { id: "bottom", icon: prefs.bottom ? "foldBottom" : "unfoldBottom", label: t(prefs.bottom ? "editor.tb.bottomHide" : "editor.tb.bottomShow"), pressed: prefs.bottom, run: toggleBottom };
+  const showOutput = (tab) => {
+    setBottom(tab);
+    if (!prefs.bottom) changePrefs({ bottom: true });
+  };
   const groups = [
-    [filesTool],
     [cmd.newFile, cmd.save, cmd.rename, cmd.remove],
     [cmd.undo, cmd.redo],
     [cmd.cut, cmd.copy, cmd.paste],
@@ -811,6 +821,7 @@ export function CodeEditorWindow({ t, language, spell, tabSize = 4, onSpell, onP
     [cmd.comment, cmd.indent, cmd.outdent, cmd.autoIndent],
     [spellTool, { id: "dictionary", icon: "spellBook", label: t("spell.dictionaryMenu"), pressed: spellPanel, run: () => setSpellPanel((value) => !value) }],
     [cmd.build, cmd.run, cmd.stop, cmd.clean],
+    [filesTool, bottomTool],
   ];
 
   const nameInput = (from) => (
@@ -885,11 +896,23 @@ export function CodeEditorWindow({ t, language, spell, tabSize = 4, onSpell, onP
         </div>
         <div className="editor-toolbar" role="toolbar" data-editor-toolbar="" ref={toolbarReady}>
           {groups.map((group, index) => (
-            <span className="editor-tool-group" key={index}>{group.map((command) => tool(command, { iconOnly: true }))}</span>
+            <span className={group[0].id === "files" ? "editor-tool-group editor-tool-end" : "editor-tool-group"} key={index}>{group.map((command) => tool(command, { iconOnly: true }))}</span>
           ))}
         </div>
         <div className={prefs.files ? "editor-main" : "editor-main no-files"}>
+          {!prefs.files && (
+            <button type="button" className="panel-strip editor-strip" data-editor-expand="files" title={t("editor.tb.filesShow")} aria-label={t("editor.tb.filesShow")} onClick={toggleFiles}>
+              <Icon name="unfoldLeft" size={16} />
+              <Icon name="open" />
+              <span>{t("editor.panel.files")}</span>
+            </button>
+          )}
           <nav className="editor-tree" data-editor-tree="" hidden={!prefs.files}>
+            <div className="editor-panel-title" data-editor-panel-title="files">
+              <Icon name="open" size={14} />
+              <span>{t("editor.panel.files")}</span>
+              <button type="button" className="mini" data-editor-fold="files" title={t("editor.tb.filesHide")} aria-label={t("editor.tb.filesHide")} onClick={toggleFiles}><Icon name="foldLeft" size={16} /></button>
+            </div>
             {treeGroup(t("editor.appGroup"), "viewModel", appFiles, true)}
             {treeGroup(t("editor.generatedGroup"), "build", generatedFiles, false)}
           </nav>
@@ -924,16 +947,17 @@ export function CodeEditorWindow({ t, language, spell, tabSize = 4, onSpell, onP
             />
           </div>
         </div>
-        <div className="editor-bottom">
+        <div className={prefs.bottom ? "editor-bottom" : "editor-bottom folded"} data-editor-bottom-panel={prefs.bottom ? "open" : "folded"}>
           <div className="bottom-tabs">
-            <button type="button" data-editor-bottom="build" className={bottom === "build" ? "active" : undefined} onClick={() => setBottom("build")}><Icon name="build" /> {t("panel.build")}</button>
-            <button type="button" data-editor-bottom="log" className={bottom === "log" ? "active" : undefined} onClick={() => setBottom("log")}><Icon name="log" /> {t("editor.output")}</button>
-            <button type="button" data-editor-bottom="problems" className={bottom === "problems" ? "active" : undefined} onClick={() => setBottom("problems")}>
+            <button type="button" data-editor-bottom="build" className={bottom === "build" && prefs.bottom ? "active" : undefined} onClick={() => showOutput("build")}><Icon name="build" /> {t("panel.build")}</button>
+            <button type="button" data-editor-bottom="log" className={bottom === "log" && prefs.bottom ? "active" : undefined} onClick={() => showOutput("log")}><Icon name="log" /> {t("editor.output")}</button>
+            <button type="button" data-editor-bottom="problems" className={bottom === "problems" && prefs.bottom ? "active" : undefined} onClick={() => showOutput("problems")}>
               <Icon name="problems" /> {t("panel.problems")}
               {codeProblems.length > 0 && <b className="problem-count" data-errors={codeProblems.some((item) => item.severity === "error") ? "" : undefined}>{codeProblems.length}</b>}
             </button>
+            <button type="button" className="mini bottom-fold" data-editor-fold="bottom" title={t(prefs.bottom ? "editor.tb.bottomHide" : "editor.tb.bottomShow")} aria-label={t(prefs.bottom ? "editor.tb.bottomHide" : "editor.tb.bottomShow")} onClick={toggleBottom}><Icon name={prefs.bottom ? "collapseDown" : "collapseUp"} size={14} /></button>
           </div>
-          {bottom === "problems" ? (
+          {!prefs.bottom ? null : bottom === "problems" ? (
             <div className="editor-list" data-editor-problems="" ref={listRef}>
               {codeProblems.length === 0 && <div className="problems-empty"><Icon name="check" /> {t("problem.none")}</div>}
               {codeProblems.map((problem, index) => (
