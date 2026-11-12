@@ -257,6 +257,18 @@ export default function App() {
   // the other side's is used (and the next terminal takes the side after the one used). Only when neither is
   // (inside an archive, deleted since) does it go up from them to the nearest folder that exists.
   const isRealDir = (p) => call('fs.exists', { path: p }).then((r) => !!r.isDir).catch(() => false);
+  // The folder itself, or the nearest parent that still exists (a panel path can sit inside a
+  // deleted folder or an archive). Empty when nothing on the way up is a real directory.
+  const nearestDir = async (start) => {
+    let p = start || '';
+    for (let up = 0; up < 32 && p; up += 1) {
+      if (await isRealDir(p)) return p;
+      const parent = dirName(p);
+      if (!parent || samePath(parent, p)) break;
+      p = parent;
+    }
+    return '';
+  };
   const panelTermDir = async () => {
     const first = termSide.current;
     const sides = [first, other(first)].map((side) => ({ side, path: pathOf(side) })).filter((x) => x.path);
@@ -274,10 +286,23 @@ export default function App() {
     termSide.current = other(first);
     return '';
   };
-  const newTerminal = async (shell) => {
+  // The folder a terminal opened from the bottom dock starts in: one selected folder in the
+  // active panel, otherwise the folder that panel is showing.
+  const selectedTermDir = () => {
+    const entries = panel() ? panel().getSelectedEntries() : [];
+    if (entries.length === 1 && entries[0].isDir) return entries[0].path;
+    return pathOf(active);
+  };
+  // `cwdOpt` (the panel context menu, and the dock's +) starts the shell in that folder and skips
+  // the configured start directory. Omitted, a new terminal uses settings › terminal, then the panels in turn.
+  const newTerminal = async (shell, cwdOpt) => {
     try {
-      let cwd = session.termCwd || '';
-      if (cwd && !(await isRealDir(cwd))) { addLog('error', t('set_term_cwd_missing', { path: cwd })); cwd = ''; }
+      let cwd = '';
+      if (cwdOpt !== undefined) cwd = await nearestDir(cwdOpt);
+      else {
+        cwd = session.termCwd || '';
+        if (cwd && !(await isRealDir(cwd))) { addLog('error', t('set_term_cwd_missing', { path: cwd })); cwd = ''; }
+      }
       if (!cwd) cwd = await panelTermDir();
       const r = await call('term.create', { cwd, shell: shell || session.termShell || undefined });
       const tm = { id: r.id, title: `${r.label} ${termNo.current++}`, shell: r.shell, cwd: r.cwd, exited: false, idle: true, buffer: [], seq: 0, git: undefined, gitCwd: null };
@@ -1093,6 +1118,13 @@ export default function App() {
         break;
       }
       case 'newTerminal': await newTerminal(); break;
+      case 'openTerminal': {
+        // The folder the menu was opened on: a selected folder, otherwise the panel's own folder.
+        const entries = panel(side) ? panel(side).getSelectedEntries() : [];
+        const dir = entries.length === 1 && entries[0].isDir ? entries[0].path : pathOf(side);
+        await newTerminal(undefined, dir);
+        break;
+      }
       case 'terminal': {
         // Toolbar button = the terminal tabs as a whole: open one when there is none, otherwise close them all
         // (asking first when a command is still running). The dock stays while log / search tabs remain.
@@ -1321,7 +1353,7 @@ export default function App() {
         </div>
       </div>
       <BottomDock visible={!!session.dockVisible} tab={dockTab} onTab={setDockTab} log={log} onClearLog={() => setLog([])} onCopyLog={copyLog}
-        terms={terms} shells={shells} onNewTerm={(shell) => newTerminal(shell)} onCloseTerm={closeTerminal} onTermExit={onTermExit} onTermRestart={onTermRestart}
+        terms={terms} shells={shells} onNewTerm={(shell) => newTerminal(shell, selectedTermDir())} onCloseTerm={closeTerminal} onTermExit={onTermExit} onTermRestart={onTermRestart}
         onHide={() => showDock(false)} height={session.dockHeight || 220} onResizeStart={onDockResizeStart}
         prompt={session.prompt || SETTINGS_DEFAULTS.prompt} env={termEnv} themeId={session.theme}
         termColor={session.termColor !== false} termEol={session.termEol || SETTINGS_DEFAULTS.termEol} termCr={session.termCr || SETTINGS_DEFAULTS.termCr}

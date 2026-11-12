@@ -520,6 +520,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     { id: 'properties', label: t('ctx_properties'), icon: 'properties', disabled: !single },
     { sep: true },
     { id: 'search', label: t('ctx_search'), icon: 'search', shortcut: 'F9' },   // the search window (not the dock tab)
+    { id: 'openTerminal', label: t('ctx_terminal'), icon: 'terminal' },          // a shell in this folder (or the selected folder)
   ];
 
   // Tab label: the folder's name, or the drive / root itself.

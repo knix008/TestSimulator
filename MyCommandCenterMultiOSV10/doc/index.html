@@ -143,7 +143,7 @@
         <li><b>압축.</b> 압축(Alt+F5), 압축 해제(Alt+F9).</li>
         <li><b>정보.</b> 사용 설명(F1), 프로그램 정보, 설정. 사용 설명은 이 문서를 별도 창으로 열고, 앱의 테마와 언어를 따라갑니다. 나머지 둘은 툴바의 같은 버튼과 같습니다.</li>
       </ul>
-      <p>목록에서 우클릭하면 그 항목에 맞는 같은 명령이 나옵니다. 폴더에서는 이 폴더에서 검색도 있습니다.</p>
+      <p>목록에서 우클릭하면 그 항목에 맞는 같은 명령이 나옵니다. 폴더에서는 이 폴더에서 검색도 있습니다. 터미널 열기는 지금 패널의 폴더에서 셸을 엽니다. 폴더를 하나 고른 경우에는 그 폴더에서 엽니다.</p>
     </div>
     <div class="en">
       <p>The menus are File, Edit, Select, View, Archive and Info. Titles and items have icons. An item you cannot use is dimmed.</p>
@@ -155,7 +155,7 @@
         <li><b>Archive.</b> Compress (Alt+F5), extract (Alt+F9).</li>
         <li><b>Info.</b> Guide (F1), About and Settings. Guide opens this document in its own window, in the app's theme and language. The other two are the same as those toolbar buttons.</li>
       </ul>
-      <p>A right-click on the list offers the commands that fit that item. On a folder it also offers Search in this folder.</p>
+      <p>A right-click on the list offers the commands that fit that item. On a folder it also offers Search in this folder. Open Terminal starts a shell in that folder (the selected folder, when one folder is selected).</p>
     </div>
   </section>
 
@@ -393,12 +393,12 @@
     </figure>
     <div class="ko">
       <p>툴바의 로그, 빠른 검색, 터미널 버튼은 각 탭을 열고 닫으며 켜진 상태를 보여 줍니다. 터미널 버튼을 끄면 터미널을 모두 닫고, 명령이 돌고 있으면 확인합니다. 탭이 하나라도 있으면 패널은 남고, 마지막 탭이 닫힐 때만 사라집니다. 머리의 × 는 패널만 숨기고 내용은 유지합니다. Ctrl+` 가 표시를 토글합니다.</p>
-      <p>로그는 상태와 오류를 시각과 함께 최근 2,000줄까지 쌓고, 복사와 지우기가 있습니다. 터미널은 Ctrl+Shift+` 와 + 로 더 엽니다. Windows는 PowerShell, 명령 프롬프트, PowerShell 7, Git Bash입니다. macOS와 Linux는 로그인 셸, bash, zsh, sh입니다. 시작 위치는 활성 패널의 폴더이거나 설정한 디렉터리입니다. exit로 셸이 끝나면 탭도 닫히고 종료 코드가 상태 표시줄과 로그에 남습니다. 명령이 셸까지 닫아 버린 경우에는 같은 폴더에서 다시 시작하고 로그만 알립니다.</p>
+      <p>로그는 상태와 오류를 시각과 함께 최근 2,000줄까지 쌓고, 복사와 지우기가 있습니다. 터미널은 Ctrl+Shift+` 와 + 로 더 엽니다. Windows는 PowerShell, 명령 프롬프트, PowerShell 7, Git Bash입니다. macOS와 Linux는 로그인 셸, bash, zsh, sh입니다. 하단의 + 는 위에서 고른 폴더에서 시작합니다. 폴더를 고르지 않았으면 활성 패널의 폴더입니다. Ctrl+Shift+` 는 설정한 시작 디렉터리, 없으면 좌우 패널 폴더를 번갈아 씁니다. exit로 셸이 끝나면 탭도 닫히고 종료 코드가 상태 표시줄과 로그에 남습니다. 명령이 셸까지 닫아 버린 경우에는 같은 폴더에서 다시 시작하고 로그만 알립니다.</p>
       <p>프롬프트는 설정 › 프롬프트의 oh-my-posh 호환 테마입니다. 경로, git 브랜치와 변경, 사용자와 호스트, 셸, OS, 시각, 종료 코드, 실행 시간, 관리자, 글자를 조합합니다. 모양은 파워라인, 일반, 다이아몬드입니다. 프리셋 16종과 JSON 가져오기·내보내기, 실시간 미리보기가 있습니다. 입력은 Tab 자동 완성, ↑↓ 기록, Ctrl+L 지우기, Esc 취소, 여러 줄 붙여넣기, 실행 중 프로그램에 입력, ANSI 색, 한글 입력입니다. 전체 화면 프로그램, 비밀번호 가리기, Ctrl+C 중단은 없습니다.</p>
     </div>
     <div class="en">
       <p>The log, quick search and terminal toolbar buttons open and close each tab and show which ones are on. Turning the terminal button off closes every terminal, and asks when a command is still running. The panel stays while any tab remains and disappears only when the last tab closes. × on the header only hides the panel and keeps its contents. Ctrl+` toggles it.</p>
-      <p>The log keeps status and errors with the time, the last 2,000 lines, plus copy and clear. A terminal opens with Ctrl+Shift+` and +. Windows offers PowerShell, Command Prompt, PowerShell 7 and Git Bash. macOS and Linux offer the login shell, bash, zsh and sh. It starts in the active panel's folder or the directory set in Settings. When the shell ends with exit, the tab closes and the code is on the status bar and in the log. If a command takes the shell down with it, a new shell starts in the same folder and only the log says so.</p>
+      <p>The log keeps status and errors with the time, the last 2,000 lines, plus copy and clear. A terminal opens with Ctrl+Shift+` and +. Windows offers PowerShell, Command Prompt, PowerShell 7 and Git Bash. macOS and Linux offer the login shell, bash, zsh and sh. + starts in the folder selected above, or the active panel's folder when none is selected. Ctrl+Shift+` uses the start directory from Settings, or the left and right panel folders in turn. When the shell ends with exit, the tab closes and the code is on the status bar and in the log. If a command takes the shell down with it, a new shell starts in the same folder and only the log says so.</p>
       <p>The prompt is an oh-my-posh compatible theme under Settings › Prompt. It combines path, git branch and changes, user and host, shell, OS, time, exit code, duration, administrator and text. Styles are powerline, plain and diamond. There are 16 presets, JSON import and export, and a live preview. Input has Tab completion, ↑↓ history, Ctrl+L to clear, Esc to cancel, multi-line paste, typing into a running program, ANSI colour and Korean input. Full-screen programs, hidden passwords and Ctrl+C are not available.</p>
     </div>
   </section>
