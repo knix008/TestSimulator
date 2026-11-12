@@ -46,6 +46,35 @@ function show(element, value) {
   up.toggleAttribute('data-at-limit', value >= max);
 }
 
+/** The panel (or other scroller) that would jump to keep a focused button in view. */
+function scrollableParent(node) {
+  const panel = node.closest?.('.side-panel');
+  if (panel) return panel;
+  for (let el = node.parentElement; el; el = el.parentElement) {
+    const overflow = getComputedStyle(el).overflowY;
+    if ((overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay') && el.scrollHeight > el.clientHeight + 1) return el;
+  }
+  return null;
+}
+
+/** Runs `run`, then puts the scroller back if the browser scrolled a button into view. */
+function withPinnedScroll(node, run) {
+  const scroller = scrollableParent(node);
+  const top = scroller?.scrollTop ?? 0;
+  const left = scroller?.scrollLeft ?? 0;
+  run();
+  const restore = () => {
+    if (!scroller?.isConnected) return;
+    if (scroller.scrollTop !== top) scroller.scrollTop = top;
+    if (scroller.scrollLeft !== left) scroller.scrollLeft = left;
+  };
+  restore();
+  requestAnimationFrame(() => {
+    restore();
+    requestAnimationFrame(restore);
+  });
+}
+
 /**
  * Wires every stepper inside `root`. `onChange(key, value, element)` runs after
  * each step and when a typed value is confirmed (Enter / leaving the field).
@@ -62,9 +91,17 @@ export function bindSteppers(root, onChange) {
     if (!element || element.classList.contains('disabled')) return;
     const { step: size } = limits(element);
     const value = clampStep(stepperValue(element) + Number(button.dataset.stepDir) * size, limits(element));
-    show(element, value);
-    onChange(element.dataset.stepper, value, element);
+    withPinnedScroll(button, () => {
+      show(element, value);
+      onChange(element.dataset.stepper, value, element);
+    });
   };
+  // mousedown focus is what scrolls a button into view inside an overflow panel.
+  root.addEventListener('mousedown', (event) => {
+    const button = event.target.closest?.('.stepper-button');
+    if (!button || button.disabled || event.button !== 0) return;
+    event.preventDefault();
+  }, true);
   root.addEventListener('pointerdown', (event) => {
     const button = event.target.closest('.stepper-button');
     if (!button || button.disabled || event.button !== 0) return;

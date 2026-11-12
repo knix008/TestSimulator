@@ -59,6 +59,10 @@ const base = {
   zoomReset: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/><text x="11" y="13.6" font-size="7" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif" font-weight="700">1:1</text>',
   panelLeft: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   panelRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
+  panelCollapseLeft: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M16 9l-4 3 4 3"/>',
+  panelExpandLeft: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M12 9l4 3-4 3"/>',
+  panelCollapseRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M8 9l4 3-4 3"/>',
+  panelExpandRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M12 9l-4 3 4 3"/>',
   statusBar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16h18"/>',
   // Bottom panel (Problems): a window with a tall bottom part holding a warning mark.
   panelBottom: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12h18"/><path d="M12 14.2v2.4"/><circle cx="12" cy="18.2" r="0.4"/>',

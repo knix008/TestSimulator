@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- MyPhotoCut app icon: a raised 3D tile; behind, a tilted photo print; in front, two generic
-       person icons, a man and a woman, and a sparkle of the magic wand.
+  <!-- MyPhotoCut app icon: a raised 3D tile. Behind, the original tilted photo.
+       In front, a larger print of that photo turned into a caricature. A sparkle of the magic wand.
        The tile sits in the exact centre (112…912 both ways); the border is transparent. -->
   <defs>
     <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
@@ -47,6 +47,9 @@
     <filter id="drop" x="-20%" y="-20%" width="140%" height="150%">
       <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#2a0632" flood-opacity="0.45"/>
     </filter>
+    <radialGradient id="lens" cx="0.38" cy="0.32" r="0.72">
+      <stop offset="0" stop-color="#e7f8ff"/><stop offset="0.5" stop-color="#4aa8e8"/><stop offset="1" stop-color="#163e78"/>
+    </radialGradient>
     <radialGradient id="spark" cx="0.5" cy="0.5" r="0.5">
       <stop offset="0" stop-color="#ffffff"/>
       <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.85"/>
@@ -54,6 +57,7 @@
     </radialGradient>
     <clipPath id="faceClip"><rect x="112" y="112" width="800" height="760" rx="170"/></clipPath>
     <clipPath id="printClip"><rect x="-150" y="-120" width="300" height="230" rx="10"/></clipPath>
+    <clipPath id="cariClip"><rect x="-190" y="-156" width="380" height="292" rx="12"/></clipPath>
   </defs>
 
   <!-- soft shadow on the ground -->
@@ -67,38 +71,65 @@
       <rect x="-172" y="-142" width="344" height="320" rx="18" fill="#ffffff"/>
       <g clip-path="url(#printClip)">
         <rect x="-150" y="-120" width="300" height="230" fill="url(#sky)"/>
-        <circle cx="0" cy="-10" r="52" fill="#ffd2b0"/>
-        <path d="M-52 -18c6-46 98-52 104 0-26-24-78-24-104 0z" fill="#4a2615"/>
-        <path d="M-110 110c10-60 60-82 110-82s100 22 110 82z" fill="#3a5f9e"/>
+        <!-- man -->
+        <path d="M-98 -14c6-36 30-44 40-42 22 2 36 16 34 40-14-18-26-24-40-22-12 2-24 10-34 24z" fill="#4a2615"/>
+        <circle cx="-58" cy="-4" r="36" fill="#ffd2b0"/>
+        <path d="M-112 112c8-52 34-70 54-70s46 18 56 70z" fill="#3a5f9e"/>
+        <!-- woman -->
+        <path d="M30 -16c6-40 30-50 42-48 26 2 38 20 36 48-2 30-6 58-2 78-18-14-24-28-30-8 0-24 8-42-10-50-16 6-30 2-36-20z" fill="#6b2f16"/>
+        <circle cx="62" cy="0" r="34" fill="#ffd2b0"/>
+        <path d="M16 112c8-50 30-66 46-66s38 16 48 66z" fill="#e8467c"/>
       </g>
       <rect x="-120" y="122" width="150" height="16" rx="8" fill="#d8c8e6"/>
     </g>
-    <!-- two generic person icons in front of the print: a man (left) and a woman (right) -->
-    <g filter="url(#drop)">
-      <!-- man -->
-      <path d="M300 880c0-130 70-200 170-200s170 70 170 200z" fill="#3b7dd8" stroke="#1a1030" stroke-width="12" stroke-linejoin="round"/>
-      <path d="M430 690l40 60 40-60" fill="none" stroke="#ffffff" stroke-width="12" stroke-linejoin="round"/>
-      <circle cx="470" cy="560" r="112" fill="url(#skinW)" stroke="#1a1030" stroke-width="12"/>
-      <path d="M358 548c-6-86 50-132 116-130 66 2 112 44 108 122-28-40-70-58-118-56-40 2-76 22-106 64z" fill="#3a2414" stroke="#1a1030" stroke-width="11" stroke-linejoin="round"/>
-      <circle cx="432" cy="574" r="11" fill="#1a1030"/><circle cx="508" cy="574" r="11" fill="#1a1030"/>
-      <path d="M440 622q30 22 60 0" fill="none" stroke="#1a1030" stroke-width="9" stroke-linecap="round"/>
-      <!-- woman -->
-      <path d="M596 590c-30-120 30-200 118-200s156 80 126 200c-6 70 20 130 44 170-60 26-116 20-150-20-30 30-110 34-150 0 14-40 18-90 12-150z" fill="url(#hairW)" stroke="#1a1030" stroke-width="12" stroke-linejoin="round"/>
-      <path d="M560 880c0-120 64-186 160-186s160 66 160 186z" fill="#e8467c" stroke="#1a1030" stroke-width="12" stroke-linejoin="round"/>
-      <circle cx="716" cy="560" r="106" fill="url(#skinW)" stroke="#1a1030" stroke-width="12"/>
-      <path d="M612 540c10-76 64-114 116-108 56 6 96 48 92 112-36-46-80-62-122-54-14 30-48 46-86 50z" fill="url(#hairW)" stroke="#1a1030" stroke-width="11" stroke-linejoin="round"/>
-      <circle cx="680" cy="578" r="11" fill="#1a1030"/><circle cx="752" cy="578" r="11" fill="#1a1030"/>
-      <path d="M688 622q28 22 56 0" fill="none" stroke="#c4234f" stroke-width="10" stroke-linecap="round"/>
-      <ellipse cx="660" cy="606" rx="18" ry="10" fill="#ff7a9a" opacity="0.45"/><ellipse cx="772" cy="606" rx="18" ry="10" fill="#ff7a9a" opacity="0.45"/>
+    <!-- the same photo, in front, redrawn as a caricature -->
+    <g transform="translate(575 545) rotate(8)" filter="url(#drop)">
+      <rect x="-214" y="-178" width="428" height="408" rx="20" fill="#ffffff"/>
+      <g clip-path="url(#cariClip)">
+        <rect x="-190" y="-156" width="380" height="292" fill="#fff6ea"/>
+        <!-- man -->
+        <ellipse cx="-72" cy="40" rx="48" ry="26" fill="#3a5f9e" stroke="#1a1030" stroke-width="6"/>
+        <circle cx="-72" cy="-22" r="58" fill="url(#skinW)" stroke="#1a1030" stroke-width="6"/>
+        <path d="M-122 -24c6-46 28-62 54-60 28 2 48 22 46 58-16-28-34-38-56-36-16 1-30 12-44 38z" fill="#4a2615" stroke="#1a1030" stroke-width="5" stroke-linejoin="round"/>
+        <ellipse cx="-90" cy="-18" rx="16" ry="20" fill="#ffffff" stroke="#1a1030" stroke-width="4"/>
+        <ellipse cx="-52" cy="-18" rx="16" ry="20" fill="#ffffff" stroke="#1a1030" stroke-width="4"/>
+        <circle cx="-86" cy="-14" r="8" fill="#1a1030"/>
+        <circle cx="-48" cy="-14" r="8" fill="#1a1030"/>
+        <path d="M-92 12q20 22 42 0" fill="none" stroke="#1a1030" stroke-width="5" stroke-linecap="round"/>
+        <!-- woman -->
+        <path d="M28 -36c8-52 36-66 52-64 32 2 48 26 46 62-4 36-8 70-2 96-22-16-30-34-36-10 2-28 10-48-12-58-18 8-36 4-48-26z" fill="#6b2f16" stroke="#1a1030" stroke-width="5" stroke-linejoin="round"/>
+        <ellipse cx="74" cy="42" rx="46" ry="24" fill="#e8467c" stroke="#1a1030" stroke-width="6"/>
+        <circle cx="74" cy="-16" r="54" fill="url(#skinW)" stroke="#1a1030" stroke-width="6"/>
+        <path d="M26 -28c8-40 32-52 52-50 28 2 42 22 40 54-14-26-32-36-52-34-14 1-26 10-40 30z" fill="#6b2f16" stroke="#1a1030" stroke-width="5" stroke-linejoin="round"/>
+        <ellipse cx="56" cy="-12" rx="15" ry="19" fill="#ffffff" stroke="#1a1030" stroke-width="4"/>
+        <ellipse cx="92" cy="-12" rx="15" ry="19" fill="#ffffff" stroke="#1a1030" stroke-width="4"/>
+        <circle cx="60" cy="-8" r="7" fill="#1a1030"/>
+        <circle cx="96" cy="-8" r="7" fill="#1a1030"/>
+        <path d="M56 16q18 20 38 0" fill="none" stroke="#c4234f" stroke-width="5" stroke-linecap="round"/>
+        <ellipse cx="40" cy="8" rx="10" ry="6" fill="#ff7a9a" opacity="0.6"/>
+        <ellipse cx="108" cy="8" rx="10" ry="6" fill="#ff7a9a" opacity="0.6"/>
+      </g>
+      <rect x="-150" y="150" width="190" height="20" rx="10" fill="#d8c8e6"/>
     </g>
     <!-- glossy top half and the top-left glow -->
     <path d="M112 112h800v300C700 345 400 345 112 455z" fill="url(#gloss)" opacity="0.5"/>
     <rect x="112" y="112" width="800" height="760" fill="url(#glow)"/>
+    <!-- a larger tilted camera, bottom centre, in front of the prints -->
+    <g transform="translate(512 768) rotate(-8) scale(2.05)" filter="url(#drop)">
+      <path d="M-22 -58 v-16 a12 12 0 0 1 12 -12 h28 a12 12 0 0 1 12 12 v16" fill="#f6eaf8" stroke="#1a1030" stroke-width="6" stroke-linejoin="round"/>
+      <rect x="-88" y="-58" width="176" height="116" rx="28" fill="#ffffff" stroke="#1a1030" stroke-width="7"/>
+      <circle cx="6" cy="6" r="36" fill="#241428" stroke="#1a1030" stroke-width="6"/>
+      <circle cx="6" cy="6" r="22" fill="url(#lens)"/>
+      <circle cx="6" cy="6" r="10" fill="#102038"/>
+      <circle cx="-2" cy="-2" r="5" fill="#ffffff"/>
+      <rect x="46" y="-40" width="24" height="14" rx="4" fill="#fff6a8" stroke="#1a1030" stroke-width="4"/>
+      <circle cx="-58" cy="-34" r="8" fill="#e8467c" stroke="#1a1030" stroke-width="4"/>
+    </g>
   </g>
   <!-- bevel rim -->
   <rect x="120" y="120" width="784" height="744" rx="163" fill="none" stroke="url(#bevel)" stroke-width="16"/>
   <!-- sparkles of the magic wand -->
-  <circle cx="842" cy="232" r="66" fill="url(#spark)" opacity="0.85"/>
-  <path d="M842 164l12 56 56 12-56 12-12 56-12-56-56-12 56-12z" fill="#fff6a8"/>
+  <circle cx="640" cy="198" r="58" fill="url(#spark)" opacity="0.85"/>
+  <path d="M640 140l10 48 48 10-48 10-10 48-10-48-48-10 48-10z" fill="#fff6a8"/>
   <path d="M236 790l8 34 34 8-34 8-8 34-8-34-34-8 34-8z" fill="#ffffff" opacity="0.9"/>
 </svg>

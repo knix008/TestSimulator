@@ -6,7 +6,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import APP_ICON from '../assets/icon-256.png';
 import {
-  loadSettings, PANEL_MIN, RECENT_DIRS_KEY, RECENT_KEY, SESSION_KEY, STORAGE_KEY, storeSettings, VIEW_ZOOM, zoomStep, ANIMATIONS, GALLERY_COLUMNS, GALLERY_LAYOUTS,
+  loadSettings, PANEL_MIN, RECENT_DIRS_KEY, RECENT_KEY, SESSION_KEY, STORAGE_KEY, storeSettings, VIEW_ZOOM, zoomStep, ANIMATIONS, GALLERY_COLUMNS, GALLERY_LAYOUTS, TILE_SIZE,
 } from './domain/settings.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
@@ -35,6 +35,7 @@ import { analyse, resizeMask } from './ui/facefinder.js';
 import { blobToDataUrl, cropDataUrl, encodeCanvas, EXPORT_TYPES, imageFromBytes, loadImage, normalizePhoto, rasterFromImage, base64ToBytes } from './ui/photo.js';
 import { composeCanvas } from './ui/overlay.js';
 import { effectMenuItems, galleryCardHtml, itemName, leftPanelHtml, marksSvg, rightPanelHtml } from './ui/panels.js';
+import { attachPaintControls, canRedoPaint, canUndoPaint, mountPaint, paintToolsHtml, redoPaint, resetPaint, undoPaint } from './ui/paint.js';
 import { bytesToBase64, zip } from './export/files.js';
 import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 
@@ -55,6 +56,8 @@ const state = {
   /** item id → { image, features, mask, ms, canvas (composed), busy } */
   results: new Map(),
   view: 'gallery',
+  /** Left panel tab: the original photo, or the paint tools. */
+  leftTab: 'photo',
   compare: false,
   comparePos: 50,
   /** Large view zoom in percent; 0 = fit to the window. */
@@ -213,6 +216,7 @@ async function openPhoto(img, { name, path = null, project = null } = {}) {
     analysis: null,
   };
   state.view = 'gallery';
+  resetPaint();
   state.compare = false;
   state.zoom = 0;
   state.showStart = false;
@@ -291,6 +295,12 @@ function toggleCrop() {
 async function renderItem(item) {
   const d = state.doc;
   if (!d?.work) return;
+  const kept = state.results.get(item.id);
+  if (kept?.edited && kept.editOf === itemSignature(item) && kept.canvas) {
+    placeCardCanvas(item.id);
+    if (state.view === 'single' && d.selected === item.id) renderSingle();
+    return;
+  }
   const result = state.results.get(item.id) ?? {};
   result.busy = true;
   state.results.set(item.id, result);
@@ -300,8 +310,15 @@ async function renderItem(item) {
     if (!done || state.doc !== d) return;
     const current = d.items.find((x) => x.id === item.id);
     if (!current) return;
+    const live = state.results.get(item.id);
+    if (live?.edited && live.editOf === itemSignature(current) && live.canvas) {
+      placeCardCanvas(item.id);
+      if (state.view === 'single' && d.selected === item.id) renderSingle();
+      return;
+    }
     const entry = { ...done, busy: false };
     entry.canvas = composeCanvas(done.image, current.effects, done.features);
+    if (state.view === 'single' && d.selected === current.id) resetPaint();
     state.results.set(item.id, entry);
     placeCardCanvas(item.id);
     if (state.view === 'single' && d.selected === item.id) renderSingle();
@@ -339,6 +356,7 @@ function select(id, { reveal = true } = {}) {
     if (on && reveal) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
   renderRight();
+  syncPaintOriginal();
   if (state.view === 'single') renderSingle();
   renderTabs();
   renderStatus();
@@ -609,7 +627,10 @@ function effectiveZoom() {
   const entry = state.results.get(state.doc?.selected);
   const host = root.querySelector('#single-stage');
   if (!entry?.canvas || !host) return 100;
-  const fit = Math.min((host.clientWidth - 40) / entry.canvas.width, (host.clientHeight - 40) / entry.canvas.height);
+  const style = getComputedStyle(host);
+  const width = host.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  const height = host.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+  const fit = Math.min(width / entry.canvas.width, height / entry.canvas.height);
   return Math.max(5, Math.floor(fit * 100));
 }
 
@@ -800,6 +821,7 @@ async function saveDoc({ saveAs = false } = {}) {
 async function closePhoto() {
   if (!state.doc || !(await confirmReplace())) return;
   state.doc = null;
+  resetPaint();
   state.results.clear();
   pool?.forget('work');
   state.showStart = true;
@@ -810,6 +832,8 @@ async function closePhoto() {
 
 /** A finished caricature at export size: a canvas with every effect and overlay. */
 async function exportCanvas(item, size) {
+  const edited = state.results.get(item.id);
+  if (edited?.edited && edited.canvas) return scaleCanvas(edited.canvas, size);
   const d = state.doc;
   const key = `export:${size}`;
   if (d.exportKey !== key) {
@@ -1031,6 +1055,11 @@ async function withProgress(titleKey, name, task) {
 const toggle = (key) => updateSettings({ [key]: !state.settings[key] });
 const sameWarp = (a, b) => { const n = normalizeWarp(b); return Object.keys(n).every((k) => Math.abs(a[k] - n[k]) < 1e-6); };
 
+/** The main window is showing the selected caricature, so Undo edits that picture. */
+function paintEditing() {
+  return state.view === 'single' && !state.compare && Boolean(state.doc);
+}
+
 const commands = {
   open: { icon: 'folderOpen', label: 'action.open', key: 'Ctrl+O', run: () => openWithDialog() },
   camera: { icon: 'camera', label: 'action.camera', key: 'Ctrl+Shift+O', run: () => openCamera() },
@@ -1047,8 +1076,8 @@ const commands = {
   print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: () => items().length > 0, run: () => openPrint() },
   closePhoto: { icon: 'closeTab', label: 'action.closePhoto', key: 'Ctrl+W', enabled: hasDoc, run: () => closePhoto() },
   exit: { icon: 'exit', label: 'action.exit', run: () => requestExit() },
-  undo: { icon: 'undo', label: 'action.undo', key: 'Ctrl+Z', enabled: () => Boolean(state.doc?.history.canUndo), run: undo, tip: () => (state.doc?.history.canUndo ? t('tip.undoWhat', { name: state.doc.history.undoLabel }) : '') },
-  redo: { icon: 'redo', label: 'action.redo', key: 'Ctrl+Y', enabled: () => Boolean(state.doc?.history.canRedo), run: redo, tip: () => (state.doc?.history.canRedo ? t('tip.redoWhat', { name: state.doc.history.redoLabel }) : '') },
+  undo: { icon: 'undo', label: 'action.undo', key: 'Ctrl+Z', enabled: () => (paintEditing() && canUndoPaint()) || Boolean(state.doc?.history.canUndo), run: () => { if (paintEditing() && canUndoPaint()) { undoPaint(); return; } undo(); }, tip: () => (paintEditing() && canUndoPaint() ? t('paint.undo') : state.doc?.history.canUndo ? t('tip.undoWhat', { name: state.doc.history.undoLabel }) : '') },
+  redo: { icon: 'redo', label: 'action.redo', key: 'Ctrl+Y', enabled: () => (paintEditing() && canRedoPaint()) || Boolean(state.doc?.history.canRedo), run: () => { if (paintEditing() && canRedoPaint()) { redoPaint(); return; } redo(); }, tip: () => (paintEditing() && canRedoPaint() ? t('paint.redo') : state.doc?.history.canRedo ? t('tip.redoWhat', { name: state.doc.history.redoLabel }) : '') },
   duplicate: { icon: 'duplicate', label: 'action.duplicate', key: 'Ctrl+D', enabled: hasItem, run: () => duplicateItem() },
   vary: { icon: 'vary', label: 'action.vary', key: 'Ctrl+R', enabled: hasItem, run: () => varySelected() },
   delete: { icon: 'trash', label: 'action.delete', key: 'Delete', enabled: hasItem, run: () => deleteItem() },
@@ -1156,6 +1185,7 @@ const TOOLBAR = [
   ['generate', 'vary', 'styleSet', 'addEffectMenu'],
   ['faceFind', 'landmarks', 'cropFace'],
   ['gallery', 'single', 'compare', 'layoutMenu'],
+  ['tileSize'],
   ['zoom'],
   ['leftPanel', 'rightPanel'],
 ];
@@ -1255,6 +1285,7 @@ function renderToolbar() {
         <button class="tool-button stepper-button-tool" data-command="zoomIn" title="${escapeHtml(commandTip('zoomIn'))}" aria-label="${escapeHtml(t('action.zoomIn'))}">${icon('plus')}</button>
       </span>${plain('zoomFit')}`;
     }
+    if (id === 'tileSize') return tileSizeHtml();
     if (id === 'exportSplit') return `<span class="split-button">${plain('exportImage')}<button class="tool-button split-arrow" data-command="exportMenu" title="${escapeHtml(commandTip('exportMenu'))}" aria-label="${escapeHtml(t('action.exportMenu'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
     if (id === 'themeSplit') return `<span class="split-button">${plain('theme')}<button class="tool-button split-arrow" data-command="themeMenu" title="${escapeHtml(commandTip('themeMenu'))}" aria-label="${escapeHtml(t('action.themeChoose'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
     return plain(id);
@@ -1280,6 +1311,7 @@ function renderToolbarState() {
   }
   const zoom = root.querySelector('#zoom-value');
   if (zoom && document.activeElement !== zoom) zoom.value = state.zoom ? `${state.zoom}%` : t('zoom.fit');
+  syncTileSizeControls();
 }
 
 /**
@@ -1309,14 +1341,104 @@ function fitToolbar() {
 
 // ───────────────────────── left panel (photo)
 
+function foldButton(side) {
+  const open = side === 'left' ? state.settings.showLeftPanel : state.settings.showRightPanel;
+  const command = side === 'left' ? 'leftPanel' : 'rightPanel';
+  const glyph = side === 'left' ? (open ? 'panelCollapseLeft' : 'panelExpandLeft') : (open ? 'panelCollapseRight' : 'panelExpandRight');
+  const label = t(open ? (side === 'left' ? 'panel.collapseLeft' : 'panel.collapseRight') : (side === 'left' ? 'panel.expandLeft' : 'panel.expandRight'));
+  return `<button type="button" class="panel-fold" data-command="${command}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${icon(glyph)}</button>`;
+}
+
+function panelRail(side) {
+  const command = side === 'left' ? 'leftPanel' : 'rightPanel';
+  const glyph = side === 'left' ? 'panelExpandLeft' : 'panelExpandRight';
+  const label = t(side === 'left' ? 'panel.expandLeft' : 'panel.expandRight');
+  return `<div class="panel-rail"><button type="button" class="rail-button expand" data-command="${command}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${icon(glyph)}</button></div>`;
+}
+
+function fillPanel(panel, side, body) {
+  const scroll = panel.querySelector('.panel-scroll')?.scrollTop ?? 0;
+  const photo = side === 'left' ? state.doc?.photo : null;
+  const picked = side === 'right' ? selectedIndex() : -1;
+  const leftTab = (id, glyph, label) => `<button type="button" class="panel-tab ${state.leftTab === id ? 'active' : ''}" data-left-tab="${id}" role="tab" aria-selected="${state.leftTab === id}">${icon(glyph)}<span>${escapeHtml(label)}</span></button>`;
+  const painting = side === 'left' && state.leftTab === 'paint';
+  const title = side === 'left'
+    ? `${icon(painting ? 'paintBrush' : 'original')}<span class="panel-top-name">${escapeHtml(t(painting ? 'panel.tabPaint' : 'panel.photo'))}</span>${!painting && photo ? `<span class="panel-note" title="${escapeHtml(photo.name)}">${escapeHtml(`${photo.width} × ${photo.height}`)}</span>` : ''}`
+    : `${icon('edit')}<span class="panel-top-name">${escapeHtml(t('panel.properties'))}</span>${picked >= 0 ? `<span class="panel-note">${picked + 1} / ${items().length}</span>` : ''}`;
+  const tabs = side === 'left' ? `<div class="panel-tabs" role="tablist">${leftTab('photo', 'original', t('panel.tabPhoto'))}${leftTab('paint', 'paintBrush', t('panel.tabPaint'))}</div>` : '';
+  panel.innerHTML = `<div class="panel-top">${title}${foldButton(side)}</div>${tabs}<div class="panel-scroll">${body}</div>`;
+  const scroller = panel.querySelector('.panel-scroll');
+  if (scroller) scroller.scrollTop = scroll;
+}
+
+/** The original photo, under the colour controls once a caricature is selected. */
+function paintOriginalHtml() {
+  const photo = state.doc?.photo;
+  if (state.leftTab !== 'paint' || !state.settings.showLeftPanel || !photo || !selectedItem()) return '';
+  return `<div class="paint-rule" aria-hidden="true"></div><figure class="paint-original"><figcaption>${icon('original')}<span>${escapeHtml(t('panel.photo'))}</span></figcaption><img src="${escapeHtml(photo.data)}" alt="${escapeHtml(photo.name)}" draggable="false" /></figure>`;
+}
+
+function syncPaintOriginal() {
+  const panel = root.querySelector('#left-panel');
+  if (!panel) return;
+  panel.querySelector('.paint-original')?.remove();
+  panel.querySelector('.paint-rule')?.remove();
+  const html = paintOriginalHtml();
+  const bar = panel.querySelector('.paint-bar');
+  if (html && bar) bar.insertAdjacentHTML('beforeend', html);
+}
+
 function renderLeft() {
   const panel = root.querySelector('#left-panel');
   if (!panel) return;
-  const scroll = panel.scrollTop;
-  panel.innerHTML = leftPanelHtml(appApi);
-  panel.scrollTop = scroll;
-  renderLeftMarks();
+  if (!state.settings.showLeftPanel) { panel.innerHTML = panelRail('left'); attachPaintControls(); renderToolbarState(); return; }
+  fillPanel(panel, 'left', state.leftTab === 'paint' ? paintToolsHtml() : leftPanelHtml(appApi));
+  if (state.leftTab !== 'paint') renderLeftMarks();
+  syncPaintOriginal();
+  attachPaintControls();
   renderToolbarState();
+}
+
+/** What a caricature is drawn from. A hand edit stays until this changes. */
+function itemSignature(item) {
+  return JSON.stringify({ styleId: item.styleId, warp: item.warp, options: item.options, effects: item.effects, seed: item.seed });
+}
+
+/** Copies a canvas so the gallery keeps the edited pixels after the paint view is rebuilt. */
+function cloneCanvas(source) {
+  const copy = document.createElement('canvas');
+  copy.width = source.width;
+  copy.height = source.height;
+  copy.getContext('2d').drawImage(source, 0, 0);
+  return copy;
+}
+
+/** A painted caricature at export size, the whole picture fitted inside `size`. */
+function scaleCanvas(source, size) {
+  const scale = size / Math.max(source.width, source.height);
+  const copy = document.createElement('canvas');
+  copy.width = Math.max(1, Math.round(source.width * scale));
+  copy.height = Math.max(1, Math.round(source.height * scale));
+  const context = copy.getContext('2d');
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(source, 0, 0, copy.width, copy.height);
+  return copy;
+}
+
+/** A stroke replaces the selected caricature. The original photo is left alone. */
+function applyPaintedItem(source) {
+  const d = state.doc;
+  const item = selectedItem();
+  const entry = item && state.results.get(item.id);
+  if (!d || !item || !entry?.canvas) return;
+  entry.canvas = cloneCanvas(source);
+  entry.edited = true;
+  entry.editOf = itemSignature(item);
+  entry.rev = (entry.rev ?? 0) + 1;
+  d.dirty = true;
+  placeCardCanvas(item.id);
+  renderTitleProject();
+  renderStatus();
 }
 
 function renderLeftMarks() {
@@ -1369,7 +1491,7 @@ function renderTabs() {
   if (!state.doc || state.showStart) { tabs.innerHTML = ''; return; }
   const count = items().length;
   const tab = (view, glyph, label, enabled = true) => `<button class="tab ${state.view === view ? 'active' : ''}" data-command="${view}" ${enabled ? '' : 'disabled'} title="${escapeHtml(commandTip(view))}">${icon(glyph)}<span class="tab-name">${escapeHtml(label)}</span></button>`;
-  tabs.innerHTML = `<div class="tab-strip"><div class="tab-list">${tab('gallery', 'gallery', t('view.galleryCount', { count }))}${tab('single', 'viewSingle', selectedItem() ? t('view.singleName', { name: itemName(selectedItem()) }) : t('action.single'), hasItem())}</div></div>
+  tabs.innerHTML = `<div class="tab-strip"><div class="tab-list">${tab('gallery', 'gallery', t('view.galleryCount', { count }))}${tab('single', 'viewSingle', t('action.single'), hasItem())}</div></div>
     <span class="grow"></span>
     <span class="tab-tools">
       <button class="small-button" data-command="addStyleMenu" title="${escapeHtml(commandTip('addStyleMenu'))}">${icon('plus')}<span>${escapeHtml(t('action.addStyle'))}</span></button>
@@ -1394,10 +1516,12 @@ function renderCenter() {
     return;
   }
   if (state.view === 'single' && selectedItem()) {
-    host.innerHTML = `<div class="single-view ${state.compare ? 'comparing' : ''}" id="single-view">
-      <button class="nav-arrow left" data-command="prev" title="${escapeHtml(commandTip('prev'))}" aria-label="${escapeHtml(t('action.prev'))}">${icon('chevronLeft')}</button>
-      <div class="single-stage" id="single-stage"><div class="single-canvas" id="single-canvas"></div></div>
-      <button class="nav-arrow right" data-command="next" title="${escapeHtml(commandTip('next'))}" aria-label="${escapeHtml(t('action.next'))}">${icon('chevronRight')}</button>
+    host.innerHTML = `<div class="single-view paint-host ${state.compare ? 'comparing' : ''}" id="single-view">
+      <div class="single-stage" id="single-stage">
+        <button class="nav-arrow left" data-command="prev" title="${escapeHtml(commandTip('prev'))}" aria-label="${escapeHtml(t('action.prev'))}">${icon('chevronLeft')}</button>
+        <div class="single-canvas paint-stage paint-frame" id="single-canvas"></div>
+        <button class="nav-arrow right" data-command="next" title="${escapeHtml(commandTip('next'))}" aria-label="${escapeHtml(t('action.next'))}">${icon('chevronRight')}</button>
+      </div>
       <div class="film-bar">
         <button class="film-nav" data-film="-1" title="${escapeHtml(t('tip.filmLeft'))}" aria-label="${escapeHtml(t('tip.filmLeft'))}">${icon('chevronLeft')}</button>
         <div class="filmstrip" id="filmstrip"></div>
@@ -1420,14 +1544,57 @@ function renderCenter() {
 
 const LAYOUT_ICONS = { grid: 'layoutGrid', large: 'layoutLarge', compact: 'layoutCompact', list: 'layoutList', strip: 'layoutStrip' };
 
-/** Columns of the gallery: the chosen number (grid, large) or what the layout and the width give. */
-function galleryColumns(width) {
+function tileSizeHtml() {
+  const { min, max, step } = TILE_SIZE;
+  const value = state.settings.galleryTileSize;
+  return `<span class="tile-size" title="${escapeHtml(t('tip.tileSize'))}">
+    <button type="button" class="tool-button tile-size-button" data-tile-step="-1" title="${escapeHtml(t('action.tileSmaller'))}" aria-label="${escapeHtml(t('action.tileSmaller'))}">${icon('minus')}</button>
+    <input id="tile-size" type="range" min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${escapeHtml(t('tip.tileSize'))}" title="${escapeHtml(t('tip.tileSize'))}" />
+    <output id="tile-size-value" for="tile-size">${value}</output>
+    <button type="button" class="tool-button tile-size-button" data-tile-step="1" title="${escapeHtml(t('action.tileLarger'))}" aria-label="${escapeHtml(t('action.tileLarger'))}">${icon('plus')}</button>
+  </span><button type="button" class="tool-button tool-labeled" data-tile-reset title="${escapeHtml(t('tip.tileReset'))}" aria-label="${escapeHtml(t('action.tileReset'))}">${icon('refresh')}<span class="tool-label">${escapeHtml(t('action.tileReset'))}</span></button>`;
+}
+
+function syncTileSizeControls() {
+  const size = state.settings.galleryTileSize;
+  const range = root.querySelector('#tile-size');
+  const output = root.querySelector('#tile-size-value');
+  if (range && document.activeElement !== range) range.value = String(size);
+  if (output) output.textContent = String(size);
+  for (const button of root.querySelectorAll('[data-tile-step]')) {
+    const atLimit = Number(button.dataset.tileStep) < 0 ? size <= TILE_SIZE.min : size >= TILE_SIZE.max;
+    button.toggleAttribute('data-at-limit', atLimit);
+  }
+}
+
+/** Snaps to the slider step. Moving it leaves a fixed column count so the size is what you see. */
+function setTileSize(next) {
+  const { min, max, step } = TILE_SIZE;
+  const snapped = Math.round((Number(next) - min) / step) * step + min;
+  const size = Math.min(max, Math.max(min, snapped));
+  const changed = size !== state.settings.galleryTileSize || state.settings.galleryColumns !== 0;
+  if (changed) updateSettings({ galleryTileSize: size, galleryColumns: 0 }, { quiet: true });
+  syncTileSizeControls();
+  if (!changed) return;
+  relayoutGallery();
+  const columnsLabel = root.querySelector('[data-command="columnsMenu"] span');
+  if (columnsLabel) columnsLabel.textContent = t('action.columnsAuto');
+}
+
+/** Tile size drives the grid; a chosen column count still wins until the slider moves. */
+function applyGalleryMetrics(gallery) {
   const layout = state.settings.galleryLayout;
-  if (layout === 'list' || layout === 'strip') return 1;
-  if (layout === 'compact') return Math.max(3, Math.round(width / 150));
-  const fixed = state.settings.galleryColumns;
-  if (fixed) return layout === 'large' ? Math.max(1, Math.ceil(fixed / 2)) : fixed;
-  return layout === 'large' ? Math.max(1, Math.min(4, Math.round(width / 440))) : Math.max(2, Math.min(6, Math.round(width / 260)));
+  for (const id of GALLERY_LAYOUTS) gallery.classList.toggle(`layout-${id}`, layout === id);
+  const fixed = Boolean(state.settings.galleryColumns) && layout !== 'list' && layout !== 'strip';
+  gallery.classList.toggle('cols-fixed', fixed);
+  gallery.style.setProperty('--tile-size', `${state.settings.galleryTileSize}px`);
+  gallery.style.setProperty('--strip-w', `${state.settings.galleryTileSize}px`);
+  if (fixed) {
+    const cols = layout === 'large' ? Math.max(1, Math.ceil(state.settings.galleryColumns / 2)) : state.settings.galleryColumns;
+    gallery.style.setProperty('--cols', String(cols));
+  }
+  const region = state.doc?.region ?? state.doc?.photo;
+  if (region) gallery.style.setProperty('--aspect', `${Math.round(region.w ?? region.width)} / ${Math.round(region.h ?? region.height)}`);
 }
 
 function setLayout(id) {
@@ -1448,15 +1615,20 @@ function renderGallery() {
     renderTabs();
     return;
   }
-  for (const id of GALLERY_LAYOUTS) gallery.classList.toggle(`layout-${id}`, state.settings.galleryLayout === id);
-  const cols = galleryColumns(gallery.clientWidth || 1000);
-  gallery.style.setProperty('--cols', String(cols));
-  setStripWidth(gallery);
-  gallery.style.setProperty('--aspect', `${Math.round(state.doc.region?.w ?? state.doc.photo.width)} / ${Math.round(state.doc.region?.h ?? state.doc.photo.height)}`);
+  applyGalleryMetrics(gallery);
+  const scrollTop = gallery.scrollTop;
+  const scrollLeft = gallery.scrollLeft;
   gallery.innerHTML = list.map((item, index) => {
     const result = state.results.get(item.id);
     return galleryCardHtml(item, { selected: item.id === state.doc.selected, busy: Boolean(result?.busy) || !result?.canvas, ms: result?.ms, index, showNames: state.settings.showNames });
   }).join('');
+  const keepGalleryScroll = () => {
+    if (!gallery.isConnected) return;
+    if (gallery.scrollTop !== scrollTop) gallery.scrollTop = scrollTop;
+    if (gallery.scrollLeft !== scrollLeft) gallery.scrollLeft = scrollLeft;
+  };
+  keepGalleryScroll();
+  requestAnimationFrame(keepGalleryScroll);
   for (const item of list) placeCardCanvas(item.id);
   renderTabs();
   requestAnimationFrame(updateStripNav);
@@ -1474,9 +1646,10 @@ function placeCardCanvas(id) {
       const img = existing ?? document.createElement('img');
       img.alt = '';
       img.draggable = false;
-      if (img.dataset.stamp !== String(result.ms) + result.canvas.width) {
-        img.src = result.canvas.toDataURL('image/jpeg', 0.9);
-        img.dataset.stamp = String(result.ms) + result.canvas.width;
+      const stamp = `${result.ms}:${result.rev ?? 0}:${result.canvas.width}`;
+      if (img.dataset.stamp !== stamp) {
+        img.src = result.canvas.toDataURL('image/png');
+        img.dataset.stamp = stamp;
       }
       if (!existing) thumb.append(img);
       const ms = card.querySelector('.cari-ms');
@@ -1486,7 +1659,7 @@ function placeCardCanvas(id) {
   const film = root.querySelector(`.film-item[data-item="${CSS.escape(id)}"]`);
   if (film && result?.canvas) {
     const img = film.querySelector('img') ?? film.appendChild(document.createElement('img'));
-    img.src = result.canvas.toDataURL('image/jpeg', 0.7);
+    img.src = result.canvas.toDataURL(result.edited ? 'image/png' : 'image/jpeg', 0.7);
   }
   renderStatus();
 }
@@ -1503,12 +1676,12 @@ function renderFilmstrip() {
     const result = state.results.get(item.id);
     if (result?.canvas) {
       const img = document.createElement('img');
-      img.src = result.canvas.toDataURL('image/jpeg', 0.7);
+      img.src = result.canvas.toDataURL(result.edited ? 'image/png' : 'image/jpeg', 0.7);
       img.alt = '';
       strip.querySelector(`.film-item[data-item="${CSS.escape(item.id)}"]`)?.append(img);
     }
   }
-  strip.querySelector('.film-item.selected')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  strip.querySelector('.film-item.selected')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   if (!strip.dataset.bound) { strip.dataset.bound = '1'; strip.addEventListener('scroll', frameThrottle(updateFilmNav), { passive: true }); }
   requestAnimationFrame(updateFilmNav);
 }
@@ -1538,13 +1711,15 @@ function updateFilmNav() {
   if (right) right.disabled = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 1;
 }
 
-function renderSingle() {
+function renderSingle(depth = 0) {
+  const view = root.querySelector('#single-view');
   const holder = root.querySelector('#single-canvas');
   const item = selectedItem();
   if (!holder || !item) return;
+  if (view) { view._paintAbort?.abort(); view.dataset.paintLive = ''; }
   for (const film of root.querySelectorAll('.film-item')) film.classList.toggle('selected', film.dataset.item === item.id);
   const result = state.results.get(item.id);
-  root.querySelector('#single-view')?.classList.toggle('comparing', state.compare);
+  view?.classList.toggle('comparing', state.compare);
   if (!result?.canvas) { holder.innerHTML = `<div class="single-wait"><span class="cari-spinner"></span><span>${escapeHtml(t('view.drawing'))}</span></div>`; return; }
   const zoom = effectiveZoom() / 100;
   const w = Math.round(result.canvas.width * zoom);
@@ -1552,13 +1727,13 @@ function renderSingle() {
   holder.style.width = `${w}px`;
   holder.style.height = `${h}px`;
   holder.innerHTML = '';
-  const shown = document.createElement('canvas');
-  shown.width = result.canvas.width;
-  shown.height = result.canvas.height;
-  shown.getContext('2d').drawImage(result.canvas, 0, 0);
-  shown.className = 'single-result';
-  holder.append(shown);
   if (state.compare) {
+    const shown = document.createElement('canvas');
+    shown.width = result.canvas.width;
+    shown.height = result.canvas.height;
+    shown.getContext('2d').drawImage(result.canvas, 0, 0);
+    shown.className = 'single-result';
+    holder.append(shown);
     const original = document.createElement('img');
     original.src = state.doc.regionUrl ?? state.doc.photo.data;
     original.className = 'single-original';
@@ -1570,8 +1745,29 @@ function renderSingle() {
     bar.title = t('tip.compareBar');
     bar.innerHTML = `<span>${icon('compare')}</span><b class="compare-label left">${escapeHtml(t('view.original'))}</b><b class="compare-label right">${escapeHtml(t('view.caricature'))}</b>`;
     holder.append(original, bar);
+    renderStatus();
+    return;
   }
+  const shown = document.createElement('canvas');
+  shown.className = 'paint-canvas single-result';
+  const overlay = document.createElement('canvas');
+  overlay.className = 'paint-overlay';
+  holder.append(shown, overlay);
+  mountPaint(view, { item: () => selectedItem(), picture: () => state.results.get(selectedItem()?.id)?.canvas, commit: applyPaintedItem, onHistory: renderToolbarState });
   renderStatus();
+  if (!state.zoom && depth < 1) requestAnimationFrame(() => fitSingleAgain(item.id));
+}
+
+/** A second pass after the paint bar has taken its height, so the whole picture stays on screen. */
+function fitSingleAgain(id) {
+  if (state.zoom || state.view !== 'single' || state.doc?.selected !== id) return;
+  const host = root.querySelector('#single-stage');
+  const box = root.querySelector('#single-canvas');
+  if (!host || !box) return;
+  const style = getComputedStyle(host);
+  const width = host.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  const height = host.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+  if (box.offsetWidth > width + 1 || box.offsetHeight > height + 1) renderSingle(1);
 }
 
 // ───────────────────────── right panel (properties)
@@ -1579,11 +1775,10 @@ function renderSingle() {
 function renderRight() {
   const panel = root.querySelector('#right-panel');
   if (!panel) return;
+  if (!state.settings.showRightPanel) { panel.innerHTML = panelRail('right'); renderToolbarState(); return; }
   const focused = document.activeElement;
   if (focused && panel.contains(focused) && focused.matches('input[type="text"]:not(.stepper-value)')) return; // typing a name or caption
-  const scroll = panel.scrollTop;
-  panel.innerHTML = rightPanelHtml(appApi);
-  panel.scrollTop = scroll;
+  fillPanel(panel, 'right', rightPanelHtml(appApi));
   renderToolbarState();
 }
 
@@ -2008,6 +2203,11 @@ function bindEvents() {
     const win = target.closest('[data-window]');
     if (win) return windowButton(win.dataset.window);
     if (target.closest('[data-home]')) return showStartPage(!state.showStart);
+    const leftTab = target.closest('[data-left-tab]');
+    if (leftTab) {
+      if (state.leftTab !== leftTab.dataset.leftTab) { state.leftTab = leftTab.dataset.leftTab; renderLeft(); }
+      return;
+    }
     const start = target.closest('[data-start]');
     if (start && !start.disabled) return onStartAction(start);
     const cardAction = target.closest('[data-card-action]');
@@ -2098,8 +2298,24 @@ function bindEvents() {
     return undefined;
   });
 
+  let tileRepeat = null;
+  const stopTileRepeat = () => { clearTimeout(tileRepeat?.timeout); clearInterval(tileRepeat?.interval); tileRepeat = null; };
+  root.addEventListener('pointerdown', (event) => {
+    const reset = event.target.closest?.('[data-tile-reset]');
+    if (reset && event.button === 0) { event.preventDefault(); setTileSize(TILE_SIZE.default); return; }
+    const button = event.target.closest?.('[data-tile-step]');
+    if (!button || event.button !== 0) return;
+    event.preventDefault();
+    const nudge = () => setTileSize(state.settings.galleryTileSize + Number(button.dataset.tileStep) * TILE_SIZE.step);
+    nudge();
+    stopTileRepeat();
+    tileRepeat = { timeout: setTimeout(() => { tileRepeat.interval = setInterval(nudge, 70); }, 400) };
+  });
+  for (const type of ['pointerup', 'pointercancel']) window.addEventListener(type, stopTileRepeat);
+
   root.addEventListener('input', (event) => {
     const target = event.target;
+    if (target.id === 'tile-size') setTileSize(Number(target.value));
     // A colour picker being dragged: preview the colour now, one Undo step for the drag.
     if (target.dataset.fxColor) { const [i, key] = target.dataset.fxColor.split(':'); setEffectParam(Number(i), key, target.value); const code = target.parentElement?.querySelector('code'); if (code) code.textContent = target.value; }
     if ('startSpeed' in target.dataset) { updateSettings({ animationSpeed: Number(target.value) }, { quiet: true }); target.nextElementSibling.textContent = `${target.value}%`; }
@@ -2130,21 +2346,7 @@ function bindEvents() {
   }, { passive: false });
 
   root.querySelectorAll('[data-split="left"], [data-split="right"]').forEach((splitter) => splitter.addEventListener('pointerdown', (event) => {
-    const side = splitter.dataset.split;
-    if ((side === 'left' && !state.settings.showLeftPanel) || (side === 'right' && !state.settings.showRightPanel)) return;
     event.preventDefault();
-    const key = side === 'left' ? 'leftWidth' : 'rightWidth';
-    const startWidth = state.settings[key];
-    const minimum = side === 'left' ? PANEL_MIN.left : PANEL_MIN.right;
-    pointerDrag(event, {
-      cursor: 'col-resize',
-      move: (dx) => {
-        const width = Math.max(minimum, Math.min(600, startWidth + (side === 'left' ? dx : -dx)));
-        root.style.setProperty(side === 'left' ? '--left-width' : '--right-width', `${width}px`);
-        state.settings[key] = width;
-      },
-      end: (e, moved) => { if (moved) { updateSettings({ [key]: state.settings[key] }, { quiet: true }); relayoutGallery(); } },
-    });
   }));
 
   root.querySelector('#menubar')?.addEventListener('mousedown', (event) => {
@@ -2210,20 +2412,9 @@ function bindEvents() {
   }, 15000);
 }
 
-/** Strip layout: each card as wide as its picture is at the strip's height. */
-function setStripWidth(gallery) {
-  const r = state.doc?.region ?? state.doc?.photo;
-  if (!r) return;
-  const thumbHeight = Math.max(120, gallery.clientHeight - 28 - 36);
-  const w = r.w ?? r.width;
-  const h = r.h ?? r.height;
-  gallery.style.setProperty('--strip-w', `${Math.round((thumbHeight * w) / h)}px`);
-}
-
 const relayoutGallery = frameThrottle(() => {
   const gallery = root.querySelector('#gallery');
-  if (gallery) setStripWidth(gallery);
-  if (gallery) gallery.style.setProperty('--cols', String(galleryColumns(gallery.clientWidth || 1000)));
+  if (gallery) applyGalleryMetrics(gallery);
 });
 
 function onKeyDown(event) {
@@ -2232,6 +2423,10 @@ function onKeyDown(event) {
   const mod = event.ctrlKey || event.metaKey;
   if (mod && !event.altKey) {
     if (editing && ['x', 'c', 'v', 'z', 'y', 'a'].includes(key)) return;
+    if (paintEditing()) {
+      if (key === 'z' && !event.shiftKey && canUndoPaint()) { event.preventDefault(); undoPaint(); return; }
+      if ((key === 'y' || (key === 'z' && event.shiftKey)) && canRedoPaint()) { event.preventDefault(); redoPaint(); return; }
+    }
     if (key === 'z' && event.shiftKey) { event.preventDefault(); run('redo'); return; }
     const k = key === '+' ? '=' : key === '_' ? '-' : key;
     const shortcut = SHORTCUTS.find(([sk, shift]) => sk === k && shift === event.shiftKey) ?? SHORTCUTS.find(([sk]) => sk === k && ['=', '-', '0', '1', '2'].includes(k));

@@ -11,6 +11,16 @@ export const SAMPLE_PHOTOS = [
   { id: 'beethoven', file: 'beethoven.jpg', commons: "Joseph_Karl_Stieler's_Beethoven_mit_dem_Manuskript_der_Missa_solemnis.jpg", ko: '베토벤', en: 'Ludwig van Beethoven' },
   { id: 'mozart', file: 'mozart.jpg', commons: 'Wolfgang-amadeus-mozart_1.jpg', ko: '모차르트', en: 'Wolfgang Amadeus Mozart' },
   { id: 'ermine', file: 'lady-with-an-ermine.jpg', commons: 'Lady_with_an_Ermine_-_Leonardo_da_Vinci_-_Google_Art_Project.jpg', ko: '흰 담비를 안은 여인', en: 'Lady with an Ermine' },
+  { id: 'rembrandt', file: 'rembrandt.jpg', commons: 'Rembrandt_van_Rijn_-_Self-Portrait_-_Google_Art_Project.jpg', ko: '렘브란트 자화상', en: 'Rembrandt self-portrait' },
+  { id: 'durer', file: 'durer.jpg', commons: 'Albrecht Dürer - 1500 self-portrait (High resolution and detail).jpg', ko: '뒤러 자화상', en: 'Dürer self-portrait' },
+  { id: 'scream', file: 'scream.jpg', commons: 'Edvard_Munch_-_The_Scream_-_Google_Art_Project.jpg', ko: '절규', en: 'The Scream' },
+  { id: 'milkmaid', file: 'milkmaid.jpg', commons: 'Johannes Vermeer - Het melkmeisje - Google Art Project.jpg', ko: '우유를 따르는 여인', en: 'The Milkmaid' },
+  { id: 'whistler', file: 'whistler-mother.jpg', commons: 'Whistlers Mother high res.jpg', ko: '휘슬러의 어머니', en: "Whistler's Mother" },
+  { id: 'blueboy', file: 'blue-boy.jpg', commons: 'Thomas Gainsborough - The Blue Boy (c. 1770).jpg', ko: '푸른 소년', en: 'The Blue Boy' },
+  { id: 'napoleon', file: 'napoleon.jpg', commons: 'Napoleon at the Great St. Bernard - Jacques-Louis David - Google Cultural Institute.jpg', ko: '알프스를 넘는 나폴레옹', en: 'Napoleon Crossing the Alps' },
+  { id: 'castiglione', file: 'castiglione.jpg', commons: 'Baldassare_Castiglione,_by_Raffaello_Sanzio,_from_C2RMF_retouched.jpg', ko: '카스틸리오네의 초상', en: 'Portrait of Baldassare Castiglione' },
+  { id: 'cavalier', file: 'laughing-cavalier.jpg', commons: 'Frans Hals – The Laughing Cavalier.jpg', ko: '웃는 기사', en: 'The Laughing Cavalier' },
+  { id: 'simonetta', file: 'simonetta.jpg', commons: 'Sandro Botticelli - Idealized Portrait of a Lady (Portrait of Simonetta Vespucci as Nymph) - Google Art Project.jpg', ko: '시모네타 베스푸치', en: 'Simonetta Vespucci' },
 ];
 
 export const sampleById = (id) => SAMPLE_PHOTOS.find((s) => s.id === id) ?? null;

@@ -15,8 +15,10 @@ export const FONT_SIZE = { min: 9, max: 28 };
 export const ZOOM = { min: 50, max: 200, step: 10 };
 /** Zoom of the large view in percent (toolbar, status bar, Ctrl+wheel). */
 export const VIEW_ZOOM = { min: 10, max: 800, steps: [10, 15, 20, 25, 33, 50, 67, 75, 100, 125, 150, 200, 300, 400, 600, 800] };
-/** Narrowest side panels that still show all of their content. */
-export const PANEL_MIN = { left: 250, right: 320 };
+/** Both side panels stay at this width. They are not resized, and they match. */
+export const PANEL_WIDTH = 320;
+export const PANEL_MIN_WIDTH = PANEL_WIDTH;
+export const PANEL_MIN = { left: PANEL_WIDTH, right: PANEL_WIDTH };
 export const BACKGROUND_KINDS = ['animated', 'image', 'none'];
 /** Choices for the start page's automatic background change (seconds; 0 = off). */
 export const ANIMATION_INTERVALS = [0, 15, 30, 60, 120, 300];
@@ -32,6 +34,8 @@ export const EXPORT_SIZES = [800, 1200, 1600, 2048, 3000];
 /** Picture formats the caricatures are saved in (ui/photo.js encodes them). */
 export const IMAGE_TYPES = ['png', 'jpg', 'webp', 'avif', 'gif', 'bmp', 'tiff', 'tga', 'ppm', 'qoi', 'ico', 'pdf', 'svg'];
 export const GALLERY_COLUMNS = [0, 2, 3, 4, 5, 6];
+/** Minimum width of a gallery tile, in pixels (toolbar slider). */
+export const TILE_SIZE = { min: 120, max: 480, step: 10, default: 240 };
 /** How the gallery shows the caricatures (toolbar › View). */
 export const GALLERY_LAYOUTS = ['grid', 'large', 'compact', 'list', 'strip'];
 
@@ -82,8 +86,8 @@ export function defaultSettings(language = 'ko') {
     showLeftPanel: true,
     showRightPanel: true,
     showStatusBar: true,
-    leftWidth: 300,
-    rightWidth: 360,
+    leftWidth: PANEL_WIDTH,
+    rightWidth: PANEL_WIDTH,
     lastDirectory: null,
     restoreSession: false,
     confirmDelete: true,
@@ -109,6 +113,7 @@ export function defaultSettings(language = 'ko') {
     exportType: 'png',
     exportQuality: 92,
     galleryColumns: 0,
+    galleryTileSize: TILE_SIZE.default,
     galleryLayout: 'grid',
     showLandmarks: true,
     showNames: true,
@@ -144,8 +149,8 @@ export function normalizeSettings(raw = {}, language) {
   s.backgroundImage = typeof s.backgroundImage === 'string' && s.backgroundImage ? s.backgroundImage : null;
   s.backgroundName = typeof s.backgroundName === 'string' ? s.backgroundName : '';
   s.lastDirectory = typeof s.lastDirectory === 'string' && s.lastDirectory ? s.lastDirectory : null;
-  s.leftWidth = clamp(s.leftWidth, PANEL_MIN.left, 600, base.leftWidth);
-  s.rightWidth = clamp(s.rightWidth, PANEL_MIN.right, 700, base.rightWidth);
+  s.leftWidth = PANEL_WIDTH;
+  s.rightWidth = PANEL_WIDTH;
   s.startRecentCount = clamp(s.startRecentCount, 1, 10, 8);
   s.startCardOpacity = clamp(s.startCardOpacity, 20, 100, 80);
   s.startLayout = s.startLayout && typeof s.startLayout === 'object' && !Array.isArray(s.startLayout) ? s.startLayout : null;
@@ -156,6 +161,7 @@ export function normalizeSettings(raw = {}, language) {
   s.exportType = IMAGE_TYPES.includes(s.exportType) ? s.exportType : base.exportType;
   s.exportQuality = clamp(s.exportQuality, 40, 100, base.exportQuality);
   s.galleryColumns = GALLERY_COLUMNS.includes(Number(s.galleryColumns)) ? Number(s.galleryColumns) : 0;
+  s.galleryTileSize = clamp(Math.round((clamp(s.galleryTileSize, TILE_SIZE.min, TILE_SIZE.max, base.galleryTileSize) - TILE_SIZE.min) / TILE_SIZE.step) * TILE_SIZE.step + TILE_SIZE.min, TILE_SIZE.min, TILE_SIZE.max, base.galleryTileSize);
   s.galleryLayout = GALLERY_LAYOUTS.includes(s.galleryLayout) ? s.galleryLayout : 'grid';
   s.varySpread = clamp(s.varySpread, 0, 40, base.varySpread);
   s.personalGain = clamp(s.personalGain, 0, 500, base.personalGain);

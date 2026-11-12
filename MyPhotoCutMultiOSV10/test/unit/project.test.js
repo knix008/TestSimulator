@@ -133,7 +133,7 @@ test('recent files: newest first, no duplicates, at most 10', () => {
 });
 
 test('samples: ten public-domain portraits of famous people and paintings', () => {
-  assert.equal(SAMPLE_PHOTOS.length, 10);
+  assert.equal(SAMPLE_PHOTOS.length, 20);
   assert.ok(!SAMPLE_PHOTOS.some((s) => /armstrong|ride|jemison/.test(s.id)), 'no astronauts');
   for (const s of SAMPLE_PHOTOS) assert.ok(s.file && s.ko && s.en && s.commons, s.id);
 });

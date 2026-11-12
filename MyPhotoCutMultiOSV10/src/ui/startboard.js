@@ -95,6 +95,7 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
   };
 
   function startMove(event, id) {
+    if (id === 'hero') return;
     event.preventDefault();
     const card = cardEl(id);
     const rect = card.getBoundingClientRect();
@@ -150,6 +151,7 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
   }
 
   function startResize(event, id) {
+    if (id === 'hero') return;
     event.preventDefault();
     event.stopPropagation();
     const card = cardEl(id);

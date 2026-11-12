@@ -36,14 +36,13 @@ const gridButton = (attr, value, glyph, label, tip = label, extra = '') => `<but
 export function leftPanelHtml(app) {
   const doc = app.doc();
   if (!doc) {
-    return `${sectionHead('original', t('panel.photo'))}<div class="panel-empty">${icon('photo', 'icon big')}<p>${escapeHtml(t('panel.noPhoto'))}</p>
+    return `<div class="panel-empty">${icon('photo', 'icon big')}<p>${escapeHtml(t('panel.noPhoto'))}</p>
       <div class="button-grid two">${gridButton('data-command', 'open', 'folderOpen', t('action.open'))}${gridButton('data-command', 'camera', 'camera', t('action.camera'))}</div></div>`;
   }
   const a = doc.analysis ?? {};
   const method = t(`face.method.${doc.features?.method ?? 'default'}`);
   const maskMethod = t(`face.mask.${a.maskMethod ?? 'shape'}`);
-  return `${sectionHead('original', t('panel.photo'), `<span class="panel-note" title="${escapeHtml(doc.photo.name)}">${escapeHtml(`${doc.photo.width} × ${doc.photo.height}`)}</span>`)}
-    <div class="source-view" id="source-view">
+  return `<div class="source-view" id="source-view">
       <img id="source-img" src="${escapeHtml(doc.photo.data)}" alt="${escapeHtml(doc.photo.name)}" draggable="false" />
       <svg id="source-marks" class="source-marks ${app.settings().showLandmarks ? '' : 'hidden'}" aria-hidden="true"></svg>
     </div>
@@ -110,7 +109,7 @@ export function rightPanelHtml(app) {
   const doc = app.doc();
   const item = app.selectedItem();
   if (!doc || !item) {
-    return `${sectionHead('edit', t('panel.properties'))}<div class="panel-empty">${icon('gallery', 'icon big')}<p>${escapeHtml(t(doc ? 'panel.noSelection' : 'panel.noPhoto'))}</p></div>`;
+    return `<div class="panel-empty">${icon('gallery', 'icon big')}<p>${escapeHtml(t(doc ? 'panel.noSelection' : 'panel.noPhoto'))}</p></div>`;
   }
   const w = item.warp;
   const o = item.options;
@@ -120,8 +119,7 @@ export function rightPanelHtml(app) {
   const optionRows = Object.entries(STYLE_OPTION_RANGE).map(([key, range]) => row(OPTION_ICONS[key], t(`option.${key}`), stepper(`option:${key}`, o[key], { ...range, unit: key === 'detail' || key === 'smooth' || key === 'texture' ? '%' : '' }, t(`option.${key}`)), t(`option.${key}.tip`))).join('');
   const bgRow = row(OPTION_ICONS.background, t('option.background'), segmented('data-option-set', 'background', BACKGROUNDS.map((b) => [b, t(`option.background.${b}`)]), o.background), t('option.background.tip'));
   const seedRow = row('seed', t('option.seed'), `<span class="seed-box"><code>${item.seed}</code><button type="button" class="icon-button" data-command="reseed" title="${escapeHtml(t('action.reseed'))}" aria-label="${escapeHtml(t('action.reseed'))}">${icon('dice')}</button></span>`, t('option.seed.tip'));
-  return `${sectionHead('edit', t('panel.properties'), `<span class="panel-note">${app.selectedIndex() + 1} / ${doc.items.length}</span>`)}
-    <div class="props">
+  return `<div class="props">
       ${row('rename', t('panel.name'), `<input type="text" class="text-field" data-item-name value="${escapeHtml(item.name)}" placeholder="${escapeHtml(t(`style.${item.styleId}`))}" maxlength="80" spellcheck="false" aria-label="${escapeHtml(t('panel.name'))}" />`)}
       ${row(styleById(item.styleId).icon, t('panel.style'), styleSelect, t(`style.${item.styleId}.desc`))}
     </div>

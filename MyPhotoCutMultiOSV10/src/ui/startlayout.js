@@ -90,7 +90,8 @@ export function cardsOf(saved, ids, defaultSpan, measured = {}, fallbackRows = 8
     cards = pack([...ids], (id) => defaultSpan[id] || 1, rows);
   }
   for (const id of Object.keys(cards)) if (cards[id].fit && measured[id]) cards[id] = { ...cards[id], h: measured[id] };
-  return compact(resolve(cards, null));
+  if (cards.hero) cards.hero = { col: 0, row: 0, w: clamp(defaultSpan.hero || COLS, 1, COLS), h: measured.hero || cards.hero.h, fit: true };
+  return compact(resolve(cards, cards.hero ? 'hero' : null));
 }
 
 /** The board with one card moved or resized. */
