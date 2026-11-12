@@ -106,8 +106,11 @@ export function ResizeGrip() {
       onPointerUp={stop}
       onPointerCancel={stop}
     >
-      <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true">
-        <path d="M12 4 4 12M12 8 8 12M12 12l0 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+      {/* Six dots in a triangle (3 · 2 · 1) pointing into the corner. */}
+      <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true" fill="currentColor" data-grip-dots>
+        {[[11, 3], [7, 7], [11, 7], [3, 11], [7, 11], [11, 11]].map(([x, y]) => (
+          <circle key={`${x},${y}`} cx={x} cy={y} r="1.25" />
+        ))}
       </svg>
     </span>
   );
