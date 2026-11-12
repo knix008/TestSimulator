@@ -20,6 +20,7 @@ import { setTipTranslator } from "./tooltips.js";
 import { Attributes, CodeView, Explorer, ProblemsView, ComponentTree, LogView, Palette, PanelTitle } from "./panels.jsx";
 import { ViewModelsView } from "./ViewModels.jsx";
 import { CodeEditorWindow } from "./CodeEditor.jsx";
+import { sanitizeSpell } from "./editor/spell.js";
 
 /** The folder a file is in, with the separator the path uses; null for no file. */
 const folderOf = (file) => (file ? file.split(/[\\/]/).slice(0, -1).join(file.includes("\\") ? "\\" : "/") : null);
@@ -124,6 +125,13 @@ export function App({ initialSettings }) {
   const [appOrigin, setAppOrigin] = useState(null);
   /** The application code (src/app) as it is on disk: { path: text }. Read, never written. */
   const [appCode, setAppCode] = useState({});
+  /** The code editor's spell checking: on or off, the languages, the user's own words (settings). */
+  const [spell, setSpell] = useState(() => sanitizeSpell(initialSettings.spell));
+  const changeSpell = (next) => {
+    const clean = sanitizeSpell(next);
+    setSpell(clean);
+    void host.saveSettings({ spell: clean });
+  };
   /** The code editor window: open or not, the folder its application code is saved in, a line to show. */
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorDir, setEditorDir] = useState(null);
@@ -1703,16 +1711,21 @@ export function App({ initialSettings }) {
             })()}
             {popup === "theme" && (
               <div className="menu-pop theme-pop" role="menu">
+                {/* My own themes at the top, and beside them the button that makes and edits them. */}
                 <div className="theme-pop-top" data-theme-group="top">
-                  {customThemes.map((item) => (
-                    <button type="button" key={item.id} role="menuitem" data-theme-id={item.id} className={item.id === themeId ? "selected" : undefined} onClick={() => changeTheme(item.id)}>
-                      <span className="swatches">{[item.colors.bg, item.colors.panel, item.colors.accent].map((color, index) => <i key={index} style={{ background: color }} />)}</span>
-                      <span className="menu-label">{item.name}</span>
-                    </button>
-                  ))}
-                  <button type="button" role="menuitem" data-command="theme-settings" onClick={() => { setPopup(null); setDialog({ kind: "preferences", tab: "theme" }); }}>
+                  <div className="theme-pop-custom" data-theme-column="custom">
+                    <h4>{t("theme.mine")}</h4>
+                    {customThemes.length === 0 && <span className="theme-pop-none">{t("theme.noneYet")}</span>}
+                    {customThemes.map((item) => (
+                      <button type="button" key={item.id} role="menuitem" data-theme-id={item.id} className={item.id === themeId ? "selected" : undefined} onClick={() => changeTheme(item.id)}>
+                        <span className="swatches">{[item.colors.bg, item.colors.panel, item.colors.accent].map((color, index) => <i key={index} style={{ background: color }} />)}</span>
+                        <span className="menu-label">{item.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button type="button" role="menuitem" className="theme-pop-settings" data-command="theme-settings" onClick={() => { setPopup(null); setDialog({ kind: "preferences", tab: "theme" }); }}>
                     <Icon name="settings" />
-                    <span className="menu-label">{t("start.themeSettings")}</span>
+                    <span className="menu-label">{t("theme.customSettings")}</span>
                   </button>
                 </div>
                 <div className="theme-pop-columns">
@@ -1774,7 +1787,7 @@ export function App({ initialSettings }) {
         <div className="left-col">
           {collapsed.left ? (
             <button type="button" className="panel-strip" data-expand="left" title={t("panel.expand")} aria-label={t("panel.expand")} onClick={() => togglePanel("left")}>
-              <Icon name="collapseRight" size={14} />
+              <Icon name="unfoldLeft" size={16} />
               <Icon name="open" />
               <span>{t("panel.explorer")}</span>
               <Icon name="grid" />
@@ -1785,7 +1798,7 @@ export function App({ initialSettings }) {
               <div className="right-head" data-panel-title="left">
                 <Icon name="panelProject" />
                 <span className="panel-title-text">{t("panel.project")}</span>
-                <button type="button" className="mini" data-collapse="left" title={t("panel.collapseLeft")} aria-label={t("panel.collapseLeft")} onClick={() => togglePanel("left")}><Icon name="collapseLeft" size={14} /></button>
+                <button type="button" className="mini" data-collapse="left" title={t("panel.collapseLeft")} aria-label={t("panel.collapseLeft")} onClick={() => togglePanel("left")}><Icon name="foldLeft" size={16} /></button>
               </div>
               <section className="panel" data-panel="explorer">
                 <PanelTitle t={t} id="explorer" icon="open" title={t("panel.explorer")} collapsed={collapsed.explorer} collapseIcon="collapseUp" expandIcon="collapseDown" onToggle={() => togglePanel("explorer")} />
@@ -1879,7 +1892,7 @@ export function App({ initialSettings }) {
         {collapsed.right ? (
           <div className="right-col">
             <button type="button" className="panel-strip" data-expand="right" title={t("panel.expand")} aria-label={t("panel.expand")} onClick={() => togglePanel("right")}>
-              <Icon name="collapseLeft" size={14} />
+              <Icon name="unfoldRight" size={16} />
               <Icon name="list" />
               <span>{t("panel.tree")}</span>
               <Icon name="attributes" />
@@ -1891,7 +1904,7 @@ export function App({ initialSettings }) {
             <div className="right-head" data-panel-title="right">
               <Icon name="panelStructure" />
               <span className="panel-title-text">{t("panel.right")}</span>
-              <button type="button" className="mini" data-collapse="right" title={t("panel.collapseRight")} aria-label={t("panel.collapseRight")} onClick={() => togglePanel("right")}><Icon name="collapseRight" size={14} /></button>
+              <button type="button" className="mini" data-collapse="right" title={t("panel.collapseRight")} aria-label={t("panel.collapseRight")} onClick={() => togglePanel("right")}><Icon name="foldRight" size={16} /></button>
             </div>
             <section className="panel" data-panel="tree">
               <PanelTitle t={t} id="tree" icon="list" title={t("panel.tree")} collapsed={collapsed.tree} collapseIcon="collapseUp" expandIcon="collapseDown" onToggle={() => togglePanel("tree")} />
@@ -2003,6 +2016,12 @@ export function App({ initialSettings }) {
         <CodeEditorWindow
           t={t}
           language={language}
+          spell={spell}
+          onSpell={changeSpell}
+          onPickWordList={async () => {
+            const file = await host.pickWordList().catch(() => null);
+            return file ? host.readText(file) : null;
+          }}
           project={project}
           projectName={project.name}
           generated={editorCode}

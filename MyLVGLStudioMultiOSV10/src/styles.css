@@ -90,8 +90,12 @@ input, textarea, .log-list, .dialog-message { user-select: text; }
 .theme-split .theme-drop { width: 20px; padding: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .theme-name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .theme-pop { left: auto; right: 0; top: calc(100% + 4px); width: 470px; max-height: calc(100vh - 84px); padding: 6px; }
-.theme-pop-top { display: flex; flex-wrap: wrap; align-items: stretch; gap: 3px; padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
-.theme-pop-top button { width: calc(50% - 2px); }
+.theme-pop-top { display: flex; align-items: flex-start; gap: 8px; padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.theme-pop-custom { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 3px; }
+.theme-pop-custom h4 { width: 100%; margin: 2px 4px 2px; font-size: 12px; color: var(--muted); }
+.theme-pop-custom button { width: calc(50% - 2px); }
+.theme-pop-none { padding: 4px 8px; color: var(--muted); font-size: 12px; }
+.theme-pop-top .theme-pop-settings { flex: 0 0 auto; width: auto; align-self: flex-start; border: 1px solid var(--button-border); }
 .theme-pop-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .theme-pop button { padding: 2px 6px; height: 24px; font-size: 12px; }
 .theme-pop h4 { margin: 6px 8px 4px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; }
@@ -621,6 +625,8 @@ html.popout-dialog .popout-free .dialog-body:has(.editor-window) { height: 100% 
 .editor-run.stop { border-color: var(--danger); color: var(--danger); }
 .editor-state { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .editor-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
+.editor-main.no-files { grid-template-columns: minmax(0, 1fr); }
+.editor-main.no-files .editor-tree { display: none; }
 .editor-tree { min-height: 0; overflow: auto; padding: 4px 0; border-right: 1px solid var(--line); background: var(--panel); font-size: 12px; }
 .editor-group h4 { display: flex; align-items: center; gap: 6px; margin: 6px 0 2px; padding: 0 6px 0 10px; font-size: 12px; color: var(--muted); }
 .editor-group h4 span { flex: 1 1 auto; }
@@ -663,6 +669,20 @@ html.popout-dialog .popout-free .dialog-body:has(.editor-window) { height: 100% 
 .editor-font-size { min-width: 36px; text-align: center; color: var(--muted); font-size: 12px; }
 .editor-position { flex: 0 0 auto; color: var(--muted); white-space: nowrap; font-size: 12px; }
 .editor-window .context-menu { min-width: 230px; }
+.editor-window { position: relative; }
+.spell-panel { position: absolute; right: 12px; bottom: 34px; z-index: 30; width: 320px; max-height: calc(100% - 140px); display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; overflow: auto; background: var(--pop, var(--panel)); border: 1px solid var(--line); border-radius: 6px; box-shadow: var(--shadow); font-size: 12px; }
+.spell-panel header { display: flex; align-items: center; gap: 6px; }
+.spell-panel header b { flex: 1 1 auto; }
+.spell-panel h4 { margin: 8px 0 2px; font-size: 12px; color: var(--muted); }
+.spell-row { display: flex; align-items: center; gap: 6px; min-height: 22px; }
+.spell-note { color: var(--muted); margin: 0; }
+.spell-add { display: flex; gap: 4px; }
+.spell-add .text-input { flex: 1 1 auto; height: 26px; }
+.spell-words { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; }
+.spell-words li { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 1px 4px 1px 8px; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.spell-words li:last-child { border-bottom: 0; }
+.spell-empty { color: var(--muted); justify-content: center !important; padding: 6px !important; }
+.spell-foot { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .editor-dir { margin-left: 8px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .editor-body .code-status .code-note { display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; white-space: nowrap; }
 .editor-empty { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; color: var(--muted); }

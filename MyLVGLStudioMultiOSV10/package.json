@@ -33,6 +33,9 @@
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "codemirror": "^6.0.2",
+    "dictionary-en": "^4.0.0",
+    "dictionary-ko": "^2.0.0",
+    "hunspell-asm": "^4.0.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

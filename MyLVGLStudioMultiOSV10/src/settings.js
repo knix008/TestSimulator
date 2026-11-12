@@ -17,7 +17,8 @@ export const OPACITY_MIN = 20;
 export const OPACITY_MAX = 100;
 export const OPACITY_STEP = 5;
 export const SHUFFLE_SECONDS = 20;
-export const START_CARDS = ["hero", "actions", "recent", "samples", "theme", "background"];
+// The theme is chosen with the toolbar's theme control, so the start screen has no theme card.
+export const START_CARDS = ["hero", "actions", "recent", "samples", "background"];
 
 export const SNAP_MIN = 1;
 export const SNAP_MAX = 50;

@@ -51,6 +51,8 @@ export const host = {
    *  `appFrom` is the folder whose src/app a Save As takes along. */
   writeProject: (dir, files, binaries, generatedDirs, userFiles = {}, appFrom = null) => (isDesktop ? invoke("write_project", { dir, files, binaries, generatedDirs, userFiles, appFrom }) : desktopOnly()),
   pickImage: () => (isDesktop ? open({ filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "bmp", "gif", "webp", "svg"] }] }) : desktopOnly()),
+  /** A word list for the spell checker's own dictionary: one word a line, or a Hunspell .dic. */
+  pickWordList: () => (isDesktop ? open({ filters: [{ name: "Word list", extensions: ["txt", "dic"] }] }) : desktopOnly()),
   pickFont: () => (isDesktop ? open({ filters: [{ name: "TrueType / OpenType", extensions: ["ttf", "otf", "ttc", "otc"] }] }) : desktopOnly()),
   readBase64: (path) => (isDesktop ? invoke("read_base64", { path }) : desktopOnly()),
 

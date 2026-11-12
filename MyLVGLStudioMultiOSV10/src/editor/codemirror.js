@@ -1,20 +1,21 @@
 // CodeMirror 6 for the code editor window: one EditorState per file (its own undo history),
 // C/C++ colours in the app's theme, completion of the ViewModel and library names, problems as
 // diagnostics. Kept apart from the React window so the setup can be read in one place.
-import { Compartment, EditorState, Transaction } from "@codemirror/state";
+import { Compartment, EditorState, StateEffect, StateField, Transaction } from "@codemirror/state";
 import {
-  EditorView, crosshairCursor, drawSelection, dropCursor, highlightActiveLine, highlightActiveLineGutter,
+  Decoration, ViewPlugin, EditorView, crosshairCursor, drawSelection, dropCursor, highlightActiveLine, highlightActiveLineGutter,
   highlightSpecialChars, keymap, lineNumbers, rectangularSelection,
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import {
-  HighlightStyle, bracketMatching, foldGutter, foldKeymap, indentOnInput, indentUnit, syntaxHighlighting,
+  syntaxTree, HighlightStyle, bracketMatching, foldGutter, foldKeymap, indentOnInput, indentUnit, syntaxHighlighting,
 } from "@codemirror/language";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete";
 import { lintGutter, lintKeymap, setDiagnostics } from "@codemirror/lint";
 import { cpp } from "@codemirror/lang-cpp";
 import { tags } from "@lezer/highlight";
+import { wordsOf } from "./spell.js";
 
 /** Marks a change that came from outside (the disk, the design): it is not the user's typing. */
 export const External = Transaction.userEvent.of("external");
@@ -52,6 +53,7 @@ const theme = EditorView.theme({
   ".cm-completionDetail": { color: "var(--muted)", fontStyle: "normal", marginLeft: "12px" },
   ".cm-diagnostic-error": { borderLeftColor: "var(--danger)" },
   ".cm-lintRange-error": { backgroundImage: "none", textDecoration: "underline wavy var(--danger)" },
+  ".cm-misspelled": { textDecoration: "underline wavy var(--tone-blue)", textDecorationSkipInk: "none", textUnderlineOffset: "3px" },
   ".cm-foldPlaceholder": { backgroundColor: "var(--hover)", border: "1px solid var(--line)", color: "var(--muted)" },
 });
 
@@ -72,6 +74,95 @@ export function completionSource(getItems) {
 export const readOnlyPart = new Compartment();
 export const wrapPart = new Compartment();
 export const phrasesPart = new Compartment();
+export const spellPart = new Compartment();
+
+/* ------------------------------------------------------------------ spelling */
+// Words of comments and strings that no dictionary knows get a wavy underline. The check runs
+// on the visible lines a moment after typing stops; its answer is dropped if the text moved on.
+const setSpelling = StateEffect.define();
+const spellingField = StateField.define({
+  create: () => Decoration.none,
+  update(marks, tr) {
+    let next = marks.map(tr.changes);
+    for (const effect of tr.effects) if (effect.is(setSpelling)) next = effect.value;
+    return next;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+
+/** The comments and strings of the visible lines, as words with their places. */
+export function readableWords(state, ranges) {
+  const words = [];
+  for (const { from, to } of ranges) {
+    syntaxTree(state).iterate({
+      from,
+      to,
+      enter: (node) => {
+        if (!/Comment|String/.test(node.name)) return undefined;
+        words.push(...wordsOf(state.sliceDoc(node.from, node.to), node.from));
+        return false;
+      },
+    });
+  }
+  return words;
+}
+
+/**
+ * Spell checking: `check(words)` resolves to the misspelled ones. Without it (spell checking
+ * off) nothing is marked.
+ */
+export function spellChecking(check) {
+  if (!check) return [];
+  const plugin = ViewPlugin.fromClass(class {
+    constructor(view) {
+      this.view = view;
+      this.timer = null;
+      this.schedule(50);
+    }
+    update(update) {
+      if (update.docChanged || update.viewportChanged) this.schedule(300);
+    }
+    schedule(ms) {
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => void this.run(), ms);
+    }
+    async run() {
+      const view = this.view;
+      const state = view.state;
+      const seen = new Set();
+      const words = readableWords(state, view.visibleRanges).filter((item) => {
+        const key = `${item.from}:${item.to}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      let wrong;
+      try {
+        wrong = await check(words);
+      } catch {
+        return;
+      }
+      if (this.view.state.doc !== state.doc) return;
+      const marks = Decoration.set(wrong.sort((a, b) => a.from - b.from).map((item) => Decoration.mark({ class: "cm-misspelled", attributes: { "data-misspelled": item.word } }).range(item.from, item.to)));
+      this.view.dispatch({ effects: setSpelling.of(marks) });
+    }
+    destroy() {
+      clearTimeout(this.timer);
+    }
+  });
+  return [spellingField, plugin];
+}
+
+/** The misspelled word at a place of the document, or null: { from, to, word }. */
+export function misspelledAt(state, pos) {
+  const marks = state.field(spellingField, false);
+  if (!marks) return null;
+  let found = null;
+  marks.between(pos, pos, (from, to, value) => {
+    if (from <= pos && pos <= to) found = { from, to, word: value.spec.attributes["data-misspelled"] };
+  });
+  return found;
+}
 
 /** CodeMirror's own texts (search, go to line, folding, lint, completion) in Korean. */
 const KOREAN = {
@@ -88,7 +179,7 @@ export const phrasesFor = (language) => EditorState.phrases.of(language === "ko"
  * A state for one file. `actions` are the window's: save, run, stop. `items()` gives the
  * completions now (they follow the design).
  */
-export function createState(text, { readOnly = false, wrap = false, language = "ko", items, actions, onUpdate }) {
+export function createState(text, { readOnly = false, wrap = false, language = "ko", spell = null, items, actions, onUpdate }) {
   return EditorState.create({
     doc: text,
     extensions: [
@@ -118,6 +209,7 @@ export function createState(text, { readOnly = false, wrap = false, language = "
       readOnlyPart.of([EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]),
       wrapPart.of(wrap ? EditorView.lineWrapping : []),
       phrasesPart.of(phrasesFor(language)),
+      spellPart.of(spellChecking(spell)),
       keymap.of([
         { key: "Mod-s", preventDefault: true, run: () => { actions.save(); return true; } },
         { key: "F5", preventDefault: true, run: () => { actions.run(); return true; } },

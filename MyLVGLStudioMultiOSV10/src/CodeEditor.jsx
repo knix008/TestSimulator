@@ -13,7 +13,9 @@ import { glueIdentifiers } from "./lvgl/gluegen.js";
 import { BINDINGS_FILE, VM_FILE } from "./lvgl/glueparse.js";
 import { parseBuildProblems } from "./lvgl/problems.js";
 import { viewModels, vmPrefix } from "./lvgl/viewmodel.js";
-import { EditorView, External, createState, diagnosticsFor, phrasesFor, phrasesPart, readOnlyPart, setDiagnostics, wrapPart } from "./editor/codemirror.js";
+import { EditorView, External, createState, diagnosticsFor, misspelledAt, phrasesFor, phrasesPart, readOnlyPart, setDiagnostics, spellChecking, spellPart, wrapPart } from "./editor/codemirror.js";
+import { LANGUAGES, languageOf, misspelled, spellerFor, wordsFromList } from "./editor/spell.js";
+import { dictionaryFiles } from "./editor/dictionaries.js";
 import { EditorState, Transaction } from "@codemirror/state";
 import { indentLess, indentMore, redo, redoDepth, selectAll, toggleComment, undo, undoDepth } from "@codemirror/commands";
 import { gotoLine, openSearchPanel } from "@codemirror/search";
@@ -46,9 +48,9 @@ function readOnlyReason(file) {
 
 const readPrefs = () => {
   try {
-    return { font: 13, wrap: false, ...JSON.parse(localStorage.getItem(PREFS) ?? "{}") };
+    return { font: 13, wrap: false, files: true, ...JSON.parse(localStorage.getItem(PREFS) ?? "{}") };
   } catch {
-    return { font: 13, wrap: false };
+    return { font: 13, wrap: false, files: true };
   }
 };
 const writePrefs = (prefs) => {
@@ -62,23 +64,29 @@ const writePrefs = (prefs) => {
  * with its own undo history. `text` is what the file holds now (the disk, the design, or what
  * is being typed): when it changes from outside, the editor shows it, out of the undo history.
  */
-const CodePane = forwardRef(function CodePane({ file, text, readOnly, marks, wrap, language, items, focus, actions, onChange, onInfo, onLeave, onMenu }, ref) {
+const CodePane = forwardRef(function CodePane({ file, text, readOnly, marks, wrap, language, spell, items, focus, actions, onChange, onInfo, onLeave, onMenu }, ref) {
   const host = useRef(null);
   const view = useRef(null);
   const states = useRef(new Map());
   const shown = useRef(file);
   const latest = useRef({});
-  latest.current = { items, actions, onChange, onInfo, onLeave, wrap, language };
+  latest.current = { items, actions, onChange, onInfo, onLeave, wrap, language, spell };
 
+  const reported = useRef("");
   const report = (state) => {
     const selection = state.selection.main;
     const line = state.doc.lineAt(selection.head);
-    latest.current.onInfo({ line: line.number, column: selection.head - line.from + 1, selected: Math.abs(selection.to - selection.from), undo: undoDepth(state), redo: redoDepth(state), lines: state.doc.lines });
+    const info = { line: line.number, column: selection.head - line.from + 1, selected: Math.abs(selection.to - selection.from), undo: undoDepth(state), redo: redoDepth(state), lines: state.doc.lines };
+    const key = JSON.stringify(info);
+    if (key === reported.current) return;
+    reported.current = key;
+    latest.current.onInfo(info);
   };
   const make = (value, locked) => createState(value, {
     readOnly: locked,
     wrap: latest.current.wrap,
     language: latest.current.language,
+    spell: latest.current.spell,
     items: () => latest.current.items,
     actions: {
       save: () => latest.current.actions.save(),
@@ -128,7 +136,7 @@ const CodePane = forwardRef(function CodePane({ file, text, readOnly, marks, wra
     shown.current = file;
     const kept = states.current.get(file);
     current.setState(kept ?? make(text, readOnly));
-    current.dispatch({ effects: [readOnlyPart.reconfigure([EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]), wrapPart.reconfigure(wrap ? EditorView.lineWrapping : []), phrasesPart.reconfigure(phrasesFor(language))] });
+    current.dispatch({ effects: [readOnlyPart.reconfigure([EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]), wrapPart.reconfigure(wrap ? EditorView.lineWrapping : []), phrasesPart.reconfigure(phrasesFor(language)), spellPart.reconfigure(spellChecking(spell))] });
     replace(text);
     report(current.state);
     // Only when the file changes; its text is followed by the next effect.
@@ -143,6 +151,10 @@ const CodePane = forwardRef(function CodePane({ file, text, readOnly, marks, wra
   useEffect(() => {
     view.current?.dispatch({ effects: wrapPart.reconfigure(wrap ? EditorView.lineWrapping : []) });
   }, [wrap]);
+  // Spell checking switched, or its words or languages changed: checked again.
+  useEffect(() => {
+    view.current?.dispatch({ effects: spellPart.reconfigure(spellChecking(spell)) });
+  }, [spell]);
   // The main window's language changed: CodeMirror's own texts follow it.
   useEffect(() => {
     view.current?.dispatch({ effects: phrasesPart.reconfigure(phrasesFor(language)) });
@@ -208,6 +220,18 @@ const CodePane = forwardRef(function CodePane({ file, text, readOnly, marks, wra
         current.dispatch(current.state.replaceSelection(""));
         return true;
       }),
+      /** The misspelled word under a point of the window, or null. */
+      misspelledAt: (x, y) => {
+        const current = view.current;
+        const pos = current?.posAtCoords({ x, y });
+        return pos === null || pos === undefined ? null : misspelledAt(current.state, pos);
+      },
+      replaceRange: (from, to, value) => {
+        const current = view.current;
+        if (!current || current.state.readOnly) return;
+        current.dispatch({ changes: { from, to, insert: value }, userEvent: "input.spell" });
+        current.focus();
+      },
       wordAtCaret: () => {
         const current = view.current;
         if (!current) return "";
@@ -275,6 +299,69 @@ function EditorMenu({ x, y, items, onClose }) {
 }
 
 const clock = () => new Date().toTimeString().slice(0, 8);
+
+
+/**
+ * Spell checking and the dictionaries: on or off, which languages, and the user's own words
+ * (added one by one, from the right-click menu, or from a word list file).
+ */
+function SpellPanel({ t, spell, onSpell, onPickWordList, onClose }) {
+  const [word, setWord] = useState("");
+  const [note, setNote] = useState("");
+  const add = () => {
+    const value = word.trim();
+    if (!value || /\s/.test(value)) return;
+    onSpell({ ...spell, words: [...new Set([...spell.words, value])] });
+    setWord("");
+  };
+  const importList = async () => {
+    const text = await onPickWordList();
+    if (text === null) return;
+    const words = wordsFromList(text);
+    onSpell({ ...spell, words: [...new Set([...spell.words, ...words])] });
+    setNote(t("spell.imported", { count: words.length }));
+  };
+  const toggleLanguage = (language) => onSpell({ ...spell, languages: spell.languages.includes(language) ? spell.languages.filter((item) => item !== language) : [...spell.languages, language] });
+  return (
+    <div className="spell-panel" data-spell-panel="" role="dialog" aria-label={t("spell.title")}>
+      <header>
+        <Icon name="guide" size={14} />
+        <b>{t("spell.title")}</b>
+        <button type="button" className="mini" data-command="spell-close" aria-label={t("dialog.close")} title={t("dialog.close")} onClick={onClose}><Icon name="close" size={12} /></button>
+      </header>
+      <label className="spell-row">
+        <input type="checkbox" data-spell-enabled="" checked={spell.enabled} onChange={() => onSpell({ ...spell, enabled: !spell.enabled })} />
+        <span>{t("spell.enabled")}</span>
+      </label>
+      <p className="spell-note">{t("spell.where")}</p>
+      <h4>{t("spell.dictionaries")}</h4>
+      {LANGUAGES.map((language) => (
+        <label className="spell-row" key={language}>
+          <input type="checkbox" data-spell-language={language} checked={spell.languages.includes(language)} onChange={() => toggleLanguage(language)} />
+          <span>{t(`spell.language.${language}`)}</span>
+        </label>
+      ))}
+      <h4>{t("spell.userWords", { count: spell.words.length })}</h4>
+      <div className="spell-add">
+        <input className="text-input" data-spell-word="" value={word} placeholder={t("spell.wordPlaceholder")} onChange={(event) => setWord(event.target.value)} onKeyDown={(event) => { event.stopPropagation(); if (event.key === "Enter") add(); }} />
+        <button type="button" className="editor-tool" data-command="spell-add" disabled={!word.trim() || /\s/.test(word.trim())} onClick={add}><Icon name="add" size={14} /><span>{t("spell.add")}</span></button>
+      </div>
+      <ul className="spell-words" data-spell-words="">
+        {spell.words.length === 0 && <li className="spell-empty">{t("spell.none")}</li>}
+        {spell.words.map((item) => (
+          <li key={item}>
+            <span>{item}</span>
+            <button type="button" className="mini" data-spell-remove={item} aria-label={t("spell.remove", { word: item })} title={t("spell.remove", { word: item })} onClick={() => onSpell({ ...spell, words: spell.words.filter((other) => other !== item) })}><Icon name="close" size={11} /></button>
+          </li>
+        ))}
+      </ul>
+      <div className="spell-foot">
+        <button type="button" className="editor-tool" data-command="spell-import" onClick={() => void importList()}><Icon name="open" size={14} /><span>{t("spell.import")}</span></button>
+        <span className="spell-note">{note}</span>
+      </div>
+    </div>
+  );
+}
 const MIN_HEIGHT = 520;
 
 /**
@@ -282,31 +369,55 @@ const MIN_HEIGHT = 520;
  * measured from what is drawn, so it follows the language and the labels. In a window of its
  * own the window gets that minimum; inside the page the editor itself does.
  */
-function useMinimumSize(bar, toolbar) {
-  const pop = usePopout();
-  const [width, setWidth] = useState(0);
+function useMinimumSize(bar, toolbar, ready, language) {
+  const [width, setWidth] = useState({ content: 0, frame: 0 });
   useLayoutEffect(() => {
     const measure = () => {
       const tools = toolbar.current;
       const title = bar.current;
       if (!tools || !title) return;
       const style = (element) => element.ownerDocument.defaultView.getComputedStyle(element);
-      const pads = (element) => Number.parseFloat(style(element).paddingLeft) + Number.parseFloat(style(element).paddingRight);
-      const toolsWidth = [...tools.children].reduce((sum, child) => sum + child.getBoundingClientRect().width, 0) + pads(tools);
-      const titleWidth = [...title.children].filter((child) => !child.classList.contains("guide-bar-gap")).reduce((sum, child) => sum + child.getBoundingClientRect().width, 0)
-        + pads(title) + Number.parseFloat(style(title).columnGap || "0") * (title.children.length - 1) + 24;
-      setWidth(Math.ceil(Math.max(toolsWidth, titleWidth)) + 2);
+      // A length that is not a number ("normal") counts as 0: a NaN would never equal itself and
+      // would make every measurement look like a change.
+      const px = (value) => Number.parseFloat(value) || 0;
+      const pads = (element) => px(style(element).paddingLeft) + px(style(element).paddingRight);
+      // Each item's natural width (scrollWidth), not its drawn one: the title shrinks with the
+      // window, and measuring that would feed the window's size back into its own minimum.
+      const natural = (child) => Math.max(child.scrollWidth, child.getBoundingClientRect().width);
+      const toolsWidth = [...tools.children].reduce((sum, child) => sum + natural(child), 0) + pads(tools);
+      const titleWidth = [...title.children].filter((child) => !child.classList.contains("guide-bar-gap")).reduce((sum, child) => sum + natural(child), 0)
+        + pads(title) + px(style(title).columnGap) * (title.children.length - 1) + 24;
+      // The dialog's frame around the editor (its borders) counts too, and a few pixels to spare:
+      // rounding must never cut the last button (the close button).
+      const panel = tools.closest(".dialog");
+      // Its borders only: a scrollbar comes and goes with the size, and would feed back into it.
+      const frame = panel ? Math.ceil(px(style(panel).borderLeftWidth) + px(style(panel).borderRightWidth)) : 0;
+      const content = Math.ceil(Math.max(toolsWidth, titleWidth)) + 8;
+      if (!Number.isFinite(content) || !Number.isFinite(frame)) return;
+      setWidth((old) => (old.content === content && old.frame === frame ? old : { content, frame }));
     };
     measure();
-    const Observer = toolbar.current?.ownerDocument.defaultView.ResizeObserver ?? ResizeObserver;
-    const watch = new Observer(measure);
+    if (!toolbar.current) return undefined;
+    const Observer = toolbar.current.ownerDocument.defaultView.ResizeObserver ?? ResizeObserver;
+    const watch = new Observer(() => measure());
     for (const element of [toolbar.current, bar.current]) for (const child of element?.children ?? []) watch.observe(child);
     return () => watch.disconnect();
-  });
+    // Again when the window's content is there, and when the language changes the labels.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, language]);
+  return width;
+}
+
+/**
+ * Gives the window the editor is in its minimum size. Rendered inside the dialog: only there is
+ * the window known (the editor's own component sits outside it).
+ */
+function WindowMinimum({ width, height }) {
+  const pop = usePopout();
   useEffect(() => {
-    if (pop && width) void host.popoutMinSize(pop.label, width, MIN_HEIGHT).catch(() => {});
-  }, [pop, width]);
-  return { width, label: pop?.label };
+    if (pop && width) void host.popoutMinSize(pop.label, width, height).catch(() => {});
+  }, [pop, width, height]);
+  return <span hidden data-window-label={pop?.label ?? ""} data-window-min={width ? `${width}x${height}` : ""} />;
 }
 
 /**
@@ -314,7 +425,7 @@ function useMinimumSize(bar, toolbar) {
  * `onEditGenerated(file, text)` applies an edit of a generated file to the design and returns
  * { changed, errors }. Writing the application code goes through `writeApp` (autosave).
  */
-export function CodeEditorWindow({ t, language, project, projectName, generated, appCode, appDir, writeApp, renameApp, deleteApp, onEditGenerated, native, onRun, onStop, onBuild, onClean, onSettings, onAbout, onGuide, buildLines, logLines, problems, request, onClose }) {
+export function CodeEditorWindow({ t, language, spell, onSpell, onPickWordList, project, projectName, generated, appCode, appDir, writeApp, renameApp, deleteApp, onEditGenerated, native, onRun, onStop, onBuild, onClean, onSettings, onAbout, onGuide, buildLines, logLines, problems, request, onClose }) {
   // Files being typed: what the editor shows until the disk (or the design) has caught up.
   const [buffers, setBuffers] = useState({});
   const [drafts, setDrafts] = useState({});
@@ -329,10 +440,31 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
   const [info, setInfo] = useState({ line: 1, column: 1, selected: 0, undo: 0, redo: 0, lines: 1 });
   const [menu, setMenu] = useState(null);
   const [prefs, setPrefs] = useState(readPrefs);
+  const [spellPanel, setSpellPanel] = useState(false);
+  /** Spellers loaded so far, for suggestions in the right-click menu. */
+  const spellers = useRef({});
+  // What the editor checks with: null when spell checking is off.
+  const spellCheck = useMemo(() => {
+    if (!spell.enabled || !spell.languages.length) return null;
+    return async (words) => {
+      const needed = [...new Set(words.map((item) => languageOf(item.word)))].filter((item) => spell.languages.includes(item));
+      for (const item of needed) spellers.current[item] ??= await spellerFor(item, dictionaryFiles);
+      return misspelled(words, { known: (word, kind) => spellers.current[kind]?.spell(word) ?? true, languages: spell.languages, userWords: spell.words });
+    };
+  }, [spell]);
+  const addWord = (word) => onSpell({ ...spell, words: [...new Set([...spell.words, word])] });
   const pane = useRef(null);
+  const listRef = useRef(null);
   const barRef = useRef(null);
   const toolbarRef = useRef(null);
-  const { width: minimumWidth, label: windowLabel } = useMinimumSize(barRef, toolbarRef);
+  // The bars exist once the window is open: a callback ref says so.
+  const [barsReady, setBarsReady] = useState(false);
+  const toolbarReady = (element) => {
+    toolbarRef.current = element;
+    if (!!element !== barsReady) setBarsReady(!!element);
+  };
+  const minimum = useMinimumSize(barRef, toolbarRef, barsReady, language);
+  const minimumWidth = minimum.content;
   const timers = useRef(new Map());
   const applyTimer = useRef(null);
   const pendingApply = useRef(null);
@@ -421,8 +553,10 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
   const settle = () => {
     if (applyTimer.current) applyNow();
     setDrafts((state) => {
+      const drop = Object.keys(state).filter((file) => file !== name || !results[file]?.errors.length);
+      if (!drop.length) return state;
       const next = { ...state };
-      for (const file of Object.keys(state)) if (file !== name || !results[file]?.errors.length) delete next[file];
+      for (const file of drop) delete next[file];
       return next;
     });
   };
@@ -589,12 +723,22 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
   const codeMenu = (event) => {
     const word = pane.current?.wordAtCaret() ?? "";
     const vm = viewModelOf(word);
+    // A misspelled word under the pointer: its suggestions, and adding it to the dictionary.
+    const wrong = spellCheck ? pane.current?.misspelledAt(event.clientX, event.clientY) : null;
+    const suggestions = wrong ? (spellers.current[languageOf(wrong.word)]?.suggest(wrong.word) ?? []).slice(0, 5) : [];
+    const spelling = wrong ? [
+      ...suggestions.map((suggestion, index) => ({ id: `suggest-${index}`, icon: "check", label: suggestion, disabled: !canEdit, run: () => pane.current?.replaceRange(wrong.from, wrong.to, suggestion) })),
+      ...(suggestions.length ? [] : [{ id: "suggest-none", icon: "info", label: t("spell.noSuggestion"), disabled: true, run: () => {} }]),
+      { id: "addWord", icon: "add", label: t("spell.addWord", { word: wrong.word }), run: () => addWord(wrong.word) },
+      "-",
+    ] : [];
+    const dictionary = [{ id: "dictionary", icon: "spellBook", label: t("spell.dictionaryMenu"), run: () => setSpellPanel(true) }, { ...spellTool, id: "spellToggle", label: t(spell.enabled ? "spell.turnOff" : "spell.turnOn") }];
     setMenu({
       x: event.clientX,
       y: event.clientY,
-      items: [cmd.undo, cmd.redo, "-", cmd.cut, cmd.copy, cmd.paste, cmd.deleteText, cmd.selectAll, "-", cmd.comment, cmd.indent, cmd.outdent, "-", cmd.find, cmd.replace, cmd.gotoLine,
+      items: [...spelling, cmd.undo, cmd.redo, "-", cmd.cut, cmd.copy, cmd.paste, cmd.deleteText, cmd.selectAll, "-", cmd.comment, cmd.indent, cmd.outdent, "-", cmd.find, cmd.replace, cmd.gotoLine,
         vm && { id: "openVm", icon: "viewModel", label: t("editor.menu.openVm", { vm: vm.name }), run: () => open(`src/glue/${vmPrefix(vm)}.c`) },
-        "-", cmd.build, cmd.run, cmd.stop],
+        "-", ...dictionary, "-", cmd.build, cmd.run, cmd.stop],
     });
   };
   const fileMenu = (event, file) => {
@@ -648,14 +792,17 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
       {!iconOnly && <span>{command.label}</span>}
     </button>
   );
-  // Rename and delete also have their labels in the file list and its menu; here an icon is enough.
-  const ICON_ONLY = new Set(["rename", "delete"]);
+  const spellTool = { id: "spell", icon: "spell", label: t("spell.toggleTip"), keys: "", pressed: spell.enabled, run: () => onSpell({ ...spell, enabled: !spell.enabled }) };
+  // The file list: on or off, from the toolbar's first button.
+  const filesTool = { id: "files", icon: prefs.files ? "foldLeft" : "unfoldLeft", label: t(prefs.files ? "editor.tb.filesHide" : "editor.tb.filesShow"), pressed: prefs.files, run: () => changePrefs({ files: !prefs.files }) };
   const groups = [
+    [filesTool],
     [cmd.newFile, cmd.save, cmd.rename, cmd.remove],
     [cmd.undo, cmd.redo],
     [cmd.cut, cmd.copy, cmd.paste],
     [cmd.find, cmd.replace, cmd.gotoLine],
     [cmd.comment, cmd.indent, cmd.outdent],
+    [spellTool, { id: "dictionary", icon: "spellBook", label: t("spell.dictionaryMenu"), pressed: spellPanel, run: () => setSpellPanel((value) => !value) }],
     [cmd.build, cmd.run, cmd.stop, cmd.clean],
   ];
 
@@ -707,13 +854,19 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
   );
 
   const outputLines = bottom === "build" ? buildLines : logLines;
+  // The build, the program's output and the problems always show their last line.
+  const lastCount = bottom === "problems" ? codeProblems.length : outputLines.length;
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [bottom, lastCount]);
   const close = () => {
     void flush();
     onClose();
   };
   return (
     <Dialog title={t("editor.title", { name: projectName })} icon="codeEditor" onClose={close} id="editor" width={1280} height={800} bare standsFree keepOnEscape ownGrip>
-      <div className="editor-window" data-editor="" data-min-width={minimumWidth || undefined} data-window-label={windowLabel} style={{ "--editor-font": `${prefs.font}px`, minWidth: minimumWidth || undefined, minHeight: MIN_HEIGHT }} onKeyDown={keys}>
+      <div className="editor-window" data-editor="" data-min-width={minimumWidth || undefined} style={{ "--editor-font": `${prefs.font}px`, minWidth: minimumWidth || undefined, minHeight: MIN_HEIGHT }} onKeyDown={keys}>
         <div className="editor-bar" data-window-drag="" ref={barRef}>
           <span className="editor-bar-title" data-dialog-title=""><Icon name="codeEditor" /><span>{t("editor.title", { name: projectName })}</span></span>
           <span className="editor-state" data-editor-native={native}>{native === "building" ? t("status.building") : native === "running" ? t("status.native") : ""}</span>
@@ -723,13 +876,13 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
           <button type="button" className="editor-tool" data-editor-command="about" title={t("cmd.about")} onPointerDown={(event) => event.preventDefault()} onClick={onAbout}><Icon name="about" size={16} /><span>{t("editor.tb.about")}</span></button>
           <WindowButtons t={t} onClose={close} />
         </div>
-        <div className="editor-toolbar" role="toolbar" data-editor-toolbar="" ref={toolbarRef}>
+        <div className="editor-toolbar" role="toolbar" data-editor-toolbar="" ref={toolbarReady}>
           {groups.map((group, index) => (
-            <span className="editor-tool-group" key={index}>{group.map((command) => tool(command, { iconOnly: ICON_ONLY.has(command.id) }))}</span>
+            <span className="editor-tool-group" key={index}>{group.map((command) => tool(command, { iconOnly: true }))}</span>
           ))}
         </div>
-        <div className="editor-main">
-          <nav className="editor-tree" data-editor-tree="">
+        <div className={prefs.files ? "editor-main" : "editor-main no-files"}>
+          <nav className="editor-tree" data-editor-tree="" hidden={!prefs.files}>
             {treeGroup(t("editor.appGroup"), "viewModel", appFiles, true)}
             {treeGroup(t("editor.generatedGroup"), "build", generatedFiles, false)}
           </nav>
@@ -752,6 +905,7 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
               marks={marks}
               wrap={prefs.wrap}
               language={language}
+              spell={spellCheck}
               items={items}
               focus={focus}
               actions={{ save: () => void flush(), run: () => void run(), stop, gotoLine: () => p()?.gotoLine() }}
@@ -772,7 +926,7 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
             </button>
           </div>
           {bottom === "problems" ? (
-            <div className="editor-list" data-editor-problems="">
+            <div className="editor-list" data-editor-problems="" ref={listRef}>
               {codeProblems.length === 0 && <div className="problems-empty"><Icon name="check" /> {t("problem.none")}</div>}
               {codeProblems.map((problem, index) => (
                 <button type="button" key={index} className="editor-problem" data-editor-problem={`${problem.file}:${problem.line}`} onClick={() => open(problem.file, problem.line)}>
@@ -783,7 +937,7 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
               ))}
             </div>
           ) : (
-            <div className="editor-list log-list" data-editor-output={bottom}>
+            <div className="editor-list log-list" data-editor-output={bottom} ref={listRef}>
               {outputLines.map((line, index) => {
                 const found = bottom === "build" ? parseBuildProblems([line.text])[0] : null;
                 return found?.file ? (
@@ -797,6 +951,7 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
             </div>
           )}
         </div>
+        <WindowMinimum width={minimumWidth ? minimumWidth + minimum.frame : 0} height={MIN_HEIGHT} />
         <div className="statusbar editor-statusbar" data-editor-statusbar="">
           <span className="status-cell editor-status-note">{status}</span>
           <span className="status-cell" data-editor-position="">{t("editor.position", { line: info.line, column: info.column })}{info.selected ? ` · ${t("editor.selected", { count: info.selected })}` : ""}</span>
@@ -806,10 +961,13 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
             {tool(cmd.smaller, { iconOnly: true })}
             <span className="editor-font-size" title={t("editor.fontSize")}>{prefs.font}px</span>
             {tool(cmd.bigger, { iconOnly: true })}
-            {tool(cmd.wrap, { iconOnly: true })}
+          </span>
+          <span className="status-cell editor-view-tools">
+            {tool(cmd.wrap)}
           </span>
           <span className="status-end"><ResizeGrip /></span>
         </div>
+        {spellPanel && <SpellPanel t={t} spell={spell} onSpell={onSpell} onPickWordList={onPickWordList} onClose={() => setSpellPanel(false)} />}
         {menu && <EditorMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
       </div>
     </Dialog>

@@ -57,7 +57,7 @@ Drag the dotted handle at the top left of a card to move it, and drag its bottom
 Under **Tools > Preferences** you can change the following.
 
 - **General:** language, showing the start screen at startup, reopening the last project at startup, the default LVGL version, screen size and location for new projects, rulers, drag step (px), clearing recent projects
-- **Theme:** 20 light themes, 20 dark themes, your own themes. The theme button at the right of the toolbar shows the colours and name of the theme now, and each press moves on to the next theme. The ▾ beside it opens the list of every theme and the theme settings.
+- **Theme:** 20 light themes, 20 dark themes, your own themes. The theme button at the right of the toolbar shows the colours and name of the theme now, and each press moves on to the next theme. The ▾ beside it opens your own themes with the **Custom theme settings** button at the top, and the dark and light themes below. The start screen has no theme card: themes are chosen here.
 - **Start Screen:** the start screen's card options and backgrounds, restoring defaults
 
 ### Custom Themes

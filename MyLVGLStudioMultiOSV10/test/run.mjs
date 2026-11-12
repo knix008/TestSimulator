@@ -18,6 +18,7 @@ import lvConfText from "../src/lvgl/lvConfText.js";
 import { createReporter, displayWidth, fit, formatTime } from "./reporter.mjs";
 import { everythingProject, registerFeatureTests } from "./features.mjs";
 import { boundProject, registerMvvmTests } from "./mvvm.mjs";
+import { registerEditorTests } from "./editor.mjs";
 import { findProblems, parseBuildProblems } from "../src/lvgl/problems.js";
 import { renameVmProp } from "../src/lvgl/viewmodel.js";
 import { sampleProject } from "./sample.js";
@@ -433,6 +434,7 @@ for (const version of BUNDLED_ENGINES) {
 
 await registerFeatureTests({ category, test, engines, versions: BUNDLED_ENGINES });
 await registerMvvmTests({ category, test, engines });
+await registerEditorTests({ category, test });
 
 /* ----------------------------------------------------------------- parity */
 const toolPath = process.platform === "win32" && fs.existsSync("C:/Msys64/ucrt64/bin") ? `C:\\Msys64\\ucrt64\\bin;${process.env.PATH}` : process.env.PATH;
@@ -478,7 +480,8 @@ function nativeFrame(version, project, binaries = {}, app = null) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     if (!fs.existsSync(file) || !fs.readFileSync(file).equals(bytes)) fs.writeFileSync(file, bytes);
   }
-  fs.rmSync(path.join(source, "src", "app"), { recursive: true, force: true });
+  // A virus scanner can hold a file a moment (EPERM, EBUSY): tried again.
+  fs.rmSync(path.join(source, "src", "app"), { recursive: true, force: true, maxRetries: 8, retryDelay: 250 });
   for (const [name, text] of Object.entries({ ...generateCode(project), ...(app ?? starterFiles(project)) })) {
     const file = path.join(source, name);
     fs.mkdirSync(path.dirname(file), { recursive: true });

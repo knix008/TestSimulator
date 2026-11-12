@@ -4,7 +4,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { GripDots } from "./controls.jsx";
 import appIcon from "../assets/icons/128x128.png";
 import { Flag, Icon } from "./icons.jsx";
-import { THEMES, themeById } from "./themes.js";
 import { useSamples } from "./dialogs.jsx";
 import { BACKGROUND_KINDS, drawBackground, themePalette } from "./start/backgrounds.js";
 import { COLS, GAP, ROW, autoArrange, cardsOf, compact, layoutKey, layoutValue, place, rowsFor } from "./start/layout.js";
@@ -374,7 +373,7 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
   const cellStyle = (cell) => ({ gridColumn: `${cell.col + 1} / span ${cell.w}`, gridRow: `${cell.row + 1} / span ${cell.h}` });
   const handle = (id) => (
     <button type="button" className="card-handle" data-card-handle={id} title={t("start.moveCard")} aria-label={t("start.moveCard")} onPointerDown={(event) => startMove(event, id)}>
-      <Icon name="drag" size={14} />
+      <Icon name="moveLines" size={14} />
     </button>
   );
 
@@ -384,7 +383,7 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
     const classes = ["start-card", `start-card-${id}`, bare ? "bare" : "", cell.fit ? "fit" : "fixed-height", mine && drag.mode === "move" ? "drag-origin" : "", mine && drag.mode === "resize" ? "resizing" : ""].filter(Boolean).join(" ");
     return (
       <section key={id} data-card={id} className={classes} style={{ ...cellStyle(cell), height: cell.fit ? undefined : `${cell.h * ROW - GAP}px` }} aria-label={title || undefined}>
-        {bare ? <span className="card-handle-float">{handle(id)}</span> : (
+        {bare ? null : (
           <h2>
             {handle(id)}
             <Icon name={icon} />
@@ -394,7 +393,7 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
           </h2>
         )}
         <div className="card-body">{body}</div>
-        <span className="card-resize" data-card-resize={id} title={t("start.resizeCard")} onPointerDown={(event) => startResize(event, id)} onDoubleClick={() => saveLayout(place(saved, id, { fit: true }))}><GripDots /></span>
+        {!bare && <span className="card-resize" data-card-resize={id} title={t("start.resizeCard")} onPointerDown={(event) => startResize(event, id)} onDoubleClick={() => saveLayout(place(saved, id, { fit: true }))}><GripDots /></span>}
       </section>
     );
   };
@@ -402,17 +401,6 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
   const dropOutline = drag?.target ? <div key="drop-outline" className="card-drop-outline" aria-hidden="true" style={{ ...cellStyle(shown[drag.id]), height: `${shown[drag.id].h * ROW - GAP}px` }} /> : null;
 
   /* ------------------------------------------------------------ pickers */
-
-  const themeName = (item) => (en ? item.nameEn : item.nameKo);
-  const themeTile = (item, label = themeName(item)) => (
-    <button type="button" role="radio" key={item.id} aria-checked={themeId === item.id} className={themeId === item.id ? "bg-tile st-theme-tile on" : "bg-tile st-theme-tile"} data-start-theme={item.id} title={label} onClick={() => onTheme(item.id)}>
-      <span className="st-theme-chip" aria-hidden="true" style={{ background: item.swatch[0], borderColor: item.vars["--accent-line"] }}>
-        <i style={{ background: item.swatch[1] }} />
-        <i style={{ background: item.swatch[2] }} />
-      </span>
-      <span>{label}</span>
-    </button>
-  );
 
   const actions = [
     { id: "new", icon: "new", label: t("cmd.new"), tip: t("start.tipNew"), run: onNew },
@@ -488,23 +476,6 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
         ))}
       </div>
     ), recent.length ? <button type="button" className="start-btn small" data-start="clear-recent" onClick={onClearRecent}><Icon name="delete" size={14} /><span>{t("start.clearRecent")}</span></button> : null),
-
-    theme: card("theme", "theme", t("cmd.theme"), (
-      <div className="st-theme-groups">
-        <div className="st-theme-custom-row">
-          {customThemes.map((item) => themeTile(themeById(item.id), item.name))}
-          <button type="button" className="start-btn" data-start="theme-settings" onClick={() => onPreferences("theme")}><Icon name="settings" /><span>{t("start.themeSettings")}</span></button>
-        </div>
-        <div className="st-theme-columns">
-          {["dark", "light"].map((mode) => (
-            <section key={mode} className="st-theme-group" data-theme-kind={mode}>
-              <h3><Icon name={mode === "light" ? "sun" : "moon"} size={14} /><span>{t(`theme.${mode}`)}</span></h3>
-              <div className="bg-grid st-theme-tiles">{THEMES.filter((item) => item.mode === mode).map((item) => themeTile(item))}</div>
-            </section>
-          ))}
-        </div>
-      </div>
-    ), <span className="start-card-note">{themeName(themeById(themeId))}</span>),
 
     background: card("background", "image", t("start.background"), (
       <>

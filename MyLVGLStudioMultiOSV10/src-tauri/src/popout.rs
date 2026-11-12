@@ -15,6 +15,14 @@ const PREFIX: &str = "dialog-";
 const FREE_PREFIX: &str = "dialog-free-";
 const FREE_MIN: (f64, f64) = (560.0, 360.0);
 
+/// The minimum a window's content asked for (popout_min_size), by label. Windows keeps a minimum
+/// only while the mouse sizes a window; a size set any other way is held to it here.
+static MINIMUMS: std::sync::Mutex<Vec<(String, f64, f64)>> = std::sync::Mutex::new(Vec::new());
+
+fn minimum_of(label: &str) -> Option<(f64, f64)> {
+    MINIMUMS.lock().ok()?.iter().find(|(name, _, _)| name == label).map(|(_, w, h)| (*w, *h))
+}
+
 /// The window label for `about:blank#<fragment>`, or None for what the page may not open this way.
 pub fn label_for(fragment: Option<&str>) -> Option<String> {
     let fragment = fragment?;
@@ -108,7 +116,11 @@ pub fn popout_show(app: AppHandle, options: ShowOptions) -> bool {
     let Some(window) = app.get_webview_window(&options.label) else {
         return false;
     };
-    let (w, h) = (options.width.round().max(40.0), options.height.round().max(24.0));
+    let (mut w, mut h) = (options.width.round().max(40.0), options.height.round().max(24.0));
+    if let Some((min_w, min_h)) = minimum_of(&options.label) {
+        w = w.max(min_w);
+        h = h.max(min_h);
+    }
     let _ = window.set_size(LogicalSize::new(w, h));
     if options.resize_only {
         return true;
@@ -156,6 +168,10 @@ pub fn popout_min_size(app: AppHandle, label: String, width: f64, height: f64) -
         return false;
     };
     let (w, h) = (width.round().max(FREE_MIN.0), height.round().max(FREE_MIN.1));
+    if let Ok(mut list) = MINIMUMS.lock() {
+        list.retain(|(name, _, _)| name != &label);
+        list.push((label.clone(), w, h));
+    }
     let _ = window.set_min_size(Some(LogicalSize::new(w, h)));
     let scale = window.scale_factor().unwrap_or(1.0);
     if let Ok(size) = window.inner_size().map(|size| size.to_logical::<f64>(scale)) {

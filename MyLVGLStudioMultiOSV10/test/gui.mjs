@@ -230,7 +230,9 @@ category("Start screen");
 
 await step("It opens on the start screen with every card", async () => {
   await page.until("document.querySelector('[data-start-screen]')", 15000);
-  for (const card of ["hero", "actions", "recent", "samples", "theme", "background"]) {
+  // No theme card: the toolbar's theme control chooses the theme.
+  assert.equal(await js("!!document.querySelector('[data-card=theme]')"), false, "the theme card is gone");
+  for (const card of ["hero", "actions", "recent", "samples", "background"]) {
     assert.ok(await js(`!!document.querySelector('[data-card="${card}"]')`), card);
   }
   await sleep(400);
@@ -354,15 +356,28 @@ await step("A card can be resized by its corner", async () => {
   await sleep(300);
 });
 
-await step("A theme on the start screen applies at once", async () => {
-  assert.equal(await js("document.querySelectorAll('[data-start-theme]').length"), 40);
-  await click('[data-start-theme="dark-midnight"]');
+await step("On the start screen a theme is chosen with the toolbar's theme control, and applies at once", async () => {
+  assert.equal(await js("document.querySelectorAll('[data-card=theme], [data-start-theme]').length"), 0, "no theme card on the start screen");
+  await click('[data-command="theme"]');
+  await page.until("!!document.querySelector('.theme-pop [data-theme-id=\"dark-midnight\"]')", 2000);
+  await click('.theme-pop [data-theme-id="dark-midnight"]');
   await sleep(120);
   assert.equal(await js("document.documentElement.dataset.theme"), "dark-midnight");
   await js("document.querySelector('.start-scroll').scrollTop = 0");
   await shot("01c-start-dark");
-  await click('[data-start-theme="light-classic"]');
+  await click('[data-command="theme"]');
+  await page.until("!!document.querySelector('.theme-pop [data-theme-id=\"light-classic\"]')", 2000);
+  await click('.theme-pop [data-theme-id="light-classic"]');
   await sleep(80);
+});
+
+await step("Start screen cards: a move handle of four lines left of each icon and title, none on the program's title", async () => {
+  const cards = await js("[...document.querySelectorAll('[data-card]')].map((c) => ({ id: c.dataset.card, handle: !!c.querySelector('[data-card-handle]'), lines: c.querySelector('[data-card-handle] [data-icon=moveLines]') ? c.querySelector('[data-card-handle] svg').querySelectorAll('path').length : 0, before: (() => { const h = c.querySelector('h2 [data-card-handle]'); const i = h?.nextElementSibling; return !!h && !!i && h.getBoundingClientRect().right <= i.getBoundingClientRect().left + 0.5; })(), resize: !!c.querySelector('[data-card-resize]') }))");
+  for (const card of cards) {
+    if (card.id === "hero") assert.deepEqual([card.handle, card.resize], [false, false], "the title card is neither moved nor resized");
+    else assert.ok(card.handle && card.before && card.resize, JSON.stringify(card));
+  }
+  assert.ok(cards.length >= 5);
 });
 
 await step("The language tile switches the language", async () => {
