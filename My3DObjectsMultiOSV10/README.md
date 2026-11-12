@@ -58,6 +58,15 @@ npm run engine         # 엔진만 (--port, --host, --home)
 
 설치 파일은 `npm run build:win`(Windows NSIS) · `build:mac`(DMG) · `build:linux`(AppImage · deb) 로 만들고, 만든 파일은 프로젝트 루트로 복사됩니다.
 macOS · Linux 설치 파일은 해당 OS(또는 CI)에서 빌드합니다.
+
+```bash
+npm run clean          # 빌드 결과 지우기: dist · src-tauri/target · src-tauri/gen · public/doc · public/samples ·
+                       #   build-info.json · Vite/Vitest 캐시 · __pycache__ · 루트로 복사된 설치 파일
+npm run clean:all      # 위 + node_modules (다음 실행 때 자동 재설치)
+npm run clean:dry      # 지울 목록과 크기만 보여 주고 아무것도 지우지 않음
+```
+
+git 이 추적하는 파일과 엔진 폴더(`%LOCALAPPDATA%\My3DObjects\engine` — venv · 모델 가중치)는 건드리지 않습니다.
 MyStableFast3D 와 함께 설치해도 서로 겹치지 않습니다 — 식별자 `com.shkwon.my3dobjects`, 데이터 폴더 `My3DObjects`, 개발 서버 5196, 엔진 57660.
 
 ## 요구 사항

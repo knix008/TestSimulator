@@ -7,6 +7,10 @@
 // handed to the loader as blob URLs, so the same code works with real paths
 // on the desktop and with a multi-file selection in the browser.
 import * as THREE from 'three';
+// Static on purpose: App.jsx and print3d.js already import exporters.js
+// statically, so a dynamic import here could not split it into its own chunk
+// (Vite warns "dynamic import will not move module into another chunk").
+import * as w from './exporters.js';
 
 export const IMPORT_FORMATS = [
   { id: 'glb', ext: ['glb'], name: 'glTF Binary' },
@@ -427,7 +431,6 @@ export async function exportModel(object, formatId, { units = 'm' } = {}) {
     case 'vtk':
     case 'pcd':
     case 'xyz': {
-      const w = await import('./exporters.js');
       const meshes = w.collectMeshes(object);
       const write = { '3mf': w.write3MF, amf: w.writeAMF, dae: w.writeDAE, wrl: w.writeVRML, vtk: w.writeVTK, pcd: w.writePCD, xyz: w.writeXYZ }[fmt.id];
       return write(meshes, { units });
