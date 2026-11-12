@@ -1219,7 +1219,7 @@ export function App({ initialSettings }) {
     run: { id: "run", icon: running || runOpen ? "stop" : "run", label: t(running || runOpen ? "cmd.stop" : "cmd.run"), keys: "F5", disabled: !designing && !runOpen, pressed: running || runOpen, run: toggleRun },
     cleanBuild: {
       id: "cleanBuild",
-      icon: "delete",
+      icon: "broom",
       label: t("cmd.cleanBuild", { version: project.lvgl }),
       disabled: native !== "idle" || !isDesktop,
       run: () => setDialog({
@@ -1244,7 +1244,7 @@ export function App({ initialSettings }) {
     panelRight: { id: "panelRight", icon: "panelRight", label: t("panel.toggleRight"), disabled: !designing, pressed: !collapsed.right, run: () => togglePanel("right") },
     panelBottom: { id: "panelBottom", icon: "panelBottom", label: t("panel.toggleBottom"), disabled: !designing, pressed: !collapsed.bottom, run: () => togglePanel("bottom") },
     rulers: { id: "rulers", icon: "ruler", label: t("cmd.rulers"), disabled: !designing, pressed: rulers, run: toggleRulers },
-    nativeBuild: { id: "nativeBuild", icon: "build", label: t("cmd.nativeBuild"), keys: "Ctrl+B", disabled: !designing || native !== "idle", run: () => void cmdNative(true) },
+    nativeBuild: { id: "nativeBuild", icon: "hammer", label: t("cmd.nativeBuild"), keys: "Ctrl+B", disabled: !designing || native !== "idle", run: () => void cmdNative(true) },
     native: { id: "native", icon: native === "idle" ? "native" : "stop", label: t(native === "idle" ? "cmd.nativeRun" : "cmd.nativeStop"), keys: "Shift+F5", disabled: !designing && native === "idle", pressed: native !== "idle", run: cmdNative },
     settings: { id: "settings", icon: "project", label: t("cmd.settings"), run: () => setDialog({ kind: "settings" }) },
     lvConf: { id: "lvconf", icon: "conf", label: t("cmd.lvConf"), run: () => setDialog({ kind: "lvconf" }) },
@@ -1876,7 +1876,7 @@ export function App({ initialSettings }) {
               </button>
               <span className="bottom-actions">
                 <button type="button" className="mini" data-command="clear-output" disabled={bottomTab === "problems" || bottomTab === "viewmodels" || (bottomTab === "log" ? logLines : buildLines).length === 0} title={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} aria-label={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} onClick={() => (bottomTab === "log" ? setLogLines([]) : setBuildLines([]))}><Icon name="clearOutput" size={14} /></button>
-                <button type="button" className="mini" data-command="clean-build" disabled={c.cleanBuild.disabled} title={c.cleanBuild.label} aria-label={c.cleanBuild.label} onClick={c.cleanBuild.run}><Icon name="delete" size={14} /></button>
+                <button type="button" className="mini" data-command="clean-build" disabled={c.cleanBuild.disabled} title={c.cleanBuild.label} aria-label={c.cleanBuild.label} onClick={c.cleanBuild.run}><Icon name="broom" size={14} /></button>
               </span>
               <button type="button" className="mini" data-collapse="bottom" title={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} aria-label={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} onClick={() => togglePanel("bottom")}><Icon name={collapsed.bottom ? "collapseUp" : "collapseDown"} size={14} /></button>
             </div>
@@ -2017,6 +2017,7 @@ export function App({ initialSettings }) {
           t={t}
           language={language}
           spell={spell}
+          tabSize={general.tabSize}
           onSpell={changeSpell}
           onPickWordList={async () => {
             const file = await host.pickWordList().catch(() => null);

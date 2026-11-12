@@ -13,7 +13,7 @@ import { glueIdentifiers } from "./lvgl/gluegen.js";
 import { BINDINGS_FILE, VM_FILE } from "./lvgl/glueparse.js";
 import { parseBuildProblems } from "./lvgl/problems.js";
 import { viewModels, vmPrefix } from "./lvgl/viewmodel.js";
-import { EditorView, External, createState, diagnosticsFor, misspelledAt, phrasesFor, phrasesPart, readOnlyPart, setDiagnostics, spellChecking, spellPart, wrapPart } from "./editor/codemirror.js";
+import { EditorView, External, autoIndent, createState, indentFor, indentPart, diagnosticsFor, misspelledAt, phrasesFor, phrasesPart, readOnlyPart, setDiagnostics, spellChecking, spellPart, wrapPart } from "./editor/codemirror.js";
 import { LANGUAGES, languageOf, misspelled, spellerFor, wordsFromList } from "./editor/spell.js";
 import { dictionaryFiles } from "./editor/dictionaries.js";
 import { EditorState, Transaction } from "@codemirror/state";
@@ -64,13 +64,13 @@ const writePrefs = (prefs) => {
  * with its own undo history. `text` is what the file holds now (the disk, the design, or what
  * is being typed): when it changes from outside, the editor shows it, out of the undo history.
  */
-const CodePane = forwardRef(function CodePane({ file, text, readOnly, marks, wrap, language, spell, items, focus, actions, onChange, onInfo, onLeave, onMenu }, ref) {
+const CodePane = forwardRef(function CodePane({ file, text, readOnly, marks, wrap, language, spell, tabSize, items, focus, actions, onChange, onInfo, onLeave, onMenu }, ref) {
   const host = useRef(null);
   const view = useRef(null);
   const states = useRef(new Map());
   const shown = useRef(file);
   const latest = useRef({});
-  latest.current = { items, actions, onChange, onInfo, onLeave, wrap, language, spell };
+  latest.current = { items, actions, onChange, onInfo, onLeave, wrap, language, spell, tabSize };
 
   const reported = useRef("");
   const report = (state) => {
@@ -87,6 +87,7 @@ const CodePane = forwardRef(function CodePane({ file, text, readOnly, marks, wra
     wrap: latest.current.wrap,
     language: latest.current.language,
     spell: latest.current.spell,
+    tabSize: latest.current.tabSize,
     items: () => latest.current.items,
     actions: {
       save: () => latest.current.actions.save(),
@@ -136,7 +137,7 @@ const CodePane = forwardRef(function CodePane({ file, text, readOnly, marks, wra
     shown.current = file;
     const kept = states.current.get(file);
     current.setState(kept ?? make(text, readOnly));
-    current.dispatch({ effects: [readOnlyPart.reconfigure([EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]), wrapPart.reconfigure(wrap ? EditorView.lineWrapping : []), phrasesPart.reconfigure(phrasesFor(language)), spellPart.reconfigure(spellChecking(spell))] });
+    current.dispatch({ effects: [readOnlyPart.reconfigure([EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]), wrapPart.reconfigure(wrap ? EditorView.lineWrapping : []), phrasesPart.reconfigure(phrasesFor(language)), spellPart.reconfigure(spellChecking(spell)), indentPart.reconfigure(indentFor(tabSize))] });
     replace(text);
     report(current.state);
     // Only when the file changes; its text is followed by the next effect.
@@ -151,6 +152,10 @@ const CodePane = forwardRef(function CodePane({ file, text, readOnly, marks, wra
   useEffect(() => {
     view.current?.dispatch({ effects: wrapPart.reconfigure(wrap ? EditorView.lineWrapping : []) });
   }, [wrap]);
+  // The tab width of the settings: the file shown follows at once, the others when shown.
+  useEffect(() => {
+    view.current?.dispatch({ effects: indentPart.reconfigure(indentFor(tabSize)) });
+  }, [tabSize]);
   // Spell checking switched, or its words or languages changed: checked again.
   useEffect(() => {
     view.current?.dispatch({ effects: spellPart.reconfigure(spellChecking(spell)) });
@@ -189,6 +194,7 @@ const CodePane = forwardRef(function CodePane({ file, text, readOnly, marks, wra
       comment: run(toggleComment),
       indent: run(indentMore),
       outdent: run(indentLess),
+      autoIndent: run(autoIndent),
       find: run(openSearchPanel),
       replace: run((current) => {
         openSearchPanel(current);
@@ -425,7 +431,7 @@ function WindowMinimum({ width, height }) {
  * `onEditGenerated(file, text)` applies an edit of a generated file to the design and returns
  * { changed, errors }. Writing the application code goes through `writeApp` (autosave).
  */
-export function CodeEditorWindow({ t, language, spell, onSpell, onPickWordList, project, projectName, generated, appCode, appDir, writeApp, renameApp, deleteApp, onEditGenerated, native, onRun, onStop, onBuild, onClean, onSettings, onAbout, onGuide, buildLines, logLines, problems, request, onClose }) {
+export function CodeEditorWindow({ t, language, spell, tabSize = 4, onSpell, onPickWordList, project, projectName, generated, appCode, appDir, writeApp, renameApp, deleteApp, onEditGenerated, native, onRun, onStop, onBuild, onClean, onSettings, onAbout, onGuide, buildLines, logLines, problems, request, onClose }) {
   // Files being typed: what the editor shows until the disk (or the design) has caught up.
   const [buffers, setBuffers] = useState({});
   const [drafts, setDrafts] = useState({});
@@ -687,11 +693,12 @@ export function CodeEditorWindow({ t, language, spell, onSpell, onPickWordList, 
     gotoLine: { id: "gotoLine", icon: "gotoLine", label: t("editor.tb.gotoLine"), keys: "Ctrl+G", run: () => p()?.gotoLine() },
     comment: { id: "comment", icon: "comment", label: t("editor.tb.comment"), keys: "Ctrl+/", disabled: !canEdit, run: () => p()?.comment() },
     indent: { id: "indent", icon: "indent", label: t("editor.tb.indent"), keys: "Ctrl+]", disabled: !canEdit, run: () => p()?.indent() },
+    autoIndent: { id: "autoIndent", icon: "autoIndent", label: t("editor.tb.autoIndent"), keys: "Shift+Alt+F", disabled: !canEdit, run: () => p()?.autoIndent() },
     outdent: { id: "outdent", icon: "outdent", label: t("editor.tb.outdent"), keys: "Ctrl+[", disabled: !canEdit, run: () => p()?.outdent() },
-    build: { id: "build", icon: "build", label: t("editor.tb.build"), keys: "Ctrl+B", disabled: running, run: () => void build() },
+    build: { id: "build", icon: "hammer", label: t("editor.tb.build"), keys: "Ctrl+B", disabled: running, run: () => void build() },
     run: { id: "run", icon: "native", label: t("editor.run"), keys: "F5", disabled: running, run: () => void run() },
     stop: { id: "stop", icon: "stop", label: t("editor.tb.stop"), keys: "Shift+F5", disabled: !running, run: stop },
-    clean: { id: "clean", icon: "clearOutput", label: t("editor.clean"), disabled: running, run: onClean },
+    clean: { id: "clean", icon: "broom", label: t("editor.clean"), disabled: running, run: onClean },
     smaller: { id: "fontSmaller", icon: "zoomOut", label: t("editor.tb.smaller"), disabled: prefs.font <= FONT_SIZES[0], run: () => fontStep(-1) },
     bigger: { id: "fontBigger", icon: "zoomIn", label: t("editor.tb.bigger"), disabled: prefs.font >= FONT_SIZES[FONT_SIZES.length - 1], run: () => fontStep(1) },
     wrap: { id: "wrap", icon: "wrap", label: t("editor.tb.wrap"), pressed: prefs.wrap, run: () => changePrefs({ wrap: !prefs.wrap }) },
@@ -736,7 +743,7 @@ export function CodeEditorWindow({ t, language, spell, onSpell, onPickWordList, 
     setMenu({
       x: event.clientX,
       y: event.clientY,
-      items: [...spelling, cmd.undo, cmd.redo, "-", cmd.cut, cmd.copy, cmd.paste, cmd.deleteText, cmd.selectAll, "-", cmd.comment, cmd.indent, cmd.outdent, "-", cmd.find, cmd.replace, cmd.gotoLine,
+      items: [...spelling, cmd.undo, cmd.redo, "-", cmd.cut, cmd.copy, cmd.paste, cmd.deleteText, cmd.selectAll, "-", cmd.comment, cmd.indent, cmd.outdent, cmd.autoIndent, "-", cmd.find, cmd.replace, cmd.gotoLine,
         vm && { id: "openVm", icon: "viewModel", label: t("editor.menu.openVm", { vm: vm.name }), run: () => open(`src/glue/${vmPrefix(vm)}.c`) },
         "-", ...dictionary, "-", cmd.build, cmd.run, cmd.stop],
     });
@@ -801,7 +808,7 @@ export function CodeEditorWindow({ t, language, spell, onSpell, onPickWordList, 
     [cmd.undo, cmd.redo],
     [cmd.cut, cmd.copy, cmd.paste],
     [cmd.find, cmd.replace, cmd.gotoLine],
-    [cmd.comment, cmd.indent, cmd.outdent],
+    [cmd.comment, cmd.indent, cmd.outdent, cmd.autoIndent],
     [spellTool, { id: "dictionary", icon: "spellBook", label: t("spell.dictionaryMenu"), pressed: spellPanel, run: () => setSpellPanel((value) => !value) }],
     [cmd.build, cmd.run, cmd.stop, cmd.clean],
   ];
@@ -906,6 +913,7 @@ export function CodeEditorWindow({ t, language, spell, onSpell, onPickWordList, 
               wrap={prefs.wrap}
               language={language}
               spell={spellCheck}
+              tabSize={tabSize}
               items={items}
               focus={focus}
               actions={{ save: () => void flush(), run: () => void run(), stop, gotoLine: () => p()?.gotoLine() }}

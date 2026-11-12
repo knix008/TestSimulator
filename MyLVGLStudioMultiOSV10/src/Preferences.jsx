@@ -6,7 +6,7 @@ import { ConfirmDialog, Dialog, versionChoices } from "./dialogs.jsx";
 import { host } from "./host.js";
 import { DEVICES } from "./lvgl/schema.js";
 import { THEME_COLOR_KEYS, THEMES, themeById } from "./themes.js";
-import { MAX_CUSTOM_THEMES, SNAP_MAX, SNAP_MIN, customThemeFrom, DEFAULT_START_SCREEN, effectiveSpeed } from "./settings.js";
+import { MAX_CUSTOM_THEMES, SNAP_MAX, SNAP_MIN, TAB_SIZE_MAX, TAB_SIZE_MIN, customThemeFrom, DEFAULT_START_SCREEN, effectiveSpeed } from "./settings.js";
 import { BackgroundGrid, StartRanges } from "./StartScreen.jsx";
 
 function ThemeRow({ item, label, selected, onPick }) {
@@ -177,6 +177,14 @@ export function PreferencesDialog({ t, downloading, onAgainTools, onAgainLvgl, i
                   <span>{t("pref.snap")}</span>
                   <Stepper id="prefSnap" unit="px" value={general.snap} min={SNAP_MIN} max={SNAP_MAX} onChange={(snap) => onGeneral({ snap })} />
                 </div>
+              </section>
+              <section data-pref-code="">
+                <h4><Icon name="codeEditor" size={14} /> {t("pref.codeEditor")}</h4>
+                <div className="form-grid">
+                  <span>{t("pref.tabSize")}</span>
+                  <Stepper id="prefTabSize" unit={t("pref.spaces")} value={general.tabSize} min={TAB_SIZE_MIN} max={TAB_SIZE_MAX} onChange={(tabSize) => onGeneral({ tabSize })} />
+                </div>
+                <p className="dialog-note" data-pref-tab-note="">{t("pref.tabSpaces")}</p>
               </section>
               <section>
                 <h4><Icon name="clock" size={14} /> {t("start.recent")}</h4>

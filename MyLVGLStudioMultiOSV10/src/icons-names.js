@@ -32,6 +32,7 @@ export const PATHS = {
   gotoLine: [["blue", '<path d="M4 6h10M4 12h6M4 18h10"/><path d="M14 12h7M18 9l3 3-3 3"/>']],
   comment: [["teal", '<path d="M9 5 5 19M15 5l-4 14"/><path d="M17 9h4M17 15h4"/>']],
   indent: [["green", '<path d="M11 6h10M11 12h10M11 18h10"/><path d="m3 9 4 3-4 3"/>']],
+  autoIndent: [["green", '<path d="M10 5h11M14 10h7M14 15h7M10 20h11"/><path d="m3 10 3 2.5L3 15"/><path d="M5.5 2.5v4M3.5 4.5h4"/>']],
   outdent: [["orange", '<path d="M11 6h10M11 12h10M11 18h10"/><path d="M7 9 3 12l4 3"/>']],
   wrap: [["purple", '<path d="M4 6h16M4 12h13a3 3 0 0 1 0 6h-4"/><path d="m15 16-2 2 2 2"/><path d="M4 18h5"/>']],
   link: [["teal", '<path d="M10.5 13.5a4 4 0 0 0 5.7 0l3.2-3.2a4 4 0 0 0-5.7-5.7l-1.2 1.2"/><path d="M13.5 10.5a4 4 0 0 0-5.7 0l-3.2 3.2a4 4 0 0 0 5.7 5.7l1.2-1.2"/>']],
@@ -79,6 +80,9 @@ export const PATHS = {
   cut: [["orange", '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2 20 20M8.2 15.8 20 4"/>']],
   selectAll: [["blue", '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="m8 12 3 3 5-6"/>']],
   bug: [["slate", '<rect x="8" y="8" width="8" height="12" rx="4"/><path d="M9 8a3 3 0 0 1 6 0M4 13h4M16 13h4M5 7l3 3M19 7l-3 3M5 19l3-3M19 19l-3-3"/>']],
+  // As in other development tools: a hammer builds, a broom cleans the build.
+  hammer: [["amber", '<g transform="rotate(45 12 12)"><path d="M6 3.5h10.5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H6L4 7V5z"/><path d="M10.2 8.5h3v12a1.5 1.5 0 0 1-3 0z"/></g>']],
+  broom: [["teal", '<g transform="rotate(35 12 12)"><path d="M9 11h6l4 10H5z"/><path d="M12 1.5V11M9.5 11h5"/><path d="M10 15l-1.3 5.5M12 15v5.5M14 15l1.3 5.5"/></g>']],
   clearOutput: [["slate", '<path d="M4 6h16M4 11h9M4 16h6"/><path d="m15 14 5 5M20 14l-5 5"/>']],
   samples: [["teal", '<path d="M4 7h7l2 2h7v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="m12 11 1 2 2 .3-1.5 1.4.4 2.1L12 15.8l-1.9 1 .4-2.1L9 13.3l2-.3z"/>']],
   lock: [["pink", '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><path d="M12 15v2"/>']],

@@ -9,7 +9,7 @@ The code editor is a window of its own for editing, building and running the log
 | Part | Contents |
 |---|---|
 | Title bar | The project's name, build or run state, **User guide** (F1), **Settings**, **About**, the window buttons |
-| Toolbar | Icon buttons (point at one for its name and key): new file, save, rename, delete / undo, redo / cut, copy, paste / find, replace, go to line / comment, indent, outdent / spell checking, spelling dictionary / build, run, stop, clean build |
+| Toolbar | Icon buttons (point at one for its name and key): fold or unfold the file list / new file, save, rename, delete / undo, redo / cut, copy, paste / find, replace, go to line / comment, indent, outdent, auto indent / spell checking, spelling dictionary / build (hammer), run, stop, clean build (broom) |
 | File list, left | **Logic (src/app)**: the files you write. **Generated code**: the files made from the design (a lock means read only) |
 | Centre | The tabs of the open files, and the editing area |
 | Status line | Save state and logic folder, line and column, characters selected, number of lines, kind of file, font size (smaller, bigger), **word wrap**, and at the right end the size grip (drag it to resize the window) |
@@ -44,6 +44,9 @@ void app_init(void)   /* called once, after ui_init() */
 - **Find and replace:** Ctrl+F, Ctrl+H, with match case, by word and regular expressions.
 - **Go to line:** Ctrl+G.
 - **Comments, indenting:** Ctrl+/ comments lines in and out; Ctrl+] and Ctrl+[ indent and outdent.
+- **The Tab key types spaces:** Tab puts spaces up to the next tab stop, never a tab character. With several lines selected it indents them with spaces; Shift+Tab outdents.
+- **Auto indent:** the auto indent button of the toolbar (Shift+Alt+F) indents the selected lines again as C says, or the whole file when nothing is selected. Tabs in front of lines become spaces, and lines of only blanks are emptied.
+- **Tab width:** 2 to 8 spaces, in the editor's **Settings** (Preferences > General > Code editor). A change applies to the open files at once.
 - **Also:** matching brackets, brackets closed as you type, code folding, several selections (Alt+drag), the same word highlighted.
 - **Problems shown:** a line using a ViewModel name the design does not have, or with a build error, is marked beside its number; point at the mark to read it.
 
@@ -89,7 +92,7 @@ In the build output, an error with a file and a line goes to that line when pres
 
 ## 7. Right-Click Menus
 
-- **Code:** on an underlined word, its corrections and add to my dictionary; then undo, redo, cut, copy, paste, delete, select all, comment, indent, outdent, find, replace, go to line, spelling dictionary, spell checking on or off, build, run, stop. On a `vm_` name, open that ViewModel's file.
+- **Code:** on an underlined word, its corrections and add to my dictionary; then undo, redo, cut, copy, paste, delete, select all, comment, indent, outdent, auto indent, find, replace, go to line, spelling dictionary, spell checking on or off, build, run, stop. On a `vm_` name, open that ViewModel's file.
 - **File list and tabs:** open, rename, delete, new file, copy path.
 
 ## 8. Keyboard Shortcuts
@@ -101,6 +104,8 @@ In the build output, an error with a file and a line goes to that line when pres
 | Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+A | Cut, copy, paste, select all |
 | Ctrl+F, Ctrl+H, Ctrl+G | Find, replace, go to line |
 | Ctrl+/, Ctrl+], Ctrl+[ | Comment, indent, outdent |
+| Tab, Shift+Tab | Spaces (indent, with several lines), outdent |
+| Shift+Alt+F | Auto indent |
 | Ctrl+Space | Open completion |
 | Ctrl+B, F5, Shift+F5 | Build, run, stop |
 | F1 | This guide |

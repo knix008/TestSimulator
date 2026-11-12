@@ -1,12 +1,13 @@
 // CodeMirror 6 for the code editor window: one EditorState per file (its own undo history),
 // C/C++ colours in the app's theme, completion of the ViewModel and library names, problems as
 // diagnostics. Kept apart from the React window so the setup can be read in one place.
-import { Compartment, EditorState, StateEffect, StateField, Transaction } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, StateEffect, StateField, Transaction, countColumn } from "@codemirror/state";
 import {
   Decoration, ViewPlugin, EditorView, crosshairCursor, drawSelection, dropCursor, highlightActiveLine, highlightActiveLineGutter,
   highlightSpecialChars, keymap, lineNumbers, rectangularSelection,
 } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentLess, indentMore } from "@codemirror/commands";
+import { IndentContext, ensureSyntaxTree, getIndentation, indentString } from "@codemirror/language";
 import {
   syntaxTree, HighlightStyle, bracketMatching, foldGutter, foldKeymap, indentOnInput, indentUnit, syntaxHighlighting,
 } from "@codemirror/language";
@@ -75,6 +76,70 @@ export const readOnlyPart = new Compartment();
 export const wrapPart = new Compartment();
 export const phrasesPart = new Compartment();
 export const spellPart = new Compartment();
+export const indentPart = new Compartment();
+
+export const TAB_MIN = 2;
+export const TAB_MAX = 8;
+/** The tab width: an indent is that many spaces, and a tab character already in a file is shown that wide. */
+export const indentFor = (size) => {
+  const width = Math.min(TAB_MAX, Math.max(TAB_MIN, Math.round(Number(size)) || 4));
+  return [indentUnit.of(" ".repeat(width)), EditorState.tabSize.of(width)];
+};
+
+/**
+ * The Tab key: spaces, never a tab character. A caret (or a selection on one line) gets spaces
+ * up to the next tab stop; a selection over several lines is indented, with spaces too.
+ */
+export function insertSpaces(view) {
+  const state = view.state;
+  if (state.readOnly) return false;
+  const doc = state.doc;
+  if (state.selection.ranges.some((range) => doc.lineAt(range.from).number !== doc.lineAt(range.to).number)) return indentMore(view);
+  const size = state.tabSize;
+  view.dispatch(state.update(state.changeByRange((range) => {
+    const line = doc.lineAt(range.from);
+    const column = countColumn(line.text.slice(0, range.from - line.from), size);
+    const spaces = " ".repeat(size - (column % size));
+    return { changes: { from: range.from, to: range.to, insert: spaces }, range: EditorSelection.cursor(range.from + spaces.length) };
+  }), { scrollIntoView: true, userEvent: "input" }));
+  return true;
+}
+
+/**
+ * Auto indent: the lines of the selection (the whole file with no selection) are indented
+ * again as the C code says, with spaces; tabs in front of a line become spaces, lines of only
+ * blanks become empty. Lines the grammar has no indent for (inside a comment) keep their width.
+ */
+export function autoIndent(view) {
+  const state = view.state;
+  if (state.readOnly) return false;
+  const doc = state.doc;
+  ensureSyntaxTree(state, doc.length, 2000);
+  const ranges = state.selection.ranges.every((range) => range.empty) ? [{ from: 0, to: doc.length }] : state.selection.ranges;
+  const updated = Object.create(null);
+  const context = new IndentContext(state, { overrideIndentation: (start) => updated[start] ?? -1 });
+  const seen = new Set();
+  const changes = [];
+  for (const range of ranges) {
+    for (let at = range.from; at <= range.to;) {
+      const line = doc.lineAt(at);
+      at = line.to + 1;
+      if (seen.has(line.number)) continue;
+      seen.add(line.number);
+      const current = /^\s*/.exec(line.text)[0];
+      let wanted = "";
+      if (line.text.trim()) {
+        let indent = getIndentation(context, line.from);
+        if (indent == null || indent < 0) indent = countColumn(current, state.tabSize);
+        updated[line.from] = indent;
+        wanted = indentString(state, indent);
+      }
+      if (wanted !== current) changes.push({ from: line.from, to: line.from + current.length, insert: wanted });
+    }
+  }
+  if (changes.length) view.dispatch({ changes, userEvent: "input.indent" });
+  return true;
+}
 
 /* ------------------------------------------------------------------ spelling */
 // Words of comments and strings that no dictionary knows get a wavy underline. The check runs
@@ -179,7 +244,7 @@ export const phrasesFor = (language) => EditorState.phrases.of(language === "ko"
  * A state for one file. `actions` are the window's: save, run, stop. `items()` gives the
  * completions now (they follow the design).
  */
-export function createState(text, { readOnly = false, wrap = false, language = "ko", spell = null, items, actions, onUpdate }) {
+export function createState(text, { readOnly = false, wrap = false, language = "ko", spell = null, tabSize = 4, items, actions, onUpdate }) {
   return EditorState.create({
     doc: text,
     extensions: [
@@ -193,8 +258,7 @@ export function createState(text, { readOnly = false, wrap = false, language = "
       dropCursor(),
       EditorState.allowMultipleSelections.of(true),
       indentOnInput(),
-      indentUnit.of("    "),
-      EditorState.tabSize.of(4),
+      indentPart.of(indentFor(tabSize)),
       syntaxHighlighting(highlight),
       bracketMatching(),
       closeBrackets(),
@@ -215,6 +279,8 @@ export function createState(text, { readOnly = false, wrap = false, language = "
         { key: "F5", preventDefault: true, run: () => { actions.run(); return true; } },
         { key: "Shift-F5", preventDefault: true, run: () => { actions.stop(); return true; } },
         { key: "Mod-g", preventDefault: true, run: (view) => actions.gotoLine(view) },
+        { key: "Tab", preventDefault: true, run: insertSpaces, shift: indentLess },
+        { key: "Shift-Alt-f", preventDefault: true, run: autoIndent },
         ...closeBracketsKeymap,
         ...defaultKeymap,
         ...searchKeymap,
@@ -222,7 +288,6 @@ export function createState(text, { readOnly = false, wrap = false, language = "
         ...foldKeymap,
         ...completionKeymap,
         ...lintKeymap,
-        indentWithTab,
       ]),
       EditorView.updateListener.of(onUpdate),
     ],

@@ -200,9 +200,11 @@ export function registerFeatureTests({ category, test, engines, versions }) {
       assert.equal(settings.projectsDir, "C:\\p");
     });
     await test("General settings are made valid", () => {
-      assert.deepEqual(sanitizeGeneral(undefined), { reopenLast: false, askTutorial: true, autoInstallTools: true, newVersion: "9.6.0", newDevice: "cyd", snap: 1 });
-      assert.deepEqual(sanitizeGeneral({ reopenLast: "yes", newVersion: "7.0.0", newDevice: "nope", snap: 900 }), { reopenLast: false, askTutorial: true, autoInstallTools: true, newVersion: "9.6.0", newDevice: "cyd", snap: 50 });
-      assert.deepEqual(sanitizeGeneral({ reopenLast: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 }), { reopenLast: true, askTutorial: true, autoInstallTools: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 });
+      assert.deepEqual(sanitizeGeneral(undefined), { reopenLast: false, askTutorial: true, autoInstallTools: true, newVersion: "9.6.0", newDevice: "cyd", snap: 1, tabSize: 4 });
+      assert.deepEqual(sanitizeGeneral({ reopenLast: "yes", newVersion: "7.0.0", newDevice: "nope", snap: 900, tabSize: 99 }), { reopenLast: false, askTutorial: true, autoInstallTools: true, newVersion: "9.6.0", newDevice: "cyd", snap: 50, tabSize: 8 });
+      assert.equal(sanitizeGeneral({ tabSize: 1 }).tabSize, 2, "the narrowest tab");
+      assert.equal(sanitizeGeneral({ tabSize: "3" }).tabSize, 3);
+      assert.deepEqual(sanitizeGeneral({ reopenLast: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 }), { reopenLast: true, askTutorial: true, autoInstallTools: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8, tabSize: 4 });
     });
     await test("A saved user theme stays selected", () => {
       const settings = sanitizeSettings({ theme: "custom-1", customThemes: [{ id: "custom-1", name: "A", mode: "dark", colors: {} }] });
