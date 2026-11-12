@@ -181,6 +181,14 @@ export function watchDir(id, path, onChange) {
 
 export async function readClipboardText() {
   if (isElectron) return (await call('clipboard.read')).text || '';
+  if (isTauri) {
+    // The native reader: navigator.clipboard would make WebView2 ask the user for clipboard access.
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const text = await invoke('clipboard_read_text');
+      if (typeof text === 'string') return text;
+    } catch { /* fall back to the browser API */ }
+  }
   try { return await navigator.clipboard.readText(); } catch { return ''; }
 }
 

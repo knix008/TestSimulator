@@ -15,7 +15,8 @@
 // `termScrollback` (lines kept per transcript).
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
-import { call, writeClipboardText } from '../lib/backend';
+import { call, writeClipboardText, readClipboardText } from '../lib/backend';
+import { addTextMenuItems } from './TextMenu';
 import { AnsiText } from '../lib/ansi.jsx';
 import { mergeOutput } from '../lib/termtext';
 import { Icon } from './Icons';
@@ -46,8 +47,13 @@ function LogView({ entries, onClear, onCopy }) {
     const el = ref.current;
     if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
   };
+  // Right-click: Copy / Select all (TextMenu) plus the two buttons of the foot.
+  const onContextMenu = (e) => addTextMenuItems(e, [
+    { id: 'logCopy', label: t('log_copy'), icon: 'clipboard', disabled: !entries.length },
+    { id: 'logClear', label: t('log_clear'), icon: 'eraser', disabled: !entries.length },
+  ], (id) => { if (id === 'logCopy') onCopy(); else if (id === 'logClear') onClear(); });
   return (
-    <div className="dock-view">
+    <div className="dock-view" onContextMenu={onContextMenu}>
       <div className="log-out selectable" ref={ref} onScroll={onScroll}>
         {entries.length === 0 && <div className="dock-empty"><Icon name="log" size={26} /><p>{t('log_empty')}</p></div>}
         {entries.map((e) => (
@@ -332,15 +338,39 @@ function TerminalView({ term, active, onExit, onRestart, prompt, env, themeId, t
   };
 
   // Multi-line paste: every complete line is run, the rest stays typed.
-  const onPaste = (e) => {
-    const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
-    if (!text.includes('\n')) return;
-    e.preventDefault();
+  const pasteLines = (text) => {
     const el = inputRef.current;
     const before = input.slice(0, el ? el.selectionStart : input.length), after = input.slice(el ? el.selectionEnd : input.length);
     const parts = (before + text.replace(/\r/g, '') + after).split('\n');
     const rest = parts.pop();
     (async () => { for (const p of parts) await run(p); setInput(rest); })();
+  };
+  const onPaste = (e) => {
+    const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
+    if (!text.includes('\n')) return;
+    e.preventDefault();
+    pasteLines(text);
+  };
+
+  // Right-click on the transcript: Copy / Select all (TextMenu), then paste into the prompt and clear.
+  // On the prompt's own input TextMenu already offers the editing items, so only "Clear screen" is added there.
+  const onContextMenu = (e) => {
+    const onInput = e.target === inputRef.current;
+    addTextMenuItems(e, [
+      ...(onInput || exited ? [] : [{ id: 'termPaste', label: t('ctx_paste'), icon: 'paste', shortcut: 'Ctrl+V' }]),
+      { id: 'termClear', label: t('term_clear'), icon: 'eraser', shortcut: 'Ctrl+L', disabled: !entries.length },
+    ], async (id) => {
+      if (id === 'termClear') { setEntries([]); if (inputRef.current) inputRef.current.focus(); return; }
+      if (id !== 'termPaste') return;
+      const text = await readClipboardText();
+      const el = inputRef.current;
+      if (!text || !el) return;
+      el.focus();
+      if (text.includes('\n')) { pasteLines(text); return; }
+      const at = input.length;
+      el.setSelectionRange(at, at);
+      document.execCommand('insertText', false, text);
+    });
   };
 
   // The transcript only re-renders when it changes — not on every keystroke.
@@ -350,7 +380,7 @@ function TerminalView({ term, active, onExit, onRestart, prompt, env, themeId, t
     : <React.Fragment key={i}><AnsiText text={e.text.endsWith('\r') ? e.text.slice(0, -1) : e.text} color={termColor} /></React.Fragment>)), [entries, prompt, env, themeId, termColor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className={`dock-view term-view ${active ? '' : 'hidden'}`}>
+    <div className={`dock-view term-view ${active ? '' : 'hidden'}`} onContextMenu={onContextMenu}>
       <pre className="term-out selectable" ref={outRef} onClick={() => { if (!window.getSelection().toString() && inputRef.current) inputRef.current.focus(); }}>
         {transcript}
         {!exited && (

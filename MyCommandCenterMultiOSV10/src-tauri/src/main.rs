@@ -398,6 +398,7 @@ fn main() {
             clipdrag::clipboard_write_files,
             clipdrag::clipboard_read_files,
             clipdrag::clipboard_clear_files,
+            clipdrag::clipboard_read_text,
             clipdrag::drag_move_down,
             clipdrag::start_file_drag,
         ])

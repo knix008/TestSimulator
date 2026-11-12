@@ -125,6 +125,7 @@ const { createRoot } = await import('react-dom/client');
 const { act } = await import('react');
 const { setLanguage } = await import('../src/lib/i18n.js');
 const App = (await import('../src/App.jsx')).default;
+const { TextMenuHost } = await import('../src/components/TextMenu.jsx');
 
 let view = null;
 let seq = 0;
@@ -281,7 +282,8 @@ async function boot(leftFiles = {}, rightFiles = {}, patch = {}) {
     let timer;
     const guard = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('render stalled')), 8000); });
     try {
-      await Promise.race([act(async () => { reactRoot.render(React.createElement(App)); }), guard]);
+      // As src/main.jsx mounts it: the app plus the right-click menu for text.
+      await Promise.race([act(async () => { reactRoot.render(React.createElement(React.Fragment, null, React.createElement(App), React.createElement(TextMenuHost))); }), guard]);
     } finally { clearTimeout(timer); }
   }
   view = {
@@ -749,8 +751,76 @@ describe('GUI operations', { concurrency: false }, () => {
     assert.match(menu.textContent, /Ctrl\+X/);
     assert.match(menu.textContent, /붙여넣기/);
     assert.match(menu.textContent, /Ctrl\+V/);
+    // The panel's own menu only: the text menu stays out of a right-click the panel already answered.
+    assert.equal(document.querySelectorAll('.ctx-menu').length, 1);
     await press(document, { key: 'Escape' });
     await waitFor(() => !document.querySelector('.ctx-menu'));
+  });
+
+  // Right-click anywhere else gets the app's menu, never WebView2's: every item with an icon.
+  const menuLabels = (menu) => [...menu.querySelectorAll('.ctx-item .ctx-label')].map((e) => e.textContent);
+  const assertIcons = (menu) => {
+    const items = [...menu.querySelectorAll('.ctx-item')];
+    assert.ok(items.length > 0);
+    for (const it of items) assert.ok(it.querySelector('.ctx-icon svg'), `no icon: ${it.textContent}`);
+  };
+  async function rightClick(el) {
+    let ev;
+    await act(async () => {
+      ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 });
+      el.dispatchEvent(ev);
+    });
+    assert.equal(ev.defaultPrevented, true, 'the browser menu would have opened');
+    return waitFor(() => document.querySelector('.ctx-menu'));
+  }
+
+  test('a text box in a dialog gets the editing menu with icons, and Select all selects', async () => {
+    await boot({ 'keep.txt': 'k' });
+    await press(window, { key: 'F7' });
+    const input = await waitFor(() => { const d = topDialog(); return d && d.querySelector('input'); });
+    await typeInto(input, 'Hello');
+    const menu = await rightClick(input);
+    assert.deepEqual(menuLabels(menu), ['실행 취소', '다시 실행', '잘라내기', '복사', '붙여넣기', '삭제', '모두 선택']);
+    assertIcons(menu);
+    input.setSelectionRange(0, 0);
+    await pickItem('모두 선택');
+    await waitFor(() => !document.querySelector('.ctx-menu'));
+    assert.equal(input.selectionStart, 0);
+    assert.equal(input.selectionEnd, 5);
+    await press(topDialog(), { key: 'Escape' });
+  });
+
+  test('the log has Copy log and Clear log on its right-click menu', async () => {
+    await boot({ 'a.txt': 'a' }, {}, { dockVisible: true, logOpen: true });
+    const out = await waitFor(() => document.querySelector('.log-out'));
+    await waitFor(() => out.querySelector('.log-line'));
+    const menu = await rightClick(out.querySelector('.log-text') || out);
+    assert.deepEqual(menuLabels(menu), ['복사', '모두 선택', '로그 복사', '로그 지우기']);
+    assertIcons(menu);
+    await pickItem('로그 지우기');
+    await waitFor(() => !document.querySelector('.log-out .log-line'));
+  });
+
+  test('the terminal prompt and transcript have the text menu plus paste and Clear screen', async () => {
+    const { call } = await import('../src/lib/backend.js');
+    await boot({ 'a.txt': 'a' }, {}, { autoRefresh: false });
+    await press(document, { key: '`', ctrlKey: true, shiftKey: true });
+    const input = await waitFor(() => document.querySelector('.term-view:not(.hidden) .term-inline input'), 15000);
+    try {
+      let menu = await rightClick(input);
+      assert.deepEqual(menuLabels(menu), ['실행 취소', '다시 실행', '잘라내기', '복사', '붙여넣기', '삭제', '모두 선택', '화면 지우기']);
+      assertIcons(menu);
+      await press(document, { key: 'Escape' });
+      await waitFor(() => !document.querySelector('.ctx-menu'));
+
+      menu = await rightClick(document.querySelector('.term-view:not(.hidden) .term-out'));
+      assert.deepEqual(menuLabels(menu), ['복사', '모두 선택', '붙여넣기', '화면 지우기']);
+      assertIcons(menu);
+      await press(document, { key: 'Escape' });
+      await waitFor(() => !document.querySelector('.ctx-menu'));
+    } finally {
+      for (const term of await call('term.list')) await call('term.kill', { id: term.id });
+    }
   });
 
   // A single click shows an image in the preview window; a double-click opens it with its

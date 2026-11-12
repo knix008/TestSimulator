@@ -54,6 +54,19 @@ pub fn clipboard_clear_files() -> Result<(), String> {
     Ok(())
 }
 
+// Plain text for the page's own Paste menu item. Reading it here, not through
+// navigator.clipboard, keeps WebView2 from asking the user for clipboard access.
+// None where this host has no reader (the page then falls back to the browser API).
+#[tauri::command]
+pub fn clipboard_read_text() -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    {
+        return Ok(Some(windows::read_text()?));
+    }
+    #[cfg(not(windows))]
+    Ok(None)
+}
+
 #[tauri::command]
 pub fn start_file_drag(window: tauri::WebviewWindow, paths: Vec<String>, move_files: bool) -> Result<(), String> {
     let files: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).filter(|p| p.exists()).collect();
@@ -237,6 +250,27 @@ mod windows {
                 return Err("EmptyClipboard failed".into());
             }
             Ok(())
+        })
+    }
+
+    pub fn read_text() -> Result<String, String> {
+        with_clipboard(|| {
+            let mem = unsafe { GetClipboardData(CF_UNICODETEXT) };
+            if mem.is_null() {
+                return Ok(String::new());
+            }
+            unsafe {
+                let p = GlobalLock(mem) as *const u16;
+                if p.is_null() {
+                    return Ok(String::new());
+                }
+                let max = GlobalSize(mem) / 2;
+                let words = std::slice::from_raw_parts(p, max);
+                let len = words.iter().position(|&w| w == 0).unwrap_or(max);
+                let text = String::from_utf16_lossy(&words[..len]);
+                GlobalUnlock(mem);
+                Ok(text)
+            }
         })
     }
 

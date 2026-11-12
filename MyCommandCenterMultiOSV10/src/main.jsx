@@ -4,6 +4,7 @@ import App from './App';
 import ToolWindow from './ToolWindow';
 import MenuPopup from './MenuPopup';
 import ThemeMenuWindow from './ThemeMenuWindow';
+import { TextMenuHost } from './components/TextMenu';
 import { windowKind, isTauri, ensureHost } from './lib/backend';
 import { watchTitlebarArea } from './lib/titlebar';
 import './styles.css';
@@ -13,6 +14,8 @@ import './styles.css';
 const page = windowKind === 'menu' ? <MenuPopup />
   : windowKind === 'themeMenu' ? <ThemeMenuWindow />
   : windowKind ? <ToolWindow /> : <App />;
+// Every window but the menu popup itself answers a right-click with the app's own menu, never WebView2's.
+const textMenu = windowKind !== 'menu';
 // Where the page draws the window's title bar itself, keep the native window controls' space free
 // (the menu popups have no title bar at all — they are frameless).
 if (windowKind === 'themeMenu') document.documentElement.classList.add('theme-menu');
@@ -34,6 +37,7 @@ async function boot() {
   createRoot(document.getElementById('root')).render(
     <React.StrictMode>
       {page}
+      {textMenu && <TextMenuHost />}
     </React.StrictMode>,
   );
   if (isTauri && early) ensureHost().catch((err) => console.error(err));
