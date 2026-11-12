@@ -29,6 +29,7 @@ import os
 import sys
 
 from . import ModelSpec, option
+from ..netfix import allowed, fetch
 
 SHIMS = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "shims")
 TRELLIS_SHIMS = os.path.join(SHIMS, "trellis")
@@ -67,6 +68,8 @@ def environment():
 # The DINOv2 hub repository at an explicit branch: without one torch.hub
 # asks GitHub which default branch it has, even when the code is cached.
 DINOV2_HUB = "facebookresearch/dinov2:main"
+# Where torch.hub fetches the DINOv2 weights from.
+DINOV2_HOST = "dl.fbaipublicfiles.com"
 
 
 def mesh_arrays(result):
@@ -157,7 +160,11 @@ class Trellis(ModelSpec):
         self.prepare(home)
         torch.hub.set_dir(os.path.join(self.torch_home(home), "hub"))
         log.info(f"TRELLIS: the DINOv2 image encoder ({self.dinov2}, 1.2 GB) …")
-        torch.hub.load(DINOV2_HUB, self.dinov2, pretrained=True, trust_repo=True)
+        if allowed(DINOV2_HOST):
+            log.warn(f"{DINOV2_HOST}: an expired certificate is accepted as allowed in the app "
+                     "(the issuer and the name are still checked).")
+        fetch(lambda: torch.hub.load(DINOV2_HUB, self.dinov2, pretrained=True, trust_repo=True),
+              DINOV2_HOST, "TRELLIS DINOv2")
 
     def _patch_image_cond_model(self):
         """TRELLIS loads DINOv2 with torch.hub.load('facebookresearch/dinov2', …),

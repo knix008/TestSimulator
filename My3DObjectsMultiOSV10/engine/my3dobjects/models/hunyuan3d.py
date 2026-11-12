@@ -7,8 +7,9 @@ grouped under the family "hunyuan3d" so the app can offer a version picker:
   2.0 / 2.0 Turbo   tencent/Hunyuan3D-2     hunyuan3d-dit-v2-0[-turbo] (hy3dgen)
   2.0 mini / Turbo  tencent/Hunyuan3D-2mini hunyuan3d-dit-v2-mini[-turbo]
 
-Only the shape part runs here: the texture ("paint") models need compiled
-CUDA extensions and 20+ GB of GPU memory. The result is an untextured mesh.
+The shape model runs here; its colours come from the input picture projected
+onto the shape (project_texture: UVs, front / back visibility, hidden parts
+filled from around them), or none at all when the "texture" option is off.
 
 The Tencent Hunyuan 3D community licenses do not cover the European Union,
 the United Kingdom or South Korea, so these models are `region_restricted`:
@@ -34,8 +35,8 @@ class _Hunyuan(ModelSpec):
     region_restricted = True
     license_note = LICENSE_NOTE
     faces_front = True                # the photo's view is already +Z
-    output = "shape"
-    textured = False
+    output = "texture"                # projected from the picture (option "texture")
+    textured = True
     gated = False
     package_root = "hy3dgen"          # the importable package (shape part)
     code_subdir = ""                  # where it sits inside the source zip
@@ -47,7 +48,7 @@ class _Hunyuan(ModelSpec):
     # The defaults are Tencent's own demo values (gradio_app.py).
     default_steps = 30
     default_guidance = 5.0
-    packages = ("diffusers==0.30.3", "opencv-python-headless", "pymeshlab==2023.12.post3")
+    packages = ("diffusers==0.30.3", "opencv-python-headless", "pymeshlab==2023.12.post3", "xatlas==0.0.11")
 
     @property
     def files(self):
@@ -64,6 +65,7 @@ class _Hunyuan(ModelSpec):
             option("guidanceScale", "number", self.default_guidance, min=1.0, max=15.0, step=0.5),
             option("octreeResolution", "select", 256, choices=[{"value": 256}, {"value": 384}, {"value": 512}]),
             option("faceLimit", "number", 40000, min=5000, max=200000, step=5000, integer=True),
+            option("texture", "select", "project", choices=[{"value": "project"}, {"value": "none"}]),
             option("seed", "number", 1234, min=0, max=2147483647, step=1, integer=True),
         ]
 
@@ -181,7 +183,14 @@ class _Hunyuan(ModelSpec):
         extent = float(np.max(mesh.extents)) or 1.0
         mesh.apply_translation(-mesh.bounding_box.centroid)
         mesh.apply_scale(1.0 / extent)
-        # A light clay colour: the shape has no texture.
+        if options.get("texture", "project") == "project":
+            from ..project_texture import project_texture
+
+            engine.stage("bake")
+            # The picture the model saw is the shape's front view (+Z).
+            return project_texture(mesh, image, size=2048 if device == "cuda" else 1024,
+                                   device=device if device in ("cuda", "cpu") else "cpu", log=model.log)
+        # A light clay colour: no texture asked for.
         mesh.visual = trimesh.visual.ColorVisuals(mesh, vertex_colors=np.tile([200, 196, 188, 255], (len(mesh.vertices), 1)))
         return mesh
 
@@ -272,6 +281,9 @@ class Hunyuan3D21(_Hunyuan):
     code_subdir = "hy3dshape"
     package_root = "hy3dshape"
     check_file = os.path.join("hy3dshape", "hy3dshape", "pipelines.py")
+    # A sample training set (never read here) whose hash-named files pass
+    # Windows' 260-character path limit.
+    source_skip = ("hy3dshape/tools/mini_trainset",)
     vram_gb = 10.0
     default_guidance = 5.0
     # timm unpinned: the base install already has one, which must not change.

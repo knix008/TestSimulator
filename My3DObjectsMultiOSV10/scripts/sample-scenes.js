@@ -123,7 +123,7 @@ function shapes() {
 export const SCENES = { robot, mug, pawn, tree, 'toy-car': toyCar, shapes };
 
 // A transparent picture of the object, as a photo for conversion.
-export function renderPhoto(object, size = 768) {
+export function renderPhoto(object, size = 1024) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   renderer.setSize(size, size, false);
   renderer.setClearColor(0x000000, 0);

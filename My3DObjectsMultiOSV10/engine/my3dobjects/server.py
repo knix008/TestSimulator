@@ -142,7 +142,7 @@ class Service:
             return
         for spec in self.models.MODELS:
             st = self.model_status[spec.id]
-            if st["status"] in ("installing", "loading", "ready", "needs-token", "failed"):
+            if st["status"] in ("installing", "loading", "ready", "needs-token", "needs-cert", "failed"):
                 continue
             if self.installer.model_complete(spec.id):
                 st["status"] = "installed"
@@ -155,6 +155,7 @@ class Service:
         """Installs `model_id` if needed and makes it the loaded model.
         Returns True when it is ready; with quiet, failures are only logged."""
         from .installer import NeedsToken
+        from .netfix import ExpiredCertificate
         from .pipeline import Engine
 
         spec = self.models.get(model_id)
@@ -176,7 +177,9 @@ class Service:
             try:
                 if not self.installer.model_complete(spec.id):
                     st.update(status="installing", error="")
-                    self.installer.install_model(spec)
+                # Complete: returns at once, or adds a package the model has
+                # gained since it was installed.
+                self.installer.install_model(spec)
                 st.update(status="loading", error="")
                 entry = self.installer.model_state(spec.id)
                 weights = entry.get("weights") or self.installer.find_weights(spec)
@@ -186,8 +189,16 @@ class Service:
                 self.engine.load(spec, weights, self._torch_pref())
                 if previous is not None and previous is not spec:
                     self.model_status[previous.id]["status"] = "installed"
+                st.pop("certHost", None)
                 st.update(status="ready", error="")
                 return True
+            except ExpiredCertificate as e:
+                # The app warns and asks; nothing more comes from that host
+                # until the user allows it (configure: allowExpiredCert).
+                st.update(status="needs-cert", error=str(e), certHost=e.host)
+                self.log.warn(f"{spec.name}: {e}. The app asks whether to download from it anyway.")
+                if not quiet:
+                    raise
             except NeedsToken as e:
                 st.update(status="needs-token", error=str(e))
                 self.log.warn(
@@ -232,6 +243,28 @@ class Service:
                     self.model_status[m.id].update(status="not-installed", error="")
             if self.state == "ready" and self.models.get(self.selected).family == accept:
                 self._background(self.ensure_model, self.selected, True)
+        host = body.get("allowExpiredCert")
+        if host and any(st.get("certHost") == host for st in self.model_status.values()):
+            # Only a host the engine itself reported, after the app's warning;
+            # for this run of the engine (once the files are in, it is not
+            # needed again).
+            from . import netfix
+
+            netfix.allow(host)
+            changed.append("certificate")
+            self.log.warn(f"Allowed downloads from {host} despite its expired certificate (issuer and name still checked).")
+            retry = []
+            for spec in self.models.MODELS:
+                st = self.model_status[spec.id]
+                if st.get("certHost") == host:
+                    st.pop("certHost", None)
+                    st.update(status="not-installed", error="")
+                    retry.append(spec.id)
+            # The user agreed for these models' downloads: go on with them
+            # whichever model is selected (one at a time, under model_lock).
+            if self.state == "ready":
+                for model_id in retry:
+                    self._background(self.ensure_model, model_id, True)
         model = body.get("model")
         if model and self.models.get(model) and model != self.selected:
             self.selected = model

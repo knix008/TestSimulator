@@ -64,6 +64,19 @@ BASE_STEPS = ["torch", "packages", "optional", "bgmodel"]
 MODEL_STEPS = ["source", "weights", "verify"]
 
 
+def long_path(path):
+    """On Windows the \\\\?\\ form of `path`, which is not held to the
+    260-character limit; elsewhere `path` as it is."""
+    if os.name != "nt":
+        return path
+    path = os.path.abspath(path)
+    if path.startswith("\\\\?\\"):
+        return path
+    if path.startswith("\\\\"):                     # \\server\share
+        return "\\\\?\\UNC\\" + path[2:]
+    return "\\\\?\\" + path
+
+
 class NeedsToken(Exception):
     """The weights are gated and no (valid) Hugging Face token was given."""
 
@@ -247,6 +260,13 @@ class Installer:
         if entry.get("commit") and entry["commit"] != spec.commit:
             entry["done"] = []
         if all(step in entry["done"] for step in MODEL_STEPS):
+            # A model that has since gained a package (Hunyuan3D's xatlas for
+            # its texture) gets just that, not a whole new install.
+            if entry.get("packages") != list(spec.packages):
+                self._model_packages(spec)
+                entry["packages"] = list(spec.packages)
+                state["models"][spec.id] = entry
+                self.write_state(state)
             return entry
         self.log.info(f"Installing the model {spec.name} …")
         for step, result in self._run_steps(
@@ -332,10 +352,14 @@ class Installer:
             self._extra_source_files(spec, *extra)
         # Packages only this model needs (installed here, so models set up
         # before there were any stay complete).
+        self._model_packages(spec)
+        result["packages"] = list(spec.packages)
+        return result
+
+    def _model_packages(self, spec):
         if spec.packages:
             self.log.info(f"Packages for {spec.name}: {' '.join(spec.packages)}")
             self.pip([*spec.packages, "--constraint", self.constraints_file(self.current_state())])
-        return result
 
     def _extra_source_files(self, spec, name, url, commit, check_file, subdir=None):
         """Code a model needs besides its own repository (a git submodule the
@@ -348,18 +372,7 @@ class Installer:
                 if f.read().strip() == commit:
                     return
         self.log.info(f"Downloading {name} for {spec.name} ({commit[:10]}) …")
-        with tempfile.TemporaryDirectory(dir=self.home) as tmp:
-            archive = os.path.join(tmp, "src.zip")
-            self.download(url, archive)
-            with zipfile.ZipFile(archive) as z:
-                z.extractall(tmp)
-            roots = [d for d in os.listdir(tmp) if os.path.isdir(os.path.join(tmp, d))]
-            if len(roots) != 1:
-                raise RuntimeError(f"The {name} archive has an unexpected layout.")
-            if os.path.isdir(target):
-                shutil.rmtree(target)
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-            shutil.move(os.path.join(tmp, roots[0]), target)
+        self._unpack_source(url, target, name)
         if not os.path.isfile(os.path.join(target, check_file)):
             raise RuntimeError(f"The {name} source for {spec.name} is incomplete.")
         with open(marker, "w", encoding="utf-8") as f:
@@ -375,23 +388,36 @@ class Installer:
                     self.log.info(f"{spec.name} source already here ({spec.commit[:10]}).")
                     return {"commit": spec.commit}
         self.log.info(f"Downloading the {spec.name} source ({spec.commit[:10]}) …")
-        with tempfile.TemporaryDirectory(dir=self.home) as tmp:
-            archive = os.path.join(tmp, "src.zip")
-            self.download(spec.source_zip, archive)
-            with zipfile.ZipFile(archive) as z:
-                z.extractall(tmp)
-            roots = [d for d in os.listdir(tmp) if os.path.isdir(os.path.join(tmp, d))]
-            if len(roots) != 1:
-                raise RuntimeError(f"The {spec.name} archive has an unexpected layout.")
-            if os.path.isdir(target):
-                shutil.rmtree(target)
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-            shutil.move(os.path.join(tmp, roots[0]), target)
+        self._unpack_source(spec.source_zip, target, spec.name, getattr(spec, "source_skip", ()))
         if not os.path.isfile(os.path.join(target, spec.check_file)):
             raise RuntimeError(f"The {spec.name} source is incomplete.")
         with open(marker, "w", encoding="utf-8") as f:
             f.write(spec.commit)
         return {"commit": spec.commit}
+
+    def _unpack_source(self, url, target, name, skip=()):
+        """A GitHub zip (one top folder) unpacked as `target`. `skip`: folders
+        inside the repository left out (data the engine never reads). The
+        paths go through long_path: zips with deep folders (Hunyuan3D 2.1's
+        sample training set) pass Windows' 260-character limit inside the
+        temporary folder."""
+        skip = tuple(s.replace("\\", "/").strip("/") + "/" for s in skip)
+        with tempfile.TemporaryDirectory(dir=long_path(self.home), ignore_cleanup_errors=True) as tmp:
+            ltmp = tmp
+            archive = os.path.join(ltmp, "src.zip")
+            self.download(url, archive)
+            with zipfile.ZipFile(archive) as z:
+                members = [m for m in z.namelist()
+                           if not (m.split("/", 1) + [""])[1].startswith(skip)] if skip else None
+                z.extractall(ltmp, members)
+            roots = [d for d in os.listdir(ltmp) if os.path.isdir(os.path.join(ltmp, d))]
+            if len(roots) != 1:
+                raise RuntimeError(f"The {name} archive has an unexpected layout.")
+            ltarget = long_path(target)
+            if os.path.isdir(ltarget):
+                shutil.rmtree(ltarget)
+            os.makedirs(os.path.dirname(ltarget), exist_ok=True)
+            shutil.move(os.path.join(ltmp, roots[0]), ltarget)
 
     def model_weights(self, spec, entry):
         local = self.find_weights(spec)

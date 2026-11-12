@@ -39,7 +39,7 @@
 .model-status.s-ready { color: var(--ok); border-color: var(--ok); }
 .model-status.s-installing, .model-status.s-loading { color: var(--warn); border-color: var(--warn); }
 .model-status.s-needs-token, .model-status.s-failed { color: var(--danger); border-color: var(--danger); }
-.model-status.s-needs-license { color: var(--warn); border-color: var(--warn); }
+.model-status.s-needs-license, .model-status.s-needs-cert { color: var(--warn); border-color: var(--warn); }
 .model-gated { color: var(--warn); }
 .model-list li.model-family { display: block; }
 .model-row { display: flex; align-items: flex-start; gap: 2px; }
@@ -308,6 +308,22 @@ body.resizing-log { cursor: row-resize; user-select: none; }
 .start-list.start-hlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 2px 10px; }
 .start-samples { display: grid; gap: 10px; }
 .start-sample-group .start-formats-title { margin-top: 0; }
+/* Pictures to convert: small transparent previews (samples/thumbs) as buttons. */
+.start-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.start-thumb {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0;
+  padding: 6px 4px 7px; border: 1px solid transparent; border-radius: 10px;
+  background: transparent; color: var(--text); font: inherit; font-size: 12px; cursor: pointer;
+}
+.start-thumb:hover { background: var(--bg-3); border-color: var(--border); }
+.start-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.start-thumb img, .start-thumb-icon {
+  width: 72px; height: 72px; object-fit: contain; display: grid; place-items: center;
+  transition: transform 0.12s ease;
+}
+.start-thumb-icon { color: var(--muted); }
+.start-thumb:hover img { transform: scale(1.06); }
+.start-thumb .name { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .start-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; align-items: start; }
 .start-cols-engine { grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr); }
 .start-cols > div > .start-formats-title:first-child { margin-top: 0; }

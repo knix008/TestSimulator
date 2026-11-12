@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PHOTOS } from './make-samples.mjs';
+import { PHOTOS, photoPath } from './make-samples.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(root, 'samples');
@@ -27,9 +27,12 @@ export async function writeMugObj() {
 export function updateIndex() {
   const p = path.join(OUT, 'index.json');
   const index = JSON.parse(fs.readFileSync(p, 'utf8'));
+  // Example pictures (entries with a source) no longer in PHOTOS go.
+  const listed = new Set(PHOTOS.map(photoPath));
+  index.images = index.images.filter((e) => !e.source || listed.has(e.file));
   const known = new Set(index.images.map((e) => e.file));
   for (const ph of PHOTOS) {
-    const file = `images/${ph.name}.png`;
+    const file = photoPath(ph);
     if (!fs.existsSync(path.join(OUT, file))) continue;
     const entry = { file, ko: ph.ko, en: ph.en, source: ph.source };
     if (known.has(file)) index.images = index.images.map((e) => (e.file === file ? entry : e));

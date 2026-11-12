@@ -76,13 +76,18 @@ and https://huggingface.co/tencent. Only the shape generation runs (no texture
 
 ## Example pictures (`samples/images`)
 
-- `dragon`, `cottage`, `mushroom-house`, `mech`, `lantern`, `mailbox`,
-  `biplane`, `locomotive` — from TRELLIS's `assets/example_image`
-  (https://github.com/microsoft/TRELLIS), Copyright (c) Microsoft Corporation,
-  MIT License. Reduced to 512 × 512.
-- `chair`, `hamburger`, `teapot`, `fox` — from TripoSR's `examples`
-  (https://github.com/VAST-AI-Research/TripoSR), Copyright (c) 2024 Tripo AI &
-  Stability AI, MIT License. Reduced to 512 × 512.
+- `scifi-tank`, `palm-tree`, `knight-helmet`, `scrap-robot`, `steampunk-boy`,
+  `hill-town`, `angel-statue`, `pineapple`, `backpack`, `alchemy-room`,
+  `wanderer`, `goblin-bust`, `garden-trellis`, `mermaid`, `rusty-robot`,
+  `walking-tank`, `heavy-mech`, `fairy-island`, `hourglass`, `princess-doll`,
+  `windmill`, `dragon-armour`, `orc-warrior`, `rainbow-wings`, `covered-wagon`,
+  `shield`, `courier-bike`, `gargoyle`, `moss-golem`, `throne-statue`,
+  `factory-town`, `black-robot`, `steam-machine` — from TRELLIS.2's
+  `assets/example_image` (https://github.com/microsoft/TRELLIS.2, commit
+  75fbf01), Copyright (c) Microsoft Corporation, MIT License. Unmodified
+  (renamed only).
+- `fox` — from TripoSR's `examples` (https://github.com/VAST-AI-Research/TripoSR),
+  Copyright (c) 2024 Tripo AI & Stability AI, MIT License. Unmodified.
 - `robot`, `mug`, `pawn`, `tree`, `toy-car` — made for this program (MIT).
 
 ## Other components

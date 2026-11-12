@@ -70,7 +70,10 @@ class OptionsTest(unittest.TestCase):
             j = m.to_json()
             self.assertTrue(j["regionRestricted"] and j["licenseNote"]["ko"] and j["versionLabel"])
             self.assertEqual(j["familyName"], "Hunyuan3D")
-            self.assertEqual(j["output"], "shape")
+            # A texture projected from the picture (the "texture" option; "none" leaves the shape).
+            self.assertEqual(j["output"], "texture")
+            self.assertEqual({c["value"] for o in j["options"] if o["key"] == "texture" for c in o["choices"]}, {"project", "none"})
+            self.assertIn("xatlas==0.0.11", m.packages)
             # Turbo versions decode with their own VAE, downloaded with them.
             self.assertEqual(bool(m.turbo_vae), m.turbo)
             self.assertTrue(all(f.startswith(m.subfolder + "/") or f.startswith(m.turbo_vae + "/") for f in m.files))

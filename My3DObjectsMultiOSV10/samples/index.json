@@ -3,99 +3,270 @@
     {
       "file": "images/robot.png",
       "ko": "로봇",
-      "en": "Robot"
+      "en": "Robot",
+      "thumb": "thumbs/robot.webp"
     },
     {
       "file": "images/mug.png",
       "ko": "머그컵",
-      "en": "Mug"
+      "en": "Mug",
+      "thumb": "thumbs/mug.webp"
     },
     {
       "file": "images/pawn.png",
       "ko": "체스 폰",
-      "en": "Chess pawn"
+      "en": "Chess pawn",
+      "thumb": "thumbs/pawn.webp"
     },
     {
       "file": "images/tree.png",
       "ko": "나무",
-      "en": "Tree"
+      "en": "Tree",
+      "thumb": "thumbs/tree.webp"
     },
     {
       "file": "images/toy-car.png",
       "ko": "장난감 자동차",
-      "en": "Toy car"
-    },
-    {
-      "file": "images/dragon.png",
-      "ko": "아기 용",
-      "en": "Baby dragon",
-      "source": "TRELLIS"
-    },
-    {
-      "file": "images/cottage.png",
-      "ko": "알록달록 오두막",
-      "en": "Colourful cottage",
-      "source": "TRELLIS"
-    },
-    {
-      "file": "images/mushroom-house.png",
-      "ko": "버섯 집",
-      "en": "Mushroom house",
-      "source": "TRELLIS"
-    },
-    {
-      "file": "images/mech.png",
-      "ko": "로봇 메카",
-      "en": "Mech",
-      "source": "TRELLIS"
-    },
-    {
-      "file": "images/lantern.png",
-      "ko": "랜턴",
-      "en": "Lantern",
-      "source": "TRELLIS"
-    },
-    {
-      "file": "images/mailbox.png",
-      "ko": "우체통",
-      "en": "Mailbox",
-      "source": "TRELLIS"
-    },
-    {
-      "file": "images/biplane.png",
-      "ko": "복엽기",
-      "en": "Biplane",
-      "source": "TRELLIS"
-    },
-    {
-      "file": "images/locomotive.png",
-      "ko": "증기 기관차",
-      "en": "Steam locomotive",
-      "source": "TRELLIS"
-    },
-    {
-      "file": "images/chair.png",
-      "ko": "의자",
-      "en": "Chair",
-      "source": "TripoSR"
-    },
-    {
-      "file": "images/hamburger.png",
-      "ko": "햄버거",
-      "en": "Hamburger",
-      "source": "TripoSR"
-    },
-    {
-      "file": "images/teapot.png",
-      "ko": "찻주전자 (회색 배경)",
-      "en": "Teapot (grey background)",
-      "source": "TripoSR"
+      "en": "Toy car",
+      "thumb": "thumbs/toy-car.webp"
     },
     {
       "file": "images/fox.png",
       "ko": "폴리곤 여우 (회색 배경)",
       "en": "Low-poly fox (grey background)",
-      "source": "TripoSR"
+      "source": "TripoSR",
+      "thumb": "thumbs/fox.webp"
+    },
+    {
+      "file": "images/scifi-tank.webp",
+      "ko": "SF 탱크",
+      "en": "Sci-fi tank",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/scifi-tank.webp"
+    },
+    {
+      "file": "images/palm-tree.webp",
+      "ko": "야자수",
+      "en": "Palm tree",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/palm-tree.webp"
+    },
+    {
+      "file": "images/knight-helmet.webp",
+      "ko": "기사 투구",
+      "en": "Knight helmet",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/knight-helmet.webp"
+    },
+    {
+      "file": "images/scrap-robot.webp",
+      "ko": "고철 로봇",
+      "en": "Scrap robot",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/scrap-robot.webp"
+    },
+    {
+      "file": "images/steampunk-boy.webp",
+      "ko": "스팀펑크 소년",
+      "en": "Steampunk boy",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/steampunk-boy.webp"
+    },
+    {
+      "file": "images/hill-town.webp",
+      "ko": "언덕 마을",
+      "en": "Hill town",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/hill-town.webp"
+    },
+    {
+      "file": "images/angel-statue.webp",
+      "ko": "천사 석상",
+      "en": "Angel statue",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/angel-statue.webp"
+    },
+    {
+      "file": "images/pineapple.webp",
+      "ko": "파인애플",
+      "en": "Pineapple",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/pineapple.webp"
+    },
+    {
+      "file": "images/backpack.webp",
+      "ko": "등산 배낭",
+      "en": "Hiking backpack",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/backpack.webp"
+    },
+    {
+      "file": "images/alchemy-room.webp",
+      "ko": "연금술사의 방",
+      "en": "Alchemist's room",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/alchemy-room.webp"
+    },
+    {
+      "file": "images/wanderer.webp",
+      "ko": "두건 쓴 방랑자",
+      "en": "Hooded wanderer",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/wanderer.webp"
+    },
+    {
+      "file": "images/goblin-bust.webp",
+      "ko": "고블린 흉상",
+      "en": "Goblin bust",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/goblin-bust.webp"
+    },
+    {
+      "file": "images/garden-trellis.webp",
+      "ko": "덩굴 시렁",
+      "en": "Garden trellis",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/garden-trellis.webp"
+    },
+    {
+      "file": "images/mermaid.webp",
+      "ko": "인어",
+      "en": "Mermaid",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/mermaid.webp"
+    },
+    {
+      "file": "images/rusty-robot.webp",
+      "ko": "녹슨 로봇",
+      "en": "Rusty robot",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/rusty-robot.webp"
+    },
+    {
+      "file": "images/walking-tank.webp",
+      "ko": "보행 전차",
+      "en": "Walking tank",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/walking-tank.webp"
+    },
+    {
+      "file": "images/heavy-mech.webp",
+      "ko": "중장갑 메카",
+      "en": "Heavy mech",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/heavy-mech.webp"
+    },
+    {
+      "file": "images/fairy-island.webp",
+      "ko": "동화 마을 섬",
+      "en": "Fairy-tale island",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/fairy-island.webp"
+    },
+    {
+      "file": "images/hourglass.webp",
+      "ko": "모래시계",
+      "en": "Hourglass",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/hourglass.webp"
+    },
+    {
+      "file": "images/princess-doll.webp",
+      "ko": "공주 인형",
+      "en": "Princess doll",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/princess-doll.webp"
+    },
+    {
+      "file": "images/windmill.webp",
+      "ko": "풍차",
+      "en": "Windmill",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/windmill.webp"
+    },
+    {
+      "file": "images/dragon-armour.webp",
+      "ko": "용 갑옷",
+      "en": "Dragon armour",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/dragon-armour.webp"
+    },
+    {
+      "file": "images/orc-warrior.webp",
+      "ko": "오크 전사",
+      "en": "Orc warrior",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/orc-warrior.webp"
+    },
+    {
+      "file": "images/rainbow-wings.webp",
+      "ko": "무지개 날개",
+      "en": "Rainbow wings",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/rainbow-wings.webp"
+    },
+    {
+      "file": "images/covered-wagon.webp",
+      "ko": "포장마차",
+      "en": "Covered wagon",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/covered-wagon.webp"
+    },
+    {
+      "file": "images/shield.webp",
+      "ko": "방패",
+      "en": "Shield",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/shield.webp"
+    },
+    {
+      "file": "images/courier-bike.webp",
+      "ko": "배달 오토바이",
+      "en": "Courier motorbike",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/courier-bike.webp"
+    },
+    {
+      "file": "images/gargoyle.webp",
+      "ko": "가고일",
+      "en": "Gargoyle",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/gargoyle.webp"
+    },
+    {
+      "file": "images/moss-golem.webp",
+      "ko": "이끼 골렘",
+      "en": "Mossy golem",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/moss-golem.webp"
+    },
+    {
+      "file": "images/throne-statue.webp",
+      "ko": "왕좌 석상",
+      "en": "Throne statue",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/throne-statue.webp"
+    },
+    {
+      "file": "images/factory-town.webp",
+      "ko": "공장 마을",
+      "en": "Factory town",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/factory-town.webp"
+    },
+    {
+      "file": "images/black-robot.webp",
+      "ko": "검은 로봇",
+      "en": "Black robot",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/black-robot.webp"
+    },
+    {
+      "file": "images/steam-machine.png",
+      "ko": "스팀펑크 기계",
+      "en": "Steampunk machine",
+      "source": "TRELLIS.2",
+      "thumb": "thumbs/steam-machine.webp"
     }
   ],
   "models": [

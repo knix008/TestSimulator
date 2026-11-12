@@ -120,8 +120,10 @@ class TrellisTinyTest(unittest.TestCase):
                 resolution=32, in_channels=8, out_channels=8, model_channels=64, cond_channels=32, num_blocks=1,
                 num_heads=2, patch_size=2, num_io_res_blocks=1, io_block_channels=[16], pe_mode="ape",
                 qk_rms_norm=True, use_fp16=True)
+            # model_channels: its upsampling blocks go to /4 and /8 channels,
+            # each with a 32-group GroupNorm — so a multiple of 256.
             mesh_dec = tm.SLatMeshDecoder(
-                resolution=32, model_channels=64, latent_channels=8, num_blocks=2, num_heads=2, attn_mode="swin",
+                resolution=32, model_channels=256, latent_channels=8, num_blocks=2, num_heads=2, attn_mode="swin",
                 window_size=8, use_fp16=True, representation_config={"use_color": True})
             with torch.no_grad():
                 mesh_dec.out_layer.weight.normal_(0, 0.02)

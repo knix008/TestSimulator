@@ -12,7 +12,7 @@ import SettingsDialog from './components/SettingsDialog.jsx';
 import AboutDialog from './components/AboutDialog.jsx';
 import ConvertSettingsDialog from './components/ConvertSettingsDialog.jsx';
 import { groupOptions, optionValues, valueOf } from './components/ConvertOptions.jsx';
-import { ErrorDialog, LicenseDialog } from './components/Dialogs.jsx';
+import { CertDialog, ErrorDialog, LicenseDialog } from './components/Dialogs.jsx';
 import { pickVersion, needsLicense } from './lib/modelFamilies.js';
 import PrintDialog from './components/PrintDialog.jsx';
 import Print3DDialog from './components/Print3DDialog.jsx';
@@ -130,6 +130,7 @@ export default function App() {
   useEffect(() => { loadSampleIndex().then(setSamples); }, []);
   const [error, setError] = useState(null);
   const [licenseFor, setLicenseFor] = useState(null);   // a model waiting for its license to be accepted
+  const [certFor, setCertFor] = useState(null);         // a model whose download server's certificate has expired
   const [toasts, setToasts] = useState([]);
   const [message, setMessage] = useState('');
   const [homeOpen, setHomeOpen] = useState(null);
@@ -432,6 +433,7 @@ export default function App() {
     if (!image || busy) return;
     const chosen = s.backend === 'stability' ? null : models.find((m) => m.id === s.model);
     if (needsLicense(chosen)) { setLicenseFor(chosen); return; }
+    if (chosen?.status === 'needs-cert') { setCertFor(chosen); return; }
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setBusy(true);
@@ -675,6 +677,7 @@ export default function App() {
     const m = models.find((x) => x.id === id);
     // A region-limited license is shown and accepted first.
     if (needsLicense(m)) { setLicenseFor(m); return; }
+    if (m?.status === 'needs-cert') { setCertFor(m); return; }
     setSettings((s) => ({ ...pickVersion(s, models, id), backend: s.backend === 'stability' ? 'local' : s.backend }));
     log('info', t('log.modelPicked', { name: m?.name || id }));
   }, [log, models, setSettings, t]);
@@ -682,8 +685,25 @@ export default function App() {
   const installModel = useCallback(async (id) => {
     const m = models.find((x) => x.id === id);
     if (needsLicense(m)) { setLicenseFor(m); return; }
+    if (m?.status === 'needs-cert') { setCertFor(m); return; }
     try { await client?.installModel(id); } catch (err) { fail(err, 'engine'); }
   }, [client, fail, models]);
+
+  // A download server's certificate has expired: the engine stopped and
+  // waits. Asked once per host on its own; the model panel asks again.
+  const certAsked = useRef(new Set());
+  useEffect(() => {
+    const m = models.find((x) => x.status === 'needs-cert' && x.certHost && !certAsked.current.has(x.certHost));
+    if (m) { certAsked.current.add(m.certHost); setCertFor(m); }
+  }, [models]);
+  const allowCert = useCallback(async (m) => {
+    setCertFor(null);
+    try {
+      await client?.config({ allowExpiredCert: m.certHost });
+      log('warn', t('cert.allowed', { host: m.certHost, name: m.name }));
+      toast(t('cert.allowed', { host: m.certHost, name: m.name }), 'warn');
+    } catch (err) { fail(err, 'engine'); }
+  }, [client, fail, log, t, toast]);
 
   // The user ticked the box and accepted: the engine records it for the
   // whole family, and the model becomes the one in use.
@@ -1108,6 +1128,7 @@ export default function App() {
       <AboutDialog open={showAbout} onClose={() => setShowAbout(false)} health={health} />
       <ErrorDialog error={error} onClose={() => setError(null)} />
       <LicenseDialog model={licenseFor} onAccept={acceptLicense} onCancel={() => setLicenseFor(null)} />
+      <CertDialog model={certFor} onAllow={allowCert} onCancel={() => setCertFor(null)} />
       <Toasts toasts={toasts} onDismiss={(id) => setToasts((list) => list.filter((x) => x.id !== id))} />
       <Tooltip />
       <Tutorial

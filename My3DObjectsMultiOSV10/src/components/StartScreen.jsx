@@ -257,6 +257,18 @@ export default function StartScreen({
                           <p className="start-formats-title">
                             {g === 'images' ? <IconImage size={13} /> : g === 'results' ? <IconWand size={13} /> : <IconCube size={13} />} {t(`samples.${g}`)}
                           </p>
+                          {g === 'images' && samples[g].some((e) => e.thumb) ? (
+                            <div className="start-thumbs">
+                              {samples[g].map((e) => (
+                                <button key={e.file} className="start-thumb" onClick={() => onOpenSample(e)} title={`${sampleLabel(e, lang)} — ${e.file.split('/').pop()}`} data-sample={e.file}>
+                                  {e.thumb
+                                    ? <img src={`./samples/${e.thumb}`} alt="" loading="lazy" decoding="async" draggable={false} />
+                                    : <span className="start-thumb-icon"><IconImage size={28} /></span>}
+                                  <span className="name">{sampleLabel(e, lang)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
                           <div className="start-list start-hlist">
                             {samples[g].map((e) => (
                               <button key={e.file} className="start-link" onClick={() => onOpenSample(e)} title={e.file} data-sample={e.file}>
@@ -266,6 +278,7 @@ export default function StartScreen({
                               </button>
                             ))}
                           </div>
+                          )}
                         </div>
                       ))}
                     </div>

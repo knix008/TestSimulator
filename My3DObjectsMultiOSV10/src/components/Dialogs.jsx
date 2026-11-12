@@ -56,6 +56,44 @@ export function LicenseDialog({ model, onAccept, onCancel }) {
   );
 }
 
+// ── Expired certificate ───────────────────────────────────
+// A server a model downloads from (TRELLIS's DINOv2 from Meta) has let its
+// security certificate expire. The engine has stopped; this says what that
+// means and lets the user go on anyway — the engine then still checks who
+// issued the certificate and that it is for that server, only not its date.
+export function CertDialog({ model, onAllow, onCancel }) {
+  const { t } = useTranslation();
+  if (!model) return null;
+  const host = model.certHost;
+  return (
+    <Modal
+      open
+      title={t('cert.title')}
+      icon={IconAlert}
+      onClose={onCancel}
+      width={560}
+      className="cert-modal"
+      closeLabel={t('cert.cancel')}
+      footer={(
+        <>
+          <button className="btn" onClick={onCancel}>{t('cert.cancel')}</button>
+          <div className="spacer" />
+          <button className="btn primary" onClick={() => onAllow(model)} data-cert-allow>
+            <IconAlert size={16} /> {t('cert.allow')}
+          </button>
+        </>
+      )}
+    >
+      <div className="license-body">
+        <p>{t('cert.intro', { name: model.name, host })}</p>
+        <p className="license-note">{t('cert.warning')}</p>
+        <p>{t('cert.kept')}</p>
+        <p className="panel-note">{t('cert.later')}</p>
+      </div>
+    </Modal>
+  );
+}
+
 // ── Error dialog ──────────────────────────────────────────
 // Errors are never swallowed: the user sees what the app was doing, the exact
 // message, and the full technical detail — all of it copyable in one click so

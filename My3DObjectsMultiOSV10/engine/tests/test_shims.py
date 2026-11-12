@@ -201,10 +201,13 @@ class SmallShimsTest(unittest.TestCase):
             mod.check_tensor(t, (None, 2))
 
     def test_unused_libraries_raise_only_when_used(self):
-        for name in ("open3d", "utils3d"):
-            mod = _load_file(os.path.join(SHIMS, "trellis", name, "__init__.py"), name=f"_stub_{name}")
-            with self.assertRaises(RuntimeError):
-                getattr(mod, "TriangleMesh")
+        mod = _load_file(os.path.join(SHIMS, "trellis", "utils3d", "__init__.py"), name="_stub_utils3d")
+        with self.assertRaises(RuntimeError):
+            getattr(mod, "TriangleMesh")
+        # open3d's names are read at import (annotations): only a call raises.
+        mod = _load_file(os.path.join(SHIMS, "trellis", "open3d", "__init__.py"), name="_stub_open3d")
+        with self.assertRaises(RuntimeError):
+            mod.geometry.TriangleMesh()
 
     def test_plyfile_stand_in(self):
         mod = _load_file(os.path.join(SHIMS, "trellis", "plyfile", "__init__.py"), name="_stub_plyfile")

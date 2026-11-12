@@ -28,6 +28,7 @@ class ModelSpec:
     source_zip = ""
     commit = ""
     check_file = ""           # a file the source download must contain
+    source_skip = ()          # folders of the source zip left out (data never read)
     textured = False          # the result has a texture (else vertex colours)
     output = ""               # texture | vertex-colors | shape (default from `textured`)
     options = []              # option descriptors for the app's panel

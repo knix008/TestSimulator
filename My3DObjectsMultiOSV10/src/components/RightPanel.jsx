@@ -101,6 +101,9 @@ function ConvertTab({
                 {model.status === 'needs-license' ? (
                   <button className="btn small" onClick={() => onPickModel(model.id)}>{t('model.checkLicense')}</button>
                 ) : null}
+                {model.status === 'needs-cert' ? (
+                  <button className="btn small" onClick={() => onPickModel(model.id)} data-cert-open>{t('model.checkCert')}</button>
+                ) : null}
                 <div className="panel-links">
                   <button className="linkish" onClick={() => openExternal(model.page)}>{t('right.modelPage')}</button>
                   {model.licenseUrl ? <button className="linkish" onClick={() => openExternal(model.licenseUrl)}>{t('right.licenseText')}</button> : null}

@@ -6,7 +6,19 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { PHOTOS } from '../scripts/make-samples.mjs';
+import { PHOTOS, PHOTO_SIZE, PHOTO_SOURCES, photoPath } from '../scripts/make-samples.mjs';
+
+// Width and height from a PNG or WebP header.
+function imageSize(b) {
+  if (b.subarray(1, 4).toString() === 'PNG') return [b.readUInt32BE(16), b.readUInt32BE(20)];
+  if (b.subarray(0, 4).toString() === 'RIFF' && b.subarray(8, 12).toString() === 'WEBP') {
+    const kind = b.subarray(12, 16).toString();
+    if (kind === 'VP8X') return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)];
+    if (kind === 'VP8 ') return [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff];
+    if (kind === 'VP8L') { const v = b.readUInt32LE(21); return [1 + (v & 0x3fff), 1 + ((v >> 14) & 0x3fff)]; }
+  }
+  throw new Error('not a PNG or WebP picture');
+}
 
 const root = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
@@ -91,27 +103,53 @@ describe('example pictures', () => {
   it('every photo is there, listed with its source, and credited', () => {
     const notice = read('NOTICE.md');
     const readme = read('samples/README.md');
-    expect(PHOTOS.length).toBeGreaterThanOrEqual(10);
+    expect(PHOTOS.length).toBeGreaterThanOrEqual(30);
+    expect(new Set(PHOTOS.map((p) => p.name)).size).toBe(PHOTOS.length);
     for (const p of PHOTOS) {
-      const file = `images/${p.name}.png`;
+      const file = photoPath(p);
       expect(fs.existsSync(path.join(root, 'samples', file)), file).toBe(true);
       const entry = index.images.find((e) => e.file === file);
       expect(entry, file).toBeTruthy();
       expect(entry.source).toBe(p.source);
       expect(entry.ko && entry.en).toBeTruthy();
       expect(notice).toContain(`\`${p.name}\``);
-      expect(readme).toContain(`\`${p.name}.png\``);
-      expect(['TRELLIS', 'TripoSR']).toContain(p.source);
+      expect(readme).toContain(`\`${file.split('/').pop()}\``);
+      expect(Object.keys(PHOTO_SOURCES)).toContain(p.source);
     }
+    // Nothing else of the old lists is left over.
+    const files = fs.readdirSync(path.join(root, 'samples', 'images')).map((n) => `images/${n}`);
+    expect(files.sort()).toEqual(index.images.map((e) => e.file).sort());
   });
 
-  it('are small enough to ship (512 px PNG, under 500 KB)', () => {
+  it('every picture to convert is natively at least PHOTO_SIZE square and small enough to ship', () => {
+    expect(PHOTO_SIZE).toBeGreaterThanOrEqual(1024);
+    let total = 0;
+    for (const e of index.images) {
+      const bytes = fs.readFileSync(path.join(root, 'samples', e.file));
+      const [w, h] = imageSize(bytes);
+      expect(w, `${e.file} width`).toBeGreaterThanOrEqual(PHOTO_SIZE);
+      expect(h, `${e.file} height`).toBeGreaterThanOrEqual(PHOTO_SIZE);
+      expect(bytes.length, e.file).toBeLessThan(2 * 1024 * 1024);
+      total += bytes.length;
+    }
+    expect(total).toBeLessThan(40 * 1024 * 1024);
+  });
+
+  it('every picture has a small transparent preview for the start screen, and no preview is left over', () => {
+    for (const e of index.images) {
+      expect(e.thumb, e.file).toMatch(/^thumbs\/.+\.webp$/);
+      const bytes = fs.readFileSync(path.join(root, 'samples', e.thumb));
+      expect(bytes.subarray(12, 16).toString(), e.thumb).toBe('VP8X'); // WebP with alpha
+      expect(bytes.length, e.thumb).toBeLessThan(40 * 1024);
+    }
+    const thumbs = fs.readdirSync(path.join(root, 'samples', 'thumbs')).map((n) => `thumbs/${n}`);
+    expect(thumbs.sort()).toEqual(index.images.map((e) => e.thumb).sort());
+  });
+
+  it('every photo names its original file in the repository it is credited to', () => {
     for (const p of PHOTOS) {
-      const bytes = fs.readFileSync(path.join(root, 'samples', 'images', `${p.name}.png`));
-      expect(bytes.subarray(1, 4).toString()).toBe('PNG');
-      expect(bytes.readUInt32BE(16)).toBeLessThanOrEqual(512); // width
-      expect(bytes.readUInt32BE(20)).toBeLessThanOrEqual(512); // height
-      expect(bytes.length).toBeLessThan(500 * 1024);
+      expect(PHOTO_SOURCES[p.source], p.name).toMatch(/^https:\/\/raw\.githubusercontent\.com\/.+\/[0-9a-f]{40}\//);
+      expect(p.file, p.name).toMatch(/\.(png|webp)$/);
     }
   });
 

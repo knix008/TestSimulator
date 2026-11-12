@@ -5,6 +5,7 @@ that need no model — and the installer's extra-source download."""
 import io
 import json
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -270,6 +271,94 @@ class ExtraSourceTest(unittest.TestCase):
             inst = installer.Installer(home, "uv", Log())
             with self.assertRaises(RuntimeError):
                 inst._extra_source_files(models.get("trellis"), "flexicubes", url, "e" * 40, "flexicubes.py")
+
+
+class PackageTopUpTest(unittest.TestCase):
+    def test_a_complete_model_gets_a_package_added_later_without_a_reinstall(self):
+        with tempfile.TemporaryDirectory() as home:
+            inst = installer.Installer(home, "uv", Log())
+            spec = models.get("hunyuan3d-2.1")
+            calls = []
+            inst.pip = lambda args, check=True: calls.append(list(args))
+            state = inst.current_state()
+            state["build"] = "cpu"            # the base install's PyTorch build
+            # Installed before xatlas was one of its packages.
+            state["models"][spec.id] = {"done": list(installer.MODEL_STEPS), "commit": spec.commit,
+                                        "packages": [p for p in spec.packages if not p.startswith("xatlas")]}
+            inst.write_state(state)
+            entry = inst.install_model(spec)
+            self.assertEqual(len(calls), 1)
+            self.assertIn("xatlas==0.0.11", calls[0])
+            self.assertEqual(entry["packages"], list(spec.packages))
+            self.assertEqual(entry["done"], list(installer.MODEL_STEPS))
+            # Up to date: nothing more to install.
+            inst.install_model(spec)
+            self.assertEqual(len(calls), 1)
+
+
+class Open3dStandInTest(unittest.TestCase):
+    def test_names_resolve_and_calls_raise(self):
+        """TRELLIS's text pipeline evaluates `o3d.geometry.TriangleMesh` in an
+        annotation when `import trellis` runs: reading must work, using must not."""
+        import importlib.util
+
+        path = os.path.join(trellis_mod.TRELLIS_SHIMS, "open3d", "__init__.py")
+        spec = importlib.util.spec_from_file_location("open3d_standin", path)
+        o3d = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(o3d)
+
+        def voxelize(mesh: o3d.geometry.TriangleMesh) -> None:  # as TRELLIS writes it
+            return mesh
+
+        self.assertIn("open3d.geometry.TriangleMesh", repr(voxelize.__annotations__["mesh"]))
+        with self.assertRaises(RuntimeError):
+            o3d.utility.Vector3dVector([])
+        # Dunder lookups stay normal (no placeholder posing as iterable etc.).
+        self.assertFalse(hasattr(o3d.geometry, "__iter__"))
+        self.assertFalse(hasattr(o3d, "__wrapped__"))
+
+
+class ModelSourceTest(unittest.TestCase):
+    def test_deep_paths_and_skipped_folders(self):
+        """Hunyuan3D 2.1's zip holds paths past Windows' 260-character limit
+        (its sample training set): unpacked through long paths, and the
+        training set itself left out."""
+        home = tempfile.mkdtemp()
+        try:
+            deep = "/".join(["d" * 60] * 5) + "/" + "f" * 60 + ".py"     # > 300 characters
+            folder = "Hunyuan3D-2.1-" + "a" * 40
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w") as z:
+                z.writestr(f"{folder}/hy3dshape/hy3dshape/pipelines.py", "x = 1\n")
+                z.writestr(f"{folder}/hy3dshape/tools/mini_trainset/preprocessed/{'0' * 64}/geo_data/{'0' * 64}_sdf.npz", "")
+                z.writestr(f"{folder}/{deep}", "")
+            archive = os.path.join(home, "src.zip")
+            with open(archive, "wb") as f:
+                f.write(buf.getvalue())
+
+            class Spec(type(models.get("hunyuan3d-2.1"))):
+                source_zip = "file:///" + archive.replace("\\", "/").lstrip("/")
+
+            spec = Spec()
+            self.assertEqual(spec.source_skip, ("hy3dshape/tools/mini_trainset",))
+            inst = installer.Installer(home, "uv", Log())
+            inst._model_source_files(spec)
+            target = installer.long_path(spec.source_dir(home))
+            self.assertTrue(os.path.isfile(os.path.join(target, "hy3dshape", "hy3dshape", "pipelines.py")))
+            self.assertTrue(os.path.isfile(os.path.join(target, *deep.split("/"))))
+            self.assertFalse(os.path.exists(os.path.join(target, "hy3dshape", "tools", "mini_trainset")))
+            leftovers = [n for n in os.listdir(home) if n.startswith("tmp")]
+            self.assertEqual(leftovers, [])
+        finally:
+            shutil.rmtree(installer.long_path(home), ignore_errors=True)
+
+    def test_long_path(self):
+        if os.name == "nt":
+            self.assertEqual(installer.long_path("C:\\a\\b"), "\\\\?\\C:\\a\\b")
+            self.assertEqual(installer.long_path("\\\\?\\C:\\a"), "\\\\?\\C:\\a")
+            self.assertEqual(installer.long_path("\\\\srv\\share\\x"), "\\\\?\\UNC\\srv\\share\\x")
+        else:
+            self.assertEqual(installer.long_path("/a/b"), "/a/b")
 
 
 class BundleTest(unittest.TestCase):
