@@ -99,6 +99,8 @@ export const host = {
   // The marker in a window's corner was pressed: the corner follows the mouse.
   popoutResize: (label) => invoke("plugin:window|start_resize_dragging", { label, value: "SouthEast" }),
   popoutMinimize: (label) => invoke("popout_minimize", { label }),
+  /** The smallest size of a free-standing window, in CSS pixels of its content. */
+  popoutMinSize: (label, width, height) => invoke("popout_min_size", { label, width, height }),
   popoutFocus: (label) => invoke("popout_focus", { label }),
   popoutClose: (label) => invoke("popout_close", { label }),
   startDrag: () => isDesktop && getCurrentWindow().startDragging(),

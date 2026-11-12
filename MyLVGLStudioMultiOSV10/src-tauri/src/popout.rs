@@ -145,6 +145,27 @@ pub fn popout_show(app: AppHandle, options: ShowOptions) -> bool {
     true
 }
 
+/// The smallest size a free-standing window may take, as its content measured it (the code
+/// editor: its toolbar on one line). A window already smaller grows to it.
+#[tauri::command]
+pub fn popout_min_size(app: AppHandle, label: String, width: f64, height: f64) -> bool {
+    if !is_dialog(&label) || !width.is_finite() || !height.is_finite() {
+        return false;
+    }
+    let Some(window) = app.get_webview_window(&label) else {
+        return false;
+    };
+    let (w, h) = (width.round().max(FREE_MIN.0), height.round().max(FREE_MIN.1));
+    let _ = window.set_min_size(Some(LogicalSize::new(w, h)));
+    let scale = window.scale_factor().unwrap_or(1.0);
+    if let Ok(size) = window.inner_size().map(|size| size.to_logical::<f64>(scale)) {
+        if size.width < w || size.height < h {
+            let _ = window.set_size(LogicalSize::new(size.width.max(w), size.height.max(h)));
+        }
+    }
+    true
+}
+
 /// The dialog's title bar was pressed: the window follows the mouse until it is released.
 #[tauri::command]
 pub fn popout_drag(app: AppHandle, label: String) -> bool {

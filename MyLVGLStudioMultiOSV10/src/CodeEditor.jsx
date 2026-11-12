@@ -4,7 +4,8 @@
 // (and the project is saved by itself when it has a folder). It builds, runs and stops the
 // program, and cleans the build. Each file keeps its own undo history while the window is open.
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Dialog, WindowButtons } from "./dialogs.jsx";
+import { Dialog, ResizeGrip, WindowButtons, usePopout } from "./dialogs.jsx";
+import { host } from "./host.js";
 import { Icon } from "./icons.jsx";
 import { MenuItems } from "./ContextMenu.jsx";
 import { isEditableCode } from "./lvgl/codeparse.js";
@@ -274,6 +275,39 @@ function EditorMenu({ x, y, items, onClose }) {
 }
 
 const clock = () => new Date().toTimeString().slice(0, 8);
+const MIN_HEIGHT = 520;
+
+/**
+ * Keeps the window at least as wide as its toolbar and its title bar need, on one line each:
+ * measured from what is drawn, so it follows the language and the labels. In a window of its
+ * own the window gets that minimum; inside the page the editor itself does.
+ */
+function useMinimumSize(bar, toolbar) {
+  const pop = usePopout();
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const tools = toolbar.current;
+      const title = bar.current;
+      if (!tools || !title) return;
+      const style = (element) => element.ownerDocument.defaultView.getComputedStyle(element);
+      const pads = (element) => Number.parseFloat(style(element).paddingLeft) + Number.parseFloat(style(element).paddingRight);
+      const toolsWidth = [...tools.children].reduce((sum, child) => sum + child.getBoundingClientRect().width, 0) + pads(tools);
+      const titleWidth = [...title.children].filter((child) => !child.classList.contains("guide-bar-gap")).reduce((sum, child) => sum + child.getBoundingClientRect().width, 0)
+        + pads(title) + Number.parseFloat(style(title).columnGap || "0") * (title.children.length - 1) + 24;
+      setWidth(Math.ceil(Math.max(toolsWidth, titleWidth)) + 2);
+    };
+    measure();
+    const Observer = toolbar.current?.ownerDocument.defaultView.ResizeObserver ?? ResizeObserver;
+    const watch = new Observer(measure);
+    for (const element of [toolbar.current, bar.current]) for (const child of element?.children ?? []) watch.observe(child);
+    return () => watch.disconnect();
+  });
+  useEffect(() => {
+    if (pop && width) void host.popoutMinSize(pop.label, width, MIN_HEIGHT).catch(() => {});
+  }, [pop, width]);
+  return { width, label: pop?.label };
+}
 
 /**
  * The editor window. `appCode` is the application code on disk; `generated` the generated files.
@@ -296,6 +330,9 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
   const [menu, setMenu] = useState(null);
   const [prefs, setPrefs] = useState(readPrefs);
   const pane = useRef(null);
+  const barRef = useRef(null);
+  const toolbarRef = useRef(null);
+  const { width: minimumWidth, label: windowLabel } = useMinimumSize(barRef, toolbarRef);
   const timers = useRef(new Map());
   const applyTimer = useRef(null);
   const pendingApply = useRef(null);
@@ -675,9 +712,9 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
     onClose();
   };
   return (
-    <Dialog title={t("editor.title", { name: projectName })} icon="codeEditor" onClose={close} id="editor" width={1280} height={800} bare standsFree keepOnEscape>
-      <div className="editor-window" data-editor="" style={{ "--editor-font": `${prefs.font}px` }} onKeyDown={keys}>
-        <div className="editor-bar" data-window-drag="">
+    <Dialog title={t("editor.title", { name: projectName })} icon="codeEditor" onClose={close} id="editor" width={1280} height={800} bare standsFree keepOnEscape ownGrip>
+      <div className="editor-window" data-editor="" data-min-width={minimumWidth || undefined} data-window-label={windowLabel} style={{ "--editor-font": `${prefs.font}px`, minWidth: minimumWidth || undefined, minHeight: MIN_HEIGHT }} onKeyDown={keys}>
+        <div className="editor-bar" data-window-drag="" ref={barRef}>
           <span className="editor-bar-title" data-dialog-title=""><Icon name="codeEditor" /><span>{t("editor.title", { name: projectName })}</span></span>
           <span className="editor-state" data-editor-native={native}>{native === "building" ? t("status.building") : native === "running" ? t("status.native") : ""}</span>
           <span className="guide-bar-gap" />
@@ -686,7 +723,7 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
           <button type="button" className="editor-tool" data-editor-command="about" title={t("cmd.about")} onPointerDown={(event) => event.preventDefault()} onClick={onAbout}><Icon name="about" size={16} /><span>{t("editor.tb.about")}</span></button>
           <WindowButtons t={t} onClose={close} />
         </div>
-        <div className="editor-toolbar" role="toolbar" data-editor-toolbar="">
+        <div className="editor-toolbar" role="toolbar" data-editor-toolbar="" ref={toolbarRef}>
           {groups.map((group, index) => (
             <span className="editor-tool-group" key={index}>{group.map((command) => tool(command, { iconOnly: ICON_ONLY.has(command.id) }))}</span>
           ))}
@@ -723,16 +760,6 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
               onLeave={settle}
               onMenu={codeMenu}
             />
-            <div className="code-status editor-status">
-              {status}
-              <span className="editor-position" data-editor-position="">{t("editor.position", { line: info.line, column: info.column })}{info.selected ? ` · ${t("editor.selected", { count: info.selected })}` : ""}</span>
-              <span className="editor-view-tools" data-editor-view="">
-                {tool(cmd.smaller, { iconOnly: true })}
-                <span className="editor-font-size" title={t("editor.fontSize")}>{prefs.font}px</span>
-                {tool(cmd.bigger, { iconOnly: true })}
-                {tool(cmd.wrap, { iconOnly: true })}
-              </span>
-            </div>
           </div>
         </div>
         <div className="editor-bottom">
@@ -769,6 +796,19 @@ export function CodeEditorWindow({ t, language, project, projectName, generated,
               })}
             </div>
           )}
+        </div>
+        <div className="statusbar editor-statusbar" data-editor-statusbar="">
+          <span className="status-cell editor-status-note">{status}</span>
+          <span className="status-cell" data-editor-position="">{t("editor.position", { line: info.line, column: info.column })}{info.selected ? ` · ${t("editor.selected", { count: info.selected })}` : ""}</span>
+          <span className="status-cell" data-editor-lines="">{t("editor.lines", { count: info.lines })}</span>
+          <span className="status-cell" data-editor-mode="">{canEdit ? (isApp(name) ? t("editor.mode.logic") : t("editor.mode.design")) : t("editor.mode.readOnly")}</span>
+          <span className="status-cell editor-view-tools" data-editor-view="">
+            {tool(cmd.smaller, { iconOnly: true })}
+            <span className="editor-font-size" title={t("editor.fontSize")}>{prefs.font}px</span>
+            {tool(cmd.bigger, { iconOnly: true })}
+            {tool(cmd.wrap, { iconOnly: true })}
+          </span>
+          <span className="status-end"><ResizeGrip /></span>
         </div>
         {menu && <EditorMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
       </div>

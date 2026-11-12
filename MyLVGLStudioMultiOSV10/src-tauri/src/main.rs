@@ -609,6 +609,7 @@ fn main() {
             popout::popout_close,
             popout::popout_reset,
             popout::popout_inline,
+            popout::popout_min_size,
             native::tools_plan,
             native::tools_items,
             native::tools_install,

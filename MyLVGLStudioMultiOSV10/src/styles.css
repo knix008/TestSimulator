@@ -644,18 +644,22 @@ html.popout-dialog .popout-free .dialog-body:has(.editor-window) { height: 100% 
 .editor-pane { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; user-select: text; }
 .editor-pane .cm-editor { height: 100%; }
 .editor-pane .cm-editor.cm-focused { outline: none; }
-.editor-toolbar { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; padding: 3px 6px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.editor-toolbar { flex: 0 0 auto; display: flex; flex-wrap: nowrap; overflow: hidden; align-items: center; gap: 0; padding: 3px 6px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .editor-tool-group { display: inline-flex; align-items: center; gap: 0; padding: 0 3px; border-right: 1px solid var(--line); }
 .editor-tool-group:last-child { border-right: 0; }
 .editor-tool { display: inline-flex; align-items: center; gap: 3px; height: 28px; padding: 0 4px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: inherit; font-size: 12px; white-space: nowrap; }
 .editor-tool:hover:not(:disabled) { background: var(--hover); border-color: var(--button-border); }
 .editor-tool:disabled { opacity: 0.4; cursor: default; }
 .editor-tool.pressed { background: var(--selected); border-color: var(--accent-line); color: var(--accent-ink); }
-.editor-status { display: flex; align-items: center; gap: 12px; }
-.editor-status > .code-note { flex: 1 1 auto; }
+.editor-statusbar { flex: 0 0 24px; height: 24px; }
+.editor-statusbar .status-cell { flex: 0 0 auto; }
+.editor-statusbar .editor-status-note { flex: 1 1 auto; min-width: 0; max-width: none; overflow: hidden; }
+.editor-statusbar .code-note { display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; white-space: nowrap; color: inherit; font-size: 12px; }
+.editor-statusbar .editor-tool.icon-only { height: 20px; width: 22px; }
+.editor-bar { overflow: hidden; }
+.editor-tool-group { flex: 0 0 auto; }
 .editor-tool.icon-only { width: 28px; justify-content: center; padding: 0; }
-.editor-view-tools { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 1px; }
-.editor-view-tools .editor-tool { height: 20px; width: 22px; }
+.editor-view-tools { display: inline-flex; align-items: center; gap: 1px; }
 .editor-font-size { min-width: 36px; text-align: center; color: var(--muted); font-size: 12px; }
 .editor-position { flex: 0 0 auto; color: var(--muted); white-space: nowrap; font-size: 12px; }
 .editor-window .context-menu { min-width: 230px; }

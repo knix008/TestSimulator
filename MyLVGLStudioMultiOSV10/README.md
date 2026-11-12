@@ -98,7 +98,8 @@ MSYS2의 Emscripten 패키지는 Node도 함께 설치합니다. `ucrt64\bin`이
 | `npm run tutorial:video` | 릴리스 앱으로 튜토리얼을 진행하며 녹화해 `MyLVGLStudio-Tutorial.mp4`를 프로젝트 루트에 저장(한국어, 무음, ffmpeg 필요). 녹화 중에는 앱 창이 화면에 뜹니다. |
 | `npm run fetch:lvgl` | 엔진 빌드용 LVGL 소스를 `third_party/`에 받기 |
 | `npm run build:engine` | WebAssembly 엔진을 빌드해 `public/engine/`에 저장 |
-| `npm run clean` | 빌드와 테스트가 남긴 것을 지움: `dist/`, `build/`, `test-results/`, `src-tauri/gen/`, `src-tauri/target/`, 루트의 설치 파일 복사본. `-- --keep-rust`는 Rust 빌드를 남기고, `-- --dry-run`은 목록만 보여 줌. 소스, 엔진, 샘플, `third_party/`는 지우지 않음 |
+| `npm run clean` | 빌드와 테스트의 중간 결과를 지움: `dist/`, `build/`, `test-results/`, `src-tauri/gen/`. Rust 빌드(`src-tauri/target/`)와 루트의 설치 파일은 남김. 소스, 엔진, 샘플, `third_party/`, 튜토리얼 동영상은 지우지 않음 |
+| `npm run clean:all` | `npm run clean`에 더해 Rust 빌드(`src-tauri/target/`)와 루트의 설치 파일 복사본까지 지움. 다음 `npm start`와 설치 파일 빌드는 Rust를 처음부터 컴파일함. 둘 다 `-- --dry-run`을 붙이면 지울 목록만 보여 줌 |
 | `npm run mvvm-source` | `engine/mvvm`의 바인딩 라이브러리를 생성기용 `src/lvgl/mvvmSource.js`로 복사 (라이브러리를 고친 뒤 엔진 빌드와 함께) |
 | `npm run icons` | 앱 아이콘과 프로젝트 파일 아이콘 생성 |
 | `npm run build:win` | Windows 설치 파일 빌드 (`build:mac`, `build:linux`도 있음) |

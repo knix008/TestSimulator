@@ -13,6 +13,20 @@ import { joinPath, removeImageFromProject, validProjectName } from "./lvgl/proje
 // The window a dialog is in, for what goes in its title bar.
 const PopContext = createContext(null);
 
+/** The window a dialog is in (null inside the page): for content that sizes its own window. */
+export const usePopout = () => useContext(PopContext);
+
+/** The resize grip of a free-standing window, for a dialog with a status bar of its own (ownGrip). */
+export function ResizeGrip() {
+  const pop = useContext(PopContext);
+  if (!pop?.standsFree) return null;
+  return (
+    <button type="button" className="grip" aria-label="resize" data-window-grip="" onPointerDown={(event) => { event.preventDefault(); void host.popoutResize(pop.label); }}>
+      <GripDots />
+    </button>
+  );
+}
+
 /** Minimize, a maximize that cannot be used, and close, for a dialog with a bar of its own. */
 export function WindowButtons({ t, onClose }) {
   const pop = useContext(PopContext);
@@ -46,7 +60,7 @@ function DialogPanel({ title, icon, onClose, children, footer, width, panel, bar
 }
 
 /** The dialog in a window of its own, which can go anywhere, also outside the program. */
-function WindowDialog({ pop, onClose, id, height, keepOnEscape, ...rest }) {
+function WindowDialog({ pop, onClose, id, height, keepOnEscape, ownGrip, ...rest }) {
   const panel = useRef(null);
   const closing = useRef(onClose);
   closing.current = onClose;
@@ -116,7 +130,7 @@ function WindowDialog({ pop, onClose, id, height, keepOnEscape, ...rest }) {
           {...rest}
           onClose={onClose}
           panel={panel}
-          grip={pop.standsFree && (
+          grip={pop.standsFree && !ownGrip && (
             <button type="button" className="grip dialog-grip" aria-label="resize" onPointerDown={(event) => { event.preventDefault(); void host.popoutResize(pop.label); }}>
               <GripDots />
             </button>
@@ -128,7 +142,7 @@ function WindowDialog({ pop, onClose, id, height, keepOnEscape, ...rest }) {
   );
 }
 
-function InlineDialog({ id, onClose, keepOnEscape, ...rest }) {
+function InlineDialog({ id, onClose, keepOnEscape, ownGrip: _ownGrip, ...rest }) {
   useEffect(() => {
     const key = (event) => {
       if (event.key === "Escape" && !keepOnEscape) onClose();
@@ -144,7 +158,7 @@ function InlineDialog({ id, onClose, keepOnEscape, ...rest }) {
 }
 
 /** `keepOnEscape`: Escape belongs to what is inside (an editor), and does not close the dialog. */
-export function Dialog({ title, icon, onClose, children, footer, width = 460, id, bare = false, standsFree = false, height, keepOnEscape = false }) {
+export function Dialog({ title, icon, onClose, children, footer, width = 460, id, bare = false, standsFree = false, height, keepOnEscape = false, ownGrip = false }) {
   // undefined: the window is being opened. null: no window, so inside the page.
   const [pop, setPop] = useState(canPopOut() ? undefined : null);
   const closing = useRef(onClose);
@@ -174,7 +188,7 @@ export function Dialog({ title, icon, onClose, children, footer, width = 460, id
   useEffect(() => {
     if (pop) pop.win.document.title = title;
   }, [pop, title]);
-  const props = { title, icon, onClose, footer, width, id, bare, keepOnEscape };
+  const props = { title, icon, onClose, footer, width, id, bare, keepOnEscape, ownGrip };
   if (pop === undefined) return null;
   if (pop === null) return <InlineDialog {...props}>{children}</InlineDialog>;
   return <WindowDialog pop={pop} height={height} {...props}>{children}</WindowDialog>;
