@@ -67,6 +67,9 @@ npm run build:all    # 이 OS에서 만들 수 있는 전부
 npm run build:debug  # 시험용 디버그 프로그램 (설치 파일 없음)
 npm run icons        # assets/icon.svg → src-tauri/icons
 npm run guide:images # doc/images/ko 스크린샷을 실제 프로그램에서 다시 찍기 (build:debug 먼저)
+npm run clean        # 빌드 결과 지우기: dist/, src-tauri/target, src-tauri/gen, 루트의 설치 파일
+npm run clean:all    # 위 + node_modules/ + %TEMP%의 시험용 모델 복사본 · 중단된 시험 폴더
+npm run clean:dry    # clean:all이 지울 목록과 크기만 보기 (아무것도 지우지 않음)
 ```
 
 설치본에는 Node.js 런타임과 운영용 `node_modules`(onnxruntime-node, sherpa-onnx-* 등 네이티브 모듈), 사용 설명서(`doc/`)가 함께 들어갑니다.
