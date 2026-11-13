@@ -45,6 +45,62 @@ module.exports = {
       assert(auto.gamma >= 0.7 && auto.gamma <= 1.45, 'gentle midtone gamma');
     });
 
+    test('Auto improve reads the picture and picks a different correction for a face, a landscape and a night shot', () => {
+      const picture = (w, hgt, paint) => {
+        const img = E.make(w, hgt);
+        for (let y = 0; y < hgt; y++) for (let x = 0; x < w; x++) img.data.set(paint(x, y).concat(255), (y * w + x) * 4);
+        return img;
+      };
+      const face = picture(40, 40, (x, y) => (x >= 12 && x < 28 && y >= 8 && y < 32) ? [214, 156, 128] : [36, 52, 88]);
+      const land = picture(48, 28, (x, y) => y < 10 ? [70, 140, 220] : [48, 132, 46]);
+      const night = picture(16, 16, () => [10, 12, 16]);
+      const sunset = picture(24, 16, () => [220, 110, 40]);
+      const snow = picture(16, 16, () => [232, 234, 236]);
+      const flat = picture(16, 16, () => [128, 128, 128]);
+      const cast = picture(16, 16, () => [150, 160, 210]);
+      const plans = {
+        face: E.suggestEnhance(face),
+        land: E.suggestEnhance(land),
+        night: E.suggestEnhance(night),
+        sunset: E.suggestEnhance(sunset),
+        snow: E.suggestEnhance(snow),
+        flat: E.suggestEnhance(flat),
+        cast: E.suggestEnhance(cast),
+      };
+      assert(plans.face.kind === 'portrait', `face → ${plans.face.kind}`);
+      assert(plans.land.kind === 'landscape', `land → ${plans.land.kind}`);
+      assert(plans.night.kind === 'night', `night → ${plans.night.kind}`);
+      assert(plans.sunset.kind === 'sunset', `sunset → ${plans.sunset.kind}`);
+      assert(plans.snow.kind === 'snow', `snow → ${plans.snow.kind}`);
+      assert(plans.flat.kind === 'flat', `flat → ${plans.flat.kind}`);
+      assert(plans.face.effects.warmth > 0 && plans.face.effects.vibrance < plans.land.effects.vibrance, 'a face stays gentler than a landscape');
+      assert(plans.land.effects.highlights < plans.face.effects.highlights, 'sky highlights come down');
+      assert(plans.night.effects.shadows > plans.land.effects.shadows && plans.night.effects.exposure > 0, 'a dark picture is opened');
+      assert(plans.sunset.effects.warmth > plans.face.effects.warmth, 'a sunset keeps its warmth');
+      assert(plans.flat.effects.contrast > plans.face.effects.contrast, 'a flat picture gets more contrast');
+      assert(plans.face.effects.sepia === 0 && plans.face.effects.grayscale === 0, 'styled looks are cleared');
+      assert(plans.face.effects.levels && plans.face.effects.levels.white > plans.face.effects.levels.black, 'levels still stretch');
+      assert(plans.cast.effects.wb && plans.cast.effects.wb[2] < 1, 'a blue cast is pulled back');
+      assert(plans.face.effects.wb == null, 'skin colour is not neutralised');
+      assertIncludes(app, "auto.className = 'fx-auto-btn'", 'button at the top of the edit effects panel');
+      assertIncludes(app, 'EditTools.autoEnhance()', 'the button runs the same correction as Image › Auto enhance');
+      assert(ko['effects.autoImprove'] && en['effects.autoImprove'] && ko['effects.autoKind.portrait'] && en['effects.autoKind.landscape'], 'labels');
+    });
+
+    test('Auto improve reports a climbing percent, and a long run opens the progress popup', async () => {
+      const img = E.make(32, 40);
+      for (let i = 0; i < img.data.length; i += 4) img.data.set([80, 90, 140, 255], i);
+      const seen = [];
+      const plan = await E.suggestEnhanceAsync(img, async (frac) => { seen.push(frac); });
+      assert(plan.effects.levels && plan.effects.levels.white >= plan.effects.levels.black, 'levels');
+      assert(seen.length >= 3 && seen[0] < seen[seen.length - 1] && seen[seen.length - 1] === 1, `percent ${seen.join(',')}`);
+      for (let i = 1; i < seen.length; i++) assert(seen[i] >= seen[i - 1], 'percent does not go backwards');
+      const tools = h.read('src/js/editTools.js');
+      assertIncludes(tools, 'autoModal: true', 'the status bar starts immediately');
+      assertIncludes(tools, 'if (heavy) dlg.enableModal(title);', 'a large picture opens the popup');
+      assert(ko['progress.autoImproveScan'] && en['progress.autoImproveScan'], 'scanning label');
+    });
+
     /* ── EditOps: masks ── */
     test('Selection grow / shrink / feather / invert work on the mask', () => {
       const w = 9, hh = 9, m = new Uint8ClampedArray(81);

@@ -1463,12 +1463,50 @@ window.EditTools = (() => {
 
   /* ════════════════ Tone ════════════════ */
 
-  function autoEnhance() {
+  async function autoEnhance() {
     const px = Editor.getPixels();
-    if (!px) return;
-    Editor.setEffect('levels', EditOps.autoLevels(px), true);
-    ctx.onPixelsChanged?.();
-    ctx.status?.(t('tone.autoDone'));
+    if (!px || !window.EditOps) return;
+    const dlg = window._ProgressDialog;
+    const title = t('effects.autoImprove') || t('tone.autoEnhance');
+    const heavy = px.width * px.height >= 500000;
+    if (dlg) {
+      dlg.show({
+        title,
+        message: t('progress.autoImproveScan'),
+        percent: 4,
+        autoModal: true,
+      });
+      await dlg.yieldFrame();
+    }
+    let plan;
+    try {
+      if (EditOps.suggestEnhanceAsync) {
+        plan = await EditOps.suggestEnhanceAsync(px, async (frac) => {
+          dlg?.set(4 + frac * 48, t('progress.autoImproveScan'));
+        });
+      } else {
+        plan = EditOps.suggestEnhance
+          ? EditOps.suggestEnhance(px)
+          : { kind: 'general', effects: { levels: EditOps.autoLevels(px) } };
+      }
+      if (dlg) {
+        dlg.set(58, t('progress.effectApplying'));
+        if (heavy) dlg.enableModal(title);
+        dlg.startCreep(92);
+        await dlg.yieldFrame();
+      }
+      Editor.setEffects(plan.effects);
+      document.querySelectorAll('#edit-effects-content .preset-btn.active, #effects-content .preset-btn.active')
+        .forEach((b) => b.classList.remove('active'));
+      ctx.onEffectsChanged?.();
+      const kind = t(`effects.autoKind.${plan.kind}`) || plan.kind;
+      const done = (t('effects.autoDone') || t('tone.autoDone')).replace('{kind}', kind);
+      ctx.status?.(done);
+      if (dlg) dlg.hide(done);
+    } catch (err) {
+      if (dlg) dlg.hide();
+      throw err;
+    }
   }
 
   function resetTone() {

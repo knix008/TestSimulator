@@ -1,7 +1,7 @@
 /* Pixel operations for the image editor: plain functions over { data, width, height }
  * (ImageData in the page, plain objects in the tests). Nothing here touches the DOM.
  *
- *   Tone      toneLUTs, curveLUT, applyTone (incl. vibrance), histogram, autoLevels, wbFromSample
+ *   Tone      toneLUTs, curveLUT, applyTone (incl. vibrance), histogram, autoLevels, suggestEnhance, wbFromSample
  *   Noise     denoise (edge-preserving)
  *   Masks     invertMask, growMask, shrinkMask, featherMask, maskBounds
  *   Pixels    boxBlur, pixelate, blendByMask, inpaint, redEye
@@ -193,15 +193,38 @@
   }
 
   /** Counts per value for red, green, blue and luma (transparent pixels are left out). */
+  function _histBins() {
+    return { r: new Uint32Array(256), g: new Uint32Array(256), b: new Uint32Array(256), l: new Uint32Array(256) };
+  }
+  function _histPixel(bins, d, i) {
+    if (d[i + 3] < 8) return;
+    bins.r[d[i]]++; bins.g[d[i + 1]]++; bins.b[d[i + 2]]++;
+    bins.l[Math.round(0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2])]++;
+  }
   function histogram(img) {
-    const r = new Uint32Array(256), g = new Uint32Array(256), b = new Uint32Array(256), l = new Uint32Array(256);
+    const bins = _histBins();
     const d = img.data;
-    for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] < 8) continue;
-      r[d[i]]++; g[d[i + 1]]++; b[d[i + 2]]++;
-      l[Math.round(0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2])]++;
+    for (let i = 0; i < d.length; i += 4) _histPixel(bins, d, i);
+    return bins;
+  }
+
+  /** Same counts, but yields every few rows so a progress popup can paint. */
+  async function histogramAsync(img, onProgress) {
+    const bins = _histBins();
+    const d = img.data;
+    const w = img.width || 0, h = img.height || 0;
+    const stride = w * 4;
+    const step = Math.max(8, Math.floor(h / 40) || 8);
+    const report = async (frac) => {
+      if (typeof onProgress === 'function') await onProgress(frac);
+    };
+    if (!h || !stride) { await report(1); return bins; }
+    for (let y = 0; y < h; y++) {
+      const row = y * stride;
+      for (let i = row; i < row + stride; i += 4) _histPixel(bins, d, i);
+      if (y % step === step - 1 || y === h - 1) await report((y + 1) / h);
     }
-    return { r, g, b, l };
+    return bins;
   }
 
   function percentile(hist, frac) {
@@ -222,8 +245,7 @@
    * same for all channels, so colours keep their balance) and pull the middle grey
    * toward 50 % with a gentle gamma. Returns levels for toneLUTs.
    */
-  function autoLevels(img, clip = 0.005) {
-    const h = histogram(img);
+  function levelsFromHist(h, clip = 0.005) {
     let black = Math.min(percentile(h.r, clip), percentile(h.g, clip), percentile(h.b, clip));
     let white = Math.max(percentile(h.r, 1 - clip), percentile(h.g, 1 - clip), percentile(h.b, 1 - clip));
     if (white - black < 16) { black = 0; white = 255; }
@@ -233,6 +255,127 @@
     let gamma = Math.log(x) / Math.log(0.5);
     gamma = Math.max(0.7, Math.min(1.45, gamma));
     return { black, white, gamma: Math.round(gamma * 100) / 100, outBlack: 0, outWhite: 255 };
+  }
+
+  function autoLevels(img, clip = 0.005) {
+    return levelsFromHist(histogram(img), clip);
+  }
+
+  /**
+   * Look at a picture and choose a gentle correction for what it seems to be
+   * (a face, a landscape, a night shot, and so on). `effects` is ready for
+   * Editor.setEffects: stylized looks are cleared, borders are left alone.
+   */
+  function suggestEnhance(img, hist) {
+    const w = img.width, h = img.height, data = img.data;
+    const empty = {
+      kind: 'general',
+      effects: {
+        brightness: 100, contrast: 108, saturation: 100, hue: 0,
+        blur: 0, grayscale: 0, sepia: 0, invert: 0, sharpen: 12,
+        emboss: false, edge: false, vignette: 0, warmth: 0, grain: 0,
+        posterize: 0, solarize: 0, tiltShift: 0, tintAmount: 0,
+        exposure: 0, highlights: -8, shadows: 10, vibrance: 14,
+        levels: null, curve: null, wb: null,
+      },
+    };
+    if (!w || !h || !data) return empty;
+    const step = Math.max(1, Math.floor(Math.sqrt((w * h) / 24000)));
+    let n = 0, skin = 0, skinC = 0, nC = 0, sky = 0, nTop = 0, green = 0;
+    let sumR = 0, sumG = 0, sumB = 0, sumL = 0, sumSat = 0;
+    const lumas = [];
+    const x0 = w * 0.28, x1 = w * 0.72, y0 = h * 0.18, y1 = h * 0.82, top = h * 0.34;
+    for (let y = 0; y < h; y += step) {
+      for (let x = 0; x < w; x += step) {
+        const i = (y * w + x) * 4;
+        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+        if (a < 16) continue;
+        n++;
+        sumR += r; sumG += g; sumB += b;
+        const l = (r * 54 + g * 183 + b * 19) >> 8;
+        sumL += l;
+        lumas.push(l);
+        const max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+        const min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+        sumSat += max === 0 ? 0 : (max - min) / max;
+        const isSkin = r > 95 && g > 40 && b > 20 && r > g && r > b && (r - g) > 15 && (max - min) > 15;
+        if (isSkin) skin++;
+        if (x >= x0 && x < x1 && y >= y0 && y < y1) { nC++; if (isSkin) skinC++; }
+        if (y < top) {
+          nTop++;
+          if (b > r + 12 && b > g && l > 70) sky++;
+        }
+        if (g > r + 8 && g > b + 8 && l > 30 && l < 210) green++;
+      }
+    }
+    if (!n) return empty;
+    lumas.sort((a, b) => a - b);
+    const at = (p) => lumas[Math.min(lumas.length - 1, Math.max(0, Math.floor(p * (lumas.length - 1))))];
+    const p50 = at(0.5), p95 = at(0.95);
+    const meanL = sumL / n;
+    const meanR = sumR / n, meanG = sumG / n, meanB = sumB / n;
+    const warm = meanR - meanB;
+    const sat = sumSat / n;
+    const skinFrac = skin / n;
+    const skinCenter = nC ? skinC / nC : 0;
+    const skyFrac = nTop ? sky / nTop : 0;
+    const greenFrac = green / n;
+    const spread = at(0.95) - at(0.05);
+
+    let kind = 'general';
+    if (meanL < 58 && p95 < 155) kind = 'night';
+    else if (skinFrac > 0.06 && skinCenter > 0.16 && skinCenter > skinFrac * 1.35) kind = 'portrait';
+    else if (p50 > 185 && sat < 0.16) kind = 'snow';
+    else if (warm > 28 && meanL > 55 && meanL < 180 && sat > 0.2 && skyFrac < 0.35) kind = 'sunset';
+    else if ((skyFrac > 0.2 && (greenFrac > 0.06 || w >= h * 1.15)) || (greenFrac > 0.2 && skyFrac > 0.08)) kind = 'landscape';
+    else if (spread < 72) kind = 'flat';
+
+    const tune = {
+      portrait:  { contrast: 104, shadows: 16, highlights: -14, vibrance: 10, warmth: 8, sharpen: 16, exposure: 0 },
+      landscape: { contrast: 112, shadows: 14, highlights: -22, vibrance: 26, warmth: 0, sharpen: 20, exposure: 0 },
+      night:     { contrast: 108, shadows: 30, highlights: -8, vibrance: 8, warmth: 0, sharpen: 6, exposure: 10 },
+      sunset:    { contrast: 108, shadows: 8, highlights: -16, vibrance: 16, warmth: 16, sharpen: 10, exposure: 0 },
+      snow:      { contrast: 108, shadows: 6, highlights: -10, vibrance: 8, warmth: 0, sharpen: 12, exposure: 0 },
+      flat:      { contrast: 118, shadows: 8, highlights: -6, vibrance: 8, warmth: 0, sharpen: 18, exposure: 0 },
+      general:   { contrast: 108, shadows: 10, highlights: -8, vibrance: 14, warmth: 0, sharpen: 12, exposure: 0 },
+    }[kind];
+
+    let wb = null;
+    if (kind === 'general' || kind === 'flat') {
+      const cast = Math.max(meanR, meanG, meanB) - Math.min(meanR, meanG, meanB);
+      if (cast > 22) {
+        wb = wbFromSample(meanR, meanG, meanB).map((v) => Math.round((1 + (v - 1) * 0.45) * 1000) / 1000);
+      }
+    }
+    const levels = hist ? levelsFromHist(hist) : autoLevels(img);
+    return {
+      kind,
+      effects: {
+        brightness: 100, saturation: 100, hue: 0,
+        blur: 0, grayscale: 0, sepia: 0, invert: 0,
+        emboss: false, edge: false, vignette: 0, grain: 0,
+        posterize: 0, solarize: 0, tiltShift: 0, tintAmount: 0,
+        curve: null,
+        ...tune,
+        levels,
+        wb,
+      },
+    };
+  }
+
+  /**
+   * suggestEnhance, but the full-frame histogram yields so the caller can paint
+   * a progress percent. onProgress receives 0..1.
+   */
+  async function suggestEnhanceAsync(img, onProgress) {
+    const report = async (frac) => {
+      if (typeof onProgress === 'function') await onProgress(Math.max(0, Math.min(1, frac)));
+    };
+    await report(0.02);
+    const hist = await histogramAsync(img, (f) => report(0.02 + f * 0.96));
+    const plan = suggestEnhance(img, hist);
+    await report(1);
+    return plan;
   }
 
   /** Channel gains that turn the sampled colour neutral grey (each 0.5–2). */
@@ -595,7 +738,7 @@
 
   return {
     make, copy,
-    curveLUT, levelsValue, toneLUTs, toneIsIdentity, hsTable, applyTone, histogram, autoLevels, wbFromSample,
+    curveLUT, levelsValue, toneLUTs, toneIsIdentity, hsTable, applyTone, histogram, histogramAsync, autoLevels, suggestEnhance, suggestEnhanceAsync, wbFromSample,
     invertMask, growMask, shrinkMask, featherMask, maskBounds, shiftMask, combineMasks,
     boxBlur, pixelate, blendByMask, inpaint, redEye, denoise,
     rotatedFit, ratioRect,

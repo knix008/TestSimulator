@@ -2867,6 +2867,27 @@ body.dd-dragging #browse-view .browse-tile.selected { opacity: 0.55; }
   text-overflow: ellipsis;
 }
 .preset-btn:hover { background: var(--bg-hover); border-color: var(--fx-accent, var(--accent)); }
+.fx-auto-btn {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 32px;
+  margin-bottom: 10px;
+  padding: 5px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+}
+.fx-auto-btn .preset-icon { background: rgba(255, 255, 255, 0.22); }
+.fx-auto-btn:hover { filter: brightness(1.08); }
 .preset-btn.active { background: var(--fx-accent, var(--accent)); border-color: var(--fx-accent, var(--accent)); color: #fff; }
 .preset-btn.active .preset-icon { background: rgba(255,255,255,0.22); }
 

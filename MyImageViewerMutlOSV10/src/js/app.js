@@ -7837,6 +7837,27 @@
       return;
     }
 
+    if (mode === 'presets') {
+      const auto = document.createElement('button');
+      auto.type = 'button';
+      auto.className = 'fx-auto-btn';
+      auto.id = `${idPrefix}-auto-improve`;
+      auto.title = I18n.t('effects.autoImproveTip');
+      const icon = document.createElement('span');
+      icon.className = 'preset-icon';
+      icon.innerHTML = Icons.autoFix || '';
+      const lab = document.createElement('span');
+      lab.className = 'preset-label';
+      lab.setAttribute('data-i18n', 'effects.autoImprove');
+      lab.textContent = I18n.t('effects.autoImprove');
+      auto.appendChild(icon);
+      auto.appendChild(lab);
+      auto.addEventListener('click', () => {
+        if (window.EditTools?.autoEnhance) EditTools.autoEnhance();
+      });
+      content.appendChild(auto);
+    }
+
     // Presets
     if (mode !== 'presets') {
       const presetsLabel = document.createElement('div');
