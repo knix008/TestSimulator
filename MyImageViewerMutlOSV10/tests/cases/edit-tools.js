@@ -99,6 +99,29 @@ module.exports = {
       assertIncludes(tools, 'autoModal: true', 'the status bar starts immediately');
       assertIncludes(tools, 'if (heavy) dlg.enableModal(title);', 'a large picture opens the popup');
       assert(ko['progress.autoImproveScan'] && en['progress.autoImproveScan'], 'scanning label');
+      assertIncludes(tools, '_openAutoImproveDialog(plan)', 'the scan opens the settings window');
+      assertIncludes(html, 'id="auto-improve-preview"', 'combined preview');
+      assert(ko['effects.autoSettings'] && en['effects.autoOnly'] && ko['effects.autoLevels'] && en['effects.autoWb'], 'settings labels');
+    });
+
+    test('Each auto-improve setting can be previewed on its own', () => {
+      const dark = E.make(6, 4);
+      for (let i = 0; i < dark.data.length; i += 4) dark.data.set([70, 80, 90, 255], i);
+      const lifted = E.previewEnhance(dark, { exposure: 80 });
+      assert(lifted.data[0] > 70, 'exposure lightens');
+      const punched = E.previewEnhance(dark, { contrast: 160 });
+      assert(punched.data[0] < 70, 'contrast deepens a dark grey');
+      const warm = E.previewEnhance(dark, { warmth: 50 });
+      assert(warm.data[0] > 70 && warm.data[2] < 90, 'warmth moves toward red');
+      const alone = E.previewEnhance(dark, { sharpen: 0, contrast: 100 });
+      assert(Math.abs(alone.data[0] - 70) <= 1, 'neutral settings leave the pixel');
+      assert(E.ENHANCE_TUNES.landscape.vibrance > E.ENHANCE_TUNES.portrait.vibrance, 'recipes stay shared');
+      const tools = h.read('src/js/editTools.js');
+      assertIncludes(tools, 'EditOps.previewEnhance(ai.thumb, _aiFx(row.key))', 'a thumb per setting');
+      assertIncludes(tools, "line.append(label, minus, input, output, plus)", 'decrease, slider, value, increase');
+      assertIncludes(tools, 'AI_KIND_ICON', 'an icon on every scene tab');
+      assertIncludes(css, '.dialog-box.auto-improve-box > .dialog-body { overflow: hidden; }', 'the settings window does not scroll');
+      assert(ko['effects.autoDown'] && en['effects.autoUp'], 'stepper labels');
     });
 
     /* ── EditOps: masks ── */

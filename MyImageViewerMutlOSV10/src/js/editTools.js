@@ -1490,23 +1490,321 @@ window.EditTools = (() => {
           : { kind: 'general', effects: { levels: EditOps.autoLevels(px) } };
       }
       if (dlg) {
-        dlg.set(58, t('progress.effectApplying'));
+        dlg.set(58, t('progress.autoImproveScan'));
         if (heavy) dlg.enableModal(title);
         dlg.startCreep(92);
         await dlg.yieldFrame();
       }
-      Editor.setEffects(plan.effects);
-      document.querySelectorAll('#edit-effects-content .preset-btn.active, #effects-content .preset-btn.active')
-        .forEach((b) => b.classList.remove('active'));
-      ctx.onEffectsChanged?.();
-      const kind = t(`effects.autoKind.${plan.kind}`) || plan.kind;
-      const done = (t('effects.autoDone') || t('tone.autoDone')).replace('{kind}', kind);
-      ctx.status?.(done);
-      if (dlg) dlg.hide(done);
+      if (dlg) dlg.hide();
+      if (!document.getElementById('auto-improve-overlay')) {
+        Editor.setEffects(plan.effects);
+        document.querySelectorAll('#edit-effects-content .preset-btn.active, #effects-content .preset-btn.active')
+          .forEach((b) => b.classList.remove('active'));
+        ctx.onEffectsChanged?.();
+        const kind = t(`effects.autoKind.${plan.kind}`) || plan.kind;
+        ctx.status?.((t('effects.autoDone') || t('tone.autoDone')).replace('{kind}', kind));
+        return;
+      }
+      _openAutoImproveDialog(plan);
     } catch (err) {
       if (dlg) dlg.hide();
       throw err;
     }
+  }
+
+  const AI_SLIDERS = [
+    { key: 'exposure', min: -100, max: 100, neutral: 0, icon: 'aiExposure' },
+    { key: 'contrast', min: 50, max: 160, neutral: 100, icon: 'grayscale' },
+    { key: 'highlights', min: -100, max: 100, neutral: 0, icon: 'aiHighlights' },
+    { key: 'shadows', min: -100, max: 100, neutral: 0, icon: 'aiShadows' },
+    { key: 'vibrance', min: -100, max: 100, neutral: 0, icon: 'aiVibrance' },
+    { key: 'warmth', min: -100, max: 100, neutral: 0, icon: 'aiWarmth' },
+    { key: 'sharpen', min: 0, max: 100, neutral: 0, icon: 'aiSharpen' },
+  ];
+  const AI_KINDS = ['general', 'portrait', 'landscape', 'sunset', 'night', 'snow', 'flat'];
+  const AI_KIND_ICON = {
+    general: 'image', portrait: 'aiPortrait', landscape: 'aiLandscape', sunset: 'aiSunset',
+    night: 'moon', snow: 'aiSnow', flat: 'aiFlat',
+  };
+  let ai = null;
+  let aiFrame = 0;
+
+  function _aiNeutral() {
+    return { exposure: 0, contrast: 100, highlights: 0, shadows: 0, vibrance: 0, warmth: 0, sharpen: 0, levels: null, wb: null };
+  }
+
+  function _aiFx(onlyKey) {
+    const fx = _aiNeutral();
+    if (!ai) return fx;
+    if (!onlyKey || onlyKey === 'exposure') fx.exposure = ai.values.exposure;
+    if (!onlyKey || onlyKey === 'contrast') fx.contrast = ai.values.contrast;
+    if (!onlyKey || onlyKey === 'highlights') fx.highlights = ai.values.highlights;
+    if (!onlyKey || onlyKey === 'shadows') fx.shadows = ai.values.shadows;
+    if (!onlyKey || onlyKey === 'vibrance') fx.vibrance = ai.values.vibrance;
+    if (!onlyKey || onlyKey === 'warmth') fx.warmth = ai.values.warmth;
+    if (!onlyKey || onlyKey === 'sharpen') fx.sharpen = ai.values.sharpen;
+    if ((!onlyKey || onlyKey === 'levels') && ai.levelsOn) fx.levels = ai.levels;
+    if ((!onlyKey || onlyKey === 'wb') && ai.wbOn) fx.wb = ai.wb;
+    if (onlyKey && onlyKey !== 'levels') fx.levels = null;
+    if (onlyKey && onlyKey !== 'wb') fx.wb = null;
+    if (onlyKey && onlyKey !== 'exposure') fx.exposure = 0;
+    if (onlyKey && onlyKey !== 'contrast') fx.contrast = 100;
+    if (onlyKey && onlyKey !== 'highlights') fx.highlights = 0;
+    if (onlyKey && onlyKey !== 'shadows') fx.shadows = 0;
+    if (onlyKey && onlyKey !== 'vibrance') fx.vibrance = 0;
+    if (onlyKey && onlyKey !== 'warmth') fx.warmth = 0;
+    if (onlyKey && onlyKey !== 'sharpen') fx.sharpen = 0;
+    return fx;
+  }
+
+  function _downscale(img, maxEdge) {
+    const sw = img.width, sh = img.height;
+    const scale = Math.min(1, maxEdge / Math.max(sw, sh));
+    const w = Math.max(1, Math.round(sw * scale));
+    const h = Math.max(1, Math.round(sh * scale));
+    if (w === sw && h === sh) return img;
+    const src = document.createElement('canvas');
+    src.width = sw; src.height = sh;
+    const id = img instanceof ImageData ? img : new ImageData(img.data, sw, sh);
+    src.getContext('2d').putImageData(id, 0, 0);
+    const dst = document.createElement('canvas');
+    dst.width = w; dst.height = h;
+    const dc = dst.getContext('2d');
+    dc.imageSmoothingEnabled = true;
+    dc.drawImage(src, 0, 0, w, h);
+    return dc.getImageData(0, 0, w, h);
+  }
+
+  function _paintPreview(canvas, img) {
+    if (!canvas || !img) return;
+    const id = img instanceof ImageData ? img : new ImageData(new Uint8ClampedArray(img.data), img.width, img.height);
+    canvas.width = id.width;
+    canvas.height = id.height;
+    canvas.getContext('2d').putImageData(id, 0, 0);
+  }
+
+  function _aiPaint(onlyKey) {
+    if (!ai || !window.EditOps?.previewEnhance) return;
+    _paintPreview(document.getElementById('auto-improve-preview'), EditOps.previewEnhance(ai.base, _aiFx()));
+    for (const row of ai.rows) {
+      if (onlyKey && row.key !== onlyKey) continue;
+      _paintPreview(row.canvas, EditOps.previewEnhance(ai.thumb, _aiFx(row.key)));
+    }
+  }
+
+  function _aiShowValue(row, value) {
+    if (!row) return;
+    row.input.value = String(value);
+    if (row.output) row.output.textContent = String(value);
+    if (row.minus) row.minus.disabled = value <= row.min;
+    if (row.plus) row.plus.disabled = value >= row.max;
+  }
+
+  function _aiSchedule(onlyKey) {
+    cancelAnimationFrame(aiFrame);
+    aiFrame = requestAnimationFrame(() => _aiPaint(onlyKey));
+  }
+
+  function _aiApplyKind(kind) {
+    const tune = EditOps.ENHANCE_TUNES?.[kind];
+    if (!tune || !ai) return;
+    ai.kind = kind;
+    for (const spec of AI_SLIDERS) {
+      ai.values[spec.key] = tune[spec.key] ?? spec.neutral;
+      const row = ai.rows.find((r) => r.key === spec.key);
+      if (!row) continue;
+      _aiShowValue(row, ai.values[spec.key]);
+    }
+    document.querySelectorAll('#auto-improve-kinds button').forEach((b) => {
+      b.classList.toggle('active', b.dataset.kind === kind);
+    });
+    _aiPaint();
+  }
+
+  function _buildAutoImproveRows() {
+    const kinds = document.getElementById('auto-improve-kinds');
+    const params = document.getElementById('auto-improve-params');
+    if (!kinds || !params || kinds.childElementCount) return;
+    for (const kind of AI_KINDS) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.dataset.kind = kind;
+      const glyph = document.createElement('span');
+      glyph.className = 'ai-kind-icon';
+      glyph.innerHTML = (window.Icons && Icons[AI_KIND_ICON[kind]]) || '';
+      const lab = document.createElement('span');
+      lab.setAttribute('data-i18n', `effects.autoKind.${kind}`);
+      lab.textContent = t(`effects.autoKind.${kind}`);
+      btn.append(glyph, lab);
+      btn.addEventListener('click', () => _aiApplyKind(kind));
+      kinds.appendChild(btn);
+    }
+    const addRow = (key, control) => {
+      const row = document.createElement('div');
+      row.className = 'ai-param';
+      const canvas = document.createElement('canvas');
+      canvas.width = 72;
+      canvas.height = 54;
+      canvas.title = t('effects.autoOnly');
+      const ctl = document.createElement('div');
+      ctl.className = 'ai-param-ctl';
+      ctl.appendChild(control);
+      row.appendChild(canvas);
+      row.appendChild(ctl);
+      params.appendChild(row);
+      return canvas;
+    };
+    ai = ai || { rows: [] };
+    for (const spec of AI_SLIDERS) {
+      const line = document.createElement('div');
+      line.className = 'ai-param-line';
+      const label = document.createElement('span');
+      label.className = 'ai-param-name';
+      const glyph = document.createElement('i');
+      glyph.className = 'ai-param-icon';
+      glyph.innerHTML = (window.Icons && Icons[spec.icon]) || '';
+      const name = document.createElement('span');
+      name.setAttribute('data-i18n', `effects.${spec.key}`);
+      name.textContent = t(`effects.${spec.key}`);
+      label.append(glyph, name);
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = String(spec.min);
+      input.max = String(spec.max);
+      input.step = '1';
+      const output = document.createElement('output');
+      const stepBtn = (dir) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ai-step';
+        btn.textContent = dir < 0 ? '−' : '+';
+        btn.title = t(dir < 0 ? 'effects.autoDown' : 'effects.autoUp');
+        btn.setAttribute('data-i18n-title', dir < 0 ? 'effects.autoDown' : 'effects.autoUp');
+        btn.addEventListener('click', () => {
+          const next = Math.max(spec.min, Math.min(spec.max, Number(input.value) + dir));
+          if (next === Number(input.value)) return;
+          input.value = String(next);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        return btn;
+      };
+      const minus = stepBtn(-1);
+      const plus = stepBtn(1);
+      line.append(label, minus, input, output, plus);
+      const canvas = addRow(spec.key, line);
+      input.addEventListener('input', () => {
+        if (!ai) return;
+        ai.values[spec.key] = Number(input.value);
+        _aiShowValue(ai.rows.find((r) => r.key === spec.key), ai.values[spec.key]);
+        _aiSchedule(spec.key);
+      });
+      ai.rows.push({ key: spec.key, canvas, input, output, minus, plus, min: spec.min, max: spec.max });
+    }
+    const levelsLine = document.createElement('label');
+    levelsLine.className = 'ai-check';
+    const levelsBox = document.createElement('input');
+    levelsBox.type = 'checkbox';
+    levelsBox.id = 'auto-improve-levels';
+    const levelsText = document.createElement('span');
+    levelsText.setAttribute('data-i18n', 'effects.autoLevels');
+    levelsText.textContent = t('effects.autoLevels');
+    const levelsIcon = document.createElement('i');
+    levelsIcon.className = 'ai-param-icon';
+    levelsIcon.innerHTML = (window.Icons && Icons.sliders) || '';
+    levelsLine.append(levelsBox, levelsIcon, levelsText);
+    const levelsCanvas = addRow('levels', levelsLine);
+    levelsBox.addEventListener('change', () => {
+      if (!ai) return;
+      ai.levelsOn = levelsBox.checked;
+      _aiSchedule('levels');
+    });
+    ai.rows.push({ key: 'levels', canvas: levelsCanvas, input: levelsBox });
+    const wbLine = document.createElement('label');
+    wbLine.className = 'ai-check';
+    const wbBox = document.createElement('input');
+    wbBox.type = 'checkbox';
+    wbBox.id = 'auto-improve-wb';
+    const wbText = document.createElement('span');
+    wbText.setAttribute('data-i18n', 'effects.autoWb');
+    wbText.textContent = t('effects.autoWb');
+    const wbIcon = document.createElement('i');
+    wbIcon.className = 'ai-param-icon';
+    wbIcon.innerHTML = (window.Icons && Icons.aiWb) || '';
+    wbLine.append(wbBox, wbIcon, wbText);
+    const wbCanvas = addRow('wb', wbLine);
+    wbBox.addEventListener('change', () => {
+      if (!ai) return;
+      ai.wbOn = wbBox.checked;
+      _aiSchedule('wb');
+    });
+    ai.rows.push({ key: 'wb', canvas: wbCanvas, input: wbBox, wrap: wbLine });
+  }
+
+  function _openAutoImproveDialog(plan) {
+    const px = Editor.getPixels();
+    if (!px || !plan) return;
+    _buildAutoImproveRows();
+    const fx = plan.effects || {};
+    ai = {
+      rows: ai.rows,
+      base: _downscale(px, 640),
+      thumb: _downscale(px, 160),
+      levels: fx.levels || null,
+      wb: fx.wb || null,
+      levelsOn: !!fx.levels,
+      wbOn: !!fx.wb,
+      kind: plan.kind || 'general',
+      values: {},
+    };
+    for (const spec of AI_SLIDERS) {
+      const v = fx[spec.key] == null ? spec.neutral : fx[spec.key];
+      ai.values[spec.key] = v;
+      const row = ai.rows.find((r) => r.key === spec.key);
+      if (!row) continue;
+      _aiShowValue(row, v);
+    }
+    const levels = ai.rows.find((r) => r.key === 'levels');
+    const wb = ai.rows.find((r) => r.key === 'wb');
+    if (levels) levels.input.checked = ai.levelsOn;
+    if (wb) {
+      wb.input.checked = ai.wbOn;
+      wb.input.disabled = !ai.wb;
+      wb.wrap.style.display = ai.wb ? '' : 'none';
+      wb.canvas.parentElement.style.display = ai.wb ? '' : 'none';
+    }
+    document.querySelectorAll('#auto-improve-kinds button').forEach((b) => {
+      b.classList.toggle('active', b.dataset.kind === ai.kind);
+      const lab = b.querySelector('[data-i18n]');
+      if (lab) lab.textContent = t(`effects.autoKind.${b.dataset.kind}`);
+    });
+    _show('auto-improve-overlay');
+    _aiPaint();
+  }
+
+  function _applyAutoImprove() {
+    if (!ai) return;
+    Editor.setEffects({
+      brightness: 100, saturation: 100, hue: 0,
+      blur: 0, grayscale: 0, sepia: 0, invert: 0,
+      emboss: false, edge: false, vignette: 0, grain: 0,
+      posterize: 0, solarize: 0, tiltShift: 0, tintAmount: 0,
+      curve: null,
+      exposure: ai.values.exposure,
+      contrast: ai.values.contrast,
+      highlights: ai.values.highlights,
+      shadows: ai.values.shadows,
+      vibrance: ai.values.vibrance,
+      warmth: ai.values.warmth,
+      sharpen: ai.values.sharpen,
+      levels: ai.levelsOn ? ai.levels : null,
+      wb: ai.wbOn ? ai.wb : null,
+    });
+    document.querySelectorAll('#edit-effects-content .preset-btn.active, #effects-content .preset-btn.active')
+      .forEach((b) => b.classList.remove('active'));
+    ctx.onEffectsChanged?.();
+    const kind = t(`effects.autoKind.${ai.kind}`) || ai.kind;
+    ctx.status?.((t('effects.autoDone') || t('tone.autoDone')).replace('{kind}', kind));
+    _hide('auto-improve-overlay');
   }
 
   function resetTone() {
@@ -1518,6 +1816,13 @@ window.EditTools = (() => {
   let tone = null;   // dialog state { saved, levels, curve, channel, drag }
   const el = {};     // dialog elements, looked up once (dialogs move to their own windows)
 
+  function _bindAutoImprove() {
+    if (!el['auto-improve-ok']) return;
+    el['auto-improve-ok'].addEventListener('click', () => _applyAutoImprove());
+    el['auto-improve-cancel'].addEventListener('click', () => _hide('auto-improve-overlay'));
+    el['auto-improve-close'].addEventListener('click', () => _hide('auto-improve-overlay'));
+  }
+
   function _initDialogs() {
     for (const id of ['tone-overlay', 'tone-curve', 'tone-levels-hist', 'tone-in-black', 'tone-gamma', 'tone-in-white', 'tone-out-black', 'tone-out-white',
       'tone-auto', 'tone-reset', 'tone-cancel', 'tone-ok', 'tone-close',
@@ -1525,7 +1830,8 @@ window.EditTools = (() => {
       'canvas-size-ok', 'canvas-size-cancel', 'canvas-size-close',
       'watermark-overlay', 'wm-text', 'wm-font', 'wm-color', 'wm-size', 'wm-size-val', 'wm-opacity', 'wm-opacity-val', 'wm-angle', 'wm-angle-val',
       'wm-anchor', 'wm-tile', 'wm-shadow', 'watermark-ok', 'watermark-cancel', 'watermark-close',
-      'amount-overlay', 'amount-title', 'amount-label', 'amount-range', 'amount-number', 'amount-ok', 'amount-cancel', 'amount-close']) {
+      'amount-overlay', 'amount-title', 'amount-label', 'amount-range', 'amount-number', 'amount-ok', 'amount-cancel', 'amount-close',
+      'auto-improve-overlay', 'auto-improve-ok', 'auto-improve-cancel', 'auto-improve-close']) {
       el[id] = document.getElementById(id);
     }
     if (!el['tone-overlay'] || el['tone-overlay']._etBound) return;
@@ -1534,6 +1840,7 @@ window.EditTools = (() => {
     _bindCanvasSize();
     _bindWatermark();
     _bindAmount();
+    _bindAutoImprove();
   }
 
   const _show = (id) => (ctx.showDialog ? ctx.showDialog(id) : (el[id].style.display = 'flex', el[id].classList.add('visible')));

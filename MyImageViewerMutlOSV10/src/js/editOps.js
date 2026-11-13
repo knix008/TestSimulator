@@ -261,6 +261,16 @@
     return levelsFromHist(histogram(img), clip);
   }
 
+  const ENHANCE_TUNES = {
+    portrait:  { contrast: 104, shadows: 16, highlights: -14, vibrance: 10, warmth: 8, sharpen: 16, exposure: 0 },
+    landscape: { contrast: 112, shadows: 14, highlights: -22, vibrance: 26, warmth: 0, sharpen: 20, exposure: 0 },
+    night:     { contrast: 108, shadows: 30, highlights: -8, vibrance: 8, warmth: 0, sharpen: 6, exposure: 10 },
+    sunset:    { contrast: 108, shadows: 8, highlights: -16, vibrance: 16, warmth: 16, sharpen: 10, exposure: 0 },
+    snow:      { contrast: 108, shadows: 6, highlights: -10, vibrance: 8, warmth: 0, sharpen: 12, exposure: 0 },
+    flat:      { contrast: 118, shadows: 8, highlights: -6, vibrance: 8, warmth: 0, sharpen: 18, exposure: 0 },
+    general:   { contrast: 108, shadows: 10, highlights: -8, vibrance: 14, warmth: 0, sharpen: 12, exposure: 0 },
+  };
+
   /**
    * Look at a picture and choose a gentle correction for what it seems to be
    * (a face, a landscape, a night shot, and so on). `effects` is ready for
@@ -330,15 +340,7 @@
     else if ((skyFrac > 0.2 && (greenFrac > 0.06 || w >= h * 1.15)) || (greenFrac > 0.2 && skyFrac > 0.08)) kind = 'landscape';
     else if (spread < 72) kind = 'flat';
 
-    const tune = {
-      portrait:  { contrast: 104, shadows: 16, highlights: -14, vibrance: 10, warmth: 8, sharpen: 16, exposure: 0 },
-      landscape: { contrast: 112, shadows: 14, highlights: -22, vibrance: 26, warmth: 0, sharpen: 20, exposure: 0 },
-      night:     { contrast: 108, shadows: 30, highlights: -8, vibrance: 8, warmth: 0, sharpen: 6, exposure: 10 },
-      sunset:    { contrast: 108, shadows: 8, highlights: -16, vibrance: 16, warmth: 16, sharpen: 10, exposure: 0 },
-      snow:      { contrast: 108, shadows: 6, highlights: -10, vibrance: 8, warmth: 0, sharpen: 12, exposure: 0 },
-      flat:      { contrast: 118, shadows: 8, highlights: -6, vibrance: 8, warmth: 0, sharpen: 18, exposure: 0 },
-      general:   { contrast: 108, shadows: 10, highlights: -8, vibrance: 14, warmth: 0, sharpen: 12, exposure: 0 },
-    }[kind];
+    const tune = ENHANCE_TUNES[kind];
 
     let wb = null;
     if (kind === 'general' || kind === 'flat') {
@@ -376,6 +378,60 @@
     const plan = suggestEnhance(img, hist);
     await report(1);
     return plan;
+  }
+
+  /**
+   * The auto-improve look on a (usually small) image, for the settings preview.
+   * `fx` uses the same knobs as the dialog: exposure, contrast, highlights, shadows,
+   * vibrance, warmth, sharpen, and optional levels / wb. Returns a new image.
+   */
+  function previewEnhance(img, fx = {}) {
+    const out = applyTone(img, {
+      exposure: fx.exposure || 0,
+      highlights: fx.highlights || 0,
+      shadows: fx.shadows || 0,
+      vibrance: fx.vibrance || 0,
+      levels: fx.levels || null,
+      wb: fx.wb || null,
+    });
+    const d = out.data;
+    const warm = (Number(fx.warmth) || 0) / 100;
+    const contrast = (fx.contrast == null || fx.contrast === '' ? 100 : Number(fx.contrast)) / 100;
+    if (warm || contrast !== 1) {
+      for (let i = 0; i < d.length; i += 4) {
+        let r = d[i], g = d[i + 1], b = d[i + 2];
+        if (warm) { r += warm * 30; b -= warm * 20; }
+        if (contrast !== 1) {
+          r = (r - 128) * contrast + 128;
+          g = (g - 128) * contrast + 128;
+          b = (b - 128) * contrast + 128;
+        }
+        d[i] = r < 0 ? 0 : r > 255 ? 255 : r;
+        d[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g;
+        d[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+      }
+    }
+    const sharp = Math.max(0, Math.min(1, (Number(fx.sharpen) || 0) / 100));
+    if (sharp < 0.01) return out;
+    const w = out.width, h = out.height, s = d;
+    const sharpOut = make(w, h);
+    const o = sharpOut.data;
+    const a = sharp * 1.7;
+    for (let y = 0; y < h; y++) {
+      const ym = y > 0 ? y - 1 : y, yp = y + 1 < h ? y + 1 : y;
+      for (let x = 0; x < w; x++) {
+        const xm = x > 0 ? x - 1 : x, xp = x + 1 < w ? x + 1 : x;
+        const i = (y * w + x) * 4;
+        for (let c = 0; c < 3; c++) {
+          const v = s[i + c];
+          const n = (s[(y * w + xm) * 4 + c] + s[(y * w + xp) * 4 + c] + s[(ym * w + x) * 4 + c] + s[(yp * w + x) * 4 + c]) * 0.25;
+          const z = v + (v - n) * a;
+          o[i + c] = z < 0 ? 0 : z > 255 ? 255 : z;
+        }
+        o[i + 3] = s[i + 3];
+      }
+    }
+    return sharpOut;
   }
 
   /** Channel gains that turn the sampled colour neutral grey (each 0.5–2). */
@@ -738,7 +794,7 @@
 
   return {
     make, copy,
-    curveLUT, levelsValue, toneLUTs, toneIsIdentity, hsTable, applyTone, histogram, histogramAsync, autoLevels, suggestEnhance, suggestEnhanceAsync, wbFromSample,
+    curveLUT, levelsValue, toneLUTs, toneIsIdentity, hsTable, applyTone, histogram, histogramAsync, autoLevels, suggestEnhance, suggestEnhanceAsync, previewEnhance, ENHANCE_TUNES, wbFromSample,
     invertMask, growMask, shrinkMask, featherMask, maskBounds, shiftMask, combineMasks,
     boxBlur, pixelate, blendByMask, inpaint, redEye, denoise,
     rotatedFit, ratioRect,

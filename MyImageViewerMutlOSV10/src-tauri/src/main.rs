@@ -223,6 +223,11 @@ fn dialog_label(fragment: Option<&str>) -> Option<String> {
         .map(str::to_string)
 }
 
+/// Dialogs whose window stays the size of their content.
+fn is_fixed_dialog(label: &str) -> bool {
+    label == "dialog-auto-improve-overlay"
+}
+
 fn dialog_window(app: &AppHandle, url: &tauri::Url, features: NewWindowFeatures) -> NewWindowResponse<tauri::Wry> {
     let Some(label) = dialog_label(url.fragment()) else {
         return NewWindowResponse::Deny;
@@ -233,11 +238,12 @@ fn dialog_window(app: &AppHandle, url: &tauri::Url, features: NewWindowFeatures)
     // The user's guide (Help) is a window of its own: on the taskbar, can be minimised and
     // maximised, not owned by the main window (which stays usable beside it).
     let standalone = is_standalone_dialog(&label);
+    let fixed = is_fixed_dialog(&label);
     let mut b = WebviewWindowBuilder::new(app, label, WebviewUrl::External("about:blank".parse().expect("about:blank")))
         .window_features(features)
         .title(if standalone { "MyImageViewer — Help" } else { "MyImageViewer" })
         .decorations(false)
-        .resizable(true)
+        .resizable(!fixed)
         .maximizable(standalone)
         .minimizable(standalone)
         .skip_taskbar(!standalone)
@@ -312,6 +318,12 @@ fn fit_dialog(app: AppHandle, label: String, width: f64, height: f64, place: boo
         // taller (a blank band under the dialog's buttons); once shown, it takes the size
         // exactly — so give it again.
         let _ = dialog.set_size(tauri::LogicalSize::new(w, h));
+    }
+    if is_fixed_dialog(&label) {
+        let size = tauri::LogicalSize::new(w, h);
+        let _ = dialog.set_resizable(false);
+        let _ = dialog.set_min_size(Some(size));
+        let _ = dialog.set_max_size(Some(size));
     }
     true
 }

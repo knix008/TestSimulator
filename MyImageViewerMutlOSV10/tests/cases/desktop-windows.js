@@ -82,6 +82,9 @@ module.exports = {
     test('Dialog windows: title row drags the window, main window blocked meanwhile', () => {
       assertIncludes(css, 'html.dialog-window .dialog-overlay .dialog-header', 'drag region');
       assertIncludes(css, '#dialog-window-blocker', 'blocker');
+      assertIncludes(rust, 'fn is_fixed_dialog', 'a dialog can be fixed size');
+      assertIncludes(rust, 'label == "dialog-auto-improve-overlay"', 'auto improve cannot be resized');
+      assertIncludes(rust, 'dialog.set_resizable(false)', 'the fitted window stays that size');
     });
 
     test('Tooltips and the file dialog keys work inside a dialog window', () => {

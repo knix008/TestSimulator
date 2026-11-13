@@ -1545,6 +1545,34 @@ Do you want to save before closing?</p>
 
   <!-- ═══ Edit window dialogs (editTools.js) ═══ -->
   <!-- Tone curve & levels: live preview on the picture, OK = one undo step -->
+  <div id="auto-improve-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box auto-improve-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="autoFix"></span>
+          <span data-i18n="effects.autoSettings">Auto improve settings</span>
+        </span>
+        <button class="dialog-close-btn" type="button" id="auto-improve-close" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body auto-improve-body">
+        <div class="auto-improve-stage">
+          <canvas id="auto-improve-preview"></canvas>
+          <div class="auto-improve-caption" data-i18n="effects.autoResult">All settings together</div>
+        </div>
+        <div class="auto-improve-controls">
+          <div class="auto-improve-kinds" id="auto-improve-kinds" role="radiogroup"></div>
+          <div class="auto-improve-params" id="auto-improve-params"></div>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" id="auto-improve-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
+        <button type="button" class="primary" id="auto-improve-ok" data-i18n="effects.apply">Apply</button>
+      </div>
+    </div>
+  </div>
+
   <div id="tone-overlay" class="dialog-overlay" style="display:none;">
     <div class="dialog-box tone-dialog-box">
       <div class="dialog-header">
