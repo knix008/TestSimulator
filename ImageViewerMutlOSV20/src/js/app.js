@@ -1041,6 +1041,7 @@
       { icon: Icons.panelRight, label: t('menu.rightPanel'), checked: _layout.right, action: () => _toggleRightPanel() },
       { separator: true },
       { icon: Icons.viewGrid, label: t('menu.browseMode'), checked: _browseMode, action: () => _toggleBrowseMode() },
+      { icon: Icons.filmstrip, label: t('menu.filmstrip'), checked: !!window.Filmstrip?.isEnabled?.(), action: () => _toggleFilmstrip() },
       { separator: true },
       !web && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', action: () => window.electronAPI.toggleFullscreen?.() },
       !web && { icon: Icons.panelRight, label: t('menu.minimize'), action: () => window.electronAPI.windowMinimize?.() },
@@ -5197,6 +5198,75 @@
       el.hidden = !show;
       _setChromeBtn(el, canNext);
     });
+    _syncFilmstrip();
+  }
+
+  /* ════════════════════════════════════════════
+     Filmstrip (folder siblings under the viewer)
+  ════════════════════════════════════════════ */
+  /** The strip follows the open file: same list and order as prev / next. */
+  function _syncFilmstrip() {
+    if (!window.Filmstrip) return;
+    if (state.currentFile && state.fileList?.length && state.fileIndex >= 0) {
+      Filmstrip.update(state.fileList, state.fileIndex);
+    } else {
+      Filmstrip.hide();
+    }
+  }
+
+  async function _filmstripOpen(filePath, index) {
+    if (!filePath) return;
+    if (state.editMode) {
+      const closed = await _requestCloseEditWindow(false);
+      if (!closed) return;
+    }
+    state.fileIndex = index;
+    _openFile(filePath);
+  }
+
+  /** Leftmost tile: up to the folder that holds the open file's folder. */
+  async function _filmstripUp() {
+    if (!state.currentFile) return;
+    try {
+      const dir = await window.electronAPI.pathDirname(state.currentFile);
+      const parent = dir ? await window.electronAPI.pathDirname(dir) : '';
+      if (!parent || _normDirKey(parent) === _normDirKey(dir)) return;   // at a drive root
+      if (state.editMode) {
+        const closed = await _requestCloseEditWindow(false);
+        if (!closed) return;
+      }
+      if (_browseMode) {
+        // Browse mode: the parent's contact sheet, with the folder we came from selected
+        _rememberRecentDir(parent);
+        _watchDir(parent);
+        FileTree.revealPath?.(parent);
+        Browse.show(parent);
+        await Browse.open(parent);
+        Browse.select?.(dir);
+      } else {
+        await _openFolder(parent);
+      }
+    } catch (e) {
+      console.warn('filmstrip up:', e);
+    }
+  }
+
+  function _toggleFilmstrip() {
+    if (!window.Filmstrip) return;
+    Filmstrip.setEnabled(!Filmstrip.isEnabled());
+    _syncFilmstrip();
+  }
+
+  function _initFilmstrip() {
+    const host = document.getElementById('filmstrip');
+    if (!host || !window.Filmstrip) return;
+    Filmstrip.init(host, {
+      onOpen: (p, i) => _filmstripOpen(p, i),
+      onPrev: () => _prevImage(),
+      onNext: () => _nextImage(),
+      onUp: () => _filmstripUp(),
+    });
+    _syncFilmstrip();
   }
 
   function _initViewerNavButtons() {
@@ -7798,6 +7868,8 @@
   ════════════════════════════════════════════ */
   function _showPlaceholder(show) {
     imagePlaceholder.style.display = show ? 'flex' : 'none';
+    // No open file (closed / deleted / empty folder) — no strip of its siblings either
+    if (show && !state.currentFile) window.Filmstrip?.hide();
     if (show) {
       displayCanvas.style.display = 'none';
       selCanvas.style.display = 'none';
@@ -9320,6 +9392,7 @@
     _dicomOverlayRequest();
     // Chrome built in JS (not via data-i18n) has to be rebuilt by hand
     window.Browse?.applyI18n?.();
+    window.Filmstrip?.applyI18n?.();
     window.FileTree?.applyI18n?.();
     _fillSettingsThemeButtons();   // theme names are translated too
     _syncBrowseChrome();
@@ -9528,6 +9601,7 @@
       canDrag: window.electronAPI.platform !== 'web' && typeof window.electronAPI.transferIntoDir === 'function',
     });
     _applyBrowseMode({ initial: true });
+    _initFilmstrip();
   }
 
   function _applyBrowseMode({ initial = false } = {}) {

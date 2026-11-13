@@ -16,12 +16,19 @@ out/
 
 # Installers copied to the project root by scripts/copy-dist.js
 /ImageViewer*.exe
+/MyImageViewer*.exe
 /ImageViewer*.msi
+/MyImageViewer*.msi
 /ImageViewer*.dmg
+/MyImageViewer*.dmg
 /ImageViewer*.pkg
+/MyImageViewer*.pkg
 /ImageViewer*.AppImage
+/MyImageViewer*.AppImage
 /ImageViewer*.deb
+/MyImageViewer*.deb
 /ImageViewer*.rpm
+/MyImageViewer*.rpm
 
 # Electron
 .electron-cache/

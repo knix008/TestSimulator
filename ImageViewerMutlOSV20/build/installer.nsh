@@ -1,4 +1,4 @@
-; Image Viewer — clean reinstall support for electron-builder NSIS
+; MyImageViewer — clean reinstall support for electron-builder NSIS
 ; On upgrade/reinstall: quit the running app, remove the old install dir,
 ; and wipe Electron userData so the previous program is fully replaced.
 ; Optional page: register as the default app for supported image formats.
@@ -11,12 +11,17 @@ Var AssocPageHwnd
 
 !macro KillImageViewerProcesses
   ; Force-close any running instance so files can be deleted
+  nsExec::ExecToLog 'cmd /c taskkill /F /IM "MyImageViewer.exe" /T >nul 2>&1'
+  ; previous product name (before the rename to MyImageViewer)
   nsExec::ExecToLog 'cmd /c taskkill /F /IM "Image Viewer.exe" /T >nul 2>&1'
   Sleep 800
 !macroend
 
 !macro RemoveImageViewerUserData
   SetShellVarContext current
+  RMDir /r "$APPDATA\MyImageViewer"
+  RMDir /r "$LOCALAPPDATA\MyImageViewer"
+  ; previous product name (before the rename to MyImageViewer)
   RMDir /r "$APPDATA\Image Viewer"
   RMDir /r "$LOCALAPPDATA\Image Viewer"
   ; package name fallback (dev / older builds)
@@ -54,13 +59,14 @@ Var AssocPageHwnd
 !macroend
 
 !macro _ClearImageViewerFileCapabilities
+  DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "MyImageViewer"
   DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "Image Viewer"
   DeleteRegKey SHELL_CONTEXT "Software\com.shkwon.imageviewer\Capabilities"
 !macroend
 
 !macro _WriteImageViewerFileCapabilities
-  WriteRegStr SHELL_CONTEXT "Software\com.shkwon.imageviewer\Capabilities" "ApplicationName" "Image Viewer"
-  WriteRegStr SHELL_CONTEXT "Software\com.shkwon.imageviewer\Capabilities" "ApplicationDescription" "Image Viewer"
+  WriteRegStr SHELL_CONTEXT "Software\com.shkwon.imageviewer\Capabilities" "ApplicationName" "MyImageViewer"
+  WriteRegStr SHELL_CONTEXT "Software\com.shkwon.imageviewer\Capabilities" "ApplicationDescription" "MyImageViewer"
   WriteRegStr SHELL_CONTEXT "Software\com.shkwon.imageviewer\Capabilities" "ApplicationIcon" "$appExe,0"
   WriteRegStr SHELL_CONTEXT "Software\com.shkwon.imageviewer\Capabilities\FileAssociations" ".jpg" "ImageViewer.jpeg"
   WriteRegStr SHELL_CONTEXT "Software\com.shkwon.imageviewer\Capabilities\FileAssociations" ".jpeg" "ImageViewer.jpeg"
@@ -78,7 +84,9 @@ Var AssocPageHwnd
   WriteRegStr SHELL_CONTEXT "Software\com.shkwon.imageviewer\Capabilities\FileAssociations" ".hif" "ImageViewer.heic"
   WriteRegStr SHELL_CONTEXT "Software\com.shkwon.imageviewer\Capabilities\FileAssociations" ".dcm" "ImageViewer.dcm"
   WriteRegStr SHELL_CONTEXT "Software\com.shkwon.imageviewer\Capabilities\FileAssociations" ".dicom" "ImageViewer.dcm"
-  WriteRegStr SHELL_CONTEXT "Software\RegisteredApplications" "Image Viewer" "Software\com.shkwon.imageviewer\Capabilities"
+  ; the entry under the previous product name would list the app twice in Default apps
+  DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "Image Viewer"
+  WriteRegStr SHELL_CONTEXT "Software\RegisteredApplications" "MyImageViewer" "Software\com.shkwon.imageviewer\Capabilities"
 !macroend
 
 !macro customInstall

@@ -31,6 +31,7 @@ window.Icons = {
   close: `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`,
   delete: `<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`,
   arrowUp: `<svg viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8z"/></svg>`,
+  filmstrip: `<svg viewBox="0 0 24 24"><path d="M3 4h18v16H3V4zm2 2v2h2V6H5zm12 0v2h2V6h-2zM5 16v2h2v-2H5zm12 0v2h2v-2h-2zM5 10v4h4v-4H5zm5 0v4h4v-4h-4zm5 0v4h4v-4h-4z"/></svg>`,
   viewGrid: `<svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg>`,
   viewList: `<svg viewBox="0 0 24 24"><path d="M3 5h4v4H3V5zm6 1h12v2H9V6zM3 11h4v4H3v-4zm6 1h12v2H9v-2zm-6 5h4v4H3v-4zm6 1h12v2H9v-2z"/></svg>`,
   viewDetails: `<svg viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 4h18v2H3V9zm0 4h18v2H3v-2zm0 4h18v2H3v-2z"/></svg>`,

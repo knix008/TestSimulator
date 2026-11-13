@@ -724,6 +724,19 @@ window.Browse = (() => {
     _notifyVisibility(was);
   }
 
+  /** Select `path` (e.g. the folder just left by going up) and bring its tile into view. */
+  function select(path) {
+    if (!_grid) return;
+    const tile = [..._grid.querySelectorAll('.browse-tile')].find((el) => _same(el.dataset.path, path));
+    if (!tile) return;
+    _select(tile.dataset.path);
+    // Scroll the grid only — scrollIntoView would also move overflow:hidden ancestors.
+    const g = _grid.getBoundingClientRect(), r = tile.getBoundingClientRect();
+    if (r.top < g.top || r.bottom > g.bottom) {
+      _grid.scrollTop += (r.top - g.top) - (g.height - r.height) / 2;
+    }
+  }
+
   function applyI18n() {
     if (!_root) return;
     _buildChrome();          // labels are baked in, so the bar has to be rebuilt
@@ -736,7 +749,7 @@ window.Browse = (() => {
   }
 
   return {
-    init, open, show, hide, refresh, goUp, setMode, setSize,
+    init, open, show, hide, refresh, goUp, setMode, setSize, select,
     stepSize: _stepSize, getDir, isVisible, applyI18n, getSelectedPaths, selectAll, DRAG_MIME,
   };
 })();

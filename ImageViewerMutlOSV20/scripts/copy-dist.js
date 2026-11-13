@@ -25,7 +25,7 @@ function isInstallerFile(name) {
   const ext = path.extname(lower);
   if (!INSTALLER_EXTS.has(ext)) return false;
   if (ext === '.exe' && /elevate|unpacked|blockmap/i.test(name)) return false;
-  return /^ImageViewer/i.test(name);
+  return /^(My)?ImageViewer/i.test(name);   // MyImageViewer-*, plus copies from before the rename
 }
 
 function findInstallersInDist() {

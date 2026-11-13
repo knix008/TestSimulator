@@ -2,7 +2,7 @@
 
 ## Overview
 
-Image Viewer **v1.0.2** is a cross-platform image viewer and editor built with **Electron 28** and vanilla JavaScript. The same renderer (`src/`) runs in two modes:
+MyImageViewer **v1.0.2** is a cross-platform image viewer and editor built with **Electron 28** and vanilla JavaScript. The same renderer (`src/`) runs in two modes:
 
 1. **Desktop** — Electron main + preload IPC (`npm start`)
 2. **Web** — Express static server + browser `electronAPI` shim (`npm run web`)
@@ -202,7 +202,7 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 |---|---|
 | `start-dev.js` | Windows: launch icon-patched Electron clone as `ImageViewer-*.exe` |
 | `patch-electron-icon.js` | Embed `src/assets/icon.ico` via **rcedit** (`postinstall` / `patch:icon`) |
-| `after-pack.js` | Embed the same ICO into packaged `Image Viewer.exe` |
+| `after-pack.js` | Embed the same ICO into packaged `MyImageViewer.exe` |
 | `copy-dist.js` | Copy installers from `dist/` to the project root |
 | `stamp-version.js` | Write the build date as `buildNumber` before a build |
 | `build-report.js` | Size report of the last Windows build (`npm run build:report`) |
@@ -275,7 +275,7 @@ Packaged builds use `package.json → build.win/mac/linux.icon`. Toolbar shows *
 
 ## Build & Distribution
 
-**electron-builder** packages the app; `afterAllArtifactBuild` (`scripts/copy-dist.js`) copies installer files (`.exe`, `.dmg`, `.AppImage`, …) from `dist/` to the project root. `npm run build:win` also runs the copy step explicitly after packaging; `build:win:setup` builds the NSIS installer only.
+**electron-builder** packages the app; `afterAllArtifactBuild` (`scripts/copy-dist.js`) copies installer files (`.exe`, `.dmg`, `.AppImage`, …) from `dist/` to the project root. The copy runs only from that hook (the `build:*` scripts no longer call it a second time); `build:win:setup` builds the NSIS installer only.
 
 Package size / speed (`package.json` → `build`):
 - `files`: the app sources plus negative globs that drop `.map` / `.d.ts` / tests / docs, the unused **exifr** bundles (only `dist/full.umd.js` is required), the asm.js **libheif** build and `.mjs` duplicate, the **cornerstone** codec `.wasm` variants and full (encoder) builds — the app only loads the pure-JS `*_decode.js` files in both Node and the renderer — plus sharp's C++ sources and pngjs's browser bundle.
@@ -287,9 +287,9 @@ Package size / speed (`package.json` → `build`):
 Windows NSIS (`build/installer.nsh` + `fileAssocPage.nsh`):
 
 - Kills any running instance, removes the previous install directory and userData, then installs fresh.
-- `perMachine: true` so file associations can be written to HKLM.
+- `perMachine: false` — the Setup runs without administrator rights: by default it installs for the current user (`%LOCALAPPDATA%\Programs\MyImageViewer`) and writes file associations to HKCU. "Anyone who uses this computer" is still offered on the install-mode page and elevates only then.
 - `fileAssociations` in `package.json` register JPEG, PNG, GIF, BMP, WebP, AVIF, SVG, ICO, TIFF, HEIC/HEIF/HIF, DICOM.
-- Custom page (default **checked**): “Set Image Viewer as the default app for supported image files.” Unchecking runs `APP_UNASSOCIATE` after electron-builder’s register step. Silent installs keep associations.
+- Custom page (default **checked**): “Set MyImageViewer as the default app for supported image files.” Unchecking runs `APP_UNASSOCIATE` after electron-builder’s register step. Silent installs keep associations.
 - Capabilities are written under `Software\com.shkwon.imageviewer\Capabilities` and `RegisteredApplications` so the app appears in Windows **Default apps**.
 - Video/audio extensions are **not** associated, so media players are not replaced.
 

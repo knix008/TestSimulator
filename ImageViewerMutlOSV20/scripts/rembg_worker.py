@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-rembg_worker.py — AI background removal for Image Viewer (Electron).
+rembg_worker.py — AI background removal for MyImageViewer (Electron).
 
 Usage:
   python rembg_worker.py <model> <input_path> <output_path>

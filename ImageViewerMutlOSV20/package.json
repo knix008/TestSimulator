@@ -1,7 +1,7 @@
 {
   "name": "image-viewer-multios",
   "version": "1.0.2",
-  "buildNumber": "20260928",
+  "buildNumber": "20261113",
   "description": "Multi-platform image viewer and editor with dark/light themes and Korean/English support",
   "author": "SHKWON",
   "main": "main.js",
@@ -13,11 +13,11 @@
     "patch:icon": "node scripts/patch-electron-icon.js --force",
     "create-icons": "node scripts/create-icons.js",
     "stamp": "node scripts/stamp-version.js",
-    "build:win": "node scripts/stamp-version.js && electron-builder --win --publish never && node scripts/copy-dist.js win",
-    "build:win:setup": "node scripts/stamp-version.js && electron-builder --win nsis --publish never && node scripts/copy-dist.js win",
-    "build:mac": "node scripts/stamp-version.js && electron-builder --mac --publish never && node scripts/copy-dist.js mac",
-    "build:linux": "node scripts/stamp-version.js && electron-builder --linux --publish never && node scripts/copy-dist.js linux",
-    "build:all": "node scripts/stamp-version.js && electron-builder --win --mac --linux --publish never && node scripts/copy-dist.js",
+    "build:win": "node scripts/stamp-version.js && electron-builder --win --publish never",
+    "build:win:setup": "node scripts/stamp-version.js && electron-builder --win nsis --publish never",
+    "build:mac": "node scripts/stamp-version.js && electron-builder --mac --publish never",
+    "build:linux": "node scripts/stamp-version.js && electron-builder --linux --publish never",
+    "build:all": "node scripts/stamp-version.js && electron-builder --win --mac --linux --publish never",
     "build:report": "node scripts/build-report.js",
     "copy-dist": "node scripts/copy-dist.js"
   },
@@ -29,7 +29,7 @@
   },
   "build": {
     "appId": "com.shkwon.imageviewer",
-    "productName": "Image Viewer",
+    "productName": "MyImageViewer",
     "copyright": "Copyright © 2024–2026 SHKWON",
     "directories": {
       "output": "dist"
@@ -176,7 +176,7 @@
       }
     ],
     "win": {
-      "artifactName": "ImageViewer-${version}.${ext}",
+      "artifactName": "MyImageViewer-${version}.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -195,16 +195,16 @@
       "signAndEditExecutable": false
     },
     "portable": {
-      "artifactName": "ImageViewer-Portable-${version}.${ext}"
+      "artifactName": "MyImageViewer-Portable-${version}.${ext}"
     },
     "nsis": {
-      "artifactName": "ImageViewer-Setup-${version}.${ext}",
+      "artifactName": "MyImageViewer-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Image Viewer",
+      "shortcutName": "MyImageViewer",
       "installerIcon": "src/assets/icon.ico",
       "uninstallerIcon": "src/assets/icon.ico",
       "installerHeaderIcon": "src/assets/icon.ico",
@@ -212,7 +212,7 @@
       "include": "build/installer.nsh",
       "menuCategory": "Image Tools",
       "differentialPackage": false,
-      "perMachine": true,
+      "perMachine": false,
       "warningsAsErrors": false,
       "installerLanguages": [
         "en_US",
@@ -265,7 +265,7 @@
       ]
     },
     "dmg": {
-      "title": "Image Viewer ${version}",
+      "title": "MyImageViewer ${version}",
       "background": "src/assets/dmg-background.png",
       "contents": [
         {

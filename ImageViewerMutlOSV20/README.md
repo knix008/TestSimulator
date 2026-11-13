@@ -1,4 +1,4 @@
-# Image Viewer Multi-OS
+# MyImageViewer
 
 다양한 이미지 형식을 지원하는 멀티 플랫폼 이미지 뷰어 및 편집기입니다.  
 A multi-platform image viewer and editor built with **Electron** and vanilla JavaScript.  
@@ -113,7 +113,7 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
   - Toolbar, custom app icon (`src/assets`)
 
 - **Installer / 설치**
-  - Windows NSIS can register Image Viewer as the default app for supported **image** formats
+  - Windows NSIS can register MyImageViewer as the default app for supported **image** formats
   - Double-clicking an associated file opens it in a single app instance
 
 - **Run modes / 실행 모드**
@@ -156,7 +156,7 @@ Use **Open File** / **Open Folder** (or drag-and-drop) to load images. The explo
 ### Build / 빌드
 
 ```bash
-npm run build:win        # Windows NSIS + portable → root에 설치 파일 복사
+npm run build:win        # Windows NSIS + portable → root에 설치 파일 1회 복사 (afterAllArtifactBuild)
 npm run build:win:setup  # NSIS 설치 파일만 (절반 시간)
 npm run copy-dist        # dist/ 설치 파일을 루트로 재복사
 npm run build:mac        # macOS DMG
@@ -167,7 +167,7 @@ npm run build:report     # 마지막 빌드의 용량 분석 (설치 파일 · �
 
 Every `build:*` first runs `scripts/stamp-version.js`, which writes the build date (`YYYYMMDD`) as `buildNumber` into `package.json` and `src/version.json` (shown in the title bar / About). The package is kept lean: only the `en-US` / `ko` Chromium locales ship (`electronLanguages`), unused codec builds (encoders, `.wasm` variants, asm.js libheif, extra exifr bundles), sources, tests, typings and source maps are excluded through `build.files`, native modules are not rebuilt (`npmRebuild: false` — sharp ships prebuilt) and the NSIS / 7z compression is set to maximum.
 
-The Windows Setup wizard includes a **file associations** page (checked by default) so Image Viewer can be the default app for JPEG, PNG, WebP, HEIC, TIFF, DICOM, and other supported images.
+The Windows Setup wizard includes a **file associations** page (checked by default) so MyImageViewer can be the default app for JPEG, PNG, WebP, HEIC, TIFF, DICOM, and other supported images.
 
 | Script | Description |
 |--------|-------------|
