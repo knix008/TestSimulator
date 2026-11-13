@@ -89,22 +89,31 @@ const faceGate = ofp({
 function ipCam(k, kind, color) {
   const body = 'plastic-abs-gloss-white', o = color ? C(color) : {};
   switch (kind) {
-    case 'bullet':
-      k.box('mount', body, 0.08, 0.08, 0.02, 0, 0.06, 0.01, { r: 0.008, ...o });
-      k.rod('mount', body, [0, 0.06, 0.02], [0, 0.08, 0.07], 0.012, { segs: 10, ...o });
-      k.cyl('housing', body, 0.035, 0.035, 0.2, 0, 0.1, 0.06, { rx: PI / 2 - 0.25, segs: k.seg(20, 8), ...o });
-      k.box('housing', body, 0.085, 0.01, 0.22, 0, 0.142, 0.15, { r: 0.004, rx: -0.25, ...o });
-      k.cyl('lens', 'glass-tint-smoke-dark', 0.03, 0.03, 0.004, 0, 0.1 - Math.sin(0.25) * 0.2, 0.06 + Math.cos(0.25) * 0.2, { rx: PI / 2 - 0.25, segs: k.seg(16, 6) });
+    case 'bullet': {
+      // Looks down (the usual aim). The bezel and glass sit on the nose of the barrel.
+      const tilt = 0.45, rx = PI / 2 + tilt, down = Math.sin(tilt), fwd = Math.cos(tilt);
+      const cy = 0.09, cz = 0.07, L = 0.18, nose = L / 2 - 0.002;
+      k.box('mount', body, 0.08, 0.08, 0.02, 0, 0.05, 0.01, { r: 0.008, ...o });
+      k.rod('mount', body, [0, 0.05, 0.02], [0, cy, cz], 0.012, { segs: 10, ...o });
+      k.cyl('housing', body, 0.032, 0.032, L, 0, cy, cz, { rx, segs: k.seg(20, 8), ...o });
+      k.box('housing', body, 0.078, 0.008, L * 0.82, 0, cy + fwd * 0.038, cz + down * 0.038, { r: 0.003, rx: -tilt, ...o });
+      k.cyl('lens', 'plastic-abs-matte-black', 0.03, 0.026, 0.014, 0, cy - down * (nose - 0.005), cz + fwd * (nose - 0.005), { rx, segs: k.seg(16, 6) });
+      k.cyl('lens', 'glass-tint-smoke-dark', 0.02, 0.02, 0.005, 0, cy - down * nose, cz + fwd * nose, { rx, segs: k.seg(16, 6) });
       break;
+    }
     case 'dome':
       k.cyl('housing', body, 0.07, 0.065, 0.03, 0, 0.0, 0, { segs: k.seg(24, 8), ...o });
       k.sphere('dome', 'glass-tint-smoke-dark', 0.055, 0, 0.0, 0, { rx: PI, thetaLength: PI / 2, segs: k.seg(24, 8), rings: k.seg(8, 4) });
       break;
-    case 'turret':
-      k.cyl('housing', body, 0.06, 0.065, 0.02, 0, 0.05, 0, { segs: k.seg(24, 8), ...o });
-      k.sphere('housing', body, 0.045, 0, 0.05, 0, { rx: PI, thetaLength: PI * 0.6, segs: k.seg(20, 8), rings: k.seg(8, 4), ...o });
-      k.cyl('lens', 'glass-tint-smoke-dark', 0.018, 0.018, 0.004, 0, 0.025, 0.035, { rx: 1.0, segs: 12 });
+    case 'turret': {
+      // Eyeball under the base, lens on the lower front of the ball so it watches the floor.
+      const tilt = 0.7, rx = PI / 2 + tilt, down = Math.sin(tilt), fwd = Math.cos(tilt), R = 0.042;
+      k.cyl('housing', body, 0.055, 0.06, 0.018, 0, 0.05, 0, { segs: k.seg(24, 8), ...o });
+      k.sphere('housing', body, R, 0, 0.03, 0.01, { segs: k.seg(20, 8), rings: k.seg(10, 5), ...o });
+      k.cyl('lens', 'plastic-abs-matte-black', 0.02, 0.016, 0.01, 0, 0.03 - down * (R - 0.004), 0.01 + fwd * (R - 0.004), { rx, segs: 14 });
+      k.cyl('lens', 'glass-tint-smoke-dark', 0.012, 0.012, 0.004, 0, 0.03 - down * R, 0.01 + fwd * R, { rx, segs: 12 });
       break;
+    }
     case 'ptz':
       k.box('mount', body, 0.06, 0.18, 0.03, 0, 0.09, 0.015, { r: 0.01, ...o });
       k.rod('mount', body, [0, 0.12, 0.03], [0, 0.12, 0.17], 0.02, { segs: 10, ...o });
@@ -115,19 +124,43 @@ function ipCam(k, kind, color) {
       k.cyl('housing', body, 0.075, 0.08, 0.035, 0, 0, 0, { segs: k.seg(28, 10), ...o });
       k.sphere('dome', 'glass-tint-smoke-dark', 0.03, 0, 0.0, 0, { rx: PI, thetaLength: PI / 2, segs: k.seg(16, 6), rings: k.seg(6, 3) });
       break;
-    case 'box':
-      k.box('mount', body, 0.06, 0.06, 0.02, 0, 0.1, 0.01, { r: 0.006, ...o });
-      k.rod('mount', body, [0, 0.1, 0.02], [0, 0.13, 0.08], 0.01, { segs: 8, ...o });
-      k.box('housing', body, 0.09, 0.08, 0.2, 0, 0.17, 0.14, { r: 0.006, ...o });
-      k.cyl('lens', 'plastic-abs-matte-black', 0.03, 0.03, 0.06, 0, 0.17, 0.24, { rx: PI / 2, segs: k.seg(16, 6) });
-      k.cyl('lens', 'glass-tint-smoke-dark', 0.025, 0.025, 0.003, 0, 0.17, 0.3, { rx: PI / 2, segs: k.seg(16, 6) });
+    case 'box': {
+      const tilt = 0.35, rx = PI / 2 + tilt, down = Math.sin(tilt), fwd = Math.cos(tilt);
+      const cy = 0.14, cz = 0.1, nose = 0.1;
+      k.box('mount', body, 0.06, 0.06, 0.02, 0, 0.08, 0.01, { r: 0.006, ...o });
+      k.rod('mount', body, [0, 0.08, 0.02], [0, cy, cz], 0.01, { segs: 8, ...o });
+      k.box('housing', body, 0.09, 0.07, 0.18, 0, cy, cz, { r: 0.006, rx: -tilt, ...o });
+      k.cyl('lens', 'plastic-abs-matte-black', 0.028, 0.024, 0.045, 0, cy - down * (nose - 0.01), cz + fwd * (nose - 0.01), { rx, segs: k.seg(16, 6) });
+      k.cyl('lens', 'glass-tint-smoke-dark', 0.018, 0.018, 0.005, 0, cy - down * (nose + 0.012), cz + fwd * (nose + 0.012), { rx, segs: k.seg(16, 6) });
       break;
+    }
     case 'cube':
       k.cyl('mount', body, 0.03, 0.035, 0.015, 0, 0, 0, { segs: 16, ...o });
       k.rod('mount', body, [0, 0.015, 0], [0, 0.05, 0], 0.006, { segs: 8, ...o });
       k.box('housing', body, 0.06, 0.08, 0.035, 0, 0.09, 0, { r: 0.015, ...o });
       k.box('lens', 'glass-tint-smoke-dark', 0.045, 0.045, 0.002, 0, 0.1, 0.018, { r: 0.012 });
       break;
+    case 'dual': {
+      const tilt = 0.5, rx = PI / 2 + tilt, down = Math.sin(tilt), fwd = Math.cos(tilt);
+      const cy = 0.1, cz = 0.06, L = 0.16, nose = L / 2 - 0.002;
+      k.box('mount', body, 0.1, 0.06, 0.02, 0, 0.06, 0.01, { r: 0.006, ...o });
+      k.rod('mount', body, [0, 0.06, 0.02], [0, cy, cz], 0.012, { segs: 10, ...o });
+      k.box('housing', body, 0.11, 0.055, L, 0, cy, cz, { r: 0.01, rx: -tilt, ...o });
+      for (const x of [-0.028, 0.028]) {
+        k.cyl('lens', 'plastic-abs-matte-black', 0.02, 0.016, 0.012, x, cy - down * (nose - 0.004), cz + fwd * (nose - 0.004), { rx, segs: 14 });
+        k.cyl('lens', 'glass-tint-smoke-dark', 0.012, 0.012, 0.004, x, cy - down * nose, cz + fwd * nose, { rx, segs: 12 });
+      }
+      break;
+    }
+    case 'turret-wall': {
+      const tilt = 0.65, rx = PI / 2 + tilt, down = Math.sin(tilt), fwd = Math.cos(tilt), R = 0.04;
+      k.box('mount', body, 0.07, 0.07, 0.016, 0, 0.08, 0.008, { r: 0.008, ...o });
+      k.rod('mount', body, [0, 0.08, 0.016], [0, 0.07, 0.06], 0.012, { segs: 10, ...o });
+      k.sphere('housing', body, R, 0, 0.06, 0.08, { segs: k.seg(20, 8), rings: k.seg(10, 5), ...o });
+      k.cyl('lens', 'plastic-abs-matte-black', 0.018, 0.014, 0.01, 0, 0.06 - down * (R - 0.004), 0.08 + fwd * (R - 0.004), { rx, segs: 14 });
+      k.cyl('lens', 'glass-tint-smoke-dark', 0.011, 0.011, 0.004, 0, 0.06 - down * R, 0.08 + fwd * R, { rx, segs: 12 });
+      break;
+    }
     case 'doorbell':
       k.box('housing', 'plastic-abs-gloss-black', 0.045, 0.13, 0.025, 0, 0.065, 0.0125, { r: 0.012, ...o });
       k.cyl('lens', 'glass-tint-smoke-dark', 0.01, 0.01, 0.003, 0, 0.105, 0.025, { rx: PI / 2, segs: 12 });
@@ -146,6 +179,8 @@ const IPCAMS = [
   ['box', 'wall', 2.2, 'IP 카메라 (박스형)', 'IP camera (box)', ['box camera', 'zoom lens camera', '박스 카메라', '렌즈 교환형']],
   ['cube', 'surface', 0, '실내용 IP 카메라 (탁상형)', 'Indoor desk IP camera', ['indoor camera', 'wifi camera', 'home cam', '실내 카메라', '와이파이 카메라', '홈캠']],
   ['doorbell', 'wall', 1.3, '비디오 도어벨 (IP)', 'IP video doorbell', ['video doorbell', 'door camera', 'intercom', '비디오 도어벨', '도어 카메라', '인터폰']],
+  ['dual', 'wall', 2.35, 'IP 카메라 (듀얼 렌즈)', 'IP camera (dual lens)', ['dual lens', 'two lens camera', '듀얼 렌즈', '2렌즈 카메라']],
+  ['turret-wall', 'wall', 2.4, 'IP 카메라 (벽부 터렛)', 'IP camera (wall turret)', ['wall turret', 'eyeball', '벽부 터렛', '아이볼']],
 ];
 
 const ipCams = IPCAMS.map(([kind, placement, elevation, ko, en, tags]) => ofp({
@@ -155,7 +190,7 @@ const ipCams = IPCAMS.map(([kind, placement, elevation, ko, en, tags]) => ofp({
   build: (p, ctx) => {
     const k = new Kit(ctx);
     ipCam(k, kind, p.body);
-    if (p.ir && kind !== 'doorbell') k.box('ir', 'led-red', 0.006, 0.006, 0.002, 0.0, kind === 'dome' || kind === 'fisheye' ? 0.0 : 0.02, kind === 'cube' ? 0.0185 : 0.02, { r: 0 });
+    if (p.ir && (kind === 'dome' || kind === 'fisheye' || kind === 'ptz' || kind === 'cube')) k.box('ir', 'led-red', 0.006, 0.006, 0.002, 0.0, kind === 'cube' ? 0.1 : 0.0, kind === 'cube' ? 0.0185 : 0.02, { r: 0 });
     return finish(k);
   },
 }));

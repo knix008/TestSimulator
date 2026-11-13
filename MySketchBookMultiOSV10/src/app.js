@@ -46,7 +46,7 @@ import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
 import { entityInfoHtml, levelsHtml, libraryCardTip, libraryCardsHtml, libraryHtml, materialsHtml, outlinerHtml, paletteHtml, scenesHtml, shadowsHtml, stylesHtml, tagsHtml, PLACES } from './ui/panels.js';
 import { itemThumbnail, materialThumbnail, cancelThumbnails, cachedThumbnail, setThumbnailGate, setThumbnailPrepare } from './ui/thumbnails.js';
 import { fillChipRows } from './ui/fillrows.js';
-import { PROGRESS_ICONS } from './ui/progressicons.js';
+import { PROGRESS_ICONS, PROGRESS_NAME_ICONS, PROGRESS_STEP_ICONS } from './ui/progressicons.js';
 import { createUserLibrary } from './ui/userlibrary-ui.js';
 import { Rulers } from './ui/rulers.js';
 import { ScaleBar } from './ui/scalebar.js';
@@ -354,11 +354,11 @@ async function openSampleAsk(id) {
  */
 async function busy(titleKey, name, job, { delay = 300 } = {}) {
   return withProgress(titleKey, name, async (op, report) => {
-    report({ fraction: 0.05, text: t('progress.step.buildProject') });
+    report({ fraction: 0.05, text: t('progress.step.buildProject'), icon: PROGRESS_STEP_ICONS['progress.step.buildProject'] });
     // One turn of the event loop: the request for the window leaves before the page is held.
     await new Promise((resolve) => setTimeout(resolve, 0));
     const out = await job();
-    report({ fraction: 0.7, text: t('progress.step.firstFrame') });
+    report({ fraction: 0.7, text: t('progress.step.firstFrame'), icon: PROGRESS_STEP_ICONS['progress.step.firstFrame'] });
     await drawnFrames(2);
     return out;
   }, { delay });
@@ -457,7 +457,13 @@ function mountViewport() {
   host.innerHTML = `<div class="vp-labels"></div><div class="vp-select-rect" hidden></div>${navPadHtml()}`;
   viewport = new Viewport(host, {
     settings: () => ({ ...state.settings, quality: state.settings.renderQuality === 'fast' ? 'low' : 'high' }),
-    onStats: (stats, final) => { state.stats = stats; if (final || stats.fps) renderStats(); },
+    // While the view moves, the status text is written a few times a second, not every frame: each write dirties the
+    // layout, and the next frame's reads (labels, picking) would wait for a fresh layout of the whole window.
+    onStats: (stats, final) => {
+      state.stats = stats;
+      const now = performance.now();
+      if (final || (stats.fps && now - (state.statsShown ?? 0) > 250)) { state.statsShown = now; renderStats(); }
+    },
     onCamera: (camera) => { if (doc()) doc().project.camera = camera; },
   });
   overlay = new Overlay(viewport, host.querySelector('.vp-labels'));
@@ -648,6 +654,7 @@ function bindViewportEvents(host) {
     e.preventDefault();
     if (viewport.navDrag?.moved) return;
     const hit = viewport.pick(e.clientX, e.clientY, { lamps: true });
+    if (hit?.entity?.kind === 'sun') { contextMenu(e, 'sun', { hit }); return; }
     if (hit?.entity && !isSelected(hit.entity.id)) select([hit.entity.id]);
     contextMenu(e, hit?.entity ? 'entity' : 'canvas', { hit });
   });
@@ -656,8 +663,11 @@ function bindViewportEvents(host) {
 }
 
 function pointerStatus(e) {
-  const g = viewport?.pickPoint(e.clientX, e.clientY);
-  rulers?.setPointer(viewport?.planMode ? groundPoint(e) : null);
+  if (!viewport) return;
+  rulers?.setPointer(viewport.planMode ? groundPoint(e) : null);
+  // Not while dragging (the tool already picks every frame) or with the status bar hidden.
+  if (viewport.pointerDown || !state.settings.showStatusBar) return;
+  const g = viewport.pickPoint(e.clientX, e.clientY);
   const el = root.querySelector('#status-pointer');
   if (g && el) el.textContent = `${formatLength(g.x, units(), { suffix: false })}, ${formatLength(-g.z, units(), { suffix: false })}, ${formatLength(g.y, units(), { suffix: false })}`;
 }
@@ -789,12 +799,15 @@ function moveEntities(ids, delta, { live: isLive = true } = {}) {
   const index = buildIndex(p);
   const moveWalls = new Set();
   const moveColumns = new Set();
+  const placed = [];
+  let onlyPlaced = true;
   for (const id of ids) {
     const hit = index.get(id);
     if (!hit || hit.entity.locked) continue;
     const e = hit.entity;
+    if (!(hit.kind === 'objects' || hit.kind === 'models') || isColumn(e)) onlyPlaced = false;
     if (hit.kind === 'objects' && isColumn(e)) moveColumns.add(e.id);
-    else if (hit.kind === 'objects' || hit.kind === 'models') { e.position = [e.position[0] + delta.x, e.position[1] + delta.y, e.position[2] + delta.z]; }
+    else if (hit.kind === 'objects' || hit.kind === 'models') { e.position = [e.position[0] + delta.x, e.position[1] + delta.y, e.position[2] + delta.z]; placed.push(e); }
     else if (hit.kind === 'walls') moveWalls.add(e.id);
     else if (hit.kind === 'rooms') e.points = e.points.map(([x, z]) => [x + delta.x, z + delta.z]);
     else if (hit.kind === 'openings') {
@@ -814,7 +827,10 @@ function moveEntities(ids, delta, { live: isLive = true } = {}) {
     const levels = new Set(p.walls.filter((w) => moved.includes(w.id)).map((w) => w.level));
     if (levels.size) refitRooms(p, levels, new Set(ids));
   }
-  if (isLive) live();
+  if (!isLive) return;
+  // Only furniture / models moved (dragging): their transforms alone, not a sync of the whole scene per pointer move.
+  if (onlyPlaced && placed.length && viewport && builder.moveOnly(p, placed)) { updateSelectionBoxes(); viewport.requestRender(); return; }
+  live();
 }
 const add3 = (a, d) => [a[0] + d.x, a[1] + d.y, a[2] + d.z];
 
@@ -824,6 +840,8 @@ function rotateEntities(ids, center, angle, { live: isLive = true } = {}) {
   const index = buildIndex(p);
   const c = Math.cos(angle); const s = Math.sin(angle);
   const rot = ([x, z]) => { const dx = x - center.x; const dz = z - center.z; return [center.x + dx * c + dz * s, center.z - dx * s + dz * c]; };
+  const placed = [];
+  let onlyPlaced = true;
   for (const id of ids) {
     const hit = index.get(id);
     if (!hit || hit.entity.locked) continue;
@@ -832,10 +850,13 @@ function rotateEntities(ids, center, angle, { live: isLive = true } = {}) {
       const [x, z] = rot([e.position[0], e.position[2]]);
       e.position = [x, e.position[1], z];
       e.rotation = [e.rotation[0], e.rotation[1] + angle, e.rotation[2]];
-    } else if (hit.kind === 'walls') { e.a = rot(e.a); e.b = rot(e.b); }
-    else if (hit.kind === 'rooms') e.points = e.points.map(rot);
+      if (hit.kind === 'objects' && isColumn(e)) onlyPlaced = false; else placed.push(e);
+    } else if (hit.kind === 'walls') { e.a = rot(e.a); e.b = rot(e.b); onlyPlaced = false; }
+    else if (hit.kind === 'rooms') { e.points = e.points.map(rot); onlyPlaced = false; }
   }
-  if (isLive) live();
+  if (!isLive) return;
+  if (onlyPlaced && placed.length && viewport && builder.moveOnly(p, placed)) { updateSelectionBoxes(); viewport.requestRender(); return; }
+  live();
 }
 
 /** Rotates the selection about its own centre (Rotate 90°, typed angles). */
@@ -1176,6 +1197,7 @@ const commands = {
   sunOn: { icon: 'sun', label: 'action.sunOn', enabled: hasDoc, checked: () => project()?.sun?.on !== false, run: () => setSun({ on: project().sun.on === false }) },
   dayNight: { icon: 'moon', label: 'action.night', enabled: hasDoc, checked: () => Boolean(project() && isNight(project().sun)), run: () => toggleNight() },
   sunMarker: { icon: 'sun', label: 'action.sunMarker', checked: () => state.settings.showSunMarker !== false, run: () => updateSettings({ showSunMarker: state.settings.showSunMarker === false }) },
+  sunLine: { icon: 'sun', label: 'action.sunLine', checked: () => state.settings.showSunLine !== false, run: () => updateSettings({ showSunLine: state.settings.showSunLine === false }) },
   sunPanel: { icon: 'sun', label: 'action.sunPanel', enabled: hasDoc, run: () => showSunPanel() },
   zoomSelection: { icon: 'zoomSelection', label: 'action.zoomSelection', enabled: sel, run: () => { const b = new THREE.Box3(); for (const id of state.selection) { const wb = builder.worldBox(id); if (wb) b.union(wb); } viewport.zoomExtents(b); } },
   solidUnion: { icon: 'solidUnion', label: 'action.solidUnion', enabled: () => Boolean(Modeling?.solid) && state.selection.filter((id) => kindOf(id) === 'model').length >= 2, run: () => Modeling.solid(toolApi, 'union', state.selection) },
@@ -1435,7 +1457,7 @@ const SUBMENUS = {
   views: { icon: 'views', items: ['resetView', '-', ...VIEWS.map((v) => `view:${v}`)] },
   faceStyle: { icon: 'styleTextured', items: STYLE_MODES.map((m) => `style:${m}`) },
   quality: { icon: 'quality', items: ['quality:fast', 'quality:balanced', 'quality:high'] },
-  show: { icon: 'eye', items: ['rulers', 'planDims', 'scaleBar', 'grid', 'axes', 'edges', 'shadows', 'sunOn', 'dayNight', 'sunMarker', 'lightsOn', 'lampMarkers', 'fps', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar'] },
+  show: { icon: 'eye', items: ['rulers', 'planDims', 'scaleBar', 'grid', 'axes', 'edges', 'shadows', 'sunOn', 'dayNight', 'sunMarker', 'sunLine', 'lightsOn', 'lampMarkers', 'fps', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
   drawShapes: { icon: 'rectTool', items: ['tool:line', 'tool:rectangle', 'tool:circle', 'tool:arc', 'tool:polygon', 'tool:freehand'] },
   modify: { icon: 'pushPull', items: ['tool:pushpull', 'tool:move', 'tool:rotate', 'tool:scale', 'tool:offset', 'tool:followme'] },
@@ -2301,7 +2323,7 @@ async function openThemePicker(anchor) {
 
 /**
  * Runs task(op, report) and shows the progress popup when it takes longer than `delay` ms.
- * report({ fraction, text }) updates it; a cancel in the popup sets `signal.cancelled`.
+ * report({ fraction, text, icon }) updates it; a cancel in the popup sets `signal.cancelled`.
  */
 const progressJobs = [];
 async function withProgress(titleKey, name, task, { delay = 250, cancellable = false } = {}) {
@@ -2310,7 +2332,7 @@ async function withProgress(titleKey, name, task, { delay = 250, cancellable = f
   let last = null;
   const signal = { cancelled: false };
   const job = { op, reopen: null };
-  const show = (wait = 0) => { shown = true; popups.open('progress', { title: t(titleKey), icon: PROGRESS_ICONS[titleKey] ?? 'hourglass', name, op, last, cancellable, delay: wait }, { delay: wait }).then((r) => { if (r?.cancel) signal.cancelled = true; }); };
+  const show = (wait = 0) => { shown = true; popups.open('progress', { title: t(titleKey), icon: PROGRESS_ICONS[titleKey] ?? 'hourglass', nameIcon: PROGRESS_NAME_ICONS[titleKey] ?? 'file', name, op, last, cancellable, delay: wait }, { delay: wait }).then((r) => { if (r?.cancel) signal.cancelled = true; }); };
   job.reopen = () => show(0);
   progressJobs.push(job);
   // Desktop: the window (made ahead of time, hidden) is asked for now and the backend shows it after
@@ -2329,7 +2351,8 @@ async function withProgress(titleKey, name, task, { delay = 250, cancellable = f
   popups.on(`cancel:${op}`, () => { signal.cancelled = true; });
   try {
     return await task(op, (progress) => {
-      last = { op, done: Math.round((progress.fraction ?? 0) * 1000), total: 1000, text: progress.text ?? '' };
+      // `icon`: the step the job is on (progressicons.js PROGRESS_STEP_ICONS); kept until a step names another.
+      last = { op, done: Math.round((progress.fraction ?? 0) * 1000), total: 1000, text: progress.text ?? '', icon: progress.icon ?? last?.icon ?? null };
       if (shown) popups.post('progress', { type: 'progress', ...last });
     }, signal);
   } finally {
@@ -2602,7 +2625,7 @@ async function importModelFiles(files) {
         for (const other of files) if (other !== file) related.set(other.name, other.bytes ?? await readBytes(other.path, op));
         const imported = await io.importModel({ name: file.name, bytes, related }, { units: options.units, upAxis: options.upAxis, center: true, optimize: options.optimize, onProgress: (fraction, text) => report({ fraction: fraction * 0.8, text }) });
         if (signal.cancelled) return null;
-        report({ fraction: 0.85, text: t('progress.packing') });
+        report({ fraction: 0.85, text: t('progress.packing'), icon: PROGRESS_STEP_ICONS['progress.packing'] });
         const glb = ex ? await ex.exportModel(imported.object, 'glb') : null;
         return { ...imported, glb: glb?.bytes ?? null };
       }, { delay: 0, cancellable: true });
@@ -2714,10 +2737,10 @@ async function exportImage() {
   updateSettings({ renderWidth: result.width, renderHeight: result.height, imageFormat: result.format, imageQuality: result.quality }, { quiet: true });
   try {
     const encoded = await withProgress('progress.image', `${result.width} × ${result.height}`, async (op, report) => {
-      report({ fraction: 0.2, text: t('progress.rendering') });
+      report({ fraction: 0.2, text: t('progress.rendering'), icon: PROGRESS_STEP_ICONS['progress.rendering'] });
       await new Promise((r) => setTimeout(r, 30));
       const canvas = viewport.capture(result.width, result.height, { transparent: result.transparent });
-      report({ fraction: 0.8, text: t('progress.encoding') });
+      report({ fraction: 0.8, text: t('progress.encoding'), icon: PROGRESS_STEP_ICONS['progress.encoding'] });
       return encodeCanvas(canvas, result.format, { quality: result.quality, transparent: result.transparent });
     }, { delay: 150 });
     await saveExport(`${safeName()}.${encoded.ext}`, result.format, encoded.bytes, encoded.mime);
@@ -2834,6 +2857,7 @@ function openMenubarMenu(name) { const el = root.querySelector(`[data-menu="${na
 function contextMenu(event, kind, payload = {}) {
   const point = toScreen(event.clientX, event.clientY);
   const anchor = { x: point.x + 1, y: point.y + 1, flipY: point.y };
+  if (kind === 'sun') return showMenu(menuItems(['sunOn', 'dayNight', 'sunLine', '-', 'sunMarker', 'sunPanel']), anchor, 'context', { header: { icon: 'sun', title: t('sun.title') } });
   if (kind === 'entity') {
     const id = payload.hit?.entity?.id;
     const k = kindOf(id);
@@ -2842,7 +2866,7 @@ function contextMenu(event, kind, payload = {}) {
     const extra = k === 'object' ? [...(builder.lampInfo(e ?? {}) ? ['switchLamp'] : []), 'rotate90', 'rotateMinus90', 'mirrorObject', 'dropToFloor', 'replaceItem', 'resetMaterials'] : k === 'wall' ? ['splitWall', 'flipWall'] : k === 'model' ? ['editModel', 'explodeModel', sub('solids')] : k === 'opening' ? [...(selectedDoor() ? ['flipDoorSwing', ...(selectedDoor().dir.hinge ? ['flipDoorHinge'] : [])] : []), 'replaceItem'] : [];
     return showMenu(menuItems(['cut', 'copy', 'duplicate', 'delete', '-', ...extra, ...(extra.length ? ['-'] : []), 'tool:move', 'tool:rotate', 'tool:scale', '-', 'hide', 'lock', 'unlock', '-', 'zoomSelection']), anchor, 'context', { header: { icon: 'cube', title } });
   }
-  if (kind === 'canvas') return showMenu(menuItems(['paste', 'selectAll', '-', 'zoomExtents', 'resetView', sub('views'), 'perspective', 'planView', '-', sub('faceStyle'), sub('show'), '-', 'sunOn', 'dayNight', 'sunPanel', 'lightsOn', 'allLampsOn', 'allLampsOff', '-', 'addScene', 'exportImage', 'renderPhoto']), anchor, 'context', { header: { icon: 'view3d', title: project()?.name || 'MySketchBook' } });
+  if (kind === 'canvas') return showMenu(menuItems(['paste', 'selectAll', '-', 'zoomExtents', 'resetView', sub('views'), 'perspective', 'planView', '-', sub('faceStyle'), sub('show'), '-', 'sunOn', 'dayNight', 'sunLine', 'sunPanel', 'lightsOn', 'allLampsOn', 'allLampsOff', '-', 'addScene', 'exportImage', 'renderPhoto']), anchor, 'context', { header: { icon: 'view3d', title: project()?.name || 'MySketchBook' } });
   if (kind === 'problem') {
     const pr = state.problems.find((x) => x.id === payload.id);
     const handlers = {

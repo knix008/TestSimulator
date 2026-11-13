@@ -41,6 +41,8 @@ const SHADOW_SIZE = { low: 1024, medium: 2048, high: 4096 };
 /** Ambient occlusion strength, and how long it takes to fade in when it was left out while moving (ms). */
 const AO_BLEND = 0.85;
 const AO_FADE_MS = 160;
+/** While furniture is dragged, its shadows follow at most this often (ms). */
+const SHADOW_DRAG_MS = 90;
 
 /**
  * Daylight balance. The sun is the key light (it makes the shadows, also inside rooms); the sky light
@@ -322,9 +324,10 @@ export class Viewport {
     this.invalidateShadows();
   }
 
-  /** Shadow camera around the content (tight bounds = sharp shadows). */
+  /** Shadow camera around the content (tight bounds = sharp shadows). The box is cached: day/night and the sun
+   *  marker only move the light, they do not walk every mesh again. */
   fitShadowCamera() {
-    const box = this.contentBox();
+    const box = this.contentBounds();
     // Rounded to 1 m: a small edit leaves the shadow camera (and every shadow texel) where it was.
     const raw = box.isEmpty() ? new THREE.Vector3() : box.getCenter(new THREE.Vector3());
     const center = new THREE.Vector3(Math.round(raw.x), Math.round(raw.y), Math.round(raw.z));
@@ -337,6 +340,13 @@ export class Viewport {
     cam.near = 0.1; cam.far = radius * 4.5;
     cam.updateProjectionMatrix();
     this.sun.target.updateMatrixWorld();
+  }
+
+  contentBounds() {
+    if (this._contentBox && !this.boundsStale) return this._contentBox;
+    this._contentBox = this.contentBox();
+    this.boundsStale = false;
+    return this._contentBox;
   }
 
   contentBox() {
@@ -352,15 +362,20 @@ export class Viewport {
 
   // ───────────────────────── rendering
 
-  requestRender() { this.dirty = true; }
-  invalidateShadows() { this.shadowsDirty = true; this.dirty = true; }
+  /** Anything that changes the picture (camera, content, clipping) asks for a frame; `stamp` also retires picking answers. */
+  requestRender() { this.dirty = true; this.stamp = (this.stamp ?? 0) + 1; }
+  invalidateShadows() { this.shadowsDirty = true; this.requestRender(); }
   /** The content changed: fresh shadows and bounds. */
-  contentChanged() { this.glassStale = true; this.fitShadowCamera(); this.invalidateShadows(); this.updateSunMarker(); }
+  contentChanged() { this.glassStale = true; this.boundsStale = true; this.fitShadowCamera(); this.invalidateShadows(); this.updateSunMarker(); }
 
-  /** Objects moved (dragging): fresh shadows, but the shadow camera stays put so shadows don't shimmer. */
-  contentMoved() { this.invalidateShadows(); }
+  /**
+   * Objects moved (dragging): fresh shadows, but the shadow camera stays put so shadows don't shimmer. While the
+   * button is held they are redrawn at most every SHADOW_DRAG_MS (sun and lamp maps are several extra passes).
+   */
+  contentMoved() { this.shadowsMoved = true; this.requestRender(); }
 
   resize() {
+    this.rect = null;
     const w = Math.max(1, this.host.clientWidth);
     const h = Math.max(1, this.host.clientHeight);
     const s = this.settings();
@@ -396,6 +411,8 @@ export class Viewport {
     this.lastTick = now;
     if (tick > 2 && tick < 100) this.vsync = this.vsync ? Math.min(tick, this.vsync + 0.05) : tick;
     this.tickScale = tick > 0 ? Math.min(4, tick / 16.667) : 1;
+    this.rect = null;
+    this.flushNavigation();
     if (this.animation) this.stepAnimation(now);
     if (this.walk?.active) this.stepWalk(now);
     if (this.tour && !this.animation) this.tour.step(now);
@@ -432,19 +449,22 @@ export class Viewport {
       fade = k * k * (3 - 2 * k);
       if (k < 1) this.dirty = true; else this.aoFade = null;
     }
-    // Glass with transmission makes three.js draw the whole opaque scene a second time (the transmission pass):
-    // while the view moves, and always in the 2D plan (glass is seen edge-on from above), it is drawn as plain
-    // see-through glass instead; the still 3D frame that follows has the real glass again.
-    this.setFastGlass(!final || this.planMode);
+    // Glass with transmission makes three.js draw the scene a second time. Only the 2D plan uses the plain
+    // stand-in (glass is edge-on from above). In 3D the real glass stays while the view turns or moves, so the
+    // sky and the environment keep showing through the windows.
+    this.setFastGlass(this.planMode);
     this.aoPass.enabled = ao;
     this.aoPass.blendIntensity = AO_BLEND * fade;
     this.aoShown = ao;
     this.gpuTimer?.begin({ final: final && fade === 1, ao });
     this.renderer.clippingPlanes = this.clipPlanes;
     // Shadow maps (sun and lamps) are redrawn only when something changed.
+    if (this.shadowsMoved && (!this.pointerDown || t0 - (this.shadowsAt ?? 0) > SHADOW_DRAG_MS)) this.shadowsDirty = true;
     if (this.shadowsDirty) {
       this.renderer.shadowMap.needsUpdate = true;
       this.shadowsDirty = false;
+      this.shadowsMoved = false;
+      this.shadowsAt = t0;
     }
     this.updateGrid();
     this.options.beforeRender?.(this);
@@ -708,6 +728,15 @@ export class Viewport {
     this.options.onNavigate?.();
   }
 
+  /** The pointer moves of a navigation drag gathered since the last frame, as one step. */
+  flushNavigation() {
+    const d = this.navDrag;
+    if (!d || (!d.dx && !d.dy)) return;
+    const dx = d.dx; const dy = d.dy;
+    d.dx = 0; d.dy = 0;
+    this.navigate(d.mode, dx, dy, d.pivot);
+  }
+
   /** The drag ended: rotating and moving glide on and slow down (as OrbitControls' damping does). */
   endNavigation() {
     const v = this.navVelocity;
@@ -777,8 +806,9 @@ export class Viewport {
     c.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
     // Any press in the view (tools, selection drags) counts as busy until it is released, and stops a glide.
     c.addEventListener('pointerdown', () => { this.pointerDown = true; if (this.glide) { if (this.glide.mode === 'orbit') this.settleTarget(this.glide.pivot); this.glide = null; this.showPivot(null); } }, { capture: true });
-    window.addEventListener('pointerup', () => { this.pointerDown = false; }, { capture: true });
-    window.addEventListener('pointercancel', () => { this.pointerDown = false; }, { capture: true });
+    // Released: shadows held back during a drag are drawn now.
+    window.addEventListener('pointerup', () => { this.pointerDown = false; if (this.shadowsMoved) this.requestRender(); }, { capture: true });
+    window.addEventListener('pointercancel', () => { this.pointerDown = false; if (this.shadowsMoved) this.requestRender(); }, { capture: true });
     c.addEventListener('pointerdown', (e) => {
       const tool = this.navTool;
       const middle = e.button === 1;
@@ -805,9 +835,11 @@ export class Viewport {
       // The right button starts navigating only after a few pixels (a plain right click is the context menu).
       if (!d.moved && e.buttons === 2 && Math.hypot(dx, dy) < 4) return;
       d.x = e.clientX; d.y = e.clientY; d.moved = true;
-      this.navigate(d.mode, dx, dy, d.pivot);
+      // Applied once per frame (flushNavigation): a 500–1000 Hz mouse sends several moves per frame.
+      d.dx = (d.dx ?? 0) + dx; d.dy = (d.dy ?? 0) + dy;
+      this.requestRender();
     });
-    const end = (e) => { if (this.navDrag && this.navDrag.id === e.pointerId) { try { c.releasePointerCapture?.(e.pointerId); } catch { /* not captured */ } if (this.navDrag.moved) this.endNavigation(); else this.showPivot(null); setTimeout(() => { this.navDrag = null; }, 0); } };
+    const end = (e) => { if (this.navDrag && this.navDrag.id === e.pointerId) { this.flushNavigation(); try { c.releasePointerCapture?.(e.pointerId); } catch { /* not captured */ } if (this.navDrag.moved) this.endNavigation(); else this.showPivot(null); setTimeout(() => { this.navDrag = null; }, 0); } };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
     c.addEventListener('wheel', (e) => {
@@ -996,8 +1028,13 @@ export class Viewport {
 
   // ───────────────────────── picking
 
+  /** The canvas' place on the page, read once per frame (hover tests and labels ask many times per frame). */
+  canvasRect() {
+    return (this.rect ??= this.canvas.getBoundingClientRect());
+  }
+
   ray(clientX, clientY) {
-    const r = this.canvas.getBoundingClientRect();
+    const r = this.canvasRect();
     const ndc = new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(ndc, this.camera);
@@ -1144,6 +1181,8 @@ export class Viewport {
     if (this.sunMarker.visible) {
       // The marker's place is fixed world coordinates (placed when the sun changes); only its size follows the zoom.
       this.sunSprite.scale.setScalar(30 * perPixelAt(this.sunSprite.position));
+      // The guide from the model to the sun can be hidden on its own (the marker stays).
+      this.sunLine.visible = this.settings().showSunLine !== false;
       this.sunLine.material.dashSize = 8 * perPixelAt(this.sunSprite.position);
       this.sunLine.material.gapSize = 6 * perPixelAt(this.sunSprite.position);
     }
@@ -1203,6 +1242,16 @@ export class Viewport {
     const raycaster = this.ray(clientX, clientY);
     const lamp = lamps ? this.pickLampMarker(raycaster, filter) : null;
     if (lamp) return lamp;
+    // The same spot with nothing changed since (hover, then the status bar's pointer, in one move): the last answer.
+    const memo = this.pickMemo;
+    const key = filter ? null : `${clientX},${clientY},${includeLines}`;
+    if (key && memo?.key === key && memo.stamp === this.stamp) return memo.hit && { ...memo.hit, point: memo.hit.point.clone(), normal: memo.hit.normal?.clone() ?? null };
+    const hit = this.castContent(raycaster, filter, includeLines);
+    if (key) this.pickMemo = { key, stamp: this.stamp, hit: hit && { ...hit, point: hit.point.clone(), normal: hit.normal?.clone() ?? null } };
+    return hit;
+  }
+
+  castContent(raycaster, filter, includeLines) {
     const hits = raycaster.intersectObjects(this.content.children, true);
     for (const hit of hits) {
       const o = hit.object;
@@ -1236,7 +1285,7 @@ export class Viewport {
   }
 
   worldToScreen(point) {
-    const r = this.canvas.getBoundingClientRect();
+    const r = this.canvasRect();
     const v = point.clone().project(this.camera);
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height, behind: v.z > 1 };
   }
@@ -1304,7 +1353,7 @@ export class Viewport {
 
   /** Blue boxes around selected objects (SketchUp's selection look); one LineSegments for all. */
   setSelectionBoxes(boxes, { color = '#1f6feb', hover = null } = {}) {
-    for (const child of [...this.selectionHelpers.children]) { child.geometry.dispose(); this.selectionHelpers.remove(child); }
+    for (const child of [...this.selectionHelpers.children]) { child.geometry.dispose(); child.material.dispose(); this.selectionHelpers.remove(child); }
     const make = (list, c, opacity) => {
       if (!list.length) return;
       const pts = [];

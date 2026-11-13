@@ -145,17 +145,7 @@ export class SceneBuilder {
     };
     const levelOfWall = (opening) => walls.get(opening.wall)?.level;
     let moved = false;
-    const placeTransform = (e, object) => {
-      const y = levelOf(project, e.level).elevation + e.position[1];
-      const p = object.position; const r = object.rotation; const s = object.scale;
-      if (p.x === e.position[0] && p.y === y && p.z === e.position[2] && r.x === e.rotation[0] && r.y === e.rotation[1] && r.z === e.rotation[2] && s.x === e.scale[0] && s.y === e.scale[1] && s.z === e.scale[2]) return false;
-      p.set(e.position[0], y, e.position[2]);
-      r.set(e.rotation[0], e.rotation[1], e.rotation[2], 'YXZ');
-      s.set(e.scale[0], e.scale[1], e.scale[2]);
-      object.updateMatrix();
-      object.updateMatrixWorld(true);
-      return true;
-    };
+    const placeTransform = (e, object) => this.placeTransform(project, e, object);
 
     each(project.rooms, 'room', this.groups.rooms, (r) => JSON.stringify([r, levelOf(project, r.level).elevation, levelOf(project, r.level).height]), (r) => this.buildRoom(project, r));
     each(project.openings, 'opening', this.groups.openings, (o) => JSON.stringify([o, walls.get(o.wall), levelOf(project, walls.get(o.wall)?.level).elevation]), (o) => this.buildOpening(project, o, walls.get(o.wall)));
@@ -174,6 +164,36 @@ export class SceneBuilder {
     if (moved && !changed) this.viewport.contentMoved();
     if (changed) this.viewport.contentChanged();
     return changed;
+  }
+
+  /** Puts a built object where its entity says (position, rotation, scale). Returns whether it moved. */
+  placeTransform(project, e, object) {
+    const y = levelOf(project, e.level).elevation + e.position[1];
+    const p = object.position; const r = object.rotation; const s = object.scale;
+    if (p.x === e.position[0] && p.y === y && p.z === e.position[2] && r.x === e.rotation[0] && r.y === e.rotation[1] && r.z === e.rotation[2] && s.x === e.scale[0] && s.y === e.scale[1] && s.z === e.scale[2]) return false;
+    p.set(e.position[0], y, e.position[2]);
+    r.set(e.rotation[0], e.rotation[1], e.rotation[2], 'YXZ');
+    s.set(e.scale[0], e.scale[1], e.scale[2]);
+    object.updateMatrix();
+    object.updateMatrixWorld(true);
+    return true;
+  }
+
+  /**
+   * Dragging furniture or models: only their transforms (and the lamps that move with them) are brought up to
+   * date — none of the content keys of the whole project are compared on every pointer move. False when one of
+   * them is not built (yet): the caller then runs a full sync().
+   */
+  moveOnly(project, entities) {
+    const entries = entities.map((e) => [e, this.built.get(e.id)]);
+    if (entries.some(([, entry]) => !entry || (entry.kind !== 'object' && entry.kind !== 'model'))) return false;
+    let moved = false;
+    for (const [e, entry] of entries) if (this.placeTransform(project, e, entry.object)) moved = true;
+    if (moved) {
+      this.updateLights(project);
+      this.viewport.contentMoved();
+    }
+    return true;
   }
 
   objectOf(id) { return this.built.get(id)?.object ?? this.groups.walls.children.find((o) => o.userData.entityId === id) ?? null; }
@@ -527,8 +547,8 @@ export class SceneBuilder {
     this.viewport.setLampMarkers?.(lamps.filter((l) => l.visible && l.first).map((l) => ({ id: l.id, position: l.position, on: l.spec.on, lit: l.spec.on && lightsOn })));
     const group = this.groups.lights;
     if (!lightsOn) {
-      for (const child of [...group.children]) { group.remove(child); child.shadow?.map?.dispose(); child.dispose?.(); }
-      this.lampPool = null;
+      // The pool stays (switching the lights off and on again does not allocate shadow maps or recompile).
+      if (this.lampPool) for (const l of [...this.lampPool.point, ...this.lampPool.spot]) { l.intensity = 0; l.castShadow = false; }
       this.viewport.setLampFill?.(0);
       this.viewport.invalidateShadows();
       return;

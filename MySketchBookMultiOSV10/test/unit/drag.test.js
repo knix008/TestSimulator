@@ -6,7 +6,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { dragPointer, dragSurface } from '../../src/tools/drag.js';
+import { clearOfWalls, dragPointer, dragSurface } from '../../src/tools/drag.js';
+import { AXES, axisParam } from '../../src/tools/movegizmo.js';
 
 function makeApp({ objects, boxes = {}, planMode = false, eye = [4, 3, 6], target = [0, 0.5, 0] } = {}) {
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
@@ -82,4 +83,44 @@ test('several things together move on the floor; a pointer above the horizon giv
   const low = makeApp({ objects: [{ id: 'a', item: 'desk', rotation: [0, 0, 0] }], eye: [0, 1.2, 8], target: [0, 1.1, 0] });
   const f = dragSurface(low, ['a'], new THREE.Vector3(0, 0, 0), null, itemOf);
   assert.equal(dragPointer(low, { clientX: 400, clientY: 395 }, f), null, 'near the horizon: ignored, not a jump of hundreds of metres');
+});
+
+test('a surface seen edge-on gives way to one the piece can move on', () => {
+  // A ceiling lamp at eye height: its floor plane is seen edge-on, so it moves straight up and down instead of not at all.
+  const box = new THREE.Box3(new THREE.Vector3(-0.2, 1.5, -0.2), new THREE.Vector3(0.2, 1.8, 0.2));
+  const level = makeApp({ objects: [{ id: 'a', item: 'desk', rotation: [0, 0, 0] }], boxes: { a: box }, eye: [0, 1.5, 6], target: [0, 1.5, 0] });
+  const s = dragSurface(level, ['a'], new THREE.Vector3(0, 1.6, 0), null, itemOf);
+  assert.equal(s.mode, 'vertical');
+  const p = dragPointer(level, level.viewport.toScreen(new THREE.Vector3(0, 2.1, 0)), s);
+  assert.ok(p && Math.abs(p.y - 2.1) < 1e-6, `moved up to ${p?.y}`);
+  // A clock whose wall runs straight away from the eye: it follows the floor instead.
+  const along = makeApp({ objects: [{ id: 'c', item: 'clock', rotation: [0, Math.PI / 2, 0] }], eye: [2, 3, 8], target: [2, 1.5, 0] });
+  assert.equal(dragSurface(along, ['c'], new THREE.Vector3(2, 1.5, 0), null, itemOf).mode, 'floor');
+});
+
+test('furniture stops on a wall face and turns along it, and never enters the wall', () => {
+  // A wall along x at z = 0, 20 cm thick. Its left side (+z) is the room.
+  const walls = [{ a: [0, 0], b: [6, 0], thickness: 0.2 }];
+  const size = { hx: 0.4, hz: 0.3, ry: 0.4 };
+  // Proposed centre 5 cm into the wall (the face is at z = 0.1, the piece needs 0.3 + gap beyond it).
+  const into = clearOfWalls([2, 0.05], size, walls);
+  assert.ok(into.z > 0.4, `pushed out of the wall to z ${into.z.toFixed(3)}`);
+  assert.ok(Math.abs(into.x - 2) < 1e-6, 'it stays where it was along the wall');
+  const parallel = Math.abs(Math.sin(into.ry)) < 0.05 || Math.abs(Math.cos(into.ry)) < 0.05;
+  assert.ok(parallel, `yaw ${into.ry.toFixed(3)} lies along the wall`);
+  // Well clear of the wall: left where it is.
+  const far = clearOfWalls([2, 2], size, walls);
+  assert.equal(far.z, 2);
+  assert.equal(far.ry, size.ry);
+});
+
+test('an arrow of the move handle follows the pointer along its axis', () => {
+  // A ray from above aimed at x = 3 on the red axis lands 3 m along it; a ray along the axis gives nothing.
+  const origin = new THREE.Vector3(0, 0, 0);
+  const from = new THREE.Vector3(2, 5, 10);
+  const ray = new THREE.Ray(from, new THREE.Vector3(3, 0, 0).sub(from).normalize());
+  assert.ok(Math.abs(axisParam(ray, origin, AXES.x) - 3) < 1e-9);
+  const up = new THREE.Ray(new THREE.Vector3(0, 0, 10), new THREE.Vector3(0, 1.2, -10).normalize());
+  assert.ok(Math.abs(axisParam(up, origin, AXES.y) - 1.2) < 1e-9, 'aimed at 1.2 m up the blue axis');
+  assert.equal(axisParam(new THREE.Ray(new THREE.Vector3(-5, 0, 0), new THREE.Vector3(1, 0, 0)), origin, AXES.x), null);
 });

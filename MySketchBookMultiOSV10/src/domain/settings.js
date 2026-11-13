@@ -104,6 +104,8 @@ export function defaultSettings(language = 'ko') {
     showAxes: true,
     showLampMarkers: true,
     showSunMarker: true,
+    // The dashed line from the model to the sun marker (the marker itself stays).
+    showSunLine: true,
     showRulers: true,
     showScaleBar: true,
     // 2D plan: walls (and columns) cut by the plan are filled with a colour ('color', black by default) or
@@ -213,7 +215,7 @@ export function normalizeSettings(raw = {}, language) {
   s.imageQuality = clamp(s.imageQuality, 0.4, 1, base.imageQuality);
   s.explorerHeight = clamp(s.explorerHeight, 20, 85, base.explorerHeight);
   s.autoSaveMinutes = [0, 1, 5, 10, 30].includes(Number(s.autoSaveMinutes)) ? Number(s.autoSaveMinutes) : 0;
-  for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showBottomPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showGrid', 'showAxes', 'showLampMarkers', 'showSunMarker', 'showRulers', 'showScaleBar',
+  for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showBottomPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showGrid', 'showAxes', 'showLampMarkers', 'showSunMarker', 'showSunLine', 'showRulers', 'showScaleBar',
     'snapToGrid', 'inference', 'antialias', 'ambientOcclusion', 'shadows', 'showFps', 'showEdges', 'showProfiles', 'invertZoom', 'explorerSort', 'toolboxCompact', 'tutorialOffered', 'showWelcome', 'tutorialDone', 'animationOnStartOnly',
     'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowPlanSamples', 'startShowBackground', 'startShowTutorialBanner']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];

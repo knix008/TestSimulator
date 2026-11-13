@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PROGRESS_ICONS } from '../../src/ui/progressicons.js';
+import { PROGRESS_ICONS, PROGRESS_NAME_ICONS, PROGRESS_STEP_ICONS } from '../../src/ui/progressicons.js';
 import { icon } from '../../src/icons.js';
 import { DICTIONARIES } from '../../src/i18n.js';
 
@@ -35,6 +35,29 @@ test('each icon exists and draws something', () => {
     const svg = icon(glyph);
     assert.match(svg, /<(path|rect|circle|polyline|line|polygon|ellipse)\b/, `${key}: icon "${glyph}" draws nothing`);
     assert.notEqual(glyph, 'hourglass', `${key}: a fitting icon, not the generic hourglass`);
+  }
+});
+
+/** Steps named in the code: inSteps' step('key' …), and the keys reports take their icon from. */
+function usedSteps() {
+  const keys = new Set();
+  for (const file of sources(path.join(root, 'src'))) {
+    const text = readFileSync(file, 'utf8');
+    for (const m of text.matchAll(/\bstep\(\s*(?:[^,()]*\?\s*)?'(progress\.step\.[a-zA-Z0-9]+)'(?:\s*:\s*'(progress\.step\.[a-zA-Z0-9]+)')?/g)) { keys.add(m[1]); if (m[2]) keys.add(m[2]); }
+    for (const m of text.matchAll(/PROGRESS_STEP_ICONS\['([a-zA-Z0-9.]+)'\]/g)) keys.add(m[1]);
+  }
+  return [...keys].sort();
+}
+
+test('every step of a job shows an icon of what it does, with its text', () => {
+  const used = usedSteps();
+  assert.ok(used.length >= 12, `${used.length} steps found`);
+  const missing = used.filter((k) => !PROGRESS_STEP_ICONS[k]);
+  assert.deepEqual(missing, [], `steps without an icon: ${missing.join(', ')}`);
+  const { ko, en } = DICTIONARIES;
+  for (const [key, glyph] of Object.entries({ ...PROGRESS_STEP_ICONS, ...PROGRESS_NAME_ICONS })) {
+    assert.match(icon(glyph), /<(path|rect|circle|polyline|line|polygon|ellipse)\b/, `${key}: icon "${glyph}" draws nothing`);
+    assert.ok(ko[key] && en[key], `${key}: Korean and English text`);
   }
 });
 

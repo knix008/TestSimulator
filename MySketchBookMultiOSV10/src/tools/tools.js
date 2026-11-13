@@ -15,7 +15,8 @@ import { showInference } from '../engine/overlay.js';
 import { placeStairs as stairsPlace, riseToNextLevel as stairsRiseToNextLevel, stairInfo as stairsInfo, toWorld as stairsToWorld } from '../engine/stairs.js';
 import { catalogItem as stairsCatalogItem } from '../library/catalog.js';
 import { itemParams } from '../library/catalog.js';
-import { dragSurface as dragSurfaceOf, dragPointer } from './drag.js';
+import { clearOfWalls, dragPointer, dragSurface as dragSurfaceOf } from './drag.js';
+import { MoveGizmo, axisParam } from './movegizmo.js';
 export { dragPointer };
 import {
   arcCurve, arcFromRadius, arcFromThreePoints, arcWallSegments, attachColumn, columnFootprint, columnSnapPoints, columnsOf, curveChain, faceToCentre,
@@ -104,22 +105,74 @@ function columnUnder(app, e) {
 
 const dragSurface = (app, ids, start, mode = null) => dragSurfaceOf(app, ids, start, mode, (id) => stairsCatalogItem(id));
 
+/** Half width and depth of a piece (its own axes), cached on the drag so the mesh is measured once. */
+function furnitureFoot(app, id, cache) {
+  cache.feet ??= {};
+  if (cache.feet[id]) return cache.feet[id];
+  const box = app.builder?.orientedBox?.(id);
+  const foot = box ? { hx: Math.max(0.05, (box.local.max.x - box.local.min.x) / 2), hz: Math.max(0.05, (box.local.max.z - box.local.min.z) / 2) } : { hx: 0.3, hz: 0.3 };
+  cache.feet[id] = foot;
+  return foot;
+}
+
+/**
+ * The proposed move, kept out of the walls: a piece stops on the wall face and, on its own, turns so a side lies
+ * along it. `delta` is rewritten. Wall-mounted drags are left as they are (they already slide on the wall).
+ */
+function fitFurniture(app, ids, delta, cache) {
+  if (!ids?.length || ids.some((id) => !['object', 'model'].includes(app.kindOf(id)) || isColumn(app.project().objects.find((o) => o.id === id)))) return;
+  const project = app.project();
+  const one = ids.length === 1;
+  let dx = delta.x;
+  let dz = delta.z;
+  for (const id of ids) {
+    const e = project.objects.find((o) => o.id === id) ?? project.models.find((o) => o.id === id);
+    if (!e) continue;
+    const foot = furnitureFoot(app, id, cache);
+    const walls = project.walls.filter((w) => w.level === e.level && !w.hidden);
+    const fit = clearOfWalls([e.position[0] + dx, e.position[2] + dz], { hx: foot.hx, hz: foot.hz, ry: e.rotation?.[1] ?? 0 }, walls, { align: one });
+    dx = fit.x - e.position[0];
+    dz = fit.z - e.position[2];
+    if (one && Math.abs(fit.ry - (e.rotation?.[1] ?? 0)) > 1e-4) e.rotation[1] = fit.ry;
+  }
+  delta.x = dx;
+  delta.z = dz;
+}
+
 export class SelectTool extends Tool {
   id = 'select';
   get cursor() { return 'default'; }
 
-  activate() { this.hotGrip = null; this.lastGrip = null; drawWallGrips(this.app, this); }
-  deactivate() { this.app.overlay.reset(); this.gripDrag = null; this.rotDrag = null; }
+  activate() { this.hotGrip = null; this.lastGrip = null; this.hotAxis = null; this.lastAxis = null; drawWallGrips(this.app, this); }
+  deactivate() {
+    this.app.overlay.reset(); this.gripDrag = null; this.rotDrag = null; this.axisDrag = null; this.hotAxis = null;
+    const gizmo = this.app.viewport?.moveGizmo;
+    if (gizmo) { gizmo.frozen = false; gizmo.setHot(null); gizmo.show(null); }
+  }
   hint() { return wallGrips(this.app).length ? 'hint.wallGrip' : super.hint(); }
 
   down(e) {
     const app = this.app;
     this.lastGrip = null;
+    this.lastAxis = null;
     // The selected furniture's rotation grip: drag to turn it about its centre.
     const turn = rotateGripAt(app, e);
     if (turn) {
       this.press = { x: e.clientX, y: e.clientY, grip: true };
       this.rotDrag = { ...turn, startAngle: angleAround(turn, this.planAt(e, turn.world)), applied: 0, unwrapped: 0, last: null, started: false };
+      return;
+    }
+    // An arrow of the move handle: drag to move the selection along that axis (X, up and down, Z).
+    const gizmo = app.viewport.moveGizmo;
+    const axis = gizmo?.axisAt(e.clientX, e.clientY);
+    const handle = axis ? moveHandle(app) : null;
+    if (handle) {
+      const dir = gizmo.dirs[axis].clone();
+      const origin = gizmo.anchor.clone();
+      this.press = { x: e.clientX, y: e.clientY, grip: true };
+      this.axisDrag = { axis, dir, ids: handle.ids, origin, from: axisParam(app.viewport.ray(e.clientX, e.clientY).ray, origin, dir), applied: 0, started: false };
+      gizmo.frozen = true;
+      gizmo.setHot(axis);
       return;
     }
     // Grips of the selected wall come before anything in the scene.
@@ -177,6 +230,49 @@ export class SelectTool extends Tool {
     drawWallGrips(app, this);
   }
 
+  /** Dragging an arrow of the move handle: the selection follows the pointer along that one axis. */
+  dragAxis(e) {
+    const app = this.app;
+    const a = this.axisDrag;
+    if (!a.started && Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) < 3) return;
+    const t = axisParam(app.viewport.ray(e.clientX, e.clientY).ray, a.origin, a.dir);
+    if (t == null) return;
+    if (a.from == null) { a.from = t; return; }
+    a.started = true;
+    // Whole millimetres; a pointer far beyond the view (the axis seen nearly end-on) is not followed into the distance.
+    const reach = Math.max(30, 8 * app.viewport.camera.position.distanceTo(a.origin));
+    const along = Math.round(THREE.MathUtils.clamp(t - a.from, -reach, reach) * 1000) / 1000;
+    if (along !== a.applied) {
+      app.moveEntities(a.ids, a.dir.clone().multiplyScalar(along - a.applied), { live: true });
+      a.applied = along;
+    }
+    this.showAxisMove(a);
+  }
+
+  /** Ends dragging an arrow (released, typed or cancelled): its guide goes, the handle may turn to another corner again. */
+  endAxisDrag() {
+    const a = this.axisDrag;
+    this.axisDrag = null;
+    this.press = null;
+    this.app.overlay.clear('axis-guide');
+    this.app.overlay.clearLabel('grip');
+    const gizmo = this.app.viewport.moveGizmo;
+    if (gizmo) { gizmo.frozen = false; gizmo.setHot(this.hotAxis); }
+    return a;
+  }
+
+  /** The axis line through the start, and how far the selection went along it. */
+  showAxisMove(a) {
+    const app = this.app;
+    const color = { x: '#d6303b', y: '#2e6fd6', z: '#2f9e44' }[a.axis];
+    app.overlay.lines('axis-guide', [a.origin.clone().addScaledVector(a.dir, -500), a.origin.clone().addScaledVector(a.dir, 500)], { color, opacity: 0.55 });
+    const o = app.overlay.layers.get('axis-guide')?.object;
+    if (o) o.userData.noPick = true;
+    const text = `${a.applied > 0 ? '+' : a.applied < 0 ? '−' : ''}${formatLength(Math.abs(a.applied), app.units())}`;
+    app.overlay.label('grip', a.origin.clone().addScaledVector(a.dir, a.applied), text, { kind: 'length', dx: 16, dy: -28 });
+    app.setVcb('vcb.distance', formatLength(Math.abs(a.applied), app.units(), { suffix: false }));
+  }
+
   /** The pointer on the horizontal plane through a grip, as a plan point. */
   gripPlane(e, grip) {
     const p = this.app.viewport.screenToWorldOnPlane(e.clientX, e.clientY, grip.world, new THREE.Vector3(0, 1, 0));
@@ -187,6 +283,7 @@ export class SelectTool extends Tool {
     const app = this.app;
     if (this.gripDrag) { this.dragGrip(e); return; }
     if (this.rotDrag) { this.dragRotate(e); return; }
+    if (this.axisDrag) { this.dragAxis(e); return; }
     if (this.sunDrag) {
       if (!this.sunDrag.moved && Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) < 3) return;
       this.sunDrag.moved = true;
@@ -199,8 +296,18 @@ export class SelectTool extends Tool {
       if (!this.drag.started && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 4) return;
       this.drag.started = true;
       this.lastPointer = { clientX: e.clientX, clientY: e.clientY };
+      // Alt held: straight up and down for as long as it is held (the floor or the wall again when released).
+      const alt = e.altKey && !app.viewport.planMode;
+      if (this.drag.surface && alt !== Boolean(this.drag.alt)) {
+        this.drag.alt = alt;
+        this.drag.surface = dragSurface(app, this.drag.ids, this.drag.last, alt ? 'vertical' : this.drag.mode);
+        const from = dragPointer(app, e, this.drag.surface);
+        if (from) this.drag.last.copy(from);
+        return;
+      }
       if (!this.drag.surface) {
-        this.drag.surface = dragSurface(app, this.drag.ids, this.drag.start, this.drag.mode);
+        this.drag.alt = alt;
+        this.drag.surface = dragSurface(app, this.drag.ids, this.drag.start, alt ? 'vertical' : this.drag.mode);
         const from = dragPointer(app, { clientX: p.x, clientY: p.y }, this.drag.surface);
         if (from) this.drag.last.copy(from);
       }
@@ -208,6 +315,7 @@ export class SelectTool extends Tool {
       if (!ground) return;
       const delta = ground.clone().sub(this.drag.last);
       this.drag.last.copy(ground);
+      if (this.drag.surface?.mode !== 'wall') fitFurniture(app, this.drag.ids, delta, this.drag);
       app.moveEntities(this.drag.ids, delta, { live: true });
       return;
     }
@@ -228,7 +336,10 @@ export class SelectTool extends Tool {
       return;
     }
     if (!this.press) {
-      if (rotateGripAt(app, e)) { app.setHover(null); app.viewport.canvas.style.cursor = 'grab'; return; }
+      if (rotateGripAt(app, e)) { this.setHotAxis(null); app.setHover(null); app.viewport.canvas.style.cursor = 'grab'; return; }
+      const axis = app.viewport.moveGizmo?.axisAt(e.clientX, e.clientY) ?? null;
+      this.setHotAxis(axis);
+      if (axis) { app.setHover(null); app.viewport.canvas.style.cursor = 'move'; return; }
       const grip = gripAt(app, e);
       if ((grip?.kind ?? null) !== (this.hotGrip ?? null)) { this.hotGrip = grip?.kind ?? null; drawWallGrips(app, this); }
       if (grip) { app.setHover(null); app.viewport.canvas.style.cursor = grip.kind === 'mid' ? 'move' : 'crosshair'; return; }
@@ -236,6 +347,12 @@ export class SelectTool extends Tool {
       app.setHover(hit?.entity?.kind === 'sun' ? null : hit?.entity?.id ?? null);
       app.viewport.canvas.style.cursor = hit?.entity?.kind === 'sun' || hit?.entity?.lamp ? 'grab' : this.cursor;
     }
+  }
+
+  setHotAxis(axis) {
+    if (this.hotAxis === axis) return;
+    this.hotAxis = axis;
+    this.app.viewport.moveGizmo?.setHot(axis);
   }
 
   /** Dragging a wall grip: every step starts again from the plan as it was when the drag began. */
@@ -296,6 +413,12 @@ export class SelectTool extends Tool {
     const app = this.app;
     const press = this.press;
     this.press = null;
+    if (this.axisDrag) {
+      const a = this.endAxisDrag();
+      if (a.started && a.applied !== 0) { app.commit('op.move', ['objects', 'models']); this.lastAxis = a; }
+      drawWallGrips(app, this);
+      return;
+    }
     if (this.rotDrag) {
       const r = this.rotDrag;
       this.rotDrag = null;
@@ -365,6 +488,21 @@ export class SelectTool extends Tool {
   /** After a grip drag: a typed length (end grip) or distance (middle grip) sets it exactly. */
   vcb(text) {
     const app = this.app;
+    // After moving along an arrow of the move handle: a typed distance sets how far along that axis.
+    const a = this.axisDrag ?? (this.lastAxis && !this.gripDrag ? this.lastAxis : null);
+    if (a) {
+      const value = parseLength(text, app.units());
+      if (value == null) return false;
+      const v = Array.isArray(value) ? value[0] : value;
+      const want = (a.applied < 0 ? -1 : 1) * Math.abs(v);
+      app.moveEntities(a.ids, a.dir.clone().multiplyScalar(want - a.applied), { live: true });
+      a.applied = want;
+      if (this.axisDrag) this.endAxisDrag();
+      app.commit('op.move', ['objects', 'models']);
+      this.lastAxis = a;
+      drawWallGrips(app, this);
+      return true;
+    }
     const g = this.gripDrag ?? this.lastGrip;
     if (!g) return false;
     const value = parseLength(text, app.units());
@@ -405,6 +543,13 @@ export class SelectTool extends Tool {
       const from = this.lastPointer && dragPointer(app, this.lastPointer, this.drag.surface);
       if (from) this.drag.last.copy(from);
       app.notify('info', app.t(vertical ? 'hint.dragVertical' : 'hint.dragFloor'));
+      return true;
+    }
+    if (this.axisDrag) {
+      if (e.key !== 'Escape') return false;
+      const a = this.endAxisDrag();
+      if (a.applied) app.moveEntities(a.ids, a.dir.clone().multiplyScalar(-a.applied), { live: true });
+      drawWallGrips(app, this);
       return true;
     }
     if (this.rotDrag) {
@@ -485,12 +630,9 @@ const ROTATE_GRIP_PX = 30;
  * — in front of the piece (its own front, +Z turned with it) on its top in 3D, on the floor in the 2D plan.
  */
 export function rotateGrip(app) {
-  const ids = app.selection?.() ?? [];
-  if (!ids.length || !app.builder) return null;
-  if (!ids.every((id) => ['object', 'model'].includes(app.kindOf(id)) && !app.isLocked(id))) return null;
-  const box = new THREE.Box3();
-  for (const id of ids) { const b = app.builder.worldBox(id); if (b) box.union(b); }
-  if (box.isEmpty()) return null;
+  const sel = furnitureSelection(app);
+  if (!sel) return null;
+  const { ids, box } = sel;
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
   const one = ids.length === 1 ? app.builder.objectOf?.(ids[0]) : null;
@@ -500,6 +642,34 @@ export function rotateGrip(app) {
   const reach = Math.max(size.x, size.z) / 2 + ROTATE_GRIP_PX * app.viewport.pixelSizeAt(at);
   const world = at.clone().add(new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry)).multiplyScalar(reach));
   return { ids, center: new THREE.Vector3(center.x, y, center.z), world };
+}
+
+/** The selection when it is only furniture / models, none locked: { ids, box (world) }, else null. */
+function furnitureSelection(app) {
+  const ids = app.selection?.() ?? [];
+  if (!ids.length || !app.builder) return null;
+  if (!ids.every((id) => ['object', 'model'].includes(app.kindOf(id)) && !app.isLocked(id))) return null;
+  const box = new THREE.Box3();
+  for (const id of ids) { const b = app.builder.worldBox(id); if (b) box.union(b); }
+  return box.isEmpty() ? null : { ids, box };
+}
+
+// ───────────────────────── move handle (selected furniture: X, up-and-down and Z arrows; tools/movegizmo.js)
+
+/** What the move handle moves: { ids, box (world), floorY (2D: the plan's floor, where the handle lies) }. */
+export function moveHandle(app) {
+  const sel = furnitureSelection(app);
+  if (!sel) return null;
+  return { ...sel, floorY: app.viewport.planMode ? app.level().elevation + 0.02 : null };
+}
+
+function drawMoveHandle(app, tool) {
+  if (!app.viewport) return;
+  const handle = tool instanceof SelectTool && !tool.rotDrag && !tool.gripDrag?.started ? moveHandle(app) : null;
+  if (!handle && !app.viewport.moveGizmo) return;
+  const gizmo = (app.viewport.moveGizmo ??= new MoveGizmo(app.viewport));
+  gizmo.show(handle?.box ?? null, { floorY: handle?.floorY ?? null });
+  if (!handle) gizmo.setHot(null);
 }
 
 /** Angle of a plan point around the grip's centre, counter-clockwise from above (rotateEntities' sense). */
@@ -547,6 +717,7 @@ export function drawWallGrips(app, tool) {
   const overlay = app.overlay;
   if (!overlay) return;
   drawRotateGrip(app, tool);
+  drawMoveHandle(app, tool);
   const grips = tool instanceof SelectTool && !tool.gripDrag?.started ? wallGrips(app) : [];
   const layer = (name, list, color, size, order) => {
     overlay.points(name, list, { color, size });
@@ -1303,6 +1474,7 @@ export class MoveTool extends Tool {
     if (!this.start) { showInference(this.app.overlay, { point: p.world, kind: p.kind === 'onFace' ? 'onFace' : 'ground', tooltip: '' }); return; }
     const delta = p.world.clone().sub(this.last);
     this.last.copy(p.world);
+    if (this.lock?.axis !== 'vertical') fitFurniture(this.app, this.ids, delta, this);
     this.app.moveEntities(this.ids, delta, { live: true });
     const total = p.world.distanceTo(this.start);
     this.app.overlay.lines('move', [this.start, p.world], { color: p.kind === 'axisX' ? '#d6303b' : p.kind === 'axisZ' ? '#2f9e44' : p.kind === 'axisY' ? '#2e6fd6' : '#555', dashed: true });

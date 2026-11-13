@@ -600,12 +600,19 @@ function renderProgress() {
   const bytes = progress && !progress.text && progress.total > 1000 && progress.total !== 1000;
   const text = progress?.text ? progress.text : progress ? (bytes ? t('progress.bytes', { done: formatBytes(progress.done), total: formatBytes(progress.total) }) : t('progress.steps', { done: progress.done, total: progress.total })) : t('progress.wait');
   const elapsed = Math.round((Date.now() - (state.progressStart ??= Date.now())) / 1000);
+  // The big icon shows what is being done right now (the job's step, else the job); a tick when it is finished.
+  // Redrawn on every report: the animation picks up where it was, so it does not restart.
+  const finished = state.doneAt != null;
+  const glyph = finished ? 'check' : progress?.icon || p.icon || 'hourglass';
   root.innerHTML = frame({
     glyph: p.icon || 'hourglass', title: p.title ?? t('progress.wait'),
     body: `<div class="progress-view">
-      <div class="row">${icon('file')}<span class="path" title="${escapeHtml(p.name ?? '')}">${escapeHtml(p.name ?? '')}</span><span class="grow"></span><span class="muted" id="progress-elapsed">${escapeHtml(t('progress.elapsed', { s: elapsed }))}</span></div>
-      <div data-scrolls class="progress-bar ${percent == null ? 'indeterminate' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent ?? 0}"><i style="width:${percent ?? 30}%"></i></div>
-      <div class="row muted"><span id="progress-text">${escapeHtml(text)}</span><span class="grow"></span><b id="progress-percent">${percent == null ? '' : `${percent}%`}</b></div>
+      <div class="progress-glyph ${finished ? 'done' : ''}" style="animation-delay:-${Date.now() % 1600}ms" aria-hidden="true">${icon(glyph, 'icon progress-icon')}</div>
+      <div class="progress-main">
+        <div class="row">${icon(p.nameIcon || 'file')}<span class="path" title="${escapeHtml(p.name ?? '')}">${escapeHtml(p.name ?? '')}</span><span class="grow"></span><span class="muted" id="progress-elapsed">${escapeHtml(t('progress.elapsed', { s: elapsed }))}</span></div>
+        <div data-scrolls class="progress-bar ${percent == null ? 'indeterminate' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent ?? 0}"><i style="width:${percent ?? 30}%"></i></div>
+        <div class="row muted"><span id="progress-text">${escapeHtml(text)}</span><span class="grow"></span><b id="progress-percent">${percent == null ? '' : `${percent}%`}</b></div>
+      </div>
     </div>`,
     foot: p.cancellable ? `<span class="grow"></span>${button('progress-cancel', state.cancelled ? t('progress.cancelling') : t('common.cancel'), 'close', 'danger', '', state.cancelled ? 'disabled' : '')}` : '',
   });
@@ -1077,9 +1084,9 @@ function onHostMessage(message) {
     if (kind === 'progress') render();
   } else if (message?.type === 'done' && kind === 'progress') {
     state.progress = state.progress ? { ...state.progress, done: state.progress.total } : null;
-    render();
     // The window is kept (hidden) for the next job: cleared once hidden, so it never comes back showing "done".
     const stamp = (state.doneAt = Date.now());
+    render();
     setTimeout(() => { if (state.doneAt === stamp) root.innerHTML = ''; }, 1500);
   } else if (printHostMessage(kind, message, popupApi) || popup3dHostMessage(kind, message, popupApi)) {
     /* handled by popups-3d.js */

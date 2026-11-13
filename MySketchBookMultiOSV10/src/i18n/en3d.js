@@ -88,6 +88,7 @@ export default {
   'action.sunOn': "Sunlight on/off",
   'action.night': "Night (off: day)",
   'action.sunMarker': "Sun marker",
+  'action.sunLine': "Line to the origin",
   'action.sunPanel': "Sunlight properties…",
   'notice.sunOn': "Sunlight on",
   'notice.sunOff': "Sunlight off",
@@ -193,7 +194,7 @@ export default {
   'palette.groupConstruct': "Measure & annotate",
   'palette.groupCamera': "Camera",
 
-  'hint.select': "Click: select · drag empty space: rotate (2D: move) · Ctrl+drag / right-drag: move · wheel / wheel-drag: zoom · Shift+drag: box select · drag selected furniture: move it · Home: reset view",
+  'hint.select': "Click: select · drag empty space: rotate (2D: move) · Ctrl+drag / right-drag: move · wheel / wheel-drag: zoom · Shift+drag: box select · drag selected furniture: move it (Alt: up and down) · drag an arrow: move along red X, blue up-down or green Z · Home: reset view",
   'hint.place': "Click where it goes · [ ] or R: rotate · Near a wall it snaps against it · Alt: no wall snapping · Esc: done",
   'hint.placeOpening': "Click on a wall to place the door or window · It slides along the wall · Esc: done",
   'hint.wall': "Click the start and each next point · Type a length + Enter · Arrows: lock an axis · Shift: lock the direction · Double-click / Esc: finish",

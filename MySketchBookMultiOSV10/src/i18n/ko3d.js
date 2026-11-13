@@ -90,6 +90,7 @@ export default {
   'action.sunOn': "태양광 켜기/끄기",
   'action.night': "밤 (끄면 낮)",
   'action.sunMarker': "해 표시",
+  'action.sunLine': "원점 연결선",
   'action.sunPanel': "태양광 속성…",
   'notice.sunOn': "태양광을 켰습니다",
   'notice.sunOff': "태양광을 껐습니다",
@@ -197,7 +198,7 @@ export default {
   'palette.groupCamera': "카메라",
 
   // tool hints (status bar)
-  'hint.select': "클릭: 선택 · 빈 곳 끌기: 회전(2D: 이동) · Ctrl+끌기 / 오른쪽 끌기: 이동 · 휠·휠 끌기: 확대 · Shift+끌기: 영역 선택 · 선택한 가구 끌기: 옮기기 · Home: 처음 보기",
+  'hint.select': "클릭: 선택 · 빈 곳 끌기: 회전(2D: 이동) · Ctrl+끌기 / 오른쪽 끌기: 이동 · 휠·휠 끌기: 확대 · Shift+끌기: 영역 선택 · 선택한 가구 끌기: 옮기기(Alt: 위아래) · 화살표 끌기: 빨강 X·파랑 위아래·초록 Z 축으로 이동 · Home: 처음 보기",
   'hint.place': "놓을 곳을 클릭하세요 · [ ] 또는 R: 회전 · 벽 가까이 놓으면 벽에 붙습니다 · Alt: 벽 붙이기 끄기 · Esc: 끝",
   'hint.placeOpening': "벽 위를 클릭해 문·창을 놓으세요 · 벽을 따라 움직입니다 · Esc: 끝",
   'hint.wall': "벽의 시작점과 다음 점을 클릭 · 길이를 입력하고 Enter · 화살표: 축 고정 · Shift: 방향 고정 · 더블클릭/Esc: 끝",

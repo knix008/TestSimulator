@@ -18,13 +18,17 @@ const BODY = (def = '#f2f2f2') => P.color('body', '몸체 색', 'Body colour', d
 const SCREEN = (def = true) => P.bool('screen', '화면 켜짐', 'Screen on', def);
 const CCTV = ['cctv', 'security camera', 'surveillance', 'CCTV', '보안 카메라', '감시 카메라'];
 
-/** Bullet camera body along +Z from (0, y, 0): radius r, length L, with sun shield and lens. */
-function bullet(k, r, L, y, body, { tilt = 0.25, ir = true, shield = true } = {}) {
-  const dy = -Math.sin(tilt), dz = Math.cos(tilt);
-  k.cyl('housing', 'plastic-abs-gloss-white', r, r, L, 0, y, 0, { rx: PI / 2 - tilt, segs: k.seg(18, 8), ...C(body) });
-  if (shield) k.box('housing', 'plastic-abs-gloss-white', r * 2.4, 0.006, L * 1.1, 0, y + r + 0.004 + dy * L / 2, dz * L / 2, { r: 0.003, rx: -tilt, ...C(body) });
-  k.cyl('lens', 'glass-tint-smoke-dark', r * 0.85, r * 0.85, 0.004, 0, y + dy * L, dz * L, { rx: PI / 2 - tilt, segs: k.seg(16, 8) });
-  if (ir) k.add('ir', 'led-red', T(new THREE.TorusGeometry(r * 0.6, 0.002, 4, 16), 0, y + dy * (L + 0.003), dz * (L + 0.003), -tilt, 0, 0));
+/** Bullet camera along +Z from (0, y, 0): radius r, length L. `tilt` (radians) looks down — the usual aim — and the
+ *  lens and IR ring sit on the front of the housing, not a body-length away from it. */
+function bullet(k, r, L, y, body, { tilt = 0.45, ir = true, shield = true } = {}) {
+  const rx = PI / 2 + tilt;
+  const down = Math.sin(tilt), fwd = Math.cos(tilt);
+  k.cyl('housing', 'plastic-abs-gloss-white', r, r, L, 0, y, 0, { rx, segs: k.seg(18, 8), ...C(body) });
+  if (shield) k.box('housing', 'plastic-abs-gloss-white', r * 2.2, 0.006, L * 0.86, 0, y + fwd * (r + 0.004), down * (r + 0.004), { r: 0.003, rx: -tilt, ...C(body) });
+  const nose = L / 2 - 0.002;
+  k.cyl('lens', 'plastic-abs-matte-black', r * 0.92, r * 0.78, 0.016, 0, y - down * (nose - 0.006), fwd * (nose - 0.006), { rx, segs: k.seg(16, 8) });
+  k.cyl('lens', 'glass-tint-smoke-dark', r * 0.62, r * 0.62, 0.006, 0, y - down * nose, fwd * nose, { rx, segs: k.seg(16, 8) });
+  if (ir) k.add('ir', 'led-red', T(new THREE.TorusGeometry(r * 0.5, 0.0022, 6, 18), 0, y - down * (nose - 0.001), fwd * (nose - 0.001), rx, 0, 0));
 }
 /** Wall bracket arm from the wall (z = 0) to (0, y, z1). */
 function bracket(k, y, z1, body) {

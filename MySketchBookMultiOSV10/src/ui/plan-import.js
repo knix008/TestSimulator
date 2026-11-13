@@ -35,6 +35,7 @@ import { detectFurniture, MATCH_ITEMS } from '../io/plan-furniture.js';
 import { templateSource } from '../io/plan-templates.js';
 import { getMaterial } from '../engine/materials.js';
 import { catalogItem } from '../library/catalog.js';
+import { PROGRESS_STEP_ICONS } from './progressicons.js';
 
 /** Buildings: BIM models (IFC) and Sweet Home 3D homes — levels, walls, openings, rooms, furniture. */
 export const BUILDING_ACCEPT = '.ifc,.sh3d';
@@ -181,21 +182,21 @@ export function createPlanImport(app) {
   const breathe = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   /**
-   * A long job in steps, with the progress window open from the start: `body(step)` calls `await step(text)` before
-   * each step (about `total` of them) — the window shows the text and how far the job is, and the screen gets a frame
-   * to draw it (the steps themselves are computations that hold the page while they run).
+   * A long job in steps, with the progress window open from the start: `body(step)` calls `await step(key, vars)`
+   * before each step (about `total` of them) — the window shows the step's text and icon and how far the job is, and
+   * the screen gets a frame to draw it (the steps themselves are computations that hold the page while they run).
    */
   function inSteps(titleKey, name, total, body) {
     return app.withProgress(titleKey, name, async (op, report) => {
       let done = 0;
-      const step = async (text) => {
-        report({ fraction: Math.min(0.98, done / Math.max(1, total)), text });
+      const step = async (key, vars) => {
+        report({ fraction: Math.min(0.98, done / Math.max(1, total)), text: t(key, vars), icon: PROGRESS_STEP_ICONS[key] });
         done++;
         // A frame for the window to show the new text (it is up already: withProgress waits until it is drawn).
         await breathe(40);
       };
       const out = await body(step);
-      report({ fraction: 1, text: t('progress.step.done') });
+      report({ fraction: 1, text: t('progress.step.done'), icon: PROGRESS_STEP_ICONS['progress.step.done'] });
       await breathe(60);
       return out;
     }, { delay: 0 });
@@ -207,9 +208,9 @@ export function createPlanImport(app) {
    */
   async function convertTo3d(name, apply, furniture = 0) {
     return inSteps('progress.convert3d', name, 2, async (step) => {
-      await step(t('progress.step.buildPlan'));
+      await step('progress.step.buildPlan');
       const applied = apply();
-      await step(furniture ? t('progress.step.buildSceneFurniture', { n: furniture }) : t('progress.step.buildScene'));
+      await step(furniture ? 'progress.step.buildSceneFurniture' : 'progress.step.buildScene', { n: furniture });
       app.afterImport?.(applied);
       return applied;
     });
@@ -279,7 +280,7 @@ export function createPlanImport(app) {
       r.texts = plan.texts;
       return r;
     };
-    const result = await inSteps('progress.readPlan', name, 1, async (step) => { await step(t('progress.step.recognise')); return recognise(o.walls); });
+    const result = await inSteps('progress.readPlan', name, 1, async (step) => { await step('progress.step.recognise'); return recognise(o.walls); });
     if (!result.walls.length && !o.refine) { app.notify('error', t('notice.planEmpty', { name })); return { result, applied: null }; }
     let final = result;
     let chosen = { target: o.target ?? 'replace', wallHeight: Number(o.wallHeight) || null, keepLines: o.keepLines !== false };
@@ -310,7 +311,7 @@ export function createPlanImport(app) {
   async function importPlan(name, source, options = null) {
     // DWG: converted to DXF first (read as DXF from here on).
     const bytes = isDwgName(name) ? await app.withProgress('progress.convertDwg', name, () => convertDwg(app, name, source), { delay: 150 }) : source;
-    const first = await inSteps('progress.readPlan', name, 1, async (step) => { await step(t('progress.step.readDrawing')); return readPlanFile(name, bytes); });
+    const first = await inSteps('progress.readPlan', name, 1, async (step) => { await step('progress.step.readDrawing'); return readPlanFile(name, bytes); });
     const settings = app.settings();
     const hasWalls = Boolean(app.project()?.walls.length);
     let o = options;
@@ -323,7 +324,7 @@ export function createPlanImport(app) {
       });
       if (!o?.ok) return null;
     }
-    const read = await inSteps('progress.readPlan', name, 1, async (step) => { await step(t('progress.step.readDrawing')); return readPlanFile(name, bytes, { units: o.units ?? 'auto', layers: o.layers ?? null }); });
+    const read = await inSteps('progress.readPlan', name, 1, async (step) => { await step('progress.step.readDrawing'); return readPlanFile(name, bytes, { units: o.units ?? 'auto', layers: o.layers ?? null }); });
     const { result, applied } = await applyRecognized(name, read.plan, o);
     return { result, applied, units: read.units };
   }
@@ -523,7 +524,7 @@ export function createPlanImport(app) {
         page = (Number(choice.page) || 1) - 1;
       }
     }
-    const picture = await app.withProgress('progress.readPlan', name, async (op, report) => { report({ fraction: 0.1, text: t('progress.step.readPicture') }); return planPicture(name, bytes, { page }); }, { delay: 150 });
+    const picture = await app.withProgress('progress.readPlan', name, async (op, report) => { report({ fraction: 0.1, text: t('progress.step.readPicture'), icon: PROGRESS_STEP_ICONS['progress.step.readPicture'] }); return planPicture(name, bytes, { page }); }, { delay: 150 });
     const { width, height } = picture;
     let o = options;
     if (!o) {
@@ -630,29 +631,29 @@ export function createPlanImport(app) {
         const variants = VARIANTS[method] ?? VARIANTS.auto;
         const total = 1 + variants.length + (variants.length > 1 ? 1 : 0) + (templatesReady ? 0 : 1) + 1;
         return inSteps('progress.detectWalls', u.name, total, async (step) => {
-          await step(t('progress.step.readPicture'));
+          await step('progress.step.readPicture');
           const { original, metresPerPixel } = picturePixels(bitmap, bg.k);
           let wallsPicture = null;
           const found = [];
           for (const [i, [m, walls]] of variants.entries()) {
-            await step(t(walls ? 'progress.step.findWallsOnly' : 'progress.step.findWalls', { n: i + 1, total: variants.length }));
+            await step(walls ? 'progress.step.findWallsOnly' : 'progress.step.findWalls', { n: i + 1, total: variants.length });
             if (walls) wallsPicture ??= wallsOnly(original, { metresPerPixel });
             found.push(detectOn(original, wallsPicture, { metresPerPixel, method: m, walls }));
           }
           let raw = found[0];
           if (found.length > 1) {
-            await step(t('progress.step.chooseWalls'));
+            await step('progress.step.chooseWalls');
             raw = found[pickDetection(found.map((r) => placeResult(r, bg)))];
           }
           // Furniture in the rooms of the chosen walls (io/plan-furniture.js), on the picture as it is.
           if (raw.walls.length) {
             if (!templatesReady) {
               // What the library's furniture looks like from above: built once, the first time a picture is read.
-              await step(t('progress.step.furnitureShapes'));
+              await step('progress.step.furnitureShapes');
               for (const [i, spec] of MATCH_ITEMS.entries()) { furnitureTemplates(spec.item); if (i % 4 === 3) await breathe(0); }
               templatesReady = true;
             }
-            await step(t('progress.step.findFurniture'));
+            await step('progress.step.findFurniture');
             try { raw = { ...raw, furniture: detectFurniture(original, { metresPerPixel, result: raw, angle: raw.angle ?? 0, templates: furnitureTemplates }) }; } catch (error) { console.warn('furniture', error); }
           }
           return placeResult(raw, bg);

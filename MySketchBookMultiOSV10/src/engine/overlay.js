@@ -148,7 +148,7 @@ export class Overlay {
 
   placeLabels() {
     if (!this.labels.size) return;
-    const r = this.viewport.canvas.getBoundingClientRect();
+    const r = this.viewport.canvasRect();
     const host = this.labelHost.getBoundingClientRect();
     for (const entry of this.labels.values()) {
       const s = this.viewport.worldToScreen(entry.point);
