@@ -1,5 +1,6 @@
 import { initShell, modelsChanged, noteFileOpened, openText } from './ui/shell.js';
 import { initSpeakerPanel, redrawSpeakers, renderSpeakers } from './ui/speakerpanel.js';
+import { showGenerationProgress } from './ui/progress.js';
 
 // ── Web-mode file open helper (used only when the desktop bridge is absent) ──
 function webOpenTextFile() {
@@ -587,7 +588,27 @@ function setDownloadPhase(active) {
   if (dlInfoPill) dlInfoPill.hidden = !active;
 }
 
-function updateDlPanel(percent, _fileName, receivedMB, totalMB) {
+/** The download progress popup ("숨기기" hides it; the download and the status bar go on). */
+let downloadPopup = null;
+function openDownloadPopup(label) {
+  downloadPopup?.close();
+  downloadPopup = showGenerationProgress({
+    kind: 'download', title: '모델 다운로드 중', model: label, total: 100, delay: 0,
+    countText: (done) => `${done}%`, cancelLabel: '숨기기', hideOnly: true,
+  });
+  downloadPopup.update({ done: 0, note: '내려받을 파일 목록을 확인하는 중…' });
+}
+function closeDownloadPopup() {
+  downloadPopup?.close();
+  downloadPopup = null;
+}
+
+function updateDlPanel(percent, fileName, receivedMB, totalMB) {
+  downloadPopup?.update({
+    done: Number(percent) || 0,
+    item: fileName ? String(fileName).replace(/.*[\\/]/, '') : '',
+    note: totalMB ? `${receivedMB ?? 0} / ${totalMB} MB` : (receivedMB ? `${receivedMB} MB` : ''),
+  });
   if (dlPercent) dlPercent.textContent = `${percent}%`;
   if (dlSize) {
     dlSize.textContent = totalMB
@@ -1329,6 +1350,12 @@ async function synthesizeCurrentText() {
   showStatus(`${activeModel.label} 모델 합성 중...`);
   // Do not draw a fake waveform while waiting — only show real PCM.
   clearWaveform(`${activeModel.label} 합성 중…`);
+  let cancelled = false;
+  const progress = showGenerationProgress({
+    kind: 'speak', title: '음성 생성 중', model: activeModel.label,
+    item: voiceId ? (voiceSelect?.selectedOptions?.[0]?.textContent || voiceId) : '', text,
+    cancelLabel: '취소', onCancel: () => { cancelled = true; },
+  });
 
   try {
     const pcm = readCurrentPcmSettings();
@@ -1344,6 +1371,12 @@ async function synthesizeCurrentText() {
       normalizeLevel: pcm.normalizeLevel / 100,
     });
 
+    if (cancelled) {
+      // The engine cannot be interrupted mid-sentence: the result is dropped instead.
+      clearWaveform('생성을 취소했습니다.');
+      showStatus('음성 생성을 취소했습니다.');
+      return null;
+    }
     if (!result?.audioBuffer?.length) {
       throw new Error(`${activeModel.label} 합성 결과가 비어 있습니다.`);
     }
@@ -1367,6 +1400,7 @@ async function synthesizeCurrentText() {
     clearWaveform('합성에 실패했습니다. 다시 시도해 주세요.');
     throw err;
   } finally {
+    progress.close();
     state.synthesizing = false;
     updateTransportButtons();
   }
@@ -1395,6 +1429,7 @@ async function speakText() {
     }
 
     const model = await synthesizeCurrentText();
+    if (!model) { setPhase('idle'); return; } // cancelled in the progress popup
     showStatus(`${model.label} 합성 완료, 재생 중...`);
     await startPlaybackFrom(0);
   } catch (err) {
@@ -1671,11 +1706,16 @@ async function synthesizeAllVoices() {
   setPhase('speaking');
   const draw = (running = true) => { if (state.speakers === run) renderSpeakers(run, { active: state.speakerActive, running }); };
   draw();
+  const progress = showGenerationProgress({
+    kind: 'speakers', title: '모든 화자로 생성 중', model: model.label, text, total: run.items.length,
+    cancelLabel: '생성 중단', onCancel: () => { state.speakerCancel = true; showStatus('남은 화자 생성을 멈추는 중...'); },
+  });
   try {
     for (const [index, item] of run.items.entries()) {
       if (state.speakerCancel) { item.status = 'skip'; continue; }
       item.status = 'busy';
       draw();
+      progress.update({ done: index, item: item.label });
       showStatus(`${model.label} · ${item.label} 생성 중 (${index + 1}/${run.items.length})`);
       try {
         const result = await bridge.speak({
@@ -1691,9 +1731,11 @@ async function synthesizeAllVoices() {
         item.status = 'error';
         item.error = (describeUiError(err).summary || '').split('\n')[0];
       }
+      progress.update({ done: index + 1 });
       draw();
     }
   } finally {
+    progress.close();
     state.synthesizing = false;
     updateTransportButtons();
     setPhase('idle');
@@ -1840,10 +1882,12 @@ async function downloadSelectedModel() {
     downloadUiActive = true;
     setPhase('downloading');
     setDownloadPhase(true);
+    openDownloadPopup(model.label);
     updateDlPanel(0, '', null, null);
     showProgress(0);
     showStatus(`${model.label} 다운로드를 준비하는 중입니다...`);
     const result = await bridge.downloadAndPrepareModel(model.id);
+    closeDownloadPopup();
     // Invoke can resolve before the last progress IPC; force a consistent 100% UI.
     markDownloadUiComplete(model.label, { freshlyDownloaded: !!result?.downloaded });
     await refreshModels();
@@ -1857,6 +1901,7 @@ async function downloadSelectedModel() {
     showProgress(0);
     throw error;
   } finally {
+    closeDownloadPopup();
     updateDownloadButtonState();
   }
 }

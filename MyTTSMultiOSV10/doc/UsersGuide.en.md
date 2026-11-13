@@ -125,6 +125,9 @@ The start screen appears when the program starts. **시작** (Home) in the menu 
    If the model is not installed, the download starts first.
 3. The waveform shows the real sound the model produced; a red line follows the playback position.
 
+While it synthesizes, a **progress window** opens (very short jobs finish without it): model and speaker, the start of the text,
+a moving bar and the elapsed time. **취소** (Cancel) drops the result when synthesis ends (the engine cannot stop mid-sentence).
+
 | Action | How |
 |--------|-----|
 | Pause / resume | **멈춤** (Pause, F6), then **읽기** (Read) |
@@ -154,6 +157,8 @@ Choose a **모델** (Model), install it with **다운로드** (Download) or remo
 | MeloTTS KR/EN | Korean · English | MeloTTS ONNX (INT8) | ~55 MB | model default |
 | Kokoro 82M KO/EN | Korean (romanized) · English | onnxruntime | ~84 MB | 4 (Bella, Heart, Adam, Michael) |
 
+- While a model downloads, a **progress window** shows the percentage, the file being fetched, MB received / total and the elapsed time.
+  **숨기기** (Hide) only closes the window; the download goes on and the status bar keeps showing its progress.
 - Choosing a model warms its engine up so the first read is quick; the status bar briefly shows 「엔진 준비 중…」 (preparing the engine).
 - Piper KSS downloads the goruut phonemizer (~96 MB) the first time.
 - Kokoro 82M (English) reads Korean text by its romanization, which can sound odd; use English text with it.
@@ -171,7 +176,10 @@ Models with several speakers (Supertonic: 10, Kokoro 82M English: 28, Kokoro KO/
 1. Type the text and press **모든 화자** (All speakers) above the waveform (also **Shift+F5**, the Play menu, the toolbar and the editor's context menu).
    It is disabled for single-speaker models.
 2. **화자별 결과** (Speaker results) below the waveform gets a row per speaker, changing from 「생성 중…」 (generating) to a waveform and length.
-   **생성 중단** (Stop generating) skips the remaining speakers.
+   A **progress window** shows how far it is, e.g. 「3 / 10 화자 · 30%」 (3 of 10 speakers), the speaker being made and the elapsed time.
+   **생성 중단** (Stop generating), in the window or the results, skips the remaining speakers once the current one is done.
+
+   ![Generating every speaker — the progress window](images/ko/progress.png)
 3. A row's **▶** puts that speaker's sound in the main waveform, plays it and selects that speaker in the voice list,
    so seeking, pausing and saving work as usual.
 4. A row's **save** button saves that speaker's sound; the file name includes the speaker's name.

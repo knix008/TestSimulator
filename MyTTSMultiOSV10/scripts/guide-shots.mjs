@@ -63,6 +63,8 @@ try {
   await page.eval(`(() => { const s = document.querySelector('#modelSelect'); s.value = 'ko-supertonic-int8'; s.dispatchEvent(new Event('change', { bubbles: true })); const v = document.querySelector('#volumeRange'); v.value = 0; v.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
   await page.waitFor(`[...document.querySelectorAll('#voiceSelect option')].filter((o) => o.value).length > 1 && !document.querySelector('#speakAllVoices').disabled`, 60000);
   await click('#speakAllVoices');
+  await page.waitFor(`document.querySelector('#progressDialog')?.open && document.querySelectorAll('.speaker-row.done').length >= 3`, 120000);
+  await shot('progress', ['#progressDialog'], 0);
   await page.waitFor(`document.querySelectorAll('.speaker-row.done').length > 1 && !document.querySelector('#speakAllVoices').disabled`, 240000);
   await page.eval(`(document.querySelectorAll('.speaker-row [data-speaker-action="play"]')[1].click(), true)`);
   await sleep(1300);

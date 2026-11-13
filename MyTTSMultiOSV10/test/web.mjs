@@ -448,6 +448,42 @@ export function cases(ctx) {
     assert.equal(await count('#errorDialog #copyError'), 1);
     await click('#errorDialog .popup-foot button[value="close"]');
   });
+  add('Progress popup (download): percent, file, MB and "숨기기" that only hides it', async () => {
+    const r = await ev(`(async () => {
+      const { showGenerationProgress } = await import('/src/web/ui/progress.js');
+      let hidden = false;
+      const p = showGenerationProgress({ kind: 'download', title: '모델 다운로드 중', model: 'Kokoro 82M', total: 100, delay: 0, countText: (d) => d + '%', cancelLabel: '숨기기', hideOnly: true, onCancel: () => { hidden = true; } });
+      await new Promise((s) => setTimeout(s, 50));
+      p.update({ done: 42, item: 'model_q8f16.onnx', note: '34.4 / 82.0 MB' });
+      const d = document.querySelector('#progressDialog');
+      const shown = { open: d.open, kind: d.dataset.kind, count: d.querySelector('[data-progress-count]').textContent, item: d.querySelector('[data-progress-item]').textContent, note: d.querySelector('[data-progress-note]').textContent, width: d.querySelector('[data-progress-bar] i').style.width, button: d.querySelector('[data-progress-cancel]').textContent.trim(), tone: !!d.querySelector('.popup-head svg[data-tone]') };
+      d.querySelector('[data-progress-cancel]').click();
+      return { ...shown, closedAfter: !d.open, hidden, popupClosed: p.closed };
+    })()`);
+    assert.deepEqual(r, { open: true, kind: 'download', count: '42%', item: '· model_q8f16.onnx', note: '34.4 / 82.0 MB', width: '42%', button: '숨기기', tone: true, closedAfter: true, hidden: true, popupClosed: true });
+  });
+  add('Progress popup (speakers): n / N, cancel note; short jobs never open it', async () => {
+    const r = await ev(`(async () => {
+      const { showGenerationProgress } = await import('/src/web/ui/progress.js');
+      const quick = showGenerationProgress({ delay: 300, onCancel: () => {} });
+      await new Promise((s) => setTimeout(s, 100));
+      quick.close();
+      await new Promise((s) => setTimeout(s, 350));
+      const flashed = document.querySelector('#progressDialog').open;
+      let stopped = false;
+      const p = showGenerationProgress({ kind: 'speakers', model: 'Supertonic 2 INT8', text: '안녕하세요', total: 10, delay: 0, cancelLabel: '생성 중단', onCancel: () => { stopped = true; } });
+      await new Promise((s) => setTimeout(s, 30));
+      p.update({ done: 3, item: '아나운서형 여성 (F3)' });
+      const d = document.querySelector('#progressDialog');
+      const count = d.querySelector('[data-progress-count]').textContent;
+      d.querySelector('[data-progress-cancel]').click();
+      const note = d.querySelector('[data-progress-note]').textContent;
+      const stillOpen = d.open; // stopping waits for the current speaker
+      p.close();
+      return { flashed, count, stopped, note, stillOpen, closed: !d.open, preview: d.querySelector('.progress-text').textContent };
+    })()`);
+    assert.deepEqual(r, { flashed: false, count: '3 / 10 화자 · 30%', stopped: true, note: '멈추는 중… (지금 화자가 끝나면 멈춥니다)', stillOpen: true, closed: true, preview: '“안녕하세요”' });
+  });
   add('All speakers: disabled when the model is not installed', async () => {
     assert.equal(await ev(`document.querySelector('#speakAllVoices').disabled`), true);
     assert.equal(await ev(`document.querySelector('#speakerPanel').hidden`), true);

@@ -106,8 +106,12 @@ export function cases(ctx) {
     assert.equal(new Set(ids).size, ids.length, 'no duplicate speakers');
     await page.key('F5', { shift: true });
     await page.waitFor(`document.querySelectorAll('.speaker-row').length === ${ids.length}`, 5000);
+    // The progress popup: speakers done / total, the speaker being made, then it closes.
+    await page.waitFor(`document.querySelector('#progressDialog')?.open && /^\\d+ \\/ ${ids.length} 화자 · \\d+%$/.test(document.querySelector('#progressDialog [data-progress-count]').textContent)`, 10000, 'the progress popup');
+    assert.match(await ev(`document.querySelector('#progressDialog [data-progress-item]').textContent`), /^· \S/);
     await page.waitFor(`document.querySelectorAll('.speaker-row.done').length === ${ids.length} && !document.querySelector('#speakAllVoices').disabled`, 300000, 'all speakers');
     assert.equal(await ev(`document.querySelectorAll('.speaker-row canvas').length`), ids.length);
+    assert.equal(await ev(`document.querySelector('#progressDialog').open`), false, 'popup closed at the end');
     ctx.speakerCount = ids.length;
   }, { skip: needModels, timeout: 320000 });
   add('All speakers: ▶ loads that speaker into the waveform and the voice list', async () => {
@@ -116,16 +120,35 @@ export function cases(ctx) {
     assert.deepEqual([s.active, s.voice, s.audio], [true, 3, true]);
     await domClick('#stopPlayback');
   }, { skip: needModels });
-  add('All speakers: stop generating skips the rest; × closes the results', async () => {
+  add('All speakers: "생성 중단" in the progress popup skips the rest; × closes the results', async () => {
     await domClick('#speakAllVoices');
-    await page.waitFor(`document.querySelectorAll('.speaker-row.done').length >= 1`, 60000);
-    await domClick('[data-speaker-action="stop"]');
+    await page.waitFor(`document.querySelectorAll('.speaker-row.done').length >= 1 && document.querySelector('#progressDialog').open`, 60000);
+    await domClick('#progressDialog [data-progress-cancel]');
     await page.waitFor(`!document.querySelector('#speakAllVoices').disabled`, 60000);
     const skipped = await ev(`document.querySelectorAll('.speaker-row.skip').length`);
     assert.ok(skipped >= 1 && skipped < ctx.speakerCount, `skipped ${skipped}`);
     await domClick('[data-speaker-action="close"]');
     assert.equal(await ev(`document.querySelector('#speakerPanel').hidden`), true);
   }, { skip: needModels, timeout: 120000 });
+
+  add('Read: the progress popup shows while synthesizing; 취소 drops the result', async () => {
+    await domClick('#toolbar [data-cmd="newText"]');
+    const long = '긴 문장을 합성하는 동안 진행률 창이 보이는지 확인합니다. '.repeat(12);
+    await ev(`(() => { const t = document.querySelector('#textInput'); t.value = ${q(long)}; t.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+    await domClick('#speakText');
+    await page.waitFor(`document.querySelector('#progressDialog')?.open && document.querySelector('#progressDialog').dataset.kind === 'speak'`, 10000, 'the progress popup');
+    assert.ok(await ev(`document.querySelector('#progressDialog .progress-bar').classList.contains('indeterminate')`));
+    await domClick('#progressDialog [data-progress-cancel]');
+    await page.waitFor(`!document.querySelector('#progressDialog').open && !document.querySelector('#speakText').disabled`, 60000);
+    assert.equal(await ev(`document.querySelector('#waveformCanvas').classList.contains('has-audio')`), false);
+    assert.match(await ev(`document.querySelector('#statusBarMessage').textContent`), /취소/);
+    // Close this test's (modified) tab: the confirmation opens asynchronously.
+    const tabs = await ev(`document.querySelectorAll('#docTabs .tab').length`);
+    await domClick('#toolbar [data-cmd="closeTab"]');
+    await page.waitFor(`document.querySelector('#confirmDialog').open`, 5000, 'the close confirmation');
+    await domClick('#confirmOkBtn');
+    await page.waitFor(`document.querySelectorAll('#docTabs .tab').length === ${tabs - 1} && document.querySelector('#waveformCanvas').classList.contains('has-audio')`, 5000, 'back on the tab with audio');
+  }, { skip: needModels, timeout: 90000 });
 
   // ── tabs ──
   add('Tabs: a new tab starts without audio; the tab left keeps its waveform', async () => {
