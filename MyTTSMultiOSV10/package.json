@@ -1,8 +1,8 @@
 {
   "name": "tts-multios-v10",
-  "productName": "TTS Multi OS",
+  "productName": "MyTTS",
   "version": "0.1.0",
-  "description": "Embedded-ready TTS Multi OS Application (Tauri)",
+  "description": "MyTTS — embedded-ready text-to-speech (Tauri)",
   "author": "SHKWON <knix008@naver.com>",
   "private": true,
   "type": "module",

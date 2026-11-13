@@ -52,7 +52,7 @@ export function cases(ctx) {
   add('Page boots without script errors (web mode, no desktop bridge)', async () => {
     assert.deepEqual(page.consoleErrors, []);
     assert.equal(await ev('typeof window.ttsBridge'), 'undefined');
-    assert.equal(await ev('document.title'), 'TTS Multi OS');
+    assert.equal(await ev('document.title'), 'MyTTS');
   });
 
   // ── start screen ──
@@ -62,7 +62,7 @@ export function cases(ctx) {
     assert.equal(await count('.start-card-hero'), 1);
     assert.equal(await ev(`!!document.querySelector('.start-card-hero').closest('.start-board')`), false);
     assert.equal(await count('.start-tools .start-btn'), 3);
-    assert.match(await ev(`document.querySelector('.start-foot').textContent`), /TTS Multi OS v0\.1\.0/);
+    assert.match(await ev(`document.querySelector('.start-foot').textContent`), /MyTTS v0\.1\.0/);
   });
   add('Start screen: the title card has no move handle or resize corner', async () => {
     assert.equal(await count('.start-card-hero [data-card-handle], .start-card-hero [data-card-resize]'), 0);
@@ -215,7 +215,7 @@ export function cases(ctx) {
   });
   add('Menu bar: icon, name, version, Home and five menus', async () => {
     await fresh();
-    assert.match(await ev(`document.querySelector('.app-brand').textContent`), /TTS Multi OS\s*v0\.1\.0/);
+    assert.match(await ev(`document.querySelector('.app-brand').textContent`), /MyTTS\s*v0\.1\.0/);
     assert.deepEqual(await ev(`[...document.querySelectorAll('#menubar [data-menu]')].map((b) => b.textContent.trim())`), ['파일', '재생', '모델', '보기', '도움말']);
     assert.equal(await count('#menubar .menubar-home'), 1);
     assert.equal(await count('#menubar [data-window]'), 0, 'no window buttons in a browser');
@@ -510,7 +510,7 @@ export function cases(ctx) {
     await page.key('F1');
     const g = await guidePage();
     await g.waitFor(`document.querySelectorAll('#guideToc a').length >= 15`, 10000);
-    assert.equal(await g.eval(`document.querySelector('#guideContent h1').textContent`), 'TTS Multi OS 0.1 — 사용 설명서');
+    assert.equal(await g.eval(`document.querySelector('#guideContent h1').textContent`), 'MyTTS 0.1 — 사용 설명서');
     g.close();
   });
   add('Guide: every image loads; contents links jump to sections', async () => {
@@ -529,7 +529,7 @@ export function cases(ctx) {
     await g.eval(`(document.querySelector('[data-doc="tutorial"]').click(), true)`);
     await g.waitFor(`document.querySelector('#guideContent h1')?.textContent.includes('튜토리얼')`);
     await g.eval(`(document.querySelector('[data-lang="en"]').click(), true)`);
-    await g.waitFor(`document.querySelector('#guideContent h1')?.textContent === 'TTS Multi OS 0.1 — Tutorial'`);
+    await g.waitFor(`document.querySelector('#guideContent h1')?.textContent === 'MyTTS 0.1 — Tutorial'`);
     await g.eval(`(document.querySelector('[data-font="1"]').click(), document.querySelector('[data-font="1"]').click(), true)`);
     assert.equal(await g.eval(`document.querySelector('#guideFontSize').textContent`), '17px');
     assert.equal(await g.eval(`localStorage.getItem('tts-guide-lang')`), '"en"');

@@ -1,7 +1,7 @@
 // Inline stroke icons (24×24 grid, currentColor), each in a colour of its own: icon-tones.js
 // names the hue, styles.css gives each hue a shade for light and for dark themes. Every
 // command has its own picture (test/unit/icons.test.js checks that no two commands share one).
-// TTS Multi OS: ported from MyUMLMaker (src/icons.js) without the UML element icons.
+// MyTTS: ported from MyUMLMaker (src/icons.js) without the UML element icons.
 const UML_ICONS = {};
 import { toneOf } from './icon-tones.js';
 
@@ -332,7 +332,7 @@ const base = {
   bpmnSimulate: '<circle cx="4" cy="12" r="2.5"/><rect x="9" y="8" width="7" height="8" rx="2"/><circle cx="21" cy="12" r="1.8" stroke-width="2.6"/><path d="M6.5 12H9M16 12h3"/><circle cx="7.8" cy="12" r="1.4" fill="currentColor"/>',
   mmOutline: '<path d="M4 5h.01M4 12h.01M4 19h.01"/><path d="M8 5h12M11 12h9M14 19h6"/><path d="M8 12h1M8 19h4"/>',
   mmRelayout: '<rect x="9" y="10" width="6" height="4" rx="1.5"/><path d="M9 12H5M15 12h4M5 7v10M19 7v10"/><path d="M20 3a9 9 0 0 0-9-1.5M4 21a9 9 0 0 0 9 1.5"/><path d="M17 2.5l3 .5-.5 3"/>',
-  // ── TTS Multi OS
+  // ── MyTTS
   ttsVolume: '<path d="M4 9.5h4l5-4.5v14l-5-4.5H4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11"/>',
   ttsWaveform: '<path d="M3 12h2M6 8v8M9 5v14M12 9v6M15 6v12M18 9.5v5M21 12h-1"/>',
   ttsVoice: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/>',

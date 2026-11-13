@@ -32,7 +32,7 @@ const targets = [
 
 // Installers that build:* copies from src-tauri/target to the project root.
 for (const name of readdirSync(rootDir)) {
-  if (/^TTS[ _-]Multi[ _-]OS.*\.(exe|msi|dmg|AppImage|deb|rpm)$/i.test(name)) targets.push([join(rootDir, name), 'installer copied to the project root', rootDir]);
+  if (/^(MyTTS|TTS[ _-]Multi[ _-]OS)[ _-].*\.(exe|msi|dmg|AppImage|deb|rpm)$/i.test(name)) targets.push([join(rootDir, name), 'installer copied to the project root', rootDir]);
 }
 
 if (all) {
@@ -99,6 +99,6 @@ if (!removed && !failed) {
   if (!all && !dryRun) console.log('[clean] node_modules/ and the test model copy kept - use "npm run clean:all" to remove them too.');
 }
 if (failed) {
-  console.error(`[clean] ${failed} item(s) could not be removed - close TTS Multi OS (and Explorer windows on these folders) and retry.`);
+  console.error(`[clean] ${failed} item(s) could not be removed - close MyTTS (and Explorer windows on these folders) and retry.`);
   process.exit(1);
 }

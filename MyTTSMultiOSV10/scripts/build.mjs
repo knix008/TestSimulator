@@ -5,12 +5,12 @@
 // node_modules + runtime → dist/sidecar), embeds the page in the program and bundles the
 // installers for this operating system:
 //   Windows  NSIS setup.exe            (src-tauri/windows/hooks.nsh)
-//   macOS    TTS Multi OS.app + .dmg
+//   macOS    MyTTS.app + .dmg
 //   Linux    AppImage + .deb
 // Tauri builds installers only for the system it runs on; build:all builds everything this
 // system can. The installers are copied to the project root.
 //
-// build:debug makes src-tauri/target/debug/TTSMultiOS(.exe) with the page embedded; it runs
+// build:debug makes src-tauri/target/debug/MyTTS(.exe) with the page embedded; it runs
 // the Node host from src/host (npm run smoke drives it).
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -50,7 +50,7 @@ for (const t of wanted) run([cli, 'build', '--bundles', BUNDLES[t].join(',')]);
 
 // Installers of an earlier version would otherwise sit next to the new ones.
 const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-const INSTALLER = /^TTS[ _-]Multi[ _-]OS.*\.(exe|dmg|AppImage|deb)$/;
+const INSTALLER = /^(MyTTS|TTS[ _-]Multi[ _-]OS)[ _-].*\.(exe|dmg|AppImage|deb)$/;
 for (const name of fs.readdirSync(root)) {
   if (INSTALLER.test(name) && !name.includes(version)) fs.rmSync(path.join(root, name), { force: true });
 }

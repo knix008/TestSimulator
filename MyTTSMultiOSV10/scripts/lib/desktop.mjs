@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { Page, sleep, waitForTarget } from './cdp.mjs';
 
 export const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-export const exeName = process.platform === 'win32' ? 'TTSMultiOS.exe' : 'TTSMultiOS';
+export const exeName = process.platform === 'win32' ? 'MyTTS.exe' : 'MyTTS';
 export const exePath = (profile = 'debug') => path.join(root, 'src-tauri', 'target', profile, exeName);
 
 /** Newest modification time under the sources the debug program is built from. */

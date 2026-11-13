@@ -1,6 +1,6 @@
-# TTS Multi OS 0.1 — Tutorial
+# MyTTS 0.1 — Tutorial
 
-This hands-on tutorial walks through the main features of TTS Multi OS step by step; it takes about 20 minutes.
+This hands-on tutorial walks through the main features of MyTTS step by step; it takes about 20 minutes.
 Every feature is described in detail in the [User's Guide](UsersGuide.en.md). 한국어: [Tutorial.md](Tutorial.md).
 
 > The interface is in Korean. Each label is given with its English meaning, for example **읽기** (Read).
@@ -21,7 +21,7 @@ Every feature is described in detail in the [User's Guide](UsersGuide.en.md). �
 
 ## 0. Preparation
 
-1. Install with `TTS Multi OS_0.1.0_x64-setup.exe` and start the program.
+1. Install with `MyTTS_0.1.0_x64-setup.exe` and start the program.
 2. On the start screen's **음성 모델** (Voice models) card, click **Supertonic 2 INT8**. The editor opens with that model selected.
 3. Press **다운로드** (Download) in the **음성 설정** (Voice settings) panel. The status bar shows the progress (about 100 MB).
 4. When it finishes, the model shows 「✓ 설치됨」 (installed).

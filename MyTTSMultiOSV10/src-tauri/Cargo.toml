@@ -1,7 +1,7 @@
 [package]
 name = "tts-multios"
 version = "0.1.0"
-description = "TTS Multi OS — Tauri shell around the Node TTS host"
+description = "MyTTS — Tauri shell around the Node TTS host"
 authors = ["SHKWON <knix008@naver.com>"]
 license = "MIT"
 edition = "2021"

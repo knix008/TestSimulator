@@ -4,7 +4,7 @@
 // snow, fireflies, ripples, code rain, hexagons, orbits, a lava lamp, a spiral
 // galaxy, confetti, a node network and ribbons. Colours follow the theme. The animation
 // pauses while the window is hidden; `frames` counts drawn frames (tests use it).
-// TTS Multi OS: ported from MyUMLMaker (src/ui/background.js); the list lives here.
+// MyTTS: ported from MyUMLMaker (src/ui/background.js); the list lives here.
 export const ANIMATIONS = [
   'aurora', 'waves', 'particles', 'constellation', 'bubbles', 'gridflow', 'flowchart', 'starfield', 'rain', 'snow',
   'fireflies', 'ripples', 'coderain', 'hexagons', 'orbits', 'lava', 'spiral', 'confetti', 'nodes', 'ribbons',

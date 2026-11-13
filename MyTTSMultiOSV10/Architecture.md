@@ -1,4 +1,4 @@
-# Architecture — TTS Multi OS
+# Architecture — MyTTS
 
 버전 0.1.0 · Tauri 2 + Node.js 호스트 · 실모델 ONNX / sherpa-onnx 추론
 

@@ -1,4 +1,4 @@
-# TTS Multi OS
+# MyTTS
 
 <img src="assets/icon.png" width="96" align="right" alt="" />
 
@@ -73,7 +73,7 @@ npm run clean:dry    # clean:all이 지울 목록과 크기만 보기 (아무것
 ```
 
 설치본에는 Node.js 런타임과 운영용 `node_modules`(onnxruntime-node, sherpa-onnx-* 등 네이티브 모듈), 사용 설명서(`doc/`)가 함께 들어갑니다.
-Windows 설치는 사용자별(관리자 권한 불필요)이며, 기존 설치(이전 Electron 판 포함)를 지운 뒤 사용자 데이터를 지울지 묻습니다(기본은 유지).
+Windows 설치는 사용자별(관리자 권한 불필요)이며, 기존 설치(이전 이름 TTS Multi OS · Electron 판 포함)를 지운 뒤 사용자 데이터를 지울지 묻습니다(기본은 유지).
 
 ## 시험
 

@@ -1,4 +1,4 @@
-// TTS Multi OS — the Tauri program. It owns the window (frameless: the page's menu bar row
+// MyTTS — the Tauri program. It owns the window (frameless: the page's menu bar row
 // is the title bar), the file dialogs, the clipboard and native message boxes; everything
 // else goes to the Node host (src/host/host.mjs), which runs the TTS engine unchanged from
 // the Electron build (onnxruntime-node, sherpa-onnx-node). The page talks to both through one
@@ -85,7 +85,7 @@ fn host_launch(app: &AppHandle) -> Result<host::Launch, String> {
         .map(PathBuf::from)
         .or(bundled_node)
         .or_else(node_on_path)
-        .ok_or("Node.js 를 찾지 못했습니다. Node.js 를 설치하거나, 설치 프로그램으로 설치한 TTS Multi OS 를 실행하세요 (Node 가 함께 들어 있습니다).")?;
+        .ok_or("Node.js 를 찾지 못했습니다. Node.js 를 설치하거나, 설치 프로그램으로 설치한 MyTTS 를 실행하세요 (Node 가 함께 들어 있습니다).")?;
     let mut env = vec![
         ("TTS_VERSION".to_string(), app.package_info().version.to_string()),
         ("TTS_TAURI".to_string(), tauri::VERSION.to_string()),
@@ -324,7 +324,7 @@ async fn tts(app: AppHandle, window: WebviewWindow, ch: String, a: Value) -> Res
                 return Ok(Value::Null);
             }
             let mut b = WebviewWindowBuilder::new(&app, GUIDE, WebviewUrl::App(format!("guide.html?doc={doc}&lang={lang}").into()))
-                .title(if lang == "en" { "TTS Multi OS — User's Guide" } else { "TTS Multi OS — 사용 설명서" })
+                .title(if lang == "en" { "MyTTS — User's Guide" } else { "MyTTS — 사용 설명서" })
                 .inner_size(1180.0, 840.0)
                 .min_inner_size(720.0, 480.0)
                 .center();
@@ -395,7 +395,7 @@ fn reveal(window: &WebviewWindow) {
 
 fn create_main_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     let mut b = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
-        .title("TTS Multi OS")
+        .title("MyTTS")
         // MyUMLMaker look: no system title bar; the menu bar row is the title bar.
         .decorations(false)
         .inner_size(1520.0, 910.0)
@@ -441,7 +441,7 @@ fn create_main_window(app: &AppHandle) -> Result<WebviewWindow, String> {
 }
 
 fn fatal(app: &AppHandle, message: String) {
-    app.dialog().message(message).title("TTS Multi OS").kind(MessageDialogKind::Error).blocking_show();
+    app.dialog().message(message).title("MyTTS").kind(MessageDialogKind::Error).blocking_show();
     app.exit(1);
 }
 
@@ -473,7 +473,7 @@ pub fn run() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while building TTS Multi OS")
+        .expect("error while building MyTTS")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 state(app).quitting.store(true, Ordering::SeqCst);

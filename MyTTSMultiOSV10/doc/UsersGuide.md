@@ -1,6 +1,6 @@
-# TTS Multi OS 0.1 — 사용 설명서
+# MyTTS 0.1 — 사용 설명서
 
-TTS Multi OS는 한국어와 영어 문장을 **설치한 음성 모델로 직접 합성**해 읽어 주는 프로그램입니다.
+MyTTS는 한국어와 영어 문장을 **설치한 음성 모델로 직접 합성**해 읽어 주는 프로그램입니다.
 운영체제의 음성 엔진을 쓰지 않고, 내려받은 ONNX · sherpa-onnx 모델 파일로 소리를 만듭니다.
 만든 소리는 파형으로 보고, 원하는 위치부터 다시 듣고, WAV · MP3 파일로 저장할 수 있습니다.
 
@@ -32,11 +32,11 @@ English version: [UsersGuide.en.md](UsersGuide.en.md)
 
 ### 설치
 
-Windows에서는 `TTS Multi OS_0.1.0_x64-setup.exe`를 실행합니다.
+Windows에서는 `MyTTS_0.1.0_x64-setup.exe`를 실행합니다.
 
 - 사용자별 설치라 관리자 권한을 묻지 않습니다.
 - 설치 프로그램에 음성 엔진이 쓰는 Node.js가 함께 들어 있어 따로 설치할 것이 없습니다.
-- 이미 설치된 TTS Multi OS(이전 Electron 판 포함)가 있으면 먼저 완전히 지운 뒤 설치합니다.
+- 이미 설치된 MyTTS(이전 이름 TTS Multi OS, Electron 판 포함)가 있으면 먼저 완전히 지운 뒤 설치합니다.
   이때 다운로드한 음성 모델 · 설정 · 로그를 지울지 묻습니다. 기본은 **유지**입니다.
 
 소스에서 실행하려면 Rust 툴체인과 Node.js가 필요합니다: `npm install` 후 `npm start`.

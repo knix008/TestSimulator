@@ -1,6 +1,6 @@
-# TTS Multi OS 0.1 — User's Guide
+# MyTTS 0.1 — User's Guide
 
-TTS Multi OS reads Korean and English text aloud by **synthesizing it with voice models you install**.
+MyTTS reads Korean and English text aloud by **synthesizing it with voice models you install**.
 It does not use the operating system's speech engine: the sound comes from downloaded ONNX and sherpa-onnx models.
 You can see the result as a waveform, play it from any point, and save it as WAV or MP3.
 
@@ -35,11 +35,11 @@ New users should start with the hands-on [Tutorial](Tutorial.en.md).
 
 ### Installing
 
-On Windows, run `TTS Multi OS_0.1.0_x64-setup.exe`.
+On Windows, run `MyTTS_0.1.0_x64-setup.exe`.
 
 - It installs for the current user and does not ask for administrator rights.
 - The installer brings the Node.js runtime the voice engine needs; nothing else has to be installed.
-- An installed TTS Multi OS (including the earlier Electron build) is removed completely first.
+- An installed MyTTS (including TTS Multi OS, its earlier name, and the Electron build) is removed completely first.
   The installer then asks whether to delete downloaded voice models, settings and logs. The default is **keep**.
 
 To run from source you need the Rust toolchain and Node.js: `npm install`, then `npm start`.

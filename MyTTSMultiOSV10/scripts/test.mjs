@@ -1,4 +1,4 @@
-// npm test — every check of TTS Multi OS, in English, coloured and aligned, with the time of
+// npm test — every check of MyTTS, in English, coloured and aligned, with the time of
 // each test, a live progress line and a summary table.
 //
 //   unit     Node: the TTS host over its protocol (real synthesis on a COPY of the installed
@@ -44,7 +44,7 @@ process.env = env;
 
 const started = Date.now();
 const testData = ensureTestData();
-R.banner('TTS Multi OS — test run', [
+R.banner('MyTTS — test run', [
   ['Date', new Date().toLocaleString('en-GB', { hour12: false })],
   ['Platform', `${os.type()} ${os.release()} (${process.platform}/${process.arch}), Node ${process.version}`],
   ['Categories', selected.join(', ') + (grep ? `  (grep "${grep}")` : '')],

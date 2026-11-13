@@ -1,7 +1,7 @@
-﻿; TTS Multi OS installer additions (read by the Tauri NSIS template).
+﻿; MyTTS installer additions (read by the Tauri NSIS template). Earlier name: TTS Multi OS.
 ;
 ; Installing
-;   • An installed TTS Multi OS (the earlier Electron build or a Tauri build) is always
+;   • An installed MyTTS — or TTS Multi OS, its earlier name (Electron or Tauri build) — is always
 ;     removed completely before this one goes in. The user is told first. The Electron copy
 ;     is removed by hand: its own uninstaller asks about %APPDATA%\TTSMultiOSV10, which is
 ;     the next question's to decide. Its Chromium folders there (user-data, session-data)
@@ -27,8 +27,11 @@
 ; Ask for the language every time (otherwise only on the very first install).
 !define MUI_LANGDLL_ALWAYSSHOW
 
-!define TTS_NAME "TTS Multi OS"
-!define TTS_EXE "TTSMultiOS.exe"
+!define TTS_NAME "MyTTS"
+!define TTS_EXE "MyTTS.exe"
+; The earlier name: Electron build (TTS Multi OS.exe) and Tauri build (TTSMultiOS.exe).
+!define TTS_OLD_NAME "TTS Multi OS"
+!define TTS_OLD_EXE "TTSMultiOS.exe"
 !define TTS_EL_EXE "TTS Multi OS.exe"
 !define TTS_DATA "$APPDATA\TTSMultiOSV10"
 !define TTS_WEBVIEW "$LOCALAPPDATA\com.shkwon.tts-multios"
@@ -36,13 +39,15 @@
 !define TTS_EL_GUID "165339ef-a635-5930-bf7c-6fb52652c027"
 !define TTS_EL_KEY "Software\${TTS_EL_GUID}"
 !define TTS_EL_UNKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${TTS_EL_GUID}"
-; The Tauri template's UNINSTKEY for productName "TTS Multi OS".
-!define TTS_TA_UNKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\TTS Multi OS"
+; The Tauri template's UNINSTKEY for productName "MyTTS", and for the earlier "TTS Multi OS".
+!define TTS_TA_UNKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyTTS"
+!define TTS_OLD_TA_UNKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\TTS Multi OS"
 
 ; 1 once the earlier installation has been removed.
 Var TtsOldDone
-; The Tauri copy's uninstaller and the Electron copy's folder; empty when absent.
+; The Tauri copies' uninstallers (this name, the earlier name) and the Electron copy's folder; empty when absent.
 Var TtsTaUn
+Var TtsOldTaUn
 Var TtsElDir
 ; HKCU or HKLM: where the Electron copy registered itself.
 Var TtsElRoot
@@ -67,6 +72,16 @@ FunctionEnd
 
 Function TtsFindOld
   StrCpy $TtsTaUn ""
+  StrCpy $TtsOldTaUn ""
+  ReadRegStr $0 HKCU "${TTS_OLD_TA_UNKEY}" "UninstallString"
+  ${If} $0 != ""
+    Push $0
+    Call TtsUnquote
+    Pop $0
+    ${If} ${FileExists} "$0"
+      StrCpy $TtsOldTaUn $0
+    ${EndIf}
+  ${EndIf}
   StrCpy $TtsElDir ""
   StrCpy $TtsElRoot ""
   ReadRegStr $0 HKCU "${TTS_TA_UNKEY}" "UninstallString"
@@ -93,23 +108,29 @@ Function TtsFindOld
   ${EndIf}
 FunctionEnd
 
-; Removes a folder that held TTS Multi OS: whole when its name says so, else only our files.
+; Removes a folder that held the program: whole when its name says so, else only our files.
 Function TtsSweepDir
   Exch $0
   Push $1
-  StrCpy $1 $0 "" -12
+  Push $2
+  StrCpy $1 $0 "" -5
+  StrCpy $2 $0 "" -12
   ${If} $1 == "${TTS_NAME}"
+  ${OrIf} $2 == "${TTS_OLD_NAME}"
     RMDir /r "$0"
   ${Else}
     Delete "$0\${TTS_EXE}"
+    Delete "$0\${TTS_OLD_EXE}"
     Delete "$0\${TTS_EL_EXE}"
     Delete "$0\uninstall.exe"
     Delete "$0\Uninstall ${TTS_NAME}.exe"
+    Delete "$0\Uninstall ${TTS_OLD_NAME}.exe"
     RMDir /r "$0\sidecar"
     RMDir /r "$0\resources"
     RMDir /r "$0\locales"
     RMDir "$0"
   ${EndIf}
+  Pop $2
   Pop $1
   Pop $0
 FunctionEnd
@@ -120,9 +141,21 @@ Function TtsRemoveOld
   StrCpy $TtsOldDone 1
   nsExec::Exec 'taskkill /F /T /IM "${TTS_EXE}"'
   Pop $0
+  nsExec::Exec 'taskkill /F /T /IM "${TTS_OLD_EXE}"'
+  Pop $0
   nsExec::Exec 'taskkill /F /T /IM "${TTS_EL_EXE}"'
   Pop $0
   Sleep 500
+  ${If} $TtsOldTaUn != ""
+    ${GetParent} $TtsOldTaUn $2
+    DetailPrint "${TTS_OLD_NAME}: $2"
+    ExecWait '"$TtsOldTaUn" /S /UPDATE _?=$2'
+    Push $2
+    Call TtsSweepDir
+    ; Shortcuts under the earlier name.
+    Delete "$DESKTOP\${TTS_OLD_NAME}.lnk"
+    Delete "$SMPROGRAMS\${TTS_OLD_NAME}.lnk"
+  ${EndIf}
   ${If} $TtsTaUn != ""
     ${GetParent} $TtsTaUn $2
     DetailPrint "${TTS_NAME}: $2"
@@ -131,7 +164,7 @@ Function TtsRemoveOld
     Call TtsSweepDir
   ${EndIf}
   ${If} $TtsElDir != ""
-    DetailPrint "${TTS_NAME} (Electron): $TtsElDir"
+    DetailPrint "${TTS_OLD_NAME} (Electron): $TtsElDir"
     Push $TtsElDir
     Call TtsSweepDir
     ${If} $TtsElRoot == "HKLM"
@@ -142,8 +175,8 @@ Function TtsRemoveOld
       DeleteRegKey HKCU "${TTS_EL_KEY}"
     ${EndIf}
     ; Its shortcuts point at a program that is gone.
-    Delete "$DESKTOP\${TTS_NAME}.lnk"
-    Delete "$SMPROGRAMS\${TTS_NAME}.lnk"
+    Delete "$DESKTOP\${TTS_OLD_NAME}.lnk"
+    Delete "$SMPROGRAMS\${TTS_OLD_NAME}.lnk"
     ; The Electron build's Chromium profile in the shared data folder: nothing reads it now.
     RMDir /r "${TTS_DATA}\user-data"
     RMDir /r "${TTS_DATA}\session-data"
@@ -162,11 +195,12 @@ Function TtsGuiInit
   ClearErrors
   Call TtsFindOld
   ${If} $TtsTaUn != ""
+  ${OrIf} $TtsOldTaUn != ""
   ${OrIf} $TtsElDir != ""
     ${If} $LANGUAGE == 1042
-      StrCpy $2 "이미 설치된 TTS Multi OS 가 있습니다.$\r$\n$\r$\n이 버전을 설치하기 전에 기존 프로그램을 완전히 삭제합니다. (실행 중이면 종료됩니다.)"
+      StrCpy $2 "이미 설치된 MyTTS (이전 이름 TTS Multi OS 포함)가 있습니다.$\r$\n$\r$\n이 버전을 설치하기 전에 기존 프로그램을 완전히 삭제합니다. (실행 중이면 종료됩니다.)"
     ${Else}
-      StrCpy $2 "An installed TTS Multi OS was found.$\r$\n$\r$\nIt will be removed completely before this version is installed. (A running copy is closed.)"
+      StrCpy $2 "An installed MyTTS (or TTS Multi OS, its earlier name) was found.$\r$\n$\r$\nIt will be removed completely before this version is installed. (A running copy is closed.)"
     ${EndIf}
     MessageBox MB_OKCANCEL|MB_ICONINFORMATION "$2" IDOK tts_remove
     Quit

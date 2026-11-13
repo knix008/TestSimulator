@@ -246,7 +246,7 @@ export function cases(ctx) {
     await page.key('F1');
     guide = await Page.connect(await waitForTarget(port, (t) => t.url.includes('guide.html'), 15000));
     await guide.waitFor(`document.querySelectorAll('#guideToc a').length >= 15 && document.querySelectorAll('#guideContent img').length >= 10`, 15000);
-    assert.equal(await guide.eval(`document.querySelector('#guideContent h1').textContent`), 'TTS Multi OS 0.1 — 사용 설명서');
+    assert.equal(await guide.eval(`document.querySelector('#guideContent h1').textContent`), 'MyTTS 0.1 — 사용 설명서');
   });
   add('Guide: every image of the installed documents loads', async () => {
     await guide.waitFor(`[...document.querySelectorAll('#guideContent img')].every((i) => i.complete)`, 15000);

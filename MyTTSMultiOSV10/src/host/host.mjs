@@ -1,5 +1,5 @@
 /**
- * TTS Multi OS — the Node host. Tauri (src-tauri) owns the window, file dialogs and the
+ * MyTTS — the Node host. Tauri (src-tauri) owns the window, file dialogs and the
  * clipboard; everything that needs Node runs here, unchanged from the Electron main process:
  * the model catalog and downloads (src/core/modelStore.js), synthesis with onnxruntime-node
  * and sherpa-onnx-node (src/core/ttsService.js), WAV / MP3 export and the log file.

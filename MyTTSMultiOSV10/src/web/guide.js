@@ -43,7 +43,7 @@ async function show() {
   const file = FILES[view.doc][view.lang];
   const L = LABELS[view.lang];
   document.documentElement.lang = view.lang;
-  document.title = `TTS Multi OS — ${L[view.doc]}`;
+  document.title = `MyTTS — ${L[view.doc]}`;
   for (const el of document.querySelectorAll('[data-label]')) el.textContent = L[el.dataset.label];
   for (const b of document.querySelectorAll('[data-doc]')) { b.classList.toggle('active', b.dataset.doc === view.doc); b.setAttribute('aria-selected', String(b.dataset.doc === view.doc)); }
   for (const b of document.querySelectorAll('[data-lang]')) b.classList.toggle('active', b.dataset.lang === view.lang);

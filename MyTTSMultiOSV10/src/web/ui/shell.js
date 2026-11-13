@@ -15,7 +15,7 @@ import { SAMPLE_GROUPS, SAMPLES } from './samples.js';
 import * as docTabs from './doctabs.js';
 import { showContextMenu } from './contextmenu.js';
 
-export const APP_NAME = 'TTS Multi OS';
+export const APP_NAME = 'MyTTS';
 export const VERSION = '0.1.0';
 const APP_ICON = './assets/icon.svg';
 

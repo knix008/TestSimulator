@@ -8,7 +8,7 @@ export const SAMPLE_GROUPS = [
 export const SAMPLES = [
   {
     id: 'korean_greeting', group: 'ko', icon: 'ttsSpeak', title: '인사말', tip: '짧은 인사와 프로그램 소개',
-    text: '안녕하세요. 반갑습니다.\n저는 TTS Multi OS 데모 프로그램입니다.\n한국어와 영어를 모두 지원합니다.\n텍스트를 입력하고 읽기 버튼을 누르면 음성으로 변환됩니다.\n좋은 하루 보내세요!',
+    text: '안녕하세요. 반갑습니다.\n저는 MyTTS 데모 프로그램입니다.\n한국어와 영어를 모두 지원합니다.\n텍스트를 입력하고 읽기 버튼을 누르면 음성으로 변환됩니다.\n좋은 하루 보내세요!',
   },
   {
     id: 'korean_news', group: 'ko', icon: 'notes', title: '뉴스', tip: '날씨·경제·기술 소식 다섯 문장',
@@ -28,7 +28,7 @@ export const SAMPLES = [
   },
   {
     id: 'english_greeting', group: 'en', icon: 'ttsSpeak', title: 'Greeting', tip: 'A short welcome to the app',
-    text: 'Hello! Welcome to TTS Multi OS.\nThis application converts text to speech using advanced AI models.\nYou can type any text in the input area and click the Read button.\nThe system supports both Korean and English languages.\nWe hope you enjoy using this application. Have a great day!',
+    text: 'Hello! Welcome to MyTTS.\nThis application converts text to speech using advanced AI models.\nYou can type any text in the input area and click the Read button.\nThe system supports both Korean and English languages.\nWe hope you enjoy using this application. Have a great day!',
   },
   {
     id: 'english_story', group: 'en', icon: 'star', title: 'Story', tip: 'Clara, the Voice Maker',
