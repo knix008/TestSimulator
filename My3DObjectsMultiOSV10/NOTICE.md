@@ -82,11 +82,12 @@ and https://huggingface.co/tencent. Only the shape generation runs (no texture
   `walking-tank`, `heavy-mech`, `fairy-island`, `hourglass`, `princess-doll`,
   `windmill`, `dragon-armour`, `orc-warrior`, `rainbow-wings`, `covered-wagon`,
   `shield`, `courier-bike`, `gargoyle`, `moss-golem`, `throne-statue`,
-  `factory-town`, `black-robot`, `steam-machine` — from TRELLIS.2's
+  `factory-town`, `black-robot`, `steam-machine`, `scientist-bust` — from TRELLIS.2's
   `assets/example_image` (https://github.com/microsoft/TRELLIS.2, commit
   75fbf01), Copyright (c) Microsoft Corporation, MIT License. Unmodified
   (renamed only).
-- `fox` — from TripoSR's `examples` (https://github.com/VAST-AI-Research/TripoSR),
+- `fox`, `desert-house`, `marble-cherub`, `tiger-girl`, `unicorn` — from TripoSR's
+  `examples` (https://github.com/VAST-AI-Research/TripoSR),
   Copyright (c) 2024 Tripo AI & Stability AI, MIT License. Unmodified.
 - `robot`, `mug`, `pawn`, `tree`, `toy-car` — made for this program (MIT).
 

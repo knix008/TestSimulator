@@ -16,9 +16,10 @@ Every picture to convert is natively at least 1024 × 1024 (none is scaled up).
 
 ### 공개 예제 그림 (MIT) / example pictures from the model repositories
 
-TRELLIS.2 의 공식 예제 그림 가운데 원본이 1024 px 이상인 것(1024–2162 px, 투명 배경)과 TripoSR 의 여우(1136 px)입니다.
-`fox` 는 회색 배경이라 **배경 자동 제거**를 확인해 보기 좋습니다.
-TRELLIS.2 example pictures whose originals are 1024 px or more (transparent), and TripoSR's fox (1136 px, grey background).
+TRELLIS.2 의 공식 예제 그림 가운데 원본이 1024 px 이상인 것(1024–2162 px, 투명 배경)과 TripoSR 예제 가운데 1024 px 이상인 5장(1024–1491 px)입니다.
+`fox` · `desert-house` · `marble-cherub` · `tiger-girl` 는 회색 배경이라 **배경 자동 제거**를 확인해 보기 좋습니다.
+TRELLIS.2 example pictures whose originals are 1024 px or more (transparent), and the five TripoSR examples that are 1024 px or more (1024–1491 px).
+`fox`, `desert-house`, `marble-cherub` and `tiger-girl` have a grey background, useful for trying automatic background removal.
 
 | 파일 | 내용 | 출처 (라이선스) |
 | --- | --- | --- |
@@ -55,7 +56,12 @@ TRELLIS.2 example pictures whose originals are 1024 px or more (transparent), an
 | `factory-town.webp` | 공장 마을 / factory town | TRELLIS.2 `assets/example_image` (MIT, Microsoft) |
 | `black-robot.webp` | 검은 로봇 / black robot | TRELLIS.2 `assets/example_image` (MIT, Microsoft) |
 | `steam-machine.png` | 스팀펑크 기계 / steampunk machine | TRELLIS.2 `assets/example_image` (MIT, Microsoft) |
+| `scientist-bust.webp` | 과학자 흉상 / scientist bust | TRELLIS.2 `assets/example_image` (MIT, Microsoft) |
 | `fox.png` | 폴리곤 여우 (회색 배경) / low-poly fox (grey background) | TripoSR `examples` (MIT, Tripo AI & Stability AI) |
+| `desert-house.png` | 사막 집 (회색 배경) / desert house (grey background) | TripoSR `examples` (MIT, Tripo AI & Stability AI) |
+| `marble-cherub.png` | 대리석 천사 (회색 배경) / marble cherub (grey background) | TripoSR `examples` (MIT, Tripo AI & Stability AI) |
+| `tiger-girl.png` | 호랑이 소녀 (회색 배경) / tiger girl (grey background) | TripoSR `examples` (MIT, Tripo AI & Stability AI) |
+| `unicorn.png` | 유니콘 / unicorn | TripoSR `examples` (MIT, Tripo AI & Stability AI) |
 
 3D 프린트로 뽑아 보기 좋은 것: `hourglass` · `windmill` · `throne-statue` · `goblin-bust` (바닥이 넓고 얇은 부분이 적음).
 Good first 3D prints: `hourglass`, `windmill`, `throne-statue`, `goblin-bust` (broad base, few thin parts).

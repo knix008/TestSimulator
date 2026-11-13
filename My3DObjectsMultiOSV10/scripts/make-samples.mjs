@@ -80,7 +80,12 @@ export const PHOTOS = [
   { name: 'factory-town', ko: '공장 마을', en: 'Factory town', source: T2, file: 'f8920788b704531f7a7e875afd7c5c423d62e0a987e9495c63893c2cb4d2b5dc.webp' },
   { name: 'black-robot', ko: '검은 로봇', en: 'Black robot', source: T2, file: 'f8a7eafe26a4f3ebd26a9e7d0289e4a40b5a93e9234e94ec3e1071c352acc65a.webp' },
   { name: 'steam-machine', ko: '스팀펑크 기계', en: 'Steampunk machine', source: T2, file: 'T.png' },
+  { name: 'scientist-bust', ko: '과학자 흉상', en: 'Scientist bust', source: T2, file: '39488b45bb4820ff0f31bb07cb8d0a19ebd991adbcb22a10fc89ee41c59219ee.webp' },
   { name: 'fox', ko: '폴리곤 여우 (회색 배경)', en: 'Low-poly fox (grey background)', source: 'TripoSR', file: 'poly_fox.png' },
+  { name: 'desert-house', ko: '사막 집 (회색 배경)', en: 'Desert house (grey background)', source: 'TripoSR', file: 'iso_house.png' },
+  { name: 'marble-cherub', ko: '대리석 천사 (회색 배경)', en: 'Marble cherub (grey background)', source: 'TripoSR', file: 'marble.png' },
+  { name: 'tiger-girl', ko: '호랑이 소녀 (회색 배경)', en: 'Tiger girl (grey background)', source: 'TripoSR', file: 'tiger_girl.png' },
+  { name: 'unicorn', ko: '유니콘', en: 'Unicorn', source: 'TripoSR', file: 'unicorn.png' },
 ];
 
 // samples/images/<name>.<ext> of a PHOTOS entry.

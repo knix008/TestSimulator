@@ -180,7 +180,7 @@ NSIS 제거 시 엔진(수 GB)과 설정을 지울지 따로 묻습니다(`windo
 - 튜토리얼(`Tutorial.jsx`, `lib/tutorialSteps.js`)은 단계마다 대상 선택자 · 설명 · 동작(`image:` · `model:` · `tab:` · `menu:` · `print` …)을 갖고,
   동작은 App 의 `tourApi` 가 실제 화면에서 실행합니다. 진행 위치 `tutorialIndex`, 시작 때 묻기 `tutorialAsk`.
 - 예제는 `samples/`(git 에 포함)를 `scripts/sync-samples.mjs` 가 `public/samples` 로 복사하고 `lib/samples.js` 가 `index.json` 을 읽습니다.
-  그림 17장 중 12장은 TRELLIS · TripoSR 저장소의 공개 예제(MIT, 512²)로 `make-samples.mjs` 의 `PHOTOS` 목록이 등록합니다
+  그림 44장 중 39장은 TRELLIS.2 · TripoSR 저장소의 공개 예제(MIT, 원본 1024 px 이상)로 `make-samples.mjs` 의 `PHOTOS` 목록이 등록합니다
   (`npm run samples:index` 는 브라우저 없이 목록만 갱신).
 
 ## 설정

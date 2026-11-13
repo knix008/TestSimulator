@@ -29,7 +29,7 @@
 | 로그 패널 | 하단 패널에 설치 · 모델 불러오기 · 변환의 모든 단계. 출처 · 수준 필터, 찾기, 복사, 파일로 저장 |
 | 시작 화면 | 열기 버튼 · 사용 순서 · 최근 파일과 예제 · 엔진 상태와 모델 · 지원 형식. 카드는 끌어 옮기고 크기를 바꾸며(12열 격자에 맞춤 · 놓일 자리 실루엣 · 겹치는 카드는 아래로 밀림) [자동 정렬] 로 되돌립니다. **배경 21종**(움직임 · 속도 · 투명도 · 자동 바꾸기). 시작 화면에서는 좌우 · 하단 패널과 그 버튼이 꺼집니다 |
 | 저장 · 내보내기 · 인쇄 | **저장**(Ctrl+S, GLB) · **내보내기**(Ctrl+Shift+S, 형식 선택 · PNG) · **3D 프린트용 저장**(Ctrl+Shift+P). **인쇄**(Ctrl+P, 종이): 한 방향 · 4방향 · 6방향 · 방향별 한 장, 정보 머리말 · 흰 배경 · 보조선, 프린터 · 매수 · 방향, 미리 보기 (Windows GDI · CUPS `lp` · 웹은 브라우저 인쇄) |
-| 예제 | `samples/` — 변환용 이미지 17개(직접 만든 5개 + TRELLIS · TripoSR 공개 예제 12개, MIT), 3D 파일 6형식(GLB · glTF · OBJ+MTL · STL · PLY · USDZ), 변환 결과 2개. 시작 화면과 파일 메뉴에서 바로 엽니다 |
+| 예제 | `samples/` — 변환용 이미지 44개(직접 만든 5개 + TRELLIS.2 · TripoSR 공개 예제 39개, MIT), 3D 파일 6형식(GLB · glTF · OBJ+MTL · STL · PLY · USDZ), 변환 결과 2개. 시작 화면과 파일 메뉴에서 바로 엽니다 |
 | 튜토리얼 | 8장 33단계를 실제 화면에서 따라 하는 학습. 시작할 때 할지 묻고("다음 시작 때 묻기"), 설정 → 화면에서도 켜고 끄며 이어서 할 수 있습니다 |
 | 컨텍스트 메뉴 | 3D 화면 · 입력 이미지 · 기록 · 로그에서 오른쪽 클릭, 모든 항목에 아이콘 |
 | 사용 설명서 | `doc/Guide.html` · `Guide.en.html` — 앱의 [사용 설명서] 버튼이 테마에 맞춰 별도 창으로 엽니다 |
@@ -138,4 +138,4 @@ test/               vitest 단위 테스트, e2e/ 스모크
 
 MIT. 모델은 포함되어 있지 않으며 처음 사용할 때 내려받고 각자의 라이선스를 따릅니다 —
 Stable Fast 3D · SPAR3D: Stability AI Community License, TripoSR · TRELLIS: MIT, Hunyuan3D: Tencent Hunyuan 3D Community License.
-예제 그림 12개는 TRELLIS · TripoSR 저장소의 공개 예제(MIT)입니다. [NOTICE.md](NOTICE.md), [LICENSE-MODELS.md](LICENSE-MODELS.md).
+예제 그림 39개는 TRELLIS.2 · TripoSR 저장소의 공개 예제(MIT)입니다. [NOTICE.md](NOTICE.md), [LICENSE-MODELS.md](LICENSE-MODELS.md).
