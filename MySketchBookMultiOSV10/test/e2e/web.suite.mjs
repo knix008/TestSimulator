@@ -750,6 +750,156 @@ export const cases = [
     },
   ]),
 
+  ...group('반응 속도 · 이동 · 내 라이브러리', [
+    {
+      name: '벽걸이 소품: 마우스로 끌어 벽면을 따라 위아래로 이동 (바닥면에 갇히지 않음)',
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('empty');
+          A.actions.change('op.place', (p) => { p.objects.push({ id: 'e2e-clock', level: p.activeLevel, item: 'ofp-office-wall-clock', params: {}, position: [0, 1.5, 0], rotation: [0, 0, 0], scale: [1, 1, 1], materials: {}, tag: 'untagged', name: '' }); });
+          await T.frames(3);
+          A.viewport.setView('front', { animate: false, box: A.builder.worldBox('e2e-clock').clone().expandByScalar(1.5) });
+          await T.frames(3);
+          A.actions.setTool('select');
+          A.actions.select(['e2e-clock']);
+          const b = A.builder.worldBox('e2e-clock'); const c = b.getCenter(b.min.clone());
+          const from = T.screen(c.x, c.y, c.z); const to = T.screen(c.x, c.y + 0.5, c.z);
+          const before = [...A.api.project().objects.find((o) => o.id === 'e2e-clock').position];
+          await T.drag(from, to);
+          const after = A.api.project().objects.find((o) => o.id === 'e2e-clock').position;
+          return { dy: after[1] - before[1], dz: after[2] - before[2] };`);
+        assert.ok(r.dy > 0.35, `moved up ${r.dy.toFixed(2)} m (want about 0.5)`);
+        assert.ok(Math.abs(r.dz) < 1e-6, `stays on its wall (dz ${r.dz})`);
+      },
+    },
+    {
+      name: '바닥 소품: 위쪽을 잡아 끌어도 바닥을 따라 이동, ↑ 키로 위아래 이동 전환',
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('empty');
+          A.actions.change('op.place', (p) => { p.objects.push({ id: 'e2e-desk', level: p.activeLevel, item: 'desk', params: {}, position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1], materials: {}, tag: 'untagged', name: '' }); });
+          await T.frames(3);
+          A.viewport.setView('iso', { animate: false, box: A.builder.worldBox('e2e-desk').clone().expandByScalar(2) });
+          await T.frames(3);
+          A.actions.setTool('select');
+          A.actions.select(['e2e-desk']);
+          const pos = () => [...A.api.project().objects.find((o) => o.id === 'e2e-desk').position];
+          const b = A.builder.worldBox('e2e-desk'); const top = b.getCenter(b.min.clone()); top.y = b.max.y - 0.01;
+          // grabbed on the top, dragged by the screen distance of 1 m along x on the floor
+          const s0 = T.screen(0, 0, 0), s1 = T.screen(1, 0, 0), a = T.screen(top.x, top.y, top.z);
+          const p0 = pos();
+          await T.drag(a, { x: a.x + (s1.x - s0.x), y: a.y + (s1.y - s0.y) });
+          const p1 = pos();
+          // vertical: press, move a little, ↑, then move up on the screen
+          // the desk top again (the middle of its box is the empty knee space under the top: nothing to grab there)
+          const b2 = A.builder.worldBox('e2e-desk'); const c2 = b2.getCenter(b2.min.clone()); c2.y = b2.max.y - 0.01;
+          const g = T.screen(c2.x, c2.y, c2.z);
+          T.fire('pointermove', g.x, g.y); await T.frames(2);
+          T.fire('pointerdown', g.x, g.y); await T.frames(1);
+          T.fire('pointermove', g.x + 6, g.y, { pressed: true }); await T.frames(2);
+          document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', code: 'ArrowUp', bubbles: true, cancelable: true }));
+          await T.frames(1);
+          for (let i = 1; i <= 6; i++) { T.fire('pointermove', g.x + 6, g.y - i * 15, { pressed: true }); await T.frames(2); }
+          T.fire('pointerup', g.x + 6, g.y - 90); await T.frames(2);
+          const p2 = pos();
+          return { dx: p1[0] - p0[0], dy1: p1[1] - p0[1], dz: p1[2] - p0[2], up: p2[1] - p1[1] };`);
+        assert.ok(Math.abs(r.dx - 1) < 0.2, `moved ${r.dx.toFixed(2)} m along x (want 1)`);
+        assert.ok(Math.abs(r.dy1) < 1e-6 && Math.abs(r.dz) < 0.2, `on the floor (dy ${r.dy1}, dz ${r.dz.toFixed(2)})`);
+        assert.ok(r.up > 0.2, `↑ lifts it: ${r.up.toFixed(2)} m`);
+      },
+    },
+    {
+      name: '라이브러리 전체: 빠르게 그림 (처음 일부, 나머지는 쉬는 동안), 카드 그리기에 모델을 만들지 않음',
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('room');
+          A.actions.showLibrary('living');
+          await T.frames(2);
+          const t0 = performance.now();
+          A.actions.showLibrary('all');
+          const ms = performance.now() - t0;
+          const first = document.querySelectorAll('#left-panel .lib-card').length;
+          await T.until(() => document.querySelectorAll('#left-panel .lib-card').length >= A.domain.searchItems({}).length, 8000);
+          const all = document.querySelectorAll('#left-panel .lib-card').length;
+          const measured = A.domain.searchItems({}).filter((i) => 'knownSize' in i && i.knownSize != null).length;
+          const total = A.domain.searchItems({}).length;
+          return { ms, first, all, total, measured };`, 30000);
+        assert.ok(r.ms < 150, `switch to All ${r.ms.toFixed(0)} ms`);
+        assert.ok(r.first <= 200, `first cards ${r.first}`);
+        assert.equal(r.all, r.total, 'all cards appended later');
+        assert.ok(r.measured < r.total * 0.3, `${r.measured} of ${r.total} models built just for the panel`);
+      },
+    },
+    {
+      name: '분류 칩: 마지막 줄에 빈칸 없음 (마지막 칩이 남은 칸을 채움)',
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('room');
+          A.actions.showLibrary('all');
+          await T.frames(3);
+          const grid = document.querySelector('#left-panel .lib-chips');
+          const cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
+          const last = grid.lastElementChild;
+          const span = Number((last.style.gridColumn.match(/span (\\d+)/) ?? [0, 1])[1]);
+          const lr = last.getBoundingClientRect(), gr = grid.getBoundingClientRect();
+          return { n: grid.children.length, cols, span, rightGap: gr.right - lr.right };`);
+        assert.equal((r.n - 1 + r.span) % r.cols, 0, `${r.n} chips in ${r.cols} columns, last spans ${r.span}`);
+        assert.ok(r.rightGap < 4, `the last chip reaches the right edge (gap ${r.rightGap.toFixed(1)} px)`);
+      },
+    },
+    {
+      name: '진행 창 (웹): 미리 만들어 둔 창이 바로 열리고, 계산이 페이지를 붙잡아도 지연 후 보임, 작업에 맞는 아이콘',
+      async run(app) {
+        const r = await app.run(`
+          await T.reset({ project: false });
+          // T.reset took the page's popup frames out: make the progress frame ahead of time again, as the app does at start
+          A.popups.prewarm('progress', { warm: true });
+          await T.until(() => A.popups.parked.get('progress')?.querySelector('iframe')?.contentDocument?.readyState === 'complete' && A.popups.parked.get('progress').isConnected, 8000);
+          await T.sleep(300);
+          const prewarmed = Boolean(A.popups.parked.get('progress')?.isConnected);
+          let during = null;
+          await A.actions.withProgress('progress.image', '1920 × 1080', async () => {
+            const f = document.querySelector('.web-popup-progress');
+            const t = performance.now(); while (performance.now() - t < 400) { /* a long computation */ }
+            during = { open: Boolean(f) && f.style.visibility !== 'hidden', delayed: f?.classList.contains('web-popup-delayed'), title: f?.querySelector('iframe')?.contentDocument?.body?.innerText?.split('\\n')[0] ?? '' };
+          }, { delay: 250 });
+          await T.sleep(1000);
+          return { prewarmed, during, parkedAfter: A.popups.parked.has('progress') && A.popups.parked.get('progress').style.visibility === 'hidden' };`, 20000);
+        assert.ok(r.prewarmed, 'the progress frame is made ahead of time');
+        assert.ok(r.during.open && r.during.delayed, `open while the job runs, fading in after the delay: ${JSON.stringify(r.during)}`);
+        assert.match(r.during.title, /그림|image/i);
+        assert.ok(r.parkedAfter, 'hidden and kept for the next job');
+      },
+    },
+    {
+      name: '내 라이브러리: 새 분류 · 모델 추가 · 놓으면 프로젝트에 복사 · 삭제',
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('room');
+          const ul = A.userLibrary();
+          const cat = await ul.createCategory('E2E 분류', 'libDecor');
+          const obj = A.builder.objectOf(A.api.project().objects[0]?.id) ?? A.viewport.scene.children.find((c) => c.isMesh);
+          const ex = await import('/src/io/export.js');
+          const glb = await ex.exportModel((obj ?? A.builder.groups.walls).clone(true), 'glb');
+          await ul.addFromFiles([{ name: 'e2e-a.glb', bytes: glb.bytes }, { name: 'e2e-b.glb', bytes: glb.bytes }], cat.id);
+          const items = A.domain.searchItems({ category: cat.id });
+          const chip = Boolean(document.querySelector('[data-lib-category="' + cat.id + '"]'));
+          A.actions.startPlacing(items[0].id);
+          await ul.settled();
+          const asset = Object.values(A.api.project().assets).find((a) => a.lib);
+          A.actions.setTool('select');
+          for (const it of items) await ul.deleteItem(it.id);
+          await ul.deleteCategory(cat.id);
+          const gone = !document.querySelector('[data-lib-category="' + cat.id + '"]') && !A.domain.searchItems({ category: cat.id }).length;
+          return { n: items.length, names: items.map((i) => i.ko), chip, asset: Boolean(asset), gone };`, 60000);
+        assert.equal(r.n, 2, 'two items in the new category');
+        assert.deepEqual(r.names.sort(), ['e2e-a', 'e2e-b']);
+        assert.ok(r.chip, 'the category has its chip');
+        assert.ok(r.asset, 'placing copies the model into the project');
+        assert.ok(r.gone, 'deleted again');
+      },
+    },
+  ]),
 ];
 
 /**

@@ -32,6 +32,8 @@ export function mk(def) {
     },
     set(v) { cached = v; },
   });
+  // The size if already measured (null if not): panels show it without building every model.
+  Object.defineProperty(entry, 'knownSize', { enumerable: false, configurable: true, get: () => cached });
   return entry;
 }
 

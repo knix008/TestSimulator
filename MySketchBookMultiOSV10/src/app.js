@@ -43,9 +43,10 @@ import { AnimatedBackground } from './ui/background.js';
 import { planSamples, startPageHtml } from './ui/startpage.js';
 import { startBoard } from './ui/startboard.js';
 import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
-import { entityInfoHtml, levelsHtml, libraryHtml, materialsHtml, outlinerHtml, paletteHtml, scenesHtml, shadowsHtml, stylesHtml, tagsHtml, PLACES } from './ui/panels.js';
+import { entityInfoHtml, levelsHtml, libraryCardTip, libraryCardsHtml, libraryHtml, materialsHtml, outlinerHtml, paletteHtml, scenesHtml, shadowsHtml, stylesHtml, tagsHtml, PLACES } from './ui/panels.js';
 import { itemThumbnail, materialThumbnail, cancelThumbnails, cachedThumbnail, setThumbnailGate, setThumbnailPrepare } from './ui/thumbnails.js';
 import { fillChipRows } from './ui/fillrows.js';
+import { PROGRESS_ICONS } from './ui/progressicons.js';
 import { createUserLibrary } from './ui/userlibrary-ui.js';
 import { Rulers } from './ui/rulers.js';
 import { ScaleBar } from './ui/scalebar.js';
@@ -1710,6 +1711,28 @@ function renderLeft() {
   panel.querySelector('.panel-body').scrollTop = scroll;
   observeThumbnails(panel);
   fillChipRows(panel);
+  if (state.leftTab === 'library') appendLibraryCards(panel);
+}
+
+/** Appends the library cards not drawn at first, a few hundred per idle moment (a newer panel draw stops it). */
+function appendLibraryCards(panel) {
+  const rest = state.libraryRest ?? [];
+  state.libraryRest = [];
+  const token = (state.libraryDraw = (state.libraryDraw ?? 0) + 1);
+  const grid = panel.querySelector('.lib-grid');
+  if (!grid || !rest.length) return;
+  const idle = (fn) => (globalThis.requestIdleCallback ? requestIdleCallback(fn, { timeout: 120 }) : setTimeout(fn, 16));
+  let at = 0;
+  const step = () => {
+    if (token !== state.libraryDraw || !grid.isConnected) return;
+    const before = grid.children.length;
+    grid.insertAdjacentHTML('beforeend', libraryCardsHtml(panelApi, rest.slice(at, at + 240)));
+    at += 240;
+    // Only the new cards join the thumbnail observer (re-observing all would cancel thumbnails being drawn).
+    for (const card of [...grid.children].slice(before)) { const el = card.querySelector('[data-thumb]'); if (el) thumbObserver?.observe(el); }
+    if (at < rest.length) idle(step);
+  };
+  idle(step);
 }
 
 function showLibrary(category = null) {
@@ -2287,7 +2310,7 @@ async function withProgress(titleKey, name, task, { delay = 250, cancellable = f
   let last = null;
   const signal = { cancelled: false };
   const job = { op, reopen: null };
-  const show = (wait = 0) => { shown = true; popups.open('progress', { title: t(titleKey), name, op, last, cancellable, delay: wait }, { delay: wait }).then((r) => { if (r?.cancel) signal.cancelled = true; }); };
+  const show = (wait = 0) => { shown = true; popups.open('progress', { title: t(titleKey), icon: PROGRESS_ICONS[titleKey] ?? 'hourglass', name, op, last, cancellable, delay: wait }, { delay: wait }).then((r) => { if (r?.cancel) signal.cancelled = true; }); };
   job.reopen = () => show(0);
   progressJobs.push(job);
   // Desktop: the window (made ahead of time, hidden) is asked for now and the backend shows it after
@@ -3284,6 +3307,15 @@ function bindEvents() {
     if (event.target.closest('#start-page')) return contextMenu(event, 'start');
     if (event.target.closest('#statusbar')) return contextMenu(event, 'status');
     return contextMenu(event, 'default');
+  });
+
+  // A library card's size is measured when it is hovered (measuring builds the model; the panel does not build all of them).
+  root.addEventListener('pointerover', (event) => {
+    const card = event.target.closest?.('.lib-card[data-item]');
+    if (!card || card.dataset.sized) return;
+    card.dataset.sized = '1';
+    const item = catalogItem(card.dataset.item);
+    try { if (item?.size) card.title = libraryCardTip(panelApi, item, item.size); } catch { /* a model that fails to build keeps its name only */ }
   });
 
   // Library card → view: drag to place there (pointer-based so it also works in WebView2 without HTML5 DnD quirks).

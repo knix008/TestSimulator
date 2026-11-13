@@ -14,7 +14,8 @@ const CEILING = 2.4;
 /** Ceiling lamp: elevation from the default build height. */
 function ceil(def) {
   const e = mk({ category: CAT, placement: 'ceiling', ...def });
-  e.elevation = Math.max(0.3, +(CEILING - e.size[1]).toFixed(3));
+  // Read when needed: measuring the height at load time built the lamp while the app started.
+  Object.defineProperty(e, 'elevation', { enumerable: true, configurable: true, get: () => Math.max(0.3, +(CEILING - e.size[1]).toFixed(3)) });
   return e;
 }
 const lamp = (def) => mk({ category: CAT, ...def });

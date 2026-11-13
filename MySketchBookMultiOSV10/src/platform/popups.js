@@ -226,6 +226,9 @@ export class PopupHost {
   openFrame(kind, anchor, delay = 0) {
     const size = POPUPS[kind];
     let frame = this.frames.get(kind);
+    // A kept frame taken out of the page meanwhile (a reset of the page's popups) is made again, not reused unseen.
+    if (this.parked.has(kind) && !this.parked.get(kind).isConnected) this.parked.delete(kind);
+    if (frame && !frame.isConnected) { this.frames.delete(kind); frame = null; }
     if (!frame && this.parked.has(kind)) {
       frame = this.parked.get(kind);
       this.parked.delete(kind);

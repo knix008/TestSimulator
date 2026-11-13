@@ -999,8 +999,21 @@ const SIZE_MAT = new THREE.MeshBasicMaterial();
 /** Default size = the default build's bounding box (rounded to mm). */
 export function autoSize(entry) {
   if (entry.size) return entry;
-  const b = new THREE.Box3().setFromObject(entry.build({}, SIZE_CTX));
-  entry.size = [b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z].map((v) => Math.round(Math.max(0.01, v) * 1000) / 1000);
+  // Measured the first time it is read: building ~150 doors and windows when the library loads held the app's start
+  // for most of a second.
+  let cached = null;
+  Object.defineProperty(entry, 'size', {
+    enumerable: true, configurable: true,
+    get() {
+      if (!cached) {
+        const b = new THREE.Box3().setFromObject(entry.build({}, SIZE_CTX));
+        cached = [b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z].map((v) => Math.round(Math.max(0.01, v) * 1000) / 1000);
+      }
+      return cached;
+    },
+    set(v) { cached = v; },
+  });
+  Object.defineProperty(entry, 'knownSize', { enumerable: false, configurable: true, get: () => cached });
   return entry;
 }
 

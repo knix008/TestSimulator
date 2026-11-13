@@ -5,7 +5,7 @@
 import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
 import { t, getLanguage } from '../i18n.js';
-import { CATEGORIES, catalogItem, categoryCounts, itemName, itemParams, searchItems } from '../library/catalog.js';
+import { CATEGORIES, catalogItem, categoryCounts, itemName, itemParams, knownSize, searchItems } from '../library/catalog.js';
 import { MATERIAL_CATEGORIES, MATERIAL_PRESETS, customMaterials, presetOf } from '../engine/materials.js';
 import { formatArea, formatLength, polygonArea, roomArea, toUnits, wallHeight } from '../engine/document.js';
 import { wallLength } from '../engine/walls.js';
@@ -46,7 +46,10 @@ export function libraryHtml(app) {
   const size = app.settings().librarySize;
   const chips = [['all', 'libAll', t('library.all'), Object.values(counts).reduce((a, b) => a + b, 0)], ...CATEGORIES.map((c) => [c.id, c.icon, name(c), counts[c.id] ?? 0])]
     .map(([id, glyph, label, n]) => `<button class="lib-chip ${cat === id ? 'active' : ''}" data-lib-category="${id}" title="${attr(`${label} (${n})`)}" aria-pressed="${cat === id}">${icon(glyph)}<span>${escapeHtml(label)}</span><i>${n}</i></button>`).join('');
-  const cards = items.map((item) => libraryCard(app, item)).join('');
+  // The first cards at once, the rest appended in idle moments (app.js appendLibraryCards): All has ~2,800 cards and
+  // drawing them in one go held the panel for a fifth of a second at every switch.
+  const cards = items.slice(0, FIRST_CARDS).map((item) => libraryCard(app, item)).join('');
+  app.state.libraryRest = items.slice(FIRST_CARDS);
   return `<div class="lib-search"><label class="search-box" title="${attr(t('library.searchTip'))}">${icon('search')}<input id="library-search" type="search" value="${attr(s.libraryQuery)}" placeholder="${attr(t('library.search'))}" /></label>
       <button class="icon-button" data-command="libraryAdd" title="${attr(app.commandTip('libraryAdd'))}">${icon('plus')}</button>
       <button class="icon-button" data-command="importModel" title="${attr(app.commandTip('importModel'))}">${icon('importModel')}</button>
@@ -56,9 +59,21 @@ export function libraryHtml(app) {
     <p class="lib-foot">${icon('info')}<span>${escapeHtml(t('library.hint'))}</span></p>`;
 }
 
+export const FIRST_CARDS = 180;
+
+/** The HTML of library cards (more of the list, appended after the first ones). */
+export const libraryCardsHtml = (app, items) => items.map((item) => libraryCard(app, item)).join('');
+
+/** A library card's tooltip: the name and, when given, the size. */
+export function libraryCardTip(app, item, size) {
+  return `${itemName(item, L())}${size ? ` — ${size.map((v) => formatLength(v, app.units(), { suffix: false })).join(' × ')} ${app.units()}` : ''}`;
+}
+
 function libraryCard(app, item) {
   const thumb = app.thumbnailOf(item);
-  const tip = `${itemName(item, L())}${item.size ? ` — ${item.size.map((v) => formatLength(v, app.units(), { suffix: false })).join(' × ')} ${app.units()}` : ''}`;
+  // The size only when known: measuring a parametric model builds it (all 2,700 at once held the first panel ~5 s);
+  // hovering a card measures that one (app.js libraryCardTip).
+  const tip = libraryCardTip(app, item, knownSize(item));
   const badge = item.kind === 'asset' ? `<span class="lib-badge hq" title="${attr(t('library.hq'))}">HQ</span>` : item.kind === 'parametric' ? `<span class="lib-badge" title="${attr(t('library.parametric'))}">${icon('scaleTool', 'icon tiny')}</span>` : '';
   return `<button class="lib-card ${app.state.placeItem === item.id ? 'active' : ''}" data-item="${attr(item.id)}" draggable="false" title="${attr(tip)}">
     <span class="lib-thumb">${thumb ? `<img src="${attr(thumb)}" alt="" loading="lazy" decoding="async" />` : `<span class="lib-pending" data-thumb="${attr(item.id)}">${icon(CATEGORIES.find((c) => c.id === item.category)?.icon ?? 'cube')}</span>`}${badge}</span>

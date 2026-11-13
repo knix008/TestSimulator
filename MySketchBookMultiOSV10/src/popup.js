@@ -601,7 +601,7 @@ function renderProgress() {
   const text = progress?.text ? progress.text : progress ? (bytes ? t('progress.bytes', { done: formatBytes(progress.done), total: formatBytes(progress.total) }) : t('progress.steps', { done: progress.done, total: progress.total })) : t('progress.wait');
   const elapsed = Math.round((Date.now() - (state.progressStart ??= Date.now())) / 1000);
   root.innerHTML = frame({
-    glyph: 'hourglass', title: p.title ?? t('progress.wait'),
+    glyph: p.icon || 'hourglass', title: p.title ?? t('progress.wait'),
     body: `<div class="progress-view">
       <div class="row">${icon('file')}<span class="path" title="${escapeHtml(p.name ?? '')}">${escapeHtml(p.name ?? '')}</span><span class="grow"></span><span class="muted" id="progress-elapsed">${escapeHtml(t('progress.elapsed', { s: elapsed }))}</span></div>
       <div data-scrolls class="progress-bar ${percent == null ? 'indeterminate' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent ?? 0}"><i style="width:${percent ?? 30}%"></i></div>

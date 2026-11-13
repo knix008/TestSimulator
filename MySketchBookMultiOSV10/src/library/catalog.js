@@ -60,6 +60,13 @@ export function searchItems({ category = null, query = '' } = {}) {
   });
 }
 
+/** An item's size without building it: measured sizes of parametric models only once they were measured. */
+export function knownSize(item) {
+  if (!item) return null;
+  if ('knownSize' in item) return item.knownSize ?? null;
+  return Array.isArray(item.size) ? item.size : null;
+}
+
 export const categoryCounts = () => {
   const counts = Object.fromEntries(CATEGORIES.map((c) => [c.id, 0]));
   for (const item of items.values()) if (!item.hidden) counts[item.category] = (counts[item.category] ?? 0) + 1;

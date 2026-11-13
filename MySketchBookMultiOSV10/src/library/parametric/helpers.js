@@ -808,8 +808,12 @@ const SIZE_MAT = new THREE.MeshBasicMaterial();
 export function variant(base, suffix, ko, en, defaults = {}, { size, tags = [], category, ...extra } = {}) {
   for (const key of Object.keys(defaults)) if (!base.params.some((p) => p.key === key)) throw new Error(`variant ${base.id}-${suffix}: no param ${key}`);
   const params = base.params.map((p) => (p.key in defaults ? { ...p, default: defaults[p.key] } : p));
+  // The base's fields without running its getters: `...base` read base.size, which builds the base model to measure it
+  // (hundreds of builds while the library loaded).
+  const fields = {};
+  for (const [key, d] of Object.entries(Object.getOwnPropertyDescriptors(base))) if ('value' in d && d.enumerable) fields[key] = d.value;
   const entry = item({
-    ...base, id: `${base.id}-${suffix}`, ko, en, params, category: category ?? base.category,
+    ...fields, id: `${base.id}-${suffix}`, ko, en, params, category: category ?? base.category,
     tags: [...new Set([...tags, ...base.tags])], variantOf: base.id, ...extra,
     build: (q, ctx) => base.build(q, ctx),
   });
@@ -826,5 +830,7 @@ export function variant(base, suffix, ko, en, defaults = {}, { size, tags = [], 
     },
     set(v) { cached = v; },
   });
+  // The size if already measured (null if not): panels show it without building every model.
+  Object.defineProperty(entry, 'knownSize', { enumerable: false, configurable: true, get: () => cached });
   return entry;
 }
