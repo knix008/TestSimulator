@@ -67,6 +67,8 @@ const KINDS = {
   director: { floor: 'floor-grey', window: 'normal' },
   pantry: { floor: 'tile-grey', window: 'small', door: 0.8 },
   storage: { floor: 'tile-grey', window: null, door: 0.8 },
+  server: { floor: 'floor-grey', window: null, door: 1.0 },
+  noc: { floor: 'floor-grey', window: null },
   hall2: { floor: 'floor-oak', window: 'big', hub: true },
   counter: { floor: 'tile-grey', window: null, hub: true },
   // Clinic, classroom, house extras (plans.js)
@@ -118,6 +120,13 @@ const PLANS = {
   ],
   // Small office: reception, open work area, director's room, meeting room, pantry, toilet.
   smalloffice: [{ rects: [['reception', 0, 0, 4, 4], ['openoffice', 4, 0, 12, 6], ['meeting', 0, 4, 4, 8], ['director', 8, 6, 12, 9], ['pantry', 4, 6, 6.5, 9], ['toilet', 6.5, 6, 8, 9]], open: [['reception', 'openoffice']], entrance: 'reception' }],
+  // Single office rooms for the samples (not in the New menu): open-plan office, executive office, server room,
+  // small server closet and a network operations room. Server rooms are 3 m high (cable trays above the racks).
+  openoffice1: [{ rects: [['openoffice', 0, 0, 10, 7]], door: 'openoffice' }],
+  executive: [{ rects: [['director', 0, 0, 5.5, 4.5]], door: 'director' }],
+  serverroom: [{ height: 3.0, rects: [['server', 0, 0, 8, 6]], door: 'server' }],
+  servercloset: [{ height: 3.0, rects: [['server', 0, 0, 4, 3.2]], door: 'server' }],
+  noc: [{ rects: [['noc', 0, 0, 7, 5]], door: 'noc' }],
   // Shop / café: sales floor with a big front window, counter, storage and a toilet at the back.
   shop: [{ rects: [['hall2', 0, 0, 9, 6], ['counter', 0, 6, 5, 8.5], ['storage', 5, 6, 7.5, 8.5], ['toilet', 7.5, 6, 9, 8.5]], open: [['hall2', 'counter']], entrance: 'hall2' }],
   // Loft studio: living-kitchen below, a sleeping loft over the back half reached by stairs.

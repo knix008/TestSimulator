@@ -31,7 +31,7 @@ const R = (id, template, style, ko, en, koDesc, enDesc, icon) => ({ id, group: '
 const H = (id, template, style, ko, en, koDesc, enDesc, icon = 'plan2d') => ({ id, group: 'homes', template, style, icon, ko: [ko, koDesc], en: [en, enDesc] });
 
 export const SAMPLE_PROJECTS = [
-  // ── 25 rooms
+  // ── 30 rooms
   R('living-modern', 'living', 'modern', '모던 거실', 'Modern living room', '소파·러그·TV·조명·식물', 'Sofa, rug, TV, lamps, plants', 'libLiving'),
   R('living-scandi', 'living', 'scandi', '스칸디 거실', 'Scandinavian living room', '부클레 소파·밝은 나무', 'Bouclé sofa, light wood', 'libLiving'),
   R('living-classic', 'living', 'classic', '클래식 거실', 'Classic living room', '벨벳 소파·헤링본 마루', 'Velvet sofa, herringbone floor', 'libLiving'),
@@ -57,6 +57,12 @@ export const SAMPLE_PROJECTS = [
   R('kitchen-dining', 'dining', 'warm', '주방 겸 식당', 'Kitchen-diner', '싱크대·냉장고·2인 식탁', 'Counter, fridge, table for two', 'libKitchen'),
   R('meeting-room', 'office', 'modern', '회의실', 'Meeting room', '6인 회의 테이블·화이트보드', 'Six-seat table, whiteboard', 'libWorkplace'),
   R('team-office', 'office', 'scandi', '팀 사무실', 'Team office', '4인 워크스테이션·복합기·사물함', '4-desk cluster, printer, lockers', 'libWorkplace'),
+  // ── office and server rooms (five more: the start page shows full rows of five)
+  R('open-office', 'openoffice1', 'modern', '사무실 (오픈형)', 'Open-plan office', '8인 책상·평판 조명·복합기·정수기', 'Eight desks, panel lights, printer, water cooler', 'libOfficeProps'),
+  R('executive-office', 'executive', 'classic', '임원실', 'Executive office', 'L자 책상·일체형 PC·감사패·소파', 'L desk, all-in-one PC, plaques, lounge chairs', 'libOfficeProps'),
+  R('server-room', 'serverroom', 'modern', '서버실', 'Server room', '냉복도 랙 포드·항온항습기·UPS·소화 설비', 'Cold-aisle rack pod, CRAC units, UPS, fire suppression', 'libServerRoom'),
+  R('server-closet', 'servercloset', 'modern', '소형 전산실', 'Server closet', '하프 랙·벽걸이 랙·서버실 에어컨·작업대', 'Half rack, wall cabinet, wall AC, workbench', 'libServerRoom'),
+  R('noc-room', 'noc', 'modern', '관제실', 'Operations room', '관제 콘솔·모니터 벽·IP 카메라', 'Console desk, video wall, IP cameras', 'libComputer'),
   // ── 25 homes
   H('studio-furnished', 'studio', 'scandi', '원룸 (스칸디)', 'Studio (Scandinavian)', '침대·책상·소파가 있는 원룸', 'Bed, desk and sofa in one room', 'floorTool'),
   H('studio-modern', 'studio', 'modern', '원룸 (모던)', 'Studio (modern)', '수납을 늘린 원룸', 'Studio with storage', 'floorTool'),
@@ -94,8 +100,8 @@ for (const [plan, spec] of Object.entries(PLANS)) {
 }
 
 const NAMES = {
-  ko: { room: '방', living: '거실', bedroom: '안방', bedroom2: '침실 2', bedroom3: '침실 3', bedroom4: '침실 4', kitchen: '주방', bath: '욕실', bath2: '욕실 2', office: '서재', entry: '현관', kids: '아이 방', dining: '식당', dressing: '드레스룸', laundry: '다용도실', utility: '다용도실', hall: '복도' },
-  en: { room: 'Room', living: 'Living room', bedroom: 'Master bedroom', bedroom2: 'Bedroom 2', bedroom3: 'Bedroom 3', bedroom4: 'Bedroom 4', kitchen: 'Kitchen', bath: 'Bathroom', bath2: 'Bathroom 2', office: 'Study', entry: 'Entrance', kids: 'Kids room', dining: 'Dining room', dressing: 'Dressing room', laundry: 'Laundry', utility: 'Utility room', hall: 'Hall' },
+  ko: { room: '방', living: '거실', bedroom: '안방', bedroom2: '침실 2', bedroom3: '침실 3', bedroom4: '침실 4', kitchen: '주방', bath: '욕실', bath2: '욕실 2', office: '서재', entry: '현관', kids: '아이 방', dining: '식당', dressing: '드레스룸', laundry: '다용도실', utility: '다용도실', hall: '복도', openoffice: '사무실', director: '임원실', server: '서버실', noc: '관제실' },
+  en: { room: 'Room', living: 'Living room', bedroom: 'Master bedroom', bedroom2: 'Bedroom 2', bedroom3: 'Bedroom 3', bedroom4: 'Bedroom 4', kitchen: 'Kitchen', bath: 'Bathroom', bath2: 'Bathroom 2', office: 'Study', entry: 'Entrance', kids: 'Kids room', dining: 'Dining room', dressing: 'Dressing room', laundry: 'Laundry', utility: 'Utility room', hall: 'Hall', openoffice: 'Office', director: 'Executive office', server: 'Server room', noc: 'Operations room' },
 };
 
 // ───────────────────────── placing
@@ -342,6 +348,105 @@ function teamOffice(F, b) {
   F.wall(b, 's', 0.12, 'monstera');
 }
 
+/** Height of an item (its default build). */
+const heightOf = (id) => ITEMS.get(id)?.size?.[1] ?? 0;
+/** A ceiling item hanging from a ceiling `H` metres up, at fractions (fx, fz) of the box. */
+const ceil = (F, b, fx, fz, id, H, rotation = 0, params = {}) => F.at(b, fx, fz, id, rotation, { y: H - heightOf(id), params });
+/** A small item standing on top of a piece of furniture `under` placed at (fx, fz). */
+const onTop = (F, b, fx, fz, id, under, rotation = 0, params = {}) => F.at(b, fx, fz, id, rotation, { y: heightOf(under), params });
+
+function openOffice(F, b) {
+  const H = 2.4;
+  F.at(b, 0.3, 0.42, 'wp-cluster-4', 0);
+  F.at(b, 0.62, 0.42, 'wp-cluster-4', 0);
+  for (const fx of [0.3, 0.62]) for (const dx of [-0.07, 0.07]) {
+    onTop(F, b, fx + dx, 0.36, 'cmp-monitor-24-office', 'wp-cluster-4', 0);
+    onTop(F, b, fx + dx, 0.48, 'cmp-monitor-24-office', 'wp-cluster-4', Math.PI);
+  }
+  F.wall(b, 'n', 0.12, 'wp-lateral-filing');
+  F.wall(b, 'n', 0.5, 'ofp-cork-notice-board', { y: 1.1 });
+  F.wall(b, 'n', 0.8, 'ofp-office-wall-clock', { y: 1.9 });
+  F.wall(b, 'e', 0.18, 'ofp-water-cooler');
+  F.wall(b, 'e', 0.45, 'wp-printer-station');
+  F.wall(b, 'e', 0.78, 'ofp-recycling-bins-trio');
+  F.wall(b, 'w', 0.5, 'ofp-mobile-double-whiteboard');
+  F.wall(b, 's', 0.62, 'ofp-paper-shredder');
+  F.wall(b, 's', 0.85, 'wp-lockers');
+  F.wall(b, 'w', 0.12, 'monstera');
+  F.wall(b, 'e', 0.95, 'ofp-fire-extinguisher-stand');
+  for (const fx of [0.2, 0.46, 0.72]) for (const fz of [0.3, 0.7]) ceil(F, b, fx, fz, 'lgx-led-panel-600', H);
+  ceil(F, b, 0.95, 0.05, 'ofp-ip-camera-dome', H);
+  ceil(F, b, 0.05, 0.95, 'ofp-ip-camera-dome', H);
+}
+
+function executiveOffice(F, b) {
+  const H = 2.4;
+  F.at(b, 0.5, 0.35, 'wp-manager-l', 0);
+  F.at(b, 0.5, 0.17, 'wp-mesh-chair', 0);
+  F.at(b, 0.42, 0.6, 'wp-visitor-chair', Math.PI);
+  F.at(b, 0.58, 0.6, 'wp-visitor-chair', Math.PI);
+  onTop(F, b, 0.47, 0.3, 'cmp-aio-27-pro', 'wp-manager-l', 0);
+  onTop(F, b, 0.6, 0.4, 'ofp-desk-name-plate', 'wp-manager-l', 0);
+  onTop(F, b, 0.36, 0.38, 'ofp-ip-desk-phone', 'wp-manager-l', 0.3);
+  F.wall(b, 'n', 0.5, 'wp-credenza');
+  onTop(F, b, 0.5, 0.06, 'ofp-trophy-trio', 'wp-credenza', 0);
+  F.wall(b, 'n', 0.2, 'ofp-award-plaques-wall', { y: 1.3 });
+  F.wall(b, 'n', 0.8, 'ofp-framed-certificates', { y: 1.4 });
+  F.wall(b, 'w', 0.62, 'wp-lounge-chair');
+  F.wall(b, 'w', 0.85, 'wp-lounge-chair');
+  F.wall(b, 'e', 0.15, 'olive-tree');
+  F.wall(b, 'e', 0.6, 'ofp-office-safe');
+  F.wall(b, 'e', 0.85, 'ofp-office-coat-stand');
+  for (const fx of [0.3, 0.7]) for (const fz of [0.3, 0.7]) ceil(F, b, fx, fz, 'lgx-trimless-downlight', H);
+}
+
+function serverRoom(F, b) {
+  const H = 3.0;
+  F.at(b, 0.42, 0.5, 'srv-cold-aisle-pod', 0, { params: { racks: 4 } });
+  F.wall(b, 'e', 0.28, 'srv-crac-downflow', { params: { modules: 2 } });
+  F.wall(b, 'e', 0.74, 'srv-crac-downflow', { params: { modules: 2 } });
+  F.wall(b, 'w', 0.15, 'srv-modular-ups-frame');
+  F.wall(b, 'w', 0.45, 'srv-battery-string-rack', { params: { blocks: 6 } });
+  F.wall(b, 'w', 0.85, 'srv-power-distribution-cabinet');
+  F.wall(b, 'n', 0.12, 'srv-fire-suppression-cylinders');
+  F.wall(b, 'n', 0.42, 'srv-fire-alarm-control-panel', { y: 1.2 });
+  F.wall(b, 'n', 0.6, 'srv-emergency-power-off', { y: 1.3 });
+  F.wall(b, 'n', 0.75, 'srv-aspirating-smoke-detector', { y: 1.5 });
+  F.wall(b, 's', 0.62, 'srv-rack-patching');
+  F.at(b, 0.86, 0.86, 'srv-kvm-crash-cart', -Math.PI / 2);
+  for (const fz of [0.25, 0.75]) ceil(F, b, 0.42, fz, 'srv-ladder-cable-tray', H, 0, { length: 2.6 });
+  for (const fx of [0.2, 0.42, 0.64]) ceil(F, b, fx, 0.5, 'srv-led-linear-light', H, Math.PI / 2, { length: 1.2 });
+  ceil(F, b, 0.95, 0.06, 'srv-ptz-dome-camera', H);
+}
+
+function serverCloset(F, b) {
+  const H = 3.0;
+  F.wall(b, 'n', 0.28, 'srv-half-rack-24u');
+  F.wall(b, 'n', 0.72, 'srv-rack-mixed', { params: { units: 42 } });
+  F.wall(b, 'e', 0.4, 'srv-wall-cabinet-12u', { y: 1.3 });
+  F.wall(b, 'w', 0.4, 'srv-wall-precision-ac', { y: 2.2 });
+  F.wall(b, 'w', 0.82, 'srv-spare-parts-shelving', { params: { width: 0.8 } });
+  F.wall(b, 's', 0.42, 'srv-esd-workbench', { params: { width: 1.4 } });
+  F.at(b, 0.42, 0.62, 'wp-task-chair', Math.PI);
+  F.wall(b, 's', 0.92, 'ofp-fire-extinguisher-stand');
+  ceil(F, b, 0.5, 0.5, 'srv-led-linear-light', H, 0, { length: 1.2 });
+}
+
+function nocRoom(F, b) {
+  const H = 2.4;
+  F.wall(b, 'n', 0.5, 'srv-dcim-monitoring-wall', { y: 0.95, params: { cols: 4, rows: 2 } });
+  F.at(b, 0.5, 0.46, 'srv-noc-console-desk', 0, { params: { positions: 3 } });
+  for (const dx of [-0.18, 0, 0.18]) F.at(b, 0.5 + dx, 0.66, 'wp-task-chair', Math.PI);
+  F.wall(b, 'e', 0.3, 'wp-lateral-filing');
+  F.wall(b, 'e', 0.8, 'ofp-water-cooler');
+  F.wall(b, 'w', 0.3, 'srv-wall-cabinet-9u', { y: 1.3 });
+  F.wall(b, 'w', 0.7, 'ofp-wall-whiteboard', { y: 0.9 });
+  F.wall(b, 's', 0.85, 'ofp-face-recognition-terminal', { y: 1.35 });
+  for (const fx of [0.25, 0.5, 0.75]) ceil(F, b, fx, 0.7, 'lgx-led-panel-600', H, 0, { power: 0.6 });
+  ceil(F, b, 0.05, 0.05, 'ofp-ip-camera-turret', H);
+  ceil(F, b, 0.95, 0.95, 'ofp-ip-camera-fisheye', H);
+}
+
 /** Furnishes one room of a home by its kind. */
 function furnish(F, r, rects, sample, index) {
   const b = inner(r);
@@ -558,6 +663,11 @@ export function buildSampleProject(id, language = 'ko', { doors = true } = {}) {
       case 'kitchen-dining': kitchenDining(F, b); break;
       case 'meeting-room': meetingRoom(F, b); break;
       case 'team-office': teamOffice(F, b); break;
+      case 'open-office': openOffice(F, b); break;
+      case 'executive-office': executiveOffice(F, b); break;
+      case 'server-room': serverRoom(F, b); break;
+      case 'server-closet': serverCloset(F, b); break;
+      case 'noc-room': nocRoom(F, b); break;
       default: break;
     }
   } else if (!sample.plan || sample.furnish) {

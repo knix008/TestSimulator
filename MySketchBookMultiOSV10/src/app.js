@@ -44,7 +44,9 @@ import { planSamples, startPageHtml } from './ui/startpage.js';
 import { startBoard } from './ui/startboard.js';
 import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
 import { entityInfoHtml, levelsHtml, libraryHtml, materialsHtml, outlinerHtml, paletteHtml, scenesHtml, shadowsHtml, stylesHtml, tagsHtml, PLACES } from './ui/panels.js';
-import { itemThumbnail, materialThumbnail, cancelThumbnails, cachedThumbnail, setThumbnailGate } from './ui/thumbnails.js';
+import { itemThumbnail, materialThumbnail, cancelThumbnails, cachedThumbnail, setThumbnailGate, setThumbnailPrepare } from './ui/thumbnails.js';
+import { fillChipRows } from './ui/fillrows.js';
+import { createUserLibrary } from './ui/userlibrary-ui.js';
 import { Rulers } from './ui/rulers.js';
 import { ScaleBar } from './ui/scalebar.js';
 import { PlanDimensions, dimensionColor, interiorDimensionColor } from './ui/plandims.js';
@@ -480,6 +482,7 @@ function mountViewport() {
   });
   // Library thumbnails wait while the view is being moved, so orbiting and panning stay smooth.
   setThumbnailGate(() => viewport.isBusy());
+  setThumbnailPrepare(() => viewport.setFastGlass(false));
   viewport.applySettings();
   bindViewportEvents(host);
   bindNavPad(host);
@@ -1012,6 +1015,8 @@ function setTool(id, options = {}) {
 }
 
 function startPlacing(itemId, options = {}) {
+  // An item of the user's own library is copied into the project first (then it is a project asset like any import).
+  if (hasDoc()) itemId = userLibrary.adopt(itemId);
   const item = catalogItem(itemId);
   if (!item || !hasDoc()) return;
   setTool('place', { item, ...options });
@@ -1078,6 +1083,10 @@ const commands = {
   recentFolders: { icon: 'recentFolder', label: 'action.recentFolders', run: (c) => recentFoldersMenu(c?.anchor) },
   clearRecent: { icon: 'clearHistory', label: 'action.clearRecent', enabled: () => state.recent.length > 0 || state.recentDirs.length > 0, run: () => clearRecentAll() },
   importModel: { icon: 'importModel', label: 'action.importModel', key: 'Ctrl+I', enabled: hasDoc, run: () => importModelDialog() },
+  libraryAdd: { icon: 'plus', label: 'action.libraryAdd', enabled: () => true, run: () => userLibrary.menu(anchorFor('libraryAdd')) },
+  libraryNewCategory: { icon: 'plus', label: 'userlib.newCategory', enabled: () => true, run: () => userLibrary.newCategory() },
+  libraryAddFiles: { icon: 'importModel', label: 'userlib.addFiles', enabled: () => true, run: () => userLibrary.addFiles() },
+  libraryAddFolder: { icon: 'folderOpen', label: 'userlib.addFolder', enabled: () => true, run: () => userLibrary.addFolder() },
   importPlan: { icon: 'importPlan', label: 'action.importPlan', enabled: () => true, run: () => planImport.dialog() },
   // The active level's plan cleaned up again in the 2D workbench (ui/plan-studio.js), then built again in 3D.
   refinePlan: { icon: 'planStudio', label: 'action.refinePlan', enabled: () => Boolean(state.doc) && !state.showStart && Boolean(project()?.walls.some((w) => w.level === project().activeLevel)), run: () => planImport.refineLevel() },
@@ -1700,6 +1709,7 @@ function renderLeft() {
     <div class="panel-body ${state.leftTab}">${body}</div>`;
   panel.querySelector('.panel-body').scrollTop = scroll;
   observeThumbnails(panel);
+  fillChipRows(panel);
 }
 
 function showLibrary(category = null) {
@@ -2286,7 +2296,12 @@ async function withProgress(titleKey, name, task, { delay = 250, cancellable = f
   let timer = null;
   if (delay <= 0) { const drawn = popups.whenDrawn('progress'); show(0); await drawn; }
   else if (desktop && !popups.useFrames) show(delay);
-  else timer = setTimeout(() => show(0), delay);
+  else if (popups.useFrames) {
+    // Web: the frame (kept loaded) is opened now and fades in after `delay` by a CSS animation; a timer here would
+    // not fire while a long computation holds the page. One painted frame first, so it already has its text.
+    const drawn = popups.whenDrawn('progress', 400); show(delay); await drawn;
+    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+  } else timer = setTimeout(() => show(0), delay);
   const unlisten = await native.listen('io-progress', (progress) => { if (progress.op !== op) return; last = progress; if (shown) popups.post('progress', { type: 'progress', ...progress }); });
   popups.on(`cancel:${op}`, () => { signal.cancelled = true; });
   try {
@@ -2422,6 +2437,7 @@ async function saveDoc({ saveAs = false } = {}) {
   d.project.camera = viewport.cameraState();
   const suggested = `${safeName()}.msk`;
   try {
+    await userLibrary.settled();
     const bytes = await withProgress('progress.save', suggested, async () => packProject(d.project, d.assets, projectThumbnail()), { delay: 300 });
     if (desktop) {
       let path = d.path;
@@ -2462,12 +2478,25 @@ async function closeProject({ force = false } = {}) {
   return true;
 }
 
+// ───────────────────────── the user's own library (categories and models kept across projects)
+
+const userLibrary = createUserLibrary({
+  t, lang: () => lang(), popups, notify, showError: (...a) => showError(...a), prompt: (o) => prompt(o), showMenu: (...a) => showMenu(...a), ask: (o) => ask(o),
+  withProgress: (...a) => withProgress(...a), desktop, native, settings: () => state.settings, doc: () => doc(), state,
+  loadIo: async () => ({ io: await Object.values(ioImport)[0]?.(), ex: await Object.values(ioExport)[0]?.() }),
+  readBytes: (path, op) => readBytes(path, op), isModelName, modelAccept: () => ModelFormats.importAccept(),
+  modelExtensions: () => (ModelFormats.IMPORT_FORMATS ?? []).flatMap((f) => f.ext), relatedExtensions: () => ModelFormats.RELATED_EXTENSIONS ?? [],
+  renderLeft: () => renderLeft(), showLibrary: (c) => showLibrary(c), guessPlacement: (e) => assetApi()?.guessPlacement?.(e) ?? 'floor',
+});
+
 // ───────────────────────── import of 3D models (user objects)
 
 function registerProjectAssets(d) {
   for (const [id, info] of Object.entries(d.project.assets ?? {})) {
     if (info.kind === 'underlay' || info.kind === 'texture' || info.kind === 'environment') continue; // plan pictures (ui/plan-import.js), material textures and skies: not furniture
-    registerUserItem({ id: `user:${id}`, ko: info.name, en: info.name, size: info.size, asset: id, load: () => loadUserAsset(d, id), kind: 'user' });
+    // A copy of an item of the user's library is placed from its library card (hidden here) while that item exists.
+    const fromLibrary = info.lib && catalogItem(`lib:${info.lib}`);
+    registerUserItem({ id: `user:${id}`, ko: info.name, en: info.name, size: info.size, asset: id, load: () => loadUserAsset(d, id), kind: 'user', ...(fromLibrary ? { hidden: true, category: fromLibrary.category, placement: fromLibrary.placement } : {}) });
   }
 }
 
@@ -2700,6 +2729,8 @@ async function renderPhoto() {
   updateSettings({ renderWidth: options.width, renderHeight: options.height, renderSamples: options.samples, renderTransparent: options.transparent }, { quiet: true });
   try {
     const { renderPathTraced } = await import('./engine/photo.js');
+    // The path tracer reads the scene's materials: real (transmission) glass, not the fast glass of moving / 2D frames.
+    viewport.setFastGlass(false);
     const canvas = await withProgress('progress.render', `${options.width} × ${options.height} · ${options.samples} spp`, (op, report, signal) => renderPathTraced(viewport, { width: options.width, height: options.height, samples: options.samples, transparent: options.transparent, signal, onProgress: (done, total, eta) => report({ fraction: done / total, text: t('progress.samples', { done, total, eta: Math.ceil(eta) }) }) }), { delay: 0, cancellable: true });
     if (!canvas) return;
     // A transparent render is previewed as PNG (JPEG has no alpha) and saved with its transparency where the format has it.
@@ -2811,6 +2842,7 @@ function contextMenu(event, kind, payload = {}) {
     return showMenu([{ id: 'custom:copy', label: t('bottom.copy'), icon: 'copy', disabled: !e }, { separator: true }, ...menuItems(['copyMessages', 'clearMessages', '-', 'bottomPanel'])], anchor, 'context', { handlers, header: { icon: 'info', title: t('bottom.messages') } });
   }
   if (kind === 'bottom') return showMenu(menuItems(['showProblems', 'showMessages', 'checkNow', '-', 'copyMessages', 'clearMessages', '-', 'bottomPanel']), anchor, 'context', { header: { icon: 'panelBottom', title: t('bottom.title') } });
+  if (kind === 'libraryCategory') return userLibrary.menu(anchor, payload.id);
   if (kind === 'libraryCard') {
     const item = catalogItem(payload.id);
     const handlers = { 'custom:place': () => startPlacing(payload.id), 'custom:replace': () => change('op.replace', (p) => { for (const o of p.objects) if (isSelected(o.id)) { o.item = payload.id; o.params = {}; o.materials = {}; } }, ['objects']) };
@@ -2818,7 +2850,8 @@ function contextMenu(event, kind, payload = {}) {
     return showMenu([
       { id: 'custom:place', label: t('library.place'), icon: 'place', disabled: !hasDoc() },
       { id: 'custom:replace', label: t('library.replaceSelected'), icon: 'library', disabled: !canReplace },
-      { separator: true }, ...menuItems(['importModel', 'leftPanel']),
+      ...userLibrary.cardItems(payload.id, handlers),
+      { separator: true }, ...menuItems(['importModel', 'libraryAdd', 'leftPanel']),
     ], anchor, 'context', { handlers, header: { icon: CATEGORIES.find((c) => c.id === item?.category)?.icon ?? 'cube', title: itemName(item, lang()) } });
   }
   if (kind === 'material') {
@@ -3136,6 +3169,8 @@ function bindEvents() {
     if (editorTab) { state.rightTab = editorTab.dataset.editorTab; return renderRight(); }
     const olToggle = target.closest('[data-ol-toggle]');
     if (olToggle) { const k = olToggle.dataset.olToggle; if (state.outlinerCollapsed.has(k)) state.outlinerCollapsed.delete(k); else state.outlinerCollapsed.add(k); return renderRight(); }
+    const olLamp = target.closest('[data-ol-lamp]');
+    if (olLamp) { const e = entity(olLamp.dataset.olLamp)?.entity; if (e) switchLamps([e], e.light?.on === false); return undefined; }
     const olHide = target.closest('[data-ol-hide]');
     if (olHide) { const e = entity(olHide.dataset.olHide)?.entity; if (e) change(e.hidden ? 'op.unhide' : 'op.hide', () => { if (e.hidden) delete e.hidden; else e.hidden = true; }); return undefined; }
     const olSel = target.closest('[data-ol-select]');
@@ -3241,6 +3276,8 @@ function bindEvents() {
     if (olRow) { if (!isSelected(olRow.dataset.olSelect)) select([olRow.dataset.olSelect]); return contextMenu(event, 'entity', { hit: { entity: { id: olRow.dataset.olSelect } } }); }
     const card = event.target.closest('.lib-card[data-item]');
     if (card) return contextMenu(event, 'libraryCard', { id: card.dataset.item });
+    const libChip = event.target.closest('[data-lib-category]');
+    if (libChip) return contextMenu(event, 'libraryCategory', { id: libChip.dataset.libCategory });
     const mat = event.target.closest('[data-material]');
     if (mat) return contextMenu(event, 'material', { id: mat.dataset.material });
     if (event.target.closest('#left-panel, #right-panel, #palette-host')) return contextMenu(event, 'panel');
@@ -3483,6 +3520,8 @@ const appApi = {
 };
 
 async function start() {
+  // The user's own categories and models (kept across projects) before anything shows the library.
+  await userLibrary.init().catch((error) => console.warn('user library', error));
   renderShell();
   bindEvents();
   bindPopupActions();
@@ -3554,7 +3593,7 @@ async function start() {
     if (!welcome) await appWindow.setFocus();
     const warm = () => { popups.prewarm('menu').then(() => popups.prewarm('progress', { warm: true })); };
     if (welcome) popups.whenDrawn('welcome', 1500).then(() => setTimeout(warm, 200)); else setTimeout(warm, 400);
-  }
+  } else setTimeout(() => popups.prewarm('progress', { warm: true }), 600);
 }
 
 async function openWelcome() {
@@ -3574,6 +3613,7 @@ window.__mysketchbook = {
   planImport,
   tour,
   importRouter: () => importRouter,
+  userLibrary: () => userLibrary,
   userTextures: UserTextures,
   actions: { newProject, openSampleAsk, openPath, openContent, saveDoc, closeProject, select, change, undo, redo, setTool, startPlacing, setPlanView, exportImage, renderPhoto, importModelFiles, importFiles, importTextureFiles, importEnvironmentFiles, materialDialog, withProgress, showStartPage, updateSettings, addScene, goScene, moveEntities, rotateSelection, deleteEntities, duplicateEntities, applyProjectView, showLibrary },
   domain: { buildTemplate, TEMPLATES, catalogItem, searchItems, MATERIAL_PRESETS, tutorialSteps: () => TUTORIAL_STEPS.length },

@@ -2,7 +2,7 @@
 // high-quality models (library/models, src/library/assets.js) + the
 // user's own imported objects. Browser-side; the parts are optional at build
 // time (import.meta.glob) so the app still runs while one is missing.
-import { CATEGORIES } from './categories.js';
+import { CATEGORIES, setUserCategories } from './categories.js';
 
 const parametricModules = import.meta.glob('./parametric/index.js', { eager: true });
 const assetModules = import.meta.glob('./assets.js', { eager: true });
@@ -53,6 +53,7 @@ export function itemParams(item, params = {}) {
 export function searchItems({ category = null, query = '' } = {}) {
   const q = query.trim().toLowerCase();
   return allItems().filter((item) => {
+    if (item.hidden) return false; // project copies of the user's library items (they show under their library entry)
     if (category && item.category !== category) return false;
     if (!q) return true;
     return [item.ko, item.en, item.id, ...(item.tags ?? [])].some((s) => String(s ?? '').toLowerCase().includes(q));
@@ -61,8 +62,8 @@ export function searchItems({ category = null, query = '' } = {}) {
 
 export const categoryCounts = () => {
   const counts = Object.fromEntries(CATEGORIES.map((c) => [c.id, 0]));
-  for (const item of items.values()) counts[item.category] = (counts[item.category] ?? 0) + 1;
+  for (const item of items.values()) if (!item.hidden) counts[item.category] = (counts[item.category] ?? 0) + 1;
   return counts;
 };
 
-export { CATEGORIES };
+export { CATEGORIES, setUserCategories };

@@ -930,7 +930,7 @@ const productionPrinter = w$({
 });
 
 const speedGate = w$({
-  id: 'wpy-speed-gate', ko: '보안 스피드 게이트(출입 게이트)', en: 'Security speed gate',
+  id: 'wpy-speed-gate', category: 'security', ko: '보안 스피드 게이트(출입 게이트)', en: 'Security speed gate',
   params: [
     P.int('lanes', '통로 수', 'Lanes', 1, 1, 3),
     P.len('lane', '통로 폭', 'Lane width', 0.65, 0.55, 0.95),

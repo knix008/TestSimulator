@@ -69,6 +69,21 @@ import { ITEMS as doorsPlus } from './doors-plus.js';
 // The accessories (소품) category: everyday props (*-plus.js, *-plus2.js)
 import { ITEMS as accessoriesPlus } from './accessories-plus.js';
 import { ITEMS as accessoriesPlus2 } from './accessories-plus2.js';
+// Office props (사무실), server room (서버실), computers (컴퓨터) and landscaping (조경)
+import { ITEMS as officeProps } from './office-props.js';
+import { ITEMS as officeProps2 } from './office-props2.js';
+import { ITEMS as serverRoom } from './server-room.js';
+import { ITEMS as serverRoom2 } from './server-room2.js';
+import { ITEMS as computers } from './computers.js';
+import { ITEMS as computers2 } from './computers2.js';
+import { ITEMS as landscape } from './landscape.js';
+import { ITEMS as landscape2 } from './landscape2.js';
+import { ITEMS as securityMoved } from './security-moved.js';
+import { ITEMS as security } from './security.js';
+import { ITEMS as security2 } from './security2.js';
+// More air conditioners (가전) and light fixtures (조명)
+import { ITEMS as appliancesAir } from './appliances-air.js';
+import { ITEMS as lightingFixtures } from './lighting-fixtures.js';
 
 export const PARAMETRIC_ITEMS = [
   ...living, ...dining, ...bedroom, ...kitchen, ...appliances, ...bathroom, ...office, ...kids,
@@ -82,6 +97,8 @@ export const PARAMETRIC_ITEMS = [
   ...structurePlus,
   ...doorsPlus,
   ...accessoriesPlus, ...accessoriesPlus2,
+  ...officeProps, ...officeProps2, ...serverRoom, ...serverRoom2, ...computers, ...computers2, ...landscape, ...landscape2, ...securityMoved, ...security, ...security2,
+  ...appliancesAir, ...lightingFixtures,
 ];
 
 const BY_ID = new Map(PARAMETRIC_ITEMS.map((e) => [e.id, e]));

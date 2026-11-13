@@ -355,7 +355,7 @@ export class Viewport {
   requestRender() { this.dirty = true; }
   invalidateShadows() { this.shadowsDirty = true; this.dirty = true; }
   /** The content changed: fresh shadows and bounds. */
-  contentChanged() { this.fitShadowCamera(); this.invalidateShadows(); this.updateSunMarker(); }
+  contentChanged() { this.glassStale = true; this.fitShadowCamera(); this.invalidateShadows(); this.updateSunMarker(); }
 
   /** Objects moved (dragging): fresh shadows, but the shadow camera stays put so shadows don't shimmer. */
   contentMoved() { this.invalidateShadows(); }
@@ -432,6 +432,10 @@ export class Viewport {
       fade = k * k * (3 - 2 * k);
       if (k < 1) this.dirty = true; else this.aoFade = null;
     }
+    // Glass with transmission makes three.js draw the whole opaque scene a second time (the transmission pass):
+    // while the view moves, and always in the 2D plan (glass is seen edge-on from above), it is drawn as plain
+    // see-through glass instead; the still 3D frame that follows has the real glass again.
+    this.setFastGlass(!final || this.planMode);
     this.aoPass.enabled = ao;
     this.aoPass.blendIntensity = AO_BLEND * fade;
     this.aoShown = ao;
@@ -472,6 +476,42 @@ export class Viewport {
     const cost = Math.max(ms, this.interacting ? (this.gpuTimer ? this.gpuMoveMs ?? 0 : this.frameInterval ?? 0) : 0);
     this.adaptResolution(cost);
     this.options.onStats?.(this.stats, final);
+  }
+
+  /**
+   * Turns the transmission of every glass material in the scene off (fast: alpha-blended glass, no transmission
+   * pass) or back on. Switching only bumps the material version; three.js keeps both shader programs, so after the
+   * first time it costs no compile. The list is collected again whenever the content changed.
+   */
+  setFastGlass(fast) {
+    if (fast === Boolean(this.glassFast) && !(fast && this.glassStale)) return;
+    if (fast) {
+      this.glassSaved ??= [];
+      this.scene.traverse((o) => {
+        if (!o.isMesh) return;
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+          if (!m || !(m.transmission > 0) || m.userData.fastGlass) continue;
+          m.userData.fastGlass = { transmission: m.transmission, opacity: m.opacity, transparent: m.transparent, depthWrite: m.depthWrite };
+          m.transmission = 0;
+          m.transparent = true;
+          m.opacity = Math.min(m.opacity, 0.3 + 0.6 * (1 - m.userData.fastGlass.transmission));
+          m.depthWrite = false;
+          m.needsUpdate = true;
+          this.glassSaved.push(m);
+        }
+      });
+    } else {
+      for (const m of this.glassSaved ?? []) {
+        const s = m.userData.fastGlass;
+        if (!s) continue;
+        Object.assign(m, s);
+        delete m.userData.fastGlass;
+        m.needsUpdate = true;
+      }
+      this.glassSaved = [];
+    }
+    this.glassFast = fast;
+    this.glassStale = false;
   }
 
   /** What the last full-quality frame cost (the larger of CPU and GPU time, ms). */

@@ -220,13 +220,25 @@ export class PlanDimensions {
   seen(point) {
     const vp = this.viewport;
     if (vp.planMode) return true;
+    // While the view moves the labels keep what they were (a ray per label per frame was most of a frame's CPU
+    // time); the still frame that follows tests them again.
+    this.seenCache ??= new WeakMap();
+    if (vp.interacting || vp.animation) return this.seenCache.get(point) ?? true;
+    // Only the model's meshes block a label (they have BVH trees); lines and points were tested brute force before.
+    const now = vp.renderer.info.render.frame;
+    if (this.meshFrame !== now || !this.meshes) {
+      this.meshFrame = now;
+      this.meshes = [];
+      vp.content.traverseVisible((o) => { if (o.isMesh && !o.userData.helper) this.meshes.push(o); });
+    }
     const cam = vp.camera.position;
     const dir = point.clone().sub(cam);
     const far = dir.length();
     this.raycaster.set(cam, dir.divideScalar(far));
     this.raycaster.far = far - 0.05;
-    const hit = this.raycaster.intersectObject(vp.content, true).find((h) => h.object.visible && !h.object.userData.helper && !h.object.isLine && !h.object.isLineSegments && !h.object.isPoints);
-    return !hit;
+    const seen = this.raycaster.intersectObjects(this.meshes, false).length === 0;
+    this.seenCache.set(point, seen);
+    return seen;
   }
 
   clear() {

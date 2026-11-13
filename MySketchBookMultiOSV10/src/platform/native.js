@@ -341,3 +341,21 @@ export async function clipboardRead() {
   if (isDesktop()) return invoke('clipboard_read');
   return navigator.clipboard.readText();
 }
+
+/** Files below a folder (sub-folders too) with one of the extensions (no dot), at most 5000. Desktop only. */
+export const listFiles = (dir, extensions) => invoke('list_files', { dir, extensions });
+
+/** Web: a whole folder picked (sub-folders included) → File objects with webkitRelativePath. */
+export function pickFolderWeb() {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.webkitdirectory = true;
+    input.multiple = true;
+    input.style.display = 'none';
+    input.addEventListener('change', () => { resolve([...(input.files ?? [])]); input.remove(); });
+    input.addEventListener('cancel', () => { resolve([]); input.remove(); });
+    document.body.append(input);
+    input.click();
+  });
+}

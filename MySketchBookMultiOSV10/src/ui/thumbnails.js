@@ -19,6 +19,9 @@ let running = false;
 let busy = () => false;
 /** `fn()` returns true while thumbnails should wait (orbiting, panning, dragging, camera animation). */
 export function setThumbnailGate(fn) { busy = typeof fn === 'function' ? fn : () => false; }
+// Called before each thumbnail is drawn (the 3D view puts its shared glass materials back to real glass).
+let prepare = () => {};
+export function setThumbnailPrepare(fn) { prepare = typeof fn === 'function' ? fn : () => {}; }
 
 const idle = () => new Promise((resolve) => (globalThis.requestIdleCallback ? requestIdleCallback(resolve, { timeout: 600 }) : setTimeout(resolve, 16)));
 async function whenQuiet() {
@@ -120,6 +123,7 @@ async function renderItem({ item, build }) {
   camera.position.copy(center).addScaledVector(dir.normalize(), radius / Math.sin(THREE.MathUtils.degToRad(15)) * 1.02);
   camera.lookAt(center);
   scene.getObjectByName('floor').position.y = box.min.y - 0.001;
+  prepare();
   renderer.render(scene, camera);
   const pending = canvasUrl(renderer.domElement); // the picture is taken now, encoded in the background
   scene.remove(object);
@@ -141,6 +145,7 @@ async function renderMaterial(presetId) {
   camera.position.set(0.9, 1.15, 1.6);
   camera.lookAt(0, 0.5, 0);
   scene.getObjectByName('floor').position.y = 0;
+  prepare();
   renderer.render(scene, camera);
   const pending = canvasUrl(renderer.domElement); // the picture is taken now, encoded in the background
   scene.remove(sphere);

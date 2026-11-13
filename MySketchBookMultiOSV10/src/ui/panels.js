@@ -48,6 +48,7 @@ export function libraryHtml(app) {
     .map(([id, glyph, label, n]) => `<button class="lib-chip ${cat === id ? 'active' : ''}" data-lib-category="${id}" title="${attr(`${label} (${n})`)}" aria-pressed="${cat === id}">${icon(glyph)}<span>${escapeHtml(label)}</span><i>${n}</i></button>`).join('');
   const cards = items.map((item) => libraryCard(app, item)).join('');
   return `<div class="lib-search"><label class="search-box" title="${attr(t('library.searchTip'))}">${icon('search')}<input id="library-search" type="search" value="${attr(s.libraryQuery)}" placeholder="${attr(t('library.search'))}" /></label>
+      <button class="icon-button" data-command="libraryAdd" title="${attr(app.commandTip('libraryAdd'))}">${icon('plus')}</button>
       <button class="icon-button" data-command="importModel" title="${attr(app.commandTip('importModel'))}">${icon('importModel')}</button>
       <button class="icon-button" data-lib-size title="${attr(t('library.size'))}">${icon(size === 'small' ? 'gridView' : 'libAll')}</button></div>
     <div class="lib-chips">${chips}</div>
@@ -112,6 +113,7 @@ export function outlinerHtml(app) {
     return `<div class="ol-row ${sel.has(e.id) ? 'selected' : ''} ${e.hidden ? 'hidden-entity' : ''}" data-ol-select="${attr(e.id)}" style="padding-left:${8 + depth * 14}px" title="${attr(label)}">
       ${icon(glyph)}<span class="ol-name">${escapeHtml(label)}</span>
       ${e.locked ? `<span class="ol-flag">${icon('lock', 'icon tiny')}</span>` : ''}
+      ${kind === 'object' && app.builder?.lampInfo?.(e) ? `<button class="ol-eye ol-lamp ${e.light?.on === false ? '' : 'lit'}" data-ol-lamp="${attr(e.id)}" title="${attr(t(e.light?.on === false ? 'outliner.lampOn' : 'outliner.lampOff'))}">${icon('lightsOn', 'icon tiny')}</button>` : ''}
       <button class="ol-eye" data-ol-hide="${attr(e.id)}" title="${attr(t(e.hidden ? 'outliner.show' : 'outliner.hide'))}">${icon(e.hidden ? 'eyeOff' : 'eye', 'icon tiny')}</button></div>`;
   };
   const collapsed = app.state.outlinerCollapsed;

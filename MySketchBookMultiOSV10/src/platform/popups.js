@@ -50,6 +50,8 @@ export class PopupHost {
     this.actions = new Map();
     this.pending = new Map();
     this.frames = new Map();
+    // Web: hidden frames kept loaded for the next time (progress) — the page cannot load a frame while a long job holds it.
+    this.parked = new Map();
     /** Frames instead of OS windows on the desktop (tutorial recording). */
     this.inline = false;
     this.opened = [];
@@ -141,7 +143,7 @@ export class PopupHost {
       invoke('open_popup', { kind, x: Math.round(x), y: Math.round(y), width: size.width, height: size.height, show: true, delay: Math.max(0, Math.round(delay)) })
         .catch((error) => { this.settle(kind, null); this.actions.get('error')?.(error); });
     } else {
-      this.openFrame(kind, anchor);
+      this.openFrame(kind, anchor, delay);
     }
     return result;
   }
@@ -150,7 +152,15 @@ export class PopupHost {
   prewarm(kind, { warm = false } = {}) {
     // Never touches the popup's parameters (a menu opened meanwhile keeps its items) — except `warm`: the
     // page then draws nothing and does not show itself (progress, which shows only when asked).
-    if (this.useFrames || this.pending.has(kind)) return Promise.resolve();
+    if (this.useFrames) {
+      // Web: only the progress frame is made ahead of time (loaded and drawn while the page is idle), then parked.
+      if (!warm || this.frames.has(kind) || this.parked.has(kind)) return Promise.resolve();
+      try { globalThis.localStorage?.setItem(popupKey(kind), JSON.stringify({ warm: true })); } catch { /* defaults */ }
+      this.openFrame(kind, null);
+      this.park(kind);
+      return Promise.resolve();
+    }
+    if (this.pending.has(kind)) return Promise.resolve();
     if (warm) {
       try { globalThis.localStorage?.setItem(popupKey(kind), JSON.stringify({ warm: true })); } catch { /* defaults */ }
     }
@@ -186,7 +196,7 @@ export class PopupHost {
   /** Hides a popup but keeps its window for the next time (progress: opening it again is then instant). */
   hide(kind) {
     this.settle(kind, null);
-    if (this.frames.has(kind)) { this.removeFrame(kind); return Promise.resolve(); }
+    if (this.frames.has(kind)) { if (kind === 'progress') this.park(kind); else this.removeFrame(kind); return Promise.resolve(); }
     return isDesktop() ? invoke('hide_popup', { kind }).catch(() => {}) : Promise.resolve();
   }
 
@@ -202,10 +212,26 @@ export class PopupHost {
 
   // ───────────────────────── frames (web, tutorial)
 
-  openFrame(kind, anchor) {
+  /** Hides a frame but keeps it loaded (web progress): the next open shows it at once. */
+  park(kind) {
+    const frame = this.frames.get(kind);
+    if (!frame) return;
+    frame.style.visibility = 'hidden';
+    frame.classList.remove('web-popup-delayed');
+    this.frames.delete(kind);
+    this.parked.set(kind, frame);
+  }
+
+  /** `delay` (ms): the frame fades in that late by a CSS animation — it runs even while a long job holds the page. */
+  openFrame(kind, anchor, delay = 0) {
     const size = POPUPS[kind];
     let frame = this.frames.get(kind);
-    if (!frame) {
+    if (!frame && this.parked.has(kind)) {
+      frame = this.parked.get(kind);
+      this.parked.delete(kind);
+      this.frames.set(kind, frame);
+      this.post(kind, { type: 'refresh' });
+    } else if (!frame) {
       frame = document.createElement('div');
       frame.className = `web-popup web-popup-${kind}`;
       frame.dataset.kind = kind;
@@ -222,6 +248,8 @@ export class PopupHost {
     const left = anchor ? anchor.x - window.screenX : (window.innerWidth - size.width) / 2;
     const top = anchor ? anchor.y - window.screenY : Math.max(20, (window.innerHeight - size.height) / 2);
     this.placeFrame(frame, left, top, size.width, size.height);
+    frame.classList.toggle('web-popup-delayed', delay > 0);
+    if (delay > 0) frame.style.setProperty('--popup-delay', `${Math.round(delay)}ms`);
     if (kind !== 'menu') frame.style.visibility = '';
   }
 
