@@ -7,6 +7,8 @@
  *   DICOM   dicom-parser + the @cornerstonejs codecs + jpeg-lossless-decoder-js (dicomDecoder.js)
  *   HEIC    libheif-js (wasm built into the script; js/heicWorker.js)
  *   EXIF    exifr (Info panel tags; tauriAPI.js)
+ *   Icons   stay in assets/ at the project root. src-tauri/build.rs links that folder
+ *           into the page; this script only deletes a leftover src/assets copy.
  *
  * Paths keep their node_modules layout (src/vendor/node_modules/<package>/…), so
  * dicomDecoder.js's VENDOR table works for the desktop and for web mode (../node_modules/)
@@ -44,3 +46,9 @@ for (const rel of FILES) {
   bytes += fs.statSync(to).size;
 }
 console.log(`[vendor] ${FILES.length} files → src/vendor (${(bytes / 1048576).toFixed(1)} MB)`);
+
+const STALE_ASSETS = path.join(ROOT, 'src', 'assets');
+if (fs.existsSync(STALE_ASSETS)) {
+  fs.rmSync(STALE_ASSETS, { recursive: true, force: true });
+  console.log('[vendor] removed leftover src/assets');
+}

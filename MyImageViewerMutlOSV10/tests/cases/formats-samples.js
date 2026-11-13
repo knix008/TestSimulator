@@ -41,11 +41,11 @@ module.exports = {
     });
 
     test('App icons exist as svg / png / ico', () => {
-      assert(exists('src/assets/icon.svg') && exists('src/assets/icon.png') && exists('src/assets/icon.ico'), 'app icons');
+      assert(exists('assets/icon.svg') && exists('assets/icon.png') && exists('assets/icon.ico'), 'app icons');
     });
 
     test('App icon SVG includes a pencil', () => {
-      const svg = read('src/assets/icon.svg');
+      const svg = read('assets/icon.svg');
       assertIncludes(svg, 'pencil', 'pencil artwork');
       assertIncludes(svg, 'pencilBody', 'pencil fill');
     });

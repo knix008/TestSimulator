@@ -1,5 +1,5 @@
 /**
- * create-icons.js — rebuild PNG / ICO from src/assets/icon.svg
+ * create-icons.js — rebuild PNG / ICO from assets/icon.svg
  *
  * Windows PE resources (rcedit → .exe) work most reliably with BMP/DIB
  * entries in the ICO (PNG-only ICOs often leave the stock Electron icon).
@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
-const ASSETS = path.join(__dirname, '..', 'src', 'assets');
+const ASSETS = path.join(__dirname, '..', 'assets');
 const SVG = path.join(ASSETS, 'icon.svg');
 /** Classic BMP sizes for Shell / PE; 256 uses PNG (Vista+). */
 const BMP_SIZES = [16, 24, 32, 48, 64, 128];

@@ -51,7 +51,7 @@ On Windows/Linux the window is **frameless**; chrome (brand, menus, current file
 | Entry | `tauri dev` (page from `src/`, `scripts/vendor.js` first) | `node server.js` |
 | API | `src/js/tauriAPI.js` | `src/js/webAPI.js` |
 | FS | Real paths / drives | Virtual paths via `FileRegistry` |
-| Icons | `src/assets` + rcedit / branded exe (dev) | Favicon from `src/assets` |
+| Icons | `assets` + rcedit / branded exe (dev) | Favicon from `assets` |
 | Metadata | `read-image-meta` / `read-media-meta` | File stats only |
 
 Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs the shim and sets `platform: 'web'`.
@@ -242,7 +242,7 @@ Until 1.0.2 this was a Node process (`host/service.js`) the page reached over HT
 ### `scripts/`
 | Script | Role |
 |---|---|
-| `create-icons.js` | Rebuild PNG / ICO from `src/assets/icon.svg` |
+| `create-icons.js` | Rebuild PNG / ICO from `assets/icon.svg` |
 | `stamp-version.js` | Write the build date as `buildNumber` and sync `tauri.conf.json` |
 | `rembg_worker.py` | Optional Python helper for background removal |
 
@@ -306,10 +306,10 @@ Shared contract (`preload` and `webAPI`):
 
 | File | Use |
 |---|---|
-| `src/assets/icon.ico` | Windows window and file-type default icon |
-| `src/assets/icon.png` | About dialog, favicon, toolbar brand |
-| `src/assets/icon_512.png` | Large icon source |
-| `src/assets/icon.svg` | Source artwork. `npm run create-icons` regenerates PNG / ICO. Tauri bundle icons live in `src-tauri/icons`. |
+| `assets/icon.ico` | Windows window and file-type default icon |
+| `assets/icon.png` | About dialog, favicon, toolbar brand |
+| `assets/icon_512.png` | Large icon source |
+| `assets/icon.svg` | Source artwork. `npm run create-icons` regenerates PNG / ICO. Tauri bundle icons live in `src-tauri/icons`. The desktop build links this folder into the page at `assets/` (`src-tauri/build.rs`), so it is not copied under `src/`. |
 
 Packaged builds use `package.json → build.win/mac/linux.icon`. Toolbar shows **V1.0.2** next to the product name.
 

@@ -8,11 +8,13 @@
  *   src-tauri/gen/                 Tauri codegen
  *   src-tauri/runtime/*            staged ffmpeg (keeps .gitkeep)
  *   src/vendor/node_modules/       copies made by vendor.js
+ *   src/assets/                    leftover icon copy (the originals stay in assets/)
+ *   src-tauri/frontend-extra/      link the build uses to embed those icons
  *   dist/  out/                    leftover bundle folders
  *
  *   --all also removes installer files at the project root
  *   (*.exe *.msi *.dmg *.pkg *.AppImage *.deb *.rpm *.blockmap).
- *   Nothing under src/ is touched, and node_modules stays.
+ *   The root assets/ folder and node_modules stay.
  */
 const fs = require('fs');
 const path = require('path');
@@ -25,6 +27,8 @@ const DIRS = [
   path.join('src-tauri', 'target'),
   path.join('src-tauri', 'gen'),
   path.join('src', 'vendor', 'node_modules'),
+  path.join('src', 'assets'),
+  path.join('src-tauri', 'frontend-extra'),
 ];
 
 const INSTALLER_EXT = new Set(['.exe', '.msi', '.dmg', '.pkg', '.appimage', '.deb', '.rpm', '.blockmap']);

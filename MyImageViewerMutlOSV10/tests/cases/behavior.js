@@ -37,7 +37,9 @@ module.exports = {
         write(root, 'src/vendor/node_modules/exifr/dist/full.umd.js');
         write(root, 'src/vendor/UTIF.js', 'kept');
         write(root, 'src/help/home.jpg', 'pic');
-        write(root, 'src/assets/icon.png', 'icon');
+        write(root, 'assets/icon.png', 'icon');
+        write(root, 'src/assets/icon.png', 'staged');
+        write(root, 'src-tauri/frontend-extra/assets/icon.png', 'link');
         write(root, 'node_modules/left/index.js', 'deps');
         write(root, 'MyImageViewer_1.0.2_x64-setup.exe', 'setup');
         write(root, 'notes.txt', 'keep');
@@ -45,10 +47,10 @@ module.exports = {
 
         const first = cleanTree(root, { all: false });
         assert(first.failed.length === 0, first.failed.join('; '));
-        for (const gone of ['dist/app.js', 'out/bundle.js', 'src-tauri/target/release/app.exe', 'src-tauri/gen/schemas/acl.json', 'src-tauri/runtime/ffmpeg.exe', 'src/vendor/node_modules/exifr/dist/full.umd.js']) {
+        for (const gone of ['dist/app.js', 'out/bundle.js', 'src-tauri/target/release/app.exe', 'src-tauri/gen/schemas/acl.json', 'src-tauri/runtime/ffmpeg.exe', 'src/vendor/node_modules/exifr/dist/full.umd.js', 'src/assets/icon.png', 'src-tauri/frontend-extra/assets/icon.png']) {
           assert(!exists(root, gone), `still there: ${gone}`);
         }
-        for (const kept of ['src-tauri/runtime/.gitkeep', 'src/vendor/UTIF.js', 'src/help/home.jpg', 'src/assets/icon.png', 'node_modules/left/index.js', 'MyImageViewer_1.0.2_x64-setup.exe', 'notes.txt']) {
+        for (const kept of ['src-tauri/runtime/.gitkeep', 'src/vendor/UTIF.js', 'src/help/home.jpg', 'assets/icon.png', 'node_modules/left/index.js', 'MyImageViewer_1.0.2_x64-setup.exe', 'notes.txt']) {
           assert(exists(root, kept), `removed: ${kept}`);
         }
         assert(fs.statSync(path.join(root, 'not-an-installer.exe')).isDirectory(), 'a directory whose name ends in .exe stays');

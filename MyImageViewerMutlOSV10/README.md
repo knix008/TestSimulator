@@ -136,7 +136,7 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - **Dialogs open in windows of their own** on the desktop (Settings, About, Print, Resize, Details, confirmations …) — drag them by the title anywhere on screen, past the main window; the main window waits behind them
   - Every dialog's **×** turns **red** under the mouse, like the main window's close button. A dialog never gets taller than the window it is in: its title row and × stay on screen and only the body scrolls. **Keyboard Shortcuts** lists its keys in two columns and shows them all without scrolling
   - **Start screen** (Home): a board of translucent cards over a moving 3D background, laid out like MyUMLMaker — the app card (help, shortcuts, settings, open folder), *Start*, *What you can do*, *Recent & Favorites* and *Background*. Drag a card by its **three-line handle (☰)** to move it (the others make room), drag its bottom-right corner to resize it, double-click the corner to fit it to its content; **Auto arrange** puts everything back. The layout is remembered. The first paint already shows the chosen scene's last picture, so the page opens without a stand-in or a black flash
-  - Toolbar, custom app icon (`src/assets`)
+  - Toolbar, custom app icon (`assets`)
 
 - **Installer / 설치**
   - Windows NSIS installer in **Korean / English** (chosen at start); setup.exe, uninstaller, shortcuts and the running window all use the program icon
@@ -200,7 +200,7 @@ On Windows, **Settings** can register MyImageViewer as the default app for JPEG,
 | `npm start` | Tauri desktop app (`tauri dev`) |
 | `npm test` | Feature tests (`tests/cases/`) — summary table, then every case with a 3-decimal execution time |
 | `npm run web` | Web server (Express → `src/`) |
-| `npm run create-icons` | Rebuild `src/assets` PNG / ICO from `icon.svg` |
+| `npm run create-icons` | Rebuild `assets` PNG / ICO from `icon.svg` |
 | `npm run build:win` / `mac` / `linux` | Package with Tauri (`nsis` / `dmg` / `deb`) |
 | `npm run stamp` | Refresh `buildNumber` and the Tauri version |
 
@@ -266,6 +266,7 @@ MyImageViewer/
 │   └── electron-shim.js    # Node stand-in for the old main-process API
 ├── server.js               # Express static server (web mode)
 ├── package.json            # v1.0.2
+├── assets/                 # App icons (icon.ico, icon.png, icon_512.png, …)
 ├── doc/                    # Help (도움말.md, help.md)
 ├── scripts/
 │   ├── stamp-version.js    # buildNumber = build date (runs before every build)
@@ -274,7 +275,6 @@ MyImageViewer/
 ├── src/
 │   ├── index.html
 │   ├── popup.html          # Menu overlay page (desktop: menus past the window edge)
-│   ├── assets/             # App icons (icon.ico, icon.png, icon_512.png, …)
 │   ├── styles/main.css
 │   ├── js/
 │   │   ├── app.js          # Orchestrator, chrome, info, media transport

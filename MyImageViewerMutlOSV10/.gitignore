@@ -17,7 +17,9 @@ src-tauri/runtime/*
 *.deb
 *.rpm
 *.blockmap
-!src/assets/**
+# Leftover icon copy. The originals are /assets. The desktop build links them in.
+src/assets/
+src-tauri/frontend-extra/
 
 # Installers copied to the project root
 /MyImageViewer*.exe

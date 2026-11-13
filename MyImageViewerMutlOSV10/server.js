@@ -8,6 +8,7 @@ const fs = require('fs');
 
 const ROOT = path.join(__dirname, 'src');
 const DOC = path.join(__dirname, 'doc');
+const ASSETS = path.join(__dirname, 'assets');
 const PORT = Number(process.env.PORT) || 8080;
 
 const app = express();
@@ -35,6 +36,7 @@ for (const pkg of VENDOR_PKGS) {
 }
 
 app.use('/doc', express.static(DOC));
+app.use('/assets', express.static(ASSETS));
 app.use(express.static(ROOT, {
   extensions: ['html'],
   setHeaders(res, filePath) {

@@ -430,7 +430,17 @@ module.exports = {
       assertIncludes(vendor, "'exifr/dist/full.umd.js'", 'EXIF reader');
       assertIncludes(decoder, "new URL('vendor/node_modules/', document.baseURI)", 'Tauri vendor base = next to the page');
       const conf = JSON.parse(h.read('src-tauri/tauri.conf.json'));
-      assert(conf.build.beforeDevCommand === 'node scripts/vendor.js' && conf.build.beforeBuildCommand === 'node scripts/vendor.js', 'copied before dev and build');
+      const dev = conf.build.beforeDevCommand;
+      const devScript = typeof dev === 'string' ? dev : dev && dev.script;
+      assert(devScript === 'node scripts/vendor.js' && conf.build.beforeBuildCommand === 'node scripts/vendor.js', 'copied before dev and build');
+      assert(dev && dev.wait === true, 'npm start finishes the vendor copy before compiling');
+      const dist = conf.build.frontendDist;
+      assert(Array.isArray(dist) && dist.includes('../src') && dist.includes('frontend-extra'), 'page from src, icons linked from the root assets folder');
+      const buildRs = h.read('src-tauri/build.rs');
+      assertIncludes(buildRs, 'frontend-extra', 'link directory');
+      assertIncludes(buildRs, "'junction'", 'Windows junction to the root assets folder');
+      assert(!vendor.includes('fs.cpSync'), 'vendor does not copy icons into src');
+      assertIncludes(vendor, "path.join(ROOT, 'src', 'assets')", 'vendor deletes a leftover src/assets');
     });
   },
 };

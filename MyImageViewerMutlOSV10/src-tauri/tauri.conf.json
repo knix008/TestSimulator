@@ -4,8 +4,11 @@
   "version": "1.0.2",
   "identifier": "com.shkwon.imageviewer",
   "build": {
-    "frontendDist": "../src",
-    "beforeDevCommand": "node scripts/vendor.js",
+    "frontendDist": ["../src", "frontend-extra"],
+    "beforeDevCommand": {
+      "script": "node scripts/vendor.js",
+      "wait": true
+    },
     "beforeBuildCommand": "node scripts/vendor.js"
   },
   "app": {
