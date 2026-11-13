@@ -98,6 +98,54 @@ function columnUnder(app, e) {
   return col ? { entity: { id: col.id, kind: 'object' }, point: g, object: app.builder.objectOf(col.id) } : null;
 }
 
+// ───────────────────────── dragging furniture with the mouse
+
+const UP = new THREE.Vector3(0, 1, 0);
+
+/**
+ * How a dragged selection follows the pointer (select tool and Move tool):
+ *  - 'floor': on the horizontal plane through the base of what is dragged — not through the grab point: grabbed high
+ *    up and seen from a low eye, that plane was nearly edge-on and the piece hardly moved towards or away from you;
+ *  - 'wall': a wall item (picture, sconce, wall camera …) slides on its wall: along it and up and down;
+ *  - 'vertical': straight up and down (↑ / PageUp while dragging), on the upright plane facing the camera.
+ * `drag` = { ids, start (world grab point), mode }; returns { mode, base (world point on the drag surface) }.
+ */
+export function dragSurface(app, ids, start, mode = null) {
+  const p = app.project();
+  const objects = ids.map((id) => p.objects.find((o) => o.id === id)).filter(Boolean);
+  const single = objects.length === 1 && ids.length === 1 ? objects[0] : null;
+  const item = single ? stairsCatalogItem(single.item) : null;
+  const planMode = app.viewport.planMode;
+  let m = mode;
+  if (!m) m = !planMode && item?.placement === 'wall' ? 'wall' : 'floor';
+  if (planMode && m !== 'floor') m = 'floor';
+  const out = { mode: m, start: start.clone(), normal: UP.clone(), point: start.clone() };
+  if (m === 'wall') {
+    const ry = single.rotation?.[1] ?? 0;
+    out.normal.set(Math.sin(ry), 0, Math.cos(ry));
+  } else if (m === 'vertical') {
+    const toCam = new THREE.Vector3().subVectors(app.viewport.camera.position, start).setY(0);
+    if (toCam.lengthSq() < 1e-8) toCam.set(0, 0, 1);
+    out.normal.copy(toCam.normalize());
+  } else {
+    // The base of the dragged things (lowest point), so the plane is the floor under them.
+    let base = start.y;
+    for (const id of ids) { const b = app.builder?.worldBox?.(id); if (b && Number.isFinite(b.min.y)) base = Math.min(base, b.min.y); }
+    out.point = new THREE.Vector3(start.x, base, start.z);
+  }
+  return out;
+}
+
+/** The pointer on a drag surface (dragSurface) → world point, or null. Vertical keeps x and z of the start. */
+export function dragPointer(app, e, surface) {
+  const p = app.viewport.screenToWorldOnPlane(e.clientX, e.clientY, surface.point, surface.normal);
+  if (!p) return null;
+  // Near the horizon a plane seen almost edge-on throws the point kilometres away: ignore such jumps.
+  if (p.distanceTo(surface.point) > 200) return null;
+  if (surface.mode === 'vertical') return new THREE.Vector3(surface.start.x, p.y, surface.start.z);
+  return p;
+}
+
 export class SelectTool extends Tool {
   id = 'select';
   get cursor() { return 'default'; }
@@ -192,7 +240,13 @@ export class SelectTool extends Tool {
       const p = this.press;
       if (!this.drag.started && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 4) return;
       this.drag.started = true;
-      const ground = app.viewport.screenToWorldOnPlane(e.clientX, e.clientY, this.drag.start, new THREE.Vector3(0, 1, 0));
+      this.lastPointer = { clientX: e.clientX, clientY: e.clientY };
+      if (!this.drag.surface) {
+        this.drag.surface = dragSurface(app, this.drag.ids, this.drag.start, this.drag.mode);
+        const from = dragPointer(app, { clientX: p.x, clientY: p.y }, this.drag.surface);
+        if (from) this.drag.last.copy(from);
+      }
+      const ground = dragPointer(app, e, this.drag.surface);
       if (!ground) return;
       const delta = ground.clone().sub(this.drag.last);
       this.drag.last.copy(ground);
@@ -385,6 +439,16 @@ export class SelectTool extends Tool {
 
   key(e) {
     const app = this.app;
+    // While dragging furniture: ↑ / PageUp switches between straight up-and-down and the floor (or wall) again.
+    if (this.drag?.started && ['arrowup', 'pageup'].includes(e.key.toLowerCase())) {
+      const vertical = this.drag.surface?.mode !== 'vertical';
+      this.drag.mode = vertical ? 'vertical' : null;
+      this.drag.surface = dragSurface(app, this.drag.ids, this.drag.last, this.drag.mode);
+      const from = this.lastPointer && dragPointer(app, this.lastPointer, this.drag.surface);
+      if (from) this.drag.last.copy(from);
+      app.notify('info', app.t(vertical ? 'hint.dragVertical' : 'hint.dragFloor'));
+      return true;
+    }
     if (this.rotDrag) {
       if (e.key !== 'Escape') return false;
       const r = this.rotDrag;
@@ -413,6 +477,12 @@ export class SelectTool extends Tool {
     if (arrows[k] && !e.ctrlKey && !e.metaKey && !e.altKey) {
       app.moveEntities(ids, new THREE.Vector3(arrows[k][0], 0, arrows[k][1]), { live: true });
       app.commit('op.nudge', ['objects', 'models', 'walls', 'rooms', 'openings']);
+      return true;
+    }
+    // Alt + ↑ / ↓: up and down (Y), the third direction the arrows do not reach (PageUp / PageDown stay the scene keys).
+    if ((k === 'arrowup' || k === 'arrowdown') && e.altKey && !e.ctrlKey && !e.metaKey) {
+      app.moveEntities(ids, new THREE.Vector3(0, k === 'arrowup' ? step : -step, 0), { live: true });
+      app.commit('op.nudge', ['objects', 'models']);
       return true;
     }
     return false;
@@ -1238,6 +1308,11 @@ export class MoveTool extends Tool {
   pointOf(e) {
     const app = this.app;
     const hit = app.viewport.pick(e.clientX, e.clientY, { filter: (ent) => !this.start || !ent || !this.ids?.includes(ent.id) });
+    if (this.start && this.lock?.axis === 'vertical') {
+      // Blue (vertical) lock: straight up and down from the start point.
+      const p = dragPointer(app, e, dragSurface(app, this.ids, this.start, 'vertical'));
+      return p ? { world: p, kind: 'axisY' } : null;
+    }
     if (this.start) {
       // Moving: on the horizontal plane through the start point, with axis inference from it.
       const p = app.viewport.screenToWorldOnPlane(e.clientX, e.clientY, this.start, new THREE.Vector3(0, 1, 0));
@@ -1272,7 +1347,7 @@ export class MoveTool extends Tool {
     this.last.copy(p.world);
     this.app.moveEntities(this.ids, delta, { live: true });
     const total = p.world.distanceTo(this.start);
-    this.app.overlay.lines('move', [this.start, p.world], { color: p.kind === 'axisX' ? '#d6303b' : p.kind === 'axisZ' ? '#2f9e44' : '#555', dashed: true });
+    this.app.overlay.lines('move', [this.start, p.world], { color: p.kind === 'axisX' ? '#d6303b' : p.kind === 'axisZ' ? '#2f9e44' : p.kind === 'axisY' ? '#2e6fd6' : '#555', dashed: true });
     this.app.setVcb('vcb.distance', formatLength(total, this.app.units(), { suffix: false }));
   }
 
@@ -1334,8 +1409,14 @@ export class MoveTool extends Tool {
       this.start = null; this.app.overlay.reset(); this.app.live();
       return true;
     }
-    if (k === 'arrowright' || k === 'arrowleft') { this.lock = this.lock?.axis === 'axisX' ? null : Object.assign([1, 0], { axis: 'axisX' }); return true; }
-    if (k === 'arrowup' || k === 'arrowdown') { this.lock = this.lock?.axis === 'axisZ' ? null : Object.assign([0, 1], { axis: 'axisZ' }); return true; }
+    // SketchUp's arrow keys: → red (X), ← / ↓ green (Z), ↑ blue (up and down). Pressed again: the lock is released.
+    if (k === 'arrowright') { this.lock = this.lock?.axis === 'axisX' ? null : Object.assign([1, 0], { axis: 'axisX' }); return true; }
+    if (k === 'arrowleft' || k === 'arrowdown') { this.lock = this.lock?.axis === 'axisZ' ? null : Object.assign([0, 1], { axis: 'axisZ' }); return true; }
+    if (k === 'arrowup' || (k === 'pageup' && this.start)) {
+      this.lock = this.lock?.axis === 'vertical' ? null : { axis: 'vertical' };
+      if (this.app.viewport.planMode && this.lock) { this.lock = null; this.app.notify('info', this.app.t('hint.verticalIn3d')); }
+      return true;
+    }
     if (k === 'control') { this.copyToggle = true; return true; }
     return false;
   }

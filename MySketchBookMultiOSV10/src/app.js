@@ -3520,8 +3520,6 @@ const appApi = {
 };
 
 async function start() {
-  // The user's own categories and models (kept across projects) before anything shows the library.
-  await userLibrary.init().catch((error) => console.warn('user library', error));
   renderShell();
   bindEvents();
   bindPopupActions();
@@ -3530,7 +3528,10 @@ async function start() {
   // the start page then shows it at once.
   const welcomeLikely = desktop && state.settings.showWelcome && state.settings.showStartPage !== false && !globalThis.__MYSKETCHBOOK_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome');
   if (welcomeLikely) popups.prewarm('welcome');
-  state.info = await native.appInfo().catch(() => null);
+  // The user's own categories and models (kept across projects) load meanwhile: awaited only before a project opens
+  // (opening the database first held back the welcome window above).
+  const libraryReady = userLibrary.init().catch((error) => console.warn('user library', error));
+  state.info =await native.appInfo().catch(() => null);
   state.instance = await native.instanceInfo().catch(() => ({ first: true, others: 0 }));
   if (state.settings.animationRandom) updateSettings({ animation: randomAnimation(state.settings.animation) }, { quiet: true });
   setInterval(tickStartBackground, 1000);
@@ -3576,6 +3577,7 @@ async function start() {
     native.listen('fatal-error', (fatal) => { const error = new Error(fatal.message); error.stack = [fatal.location, fatal.backtrace].join('\n'); showError('error.fatal', error, fatal.location); });
   }
 
+  await libraryReady;
   await restoreSession();
   trackMaximized();
   for (const path of await native.startupFiles().catch(() => [])) await openPath(path);
@@ -3593,7 +3595,11 @@ async function start() {
     if (!welcome) await appWindow.setFocus();
     const warm = () => { popups.prewarm('menu').then(() => popups.prewarm('progress', { warm: true })); };
     if (welcome) popups.whenDrawn('welcome', 1500).then(() => setTimeout(warm, 200)); else setTimeout(warm, 400);
-  } else setTimeout(() => popups.prewarm('progress', { warm: true }), 600);
+  } else {
+    // Web: the progress frame loads after the welcome frame has drawn (both load the popup page; at once they slowed it).
+    const warm = () => setTimeout(() => popups.prewarm('progress', { warm: true }), 300);
+    if (welcome) popups.whenDrawn('welcome', 3000).then(warm); else warm();
+  }
 }
 
 async function openWelcome() {

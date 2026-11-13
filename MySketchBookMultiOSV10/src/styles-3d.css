@@ -238,6 +238,8 @@ html[data-lib-drag="over"] *, html[data-lib-drag="over"] canvas { cursor: copy !
 .problems-header .small-button { height: 24px; }
 /* Medium (default): three cards per row at any panel width; small = four, large = two. */
 .lib-grid { gap: 5px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* An empty category's hint (My objects with nothing imported yet) runs across the whole grid, not down one card column. */
+.lib-grid > .panel-hint { grid-column: 1 / -1; }
 .lib-grid.size-small { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .lib-grid.size-large { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .lib-grid .lib-card { padding: 3px; gap: 2px; border-radius: 8px; }

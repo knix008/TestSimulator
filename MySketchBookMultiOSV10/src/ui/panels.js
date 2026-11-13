@@ -250,7 +250,9 @@ export function entityInfoHtml(app) {
   }
   if (kind === 'models') {
     return section('cube', e.name || t('kind.model'), `${textRow(t('entity.name'), 'name', e.name)}${checkRow(t('entity.component'), 'component', e.component)}
-      ${numberRow(t('entity.elevation'), 'pos.1', len(e.position[1]), units)}${tagRow(app, e)}${common}
+      ${numberRow('X', 'pos.0', len(e.position[0]), units)}
+      ${numberRow(t('entity.elevation'), 'pos.1', len(e.position[1]), units)}
+      ${numberRow('Z', 'pos.2', len(e.position[2]), units)}${tagRow(app, e)}${common}
       <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('entity.geometry'))}</span></span><span class="prop-control"><span class="prop-value">${escapeHtml(app.modelStats(e))}</span></span></div>`, actionButtons(app, ['editModel', 'explodeModel']));
   }
   if (kind === 'dimensions' || kind === 'texts' || kind === 'guides' || kind === 'sections') {

@@ -289,7 +289,7 @@ export default {
   'library.size': "Card size",
   'library.hint': "Click a card, then click where it goes — or drag it onto the view.",
   'library.empty': "Nothing found.",
-  'library.mineEmpty': "Imported 3D models appear here. File › Import 3D model.",
+  'library.mineEmpty': "Imported 3D models appear here: File › Import 3D model, or the + button above (new categories, model files, whole folders).",
   'library.hq': "High-quality photo-scanned model",
   'library.parametric': "Model with adjustable size and materials",
   'materials.search': "Find a material",
@@ -631,4 +631,7 @@ export default {
   'userlib.deleteItem': "Delete from My library",
   'userlib.itemDeleted': "\"{name}\" deleted from My library",
   'userlib.missing': "The model is missing from My library",
+  'hint.dragVertical': "Moving up and down (↑ or PageUp again: back to the floor)",
+  'hint.dragFloor': "Moving along the floor (↑ or PageUp: up and down)",
+  'hint.verticalIn3d': "Moving up and down (Y) works in the 3D view",
 };

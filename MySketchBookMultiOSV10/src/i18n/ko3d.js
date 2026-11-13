@@ -296,7 +296,7 @@ export default {
   'library.size': "카드 크기",
   'library.hint': "카드를 클릭한 뒤 놓을 곳을 클릭하거나, 화면으로 끌어다 놓으세요.",
   'library.empty': "찾는 항목이 없습니다.",
-  'library.mineEmpty': "가져온 3D 모델이 여기에 나옵니다. 파일 › 3D 모델 가져오기.",
+  'library.mineEmpty': "가져온 3D 모델이 여기에 나옵니다. 파일 › 3D 모델 가져오기, 또는 위의 + 버튼 (새 분류 · 모델 파일 · 폴더 전체 추가).",
   'library.hq': "고품질 사진 실측 모델",
   'library.parametric': "크기·재질을 바꿀 수 있는 모델",
   'materials.search': "재질 찾기",
@@ -648,4 +648,7 @@ export default {
   'userlib.deleteItem': "내 라이브러리에서 삭제",
   'userlib.itemDeleted': "\"{name}\"을(를) 내 라이브러리에서 지웠습니다",
   'userlib.missing': "내 라이브러리에서 모델을 찾을 수 없습니다",
+  'hint.dragVertical': "위아래로 이동 중 (↑ 또는 PageUp을 다시 누르면 바닥면 이동)",
+  'hint.dragFloor': "바닥면을 따라 이동 중 (↑ 또는 PageUp: 위아래 이동)",
+  'hint.verticalIn3d': "위아래(Y) 이동은 3D 화면에서 합니다",
 };
