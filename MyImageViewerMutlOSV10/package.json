@@ -12,6 +12,8 @@
     "stamp": "node scripts/stamp-version.js",
     "vendor": "node scripts/vendor.js",
     "stage-runtime": "node scripts/stage-runtime.js",
+    "clean": "node scripts/clean.js",
+    "clean:all": "node scripts/clean.js --all",
     "build:win": "node scripts/stamp-version.js && node scripts/stage-runtime.js && tauri build --bundles nsis && node scripts/copy-installer.js nsis",
     "build:mac": "node scripts/stamp-version.js && node scripts/stage-runtime.js && tauri build --bundles dmg && node scripts/copy-installer.js dmg",
     "build:linux": "node scripts/stamp-version.js && node scripts/stage-runtime.js && tauri build --bundles deb && node scripts/copy-installer.js deb",

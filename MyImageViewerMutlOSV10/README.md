@@ -112,7 +112,7 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Same decoder in desktop and web mode; codecs load on first use
 
 - **Window chrome / 창 구성**
-  - Theme · language · settings · about sit on the **menu bar, left of the minimise button** (main and edit window)
+  - Theme · language · settings · about sit at the **right end of the toolbar** (main and edit window)
   - **About** shows icon, name, version and description on top, then aligned rows: version, image / video / audio formats (from the same lists the app opens files by), formats converted for playback, platform, copyright, contact
   - **Menu bar** (app icon · name · version · File / Edit / View / Window / Help · Home · current file · window buttons — every menu item with an icon and shortcut) and an icon toolbar
   - File menu: open file, open folder (browse **or** pick a recent folder — each removable, clear all), save as, **export** (PNG / JPEG / WebP / BMP / clipboard), **print** (`Ctrl+P`, also a toolbar button — opens a print preview: printer with the system default pre-selected, paper, orientation, margins, scale, copies, colour; prints directly to the chosen printer), file info, show in Explorer, delete, exit

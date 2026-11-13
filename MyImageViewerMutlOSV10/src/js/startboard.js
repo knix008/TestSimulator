@@ -21,6 +21,21 @@ window.StartBoard = (() => {
   const rowsFor = (px) => Math.max(2, Math.ceil((px + GAP) / ROW));
   const overlaps = (a, b) => a.col < b.col + b.w && b.col < a.col + a.w && a.row < b.row + b.h && b.row < a.row + a.h;
 
+  /** The program-name card stays full width on the first row. It is not moved or resized. */
+  function pinHero(cell) {
+    return { ...cell, col: 0, row: 0, w: COLS, fit: true };
+  }
+
+  function pushDown(cell, obstacles) {
+    const next = { ...cell };
+    for (let guard = 0; guard < 200; guard += 1) {
+      const hit = obstacles.filter((p) => overlaps(next, p));
+      if (!hit.length) break;
+      next.row = Math.max(...hit.map((p) => p.row + p.h));
+    }
+    return next;
+  }
+
   function clampCell(value) {
     const c = value || {};
     const w = clamp(Math.round(Number(c.w) || 1), 1, COLS);
@@ -45,22 +60,21 @@ window.StartBoard = (() => {
     return out;
   }
 
-  /** Pushes overlapping cards down; the pinned card (the one being moved) stays. */
+  /** Pushes overlapping cards down. The card being moved stays, unless it covers the name card. */
   function resolve(cards, pinned) {
-    const ids = Object.keys(cards).sort((a, b) => (a === pinned ? -1 : b === pinned ? 1 : cards[a].row - cards[b].row || cards[a].col - cards[b].col));
+    const rest = Object.keys(cards).filter((id) => id !== 'hero').sort((a, b) => (
+      a === pinned ? -1 : b === pinned ? 1 : cards[a].row - cards[b].row || cards[a].col - cards[b].col
+    ));
+    const order = cards.hero ? ['hero', ...rest] : rest;
     const placed = [];
     const out = {};
-    for (const id of ids) {
-      const c = { ...cards[id] };
-      if (id !== pinned) {
-        for (let guard = 0; guard < 200; guard += 1) {
-          const hit = placed.filter((p) => overlaps(c, p));
-          if (!hit.length) break;
-          c.row = Math.max(...hit.map((p) => p.row + p.h));
-        }
-      }
-      placed.push(c);
-      out[id] = c;
+    for (const id of order) {
+      let c = { ...cards[id] };
+      if (id === 'hero') c = pinHero(c);
+      else if (id === pinned) c = pushDown(c, placed.filter((p) => p.fixed));
+      else c = pushDown(c, placed);
+      placed.push({ ...c, fixed: id === 'hero' });
+      out[id] = { col: c.col, row: c.row, w: c.w, h: c.h, fit: c.fit };
     }
     return out;
   }
@@ -87,7 +101,7 @@ window.StartBoard = (() => {
     let cards;
     if (saved && typeof saved === 'object' && saved.version === LAYOUT_VERSION && saved.cards && typeof saved.cards === 'object') {
       cards = {};
-      for (const id of ids) if (saved.cards[id]) cards[id] = clampCell(saved.cards[id]);
+      for (const id of ids) if (saved.cards[id]) cards[id] = id === 'hero' ? pinHero(clampCell(saved.cards[id])) : clampCell(saved.cards[id]);
       let bottom = Math.max(0, ...Object.values(cards).map((c) => c.row + c.h));
       for (const id of ids) {
         if (cards[id]) continue;
@@ -119,26 +133,42 @@ window.StartBoard = (() => {
 
   /**
    * One card: its handle and title (a bare card has a floating handle and no title), its body
-   * and its resize corner. `title` / `extra` are text / nodes; the body is a node.
+   * and its resize corner. A locked card (the program name) has neither. `title` / `extra`
+   * are text / nodes; the body is a node.
    */
-  function card(id, { icon = '', title = '', body, bare = false, moveTip = 'Move', resizeTip = 'Resize', extra = null }) {
+  function card(id, { icon = '', title = '', body, bare = false, locked = false, moveTip = 'Move', resizeTip = 'Resize', extra = null }) {
     const sec = document.createElement('section');
     sec.className = `start-card start-card-${id}${bare ? ' bare' : ''}`;
     sec.dataset.card = id;
     if (title) sec.setAttribute('aria-label', title);
-    const handle = document.createElement('button');
-    handle.type = 'button';
-    handle.className = 'card-handle';
-    handle.dataset.cardHandle = id;
-    handle.title = moveTip;
-    handle.setAttribute('aria-label', moveTip);
-    handle.innerHTML = HANDLE_SVG;
-    if (bare) {
-      const float = document.createElement('span');
-      float.className = 'card-handle-float';
-      float.appendChild(handle);
-      sec.appendChild(float);
-    } else {
+    if (!locked) {
+      const handle = document.createElement('button');
+      handle.type = 'button';
+      handle.className = 'card-handle';
+      handle.dataset.cardHandle = id;
+      handle.title = moveTip;
+      handle.setAttribute('aria-label', moveTip);
+      handle.innerHTML = HANDLE_SVG;
+      if (bare) {
+        const float = document.createElement('span');
+        float.className = 'card-handle-float';
+        float.appendChild(handle);
+        sec.appendChild(float);
+      } else {
+        const h = document.createElement('h2');
+        const ic = document.createElement('span');
+        ic.className = 'start-card-icon';
+        ic.innerHTML = icon;
+        const tx = document.createElement('span');
+        tx.className = 'start-card-title';
+        tx.textContent = title;
+        const grow = document.createElement('span');
+        grow.className = 'grow';
+        h.append(handle, ic, tx, grow);
+        if (extra) h.append(extra);
+        sec.appendChild(h);
+      }
+    } else if (!bare && title) {
       const h = document.createElement('h2');
       const ic = document.createElement('span');
       ic.className = 'start-card-icon';
@@ -146,9 +176,7 @@ window.StartBoard = (() => {
       const tx = document.createElement('span');
       tx.className = 'start-card-title';
       tx.textContent = title;
-      const grow = document.createElement('span');
-      grow.className = 'grow';
-      h.append(handle, ic, tx, grow);
+      h.append(ic, tx);
       if (extra) h.append(extra);
       sec.appendChild(h);
     }
@@ -156,12 +184,14 @@ window.StartBoard = (() => {
     wrap.className = 'card-body';
     wrap.appendChild(body);
     sec.appendChild(wrap);
-    const corner = document.createElement('span');
-    corner.className = 'card-resize';
-    corner.dataset.cardResize = id;
-    corner.title = resizeTip;
-    corner.innerHTML = GRIP_SVG;
-    sec.appendChild(corner);
+    if (!locked) {
+      const corner = document.createElement('span');
+      corner.className = 'card-resize';
+      corner.dataset.cardResize = id;
+      corner.title = resizeTip;
+      corner.innerHTML = GRIP_SVG;
+      sec.appendChild(corner);
+    }
     return sec;
   }
 
@@ -256,6 +286,7 @@ window.StartBoard = (() => {
     };
 
     function startMove(event, id) {
+      if (id === 'hero') return;
       event.preventDefault();
       const el = cardEl(id);
       const rect = el.getBoundingClientRect();
@@ -312,6 +343,7 @@ window.StartBoard = (() => {
     }
 
     function startResize(event, id) {
+      if (id === 'hero') return;
       event.preventDefault();
       event.stopPropagation();
       const el = cardEl(id);

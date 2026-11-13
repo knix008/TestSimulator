@@ -34,8 +34,6 @@
       </button>
       <div id="menubar-menus" class="menubar-menus"></div>
       <div id="titlebar-file" class="titlebar-file" title=""></div>
-      <!-- Theme · language · settings · about, left of the window buttons (built by app.js) -->
-      <div id="menubar-chrome" class="menubar-chrome" role="group"></div>
       <div id="win-ctrl-gutter"></div>
     </div>
 
@@ -707,14 +705,6 @@ Do you want to save before closing?</p>
       </button>
       <div id="ew-menubar-menus" class="menubar-menus"></div>
       <span id="edit-window-title" class="titlebar-file" title=""></span>
-      <!-- Theme · language · settings · about, left of the window buttons -->
-      <div class="ew-group ew-chrome" role="group">
-        <button class="ew-btn" id="ew-theme" data-i18n-title="toolbar.theme"></button>
-        <button class="ew-btn caret-btn" id="ew-theme-menu" data-i18n-title="toolbar.themeMenu" aria-haspopup="menu"></button>
-        <button class="ew-btn ew-lang-btn" id="ew-lang" data-i18n-title="toolbar.lang"></button>
-        <button class="ew-btn" id="ew-settings" data-i18n-title="toolbar.settings"></button>
-        <button class="ew-btn" id="ew-about" data-i18n-title="menu.about"></button>
-      </div>
       <div id="ew-win-gutter"></div>
     </div>
 
@@ -800,6 +790,15 @@ Do you want to save before closing?</p>
       </div>
 
       <span class="ew-spacer"></span>
+      <div class="ew-sep"></div>
+      <!-- Theme · language · settings · about, right end of the toolbar -->
+      <div class="ew-group ew-chrome" role="group">
+        <button class="ew-btn" id="ew-theme" data-i18n-title="toolbar.theme"></button>
+        <button class="ew-btn caret-btn" id="ew-theme-menu" data-i18n-title="toolbar.themeMenu" aria-haspopup="menu"></button>
+        <button class="ew-btn ew-lang-btn" id="ew-lang" data-i18n-title="toolbar.lang"></button>
+        <button class="ew-btn" id="ew-settings" data-i18n-title="toolbar.settings"></button>
+        <button class="ew-btn" id="ew-about" data-i18n-title="menu.about"></button>
+      </div>
     </div>
 
     <!-- Drawing, retouching, crop / straighten: tool buttons, then the active tool's options

@@ -342,6 +342,7 @@ module.exports = {
       assertIncludes(css, 'grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  grid-auto-rows: 20px;', 'three columns, 20px rows');
       for (const id of ['hero', 'begin', 'tasks', 'recent', 'scenes']) assertIncludes(app, `'${id}'`, id);
       assertIncludes(app, '_startBoard = StartBoard.start(board, { reduced });', 'board started');
+      assertIncludes(app, "StartBoard.card('hero', { body: hero, bare: true, locked: true })", 'name card cannot be moved or resized');
       assertIncludes(app, "arrange.addEventListener('click', () => _startBoard?.arrange());", 'auto arrange');
       // Default layout: hero across the top, then Start | What you can do, Places | Background
       const ids = ['hero', 'begin', 'tasks', 'recent', 'scenes'];
@@ -351,7 +352,13 @@ module.exports = {
       for (const a of ids) for (const b of ids) if (a < b) assert(!SB.overlaps(cells[a], cells[b]), `${a} / ${b} overlap`);
       // Moving a card pushes the others aside, never on top of each other
       const moved = SB.place(cells, 'scenes', { col: 0, row: 0 });
+      assert(moved.hero.col === 0 && moved.hero.row === 0 && moved.hero.w === 3 && moved.hero.fit === true, 'name card stays across the top');
+      assert(moved.scenes.row >= moved.hero.row + moved.hero.h, 'a card dropped on the name card goes below it');
       for (const a of ids) for (const b of ids) if (a < b) assert(!SB.overlaps(moved[a], moved[b]), `after move: ${a} / ${b} overlap`);
+      const hijacked = SB.layoutValue(cells);
+      hijacked.cards.hero = { col: 1, row: 8, w: 1, h: 4, fit: false };
+      const restored = SB.cardsOf(hijacked, ids, { hero: 6 });
+      assert(restored.hero.col === 0 && restored.hero.row === 0 && restored.hero.w === 3 && restored.hero.fit === true, 'a saved name-card position is put back');
       // A saved layout comes back; an old version starts over
       const saved = SB.layoutValue(moved);
       assert(SB.cardsOf(saved, ids, {}).scenes.row === moved.scenes.row, 'saved layout restored');

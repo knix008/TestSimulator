@@ -251,29 +251,7 @@ html, body {
 }
 body.frameless #win-ctrl-gutter { display: block; }
 
-/* Theme · language · settings · about on the menu bar, just left of the window buttons */
-.menubar-chrome {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-  flex-shrink: 0;
-  padding-right: 4px;
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
-}
-.menubar-chrome:empty { display: none; }
-.menubar-chrome .toolbar-btn { height: 28px; }
-#ew-menubar .ew-chrome {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  padding-right: 4px;
-}
-#ew-menubar .ew-chrome,
-#ew-menubar .ew-chrome * {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
-}
+/* Theme · language · settings · about sit at the right end of each toolbar. */
 
 /* ========== Menu bar (also the window drag strip; title content lives here) ========== */
 #menubar {
@@ -4259,18 +4237,18 @@ body.frameless #ew-win-gutter { display: block; }
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: max-content;
   height: 30px;
   align-self: center;
   gap: 2px;
-  overflow: hidden;
+  overflow: visible;
   overscroll-behavior: none;
   scrollbar-width: none;
 }
 #ew-toolbar-row .ew-chrome {
-  margin-left: auto;
   flex: 0 0 auto;
+  padding-right: 2px;
 }
 .ew-toolbar::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
@@ -5697,6 +5675,20 @@ body.home-open #main-area { display: none !important; }
 }
 .help-doc th { background: var(--bg-tertiary); }
 .help-doc hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+.help-doc .help-fig { margin: 10px 0 14px; }
+.help-doc .help-fig img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+}
+.help-doc .help-fig figcaption {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
 .help-status { color: var(--text-secondary); }
 
 /* ========== Edit window: drawing / retouch tools (editTools.js) ========== */

@@ -6,12 +6,14 @@ MyImageViewer opens photos, drawings, video, audio and DICOM medical images, and
 
 Until you open a file or a folder, **Home** fills the window: cards on a landscape. Each card starts that task.
 
+![Home](help/home.jpg)
+
 - **Open Folder** shows that folder in the explorer.
 - **Open File** picks an image, video, audio file or DICOM study.
 - **Recent folders** lists folders you opened before. Click a name to open it again.
 - Cards that need a picture (edit, print, resize, background removal, details) ask you to open one first. The status bar says so when there is nothing to edit.
 
-You can move and resize the cards. Drag a card by the **three lines (☰)** left of its title to move it; the other cards make room. Drag its bottom-right corner to resize it, and double-click that corner to fit it to its content again. **Auto arrange** (top right) puts every card back. Your layout is kept for next time. The background starts as the chosen scene's last picture and changes to the live 3D scene once it is ready.
+The program-name card stays across the top and cannot be moved or resized. The other cards can. Drag a card by the **three lines (☰)** left of its title to move it; the other cards make room. Drag its bottom-right corner to resize it, and double-click that corner to fit it to its content again. **Auto arrange** (top right) puts every card back. Your layout is kept for next time. The background starts as the chosen scene's last picture and changes to the live 3D scene once it is ready.
 
 **Home** on the menu bar returns here at any time. The file you already opened stays loaded. If Settings says to reopen the last folder and file at startup, the next launch skips Home and opens that file. Double-clicking a file to start the app does the same.
 
@@ -65,6 +67,8 @@ At startup the last folder you opened appears as a thumbnail sheet, with the las
 
 The centre is the viewer. An empty viewer shows a short hint. An open picture is drawn on a canvas.
 
+![Viewing images](help/viewer.jpg)
+
 - **Zoom**: `Ctrl++`, `Ctrl+-`, the magnifier buttons, or the wheel over the picture. You can also type `100%` in the zoom box. The wheel step (5/10/25/50%) is in Settings.
 - **Display modes** on the toolbar, for pictures and video alike: fit to window (`Ctrl+0`), fit width, fit height, actual size (`Ctrl+1`), centre, fullscreen (`F11`). The chosen mode is kept for the next file.
 - **Pan**: drag with the pointer tool. The cursor is a hand.
@@ -80,6 +84,8 @@ The right side is **colour**. It shows a histogram (red, green, blue and luminan
 ## Thumbnails
 
 **Window › Folder thumbnails**, or the thumbnail card on Home, shows the folder as a grid. Click a cell to open that file and leave the sheet. Sort order and icon/list layout are on the sheet's own tools.
+
+![Thumbnails](help/thumbs.jpg)
 
 Thumbnails are built in the background for every folder you open, and for your recent folders at startup, and kept in a thumbnail database. The next visit shows them at once. Settings shows the cache size and can clear it.
 
@@ -121,6 +127,8 @@ Corner text, orientation markers and the scale bar are drawn on top of the image
 ## Edit window
 
 **Edit › Edit Image**, or `Ctrl+E`. The edit window's menu bar shows the icon, “Edit Image” and the file name.
+
+![Edit window](help/edit.jpg)
 
 Tools:
 

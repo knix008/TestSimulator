@@ -51,17 +51,23 @@ module.exports = {
       assertIncludes(html, `id="${id}"`, id);
     });
 
-    test('Theme / language / settings / about sit on the menu bar, left of the window buttons', () => {
-      // Edit window: the chrome group is inside #ew-menubar, right before the window-button gutter
-      const bar = html.slice(html.indexOf('<div id="ew-menubar"'), html.indexOf('<div id="ew-win-gutter">'));
-      for (const id of ['ew-theme', 'ew-lang', 'ew-settings', 'ew-about']) assert(bar.includes(`id="${id}"`), `${id} on the edit menu bar`);
-      assert(bar.indexOf('id="edit-window-title"') < bar.indexOf('class="ew-group ew-chrome"'), 'after the file name');
-      assertIncludes(css, '#ew-menubar .ew-chrome', 'menu bar chrome style');
-      // Main window: the toolbar builder sends what follows its spacer to #menubar-chrome
-      const main = html.slice(html.indexOf('<div id="menubar"'), html.indexOf('<div id="win-ctrl-gutter">'));
-      assert(main.includes('id="menubar-chrome"'), 'main menu bar host before the window buttons');
-      assertIncludes(app, "if (chrome) { target = chrome; continue; }", 'builder targets the menu bar');
-      assertIncludes(css, '.menubar-chrome {', 'menu bar chrome style (main)');
+    test('Theme / language / settings / about sit at the right end of the toolbar', () => {
+      const row = html.slice(html.indexOf('<div id="ew-toolbar-row"'), html.indexOf('<div id="ew-tools-row"'));
+      const spacer = row.indexOf('class="ew-spacer"');
+      const chrome = row.indexOf('class="ew-group ew-chrome"');
+      assert(spacer > 0 && chrome > spacer, 'edit chrome follows the spacer');
+      for (const id of ['ew-theme', 'ew-lang', 'ew-settings', 'ew-about']) assert(row.includes(`id="${id}"`), `${id} on the edit toolbar`);
+      const menu = html.slice(html.indexOf('<div id="ew-menubar"'), html.indexOf('<div id="ew-win-gutter">'));
+      assert(!menu.includes('ew-theme'), 'not on the edit menu bar');
+      assertIncludes(css, '#ew-toolbar-row .ew-chrome', 'toolbar chrome style');
+      assertIncludes(css, 'min-width: max-content', 'edit tool cluster does not shrink');
+      const main = html.slice(html.indexOf('<div id="menubar"'), html.indexOf('<div id="toolbar">'));
+      assert(!main.includes('menubar-chrome'), 'main menu bar has no chrome host');
+      assertIncludes(app, "sp.className = 'toolbar-spacer'", 'spacer stays on the main toolbar');
+      assert(!app.includes('target = chrome'), 'builder does not move buttons off the toolbar');
+      const min = app.slice(app.indexOf('function _mainMinWidth'), app.indexOf('function _appMinWidth'));
+      assertIncludes(min, "toolbar-spacer", 'main min width counts every toolbar button');
+      assertIncludes(min, "titlebar-file", 'main min width also fits the menu bar');
     });
 
     test('Save / apply / cancel / print sit left of selection tools', () => {

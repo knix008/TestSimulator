@@ -30,20 +30,32 @@ function nsToMs(ns) {
   return Number(ns) / 1e6;
 }
 
+const pending = [];
+
 function test(name, fn) {
+  const index = results.length;
+  results.push(null);
   const started = process.hrtime.bigint();
-  try {
-    fn();
-    results.push({ n: results.length + 1, suite: currentSuite, name, ok: true, ms: nsToMs(process.hrtime.bigint() - started) });
-  } catch (err) {
-    results.push({
-      n: results.length + 1,
-      suite: currentSuite,
+  const suite = currentSuite;
+  const fill = (ok, error) => {
+    results[index] = {
+      n: index + 1,
+      suite,
       name,
-      ok: false,
+      ok,
       ms: nsToMs(process.hrtime.bigint() - started),
-      error: err && err.message ? err.message : String(err),
-    });
+      ...(error ? { error: error && error.message ? error.message : String(error) } : {}),
+    };
+  };
+  try {
+    const result = fn();
+    if (result && typeof result.then === 'function') {
+      pending.push(result.then(() => fill(true), (err) => fill(false, err)));
+      return;
+    }
+    fill(true);
+  } catch (err) {
+    fill(false, err);
   }
 }
 
@@ -68,6 +80,7 @@ for (const file of files) {
   mod.run({ test, each, src, h });
 }
 
+function report() {
 const totalMs = nsToMs(process.hrtime.bigint() - runStarted);
 const passed = results.filter((r) => r.ok).length;
 const failed = results.filter((r) => !r.ok).length;
@@ -82,6 +95,7 @@ const SUITE_ORDER = [
   'Folder drives & viewer chrome',
   'Status, i18n, theme',
   'IPC & packaging',
+  'Behavior checks',
 ];
 const suites = [...new Set(results.map((r) => r.suite))]
   .sort((a, b) => {
@@ -181,7 +195,7 @@ const rows = bySuite.map((s, i) => {
 }).join('');
 
 const fileList = files.map((f) => `<code>${esc(f)}</code>`).join(' · ');
-const rate = results.length ? Math.round((passed / results.length) * 100) : 0;
+const rate = results.length ? Math.floor((passed / results.length) * 100) : 0;
 const summaryOnly = process.argv.includes('--summary') || process.env.SUMMARY === '1';
 
 const htmlReport = `<!DOCTYPE html>
@@ -367,3 +381,9 @@ console.log(`${C.bold}${failed ? C.red : C.green}${passed} passed, ${failed} fai
 console.log(`${C.dim}Report: tests/results.html${summaryOnly ? '' : '  ·  npm test -- --summary'}${C.reset}\n`);
 
 process.exit(failed ? 1 : 0);
+}
+
+Promise.all(pending).then(report, (err) => {
+  console.error(err);
+  process.exit(1);
+});

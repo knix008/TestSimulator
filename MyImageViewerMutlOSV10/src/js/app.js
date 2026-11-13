@@ -875,7 +875,8 @@
       { separator: true },
       { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
       { spacer: true },
-      // Theme: palette = jump to the next theme, ▾ = pick one from the list
+      { separator: true },
+      // Theme: palette = jump to the next theme, ▾ = pick one from the list. Right end of the toolbar.
       { id:'btn-theme',       icon:'palette',    tip: _themeButtonTip,     action: _nextTheme },
       { id:'btn-theme-menu',  icon:'caretDown',  tip:'toolbar.themeMenu',  action: null, caretBtn: true, openMenu: (btn) => _openThemeMenu(btn) },
       { id:'btn-lang',        icon:null,         tip:'toolbar.lang',       action: _toggleLang, langBtn: true },
@@ -893,20 +894,15 @@
       return zw;
     })();
     toolbar.innerHTML = '';
-    // What follows the spacer (theme · language · settings · about) lives on the menu bar,
-    // left of the window buttons; without that host it stays at the toolbar's right end.
-    const chrome = document.getElementById('menubar-chrome');
-    if (chrome) chrome.innerHTML = '';
-    let target = toolbar;
+    // Theme · language · settings · about follow the spacer, so they stay at the right end.
     for (const b of buttons) {
       if (b.separator) {
         const sep = document.createElement('div');
         sep.className = 'toolbar-sep';
-        target.appendChild(sep);
+        toolbar.appendChild(sep);
         continue;
       }
       if (b.spacer) {
-        if (chrome) { target = chrome; continue; }
         const sp = document.createElement('div');
         sp.className = 'toolbar-spacer';
         toolbar.appendChild(sp);
@@ -970,7 +966,7 @@
       });
       Tooltip.attach(btn, typeof b.tip === 'function' ? b.tip : () => I18n.t(b.tip));
       hit.appendChild(btn);
-      target.appendChild(hit);
+      toolbar.appendChild(hit);
     }
 
     _updateZoomDisplay();
@@ -1782,7 +1778,7 @@
     const board = document.createElement('div');
     board.className = 'start-board';
     board.append(
-      StartBoard.card('hero', { body: hero, bare: true, moveTip, resizeTip }),
+      StartBoard.card('hero', { body: hero, bare: true, locked: true }),
       card('begin', 'home', I18n.t('home.begin'), begin),
       card('tasks', 'viewGrid', I18n.t('home.tasks'), tasks),
       card('recent', 'recent', I18n.t('home.places'), recentHost),
@@ -1918,6 +1914,13 @@
       flushList(list, ordered);
       if (!line.trim()) { i++; continue; }
       if (line.trim() === '---') { out.push('<hr>'); i++; continue; }
+      const img = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(line.trim());
+      if (img && /^help\/[A-Za-z0-9_-]+\.(?:png|jpe?g|webp|gif)$/.test(img[2])) {
+        const alt = esc(img[1]).replace(/"/g, '&quot;');
+        out.push(`<figure class="help-fig"><img src="${img[2]}" alt="${alt}">${alt ? `<figcaption>${alt}</figcaption>` : ''}</figure>`);
+        i++;
+        continue;
+      }
       const h = /^(#{1,3})\s+(.*)$/.exec(line);
       if (h) {
         const level = h[1].length;
@@ -2357,12 +2360,26 @@
     return width;
   }
 
+  function _barMinWidth(el, growClass) {
+    // Flexible slots (the toolbar spacer, the file name) contribute only their minimum,
+    // so the window cannot shrink until a button is clipped.
+    return _measureFlexContentWidth(el, growClass) + 12;
+  }
+
   function _mainMinWidth() {
-    return Math.max(_measureFlexContentWidth(toolbar, 'toolbar-spacer') + 12, 1200);
+    return Math.max(
+      _barMinWidth(toolbar, 'toolbar-spacer'),
+      _barMinWidth(document.getElementById('menubar'), 'titlebar-file'),
+      1200,
+    );
   }
 
   function _editMinWidth() {
-    return Math.max(_measureEditTitlebarWidth() + 12, 1200);
+    return Math.max(
+      _measureEditTitlebarWidth() + 12,
+      _barMinWidth(document.getElementById('ew-menubar'), 'titlebar-file'),
+      1200,
+    );
   }
 
   function _appMinWidth() {
