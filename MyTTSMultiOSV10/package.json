@@ -1,0 +1,46 @@
+{
+  "name": "tts-multios-v10",
+  "productName": "TTS Multi OS",
+  "version": "0.1.0",
+  "description": "Embedded-ready TTS Multi OS Application (Tauri)",
+  "author": "SHKWON <knix008@naver.com>",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tauri dev",
+    "tauri": "tauri",
+    "web": "node server.js",
+    "build:tauri-web": "node scripts/build-tauri-web.mjs",
+    "build:debug": "node scripts/build.mjs debug",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "build": "node scripts/build.mjs all",
+    "test": "node scripts/test.mjs",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "smoke": "node scripts/test.mjs --only desktop",
+    "icons": "tauri icon assets/icon.png -o src-tauri/icons",
+    "guide:images": "node scripts/guide-shots.mjs",
+    "test:quick": "node scripts/test.mjs --quick",
+    "test:unit": "node scripts/test.mjs --only unit",
+    "test:web": "node scripts/test.mjs --only web",
+    "test:desktop": "node scripts/test.mjs --only desktop",
+    "test:release": "node scripts/test.mjs --only desktop --release"
+  },
+  "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
+    "@piper-plus/g2p": "^0.4.1",
+    "korean-pronunciation": "^1.0.1",
+    "onnxruntime-node": "^1.27.0",
+    "phonemizer": "^1.2.1",
+    "sherpa-onnx-node": "^1.13.4",
+    "sherpa-onnx-win-x64": "^1.13.4"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4"
+  },
+  "allowScripts": {
+    "onnxruntime-node@1.27.0": true
+  }
+}

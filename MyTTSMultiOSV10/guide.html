@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko" data-mode="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TTS Multi OS — 사용 설명서</title>
+    <link rel="stylesheet" href="./src/web/styles.css" />
+    <link rel="stylesheet" href="./src/web/guide.css" />
+  </head>
+  <body class="guide-page">
+    <!-- 사용 설명서 · 튜토리얼 보기 (src/web/guide.js): doc/*.md 를 그려 보여 준다 -->
+    <header class="guide-bar">
+      <img class="guide-logo" src="./assets/icon.svg" alt="" />
+      <strong class="guide-app">TTS Multi OS</strong>
+      <nav class="guide-docs" role="tablist" aria-label="문서">
+        <button type="button" role="tab" data-doc="guide"><i data-i="ttsGuide"></i><span data-label="guide">사용 설명서</span></button>
+        <button type="button" role="tab" data-doc="tutorial"><i data-i="ttsTutorial"></i><span data-label="tutorial">튜토리얼</span></button>
+      </nav>
+      <span class="grow"></span>
+      <div class="guide-lang" role="group" aria-label="언어">
+        <button type="button" data-lang="ko">한국어</button>
+        <button type="button" data-lang="en">English</button>
+      </div>
+      <div class="stepper guide-font" title="글자 크기">
+        <button type="button" class="stepper-button" data-font="-1" aria-label="글자 작게"><i data-i="minus"></i></button>
+        <span class="stepper-value" id="guideFontSize">15px</span>
+        <button type="button" class="stepper-button" data-font="1" aria-label="글자 크게"><i data-i="plus"></i></button>
+      </div>
+      <button type="button" class="button small" data-print title="인쇄"><i data-i="print"></i><span data-label="print">인쇄</span></button>
+    </header>
+    <div class="guide-main">
+      <aside class="guide-toc" aria-label="목차">
+        <div class="guide-toc-title"><i data-i="list"></i><span data-label="toc">목차</span></div>
+        <nav id="guideToc"></nav>
+      </aside>
+      <article id="guideContent" class="guide-content"></article>
+    </div>
+    <script type="module" src="./src/web/guide.js"></script>
+  </body>
+</html>

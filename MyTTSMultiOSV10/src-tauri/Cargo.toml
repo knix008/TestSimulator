@@ -1,0 +1,36 @@
+[package]
+name = "tts-multios"
+version = "0.1.0"
+description = "TTS Multi OS — Tauri shell around the Node TTS host"
+authors = ["SHKWON <knix008@naver.com>"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "tts_multios_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# devtools: F12 opens the inspector in the installed program too (as the Electron build did).
+tauri = { version = "2", features = ["devtools"] }
+# ResizeDirection for the bottom-right resize grip (tauri does not re-export it).
+tauri-runtime = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["sync", "time"] }
+
+[profile.dev.package."*"]
+opt-level = 1
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

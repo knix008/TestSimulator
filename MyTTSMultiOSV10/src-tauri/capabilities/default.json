@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The TTS window. Everything goes through the app's own `tts` command (src-tauri/src/lib.rs); only event listening is opened here.",
+  "windows": ["main"],
+  "permissions": ["core:event:default"]
+}

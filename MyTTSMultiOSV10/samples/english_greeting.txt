@@ -1,0 +1,5 @@
+Hello! Welcome to TTS Multi OS.
+This application converts text to speech using advanced AI models.
+You can type any text in the input area and click the Read button.
+The system supports both Korean and English languages.
+We hope you enjoy using this application. Have a great day!

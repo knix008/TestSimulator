@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="ko" data-mode="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TTS Multi OS</title>
+    <link rel="stylesheet" href="./src/web/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- 메뉴 막대 = 제목 표시줄 (아이콘·이름·버전·열린 파일, 시작, 메뉴, 창 단추): ui/shell.js 가 채운다 -->
+      <nav id="menubar" role="menubar" aria-label="메뉴"></nav>
+      <!-- 컬러 아이콘 툴바: ui/shell.js -->
+      <div id="toolbar" role="toolbar" aria-label="도구 모음"></div>
+
+      <div id="main-area">
+        <div id="workspace">
+          <!-- 가운데: 문서 탭 + 텍스트 편집기 + 파형 -->
+          <section id="center">
+            <!-- 텍스트 탭 (ui/doctabs.js): 탭마다 닫기, + 새 탭, 오른쪽 끝 < > 로 탭 줄 넘기기. 파일 명령은 툴바에 있다. -->
+            <div id="docTabs" class="doc-tabs">
+              <div class="tab-strip"><div class="tab-list" role="tablist" aria-label="텍스트 탭"></div></div>
+              <button type="button" class="tab-add" data-tab-add title="새 텍스트 탭 (Ctrl+N)" aria-label="새 텍스트 탭"><i data-i="plus"></i></button>
+              <div class="tab-nav">
+                <button type="button" class="tab-scroll" data-tab-scroll="-1" title="왼쪽 탭으로" aria-label="왼쪽 탭으로"><i data-i="chevronLeft"></i></button>
+                <button type="button" class="tab-scroll" data-tab-scroll="1" title="오른쪽 탭으로" aria-label="오른쪽 탭으로"><i data-i="chevronRight"></i></button>
+              </div>
+            </div>
+
+            <div class="editor-host">
+              <label for="textInput" class="sr-only">텍스트</label>
+              <textarea id="textInput" spellcheck="false" placeholder="여기에 읽을 문장을 입력하세요.">안녕하세요. 이 앱은 한국어와 영어를 지원하는 TTS 데모입니다.</textarea>
+            </div>
+
+            <!-- 파형 패널 -->
+            <section class="waveform-panel" id="waveformSection">
+              <div class="panel-header waveform-panel-header">
+                <i data-i="ttsWaveform"></i><span class="panel-title">파형</span>
+                <div class="transport-group" role="group" aria-label="재생 제어">
+                  <button id="speakText" class="button primary small" title="읽기 (F5)"><i data-i="play"></i><span>읽기</span></button>
+                  <button id="pausePlayback" class="button small" title="멈춤 (F6)" disabled><i data-i="pause"></i><span>멈춤</span></button>
+                  <button id="stopPlayback" class="button small" title="중단 (F7)" disabled><i data-i="stop"></i><span>중단</span></button>
+                  <button id="speakAllVoices" class="button small" title="이 모델의 모든 화자로 지금 텍스트를 생성해 아래 「화자별 결과」에 보여 줍니다 (화자가 둘 이상인 모델)" disabled><i data-i="ttsVoice"></i><span>모든 화자</span></button>
+                </div>
+                <span class="waveform-hint">왼쪽 드래그로 위치 이동 · 오른쪽 클릭으로 메뉴</span>
+                <span class="waveform-time-group">
+                  <span id="waveformCurrent" class="waveform-time-label">0:00</span>
+                  <span class="waveform-time-sep"> / </span>
+                  <span id="waveformDuration" class="waveform-time-label">-:--</span>
+                </span>
+                <span id="waveformVoiceLabel" class="waveform-voice-label"></span>
+              </div>
+              <div class="waveform-panel-body" id="waveformBody">
+                <canvas id="waveformCanvas" class="waveform-canvas"></canvas>
+                <div id="waveformEmpty" class="waveform-empty">▶ 읽기 버튼을 누르면 파형이 표시됩니다.</div>
+              </div>
+            </section>
+
+            <!-- 화자별 결과 (ui/speakerpanel.js): 「모든 화자」로 만든 화자마다 한 줄 -->
+            <section class="speaker-panel" id="speakerPanel" hidden>
+              <div class="panel-header speaker-panel-header">
+                <i data-i="ttsVoice"></i><span class="panel-title">화자별 결과</span>
+                <span class="speaker-summary"></span>
+                <span class="grow"></span>
+                <button type="button" class="button small" data-speaker-action="stop" title="남은 화자 생성을 멈춥니다" hidden><i data-i="stop"></i><span>생성 중단</span></button>
+                <button type="button" class="icon-button" data-speaker-action="close" title="화자별 결과 닫기" aria-label="화자별 결과 닫기"><i data-i="close"></i></button>
+              </div>
+              <div class="speaker-list"></div>
+            </section>
+          </section>
+
+          <!-- 오른쪽: 음성 설정 패널 -->
+          <aside id="right-panel" class="side-panel" aria-label="음성 설정">
+            <div class="panel-header"><i data-i="ttsTune"></i><span>음성 설정</span></div>
+
+            <section class="panel-section">
+              <h3><i data-i="ttsModel"></i>언어 · 모델</h3>
+              <div class="form-row">
+                <label for="languageSelect"><i data-i="ttsLanguage"></i><span>합성할 언어</span></label>
+                <select id="languageSelect" title="입력 텍스트로 자동 감지되며, 수동으로도 바꿀 수 있습니다. 모델은 변경되지 않습니다.">
+                  <option value="ko-KR">한국어</option>
+                  <option value="en-US">English</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label for="modelSelect"><i data-i="ttsModel"></i><span>모델</span></label>
+                <select id="modelSelect"></select>
+              </div>
+              <div class="model-row">
+                <button id="downloadModel" class="button small" title="선택한 모델 다운로드"><i data-i="ttsDownload"></i><span>다운로드</span></button>
+                <button id="deleteModel" class="button small danger" title="미설치 모델입니다" disabled><i data-i="trash"></i><span>삭제</span></button>
+                <button class="button small" data-cmd="refresh" title="모델 목록과 설치 상태를 다시 읽습니다"><i data-i="refresh"></i><span>새로고침</span></button>
+              </div>
+              <div class="form-row">
+                <label for="voiceSelect"><i data-i="ttsVoice"></i><span>목소리</span></label>
+                <select id="voiceSelect">
+                  <option value="">— 모델 기본 목소리 —</option>
+                </select>
+              </div>
+            </section>
+
+            <section class="panel-section">
+              <h3><i data-i="ttsVolume"></i>음성 조절</h3>
+              <div class="param-row">
+                <span class="param-label"><i data-i="ttsVolume"></i>볼륨</span>
+                <input type="range" id="volumeRange" class="param-slider" min="0" max="200" value="100" step="1">
+                <span id="volumeLabel" class="param-value">100%</span>
+              </div>
+              <div class="param-row">
+                <span class="param-label"><i data-i="speed"></i>속도</span>
+                <input type="range" id="speedRange" class="param-slider" min="25" max="400" value="100" step="5">
+                <span id="speedLabel" class="param-value">1.0×</span>
+              </div>
+              <div class="param-row">
+                <span class="param-label"><i data-i="ttsPitch"></i>피치</span>
+                <input type="range" id="pitchRange" class="param-slider" min="-12" max="12" value="0" step="1">
+                <span id="pitchLabel" class="param-value">±0</span>
+              </div>
+              <div class="section-foot">
+                <button id="saveAudioDefaults" type="button" class="small-button" title="볼륨 100%, 속도 1.00×, 피치 ±0 으로 되돌립니다"><i data-i="ttsReset"></i><span>기본값으로 초기화</span></button>
+              </div>
+            </section>
+
+            <section class="panel-section">
+              <h3><i data-i="ttsTune"></i>고급 합성 설정</h3>
+              <div class="param-row">
+                <span class="param-label"><i data-i="ttsVariance"></i>변동성</span>
+                <input type="range" id="noiseScaleRange" class="param-slider" min="0" max="200" value="67" step="1">
+                <span id="noiseScaleLabel" class="param-value">0.67</span>
+              </div>
+              <div class="param-row">
+                <span class="param-label"><i data-i="ttsRhythm"></i>리듬</span>
+                <input type="range" id="noiseWRange" class="param-slider" min="0" max="200" value="80" step="1">
+                <span id="noiseWLabel" class="param-value">0.80</span>
+              </div>
+              <label class="check-row">
+                <input type="checkbox" id="normalizeCheck" checked>
+                <i data-i="ttsNormalize"></i><span>피크 정규화</span>
+              </label>
+              <div class="param-row" id="normalizeLevelRow">
+                <span class="param-label"><i data-i="ttsLevel"></i>목표 레벨</span>
+                <input type="range" id="normalizeLevelRange" class="param-slider" min="10" max="100" value="90" step="5">
+                <span id="normalizeLevelLabel" class="param-value">0.90</span>
+              </div>
+              <div class="section-foot">
+                <button id="pcmDefaultsBtn" type="button" class="small-button" title="변동성·리듬·정규화를 기본값으로 되돌립니다"><i data-i="ttsReset"></i><span>기본값으로 초기화</span></button>
+              </div>
+              <p class="panel-hint"><i data-i="info"></i><span>변동성·리듬은 Piper 모델에만 적용됩니다.</span></p>
+            </section>
+
+            <section class="panel-section">
+              <h3><i data-i="save"></i>내보내기</h3>
+              <div class="form-row">
+                <label for="mp3BitrateSelect"><i data-i="exportFile"></i><span>MP3 비트레이트</span></label>
+                <select id="mp3BitrateSelect" title="MP3 저장 시 비트레이트를 선택합니다">
+                  <option value="96">96 kbps</option>
+                  <option value="128" selected>128 kbps</option>
+                  <option value="192">192 kbps</option>
+                  <option value="320">320 kbps</option>
+                </select>
+              </div>
+            </section>
+          </aside>
+        </div>
+
+        <!-- 시작 화면: 움직이는 배경 + 옮길 수 있는 카드 보드 (ui/shell.js) -->
+        <div id="start-page" hidden></div>
+      </div>
+
+      <footer id="statusbar" role="status" aria-label="프로그램 상태">
+        <div class="status-bar-track" aria-hidden="true">
+          <div id="statusBarFill" class="status-bar-fill" data-phase="idle"></div>
+        </div>
+        <div class="status-notice">
+          <span id="statusDot" class="status-dot" data-phase="idle"></span>
+          <span id="statusBarMessage">대기 중</span>
+        </div>
+        <div class="status-item" id="dlInfoPill" hidden>
+          <i data-i="ttsDownload"></i>
+          <span id="dlPercent" class="dl-percent-badge">0%</span>
+          <span id="dlSize" class="dl-size-badge"></span>
+        </div>
+        <div class="status-item" title="합성할 언어"><i data-i="ttsLanguage"></i><span id="statusBarLanguage">ko-KR</span></div>
+        <div class="status-item" title="선택한 모델"><i data-i="ttsModel"></i><span id="statusBarModel">-</span></div>
+        <div class="status-item" title="설치된 모델"><i data-i="database"></i><span id="statusBarCache">-</span></div>
+        <button class="status-item" id="statusTheme" data-cmd="themeSettings" title="테마 설정"></button>
+        <span class="status-item clock" id="statusClock"></span>
+      </footer>
+      <!-- 오른쪽 아래 크기 조절 표시 (점 삼각형): 데스크톱에서는 끌어서 창 크기를 바꾼다 -->
+      <div class="resize-grip" id="resizeGrip" title="끌어서 창 크기 바꾸기" role="separator" aria-label="창 크기 조절"><i data-i="grip"></i></div>
+    </div>
+
+    <!-- 파형 우클릭 메뉴 -->
+    <div id="waveformContextMenu" class="ctx-menu popup-menu" hidden role="menu" aria-label="파형 메뉴">
+      <button type="button" class="menu-item" data-action="save-audio" role="menuitem" disabled>
+        <span class="menu-icon"><i data-i="save"></i></span><span>오디오 저장</span><span></span><span></span>
+      </button>
+      <div class="menu-sep" role="separator"></div>
+      <button type="button" class="menu-item" data-action="play" role="menuitem">
+        <span class="menu-icon"><i data-i="play"></i></span><span>읽기</span><span></span><span></span>
+      </button>
+      <button type="button" class="menu-item" data-action="pause" role="menuitem" disabled>
+        <span class="menu-icon"><i data-i="pause"></i></span><span>멈춤</span><span></span><span></span>
+      </button>
+      <button type="button" class="menu-item" data-action="stop" role="menuitem" disabled>
+        <span class="menu-icon"><i data-i="stop"></i></span><span>중단</span><span></span><span></span>
+      </button>
+      <div class="menu-sep" role="separator"></div>
+      <button type="button" class="menu-item" data-action="seek-here" role="menuitem" disabled>
+        <span class="menu-icon"><i data-i="goTo"></i></span><span>이 위치로 이동</span><span></span><span></span>
+      </button>
+      <button type="button" class="menu-item" data-action="seek-start" role="menuitem" disabled>
+        <span class="menu-icon"><i data-i="stepBack"></i></span><span>처음으로</span><span></span><span></span>
+      </button>
+      <button type="button" class="menu-item" data-action="seek-end" role="menuitem" disabled>
+        <span class="menu-icon"><i data-i="stepForward"></i></span><span>끝으로</span><span></span><span></span>
+      </button>
+    </div>
+
+    <dialog id="aboutDialog" class="app-dialog">
+      <form method="dialog" class="popup">
+        <header class="popup-head">
+          <h2><i data-i="info"></i><span>프로그램 정보</span></h2>
+          <button class="window-button close" value="close" aria-label="닫기" title="닫기"><i data-i="winClose"></i></button>
+        </header>
+        <div class="popup-body about">
+          <div class="about-top">
+            <img src="./assets/icon.svg" class="about-icon small" alt="TTS Multi OS" />
+            <div class="about-text">
+              <div class="about-name">TTS Multi OS <span class="about-version">v0.1.0</span></div>
+              <div class="about-tagline">Embedded-ready TTS System</div>
+              <p class="about-description">설치한 ONNX·sherpa-onnx 모델로 한국어와 영어 문장을 직접 합성하고, 같은 PCM으로 파형을 그리며 WAV·MP3로 저장합니다.</p>
+            </div>
+          </div>
+          <div class="about-section"><i data-i="info"></i>정보</div>
+          <dl class="about-table">
+            <dt><i data-i="user"></i>개발자</dt><dd>SHKWON</dd>
+            <dt><i data-i="link"></i>연락처</dt><dd><a class="about-link" href="mailto:knix008@naver.com">knix008@naver.com</a></dd>
+            <dt><i data-i="ttsLanguage"></i>지원 언어</dt><dd>한국어 (ko-KR) · English (en-US)</dd>
+            <dt><i data-i="layers"></i>플랫폼</dt><dd>Windows · macOS · Linux | Tauri 2</dd>
+          </dl>
+          <div class="about-section"><i data-i="ttsModel"></i>지원 모델</div>
+          <table class="about-model-table">
+            <thead><tr><th>모델</th><th>언어</th><th>런타임</th><th>크기</th></tr></thead>
+            <tbody>
+              <tr><td>Supertonic 3 INT8</td><td>한국어</td><td>Sherpa-ONNX</td><td>~140 MB</td></tr>
+              <tr><td>Piper KSS</td><td>한국어</td><td>Piper ONNX</td><td>~64 MB</td></tr>
+              <tr><td>MMS TTS</td><td>한국어</td><td>ONNX Runtime</td><td>~140 MB</td></tr>
+              <tr><td>Kokoro 82M</td><td>영어</td><td>ONNX Runtime</td><td>~82 MB</td></tr>
+            </tbody>
+          </table>
+          <div class="about-copyright muted">© 2025–2026 SHKWON (knix008@naver.com). All rights reserved.</div>
+        </div>
+        <footer class="popup-foot">
+          <span class="grow"></span>
+          <button class="button primary" value="close"><i data-i="check"></i><span>닫기</span></button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="confirmDialog" class="app-dialog narrow">
+      <form method="dialog" class="popup">
+        <header class="popup-head">
+          <h2><i data-i="question"></i><span id="confirmTitle">확인</span></h2>
+          <button class="window-button close" value="cancel" aria-label="닫기" title="닫기"><i data-i="winClose"></i></button>
+        </header>
+        <div class="popup-body confirm-message">
+          <i data-i="warning" data-class="icon big"></i>
+          <p id="confirmMessage"></p>
+        </div>
+        <footer class="popup-foot">
+          <span class="grow"></span>
+          <button class="button" value="cancel">취소</button>
+          <button id="confirmOkBtn" class="button primary danger" value="ok">확인</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="errorDialog" class="app-dialog popup-error">
+      <form method="dialog" class="popup">
+        <header class="popup-head">
+          <h2><i data-i="error"></i><span id="errorTitle">오류</span></h2>
+          <button class="window-button close" value="close" aria-label="닫기" title="닫기"><i data-i="winClose"></i></button>
+        </header>
+        <div class="popup-body">
+          <pre id="errorDetails" class="error-detail"></pre>
+        </div>
+        <footer class="popup-foot">
+          <span class="grow"></span>
+          <button id="copyError" type="button" class="button"><i data-i="copy"></i><span>복사</span></button>
+          <button class="button primary" value="close"><i data-i="check"></i><span>닫기</span></button>
+        </footer>
+      </form>
+    </dialog>
+
+    <script type="module" src="./src/web/main.js"></script>
+  </body>
+</html>
