@@ -94,6 +94,7 @@ function loadSources() {
     themes: read('src/js/themes.js'),
     fileTree: read('src/js/fileTree.js'),
     browse: read('src/js/browse.js'),
+    filmstrip: read('src/js/filmstrip.js'),
     thumbs: read('src/js/thumbs.js'),
     contextMenu: read('src/js/contextMenu.js'),
     fileDialog: read('src/js/fileDialog.js'),

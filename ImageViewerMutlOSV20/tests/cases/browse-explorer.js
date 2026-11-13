@@ -345,5 +345,84 @@ module.exports = {
       assert(ko['browse.fileType'].includes('{ext}'), 'ko placeholder');
       assert(en['browse.fileType'].includes('{ext}'), 'en placeholder');
     });
+
+    /* ── Filmstrip: the open file's folder under the viewer ── */
+    const { filmstrip } = src;
+
+    test('Filmstrip is a row of #viewer-area right after the viewer', () => {
+      const viewerEnd = html.indexOf('id="viewer-nav-next"');
+      const strip = html.indexOf('<div id="filmstrip" hidden></div>');
+      const effects = html.indexOf('id="effects-panel"');
+      assert(viewerEnd > 0 && strip > viewerEnd && strip < effects, 'between the viewer and the effects panel');
+      assertIncludes(css, '#filmstrip {', 'strip css');
+      assertIncludes(css, '#filmstrip[hidden] { display: none; }', 'hidden honoured');
+    });
+
+    test('filmstrip.js loads after thumbs/browse and before app.js', () => {
+      const at = (s) => html.indexOf(`<script src="./js/${s}"></script>`);
+      assert(at('filmstrip.js') > at('thumbs.js') && at('filmstrip.js') > at('browse.js'), 'after its helpers');
+      assert(at('filmstrip.js') < at('app.js'), 'before app.js');
+    });
+
+    test('Parent-folder button is leftmost, then previous, thumbnails, next', () => {
+      const build = filmstrip.slice(filmstrip.indexOf('function _build'), filmstrip.indexOf('function _applyTitles'));
+      const order = ['id="filmstrip-up"', 'id="filmstrip-prev"', 'id="filmstrip-strip"', 'id="filmstrip-next"']
+        .map((id) => build.indexOf(id));
+      assert(order.every((i) => i > 0), 'all four parts built');
+      assert(order.every((v, i) => i === 0 || v > order[i - 1]), `order up · prev · strip · next (${order})`);
+    });
+
+    test('Filmstrip buttons are wired to the app', () => {
+      assertIncludes(app, 'onOpen: (p, i) => _filmstripOpen(p, i)', 'tile opens');
+      assertIncludes(app, 'onPrev: () => _prevImage()', 'prev');
+      assertIncludes(app, 'onNext: () => _nextImage()', 'next');
+      assertIncludes(app, 'onUp: () => _filmstripUp()', 'up');
+      assertIncludes(app, '_initFilmstrip();', 'initialised');
+    });
+
+    test('Filmstrip follows the prev/next list on every nav update', () => {
+      const nav = app.slice(app.indexOf('function _updateNavButtons'), app.indexOf('function _syncFilmstrip'));
+      assertIncludes(nav, '_syncFilmstrip();', 'synced from _updateNavButtons');
+      assertIncludes(app, 'Filmstrip.update(state.fileList, state.fileIndex)', 'same list and index');
+      assertIncludes(app, "if (show && !state.currentFile) window.Filmstrip?.hide();", 'hidden with no file');
+    });
+
+    test('Going up: parent contact sheet in browse mode, parent folder otherwise', () => {
+      const up = app.slice(app.indexOf('async function _filmstripUp'), app.indexOf('function _toggleFilmstrip'));
+      assertIncludes(up, 'Browse.select?.(dir)', 'folder we came from selected');
+      assertIncludes(up, 'await _openFolder(parent)', 'non-browse mode opens the parent');
+      assertIncludes(browse, 'init, open, show, hide, refresh, goUp, setMode, setSize, select,', 'Browse.select exported');
+    });
+
+    test('Filmstrip _isRoot / _dirOf: no parent at a drive or posix root', () => {
+      const grab = (name) => {
+        const s = filmstrip.indexOf(`function ${name}(`);
+        const e = filmstrip.indexOf('\n  }\n', s);
+        return filmstrip.slice(s, e + 4);
+      };
+      // eslint-disable-next-line no-new-func
+      const fns = new Function(`${grab('_dirOf')}\n${grab('_isRoot')}\nreturn { _dirOf, _isRoot };`)();
+      const upOk = (file) => !fns._isRoot(fns._dirOf(file));
+      assert(upOk('D:\\Photos\\a.jpg'), 'D:\\Photos has a parent');
+      assert(!upOk('D:\\a.jpg'), 'D:\\ has none');
+      assert(upOk('/home/me/a.png'), '/home/me has a parent');
+      assert(!upOk('/a.png'), '/ has none');
+    });
+
+    test('Filmstrip can be switched off from the window menu (remembered)', () => {
+      assertIncludes(app, "label: t('menu.filmstrip')", 'menu row');
+      assertIncludes(filmstrip, "const ENABLED_KEY = 'filmstripV1'", 'stored');
+      assertIncludes(src.icons, 'filmstrip: `<svg', 'icon');
+    });
+
+    test('Filmstrip is relabelled on a language switch', () => {
+      assertIncludes(app, 'window.Filmstrip?.applyI18n?.();', 'relabelled');
+    });
+
+    each(['menu.filmstrip', 'filmstrip.parent', 'filmstrip.parentTip'],
+      (k) => `i18n key ${k} in both locales`, (k) => {
+        assert(typeof ko[k] === 'string' && ko[k], `ko missing ${k}`);
+        assert(typeof en[k] === 'string' && en[k], `en missing ${k}`);
+      });
   },
 };

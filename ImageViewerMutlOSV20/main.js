@@ -330,7 +330,7 @@ function createWindow() {
     },
     show: false,
     backgroundColor: '#1e1e1e',
-    title: 'Image Viewer',
+    title: 'MyImageViewer',
     icon: windowIconPath,
     frame: false,
     autoHideMenuBar: true,
@@ -345,7 +345,7 @@ function createWindow() {
         appId: APP_USER_MODEL_ID,
         appIconPath: taskbarIconPath,
         appIconIndex: 0,
-        relaunchDisplayName: 'Image Viewer',
+        relaunchDisplayName: 'MyImageViewer',
         relaunchCommand: `"${process.execPath}"`,
       });
       console.log(`[icon] AUMID=${APP_USER_MODEL_ID}`);
@@ -2264,7 +2264,7 @@ ipcMain.handle('get-app-info', () => {
   return {
     version,
     buildNumber,
-    name: app.getName() || 'Image Viewer',
+    name: app.getName() || 'MyImageViewer',
     isPackaged: !!app.isPackaged,
   };
 });
@@ -2369,10 +2369,12 @@ async function _setDefaultImageViewer() {
   }
   const { icon, cmd } = _assocLaunch();
   const capRoot = 'HKCU\\Software\\com.shkwon.imageviewer\\Capabilities';
-  await _regAdd(`${capRoot}`, 'ApplicationName', 'Image Viewer');
-  await _regAdd(`${capRoot}`, 'ApplicationDescription', 'Image Viewer');
+  await _regAdd(`${capRoot}`, 'ApplicationName', 'MyImageViewer');
+  await _regAdd(`${capRoot}`, 'ApplicationDescription', 'MyImageViewer');
   await _regAdd(`${capRoot}`, 'ApplicationIcon', icon);
-  await _regAdd('HKCU\\Software\\RegisteredApplications', 'Image Viewer', 'Software\\com.shkwon.imageviewer\\Capabilities');
+  await _regAdd('HKCU\\Software\\RegisteredApplications', 'MyImageViewer', 'Software\\com.shkwon.imageviewer\\Capabilities');
+  // Entry under the previous product name — otherwise Default apps lists the app twice
+  await _regExec(['delete', 'HKCU\\Software\\RegisteredApplications', '/v', 'Image Viewer', '/f']);
 
   const written = new Set();
   for (const a of IMAGE_ASSOC) {

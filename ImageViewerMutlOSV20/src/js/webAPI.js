@@ -171,12 +171,12 @@
           return {
             version: String(v.version || '1.0.2'),
             buildNumber: String(v.buildNumber || ''),
-            name: 'Image Viewer',
+            name: 'MyImageViewer',
             isPackaged: false,
           };
         }
       } catch {}
-      return { version: '1.0.2', buildNumber: '', name: 'Image Viewer', isPackaged: false };
+      return { version: '1.0.2', buildNumber: '', name: 'MyImageViewer', isPackaged: false };
     },
     getLaunchFile: async () => null,
 

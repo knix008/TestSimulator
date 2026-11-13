@@ -9,7 +9,7 @@
  *   1. Hashes src/assets/icon.ico
  *   2. Copies electron.exe → ImageViewer-<hash>.exe (cache-bust name)
  *   3. Embeds the ICO via rcedit
- *   4. Also refreshes any installed "Image Viewer.exe" + Start Menu .lnk
+ *   4. Also refreshes any installed "MyImageViewer.exe" + Start Menu .lnk
  *   5. Removes stale ImageViewer*.exe copies
  *
  * start-dev.js launches the hashed exe.
@@ -59,8 +59,8 @@ function refreshInstalledAppIcon(projectRoot, iconPath) {
   const localApp = process.env.LOCALAPPDATA;
   if (!localApp) return;
 
-  const installDir = path.join(localApp, 'Programs', 'Image Viewer');
-  const installedExe = path.join(installDir, 'Image Viewer.exe');
+  const installDir = path.join(localApp, 'Programs', 'MyImageViewer');
+  const installedExe = path.join(installDir, 'MyImageViewer.exe');
   if (!fs.existsSync(installedExe)) return;
 
   const rceditBin = getRceditBin(projectRoot);
@@ -69,15 +69,15 @@ function refreshInstalledAppIcon(projectRoot, iconPath) {
     fs.copyFileSync(iconPath, installedIco);
 
     applyIconToExe(rceditBin, installedExe, iconPath, {
-      ProductName: 'Image Viewer',
-      FileDescription: 'Image Viewer',
+      ProductName: 'MyImageViewer',
+      FileDescription: 'MyImageViewer',
     });
     console.log(`[patch-electron-icon] Updated installed exe icon: ${installedExe}`);
 
     const lnk = path.join(
       process.env.APPDATA || '',
       'Microsoft', 'Windows', 'Start Menu', 'Programs',
-      'Image Tools', 'Image Viewer.lnk'
+      'Image Tools', 'MyImageViewer.lnk'
     );
     if (fs.existsSync(lnk)) {
       const ps = `
@@ -92,7 +92,7 @@ function refreshInstalledAppIcon(projectRoot, iconPath) {
     }
   } catch (err) {
     console.warn(`[patch-electron-icon] Could not refresh installed icon: ${err.message}`);
-    console.warn('  Close the installed Image Viewer if it is running, then: npm run patch:icon');
+    console.warn('  Close the installed MyImageViewer if it is running, then: npm run patch:icon');
   }
 
   try {
@@ -157,10 +157,10 @@ async function patch() {
   const rceditBin = getRceditBin(projectRoot);
   try {
     applyIconToExe(rceditBin, tmpExe, iconPath, {
-      ProductName: 'Image Viewer',
-      FileDescription: 'Image Viewer',
+      ProductName: 'MyImageViewer',
+      FileDescription: 'MyImageViewer',
       CompanyName: 'SHKWON',
-      InternalName: 'ImageViewer',
+      InternalName: 'MyImageViewer',
       OriginalFilename: brandedName,
       LegalCopyright: 'Copyright © 2024–2026 SHKWON',
     });
@@ -168,7 +168,7 @@ async function patch() {
     try { fs.unlinkSync(tmpExe); } catch {}
     throw new Error(
       `rcedit failed: ${err.message}\n` +
-      '  Close any running Image Viewer / Electron windows and retry.'
+      '  Close any running MyImageViewer / Electron windows and retry.'
     );
   }
 

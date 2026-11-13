@@ -49,7 +49,7 @@ app.get('*', (req, res) => {
 function listen(port) {
   const server = app.listen(port, '127.0.0.1', () => {
     const url = `http://127.0.0.1:${port}`;
-    console.log(`Image Viewer (web) running at ${url}`);
+    console.log(`MyImageViewer (web) running at ${url}`);
     console.log('Open the URL in your browser.');
   });
   server.on('error', (err) => {

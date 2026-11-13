@@ -185,7 +185,7 @@ const rate = results.length ? Math.round((passed / results.length) * 100) : 0;
 const summaryOnly = process.argv.includes('--summary') || process.env.SUMMARY === '1';
 
 const htmlReport = `<!DOCTYPE html>
-<html lang="ko"><head><meta charset="utf-8"><title>Image Viewer 기능 테스트</title>
+<html lang="ko"><head><meta charset="utf-8"><title>MyImageViewer 기능 테스트</title>
 <style>
   :root { font-family: "Segoe UI", system-ui, sans-serif; }
   body { margin: 0; background: #0f172a; color: #e2e8f0; }
@@ -251,7 +251,7 @@ const htmlReport = `<!DOCTYPE html>
 </style></head>
 <body>
   <div class="hero">
-    <h1>Image Viewer ${esc(src.pkg.version)} 기능 테스트</h1>
+    <h1>MyImageViewer ${esc(src.pkg.version)} 기능 테스트</h1>
     <div class="sub">${esc(summary.generatedAt)} · tests/cases</div>
     <div class="files">${fileList}</div>
     <div class="stats">
@@ -306,7 +306,7 @@ const line = (ch) => `${C.dim}${ch.repeat(colW)}${C.reset}`;
 const failedItems = results.filter((t) => !t.ok);
 
 console.log('');
-console.log(`${C.bold}${C.cyan}Image Viewer ${src.pkg.version} 기능 테스트${C.reset}`);
+console.log(`${C.bold}${C.cyan}MyImageViewer ${src.pkg.version} 기능 테스트${C.reset}`);
 console.log(line('═'));
 console.log(`${C.bold}  요약${C.reset}`);
 console.log(`  ${C.dim}전체 ${results.length}  ·  스위트 ${bySuite.length}  ·  성공률 ${rate}%  ·  ${h.fmtMs(totalMs)}${C.reset}`);
