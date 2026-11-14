@@ -8,6 +8,7 @@ import { t, useLanguage } from '../lib/i18n';
 import { formatSize, formatDate, iconFor } from '../lib/format';
 import { armRowDrag } from '../lib/filedrag';
 import { Icon } from './Icons';
+import { PathCrumbs } from './PathCrumbs';
 
 // Ctrl+C / X / V by physical key, so a Korean IME layout works too.
 export const CLIPBOARD_KEYS = { KeyC: 'copy', KeyX: 'cut', KeyV: 'paste' };
@@ -97,7 +98,7 @@ export function RemotePanel({ connected, path, parent, entries, loading, error, 
       <div className="panel-head">
         <Icon name="server" />
         <span className="panel-title">{t('server')}</span>
-        {connected && <span className="panel-path mono" title={path}>│&nbsp; {path}</span>}
+        {connected && <PathCrumbs path={path} onJump={onNavigate} />}
         <span className="spacer" />
         {connected && <button className="icon-btn" title={t('ctx_refresh')} onClick={onRefresh}><Icon name="refresh" /></button>}
       </div>

@@ -1,21 +1,22 @@
 // The top bar of the frameless window — it replaces the OS title bar:
-//   left   a fixed brand (icon + name + version, then the start-page toggle
-//          immediately to the right of the version — it does not drag or
-//          resize the window), the connection badge, the
+//   left   the brand (icon + name + version — dragging them moves the window,
+//          double-click maximizes) and, immediately to the right of the version,
+//          the start-page toggle, the connection badge, the
 //          profile combo with 저장 / 삭제 (moved here from the connection bar)
-//   right  swap server/local sides, collapse/expand the bottom dock, terminal view,
-//          theme picker (split: main cycles, caret lists all 16),
+//   right  swap server/local sides, collapse / expand the bottom panel (labeled,
+//          pressed while the panel is open), terminal view,
+//          theme picker (split: main cycles, caret opens the theme window),
 //          language toggle (the flag of the language you switch TO), Settings,
 //          the user guide (its own window), Info, and — in the desktop app —
 //          minimize / maximize / close.
 // The bar is the window's drag region (backend.installWindowDrag); every
 // control opts out of dragging.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { THEMES, themeById, nextThemeId } from '../themes';
-import { isDesktop, windowControl, onMaximized } from '../lib/backend';
+import { themeById, nextThemeId, customThemeDefs } from '../themes';
+import { isDesktop, windowControl, onMaximized, openThemeMenu, onThemeMenu, shouldWindowDrag, startWindowDrag } from '../lib/backend';
 import { Icon, Flag } from './Icons';
-import { ContextMenu } from './ContextMenu';
+import { ThemePopup } from './ThemePopup';
 
 function WindowButtons() {
   const [max, setMax] = useState(false);
@@ -40,22 +41,39 @@ function WindowButtons() {
 export function Toolbar({ onAction, theme, connection, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy, terminalView, dockCollapsed = false, fontSize, startOpen = false, version = '' }) {
   useLanguage();
   const [themeMenu, setThemeMenu] = useState(null);
+  const actionRef = useRef(onAction);
+  actionRef.current = onAction;
+  useEffect(() => onThemeMenu({ onPick: (id) => actionRef.current(id) }), []);
   const lang = getLanguage();
   const size = Math.max(8, Math.min(32, Number(fontSize) || 13));
-  const themeLabel = (id) => { const th = themeById(id); return lang === 'ko' ? th.label : th.labelEn; };
-  const themeItems = THEMES.map((th) => ({
-    id: `theme:${th.id}`,
-    label: lang === 'ko' ? th.label : th.labelEn,
-    checked: th.id === theme,
-    swatch: th.tokens['--accent'],
-    swatchBg: th.tokens['--bg'],
-  }));
-  // Double-click on the empty part of the bar toggles maximize, like a title bar.
-  const onDouble = (e) => { if (isDesktop && !e.target.closest('button, select, input, .tb-profile, .tb-brand')) windowControl('maximize'); };
+  const themeLabel = (id) => { const th = themeById(id); return th.custom ? th.label : (lang === 'ko' ? th.label : th.labelEn); };
+  const openThemes = (e) => {
+    const button = e.currentTarget;
+    if (isDesktop) {
+      const th = themeById(theme);
+      openThemeMenu(button, {
+        current: theme,
+        language: getLanguage(),
+        fontSize: size,
+        customThemes: customThemeDefs(),
+        bg: th.tokens['--bg'],
+      }).catch(() => {});
+      return;
+    }
+    setThemeMenu((el) => (el ? null : button));
+  };
+  // A press on the icon, the name, the version or any empty part of the bar
+  // moves the window. Double-click there toggles maximize. Controls do neither.
+  const onDown = (e) => {
+    if (e.button !== 0 || e.detail !== 1 || !shouldWindowDrag(e.target)) return;
+    e.stopPropagation();
+    startWindowDrag(e);
+  };
+  const onDouble = (e) => { if (isDesktop && shouldWindowDrag(e.target)) windowControl('maximize'); };
   return (
-    <div className="toolbar" onDoubleClick={onDouble}>
+    <div className="toolbar" onMouseDown={onDown} onDoubleClick={onDouble}>
       <div className="tb-main">
-      <span className="tb-brand" data-no-drag>
+      <span className="tb-brand">
         <img src="./icon.svg" alt="" width={20} height={20} className="tb-logo" />
         <span className="tb-title">{t('appTitle')}</span>
         {version && <span className="tb-version">v{version}</span>}
@@ -83,8 +101,8 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
       <button className="tb-btn" title={t('tip_swap_panels')} aria-label={t('swap_panels')} onClick={() => onAction('swapPanels')}>
         <Icon name="swap" /><span>{t('swap_panels')}</span>
       </button>
-      <button className="tb-btn" title={t(dockCollapsed ? 'tip_dock_expand' : 'tip_dock_collapse')} aria-label={t(dockCollapsed ? 'dock_expand' : 'dock_collapse')} aria-pressed={dockCollapsed} onClick={() => onAction('toggleDock')}>
-        <Icon name={dockCollapsed ? 'chevronUp' : 'chevronDown'} /><span>{t(dockCollapsed ? 'dock_expand' : 'dock_collapse')}</span>
+      <button className={`tb-btn${dockCollapsed ? '' : ' active'}`} title={t(dockCollapsed ? 'tip_dock_expand' : 'tip_dock_collapse')} aria-label={t(dockCollapsed ? 'dock_expand' : 'dock_collapse')} aria-pressed={!dockCollapsed} onClick={() => onAction('toggleDock')}>
+        <Icon name="panelBottom" /><span>{t(dockCollapsed ? 'dock_expand' : 'dock_collapse')}</span>
       </button>
       <button className={`tb-btn${terminalView ? ' selected' : ''}`} title={t('tip_term_view')} onClick={() => onAction('terminal')} aria-pressed={!!terminalView}>
         <Icon name="terminal" /><span>{t('term_view')}</span>
@@ -104,7 +122,7 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
         <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onClick={() => onAction('nextTheme')}>
           <Icon name="palette" /><span className="tb-theme-label">{themeLabel(theme)}</span>
         </button>
-        <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} onClick={(e) => setThemeMenu(themeMenu ? null : e.currentTarget)}>
+        <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} aria-haspopup="menu" onClick={openThemes}>
           <Icon name="chevronDown" size={14} />
         </button>
       </span>
@@ -124,7 +142,7 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
       </div>
       {isDesktop && <><span className="tb-sep" /><WindowButtons /></>}
       {themeMenu && (
-        <ContextMenu anchorEl={themeMenu} x={0} y={0} items={themeItems} onClose={() => setThemeMenu(null)}
+        <ThemePopup anchorEl={themeMenu} current={theme} onClose={() => setThemeMenu(null)}
           onPick={(id) => { setThemeMenu(null); onAction(id); }} />
       )}
     </div>

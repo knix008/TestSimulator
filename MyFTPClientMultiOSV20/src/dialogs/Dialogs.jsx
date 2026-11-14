@@ -280,6 +280,8 @@ export function useDialogs() {
       values: pickSettingsValues(values, extra),
       localDir: extra.localDir,
       canPickFolder: extra.canPickFolder,
+      tab: extra.tab,
+      newCustom: extra.newCustom === true,
       title: t('settings_title'),
     }),
     get isOpen() { return stack.length > 0; },

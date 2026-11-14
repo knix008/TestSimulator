@@ -15,6 +15,7 @@ const ko = {
 
   // panels
   server: '서버 (Server)', local: '로컬 (Local)', log: '로그 (Log)', drives: '드라이브 선택',
+  path_jump: '이 폴더로 이동: {path}',
   parent_dir: '[..]', loading: '로딩 중…', access_denied: '[접근 거부]', not_connected_hint: '서버에 연결하면 여기에 파일 목록이 표시됩니다.',
   col_name: '이름', col_size: '크기', col_date: '수정일',
   dir_marker: '<DIR>', folder: '폴더', file: '파일',
@@ -113,9 +114,14 @@ const ko = {
   reveal_unsupported: '웹 버전에서는 탐색기를 열 수 없습니다.',
 
   // toolbar / settings / about
-  theme: '테마', next_theme: '다음 테마', tip_theme: '테마 선택 (16가지)', tip_next_theme: '다음 테마로 전환: {theme}', tip_language: '한국어 / English',
+  theme: '테마', next_theme: '다음 테마', tip_theme: '테마 선택 (어두운 20, 밝은 20)', tip_next_theme: '다음 테마로 전환: {theme}', tip_language: '한국어 / English',
+  theme_new_custom: '사용자 정의 테마', tip_theme_new_custom: '현재 테마를 바탕으로 새 사용자 정의 테마를 만들고 색을 편집합니다', tip_theme_settings: '설정 › 테마 (사용자 정의 테마 편집)',
   settings: '설정', tip_settings: '설정', settings_title: '설정', menu_info: '정보', tip_about: '프로그램 정보', manual: '설명서', tip_manual: '사용 설명서 (별도 창)',
-  set_tab_general: '일반', set_tab_terminal: '터미널', set_tab_transfer: '전송',
+  set_tab_general: '일반', set_tab_terminal: '터미널', set_tab_transfer: '전송', set_tab_theme: '테마',
+  set_theme_dark: '어두운 테마', set_theme_light: '밝은 테마',
+  set_custom_themes: '사용자 정의 테마', set_custom_add: "'{name}' 바탕으로 새 테마", set_custom_remove: '이 테마 삭제', set_custom_copy: '(사용자)', set_custom_name: '이름',
+  set_custom_hint: '아직 없습니다. 「사용자 정의 테마」를 누르면 현재 테마를 복사한 뒤 아래에서 색을 바꿉니다.',
+  set_color_bg: '창 배경', set_color_panel: '패널 배경', set_color_raised: '툴바·메뉴 배경', set_color_hover: '마우스 오버', set_color_active: '비활성 선택', set_color_border: '테두리', set_color_borderStrong: '진한 테두리', set_color_text: '글자', set_color_textDim: '흐린 글자', set_color_accent: '강조색', set_color_accentStrong: '진한 강조색', set_color_accentText: '강조색 위 글자', set_color_folder: '폴더 아이콘', set_color_file: '파일 아이콘', set_color_danger: '경고·오류',
   set_term_prompt_shell: '셸',
   term_view: '터미널', tip_term_view: '터미널 보기',
   swap_panels: '좌우 바꾸기', tip_swap_panels: '서버와 로컬 패널의 좌우를 바꿉니다',
@@ -191,6 +197,7 @@ const en = {
   history: 'History', tip_history: 'Recently connected servers (with or without a profile)', history_empty: '(no connections yet)', history_clear: 'Clear history', history_times: '{n}×', log_history_loaded: 'Loaded from history: {url}',
 
   server: 'Server', local: 'Local', log: 'Log', drives: 'Choose a drive',
+  path_jump: 'Go to this folder: {path}',
   parent_dir: '[..]', loading: 'Loading…', access_denied: '[access denied]', not_connected_hint: 'Connect to a server to list its files here.',
   col_name: 'Name', col_size: 'Size', col_date: 'Modified',
   dir_marker: '<DIR>', folder: 'folder', file: 'file',
@@ -285,9 +292,14 @@ const en = {
   err_ftp_425: 'The data connection failed. Check the firewall settings.',
   reveal_unsupported: 'The file manager cannot be opened from the web version.',
 
-  theme: 'Theme', next_theme: 'Next theme', tip_theme: 'Choose a theme (16 built in)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English',
+  theme: 'Theme', next_theme: 'Next theme', tip_theme: 'Choose a theme (20 dark, 20 light)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English',
+  theme_new_custom: 'Custom theme', tip_theme_new_custom: 'Make a new custom theme from the current one and edit its colours', tip_theme_settings: 'Settings › Theme (edit custom themes)',
   settings: 'Settings', tip_settings: 'Settings', settings_title: 'Settings', menu_info: 'Info', tip_about: 'About My FTP Client', manual: 'Guide', tip_manual: 'User guide (separate window)',
-  set_tab_general: 'General', set_tab_terminal: 'Terminal', set_tab_transfer: 'Transfer',
+  set_tab_general: 'General', set_tab_terminal: 'Terminal', set_tab_transfer: 'Transfer', set_tab_theme: 'Theme',
+  set_theme_dark: 'Dark themes', set_theme_light: 'Light themes',
+  set_custom_themes: 'Custom themes', set_custom_add: "New theme from '{name}'", set_custom_remove: 'Delete this theme', set_custom_copy: '(custom)', set_custom_name: 'Name',
+  set_custom_hint: 'None yet. Custom theme copies the current theme; then change its colours below.',
+  set_color_bg: 'Window background', set_color_panel: 'Panel background', set_color_raised: 'Toolbar / menu background', set_color_hover: 'Hover', set_color_active: 'Inactive selection', set_color_border: 'Border', set_color_borderStrong: 'Strong border', set_color_text: 'Text', set_color_textDim: 'Muted text', set_color_accent: 'Accent', set_color_accentStrong: 'Strong accent', set_color_accentText: 'Text on accent', set_color_folder: 'Folder icon', set_color_file: 'File icon', set_color_danger: 'Danger / error',
   set_term_prompt_shell: 'Shell',
   term_view: 'Terminal', tip_term_view: 'Show terminal',
   swap_panels: 'Swap sides', tip_swap_panels: 'Swap the server and local panels',
@@ -373,6 +385,7 @@ export function t(key, params) {
 export function useLanguage() {
   return useSyncExternalStore(
     (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
+    () => current,
     () => current,
   );
 }

@@ -1,7 +1,8 @@
-// 16 built-in themes (10 dark, 6 light) — the same set as the sibling apps —
-// applied as CSS custom properties on :root. `mk` derives the secondary
-// tokens (selection, active-panel glow, shadow) from the few that define a
-// look, so a theme is just its base colours.
+// 40 built-in themes (20 dark, 20 light — the same set as the sibling apps)
+// applied as CSS custom properties on :root. `mk` derives the secondary tokens (selection, active-panel glow,
+// shadow) from the few that define a look, so a theme is just its base
+// colours. Custom themes (Settings › 테마) are made of the same base
+// colours and registered with setCustomThemes().
 
 function mk(id, label, labelEn, mode, c) {
   const dark = mode === 'dark';
@@ -115,22 +116,171 @@ export const THEMES = [
     border: '#3a302a', borderStrong: '#55463d', text: '#f1e9e2', textDim: '#bfae9f',
     accent: '#e0a458', accentStrong: '#c47f2b', accentText: '#221300', danger: '#ff7b6b', folder: '#e0a458', file: '#c9b5a2',
   }),
+  mk('paper', '페이퍼', 'Paper', 'light', {
+    bg: '#fafaf7', raised: '#ffffff', panel: '#f1f0ea', hover: '#e8e6dd', active: '#dcd9cc',
+    border: '#e0ddd2', borderStrong: '#bdb8a8', text: '#26241e', textDim: '#66625a',
+    accent: '#3d6fd8', accentStrong: '#2852ad', accentText: '#ffffff', file: '#827d70',
+  }),
+  mk('sky', '스카이', 'Sky', 'light', {
+    bg: '#f2f8fd', raised: '#ffffff', panel: '#e5f0fa', hover: '#d6e7f6', active: '#c2dbf0',
+    border: '#d0e2f2', borderStrong: '#9cc0e0', text: '#132a40', textDim: '#4b6680',
+    accent: '#0284c7', accentStrong: '#0369a1', accentText: '#ffffff', shadow: '0 10px 30px rgba(20,60,110,0.16)', file: '#6f8fae',
+  }),
+  mk('sand', '샌드', 'Sand', 'light', {
+    bg: '#fbf7ef', raised: '#fffdf8', panel: '#f4ecdc', hover: '#ece0c9', active: '#e2d2b4',
+    border: '#e6dac2', borderStrong: '#c9b48c', text: '#3b2f1a', textDim: '#76664a',
+    accent: '#b7791f', accentStrong: '#8a5a12', accentText: '#ffffff', shadow: '0 10px 30px rgba(90,60,20,0.16)', file: '#9a8763',
+  }),
+  mk('arctic', '아크틱', 'Arctic', 'light', {
+    bg: '#f5f7fa', raised: '#ffffff', panel: '#eceff4', hover: '#e1e6ee', active: '#d1d9e6',
+    border: '#d8dee9', borderStrong: '#a7b3c6', text: '#2e3440', textDim: '#5d6779',
+    accent: '#5e81ac', accentStrong: '#4c6a91', accentText: '#ffffff', danger: '#bf616a', folder: '#d08770', file: '#7b88a1',
+  }),
+  mk('cherry', '체리', 'Cherry', 'dark', {
+    bg: '#1c1216', raised: '#271a20', panel: '#21161b', hover: '#33222a', active: '#402b35',
+    border: '#3b2530', borderStrong: '#5a3747', text: '#f6e7ec', textDim: '#c49aab',
+    accent: '#ff5c8a', accentStrong: '#e0245e', accentText: '#2b0410', danger: '#ff8c7a', folder: '#ff9db8', file: '#d9b3c0',
+  }),
+  mk('cyber', '사이버', 'Cyber', 'dark', {
+    bg: '#0b0b12', raised: '#14121f', panel: '#100f1a', hover: '#1d1a2e', active: '#27233c',
+    border: '#252238', borderStrong: '#3d3860', text: '#eae6ff', textDim: '#9d94c9',
+    accent: '#ff2fd6', accentStrong: '#c400a8', accentText: '#2a0022', danger: '#ff6b6b', folder: '#7cf9ff', file: '#b9b0e6',
+  }),
+  mk('gruvboxDark', '그루브박스 다크', 'Gruvbox Dark', 'dark', {
+    bg: '#282828', raised: '#3c3836', panel: '#32302f', hover: '#504945', active: '#665c54',
+    border: '#3c3836', borderStrong: '#665c54', text: '#ebdbb2', textDim: '#a89984',
+    accent: '#fabd2f', accentStrong: '#d79921', accentText: '#282828', danger: '#fb4934', folder: '#fabd2f', file: '#83a598',
+  }),
+  mk('oneDark', '원 다크', 'One Dark', 'dark', {
+    bg: '#282c34', raised: '#31353f', panel: '#21252b', hover: '#3a3f4b', active: '#3e4451',
+    border: '#3a3f4b', borderStrong: '#4b5263', text: '#abb2bf', textDim: '#7f848e',
+    accent: '#61afef', accentStrong: '#528bff', accentText: '#0b1220', danger: '#e06c75', folder: '#e5c07b', file: '#61afef',
+  }),
+  mk('tokyoNight', '도쿄 나이트', 'Tokyo Night', 'dark', {
+    bg: '#1a1b26', raised: '#24283b', panel: '#1f2335', hover: '#2f334d', active: '#364a82',
+    border: '#2a2f41', borderStrong: '#3b4261', text: '#c0caf5', textDim: '#9aa5ce',
+    accent: '#7aa2f7', accentStrong: '#bb9af7', accentText: '#0b1020', danger: '#f7768e', folder: '#e0af68', file: '#7dcfff',
+  }),
+  mk('githubDark', '깃허브 다크', 'GitHub Dark', 'dark', {
+    bg: '#0d1117', raised: '#161b22', panel: '#11161d', hover: '#1f2630', active: '#263040',
+    border: '#30363d', borderStrong: '#484f58', text: '#e6edf3', textDim: '#8b949e',
+    accent: '#58a6ff', accentStrong: '#1f6feb', accentText: '#04121f', danger: '#f85149', folder: '#e3b341', file: '#79c0ff',
+  }),
+  mk('catppuccin', '카푸친 모카', 'Catppuccin Mocha', 'dark', {
+    bg: '#1e1e2e', raised: '#313244', panel: '#181825', hover: '#45475a', active: '#585b70',
+    border: '#313244', borderStrong: '#585b70', text: '#cdd6f4', textDim: '#a6adc8',
+    accent: '#89b4fa', accentStrong: '#cba6f7', accentText: '#11111b', danger: '#f38ba8', folder: '#f9e2af', file: '#89dceb',
+  }),
+  mk('slate', '슬레이트', 'Slate', 'dark', {
+    bg: '#171b21', raised: '#1f242c', panel: '#1b2027', hover: '#272e38', active: '#313a46',
+    border: '#2a323c', borderStrong: '#3e4a58', text: '#dfe6ee', textDim: '#93a0b0',
+    accent: '#7dd3fc', accentStrong: '#38bdf8', accentText: '#062030', danger: '#fb7185', folder: '#fcd34d', file: '#9fb3c8',
+  }),
+  mk('abyss', '어비스', 'Abyss', 'dark', {
+    bg: '#060b1a', raised: '#0f1630', panel: '#0a1024', hover: '#182141', active: '#222d55',
+    border: '#1b2446', borderStrong: '#2d3a6b', text: '#dce4ff', textDim: '#8d98c7',
+    accent: '#4d7cff', accentStrong: '#2b55e0', accentText: '#eaf0ff', danger: '#ff6b81', folder: '#ffd166', file: '#8fb2ff',
+  }),
+  mk('matrix', '매트릭스', 'Matrix', 'dark', {
+    bg: '#050a06', raised: '#0d1a0f', panel: '#08120a', hover: '#142816', active: '#1c3a1f',
+    border: '#16301a', borderStrong: '#245c2b', text: '#c8f7c5', textDim: '#6fbf73',
+    accent: '#39ff14', accentStrong: '#00c853', accentText: '#021405', danger: '#ff5252', folder: '#39ff14', file: '#8ce99a',
+  }),
+  mk('githubLight', '깃허브 라이트', 'GitHub Light', 'light', {
+    bg: '#ffffff', raised: '#ffffff', panel: '#f6f8fa', hover: '#eaeef2', active: '#ddf4ff',
+    border: '#d0d7de', borderStrong: '#afb8c1', text: '#1f2328', textDim: '#656d76',
+    accent: '#0969da', accentStrong: '#0550ae', accentText: '#ffffff', danger: '#cf222e', folder: '#dbab0a', file: '#57606a',
+  }),
+  mk('gruvboxLight', '그루브박스 라이트', 'Gruvbox Light', 'light', {
+    bg: '#fbf1c7', raised: '#fffbea', panel: '#f2e5bc', hover: '#ebdbb2', active: '#d5c4a1',
+    border: '#ddcca7', borderStrong: '#bdae93', text: '#3c3836', textDim: '#665c54',
+    accent: '#af3a03', accentStrong: '#9d0006', accentText: '#ffffff', danger: '#9d0006', folder: '#b57614', file: '#076678',
+    shadow: '0 10px 30px rgba(90,70,20,0.18)',
+  }),
+  mk('oneLight', '원 라이트', 'One Light', 'light', {
+    bg: '#fafafa', raised: '#ffffff', panel: '#f0f0f1', hover: '#e8e8e9', active: '#d7dae0',
+    border: '#dcdcdd', borderStrong: '#b8b9bb', text: '#383a42', textDim: '#696c77',
+    accent: '#4078f2', accentStrong: '#2b5fd9', accentText: '#ffffff', danger: '#e45649', folder: '#c18401', file: '#0184bc',
+  }),
+  mk('latte', '카푸친 라테', 'Catppuccin Latte', 'light', {
+    bg: '#eff1f5', raised: '#ffffff', panel: '#e6e9ef', hover: '#dce0e8', active: '#ccd0da',
+    border: '#dce0e8', borderStrong: '#9ca0b0', text: '#4c4f69', textDim: '#6c6f85',
+    accent: '#1e66f5', accentStrong: '#8839ef', accentText: '#ffffff', danger: '#d20f39', folder: '#df8e1d', file: '#209fb5',
+  }),
+  mk('meadow', '메도우', 'Meadow', 'light', {
+    bg: '#f5fbf2', raised: '#ffffff', panel: '#e9f5e4', hover: '#dbecd3', active: '#c7e0bd',
+    border: '#d7e9d0', borderStrong: '#a3c799', text: '#1b3317', textDim: '#4f6d48',
+    accent: '#3f8f29', accentStrong: '#2c6b1a', accentText: '#ffffff', danger: '#c0392b', folder: '#8aa32c', file: '#6f9a66',
+  }),
+  mk('apricot', '애프리콧', 'Apricot', 'light', {
+    bg: '#fff8f1', raised: '#ffffff', panel: '#ffeedd', hover: '#ffe1c7', active: '#fbd0a9',
+    border: '#f7dcc3', borderStrong: '#e0b183', text: '#3c2a16', textDim: '#7c5c3a',
+    accent: '#e07a1f', accentStrong: '#b85c0b', accentText: '#ffffff', danger: '#c0392b', folder: '#e0a020', file: '#a3845f',
+    shadow: '0 10px 30px rgba(110,60,20,0.16)',
+  }),
+  mk('ash', '애시', 'Ash', 'light', {
+    bg: '#f4f5f6', raised: '#ffffff', panel: '#eaebed', hover: '#dfe1e4', active: '#ced1d6',
+    border: '#d8dadd', borderStrong: '#b0b4b9', text: '#22262b', textDim: '#5c6269',
+    accent: '#546e7a', accentStrong: '#37474f', accentText: '#ffffff', danger: '#b3261e', folder: '#b08a3a', file: '#7a8288',
+  }),
+  mk('contrastLight', '고대비 밝은', 'Contrast Light', 'light', {
+    bg: '#ffffff', raised: '#ffffff', panel: '#f2f2f2', hover: '#e0e0e0', active: '#cfe0ff',
+    border: '#767676', borderStrong: '#000000', text: '#000000', textDim: '#1a1a1a',
+    accent: '#0b00c8', accentStrong: '#000080', accentText: '#ffffff', danger: '#b00000', folder: '#7a4b00', file: '#000000',
+    sel: '#cfe0ff', shadow: '0 0 0 2px #000000',
+  }),
+  mk('cocoa', '코코아', 'Cocoa', 'light', {
+    bg: '#faf4ef', raised: '#fffaf6', panel: '#f1e6dd', hover: '#e6d6ca', active: '#d8c3b2',
+    border: '#e0cfc2', borderStrong: '#bda38f', text: '#3a2b21', textDim: '#75594a',
+    accent: '#8d5524', accentStrong: '#6b3d14', accentText: '#ffffff', danger: '#b23a2f', folder: '#b5822f', file: '#9a7a66',
+    shadow: '0 10px 30px rgba(80,50,30,0.16)',
+  }),
+  mk('lemon', '레몬', 'Lemon', 'light', {
+    bg: '#fffdf0', raised: '#ffffff', panel: '#fcf6d9', hover: '#f7eec0', active: '#eedfa0',
+    border: '#f0e4b5', borderStrong: '#cfbb73', text: '#33300f', textDim: '#6e6730',
+    accent: '#8a7a00', accentStrong: '#6b5e00', accentText: '#ffffff', danger: '#b3261e', folder: '#c9a227', file: '#8d8a5a',
+    shadow: '0 10px 30px rgba(90,80,20,0.16)',
+  }),
 ];
+
+// Dark first, then light: cycling with the toolbar button walks one mode at a time.
+THEMES.sort((a, b) => (a.mode === b.mode ? 0 : a.mode === 'dark' ? -1 : 1));
 
 export const DEFAULT_THEME = 'midnight';
 
-export function themeSwatchStyle(th) {
-  const t = (th && th.tokens) || {};
-  return { background: `linear-gradient(135deg, ${t['--bg'] || '#888'} 50%, ${t['--accent'] || '#888'} 50%)` };
+// ── Custom themes ─────────────────────────────────────────
+// Kept in the session as { id: 'custom-…', label, mode, colors } (the base
+// colours `mk` takes). setCustomThemes() registers them so every lookup
+// (picker, cycling, apply) sees built-in and custom alike.
+export const CUSTOM_COLOR_KEYS = ['bg', 'panel', 'raised', 'hover', 'active', 'border', 'borderStrong', 'text', 'textDim', 'accent', 'accentStrong', 'accentText', 'folder', 'file', 'danger'];
+let customRaw = [];
+let customThemes = [];
+/** The theme object of a stored custom theme. */
+export function buildCustomTheme(c) {
+  return { ...mk(c.id, c.label || 'Custom', c.label || 'Custom', c.mode === 'light' ? 'light' : 'dark', c.colors), custom: true };
+}
+export function setCustomThemes(list) {
+  customRaw = (Array.isArray(list) ? list : []).filter((c) => c && c.id && c.colors);
+  customThemes = customRaw.map(buildCustomTheme);
+}
+export function getCustomThemes() { return customThemes; }
+/** Stored { id, label, mode, colors } — what the session and the menu window carry. */
+export function customThemeDefs() { return customRaw; }
+export function allThemes() { return [...customThemes, ...THEMES]; }
+/** The base colours of a theme (built-in ones rebuilt from their tokens): the start of a new custom theme. */
+export function baseColorsOf(theme) {
+  const tk = theme.tokens;
+  return { bg: tk['--bg'], panel: tk['--bg-panel'], raised: tk['--bg-elev'], hover: tk['--bg-hover'], active: tk['--bg-sel-inactive'], border: tk['--border'], borderStrong: tk['--border-strong'], text: tk['--fg'], textDim: tk['--fg-muted'], accent: tk['--accent'], accentStrong: tk['--accent-strong'], accentText: tk['--accent-text'], folder: tk['--folder'], file: tk['--file'], danger: tk['--danger'] };
 }
 
 export function themeById(id) {
-  return THEMES.find((th) => th.id === id) || THEMES[0];
+  return allThemes().find((th) => th.id === id) || THEMES[0];
 }
 
 export function nextThemeId(id) {
-  const i = THEMES.findIndex((th) => th.id === id);
-  return THEMES[(i + 1) % THEMES.length].id;
+  const all = allThemes();
+  const i = all.findIndex((th) => th.id === id);
+  return all[(i + 1) % all.length].id;
 }
 
 export function applyTheme(id) {
@@ -141,4 +291,12 @@ export function applyTheme(id) {
   root.dataset.mode = theme.mode;
   root.style.colorScheme = theme.mode;
   return theme;
+}
+
+/** Split swatch used by the toolbar and the settings theme button. */
+export function themeSwatchStyle(theme) {
+  const tokens = theme && theme.tokens ? theme.tokens : {};
+  const bg = tokens['--bg'] || '#12161c';
+  const accent = tokens['--accent'] || '#4cc9f0';
+  return { background: `linear-gradient(135deg, ${bg} 50%, ${accent} 50%)` };
 }

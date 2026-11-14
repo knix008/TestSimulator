@@ -23,8 +23,14 @@ export function invoke(cmd, args) {
   return import('@tauri-apps/api/core').then(({ invoke: run }) => run(cmd, args));
 }
 
+let windowReady = null;
+function tauriWindow() {
+  if (!windowReady) windowReady = import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow());
+  return windowReady;
+}
+
 export function currentWindow() {
-  return import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow());
+  return tauriWindow();
 }
 
 // Listens to a Tauri event sent to this window (or to every window). Returns an
@@ -247,19 +253,29 @@ export function startResize() {
   if (isTauri) currentWindow().then((w) => w.startResizeDragging('SouthEast')).catch(() => {});
 }
 
-// The toolbar (and a dialog window's title) is the drag region of the frameless
-// window: a press on it — not on one of its controls — moves the window.
-const DRAG_REGIONS = '.toolbar, .dlg.standalone .dlg-title, .doc-head';
-const NO_DRAG = 'button, select, input, textarea, a, .tb-conn, .tb-font, .theme-select-btn, [data-no-drag]';
+// The toolbar (its empty gap included), the start-page title and a dialog
+// window's title are the drag region of the frameless window. A press there —
+// not on a control — moves the window. The window object is loaded up front so
+// the drag starts in the same mouse press.
+const DRAG_REGIONS = '.toolbar, .start-hero, .dlg.standalone .dlg-title, .doc-head';
+const NO_DRAG = 'button, select, input, textarea, a, .tb-conn, .tb-font, .tb-profile, .theme-select-btn, [data-no-drag]';
+
+export function shouldWindowDrag(target) {
+  return !!(target && target.closest && target.closest(DRAG_REGIONS) && !target.closest(NO_DRAG));
+}
+
+export function startWindowDrag(event) {
+  if (!isTauri) return;
+  if (event) event.preventDefault();
+  tauriWindow().then((w) => w.startDragging()).catch(() => {});
+}
 
 export function installWindowDrag(doc = document) {
   if (!isTauri) return () => {};
+  tauriWindow().catch(() => {});
   const onDown = (e) => {
-    if (e.button !== 0 || e.detail > 1) return;
-    const target = e.target;
-    if (!target || !target.closest || !target.closest(DRAG_REGIONS) || target.closest(NO_DRAG)) return;
-    e.preventDefault();
-    currentWindow().then((w) => w.startDragging()).catch(() => {});
+    if (e.button !== 0 || e.detail > 1 || !shouldWindowDrag(e.target)) return;
+    startWindowDrag(e);
   };
   doc.addEventListener('mousedown', onDown);
   return () => doc.removeEventListener('mousedown', onDown);
@@ -267,6 +283,36 @@ export function installWindowDrag(doc = document) {
 
 export function quitApp() {
   windowControl('close');
+}
+
+// ── Theme dropdown (desktop) ──
+// A window of its own (src-tauri theme_menu_open), so the menu can extend
+// past the main window. `button` is the ▾; `data` is
+// { current, language, fontSize, customThemes, bg }.
+/** Anchor rectangle (CSS pixels of the ▾) plus the page data the menu window reads. */
+export function themeMenuArgs(rect, data) {
+  return {
+    args: {
+      anchor: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+      data,
+    },
+  };
+}
+
+export function openThemeMenu(button, data) {
+  return invoke('theme_menu_open', themeMenuArgs(button.getBoundingClientRect(), data));
+}
+
+export function closeThemeMenu() {
+  if (isDesktop) invoke('theme_menu_close').catch(() => {});
+}
+
+/** onPick("theme:<id>" | "newCustomTheme" | "themeSettings"). Returns an unsubscribe function. */
+export function onThemeMenu({ onPick, onClosed }) {
+  if (!isDesktop) return () => {};
+  const offPick = listen('theme-menu:pick', (id) => onPick(String(id)));
+  const offClosed = listen('theme-menu:closed', () => { if (onClosed) onClosed(); });
+  return () => { offPick(); offClosed(); };
 }
 
 // ── User guide (doc/index.html) ──

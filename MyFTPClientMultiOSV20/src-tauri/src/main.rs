@@ -176,10 +176,15 @@ fn main() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(core)
         .manage(dialogs::Dialogs::default())
+        .manage(dialogs::ThemeMenu::default())
         .manage(Placement { normal: Mutex::new(None) })
         .invoke_handler(tauri::generate_handler![
             host_config,
             dialogs::dialog_open,
+            dialogs::theme_menu_open,
+            dialogs::theme_menu_size,
+            dialogs::theme_menu_pick,
+            dialogs::theme_menu_close,
             dialogs::dialog_payload,
             dialogs::dialog_submit,
             dialogs::dialog_close,

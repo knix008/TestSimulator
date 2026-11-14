@@ -1,4 +1,4 @@
-/* My FTP Client — 16 themes set from src/themes.js as CSS variables on :root.
+/* My FTP Client — 40 themes set from src/themes.js as CSS variables on :root.
    The values here are the "midnight" defaults shown until the session loads. */
 :root {
   --bg: #12161c;
@@ -57,9 +57,11 @@ button:disabled { cursor: default; opacity: 0.45; }
 .app { height: 100%; display: flex; flex-direction: column; }
 
 /* ── Toolbar (also the drag region of the frameless window) ── */
-.toolbar { display: flex; align-items: stretch; flex-wrap: nowrap; gap: 0; padding: 0; border-bottom: 1px solid var(--border); background: var(--bg-elev); min-height: 38px; overflow: hidden; }
+.toolbar { display: flex; align-items: stretch; flex-wrap: nowrap; gap: 0; padding: 0; border-bottom: 1px solid var(--border); background: var(--bg-elev); min-height: 38px; overflow: hidden; cursor: grab; }
+.toolbar button, .toolbar select, .toolbar input, .tb-conn, .tb-font, .tb-profile { cursor: pointer; }
 .tb-main { display: flex; align-items: center; flex-wrap: nowrap; gap: 2px; padding: 4px 0 4px 8px; flex: 1; min-width: 0; overflow: hidden; }
-.tb-brand { display: inline-flex; align-items: center; gap: 7px; flex: none; cursor: default; white-space: nowrap; user-select: none; padding-right: 4px; }
+.tb-brand { display: inline-flex; align-items: center; gap: 7px; flex: none; cursor: grab; white-space: nowrap; user-select: none; padding-right: 4px; }
+.tb-brand .tb-btn { cursor: pointer; }
 .tb-logo { flex: none; }
 .tb-title { font-weight: 700; white-space: nowrap; flex: none; }
 .tb-version { color: var(--fg-muted); font-size: 0.86em; font-weight: 600; flex: none; white-space: nowrap; }
@@ -83,7 +85,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .tb-btn:active { background: var(--bg-sel); }
 .tb-btn.selected { background: var(--bg-sel); box-shadow: inset 0 0 0 1px var(--accent); }
 .tb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 3px; }
-.tb-spacer { flex: 1; }
+.tb-spacer { flex: 1; align-self: stretch; cursor: grab; }
 .tb-btn.tb-icon-only { padding: 4px 7px; }
 .tb-btn:disabled { opacity: 0.35; pointer-events: none; }
 .tb-font { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 4px; margin: 0 2px; height: 28px; flex: none; }
@@ -135,7 +137,12 @@ button:disabled { cursor: default; opacity: 0.45; }
 .panel.active { border-color: var(--active-border); box-shadow: var(--active-glow); }
 .panel-head { display: flex; align-items: center; gap: 6px; padding: 5px 8px; min-height: 30px; background: color-mix(in srgb, var(--accent) 14%, var(--bg-elev)); border-bottom: 1px solid var(--border); }
 .panel-title { font-weight: 700; white-space: nowrap; flex: none; }
-.panel-path { color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-path { display: flex; align-items: center; min-width: 0; flex: 1; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; color: var(--fg-muted); white-space: nowrap; }
+.panel-path::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.path-mark { flex: none; margin-right: 6px; }
+.path-sep { flex: none; }
+.path-crumb { flex: none; background: none; border: 0; padding: 1px 2px; margin: 0; color: inherit; font: inherit; cursor: pointer; border-radius: 3px; }
+.path-crumb:hover { background: var(--bg-hover); color: var(--fg); }
 .drive-btn { display: inline-flex; align-items: center; gap: 4px; max-width: 200px; background: var(--bg-elev); border: 1px solid var(--border); padding: 2px 6px 2px 8px; border-radius: 4px; color: var(--fg); font-size: 12px; flex: none; }
 .drive-btn:hover { background: var(--bg-hover); }
 .drive-btn .caret { color: var(--fg-muted); }
@@ -200,15 +207,18 @@ body.file-dragging, body.file-dragging * { cursor: default !important; user-sele
 
 /* ── Log ── */
 .log-dock { display: contents; }
-.log-dock.collapsed { display: none; }
+.log-dock.collapsed .h-splitter,
+.log-dock.collapsed .dock-body { display: none; }
+.log-dock.collapsed .log-head { border-bottom: 0; }
 .h-splitter { height: 8px; cursor: row-resize; position: relative; flex: none; }
 .h-splitter::after { content: ''; position: absolute; top: 3px; left: 45%; right: 45%; height: 2px; background: var(--border); border-radius: 2px; }
 .h-splitter:hover::after { background: var(--accent); }
 .log-panel { flex: none; display: flex; flex-direction: column; margin: 0 8px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--bg-panel); color: var(--fg); }
-.log-head { display: flex; align-items: center; gap: 4px; padding: 2px 6px 0; background: color-mix(in srgb, var(--accent) 14%, var(--bg-elev)); border-bottom: 1px solid var(--border); min-height: 26px; }
+.log-head { position: relative; display: flex; align-items: center; gap: 4px; padding: 2px 30px 0 6px; background: color-mix(in srgb, var(--accent) 14%, var(--bg-elev)); border-bottom: 1px solid var(--border); min-height: 26px; }
 .dock-tab-list { display: flex; align-items: stretch; gap: 2px; min-width: 0; flex: 1; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .dock-tab-list::-webkit-scrollbar { width: 0; height: 0; display: none; }
 .dock-tab-tools { display: inline-flex; align-items: center; flex: none; margin-left: auto; }
+.dock-tab-plus { position: absolute; right: 4px; top: 2px; margin: 0; }
 .dock-tab { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px 4px; border: 0; border-radius: 4px 4px 0 0; background: transparent; color: var(--fg-muted); max-width: 168px; cursor: pointer; flex: none; }
 .dock-tab:hover { background: var(--bg-hover); color: var(--fg); }
 .dock-tab.active { background: var(--bg); color: var(--fg); box-shadow: inset 0 2px 0 var(--accent); }
@@ -262,6 +272,26 @@ body.file-dragging, body.file-dragging * { cursor: default !important; user-sele
 .ctx-shortcut { color: var(--fg-muted); font-size: 11px; }
 .ctx-sep { height: 1px; background: var(--border); margin: 4px 6px; }
 
+/* Theme dropdown (ThemePopup / ThemeGrid): two buttons, then dark, then light. */
+.ctx-menu.theme-menu { min-width: 0; }
+.theme-menu-top { display: flex; gap: 2px; }
+.theme-menu-top .ctx-item { width: auto; flex: 1; white-space: nowrap; }
+.theme-modes { display: flex; flex-direction: column; gap: 0; }
+.theme-group { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.theme-group-title { display: flex; align-items: center; gap: 5px; padding: 2px 10px; font-size: 11.5px; font-weight: 600; color: var(--fg-muted); }
+/* Ten a column, filled top to bottom: two columns per mode. */
+.theme-list { display: grid; grid-auto-flow: column; grid-template-rows: repeat(10, auto); grid-template-columns: repeat(2, minmax(150px, 1fr)); column-gap: 2px; }
+.theme-item { white-space: nowrap; min-width: 0; }
+.theme-item .ctx-label { overflow: hidden; text-overflow: ellipsis; }
+.theme-item .theme-swatch { flex: none; }
+.theme-item.checked { background: var(--bg-sel); }
+.theme-badge { color: var(--accent); margin-right: 3px; }
+.theme-menu .theme-group + .theme-group { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
+.theme-menu .theme-list.custom { grid-template-rows: none; grid-auto-flow: row; grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+html.menu-window, html.menu-window body, html.menu-window #root { height: auto; overflow: hidden; background: var(--bg-elev); }
+html.menu-window #root { display: inline-block; }
+html.menu-window .ctx-menu.theme-menu { position: static; max-height: none; overflow: visible; box-shadow: none; border-radius: 0; border-color: var(--border-strong); }
+
 html.dialog, html.dialog body, html.dialog #root { height: 100%; overflow: hidden; background: var(--bg); }
 html.dialog body { display: grid; place-items: start start; }
 /* place-items must go too: newer Chromium (WebView2) applies justify-items to block
@@ -291,6 +321,27 @@ html.dialog.dialog-fixed body { display: block; place-items: normal; }
 .settings-tab:hover { color: var(--fg); background: var(--bg-hover); }
 .settings-tab.active { color: var(--fg); border-bottom-color: var(--accent); }
 .settings-pane { flex: 1; min-height: 0; overflow: hidden; padding: 14px; align-content: start; }
+.settings-pane:has(.settings-themes) { display: flex; padding: 0; }
+.settings-themes { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; padding: 10px 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.settings-themes::-webkit-scrollbar { width: 8px !important; display: block !important; }
+.settings-themes label { text-align: left; }
+.settings-themes .theme-item { padding: 3px 8px; gap: 6px; font-size: 12px; }
+.custom-theme { padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.custom-theme-row { display: flex; align-items: center; gap: 6px; min-width: 0; margin-bottom: 6px; }
+.custom-theme-row .theme-list.custom { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 2px; grid-template-rows: none; grid-auto-flow: row; }
+.custom-theme-row .theme-list.custom .theme-item { width: auto; max-width: 180px; }
+.custom-theme-fields { display: flex; flex-direction: column; gap: 6px; }
+.custom-theme-fields.disabled { opacity: 0.55; }
+.custom-theme-head { display: flex; align-items: center; gap: 8px; }
+.custom-theme-head label { flex: none; color: var(--fg-muted); font-size: 12px; text-align: left; }
+.custom-theme-head input { flex: 1; min-width: 0; }
+.custom-theme-head select { flex: none; width: 130px; }
+.custom-colors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; }
+.custom-color { display: flex; align-items: center; gap: 4px; min-width: 0; text-align: left; }
+.custom-color-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--fg-muted); }
+.custom-color input[type="color"] { flex: none; width: 24px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; cursor: pointer; }
+.custom-color input.mono { flex: none; width: 72px; padding: 2px 4px; font-size: 11px; }
+.btn.small { min-width: 0; padding: 4px 8px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
 .dlg-x:hover svg.icon { color: #ffffff; }
 .dlg, .dlg * { scrollbar-width: none; -ms-overflow-style: none; }
 .dlg::-webkit-scrollbar, .dlg *::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
@@ -377,7 +428,8 @@ input:disabled, select:disabled { opacity: 0.55; }
 .sp-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
 .sp-btn.primary:hover:not(:disabled) { background: var(--accent-strong); border-color: var(--accent-strong); color: #ffffff; }
 .sp-btn.danger { background: var(--danger); border-color: var(--danger); color: #ffffff; font-weight: 600; }
-.start-hero-fixed { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; row-gap: 12px; padding: 16px 20px; border-radius: 16px; background: color-mix(in srgb, var(--bg-panel) 78%, transparent); border: 1px solid var(--border); backdrop-filter: blur(6px); box-shadow: 0 10px 30px rgba(0, 0, 0, .28); resize: none; }
+.start-hero-fixed { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; row-gap: 12px; padding: 16px 20px; border-radius: 16px; background: color-mix(in srgb, var(--bg-panel) 78%, transparent); border: 1px solid var(--border); backdrop-filter: blur(6px); box-shadow: 0 10px 30px rgba(0, 0, 0, .28); resize: none; cursor: grab; }
+.start-hero-fixed button, .start-hero-fixed a { cursor: pointer; }
 .start-hero-text { flex: 1 1 280px; min-width: 0; }
 .start-hero-fixed h1 { display: flex; align-items: baseline; gap: 10px; margin: 0; font-size: 1.8em; line-height: 1.2; white-space: nowrap; }
 .start-hero-fixed h1 .start-title { flex: none; }
@@ -424,6 +476,7 @@ input:disabled, select:disabled { opacity: 0.55; }
 .sp-proto { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; min-width: 0; flex: 1 1 180px; }
 .sp-proto .name { flex: none; width: auto; color: var(--fg-muted); font-size: 0.86em; }
 .sp-proto .mono, .sp-proto .path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-proto .panel-path { flex: 1; overflow-x: auto; text-overflow: clip; }
 .bg-kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; align-items: stretch; }
 .side-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; }
 .side-controls .start-speed { margin: 0; }

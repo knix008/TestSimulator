@@ -1,14 +1,14 @@
 // Settings (⚙ on the toolbar). Values live in the session file; App applies
-// them when the dialog is confirmed. The window is a fixed size with tabs so
-// the form never needs a scrollbar.
-import React, { useEffect, useState } from 'react';
+// them when the dialog is confirmed. The window is a fixed size. The theme
+// tab scrolls its own list; the other tabs fit without a scrollbar.
+import React, { useEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call, pickFolder, broadcastAppearance } from '../lib/backend';
 import { appearanceOf } from '../lib/appearance';
-import { THEMES, themeById, themeSwatchStyle, applyTheme, DEFAULT_THEME } from '../themes';
+import { themeById, themeSwatchStyle, applyTheme, setCustomThemes, buildCustomTheme, baseColorsOf, CUSTOM_COLOR_KEYS, DEFAULT_THEME } from '../themes';
 import { DialogFrame } from './Dialogs';
-import { ContextMenu } from '../components/ContextMenu';
 import { Icon } from '../components/Icons';
+import { ThemeColumns, ThemeItem, themeName } from '../components/ThemeGrid';
 import { SETTINGS_DEFAULTS, DEFAULT_SHELL_PROMPTS, defaultPromptFor } from '../lib/settings';
 
 const FALLBACK_PROMPT_SHELLS = [
@@ -21,22 +21,95 @@ const FALLBACK_PROMPT_SHELLS = [
 
 const TABS = [
   { id: 'general', label: 'set_tab_general' },
+  { id: 'theme', label: 'set_tab_theme' },
   { id: 'terminal', label: 'set_tab_terminal' },
   { id: 'transfer', label: 'set_tab_transfer' },
 ];
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/** A new custom theme: the base colours of `base` under a fresh id. */
+export function customFrom(base, lang) {
+  return {
+    id: `custom-${Date.now().toString(36)}`,
+    label: `${themeName(base, lang)} ${t('set_custom_copy')}`,
+    mode: base.mode,
+    colors: baseColorsOf(base),
+  };
+}
+
+function CustomThemeEditor({ customs, current, onPick, onChange, lang }) {
+  const cards = customs.filter((c) => c && c.id && c.colors).map(buildCustomTheme);
+  const cur = customs.find((c) => c.id === current) || null;
+  const curTheme = cards.find((th) => th.id === current) || themeById(current);
+  const shown = cur ? cur.colors : baseColorsOf(curTheme);
+  const edit = (patch) => onChange(customs.map((c) => (c.id === cur.id ? { ...c, ...patch } : c)), cur.id);
+  const add = () => { const c = customFrom(curTheme, lang); onChange([...customs, c], c.id); };
+  const remove = () => onChange(customs.filter((c) => c.id !== cur.id), DEFAULT_THEME);
+  const setColor = (k, value) => edit({ colors: { ...cur.colors, [k]: value } });
+  return (
+    <section className="theme-group custom-theme">
+      <div className="theme-group-title"><Icon name="star" size={13} />{t('set_custom_themes')} <span className="muted">({customs.length})</span></div>
+      <div className="custom-theme-row">
+        <div className="theme-list custom">
+          {customs.length
+            ? cards.map((th) => <ThemeItem key={th.id} theme={th} active={th.id === current} onPick={onPick} />)
+            : <span className="muted small">{t('set_custom_hint')}</span>}
+        </div>
+        <button type="button" className="btn small" onClick={add} title={t('tip_theme_new_custom')}><Icon name="plus" size={13} />{t('set_custom_add', { name: themeName(curTheme, lang) })}</button>
+        <button type="button" className="btn small" disabled={!cur} onClick={remove}><Icon name="trash" size={13} />{t('set_custom_remove')}</button>
+      </div>
+      <div className={`custom-theme-fields ${cur ? '' : 'disabled'}`}>
+        <div className="custom-theme-head">
+          <label>{t('set_custom_name')}</label>
+          <input type="text" value={cur ? cur.label : ''} disabled={!cur} maxLength={40} onChange={(e) => edit({ label: e.target.value })} />
+          <select value={cur ? cur.mode : curTheme.mode} disabled={!cur} onChange={(e) => edit({ mode: e.target.value })}>
+            <option value="dark">{t('set_theme_dark')}</option>
+            <option value="light">{t('set_theme_light')}</option>
+          </select>
+        </div>
+        <div className="custom-colors">
+          {CUSTOM_COLOR_KEYS.map((k) => {
+            const value = shown[k] || '';
+            return (
+              <label key={k} className="custom-color" title={t(`set_color_${k}`)}>
+                <span className="custom-color-name">{t(`set_color_${k}`)}</span>
+                <input type="color" disabled={!cur} value={HEX.test(value) ? value : '#888888'} onChange={(e) => setColor(k, e.target.value)} />
+                <input type="text" className="mono" disabled={!cur} value={value} spellCheck={false} onChange={(e) => setColor(k, e.target.value)} />
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export function SettingsDialog({ spec, done }) {
   const lang = useLanguage();
   const localDir = spec.localDir || '';
-  const [tab, setTab] = useState('general');
+  const [tab, setTab] = useState(TABS.some((item) => item.id === spec.tab) ? spec.tab : 'general');
   const [promptShell, setPromptShell] = useState('powershell');
-  const [v, setV] = useState({
-    ...SETTINGS_DEFAULTS,
-    ...(spec.values || {}),
-    lastLocalPath: localDir || (spec.values && spec.values.lastLocalPath) || '',
-    shellPrompts: { ...DEFAULT_SHELL_PROMPTS, ...((spec.values && spec.values.shellPrompts) || {}) },
+  const initialLook = useRef({
+    theme: (spec.values && spec.values.theme) || DEFAULT_THEME,
+    customs: Array.isArray(spec.values && spec.values.customThemes) ? spec.values.customThemes : [],
   });
-  const [themeEl, setThemeEl] = useState(null);
+  const [v, setV] = useState(() => {
+    const s = {
+      ...SETTINGS_DEFAULTS,
+      ...(spec.values || {}),
+      customThemes: Array.isArray(spec.values && spec.values.customThemes) ? spec.values.customThemes : [],
+      lastLocalPath: localDir || (spec.values && spec.values.lastLocalPath) || '',
+      shellPrompts: { ...DEFAULT_SHELL_PROMPTS, ...((spec.values && spec.values.shellPrompts) || {}) },
+    };
+    setCustomThemes(s.customThemes);
+    if (spec.newCustom) {
+      const made = customFrom(themeById(s.theme), lang);
+      s.customThemes = [...s.customThemes, made];
+      s.theme = made.id;
+      setCustomThemes(s.customThemes);
+    }
+    return s;
+  });
   const [shells, setShells] = useState(FALLBACK_PROMPT_SHELLS);
   const [fonts, setFonts] = useState([]);
   const set = (k, val) => setV((s) => ({ ...s, [k]: val }));
@@ -45,8 +118,7 @@ export function SettingsDialog({ spec, done }) {
     shellPrompts: { ...(s.shellPrompts || {}), [id]: val },
   }));
   const currentTheme = themeById(v.theme);
-  const themeName = lang === 'ko' ? currentTheme.label : currentTheme.labelEn;
-  const initialTheme = (spec.values && spec.values.theme) || DEFAULT_THEME;
+  const themeLabel = themeName(currentTheme, lang);
   const canPick = !!spec.canPickFolder;
   useEffect(() => {
     let alive = true;
@@ -68,15 +140,22 @@ export function SettingsDialog({ spec, done }) {
     if (!shells.length) return;
     if (!shells.some((sh) => sh.id === promptShell)) setPromptShell(shells[0].id);
   }, [shells, promptShell]);
-  const notifyTheme = (id) => {
-    const theme = applyTheme(id);
+  const publishLook = (themeId, customs) => {
+    setCustomThemes(customs);
+    const theme = applyTheme(themeId);
     if (typeof spec.onPreviewTheme === 'function') spec.onPreviewTheme(theme.id, theme);
     const from = spec.values || {};
-    broadcastAppearance(appearanceOf({ theme: theme.id, language: v.language || from.language, fontSize: v.fontSize || from.fontSize }));
+    broadcastAppearance({
+      ...appearanceOf({ theme: theme.id, language: v.language || from.language, fontSize: v.fontSize || from.fontSize }),
+      customThemes: customs,
+    });
     return theme;
   };
+  useEffect(() => {
+    publishLook(v.theme, Array.isArray(v.customThemes) ? v.customThemes : []);
+  }, [v.theme, v.customThemes]); // eslint-disable-line react-hooks/exhaustive-deps
   const cancel = () => {
-    notifyTheme(initialTheme);
+    publishLook(initialLook.current.theme, initialLook.current.customs);
     done(null);
   };
   const submit = (e) => {
@@ -145,10 +224,9 @@ export function SettingsDialog({ spec, done }) {
               </select>
 
               <label>{t('set_theme')}</label>
-              <button type="button" className="theme-select-btn" title={t('set_theme')}
-                onClick={(e) => setThemeEl((el) => (el ? null : e.currentTarget))}>
+              <button type="button" className="theme-select-btn" title={t('set_theme')} onClick={() => setTab('theme')}>
                 <span className="theme-swatch" style={themeSwatchStyle(currentTheme)} />
-                <span className="ellipsis">{themeName}</span>
+                <span className="ellipsis">{themeLabel}</span>
                 <Icon name="chevronDown" size={14} />
               </button>
 
@@ -185,6 +263,19 @@ export function SettingsDialog({ spec, done }) {
               <span />
               <label className="check" title={t('set_show_start_hint')}><input type="checkbox" checked={v.showStartOnLaunch !== false} onChange={(e) => set('showStartOnLaunch', e.target.checked)} /> {t('set_show_start')}</label>
             </>
+          )}
+
+          {tab === 'theme' && (
+            <div className="settings-themes">
+              <CustomThemeEditor
+                customs={Array.isArray(v.customThemes) ? v.customThemes : []}
+                current={v.theme}
+                lang={lang}
+                onPick={(id) => set('theme', id)}
+                onChange={(list, theme) => setV((s) => ({ ...s, customThemes: list, theme: theme || s.theme }))}
+              />
+              <ThemeColumns current={v.theme} onPick={(id) => set('theme', id)} />
+            </div>
           )}
 
           {tab === 'terminal' && (
@@ -245,18 +336,6 @@ export function SettingsDialog({ spec, done }) {
           )}
         </form>
       </div>
-      {themeEl && (
-        <ContextMenu className="theme-pick" anchorEl={themeEl} x={0} y={0}
-          items={THEMES.map((th) => ({
-            id: th.id,
-            label: lang === 'ko' ? th.label : th.labelEn,
-            checked: th.id === currentTheme.id,
-            swatch: th.tokens['--accent'],
-            swatchBg: th.tokens['--bg'],
-          }))}
-          onClose={() => setThemeEl(null)}
-          onPick={(id) => { notifyTheme(id); set('theme', id); setThemeEl(null); }} />
-      )}
     </DialogFrame>
   );
 }

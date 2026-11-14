@@ -95,6 +95,30 @@ test('session: clampLines bounds', () => {
   assert.equal(clampLines(1e9), 100000);
 });
 
+test('session: custom themes round-trip and a file without them stays empty', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'myftp-customs-'));
+  const theme = {
+    id: 'custom-1',
+    label: 'Mine',
+    mode: 'dark',
+    colors: { bg: '#111111', accent: '#4cc9f0' },
+  };
+  const s = new Session(dir);
+  s.load();
+  assert.deepEqual(s.get().customThemes, []);
+  const saved = s.save({ customThemes: [theme], theme: 'custom-1' });
+  assert.deepEqual(saved.customThemes, [theme]);
+  assert.equal(saved.theme, 'custom-1');
+  const again = new Session(dir).load();
+  assert.deepEqual(again.customThemes, [theme]);
+  assert.equal(again.theme, 'custom-1');
+
+  fs.writeFileSync(path.join(dir, 'session.json'), JSON.stringify({ theme: 'ocean' }));
+  const old = new Session(dir).load();
+  assert.equal(old.theme, 'ocean');
+  assert.deepEqual(old.customThemes, []);
+});
+
 test('session: reload from disk after a new Session instance', () => {
   const a = new Session(tmp);
   a.load();

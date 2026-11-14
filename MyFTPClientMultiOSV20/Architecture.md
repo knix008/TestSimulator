@@ -69,7 +69,7 @@ UI 프레임워크를 전혀 참조하지 않습니다. 웹 서버와 데스크�
 ### src-tauri/ — 데스크톱 셸 (Rust, Tauri 2)
 - `main.rs` — **프레임리스 창**(`decorations: false`, 최소 1200×720). 창을 만들기 전에 `session.json` 의 `themeBg`·`windowBounds` 를 창 설정에 넣어 흰 화면·위치 점프가 없습니다. 이동/크기 변경을 추적하고, 닫을 때 코어의 `session.save` 로 위치를 저장합니다(최대화 상태면 직전 일반 크기). 단일 인스턴스(두 번째 실행은 기존 창 포커스). `MFC_CONFIG_DIR` 이면 별도 프로필 + 별도 WebView2 데이터, 단일 인스턴스 해제(테스트).
 - `nodecore.rs` — 코어를 **첫 순간 별도 스레드**에서 띄웁니다: `node server/server.js --port <빈 포트> --token <난수> --parent-pid <셸 pid> --config <설정 폴더>`, `MFC_HOST_NAME=tauri`. `app.info` 가 응답할 때까지 기다린 뒤 `host_config` 명령이 `{origin, token}` 을 페이지에 줍니다. 디버그 빌드는 소스 트리(`server/`)를, 릴리스는 `resources/runtime/`(번들된 `node.exe` + esbuild 한 파일 `server.js`)를 실행합니다. Tauri 의 리소스 경로는 `\\?\C:\…` 형태라 Node 가 못 읽으므로 `plain_path` 로 바꿉니다. 종료 시 `app.shutdown` 후 프로세스를 정리하고, 셸이 비정상 종료되면 코어가 `--parent-pid` 감시로 스스로 끝납니다.
-- `dialogs.rs` — 팝업을 **별도 웹뷰 창**으로 엽니다(같은 `index.html`, `window.__MFC_DIALOG__` 로 대화상자 이름 전달). 여는 창이 `parent`(같이 닫힘)지만 모달은 아니어서 메인 창 밖·다른 모니터로 이동 가능. 모두 `resizable(false)`·`decorations(false)`. 설정은 `fit: false`(540×520 고정), 나머지는 `dialog_set_size` 로 내용에 맞춤. 결과는 여는 창에 `dialog:result` 이벤트로, 닫힘은 `dialog:closed`. 테마 변경은 `broadcast_appearance` → 모든 창에 `dialog:appearance`. `manual_open` 은 **사용 설명서**(`doc/index.html`)를 parent 없는 독립 창(크기 조절 가능)으로 엽니다.
+- `dialogs.rs` — 팝업을 **별도 웹뷰 창**으로 엽니다(같은 `index.html`, `window.__MFC_DIALOG__` 로 대화상자 이름 전달). 테마 ▾ 도 같은 방식으로 별도 창입니다(`window.__MFC_MENU__`, 포커스를 잃으면 닫힘, 메인 창 밖으로 나갈 수 있음). 여는 창이 `parent`(같이 닫힘)지만 모달은 아니어서 메인 창 밖·다른 모니터로 이동 가능. 모두 `resizable(false)`·`decorations(false)`. 설정은 `fit: false`(540×520 고정), 나머지는 `dialog_set_size` 로 내용에 맞춤. 결과는 여는 창에 `dialog:result` 이벤트로, 닫힘은 `dialog:closed`. 테마 변경은 `broadcast_appearance` → 모든 창에 `dialog:appearance`. `manual_open` 은 **사용 설명서**(`doc/index.html`)를 parent 없는 독립 창(크기 조절 가능)으로 엽니다.
 - `windows/hooks.nsh` — NSIS 설치 훅: 언어 선택 후 기존 설치(Electron 판 uninstall 키 `98cf3d3c-…` 또는 Tauri 판) 감지 → 삭제 후 설치 확인, 이전 데이터 삭제 여부, 바로가기 페이지.
 - `clipdrag.rs` — 파일 드래그·클립보드(Command Center 에서 가져옴). `start_file_drag`(`drag` 크레이트, OS 드래그로 로컬 경로 넘김), `drag_keys`(OS 드래그 중 Shift/Ctrl/왼쪽 버튼 — 페이지는 키 이벤트를 못 받음), Windows `clipboard_write_files / read_files / clear_files`(CF_HDROP + Preferred DropEffect). 메인 창은 `dragDropEnabled: true` 라 탐색기 드롭을 경로로 받습니다 — 그 대신 Windows 에서 페이지 안 HTML5 DnD 가 꺼지므로 행 끌기는 마우스 이벤트로 합니다(`src/lib/filedrag.js`).
 - `capabilities/default.json` — 창 제어, 이벤트, `dialog:allow-open`(폴더 선택), 클립보드 읽기/쓰기.
@@ -85,14 +85,14 @@ UI 프레임워크를 전혀 참조하지 않습니다. 웹 서버와 데스크�
 |------|------|
 | `App.jsx` | 상태·액션의 중심. 연결/해제, 전송, 프로파일, 설정/테마/언어, 터미널 글꼴 스테퍼. `window.__mfc` 자동화 훅 |
 | `DialogWindow.jsx` | `window.__MFC_DIALOG__`(또는 `#dialog=<name>`)의 대화상자 컴포넌트를 분리 창에 그림. 설정은 창을 채우고(첫 페인트 전에 `dialog-fixed`), 나머지는 `dialog_set_size` 로 맞춤 |
-| `components/Toolbar.jsx` | 타이틀바 대체: 고정 브랜드(이름·버전·그 오른쪽 **홈**, `data-no-drag`) · 프로파일 · **좌우 바꾸기**(`serverOnLeft`) · **하단 접기**(`logCollapsed`) · **터미널 보기** · **글꼴 − / Npx / +** · 테마 · 언어 · 설정 · **설명서** · 정보 · 창 버튼(`.tb-main` 밖에 고정). 창 최소 크기 1200×720 |
+| `components/Toolbar.jsx` | 타이틀바 대체: 브랜드(아이콘·이름·버전을 끌면 창 이동, 두 번 누르면 최대화)와 그 오른쪽 **홈** · 프로파일 · **좌우 바꾸기**(`serverOnLeft`) · **하단 접기** / **하단 펼치기**(`logCollapsed`, 패널이 열려 있으면 눌림) · **터미널 보기** · **글꼴 − / Npx / +** · 테마(클릭 = 다음, ▾ = 별도 창) · 언어 · 설정 · **설명서** · 정보 · 창 버튼(`.tb-main` 밖에 고정). 창 최소 크기 1200×720 |
 | `components/StartPage.jsx` | 시작 페이지. 제목 배너는 고정. 카드(빠른 작업·최근 접속·프로파일·접속 정보·배경)는 `startLayout` 격자에서 이동·크기 조절. 접속 정보 카드에서 프로토콜·호스트·포트·사용자·비밀번호를 입력하고, 프로파일과 접속 기록을 고른다. `showStartOnLaunch` 가 꺼져 있으면 작업 화면으로 시작 |
 | `components/ConnectionBar.jsx` | 접속 폼 + 🕘 히스토리. Host URL 은 `parseHostInput` 이 분해 |
 | `components/StatusBar.jsx` | 상태 + 진행률 + 취소 + SizeGrip(누르면 `startResizeDragging`) |
 | `components/RemotePanel.jsx` | 서버 평면 목록 + `[..]`, 다중 선택, 키보드 탐색 |
 | `components/LocalTree.jsx` | 지연 로딩 트리. `expandTo(path)` 로 시작 폴더 복원 |
 | `components/TransferBar.jsx` | 업로드는 서버 쪽, 다운로드는 로컬 쪽 화살표(`serverOnLeft`) + 드래그 리사이즈 |
-| `components/LogPanel.jsx` | 로그 탭 + 터미널 탭(+ 셸 고르기, 탭 좌우 이동). `+` 와 탭 이동은 항상 독 오른쪽. `openLocal(cwd)` 로 지정 폴더에 새 탭 |
+| `components/LogPanel.jsx` | 로그 탭 + 터미널 탭(+ 셸 고르기, 탭 좌우 이동). `+`·탭 이동·하단 패널 아이콘은 항상 독 오른쪽. 접으면 헤더만 남음. `openLocal(cwd)` 로 지정 폴더에 새 탭 |
 | `components/TerminalView.jsx` | xterm.js + FitAddon. `onData` → `terminal.write`. 수평 스크롤 숨김 |
 | `dialogs/Dialogs.jsx` | Promise 기반: prompt · confirm · message/error · conflict · profileDelete · about · settings. 데스크톱은 `openDetachedDialog` |
 | `dialogs/SettingsDialog.jsx` | 일반(패널 배치 `serverOnLeft`, 시작 페이지 표시 포함) / 터미널 / 전송 탭. 셸 드롭다운 + 프롬프트 한 줄. `fill` 로 고정 창을 채움 |
@@ -108,7 +108,7 @@ UI 프레임워크를 전혀 참조하지 않습니다. 웹 서버와 데스크�
 | `lib/i18n.js` | `t(key, params)`, `useLanguage()` |
 | `lib/format.js` | 크기/속도/날짜, 경로 헬퍼, 확장자 → 아이콘 |
 | `lib/sound.js` | Web Audio 성공/오류 알림음 |
-| `themes.js` | 16개 테마 → CSS 변수 |
+| `themes.js` | 40개 테마(어두운 20, 밝은 20)와 사용자 정의 테마 → CSS 변수. 툴바 ▾ 는 별도 창(`theme-menu`) |
 
 ## 2. 전송 흐름
 
@@ -176,5 +176,5 @@ UI download(items)
 | 터미널 없음 | 설치된 셸 탭, 원격 SSH, Tab 완성, 셸별 색·프롬프트 |
 | 모달 대화상자 | 분리된 고정 크기 팝업(웹은 오버레이) |
 | 도움말 없음 | 그림이 있는 한/영 사용 설명서(독립 창, 목차·글자 크기·언어) |
-| Windows 전용 | Windows · macOS · Linux · 웹, 16 테마, 한/영 |
+| Windows 전용 | Windows · macOS · Linux · 웹, 40 테마, 한/영 |
 | 시작 화면 없음, 서버는 항상 왼쪽 | 시작 페이지(제목 고정, 카드 이동·크기 조절)와 **홈**. 설정에서 서버/로컬 좌우 교체 |

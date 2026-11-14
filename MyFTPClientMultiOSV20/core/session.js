@@ -5,6 +5,7 @@
 //   lastProfile    — the profile that was selected last
 //   language       — 'ko' | 'en'
 //   theme          — one of src/themes.js ids
+//   customThemes   — user themes: { id, label, mode, colors }[]
 //   serverWidth    — width of the server panel as a fraction of the file area
 //   serverOnLeft   — server panel on the left (local on the right) when true
 //   logHeight      — height of the log area in px
@@ -28,6 +29,7 @@ const DEFAULTS = {
   language: 'ko',
   theme: 'midnight',
   themeBg: '',
+  customThemes: [],
   fontSize: 13,
   terminalFont: '',
   terminalFontSize: 13,

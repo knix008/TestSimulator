@@ -10,6 +10,7 @@ import { t, useLanguage } from '../lib/i18n';
 import { formatSize, iconFor, samePath, isUnder, dirName, getSeparator } from '../lib/format';
 import { armRowDrag } from '../lib/filedrag';
 import { Icon } from './Icons';
+import { PathCrumbs } from './PathCrumbs';
 import { ContextMenu } from './ContextMenu';
 import { CLIPBOARD_KEYS } from './RemotePanel';
 
@@ -224,7 +225,7 @@ export const LocalTree = forwardRef(function LocalTree({ selection, onSelection,
         <Icon name="explorer" />
         <span className="panel-title">{t('local')}</span>
         <DriveButton roots={roots} onOpen={(el) => { if (!driveMenu) loadRoots(); setDriveMenu(driveMenu ? null : el); }} />
-        <LocalHeadPath />
+        <LocalHeadPath onJump={expandTo} />
         <span className="spacer" />
         <button className="icon-btn" title={t('ctx_refresh')} onClick={() => { const c = entryOf(cursor); loadRoots(); if (c) refresh(c.isDir ? c.path : dirName(c.path)); }}><Icon name="refresh" /></button>
       </div>
@@ -277,10 +278,10 @@ function DriveButton({ roots, onOpen }) {
 let currentDir = '';
 const dirListeners = new Set();
 export function setLocalHeadPath(p) { currentDir = p; for (const fn of dirListeners) fn(); }
-function LocalHeadPath() {
+function LocalHeadPath({ onJump }) {
   const [, force] = useState(0);
   useEffect(() => { const fn = () => force((x) => x + 1); dirListeners.add(fn); return () => dirListeners.delete(fn); }, []);
-  return currentDir ? <span className="panel-path mono" title={currentDir}>│&nbsp; {currentDir}</span> : null;
+  return currentDir ? <PathCrumbs path={currentDir} onJump={onJump} /> : null;
 }
 
 export default LocalTree;

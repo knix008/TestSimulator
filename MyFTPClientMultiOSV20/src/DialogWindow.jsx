@@ -3,7 +3,7 @@
 // in the URL does the same in a browser. Renders the same components as the
 // in-app overlay so a dialog never knows which host it is in.
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { applyTheme, DEFAULT_THEME } from './themes';
+import { applyTheme, setCustomThemes, DEFAULT_THEME } from './themes';
 import { setLanguage } from './lib/i18n';
 import { setAppearance } from './lib/appearance';
 import { isTauri, invoke, listen } from './lib/backend';
@@ -11,6 +11,7 @@ import { DialogStandalone, RENDERERS } from './dialogs/Dialogs';
 
 function applyAppearance(appearance) {
   if (!appearance) return;
+  if (Array.isArray(appearance.customThemes)) setCustomThemes(appearance.customThemes);
   setAppearance(appearance);
   applyTheme(appearance.theme || DEFAULT_THEME);
   if (appearance.language) setLanguage(appearance.language);

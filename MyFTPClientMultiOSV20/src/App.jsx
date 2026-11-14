@@ -16,7 +16,7 @@ import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
 import { setSeparator, baseName, dirName, joinLocal, posixParent, formatSpeed, formatSize, formatDate, timeStamp, samePath, isUnder, parseHostInput } from './lib/format';
 import { playSuccess, playError, setSoundsEnabled } from './lib/sound';
 import { SETTINGS_DEFAULTS } from './lib/settings';
-import { applyTheme, themeById, nextThemeId, DEFAULT_THEME } from './themes';
+import { applyTheme, themeById, nextThemeId, setCustomThemes, DEFAULT_THEME } from './themes';
 import { Toolbar } from './components/Toolbar';
 import { StartPage } from './components/StartPage';
 import { ConnectionBar, defaultPort } from './components/ConnectionBar';
@@ -114,6 +114,7 @@ export default function App() {
       setLanguage(s.language || 'ko');
       applyFontSize(s.fontSize);
       setSoundsEnabled(s.sounds !== false);
+      setCustomThemes(Array.isArray(s.customThemes) ? s.customThemes : []);
       const theme = applyTheme(themeIdOf(s));
       s.theme = theme.id;
       setAppearance({ theme: theme.id, language: s.language || 'ko', fontSize: s.fontSize });
@@ -146,16 +147,20 @@ export default function App() {
   // A theme previewed in the settings window shows here too.
   useEffect(() => onAppearance((appearance) => {
     if (!appearance || !appearance.theme) return;
+    if (Array.isArray(appearance.customThemes)) setCustomThemes(appearance.customThemes);
     const theme = applyTheme(appearance.theme);
-    setSession((s) => (s ? { ...s, theme: theme.id, themeBg: theme.tokens['--bg'] } : s));
+    setSession((s) => (s ? { ...s, theme: theme.id, themeBg: theme.tokens['--bg'], ...(Array.isArray(appearance.customThemes) ? { customThemes: appearance.customThemes } : {}) } : s));
   }), []);
 
   const saveSession = useCallback((patch) => {
     setSession((s) => (s ? { ...s, ...patch } : s));
     call('session.save', { patch }).catch(() => {});
-    if ('theme' in patch || 'language' in patch || 'fontSize' in patch) {
+    if ('theme' in patch || 'language' in patch || 'fontSize' in patch || 'customThemes' in patch) {
       const next = { ...(session || {}), ...patch };
-      broadcastAppearance(setAppearance({ theme: next.theme, language: next.language, fontSize: next.fontSize }));
+      broadcastAppearance({
+        ...setAppearance({ theme: next.theme, language: next.language, fontSize: next.fontSize }),
+        customThemes: Array.isArray(next.customThemes) ? next.customThemes : [],
+      });
     }
   }, [session]);
 
@@ -768,6 +773,7 @@ export default function App() {
     setLanguage(v.language);
     applyFontSize(v.fontSize);
     setSoundsEnabled(v.sounds !== false);
+    setCustomThemes(Array.isArray(v.customThemes) ? v.customThemes : []);
     const theme = applyTheme(v.theme);
     const localPath = String(v.lastLocalPath || '').trim();
     saveSession({ ...v, theme: theme.id, themeBg: theme.tokens['--bg'], lastLocalPath: localPath || undefined });
@@ -783,10 +789,12 @@ export default function App() {
     if (id === 'nextTheme') setTheme(nextThemeId(session ? session.theme : DEFAULT_THEME));
     else if (id.startsWith('theme:')) setTheme(id.slice(6));
     else if (id === 'toggleLanguage') { const lang = getLanguage() === 'ko' ? 'en' : 'ko'; setLanguage(lang); saveSession({ language: lang }); setStatus(t('ready')); }
-    else if (id === 'settings') {
+    else if (id === 'settings' || id === 'themeSettings' || id === 'newCustomTheme') {
       const v = await dialogs.settings(session, {
         localDir,
         canPickFolder: !!(info.capabilities && info.capabilities.pickFolder),
+        tab: id === 'settings' ? undefined : 'theme',
+        newCustom: id === 'newCustomTheme',
       });
       if (v) applySettings(v);
     }
@@ -920,6 +928,8 @@ export default function App() {
           <StartPage info={info} session={session} form={form} conn={conn} connecting={connecting}
             profiles={profiles} profileName={profileName} history={history} localDir={localDir} serverPath={server.path}
             onAction={action} onPickProfile={pickProfile} onPickHistory={(i) => pickHistory(`h:${i}`)} onClearHistory={() => pickHistory('clear')}
+            onJumpLocal={(p) => { setStartOn(false); if (localTree.current) localTree.current.expandTo(p); }}
+            onJumpServer={(p) => { setStartOn(false); loadServer(p); }}
             onFormChange={setForm}
             onBackground={(bg) => saveSession({ startBackground: bg })} showOnLaunch={session.showStartOnLaunch !== false}
             onShowOnLaunch={(v) => saveSession({ showStartOnLaunch: v })} />
@@ -956,7 +966,7 @@ export default function App() {
           return serverOnLeft ? [serverPane, bar, localPane] : [localPane, bar, serverPane];
         })()}
       </div>
-      <LogPanel ref={logPanelRef} lines={log} height={logHeight} collapsed={logCollapsed} onResizeStart={startHSplit}
+      <LogPanel ref={logPanelRef} lines={log} height={logHeight} collapsed={logCollapsed} onToggleCollapse={() => action('toggleDock')} onResizeStart={startHSplit}
         onClear={() => setLog([])}
         onCopy={() => { writeClipboardText(log.map((l) => `[${l.time}]  ${l.text}`).join('\n')); setStatus(t('log_copied')); }}
         localDir={localDir} terminalStartDir={session.terminalStartDir} connection={conn} remotePath={server.path}

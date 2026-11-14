@@ -1,5 +1,5 @@
-// The Tauri shell's own tests (src-tauri: dialog sizes and labels, saved
-// window bounds, the minimum size against tauri.conf.json, resource paths).
+// The Tauri shell's own tests (src-tauri: dialog sizes and labels, theme-menu
+// placement, saved window bounds, the minimum size against tauri.conf.json).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -22,5 +22,5 @@ test('rust: cargo test in src-tauri passes', () => {
   const out = `${r.stdout}\n${r.stderr}`;
   assert.equal(r.status, 0, out.slice(-4000));
   const passed = [...out.matchAll(/test result: ok\. (\d+) passed/g)].reduce((n, m) => n + Number(m[1]), 0);
-  assert.ok(passed >= 8, `expected the shell's tests to run, got ${passed}\n${out.slice(-2000)}`);
+  assert.ok(passed >= 12, `expected the shell's tests to run, got ${passed}\n${out.slice(-2000)}`);
 });

@@ -10,6 +10,7 @@ import { formatDate } from '../lib/format';
 import { AnimatedBackground, ANIMATION_KINDS, ANIMATION_ICONS, DEFAULT_START_BACKGROUND, themeColors } from '../lib/startBackground';
 import { Icon } from './Icons';
 import { PROTOCOLS, defaultPort } from './ConnectionBar';
+import { PathCrumbs } from './PathCrumbs';
 
 export function startBackgroundOf(session) {
   return { ...DEFAULT_START_BACKGROUND, ...((session && session.startBackground) || {}) };
@@ -82,7 +83,7 @@ function savedValue(form, profiles, profileName, history) {
 }
 
 /** Protocol, host, port, user and password, plus a dropdown of profiles and past connections. */
-function ConnectionFields({ form, conn, connecting, profiles, profileName, history, localDir, serverPath, onFormChange, onPickProfile, onPickHistory }) {
+function ConnectionFields({ form, conn, connecting, profiles, profileName, history, localDir, serverPath, onFormChange, onPickProfile, onPickHistory, onJumpLocal, onJumpServer }) {
   const f = form || { protocol: 'FTP', host: '', port: '21', user: '', password: '' };
   const locked = !!conn || !!connecting;
   const set = (k, v) => onFormChange({ ...f, [k]: v });
@@ -138,11 +139,11 @@ function ConnectionFields({ form, conn, connecting, profiles, profileName, histo
       </label>
       <div className="sp-proto">
         <span className="name">{t('sp_remote')}</span>
-        <span className="mono ellipsis">{conn ? (serverPath || '/') : '—'}</span>
+        {conn ? <PathCrumbs path={serverPath || '/'} onJump={onJumpServer} mark={false} /> : <span className="mono">—</span>}
       </div>
       <div className="sp-proto">
         <span className="name">{t('sp_local')}</span>
-        <span className="path ellipsis" title={localDir || ''}>{localDir || '—'}</span>
+        {localDir ? <PathCrumbs path={localDir} onJump={onJumpLocal} mark={false} /> : <span>—</span>}
       </div>
     </div>
   );
@@ -150,7 +151,7 @@ function ConnectionFields({ form, conn, connecting, profiles, profileName, histo
 
 export function StartPage({
   info, session, form, conn, connecting, profiles, profileName, history, localDir, serverPath,
-  onAction, onPickProfile, onPickHistory, onClearHistory, onFormChange, onBackground, showOnLaunch, onShowOnLaunch,
+  onAction, onPickProfile, onPickHistory, onClearHistory, onFormChange, onJumpLocal, onJumpServer, onBackground, showOnLaunch, onShowOnLaunch,
 }) {
   useLanguage();
   const bg = startBackgroundOf(session);
@@ -418,7 +419,8 @@ export function StartPage({
     ), <button type="button" className="small-button" title={t('tip_profile_save')} onClick={() => onAction('saveProfile')}><Icon name="save" size={12} /> {t('profile_save')}</button>),
     status: card('status', 'start-status', 'link', t('sp_status'), (
       <ConnectionFields form={form} conn={conn} connecting={connecting} profiles={profiles} profileName={profileName} history={history}
-        localDir={localDir} serverPath={serverPath} onFormChange={onFormChange} onPickProfile={onPickProfile} onPickHistory={onPickHistory} />
+        localDir={localDir} serverPath={serverPath} onFormChange={onFormChange} onPickProfile={onPickProfile} onPickHistory={onPickHistory}
+        onJumpLocal={onJumpLocal} onJumpServer={onJumpServer} />
     )),
     side: card('side', 'side', 'sparkle', t('sp_background'), (
       <div className="side-body">

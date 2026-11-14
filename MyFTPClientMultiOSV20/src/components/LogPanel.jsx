@@ -44,7 +44,7 @@ export function tabTitle(tab, shells) {
 }
 
 export const LogPanel = forwardRef(function LogPanel({
-  lines, onClear, onCopy, height, collapsed, onResizeStart, onEnsureHeight,
+  lines, onClear, onCopy, height, collapsed, onToggleCollapse, onResizeStart, onEnsureHeight,
   localDir, terminalStartDir, connection, remotePath, theme, fontSize, fontFamily, scrollback, onError,
   lastShell, onLastShell, onTerminalView,
 }, ref) {
@@ -233,7 +233,7 @@ export const LogPanel = forwardRef(function LogPanel({
   return (
     <div className={`log-dock${collapsed ? ' collapsed' : ''}`}>
       <div className="h-splitter" onMouseDown={(e) => { if (e.button === 0) onResizeStart(e); }} />
-      <div className="log-panel" style={{ height }}>
+      <div className="log-panel" style={collapsed ? undefined : { height }}>
         <div className="log-head">
           <div className="dock-tab-list" ref={tabListRef}>
             <div className={`dock-tab${active === LOG_TAB ? ' active' : ''}`} onClick={() => setActive(LOG_TAB)} role="tab" aria-selected={active === LOG_TAB}>
@@ -265,10 +265,13 @@ export const LogPanel = forwardRef(function LogPanel({
             <button type="button" className="dock-tab-add" title={t('term_tab_next')} disabled={activeIndex >= tabIds.length - 1} onClick={() => shiftTab(1)}>
               <Icon name="chevronRight" size={12} />
             </button>
-            <button type="button" className="dock-tab-add" ref={addRef} title={t('term_new_local')} onClick={onAddClick}>
-              <Icon name="plus" size={12} />
+            <button type="button" className="dock-tab-add" title={t(collapsed ? 'tip_dock_expand' : 'tip_dock_collapse')} aria-label={t(collapsed ? 'dock_expand' : 'dock_collapse')} aria-expanded={!collapsed} onClick={onToggleCollapse}>
+              <Icon name="panelBottom" size={12} />
             </button>
           </span>
+          <button type="button" className="dock-tab-add dock-tab-plus" ref={addRef} title={t('term_new_local')} onClick={onAddClick}>
+            <Icon name="plus" size={12} />
+          </button>
         </div>
         <div className="dock-body">
           <div className={`log-body mono${active === LOG_TAB ? '' : ' hidden'}`} ref={bodyRef}>

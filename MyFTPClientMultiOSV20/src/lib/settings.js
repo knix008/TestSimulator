@@ -15,6 +15,7 @@ export const DEFAULT_SHELL_PROMPTS = {
 export const SETTINGS_DEFAULTS = {
   language: 'ko',
   theme: 'midnight',
+  customThemes: [],
   fontSize: 13,
   terminalFont: '',
   terminalFontSize: 13,

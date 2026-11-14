@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SETTINGS_DEFAULTS, pickSettingsValues } from '../src/lib/settings.js';
 import { serializablePayload, detachedDialogsEnabled } from '../src/lib/dialogWindows.js';
-import { THEMES, DEFAULT_THEME, themeById, nextThemeId, themeSwatchStyle } from '../src/themes.js';
+import { THEMES, DEFAULT_THEME, themeById, nextThemeId, themeSwatchStyle, setCustomThemes, allThemes } from '../src/themes.js';
 import { I18N, setLanguage, getLanguage, t } from '../src/lib/i18n.js';
 import {
   formatSize, formatSpeed, timeStamp, setSeparator, getSeparator,
@@ -14,6 +14,7 @@ import {
   truncateMiddle, parseHostInput, iconFor,
 } from '../src/lib/format.js';
 import { describeError } from '../src/lib/errors.js';
+import reporter from './reporter.mjs';
 
 const root = path.dirname(fileURLToPath(new URL('.', import.meta.url)));
 
@@ -177,19 +178,66 @@ test('npm test uses the custom reporter', () => {
   assert.equal(fs.existsSync(path.join(root, 'test', 'reporter.mjs')), true);
 });
 
-test('themes: 16 themes, lookup, cycle, swatch', () => {
-  assert.equal(THEMES.length, 16);
+test('reporter: English columns for each test and a vertical colourful summary', async () => {
+  process.env.FORCE_COLOR = '1';
+  const events = (async function* () {
+    yield { type: 'test:pass', data: { file: 'test/ui.test.mjs', name: 'themes: cycle', nesting: 0, details: { duration_ms: 12 } } };
+    yield { type: 'test:pass', data: { file: 'test/ui.test.mjs', name: 'themes: swatch', nesting: 0, details: { duration_ms: 4 } } };
+    yield { type: 'test:fail', data: { file: 'test/session.test.mjs', name: 'session: save', nesting: 0, details: { duration_ms: 1500, error: { message: 'expected midnight' } } } };
+    yield { type: 'test:skip', data: { file: 'test/session.test.mjs', name: 'session: optional', nesting: 0, details: { duration_ms: 0 } } };
+  })();
+  let out = '';
+  for await (const chunk of reporter(events)) out += chunk;
+  const text = out.replace(/\x1b\[[0-9;]*m/g, '');
+  assert.doesNotMatch(text, /[가-힣]/);
+  for (const word of ['Summary', 'File', 'Passed', 'Failed', 'Skipped', 'Time', 'Result', 'Files', 'Tests', 'Pass rate', 'Duration', 'FAILED']) {
+    assert.match(text, new RegExp(word));
+  }
+  assert.match(out, /\x1b\[32m/);
+  assert.match(out, /\x1b\[31m/);
+  assert.match(out, /\x1b\[1;97;44m/);
+  const cases = text.split('\n').filter((line) => /themes:/.test(line));
+  assert.equal(cases.length, 2);
+  assert.equal(cases[0].length, cases[1].length);
+  const totals = text.split('\n').filter((line) => /^ {2}(Files|Tests|Passed|Failed|Skipped|Pass rate|Duration)/.test(line));
+  assert.equal(totals.length, 7);
+  assert.equal(new Set(totals.map((line) => line.length)).size, 1);
+});
+
+test('themes: 40 themes, lookup, cycle, swatch', () => {
+  assert.equal(THEMES.length, 40);
+  assert.equal(THEMES.filter((th) => th.mode === 'dark').length, 20);
+  assert.equal(THEMES.filter((th) => th.mode === 'light').length, 20);
+  assert.equal(THEMES.findIndex((th) => th.mode === 'light'), 20);
   assert.equal(DEFAULT_THEME, 'midnight');
   assert.equal(themeById('nord').id, 'nord');
   assert.equal(themeById('missing').id, DEFAULT_THEME);
   assert.ok(THEMES.every((th) => th.tokens['--bg'] && th.tokens['--accent'] && th.label && th.labelEn));
   const ids = THEMES.map((th) => th.id);
-  assert.equal(new Set(ids).size, 16);
+  assert.equal(new Set(ids).size, 40);
+  setCustomThemes([]);
   let id = DEFAULT_THEME;
   for (let i = 0; i < THEMES.length; i++) id = nextThemeId(id);
   assert.equal(id, DEFAULT_THEME);
   const sw = themeSwatchStyle(themeById('graphite'));
   assert.match(sw.background, /linear-gradient/);
+  setCustomThemes([{
+    id: 'custom-test', label: 'Mine', mode: 'dark',
+    colors: { bg: '#111111', panel: '#161616', raised: '#1c1c1c', hover: '#222222', active: '#2a2a2a', border: '#333333', borderStrong: '#444444', text: '#eeeeee', textDim: '#aaaaaa', accent: '#4cc9f0', accentStrong: '#4361ee', accentText: '#041016', folder: '#f5c451', file: '#9fb3d9', danger: '#ff6b6b' },
+  }]);
+  assert.equal(themeById('custom-test').custom, true);
+  assert.equal(allThemes().length, 41);
+  setCustomThemes([]);
+  const popup = fs.readFileSync(path.join(root, 'src', 'components', 'ThemePopup.jsx'), 'utf8');
+  assert.match(popup, /theme_new_custom/);
+  assert.match(popup, /themeSettings/);
+  assert.match(popup, /ThemeColumns/);
+  const css = fs.readFileSync(path.join(root, 'src', 'styles.css'), 'utf8');
+  assert.match(css, /grid-template-rows:\s*repeat\(10,\s*auto\)/);
+  assert.match(css, /grid-auto-flow:\s*column/);
+  const rust = fs.readFileSync(path.join(root, 'src-tauri', 'src', 'dialogs.rs'), 'utf8');
+  assert.match(rust, /fn theme_menu_open/);
+  assert.match(rust, /__MFC_MENU__/);
 });
 
 test('i18n: Korean and English catalogs share the same keys', () => {
