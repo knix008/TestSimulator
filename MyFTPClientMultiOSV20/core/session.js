@@ -6,7 +6,9 @@
 //   language       — 'ko' | 'en'
 //   theme          — one of src/themes.js ids
 //   serverWidth    — width of the server panel as a fraction of the file area
+//   serverOnLeft   — server panel on the left (local on the right) when true
 //   logHeight      — height of the log area in px
+//   logCollapsed   — bottom log/terminal dock is hidden when true
 //   windowBounds   — Electron window position/size
 //
 // Electron passes app.getPath('userData'); the web server uses the XDG /
@@ -30,7 +32,9 @@ const DEFAULTS = {
   terminalFont: '',
   terminalFontSize: 13,
   serverWidth: 0.5,
+  serverOnLeft: true,
   logHeight: 170,
+  logCollapsed: false,
   confirmDelete: true,
   restoreLocalPath: true,
   sounds: true,

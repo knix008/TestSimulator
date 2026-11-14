@@ -157,6 +157,12 @@ export function SettingsDialog({ spec, done }) {
                 {[11, 12, 13, 14, 15, 16, 18].map((n) => <option key={n} value={n}>{n} px</option>)}
               </select>
 
+              <label>{t('set_panel_side')}</label>
+              <select value={v.serverOnLeft === false ? 'right' : 'left'} title={t('set_panel_side_hint')} onChange={(e) => set('serverOnLeft', e.target.value === 'left')}>
+                <option value="left">{t('set_server_left')}</option>
+                <option value="right">{t('set_server_right')}</option>
+              </select>
+
               <label>{t('set_local_cwd')}</label>
               <div className="path-pick">
                 <input type="text" value={v.lastLocalPath || ''} placeholder={t('set_local_cwd_placeholder')}
@@ -176,6 +182,8 @@ export function SettingsDialog({ spec, done }) {
               <label className="check"><input type="checkbox" checked={!!v.sounds} onChange={(e) => set('sounds', e.target.checked)} /> {t('set_sounds')}</label>
               <span />
               <label className="check"><input type="checkbox" checked={!!v.showConnectedDialog} onChange={(e) => set('showConnectedDialog', e.target.checked)} /> {t('set_connected_dialog')}</label>
+              <span />
+              <label className="check" title={t('set_show_start_hint')}><input type="checkbox" checked={v.showStartOnLaunch !== false} onChange={(e) => set('showStartOnLaunch', e.target.checked)} /> {t('set_show_start')}</label>
             </>
           )}
 

@@ -5,7 +5,7 @@ import React, { useRef } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { FatArrow } from './Icons';
 
-export function TransferBar({ onUpload, onDownload, canUpload, canDownload, onResizeStart }) {
+export function TransferBar({ onUpload, onDownload, canUpload, canDownload, onResizeStart, serverOnLeft = true }) {
   useLanguage();
   const dragging = useRef(false);
   return (
@@ -13,10 +13,10 @@ export function TransferBar({ onUpload, onDownload, canUpload, canDownload, onRe
       onMouseDown={(e) => { if (e.button !== 0 || e.target.closest('button')) return; dragging.current = true; onResizeStart(e); }}>
       <div className="transfer-buttons">
         <button className="xfer-btn xfer-up" onClick={onUpload} disabled={!canUpload} title={t('upload_btn')} aria-label={t('upload_btn')}>
-          <FatArrow left />
+          <FatArrow left={serverOnLeft} />
         </button>
         <button className="xfer-btn xfer-down" onClick={onDownload} disabled={!canDownload} title={t('download_btn')} aria-label={t('download_btn')}>
-          <FatArrow left={false} />
+          <FatArrow left={!serverOnLeft} />
         </button>
       </div>
     </div>

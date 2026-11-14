@@ -1,7 +1,10 @@
 // The top bar of the frameless window — it replaces the OS title bar:
-//   left   app icon + name, the connection badge, the profile combo with
-//          저장 / 삭제 (moved here from the connection bar)
-//   right  terminal view, theme picker (split: main cycles, caret lists all 16),
+//   left   a fixed brand (icon + name + version, then the start-page toggle
+//          immediately to the right of the version — it does not drag or
+//          resize the window), the connection badge, the
+//          profile combo with 저장 / 삭제 (moved here from the connection bar)
+//   right  swap server/local sides, collapse/expand the bottom dock, terminal view,
+//          theme picker (split: main cycles, caret lists all 16),
 //          language toggle (the flag of the language you switch TO), Settings,
 //          the user guide (its own window), Info, and — in the desktop app —
 //          minimize / maximize / close.
@@ -34,7 +37,7 @@ function WindowButtons() {
   );
 }
 
-export function Toolbar({ onAction, theme, connection, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy, terminalView, fontSize }) {
+export function Toolbar({ onAction, theme, connection, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy, terminalView, dockCollapsed = false, fontSize, startOpen = false, version = '' }) {
   useLanguage();
   const [themeMenu, setThemeMenu] = useState(null);
   const lang = getLanguage();
@@ -48,12 +51,19 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
     swatchBg: th.tokens['--bg'],
   }));
   // Double-click on the empty part of the bar toggles maximize, like a title bar.
-  const onDouble = (e) => { if (isDesktop && !e.target.closest('button, select, input, .tb-profile')) windowControl('maximize'); };
+  const onDouble = (e) => { if (isDesktop && !e.target.closest('button, select, input, .tb-profile, .tb-brand')) windowControl('maximize'); };
   return (
     <div className="toolbar" onDoubleClick={onDouble}>
       <div className="tb-main">
-      <img src="./icon.svg" alt="" width={20} height={20} className="tb-logo" />
-      <span className="tb-title">{t('appName')}</span>
+      <span className="tb-brand" data-no-drag>
+        <img src="./icon.svg" alt="" width={20} height={20} className="tb-logo" />
+        <span className="tb-title">{t('appTitle')}</span>
+        {version && <span className="tb-version">v{version}</span>}
+        <button className={`tb-btn tb-start${startOpen ? ' active' : ''}`} title={t('tip_start_page')} aria-label={t('home')} aria-pressed={startOpen} onClick={() => onAction('toggleStart')}>
+          <Icon name="home" /><span>{t('home')}</span>
+        </button>
+      </span>
+      <span className="tb-sep" />
       {connection && (
         <span className="tb-conn" title={`${connection.protocol}://${connection.user ? `${connection.user}@` : ''}${connection.host}:${connection.port}`}>
           <span className="tb-conn-dot" />
@@ -70,6 +80,12 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
         <button className="tb-btn" onClick={onDeleteProfile} title={t('tip_profile_delete')} disabled={busy}><Icon name="trash" /><span>{t('profile_delete')}</span></button>
       </span>
       <span className="tb-spacer" />
+      <button className="tb-btn" title={t('tip_swap_panels')} aria-label={t('swap_panels')} onClick={() => onAction('swapPanels')}>
+        <Icon name="swap" /><span>{t('swap_panels')}</span>
+      </button>
+      <button className="tb-btn" title={t(dockCollapsed ? 'tip_dock_expand' : 'tip_dock_collapse')} aria-label={t(dockCollapsed ? 'dock_expand' : 'dock_collapse')} aria-pressed={dockCollapsed} onClick={() => onAction('toggleDock')}>
+        <Icon name={dockCollapsed ? 'chevronUp' : 'chevronDown'} /><span>{t(dockCollapsed ? 'dock_expand' : 'dock_collapse')}</span>
+      </button>
       <button className={`tb-btn${terminalView ? ' selected' : ''}`} title={t('tip_term_view')} onClick={() => onAction('terminal')} aria-pressed={!!terminalView}>
         <Icon name="terminal" /><span>{t('term_view')}</span>
       </button>

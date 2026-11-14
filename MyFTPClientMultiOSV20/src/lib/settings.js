@@ -22,6 +22,8 @@ export const SETTINGS_DEFAULTS = {
   restoreLocalPath: true,
   sounds: true,
   showConnectedDialog: true,
+  showStartOnLaunch: true,
+  serverOnLeft: true,
   transferConcurrency: 3,
   skipUnchanged: true,
   terminalStartDir: '',

@@ -46,11 +46,12 @@ const paths = {
   chevronRight: <><path d="M9 6l6 6-6 6" /></>,
   chevronLeft: <><path d="M15 6l-6 6 6 6" /></>,
   chevronDown: <><path d="M6 9l6 6 6-6" /></>,
+  chevronUp: <><path d="M6 15l6-6 6 6" /></>,
   up: <><path d="M12 19V5M5 12l7-7 7 7" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
   save: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><path d="M17 21v-8H7v8M7 3v5h8" /></>,
   settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></>,
-  palette: <><path d="M12 3a9 9 0 0 0 0 18h1a2 2 0 0 0 1.4-3.4 2 2 0 0 1 1.4-3.4H18a3 3 0 0 0 3-3c0-4.6-4-8.2-9-8.2z" /><circle cx="7.5" cy="11.5" r="1.2" fill="currentColor" /><circle cx="10.5" cy="7.5" r="1.2" fill="currentColor" /><circle cx="15" cy="7.5" r="1.2" fill="currentColor" /></>,
+  palette: <><path d="M12 3a9 9 0 0 0 0 18h1a2 2 0 0 0 1.4-3.4 2 2 0 0 1 1.4-3.4H18a3 3 0 0 0 3-3c0-4.6-4-8.2-9-8.2z" /><circle cx="7.5" cy="11.5" r="1.2" fill="#ff7b7b" stroke="none" /><circle cx="10.5" cy="7.5" r="1.2" fill="#f5d547" stroke="none" /><circle cx="15" cy="7.5" r="1.2" fill="#5fd98a" stroke="none" /></>,
   clipboard: <><rect x="8" y="2" width="8" height="4" rx="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="M9 13l2 2 4-4" /></>,
   copy: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>,
   cut: <><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.12 15.88" /><path d="M14.47 14.48L20 20" /><path d="M8.12 8.12L12 12" /></>,
@@ -61,6 +62,35 @@ const paths = {
   plus: <><path d="M12 5v14M5 12h14" /></>,
   fontDecrease: <><path d="M4 17l3.2-8h1.2L11.6 17M5.2 14h5.2" /><path d="M15 12h6" /></>,
   fontIncrease: <><path d="M3 19l4.6-12h1.6L14 19M4.6 15.2h7.6" /><path d="M18 9v8M14 13h8" /></>,
+  play: <><path d="M7 4l12 8-12 8z" fill="currentColor" /></>,
+  stop: <><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor" /></>,
+  lock: <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>,
+  network: <><rect x="9" y="3" width="6" height="5" rx="1" /><rect x="3" y="16" width="6" height="5" rx="1" /><rect x="15" y="16" width="6" height="5" rx="1" /><path d="M12 8v4M6 16v-2h12v2" /></>,
+  sparkle: <><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" /></>,
+  dice: <><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01" /></>,
+  gauge: <><path d="M4 18a9 9 0 1 1 16 0" /><path d="M12 13l4-5" /><circle cx="12" cy="14" r="1.5" /></>,
+  eye: <><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
+  grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
+  globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
+  radar: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><path d="M12 12l6-6" /><circle cx="16" cy="15" r="1" /></>,
+  waves: <><path d="M2 8c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0M2 14c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0M2 20c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0" /></>,
+  binary: <><rect x="4" y="3" width="5" height="8" rx="2.5" /><path d="M16 3v8M14 5l2-2M8 13v8M6 15l2-2" /><rect x="14" y="13" width="5" height="8" rx="2.5" /></>,
+  cpu: <><rect x="6" y="6" width="12" height="12" rx="2" /><rect x="9.5" y="9.5" width="5" height="5" /><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" /></>,
+  transfer: <><path d="M7 20V5M3 9l4-4 4 4M17 4v15M13 15l4 4 4-4" /></>,
+  swap: <><path d="M4 8h13" /><path d="M13 4l4 4-4 4" /><path d="M20 16H7" /><path d="M11 12l-4 4 4 4" /></>,
+  aurora: <><path d="M3 18c3-8 6-12 9-12s6 4 9 12" /><path d="M6 18c2-5 4-7 6-7s4 2 6 7" /></>,
+  hexagon: <><path d="M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5z" /><path d="M12 8l3.5 2v4L12 16l-3.5-2v-4z" /></>,
+  satellite: <><rect x="9" y="9" width="6" height="6" rx="1" transform="rotate(45 12 12)" /><path d="M5 5l3 3M16 16l3 3M3 9l4-4 2 2-4 4zM15 17l4-4 2 2-4 4z" /></>,
+  tunnel: <><rect x="2" y="2" width="20" height="20" rx="2" /><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" /><rect x="10" y="10" width="4" height="4" /><path d="M2 2l8 8M22 2l-8 8M2 22l8-8M22 22l-8-8" /></>,
+  chart: <><path d="M3 3v18h18" /><path d="M6 15l4-5 3 3 5-7" /><path d="M6 19l4-3 3 1 5-4" /></>,
+  tree: <><rect x="3" y="3" width="6" height="5" rx="1" /><rect x="15" y="10" width="6" height="4" rx="1" /><rect x="15" y="17" width="6" height="4" rx="1" /><path d="M6 8v11h9M6 12h9" /></>,
+  sync: <><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8" /><path d="M4 3v5h5" /><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16" /><path d="M20 21v-5h-5" /></>,
+  warp: <><circle cx="12" cy="12" r="1.5" /><path d="M12 2v5M12 17v5M2 12h5M17 12h5M5 5l3.5 3.5M15.5 15.5L19 19M19 5l-3.5 3.5M8.5 15.5L5 19" /></>,
+  terrain: <><path d="M2 20l6-9 4 5 3-4 7 8z" /><path d="M2 14h20M5 9h14" /></>,
+  fiber: <><path d="M2 6c6 0 8 6 20 6M2 12h20M2 18c6 0 8-6 20-6" /><circle cx="17" cy="12" r="1.5" /></>,
+  broadcast: <><path d="M12 12l-4 10M12 12l4 10M9.5 18h5" /><circle cx="12" cy="10" r="1.5" /><path d="M8 6a6 6 0 0 0 0 8M16 6a6 6 0 0 1 0 8M5 3a10 10 0 0 0 0 14M19 3a10 10 0 0 1 0 14" /></>,
+  history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
+  keyboard: <><rect x="2" y="6" width="20" height="12" rx="2" /><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" /></>,
 };
 
 // The two fat arrows of the transfer bar (filled, like the original's GDI+
@@ -114,9 +144,31 @@ export function Flag({ country, width = 22, className = '' }) {
   );
 }
 
+/** Hue name for each icon. styles.css turns it into a light-theme and a dark-theme shade. */
+export const ICON_TONE = {
+  folder: 'amber', folderOpen: 'amber', folderNew: 'green', folderUp: 'sky',
+  file: 'blue', fileText: 'sky', fileImage: 'pink', fileArchive: 'brown', fileExe: 'orange',
+  fileCode: 'cyan', fileMarkup: 'indigo', filePdf: 'red', fileAudio: 'purple', fileVideo: 'pink',
+  drive: 'slate', driveNet: 'teal', driveUsb: 'orange', disc: 'indigo',
+  home: 'teal', server: 'indigo', plug: 'green', unplug: 'red',
+  upload: 'sky', download: 'green', refresh: 'teal', rename: 'amber',
+  trash: 'red', delete: 'red', open: 'sky', explorer: 'blue',
+  book: 'orange', info: 'sky', warning: 'amber', check: 'green', close: 'red',
+  chevronRight: 'slate', chevronLeft: 'slate', chevronDown: 'slate', chevronUp: 'slate', up: 'sky',
+  clock: 'amber', save: 'green', settings: 'slate', palette: 'pink',
+  clipboard: 'teal', copy: 'blue', cut: 'orange', paste: 'brown', eraser: 'pink',
+  link: 'cyan', terminal: 'green', plus: 'green',
+  fontDecrease: 'indigo', fontIncrease: 'indigo', play: 'green', stop: 'red', lock: 'yellow',
+  network: 'cyan', sparkle: 'yellow', dice: 'purple', gauge: 'orange', eye: 'teal',
+  grid: 'indigo', globe: 'sky', radar: 'green', waves: 'cyan', binary: 'green', cpu: 'indigo',
+  transfer: 'sky', swap: 'teal', aurora: 'purple', hexagon: 'teal', satellite: 'indigo', tunnel: 'purple',
+  chart: 'green', tree: 'amber', sync: 'teal', warp: 'indigo', terrain: 'green',
+  fiber: 'cyan', broadcast: 'orange', history: 'amber', keyboard: 'slate',
+};
+
 export function Icon({ name, size = 16, className = '', style }) {
   return (
-    <svg {...base} width={size} height={size} className={`icon icon-${name} ${className}`} style={style} aria-hidden="true">
+    <svg {...base} width={size} height={size} data-tone={ICON_TONE[name] || 'blue'} className={`icon icon-${name} ${className}`} style={style} aria-hidden="true">
       {paths[name] || paths.file}
     </svg>
   );

@@ -44,7 +44,7 @@ export function tabTitle(tab, shells) {
 }
 
 export const LogPanel = forwardRef(function LogPanel({
-  lines, onClear, onCopy, height, onResizeStart, onEnsureHeight,
+  lines, onClear, onCopy, height, collapsed, onResizeStart, onEnsureHeight,
   localDir, terminalStartDir, connection, remotePath, theme, fontSize, fontFamily, scrollback, onError,
   lastShell, onLastShell, onTerminalView,
 }, ref) {
@@ -109,7 +109,7 @@ export const LogPanel = forwardRef(function LogPanel({
   const preferredId = (lastShell && shells.some((s) => s.id === lastShell) ? lastShell : null)
     || (shells.find((s) => s.preferred) || shells[0] || {}).id;
 
-  const openTerm = async (kind, shellId) => {
+  const openTerm = async (kind, shellId, cwdOverride) => {
     if (tabs.length >= MAX_TABS) {
       if (onError) onError(t('term_max', { n: MAX_TABS }));
       return;
@@ -121,7 +121,7 @@ export const LogPanel = forwardRef(function LogPanel({
     try {
       const snap = await call('terminal.open', {
         kind,
-        cwd: (kind === 'local' && terminalStartDir && String(terminalStartDir).trim()) || localDir,
+        cwd: cwdOverride || (kind === 'local' && terminalStartDir && String(terminalStartDir).trim()) || localDir,
         connId: connection && connection.id,
         remotePath,
         cols: 80,
@@ -211,54 +211,64 @@ export const LogPanel = forwardRef(function LogPanel({
       setPickOpen(false);
       setActive(LOG_TAB);
     },
+    async openLocal(cwd) {
+      let id = preferredId;
+      if (!id) {
+        try {
+          const r = await call('terminal.shells');
+          const list = (r && r.shells) || [];
+          setShells(list);
+          id = (list.find((s) => s.preferred) || list[0] || {}).id;
+        } catch { /* none installed */ }
+      }
+      if (!id) {
+        if (onError) onError(t('term_none'));
+        return;
+      }
+      if (onEnsureHeight) onEnsureHeight(220);
+      return openTerm('local', id, cwd);
+    },
   }));
 
   return (
-    <>
+    <div className={`log-dock${collapsed ? ' collapsed' : ''}`}>
       <div className="h-splitter" onMouseDown={(e) => { if (e.button === 0) onResizeStart(e); }} />
       <div className="log-panel" style={{ height }}>
         <div className="log-head">
-          <div className="dock-tabs">
-            <div className="dock-tab-list" ref={tabListRef}>
-              <div className={`dock-tab${active === LOG_TAB ? ' active' : ''}`} onClick={() => setActive(LOG_TAB)} role="tab" aria-selected={active === LOG_TAB}>
-                <Icon name="fileText" size={12} />
-                <span className="dock-tab-label">{t('log')}</span>
-              </div>
-              {tabs.map((tab) => (
-                <div key={tab.id} className={`dock-tab${active === tab.id ? ' active' : ''}`}
-                  onClick={() => setActive(tab.id)} onAuxClick={(e) => { if (e.button === 1) closeTab(tab.id, e); }}
-                  title={tabTitle(tab, shells)} role="tab" aria-selected={active === tab.id}>
-                  <Icon name={tab.kind === 'remote' ? 'server' : 'terminal'} size={12} />
-                  <span className="dock-tab-label">{tabTitle(tab, shells)}</span>
-                  <button type="button" className="dock-tab-close" title={t('term_close')} onClick={(e) => closeTab(tab.id, e)}>
-                    <Icon name="close" size={10} />
-                  </button>
-                </div>
-              ))}
+          <div className="dock-tab-list" ref={tabListRef}>
+            <div className={`dock-tab${active === LOG_TAB ? ' active' : ''}`} onClick={() => setActive(LOG_TAB)} role="tab" aria-selected={active === LOG_TAB}>
+              <Icon name="fileText" size={12} />
+              <span className="dock-tab-label">{t('log')}</span>
             </div>
-            {tabIds.length > 1 && (
-              <span className="dock-tab-nav">
-                <button type="button" className="dock-tab-add" title={t('term_tab_prev')} disabled={activeIndex <= 0} onClick={() => shiftTab(-1)}>
-                  <Icon name="chevronLeft" size={12} />
+            {tabs.map((tab) => (
+              <div key={tab.id} className={`dock-tab${active === tab.id ? ' active' : ''}`}
+                onClick={() => setActive(tab.id)} onAuxClick={(e) => { if (e.button === 1) closeTab(tab.id, e); }}
+                title={tabTitle(tab, shells)} role="tab" aria-selected={active === tab.id}>
+                <Icon name={tab.kind === 'remote' ? 'server' : 'terminal'} size={12} />
+                <span className="dock-tab-label">{tabTitle(tab, shells)}</span>
+                <button type="button" className="dock-tab-close" title={t('term_close')} onClick={(e) => closeTab(tab.id, e)}>
+                  <Icon name="close" size={10} />
                 </button>
-                <button type="button" className="dock-tab-add" title={t('term_tab_next')} disabled={activeIndex >= tabIds.length - 1} onClick={() => shiftTab(1)}>
-                  <Icon name="chevronRight" size={12} />
-                </button>
-              </span>
-            )}
-            {active !== LOG_TAB && (
-              <button type="button" className="dock-tab-add" ref={addRef} title={t('term_new_local')} onClick={onAddClick}>
-                <Icon name="plus" size={12} />
-              </button>
-            )}
+              </div>
+            ))}
           </div>
           {active === LOG_TAB && (
             <>
-              <span className="spacer" />
               <button className="icon-btn" title={t('log_copy')} onClick={onCopy}><Icon name="copy" size={14} /></button>
               <button className="icon-btn" title={t('log_clear')} onClick={onClear}><Icon name="eraser" size={14} /></button>
             </>
           )}
+          <span className="dock-tab-tools">
+            <button type="button" className="dock-tab-add" title={t('term_tab_prev')} disabled={activeIndex <= 0} onClick={() => shiftTab(-1)}>
+              <Icon name="chevronLeft" size={12} />
+            </button>
+            <button type="button" className="dock-tab-add" title={t('term_tab_next')} disabled={activeIndex >= tabIds.length - 1} onClick={() => shiftTab(1)}>
+              <Icon name="chevronRight" size={12} />
+            </button>
+            <button type="button" className="dock-tab-add" ref={addRef} title={t('term_new_local')} onClick={onAddClick}>
+              <Icon name="plus" size={12} />
+            </button>
+          </span>
         </div>
         <div className="dock-body">
           <div className={`log-body mono${active === LOG_TAB ? '' : ' hidden'}`} ref={bodyRef}>
@@ -271,12 +281,12 @@ export const LogPanel = forwardRef(function LogPanel({
           ))}
         </div>
       </div>
-      {pickOpen && active !== LOG_TAB && (
+      {pickOpen && (
         <ContextMenu className="term-pick" anchorEl={addRef.current} x={0} y={0}
           items={pickItems.length ? pickItems : [{ id: 'none', label: t('term_none'), disabled: true }]}
           onClose={() => setPickOpen(false)} onPick={onPick} />
       )}
-    </>
+    </div>
   );
 });
 

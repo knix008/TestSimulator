@@ -39,8 +39,8 @@
   <nav id="side" aria-label="Contents"></nav>
   <div id="content">
   <main>
-    <p class="lead ko">My FTP Client 는 FTP · FTPS · SFTP 서버에 접속해 파일을 올리고 내려받는 프로그램입니다. 왼쪽은 서버, 오른쪽은 내 컴퓨터의 폴더 트리이고, 아래에는 로그와 터미널이 있습니다. Windows · macOS · Linux 데스크톱 앱과 웹 브라우저 판이 같은 화면을 씁니다.</p>
-    <p class="lead en">My FTP Client connects to FTP, FTPS and SFTP servers to upload and download files. The server is on the left, your computer's folder tree on the right, and the log and terminal below. The desktop app (Windows, macOS, Linux) and the web version share the same screen.</p>
+    <p class="lead ko">My FTP Client 는 FTP · FTPS · SFTP 서버에 접속해 파일을 올리고 내려받는 프로그램입니다. 처음에는 시작 페이지가 열리고, 작업 화면에서는 기본적으로 왼쪽이 서버, 오른쪽이 내 컴퓨터의 폴더 트리입니다. 좌우는 설정에서 바꿀 수 있습니다. 아래에는 로그와 터미널이 있습니다. Windows · macOS · Linux 데스크톱 앱과 웹 브라우저 판이 같은 화면을 씁니다.</p>
+    <p class="lead en">My FTP Client connects to FTP, FTPS and SFTP servers to upload and download files. It opens on a start page; the file view then puts the server on the left and your computer's folder tree on the right unless you swap them with <b>Swap sides</b> on the toolbar or in Settings. The log and terminal sit below. The desktop app (Windows, macOS, Linux) and the web version share the same screen.</p>
 
     <section id="start">
       <h2><span class="ko">시작하기</span><span class="en">Getting started</span></h2>
@@ -53,7 +53,7 @@
         <ol>
           <li>접속 바에서 프로토콜을 고르고 호스트, 사용자, 비밀번호를 입력합니다.</li>
           <li><b>Connect</b> 를 누르거나 입력란에서 <kbd>Enter</kbd> 를 칩니다.</li>
-          <li>왼쪽 서버 목록에서 파일을 고르고 <b>→</b> 로 내려받거나, 오른쪽 로컬 트리에서 고르고 <b>←</b> 로 올립니다.</li>
+          <li>서버 목록에서 파일을 고르고 로컬 쪽을 가리키는 화살표로 내려받거나, 로컬 트리에서 고르고 서버 쪽을 가리키는 화살표로 올립니다. 기본 배치에서는 서버가 왼쪽이라 <b>→</b> 가 다운로드, <b>←</b> 가 업로드입니다.</li>
         </ol>
         <h3>설치와 제거</h3>
         <p>Windows 설치 프로그램은 처음에 한국어/English 를 고릅니다. 이미 설치된 My FTP Client(이전 Electron 판 포함)가 있으면 삭제 후 설치할지 묻고, 남아 있는 데이터(접속 프로파일·기록·설정)를 지울지도 묻습니다. [아니요] 를 고르면 기존 설정을 그대로 이어서 씁니다. 다음 페이지에서 바탕화면 / 시작 메뉴 바로가기를 고릅니다.</p>
@@ -64,11 +64,35 @@
         <ol>
           <li>Pick the protocol on the connection bar and enter the host, user and password.</li>
           <li>Press <b>Connect</b>, or <kbd>Enter</kbd> in any of the fields.</li>
-          <li>Pick files in the server list on the left and press <b>→</b> to download, or pick them in the local tree on the right and press <b>←</b> to upload.</li>
+          <li>Pick files in the server list and press the arrow that points at the local folder to download, or pick them in the local tree and press the arrow that points at the server to upload. With the default layout the server is on the left, so <b>→</b> downloads and <b>←</b> uploads.</li>
         </ol>
         <h3>Installing and removing</h3>
         <p>The Windows installer first asks for Korean or English. If My FTP Client is already installed (the earlier Electron build included), it asks whether to remove it and install this version, and whether to delete the data it left (connection profiles, history, settings). Choose No to keep your settings. The next page offers desktop and Start menu shortcuts.</p>
         <p>The installed app carries its own Node runtime, so Node.js does not need to be installed.</p>
+      </div>
+    </section>
+
+    <section id="start-page">
+      <h2><span class="ko">시작 페이지</span><span class="en">Start page</span></h2>
+      <div class="ko">
+        <p>앱을 열면 작업 화면 대신 시작 페이지가 먼저 나옵니다. 툴바의 <b>홈</b> 으로 언제든 시작 페이지와 작업 화면을 오갑니다. 아래쪽 <b>시작할 때 이 페이지 표시</b> 를 끄면 다음부터는 작업 화면으로 바로 열립니다. 같은 항목이 설정의 일반 탭에도 있습니다.</p>
+        <p>위쪽 제목(아이콘, <b>My FTP Client</b>, 버전)은 고정입니다. 끌거나 크기를 바꿀 수 없습니다. 그 아래 카드(빠른 작업, 최근 접속, 프로파일, 접속 정보, 배경)는 기본적으로 한 장씩 세로로 쌓이고, 카드 안의 항목은 가로로 놓입니다. 손잡이(⠿)로 옮기고 오른쪽 아래 모서리로 크기를 바꿉니다. <b>자동 정렬</b> 은 카드를 다시 세로로 채웁니다.</p>
+        <ul>
+          <li><b>Connect</b> 는 작업 화면으로 가서 입력한 서버에 접속합니다. <b>작업 화면</b> 은 연결하지 않고 파일 목록으로 돌아갑니다.</li>
+          <li><b>접속 정보</b> 카드에서 프로토콜을 고르고 호스트 · 포트 · 사용자 · 비밀번호를 입력합니다. 위쪽 목록에서 프로파일이나 예전에 접속한 서버를 고르면 그 값이 채워집니다. 비밀번호는 프로파일에만 있습니다.</li>
+          <li>배경은 계속 움직입니다. 종류, 속도, 투명도, 섞기 간격, 시작할 때 무작위 배경을 고릅니다.</li>
+        </ul>
+        <p>툴바 맨 왼쪽의 프로그램 이름과 버전도 고정입니다. 그 글자를 끌어도 창이 움직이지 않고, 두 번 눌러도 창 크기가 바뀌지 않습니다. 창은 툴바의 빈 곳을 끌어 옮기고, 빈 곳을 두 번 눌러 최대화합니다.</p>
+      </div>
+      <div class="en">
+        <p>The app opens on the start page instead of the file view. <b>Home</b> on the toolbar switches between them at any time. Turn off <b>Show this page at start</b> at the bottom and the next launch opens the file view. The same option is on the General tab of Settings.</p>
+        <p>The title at the top (icon, <b>My FTP Client</b> and the version) is fixed. It cannot be dragged or resized. The cards under it (quick actions, recent connections, profiles, connection, background) stack one per row by default, and the items inside a card sit in a row. They move by the ⠿ handle and resize from the bottom-right corner. <b>Auto arrange</b> stacks them again.</p>
+        <ul>
+          <li><b>Connect</b> opens the file view and connects to the server you entered. <b>File view</b> returns to the file lists without connecting.</li>
+          <li>The <b>Connection</b> card sets the protocol and takes the host, port, user and password. The list at the top fills those fields from a profile or a server connected before. Only a profile keeps the password.</li>
+          <li>The background keeps moving. Pick the kind, speed, transparency, shuffle interval and a random background at start.</li>
+        </ul>
+        <p>The program name and version at the left of the toolbar are fixed too. Dragging that text does not move the window, and double-clicking it does not change the window size. Drag an empty part of the toolbar to move the window, and double-click an empty part to maximize it.</p>
       </div>
     </section>
 
@@ -77,10 +101,10 @@
       <div class="ko">
         <table>
           <tr><th>영역</th><th>설명</th></tr>
-          <tr><td>툴바</td><td>OS 제목 표시줄을 대신합니다. 앱 이름, 현재 연결(녹색 점), 프로파일(선택 · 저장 · 삭제), 터미널 보기, 글꼴 작게 / 현재 크기 / 글꼴 크게, 테마, 언어, 설정, <b>설명서</b>, 정보, 그리고 최소화 · 최대화 · 닫기. 빈 곳을 끌면 창이 움직이고, 두 번 클릭하면 최대화/복원됩니다.</td></tr>
+          <tr><td>툴바</td><td>OS 제목 표시줄을 대신합니다. 고정된 앱 이름과 버전, 버전 바로 오른쪽의 <b>홈</b>(시작 페이지), 현재 연결(녹색 점), 프로파일(선택 · 저장 · 삭제), <b>좌우 바꾸기</b>(서버와 로컬 패널), <b>하단 접기</b>(로그·터미널 패널), 터미널 보기, 글꼴 작게 / 현재 크기 / 글꼴 크게, 테마, 언어, 설정, <b>설명서</b>, 정보, 그리고 최소화 · 최대화 · 닫기. 이름과 버전은 끌거나 두 번 눌러도 창이 움직이지 않습니다. 빈 곳을 끌면 창이 움직이고, 빈 곳을 두 번 클릭하면 최대화/복원됩니다.</td></tr>
           <tr><td>접속 바</td><td>프로토콜 · 호스트 · 포트 · 사용자 · 비밀번호 · 접속 기록 · Connect(연결되면 Disconnect)</td></tr>
-          <tr><td>서버 패널</td><td>서버의 현재 폴더. <code>[..]</code> 은 상위 폴더. 폴더 먼저, 이름순.</td></tr>
-          <tr><td>전송 바</td><td><b>←</b> 업로드, <b>→</b> 다운로드. 바를 끌면 두 패널의 너비가 바뀝니다.</td></tr>
+          <tr><td>서버 패널</td><td>서버의 현재 폴더. <code>[..]</code> 은 상위 폴더. 폴더 먼저, 이름순. 기본은 왼쪽이며 툴바 <b>좌우 바꾸기</b> 또는 설정에서 오른쪽으로 옮길 수 있습니다.</td></tr>
+          <tr><td>전송 바</td><td>업로드는 서버 쪽, 다운로드는 로컬 쪽을 가리킵니다. 기본 배치에서는 <b>←</b> 업로드, <b>→</b> 다운로드입니다. 바를 끌면 두 패널의 너비가 바뀝니다.</td></tr>
           <tr><td>로컬 패널</td><td>드라이브 → 폴더 → 파일 트리. 고른 폴더가 다운로드 대상이며 다음 실행 때 다시 열립니다.</td></tr>
           <tr><td>하단 독</td><td>로그 탭과 터미널 탭. 가로 막대를 끌어 높이를 바꿉니다.</td></tr>
           <tr><td>상태 표시줄</td><td>현재 상태와 전송 진행률 · 속도 · 취소. 오른쪽 아래 점 무늬(크기 조절 마커)를 끌면 창 크기가 바뀝니다.</td></tr>
@@ -90,10 +114,10 @@
       <div class="en">
         <table>
           <tr><th>Area</th><th>What it is</th></tr>
-          <tr><td>Toolbar</td><td>Replaces the OS title bar: app name, current connection (green dot), profiles (pick · save · delete), terminal view, smaller / current size / larger text, theme, language, settings, <b>Guide</b>, about, and minimize · maximize · close. Drag an empty spot to move the window; double-click to maximize or restore.</td></tr>
+          <tr><td>Toolbar</td><td>Replaces the OS title bar: a fixed app name and version, with <b>Home</b> (the start page) immediately to the right of the version, the current connection (green dot), profiles (pick · save · delete), <b>Swap sides</b> (the server and local panels), <b>Hide bottom</b> (the log and terminal panel), terminal view, smaller / current size / larger text, theme, language, settings, <b>Guide</b>, about, and minimize · maximize · close. The name and version do not move or resize the window. Drag an empty spot to move the window; double-click an empty spot to maximize or restore.</td></tr>
           <tr><td>Connection bar</td><td>Protocol · host · port · user · password · history · Connect (Disconnect once connected)</td></tr>
-          <tr><td>Server panel</td><td>The server's current folder. <code>[..]</code> is the parent. Folders first, by name.</td></tr>
-          <tr><td>Transfer bar</td><td><b>←</b> upload, <b>→</b> download. Drag the bar to change the panel widths.</td></tr>
+          <tr><td>Server panel</td><td>The server's current folder. <code>[..]</code> is the parent. Folders first, by name. It starts on the left; <b>Swap sides</b> on the toolbar, or Settings, moves it to the right.</td></tr>
+          <tr><td>Transfer bar</td><td>Upload points at the server, download points at the local folder. With the default layout that is <b>←</b> upload and <b>→</b> download. Drag the bar to change the panel widths.</td></tr>
           <tr><td>Local panel</td><td>Drives → folders → files. The chosen folder is where downloads go, and it opens again next time.</td></tr>
           <tr><td>Bottom dock</td><td>The log tab and terminal tabs. Drag the bar above it to change its height.</td></tr>
           <tr><td>Status bar</td><td>Current state, transfer progress, speed and Cancel. Drag the dotted grip at the bottom-right to resize the window.</td></tr>
@@ -198,8 +222,8 @@
         <h3>보내는 방법</h3>
         <table>
           <tr><th>방법</th><th>동작</th></tr>
-          <tr><td>서버에서 고르고 <b>→</b></td><td>현재 로컬 폴더로 다운로드</td></tr>
-          <tr><td>로컬에서 고르고 <b>←</b></td><td>서버의 현재 폴더로 업로드</td></tr>
+          <tr><td>서버에서 고르고 로컬 방향 화살표</td><td>현재 로컬 폴더로 다운로드. 기본 배치에서는 <b>→</b></td></tr>
+          <tr><td>로컬에서 고르고 서버 방향 화살표</td><td>서버의 현재 폴더로 업로드. 기본 배치에서는 <b>←</b></td></tr>
           <tr><td>두 번 클릭</td><td>파일 하나를 바로 전송</td></tr>
           <tr><td>오른쪽 클릭 → 다운로드 / 업로드</td><td>메뉴에서 전송</td></tr>
         </table>
@@ -235,8 +259,8 @@
         <h3>Ways to transfer</h3>
         <table>
           <tr><th>How</th><th>What happens</th></tr>
-          <tr><td>Pick on the server, press <b>→</b></td><td>Download to the current local folder</td></tr>
-          <tr><td>Pick locally, press <b>←</b></td><td>Upload to the server's current folder</td></tr>
+          <tr><td>Pick on the server, press the arrow toward the local folder</td><td>Download to the current local folder. With the default layout that is <b>→</b></td></tr>
+          <tr><td>Pick locally, press the arrow toward the server</td><td>Upload to the server's current folder. With the default layout that is <b>←</b></td></tr>
           <tr><td>Double-click</td><td>Transfer one file right away</td></tr>
           <tr><td>Right-click → Download / Upload</td><td>Transfer from the menu</td></tr>
         </table>
@@ -277,7 +301,7 @@
         <p>다운로드 · 새로 고침 · 상위 폴더로 · 새 폴더 · 이름 바꾸기 · 삭제 · 잘라내기 · 복사 · 붙여넣기 · 경로 복사. 서버의 삭제는 되돌릴 수 없습니다.</p>
         <figure><img src="img/server-menu.png" alt=""><figcaption>서버 항목의 메뉴</figcaption></figure>
         <h3>로컬</h3>
-        <p>업로드 · 새로 고침 · 탐색기에서 열기 · 열기(기본 앱) · 새 폴더 · 이름 바꾸기 · 삭제 · 잘라내기 · 복사 · 붙여넣기 · 경로 복사. 로컬 삭제는 휴지통을 거치지 않습니다. 탐색기에서 열기와 열기는 데스크톱 앱에서만 됩니다.</p>
+        <p>업로드 · 새로 고침 · 탐색기에서 열기 · 열기(기본 앱) · <b>터미널 생성</b> · 새 폴더 · 이름 바꾸기 · 삭제 · 잘라내기 · 복사 · 붙여넣기 · 경로 복사. 터미널 생성은 고른 폴더(파일이면 그 폴더)에서 새 터미널 탭을 엽니다. 로컬 삭제는 휴지통을 거치지 않습니다. 탐색기에서 열기와 열기는 데스크톱 앱에서만 됩니다.</p>
         <figure><img src="img/local-menu.png" alt=""><figcaption>로컬 항목의 메뉴</figcaption></figure>
       </div>
       <div class="en">
@@ -285,7 +309,7 @@
         <p>Download · Refresh · Up · New folder · Rename · Delete · Cut · Copy · Paste · Copy path. Deleting on the server cannot be undone.</p>
         <figure><img src="img/server-menu.png" alt=""><figcaption>The menu of a server item</figcaption></figure>
         <h3>Local</h3>
-        <p>Upload · Refresh · Show in file manager · Open (default app) · New folder · Rename · Delete · Cut · Copy · Paste · Copy path. Local delete does not use the recycle bin. Show and Open are desktop-only.</p>
+        <p>Upload · Refresh · Show in file manager · Open (default app) · <b>New terminal</b> · New folder · Rename · Delete · Cut · Copy · Paste · Copy path. New terminal opens another terminal tab in the chosen folder (or that file's folder). Local delete does not use the recycle bin. Show and Open are desktop-only.</p>
         <figure><img src="img/local-menu.png" alt=""><figcaption>The menu of a local item</figcaption></figure>
       </div>
     </section>
@@ -293,7 +317,7 @@
     <section id="terminal">
       <h2><span class="ko">터미널</span><span class="en">Terminal</span></h2>
       <div class="ko">
-        <p>툴바의 <b>터미널 보기</b> 를 켜면 하단 독에 터미널 탭이 생깁니다. <b>+</b> 로 이 컴퓨터에 설치된 셸(PowerShell, 명령 프롬프트, Git Bash, WSL, bash, zsh …)을 골라 탭을 엽니다(최대 8개). SFTP 로 연결된 동안에는 원격 SSH 셸도 고를 수 있습니다.</p>
+        <p>툴바의 <b>터미널 보기</b> 나 로컬 패널의 <b>터미널 생성</b> 으로 하단 독에 터미널 탭을 엽니다. <b>+</b> 는 로그를 보고 있을 때도 보이며, 이 컴퓨터에 설치된 셸(PowerShell, 명령 프롬프트, Git Bash, WSL, bash, zsh …)을 골라 탭을 더 엽니다(최대 8개). 로컬 메뉴의 터미널 생성은 고른 폴더에서 새 탭을 엽니다. SFTP 로 연결된 동안에는 원격 SSH 셸도 고를 수 있습니다.</p>
         <figure><img src="img/terminal.png" alt=""><figcaption>하단 독의 터미널 탭</figcaption></figure>
         <h3>키</h3>
         <table>
@@ -308,7 +332,7 @@
         <p>시작 폴더, 글꼴, 글꼴 크기, 최대 줄 수, 셸마다의 프롬프트(<code>{path}</code> <code>{folder}</code> <code>{shell}</code> <code>{user}</code> <code>{host}</code>)는 설정의 터미널 탭에서 바꿉니다.</p>
       </div>
       <div class="en">
-        <p>Turn on <b>Terminal view</b> on the toolbar to get terminal tabs in the bottom dock. <b>+</b> opens a tab with one of the shells installed on this computer (PowerShell, Command Prompt, Git Bash, WSL, bash, zsh …), up to 8. While connected over SFTP, a remote SSH shell is offered too.</p>
+        <p><b>Terminal view</b> on the toolbar, or <b>New terminal</b> on the local panel, opens a terminal tab in the bottom dock. <b>+</b> stays visible on the log tab too and opens another tab with one of the shells installed on this computer (PowerShell, Command Prompt, Git Bash, WSL, bash, zsh …), up to 8. New terminal on the local menu opens that tab in the folder you clicked. While connected over SFTP, a remote SSH shell is offered too.</p>
         <figure><img src="img/terminal.png" alt=""><figcaption>A terminal tab in the bottom dock</figcaption></figure>
         <h3>Keys</h3>
         <table>
@@ -350,7 +374,7 @@
         <p>설정 창은 탭으로 나뉜 고정 크기 창이며 스크롤바가 없습니다. 테마를 고르면 바로 미리 보기가 적용되고, 취소하면 원래대로 돌아갑니다.</p>
         <figure><img src="img/settings-window.png" alt=""><figcaption>별도 창으로 열린 설정</figcaption></figure>
         <h3>일반</h3>
-        <p>언어 · 테마 · 글꼴 크기 · 로컬 폴더(찾아보기 단추로 폴더 선택) · 삭제 전에 확인 · 마지막 로컬 폴더 복원 · 알림음 · 연결 성공 안내 창.</p>
+        <p>언어 · 테마 · 글꼴 크기 · <b>패널 배치</b>(서버 왼쪽·로컬 오른쪽, 또는 로컬 왼쪽·서버 오른쪽) · 로컬 폴더(찾아보기 단추로 폴더 선택) · 삭제 전에 확인 · 마지막 로컬 폴더 복원 · 알림음 · 연결 성공 안내 창 · 시작할 때 시작 페이지 표시.</p>
         <h3>터미널</h3>
         <p>시작 폴더 · 글꼴 · 글꼴 크기 · 최대 줄 수 · 셸별 프롬프트.</p>
         <h3>전송</h3>
@@ -360,7 +384,7 @@
         <p>Settings is a fixed-size window split into tabs, with no scroll bar. A theme picked there previews at once; Cancel puts the old one back.</p>
         <figure><img src="img/settings-window.png" alt=""><figcaption>Settings in its own window</figcaption></figure>
         <h3>General</h3>
-        <p>Language · theme · text size · local folder (with a Browse button) · confirm before delete · reopen the last local folder · sounds · window after connecting.</p>
+        <p>Language · theme · text size · <b>panel layout</b> (server on the left and local on the right, or the other way around) · local folder (with a Browse button) · confirm before delete · reopen the last local folder · sounds · window after connecting · show the start page at start.</p>
         <h3>Terminal</h3>
         <p>Start folder · font · font size · line limit · prompt per shell.</p>
         <h3>Transfer</h3>

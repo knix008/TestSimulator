@@ -2,6 +2,7 @@
 //
 // Layout (the WinForms original, top to bottom): toolbar · connection bar ·
 // [ server listing | ←/→ transfer bar | local tree ] · log · status bar.
+// Settings › 패널 배치 can put the local folder on the left instead.
 // Every action that needs a dialog, a job with progress, or both panels
 // lives here; the panels only render and report selections. Copy / cut /
 // paste and drag & drop between the panels, Explorer and the desktop end up in
@@ -17,6 +18,7 @@ import { playSuccess, playError, setSoundsEnabled } from './lib/sound';
 import { SETTINGS_DEFAULTS } from './lib/settings';
 import { applyTheme, themeById, nextThemeId, DEFAULT_THEME } from './themes';
 import { Toolbar } from './components/Toolbar';
+import { StartPage } from './components/StartPage';
 import { ConnectionBar, defaultPort } from './components/ConnectionBar';
 import { RemotePanel } from './components/RemotePanel';
 import { LocalTree, setLocalHeadPath } from './components/LocalTree';
@@ -69,8 +71,10 @@ export default function App() {
   const [active, setActive] = useState('local');
   const [serverWidth, setServerWidth] = useState(0.5);
   const [logHeight, setLogHeight] = useState(170);
+  const [logCollapsed, setLogCollapsed] = useState(false);
   const [terminalView, setTerminalView] = useState(false);
   const [bootError, setBootError] = useState('');
+  const [startOn, setStartOn] = useState(true);
   const [ctxMenu, setCtxMenu] = useState(null);
   const [clip, setClip] = useState(null);          // { side, items, move, connId } — the app's copy / cut
   const [dropHover, setDropHover] = useState(null); // { side, dir, row } under a drag
@@ -116,7 +120,9 @@ export default function App() {
       if (s.themeBg !== theme.tokens['--bg']) call('session.save', { patch: { theme: theme.id, themeBg: theme.tokens['--bg'] } }).catch(() => {});
       setServerWidth(Number(s.serverWidth) > 0.1 && Number(s.serverWidth) < 0.9 ? Number(s.serverWidth) : 0.5);
       setLogHeight(Number(s.logHeight) >= 60 ? Number(s.logHeight) : 170);
+      setLogCollapsed(s.logCollapsed === true);
       setSession(s);
+      setStartOn(s.showStartOnLaunch !== false);
       const { profiles: list } = await call('profiles.list');
       setProfiles(list);
       call('history.list').then((r) => setHistory(r.history)).catch(() => {});
@@ -723,6 +729,7 @@ export default function App() {
       { id: 'refresh', label: t('ctx_refresh'), icon: 'refresh' },
       { id: 'reveal', label: t('ctx_reveal'), icon: 'explorer', disabled: !(info && info.capabilities.reveal) },
       { id: 'open', label: t('ctx_open'), icon: 'open', disabled: !(info && info.capabilities.open) || !entry || entry.isDir },
+      { id: 'terminal', label: t('ctx_terminal'), icon: 'terminal' },
       { sep: true },
       { id: 'newFolder', label: t('ctx_new_folder'), icon: 'folderNew' },
       { id: 'rename', label: t('ctx_rename'), icon: 'rename', disabled: sel.length !== 1 || (entry && entry.kind), shortcut: 'F2' },
@@ -740,6 +747,10 @@ export default function App() {
       else if (id === 'refresh') { if (localTree.current) localTree.current.refresh(localDir); }
       else if (id === 'reveal') reveal(entry ? entry.path : localDir);
       else if (id === 'open') call('local.open', { path: entry.path }).catch((err) => showError(t('dlg_error'), err));
+      else if (id === 'terminal') {
+        const folder = entry ? (entry.isDir ? entry.path : dirName(entry.path)) : localDir;
+        if (logPanelRef.current && logPanelRef.current.openLocal) logPanelRef.current.openLocal(folder);
+      }
       else if (id === 'newFolder') newFolder('local');
       else if (id === 'rename') rename('local', sel[0]);
       else if (id === 'delete') remove('local', sel);
@@ -790,10 +801,24 @@ export default function App() {
       }
     }
     else if (id === 'terminal') {
-      if (terminalView) { if (logPanelRef.current && logPanelRef.current.hideTerminal) logPanelRef.current.hideTerminal(); }
+      if (startOn) {
+        setStartOn(false);
+        if (!terminalView && logPanelRef.current && logPanelRef.current.showTerminal) logPanelRef.current.showTerminal();
+      } else if (terminalView) { if (logPanelRef.current && logPanelRef.current.hideTerminal) logPanelRef.current.hideTerminal(); }
       else if (logPanelRef.current && logPanelRef.current.showTerminal) logPanelRef.current.showTerminal();
     }
-    else if (id === 'connect') connect();
+    else if (id === 'toggleStart') setStartOn((on) => !on);
+    else if (id === 'swapPanels') saveSession({ serverOnLeft: session.serverOnLeft === false });
+    else if (id === 'toggleDock') {
+      setLogCollapsed((c) => {
+        const next = !c;
+        call('session.save', { patch: { logCollapsed: next } }).catch(() => {});
+        return next;
+      });
+    }
+    else if (id === 'openClient') setStartOn(false);
+    else if (id === 'saveProfile') saveProfile();
+    else if (id === 'connect') { setStartOn(false); connect(); }
     else if (id === 'disconnect') disconnect();
     else if (id === 'download') downloadSelected();
     else if (id === 'upload') uploadSelected();
@@ -805,9 +830,11 @@ export default function App() {
     const el = filesRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
+    const serverOnLeft = !session || session.serverOnLeft !== false;
     const move = (ev) => {
       const frac = (ev.clientX - rect.left - 22) / Math.max(1, rect.width - 44);
-      setServerWidth(Math.min(0.85, Math.max(0.15, frac)));
+      const width = serverOnLeft ? frac : 1 - frac;
+      setServerWidth(Math.min(0.85, Math.max(0.15, width)));
     };
     const up = () => {
       document.removeEventListener('mousemove', move);
@@ -886,39 +913,67 @@ export default function App() {
     <div className="app">
       <Toolbar onAction={action} theme={session.theme} connection={conn} busy={connecting}
         profiles={profiles} profileName={profileName} onPickProfile={pickProfile} onSaveProfile={saveProfile} onDeleteProfile={deleteProfiles}
-        terminalView={terminalView} fontSize={session.terminalFontSize} />
+        terminalView={terminalView} dockCollapsed={logCollapsed} fontSize={session.terminalFontSize} startOpen={startOn} version={info.version} />
+      <div className="app-body">
+      {startOn && (
+        <div className="start-host">
+          <StartPage info={info} session={session} form={form} conn={conn} connecting={connecting}
+            profiles={profiles} profileName={profileName} history={history} localDir={localDir} serverPath={server.path}
+            onAction={action} onPickProfile={pickProfile} onPickHistory={(i) => pickHistory(`h:${i}`)} onClearHistory={() => pickHistory('clear')}
+            onFormChange={setForm}
+            onBackground={(bg) => saveSession({ startBackground: bg })} showOnLaunch={session.showStartOnLaunch !== false}
+            onShowOnLaunch={(v) => saveSession({ showStartOnLaunch: v })} />
+        </div>
+      )}
+      <div className="client-view" {...(startOn ? { inert: '', 'aria-hidden': 'true' } : {})}>
       <ConnectionBar form={form} onChange={setForm} connected={!!conn} connecting={connecting} onConnect={connect} onDisconnect={disconnect}
         onHistory={(el) => setHistoryMenu(historyMenu ? null : el)} />
       {historyMenu && <ContextMenu anchorEl={historyMenu} x={0} y={0} className="history" items={historyItems()} onClose={() => setHistoryMenu(null)} onPick={(id) => { setHistoryMenu(null); pickHistory(id); }} />}
       <div className="files" ref={filesRef}>
-        <div className="panel-slot" style={{ flex: `${serverWidth} 1 0` }}>
-          <RemotePanel connected={!!conn} path={server.path} parent={server.parent} entries={server.entries} loading={server.loading} error={server.error}
-            selection={serverSel} onSelection={setServerSel} onNavigate={(p) => loadServer(p)} onOpenFile={(e) => download([e])}
-            onContextMenu={serverContext} onRefresh={refreshServer} active={active === 'server'} onActivate={() => setActive('server')}
-            onDelete={() => deleteSelected('server')} onRename={() => renameSelected('server')} onClipboard={(op) => clipboardOp('server', op)}
-            dropOver={!!dropHover && dropHover.side === 'server'} dropRow={dropHover && dropHover.side === 'server' ? dropHover.row : null}
-            cutPaths={clip && clip.move && clip.side === 'server' ? cutSet : null} />
-        </div>
-        <TransferBar onUpload={uploadSelected} onDownload={downloadSelected} canUpload={canUpload} canDownload={canDownload} onResizeStart={startVSplit} />
-        <div className="panel-slot" style={{ flex: `${1 - serverWidth} 1 0` }}>
-          <LocalTree ref={localTree} selection={localSel} onSelection={onLocalSelection} onCurrentDir={onLocalDir}
-            onOpenFile={(e) => upload([e])} onContextMenu={localContext} onError={(err) => showError(t('dlg_error'), err)}
-            active={active === 'local'} onActivate={() => setActive('local')}
-            onDelete={() => deleteSelected('local')} onRename={() => renameSelected('local')} onClipboard={(op) => clipboardOp('local', op)}
-            dropOver={!!dropHover && dropHover.side === 'local'} dropRow={dropHover && dropHover.side === 'local' ? dropHover.row : null}
-            cutPaths={clip && clip.move && clip.side === 'local' ? cutSet : null} />
-        </div>
+        {(() => {
+          const serverOnLeft = session.serverOnLeft !== false;
+          const serverPane = (
+            <div className="panel-slot" key="server" style={{ flex: `${serverWidth} 1 0` }}>
+              <RemotePanel connected={!!conn} path={server.path} parent={server.parent} entries={server.entries} loading={server.loading} error={server.error}
+                selection={serverSel} onSelection={setServerSel} onNavigate={(p) => loadServer(p)} onOpenFile={(e) => download([e])}
+                onContextMenu={serverContext} onRefresh={refreshServer} active={active === 'server'} onActivate={() => setActive('server')}
+                onDelete={() => deleteSelected('server')} onRename={() => renameSelected('server')} onClipboard={(op) => clipboardOp('server', op)}
+                dropOver={!!dropHover && dropHover.side === 'server'} dropRow={dropHover && dropHover.side === 'server' ? dropHover.row : null}
+                cutPaths={clip && clip.move && clip.side === 'server' ? cutSet : null} />
+            </div>
+          );
+          const localPane = (
+            <div className="panel-slot" key="local" style={{ flex: `${1 - serverWidth} 1 0` }}>
+              <LocalTree ref={localTree} selection={localSel} onSelection={onLocalSelection} onCurrentDir={onLocalDir}
+                onOpenFile={(e) => upload([e])} onContextMenu={localContext} onError={(err) => showError(t('dlg_error'), err)}
+                active={active === 'local'} onActivate={() => setActive('local')}
+                onDelete={() => deleteSelected('local')} onRename={() => renameSelected('local')} onClipboard={(op) => clipboardOp('local', op)}
+                dropOver={!!dropHover && dropHover.side === 'local'} dropRow={dropHover && dropHover.side === 'local' ? dropHover.row : null}
+                cutPaths={clip && clip.move && clip.side === 'local' ? cutSet : null} />
+            </div>
+          );
+          const bar = <TransferBar key="xfer" onUpload={uploadSelected} onDownload={downloadSelected} canUpload={canUpload} canDownload={canDownload} onResizeStart={startVSplit} serverOnLeft={serverOnLeft} />;
+          return serverOnLeft ? [serverPane, bar, localPane] : [localPane, bar, serverPane];
+        })()}
       </div>
-      <LogPanel ref={logPanelRef} lines={log} height={logHeight} onResizeStart={startHSplit}
+      <LogPanel ref={logPanelRef} lines={log} height={logHeight} collapsed={logCollapsed} onResizeStart={startHSplit}
         onClear={() => setLog([])}
         onCopy={() => { writeClipboardText(log.map((l) => `[${l.time}]  ${l.text}`).join('\n')); setStatus(t('log_copied')); }}
         localDir={localDir} terminalStartDir={session.terminalStartDir} connection={conn} remotePath={server.path}
         theme={session.theme} fontSize={session.terminalFontSize} fontFamily={session.terminalFont} scrollback={session.terminalMaxLines}
         lastShell={session.lastTerminalShell}
         onLastShell={(id) => saveSession({ lastTerminalShell: id })}
-        onEnsureHeight={(h) => setLogHeight((cur) => Math.max(cur, h))}
+        onEnsureHeight={(h) => {
+          setLogCollapsed((was) => {
+            if (was) call('session.save', { patch: { logCollapsed: false } }).catch(() => {});
+            return false;
+          });
+          setLogHeight((cur) => Math.max(cur, h));
+        }}
         onTerminalView={setTerminalView}
         onError={(err) => showError(t('term_failed'), err)} />
+      </div>
+      </div>
       <StatusBar status={status} progress={progress} onCancel={progress && progress.jobId ? cancelCurrent : null} />
       {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={() => setCtxMenu(null)} onPick={(id) => { setCtxMenu(null); ctxMenu.onPick(id); }} />}
       <DialogHost stack={dialogs.stack} resolve={dialogs.resolve} />

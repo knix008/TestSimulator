@@ -64,7 +64,7 @@ UI 프레임워크를 전혀 참조하지 않습니다. 웹 서버와 데스크�
 | `profiles.js` | `[{name, protocol, host, port, user, password}]`. 비밀번호는 `b64:` 접두 base64 (난독화이지 암호화 아님) |
 | `history.js` | `history.json`: 연결 성공마다 `{protocol, host, port, user, lastAt, count}` 최신순 20개, 비밀번호 없음 |
 | `shell.js` | 데스크톱 전용: 기본 앱으로 열기, 파일을 선택한 채 폴더 보기 (Windows `explorer /select,`, macOS `open -R`, Linux `xdg-open`) |
-| `session.js` | `lastLocalPath, lastProfile, language, theme, fontSize, terminalFont, terminalFontSize, terminalStartDir, shellPrompts, terminalMaxLines, transferConcurrency, skipUnchanged, windowBounds, …` |
+| `session.js` | `lastLocalPath, lastProfile, language, theme, fontSize, terminalFont, terminalFontSize, terminalStartDir, shellPrompts, terminalMaxLines, transferConcurrency, skipUnchanged, serverWidth, serverOnLeft, showStartOnLaunch, startBackground, windowBounds, …` |
 
 ### src-tauri/ — 데스크톱 셸 (Rust, Tauri 2)
 - `main.rs` — **프레임리스 창**(`decorations: false`, 최소 1200×720). 창을 만들기 전에 `session.json` 의 `themeBg`·`windowBounds` 를 창 설정에 넣어 흰 화면·위치 점프가 없습니다. 이동/크기 변경을 추적하고, 닫을 때 코어의 `session.save` 로 위치를 저장합니다(최대화 상태면 직전 일반 크기). 단일 인스턴스(두 번째 실행은 기존 창 포커스). `MFC_CONFIG_DIR` 이면 별도 프로필 + 별도 WebView2 데이터, 단일 인스턴스 해제(테스트).
@@ -85,21 +85,25 @@ UI 프레임워크를 전혀 참조하지 않습니다. 웹 서버와 데스크�
 |------|------|
 | `App.jsx` | 상태·액션의 중심. 연결/해제, 전송, 프로파일, 설정/테마/언어, 터미널 글꼴 스테퍼. `window.__mfc` 자동화 훅 |
 | `DialogWindow.jsx` | `window.__MFC_DIALOG__`(또는 `#dialog=<name>`)의 대화상자 컴포넌트를 분리 창에 그림. 설정은 창을 채우고(첫 페인트 전에 `dialog-fixed`), 나머지는 `dialog_set_size` 로 맞춤 |
-| `components/Toolbar.jsx` | 타이틀바 대체: 프로파일 · **터미널 보기** · **글꼴 − / Npx / +** · 테마 · 언어 · 설정 · **설명서** · 정보 · 창 버튼(`.tb-main` 밖에 고정). 창 최소 크기 1200×720 |
+| `components/Toolbar.jsx` | 타이틀바 대체: 고정 브랜드(이름·버전·그 오른쪽 **홈**, `data-no-drag`) · 프로파일 · **좌우 바꾸기**(`serverOnLeft`) · **하단 접기**(`logCollapsed`) · **터미널 보기** · **글꼴 − / Npx / +** · 테마 · 언어 · 설정 · **설명서** · 정보 · 창 버튼(`.tb-main` 밖에 고정). 창 최소 크기 1200×720 |
+| `components/StartPage.jsx` | 시작 페이지. 제목 배너는 고정. 카드(빠른 작업·최근 접속·프로파일·접속 정보·배경)는 `startLayout` 격자에서 이동·크기 조절. 접속 정보 카드에서 프로토콜·호스트·포트·사용자·비밀번호를 입력하고, 프로파일과 접속 기록을 고른다. `showStartOnLaunch` 가 꺼져 있으면 작업 화면으로 시작 |
 | `components/ConnectionBar.jsx` | 접속 폼 + 🕘 히스토리. Host URL 은 `parseHostInput` 이 분해 |
 | `components/StatusBar.jsx` | 상태 + 진행률 + 취소 + SizeGrip(누르면 `startResizeDragging`) |
 | `components/RemotePanel.jsx` | 서버 평면 목록 + `[..]`, 다중 선택, 키보드 탐색 |
 | `components/LocalTree.jsx` | 지연 로딩 트리. `expandTo(path)` 로 시작 폴더 복원 |
-| `components/TransferBar.jsx` | ←/→ 버튼 + 드래그 리사이즈 |
-| `components/LogPanel.jsx` | 로그 탭 + 터미널 탭(+ 셸 고르기, 탭 좌우 이동). 터미널 보기일 때만 `+` |
+| `components/TransferBar.jsx` | 업로드는 서버 쪽, 다운로드는 로컬 쪽 화살표(`serverOnLeft`) + 드래그 리사이즈 |
+| `components/LogPanel.jsx` | 로그 탭 + 터미널 탭(+ 셸 고르기, 탭 좌우 이동). `+` 와 탭 이동은 항상 독 오른쪽. `openLocal(cwd)` 로 지정 폴더에 새 탭 |
 | `components/TerminalView.jsx` | xterm.js + FitAddon. `onData` → `terminal.write`. 수평 스크롤 숨김 |
 | `dialogs/Dialogs.jsx` | Promise 기반: prompt · confirm · message/error · conflict · profileDelete · about · settings. 데스크톱은 `openDetachedDialog` |
-| `dialogs/SettingsDialog.jsx` | 일반 / 터미널 / 전송 탭. 셸 드롭다운 + 프롬프트 한 줄. `fill` 로 고정 창을 채움 |
+| `dialogs/SettingsDialog.jsx` | 일반(패널 배치 `serverOnLeft`, 시작 페이지 표시 포함) / 터미널 / 전송 탭. 셸 드롭다운 + 프롬프트 한 줄. `fill` 로 고정 창을 채움 |
 | `lib/filedrag.js` | 행 끌기(마우스 이벤트 + 고스트), `dropTargetAt`(패널 `data-drop-side`, 행 `data-path`/`data-dir`). 창 밖으로 나가면 App 의 `dragOut` 이 OS 드래그로 넘김 |
 | `lib/backend.js` | 호스트 스위치. Tauri: `host_config` 로 코어 주소·토큰을 받아 fetch, 창 버튼·툴바 드래그(`installWindowDrag`)·크기 조절·폴더 선택(dialog 플러그인)·클립보드(clipboard-manager)·설명서 창. 웹: 같은 출처 fetch. `runJob(name, args, onUpdate)` |
 | `lib/dialogWindows.js` | 분리 창 대기열. `serializablePayload` 가 함수를 제거해 직렬화되게 하고, 현재 외관(`appearance.js`)을 함께 보냄 |
 | `lib/appearance.js` | 창끼리 공유하는 외관 `{theme, language, fontSize, bg, mode, vars}` |
-| `lib/settings.js` | 설정 기본값 · `pickSettingsValues` · `terminalFontStack` |
+| `lib/settings.js` | 설정 기본값(`serverOnLeft`, `showStartOnLaunch` 포함) · `pickSettingsValues` · `terminalFontStack` |
+| `lib/startLayout.js` | 시작 페이지 카드 격자(3열, 20px 행). 이동·크기·자동 정렬. 제목 배너는 격자에 넣지 않음 |
+| `lib/startBackground.js` | 시작 페이지 캔버스 배경(종류·속도·섞기). 테마 색을 따라감 |
+| `lib/dragGhost.js` | 카드를 끌 때 따라다니는 반투명 복사본 |
 | `lib/errors.js` | `describeError` / `formatErrorCopy` — 짧은 설명 + 필드 + 기술 정보 |
 | `lib/i18n.js` | `t(key, params)`, `useLanguage()` |
 | `lib/format.js` | 크기/속도/날짜, 경로 헬퍼, 확장자 → 아이콘 |
@@ -173,3 +177,4 @@ UI download(items)
 | 모달 대화상자 | 분리된 고정 크기 팝업(웹은 오버레이) |
 | 도움말 없음 | 그림이 있는 한/영 사용 설명서(독립 창, 목차·글자 크기·언어) |
 | Windows 전용 | Windows · macOS · Linux · 웹, 16 테마, 한/영 |
+| 시작 화면 없음, 서버는 항상 왼쪽 | 시작 페이지(제목 고정, 카드 이동·크기 조절)와 **홈**. 설정에서 서버/로컬 좌우 교체 |
