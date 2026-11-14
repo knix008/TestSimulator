@@ -68,7 +68,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .tb-btn.tb-start.active { background: var(--bg-sel); box-shadow: inset 0 0 0 1px var(--accent); }
 .tb-profile { display: inline-flex; align-items: center; gap: 2px; flex: none; }
 .tb-label { color: var(--fg-muted); font-size: 12px; margin: 0 4px 0 2px; }
-.tb-profile select { width: 120px; min-width: 120px; height: 28px; padding: 3px 6px; }
+.tb-profile select, .tb-profile .drop-btn { width: 120px; min-width: 120px; height: 28px; padding: 3px 6px; }
 .tb-sep, .tb-split, .win-buttons { flex: none; }
 /* Min window 1200×720 (src-tauri/tauri.conf.json). Window buttons sit outside
    .tb-main so they are never clipped. The connection badge shrinks;
@@ -111,7 +111,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .conn-row { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
 .field { display: flex; flex-direction: column; gap: 3px; }
 .field > span { font-size: 11px; color: var(--fg-muted); padding-left: 2px; }
-.field input, .field select { height: 28px; padding: 3px 8px; }
+.field input, .field select, .field .drop-btn { height: 28px; padding: 3px 8px; }
 .field-protocol { width: 90px; }
 .field-host { flex: 1 1 200px; min-width: 160px; }
 .field-port { width: 76px; }
@@ -264,13 +264,25 @@ body.file-dragging, body.file-dragging * { cursor: default !important; user-sele
 .btn.tiny { min-width: 0; padding: 1px 8px; font-size: 11px; }
 
 /* ── Context menu ── */
-.ctx-menu { position: fixed; z-index: 1000; min-width: 200px; max-height: calc(100vh - 16px); overflow-y: auto; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 4px; }
-.ctx-item { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; padding: 6px 10px; border-radius: 4px; text-align: left; color: var(--fg); }
-.ctx-item:hover:not(:disabled) { background: var(--bg-sel); }
-.ctx-icon { width: 16px; display: inline-flex; justify-content: center; }
-.ctx-label { flex: 1; }
-.ctx-shortcut { color: var(--fg-muted); font-size: 11px; }
+.ctx-menu { position: fixed; z-index: 1000; min-width: 200px; max-height: calc(100vh - 16px); overflow-y: auto; background: var(--bg-elev); color: var(--fg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 4px; }
+.ctx-item { display: flex; align-items: center; gap: 8px; width: 100%; background: transparent; border: 0; padding: 6px 10px; border-radius: 4px; text-align: left; color: var(--fg); }
+.ctx-item:hover:not(:disabled), .ctx-item:focus-visible:not(:disabled) { background: var(--bg-sel); color: var(--fg); }
+.ctx-item:disabled { color: var(--fg-muted); }
+.ctx-icon { width: 16px; display: inline-flex; justify-content: center; color: var(--fg); }
+.ctx-label { flex: 1; min-width: 0; }
+.ctx-meta, .ctx-shortcut { color: var(--fg-muted); font-size: 11px; }
+.ctx-meta { margin-left: 12px; white-space: nowrap; }
 .ctx-sep { height: 1px; background: var(--border); margin: 4px 6px; }
+.drop-btn { display: inline-flex; align-items: center; gap: 6px; width: 100%; min-width: 0; height: 28px; padding: 3px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--fg); text-align: left; }
+.drop-btn:hover:not(:disabled) { background: var(--bg-hover); }
+.drop-btn:focus { border-color: var(--accent); outline: none; }
+.drop-btn:disabled { opacity: 0.55; }
+.drop-btn .drop-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drop-btn .icon { flex: none; color: var(--fg-muted); }
+.drop-menu { z-index: 2200; min-width: 160px; max-height: 280px; background: var(--bg-elev); color: var(--fg); }
+.drop-group { padding: 6px 10px 2px; font-size: 11px; font-weight: 600; color: var(--fg-muted); }
+.drop-item.checked { background: var(--bg-sel); color: var(--fg); }
+select, option, optgroup { background-color: var(--bg-elev); color: var(--fg); }
 
 /* Theme dropdown (ThemePopup / ThemeGrid): two buttons, then dark, then light. */
 .ctx-menu.theme-menu { min-width: 0; }
@@ -335,7 +347,7 @@ html.dialog.dialog-fixed body { display: block; place-items: normal; }
 .custom-theme-head { display: flex; align-items: center; gap: 8px; }
 .custom-theme-head label { flex: none; color: var(--fg-muted); font-size: 12px; text-align: left; }
 .custom-theme-head input { flex: 1; min-width: 0; }
-.custom-theme-head select { flex: none; width: 130px; }
+.custom-theme-head select, .custom-theme-head .drop-btn { flex: none; width: 130px; }
 .custom-colors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; }
 .custom-color { display: flex; align-items: center; gap: 4px; min-width: 0; text-align: left; }
 .custom-color-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--fg-muted); }
@@ -471,8 +483,8 @@ input:disabled, select:disabled { opacity: 0.55; }
 .sp-field-wide { flex: 1 1 100%; }
 .sp-field-port { flex: 0 1 110px; }
 .sp-field > span { color: var(--fg-muted); font-size: 0.86em; }
-.sp-field select, .sp-field input { height: 28px; padding: 3px 8px; min-width: 0; }
-.sp-field select:disabled, .sp-field input:disabled { opacity: .7; }
+.sp-field select, .sp-field input, .sp-field .drop-btn { height: 28px; padding: 3px 8px; min-width: 0; }
+.sp-field select:disabled, .sp-field input:disabled, .sp-field .drop-btn:disabled { opacity: .7; }
 .sp-proto { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; min-width: 0; flex: 1 1 180px; }
 .sp-proto .name { flex: none; width: auto; color: var(--fg-muted); font-size: 0.86em; }
 .sp-proto .mono, .sp-proto .path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

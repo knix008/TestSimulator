@@ -4,6 +4,7 @@
 import React from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { Icon } from './Icons';
+import { DropDown } from './DropDown';
 
 export const PROTOCOLS = ['FTP', 'FTPS', 'SFTP'];
 
@@ -33,9 +34,8 @@ export function ConnectionBar({ form, onChange, connected, connecting, onConnect
       <div className="conn-row">
         <label className="field field-protocol">
           <span>{t('lbl_protocol')}</span>
-          <select value={form.protocol} onChange={(e) => onProtocol(e.target.value)} disabled={connected || busy}>
-            {PROTOCOLS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <DropDown value={form.protocol} onChange={onProtocol} disabled={connected || busy} ariaLabel={t('lbl_protocol')}
+            options={PROTOCOLS.map((p) => ({ value: p, label: p }))} />
         </label>
         <label className="field field-host">
           <span>{t('lbl_host')}</span>

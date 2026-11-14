@@ -17,6 +17,7 @@ import { themeById, nextThemeId, customThemeDefs } from '../themes';
 import { isDesktop, windowControl, onMaximized, openThemeMenu, onThemeMenu, shouldWindowDrag, startWindowDrag } from '../lib/backend';
 import { Icon, Flag } from './Icons';
 import { ThemePopup } from './ThemePopup';
+import { DropDown } from './DropDown';
 
 function WindowButtons() {
   const [max, setMax] = useState(false);
@@ -90,10 +91,8 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
       )}
       <span className="tb-sep" />
       <span className="tb-profile">
-        <select value={profileName} onChange={(e) => onPickProfile(e.target.value)} disabled={busy} title={t('profile_select')}>
-          <option value="">{profiles.length ? t('profile_select') : t('profile_none')}</option>
-          {profiles.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
-        </select>
+        <DropDown value={profileName} onChange={onPickProfile} disabled={busy} title={t('profile_select')} ariaLabel={t('profile_select')}
+          options={[{ value: '', label: profiles.length ? t('profile_select') : t('profile_none') }, ...profiles.map((p) => ({ value: p.name, label: p.name }))]} />
         <button className="tb-btn" onClick={onSaveProfile} title={t('tip_profile_save')} disabled={busy}><Icon name="save" /><span>{t('profile_save')}</span></button>
         <button className="tb-btn" onClick={onDeleteProfile} title={t('tip_profile_delete')} disabled={busy}><Icon name="trash" /><span>{t('profile_delete')}</span></button>
       </span>

@@ -10,6 +10,7 @@ import { formatDate } from '../lib/format';
 import { AnimatedBackground, ANIMATION_KINDS, ANIMATION_ICONS, DEFAULT_START_BACKGROUND, themeColors } from '../lib/startBackground';
 import { Icon } from './Icons';
 import { PROTOCOLS, defaultPort } from './ConnectionBar';
+import { DropDown } from './DropDown';
 import { PathCrumbs } from './PathCrumbs';
 
 export function startBackgroundOf(session) {
@@ -99,27 +100,17 @@ function ConnectionFields({ form, conn, connecting, profiles, profileName, histo
     <div className="sp-status">
       <label className="sp-field sp-field-wide">
         <span>{t('sp_saved')}</span>
-        <select value={savedValue(f, profiles, profileName, history)} aria-label={t('sp_saved')} disabled={locked} onChange={(e) => onSaved(e.target.value)}>
-          <option value="">{t('sp_saved_ph')}</option>
-          {(profiles || []).length > 0 && (
-            <optgroup label={t('sp_group_profile')}>
-              {profiles.map((p) => <option key={`p:${p.name}`} value={`p:${p.name}`}>{p.name} — {String(p.protocol || 'ftp').toLowerCase()}://{p.host}</option>)}
-            </optgroup>
-          )}
-          {(history || []).length > 0 && (
-            <optgroup label={t('sp_group_history')}>
-              {history.map((h, i) => (
-                <option key={`h:${i}`} value={`h:${i}`}>{String(h.protocol || 'ftp').toLowerCase()}://{h.user ? `${h.user}@` : ''}{h.host}:{h.port}</option>
-              ))}
-            </optgroup>
-          )}
-        </select>
+        <DropDown value={savedValue(f, profiles, profileName, history)} ariaLabel={t('sp_saved')} disabled={locked} onChange={onSaved}
+          options={[
+            { value: '', label: t('sp_saved_ph') },
+            (profiles || []).length > 0 && { group: t('sp_group_profile'), options: profiles.map((p) => ({ value: `p:${p.name}`, label: `${p.name} — ${String(p.protocol || 'ftp').toLowerCase()}://${p.host}` })) },
+            (history || []).length > 0 && { group: t('sp_group_history'), options: history.map((h, i) => ({ value: `h:${i}`, label: `${String(h.protocol || 'ftp').toLowerCase()}://${h.user ? `${h.user}@` : ''}${h.host}:${h.port}` })) },
+          ].filter(Boolean)} />
       </label>
       <label className="sp-field">
         <span>{t('lbl_protocol')}</span>
-        <select value={f.protocol || 'FTP'} aria-label={t('lbl_protocol')} disabled={locked} onChange={(e) => onProtocol(e.target.value)}>
-          {PROTOCOLS.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
+        <DropDown value={f.protocol || 'FTP'} ariaLabel={t('lbl_protocol')} disabled={locked} onChange={onProtocol}
+          options={PROTOCOLS.map((p) => ({ value: p, label: p }))} />
       </label>
       <label className="sp-field">
         <span>{t('lbl_host')}</span>

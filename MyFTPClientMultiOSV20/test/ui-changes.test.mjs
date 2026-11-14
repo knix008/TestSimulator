@@ -29,6 +29,7 @@ const ui = await (async () => {
         export { ThemeMenuBody } from './src/components/ThemePopup.jsx';
         export { pathCrumbs, PathCrumbs } from './src/components/PathCrumbs.jsx';
         export { customFrom } from './src/dialogs/SettingsDialog.jsx';
+        export { DropDown } from './src/components/DropDown.jsx';
       `,
       resolveDir: root,
       sourcefile: 'ui-changes-entry.jsx',
@@ -301,6 +302,30 @@ test('window drag: icon, name and version move the window; buttons do not', () =
   assert.equal(shouldWindowDrag(hit(true, false)), true);
   assert.equal(shouldWindowDrag(hit(true, true)), false);
   assert.equal(shouldWindowDrag(hit(false, false)), false);
+});
+
+test('dropdowns and history follow the theme colours', () => {
+  const html = renderToStaticMarkup(createElement(ui.DropDown, {
+    value: 'h:0',
+    'aria-label': 'Saved connection',
+    options: [
+      { value: '', label: 'Choose' },
+      { group: 'Profiles', options: [{ value: 'p:a', label: 'Office' }] },
+      { group: 'History', options: [{ value: 'h:0', label: 'ftp://files.example' }] },
+    ],
+  }));
+  assert.equal(html.includes('<select'), false);
+  assert.match(html, /class="drop-btn"/);
+  assert.match(html, /ftp:\/\/files\.example/);
+  const css = fs.readFileSync(path.join(root, 'src', 'styles.css'), 'utf8');
+  assert.match(css, /\.drop-menu \{[^}]*background:\s*var\(--bg-elev\)/);
+  assert.match(css, /\.drop-item\.checked \{[^}]*background:\s*var\(--bg-sel\)/);
+  assert.match(css, /\.ctx-menu \{[^}]*background:\s*var\(--bg-elev\)/);
+  assert.match(css, /\.ctx-item \{[^}]*color:\s*var\(--fg\)/);
+  assert.match(css, /\.ctx-meta[^{]*\{[^}]*color:\s*var\(--fg-muted\)/);
+  for (const file of ['components/Toolbar.jsx', 'components/ConnectionBar.jsx', 'components/StartPage.jsx', 'dialogs/SettingsDialog.jsx']) {
+    assert.doesNotMatch(fs.readFileSync(path.join(root, 'src', file), 'utf8'), /<select[\s>]/);
+  }
 });
 
 test('dock: collapse keeps the header, and add stays at the right edge', () => {

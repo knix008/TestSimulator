@@ -9,6 +9,7 @@ import { themeById, themeSwatchStyle, applyTheme, setCustomThemes, buildCustomTh
 import { DialogFrame } from './Dialogs';
 import { Icon } from '../components/Icons';
 import { ThemeColumns, ThemeItem, themeName } from '../components/ThemeGrid';
+import { DropDown } from '../components/DropDown';
 import { SETTINGS_DEFAULTS, DEFAULT_SHELL_PROMPTS, defaultPromptFor } from '../lib/settings';
 
 const FALLBACK_PROMPT_SHELLS = [
@@ -62,10 +63,8 @@ function CustomThemeEditor({ customs, current, onPick, onChange, lang }) {
         <div className="custom-theme-head">
           <label>{t('set_custom_name')}</label>
           <input type="text" value={cur ? cur.label : ''} disabled={!cur} maxLength={40} onChange={(e) => edit({ label: e.target.value })} />
-          <select value={cur ? cur.mode : curTheme.mode} disabled={!cur} onChange={(e) => edit({ mode: e.target.value })}>
-            <option value="dark">{t('set_theme_dark')}</option>
-            <option value="light">{t('set_theme_light')}</option>
-          </select>
+          <DropDown value={cur ? cur.mode : curTheme.mode} disabled={!cur} onChange={(mode) => edit({ mode })}
+            options={[{ value: 'dark', label: t('set_theme_dark') }, { value: 'light', label: t('set_theme_light') }]} />
         </div>
         <div className="custom-colors">
           {CUSTOM_COLOR_KEYS.map((k) => {
@@ -218,10 +217,8 @@ export function SettingsDialog({ spec, done }) {
           {tab === 'general' && (
             <>
               <label>{t('set_language')}</label>
-              <select value={v.language} onChange={(e) => set('language', e.target.value)}>
-                <option value="ko">한국어</option>
-                <option value="en">English</option>
-              </select>
+              <DropDown value={v.language} onChange={(language) => set('language', language)} ariaLabel={t('set_language')}
+                options={[{ value: 'ko', label: '한국어' }, { value: 'en', label: 'English' }]} />
 
               <label>{t('set_theme')}</label>
               <button type="button" className="theme-select-btn" title={t('set_theme')} onClick={() => setTab('theme')}>
@@ -231,15 +228,13 @@ export function SettingsDialog({ spec, done }) {
               </button>
 
               <label>{t('set_font_size')}</label>
-              <select value={v.fontSize} onChange={(e) => set('fontSize', Number(e.target.value))}>
-                {[11, 12, 13, 14, 15, 16, 18].map((n) => <option key={n} value={n}>{n} px</option>)}
-              </select>
+              <DropDown value={v.fontSize} onChange={(n) => set('fontSize', Number(n))} ariaLabel={t('set_font_size')}
+                options={[11, 12, 13, 14, 15, 16, 18].map((n) => ({ value: n, label: `${n} px` }))} />
 
               <label>{t('set_panel_side')}</label>
-              <select value={v.serverOnLeft === false ? 'right' : 'left'} title={t('set_panel_side_hint')} onChange={(e) => set('serverOnLeft', e.target.value === 'left')}>
-                <option value="left">{t('set_server_left')}</option>
-                <option value="right">{t('set_server_right')}</option>
-              </select>
+              <DropDown value={v.serverOnLeft === false ? 'right' : 'left'} title={t('set_panel_side_hint')} ariaLabel={t('set_panel_side')}
+                onChange={(side) => set('serverOnLeft', side === 'left')}
+                options={[{ value: 'left', label: t('set_server_left') }, { value: 'right', label: t('set_server_right') }]} />
 
               <label>{t('set_local_cwd')}</label>
               <div className="path-pick">
@@ -292,12 +287,9 @@ export function SettingsDialog({ spec, done }) {
               </div>
 
               <label>{t('set_term_font')}</label>
-              <select value={v.terminalFont || ''} onChange={(e) => set('terminalFont', e.target.value)} title={t('set_term_font_hint')}
-                style={{ fontFamily: v.terminalFont ? `"${String(v.terminalFont).replace(/"/g, '')}"` : undefined }}>
-                {fontOptions.map((name) => (
-                  <option key={name} value={name} style={{ fontFamily: `"${String(name).replace(/"/g, '')}"` }}>{name}</option>
-                ))}
-              </select>
+              <DropDown value={v.terminalFont || ''} onChange={(name) => set('terminalFont', name)} title={t('set_term_font_hint')} ariaLabel={t('set_term_font')}
+                style={{ fontFamily: v.terminalFont ? `"${String(v.terminalFont).replace(/"/g, '')}"` : undefined }}
+                options={fontOptions.map((name) => ({ value: name, label: name, style: { fontFamily: `"${String(name).replace(/"/g, '')}"` } }))} />
 
               <label>{t('set_term_font_size')}</label>
               <input type="number" min={8} max={32} step={1} value={v.terminalFontSize || 13}
@@ -308,11 +300,8 @@ export function SettingsDialog({ spec, done }) {
                 onChange={(e) => set('terminalMaxLines', Number(e.target.value))} title={t('set_term_lines_hint')} />
 
               <label>{t('set_term_prompt_shell')}</label>
-              <select value={activeShell ? activeShell.id : ''} onChange={(e) => setPromptShell(e.target.value)}>
-                {shells.map((sh) => (
-                  <option key={sh.id} value={sh.id}>{lang === 'ko' ? (sh.labelKo || sh.label) : sh.label}</option>
-                ))}
-              </select>
+              <DropDown value={activeShell ? activeShell.id : ''} onChange={setPromptShell} ariaLabel={t('set_term_prompt_shell')}
+                options={shells.map((sh) => ({ value: sh.id, label: lang === 'ko' ? (sh.labelKo || sh.label) : sh.label }))} />
 
               <label>{t('set_term_prompts')}</label>
               <input className="settings-prompt" type="text"
@@ -326,9 +315,8 @@ export function SettingsDialog({ spec, done }) {
           {tab === 'transfer' && (
             <>
               <label>{t('set_transfer_concurrency')}</label>
-              <select value={Number(v.transferConcurrency) || 3} onChange={(e) => set('transferConcurrency', Number(e.target.value))} title={t('set_transfer_concurrency_hint')}>
-                {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
+              <DropDown value={Number(v.transferConcurrency) || 3} onChange={(n) => set('transferConcurrency', Number(n))} title={t('set_transfer_concurrency_hint')} ariaLabel={t('set_transfer_concurrency')}
+                options={[1, 2, 3, 4].map((n) => ({ value: n, label: String(n) }))} />
 
               <span />
               <label className="check"><input type="checkbox" checked={v.skipUnchanged !== false} onChange={(e) => set('skipUnchanged', e.target.checked)} /> {t('set_skip_unchanged')}</label>
