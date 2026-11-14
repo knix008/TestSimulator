@@ -1,0 +1,30 @@
+{
+  "name": "myworkforce",
+  "productName": "MyWorkForce",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Work tracking for Web, Windows, macOS and Linux (Tauri) — projects, issues, scrum and kanban boards, backlog, sprints, roadmap, dashboards, reports and service queues",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview --port 4180 --strictPort",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "build:icons": "node scripts/render-icons.mjs",
+    "build:win": "tauri build --bundles nsis",
+    "build:mac": "tauri build --bundles dmg",
+    "build:linux": "tauri build --bundles deb,rpm,appimage",
+    "build:all": "tauri build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "vite": "^7.1.7"
+  }
+}
