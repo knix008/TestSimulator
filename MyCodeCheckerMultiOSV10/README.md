@@ -72,7 +72,7 @@
 | Linux | `npm start` | `npm run build:linux` → .deb · .AppImage |
 | macOS | `npm start` | `npm run build:mac` → .app · .dmg |
 
-필요한 것(개발용): Node.js 22 이상, Rust(Tauri), Windows 는 WebView2. `npm start` · `npm run dev` 는 5210 부터 IPv4 · IPv6 모두 비어 있는 첫 포트를 골라 쓰며, 다른 프로그램을 멈추지 않습니다. 설치 파일은 그 운영체제에서만 만들며(다른 OS 에서 실행하면 멈추고 알려 줌), 만든 파일은 프로젝트 루트에 복사됩니다. Windows 설치 프로그램은 끝에 Git 이 없으면 winget 으로 설치할지 묻습니다.
+필요한 것(개발용): Node.js 22 이상, Rust(Tauri), Windows 는 WebView2. `npm start` · `npm run dev` 는 5210 부터 IPv4 · IPv6 모두 비어 있는 첫 포트를 골라 쓰며, 다른 프로그램을 멈추지 않습니다. 설치 파일은 그 운영체제에서만 만들며(다른 OS 에서 실행하면 멈추고 알려 줌), 만든 파일은 프로젝트 루트에 복사됩니다. Windows 설치 프로그램은 끝에 Git 이 없으면 winget 으로 설치할지 묻습니다. `npm run clean` 은 웹 빌드(`dist`), Tauri 빌드(`src-tauri/target`), 만든 아이콘·사이드카, 루트의 설치 파일을 지웁니다. `npm run clean:all` 은 그에 더해 `node_modules` 와 튜토리얼 영상도 지웁니다. 작업 공간은 둘 다 그대로 둡니다. 의존성을 다시 받으려면 `npm install` 을 실행합니다.
 
 ```bash
 npm install

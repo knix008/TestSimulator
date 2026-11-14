@@ -72,7 +72,7 @@ One JavaScript core, four ways to start it.
 | Linux | `npm start` | `npm run build:linux` → .deb, .AppImage |
 | macOS | `npm start` | `npm run build:mac` → .app, .dmg |
 
-For development you need Node.js 22 or later, Rust (Tauri) and, on Windows, WebView2. `npm start` and `npm run dev` take the first port from 5210 that is free on both IPv4 and IPv6 and never stop other programs. Each installer is built on its own OS (the build stops and says so on another OS) and is copied to the project root. At the end of the Windows installer you are asked whether to install Git with winget when it is missing.
+For development you need Node.js 22 or later, Rust (Tauri) and, on Windows, WebView2. `npm start` and `npm run dev` take the first port from 5210 that is free on both IPv4 and IPv6 and never stop other programs. Each installer is built on its own OS (the build stops and says so on another OS) and is copied to the project root. At the end of the Windows installer you are asked whether to install Git with winget when it is missing. `npm run clean` removes the web build (`dist`), the Tauri build (`src-tauri/target`), generated icons and the sidecar, and installers in the project root. `npm run clean:all` also removes `node_modules` and the tutorial video. Neither touches the workspace. Run `npm install` to fetch dependencies again.
 
 ```bash
 npm install

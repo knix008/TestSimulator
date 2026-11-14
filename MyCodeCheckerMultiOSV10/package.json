@@ -16,6 +16,8 @@
     "tauri:build": "tauri build",
     "build": "vite build",
     "build:web": "npm run build && node server/server.js",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all",
     "build:win": "node scripts/platform-build.mjs win",
     "build:linux": "node scripts/platform-build.mjs linux",
     "build:mac": "node scripts/platform-build.mjs mac",
