@@ -67,9 +67,11 @@ function collectSources(root, options = {}) {
     report('collect', sources.length, files.length, file);
   }
   let coverage = null;
-  try { coverage = readCoverage(abs, options.coverageReports); } catch { coverage = null; }
-  if (options.coverageText) {
-    try { coverage = parseLcov(options.coverageText, abs); } catch { /* keep file coverage */ }
+  if (!options.skipCoverage) {
+    try { coverage = readCoverage(abs, options.coverageReports); } catch { coverage = null; }
+    if (options.coverageText) {
+      try { coverage = parseLcov(options.coverageText, abs); } catch { /* keep file coverage */ }
+    }
   }
   return { sources, options: { ...options, root: abs, coverage } };
 }
@@ -113,12 +115,21 @@ function cfamilyInput(prepared, options = {}) {
   return maxC ? prepared.filter((f) => !((f.lang === 'c' || f.lang === 'cpp') && String(f.text).length > maxC)) : prepared;
 }
 
+// null: no limit. An array (even empty): only these root-relative paths.
+function onlyFileSet(list) {
+  if (!Array.isArray(list)) return null;
+  const set = new Set();
+  for (const f of list) set.add(String(f).replace(/\\/g, '/').replace(/^\.\//, ''));
+  return set;
+}
+
 function walk(root, options) {
   const out = [];
   const maxFiles = options.maxFiles || Infinity;
   const exclusions = options.exclusions || [];
   const excludeDirs = normDirs(options.excludeDirs);
   const skipLangs = new Set(options.skipLanguages || []);
+  const only = onlyFileSet(options.onlyFiles);
   const visit = (dir) => {
     if (out.length >= maxFiles) return;
     let entries = [];
@@ -135,6 +146,7 @@ function walk(root, options) {
       } else if (ent.isFile()) {
         const rel = path.relative(root, full);
         if (excluded(rel, exclusions)) continue;
+        if (only && !only.has(rel.replace(/\\/g, '/'))) continue;
         const lang = detectLanguage(full);
         if (!lang || skipLangs.has(lang)) continue;
         out.push(full);
@@ -220,6 +232,7 @@ function analyzeSources(files, options = {}) {
       issues.add(item);
     };
 
+    if (!options.skipRules) {
     for (const found of structural.issues) {
       const rule = STRUCT_BY_KEY.get(found.rule);
       if (rule) push(found, rule, file.lang);
@@ -253,6 +266,8 @@ function analyzeSources(files, options = {}) {
         push({ line: i + 1, message: rule.name }, rule, file.lang);
       }
     }
+    }
+    if (!options.skipDefects) {
     for (const found of pathDefects(file.text, file.lang, file.path, { inactive: options.inactive, models: options.models })) {
       if (!found || !found.line || suppressed.has(found.line)) continue;
       const rule = {
@@ -272,6 +287,7 @@ function analyzeSources(files, options = {}) {
       item.impact = found.impact;
       item.function = found.function;
       issues.add(item);
+    }
     }
 
     const cov = coverageFor(options.coverage, file.path);
@@ -303,7 +319,7 @@ function analyzeSources(files, options = {}) {
   const FINISH_STEPS = 7;
   report('finish', 0, FINISH_STEPS, 'duplications');
 
-  const dup = findDuplications(dupInput);
+  const dup = options.skipDuplication ? { blocks: [], duplicatedLines: 0, perFile: {} } : findDuplications(dupInput);
   report('finish', 1, FINISH_STEPS, 'details');
   const ncloc = fileRows.reduce((n, f) => n + f.ncloc, 0);
   const commentLines = fileRows.reduce((n, f) => n + f.commentLines, 0);

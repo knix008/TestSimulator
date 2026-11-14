@@ -296,7 +296,7 @@ function createExtensions({ workspace, saveWorkspace, configDir, issuesOf = (iss
       const ws = workspace();
       const project = projectOf(ws, args.projectId);
       const repo = await scm.detectRepo(project.path);
-      if (!repo || !repo.isRepo) return { isRepo: false };
+      if (!repo || !repo.ok) return { ok: false, isRepo: false };
       return { ...repo, branches: await scm.listBranches(project.path), tags: await scm.listTags(project.path) };
     },
     'pr.analyze': async (args) => {

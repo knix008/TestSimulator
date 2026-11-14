@@ -1,5 +1,6 @@
 // Project settings: everything the next analysis of this project uses, in one
-// page — name and key, the main branch, the quality gate, the profile per
+// page — name and key, the main branch, the git connection and analysis plan
+// (scope, schedule, content), the quality gate, the profile per
 // language and the defect policy, what is left out (patterns and folders),
 // the C/C++ include folders and macros, coverage reports, the project's own
 // new code definition, its languages (found in the code, plus the ones the
@@ -56,7 +57,64 @@ export function draftOf(project) {
     languages: [...(project.languages || [])],
     // Languages the user removed: their files are left out of the analysis.
     removedLanguages: [...(project.removedLanguages || [])],
+    git: gitDraft(project.git),
   };
+}
+
+const GIT_PERIODS = ['off', 'hourly', 'daily', 'weekly', 'custom'];
+const CRON_ALIASES = new Set(['@hourly', '@daily', '@midnight', '@weekly', '@monthly', '@yearly', '@annually']);
+
+function gitDraft(git) {
+  const g = git && typeof git === 'object' ? git : {};
+  const c = g.content && typeof g.content === 'object' ? g.content : {};
+  return {
+    url: g.url || '',
+    branch: g.branch || '',
+    fetch: g.fetch === true,
+    scope: g.scope === 'changed' ? 'changed' : 'full',
+    ref: g.ref || '',
+    period: GIT_PERIODS.includes(g.period) ? g.period : 'off',
+    cron: g.cron || '',
+    content: {
+      issues: c.issues !== false,
+      duplication: c.duplication !== false,
+      coverage: c.coverage !== false,
+      defects: c.defects !== false,
+    },
+  };
+}
+
+/** A 5-field cron expression or a named alias (@daily). The server parses it again. */
+export function cronValid(expr) {
+  const s = String(expr || '').trim();
+  if (CRON_ALIASES.has(s)) return true;
+  const parts = s.split(/\s+/);
+  if (parts.length !== 5) return false;
+  return parts.every((part) => part.split(',').every((item) => /^(\*|\d+(?:-\d+)?)(?:\/\d+)?$/.test(item)));
+}
+
+/** Error text key when the git plan cannot be saved, or ''. */
+export function gitError(git) {
+  if (git && git.period === 'custom' && !cronValid(git.cron)) return 'ps_git_cron_bad';
+  return '';
+}
+
+function gitToSave(g) {
+  if (!g) return undefined;
+  const plain = g.scope === 'full' && !String(g.url || '').trim() && !String(g.branch || '').trim() && !g.fetch && !String(g.ref || '').trim() && g.period === 'off'
+    && g.content.issues && g.content.duplication && g.content.coverage && g.content.defects;
+  if (plain) return undefined;
+  const out = {
+    url: String(g.url || '').trim(),
+    branch: String(g.branch || '').trim(),
+    fetch: !!g.fetch,
+    scope: g.scope === 'changed' ? 'changed' : 'full',
+    ref: String(g.ref || '').trim(),
+    period: GIT_PERIODS.includes(g.period) ? g.period : 'off',
+    content: { ...g.content },
+  };
+  if (out.period === 'custom') out.cron = String(g.cron || '').trim();
+  return out;
 }
 
 /** The project fields of a draft (what is saved in the workspace and the .mccp). */
@@ -79,6 +137,7 @@ export function fieldsOfDraft(d) {
     checks: d.ownChecks ? d.checks : undefined,
     languages: d.languages.length ? d.languages : undefined,
     removedLanguages: d.removedLanguages.length ? d.removedLanguages : undefined,
+    git: gitToSave(d.git),
   };
 }
 
@@ -333,6 +392,57 @@ export function RulesSection({ ws, d, set, langs }) {
   );
 }
 
+const GIT_SCOPE = [['full', 'folder', 'ps_git_scope_full'], ['changed', 'branch', 'ps_git_scope_changed']];
+const GIT_PERIOD = [['off', 'close', 'ps_git_period_off'], ['hourly', 'clock', 'ps_git_period_hourly'], ['daily', 'calendar', 'ps_git_period_daily'], ['weekly', 'history', 'ps_git_period_weekly'], ['custom', 'edit', 'ps_git_period_custom']];
+
+// Git connection plus what an analysis of this project covers, how often, and which results.
+export function GitSection({ d, set, target }) {
+  const git = d.git;
+  const patch = (p) => set({ git: { ...git, ...p } });
+  const content = (key, v) => patch({ content: { ...git.content, [key]: v } });
+  const scm = useApi('scm.info', { projectId: target && target.projectId }, [target && target.projectId], !!(target && target.projectId));
+  const repo = scm.data;
+  const detected = repo && (repo.ok || repo.isRepo);
+  return (
+    <Section icon="branch" title={t('ps_git')} hint={t('ps_git_hint')}>
+      {detected && <p className="small"><Icon name="check" size={12} /> {t('ps_git_detected', { remote: repo.remote || '—', branch: repo.branch || '—' })}</p>}
+      {repo && !detected && <p className="small muted">{t('ps_git_norepo')}</p>}
+      <Field label={t('ps_git_url')} hint={t('ps_git_url_hint')}>
+        <input className="mono" value={git.url} placeholder="https://example.com/app.git" onChange={(e) => patch({ url: e.target.value })} />
+      </Field>
+      <Field label={t('ps_git_branch')} hint={t('ps_git_branch_hint')}>
+        <input value={git.branch} placeholder={t('ps_git_branch_ph')} onChange={(e) => patch({ branch: e.target.value })} />
+      </Field>
+      <Field label={t('ps_git_fetch')}>
+        <Toggle checked={git.fetch} label={t('ps_git_fetch_label')} icon="refresh" onChange={(v) => patch({ fetch: v })} />
+      </Field>
+      <Field label={t('ps_git_scope')} hint={t(git.scope === 'changed' ? 'ps_git_scope_changed_hint' : 'ps_git_scope_full_hint')}>
+        <IconSelect value={git.scope} width={240} ariaLabel={t('ps_git_scope')} options={GIT_SCOPE.map(([value, icon, label]) => ({ value, label: t(label), icon }))} onChange={(v) => patch({ scope: v })} />
+      </Field>
+      {git.scope === 'changed' && (
+        <Field label={t('ps_git_ref')} hint={t('ps_git_ref_hint')}>
+          <input value={git.ref} placeholder={t('ps_git_ref_ph')} onChange={(e) => patch({ ref: e.target.value })} />
+        </Field>
+      )}
+      <Field label={t('ps_git_period')} hint={t('ps_git_period_hint')}>
+        <IconSelect value={git.period} width={240} ariaLabel={t('ps_git_period')} options={GIT_PERIOD.map(([value, icon, label]) => ({ value, label: t(label), icon }))} onChange={(v) => patch({ period: v })} />
+      </Field>
+      {git.period === 'custom' && (
+        <Field label={t('ps_git_cron')} hint={t('ps_git_cron_hint')}>
+          <input className="mono" value={git.cron} placeholder="0 2 * * 1-5" onChange={(e) => patch({ cron: e.target.value })} />
+        </Field>
+      )}
+      {git.period === 'custom' && !cronValid(git.cron) && <p className="small bad"><Icon name="alert" size={12} /> {t('ps_git_cron_bad')}</p>}
+      <div className="ps-sub">{t('ps_git_content')}</div>
+      <p className="small muted">{t('ps_git_content_hint')}</p>
+      <Field label={t('ps_git_issues')}><Toggle checked={git.content.issues} label={t('ps_git_issues_label')} icon="bug" onChange={(v) => content('issues', v)} /></Field>
+      <Field label={t('ps_git_duplication')}><Toggle checked={git.content.duplication} label={t('ps_git_duplication_label')} icon="copy" onChange={(v) => content('duplication', v)} /></Field>
+      <Field label={t('ps_git_coverage')}><Toggle checked={git.content.coverage} label={t('ps_git_coverage_label')} icon="checkCircle" onChange={(v) => content('coverage', v)} /></Field>
+      <Field label={t('ps_git_defects')}><Toggle checked={git.content.defects} label={t('ps_git_defects_label')} icon="alert" onChange={(v) => content('defects', v)} /></Field>
+    </Section>
+  );
+}
+
 // root: the source folder (the excluded folders are relative to it).
 export function ScopeSection({ ws, d, set, target, root }) {
   const [pickDirs, setPickDirs] = useState(false);
@@ -381,7 +491,8 @@ export function ProjectSettings({ ws, project, analysis, busy, onSave }) {
   const part = { ws, d, set, langs, target };
 
   const save = async (andAnalyze) => {
-    if (!keyOk || keyTaken || !d.name.trim()) { setNote(!d.name.trim() ? t('ps_name_needed') : keyTaken ? t('ps_key_taken') : t('ps_key_bad')); return; }
+    const gitBad = gitError(d.git);
+    if (!keyOk || keyTaken || !d.name.trim() || gitBad) { setNote(!d.name.trim() ? t('ps_name_needed') : keyTaken ? t('ps_key_taken') : gitBad ? t(gitBad) : t('ps_key_bad')); return; }
     setSaving(true);
     setNote('');
     const next = { ...project, ...fieldsOfDraft(d) };
@@ -421,6 +532,7 @@ export function ProjectSettings({ ws, project, analysis, busy, onSave }) {
           <EnginesSection {...part} />
           <RulesSection {...part} />
           <ScopeSection {...part} root={project.path} />
+          <GitSection {...part} />
         </div>
       </div>
       <div className="ps-actions">

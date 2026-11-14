@@ -6,7 +6,7 @@ import { Icon, Dialog } from '../components/Chrome';
 import { Btn, BtnGroup, Empty, errorText, useApi } from './common';
 import { ask } from '../lib/ui';
 import { useEditorDirty } from '../lib/dirty';
-import { draftOf, fieldsOfDraft, useProjectLanguages, Section, Field, LanguagesSection, EnginesSection, RulesSection, ScopeSection, LanguageOptionsSection, CoverageSection, NewCodeSection } from './ProjectSettings';
+import { draftOf, fieldsOfDraft, gitError, useProjectLanguages, Section, Field, LanguagesSection, EnginesSection, RulesSection, ScopeSection, LanguageOptionsSection, CoverageSection, NewCodeSection, GitSection } from './ProjectSettings';
 
 export const PROJECT_FILTER = { get name() { return t('pj_filter_name'); }, extensions: ['mccp'] };
 
@@ -42,6 +42,7 @@ const NEW_TABS = [
   ['scope', 'filter', 'ps_scope'],
   ['langopts', 'cpu', 'np_tab_build'],
   ['newcode', 'clock', 'new_code_mode'],
+  ['git', 'branch', 'ps_git'],
 ];
 const KEY_OK = /^[A-Za-z0-9_.:-]{1,190}$/;
 
@@ -86,6 +87,8 @@ export function NewProjectDialog({ onClose, onDone, onOpenExisting }) {
   // Created without analyzing; App then runs scan.start with the progress popup.
   const create = async (scan, overwrite = false, replace = false) => {
     if (keyBad || keyTaken) { setTab('basic'); setError(keyTaken ? t('ps_key_taken') : t('ps_key_bad')); return; }
+    const gitBad = gitError(d.git);
+    if (gitBad) { setTab('git'); setError(t(gitBad)); return; }
     setBusy(true);
     setError('');
     try {
@@ -159,6 +162,7 @@ export function NewProjectDialog({ onClose, onDone, onOpenExisting }) {
           {tab === 'scope' && <div data-tour="new-project-exclude"><ScopeSection {...part} root={source.trim()} /></div>}
           {tab === 'langopts' && <><LanguageOptionsSection {...part} /><CoverageSection {...part} /></>}
           {tab === 'newcode' && <NewCodeSection {...part} />}
+          {tab === 'git' && <GitSection {...part} />}
         </div>
       </div>
       <div className="st-foot">

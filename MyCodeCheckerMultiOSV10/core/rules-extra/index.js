@@ -11,7 +11,7 @@ const FILES = [
   'js', 'py', 'java', 'kt', 'cs', 'go', 'rs', 'php', 'rb', 'sh', 'ps1', 'sql',
   'html', 'css', 'xml', 'yaml', 'docker', 'tf', 'json', 'secrets', 'common',
   'swift', 'objc', 'scala', 'dart', 'vbnet', 'vb6', 'cobol', 'plsql',
-  'abap', 'apex', 'rpg', 'pli', 'jcl', 'flex', 'bicep',
+  'abap', 'apex', 'rpg', 'pli', 'jcl', 'flex', 'bicep', 'lint',
 ];
 
 const BY_FILE = {};

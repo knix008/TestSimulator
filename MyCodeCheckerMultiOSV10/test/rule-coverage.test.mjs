@@ -84,6 +84,8 @@ const SAMPLES = {
   'tf:public-acl': ['tf', '  acl = "public-read"', '  acl = "private"'],
   'json:git-http': ['json', '"lib": "git+http://example.com/lib.git"', '"lib": "git+https://example.com/lib.git"'],
   'groovy:sh-interp': ['groovy', 'sh("git checkout ${params.BRANCH}")', "sh('git checkout \"$BRANCH\"')"],
+  'lint:c-long-line': ['c', `const char *label = "${'x'.repeat(130)}";`, 'const char *label = "ok";'],
+  'lint:c-mixed-indent': ['c', ' \tchar *p = buf;', '  char *p = buf;'],
 };
 
 function applies(rule, lang) {

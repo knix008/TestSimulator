@@ -16,6 +16,7 @@ const integrate = require('./integrate');
 const aifix = require('./aifix');
 const dbsink = require('./dbsink');
 const projectfile = require('./projectfile');
+const gitplan = require('./gitplan');
 const profiles = require('./profiles');
 const users = require('./platform/users');
 const { merge3 } = require('./merge');
@@ -165,6 +166,7 @@ function createApi(opts = {}) {
     }
     const profile = inactiveFor(ws, project);
     const newCode = await newCodeOptions(ws, project, branchState, target, keys);
+    const gitScan = await gitplan.resolveScan(abs, project, scm);
     const cov = ws.defectAnalysis || {};
     const policy = (cov.policies || []).find((p) => p.id === (project.policyId || '')) || (cov.policies || []).find((p) => p.isDefault) || DEFAULT_POLICY;
     // The previous analysis's issues (millions on a large project) are read a
@@ -215,7 +217,10 @@ function createApi(opts = {}) {
         previousIssues,
         policy,
         ...ext.engineOptions(ws, project),
+        ...gitScan.options,
       });
+      if (gitScan.meta) analysis.git = gitScan.meta;
+      if (gitScan.warnings.length) analysis.warnings = [...(analysis.warnings || []), ...gitScan.warnings];
     } catch (err) {
       // A cancelled analysis is recorded as such and sends no failure notice.
       const cancelled = err.code === 'CANCELLED';
@@ -1433,8 +1438,8 @@ function createApi(opts = {}) {
     return { status: r.analysis.qualityGate.status === 'OK' ? 'SUCCESS' : 'GATE_FAILED', summary: `gate ${r.analysis.qualityGate.status}, bugs ${m.bugs}, vulnerabilities ${m.vulnerabilities}` };
   }
   const runner = scheduler.createScheduler({
-    load: () => workspace().schedules || [],
-    save: (list) => { const ws = workspace(); ws.schedules = list; saveWorkspace(ws); },
+    load: () => gitplan.schedulesOf(workspace()),
+    save: (list) => { const ws = workspace(); gitplan.applyScheduleSave(ws, list); saveWorkspace(ws); },
     run: runSchedule,
     tickMs: opts.schedulerTickMs || 30000,
   });

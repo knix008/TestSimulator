@@ -815,6 +815,18 @@ const RULES = [
     name: { en: 'TODO or FIXME comment', ko: 'TODO 또는 FIXME 주석' },
     why: { en: 'A leftover marker is unfinished work still in the tree.', ko: '남아 있는 표시는 아직 끝나지 않은 일입니다.' },
     fix: { en: 'Finish the work or track it outside the source.', ko: '일을 끝내거나 소스 밖에서 추적하세요.' } }),
+  // Baseline lint for C and C++ (C++ files run the C rules). The other languages
+  // are in core/rules-extra/lint.js. Both use the lint: prefix.
+  R({ key: 'lint:c-long-line', langs: 'c', type: 'CODE_SMELL', severity: 'MINOR', debtMin: 1, tags: ['style', 'lint'],
+    re: /.{120}/,
+    name: { en: 'Line is longer than 120 characters', ko: '120자를 넘는 줄입니다' },
+    why: { en: 'A very long line is hard to read and to review in a diff.', ko: '아주 긴 줄은 읽기 어렵고 diff에서 검토하기도 어렵습니다.' },
+    fix: { en: 'Break the line.', ko: '줄을 나누세요.' } }),
+  R({ key: 'lint:c-mixed-indent', langs: 'c', type: 'CODE_SMELL', severity: 'MINOR', debtMin: 1, tags: ['style', 'lint'],
+    re: /^(?: +\t|\t+ +)\S/,
+    name: { en: 'Tabs and spaces are mixed in the indentation', ko: '들여쓰기에 탭과 공백이 섞여 있습니다' },
+    why: { en: 'Mixed indentation looks aligned in one editor and broken in another.', ko: '섞인 들여쓰기는 편집기마다 정렬이 달라 보입니다.' },
+    fix: { en: 'Use either spaces or tabs for the whole file.', ko: '파일 전체에서 공백이나 탭 중 하나만 쓰세요.' } }),
   R({ key: 'common:trailing-space', langs: '*', type: 'CODE_SMELL', severity: 'INFO', debtMin: 1, scope: 'any', tags: ['style'],
     re: /[ \t]+$/,
     name: { en: 'Trailing whitespace', ko: '줄 끝 공백' },

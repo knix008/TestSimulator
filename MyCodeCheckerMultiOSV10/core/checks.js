@@ -11,6 +11,7 @@
 
 const CHECK_GROUPS = [
   { id: 'quality', ko: '코드 품질 기본 규칙', en: 'Core code quality rules', hint: { ko: '버그 · 취약점 · 코드 스멜 · 핫스팟 · 비밀 정보(언어별 줄 규칙)', en: 'Bugs, vulnerabilities, code smells, hotspots, secrets (per-language line rules)' } },
+  { id: 'lint', ko: '언어별 기본 Lint', en: 'Baseline lint per language', prefixes: ['lint:'], hint: { ko: '각 언어의 기본 린트입니다. 긴 줄 · 섞인 들여쓰기, 그리고 ESLint · Ruff · Checkstyle · golint · ShellCheck 류의 기본 항목(디버그 출력, 느슨한 비교, 래퍼 생성, 짧은 태그 등)', en: 'The baseline linter for each language: long lines, mixed indentation, and the usual ESLint, Ruff, Checkstyle, golint and ShellCheck items (debug prints, loose comparisons, wrapper constructors, short tags and more)' } },
   { id: 'defects', ko: '정밀 결함 분석', en: 'Defect Analysis', prefixes: ['defect:'], langs: ['c', 'cpp', 'java', 'kt', 'cs', 'js', 'ts', 'py', 'go', 'php', 'rb'], hint: { ko: '널 역참조 · 자원 누수 · 해제 후 사용 등 경로 결함', en: 'Null dereference, resource leaks, use after free and other path defects' } },
   { id: 'semantic', ko: '언어별 의미 분석', en: 'Semantic analysis per language', engines: ['sem-js', 'sem-java', 'sem-cs', 'sem-py', 'sem-go', 'sem-php', 'sem-rb'], langs: ['js', 'ts', 'java', 'kt', 'cs', 'py', 'go', 'php', 'rb'], hint: { ko: 'JavaScript · Java · C# · Python · Go · PHP · Ruby', en: 'JavaScript, Java, C#, Python, Go, PHP, Ruby' } },
   { id: 'taint', ko: '오염 데이터 흐름(테인트)', en: 'Taint flow', engines: ['taint'], langs: ['js', 'ts', 'java', 'kt', 'cs', 'py', 'go', 'php', 'rb'], hint: { ko: '입력에서 위험한 호출까지의 데이터 흐름', en: 'Data flow from inputs to dangerous calls' } },
@@ -38,6 +39,7 @@ function groupOf(issue) {
   const groups = engine ? BY_ENGINE.get(engine) : null;
   if (groups) return (groups.length === 1 ? groups[0] : groups.find((g) => (g.prefixes || []).some((p) => rule.startsWith(p))) || groups[0]).id;
   if (rule.startsWith('defect:')) return 'defects';
+  if (rule.startsWith('lint:')) return 'lint';
   return 'quality';
 }
 
