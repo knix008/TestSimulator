@@ -59,7 +59,7 @@ export function AskBox({ title, body, icon, buttons, onAnswer }) {
       <p style={{ margin: '4px 0 8px', lineHeight: 1.5, whiteSpace: 'pre-line' }}>{body}</p>
       <div className="dialog-actions">
         <BtnGroup>
-          {(buttons || []).map((b) => <Btn key={b.id} icon={b.icon} label={b.label} primary={b.primary} danger={b.danger} onClick={() => onAnswer(b.id)} />)}
+          {(buttons || []).map((b) => <Btn key={b.id} icon={b.icon || (b.danger ? 'alert' : b.primary ? 'check' : 'circleDot')} label={b.label} primary={b.primary} danger={b.danger} onClick={() => onAnswer(b.id)} />)}
         </BtnGroup>
       </div>
     </Dialog>

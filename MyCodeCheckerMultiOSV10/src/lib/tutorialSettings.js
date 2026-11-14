@@ -1,6 +1,7 @@
 // Tutorial settings, kept in the workspace as settings.tutorial:
 //   { showAtStart: true, done: false, lastIndex: 0 }
-// showAtStart — show the start guide (TutorialWelcome) every time the app starts;
+// showAtStart — on launch, and only while the Start screen is showing, ask
+//               whether to run the tutorial (TutorialAsk);
 // done        — the tour was played to the end;
 // lastIndex   — the step the tour was left on, to continue from there.
 // The helpers return patches for App's patchSettings({ tutorial: … }).
@@ -16,9 +17,20 @@ export function tutorialOf(settings) {
   };
 }
 
-/** Whether to show the start guide at launch: only the user's switch decides. */
+/** Whether the launch question is enabled: only the user's switch decides. */
 export function shouldShowWelcome(settings) {
   return tutorialOf(settings).showAtStart;
+}
+
+/**
+ * Launch question for this process. `pending` until the first settled screen,
+ * `open` only on the Start screen, then `closed` for the rest of the launch
+ * (left the Start screen, answered, or the switch is off). A closed session
+ * does not open again until the next launch.
+ */
+export function nextAskSession(session, { onStart, enabled } = {}) {
+  if (session === 'closed' || !enabled) return 'closed';
+  return onStart ? 'open' : 'closed';
 }
 
 const patch = (settings, change) => ({ tutorial: { ...tutorialOf(settings), ...change } });

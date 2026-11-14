@@ -40,7 +40,7 @@ export function UiHost() {
             <p style={{ margin: '4px 0 8px', lineHeight: 1.5, whiteSpace: 'pre-line' }}>{top.body}</p>
             <div className="dialog-actions">
               <BtnGroup>
-                {top.buttons.map((b) => <Btn key={b.id} icon={b.icon} label={b.label} primary={b.primary} danger={b.danger} onClick={() => top.resolve(b.id)} />)}
+                {top.buttons.map((b) => <Btn key={b.id} icon={b.icon || (b.danger ? 'alert' : b.primary ? 'check' : 'circleDot')} label={b.label} primary={b.primary} danger={b.danger} onClick={() => top.resolve(b.id)} />)}
               </BtnGroup>
             </div>
           </Dialog>

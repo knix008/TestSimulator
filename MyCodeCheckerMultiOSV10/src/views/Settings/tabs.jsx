@@ -39,10 +39,7 @@ export function GeneralTab({ d, set, previewLanguage }) {
       <Row icon="globe" label={t('language')} title={t('st_live_hint')}>
         <IconSelect value={d.language} width={220} ariaLabel={t('language')} onChange={previewLanguage} options={languageOptions()} />
       </Row>
-      <div className="st-eq">
       <Row icon="home" label={t('start_nav')}><Toggle icon="home" label={t('show_start_on_launch')} checked={d.showStartOnLaunch} onChange={(v) => set({ showStartOnLaunch: v })} /></Row>
-      <Row icon="info" label={t('welcome_menu')} title={t('st_welcome_hint')}><Toggle icon="info" label={t('show_welcome_on_launch')} checked={tutorialOf(d).showAtStart} onChange={(v) => set(showAtStartPatch(d, v))} /></Row>
-      </div>
       <Row icon="user" label={t('assignee')} title={t('st_assignee_hint')}><input value={d.assignee} placeholder={t('st_assignee_ph')} onChange={(e) => set({ assignee: e.target.value })} /></Row>
       <div className="st-sep">{t('st_panels')}</div>
       <div className="st-grid3">
@@ -189,6 +186,7 @@ export function StartTab({ d, set, setBg }) {
   return (
     <>
       <Row icon="home" label={t('start_nav')}><Toggle icon="home" label={t('sp_show')} checked={d.showStartOnLaunch} onChange={(v) => set({ showStartOnLaunch: v })} /></Row>
+      <Row icon="info" label={t('st_ask_row')} title={t('st_welcome_hint')}><span data-testid="settings-start-ask"><Toggle icon="info" label={t('show_welcome_on_launch')} checked={tutorialOf(d).showAtStart} onChange={(v) => set(showAtStartPatch(d, v))} /></span></Row>
       <div className="st-sep">{t('sp_background')} <span className="small">· {t('st_bg_hint')}</span></div>
       <BgPreview bg={bg} />
       <BgKindGrid bg={bg} columns={6} onChange={setBg} />

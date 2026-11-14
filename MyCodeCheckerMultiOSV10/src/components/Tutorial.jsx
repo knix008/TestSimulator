@@ -1,7 +1,7 @@
 // The guided tour. Renders nothing until started; then, in a portal on
 // document.body, an outline round the step's target and a card at the bottom
-// right (draggable by its head) with the step text, a chapter list, ⏮ (from
-// the beginning), ◀ previous, ▶ / ⏸ auto play, next ▶ and "n / N".
+// right (draggable by its head) with the step text, a chapter list, and
+// buttons for the start, previous, auto play, and next, plus "n / N".
 // Keys: → / Space next, ← previous, Esc closes. Progress is kept in
 // localStorage['mcc.tutorial'] and reported through onProgress when the tour
 // stops (App saves it as settings.tutorial).
@@ -486,10 +486,10 @@ export function Tutorial({ onProgress }) {
           </div>
           <span className="mcc-tour-count" data-testid="tour-count">{eng.index + 1} / {STEPS.length}{eng.busy ? ' …' : ''}</span>
           <span className="mcc-tour-grow" />
-          <button type="button" className="mcc-tour-btn" title={s.restart} aria-label={s.restart} data-testid="tour-restart" disabled={eng.index === 0} onClick={() => eng.go(0)}>⏮</button>
-          <button type="button" className="mcc-tour-btn" title={s.prev} aria-label={s.prev} data-testid="tour-prev" disabled={eng.index === 0} onClick={() => eng.prev()}>◀ {s.prev}</button>
-          <button type="button" className={`mcc-tour-btn ${eng.autoplay ? 'on' : ''}`} title={eng.autoplay ? s.pause : s.play} aria-label={eng.autoplay ? s.pause : s.play} aria-pressed={eng.autoplay} data-testid="tour-play" onClick={() => eng.toggleAutoplay()}>{eng.autoplay ? '⏸' : '▶'}</button>
-          <button type="button" className="mcc-tour-btn primary" data-testid="tour-next" disabled={eng.busy && !last} onClick={() => eng.next()}>{last ? `${s.done} ✓` : `${s.next} ▶`}</button>
+          <button type="button" className="mcc-tour-btn" title={s.restart} aria-label={s.restart} data-testid="tour-restart" disabled={eng.index === 0} onClick={() => eng.go(0)}><Icon name="chevronsLeft" size={14} /></button>
+          <button type="button" className="mcc-tour-btn" title={s.prev} aria-label={s.prev} data-testid="tour-prev" disabled={eng.index === 0} onClick={() => eng.prev()}><Icon name="chevronLeft" size={14} />{s.prev}</button>
+          <button type="button" className={`mcc-tour-btn ${eng.autoplay ? 'on' : ''}`} title={eng.autoplay ? s.pause : s.play} aria-label={eng.autoplay ? s.pause : s.play} aria-pressed={eng.autoplay} data-testid="tour-play" onClick={() => eng.toggleAutoplay()}><Icon name={eng.autoplay ? 'pause' : 'play'} size={14} /></button>
+          <button type="button" className="mcc-tour-btn primary" data-testid="tour-next" disabled={eng.busy && !last} onClick={() => eng.next()}><Icon name={last ? 'check' : 'chevronRight'} size={14} />{last ? s.done : s.next}</button>
         </div>
       </div>
     </div>,

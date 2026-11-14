@@ -347,6 +347,15 @@ td.act .btn-group .vbtn, td.act > .vbtn { height: 26px; padding: 0 9px; font-siz
 .table-wrap.tall { max-height: calc(100vh - 230px); }
 .table-wrap th { background: var(--bg-elev); z-index: 1; }
 .table-wrap table { min-width: 560px; }
+/* Snapshot compare list: the columns share the pane, so the table does not grow a sideways scrollbar. */
+.table-wrap.cmp-cols { overflow-x: hidden; }
+.table-wrap.cmp-cols table { min-width: 0; table-layout: fixed; }
+.table-wrap.cmp-cols th { position: sticky; overflow: hidden; }
+.table-wrap.cmp-cols th .cmp-h { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 6px; }
+.table-wrap.cmp-cols td { overflow: hidden; min-width: 0; }
+.table-wrap.cmp-cols td.clip { white-space: nowrap; text-overflow: ellipsis; }
+.table-wrap.cmp-cols .col-grip { position: absolute; top: 0; right: 0; width: 7px; height: 100%; cursor: col-resize; touch-action: none; z-index: 2; }
+.table-wrap.cmp-cols .col-grip:hover, .table-wrap.cmp-cols .col-grip:focus-visible { background: color-mix(in srgb, var(--accent) 55%, transparent); outline: none; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 td.wrap { overflow-wrap: anywhere; word-break: break-word; }
 td.nowrap { white-space: nowrap; }
@@ -1269,7 +1278,10 @@ body.resizing-y { cursor: row-resize; user-select: none; }
 .bg-kind:hover { background: var(--bg-hover); }
 .bg-kind.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev)); }
 .bg-kind.shuffle.on { border-color: var(--accent); color: var(--accent); }
-.st-pane .bg-preview { height: 58px; }
+.st-pane:has(> .bg-kinds) { gap: 4px; }
+.st-pane .bg-preview { height: 40px; }
+.st-pane .bg-kinds { gap: 3px; }
+.st-pane .bg-kind { height: 24px; }
 .start-row.missing .start-link { opacity: .55; }
 /* centre document tabs */
 .doc-tabs { flex: none; display: flex; align-items: stretch; height: 32px; border-bottom: 1px solid var(--border); background: var(--bg-panel); min-width: 0; }

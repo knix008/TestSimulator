@@ -41,6 +41,7 @@ import { AboutDialog, aboutSummary } from './views/About';
 import { ScanProgress } from './views/ScanProgress';
 import { UserGuide } from './components/UserGuide';
 import { TutorialWelcome } from './components/TutorialWelcome';
+import { TutorialAsk } from './components/TutorialAsk';
 import { progressPatch, shouldShowWelcome } from './lib/tutorialSettings';
 import { usePopupWindows, openPopupWindow, closePopups, onBroadcast, warmPopups, popupRoute } from './lib/popups';
 import { ask, toast, attempt, showError, errorText as errorTextOf } from './lib/ui';
@@ -1230,6 +1231,7 @@ export default function App() {
   };
 
   const onStart = view === 'start';
+  const askOpen = welcomeOpen === null ? (onStart && shouldShowWelcome(ws.settings)) : welcomeOpen;
   const showLeft = !onStart && panels.left.on;
   const showRight = !onStart && panels.right.on;
   const showBottom = !onStart && panels.bottom.on;
@@ -1375,7 +1377,7 @@ export default function App() {
           <ScanProgress job={scanJob.job} onCancel={cancelScanJob} />
         </InWindow>
       )}
-      <TutorialWelcome settings={ws.settings} onPatch={patchSettings} onClose={() => setWelcomeOpen(false)} />
+      <TutorialAsk settings={ws.settings} active={onStart} onPatch={patchSettings} onOpenChange={setWelcomeOpen} />
       {dialog && dialog.kind === 'welcome' && <TutorialWelcome force settings={ws.settings} onPatch={patchSettings} onClose={() => setDialog(null)} />}
       {dialog && dialog.kind === 'excludeDirs' && project && (() => {
         const onSave = async (dirs) => {
@@ -1414,7 +1416,7 @@ export default function App() {
           <ToolsDialog onClose={() => setDialog(null)} onChanged={reload} />
         </InWindow>
       )}
-      {toolOffers && !dialog && !(welcomeOpen === null ? shouldShowWelcome(ws.settings) : welcomeOpen) && (
+      {toolOffers && !dialog && !askOpen && (
         <InWindow kind="toolOffers" width={820} height={520} payload={{ offers: toolOffers }} onEvent={() => reload()} onClose={() => { setToolOffers(null); reload(); }}>
           <ToolOfferDialog offers={toolOffers} onClose={() => setToolOffers(null)} onChanged={reload} />
         </InWindow>

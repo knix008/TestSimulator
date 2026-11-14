@@ -82,8 +82,8 @@ const ROWS = [
     ['카드 옮기기와 크기 바꾸기', '시작 화면의 카드는 제목 왼쪽의 손잡이(⠿)를 끌어 옮깁니다. 놓으면 그 열에서 위로 붙고, 비는 자리는 다른 카드가 올라와 자동으로 메웁니다. 카드 오른쪽 아래 모서리를 끌면 너비(1~3칸)와 높이가 바뀌고, 모서리를 두 번 누르면 높이가 자동으로 돌아갑니다. 오른쪽 위 [자동 정렬] 은 카드를 세 열에 고르게 다시 배치합니다. 배치는 저장되고 편집 › 실행 취소(Ctrl+Z)로 되돌릴 수 있습니다.'],
     ['Moving and resizing cards', 'Drag the handle (⠿) left of a card title to move it. A dropped card moves up in its column, and other cards move up to fill any gap. Drag the bottom-right corner to change its width (1–3 columns) and height; double-click the corner to go back to automatic height. [Auto arrange] at the top right spreads the cards evenly over the three columns again. The layout is saved, and Edit › Undo (Ctrl+Z) takes a change back.']],
   ['startShow', 'start', T('start-show', '.start-foot', '.start-check'), ['start', 'scroll:[data-tour="start-show"], .start-foot'],
-    ['시작할 때 이 화면 보기', '시작 화면 아래의 [시작할 때 이 화면 보기] 를 끄면 다음 실행부터 마지막으로 연 프로젝트의 개요가 바로 열립니다. 시작 화면은 언제든 툴바의 홈 단추나 보기 메뉴로 다시 볼 수 있습니다.'],
-    ['Show this page at start', 'Turn off [Show this page at start] at the bottom of the start page and the next launch goes straight to the overview of the last project. You can come back to the start page any time with the Home button on the toolbar or from the View menu.']],
+    ['시작할 때 이 화면 보기', '시작 화면 아래의 [시작할 때 이 화면 보기] 를 끄면 다음 실행부터 마지막으로 연 프로젝트의 개요가 바로 열립니다. 시작 화면이 열려 있는 실행에서는 튜토리얼을 실행할지 묻는 창이 나옵니다. [이 창을 계속 보기] 를 끄면 다음부터 묻지 않고, 설정 › 시작 화면에서 다시 켭니다. 시작 화면은 언제든 툴바의 홈 단추나 보기 메뉴로 다시 볼 수 있습니다.'],
+    ['Show this page at start', 'Turn off [Show this page at start] at the bottom of the start page and the next launch goes straight to the overview of the last project. When that launch opens on the Start screen, a window asks whether to run the tutorial. Turn off [Keep showing this window] to skip the question later, and turn it back on in Settings › Start page. You can come back to the start page any time with the Home button on the toolbar or from the View menu.']],
 
   // ── 2. 프로젝트와 분석 ───────────────────────────────
   ['newProject', 'project', DIALOG('dialog-new-project'), ['start', 'act:newProject', 'wait:300'],
@@ -333,8 +333,8 @@ const ROWS = [
 
   // ── 14. 설정 ─────────────────────────────────────────
   ['settingsGeneral', 'settings', SETTINGS('general'), ['project', 'act:settings:general', 'wait:400'],
-    ['설정 창 — 일반', '도구 › 설정(Ctrl+,)은 탭으로 나뉜 설정 창을 엽니다. [일반] 탭에서 언어, 기본 담당자, 시작할 때 시작 화면 보기, 시작할 때마다 시작 안내 창 보기 같은 기본 동작을 정합니다. 바꾼 내용은 [저장] 을 눌러야 적용되고, [취소] 하면 원래대로 돌아갑니다.'],
-    ['Settings — General', 'Tools › Settings (Ctrl+,) opens the settings window with tabs. The [General] tab sets the language, default assignee, whether the start page and the getting-started guide appear at launch, and similar basics. Changes apply when you press [Save]; [Cancel] restores the previous values.']],
+    ['설정 창 — 일반', '도구 › 설정(Ctrl+,)은 탭으로 나뉜 설정 창을 엽니다. [일반] 탭에서 언어, 기본 담당자, 시작할 때 시작 화면 보기를 정합니다. 다시 시작할 때 튜토리얼 시작 창을 보일지는 [시작 화면] 탭에 있습니다. 바꾼 내용은 [저장] 을 눌러야 적용되고, [취소] 하면 원래대로 돌아갑니다.'],
+    ['Settings — General', 'Tools › Settings (Ctrl+,) opens the settings window with tabs. The [General] tab sets the language, the default assignee and whether the start page appears at launch. Whether the next launch shows the tutorial question is on the [Start page] tab. Changes apply when you press [Save]; [Cancel] restores the previous values.']],
   ['settingsTheme', 'settings', SETTINGS('theme'), ['project', 'act:settings:theme', 'wait:400'],
     ['테마', '[테마] 탭에는 어두운 테마 20개와 밝은 테마 20개가 견본과 함께 있습니다. 견본을 누르면 저장하기 전에 메인 창에 바로 미리 보입니다. 메뉴 표시줄의 테마 단추로도 언제든 바꿀 수 있고, 사용 설명서 창도 같은 테마를 따릅니다.'],
     ['Themes', 'The [Theme] tab has 20 dark and 20 light themes with swatches. Clicking a swatch previews it in the main window before you save. The theme button on the menu bar switches it any time, and the user\'s guide window follows the same theme.']],
@@ -342,8 +342,8 @@ const ROWS = [
     ['사용자 정의 테마', '[사용자 정의 테마] 탭에서 기존 테마를 바탕으로 배경, 패널, 글자, 강조색, 테두리 같은 기본 색을 골라 나만의 테마를 만듭니다. 만든 테마는 테마 목록 끝에 추가되고 내보내기·가져오기로 다른 컴퓨터에 옮길 수 있습니다.'],
     ['Custom themes', 'In [Custom themes], start from an existing theme and pick the base colours — background, panel, text, accent, border — to make your own. New themes join the end of the theme list and can be exported and imported to other computers.']],
   ['settingsStart', 'settings', SETTINGS('start'), ['project', 'act:settings:start', 'wait:400'],
-    ['시작 화면 설정', '[시작 화면] 탭에서 배경 애니메이션의 종류, 섞기 간격, 속도, 투명도, 시작할 때마다 무작위로 고르기를 정하고 카드 배치를 초기화합니다. 시작 화면의 배경 카드와 같은 설정입니다.'],
-    ['Start page settings', 'The [Start page] tab sets the background animation kind, shuffle interval, speed, transparency and random choice at each start, and resets the card layout — the same options as the background card on the start page.']],
+    ['시작 화면 설정', '[시작 화면] 탭에서 배경 애니메이션의 종류, 섞기 간격, 속도, 투명도, 시작할 때마다 무작위로 고르기를 정하고 카드 배치를 초기화합니다. 다시 시작할 때 튜토리얼 시작 창을 보일지도 여기서 정합니다. 그 창은 시작 화면에서만 나오며, [이 창을 계속 보기] 로도 끄고 켭니다. 시작 화면의 배경 카드와 같은 설정입니다.'],
+    ['Start page settings', 'The [Start page] tab sets the background animation kind, shuffle interval, speed, transparency and random choice at each start, and resets the card layout. It also chooses whether the next launch shows the tutorial question. That window appears only on the Start screen, and [Keep showing this window] turns the same switch off or on. These are the same options as the background card on the start page.']],
   ['settingsAnalysis', 'settings', SETTINGS('analysis'), ['project', 'act:settings:analysis', 'wait:400'],
     ['분석 설정', '[분석] 탭에서 제외할 경로(예: **/node_modules/**, **/*.min.js), 파일 크기 한도, 사용할 엔진, 예외 승인 절차 사용 여부와 승인자를 정합니다. 프로젝트별 설정은 관리 › 분석 설정에서 따로 덮어쓸 수 있습니다. 같은 탭의 검사 항목에서는 언어별 기본 Lint 를 포함한 분석 묶음을 하나씩 켜고 끕니다.'],
     ['Analysis settings', 'The [Analysis] tab sets the paths to exclude (such as **/node_modules/** and **/*.min.js), the file size limit, the engines to use, and whether exception approval is required and by whom. Per-project values can override these in Administration › Analysis settings. The Checks on the same tab turn each analysis group on or off, including baseline lint per language.']],

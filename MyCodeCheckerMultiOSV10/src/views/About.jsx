@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { call, isDesktop } from '../lib/backend';
-import { Dialog } from '../components/Chrome';
+import { Dialog, Icon } from '../components/Chrome';
 import { Btn } from './common';
 
 const STANDARDS = ['OWASP Top 10', 'CWE Top 25', 'PCI DSS', 'MISRA C/C++', 'CERT C/C++/Java', 'AUTOSAR C++14', 'HIS', { ko: '한국 행정안전부 49', en: 'Korea MOIS 49' }];
@@ -73,8 +73,8 @@ export function AboutDialog({ summary, onClose, windowed }) {
     [L('저작권', 'Copyright'), '© 2026 SHKWON'],
     [L('문서', 'Docs'), (
       <span key="d" className="about-links">
-        <button type="button" className="link-btn" onClick={() => openGuide('guide')}>{t('sp_users_guide')}</button>
-        <button type="button" className="link-btn" onClick={() => openGuide('tutorial')}>{t('sp_tutorial_doc')}</button>
+        <button type="button" className="link-btn" onClick={() => openGuide('guide')}><Icon name="book" size={13} />{t('sp_users_guide')}</button>
+        <button type="button" className="link-btn" onClick={() => openGuide('tutorial')}><Icon name="report" size={13} />{t('sp_tutorial_doc')}</button>
       </span>
     )],
   ];

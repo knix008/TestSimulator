@@ -182,22 +182,122 @@ export function HistoryView({ project, branch, stamp }) {
   );
 }
 
+// Shares of the compare list. They always add up to the pane, so the list
+// stays inside it; dragging an edge gives width to one column and takes it
+// from the neighbour.
+const CMP_COLS = [
+  { id: 'cid', share: 18 },
+  { id: 'sev', share: 14 },
+  { id: 'msg', share: 34 },
+  { id: 'loc', share: 22 },
+  { id: 'st', share: 12 },
+];
+const CMP_MIN_PX = [72, 64, 80, 64, 56];
+const CMP_COL_KEY = 'mcc-snap-compare-cols';
+
+function loadCmpCols() {
+  try {
+    const v = JSON.parse(localStorage.getItem(CMP_COL_KEY) || '');
+    const sum = Array.isArray(v) ? v.reduce((a, b) => a + b, 0) : 0;
+    if (Array.isArray(v) && v.length === CMP_COLS.length && v.every((n) => typeof n === 'number' && n >= 4) && Math.abs(sum - 100) < 1.5) return v;
+  } catch { /* the fit below */ }
+  return CMP_COLS.map((c) => c.share);
+}
+
+function saveCmpCols(v) {
+  try { localStorage.setItem(CMP_COL_KEY, JSON.stringify(v.map((n) => Math.round(n * 10) / 10))); } catch { /* storage blocked */ }
+}
+
+function cmpMins(total) {
+  const raw = CMP_MIN_PX.map((px) => (px / Math.max(total, 1)) * 100);
+  const sum = raw.reduce((a, b) => a + b, 0);
+  const scale = sum > 90 ? 90 / sum : 1;
+  return raw.map((m) => m * scale);
+}
+
+// Move `dx` percent from the neighbour into this column, keeping both above their minimum.
+function shiftCmpCol(start, index, dx, min) {
+  const next = start.slice();
+  const other = index < start.length - 1 ? index + 1 : index - 1;
+  const pair = start[index] + start[other];
+  const a = Math.max(min[index], Math.min(pair - min[other], start[index] + dx));
+  next[index] = a;
+  next[other] = pair - a;
+  return next;
+}
+
 function IssueList({ issues }) {
   useLanguage();
   const { rows, footer } = useRowWindow(issues);
+  const wrap = useRef(null);
+  const [widths, setWidths] = useState(loadCmpCols);
+  const headers = ['CID', t('severity'), t('message'), t('location'), t('status')];
+
+  const resizeBy = (index, dx, commit) => {
+    const total = wrap.current ? wrap.current.clientWidth : 1;
+    setWidths((cur) => {
+      const next = shiftCmpCol(cur, index, dx, cmpMins(total));
+      if (commit) saveCmpCols(next);
+      return next;
+    });
+  };
+  const drag = (e, index) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const total = wrap.current ? wrap.current.clientWidth : 1;
+    const origin = { x: e.clientX, widths: widths.slice() };
+    const min = cmpMins(total);
+    let last = origin.widths;
+    const move = (ev) => {
+      last = shiftCmpCol(origin.widths, index, ((ev.clientX - origin.x) / total) * 100, min);
+      setWidths(last);
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      document.body.classList.remove('resizing-x');
+      saveCmpCols(last);
+    };
+    document.body.classList.add('resizing-x');
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  const nudge = (e, index) => {
+    const dir = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (!dir) return;
+    e.preventDefault();
+    resizeBy(index, dir * (e.shiftKey ? 4 : 1), true);
+  };
+  const reset = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = CMP_COLS.map((c) => c.share);
+    setWidths(next);
+    saveCmpCols(next);
+  };
+
   return (
     <div className="panel tpanel">
-      <div className="table-wrap">
+      <div className="table-wrap cmp-cols" ref={wrap}>
         <table>
-          <thead><tr><th>CID</th><th>{t('severity')}</th><th>{t('message')}</th><th>{t('location')}</th><th>{t('status')}</th></tr></thead>
+          <colgroup>{widths.map((w, i) => <col key={CMP_COLS[i].id} style={{ width: `${w}%` }} />)}</colgroup>
+          <thead><tr>{headers.map((label, i) => (
+            <th key={CMP_COLS[i].id}>
+              <span className="cmp-h">{label}</span>
+              <div role="separator" aria-orientation="vertical" aria-valuenow={Math.round(widths[i])} aria-valuemin={4} aria-valuemax={80}
+                className="col-grip" title={t('hs_col_resize')} aria-label={t('hs_col_resize')} tabIndex={0}
+                onPointerDown={(e) => drag(e, i)} onDoubleClick={reset} onKeyDown={(e) => nudge(e, i)} />
+            </th>
+          ))}</tr></thead>
           <tbody>
             {rows.map((i) => (
               <tr key={`${i.cid}-${i.key}`} className={i.file ? 'click' : ''} {...openCodeRow(i.file, i.line)}>
-                <td>{i.cid}</td>
+                <td className="clip" title={i.cid}>{i.cid}</td>
                 <td><SevBadge sev={i.severity} /></td>
                 <td className="wrap">{msg(i)}<div className="small">{i.rule}{i.checker ? ` · ${i.checker}` : ''}</div></td>
                 <td className="small wrap">{i.file}:{i.line}</td>
-                <td className="small">{i.classification && i.classification !== 'Unclassified' ? i.classification : i.status}</td>
+                <td className="small wrap">{i.classification && i.classification !== 'Unclassified' ? i.classification : i.status}</td>
               </tr>
             ))}
           </tbody>

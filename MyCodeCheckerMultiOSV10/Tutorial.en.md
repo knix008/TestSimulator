@@ -74,7 +74,7 @@ Drag the handle (⠿) left of a card title to move it. A dropped card moves up i
 
 ![Show this page at start](docs/images/tutorial/en/09-startShow.jpg)
 
-Turn off [Show this page at start] at the bottom of the start page and the next launch goes straight to the overview of the last project. You can come back to the start page any time with the Home button on the toolbar or from the View menu.
+Turn off [Show this page at start] at the bottom of the start page and the next launch goes straight to the overview of the last project. When that launch opens on the Start screen, a window asks whether to run the tutorial. Turn off [Keep showing this window] to skip the question later, and turn it back on in Settings › Start page. You can come back to the start page any time with the Home button on the toolbar or from the View menu.
 
 ## 2. Projects and analysis
 
@@ -550,7 +550,7 @@ The [Tools] tab shows whether helpful external software (compilers, language run
 
 ![Settings — General](docs/images/tutorial/en/84-settingsGeneral.jpg)
 
-Tools › Settings (Ctrl+,) opens the settings window with tabs. The [General] tab sets the language, default assignee, whether the start page and the getting-started guide appear at launch, and similar basics. Changes apply when you press [Save]; [Cancel] restores the previous values.
+Tools › Settings (Ctrl+,) opens the settings window with tabs. The [General] tab sets the language, the default assignee and whether the start page appears at launch. Whether the next launch shows the tutorial question is on the [Start page] tab. Changes apply when you press [Save]; [Cancel] restores the previous values.
 
 ### 85. Themes
 
@@ -568,7 +568,7 @@ In [Custom themes], start from an existing theme and pick the base colours — b
 
 ![Start page settings](docs/images/tutorial/en/87-settingsStart.jpg)
 
-The [Start page] tab sets the background animation kind, shuffle interval, speed, transparency and random choice at each start, and resets the card layout — the same options as the background card on the start page.
+The [Start page] tab sets the background animation kind, shuffle interval, speed, transparency and random choice at each start, and resets the card layout. It also chooses whether the next launch shows the tutorial question. That window appears only on the Start screen, and [Keep showing this window] turns the same switch off or on. These are the same options as the background card on the start page.
 
 ### 88. Analysis settings
 

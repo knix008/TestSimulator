@@ -136,7 +136,7 @@ export function Btn({ icon, label, onClick, disabled, primary, title, danger, ac
   return (
     <button type="button" className={`vbtn ${primary ? 'vbtn-primary' : ''} ${danger ? 'vbtn-danger' : ''} ${active ? 'on' : ''}`}
       onClick={onClick} disabled={disabled} title={title || label}>
-      {icon && <Icon name={icon} size={15} />}<span>{label}</span>
+      <Icon name={icon || (danger ? 'alert' : primary ? 'check' : 'circleDot')} size={15} /><span>{label}</span>
     </button>
   );
 }
@@ -212,7 +212,7 @@ export function Stepper({ value, onChange, min = 0, max = 100000, step = 1, labe
       {label && <span className="stepper-label">{label}</span>}
       <button type="button" className="step-btn" aria-label={`${ariaLabel || label || ''} −`.trim()} tabIndex={-1} disabled={disabled || value <= min}
         onPointerDown={press(-1)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(-1); } }}>−</button>
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(-1); } }}><Icon name="minus" size={14} /></button>
       <input type="text" inputMode="decimal" className={`step-value ${invalid ? 'invalid' : ''}`} value={text != null ? text : String(value)} style={{ width }} disabled={disabled}
         role="spinbutton" aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} aria-label={ariaLabel || label || undefined}
         onChange={(e) => setText(e.target.value)} onBlur={commit}
@@ -225,7 +225,7 @@ export function Stepper({ value, onChange, min = 0, max = 100000, step = 1, labe
         onWheel={(e) => { if (disabled || document.activeElement !== e.currentTarget) return; e.preventDefault(); setText(null); bump(e.deltaY < 0 ? 1 : -1); }} />
       <button type="button" className="step-btn" aria-label={`${ariaLabel || label || ''} +`.trim()} tabIndex={-1} disabled={disabled || value >= max}
         onPointerDown={press(1)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(1); } }}>+</button>
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(1); } }}><Icon name="plus" size={14} /></button>
       {unit && <span className="stepper-unit">{unit}</span>}
     </span>
   );

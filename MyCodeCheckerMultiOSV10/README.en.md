@@ -58,7 +58,7 @@ A **code quality and security workbench** that runs on your own computer. It bri
 - **Screens** — a menu bar instead of the system title bar (theme, language with flags), an icon + label toolbar, **tabs** in the centre (Home pinned; close, drag to reorder, context menu, < > ⌄ on overflow), left **navigation**, right **details** and bottom **Problems / Analysis log / Jobs / Output** panels (turn on/off, fold to an icon + title strip, resize). On the desktop, dialogs, menus and dropdowns open as separate windows. List views keep the title, filters and column headings in place; only the rows scroll
 - **Settings window** — fixed 920×600, ten vertical tabs (General, Theme, Custom themes, Start page, Analysis, New code, AI CodeFix, Database, Notifications & links, Advanced), **Reset / OK / Cancel**; theme, language and background preview at once and revert on Cancel
 - **Start page** — hero card (User's guide, Tutorial document, Start the tutorial), banner, New analysis tiles, the last 10 projects, background, help, samples. Move cards by ⠿ and resize them by the corner (the cards below move up to fill gaps), **Auto arrange**. Language tiles analyze and then show only that language's issues; standard tiles open that standard. 20 animated backgrounds (shuffle, speed, transparency)
-- **Tutorial and user's guide window** — a tutorial that drives the real screens (with a first-start welcome), and a user's guide window that follows the app theme (Korean / English)
+- **Tutorial and user's guide window** — a tutorial that drives the real screens. On launch, only the Start screen asks whether to run it, and **Keep showing this window** or Settings chooses whether to ask again. The user's guide window follows the app theme (Korean / English)
 - **Samples** — `samples/demo` (19 files, 14 languages) and `samples/cpp-sensor` (a C++ sensor logger with `cpp-sensor.mccp` and `compile_commands.json`)
 
 ## Install and run
@@ -91,7 +91,7 @@ The workspace is stored in `%APPDATA%/MyCodeChecker/workspace.json` (macOS `~/Li
 
 ## Quick start
 
-1. On the Start page press **Sample project** to analyze `samples/demo`; for C/C++ open `samples/cpp-sensor/cpp-sensor.mccp` with **File › Open project…**. For your own code use **Open folder…** (Ctrl+O) or **New project…** (Ctrl+N). New here? **Start the tutorial**.
+1. On the Start page press **Sample project** to analyze `samples/demo`; for C/C++ open `samples/cpp-sensor/cpp-sensor.mccp` with **File › Open project…**. For your own code use **Open folder…** (Ctrl+O) or **New project…** (Ctrl+N). At launch the Start screen asks whether to run the tutorial; press **Run** or **Start the tutorial**.
 2. **Overview** shows the quality gate and ratings; press a card to go to the **Issues** list.
 3. Pick an issue and read why it matters and how to fix it in the right **Details** panel; confirm, accept or mark it false positive, assign it, create a ticket or ask for an AI fix.
 4. **Security reports**, **MISRA compliance** and **Reports** show results per standard and save them as Word, Excel or PDF.

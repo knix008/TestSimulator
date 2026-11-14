@@ -1,18 +1,13 @@
-// The start guide shown when the app starts (settings.tutorial.showAtStart):
-// a short introduction of the program and what to do first — the tutorial,
-// the user's guide, a sample project, or straight to work — with
-// "시작할 때마다 이 안내 보기". Shown once per launch; the same switch is in
-// Settings › 일반 and Settings › 튜토리얼.
-//
-// App: <TutorialWelcome settings={ws.settings} onPatch={patchSettings} />
-// (render it after the workspace is in, not on the login screen).
+// Getting-started guide opened from Help › Getting started (force).
+// The launch question on the Start screen is TutorialAsk; this card's
+// checkbox writes the same settings.tutorial.showAtStart switch.
 import React, { useEffect, useState } from 'react';
 import { getLanguage, useLanguage, t } from '../lib/i18n';
 import { IconSelect } from '../views/common';
 import { allThemes } from '../themes';
 import { Icon, CloseButton } from './Chrome';
 import { broadcast } from '../lib/popups';
-import { shouldShowWelcome, tutorialOf, laterPatch } from '../lib/tutorialSettings';
+import { tutorialOf, laterPatch } from '../lib/tutorialSettings';
 import { STEPS, CHAPTERS } from '../lib/tutorialSteps';
 import '../tutorial.css';
 
@@ -33,8 +28,8 @@ const L = {
     guide: '사용 설명서', guideSub: '모든 메뉴와 기능을 문서로 찾아봅니다',
     sample: '예제로 시작', sampleSub: '예제 프로젝트를 열고 바로 분석해 봅니다',
     skip: '바로 시작', skipSub: '안내를 닫고 작업을 시작합니다',
-    hint: '이 안내는 도움말 메뉴와 설정 › 일반에서 다시 켤 수 있습니다.',
-    show: '시작할 때마다 이 안내 보기',
+    hint: '이 질문은 도움말 메뉴와 설정 › 시작 화면에서 다시 켤 수 있습니다.',
+    show: '시작 화면에서 튜토리얼 실행 여부를 계속 묻기',
     close: '닫기',
   },
   en: {
@@ -53,15 +48,12 @@ const L = {
     guide: "User's guide", guideSub: 'Look up every menu and feature',
     sample: 'Try a sample', sampleSub: 'Open a sample project and analyse it',
     skip: 'Just start', skipSub: 'Close this guide and get to work',
-    hint: 'You can turn this guide back on in Settings › General.',
-    show: 'Show this guide every time the program starts',
+    hint: 'You can turn this question back on in Settings › Start page.',
+    show: 'Keep asking on the Start screen whether to run the tutorial',
     close: 'Close',
   },
 };
 const fill = (s, vars) => s.replace(/\{(\w+)\}/g, (_, k) => (k in vars ? vars[k] : `{${k}}`));
-
-let shownThisLaunch = false;
-const tourRunning = () => { try { return !!(window.__mcc && window.__mcc.tutorial && window.__mcc.tutorial.state().active); } catch { return false; } };
 
 export function startTour(opts = {}) {
   const tour = window.__mcc && window.__mcc.tutorial;
@@ -82,9 +74,8 @@ function runAction(id) {
 
 export function TutorialWelcome({ settings, onPatch, force = false, onClose }) {
   useLanguage();
-  const [open, setOpen] = useState(() => force || (!shownThisLaunch && shouldShowWelcome(settings) && !tourRunning()));
+  const [open, setOpen] = useState(() => !!force);
   const [keep, setKeep] = useState(() => tutorialOf(settings).showAtStart);
-  useEffect(() => { if (open) shownThisLaunch = true; }, [open]);
   // Not shown at all: whatever waits for the welcome (the software offer) may go on.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (!open && onClose) onClose(); }, []);
@@ -159,7 +150,7 @@ export function TutorialWelcome({ settings, onPatch, force = false, onClose }) {
         <div className="mcc-welcome-foot">
           <label className="mcc-check" title={s.hint}><input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} data-testid="tutorial-welcome-show" />{s.show}</label>
           <span className="mcc-tour-grow" />
-          <button type="button" className="mcc-btn" onClick={later}>{s.close}</button>
+          <button type="button" className="mcc-btn" onClick={later}><Icon name="close" size={14} />{s.close}</button>
         </div>
       </div>
     </div>
