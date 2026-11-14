@@ -57,6 +57,28 @@ test('charts are valid PNG files with the expected size', () => {
   assert.deepEqual(all.map((x) => x.id), ['ratings', 'types', 'severity', 'rules']);
 });
 
+test('the improvement chart is separate and reads the change from the first analysis to the last', () => {
+  const history = [
+    { at: '2026-01-01T00:00:00.000Z', measures: { bugs: 10, vulnerabilities: 4, code_smells: 20 } },
+    { at: '2026-02-01T00:00:00.000Z', measures: { bugs: 12, vulnerabilities: 4, code_smells: 8 } },
+    { at: '2026-03-01T00:00:00.000Z', measures: { bugs: 3, vulnerabilities: 4, code_smells: 8 } },
+  ];
+  const ko = chart.improvementChart(history, { lang: 'ko' });
+  assert.equal(ko.id, 'improvement');
+  assert.equal(ko.title, '개선 추이');
+  assert.deepEqual([...ko.png.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  assert.match(ko.alt, /버그 10 → 3 {2}개선 7/);
+  assert.match(ko.alt, /취약점 4 → 4 {2}같음/);
+  assert.match(ko.alt, /코드 스멜 20 → 8 {2}개선 12/);
+  const en = chart.improvementChart(history, { lang: 'en' });
+  assert.match(en.alt, /Bugs 10 → 3 {2}improved 7/);
+  assert.match(en.alt, /Vulnerabilities 4 → 4 {2}unchanged/);
+  assert.match(en.alt, /Code smells 20 → 8 {2}improved 12/);
+  const once = chart.improvementChart([{ at: '2026-01-01T00:00:00.000Z', measures: { bugs: 1, vulnerabilities: 0, code_smells: 2 } }], { lang: 'ko' });
+  assert.match(once.alt, /—/);
+  assert.ok(!chart.reportCharts({ issues: [], measures: {}, ratings: {} }).some((c) => c.id === 'improvement'));
+});
+
 test('every format carries the pictures', async () => {
   const api = createApi({ configDir: tmp('mcc-rep-') });
   const r = await api.call('project.scan', { path: DEMO });
@@ -64,32 +86,36 @@ test('every format carries the pictures', async () => {
   const bin = async (format) => Buffer.from((await api.call('report.export', { ...args, format })).base64, 'base64');
 
   const docx = await bin('docx');
-  assert.equal(zipNames(docx).filter((n) => /^word\/media\/image\d+\.png$/.test(n)).length, 4);
+  assert.equal(zipNames(docx).filter((n) => /^word\/media\/image\d+\.png$/.test(n)).length, 5);
   assert.match(zipText(docx, 'word/document.xml'), /<a:blip r:embed="rIdImg1"\/>/);
 
   const xlsx = await bin('xlsx');
-  assert.equal(zipNames(xlsx).filter((n) => /^xl\/media\//.test(n)).length, 4);
+  assert.equal(zipNames(xlsx).filter((n) => /^xl\/media\//.test(n)).length, 5);
   assert.match(zipText(xlsx, 'xl/workbook.xml'), /<sheet name="차트"/);
 
   const pptx = await bin('pptx');
   const names = zipNames(pptx);
   assert.ok(names.includes('ppt/presentation.xml'));
-  assert.equal(names.filter((n) => /^ppt\/media\//.test(n)).length, 4);
+  assert.equal(names.filter((n) => /^ppt\/media\//.test(n)).length, 5);
   assert.ok(names.filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n)).length >= 3);
 
   const pdf = await bin('pdf');
   assert.equal(pdf.toString('latin1', 0, 5), '%PDF-');
-  assert.equal((pdf.toString('latin1').match(/\/Subtype \/Image/g) || []).length, 4);
+  assert.equal((pdf.toString('latin1').match(/\/Subtype \/Image/g) || []).length, 5);
 
   const html = await api.call('report.export', { ...args, format: 'html' });
-  assert.equal((html.body.match(/<img src="data:image\/png;base64,/g) || []).length, 4);
+  assert.equal((html.body.match(/<img src="data:image\/png;base64,/g) || []).length, 5);
+  const summaryAt = html.body.indexOf('<h2>요약 차트</h2>');
+  const improveAt = html.body.indexOf('<h2>개선 추이</h2>');
+  assert.ok(summaryAt >= 0 && improveAt > summaryAt);
 
   const mdIn = await api.call('report.export', { ...args, format: 'md', embedImages: true });
-  assert.equal((mdIn.body.match(/!\[[^\]]*\]\(data:image\/png;base64,/g) || []).length, 4);
+  assert.equal((mdIn.body.match(/!\[[^\]]*\]\(data:image\/png;base64,/g) || []).length, 5);
   assert.equal(mdIn.images, undefined);
 
   const mdOut = await api.call('report.export', { ...args, format: 'md', embedImages: false });
-  assert.equal(mdOut.images.length, 4);
+  assert.equal(mdOut.images.length, 5);
+  assert.ok(mdOut.images.some((img) => img.path.endsWith('/improvement.png')));
   for (const img of mdOut.images) {
     assert.match(img.path, /^executive-.*_images\/[\w-]+\.png$/);
     assert.ok(mdOut.body.includes(`](${encodeURI(img.path)})`));
@@ -97,7 +123,7 @@ test('every format carries the pictures', async () => {
   const zipped = await api.call('report.export', { ...args, format: 'md', embedImages: false, zip: true });
   assert.equal(zipped.format, 'zip');
   const zn = zipNames(Buffer.from(zipped.base64, 'base64'));
-  assert.equal(zn.filter((n) => n.endsWith('.png')).length, 4);
+  assert.equal(zn.filter((n) => n.endsWith('.png')).length, 5);
   assert.ok(zn.some((n) => n.endsWith('.md')));
 });
 
@@ -107,7 +133,7 @@ test('the Markdown default follows Settings › Reports', async () => {
   const ws = await api.call('workspace.load', {});
   await api.call('workspace.save', { workspace: { settings: { ...ws.settings, reports: { mdEmbedImages: false } } } });
   const md = await api.call('report.export', { projectId: r.project.id, kind: 'executive', format: 'md' });
-  assert.equal(md.images.length, 4);
+  assert.equal(md.images.length, 5);
 });
 
 test('reports are written after an analysis when automatic reports are on', async () => {
@@ -122,7 +148,7 @@ test('reports are written after an analysis when automatic reports are on', asyn
   assert.equal(files.filter((f) => /\.(pdf|md|pptx)$/.test(f)).length, 6);
   const imageDirs = files.filter((f) => f.endsWith('_images'));
   assert.equal(imageDirs.length, 2);
-  assert.equal(fs.readdirSync(path.join(folder, imageDirs[0])).length, 4);
+  assert.equal(fs.readdirSync(path.join(folder, imageDirs[0])).length, 5);
 });
 
 test('the export model keeps image blocks; Markdown escapes table cells', () => {

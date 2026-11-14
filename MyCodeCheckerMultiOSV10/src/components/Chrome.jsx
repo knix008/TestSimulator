@@ -411,6 +411,7 @@ export const NAV_GROUPS = [
     ['duplications', 'nav_dup', 'copy'],
     ['arch', 'nav_arch', 'flow'],
     ['activity', 'nav_activity', 'clock'],
+    ['improvement', 'nav_improvement', 'chart'],
     ['snapshots', 'nav_snapshots', 'history'],
     ['reports', 'nav_reports', 'report'],
   ]],

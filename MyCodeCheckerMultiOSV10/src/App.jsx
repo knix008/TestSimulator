@@ -14,6 +14,7 @@ import { ComplianceView, MisraView } from './views/Compliance';
 import { ReportsView } from './views/Reports';
 import { ScaView } from './views/Sca';
 import { HistoryView } from './views/History';
+import { ImprovementView } from './views/Improvement';
 import { PullRequestView } from './views/PullRequest';
 import { AdminView } from './views/Admin';
 import { DastView } from './views/Dast';
@@ -1163,6 +1164,7 @@ export default function App() {
       { id: 'view:arch', label: t('nav_arch'), icon: 'flow' },
       { id: 'view:his', label: t('nav_his'), icon: 'cpu' },
       { id: 'view:activity', label: t('nav_activity'), icon: 'clock' },
+      { id: 'view:improvement', label: t('nav_improvement'), icon: 'chart' },
       { id: 'view:defects', label: t('nav_defects'), icon: 'alert' },
       { id: 'view:streams', label: t('nav_streams'), icon: 'layers' },
       { id: 'view:tasks', label: t('nav_tasks'), icon: 'hourglass' },
@@ -1293,6 +1295,7 @@ export default function App() {
           {view === 'reports' && <ReportsView project={project} branch={branch} stamp={stamp} settings={ws.settings} onSaveSettings={(settings) => persist({ ...ws, settings })} />}
           {view === 'dependencies' && <ScaView project={project} stamp={stamp} />}
           {view === 'snapshots' && <HistoryView project={project} branch={branch} stamp={stamp} />}
+          {view === 'improvement' && <ImprovementView project={project} branch={branch} stamp={stamp} />}
           {view === 'pullrequest' && <PullRequestView project={project} branch={branch} stamp={stamp} />}
           {view === 'dast' && <DastView />}
           {view === 'projectSettings' && <ProjectSettings ws={ws} project={project} analysis={storedAnalysis} busy={busy} onSave={persist} />}

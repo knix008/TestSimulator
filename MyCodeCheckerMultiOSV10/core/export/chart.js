@@ -375,6 +375,8 @@ const L = {
     BLOCKER: '차단', CRITICAL: '심각', MAJOR: '주요', MINOR: '경미', INFO: '정보',
     reliability: '신뢰성', security: '보안', maintainability: '유지보수성', review: '보안 검토',
     bugs: '버그 {n}개', vulns: '취약점 {n}개', debt: '부채 비율 {n}%', hotspots: '검토 {n}%',
+    improvement: '개선 추이', better: '개선', worse: '악화', same: '같음',
+    needMore: '분석을 한 번 더 하면 추이가 그려집니다.',
   },
   en: {
     types: 'Issues by type', sev: 'Issues by severity', rules: 'Most frequent rules (top 10)', ratings: 'Ratings',
@@ -382,8 +384,12 @@ const L = {
     BLOCKER: 'Blocker', CRITICAL: 'Critical', MAJOR: 'Major', MINOR: 'Minor', INFO: 'Info',
     reliability: 'Reliability', security: 'Security', maintainability: 'Maintainability', review: 'Security review',
     bugs: '{n} bugs', vulns: '{n} vulnerabilities', debt: 'Debt ratio {n}%', hotspots: '{n}% reviewed',
+    improvement: 'Improvement', better: 'improved', worse: 'worse', same: 'unchanged',
+    needMore: 'Run the analysis again to draw the trend.',
   },
 };
+
+const IMPROVEMENT_HEADING = { ko: L.ko.improvement, en: L.en.improvement };
 
 const SEV_COLOR = { BLOCKER: '#8e1c1c', CRITICAL: '#d64545', MAJOR: '#f08a24', MINOR: '#f2c12e', INFO: '#7a8a99' };
 const TYPE_COLOR = { BUG: '#d64545', VULNERABILITY: '#8e44ad', CODE_SMELL: '#3f7fd6', SECURITY_HOTSPOT: '#f08a24' };
@@ -417,4 +423,105 @@ function reportCharts(analysis, { lang = 'ko' } = {}) {
   return out;
 }
 
-module.exports = { Canvas, encodePng, barChart, ratingTiles, reportCharts, drawText, textWidth, crc32 };
+function finite(v) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** One point per committed analysis: bugs, vulnerabilities, code smells. */
+function improvementPoints(history, analysis) {
+  const rows = (history || []).filter((h) => h && h.measures).map((h) => ({
+    at: h.at || '',
+    bugs: finite(h.measures.bugs),
+    vulnerabilities: finite(h.measures.vulnerabilities),
+    code_smells: finite(h.measures.code_smells),
+  }));
+  if (!rows.length && analysis && analysis.measures) {
+    rows.push({
+      at: analysis.finishedAt || '',
+      bugs: finite(analysis.measures.bugs),
+      vulnerabilities: finite(analysis.measures.vulnerabilities),
+      code_smells: finite(analysis.measures.code_smells),
+    });
+  }
+  return rows;
+}
+
+/** How a count moved from the first analysis to the last. Fewer is an improvement. */
+function improvementDelta(vals, tr) {
+  const known = (vals || []).filter((v) => v != null);
+  if (known.length < 2) return { text: '—', color: MUTED };
+  const from = known[0];
+  const to = known[known.length - 1];
+  const d = to - from;
+  if (d < 0) return { text: `${from} → ${to}  ${tr.better} ${-d}`, color: '#2e9d57' };
+  if (d > 0) return { text: `${from} → ${to}  ${tr.worse} ${d}`, color: '#d64545' };
+  return { text: `${from} → ${to}  ${tr.same}`, color: MUTED };
+}
+
+function strokeLine(cv, x0, y0, x1, y1, color, width) {
+  const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0)));
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    cv.fillRect(x0 + (x1 - x0) * t - width / 2, y0 + (y1 - y0) * t - width / 2, width, width, color);
+  }
+}
+
+function drawSeries(cv, vals, x, y, w, h, color) {
+  const known = vals.filter((v) => v != null);
+  const max = Math.max(1, ...known, 0);
+  const n = vals.length;
+  const px = (i) => (n <= 1 ? x + w / 2 : x + (i * w) / (n - 1));
+  const py = (v) => y + h - (v / max) * h;
+  let prev = null;
+  vals.forEach((v, i) => {
+    if (v == null) { prev = null; return; }
+    const cx = px(i);
+    const cy = py(v);
+    if (prev) strokeLine(cv, prev.x, prev.y, cx, cy, color, 2.5);
+    cv.fillRect(cx - 3, cy - 3, 6, 6, color);
+    prev = { x: cx, y: cy };
+  });
+}
+
+/**
+ * A chart of its own: bugs, vulnerabilities and code smells across analyses,
+ * each on its own scale, with the change from the first analysis to the last.
+ */
+function improvementChart(history, { lang = 'ko', analysis } = {}) {
+  const tr = L[lang] || L.en;
+  const points = improvementPoints(history, analysis);
+  const series = [
+    { key: 'bugs', label: tr.BUG, color: TYPE_COLOR.BUG },
+    { key: 'vulnerabilities', label: tr.VULNERABILITY, color: TYPE_COLOR.VULNERABILITY },
+    { key: 'code_smells', label: tr.CODE_SMELL, color: TYPE_COLOR.CODE_SMELL },
+  ];
+  const width = 760;
+  const head = 48;
+  const rowH = 72;
+  const foot = 32;
+  const height = head + series.length * rowH + foot;
+  const cv = new Canvas(width, height);
+  drawText(cv, tr.improvement, 16, 30, 17, FG, { bold: true });
+  const labelW = 130;
+  const deltaW = 210;
+  const plotX = 16 + labelW;
+  const plotW = width - plotX - deltaW - 16;
+  const deltas = series.map((s) => improvementDelta(points.map((p) => p[s.key]), tr));
+  series.forEach((s, i) => {
+    const y0 = head + i * rowH;
+    cv.fillRect(16, y0 + rowH - 1, width - 32, 1, GRID);
+    drawText(cv, s.label, 16, y0 + rowH / 2 + 5, 13, FG, { bold: true });
+    drawSeries(cv, points.map((p) => p[s.key]), plotX, y0 + 12, plotW, rowH - 26, s.color);
+    drawText(cv, deltas[i].text, plotX + plotW + 12, y0 + rowH / 2 + 5, 12, deltas[i].color, { bold: true });
+  });
+  const note = points.length >= 2
+    ? `${String(points[0].at).slice(0, 10)}  →  ${String(points[points.length - 1].at).slice(0, 10)}`
+    : tr.needMore;
+  drawText(cv, note, 16, height - 12, 12, MUTED);
+  const alt = [tr.improvement, ...series.map((s, i) => `${s.label} ${deltas[i].text}`)].join('. ');
+  return { id: 'improvement', title: tr.improvement, alt, width, height, rgb: cv.rgb, png: cv.png() };
+}
+
+module.exports = { Canvas, encodePng, barChart, ratingTiles, reportCharts, improvementChart, improvementDelta, IMPROVEMENT_HEADING, drawText, textWidth, crc32 };

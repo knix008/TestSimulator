@@ -94,18 +94,42 @@ function exportReport(kind, analysis, format, opts = {}) {
 
 const CHART_HEADING = { ko: '요약 차트', en: 'Summary charts' };
 
-/** The report charts (chart.js) at the top of a document model. */
-function addCharts(doc, charts, lang = 'ko') {
-  if (!charts || !charts.length) return doc;
-  const blocks = [{ type: 'h2', text: CHART_HEADING[lang] || CHART_HEADING.en }, ...charts.map((c) => ({ type: 'image', png: c.png, rgb: c.rgb, width: c.width, height: c.height, alt: c.alt, name: c.id }))];
+function imageBlocks(charts) {
+  return (charts || []).map((c) => ({ type: 'image', png: c.png, rgb: c.rgb, width: c.width, height: c.height, alt: c.alt, name: c.id }));
+}
+
+function pushSection(blocks, heading, charts) {
+  if (!charts || !charts.length) return;
+  blocks.push({ type: 'h2', text: heading });
+  blocks.push(...imageBlocks(charts));
+}
+
+/**
+ * The report charts (chart.js) at the top of a document model.
+ * `more` is further sections, each `{ heading, charts }`, kept apart from
+ * the summary charts (the improvement chart is one of these).
+ */
+function addCharts(doc, charts, lang = 'ko', more = []) {
+  const blocks = [];
+  pushSection(blocks, CHART_HEADING[lang] || CHART_HEADING.en, charts);
+  for (const g of more || []) pushSection(blocks, g.heading, g.charts);
+  if (!blocks.length) return doc;
   return { ...doc, blocks: [...blocks, ...(doc.blocks || [])] };
 }
 
+function chartFigs(charts) {
+  return (charts || []).map((c) => `<figure style="margin:10px 0"><img src="data:image/png;base64,${c.png.toString('base64')}" width="${c.width}" height="${c.height}" alt="${String(c.alt).replace(/"/g, '&quot;')}" style="max-width:100%;height:auto"></figure>`).join('');
+}
+
+function chartSection(heading, charts) {
+  if (!charts || !charts.length) return '';
+  return `<h2>${heading}</h2>${chartFigs(charts)}`;
+}
+
 /** The same charts in report HTML, after the title and meta line (data: URIs). */
-function addChartsHtml(html, charts, lang = 'ko') {
-  if (!charts || !charts.length) return html;
-  const figs = charts.map((c) => `<figure style="margin:10px 0"><img src="data:image/png;base64,${c.png.toString('base64')}" width="${c.width}" height="${c.height}" alt="${String(c.alt).replace(/"/g, '&quot;')}" style="max-width:100%;height:auto"></figure>`).join('');
-  const section = `<h2>${CHART_HEADING[lang] || CHART_HEADING.en}</h2>${figs}`;
+function addChartsHtml(html, charts, lang = 'ko', more = []) {
+  const section = chartSection(CHART_HEADING[lang] || CHART_HEADING.en, charts) + (more || []).map((g) => chartSection(g.heading, g.charts)).join('');
+  if (!section) return html;
   const at = String(html).search(/<div class="meta">[\s\S]*?<\/div>/);
   if (at < 0) return String(html).replace(/<\/body>/i, () => `${section}</body>`);
   const end = String(html).indexOf('</div>', at) + 6;

@@ -444,7 +444,7 @@ function createExtensions({ workspace, saveWorkspace, configDir, issuesOf = (iss
    */
   function reportFile(ws, project, branch, state, analysis, args) {
     const ex = require('./export');
-    const { reportCharts } = require('./export/chart');
+    const { reportCharts, improvementChart, IMPROVEMENT_HEADING } = require('./export/chart');
     const kind = args.kind || 'executive';
     const format = args.format || 'html';
     const lang = args.lang || (ws.settings && ws.settings.language) || 'ko';
@@ -462,8 +462,11 @@ function createExtensions({ workspace, saveWorkspace, configDir, issuesOf = (iss
     }
     if (format === 'csv') return { format, fileName: `${out.fileName}.csv`, type: 'text/csv', data: Buffer.from(out.csv, 'utf8'), extra: [], warnings: [] };
     const charts = args.charts === false ? [] : reportCharts(analysis, { lang });
-    if (format === 'html') return { format, fileName: `${out.fileName}.html`, type: 'text/html', data: Buffer.from(ex.addChartsHtml(out.html, charts, lang), 'utf8'), extra: [], warnings: [] };
-    const doc = ex.addCharts(ex.fromHtml(out.html), charts, lang);
+    // The improvement chart is its own section, after the summary charts.
+    const trend = args.charts === false ? [] : [improvementChart(state.history || [], { lang, analysis })];
+    const more = trend.length ? [{ heading: IMPROVEMENT_HEADING[lang] || IMPROVEMENT_HEADING.en, charts: trend }] : [];
+    if (format === 'html') return { format, fileName: `${out.fileName}.html`, type: 'text/html', data: Buffer.from(ex.addChartsHtml(out.html, charts, lang, more), 'utf8'), extra: [], warnings: [] };
+    const doc = ex.addCharts(ex.fromHtml(out.html), charts, lang, more);
     if (format === 'md') {
       const embedImages = args.embedImages != null ? !!args.embedImages : rs.mdEmbedImages !== false;
       const md = ex.markdownFiles(doc, { embedImages, imageDir: `${out.fileName}_images` });

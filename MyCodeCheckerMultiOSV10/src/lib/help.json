@@ -1931,6 +1931,10 @@
   "ko": "사람이 직접 검토해야 하는 보안 민감 코드입니다. 하나씩 보고 안전·고침 등으로 표시합니다.",
   "en": "Security-sensitive code a person must review. Check each one and mark it safe, fixed and so on."
  },
+ "nav_improvement": {
+  "ko": "커밋한 분석의 버그, 취약점, 코드 스멜이 첫 분석부터 최근 분석까지 어떻게 바뀌었는지 봅니다. 수가 줄면 개선입니다.",
+  "en": "Shows how bugs, vulnerabilities and code smells changed from the first committed analysis to the latest. A lower count is an improvement."
+ },
  "nav_issues": {
   "ko": "버그·취약점·코드 스멜 목록입니다. 확인·수락·오탐 처리나 예외 신청을 합니다.",
   "en": "List of bugs, vulnerabilities and code smells. Confirm, accept, mark false positive or request an exception."

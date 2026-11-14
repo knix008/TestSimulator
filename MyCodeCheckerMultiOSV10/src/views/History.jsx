@@ -248,7 +248,7 @@ function AgeView({ age }) {
 
 // Inline SVG line chart: one y axis, 2px lines, a legend plus end labels,
 // and a crosshair tooltip on hover.
-export function TrendChart({ series }) {
+export function TrendChart({ series, height = 260, label }) {
   const box = useRef(null);
   const [hover, setHover] = useState(null);
   const [W, setW] = useState(760);
@@ -260,7 +260,7 @@ export function TrendChart({ series }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, [ready]);
-  const H = 260;
+  const H = height;
   const pad = { l: 46, r: 140, t: 14, b: 30 };
   const xs = useMemo(() => [...new Set(series.flatMap((s) => s.points.map((p) => p.at)))].sort(), [series]);
   const values = series.flatMap((s) => s.points.map((p) => p.value)).filter((v) => v != null && Number.isFinite(v));
@@ -287,7 +287,7 @@ export function TrendChart({ series }) {
         {series.map((s) => <span key={s.id} className="legend-item"><span className="swatch" style={{ background: s.color }} />{s.label}</span>)}
       </div>
       <div className="chart-box" ref={box}>
-        <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="trend" role="img" aria-label={t('hs_trend')} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+        <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="trend" role="img" aria-label={label || t('hs_trend')} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
           {ticks.map((v) => (
             <g key={v}>
               <line x1={pad.l} x2={W - pad.r} y1={y(v)} y2={y(v)} className="grid" />

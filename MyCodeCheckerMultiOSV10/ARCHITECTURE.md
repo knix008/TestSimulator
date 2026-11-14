@@ -86,10 +86,10 @@
 
 `project.scan` → `analyzePath(root, options)` → `analyzeSources(files, options)`:
 
-1. **파일 모으기** — `walk` 가 `node_modules` · `.git` · `dist` · `build` · `target` · `vendor` · `.mcc` 등을 건너뛰고, 제외 패턴(glob)과 언어 감지(`languages.js`, 38종)를 거쳐 최대 `maxFiles`(기본 8000)개, 파일당 800 KB 까지 읽습니다. 커버리지 보고서도 읽습니다(`coverage.js`).
-2. **파일별 처리** — `metrics.structuralIssues` 가 줄을 코드/주석으로 나누고 크기 · 복잡도 · 구조 이슈를 냅니다. 줄 해시(공백 정규화 MD5 앞 6자)를 남기고, 새 코드 줄을 정합니다(아래 4절). 이어서 줄 규칙(`rules.js` + `rules-extra`), 사용자 정규식 규칙, 정밀 결함 분석의 줄 경로 체커(`defectAnalysis.pathDefects`)를 돌립니다. `NOMCC`, `noqa`, `nolint`, `mcc-ignore`, `cov-ignore`, `parasoft-suppress`(그리고 호환 형식의 표지, 정규식은 `core/compat` 의 `SUPPRESSION_RE`)가 있는 줄은 건너뜁니다.
+1. **파일 모으기** — `walk` 가 `node_modules` · `.git` · `dist` · `build` · `target` · `vendor` · `.mcc` 등을 건너뛰고, 제외 패턴(glob)과 언어 감지(`languages.js`, 38종)를 거쳐 최대 `maxFiles`(기본 8000)개, 파일당 800 KB 까지 읽습니다. 커버리지 보고서도 읽습니다(`coverage.js`). 프로젝트에 `git` 이 있으면 `gitplan.resolveScan` 이 그 계획(fetch, 전체 또는 변경 파일, 끌 내용)을 옵션으로 바꿉니다. 변경분만이면 `onlyFiles` 에 있는 경로만 걷고, 목록을 구하지 못하면 빈 목록이라 파일을 분석하지 않습니다. 제외 폴더와 제외 패턴은 어느 범위에서나 적용됩니다.
+2. **파일별 처리** — `metrics.structuralIssues` 가 줄을 코드/주석으로 나누고 크기 · 복잡도 · 구조 이슈를 냅니다. 줄 해시(공백 정규화 MD5 앞 6자)를 남기고, 새 코드 줄을 정합니다(아래 4절). 이어서 줄 규칙(`rules.js` + `rules-extra`)을 돌립니다. 언어별 기본 Lint 는 `rules-extra/lint.js` 에 있고, C/C++ 는 `rules.js` 의 `lint:c-*` 입니다. `skipRules` 이면 줄 규칙은 건너뜁니다. 그다음 사용자 정규식 규칙과 정밀 결함 분석의 줄 경로 체커(`defectAnalysis.pathDefects`)를 돌리며, `skipDefects` 이면 경로 체커는 건너뜁니다. `NOMCC`, `noqa`, `nolint`, `mcc-ignore`, `cov-ignore`, `parasoft-suppress`(그리고 호환 형식의 표지, 정규식은 `core/compat` 의 `SUPPRESSION_RE`)가 있는 줄은 건너뜁니다.
 3. **계약 엔진** — `runEngines` 가 `engines.js` 의 엔진을 모든 파일에 한 번씩 돌립니다(파일을 건너는 호출 · include 추적). 엔진 하나가 예외를 던지면 그 엔진만 빠지고 `warnings` 에 남습니다. 규칙 언어가 파일 언어와 다르면 버립니다(`.h` 는 C/C++ 모두 허용).
-4. **후처리** — 중복(`duplication.js`, 정규화한 8줄 창), 정밀 결함 분석 장식(`decorateIssue`: CID · 체커 · 영향 · 컴포넌트), 같은 줄의 정밀 엔진 결과가 있으면 줄 기반 `defect:*` 를 지움, `// mcc[CHECKER]` 주석 억제, 저장된 이슈 상태(상태 · 해결 · 담당 · 의견 · 분류 · 태그 · 예외 신청)를 키로 다시 붙임.
+4. **후처리** — 중복(`duplication.js`, 정규화한 8줄 창, `skipDuplication` 이면 세지 않음), 정밀 결함 분석 장식(`decorateIssue`: CID · 체커 · 영향 · 컴포넌트), 같은 줄의 정밀 엔진 결과가 있으면 줄 기반 `defect:*` 를 지움, `// mcc[CHECKER]` 주석 억제, 꺼진 검사 항목(`disabledChecks`, `lint:` 는 언어별 기본 Lint)의 결과를 뺌, 저장된 이슈 상태(상태 · 해결 · 담당 · 의견 · 분류 · 태그 · 예외 신청)를 키로 다시 붙임.
 5. **측정값 · 등급 · 게이트** — `ratings.js`(A–E), 새 코드 측정값, `qualitygate.evaluateGate`, `defectAnalysis.summarizeDefects`(미해결 · 새로 발견 · 기각 · 수정됨 · 정책).
 
 이슈 키는 `sha1(규칙 | 파일 | 정규화한 줄 내용 [| 엔진 줄·메시지])` 앞 16자라서 줄 번호가 바뀌어도 같은 이슈로 이어집니다. `listRules()` 는 줄 규칙 · 구조 규칙 · 정밀 결함 분석 체커 · 엔진 카탈로그를 합치고, CWE 로 행정안전부 2021 항목 번호(`standards.mois2021`)를 붙입니다.
@@ -138,7 +138,7 @@
 | `platform/reports.js` | 인쇄용 HTML 보고서 7종 + CSV |
 | `export/` | 의존성 없는 Word(.docx) · Excel(.xlsx) · PDF(TTF 글꼴 내장) · ZIP. `report.export`, `report.regulatory`(기준 `mois2021` · `kisaWeb` 과 넣을 보고서 종류를 받음), `scan.mjs --report … --out *.pdf / *.docx / *.xlsx` |
 | `report-glossary.js` | 보고서 끝의 용어 설명(`Glossary` / `용어 설명`). 보고서 HTML 의 보이는 글에 나온 용어만 골라(등급 · 품질 게이트 · 이슈 종류 · 심각도 · MISRA · 정밀 결함 분석 용어 · CWE/OWASP/SBOM 등 약어 · HIS 지표) 용어 · 전체 이름 · 설명 표를 `</body>` 앞에 넣고 CSV 끝에도 붙입니다. 모든 형식이 그 HTML 에서 만들어지므로 Word · PDF · PowerPoint(마지막 슬라이드) · Markdown 에 들어가고 Excel 은 `Glossary` 시트가 됩니다. `report.export` 의 `glossary`, 없으면 `settings.reports.glossary`(기본 꺼짐; 규정 ZIP · 자동 보고서도 따름), `scan.mjs --glossary`. 설명은 `src/lib/terms.js` · `abbrev.js` 와 같은 글을 복사해 두고 `test/report-glossary.test.mjs` 가 같은지 봅니다 |
-| `platform/scm.js` | `git` 호출(변경 줄, blame, 태그, 브랜치). 실패하면 빈 값 |
+| `platform/scm.js` | `git` 호출(변경 줄, blame, 태그, 브랜치, `git fetch --prune`). 실패하면 빈 값. Git 분석 계획의 변경분 목록과 fetch 가 여기를 씁니다 |
 | `platform/pullrequest.js` | 바뀐 줄 분석, PR 게이트, GitHub · GitLab · Azure DevOps · Bitbucket 장식 본문 |
 | `platform/webhooks.js` | 호환 형식 페이로드, `X-MCC-Webhook-HMAC-SHA256` 서명, 전송 기록 |
 | `platform/users.js` | 사용자 · 그룹 · 권한 · 템플릿, scrypt 비밀번호, 토큰(SHA-256 해시로 저장) |
@@ -146,9 +146,9 @@
 | `platform/history.js` | 스냅샷 비교(CID), 결함 수명, 활동 이벤트, 추세, 이슈 나이 |
 | `platform/measures.js` | 조건 · 분기 커버리지, 테스트 지표, 컴포넌트 트리, 고칠 노력 |
 | `checks.js` | (언어) 검사 항목마다 검사하는 언어(`langs`)가 있고, `checksForLanguages(langs)` 가 프로젝트 언어에 맞는 기본 선택을 줍니다(프로젝트 설정에서 "이 프로젝트만 따로 정하기"를 켤 때). 프로젝트 언어 = 코드에서 찾은 언어(마지막 분석, 없으면 `project.target`) + 사용자가 추가한 `project.languages`(`.mccp` 에도 저장). `languages.list` 는 언어 목록입니다 |
-| `checks.js` | 검사 항목(엔진 · 규칙 묶음, `CHECK_GROUPS`)의 켜고 끄기. `disabledChecks(settings, project)` 는 프로젝트가 따로 정한 `project.checks`(정하지 않은 항목은 켜짐)를, 없으면 작업 공간의 `settings.checks` 를 씁니다. 꺼진 항목만 보고하는 엔진은 돌지 않고(`engineOff`), 나머지는 결과에서 뺍니다. 언어별 품질 프로필을 `'none'`(적용 안 함)으로 둔 언어는 `skippedLanguages` → `options.skipLanguages` 로 파일을 읽지도 않습니다 |
+| `checks.js` | 검사 항목(엔진 · 규칙 묶음, `CHECK_GROUPS`)의 켜고 끄기. 언어별 기본 Lint 는 `lint:` 접두어입니다. `disabledChecks(settings, project)` 는 프로젝트가 따로 정한 `project.checks`(정하지 않은 항목은 켜짐)를, 없으면 작업 공간의 `settings.checks` 를 씁니다. 꺼진 항목만 보고하는 엔진은 돌지 않고(`engineOff`), 나머지는 결과에서 뺍니다. 언어별 품질 프로필을 `'none'`(적용 안 함)으로 둔 언어는 `skippedLanguages` → `options.skipLanguages` 로 파일을 읽지도 않습니다 |
 | `binfile.js` | 바이너리 파일의 이슈 위치(`project.file` 의 `lines` · `find`): 4 MB 까지는 바로, 그보다 크면 백그라운드에서 1 MB 씩 읽어 줄바꿈 위치와 찾는 문자열을 모으고(`rangesPending: true` 동안 화면은 0.8초마다 다시 물음), 경로 · 크기 · 수정 시각으로 4 개 파일을 기억합니다. 화면의 16진수 보기(`Panels.jsx` `HexView`)는 보이는 줄만 그립니다 |
-| `projectfile.js` | 프로젝트 파일 `*.mccp`(JSON `format: "mycodechecker-project"`, `version`, `name`, `key`, `source` — 파일 기준 상대 경로, `settings`: `mainBranch` · `exclusions` · `includeDirs` · `defines` · `coverageReports` · `arch` · `newCode` · `profiles` · `gateId` · `policyId` · `his` · `tags` · `description` · `checks`) 읽기 · 쓰기. 분석 결과는 작업 공간에 남습니다. 데스크톱은 `tauri.conf.json` 의 `fileAssociations` 로 `.mccp` 를 앱에 연결합니다 |
+| `projectfile.js` | 프로젝트 파일 `*.mccp`(JSON `format: "mycodechecker-project"`, `version`, `name`, `key`, `source` — 파일 기준 상대 경로, `settings`: `mainBranch` · `exclusions` · `includeDirs` · `defines` · `coverageReports` · `arch` · `newCode` · `profiles` · `gateId` · `policyId` · `his` · `tags` · `description` · `checks` · `git`) 읽기 · 쓰기. `git` 은 원격 · 브랜치 · fetch · 범위(`full` · `changed`) · 비교 기준 · 주기 · 분석 내용이고, 비밀번호는 담지 않습니다. 기본값(전체 · 수동 · 모든 내용)은 파일에 적지 않습니다. 분석 결과는 작업 공간에 남습니다. 데스크톱은 `tauri.conf.json` 의 `fileAssociations` 로 `.mccp` 를 앱에 연결합니다 |
 | `platform/tools.js` | 필요한 소프트웨어(Git, C/C++ 컴파일러) 찾기와 패키지 관리자 설치(`tools.install` 을 부를 때만) |
 
 ### 연동 (`core/integrate.js` + `core/integrations/`)
@@ -157,7 +157,7 @@
 
 ### 예약 (`core/scheduler.js`)
 
-`{ id, name, kind: 'scan'|'dast', projectId|path, branch, cron, enabled }`. 5필드 cron(`@daily` 같은 별칭 포함)을 풀고, 서버 프로세스(`scheduler: true` — 웹 호스트와 데스크톱 사이드카)가 30초마다 확인해 때가 된 것을 하나씩 실행합니다. 결과는 `lastRun`, `lastStatus`(SUCCESS · GATE_FAILED · FAILED), `nextRun` 에 남습니다.
+`{ id, name, kind: 'scan'|'dast', projectId|path, branch, cron, enabled }`. 5필드 cron(`@daily` 같은 별칭 포함)을 풀고, 서버 프로세스(`scheduler: true` — 웹 호스트와 데스크톱 사이드카)가 30초마다 확인해 때가 된 것을 하나씩 실행합니다. 결과는 `lastRun`, `lastStatus`(SUCCESS · GATE_FAILED · FAILED), `nextRun` 에 남습니다. 프로젝트 `git.period` 가 수동이 아니면 `gitplan.schedulesOf` 가 `gitplan:<프로젝트>` 예약을 이 목록에 더합니다. 그 실행 기록은 `project.gitRun` 에 돌아가고, 관리 화면에서 직접 만든 예약만 `ws.schedules` 에 남습니다.
 
 ### 호환 형식 (`core/compat/`)
 

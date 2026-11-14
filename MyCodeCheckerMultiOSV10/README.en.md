@@ -2,7 +2,7 @@
 
 A **code quality and security workbench** that runs on your own computer. It brings Code Quality management, Defect Analysis and Security Weakness checks with compliance together in one program. The web version and Windows · macOS · Linux show the same screens — a **Tauri 2 + React** UI over a **Node.js analysis core** (`core/`). The installers carry Node.js and the analyzers, so nothing else has to be installed. All analysis is local; source code leaves the machine only for features you turn on (AI CodeFix, online OSV check).
 
-- **4161 rules**, **38 languages**, 7600+ tests · Korean / English · 40 themes (20 dark, 20 light) plus your own
+- **4204 rules**, **38 languages**, 7600+ tests · Korean / English · 40 themes (20 dark, 20 light) plus your own
 - How to use it: [User's guide](UsersGuide.en.md) · [사용 설명서](UsersGuide.md) · Design: [ARCHITECTURE.md](ARCHITECTURE.md) · 한국어: [README.md](README.md)
 
 ## Features
@@ -10,10 +10,12 @@ A **code quality and security workbench** that runs on your own computer. It bri
 ### Code quality
 
 - **Rules** — bugs, vulnerabilities, code smells and security hotspots for JavaScript/TypeScript, Python, Java, Kotlin, C#, C/C++, Go, Rust, PHP, Ruby, Swift, Objective-C, Scala, Dart, VB.NET, VB6, COBOL, PL/SQL, ABAP, Apex, RPG, PL/I, JCL, Flex, Groovy, Shell, PowerShell, SQL, HTML, CSS, XML, JSON, YAML, Docker, Terraform, Bicep and more (38). Line rules + per-language semantic analyzers (`sem-js`, `sem-java`, `sem-cs`, `sem-py`, `sem-go`, `sem-php`, `sem-rb`) + taint analysis + IaC (CloudFormation, Kubernetes, Ansible, ARM, Bicep)
+- **Baseline lint per language** — lines over 120 characters, mixed tabs and spaces, and that language's usual lint (debug prints, loose comparisons and more). The group can be turned off on its own in Settings › Analysis
 - **Ratings** A–E (reliability, security, maintainability, security review), technical debt, cognitive and cyclomatic complexity
 - **Quality gates** — the default `Checker way` (no new bugs or vulnerabilities, 80 % coverage on new code, 3 % duplication …), editable conditions, per-project assignment, badge
 - **Quality profiles** — per language, inheritance (parent profile), compare, back up / restore, changelog, custom regex rules
 - **New code** — previous analysis, number of days, a specific analysis, previous version (git tag), SCM changed lines (git diff); line hashes compare with the baseline
+- **Git analysis plan** — in project settings: remote, branch, fetch before analysis, the whole configured tree or only changed files, a period, and what the run produces (issues, duplication, coverage, defects). Passwords are not stored; fetch uses this computer's git credentials
 - **Coverage** — lcov, Cobertura, JaCoCo, Clover, OpenCover, Go cover profiles, generic · test reports (JUnit, generic)
 - **Duplications**, **branches and pull requests** (changed lines only; GitHub, GitLab, Azure DevOps, Bitbucket decoration), **portfolios** (groups of projects with a releasability verdict)
 - **External issue import** — SARIF, generic issue JSON, defect JSON, cppcheck, clang-tidy, ESLint, Pylint, Checkstyle, SpotBugs, PMD, gosec, Bandit, Semgrep
@@ -42,7 +44,7 @@ A **code quality and security workbench** that runs on your own computer. It bri
 - **Users, groups and permissions** (global and per project, with the usual permission names), **tokens** (user, project analysis, global analysis; a new token comes with an example CI command and a `mcc-project.properties` sample), **LDAP** sign-in
 - **Safety** — the last active administrator cannot be removed or deactivated (LAST_ADMIN); confirmations before deletions, deactivation, token revocation, bulk false positive / accept and housekeeping; 5 failed sign-ins lock that login for 5 minutes; a language switch on the sign-in screen that stays after sign-in. Errors are shown in the UI language (with codes such as NOT_FOUND, CONFLICT, FORBIDDEN …)
 - **SMTP notifications** (gate changes, assignments, high-impact defects, exception requests / approvals / rejections, failed analyses), **Jira, Redmine, GitHub and GitLab tickets**, **PR decoration**, **webhooks** (HMAC-signed)
-- **Scheduled analyses** (cron; code analysis or web scan), **audit log**, housekeeping
+- **Scheduled analyses** (cron; code analysis or web scan) and a project's git period (runs that project's scope and content while the app is open, separate from a hand-made schedule), **audit log**, housekeeping
 - **Compatible Web API** (`/api/issues/search`, `/api/qualitygates/project_status` …) — dashboards and scripts written for the compatible API read it as is
 - **AI CodeFix** — asks an LLM for a fix of one issue, shows it as a diff and applies it only when you accept (an applied fix can be undone with **Undo fix**). Anthropic Claude (official SDK, default model `claude-opus-5-5`), OpenAI-compatible servers or a local Ollama
 - **Database export** — analysis results as tables in MySQL, SQLite3, MariaDB, PostgreSQL or MSSQL (in the background after every analysis, or on demand)
@@ -50,7 +52,7 @@ A **code quality and security workbench** that runs on your own computer. It bri
 
 ### Workspace
 
-- **Project files `.mccp`** — JSON with the source folder (relative path) and the project settings (branch, exclusions, include paths, defines, coverage, architecture, new code, profiles, gate). File › New project (pick excluded folders from a tree while creating), Open, Save, Recent projects; double-clicking one opens the app (own icon). Unsaved changes put a ● in the title, and closing asks **Save / Don't Save / Cancel**. A new project on an already registered folder asks **Replace / Open existing project / Cancel**; **Delete project** removes it from the workspace only (the source folder and the .mccp stay). Workspaces and project files from older versions are converted on first open, and triage is kept
+- **Project files `.mccp`** — JSON with the source folder (relative path) and the project settings (branch, exclusions, include paths, defines, coverage, architecture, new code, profiles, gate, the git analysis plan). File › New project (pick excluded folders from a tree while creating), Open, Save, Recent projects; double-clicking one opens the app (own icon). Unsaved changes put a ● in the title, and closing asks **Save / Don't Save / Cancel**. A new project on an already registered folder asks **Replace / Open existing project / Cancel**; **Delete project** removes it from the workspace only (the source folder and the .mccp stay). Workspaces and project files from older versions are converted on first open, and triage is kept
 - **Edit › Undo / Redo** (Ctrl+Z · Ctrl+Y / Ctrl+Shift+Z; the toolbar buttons' tooltips name the action) — issue status, resolution, assignee and tags (single and bulk), gate, profile, portfolio, policy and custom-rule edits, project settings, panels, the start-page layout and AI CodeFix apply
 - **Analysis progress window** — after about 1 s: phase, current file or engine, %, elapsed and remaining time, **Cancel** (a cancelled analysis is recorded as CANCELED, not as a failure). Triage and settings changed while it runs are kept
 - **Screens** — a menu bar instead of the system title bar (theme, language with flags), an icon + label toolbar, **tabs** in the centre (Home pinned; close, drag to reorder, context menu, < > ⌄ on overflow), left **navigation**, right **details** and bottom **Problems / Analysis log / Jobs / Output** panels (turn on/off, fold to an icon + title strip, resize). On the desktop, dialogs, menus and dropdowns open as separate windows. List views keep the title, filters and column headings in place; only the rows scroll

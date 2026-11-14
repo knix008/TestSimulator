@@ -82,7 +82,7 @@ Turn off [Show this page at start] at the bottom of the start page and the next 
 
 ![Creating a project](docs/images/tutorial/en/10-newProject.jpg)
 
-File › New project (Ctrl+N) puts a source folder and its settings in a project file (.mccp). On the [Basics] tab, enter the [Name], key, description, tags, main branch and the [Source folder], and the [Project file] path fills in. The other tabs on the left set what Project settings has, from the start: [Languages and engines] (remove languages found in the code or add others, and choose this project's engines), [Rules and gate] (quality gate, defect policy, quality profile per language), [Analysis scope] (exclusion patterns and excluded folders), [Language options and coverage] (C/C++ header folders and macros, coverage reports) and [New code]. At the bottom, [Create] only writes the project file, and [Create and analyze] analyzes with these settings as soon as it is created. A project file holds only settings, so it is easy to share or to keep in the repository.
+File › New project (Ctrl+N) puts a source folder and its settings in a project file (.mccp). On the [Basics] tab, enter the [Name], key, description, tags, main branch and the [Source folder], and the [Project file] path fills in. The other tabs on the left set what Project settings has, from the start: [Languages and engines] (remove languages found in the code or add others, and choose this project's engines), [Rules and gate] (quality gate, defect policy, quality profile per language), [Analysis scope] (exclusion patterns and excluded folders), [Language options and coverage] (C/C++ header folders and macros, coverage reports), [New code] and [Git] (remote and branch, fetch before analysis, the whole configured tree or only changed files, the period and what the run produces). At the bottom, [Create] only writes the project file, and [Create and analyze] analyzes with these settings as soon as it is created. A project file holds only settings, so it is easy to share or to keep in the repository.
 
 ### 11. Excluding folders in a new project
 
@@ -524,7 +524,7 @@ The [Test reports] tab imports JUnit XML or generic test execution XML, so test 
 
 ![Scheduled analysis](docs/images/tutorial/en/80-adminSchedules.jpg)
 
-[Schedules] run a code analysis or web scan automatically at set times (daily, weekly or every few hours). Create one with [New schedule] by choosing the project, branch and time; the next run also shows in the Jobs tab of the bottom panel.
+[Schedules] run a code analysis or web scan automatically at set times (daily, weekly or every few hours). Create one with [New schedule] by choosing the project, branch and time; the next run also shows in the Jobs tab of the bottom panel. A period on the project's Git tab is separate: while it is not Manual, the app runs that project's scope and content at that time.
 
 ### 81. Audit log
 
@@ -574,7 +574,7 @@ The [Start page] tab sets the background animation kind, shuffle interval, speed
 
 ![Analysis settings](docs/images/tutorial/en/88-settingsAnalysis.jpg)
 
-The [Analysis] tab sets the paths to exclude (such as **/node_modules/** and **/*.min.js), the file size limit, the engines to use, and whether exception approval is required and by whom. Per-project values can override these in Administration › Analysis settings.
+The [Analysis] tab sets the paths to exclude (such as **/node_modules/** and **/*.min.js), the file size limit, the engines to use, and whether exception approval is required and by whom. Per-project values can override these in Administration › Analysis settings. The Checks on the same tab turn each analysis group on or off, including baseline lint per language.
 
 ### 89. New code baseline
 
