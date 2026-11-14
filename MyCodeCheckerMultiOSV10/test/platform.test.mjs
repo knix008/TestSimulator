@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { encodeIco, encodeIcns } from '../scripts/icons.mjs';
 import { rejectReason } from '../scripts/platform-build.mjs';
-import { cleanAll, cleanBuild } from '../scripts/clean.mjs';
+import { cleanAll, cleanBuild, pidsToStop } from '../scripts/clean.mjs';
 
 test('ICO and ICNS containers start with their magic', () => {
   const rgba = new Uint8Array(16 * 16 * 4).fill(255);
@@ -38,6 +38,33 @@ test('clean removes build folders and root installers only', () => {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('only programs inside the folder being removed are stopped', () => {
+  const dir = path.join('D:', 'proj', 'node_modules');
+  const esbuild = path.join(dir, '@esbuild', 'win32-x64', 'esbuild.exe');
+  const other = path.join('D:', 'other', 'node_modules', 'esbuild.exe');
+  const pids = pidsToStop([
+    { pid: 10, exe: esbuild },
+    { pid: 11, exe: other },
+    { pid: 12, exe: path.join('C:', 'Program Files', 'nodejs', 'node.exe') },
+  ], dir, 12);
+  assert.deepEqual(pids, [10]);
+});
+
+test('a dev server that loaded a module in the folder is stopped', () => {
+  const dir = path.join('D:', 'proj', 'node_modules');
+  const node = path.join('C:', 'Program Files', 'nodejs', 'node.exe');
+  const pids = pidsToStop([
+    { pid: 1, ppid: 2, name: 'node.exe', exe: node, cmd: `"${node}" ${path.join(dir, 'vite', 'bin', 'vite.js')}` },
+    { pid: 2, ppid: 3, name: 'node.exe', exe: node, cmd: 'node  scripts/dev.mjs' },
+    { pid: 3, ppid: 4, name: 'cmd.exe', exe: path.join('C:', 'Windows', 'System32', 'cmd.exe'), cmd: 'cmd /c node scripts/dev.mjs' },
+    { pid: 4, ppid: 5, name: 'node.exe', exe: node, cmd: 'npm-cli.js run dev' },
+    { pid: 5, ppid: 0, name: 'powershell.exe', exe: path.join('C:', 'Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'), cmd: 'prompt' },
+    { pid: 9, ppid: 0, name: 'node.exe', exe: path.join('C:', 'Users', 'me', 'AppData', 'Local', 'Programs', 'cursor', 'resources', 'helpers', 'node.exe'), cmd: `tsserver.js ${dir}` },
+    { pid: 8, ppid: 0, name: 'node.exe', exe: node, cmd: 'node tmp-mod-check.mjs' },
+  ], dir, 99, [8]);
+  assert.deepEqual([...pids].sort((a, b) => a - b), [1, 2, 8]);
 });
 
 test('clean:all also removes dependencies and the tutorial video', () => {
