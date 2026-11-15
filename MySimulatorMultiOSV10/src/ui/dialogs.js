@@ -12,6 +12,7 @@ import { executionOrder } from '../core/model.js';
 import { ANIMATION_KINDS, ANIMATION_ICONS } from './background.js';
 import { DEFAULT_SETTINGS } from '../core/settings.js';
 import { chartSpec, drawSpec, scalarRows } from './views.js';
+import { drawLineChart, drawHeatmap } from './charts.js';
 import { NODE_W, nodeHeight } from './graph.js';
 import { popoutsEnabled, openPopout, placePopout, closePopout } from '../platform/popout.js';
 import * as native from '../platform/native.js';
@@ -225,9 +226,13 @@ exit code 0 = all nodes ran, 2 = a node failed, 1 = bad arguments`;
  * Cancel puts back what was set when the window opened, Reset returns to the defaults (recent files stay).
  */
 export function showSettings(app, initialTab = null) {
-  const tabs = [['tabGeneral', '⚙'], ['tabTheme', '◐'], ['tabCustomTheme', '🎨'], ['tabFont', '🔤'], ['tabStartPage', '🏠'], ['tabEditor', '⛓'], ['tabPanels', '◧'], ['tabFiles', '🕘']];
+  const tabs = [['tabGeneral', '⚙'], ['tabTheme', '◐'], ['tabCustomTheme', '🎨'], ['tabFont', '🔤'], ['tabStartPage', '🏠'], ['tabEditor', '⛓'], ['tabPanels', '◧'], ['tabCpp', 'C++'], ['tabFiles', '🕘']];
   let tab = initialTab ?? 'tabGeneral';
   const original = structuredClone(app.state.settings);
+  let cppInfo = null;
+  let cppBusy = false;
+  let cppNote = '';
+  let stopProgress = () => {};
   const rail = h('nav', { className: 'settings-tabs' });
   const panel = h('div', { className: 'settings-panel' });
   const render = () => {
@@ -288,19 +293,50 @@ export function showSettings(app, initialTab = null) {
           ['leftCollapsed', `${commandName('toolPanel', lang)} — ${t('panelCollapse')}`], ['rightCollapsed', `${commandName('propertyPanel', lang)} — ${t('panelCollapse')}`]]),
         row(t('panelWidth'), numberField({ value: s.panelSize, min: 220, max: 520, step: 10, suffix: 'px', onChange: (v) => patch({ panelSize: Math.round(v) }) })),
         row(t('chartHeight'), numberField({ value: s.chartHeight, min: 120, max: 560, step: 10, suffix: 'px', onChange: (v) => patch({ chartHeight: Math.round(v) }) }))));
-    } else {
+    } else if (tab === 'tabFiles') {
       replace(panel, group(t('recentFiles'),
         h('div', { className: 'recent-list' }, ...s.recentFiles.map((file) => h('div', { className: 'row recent-row' },
           h('span', { className: 'ellipsis', title: file.path }, file.name),
           h('button', { type: 'button', title: t('remove'), onClick: () => patch({ recentFiles: s.recentFiles.filter((f) => f.path !== file.path) }) }, '✕')))),
         s.recentFiles.length ? null : h('p', { className: 'part-help' }, t('startRecentEmpty')),
         h('div', { className: 'row' }, h('button', { type: 'button', onClick: () => patch({ recentFiles: [] }) }, t('clearRecent')))));
+    } else if (tab === 'tabCpp') {
+      if (!cppInfo && !cppBusy) {
+        cppBusy = true;
+        native.cppToolchainStatus().then((info) => { cppInfo = info; cppBusy = false; cppNote = ''; render(); }).catch((error) => { cppInfo = { ready: false, source: 'none', error: String(error?.message || error) }; cppBusy = false; render(); });
+      }
+      const note = { download: t('cppDownloading'), extract: t('cppExtracting'), compile: t('cppCompiling') }[cppNote] || '';
+      const source = cppInfo?.source === 'managed' ? t('cppManaged') : cppInfo?.source === 'system' ? t('cppSystem') : t('cppNone');
+      const act = async (fn) => {
+        cppBusy = true;
+        cppNote = '';
+        render();
+        try { cppInfo = await fn(); } catch (error) { showError(String(error?.message || error)); }
+        cppBusy = false;
+        cppNote = '';
+        render();
+      };
+      const button = (label, fn, testid) => h('button', { type: 'button', disabled: cppBusy || cppInfo?.desktop === false, dataset: { testid }, onClick: () => act(fn) }, label);
+      replace(panel, group(t('tabCpp'),
+        h('p', { className: 'part-help' }, native.isTauri ? t('cppHelp') : t('cppDesktopOnly')),
+        cppInfo?.error ? h('p', { className: 'error-headline' }, cppInfo.error) : null,
+        row(t('cppUseNow'), h('span', null, cppBusy ? (note || t('cppWorking')) : source)),
+        cppInfo?.version ? row(t('cppPath'), h('span', { className: 'ellipsis', title: cppInfo.path }, `${cppInfo.version}`)) : null,
+        cppInfo?.path ? h('p', { className: 'part-help' }, cppInfo.path) : null,
+        note ? h('p', { className: 'part-help' }, note) : null,
+        h('div', { className: 'row', style: { display: 'flex', flexWrap: 'wrap', height: 'auto', gap: '8px' } },
+          button(t('cppInstall'), native.cppToolchainInstall, 'cpp-install'),
+          button(t('cppRemove'), native.cppToolchainRemove, 'cpp-remove'),
+          button(t('cppReinstall'), native.cppToolchainReinstall, 'cpp-reinstall'),
+          h('button', { type: 'button', disabled: cppBusy || !native.isTauri, dataset: { testid: 'cpp-run-all' }, onClick: () => runAllCppExamples(app.doc?.()?.model?.settings?.seed ?? 1) }, t('cppRunAll')))));
     }
   };
   render();
+  let closed = false;
+  if (native.isTauri) native.listen('cpp-progress', (payload) => { cppNote = payload?.message || ''; if (tab === 'tabCpp') render(); }).then((stop) => { stopProgress = stop; if (closed) stop(); });
   popup({
     id: 'settings', title: t('settingsTitle'), icon: '⚙', width: 820, height: 560, body: h('div', { className: 'settings-layout' }, rail, panel),
-    onClose: null,
+    onClose: () => { closed = true; stopProgress(); },
     actions: [
       { label: `↺ ${t('reset')}`, testid: 'settings-reset', onClick: () => { const { recentFiles } = app.state.settings; app.patchSettings({ ...DEFAULT_SETTINGS, recentFiles }); render(); } },
       { label: t('cancel'), testid: 'settings-cancel', onClick: (close) => { app.patchSettings(original); close(); } },
@@ -582,3 +618,104 @@ export function showReport(app) {
 }
 
 export { THEMES, formatValue };
+
+const TABLE_PRELUDE = "t = (0:99)'/100;\ny = sin((0:99)'/10);\ndata = struct('t', t, 'y', y);\n";
+
+function pointsOf(line) {
+  const x = line?.x ?? [];
+  const y = line?.y ?? [];
+  const n = Math.min(x.length, y.length);
+  const points = [];
+  for (let i = 0; i < n; i++) if (x[i] != null && y[i] != null && Number.isFinite(x[i]) && Number.isFinite(y[i])) points.push([x[i], y[i]]);
+  return points;
+}
+
+/** The result window for a translated MATLAB script: text, numbers, line charts and heat maps. */
+export function showCppResult(result, title = '') {
+  const data = typeof result === 'string' ? JSON.parse(result) : result;
+  const canvases = [];
+  const blocks = [];
+  if (data?.ok === false && data.error) blocks.push(h('p', { className: 'error-headline' }, data.error));
+  if (data?.text) blocks.push(h('pre', { className: 'code-block' }, data.text));
+  for (const scalar of data?.scalars ?? []) blocks.push(h('p', null, `${scalar.name} = ${scalar.value}`));
+  for (const series of data?.series ?? []) {
+    const canvas = h('canvas', { style: { width: '100%', height: '260px', display: 'block' } });
+    canvases.push([canvas, 'line', series]);
+    blocks.push(h('div', { className: 'chart-frame' }, canvas));
+  }
+  for (const grid of data?.grids ?? []) {
+    const canvas = h('canvas', { style: { width: '100%', height: '260px', display: 'block' } });
+    canvases.push([canvas, 'grid', grid]);
+    blocks.push(h('div', { className: 'chart-frame' }, canvas));
+  }
+  if (!blocks.length) blocks.push(h('p', { className: 'part-help' }, t('cppNoOutput')));
+  const paint = () => {
+    for (const [canvas, kind, spec] of canvases) {
+      if (kind === 'line') {
+        const lines = (spec.lines ?? []).map((line) => ({ name: line.name || '', mode: line.mode === 'stem' ? 'scatter' : (line.mode || 'line'), points: pointsOf(line) })).filter((line) => line.points.length);
+        if (lines.length) drawLineChart(canvas, lines, { title: spec.title || '', xLabel: spec.xlabel || spec.xLabel || '', yLabel: spec.ylabel || spec.yLabel || '', legend: lines.length > 1 });
+      } else {
+        const z = (spec.z ?? []).map((v) => (v == null ? NaN : v));
+        const nx = spec.x?.length || 0;
+        const ny = spec.y?.length || 0;
+        if (nx && ny && z.length) drawHeatmap(canvas, { x: spec.x, y: spec.y, z, xLabel: spec.xLabel || spec.xlabel || '', yLabel: spec.yLabel || spec.ylabel || '', zLabel: spec.zLabel || spec.zlabel || '' }, { title: spec.title || '' });
+      }
+    }
+  };
+  popup({
+    id: 'cpp-result', title: title || t('cppResult'), icon: '▣', width: 860, height: 640,
+    body: h('div', { className: 'scroll', style: { overflow: 'auto', maxHeight: '520px' } }, ...blocks),
+    actions: [{ label: t('close'), primary: true }],
+  });
+  requestAnimationFrame(paint);
+  setTimeout(paint, 80);
+}
+
+/** Shows the C++ a MATLAB script translates to. */
+export async function showCppSource(code, seed = 1) {
+  if (!native.isTauri) { showError(t('cppDesktopOnly')); return; }
+  const src = await native.cppTranspile(code, seed);
+  popup({
+    id: 'cpp-source', title: t('cppSource'), icon: 'C++', width: 860, height: 640,
+    body: h('pre', { className: 'code-block scroll', style: { overflow: 'auto', maxHeight: '520px', whiteSpace: 'pre' } }, src),
+    actions: [{ label: t('copyText'), onClick: () => navigator.clipboard?.writeText(src) }, { label: t('close'), primary: true }],
+  });
+}
+
+/** Compiles and runs one MATLAB script, then opens the result window. */
+export async function runCpp(code, seed = 1) {
+  if (!native.isTauri) { showError(t('cppDesktopOnly')); return null; }
+  const json = await native.cppRun(code, seed);
+  const result = typeof json === 'string' ? JSON.parse(json) : json;
+  showCppResult(result);
+  return result;
+}
+
+/** Every built-in MATLAB example, plus the default damped-sine script. */
+export async function runAllCppExamples(seed = 1) {
+  if (!native.isTauri) { showError(t('cppDesktopOnly')); return; }
+  const spec = nodeSpec('script.matlab');
+  const lang = getLanguage();
+  const items = [...(spec?.presets ?? [])];
+  const damped = spec?.params?.find((p) => p.key === 'code')?.def;
+  if (damped) items.push({ id: 'damped', ko: '감쇠 사인', en: 'Damped sine', params: { code: damped } });
+  const rows = [];
+  const body = h('div', { className: 'scroll', style: { overflow: 'auto', maxHeight: '460px' } }, h('p', { className: 'part-help' }, t('cppCompiling')));
+  popup({ id: 'cpp-all', title: t('cppRunAll'), icon: '▣', width: 640, height: 480, body, actions: [{ label: t('close'), primary: true }] });
+  for (const preset of items) {
+    const name = lang === 'en' ? preset.en : preset.ko;
+    const code = (preset.id === 'table' ? TABLE_PRELUDE : '') + (preset.params?.code ?? '');
+    try {
+      const json = await native.cppRun(code, seed);
+      const result = typeof json === 'string' ? JSON.parse(json) : json;
+      const ok = result?.ok !== false;
+      rows.push(h('div', { className: 'row' }, h('span', null, `${ok ? '✓' : '✗'} ${name}`), h('button', { type: 'button', onClick: () => showCppResult(result, name) }, t('cppResult'))));
+      if (!ok && result?.error) rows.push(h('pre', { className: 'error-detail' }, result.error));
+    } catch (error) {
+      rows.push(h('div', { className: 'row' }, h('span', null, `✗ ${name}`)));
+      rows.push(h('pre', { className: 'error-detail' }, String(error?.message || error)));
+    }
+    replace(body, ...rows);
+  }
+}
+

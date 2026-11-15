@@ -89,6 +89,39 @@ export async function pickPath(filters, save = false, defaultPath = undefined) {
   return path || null;
 }
 
+/** MinGW g++ used to compile a translated MATLAB script (desktop only). */
+export async function cppToolchainStatus() {
+  if (!isTauri) return { ready: false, source: 'none', version: '', path: '', managedInstalled: false, desktop: false };
+  return invoke('cpp_toolchain_status');
+}
+
+export async function cppToolchainInstall() {
+  if (!isTauri) throw new Error('desktop');
+  return invoke('cpp_toolchain_install');
+}
+
+export async function cppToolchainRemove() {
+  if (!isTauri) throw new Error('desktop');
+  return invoke('cpp_toolchain_remove');
+}
+
+export async function cppToolchainReinstall() {
+  if (!isTauri) throw new Error('desktop');
+  return invoke('cpp_toolchain_reinstall');
+}
+
+/** Translated C++ source of a MATLAB script. */
+export async function cppTranspile(code, seed = 1) {
+  if (!isTauri) throw new Error('desktop');
+  return invoke('cpp_transpile', { code, seed });
+}
+
+/** Compile and run a MATLAB script as C++. Returns the result JSON string. */
+export async function cppRun(code, seed = 1) {
+  if (!isTauri) throw new Error('desktop');
+  return invoke('cpp_run', { code, seed });
+}
+
 /** The Python the Python nodes use ("py -3", "python3" …) or null (desktop only). */
 export async function pythonInfo() {
   if (!isTauri) return null;

@@ -1,6 +1,7 @@
 // Desktop E2E: the real program (tauri build --debug --no-bundle, the page
 // embedded) driven over WebView2's DevTools port, with the native Rust engine;
 // then the command-line batch mode. Prints "E2E: <passed> passed, <failed> failed".
+// E2E_ONLY=text runs only the steps whose name contains that text.
 //
 // The program runs with its own config/lock/profile folders in the temp
 // directory, so the user's settings and an installed copy are never touched.
@@ -14,6 +15,7 @@ import { resultLine, totalsLine } from './report.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const shots = path.join(root, 'test-results', 'desktop');
+const only = process.env.E2E_ONLY ?? '';
 const exeName = process.platform === 'win32' ? 'MySimulator.exe' : 'MySimulator';
 // Its own cargo target folder: a debug copy the user has open (target/debug) keeps that exe locked.
 const targetDir = path.join(root, 'src-tauri', 'target', 'e2e');
@@ -51,6 +53,7 @@ let cdp;
 const errors = [];
 
 async function step(name, fn) {
+  if (only && !name.includes(only)) return;
   const started = performance.now();
   const before = errors.length;
   try {
@@ -205,6 +208,37 @@ try {
     await waitFor(() => js('Boolean(window.__mysim.doc().mlab?.vars?.some((v) => v.name === "x"))'), 20000, 100);
     await cdp.screenshot(path.join(shots, 'matlab-desktop.png'));
     await js(`window.__mysim.run('viewGraph')`);
+  });
+
+  await step('C/C++: settings show the compiler, and a script node runs as a chart', async () => {
+    const status = await js('window.__TAURI_INTERNALS__.invoke("cpp_toolchain_status")');
+    assert(status.ready, `compiler not ready: ${JSON.stringify(status)}`);
+    assert(status.source === 'managed' || status.source === 'system', status.source);
+    await js('window.__mysim.run("settings")');
+    await waitFor(() => js('Boolean(window.__mysim.query("[data-testid=settings-tabCpp]"))'), 8000);
+    await js('window.__mysim.query("[data-testid=settings-tabCpp]").click()');
+    await waitFor(() => js(`(() => {
+      const button = window.__mysim.query('[data-testid=cpp-install]');
+      const text = window.__mysim.query('.settings-panel')?.innerText ?? '';
+      return Boolean(button && !button.disabled && !text.includes('Working'));
+    })()`), 15000);
+    const panel = await js('window.__mysim.query(".settings-panel").innerText');
+    assert(/Installed package|Compiler already/.test(panel), panel.slice(0, 300));
+    assert(await js('window.__mysim.query("[data-testid=cpp-remove]") && window.__mysim.query("[data-testid=cpp-reinstall]") && window.__mysim.query("[data-testid=cpp-run-all]")'), 'package buttons missing');
+    await js('window.__mysim.query("[data-testid=settings-cancel]").click()');
+    await sleep(300);
+    await js('window.__mysim.run("new")');
+    await js('window.__mysim.api.addNode("script.matlab", { x: 80, y: 80, link: false })');
+    const code = "x = linspace(0, 2*pi, 80);\ny = sin(x) .* exp(-x/4);\nplot(x, y); title('damped sine');\npeak = max(y)";
+    await js(`(() => { const n = window.__mysim.doc().model.nodes.find((node) => node.type === "script.matlab"); window.__mysim.api.select({ kind: "node", ids: [n.id] }); window.__mysim.api.patchNode(n.id, { params: { code: ${JSON.stringify(code)} } }); })()`);
+    await waitFor(() => js('Boolean(window.__mysim.query("[data-testid=cpp-run]"))'), 5000);
+    await js('window.__mysim.query("[data-testid=cpp-run]").click()');
+    await waitFor(() => js('(() => { const canvas = window.__mysim.query("[data-testid=dialog-cpp-result] canvas"); return Boolean(canvas && canvas.width > 50); })()'), 180000, 250);
+    const shown = await js('(() => { const el = window.__mysim.query("[data-testid=dialog-cpp-result]"); const canvas = el.querySelector("canvas"); return { text: el.innerText, width: canvas.width, height: canvas.height }; })()');
+    assert(/peak/.test(shown.text), shown.text.slice(0, 400));
+    assert(shown.width > 50 && shown.height > 50, `chart ${shown.width}x${shown.height}`);
+    await cdp.screenshot(path.join(shots, 'cpp-result.png'));
+    await js('window.__mysim.query("[data-testid=dialog-close-cpp-result]").click()');
   });
 
   await step('python node: runs the installed Python after the permission question', async () => {

@@ -1,4 +1,5 @@
 pub mod batch;
+pub mod cpp;
 pub mod files;
 pub mod fonts;
 pub mod host;
@@ -476,6 +477,12 @@ pub fn run() {
             popout::hide_popout,
             popout::close_popout,
             popout::drag_popout,
+            cpp::cpp_toolchain_status,
+            cpp::cpp_toolchain_install,
+            cpp::cpp_toolchain_remove,
+            cpp::cpp_toolchain_reinstall,
+            cpp::cpp_transpile,
+            cpp::cpp_run,
             quit_app
         ])
         .run(tauri::generate_context!())

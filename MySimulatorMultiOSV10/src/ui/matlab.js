@@ -7,6 +7,7 @@
 import { h, replace } from './dom.js';
 import { drawLineChart, drawHeatmap } from './charts.js';
 import { evalMatlab, cancelMatlab, matlabBusy, f64 } from '../platform/matlab.js';
+import * as dialogs from './dialogs.js';
 
 const TEXT = {
   ko: {
@@ -19,6 +20,7 @@ const TEXT = {
     plotHint: '작업 공간에서 변수를 고르고 그림 종류를 누르십시오', selectVar: '먼저 작업 공간에서 변수를 고르십시오', exportPng: 'PNG 저장', closeFig: '닫기',
     varEditor: '변수 편집기', added: '파이프라인에 MATLAB 스크립트 노드를 추가했습니다', saved: '파이프라인 문서에 저장됨 (파일 › 저장)', untitled: 'untitled',
     line: '줄', col: '열', ready: '준비', run1: '실행 (F5)',
+    runCpp: 'C/C++ 실행', showCpp: 'C++ 코드', cppAll: '예제 전부', cppStart: 'C++로 컴파일하는 중…',
   },
   en: {
     home: 'HOME', plots: 'PLOTS', editor: 'EDITOR', newScript: 'New Script', newFunction: 'New Function', open: 'Open', save: 'Save', run: 'Run', runSel: 'Run Selection', stop: 'Stop',
@@ -30,6 +32,7 @@ const TEXT = {
     plotHint: 'Pick a variable in the workspace, then a plot type', selectVar: 'Pick a variable in the workspace first', exportPng: 'Save PNG', closeFig: 'Close',
     varEditor: 'Variables', added: 'Added a MATLAB script node to the pipeline', saved: 'Kept in the pipeline document (File › Save)', untitled: 'untitled',
     line: 'Ln', col: 'Col', ready: 'Ready', run1: 'Run (F5)',
+    runCpp: 'Run as C/C++', showCpp: 'C++ source', cppAll: 'All examples', cppStart: 'Compiling as C++…',
   },
 };
 
@@ -272,6 +275,40 @@ export class MatlabDesktop {
     this.exec(code, { echo: selectionOnly ? code.split('\n')[0] + (code.includes('\n') ? ' …' : '') : stem, record: false });
   }
 
+  scriptCode() {
+    const ta = this.el.querySelector('.ml-code');
+    const code = ta ? ta.value : (this.file(this.session().active)?.code ?? '');
+    this.commit();
+    return code;
+  }
+
+  async runCpp() {
+    const code = this.scriptCode();
+    if (!code.trim()) return;
+    const seed = this.app.doc().model.settings?.seed ?? 1;
+    try {
+      this.app.status(this.L.cppStart);
+      await dialogs.runCpp(code, seed);
+      this.app.status(this.L.ready);
+    } catch (error) {
+      dialogs.showError(String(error?.message || error));
+    }
+  }
+
+  async showCpp() {
+    const code = this.scriptCode();
+    if (!code.trim()) return;
+    try {
+      await dialogs.showCppSource(code, this.app.doc().model.settings?.seed ?? 1);
+    } catch (error) {
+      dialogs.showError(String(error?.message || error));
+    }
+  }
+
+  runAllCpp() {
+    dialogs.runAllCppExamples(this.app.doc().model.settings?.seed ?? 1);
+  }
+
   clearWorkspace() {
     const s = this.session();
     s.state = s.state ? { ...s.state, vars: {}, globals: {} } : null;
@@ -342,7 +379,7 @@ export class MatlabDesktop {
     if (this.stripTab === 'home') {
       body = [
         group('FILE', big('📄', L.newScript, () => this.addFile('script'), 'ml-new-script'), big('ƒ', L.newFunction, () => this.addFile('function'), 'ml-new-function'), big('📂', L.open, () => this.openDisk(), 'ml-open'), big('💾', L.save, () => this.saveActive(), 'ml-save')),
-        group('CODE', big('▶', L.run, () => this.runActive(), 'ml-run', s.busy, L.run1), big('■', L.stop, () => cancelMatlab(), 'ml-stop', !s.busy)),
+        group('CODE', big('▶', L.run, () => this.runActive(), 'ml-run', s.busy, L.run1), big('■', L.stop, () => cancelMatlab(), 'ml-stop', !s.busy), big('C++', L.runCpp, () => this.runCpp(), 'ml-run-cpp', s.busy), big('{ }', L.showCpp, () => this.showCpp(), 'ml-show-cpp'), big('▣', L.cppAll, () => this.runAllCpp(), 'ml-cpp-all', s.busy)),
         group('VARIABLE', big('🧹', L.clearWs, () => this.clearWorkspace(), 'ml-clear-ws'), big('⌫', L.clearCmd, () => { s.log = []; this.render(); }, 'ml-clear-cmd')),
         group('ENVIRONMENT', big('🗙', L.closeFigs, () => this.closeFigures(), 'ml-close-figs'), big('⛓', L.sendNode, () => this.sendToNode(), 'ml-to-node')),
       ];
@@ -353,7 +390,7 @@ export class MatlabDesktop {
       body = [
         group('FILE', big('📄', L.newScript, () => this.addFile('script')), big('💾', L.save, () => this.saveActive())),
         group('EDIT', big('%', L.comment, () => this.editLines((l) => `% ${l}`), 'ml-comment'), big('⌀', L.uncomment, () => this.editLines((l) => l.replace(/^(\s*)% ?/, '$1')), 'ml-uncomment'), big('⇥', L.indent, () => this.editLines((l) => `    ${l}`))),
-        group('RUN', big('▶', L.run, () => this.runActive(), null, s.busy, L.run1), big('▷', L.runSel, () => this.runActive(true), 'ml-run-sel', s.busy), big('■', L.stop, () => cancelMatlab(), null, !s.busy)),
+        group('RUN', big('▶', L.run, () => this.runActive(), null, s.busy, L.run1), big('▷', L.runSel, () => this.runActive(true), 'ml-run-sel', s.busy), big('■', L.stop, () => cancelMatlab(), null, !s.busy), big('C++', L.runCpp, () => this.runCpp(), 'ml-run-cpp-ed', s.busy), big('{ }', L.showCpp, () => this.showCpp(), 'ml-show-cpp-ed')),
       ];
     }
     return h('div', { className: 'ml-strip' }, tabs, h('div', { className: 'ml-strip-body' }, ...body));

@@ -5,6 +5,7 @@
 //! command window text.
 
 pub mod builtins;
+pub mod cppgen;
 pub mod classes;
 pub mod graphics;
 pub mod interp;

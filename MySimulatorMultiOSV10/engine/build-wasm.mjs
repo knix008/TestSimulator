@@ -19,7 +19,8 @@ if (r.status !== 0) {
   process.exit(r.status || 1);
 }
 
-const src = join(crate, 'target', 'wasm32-unknown-unknown', 'release', 'sim_wasm.wasm');
+const targetRoot = process.env.CARGO_TARGET_DIR || join(crate, 'target');
+const src = join(targetRoot, 'wasm32-unknown-unknown', 'release', 'sim_wasm.wasm');
 const outDir = join(root, 'public');
 mkdirSync(outDir, { recursive: true });
 const dst = join(outDir, 'sim.wasm');

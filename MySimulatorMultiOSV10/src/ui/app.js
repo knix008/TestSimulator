@@ -852,6 +852,16 @@ export function startApp(root, settings) {
         return h('select', { dataset: { testid }, onChange: (event) => set(event.target.value) },
           ...p.options.map(([v, ko, en]) => h('option', { value: v, selected: String(v) === String(value ?? p.def) }, lang === 'en' ? en : ko)));
       case 'code':
+        if (node.type === 'script.matlab' && p.key === 'code') {
+          const area = h('textarea', { className: 'code-input', rows: p.rows ?? 8, spellcheck: false, value: value ?? '', dataset: { testid }, onChange: (event) => set(event.target.value),
+            onKeydown: (event) => { if (event.key === 'Tab') { event.preventDefault(); const el = event.target; el.setRangeText('  ', el.selectionStart, el.selectionEnd, 'end'); } } });
+          const seed = () => Number(node.params.seed ?? 1) || 1;
+          return h('div', { className: 'csv-editor' }, area,
+            h('div', { className: 'row' },
+              h('button', { type: 'button', dataset: { testid: 'cpp-run' }, onClick: async () => { try { await dialogs.runCpp(area.value, seed()); } catch (error) { dialogs.showError(String(error?.message || error)); } } }, t('cppRun')),
+              h('button', { type: 'button', dataset: { testid: 'cpp-show' }, onClick: async () => { try { await dialogs.showCppSource(area.value, seed()); } catch (error) { dialogs.showError(String(error?.message || error)); } } }, t('cppShow')),
+              h('button', { type: 'button', dataset: { testid: 'cpp-run-all-node' }, onClick: () => dialogs.runAllCppExamples(seed()) }, t('cppRunAll'))));
+        }
         if (node.type === 'dyn.blocks' && p.key === 'diagram') {
           // The diagram text with the graphical editor beside it.
           const area = h('textarea', { className: 'code-input', rows: p.rows ?? 8, spellcheck: false, value: value ?? '', dataset: { testid }, onChange: (event) => set(event.target.value) });
