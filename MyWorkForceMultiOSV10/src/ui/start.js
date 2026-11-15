@@ -111,7 +111,7 @@ export function renderStart(ctx) {
     tile('open-guide', 'book', L('사용 설명서', 'User guide'), L('메뉴, 이슈, 계획, 문서를 별도의 창에서 설명합니다.', 'Menus, issues, planning and documents, in their own window.'), 'data-id="guide"'),
     tile('open-guide', 'filter', L('WQL 설명서', 'WQL guide'), L('작업 질의 문법을 별도의 창에서 봅니다.', 'The query language, in its own window.'), 'data-id="wql"'),
     tile('start-tab', 'box', L('예제', 'Examples'), L(`${EXAMPLES.length}개의 작업 공간`, `${EXAMPLES.length} workspaces`), 'data-id="examples"'),
-    tile('connect-local', 'play', L('들어가기', 'Enter'), L('이 컴퓨터의 SQLite 파일로 들어갑니다.', 'Enter the SQLite file on this computer.')),
+    ui.loginUser ? tile('connect-local', 'play', L('들어가기', 'Enter'), L('이 컴퓨터의 SQLite 파일로 들어갑니다.', 'Enter the SQLite file on this computer.')) : '',
   ].join('');
   return `<div class="start-page" data-tab="${esc(tab)}">
     <canvas class="start-bg" aria-hidden="true"></canvas>

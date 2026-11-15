@@ -423,9 +423,22 @@ function context() {
 let welcomeSeen = false;
 
 function offerWelcome() {
-  if (welcomeSeen || ui.ready || settings.showWelcome === false || ui.modal) return;
+  if (welcomeSeen || ui.ready || !ui.loginUser || settings.showWelcome === false || ui.modal) return;
   welcomeSeen = true;
   ui.modal = { kind: 'welcome' };
+}
+
+function offerLogin() {
+  if (ui.loginUser || ui.ready) return;
+  if (ui.modal?.kind === 'login') return;
+  ui.modal = { kind: 'login', next: 'gate' };
+}
+
+function signedOut(name, el) {
+  if (ui.loginUser || ui.ready) return false;
+  if (name === 'sign-in' || name === 'pick-login') return false;
+  if ((name === 'open-guide' || name === 'help-doc' || name === 'start-tab') && ['guide', 'tutorial'].includes(el?.dataset?.id || 'guide')) return false;
+  return true;
 }
 
 function showStartPage(show) {
@@ -561,7 +574,8 @@ function paint() {
     document.querySelector('#menubar').innerHTML = renderMenubar(ctx);
     document.querySelector('#toolbar').innerHTML = '';
     document.querySelector('#left').innerHTML = '';
-    offerWelcome();
+    if (!ui.loginUser) offerLogin();
+    else offerWelcome();
     document.querySelector('#view').innerHTML = renderStart(ctx);
     mountStartBoard();
     syncStartBackground();
@@ -576,7 +590,7 @@ function paint() {
   startCards?.destroy();
   startCards = null;
   stopStartBackground();
-  if (ui.modal?.kind === 'welcome') ui.modal = null;
+  if (ui.modal?.kind === 'welcome' || (ui.modal?.kind === 'login' && ui.loginUser)) ui.modal = null;
   if (!ctx.project && !['home', 'help', 'knowledge', 'documents', 'calendar', 'plans', 'extensions'].includes(ui.view)) ui.view = 'home';
   if (ctx.project && !ctx.project.boards.some((board) => board.id === ui.boardId)) {
     ui.boardId = ctx.project.boards.find((board) => board.type === 'scrum')?.id || ctx.project.boards[0]?.id || null;
@@ -874,6 +888,11 @@ function runConfirmed() {
 
 function onAction(el) {
   const name = el.dataset.action;
+  if (signedOut(name, el)) {
+    ui.modal = { kind: 'login', next: 'gate' };
+    paint();
+    return;
+  }
   const current = project();
   if (name === 'pick-login') {
     const password = document.querySelector('#login-password')?.value || '';
@@ -949,7 +968,7 @@ function onAction(el) {
     connectLocal();
     return;
   }
-  if (name === 'connect-local') { connectLocal(); return; }
+  if (name === 'connect-local') { if (ui.loginUser) connectLocal(); return; }
   if (name === 'import-local') { importLocal().catch((error) => { ui.startError = message(error); ui.connecting = false; paint(); }); return; }
   if (name === 'open-guide' || name === 'help-doc') { openDocument(el.dataset.id || 'guide'); return; }
   if (name === 'start-tab') {
@@ -1251,7 +1270,12 @@ function onAction(el) {
     paint();
     return;
   }
-  if (name === 'modal-cancel') { ui.modal = null; paint(); return; }
+  if (name === 'modal-cancel') {
+    if (!ui.loginUser && !ui.ready) { ui.modal = { kind: 'login', next: 'gate' }; paint(); return; }
+    ui.modal = null;
+    paint();
+    return;
+  }
   if (name === 'confirm-yes') { runConfirmed(); return; }
   if (name === 'new-project') { ui.modal = { kind: 'project', parentId: el.dataset.parent || '' }; paint(); return; }
   if (name === 'open-project-settings') {
@@ -1417,6 +1441,7 @@ function onAction(el) {
 
 function onChange(event) {
   const el = event.target;
+  if (!ui.loginUser && !ui.ready) { offerLogin(); return; }
   if (el.dataset.setting && ['showStartPage', 'showWelcome', 'startShowProjects', 'startShowExamples', 'startShowBackground'].includes(el.dataset.setting)) {
     settings[el.dataset.setting] = el.checked;
     saveSettings();
@@ -1537,6 +1562,7 @@ function onChange(event) {
 }
 
 function onInput(event) {
+  if (!ui.loginUser && !ui.ready) return;
   const el = event.target;
   if (el.dataset.bg === 'speed') {
     settings.backgroundSpeed = Number(el.value) || 0;
@@ -1842,6 +1868,7 @@ function stepIssue(delta) {
 
 function runShortcut(hit, event) {
   if (hit.id === 'escape') {
+    if (!ui.loginUser && !ui.ready) return;
     if (ui.menu || ui.popover || ui.modal || ui.context) {
       ui.menu = null;
       ui.popover = null;

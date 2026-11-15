@@ -405,11 +405,13 @@ ul.plain li { display: flex; align-items: center; gap: 6px; padding: 4px 0; bord
 .bg-tile.on, .bg-tile:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
 .start-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 .welcome-again { margin-top: 8px; }
-.login-form { display: flex; flex-direction: column; gap: 8px; }
-.login-row { display: flex; align-items: stretch; gap: 10px; }
-.login-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.login-form { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.login-row { display: flex; align-items: stretch; gap: 10px; max-width: 100%; }
+.login-fields { flex: 0 1 260px; width: 260px; max-width: 100%; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.login-fields .form-row { grid-template-columns: 72px minmax(0, 1fr); }
 .login-row > .button.primary { align-self: stretch; height: auto; white-space: nowrap; }
-.login-modal .login-form { padding: 0 16px 16px; }
+.login-modal .login-form { padding: 0; }
+.login-modal .login-docs { margin: 0 0 12px; justify-content: flex-start; }
 .start-speed { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .start-speed input[type="range"] { width: 110px; }
 .start-speed output { min-width: 36px; }

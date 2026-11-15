@@ -90,7 +90,11 @@ describe('Start screen', () => {
   test('offers SQLite and the server engines in English', () => {
     setLanguage('en');
     const html = renderStart({ ui: { status: { listening: true, database: 'data/myworkforce.sqlite' }, dataUrl: 'http://127.0.0.1:1481', connecting: false, localBackup: false, startError: '' } });
-    for (const label of ['SQLite', 'Tutorial', 'User guide', 'Examples']) assert.match(html, new RegExp(label));
+    for (const label of ['Tutorial', 'User guide', 'Examples']) assert.match(html, new RegExp(label));
+    assert.equal(html.includes('data-action="connect-local"'), false);
+    const signed = renderStart({ ui: { status: { listening: true }, connecting: false, loginUser: 'u1' } });
+    assert.match(signed, /data-action="connect-local"/);
+    assert.match(signed, /SQLite/);
     assert.equal(html.includes('data-card="banner"'), false);
     assert.ok(html.indexOf('data-card="examples"') < html.indexOf('data-card="background"'));
     assert.ok((html.match(/data-action="open-example"/g) || []).length >= 20);
