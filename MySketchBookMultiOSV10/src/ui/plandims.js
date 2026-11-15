@@ -128,8 +128,7 @@ export class PlanDimensions {
     this.inner.visible = false;
     this.inner.userData = { helper: true, noPick: true };
     viewport.helpers.add(this.inner);
-    this.raycaster = new THREE.Raycaster();
-    this.raycaster.firstHitOnly = true;
+    // Labels: overlay.label(…, { occlude: true }) hides the ones behind the building in 3D.
     const previous = viewport.options.beforeRender;
     viewport.options.beforeRender = (v) => { previous?.(v); this.update(); };
   }
@@ -178,7 +177,7 @@ export class PlanDimensions {
       for (const P of [A, B]) points.push(P.clone().sub(tick), P.clone().add(tick));
       if (s.length / perPx >= LABEL_PX) {
         const mid = A.clone().add(B).multiplyScalar(0.5).addScaledVector(out, 2 * perPx);
-        this.overlay.label(`pd-${labels}`, mid, this.options.format(s.length), { kind: 'plandim', dx: 0, dy: 0, visible: () => this.seen(mid) });
+        this.overlay.label(`pd-${labels}`, mid, this.options.format(s.length), { kind: 'plandim', dx: 0, dy: 0, occlude: true });
         labels += 1;
       }
     }
@@ -192,7 +191,7 @@ export class PlanDimensions {
       for (const P of [A, B]) inner.push(P.clone().sub(tick), P.clone().add(tick));
       if (s.length / perPx >= LABEL_PX) {
         const mid = A.clone().add(B).multiplyScalar(0.5).addScaledVector(out, 9 * perPx);
-        this.overlay.label(`pd-${labels}`, mid, this.options.format(s.length), { kind: 'plandim-in', dx: 0, dy: 0, visible: () => this.seen(mid) });
+        this.overlay.label(`pd-${labels}`, mid, this.options.format(s.length), { kind: 'plandim-in', dx: 0, dy: 0, occlude: true });
         labels += 1;
       }
     }
@@ -214,31 +213,6 @@ export class PlanDimensions {
     this.lines.material.color.set(color);
     this.lines.visible = points.length > 0;
     this.viewport.requestRender();
-  }
-
-  /** A label shows only where nothing of the model stands between it and the camera (always in the 2D plan). */
-  seen(point) {
-    const vp = this.viewport;
-    if (vp.planMode) return true;
-    // While the view moves the labels keep what they were (a ray per label per frame was most of a frame's CPU
-    // time); the still frame that follows tests them again.
-    this.seenCache ??= new WeakMap();
-    if (vp.interacting || vp.animation) return this.seenCache.get(point) ?? true;
-    // Only the model's meshes block a label (they have BVH trees); lines and points were tested brute force before.
-    const now = vp.renderer.info.render.frame;
-    if (this.meshFrame !== now || !this.meshes) {
-      this.meshFrame = now;
-      this.meshes = [];
-      vp.content.traverseVisible((o) => { if (o.isMesh && !o.userData.helper) this.meshes.push(o); });
-    }
-    const cam = vp.camera.position;
-    const dir = point.clone().sub(cam);
-    const far = dir.length();
-    this.raycaster.set(cam, dir.divideScalar(far));
-    this.raycaster.far = far - 0.05;
-    const seen = this.raycaster.intersectObjects(this.meshes, false).length === 0;
-    this.seenCache.set(point, seen);
-    return seen;
   }
 
   clear() {

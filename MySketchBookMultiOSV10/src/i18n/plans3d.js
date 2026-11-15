@@ -32,6 +32,16 @@ const T = {
   'notice.buildingImported': ['{name}: 층 {levels} · 벽 {walls} · 문 {doors} · 창 {windows} · 방 {rooms} · 가구 {objects}', '{name}: {levels} levels, {walls} walls, {doors} doors, {windows} windows, {rooms} rooms, {objects} objects'],
   'error.code.pdf-invalid': ['PDF 파일이 아닙니다', 'This is not a PDF file'],
   'error.code.sh3d-invalid': ['Sweet Home 3D 파일이 아닙니다', 'This is not a Sweet Home 3D file'],
+  'error.code.myarch-invalid': ['MyArchitecture 프로젝트 파일이 아닙니다', 'This is not a MyArchitecture project'],
+  'plan.myarchLeftOut': ['이 앱에 없는 요소는 가져오지 않았습니다: {parts}', 'Parts this app has no element for were left out: {parts}'],
+  'plan.myarchPart.roofs': ['지붕', 'roofs'],
+  'plan.myarchPart.slabs': ['바닥판', 'slabs'],
+  'plan.myarchPart.ceilings': ['천장', 'ceilings'],
+  'plan.myarchPart.beams': ['보', 'beams'],
+  'plan.myarchPart.railings': ['난간', 'railings'],
+  'plan.myarchPart.ramps': ['경사로', 'ramps'],
+  'plan.myarchPart.solids': ['매스', 'solids'],
+  'plan.myarchPart.members': ['구조 부재', 'structural members'],
   'error.code.raster-invalid': ['그림을 읽지 못했습니다(지원하지 않는 TIFF/TGA 형식)', 'The picture could not be read (an unsupported TIFF / TGA kind)'],
 };
 

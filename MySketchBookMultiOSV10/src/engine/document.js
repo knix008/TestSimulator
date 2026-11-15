@@ -202,8 +202,17 @@ export function formatLength(metres, units = 'mm', { suffix = true } = {}) {
     return `${sign}${feet}' ${Number(rest.toFixed(3))}"`;
   }
   const digits = UNIT_DIGITS[units] ?? 0;
-  const text = Number(v.toFixed(digits)).toLocaleString('en-US', { maximumFractionDigits: digits });
+  const text = numberFormat(digits).format(Number(v.toFixed(digits)));
   return suffix ? `${text} ${units}` : text;
+}
+
+// toLocaleString with options builds a new Intl.NumberFormat on every call: rulers and dimensions format
+// dozens of lengths per frame while the plan moves, so the formatters are made once per digit count.
+const NUMBER_FORMATS = new Map();
+function numberFormat(digits) {
+  let f = NUMBER_FORMATS.get(digits);
+  if (!f) { f = new Intl.NumberFormat('en-US', { maximumFractionDigits: digits }); NUMBER_FORMATS.set(digits, f); }
+  return f;
 }
 
 /**

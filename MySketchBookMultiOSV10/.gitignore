@@ -35,3 +35,6 @@ desktop.ini
 # Local database servers for the integration tests (credentials stay on this machine)
 test/db.local.json
 /library/
+
+# Test fixtures that are 3D models (the monorepo ignores *.obj as build output)
+!test/fixtures/io/*.obj

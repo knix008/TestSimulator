@@ -134,7 +134,7 @@ export function applyBuilding(project, building, { target = 'new', matchItem = n
       const host = hostPiece(pieces, { center: o.center, width: o.width, facing: o.facing, wallKey: o.wall && pieces.some((p) => p.key === o.wall) ? o.wall : null }) ?? hostPiece(pieces, { center: o.center, width: o.width, facing: o.facing });
       if (!host) { counts.skipped += 1; continue; }
       const item = o.item ?? openingItem(o.kind, o.width, o.name, o.height);
-      openings.push({ wall: host.index, item, offset: host.offset, width: o.width, height: o.height, sill: Math.max(0, o.sill ?? 0), side: host.side, ...(o.hinge ? { hinge: o.hinge } : {}) });
+      openings.push({ wall: host.index, item, offset: host.offset, width: o.width, height: o.height, sill: Math.max(0, o.sill ?? 0), side: host.side, ...(o.hinge ? { hinge: o.hinge } : {}), ...(o.exactItem ? { keep: { exactItem: true } } : {}) });
     }
     const roomsHere = withRooms ? building.rooms.filter((r) => (byKey.has(r.level) ? r.level : levels[0].key) === l.key && r.points?.length >= 3) : [];
     const result = { walls: pieces.map((p) => ({ a: p.a, b: p.b, thickness: p.thickness, ...(p.curve ? { curve: p.curve } : {}) })), openings, texts: [], leftovers: [] };

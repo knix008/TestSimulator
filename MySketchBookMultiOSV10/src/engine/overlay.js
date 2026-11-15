@@ -9,9 +9,17 @@ export const INFERENCE_COLORS = {
   axisX: '#d6303b', axisY: '#2e6fd6', axisZ: '#2f9e44', parallel: '#d43fd8', perpendicular: '#d43fd8', onGuide: '#555', free: '#333',
 };
 
+/**
+ * Labels re-tested against the model per frame while the view moves (all of them on a still frame). One BVH ray
+ * against the cached mesh list costs microseconds, so every label of a house is tested every frame: a label
+ * tested a frame late showed through the building for that frame.
+ */
+const OCCLUSION_BUDGET = 64;
+
 export class Overlay {
   constructor(viewport, labelHost) {
     this.viewport = viewport;
+    this.tmpDir = new THREE.Vector3();
     this.group = new THREE.Group();
     this.group.name = 'tool-overlay';
     viewport.overlay.add(this.group);
@@ -122,8 +130,9 @@ export class Overlay {
   }
 
   /** An HTML label anchored at a world point (offset in px). */
-  /** `visible`: optional () => boolean checked when labels are placed (e.g. hidden behind the model). */
-  label(name, point, text, { kind = 'info', dx = 14, dy = 14, visible = null } = {}) {
+  /** `visible`: optional () => boolean checked when labels are placed. `occlude`: hidden where the model stands
+   *  between the label's point and the camera (3D views; the 2D plan always shows it). */
+  label(name, point, text, { kind = 'info', dx = 14, dy = 14, visible = null, occlude = false } = {}) {
     if (!point || !text) { this.clearLabel(name); return; }
     let entry = this.labels.get(name);
     if (!entry) {
@@ -133,9 +142,17 @@ export class Overlay {
       entry = { el };
       this.labels.set(name, entry);
     }
+    if (!entry.point || !entry.point.equals(point)) {
+      // Moved (plan dimensions are rebuilt after the labels were placed for this frame): test it again, and keep
+      // it hidden until then, so it never shows for a frame where the building stands in front of it.
+      entry.seen = undefined;
+      entry.tx = undefined;
+      if (occlude && !this.viewport.planMode) { entry.el.hidden = true; entry.hidden = true; }
+    }
     entry.point = point.clone();
     entry.dx = dx; entry.dy = dy;
     entry.visible = visible;
+    entry.occlude = occlude;
     entry.el.textContent = text;
     entry.el.dataset.kind = kind;
     this.viewport.requestRender();
@@ -148,13 +165,62 @@ export class Overlay {
 
   placeLabels() {
     if (!this.labels.size) return;
-    const r = this.viewport.canvasRect();
+    const vp = this.viewport;
+    const r = vp.canvasRect();
     const host = this.labelHost.getBoundingClientRect();
+    const moving = Boolean(vp.interacting || vp.animation);
+    // A label never tested is tested now; the others are re-tested all at once on a still frame and a few
+    // per frame (round robin) while the view moves, so a turning view never shows numbers through the building.
+    let budget = moving ? OCCLUSION_BUDGET : Infinity;
+    const occluding = [];
     for (const entry of this.labels.values()) {
-      const s = this.viewport.worldToScreen(entry.point);
-      entry.el.style.transform = `translate(${Math.round(s.x - host.left + entry.dx)}px, ${Math.round(s.y - host.top + entry.dy)}px)`;
-      entry.el.hidden = s.behind || s.x < r.left || s.x > r.right || s.y < r.top || s.y > r.bottom || (entry.visible ? !entry.visible() : false);
+      const s = vp.worldToScreen(entry.point);
+      const off = s.behind || s.x < r.left || s.x > r.right || s.y < r.top || s.y > r.bottom || (entry.visible ? !entry.visible() : false);
+      let hidden = off;
+      if (!off && entry.occlude && !vp.planMode) {
+        if (entry.seen === undefined) { entry.seen = this.seenFromCamera(entry.point); budget -= 1; }
+        else occluding.push(entry);
+        hidden = !entry.seen;
+      }
+      if (entry.hidden !== hidden) { entry.el.hidden = hidden; entry.hidden = hidden; }
+      if (!hidden) {
+        const tx = Math.round(s.x - host.left + entry.dx); const ty = Math.round(s.y - host.top + entry.dy);
+        if (entry.tx !== tx || entry.ty !== ty) { entry.el.style.transform = `translate(${tx}px, ${ty}px)`; entry.tx = tx; entry.ty = ty; }
+      }
     }
+    if (!occluding.length || budget <= 0) return;
+    const count = Math.min(occluding.length, budget);
+    this.occlusionCursor = (this.occlusionCursor ?? 0) % occluding.length;
+    for (let i = 0; i < count; i++) {
+      const entry = occluding[(this.occlusionCursor + i) % occluding.length];
+      entry.seen = this.seenFromCamera(entry.point);
+      const hidden = !entry.seen;
+      if (entry.hidden !== hidden) { entry.el.hidden = hidden; entry.hidden = hidden; }
+    }
+    this.occlusionCursor += count;
+    // A label that just came out from behind the model is placed next frame (its transform was skipped).
+    if (moving || occluding.some((e) => !e.hidden && e.tx === undefined)) vp.requestRender();
+  }
+
+  /** True when no mesh of the model lies between the camera and `point` (BVH raycast, first hit only). */
+  seenFromCamera(point) {
+    const vp = this.viewport;
+    const frame = vp.renderer.info.render.frame;
+    // The model does not change while the view turns: the mesh list is collected again only on still frames.
+    if (!this.meshes || (this.meshFrame !== frame && !(vp.interacting || vp.animation))) {
+      this.meshFrame = frame;
+      this.meshes = [];
+      vp.content.traverseVisible((o) => { if (o.isMesh && !o.userData.helper) this.meshes.push(o); });
+    }
+    if (!this.meshes.length) return true;
+    this.raycaster ??= Object.assign(new THREE.Raycaster(), { firstHitOnly: true });
+    const cam = vp.camera.position;
+    const dir = this.tmpDir.copy(point).sub(cam);
+    const far = dir.length();
+    if (far < 1e-6) return true;
+    this.raycaster.set(cam, dir.divideScalar(far));
+    this.raycaster.far = far - 0.05;
+    return this.raycaster.intersectObjects(this.meshes, false).length === 0;
   }
 
   clear(name) {

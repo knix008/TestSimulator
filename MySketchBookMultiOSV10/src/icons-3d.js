@@ -52,6 +52,7 @@ export const ICONS_3D = {
   roomTool: '<path d="M4 5h16v14H4z"/><path d="M4 5l3 3h10l3-3M7 8v8h10V8M4 19l3-3M20 19l-3-3"/>',
   roomAuto: '<path d="M4 4h16v16H4z" stroke-width="2.4"/><path d="M8 12l3 3 5-6"/>',
   doorTool: '<path d="M5 21V3h11v18M3 21h18"/><path d="M13 12h.01"/><path d="M16 3l3 2v16"/>',
+  doorOpen: '<path d="M3 21h18M6 21V3h12v18"/><path d="M6 3l7 3v15l-7-0"/><path d="M11 13h.01"/>',
   windowTool: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M12 4v16M4 12h16"/>',
   floorTool: '<path d="M3 15l9-5 9 5-9 5z"/><path d="M7.5 12.5l9 5M12 10l9 5M7.5 17.5l9-5"/>',
   ceilingTool: '<path d="M3 9l9-5 9 5-9 5z"/><path d="M12 14v6M9 20h6"/>',

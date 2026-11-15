@@ -30,7 +30,7 @@ export class ScaleBar {
 
   update() {
     const show = this.options.enabled();
-    this.el.hidden = !show;
+    if (this.el.hidden !== !show) { this.el.hidden = !show; this.size = null; } // hidden: the observer reported 0 × 0
     if (!show) return;
     const vp = this.viewport;
     // World size of one pixel where the user looks (the target in 3D, everywhere in the parallel plan).
@@ -54,11 +54,31 @@ export class ScaleBar {
   /** Puts the bar where the user left it (default: bottom left), kept inside the view. */
   place() {
     const pos = this.options.position() ?? { x: 0.02, y: 0.94 };
-    const w = this.host.clientWidth; const h = this.host.clientHeight;
-    const bw = this.el.offsetWidth; const bh = this.el.offsetHeight;
+    // Sizes come from a ResizeObserver (read here only the first time): reading them every frame forced a
+    // page layout per frame, and a turning view changes the bar's length every frame.
+    this.observeHost();
+    if (!this.size) this.size = { w: this.host.clientWidth, h: this.host.clientHeight, bw: this.el.offsetWidth, bh: this.el.offsetHeight };
+    const { w, h, bw, bh } = this.size;
     const left = Math.max(4, Math.min(w - bw - 4, pos.x * w));
     const top = Math.max(4, Math.min(h - bh - 4, pos.y * h - bh));
-    this.el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+    const transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+    if (transform !== this.transform) { this.el.style.transform = transform; this.transform = transform; }
+  }
+
+  observeHost() {
+    if (this.resizeObserver || typeof ResizeObserver === 'undefined') return;
+    this.resizeObserver = new ResizeObserver((entries) => {
+      if (!this.size) return;
+      for (const e of entries) {
+        const box = e.borderBoxSize?.[0];
+        if (e.target === this.host) { this.size.w = this.host.clientWidth; this.size.h = this.host.clientHeight; }
+        else if (box) { this.size.bw = box.inlineSize; this.size.bh = box.blockSize; }
+        else this.size = null;
+      }
+      this.viewport.requestRender();
+    });
+    this.resizeObserver.observe(this.host);
+    this.resizeObserver.observe(this.el);
   }
 
   bindDrag() {

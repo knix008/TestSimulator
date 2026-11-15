@@ -103,8 +103,10 @@ export function planEntities(result, { level, shift = [0, 0], elevation = 0, kee
     const c = [w.a[0] + u[0] * op.offset, w.a[1] + u[1] * op.offset];
     const k = w.thickness / 2 + 0.2;
     const exterior = outside([c[0] + n[0] * k, c[1] + n[1] * k]) !== outside([c[0] - n[0] * k, c[1] - n[1] * k]);
-    if (exterior && op.item === 'door-single' && op.width >= 0.85) op.item = 'door-entrance';
+    // Not for a file that names its doors and their swing exactly (MyArchitecture): the entrance door opens the other way.
+    if (exterior && op.item === 'door-single' && op.width >= 0.85 && !op.exactItem) op.item = 'door-entrance';
     delete op.kind;
+    delete op.exactItem;
   }
   const guides = keepLeftovers ? (result.leftovers ?? []).slice(0, maxGuides).map((l) => ({ id: newId('g'), a: [l.a[0] + shift[0], elevation + 0.001, l.a[1] + shift[1]], b: [l.b[0] + shift[0], elevation + 0.001, l.b[1] + shift[1]], level, source: 'plan' })) : [];
   const xs = walls.flatMap((w) => [w.a[0], w.b[0]]);

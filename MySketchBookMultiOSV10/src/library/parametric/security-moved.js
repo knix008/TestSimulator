@@ -180,7 +180,7 @@ const IPCAMS = [
   ['cube', 'surface', 0, '실내용 IP 카메라 (탁상형)', 'Indoor desk IP camera', ['indoor camera', 'wifi camera', 'home cam', '실내 카메라', '와이파이 카메라', '홈캠']],
   ['doorbell', 'wall', 1.3, '비디오 도어벨 (IP)', 'IP video doorbell', ['video doorbell', 'door camera', 'intercom', '비디오 도어벨', '도어 카메라', '인터폰']],
   ['dual', 'wall', 2.35, 'IP 카메라 (듀얼 렌즈)', 'IP camera (dual lens)', ['dual lens', 'two lens camera', '듀얼 렌즈', '2렌즈 카메라']],
-  ['turret-wall', 'wall', 2.4, 'IP 카메라 (벽부 터렛)', 'IP camera (wall turret)', ['wall turret', 'eyeball', '벽부 터렛', '아이볼']],
+  ['turret-wall', 'wall', 2.3, 'IP 카메라 (벽부 터렛)', 'IP camera (wall turret)', ['wall turret', 'eyeball', '벽부 터렛', '아이볼']],
 ];
 
 const ipCams = IPCAMS.map(([kind, placement, elevation, ko, en, tags]) => ofp({

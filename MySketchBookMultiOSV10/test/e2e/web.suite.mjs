@@ -900,6 +900,353 @@ export const cases = [
       },
     },
   ]),
+  ...group('문 열기·닫기 · 레이블 가림 · 성능 경로', [
+    {
+      name: '문 열기/닫기: 명령·Shift+O, 0.35초 동안 열림, 실행 취소 한 단계, 열린 각도를 기억', desktop: true,
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('empty');
+          A.actions.change('op.wall', (p) => { p.walls.push({ id: 'w-dr', level: p.activeLevel, a: [0, 0], b: [4, 0], thickness: 0.2, height: null, material: {} }); }, ['walls']);
+          await T.top([-1, 5]);
+          await A.run('door');
+          await T.clickWorld(2, 2.4, 0);
+          A.actions.setTool('select');
+          const id = A.state.doc.project.openings[0]?.id;
+          if (!id) return { error: 'no door placed' };
+          A.actions.change('op.edit', (p) => { const o = p.openings[0]; o.item = 'door-single'; o.params = {}; }, ['openings']);
+          await T.frames(2);
+          const door = () => A.state.doc.project.openings.find((o) => o.id === id);
+          const Box3 = A.viewport.contentBox().constructor;
+          // Visible meshes only (the plan's swing arc is in the group, hidden in 3D); the wall runs along x
+          const depth = () => { const b = new Box3(); A.builder.objectOf(id).traverseVisible((o) => { if (o.isMesh) b.union(new Box3().setFromObject(o)); }); return b.max.z - b.min.z; };
+          const out = { closedDepth: depth() };
+          A.actions.select([]);
+          out.disabledWithout = A.commands.toggleDoor.enabled();
+          A.actions.select([id]);
+          out.enabled = A.commands.toggleDoor.enabled();
+          const steps = A.state.doc.history.undoStack.length;
+          await A.run('toggleDoor');
+          await T.frames(3);
+          out.mid = A.doors.angle(door()); out.swinging = A.doors.swinging();
+          await T.until(() => !A.doors.swinging(), 3000, 'swing ends');
+          await T.frames(2);
+          out.open = A.doors.angle(door()); out.openDepth = depth();
+          out.steps = A.state.doc.history.undoStack.length - steps;
+          A.actions.undo(); await T.frames(2);
+          out.undone = A.doors.angle(door());
+          A.actions.redo(); await T.frames(2);
+          out.redone = A.doors.angle(door());
+          // Shift+O closes it (keyboard), Shift+O again opens it
+          const key = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'O', code: 'KeyO', shiftKey: true, bubbles: true, cancelable: true }));
+          key(); await T.until(() => !A.doors.swinging() && A.doors.angle(door()) === 0, 3000, 'closed by Shift+O');
+          out.keyClosed = A.doors.angle(door());
+          // A door left at 45°: closing remembers it and opening goes back to 45°
+          A.actions.change('op.param', (p) => { const o = p.openings.find((x) => x.id === id); o.params = { ...o.params, open: 45 }; }, ['openings']);
+          await A.run('toggleDoor'); await T.until(() => !A.doors.swinging(), 3000, 'close');
+          out.closed45 = A.doors.angle(door());
+          await A.run('toggleDoor'); await T.until(() => !A.doors.swinging(), 3000, 'open');
+          out.reopened = A.doors.angle(door()); out.lastOpenKept = 'lastOpen' in (door().params ?? {});
+          // Undo while it swings: the swing ends first, then the step is undone
+          await A.run('toggleDoor'); await T.frames(2);
+          A.actions.undo(); await T.frames(2);
+          out.undoMid = A.doors.angle(door()); out.swingingAfterUndo = A.doors.swinging();
+          return out;`);
+        assert.ok(!r.error, r.error);
+        assert.equal(r.disabledWithout, false, 'nothing selected: disabled');
+        assert.ok(r.enabled, 'a selected door: enabled');
+        assert.ok(r.swinging && r.mid > 0 && r.mid < 90, `swings (mid-way ${r.mid}°)`);
+        assert.equal(r.open, 90, 'opens to 90°');
+        assert.ok(r.closedDepth < 0.4 && r.openDepth > 0.6, `the leaf comes out of the wall (${r.closedDepth.toFixed(2)} → ${r.openDepth.toFixed(2)} m)`);
+        assert.equal(r.steps, 1, 'one undo step');
+        assert.equal(r.undone, 0, 'undo closes it');
+        assert.equal(r.redone, 90, 'redo opens it');
+        assert.equal(r.keyClosed, 0, 'Shift+O');
+        assert.equal(r.closed45, 0, 'closed from 45°');
+        assert.equal(r.reopened, 45, 'opens back to 45°');
+        assert.equal(r.lastOpenKept, false, 'no leftover lastOpen once open');
+        assert.equal(r.undoMid, 45, 'undo during a swing goes back to before it');
+        assert.equal(r.swingingAfterUndo, false);
+      },
+    },
+    {
+      name: '모든 문 열기·닫기 (3층 주택 예제), 메뉴(카메라·우클릭)에 있고 문이 아닌 것은 그대로',
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('empty');
+          await A.actions.openSampleAsk('house3-a');
+          await T.until(() => A.state.doc && !A.state.showStart, 15000, 'sample');
+          await T.frames(3);
+          const doors = A.doors.openable();
+          const others = A.state.doc.project.openings.filter((o) => !doors.includes(o)).map((o) => JSON.stringify(o.params ?? {}));
+          const maxOf = (o) => A.domain.catalogItem(o.item).params.find((x) => x.key === 'open').max;
+          await A.run('allDoorsOpen'); await T.until(() => !A.doors.swinging(), 4000, 'open all');
+          const opened = doors.every((o) => A.doors.angle(o) === maxOf(o));
+          const notice = document.querySelector('.toast, .notice, [data-notice]')?.textContent ?? '';
+          await A.run('allDoorsClose'); await T.until(() => !A.doors.swinging(), 4000, 'close all');
+          const closed = doors.every((o) => A.doors.angle(o) === 0);
+          const othersSame = A.state.doc.project.openings.filter((o) => !doors.includes(o)).map((o) => JSON.stringify(o.params ?? {})).join() === others.join();
+          return { n: doors.length, opened, closed, othersSame, notice, camera: A.menus.MENUS.camera, labels: ['action.toggleDoor', 'action.allDoorsOpen', 'action.allDoorsClose'].map((k) => A.t(k)) };`, 60000);
+        assert.ok(r.n >= 3, `doors in the sample (${r.n})`);
+        assert.ok(r.opened, 'all doors open');
+        assert.ok(r.closed, 'all doors closed');
+        assert.ok(r.othersSame, 'windows and other openings untouched');
+        assert.ok(r.camera.includes('allDoorsOpen') && r.camera.includes('allDoorsClose'), 'camera menu');
+        for (const l of r.labels) assert.ok(!/^action\./.test(l), 'translated: ' + l);
+      },
+    },
+    {
+      name: '걷기 도구: 문을 클릭하면 열리고 다시 클릭하면 닫힘 (끌기는 둘러보기)', desktop: true,
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('empty');
+          A.actions.change('op.wall', (p) => { p.walls.push({ id: 'w-wk', level: p.activeLevel, a: [0, 0], b: [4, 0], thickness: 0.2, height: null, material: {} }); }, ['walls']);
+          await T.top([-1, 5]);
+          await A.run('door');
+          await T.clickWorld(2, 2.4, 0);
+          A.actions.setTool('select');
+          const id = A.state.doc.project.openings[0]?.id;
+          if (!id) return { error: 'no door placed' };
+          A.actions.change('op.edit', (p) => { const o = p.openings[0]; o.item = 'door-single'; o.params = {}; o.offset = 2; }, ['openings']);
+          A.actions.clearSelection?.();
+          await T.frames(2);
+          const door = () => A.state.doc.project.openings.find((o) => o.id === id);
+          A.actions.setTool('walk'); await T.frames(3);
+          const v = A.viewport;
+          // Stand in front of the door, looking at it (both sides: the leaf opens to one of them)
+          const side = A.builder.objectOf(id); const Box3 = v.contentBox().constructor; const b = new Box3().setFromObject(side); const c = b.getCenter(b.min.clone());
+          // The walk view looks at viewport.target every frame: move both
+          const aim = async (from, to) => { v.camera.position.set(...from); v.target.set(...to); v.camera.lookAt(v.target); v.camera.updateMatrixWorld(); v.requestRender(); await T.frames(3); };
+          const look = (z) => aim([c.x, 1.3, z], [c.x, 1.1, c.z]);
+          await look(2.5);
+          let s = T.screen(c.x + 0.15, 1.1, c.z);
+          const hit = v.pick(s.x, s.y)?.entity?.id;
+          await T.click(s.x, s.y);
+          await T.until(() => !A.doors.swinging(), 3000, 'swing');
+          const afterClick = A.doors.angle(door());
+          await look(2.5);
+          s = T.screen(c.x, 1.1, c.z);
+          // A drag (look around) does not toggle
+          await T.drag({ x: s.x, y: s.y }, { x: s.x + 60, y: s.y });
+          await T.frames(4);
+          const afterDrag = A.doors.angle(door());
+          // Click the open leaf again: it now stands across the wall (thin along x), so look along x at its face,
+          // half-way out from the wall on the side it opened to
+          const vb = new Box3(); A.builder.objectOf(id).traverseVisible((o) => { if (o.isMesh) vb.union(new Box3().setFromObject(o)); });
+          const zMid = vb.max.z > -vb.min.z ? vb.max.z / 2 + 0.05 : vb.min.z / 2 - 0.05;
+          await aim([vb.max.x + 2.5, 1.3, zMid], [vb.min.x, 1.1, zMid]);
+          s = T.screen(vb.min.x + 0.1, 1.1, zMid);
+          const hit2 = v.pick(s.x, s.y)?.entity?.id;
+          await T.click(s.x, s.y);
+          await T.until(() => !A.doors.swinging(), 3000, 'swing back');
+          const afterSecond = A.doors.angle(door());
+          A.actions.setTool('select');
+          return { hit, hit2, id, afterClick, afterDrag, afterSecond };`);
+        assert.ok(!r.error, r.error);
+        assert.equal(r.hit, r.id, 'the click lands on the door');
+        assert.equal(r.afterClick, 90, 'a click opens it');
+        assert.equal(r.afterDrag, 90, 'a drag does not toggle');
+        assert.equal(r.hit2, r.id, 'the open door is under the second click');
+        assert.equal(r.afterSecond, 0, 'a second click closes it');
+      },
+    },
+    {
+      name: '레이블 가림: 3D에서 건물 뒤의 치수·글자는 숨김(돌리는 중에도), 2D 평면도는 모두 보임',
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('empty');
+          await A.actions.openSampleAsk('house3-a');
+          await T.until(() => A.state.doc && !A.state.showStart, 15000, 'sample');
+          A.actions.updateSettings({ showPlanDims: true });
+          // A note inside the house, at table height: walls stand between it and a camera outside
+          const box = A.viewport.contentBox(); const mid = box.getCenter(box.min.clone());
+          A.actions.change('op.text', (p) => { p.texts.push({ id: 'tx-e2e', point: [mid.x, 0.9, mid.z], text: 'E2E-INSIDE' }); }, ['texts']);
+          await T.iso(); await T.frames(4);
+          const ov = A.overlay; const v = A.viewport;
+          const entries = () => [...ov.labels.values()].filter((e) => e.occlude);
+          const wrong = [];
+          let hiddenSeen = 0; let shownSeen = 0;
+          const check = (when) => {
+            for (const e of entries()) {
+              if (e.el.hidden) { hiddenSeen += 1; continue; }
+              shownSeen += 1;
+              if (!ov.seenFromCamera(e.point)) wrong.push(when + ': ' + e.el.textContent);
+            }
+          };
+          check('still');
+          const note = () => ov.labels.get('ann-tx-e2e')?.el;
+          const noteHidden3d = note()?.hidden;
+          // Turn the camera round the house in steps while "interacting" (the moving path)
+          const c = v.camera; const t = v.target;
+          for (let i = 1; i <= 24; i++) {
+            v.touchInteraction(400);
+            const a = Math.PI / 12; const x = c.position.x - t.x, z = c.position.z - t.z;
+            c.position.x = t.x + x * Math.cos(a) - z * Math.sin(a); c.position.z = t.z + x * Math.sin(a) + z * Math.cos(a);
+            c.lookAt(t); c.updateMatrixWorld(); v.requestRender();
+            await T.frames(2);
+            check('turn ' + i);
+          }
+          A.actions.setPlanView(true); await T.frames(6);
+          const planHidden = entries().filter((e) => e.el.hidden && !e.offscreen).map((e) => e.el.textContent);
+          const notePlan = note()?.hidden;
+          A.actions.setPlanView(false); await T.frames(2);
+          return { n: entries().length, wrong, hiddenSeen, shownSeen, noteHidden3d, notePlan, planHidden };`, 60000);
+        assert.ok(r.n >= 5, `labels (${r.n})`);
+        assert.deepEqual(r.wrong, [], 'no visible label has the building in front of it');
+        assert.ok(r.hiddenSeen > 0 && r.shownSeen > 0, `some hidden (${r.hiddenSeen}), some shown (${r.shownSeen})`);
+        assert.equal(r.noteHidden3d, true, 'a note inside the house is hidden from outside');
+        assert.equal(r.notePlan, false, 'the 2D plan shows it');
+      },
+    },
+    {
+      name: '조명 마커 가림: 보이는 메시만으로 판정해도 예전(전체 레이캐스트)과 같은 결과',
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('empty');
+          await A.actions.openSampleAsk('house3-a');
+          await T.until(() => A.state.doc && !A.state.showStart, 15000, 'sample');
+          A.actions.updateSettings({ showLampMarkers: true });
+          const v = A.viewport;
+          const results = [];
+          for (const view of ['iso', 'front', 'right', 'back']) {
+            v.setView(view, { animate: false }); v.lampOcclusionAt = 0; v.requestRender(); await T.frames(4);
+            const ray = new (v.lampRay.constructor)();
+            const cam = v.camera.position;
+            const visibleUp = (o) => { for (let x = o; x; x = x.parent) if (!x.visible) return false; return true; };
+            for (const m of v.lampMarkers.children) {
+              const d = m.position.clone().sub(cam); const far = d.length();
+              ray.set(cam, d.divideScalar(far)); ray.far = far;
+              const hit = ray.intersectObject(v.content, true).find((h) => !h.object.isLine && !h.object.isLineSegments && !h.object.isPoints && visibleUp(h.object) && !h.object.userData.helper);
+              let id = null; for (let o = hit?.object; o && !id; o = o.parent) id = o.userData.entityId ?? null;
+              const expected = !hit || id === m.userData.entityId || hit.distance > far - 0.02;
+              results.push({ view, expected, actual: m.visible });
+            }
+          }
+          return { n: results.length, mismatch: results.filter((x) => x.expected !== x.actual), meshesOnly: v.lampMeshes.every((o) => o.isMesh), hidden: results.filter((x) => !x.actual).length };`, 60000);
+        assert.ok(r.n > 0, 'lamp markers in the sample');
+        assert.ok(r.meshesOnly, 'only meshes are cast against');
+        assert.deepEqual(r.mismatch, [], 'same answer as the full raycast');
+      },
+    },
+    {
+      name: 'GPU 없음(소프트웨어 렌더러): AO·MSAA·투과 유리 끄고 바로 그림, 저장 이미지는 최종 품질, 해상도 자동 조정 없음', desktop: true,
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('living');
+          const v = A.viewport;
+          const was = v.softwareGpu;
+          const errors = [];
+          try {
+            v.softwareGpu = true; v.applySettings(); v.requestRender();
+            await T.until(() => v.glassFast === true, 3000, 'a frame drawn on the light path');
+            const out = { ao: v.aoEnabled, samples: v.composer.renderTarget1.samples, glassFast: v.glassFast, aoCapture: v.aoCapture };
+            // While moving: frames slow on purpose do not lower the resolution (a resize stalls for seconds without a GPU)
+            v.touchInteraction(1000); for (let i = 0; i < 10; i++) v.adaptResolution(200);
+            out.resolution = v.resolutionScale;
+            const img = v.capture(96, 64);
+            const px = img.getContext('2d').getImageData(48, 32, 1, 1).data;
+            out.capture = { w: img.width, h: img.height, painted: px[3] > 0 };
+            out.capturingLeft = v.capturing;
+            v.requestRender();
+            out.glassAfter = await T.until(() => v.glassFast === true, 3000, 'plain glass again').catch(() => false);
+            return out;
+          } catch (e) { errors.push(e.message); return { errors }; }
+          finally { v.softwareGpu = was; v.applySettings(); v.requestRender(); await T.frames(2); }`);
+        assert.ok(!r.errors, r.errors?.join());
+        assert.equal(r.ao, false, 'no ambient occlusion on screen');
+        assert.equal(r.samples, 0, 'no MSAA');
+        assert.equal(r.glassFast, true, 'plain glass in 3D');
+        assert.equal(r.resolution, 1, 'no resolution stepping');
+        assert.deepEqual(r.capture, { w: 96, h: 64, painted: true }, 'saved image drawn');
+        assert.equal(r.capturingLeft, false);
+        assert.equal(r.glassAfter, true, 'plain glass again after the capture');
+      },
+    },
+    {
+      name: 'MyArchitecture 프로젝트(.myarch) 열기: 질문 없이 새 프로젝트로 — 층·벽·문·창·방·계단·가구, 3D와 2D로 보임, 잘못된 파일은 오류',
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('empty');
+          const out = {};
+          for (const file of ['01-studio.myarch', '03-two-storey-house.myarch', '03-two-storey-house.v10.myarch']) {
+            const bytes = new Uint8Array(await (await fetch('/test/fixtures/myarch/' + file)).arrayBuffer());
+            const src = JSON.parse(new TextDecoder().decode(bytes));
+            A.state.doc?.markSaved?.();
+            const errorsBefore = document.querySelectorAll('.web-popup-error').length;
+            await A.actions.openContent(file, bytes);
+            await T.until(() => A.state.doc && A.state.doc.project.walls.length > 0, 20000, 'opened ' + file);
+            await T.frames(4);
+            const p = A.state.doc.project;
+            const built = p.walls.every((w) => A.builder.objectOf(w.id)) && p.openings.every((o) => A.builder.objectOf(o.id)) && p.objects.every((o) => A.builder.objectOf(o.id));
+            const box = A.viewport.contentBox();
+            A.actions.setPlanView(true); await T.frames(4);
+            const plan = A.state.planView && A.viewport.planMode;
+            A.actions.setPlanView(false); await T.frames(2);
+            out[file] = {
+              name: p.name, docName: A.state.doc.name, title: src.meta?.title ?? '', popups: document.querySelectorAll('.web-popup-importplan').length, errors: document.querySelectorAll('.web-popup-error').length - errorsBefore,
+              levels: p.levels.length, srcLevels: src.levels.length, openings: p.openings.length, srcOpenings: src.openings.length, rooms: p.rooms.length, srcRooms: src.rooms.length,
+              stairs: p.objects.filter((o) => o.item === 'stairs').length, srcStairs: (src.stairs ?? []).length,
+              furniture: p.objects.filter((o) => o.item !== 'stairs' && o.item !== 'column').length, srcFurniture: (src.furniture ?? []).length,
+              doors: p.openings.filter((o) => o.item.startsWith('door')).length, windows: p.openings.filter((o) => o.item.startsWith('window')).length,
+              built, size: [box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z].map((v) => Math.round(v * 10) / 10), plan,
+              undo: A.state.doc.history.undoStack.length,
+            };
+          }
+          // A file that is not a MyArchitecture project: an error, the open project untouched
+          const walls = A.state.doc.project.walls.length;
+          await A.actions.openContent('broken.myarch', new TextEncoder().encode('{"format":"something-else"}'));
+          await T.until(() => document.querySelector('.web-popup-error'), 8000, 'error shown').catch(() => null);
+          out.broken = { error: Boolean(document.querySelector('.web-popup-error')), wallsKept: A.state.doc.project.walls.length === walls };
+          await T.reset();
+          return out;`, 120000);
+        for (const [file, x] of Object.entries(r).filter(([k]) => k !== 'broken')) {
+          assert.equal(x.popups, 0, `${file}: opened without the import questions`);
+          assert.equal(x.errors, 0, `${file}: no error`);
+          assert.equal(x.name, x.title || file.replace(/\.myarch$/, ''), `${file}: project named after it`);
+          assert.equal(x.docName, file.replace(/\.myarch$/, ''), `${file}: the window title follows the file`);
+          assert.equal(x.levels, x.srcLevels, `${file}: levels`);
+          assert.equal(x.openings, x.srcOpenings, `${file}: doors and windows`);
+          assert.ok(x.doors > 0 && x.windows > 0, `${file}: doors ${x.doors}, windows ${x.windows}`);
+          assert.equal(x.rooms, x.srcRooms, `${file}: rooms`);
+          assert.equal(x.stairs, x.srcStairs, `${file}: stairs`);
+          assert.ok(x.furniture >= x.srcFurniture * 0.6, `${file}: furniture from the library (${x.furniture}/${x.srcFurniture})`);
+          assert.ok(x.built, `${file}: everything built in 3D`);
+          assert.ok(x.size[0] > 3 && x.size[2] > 3 && x.size[1] > 2, `${file}: a building-sized model (${x.size})`);
+          assert.ok(x.plan, `${file}: the 2D plan opens`);
+          assert.ok(x.undo <= 1, `${file}: one step (${x.undo})`);
+        }
+        assert.ok(r.broken.error, 'a wrong file shows an error');
+        assert.ok(r.broken.wallsKept, 'and leaves the open project as it was');
+        // The error of the wrong file is the one logged on purpose; anything else still fails the case
+        const logged = app.takeErrors?.() ?? [];
+        const other = logged.filter((e) => !/Not a MyArchitecture project/.test(String(e)));
+        assert.ok(logged.length > other.length, 'the wrong file was reported');
+        assert.deepEqual(other, [], 'no other page error');
+      },
+    },
+    {
+      name: '스케일 바: 확대하면 길이가 바뀌고, 어느 위치로 옮겨도 보기 안에 머묾', desktop: true,
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('room');
+          A.actions.updateSettings({ showScaleBar: true });
+          const sb = A.scaleBar.el; const host = sb.parentElement;
+          await T.top([-2, 2]); await T.frames(3);
+          const near = sb.querySelector('.sb-length').textContent;
+          await T.top([-40, 40]); await T.frames(3);
+          const far = sb.querySelector('.sb-length').textContent;
+          const inside = [];
+          for (const pos of [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 0.5, y: 0.5 }, { x: 1, y: 0 }]) {
+            A.state.settings.scaleBarPos = pos; A.viewport.requestRender(); await T.frames(4);
+            const a = sb.getBoundingClientRect(); const h = host.getBoundingClientRect();
+            inside.push(a.left >= h.left - 1 && a.right <= h.right + 1 && a.top >= h.top - 1 && a.bottom <= h.bottom + 1);
+          }
+          A.state.settings.scaleBarPos = null; A.viewport.requestRender(); await T.frames(2);
+          return { near, far, inside };`);
+        assert.notEqual(r.near, r.far, 'the length follows the zoom (' + r.near + ' / ' + r.far + ')');
+        assert.deepEqual(r.inside, [true, true, true, true], 'kept inside the view');
+      },
+    },
+  ]),
 ];
 
 /**
@@ -979,6 +1326,8 @@ export const COMMAND_HELPER = String.raw`(() => {
       // A popup it opened is closed (as Cancel / Esc would), so that the command can finish.
       for (let i = 0; i < 4 && !done; i++) {
         await A.popups.closeAll();
+        // The 2D workbench (Refine plan) is a page of its own, not a popup: closed as its Cancel would
+        if (A.planImport.studio?.isOpen) A.planImport.studio.close();
         for (const el of document.querySelectorAll('.web-popup:not(.web-popup-doc)')) el.remove();
         for (const el of document.querySelectorAll('.web-popup-shield')) el.remove();
         A.popups.frames.forEach((f, k) => { if (!f.isConnected) A.popups.frames.delete(k); });

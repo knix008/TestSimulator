@@ -154,6 +154,10 @@ export class PopupHost {
     // page then draws nothing and does not show itself (progress, which shows only when asked).
     if (this.useFrames) {
       // Web: only the progress frame is made ahead of time (loaded and drawn while the page is idle), then parked.
+      // A kept frame taken out of the page meanwhile (the tutorial's clean-up removes the page's popups) no longer
+      // counts: it is made again, as openFrame does — before, the progress window then opened late, unprepared.
+      if (this.parked.has(kind) && !this.parked.get(kind).isConnected) this.parked.delete(kind);
+      if (this.frames.has(kind) && !this.frames.get(kind).isConnected) this.frames.delete(kind);
       if (!warm || this.frames.has(kind) || this.parked.has(kind)) return Promise.resolve();
       try { globalThis.localStorage?.setItem(popupKey(kind), JSON.stringify({ warm: true })); } catch { /* defaults */ }
       this.openFrame(kind, null);

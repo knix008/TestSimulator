@@ -1,0 +1,19 @@
+# 1 m cube drawn in centimetres (100 units): five grey faces and a red top.
+mtllib cube.mtl
+o cube
+v -50 0 -50
+v 50 0 -50
+v 50 0 50
+v -50 0 50
+v -50 100 -50
+v 50 100 -50
+v 50 100 50
+v -50 100 50
+usemtl grey
+f 1 2 3 4
+f 1 5 6 2
+f 2 6 7 3
+f 3 7 8 4
+f 4 8 5 1
+usemtl red
+f 5 8 7 6

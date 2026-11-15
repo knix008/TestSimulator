@@ -450,7 +450,7 @@ export const SHORTCUT_LIST = [
   ['L', 'tool.line'], ['R', 'tool.rectangle'], ['C', 'tool.circle'], ['A', 'tool.arc'], ['Shift+P', 'tool.polygon'],
   ['P', 'tool.pushpull'], ['M', 'tool.move'], ['Q', 'tool.rotate'], ['S', 'tool.scale'], ['F', 'tool.offset'],
   ['T', 'tool.tape'], ['D', 'tool.dimension'], ['O', 'tool.orbit'], ['H', 'tool.pan'], ['Z', 'tool.zoom'], ['Shift+Z', 'action.zoomExtents'],
-  ['K', 'action.styleCycle'], ['G', 'action.makeGroup'], ['F4', 'action.planView'], ['F9', 'action.renderPhoto'],
+  ['K', 'action.styleCycle'], ['G', 'action.makeGroup'], ['F4', 'action.planView'], ['F9', 'action.renderPhoto'], ['Shift+O', 'action.toggleDoor'],
   ['shortcut.middleDrag', 'tool.orbit'], ['shortcut.shiftMiddle', 'tool.pan'], ['shortcut.wheel', 'tool.zoom'], ['shortcut.typeLength', 'shortcut.vcb'],
   ['shortcut.arrowsLock', 'shortcut.axisLock'], ['shortcut.shiftLock', 'shortcut.inferenceLock'], ['shortcut.ctrlCopy', 'shortcut.moveCopy'], ['shortcut.array', 'shortcut.arrayCopy'],
   ['[ / ]', 'shortcut.rotatePlace'], ['shortcut.altPaint', 'shortcut.sample'], ['Ctrl+] / [', 'action.rotate90'],

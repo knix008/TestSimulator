@@ -23,6 +23,7 @@ import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { acceleratedRaycast, computeBoundsTree, disposeBoundsTree } from 'three-mesh-bvh';
 import { sunDirection } from './sun.js';
+import { isSoftwareRenderer } from './software-gpu.js';
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -75,6 +76,9 @@ export class Viewport {
     renderer.info.autoReset = false;
     renderer.localClippingEnabled = true;
     this.renderer = renderer;
+    // No GPU (SwiftShader, llvmpipe, Microsoft Basic Render Driver / WARP): the CPU draws every pixel, so the
+    // view takes the light path (see applySettings and renderFrame); saved images keep full quality.
+    this.softwareGpu = isSoftwareRenderer(renderer.getContext());
     this.gpuTimer = GpuTimer.create(renderer.getContext(), (ms, tag) => this.gpuResult(ms, tag));
 
     this.scene = new THREE.Scene();
@@ -248,8 +252,8 @@ export class Viewport {
   /** Applies quality settings (Settings › 3D view and the toolbar). */
   applySettings() {
     const s = this.settings();
-    const q = QUALITY[s.renderQuality] ?? QUALITY.balanced;
-    const shadowSize = SHADOW_SIZE[s.shadowQuality] ?? q.shadowMap;
+    const q = this.softwareGpu ? QUALITY.fast : QUALITY[s.renderQuality] ?? QUALITY.balanced;
+    const shadowSize = this.softwareGpu ? q.shadowMap : SHADOW_SIZE[s.shadowQuality] ?? q.shadowMap;
     if (this.sun.shadow.mapSize.x !== shadowSize) {
       this.sun.shadow.mapSize.set(shadowSize, shadowSize);
       this.sun.shadow.map?.dispose();
@@ -257,6 +261,8 @@ export class Viewport {
     }
     this.sun.castShadow = s.shadows !== false;
     this.aoEnabled = s.ambientOcclusion !== false && q.ao;
+    // Saved images use the chosen quality even without a GPU.
+    this.aoCapture = s.ambientOcclusion !== false && (QUALITY[s.renderQuality] ?? QUALITY.balanced).ao;
     const samples = s.antialias === false ? 0 : q.samples;
     if (this.composer.renderTarget1.samples !== samples) {
       this.composer.renderTarget1.samples = samples;
@@ -439,7 +445,7 @@ export class Viewport {
     this.aoPass.camera = this.camera;
     // Ambient occlusion stays on while moving when the last full frame was cheap (CPU and GPU time), so nothing
     // pops on and off; on a slow GPU it is left out while moving and fades back in when the view stops.
-    const aoAllowed = this.aoEnabled && this.styleMode !== 'wireframe';
+    const aoAllowed = (this.capturing ? this.aoCapture : this.aoEnabled) && this.styleMode !== 'wireframe';
     const ao = aoAllowed && (final || this.finalCost() < 12);
     if (ao && !this.aoShown && final && this.lastFrame) this.aoFade = performance.now();
     if (!ao) this.aoFade = null;
@@ -452,7 +458,8 @@ export class Viewport {
     // Glass with transmission makes three.js draw the scene a second time. Only the 2D plan uses the plain
     // stand-in (glass is edge-on from above). In 3D the real glass stays while the view turns or moves, so the
     // sky and the environment keep showing through the windows.
-    this.setFastGlass(this.planMode);
+    // Without a GPU the transmission pass (the scene drawn twice) is left out in 3D too, except in saved images.
+    this.setFastGlass(this.planMode || (this.softwareGpu && !this.capturing));
     this.aoPass.enabled = ao;
     this.aoPass.blendIntensity = AO_BLEND * fade;
     this.aoShown = ao;
@@ -468,7 +475,11 @@ export class Viewport {
     }
     this.updateGrid();
     this.options.beforeRender?.(this);
-    this.composer.render();
+    // Without a GPU and with no post effect to apply, the scene goes straight to the canvas: the composer's
+    // half-float target and its output pass are two more full-screen passes the CPU would shade. The renderer
+    // applies the same tone mapping and colour space when it draws to the screen.
+    if (this.softwareGpu && !ao && !this.smaaPass.enabled && !this.capturing) this.renderer.render(this.scene, this.camera);
+    else this.composer.render();
     const sceneInfo = { calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles };
     // Overlay (tool previews, inference, selection boxes) on top, without the scene's depth.
     this.renderer.autoClear = false;
@@ -547,6 +558,8 @@ export class Viewport {
 
   /** Slow interactive frames lower the resolution a step; fast ones restore it (hysteresis, not per frame). */
   adaptResolution(ms) {
+    // Without a GPU each canvas resize stalls for seconds (every buffer is reallocated in CPU memory): no stepping.
+    if (this.softwareGpu) return;
     // Changing the canvas resolution mid-drag makes the picture jump: only when frames are really slow (> 45 ms).
     if (this.interacting && ms < 45) { this.slowFrames = 0; return; }
     if (!this.interacting) {
@@ -1205,14 +1218,20 @@ export class Viewport {
     this.lampOcclusionAt = now;
     const ray = (this.lampRay ??= Object.assign(new THREE.Raycaster(), { firstHitOnly: true }));
     const cam = this.camera.position;
+    // Only visible meshes hide a lamp (hidden levels, tags, lines and points do not). Casting at the whole
+    // content tested every edge line brute force and sorted all hits: most of a turning view's CPU time.
+    // The model does not change while the view moves, so the list is collected again only on still frames.
+    if (!this.lampMeshes || !(this.interacting || this.animation)) {
+      this.lampMeshes = [];
+      this.content.traverseVisible((o) => { if (o.isMesh && !o.userData.helper) this.lampMeshes.push(o); });
+    }
     for (const m of this.lampMarkers.children) {
       _markerDelta.subVectors(m.position, cam);
       const far = _markerDelta.length();
       if (far < 1e-3) { m.visible = true; continue; }
       ray.set(cam, _markerDelta.divideScalar(far));
       ray.far = far;
-      // Raycasts ignore visibility: hidden levels, tags and lines do not hide a lamp.
-      const hit = ray.intersectObject(this.content, true).find((h) => !h.object.isLine && !h.object.isLineSegments && !h.object.isPoints && visibleUp(h.object));
+      const hit = ray.intersectObjects(this.lampMeshes, false)[0];
       const id = hit ? entityOf(hit.object)?.id : null;
       m.visible = !hit || id === m.userData.entityId || hit.distance > far - 0.02;
     }
@@ -1401,7 +1420,8 @@ export class Viewport {
     // A saved image has its full ambient occlusion at once (no fade-in).
     this.aoFade = null;
     this.aoShown = true;
-    this.renderFrame();
+    this.capturing = true;
+    try { this.renderFrame(); } finally { this.capturing = false; }
     const out = document.createElement('canvas');
     out.width = width; out.height = height;
     out.getContext('2d').drawImage(this.canvas, 0, 0, width, height);

@@ -422,6 +422,7 @@ function afterChange() {
 }
 
 function undo() {
+  finishDoorSwing();
   const d = doc();
   const label = d?.history.undo(d.project);
   if (label == null) return;
@@ -432,6 +433,7 @@ function undo() {
 }
 
 function redo() {
+  finishDoorSwing();
   const d = doc();
   const label = d?.history.redo(d.project);
   if (label == null) return;
@@ -619,10 +621,10 @@ function renderAnnotations() {
   for (const d of p.dimensions) {
     const a = new THREE.Vector3(...d.a); const b = new THREE.Vector3(...d.b); const o = new THREE.Vector3(...d.offset);
     lines.push(...Tools.dimensionLines(a, b, o));
-    overlay.label(`ann-${d.id}`, a.clone().add(b).multiplyScalar(0.5).add(o), formatLength(a.distanceTo(b), units()), { kind: 'dimension', dx: -20, dy: -20 });
+    overlay.label(`ann-${d.id}`, a.clone().add(b).multiplyScalar(0.5).add(o), formatLength(a.distanceTo(b), units()), { kind: 'dimension', dx: -20, dy: -20, occlude: true });
   }
   overlay.lines('ann-dims', lines, { color: '#111827', depthTest: true });
-  for (const tx of p.texts) overlay.label(`ann-${tx.id}`, new THREE.Vector3(...tx.point), tx.text, { kind: 'text', dx: 8, dy: -28 });
+  for (const tx of p.texts) overlay.label(`ann-${tx.id}`, new THREE.Vector3(...tx.point), tx.text, { kind: 'text', dx: 8, dy: -28, occlude: true });
   overlay.lines('ann-guides', p.guides.flatMap((g) => [new THREE.Vector3(...g.a), new THREE.Vector3(...g.b)]), { color: '#6b7280', dashed: true, depthTest: true, opacity: 0.8 });
 }
 
@@ -1073,7 +1075,7 @@ const toolApi = {
   get overlay() { return overlay; },
   get builder() { return builder; },
   project, level: () => levelOf(project(), project().activeLevel), units, settings: () => state.settings, t, notify, showError,
-  change, commit, live, select, clearSelection, selection: () => state.selection, isSelected, isLocked, kindOf, setHover, markErase,
+  change, commit, live, select, clearSelection, selection: () => state.selection, isSelected, isLocked, kindOf, setHover, markErase, toggleDoorById,
   moveEntities, rotateEntities, rotateSelection, scaleEntities, duplicateEntities, deleteEntities, paintHit, setTool, setVcb, groundPoint,
   entitiesInRect, showSelectionRect, editEntity, describeEntity, prompt, brush: () => state.brush, setBrush: (id) => { state.brush = id; renderLeft(); notify('info', t('notice.brush', { name: presetName(id) })); },
   sync: () => syncScene(), renderRight: () => renderRight(), renderStatus: () => renderStatus(),
@@ -1227,6 +1229,9 @@ const commands = {
   switchLamp: { icon: 'lightsOn', label: 'action.switchLamp', enabled: () => selectedLamps().length > 0, run: () => switchLamps(selectedLamps(), !selectedLamps().every((e) => e.light?.on !== false)) },
   allLampsOn: { icon: 'lightsOn', label: 'action.allLampsOn', enabled: hasDoc, run: () => switchLamps(project().objects.filter((e) => builder.lampInfo(e)), true) },
   allLampsOff: { icon: 'lightsOn', label: 'action.allLampsOff', enabled: hasDoc, run: () => switchLamps(project().objects.filter((e) => builder.lampInfo(e)), false) },
+  toggleDoor: { icon: 'doorOpen', label: 'action.toggleDoor', key: 'Shift+O', enabled: () => selectedOpenableDoors().length > 0, run: () => toggleDoors(selectedOpenableDoors()) },
+  allDoorsOpen: { icon: 'doorOpen', label: 'action.allDoorsOpen', enabled: () => openableDoors(project()?.openings ?? []).length > 0, run: () => swingDoors(openableDoors(project().openings), true, { quiet: false }) },
+  allDoorsClose: { icon: 'doorTool', label: 'action.allDoorsClose', enabled: () => openableDoors(project()?.openings ?? []).length > 0, run: () => swingDoors(openableDoors(project().openings), false, { quiet: false }) },
   resetLamp: { icon: 'undo', label: 'lamp.reset', enabled: () => selectedLamps().some((e) => e.light), run: () => change('op.edit', () => { for (const e of selectedLamps()) delete e.light; }, ['objects']) },
   grid: { icon: 'grid', label: 'action.grid', checked: () => state.settings.showGrid, run: () => toggle('showGrid') },
   planDims: { icon: 'dimension', label: 'action.planDims', checked: () => state.settings.showPlanDims !== false, run: () => { toggle('showPlanDims'); planDims?.invalidate(); } },
@@ -1297,6 +1302,71 @@ function selectedLamps() {
 }
 
 /** Switches lamps on or off in one undoable step (switching on also turns the view's lights on). */
+// ───────────────────────── opening and closing doors (the door items' `open` angle parameter)
+
+const DOOR_SWING_MS = 350;
+let doorSwing = null;
+
+/** The doors among `openings` that can open (their item has an `open` angle parameter). */
+function openableDoors(openings) {
+  return openings.filter((o) => { const item = catalogItem(o?.item); return item?.category === 'doors' && item.params?.some((x) => x.key === 'open'); });
+}
+const doorAngle = (o) => Number(itemParams(catalogItem(o.item), o.params ?? {}).open) || 0;
+function selectedOpenableDoors() {
+  if (!project()) return [];
+  return openableDoors(state.selection.filter((id) => kindOf(id) === 'opening').map((id) => entity(id)?.entity));
+}
+/** Open when every door is shut, otherwise close them all. */
+function toggleDoors(doors) { if (doors.length) swingDoors(doors, doors.every((o) => doorAngle(o) === 0)); }
+function toggleDoorById(id) { const o = kindOf(id) === 'opening' ? entity(id)?.entity : null; const doors = openableDoors(o ? [o] : []); toggleDoors(doors); return doors.length > 0; }
+
+/**
+ * Opens (to the item's widest angle, or the angle it had when it was closed) or closes doors with a
+ * short swing: the scene follows each frame (live) and the end is one undo step.
+ */
+function swingDoors(doors, open, { quiet = true } = {}) {
+  finishDoorSwing();
+  const d = doc();
+  if (!d || !doors.length) return;
+  const moves = doors.map((o) => {
+    const spec = catalogItem(o.item).params.find((x) => x.key === 'open');
+    const from = doorAngle(o);
+    const to = open ? Math.min(spec.max ?? 90, Number(o.params?.lastOpen) || spec.max || 90) : 0;
+    return { o, from, to };
+  }).filter((m) => m.from !== m.to);
+  if (!moves.length) return;
+  const set = (k) => {
+    for (const m of moves) {
+      // Hinged doors count degrees, sliding ones a fraction of the way (0 … 0.9): no rounding.
+      const params = { ...(m.o.params ?? {}), open: k === 1 ? m.to : m.from + (m.to - m.from) * k };
+      if (k === 1) { if (open) delete params.lastOpen; else if (m.from > 0) params.lastOpen = m.from; }
+      m.o.params = params;
+    }
+  };
+  const end = () => {
+    if (doorSwing?.doc !== d) return;
+    cancelAnimationFrame(doorSwing.raf);
+    doorSwing = null;
+    if (doc() !== d) return;
+    set(1);
+    commit(open ? 'op.openDoor' : 'op.closeDoor', ['openings']);
+    if (!quiet) notify('info', t(open ? 'notice.doorsOpened' : 'notice.doorsClosed', { count: moves.length }));
+  };
+  const t0 = performance.now();
+  const step = (now) => {
+    if (doorSwing?.doc !== d) return;
+    const k = Math.min(1, (now - t0) / DOOR_SWING_MS);
+    if (k >= 1 || doc() !== d) { end(); return; }
+    set(k * k * (3 - 2 * k));
+    live();
+    doorSwing.raf = requestAnimationFrame(step);
+  };
+  doorSwing = { doc: d, end, raf: requestAnimationFrame(step) };
+}
+
+/** A swing still running ends at once (another swing, undo, saving). */
+function finishDoorSwing() { doorSwing?.end(); }
+
 function switchLamps(lamps, on) {
   if (!lamps.length) return;
   change('op.edit', () => { for (const e of lamps) { e.light = { ...(e.light ?? {}), on }; if (on) delete e.light.on; if (!Object.keys(e.light).length) delete e.light; } }, ['objects']);
@@ -1476,7 +1546,7 @@ const MENUS = {
   view: [sub('views'), 'perspective', 'planView', sub('levels'), '-', sub('faceStyle'), sub('show'), sub('quality'), '-', sub('scenes'), '-', sub('appearance')],
   draw: ['tool:wall', 'tool:column', 'tool:stairs', 'tool:room', 'door', 'window', 'addLevel', '-', sub('drawShapes')],
   tools: ['tool:select', 'tool:eraser', 'tool:paint', '-', sub('modify'), sub('solids'), '-', sub('construct'), sub('section'), '-', 'checkNow', 'showProblems', 'showMessages', '-', 'renderPhoto', 'settings'],
-  camera: ['tool:orbit', 'tool:pan', 'tool:zoom', 'zoomExtents', 'zoomSelection', '-', 'tool:walk', 'tour', '-', sub('views'), 'perspective', 'planView', '-', 'addScene', 'prevScene', 'nextScene'],
+  camera: ['tool:orbit', 'tool:pan', 'tool:zoom', 'zoomExtents', 'zoomSelection', '-', 'tool:walk', 'tour', 'allDoorsOpen', 'allDoorsClose', '-', sub('views'), 'perspective', 'planView', '-', 'addScene', 'prevScene', 'nextScene'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', draw: 'wallTool', tools: 'tools', camera: 'orbitTool', help: 'question' };
@@ -2396,7 +2466,7 @@ async function readBytes(path, op) {
 async function openPath(path, { quiet = false } = {}) {
   const name = baseName(path);
   if (isModelName(name)) { if (!state.doc) newProject('empty'); return importModelFiles([{ name, path }]); }
-  if (isPlanName(name)) return planImport.importFiles([{ name, path }]);
+  if (isPlanName(name)) return planImport.importFiles([{ name, path }], { open: true });
   if (!(await confirmReplace())) return null;
   try {
     const bytes = await withProgress('progress.open', name, (op) => readBytes(path, op));
@@ -2411,7 +2481,7 @@ async function openPath(path, { quiet = false } = {}) {
 
 async function openContent(name, bytes, handle = null) {
   if (isModelName(name)) { if (!state.doc) newProject('empty'); return importModelFiles([{ name, bytes }]); }
-  if (isPlanName(name)) return planImport.importFiles([{ name, bytes }]);
+  if (isPlanName(name)) return planImport.importFiles([{ name, bytes }], { open: true });
   if (!(await confirmReplace())) return null;
   try {
     const { project: p, assets } = unpackProject(bytes);
@@ -2478,6 +2548,7 @@ function projectThumbnail() {
 }
 
 async function saveDoc({ saveAs = false } = {}) {
+  finishDoorSwing();
   const d = doc();
   if (!d) return false;
   d.project.camera = viewport.cameraState();
@@ -2863,10 +2934,10 @@ function contextMenu(event, kind, payload = {}) {
     const k = kindOf(id);
     const e = entity(id)?.entity;
     const title = k === 'object' ? (e?.name || itemName(catalogItem(e?.item), lang())) : t(`kind.${k}`);
-    const extra = k === 'object' ? [...(builder.lampInfo(e ?? {}) ? ['switchLamp'] : []), 'rotate90', 'rotateMinus90', 'mirrorObject', 'dropToFloor', 'replaceItem', 'resetMaterials'] : k === 'wall' ? ['splitWall', 'flipWall'] : k === 'model' ? ['editModel', 'explodeModel', sub('solids')] : k === 'opening' ? [...(selectedDoor() ? ['flipDoorSwing', ...(selectedDoor().dir.hinge ? ['flipDoorHinge'] : [])] : []), 'replaceItem'] : [];
+    const extra = k === 'object' ? [...(builder.lampInfo(e ?? {}) ? ['switchLamp'] : []), 'rotate90', 'rotateMinus90', 'mirrorObject', 'dropToFloor', 'replaceItem', 'resetMaterials'] : k === 'wall' ? ['splitWall', 'flipWall'] : k === 'model' ? ['editModel', 'explodeModel', sub('solids')] : k === 'opening' ? [...(selectedOpenableDoors().length ? ['toggleDoor'] : []), ...(selectedDoor() ? ['flipDoorSwing', ...(selectedDoor().dir.hinge ? ['flipDoorHinge'] : [])] : []), 'replaceItem'] : [];
     return showMenu(menuItems(['cut', 'copy', 'duplicate', 'delete', '-', ...extra, ...(extra.length ? ['-'] : []), 'tool:move', 'tool:rotate', 'tool:scale', '-', 'hide', 'lock', 'unlock', '-', 'zoomSelection']), anchor, 'context', { header: { icon: 'cube', title } });
   }
-  if (kind === 'canvas') return showMenu(menuItems(['paste', 'selectAll', '-', 'zoomExtents', 'resetView', sub('views'), 'perspective', 'planView', '-', sub('faceStyle'), sub('show'), '-', 'sunOn', 'dayNight', 'sunLine', 'sunPanel', 'lightsOn', 'allLampsOn', 'allLampsOff', '-', 'addScene', 'exportImage', 'renderPhoto']), anchor, 'context', { header: { icon: 'view3d', title: project()?.name || 'MySketchBook' } });
+  if (kind === 'canvas') return showMenu(menuItems(['paste', 'selectAll', '-', 'zoomExtents', 'resetView', sub('views'), 'perspective', 'planView', '-', sub('faceStyle'), sub('show'), '-', 'sunOn', 'dayNight', 'sunLine', 'sunPanel', 'lightsOn', 'allLampsOn', 'allLampsOff', 'allDoorsOpen', 'allDoorsClose', '-', 'addScene', 'exportImage', 'renderPhoto']), anchor, 'context', { header: { icon: 'view3d', title: project()?.name || 'MySketchBook' } });
   if (kind === 'problem') {
     const pr = state.problems.find((x) => x.id === payload.id);
     const handlers = {
@@ -3672,6 +3743,9 @@ window.__mysketchbook = {
   api: appApi,
   get viewport() { return viewport; },
   get builder() { return builder; },
+  get overlay() { return overlay; },
+  get scaleBar() { return scaleBar; },
+  doors: { openable: () => openableDoors(project()?.openings ?? []), angle: (o) => doorAngle(o), swinging: () => Boolean(doorSwing) },
   planImport,
   tour,
   importRouter: () => importRouter,

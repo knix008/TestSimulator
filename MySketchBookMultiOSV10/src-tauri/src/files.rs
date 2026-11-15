@@ -12,7 +12,7 @@ pub const CHUNK: usize = 1 << 20;
 /// Extensions the app opens: projects, templates, StarUML projects and fragments, JSON,
 /// XMI 2.x (Enterprise Architect, MagicDraw, Papyrus).
 /// "muml" is the extension of version 1.0 projects; they still open.
-pub const DIAGRAM_EXTENSIONS: [&str; 16] = ["msk", "glb", "gltf", "obj", "fbx", "stl", "dae", "3ds", "ply", "3mf", "usdz", "usda", "usd", "wrl", "vrml", "skp"];
+pub const DIAGRAM_EXTENSIONS: [&str; 17] = ["msk", "myarch", "glb", "gltf", "obj", "fbx", "stl", "dae", "3ds", "ply", "3mf", "usdz", "usda", "usd", "wrl", "vrml", "skp"];
 
 /// Test hook: `MYSKETCHBOOK_IO_DELAY_MS` slows every chunk so the progress window can be checked.
 fn chunk_delay() -> Option<Duration> {

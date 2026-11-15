@@ -1899,9 +1899,17 @@ export class WalkTool extends Tool {
   get cursor() { return 'grab'; }
   activate() { this.app.viewport.startWalk(); }
   deactivate() { this.app.viewport.stopWalk(); this.app.overlay.reset(); }
-  down(e) { this.look = { x: e.clientX, y: e.clientY }; }
+  down(e) { this.look = { x: e.clientX, y: e.clientY }; this.press = { x: e.clientX, y: e.clientY }; }
   move(e) { if (!this.look) return; this.app.viewport.walkLook(e.clientX - this.look.x, e.clientY - this.look.y); this.look = { x: e.clientX, y: e.clientY }; }
-  up() { this.look = null; }
+  up(e) {
+    const press = this.press;
+    this.look = null;
+    this.press = null;
+    // A click (not a look-around drag) on a door opens or closes it, as when walking through the house.
+    if (!press || !e || Math.hypot(e.clientX - press.x, e.clientY - press.y) > 4) return;
+    const id = this.app.viewport.pick(e.clientX, e.clientY)?.entity?.id;
+    if (id) this.app.toggleDoorById?.(id);
+  }
   key(e) { return this.app.viewport.walkKey(e.key, true); }
   keyUp(e) { return this.app.viewport.walkKey(e.key, false); }
 }

@@ -62,6 +62,7 @@ export const pathsExist = (paths) => (isDesktop() ? invoke('paths_exist', { path
 // Model extensions come from io/formats.js (the one list of importable 3D formats).
 const PROJECT_FILTERS = () => [
   { name: 'MySketchBook (*.msk)', extensions: ['msk'] },
+  { name: 'MyArchitecture (*.myarch)', extensions: ['myarch'] },
   { name: '3D models (*.glb, *.fbx, *.obj, *.step, *.3dm …)', extensions: MODEL_EXTENSIONS },
 ];
 /** Save types: the drawing, a template, StarUML, pictures, documents. */
@@ -152,7 +153,7 @@ export const openExternal = (target) => (isDesktop() ? invoke('open_external', {
 
 export const hasFileSystemAccess = () => typeof globalThis.showOpenFilePicker === 'function';
 
-const WEB_TYPES = [{ description: 'MySketchBook', accept: { 'application/zip': ['.msk'] } }, { description: '3D models', accept: { 'model/*': MODEL_EXTENSIONS.map((e) => `.${e}`) } }];
+const WEB_TYPES = [{ description: 'MySketchBook', accept: { 'application/zip': ['.msk'] } }, { description: 'MyArchitecture', accept: { 'application/json': ['.myarch'] } }, { description: '3D models', accept: { 'model/*': MODEL_EXTENSIONS.map((e) => `.${e}`) } }];
 const isBinaryName = () => true;
 const readContent = async (file) => (isBinaryName(file.name) ? new Uint8Array(await file.arrayBuffer()) : file.text());
 
@@ -171,7 +172,7 @@ export async function pickDiagramFilesWeb() {
       return { name: file.name, content: await readContent(file), handle, size: file.size };
     }));
   }
-  const files = await pickWithInput(['.msk', ...MODEL_EXTENSIONS.map((e) => `.${e}`)].join(','), true);
+  const files = await pickWithInput(['.msk', '.myarch', ...MODEL_EXTENSIONS.map((e) => `.${e}`)].join(','), true);
   return Promise.all(files.map(async (file) => ({ name: file.name, content: await readContent(file), handle: null, size: file.size })));
 }
 

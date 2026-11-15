@@ -23,6 +23,7 @@ import { dwgToDxf, dwgVersion, isDwgName, desktopDwgConverter, wasmDwgConverter 
 import { isPdfName, openPdf, pdfPages, readPdfPage, pdfScale, pdfToPlan, POINT_METRES } from '../io/plan-pdf.js';
 import { isIfcName, readIfc } from '../io/plan-ifc.js';
 import { isSh3dName, readSh3d } from '../io/plan-sh3d.js';
+import { isMyarchName, readMyarch } from '../io/plan-myarch.js';
 import { applyBuilding, fitItem } from '../io/plan-building.js';
 import { matchLibraryItem } from '../io/plan-match.js';
 import { allItems } from '../library/catalog.js';
@@ -37,12 +38,13 @@ import { getMaterial } from '../engine/materials.js';
 import { catalogItem } from '../library/catalog.js';
 import { PROGRESS_STEP_ICONS } from './progressicons.js';
 
-/** Buildings: BIM models (IFC) and Sweet Home 3D homes — levels, walls, openings, rooms, furniture. */
-export const BUILDING_ACCEPT = '.ifc,.sh3d';
+/** Buildings: BIM models (IFC), Sweet Home 3D homes and MyArchitecture projects — levels, walls, openings, rooms, furniture. */
+export const BUILDING_ACCEPT = '.ifc,.sh3d,.myarch';
 /** Everything File › Import floor plan… reads: drawings, buildings and pictures. */
 export const PLAN_ACCEPT = `.dxf,.dwg,.svg,.pdf,${BUILDING_ACCEPT},.png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff,.tga,.avif,.heic,.heif`;
-/** Buildings (IFC, Sweet Home 3D). */
-export const isBuildingName = (name) => isIfcName(name) || isSh3dName(name);
+/** Buildings (IFC, Sweet Home 3D, MyArchitecture). */
+export const isBuildingName = (name) => isIfcName(name) || isSh3dName(name) || isMyarchName(name);
+export { isMyarchName };
 /** Drawings and buildings (everything importFiles reads except pictures). */
 export const isPlanName = (name) => /\.(dxf|dwg|svg|pdf)$/i.test(name ?? '') || isBuildingName(name);
 /** Pictures to trace over (underlays). */
@@ -256,7 +258,9 @@ export function createPlanImport(app) {
     try {
       const bytes = file.bytes ?? await app.readBytes(file.path);
       if (isPdfName(file.name)) return await importPdf(file.name, bytes);
-      if (isBuildingName(file.name)) return await importBuilding(file.name, bytes);
+      // Opening a MyArchitecture project (File › Open, a drop, a double-click) shows it at once: a new project with its
+      // rooms and furniture, no options to answer. File › Import floor plan… still asks.
+      if (isBuildingName(file.name)) return await importBuilding(file.name, bytes, hints.open && isMyarchName(file.name) ? { target: 'new', furniture: 'library', rooms: true } : null);
       return isPlanName(file.name) ? await importPlan(file.name, bytes) : await importImage(file.name, bytes, null, hints);
     } catch (error) {
       if (error?.code === 'sh3d-old') app.showError('error.importPlan', new Error(t('plan.sh3dOld', { name: file.name })), file.name);
@@ -446,6 +450,7 @@ export function createPlanImport(app) {
   async function importBuilding(name, bytes, options = null) {
     const read = await app.withProgress('progress.readBuilding', name, async (op, report) => {
       if (isSh3dName(name)) return readSh3d(bytes);
+      if (isMyarchName(name)) return readMyarch(bytes);
       const { WebIFC, api } = await (await libs()).loadWebIfc();
       return readIfc(WebIFC, api, bytes, { onProgress: (fraction) => report?.({ fraction }) });
     }, { delay: 150 });
@@ -456,7 +461,7 @@ export function createPlanImport(app) {
     let o = options;
     if (!o) {
       o = await app.popups.open('importplan', {
-        mode: 'building', name, format: isIfcName(name) ? 'IFC' : 'Sweet Home 3D',
+        mode: 'building', name, format: isIfcName(name) ? 'IFC' : isMyarchName(name) ? 'MyArchitecture' : 'Sweet Home 3D',
         summary: t('plan.buildingSummary', { levels: b.levels.length, walls: b.walls.length, doors: b.openings.filter((x) => x.kind === 'door').length, windows: b.openings.filter((x) => x.kind === 'window').length, rooms: b.rooms.length }),
         furnitureNote: t('plan.buildingFurniture', { total: furniture.length, matched: matched.length, models: ownModels.length }),
         warning: [read.counts?.complexWalls ? t('plan.ifcComplexWalls', { count: read.counts.complexWalls }) : '', read.counts?.slabs ? t('plan.ifcSlabs', { count: read.counts.slabs }) : ''].filter(Boolean).join(' '),
@@ -500,11 +505,20 @@ export function createPlanImport(app) {
     const applied = app.change('op.importPlan', (p) => {
       const counts = applyBuilding(p, b, { target: o.target === 'add' ? 'add' : 'new', matchItem, colorMaterial, furniture: o.furniture !== 'none', rooms: o.rooms !== false });
       if (materials.length) p.materials.push(...materials);
+      if (isMyarchName(name) && o.target !== 'add') {
+        p.name = b.name || stem(name);
+        // The window title and Save's suggested name follow the file opened (not "New project 1")
+        const d = app.doc();
+        if (d) d.name = stem(name);
+      }
       return counts;
     }, null);
     for (const m of materials) defineCustomMaterial(m);
     app.afterImport?.(applied);
     app.notify('success', t('notice.buildingImported', { name, levels: applied.levels, walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects }));
+    // MyArchitecture parts the app has no element for (roofs, slabs, beams …): said once, not silently dropped.
+    const left = read.counts && isMyarchName(name) ? Object.entries(read.counts).filter(([, n]) => n > 0) : [];
+    if (left.length) app.notify('info', t('plan.myarchLeftOut', { parts: left.map(([k, n]) => `${t(`plan.myarchPart.${k}`)} ${n}`).join(', ') }));
     return { applied, read };
   }
 
