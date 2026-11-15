@@ -98,6 +98,8 @@ export function defaultSettings(language = 'ko') {
     styleSet: [...DEFAULT_STYLE_IDS],
     /** Draw the set at once when a photo is opened. */
     autoGenerate: true,
+    /** Every generation draws a different picture (random colours, exaggeration and style options); off: the same photo always gives the same pictures. */
+    randomGenerate: true,
     /** Frame the head and shoulders when the face is small in the photo. */
     autoCrop: true,
     /** Exaggerate what stands out in this face (features compared with an average face). */
@@ -166,7 +168,7 @@ export function normalizeSettings(raw = {}, language) {
   s.varySpread = clamp(s.varySpread, 0, 40, base.varySpread);
   s.personalGain = clamp(s.personalGain, 0, 500, base.personalGain);
   for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'statusClock', 'showWelcome', 'animationOnStartOnly',
-    'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'autoGenerate', 'autoCrop', 'personalWarp', 'useFaceModel', 'usePersonMask', 'showLandmarks', 'showNames']) {
+    'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'autoGenerate', 'randomGenerate', 'autoCrop', 'personalWarp', 'useFaceModel', 'usePersonMask', 'showLandmarks', 'showNames']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];
   }
   return s;

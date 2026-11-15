@@ -10,8 +10,8 @@ import {
 } from './domain/settings.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
-  baseName, defaultItems, directoryOf, FormatError, isOpenableName, isProjectName, MAX_ITEMS, mimeOf, newItem, parseProject, PHOTO_EXTENSIONS,
-  PROJECT_EXTENSION, safeFileName, serializeProject, stripExtension, varyItem,
+  baseName, defaultItems, directoryOf, fixedSeed, FormatError, isOpenableName, isProjectName, MAX_ITEMS, mimeOf, newItem, parseProject, PHOTO_EXTENSIONS,
+  PROJECT_EXTENSION, randomizeItem, safeFileName, serializeProject, stripExtension, varyItem,
 } from './domain/project.js';
 import { History } from './domain/history.js';
 import { SAMPLE_PHOTOS, sampleById, sampleUrl } from './domain/samples.js';
@@ -222,7 +222,7 @@ async function openPhoto(img, { name, path = null, project = null } = {}) {
   state.showStart = false;
   renderAll();
   await prepareWork({ analyseFace: !validFeatures(state.doc.features) });
-  if (!state.doc.items.length && state.settings.autoGenerate) state.doc.items = defaultItems(state.settings.styleSet, Math.floor(Math.random() * 1e6), faceFactors());
+  if (!state.doc.items.length && state.settings.autoGenerate) state.doc.items = freshItems();
   if (!state.doc.selected && state.doc.items.length) state.doc.selected = state.doc.items[0].id;
   renderAll();
   renderAllItems();
@@ -373,7 +373,9 @@ function step(direction) {
 function addStyle(styleId) {
   if (!state.doc) return;
   if (items().length >= MAX_ITEMS) { notify('error', t('notice.tooMany', { max: MAX_ITEMS })); return; }
-  const item = newItem(styleId, undefined, faceFactors());
+  const random = state.settings.randomGenerate;
+  const made = newItem(styleId, random ? undefined : fixedSeed(styleId), faceFactors());
+  const item = random ? randomizeItem(made, made.seed, state.settings.varySpread / 100) : made;
   change(t('op.addStyle', { name: t(`style.${styleId}`) }), (d) => { d.items.push(item); d.selected = item.id; }, { rerender: [item.id] });
   revealSelected();
 }
@@ -428,7 +430,7 @@ async function generateSet() {
       buttons: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'add', label: t('confirm.generateAdd'), icon: 'plus' }, { id: 'replace', label: t('confirm.generateReplace'), icon: 'generate', primary: true }],
     });
     if (choice === 'cancel') return;
-    const fresh = defaultItems(state.settings.styleSet, Math.floor(Math.random() * 1e6), faceFactors());
+    const fresh = freshItems();
     if (choice === 'add') {
       const room = MAX_ITEMS - items().length;
       const added = fresh.slice(0, room);
@@ -439,8 +441,19 @@ async function generateSet() {
     change(t('op.generate'), (d) => { d.items = fresh; d.selected = fresh[0]?.id ?? null; }, { rerender: 'all' });
     return;
   }
-  const fresh = defaultItems(state.settings.styleSet, Math.floor(Math.random() * 1e6), faceFactors());
+  const fresh = freshItems();
   change(t('op.generate'), (d) => { d.items = fresh; d.selected = fresh[0]?.id ?? null; }, { rerender: 'all' });
+}
+
+/**
+ * One new caricature of each chosen style. Settings › "different picture every time" (the default):
+ * a random seed plus randomly moved exaggeration and style options, so the same photo gives new
+ * pictures on every generation. Off: fixed seeds and the styles' own values, the same pictures each time.
+ */
+function freshItems() {
+  const random = state.settings.randomGenerate;
+  if (!random) return state.settings.styleSet.map((id) => newItem(id, fixedSeed(id), faceFactors()));
+  return defaultItems(state.settings.styleSet, Math.floor(Math.random() * 1e6), faceFactors(), { randomize: true, spread: state.settings.varySpread / 100 });
 }
 
 /** A new take on every caricature (new seeds and slightly different exaggeration). */

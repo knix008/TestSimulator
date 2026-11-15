@@ -1,9 +1,9 @@
 [
  {
   "wait": 1200,
-  "eval": "return (()=>{ const n=document.querySelectorAll('.sample-photo img').length; if (n!==10) throw new Error('samples '+n); if (document.querySelector('.start-card-theme')) throw new Error('theme card shown'); return 'start page: 10 samples, no theme card'; })()",
+  "eval": "return (()=>{ const n=document.querySelectorAll('.sample-photo img').length; if (n!==40) throw new Error('samples '+n); if (document.querySelector('.start-card-theme')) throw new Error('theme card shown'); return 'start page: 40 samples, no theme card'; })()",
   "shot": "01-start",
-  "name": "start page: 10 samples, no theme card"
+  "name": "start page: 40 samples, no theme card"
  },
  {
   "eval": "return (async()=>{ const imgs=[...document.querySelectorAll('.sample-photo img')]; await Promise.all(imgs.map(i=>i.decode().catch(()=>{throw new Error('sample image failed '+i.src)}))); return 'all sample images load'; })()",

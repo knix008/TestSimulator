@@ -2,7 +2,7 @@
 //   { format, version, name, photo: { name, type, width, height, data (data: URL) },
 //     features, items: [{ id, name, styleId, seed, warp, options, effects }], selected, created, modified }
 // Saved as JSON in a .mypcut file. The photo is kept inside, so a project opens anywhere.
-import { styleById, STYLE_IDS, normalizeOptions, DEFAULT_STYLE_IDS } from '../engine/styles.js';
+import { styleById, STYLE_IDS, normalizeOptions, DEFAULT_STYLE_IDS, STYLE_OPTION_RANGE } from '../engine/styles.js';
 import { normalizeWarp, personalWarp, WARP_KEYS, WARP_RANGE } from '../engine/warp.js';
 import { normalizeEffect } from '../engine/effects.js';
 import { validFeatures } from '../engine/face.js';
@@ -43,7 +43,41 @@ export function newItem(styleId, seed = Math.floor(Math.random() * 1e9), factors
 }
 
 /** The default set: one caricature of each chosen style (all forty unless the user narrowed it). */
-export const defaultItems = (styles = DEFAULT_STYLE_IDS, seed = 1, factors = null) => styles.map((id, i) => newItem(id, (seed * 7919 + i * 104729) >>> 0, factors));
+export const defaultItems = (styles = DEFAULT_STYLE_IDS, seed = 1, factors = null, { randomize = false, spread = 0.12 } = {}) => styles.map((id, i) => {
+  const item = newItem(id, (seed * 7919 + i * 104729) >>> 0, factors);
+  return randomize ? randomizeItem(item, item.seed, spread) : item;
+});
+
+/** The seed a style gets when generation is not random: the same photo always gives the same picture. */
+export const fixedSeed = (styleId) => ((Math.max(0, STYLE_IDS.indexOf(styleId)) + 1) * 104729 + 7919) >>> 0;
+
+/** How far each style option may move in a random take (in the option's own units). */
+const OPTION_JITTER = { lines: 0.5, detail: 15, colors: 3, smooth: 15, texture: 15 };
+
+/**
+ * A random take on a freshly made caricature (settings › "different picture every time"): the
+ * exaggerations move by up to ±(`spread` + 8 %), and the style options (lines, detail, colours,
+ * smoothness, texture) around the style's own values. Options the style turns off (no lines, no
+ * texture, two-colour styles) stay as they are, so a style keeps its character. Same seed: same take.
+ */
+export function randomizeItem(item, seed = item.seed, spread = 0.12) {
+  const random = rng((seed ^ 0x5bd1e995) >>> 0);
+  const amount = Math.max(0, spread) + 0.08;
+  const warp = { ...item.warp };
+  for (const key of WARP_KEYS) warp[key] = clamp(Math.round((warp[key] + (random() * 2 - 1) * amount * warp[key]) * 100) / 100, WARP_RANGE.min, WARP_RANGE.max);
+  const options = { ...item.options };
+  for (const [key, jitter] of Object.entries(OPTION_JITTER)) {
+    const value = Number(options[key]);
+    const draw = random() * 2 - 1;
+    if (!Number.isFinite(value)) continue;
+    if ((key === 'lines' || key === 'texture') && value <= 0) continue;
+    if (key === 'colors' && value <= 2) continue;
+    const range = STYLE_OPTION_RANGE[key];
+    const min = key === 'lines' ? range.step : key === 'colors' ? 3 : range.min;
+    options[key] = clamp(Math.round((value + draw * jitter) / range.step) * range.step, min, range.max);
+  }
+  return { ...item, seed: seed >>> 0, warp: normalizeWarp(warp), options: normalizeOptions(item.styleId, options) };
+}
 
 /**
  * Another take on a caricature: a new seed (colours, background) and exaggerations moved by up to

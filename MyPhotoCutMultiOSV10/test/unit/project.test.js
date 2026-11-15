@@ -2,12 +2,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  defaultItems, FormatError, isOpenableName, isPhotoName, isProjectName, MAX_ITEMS, newItem, normalizeItem, parseProject, safeFileName, serializeProject, varyItem, extensionOf, stripExtension, directoryOf, baseName,
+  defaultItems, fixedSeed, randomizeItem, FormatError, isOpenableName, isPhotoName, isProjectName, MAX_ITEMS, newItem, normalizeItem, parseProject, safeFileName, serializeProject, varyItem, extensionOf, stripExtension, directoryOf, baseName,
 } from '../../src/domain/project.js';
 import { History } from '../../src/domain/history.js';
 import { defaultSettings, loadSettings, normalizeSettings, resetForNewInstall, STORAGE_KEY, zoomStep, applyInstallLanguage } from '../../src/domain/settings.js';
 import { addRecent, removeRecent } from '../../src/domain/recent.js';
-import { DEFAULT_STYLE_IDS, styleById } from '../../src/engine/styles.js';
+import { DEFAULT_STYLE_IDS, normalizeOptions, styleById } from '../../src/engine/styles.js';
 import { featuresFromEllipse } from '../../src/engine/face.js';
 import { newEffect } from '../../src/engine/effects.js';
 import { SAMPLE_PHOTOS } from '../../src/domain/samples.js';
@@ -30,6 +30,31 @@ test('project: variations stay within the spread and get a new id', () => {
   assert.notEqual(v.id, item.id);
   assert.equal(v.seed, 99);
   for (const key of ['head', 'eyes', 'nose']) assert.ok(Math.abs(v.warp[key] - item.warp[key]) <= item.warp[key] * 0.1 + 0.011, key);
+});
+
+test('project: random generation gives different takes; fixed generation the same', () => {
+  const a = defaultItems(DEFAULT_STYLE_IDS, 11, null, { randomize: true, spread: 0.12 });
+  const b = defaultItems(DEFAULT_STYLE_IDS, 12, null, { randomize: true, spread: 0.12 });
+  const look = (list) => list.map((i) => JSON.stringify([i.seed, i.warp, i.options]));
+  const differ = look(a).filter((s, i) => s !== look(b)[i]).length;
+  assert.equal(differ, DEFAULT_STYLE_IDS.length, 'every style draws a different picture');
+  const optionsMoved = a.filter((item) => JSON.stringify(item.options) !== JSON.stringify(normalizeOptions(item.styleId, styleById(item.styleId).options))).length;
+  assert.ok(optionsMoved >= DEFAULT_STYLE_IDS.length * 0.8, `style options moved for ${optionsMoved}`);
+  for (const item of a) {
+    const own = styleById(item.styleId).options;
+    if (own.lines <= 0) assert.equal(item.options.lines, own.lines, `${item.styleId} keeps no lines`);
+    if (own.texture <= 0) assert.equal(item.options.texture, own.texture, `${item.styleId} keeps no texture`);
+    if (own.colors <= 2) assert.equal(item.options.colors, own.colors, `${item.styleId} keeps two colours`);
+    assert.equal(item.options.background, own.background);
+  }
+  // Same seed, same take (an undo / a saved project redraws the same picture).
+  assert.deepEqual(look([randomizeItem(newItem('cartoon', 5), 5)]), look([randomizeItem(newItem('cartoon', 5), 5)]));
+  // Not random: a style always gets the same seed.
+  assert.equal(fixedSeed('cartoon'), fixedSeed('cartoon'));
+  assert.notEqual(fixedSeed(DEFAULT_STYLE_IDS[0]), fixedSeed(DEFAULT_STYLE_IDS[1]));
+  assert.equal(defaultSettings().randomGenerate, true);
+  assert.equal(normalizeSettings({ randomGenerate: false }).randomGenerate, false);
+  assert.equal(normalizeSettings({ randomGenerate: 'x' }).randomGenerate, true);
 });
 
 test('project: save and open give the same project', () => {
@@ -132,8 +157,10 @@ test('recent files: newest first, no duplicates, at most 10', () => {
   assert.equal(removeRecent(list, 'C:\\p\\11.png').length, list.length - 1);
 });
 
-test('samples: ten public-domain portraits of famous people and paintings', () => {
-  assert.equal(SAMPLE_PHOTOS.length, 20);
+test('samples: forty public-domain portraits of famous people and paintings', () => {
+  assert.equal(SAMPLE_PHOTOS.length, 40);
+  assert.equal(new Set(SAMPLE_PHOTOS.map((s) => s.id)).size, 40);
+  assert.equal(new Set(SAMPLE_PHOTOS.map((s) => s.file)).size, 40);
   assert.ok(!SAMPLE_PHOTOS.some((s) => /armstrong|ride|jemison/.test(s.id)), 'no astronauts');
   for (const s of SAMPLE_PHOTOS) assert.ok(s.file && s.ko && s.en && s.commons, s.id);
 });

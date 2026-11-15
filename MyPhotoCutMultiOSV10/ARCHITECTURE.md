@@ -41,7 +41,7 @@ index.html → src/main.js ─┬─ app.js        메인 창 (메뉴·툴바·�
 | `src/ui/` | 패널 HTML, 오버레이, 사진 입출력, 얼굴 찾기, 워커 풀, 시작 화면, 움직이는 배경 |
 | `src/i18n/` | ko/en 사전 (scripts/make-i18n.mjs 생성: 셸 공용 문구 + scripts/i18n-photo.mjs) |
 | `public/mediapipe/` | 얼굴 모델과 WASM (npm install 시 준비, git 제외) |
-| `public/samples/` | 예제 사진 10장 (퍼블릭 도메인) |
+| `public/samples/` | 예제 사진 40장 (퍼블릭 도메인) |
 
 ## 4. 설계 원칙
 

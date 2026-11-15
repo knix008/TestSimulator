@@ -262,6 +262,7 @@ function settingsCaricature() {
   return [
     row('styleSet', t('settings.styleSet'), `<span class="path">${escapeHtml(t('settings.styleSetValue', { count: s().styleSet.length }))}</span>${button('open-styles', t('action.styleSet'), 'styleSet', 'small')}`, t('settings.styleSet'), 'full'),
     toggle('autoGenerate', t('settings.autoGenerate'), 'generate'),
+    row('dice', t('settings.randomGenerate'), `<label class="switch-wrap" title="${escapeHtml(t('settings.randomGenerate'))}"><input type="checkbox" data-toggle="randomGenerate" ${s().randomGenerate ? 'checked' : ''} aria-label="${escapeHtml(t('settings.randomGenerate'))}" /><span class="switch" aria-hidden="true"></span></label>`, t('settings.randomGenerateTip')),
     toggle('autoCrop', t('settings.autoCrop'), 'crop'),
     toggle('personalWarp', t('settings.personalWarp'), 'faceFind'),
     row('wStrength', t('settings.personalGain'), numberField('personalGain', s().personalGain, 0, 500, 25, '%', t('settings.personalGain')), t('settings.personalGainTip')),

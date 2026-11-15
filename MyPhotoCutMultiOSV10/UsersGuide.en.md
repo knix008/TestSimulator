@@ -6,7 +6,7 @@ MyPhotoCut turns one photo into caricatures in forty styles at once. It runs the
 
 1. **Open a photo**: **Open** on the toolbar, **Open a photo** on the start page, drop a picture on the window, or press `Ctrl+V`.
 2. **Camera**: **Camera** takes a picture with the webcam (`Space` shoots, **Shoot in 3 s** waits).
-3. **Sample photos**: the start page has ten public-domain portraits (Mona Lisa, Girl with a Pearl Earring, Van Gogh, Einstein, Marie Curie, Lincoln, Douglass, Beethoven, Mozart, Lady with an Ermine).
+3. **Sample photos**: the start page has forty public-domain portraits (Mona Lisa, Girl with a Pearl Earring, Van Gogh, Einstein, Marie Curie, Lincoln, Beethoven, Newton, Shakespeare, Tesla, Gandhi, Florence Nightingale and more).
 
 The face, eyes, nose and mouth are found automatically (a 478-point face model that works offline), and one caricature is drawn in each chosen style (all forty by default).
 
