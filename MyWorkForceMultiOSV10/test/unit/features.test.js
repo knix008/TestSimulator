@@ -690,12 +690,16 @@ describe('Screens', () => {
     for (const key of ['Ctrl+1', 'Ctrl+Shift+H', 'G H', 'Delete', 'F1']) {
       assert.match(shortcuts, new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     }
-    assert.match(menu, /data-menu="login"/);
+    assert.match(menu, /data-action="open-login"/);
     assert.match(menu, />Sign in</);
-    assert.match(menu, /id="login-account"/);
-    assert.match(menu, /admin \/ admin/);
     ctx.ui.ready = true;
-    assert.doesNotMatch(renderMenubar(ctx), /data-menu="login"/);
+    assert.match(renderMenubar(ctx), /data-action="open-login"/);
+    ctx.ui.modal = { kind: 'login' };
+    const login = renderModal(ctx);
+    assert.match(login, /id="login-account"/);
+    assert.match(login, /id="login-password"/);
+    assert.match(login, /Login ID/);
+    assert.match(login, /admin \/ admin/);
     assert.match(nav, /User menu/);
     assert.doesNotMatch(nav, /Administrator menu/);
     assert.doesNotMatch(nav, /data-view="people"/);

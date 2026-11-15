@@ -18,15 +18,18 @@ function loginPeople(ctx) {
   }));
 }
 
-function loginBody(ctx) {
+export function loginForm(ctx) {
   const people = loginPeople(ctx);
   const account = ctx.ui.loginAccount || '';
   const chosen = people.find((user) => user.id === ctx.ui.loginUser) || people.find((user) => user.login && user.login === account) || null;
   const rows = people.map((user) => `<button type="button" data-action="pick-login" data-id="${esc(user.id)}" data-login="${esc(user.login || user.name || '')}">${icon('user')}<span>${esc(user.name)}</span>${user.login ? `<small>${esc(user.login)}</small>` : (user.email ? `<small>${esc(user.email)}</small>` : '')}${user.id === chosen?.id ? icon('check') : ''}</button>`).join('');
-  return `<label class="form-row"><span>${L('아이디', 'Account')}</span><input id="login-account" value="${esc(account)}" autocomplete="username" placeholder="admin"></label>
-    <label class="form-row"><span>${L('암호', 'Password')}</span><input id="login-password" type="password" autocomplete="current-password" placeholder="admin"></label>
+  return `<form class="login-form" data-login>
+    <label class="form-row"><span>${L('로그인 ID', 'Login ID')}</span><input id="login-account" name="account" value="${esc(account)}" autocomplete="username" placeholder="admin"></label>
+    <label class="form-row"><span>${L('비밀번호', 'Password')}</span><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="admin"></label>
     <p class="muted">${L('관리자는 admin / admin 으로 들어갑니다.', 'The administrator signs in with admin / admin.')}</p>
-    ${rows}<button type="button" class="button primary" data-action="sign-in" ${ctx.ui.connecting ? 'disabled' : ''}>${icon('check')}<span>${L('로그인', 'Sign in')}</span></button>`;
+    ${rows ? `<div class="login-people">${rows}</div>` : ''}
+    <button type="submit" class="button primary" ${ctx.ui.connecting ? 'disabled' : ''}>${icon('check')}<span>${L('로그인', 'Sign in')}</span></button>
+  </form>`;
 }
 
 function menu(ctx, id, label, glyph, body, extra = '') {
@@ -103,7 +106,7 @@ export function renderMenubar(ctx) {
   ].join('') : '';
   return `<div class="app-brand" data-window-drag><img class="app-brand-icon" src="./icon.png" alt="" data-window-drag><span class="app-brand-name" data-window-drag>MyWorkForce</span><span class="app-brand-version" data-window-drag>v${esc(ctx.version)}</span></div>
     <button type="button" class="menubar-item menubar-home${homeOn ? ' current' : ''}" data-action="menubar-home" aria-pressed="${homeOn ? 'true' : 'false'}" title="${esc(L('시작 화면을 열고, 다시 누르면 작업 공간으로 돌아갑니다.', 'Opens the start page. Press again to return to the workspace.'))} Ctrl+Shift+H">${icon('spark')}<span>${L('시작', 'Start')}</span></button>
-    ${ctx.ui.ready ? '' : menu(ctx, 'login', L('사용자 로그인', 'Sign in'), 'user', loginBody(ctx))}
+    <button type="button" class="menubar-item" data-action="open-login">${icon('user')}<span>${L('사용자 로그인', 'Sign in')}</span></button>
     <span class="menubar-cluster">
     ${menu(ctx, 'file', L('파일', 'File'), 'folder', file)}
     ${menu(ctx, 'edit', L('편집', 'Edit'), 'pencil', edit)}
@@ -282,6 +285,9 @@ export function renderModal(ctx) {
     return `<div class="modal-back"><div class="modal">${heading('alert', L('확인', 'Confirm'))}<p>${esc(modal.message)}</p><div class="modal-foot"><button type="button" class="button" data-action="modal-cancel">${icon('close')}<span>${L('취소', 'Cancel')}</span></button><button type="button" class="button primary" data-action="confirm-yes">${icon('check')}<span>${L('계속', 'Continue')}</span></button></div></div></div>`;
   }
   if (modal.kind === 'about') return aboutDialog(ctx);
+  if (modal.kind === 'login') {
+    return `<div class="modal-back"><div class="modal login-modal">${heading('user', L('사용자 로그인', 'Sign in'))}<div class="modal-body">${loginForm(ctx)}</div></div></div>`;
+  }
   if (modal.kind === 'welcome') {
     const again = ctx.settings?.showWelcome !== false;
     return `<div class="modal-back"><div class="modal welcome">${heading('play', L('튜토리얼', 'Tutorial'))}<p>${esc(L('시작할 때 튜토리얼을 실행할까요? 쇼핑몰 예제로 주요 화면을 둘러봅니다. 나중에 시작 화면에서도 시작할 수 있습니다.', 'Run the tutorial at start? It walks the main screens with the shop example. You can also start it later from the start page.'))}</p><label class="check welcome-again">${icon('play')}<input type="checkbox" data-setting="showWelcome" ${again ? 'checked' : ''}>${L('시작할 때 이 창을 다시 보여주기', 'Show this window again at start')}</label><div class="modal-foot"><button type="button" class="button" data-action="modal-cancel">${icon('close')}<span>${L('나중에', 'Later')}</span></button><button type="button" class="button primary" data-action="start-tutorial">${icon('play')}<span>${L('튜토리얼 시작', 'Start the tutorial')}</span></button></div></div></div>`;

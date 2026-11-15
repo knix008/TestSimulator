@@ -3,6 +3,7 @@ import { ENGINES } from '../domain/engines.js';
 import { gripIcon } from '../icons.js';
 import { esc, icon, L } from './bits.js';
 import { BACKGROUND_INTERVALS, BACKGROUNDS, knownBackground } from './background.js';
+import { loginForm } from './chrome.js';
 
 const KIND = {
   software: ['소프트웨어', 'Software', 'board'],
@@ -127,6 +128,7 @@ export function renderStart(ctx) {
         </section>
         ${offline}${error}
         <div class="start-board">
+        ${card('login', 'user', L('로그인', 'Sign in'), loginForm(ctx))}
         ${settings.startShowBanner === false ? '' : card('banner', 'info', L('개인용', 'Personal'), `<p>${L('지금은 개인용입니다. 이 컴퓨터의 데이터 서비스가 SQLite, MySQL, MariaDB, SQL Server, PostgreSQL 중 하나에 연결합니다. 관리 프로그램은 나중에 같은 데이터베이스를 엽니다.', 'This installation is personal for now. Its data service connects to SQLite, MySQL, MariaDB, SQL Server, or PostgreSQL. An administration app will open the same database later.')}</p>`)}
         ${card('actions', 'spark', L('시작', 'Start'), `<div class="sample-tiles">${actions}</div>`)}
         ${settings.startShowBackground === false ? '' : card('background', 'spark', L('배경', 'Background'), background, '', `<span class="sample-count">${BACKGROUNDS.length}</span>`)}

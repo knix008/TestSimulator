@@ -96,7 +96,7 @@ describe('Start screen', () => {
     const hero = html.slice(html.indexOf('start-hero'), html.indexOf('start-board'));
     assert.equal(hero.includes('data-card-handle'), false);
     assert.equal(hero.includes('data-card-resize'), false);
-    for (const id of ['banner', 'actions', 'background', 'projects', 'examples']) {
+    for (const id of ['banner', 'actions', 'login', 'background', 'projects', 'examples']) {
       assert.match(html, new RegExp(`data-card-handle="${id}"`));
       assert.match(html, new RegExp(`data-card-resize="${id}"`));
     }
@@ -109,6 +109,9 @@ describe('Start screen', () => {
     assert.equal((html.match(/data-action="pick-background"/g) || []).length, 21);
     assert.match(html, /data-action="shuffle-background"/);
     assert.match(html, /data-bg="speed"/);
+    assert.match(html, /id="login-account"/);
+    assert.match(html, /id="login-password"/);
+    assert.match(html, /data-login/);
     const hidden = renderStart({ ui: { status: { listening: true }, connecting: false }, settings: { startShowBackground: false, startShowExamples: false, startShowProjects: false, startShowBanner: false } });
     assert.equal(hidden.includes('data-card="background"'), false);
     assert.equal(hidden.includes('data-card="examples"'), false);

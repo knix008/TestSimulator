@@ -794,18 +794,37 @@ function runConfirmed() {
 function onAction(el) {
   const name = el.dataset.action;
   const current = project();
+  if (name === 'open-login') {
+    if (ui.modal?.kind === 'welcome') ui.modal = null;
+    if (!ui.ready) {
+      paint();
+      document.querySelector('[data-card="login"]')?.scrollIntoView({ block: 'nearest' });
+      document.querySelector('#login-account')?.focus();
+      return;
+    }
+    ui.modal = { kind: 'login' };
+    paint();
+    return;
+  }
   if (name === 'pick-login') {
+    const password = document.querySelector('#login-password')?.value || '';
     ui.loginUser = el.dataset.id;
     ui.loginAccount = el.dataset.login || '';
-    ui.menu = 'login';
+    const modal = document.querySelector('#modal');
+    if (modal && ui.modal?.kind === 'login') modal.dataset.kind = '';
     paint();
+    const account = document.querySelector('#login-account');
+    const pass = document.querySelector('#login-password');
+    if (account) account.value = ui.loginAccount;
+    if (pass) pass.value = password;
+    pass?.focus();
     return;
   }
   if (name === 'sign-in') {
     if (ui.connecting) return;
     ui.loginAccount = document.querySelector('#login-account')?.value.trim() || '';
     ui.loginPassword = document.querySelector('#login-password')?.value || '';
-    if (!ui.loginAccount && !ui.loginUser) { toast(L('아이디를 입력하세요.', 'Enter an account.')); ui.menu = 'login'; paint(); return; }
+    if (!ui.loginAccount && !ui.loginUser) { toast(L('로그인 ID를 입력하세요.', 'Enter a login ID.')); return; }
     const known = userByAccount(ws.users, ui.loginAccount) || (ws.users || []).find((user) => user.id === ui.loginUser);
     if (ui.opened && known) {
       const enter = () => {
@@ -813,11 +832,12 @@ function onAction(el) {
         ui.loginPassword = '';
         ui.unlocked = true;
         ui.menu = null;
+        if (ui.modal?.kind === 'login') ui.modal = null;
         if (!ui.ready) showStartPage(false);
         else { scheduleSave(); paint(); }
       };
       if (known.passwordHash) {
-        if (!ui.loginPassword) { toast(message(new Error('password'))); ui.menu = 'login'; paint(); return; }
+        if (!ui.loginPassword) { toast(message(new Error('password'))); return; }
         const finish = () => unlockData(known.id, ui.loginPassword).then(enter).catch((error) => { ui.menu = 'login'; fail(error); });
         if (ensureAdmin(ws)) saveWorkspace(ws).then(finish).catch((error) => { ui.menu = 'login'; fail(error); });
         else finish();
@@ -1517,6 +1537,8 @@ function mount() {
   document.body.addEventListener('submit', (event) => {
     const server = event.target.closest('#server-form');
     if (server) { event.preventDefault(); connectServer(server); return; }
+    const login = event.target.closest('[data-login]');
+    if (login) { event.preventDefault(); onAction({ dataset: { action: 'sign-in' } }); return; }
     const form = event.target.closest('#modal form');
     if (!form) return;
     event.preventDefault();

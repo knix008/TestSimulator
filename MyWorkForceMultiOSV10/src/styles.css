@@ -391,6 +391,12 @@ ul.plain li { display: flex; align-items: center; gap: 6px; padding: 4px 0; bord
 .bg-tile.on, .bg-tile:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
 .start-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 .welcome-again { margin-top: 8px; }
+.login-form { display: flex; flex-direction: column; gap: 8px; max-width: 480px; }
+.login-people { display: flex; flex-direction: column; gap: 2px; }
+.login-people button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; border-radius: 6px; background: none; padding: 6px 8px; }
+.login-people button:hover { background: var(--hover); }
+.login-people button span { flex: 1; }
+.login-modal .modal-body { padding-bottom: 14px; }
 .start-speed { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .start-speed input[type="range"] { width: 110px; }
 .start-speed output { min-width: 36px; }
