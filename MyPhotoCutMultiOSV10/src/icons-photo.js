@@ -136,5 +136,6 @@ export const PHOTO_ICONS = {
   layoutList: '<rect x="3" y="4" width="6" height="6" rx="1.2"/><rect x="3" y="14" width="6" height="6" rx="1.2"/><path d="M12 6h9M12 9h6M12 16h9M12 19h6"/>',
   layoutStrip: '<rect x="2" y="6" width="6" height="12" rx="1.2"/><rect x="9" y="6" width="6" height="12" rx="1.2"/><rect x="16" y="6" width="6" height="12" rx="1.2"/><path d="M2 21h20" stroke-dasharray="2 2"/>',
   crop: '<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M2 6h14a2 2 0 0 1 2 2v14"/><circle cx="12" cy="11" r="2.2"/>',
+  selectArea: '<path d="M4 8V5a1 1 0 0 1 1-1h3M12 4h2M18 4h1a1 1 0 0 1 1 1v3M20 12v2M4 12v2M4 18v1a1 1 0 0 0 1 1h3M12 20h1"/><path d="M15 15l6 2.2-2.6 1.2L17.2 21z"/>',
   seed: '<circle cx="8" cy="8" r="4"/><circle cx="16" cy="16" r="4"/><path d="M11 11l2 2"/>',
 };

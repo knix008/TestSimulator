@@ -10,7 +10,7 @@ import {
 } from './domain/settings.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
-  baseName, defaultItems, directoryOf, fixedSeed, FormatError, isOpenableName, isProjectName, MAX_ITEMS, mimeOf, newItem, parseProject, PHOTO_EXTENSIONS,
+  areaFromPoints, baseName, defaultItems, directoryOf, fixedSeed, FormatError, isOpenableName, isProjectName, MAX_ITEMS, mimeOf, newItem, parseProject, PHOTO_EXTENSIONS,
   PROJECT_EXTENSION, randomizeItem, safeFileName, serializeProject, stripExtension, varyItem,
 } from './domain/project.js';
 import { History } from './domain/history.js';
@@ -74,6 +74,8 @@ const state = {
   showStart: false,
   dropActive: false,
   clipboardEffects: null,
+  /** "Select area" mode: a drag on the photo draws the area (the face points step aside). */
+  selectingArea: false,
 };
 
 let pool = null;
@@ -121,7 +123,7 @@ window.addEventListener('unhandledrejection', (event) => showError('error.unexpe
 // ───────────────────────── the document: photo → analysis → caricatures
 
 /** The editable part of the document (what Undo restores). */
-const snapshot = () => ({ features: clone(state.doc.features), items: clone(state.doc.items), selected: state.doc.selected, autoCrop: state.doc.autoCrop, crop: clone(state.doc.crop) });
+const snapshot = () => ({ features: clone(state.doc.features), items: clone(state.doc.items), selected: state.doc.selected, autoCrop: state.doc.autoCrop, crop: clone(state.doc.crop), cropManual: state.doc.cropManual });
 
 /**
  * Changes the document: records Undo, applies `mutate(doc)`, marks it modified and redraws the
@@ -174,6 +176,7 @@ function restore(saved) {
   d.selected = saved.selected;
   d.autoCrop = saved.autoCrop;
   d.crop = saved.crop;
+  d.cropManual = Boolean(saved.cropManual);
   d.dirty = true;
   if (framingChanged) buildWork();
   for (const id of [...state.results.keys()]) if (!d.items.some((item) => item.id === id)) dropResult(id);
@@ -205,6 +208,8 @@ async function openPhoto(img, { name, path = null, project = null } = {}) {
     /** Head-and-shoulders framing ({ x, y, w, h } in photo pixels) and whether it is used. */
     autoCrop: project ? project.autoCrop : state.settings.autoCrop,
     crop: project?.crop ?? null,
+    /** `crop` is an area the user drew on the photo (kept when the face is found again). */
+    cropManual: Boolean(project?.cropManual && project?.crop),
     region: null,
     regionUrl: null,
     features: project?.features ?? null,
@@ -220,6 +225,7 @@ async function openPhoto(img, { name, path = null, project = null } = {}) {
   state.compare = false;
   state.zoom = 0;
   state.showStart = false;
+  state.selectingArea = false;
   renderAll();
   await prepareWork({ analyseFace: !validFeatures(state.doc.features) });
   if (!state.doc.items.length && state.settings.autoGenerate) state.doc.items = freshItems();
@@ -245,7 +251,10 @@ async function prepareWork({ analyseFace = true } = {}) {
     const found = scaleFeatures(result.features, 1 / fullScale);
     d.autoFeatures = found;
     if (analyseFace || !validFeatures(d.features)) d.features = found;
-    if (analyseFace || !d.crop) d.crop = faceCrop(d.features, d.photo.width, d.photo.height);
+    if (d.cropManual && d.crop) {
+      // The user's own area stays; the face is looked for inside it.
+      if (analyseFace) d.features = (await faceInArea(d.crop)) ?? d.features;
+    } else if (analyseFace || !d.crop) d.crop = faceCrop(d.features, d.photo.width, d.photo.height);
     d.analysis = { faceMethod: result.faceMethod, maskMethod: result.maskMethod, faces: result.faces };
     if (result.faceMethod !== 'landmarks' && state.settings.useFaceModel && analyseFace) notify('info', t(result.faceMethod === 'default' ? 'notice.faceNotFound' : 'notice.faceBySkin'));
   } catch (error) {
@@ -275,20 +284,134 @@ function buildWork() {
 const regionFeatures = (scale) => scaleFeatures(translateFeatures(state.doc.features, -state.doc.region.x, -state.doc.region.y), scale);
 const workFeatures = () => regionFeatures(state.doc.workScale);
 
-/** Head-and-shoulders framing on / off (an Undo step; every caricature is drawn again). */
+/**
+ * Head-and-shoulders framing on / off (an Undo step; every caricature is drawn again). With an area
+ * the user selected, this switches to the automatic framing instead.
+ */
 function toggleCrop() {
   const d = state.doc;
   if (!d) return;
-  const crop = d.crop ?? faceCrop(d.features, d.photo.width, d.photo.height);
-  if (!d.autoCrop && !crop) { notify('info', t('notice.cropNotNeeded')); return; }
-  d.history.push(snapshot(), t(d.autoCrop ? 'op.cropOff' : 'op.cropOn'));
-  d.autoCrop = !d.autoCrop;
+  const manual = d.cropManual && d.autoCrop && d.crop;
+  const crop = manual || !d.crop ? faceCrop(d.features, d.photo.width, d.photo.height) : d.crop;
+  if ((!d.autoCrop || manual) && !crop) { notify('info', t('notice.cropNotNeeded')); return; }
+  d.history.push(snapshot(), t(d.autoCrop && !manual ? 'op.cropOff' : 'op.cropOn'));
+  d.autoCrop = manual ? true : !d.autoCrop;
   d.crop = crop;
+  d.cropManual = false;
+  framingChanged();
+}
+
+/** Every caricature is drawn again from the new framing. */
+function framingChanged() {
+  const d = state.doc;
   d.dirty = true;
   buildWork();
   renderLeft();
   renderCenter();
   afterChange('all');
+}
+
+/** The face found inside `area` (photo pixels), in photo pixels; null when no face is there. */
+async function faceInArea(area) {
+  const d = state.doc;
+  try {
+    const raster = rasterFromImage(d.img, state.settings.workSize, area);
+    const result = await analyse(raster, { useFaceModel: state.settings.useFaceModel, usePersonMask: false });
+    if (!validFeatures(result.features) || result.features.method === 'default') return null;
+    return translateFeatures(scaleFeatures(result.features, area.w / raster.width), area.x, area.y);
+  } catch (error) {
+    console.warn('face in area:', error);
+    return null;
+  }
+}
+
+/**
+ * The caricatures are drawn from `area` (photo pixels), an area the user drew on the photo. The face
+ * is looked for inside it, so another person in the photo can be chosen. An Undo step.
+ */
+async function selectArea(area) {
+  const d = state.doc;
+  area = d && area ? areaFromPoints({ x: area.x, y: area.y }, { x: area.x + area.w, y: area.y + area.h }, d.photo.width, d.photo.height) : null;
+  if (!d?.work || !area) return false;
+  state.selectingArea = false;
+  d.history.push(snapshot(), t('op.selectArea'));
+  d.crop = { ...area };
+  d.autoCrop = true;
+  d.cropManual = true;
+  state.analysing = true;
+  renderStatus();
+  try {
+    const face = await faceInArea(area);
+    if (face) d.features = face;
+    else notify('info', t('notice.areaNoFace'));
+  } finally {
+    state.analysing = false;
+  }
+  framingChanged();
+  notify('success', t('notice.areaSelected', { w: area.w, h: area.h }));
+  return true;
+}
+
+/** The whole photo again (no framing, no selected area). An Undo step. */
+function useWholePhoto() {
+  const d = state.doc;
+  if (!d || !d.autoCrop || !d.crop) return;
+  d.history.push(snapshot(), t('op.wholePhoto'));
+  d.autoCrop = false;
+  d.cropManual = false;
+  framingChanged();
+}
+
+/** "Select area" mode on / off: in it the face points step aside and any drag on the photo draws the area. */
+function toggleAreaMode(on = !state.selectingArea) {
+  state.selectingArea = Boolean(on && state.doc?.work);
+  if (state.selectingArea && !state.settings.showLeftPanel) toggle('showLeftPanel');
+  if (state.selectingArea && state.leftTab === 'paint') state.leftTab = 'photo';
+  renderLeft();
+  if (state.selectingArea) notify('info', t('notice.areaMode'));
+}
+
+/** Drawing the area on the photo with the mouse (photo pixels from the screen). */
+function startAreaDrag(event) {
+  const d = state.doc;
+  const view = root.querySelector('#source-view');
+  const img = root.querySelector('#source-img');
+  if (!d?.work || !view || !img) return;
+  event.preventDefault();
+  const rect = img.getBoundingClientRect();
+  const toPhoto = (e) => ({ x: ((e.clientX - rect.left) / rect.width) * d.photo.width, y: ((e.clientY - rect.top) / rect.height) * d.photo.height });
+  const from = toPhoto(event);
+  let area = null;
+  pointerDrag(event, {
+    threshold: 3,
+    cursor: 'crosshair',
+    move: (dx, dy, e) => {
+      area = areaFromPoints(from, toPhoto(e), d.photo.width, d.photo.height);
+      renderAreaBox(area ?? { ...from, w: 0, h: 0 }, true);
+    },
+    end: (e, moved) => {
+      if (!moved || !area) { renderAreaBox(); return; }
+      selectArea(area);
+    },
+  });
+}
+
+/** The area the caricatures are drawn from (dimming the rest), or the one being drawn. */
+function renderAreaBox(drawing = null, live = false) {
+  const svg = root.querySelector('#source-area');
+  const d = state.doc;
+  if (!svg || !d) return;
+  const { width: W, height: H } = d.photo;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const box = drawing ?? (d.autoCrop && d.crop ? d.crop : null);
+  if (!box) { svg.innerHTML = ''; return; }
+  const kind = live ? 'drawing' : d.cropManual ? 'manual' : 'auto';
+  // The rest of the photo is dimmed by four bands around the box.
+  const bands = [[0, 0, W, box.y], [0, box.y + box.h, W, H - box.y - box.h], [0, box.y, box.x, box.h], [box.x + box.w, box.y, W - box.x - box.w, box.h]]
+    .filter(([, , w, h]) => w > 0 && h > 0)
+    .map(([x, y, w, h]) => `<rect class="area-shade" x="${x}" y="${y}" width="${w}" height="${h}" fill="#080a14" fill-opacity="0.6" shape-rendering="crispEdges"/>`).join('');
+  svg.innerHTML = `${bands}
+    <rect class="area-frame area-${kind}" x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}"><title>${escapeHtml(t(kind === 'auto' ? 'face.cropFrame' : 'face.areaFrame'))}</title></rect>`;
 }
 
 /** Draws one caricature in a worker; the card and the large view update when it is done. */
@@ -443,6 +566,18 @@ async function generateSet() {
   }
   const fresh = freshItems();
   change(t('op.generate'), (d) => { d.items = fresh; d.selected = fresh[0]?.id ?? null; }, { rerender: 'all' });
+}
+
+/**
+ * Toolbar "Regenerate" (Shift+F5): a fresh set of the chosen styles replaces the current one at
+ * once, without asking (Undo brings the old set back). The same position stays selected.
+ */
+function regenerateSet() {
+  if (!state.doc?.work) return;
+  const index = Math.max(0, items().findIndex((x) => x.id === state.doc.selected));
+  const fresh = freshItems();
+  state.results.clear();
+  change(t('op.regenerate'), (d) => { d.items = fresh; d.selected = fresh[Math.min(index, fresh.length - 1)]?.id ?? null; }, { rerender: 'all' });
 }
 
 /**
@@ -793,7 +928,7 @@ const projectName = () => `${safeFileName(state.doc.path ? stripExtension(baseNa
 
 function projectData() {
   const d = state.doc;
-  return { name: d.name, created: d.created, photo: d.photo, features: d.features, items: d.items, selected: d.selected, autoCrop: d.autoCrop, crop: d.crop };
+  return { name: d.name, created: d.created, photo: d.photo, features: d.features, items: d.items, selected: d.selected, autoCrop: d.autoCrop, crop: d.crop, cropManual: Boolean(d.cropManual) };
 }
 
 async function saveDoc({ saveAs = false } = {}) {
@@ -1098,13 +1233,16 @@ const commands = {
   prev: { icon: 'chevronLeft', label: 'action.prev', key: '←', enabled: () => items().length > 1, run: () => step(-1) },
   next: { icon: 'chevronRight', label: 'action.next', key: '→', enabled: () => items().length > 1, run: () => step(1) },
   generate: { icon: 'generate', label: 'action.generate', key: 'F5', enabled: () => Boolean(state.doc?.work), run: () => generateSet() },
+  regenerate: { icon: 'refresh', label: 'action.regenerate', key: 'Shift+F5', enabled: () => Boolean(state.doc?.work), run: () => regenerateSet() },
   varyAll: { icon: 'regenerate', label: 'action.varyAll', key: 'Ctrl+Shift+R', enabled: () => items().length > 0, run: () => varyAll() },
   styleSet: { icon: 'styleSet', label: 'action.styleSet', run: () => openStyleSet() },
   addStyleMenu: { icon: 'plus', label: 'action.addStyle', enabled: hasDoc, run: (c) => styleMenu(c?.anchor ?? anchorFor('addStyleMenu')) },
   faceFind: { icon: 'faceFind', label: 'action.faceFind', key: 'Ctrl+Shift+F', enabled: () => Boolean(state.doc?.work) && !state.analysing, run: () => refindFace() },
   faceReset: { icon: 'faceReset', label: 'action.faceReset', enabled: () => Boolean(state.doc?.autoFeatures) && JSON.stringify(state.doc.autoFeatures) !== JSON.stringify(state.doc.features), run: () => resetFace() },
   landmarks: { icon: 'landmarks', label: 'action.landmarks', key: 'Ctrl+L', run: () => toggle('showLandmarks'), checked: () => state.settings.showLandmarks },
-  cropFace: { icon: 'crop', label: 'action.cropFace', key: 'Ctrl+J', enabled: () => Boolean(state.doc?.work), run: () => toggleCrop(), checked: () => Boolean(state.doc?.autoCrop && state.doc?.crop) },
+  cropFace: { icon: 'crop', label: 'action.cropFace', key: 'Ctrl+J', enabled: () => Boolean(state.doc?.work), run: () => toggleCrop(), checked: () => Boolean(state.doc?.autoCrop && state.doc?.crop && !state.doc?.cropManual) },
+  selectArea: { icon: 'selectArea', label: 'action.selectArea', key: 'Ctrl+Shift+A', enabled: () => Boolean(state.doc?.work), run: () => toggleAreaMode(), checked: () => Boolean(state.selectingArea || (state.doc?.cropManual && state.doc?.autoCrop)) },
+  wholePhoto: { icon: 'original', label: 'action.wholePhoto', enabled: () => Boolean(state.doc?.work && state.doc.autoCrop && state.doc.crop), run: () => useWholePhoto(), checked: () => Boolean(state.doc && !(state.doc.autoCrop && state.doc.crop)) },
   warpStyle: { icon: 'refresh', label: 'action.warpStyle', enabled: () => hasItem() && !sameWarp(selectedItem().warp, { ...styleById(selectedItem().styleId).warp, strength: 1 }), run: () => warpPreset('style') },
   warpNone: { icon: 'original', label: 'action.warpNone', enabled: () => hasItem() && !sameWarp(selectedItem().warp, NO_WARP), run: () => warpPreset('none') },
   warpRandom: { icon: 'dice', label: 'action.warpRandom', enabled: hasItem, run: () => warpPreset('random') },
@@ -1184,7 +1322,7 @@ async function run(id, context) {
 const MENUS = {
   file: ['open', 'camera', 'pastePhoto', 'sampleMenu', 'recent', 'startPage', '-', 'save', 'saveAs', '-', 'exportImage', 'exportAll', 'exportSheet', 'copyImage', '-', 'print', '-', 'closePhoto', 'exit'],
   edit: ['undo', 'redo', '-', 'duplicate', 'vary', 'rename', 'delete', '-', 'prev', 'next'],
-  caricature: ['generate', 'varyAll', 'addStyleMenu', 'styleSet', '-', 'warpPersonal', 'personalAll', 'warpStyle', 'warpNone', 'warpRandom', '-', 'optionsReset', 'reseed', '-', 'faceFind', 'faceReset', 'landmarks', 'cropFace'],
+  caricature: ['generate', 'regenerate', 'varyAll', 'addStyleMenu', 'styleSet', '-', 'warpPersonal', 'personalAll', 'warpStyle', 'warpNone', 'warpRandom', '-', 'optionsReset', 'reseed', '-', 'faceFind', 'faceReset', 'landmarks', '-', 'selectArea', 'cropFace', 'wholePhoto'],
   effects: ['addEffectMenu', '-', 'effectsCopy', 'effectsPaste', 'effectsToAll', 'effectsClear'],
   view: ['gallery', 'single', 'compare', 'layoutMenu', '-', 'zoomIn', 'zoomOut', 'zoomFit', 'zoom100', '-', 'columnsMenu', 'showNames', '-', 'leftPanel', 'rightPanel', 'statusBar', '-', 'themeMenu', 'theme', 'language', 'shuffleBackground', 'backgroundImage', 'clearBackground'],
   help: ['welcome', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
@@ -1195,8 +1333,8 @@ const MENU_ICONS = { file: 'file', edit: 'edit', caricature: 'generate', effects
 const TOOLBAR = [
   ['open', 'camera', 'save', 'print', 'exportSplit'],
   ['undo', 'redo'],
-  ['generate', 'vary', 'styleSet', 'addEffectMenu'],
-  ['faceFind', 'landmarks', 'cropFace'],
+  ['generate', 'regenerate', 'vary', 'styleSet', 'addEffectMenu'],
+  ['faceFind', 'landmarks', 'selectArea', 'cropFace'],
   ['gallery', 'single', 'compare', 'layoutMenu'],
   ['tileSize'],
   ['zoom'],
@@ -1205,7 +1343,7 @@ const TOOLBAR = [
 const TOOLBAR_RIGHT = ['themeSplit', 'language', 'settings', 'about'];
 const SHORT_LABELS = {
   open: 'tool.open', camera: 'tool.camera', save: 'tool.save', print: 'tool.print', exportImage: 'tool.export', undo: 'tool.undo', redo: 'tool.redo', generate: 'tool.generate', vary: 'tool.vary',
-  styleSet: 'tool.styleSet', addEffectMenu: 'tool.effect', faceFind: 'tool.faceFind', landmarks: 'tool.landmarks', cropFace: 'tool.cropFace', gallery: 'tool.gallery', single: 'tool.single', compare: 'tool.compare',
+  styleSet: 'tool.styleSet', addEffectMenu: 'tool.effect', faceFind: 'tool.faceFind', landmarks: 'tool.landmarks', cropFace: 'tool.cropFace', selectArea: 'tool.selectArea', gallery: 'tool.gallery', single: 'tool.single', compare: 'tool.compare',
   zoomFit: 'tool.zoomFit', layoutMenu: 'tool.layout', leftPanel: 'tool.leftPanel', rightPanel: 'tool.rightPanel', theme: 'tool.theme', language: 'tool.language', settings: 'tool.settings', about: 'tool.about',
 };
 const toolLabel = (id) => t(SHORT_LABELS[id] ?? commands[id].label).replace(/…$/, '');
@@ -1406,7 +1544,7 @@ function renderLeft() {
   if (!panel) return;
   if (!state.settings.showLeftPanel) { panel.innerHTML = panelRail('left'); attachPaintControls(); renderToolbarState(); return; }
   fillPanel(panel, 'left', state.leftTab === 'paint' ? paintToolsHtml() : leftPanelHtml(appApi));
-  if (state.leftTab !== 'paint') renderLeftMarks();
+  if (state.leftTab !== 'paint') { renderLeftMarks(); renderAreaBox(); root.querySelector('#source-view')?.classList.toggle('selecting', Boolean(state.selectingArea)); }
   syncPaintOriginal();
   attachPaintControls();
   renderToolbarState();
@@ -1459,7 +1597,7 @@ function renderLeftMarks() {
   const d = state.doc;
   if (!svg || !d) return;
   svg.setAttribute('viewBox', `0 0 ${d.photo.width} ${d.photo.height}`);
-  svg.innerHTML = marksSvg(d.features, d.photo.width, d.photo.height, d.autoCrop ? d.crop : null);
+  svg.innerHTML = marksSvg(d.features, d.photo.width, d.photo.height);
   svg.classList.toggle('hidden', !state.settings.showLandmarks);
 }
 
@@ -2272,14 +2410,16 @@ function bindEvents() {
     if (event.target.closest('#single-canvas') && selectedItem()) return cardMenu(event, selectedItem().id);
     if (event.target.closest('#source-view') && state.doc) {
       const point = toScreen(event.clientX, event.clientY);
-      return showMenu(menuItems(['faceFind', 'faceReset', 'landmarks', 'cropFace', '-', 'generate', 'styleSet', '-', 'open', 'camera']), { x: point.x + 1, y: point.y + 1, flipY: point.y }, 'context', { header: { icon: 'original', title: t('panel.photo') } });
+      return showMenu(menuItems(['selectArea', 'cropFace', 'wholePhoto', '-', 'faceFind', 'faceReset', 'landmarks', '-', 'generate', 'styleSet', '-', 'open', 'camera']), { x: point.x + 1, y: point.y + 1, flipY: point.y }, 'context', { header: { icon: 'original', title: t('panel.photo') } });
     }
     return undefined;
   });
 
   root.addEventListener('pointerdown', (event) => {
     const handle = event.target.closest('[data-handle]');
-    if (handle && event.button === 0) return startHandleDrag(event, handle);
+    if (handle && event.button === 0 && !state.selectingArea) return startHandleDrag(event, handle);
+    // Dragging on the photo (not on a face point) selects the area the caricatures are drawn from.
+    if (event.button === 0 && state.doc?.work && state.leftTab !== 'paint' && event.target.closest('#source-view')) return startAreaDrag(event);
     const bar = event.target.closest('.compare-bar, .single-view.comparing .single-canvas');
     if (bar && event.button === 0 && state.compare) {
       const holder = root.querySelector('#single-canvas');
@@ -2447,7 +2587,7 @@ function onKeyDown(event) {
     return;
   }
   if (key === 'f1') { event.preventDefault(); run('about'); return; }
-  if (key === 'f5') { event.preventDefault(); run('generate'); return; }
+  if (key === 'f5') { event.preventDefault(); run(event.shiftKey ? 'regenerate' : 'generate'); return; }
   if (editing) {
     if (key === 'escape') event.target.blur();
     return;
@@ -2458,7 +2598,7 @@ function onKeyDown(event) {
   if (key === 'arrowright' || key === 'arrowdown') { event.preventDefault(); step(1); return; }
   if (key === 'arrowleft' || key === 'arrowup') { event.preventDefault(); step(-1); return; }
   if (key === 'enter') { event.preventDefault(); setView('single'); return; }
-  if (key === 'escape') { event.preventDefault(); if (state.compare) { state.compare = false; renderSingle(); renderToolbarState(); } else setView('gallery'); }
+  if (key === 'escape') { event.preventDefault(); if (state.selectingArea) toggleAreaMode(false); else if (state.compare) { state.compare = false; renderSingle(); renderToolbarState(); } else setView('gallery'); }
 }
 
 // ───────────────────────── popup actions
@@ -2507,6 +2647,7 @@ const appApi = {
   selectedIndex,
   hasPhoto: hasDoc,
   settings: () => state.settings,
+  selectingArea: () => state.selectingArea,
   version: () => state.info?.version ?? VERSION,
 };
 
@@ -2581,7 +2722,7 @@ window.__myphotocut = {
   actions: {
     openSample, openDataUrl, openContent, openPath, saveDoc, closePhoto, select, setView, setZoom, addStyle, duplicateItem, varySelected, deleteItem, generateSet, varyAll,
     setItemValue, setStyle, renameItem, warpPreset, addEffect, effectAction, setEffectParam, effectsToAll, refindFace, resetFace, undo, redo, updateSettings, showStartPage,
-    exportCanvas, buildSheet, toggleCrop, setLayout, openPrint, printImages, openMenubarMenu, showError, notify, projectData, serialize: () => serializeProject(projectData()),
+    exportCanvas, buildSheet, toggleCrop, selectArea, useWholePhoto, toggleAreaMode, regenerateSet, setLayout, openPrint, printImages, openMenubarMenu, showError, notify, projectData, serialize: () => serializeProject(projectData()),
     /** Resolves when no caricature is being drawn. */
     idle: () => new Promise((resolve) => { const check = () => (pool.busy === 0 && !state.analysing ? resolve(true) : setTimeout(check, 100)); check(); }),
   },

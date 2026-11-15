@@ -119,6 +119,7 @@ export function serializeProject(project) {
     selected: project.selected ?? null,
     autoCrop: project.autoCrop !== false,
     crop: project.crop ?? null,
+    cropManual: Boolean(project.cropManual && project.crop),
   });
 }
 
@@ -144,7 +145,26 @@ export function parseProject(text) {
     selected: items.some((item) => item.id === raw.selected) ? raw.selected : items[0]?.id ?? null,
     autoCrop: raw.autoCrop !== false,
     crop: validCrop(raw.crop, photo.width, photo.height),
+    /** The area was drawn by the user (not the automatic head-and-shoulders framing). */
+    cropManual: raw.cropManual === true && Boolean(validCrop(raw.crop, photo.width, photo.height)),
   };
+}
+
+/** Smallest side of an area the user may select, in photo pixels. */
+export const MIN_AREA = 16;
+
+/**
+ * The rectangle between two points (photo pixels, any order), kept inside the photo and rounded;
+ * null when a side is shorter than MIN_AREA (a click rather than a drag).
+ */
+export function areaFromPoints(a, b, width, height) {
+  const x0 = Math.max(0, Math.min(width, Math.min(a.x, b.x)));
+  const y0 = Math.max(0, Math.min(height, Math.min(a.y, b.y)));
+  const x1 = Math.max(0, Math.min(width, Math.max(a.x, b.x)));
+  const y1 = Math.max(0, Math.min(height, Math.max(a.y, b.y)));
+  const area = { x: Math.round(x0), y: Math.round(y0), w: Math.round(x1 - x0), h: Math.round(y1 - y0) };
+  if (area.w < MIN_AREA || area.h < MIN_AREA) return null;
+  return area;
 }
 
 /** A framing rectangle inside the photo, or null. */

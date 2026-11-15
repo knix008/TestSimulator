@@ -44,8 +44,10 @@ export function leftPanelHtml(app) {
   const maskMethod = t(`face.mask.${a.maskMethod ?? 'shape'}`);
   return `<div class="source-view" id="source-view">
       <img id="source-img" src="${escapeHtml(doc.photo.data)}" alt="${escapeHtml(doc.photo.name)}" draggable="false" />
+      <svg id="source-area" class="source-area" aria-hidden="true"></svg>
       <svg id="source-marks" class="source-marks ${app.settings().showLandmarks ? '' : 'hidden'}" aria-hidden="true"></svg>
     </div>
+    <p class="panel-hint">${icon('selectArea')}<span>${escapeHtml(t('panel.areaHint'))}</span></p>
     <p class="panel-hint">${icon('bulb')}<span>${escapeHtml(t('panel.dragHint'))}</span></p>
     <div class="info-rows">
       ${row('faceFind', t('panel.faceMethod'), `<span class="badge ${doc.features?.method === 'landmarks' ? 'ok' : doc.features?.method === 'manual' ? 'info' : 'warn'}">${escapeHtml(method)}</span>`)}
@@ -57,7 +59,9 @@ export function leftPanelHtml(app) {
       ${gridButton('data-command', 'faceFind', 'faceFind', t('action.faceFind'), t('tip.faceFind'))}
       ${gridButton('data-command', 'faceReset', 'faceReset', t('action.faceReset'), t('tip.faceReset'))}
       ${gridButton('data-command', 'landmarks', 'landmarks', t('action.landmarks'), t('tip.landmarks'), app.settings().showLandmarks ? 'active' : '')}
-      ${gridButton('data-command', 'cropFace', 'crop', t('action.cropFace'), t('tip.cropFace'), doc.autoCrop && doc.crop ? 'active' : '')}
+      ${gridButton('data-command', 'selectArea', 'selectArea', t('action.selectArea'), t('tip.selectArea'), app.selectingArea?.() || (doc.cropManual && doc.autoCrop) ? 'active' : '')}
+      ${gridButton('data-command', 'cropFace', 'crop', t('action.cropFace'), t('tip.cropFace'), doc.autoCrop && doc.crop && !doc.cropManual ? 'active' : '')}
+      ${gridButton('data-command', 'wholePhoto', 'original', t('action.wholePhoto'), t('tip.wholePhoto'), !(doc.autoCrop && doc.crop) ? 'active' : '')}
       ${gridButton('data-command', 'generate', 'generate', t('action.generate'), t('tip.generate'))}
       ${gridButton('data-command', 'styleSet', 'styleSet', t('tool.styleSet'), t('tip.styleSet'))}
     </div>

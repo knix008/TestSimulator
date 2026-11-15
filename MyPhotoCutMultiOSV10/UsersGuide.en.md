@@ -24,16 +24,35 @@ JPEG, PNG, WebP, AVIF, GIF, BMP, ICO, SVG (read by the browser); TIFF, TGA, PSD,
 |---|---|
 | Menu bar | Name and version, Home (start page ⇄ work), File, Edit, Caricature, Effects, View, Help, the photo's name, window buttons |
 | Toolbar | Icon and name for every button; a narrow window hides the names only |
-| Left: Photo | The photo with its face points, how the face was found, find again, reset points, framing, 40 style buttons |
+| Left: Photo | The photo with its face points and the area drawn from (a box on the photo), how the face was found, find again, reset points, Select area · Frame head and shoulders · Whole photo, 40 style buttons |
 | Centre | Gallery, or the large view (compare with the photo, zoom, film strip) |
 | Right: Caricature | Name and style, exaggeration, style options, effects |
 | Status bar | Notices, drawings in progress, photo size, face method, theme, clock, resize grip |
 
-## 3. Correcting the face points
+## 3. The area and the face points
+
+### Select area — choose it with the mouse
+
+The caricatures are drawn from an area of the original photo, one of three:
+
+| Area | How | On the photo |
+|---|---|---|
+| **Select area** (your own) | Drag a box on the original photo in the left panel. **Select area** on the toolbar, the left panel or the Caricature menu (`Ctrl+Shift+A`) moves the face points aside so you can drag anywhere (`Esc` cancels) | Solid blue box, the rest dimmed |
+| **Frame head and shoulders** (automatic) | `Ctrl+J`. A photo whose face is small is cut to head and shoulders (Settings › Caricature › Automatic framing) | Pink dashed box |
+| **Whole photo** | No area: the whole photo | No box |
+
+![Select area: the forty caricatures are drawn again from the blue box dragged on the photo](images/14-area.jpg)
+
+- After you draw an area every caricature is drawn again from it, and the face is **looked for inside it** — in a photo of several people, draw the box around the one you want. With no face inside, the current face points are kept.
+- Drag in any direction; parts outside the photo are pulled back in. A click or a box under 16 px on a side changes nothing.
+- Changing the area can be undone and redone (`Ctrl+Z`), and it is saved in the project (`.mypcut`). **Find face again** keeps an area you drew.
+- Saved pictures are drawn up to the area's own resolution, so a very small area is not enlarged beyond it.
+
+### Face points
 
 **Stands out** (left panel) shows how this face differs from an average face (e.g. mouth +18 %). **Fit to this face** exaggerates those differences more (Settings › Caricature turns it on or off and sets its strength).
 
-Drag the points on the photo (face centre, eyes, nose, mouth, chin, forehead); every caricature is drawn again. **Reset face points** goes back to what was found; **Find face again** starts over. **Frame head and shoulders** (`Ctrl+J`) crops a photo whose face is small (the pink dashed box).
+Drag the points on the photo (face centre, eyes, nose, mouth, chin, forehead); every caricature is drawn again. **Reset face points** goes back to what was found; **Find face again** starts over. Dragging anywhere that is not a point draws a new area.
 
 ## 4. Working with caricatures
 
@@ -41,6 +60,7 @@ Drag the points on the photo (face centre, eyes, nose, mouth, chin, forehead); e
 - **Compare with photo** (`Ctrl+K`): drag the line between photo and caricature.
 - **Layout** (toolbar, `Ctrl+3`): grid, large grid, small tiles, list with details, strip.
 - **Make a variation** (`Ctrl+R`), **Re-roll all**, **Duplicate** (`Ctrl+D`), **Rename** (`F2`), **Delete**.
+- **Regenerate** (the refresh button on the toolbar, `Shift+F5`) redraws every caricature at once without asking — a different picture each time while random generation is on; Undo (`Ctrl+Z`) brings the previous set back.
 - **Make all** (`F5`) draws the chosen styles again (replace or add); **Choose styles** picks them (all 40 or the classic ten).
 - Exaggeration: head, eyes, nose, mouth, chin length, jaw width, forehead, cheeks (50–220 %) and overall strength (0–200 %).
 - Style options: line weight, line detail, colours, smoothness, texture, background, random seed.
@@ -72,13 +92,19 @@ Cartoon, Big head, Pencil sketch, Comic book, Pop art, Watercolour, Ink pen, Oil
 - Formats: PNG, JPEG, WebP, AVIF (where supported), GIF, BMP, TIFF, TGA, PPM, QOI, ICO (up to 256 px), PDF, SVG.
 - **Copy image** (`Ctrl+Shift+C`), **Print** (`Ctrl+P`).
 
-## 8. Keyboard shortcuts
+## 8. Settings
+
+- Caricature: default styles, draw at once when a photo opens, **a different picture every time** (random; on by default — off: the same photo always gives the same pictures), automatic framing, face and person models, picture size on screen (360–1024 px), saved size, variation, gallery columns.
+- General, start page, theme, font, background, recent files, shortcuts.
+
+## 9. Keyboard shortcuts
 
 | Key | Action | Key | Action |
 |---|---|---|---|
 | Ctrl+O | Open | Ctrl+Shift+O | Camera |
 | Ctrl+S | Save | Ctrl+E | Save as image |
-| Ctrl+Z / Ctrl+Y | Undo / Redo | F5 | Make all |
+| Ctrl+Z / Ctrl+Y | Undo / Redo | F5 / Shift+F5 | Make all / Regenerate |
 | Ctrl+R | Variation | Ctrl+D | Duplicate |
 | Ctrl+1 / 2 / 3 | Gallery / Large / Layout | Ctrl+K | Compare |
 | Ctrl+J | Frame head | Ctrl+L | Face points |
+| Ctrl+Shift+A | Select area (Esc cancels) | Drag on the photo | Draw the area |

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
-  defaultItems, fixedSeed, randomizeItem, FormatError, isOpenableName, isPhotoName, isProjectName, MAX_ITEMS, newItem, normalizeItem, parseProject, safeFileName, serializeProject, varyItem, extensionOf, stripExtension, directoryOf, baseName,
+  areaFromPoints, MIN_AREA, defaultItems, fixedSeed, randomizeItem, FormatError, isOpenableName, isPhotoName, isProjectName, MAX_ITEMS, newItem, normalizeItem, parseProject, safeFileName, serializeProject, varyItem, extensionOf, stripExtension, directoryOf, baseName,
 } from '../../src/domain/project.js';
 import { History } from '../../src/domain/history.js';
 import { defaultSettings, loadSettings, normalizeSettings, resetForNewInstall, STORAGE_KEY, zoomStep, applyInstallLanguage } from '../../src/domain/settings.js';
@@ -164,6 +164,30 @@ test('samples: forty public-domain portraits of famous people and paintings', ()
   assert.equal(new Set(SAMPLE_PHOTOS.map((s) => s.file)).size, 40);
   assert.ok(!SAMPLE_PHOTOS.some((s) => /armstrong|ride|jemison/.test(s.id)), 'no astronauts');
   for (const s of SAMPLE_PHOTOS) assert.ok(s.file && s.ko && s.en && s.commons, s.id);
+});
+
+test('area: a drag in any direction gives a rectangle inside the photo; a click gives none', () => {
+  assert.deepEqual(areaFromPoints({ x: 10, y: 20 }, { x: 110, y: 220 }, 400, 500), { x: 10, y: 20, w: 100, h: 200 });
+  assert.deepEqual(areaFromPoints({ x: 110, y: 220 }, { x: 10.4, y: 19.6 }, 400, 500), { x: 10, y: 20, w: 100, h: 200 }, 'dragged up and left');
+  assert.deepEqual(areaFromPoints({ x: -50, y: -50 }, { x: 900, y: 900 }, 400, 500), { x: 0, y: 0, w: 400, h: 500 }, 'clamped to the photo');
+  assert.equal(areaFromPoints({ x: 10, y: 10 }, { x: 12, y: 300 }, 400, 500), null, 'too thin');
+  assert.equal(areaFromPoints({ x: 10, y: 10 }, { x: 10 + MIN_AREA, y: 10 + MIN_AREA }, 400, 500)?.w, MIN_AREA);
+});
+
+test('area: a selected area is saved with the project and opens again', () => {
+  const area = { x: 40, y: 60, w: 200, h: 240 };
+  const back = parseProject(serializeProject({ photo: PHOTO, features: null, items: [], autoCrop: true, crop: area, cropManual: true }));
+  assert.deepEqual(back.crop, area);
+  assert.equal(back.cropManual, true);
+  assert.equal(back.autoCrop, true);
+  const auto = parseProject(serializeProject({ photo: PHOTO, features: null, items: [], autoCrop: true, crop: area }));
+  assert.equal(auto.cropManual, false, 'automatic framing stays automatic');
+  const outside = parseProject(serializeProject({ photo: PHOTO, features: null, items: [], autoCrop: true, crop: { x: 300, y: 0, w: 300, h: 100 }, cropManual: true }));
+  assert.equal(outside.crop, null);
+  assert.equal(outside.cropManual, false, 'an area outside the photo is dropped');
+  const old = JSON.parse(serializeProject({ photo: PHOTO, features: null, items: [], crop: area }));
+  delete old.cropManual;
+  assert.equal(parseProject(JSON.stringify(old)).cropManual, false, 'older project files open');
 });
 
 test('samples: every portrait is on disk as a real JPEG and credited', () => {

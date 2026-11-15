@@ -74,6 +74,14 @@
 .paint-original img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--border); background: repeating-conic-gradient(var(--surface2) 0 25%, var(--surface) 0 50%) 50% / 16px 16px; }
 .source-view { position: relative; margin: 10px 12px 4px; border-radius: 10px; overflow: hidden; background: repeating-conic-gradient(var(--surface2) 0 25%, var(--surface) 0 50%) 50% / 16px 16px; border: 1px solid var(--border); line-height: 0; user-select: none; }
 .source-view img { width: 100%; height: auto; display: block; }
+.source-view { cursor: crosshair; }
+.source-area { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.source-area .area-frame { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.source-area .area-auto { stroke: #ff5fa2; stroke-dasharray: 10 6; }
+.source-area .area-manual { stroke: #3fa2ff; stroke-width: 2.5; }
+.source-area .area-drawing { stroke: #ffffff; stroke-dasharray: 6 4; }
+.source-view.selecting { outline: 2px solid #3fa2ff; outline-offset: -2px; }
+.source-view.selecting .source-marks { pointer-events: none; opacity: 0.35; }
 .source-marks { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .source-marks.hidden { display: none; }
 .source-marks .mark-oval { fill: none; stroke: #3fd6b0; stroke-dasharray: 6 4; opacity: 0.9; }

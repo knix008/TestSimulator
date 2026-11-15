@@ -446,9 +446,9 @@ export const SHORTCUT_LIST = [
   ['Ctrl+O', 'action.open'], ['Ctrl+Shift+O', 'action.camera'], ['Ctrl+V', 'action.pastePhoto'], ['Ctrl+S', 'action.save'], ['Ctrl+Shift+S', 'action.saveAs'],
   ['Ctrl+E', 'action.exportImage'], ['Ctrl+Shift+E', 'action.exportAll'], ['Ctrl+Shift+C', 'action.copyImage'], ['Ctrl+P', 'action.print'], ['Ctrl+W', 'action.closePhoto'],
   ['Ctrl+Z', 'action.undo'], ['Ctrl+Y / Ctrl+Shift+Z', 'action.redo'], ['Ctrl+D', 'action.duplicate'], ['Ctrl+R', 'action.vary'], ['Ctrl+Shift+R', 'action.varyAll'],
-  ['F5', 'action.generate'], ['Delete', 'action.delete'], ['F2', 'action.rename'], ['← → ↑ ↓', 'shortcut.select'], ['Enter', 'action.single'], ['Esc', 'action.gallery'],
+  ['F5', 'action.generate'], ['Shift+F5', 'action.regenerate'], ['Delete', 'action.delete'], ['F2', 'action.rename'], ['← → ↑ ↓', 'shortcut.select'], ['Enter', 'action.single'], ['Esc', 'action.gallery'],
   ['Ctrl+1', 'action.gallery'], ['Ctrl+2', 'action.single'], ['Ctrl+3', 'action.layout'], ['Ctrl+K', 'action.compare'], ['Ctrl+= / Ctrl+-', 'action.zoomIn'], ['Ctrl+0', 'action.zoomFit'], ['shortcut.wheel', 'action.zoomIn'],
-  ['Ctrl+Shift+F', 'action.faceFind'], ['Ctrl+L', 'action.landmarks'], ['Ctrl+J', 'action.cropFace'], ['shortcut.dragPoint', 'shortcut.movePoint'], ['Ctrl+Shift+1 / 2', 'action.leftPanel'],
+  ['Ctrl+Shift+F', 'action.faceFind'], ['Ctrl+L', 'action.landmarks'], ['Ctrl+Shift+A', 'action.selectArea'], ['shortcut.dragArea', 'action.selectArea'], ['Ctrl+J', 'action.cropFace'], ['shortcut.dragPoint', 'shortcut.movePoint'], ['Ctrl+Shift+1 / 2', 'action.leftPanel'],
   ['Ctrl+Shift+L', 'action.language'], ['Ctrl+Shift+B', 'action.shuffleBackground'], ['Ctrl+Shift+H', 'action.startPage'], ['Ctrl+,', 'action.settings'], ['F1', 'action.about'],
 ];
 
