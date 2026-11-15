@@ -1,5 +1,7 @@
 import './talk.css';
-import { chatMessages, chatPeople, chatRooms, checkChat, currentSession, fetchChatFile, loginSession, logoutSession, openChat, postChat, postChatFile, rememberProfile, savedLogin, sessionProfile, sessionToken, watchSharedSession } from '../platform/data.js';
+import { icon } from '../icons.js';
+import { chatMessages, chatPeople, chatProfile, chatRooms, checkChat, currentSession, fetchChatFile, inviteChat, loginSession, logoutSession, openChat, postChat, postChatFile, rememberProfile, saveChatProfile, savedLogin, sessionProfile, sessionToken, watchSharedSession } from '../platform/data.js';
+import { openMain } from '../platform/native.js';
 
 const text = {
   ko: {
@@ -28,6 +30,23 @@ const text = {
     confirm: '확인',
     confirmed: '확인함',
     personal: '이 알림은 로그인한 사람만 확인합니다.',
+    mine: '내 정보',
+    details: '사람 정보',
+    name: '이름',
+    title: '직급',
+    team: '팀',
+    phone: '휴대폰',
+    email: '메일',
+    photo: '사진',
+    save: '저장',
+    close: '닫기',
+    saved: '저장했습니다.',
+    invite: '초대',
+    inviteHint: '이 개인 대화에 여러 사람을 초대할 수 있습니다.',
+    inviteNeed: '먼저 개인 대화를 고르세요.',
+    inviteDone: '초대했습니다.',
+    back: '대화 목록',
+    openPage: '이 페이지 열기',
   },
   en: {
     product: 'MyWorkForce Talk',
@@ -55,6 +74,23 @@ const text = {
     confirm: 'Confirm',
     confirmed: 'Confirmed',
     personal: 'Only the signed-in person confirms these notices.',
+    mine: 'My details',
+    details: 'Person details',
+    name: 'Name',
+    title: 'Title',
+    team: 'Team',
+    phone: 'Phone',
+    email: 'Email',
+    photo: 'Photo',
+    save: 'Save',
+    close: 'Close',
+    saved: 'Saved.',
+    invite: 'Invite',
+    inviteHint: 'Invite more people into this personal talk.',
+    inviteNeed: 'Choose a personal talk first.',
+    inviteDone: 'Invited.',
+    back: 'Talks',
+    openPage: 'Open this page',
   },
 };
 
@@ -70,10 +106,71 @@ const state = {
   groupOpen: false,
   picked: new Set(),
   groupName: '',
+  profile: null,
+  profileError: '',
+  photos: {},
+  pane: 'talks',
+  threadOpen: false,
 };
 
 function t(key) { return text[state.language][key] || key; }
 function esc(value) { return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
+
+const SKIN = ['#f6d7b8', '#e7b98a', '#c68642', '#8d5524', '#f3c7a1', '#d9a066'];
+const HAIR = ['#2b2118', '#6b3e26', '#1f2937', '#b45309', '#4c1d95', '#0f766e'];
+const SHIRT = ['#2563eb', '#db2777', '#0d9488', '#ea580c', '#4f46e5', '#16a34a'];
+
+function hash(text) {
+  let value = 0;
+  for (const char of String(text || '?')) value = (value * 33 + char.charCodeAt(0)) >>> 0;
+  return value;
+}
+
+function portraitSvg(seed) {
+  const value = hash(seed);
+  const skin = SKIN[value % SKIN.length];
+  const hair = HAIR[(value >> 3) % HAIR.length];
+  const shirt = SHIRT[(value >> 6) % SHIRT.length];
+  const style = (value >> 9) % 3;
+  const hairPath = style === 0
+    ? `<path d="M16 40c-6-20 8-30 32-28 20 2 28 14 24 28-8-12-18-16-28-12-8 2-18 6-28 12z" fill="${hair}"/>`
+    : style === 1
+      ? `<path d="M18 44c0-22 12-34 30-34s30 12 30 34c-8-10-18-14-30-14s-22 4-30 14z" fill="${hair}"/>`
+      : `<path d="M22 36c2-16 12-24 26-24s24 8 26 24c-6 6-12 2-16-4-6 8-14 8-20 0-4 6-10 8-16 4z" fill="${hair}"/>`;
+  return `<svg viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="48" fill="${shirt}"/><circle cx="48" cy="42" r="18" fill="${skin}"/>${hairPath}<ellipse cx="48" cy="88" rx="26" ry="16" fill="${shirt}"/></svg>`;
+}
+
+function photoOf(person) {
+  const cached = state.photos[person?.id];
+  if (cached) return cached;
+  const photo = String(person?.photo || '');
+  return photo.startsWith('data:image/') ? photo : '';
+}
+
+function faceHtml(person, size = '') {
+  const photo = photoOf(person);
+  const body = photo ? `<img src="${esc(photo)}" alt="">` : portraitSvg(person?.id || person?.name);
+  return `<span class="avatar${size ? ` ${size}` : ''}" data-face="${esc(person?.id || '')}">${body}</span>`;
+}
+
+function rememberFaces() {
+  for (const person of state.people) {
+    if (!person.hasPhoto) {
+      delete state.photos[person.id];
+      continue;
+    }
+    if (state.photos[person.id]) continue;
+    const id = person.id;
+    chatProfile(id).then((result) => {
+      const photo = result.person?.photo || '';
+      if (!photo) return;
+      state.photos[id] = photo;
+      document.querySelectorAll(`[data-face="${id}"]`).forEach((slot) => {
+        slot.innerHTML = `<img src="${esc(photo)}" alt="">`;
+      });
+    }).catch(() => {});
+  }
+}
 
 function loadLanguage() {
   try {
@@ -93,92 +190,173 @@ function roomTitle(room) {
   return room.name || t('talks');
 }
 
-function shell() {
+function railButton(pane, glyph, label, extra = '') {
+  const active = state.pane === pane ? ' active' : '';
+  return `<button type="button" class="rail-button${active}" data-pane="${pane}" title="${esc(label)}" aria-label="${esc(label)}">${icon(glyph)}${extra}</button>`;
+}
+
+function latestNoticeTarget() {
+  const notes = state.messages.filter((item) => item.kind === 'notice' && item.target);
+  const picked = notes.find((item) => !item.checked) || notes.at(-1);
+  return picked?.target || { view: 'notifications' };
+}
+
+function personalRoom() {
+  const room = state.rooms.find((item) => item.id === state.roomId);
+  return room && room.kind !== 'notices' ? room : null;
+}
+
+function stageHtml() {
+  if (state.pane === 'people') {
+    return `<div class="stage-page"><h2>${icon('people')}<span>${esc(t('people'))}</span></h2><div class="people">${personButtons()}</div></div>`;
+  }
+  if (state.pane === 'profile') return `<div class="stage-page">${profileCard() || `<p class="empty">${icon('user')}<span>${esc(t('details'))}</span></p>`}</div>`;
+  if (state.pane === 'invite') return inviteHtml();
+  if (state.pane === 'notices') return threadHtml(true);
+  if (state.threadOpen && personalRoom()) return threadHtml(false);
   const rooms = roomButtons();
-  const people = personButtons();
-  const checks = state.groupOpen ? state.people.filter((person) => person.id !== state.self).map((person) => `<label><input type="checkbox" data-pick="${esc(person.id)}" ${state.picked.has(person.id) ? 'checked' : ''}> ${esc(person.name)}</label>`).join('') : '';
-  const messages = messageHtml();
+  return `<div class="stage-page"><h2>${icon('comment')}<span>${esc(t('talks'))}</span></h2><div class="rooms">${rooms || `<p class="empty">${icon('comment')}<span>${esc(t('empty'))}</span></p>`}</div></div>`;
+}
+
+function threadHtml(notices) {
+  const room = state.rooms.find((item) => item.id === state.roomId);
+  const title = room ? roomTitle(room) : (notices ? t('notices') : t('talks'));
+  const back = notices ? '' : `<button type="button" data-action="back-talks" title="${esc(t('back'))}" aria-label="${esc(t('back'))}">${icon('chevronLeft')}</button>`;
+  const invite = notices ? '' : `<button type="button" data-pane="invite" title="${esc(t('invite'))}" aria-label="${esc(t('invite'))}">${icon('plus')}</button>`;
+  return `<div class="thread">
+    <div class="thread-head">${back}<b>${icon(notices ? 'bell' : 'comment')}<span>${esc(title)}</span></b>${invite}</div>
+    <div class="messages" id="messages">${messageHtml()}</div>
+    <form class="composer">
+      <button type="button" class="quiet" data-action="file" title="${esc(t('file'))}" aria-label="${esc(t('file'))}">${icon('paperclip')}</button>
+      <textarea id="draft" placeholder="${esc(t('placeholder'))}"></textarea>
+      <button type="submit" title="${esc(t('send'))}" aria-label="${esc(t('send'))}">${icon('check')}</button>
+      <input id="file" type="file" hidden>
+    </form>
+  </div>`;
+}
+
+function inviteHtml() {
+  const room = personalRoom();
+  if (!room) {
+    const rooms = roomButtons();
+    return `<div class="stage-page"><h2>${icon('plus')}<span>${esc(t('invite'))}</span></h2><p class="muted">${icon('comment')}<span>${esc(t('inviteNeed'))}</span></p><div class="rooms">${rooms}</div></div>`;
+  }
+  const memberIds = new Set((room.members || []).map((member) => member.id));
+  const checks = state.people.filter((person) => person.id !== state.self && !memberIds.has(person.id)).map((person) => `<label class="pick">${faceHtml(person)}<input type="checkbox" data-pick="${esc(person.id)}" ${state.picked.has(person.id) ? 'checked' : ''}><span>${esc(person.name)}</span></label>`).join('');
+  return `<div class="stage-page"><h2>${icon('plus')}<span>${esc(t('invite'))}</span></h2><p>${icon('comment')}<span>${esc(roomTitle(room))}</span></p><p class="muted">${esc(t('inviteHint'))}</p><div class="checks">${checks || `<p class="empty">${icon('people')}<span>${esc(t('people'))}</span></p>`}</div><button type="button" class="primary" data-action="invite-send">${icon('plus')}<span>${esc(t('invite'))}</span></button><p class="error">${esc(state.error)}</p></div>`;
+}
+
+function shell() {
+  const unread = state.rooms.find((room) => room.kind === 'notices')?.unread || 0;
+  const badge = unread ? `<i class="count">${unread}</i>` : '<i class="count" hidden></i>';
   return `<div class="app">
-    <header class="top"><img src="./icon.png" alt=""><b>${esc(t('product'))}</b><span>${esc(t('hint'))}</span><span class="grow"></span>
-      <a href="./index.html">${esc(t('work'))}</a>
-      <button type="button" class="quiet" data-action="language">${esc(t('language'))}</button>
-      <button type="button" class="quiet" data-action="sign-out">${esc(t('signOut'))}</button>
-    </header>
+    <header class="top">${icon('comment')}<img src="./icon.png" alt=""><b>${esc(t('product'))}</b><span>${esc(t('hint'))}</span></header>
     <div class="body">
-      <aside class="side">
-        <h2>${esc(t('talks'))}</h2>
-        <div class="rooms">${rooms}</div>
-        <h2>${esc(t('people'))}</h2>
-        <div class="people">${people}</div>
-        <div class="group-box">
-          <button type="button" data-action="group">${esc(t('group'))}</button>
-          ${state.groupOpen ? `<input id="group-name" placeholder="${esc(t('groupName'))}" value="${esc(state.groupName)}"><div class="checks">${checks}</div><button type="button" class="primary" data-action="create-group">${esc(t('create'))}</button><p class="error">${esc(state.error)}</p>` : ''}
-        </div>
+      <aside class="rail">
+        ${railButton('notices', 'bell', t('notices'), badge)}
+        ${railButton('talks', 'comment', t('talks'))}
+        ${railButton('people', 'people', t('people'))}
+        ${railButton('invite', 'plus', t('invite'))}
+        <span class="grow"></span>
+        ${railButton('profile', 'user', t('mine'))}
+        <button type="button" class="rail-button" data-action="language" title="${esc(t('language'))}" aria-label="${esc(t('language'))}">${icon('globe')}</button>
+        <button type="button" class="rail-button" data-action="work" title="${esc(t('work'))}" aria-label="${esc(t('work'))}">${icon('folder')}</button>
+        <button type="button" class="rail-button" data-action="sign-out" title="${esc(t('signOut'))}" aria-label="${esc(t('signOut'))}">${icon('close')}</button>
       </aside>
-      <section class="thread">
-        <div class="messages" id="messages">${messages || `<p class="empty">${esc(t('empty'))}</p>`}</div>
-        <form class="composer">
-          <button type="button" class="quiet" data-action="file">${esc(t('file'))}</button>
-          <textarea id="draft" placeholder="${esc(t('placeholder'))}"></textarea>
-          <button type="submit">${esc(t('send'))}</button>
-          <input id="file" type="file" hidden>
-        </form>
-      </section>
+      <section class="stage">${stageHtml()}</section>
     </div>
   </div>`;
 }
 
 function loginCard() {
   return `<div class="login"><form class="card">
-    <img src="./icon.png" alt="" width="36" height="36">
+    ${icon('comment')}<img src="./icon.png" alt="" width="36" height="36">
     <b>${esc(t('product'))}</b>
-    <p class="muted">${esc(t('hint'))}</p>
-    <label>${esc(t('account'))}<input name="account" value="${esc(state.account)}" autocomplete="username"></label>
-    <label>${esc(t('password'))}<input name="password" type="password" autocomplete="current-password"></label>
-    <label class="reveal"><input type="checkbox" data-reveal="password">${esc(t('show'))}</label>
+    <p class="muted">${icon('info')}<span>${esc(t('hint'))}</span></p>
+    <label><span class="field-name">${icon('user')}<span>${esc(t('account'))}</span></span><input name="account" value="${esc(state.account)}" autocomplete="username"></label>
+    <label><span class="field-name">${icon('lock')}<span>${esc(t('password'))}</span></span><input name="password" type="password" autocomplete="current-password"></label>
+    <label class="reveal"><input type="checkbox" data-reveal="password">${icon('eye')}<span>${esc(t('show'))}</span></label>
     <p class="error">${esc(state.error)}</p>
-    <button type="submit">${esc(t('signIn'))}</button>
+    <button type="submit">${icon('check')}<span>${esc(t('signIn'))}</span></button>
   </form></div>`;
 }
 
 function roomButtons() {
-  return state.rooms.map((room) => `<button type="button" class="room${room.id === state.roomId ? ' active' : ''}" data-room="${esc(room.id)}"><b>${esc(roomTitle(room))}</b><small>${esc(room.last?.body || '')}</small>${room.unread ? `<i>${room.unread}</i>` : ''}</button>`).join('');
+  return state.rooms.filter((room) => room.kind !== 'notices').map((room) => `<button type="button" class="room${room.id === state.roomId ? ' active' : ''}" data-room="${esc(room.id)}"><b>${icon(room.kind === 'group' ? 'people' : 'comment')}<span>${esc(roomTitle(room))}</span></b><small>${esc(room.last?.body || '')}</small>${room.unread ? `<i>${room.unread}</i>` : ''}</button>`).join('');
 }
 
 function personButtons() {
-  return state.people.filter((person) => person.id !== state.self).map((person) => `<button type="button" class="person" data-person="${esc(person.id)}"><b>${esc(person.name)}</b><small>${esc(person.login || '')}</small></button>`).join('');
+  return state.people.map((person) => {
+    const line = [person.jobTitle, person.team].filter(Boolean).join(' · ');
+    const talk = person.id === state.self ? '' : `<button type="button" class="icon-button" data-action="direct" data-id="${esc(person.id)}" title="${esc(t('talks'))}">${icon('comment')}</button>`;
+    return `<div class="person-row"><button type="button" class="person" data-action="profile" data-id="${esc(person.id)}">${faceHtml(person)}<span class="person-copy"><span class="person-name">${esc(person.name)}</span>${line ? `<small>${esc(line)}</small>` : ''}</span></button>${talk}</div>`;
+  }).join('');
+}
+
+function profileCard() {
+  const person = state.profile;
+  if (!person) return '';
+  const self = state.people.find((item) => item.id === state.self);
+  const canEdit = person.id === state.self || self?.admin;
+  const field = (glyph, label, name, value) => canEdit
+    ? `<label>${icon(glyph)}<span>${esc(label)}</span><input name="${name}" value="${esc(value || '')}"></label>`
+    : `<p>${icon(glyph)}<span>${esc(label)}</span><b>${esc(value || '')}</b></p>`;
+  return `<form class="profile-card" data-profile>
+    <div class="profile-head">${faceHtml(person, 'lg')}<span class="person-copy"><b>${esc(person.name)}</b><small>${esc(t('details'))}</small></span><button type="button" data-action="close-profile">${icon('close')}<span>${esc(t('close'))}</span></button></div>
+    ${field('user', t('name'), 'name', person.name)}
+    ${field('flag', t('title'), 'jobTitle', person.jobTitle)}
+    ${field('people', t('team'), 'team', person.team)}
+    ${field('phone', t('phone'), 'phone', person.phone)}
+    ${field('globe', t('email'), 'email', person.email)}
+    ${canEdit ? `<label>${icon('image')}<span>${esc(t('photo'))}</span><input id="portrait" type="file" accept="image/*"></label><button type="submit">${icon('save')}<span>${esc(t('save'))}</span></button>` : ''}
+    <p class="error">${esc(state.profileError)}</p>
+  </form>`;
 }
 
 function messageHtml() {
   const messages = state.messages.map((message) => {
     const mine = message.userId === state.self ? ' mine' : '';
     const notice = message.kind === 'notice' ? ' notice' : '';
-    const who = message.kind === 'notice' ? t('notices') : (state.people.find((person) => person.id === message.userId)?.name || message.userId);
-    const body = message.kind === 'file'
-      ? `<a href="#" data-file="${esc(message.fileId)}" data-name="${esc(message.fileName)}">${esc(message.fileName || message.body)}</a>`
-      : esc(message.body);
+    const sender = state.people.find((person) => person.id === message.userId);
+    const who = message.kind === 'notice' ? t('notices') : (sender?.name || message.userId);
+    const whoFace = message.kind === 'notice' ? icon('bell') : faceHtml(sender || { id: message.userId, name: who });
+    const file = message.kind === 'file'
+      ? `<a href="#" data-file="${esc(message.fileId)}" data-name="${esc(message.fileName)}">${icon('file')}<span>${esc(message.fileName || message.body)}</span></a>`
+      : '';
+    const body = message.kind === 'file' ? file : esc(message.body);
     const confirm = message.kind === 'notice'
       ? (message.checked
-        ? `<button type="button" class="quiet" disabled>${esc(t('confirmed'))}</button>`
-        : `<button type="button" data-action="check-notice" data-id="${esc(message.id)}">${esc(t('confirm'))}</button>`)
+        ? `<button type="button" class="quiet" disabled>${icon('check')}<span>${esc(t('confirmed'))}</span></button>`
+        : `<button type="button" data-action="check-notice" data-id="${esc(message.id)}">${icon('check')}<span>${esc(t('confirm'))}</span></button>`)
       : '';
-    return `<article class="bubble${mine}${notice}${message.checked ? ' checked' : ''}"><div class="who">${esc(who)}</div><p>${body}</p>${confirm}</article>`;
+    const target = message.kind === 'notice' ? ` data-open-notice="${esc(message.id)}" title="${esc(t('openPage'))}"` : '';
+    return `<article class="bubble${mine}${notice}${message.checked ? ' checked' : ''}"${target}><div class="who">${whoFace}<span>${esc(who)}</span></div><p>${body}</p>${confirm}</article>`;
   }).join('');
   const room = state.rooms.find((item) => item.id === state.roomId);
-  const banner = room?.kind === 'notices' ? `<p class="notice-note">${esc(t('personal'))}</p>` : '';
-  return banner + (messages || `<p class="empty">${esc(t('empty'))}</p>`);
+  const banner = room?.kind === 'notices' ? `<p class="notice-note">${icon('bell')}<span>${esc(t('personal'))}</span></p>` : '';
+  return banner + (messages || `<p class="empty">${icon('comment')}<span>${esc(t('empty'))}</span></p>`);
 }
 
 function paint(options = {}) {
   const root = document.querySelector('#app');
   const live = sessionToken() && state.self && document.querySelector('.app');
   if (live && !options.full) {
-    document.querySelector('.rooms').innerHTML = roomButtons();
-    document.querySelector('.people').innerHTML = personButtons();
+    const rooms = document.querySelector('.rooms');
+    if (rooms) rooms.innerHTML = roomButtons();
+    const people = document.querySelector('.people');
+    if (people) people.innerHTML = personButtons();
     const box = document.querySelector('#messages');
-    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 48;
-    box.innerHTML = messageHtml();
-    if (atBottom) box.scrollTop = box.scrollHeight;
+    if (box) {
+      const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 48;
+      box.innerHTML = messageHtml();
+      if (atBottom) box.scrollTop = box.scrollHeight;
+    }
+    const count = document.querySelector('.rail .count');
+    if (count) {
+      const unread = state.rooms.find((room) => room.kind === 'notices')?.unread || 0;
+      count.hidden = !unread;
+      count.textContent = unread ? String(unread) : '';
+    }
     return;
   }
   const draft = document.querySelector('#draft')?.value || '';
@@ -193,14 +371,19 @@ async function refresh(full = false) {
   const [rooms, people] = await Promise.all([chatRooms(), chatPeople()]);
   state.rooms = rooms.rooms || [];
   state.people = people.people || [];
-  if (!state.roomId) state.roomId = state.rooms.find((room) => room.kind === 'notices')?.id || state.rooms[0]?.id || '';
-  if (state.roomId) {
+  if (state.pane === 'notices') {
+    const notes = state.rooms.find((room) => room.kind === 'notices');
+    if (notes) state.roomId = notes.id;
+  }
+  const showMessages = state.pane === 'notices' || (state.pane === 'talks' && state.threadOpen);
+  if (showMessages && state.roomId) {
     const after = full ? '' : (state.messages.at(-1)?.at || '');
     const loaded = await chatMessages(state.roomId, after);
     const incoming = loaded.messages || [];
     state.messages = after ? state.messages.concat(incoming.filter((item) => !state.messages.some((have) => have.id === item.id))) : incoming;
   }
-  paint();
+  paint(full ? { full: true } : {});
+  rememberFaces();
 }
 
 let signing = false;
@@ -257,6 +440,29 @@ document.querySelector('#app').addEventListener('submit', (event) => {
     enter(form.account.value.trim(), form.password.value).catch((error) => { state.error = error.message || t('failed'); paint({ full: true }); });
     return;
   }
+  if (form.hasAttribute('data-profile')) {
+    const person = state.profile;
+    const name = form.elements.name?.value.trim() || '';
+    if (!person || !name) return;
+    saveChatProfile({
+      id: person.id,
+      name,
+      jobTitle: form.elements.jobTitle.value.trim(),
+      team: form.elements.team.value.trim(),
+      phone: form.elements.phone.value.trim(),
+      email: form.elements.email.value.trim(),
+      photo: person.photo || '',
+    }).then((result) => {
+      state.profile = result.person;
+      state.photos[result.person.id] = result.person.photo || '';
+      state.profileError = t('saved');
+      return refresh(true);
+    }).catch((error) => {
+      state.profileError = error.message || t('failed');
+      paint({ full: true });
+    });
+    return;
+  }
   const draft = document.querySelector('#draft');
   const body = draft?.value.trim() || '';
   if (!body || !state.roomId) return;
@@ -278,28 +484,108 @@ document.querySelector('#app').addEventListener('click', (event) => {
     }).catch(() => { state.error = t('failed'); paint(); });
     return;
   }
+  const paneEl = event.target.closest('[data-pane]');
+  if (paneEl) {
+    const pane = paneEl.dataset.pane;
+    state.pane = pane;
+    if (pane === 'notices') {
+      const known = latestNoticeTarget();
+      state.roomId = state.rooms.find((item) => item.kind === 'notices')?.id || '';
+      state.threadOpen = true;
+      state.messages = [];
+      openMain(known);
+      refresh(true).then(() => openMain(latestNoticeTarget(), { focus: false })).catch(() => {});
+      return;
+    }
+    if (pane === 'people' || pane === 'invite') openMain({ view: 'people' });
+    if (pane === 'profile') {
+      openMain({ view: 'users', profile: true, userId: state.self });
+      chatProfile(state.self).then((result) => {
+        state.profile = result.person;
+        state.photos[result.person.id] = result.person.photo || '';
+        state.profileError = '';
+        paint({ full: true });
+      }).catch(() => { state.profileError = t('failed'); paint({ full: true }); });
+      return;
+    }
+    if (pane === 'talks') state.threadOpen = false;
+    paint({ full: true });
+    return;
+  }
   const room = event.target.closest('[data-room]');
   if (room) {
     state.roomId = room.dataset.room;
     state.messages = [];
+    const found = state.rooms.find((item) => item.id === state.roomId);
+    if (found?.kind === 'notices') {
+      state.pane = 'notices';
+      state.threadOpen = true;
+    } else if (state.pane !== 'invite') {
+      state.pane = 'talks';
+      state.threadOpen = true;
+    }
     refresh(true).catch(() => {});
     return;
   }
-  const person = event.target.closest('[data-person]');
-  if (person) {
-    openChat({ kind: 'direct', members: [person.dataset.person] }).then((result) => {
+  const actionEl = event.target.closest('[data-action]');
+  const action = actionEl?.dataset.action;
+  if (action === 'work') { openMain({ view: 'board' }); return; }
+  if (action === 'direct') {
+    openChat({ kind: 'direct', members: [actionEl.dataset.id] }).then((result) => {
       state.roomId = result.room.id;
+      state.pane = 'talks';
+      state.threadOpen = true;
+      state.profile = null;
       state.messages = [];
       return refresh(true);
     }).catch(() => { state.error = t('failed'); paint(); });
     return;
   }
-  const action = event.target.closest('[data-action]')?.dataset.action;
+  if (action === 'back-talks') {
+    state.pane = 'talks';
+    state.threadOpen = false;
+    paint({ full: true });
+    return;
+  }
+  if (action === 'invite-send') {
+    const talk = personalRoom();
+    const members = [...state.picked];
+    if (!talk || !members.length) { state.error = t('inviteNeed'); paint({ full: true }); return; }
+    inviteChat(talk.id, members).then(() => {
+      state.picked.clear();
+      state.error = '';
+      state.pane = 'talks';
+      state.threadOpen = true;
+      state.messages = [];
+      return refresh(true);
+    }).catch(() => { state.error = t('failed'); paint({ full: true }); });
+    return;
+  }
+  if (action === 'profile' || action === 'my-profile') {
+    const id = action === 'my-profile' ? state.self : actionEl.dataset.id;
+    if (!id) return;
+    state.pane = 'profile';
+    chatProfile(id).then((result) => {
+      state.profile = result.person;
+      state.photos[result.person.id] = result.person.photo || '';
+      state.profileError = '';
+      paint({ full: true });
+    }).catch(() => { state.profileError = t('failed'); paint({ full: true }); });
+    return;
+  }
+  if (action === 'close-profile') {
+    state.profile = null;
+    state.profileError = '';
+    state.pane = 'people';
+    paint({ full: true });
+    return;
+  }
   if (action === 'sign-out') {
     logoutSession();
     state.self = '';
     state.rooms = [];
     state.messages = [];
+    state.profile = null;
     paint({ full: true });
   }
   if (action === 'language') {
@@ -324,6 +610,12 @@ document.querySelector('#app').addEventListener('click', (event) => {
     }).catch(() => { state.error = t('failed'); paint({ full: true }); });
   }
   if (action === 'file') document.querySelector('#file')?.click();
+  const notice = event.target.closest('[data-open-notice]');
+  if (!action && notice) {
+    const message = state.messages.find((item) => item.id === notice.dataset.openNotice);
+    openMain(message?.target || { view: 'notifications' });
+    return;
+  }
   if (action === 'check-notice') {
     const id = event.target.closest('[data-action="check-notice"]')?.dataset.id;
     if (!id) return;
@@ -339,6 +631,23 @@ document.querySelector('#app').addEventListener('change', (event) => {
   if (event.target.dataset.reveal === 'password') {
     const input = event.target.closest('form')?.querySelector('[name="password"]');
     if (input) input.type = event.target.checked ? 'text' : 'password';
+    return;
+  }
+  if (event.target.id === 'portrait') {
+    const file = event.target.files?.[0];
+    if (!file || !state.profile) return;
+    if (!file.type.startsWith('image/') || file.size > 360_000) {
+      state.profileError = t('failed');
+      paint({ full: true });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.profile.photo = String(reader.result || '');
+      const holder = document.querySelector('.profile-card .avatar.lg');
+      if (holder) holder.innerHTML = `<img src="${esc(state.profile.photo)}" alt="">`;
+    };
+    reader.readAsDataURL(file);
     return;
   }
   const pick = event.target.dataset.pick;

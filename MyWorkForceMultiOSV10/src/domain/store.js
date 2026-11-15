@@ -1,7 +1,7 @@
 import { applyRules } from './automation.js';
 import { boardsFor, defaultFilters, defaultGadgets, defaultQueues, freshCatalog, ROLES } from './catalog.js';
 import { deliver, setNotice, upgradeNotices } from './notices.js';
-import { allowed, rolesOf } from './permissions.js';
+import { allowed, isWorkspaceAdmin, rolesOf } from './permissions.js';
 import { ensureServices } from './services.js';
 import { isDoneStatus } from './reports.js';
 import { byId, clone, nowIso, uid } from './util.js';
@@ -649,13 +649,42 @@ export function addComponent(ws, projectId, input, actorId) {
   return component;
 }
 
-export function addUser(ws, input) {
+const PHOTO_LIMIT = 500_000;
+
+function profileInput(input) {
   const name = String(input.name || '').trim();
   if (!name) throw new Error('name-required');
-  const email = String(input.email || '').trim();
-  if (email && ws.users.some((user) => user.email.toLowerCase() === email.toLowerCase())) throw new Error('duplicate-user');
-  const user = { id: uid('u'), name, email, active: true };
+  const photo = String(input.photo || '');
+  if (photo) {
+    if (!photo.startsWith('data:image/')) throw new Error('photo-invalid');
+    if (photo.length > PHOTO_LIMIT) throw new Error('attachment-big');
+  }
+  return {
+    name,
+    email: String(input.email || '').trim(),
+    phone: String(input.phone || '').trim(),
+    jobTitle: String(input.jobTitle || '').trim(),
+    team: String(input.team || '').trim(),
+    photo,
+  };
+}
+
+export function addUser(ws, input) {
+  const fields = profileInput(input);
+  if (fields.email && ws.users.some((user) => String(user.email || '').toLowerCase() === fields.email.toLowerCase())) throw new Error('duplicate-user');
+  const user = { id: uid('u'), ...fields, active: true };
   ws.users.push(user);
+  return user;
+}
+
+export function updateProfile(ws, userId, input, actorId) {
+  const user = ws.users.find((item) => item.id === userId);
+  if (!user) throw new Error('not-found');
+  const actor = ws.users.find((item) => item.id === actorId);
+  if (!actor || (actor.id !== user.id && !isWorkspaceAdmin(actor))) throw new Error('permission');
+  const fields = profileInput(input);
+  if (fields.email && ws.users.some((item) => item.id !== user.id && String(item.email || '').toLowerCase() === fields.email.toLowerCase())) throw new Error('duplicate-user');
+  Object.assign(user, fields);
   return user;
 }
 

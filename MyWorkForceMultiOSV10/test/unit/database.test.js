@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { describe, test } from 'node:test';
+import { openValue, seal } from '../../server/privacy.mjs';
 import { createDocument, shareDocument } from '../../src/domain/documents.js';
 import { sampleWorkspace } from '../../src/domain/sample.js';
 import { blankWorkspace, upgradeWorkspace } from '../../src/domain/store.js';
@@ -38,6 +40,48 @@ describe('Database', () => {
     const password = hashPassword('secret');
     assert.equal(checkPassword('secret', password), true);
     assert.equal(checkPassword('other', password), false);
+    await repository.close();
+  });
+
+  test('personal details are encrypted in the database and come back readable', async () => {
+    const key = randomBytes(32);
+    assert.equal(openValue('김서연', key), '김서연');
+    const sealed = seal('김서연', key);
+    assert.equal(sealed.startsWith('mwf1:'), true);
+    assert.equal(openValue(sealed, key), '김서연');
+    assert.equal(seal('', key), '');
+    assert.equal(seal(sealed, key), sealed);
+    const repository = await openRepository({ engine: 'sqlite', file: ':memory:' });
+    const ws = blankWorkspace();
+    const user = ws.users[0];
+    user.email = 'lead@example.com';
+    user.phone = '010-1111-2222';
+    user.jobTitle = '팀장';
+    user.team = '기획';
+    user.photo = 'data:image/png;base64,aaaa';
+    ws.mailOutbox = [{ id: 'm1', to: 'lead@example.com', subject: '안녕', body: '본문', state: 'sent', created: '2026-11-15T12:00:00.000Z' }];
+    await repository.writeWorkspace(ws, 0);
+    assert.equal(repository.cached.users[0].name, '관리자');
+    assert.equal(repository.cached.users[0].phone, '010-1111-2222');
+    const raw = await repository.engine.query('SELECT body FROM workspace_document', []);
+    const body = raw[0].body;
+    assert.equal(body.includes('010-1111-2222'), false);
+    assert.equal(body.includes('lead@example.com'), false);
+    assert.equal(body.includes('팀장'), false);
+    assert.equal(body.includes('data:image/png;base64,aaaa'), false);
+    const accounts = await repository.engine.query('SELECT name, email FROM accounts', []);
+    assert.equal(String(accounts[0].name).startsWith('mwf1:'), true);
+    assert.equal(String(accounts[0].email).startsWith('mwf1:'), true);
+    const loaded = await repository.readWorkspace();
+    assert.equal(loaded.users[0].name, '관리자');
+    assert.equal(loaded.users[0].email, 'lead@example.com');
+    assert.equal(loaded.users[0].phone, '010-1111-2222');
+    assert.equal(loaded.users[0].jobTitle, '팀장');
+    assert.equal(loaded.users[0].team, '기획');
+    assert.equal(loaded.users[0].photo, 'data:image/png;base64,aaaa');
+    assert.equal(loaded.users[0].login, 'admin');
+    assert.equal(loaded.mailOutbox[0].to, 'lead@example.com');
+    assert.equal(checkPassword('admin', loaded.users[0].passwordHash), true);
     await repository.close();
   });
 

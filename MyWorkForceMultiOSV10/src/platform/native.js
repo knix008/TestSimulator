@@ -1,4 +1,5 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
+import { requestMain } from './data.js';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
 
@@ -51,6 +52,14 @@ export function openBrowser(url) {
     return Promise.resolve();
   }
   return invoke('open_browser', { url: target }).catch(() => { window.open(target, '_blank', 'noopener'); });
+}
+
+export function openMain(target = {}, options = {}) {
+  requestMain(target);
+  if (options.focus === false) return Promise.resolve();
+  const popup = () => { window.open('./index.html', 'myworkforce-main'); return Promise.resolve(); };
+  if (!isDesktop()) return popup();
+  return invoke('open_main').catch(() => popup());
 }
 
 export function openTalk() {

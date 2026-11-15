@@ -2,6 +2,7 @@ const KEY = 'myworkforce-data-url';
 const TOKEN = 'myworkforce-session';
 const PROFILE = 'myworkforce-session-user';
 const AUTO = 'myworkforce-autologin';
+const OPEN = 'myworkforce-open';
 
 function defaultDataUrl() {
   try {
@@ -70,6 +71,39 @@ export function clearSavedLogin() {
   try { localStorage.removeItem(AUTO); } catch { /* already clear */ }
 }
 
+export function requestMain(target) {
+  const payload = { ...(target || {}), at: Date.now() };
+  try { localStorage.setItem(OPEN, JSON.stringify(payload)); } catch { /* opened without storage */ }
+  return payload;
+}
+
+export function readMainRequest() {
+  try {
+    const raw = localStorage.getItem(OPEN);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.at || Date.now() - Number(parsed.at) > 20000) return null;
+    return parsed;
+  } catch { return null; }
+}
+
+export function clearMainRequest(at) {
+  try {
+    const raw = localStorage.getItem(OPEN);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!at || parsed?.at === at) localStorage.removeItem(OPEN);
+  } catch { /* already clear */ }
+}
+
+export function watchMainRequest(onChange) {
+  try {
+    window.addEventListener('storage', (event) => {
+      if (event.key === OPEN && event.newValue) onChange();
+    });
+  } catch { /* opened without a window */ }
+}
+
 export function watchSharedSession(onChange) {
   const fire = () => onChange(sessionToken());
   try {
@@ -121,8 +155,11 @@ export const unlockData = (userId, password) => call('/api/unlock', { method: 'P
 export const hashPassword = (password) => call('/api/password', { method: 'POST', body: JSON.stringify({ password }) });
 export const sendTestMail = (to) => call('/api/mail/test', { method: 'POST', body: JSON.stringify({ to }) });
 export const chatPeople = () => call('/api/chat/people');
+export const chatProfile = (id) => call(`/api/chat/profile?id=${encodeURIComponent(id)}`);
+export const saveChatProfile = (body) => call('/api/chat/profile', { method: 'PUT', body: JSON.stringify(body || {}) });
 export const chatRooms = () => call('/api/chat/rooms');
 export const openChat = (body) => call('/api/chat/rooms', { method: 'POST', body: JSON.stringify(body || {}) });
+export const inviteChat = (roomId, members) => call('/api/chat/members', { method: 'POST', body: JSON.stringify({ roomId, members }) });
 export const chatMessages = (room, after = '') => call(`/api/chat/messages?room=${encodeURIComponent(room)}&after=${encodeURIComponent(after)}`);
 export const postChat = (roomId, body) => call('/api/chat/messages', { method: 'POST', body: JSON.stringify({ roomId, body }) });
 export const checkChat = (messageId) => call('/api/chat/checks', { method: 'POST', body: JSON.stringify({ messageId }) });

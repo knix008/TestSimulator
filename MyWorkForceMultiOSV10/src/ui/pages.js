@@ -16,6 +16,7 @@ import { navLabel } from './chrome.js';
 import { BACKGROUND_INTERVALS, BACKGROUNDS, knownBackground } from './background.js';
 import { databaseSettings, startupOptions } from './start.js';
 import { approvalBlock, calendarView, documentsView, extensionsView, knowledgeView, laneLabel, mailSettings, plansView, portalView, screenSection, swimlaneOptions } from './extra.js';
+import { finderBar, issueFacets, issueVisible, keepBlock, matchesText, screenFind } from './finder.js';
 
 const dur = (value) => formatDuration(value, getLanguage());
 
@@ -75,7 +76,14 @@ function home(ctx) {
       </div>
     </div></div>`;
   }
-  const cards = orderedProjects(ctx.ws).map((project) => {
+  const find = screenFind(ctx);
+  const cards = orderedProjects(ctx.ws).filter((project) => {
+    if (!matchesText(find.q, project.key, project.name, project.description)) return false;
+    if (find.kind && project.type !== find.kind) return false;
+    if (find.state === 'archived') return Boolean(project.archived);
+    if (find.state === 'active') return !project.archived;
+    return true;
+  }).map((project) => {
     const parent = projectAncestors(ctx.ws, project)[0];
     const kind = nameOf(project.type === 'service' ? { ko: '서비스', en: 'Service' } : project.type === 'business' ? { ko: '업무', en: 'Business' } : { ko: '소프트웨어', en: 'Software' });
     return `<button type="button" class="project-card${project.id === ctx.ws.activeProjectId ? ' active' : ''}" data-action="activate" data-id="${esc(project.id)}"><b>${icon('folder')}${esc(project.key)}</b><span>${esc(project.name)}</span><small>${parent ? `${esc(parent.key)} · ` : ''}${project.issues.length} · ${esc(kind)}</small></button>`;
@@ -90,6 +98,10 @@ function home(ctx) {
       <button type="button" class="button" data-action="empty-workspace">${icon('close')}${L('빈 작업 공간', 'Empty workspace')}</button>
     </div>
     <h2>${L('프로젝트', 'Projects')}</h2>
+    ${finderBar(ctx, [
+      { id: 'kind', label: L('종류', 'Kind'), options: [{ id: 'software', label: L('소프트웨어', 'Software') }, { id: 'business', label: L('업무', 'Business') }, { id: 'service', label: L('서비스', 'Service') }] },
+      { id: 'state', label: L('상태', 'State'), options: [{ id: 'active', label: L('사용', 'Active') }, { id: 'archived', label: L('보관', 'Archived') }] },
+    ])}
     <div class="card-grid">${cards || empty(L('아직 없습니다.', 'Nothing here yet.'))}</div>
     ${ctx.project ? `<h2>${L('최근 활동', 'Recent activity')}</h2><div class="feed">${feed(ctx, 8)}</div>` : ''}
   </div>`;
@@ -102,6 +114,8 @@ function board(ctx) {
   const future = current?.type === 'scrum' ? project.sprints.find((item) => item.state === 'future' && item.boardId === current.id) : null;
   let issues = project.issues.filter((issue) => issue.typeId !== 'epic' && issue.typeId !== 'subtask');
   if (current?.type === 'scrum') issues = sprint ? issues.filter((issue) => issue.sprintId === sprint.id) : [];
+  issues = issues.filter((issue) => issueVisible(ctx, issue));
+  const findBar = finderBar(ctx, issueFacets(ctx));
   const head = `<div class="page-head">
       <h1>${icon('board')}${esc(nameOf(current))}</h1>
       <div class="page-actions">
@@ -113,7 +127,7 @@ function board(ctx) {
       </div>
     </div>`;
   if (current?.type === 'scrum' && !sprint) {
-    return `<div class="fill">${head}<div class="page">${empty(L('진행 중인 스프린트가 없습니다. 계획된 스프린트를 시작하세요.', 'There is no active sprint. Start a planned one.'))}</div></div>`;
+    return `<div class="fill">${head}${findBar}<div class="page">${empty(L('진행 중인 스프린트가 없습니다. 계획된 스프린트를 시작하세요.', 'There is no active sprint. Start a planned one.'))}</div></div>`;
   }
   const columnBoard = (list) => (current?.columns || []).map((column) => {
     const status = byId(project.statuses, column.statusId);
@@ -124,9 +138,9 @@ function board(ctx) {
       <div class="cards" data-cards>${cards.map((issue) => card(ctx, issue)).join('')}</div>
     </section>`;
   }).join('');
-  if ((ctx.ui.swimlane || 'none') === 'none') return `<div class="fill">${head}<div class="board">${columnBoard(issues)}</div></div>`;
+  if ((ctx.ui.swimlane || 'none') === 'none') return `<div class="fill">${head}${findBar}<div class="board">${columnBoard(issues)}</div></div>`;
   const lanes = groupLanes(issues, ctx.ui.swimlane).map((lane) => `<section class="lane"><header>${esc(laneLabel(ctx, ctx.ui.swimlane, lane.id))}</header><div class="board">${columnBoard(lane.issues)}</div></section>`).join('');
-  return `<div class="fill">${head}<div class="lanes">${lanes}</div></div>`;
+  return `<div class="fill">${head}${findBar}<div class="lanes">${lanes}</div></div>`;
 }
 
 function card(ctx, issue) {
@@ -141,7 +155,7 @@ function card(ctx, issue) {
 
 function backlog(ctx) {
   const project = ctx.project;
-  let issues = project.issues.filter((issue) => issue.typeId !== 'epic' && !issue.parentId);
+  let issues = project.issues.filter((issue) => issue.typeId !== 'epic' && !issue.parentId && issueVisible(ctx, issue));
   if (ctx.ui.epicId) issues = issues.filter((issue) => issue.epicId === ctx.ui.epicId);
   const buckets = [
     ...project.sprints.filter((sprint) => sprint.state !== 'closed').map((sprint) => ({ sprint, title: `${sprint.name} · ${nameOf({ ko: sprint.state === 'active' ? '진행' : '예정', en: sprint.state === 'active' ? 'Active' : 'Future' })}` })),
@@ -157,7 +171,7 @@ function backlog(ctx) {
     </section>`;
   }).join('');
   const closed = project.sprints.filter((sprint) => sprint.state === 'closed');
-  return `<div class="page">${pageHead(L('백로그', 'Backlog'), `<button type="button" class="button" data-action="new-sprint">${icon('plus')}${L('스프린트', 'Sprint')}</button>`, 'backlog')}${body}
+  return `<div class="page">${pageHead(L('백로그', 'Backlog'), `<button type="button" class="button" data-action="new-sprint">${icon('plus')}${L('스프린트', 'Sprint')}</button>`, 'backlog')}${finderBar(ctx, issueFacets(ctx))}${body}
     ${closed.length ? `<p class="muted">${L('완료한 스프린트', 'Completed sprints')}: ${closed.map((sprint) => esc(sprint.name)).join(', ')}</p>` : ''}</div>`;
 }
 
@@ -174,18 +188,19 @@ function row(ctx, issue) {
 }
 
 function roadmap(ctx) {
-  const epics = ctx.project.issues.filter((issue) => issue.typeId === 'epic');
+  const epics = ctx.project.issues.filter((issue) => issue.typeId === 'epic' && issueVisible(ctx, issue));
   const bars = epics.map((epic) => {
     const children = ctx.project.issues.filter((issue) => issue.epicId === epic.id && issue.typeId !== 'subtask');
     const done = children.filter((issue) => byId(ctx.project.statuses, issue.statusId)?.category === 'done').length;
     const pct = children.length ? Math.round((done / children.length) * 100) : 0;
     return `<button type="button" class="epic-row" data-action="open-issue" data-id="${esc(epic.id)}"><span class="key">${icon('epic')}${esc(epic.key)}</span><b>${esc(epic.summary)}</b><span class="bar"><i style="width:${pct}%"></i></span><small>${done}/${children.length}</small></button>`;
   }).join('');
-  return `<div class="page">${pageHead(L('로드맵', 'Roadmap'), '', 'roadmap')}${bars || empty(L('에픽이 없습니다.', 'There are no epics.'))}</div>`;
+  return `<div class="page">${pageHead(L('로드맵', 'Roadmap'), '', 'roadmap')}${finderBar(ctx, issueFacets(ctx, ['status', 'assignee']))}${bars || empty(L('에픽이 없습니다.', 'There are no epics.'))}</div>`;
 }
 
 function issues(ctx) {
   const result = queried(ctx, true);
+  result.issues = result.issues.filter((issue) => issueVisible(ctx, issue));
   const project = ctx.project;
   const selected = new Set(ctx.ui.selected || []);
   const head = `<tr><th></th>${['key', 'type', 'summary', 'status', 'priority', 'assignee', 'sprint', 'points'].map((field) => {
@@ -216,6 +231,7 @@ function issues(ctx) {
     </div>` : '';
   const note = result.issues.length > 400 ? `<p class="muted">${L('400개까지 표시합니다.', 'Showing the first 400.')}</p>` : '';
   return `<div class="page">${pageHead(L('이슈', 'Issues'), `<button type="button" class="button" data-action="import-csv">${icon('download')}${L('CSV 가져오기', 'Import CSV')}</button><button type="button" class="button primary" data-action="new-issue">${icon('plus')}${L('이슈', 'Issue')}</button>`, 'issues')}
+    ${finderBar(ctx, issueFacets(ctx))}
     <div class="query-line"><label class="quick-search">${icon('filter')}<input id="issue-query" value="${esc(ctx.ui.query || '')}" placeholder="${esc(L('WQL. 예: type = bug AND status != done', 'WQL. Example: type = bug AND status != done'))}"></label><button type="button" class="button" data-action="open-guide" data-id="wql">${icon('book')}<span>${L('WQL 설명서', 'WQL guide')}</span></button></div>
     ${bulk}${note}<div class="table-wrap"><table class="data">${head}${body}</table></div>
     ${result.error ? `<p class="danger-text">${L('질의 문법을 확인하세요.', 'Check the query syntax.')}</p>` : `<p class="muted">${result.issues.length}</p>`}</div>`;
@@ -229,8 +245,8 @@ function queues(ctx) {
     const count = runQuery(ctx.ws, project, queue.query, { user: ctx.user, now: ctx.now }).issues.length;
     return `<button type="button" class="nav-button${queue.id === current?.id ? ' active' : ''}" data-action="queue" data-id="${esc(queue.id)}">${icon('list')}<span>${esc(nameOf(queue))}</span><i class="count">${count}</i></button>`;
   }).join('');
-  const issues = current ? runQuery(ctx.ws, project, current.query, { user: ctx.user, now: ctx.now }).issues : [];
-  return `<div class="page">${pageHead(L('대기열', 'Queues'), '', 'queues')}<div class="split-page"><div class="queue-list">${list || empty(L('대기열이 없습니다.', 'There are no queues.'))}</div><div>${issueLines(ctx, issues)}</div></div></div>`;
+  const issues = current ? runQuery(ctx.ws, project, current.query, { user: ctx.user, now: ctx.now }).issues.filter((issue) => issueVisible(ctx, issue)) : [];
+  return `<div class="page">${pageHead(L('대기열', 'Queues'), '', 'queues')}${finderBar(ctx, issueFacets(ctx))}<div class="split-page"><div class="queue-list">${list || empty(L('대기열이 없습니다.', 'There are no queues.'))}</div><div>${issueLines(ctx, issues)}</div></div></div>`;
 }
 
 function issueLines(ctx, issues) {
@@ -243,13 +259,14 @@ function issueLines(ctx, issues) {
 
 function dashboard(ctx) {
   const project = ctx.project;
-  const cards = (project.dashboard || []).map((gadget) => `<section class="gadget"><header><b>${esc(nameOf(GADGETS.find((item) => item.id === gadget.type)))}</b><button type="button" class="icon-button" data-action="remove-gadget" data-id="${esc(gadget.id)}">${icon('close')}</button></header>${gadgetBody(ctx, gadget.type)}</section>`).join('');
-  return `<div class="page">${pageHead(L('대시보드', 'Dashboard'), `<select data-choose="gadget">${options(GADGETS, '', L('가젯 추가', 'Add a gadget'))}</select>`, 'dashboard')}<div class="gadget-grid">${cards}</div></div>`;
+  const find = screenFind(ctx);
+  const cards = (project.dashboard || []).filter((gadget) => !find.gadget || gadget.type === find.gadget).map((gadget) => `<section class="gadget"><header><b>${esc(nameOf(GADGETS.find((item) => item.id === gadget.type)))}</b><button type="button" class="icon-button" data-action="remove-gadget" data-id="${esc(gadget.id)}">${icon('close')}</button></header>${gadgetBody(ctx, gadget.type)}</section>`).join('');
+  return `<div class="page">${pageHead(L('대시보드', 'Dashboard'), `<select data-choose="gadget">${options(GADGETS, '', L('가젯 추가', 'Add a gadget'))}</select>`, 'dashboard')}${finderBar(ctx, [{ id: 'gadget', label: L('가젯', 'Gadget'), options: GADGETS.map((item) => ({ id: item.id, label: nameOf(item) })) }])}<div class="gadget-grid">${cards || empty(L('가젯이 없습니다.', 'There are no gadgets.'))}</div></div>`;
 }
 
 function gadgetBody(ctx, type) {
   const project = ctx.project;
-  if (type === 'mine') return issueLines(ctx, runQuery(ctx.ws, project, 'assignee = currentUser() AND status != done', { user: ctx.user, now: ctx.now }).issues.slice(0, 8));
+  if (type === 'mine') return issueLines(ctx, runQuery(ctx.ws, project, 'assignee = currentUser() AND status != done', { user: ctx.user, now: ctx.now }).issues.filter((issue) => issueVisible(ctx, issue)).slice(0, 8));
   if (type === 'activity') return `<div class="feed">${feed(ctx, 8)}</div>`;
   if (type === 'sprint') {
     const sprint = project.sprints.find((item) => item.state === 'active');
@@ -267,7 +284,7 @@ function reports(ctx) {
   const tabs = [['burndown', L('번다운', 'Burndown')], ['velocity', L('속도', 'Velocity')], ['flow', L('누적 흐름', 'Cumulative flow')], ['created', L('생성과 해결', 'Created and resolved')], ['pie', L('분포', 'Distribution')], ['time', L('시간', 'Time')], ['sprint', L('스프린트', 'Sprint')], ['control', L('제어', 'Control')], ['epic', L('에픽 번다운', 'Epic burndown')]];
   const glyphs = { burndown: 'chart', velocity: 'bolt', flow: 'workflow', created: 'plus', pie: 'chart', time: 'clock', sprint: 'play', control: 'columns', epic: 'epic' };
   const nav = `<div class="tabs">${tabs.map(([id, label]) => `<button type="button" class="tab${ctx.ui.report === id ? ' active' : ''}" data-action="report" data-id="${id}">${icon(glyphs[id])}<span>${label}</span></button>`).join('')}</div>`;
-  return `<div class="page">${pageHead(L('보고서', 'Reports'), '', 'reports')}${nav}<div class="report">${reportBody(ctx)}</div></div>`;
+  return `<div class="page">${pageHead(L('보고서', 'Reports'), '', 'reports')}${finderBar(ctx, issueFacets(ctx))}${nav}<div class="report">${reportBody(ctx)}</div></div>`;
 }
 
 function reportBody(ctx) {
@@ -284,7 +301,7 @@ function reportBody(ctx) {
   if (ctx.ui.report === 'created') return bars(createdResolved(project, ctx.now).map((row) => ({ label: formatWhen(row.to), a: row.created, b: row.resolved })), ['#3a6cf0', '#30a46c']);
   if (ctx.ui.report === 'pie') return `<div class="split-page">${pieBlock(ctx, 'status')}${pieBlock(ctx, 'priority')}${pieBlock(ctx, 'type')}</div>`;
   if (ctx.ui.report === 'time') {
-    const rows = timeReport(project, project.issues);
+    const rows = timeReport(project, project.issues.filter((issue) => issueVisible(ctx, issue)));
     return `<table class="data"><tr><th>${L('담당', 'Assignee')}</th><th>${L('추정', 'Estimate')}</th><th>${L('남음', 'Remaining')}</th><th>${L('기록', 'Logged')}</th></tr>
       ${rows.map((row) => `<tr><td>${esc(row.userId === 'unassigned' ? L('없음', 'None') : person(ctx.ws, row.userId)?.name || '')}</td><td>${esc(dur(row.original))}</td><td>${esc(dur(row.remaining))}</td><td>${esc(dur(row.spent))}</td></tr>`).join('')}</table>`;
   }
@@ -292,13 +309,14 @@ function reportBody(ctx) {
     const sprint = project.sprints.find((item) => item.state === 'active') || project.sprints.filter((item) => item.state === 'closed').at(-1);
     const report = sprintReport(project, sprint);
     if (!report) return empty(L('스프린트가 없습니다.', 'There is no sprint.'));
-    const list = (ids) => ids.map((id) => findIssue(project, id)).filter(Boolean).map((issue) => `<button type="button" class="link-row" data-action="open-issue" data-id="${esc(issue.id)}">${icon('issues')}<span class="key">${esc(issue.key)}</span><span>${esc(issue.summary)}</span></button>`).join('') || empty(L('없음', 'None'));
+    const list = (ids) => ids.map((id) => findIssue(project, id)).filter((issue) => issue && issueVisible(ctx, issue)).map((issue) => `<button type="button" class="link-row" data-action="open-issue" data-id="${esc(issue.id)}">${icon('issues')}<span class="key">${esc(issue.key)}</span><span>${esc(issue.summary)}</span></button>`).join('') || empty(L('없음', 'None'));
     return `<h2>${esc(sprint.name)}</h2><p>${report.pointsDone} / ${report.pointsTotal}</p><h3>${L('완료', 'Completed')}</h3>${list(report.completed)}<h3>${L('남음', 'Remaining')}</h3>${list(report.incomplete)}`;
   }
   if (ctx.ui.report === 'control') {
     const data = controlChart(project, ctx.now);
-    if (!data.points.length) return empty(L('완료까지 상태가 바뀐 이슈가 없습니다.', 'No issue has moved through to done.'));
-    return `<p>${L('평균', 'Average')} ${data.average.toFixed(1)} ${L('일', 'days')}</p>${bars(data.points.slice(0, 16).map((point) => ({ label: point.key, a: point.days, b: data.average })), ['#3a6cf0', '#94a3b8'])}`;
+    const points = data.points.filter((point) => issueVisible(ctx, findIssue(project, point.id)));
+    if (!points.length) return empty(L('완료까지 상태가 바뀐 이슈가 없습니다.', 'No issue has moved through to done.'));
+    return `<p>${L('평균', 'Average')} ${data.average.toFixed(1)} ${L('일', 'days')}</p>${bars(points.slice(0, 16).map((point) => ({ label: point.key, a: point.days, b: data.average })), ['#3a6cf0', '#94a3b8'])}`;
   }
   if (ctx.ui.report === 'epic') {
     const epics = project.issues.filter((issue) => issue.typeId === 'epic');
@@ -340,7 +358,7 @@ function stacked(rows) {
 }
 
 function pieBlock(ctx, field) {
-  const slices = pie(ctx.project, ctx.project.issues.filter((issue) => issue.typeId !== 'epic'), field);
+  const slices = pie(ctx.project, ctx.project.issues.filter((issue) => issue.typeId !== 'epic' && issueVisible(ctx, issue)), field);
   const colors = ['#3a6cf0', '#30a46c', '#f5a524', '#e5484d', '#7c3aed', '#0ea5e9', '#64748b', '#db2777'];
   const painted = slices.map((slice, index) => {
     const status = byId(ctx.project.statuses, slice.id);
@@ -369,26 +387,35 @@ function pieBlock(ctx, field) {
 
 function releases(ctx) {
   const project = ctx.project;
-  const cards = project.versions.map((version) => {
+  const find = screenFind(ctx);
+  const cards = project.versions.filter((version) => {
+    if (!matchesText(find.q, version.name, version.description)) return false;
+    if (find.state === 'released') return Boolean(version.released);
+    if (find.state === 'open') return !version.released;
+    return true;
+  }).map((version) => {
     const issues = project.issues.filter((issue) => (issue.fixVersionIds || []).includes(version.id));
     const done = issues.filter((issue) => byId(project.statuses, issue.statusId)?.category === 'done').length;
     const pct = issues.length ? Math.round((done / issues.length) * 100) : 0;
     return `<article class="panel-card"><header><b>${esc(version.name)}</b>${version.released ? badge(L('출시', 'Released'), '#30a46c') : badge(L('예정', 'Unreleased'), '#3a6cf0')}</header><p>${esc(version.description || '')}</p><div class="bar"><i style="width:${pct}%"></i></div><p class="muted">${done}/${issues.length}${version.releaseDate ? ` · ${esc(formatWhen(version.releaseDate))}` : ''}</p><button type="button" class="small-button" data-action="release" data-id="${esc(version.id)}" data-on="${version.released ? '0' : '1'}">${icon(version.released ? 'undo' : 'release')}<span>${version.released ? L('출시 취소', 'Unrelease') : L('출시', 'Release')}</span></button></article>`;
   }).join('');
-  return `<div class="page">${pageHead(L('릴리스', 'Releases'), `<button type="button" class="button" data-action="new-version">${icon('plus')}${L('버전', 'Version')}</button>`, 'releases')}<div class="card-grid">${cards || empty(L('버전이 없습니다.', 'There are no versions.'))}</div></div>`;
+  return `<div class="page">${pageHead(L('릴리스', 'Releases'), `<button type="button" class="button" data-action="new-version">${icon('plus')}${L('버전', 'Version')}</button>`, 'releases')}${finderBar(ctx, [{ id: 'state', label: L('상태', 'State'), options: [{ id: 'open', label: L('예정', 'Unreleased') }, { id: 'released', label: L('출시', 'Released') }] }])}<div class="card-grid">${cards || empty(L('버전이 없습니다.', 'There are no versions.'))}</div></div>`;
 }
 
 function components(ctx) {
-  const cards = ctx.project.components.map((component) => {
+  const find = screenFind(ctx);
+  const cards = ctx.project.components.filter((component) => matchesText(find.q, component.name, component.description, person(ctx.ws, component.leadId)?.name) && (!find.lead || component.leadId === find.lead)).map((component) => {
     const count = ctx.project.issues.filter((issue) => (issue.componentIds || []).includes(component.id)).length;
     return `<article class="panel-card"><header><b>${esc(component.name)}</b>${avatar(person(ctx.ws, component.leadId))}</header><p>${esc(component.description || '')}</p><p class="muted">${count}</p></article>`;
   }).join('');
-  return `<div class="page">${pageHead(L('구성 요소', 'Components'), `<button type="button" class="button" data-action="new-component">${icon('plus')}${L('구성 요소', 'Component')}</button>`, 'components')}<div class="card-grid">${cards || empty(L('구성 요소가 없습니다.', 'There are no components.'))}</div></div>`;
+  const leads = (ctx.ws.users || []).filter((user) => ctx.project.components.some((component) => component.leadId === user.id)).map((user) => ({ id: user.id, label: user.name }));
+  return `<div class="page">${pageHead(L('구성 요소', 'Components'), `<button type="button" class="button" data-action="new-component">${icon('plus')}${L('구성 요소', 'Component')}</button>`, 'components')}${finderBar(ctx, [{ id: 'lead', label: L('책임', 'Lead'), options: leads }])}<div class="card-grid">${cards || empty(L('구성 요소가 없습니다.', 'There are no components.'))}</div></div>`;
 }
 
 function filters(ctx) {
-  const list = ctx.project.filters.map((filter) => `<div class="link-row"><button type="button" data-action="run-filter" data-id="${esc(filter.id)}">${icon('filter')}<b>${esc(nameOf(filter))}</b><small>${esc(filter.query)}</small></button><button type="button" class="icon-button" data-action="delete-filter" data-id="${esc(filter.id)}">${icon('trash')}</button></div>`).join('');
-  return `<div class="page">${pageHead(L('필터', 'Filters'), `<button type="button" class="button" data-action="open-guide" data-id="wql">${icon('book')}<span>${L('WQL 설명서', 'WQL guide')}</span></button><button type="button" class="button" data-action="save-filter">${icon('save')}<span>${L('현재 질의 저장', 'Save the current query')}</span></button>`, 'filters')}<p class="muted">${esc(ctx.ui.query || L('이슈 화면의 질의가 비어 있습니다.', 'The issue query is empty.'))}</p>${list}</div>`;
+  const find = screenFind(ctx);
+  const list = ctx.project.filters.filter((filter) => matchesText(find.q, nameOf(filter), filter.query)).map((filter) => `<div class="link-row"><button type="button" data-action="run-filter" data-id="${esc(filter.id)}">${icon('filter')}<b>${esc(nameOf(filter))}</b><small>${esc(filter.query)}</small></button><button type="button" class="icon-button" data-action="delete-filter" data-id="${esc(filter.id)}">${icon('trash')}</button></div>`).join('');
+  return `<div class="page">${pageHead(L('필터', 'Filters'), `<button type="button" class="button" data-action="open-guide" data-id="wql">${icon('book')}<span>${L('WQL 설명서', 'WQL guide')}</span></button><button type="button" class="button" data-action="save-filter">${icon('save')}<span>${L('현재 질의 저장', 'Save the current query')}</span></button>`, 'filters')}${finderBar(ctx)}<p class="muted">${esc(ctx.ui.query || L('이슈 화면의 질의가 비어 있습니다.', 'The issue query is empty.'))}</p>${list || empty(L('필터가 없습니다.', 'There are no filters.'))}</div>`;
 }
 
 function adminOnly(ctx, title, view) {
@@ -400,15 +427,27 @@ function usersAdmin(ctx) {
   const blocked = adminOnly(ctx, L('사용자', 'Users'), 'users');
   if (blocked) return blocked;
   const project = ctx.project;
-  const rows = ctx.ws.users.map((user) => {
+  const find = screenFind(ctx);
+  const rows = ctx.ws.users.filter((user) => {
+    const member = project?.members?.find((item) => item.userId === user.id);
+    if (!matchesText(find.q, user.name, user.login, user.email, user.phone, user.jobTitle, user.team)) return false;
+    if (find.role && (member?.role || '') !== find.role) return false;
+    if (find.active === 'yes' && user.active === false) return false;
+    if (find.active === 'no' && user.active !== false) return false;
+    return true;
+  }).map((user) => {
     const member = project?.members?.find((item) => item.userId === user.id);
     const role = project ? `<td><select data-member="${esc(user.id)}">${options(ROLES, member?.role || '', L('역할 없음', 'No role'))}</select></td>` : '';
-    return `<tr><td>${avatar(user)} ${esc(user.name)}</td><td>${esc(user.login || '')}</td><td>${esc(user.email || '')}</td>${role}<td><input type="checkbox" data-user-active="${esc(user.id)}" ${user.active !== false ? 'checked' : ''}></td></tr>`;
+    return `<tr><td>${avatar(user)} ${esc(user.name)}</td><td>${esc(user.jobTitle || '')}</td><td>${esc(user.team || '')}</td><td>${esc(user.phone || '')}</td><td>${esc(user.login || '')}</td><td>${esc(user.email || '')}</td>${role}<td><input type="checkbox" data-user-active="${esc(user.id)}" ${user.active !== false ? 'checked' : ''}></td><td><button type="button" class="icon-button" data-action="edit-profile" data-id="${esc(user.id)}">${icon('pencil')}</button></td></tr>`;
   }).join('');
   const roleHead = project ? `<th>${L('역할', 'Role')}</th>` : '';
   return `<div class="page">${pageHead(L('사용자', 'Users'), `<button type="button" class="button" data-action="new-user">${icon('plus')}${L('사용자', 'User')}</button><button type="button" class="button" data-action="new-group">${icon('people')}${L('그룹', 'Group')}</button><button type="button" class="button" data-action="set-password">${icon('lock')}${L('암호', 'Password')}</button>`, 'users')}
+    ${finderBar(ctx, [
+      { id: 'role', label: L('역할', 'Role'), options: ROLES.map((role) => ({ id: role.id, label: nameOf(role) })) },
+      { id: 'active', label: L('사용', 'Active'), options: [{ id: 'yes', label: L('사용', 'Active') }, { id: 'no', label: L('중지', 'Inactive') }] },
+    ])}
     <p class="muted">${project ? L('선택한 과제의 역할을 바꿉니다. 사용 칸은 이 작업 공간의 로그인입니다.', 'The role is for the open project. The Active box is the sign-in for this workspace.') : L('과제를 연 뒤 그 과제의 역할을 정할 수 있습니다.', 'Open a project to set a role on it.')}</p>
-    <table class="data"><tr><th>${L('이름', 'Name')}</th><th>${L('아이디', 'Account')}</th><th>${L('메일', 'Email')}</th>${roleHead}<th>${L('사용', 'Active')}</th></tr>${rows}</table>
+    <table class="data"><tr><th>${L('이름', 'Name')}</th><th>${L('직급', 'Title')}</th><th>${L('팀', 'Team')}</th><th>${L('휴대폰', 'Phone')}</th><th>${L('아이디', 'Account')}</th><th>${L('메일', 'Email')}</th>${roleHead}<th>${L('사용', 'Active')}</th><th></th></tr>${rows}</table>
   </div>`;
 }
 
@@ -419,7 +458,14 @@ function managesProject(ctx, project) {
 function projectsAdmin(ctx) {
   const typeName = (type) => nameOf(type === 'service' ? { ko: '서비스', en: 'Service' } : type === 'business' ? { ko: '업무', en: 'Business' } : { ko: '소프트웨어', en: 'Software' });
   const leadName = (id) => ctx.ws.users.find((user) => user.id === id)?.name || '';
-  const rows = orderedProjects(ctx.ws).map((project) => {
+  const find = screenFind(ctx);
+  const rows = orderedProjects(ctx.ws).filter((project) => {
+    if (!matchesText(find.q, project.key, project.name, project.description, leadName(project.leadId))) return false;
+    if (find.kind && project.type !== find.kind) return false;
+    if (find.state === 'archived') return Boolean(project.archived);
+    if (find.state === 'active') return !project.archived;
+    return true;
+  }).map((project) => {
     const manage = managesProject(ctx, project);
     const depth = projectAncestors(ctx.ws, project).length;
     const name = manage ? `<input data-managed="name" data-id="${esc(project.id)}" value="${esc(project.name)}" aria-label="${esc(L('이름', 'Name'))}">` : esc(project.name);
@@ -438,19 +484,38 @@ function projectsAdmin(ctx) {
     </tr>`;
   }).join('');
   return `<div class="page">${pageHead(L('과제', 'Projects'), `<button type="button" class="button primary" data-action="new-project">${icon('plus')}${L('새 과제', 'New project')}</button>`, 'projects')}
+    ${finderBar(ctx, [
+      { id: 'kind', label: L('종류', 'Kind'), options: [{ id: 'software', label: L('소프트웨어', 'Software') }, { id: 'business', label: L('업무', 'Business') }, { id: 'service', label: L('서비스', 'Service') }] },
+      { id: 'state', label: L('상태', 'State'), options: [{ id: 'active', label: L('사용', 'Active') }, { id: 'archived', label: L('보관', 'Archived') }] },
+    ])}
     <table class="data"><tr><th>${L('키', 'Key')}</th><th>${L('이름', 'Name')}</th><th>${L('종류', 'Type')}</th><th>${L('책임자', 'Lead')}</th><th>${L('상태', 'State')}</th><th></th></tr>${rows || `<tr><td colspan="6">${L('과제가 없습니다.', 'There are no projects.')}</td></tr>`}</table>
   </div>`;
 }
 
 function people(ctx) {
-  const rows = ctx.ws.users.map((user) => {
+  const find = screenFind(ctx);
+  const rows = ctx.ws.users.filter((user) => {
     const member = ctx.project.members.find((item) => item.userId === user.id);
-    return `<tr><td>${avatar(user)} ${esc(user.name)}</td><td>${esc(user.email || '')}</td><td><select data-member="${esc(user.id)}">${options(ROLES, member?.role || '', L('역할 없음', 'No role'))}</select></td><td><input type="checkbox" data-user-active="${esc(user.id)}" ${user.active !== false ? 'checked' : ''}></td></tr>`;
+    if (!matchesText(find.q, user.name, user.email, user.login, user.phone, user.jobTitle, user.team)) return false;
+    if (find.role && (member?.role || '') !== find.role) return false;
+    if (find.active === 'yes' && user.active === false) return false;
+    if (find.active === 'no' && user.active !== false) return false;
+    return true;
+  }).map((user) => {
+    const member = ctx.project.members.find((item) => item.userId === user.id);
+    const edit = isWorkspaceAdmin(ctx.user) || user.id === ctx.user?.id
+      ? `<button type="button" class="icon-button" data-action="edit-profile" data-id="${esc(user.id)}">${icon('pencil')}</button>`
+      : '';
+    return `<tr><td>${avatar(user)} ${esc(user.name)}</td><td>${esc(user.jobTitle || '')}</td><td>${esc(user.team || '')}</td><td>${esc(user.phone || '')}</td><td>${esc(user.email || '')}</td><td><select data-member="${esc(user.id)}">${options(ROLES, member?.role || '', L('역할 없음', 'No role'))}</select></td><td><input type="checkbox" data-user-active="${esc(user.id)}" ${user.active !== false ? 'checked' : ''}></td><td>${edit}</td></tr>`;
   }).join('');
   const groups = ctx.ws.groups.map((group) => `<article class="panel-card"><header><b>${esc(nameOf(group))}</b></header><div class="checks">${ctx.ws.users.map((user) => `<label class="check"><input type="checkbox" data-group="${esc(group.id)}" data-user="${esc(user.id)}" ${(group.userIds || []).includes(user.id) ? 'checked' : ''}>${esc(user.name)}</label>`).join('')}</div></article>`).join('');
   return `<div class="page">${pageHead(L('사람', 'People'), `<button type="button" class="button" data-action="new-user">${icon('plus')}${L('사람', 'Person')}</button><button type="button" class="button" data-action="new-group">${icon('people')}${L('그룹', 'Group')}</button><button type="button" class="button" data-action="set-password">${icon('lock')}${L('암호', 'Password')}</button>`, 'people')}
+    ${finderBar(ctx, [
+      { id: 'role', label: L('역할', 'Role'), options: ROLES.map((role) => ({ id: role.id, label: nameOf(role) })) },
+      { id: 'active', label: L('사용', 'Active'), options: [{ id: 'yes', label: L('사용', 'Active') }, { id: 'no', label: L('중지', 'Inactive') }] },
+    ])}
     <p class="muted">${L('책임자는 항상 관리자입니다. 위 선택은 이 프로젝트의 역할입니다.', 'The lead is always an administrator. The choice above is the role on this project.')}</p>
-    <table class="data"><tr><th>${L('이름', 'Name')}</th><th>${L('메일', 'Email')}</th><th>${L('역할', 'Role')}</th><th>${L('사용', 'Active')}</th></tr>${rows}</table>
+    <table class="data"><tr><th>${L('이름', 'Name')}</th><th>${L('직급', 'Title')}</th><th>${L('팀', 'Team')}</th><th>${L('휴대폰', 'Phone')}</th><th>${L('메일', 'Email')}</th><th>${L('역할', 'Role')}</th><th>${L('사용', 'Active')}</th><th></th></tr>${rows}</table>
     <h2>${L('그룹', 'Groups')}</h2><div class="card-grid">${groups}</div></div>`;
 }
 
@@ -462,11 +527,20 @@ function health(ctx) {
     'sla-breached': L('기한을 넘김', 'Past the time limit'),
     blocked: L('다른 이슈에 막힘', 'Blocked by another issue'),
   };
-  const items = inspect(ctx.project, ctx.now, calendarOf(ctx.ws)).map((item) => {
+  const find = screenFind(ctx);
+  const items = inspect(ctx.project, ctx.now, calendarOf(ctx.ws)).filter((item) => {
+    const issue = findIssue(ctx.project, item.issueId);
+    if (find.code && item.code !== find.code) return false;
+    if (find.level && item.severity !== find.level) return false;
+    return matchesText(find.q, issue?.key, issue?.summary, texts[item.code], item.code);
+  }).map((item) => {
     const issue = findIssue(ctx.project, item.issueId);
     return `<button type="button" class="link-row" data-action="open-issue" data-id="${esc(item.issueId)}">${icon('alert')}${badge(item.severity === 'error' ? L('오류', 'Error') : L('주의', 'Warning'), item.severity === 'error' ? '#e5484d' : '#f5a524')}<span class="key">${esc(issue?.key || '')}</span><span>${esc(texts[item.code] || item.code)}</span><span>${esc(issue?.summary || '')}</span></button>`;
   }).join('');
-  return `<div class="page">${pageHead(L('점검', 'Health'), '', 'health')}${items || empty(L('문제가 없습니다.', 'Nothing needs attention.'))}</div>`;
+  return `<div class="page">${pageHead(L('점검', 'Health'), '', 'health')}${finderBar(ctx, [
+    { id: 'code', label: L('종류', 'Kind'), options: Object.entries(texts).map(([id, label]) => ({ id, label })) },
+    { id: 'level', label: L('수준', 'Level'), options: [{ id: 'error', label: L('오류', 'Error') }, { id: 'warning', label: L('주의', 'Warning') }] },
+  ])}${items || empty(L('문제가 없습니다.', 'Nothing needs attention.'))}</div>`;
 }
 
 function noticeBox(scope, id, event, checked, ko, en) {
@@ -506,8 +580,13 @@ function noticeSettings(ctx) {
 }
 
 function notifications(ctx) {
-  const items = ctx.project.notifications.filter((item) => item.userId === ctx.user?.id).map((item) => `<button type="button" class="link-row${item.read ? '' : ' unread'}" data-action="mark-read" data-id="${esc(item.id)}" data-issue="${esc(item.issueId || '')}">${icon('bell')}<span>${esc(activityText(ctx, item))}</span><small>${esc(formatWhen(item.at))}</small></button>`).join('');
-  return `<div class="page">${pageHead(L('알림', 'Notifications'), `<button type="button" class="button" data-action="mark-all-read">${icon('check')}<span>${L('모두 읽음', 'Mark all read')}</span></button>`, 'notifications')}${items || empty(L('알림이 없습니다.', 'There are no notifications.'))}${noticeSettings(ctx)}</div>`;
+  const find = screenFind(ctx);
+  const items = ctx.project.notifications.filter((item) => item.userId === ctx.user?.id).filter((item) => {
+    if (find.read === 'unread' && item.read) return false;
+    if (find.read === 'read' && !item.read) return false;
+    return matchesText(find.q, activityText(ctx, item), item.issueKey);
+  }).map((item) => `<button type="button" class="link-row${item.read ? '' : ' unread'}" data-action="mark-read" data-id="${esc(item.id)}" data-issue="${esc(item.issueId || '')}">${icon('bell')}<span>${esc(activityText(ctx, item))}</span><small>${esc(formatWhen(item.at))}</small></button>`).join('');
+  return `<div class="page">${pageHead(L('알림', 'Notifications'), `<button type="button" class="button" data-action="mark-all-read">${icon('check')}<span>${L('모두 읽음', 'Mark all read')}</span></button>`, 'notifications')}${finderBar(ctx, [{ id: 'read', label: L('상태', 'State'), options: [{ id: 'unread', label: L('안 읽음', 'Unread') }, { id: 'read', label: L('읽음', 'Read') }] }])}${items || empty(L('알림이 없습니다.', 'There are no notifications.'))}${noticeSettings(ctx)}</div>`;
 }
 
 function startSettings(ctx) {
@@ -575,27 +654,54 @@ function projectSettings(ctx) {
   if (!managesProject(ctx, ctx.project)) {
     return `<div class="page">${pageHead(title, '', 'project-settings')}<p>${L('권한이 없습니다.', 'You do not have permission.')}</p></div>`;
   }
-  return `<div class="page settings">${pageHead(title, '', 'project-settings')}${projectConfiguration(ctx, ctx.project)}</div>`;
+  const blocks = [
+    ['project', L('프로젝트', 'Project')],
+    ['workflow', L('작업 흐름', 'Workflow')],
+    ['fields', L('필드', 'Fields')],
+    ['rules', L('자동화', 'Automation')],
+    ['screen', L('만들기 화면', 'Create screen')],
+  ];
+  const find = screenFind(ctx);
+  const html = projectConfiguration(ctx, ctx.project);
+  const parts = html.split(/(?=<section>)/);
+  const shown = parts.filter((part) => {
+    const titleText = part.match(/<h2>(?:<[^>]+>)*([^<]+)/)?.[1] || '';
+    if (find.section && !titleText.includes(blocks.find((item) => item[0] === find.section)?.[1] || '')) return false;
+    return keepBlock(find.q, part);
+  }).join('');
+  return `<div class="page settings">${pageHead(title, '', 'project-settings')}${finderBar(ctx, [{ id: 'section', label: L('분류', 'Section'), options: blocks.map(([id, label]) => ({ id, label })) }])}${shown || empty(L('찾는 설정이 없습니다.', 'No setting matches.'))}</div>`;
 }
 
 function settings(ctx) {
   const colors = ctx.settings.customTheme ? CUSTOM_KEYS.map((key) => `<label class="form-row"><span>${esc(key)}</span><input type="color" data-custom-color="${esc(key)}" value="${esc(ctx.settings.customTheme[key] || '#888888')}"></label>`).join('') : '';
-  return `<div class="page settings">${pageHead(L('설정', 'Settings'), '', 'settings')}
-    ${startSettings(ctx)}
-    ${startupOptions(ctx)}
-    ${databaseSettings(ctx)}
-    ${mailSettings(ctx)}
-    <section><h2>${L('모양', 'Appearance')}</h2>
+  const blocks = [
+    ['start', L('시작 화면', 'Start page'), startSettings(ctx)],
+    ['computer', L('이 컴퓨터', 'This computer'), startupOptions(ctx)],
+    ['database', L('데이터베이스', 'Database'), databaseSettings(ctx)],
+    ['mail', L('메일', 'Mail'), mailSettings(ctx)],
+    ['look', L('모양', 'Appearance'), `<section><h2>${L('모양', 'Appearance')}</h2>
       <label class="form-row"><span>${L('글자 크기', 'Text size')}</span><input data-font="size" type="number" min="12" max="20" value="${esc(ctx.settings.fontSize)}"></label>
       <button type="button" class="button" data-action="edit-custom-theme">${icon('settings')}<span>${L('사용자 정의 테마 설정', 'Custom theme settings')}</span></button>
       ${colors}
-    </section>
+    </section>`],
+  ];
+  const find = screenFind(ctx);
+  const shown = blocks.filter((item) => !find.section || find.section === item[0]).map((item) => keepBlock(find.q, item[2])).join('');
+  return `<div class="page settings">${pageHead(L('설정', 'Settings'), '', 'settings')}
+    ${finderBar(ctx, [{ id: 'section', label: L('분류', 'Section'), options: blocks.map(([id, label]) => ({ id, label })) }])}
+    ${shown || empty(L('찾는 설정이 없습니다.', 'No setting matches.'))}
   </div>`;
 }
 
-function help() {
-  const open = (id, glyph, ko, en, tipKo, tipEn) => `<button type="button" class="button" data-action="open-guide" data-id="${id}">${icon(glyph)}<span>${L(ko, en)}</span></button><p class="muted">${L(tipKo, tipEn)}</p>`;
+function help(ctx) {
+  const find = screenFind(ctx);
+  const open = (id, glyph, ko, en, tipKo, tipEn) => {
+    const html = `<button type="button" class="button" data-action="open-guide" data-id="${id}">${icon(glyph)}<span>${L(ko, en)}</span></button><p class="muted">${L(tipKo, tipEn)}</p>`;
+    if (find.kind && find.kind !== id) return '';
+    return keepBlock(find.q, html);
+  };
   return `<div class="page help-page">${pageHead(L('도움말', 'Help'), '', 'help')}
+    ${finderBar(ctx, [{ id: 'kind', label: L('문서', 'Document'), options: [{ id: 'guide', label: L('사용 설명서', "User's guide") }, { id: 'tutorial', label: L('튜토리얼', 'Tutorial') }, { id: 'wql', label: L('작업 질의', 'Work query') }] }])}
     <p>${L('사용 설명서, 튜토리얼 문서, 작업 질의는 각각 별도의 창에서 열립니다.', 'The user guide, the tutorial document and the query language each open in their own window.')}</p>
     <div class="doc-launch">
       ${open('guide', 'book', '사용 설명서', "User's Guide", '메뉴, 이슈, 계획, 문서를 설명합니다.', 'Menus, issues, planning and documents.')}
@@ -609,8 +715,8 @@ function issue(ctx) {
   const current = findIssue(ctx.project, ctx.ui.issueId);
   if (!current) return `<div class="page">${empty(L('이슈를 고르세요.', 'Choose an issue.'))}</div>`;
   const tabs = [['details', 'book', L('설명', 'Description')], ['comments', 'comment', L('의견', 'Comments')], ['work', 'clock', L('작업 기록', 'Work log')], ['history', 'list', L('기록', 'History')], ['links', 'link', L('연결', 'Links')]];
-  const children = ctx.project.issues.filter((item) => item.parentId === current.id || (current.typeId === 'epic' && item.epicId === current.id && item.id !== current.id));
-  return `<div class="page issue">
+  const children = ctx.project.issues.filter((item) => (item.parentId === current.id || (current.typeId === 'epic' && item.epicId === current.id && item.id !== current.id)) && issueVisible(ctx, item));
+  return `<div class="page issue">${finderBar(ctx)}
     <div class="issue-title">${typeBadge(ctx.project, current.typeId)}<span class="key">${esc(current.key)}</span></div>
     <input class="summary-input" data-field="summary" data-live value="${esc(current.summary)}">
     <div class="tabs">${tabs.map(([id, glyph, label]) => `<button type="button" class="tab${ctx.ui.issueTab === id ? ' active' : ''}" data-action="issue-tab" data-id="${id}">${icon(glyph)}<span>${label}</span></button>`).join('')}</div>
@@ -623,18 +729,21 @@ function issue(ctx) {
 
 function issueTab(ctx, issue) {
   if (ctx.ui.issueTab === 'comments') {
-    const list = issue.comments.map((comment) => `<article class="comment"><header>${avatar(person(ctx.ws, comment.authorId))}<b>${esc(person(ctx.ws, comment.authorId)?.name || '')}</b><small>${esc(formatWhen(comment.created))}</small><button type="button" class="icon-button" data-action="delete-comment" data-id="${esc(comment.id)}">${icon('trash')}</button></header><div class="md">${renderMarkdown(comment.body)}</div></article>`).join('');
+    const list = issue.comments.filter((comment) => matchesText(screenFind(ctx).q, comment.body, person(ctx.ws, comment.authorId)?.name)).map((comment) => `<article class="comment"><header>${avatar(person(ctx.ws, comment.authorId))}<b>${esc(person(ctx.ws, comment.authorId)?.name || '')}</b><small>${esc(formatWhen(comment.created))}</small><button type="button" class="icon-button" data-action="delete-comment" data-id="${esc(comment.id)}">${icon('trash')}</button></header><div class="md">${renderMarkdown(comment.body)}</div></article>`).join('');
     return `${list}<textarea id="comment-body" rows="3" placeholder="${esc(L('의견을 적습니다. @이름으로 알립니다.', 'Write a comment. @name notifies that person.'))}"></textarea><button type="button" class="button" data-action="add-comment">${icon('comment')}<span>${L('등록', 'Add')}</span></button>`;
   }
   if (ctx.ui.issueTab === 'work') {
-    const list = issue.worklogs.map((log) => `<div class="link-row"><span>${esc(dur(log.minutes))} · ${esc(person(ctx.ws, log.authorId)?.name || '')}</span><span>${esc(log.comment || '')}</span><button type="button" class="icon-button" data-action="delete-worklog" data-id="${esc(log.id)}">${icon('trash')}</button></div>`).join('');
+    const list = issue.worklogs.filter((log) => matchesText(screenFind(ctx).q, log.comment, person(ctx.ws, log.authorId)?.name, dur(log.minutes))).map((log) => `<div class="link-row"><span>${esc(dur(log.minutes))} · ${esc(person(ctx.ws, log.authorId)?.name || '')}</span><span>${esc(log.comment || '')}</span><button type="button" class="icon-button" data-action="delete-worklog" data-id="${esc(log.id)}">${icon('trash')}</button></div>`).join('');
     return `${list}<div class="inline"><input id="work-minutes" placeholder="1h 30m"><input id="work-note" placeholder="${esc(L('메모', 'Note'))}"><button type="button" class="button" data-action="add-worklog">${icon('clock')}<span>${L('기록', 'Log')}</span></button></div>`;
   }
   if (ctx.ui.issueTab === 'history') {
-    return issue.history.slice().reverse().map((entry) => `<div class="link-row"><span>${esc(historyText(ctx, entry))}</span><small>${esc(formatWhen(entry.at))}</small></div>`).join('') || empty(L('기록이 없습니다.', 'There is no history.'));
+    return issue.history.slice().reverse().filter((entry) => matchesText(screenFind(ctx).q, historyText(ctx, entry), entry.field)).map((entry) => `<div class="link-row"><span>${esc(historyText(ctx, entry))}</span><small>${esc(formatWhen(entry.at))}</small></div>`).join('') || empty(L('기록이 없습니다.', 'There is no history.'));
   }
   if (ctx.ui.issueTab === 'links') {
-    const list = (issue.links || []).map((link) => {
+    const list = (issue.links || []).filter((link) => {
+      const other = findIssue(ctx.project, link.otherId);
+      return matchesText(screenFind(ctx).q, link.type, other?.key, other?.summary);
+    }).map((link) => {
       const type = LINK_TYPES.find((item) => item.id === link.type);
       const other = findIssue(ctx.project, link.otherId);
       const label = link.direction === 'out' ? nameOf(type) : (ctx.settings.language === 'en' ? type?.inverseEn : type?.inverseKo);
@@ -722,7 +831,12 @@ function prop(label, control) {
 }
 
 function feed(ctx, count) {
-  return (ctx.project?.activity || []).slice(0, count).map((item) => `<button type="button" class="link-row" data-action="open-issue" data-id="${esc(item.issueId || '')}">${icon('clock')}<span>${esc(activityText(ctx, item))}</span><small>${esc(formatWhen(item.at))}</small></button>`).join('') || empty(L('활동이 없습니다.', 'There is no activity.'));
+  const find = screenFind(ctx);
+  return (ctx.project?.activity || []).filter((item) => {
+    const issue = findIssue(ctx.project, item.issueId);
+    if (issue && !issueVisible(ctx, issue)) return false;
+    return matchesText(find.q, activityText(ctx, item), item.issueKey);
+  }).slice(0, count).map((item) => `<button type="button" class="link-row" data-action="open-issue" data-id="${esc(item.issueId || '')}">${icon('clock')}<span>${esc(activityText(ctx, item))}</span><small>${esc(formatWhen(item.at))}</small></button>`).join('') || empty(L('활동이 없습니다.', 'There is no activity.'));
 }
 
 function activityText(ctx, item) {

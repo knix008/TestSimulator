@@ -19,6 +19,9 @@ export function hue(name) {
 
 export function avatar(user) {
   if (!user?.name) return `<span class="avatar empty" title="${escapeHtml(L('없음', 'None'))}">–</span>`;
+  if (String(user.photo || '').startsWith('data:image/')) {
+    return `<span class="avatar photo" title="${escapeHtml(user.name)}"><img src="${escapeHtml(user.photo)}" alt=""></span>`;
+  }
   const letter = [...user.name][0] || '?';
   return `<span class="avatar" style="background:${hue(user.name)}" title="${escapeHtml(user.name)}">${escapeHtml(letter)}</span>`;
 }

@@ -4,8 +4,8 @@ import { createServer } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isWorkspaceAdmin } from '../src/domain/permissions.js';
-import { userByAccount } from '../src/domain/store.js';
-import { checkMessage, listMessages, listRooms, openRoom, postFile, postMessage, readFile } from './chat.mjs';
+import { updateProfile, userByAccount } from '../src/domain/store.js';
+import { checkMessage, inviteMembers, listMessages, listRooms, noticeTarget, openRoom, postFile, postMessage, readFile } from './chat.mjs';
 import { checkPassword, hashPassword, openRepository } from './repository.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -83,6 +83,7 @@ async function connect(config) {
     password: config.password || secret,
     encrypt: Boolean(config.encrypt),
     file: config.file || path.join(dataDir, 'myworkforce.sqlite'),
+    dataDir,
   };
   if (next.engine === 'sqlite') mkdirSync(dataDir, { recursive: true });
   const opened = await openRepository(next);
@@ -112,10 +113,25 @@ function signedUser(req) {
   return (repository?.cached?.users || []).find((user) => user.id === session.userId && user.active !== false) || null;
 }
 
+function publicPerson(user, withPhoto = false) {
+  return {
+    id: user.id,
+    name: user.name || user.login || user.id,
+    login: user.login || '',
+    email: user.email || '',
+    phone: user.phone || '',
+    jobTitle: user.jobTitle || '',
+    team: user.team || '',
+    photo: withPhoto ? (user.photo || '') : '',
+    hasPhoto: Boolean(user.photo),
+    admin: isWorkspaceAdmin(user),
+  };
+}
+
 function peopleOf() {
   return (repository?.cached?.users || [])
     .filter((user) => user.active !== false)
-    .map((user) => ({ id: user.id, name: user.name || user.login || user.id, login: user.login || '' }));
+    .map((user) => publicPerson(user));
 }
 
 function publicWorkspace(ws) {
@@ -155,6 +171,7 @@ const server = createServer(async (req, res) => {
         host: repository?.config.host || saved?.host || '',
         saved: saved ? publicConfig(saved) : null,
         locked: Boolean(repository?.cached?.users?.some((user) => user.passwordHash)),
+        revision: Number(repository?.cached?.revision) || 0,
       });
     }
     if (req.method === 'POST' && url.pathname === '/api/connect') {
@@ -212,14 +229,31 @@ const server = createServer(async (req, res) => {
       if (!actor) return send(res, 401, { error: 'permission' });
       const people = peopleOf();
       if (req.method === 'GET' && url.pathname === '/api/chat/people') return send(res, 200, { people });
+      if (req.method === 'GET' && url.pathname === '/api/chat/profile') {
+        const user = (repository.cached?.users || []).find((item) => item.id === (url.searchParams.get('id') || actor.id) && item.active !== false);
+        if (!user) return send(res, 404, { error: 'not-found' });
+        return send(res, 200, { person: publicPerson(user, true) });
+      }
+      if (req.method === 'PUT' && url.pathname === '/api/chat/profile') {
+        const body = await readBody(req);
+        const ws = repository.cached;
+        const user = updateProfile(ws, body.id || actor.id, body, actor.id);
+        await repository.writeWorkspace(ws, ws.revision);
+        return send(res, 200, { person: publicPerson(user, true) });
+      }
       if (req.method === 'GET' && url.pathname === '/api/chat/rooms') return send(res, 200, { rooms: await listRooms(repository.engine, actor.id, people) });
       if (req.method === 'POST' && url.pathname === '/api/chat/rooms') {
         const body = await readBody(req);
         return send(res, 200, { room: await openRoom(repository.engine, actor.id, body, people) });
       }
+      if (req.method === 'POST' && url.pathname === '/api/chat/members') {
+        const body = await readBody(req);
+        return send(res, 200, { room: await inviteMembers(repository.engine, actor.id, body.roomId, body.members, people) });
+      }
       if (req.method === 'GET' && url.pathname === '/api/chat/messages') {
         const messages = await listMessages(repository.engine, actor.id, url.searchParams.get('room') || '', url.searchParams.get('after') || '');
-        return send(res, 200, { messages });
+        const ws = repository.cached;
+        return send(res, 200, { messages: messages.map((message) => (message.kind === 'notice' ? { ...message, target: noticeTarget(ws, actor.id, message) } : message)) });
       }
       if (req.method === 'POST' && url.pathname === '/api/chat/messages') {
         const body = await readBody(req);

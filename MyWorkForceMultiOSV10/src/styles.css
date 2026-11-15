@@ -184,6 +184,8 @@ textarea { width: 100%; resize: vertical; }
 .rail-button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid transparent; border-radius: 7px; background: none; }
 .rail-button:hover { background: var(--hover); border-color: var(--border); }
 #view { min-width: 0; min-height: 0; overflow: auto; background: var(--bg); }
+#view:has(.doc-window) { display: flex; flex-direction: column; overflow: hidden; }
+#view > .doc-window { flex: 1; min-height: 0; }
 .nav-section { margin: 10px 8px 4px; font-size: 0.75em; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
 .nav-group { display: flex; align-items: center; gap: 6px; margin: 4px 8px 2px; padding: 8px 4px 2px; border-top: 1px solid var(--border); font-weight: 700; }
 .panel-body > .nav-group:first-child { border-top: 0; padding-top: 2px; }
@@ -270,6 +272,9 @@ textarea { width: 100%; resize: vertical; }
 .badge { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: 99px; font-size: 0.82em; font-weight: 600; white-space: nowrap; }
 .badge .icon { width: 13px; height: 13px; }
 .avatar { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 99px; color: #fff; font-size: 12px; font-weight: 700; flex: none; }
+.avatar.photo { padding: 0; overflow: hidden; }
+.avatar.photo img, .profile-preview { width: 100%; height: 100%; object-fit: cover; display: block; }
+.profile-preview { width: 48px; height: 48px; border-radius: 8px; margin-top: 6px; }
 .avatar.empty { background: var(--border); color: var(--muted); }
 .avatars { display: flex; gap: 4px; flex-wrap: wrap; }
 
@@ -278,6 +283,9 @@ table.data { width: 100%; border-collapse: collapse; background: var(--surface);
 table.data th, table.data td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; white-space: nowrap; }
 table.data th button { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; font-weight: 700; padding: 0; }
 table.data .summary { white-space: normal; }
+.finder { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 12px; }
+.finder-facet { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.finder-facet select { min-width: 128px; }
 .query-line { display: flex; align-items: center; gap: 8px; margin: 8px 0; max-width: 820px; }
 .query-line .quick-search { flex: 1; }
 .bulk { display: flex; align-items: center; gap: 8px; margin: 8px 0; }

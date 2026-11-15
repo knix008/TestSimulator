@@ -14,7 +14,7 @@ import { addArticle, addCalendar, addToken, addWebhook, authorizationUrl, csvIss
 import { loadSettings, PANEL_MAX, PANEL_MIN, rememberPath, saveSettings } from './domain/settings.js';
 import {
   addAttachment, addComment, addComponent, addField, addGadget, addGroup, addLink, addRule, addStatus, addTransition,
-  addUser, addVersion, addWorklog, blankWorkspace, cloneIssue, completeSprint, createIssue, createSprint, deleteComment, ensureAdmin,
+  addUser, addVersion, addWorklog, blankWorkspace, cloneIssue, completeSprint, createIssue, createSprint, deleteComment, ensureAdmin, updateProfile,
   deleteFilter, deleteIssue, deleteRule, deleteWorklog, findIssue, markAllRead, markRead, mergeProject, newProject,
   projectDocument, rankIssues, readDocument,   releaseVersion, removeAttachment, removeField, removeGadget, removeLink,
   removeStatus, removeTransition, saveFilter, setArchived, setCustomField, setMember, setUserActive,
@@ -22,7 +22,7 @@ import {
 } from './domain/store.js';
 import { writingExport } from './domain/markdown.js';
 import { fromDateInput, parseDuration, uid } from './domain/util.js';
-import { clearSavedLogin, connectData, currentSession, dataStatus, dataUrl, hashPassword, loadWorkspace, loginSession, logoutSession, rememberDataUrl, rememberLogin, rememberSession, savedLogin, saveWorkspace, sendTestMail, sessionToken, unlockData, watchSharedSession } from './platform/data.js';
+import { clearMainRequest, clearSavedLogin, connectData, currentSession, dataStatus, dataUrl, hashPassword, loadWorkspace, loginSession, logoutSession, readMainRequest, rememberDataUrl, rememberLogin, rememberSession, savedLogin, saveWorkspace, sendTestMail, sessionToken, unlockData, watchMainRequest, watchSharedSession } from './platform/data.js';
 import { getLanguage, L, setLanguage } from './i18n.js';
 import { appInfo, chooseOpen, chooseSave, dragWindow, errorText, isDesktop, openBrowser, openTalk, readTextFile, resizeWindow, setBackendLanguage, setLaunchAtStartup, setWindowTheme, showMain, startupFiles, windowControl, writeTextFile } from './platform/native.js';
 import { loadLocal, saveLocal } from './platform/storage.js';
@@ -32,7 +32,7 @@ import { figure } from './ui/figures.js';
 import { paletteItems, renderContext, renderMenubar, renderModal, renderNav, renderStatus, renderToolbar } from './ui/chrome.js';
 import { ADMIN_VIEWS, takeShortcut } from './ui/shortcuts.js';
 import { renderRight, renderView, showRight } from './ui/pages.js';
-import { openDocument } from './ui/docwindow.js';
+import { DOC_KINDS, openDocument, prepareReader, readingHtml } from './ui/docwindow.js';
 import { renderStart } from './ui/start.js';
 import { WorkBackground, backgroundColors, knownBackground, nextBackground } from './ui/background.js';
 import { startBoard } from './ui/startboard.js';
@@ -54,6 +54,7 @@ const ERRORS = {
   'transition-blocked': ['이 상태로는 옮길 수 없습니다.', 'That move is not allowed.'],
   'file-invalid': ['이 파일은 작업 공간이 아닙니다.', 'This file is not a workspace.'],
   'attachment-big': ['첨부는 700KB 이하만 넣을 수 있습니다.', 'Attachments must be 700KB or smaller.'],
+  'photo-invalid': ['사진은 이미지 파일이어야 합니다.', 'The photo must be an image file.'],
   'self-link': ['이슈를 자기 자신에게 연결할 수 없습니다.', 'An issue cannot be linked to itself.'],
   query: ['질의 문법을 확인하세요.', 'Check the query syntax.'],
   'status-used': ['이 상태를 쓰는 이슈가 있습니다.', 'Issues still use this status.'],
@@ -91,7 +92,7 @@ function freshUi() {
     opened: false, returnView: '',
     modal: null, menu: null, popover: null, issueTab: 'details', epicId: '', queueId: '',
     report: 'burndown', help: 'guide', path: null, dirty: false, maximized: false, preview: false,
-    about: null, queryError: null, textSnap: null, textField: '', textIssue: null,
+    about: null, queryError: null, textSnap: null, textField: '', textIssue: null, screenFind: {}, reading: null,
   };
 }
 
@@ -127,11 +128,17 @@ function fail(error) {
   toast(message(error));
 }
 
+let saving = false;
+
 function scheduleSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
+    saveTimer = 0;
+    saving = true;
+    const done = () => { saving = false; };
     saveLocal(ws).catch((error) => fail(error));
-    if (ui.ready) saveWorkspace(ws).then((saved) => {
+    if (!ui.ready) { done(); return; }
+    saveWorkspace(ws).then((saved) => {
       if (saved?.revision) ws.revision = saved.revision;
       if (ws.mail?.password) {
         ws.mail.hasPassword = true;
@@ -139,12 +146,12 @@ function scheduleSave() {
       }
     }).catch((error) => {
       if (error?.message !== 'conflict') { fail(error); return; }
-      loadWorkspace().then((loaded) => {
+      return loadWorkspace().then((loaded) => {
         ws = upgradeWorkspace(loaded.workspace || ws);
         paint();
         toast(message(error));
       }).catch((reload) => fail(reload));
-    });
+    }).finally(done);
   }, 400);
 }
 
@@ -162,9 +169,77 @@ async function enterWorkspace(body) {
   undo = [];
   redo = [];
   paint();
+  applyMainRequest();
   const file = pendingFiles.shift();
   if (!file) return;
   try { ingest(await readTextFile(file), file); } catch (error) { fail(error); }
+}
+
+function openRequested(request) {
+  const projects = ws.projects || [];
+  const named = projects.find((item) => item.id === request.projectId || (request.projectKey && item.key === request.projectKey));
+  if (named) ws.activeProjectId = named.id;
+  const kind = request.kind || '';
+  if (request.pageId || request.view === 'knowledge') {
+    ui.articleId = request.pageId || '';
+    ui.view = 'knowledge';
+  } else if (request.documentId || request.view === 'documents') {
+    ui.docId = request.documentId || '';
+    ui.view = 'documents';
+  } else if (request.view === 'issue' || request.issueId || request.issueKey) {
+    const host = projects.find((item) => (item.issues || []).some((issue) => issue.id === request.issueId || (request.issueKey && issue.key === request.issueKey))) || named || project();
+    if (host) ws.activeProjectId = host.id;
+    const issue = findIssue(host, request.issueId || request.issueKey);
+    if (issue) {
+      ui.issueId = issue.id;
+      ui.issueTab = kind === 'comment' ? 'comments' : 'details';
+      ui.view = 'issue';
+    } else ui.view = 'notifications';
+  } else if (request.view) ui.view = request.view;
+  if (request.profile && request.userId) {
+    const user = (ws.users || []).find((item) => item.id === request.userId);
+    if (user) {
+      ui.profilePhoto = user.photo || '';
+      ui.modal = { kind: 'profile', userId: user.id };
+      ui.view = isWorkspaceAdmin(ws.users.find((item) => item.id === actor())) ? 'users' : (project() ? 'people' : ui.view);
+    }
+  }
+  ui.menu = null;
+  paint();
+}
+
+function applyMainRequest() {
+  const request = readMainRequest();
+  if (!request || !ui.loginUser) return;
+  if (!ui.ready) {
+    if (!ui.opened) return;
+    ui.ready = true;
+    ui.returnView = '';
+  }
+  clearMainRequest(request.at);
+  openRequested(request);
+}
+
+let pulling = false;
+
+async function pullWorkspace() {
+  if (pulling || !ui.ready || !sessionToken() || ui.modal || saveTimer || saving) return;
+  const active = document.activeElement;
+  if (active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return;
+  pulling = true;
+  try {
+    const status = await dataStatus();
+    const revision = Number(status.revision) || 0;
+    if (!revision || revision === Number(ws.revision)) return;
+    const loaded = await loadWorkspace();
+    const body = loaded.workspace;
+    if (!body || Number(body.revision) === Number(ws.revision)) return;
+    ws = upgradeWorkspace(body);
+    undo = [];
+    redo = [];
+    paint();
+  } catch { /* the next pass tries again */ }
+  finally { pulling = false; }
 }
 
 async function refreshStatus() {
@@ -523,8 +598,24 @@ function offerLogin() {
 function signedOut(name, el) {
   if (ui.loginUser || ui.ready) return false;
   if (name === 'sign-in' || name === 'pick-login') return false;
+  if (name === 'close-reading' || name === 'reader-lang' || name === 'reader-print') return false;
   if ((name === 'open-guide' || name === 'help-doc' || name === 'start-tab') && ['guide', 'tutorial'].includes(el?.dataset?.id || 'guide')) return false;
   return true;
+}
+
+function showReading(kind) {
+  if (!DOC_KINDS[kind]) return;
+  ui.reading = kind;
+  if (ui.modal?.kind === 'login' || ui.modal?.kind === 'welcome') ui.modal = null;
+  paint();
+}
+
+function presentDocument(kind) {
+  if (!DOC_KINDS[kind]) return;
+  const id = kind === 'wql' ? 'wql' : kind;
+  if (!ui.ready && (id === 'guide' || id === 'tutorial')) { showReading(id); return; }
+  if (ui.loginUser && !isDesktop() && openDocument(id)) return;
+  showReading(id);
 }
 
 function showStartPage(show) {
@@ -660,11 +751,20 @@ function paint() {
     document.querySelector('#menubar').innerHTML = renderMenubar(ctx);
     document.querySelector('#toolbar').innerHTML = '';
     document.querySelector('#left').innerHTML = '';
-    if (!ui.loginUser) offerLogin();
-    else offerWelcome();
-    document.querySelector('#view').innerHTML = renderStart(ctx);
-    mountStartBoard();
-    syncStartBackground();
+    const reading = ui.reading && DOC_KINDS[ui.reading];
+    if (reading && (ui.modal?.kind === 'login' || ui.modal?.kind === 'welcome')) ui.modal = null;
+    if (!reading && ui.loginUser && ui.modal?.kind === 'login') ui.modal = null;
+    if (!reading && !ui.loginUser) offerLogin();
+    else if (!reading) offerWelcome();
+    if (reading) {
+      stopStartBackground();
+      document.querySelector('#view').innerHTML = readingHtml(ui.reading);
+      prepareReader(document.querySelector('#view'));
+    } else {
+      document.querySelector('#view').innerHTML = renderStart(ctx);
+      mountStartBoard();
+      syncStartBackground();
+    }
     document.querySelector('#right').innerHTML = '';
     document.querySelector('#statusbar').innerHTML = `<span>${L('회사', 'Company')}</span><span class="grow"></span><span>${L('로그인하면 같은 회사의 과제와 문서를 함께 씁니다.', 'Sign in to share this company\'s projects and documents.')}</span>`;
     document.title = 'MyWorkForce';
@@ -693,7 +793,12 @@ function paint() {
   document.querySelector('#menubar').innerHTML = renderMenubar(ctx);
   if (!skipSearch) document.querySelector('#toolbar').innerHTML = renderToolbar(ctx);
   document.querySelector('#left').innerHTML = renderNav(ctx);
-  if (!skipLive && !skipQuery && !skipDoc && !skipPage) {
+  if (ui.reading && DOC_KINDS[ui.reading]) {
+    app.classList.add('no-right');
+    document.querySelector('#view').innerHTML = readingHtml(ui.reading);
+    prepareReader(document.querySelector('#view'));
+    document.querySelector('#right').innerHTML = '';
+  } else if (!skipLive && !skipQuery && !skipDoc && !skipPage) {
     document.querySelector('#view').innerHTML = renderView(ctx);
     document.querySelector('#right').innerHTML = showRight(ctx) ? renderRight(ctx) : '';
   }
@@ -882,8 +987,14 @@ function submitModal(form) {
       return;
     }
     if (modal.kind === 'user') {
-      const user = addUser(ws, { name: value('name'), email: value('email') });
+      const user = addUser(ws, { name: value('name'), email: value('email'), phone: value('phone'), jobTitle: value('jobTitle'), team: value('team'), photo: ui.profilePhoto || '' });
+      ui.profilePhoto = '';
       if (current && value('role')) setMember(ws, current.id, user.id, value('role'), actor());
+      return;
+    }
+    if (modal.kind === 'profile') {
+      updateProfile(ws, modal.userId, { name: value('name'), email: value('email'), phone: value('phone'), jobTitle: value('jobTitle'), team: value('team'), photo: ui.profilePhoto || '' }, actor());
+      ui.profilePhoto = '';
       return;
     }
     if (modal.kind === 'group') { addGroup(ws, value('name'), actor(), current?.id); return; }
@@ -1074,6 +1185,7 @@ function onAction(el) {
     ui.unlocked = false;
     ui.ready = false;
     ui.opened = false;
+    ui.reading = null;
     ui.modal = null;
     paint();
     return;
@@ -1101,9 +1213,19 @@ function onAction(el) {
   }
   if (name === 'connect-local') { if (ui.loginUser) connectLocal(); return; }
   if (name === 'import-local') { importLocal().catch((error) => { ui.startError = message(error); ui.connecting = false; paint(); }); return; }
-  if (name === 'open-guide' || name === 'help-doc') { openDocument(el.dataset.id || 'guide'); return; }
+  if (name === 'open-guide' || name === 'help-doc') { presentDocument(el.dataset.id || 'guide'); return; }
+  if (name === 'close-reading') { ui.reading = null; paint(); return; }
+  if (name === 'reader-print') { window.print(); return; }
+  if (name === 'reader-lang') {
+    settings.language = settings.language === 'en' ? 'ko' : 'en';
+    setLanguage(settings.language);
+    saveSettings();
+    setBackendLanguage(settings.language);
+    paint();
+    return;
+  }
   if (name === 'start-tab') {
-    if (['guide', 'tutorial', 'wql'].includes(el.dataset.id)) { openDocument(el.dataset.id); return; }
+    if (['guide', 'tutorial', 'wql'].includes(el.dataset.id)) { presentDocument(el.dataset.id); return; }
     ui.startTab = el.dataset.id || 'all';
     paint();
     return;
@@ -1475,7 +1597,15 @@ function onAction(el) {
   if (name === 'new-transition') { ui.modal = { kind: 'transition' }; paint(); return; }
   if (name === 'new-field') { ui.modal = { kind: 'field' }; paint(); return; }
   if (name === 'new-rule') { ui.modal = { kind: 'rule' }; paint(); return; }
-  if (name === 'new-user') { ui.modal = { kind: 'user' }; paint(); return; }
+  if (name === 'new-user') { ui.profilePhoto = ''; ui.modal = { kind: 'user' }; paint(); return; }
+  if (name === 'edit-profile') {
+    const user = ws.users.find((item) => item.id === el.dataset.id);
+    if (!user) return;
+    ui.profilePhoto = user.photo || '';
+    ui.modal = { kind: 'profile', userId: user.id };
+    paint();
+    return;
+  }
   if (name === 'new-component') { ui.modal = { kind: 'component' }; paint(); return; }
   if (name === 'new-version') { ui.modal = { kind: 'version' }; paint(); return; }
   if (name === 'new-group') { ui.modal = { kind: 'group' }; paint(); return; }
@@ -1601,12 +1731,38 @@ function onAction(el) {
 
 function onChange(event) {
   const el = event.target;
+  if (el.matches('[data-profile-photo]')) {
+    const file = el.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/') || file.size > 360_000) {
+      toast(message(new Error(file.type.startsWith('image/') ? 'attachment-big' : 'photo-invalid')));
+      el.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      ui.profilePhoto = String(reader.result || '');
+      const preview = el.parentElement?.querySelector('.profile-preview') || document.createElement('img');
+      preview.className = 'profile-preview';
+      preview.alt = '';
+      preview.src = ui.profilePhoto;
+      if (!preview.parentElement) el.after(preview);
+    };
+    reader.readAsDataURL(file);
+    return;
+  }
   if (el.dataset.reveal === 'password') {
     const input = el.closest('form')?.querySelector('[name="password"]');
     if (input) input.type = el.checked ? 'text' : 'password';
     return;
   }
   if (!ui.loginUser && !ui.ready) { offerLogin(); return; }
+  if (el.dataset.facet) {
+    ui.screenFind = ui.screenFind || {};
+    ui.screenFind[ui.view] = { ...(ui.screenFind[ui.view] || {}), [el.dataset.facet]: el.value };
+    paint();
+    return;
+  }
   if (el.dataset.setting && ['showStartPage', 'showWelcome', 'startShowProjects', 'startShowExamples', 'startShowBackground'].includes(el.dataset.setting)) {
     settings[el.dataset.setting] = el.checked;
     saveSettings();
@@ -1776,6 +1932,18 @@ function onInput(event) {
     return;
   }
   if (el.id === 'issue-query') { ui.query = el.value; return; }
+  if (el.id === 'screen-find') {
+    ui.screenFind = ui.screenFind || {};
+    ui.screenFind[ui.view] = { ...(ui.screenFind[ui.view] || {}), q: el.value };
+    paint();
+    const box = document.querySelector('#screen-find');
+    if (box) {
+      box.focus();
+      const end = box.value.length;
+      box.setSelectionRange?.(end, end);
+    }
+    return;
+  }
   if (el.id === 'wiki-query') {
     ui.wikiQuery = el.value;
     paint();
@@ -2193,6 +2361,9 @@ export async function start() {
   if (!(await adoptSharedSession())) await autoSignIn();
   if (!ui.ready) paint();
   watchSharedSession(() => { adoptSharedSession().catch(() => {}); });
+  watchMainRequest(() => { applyMainRequest(); });
+  applyMainRequest();
+  setInterval(() => { pullWorkspace().catch(() => {}); }, 4000);
   await showMain();
   globalThis.matchMedia?.('(prefers-color-scheme: dark)')?.addEventListener?.('change', () => {
     if (settings.theme === 'system') applyTheme(resolveTheme('system', prefersDark(), settings.customTheme));

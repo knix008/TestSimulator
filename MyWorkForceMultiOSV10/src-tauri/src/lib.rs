@@ -228,6 +228,11 @@ fn open_talk(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_main(app: tauri::AppHandle) -> Result<(), String> {
+    open_main_window(&app)
+}
+
+#[tauri::command]
 fn set_talk_autostart(enabled: bool) -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|error| error.to_string())?;
     let mut builder = auto_launch::AutoLaunchBuilder::new();
@@ -284,7 +289,7 @@ pub fn run() {
             install_tray(app.handle())?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_info, set_language, startup_files, read_text_file, write_text_file, workspace_file, open_talk, open_browser, set_talk_autostart])
+        .invoke_handler(tauri::generate_handler![app_info, set_language, startup_files, read_text_file, write_text_file, workspace_file, open_talk, open_main, open_browser, set_talk_autostart])
         .run(tauri::generate_context!())
         .expect("error while running MyWorkForce");
 }

@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { openRepository } from '../../server/repository.mjs';
-import { checkMessage, listMessages, listRooms, openRoom, postFile, postMessage, postNotice, readFile } from '../../server/chat.mjs';
+import { checkMessage, inviteMembers, listMessages, listRooms, noticeTarget, openRoom, postFile, postMessage, postNotice, readFile } from '../../server/chat.mjs';
 
 const people = [
   { id: 'u1', name: '서연' },
@@ -47,6 +47,14 @@ describe('Talk', () => {
     await checkMessage(engine, 'u1', 'notice-u1-n1');
     const checked = await listRooms(engine, 'u1', people);
     assert.equal(checked.find((room) => room.kind === 'notices').unread, 0);
+    const invited = await inviteMembers(engine, 'u1', first.id, ['u3', 'u4'], people);
+    assert.equal(invited.id, first.id);
+    assert.equal(invited.kind, 'group');
+    assert.equal(invited.members.length, 4);
+    await postMessage(engine, 'u4', first.id, '같이 봅니다');
+    const fresh = await openRoom(engine, 'u1', { kind: 'direct', members: ['u2'] }, people);
+    assert.notEqual(fresh.id, first.id);
+    await assert.rejects(() => inviteMembers(engine, 'u1', notice.id, ['u2'], people), /permission/);
     await postNotice(engine, 'u2', 'n1', 'SHOP · SHOP-1 · comment');
     const other = await listRooms(engine, 'u2', people);
     const otherRoom = other.find((room) => room.kind === 'notices');
@@ -55,5 +63,25 @@ describe('Talk', () => {
     assert.equal(otherMessages[0].id, 'notice-u2-n1');
     assert.equal(otherMessages[0].checked, false);
     await repository.close();
+  });
+
+  test('a notice opens the issue, page, or document it is about', () => {
+    const issue = noticeTarget({
+      projects: [{ id: 'p', key: 'SHOP', notifications: [{ id: 'n1', issueId: 'i9', issueKey: 'SHOP-9', kind: 'comment' }] }],
+    }, 'u1', { id: 'notice-u1-n1', kind: 'notice' });
+    assert.equal(issue.view, 'issue');
+    assert.equal(issue.projectKey, 'SHOP');
+    assert.equal(issue.issueId, 'i9');
+    const page = noticeTarget({
+      projects: [{ id: 'p', key: 'SHOP', notifications: [{ id: 'n2', issueKey: '결제 안내', kind: 'page', pageId: 'page1' }] }],
+    }, 'u1', { id: 'notice-u1-n2', kind: 'notice' });
+    assert.equal(page.view, 'knowledge');
+    assert.equal(page.pageId, 'page1');
+    const doc = noticeTarget({
+      projects: [{ id: 'p', key: 'SHOP', notifications: [{ id: 'n3', issueKey: '회의', kind: 'document' }] }],
+      documents: [{ id: 'd1', title: '회의', projectId: 'p' }],
+    }, 'u1', { id: 'notice-u1-n3', kind: 'notice' });
+    assert.equal(doc.view, 'documents');
+    assert.equal(doc.documentId, 'd1');
   });
 });

@@ -16,7 +16,7 @@ import { sampleWorkspace } from '../../src/domain/sample.js';
 import { DEFAULTS, PANEL_MIN } from '../../src/domain/settings.js';
 import {
   addAttachment, addComment, addField, addGadget, addGroup, addLink, addRule, addStatus, addTransition, addUser, addVersion,
-  addWorklog, blankWorkspace, cloneIssue, completeSprint, createIssue, createSprint, deleteIssue, mergeProject,
+  addWorklog, blankWorkspace, cloneIssue, completeSprint, createIssue, createSprint, deleteIssue, mergeProject, updateProfile,
   newProject, projectDocument, rankIssues, readDocument, releaseVersion, removeGadget, removeStatus, saveFilter,
   setArchived, setCustomField, setMember, setUserActive, startSprint, toggleGroupUser, toggleWatch, updateIssue,
   updateProject, upgradeWorkspace, workspaceDocument,
@@ -725,11 +725,28 @@ describe('Screens', () => {
     ctx.ui.modal = { kind: 'login', next: 'gate' };
     const locked = renderModal(ctx);
     assert.match(locked, /Sign in to use the rest/);
+    assert.match(locked, /without signing in/);
     assert.match(locked, /data-action="open-guide" data-id="guide"/);
     assert.match(locked, /data-action="open-guide" data-id="tutorial"/);
     assert.doesNotMatch(locked, /data-action="modal-cancel"/);
     assert.match(html, /Show this window again at start/);
     assert.match(html, /Later/);
+  });
+
+  test('each screen can search and keep one category', () => {
+    const board = context('board');
+    const open = renderView(board);
+    assert.match(open, /id="screen-find"/);
+    assert.match(open, /data-facet="type"/);
+    assert.match(open, /data-facet="assignee"/);
+    board.ui.screenFind = { board: { type: 'missing-type' } };
+    assert.equal((renderView(board).match(/data-card="/g) || []).length, 0);
+    const issues = context('issues');
+    issues.ui.query = '';
+    issues.ui.screenFind = { issues: { q: 'definitely-not-a-summary' } };
+    assert.equal((renderView(issues).match(/data-action="open-issue"/g) || []).length, 0);
+    const knowledge = context('knowledge');
+    assert.match(renderView(knowledge), /data-facet="kind"/);
   });
 
   test('the settings page configures the start page and its background', () => {
@@ -940,6 +957,28 @@ describe('Screens', () => {
     assert.match(about, /knix008@naver.com/);
     assert.match(about, /data-action="copy-about"/);
     assert.match(about, /PostgreSQL/);
+  });
+});
+
+describe('Profiles', () => {
+  test('a person edits their own details and an administrator edits anyone', () => {
+    const ws = upgradeWorkspace(sampleWorkspace(1));
+    const self = ws.users.find((user) => user.id === 'u1');
+    updateProfile(ws, 'u1', { name: '김서연', email: self.email, phone: '010-0000-0000', jobTitle: '리드', team: '결제', photo: '' }, 'u1');
+    assert.equal(ws.users.find((user) => user.id === 'u1').jobTitle, '리드');
+    assert.equal(ws.users.find((user) => user.id === 'u1').phone, '010-0000-0000');
+    assert.throws(() => updateProfile(ws, 'u2', { name: '박민준', email: '', phone: '', jobTitle: '', team: '', photo: '' }, 'u1'), /permission/);
+    const admin = ws.users.find((user) => user.login === 'admin');
+    updateProfile(ws, 'u2', { name: '박민준', email: 'park@example.com', phone: '010-2222-3333', jobTitle: '개발', team: '상점', photo: 'data:image/png;base64,abc' }, admin.id);
+    const other = ws.users.find((user) => user.id === 'u2');
+    assert.equal(other.team, '상점');
+    assert.equal(other.phone, '010-2222-3333');
+    assert.equal(other.photo, 'data:image/png;base64,abc');
+    const added = addUser(ws, { name: '새 사람', email: 'new@example.com', phone: '010', jobTitle: '사원', team: '지원', photo: '' });
+    assert.equal(added.team, '지원');
+    assert.throws(() => updateProfile(ws, 'u1', { name: '', email: '', phone: '', jobTitle: '', team: '', photo: '' }, 'u1'), /name-required/);
+    assert.throws(() => updateProfile(ws, 'u1', { name: '김서연', email: '', phone: '', jobTitle: '', team: '', photo: 'data:text/plain,hi' }, 'u1'), /photo-invalid/);
+    assert.throws(() => updateProfile(ws, 'u1', { name: '김서연', email: '', phone: '', jobTitle: '', team: '', photo: `data:image/png;base64,${'a'.repeat(500_000)}` }, 'u1'), /attachment-big/);
   });
 });
 

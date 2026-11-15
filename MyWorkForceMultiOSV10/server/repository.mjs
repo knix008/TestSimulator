@@ -1,6 +1,7 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { describeMail, webhookPayload } from '../src/domain/services.js';
 import { postNotice } from './chat.mjs';
+import { loadPrivacyKey, openUsers, openValue, seal, sealUsers } from './privacy.mjs';
 import { openEngine } from './engine.mjs';
 
 export function hashPassword(password) {
@@ -23,9 +24,10 @@ function rowsOf(result) {
 }
 
 export class Repository {
-  constructor(engine, config) {
+  constructor(engine, config, privacyKey) {
     this.engine = engine;
     this.config = { ...config, password: undefined };
+    this.privacyKey = privacyKey;
     this.cached = null;
     this.cursors = { activity: {}, notification: {} };
   }
@@ -51,7 +53,10 @@ export class Repository {
   async readWorkspace() {
     const rows = rowsOf(await this.engine.query('SELECT body FROM workspace_document WHERE id = ?', ['main']));
     if (!rows[0]?.body) return null;
-    return JSON.parse(rows[0].body);
+    const ws = JSON.parse(rows[0].body);
+    openUsers(ws.users, this.privacyKey);
+    for (const message of ws.mailOutbox || []) message.to = openValue(message.to, this.privacyKey);
+    return ws;
   }
 
   async writeWorkspace(ws, expectedRevision = null) {
@@ -93,9 +98,12 @@ export class Repository {
     }
     await this.flushMail(ws);
     const savedAt = ws.savedAt || new Date().toISOString();
+    const stored = structuredClone(ws);
+    sealUsers(stored.users, this.privacyKey);
+    for (const message of stored.mailOutbox || []) message.to = seal(message.to, this.privacyKey);
     await this.engine.transaction(async (query) => {
       await query('DELETE FROM workspace_document WHERE id = ?', ['main']);
-      await query('INSERT INTO workspace_document (id, body, saved_at) VALUES (?, ?, ?)', ['main', JSON.stringify(ws), savedAt]);
+      await query('INSERT INTO workspace_document (id, body, saved_at) VALUES (?, ?, ?)', ['main', JSON.stringify(stored), savedAt]);
       await query('DELETE FROM documents', []);
       for (const doc of ws.documents || []) {
         await query('INSERT INTO documents (id, project_id, template_id, title, body, author_id, visibility, issue_key, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [doc.id, doc.projectId || '', doc.templateId || '', doc.title || '', doc.body || '', doc.authorId || '', doc.visibility || 'private', doc.issueKey || '', doc.updated || savedAt]);
@@ -117,7 +125,7 @@ export class Repository {
         await query('INSERT INTO webhooks (id, url, events, secret, enabled) VALUES (?, ?, ?, ?, ?)', [hook.id, hook.url || '', (hook.events || []).join(','), hook.secret || '', hook.enabled === false ? 0 : 1]);
       }
       await query('DELETE FROM mail_outbox', []);
-      for (const message of ws.mailOutbox || []) {
+      for (const message of stored.mailOutbox || []) {
         await query('INSERT INTO mail_outbox (id, to_addr, subject, body, state, created_at) VALUES (?, ?, ?, ?, ?, ?)', [message.id, message.to || '', message.subject || '', message.body || '', message.state || 'queued', message.created || savedAt]);
       }
       await query('DELETE FROM api_tokens', []);
@@ -125,7 +133,7 @@ export class Repository {
         await query('INSERT INTO api_tokens (id, name, token, created_at) VALUES (?, ?, ?, ?)', [token.id, token.name || '', token.token || '', token.created || savedAt]);
       }
       await query('DELETE FROM accounts', []);
-      for (const user of ws.users || []) {
+      for (const user of stored.users || []) {
         await query('INSERT INTO accounts (id, name, email, password_hash, active) VALUES (?, ?, ?, ?, ?)', [user.id, user.name || '', user.email || '', user.passwordHash || '', user.active === false ? 0 : 1]);
       }
       await query('DELETE FROM issue_index', []);
@@ -274,7 +282,8 @@ export class Repository {
 
 export async function openRepository(config) {
   const engine = await openEngine(config);
-  const repository = new Repository(engine, config);
+  const privacyKey = config.privacyKey || (config.dataDir ? loadPrivacyKey(config.dataDir) : randomBytes(32));
+  const repository = new Repository(engine, config, privacyKey);
   await repository.prepare();
   return repository;
 }

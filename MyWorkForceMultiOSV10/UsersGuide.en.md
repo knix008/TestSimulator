@@ -6,9 +6,9 @@ MyWorkForce keeps projects and issues in one workspace. The menu bar is the wind
 
 Sign in first. People in one company each use their own account and share the same projects and documents. The store is a SQLite file on this computer, or MySQL, MariaDB, SQL Server, or PostgreSQL. Choose it under **Database** in Settings. That store holds every project in the company. The data service listens on port `1481` for the company network, and the workspace stays closed until someone signs in.
 
-A password set on the People screen is required the next time you enter. A workspace left in the browser can be imported from the start screen.
+On the People screen you can enter and change a person's name, title, team, phone, email, and photo. Those personal details are encrypted in the store. A password set on the People screen is required the next time you enter. A workspace left in the browser can be imported from the start screen.
 
-**Talk** on the toolbar, or Talk in Help, opens MyWorkForce Talk. Sign in with the same account to speak with one person, or choose two or more people for a group talk. Files travel in that talk. Work notices collect in each person's own Notices room, and **Confirm** is pressed by that person. Signing in on one program signs the other in with the same account, and signing out of one signs the other out. The installer adds both MyWorkForce and MyWorkForce Talk. Under **This computer** in Settings, choose to start MyWorkForce and Talk together at boot, and automatic sign-in. They stay one program: one notification-area icon, and closing either window closes the other. The account and password for automatic sign-in stay on this computer.
+**Talk** on the toolbar, or Talk in Help, opens MyWorkForce Talk. Its menus and buttons use colored icons. The left toolbar is icons only, and each icon shows its name when the pointer rests on it. Notices, people, invite, your details, and work also open the related screen in the main window. A notice opens its page there. Those icons open notices, talks, people, invites, and your details on the right. A person's name sits beside a round photo, and each person without a photo has their own picture. Pressing that row opens the person's details. After a personal talk is open, Invite adds more people to that talk. It shows the person details entered in the main app. You can change your own details there, and an administrator can change anyone's. Sign in with the same account to speak with one person, or choose two or more people for a group talk. Files travel in that talk. Work notices collect in each person's own Notices room, and **Confirm** is pressed by that person. Signing in on one program signs the other in with the same account, and signing out of one signs the other out. The installer adds both MyWorkForce and MyWorkForce Talk. Under **This computer** in Settings, choose to start MyWorkForce and Talk together at boot, and automatic sign-in. They stay one program: one notification-area icon, and closing either window closes the other. The account and password for automatic sign-in stay on this computer.
 
 **Mail** in Settings sends through a server outside this company. The host is an external address such as `smtp.example.com`. Port 587 is STARTTLS and port 465 is SSL. The password stays on this server. **Send a test** checks that a message arrives, and later notices leave through that server.
 
@@ -57,6 +57,8 @@ Drag from the backlog into a sprint. Start a future sprint, then complete it fro
 The roadmap shows how much of each epic is done. Releases mark a version shipped, and components group issues.
 
 ## Review
+
+The search box and the category menus at the top of each screen show only the matching items. The choices depend on the screen: type, status, assignee, form, role, and so on.
 
 The dashboard adds and removes gadgets. Reports cover burndown, velocity, cumulative flow, created versus resolved, pies, time and the sprint. If any issue has points, an issue without points counts as zero. If none have points, each issue counts as one.
 

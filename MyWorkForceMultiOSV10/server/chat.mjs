@@ -67,6 +67,32 @@ export async function noticeRoom(engine, userId) {
   return id;
 }
 
+export function noticeTarget(workspace, actorId, message) {
+  if (!message || message.kind !== 'notice') return null;
+  const prefix = `notice-${actorId}-`;
+  const noticeId = String(message.id || '').startsWith(prefix) ? String(message.id).slice(prefix.length) : '';
+  let project = null;
+  let found = null;
+  for (const item of workspace?.projects || []) {
+    const note = (item.notifications || []).find((entry) => entry.id === noticeId);
+    if (note) { project = item; found = note; break; }
+  }
+  const pageId = found?.pageId || (workspace?.articles || []).find((page) => (found?.kind === 'page' || found?.kind === 'page-comment') && page.title && page.title === found.issueKey)?.id || '';
+  const documentId = found?.documentId || (workspace?.documents || []).find((doc) => found?.kind === 'document' && doc.title === found.issueKey && (!project || doc.projectId === project.id))?.id || '';
+  const issueKind = found?.kind && !['page', 'page-comment', 'document'].includes(found.kind);
+  const view = pageId ? 'knowledge' : documentId ? 'documents' : (found?.issueId || (issueKind && found?.issueKey)) ? 'issue' : 'notifications';
+  return {
+    view,
+    projectId: project?.id || '',
+    projectKey: project?.key || '',
+    issueId: view === 'issue' ? (found?.issueId || '') : '',
+    issueKey: view === 'issue' ? (found?.issueKey || '') : '',
+    pageId: view === 'knowledge' ? pageId : '',
+    documentId: view === 'documents' ? documentId : '',
+    kind: found?.kind || '',
+  };
+}
+
 export async function postNotice(engine, userId, noticeId, text) {
   if (!userId || !noticeId) return;
   const roomId = await noticeRoom(engine, userId);
@@ -116,6 +142,25 @@ export async function openRoom(engine, actorId, input, people) {
   if (members.length > 50) throw new Error('members-required');
   const id = await createRoom(engine, actorId, 'group', name.slice(0, 80), members);
   return roomOf(engine, id, actorId, people);
+}
+
+export async function inviteMembers(engine, actorId, roomId, memberIds, people) {
+  await assertMember(engine, roomId, actorId);
+  const rooms = (await engine.query('SELECT id, kind FROM chat_rooms WHERE id = ?', [roomId])).map(row);
+  const room = rooms[0];
+  if (!room?.id) throw new Error('not-found');
+  if (room.kind === 'notices') throw new Error('permission');
+  const known = new Set((people || []).map((person) => person.id));
+  const current = (await engine.query('SELECT user_id FROM chat_members WHERE room_id = ?', [roomId])).map(row);
+  const have = new Set(current.map((item) => item.user_id));
+  const adding = [...new Set((memberIds || []).map(String))].filter((id) => known.has(id) && !have.has(id));
+  if (!adding.length) throw new Error('members-required');
+  if (have.size + adding.length > 50) throw new Error('members-required');
+  for (const userId of adding) {
+    await engine.query('INSERT INTO chat_members (room_id, user_id, last_read) VALUES (?, ?, ?)', [roomId, userId, '']);
+  }
+  if (room.kind === 'direct') await engine.query('UPDATE chat_rooms SET kind = ? WHERE id = ?', ['group', roomId]);
+  return roomOf(engine, roomId, actorId, people);
 }
 
 export async function listRooms(engine, actorId, people) {

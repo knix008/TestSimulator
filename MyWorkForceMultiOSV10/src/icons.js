@@ -62,6 +62,7 @@ const ICONS = {
   book: '<path d="M5 5h6a3 3 0 0 1 3 3v11H8a3 3 0 0 0-3 3V5z"/><path d="M19 5h-6a3 3 0 0 0-3 3v11h6a3 3 0 0 1 3 3V5z"/>',
   file: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>',
   image: '<rect x="4" y="5" width="16" height="14" rx="1"/><circle cx="9" cy="10" r="1.5"/><path d="m4 16 5-4 3 3 3-2 5 4"/>',
+  phone: '<path d="M8 4h2l1 4-2 1a11 11 0 0 0 6 6l1-2 4 1v2a2 2 0 0 1-2 2A13 13 0 0 1 6 6a2 2 0 0 1 2-2z"/>',
   move: '<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>',
   moon: '<path d="M16 14.5A6.5 6.5 0 0 1 9.5 4 7 7 0 1 0 16 14.5z"/>',
   palette: '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.9-.6-1.3-.6-2.1 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.7 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7.5" r="1.2"/><circle cx="14.5" cy="7.5" r="1.2"/>',
@@ -84,7 +85,7 @@ const TONES = {
   undo: 'sky', redo: 'cyan', flag: 'orange', tag: 'pink', box: 'brown', eye: 'indigo', workflow: 'purple',
   bolt: 'yellow', shield: 'blue', play: 'green', calendar: 'orange', columns: 'blue', copy: 'cyan',
   pencil: 'pink', printer: 'purple', database: 'indigo', globe: 'orange', lock: 'amber', book: 'blue', info: 'sky',
-  file: 'teal', image: 'pink', move: 'red', moon: 'indigo', palette: 'pink', chevronDown: 'slate', layers: 'purple',
+  file: 'teal', image: 'pink', phone: 'teal', move: 'red', moon: 'indigo', palette: 'pink', chevronDown: 'slate', layers: 'purple',
   chevronLeft: 'slate', chevronRight: 'slate', panelLeft: 'blue', panelRight: 'teal', foldLeft: 'blue', foldRight: 'teal',
 };
 

@@ -97,7 +97,7 @@ export function deliver(ws, project, directIds, entry, target = {}) {
   for (const userId of ids) {
     if (!userId || userId === entry.actorId) continue;
     if (!wantsEvent(ws, userId, project.id, event, { direct: direct.has(userId), issueId, pageId, documentId })) continue;
-    project.notifications.unshift({ id: uid('n'), userId, read: false, at, issueKey: entry.issueKey || '', ...entry });
+    project.notifications.unshift({ id: uid('n'), userId, read: false, at, issueKey: entry.issueKey || '', ...entry, pageId, documentId });
   }
   if (project.notifications.length > 300) project.notifications.length = 300;
 }
