@@ -120,7 +120,10 @@ def fit_quality(spec, image, options, raw, device, log=None):
     (options, profile). Profile is None when fitting is off. `raw` is what
     the user sent, so an explicit choice is never replaced."""
     options = dict(options)
-    if not options.get("fitQuality", True):
+    # The switch is not a model option, so normalize_options drops it from
+    # `options`: it is read from what the user sent as well.
+    switch = options.get("fitQuality", (raw or {}).get("fitQuality", True))
+    if str(switch).lower() in ("0", "false", "no", "off", ""):
         return options, None
     profile = subject_profile(image)
     gpu = device != "cpu"
@@ -138,8 +141,6 @@ def fit_quality(spec, image, options, raw, device, log=None):
         _set(spec, options, raw, "ssSteps", ss)
         _set(spec, options, raw, "slatSteps", slat)
         _set(spec, options, raw, "slatGuidance", guide)
-        if options.get("texture", "project") == "project":
-            options["textureSize"] = _pick(_HY_TEX, tier, gpu)
     if getattr(spec, "family", "") == "hunyuan3d":
         _set(spec, options, raw, "octreeResolution", _pick(_HY_OCTREE, tier, gpu))
         _set(spec, options, raw, "faceLimit", _pick(_HY_FACES, tier, gpu))

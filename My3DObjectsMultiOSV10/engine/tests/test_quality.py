@@ -81,7 +81,8 @@ class FitQualityTest(unittest.TestCase):
         self.assertEqual(options["slatSteps"], 24)
         self.assertEqual(options["ssSteps"], 18)
         self.assertEqual(options["slatGuidance"], 4.0)
-        self.assertEqual(options["textureSize"], 2048)
+        # Vertex colours: no texture image, so no texture size.
+        self.assertNotIn("textureSize", options)
         # The structure guidance and the seed stay at the demo values.
         self.assertEqual(options["ssGuidance"], 7.5)
         self.assertEqual(options["seed"], 0)

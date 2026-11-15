@@ -113,6 +113,9 @@ class OptionsTest(unittest.TestCase):
         o = models.normalize_options(spec, {}, "cuda")
         self.assertEqual((o["ssSteps"], o["ssGuidance"], o["slatSteps"], o["slatGuidance"]), (12, 7.5, 12, 3.0))
         self.assertEqual(o["subdivide"], 0)
+        # The model's own colours are blurred: the picture goes over them by default.
+        self.assertEqual(o["colorSource"], "picture")
+        self.assertEqual(models.normalize_options(spec, {"colorSource": "model"}, "cuda")["colorSource"], "model")
         o = models.normalize_options(spec, {"ssSteps": "0", "slatSteps": "500", "ssGuidance": "-1"}, "cpu")
         self.assertEqual((o["ssSteps"], o["slatSteps"], o["ssGuidance"]), (1, 50, 0.0))
         self.assertIsInstance(o["ssSteps"], int)

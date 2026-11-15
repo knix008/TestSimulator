@@ -269,6 +269,8 @@ const ko = {
     ssGuidance: '구조 이미지 따르기',
     slatSteps: '세부 단계 수',
     slatGuidance: '세부 이미지 따르기',
+    colorSource: '색',
+    colorSourceChoice: { picture: '입력 그림 + 모델', model: '모델 색만' },
     target: '목표 정점 수',
     auto: '자동 (GPU {{gpu}} · CPU {{cpu}})',
     remeshChoice: { none: '안 함', triangle: '삼각형', quad: '사각형' },
@@ -295,6 +297,7 @@ const ko = {
     ssGuidance: '1단계에서 그림을 얼마나 따를지. 크면 그림에 가까운 모양, 너무 크면 거칠어집니다.',
     slatSteps: 'TRELLIS 2단계(칸마다 모양·색 채우기)의 단계 수. 많으면 정확하지만 느립니다.',
     slatGuidance: '2단계에서 그림을 얼마나 따를지. 색과 세부가 그림에 가까워집니다.',
+    colorSource: '색을 어디서 가져올지. "입력 그림"은 앞에서 보이는 곳에 입력 그림을 그대로 입히고(모델 자체 색은 흐립니다), 뒤는 모델이 짐작한 색과 비슷한 곳에 그림의 같은 자리 색을, 나머지는 그림의 색감에 맞춘 모델 색을 씁니다. 필요하면 결과를 그림 쪽으로 돌립니다. "모델 색만"은 TRELLIS 색만 씁니다.',
   },
   device: { auto: '자동', gpu: 'GPU', cpu: 'CPU' },
   deviceTip: {
@@ -1024,6 +1027,8 @@ const en = {
     ssGuidance: 'Structure guidance',
     slatSteps: 'Detail steps',
     slatGuidance: 'Detail guidance',
+    colorSource: 'Colours',
+    colorSourceChoice: { picture: 'Input picture + model', model: 'Model only' },
     target: 'Target vertex count',
     auto: 'Auto (GPU {{gpu}} · CPU {{cpu}})',
     remeshChoice: { none: 'None', triangle: 'Triangles', quad: 'Quads' },
@@ -1050,6 +1055,7 @@ const en = {
     ssGuidance: 'How closely stage 1 follows the picture. Higher is closer to it; too high gets rough.',
     slatSteps: 'Steps of TRELLIS stage 2 (shape and colour in each voxel). More is more faithful but slower.',
     slatGuidance: 'How closely stage 2 follows the picture: colours and details closer to it.',
+    colorSource: "Where the colours come from. \"Picture\" lays the input picture over what the front sees (the model's own colours are blurred); the back takes the picture's colour at the same place where the model's guess for it is similar, and the rest the model's colours brought to the picture's tone; it also turns the result to face the picture if needed. \"Model\" keeps TRELLIS's colours only.",
   },
   device: { auto: 'Auto', gpu: 'GPU', cpu: 'CPU' },
   deviceTip: {

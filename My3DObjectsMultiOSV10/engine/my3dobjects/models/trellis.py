@@ -7,7 +7,13 @@ FlexiCubes mesh with vertex colours. TRELLIS can also decode 3D Gaussians and
 radiance fields and bake a texture from them, but that needs compiled CUDA
 renderers (diff-gaussian-rasterization, nvdiffrast); here only the mesh is
 decoded, so the result is a vertex-coloured mesh like TripoSR's — with the
-much better shape and colours of a 1.1 B-parameter model.
+much better shape of a 1.1 B-parameter model.
+
+The mesh decoder's own colours are blurred (TRELLIS trains them only as a
+helper; its demo bakes the texture from the Gaussians), so by default the
+input picture is laid over what the front sees (project_texture.
+picture_on_vertex_colours); the model's colours stay on the back and in
+hidden parts, and that step also checks which way the model faces.
 
 Compiled libraries TRELLIS imports are replaced by pure PyTorch stand-ins in
 shims/trellis, so nothing is compiled and it runs on CUDA, Apple GPUs and the
@@ -105,8 +111,8 @@ class Trellis(ModelSpec):
     id = "trellis"
     name = "TRELLIS"
     summary = {
-        "ko": "Microsoft의 대형 모델(1.1B). 형상과 색이 가장 정교한 편. 정점 색 메시. GPU 메모리 12 GB 이상 권장(CPU는 몇 분). MIT 라이선스.",
-        "en": "Microsoft's large model (1.1 B): among the most detailed shapes and colours. Vertex-coloured mesh. 12 GB of GPU memory or more advised (minutes on a CPU). MIT license.",
+        "ko": "Microsoft의 대형 모델(1.1B). 형상이 가장 정교한 편. 정점 색 메시(앞면은 입력 그림의 색). GPU 메모리 12 GB 이상 권장(CPU는 몇 분). MIT 라이선스.",
+        "en": "Microsoft's large model (1.1 B): among the most detailed shapes. Vertex-coloured mesh (the front takes the input picture's colours). 12 GB of GPU memory or more advised (minutes on a CPU). MIT license.",
     }
     license = "MIT"
     license_url = "https://huggingface.co/microsoft/TRELLIS-image-large/blob/main/README.md"
@@ -134,6 +140,9 @@ class Trellis(ModelSpec):
         option("ssGuidance", "number", 7.5, min=0.0, max=10.0, step=0.5),
         option("slatSteps", "number", 12, min=1, max=50, step=1, integer=True),
         option("slatGuidance", "number", 3.0, min=0.0, max=10.0, step=0.5),
+        # "picture": the input picture over what the front sees, the model's
+        # own (blurred) colours elsewhere; "model": the model's colours only.
+        option("colorSource", "select", "picture", choices=[{"value": "picture"}, {"value": "model"}]),
     ]
 
     def torch_home(self, home):
@@ -316,6 +325,18 @@ class Trellis(ModelSpec):
             raise RuntimeError("TRELLIS found no surface in this image.")
         verts, faces, colours = mesh_arrays(result)
         mesh = trimesh.Trimesh(vertices=verts, faces=faces, vertex_colors=colours, process=False)
+        if options.get("colorSource", "picture") == "picture":
+            from ..project_texture import _quarter_turn, picture_on_vertex_colours
+
+            engine.stage("bake")
+            rgb, turn, _share = picture_on_vertex_colours(
+                verts, faces, mesh.vertex_normals, colours[:, :3] / 255.0, image,
+                device=device if device in ("cuda", "cpu") else "cpu", log=model.log)
+            if turn:
+                verts = verts @ _quarter_turn(turn).T
+            colours = colours.copy()
+            colours[:, :3] = np.round(rgb * 255).astype(np.uint8)
+            mesh = trimesh.Trimesh(vertices=verts, faces=faces, vertex_colors=colours, process=False)
         # About one unit across like the other models' results, centred.
         extent = float(np.max(mesh.extents)) or 1.0
         mesh.apply_translation(-mesh.bounding_box.centroid)

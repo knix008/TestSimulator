@@ -67,11 +67,11 @@ def _sample_at_depth(img, depth_map, u, v, z):
     return np.where(wsum[:, None] > 1e-6, acc / np.maximum(wsum, 1e-6)[:, None], near)
 
 
-def _depth_maps(torch, pos, faces, uu, vv, zn, width, height, device):
+def _depth_maps(torch, pos, faces, uu, vv, zn, width, height, device, back=True):
     """Front and back depth (normalised 0 = nearest the viewer) per pixel of the
-    cropped picture, NaN where the shape is not."""
+    cropped picture, NaN where the shape is not (the front only with back=False)."""
     out = []
-    for depth in (zn, 1.0 - zn):
+    for depth in ((zn, 1.0 - zn) if back else (zn,)):
         clip = torch.stack([
             torch.from_numpy(((uu - 0.5) / max(width - 1, 1)) * 2 - 1),
             torch.from_numpy(((vv - 0.5) / max(height - 1, 1)) * 2 - 1),
@@ -201,3 +201,205 @@ def project_texture(mesh, image, size=1024, device="cpu", log=None):
     material = trimesh.visual.material.PBRMaterial(baseColorTexture=img, metallicFactor=0.0, roughnessFactor=0.9)
     visual = trimesh.visual.TextureVisuals(uv=uv, material=material)
     return trimesh.Trimesh(vertices=pos, faces=faces, visual=visual, process=False)
+
+
+# ---------------------------------------------------------------------------
+# The picture onto a model's own vertex colours (TRELLIS).
+#
+# TRELLIS's mesh decoder colours every vertex itself, but those colours are
+# blurred: the official demo bakes its texture from the Gaussian decoder,
+# which needs compiled CUDA renderers. The picture is the front view, so on
+# what the front sees its pixels replace the model's colour. Elsewhere:
+#   - the model's colours are first brought to the picture's tone (they are
+#     duller and darker), by an affine colour map fitted on the front;
+#   - the back takes the picture's colour at the same place where the
+#     model's own guess for the back agrees with it in the large (the back
+#     of a shirt is the shirt; the back of a head is hair, not a face);
+#   - what neither view sees keeps the toned model colour.
+# The model's colour takes over gradually where the surface turns away from
+# the viewer (the picture would be smeared there). The mesh is dense (FlexiCubes at 256³),
+# so per-vertex colours carry about as much detail as the 518-pixel picture
+# the model saw.
+#
+# The model's facing is also checked: of the four quarter turns about the
+# vertical, the one whose front view agrees best with the picture (colours
+# where seen, outline) is used.
+
+# Blending by facing: |normal · view| below FACING_LOW keeps the model's
+# colour, above FACING_HIGH takes the picture's.
+FACING_LOW, FACING_HIGH = 0.2, 0.6
+# A quarter turn is taken only when it agrees this much better than none.
+TURN_MARGIN = 0.85
+
+
+def _quarter_turn(k):
+    """Rotation about +Y by k · 90° (right-handed), as a 3 × 3 matrix."""
+    c, s = ((1, 0), (0, 1), (-1, 0), (0, -1))[k % 4]
+    return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]], dtype=np.float64)
+
+
+def _front_projection(pos, width, height):
+    lo, hi = pos.min(0), pos.max(0)
+    span = np.maximum(hi - lo, 1e-9)
+    uu = (pos[:, 0] - lo[0]) / span[0] * width
+    vv = (hi[1] - pos[:, 1]) / span[1] * height
+    zn = (hi[2] - pos[:, 2]) / span[2]
+    return uu, vv, zn
+
+
+def _front_look(torch, pos, normals, faces, rgb, alpha, device):
+    """What the front view of `pos` takes from the picture: per vertex the
+    picture's colour, its weight (0 = keep the model's), and the outline's
+    agreement with the picture's (intersection over union)."""
+    height, width = alpha.shape
+    uu, vv, zn = _front_projection(pos, width, height)
+    front = _depth_maps(torch, pos, faces, uu, vv, zn, width, height, device, back=False)[0]
+    iu = np.clip(uu.astype(np.int64), 0, width - 1)
+    iv = np.clip(vv.astype(np.int64), 0, height - 1)
+    f = front[iv, iu]
+    a = alpha[iv, iu]
+    seen = (a > 0.5) & np.isfinite(f) & (zn <= f + SEEN_TOLERANCE)
+    colour = np.zeros((len(pos), 3))
+    colour[seen] = _sample_at_depth(rgb, front, uu[seen], vv[seen], zn[seen])
+    facing = np.clip((np.abs(normals[:, 2]) - FACING_LOW) / (FACING_HIGH - FACING_LOW), 0.0, 1.0)
+    weight = np.where(seen, facing * a, 0.0)
+    shape = np.isfinite(front)
+    solid = alpha > 0.5
+    iou = (shape & solid).sum() / max(1, (shape | solid).sum())
+    return colour, weight, float(iou)
+
+
+def picture_on_vertex_colours(vertices, faces, normals, model_rgb, image, device="cpu", turns=True, log=None):
+    """The model's vertex colours (V, 3, 0..1) with the picture laid over
+    what the front (+Z) sees. Returns (colours, k, share): k quarter turns
+    about +Y to apply to the mesh first (0 when it already faces the
+    picture), share the part of the vertices that took the picture."""
+    import torch
+
+    rgb, alpha = _picture(image)
+    verts = np.asarray(vertices, dtype=np.float64)
+    faces = np.asarray(faces, dtype=np.int64)
+    normals = np.asarray(normals, dtype=np.float64)
+    model_rgb = np.asarray(model_rgb, dtype=np.float64)
+
+    best = None
+    for k in (range(4) if turns else (0,)):
+        r = _quarter_turn(k)
+        colour, weight, iou = _front_look(torch, verts @ r.T, normals @ r.T, faces, rgb, alpha, device)
+        wsum = weight.sum()
+        err = (weight * np.abs(colour - model_rgb).mean(1)).sum() / wsum if wsum > 0 else 1.0
+        score = err + 0.25 * (1.0 - iou)
+        if k == 0:
+            first = score
+        if best is None or score < best[0]:
+            best = (score, k, colour, weight)
+    score, k, colour, weight = best
+    if k and score > first * TURN_MARGIN:
+        k = 0
+    r = _quarter_turn(k)
+    pos, nrm = verts @ r.T, normals @ r.T
+
+    front_col, front_w, back_col, back_w, blurred = _both_views(torch, pos, nrm, faces, rgb, alpha, device)
+    # 1. The model's colours in the picture's tone: TRELLIS's are duller and
+    #    darker; an affine map fitted where the front sees both corrects every
+    #    vertex, the unseen ones too.
+    base = _match_tone(model_rgb, front_col, front_w)
+    # 2. The back: the colour at the same place in the picture (the back of
+    #    most objects is coloured like the front), but only where the model's
+    #    own guess for the back agrees with it in the large — the back of a
+    #    head is hair, not a face.
+    diff = np.abs(blurred - base).max(1)
+    agree = np.clip(1.0 - (diff - AGREE_FULL) / (AGREE_NONE - AGREE_FULL), 0.0, 1.0)
+    # Softened only inward (min), so no weight reaches a vertex the view
+    # does not see (its colour there is not the picture's).
+    back_w = back_w * agree
+    back_w = np.minimum(back_w, _smooth_vertex(back_w, faces, rounds=3))
+    front_w = np.minimum(front_w, _smooth_vertex(front_w, faces, rounds=1))
+    out = base + back_w[:, None] * (back_col - base)
+    out = out + front_w[:, None] * (front_col - out)
+    share = float((front_w > 0.5).mean())
+    back_share = float((back_w > 0.5).mean())
+    if log:
+        turned = f", turned {k * 90}° to face the picture" if k else ""
+        log.info(f"Picture laid onto the model's colours: {share * 100:.0f} % of the surface from the front, "
+                 f"{back_share * 100:.0f} % from the back, the rest the model's colours in the picture's tone{turned}.")
+    return np.clip(out, 0.0, 1.0), k, share
+
+
+# The back takes the picture where its blurred colour is within AGREE_FULL
+# of the model's (0..1, largest channel), not at all beyond AGREE_NONE.
+AGREE_FULL, AGREE_NONE = 0.12, 0.3
+BLUR_PX = 0.02                     # of the picture's larger side
+
+
+def _blurred_picture(rgb, alpha):
+    """The picture's large-scale colour (alpha-weighted, so the background
+    does not bleed in at the outline)."""
+    import torch
+
+    h, w = alpha.shape
+    sigma = max(1.0, BLUR_PX * max(h, w))
+    radius = int(3 * sigma)
+    x = torch.arange(-radius, radius + 1, dtype=torch.float32)
+    k = torch.exp(-(x / sigma) ** 2 / 2)
+    k = k / k.sum()
+    a = torch.from_numpy(alpha.astype(np.float32))[None, None]
+    c = torch.from_numpy((rgb * alpha[..., None]).astype(np.float32)).permute(2, 0, 1)[None]
+    stack = torch.cat([c, a], 1)
+    for kern in (k.view(1, 1, 1, -1), k.view(1, 1, -1, 1)):
+        pad = (radius, radius, 0, 0) if kern.shape[-1] > 1 else (0, 0, radius, radius)
+        stack = torch.nn.functional.conv2d(torch.nn.functional.pad(stack, pad, mode="replicate"),
+                                           kern.expand(4, 1, *kern.shape[-2:]).contiguous(), groups=4)
+    out = stack[0, :3] / stack[0, 3:].clamp(min=1e-4)
+    return out.permute(1, 2, 0).numpy().astype(np.float64)
+
+
+def _both_views(torch, pos, normals, faces, rgb, alpha, device):
+    """Per vertex: the picture's colour and weight as seen from the front and
+    from the back, and the blurred picture's colour at the vertex's place."""
+    height, width = alpha.shape
+    uu, vv, zn = _front_projection(pos, width, height)
+    front, back = _depth_maps(torch, pos, faces, uu, vv, zn, width, height, device)
+    iu = np.clip(uu.astype(np.int64), 0, width - 1)
+    iv = np.clip(vv.astype(np.int64), 0, height - 1)
+    a = alpha[iv, iu]
+    f, b = front[iv, iu], back[iv, iu]
+    by_front = (a > 0.5) & np.isfinite(f) & (zn <= f + SEEN_TOLERANCE)
+    by_back = (a > 0.5) & np.isfinite(b) & ((1.0 - zn) <= b + SEEN_TOLERANCE) & ~by_front
+    facing = np.clip((np.abs(normals[:, 2]) - FACING_LOW) / (FACING_HIGH - FACING_LOW), 0.0, 1.0)
+    fc = np.zeros((len(pos), 3))
+    bc = np.zeros((len(pos), 3))
+    fc[by_front] = _sample_at_depth(rgb, front, uu[by_front], vv[by_front], zn[by_front])
+    bc[by_back] = _sample_at_depth(rgb, back, uu[by_back], vv[by_back], 1.0 - zn[by_back])
+    blur = _blurred_picture(rgb, alpha)
+    blurred = blur[np.clip(np.rint(vv - 0.5).astype(np.int64), 0, height - 1),
+                   np.clip(np.rint(uu - 0.5).astype(np.int64), 0, width - 1)]
+    return fc, np.where(by_front, facing * a, 0.0), bc, np.where(by_back, facing * a, 0.0), blurred
+
+
+def _match_tone(model, picture, weight, ridge=0.05):
+    """An affine colour map model → picture fitted (weighted least squares,
+    pulled toward no change) where the front sees both."""
+    sel = weight > 0.5
+    if sel.sum() < 30:
+        return model
+    x = np.concatenate([model[sel], np.ones((sel.sum(), 1))], 1)
+    y = picture[sel]
+    ident = np.vstack([np.eye(3), np.zeros((1, 3))])
+    lam = ridge * len(x)
+    a = np.linalg.solve(x.T @ x + lam * np.eye(4), x.T @ y + lam * ident)
+    out = np.concatenate([model, np.ones((len(model), 1))], 1) @ a
+    return np.clip(out, 0.0, 1.0)
+
+
+def _smooth_vertex(values, faces, rounds=2):
+    """Averages a per-vertex value with its neighbours (edges of `faces`)."""
+    n = len(values)
+    edges = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
+    edges = np.concatenate([edges, edges[:, ::-1]])
+    cnt = np.bincount(edges[:, 0], minlength=n).astype(np.float64)
+    out = values.astype(np.float64)
+    for _ in range(rounds):
+        acc = np.bincount(edges[:, 0], weights=out[edges[:, 1]], minlength=n)
+        out = (out + acc) / (1.0 + cnt)
+    return out
