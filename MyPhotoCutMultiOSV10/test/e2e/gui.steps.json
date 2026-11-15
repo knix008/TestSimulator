@@ -10,6 +10,10 @@
   "name": "start page: every sample picture loads"
  },
  {
+  "eval": "return (()=>{ const cards=[...document.querySelectorAll('.sample-photo')]; const imgs=cards.map(c=>c.querySelector('img')); const small=imgs.filter(i=>i.naturalWidth<600); if (small.length) throw new Error('small '+small.map(i=>i.src).join()); const srcs=new Set(imgs.map(i=>i.getAttribute('src'))); if (srcs.size!==40) throw new Error('distinct pictures '+srcs.size); const names=new Set(cards.map(c=>c.textContent.trim())); if (names.size!==40) throw new Error('distinct names '+names.size); for (const id of ['newton','tubman','roosevelt','monalisa']) if (!cards.some(c=>c.dataset.value===id)) throw new Error('missing '+id); return '40 distinct samples, all >= 600 px wide'; })()",
+  "name": "start page: 40 distinct sample portraits (new ones included)"
+ },
+ {
   "eval": "return (()=>{ document.querySelector('[data-home]').click(); if (window.__myphotocut.state.showStart) throw new Error('home did not toggle'); document.querySelector('[data-home]').click(); if (!window.__myphotocut.state.showStart) throw new Error('home did not toggle back'); return 'home toggles'; })()",
   "name": "home button toggles start page and main window"
  },
@@ -21,6 +25,14 @@
  {
   "eval": "return (()=>{ const s=window.__myphotocut.state; if (s.doc.analysis.faceMethod!=='landmarks') throw new Error('face '+s.doc.analysis.faceMethod); return 'face model 478 points'; })()",
   "name": "face found by the 478-point face model"
+ },
+ {
+  "eval": "return (async()=>{ const W=window.__myphotocut; const a=W.actions; const s=W.state; const look=()=>s.doc.items.map(i=>JSON.stringify([i.styleId,i.seed,i.warp,i.options])); const hash=(src)=>{ const c=document.createElement('canvas'); c.width=src.width; c.height=src.height; const g=c.getContext('2d',{willReadFrequently:true}); g.drawImage(src,0,0); const d=g.getImageData(0,0,c.width,c.height).data; let h=2166136261; for (let k=0;k<d.length;k+=7) { h^=d[k]; h=Math.imul(h,16777619); } return c.width+'x'+c.height+':'+(h>>>0); }; const pics=()=>s.doc.items.map(i=>{ const r=s.results.get(i.id); if (!r?.canvas) throw new Error('not drawn '+i.styleId); return hash(r.canvas); }); const reopen=async()=>{ s.doc.dirty=false; await a.openSample('einstein'); await a.idle(); if (s.doc.items.length!==40) throw new Error('items '+s.doc.items.length); }; const same=(x,y)=>x.filter((v,i)=>v===y[i]).length; a.updateSettings({ randomGenerate: true }); if (s.settings.randomGenerate!==true) throw new Error('setting not on'); const v1=look(), p1=pics(); await reopen(); const v2=look(), p2=pics(); const sameValues=same(v1,v2); if (sameValues) throw new Error(sameValues+' caricatures kept the same values'); const samePics=same(p1,p2); if (samePics>4) throw new Error(samePics+' of 40 pictures did not change'); return 'random generation: 40/40 new values, '+(40-samePics)+'/40 new pictures'; })()",
+  "name": "random generation (default on): the same photo gives different caricatures"
+ },
+ {
+  "eval": "return (async()=>{ const W=window.__myphotocut; const a=W.actions; const s=W.state; const look=()=>s.doc.items.map(i=>JSON.stringify([i.styleId,i.seed,i.warp,i.options])); const hash=(src)=>{ const c=document.createElement('canvas'); c.width=src.width; c.height=src.height; const g=c.getContext('2d',{willReadFrequently:true}); g.drawImage(src,0,0); const d=g.getImageData(0,0,c.width,c.height).data; let h=2166136261; for (let k=0;k<d.length;k+=7) { h^=d[k]; h=Math.imul(h,16777619); } return c.width+'x'+c.height+':'+(h>>>0); }; const pics=()=>s.doc.items.map(i=>{ const r=s.results.get(i.id); if (!r?.canvas) throw new Error('not drawn '+i.styleId); return hash(r.canvas); }); const reopen=async()=>{ s.doc.dirty=false; await a.openSample('einstein'); await a.idle(); if (s.doc.items.length!==40) throw new Error('items '+s.doc.items.length); }; const same=(x,y)=>x.filter((v,i)=>v===y[i]).length; const { styleById, normalizeOptions } = await import('/src/engine/styles.js'); a.updateSettings({ randomGenerate: false }); try { await reopen(); const v1=look(), p1=pics(); await reopen(); const v2=look(), p2=pics(); if (same(v1,v2)!==40) throw new Error('values differ: '+(40-same(v1,v2))); if (same(p1,p2)!==40) throw new Error('pictures differ: '+(40-same(p1,p2))); const moved=s.doc.items.filter(i=>JSON.stringify(i.options)!==JSON.stringify(normalizeOptions(i.styleId, styleById(i.styleId).options))); if (moved.length) throw new Error('options not the style defaults: '+moved.map(i=>i.styleId)); a.addStyle('cartoon'); a.addStyle('cartoon'); const [x,y]=s.doc.items.slice(-2); if (JSON.stringify([x.seed,x.warp,x.options])!==JSON.stringify([y.seed,y.warp,y.options])) throw new Error('add style not fixed'); a.updateSettings({ randomGenerate: true }); a.addStyle('cartoon'); a.addStyle('cartoon'); const [m,n]=s.doc.items.slice(-2); if (m.seed===n.seed || JSON.stringify([m.warp,m.options])===JSON.stringify([n.warp,n.options])) throw new Error('add style not random'); } finally { a.updateSettings({ randomGenerate: true }); } await reopen(); return 'random off: identical values and pixels twice, style defaults, add style fixed'; })()",
+  "name": "random generation off: the same photo always gives the same caricatures"
  },
  {
   "eval": "return (async()=>{ const a=window.__myphotocut.actions; const s=window.__myphotocut.state; const id=s.doc.items[0].id; a.select(id); a.setItemValue('warp','head',1.8,'head'); await a.idle(); if (s.doc.items[0].warp.head!==1.8) throw new Error('warp not set'); a.undo(); await a.idle(); if (s.doc.items[0].warp.head===1.8) throw new Error('undo failed'); a.redo(); await a.idle(); return 'exaggeration + undo/redo'; })()",
@@ -58,6 +70,10 @@
   "wait": 1200,
   "shot": "05-settings",
   "name": "settings window"
+ },
+ {
+  "eval": "return (async()=>{ const W=window.__myphotocut; const s=W.state; const wait=async(f,ms=3000)=>{ const t=Date.now(); while(Date.now()-t<ms){ const v=f(); if (v) return v; await new Promise(r=>setTimeout(r,50)); } return null; }; const box=await wait(()=>document.querySelector('.web-popup-settings iframe')?.contentDocument?.querySelector('input[data-toggle=\"randomGenerate\"]')); if (!box) throw new Error('no random toggle in settings'); if (!box.checked) throw new Error('toggle not on by default'); const row=box.closest('.row'); if (!row.title.includes(W.t('settings.randomGenerateTip').slice(0,10))) throw new Error('no tooltip'); box.click(); if (!await wait(()=>s.settings.randomGenerate===false)) throw new Error('turning off did not reach the app'); const again=await wait(()=>document.querySelector('.web-popup-settings iframe')?.contentDocument?.querySelector('input[data-toggle=\"randomGenerate\"]')); again.click(); if (!await wait(()=>s.settings.randomGenerate===true)) throw new Error('turning on did not reach the app'); return 'settings toggle switches random generation off and on'; })()",
+  "name": "settings: random generation toggle"
  },
  {
   "eval": "return (()=>{ window.__myphotocut.popups.close('settings'); window.__myphotocut.run('exportImage'); return 'export popup'; })()",

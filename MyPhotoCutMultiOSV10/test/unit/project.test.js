@@ -1,6 +1,7 @@
 // Projects (.mypcut), Undo history, settings and recent files.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   defaultItems, fixedSeed, randomizeItem, FormatError, isOpenableName, isPhotoName, isProjectName, MAX_ITEMS, newItem, normalizeItem, parseProject, safeFileName, serializeProject, varyItem, extensionOf, stripExtension, directoryOf, baseName,
 } from '../../src/domain/project.js';
@@ -163,4 +164,32 @@ test('samples: forty public-domain portraits of famous people and paintings', ()
   assert.equal(new Set(SAMPLE_PHOTOS.map((s) => s.file)).size, 40);
   assert.ok(!SAMPLE_PHOTOS.some((s) => /armstrong|ride|jemison/.test(s.id)), 'no astronauts');
   for (const s of SAMPLE_PHOTOS) assert.ok(s.file && s.ko && s.en && s.commons, s.id);
+});
+
+test('samples: every portrait is on disk as a real JPEG and credited', () => {
+  const dir = new URL('../../public/samples/', import.meta.url);
+  const credits = fs.readFileSync(new URL('CREDITS.md', dir), 'utf8');
+  const onDisk = fs.readdirSync(dir).filter((name) => name.endsWith('.jpg'));
+  assert.deepEqual(onDisk.sort(), SAMPLE_PHOTOS.map((s) => s.file).sort(), 'no missing and no stray pictures');
+  for (const s of SAMPLE_PHOTOS) {
+    const bytes = fs.readFileSync(new URL(s.file, dir));
+    assert.ok(bytes.length > 30000, `${s.file}: ${bytes.length} bytes`);
+    assert.deepEqual([...bytes.subarray(0, 3)], [0xff, 0xd8, 0xff], `${s.file} is a JPEG`);
+    assert.ok(credits.includes(`| ${s.file} |`), `${s.file} credited`);
+  }
+  assert.equal(new Set(SAMPLE_PHOTOS.map((s) => s.ko)).size, 40, 'Korean names distinct');
+  assert.equal(new Set(SAMPLE_PHOTOS.map((s) => s.en)).size, 40, 'English names distinct');
+});
+
+test('project: fixed generation uses the style defaults; random keeps values in range', () => {
+  for (const id of DEFAULT_STYLE_IDS) {
+    const fixed = newItem(id, fixedSeed(id));
+    assert.deepEqual(fixed.options, normalizeOptions(id, styleById(id).options), id);
+    for (let seed = 1; seed < 30; seed++) {
+      const r = randomizeItem(newItem(id, seed), seed, 0.4);
+      for (const value of Object.values(r.warp)) assert.ok(value >= 0.5 && value <= 2.2, `${id} warp ${value}`);
+      assert.ok(r.options.lines >= 0 && r.options.lines <= 5 && r.options.detail >= 0 && r.options.detail <= 100, id);
+      assert.ok(r.options.colors >= 2 && r.options.colors <= 24 && Number.isInteger(r.options.colors), `${id} colours ${r.options.colors}`);
+    }
+  }
 });
