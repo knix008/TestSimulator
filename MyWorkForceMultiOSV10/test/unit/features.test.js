@@ -2,15 +2,17 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { DEFAULT_TYPES, PROJECT_TYPES } from '../../src/domain/catalog.js';
+import { createDocument, updateDocument } from '../../src/domain/documents.js';
+import { setNotice } from '../../src/domain/notices.js';
 import { toCsv, toMarkdown } from '../../src/domain/export.js';
 import { setLanguage, L } from '../../src/i18n.js';
 import { renderMarkdown } from '../../src/domain/markdown.js';
 import { illustrate } from '../../src/ui/figures.js';
-import { allowed } from '../../src/domain/permissions.js';
+import { allowed, roleForAccess, sharesTeam } from '../../src/domain/permissions.js';
 import { runQuery } from '../../src/domain/query.js';
 import { createdResolved, cumulativeFlow, inspect, pie, sprintReport, timeReport } from '../../src/domain/reports.js';
 import { sampleWorkspace } from '../../src/domain/sample.js';
-import { DEFAULTS } from '../../src/domain/settings.js';
+import { DEFAULTS, PANEL_MIN } from '../../src/domain/settings.js';
 import {
   addAttachment, addComment, addField, addGadget, addGroup, addLink, addRule, addStatus, addTransition, addUser, addVersion,
   addWorklog, blankWorkspace, cloneIssue, completeSprint, createIssue, createSprint, deleteIssue, mergeProject,
@@ -19,8 +21,9 @@ import {
   updateProject, upgradeWorkspace, workspaceDocument,
 } from '../../src/domain/store.js';
 import { parseDuration } from '../../src/domain/util.js';
+import { commentPage, updatePage } from '../../src/domain/wiki.js';
 import { DARK_THEMES, LIGHT_THEMES, customFrom, resolveTheme } from '../../src/themes.js';
-import { renderMenubar, renderModal, renderNav, renderToolbar } from '../../src/ui/chrome.js';
+import { loginForm, renderMenubar, renderModal, renderNav, renderToolbar } from '../../src/ui/chrome.js';
 import { takeShortcut } from '../../src/ui/shortcuts.js';
 import { renderRight, renderView, showRight } from '../../src/ui/pages.js';
 
@@ -75,6 +78,36 @@ describe('Projects', () => {
     assert.throws(() => createIssue(ws, project.id, { summary: 'Later' }, me), /permission/);
     setArchived(ws, project.id, false, me);
     assert.equal(createIssue(ws, project.id, { summary: 'Later' }, me).summary, 'Later');
+  });
+
+  test('a child project gives parent participants the same access', () => {
+    const { ws, project, me } = shop();
+    const dev = person(ws, 'Dev', 'dev@example.com', 'developer', project);
+    const reader = person(ws, 'Read', 'read@example.com', 'viewer', project);
+    const child = newProject(ws, { name: 'Pay', key: 'PAY', parentId: project.id, leadId: me }, me);
+    assert.equal(child.parentId, project.id);
+    assert.equal(allowed(ws, child, dev.id, 'edit'), true);
+    assert.equal(allowed(ws, child, dev.id, 'admin'), false);
+    assert.equal(allowed(ws, child, reader.id, 'edit'), false);
+    assert.equal(allowed(ws, child, reader.id, 'browse'), true);
+    assert.equal(createIssue(ws, child.id, { summary: 'Inside' }, dev.id).summary, 'Inside');
+    assert.throws(() => setMember(ws, child.id, reader.id, 'developer', dev.id), /permission/);
+    const grand = newProject(ws, { name: 'Card', key: 'CARD', parentId: child.id, leadId: me }, me);
+    assert.equal(allowed(ws, grand, dev.id, 'edit'), true);
+    assert.throws(() => newProject(ws, { name: 'Nope', key: 'NOPE', parentId: project.id, leadId: dev.id }, dev.id), /permission/);
+    assert.throws(() => updateProject(ws, project.id, { parentId: child.id }, me), /parent-required/);
+    updateProject(ws, grand.id, { parentId: '' }, me);
+    assert.equal(grand.parentId, '');
+    setLanguage('en');
+    const html = renderModal({
+      ws, project: child, user: ws.users.find((user) => user.id === me),
+      ui: { modal: { kind: 'participants', projectId: child.id, query: '' } },
+      settings: { language: 'en' },
+    });
+    assert.match(html, /From SHOP/);
+    assert.match(html, /Dev/);
+    assert.match(html, /Parent project/);
+    assert.doesNotMatch(html, new RegExp(`data-participant="${dev.id}"`));
   });
 
   test('renames a project and refuses an empty name', () => {
@@ -223,6 +256,22 @@ describe('Permissions', () => {
     assert.equal(project.members.find((item) => item.userId === member.id).role, 'developer');
   });
 
+  test('a lead gives read only and edit access', () => {
+    const ws = upgradeWorkspace(sampleWorkspace(NOW));
+    const project = ws.projects.find((item) => item.key === 'SHOP');
+    const lead = ws.users.find((user) => user.id === project.leadId);
+    const teammate = ws.users.find((user) => user.name === '박민준');
+    const outsider = addUser(ws, { name: 'Outside', email: 'out@example.com' });
+    assert.equal(sharesTeam(ws, lead.id, teammate.id), true);
+    assert.equal(sharesTeam(ws, lead.id, outsider.id), false);
+    setMember(ws, project.id, outsider.id, roleForAccess('read'), lead.id);
+    assert.equal(allowed(ws, project, outsider.id, 'browse'), true);
+    assert.equal(allowed(ws, project, outsider.id, 'edit'), false);
+    setMember(ws, project.id, outsider.id, roleForAccess('edit'), lead.id);
+    assert.equal(allowed(ws, project, outsider.id, 'edit'), true);
+    assert.throws(() => setMember(ws, project.id, outsider.id, roleForAccess('edit'), teammate.id), /permission/);
+  });
+
   test('an inactive person cannot browse', () => {
     const { ws, project } = shop();
     const user = person(ws, 'Gone', 'gone@example.com', 'developer', project);
@@ -239,6 +288,41 @@ describe('Collaboration', () => {
     assert.throws(() => addComment(ws, project.id, issue.id, '  ', me), /summary-required/);
     addComment(ws, project.id, issue.id, '@Ann please look', me);
     assert.ok(project.notifications.some((item) => item.userId === ann.id && item.kind === 'comment'));
+  });
+
+  test('a person chooses notices for a project, a page, and a document', () => {
+    const ws = sampleWorkspace(NOW);
+    const project = ws.projects.find((item) => item.key === 'SHOP');
+    const outsider = addUser(ws, { name: 'Outside', email: 'out@example.com' });
+    setNotice(ws, outsider.id, 'project', project.id, { watch: true, created: true, assign: false, comment: false, transition: false, page: false });
+    const issue = createIssue(ws, project.id, { summary: 'Notice', assigneeId: 'u3' }, 'u1');
+    assert.ok(project.notifications.some((item) => item.userId === outsider.id && item.issueId === issue.id && item.kind === 'created'));
+    setNotice(ws, 'u3', 'project', project.id, { watch: false, created: false, assign: false, comment: false, transition: false, page: false });
+    const quiet = project.notifications.filter((item) => item.userId === 'u3' && item.issueId === issue.id).length;
+    addComment(ws, project.id, issue.id, 'quiet', 'u1');
+    assert.equal(project.notifications.filter((item) => item.userId === 'u3' && item.issueId === issue.id).length, quiet);
+    const page = ws.articles.find((item) => item.title === '결제 안내');
+    setNotice(ws, 'u2', 'page', page.id, { edit: false, comment: true });
+    const edits = project.notifications.filter((item) => item.userId === 'u2' && item.kind === 'page').length;
+    updatePage(ws, page.id, { body: 'Changed again' }, 'u1');
+    assert.equal(project.notifications.filter((item) => item.userId === 'u2' && item.kind === 'page').length, edits);
+    commentPage(ws, page.id, 'A note', 'u1');
+    assert.ok(project.notifications.some((item) => item.userId === 'u2' && item.kind === 'page-comment'));
+    const doc = createDocument(ws, { templateId: 'meeting', title: 'Notes', projectId: project.id }, 'u1');
+    setNotice(ws, outsider.id, 'document', doc.id, { edit: true });
+    updateDocument(ws, doc.id, { body: 'Decisions' }, 'u1');
+    assert.ok(project.notifications.some((item) => item.userId === outsider.id && item.kind === 'document' && item.issueKey === 'Notes'));
+    setLanguage('en');
+    const view = renderView({
+      ws, project, user: ws.users[0], desktop: false, version: '1.0.0', now: NOW,
+      settings: { language: 'en', fontSize: 13 },
+      ui: { view: 'notifications', query: '', modal: null },
+    });
+    assert.match(view, /Notification settings/);
+    assert.match(view, /data-notice="project"/);
+    assert.match(view, /data-notice="page"/);
+    assert.match(view, /data-event="watch"/);
+    assert.match(view, /결제 안내/);
   });
 
   test('a work log reduces the remaining estimate', () => {
@@ -536,6 +620,9 @@ describe('Themes', () => {
   test('defaults to Korean and a 13px font', () => {
     assert.equal(DEFAULTS.language, 'ko');
     assert.equal(DEFAULTS.fontSize, 13);
+    assert.equal(PANEL_MIN, 280);
+    assert.equal(DEFAULTS.leftWidth, PANEL_MIN);
+    assert.equal(DEFAULTS.rightWidth, PANEL_MIN);
     assert.equal(PROJECT_TYPES.length, 3);
   });
 });
@@ -607,6 +694,12 @@ describe('Screens', () => {
     const html = renderModal(ctx);
     assert.match(html, /data-setting="showWelcome"/);
     assert.match(html, /data-action="start-tutorial"/);
+    ctx.ui.modal = { kind: 'login', next: 'tutorial' };
+    const gate = renderModal(ctx);
+    assert.match(gate, /Sign in as a registered user to run the tutorial/);
+    assert.match(gate, /id="dialog-account"/);
+    assert.match(gate, /id="dialog-password"/);
+    assert.doesNotMatch(gate, /pick-login/);
     assert.match(html, /Show this window again at start/);
     assert.match(html, /Later/);
   });
@@ -621,6 +714,10 @@ describe('Screens', () => {
     assert.match(html, /data-bg="kind"/);
     assert.match(html, /data-bg="speed"/);
     assert.match(html, /data-bg="interval"/);
+    const notes = renderView(context('notifications'));
+    assert.match(notes, /data-notice="project"/);
+    assert.match(notes, /Issues I watch/);
+    assert.match(notes, /data-notice="page"/);
     assert.equal((html.match(/<option value="(?:board|sprint|backlog|roadmap|calendar|pages|notes|queue|flow|links|people|hours|checks|milestones|lanes|priority|comments|archive|burndown|focus|pulse)"/g) || []).length, 21);
   });
 
@@ -681,6 +778,9 @@ describe('Screens', () => {
     assert.match(nav, /Review/);
     assert.match(nav, /Project home/);
     assert.match(menu, /menubar-home[\s\S]*?>Start</);
+    assert.match(menu, /data-action="menubar-home"[^>]*disabled/);
+    ctx.ui.loginUser = 'u1';
+    assert.doesNotMatch(renderMenubar(ctx), /data-action="menubar-home"[^>]*disabled/);
     assert.match(menu, /data-action="open-current-project"/);
     assert.match(menu, /Ctrl\+Shift\+N/);
     assert.match(menu, /Ctrl\+2/);
@@ -690,17 +790,44 @@ describe('Screens', () => {
     for (const key of ['Ctrl+1', 'Ctrl+Shift+H', 'G H', 'Delete', 'F1']) {
       assert.match(shortcuts, new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     }
-    assert.match(menu, /data-action="open-login"/);
-    assert.match(menu, />Sign in</);
-    ctx.ui.ready = true;
-    assert.match(renderMenubar(ctx), /data-action="open-login"/);
-    ctx.ui.modal = { kind: 'login' };
-    const login = renderModal(ctx);
+    assert.doesNotMatch(menu, /data-action="open-login"/);
+    const login = loginForm(ctx);
     assert.match(login, /id="login-account"/);
     assert.match(login, /id="login-password"/);
     assert.match(login, /Login ID/);
     assert.match(login, /admin \/ admin/);
+    assert.doesNotMatch(login, /pick-login/);
     assert.match(nav, /User menu/);
+    assert.match(nav, /data-view="projects"/);
+    const ownProjects = renderView({ ...ctx, ui: { ...ctx.ui, view: 'projects' } });
+    assert.match(ownProjects, /data-action="new-project"/);
+    assert.match(ownProjects, /data-action="project-participants"/);
+    assert.match(ownProjects, /data-managed="name"/);
+    assert.match(ownProjects, /data-action="open-project-settings"/);
+    assert.match(ownProjects, /data-parent=/);
+    assert.match(ownProjects, /Sub-project/);
+    assert.match(nav, /data-view="project-settings"/);
+    const leadSettings = renderView({ ...ctx, ui: { ...ctx.ui, view: 'project-settings' } });
+    assert.match(leadSettings, /Project settings/);
+    assert.match(leadSettings, /data-project="description"/);
+    assert.match(leadSettings, /Add status/);
+    const developer = { ...ctx, user: ctx.ws.users.find((user) => user.id === 'u2') };
+    assert.doesNotMatch(renderView({ ...developer, ui: { ...ctx.ui, view: 'projects' } }), /data-managed="name"/);
+    assert.doesNotMatch(renderNav(developer), /data-view="project-settings"/);
+    assert.match(renderView({ ...developer, ui: { ...ctx.ui, view: 'project-settings' } }), /You do not have permission/);
+    const manager = { ...ctx, user: ctx.ws.users.find((user) => user.id === 'u3') };
+    const shop = manager.ws.projects.find((item) => item.key === 'SHOP');
+    shop.members = shop.members.map((member) => (member.userId === 'u3' ? { ...member, role: 'administrator' } : member));
+    assert.match(renderView({ ...manager, ui: { ...ctx.ui, view: 'project-settings' } }), /data-project="name"/);
+    ctx.ui.modal = { kind: 'participants', projectId: ctx.project.id, query: '' };
+    const participants = renderModal(ctx);
+    assert.match(participants, /Read only/);
+    assert.match(participants, /Can edit/);
+    assert.match(participants, /Team/);
+    assert.match(participants, /Other people/);
+    assert.match(participants, /id="participant-search"/);
+    assert.match(participants, /data-participant-search/);
+    assert.doesNotMatch(ownProjects, /Sign in with the administrator/);
     assert.doesNotMatch(nav, /Administrator menu/);
     assert.doesNotMatch(nav, /data-view="people"/);
     assert.doesNotMatch(nav, /data-view="settings"/);
@@ -735,6 +862,7 @@ describe('Screens', () => {
     ctx.ui.modal = { kind: 'project' };
     const dialog = renderModal(ctx);
     assert.match(dialog, /New project/);
+    assert.match(dialog, /Parent project/);
     assert.match(dialog, /data-icon="folder"/);
     assert.match(dialog, /data-icon="close"/);
     assert.match(dialog, /popup-close/);

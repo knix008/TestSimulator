@@ -10,13 +10,76 @@ export function isWorkspaceAdmin(user) {
   return String(user?.login || '').toLowerCase() === 'admin' && user?.active !== false;
 }
 
+/** Ancestors from the nearest parent upward. A broken or repeated link stops the walk. */
+export function projectAncestors(ws, project) {
+  const chain = [];
+  const seen = new Set(project?.id ? [project.id] : []);
+  let parentId = project?.parentId || '';
+  while (parentId && !seen.has(parentId)) {
+    const parent = (ws?.projects || []).find((item) => item.id === parentId);
+    if (!parent) break;
+    chain.push(parent);
+    seen.add(parent.id);
+    parentId = parent.parentId || '';
+  }
+  return chain;
+}
+
+/** Parents first, then each child, so a sub-project sits under its project. */
+export function orderedProjects(ws) {
+  const projects = ws?.projects || [];
+  const known = new Set(projects.map((project) => project.id));
+  const children = new Map();
+  for (const project of projects) {
+    const parentId = project.parentId && known.has(project.parentId) ? project.parentId : '';
+    if (!children.has(parentId)) children.set(parentId, []);
+    children.get(parentId).push(project);
+  }
+  for (const list of children.values()) list.sort((left, right) => String(left.key).localeCompare(String(right.key)));
+  const ordered = [];
+  const walk = (parentId) => {
+    for (const project of children.get(parentId) || []) {
+      ordered.push(project);
+      walk(project.id);
+    }
+  };
+  walk('');
+  return ordered;
+}
+
 export function rolesOf(ws, project, userId) {
-  const roles = new Set((project?.members || []).filter((member) => member.userId === userId).map((member) => member.role));
-  if (project?.leadId === userId) roles.add('administrator');
+  const roles = new Set();
+  const seen = new Set();
+  let current = project;
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    for (const member of current.members || []) {
+      if (member.userId === userId && member.role) roles.add(member.role);
+    }
+    if (current.leadId === userId) roles.add('administrator');
+    current = current.parentId ? (ws?.projects || []).find((item) => item.id === current.parentId) : null;
+  }
   const user = (ws?.users || []).find((item) => item.id === userId);
   if (isWorkspaceAdmin(user)) roles.add('administrator');
   if (roles.size === 0) roles.add('viewer');
   return [...roles];
+}
+
+/** A participant is read-only, or able to edit the project's issues. */
+export function participantAccess(role) {
+  return (ROLE_PERMISSIONS[role] || []).includes('edit') ? 'edit' : 'read';
+}
+
+export function roleForAccess(access) {
+  return access === 'edit' ? 'developer' : 'viewer';
+}
+
+/** People in the lead's groups. When the lead is in none, every grouped person counts as the team. */
+export function sharesTeam(ws, leadId, userId) {
+  const groups = ws?.groups || [];
+  const leadGroups = groups.filter((group) => (group.userIds || []).includes(leadId));
+  const pool = leadGroups.length ? leadGroups : groups;
+  return pool.some((group) => (group.userIds || []).includes(userId));
 }
 
 export function allowed(ws, project, userId, perm) {

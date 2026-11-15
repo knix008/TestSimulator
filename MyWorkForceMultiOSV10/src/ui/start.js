@@ -16,6 +16,7 @@ function startProjects(ctx) {
   if (Array.isArray(listed)) return listed;
   return (ctx.ws?.projects || []).map((project) => ({
     id: project.id, key: project.key || '', name: project.name || '', type: project.type || 'software',
+    parentKey: (ctx.ws.projects || []).find((item) => item.id === project.parentId)?.key || '',
     issues: (project.issues || []).length, archived: Boolean(project.archived),
   }));
 }
@@ -85,7 +86,8 @@ export function renderStart(ctx) {
   const projectTiles = projects.map((project) => {
     const kind = KIND[project.type] || KIND.software;
     const state = project.archived ? L('보관', 'Archived') : L(`${project.issues || 0}개 이슈`, `${project.issues || 0} issues`);
-    return `<button type="button" class="start-tile" data-action="open-project" data-id="${esc(project.id)}" ${ui.connecting ? 'disabled' : ''}><span class="start-tile-icon">${icon(kind[2])}</span><b>${esc(project.name)}</b><small>${esc(project.key)} · ${esc(L(kind[0], kind[1]))} · ${esc(state)}</small></button>`;
+    const parent = project.parentKey ? `${project.parentKey} · ` : '';
+    return `<button type="button" class="start-tile" data-action="open-project" data-id="${esc(project.id)}" ${ui.connecting ? 'disabled' : ''}><span class="start-tile-icon">${icon(kind[2])}</span><b>${esc(project.name)}</b><small>${esc(parent)}${esc(project.key)} · ${esc(L(kind[0], kind[1]))} · ${esc(state)}</small></button>`;
   }).join('');
   const settings = ctx.settings || {};
   const currentBackground = knownBackground(settings.background);
@@ -129,11 +131,10 @@ export function renderStart(ctx) {
         ${offline}${error}
         <div class="start-board">
         ${card('login', 'user', L('로그인', 'Sign in'), loginForm(ctx))}
-        ${settings.startShowBanner === false ? '' : card('banner', 'info', L('개인용', 'Personal'), `<p>${L('지금은 개인용입니다. 이 컴퓨터의 데이터 서비스가 SQLite, MySQL, MariaDB, SQL Server, PostgreSQL 중 하나에 연결합니다. 관리 프로그램은 나중에 같은 데이터베이스를 엽니다.', 'This installation is personal for now. Its data service connects to SQLite, MySQL, MariaDB, SQL Server, or PostgreSQL. An administration app will open the same database later.')}</p>`)}
         ${card('actions', 'spark', L('시작', 'Start'), `<div class="sample-tiles">${actions}</div>`)}
-        ${settings.startShowBackground === false ? '' : card('background', 'spark', L('배경', 'Background'), background, '', `<span class="sample-count">${BACKGROUNDS.length}</span>`)}
         ${settings.startShowProjects === false ? '' : card('projects', 'folder', L('과제', 'Projects'), projectTiles ? `<div class="sample-tiles">${projectTiles}</div>` : `<p class="muted">${L('만들어진 과제가 없습니다.', 'There are no projects yet.')}</p>`, '', `<span class="sample-count">${projects.length}</span>`)}
         ${settings.startShowExamples === false ? '' : card('examples', 'box', L('예제', 'Examples'), `<p>${L('카드를 누르면 그 작업 공간으로 바뀝니다. 이미 프로젝트가 있으면 먼저 확인합니다.', 'A card replaces the workspace with that example. If you already have projects, it asks first.')}</p><label class="start-find"><span>${L('찾기', 'Find')}</span><input id="example-filter" value="${esc(ui.exampleFilter || '')}" placeholder="${esc(L('이름, 키, 설명', 'Name, key, or description'))}" autocomplete="off"></label><div class="sample-groups">${groups || `<p class="muted">${L('찾는 예제가 없습니다.', 'No example matches.')}</p>`}</div>`, show('examples'), `<span class="sample-count">${EXAMPLES.length}</span>`)}
+        ${settings.startShowBackground === false ? '' : card('background', 'spark', L('배경', 'Background'), background, '', `<span class="sample-count">${BACKGROUNDS.length}</span>`)}
         </div>
         <footer class="start-foot">${icon('info')}<span class="grow">MyWorkForce v${esc(ctx.version || '1.0.0')}</span><span class="muted">© SHKWON (knix008@naver.com)</span></footer>
       </div>

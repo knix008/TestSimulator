@@ -64,7 +64,7 @@ export const NAV_GLYPH = {
   home: 'home', board: 'board', backlog: 'backlog', roadmap: 'roadmap', issues: 'issues', queues: 'list', portal: 'request',
   dashboard: 'dashboard', reports: 'chart', knowledge: 'box', documents: 'file', calendar: 'calendar', plans: 'roadmap',
   releases: 'release', components: 'component', filters: 'filter', health: 'alert', people: 'people', users: 'people', projects: 'folder', extensions: 'bolt',
-  notifications: 'bell', settings: 'settings', help: 'help',
+  notifications: 'bell', settings: 'settings', 'project-settings': 'settings', help: 'help',
 };
 
 export function pageHead(title, actions = '', view = '') {

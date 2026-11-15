@@ -2,7 +2,7 @@
 // and a double click on the grip fits the card to its content again.
 import { autoArrange, cardsOf, COLS, GAP, layoutValue, compact, place, ROW, rowsFor } from './startlayout.js';
 
-export const START_CARD_SPAN = { banner: 3, actions: 3, login: 3, background: 3, projects: 3, examples: 3 };
+export const START_CARD_SPAN = { actions: 3, login: 3, background: 3, projects: 3, examples: 3 };
 
 export function startBoard(host, { saved, onSave }) {
   const ids = [...host.querySelectorAll(':scope > .start-card')].filter((card) => !card.hidden && card.dataset.card).map((card) => card.dataset.card);

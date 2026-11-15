@@ -1,3 +1,4 @@
+import { deliver, setNotice } from './notices.js';
 import { nowIso, uid } from './util.js';
 
 function projectOf(ws, projectId) {
@@ -168,18 +169,13 @@ function descendants(ws, pageId) {
   return out;
 }
 
-function tell(ws, page, actorId) {
+function tell(ws, page, actorId, event) {
   const space = ws.spaces.find((item) => item.id === page.spaceId);
   const project = projectOf(ws, space?.projectId);
   if (!project) return;
-  const at = nowIso();
-  for (const userId of page.watchers || []) {
-    if (!userId || userId === actorId) continue;
-    project.notifications.unshift({
-      id: uid('n'), userId, read: false, at, issueId: '', issueKey: page.title, actorId, kind: 'page',
-    });
-  }
-  if (project.notifications.length > 300) project.notifications.length = 300;
+  deliver(ws, project, page.watchers, {
+    actorId, issueId: '', issueKey: page.title, kind: event === 'comment' ? 'page-comment' : 'page',
+  }, { pageId: page.id, event });
 }
 
 export function updatePage(ws, pageId, patch, actorId) {
@@ -193,7 +189,7 @@ export function updatePage(ws, pageId, patch, actorId) {
     if (page.versions.length > 30) page.versions.length = 30;
     page.title = title;
     page.body = body;
-    tell(ws, page, actorId);
+    tell(ws, page, actorId, 'edit');
   }
   if (patch.published != null) page.published = Boolean(patch.published);
   if (patch.restricted != null) {
@@ -257,7 +253,7 @@ export function commentPage(ws, pageId, body, actorId, quote = '') {
   const comment = { id: uid('pc'), authorId: actorId || '', body: text, quote: String(quote || '').slice(0, 180), created: nowIso() };
   page.comments.push(comment);
   page.updated = nowIso();
-  tell(ws, page, actorId);
+  tell(ws, page, actorId, 'comment');
   return comment;
 }
 
@@ -275,7 +271,9 @@ export function watchPage(ws, pageId, actorId) {
   const index = page.watchers.indexOf(actorId);
   if (index >= 0) page.watchers.splice(index, 1);
   else page.watchers.push(actorId);
-  return page.watchers.includes(actorId);
+  const watching = page.watchers.includes(actorId);
+  setNotice(ws, actorId, 'page', pageId, { edit: watching, comment: watching });
+  return watching;
 }
 
 export function restorePage(ws, pageId, versionId, actorId) {

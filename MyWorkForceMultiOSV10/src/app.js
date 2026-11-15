@@ -3,14 +3,15 @@ import guideKo from '../UsersGuide.md?raw';
 import wqlEn from '../docs/WQL.en.md?raw';
 import wqlKo from '../docs/WQL.md?raw';
 import { toCsv, toMarkdown } from './domain/export.js';
-import { allowed, isWorkspaceAdmin } from './domain/permissions.js';
+import { setNotice } from './domain/notices.js';
+import { allowed, isWorkspaceAdmin, roleForAccess } from './domain/permissions.js';
 import { exampleWorkspace } from './domain/examples.js';
 import { sampleWorkspace } from './domain/sample.js';
 import { TUTORIAL } from './domain/tutorial.js';
 import { createDocument, deleteDocument, shareDocument, updateDocument } from './domain/documents.js';
 import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePageComment, expandPage, likePage, markEditing, movePage, pageByShare, pageDocument, purgePage, removePageFile, removeShape, restorePage, restoreTrashed, setPageAccess, setPageStatus, shareLink, updatePage, watchPage } from './domain/wiki.js';
 import { addArticle, addCalendar, addToken, addWebhook, authorizationUrl, csvIssueRows, decideApproval, deleteArticle, deleteToken, deleteWebhook, openApproval } from './domain/services.js';
-import { loadSettings, rememberPath, saveSettings } from './domain/settings.js';
+import { loadSettings, PANEL_MAX, PANEL_MIN, rememberPath, saveSettings } from './domain/settings.js';
 import {
   addAttachment, addComment, addComponent, addField, addGadget, addGroup, addLink, addRule, addStatus, addTransition,
   addUser, addVersion, addWorklog, blankWorkspace, cloneIssue, completeSprint, createIssue, createSprint, deleteComment, ensureAdmin,
@@ -59,6 +60,7 @@ const ERRORS = {
   'approval-required': ['승인이 필요합니다.', 'This move needs approval.'],
   'url-invalid': ['http 또는 https 주소여야 합니다.', 'Use an http or https address.'],
   password: ['암호가 맞지 않습니다.', 'That password does not match.'],
+  'not-registered': ['등록된 사용자가 아닙니다.', 'That account is not registered.'],
   'sso-required': ['발급자 주소와 클라이언트가 필요합니다.', 'An issuer and a client are required.'],
   'driver-missing': ['그 데이터베이스 드라이버가 설치되어 있지 않습니다.', 'That database driver is not installed.'],
   'engine-unknown': ['지원하지 않는 데이터베이스입니다.', 'That database is not supported.'],
@@ -161,6 +163,8 @@ async function refreshStatus() {
         }));
         status.projects = (upgraded.projects || []).map((project) => ({
           id: project.id, key: project.key || '', name: project.name || '', type: project.type || 'software',
+          parentId: project.parentId || '',
+          parentKey: (upgraded.projects || []).find((item) => item.id === project.parentId)?.key || '',
           issues: (project.issues || []).length, archived: Boolean(project.archived),
         }));
       }
@@ -189,7 +193,10 @@ async function afterConnect(password) {
   }
   ui.unlocked = true;
   ui.loginPassword = '';
-  if (chosen) upgraded.currentUserId = chosen.id;
+  if (chosen) {
+    upgraded.currentUserId = chosen.id;
+    if (ui.loginAccount) ui.loginUser = chosen.id;
+  }
   const opening = (upgraded.projects || []).find((project) => project.id === ui.openProjectId);
   if (opening) {
     upgraded.activeProjectId = opening.id;
@@ -247,6 +254,26 @@ async function importLocal() {
   await saveWorkspace(upgradeWorkspace(stored));
   ui.unlocked = true;
   await enterWorkspace(stored);
+}
+
+async function confirmRegistered(account, password) {
+  if (!account) throw new Error('not-registered');
+  await ensureStore();
+  const loaded = await loadWorkspace();
+  const body = upgradeWorkspace(loaded.workspace || {});
+  if (ensureAdmin(body)) await saveWorkspace(body);
+  const user = userByAccount(body.users, account);
+  if (!user || user.active === false) throw new Error('not-registered');
+  if (user.passwordHash) {
+    if (!password) throw new Error('password');
+    await unlockData(user.id, password);
+  }
+  ws = body;
+  ws.currentUserId = user.id;
+  ui.opened = true;
+  ui.unlocked = true;
+  ui.loginUser = user.id;
+  ui.loginAccount = user.login || account;
 }
 
 async function ensureStore() {
@@ -470,9 +497,63 @@ function mountStartBoard() {
   });
 }
 
+function applyPanelWidths() {
+  const app = document.querySelector('#app');
+  if (!app) return;
+  app.style.setProperty('--left-width', `${settings.leftWidth || PANEL_MIN}px`);
+  app.style.setProperty('--right-width', `${settings.rightWidth || PANEL_MIN}px`);
+  const label = L('끌어서 패널 너비를 바꿉니다.', 'Drag to change the panel width.');
+  document.querySelectorAll('.panel-split').forEach((node) => {
+    node.title = label;
+    node.setAttribute('aria-label', label);
+  });
+}
+
+function bindPanelSplitters() {
+  document.querySelectorAll('.panel-split').forEach((splitter) => {
+    splitter.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      const side = splitter.dataset.split;
+      const app = document.querySelector('#app');
+      if (!app || app.classList.contains('on-start')) return;
+      if (side === 'left' && app.classList.contains('fold-left')) return;
+      if (side === 'right' && (app.classList.contains('fold-right') || app.classList.contains('no-right'))) return;
+      event.preventDefault();
+      splitter.setPointerCapture(event.pointerId);
+      splitter.classList.add('dragging');
+      const key = side === 'left' ? 'leftWidth' : 'rightWidth';
+      const startX = event.clientX;
+      const startWidth = Number(settings[key]) || PANEL_MIN;
+      const move = (ev) => {
+        const room = document.querySelector('#workspace')?.getBoundingClientRect().width || 0;
+        const otherOpen = side === 'left'
+          ? !app.classList.contains('no-right') && !app.classList.contains('fold-right')
+          : !app.classList.contains('fold-left');
+        const other = otherOpen ? Number(side === 'left' ? settings.rightWidth : settings.leftWidth) || PANEL_MIN : 36;
+        const limit = Math.max(PANEL_MIN, Math.min(PANEL_MAX, Math.round(room - other - 6 - 280)));
+        const width = Math.max(PANEL_MIN, Math.min(limit, Math.round(startWidth + (side === 'left' ? ev.clientX - startX : startX - ev.clientX))));
+        settings[key] = width;
+        app.style.setProperty(side === 'left' ? '--left-width' : '--right-width', `${width}px`);
+      };
+      const up = (ev) => {
+        splitter.classList.remove('dragging');
+        splitter.removeEventListener('pointermove', move);
+        splitter.removeEventListener('pointerup', up);
+        splitter.removeEventListener('pointercancel', up);
+        if (splitter.hasPointerCapture?.(ev.pointerId)) splitter.releasePointerCapture(ev.pointerId);
+        saveSettings();
+      };
+      splitter.addEventListener('pointermove', move);
+      splitter.addEventListener('pointerup', up);
+      splitter.addEventListener('pointercancel', up);
+    });
+  });
+}
+
 function paint() {
   const ctx = context();
   const app = document.querySelector('#app');
+  applyPanelWidths();
   app.classList.toggle('on-start', !ui.ready);
   if (!ui.ready) {
     app.classList.add('no-right');
@@ -696,7 +777,7 @@ function submitModal(form) {
   const ok = mutate(() => {
     const current = project();
     if (modal.kind === 'project') {
-      newProject(ws, { name: value('name'), key: value('key'), type: value('type'), description: value('description'), leadId: actor() });
+      newProject(ws, { name: value('name'), key: value('key'), type: value('type'), description: value('description'), leadId: actor(), parentId: value('parent') }, actor());
       if (ui.view !== 'projects') ui.view = 'board';
       return;
     }
@@ -794,18 +875,6 @@ function runConfirmed() {
 function onAction(el) {
   const name = el.dataset.action;
   const current = project();
-  if (name === 'open-login') {
-    if (ui.modal?.kind === 'welcome') ui.modal = null;
-    if (!ui.ready) {
-      paint();
-      document.querySelector('[data-card="login"]')?.scrollIntoView({ block: 'nearest' });
-      document.querySelector('#login-account')?.focus();
-      return;
-    }
-    ui.modal = { kind: 'login' };
-    paint();
-    return;
-  }
   if (name === 'pick-login') {
     const password = document.querySelector('#login-password')?.value || '';
     ui.loginUser = el.dataset.id;
@@ -822,17 +891,27 @@ function onAction(el) {
   }
   if (name === 'sign-in') {
     if (ui.connecting) return;
-    ui.loginAccount = document.querySelector('#login-account')?.value.trim() || '';
-    ui.loginPassword = document.querySelector('#login-password')?.value || '';
+    const form = el.form || document.querySelector(ui.modal?.kind === 'login' ? '#modal [data-login]' : '[data-login]');
+    ui.loginAccount = form?.querySelector('[name="account"]')?.value.trim() || '';
+    ui.loginPassword = form?.querySelector('[name="password"]')?.value || '';
+    if (ui.modal?.kind === 'login' && ui.modal.next === 'tutorial') {
+      confirmRegistered(ui.loginAccount, ui.loginPassword).then(() => {
+        ui.loginPassword = '';
+        if ((ws.projects || []).length) confirm(L('튜토리얼은 쇼핑몰 예제로 작업 공간을 바꿉니다. 계속할까요?', 'The tutorial replaces the workspace with the shop example. Continue?'), 'start-tutorial');
+        else beginTutorial();
+      }).catch((error) => fail(error));
+      return;
+    }
     if (!ui.loginAccount && !ui.loginUser) { toast(L('로그인 ID를 입력하세요.', 'Enter a login ID.')); return; }
     const known = userByAccount(ws.users, ui.loginAccount) || (ws.users || []).find((user) => user.id === ui.loginUser);
     if (ui.opened && known) {
       const enter = () => {
         ws.currentUserId = known.id;
         ui.loginPassword = '';
+        ui.loginUser = known.id;
+        ui.loginAccount = known.login || ui.loginAccount;
         ui.unlocked = true;
         ui.menu = null;
-        if (ui.modal?.kind === 'login') ui.modal = null;
         if (!ui.ready) showStartPage(false);
         else { scheduleSave(); paint(); }
       };
@@ -850,10 +929,9 @@ function onAction(el) {
     return;
   }
   if (name === 'menubar-home') {
-    if (ui.connecting) return;
+    if (ui.connecting || !ui.loginUser) return;
     if (ui.ready) { showStartPage(true); return; }
     if (ui.opened) { showStartPage(false); return; }
-    connectLocal();
     return;
   }
   if (name === 'open-project') {
@@ -881,8 +959,9 @@ function onAction(el) {
     return;
   }
   if (name === 'start-tutorial') {
-    if (ws.projects.length) { confirm(L('튜토리얼은 쇼핑몰 예제로 작업 공간을 바꿉니다. 계속할까요?', 'The tutorial replaces the workspace with the shop example. Continue?'), 'start-tutorial'); return; }
-    beginTutorial();
+    if (ui.connecting) return;
+    ui.modal = { kind: 'login', next: 'tutorial' };
+    paint();
     return;
   }
   if (name === 'tutorial-close') { ui.tutorial = null; paint(); return; }
@@ -1174,7 +1253,37 @@ function onAction(el) {
   }
   if (name === 'modal-cancel') { ui.modal = null; paint(); return; }
   if (name === 'confirm-yes') { runConfirmed(); return; }
-  if (name === 'new-project') { ui.modal = { kind: 'project' }; paint(); return; }
+  if (name === 'new-project') { ui.modal = { kind: 'project', parentId: el.dataset.parent || '' }; paint(); return; }
+  if (name === 'open-project-settings') {
+    const target = (ws.projects || []).find((item) => item.id === (el.dataset.id || current?.id));
+    if (!target || !allowed(ws, target, actor(), 'admin')) {
+      toast(L('권한이 없습니다.', 'You do not have permission.'));
+      return;
+    }
+    ws.activeProjectId = target.id;
+    ui.issueId = null;
+    ui.view = 'project-settings';
+    scheduleSave();
+    paint();
+    return;
+  }
+  if (name === 'project-participants') {
+    const target = (ws.projects || []).find((item) => item.id === el.dataset.id);
+    if (!target || !allowed(ws, target, actor(), 'admin')) {
+      toast(L('권한이 없습니다.', 'You do not have permission.'));
+      return;
+    }
+    ui.modal = { kind: 'participants', projectId: target.id, query: '' };
+    paint();
+    return;
+  }
+  if (name === 'add-participant' || name === 'remove-participant') {
+    const target = ui.modal?.kind === 'participants' ? (ws.projects || []).find((item) => item.id === ui.modal.projectId) : null;
+    if (!target || !el.dataset.id || el.dataset.id === target.leadId) return;
+    const role = name === 'remove-participant' ? '' : roleForAccess(el.dataset.access === 'edit' ? 'edit' : 'read');
+    mutate(() => setMember(ws, target.id, el.dataset.id, role, actor()));
+    return;
+  }
   if (name === 'new-issue') { if (ensureProject()) { ui.modal = { kind: 'issue', typeId: 'story' }; paint(); } return; }
   if (name === 'create-subtask') { if (ui.issueId) { ui.modal = { kind: 'issue', typeId: 'subtask', parentId: ui.issueId }; paint(); } return; }
   if (name === 'new-sprint') { if (ensureProject()) { ui.modal = { kind: 'sprint' }; paint(); } return; }
@@ -1308,7 +1417,7 @@ function onAction(el) {
 
 function onChange(event) {
   const el = event.target;
-  if (el.dataset.setting && ['showStartPage', 'showWelcome', 'startShowBanner', 'startShowProjects', 'startShowExamples', 'startShowBackground'].includes(el.dataset.setting)) {
+  if (el.dataset.setting && ['showStartPage', 'showWelcome', 'startShowProjects', 'startShowExamples', 'startShowBackground'].includes(el.dataset.setting)) {
     settings[el.dataset.setting] = el.checked;
     saveSettings();
     return;
@@ -1348,6 +1457,7 @@ function onChange(event) {
   }
   if (el.dataset.sso) { ws.sso[el.dataset.sso] = el.value; scheduleSave(); return; }
   if (el.dataset.screen && current) {
+    if (!allowed(ws, current, actor(), 'admin')) return;
     const fields = [...document.querySelectorAll('[data-screen]')].filter((box) => box.checked).map((box) => box.dataset.screen);
     mutate(() => { current.screen = { create: ['summary', ...fields] }; });
     return;
@@ -1367,6 +1477,15 @@ function onChange(event) {
   }
   if (el.dataset.managed === 'name') { mutate(() => updateProject(ws, el.dataset.id, { name: el.value }, actor())); return; }
   if (el.dataset.managed === 'lead') { mutate(() => updateProject(ws, el.dataset.id, { leadId: el.value }, actor())); return; }
+  if (el.dataset.notice && el.dataset.id && el.dataset.event) {
+    const scope = el.dataset.notice;
+    const targetId = el.dataset.id;
+    const boxes = [...document.querySelectorAll('[data-notice]')].filter((box) => box.dataset.notice === scope && box.dataset.id === targetId);
+    const events = {};
+    for (const box of boxes) events[box.dataset.event] = box.checked;
+    mutate(() => setNotice(ws, actor(), scope, targetId, events));
+    return;
+  }
   if (el.dataset.project && current) {
     const key = el.dataset.project;
     const value = el.type === 'checkbox' ? el.checked : el.value;
@@ -1374,6 +1493,12 @@ function onChange(event) {
     return;
   }
   if (el.dataset.member && current) { mutate(() => setMember(ws, current.id, el.dataset.member, el.value, actor())); return; }
+  if (el.dataset.participant && ui.modal?.kind === 'participants') {
+    const target = (ws.projects || []).find((item) => item.id === ui.modal.projectId);
+    if (!target || el.dataset.participant === target.leadId) return;
+    mutate(() => setMember(ws, target.id, el.dataset.participant, roleForAccess(el.value === 'edit' ? 'edit' : 'read'), actor()));
+    return;
+  }
   if (el.dataset.userActive) { mutate(() => setUserActive(ws, el.dataset.userActive, el.checked)); return; }
   if (el.dataset.group && el.dataset.user) { mutate(() => toggleGroupUser(ws, el.dataset.group, el.dataset.user)); return; }
   if (el.dataset.font === 'size') {
@@ -1464,6 +1589,17 @@ function onInput(event) {
     scheduleSave();
     return;
   }
+  if (el.dataset.participantSearch != null && ui.modal?.kind === 'participants') {
+    ui.modal.query = el.value;
+    const box = document.querySelector('#participant-results');
+    if (box) {
+      const probe = document.createElement('div');
+      probe.innerHTML = renderModal({ ...context(), ui: { ...ui, modal: ui.modal } });
+      const next = probe.querySelector('#participant-results');
+      if (next) box.innerHTML = next.innerHTML;
+    }
+    return;
+  }
   if (el.dataset.palette === 'search' && ui.modal?.kind === 'palette') {
     ui.modal.query = el.value;
     const box = document.querySelector('#palette-results');
@@ -1488,7 +1624,8 @@ function searchFrom(text) {
 
 function mount() {
   const gripLabel = esc(L('끌어서 창 크기 변경', 'Drag to resize the window'));
-  document.querySelector('#app').innerHTML = `<header id="menubar"></header><div id="toolbar"></div><div id="workspace"><nav id="left"></nav><main id="view"></main><aside id="right"></aside></div><footer id="statusbar"></footer><div class="resize-grip${isDesktop() ? '' : ' static'}" ${isDesktop() ? `data-resize-grip role="separator" aria-label="${gripLabel}"` : 'aria-hidden="true"'} title="${gripLabel}">${gripIcon()}</div><div id="coach" hidden></div><div id="context" class="menu-pop" hidden></div><div id="modal" hidden></div><div id="toast" hidden role="status"></div><input id="file-open" type="file" accept=".mwf,.json,application/json" hidden><input id="file-attach" type="file" hidden>`;
+  document.querySelector('#app').innerHTML = `<header id="menubar"></header><div id="toolbar"></div><div id="workspace"><nav id="left"></nav><div class="splitter panel-split" data-split="left" role="separator" aria-orientation="vertical"></div><main id="view"></main><div class="splitter panel-split" data-split="right" role="separator" aria-orientation="vertical"></div><aside id="right"></aside></div><footer id="statusbar"></footer><div class="resize-grip${isDesktop() ? '' : ' static'}" ${isDesktop() ? `data-resize-grip role="separator" aria-label="${gripLabel}"` : 'aria-hidden="true"'} title="${gripLabel}">${gripIcon()}</div><div id="coach" hidden></div><div id="context" class="menu-pop" hidden></div><div id="modal" hidden></div><div id="toast" hidden role="status"></div><input id="file-open" type="file" accept=".mwf,.json,application/json" hidden><input id="file-attach" type="file" hidden>`;
+  bindPanelSplitters();
   document.querySelector('[data-resize-grip]')?.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
@@ -1538,7 +1675,7 @@ function mount() {
     const server = event.target.closest('#server-form');
     if (server) { event.preventDefault(); connectServer(server); return; }
     const login = event.target.closest('[data-login]');
-    if (login) { event.preventDefault(); onAction({ dataset: { action: 'sign-in' } }); return; }
+    if (login) { event.preventDefault(); onAction({ dataset: { action: 'sign-in' }, form: login }); return; }
     const form = event.target.closest('#modal form');
     if (!form) return;
     event.preventDefault();

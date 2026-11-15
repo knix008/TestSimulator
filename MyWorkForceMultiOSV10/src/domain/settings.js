@@ -1,5 +1,15 @@
 const KEY = 'myworkforce-settings';
 
+/** Both side panels share one minimum. The separator cannot drag them narrower than this. */
+export const PANEL_MIN = 280;
+export const PANEL_MAX = 640;
+
+const panelWidth = (value) => {
+  const width = Math.round(Number(value));
+  if (!Number.isFinite(width)) return PANEL_MIN;
+  return Math.max(PANEL_MIN, Math.min(PANEL_MAX, width));
+};
+
 export const DEFAULTS = {
   language: 'ko',
   theme: 'light',
@@ -10,9 +20,10 @@ export const DEFAULTS = {
   fontStyle: 'normal',
   showLeftPanel: true,
   showRightPanel: true,
+  leftWidth: PANEL_MIN,
+  rightWidth: PANEL_MIN,
   showStartPage: true,
   showWelcome: true,
-  startShowBanner: true,
   startShowProjects: true,
   startShowExamples: true,
   startShowBackground: true,
@@ -38,9 +49,10 @@ export function loadSettings() {
     ...stored,
     recent: Array.isArray(stored.recent) ? stored.recent.filter((item) => typeof item === 'string').slice(0, 8) : [],
     fontSize: Number(stored.fontSize) || DEFAULTS.fontSize,
+    leftWidth: panelWidth(stored.leftWidth),
+    rightWidth: panelWidth(stored.rightWidth),
     showStartPage: stored.showStartPage !== false,
     showWelcome: stored.showWelcome !== false,
-    startShowBanner: stored.startShowBanner !== false,
     startShowProjects: stored.startShowProjects !== false,
     startShowExamples: stored.startShowExamples !== false,
     startShowBackground: stored.startShowBackground !== false,

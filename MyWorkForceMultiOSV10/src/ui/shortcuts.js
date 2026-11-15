@@ -11,7 +11,7 @@ const CHORD = {
   x: 'extensions', g: 'people',
 };
 
-export const ADMIN_VIEWS = new Set(['users', 'projects', 'settings', 'extensions', 'people']);
+export const ADMIN_VIEWS = new Set(['users', 'settings', 'extensions', 'people']);
 
 const TYPING = 'input, textarea, select, [contenteditable="true"]';
 

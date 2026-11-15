@@ -1,7 +1,7 @@
 import { getLanguage } from '../i18n.js';
 import { CUSTOM_KEYS, DARK_THEMES, LIGHT_THEMES, themeName } from '../themes.js';
 import { PROJECT_TYPES, ROLES } from '../domain/catalog.js';
-import { isWorkspaceAdmin } from '../domain/permissions.js';
+import { allowed, isWorkspaceAdmin, orderedProjects, participantAccess, projectAncestors, sharesTeam } from '../domain/permissions.js';
 import { createFields, moduleOn } from '../domain/services.js';
 import { avatar, button, esc, icon, L, nameOf, NAV_GLYPH, options, panelFrame, primary, typeBadge, userOptions } from './bits.js';
 import { shortcutGroups } from './shortcuts.js';
@@ -10,25 +10,19 @@ function item(action, glyph, label, extra = '', keys = '') {
   return `<button type="button" data-action="${action}" ${extra}>${icon(glyph)}<span>${label}</span>${keys ? `<kbd>${keys}</kbd>` : ''}</button>`;
 }
 
-function loginPeople(ctx) {
-  const listed = ctx.ui?.status?.people;
-  if (Array.isArray(listed) && listed.length) return listed;
-  return (ctx.ws?.users || []).filter((user) => user.active !== false).map((user) => ({
-    id: user.id, name: user.name || '', login: user.login || '', email: user.email || '', hasPassword: Boolean(user.passwordHash),
-  }));
-}
-
-export function loginForm(ctx) {
-  const people = loginPeople(ctx);
+export function loginForm(ctx, ids = {}) {
   const account = ctx.ui.loginAccount || '';
-  const chosen = people.find((user) => user.id === ctx.ui.loginUser) || people.find((user) => user.login && user.login === account) || null;
-  const rows = people.map((user) => `<button type="button" data-action="pick-login" data-id="${esc(user.id)}" data-login="${esc(user.login || user.name || '')}">${icon('user')}<span>${esc(user.name)}</span>${user.login ? `<small>${esc(user.login)}</small>` : (user.email ? `<small>${esc(user.email)}</small>` : '')}${user.id === chosen?.id ? icon('check') : ''}</button>`).join('');
+  const accountId = ids.account || 'login-account';
+  const passwordId = ids.password || 'login-password';
   return `<form class="login-form" data-login>
-    <label class="form-row"><span>${L('로그인 ID', 'Login ID')}</span><input id="login-account" name="account" value="${esc(account)}" autocomplete="username" placeholder="admin"></label>
-    <label class="form-row"><span>${L('비밀번호', 'Password')}</span><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="admin"></label>
+    <div class="login-row">
+      <div class="login-fields">
+        <label class="form-row"><span>${L('로그인 ID', 'Login ID')}</span><input id="${accountId}" name="account" value="${esc(account)}" autocomplete="username" placeholder="admin"></label>
+        <label class="form-row"><span>${L('비밀번호', 'Password')}</span><input id="${passwordId}" name="password" type="password" autocomplete="current-password" placeholder="admin"></label>
+      </div>
+      <button type="submit" class="button primary" ${ctx.ui.connecting ? 'disabled' : ''}>${icon('check')}<span>${L('로그인', 'Sign in')}</span></button>
+    </div>
     <p class="muted">${L('관리자는 admin / admin 으로 들어갑니다.', 'The administrator signs in with admin / admin.')}</p>
-    ${rows ? `<div class="login-people">${rows}</div>` : ''}
-    <button type="submit" class="button primary" ${ctx.ui.connecting ? 'disabled' : ''}>${icon('check')}<span>${L('로그인', 'Sign in')}</span></button>
   </form>`;
 }
 
@@ -96,17 +90,16 @@ export function renderMenubar(ctx) {
       <button type="button" class="window-button close" data-window="close" title="${esc(L('닫기', 'Close'))}">${icon('close')}</button>
     </div>` : '';
   const homeOn = !ctx.ui.ready;
+  const signedIn = Boolean(ctx.ui.loginUser);
   const administrator = isWorkspaceAdmin(ctx.user) && ctx.ui.ready ? [
     item('go', 'people', L('사용자', 'Users'), 'data-view="users"'),
-    item('go', 'folder', L('과제', 'Projects'), 'data-view="projects"'),
     item('go', 'people', L('사람', 'People'), 'data-view="people"'),
     item('go', 'settings', L('설정', 'Settings'), 'data-view="settings"'),
     item('go', 'database', L('데이터베이스', 'Database'), 'data-view="settings"'),
     item('go', 'bolt', L('확장', 'Extensions'), 'data-view="extensions"'),
   ].join('') : '';
   return `<div class="app-brand" data-window-drag><img class="app-brand-icon" src="./icon.png" alt="" data-window-drag><span class="app-brand-name" data-window-drag>MyWorkForce</span><span class="app-brand-version" data-window-drag>v${esc(ctx.version)}</span></div>
-    <button type="button" class="menubar-item menubar-home${homeOn ? ' current' : ''}" data-action="menubar-home" aria-pressed="${homeOn ? 'true' : 'false'}" title="${esc(L('시작 화면을 열고, 다시 누르면 작업 공간으로 돌아갑니다.', 'Opens the start page. Press again to return to the workspace.'))} Ctrl+Shift+H">${icon('spark')}<span>${L('시작', 'Start')}</span></button>
-    <button type="button" class="menubar-item" data-action="open-login">${icon('user')}<span>${L('사용자 로그인', 'Sign in')}</span></button>
+    <button type="button" class="menubar-item menubar-home${homeOn ? ' current' : ''}" data-action="menubar-home" aria-pressed="${homeOn ? 'true' : 'false'}" ${signedIn ? '' : 'disabled'} title="${esc(signedIn ? L('시작 화면을 열고, 다시 누르면 작업 공간으로 돌아갑니다.', 'Opens the start page. Press again to return to the workspace.') : L('로그인한 뒤에 시작 화면과 작업 공간을 오갈 수 있습니다.', 'Sign in before switching between the start page and the workspace.'))} Ctrl+Shift+H">${icon('spark')}<span>${L('시작', 'Start')}</span></button>
     <span class="menubar-cluster">
     ${menu(ctx, 'file', L('파일', 'File'), 'folder', file)}
     ${menu(ctx, 'edit', L('편집', 'Edit'), 'pencil', edit)}
@@ -127,7 +120,7 @@ function navLabel(id) {
     releases: L('릴리스', 'Releases'), components: L('구성 요소', 'Components'), filters: L('필터', 'Filters'), people: L('사람', 'People'),
     health: L('점검', 'Health'), notifications: L('알림', 'Notifications'), settings: L('설정', 'Settings'), help: L('도움말', 'Help'),
     knowledge: L('지식 자료', 'Knowledge'), documents: L('문서', 'Documents'), calendar: L('근무 달력', 'Work calendar'), portal: L('고객 포털', 'Customer portal'),
-    users: L('사용자', 'Users'), projects: L('과제', 'Projects'),
+    users: L('사용자', 'Users'), projects: L('과제', 'Projects'), 'project-settings': L('과제 설정', 'Project settings'),
     plans: L('교차 계획', 'Plan'), extensions: L('확장', 'Extensions'),
   };
   return names[id] || id;
@@ -177,7 +170,10 @@ function themePopover(ctx) {
 }
 
 export function renderToolbar(ctx) {
-  const projects = ctx.ws.projects.map((project) => ({ id: project.id, name: `${project.key} · ${project.name}` }));
+  const projects = orderedProjects(ctx.ws).map((project) => {
+    const depth = projectAncestors(ctx.ws, project).length;
+    return { id: project.id, name: `${depth ? '– '.repeat(depth) : ''}${project.key} · ${project.name}` };
+  });
   const users = ctx.ws.users.filter((user) => user.active !== false).map((user) => ({ id: user.id, name: user.name }));
   const unread = ctx.project ? ctx.project.notifications.filter((item) => item.userId === ctx.user?.id && !item.read).length : 0;
   const currentName = themeName(ctx.settings.theme, getLanguage());
@@ -206,13 +202,16 @@ export function renderToolbar(ctx) {
 }
 
 const NAV = [
-  ['work', ['home', 'board', 'backlog', 'roadmap', 'issues', 'queues', 'portal']],
+  ['work', ['home', 'projects', 'project-settings', 'board', 'backlog', 'roadmap', 'issues', 'queues', 'portal']],
   ['look', ['dashboard', 'reports', 'knowledge', 'documents', 'calendar', 'plans', 'releases', 'components', 'filters', 'health']],
 ];
 const GATED = { knowledge: 'knowledge', documents: 'documents', calendar: 'calendar', portal: 'portal', plans: 'plans' };
 
 function navButtons(ctx, items) {
-  return items.filter((id) => (id !== 'queues' || ctx.project?.type === 'service' || (ctx.project?.queues || []).length) && (!GATED[id] || moduleOn(ctx.ws, GATED[id]))).map((id) => {
+  return items.filter((id) => {
+    if (id === 'project-settings' && !allowed(ctx.ws, ctx.project, ctx.user?.id, 'admin')) return false;
+    return (id !== 'queues' || ctx.project?.type === 'service' || (ctx.project?.queues || []).length) && (!GATED[id] || moduleOn(ctx.ws, GATED[id]));
+  }).map((id) => {
     const glyph = NAV_GLYPH[id];
     return `<button type="button" class="nav-button${ctx.ui.view === id ? ' active' : ''}" data-action="go" data-view="${id}">${icon(glyph)}<span>${esc(navLabel(id))}</span></button>`;
   }).join('');
@@ -222,7 +221,7 @@ export function renderNav(ctx) {
   const sections = { work: L('작업', 'Work'), look: L('살펴보기', 'Review') };
   const userMenus = NAV.map(([section, items]) => `<div class="nav-section">${sections[section]}</div>${navButtons(ctx, items)}`).join('');
   const admin = isWorkspaceAdmin(ctx.user);
-  const adminMenus = admin ? `<div class="nav-group nav-group-admin">${icon('settings')}<span>${L('관리자 메뉴', 'Administrator menu')}</span></div>${navButtons(ctx, ['users', 'projects', 'settings'])}` : '';
+  const adminMenus = admin ? `<div class="nav-group nav-group-admin">${icon('settings')}<span>${L('관리자 메뉴', 'Administrator menu')}</span></div>${navButtons(ctx, ['users', 'settings'])}` : '';
   const body = `<div class="nav-group">${icon('user')}<span>${L('사용자 메뉴', 'User menu')}</span></div>${userMenus}${adminMenus}`;
   return panelFrame(ctx.settings.showLeftPanel !== false, 'left', 'list', L('탐색', 'Navigation'), `<div class="panel-body">${body}</div>`);
 }
@@ -269,6 +268,64 @@ function aboutDialog(ctx) {
     </div><div class="modal-foot"><button type="button" class="button" data-action="copy-about">${icon('copy')}<span>${L('복사', 'Copy')}</span></button><button type="button" class="button primary" data-action="modal-cancel">${icon('check')}<span>${L('완료', 'Done')}</span></button></div></div></div>`;
 }
 
+function participantsDialog(ctx, modal) {
+  const project = (ctx.ws.projects || []).find((item) => item.id === modal.projectId);
+  if (!project) return '';
+  const lead = (ctx.ws.users || []).find((user) => user.id === project.leadId);
+  const accessName = (access) => (access === 'edit' ? L('편집', 'Can edit') : L('읽기', 'Read only'));
+  const inherited = [];
+  const inheritedIds = new Set();
+  for (const ancestor of projectAncestors(ctx.ws, project)) {
+    const grants = new Map((ancestor.members || []).filter((member) => member.userId && member.role).map((member) => [member.userId, member.role]));
+    if (ancestor.leadId) grants.set(ancestor.leadId, 'administrator');
+    for (const [userId, role] of grants) {
+      if (userId === project.leadId || (project.members || []).some((member) => member.userId === userId)) continue;
+      const prior = inherited.find((item) => item.userId === userId);
+      if (!prior) inherited.push({ userId, role, from: ancestor });
+      else if ((['viewer', 'customer', 'tester', 'developer', 'administrator'].indexOf(role)) > (['viewer', 'customer', 'tester', 'developer', 'administrator'].indexOf(prior.role))) {
+        prior.role = role;
+        prior.from = ancestor;
+      }
+      inheritedIds.add(userId);
+    }
+  }
+  const inheritedRows = inherited.map((item) => {
+    const user = (ctx.ws.users || []).find((person) => person.id === item.userId);
+    if (!user) return '';
+    return `<div class="participant-row">${avatar(user)}<span class="grow">${esc(user.name)} <small>${esc(user.login || user.email || '')}</small></span><span class="muted">${esc(L(`${item.from.key}에서`, `From ${item.from.key}`))}</span><b>${esc(accessName(participantAccess(item.role)))}</b></div>`;
+  }).join('');
+  const memberRows = (project.members || []).filter((member) => member.userId !== project.leadId).map((member) => {
+    const user = (ctx.ws.users || []).find((item) => item.id === member.userId);
+    if (!user) return '';
+    const access = participantAccess(member.role);
+    return `<div class="participant-row">${avatar(user)}<span class="grow">${esc(user.name)} <small>${esc(user.login || user.email || '')}</small></span>
+      <select data-participant="${esc(user.id)}" aria-label="${esc(L('권한', 'Access'))}"><option value="read"${access === 'read' ? ' selected' : ''}>${esc(accessName('read'))}</option><option value="edit"${access === 'edit' ? ' selected' : ''}>${esc(accessName('edit'))}</option></select>
+      <button type="button" class="small-button" data-action="remove-participant" data-id="${esc(user.id)}">${icon('trash')}<span>${L('빼기', 'Remove')}</span></button></div>`;
+  }).join('');
+  const needle = String(modal.query || '').trim().toLowerCase();
+  const taken = new Set([project.leadId, ...(project.members || []).map((member) => member.userId), ...inheritedIds]);
+  const matches = (ctx.ws.users || []).filter((user) => {
+    if (user.active === false || taken.has(user.id)) return false;
+    const haystack = `${user.name || ''} ${user.login || ''} ${user.email || ''}`.toLowerCase();
+    return !needle || haystack.includes(needle);
+  });
+  const team = matches.filter((user) => sharesTeam(ctx.ws, project.leadId, user.id));
+  const others = matches.filter((user) => !sharesTeam(ctx.ws, project.leadId, user.id));
+  const choice = (user) => `<div class="participant-row">${avatar(user)}<span class="grow">${esc(user.name)} <small>${esc(user.login || user.email || '')}</small></span>
+    <button type="button" class="small-button" data-action="add-participant" data-id="${esc(user.id)}" data-access="read">${icon('eye')}<span>${L('읽기', 'Read only')}</span></button>
+    <button type="button" class="small-button" data-action="add-participant" data-id="${esc(user.id)}" data-access="edit">${icon('pencil')}<span>${L('편집', 'Can edit')}</span></button></div>`;
+  const group = (title, glyph, people) => `<h3>${icon(glyph)}<span>${esc(title)}</span></h3>${people.map(choice).join('') || `<p class="muted">${L('없습니다.', 'None.')}</p>`}`;
+  return `<div class="modal-back"><div class="modal participants">${heading('people', L('참여자', 'Participants'))}
+    <p>${esc(project.name)} · ${esc(L('읽기는 보기만 할 수 있고, 편집은 이슈를 만들고 바꿀 수 있습니다.', 'Read only can look. Can edit can create and change issues.'))}</p>
+    <div class="participant-row">${lead ? avatar(lead) : ''}<span class="grow">${esc(lead?.name || '')}</span><b>${esc(L('책임자', 'Lead'))}</b></div>
+    ${memberRows || `<p class="muted">${L('추가된 참여자가 없습니다.', 'No one else is on this project yet.')}</p>`}
+    ${inheritedRows ? `<h3>${icon('folder')}<span>${esc(L('상위 과제', 'Parent project'))}</span></h3>${inheritedRows}` : ''}
+    <label class="form-row"><span>${L('찾기', 'Find')}</span><input id="participant-search" data-participant-search value="${esc(modal.query || '')}" placeholder="${esc(L('이름, 아이디, 메일', 'Name, account, or email'))}" autocomplete="off"></label>
+    <div id="participant-results" class="participant-results">${group(L('팀원', 'Team'), 'people', team)}${group(L('다른 사람', 'Other people'), 'user', others)}</div>
+    <div class="modal-foot"><button type="button" class="button primary" data-action="modal-cancel">${icon('check')}<span>${L('완료', 'Done')}</span></button></div>
+  </div></div>`;
+}
+
 function dialog(title, body, submit, glyph = 'plus') {
   return `<div class="modal-back"><form class="modal">${heading(glyph, title)}<div class="modal-body">${body}</div><div class="modal-foot"><button type="button" class="button" data-action="modal-cancel">${icon('close')}<span>${L('취소', 'Cancel')}</span></button><button type="submit" class="button primary">${icon('check')}<span>${submit}</span></button></div></form></div>`;
 }
@@ -286,7 +343,7 @@ export function renderModal(ctx) {
   }
   if (modal.kind === 'about') return aboutDialog(ctx);
   if (modal.kind === 'login') {
-    return `<div class="modal-back"><div class="modal login-modal">${heading('user', L('사용자 로그인', 'Sign in'))}<div class="modal-body">${loginForm(ctx)}</div></div></div>`;
+    return `<div class="modal-back"><div class="modal login-modal">${heading('user', L('로그인', 'Sign in'))}<p>${esc(L('튜토리얼을 실행하려면 등록된 사용자로 로그인하세요.', 'Sign in as a registered user to run the tutorial.'))}</p>${loginForm(ctx, { account: 'dialog-account', password: 'dialog-password' })}</div></div>`;
   }
   if (modal.kind === 'welcome') {
     const again = ctx.settings?.showWelcome !== false;
@@ -299,11 +356,15 @@ export function renderModal(ctx) {
   if (modal.kind === 'palette') {
     return `<div class="modal-back"><form class="modal palette">${heading('search', L('이슈로 이동', 'Go to an issue'))}<input id="palette-search" data-palette="search" value="${esc(modal.query || '')}" placeholder="${esc(L('키 또는 요약', 'Key or summary'))}">${paletteItems(ctx, modal.query || '')}</form></div>`;
   }
+  if (modal.kind === 'participants') return participantsDialog(ctx, modal);
   if (modal.kind === 'project') {
+    const parents = orderedProjects(ctx.ws).filter((item) => allowed(ctx.ws, item, ctx.user?.id, 'admin'));
+    const parent = parents.length ? row(L('상위 과제', 'Parent project'), `<select name="parent"><option value="">${esc(L('없음', 'None'))}</option>${parents.map((item) => `<option value="${esc(item.id)}"${item.id === modal.parentId ? ' selected' : ''}>${esc(item.key)} · ${esc(item.name)}</option>`).join('')}</select>`) : '';
     return dialog(L('새 프로젝트', 'New project'), [
       row(L('이름', 'Name'), '<input name="name" required>'),
       row(L('키', 'Key'), '<input name="key" required maxlength="10" placeholder="SHOP">'),
       row(L('종류', 'Type'), `<select name="type">${options(PROJECT_TYPES, 'software')}</select>`),
+      parent,
       row(L('설명', 'Description'), '<textarea name="description" rows="3"></textarea>'),
     ].join(''), L('만들기', 'Create'), 'folder');
   }

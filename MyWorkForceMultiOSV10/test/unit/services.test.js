@@ -90,13 +90,15 @@ describe('Start screen', () => {
   test('offers SQLite and the server engines in English', () => {
     setLanguage('en');
     const html = renderStart({ ui: { status: { listening: true, database: 'data/myworkforce.sqlite' }, dataUrl: 'http://127.0.0.1:1481', connecting: false, localBackup: false, startError: '' } });
-    for (const label of ['SQLite', 'MySQL', 'MariaDB', 'SQL Server', 'PostgreSQL', 'personal', 'Tutorial', 'User guide', 'Examples']) assert.match(html, new RegExp(label));
+    for (const label of ['SQLite', 'Tutorial', 'User guide', 'Examples']) assert.match(html, new RegExp(label));
+    assert.equal(html.includes('data-card="banner"'), false);
+    assert.ok(html.indexOf('data-card="examples"') < html.indexOf('data-card="background"'));
     assert.ok((html.match(/data-action="open-example"/g) || []).length >= 20);
     assert.ok((html.match(/<svg /g) || []).length >= 9);
     const hero = html.slice(html.indexOf('start-hero'), html.indexOf('start-board'));
     assert.equal(hero.includes('data-card-handle'), false);
     assert.equal(hero.includes('data-card-resize'), false);
-    for (const id of ['banner', 'actions', 'login', 'background', 'projects', 'examples']) {
+    for (const id of ['actions', 'login', 'background', 'projects', 'examples']) {
       assert.match(html, new RegExp(`data-card-handle="${id}"`));
       assert.match(html, new RegExp(`data-card-resize="${id}"`));
     }
@@ -112,11 +114,10 @@ describe('Start screen', () => {
     assert.match(html, /id="login-account"/);
     assert.match(html, /id="login-password"/);
     assert.match(html, /data-login/);
-    const hidden = renderStart({ ui: { status: { listening: true }, connecting: false }, settings: { startShowBackground: false, startShowExamples: false, startShowProjects: false, startShowBanner: false } });
+    const hidden = renderStart({ ui: { status: { listening: true }, connecting: false }, settings: { startShowBackground: false, startShowExamples: false, startShowProjects: false } });
     assert.equal(hidden.includes('data-card="background"'), false);
     assert.equal(hidden.includes('data-card="examples"'), false);
     assert.equal(hidden.includes('data-card="projects"'), false);
-    assert.equal(hidden.includes('data-card="banner"'), false);
     assert.match(hidden, /data-card="actions"/);
     const listed = renderStart({ ui: { status: { listening: true, projects: [{ id: 'p1', key: 'SHOP', name: 'Online shop', type: 'software', issues: 4, archived: false }] }, connecting: false } });
     assert.match(listed, /data-action="open-project" data-id="p1"/);

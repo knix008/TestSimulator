@@ -1,5 +1,6 @@
 import { applyRules } from './automation.js';
 import { boardsFor, defaultFilters, defaultGadgets, defaultQueues, freshCatalog, ROLES } from './catalog.js';
+import { deliver, setNotice, upgradeNotices } from './notices.js';
 import { allowed, rolesOf } from './permissions.js';
 import { ensureServices } from './services.js';
 import { isDoneStatus } from './reports.js';
@@ -49,13 +50,8 @@ function activity(project, entry) {
   if (project.activity.length > 400) project.activity.length = 400;
 }
 
-function notify(project, userIds, entry) {
-  const at = nowIso();
-  for (const userId of new Set((userIds || []).filter(Boolean))) {
-    if (userId === entry.actorId) continue;
-    project.notifications.unshift({ id: uid('n'), userId, read: false, at, issueKey: entry.issueKey || '', ...entry });
-  }
-  if (project.notifications.length > 300) project.notifications.length = 300;
+function notify(ws, project, userIds, entry) {
+  deliver(ws, project, userIds, entry, { issueId: entry.issueId || '' });
 }
 
 function watch(issue, userId) {
@@ -104,6 +100,7 @@ export function upgradeProject(project) {
   project.fields = project.fields || [];
   project.queues = project.queues || (project.type === 'service' ? defaultQueues() : []);
   project.members = project.members || [];
+  project.parentId = project.parentId || '';
   project.description = project.description || '';
   project.archived = Boolean(project.archived);
   if (project.allowAnyTransition == null) project.allowAnyTransition = true;
@@ -126,6 +123,7 @@ export function upgradeWorkspace(data) {
     ws.currentUserId = admin.id;
   }
   ensureAdmin(ws);
+  upgradeNotices(ws);
   for (const user of ws.users) if (user.active == null) user.active = true;
   for (const project of ws.projects) upgradeProject(project);
   if (!ws.users.some((user) => user.id === ws.currentUserId && user.active !== false)) {
@@ -170,7 +168,26 @@ export function blankWorkspace() {
   });
 }
 
-export function newProject(ws, input) {
+function placeProject(ws, project, parentId) {
+  const next = String(parentId || '');
+  if (!next) {
+    project.parentId = '';
+    return;
+  }
+  if (next === project.id) throw new Error('parent-required');
+  const parent = (ws.projects || []).find((item) => item.id === next);
+  if (!parent) throw new Error('not-found');
+  const seen = new Set([project.id, parent.id]);
+  let current = parent;
+  while (current?.parentId) {
+    if (seen.has(current.parentId)) throw new Error('parent-required');
+    seen.add(current.parentId);
+    current = (ws.projects || []).find((item) => item.id === current.parentId);
+  }
+  project.parentId = parent.id;
+}
+
+export function newProject(ws, input, actorId) {
   const name = String(input.name || '').trim();
   const key = String(input.key || '').trim().toUpperCase();
   if (!name) throw new Error('name-required');
@@ -196,7 +213,14 @@ export function newProject(ws, input) {
     queues: type === 'service' ? defaultQueues() : [],
     members: [{ userId: leadId, role: 'administrator' }],
     allowAnyTransition: true,
+    parentId: '',
   });
+  if (input.parentId) {
+    const parent = (ws.projects || []).find((item) => item.id === input.parentId);
+    if (!parent) throw new Error('not-found');
+    if (actorId && !allowed(ws, parent, actorId, 'admin')) throw new Error('permission');
+    placeProject(ws, project, parent.id);
+  }
   if (type === 'software') {
     const board = project.boards.find((item) => item.type === 'scrum');
     project.sprints.push({
@@ -225,6 +249,15 @@ export function updateProject(ws, projectId, patch, actorId) {
     project.leadId = patch.leadId;
   }
   if (patch.allowAnyTransition != null) project.allowAnyTransition = Boolean(patch.allowAnyTransition);
+  if (patch.parentId != null && String(patch.parentId || '') !== (project.parentId || '')) {
+    const next = String(patch.parentId || '');
+    if (next) {
+      const parent = (ws.projects || []).find((item) => item.id === next);
+      if (!parent) throw new Error('not-found');
+      if (!allowed(ws, parent, actorId, 'admin')) throw new Error('permission');
+    }
+    placeProject(ws, project, next);
+  }
   return project;
 }
 
@@ -312,7 +345,7 @@ function applyStatus(ws, project, issue, statusId, actorId) {
   pushHistory(issue, actorId, 'status', from, statusId);
   applyRules(project, { kind: 'transition', from, to: statusId }, issue, actorId);
   activity(project, { actorId, issueId: issue.id, kind: 'transition', from, to: statusId });
-  notify(project, issue.watchers, { actorId, issueId: issue.id, kind: 'transition', from, to: statusId });
+  notify(ws, project, issue.watchers, { actorId, issueId: issue.id, kind: 'transition', from, to: statusId });
 }
 
 export function transitionAllowed(project, from, to) {
@@ -340,7 +373,7 @@ export function createIssue(ws, projectId, partial, actorId) {
   watch(issue, issue.assigneeId);
   watch(issue, actorId);
   activity(project, { actorId, issueId: issue.id, kind: 'created' });
-  notify(project, issue.watchers, { actorId, issueId: issue.id, kind: 'created' });
+  notify(ws, project, issue.watchers, { actorId, issueId: issue.id, kind: 'created' });
   return issue;
 }
 
@@ -360,7 +393,7 @@ export function updateIssue(ws, projectId, issueId, patch, actorId) {
     if (key === 'assigneeId') {
       watch(issue, value);
       activity(project, { actorId, issueId: issue.id, kind: 'assign', userId: value || '' });
-      notify(project, [value, ...issue.watchers], { actorId, issueId: issue.id, kind: 'assign', userId: value || '' });
+      notify(ws, project, [value, ...issue.watchers], { actorId, issueId: issue.id, kind: 'assign', userId: value || '' });
     }
   }
   if (statusId && statusId !== issue.statusId) applyStatus(ws, project, issue, statusId, actorId);
@@ -390,7 +423,7 @@ export function addComment(ws, projectId, issueId, body, actorId) {
   watch(issue, actorId);
   const mentioned = ws.users.filter((user) => user.name && text.includes(`@${user.name}`)).map((user) => user.id);
   activity(project, { actorId, issueId: issue.id, kind: 'comment' });
-  notify(project, [...issue.watchers, ...mentioned], { actorId, issueId: issue.id, kind: 'comment' });
+  notify(ws, project, [...issue.watchers, ...mentioned], { actorId, issueId: issue.id, kind: 'comment' });
   return comment;
 }
 
@@ -460,6 +493,8 @@ export function toggleWatch(ws, projectId, issueId, actorId) {
   assertPerm(ws, project, actorId, 'browse');
   if (issue.watchers.includes(actorId)) issue.watchers = issue.watchers.filter((id) => id !== actorId);
   else issue.watchers.push(actorId);
+  const watching = issue.watchers.includes(actorId);
+  setNotice(ws, actorId, 'issue', issue.id, { assign: watching, comment: watching, transition: watching });
 }
 
 export function addAttachment(ws, projectId, issueId, file, actorId) {

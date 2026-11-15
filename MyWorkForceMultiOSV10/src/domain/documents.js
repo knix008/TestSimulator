@@ -1,3 +1,4 @@
+import { deliver } from './notices.js';
 import { ensureServices } from './services.js';
 import { nowIso, uid } from './util.js';
 
@@ -132,12 +133,18 @@ export function createDocument(ws, input, actorId) {
 export function updateDocument(ws, documentId, patch, actorId) {
   const doc = mustDocument(ws, documentId);
   if (doc.authorId !== actorId) throw new Error('permission');
+  const beforeTitle = doc.title;
+  const beforeBody = doc.body;
   if (patch.title != null) {
     const title = String(patch.title).trim();
     if (!title) throw new Error('name-required');
     doc.title = title;
   }
   if (patch.body != null) doc.body = String(patch.body);
+  if (doc.title !== beforeTitle || doc.body !== beforeBody) {
+    const project = (ws.projects || []).find((item) => item.id === doc.projectId);
+    if (project) deliver(ws, project, [], { actorId, issueId: '', issueKey: doc.title, kind: 'document' }, { documentId: doc.id, event: 'edit' });
+  }
   if (patch.issueKey != null) doc.issueKey = String(patch.issueKey).trim();
   if (patch.projectId != null) doc.projectId = String(patch.projectId);
   doc.updated = nowIso();
