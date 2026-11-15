@@ -1,0 +1,447 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "작업자 공유 잡숍",
+ "description": "작업자 3명이 3개 기계를 맡음, 유형별 경로",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 960,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf3621wil",
+   "type": "resourcePool",
+   "name": "Operators",
+   "x": 0,
+   "y": 9,
+   "rot": 0,
+   "props": {
+    "capacity": 3,
+    "kind": "worker",
+    "shifts": false,
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 2
+     },
+     {
+      "start": 480,
+      "end": 1440,
+      "value": 1
+     }
+    ],
+    "period": 1440,
+    "cost": 0.5
+   }
+  },
+  {
+   "id": "bmwhnf3621x6b",
+   "type": "source",
+   "name": "Orders",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 3
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "A",
+      "color": "#2563eb",
+      "weight": 5
+     },
+     {
+      "name": "B",
+      "color": "#16a34a",
+      "weight": 3
+     },
+     {
+      "name": "C",
+      "color": "#f59e0b",
+      "weight": 2
+     }
+    ],
+    "shape": "box",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf3621yj3",
+   "type": "queue",
+   "name": "Order queue",
+   "x": -12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf3621zor",
+   "type": "select",
+   "name": "Router",
+   "x": -6,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 3,
+    "mode": "type",
+    "weights": "1, 1",
+    "typeMap": "A:1, B:2, C:3",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf36220ai",
+   "type": "queue",
+   "name": "Q lathe",
+   "x": 0,
+   "y": -6,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf3622164",
+   "type": "queue",
+   "name": "Q mill",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf36222mv",
+   "type": "queue",
+   "name": "Q drill",
+   "x": 0,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf36223vx",
+   "type": "process",
+   "name": "Lathe",
+   "x": 7,
+   "y": -6,
+   "rot": 0,
+   "props": {
+    "look": "machine",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 4,
+     "mode": 5,
+     "max": 8
+    },
+    "pool": "Operators",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36224bo",
+   "type": "process",
+   "name": "Mill",
+   "x": 7,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "cnc",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 5,
+     "mode": 6,
+     "max": 9
+    },
+    "pool": "Operators",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36225l8",
+   "type": "process",
+   "name": "Drill",
+   "x": 7,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "look": "press",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 3,
+     "mode": 4,
+     "max": 6
+    },
+    "pool": "Operators",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf3622627",
+   "type": "sink",
+   "name": "Done",
+   "x": 15,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf36227bq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3621x6b",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3621yj3",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36228t5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3621yj3",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3621zor",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36229nq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3621zor",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36220ai",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3622a6a",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3621zor",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf3622164",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3622b85",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3621zor",
+    "port": 2
+   },
+   "to": {
+    "block": "bmwhnf36222mv",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3622cf8",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36220ai",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36223vx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3622dhh",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3622164",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36224bo",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3622ezq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36222mv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36225l8",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3622f1c",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36223vx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3622627",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3622giz",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36224bo",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3622627",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3622hje",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36225l8",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3622627",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Queues",
+   "kind": "line",
+   "series": [
+    "Q lathe.length",
+    "Q mill.length",
+    "Q drill.length"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Operators",
+   "kind": "line",
+   "series": [
+    "Operators.utilization"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.971Z"
+}

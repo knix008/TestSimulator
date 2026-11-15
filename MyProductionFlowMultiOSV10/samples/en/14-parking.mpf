@@ -1,0 +1,237 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Car park",
+ "description": "Barrier → parking → exit; queues when full",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 720,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 90,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf36sd9lo",
+   "type": "source",
+   "name": "Arrivals",
+   "x": -40,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 1.2
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Car",
+      "color": "#2563eb",
+      "weight": 1
+     },
+     {
+      "name": "Car",
+      "color": "#dc2626",
+      "weight": 1
+     }
+    ],
+    "shape": "car",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf36sdaxi",
+   "type": "road",
+   "name": "Access road",
+   "x": -38,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 400,
+    "lanes": 1,
+    "vehicleLength": 6
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     24,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36sdbzo",
+   "type": "gate",
+   "name": "Barrier",
+   "x": -11,
+   "y": -3,
+   "rot": 0,
+   "props": {
+    "mode": "open",
+    "openTime": 60,
+    "closedTime": 30,
+    "condition": "1"
+   }
+  },
+  {
+   "id": "bmwhnf36sdcty",
+   "type": "parking",
+   "name": "Lot",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "spaces": 60,
+    "dwell": {
+     "type": "normal",
+     "mean": 60,
+     "sd": 20
+    }
+   },
+   "w": 20,
+   "h": 14
+  },
+  {
+   "id": "bmwhnf36sddro",
+   "type": "road",
+   "name": "Exit lane",
+   "x": 15,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 400,
+    "lanes": 1,
+    "vehicleLength": 6
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     20,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36sdenl",
+   "type": "sink",
+   "name": "Leave",
+   "x": 38,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf36sdfyk",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36sd9lo",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36sdaxi",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36sdglo",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36sdaxi",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36sdbzo",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36sdh5a",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36sdbzo",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36sdcty",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36sdiwn",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36sdcty",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36sddro",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36sdjg7",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36sddro",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36sdenl",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Occupancy",
+   "kind": "line",
+   "series": [
+    "Lot.contents",
+    "Access road.contents"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.996Z"
+}

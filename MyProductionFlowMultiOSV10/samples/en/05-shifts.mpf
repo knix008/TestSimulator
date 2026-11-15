@@ -1,0 +1,209 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Shift work",
+ "description": "4 workers by day, 2 by night",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 2880,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf3694adp",
+   "type": "resourcePool",
+   "name": "Crew",
+   "x": -2,
+   "y": 7,
+   "rot": 0,
+   "props": {
+    "capacity": 4,
+    "kind": "worker",
+    "shifts": true,
+    "schedule": [
+     {
+      "start": 0,
+      "end": 720,
+      "value": 4
+     },
+     {
+      "start": 720,
+      "end": 1440,
+      "value": 2
+     }
+    ],
+    "period": 1440,
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf3694bp6",
+   "type": "source",
+   "name": "Jobs",
+   "x": -16,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 2.6
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Part",
+      "color": "#3b82f6",
+      "weight": 1
+     }
+    ],
+    "shape": "box",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf3694ce2",
+   "type": "queue",
+   "name": "Backlog",
+   "x": -9,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf3694d9j",
+   "type": "process",
+   "name": "Workcell",
+   "x": -2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "workstation",
+    "capacity": 4,
+    "time": {
+     "type": "triangular",
+     "min": 6,
+     "mode": 8,
+     "max": 11
+    },
+    "pool": "Crew",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf3694erg",
+   "type": "sink",
+   "name": "Shipped",
+   "x": 6,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf3694flw",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3694bp6",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3694ce2",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3694gvc",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3694ce2",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3694d9j",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3694hse",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3694d9j",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3694erg",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Backlog",
+   "kind": "line",
+   "series": [
+    "Backlog.length"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Crew",
+   "kind": "line",
+   "series": [
+    "Crew.utilization"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.977Z"
+}

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- template icon: a raised page with a folded corner and a small flow — source, queue, machine, sink — joined by arrows. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#e3f6f4"/>
+      <stop offset="1" stop-color="#8fd3cd"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b7c80"/><stop offset="1" stop-color="#0b3b44"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#cdeeea"/><stop offset="1" stop-color="#4fa9a8"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0.45" stop-color="#0b3b44" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0b3b44" stop-opacity="0.45"/>
+    </linearGradient>
+    <clipPath id="pageClip"><path d="M192 160a48 48 0 0 1 48-48h400l192 192v560a48 48 0 0 1-48 48H240a48 48 0 0 1-48-48z"/></clipPath>
+    <filter id="shadow" x="-30%" y="-300%" width="160%" height="700%"><feGaussianBlur stdDeviation="22"/></filter>
+  </defs>
+  <ellipse cx="512" cy="950" rx="330" ry="30" fill="#062a30" opacity="0.45" filter="url(#shadow)"/>
+  <path d="M192 196a48 48 0 0 1 48-48h400l192 192v560a48 48 0 0 1-48 48H240a48 48 0 0 1-48-48z" fill="url(#side)" transform="translate(0 -36)"/>
+  <g clip-path="url(#pageClip)">
+    <rect x="192" y="112" width="640" height="800" fill="url(#face)"/>
+    <!-- flow: source → queue → machine → sink -->
+    <g stroke="#334155" stroke-width="12" stroke-linecap="round" fill="none">
+      <path d="M318 470h40M486 470h40M656 470h30"/>
+    </g>
+    <g fill="#334155"><path d="M368 470l-20-14v28zM536 470l-20-14v28zM700 470l-20-14v28z"/></g>
+    <circle cx="276" cy="470" r="44" fill="#16a34a"/>
+    <path d="M262 448l32 22-32 22z" fill="#ffffff"/>
+    <rect x="376" y="436" width="100" height="68" rx="14" fill="#f59e0b"/>
+    <rect x="390" y="452" width="20" height="36" rx="4" fill="#ffffff"/><rect x="418" y="452" width="20" height="36" rx="4" fill="#ffffff"/><rect x="446" y="452" width="20" height="36" rx="4" fill="#ffffff" opacity="0.5"/>
+    <rect x="546" y="418" width="104" height="104" rx="18" fill="#2563eb"/>
+    <circle cx="598" cy="470" r="26" fill="none" stroke="#ffffff" stroke-width="10"/>
+    <circle cx="742" cy="470" r="40" fill="#dc2626"/>
+    <rect x="726" y="454" width="32" height="32" rx="4" fill="#ffffff"/>
+    <!-- a small chart -->
+    <path d="M300 680l90-50 80 30 110-90 120 40" fill="none" stroke="#0d9488" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="192" y="112" width="640" height="800" fill="url(#shade)"/>
+  </g>
+  <path d="M640 112v144a48 48 0 0 0 48 48h144z" fill="url(#fold)"/>
+  <path d="M640 112v144a48 48 0 0 0 48 48h144" fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="6"/>
+  <rect x="217" y="776" width="280" height="76" rx="22" fill="#0f5f66"/>
+  <text x="357" y="830" font-family="Segoe UI, Arial, sans-serif" font-size="50" font-weight="800" fill="#ffffff" text-anchor="middle">TPL</text>
+</svg>

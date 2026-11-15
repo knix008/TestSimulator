@@ -1,0 +1,493 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "공항 보안 검색",
+ "description": "가장 짧은 줄로, 검색대 4개",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 360,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf36oaiwy",
+   "type": "source",
+   "name": "Passengers",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "schedule",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 60
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 90,
+      "value": 1.5
+     },
+     {
+      "start": 90,
+      "end": 180,
+      "value": 4
+     },
+     {
+      "start": 180,
+      "end": 360,
+      "value": 2
+     }
+    ],
+    "period": 360,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Passenger",
+      "color": "#0ea5e9",
+      "weight": 1
+     }
+    ],
+    "shape": "person",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf36oajim",
+   "type": "queue",
+   "name": "Check-in line",
+   "x": -12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf36oakc3",
+   "type": "select",
+   "name": "Lane choice",
+   "x": -6,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 4,
+    "mode": "shortest",
+    "weights": "1, 1",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf36oalld",
+   "type": "queue",
+   "name": "Lane 1",
+   "x": 0,
+   "y": -7.5,
+   "rot": 0,
+   "props": {
+    "capacity": 12,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf36oamoz",
+   "type": "process",
+   "name": "Scanner 1",
+   "x": 7,
+   "y": -7.5,
+   "rot": 0,
+   "props": {
+    "look": "scanner",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 0.6,
+     "mode": 1,
+     "max": 2
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36oanhm",
+   "type": "queue",
+   "name": "Lane 2",
+   "x": 0,
+   "y": -2.5,
+   "rot": 0,
+   "props": {
+    "capacity": 12,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf36oaoz3",
+   "type": "process",
+   "name": "Scanner 2",
+   "x": 7,
+   "y": -2.5,
+   "rot": 0,
+   "props": {
+    "look": "scanner",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 0.6,
+     "mode": 1,
+     "max": 2
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36oaps6",
+   "type": "queue",
+   "name": "Lane 3",
+   "x": 0,
+   "y": 2.5,
+   "rot": 0,
+   "props": {
+    "capacity": 12,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf36oaq3g",
+   "type": "process",
+   "name": "Scanner 3",
+   "x": 7,
+   "y": 2.5,
+   "rot": 0,
+   "props": {
+    "look": "scanner",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 0.6,
+     "mode": 1,
+     "max": 2
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36oarue",
+   "type": "queue",
+   "name": "Lane 4",
+   "x": 0,
+   "y": 7.5,
+   "rot": 0,
+   "props": {
+    "capacity": 12,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf36oassq",
+   "type": "process",
+   "name": "Scanner 4",
+   "x": 7,
+   "y": 7.5,
+   "rot": 0,
+   "props": {
+    "look": "scanner",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 0.6,
+     "mode": 1,
+     "max": 2
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36oatxx",
+   "type": "sink",
+   "name": "Gates",
+   "x": 14,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf36oauj9",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oaiwy",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36oajim",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36oavst",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oajim",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36oakc3",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36oawr",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oakc3",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36oalld",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36oaxmn",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oalld",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36oamoz",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36oayin",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oamoz",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36oatxx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36oazia",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oakc3",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf36oanhm",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36ob0g4",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oanhm",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36oaoz3",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36ob1g9",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oaoz3",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36oatxx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36ob2t5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oakc3",
+    "port": 2
+   },
+   "to": {
+    "block": "bmwhnf36oaps6",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36ob3ve",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oaps6",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36oaq3g",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36ob4im",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oaq3g",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36oatxx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36ob5a1",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oakc3",
+    "port": 3
+   },
+   "to": {
+    "block": "bmwhnf36oarue",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36ob6mq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oarue",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36oassq",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36ob7b2",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36oassq",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36oatxx",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Lines",
+   "kind": "line",
+   "series": [
+    "Check-in line.length",
+    "Lane 1.length",
+    "Lane 2.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.992Z"
+}

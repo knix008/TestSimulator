@@ -1,0 +1,396 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "교차로 신호",
+ "description": "남북·동서 차량이 신호에 따라 통과",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 60,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 140,
+  "floorDepth": 140,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf36qby3g",
+   "type": "source",
+   "name": "West cars",
+   "x": -62,
+   "y": 3.5,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.1
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Car",
+      "color": "#2563eb",
+      "weight": 4
+     },
+     {
+      "name": "Car",
+      "color": "#e11d48",
+      "weight": 2
+     },
+     {
+      "name": "Car",
+      "color": "#f1f5f9",
+      "weight": 3
+     },
+     {
+      "name": "Truck",
+      "color": "#f59e0b",
+      "weight": 1
+     }
+    ],
+    "shape": "car",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf36qbz87",
+   "type": "road",
+   "name": "West road",
+   "x": -60,
+   "y": 3.5,
+   "rot": 0,
+   "props": {
+    "speed": 800,
+    "lanes": 1,
+    "vehicleLength": 6
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     50,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36qc01j",
+   "type": "signal",
+   "name": "Light EW",
+   "x": -8,
+   "y": 8,
+   "rot": 0,
+   "props": {
+    "green": 0.5,
+    "yellow": 0.05,
+    "red": 0.55,
+    "offset": 0,
+    "headway": 0.025
+   }
+  },
+  {
+   "id": "bmwhnf36qc1ga",
+   "type": "road",
+   "name": "East road",
+   "x": -6,
+   "y": 3.5,
+   "rot": 0,
+   "props": {
+    "speed": 800,
+    "lanes": 1,
+    "vehicleLength": 6
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     62,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36qc2lc",
+   "type": "sink",
+   "name": "East",
+   "x": 60,
+   "y": 3.5,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf36qc38h",
+   "type": "source",
+   "name": "North cars",
+   "x": -3.5,
+   "y": -62,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.14
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Car",
+      "color": "#2563eb",
+      "weight": 4
+     },
+     {
+      "name": "Car",
+      "color": "#e11d48",
+      "weight": 2
+     },
+     {
+      "name": "Car",
+      "color": "#f1f5f9",
+      "weight": 3
+     },
+     {
+      "name": "Truck",
+      "color": "#f59e0b",
+      "weight": 1
+     }
+    ],
+    "shape": "car",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf36qc4zx",
+   "type": "road",
+   "name": "North road",
+   "x": -3.5,
+   "y": -60,
+   "rot": 0,
+   "props": {
+    "speed": 800,
+    "lanes": 1,
+    "vehicleLength": 6
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     50
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36qc52u",
+   "type": "signal",
+   "name": "Light NS",
+   "x": -8,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "green": 0.5,
+    "yellow": 0.05,
+    "red": 0.55,
+    "offset": 0.55,
+    "headway": 0.025
+   }
+  },
+  {
+   "id": "bmwhnf36qc6xu",
+   "type": "road",
+   "name": "South road",
+   "x": -3.5,
+   "y": -6,
+   "rot": 0,
+   "props": {
+    "speed": 800,
+    "lanes": 1,
+    "vehicleLength": 6
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     62
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36qc7gk",
+   "type": "sink",
+   "name": "South",
+   "x": -3.5,
+   "y": 60,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf36qc835",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36qby3g",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36qbz87",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36qc9l7",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36qbz87",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36qc01j",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36qca59",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36qc01j",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36qc1ga",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36qcbni",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36qc1ga",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36qc2lc",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36qccy8",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36qc38h",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36qc4zx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36qcdgk",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36qc4zx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36qc52u",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36qcemp",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36qc52u",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36qc6xu",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36qcfas",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36qc6xu",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36qc7gk",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Roads",
+   "kind": "line",
+   "series": [
+    "West road.contents",
+    "North road.contents"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.994Z"
+}

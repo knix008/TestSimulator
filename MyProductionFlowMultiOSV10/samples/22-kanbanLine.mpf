@@ -1,0 +1,455 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "칸반 생산 라인",
+ "description": "CONWIP 10으로 재공을 제한한 4공정 라인",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 960,
+  "warmup": 60,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf379h85n",
+   "type": "source",
+   "name": "Orders",
+   "x": -24,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 1.6
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Part",
+      "color": "#3b82f6",
+      "weight": 1
+     }
+    ],
+    "shape": "box",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf379h9lx",
+   "type": "queue",
+   "name": "Order backlog",
+   "x": -19,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf379haze",
+   "type": "restrictedStart",
+   "name": "CardIn",
+   "x": -14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 10
+   }
+  },
+  {
+   "id": "bmwhnf379hbyh",
+   "type": "timeStart",
+   "name": "StartClock",
+   "x": -10.5,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf379hcz0",
+   "type": "cncMachine",
+   "name": "Cut",
+   "x": -6,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "cnc",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 1.3,
+     "max": 1.8
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 10,
+     "mode": 20,
+     "max": 40
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf379hdum",
+   "type": "queue",
+   "name": "B1",
+   "x": -1,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 4,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf379heru",
+   "type": "drillPress",
+   "name": "Drill",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "press",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 1.5,
+     "max": 2.5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf379hfhn",
+   "type": "queue",
+   "name": "B2",
+   "x": 8,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 4,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf379hgna",
+   "type": "grinder",
+   "name": "Finish",
+   "x": 12.5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "grinder",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 1.4,
+     "max": 1.9
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf379hhfg",
+   "type": "timeEnd",
+   "name": "StopClock",
+   "x": 16,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "start": "StartClock"
+   }
+  },
+  {
+   "id": "bmwhnf379hi3r",
+   "type": "restrictedEnd",
+   "name": "CardOut",
+   "x": 19,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "start": "CardIn"
+   }
+  },
+  {
+   "id": "bmwhnf379hjux",
+   "type": "sink",
+   "name": "Shipped",
+   "x": 23,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf379hvjv",
+   "type": "gauge",
+   "name": "WIP gauge",
+   "x": -14,
+   "y": -7,
+   "rot": 0,
+   "props": {
+    "expression": "CardIn.inside",
+    "digits": 1,
+    "unitLabel": "",
+    "style": "gauge",
+    "min": 0,
+    "max": 10
+   }
+  },
+  {
+   "id": "bmwhnf379hwf8",
+   "type": "counter",
+   "name": "Lead time",
+   "x": 16,
+   "y": -7,
+   "rot": 0,
+   "props": {
+    "expression": "StopClock.time",
+    "digits": 2,
+    "unitLabel": "min",
+    "style": "counter",
+    "min": 0,
+    "max": 100
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf379hkx5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf379h85n",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf379h9lx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf379hl2r",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf379h9lx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf379haze",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf379hm2e",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf379haze",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf379hbyh",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf379hn2v",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf379hbyh",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf379hcz0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf379hozc",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf379hcz0",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf379hdum",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf379hp5y",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf379hdum",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf379heru",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf379hqn",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf379heru",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf379hfhn",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf379hrnq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf379hfhn",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf379hgna",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf379hssu",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf379hgna",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf379hhfg",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf379hteh",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf379hhfg",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf379hi3r",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf379hufd",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf379hi3r",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf379hjux",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "WIP and backlog",
+   "kind": "line",
+   "series": [
+    "CardIn.inside",
+    "Order backlog.length"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Lead time",
+   "kind": "line",
+   "series": [
+    "StopClock.time"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.013Z"
+}

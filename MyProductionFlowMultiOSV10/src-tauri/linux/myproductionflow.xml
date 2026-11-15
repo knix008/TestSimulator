@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-myproductionflow">
+    <comment>MyProductionFlow Project</comment>
+    <comment xml:lang="ko">MyProductionFlow 프로젝트</comment>
+    <icon name="application-x-myproductionflow"/>
+    <glob pattern="*.mpf"/>
+  </mime-type>
+</mime-info>

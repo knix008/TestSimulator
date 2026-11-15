@@ -1,0 +1,461 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "철도 노선",
+ "description": "여객·화물 분기, 역, 조차장, 신호",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 480,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 320,
+  "floorDepth": 80,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf37vt073",
+   "type": "trainSource",
+   "name": "Trains",
+   "x": -150,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "triangular",
+     "min": 6,
+     "mode": 10,
+     "max": 16
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Train",
+      "color": "#1d4ed8",
+      "weight": 2
+     },
+     {
+      "name": "Freight",
+      "color": "#b45309",
+      "weight": 1
+     }
+    ],
+    "shape": "train",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf37vt1ur",
+   "type": "railTrack",
+   "name": "Main line",
+   "x": -148,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 1200,
+    "spacing": 120,
+    "width": 1.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     80,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf37vt2vm",
+   "type": "railSwitch",
+   "name": "Junction",
+   "x": -64,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 2,
+    "mode": "type",
+    "weights": "1, 1",
+    "typeMap": "Train:1, Freight:2",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf37vt3nh",
+   "type": "railTrack",
+   "name": "Passenger line",
+   "x": -62,
+   "y": -1,
+   "rot": 0,
+   "props": {
+    "speed": 1200,
+    "spacing": 120,
+    "width": 1.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     20,
+     -20
+    ],
+    [
+     60,
+     -20
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf37vt479",
+   "type": "railStation",
+   "name": "Central station",
+   "x": 10,
+   "y": -24,
+   "rot": 0,
+   "props": {
+    "look": "platform",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 1.5,
+     "mode": 2,
+     "max": 4
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37vt5f3",
+   "type": "railSignal",
+   "name": "Exit signal",
+   "x": 22,
+   "y": -16,
+   "rot": 0,
+   "props": {
+    "green": 4,
+    "yellow": 0.5,
+    "red": 4,
+    "offset": 0,
+    "headway": 2
+   }
+  },
+  {
+   "id": "bmwhnf37vt6ii",
+   "type": "railTrack",
+   "name": "East line",
+   "x": 24,
+   "y": -20,
+   "rot": 0,
+   "props": {
+    "speed": 1200,
+    "spacing": 120,
+    "width": 1.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     100,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf37vt7og",
+   "type": "trainSink",
+   "name": "East",
+   "x": 126,
+   "y": -20,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf37vt8j5",
+   "type": "railTrack",
+   "name": "Freight line",
+   "x": -62,
+   "y": 1,
+   "rot": 0,
+   "props": {
+    "speed": 1200,
+    "spacing": 120,
+    "width": 1.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     20,
+     20
+    ],
+    [
+     50,
+     20
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf37vt9tq",
+   "type": "railYard",
+   "name": "Freight yard",
+   "x": 6,
+   "y": 22,
+   "rot": 0,
+   "props": {
+    "bays": 6,
+    "levels": 1,
+    "dwell": {
+     "type": "triangular",
+     "min": 30,
+     "mode": 60,
+     "max": 120
+    },
+    "storeTime": 2,
+    "retrieveTime": 2,
+    "policy": "fifo"
+   }
+  },
+  {
+   "id": "bmwhnf37vtarm",
+   "type": "railTrack",
+   "name": "Yard exit",
+   "x": 24,
+   "y": 20,
+   "rot": 0,
+   "props": {
+    "speed": 1200,
+    "spacing": 120,
+    "width": 1.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     100,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf37vtbdz",
+   "type": "trainSink",
+   "name": "Port",
+   "x": 126,
+   "y": 20,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf37vtckw",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37vt073",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37vt1ur",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37vtd4v",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37vt1ur",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37vt2vm",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37vtecx",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37vt2vm",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37vt3nh",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37vtf4",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37vt2vm",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf37vt8j5",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37vtg36",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37vt3nh",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37vt479",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37vthkd",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37vt479",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37vt5f3",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37vti35",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37vt5f3",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37vt6ii",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37vtjk3",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37vt6ii",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37vt7og",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37vtk8t",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37vt8j5",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37vt9tq",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37vtlxf",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37vt9tq",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37vtarm",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37vtm40",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37vtarm",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37vtbdz",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Lines",
+   "kind": "line",
+   "series": [
+    "Main line.contents",
+    "Freight yard.contents"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.036Z"
+}

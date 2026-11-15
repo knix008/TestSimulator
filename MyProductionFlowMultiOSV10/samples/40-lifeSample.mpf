@@ -1,0 +1,81 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "생명 게임",
+ "description": "콘웨이 규칙의 셀 자동자 패턴",
+ "settings": {
+  "timeUnit": "s",
+  "duration": 300,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 1,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf38b11ktx",
+   "type": "gameOfLife",
+   "name": "Life",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "cols": 90,
+    "rows": 56,
+    "neighborhood": "moore",
+    "wrap": true,
+    "states": [
+     {
+      "name": "Dead",
+      "color": "#e2e8f0"
+     },
+     {
+      "name": "Alive",
+      "color": "#0f172a"
+     }
+    ],
+    "initial": "Dead:0.75, Alive:0.25",
+    "transitions": [
+     {
+      "from": "Dead",
+      "to": "Alive",
+      "kind": "neighbors",
+      "value": 3,
+      "max": 3,
+      "trigger": "Alive"
+     },
+     {
+      "from": "Alive",
+      "to": "Dead",
+      "kind": "neighborsOutside",
+      "value": 2,
+      "max": 3,
+      "trigger": "Alive"
+     }
+    ]
+   },
+   "w": 45,
+   "h": 28
+  }
+ ],
+ "links": [],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Alive cells",
+   "kind": "line",
+   "series": [
+    "Life.Alive"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.051Z"
+}

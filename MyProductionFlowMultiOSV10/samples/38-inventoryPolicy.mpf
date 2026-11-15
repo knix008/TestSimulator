@@ -1,0 +1,301 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "재고 정책 (SD)",
+ "description": "계절 수요 조회 테이블, 평활 예측, 발주",
+ "settings": {
+  "timeUnit": "day",
+  "duration": 365,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.5,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf38710ebj",
+   "type": "lookup",
+   "name": "Season",
+   "x": -14,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "input": "t % 365",
+    "xs": "0, 90, 180, 270, 365",
+    "ys": "80, 140, 200, 120, 80",
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhnf38710f8y",
+   "type": "variable",
+   "name": "Demand",
+   "x": -6,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "equation": "Season * uniform(0.9, 1.1)",
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhnf38710gez",
+   "type": "smooth",
+   "name": "Forecast",
+   "x": 2,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "input": "Demand",
+    "delay": 14,
+    "initial": "",
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhnf38710hq1",
+   "type": "parameter",
+   "name": "CoverDays",
+   "x": 10,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "value": 10,
+    "min": 2,
+    "max": 30,
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhnf38710isi",
+   "type": "stock",
+   "name": "Pipeline",
+   "x": -6,
+   "y": 2,
+   "rot": 0,
+   "props": {
+    "initial": "1000",
+    "nonNegative": true,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhnf38710jyw",
+   "type": "stock",
+   "name": "Inventory",
+   "x": 8,
+   "y": 2,
+   "rot": 0,
+   "props": {
+    "initial": "1500",
+    "nonNegative": true,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhnf38710ksx",
+   "type": "flow",
+   "name": "Orders",
+   "x": -14,
+   "y": 2,
+   "rot": 0,
+   "props": {
+    "equation": "max(0, Forecast + (Forecast * CoverDays - Inventory) / 5)",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhnf38710lf0",
+   "type": "flow",
+   "name": "Arrivals",
+   "x": 1,
+   "y": 2,
+   "rot": 0,
+   "props": {
+    "equation": "Pipeline / 7",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhnf38710m23",
+   "type": "flow",
+   "name": "Sales",
+   "x": 15,
+   "y": 2,
+   "rot": 0,
+   "props": {
+    "equation": "min(Demand, Inventory)",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf38710nw9",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf38710ksx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf38710isi",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38710op3",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf38710isi",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf38710lf0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38710pec",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf38710lf0",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf38710jyw",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38710qat",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf38710jyw",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf38710m23",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38710ryn",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf38710ebj",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf38710f8y",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38710sm1",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf38710f8y",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf38710gez",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38710txh",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf38710gez",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf38710ksx",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38710ubb",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf38710hq1",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf38710ksx",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38710vud",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf38710jyw",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf38710ksx",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38710wti",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf38710f8y",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf38710m23",
+    "port": -1
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Inventory",
+   "kind": "line",
+   "series": [
+    "Inventory",
+    "Pipeline"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Demand vs forecast",
+   "kind": "line",
+   "series": [
+    "Demand",
+    "Forecast"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.048Z"
+}

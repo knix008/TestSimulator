@@ -1,0 +1,399 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "크로스도킹",
+ "description": "입고 화물을 목적지별로 분류해 출고 도크로",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 600,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 70,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf36b5wc1",
+   "type": "source",
+   "name": "Inbound",
+   "x": -26,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.8
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "North",
+      "color": "#2563eb",
+      "weight": 2
+     },
+     {
+      "name": "South",
+      "color": "#16a34a",
+      "weight": 2
+     },
+     {
+      "name": "West",
+      "color": "#f59e0b",
+      "weight": 1
+     }
+    ],
+    "shape": "carton",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf36b5xv7",
+   "type": "conveyor",
+   "name": "Induction",
+   "x": -24,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 25,
+    "spacing": 1,
+    "width": 0.8,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     12,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36b5yf4",
+   "type": "select",
+   "name": "Sorter",
+   "x": -9,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 3,
+    "mode": "type",
+    "weights": "1, 1",
+    "typeMap": "North:1, South:2, West:3",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf36b5zwi",
+   "type": "conveyor",
+   "name": "Lane N",
+   "x": -7.5,
+   "y": -0.7,
+   "rot": 0,
+   "props": {
+    "speed": 25,
+    "spacing": 1,
+    "width": 0.8,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     4,
+     -8
+    ],
+    [
+     16,
+     -8
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36b60dp",
+   "type": "conveyor",
+   "name": "Lane S",
+   "x": -7.5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 25,
+    "spacing": 1,
+    "width": 0.8,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     16,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36b617m",
+   "type": "conveyor",
+   "name": "Lane W",
+   "x": -7.5,
+   "y": 0.7,
+   "rot": 0,
+   "props": {
+    "speed": 25,
+    "spacing": 1,
+    "width": 0.8,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     4,
+     8
+    ],
+    [
+     16,
+     8
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36c62fl",
+   "type": "dock",
+   "name": "Door N",
+   "x": 12,
+   "y": -8.7,
+   "rot": 0,
+   "props": {
+    "doors": 1,
+    "time": {
+     "type": "uniform",
+     "min": 0.4,
+     "max": 0.9
+    }
+   }
+  },
+  {
+   "id": "bmwhnf36c63dg",
+   "type": "dock",
+   "name": "Door S",
+   "x": 12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "doors": 1,
+    "time": {
+     "type": "uniform",
+     "min": 0.4,
+     "max": 0.9
+    }
+   }
+  },
+  {
+   "id": "bmwhnf36c64jv",
+   "type": "dock",
+   "name": "Door W",
+   "x": 12,
+   "y": 8.7,
+   "rot": 0,
+   "props": {
+    "doors": 1,
+    "time": {
+     "type": "uniform",
+     "min": 0.6,
+     "max": 1.2
+    }
+   }
+  },
+  {
+   "id": "bmwhnf36c65z0",
+   "type": "sink",
+   "name": "Trucks",
+   "x": 20,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf36c66u9",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5wc1",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36b5xv7",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36c67yo",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5xv7",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36b5yf4",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36c684y",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5yf4",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36b5zwi",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36c69vy",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5yf4",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf36b60dp",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36c6amj",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5yf4",
+    "port": 2
+   },
+   "to": {
+    "block": "bmwhnf36b617m",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36c6b1p",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5zwi",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36c62fl",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36c6c4s",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b60dp",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36c63dg",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36c6dm2",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b617m",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36c64jv",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36c6eb8",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36c62fl",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36c65z0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36c6f2q",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36c63dg",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36c65z0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36c6g1p",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36c64jv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36c65z0",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.980Z"
+}

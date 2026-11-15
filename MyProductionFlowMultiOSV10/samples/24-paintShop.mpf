@@ -1,0 +1,369 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "도장 공장",
+ "description": "세척 → 건조 → 도장 → 오븐 경화, 묶음 처리",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 960,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf37dk0id",
+   "type": "source",
+   "name": "Panels",
+   "x": -24,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 1.2
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Red",
+      "color": "#dc2626",
+      "weight": 1
+     },
+     {
+      "name": "Blue",
+      "color": "#2563eb",
+      "weight": 1
+     },
+     {
+      "name": "White",
+      "color": "#e5e7eb",
+      "weight": 2
+     }
+    ],
+    "shape": "carton",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf37dk1au",
+   "type": "washingMachine",
+   "name": "Washer",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "washer",
+    "capacity": 6,
+    "time": {
+     "type": "constant",
+     "value": 5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37ek29b",
+   "type": "dryer",
+   "name": "Dryer",
+   "x": -11,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "dryer",
+    "capacity": 22,
+    "time": {
+     "type": "normal",
+     "mean": 20,
+     "sd": 3
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37ek3mw",
+   "type": "queue",
+   "name": "Before paint",
+   "x": -5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf37ek4bs",
+   "type": "paintBooth",
+   "name": "Booth",
+   "x": 1,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "paint",
+    "capacity": 3,
+    "time": {
+     "type": "triangular",
+     "min": 1.5,
+     "mode": 2,
+     "max": 2.8
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0.5,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37ek5fn",
+   "type": "batch",
+   "name": "Rack up",
+   "x": 7,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "size": 8,
+    "outType": "Rack",
+    "outColor": "#a16207",
+    "shape": "pallet"
+   }
+  },
+  {
+   "id": "bmwhnf37ek6ex",
+   "type": "oven",
+   "name": "Cure oven",
+   "x": 14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "oven",
+    "capacity": 3,
+    "time": {
+     "type": "constant",
+     "value": 25
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37ek7ai",
+   "type": "unbatch",
+   "name": "Unrack",
+   "x": 20,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf37ek8bl",
+   "type": "sink",
+   "name": "Finished",
+   "x": 25,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf37ek97z",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37dk0id",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37dk1au",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekaqg",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37dk1au",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ek29b",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekbcq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ek29b",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ek3mw",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekcdi",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ek3mw",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ek4bs",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekdww",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ek4bs",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ek5fn",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekei8",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ek5fn",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ek6ex",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekfk5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ek6ex",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ek7ai",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekgm",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ek7ai",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ek8bl",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Before paint",
+   "kind": "line",
+   "series": [
+    "Before paint.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.018Z"
+}

@@ -1,0 +1,229 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "배합 공정 (유체)",
+ "description": "원료 두 가지를 혼합조로, 넘치면 경고",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 240,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.1,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf386zmjj",
+   "type": "tank",
+   "name": "IngredientA",
+   "x": -12,
+   "y": -5,
+   "rot": 0,
+   "props": {
+    "initial": "600",
+    "nonNegative": true,
+    "unitLabel": "L",
+    "capacity": 1000
+   }
+  },
+  {
+   "id": "bmwhnf386znwh",
+   "type": "tank",
+   "name": "IngredientB",
+   "x": -12,
+   "y": 5,
+   "rot": 0,
+   "props": {
+    "initial": "400",
+    "nonNegative": true,
+    "unitLabel": "L",
+    "capacity": 1000
+   }
+  },
+  {
+   "id": "bmwhnf386zo67",
+   "type": "valve",
+   "name": "DoseA",
+   "x": -6,
+   "y": -5,
+   "rot": 0,
+   "props": {
+    "equation": "6",
+    "unitLabel": "L",
+    "openTime": 20,
+    "closedTime": 10
+   }
+  },
+  {
+   "id": "bmwhnf386zp64",
+   "type": "valve",
+   "name": "DoseB",
+   "x": -6,
+   "y": 5,
+   "rot": 0,
+   "props": {
+    "equation": "4",
+    "unitLabel": "L",
+    "openTime": 20,
+    "closedTime": 10
+   }
+  },
+  {
+   "id": "bmwhnf386zqmu",
+   "type": "mixingTank",
+   "name": "Mixer",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "0",
+    "nonNegative": true,
+    "unitLabel": "L",
+    "capacity": 500
+   }
+  },
+  {
+   "id": "bmwhnf386zrat",
+   "type": "pump",
+   "name": "FillLine",
+   "x": 6,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "if(Mixer > 200, 9, 0)",
+    "unitLabel": "L",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhnf386zsng",
+   "type": "tank",
+   "name": "Product",
+   "x": 12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "0",
+    "nonNegative": true,
+    "unitLabel": "L",
+    "capacity": 2000
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf386ztuc",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf386zmjj",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf386zo67",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf386zuxh",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf386zo67",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf386zqmu",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf386zve1",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf386znwh",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf386zp64",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf386zwck",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf386zp64",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf386zqmu",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf386zxjj",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf386zqmu",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf386zrat",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf386zy61",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf386zrat",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf386zsng",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf386zzyd",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf386zqmu",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf386zrat",
+    "port": -1
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Tanks",
+   "kind": "line",
+   "series": [
+    "IngredientA",
+    "IngredientB",
+    "Mixer",
+    "Product"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.046Z"
+}

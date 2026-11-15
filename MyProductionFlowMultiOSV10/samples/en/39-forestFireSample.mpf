@@ -1,0 +1,112 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Forest fire (cellular)",
+ "description": "Lightning, spread to neighbours, regrowth",
+ "settings": {
+  "timeUnit": "day",
+  "duration": 300,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 1,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf38a11i3o",
+   "type": "cellGrid",
+   "name": "Forest",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "cols": 80,
+    "rows": 50,
+    "neighborhood": "moore",
+    "wrap": true,
+    "states": [
+     {
+      "name": "Tree",
+      "color": "#16a34a"
+     },
+     {
+      "name": "Fire",
+      "color": "#f97316"
+     },
+     {
+      "name": "Ash",
+      "color": "#57534e"
+     }
+    ],
+    "initial": "Tree:0.7, Fire:0.001, Ash:0.299",
+    "transitions": [
+     {
+      "from": "Tree",
+      "to": "Fire",
+      "kind": "neighbors",
+      "value": 1,
+      "trigger": "Fire"
+     },
+     {
+      "from": "Tree",
+      "to": "Fire",
+      "kind": "rate",
+      "value": 0.00005
+     },
+     {
+      "from": "Fire",
+      "to": "Ash",
+      "kind": "timeout",
+      "value": 1
+     },
+     {
+      "from": "Ash",
+      "to": "Tree",
+      "kind": "rate",
+      "value": 0.02
+     }
+    ]
+   },
+   "w": 40,
+   "h": 25
+  },
+  {
+   "id": "bmwhnf38a11j6y",
+   "type": "display",
+   "name": "Burning",
+   "x": 0,
+   "y": -16,
+   "rot": 0,
+   "props": {
+    "expression": "Forest.Fire",
+    "digits": 0,
+    "unitLabel": "",
+    "style": "number",
+    "min": 0,
+    "max": 100
+   }
+  }
+ ],
+ "links": [],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Forest",
+   "kind": "line",
+   "series": [
+    "Forest.Tree",
+    "Forest.Fire",
+    "Forest.Ash"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.050Z"
+}

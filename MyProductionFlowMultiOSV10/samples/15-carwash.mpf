@@ -1,0 +1,258 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "세차장",
+ "description": "셀프·자동 세차 선택, 시간대별 도착",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 600,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf36tdkhs",
+   "type": "source",
+   "name": "Cars",
+   "x": -16,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "schedule",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 60
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 120,
+      "value": 0.2
+     },
+     {
+      "start": 120,
+      "end": 360,
+      "value": 0.45
+     },
+     {
+      "start": 360,
+      "end": 600,
+      "value": 0.3
+     }
+    ],
+    "period": 600,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Car",
+      "color": "#334155",
+      "weight": 1
+     }
+    ],
+    "shape": "car",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf36tdld0",
+   "type": "queue",
+   "name": "Lineup",
+   "x": -9,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 8,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf36tdmnx",
+   "type": "select",
+   "name": "Choice",
+   "x": -3,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 2,
+    "mode": "probability",
+    "weights": "0.6, 0.4",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf36tdn52",
+   "type": "process",
+   "name": "Automatic",
+   "x": 4,
+   "y": -4,
+   "rot": 0,
+   "props": {
+    "look": "washer",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 5,
+     "mode": 6,
+     "max": 8
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36tdowb",
+   "type": "process",
+   "name": "Self bays",
+   "x": 4,
+   "y": 4,
+   "rot": 0,
+   "props": {
+    "look": "washer",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 8,
+     "mode": 12,
+     "max": 20
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36udpg3",
+   "type": "sink",
+   "name": "Clean",
+   "x": 11,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf36udq8o",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36tdkhs",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36tdld0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36udrbu",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36tdld0",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36tdmnx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36uds61",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36tdmnx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36tdn52",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36udtf7",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36tdmnx",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf36tdowb",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36udu2c",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36tdn52",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36udpg3",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36udvrl",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36tdowb",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36udpg3",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.998Z"
+}

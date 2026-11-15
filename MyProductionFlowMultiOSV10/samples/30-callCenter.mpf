@@ -1,0 +1,341 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "콜센터",
+ "description": "교대 상담원, 대기 중 포기, 전문 상담 이관",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 1440,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf37rr26l",
+   "type": "resourcePool",
+   "name": "Agents",
+   "x": -2,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "capacity": 6,
+    "kind": "worker",
+    "shifts": true,
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 2
+     },
+     {
+      "start": 480,
+      "end": 1080,
+      "value": 8
+     },
+     {
+      "start": 1080,
+      "end": 1440,
+      "value": 4
+     }
+    ],
+    "period": 1440,
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37rr3of",
+   "type": "source",
+   "name": "Calls",
+   "x": -16,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "schedule",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 60
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 0.3
+     },
+     {
+      "start": 480,
+      "end": 720,
+      "value": 2.4
+     },
+     {
+      "start": 720,
+      "end": 1080,
+      "value": 1.8
+     },
+     {
+      "start": 1080,
+      "end": 1440,
+      "value": 0.8
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Part",
+      "color": "#3b82f6",
+      "weight": 1
+     }
+    ],
+    "shape": "person",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf37rr4sb",
+   "type": "queue",
+   "name": "On hold",
+   "x": -10,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 6
+   }
+  },
+  {
+   "id": "bmwhnf37rr5w1",
+   "type": "process",
+   "name": "Answer",
+   "x": -3,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "desk",
+    "capacity": 8,
+    "time": {
+     "type": "exponential",
+     "mean": 3.5
+    },
+    "pool": "Agents",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37rr6s8",
+   "type": "select",
+   "name": "Solved?",
+   "x": 3,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 2,
+    "mode": "probability",
+    "weights": "0.85, 0.15",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf37rr7lb",
+   "type": "sink",
+   "name": "Solved",
+   "x": 9,
+   "y": -3,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf37rr85w",
+   "type": "process",
+   "name": "Specialist",
+   "x": 9,
+   "y": 3,
+   "rot": 0,
+   "props": {
+    "look": "desk",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 5,
+     "mode": 10,
+     "max": 20
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37rr98s",
+   "type": "sink",
+   "name": "Escalated",
+   "x": 15,
+   "y": 3,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf37rrajn",
+   "type": "sink",
+   "name": "Abandoned",
+   "x": -10,
+   "y": 6,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf37rrbs7",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37rr3of",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37rr4sb",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37rrcsy",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37rr4sb",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37rr5w1",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37rrdim",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37rr5w1",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37rr6s8",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37rrevl",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37rr6s8",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37rr7lb",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37rrf99",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37rr6s8",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf37rr85w",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37rrgzw",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37rr85w",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37rr98s",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37rrhya",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37rr4sb",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf37rrajn",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Hold queue",
+   "kind": "line",
+   "series": [
+    "On hold.length"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Agents",
+   "kind": "line",
+   "series": [
+    "Agents.utilization"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.031Z"
+}

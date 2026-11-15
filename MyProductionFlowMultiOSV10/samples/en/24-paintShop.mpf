@@ -1,0 +1,369 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Paint shop",
+ "description": "Wash → dry → paint → cure in batches",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 960,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf37ekh30",
+   "type": "source",
+   "name": "Panels",
+   "x": -24,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 1.2
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Red",
+      "color": "#dc2626",
+      "weight": 1
+     },
+     {
+      "name": "Blue",
+      "color": "#2563eb",
+      "weight": 1
+     },
+     {
+      "name": "White",
+      "color": "#e5e7eb",
+      "weight": 2
+     }
+    ],
+    "shape": "carton",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf37eki16",
+   "type": "washingMachine",
+   "name": "Washer",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "washer",
+    "capacity": 6,
+    "time": {
+     "type": "constant",
+     "value": 5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37ekjk7",
+   "type": "dryer",
+   "name": "Dryer",
+   "x": -11,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "dryer",
+    "capacity": 22,
+    "time": {
+     "type": "normal",
+     "mean": 20,
+     "sd": 3
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37ekk2f",
+   "type": "queue",
+   "name": "Before paint",
+   "x": -5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf37ekl8i",
+   "type": "paintBooth",
+   "name": "Booth",
+   "x": 1,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "paint",
+    "capacity": 3,
+    "time": {
+     "type": "triangular",
+     "min": 1.5,
+     "mode": 2,
+     "max": 2.8
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0.5,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37ekm27",
+   "type": "batch",
+   "name": "Rack up",
+   "x": 7,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "size": 8,
+    "outType": "Rack",
+    "outColor": "#a16207",
+    "shape": "pallet"
+   }
+  },
+  {
+   "id": "bmwhnf37ekn6c",
+   "type": "oven",
+   "name": "Cure oven",
+   "x": 14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "oven",
+    "capacity": 3,
+    "time": {
+     "type": "constant",
+     "value": 25
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37ekoef",
+   "type": "unbatch",
+   "name": "Unrack",
+   "x": 20,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf37ekpgt",
+   "type": "sink",
+   "name": "Finished",
+   "x": 25,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf37ekq9p",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ekh30",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37eki16",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekrr3",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37eki16",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ekjk7",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekszh",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ekjk7",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ekk2f",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ektrl",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ekk2f",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ekl8i",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekulq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ekl8i",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ekm27",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekve8",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ekm27",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ekn6c",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekwkk",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ekn6c",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ekoef",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ekx6c",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37ekoef",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37ekpgt",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Before paint",
+   "kind": "line",
+   "series": [
+    "Before paint.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.019Z"
+}

@@ -1,0 +1,422 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "AS/RS centre",
+ "description": "Two AS/RS aisles, conveyors, picking and packing",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 1440,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 80,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf37kmohz",
+   "type": "receivingDock",
+   "name": "Inbound",
+   "x": -30,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "doors": 2,
+    "time": {
+     "type": "triangular",
+     "min": 0.5,
+     "mode": 0.8,
+     "max": 1.2
+    }
+   }
+  },
+  {
+   "id": "bmwhnf37kmp5z",
+   "type": "source",
+   "name": "Trucks",
+   "x": -36,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.7
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Part",
+      "color": "#3b82f6",
+      "weight": 1
+     }
+    ],
+    "shape": "carton",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf37kmqz5",
+   "type": "rollerConveyor",
+   "name": "Infeed",
+   "x": -27,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 18,
+    "spacing": 0.7,
+    "width": 0.9,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     6,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf37kmrjx",
+   "type": "diverter",
+   "name": "Aisle choice",
+   "x": -19,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 2,
+    "mode": "shortest",
+    "weights": "1, 1",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf37kmsnk",
+   "type": "asrs",
+   "name": "Aisle 1",
+   "x": -3,
+   "y": -4,
+   "rot": 0,
+   "props": {
+    "bays": 20,
+    "levels": 8,
+    "dwell": {
+     "type": "exponential",
+     "mean": 400
+    },
+    "storeTime": 0.4,
+    "retrieveTime": 0.4,
+    "policy": "fifo"
+   }
+  },
+  {
+   "id": "bmwhnf37kmtlm",
+   "type": "asrs",
+   "name": "Aisle 2",
+   "x": -3,
+   "y": 4,
+   "rot": 0,
+   "props": {
+    "bays": 20,
+    "levels": 8,
+    "dwell": {
+     "type": "exponential",
+     "mean": 400
+    },
+    "storeTime": 0.4,
+    "retrieveTime": 0.4,
+    "policy": "fifo"
+   }
+  },
+  {
+   "id": "bmwhnf37kmuz1",
+   "type": "merge",
+   "name": "Outfeed",
+   "x": 7,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "inputs": 2
+   }
+  },
+  {
+   "id": "bmwhnf37kmvuu",
+   "type": "pickStation",
+   "name": "Pick",
+   "x": 12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "workstation",
+    "capacity": 3,
+    "time": {
+     "type": "triangular",
+     "min": 0.5,
+     "mode": 0.8,
+     "max": 1.5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37kmw9u",
+   "type": "packStation",
+   "name": "Pack",
+   "x": 17,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "packing",
+    "capacity": 3,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 1.5,
+     "max": 2.5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37kmxth",
+   "type": "shippingDock",
+   "name": "Outbound",
+   "x": 23,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "doors": 2,
+    "time": {
+     "type": "triangular",
+     "min": 0.3,
+     "mode": 0.6,
+     "max": 1
+    }
+   }
+  },
+  {
+   "id": "bmwhnf37kmylq",
+   "type": "sink",
+   "name": "Customers",
+   "x": 29,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf37kmzb9",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37kmp5z",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37kmohz",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37kn065",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37kmohz",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37kmqz5",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37kn1rs",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37kmqz5",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37kmrjx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37kn2n",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37kmrjx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37kmsnk",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37kn3ca",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37kmrjx",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf37kmtlm",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37kn49q",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37kmsnk",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37kmuz1",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37kn5t5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37kmtlm",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37kmuz1",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37kn6u9",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37kmuz1",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37kmvuu",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37kn7ct",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37kmvuu",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37kmw9u",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37kn8io",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37kmw9u",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37kmxth",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37kn9lf",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37kmxth",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37kmylq",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Stock",
+   "kind": "line",
+   "series": [
+    "Aisle 1.contents",
+    "Aisle 2.contents"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.025Z"
+}

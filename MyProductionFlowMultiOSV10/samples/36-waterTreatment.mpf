@@ -1,0 +1,224 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "정수 처리장",
+ "description": "취수 → 침전조 → 여과조 → 배수지, 밸브 주기",
+ "settings": {
+  "timeUnit": "h",
+  "duration": 72,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.05,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf384ywm0",
+   "type": "fluidSource",
+   "name": "Intake",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "120 + sinwave(20, 24, t)",
+    "unitLabel": "L",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhnf384yxmx",
+   "type": "tank",
+   "name": "Settling",
+   "x": -10,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "300",
+    "nonNegative": true,
+    "unitLabel": "m³",
+    "capacity": 800
+   }
+  },
+  {
+   "id": "bmwhnf384yyzg",
+   "type": "pump",
+   "name": "Transfer",
+   "x": -5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "min(130, Settling * 0.5)",
+    "unitLabel": "L",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhnf384yzn1",
+   "type": "tank",
+   "name": "FilterBed",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "100",
+    "nonNegative": true,
+    "unitLabel": "m³",
+    "capacity": 400
+   }
+  },
+  {
+   "id": "bmwhnf384z0r9",
+   "type": "valve",
+   "name": "Backwash",
+   "x": 5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "min(160, FilterBed)",
+    "unitLabel": "L",
+    "openTime": 5,
+    "closedTime": 1
+   }
+  },
+  {
+   "id": "bmwhnf384z14c",
+   "type": "tank",
+   "name": "Reservoir",
+   "x": 10,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "1500",
+    "nonNegative": true,
+    "unitLabel": "m³",
+    "capacity": 4000
+   }
+  },
+  {
+   "id": "bmwhnf384z2iv",
+   "type": "fluidSink",
+   "name": "CityDemand",
+   "x": 17,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "110 + sinwave(40, 24, t + 6)",
+    "unitLabel": "L",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf384z3v",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf384ywm0",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf384yxmx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf384z41i",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf384yxmx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf384yyzg",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf384z5vc",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf384yyzg",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf384yzn1",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf384z6nl",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf384yzn1",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf384z0r9",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf384z786",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf384z0r9",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf384z14c",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf384z81s",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf384z14c",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf384z2iv",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Levels",
+   "kind": "line",
+   "series": [
+    "Settling",
+    "FilterBed",
+    "Reservoir"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Flows",
+   "kind": "line",
+   "series": [
+    "Intake",
+    "CityDemand"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.044Z"
+}

@@ -1,0 +1,364 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "병입 라인",
+ "description": "컨베이어 연결 충전·캡핑·12개 묶음·팔레타이저",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 240,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf36534fl",
+   "type": "source",
+   "name": "Empty bottles",
+   "x": -26,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "constant",
+     "value": 0.1
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Bottle",
+      "color": "#22d3ee",
+      "weight": 1
+     }
+    ],
+    "shape": "bottle",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf36535ts",
+   "type": "conveyor",
+   "name": "C1",
+   "x": -24,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 15,
+    "spacing": 0.4,
+    "width": 0.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     10,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36536hm",
+   "type": "process",
+   "name": "Filler",
+   "x": -11,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "machine",
+    "capacity": 4,
+    "time": {
+     "type": "constant",
+     "value": 0.35
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": true,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 60
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 2,
+     "max": 4
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36537h0",
+   "type": "conveyor",
+   "name": "C2",
+   "x": -8.5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 15,
+    "spacing": 0.4,
+    "width": 0.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     8,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf365382s",
+   "type": "process",
+   "name": "Capper",
+   "x": 2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "press",
+    "capacity": 1,
+    "time": {
+     "type": "constant",
+     "value": 0.08
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36539hq",
+   "type": "conveyor",
+   "name": "C3",
+   "x": 4.5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 15,
+    "spacing": 0.4,
+    "width": 0.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     6,
+     0
+    ],
+    [
+     6,
+     6
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf3663acq",
+   "type": "batch",
+   "name": "Case packer",
+   "x": 10.5,
+   "y": 9,
+   "rot": 0,
+   "props": {
+    "size": 12,
+    "outType": "Case",
+    "outColor": "#b45309",
+    "shape": "carton"
+   }
+  },
+  {
+   "id": "bmwhnf3663b6s",
+   "type": "robot",
+   "name": "Palletizer",
+   "x": 16,
+   "y": 9,
+   "rot": 0,
+   "props": {
+    "time": {
+     "type": "uniform",
+     "min": 0.4,
+     "max": 0.7
+    },
+    "reach": 2.5
+   }
+  },
+  {
+   "id": "bmwhnf3663cr4",
+   "type": "sink",
+   "name": "Warehouse",
+   "x": 21,
+   "y": 9,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf3663d9a",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36534fl",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36535ts",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3663ez6",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36535ts",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36536hm",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3663fkv",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36536hm",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36537h0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3663g5e",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36537h0",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf365382s",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3663htv",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf365382s",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36539hq",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3663i41",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36539hq",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3663acq",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3663jp6",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3663acq",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3663b6s",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3663kr1",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3663b6s",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3663cr4",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Conveyors",
+   "kind": "line",
+   "series": [
+    "C1.contents",
+    "C2.contents",
+    "C3.contents"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.974Z"
+}

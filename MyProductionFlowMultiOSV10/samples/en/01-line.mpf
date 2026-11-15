@@ -1,0 +1,358 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Machining line",
+ "description": "CNC, inspection and packing; rejects scrapped",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 960,
+  "warmup": 60,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf35xht0",
+   "type": "zone",
+   "name": "Shop floor",
+   "x": 2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "fill": "#dbeafe",
+    "opacity": 0.35,
+    "floor": "concrete"
+   },
+   "w": 46,
+   "h": 16
+  },
+  {
+   "id": "bmwhnf35xi89",
+   "type": "source",
+   "name": "Raw parts",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 2.2
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Shaft",
+      "color": "#64748b",
+      "weight": 1
+     }
+    ],
+    "shape": "part",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf35xjdg",
+   "type": "queue",
+   "name": "Buffer A",
+   "x": -12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 15,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf35xkwq",
+   "type": "process",
+   "name": "CNC",
+   "x": -5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "cnc",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 1.5,
+     "mode": 1.9,
+     "max": 2.6
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": true,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 240
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 5,
+     "mode": 10,
+     "max": 20
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf35xl68",
+   "type": "queue",
+   "name": "Buffer B",
+   "x": 2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 10,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf35xmie",
+   "type": "process",
+   "name": "Inspection",
+   "x": 9,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "inspection",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 1.4,
+     "max": 2
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0.06,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf35ynfu",
+   "type": "process",
+   "name": "Packing",
+   "x": 16,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "packing",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 1.2,
+     "mode": 1.6,
+     "max": 2.1
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf35yogc",
+   "type": "sink",
+   "name": "Finished",
+   "x": 22,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf35yprq",
+   "type": "sink",
+   "name": "Scrap",
+   "x": 9,
+   "y": 6,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf35yxbg",
+   "type": "display",
+   "name": "Output",
+   "x": 2,
+   "y": -6,
+   "rot": 0,
+   "props": {
+    "expression": "Finished.count",
+    "digits": 0,
+    "unitLabel": "pcs",
+    "style": "number",
+    "min": 0,
+    "max": 100
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf35yqtq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf35xi89",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf35xjdg",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf35yrt1",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf35xjdg",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf35xkwq",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf35yseu",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf35xkwq",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf35xl68",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf35ytn1",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf35xl68",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf35xmie",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf35yu56",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf35xmie",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf35ynfu",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf35yvsh",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf35ynfu",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf35yogc",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf35ywf8",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf35xmie",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf35yprq",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Buffers",
+   "kind": "line",
+   "series": [
+    "Buffer A.length",
+    "Buffer B.length"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Utilization",
+   "kind": "line",
+   "series": [
+    "CNC.utilization",
+    "Inspection.utilization",
+    "Packing.utilization"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.966Z"
+}

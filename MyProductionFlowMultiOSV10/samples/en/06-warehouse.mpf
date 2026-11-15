@@ -1,0 +1,466 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Warehouse",
+ "description": "Unloading → forklifts → racks → picking → shipping",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 1440,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 70,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf36a57g1",
+   "type": "zone",
+   "name": "Receiving area",
+   "x": -22,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "fill": "#fef3c7",
+    "opacity": 0.35,
+    "floor": "concrete"
+   },
+   "w": 16,
+   "h": 24
+  },
+  {
+   "id": "bmwhnf36a58un",
+   "type": "zone",
+   "name": "Storage",
+   "x": 2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "fill": "#e2e8f0",
+    "opacity": 0.35,
+    "floor": "concrete"
+   },
+   "w": 26,
+   "h": 26
+  },
+  {
+   "id": "bmwhnf36a59z9",
+   "type": "zone",
+   "name": "Shipping area",
+   "x": 24,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "fill": "#dcfce7",
+    "opacity": 0.35,
+    "floor": "concrete"
+   },
+   "w": 14,
+   "h": 24
+  },
+  {
+   "id": "bmwhnf36a5auj",
+   "type": "wall",
+   "name": "Wall N",
+   "x": -32,
+   "y": -14,
+   "rot": 0,
+   "props": {
+    "height": 3,
+    "thickness": 0.2
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     64,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36a5bzv",
+   "type": "source",
+   "name": "Inbound trucks",
+   "x": -28,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 4
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Pallet",
+      "color": "#a16207",
+      "weight": 1
+     }
+    ],
+    "shape": "pallet",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf36a5cb0",
+   "type": "dock",
+   "name": "Dock doors",
+   "x": -22,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "doors": 3,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 3,
+     "max": 6
+    }
+   }
+  },
+  {
+   "id": "bmwhnf36a5dqk",
+   "type": "transporter",
+   "name": "Forklifts",
+   "x": -15,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "vehicle": "forklift",
+    "fleet": 4,
+    "speed": 90,
+    "loadTime": 0.5,
+    "unloadTime": 0.5,
+    "returnHome": true,
+    "routing": "manhattan"
+   }
+  },
+  {
+   "id": "bmwhnf36a5egb",
+   "type": "rack",
+   "name": "Rack A",
+   "x": 2,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "bays": 10,
+    "levels": 5,
+    "dwell": {
+     "type": "exponential",
+     "mean": 300
+    },
+    "storeTime": 1,
+    "retrieveTime": 1,
+    "policy": "fifo"
+   }
+  },
+  {
+   "id": "bmwhnf36b5f35",
+   "type": "rack",
+   "name": "Rack B",
+   "x": 2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "bays": 10,
+    "levels": 5,
+    "dwell": {
+     "type": "exponential",
+     "mean": 300
+    },
+    "storeTime": 1,
+    "retrieveTime": 1,
+    "policy": "fifo"
+   }
+  },
+  {
+   "id": "bmwhnf36b5gru",
+   "type": "rack",
+   "name": "Rack C",
+   "x": 2,
+   "y": 8,
+   "rot": 0,
+   "props": {
+    "bays": 10,
+    "levels": 5,
+    "dwell": {
+     "type": "exponential",
+     "mean": 300
+    },
+    "storeTime": 1,
+    "retrieveTime": 1,
+    "policy": "fifo"
+   }
+  },
+  {
+   "id": "bmwhnf36b5h8h",
+   "type": "select",
+   "name": "Slotting",
+   "x": -9,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 3,
+    "mode": "shortest",
+    "weights": "1, 1",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf36b5ix0",
+   "type": "transporter",
+   "name": "Pickers",
+   "x": 14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "vehicle": "cart",
+    "fleet": 3,
+    "speed": 60,
+    "loadTime": 0.5,
+    "unloadTime": 0.5,
+    "returnHome": true,
+    "routing": "manhattan"
+   }
+  },
+  {
+   "id": "bmwhnf36b5jwn",
+   "type": "process",
+   "name": "Pack station",
+   "x": 21,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "packing",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 3,
+     "mode": 4,
+     "max": 6
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36b5ku",
+   "type": "sink",
+   "name": "Outbound",
+   "x": 28,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf36b5lwv",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36a5bzv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36a5cb0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36b5mpc",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36a5cb0",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36a5dqk",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36b5nah",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36a5dqk",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36b5h8h",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36b5ood",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5h8h",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36a5egb",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36b5p9d",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5h8h",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf36b5f35",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36b5qv4",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5h8h",
+    "port": 2
+   },
+   "to": {
+    "block": "bmwhnf36b5gru",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36b5rsu",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36a5egb",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36b5ix0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36b5snk",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5f35",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36b5ix0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36b5tqh",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5gru",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36b5ix0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36b5uvi",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5ix0",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36b5jwn",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36b5v27",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36b5jwn",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36b5ku",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Rack fill",
+   "kind": "line",
+   "series": [
+    "Rack A.contents",
+    "Rack B.contents",
+    "Rack C.contents"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Fleet",
+   "kind": "line",
+   "series": [
+    "Forklifts.utilization",
+    "Pickers.utilization"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.979Z"
+}

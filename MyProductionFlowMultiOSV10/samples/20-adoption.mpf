@@ -1,0 +1,79 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "제품 입소문 (에이전트)",
+ "description": "Bass 확산의 에이전트 버전",
+ "settings": {
+  "timeUnit": "day",
+  "duration": 200,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.5,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf376geqh",
+   "type": "population",
+   "name": "Consumers",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "count": 600,
+    "speed": 3,
+    "shape": "dot",
+    "states": [
+     {
+      "name": "Potential",
+      "color": "#94a3b8"
+     },
+     {
+      "name": "Adopter",
+      "color": "#16a34a"
+     }
+    ],
+    "initial": "Potential:1, Adopter:0",
+    "transitions": [
+     {
+      "from": "Potential",
+      "to": "Adopter",
+      "kind": "rate",
+      "value": 0.002
+     },
+     {
+      "from": "Potential",
+      "to": "Adopter",
+      "kind": "contact",
+      "value": 0.25,
+      "trigger": "Adopter",
+      "radius": 1.5
+     }
+    ]
+   },
+   "w": 36,
+   "h": 24
+  }
+ ],
+ "links": [],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Adoption",
+   "kind": "line",
+   "series": [
+    "Consumers.Potential",
+    "Consumers.Adopter"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.010Z"
+}

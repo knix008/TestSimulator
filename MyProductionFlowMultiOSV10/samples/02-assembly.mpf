@@ -1,0 +1,377 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "조립 라인",
+ "description": "차체 1 + 바퀴 4 → 조립 → 도장 → 컨베이어",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 720,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf35zy7m",
+   "type": "source",
+   "name": "Bodies",
+   "x": -20,
+   "y": -4,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 4
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Body",
+      "color": "#2563eb",
+      "weight": 1
+     }
+    ],
+    "shape": "carton",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf360zl7",
+   "type": "source",
+   "name": "Wheels",
+   "x": -20,
+   "y": 4,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 1.02
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Wheel",
+      "color": "#1f2937",
+      "weight": 1
+     }
+    ],
+    "shape": "part",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf36010pt",
+   "type": "queue",
+   "name": "Body buffer",
+   "x": -13,
+   "y": -4,
+   "rot": 0,
+   "props": {
+    "capacity": 10,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf36011e7",
+   "type": "queue",
+   "name": "Wheel buffer",
+   "x": -13,
+   "y": 4,
+   "rot": 0,
+   "props": {
+    "capacity": 40,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf36012su",
+   "type": "combine",
+   "name": "Assembly",
+   "x": -5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "inputs": 2,
+    "quantities": "1, 4",
+    "time": {
+     "type": "triangular",
+     "min": 2.5,
+     "mode": 3,
+     "max": 4
+    },
+    "outType": "Car",
+    "outColor": "#dc2626"
+   }
+  },
+  {
+   "id": "bmwhnf36013w3",
+   "type": "process",
+   "name": "Paint booth",
+   "x": 2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "paint",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 2.5,
+     "mode": 3,
+     "max": 3.5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36014yv",
+   "type": "conveyor",
+   "name": "Line conveyor",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 6,
+    "spacing": 1,
+    "width": 0.8,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     10,
+     0
+    ],
+    [
+     10,
+     6
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf36015g4",
+   "type": "process",
+   "name": "Final check",
+   "x": 14,
+   "y": 9,
+   "rot": 0,
+   "props": {
+    "look": "inspection",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 2,
+     "max": 3
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36016ov",
+   "type": "sink",
+   "name": "Yard",
+   "x": 20,
+   "y": 9,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf360177r",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf35zy7m",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36010pt",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36018l0",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf360zl7",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36011e7",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36019ax",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36010pt",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36012su",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3601aqs",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36011e7",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36012su",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3601b9",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36012su",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36013w3",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3601cc0",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36013w3",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36014yv",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3601d94",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36014yv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36015g4",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3601e97",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36015g4",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36016ov",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Buffers",
+   "kind": "line",
+   "series": [
+    "Body buffer.length",
+    "Wheel buffer.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.968Z"
+}

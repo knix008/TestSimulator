@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- MyProductionFlow app icon: a small factory floor in isometric view — a
+       conveyor carrying coloured boxes into a machine with a green status
+       light, a waiting queue and a rising throughput line — on a raised teal
+       tile. The tile sits in the exact centre (112…912 both ways); the border is transparent. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c9f4ef"/>
+      <stop offset="0.5" stop-color="#3fb7b0"/>
+      <stop offset="1" stop-color="#16656f"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f4a55"/>
+      <stop offset="1" stop-color="#082d36"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.2" cy="0.16" r="0.62">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="0.3" stop-color="#eafffb" stop-opacity="0.4"/>
+      <stop offset="0.7" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8eef3"/><stop offset="1" stop-color="#b9c7d3"/>
+    </linearGradient>
+    <linearGradient id="beltTop" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4b5563"/><stop offset="1" stop-color="#2b323c"/>
+    </linearGradient>
+    <linearGradient id="machL" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="machR" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2563eb"/><stop offset="1" stop-color="#173a99"/>
+    </linearGradient>
+    <clipPath id="faceClip"><rect x="112" y="112" width="800" height="760" rx="170"/></clipPath>
+    <filter id="shadow" x="-30%" y="-300%" width="160%" height="700%"><feGaussianBlur stdDeviation="22"/></filter>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#062a30" flood-opacity="0.45"/></filter>
+  </defs>
+
+  <ellipse cx="512" cy="948" rx="370" ry="32" fill="#062a30" opacity="0.5" filter="url(#shadow)"/>
+  <rect x="112" y="152" width="800" height="760" rx="170" fill="url(#side)"/>
+  <rect x="112" y="112" width="800" height="760" rx="170" fill="url(#face)"/>
+
+  <g clip-path="url(#faceClip)">
+    <!-- floor slab -->
+    <g filter="url(#drop)">
+      <path d="M512 330L842 495L512 660L182 495z" fill="url(#floor)"/>
+      <path d="M182 495L512 660V700L182 535z" fill="#8b9bab"/>
+      <path d="M512 660L842 495V535L512 700z" fill="#6f8091"/>
+    </g>
+    <!-- painted lanes -->
+    <path d="M300 520L470 435M352 546L522 461" stroke="#f5b400" stroke-width="7" stroke-dasharray="22 14" opacity="0.8"/>
+    <!-- conveyor (left → right, towards the machine) -->
+    <g filter="url(#drop)">
+      <path d="M250 470L560 625L600 605L290 450z" fill="url(#beltTop)"/>
+      <path d="M250 470L560 625V650L250 495z" fill="#1f2630"/>
+      <path d="M560 625L600 605V630L560 650z" fill="#151a21"/>
+    </g>
+    <path d="M300 495L340 475M360 525L400 505M420 555L460 535M480 585L520 565" stroke="#6b7280" stroke-width="5"/>
+    <!-- boxes on the belt -->
+    <g>
+      <path d="M286 446L318 430L350 446L318 462z" fill="#fbbf24"/>
+      <path d="M286 446L318 462V496L286 480z" fill="#d97706"/>
+      <path d="M318 462L350 446V480L318 496z" fill="#b45309"/>
+      <path d="M396 501L428 485L460 501L428 517z" fill="#f87171"/>
+      <path d="M396 501L428 517V551L396 535z" fill="#dc2626"/>
+      <path d="M428 517L460 501V535L428 551z" fill="#b91c1c"/>
+      <path d="M496 551L528 535L560 551L528 567z" fill="#4ade80"/>
+      <path d="M496 551L528 567V601L496 585z" fill="#16a34a"/>
+      <path d="M528 567L560 551V585L528 601z" fill="#15803d"/>
+    </g>
+    <!-- machine -->
+    <g filter="url(#drop)">
+      <path d="M590 480L700 425L800 475L690 530z" fill="#93c5fd"/>
+      <path d="M590 480L690 530V650L590 600z" fill="url(#machL)"/>
+      <path d="M690 530L800 475V595L690 650z" fill="url(#machR)"/>
+      <path d="M612 520L668 548V600L612 572z" fill="#bfdbfe" opacity="0.85"/>
+      <path d="M612 520L668 548" stroke="#ffffff" stroke-width="5" opacity="0.8"/>
+      <!-- status light -->
+      <path d="M736 432v-58" stroke="#334155" stroke-width="10" stroke-linecap="round"/>
+      <circle cx="736" cy="360" r="24" fill="#22c55e"/>
+      <circle cx="728" cy="352" r="8" fill="#dcfce7"/>
+    </g>
+    <!-- throughput line rising out of the factory -->
+    <path d="M220 300C300 290 340 230 410 222S520 170 560 150" fill="none" stroke="#ffffff" stroke-width="22" stroke-linecap="round" opacity="0.95"/>
+    <path d="M520 128L586 140L556 200z" fill="#ffffff"/>
+    <circle cx="220" cy="300" r="15" fill="#ffffff"/>
+    <circle cx="410" cy="222" r="15" fill="#ffffff"/>
+    <rect x="112" y="112" width="800" height="760" fill="url(#glow)"/>
+  </g>
+</svg>

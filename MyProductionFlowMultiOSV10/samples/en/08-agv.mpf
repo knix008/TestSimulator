@@ -1,0 +1,282 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "AGV factory",
+ "description": "4 AGVs carry parts between cells",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 720,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf36e7f26",
+   "type": "source",
+   "name": "Stores",
+   "x": -22,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 3
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Part",
+      "color": "#3b82f6",
+      "weight": 1
+     }
+    ],
+    "shape": "box",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf36e7gtw",
+   "type": "transporter",
+   "name": "AGV fleet",
+   "x": -16,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "vehicle": "agv",
+    "fleet": 4,
+    "speed": 50,
+    "loadTime": 0.5,
+    "unloadTime": 0.5,
+    "returnHome": true,
+    "routing": "manhattan"
+   }
+  },
+  {
+   "id": "bmwhnf36e7hm6",
+   "type": "queue",
+   "name": "Cell 1 in",
+   "x": -2,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "capacity": 6,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf36e7iqr",
+   "type": "process",
+   "name": "Cell 1",
+   "x": 4,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "look": "robot",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 2.6,
+     "max": 3.5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36e7jo7",
+   "type": "transporter",
+   "name": "AGV loop",
+   "x": 10,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "vehicle": "agv",
+    "fleet": 2,
+    "speed": 50,
+    "loadTime": 0.5,
+    "unloadTime": 0.5,
+    "returnHome": true,
+    "routing": "manhattan"
+   }
+  },
+  {
+   "id": "bmwhnf36e7kmq",
+   "type": "process",
+   "name": "Cell 2",
+   "x": 20,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "look": "cnc",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 2.5,
+     "max": 3
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36e7l53",
+   "type": "sink",
+   "name": "Dispatch",
+   "x": 26,
+   "y": -8,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf36e7m3",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36e7f26",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36e7gtw",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36e7nh8",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36e7gtw",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36e7hm6",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36e7oyt",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36e7hm6",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36e7iqr",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36e7pe6",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36e7iqr",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36e7jo7",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36e7qin",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36e7jo7",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36e7kmq",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36e7rd1",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36e7kmq",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36e7l53",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "AGVs",
+   "kind": "line",
+   "series": [
+    "AGV fleet.utilization",
+    "AGV loop.utilization"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.983Z"
+}

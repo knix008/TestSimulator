@@ -1,0 +1,461 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "전자 조립",
+ "description": "3D 프린터 시제품, 키팅·조립·시험, 불량 재작업",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 960,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf37gky1g",
+   "type": "source",
+   "name": "Orders",
+   "x": -22,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 2.5
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Part",
+      "color": "#3b82f6",
+      "weight": 1
+     }
+    ],
+    "shape": "box",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf37gkzqt",
+   "type": "kittingStation",
+   "name": "Kitting",
+   "x": -16,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "kitting",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 3,
+     "max": 4
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37gl029",
+   "type": "rollerConveyor",
+   "name": "To assembly",
+   "x": -14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 18,
+    "spacing": 0.7,
+    "width": 0.9,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     6,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf37gl1nr",
+   "type": "assemblyStation",
+   "name": "Assembly",
+   "x": -4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "assembly",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 3,
+     "mode": 4,
+     "max": 6
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37gl24y",
+   "type": "merge",
+   "name": "Into test",
+   "x": 1,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "inputs": 2
+   }
+  },
+  {
+   "id": "bmwhnf37gl31m",
+   "type": "testBench",
+   "name": "Test",
+   "x": 6,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "test",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 3,
+     "max": 5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0.08,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37gl4gr",
+   "type": "labeler",
+   "name": "Label",
+   "x": 11,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "labeler",
+    "capacity": 1,
+    "time": {
+     "type": "constant",
+     "value": 0.2
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37gl5bv",
+   "type": "packingMachine",
+   "name": "Pack",
+   "x": 15,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "packing",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 0.8,
+     "mode": 1,
+     "max": 1.5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37gl6ch",
+   "type": "sink",
+   "name": "Ship",
+   "x": 20,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf37gl78l",
+   "type": "process",
+   "name": "Rework",
+   "x": 6,
+   "y": 7,
+   "rot": 0,
+   "props": {
+    "look": "workstation",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 4,
+     "mode": 6,
+     "max": 10
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf37gl8ik",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37gky1g",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37gkzqt",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37gl9ao",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37gkzqt",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37gl029",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37glark",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37gl029",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37gl1nr",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37glbqe",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37gl1nr",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37gl24y",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37glc6c",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37gl24y",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37gl31m",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37gldk3",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37gl31m",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37gl4gr",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37gle2j",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37gl4gr",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37gl5bv",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37glfq5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37gl5bv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37gl6ch",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37glgvf",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37gl31m",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf37gl78l",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37glht3",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37gl78l",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37gl24y",
+    "port": 1
+   },
+   "points": [
+    [
+     1,
+     7
+    ]
+   ]
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Test",
+   "kind": "line",
+   "series": [
+    "Test.utilization",
+    "Rework.utilization"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.020Z"
+}

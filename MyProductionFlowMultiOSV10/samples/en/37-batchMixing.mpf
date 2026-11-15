@@ -1,0 +1,229 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Batch mixing (fluids)",
+ "description": "Two ingredients into a mixing tank",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 240,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.1,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf3861009g",
+   "type": "tank",
+   "name": "IngredientA",
+   "x": -12,
+   "y": -5,
+   "rot": 0,
+   "props": {
+    "initial": "600",
+    "nonNegative": true,
+    "unitLabel": "L",
+    "capacity": 1000
+   }
+  },
+  {
+   "id": "bmwhnf386101ol",
+   "type": "tank",
+   "name": "IngredientB",
+   "x": -12,
+   "y": 5,
+   "rot": 0,
+   "props": {
+    "initial": "400",
+    "nonNegative": true,
+    "unitLabel": "L",
+    "capacity": 1000
+   }
+  },
+  {
+   "id": "bmwhnf386102jx",
+   "type": "valve",
+   "name": "DoseA",
+   "x": -6,
+   "y": -5,
+   "rot": 0,
+   "props": {
+    "equation": "6",
+    "unitLabel": "L",
+    "openTime": 20,
+    "closedTime": 10
+   }
+  },
+  {
+   "id": "bmwhnf386103ba",
+   "type": "valve",
+   "name": "DoseB",
+   "x": -6,
+   "y": 5,
+   "rot": 0,
+   "props": {
+    "equation": "4",
+    "unitLabel": "L",
+    "openTime": 20,
+    "closedTime": 10
+   }
+  },
+  {
+   "id": "bmwhnf3861046u",
+   "type": "mixingTank",
+   "name": "Mixer",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "0",
+    "nonNegative": true,
+    "unitLabel": "L",
+    "capacity": 500
+   }
+  },
+  {
+   "id": "bmwhnf386105gx",
+   "type": "pump",
+   "name": "FillLine",
+   "x": 6,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "if(Mixer > 200, 9, 0)",
+    "unitLabel": "L",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhnf386106pu",
+   "type": "tank",
+   "name": "Product",
+   "x": 12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "0",
+    "nonNegative": true,
+    "unitLabel": "L",
+    "capacity": 2000
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf38610728",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3861009g",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf386102jx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf386108ew",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf386102jx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3861046u",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3861092z",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf386101ol",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf386103ba",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38610apz",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf386103ba",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3861046u",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38610bcd",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3861046u",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf386105gx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38610c9g",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf386105gx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf386106pu",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf38610d32",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf3861046u",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf386105gx",
+    "port": -1
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Tanks",
+   "kind": "line",
+   "series": [
+    "IngredientA",
+    "IngredientB",
+    "Mixer",
+    "Product"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.046Z"
+}

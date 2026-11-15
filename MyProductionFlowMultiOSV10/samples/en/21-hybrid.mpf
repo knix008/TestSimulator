@@ -1,0 +1,276 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Hybrid: SD demand → production",
+ "description": "Seasonal SD demand drives arrivals; finished stock in SD",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 1440,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 1,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf378guo8",
+   "type": "variable",
+   "name": "Demand",
+   "x": -14,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "equation": "0.35 + sinwave(0.2, 720, t)",
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhnf378gv97",
+   "type": "source",
+   "name": "Orders",
+   "x": -16,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "rate",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 60
+    },
+    "rate": "Demand",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Part",
+      "color": "#3b82f6",
+      "weight": 1
+     }
+    ],
+    "shape": "box",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf378gwub",
+   "type": "queue",
+   "name": "Order book",
+   "x": -10,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf378gx4f",
+   "type": "process",
+   "name": "Production",
+   "x": -3,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "machine",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 3.5,
+     "mode": 4.5,
+     "max": 6
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf378gyu1",
+   "type": "sink",
+   "name": "Made",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf378gz5f",
+   "type": "stock",
+   "name": "Stock",
+   "x": 12,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "initial": "50",
+    "nonNegative": true,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhnf378h0ue",
+   "type": "flow",
+   "name": "Produced",
+   "x": 6,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "equation": "Production.busy / 4.6",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhnf378h164",
+   "type": "flow",
+   "name": "Sold",
+   "x": 18,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "equation": "min(Stock, 0.4)",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf378h232",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf378gv97",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf378gwub",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf378h3gu",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf378gwub",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf378gx4f",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf378h4qt",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf378gx4f",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf378gyu1",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf378h5up",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf378h0ue",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf378gz5f",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf378h64l",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf378gz5f",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf378h164",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf378h7i4",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf378guo8",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf378gv97",
+    "port": -1
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Demand and backlog",
+   "kind": "line",
+   "series": [
+    "Demand",
+    "Order book.length"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Finished stock",
+   "kind": "line",
+   "series": [
+    "Stock"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.013Z"
+}

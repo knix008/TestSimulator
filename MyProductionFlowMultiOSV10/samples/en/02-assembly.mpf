@@ -1,0 +1,377 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Assembly line",
+ "description": "1 body + 4 wheels → assembly → paint → conveyor",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 720,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf3611fwt",
+   "type": "source",
+   "name": "Bodies",
+   "x": -20,
+   "y": -4,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 4
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Body",
+      "color": "#2563eb",
+      "weight": 1
+     }
+    ],
+    "shape": "carton",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf3611g2q",
+   "type": "source",
+   "name": "Wheels",
+   "x": -20,
+   "y": 4,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 1.02
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Wheel",
+      "color": "#1f2937",
+      "weight": 1
+     }
+    ],
+    "shape": "part",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf3611hm8",
+   "type": "queue",
+   "name": "Body buffer",
+   "x": -13,
+   "y": -4,
+   "rot": 0,
+   "props": {
+    "capacity": 10,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf3611ik1",
+   "type": "queue",
+   "name": "Wheel buffer",
+   "x": -13,
+   "y": 4,
+   "rot": 0,
+   "props": {
+    "capacity": 40,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf3611juf",
+   "type": "combine",
+   "name": "Assembly",
+   "x": -5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "inputs": 2,
+    "quantities": "1, 4",
+    "time": {
+     "type": "triangular",
+     "min": 2.5,
+     "mode": 3,
+     "max": 4
+    },
+    "outType": "Car",
+    "outColor": "#dc2626"
+   }
+  },
+  {
+   "id": "bmwhnf3611k1a",
+   "type": "process",
+   "name": "Paint booth",
+   "x": 2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "paint",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 2.5,
+     "mode": 3,
+     "max": 3.5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf3611l5h",
+   "type": "conveyor",
+   "name": "Line conveyor",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 6,
+    "spacing": 1,
+    "width": 0.8,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     10,
+     0
+    ],
+    [
+     10,
+     6
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf3611mnj",
+   "type": "process",
+   "name": "Final check",
+   "x": 14,
+   "y": 9,
+   "rot": 0,
+   "props": {
+    "look": "inspection",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 2,
+     "max": 3
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf3611n8u",
+   "type": "sink",
+   "name": "Yard",
+   "x": 20,
+   "y": 9,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf3611oxk",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3611fwt",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3611hm8",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3611pnm",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3611g2q",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3611ik1",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3611qr5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3611hm8",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3611juf",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3611r3i",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3611ik1",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3611juf",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3611se0",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3611juf",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3611k1a",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3611tvd",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3611k1a",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3611l5h",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3611u60",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3611l5h",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3611mnj",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf3611v37",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf3611mnj",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf3611n8u",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Buffers",
+   "kind": "line",
+   "series": [
+    "Body buffer.length",
+    "Wheel buffer.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.969Z"
+}

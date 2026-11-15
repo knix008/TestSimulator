@@ -1,0 +1,515 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Machining with maintenance",
+ "description": "3 CNCs, planned maintenance and breakdowns, 2 setters",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 1440,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf37cjbfw",
+   "type": "resourcePool",
+   "name": "Setters",
+   "x": 0,
+   "y": 10,
+   "rot": 0,
+   "props": {
+    "capacity": 3,
+    "kind": "worker",
+    "shifts": false,
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 2
+     },
+     {
+      "start": 480,
+      "end": 1440,
+      "value": 1
+     }
+    ],
+    "period": 1440,
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37cjcxc",
+   "type": "source",
+   "name": "Blanks",
+   "x": -20,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 1.7
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Shaft",
+      "color": "#64748b",
+      "weight": 2
+     },
+     {
+      "name": "Flange",
+      "color": "#0ea5e9",
+      "weight": 1
+     }
+    ],
+    "shape": "part",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf37cjd68",
+   "type": "queue",
+   "name": "Queue",
+   "x": -14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf37cje66",
+   "type": "select",
+   "name": "Load",
+   "x": -9,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 3,
+    "mode": "shortest",
+    "weights": "1, 1",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf37cjf6e",
+   "type": "cncMachine",
+   "name": "CNC1",
+   "x": -2,
+   "y": -6,
+   "rot": 0,
+   "props": {
+    "look": "cnc",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 3,
+     "mode": 3.6,
+     "max": 4.8
+    },
+    "pool": "Setters",
+    "units": 1,
+    "setup": 1.5,
+    "defectRate": 0,
+    "failures": true,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 10,
+     "mode": 20,
+     "max": 40
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37cjg9e",
+   "type": "maintenance",
+   "name": "PM1",
+   "x": 4,
+   "y": -6,
+   "rot": 0,
+   "props": {
+    "target": "CNC1",
+    "interval": {
+     "type": "constant",
+     "value": 360
+    },
+    "duration": {
+     "type": "triangular",
+     "min": 15,
+     "mode": 20,
+     "max": 30
+    },
+    "firstAt": 120
+   }
+  },
+  {
+   "id": "bmwhnf37cjh24",
+   "type": "cncMachine",
+   "name": "CNC2",
+   "x": -2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "cnc",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 3,
+     "mode": 3.6,
+     "max": 4.8
+    },
+    "pool": "Setters",
+    "units": 1,
+    "setup": 1.5,
+    "defectRate": 0,
+    "failures": true,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 10,
+     "mode": 20,
+     "max": 40
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37cjiwy",
+   "type": "maintenance",
+   "name": "PM2",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "target": "CNC2",
+    "interval": {
+     "type": "constant",
+     "value": 360
+    },
+    "duration": {
+     "type": "triangular",
+     "min": 15,
+     "mode": 20,
+     "max": 30
+    },
+    "firstAt": 240
+   }
+  },
+  {
+   "id": "bmwhnf37cjjhn",
+   "type": "cncMachine",
+   "name": "CNC3",
+   "x": -2,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "look": "cnc",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 3,
+     "mode": 3.6,
+     "max": 4.8
+    },
+    "pool": "Setters",
+    "units": 1,
+    "setup": 1.5,
+    "defectRate": 0,
+    "failures": true,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 10,
+     "mode": 20,
+     "max": 40
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37cjkeg",
+   "type": "maintenance",
+   "name": "PM3",
+   "x": 4,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "target": "CNC3",
+    "interval": {
+     "type": "constant",
+     "value": 360
+    },
+    "duration": {
+     "type": "triangular",
+     "min": 15,
+     "mode": 20,
+     "max": 30
+    },
+    "firstAt": 360
+   }
+  },
+  {
+   "id": "bmwhnf37cjl6p",
+   "type": "merge",
+   "name": "Collect",
+   "x": 9,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "inputs": 3
+   }
+  },
+  {
+   "id": "bmwhnf37cjmy",
+   "type": "inspectionStation",
+   "name": "Gauge",
+   "x": 14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "inspection",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 0.5,
+     "mode": 1,
+     "max": 1.5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0.05,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37cjnlj",
+   "type": "sink",
+   "name": "OK",
+   "x": 19,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf37cjo80",
+   "type": "sink",
+   "name": "NG",
+   "x": 14,
+   "y": 6,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf37cjpkk",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37cjcxc",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37cjd68",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37cjq43",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37cjd68",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37cje66",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37cjryp",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37cje66",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37cjf6e",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37cjsn5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37cjf6e",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37cjl6p",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37cjtg8",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37cje66",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf37cjh24",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37cjubf",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37cjh24",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37cjl6p",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37cjvpk",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37cje66",
+    "port": 2
+   },
+   "to": {
+    "block": "bmwhnf37cjjhn",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37cjwn6",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37cjjhn",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37cjl6p",
+    "port": 2
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37cjxjb",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37cjl6p",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37cjmy",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37cjywu",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37cjmy",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37cjnlj",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37cjz4",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37cjmy",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf37cjo80",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Machines",
+   "kind": "line",
+   "series": [
+    "CNC1.utilization",
+    "CNC2.utilization",
+    "CNC3.utilization"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.016Z"
+}

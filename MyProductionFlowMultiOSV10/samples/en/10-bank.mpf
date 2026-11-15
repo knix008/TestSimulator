@@ -1,0 +1,196 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Bank tellers",
+ "description": "3 tellers; customers leave after waiting too long",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 480,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf36k9381",
+   "type": "source",
+   "name": "Customers",
+   "x": -14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 1.1
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Customer",
+      "color": "#7c3aed",
+      "weight": 1
+     }
+    ],
+    "shape": "person",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf36k94ve",
+   "type": "queue",
+   "name": "Waiting line",
+   "x": -7,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 15
+   }
+  },
+  {
+   "id": "bmwhnf36k95m3",
+   "type": "process",
+   "name": "Tellers",
+   "x": 1,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "desk",
+    "capacity": 3,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 3,
+     "max": 5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36l96u7",
+   "type": "sink",
+   "name": "Served",
+   "x": 8,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf36l97qw",
+   "type": "sink",
+   "name": "Gave up",
+   "x": -7,
+   "y": 6,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf36l98ar",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36k9381",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36k94ve",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36l99u2",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36k94ve",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36k95m3",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36l9aos",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36k95m3",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36l96u7",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36l9b1a",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36k94ve",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf36l97qw",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Line",
+   "kind": "line",
+   "series": [
+    "Waiting line.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.989Z"
+}

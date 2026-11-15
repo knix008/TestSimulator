@@ -1,0 +1,42 @@
+{
+  "name": "myproductionflow",
+  "productName": "MyProductionFlow",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Production line, warehouse and traffic flow simulation (discrete-event, system dynamics and agent-based) with a graphical 2D editor and live 3D animation for Web, Windows, macOS and Linux (Tauri)",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview --port 4188 --strictPort",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "test:unit": "node scripts/test.mjs --only unit",
+    "test:web": "node scripts/test.mjs --only web",
+    "test:desktop": "node scripts/test.mjs --only desktop --desktop",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "build:debug": "tauri build --debug --no-bundle",
+    "build:docs": "node scripts/build-docs.mjs",
+    "tutorial:docs": "node scripts/tutorial-capture.mjs",
+    "build:icons": "node scripts/render-icons.mjs",
+    "samples": "node scripts/make-samples.mjs",
+    "notices": "node scripts/make-notices.mjs",
+    "i18n:check": "node scripts/i18n-keys.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "vite": "^7.1.7"
+  }
+}

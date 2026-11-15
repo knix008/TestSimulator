@@ -1,0 +1,181 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "신제품 확산 (Bass)",
+ "description": "광고와 입소문으로 잠재 고객이 사용자로",
+ "settings": {
+  "timeUnit": "day",
+  "duration": 365,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.5,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf36we8cv",
+   "type": "stock",
+   "name": "Potential",
+   "x": -10,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "100000",
+    "nonNegative": true,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhnf36we9hl",
+   "type": "stock",
+   "name": "Adopters",
+   "x": 10,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "0",
+    "nonNegative": true,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhnf36weae1",
+   "type": "flow",
+   "name": "Adoption",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "Potential * (Advertising + WordOfMouth * Adopters / (Potential + Adopters))",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhnf36webgh",
+   "type": "parameter",
+   "name": "Advertising",
+   "x": -6,
+   "y": -6,
+   "rot": 0,
+   "props": {
+    "value": 0.003,
+    "min": 0,
+    "max": 0.02,
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhnf36wecdk",
+   "type": "parameter",
+   "name": "WordOfMouth",
+   "x": 6,
+   "y": -6,
+   "rot": 0,
+   "props": {
+    "value": 0.04,
+    "min": 0,
+    "max": 0.2,
+    "unitLabel": ""
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf36wedh0",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36we8cv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36weae1",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36weemq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36weae1",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36we9hl",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36wefpq",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf36webgh",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf36weae1",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36weg5q",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf36wecdk",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf36weae1",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36wehin",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf36we9hl",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf36weae1",
+    "port": -1
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Market",
+   "kind": "line",
+   "series": [
+    "Potential",
+    "Adopters"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Adoption rate",
+   "kind": "line",
+   "series": [
+    "Adoption"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.000Z"
+}

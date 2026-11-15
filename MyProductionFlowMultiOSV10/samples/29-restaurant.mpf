@@ -1,0 +1,392 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "레스토랑",
+ "description": "테이블 확보 → 주문 → 식사 → 계산 → 테이블 반납",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 600,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf37pq0tu",
+   "type": "resourcePool",
+   "name": "Tables",
+   "x": 0,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "capacity": 12,
+    "kind": "tool",
+    "shifts": false,
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 2
+     },
+     {
+      "start": 480,
+      "end": 1440,
+      "value": 1
+     }
+    ],
+    "period": 1440,
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37pq14a",
+   "type": "resourcePool",
+   "name": "Waiters",
+   "x": 6,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "capacity": 3,
+    "kind": "worker",
+    "shifts": false,
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 2
+     },
+     {
+      "start": 480,
+      "end": 1440,
+      "value": 1
+     }
+    ],
+    "period": 1440,
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37pq2mc",
+   "type": "pedSource",
+   "name": "Guests",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "schedule",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.3
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 120,
+      "value": 0.2
+     },
+     {
+      "start": 120,
+      "end": 240,
+      "value": 0.6
+     },
+     {
+      "start": 240,
+      "end": 420,
+      "value": 0.25
+     },
+     {
+      "start": 420,
+      "end": 600,
+      "value": 0.55
+     }
+    ],
+    "period": 600,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Visitor",
+      "color": "#8b5cf6",
+      "weight": 3
+     },
+     {
+      "name": "Staff",
+      "color": "#0ea5e9",
+      "weight": 1
+     }
+    ],
+    "shape": "person",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf37pq3aj",
+   "type": "waitingArea",
+   "name": "Entrance",
+   "x": -12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 25
+   }
+  },
+  {
+   "id": "bmwhnf37pq45z",
+   "type": "seize",
+   "name": "Get table",
+   "x": -7,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "pool": "Tables",
+    "units": 1
+   }
+  },
+  {
+   "id": "bmwhnf37pq5fc",
+   "type": "process",
+   "name": "Order",
+   "x": -2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "desk",
+    "capacity": 12,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 4,
+     "max": 6
+    },
+    "pool": "Waiters",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37pq6nx",
+   "type": "delay",
+   "name": "Eat",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "time": {
+     "type": "triangular",
+     "min": 25,
+     "mode": 40,
+     "max": 60
+    },
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhnf37pq79w",
+   "type": "pedService",
+   "name": "Pay",
+   "x": 10,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "checkout",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 1.5,
+     "max": 3
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf37pq83y",
+   "type": "release",
+   "name": "Free table",
+   "x": 15,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "pool": "Tables"
+   }
+  },
+  {
+   "id": "bmwhnf37pq9ce",
+   "type": "pedSink",
+   "name": "Leave",
+   "x": 20,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhnf37pqa7e",
+   "type": "pedSink",
+   "name": "Walked away",
+   "x": -12,
+   "y": 6,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf37pqbko",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37pq2mc",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37pq3aj",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37pqced",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37pq3aj",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37pq45z",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37pqdu2",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37pq45z",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37pq5fc",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37pqefb",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37pq5fc",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37pq6nx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37pqfoq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37pq6nx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37pq79w",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37pqgfx",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37pq79w",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37pq83y",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37pqhtj",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37pq83y",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37pq9ce",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37pqio9",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37pq3aj",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf37pqa7e",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Tables",
+   "kind": "line",
+   "series": [
+    "Tables.utilization",
+    "Entrance.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.029Z"
+}

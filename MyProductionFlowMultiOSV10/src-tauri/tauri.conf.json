@@ -1,0 +1,107 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyProductionFlow",
+  "mainBinaryName": "MyProductionFlow",
+  "version": "../package.json",
+  "identifier": "com.shkwon.myproductionflow",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:5488",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$APPDATA/**",
+          "$APPLOCALDATA/**",
+          "$APPCONFIG/**",
+          "$RESOURCE/doc/**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "Productivity",
+    "shortDescription": "Production flow simulation",
+    "longDescription": "Model factory production lines, warehouses and traffic flows in a graphical 2D editor, run discrete-event, system dynamics and agent-based simulations, watch them animate in 2D and 3D, and analyse bottlenecks with statistics, charts and experiments.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "icons/project.ico": "project.ico",
+      "icons/project.icns": "project.icns",
+      "icons/project.png": "project.png",
+      "../doc/": "doc/",
+      "../samples/": "samples/",
+      "../licenses/": "licenses/"
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "mpf"
+        ],
+        "name": "MyProductionFlow.Project",
+        "description": "MyProductionFlow.Project",
+        "mimeType": "application/x-myproductionflow",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "Korean",
+          "English"
+        ],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh",
+        "startMenuFolder": "MyProductionFlow"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ],
+        "files": {
+          "/usr/share/mime/packages/myproductionflow.xml": "linux/myproductionflow.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-myproductionflow.png": "icons/project.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3"
+        ],
+        "files": {
+          "/usr/share/mime/packages/myproductionflow.xml": "linux/myproductionflow.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-myproductionflow.png": "icons/project.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      }
+    }
+  }
+}

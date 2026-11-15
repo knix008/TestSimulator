@@ -1,0 +1,497 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "버스 전용 차로",
+ "description": "버스와 승용차, 정류장 세 곳",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 120,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 200,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf382xedj",
+   "type": "source",
+   "name": "Depot",
+   "x": -90,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "triangular",
+     "min": 4,
+     "mode": 6,
+     "max": 9
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Bus",
+      "color": "#0ea5e9",
+      "weight": 1
+     }
+    ],
+    "shape": "bus",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf382xf74",
+   "type": "carSource",
+   "name": "Cars",
+   "x": -90,
+   "y": 12,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.25
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Car",
+      "color": "#2563eb",
+      "weight": 3
+     },
+     {
+      "name": "Car",
+      "color": "#dc2626",
+      "weight": 2
+     },
+     {
+      "name": "Car",
+      "color": "#e5e7eb",
+      "weight": 2
+     },
+     {
+      "name": "Truck",
+      "color": "#f59e0b",
+      "weight": 1
+     }
+    ],
+    "shape": "car",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf382xgjw",
+   "type": "junction",
+   "name": "Merge in",
+   "x": -82,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "inputs": 2
+   }
+  },
+  {
+   "id": "bmwhnf382xhf8",
+   "type": "road",
+   "name": "Street 1",
+   "x": -80,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "speed": 800,
+    "lanes": 2,
+    "vehicleLength": 9
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     40,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf382xif5",
+   "type": "select",
+   "name": "Bus or car 1",
+   "x": -37,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "outputs": 2,
+    "mode": "type",
+    "weights": "1, 1",
+    "typeMap": "Bus:1, Car:2, Truck:2",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf383xj8z",
+   "type": "busStop",
+   "name": "Stop A",
+   "x": -32,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "time": {
+     "type": "triangular",
+     "min": 0.3,
+     "mode": 0.5,
+     "max": 1
+    },
+    "capacity": 2
+   }
+  },
+  {
+   "id": "bmwhnf383xki0",
+   "type": "junction",
+   "name": "Rejoin 1",
+   "x": -27,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "inputs": 2
+   }
+  },
+  {
+   "id": "bmwhnf383xlkv",
+   "type": "road",
+   "name": "Street 2",
+   "x": -25,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "speed": 800,
+    "lanes": 2,
+    "vehicleLength": 9
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     40,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf383xmvt",
+   "type": "select",
+   "name": "Bus or car 2",
+   "x": 18,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "outputs": 2,
+    "mode": "type",
+    "weights": "1, 1",
+    "typeMap": "Bus:1, Car:2, Truck:2",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf383xnza",
+   "type": "busStop",
+   "name": "Stop B",
+   "x": 23,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "time": {
+     "type": "triangular",
+     "min": 0.3,
+     "mode": 0.5,
+     "max": 1
+    },
+    "capacity": 2
+   }
+  },
+  {
+   "id": "bmwhnf383xo6q",
+   "type": "junction",
+   "name": "Rejoin 2",
+   "x": 28,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "inputs": 2
+   }
+  },
+  {
+   "id": "bmwhnf383xplp",
+   "type": "road",
+   "name": "Street 3",
+   "x": 30,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "speed": 800,
+    "lanes": 2,
+    "vehicleLength": 9
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     50,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf383xqx0",
+   "type": "sink",
+   "name": "Terminal",
+   "x": 84,
+   "y": 6,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf383xrsh",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf382xedj",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf382xgjw",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383xsvk",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf382xf74",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf382xgjw",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383xtlw",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf382xgjw",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf382xhf8",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383xutv",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf382xhf8",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf382xif5",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383xvp3",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf382xif5",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf383xj8z",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383xwqg",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf382xif5",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf383xki0",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383xxzk",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf383xj8z",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf383xki0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383xy9n",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf383xki0",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf383xlkv",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383xz9f",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf383xlkv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf383xmvt",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383y05r",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf383xmvt",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf383xnza",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383y1eo",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf383xmvt",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf383xo6q",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383y243",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf383xnza",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf383xo6q",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383y34g",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf383xo6q",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf383xplp",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf383y4am",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf383xplp",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf383xqx0",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Traffic",
+   "kind": "line",
+   "series": [
+    "Street 1.contents",
+    "Street 2.contents",
+    "Street 3.contents"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.043Z"
+}

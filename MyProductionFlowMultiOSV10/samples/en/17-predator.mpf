@@ -1,0 +1,213 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Predator and prey",
+ "description": "Lotka–Volterra, RK4 integration",
+ "settings": {
+  "timeUnit": "day",
+  "duration": 200,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.05,
+  "sdMethod": "rk4",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf36zf5su",
+   "type": "stock",
+   "name": "Rabbits",
+   "x": -8,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "40",
+    "nonNegative": true,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhnf36zf6wz",
+   "type": "stock",
+   "name": "Foxes",
+   "x": 8,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "9",
+    "nonNegative": true,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhnf36zf7yw",
+   "type": "flow",
+   "name": "RabbitBirths",
+   "x": -16,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "0.1 * Rabbits",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhnf36zf81t",
+   "type": "flow",
+   "name": "Predation",
+   "x": 0,
+   "y": -4,
+   "rot": 0,
+   "props": {
+    "equation": "0.02 * Rabbits * Foxes",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhnf36zf9m",
+   "type": "flow",
+   "name": "FoxBirths",
+   "x": 0,
+   "y": 4,
+   "rot": 0,
+   "props": {
+    "equation": "0.01 * Rabbits * Foxes",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhnf36zfa5u",
+   "type": "flow",
+   "name": "FoxDeaths",
+   "x": 16,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "0.1 * Foxes",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf36zfb8t",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36zf7yw",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36zf5su",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36zfc8u",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36zf5su",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36zf81t",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36zfdyv",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36zf9m",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36zf6wz",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36zfeoy",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36zf6wz",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36zfa5u",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36zff6k",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf36zf6wz",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf36zf81t",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36zfgqp",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf36zf5su",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf36zf9m",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36zfhwe",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhnf36zf6wz",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhnf36zf9m",
+    "port": -1
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Populations",
+   "kind": "line",
+   "series": [
+    "Rabbits",
+    "Foxes"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.003Z"
+}

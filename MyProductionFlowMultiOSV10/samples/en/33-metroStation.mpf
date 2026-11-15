@@ -1,0 +1,560 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Metro station",
+ "description": "Turnstiles, escalators, platform waiting, security",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 120,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 80,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf37zv2vf",
+   "type": "pedSource",
+   "name": "Entrance",
+   "x": -30,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "schedule",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.3
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 30,
+      "value": 6
+     },
+     {
+      "start": 30,
+      "end": 70,
+      "value": 14
+     },
+     {
+      "start": 70,
+      "end": 120,
+      "value": 8
+     }
+    ],
+    "period": 120,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Visitor",
+      "color": "#8b5cf6",
+      "weight": 3
+     },
+     {
+      "name": "Staff",
+      "color": "#0ea5e9",
+      "weight": 1
+     }
+    ],
+    "shape": "person",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf37zv3r8",
+   "type": "walkway",
+   "name": "Hall",
+   "x": -28,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 70,
+    "spacing": 0.6,
+    "width": 2.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     8,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf37zv4wr",
+   "type": "securityCheck",
+   "name": "Security",
+   "x": -16,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "scanner",
+    "capacity": 3,
+    "time": {
+     "type": "triangular",
+     "min": 0.05,
+     "mode": 0.1,
+     "max": 0.3
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf380v51y",
+   "type": "select",
+   "name": "Gates",
+   "x": -10,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 4,
+    "mode": "shortest",
+    "weights": "1, 1",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf380v6xh",
+   "type": "turnstile",
+   "name": "Gate 1",
+   "x": -4,
+   "y": -4.5,
+   "rot": 0,
+   "props": {
+    "look": "turnstile",
+    "capacity": 1,
+    "time": {
+     "type": "constant",
+     "value": 0.05
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf380v7eg",
+   "type": "turnstile",
+   "name": "Gate 2",
+   "x": -4,
+   "y": -1.5,
+   "rot": 0,
+   "props": {
+    "look": "turnstile",
+    "capacity": 1,
+    "time": {
+     "type": "constant",
+     "value": 0.05
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf380v8g4",
+   "type": "turnstile",
+   "name": "Gate 3",
+   "x": -4,
+   "y": 1.5,
+   "rot": 0,
+   "props": {
+    "look": "turnstile",
+    "capacity": 1,
+    "time": {
+     "type": "constant",
+     "value": 0.05
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf380v9yg",
+   "type": "turnstile",
+   "name": "Gate 4",
+   "x": -4,
+   "y": 4.5,
+   "rot": 0,
+   "props": {
+    "look": "turnstile",
+    "capacity": 1,
+    "time": {
+     "type": "constant",
+     "value": 0.05
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf380vabo",
+   "type": "merge",
+   "name": "Concourse",
+   "x": 2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "inputs": 4
+   }
+  },
+  {
+   "id": "bmwhnf380vb1e",
+   "type": "escalator",
+   "name": "Escalator",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 30,
+    "spacing": 0.8,
+    "width": 1.2,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     12,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhnf380vci6",
+   "type": "waitingArea",
+   "name": "Platform",
+   "x": 22,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 400,
+    "discipline": "fifo",
+    "timeout": 0
+   },
+   "w": 10,
+   "h": 6
+  },
+  {
+   "id": "bmwhnf380vd8r",
+   "type": "delay",
+   "name": "Train boarding",
+   "x": 30,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "time": {
+     "type": "constant",
+     "value": 0.5
+    },
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhnf380veus",
+   "type": "pedSink",
+   "name": "Departed",
+   "x": 35,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf380vfk5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37zv2vf",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37zv3r8",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vgah",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37zv3r8",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37zv4wr",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vhg7",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37zv4wr",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf380v51y",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vica",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf380v51y",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf380v6xh",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vj2t",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf380v6xh",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf380vabo",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vk8b",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf380v51y",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf380v7eg",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vlz2",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf380v7eg",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf380vabo",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vmgi",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf380v51y",
+    "port": 2
+   },
+   "to": {
+    "block": "bmwhnf380v8g4",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vn33",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf380v8g4",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf380vabo",
+    "port": 2
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vo9c",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf380v51y",
+    "port": 3
+   },
+   "to": {
+    "block": "bmwhnf380v9yg",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vpil",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf380v9yg",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf380vabo",
+    "port": 3
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vq1t",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf380vabo",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf380vb1e",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vrxb",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf380vb1e",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf380vci6",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vslf",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf380vci6",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf380vd8r",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf380vtnj",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf380vd8r",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf380veus",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Crowding",
+   "kind": "line",
+   "series": [
+    "Platform.length",
+    "Escalator.contents"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.040Z"
+}

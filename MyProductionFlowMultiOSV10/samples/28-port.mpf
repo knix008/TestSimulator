@@ -1,0 +1,338 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "컨테이너 항만",
+ "description": "선박 하역 크레인 → 야드 → 트럭 반출",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 1440,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 100,
+  "floorDepth": 60,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf37np0o2",
+   "type": "zone",
+   "name": "Quay",
+   "x": -30,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "fill": "#93c5fd",
+    "opacity": 0.35,
+    "floor": "concrete"
+   },
+   "w": 20,
+   "h": 40
+  },
+  {
+   "id": "bmwhnf37np168",
+   "type": "zone",
+   "name": "Yard",
+   "x": 8,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "fill": "#e7e5e4",
+    "opacity": 0.35,
+    "floor": "asphalt"
+   },
+   "w": 36,
+   "h": 40
+  },
+  {
+   "id": "bmwhnf37np2f8",
+   "type": "source",
+   "name": "Vessel",
+   "x": -38,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 3.6
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Box",
+      "color": "#ea580c",
+      "weight": 2
+     },
+     {
+      "name": "Box",
+      "color": "#2563eb",
+      "weight": 2
+     },
+     {
+      "name": "Box",
+      "color": "#16a34a",
+      "weight": 1
+     }
+    ],
+    "shape": "container",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf37np32s",
+   "type": "select",
+   "name": "Crane pick",
+   "x": -33,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 2,
+    "mode": "shortest",
+    "weights": "1, 1",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf37np4b1",
+   "type": "overheadCrane",
+   "name": "STS crane 1",
+   "x": -28,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "vehicle": "crane",
+    "fleet": 1,
+    "speed": 40,
+    "loadTime": 1,
+    "unloadTime": 1,
+    "returnHome": false,
+    "routing": "manhattan"
+   }
+  },
+  {
+   "id": "bmwhnf37np5m6",
+   "type": "overheadCrane",
+   "name": "STS crane 2",
+   "x": -28,
+   "y": 8,
+   "rot": 0,
+   "props": {
+    "vehicle": "crane",
+    "fleet": 1,
+    "speed": 40,
+    "loadTime": 1,
+    "unloadTime": 1,
+    "returnHome": false,
+    "routing": "manhattan"
+   }
+  },
+  {
+   "id": "bmwhnf37np6g6",
+   "type": "floorStorage",
+   "name": "Container yard",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "bays": 140,
+    "levels": 1,
+    "dwell": {
+     "type": "triangular",
+     "min": 120,
+     "mode": 300,
+     "max": 720
+    },
+    "storeTime": 1,
+    "retrieveTime": 1,
+    "policy": "random"
+   },
+   "w": 20,
+   "h": 20
+  },
+  {
+   "id": "bmwhnf37np72o",
+   "type": "forkliftFleet",
+   "name": "Reach stackers",
+   "x": 18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "vehicle": "forklift",
+    "fleet": 3,
+    "speed": 80,
+    "loadTime": 0.4,
+    "unloadTime": 0.4,
+    "returnHome": true,
+    "routing": "manhattan"
+   }
+  },
+  {
+   "id": "bmwhnf37op8yh",
+   "type": "shippingDock",
+   "name": "Gate",
+   "x": 26,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "doors": 4,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 4,
+     "max": 8
+    }
+   }
+  },
+  {
+   "id": "bmwhnf37op9ut",
+   "type": "sink",
+   "name": "Hinterland",
+   "x": 32,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf37opalz",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37np2f8",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37np32s",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37opbks",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37np32s",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37np4b1",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37opc2q",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37np32s",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf37np5m6",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37opdse",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37np4b1",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37np6g6",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ope9i",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37np5m6",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37np6g6",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37opfvx",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37np6g6",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37np72o",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37opgkm",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37np72o",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37op8yh",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf37ophtu",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf37op8yh",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf37op9ut",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Yard",
+   "kind": "line",
+   "series": [
+    "Container yard.contents"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:05.028Z"
+}

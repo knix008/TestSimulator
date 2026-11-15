@@ -1,0 +1,11 @@
+MyProductionFlow — third-party software
+
+This application includes the following open-source packages. Their licence texts are in this folder.
+Packages under the LGPL (OpenCASCADE via occt-import-js) are loaded from separate files and can be replaced.
+
+@tauri-apps/api 2.12.4 — Apache-2.0 OR MIT — https://github.com/tauri-apps/tauri#readme
+  tauri-apps-api.LICENSE-APACHE-2.0.txt, tauri-apps-api.LICENSE-MIT.txt, tauri-apps-api.LICENSE.spdx.txt
+@tauri-apps/plugin-dialog 2.8.4 — MIT OR Apache-2.0
+  tauri-apps-plugin-dialog.LICENSE.spdx.txt
+three 0.187.0 — MIT — https://threejs.org/
+  three.LICENSE.txt

@@ -1,0 +1,405 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "응급실",
+ "description": "분류 → 우선순위 대기 → 의사 → 입원/퇴원",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 1440,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhnf36m9cjz",
+   "type": "resourcePool",
+   "name": "Doctors",
+   "x": 2,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "capacity": 3,
+    "kind": "worker",
+    "shifts": false,
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 2
+     },
+     {
+      "start": 480,
+      "end": 1440,
+      "value": 1
+     }
+    ],
+    "period": 1440,
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36m9d7k",
+   "type": "source",
+   "name": "Patients",
+   "x": -20,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 6
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Urgent",
+      "color": "#ef4444",
+      "weight": 1
+     },
+     {
+      "name": "Standard",
+      "color": "#f59e0b",
+      "weight": 3
+     },
+     {
+      "name": "Minor",
+      "color": "#22c55e",
+      "weight": 4
+     }
+    ],
+    "shape": "patient",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhnf36m9e71",
+   "type": "process",
+   "name": "Triage",
+   "x": -14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "desk",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 3,
+     "max": 5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36m9fjx",
+   "type": "assign",
+   "name": "Set priority",
+   "x": -8,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "setType": "",
+    "setColor": "",
+    "setPriority": "random() < 0.15 ? 3 : random() < 0.4 ? 2 : 1",
+    "setShape": ""
+   }
+  },
+  {
+   "id": "bmwhnf36m9gvc",
+   "type": "queue",
+   "name": "Waiting room",
+   "x": -2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "priority",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhnf36m9hkd",
+   "type": "seize",
+   "name": "Get doctor",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "pool": "Doctors",
+    "units": 1
+   }
+  },
+  {
+   "id": "bmwhnf36m9i3l",
+   "type": "process",
+   "name": "Treatment",
+   "x": 9,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "bed",
+    "capacity": 6,
+    "time": {
+     "type": "triangular",
+     "min": 10,
+     "mode": 20,
+     "max": 45
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhnf36m9jmt",
+   "type": "release",
+   "name": "Free doctor",
+   "x": 14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "pool": "Doctors"
+   }
+  },
+  {
+   "id": "bmwhnf36m9k8l",
+   "type": "select",
+   "name": "Outcome",
+   "x": 18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 2,
+    "mode": "probability",
+    "weights": "0.25, 0.75",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhnf36m9lqc",
+   "type": "delay",
+   "name": "Ward",
+   "x": 23,
+   "y": -5,
+   "rot": 0,
+   "props": {
+    "time": {
+     "type": "triangular",
+     "min": 240,
+     "mode": 480,
+     "max": 1200
+    },
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhnf36m9mpw",
+   "type": "sink",
+   "name": "Discharged",
+   "x": 28,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhnf36m9njg",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36m9d7k",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36m9e71",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36m9orl",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36m9e71",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36m9fjx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36m9p6m",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36m9fjx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36m9gvc",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36m9q1",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36m9gvc",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36m9hkd",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36m9riz",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36m9hkd",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36m9i3l",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36m9s9x",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36m9i3l",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36m9jmt",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36m9tkf",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36m9jmt",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36m9k8l",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36m9ue8",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36m9k8l",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36m9lqc",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36m9vdj",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36m9k8l",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhnf36m9mpw",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhnf36m9wuq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhnf36m9lqc",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhnf36m9mpw",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Waiting room",
+   "kind": "line",
+   "series": [
+    "Waiting room.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T09:45:04.990Z"
+}
