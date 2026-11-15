@@ -1,3 +1,4 @@
+import { addArticle, addCalendar, ensureServices } from './services.js';
 import { makeIssue, newProject } from './store.js';
 import { shiftIso, uid } from './util.js';
 
@@ -119,5 +120,8 @@ export function sampleWorkspace(now = Date.now()) {
   addSup({ id: 'sup3', key: 'SUP-3', typeId: 'incident', summary: '배송 조회 오류', statusId: 'done', resolutionId: 'fixed', priorityId: 'high', assigneeId: 'u4', reporterId: 'u5', created: at(-10), updated: at(-10, 14), history: moved(at(-10, 14), 'progress', 'done', 'u4') });
 
   ws.activeProjectId = shop.id;
+  ensureServices(ws);
+  addArticle(ws, { projectId: shop.id, title: '결제 안내', body: '카드 결제는 **승인** 후에 출고됩니다.' }, 'u1');
+  addCalendar(ws, { name: '기본 근무', timezone: 'Asia/Seoul' });
   return ws;
 }

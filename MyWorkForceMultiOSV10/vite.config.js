@@ -1,6 +1,10 @@
+import { execSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
+
+const root = path.dirname(fileURLToPath(import.meta.url));
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 const commit = (() => {
@@ -25,8 +29,17 @@ export default defineConfig({
   server: {
     port: 1480,
     strictPort: true,
-    watch: { ignored: ['**/src-tauri/**', '**/test-results/**'] },
+    watch: { ignored: ['**/src-tauri/**', '**/test-results/**', '**/data/**'] },
+    proxy: { '/api': { target: 'http://127.0.0.1:1481', changeOrigin: true } },
   },
+  plugins: [{
+    name: 'myworkforce-data',
+    configureServer() {
+      const child = spawn(process.execPath, ['server/index.mjs'], { cwd: root, stdio: 'inherit', env: process.env });
+      child.on('exit', () => {});
+      return () => child.kill();
+    },
+  }],
   optimizeDeps: { entries: ['index.html'] },
   build: {
     target: 'es2022',

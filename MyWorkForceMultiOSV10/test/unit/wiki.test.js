@@ -1,0 +1,83 @@
+import assert from 'node:assert/strict';
+import { describe, test } from 'node:test';
+import { sampleWorkspace } from '../../src/domain/sample.js';
+import { addArticle } from '../../src/domain/services.js';
+import { blankWorkspace } from '../../src/domain/store.js';
+import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePage, expandPage, likePage, movePage, pageByShare, restorePage, restoreTrashed, searchPages, setPageStatus, shareLink, updatePage, visiblePage, watchPage } from '../../src/domain/wiki.js';
+
+describe('Wiki', () => {
+  test('puts an article in a space and keeps a page tree', () => {
+    const ws = blankWorkspace();
+    const space = addSpace(ws, { name: 'Handbook', key: 'BOOK' }, 'u1');
+    const parent = addPage(ws, { spaceId: space.id, title: 'Start', body: 'Hello' }, 'u1');
+    const child = addPage(ws, { spaceId: space.id, parentId: parent.id, title: 'Details', labels: ['How to'] }, 'u1');
+    assert.equal(child.parentId, parent.id);
+    assert.deepEqual(child.labels, ['how-to']);
+    assert.throws(() => addPage(ws, { spaceId: space.id, parentId: child.id, title: 'News', kind: 'blog' }, 'u1'), /parent-required/);
+    const blog = addPage(ws, { spaceId: space.id, title: 'News', kind: 'blog' }, 'u1');
+    assert.throws(() => movePage(ws, blog.id, parent.id, 'u1'), /parent-required/);
+    movePage(ws, child.id, '', 'u1');
+    assert.equal(child.parentId, '');
+    movePage(ws, child.id, parent.id, 'u1');
+    assert.throws(() => movePage(ws, parent.id, child.id, 'u1'), /parent-required/);
+    assert.throws(() => addArticle(ws, { title: '  ' }, 'u1'), /name-required/);
+  });
+
+  test('keeps versions, comments, watchers, and a private page', () => {
+    const ws = sampleWorkspace(Date.parse('2026-11-15T12:00:00Z'));
+    const page = ws.articles.find((item) => item.title === '결제 안내');
+    assert.ok(page.spaceId);
+    updatePage(ws, page.id, { body: 'Changed', labels: 'pay, card' }, 'u2');
+    assert.equal(page.versions.length, 1);
+    assert.equal(page.versions[0].body.includes('승인'), true);
+    watchPage(ws, page.id, 'u2');
+    commentPage(ws, page.id, 'Looks good', 'u2');
+    const before = ws.projects[0].notifications.length;
+    updatePage(ws, page.id, { title: '결제 안내 개정' }, 'u1');
+    assert.ok(ws.projects[0].notifications.length > before);
+    restorePage(ws, page.id, page.versions[0].id, 'u1');
+    assert.equal(page.title, '결제 안내');
+    updatePage(ws, page.id, { restricted: true }, 'u1');
+    assert.equal(visiblePage(page, 'u2'), false);
+    assert.throws(() => commentPage(ws, page.id, 'Nope', 'u2'), /permission/);
+    assert.throws(() => commentPage(ws, page.id, '  ', 'u1'), /summary-required/);
+    const found = searchPages(ws, 'card', 'u1');
+    assert.ok(found.some((item) => item.id === page.id));
+    assert.equal(searchPages(ws, 'card', 'u2').some((item) => item.id === page.id), false);
+  });
+
+  test('copies, hides a draft, likes, attaches, and restores trash', () => {
+    const ws = blankWorkspace();
+    const space = addSpace(ws, { name: 'Notes', key: 'NOTE' }, 'u1');
+    const page = addPage(ws, { spaceId: space.id, title: 'Guide', body: '# Start\n\n[[children]]\n\n:::note\nRead me\n:::' }, 'u1');
+    addPage(ws, { spaceId: space.id, parentId: page.id, title: 'Child' }, 'u1');
+    const copy = copyPage(ws, page.id, 'u1');
+    assert.equal(copy.status, 'draft');
+    assert.equal(visiblePage(copy, 'u2'), false);
+    setPageStatus(ws, copy.id, 'current', 'u1');
+    assert.equal(visiblePage(copy, 'u2'), true);
+    assert.equal(likePage(ws, page.id, 'u2'), true);
+    assert.equal(likePage(ws, page.id, 'u2'), false);
+    commentPage(ws, page.id, 'Here', 'u1', 'Start');
+    assert.equal(page.comments[0].quote, 'Start');
+    assert.match(expandPage(ws, page), /Child/);
+    assert.match(expandPage(ws, page), /> \*\*note\*\*/);
+    assert.throws(() => attachPage(ws, page.id, { name: 'big.bin', size: 800_000, data: '' }, 'u1'), /attachment-big/);
+    attachPage(ws, page.id, { name: 'note.txt', size: 4, data: 'data:text/plain,hi' }, 'u1');
+    assert.equal(page.attachments.length, 1);
+    const token = shareLink(ws, page.id, 'u1', true);
+    assert.equal(pageByShare(ws, token).id, page.id);
+    deletePage(ws, page.id, 'u1');
+    assert.equal(visiblePage(page, 'u1'), false);
+    restoreTrashed(ws, page.id, 'u1');
+    assert.equal(page.trashed, false);
+    const board = addPage(ws, { spaceId: space.id, kind: 'board', title: 'Wall' }, 'u1');
+    addShape(ws, board.id, 'Idea', 'u1');
+    assert.equal(board.shapes[0].text, 'Idea');
+    const table = addPage(ws, { spaceId: space.id, kind: 'table', title: 'List' }, 'u1');
+    addColumn(ws, table.id, 'Name', 'u1');
+    addRow(ws, table.id, ['Ada'], 'u1');
+    assert.equal(table.rows[0].Name, 'Ada');
+    assert.throws(() => addColumn(ws, table.id, 'Name', 'u1'), /duplicate-key/);
+  });
+});

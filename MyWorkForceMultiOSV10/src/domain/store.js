@@ -1,8 +1,11 @@
 import { applyRules } from './automation.js';
 import { boardsFor, defaultFilters, defaultGadgets, defaultQueues, freshCatalog, ROLES } from './catalog.js';
-import { allowed } from './permissions.js';
+import { allowed, rolesOf } from './permissions.js';
+import { ensureServices } from './services.js';
 import { isDoneStatus } from './reports.js';
 import { byId, clone, nowIso, uid } from './util.js';
+
+const ADMIN_PASSWORD = '1ad2eacc16cdeeeb72ee7b81fd6f7bfe:ae787768c29cc63daf18162c8b7869b4edba6dc449d4650323b8d2bd605650c2';
 
 const EDITABLE = new Set([
   'summary', 'description', 'environment', 'typeId', 'priorityId', 'assigneeId', 'reporterId',
@@ -118,17 +121,42 @@ export function upgradeWorkspace(data) {
   ws.groups = Array.isArray(ws.groups) ? ws.groups : [];
   ws.projects = Array.isArray(ws.projects) ? ws.projects : [];
   if (!ws.users.length) {
-    const admin = { id: uid('u'), name: '관리자', email: '', active: true };
+    const admin = { id: uid('u'), name: '관리자', login: 'admin', email: '', active: true, passwordHash: ADMIN_PASSWORD };
     ws.users.push(admin);
     ws.currentUserId = admin.id;
   }
+  ensureAdmin(ws);
   for (const user of ws.users) if (user.active == null) user.active = true;
   for (const project of ws.projects) upgradeProject(project);
   if (!ws.users.some((user) => user.id === ws.currentUserId && user.active !== false)) {
     ws.currentUserId = ws.users.find((user) => user.active !== false)?.id || ws.users[0].id;
   }
   if (!ws.projects.some((project) => project.id === ws.activeProjectId)) ws.activeProjectId = ws.projects[0]?.id || null;
-  return ws;
+  return ensureServices(ws);
+}
+
+export function ensureAdmin(ws) {
+  let changed = false;
+  let admin = (ws.users || []).find((user) => String(user.login || '').toLowerCase() === 'admin');
+  if (!admin) admin = (ws.users || []).find((user) => user.name === '관리자' || String(user.name || '').toLowerCase() === 'admin');
+  if (!admin) {
+    ws.users.push({ id: 'u-admin', name: '관리자', login: 'admin', email: '', active: true, passwordHash: ADMIN_PASSWORD });
+    return true;
+  }
+  if (admin.login !== 'admin') { admin.login = 'admin'; changed = true; }
+  if (!admin.name) { admin.name = '관리자'; changed = true; }
+  if (!admin.passwordHash) { admin.passwordHash = ADMIN_PASSWORD; changed = true; }
+  if (admin.active === false) { admin.active = true; changed = true; }
+  return changed;
+}
+
+export function userByAccount(users, account) {
+  const key = String(account || '').trim().toLowerCase();
+  if (!key) return null;
+  return (users || []).find((user) => String(user.login || '').toLowerCase() === key)
+    || (users || []).find((user) => String(user.email || '').toLowerCase() === key)
+    || (users || []).find((user) => String(user.name || '').toLowerCase() === key)
+    || null;
 }
 
 export function blankWorkspace() {
@@ -257,9 +285,23 @@ export function makeIssue(project, partial, actorId) {
   return issue;
 }
 
+export function transitionGate(project, issue, statusId, actorId, ws) {
+  if (!issue || !statusId || issue.statusId === statusId) return null;
+  if (!transitionAllowed(project, issue.statusId, statusId)) return 'transition-blocked';
+  const rule = (project.transitions || []).find((item) => item.from === issue.statusId && item.to === statusId);
+  if (!rule) return null;
+  if (rule.validator === 'assignee' && !issue.assigneeId) return 'validator';
+  if (rule.validator === 'points' && (issue.storyPoints == null || issue.storyPoints === '')) return 'validator';
+  if (rule.condition === 'assignee' && issue.assigneeId !== actorId) return 'transition-blocked';
+  if (rule.condition === 'role' && rule.role && !rolesOf(ws, project, actorId).includes(rule.role)) return 'transition-blocked';
+  if (rule.approval && !(ws?.approvals || []).some((item) => item.issueId === issue.id && item.statusId === statusId && item.state === 'approved')) return 'approval-required';
+  return null;
+}
+
 function applyStatus(ws, project, issue, statusId, actorId) {
   if (issue.statusId === statusId) return;
-  if (!transitionAllowed(project, issue.statusId, statusId)) throw new Error('transition-blocked');
+  const gate = transitionGate(project, issue, statusId, actorId, ws);
+  if (gate) throw new Error(gate);
   assertPerm(ws, project, actorId, 'transition');
   const from = issue.statusId;
   const wasDone = isDoneStatus(project, from);
@@ -668,7 +710,14 @@ export function addTransition(ws, projectId, input, actorId) {
   assertPerm(ws, project, actorId, 'admin');
   const name = String(input.name || '').trim();
   if (!name || !input.from || !input.to) throw new Error('name-required');
-  project.transitions.push({ id: uid('t'), from: input.from, to: input.to, ko: name, en: name });
+  project.transitions.push({
+    id: uid('t'), from: input.from, to: input.to, ko: name, en: name,
+    condition: ['assignee', 'role'].includes(input.condition) ? input.condition : '',
+    role: input.role || '',
+    validator: ['assignee', 'points'].includes(input.validator) ? input.validator : '',
+    approval: Boolean(input.approval),
+    approverId: input.approverId || '',
+  });
 }
 
 export function removeTransition(ws, projectId, transitionId, actorId) {

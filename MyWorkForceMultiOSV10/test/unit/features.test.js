@@ -1,9 +1,11 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { DEFAULT_TYPES, PROJECT_TYPES } from '../../src/domain/catalog.js';
 import { toCsv, toMarkdown } from '../../src/domain/export.js';
 import { setLanguage, L } from '../../src/i18n.js';
 import { renderMarkdown } from '../../src/domain/markdown.js';
+import { illustrate } from '../../src/ui/figures.js';
 import { allowed } from '../../src/domain/permissions.js';
 import { runQuery } from '../../src/domain/query.js';
 import { createdResolved, cumulativeFlow, inspect, pie, sprintReport, timeReport } from '../../src/domain/reports.js';
@@ -14,11 +16,12 @@ import {
   addWorklog, blankWorkspace, cloneIssue, completeSprint, createIssue, createSprint, deleteIssue, mergeProject,
   newProject, projectDocument, rankIssues, readDocument, releaseVersion, removeGadget, removeStatus, saveFilter,
   setArchived, setCustomField, setMember, setUserActive, startSprint, toggleGroupUser, toggleWatch, updateIssue,
-  updateProject, workspaceDocument,
+  updateProject, upgradeWorkspace, workspaceDocument,
 } from '../../src/domain/store.js';
 import { parseDuration } from '../../src/domain/util.js';
 import { DARK_THEMES, LIGHT_THEMES, customFrom, resolveTheme } from '../../src/themes.js';
-import { renderMenubar, renderModal, renderToolbar } from '../../src/ui/chrome.js';
+import { renderMenubar, renderModal, renderNav, renderToolbar } from '../../src/ui/chrome.js';
+import { takeShortcut } from '../../src/ui/shortcuts.js';
 import { renderRight, renderView, showRight } from '../../src/ui/pages.js';
 
 const NOW = Date.parse('2026-11-15T12:00:00');
@@ -205,6 +208,19 @@ describe('Permissions', () => {
     const { ws, project, me } = shop();
     project.members = [];
     assert.equal(allowed(ws, project, me, 'admin'), true);
+  });
+
+  test('the workspace administrator manages a project they do not lead', () => {
+    const ws = upgradeWorkspace(sampleWorkspace(NOW));
+    const admin = ws.users.find((user) => user.login === 'admin');
+    const project = ws.projects.find((item) => item.key === 'SHOP');
+    assert.notEqual(project.leadId, admin.id);
+    assert.equal(allowed(ws, project, admin.id, 'admin'), true);
+    updateProject(ws, project.id, { name: 'Managed shop' }, admin.id);
+    assert.equal(project.name, 'Managed shop');
+    const member = ws.users.find((user) => user.name === '정하늘');
+    setMember(ws, project.id, member.id, 'developer', admin.id);
+    assert.equal(project.members.find((item) => item.userId === member.id).role, 'developer');
   });
 
   test('an inactive person cannot browse', () => {
@@ -441,6 +457,21 @@ describe('Markdown', () => {
   test('escapes raw markup', () => {
     assert.equal(renderMarkdown('<script>alert(1)</script>').includes('<script'), false);
   });
+
+  test('puts a picture beside every guide and query section', () => {
+    const pictured = (file, kind) => illustrate(renderMarkdown(fs.readFileSync(file, 'utf8')), kind);
+    for (const file of ['UsersGuide.md', 'UsersGuide.en.md']) {
+      const html = pictured(file, 'guide');
+      const sections = (html.match(/<h2>/g) || []).length + 1;
+      assert.equal((html.match(/<svg /g) || []).length, sections, file);
+      assert.match(html, /doc-figure/);
+    }
+    for (const file of ['docs/WQL.md', 'docs/WQL.en.md']) {
+      const html = pictured(file, 'wql');
+      const sections = (html.match(/<h2>/g) || []).length + 1;
+      assert.equal((html.match(/<svg /g) || []).length, sections, file);
+    }
+  });
 });
 
 describe('Export', () => {
@@ -550,18 +581,70 @@ describe('Screens', () => {
     ['people', 'People'],
     ['health', 'Health'],
     ['notifications', 'Notifications'],
-    ['settings', 'Workflow'],
+    ['settings', 'Server database'],
     ['queues', 'Queues'],
     ['help', 'Guide'],
     ['issue', '카드 결제'],
+    ['knowledge', 'Knowledge'],
+    ['documents', 'Documents'],
+    ['calendar', 'Work calendar'],
+    ['portal', 'Customer portal'],
+    ['plans', 'Cross-project plan'],
+    ['extensions', 'Extensions'],
   ];
+
+  const glyphs = {
+    home: 'home', board: 'board', backlog: 'backlog', roadmap: 'roadmap', issues: 'issues', queues: 'list',
+    dashboard: 'dashboard', reports: 'chart', releases: 'release', components: 'component', filters: 'filter',
+    people: 'people', health: 'alert', notifications: 'bell', settings: 'settings', help: 'help',
+    knowledge: 'box', documents: 'file', calendar: 'calendar', portal: 'request', plans: 'roadmap', extensions: 'bolt',
+  };
+
+  test('the tutorial window asks to start and whether to show again', () => {
+    const ctx = context('home');
+    ctx.ui.modal = { kind: 'welcome' };
+    ctx.settings.showWelcome = true;
+    const html = renderModal(ctx);
+    assert.match(html, /data-setting="showWelcome"/);
+    assert.match(html, /data-action="start-tutorial"/);
+    assert.match(html, /Show this window again at start/);
+    assert.match(html, /Later/);
+  });
+
+  test('the settings page configures the start page and its background', () => {
+    const html = renderView(context('settings'));
+    assert.match(html, /Show the start page when the program opens/);
+    assert.match(html, /data-setting="startShowBackground"/);
+    assert.match(html, /data-setting="showWelcome"/);
+    assert.match(html, /Show this window again at start/);
+    assert.match(html, /data-action="start-screen"/);
+    assert.match(html, /data-bg="kind"/);
+    assert.match(html, /data-bg="speed"/);
+    assert.match(html, /data-bg="interval"/);
+    assert.equal((html.match(/<option value="(?:board|sprint|backlog|roadmap|calendar|pages|notes|queue|flow|links|people|hours|checks|milestones|lanes|priority|comments|archive|burndown|focus|pulse)"/g) || []).length, 21);
+  });
 
   for (const [view, needle] of screens) {
     test(`renders the ${view} screen`, () => {
       const ctx = context(view);
-      assert.match(renderView(ctx), new RegExp(needle));
+      const html = renderView(ctx);
+      assert.match(html, new RegExp(needle));
+      if (glyphs[view]) assert.match(html, new RegExp(`data-icon="${glyphs[view]}"`));
     });
   }
+
+  test('centers create and open actions when there is no project', () => {
+    const ctx = context('home');
+    ctx.ws = { ...ctx.ws, projects: [], activeProjectId: '' };
+    ctx.project = null;
+    const html = renderView(ctx);
+    assert.match(html, /center-empty/);
+    assert.match(html, /과제를 생성하거나 여세요|Create or open a project/);
+    assert.match(html, /data-action="new-project"/);
+    assert.match(html, /data-action="open-file"/);
+    assert.match(html, /data-action="browse-examples"/);
+    assert.match(html, /data-id="guide"/);
+  });
 
   test('shows the property panel beside an issue and hides it on the home screen', () => {
     const issue = context('issue');
@@ -574,9 +657,120 @@ describe('Screens', () => {
   test('renders the menu bar, toolbar, and new-project dialog', () => {
     const ctx = context('board');
     const menu = renderMenubar(ctx);
-    for (const label of ['File', 'Edit', 'View', 'Issue', 'Plan', 'Help']) assert.match(menu, new RegExp(label));
-    assert.match(renderToolbar(ctx), /Search or WQL/);
+    for (const label of ['Start', 'File', 'Edit', 'View', 'Issue', 'Plan', 'Help']) assert.match(menu, new RegExp(label));
+    assert.match(menu, /data-tone="orange"/);
+    assert.ok(menu.indexOf('app-brand-version') < menu.indexOf('menubar-home'));
+    assert.ok(menu.indexOf('menubar-home') < menu.indexOf('data-menu="file"'));
+    assert.ok(menu.indexOf('data-menu="help"') < menu.indexOf('app-brand-project'));
+    const toolbar = renderToolbar(ctx);
+    assert.match(toolbar, /Search or WQL/);
+    assert.match(toolbar, /data-action="theme-random"/);
+    assert.match(toolbar, /data-action="theme-menu"/);
+    assert.match(toolbar, /data-action="about"/);
+    assert.match(toolbar, /data-icon="info"/);
+    assert.match(toolbar, /data-action="toggle-panel" data-id="left"/);
+    assert.match(toolbar, /data-action="toggle-panel" data-id="right"/);
+    assert.match(toolbar, /data-icon="panelLeft"/);
+    assert.match(toolbar, /data-icon="panelRight"/);
+    assert.ok(toolbar.indexOf('data-action="theme-menu"') < toolbar.indexOf('data-action="about"'));
+    const nav = renderNav(ctx);
+    assert.match(nav, /panel-header/);
+    assert.match(nav, /data-icon="list"/);
+    assert.match(nav, /data-icon="foldLeft"/);
+    assert.match(nav, /Work/);
+    assert.match(nav, /Review/);
+    assert.match(nav, /Project home/);
+    assert.match(menu, /menubar-home[\s\S]*?>Start</);
+    assert.match(menu, /data-action="open-current-project"/);
+    assert.match(menu, /Ctrl\+Shift\+N/);
+    assert.match(menu, /Ctrl\+2/);
+    assert.match(menu, /Ctrl\+F/);
+    ctx.ui.modal = { kind: 'shortcuts' };
+    const shortcuts = renderModal(ctx);
+    for (const key of ['Ctrl+1', 'Ctrl+Shift+H', 'G H', 'Delete', 'F1']) {
+      assert.match(shortcuts, new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+    assert.match(menu, /data-menu="login"/);
+    assert.match(menu, />Sign in</);
+    assert.match(menu, /id="login-account"/);
+    assert.match(menu, /admin \/ admin/);
+    ctx.ui.ready = true;
+    assert.doesNotMatch(renderMenubar(ctx), /data-menu="login"/);
+    assert.match(nav, /User menu/);
+    assert.doesNotMatch(nav, /Administrator menu/);
+    assert.doesNotMatch(nav, /data-view="people"/);
+    assert.doesNotMatch(nav, /data-view="settings"/);
+    assert.doesNotMatch(menu, /data-menu="admin"/);
+    assert.doesNotMatch(menu, /data-view="people"/);
+    const admin = context('home');
+    admin.user = { ...admin.user, login: 'admin', active: true };
+    admin.ui.ready = true;
+    const managed = renderNav(admin);
+    assert.match(managed, /User menu/);
+    assert.match(managed, /Administrator menu/);
+    assert.match(managed, /data-view="users"/);
+    assert.match(managed, /data-view="projects"/);
+    const adminMenu = renderMenubar(admin);
+    assert.match(adminMenu, /data-menu="admin"/);
+    assert.match(adminMenu, />Administrator</);
+    assert.ok(adminMenu.indexOf('data-menu="help"') < adminMenu.indexOf('data-menu="admin"'));
+    assert.match(adminMenu, /data-view="extensions"/);
+    assert.match(renderView({ ...admin, ui: { ...admin.ui, view: 'users' } }), /data-action="new-user"/);
+    assert.match(renderView({ ...admin, ui: { ...admin.ui, view: 'projects' } }), /data-managed="name"/);
+    assert.match(renderView({ ...admin, ui: { ...admin.ui, view: 'projects' } }), /data-action="new-project"/);
+    ctx.settings.showLeftPanel = false;
+    assert.match(renderNav(ctx), /data-icon="foldRight"/);
+    const side = renderRight(ctx);
+    assert.match(side, /panel-header/);
+    assert.match(side, /data-id="right"/);
+    ctx.ui.popover = 'theme';
+    const picker = renderToolbar(ctx);
+    assert.match(picker, /Custom theme settings/);
+    assert.match(picker, /data-id="custom"/);
+    assert.match(picker, /data-tone=/);
     ctx.ui.modal = { kind: 'project' };
-    assert.match(renderModal(ctx), /New project/);
+    const dialog = renderModal(ctx);
+    assert.match(dialog, /New project/);
+    assert.match(dialog, /data-icon="folder"/);
+    assert.match(dialog, /data-icon="close"/);
+    assert.match(dialog, /popup-close/);
+    assert.match(dialog, /data-tone=/);
+    ctx.ui.modal = { kind: 'about' };
+    ctx.ui.about = { version: '1.0.0', commit: 'abc', buildDate: '2026-01-02T03:04:00.000Z', os: 'Windows', arch: 'x64', target: 'web', profile: 'development', web: true, rustc: '-', tauri: '-' };
+    const about = renderModal(ctx);
+    assert.match(about, /about-table/);
+    assert.match(about, /about-description/);
+    assert.match(about, /knix008@naver.com/);
+    assert.match(about, /data-action="copy-about"/);
+    assert.match(about, /PostgreSQL/);
+  });
+});
+
+describe('Shortcuts', () => {
+  function press(key, extra = {}, now = 0) {
+    return takeShortcut({
+      key,
+      code: extra.code || '',
+      ctrlKey: Boolean(extra.ctrl),
+      metaKey: Boolean(extra.meta),
+      altKey: false,
+      shiftKey: Boolean(extra.shift),
+      target: { id: extra.id || '', matches: () => Boolean(extra.typing) },
+    }, now);
+  }
+
+  test('maps file, view, and issue keys', () => {
+    assert.equal(press('s', { ctrl: true }).id, 'save-file');
+    assert.equal(press('S', { ctrl: true, shift: true }).id, 'save-as');
+    assert.equal(press('1', { ctrl: true, code: 'Digit1' }).view, 'home');
+    assert.equal(press('!', { ctrl: true, shift: true, code: 'Digit1' }).panel, 'left');
+    assert.equal(press('k', { ctrl: true, meta: true }).id, 'command-palette');
+    assert.equal(press('F1').id, 'open-guide');
+    assert.equal(press('c').id, 'new-issue');
+    assert.equal(press('c', { typing: true }), null);
+    assert.equal(press('s', { ctrl: true, typing: true }).id, 'save-file');
+    assert.equal(press('Enter', { id: 'comment-body', ctrl: true, typing: true }).id, 'add-comment');
+    assert.equal(press('g', {}, 1000).id, 'wait');
+    assert.equal(press('b', {}, 1500).view, 'board');
   });
 });

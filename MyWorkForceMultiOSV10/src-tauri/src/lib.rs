@@ -21,6 +21,7 @@ struct AppInfo {
     build_time: u64,
     target: &'static str,
     profile: &'static str,
+    tauri: &'static str,
     os: &'static str,
     arch: &'static str,
 }
@@ -35,6 +36,7 @@ fn app_info(app: tauri::AppHandle) -> AppInfo {
         build_time: env!("BUILD_UNIX_TIME").parse().unwrap_or(0),
         target: env!("BUILD_TARGET"),
         profile: env!("BUILD_PROFILE"),
+        tauri: tauri::VERSION,
         os: std::env::consts::OS,
         arch: std::env::consts::ARCH,
     }

@@ -19,7 +19,11 @@ const BUILD = {
 
 export async function appInfo() {
   if (!isDesktop()) {
-    return { name: 'MyWorkForce', version: BUILD.version, commit: BUILD.commit, buildDate: BUILD.date, os: navigator.platform || 'web', arch: '', target: 'web', web: true };
+    return {
+      name: 'MyWorkForce', version: BUILD.version, commit: BUILD.commit, buildDate: BUILD.date,
+      target: 'web', profile: import.meta.env?.MODE || 'web', tauri: '-', rustc: '-',
+      os: navigator.userAgentData?.platform || navigator.platform || 'web', arch: '-', web: true,
+    };
   }
   const info = await invoke('app_info');
   return { ...info, web: false, buildDate: new Date(info.buildTime * 1000).toISOString() };
@@ -54,6 +58,10 @@ export async function windowControl(action) {
 
 export async function dragWindow() {
   if (isDesktop()) await getCurrentWindow().startDragging();
+}
+
+export async function resizeWindow() {
+  if (isDesktop()) await getCurrentWindow().startResizeDragging('SouthEast');
 }
 
 export async function setWindowTheme(dark) {

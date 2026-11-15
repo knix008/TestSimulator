@@ -10,6 +10,7 @@ release/
 /MyWorkForce-*.rpm
 /MyWorkForce-*.AppImage
 test-results/
+data/
 *.log
 .vscode/*
 !.vscode/extensions.json

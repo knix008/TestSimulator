@@ -1,3 +1,5 @@
+import { addBusinessHours } from './services.js';
+
 const SLA_HOURS = { highest: 4, high: 8, medium: 24, low: 72, lowest: 120 };
 
 export function isDoneStatus(project, statusId) {
@@ -23,14 +25,14 @@ export function statusAt(issue, time) {
   return status || issue.statusId;
 }
 
-export function slaState(project, issue, now = Date.now()) {
+export function slaState(project, issue, now = Date.now(), calendar = null) {
   if (!issue || !['incident', 'request'].includes(issue.typeId)) return null;
   const hours = SLA_HOURS[issue.priorityId] ?? 24;
-  const due = Date.parse(issue.created) + hours * 3600000;
+  const due = calendar ? addBusinessHours(calendar, Date.parse(issue.created), hours) : Date.parse(issue.created) + hours * 3600000;
   const done = isDone(project, issue);
   const stopped = done ? Date.parse(issue.updated) : now;
   const breached = Number.isFinite(stopped) && stopped > due;
-  return { due, hours, breached, met: done && !breached, remaining: due - (done ? Date.parse(issue.updated) : now) };
+  return { due, hours, breached, met: done && !breached, remaining: due - (done ? Date.parse(issue.updated) : now), business: Boolean(calendar) };
 }
 
 function pointsWeight(issues) {
@@ -157,7 +159,7 @@ export function sprintReport(project, sprint) {
   };
 }
 
-export function inspect(project, now = Date.now()) {
+export function inspect(project, now = Date.now(), calendar = null) {
   const warnings = [];
   const active = new Set(project.sprints.filter((sprint) => sprint.state === 'active').map((sprint) => sprint.id));
   for (const issue of project.issues) {
@@ -168,7 +170,7 @@ export function inspect(project, now = Date.now()) {
     if (active.has(issue.sprintId) && !issue.assigneeId && !isDone(project, issue) && issue.typeId !== 'epic' && issue.typeId !== 'subtask') {
       warnings.push({ severity: 'warn', issueId: issue.id, code: 'unassigned-sprint' });
     }
-    const sla = slaState(project, issue, now);
+    const sla = slaState(project, issue, now, calendar);
     if (sla?.breached && !isDone(project, issue)) warnings.push({ severity: 'error', issueId: issue.id, code: 'sla-breached' });
     const blocked = (issue.links || []).some((link) => {
       if (link.type !== 'blocks' || link.direction !== 'in') return false;

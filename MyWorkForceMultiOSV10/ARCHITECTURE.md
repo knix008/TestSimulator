@@ -14,6 +14,8 @@ MyWorkForce는 Vite로 묶는 브라우저 화면과 Tauri 2 데스크톱 껍질
 
 개발 서버 포트는 1480입니다. 웹 빌드의 기준 경로는 `./` 라서 `dist` 를 어느 폴더에서나 열 수 있습니다.
 
+데이터 서비스는 `server/` 이고 포트는 1481입니다. 화면은 여기서 작업 공간을 읽고 씁니다. 기본 엔진은 SQLite(`node:sqlite`)이며 MySQL과 MariaDB는 `mysql2`, PostgreSQL은 `pg`, SQL Server는 `mssql` 입니다. 지금 수신 주소는 `127.0.0.1` 이라 개인용입니다. 같은 표에 지식 자료, 근무 달력, 승인, 웹훅, 메일 대기열, API 토큰, 계정, 이슈 색인을 남겨 관리 프로그램이 나중에 읽습니다. 작업 공간 문서가 기준이고, 저장할 때마다 그 표도 다시 씁니다.
+
 ## 작업 공간
 
 파일 형식은 `{ format: 'myworkforce', version: 1, kind: 'workspace' | 'project' }` 입니다. 확장자는 `.mwf` 입니다.

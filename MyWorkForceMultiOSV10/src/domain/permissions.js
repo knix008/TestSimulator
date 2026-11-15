@@ -6,9 +6,15 @@ export const ROLE_PERMISSIONS = {
   viewer: ['browse'],
 };
 
+export function isWorkspaceAdmin(user) {
+  return String(user?.login || '').toLowerCase() === 'admin' && user?.active !== false;
+}
+
 export function rolesOf(ws, project, userId) {
   const roles = new Set((project?.members || []).filter((member) => member.userId === userId).map((member) => member.role));
   if (project?.leadId === userId) roles.add('administrator');
+  const user = (ws?.users || []).find((item) => item.id === userId);
+  if (isWorkspaceAdmin(user)) roles.add('administrator');
   if (roles.size === 0) roles.add('viewer');
   return [...roles];
 }

@@ -8,6 +8,18 @@ export const DEFAULTS = {
   fontSize: 13,
   fontWeight: 400,
   fontStyle: 'normal',
+  showLeftPanel: true,
+  showRightPanel: true,
+  showStartPage: true,
+  showWelcome: true,
+  startShowBanner: true,
+  startShowProjects: true,
+  startShowExamples: true,
+  startShowBackground: true,
+  background: 'board',
+  backgroundSpeed: 100,
+  backgroundRandom: false,
+  backgroundInterval: 0,
   recent: [],
 };
 
@@ -26,6 +38,15 @@ export function loadSettings() {
     ...stored,
     recent: Array.isArray(stored.recent) ? stored.recent.filter((item) => typeof item === 'string').slice(0, 8) : [],
     fontSize: Number(stored.fontSize) || DEFAULTS.fontSize,
+    showStartPage: stored.showStartPage !== false,
+    showWelcome: stored.showWelcome !== false,
+    startShowBanner: stored.startShowBanner !== false,
+    startShowProjects: stored.startShowProjects !== false,
+    startShowExamples: stored.startShowExamples !== false,
+    startShowBackground: stored.startShowBackground !== false,
+    backgroundSpeed: Number.isFinite(Number(stored.backgroundSpeed)) ? Math.max(0, Math.min(300, Number(stored.backgroundSpeed))) : DEFAULTS.backgroundSpeed,
+    backgroundRandom: stored.backgroundRandom === true,
+    backgroundInterval: [0, 15, 30, 60, 120, 300].includes(Number(stored.backgroundInterval)) ? Number(stored.backgroundInterval) : 0,
   };
   return current;
 }

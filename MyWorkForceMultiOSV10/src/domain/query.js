@@ -303,7 +303,8 @@ function fieldValue(ws, project, issue, field, ctx) {
       for (const id of issue.watchers || []) add(id, userOf(ws, id)?.name, userOf(ws, id)?.email);
       break;
     case 'sla': {
-      const sla = slaState(project, issue, ctx.now);
+      const calendar = (ws.calendars || []).find((item) => item.id === ws.calendarId) || null;
+      const sla = slaState(project, issue, ctx.now, calendar);
       if (!sla) break;
       add('any');
       if (!isDoneStatus(project, issue.statusId)) add(sla.breached ? 'breached' : 'ok');
