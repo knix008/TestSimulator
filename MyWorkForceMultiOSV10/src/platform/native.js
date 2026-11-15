@@ -34,6 +34,30 @@ export const startupFiles = () => (isDesktop() ? invoke('startup_files') : Promi
 export const readTextFile = (path) => invoke('read_text_file', { path });
 export const writeTextFile = (path, content) => invoke('write_text_file', { path, content });
 export const workspaceFile = () => invoke('workspace_file');
+export async function setLaunchAtStartup(enabled) {
+  if (!isDesktop()) return false;
+  const plugin = await import('@tauri-apps/plugin-autostart');
+  if (enabled) await plugin.enable();
+  else await plugin.disable();
+  await invoke('set_talk_autostart', { enabled });
+  return plugin.isEnabled();
+}
+
+export function openBrowser(url) {
+  const target = String(url || '');
+  if (!/^https?:\/\//i.test(target) || /[\s"'<>]/.test(target)) return Promise.resolve();
+  if (!isDesktop()) {
+    window.open(target, '_blank', 'noopener');
+    return Promise.resolve();
+  }
+  return invoke('open_browser', { url: target }).catch(() => { window.open(target, '_blank', 'noopener'); });
+}
+
+export function openTalk() {
+  const popup = () => { window.open('./chat.html', 'myworkforce-talk', 'width=980,height=720'); return Promise.resolve(); };
+  if (!isDesktop()) return popup();
+  return invoke('open_talk').catch(() => popup());
+}
 
 export async function chooseOpen() {
   return (await openDialog({ multiple: false, filters: [{ name: 'MyWorkForce', extensions: ['mwf', 'json'] }] })) || null;

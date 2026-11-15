@@ -143,7 +143,7 @@ export function ensureAdmin(ws) {
   }
   if (admin.login !== 'admin') { admin.login = 'admin'; changed = true; }
   if (!admin.name) { admin.name = '관리자'; changed = true; }
-  if (!admin.passwordHash) { admin.passwordHash = ADMIN_PASSWORD; changed = true; }
+  if (!admin.passwordHash && !admin.hasPassword) { admin.passwordHash = ADMIN_PASSWORD; changed = true; }
   if (admin.active === false) { admin.active = true; changed = true; }
   return changed;
 }

@@ -21,7 +21,10 @@ describe('Database', () => {
     ws.savedAt = '2026-11-15T12:00:00.000Z';
     const doc = createDocument(ws, { templateId: 'deliverable', projectId: ws.projects[0].id, lang: 'ko' }, 'u1');
     shareDocument(ws, doc.id, 'workspace', 'u1');
-    await repository.writeWorkspace(ws);
+    await repository.writeWorkspace(ws, 0);
+    assert.equal((await repository.readWorkspace()).revision, 1);
+    await assert.rejects(() => repository.writeWorkspace(ws, 0), /conflict/);
+    await repository.writeWorkspace(ws, 1);
     const loaded = await repository.readWorkspace();
     assert.equal(loaded.projects.length, 2);
     assert.equal(loaded.articles[0].title, '결제 안내');

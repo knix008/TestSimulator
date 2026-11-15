@@ -27,6 +27,7 @@ export default defineConfig({
     __BUILD_COMMIT__: JSON.stringify(commit),
   },
   server: {
+    host: true,
     port: 1480,
     strictPort: true,
     watch: { ignored: ['**/src-tauri/**', '**/test-results/**', '**/data/**'] },
@@ -34,17 +35,23 @@ export default defineConfig({
   },
   plugins: [{
     name: 'myworkforce-data',
-    configureServer() {
+    configureServer(server) {
       const child = spawn(process.execPath, ['server/index.mjs'], { cwd: root, stdio: 'inherit', env: process.env });
-      child.on('exit', () => {});
-      return () => child.kill();
+      const stop = () => { if (!child.killed) child.kill(); };
+      return () => server.httpServer?.once('close', stop);
     },
   }],
-  optimizeDeps: { entries: ['index.html'] },
+  optimizeDeps: { entries: ['index.html', 'chat.html'] },
   build: {
     target: 'es2022',
     outDir: 'dist',
     emptyOutDir: true,
     chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      input: {
+        main: path.resolve(root, 'index.html'),
+        talk: path.resolve(root, 'chat.html'),
+      },
+    },
   },
 });

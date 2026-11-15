@@ -1,4 +1,5 @@
 import { EXAMPLES } from '../domain/examples.js';
+import { savedLogin } from '../platform/data.js';
 import { ENGINES } from '../domain/engines.js';
 import { gripIcon } from '../icons.js';
 import { esc, icon, L } from './bits.js';
@@ -35,6 +36,22 @@ function card(id, glyph, title, body, hidden = '', note = '') {
   </section>`;
 }
 
+/** Account kept on this computer, and whether the installed program opens at boot. */
+export function startupFields(ctx) {
+  const settings = ctx.settings || {};
+  const saved = savedLogin() || {};
+  const account = saved.account || ctx.ui?.loginAccount || '';
+  return `<p class="muted">${L('부팅할 때 MyWorkForce와 Talk을 함께 열고, 저장한 계정으로 들어갑니다.', 'When the system starts, open MyWorkForce and Talk together, and sign in with the saved account.')}</p>
+    <label class="check"><input type="checkbox" data-setting="launchAtStartup" ${settings.launchAtStartup ? 'checked' : ''}>${L('부팅할 때 MyWorkForce와 Talk을 실행', 'Start MyWorkForce and Talk when the system starts')}</label>
+    <label class="check"><input type="checkbox" data-setting="autoLogin" ${settings.autoLogin ? 'checked' : ''}>${L('시작할 때 자동 로그인', 'Sign in when the program opens')}</label>
+    <label class="form-row"><span>${L('계정', 'Account')}</span><input data-autologin="account" value="${esc(account)}" autocomplete="username"></label>
+    <label class="form-row"><span>${L('암호', 'Password')}</span><input data-autologin="password" type="password" placeholder="${esc(saved.password ? L('저장됨', 'Saved') : '')}" autocomplete="new-password"></label>`;
+}
+
+export function startupOptions(ctx) {
+  return `<section><h2>${icon('play')}<span>${L('이 컴퓨터', 'This computer')}</span></h2>${startupFields(ctx)}</section>`;
+}
+
 /** SQLite file and the server connection. Shown from Settings. */
 export function databaseSettings(ctx) {
   const ui = ctx.ui || {};
@@ -43,7 +60,9 @@ export function databaseSettings(ctx) {
   const engines = ENGINES.map((engine) => `<option value="${engine.id}" ${saved?.engine === engine.id ? 'selected' : ''}>${esc(L(engine.ko, engine.en))}${engine.port ? ` · ${engine.port}` : ''}</option>`).join('');
   const error = ui.startError ? `<p class="danger-text">${esc(ui.startError)}</p>` : '';
   const offline = status?.listening === false ? `<p class="danger-text">${L('데이터 서비스에 연결하지 못했습니다. 주소와 실행 여부를 확인하세요.', 'The data service did not answer. Check the address and that it is running.')}</p>` : '';
-  return `<section><h2>${icon('database')}<span>${L('데이터베이스', 'Database')}</span></h2>${offline}${error}<div class="start-grid">
+  return `<section><h2>${icon('database')}<span>${L('데이터베이스', 'Database')}</span></h2>
+    <p class="muted">${L('이 저장소에 회사의 모든 과제가 있습니다.', 'Every project in this company is kept in this store.')}</p>
+    ${offline}${error}<div class="start-grid">
       <section class="panel-card">
         <header><b>${icon('database')}${L('이 컴퓨터', 'This computer')}</b></header>
         <p>${L('기본 저장소는 SQLite 파일입니다. 예제와 튜토리얼도 이 파일에 저장됩니다.', 'The default store is a SQLite file. Examples and the tutorial are saved there too.')}</p>
@@ -131,6 +150,7 @@ export function renderStart(ctx) {
         ${offline}${error}
         <div class="start-board">
         ${card('login', 'user', L('로그인', 'Sign in'), loginForm(ctx))}
+        ${ui.loginUser ? card('computer', 'play', L('이 컴퓨터', 'This computer'), startupFields(ctx)) : ''}
         ${card('actions', 'spark', L('시작', 'Start'), `<div class="sample-tiles">${actions}</div>`)}
         ${settings.startShowProjects === false ? '' : card('projects', 'folder', L('과제', 'Projects'), projectTiles ? `<div class="sample-tiles">${projectTiles}</div>` : `<p class="muted">${L('만들어진 과제가 없습니다.', 'There are no projects yet.')}</p>`, '', `<span class="sample-count">${projects.length}</span>`)}
         ${settings.startShowExamples === false ? '' : card('examples', 'box', L('예제', 'Examples'), `<p>${L('카드를 누르면 그 작업 공간으로 바뀝니다. 이미 프로젝트가 있으면 먼저 확인합니다.', 'A card replaces the workspace with that example. If you already have projects, it asks first.')}</p><label class="start-find"><span>${L('찾기', 'Find')}</span><input id="example-filter" value="${esc(ui.exampleFilter || '')}" placeholder="${esc(L('이름, 키, 설명', 'Name, key, or description'))}" autocomplete="off"></label><div class="sample-groups">${groups || `<p class="muted">${L('찾는 예제가 없습니다.', 'No example matches.')}</p>`}</div>`, show('examples'), `<span class="sample-count">${EXAMPLES.length}</span>`)}

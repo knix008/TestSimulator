@@ -44,7 +44,8 @@
         "languages": ["Korean", "English"],
         "displayLanguageSelector": true,
         "installerIcon": "icons/icon.ico",
-        "startMenuFolder": "MyWorkForce"
+        "startMenuFolder": "MyWorkForce",
+        "installerHooks": "windows/hooks.nsh"
       }
     },
     "macOS": { "minimumSystemVersion": "11.0" },

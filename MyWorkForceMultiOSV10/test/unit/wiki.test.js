@@ -3,7 +3,7 @@ import { describe, test } from 'node:test';
 import { sampleWorkspace } from '../../src/domain/sample.js';
 import { addArticle } from '../../src/domain/services.js';
 import { blankWorkspace } from '../../src/domain/store.js';
-import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePage, expandPage, likePage, movePage, pageByShare, restorePage, restoreTrashed, searchPages, setPageStatus, shareLink, updatePage, visiblePage, watchPage } from '../../src/domain/wiki.js';
+import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePage, expandPage, likePage, movePage, pageByShare, pageDocument, restorePage, restoreTrashed, searchPages, setPageStatus, shareLink, updatePage, visiblePage, watchPage } from '../../src/domain/wiki.js';
 
 describe('Wiki', () => {
   test('puts an article in a space and keeps a page tree', () => {
@@ -63,8 +63,14 @@ describe('Wiki', () => {
     assert.match(expandPage(ws, page), /Child/);
     assert.match(expandPage(ws, page), /> \*\*note\*\*/);
     assert.throws(() => attachPage(ws, page.id, { name: 'big.bin', size: 800_000, data: '' }, 'u1'), /attachment-big/);
-    attachPage(ws, page.id, { name: 'note.txt', size: 4, data: 'data:text/plain,hi' }, 'u1');
+    attachPage(ws, page.id, { name: 'note.txt', mime: 'text/plain', size: 4, data: 'data:text/plain,hi' }, 'u1');
     assert.equal(page.attachments.length, 1);
+    assert.match(page.body, /\[note.txt\]\(attachment:/);
+    const shot = attachPage(ws, page.id, { name: 'shot.png', mime: 'image/png', size: 12, data: 'data:image/png;base64,abcd' }, 'u1');
+    assert.match(page.body, new RegExp(`!\\[shot.png\\]\\(attachment:${shot.id}\\)`));
+    const doc = pageDocument(ws.articles.find((item) => item.id === page.id), page.body);
+    assert.match(doc.html, /<img class="md-image"/);
+    assert.match(doc.markdown, /data:image\/png;base64,abcd/);
     const token = shareLink(ws, page.id, 'u1', true);
     assert.equal(pageByShare(ws, token).id, page.id);
     deletePage(ws, page.id, 'u1');

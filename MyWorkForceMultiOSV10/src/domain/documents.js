@@ -1,3 +1,4 @@
+import { writingEmbed } from './markdown.js';
 import { deliver } from './notices.js';
 import { ensureServices } from './services.js';
 import { nowIso, uid } from './util.js';
@@ -123,6 +124,7 @@ export function createDocument(ws, input, actorId) {
     projectId: input.projectId || '',
     issueKey: String(input.issueKey || '').trim(),
     visibility: 'private',
+    attachments: [],
     created: nowIso(),
     updated: nowIso(),
   };
@@ -149,6 +151,25 @@ export function updateDocument(ws, documentId, patch, actorId) {
   if (patch.projectId != null) doc.projectId = String(patch.projectId);
   doc.updated = nowIso();
   return doc;
+}
+
+export function attachDocument(ws, documentId, file, actorId) {
+  const doc = mustDocument(ws, documentId);
+  if (doc.authorId !== actorId) throw new Error('permission');
+  if ((file.size || 0) > 700_000 || String(file.data || '').length > 1_200_000) throw new Error('attachment-big');
+  doc.attachments = doc.attachments || [];
+  const item = { id: uid('f'), name: file.name || 'file', mime: file.mime || '', size: file.size || 0, data: file.data || '', created: nowIso() };
+  doc.attachments.push(item);
+  doc.body = `${doc.body || ''}\n\n${writingEmbed(item)}\n`;
+  doc.updated = nowIso();
+  return item;
+}
+
+export function removeDocumentFile(ws, documentId, fileId, actorId) {
+  const doc = mustDocument(ws, documentId);
+  if (doc.authorId !== actorId) throw new Error('permission');
+  doc.attachments = (doc.attachments || []).filter((item) => item.id !== fileId);
+  doc.updated = nowIso();
 }
 
 export function shareDocument(ws, documentId, visibility, actorId) {

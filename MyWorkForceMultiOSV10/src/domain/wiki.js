@@ -1,3 +1,4 @@
+import { writingEmbed, writingExport } from './markdown.js';
 import { deliver, setNotice } from './notices.js';
 import { nowIso, uid } from './util.js';
 
@@ -352,6 +353,7 @@ export function attachPage(ws, pageId, file, actorId) {
   if ((file.size || 0) > 700_000 || String(file.data || '').length > 1_200_000) throw new Error('attachment-big');
   const item = { id: uid('f'), name: file.name || 'file', mime: file.mime || '', size: file.size || 0, data: file.data || '', created: nowIso() };
   page.attachments.push(item);
+  page.body = `${page.body || ''}\n\n${writingEmbed(item)}\n`;
   page.updated = nowIso();
   return item;
 }
@@ -421,9 +423,8 @@ export function expandPage(ws, page) {
 }
 
 export function pageDocument(page, body) {
-  const title = page.title || 'Page';
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title.replace(/[&<>]/g, '')}</title></head><body><h1>${title.replace(/[&<>]/g, '')}</h1>${body}</body></html>`;
-  return { filename: `${title.replace(/[^\w가-힣.-]+/g, '_')}.html`, html };
+  const doc = writingExport(page.title || 'Page', body, page.attachments || []);
+  return { filename: `${doc.filename}.html`, html: doc.html, markdown: doc.markdown };
 }
 
 export function searchPages(ws, text, userId) {

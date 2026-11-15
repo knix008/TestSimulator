@@ -14,8 +14,8 @@ import { CUSTOM_KEYS } from '../themes.js';
 import { avatar, badge, byId, empty, esc, formatWhen, icon, L, nameOf, options, pageHead, panelFrame, person, safeColor, typeBadge, userOptions } from './bits.js';
 import { navLabel } from './chrome.js';
 import { BACKGROUND_INTERVALS, BACKGROUNDS, knownBackground } from './background.js';
-import { databaseSettings } from './start.js';
-import { approvalBlock, calendarView, documentsView, extensionsView, knowledgeView, laneLabel, plansView, portalView, screenSection, swimlaneOptions } from './extra.js';
+import { databaseSettings, startupOptions } from './start.js';
+import { approvalBlock, calendarView, documentsView, extensionsView, knowledgeView, laneLabel, mailSettings, plansView, portalView, screenSection, swimlaneOptions } from './extra.js';
 
 const dur = (value) => formatDuration(value, getLanguage());
 
@@ -579,15 +579,12 @@ function projectSettings(ctx) {
 }
 
 function settings(ctx) {
-  const project = ctx.project;
-  const database = databaseSettings(ctx);
-  const start = startSettings(ctx);
-  if (!project) return `<div class="page settings">${pageHead(L('설정', 'Settings'), '', 'settings')}${start}${database}</div>`;
   const colors = ctx.settings.customTheme ? CUSTOM_KEYS.map((key) => `<label class="form-row"><span>${esc(key)}</span><input type="color" data-custom-color="${esc(key)}" value="${esc(ctx.settings.customTheme[key] || '#888888')}"></label>`).join('') : '';
   return `<div class="page settings">${pageHead(L('설정', 'Settings'), '', 'settings')}
-    ${start}
-    ${database}
-    ${projectConfiguration(ctx, project)}
+    ${startSettings(ctx)}
+    ${startupOptions(ctx)}
+    ${databaseSettings(ctx)}
+    ${mailSettings(ctx)}
     <section><h2>${L('모양', 'Appearance')}</h2>
       <label class="form-row"><span>${L('글자 크기', 'Text size')}</span><input data-font="size" type="number" min="12" max="20" value="${esc(ctx.settings.fontSize)}"></label>
       <button type="button" class="button" data-action="edit-custom-theme">${icon('settings')}<span>${L('사용자 정의 테마 설정', 'Custom theme settings')}</span></button>
@@ -714,7 +711,7 @@ function fields(ctx) {
     <h3>${L('관찰', 'Watchers')}</h3><div class="avatars">${(issue.watchers || []).map((id) => avatar(person(ctx.ws, id))).join('')}</div>
     <button type="button" class="small-button" data-action="toggle-watch">${icon('eye')}<span>${watching ? L('관찰 그만', 'Stop watching') : L('관찰', 'Watch')}</span></button>
     <h3>${L('첨부', 'Attachments')}</h3>
-    ${(issue.attachments || []).map((file) => `<div class="link-row"><a href="${esc(file.data)}" download="${esc(file.name)}">${esc(file.name)}</a><button type="button" class="icon-button" data-action="remove-attachment" data-id="${esc(file.id)}">${icon('trash')}</button></div>`).join('')}
+    ${(issue.attachments || []).map((file) => `<div class="link-row"><a class="file-link" href="${esc(file.data)}" data-file="${esc(file.id)}" data-name="${esc(file.name)}" download="${esc(file.name)}">${esc(file.name)}</a><button type="button" class="icon-button" data-action="remove-attachment" data-id="${esc(file.id)}">${icon('trash')}</button></div>`).join('')}
     <button type="button" class="small-button" data-action="pick-attachment">${icon('paperclip')}<span>${L('파일 추가', 'Add a file')}</span></button>
     <div class="page-actions"><button type="button" class="button" data-action="clone-issue">${icon('copy')}<span>${L('복제', 'Clone')}</span></button><button type="button" class="button danger" data-action="delete-issue">${icon('trash')}<span>${L('삭제', 'Delete')}</span></button></div>
   </div>`;

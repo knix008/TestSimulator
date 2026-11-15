@@ -1,0 +1,79 @@
+:root {
+  color-scheme: light;
+  --bg: #e7eef6;
+  --panel: #ffffff;
+  --ink: #172033;
+  --muted: #5d6b80;
+  --line: #d5deea;
+  --accent: #1d6fbf;
+  --accent-ink: #ffffff;
+  --mine: #d9ebff;
+  --notice: #fff6d8;
+  --danger: #b42318;
+  font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  font-size: 14px;
+}
+:root[data-mode="dark"] {
+  color-scheme: dark;
+  --bg: #121820;
+  --panel: #1b2430;
+  --ink: #e7eef8;
+  --muted: #9aabc0;
+  --line: #2c3a4c;
+  --accent: #4c9aee;
+  --accent-ink: #041018;
+  --mine: #1d3d62;
+  --notice: #3a3218;
+}
+* { box-sizing: border-box; }
+html, body, #app { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.app { display: grid; grid-template-rows: 48px 1fr; height: 100%; }
+.top { display: flex; align-items: center; gap: 10px; padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.top img { width: 22px; height: 22px; }
+.top b { font-size: 15px; }
+.top span { color: var(--muted); }
+.top .grow { flex: 1; }
+.top button, .composer button, .side button.primary { border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink); padding: 6px 10px; }
+.top button.quiet, .composer button.quiet { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.body { display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
+.side, .thread { min-height: 0; background: var(--panel); }
+.side { border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+.side h2, .group-box h3 { margin: 12px 12px 6px; font-size: 12px; letter-spacing: 0.04em; color: var(--muted); }
+.rooms, .people { overflow: auto; padding: 0 8px 8px; }
+.room, .person { width: 100%; text-align: left; border: 0; background: transparent; border-radius: 8px; padding: 8px; display: grid; gap: 2px; }
+.room.active, .room:hover, .person:hover { background: var(--bg); }
+.room b, .person b { font-weight: 650; }
+.room small, .person small, .muted { color: var(--muted); }
+.room i { justify-self: end; background: var(--accent); color: var(--accent-ink); border-radius: 99px; font-style: normal; font-size: 11px; padding: 0 6px; }
+.group-box { border-top: 1px solid var(--line); padding: 8px 12px 12px; display: grid; gap: 8px; }
+.group-box input[type="text"] { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--bg); }
+.checks { max-height: 140px; overflow: auto; display: grid; gap: 4px; }
+.thread { display: grid; grid-template-rows: 1fr auto; background: var(--bg); }
+.messages { overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.bubble { max-width: min(520px, 80%); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+.bubble.mine { align-self: flex-end; background: var(--mine); }
+.bubble.notice { align-self: center; background: var(--notice); max-width: 90%; }
+.bubble .who { color: var(--muted); font-size: 12px; }
+.bubble p { margin: 4px 0; white-space: pre-wrap; word-break: break-word; }
+.bubble a { color: var(--accent); }
+.bubble button { margin-top: 6px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink); padding: 4px 10px; }
+.bubble button:disabled { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+.notice-note { margin: 0; color: var(--muted); text-align: center; }
+.composer { display: flex; gap: 8px; padding: 12px; background: var(--panel); border-top: 1px solid var(--line); }
+.composer textarea { flex: 1; resize: none; min-height: 44px; max-height: 120px; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: var(--bg); }
+.login { height: 100%; display: grid; place-items: center; }
+.card { width: min(420px, calc(100% - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: grid; gap: 10px; }
+.card label { display: grid; gap: 4px; }
+.card label.reveal { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.card input { border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: var(--bg); }
+.error { color: var(--danger); min-height: 1.2em; margin: 0; }
+.empty { color: var(--muted); padding: 24px; text-align: center; }
+@media (max-width: 800px) {
+  .body { grid-template-columns: 1fr; }
+  .side { display: none; }
+  .body.show-list .side { display: flex; }
+  .body.show-list .thread { display: none; }
+}

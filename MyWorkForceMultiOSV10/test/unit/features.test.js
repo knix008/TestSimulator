@@ -4,9 +4,10 @@ import fs from 'node:fs';
 import { DEFAULT_TYPES, PROJECT_TYPES } from '../../src/domain/catalog.js';
 import { createDocument, updateDocument } from '../../src/domain/documents.js';
 import { setNotice } from '../../src/domain/notices.js';
+import { describeMail } from '../../src/domain/services.js';
 import { toCsv, toMarkdown } from '../../src/domain/export.js';
 import { setLanguage, L } from '../../src/i18n.js';
-import { renderMarkdown } from '../../src/domain/markdown.js';
+import { renderMarkdown, writingExport } from '../../src/domain/markdown.js';
 import { illustrate } from '../../src/ui/figures.js';
 import { allowed, roleForAccess, sharesTeam } from '../../src/domain/permissions.js';
 import { runQuery } from '../../src/domain/query.js';
@@ -535,7 +536,25 @@ describe('Markdown', () => {
   test('keeps http links and drops other links', () => {
     const html = renderMarkdown('[ok](https://example.com) [no](javascript:alert(1))');
     assert.match(html, /href="https:\/\/example.com"/);
+    assert.match(html, /data-external="https:\/\/example.com"/);
     assert.equal(html.includes('javascript:'), false);
+  });
+
+  test('shows an attached image and a file link that can be downloaded', () => {
+    const files = [
+      { id: 'pic', name: 'shot.png', mime: 'image/png', data: 'data:image/png;base64,abcd' },
+      { id: 'note', name: 'note.txt', mime: 'text/plain', data: 'data:text/plain,hi' },
+    ];
+    const html = renderMarkdown('![shot.png](attachment:pic)\n\n[note.txt](attachment:note)\n\n![no](javascript:alert(1))', files);
+    assert.match(html, /<img class="md-image" src="data:image\/png;base64,abcd"/);
+    assert.match(html, /data-file="pic"/);
+    assert.match(html, /class="file-link"[^>]*data-file="note"/);
+    assert.match(html, /download="note.txt"/);
+    assert.equal(html.includes('javascript:'), false);
+    const exported = writingExport('결제 안내', '![shot.png](attachment:pic)', files);
+    assert.match(exported.html, /<img /);
+    assert.match(exported.markdown, /data:image\/png;base64,abcd/);
+    assert.match(exported.filename, /결제/);
   });
 
   test('escapes raw markup', () => {
@@ -723,6 +742,27 @@ describe('Screens', () => {
     assert.match(html, /data-bg="kind"/);
     assert.match(html, /data-bg="speed"/);
     assert.match(html, /data-bg="interval"/);
+    assert.match(html, /data-mail="host"/);
+    assert.match(html, /data-mail="security"/);
+    assert.match(html, /smtp\.example\.com/);
+    assert.match(html, /outside this company/);
+    assert.match(html, /data-action="mail-test"/);
+    assert.match(html, /Every project in this company is kept in this store/);
+    assert.doesNotMatch(html, /data-project="name"/);
+    assert.doesNotMatch(renderView(context('project-settings')), /id="server-form"/);
+    assert.match(html, /data-setting="launchAtStartup"/);
+    assert.match(html, /data-setting="autoLogin"/);
+    assert.match(html, /Start MyWorkForce and Talk when the system starts/);
+    assert.match(html, /Sign in when the program opens/);
+    assert.doesNotMatch(html, /data-setting="launchAtStartup" checked/);
+    assert.doesNotMatch(html, /data-setting="autoLogin" checked/);
+    const starttls = describeMail({ host: 'smtp.example.com', port: 587, security: 'starttls' });
+    assert.equal(starttls.secure, false);
+    assert.equal(starttls.requireTLS, true);
+    const ssl = describeMail({ host: 'smtp.example.com', port: 465, security: 'ssl' });
+    assert.equal(ssl.secure, true);
+    assert.equal(ssl.requireTLS, false);
+    assert.equal(describeMail({ host: 'smtp.example.com', secure: true }).security, 'ssl');
     const notes = renderView(context('notifications'));
     assert.match(notes, /data-notice="project"/);
     assert.match(notes, /Issues I watch/);
@@ -773,6 +813,8 @@ describe('Screens', () => {
     assert.match(toolbar, /data-action="theme-random"/);
     assert.match(toolbar, /data-action="theme-menu"/);
     assert.match(toolbar, /data-action="about"/);
+    assert.match(toolbar, /data-action="open-talk"/);
+    assert.match(menu, /data-action="open-talk"/);
     assert.match(toolbar, /data-icon="info"/);
     assert.match(toolbar, /data-action="toggle-panel" data-id="left"/);
     assert.match(toolbar, /data-action="toggle-panel" data-id="right"/);
@@ -803,6 +845,8 @@ describe('Screens', () => {
     const login = loginForm(ctx);
     assert.match(login, /id="login-account"/);
     assert.match(login, /id="login-password"/);
+    assert.match(login, /data-reveal="password"/);
+    assert.match(login, /Show password/);
     assert.match(login, /Login ID/);
     assert.match(login, /admin \/ admin/);
     assert.doesNotMatch(login, /pick-login/);
@@ -858,6 +902,18 @@ describe('Screens', () => {
     assert.match(renderView({ ...admin, ui: { ...admin.ui, view: 'users' } }), /data-action="new-user"/);
     assert.match(renderView({ ...admin, ui: { ...admin.ui, view: 'projects' } }), /data-managed="name"/);
     assert.match(renderView({ ...admin, ui: { ...admin.ui, view: 'projects' } }), /data-action="new-project"/);
+    assert.match(nav, /My projects/);
+    assert.match(nav, /data-action="activate" data-id="p-shop"/);
+    assert.match(nav, /data-action="activate" data-id="p-sup"/);
+    const devNav = renderNav(developer);
+    assert.match(devNav, /data-action="activate" data-id="p-shop"/);
+    assert.doesNotMatch(devNav, /data-action="activate" data-id="p-sup"/);
+    const child = newProject(ctx.ws, { name: 'Payments', key: 'PAY', type: 'software', leadId: 'u2', parentId: 'p-shop' }, 'u1');
+    assert.match(renderNav(developer), new RegExp(`data-action="activate" data-id="${child.id}"`));
+    const outsider = addUser(ctx.ws, { name: 'Outside', email: 'out@example.com' });
+    const outside = renderNav({ ...ctx, user: outsider });
+    assert.doesNotMatch(outside, /data-action="activate"/);
+    assert.match(outside, /You are not in a project yet/);
     ctx.settings.showLeftPanel = false;
     assert.match(renderNav(ctx), /data-icon="foldRight"/);
     const side = renderRight(ctx);

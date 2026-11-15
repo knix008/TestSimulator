@@ -4,13 +4,17 @@ MyWorkForce keeps projects and issues in one workspace. The menu bar is the wind
 
 ## Start
 
-The first screen chooses a database. **This computer** uses a SQLite file. **Server database** connects to MySQL, MariaDB, SQL Server, or PostgreSQL. This installation is personal, so the data service listens only on `127.0.0.1:1481`. An administration app will open the same database later.
+Sign in first. People in one company each use their own account and share the same projects and documents. The store is a SQLite file on this computer, or MySQL, MariaDB, SQL Server, or PostgreSQL. Choose it under **Database** in Settings. That store holds every project in the company. The data service listens on port `1481` for the company network, and the workspace stays closed until someone signs in.
 
 A password set on the People screen is required the next time you enter. A workspace left in the browser can be imported from the start screen.
 
+**Talk** on the toolbar, or Talk in Help, opens MyWorkForce Talk. Sign in with the same account to speak with one person, or choose two or more people for a group talk. Files travel in that talk. Work notices collect in each person's own Notices room, and **Confirm** is pressed by that person. Signing in on one program signs the other in with the same account, and signing out of one signs the other out. The installer adds both MyWorkForce and MyWorkForce Talk. Under **This computer** in Settings, choose to start MyWorkForce and Talk together at boot, and automatic sign-in. They stay one program: one notification-area icon, and closing either window closes the other. The account and password for automatic sign-in stay on this computer.
+
+**Mail** in Settings sends through a server outside this company. The host is an external address such as `smtp.example.com`. Port 587 is STARTTLS and port 465 is SSL. The password stays on this server. **Send a test** checks that a message arrives, and later notices leave through that server.
+
 ## Tutorial and examples
 
-The tabs on the start screen move between the tutorial, the user guide, the query language, the examples and the database.
+The start screen opens the tutorial, the user guide, the query language and the examples. The database is in Settings.
 
 **Start the tutorial** opens the shop example and follows the coach in the corner. The order is Home, the board, the backlog, a query, the roadmap, knowledge, the work calendar, reports and this guide. The last step closes the coach.
 
@@ -62,11 +66,13 @@ A service project has queues. Notifications tell watchers about assignments, com
 
 Knowledge is organized in spaces. A space holds a page tree and news posts. A page can contain child pages. A news post stands alone. The body is Markdown. Labels find a page, and comments hold the discussion. Each save keeps the earlier version so it can be restored. Watching a page sends a notification when it changes. When the author restricts a page, only that person can see it.
 
+A page can hold images and files. An image appears in the article. A file appears as a link with its name. Clicking the image or the file link downloads that file, and the right-click menu has Download as well. Export writes HTML, Word, PDF, or Markdown. Clicking a link to another site asks whether to open it in the browser.
+
 ## Documents
 
 The Documents screen starts a meeting note, decision, specification, requirements list, test report, release note, retrospective, status report, design brief, incident report, procedure, handover, weekly report, or proposal from a form. The deliverable form is where a person registers something they made.
 
-Only the author edits a document. Until it is shared, only the author sees it. Sharing with the project lets people who open that project read it. Sharing with everyone lets anyone in the workspace read it. An issue key keeps the document next to that issue.
+Only the author edits a document. Until it is shared, only the author sees it. Sharing with the project lets people who open that project read it. Sharing with everyone lets anyone in the workspace read it. An issue key keeps the document next to that issue. A document takes images and files too, and exports as HTML, Word, PDF, or Markdown.
 
 ## Settings
 

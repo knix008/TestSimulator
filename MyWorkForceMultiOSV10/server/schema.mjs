@@ -82,6 +82,42 @@ const TABLES = [
     password_hash {{TEXT}} NOT NULL,
     active {{INT}} NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS chat_rooms (
+    id {{TEXT}} PRIMARY KEY,
+    name {{TEXT}} NOT NULL,
+    kind {{TEXT}} NOT NULL,
+    created_at {{TEXT}} NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS chat_members (
+    room_id {{TEXT}} NOT NULL,
+    user_id {{TEXT}} NOT NULL,
+    last_read {{TEXT}} NOT NULL,
+    PRIMARY KEY (room_id, user_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS chat_messages (
+    id {{TEXT}} PRIMARY KEY,
+    room_id {{TEXT}} NOT NULL,
+    user_id {{TEXT}} NOT NULL,
+    kind {{TEXT}} NOT NULL,
+    body {{BODY}} NOT NULL,
+    file_id {{TEXT}} NOT NULL,
+    file_name {{TEXT}} NOT NULL,
+    created_at {{TEXT}} NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS chat_checks (
+    message_id {{TEXT}} NOT NULL,
+    user_id {{TEXT}} NOT NULL,
+    checked_at {{TEXT}} NOT NULL,
+    PRIMARY KEY (message_id, user_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS chat_files (
+    id {{TEXT}} PRIMARY KEY,
+    name {{TEXT}} NOT NULL,
+    mime {{TEXT}} NOT NULL,
+    size_bytes {{INT}} NOT NULL,
+    data {{BODY}} NOT NULL,
+    created_at {{TEXT}} NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS issue_index (
     id {{TEXT}} PRIMARY KEY,
     project_id {{TEXT}} NOT NULL,

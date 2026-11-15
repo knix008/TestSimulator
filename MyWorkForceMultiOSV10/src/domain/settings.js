@@ -31,6 +31,8 @@ export const DEFAULTS = {
   backgroundSpeed: 100,
   backgroundRandom: false,
   backgroundInterval: 0,
+  launchAtStartup: false,
+  autoLogin: false,
   recent: [],
 };
 
@@ -58,6 +60,8 @@ export function loadSettings() {
     startShowBackground: stored.startShowBackground !== false,
     backgroundSpeed: Number.isFinite(Number(stored.backgroundSpeed)) ? Math.max(0, Math.min(300, Number(stored.backgroundSpeed))) : DEFAULTS.backgroundSpeed,
     backgroundRandom: stored.backgroundRandom === true,
+    launchAtStartup: stored.launchAtStartup === true,
+    autoLogin: stored.autoLogin === true,
     backgroundInterval: [0, 15, 30, 60, 120, 300].includes(Number(stored.backgroundInterval)) ? Number(stored.backgroundInterval) : 0,
   };
   return current;

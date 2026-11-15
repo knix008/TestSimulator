@@ -43,7 +43,7 @@ export function knowledgeView(ctx) {
   const freshEdit = open?.editorId && open.editorId !== ctx.user?.id && Date.now() - Date.parse(open.editorAt || 0) < 120000;
   const comments = (open?.comments || []).map((comment) => `<article class="comment"><header><b>${esc(person(ctx.ws, comment.authorId)?.name || '')}</b><small>${esc(formatWhen(comment.created))}</small>${comment.authorId === ctx.user?.id || open.authorId === ctx.user?.id ? `<button type="button" class="icon-button" data-action="delete-page-comment" data-id="${esc(open.id)}" data-comment="${esc(comment.id)}">${icon('trash')}</button>` : ''}</header>${comment.quote ? `<blockquote>${esc(comment.quote)}</blockquote>` : ''}<div class="md">${renderMarkdown(comment.body || '')}</div></article>`).join('');
   const versions = (open?.versions || []).slice(0, 8).map((version) => `<button type="button" class="link-row" data-action="restore-page" data-id="${esc(open.id)}" data-version="${esc(version.id)}">${icon('restore')}<span>${esc(version.title)}</span><small>${esc(formatWhen(version.at))}</small></button>`).join('');
-  const files = (open?.attachments || []).map((file) => `<div class="link-row">${icon('paperclip')}<a href="${esc(file.data || '')}" download="${esc(file.name)}">${esc(file.name)}</a>${canEdit ? `<button type="button" class="icon-button" data-action="remove-page-file" data-id="${esc(open.id)}" data-file="${esc(file.id)}">${icon('trash')}</button>` : ''}</div>`).join('');
+  const files = (open?.attachments || []).map((file) => `<div class="link-row">${icon('paperclip')}<a class="file-link" href="${esc(file.data || '')}" data-file="${esc(file.id)}" data-name="${esc(file.name)}" download="${esc(file.name)}">${esc(file.name)}</a>${canEdit ? `<button type="button" class="icon-button" data-action="remove-page-file" data-id="${esc(open.id)}" data-file="${esc(file.id)}">${icon('trash')}</button>` : ''}</div>`).join('');
   const people = (ctx.ws.users || []).filter((user) => user.active !== false && user.id !== open?.authorId).map((user) => `<option value="${esc(user.id)}">${esc(user.name)}</option>`).join('');
   const editor = open && ctx.ui.wikiEdit && canEdit ? `<input id="page-title" value="${esc(open.title)}"><input id="page-labels" value="${esc((open.labels || []).join(' '))}" placeholder="${esc(L('라벨', 'Labels'))}"><textarea id="page-body" rows="12" placeholder="${esc(L('[[toc]] [[children]] [[include:제목]] 과 :::note 안내 :::', '[[toc]] [[children]] [[include:Title]] and :::note text :::'))}">${esc(open.body || '')}</textarea><div class="inline"><button type="button" class="button primary" data-action="save-page" data-id="${esc(open.id)}">${icon('save')}<span>${L('저장', 'Save')}</span></button><button type="button" class="button" data-action="wiki-edit" data-on="0">${icon('eye')}<span>${L('보기', 'Read')}</span></button></div>` : '';
   const board = open?.kind === 'board' ? `<div class="card-grid">${(open.shapes || []).map((shape) => `<div class="panel-card"><b>${esc(shape.text)}</b>${canEdit ? `<button type="button" class="icon-button" data-action="remove-shape" data-id="${esc(open.id)}" data-shape="${esc(shape.id)}">${icon('trash')}</button>` : ''}</div>`).join('')}</div>${canEdit ? `<div class="inline"><input id="shape-text" placeholder="${esc(L('상자', 'Box'))}"><button type="button" class="button" data-action="add-shape" data-id="${esc(open.id)}">${icon('plus')}<span>${L('상자', 'Box')}</span></button></div>` : ''}` : '';
@@ -55,7 +55,8 @@ export function knowledgeView(ctx) {
       <button type="button" class="small-button" data-action="copy-page" data-id="${esc(open.id)}">${icon('copy')}<span>${L('복사', 'Copy')}</span></button>
       <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="html">${icon('download')}<span>HTML</span></button>
       <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="doc">${icon('file')}<span>${L('워드', 'Word')}</span></button>
-      <button type="button" class="small-button" data-action="print">${icon('printer')}<span>PDF</span></button>
+      <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="pdf">${icon('printer')}<span>PDF</span></button>
+      <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="md">${icon('file')}<span>Markdown</span></button>
       ${canEdit ? `<button type="button" class="small-button" data-action="wiki-edit">${icon('pencil')}<span>${L('편집', 'Edit')}</span></button>` : ''}
       ${open.kind !== 'blog' ? `<button type="button" class="small-button" data-action="add-child" data-id="${esc(open.id)}">${icon('plus')}<span>${L('하위 페이지', 'Child page')}</span></button>` : ''}
       ${canEdit ? `<button type="button" class="icon-button" data-action="delete-article" data-id="${esc(open.id)}">${icon('trash')}</button>` : ''}
@@ -65,10 +66,11 @@ export function knowledgeView(ctx) {
     ${canEdit ? `<label class="form-row"><span>${L('상태', 'Status')}</span><select data-choose="page-status" data-id="${esc(open.id)}">${['draft', 'review', 'current'].map((id) => `<option value="${id}"${open.status === id ? ' selected' : ''}>${statusName[id]}</option>`).join('')}</select></label>` : ''}
     ${open.authorId === ctx.user?.id ? `<div class="inline"><select id="page-editor">${people}</select><button type="button" class="small-button" data-action="grant-edit" data-id="${esc(open.id)}">${icon('pencil')}<span>${L('편집자', 'Editor')}</span></button><select id="page-reader">${people}</select><button type="button" class="small-button" data-action="grant-read" data-id="${esc(open.id)}">${icon('eye')}<span>${L('읽는 사람', 'Reader')}</span></button><button type="button" class="small-button" data-action="share-link" data-id="${esc(open.id)}" data-on="${open.shareToken ? '0' : '1'}">${icon('link')}<span>${open.shareToken ? L('링크 끄기', 'Turn off the link') : L('공개 링크', 'Public link')}</span></button></div>${open.shareToken ? `<p class="muted">${esc(open.shareToken)}</p>` : ''}` : ''}
     ${canEdit && open.kind !== 'blog' ? `<label class="form-row"><span>${L('상위', 'Parent')}</span><select data-choose="page-parent" data-id="${esc(open.id)}"><option value="">${L('최상위', 'Top')}</option>${pages.filter((page) => page.kind !== 'blog' && page.id !== open.id && !pageAncestor(pages, page, open.id)).map((page) => `<option value="${esc(page.id)}"${page.id === open.parentId ? ' selected' : ''}>${esc(page.title)}</option>`).join('')}</select></label>` : ''}
-    ${editor || `<div class="md">${renderMarkdown(expandPage(ctx.ws, open))}</div>`}
+    ${editor}
+    ${editor ? `<div class="md">${renderMarkdown(open.body || '', open.attachments || [])}</div>` : `<div class="md">${renderMarkdown(expandPage(ctx.ws, open), open.attachments || [])}</div>`}
     ${board}${table}
     <h2>${L('첨부', 'Attachments')}</h2>${files || empty(L('첨부가 없습니다.', 'There are no attachments.'))}
-    ${canEdit ? `<button type="button" class="button" data-action="pick-page-file" data-id="${esc(open.id)}">${icon('paperclip')}<span>${L('첨부', 'Attach')}</span></button>` : ''}
+    ${canEdit ? `<div class="inline"><button type="button" class="button" data-action="pick-page-file" data-id="${esc(open.id)}" data-kind="image">${icon('image')}<span>${L('이미지', 'Image')}</span></button><button type="button" class="button" data-action="pick-page-file" data-id="${esc(open.id)}" data-kind="file">${icon('paperclip')}<span>${L('파일', 'File')}</span></button></div>` : ''}
     <h2>${L('의견', 'Comments')}</h2>${comments || empty(L('의견이 없습니다.', 'There are no comments.'))}
     <div class="inline"><input id="page-quote" placeholder="${esc(L('인용할 문장', 'Quote'))}"><input id="page-comment" placeholder="${esc(L('의견', 'Comment'))}"><button type="button" class="button" data-action="comment-page" data-id="${esc(open.id)}">${icon('comment')}<span>${L('남기기', 'Add')}</span></button></div>
     ${versions ? `<h2>${L('이전 판', 'Earlier versions')}</h2>${versions}` : ''}</article>` : '';
@@ -113,13 +115,21 @@ export function documentsView(ctx) {
     const disabled = id === 'project' && !open.projectId ? 'disabled' : '';
     return `<button type="button" class="small-button${open.visibility === id ? ' primary' : ''}" data-action="share-doc" data-id="${esc(open.id)}" data-visibility="${id}" ${disabled}>${icon(glyph)}<span>${esc(L(pair[0], pair[1]))}</span></button>`;
   }).join('') : '';
-  const editor = open ? `<article class="panel-card"><header><b>${esc(open.title)}</b>${owner ? `<button type="button" class="icon-button" data-action="delete-doc" data-id="${esc(open.id)}">${icon('trash')}</button>` : ''}</header>
+  const docFiles = (open?.attachments || []).map((file) => `<div class="link-row">${icon('paperclip')}<a class="file-link" href="${esc(file.data || '')}" data-file="${esc(file.id)}" data-name="${esc(file.name)}" download="${esc(file.name)}">${esc(file.name)}</a>${owner ? `<button type="button" class="icon-button" data-action="remove-doc-file" data-id="${esc(open.id)}" data-file="${esc(file.id)}">${icon('trash')}</button>` : ''}</div>`).join('');
+  const editor = open ? `<article class="panel-card"><header><b>${esc(open.title)}</b>
+      <button type="button" class="small-button" data-action="export-doc" data-id="${esc(open.id)}" data-format="html">${icon('download')}<span>HTML</span></button>
+      <button type="button" class="small-button" data-action="export-doc" data-id="${esc(open.id)}" data-format="doc">${icon('file')}<span>${L('워드', 'Word')}</span></button>
+      <button type="button" class="small-button" data-action="export-doc" data-id="${esc(open.id)}" data-format="pdf">${icon('printer')}<span>PDF</span></button>
+      <button type="button" class="small-button" data-action="export-doc" data-id="${esc(open.id)}" data-format="md">${icon('file')}<span>Markdown</span></button>
+      ${owner ? `<button type="button" class="icon-button" data-action="delete-doc" data-id="${esc(open.id)}">${icon('trash')}</button>` : ''}</header>
       <p class="muted">${esc(nameOf(FORMS.find((item) => item.id === open.templateId)) || '')} · ${esc(person(ctx.ws, open.authorId)?.name || '')}</p>
       ${owner ? `<div class="inline">${shareButtons}</div>
         <input id="doc-title" data-doc="title" value="${esc(open.title)}" placeholder="${esc(L('제목', 'Title'))}">
         <input id="doc-issue" data-doc="issueKey" value="${esc(open.issueKey || '')}" placeholder="${esc(L('이슈 키', 'Issue key'))}">
         <textarea id="doc-body" data-doc="body" rows="12">${esc(open.body || '')}</textarea>` : ''}
-      <div class="md">${renderMarkdown(open.body || '')}</div></article>` : '';
+      <div class="md">${renderMarkdown(open.body || '', open.attachments || [])}</div>
+      <h2>${L('첨부', 'Attachments')}</h2>${docFiles || empty(L('첨부가 없습니다.', 'There are no attachments.'))}
+      ${owner ? `<div class="inline"><button type="button" class="button" data-action="pick-doc-file" data-id="${esc(open.id)}" data-kind="image">${icon('image')}<span>${L('이미지', 'Image')}</span></button><button type="button" class="button" data-action="pick-doc-file" data-id="${esc(open.id)}" data-kind="file">${icon('paperclip')}<span>${L('파일', 'File')}</span></button></div>` : ''}</article>` : '';
   const body = tab === 'forms'
     ? `<p class="muted">${L('양식을 고르면 내 문서로 만들어집니다. 공유하기 전에는 만든 사람만 봅니다.', 'A form becomes your document. Until you share it, only you can see it.')}</p><div class="card-grid">${gallery}</div>`
     : `<div class="split-page"><div>${list || empty(tab === 'mine' ? L('만든 문서가 없습니다.', 'You have no documents.') : L('공유된 문서가 없습니다.', 'Nothing is shared.'))}</div>${editor}</div>
@@ -162,25 +172,40 @@ export function plansView(ctx) {
     ${rows || empty(L('날짜가 있는 계획이 없습니다.', 'Nothing has a date yet.'))}</div>`;
 }
 
+export function mailSettings(ctx) {
+  const mail = ctx.ws.mail || {};
+  const security = mail.security || (mail.secure ? 'ssl' : 'starttls');
+  const modes = [
+    { id: 'starttls', name: 'STARTTLS (587)' },
+    { id: 'ssl', name: 'SSL (465)' },
+    { id: 'none', name: L('없음', 'None') },
+  ];
+  const queued = (ctx.ws.mailOutbox || []).slice(0, 8).map((message) => `<div class="link-row"><span>${esc(message.to)}</span><span>${esc(message.subject)}</span><small>${esc(message.state)}</small>${message.error ? `<small>${esc(message.error)}</small>` : ''}</div>`).join('');
+  const failed = (ctx.ws.mailOutbox || []).some((message) => message.state === 'error');
+  return `<section><h2>${icon('globe')}<span>${L('메일', 'Mail')}</span></h2>
+    <p class="muted">${L('회사 밖의 메일 서버로 보냅니다. 호스트에는 smtp.example.com 같은 외부 주소를 넣으세요. 587은 STARTTLS, 465는 SSL입니다.', 'Messages leave through a mail server outside this company. Put an external host such as smtp.example.com. Port 587 is STARTTLS and port 465 is SSL.')}</p>
+    <label class="form-row"><span>${L('호스트', 'Host')}</span><input data-mail="host" value="${esc(mail.host || '')}" placeholder="smtp.example.com"></label>
+    <label class="form-row"><span>${L('포트', 'Port')}</span><input data-mail="port" inputmode="numeric" value="${esc(mail.port || (security === 'ssl' ? 465 : 587))}"></label>
+    <label class="form-row"><span>${L('보안', 'Security')}</span><select data-mail="security">${options(modes, security)}</select></label>
+    <label class="form-row"><span>${L('보내는 주소', 'From')}</span><input data-mail="from" value="${esc(mail.from || '')}" placeholder="workforce@example.com"></label>
+    <label class="form-row"><span>${L('계정', 'Account')}</span><input data-mail="user" value="${esc(mail.user || '')}" autocomplete="off"></label>
+    <label class="form-row"><span>${L('암호', 'Password')}</span><input data-mail="password" type="password" value="" autocomplete="new-password" placeholder="${esc(mail.hasPassword ? L('저장됨', 'Saved') : '')}"></label>
+    ${mail.hasPassword ? `<p class="muted">${L('암호는 이 서버에만 남습니다. 바꾸려면 새 암호를 입력하세요.', 'The password stays on this server. Type a new one to replace it.')}</p>` : ''}
+    <div class="inline"><input id="mail-test-to" type="email" placeholder="${esc(L('시험으로 받을 주소', 'Address for a test message'))}"><button type="button" class="button" data-action="mail-test">${icon('globe')}<span>${L('시험 발송', 'Send a test')}</span></button></div>
+    ${failed ? `<button type="button" class="button" data-action="mail-retry">${icon('undo')}<span>${L('실패한 메일 다시 보내기', 'Send the failed messages again')}</span></button>` : ''}
+    ${queued || empty(L('보낼 메일이 없습니다. 호스트를 저장하면 알림이 그 서버로 나갑니다.', 'Nothing is waiting. After a host is saved, notices go out through that server.'))}
+  </section>`;
+}
+
 export function extensionsView(ctx) {
   const modules = MODULES.map((item) => `<label class="check"><input type="checkbox" data-module="${esc(item.id)}" ${moduleOn(ctx.ws, item.id) ? 'checked' : ''}>${esc(nameOf(item))}</label>`).join('');
   const hooks = (ctx.ws.webhooks || []).map((hook) => `<div class="link-row"><span>${esc(hook.url)}</span><small>${esc((hook.events || []).join(', ') || L('모든 사건', 'Every event'))}</small><button type="button" class="icon-button" data-action="delete-webhook" data-id="${esc(hook.id)}">${icon('trash')}</button></div>`).join('');
   const tokens = (ctx.ws.apiTokens || []).map((token) => `<div class="link-row"><b>${esc(token.name)}</b><code>${esc(token.token)}</code><button type="button" class="icon-button" data-action="delete-token" data-id="${esc(token.id)}">${icon('trash')}</button></div>`).join('');
-  const mail = ctx.ws.mail || {};
   const sso = ctx.ws.sso || {};
-  const queued = (ctx.ws.mailOutbox || []).slice(0, 8).map((message) => `<div class="link-row"><span>${esc(message.to)}</span><span>${esc(message.subject)}</span><small>${esc(message.state)}</small></div>`).join('');
   return `<div class="page settings">${pageHead(L('확장', 'Extensions'), '', 'extensions')}
     <section><h2>${L('모듈', 'Modules')}</h2><p class="muted">${L('관리 프로그램이 나중에 패키지를 이 목록에 올립니다. 지금은 기본 모듈을 켜고 끕니다.', 'The administration app will publish packages into this list later. For now, turn the built-in modules on or off.')}</p><div class="checks">${modules}</div></section>
     <section><h2>${L('웹훅', 'Webhooks')}</h2><p class="muted">${L('이슈 활동이 생기면 데이터 서비스가 이 주소로 JSON을 보냅니다.', 'When an issue changes, the data service posts JSON to this address.')}</p>${hooks}<div class="inline"><input id="hook-url" placeholder="https://example.com/hook"><input id="hook-events" placeholder="created,transition"><button type="button" class="button" data-action="add-webhook">${icon('bolt')}<span>${L('추가', 'Add')}</span></button></div></section>
-    <section><h2>${L('메일', 'Mail')}</h2>
-      <label class="form-row"><span>${L('호스트', 'Host')}</span><input data-mail="host" value="${esc(mail.host || '')}"></label>
-      <label class="form-row"><span>${L('포트', 'Port')}</span><input data-mail="port" value="${esc(mail.port || 587)}"></label>
-      <label class="form-row"><span>${L('보내는 주소', 'From')}</span><input data-mail="from" value="${esc(mail.from || '')}"></label>
-      <label class="form-row"><span>${L('사용자', 'User')}</span><input data-mail="user" value="${esc(mail.user || '')}"></label>
-      <label class="form-row"><span>${L('암호', 'Password')}</span><input data-mail="password" type="password" value="${esc(mail.password || '')}"></label>
-      <label class="check"><input type="checkbox" data-mail="secure" ${mail.secure ? 'checked' : ''}> TLS</label>
-      ${queued || empty(L('보낼 메일이 없습니다. 호스트가 비어 있으면 대기열에만 남습니다.', 'Nothing is waiting. With no host, messages stay in the queue.'))}
-    </section>
+    ${mailSettings(ctx)}
     <section><h2>${L('외부 API', 'External API')}</h2><p class="muted">GET /api/rest/issues · GET /api/rest/articles · GET /api/rest/documents · Authorization: Bearer</p>${tokens}<div class="inline"><input id="token-name" placeholder="${esc(L('이름', 'Name'))}"><button type="button" class="button" data-action="add-token">${icon('lock')}<span>${L('토큰', 'Token')}</span></button></div></section>
     <section><h2>${L('로그인 공급자', 'Sign-in provider')}</h2><p class="muted">${L('발급자 주소가 있으면 그 공급자로 들어갑니다. 비어 있으면 이 작업 공간의 사람을 씁니다.', 'When an issuer is set, sign-in goes to that provider. Otherwise this workspace uses its own people.')}</p>
       <label class="form-row"><span>${L('발급자', 'Issuer')}</span><input data-sso="issuer" value="${esc(sso.issuer || '')}" placeholder="https://idp.example.com"></label>

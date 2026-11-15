@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { FORMS, createDocument, deleteDocument, shareDocument, updateDocument, visibleDocuments } from '../../src/domain/documents.js';
+import { FORMS, attachDocument, createDocument, deleteDocument, removeDocumentFile, shareDocument, updateDocument, visibleDocuments } from '../../src/domain/documents.js';
 import { blankWorkspace } from '../../src/domain/store.js';
 
 describe('Documents', () => {
@@ -36,6 +36,12 @@ describe('Documents', () => {
     assert.throws(() => updateDocument(ws, doc.id, { title: '  ' }, 'u1'), /name-required/);
     const loose = createDocument(ws, { templateId: 'meeting' }, 'u1');
     assert.throws(() => shareDocument(ws, loose.id, 'project', 'u1'), /project-required/);
+    const shot = attachDocument(ws, doc.id, { name: 'plan.png', mime: 'image/png', size: 8, data: 'data:image/png;base64,abcd' }, 'u1');
+    assert.match(doc.body, new RegExp(`!\\[plan.png\\]\\(attachment:${shot.id}\\)`));
+    assert.equal(doc.attachments.length, 1);
+    assert.throws(() => attachDocument(ws, doc.id, { name: 'x.txt', size: 1, data: 'data:text/plain,x' }, 'u2'), /permission/);
+    removeDocumentFile(ws, doc.id, shot.id, 'u1');
+    assert.equal(doc.attachments.length, 0);
     deleteDocument(ws, doc.id, 'u1');
     assert.equal(ws.documents.some((item) => item.id === doc.id), false);
   });

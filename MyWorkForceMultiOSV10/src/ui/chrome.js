@@ -1,7 +1,7 @@
 import { getLanguage } from '../i18n.js';
 import { CUSTOM_KEYS, DARK_THEMES, LIGHT_THEMES, themeName } from '../themes.js';
 import { PROJECT_TYPES, ROLES } from '../domain/catalog.js';
-import { allowed, isWorkspaceAdmin, orderedProjects, participantAccess, projectAncestors, sharesTeam } from '../domain/permissions.js';
+import { allowed, isWorkspaceAdmin, orderedProjects, participantAccess, participatingProjects, projectAncestors, sharesTeam } from '../domain/permissions.js';
 import { createFields, moduleOn } from '../domain/services.js';
 import { avatar, button, esc, icon, L, nameOf, NAV_GLYPH, options, panelFrame, primary, typeBadge, userOptions } from './bits.js';
 import { shortcutGroups } from './shortcuts.js';
@@ -19,6 +19,7 @@ export function loginForm(ctx, ids = {}) {
       <div class="login-fields">
         <label class="form-row"><span>${L('로그인 ID', 'Login ID')}</span><input id="${accountId}" name="account" value="${esc(account)}" autocomplete="username" placeholder="admin"></label>
         <label class="form-row"><span>${L('비밀번호', 'Password')}</span><input id="${passwordId}" name="password" type="password" autocomplete="current-password" placeholder="admin"></label>
+        <label class="check password-reveal"><input type="checkbox" data-reveal="password">${L('비밀번호 표시', 'Show password')}</label>
       </div>
       <button type="submit" class="button primary" ${ctx.ui.connecting ? 'disabled' : ''}>${icon('check')}<span>${L('로그인', 'Sign in')}</span></button>
     </div>
@@ -78,6 +79,7 @@ export function renderMenubar(ctx) {
     item('go', 'roadmap', L('로드맵', 'Roadmap'), 'data-view="roadmap"', 'Ctrl+4'),
   ].join('');
   const help = [
+    item('open-talk', 'comment', L('대화', 'Talk'), '', ''),
     item('open-guide', 'book', L('사용 설명서', "User's guide"), 'data-id="guide"', 'F1'),
     item('open-guide', 'play', L('튜토리얼 문서', 'Tutorial document'), 'data-id="tutorial"'),
     item('open-guide', 'filter', L('WQL 설명서', 'WQL guide'), 'data-id="wql"'),
@@ -174,7 +176,6 @@ export function renderToolbar(ctx) {
     const depth = projectAncestors(ctx.ws, project).length;
     return { id: project.id, name: `${depth ? '– '.repeat(depth) : ''}${project.key} · ${project.name}` };
   });
-  const users = ctx.ws.users.filter((user) => user.active !== false).map((user) => ({ id: user.id, name: user.name }));
   const unread = ctx.project ? ctx.project.notifications.filter((item) => item.userId === ctx.user?.id && !item.read).length : 0;
   const currentName = themeName(ctx.settings.theme, getLanguage());
   const leftOpen = ctx.settings.showLeftPanel !== false;
@@ -188,7 +189,9 @@ export function renderToolbar(ctx) {
       <button type="button" class="tool-button wide" data-action="new-issue" title="Ctrl+N">${icon('plus')}<span>${L('이슈', 'Issue')}</span></button>
       <span class="grow"></span>
       <button type="button" class="tool-button" data-action="go" data-view="notifications" title="${esc(L('알림', 'Notifications'))}">${icon('bell')}${unread ? `<i class="dot">${unread}</i>` : ''}</button>
-      <select data-choose="user" title="${esc(L('현재 사용자', 'Current user'))}">${options(users, ctx.ws.currentUserId)}</select>
+      <button type="button" class="tool-button wide" data-action="open-talk" title="${esc(L('대화 프로그램', 'Talk'))}">${icon('comment')}<span>${L('대화', 'Talk')}</span></button>
+      <span class="signed-in" title="${esc(L('로그인한 사람', 'Signed in'))}">${ctx.user ? avatar(ctx.user) : ''}<span>${esc(ctx.user?.name || ctx.user?.login || '')}</span></span>
+      <button type="button" class="tool-button wide" data-action="sign-out" title="${esc(L('로그아웃', 'Sign out'))}">${icon('close')}<span>${L('로그아웃', 'Sign out')}</span></button>
       <button type="button" class="tool-button wide" data-action="language" title="Ctrl+Shift+L">${icon('globe')}<span>${ctx.settings.language === 'en' ? 'EN' : 'KO'}</span></button>
       ${panelButton('left', 'panelLeft', leftOpen, '왼쪽 패널', 'Left panel', 'Ctrl+Shift+1')}
       ${panelButton('right', 'panelRight', rightOpen, '오른쪽 패널', 'Right panel', 'Ctrl+Shift+2')}
@@ -217,12 +220,25 @@ function navButtons(ctx, items) {
   }).join('');
 }
 
+function projectNav(ctx) {
+  const mine = participatingProjects(ctx.ws, ctx.user?.id);
+  const visible = new Set(mine.map((project) => project.id));
+  const rows = mine.map((project) => {
+    const depth = projectAncestors(ctx.ws, project).filter((ancestor) => visible.has(ancestor.id)).length;
+    const current = project.id === ctx.ws.activeProjectId;
+    const archived = project.archived ? ` · ${L('보관', 'Archived')}` : '';
+    return `<button type="button" class="nav-button nav-project${current ? ' active' : ''}" data-action="activate" data-id="${esc(project.id)}" style="padding-left:${8 + depth * 14}px" title="${esc(`${project.key} · ${project.name}`)}">${icon('folder')}<span><small>${esc(project.key)}</small> ${esc(project.name)}${esc(archived)}</span></button>`;
+  }).join('');
+  const empty = `<p class="muted nav-empty">${L('참여 중인 과제가 없습니다.', 'You are not in a project yet.')}</p>`;
+  return `<div class="nav-section">${L('참여 과제', 'My projects')}</div>${rows || empty}`;
+}
+
 export function renderNav(ctx) {
   const sections = { work: L('작업', 'Work'), look: L('살펴보기', 'Review') };
   const userMenus = NAV.map(([section, items]) => `<div class="nav-section">${sections[section]}</div>${navButtons(ctx, items)}`).join('');
   const admin = isWorkspaceAdmin(ctx.user);
   const adminMenus = admin ? `<div class="nav-group nav-group-admin">${icon('settings')}<span>${L('관리자 메뉴', 'Administrator menu')}</span></div>${navButtons(ctx, ['users', 'settings'])}` : '';
-  const body = `<div class="nav-group">${icon('user')}<span>${L('사용자 메뉴', 'User menu')}</span></div>${userMenus}${adminMenus}`;
+  const body = `${projectNav(ctx)}<div class="nav-group">${icon('user')}<span>${L('사용자 메뉴', 'User menu')}</span></div>${userMenus}${adminMenus}`;
   return panelFrame(ctx.settings.showLeftPanel !== false, 'left', 'list', L('탐색', 'Navigation'), `<div class="panel-body">${body}</div>`);
 }
 
@@ -480,6 +496,9 @@ export function renderContext(ctx) {
   const menu = ctx.ui.context;
   if (!menu) return '';
   const bar = `<div class="popup-bar">${closeButton()}</div>`;
+  if (menu.kind === 'file') {
+    return bar + item('download-file', 'download', L('다운로드', 'Download'), `data-file="${esc(menu.id || '')}" data-name="${esc(menu.name || '')}" data-src="${esc(menu.src || '')}"`);
+  }
   if (menu.kind === 'issue') {
     return bar + [
       item('open-issue', 'issues', L('열기', 'Open'), `data-id="${esc(menu.id)}"`),

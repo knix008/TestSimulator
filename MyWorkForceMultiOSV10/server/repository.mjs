@@ -1,5 +1,6 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { webhookPayload } from '../src/domain/services.js';
+import { describeMail, webhookPayload } from '../src/domain/services.js';
+import { postNotice } from './chat.mjs';
 import { openEngine } from './engine.mjs';
 
 export function hashPassword(password) {
@@ -31,7 +32,7 @@ export class Repository {
 
   describe() {
     return {
-      personal: true,
+      company: true,
       connected: true,
       engine: this.engine.engine,
       database: this.config.database || this.config.file || '',
@@ -53,13 +54,23 @@ export class Repository {
     return JSON.parse(rows[0].body);
   }
 
-  async writeWorkspace(ws) {
+  async writeWorkspace(ws, expectedRevision = null) {
+    const current = Number(this.cached?.revision) || 0;
+    if (expectedRevision != null && Number(expectedRevision) !== current) {
+      const error = new Error('conflict');
+      error.revision = current;
+      throw error;
+    }
+    ws.revision = current + 1;
     const previous = this.cached;
     for (const user of ws.users || []) {
       if (!user.passwordHash) {
         const older = previous?.users?.find((item) => item.id === user.id);
         if (older?.passwordHash) user.passwordHash = older.passwordHash;
       }
+    }
+    if (ws.mail && typeof ws.mail === 'object' && !ws.mail.password && previous?.mail?.password) {
+      ws.mail.password = previous.mail.password;
     }
     ws.mailOutbox = Array.isArray(ws.mailOutbox) ? ws.mailOutbox : [];
     for (const message of previous?.mailOutbox || []) {
@@ -80,6 +91,7 @@ export class Repository {
         });
       }
     }
+    await this.flushMail(ws);
     const savedAt = ws.savedAt || new Date().toISOString();
     await this.engine.transaction(async (query) => {
       await query('DELETE FROM workspace_document WHERE id = ?', ['main']);
@@ -127,9 +139,10 @@ export class Repository {
     });
     this.cached = ws;
     await this.deliver(ws);
-    await this.flushMail(ws);
-    for (const message of ws.mailOutbox || []) {
-      await this.engine.query('UPDATE mail_outbox SET state = ? WHERE id = ?', [message.state || 'queued', message.id]);
+    for (const item of this.pendingNotes || []) {
+      const text = [item.project?.key, item.entry?.issueKey, item.entry?.kind].filter(Boolean).join(' · ');
+      try { await postNotice(this.engine, item.entry?.userId, item.entry?.id, text || 'update'); }
+      catch (error) { console.error(error); }
     }
   }
 
@@ -187,29 +200,64 @@ export class Repository {
     }
   }
 
+  mailTransport(mail) {
+    const spec = describeMail(mail);
+    if (!spec.host) {
+      const error = new Error('mail-host');
+      throw error;
+    }
+    return spec;
+  }
+
+  async sendMail(mail, message) {
+    const spec = this.mailTransport(mail);
+    const from = String(mail?.from || mail?.user || '').trim();
+    if (!from) {
+      const error = new Error('mail-from');
+      throw error;
+    }
+    let nodemailer;
+    try {
+      nodemailer = await import('nodemailer');
+    } catch (error) {
+      const wrapped = new Error('mail');
+      wrapped.detail = error?.message || 'mail';
+      throw wrapped;
+    }
+    const transport = nodemailer.createTransport({
+      host: spec.host,
+      port: spec.port,
+      secure: spec.secure,
+      requireTLS: spec.requireTLS,
+      ignoreTLS: spec.ignoreTLS,
+      auth: mail?.user ? { user: mail.user, pass: mail.password || '' } : undefined,
+      tls: { minVersion: 'TLSv1.2', servername: spec.host },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
+    });
+    try {
+      await transport.sendMail({ from, to: message.to, subject: message.subject, text: message.body });
+    } catch (error) {
+      const wrapped = new Error('mail');
+      wrapped.detail = error?.message || 'mail';
+      throw wrapped;
+    }
+  }
+
   async flushMail(ws) {
     const pending = (ws.mailOutbox || []).filter((message) => message.state === 'queued');
-    if (!pending.length || !ws.mail?.host) return;
-    let transport;
-    try {
-      const nodemailer = await import('nodemailer');
-      transport = nodemailer.createTransport({
-        host: ws.mail.host, port: Number(ws.mail.port) || 587, secure: Boolean(ws.mail.secure),
-        auth: ws.mail.user ? { user: ws.mail.user, pass: ws.mail.password || '' } : undefined,
-      });
-    } catch {
-      return;
-    }
+    if (!pending.length || !describeMail(ws.mail).host) return;
     for (const message of pending) {
       try {
-        await transport.sendMail({ from: ws.mail.from || ws.mail.user, to: message.to, subject: message.subject, text: message.body });
+        await this.sendMail(ws.mail, message);
         message.state = 'sent';
+        message.error = '';
       } catch (error) {
         message.state = 'error';
-        message.error = error?.message || 'mail';
+        message.error = error?.detail || error?.message || 'mail';
       }
     }
-    this.cached = ws;
   }
 
   unlock(userId, password) {

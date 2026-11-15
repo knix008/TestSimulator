@@ -1,14 +1,30 @@
+import { randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hashPassword, openRepository } from './repository.mjs';
+import { isWorkspaceAdmin } from '../src/domain/permissions.js';
+import { userByAccount } from '../src/domain/store.js';
+import { checkMessage, listMessages, listRooms, openRoom, postFile, postMessage, readFile } from './chat.mjs';
+import { checkPassword, hashPassword, openRepository } from './repository.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dataDir = path.join(root, 'data');
 const configPath = path.join(dataDir, 'connection.json');
 const port = Number(process.env.MYWORKFORCE_DATA_PORT || 1481);
-const host = process.env.MYWORKFORCE_DATA_HOST || '127.0.0.1';
+const host = process.env.MYWORKFORCE_DATA_HOST || '0.0.0.0';
+const sessionsPath = path.join(dataDir, 'sessions.json');
+function loadSessions() {
+  try { return new Map(Object.entries(JSON.parse(readFileSync(sessionsPath, 'utf8')))); }
+  catch { return new Map(); }
+}
+function storeSessions() {
+  try {
+    mkdirSync(dataDir, { recursive: true });
+    writeFileSync(sessionsPath, JSON.stringify(Object.fromEntries(sessions)));
+  } catch { /* a restart asks for the password again */ }
+}
+const sessions = loadSessions();
 
 let repository = null;
 
@@ -80,6 +96,42 @@ function tokenOf(req) {
   return String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
 }
 
+function loopback(req) {
+  const address = req.socket?.remoteAddress || '';
+  return address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
+}
+
+function sessionOf(req) {
+  const token = tokenOf(req);
+  return token ? sessions.get(token) || null : null;
+}
+
+function signedUser(req) {
+  const session = sessionOf(req);
+  if (!session) return null;
+  return (repository?.cached?.users || []).find((user) => user.id === session.userId && user.active !== false) || null;
+}
+
+function peopleOf() {
+  return (repository?.cached?.users || [])
+    .filter((user) => user.active !== false)
+    .map((user) => ({ id: user.id, name: user.name || user.login || user.id, login: user.login || '' }));
+}
+
+function publicWorkspace(ws) {
+  if (!ws) return null;
+  const copy = structuredClone(ws);
+  for (const user of copy.users || []) {
+    user.hasPassword = Boolean(user.passwordHash);
+    delete user.passwordHash;
+  }
+  if (copy.mail && typeof copy.mail === 'object') {
+    copy.mail.hasPassword = Boolean(copy.mail.password);
+    delete copy.mail.password;
+  }
+  return copy;
+}
+
 function allowed(req) {
   const tokens = repository?.cached?.apiTokens || [];
   if (!tokens.length) return false;
@@ -94,7 +146,7 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/status') {
       const saved = savedConfig();
       return send(res, 200, {
-        personal: true,
+        company: true,
         adminApp: 'later',
         listening: true,
         connected: Boolean(repository),
@@ -103,35 +155,121 @@ const server = createServer(async (req, res) => {
         host: repository?.config.host || saved?.host || '',
         saved: saved ? publicConfig(saved) : null,
         locked: Boolean(repository?.cached?.users?.some((user) => user.passwordHash)),
-        people: (repository?.cached?.users || []).filter((user) => user.active !== false).map((user) => ({ id: user.id, name: user.name || '', login: user.login || '', email: user.email || '', hasPassword: Boolean(user.passwordHash) })),
       });
     }
     if (req.method === 'POST' && url.pathname === '/api/connect') {
+      if (!loopback(req) && !sessionOf(req)) return send(res, 403, { error: 'permission' });
       const body = await readBody(req);
       await connect(body.engine ? body : { engine: 'sqlite' });
       return send(res, 200, repository.describe());
     }
     if (req.method === 'POST' && url.pathname === '/api/disconnect') {
+      if (!loopback(req) && !sessionOf(req)) return send(res, 403, { error: 'permission' });
       if (repository) await repository.close().catch(() => {});
       repository = null;
-      return send(res, 200, { connected: false, personal: true });
+      return send(res, 200, { connected: false, company: true });
     }
     if (!repository) return send(res, 409, { error: 'connect', detail: 'Connect a database first.' });
+    if (req.method === 'POST' && url.pathname === '/api/session') {
+      const body = await readBody(req);
+      const user = userByAccount(repository.cached?.users || [], body.account);
+      if (!user || user.active === false) return send(res, 403, { error: 'not-registered' });
+      if (user.passwordHash && !checkPassword(body.password || '', user.passwordHash)) return send(res, 403, { error: 'password' });
+      const token = randomBytes(24).toString('hex');
+      sessions.set(token, { userId: user.id, login: user.login || '' });
+      storeSessions();
+      return send(res, 200, { token, user: { id: user.id, name: user.name || '', login: user.login || '', email: user.email || '' } });
+    }
+    if (req.method === 'GET' && url.pathname === '/api/session') {
+      const user = signedUser(req);
+      if (!user) return send(res, 401, { error: 'permission' });
+      return send(res, 200, { user: { id: user.id, name: user.name || '', login: user.login || '', email: user.email || '' } });
+    }
+    if (req.method === 'DELETE' && url.pathname === '/api/session') {
+      sessions.delete(tokenOf(req));
+      storeSessions();
+      return send(res, 200, { ok: true });
+    }
+    if ((req.method === 'GET' || req.method === 'PUT') && url.pathname === '/api/workspace' && !sessionOf(req)) {
+      return send(res, 401, { error: 'permission' });
+    }
     if (req.method === 'GET' && url.pathname === '/api/workspace') {
-      return send(res, 200, { workspace: repository.cached });
+      return send(res, 200, { workspace: publicWorkspace(repository.cached) });
     }
     if (req.method === 'PUT' && url.pathname === '/api/workspace') {
       const body = await readBody(req);
       if (!body.workspace) return send(res, 400, { error: 'file-invalid' });
-      await repository.writeWorkspace(body.workspace);
-      return send(res, 200, { saved: true });
+      await repository.writeWorkspace(body.workspace, body.revision);
+      return send(res, 200, { saved: true, revision: repository.cached?.revision || 0 });
     }
     if (req.method === 'POST' && url.pathname === '/api/unlock') {
       const body = await readBody(req);
       const ok = repository.unlock(body.userId, body.password);
       return send(res, ok ? 200 : 403, ok ? { ok: true } : { error: 'password' });
     }
+    if (url.pathname.startsWith('/api/chat/')) {
+      const actor = signedUser(req);
+      if (!actor) return send(res, 401, { error: 'permission' });
+      const people = peopleOf();
+      if (req.method === 'GET' && url.pathname === '/api/chat/people') return send(res, 200, { people });
+      if (req.method === 'GET' && url.pathname === '/api/chat/rooms') return send(res, 200, { rooms: await listRooms(repository.engine, actor.id, people) });
+      if (req.method === 'POST' && url.pathname === '/api/chat/rooms') {
+        const body = await readBody(req);
+        return send(res, 200, { room: await openRoom(repository.engine, actor.id, body, people) });
+      }
+      if (req.method === 'GET' && url.pathname === '/api/chat/messages') {
+        const messages = await listMessages(repository.engine, actor.id, url.searchParams.get('room') || '', url.searchParams.get('after') || '');
+        return send(res, 200, { messages });
+      }
+      if (req.method === 'POST' && url.pathname === '/api/chat/messages') {
+        const body = await readBody(req);
+        return send(res, 200, { message: await postMessage(repository.engine, actor.id, body.roomId, body.body) });
+      }
+      if (req.method === 'POST' && url.pathname === '/api/chat/checks') {
+        const body = await readBody(req);
+        return send(res, 200, { check: await checkMessage(repository.engine, actor.id, body.messageId) });
+      }
+      if (req.method === 'POST' && url.pathname === '/api/chat/files') {
+        const body = await readBody(req);
+        return send(res, 200, { message: await postFile(repository.engine, actor.id, body.roomId, body) });
+      }
+      const fileMatch = url.pathname.match(/^\/api\/chat\/files\/([a-z0-9-]+)$/i);
+      if (req.method === 'GET' && fileMatch) {
+        const file = await readFile(repository.engine, actor.id, fileMatch[1]);
+        const bytes = Buffer.from(file.data || '', 'base64');
+        const name = encodeURIComponent(file.name || 'file');
+        res.writeHead(200, {
+          'content-type': file.mime || 'application/octet-stream',
+          'content-length': bytes.length,
+          'content-disposition': `attachment; filename*=UTF-8''${name}`,
+          'access-control-allow-origin': '*',
+        });
+        res.end(bytes);
+        return;
+      }
+      return send(res, 404, { error: 'not-found' });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/mail/test') {
+      const session = sessionOf(req);
+      if (!session) return send(res, 401, { error: 'permission' });
+      const actor = (repository.cached?.users || []).find((user) => user.id === session.userId);
+      if (!isWorkspaceAdmin(actor)) return send(res, 403, { error: 'permission' });
+      const body = await readBody(req);
+      const to = String(body.to || '').trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return send(res, 400, { error: 'mail-to' });
+      try {
+        await repository.sendMail(repository.cached?.mail || {}, {
+          to,
+          subject: 'MyWorkForce',
+          body: 'MyWorkForce에서 보낸 시험 메일입니다.\nThis is a test message from MyWorkForce.',
+        });
+      } catch (error) {
+        return send(res, 502, { error: error?.message || 'mail', detail: error?.detail || error?.message || 'mail' });
+      }
+      return send(res, 200, { sent: true });
+    }
     if (req.method === 'POST' && url.pathname === '/api/password') {
+      if (!sessionOf(req)) return send(res, 401, { error: 'permission' });
       const body = await readBody(req);
       if (!String(body.password || '').trim()) return send(res, 400, { error: 'summary-required' });
       return send(res, 200, { passwordHash: hashPassword(body.password) });
@@ -169,7 +307,7 @@ server.on('error', (error) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`MyWorkForce data service  ${host}:${port}  (personal)`);
+  console.log(`MyWorkForce data service  ${host}:${port}  (company)`);
   connect(savedConfig() || { engine: 'sqlite' }).catch((error) => {
     console.error(error?.detail || error?.message || error);
   });

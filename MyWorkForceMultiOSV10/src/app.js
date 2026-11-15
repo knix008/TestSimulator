@@ -8,8 +8,8 @@ import { allowed, isWorkspaceAdmin, roleForAccess } from './domain/permissions.j
 import { exampleWorkspace } from './domain/examples.js';
 import { sampleWorkspace } from './domain/sample.js';
 import { TUTORIAL } from './domain/tutorial.js';
-import { createDocument, deleteDocument, shareDocument, updateDocument } from './domain/documents.js';
-import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePageComment, expandPage, likePage, markEditing, movePage, pageByShare, pageDocument, purgePage, removePageFile, removeShape, restorePage, restoreTrashed, setPageAccess, setPageStatus, shareLink, updatePage, watchPage } from './domain/wiki.js';
+import { attachDocument, createDocument, deleteDocument, removeDocumentFile, shareDocument, updateDocument } from './domain/documents.js';
+import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePageComment, expandPage, likePage, markEditing, movePage, pageByShare, purgePage, removePageFile, removeShape, restorePage, restoreTrashed, setPageAccess, setPageStatus, shareLink, updatePage, watchPage } from './domain/wiki.js';
 import { addArticle, addCalendar, addToken, addWebhook, authorizationUrl, csvIssueRows, decideApproval, deleteArticle, deleteToken, deleteWebhook, openApproval } from './domain/services.js';
 import { loadSettings, PANEL_MAX, PANEL_MIN, rememberPath, saveSettings } from './domain/settings.js';
 import {
@@ -20,10 +20,11 @@ import {
   removeStatus, removeTransition, saveFilter, setArchived, setCustomField, setMember, setUserActive,
   startSprint, toggleGroupUser, toggleWatch, transitionGate, updateIssue, updateProject, upgradeWorkspace, userByAccount, workspaceDocument,
 } from './domain/store.js';
+import { writingExport } from './domain/markdown.js';
 import { fromDateInput, parseDuration, uid } from './domain/util.js';
-import { connectData, dataStatus, dataUrl, hashPassword, loadWorkspace, rememberDataUrl, saveWorkspace, unlockData } from './platform/data.js';
+import { clearSavedLogin, connectData, currentSession, dataStatus, dataUrl, hashPassword, loadWorkspace, loginSession, logoutSession, rememberDataUrl, rememberLogin, rememberSession, savedLogin, saveWorkspace, sendTestMail, sessionToken, unlockData, watchSharedSession } from './platform/data.js';
 import { getLanguage, L, setLanguage } from './i18n.js';
-import { appInfo, chooseOpen, chooseSave, dragWindow, errorText, isDesktop, readTextFile, resizeWindow, setBackendLanguage, setWindowTheme, showMain, startupFiles, windowControl, writeTextFile } from './platform/native.js';
+import { appInfo, chooseOpen, chooseSave, dragWindow, errorText, isDesktop, openBrowser, openTalk, readTextFile, resizeWindow, setBackendLanguage, setLaunchAtStartup, setWindowTheme, showMain, startupFiles, windowControl, writeTextFile } from './platform/native.js';
 import { loadLocal, saveLocal } from './platform/storage.js';
 import { applyFont, applyTheme, customFrom, randomThemeId, resolveTheme } from './themes.js';
 import { esc, icon } from './ui/bits.js';
@@ -60,12 +61,17 @@ const ERRORS = {
   'approval-required': ['승인이 필요합니다.', 'This move needs approval.'],
   'url-invalid': ['http 또는 https 주소여야 합니다.', 'Use an http or https address.'],
   password: ['암호가 맞지 않습니다.', 'That password does not match.'],
+  conflict: ['다른 사람이 먼저 저장했습니다. 최신 내용을 다시 열었습니다.', 'Someone else saved first. The latest workspace is open.'],
   'not-registered': ['등록된 사용자가 아닙니다.', 'That account is not registered.'],
   'sso-required': ['발급자 주소와 클라이언트가 필요합니다.', 'An issuer and a client are required.'],
   'driver-missing': ['그 데이터베이스 드라이버가 설치되어 있지 않습니다.', 'That database driver is not installed.'],
   'engine-unknown': ['지원하지 않는 데이터베이스입니다.', 'That database is not supported.'],
   'project-required': ['프로젝트를 연 뒤에 그 프로젝트와 공유하세요.', 'Open a project before sharing with it.'],
   connect: ['데이터베이스에 연결하지 못했습니다.', 'Could not connect to the database.'],
+  'mail-host': ['메일 서버 주소를 입력하세요.', 'Enter the mail server address.'],
+  'mail-from': ['보내는 메일 주소를 입력하세요.', 'Enter the From address.'],
+  'mail-to': ['받을 메일 주소를 입력하세요.', 'Enter the address that should receive the message.'],
+  mail: ['메일을 보내지 못했습니다.', 'The message could not be sent.'],
 };
 
 let ws = blankWorkspace();
@@ -94,7 +100,7 @@ function project() {
 }
 
 function actor() {
-  return ws.currentUserId;
+  return ui.loginUser || ws.currentUserId;
 }
 
 function prefersDark() {
@@ -103,7 +109,7 @@ function prefersDark() {
 
 function message(error) {
   const code = error?.message || errorText(error);
-  if (code === 'connect' && error?.detail && error.detail !== 'connect') return error.detail;
+  if ((code === 'connect' || code === 'mail') && error?.detail && error.detail !== code && error.detail !== 'mail') return error.detail;
   const pair = ERRORS[code];
   return pair ? L(pair[0], pair[1]) : code;
 }
@@ -125,7 +131,20 @@ function scheduleSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveLocal(ws).catch((error) => fail(error));
-    if (ui.ready) saveWorkspace(ws).catch((error) => fail(error));
+    if (ui.ready) saveWorkspace(ws).then((saved) => {
+      if (saved?.revision) ws.revision = saved.revision;
+      if (ws.mail?.password) {
+        ws.mail.hasPassword = true;
+        ws.mail.password = '';
+      }
+    }).catch((error) => {
+      if (error?.message !== 'conflict') { fail(error); return; }
+      loadWorkspace().then((loaded) => {
+        ws = upgradeWorkspace(loaded.workspace || ws);
+        paint();
+        toast(message(error));
+      }).catch((reload) => fail(reload));
+    });
   }, 400);
 }
 
@@ -151,7 +170,7 @@ async function enterWorkspace(body) {
 async function refreshStatus() {
   try {
     const status = await dataStatus();
-    if (status.connected) {
+    if (status.connected && sessionToken()) {
       const loaded = await loadWorkspace();
       const body = loaded.workspace;
       if (body) {
@@ -193,10 +212,7 @@ async function afterConnect(password) {
   }
   ui.unlocked = true;
   ui.loginPassword = '';
-  if (chosen) {
-    upgraded.currentUserId = chosen.id;
-    if (ui.loginAccount) ui.loginUser = chosen.id;
-  }
+  if (chosen && ui.loginAccount) ui.loginUser = chosen.id;
   const opening = (upgraded.projects || []).find((project) => project.id === ui.openProjectId);
   if (opening) {
     upgraded.activeProjectId = opening.id;
@@ -213,7 +229,8 @@ async function connectLocal() {
   paint();
   try {
     rememberDataUrl(ui.dataUrl || dataUrl());
-    ui.connection = await connectData({ engine: 'sqlite' });
+    try { ui.connection = await connectData({ engine: 'sqlite' }); }
+    catch (error) { if (error?.message !== 'permission') throw error; }
     if (stay) ui.returnView = stay;
     await afterConnect(ui.loginPassword || document.querySelector('#local-unlock')?.value || '');
   } catch (error) {
@@ -258,22 +275,92 @@ async function importLocal() {
 
 async function confirmRegistered(account, password) {
   if (!account) throw new Error('not-registered');
-  await ensureStore();
-  const loaded = await loadWorkspace();
-  const body = upgradeWorkspace(loaded.workspace || {});
-  if (ensureAdmin(body)) await saveWorkspace(body);
-  const user = userByAccount(body.users, account);
-  if (!user || user.active === false) throw new Error('not-registered');
-  if (user.passwordHash) {
-    if (!password) throw new Error('password');
-    await unlockData(user.id, password);
-  }
-  ws = body;
-  ws.currentUserId = user.id;
+  const session = await loginSession(account, password);
   ui.opened = true;
   ui.unlocked = true;
-  ui.loginUser = user.id;
-  ui.loginAccount = user.login || account;
+  ui.loginUser = session.user.id;
+  ui.loginAccount = session.user.login || account;
+}
+
+function storeAutoLogin() {
+  if (!settings.autoLogin) return;
+  const account = document.querySelector('[data-autologin="account"]')?.value.trim() || ui.loginAccount || savedLogin()?.account || '';
+  const typed = document.querySelector('[data-autologin="password"]')?.value || '';
+  const password = typed || savedLogin()?.password || '';
+  if (account && password) rememberLogin(account, password);
+}
+
+let adopting = false;
+
+async function adoptSharedSession() {
+  if (ui.connecting || adopting) return Boolean(ui.loginUser && sessionToken());
+  if (!sessionToken()) {
+    if (ui.loginUser) {
+      ui.loginUser = '';
+      ui.loginAccount = '';
+      ui.ready = false;
+      ui.opened = false;
+      ui.unlocked = false;
+      paint();
+    }
+    return false;
+  }
+  if (ui.loginUser) return true;
+  adopting = true;
+  try {
+    const data = await currentSession();
+    ui.loginUser = data.user.id;
+    ui.loginAccount = data.user.login || data.user.name || '';
+    ui.unlocked = true;
+    ui.opened = true;
+    if (settings.showStartPage === false && ui.status?.connected) {
+      const loaded = await loadWorkspace();
+      await enterWorkspace(loaded.workspace || {});
+    } else paint();
+    return true;
+  } catch {
+    rememberSession('');
+    return false;
+  } finally {
+    adopting = false;
+  }
+}
+
+async function autoSignIn() {
+  if (ui.loginUser || !settings.autoLogin) return;
+  const saved = savedLogin();
+  if (!saved?.account) return;
+  ui.loginAccount = saved.account;
+  ui.loginPassword = saved.password || '';
+  await companySignIn();
+}
+
+async function companySignIn() {
+  ui.connecting = true;
+  ui.startError = '';
+  paint();
+  try {
+    if (!ui.status?.connected) {
+      try { ui.connection = await connectData({ engine: 'sqlite' }); }
+      catch (error) { if (error?.message !== 'permission') throw error; }
+    }
+    if (!ui.connection && ui.status?.engine) ui.connection = { engine: ui.status.engine, database: ui.status.database || '' };
+    const typed = ui.loginPassword;
+    const session = await loginSession(ui.loginAccount, ui.loginPassword);
+    if (settings.autoLogin) rememberLogin(ui.loginAccount, typed || savedLogin()?.password || '');
+    ui.loginPassword = '';
+    ui.loginUser = session.user.id;
+    ui.loginAccount = session.user.login || ui.loginAccount;
+    ui.unlocked = true;
+    ui.opened = true;
+    const loaded = await loadWorkspace();
+    await enterWorkspace(loaded.workspace || {});
+  } catch (error) {
+    ui.connecting = false;
+    ui.loginPassword = '';
+    ui.startError = message(error);
+    paint();
+  }
 }
 
 async function ensureStore() {
@@ -407,8 +494,7 @@ function mutate(fn) {
 }
 
 function context() {
-  const active = ws.users.find((user) => user.id === ws.currentUserId && user.active !== false) || ws.users.find((user) => user.active !== false) || null;
-  if (active && active.id !== ws.currentUserId) ws.currentUserId = active.id;
+  const active = ws.users.find((user) => user.id === actor() && user.active !== false) || null;
   const current = project();
   const guideDoc = getLanguage() === 'en' ? guideEn : guideKo;
   const wqlDoc = getLanguage() === 'en' ? wqlEn : wqlKo;
@@ -580,7 +666,7 @@ function paint() {
     mountStartBoard();
     syncStartBackground();
     document.querySelector('#right').innerHTML = '';
-    document.querySelector('#statusbar').innerHTML = `<span>${L('개인용', 'Personal')}</span><span class="grow"></span><span>${L('튜토리얼, 설명서 또는 예제를 고르세요. 데이터베이스는 설정에 있습니다.', 'Choose the tutorial, the guide, or an example. The database is in Settings.')}</span>`;
+    document.querySelector('#statusbar').innerHTML = `<span>${L('회사', 'Company')}</span><span class="grow"></span><span>${L('로그인하면 같은 회사의 과제와 문서를 함께 씁니다.', 'Sign in to share this company\'s projects and documents.')}</span>`;
     document.title = 'MyWorkForce';
     paintModal(ctx);
     paintCoach();
@@ -854,6 +940,55 @@ function submitModal(form) {
   if (ok) { ui.modal = null; paint(); }
 }
 
+function findStoredFile(id) {
+  if (!id) return null;
+  const lists = [
+    ...(ws.articles || []).flatMap((page) => page.attachments || []),
+    ...(ws.documents || []).flatMap((doc) => doc.attachments || []),
+    ...(ws.projects || []).flatMap((project) => (project.issues || []).flatMap((issue) => issue.attachments || [])),
+  ];
+  return lists.find((item) => item.id === id) || null;
+}
+
+function saveDownload(name, href) {
+  if (!href || /^javascript:/i.test(href)) return;
+  const link = document.createElement('a');
+  link.href = href;
+  link.download = name || 'file';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+function downloadStored(id, name, src) {
+  const file = findStoredFile(id);
+  saveDownload(file?.name || name || 'file', file?.data || src || '');
+}
+
+function exportWriting(title, body, files, format) {
+  const doc = writingExport(title, body, files);
+  if (format === 'pdf') {
+    const frame = document.createElement('iframe');
+    frame.title = title || 'PDF';
+    frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:800px;height:600px;border:0';
+    document.body.appendChild(frame);
+    const printed = frame.contentDocument;
+    printed.open();
+    printed.write(doc.html);
+    printed.close();
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+    setTimeout(() => frame.remove(), 1500);
+    return;
+  }
+  const markdown = format === 'md';
+  const word = format === 'doc';
+  const blob = new Blob([markdown ? doc.markdown : doc.html], { type: markdown ? 'text/markdown;charset=utf-8' : word ? 'application/msword' : 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  saveDownload(markdown ? `${doc.filename}.md` : word ? `${doc.filename}.doc` : `${doc.filename}.html`, url);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
 function confirm(messageText, action, id = null) {
   ui.modal = { kind: 'confirm', message: messageText, action, id };
   paint();
@@ -884,6 +1019,12 @@ function runConfirmed() {
     return;
   }
   if (modal.action === 'delete-issue') mutate(() => { deleteIssue(ws, project().id, ui.issueId, actor()); ui.issueId = null; ui.view = 'issues'; });
+  if (modal.action === 'open-browser') {
+    const url = ui.pendingUrl || '';
+    ui.pendingUrl = '';
+    openBrowser(url);
+    paint();
+  }
 }
 
 function onAction(el) {
@@ -921,30 +1062,20 @@ function onAction(el) {
       }).catch((error) => fail(error));
       return;
     }
-    if (!ui.loginAccount && !ui.loginUser) { toast(L('로그인 ID를 입력하세요.', 'Enter a login ID.')); return; }
-    const known = userByAccount(ws.users, ui.loginAccount) || (ws.users || []).find((user) => user.id === ui.loginUser);
-    if (ui.opened && known) {
-      const enter = () => {
-        ws.currentUserId = known.id;
-        ui.loginPassword = '';
-        ui.loginUser = known.id;
-        ui.loginAccount = known.login || ui.loginAccount;
-        ui.unlocked = true;
-        ui.menu = null;
-        if (!ui.ready) showStartPage(false);
-        else { scheduleSave(); paint(); }
-      };
-      if (known.passwordHash) {
-        if (!ui.loginPassword) { toast(message(new Error('password'))); return; }
-        const finish = () => unlockData(known.id, ui.loginPassword).then(enter).catch((error) => { ui.menu = 'login'; fail(error); });
-        if (ensureAdmin(ws)) saveWorkspace(ws).then(finish).catch((error) => { ui.menu = 'login'; fail(error); });
-        else finish();
-        return;
-      }
-      enter();
-      return;
-    }
-    connectLocal();
+    if (!ui.loginAccount) { toast(L('로그인 ID를 입력하세요.', 'Enter a login ID.')); return; }
+    companySignIn();
+    return;
+  }
+  if (name === 'sign-out') {
+    logoutSession();
+    ui.loginUser = '';
+    ui.loginAccount = '';
+    ui.loginPassword = '';
+    ui.unlocked = false;
+    ui.ready = false;
+    ui.opened = false;
+    ui.modal = null;
+    paint();
     return;
   }
   if (name === 'menubar-home') {
@@ -1116,22 +1247,29 @@ function onAction(el) {
     mutate(() => { const page = copyPage(ws, el.dataset.id, actor()); ui.articleId = page.id; ui.wikiEdit = true; });
     return;
   }
-  if (name === 'export-page') {
-    const page = (ws.articles || []).find((item) => item.id === el.dataset.id);
-    if (!page) return;
-    const doc = pageDocument(page, expandPage(ws, page));
-    const word = el.dataset.format === 'doc';
-    const blob = new Blob([doc.html], { type: word ? 'application/msword' : 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = word ? doc.filename.replace(/\.html$/, '.doc') : doc.filename;
-    link.click();
-    URL.revokeObjectURL(url);
+  if (name === 'export-page' || name === 'export-doc') {
+    const writing = name === 'export-doc'
+      ? (ws.documents || []).find((item) => item.id === el.dataset.id)
+      : (ws.articles || []).find((item) => item.id === el.dataset.id);
+    if (!writing) return;
+    const title = document.querySelector(name === 'export-doc' ? '#doc-title' : '#page-title')?.value || writing.title;
+    const typed = document.querySelector(name === 'export-doc' ? '#doc-body' : '#page-body')?.value;
+    const body = typed != null ? typed : (name === 'export-doc' ? writing.body : expandPage(ws, writing));
+    exportWriting(title, body, writing.attachments || [], el.dataset.format || 'html');
     return;
   }
-  if (name === 'pick-page-file') { ui.pageAttach = el.dataset.id; document.querySelector('#file-attach').click(); return; }
+  if (name === 'pick-page-file' || name === 'pick-doc-file') {
+    ui.pageAttach = el.dataset.id;
+    ui.attachTarget = name === 'pick-doc-file' ? 'doc' : 'page';
+    ui.attachKind = el.dataset.kind || 'file';
+    const input = document.querySelector('#file-attach');
+    input.accept = ui.attachKind === 'image' ? 'image/*' : '';
+    input.click();
+    return;
+  }
+  if (name === 'download-file') { downloadStored(el.dataset.file, el.dataset.name, el.dataset.src); return; }
   if (name === 'remove-page-file') { mutate(() => removePageFile(ws, el.dataset.id, el.dataset.file, actor())); return; }
+  if (name === 'remove-doc-file') { mutate(() => removeDocumentFile(ws, el.dataset.id, el.dataset.file, actor())); return; }
   if (name === 'share-link') {
     mutate(() => { ui.shareToken = shareLink(ws, el.dataset.id, actor(), el.dataset.on === '1'); });
     return;
@@ -1209,7 +1347,29 @@ function onAction(el) {
     if (calendar && day && !(calendar.holidays || []).includes(day)) { calendar.holidays.push(day); scheduleSave(); paint(); }
     return;
   }
+  if (name === 'open-talk') { openTalk(); return; }
   if (name === 'add-webhook') { mutate(() => addWebhook(ws, { url: document.querySelector('#hook-url')?.value || '', events: document.querySelector('#hook-events')?.value || '' })); return; }
+  if (name === 'mail-test') {
+    const to = document.querySelector('#mail-test-to')?.value?.trim() || '';
+    const typed = document.querySelector('[data-mail="password"]')?.value || '';
+    if (!ws.mail) ws.mail = {};
+    if (typed) ws.mail.password = typed;
+    saveWorkspace(ws).then((saved) => {
+      if (saved?.revision) ws.revision = saved.revision;
+      if (ws.mail?.password) {
+        ws.mail.hasPassword = true;
+        ws.mail.password = '';
+      }
+      return sendTestMail(to);
+    }).then(() => toast(L('시험 메일을 보냈습니다.', 'The test message was sent.'))).catch((error) => fail(error));
+    return;
+  }
+  if (name === 'mail-retry') {
+    for (const item of ws.mailOutbox || []) if (item.state === 'error') { item.state = 'queued'; item.error = ''; }
+    scheduleSave();
+    paint();
+    return;
+  }
   if (name === 'delete-webhook') { mutate(() => deleteWebhook(ws, el.dataset.id)); return; }
   if (name === 'add-token') { mutate(() => addToken(ws, document.querySelector('#token-name')?.value || '')); return; }
   if (name === 'delete-token') { mutate(() => deleteToken(ws, el.dataset.id)); return; }
@@ -1441,10 +1601,29 @@ function onAction(el) {
 
 function onChange(event) {
   const el = event.target;
+  if (el.dataset.reveal === 'password') {
+    const input = el.closest('form')?.querySelector('[name="password"]');
+    if (input) input.type = el.checked ? 'text' : 'password';
+    return;
+  }
   if (!ui.loginUser && !ui.ready) { offerLogin(); return; }
   if (el.dataset.setting && ['showStartPage', 'showWelcome', 'startShowProjects', 'startShowExamples', 'startShowBackground'].includes(el.dataset.setting)) {
     settings[el.dataset.setting] = el.checked;
     saveSettings();
+    return;
+  }
+  if (el.dataset.setting === 'launchAtStartup' || el.dataset.setting === 'autoLogin') {
+    settings[el.dataset.setting] = el.checked;
+    saveSettings();
+    if (el.dataset.setting === 'launchAtStartup') {
+      setLaunchAtStartup(el.checked).catch((error) => toast(message(error)));
+    }
+    if (el.dataset.setting === 'autoLogin' && !el.checked) clearSavedLogin();
+    if (el.dataset.setting === 'autoLogin' && el.checked) storeAutoLogin();
+    return;
+  }
+  if (el.dataset.autologin) {
+    storeAutoLogin();
     return;
   }
   if (el.dataset.bg === 'kind') {
@@ -1471,12 +1650,25 @@ function onChange(event) {
     paint();
     return;
   }
-  if (el.dataset.choose === 'user') { ws.currentUserId = el.value; scheduleSave(); paint(); return; }
+  if (el.dataset.choose === 'user') return;
   if (el.dataset.choose === 'board') { ui.boardId = el.value; paint(); return; }
   if (el.dataset.choose === 'swimlane') { ui.swimlane = el.value; paint(); return; }
   if (el.dataset.module) { ws.modules[el.dataset.module] = el.checked; scheduleSave(); paint(); return; }
   if (el.dataset.mail) {
-    ws.mail[el.dataset.mail] = el.type === 'checkbox' ? el.checked : (el.dataset.mail === 'port' ? Number(el.value) || 587 : el.value);
+    if (!ws.mail) ws.mail = {};
+    if (el.dataset.mail === 'password') {
+      if (!el.value) return;
+      ws.mail.password = el.value;
+      scheduleSave();
+      return;
+    }
+    if (el.dataset.mail === 'port') ws.mail.port = Number(el.value) || 587;
+    else ws.mail[el.dataset.mail] = el.value;
+    if (el.dataset.mail === 'security') {
+      if (el.value === 'ssl' && Number(ws.mail.port) === 587) ws.mail.port = 465;
+      if (el.value === 'starttls' && Number(ws.mail.port) === 465) ws.mail.port = 587;
+      paint();
+    }
     scheduleSave();
     return;
   }
@@ -1659,6 +1851,22 @@ function mount() {
   });
   document.body.addEventListener('contextmenu', (event) => {
     if (!ui.ready || event.target.closest('input, textarea, select, #modal')) return;
+    const stored = event.target.closest('[data-file], img.md-image, a.file-link');
+    if (stored && !event.target.closest('button')) {
+      event.preventDefault();
+      ui.context = {
+        kind: 'file',
+        id: stored.dataset.file || '',
+        name: stored.dataset.name || stored.getAttribute('alt') || stored.textContent || 'file',
+        src: stored.dataset.file ? '' : (stored.getAttribute('src') || stored.getAttribute('href') || ''),
+        x: event.clientX,
+        y: event.clientY,
+      };
+      ui.menu = null;
+      ui.popover = null;
+      paint();
+      return;
+    }
     const card = event.target.closest('[data-card]');
     const surface = event.target.closest('#view, #left, #toolbar, #right');
     if (!card && !surface) return;
@@ -1679,6 +1887,24 @@ function mount() {
       ui.menu = ui.menu === menuButton.dataset.menu ? null : menuButton.dataset.menu;
       ui.popover = null;
       paint();
+      return;
+    }
+    const stored = event.target.closest('a[data-file], a.file-link, img.md-image');
+    if (stored && !event.target.closest('button')) {
+      event.preventDefault();
+      downloadStored(stored.dataset.file, stored.dataset.name || stored.getAttribute('alt'), stored.getAttribute('href') || stored.getAttribute('src'));
+      if (ui.context) { ui.context = null; paint(); }
+      return;
+    }
+    const external = event.target.closest('a[data-external]');
+    if (external) {
+      event.preventDefault();
+      const url = external.dataset.external || '';
+      if (!/^https?:\/\//i.test(url)) return;
+      ui.pendingUrl = url;
+      let host = url;
+      try { host = new URL(url).host; } catch { /* keep the address */ }
+      confirm(L(`${host} 을 브라우저에서 열까요?`, `Open ${host} in the browser?`), 'open-browser');
       return;
     }
     const actionEl = event.target.closest('[data-action]');
@@ -1815,14 +2041,41 @@ function mount() {
     if (!file) return;
     if (ui.pageAttach) {
       const pageId = ui.pageAttach;
+      const target = ui.attachTarget || 'page';
+      const kind = ui.attachKind || 'file';
       ui.pageAttach = '';
+      ui.attachTarget = '';
+      ui.attachKind = '';
+      if (kind === 'image' && file.type && !/^image\//i.test(file.type)) {
+        toast(L('이미지 파일을 고르세요.', 'Choose an image file.'));
+        return;
+      }
       const data = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ''));
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(file);
       });
-      mutate(() => attachPage(ws, pageId, { name: file.name, mime: file.type, size: file.size, data }, actor()));
+      mutate(() => {
+        if (target === 'doc') {
+          const fields = {
+            title: document.querySelector('#doc-title')?.value,
+            body: document.querySelector('#doc-body')?.value,
+            issueKey: document.querySelector('#doc-issue')?.value,
+          };
+          if (fields.body != null) updateDocument(ws, pageId, fields, actor());
+          attachDocument(ws, pageId, { name: file.name, mime: file.type, size: file.size, data }, actor());
+          return;
+        }
+        if (document.querySelector('#page-body')) {
+          updatePage(ws, pageId, {
+            title: document.querySelector('#page-title')?.value,
+            body: document.querySelector('#page-body')?.value,
+            labels: document.querySelector('#page-labels')?.value,
+          }, actor());
+        }
+        attachPage(ws, pageId, { name: file.name, mime: file.type, size: file.size, data }, actor());
+      });
       return;
     }
     if (!current || !ui.issueId) return;
@@ -1936,19 +2189,10 @@ export async function start() {
   try { ui.localBackup = Boolean(await loadLocal()); } catch { ui.localBackup = false; }
   try { pendingFiles = await startupFiles() || []; } catch { pendingFiles = []; }
   await refreshStatus();
-  let entered = false;
-  if (settings.showStartPage === false && ui.status?.connected) {
-    try {
-      const loaded = await loadWorkspace();
-      const body = upgradeWorkspace(loaded.workspace || {});
-      const locked = (body.users || []).some((user) => user.passwordHash);
-      if (!locked) {
-        await enterWorkspace(body);
-        entered = true;
-      }
-    } catch { /* a locked or unread workspace still opens on the start page */ }
-  }
-  if (!entered) paint();
+  if (settings.launchAtStartup) setLaunchAtStartup(true).catch(() => {});
+  if (!(await adoptSharedSession())) await autoSignIn();
+  if (!ui.ready) paint();
+  watchSharedSession(() => { adoptSharedSession().catch(() => {}); });
   await showMain();
   globalThis.matchMedia?.('(prefers-color-scheme: dark)')?.addEventListener?.('change', () => {
     if (settings.theme === 'system') applyTheme(resolveTheme('system', prefersDark(), settings.customTheme));

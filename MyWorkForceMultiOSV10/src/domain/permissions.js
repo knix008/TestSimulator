@@ -25,6 +25,28 @@ export function projectAncestors(ws, project) {
   return chain;
 }
 
+/** A person takes part when they lead or belong to the project, or to one of its parents. */
+export function participatesIn(ws, project, userId) {
+  if (!project || !userId) return false;
+  const user = (ws?.users || []).find((item) => item.id === userId);
+  if (!user || user.active === false) return false;
+  if (isWorkspaceAdmin(user)) return true;
+  const seen = new Set();
+  let current = project;
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    if (current.leadId === userId) return true;
+    if ((current.members || []).some((member) => member.userId === userId && member.role)) return true;
+    current = current.parentId ? (ws?.projects || []).find((item) => item.id === current.parentId) : null;
+  }
+  return false;
+}
+
+/** Projects this person takes part in, parents before their children. */
+export function participatingProjects(ws, userId) {
+  return orderedProjects(ws).filter((project) => participatesIn(ws, project, userId));
+}
+
 /** Parents first, then each child, so a sub-project sits under its project. */
 export function orderedProjects(ws) {
   const projects = ws?.projects || [];

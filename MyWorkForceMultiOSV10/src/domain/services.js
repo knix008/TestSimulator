@@ -33,7 +33,7 @@ export function defaultWeek() {
 }
 
 export function ensureServices(ws) {
-  ws.mode = 'personal';
+  ws.mode = 'company';
   ws.articles = Array.isArray(ws.articles) ? ws.articles : [];
   ws.documents = Array.isArray(ws.documents) ? ws.documents : [];
   ws.calendars = Array.isArray(ws.calendars) ? ws.calendars : [];
@@ -42,7 +42,8 @@ export function ensureServices(ws) {
   ws.mailOutbox = Array.isArray(ws.mailOutbox) ? ws.mailOutbox : [];
   ws.apiTokens = Array.isArray(ws.apiTokens) ? ws.apiTokens : [];
   ws.calendarId = ws.calendarId || '';
-  ws.mail = ws.mail && typeof ws.mail === 'object' ? ws.mail : { host: '', port: 587, user: '', password: '', from: '', secure: false };
+  ws.mail = ws.mail && typeof ws.mail === 'object' ? ws.mail : { host: '', port: 587, security: 'starttls', user: '', password: '', from: '' };
+  if (!ws.mail.security) ws.mail.security = ws.mail.secure ? 'ssl' : 'starttls';
   ws.sso = ws.sso && typeof ws.sso === 'object' ? ws.sso : { issuer: '', clientId: '', clientSecret: '' };
   const modules = ws.modules && typeof ws.modules === 'object' ? ws.modules : {};
   ws.modules = Object.fromEntries(MODULES.map((item) => [item.id, modules[item.id] !== false]));
@@ -212,6 +213,20 @@ export function webhookPayload(event, issue, project) {
     at: event?.at || nowIso(),
     project: project?.key || '',
     issue: issue ? { id: issue.id, key: issue.key, summary: issue.summary, statusId: issue.statusId, typeId: issue.typeId } : null,
+  };
+}
+
+export function describeMail(mail = {}) {
+  const named = String(mail.security || '').toLowerCase();
+  const security = named === 'ssl' || named === 'starttls' || named === 'none' ? named : (mail.secure ? 'ssl' : 'starttls');
+  const port = Number(mail.port) || (security === 'ssl' ? 465 : security === 'none' ? 25 : 587);
+  return {
+    host: String(mail.host || '').trim(),
+    port,
+    security,
+    secure: security === 'ssl',
+    requireTLS: security === 'starttls',
+    ignoreTLS: security === 'none',
   };
 }
 
