@@ -1,0 +1,106 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Building evacuation",
+ "description": "After the alarm people head out and leave",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 30,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.05,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a901is3w",
+   "type": "population",
+   "name": "Occupants",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "count": 500,
+    "speed": 40,
+    "shape": "person",
+    "states": [
+     {
+      "name": "Working",
+      "color": "#64748b"
+     },
+     {
+      "name": "Alarmed",
+      "color": "#f59e0b"
+     },
+     {
+      "name": "Evacuated",
+      "color": "#22c55e"
+     }
+    ],
+    "initial": "Working:1",
+    "transitions": [
+     {
+      "from": "Working",
+      "to": "Alarmed",
+      "kind": "condition",
+      "value": "time > 5"
+     },
+     {
+      "from": "Alarmed",
+      "to": "Evacuated",
+      "kind": "rate",
+      "value": 0.4
+     },
+     {
+      "from": "Working",
+      "to": "Alarmed",
+      "kind": "contact",
+      "value": 2,
+      "trigger": "Alarmed",
+      "radius": 1.5
+     }
+    ]
+   },
+   "w": 40,
+   "h": 26
+  },
+  {
+   "id": "bmwhr4a901it9r",
+   "type": "display",
+   "name": "Still inside",
+   "x": 0,
+   "y": -16,
+   "rot": 0,
+   "props": {
+    "expression": "Occupants.Working + Occupants.Alarmed",
+    "digits": 0,
+    "unitLabel": "",
+    "style": "number",
+    "min": 0,
+    "max": 100
+   }
+  }
+ ],
+ "links": [],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Evacuation",
+   "kind": "line",
+   "series": [
+    "Occupants.Working",
+    "Occupants.Alarmed",
+    "Occupants.Evacuated"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.396Z"
+}

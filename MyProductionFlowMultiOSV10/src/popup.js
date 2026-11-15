@@ -125,6 +125,8 @@ const button = (actionName, label, glyph = '', extra = '', value = '', attrs = '
 
 // A dropdown in a row shows the row's icon on its items unless it names its own (ui/dropdown.js).
 const withIcon = (control, glyph) => (glyph ? String(control).replace(/<select(?![^>]*data-icon=)/g, `<select data-icon="${glyph}"`) : control);
+/** An explanation under settings: a full-width note (an icon and the text), not a row with an empty title. */
+const note = (text) => `<div class="row settings-note"><span class="note-text">${icon('info')}<span>${escapeHtml(text)}</span></span></div>`;
 const row = (glyph, label, control, title = label, cls = '') => `<div class="row ${cls}" title="${escapeHtml(title)}"><span class="row-label">${icon(glyph)}<span>${escapeHtml(label)}</span></span><span class="row-control">${withIcon(control, glyph)}</span></div>`;
 
 /** [−] value [+] for a number. */
@@ -273,6 +275,7 @@ function settingsStart() {
   return [
     toggle('showStartPage', t('settings.showStartPage'), 'home'),
     toggle('showWelcome', t('settings.showWelcome'), 'bulb'),
+    note(t('settings.showWelcomeHint')),
     toggle('startShowRecent', t('settings.startShowRecent'), 'recent'),
     row('list', t('settings.startRecentCount'), numberField('startRecentCount', s().startRecentCount, 1, 10, 1, '', t('settings.startRecentCount'))),
     toggle('startShowFolders', t('settings.startShowFolders'), 'recentFolder'),
@@ -280,7 +283,7 @@ function settingsStart() {
     toggle('startShowBackground', t('settings.startShowBackground'), 'sparkles'),
     toggle('startShowTutorialBanner', t('settings.startShowTutorialBanner'), 'bulb'),
     row('home', t('settings.startOpen'), button('show-start', t('settings.startOpenButton'), 'home', 'small')),
-    row('info', '', `<span class="muted">${escapeHtml(t('settings.startHint'))}</span>`, t('settings.startHint')),
+    note(t('settings.startHint')),
   ].join('');
 }
 
@@ -333,26 +336,25 @@ function customThemeEditor() {
 // ───────────────────────── theme dropdown (toolbar): two columns, dark | light
 
 let pickerDone = false;
+/**
+ * The toolbar's theme dropdown (the ▾ next to the random-theme button): a menu, not a window —
+ * custom theme and theme settings on top, then the 20 dark themes in two columns, then the 20 light themes.
+ */
 function renderThemePicker() {
   const current = s().theme;
-  const column = (glyph, title, list) => `<div class="picker-column">
-    <h3>${icon(glyph)}<span>${escapeHtml(title)}</span></h3>
-    ${list.map((theme) => `<button class="picker-item ${current === theme.id ? 'active' : ''}" data-pick-theme="${theme.id}" title="${escapeHtml(themeName(theme.id, L()))}">
+  const item = (theme) => `<button class="picker-item ${current === theme.id ? 'active' : ''}" data-pick-theme="${theme.id}" title="${escapeHtml(themeName(theme.id, L()))}">
       <span class="theme-swatch">${theme.swatch.map((color) => `<i style="background:${color}"></i>`).join('')}</span>
       <span class="theme-name">${escapeHtml(themeName(theme.id, L()))}</span>${current === theme.id ? icon('check', 'icon check') : ''}
-    </button>`).join('')}
+    </button>`;
+  const group = (glyph, title, list) => `<h3 class="picker-head">${icon(glyph)}<span>${escapeHtml(title)}</span></h3><div class="picker-grid">${list.map(item).join('')}</div>`;
+  root.innerHTML = `<div class="popup-menu theme-dropdown" role="menu" aria-label="${escapeHtml(t('action.themeChoose'))}">
+    <div class="picker-top">
+      <button class="picker-item ${current === CUSTOM ? 'active' : ''}" data-pick-theme="${CUSTOM}" title="${escapeHtml(themeName(CUSTOM, L()))}">${icon('palette')}<span class="theme-name">${escapeHtml(themeName(CUSTOM, L()))}</span>${current === CUSTOM ? icon('check', 'icon check') : ''}</button>
+      <button class="picker-item" data-action="edit-custom" title="${escapeHtml(t('theme.settings'))}">${icon('gear')}<span class="theme-name">${escapeHtml(t('theme.settings'))}</span></button>
+    </div>
+    ${group('moon', t('theme.darkGroup', { count: DARK_THEMES.length }), DARK_THEMES)}
+    ${group('sun', t('theme.lightGroup', { count: LIGHT_THEMES.length }), LIGHT_THEMES)}
   </div>`;
-  root.innerHTML = frame({
-    glyph: 'palette', title: t('theme.pickTitle'),
-    body: `<div class="theme-picker">
-      <div class="picker-top">
-        <button class="picker-item ${current === SYSTEM ? 'active' : ''}" data-pick-theme="${SYSTEM}" title="${escapeHtml(themeName(SYSTEM, L()))}">${icon('sun')}<span class="theme-name">${escapeHtml(themeName(SYSTEM, L()))}</span>${current === SYSTEM ? icon('check', 'icon check') : ''}</button>
-        <button class="picker-item ${current === CUSTOM ? 'active' : ''}" data-pick-theme="${CUSTOM}" title="${escapeHtml(themeName(CUSTOM, L()))}">${icon('palette')}<span class="theme-name">${escapeHtml(themeName(CUSTOM, L()))}</span>${current === CUSTOM ? icon('check', 'icon check') : ''}</button>
-      </div>
-      <div class="picker-columns">${column('moon', t('theme.darkGroup', { count: DARK_THEMES.length }), DARK_THEMES)}${column('sun', t('theme.lightGroup', { count: LIGHT_THEMES.length }), LIGHT_THEMES)}</div>
-    </div>`,
-    foot: `<button class="button small" data-action="edit-custom" title="${escapeHtml(t('settings.editCustom'))}">${icon('edit')}<span>${escapeHtml(t('settings.editCustom'))}</span></button><button class="button small" data-action="random-theme" title="${escapeHtml(t('action.themeRandom'))}">${icon('dice')}<span>${escapeHtml(t('action.themeRandom'))}</span></button><span class="grow"></span>${button('close', t('common.close'), 'close')}`,
-  });
   const anchor = P().anchor;
   if (anchor && !state.placed) {
     state.placed = true;
@@ -405,7 +407,7 @@ function settingsBackground() {
       ${button('clear-background', t('settings.bgClear'), 'imageClear', 'small')}`, t('settings.bgImage'), 'full'),
     row('opacity', t('settings.bgOpacity'), numberField('backgroundOpacity', s().backgroundOpacity, 0, 100, 5, '%', t('settings.bgOpacity'))),
     row('fitPage', t('settings.bgFit'), segmented('backgroundFit', BACKGROUND_FITS.map((fit) => [fit, t(`settings.fit.${fit}`)]), s().backgroundFit), t('settings.bgFit'), 'full'),
-    row('info', '', `<span class="muted">${escapeHtml(t('settings.bgHint'))}</span>`, t('settings.bgHint')),
+    note(t('settings.bgHint')),
   ].join('');
 }
 
@@ -455,7 +457,8 @@ export const SHORTCUT_LIST = [
 ];
 
 function settingsShortcuts() {
-  const [list, pager] = paged('shortcuts', SHORTCUT_LIST, 36);
+  // All shortcuts on one page (three columns), in a readable size.
+  const list = SHORTCUT_LIST; const pager = '';
   return `<div class="shortcut-grid">${list.map(([key, label]) => `<div class="shortcut-row" title="${escapeHtml(t(label))}"><kbd>${escapeHtml(key.startsWith('shortcut.') ? t(key) : key)}</kbd><span>${escapeHtml(t(label).replace(/…$/, ''))}</span></div>`).join('')}</div>${pager ? `<div class="row">${pager}</div>` : ''}`;
 }
 
@@ -656,7 +659,7 @@ function menuPanelHtml(items, level, label) {
   return `<div class="popup-menu" role="menu" data-level="${level}" aria-label="${escapeHtml(label ?? '')}">${items.map((item, index) => (item.separator
     ? '<div class="menu-sep" role="separator"></div>'
     : `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.submenu ? 'aria-haspopup="menu" aria-expanded="false"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
-        <span class="menu-icon">${icon(item.icon)}</span>
+        <span class="menu-icon">${item.swatch ? `<span class="theme-swatch menu-swatch">${item.swatch.map((c) => `<i style="background:${escapeHtml(c)}"></i>`).join('')}</span>` : icon(item.icon)}</span>
         <span class="menu-label">${escapeHtml(item.label)}</span>
         <span class="menu-key">${escapeHtml(item.shortcut ?? '')}</span>
         <span class="menu-check">${item.submenu ? icon('chevronRight') : item.checked ? icon('check') : ''}</span>
@@ -884,7 +887,7 @@ function renderPrompt() {
 // ───────────────────────── new diagram (pick its type)
 
 /** What popups-sim.js (the simulation's own popups) uses from this page. */
-const popupApi = { root, state, s, P, L, t, icon, escapeHtml, frame, button, row, toggle, segmented, select, numberField, update, close, hide, ready, render, fitHeight, action, send, desktop, appIcon, VERSION, UNITS, tabsHtml, paged };
+const popupApi = { root, state, s, P, L, t, icon, escapeHtml, frame, button, row, note, toggle, segmented, select, numberField, update, close, hide, ready, render, fitHeight, action, send, desktop, appIcon, VERSION, UNITS, tabsHtml, paged };
 
 // ───────────────────────── events
 
@@ -1111,6 +1114,8 @@ function refresh() {
   state.pager = {};
   state.draft = null;
   if (kind === 'theme' || kind === 'color') { state.placed = false; pickerDone = false; colorDone = false; }
+  // Report and print windows start again from the new report (sections, page setup, laid-out pages).
+  if (kind === 'report' || kind === 'print') Object.assign(state, { sections: null, setup: null, pages: null, pagesKey: null, size: null, status: '', statusKind: '', images: null, askedImages: false, gen: (state.gen ?? 0) + 1 });
   if (kind === 'settings' && state.params.themeGroup) state.themeGroup = state.params.themeGroup;
   applyLook();
   render();

@@ -69,6 +69,7 @@ export const SAVE_TYPES = {
   json: { name: 'JSON (*.json)', extensions: ['json'] },
   csv: { name: 'CSV (*.csv)', extensions: ['csv'] },
   png: { name: 'PNG (*.png)', extensions: ['png'] },
+  webm: { name: 'WebM video (*.webm)', extensions: ['webm'] },
   jpg: { name: 'JPEG (*.jpg)', extensions: ['jpg', 'jpeg'] },
   webp: { name: 'WebP (*.webp)', extensions: ['webp'] },
   avif: { name: 'AVIF (*.avif)', extensions: ['avif'] },
@@ -77,6 +78,9 @@ export const SAVE_TYPES = {
   tga: { name: 'TGA (*.tga)', extensions: ['tga'] },
   svg: { name: 'SVG (*.svg)', extensions: ['svg'] },
   pdf: { name: 'PDF (*.pdf)', extensions: ['pdf'] },
+  html: { name: 'HTML (*.html)', extensions: ['html', 'htm'] },
+  md: { name: 'Markdown (*.md)', extensions: ['md'] },
+  docx: { name: 'Word (*.docx)', extensions: ['docx'] },
 };
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'];
 
@@ -297,12 +301,30 @@ function fontInstalled(family) {
 
 export const setWindowTheme = (dark) => (isDesktop() ? getCurrentWindow().setTheme(dark ? 'dark' : 'light').catch(() => {}) : Promise.resolve());
 
+let frameExtra = 0;
 export async function setMinimumSize(width, height) {
   if (!isDesktop()) return;
   const appWindow = getCurrentWindow();
-  await appWindow.setMinSize(new LogicalSize(width, height));
-  // An already narrower window grows to the new minimum at once.
-  if (window.innerWidth < width - 1) await appWindow.setSize(new LogicalSize(width, Math.max(height, window.innerHeight)));
+  // A frameless window's minimum is its OUTER size, which has invisible 8 px resize borders on each side:
+  // add them, so the page itself is never narrower than `width` (else every drag snapped back and shook).
+  if (!(await appWindow.isMaximized().catch(() => false))) {
+    const scale = await appWindow.scaleFactor().catch(() => 1);
+    const outer = await appWindow.outerSize().catch(() => null); const inner = await appWindow.innerSize().catch(() => null);
+    if (outer && inner) frameExtra = Math.max(0, Math.round((outer.width - inner.width) / scale));
+  }
+  const maxWidth = (window.screen?.availWidth || Infinity);
+  await appWindow.setMinSize(new LogicalSize(Math.min(maxWidth, width + frameExtra), height));
+  // An already narrower window grows to the new minimum once (not on every resize).
+  if (window.innerWidth < width - 1) await appWindow.setSize(new LogicalSize(Math.min(maxWidth - frameExtra, width), Math.max(height, window.innerHeight)));
+}
+
+/** Start-up: the window at a width (its minimum), the same height, centred on the screen. */
+export async function startAtWidth(width) {
+  if (!isDesktop()) return;
+  const w = getCurrentWindow();
+  if (await w.isMaximized().catch(() => false)) return;
+  await w.setSize(new LogicalSize(width, window.innerHeight));
+  await w.center();
 }
 
 /** The computer's printers: { printers, defaultPrinter }; none in the browser and outside Windows. */

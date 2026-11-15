@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf36oaiwy",
+   "id": "bmwhr4a79aips",
    "type": "source",
    "name": "Passengers",
    "x": -18,
@@ -67,7 +67,7 @@
    }
   },
   {
-   "id": "bmwhnf36oajim",
+   "id": "bmwhr4a79aj6e",
    "type": "queue",
    "name": "Check-in line",
    "x": -12,
@@ -80,7 +80,7 @@
    }
   },
   {
-   "id": "bmwhnf36oakc3",
+   "id": "bmwhr4a79akwx",
    "type": "select",
    "name": "Lane choice",
    "x": -6,
@@ -95,7 +95,7 @@
    }
   },
   {
-   "id": "bmwhnf36oalld",
+   "id": "bmwhr4a79al7x",
    "type": "queue",
    "name": "Lane 1",
    "x": 0,
@@ -108,7 +108,7 @@
    }
   },
   {
-   "id": "bmwhnf36oamoz",
+   "id": "bmwhr4a79amvw",
    "type": "process",
    "name": "Scanner 1",
    "x": 7,
@@ -142,7 +142,7 @@
    }
   },
   {
-   "id": "bmwhnf36oanhm",
+   "id": "bmwhr4a7aanvt",
    "type": "queue",
    "name": "Lane 2",
    "x": 0,
@@ -155,7 +155,7 @@
    }
   },
   {
-   "id": "bmwhnf36oaoz3",
+   "id": "bmwhr4a7aaonq",
    "type": "process",
    "name": "Scanner 2",
    "x": 7,
@@ -189,7 +189,7 @@
    }
   },
   {
-   "id": "bmwhnf36oaps6",
+   "id": "bmwhr4a7aap9e",
    "type": "queue",
    "name": "Lane 3",
    "x": 0,
@@ -202,7 +202,7 @@
    }
   },
   {
-   "id": "bmwhnf36oaq3g",
+   "id": "bmwhr4a7aaq2j",
    "type": "process",
    "name": "Scanner 3",
    "x": 7,
@@ -236,7 +236,7 @@
    }
   },
   {
-   "id": "bmwhnf36oarue",
+   "id": "bmwhr4a7aar9p",
    "type": "queue",
    "name": "Lane 4",
    "x": 0,
@@ -249,7 +249,7 @@
    }
   },
   {
-   "id": "bmwhnf36oassq",
+   "id": "bmwhr4a7aas57",
    "type": "process",
    "name": "Scanner 4",
    "x": 7,
@@ -283,7 +283,7 @@
    }
   },
   {
-   "id": "bmwhnf36oatxx",
+   "id": "bmwhr4a7aata0",
    "type": "sink",
    "name": "Gates",
    "x": 14,
@@ -294,183 +294,183 @@
  ],
  "links": [
   {
-   "id": "lmwhnf36oauj9",
+   "id": "lmwhr4a7aauqu",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oaiwy",
+    "block": "bmwhr4a79aips",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36oajim",
+    "block": "bmwhr4a79aj6e",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36oavst",
+   "id": "lmwhr4a7aavx5",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oajim",
+    "block": "bmwhr4a79aj6e",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36oakc3",
+    "block": "bmwhr4a79akwx",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36oawr",
+   "id": "lmwhr4a7aawvi",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oakc3",
+    "block": "bmwhr4a79akwx",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36oalld",
+    "block": "bmwhr4a79al7x",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36oaxmn",
+   "id": "lmwhr4a7aaxn1",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oalld",
+    "block": "bmwhr4a79al7x",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36oamoz",
+    "block": "bmwhr4a79amvw",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36oayin",
+   "id": "lmwhr4a7aayu3",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oamoz",
+    "block": "bmwhr4a79amvw",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36oatxx",
+    "block": "bmwhr4a7aata0",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36oazia",
+   "id": "lmwhr4a7aazgx",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oakc3",
+    "block": "bmwhr4a79akwx",
     "port": 1
    },
    "to": {
-    "block": "bmwhnf36oanhm",
+    "block": "bmwhr4a7aanvt",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36ob0g4",
+   "id": "lmwhr4a7ab01i",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oanhm",
+    "block": "bmwhr4a7aanvt",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36oaoz3",
+    "block": "bmwhr4a7aaonq",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36ob1g9",
+   "id": "lmwhr4a7ab1gh",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oaoz3",
+    "block": "bmwhr4a7aaonq",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36oatxx",
+    "block": "bmwhr4a7aata0",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36ob2t5",
+   "id": "lmwhr4a7ab2x4",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oakc3",
+    "block": "bmwhr4a79akwx",
     "port": 2
    },
    "to": {
-    "block": "bmwhnf36oaps6",
+    "block": "bmwhr4a7aap9e",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36ob3ve",
+   "id": "lmwhr4a7ab3qe",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oaps6",
+    "block": "bmwhr4a7aap9e",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36oaq3g",
+    "block": "bmwhr4a7aaq2j",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36ob4im",
+   "id": "lmwhr4a7ab44a",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oaq3g",
+    "block": "bmwhr4a7aaq2j",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36oatxx",
+    "block": "bmwhr4a7aata0",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36ob5a1",
+   "id": "lmwhr4a7ab5di",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oakc3",
+    "block": "bmwhr4a79akwx",
     "port": 3
    },
    "to": {
-    "block": "bmwhnf36oarue",
+    "block": "bmwhr4a7aar9p",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36ob6mq",
+   "id": "lmwhr4a7ab6qi",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oarue",
+    "block": "bmwhr4a7aar9p",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36oassq",
+    "block": "bmwhr4a7aas57",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36ob7b2",
+   "id": "lmwhr4a7ab7ss",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36oassq",
+    "block": "bmwhr4a7aas57",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36oatxx",
+    "block": "bmwhr4a7aata0",
     "port": 0
    },
    "points": []
@@ -489,5 +489,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:04.992Z"
+ "savedAt": "2026-11-15T11:28:39.334Z"
 }

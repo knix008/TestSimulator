@@ -1,0 +1,371 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "드라이브 스루",
+ "description": "주문 창구 → 결제 → 픽업, 줄이 길면 그냥 지나감",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 300,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8o194zb",
+   "type": "carSource",
+   "name": "Cars",
+   "x": -22,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "schedule",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.2
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 90,
+      "value": 0.6
+     },
+     {
+      "start": 90,
+      "end": 180,
+      "value": 1.4
+     },
+     {
+      "start": 180,
+      "end": 300,
+      "value": 0.8
+     }
+    ],
+    "period": 300,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Car",
+      "color": "#2563eb",
+      "weight": 3
+     },
+     {
+      "name": "Car",
+      "color": "#dc2626",
+      "weight": 2
+     },
+     {
+      "name": "Car",
+      "color": "#e5e7eb",
+      "weight": 2
+     },
+     {
+      "name": "Truck",
+      "color": "#f59e0b",
+      "weight": 1
+     }
+    ],
+    "shape": "car",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a8o195cz",
+   "type": "queue",
+   "name": "Lane",
+   "x": -15,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 10,
+    "discipline": "fifo",
+    "timeout": 8
+   }
+  },
+  {
+   "id": "bmwhr4a8o1961t",
+   "type": "process",
+   "name": "Order window",
+   "x": -8,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "desk",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 0.5,
+     "mode": 0.9,
+     "max": 1.6
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8o1975i",
+   "type": "queue",
+   "name": "Between",
+   "x": -3,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 3,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8o198jd",
+   "type": "process",
+   "name": "Pay window",
+   "x": 2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "checkout",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 0.3,
+     "mode": 0.5,
+     "max": 0.9
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8o199op",
+   "type": "queue",
+   "name": "Wait food",
+   "x": 7,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 2,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8o19acj",
+   "type": "process",
+   "name": "Pickup",
+   "x": 12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "desk",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 0.4,
+     "mode": 0.8,
+     "max": 1.8
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8o19bj9",
+   "type": "carSink",
+   "name": "Served",
+   "x": 18,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhr4a8o19c23",
+   "type": "carSink",
+   "name": "Drove past",
+   "x": -15,
+   "y": 6,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8o19dmf",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8o194zb",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8o195cz",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8o19e87",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8o195cz",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8o1961t",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8o19fin",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8o1961t",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8o1975i",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8o19gmb",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8o1975i",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8o198jd",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8o19hzs",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8o198jd",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8o199op",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8o19iiq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8o199op",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8o19acj",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8o19jln",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8o19acj",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8o19bj9",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8o19k89",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8o195cz",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhr4a8o19c23",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Lane",
+   "kind": "line",
+   "series": [
+    "Lane.length"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Windows",
+   "kind": "line",
+   "series": [
+    "Order window.utilization",
+    "Pickup.utilization"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.384Z"
+}

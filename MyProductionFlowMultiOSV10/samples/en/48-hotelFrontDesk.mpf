@@ -1,0 +1,303 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Hotel front desk",
+ "description": "Evening check-in peak; events add 2 staff from 17:00 to 20:00",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 1440,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8q1aflx",
+   "type": "pedSource",
+   "name": "Guests",
+   "x": -16,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "schedule",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.3
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 840,
+      "value": 0.1
+     },
+     {
+      "start": 840,
+      "end": 1200,
+      "value": 0.6
+     },
+     {
+      "start": 1200,
+      "end": 1440,
+      "value": 0.15
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Visitor",
+      "color": "#8b5cf6",
+      "weight": 3
+     },
+     {
+      "name": "Staff",
+      "color": "#0ea5e9",
+      "weight": 1
+     }
+    ],
+    "shape": "person",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a8q1ag7f",
+   "type": "queue",
+   "name": "Lobby queue",
+   "x": -9,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 30
+   }
+  },
+  {
+   "id": "bmwhr4a8q1ah8t",
+   "type": "process",
+   "name": "Front desk",
+   "x": -2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "desk",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 4,
+     "max": 8
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8q1ai9d",
+   "type": "process",
+   "name": "Bell desk",
+   "x": 5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "desk",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 2,
+     "max": 4
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8q1aj9y",
+   "type": "pedSink",
+   "name": "Rooms",
+   "x": 11,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhr4a8q1akvb",
+   "type": "pedSink",
+   "name": "Complaints",
+   "x": -9,
+   "y": 6,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhr4a8q1ali6",
+   "type": "event",
+   "name": "Evening staff",
+   "x": -2,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "trigger": "once",
+    "startAt": 1020,
+    "every": {
+     "type": "constant",
+     "value": 120
+    },
+    "condition": "time > 100",
+    "maxTimes": 0,
+    "targetBlock": "Front desk",
+    "property": "capacity",
+    "newValue": "current + 2"
+   }
+  },
+  {
+   "id": "bmwhr4a8q1am8u",
+   "type": "event",
+   "name": "Staff off",
+   "x": 4,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "trigger": "once",
+    "startAt": 1200,
+    "every": {
+     "type": "constant",
+     "value": 120
+    },
+    "condition": "time > 100",
+    "maxTimes": 0,
+    "targetBlock": "Front desk",
+    "property": "capacity",
+    "newValue": "2"
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8q1anmt",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8q1aflx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8q1ag7f",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8q1aorz",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8q1ag7f",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8q1ah8t",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8q1apaz",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8q1ah8t",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8q1ai9d",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8q1aqhb",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8q1ai9d",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8q1aj9y",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8q1ar8i",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8q1ag7f",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhr4a8q1akvb",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Lobby",
+   "kind": "line",
+   "series": [
+    "Lobby queue.length"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Desk",
+   "kind": "line",
+   "series": [
+    "Front desk.utilization"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.386Z"
+}

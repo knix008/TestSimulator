@@ -6,8 +6,8 @@
   --font-style: normal;
   --radius: 8px;
   --min-width: 1100px;
-  --left-width: 236px;
-  --right-width: 320px;
+  --left-width: 280px;
+  --right-width: 280px;
   --row-height: 26px;
   --bar: var(--accent);
   --bar-critical: #e5484d;
@@ -41,7 +41,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   height: 100vh;
   display: grid;
   grid-template-rows: auto auto 1fr auto; /* menu bar, toolbar, workspace (panels | tabs + view | panels), status bar */
-  min-width: var(--min-width);
+  min-width: min(var(--min-width), 100vw);
   position: relative;
 }
 html.is-popup #app { min-width: 0; display: block; }

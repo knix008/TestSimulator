@@ -1,0 +1,304 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Start-up cash flow (SD)",
+ "description": "Customers, revenue, marketing and fixed costs; cash until break-even",
+ "settings": {
+  "timeUnit": "day",
+  "duration": 720,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 1,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8x1h3iq",
+   "type": "stock",
+   "name": "Cash",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "500000",
+    "nonNegative": false,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8y1h43j",
+   "type": "stock",
+   "name": "Customers",
+   "x": 0,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "initial": "100",
+    "nonNegative": true,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8y1h5jq",
+   "type": "parameter",
+   "name": "Price",
+   "x": -14,
+   "y": -14,
+   "rot": 0,
+   "props": {
+    "value": 30,
+    "min": 5,
+    "max": 100,
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhr4a8y1h6fc",
+   "type": "parameter",
+   "name": "Marketing",
+   "x": -14,
+   "y": -6,
+   "rot": 0,
+   "props": {
+    "value": 1500,
+    "min": 0,
+    "max": 10000,
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhr4a8y1h7c2",
+   "type": "parameter",
+   "name": "FixedCost",
+   "x": 14,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "value": 1200,
+    "min": 0,
+    "max": 5000,
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhr4a8y1h8c2",
+   "type": "flow",
+   "name": "NewCustomers",
+   "x": -8,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "equation": "Marketing / 60 + Customers * 0.004",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8y1h9ne",
+   "type": "flow",
+   "name": "Churn",
+   "x": 8,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "equation": "Customers * 0.01",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8y1had8",
+   "type": "flow",
+   "name": "Revenue",
+   "x": -8,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "Customers * Price / 30",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8y1hb1c",
+   "type": "flow",
+   "name": "Spending",
+   "x": 8,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "Marketing + FixedCost",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8y1hlm7",
+   "type": "display",
+   "name": "Cash now",
+   "x": 0,
+   "y": 8,
+   "rot": 0,
+   "props": {
+    "expression": "Cash",
+    "digits": 0,
+    "unitLabel": "",
+    "style": "number",
+    "min": 0,
+    "max": 100
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8y1hcq2",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8y1h8c2",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8y1h43j",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8y1hdrf",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8y1h43j",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8y1h9ne",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8y1heim",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8y1had8",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8x1h3iq",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8y1hf47",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8x1h3iq",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8y1hb1c",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8y1hgew",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8y1h6fc",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8y1h8c2",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8y1hh7s",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8y1h43j",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8y1had8",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8y1hi3d",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8y1h5jq",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8y1had8",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8y1hjeu",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8y1h6fc",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8y1hb1c",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8y1hk1r",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8y1h7c2",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8y1hb1c",
+    "port": -1
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Cash",
+   "kind": "line",
+   "series": [
+    "Cash"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Customers",
+   "kind": "line",
+   "series": [
+    "Customers"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.394Z"
+}

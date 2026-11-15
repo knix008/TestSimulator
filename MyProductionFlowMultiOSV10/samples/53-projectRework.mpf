@@ -1,0 +1,306 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "프로젝트 재작업 순환 (SD)",
+ "description": "할 일 → 완료, 숨은 오류가 발견되어 다시 할 일로",
+ "settings": {
+  "timeUnit": "day",
+  "duration": 300,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8w1fgb9",
+   "type": "stock",
+   "name": "WorkToDo",
+   "x": -10,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "1000",
+    "nonNegative": true,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8w1fh2k",
+   "type": "stock",
+   "name": "WorkDone",
+   "x": 10,
+   "y": -4,
+   "rot": 0,
+   "props": {
+    "initial": "0",
+    "nonNegative": true,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8w1fixu",
+   "type": "stock",
+   "name": "HiddenRework",
+   "x": 10,
+   "y": 4,
+   "rot": 0,
+   "props": {
+    "initial": "0",
+    "nonNegative": true,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8w1fjzl",
+   "type": "parameter",
+   "name": "Staff",
+   "x": -10,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "value": 10,
+    "min": 1,
+    "max": 40,
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhr4a8w1fkxz",
+   "type": "parameter",
+   "name": "Quality",
+   "x": 0,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "value": 0.8,
+    "min": 0.3,
+    "max": 1,
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhr4a8w1flup",
+   "type": "variable",
+   "name": "Progress",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "min(WorkToDo, Staff * 0.5)",
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhr4a8w1fm9l",
+   "type": "flow",
+   "name": "CorrectWork",
+   "x": 3,
+   "y": -4,
+   "rot": 0,
+   "props": {
+    "equation": "Progress * Quality",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8w1fnsv",
+   "type": "flow",
+   "name": "FlawedWork",
+   "x": 3,
+   "y": 4,
+   "rot": 0,
+   "props": {
+    "equation": "Progress * (1 - Quality)",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8w1fok8",
+   "type": "flow",
+   "name": "Discovery",
+   "x": 0,
+   "y": 9,
+   "rot": 0,
+   "props": {
+    "equation": "HiddenRework / 20",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8w1fpjx",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8w1fgb9",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8w1fm9l",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8w1fqk5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8w1fm9l",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8w1fh2k",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8w1fra1",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8w1fgb9",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8w1fnsv",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8w1fst",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8w1fnsv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8w1fixu",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8w1ftha",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8w1fixu",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8w1fok8",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8w1fu7w",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8w1fok8",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8w1fgb9",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8w1fvhj",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8w1fjzl",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8w1flup",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8w1fwv5",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8w1fkxz",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8w1fm9l",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8w1fx5t",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8w1fkxz",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8w1fnsv",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8w1fyum",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8w1flup",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8w1fm9l",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8w1fzt7",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8w1flup",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8w1fnsv",
+    "port": -1
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Project",
+   "kind": "line",
+   "series": [
+    "WorkToDo",
+    "WorkDone",
+    "HiddenRework"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.392Z"
+}

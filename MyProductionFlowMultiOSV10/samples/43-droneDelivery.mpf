@@ -1,0 +1,274 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "드론 배송 허브",
+ "description": "주문 포장 후 드론 무리가 배송, 충전 시간 포함",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 720,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 70,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8i140uu",
+   "type": "source",
+   "name": "App orders",
+   "x": -24,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "schedule",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 60
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 180,
+      "value": 0.5
+     },
+     {
+      "start": 180,
+      "end": 420,
+      "value": 1.2
+     },
+     {
+      "start": 420,
+      "end": 720,
+      "value": 0.8
+     }
+    ],
+    "period": 720,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Part",
+      "color": "#3b82f6",
+      "weight": 1
+     }
+    ],
+    "shape": "carton",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a8i141ym",
+   "type": "queue",
+   "name": "Order pool",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8i142d2",
+   "type": "packStation",
+   "name": "Pack",
+   "x": -12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "packing",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 0.8,
+     "mode": 1.2,
+     "max": 2
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8i143qi",
+   "type": "queue",
+   "name": "Launch pad",
+   "x": -6,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 20,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8i144y3",
+   "type": "droneFleet",
+   "name": "Drones",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "vehicle": "drone",
+    "fleet": 6,
+    "speed": 300,
+    "loadTime": 0.5,
+    "unloadTime": 0.5,
+    "returnHome": true,
+    "routing": "straight"
+   }
+  },
+  {
+   "id": "bmwhr4a8i145e5",
+   "type": "delay",
+   "name": "Flight",
+   "x": 12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "time": {
+     "type": "triangular",
+     "min": 8,
+     "mode": 12,
+     "max": 18
+    },
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8i146ey",
+   "type": "sink",
+   "name": "Delivered",
+   "x": 18,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8i147i",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8i140uu",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8i141ym",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8i1483e",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8i141ym",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8i142d2",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8i149zw",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8i142d2",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8i143qi",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8i14aa0",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8i143qi",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8i144y3",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8i14bsq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8i144y3",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8i145e5",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8i14cm5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8i145e5",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8i146ey",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Drones",
+   "kind": "line",
+   "series": [
+    "Drones.utilization"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Waiting",
+   "kind": "line",
+   "series": [
+    "Order pool.length",
+    "Launch pad.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.378Z"
+}

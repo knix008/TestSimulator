@@ -9,6 +9,7 @@ import { BLOCK_TYPES, baseOf, blockBounds, pathPoints, pathLength, pointAlong, p
 import { Kit, labelTexture, concreteTexture, quadGeometry, rectQuad, frameRects } from './kit.js';
 import { Builder, buildBlock } from './blocks3d.js';
 import { DynamicLayer } from './dynamic.js';
+import { gridLevel } from '../editor/grid.js';
 
 const NO_LABEL = new Set(['zone', 'wall', 'label', 'pillar', 'tree', 'door']);
 const SNAP = 0.5;
@@ -274,6 +275,7 @@ export class View3D {
       this.floorKey = key;
       for (const g of this.floorGeos) g.dispose();
       this.floorGeos = [];
+      if (this.grid) { for (const c of this.grid.children) c.geometry.dispose(); this.grid = null; }
       this.floorRoot.clear();
       const fw = x1 - x0; const fd = z1 - z0; const cx = (x0 + x1) / 2; const cz = (z0 + z1) / 2;
       const own = (g) => { this.floorGeos.push(g); return g; };
@@ -284,17 +286,12 @@ export class View3D {
       const R = Math.max(fw, fd);
       const ground = new THREE.Mesh(own(new THREE.CircleGeometry(R * 4, 48).rotateX(-Math.PI / 2)), this.groundMat);
       ground.position.set(cx, -0.03, cz); ground.receiveShadow = true;
+      this.groundBox = { cx, cz, half: R * 4 * 0.7 };
       // A kerb around the floor slab.
       const edge = new THREE.Mesh(own(quadGeometry(frameRects(cx, cz, fw + 0.4, fd + 0.4, 0.2).map(rectQuad), 0.001)), this.kit.mat('#8b9096', { rough: 0.9 }));
-      // Grid: 1 m minor and 5 m major lines.
-      const minor = []; const major = []; const y = 0.002;
-      for (let x = x0; x <= x1; x++) (x % 5 === 0 ? major : minor).push(x, y, z0, x, y, z1);
-      for (let z = z0; z <= z1; z++) (z % 5 === 0 ? major : minor).push(x0, y, z, x1, y, z);
-      const lineGeo = (arr) => { const g = own(new THREE.BufferGeometry()); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); return g; };
-      this.grid = new THREE.Group();
-      this.grid.add(new THREE.LineSegments(lineGeo(minor), this.gridMinorMat), new THREE.LineSegments(lineGeo(major), this.gridMajorMat));
-      this.grid.visible = this.opts.grid;
-      this.floorRoot.add(ground, floor, edge, this.grid);
+      // The grid follows the zoom (updateGrid, every frame); it is rebuilt for the new floor.
+      this.gridKey = null;
+      this.floorRoot.add(ground, floor, edge);
     }
     // Sun and shadow camera around the blocks (sharper than covering the whole floor).
     const sb = bb ? { x0: bb.x0 - 3, z0: bb.y0 - 3, x1: bb.x1 + 3, z1: bb.y1 + 3 } : this.floorRect;
@@ -355,7 +352,7 @@ export class View3D {
     const floor = new THREE.Color(t.dark ? '#4a5059' : '#d6d9dc');
     this.floorMat.color.copy(floor);
     this.groundMat.color.copy(bg).lerp(floor, 0.35).multiplyScalar(t.dark ? 0.9 : 0.92);
-    this.gridMinorMat.color.set(t.dark ? '#aab4bf' : '#7d858d'); this.gridMinorMat.opacity = t.dark ? 0.14 : 0.22;
+    this.gridMinorMat.color.set(t.dark ? '#aab4bf' : '#7d858d'); this.gridMinorOpacity = t.dark ? 0.14 : 0.22; this.gridMinorMat.opacity = this.gridMinorOpacity * (this.gridFade ?? 1);
     this.gridMajorMat.color.set(t.dark ? '#c3ccd6' : '#69717a'); this.gridMajorMat.opacity = t.dark ? 0.3 : 0.45;
     this.selMat.color.set(t.accent || '#2563eb');
     this.linkMat.color.set(t.dark ? '#cbd5e1' : '#475569');
@@ -445,6 +442,7 @@ export class View3D {
     }
     this.running = true;
     try { this.dyn.update(sim); } catch (err) { if (!this.warned) { this.warned = true; console.warn('[view3d] dynamic', err); } }
+    if (this.follow) this.followStep(sim);
     for (const l of this.lives) {
       let st = null;
       try { st = sim.blockState(l.id); } catch { st = null; }
@@ -452,9 +450,78 @@ export class View3D {
     }
   }
 
+  /**
+   * Follow camera: the view keeps looking at one moving entity (the oldest in the system; the next one when it
+   * leaves), moving the camera with it so the viewing angle and distance stay as the user set them.
+   */
+  setFollow(on) {
+    this.follow = on ? { id: null } : null;
+    if (on) {
+      // Close enough to see the entity (at most 16 m away), keeping the direction the user looks from.
+      const dir = this.camera.position.clone().sub(this.controls.target);
+      if (dir.length() > 16) this.camera.position.copy(this.controls.target).add(dir.setLength(16));
+    }
+    this.requestRender();
+    return Boolean(this.follow);
+  }
+  followStep(sim) {
+    const views = sim.entityViews();
+    if (!views.length) return;
+    let v = views.find((x) => x.e.id === this.follow.id);
+    if (!v) { v = views.reduce((a, b) => ((b.e.created ?? 0) < (a.e.created ?? 0) ? b : a)); this.follow.id = v.e.id; }
+    this.follow.at = [v.x, v.y];
+    const t = this.controls.target;
+    const k = 0.25; // eased, so jumps between blocks do not jerk the camera
+    const dx = (v.x - t.x) * k; const dz = (v.y - t.z) * k;
+    t.x += dx; t.z += dz;
+    this.camera.position.x += dx; this.camera.position.z += dz;
+  }
+
+  /**
+   * The 5 × 5 floor grid with a constant on-screen size (src/editor/grid.js): its spacing follows the camera's
+   * distance to the point it looks at, so zooming in or out redraws it at the next 5× level instead of the lines
+   * crowding together or spreading apart. Minor lines fade in between levels.
+   */
+  updateGrid() {
+    const rect = this.floorRect;
+    if (!rect || !this.size) return;
+    const dist = Math.max(0.1, this.camera.position.distanceTo(this.controls.target));
+    const ppm = this.size[1] / (2 * dist * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2));
+    let level = gridLevel(ppm, 14);
+    // Like the 2D grid it covers the view, not only the floor: the floor plus 150 minor steps around the point
+    // looked at (snapped to the major lines), kept on the ground disc; at most ~1200 lines across.
+    const area = (lv) => {
+      const t = this.controls.target; const half = lv.minor * 150; const g = this.groundBox ?? { cx: 0, cz: 0, half: Infinity };
+      const tx = Math.round(t.x / lv.major) * lv.major; const tz = Math.round(t.z / lv.major) * lv.major;
+      const clip = (v, c) => Math.max(c - g.half, Math.min(c + g.half, v));
+      return { x0: clip(Math.min(rect.x0, tx - half), g.cx), x1: clip(Math.max(rect.x1, tx + half), g.cx), z0: clip(Math.min(rect.z0, tz - half), g.cz), z1: clip(Math.max(rect.z1, tz + half), g.cz) };
+    };
+    let box = area(level);
+    while (Math.max(box.x1 - box.x0, box.z1 - box.z0) / level.minor > 1200) { level = { ...level, minor: level.major, major: level.major * 5, fade: 1 }; box = area(level); }
+    this.gridFade = level.fade;
+    this.gridMinorMat.opacity = (this.gridMinorOpacity ?? 0.22) * level.fade;
+    this.gridMinorMat.visible = level.fade > 0.01;
+    const key = `${level.minor}|${box.x0},${box.x1},${box.z0},${box.z1}`;
+    if (key === this.gridKey) return;
+    this.gridKey = key;
+    this.gridLevel = level;
+    if (this.grid) { this.floorRoot.remove(this.grid); for (const c of this.grid.children) c.geometry.dispose(); }
+    const minor = []; const major = []; const y = 0.002; const step = level.minor;
+    const { x0, z0, x1, z1 } = box;
+    for (let i = Math.ceil(x0 / step), n = Math.floor(x1 / step); i <= n; i++) (i % 5 === 0 ? major : minor).push(i * step, y, z0, i * step, y, z1);
+    for (let i = Math.ceil(z0 / step), n = Math.floor(z1 / step); i <= n; i++) (i % 5 === 0 ? major : minor).push(x0, y, i * step, x1, y, i * step);
+    const lineGeo = (arr) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); return g; };
+    this.grid = new THREE.Group();
+    this.grid.name = 'grid';
+    this.grid.add(new THREE.LineSegments(lineGeo(minor), this.gridMinorMat), new THREE.LineSegments(lineGeo(major), this.gridMajorMat));
+    this.grid.visible = Boolean(this.opts.grid);
+    this.floorRoot.add(this.grid);
+  }
+
   render() {
     this.frames++;
     this.controls.update();
+    this.updateGrid();
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -468,6 +535,20 @@ export class View3D {
         if (this.frames === f && !this.disposed) this.render();
       });
     });
+  }
+
+  /** A picture at a fixed size (reports): the whole model framed from the current direction; the view is put back. */
+  capture(width = 1600, height = 1000, type = 'image/png') {
+    const r = this.renderer; const cam = this.camera;
+    const keep = { size: r.getSize(new THREE.Vector2()), ratio: r.getPixelRatio(), aspect: cam.aspect, pos: cam.position.clone(), target: this.controls.target.clone() };
+    try {
+      r.setPixelRatio(1); r.setSize(width, height, false); cam.aspect = width / height; cam.updateProjectionMatrix();
+      this.fit(); this.controls.update(); this.updateGrid(); r.render(this.scene, cam);
+      return r.domElement.toDataURL(type, 0.92);
+    } finally {
+      r.setPixelRatio(keep.ratio); r.setSize(keep.size.x, keep.size.y, false); cam.aspect = keep.aspect; cam.updateProjectionMatrix();
+      cam.position.copy(keep.pos); this.controls.target.copy(keep.target); this.controls.update(); this.gridKey = null; this.render();
+    }
   }
 
   screenshot() {

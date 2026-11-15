@@ -18,15 +18,20 @@ export const ZOOM = { min: 50, max: 200, step: 10 };
 /** Drawing zoom in percent (toolbar, status bar, Ctrl+wheel). */
 export const CANVAS_ZOOM = { min: 10, max: 800, steps: [10, 15, 20, 25, 33, 50, 67, 75, 100, 125, 150, 200, 300, 400, 600, 800] };
 /** Narrowest side panels that still show all of their content. */
-export const PANEL_MIN = { left: 240, right: 300, bottom: 90 };
+/** Both side panels have the same minimum and start at the same width (PANEL_START). */
+export const PANEL_MIN = { left: 240, right: 240, bottom: 90 };
+export const PANEL_START = 280;
+/** Bumped when the side panels' start widths change: older stored widths are reset once. */
+export const PANEL_LAYOUT = 2;
 /** The bottom (Problems) panel is never taller than this share of the window. */
 export const BOTTOM_MAX_SHARE = 0.6;
 export const BACKGROUND_KINDS = ['animated', 'image', 'none'];
 /** Choices for the start page's automatic background change (seconds; 0 = off). */
 export const ANIMATION_INTERVALS = [0, 15, 30, 60, 120, 300];
 export const ANIMATIONS = [
-  'blueprint', 'floorplan', 'isometric', 'wireframe', 'sunlight', 'dust', 'fabric', 'woodgrain', 'tiles', 'dimensions',
-  'swatches', 'lamps', 'curtains', 'leaves', 'perspective', 'bricks', 'furniture', 'sunpath', 'parquet', 'contours',
+  // Production, logistics and traffic scenes (src/ui/background.js FLOW_SCENES).
+  'conveyor', 'assembly', 'agv', 'warehouse', 'traffic', 'rail', 'pedestrians', 'network', 'sankey', 'gantt',
+  'gears', 'pipes', 'stocks', 'supply', 'heatmap', 'queues', 'robots', 'containers', 'charts', 'agents',
 ];
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const DATE_FORMATS = ['iso', 'ko', 'us', 'eu'];
@@ -62,7 +67,7 @@ export function defaultSettings(language = 'ko') {
     fontStyle: 'normal',
     zoom: 100,
     backgroundKind: 'animated',
-    animation: 'blueprint',
+    animation: 'conveyor',
     animationSpeed: 100,
     animationRandom: true,
     animationInterval: 30,
@@ -89,8 +94,9 @@ export function defaultSettings(language = 'ko') {
     // The bottom panel (Problems: background model check, IDE style).
     showBottomPanel: true,
     bottomHeight: 240,
-    leftWidth: 240,
-    rightWidth: 340,
+    leftWidth: PANEL_START,
+    rightWidth: PANEL_START,
+    panelLayout: PANEL_LAYOUT,
     lastDirectory: null,
     restoreSession: false,
     confirmDelete: true,
@@ -197,6 +203,8 @@ export function normalizeSettings(raw = {}, language) {
   s.backgroundFit = BACKGROUND_FITS.includes(s.backgroundFit) ? s.backgroundFit : base.backgroundFit;
   s.backgroundImage = typeof s.backgroundImage === 'string' && s.backgroundImage ? s.backgroundImage : null;
   s.lastDirectory = typeof s.lastDirectory === 'string' && s.lastDirectory ? s.lastDirectory : null;
+  // Widths stored before the panels were made equal (left 240 / right 340) start again from the same width.
+  if (s.panelLayout !== PANEL_LAYOUT) { s.leftWidth = base.leftWidth; s.rightWidth = base.rightWidth; s.panelLayout = PANEL_LAYOUT; }
   s.leftWidth = clamp(s.leftWidth, PANEL_MIN.left, 600, base.leftWidth);
   s.rightWidth = clamp(s.rightWidth, PANEL_MIN.right, 700, base.rightWidth);
   s.bottomHeight = clamp(s.bottomHeight, PANEL_MIN.bottom, 2000, base.bottomHeight);

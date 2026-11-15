@@ -8,6 +8,7 @@ import { setLanguage } from './i18n.js';
 import { applyFont, applyTheme, resolveTheme } from './themes.js';
 import { installDropdowns } from './ui/dropdown.js';
 import { installTooltips } from './ui/tooltip.js';
+import { installNumberBoxes } from './ui/numbox.js';
 
 // First start after the installer ran: preferences go back to their defaults, the user's data stays
 // (the desktop app hands the installer's token to the main window only).
@@ -23,6 +24,8 @@ applyFont(settings);
 installDropdowns(document);
 // Every title of every window shows at once, not after the browser's long wait.
 installTooltips(document);
+// Every number field of every window gets − / + buttons and shows its unit.
+installNumberBoxes(document);
 
 const search = new URLSearchParams(location.search);
 const framed = search.get('popup');

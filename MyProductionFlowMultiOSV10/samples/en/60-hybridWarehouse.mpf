@@ -1,0 +1,390 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Hybrid: SD demand → warehouse",
+ "description": "Weekly SD demand sets order arrivals; SD tracks the shipping backlog",
+ "settings": {
+  "timeUnit": "h",
+  "duration": 336,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.5,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a941jygu",
+   "type": "lookup",
+   "name": "Weekday",
+   "x": -18,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "input": "t % 168",
+    "xs": "0, 24, 48, 72, 96, 120, 144, 168",
+    "ys": "6, 9, 8, 8, 10, 5, 2, 6",
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhr4a941jz27",
+   "type": "variable",
+   "name": "OrderRate",
+   "x": -10,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "equation": "Weekday",
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhr4a941k0xn",
+   "type": "source",
+   "name": "Orders",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "rate",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 60
+    },
+    "rate": "OrderRate",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Part",
+      "color": "#3b82f6",
+      "weight": 1
+     }
+    ],
+    "shape": "carton",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a941k1xk",
+   "type": "queue",
+   "name": "Order pool",
+   "x": -12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a941k2jb",
+   "type": "resourcePool",
+   "name": "Pickers",
+   "x": -4,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "capacity": 4,
+    "kind": "worker",
+    "shifts": false,
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 2
+     },
+     {
+      "start": 480,
+      "end": 1440,
+      "value": 1
+     }
+    ],
+    "period": 1440,
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a941k3tr",
+   "type": "pickStation",
+   "name": "Pick",
+   "x": -4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "workstation",
+    "capacity": 4,
+    "time": {
+     "type": "triangular",
+     "min": 0.2,
+     "mode": 0.35,
+     "max": 0.6
+    },
+    "pool": "Pickers",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a941k41i",
+   "type": "packStation",
+   "name": "Pack",
+   "x": 3,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "packing",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 0.1,
+     "mode": 0.2,
+     "max": 0.3
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a941k5z0",
+   "type": "sink",
+   "name": "Shipped",
+   "x": 9,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhr4a941k665",
+   "type": "stock",
+   "name": "Backlog",
+   "x": 12,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "initial": "0",
+    "nonNegative": true,
+    "unitLabel": "",
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhr4a941k7bt",
+   "type": "flow",
+   "name": "Ordered",
+   "x": 6,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "equation": "OrderRate",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a941k8s4",
+   "type": "flow",
+   "name": "Done",
+   "x": 18,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "equation": "min(Backlog, Pack.busy / 0.2 + 0.0001)",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a941k92o",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a941k0xn",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a941k1xk",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a941kazt",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a941k1xk",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a941k3tr",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a941kbyw",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a941k3tr",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a941k41i",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a941kc1h",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a941k41i",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a941k5z0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a941kd65",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a941k7bt",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a941k665",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a941kem4",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a941k665",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a941k8s4",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a941kfqs",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a941jygu",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a941jz27",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a941kgni",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a941jz27",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a941k0xn",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a941khyz",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a941jz27",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a941k7bt",
+    "port": -1
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Demand",
+   "kind": "line",
+   "series": [
+    "OrderRate",
+    "Order pool.length"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Backlog",
+   "kind": "line",
+   "series": [
+    "Backlog"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.400Z"
+}

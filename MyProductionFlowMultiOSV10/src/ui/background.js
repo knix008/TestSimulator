@@ -1,10 +1,9 @@
-// Moving backgrounds for the start page and (faintly) behind the views: twenty quiet scenes from the
-// world of interiors and architecture (the list is ANIMATIONS in settings): a blueprint being drafted,
-// a floor plan tracing in, isometric blocks, a wireframe house, sunlight through a window, dust in a
-// sunbeam, fabric, wood grain, tiles being laid, dimension lines, paint chips, pendant lamps, curtains,
-// leaves, two-point perspective, a brick wall, furniture silhouettes, a sun path, parquet and site
-// contours. Colours follow the theme (a warm light is mixed in where the scene needs sunlight). The
-// animation pauses while the window is hidden; `frames` counts drawn frames (tests use it).
+// Moving backgrounds for the start page and (faintly) behind the views: twenty quiet scenes from the app's own
+// world (the list is ANIMATIONS in settings): conveyors, an assembly line, AGVs, warehouse racks, road traffic,
+// trains, pedestrians, a process network, material flows, a Gantt chart, gears, pipes and tanks, stocks and
+// flows, a supply network, a utilization heat map, queues, robot arms, a container yard, live charts and agents
+// (FLOW_SCENES at the end). Colours follow the theme. The animation pauses while the window is hidden;
+// `frames` counts drawn frames (tests use it). The older interior scenes stay in the class but are not listed.
 import { ANIMATIONS } from '../domain/settings.js';
 
 export const ANIMATION_KINDS = ANIMATIONS;
@@ -216,7 +215,7 @@ export class AnimatedBackground {
     if (!w || !h) return;
     const colors = this.colors();
     // Broad washes (light, glow, cloth) are strong already; thin lines and dots need the most help.
-    const kindBoost = { sunlight: 0.75, lamps: 0.8, curtains: 0.8, fabric: 0.8, parquet: 0.85, bricks: 0.85, tiles: 0.85 }[this.kind] ?? 1;
+    const kindBoost = { heatmap: 0.8, sankey: 0.85, sunlight: 0.75, lamps: 0.8, curtains: 0.8, fabric: 0.8, parquet: 0.85, bricks: 0.85, tiles: 0.85 }[this.kind] ?? 1;
     BOOST = this.vivid ? (colors.dark ? 2.3 : 2.9) * kindBoost : 1;
     SIZE = this.vivid ? 1.6 : 1;
     this.frames += 1;
@@ -1188,3 +1187,319 @@ export class AnimatedBackground {
     }
   }
 }
+
+// ───────────────────────── production, logistics and traffic scenes (the app's own subject)
+
+const TAU = Math.PI * 2;
+const lerp = (a, b, k) => a + (b - a) * k;
+/** A point `share` (0–1) of the way along a polyline [[x, y], …]. */
+function along(points, share) {
+  const lens = []; let total = 0;
+  for (let i = 1; i < points.length; i++) { const l = Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]); lens.push(l); total += l; }
+  let d = mod(share, 1) * total;
+  for (let i = 0; i < lens.length; i++) { if (d <= lens[i] || i === lens.length - 1) { const k = lens[i] ? d / lens[i] : 0; return [lerp(points[i][0], points[i + 1][0], k), lerp(points[i][1], points[i + 1][1], k), Math.atan2(points[i + 1][1] - points[i][1], points[i + 1][0] - points[i][0])]; } d -= lens[i]; }
+  return [points[0][0], points[0][1], 0];
+}
+const box = (c, x, y, s, fill, stroke) => { c.fillStyle = fill; c.fillRect(x - s / 2, y - s / 2, s, s); if (stroke) { c.strokeStyle = stroke; c.strokeRect(x - s / 2, y - s / 2, s, s); } };
+const dot = (c, x, y, r, fill) => { c.fillStyle = fill; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); };
+const line = (c, pts) => { c.beginPath(); pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke(); };
+const PART = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
+
+export const FLOW_SCENES = {
+  /** Belt conveyors with rollers; cartons ride along and queue at the end of each belt. */
+  conveyor(c, w, h, time, colors) {
+    const u = Math.min(w, h); const rows = 5;
+    for (let r = 0; r < rows; r++) {
+      const y = h * (0.18 + r * 0.16); const dir = r % 2 ? -1 : 1; const speed = (0.03 + 0.012 * r) * dir;
+      c.fillStyle = rgba(colors.text, 0.05); c.fillRect(0, y - u * 0.025, w, u * 0.05);
+      c.strokeStyle = rgba(colors.text, 0.12); c.lineWidth = Math.max(1, u / 900);
+      const pitch = u * 0.03; const off = mod(time * speed * w, pitch);
+      for (let x = -pitch + off; x < w + pitch; x += pitch) line(c, [[x, y - u * 0.025], [x, y + u * 0.025]]);
+      for (let k = 0; k < 9; k++) {
+        const x = mod(hash(k, r) * w + time * speed * w, w + u * 0.1) - u * 0.05;
+        box(c, x, y - u * 0.002, u * 0.034 * SIZE, rgba(PART[(k + r) % PART.length], 0.35), rgba(colors.text, 0.25));
+      }
+    }
+  },
+  /** A line of workstations: parts step from station to station; a busy station glows. */
+  assembly(c, w, h, time, colors) {
+    const n = 6; const y = h * 0.5; const gap = w / (n + 1); const s = Math.min(gap * 0.45, h * 0.16);
+    c.strokeStyle = rgba(colors.text, 0.15); c.lineWidth = Math.max(1, s / 30); line(c, [[gap * 0.4, y], [w - gap * 0.4, y]]);
+    const cycleLen = 2.4; const { round, phase } = cycle(time, cycleLen);
+    for (let i = 0; i < n; i++) {
+      const x = gap * (i + 1); const busy = hash(i, round) > 0.3;
+      c.fillStyle = rgba(busy ? colors.accent : colors.text, busy ? 0.14 : 0.06); c.strokeStyle = rgba(colors.accent, 0.35);
+      c.beginPath(); roundRectPath(c, x - s / 2, y - s / 2, s, s, s * 0.15); c.fill(); c.stroke();
+      c.fillStyle = rgba(busy ? '#22c55e' : '#f59e0b', 0.6); c.fillRect(x - s / 2, y - s / 2 - s * 0.1, s * (busy ? 0.4 + 0.6 * phase : 0.2), s * 0.05);
+      // The part moving to the next station during the last third of the cycle.
+      const k = clamp01((phase - 0.66) / 0.34);
+      const px = k > 0 ? lerp(x, x + gap, k) : x;
+      box(c, px, y, s * 0.28 * SIZE, rgba(PART[(i + round) % PART.length], 0.55), rgba(colors.text, 0.3));
+    }
+  },
+  /** AGVs on a factory path grid, each leaving a fading trail. */
+  agv(c, w, h, time, colors) {
+    const cols = 8; const rows = 5; const sx = w / cols; const sy = h / rows;
+    c.strokeStyle = rgba(colors.text, 0.08); c.lineWidth = Math.max(1, w / 1400);
+    c.setLineDash([sx * 0.08, sx * 0.08]);
+    for (let i = 0; i <= cols; i++) line(c, [[i * sx, 0], [i * sx, h]]);
+    for (let j = 0; j <= rows; j++) line(c, [[0, j * sy], [w, j * sy]]);
+    c.setLineDash([]);
+    for (let k = 0; k < 7; k++) {
+      // A rectangle loop through grid nodes, different for each vehicle.
+      const x0 = Math.floor(hash(k, 1) * (cols - 2)) * sx + sx; const y0 = Math.floor(hash(k, 2) * (rows - 2)) * sy + sy;
+      const x1 = Math.min(w - sx * 0.5, x0 + sx * (2 + Math.floor(hash(k, 3) * 3))); const y1 = Math.min(h - sy * 0.5, y0 + sy * (1 + Math.floor(hash(k, 4) * 2)));
+      const loop = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+      const share = time * (0.025 + hash(k, 5) * 0.02) + hash(k, 6);
+      for (let t = 6; t >= 0; t--) { const [x, y] = along(loop, share - t * 0.008); dot(c, x, y, Math.min(sx, sy) * 0.04 * (1 - t / 8) * SIZE, rgba(colors.accent, 0.08 + 0.05 * (6 - t))); }
+      const [x, y, a] = along(loop, share);
+      c.save(); c.translate(x, y); c.rotate(a);
+      const L = Math.min(sx, sy) * 0.22 * SIZE;
+      c.fillStyle = rgba(colors.accent, 0.5); c.fillRect(-L / 2, -L / 3, L, L / 1.5);
+      c.fillStyle = rgba('#f59e0b', 0.6); c.fillRect(L / 2 - L * 0.12, -L / 3, L * 0.12, L / 1.5);
+      c.restore();
+    }
+  },
+  /** Warehouse racks from above: slots fill and empty while a forklift drives the aisles. */
+  warehouse(c, w, h, time, colors) {
+    const racks = 6; const bays = 14; const rw = w / (racks * 1.8); const bh = (h * 0.8) / bays; const top = h * 0.1;
+    for (let r = 0; r < racks; r++) {
+      const x = w * 0.08 + r * rw * 1.8;
+      for (let b = 0; b < bays; b++) {
+        const full = hash(r, b, Math.floor(time / 3 + hash(r, b) * 4)) > 0.45;
+        c.strokeStyle = rgba(colors.text, 0.12); c.strokeRect(x, top + b * bh, rw, bh);
+        if (full) { c.fillStyle = rgba(PART[(r + b) % PART.length], 0.22); c.fillRect(x + bh * 0.12, top + b * bh + bh * 0.12, rw - bh * 0.24, bh * 0.76); }
+      }
+      // A forklift in the aisle on the right of this rack.
+      const ay = top + mod(time * 0.06 * (r % 2 ? 1 : -1) + hash(r, 9), 1) * h * 0.8;
+      const ax = x + rw * 1.4;
+      c.fillStyle = rgba('#f59e0b', 0.5); c.fillRect(ax - rw * 0.18 * SIZE, ay - bh * 0.4, rw * 0.36 * SIZE, bh * 0.8);
+    }
+  },
+  /** A road grid with cars, the traffic lights changing at each junction. */
+  traffic(c, w, h, time, colors) {
+    const vx = [w * 0.3, w * 0.7]; const hy = [h * 0.35, h * 0.72]; const lane = Math.min(w, h) * 0.035;
+    c.fillStyle = rgba(colors.text, 0.06);
+    for (const x of vx) c.fillRect(x - lane * 1.2, 0, lane * 2.4, h);
+    for (const y of hy) c.fillRect(0, y - lane * 1.2, w, lane * 2.4);
+    c.strokeStyle = rgba(colors.text, 0.18); c.setLineDash([lane, lane]); c.lineWidth = Math.max(1, lane / 12);
+    for (const x of vx) line(c, [[x, 0], [x, h]]); for (const y of hy) line(c, [[0, y], [w, y]]);
+    c.setLineDash([]);
+    const ew = mod(time, 8) < 4; // east-west green for 4 s, then north-south
+    for (const x of vx) for (const y of hy) {
+      dot(c, x - lane * 1.6, y - lane * 1.6, lane * 0.28, rgba(ew ? '#22c55e' : '#ef4444', 0.75));
+      dot(c, x + lane * 1.6, y + lane * 1.6, lane * 0.28, rgba(ew ? '#ef4444' : '#22c55e', 0.75));
+    }
+    const car = (x, y, a, k) => { c.save(); c.translate(x, y); c.rotate(a); c.fillStyle = rgba(PART[k % PART.length], 0.55); c.fillRect(-lane * 0.7 * SIZE, -lane * 0.35 * SIZE, lane * 1.4 * SIZE, lane * 0.7 * SIZE); c.restore(); };
+    for (let k = 0; k < 10; k++) {
+      const y = hy[k % 2] + (k % 4 < 2 ? -lane * 0.6 : lane * 0.6); const dir = k % 4 < 2 ? 1 : -1;
+      let x = mod(hash(k, 1) * w + time * w * 0.06 * dir, w + lane * 4) - lane * 2;
+      if (!ew) for (const sx of vx) { const stop = sx - dir * lane * 2.4; if (dir > 0 ? x > stop - lane * 3 && x < stop : x < stop + lane * 3 && x > stop) x = stop - dir * lane * (k % 3); }
+      car(x, y, dir > 0 ? 0 : Math.PI, k);
+      const x2 = vx[k % 2] + (k % 4 < 2 ? lane * 0.6 : -lane * 0.6); const dir2 = k % 4 < 2 ? 1 : -1;
+      let y2 = mod(hash(k, 7) * h + time * h * 0.07 * dir2, h + lane * 4) - lane * 2;
+      if (ew) for (const sy of hy) { const stop = sy - dir2 * lane * 2.4; if (dir2 > 0 ? y2 > stop - lane * 3 && y2 < stop : y2 < stop + lane * 3 && y2 > stop) y2 = stop - dir2 * lane * (k % 3); }
+      car(x2, y2, dir2 > 0 ? Math.PI / 2 : -Math.PI / 2, k + 2);
+    }
+  },
+  /** Rail lines with sleepers; trains run through and stop at the stations. */
+  rail(c, w, h, time, colors) {
+    const tracks = [h * 0.3, h * 0.55, h * 0.8]; const g = Math.min(w, h) * 0.012;
+    tracks.forEach((y, i) => {
+      c.strokeStyle = rgba(colors.text, 0.1); c.lineWidth = g * 0.6;
+      for (let x = mod(-time * 0, g * 4); x < w; x += g * 4) line(c, [[x, y - g * 1.6], [x, y + g * 1.6]]);
+      c.strokeStyle = rgba(colors.text, 0.22); c.lineWidth = Math.max(1, g * 0.3); line(c, [[0, y - g], [w, y - g]]); line(c, [[0, y + g], [w, y + g]]);
+      c.fillStyle = rgba(colors.accent, 0.12); c.fillRect(w * (0.35 + i * 0.12), y - g * 5, w * 0.12, g * 2.4);
+      const period = 14 + i * 3; const { phase } = cycle(time + i * 5, period);
+      // Slows down into the station, waits, leaves.
+      const st = 0.35 + i * 0.12 + 0.06; const k = phase < 0.4 ? (phase / 0.4) * st : phase < 0.55 ? st : st + ((phase - 0.55) / 0.45) * (1.3 - st);
+      const head = -0.15 + k * 1.2;
+      for (let car = 0; car < 5; car++) { const x = (head - car * 0.045) * w; c.fillStyle = rgba(car ? colors.accent : '#ef4444', car ? 0.35 : 0.5); c.fillRect(x, y - g * 2, w * 0.04, g * 4); }
+    });
+  },
+  /** People walking from the entrances to turnstiles and on to the platforms. */
+  pedestrians(c, w, h, time, colors) {
+    const gates = 5; const gy = h * 0.5;
+    for (let i = 0; i < gates; i++) { const x = w * (0.2 + i * 0.15); c.strokeStyle = rgba(colors.accent, 0.35); c.lineWidth = Math.max(1, w / 700); line(c, [[x - w * 0.02, gy], [x + w * 0.02, gy]]); }
+    for (let k = 0; k < 140; k++) {
+      const g = k % gates; const gx = w * (0.2 + g * 0.15); const sx = hash(k, 1) * w; const ex = gx + (hash(k, 2) - 0.5) * w * 0.3;
+      const p = mod(time * (0.04 + hash(k, 3) * 0.04) + hash(k, 4), 1);
+      const x = p < 0.5 ? lerp(sx, gx, p / 0.5) : lerp(gx, ex, (p - 0.5) / 0.5);
+      const y = p < 0.5 ? lerp(h * 0.02, gy - h * 0.02, p / 0.5) : lerp(gy + h * 0.02, h * 0.98, (p - 0.5) / 0.5);
+      dot(c, x, y, Math.min(w, h) * 0.006 * SIZE, rgba(p < 0.5 ? colors.text : colors.accent, 0.35));
+    }
+  },
+  /** A process network: blocks joined by links, tokens travelling from block to block. */
+  network(c, w, h, time, colors) {
+    const nodes = [[0.12, 0.5], [0.3, 0.3], [0.3, 0.7], [0.5, 0.5], [0.68, 0.32], [0.68, 0.68], [0.86, 0.5]].map(([x, y]) => [x * w, y * h]);
+    const links = [[0, 1], [0, 2], [1, 3], [2, 3], [3, 4], [3, 5], [4, 6], [5, 6]];
+    const s = Math.min(w, h) * 0.07;
+    c.strokeStyle = rgba(colors.text, 0.15); c.lineWidth = Math.max(1, s / 25);
+    for (const [a, b] of links) line(c, [nodes[a], nodes[b]]);
+    links.forEach(([a, b], i) => { for (let k = 0; k < 3; k++) { const p = mod(time * 0.18 + k / 3 + hash(i), 1); dot(c, lerp(nodes[a][0], nodes[b][0], p), lerp(nodes[a][1], nodes[b][1], p), s * 0.08 * SIZE, rgba(PART[(i + k) % PART.length], 0.6)); } });
+    nodes.forEach(([x, y], i) => { c.fillStyle = rgba(colors.bg, 1); c.strokeStyle = rgba(colors.accent, 0.45); c.beginPath(); roundRectPath(c, x - s / 2, y - s / 2.6, s, s / 1.3, s * 0.15); c.fill(); c.stroke(); c.fillStyle = rgba(colors.accent, 0.1 + 0.1 * (0.5 + 0.5 * Math.sin(time * 1.5 + i))); c.fill(); });
+  },
+  /** Material flows as bands (a Sankey diagram) with particles drifting along them. */
+  sankey(c, w, h, time, colors) {
+    const bands = [[0.2, 0.35, 0.12], [0.2, 0.62, 0.08], [0.45, 0.25, 0.06], [0.45, 0.5, 0.1], [0.45, 0.78, 0.05]];
+    bands.forEach(([y0, y1, th], i) => {
+      const a = h * y0 + i * h * 0.12; const b = h * y1; const t = h * th;
+      c.fillStyle = rgba(PART[i % PART.length], 0.1);
+      c.beginPath(); c.moveTo(0, a - t / 2); c.bezierCurveTo(w * 0.5, a - t / 2, w * 0.5, b - t / 2, w, b - t / 2); c.lineTo(w, b + t / 2); c.bezierCurveTo(w * 0.5, b + t / 2, w * 0.5, a + t / 2, 0, a + t / 2); c.closePath(); c.fill();
+      for (let k = 0; k < 16; k++) {
+        const p = mod(time * 0.05 + hash(i, k), 1); const q = p * p * (3 - 2 * p);
+        const y = lerp(a, b, q) + (hash(k, i, 2) - 0.5) * t * 0.8;
+        dot(c, p * w, y, Math.min(w, h) * 0.004 * SIZE, rgba(PART[i % PART.length], 0.5));
+      }
+    });
+  },
+  /** A Gantt chart of machines: jobs grow along the time line, the now-line sweeps across. */
+  gantt(c, w, h, time, colors) {
+    const rows = 8; const top = h * 0.12; const rh = (h * 0.76) / rows; const { round, phase } = cycle(time, 18);
+    const now = w * (0.08 + phase * 0.86);
+    for (let r = 0; r < rows; r++) {
+      const y = top + r * rh;
+      c.fillStyle = rgba(colors.text, r % 2 ? 0.03 : 0.05); c.fillRect(0, y, w, rh);
+      let x = w * 0.08 + hash(r, round) * w * 0.05;
+      for (let j = 0; x < w * 0.94; j++) {
+        const len = w * (0.04 + hash(r, j, round) * 0.1); const end = Math.min(x + len, now);
+        if (end > x) { c.fillStyle = rgba(PART[(r + j) % PART.length], 0.35); c.fillRect(x, y + rh * 0.2, end - x, rh * 0.6); }
+        x += len + w * 0.01 * hash(j, r);
+      }
+    }
+    c.strokeStyle = rgba('#ef4444', 0.45); c.lineWidth = Math.max(1, w / 900); line(c, [[now, top - h * 0.03], [now, top + rows * rh + h * 0.03]]);
+  },
+  /** Meshing gears turning. */
+  gears(c, w, h, time, colors) {
+    const u = Math.min(w, h);
+    const gearAt = (x, y, r, teeth, a, color) => {
+      c.save(); c.translate(x, y); c.rotate(a); c.beginPath();
+      for (let i = 0; i < teeth * 2; i++) { const rr = i % 2 ? r * 0.82 : r; const t0 = (i / (teeth * 2)) * TAU; const t1 = ((i + 1) / (teeth * 2)) * TAU; c.lineTo(Math.cos(t0) * rr, Math.sin(t0) * rr); c.lineTo(Math.cos(t1) * rr, Math.sin(t1) * rr); }
+      c.closePath(); c.fillStyle = rgba(color, 0.08); c.fill(); c.strokeStyle = rgba(color, 0.3); c.lineWidth = Math.max(1, u / 700); c.stroke();
+      c.beginPath(); c.arc(0, 0, r * 0.22, 0, TAU); c.stroke(); c.restore();
+    };
+    const R = u * 0.2; const r = R * 0.6;
+    gearAt(w * 0.4, h * 0.5, R, 18, time * 0.25, colors.accent);
+    gearAt(w * 0.4 + R + r * 0.8, h * 0.5 - r * 0.4, r, 11, -time * 0.25 * (18 / 11) + 0.1, colors.text);
+    gearAt(w * 0.4 - R - r * 0.75, h * 0.5 + r * 0.7, r, 11, -time * 0.25 * (18 / 11), colors.text);
+    gearAt(w * 0.82, h * 0.25, R * 0.7, 14, time * 0.12, colors.accent);
+  },
+  /** Pipes with liquid flowing (dashes) between tanks whose levels rise and fall. */
+  pipes(c, w, h, time, colors) {
+    const tanks = [[0.15, 0.6], [0.45, 0.4], [0.75, 0.62]]; const tw = w * 0.1; const th = h * 0.36;
+    c.lineWidth = Math.min(w, h) * 0.02; c.strokeStyle = rgba(colors.text, 0.1);
+    const pipe = [[w * 0.15 + tw / 2, h * 0.7], [w * 0.3, h * 0.7], [w * 0.3, h * 0.5], [w * 0.45 - tw / 2, h * 0.5]];
+    const pipe2 = [[w * 0.45 + tw / 2, h * 0.5], [w * 0.6, h * 0.5], [w * 0.6, h * 0.72], [w * 0.75 - tw / 2, h * 0.72]];
+    for (const p of [pipe, pipe2]) { c.strokeStyle = rgba(colors.text, 0.1); c.lineWidth = Math.min(w, h) * 0.02; c.setLineDash([]); line(c, p); c.strokeStyle = rgba('#0ea5e9', 0.45); c.lineWidth = Math.min(w, h) * 0.008; c.setLineDash([12, 14]); c.lineDashOffset = -time * 40; line(c, p); }
+    c.setLineDash([]); c.lineDashOffset = 0;
+    tanks.forEach(([x, y], i) => {
+      const lvl = 0.5 + 0.35 * Math.sin(time * 0.4 + i * 2);
+      const X = x * w - tw / 2; const Y = y * h - th / 2;
+      c.strokeStyle = rgba(colors.text, 0.25); c.lineWidth = Math.max(1, w / 900); c.strokeRect(X, Y, tw, th);
+      c.fillStyle = rgba('#0ea5e9', 0.22); c.fillRect(X, Y + th * (1 - lvl), tw, th * lvl);
+      c.strokeStyle = rgba('#0ea5e9', 0.5); line(c, [[X, Y + th * (1 - lvl) + Math.sin(time * 3) * 2], [X + tw, Y + th * (1 - lvl) - Math.sin(time * 3) * 2]]);
+    });
+  },
+  /** Stocks and flows: three stocks whose levels follow a feedback loop, with the loop arrows. */
+  stocks(c, w, h, time, colors) {
+    const xs = [0.22, 0.5, 0.78]; const bw = w * 0.13; const bh = h * 0.3; const y = h * 0.45;
+    const lv = [0.5 + 0.4 * Math.sin(time * 0.3), 0.5 + 0.4 * Math.sin(time * 0.3 - 1.4), 0.5 + 0.4 * Math.sin(time * 0.3 - 2.8)];
+    xs.forEach((x, i) => {
+      const X = x * w - bw / 2; c.strokeStyle = rgba(colors.accent, 0.4); c.lineWidth = Math.max(1.5, w / 700); c.strokeRect(X, y - bh / 2, bw, bh);
+      c.fillStyle = rgba(colors.accent, 0.16); c.fillRect(X, y + bh / 2 - bh * lv[i], bw, bh * lv[i]);
+      if (i < 2) { const a = x * w + bw / 2; const b = xs[i + 1] * w - bw / 2; c.strokeStyle = rgba(colors.text, 0.25); line(c, [[a, y], [b, y]]); const vx = (a + b) / 2; c.beginPath(); c.moveTo(vx - 8, y - 10); c.lineTo(vx + 8, y + 10); c.moveTo(vx + 8, y - 10); c.lineTo(vx - 8, y + 10); c.stroke(); }
+    });
+    c.strokeStyle = rgba(colors.text, 0.18); c.setLineDash([6, 8]); c.lineDashOffset = -time * 20;
+    c.beginPath(); c.moveTo(xs[2] * w, y - bh / 2); c.bezierCurveTo(xs[2] * w, h * 0.08, xs[0] * w, h * 0.08, xs[0] * w, y - bh / 2); c.stroke();
+    c.setLineDash([]); c.lineDashOffset = 0;
+  },
+  /** A supply network: plants, warehouses and shops, shipments moving along curved routes. */
+  supply(c, w, h, time, colors) {
+    const sites = [[0.1, 0.3], [0.12, 0.72], [0.45, 0.5], [0.8, 0.18], [0.85, 0.5], [0.78, 0.82]].map(([x, y]) => [x * w, y * h]);
+    const routes = [[0, 2], [1, 2], [2, 3], [2, 4], [2, 5]];
+    routes.forEach(([a, b], i) => {
+      const [x0, y0] = sites[a]; const [x1, y1] = sites[b]; const mx = (x0 + x1) / 2; const my = (y0 + y1) / 2 - h * 0.12;
+      c.strokeStyle = rgba(colors.text, 0.12); c.lineWidth = Math.max(1, w / 900); c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(mx, my, x1, y1); c.stroke();
+      for (let k = 0; k < 3; k++) { const p = mod(time * 0.08 + k / 3 + hash(i), 1); const x = (1 - p) ** 2 * x0 + 2 * (1 - p) * p * mx + p * p * x1; const y = (1 - p) ** 2 * y0 + 2 * (1 - p) * p * my + p * p * y1; box(c, x, y, Math.min(w, h) * 0.018 * SIZE, rgba(PART[i % PART.length], 0.55)); }
+    });
+    sites.forEach(([x, y], i) => dot(c, x, y, Math.min(w, h) * (i === 2 ? 0.035 : 0.022), rgba(i === 2 ? colors.accent : colors.text, 0.3)));
+  },
+  /** A utilization heat map of a factory floor, cells warming and cooling. */
+  heatmap(c, w, h, time, colors) {
+    const cols = 24; const rows = 14; const cw = w / cols; const ch = h / rows;
+    for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+      const v = 0.5 + 0.5 * Math.sin(time * 0.35 + i * 0.45 + Math.sin(j * 0.6 + time * 0.2) * 2);
+      const color = v > 0.8 ? '#ef4444' : v > 0.6 ? '#f59e0b' : v > 0.35 ? '#22c55e' : '#3b82f6';
+      c.fillStyle = rgba(color, 0.05 + v * 0.1); c.fillRect(i * cw + 1, j * ch + 1, cw - 2, ch - 2);
+    }
+  },
+  /** Queues forming in front of service desks and being served. */
+  queues(c, w, h, time, colors) {
+    const desks = 4; const r = Math.min(w, h) * 0.012 * SIZE;
+    for (let d = 0; d < desks; d++) {
+      const x = w * (0.2 + d * 0.2); const deskY = h * 0.25;
+      c.fillStyle = rgba(colors.accent, 0.22); c.fillRect(x - w * 0.05, deskY - h * 0.03, w * 0.1, h * 0.04);
+      const len = Math.round(4 + 6 * (0.5 + 0.5 * Math.sin(time * 0.3 + d * 1.7)));
+      const step = mod(time * 0.6 + d, 1);
+      for (let k = 0; k < len; k++) dot(c, x, deskY + h * 0.06 + (k + 1 - step) * r * 3.2, r, rgba(PART[(k + d) % PART.length], 0.45));
+      dot(c, x + step * w * 0.08, deskY - h * 0.08 - step * h * 0.1, r, rgba(colors.text, 0.3 * (1 - step)));
+    }
+  },
+  /** Robot arms picking boxes from one belt and placing them on another. */
+  robots(c, w, h, time, colors) {
+    const arms = 3; const u = Math.min(w, h);
+    c.fillStyle = rgba(colors.text, 0.06); c.fillRect(0, h * 0.72, w, u * 0.04); c.fillRect(0, h * 0.28, w, u * 0.04);
+    for (let i = 0; i < arms; i++) {
+      const bx = w * (0.25 + i * 0.25); const by = h * 0.5; const L1 = u * 0.17; const L2 = u * 0.15;
+      const p = 0.5 + 0.5 * Math.sin(time * 1.1 + i * 2);
+      const a1 = lerp(-1.1, -2.05, p); const a2 = lerp(1.6, -1.6, p);
+      const ex = bx + Math.cos(a1) * L1; const ey = by + Math.sin(a1) * L1;
+      const tx = ex + Math.cos(a1 + a2) * L2; const ty = ey + Math.sin(a1 + a2) * L2;
+      c.strokeStyle = rgba(colors.accent, 0.45); c.lineWidth = u * 0.018; c.lineCap = 'round'; line(c, [[bx, by], [ex, ey], [tx, ty]]); c.lineCap = 'butt';
+      dot(c, bx, by, u * 0.03, rgba(colors.text, 0.2)); dot(c, ex, ey, u * 0.014, rgba(colors.text, 0.3));
+      box(c, tx, ty + u * 0.02, u * 0.035 * SIZE, rgba(PART[i % PART.length], 0.45));
+    }
+  },
+  /** A container yard: stacks of containers, a gantry crane moving and lifting. */
+  containers(c, w, h, time, colors) {
+    const cols = 10; const cw = w / (cols + 2); const chh = h * 0.07;
+    for (let i = 0; i < cols; i++) {
+      const n = 1 + Math.floor(hash(i, Math.floor(time / 6)) * 4);
+      for (let k = 0; k < n; k++) { c.fillStyle = rgba(PART[(i + k) % PART.length], 0.22); c.fillRect(cw * (i + 1) + 2, h * 0.85 - (k + 1) * chh, cw - 4, chh - 3); }
+    }
+    const gx = w * (0.15 + 0.7 * (0.5 + 0.5 * Math.sin(time * 0.25)));
+    c.strokeStyle = rgba(colors.accent, 0.4); c.lineWidth = Math.max(2, w / 500);
+    line(c, [[gx - cw, h * 0.88], [gx - cw, h * 0.2], [gx + cw, h * 0.2], [gx + cw, h * 0.88]]);
+    const ly = h * (0.32 + 0.3 * (0.5 + 0.5 * Math.sin(time * 0.9)));
+    c.lineWidth = Math.max(1, w / 1200); line(c, [[gx, h * 0.2], [gx, ly]]);
+    c.fillStyle = rgba('#f59e0b', 0.45); c.fillRect(gx - cw * 0.45, ly, cw * 0.9, chh * 0.9);
+  },
+  /** Live charts: a throughput line drawing itself and a histogram rising. */
+  charts(c, w, h, time, colors) {
+    const { phase } = cycle(time, 14);
+    const L = w * 0.08; const R = w * 0.56; const T = h * 0.2; const B = h * 0.8;
+    c.strokeStyle = rgba(colors.text, 0.12); c.lineWidth = Math.max(1, w / 1200);
+    for (let i = 0; i <= 4; i++) line(c, [[L, lerp(T, B, i / 4)], [R, lerp(T, B, i / 4)]]);
+    c.strokeStyle = rgba(colors.accent, 0.5); c.lineWidth = Math.max(1.5, w / 600) * SIZE;
+    const n = Math.floor(phase * 120);
+    c.beginPath();
+    for (let i = 0; i <= n; i++) { const x = lerp(L, R, i / 120); const y = lerp(B, T, 0.4 + 0.25 * Math.sin(i * 0.15) + 0.1 * Math.sin(i * 0.53) + 0.05 * hash(i)); if (i) c.lineTo(x, y); else c.moveTo(x, y); }
+    c.stroke();
+    const bars = 12; const hx = w * 0.62; const hw = (w * 0.3) / bars;
+    for (let i = 0; i < bars; i++) { const v = Math.exp(-((i - 5) ** 2) / 8) * clamp01(phase * 1.6 - i * 0.03); c.fillStyle = rgba(PART[i % PART.length], 0.3); c.fillRect(hx + i * hw + 2, B - v * (B - T), hw - 4, v * (B - T)); }
+  },
+  /** Agents on a map: an epidemic spreading by contact (susceptible, infected, recovered). */
+  agents(c, w, h, time, colors) {
+    const n = 220; const { round, phase } = cycle(time, 20);
+    for (let k = 0; k < n; k++) {
+      const x = mod(hash(k, 1) * w + Math.sin(time * 0.3 + k) * w * 0.03 + time * (hash(k, 2) - 0.5) * w * 0.02, w);
+      const y = mod(hash(k, 3) * h + Math.cos(time * 0.27 + k) * h * 0.03, h);
+      const d = Math.hypot(x / w - 0.5, y / h - 0.5) + hash(k, round) * 0.1;
+      const front = phase * 0.9;
+      const color = d < front - 0.25 ? '#22c55e' : d < front ? '#ef4444' : '#3b82f6';
+      dot(c, x, y, Math.min(w, h) * 0.006 * SIZE, rgba(color, 0.45));
+    }
+  },
+};
+
+Object.assign(AnimatedBackground.prototype, FLOW_SCENES);

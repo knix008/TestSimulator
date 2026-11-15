@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf36zf5su",
+   "id": "bmwhr4a7gf553",
    "type": "stock",
    "name": "Rabbits",
    "x": -8,
@@ -34,7 +34,7 @@
    }
   },
   {
-   "id": "bmwhnf36zf6wz",
+   "id": "bmwhr4a7gf6na",
    "type": "stock",
    "name": "Foxes",
    "x": 8,
@@ -48,7 +48,7 @@
    }
   },
   {
-   "id": "bmwhnf36zf7yw",
+   "id": "bmwhr4a7gf7du",
    "type": "flow",
    "name": "RabbitBirths",
    "x": -16,
@@ -62,7 +62,7 @@
    }
   },
   {
-   "id": "bmwhnf36zf81t",
+   "id": "bmwhr4a7gf8uw",
    "type": "flow",
    "name": "Predation",
    "x": 0,
@@ -76,7 +76,7 @@
    }
   },
   {
-   "id": "bmwhnf36zf9m",
+   "id": "bmwhr4a7gf946",
    "type": "flow",
    "name": "FoxBirths",
    "x": 0,
@@ -90,7 +90,7 @@
    }
   },
   {
-   "id": "bmwhnf36zfa5u",
+   "id": "bmwhr4a7gfaor",
    "type": "flow",
    "name": "FoxDeaths",
    "x": 16,
@@ -106,92 +106,92 @@
  ],
  "links": [
   {
-   "id": "lmwhnf36zfb8t",
+   "id": "lmwhr4a7gfbsv",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36zf7yw",
+    "block": "bmwhr4a7gf7du",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36zf5su",
+    "block": "bmwhr4a7gf553",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36zfc8u",
+   "id": "lmwhr4a7gfc54",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36zf5su",
+    "block": "bmwhr4a7gf553",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36zf81t",
+    "block": "bmwhr4a7gf8uw",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36zfdyv",
+   "id": "lmwhr4a7gfdwk",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36zf9m",
+    "block": "bmwhr4a7gf946",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36zf6wz",
+    "block": "bmwhr4a7gf6na",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36zfeoy",
+   "id": "lmwhr4a7gfeds",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36zf6wz",
+    "block": "bmwhr4a7gf6na",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36zfa5u",
+    "block": "bmwhr4a7gfaor",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36zff6k",
+   "id": "lmwhr4a7gffkq",
    "kind": "influence",
    "from": {
-    "block": "bmwhnf36zf6wz",
+    "block": "bmwhr4a7gf6na",
     "port": -1
    },
    "to": {
-    "block": "bmwhnf36zf81t",
+    "block": "bmwhr4a7gf8uw",
     "port": -1
    },
    "points": []
   },
   {
-   "id": "lmwhnf36zfgqp",
+   "id": "lmwhr4a7gfg5s",
    "kind": "influence",
    "from": {
-    "block": "bmwhnf36zf5su",
+    "block": "bmwhr4a7gf553",
     "port": -1
    },
    "to": {
-    "block": "bmwhnf36zf9m",
+    "block": "bmwhr4a7gf946",
     "port": -1
    },
    "points": []
   },
   {
-   "id": "lmwhnf36zfhwe",
+   "id": "lmwhr4a7gfh2f",
    "kind": "influence",
    "from": {
-    "block": "bmwhnf36zf6wz",
+    "block": "bmwhr4a7gf6na",
     "port": -1
    },
    "to": {
-    "block": "bmwhnf36zf9m",
+    "block": "bmwhr4a7gf946",
     "port": -1
    },
    "points": []
@@ -209,5 +209,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:05.003Z"
+ "savedAt": "2026-11-15T11:28:39.341Z"
 }

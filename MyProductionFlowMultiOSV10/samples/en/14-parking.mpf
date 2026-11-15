@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf36sd9lo",
+   "id": "bmwhr4a7dd96",
    "type": "source",
    "name": "Arrivals",
    "x": -40,
@@ -67,7 +67,7 @@
    }
   },
   {
-   "id": "bmwhnf36sdaxi",
+   "id": "bmwhr4a7ddaox",
    "type": "road",
    "name": "Access road",
    "x": -38,
@@ -90,7 +90,7 @@
    ]
   },
   {
-   "id": "bmwhnf36sdbzo",
+   "id": "bmwhr4a7ddb8d",
    "type": "gate",
    "name": "Barrier",
    "x": -11,
@@ -104,7 +104,7 @@
    }
   },
   {
-   "id": "bmwhnf36sdcty",
+   "id": "bmwhr4a7ddcpb",
    "type": "parking",
    "name": "Lot",
    "x": 4,
@@ -122,7 +122,7 @@
    "h": 14
   },
   {
-   "id": "bmwhnf36sddro",
+   "id": "bmwhr4a7dddmk",
    "type": "road",
    "name": "Exit lane",
    "x": 15,
@@ -145,7 +145,7 @@
    ]
   },
   {
-   "id": "bmwhnf36sdenl",
+   "id": "bmwhr4a7dde2a",
    "type": "sink",
    "name": "Leave",
    "x": 38,
@@ -156,66 +156,66 @@
  ],
  "links": [
   {
-   "id": "lmwhnf36sdfyk",
+   "id": "lmwhr4a7ddfx8",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36sd9lo",
+    "block": "bmwhr4a7dd96",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36sdaxi",
+    "block": "bmwhr4a7ddaox",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36sdglo",
+   "id": "lmwhr4a7ddggb",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36sdaxi",
+    "block": "bmwhr4a7ddaox",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36sdbzo",
+    "block": "bmwhr4a7ddb8d",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36sdh5a",
+   "id": "lmwhr4a7ddh35",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36sdbzo",
+    "block": "bmwhr4a7ddb8d",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36sdcty",
+    "block": "bmwhr4a7ddcpb",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36sdiwn",
+   "id": "lmwhr4a7ddi7j",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36sdcty",
+    "block": "bmwhr4a7ddcpb",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36sddro",
+    "block": "bmwhr4a7dddmk",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36sdjg7",
+   "id": "lmwhr4a7ddjp8",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36sddro",
+    "block": "bmwhr4a7dddmk",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36sdenl",
+    "block": "bmwhr4a7dde2a",
     "port": 0
    },
    "points": []
@@ -233,5 +233,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:04.996Z"
+ "savedAt": "2026-11-15T11:28:39.337Z"
 }

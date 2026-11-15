@@ -1,0 +1,544 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Injection moulding",
+ "description": "4 moulding machines (changeovers, breakdowns), inspection, palletizing, overtime event",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 1440,
+  "warmup": 60,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8f12dsd",
+   "type": "source",
+   "name": "Resin orders",
+   "x": -24,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 1.1
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Cap",
+      "color": "#2563eb",
+      "weight": 3
+     },
+     {
+      "name": "Housing",
+      "color": "#16a34a",
+      "weight": 2
+     },
+     {
+      "name": "Clip",
+      "color": "#f59e0b",
+      "weight": 1
+     }
+    ],
+    "shape": "part",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a8g12ecj",
+   "type": "queue",
+   "name": "Order queue",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8g12fhh",
+   "type": "select",
+   "name": "Assign press",
+   "x": -13,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 4,
+    "mode": "shortest",
+    "weights": "1, 1",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhr4a8g12gv3",
+   "type": "injectionMolder",
+   "name": "Press 1",
+   "x": -6,
+   "y": -9,
+   "rot": 0,
+   "props": {
+    "look": "injection",
+    "capacity": 4,
+    "time": {
+     "type": "triangular",
+     "min": 3,
+     "mode": 3.8,
+     "max": 5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 12,
+    "defectRate": 0,
+    "failures": true,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 600
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 15,
+     "mode": 25,
+     "max": 45
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8g12h4x",
+   "type": "injectionMolder",
+   "name": "Press 2",
+   "x": -6,
+   "y": -3,
+   "rot": 0,
+   "props": {
+    "look": "injection",
+    "capacity": 4,
+    "time": {
+     "type": "triangular",
+     "min": 3,
+     "mode": 3.8,
+     "max": 5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 12,
+    "defectRate": 0,
+    "failures": true,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 600
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 15,
+     "mode": 25,
+     "max": 45
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8g12i6v",
+   "type": "injectionMolder",
+   "name": "Press 3",
+   "x": -6,
+   "y": 3,
+   "rot": 0,
+   "props": {
+    "look": "injection",
+    "capacity": 4,
+    "time": {
+     "type": "triangular",
+     "min": 3,
+     "mode": 3.8,
+     "max": 5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 12,
+    "defectRate": 0,
+    "failures": true,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 600
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 15,
+     "mode": 25,
+     "max": 45
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8g12jnn",
+   "type": "injectionMolder",
+   "name": "Press 4",
+   "x": -6,
+   "y": 9,
+   "rot": 0,
+   "props": {
+    "look": "injection",
+    "capacity": 4,
+    "time": {
+     "type": "triangular",
+     "min": 3,
+     "mode": 3.8,
+     "max": 5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 12,
+    "defectRate": 0,
+    "failures": true,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 600
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 15,
+     "mode": 25,
+     "max": 45
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8g12kys",
+   "type": "merge",
+   "name": "Collect",
+   "x": 1,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "inputs": 4
+   }
+  },
+  {
+   "id": "bmwhr4a8g12lrg",
+   "type": "inspectionStation",
+   "name": "Vision check",
+   "x": 6,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "inspection",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 0.5,
+     "mode": 1,
+     "max": 1.5
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0.03,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8g12mj7",
+   "type": "palletizer",
+   "name": "Palletize",
+   "x": 11,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "size": 24,
+    "outType": "Pallet",
+    "outColor": "#a16207",
+    "shape": "pallet"
+   }
+  },
+  {
+   "id": "bmwhr4a8g12na",
+   "type": "sink",
+   "name": "Warehouse",
+   "x": 17,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhr4a8g12oil",
+   "type": "sink",
+   "name": "Regrind",
+   "x": 6,
+   "y": 7,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhr4a8g12pvn",
+   "type": "event",
+   "name": "Overtime",
+   "x": 11,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "trigger": "once",
+    "startAt": 960,
+    "every": {
+     "type": "constant",
+     "value": 120
+    },
+    "condition": "time > 100",
+    "maxTimes": 0,
+    "targetBlock": "Vision check",
+    "property": "capacity",
+    "newValue": "current + 1"
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8g12qtg",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8f12dsd",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g12ecj",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g12ryf",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12ecj",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g12fhh",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g12shc",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12fhh",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g12gv3",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g12tvt",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12gv3",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g12kys",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g12uym",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12fhh",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhr4a8g12h4x",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g12v56",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12h4x",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g12kys",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g12w3b",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12fhh",
+    "port": 2
+   },
+   "to": {
+    "block": "bmwhr4a8g12i6v",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g12xs2",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12i6v",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g12kys",
+    "port": 2
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g12yqg",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12fhh",
+    "port": 3
+   },
+   "to": {
+    "block": "bmwhr4a8g12jnn",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g12zp7",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12jnn",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g12kys",
+    "port": 3
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g130s7",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12kys",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g12lrg",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g13145",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12lrg",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g12mj7",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g132ou",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12mj7",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g12na",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g133l1",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g12lrg",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhr4a8g12oil",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Presses",
+   "kind": "line",
+   "series": [
+    "Press 1.utilization",
+    "Press 2.utilization",
+    "Press 3.utilization",
+    "Press 4.utilization"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Order queue",
+   "kind": "line",
+   "series": [
+    "Order queue.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.376Z"
+}

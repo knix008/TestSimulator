@@ -1,0 +1,441 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Milk run",
+ "description": "Supermarket → batches of 6 on a tugger train → 3 assembly cells",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 960,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 70,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8j15dba",
+   "type": "source",
+   "name": "Parts",
+   "x": -26,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 1
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Part",
+      "color": "#3b82f6",
+      "weight": 1
+     }
+    ],
+    "shape": "carton",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a8j15ewm",
+   "type": "floorStorage",
+   "name": "Supermarket",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "bays": 20,
+    "levels": 2,
+    "dwell": {
+     "type": "constant",
+     "value": 5
+    },
+    "storeTime": 1,
+    "retrieveTime": 1,
+    "policy": "random"
+   }
+  },
+  {
+   "id": "bmwhr4a8k15f6e",
+   "type": "batch",
+   "name": "Load train",
+   "x": -10,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "size": 6,
+    "outType": "Train load",
+    "outColor": "#a16207",
+    "shape": "pallet"
+   }
+  },
+  {
+   "id": "bmwhr4a8k15g5c",
+   "type": "tuggerTrain",
+   "name": "Tugger",
+   "x": -3,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "vehicle": "tugger",
+    "fleet": 1,
+    "speed": 60,
+    "loadTime": 1,
+    "unloadTime": 1,
+    "returnHome": true,
+    "routing": "manhattan"
+   }
+  },
+  {
+   "id": "bmwhr4a8k15h1",
+   "type": "unbatch",
+   "name": "Unload",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhr4a8k15ijz",
+   "type": "select",
+   "name": "Line side",
+   "x": 8,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 3,
+    "mode": "roundRobin",
+    "weights": "1, 1",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhr4a8k15jby",
+   "type": "assemblyStation",
+   "name": "Cell 1",
+   "x": 14,
+   "y": -6,
+   "rot": 0,
+   "props": {
+    "look": "assembly",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 2.8,
+     "max": 4
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8k15kn",
+   "type": "assemblyStation",
+   "name": "Cell 2",
+   "x": 14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "assembly",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 2.8,
+     "max": 4
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8k15lsd",
+   "type": "assemblyStation",
+   "name": "Cell 3",
+   "x": 14,
+   "y": 6,
+   "rot": 0,
+   "props": {
+    "look": "assembly",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 2.8,
+     "max": 4
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8k15mhv",
+   "type": "merge",
+   "name": "Done",
+   "x": 20,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "inputs": 3
+   }
+  },
+  {
+   "id": "bmwhr4a8k15nmy",
+   "type": "sink",
+   "name": "Finished",
+   "x": 25,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8k15o8z",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8j15dba",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8j15ewm",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8k15ps5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8j15ewm",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8k15f6e",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8k15qvm",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8k15f6e",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8k15g5c",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8k15r2h",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8k15g5c",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8k15h1",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8k15sog",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8k15h1",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8k15ijz",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8k15tcg",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8k15ijz",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8k15jby",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8k15ubh",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8k15jby",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8k15mhv",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8k15v1n",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8k15ijz",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhr4a8k15kn",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8k15w3",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8k15kn",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8k15mhv",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8k15xlg",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8k15ijz",
+    "port": 2
+   },
+   "to": {
+    "block": "bmwhr4a8k15lsd",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8k15yjf",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8k15lsd",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8k15mhv",
+    "port": 2
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8k15zcr",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8k15mhv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8k15nmy",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Tugger",
+   "kind": "line",
+   "series": [
+    "Tugger.utilization"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Cells",
+   "kind": "line",
+   "series": [
+    "Cell 1.utilization",
+    "Cell 2.utilization",
+    "Cell 3.utilization"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.380Z"
+}

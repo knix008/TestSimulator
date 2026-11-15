@@ -1,0 +1,335 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "콜드체인 물류센터",
+ "description": "입고 → 품질 보류 → 냉장 창고 → 피킹 → 출고",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 1440,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 80,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8g134fg",
+   "type": "zone",
+   "name": "Cold room",
+   "x": 2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "fill": "#cffafe",
+    "opacity": 0.35,
+    "floor": "concrete"
+   },
+   "w": 22,
+   "h": 18
+  },
+  {
+   "id": "bmwhr4a8g1353c",
+   "type": "source",
+   "name": "Reefer trucks",
+   "x": -28,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 2.5
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Dairy",
+      "color": "#f8fafc",
+      "weight": 2
+     },
+     {
+      "name": "Meat",
+      "color": "#dc2626",
+      "weight": 1
+     },
+     {
+      "name": "Produce",
+      "color": "#16a34a",
+      "weight": 2
+     }
+    ],
+    "shape": "pallet",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a8g136wm",
+   "type": "receivingDock",
+   "name": "Receiving",
+   "x": -22,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "doors": 2,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 2,
+     "max": 4
+    }
+   }
+  },
+  {
+   "id": "bmwhr4a8g137dk",
+   "type": "qualityHold",
+   "name": "Temp check",
+   "x": -15,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "time": {
+     "type": "triangular",
+     "min": 5,
+     "mode": 10,
+     "max": 20
+    },
+    "capacity": 20
+   }
+  },
+  {
+   "id": "bmwhr4a8g138xp",
+   "type": "forkliftFleet",
+   "name": "Reach trucks",
+   "x": -9,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "vehicle": "forklift",
+    "fleet": 2,
+    "speed": 70,
+    "loadTime": 0.4,
+    "unloadTime": 0.4,
+    "returnHome": true,
+    "routing": "manhattan"
+   }
+  },
+  {
+   "id": "bmwhr4a8g1399h",
+   "type": "coldStorage",
+   "name": "Cold store",
+   "x": 2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "bays": 12,
+    "levels": 4,
+    "dwell": {
+     "type": "triangular",
+     "min": 120,
+     "mode": 360,
+     "max": 900
+    },
+    "storeTime": 1,
+    "retrieveTime": 1,
+    "policy": "fifo"
+   }
+  },
+  {
+   "id": "bmwhr4a8g13ad2",
+   "type": "pickStation",
+   "name": "Order pick",
+   "x": 14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "workstation",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 1.5,
+     "mode": 2.5,
+     "max": 4
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8g13bts",
+   "type": "shippingDock",
+   "name": "Dispatch",
+   "x": 20,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "doors": 2,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 1.5,
+     "max": 3
+    }
+   }
+  },
+  {
+   "id": "bmwhr4a8g13cr7",
+   "type": "sink",
+   "name": "Stores",
+   "x": 26,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8g13djh",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g1353c",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g136wm",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g13exy",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g136wm",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g137dk",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g13f72",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g137dk",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g138xp",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g13gaa",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g138xp",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g1399h",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g13ha",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g1399h",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g13ad2",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g13ing",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g13ad2",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g13bts",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8g13jhe",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8g13bts",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8g13cr7",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Cold store",
+   "kind": "line",
+   "series": [
+    "Cold store.contents"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Hold",
+   "kind": "line",
+   "series": [
+    "Temp check.contents"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.377Z"
+}

@@ -7,6 +7,7 @@ import { BLOCK_TYPES, CATEGORIES, PARADIGM, baseOf, isPathType, pathLength, path
 import { DISTRIBUTIONS, DIST_KINDS, distMean, formatDist, histogram, sampleMany } from '../sim/random.js';
 import { countBySeverity, referenceNames } from '../sim/model.js';
 import { checkFixes } from '../sim/diagnose.js';
+import { SCENARIO_KPIS, bestScenarioIndex, scenarioDiff } from '../sim/experiments.js';
 import { icon } from '../icons.js';
 import { t } from '../i18n.js';
 import { escapeHtml } from './dom.js';
@@ -25,6 +26,10 @@ const unitText = (unit, model) => {
   const tu = model.settings.timeUnit;
   return { time: tu, length: 'm', speed: `m/${tu}`, perTime: `/${tu}`, costPerTime: `/${tu}` }[unit] ?? '';
 };
+/** Number properties that count things: shown with a count unit (개 / pcs). */
+const COUNT_KEYS = new Set(['capacity', 'units', 'fleet', 'doors', 'bays', 'levels', 'spaces', 'batchSize', 'size', 'copies', 'maxArrivals', 'count', 'cols', 'rows', 'lanes', 'inputs', 'outputs', 'maxTimes', 'quantity']);
+/** Distribution parameters without the property's unit (shape factors, counts). */
+const UNITLESS_DIST = new Set(['shape', 'k', 'alpha', 'beta']);
 
 // ───────────────────────── library
 
@@ -34,7 +39,7 @@ export function libraryHtml(state) {
   const all = Object.keys(BLOCK_TYPES);
   const types = all.filter((type) => (cat === 'all' || BLOCK_TYPES[type].cat === cat) && (!q || `${type} ${typeName(type)} ${typeDesc(type)}`.toLowerCase().includes(q)));
   const chip = (id, glyph, label, count) => `<button class="lib-chip ${cat === id ? 'active' : ''}" data-lib-cat="${id}" title="${e(label)}">${icon(glyph)}<span>${e(label)}</span><small>${count}</small></button>`;
-  return `<div class="panel-header">${icon('library')}<span>${e(tt('panel.library', 'Library'))}</span><button class="icon-button" data-command="leftPanel" title="${e(tt('action.leftPanel', ''))}">${icon('chevronLeft')}</button></div>
+  return `<div class="panel-header">${icon('library')}<span>${e(tt('panel.library', 'Library'))}</span><button class="icon-button" data-command="leftPanel" title="${e(tt('action.leftPanel', ''))}">${icon('foldLeft')}</button></div>
     <div class="lib-body">
       <label class="search-box">${icon('search')}<input type="search" data-lib-search value="${e(state.libraryQuery)}" placeholder="${e(tt('library.search', 'Search blocks'))}" aria-label="${e(tt('library.search', 'Search blocks'))}"/></label>
       <div class="lib-chips">${chip('all', 'libAll', tt('library.all', 'All'), all.length)}${CATEGORIES.map((c) => chip(c.id, c.icon, tt(`category.${c.id}`, c.id), typesIn(c.id).length)).join('')}</div>
@@ -60,7 +65,7 @@ export function explorerHtml(model, state, live = null) {
     return `<div class="tree-group"><button class="tree-row tree-head" data-toggle-group="${g.id}">${icon(collapsed ? 'caretRight' : 'caretDown', 'icon tiny')}${icon(g.icon)}<span class="tree-name">${e(tt(`category.${g.id}`, g.id))}</span><small class="muted">${g.blocks.length}</small></button>${collapsed ? '' : g.blocks.map(row).join('')}</div>`;
   }).join('');
   const links = model.links.length ? `<div class="tree-row tree-head static">${icon('connectTool')}<span class="tree-name">${e(tt('explorer.links', 'Links'))}</span><small class="muted">${model.links.length}</small></div>` : '';
-  return `<div class="panel-header">${icon('outliner')}<span>${e(tt('panel.explorer', 'Model'))}</span><label class="search-box compact">${icon('search')}<input type="search" data-explorer-search value="${e(state.explorerQuery)}" placeholder="${e(tt('explorer.search', 'Find'))}"/></label><button class="icon-button" data-command="rightPanel" title="${e(tt('action.rightPanel', ''))}">${icon('chevronRight')}</button></div>
+  return `<div class="panel-header">${icon('outliner')}<span>${e(tt('panel.explorer', 'Model'))}</span><label class="search-box compact">${icon('search')}<input type="search" data-explorer-search value="${e(state.explorerQuery)}" placeholder="${e(tt('explorer.search', 'Find'))}"/></label><button class="icon-button" data-command="rightPanel" title="${e(tt('action.rightPanel', ''))}">${icon('foldRight')}</button></div>
     <div class="explorer-tree">${body || `<div class="start-empty">${icon('info')}<span>${e(tt('explorer.empty', 'The model is empty: drag blocks from the library.'))}</span></div>`}${links}</div>`;
 }
 
@@ -128,7 +133,7 @@ const round = (v) => Math.round(Number(v) * 1000) / 1000;
 
 function propControl(model, b, p, disabled, ctx) {
   const v = b.props[p.key];
-  const unit = unitText(p.unit, model);
+  const unit = unitText(p.unit, model) || (COUNT_KEYS.has(p.key) && (p.type === 'int' || p.type === 'number') ? tt('unit.count', 'pcs') : '');
   const dis = disabled ? 'disabled' : '';
   const label = propName(p.key);
   const glyph = PROP_ICONS[p.key] ?? 'sliders';
@@ -149,7 +154,7 @@ function propControl(model, b, p, disabled, ctx) {
       return propRow('fPool', label, `<select data-prop="${p.key}" ${dis}><option value="">${e(tt('opt.none', '—'))}</option>${pools.map((n) => `<option ${n === v ? 'selected' : ''}>${e(n)}</option>`).join('')}</select>${hint}`, hint ? 'tall' : '');
     }
     case 'ref': {
-      const options = model.blocks.filter((x) => x.id !== b.id && baseOf(x.type) === p.refBase).map((x) => x.name);
+      const options = model.blocks.filter((x) => x.id !== b.id && (p.refBase === '*' ? BLOCK_TYPES[x.type].cat !== 'layout' && !['event', 'flow', 'variable', 'stock', 'lookup', 'smooth'].includes(baseOf(x.type)) : baseOf(x.type) === p.refBase)).map((x) => x.name);
       return propRow('connectTool', label, `<select data-prop="${p.key}" ${dis}><option value="">${e(tt('opt.none', '—'))}</option>${options.map((n) => `<option ${n === v ? 'selected' : ''}>${e(n)}</option>`).join('')}</select>${hint}`, hint ? 'tall' : '');
     }
     case 'expr': {
@@ -158,18 +163,23 @@ function propControl(model, b, p, disabled, ctx) {
     }
     case 'dist': return distEditor(p, v ?? { type: 'constant', value: 0 }, unit, disabled, label, glyph);
     case 'types': return listEditor(p.key, label, v ?? [], [['name', 'text'], ['color', 'color'], ['weight', 'number']], disabled);
-    case 'schedule': return listEditor(p.key, label, v ?? [], [['start', 'number'], ['end', 'number'], ['value', 'number']], disabled, p.valueKey);
+    case 'schedule': return listEditor(p.key, label, v ?? [], [['start', 'number'], ['end', 'number'], ['value', 'number']], disabled, p.valueKey, { start: model.settings.timeUnit, end: model.settings.timeUnit, value: p.valueKey === 'rate' ? `/${model.settings.timeUnit}` : tt('unit.count', 'pcs') });
     case 'states': return listEditor(p.key, label, v ?? [], [['name', 'text'], ['color', 'color']], disabled);
-    case 'transitions': return transitionsEditor(b, v ?? [], disabled, label);
+    case 'transitions': return transitionsEditor(b, v ?? [], disabled, label, model.settings.timeUnit);
     default: return '';
   }
 }
 
 function distEditor(p, d, unit, disabled, label, glyph) {
   const dis = disabled ? 'disabled' : '';
+  // Each parameter is a sub-row: its name in the label column, the box in the control column (like every row).
   const params = (DISTRIBUTIONS[d.type] ?? []).map((k) => {
     const textual = d.type === 'empirical' || d.type === 'expression';
-    return `<label class="dist-param"><span>${e(tt(`dist.${k}`, k))}</span>${textual ? `<input type="text" data-dist="${p.key}:${k}" value="${e(d[k] ?? '')}" ${dis} ${k === 'expr' ? 'list="ref-names"' : ''}/>` : `<input type="number" step="any" data-dist="${p.key}:${k}" value="${e(d[k] ?? 0)}" ${dis}/>`}</label>`;
+    const name = tt(`dist.${k}`, k);
+    const control = textual
+      ? `<input type="text" data-dist="${p.key}:${k}" value="${e(d[k] ?? '')}" ${dis} ${k === 'expr' ? 'list="ref-names"' : ''}/>`
+      : numberInput(`data-dist="${p.key}:${k}" ${dis}`, d[k] ?? 0, { unit: UNITLESS_DIST.has(k) || d.type === 'poisson' ? '' : unit });
+    return `<div class="prop-row dist-sub" title="${e(`${label} · ${name}`)}"><span class="prop-label"><span>${e(name)}</span></span><span class="prop-control">${control}</span></div>`;
   }).join('');
   let preview = '';
   if (d.type !== 'expression' && d.type !== 'constant') {
@@ -178,31 +188,31 @@ function distEditor(p, d, unit, disabled, label, glyph) {
     const top = Math.max(...h.counts) || 1;
     preview = `<svg class="dist-preview" viewBox="0 0 220 40" preserveAspectRatio="none">${h.counts.map((c, i) => `<rect x="${i * 10 + 0.5}" y="${40 - (c / top) * 38}" width="9" height="${(c / top) * 38}" rx="1"/>`).join('')}</svg><div class="dist-range"><span>${fmtNum(h.min)}</span><span>${e(tt('dist.mean', 'mean'))} ${fmtNum(distMean(d))} ${e(unit)}</span><span>${fmtNum(h.max)}</span></div>`;
   }
-  return `<div class="prop-row tall dist-row" title="${e(`${label}: ${formatDist(d)}`)}"><span class="prop-label">${icon(glyph)}<span>${e(label)}</span></span><span class="prop-control column">
-      <select data-dist-kind="${p.key}" ${dis}>${DIST_KINDS.map((k) => `<option value="${k}" ${k === d.type ? 'selected' : ''}>${e(tt(`distKind.${k}`, k))}</option>`).join('')}</select>
-      <span class="dist-params">${params}</span>${preview}${unit ? `<small class="prop-hint">${e(unit)}</small>` : ''}
-    </span></div>`;
+  return `<div class="dist-group" title="${e(`${label}: ${formatDist(d)}`)}"><div class="prop-row dist-row"><span class="prop-label">${icon(glyph)}<span>${e(label)}</span></span><span class="prop-control">
+      <select data-dist-kind="${p.key}" ${dis}>${DIST_KINDS.map((k) => `<option value="${k}" ${k === d.type ? 'selected' : ''}>${e(tt(`distKind.${k}`, k))}</option>`).join('')}</select></span></div>
+      ${params}${preview ? `<div class="dist-preview-row">${preview}</div>` : ''}</div>`;
 }
 
-function listEditor(key, label, rows, fields, disabled, valueKey = '') {
+function listEditor(key, label, rows, fields, disabled, valueKey = '', units = {}) {
   const dis = disabled ? 'disabled' : '';
   const head = fields.map(([f]) => `<span>${e(tt(`col.${f === 'value' && valueKey ? valueKey : f}`, f))}</span>`).join('');
-  const body = rows.map((r, i) => `<div class="list-row" style="--cols:${fields.length}">${fields.map(([f, kind]) => kind === 'color' ? `<input type="color" data-list="${key}:${i}:${f}" value="${e(r[f] ?? '#888888')}" ${dis}/>` : `<input type="${kind === 'number' ? 'number' : 'text'}" step="any" data-list="${key}:${i}:${f}" value="${e(r[f] ?? '')}" ${dis}/>`).join('')}<button class="icon-button" data-list-del="${key}:${i}" title="${e(tt('action.delete', ''))}" ${dis}>${icon('close')}</button></div>`).join('');
+  const body = rows.map((r, i) => `<div class="list-row" style="--cols:${fields.length}">${fields.map(([f, kind]) => kind === 'color' ? `<input type="color" data-list="${key}:${i}:${f}" value="${e(r[f] ?? '#888888')}" ${dis}/>` : `<input type="${kind === 'number' ? 'number' : 'text'}" step="any" data-unit="${e(kind === 'number' ? units[f] ?? '' : '')}" data-list="${key}:${i}:${f}" value="${e(r[f] ?? '')}" ${dis}/>`).join('')}<button class="icon-button" data-list-del="${key}:${i}" title="${e(tt('action.delete', ''))}" ${dis}>${icon('close')}</button></div>`).join('');
   return `<div class="prop-row tall list-prop"><span class="prop-label">${icon('list')}<span>${e(label)}</span></span><span class="prop-control column">
     <div class="list-row head" style="--cols:${fields.length}">${head}<span></span></div>${body}
     <button class="small-button" data-list-add="${key}" ${dis}>${icon('plus')}<span>${e(tt('props.addRow', 'Add'))}</span></button></span></div>`;
 }
 
-function transitionsEditor(b, rows, disabled, label) {
+function transitionsEditor(b, rows, disabled, label, tu = '') {
+  const trUnit = (kind) => ({ rate: `/${tu}`, timeout: tu, contact: `/${tu}`, neighbors: tt('unit.count', 'pcs'), neighborsOutside: tt('unit.count', 'pcs') }[kind] ?? '');
   const dis = disabled ? 'disabled' : '';
   const states = (b.props.states ?? []).map((s) => s.name);
   const sel = (i, f, value) => `<select data-list="transitions:${i}:${f}" ${dis}>${states.map((s) => `<option ${s === value ? 'selected' : ''}>${e(s)}</option>`).join('')}</select>`;
   const body = rows.map((r, i) => `<div class="tr-card">
       <div class="tr-line">${sel(i, 'from', r.from)}<span>→</span>${sel(i, 'to', r.to)}<button class="icon-button" data-list-del="transitions:${i}" ${dis}>${icon('close')}</button></div>
       <div class="tr-line"><select data-list="transitions:${i}:kind" ${dis}>${(baseOf(b.type) === 'cellGrid' ? ['rate', 'timeout', 'contact', 'neighbors', 'neighborsOutside', 'condition'] : ['rate', 'timeout', 'contact', 'condition']).map((k) => `<option value="${k}" ${k === r.kind ? 'selected' : ''}>${e(tt(`trKind.${k}`, k))}</option>`).join('')}</select>
-        <input type="${r.kind === 'condition' ? 'text' : 'number'}" step="any" data-list="transitions:${i}:value" value="${e(r.value ?? '')}" title="${e(tt(`trValue.${r.kind}`, ''))}" ${dis}/></div>
-      ${r.kind === 'contact' && baseOf(b.type) !== 'cellGrid' ? `<div class="tr-line"><span class="muted">${e(tt('col.trigger', 'with'))}</span>${sel(i, 'trigger', r.trigger)}<span class="muted">${e(tt('col.radius', 'radius'))}</span><input type="number" step="any" data-list="transitions:${i}:radius" value="${e(r.radius ?? 1)}" ${dis}/></div>` : ''}
-      ${baseOf(b.type) === 'cellGrid' && ['contact', 'neighbors', 'neighborsOutside'].includes(r.kind) ? `<div class="tr-line"><span class="muted">${e(tt('col.trigger', 'with'))}</span>${sel(i, 'trigger', r.trigger)}${r.kind !== 'contact' ? `<span class="muted">${e(tt('col.max', 'max'))}</span><input type="number" step="1" data-list="transitions:${i}:max" value="${e(r.max ?? 8)}" ${dis}/>` : ''}</div>` : ''}
+        <input type="${r.kind === 'condition' ? 'text' : 'number'}" step="any" data-unit="${e(trUnit(r.kind))}" data-list="transitions:${i}:value" value="${e(r.value ?? '')}" title="${e(tt(`trValue.${r.kind}`, ''))}" ${dis}/></div>
+      ${r.kind === 'contact' && baseOf(b.type) !== 'cellGrid' ? `<div class="tr-line"><span class="muted">${e(tt('col.trigger', 'with'))}</span>${sel(i, 'trigger', r.trigger)}<span class="muted">${e(tt('col.radius', 'radius'))}</span><input type="number" step="any" data-unit="m" data-list="transitions:${i}:radius" value="${e(r.radius ?? 1)}" ${dis}/></div>` : ''}
+      ${baseOf(b.type) === 'cellGrid' && ['contact', 'neighbors', 'neighborsOutside'].includes(r.kind) ? `<div class="tr-line"><span class="muted">${e(tt('col.trigger', 'with'))}</span>${sel(i, 'trigger', r.trigger)}${r.kind !== 'contact' ? `<span class="muted">${e(tt('col.max', 'max'))}</span><input type="number" step="1" data-unit="${e(tt('unit.count', 'pcs'))}" data-list="transitions:${i}:max" value="${e(r.max ?? 8)}" ${dis}/>` : ''}</div>` : ''}
       <small class="prop-hint">${e(tt(`trValue.${r.kind}`, ''))}</small>
     </div>`).join('');
   return `<div class="prop-row tall list-prop"><span class="prop-label">${icon('fStatechart')}<span>${e(label)}</span></span><span class="prop-control column">${body}<button class="small-button" data-list-add="transitions" ${dis}>${icon('plus')}<span>${e(tt('props.addTransition', 'Add transition'))}</span></button></span></div>`;
@@ -295,7 +305,7 @@ export function bottomTabsHtml(state, counts) {
     if (id === 'log') return counts.log ? `<span class="tab-count">${counts.log}</span>` : '';
     return '';
   };
-  return `<div class="bottom-tabs">${BOTTOM_TABS.map(([id, glyph]) => `<button class="bottom-tab ${state.bottomTab === id ? 'active' : ''}" data-bottom-tab="${id}">${icon(glyph)}<span>${e(tt(`bottom.${id}`, id))}</span>${badge(id)}</button>`).join('')}<span class="grow"></span><button class="icon-button" data-command="bottomPanel" title="${e(tt('action.bottomPanel', ''))}">${icon('chevronDown')}</button></div>`;
+  return `<div class="bottom-tabs">${BOTTOM_TABS.map(([id, glyph]) => `<button class="bottom-tab ${state.bottomTab === id ? 'active' : ''}" data-bottom-tab="${id}">${icon(glyph)}<span>${e(tt(`bottom.${id}`, id))}</span>${badge(id)}</button>`).join('')}<span class="grow"></span><button class="icon-button" data-command="bottomPanel" title="${e(tt('action.bottomPanel', ''))}">${icon('foldBottom')}</button></div>`;
 }
 
 /** KPI cards and per-block tables. */
@@ -326,7 +336,7 @@ export function statsHtml(results, model) {
   const tables = [
     table(tt('stats.servers', 'Stations'), ['process', 'delay', 'robot', 'dock', 'combine'], [['in', tt('stat.statIn', 'In')], ['out', tt('stat.statOut', 'Out')], ['utilization', tt('stat.statUtilization', 'Busy'), pct], ['blockedShare', tt('stat.statBlocked', 'Blocked'), pct], ['downShare', tt('stat.statDown', 'Failed'), pct], ['processMean', `${tt('stat.statProcessMean', 'Time')} (${u})`], ['rejects', tt('stat.statRejects', 'Rejects')]]),
     table(tt('stats.queues', 'Queues'), ['queue'], [['out', tt('stat.statOut', 'Out')], ['lengthMean', tt('stat.statLengthMean', 'Mean length')], ['lengthMax', tt('stat.statLengthMax', 'Max')], ['waitMean', `${tt('stat.statWaitMean', 'Mean wait')} (${u})`], ['waitMax', `${tt('stat.statWaitMax', 'Max wait')} (${u})`], ['reneged', tt('stat.statReneged', 'Left')]]),
-    table(tt('stats.measures', 'Time measurement and areas'), ['timeEnd', 'restrictedStart', 'match', 'maintenance'], [['out', tt('stat.statOut', 'Out')], ['timeMean', `${tt('stat.statTimeMean', 'Mean time')} (${u})`], ['timeMax', `${tt('stat.statTimeMax', 'Max time')} (${u})`], ['insideMean', tt('stat.statInside', 'Mean inside')], ['pairs', tt('stat.statPairs', 'Pairs')], ['maintenances', tt('stat.statMaint', 'Maintenances')]]),
+    table(tt('stats.measures', 'Time measurement and areas'), ['timeEnd', 'restrictedStart', 'match', 'maintenance', 'event'], [['out', tt('stat.statOut', 'Out')], ['timeMean', `${tt('stat.statTimeMean', 'Mean time')} (${u})`], ['timeMax', `${tt('stat.statTimeMax', 'Max time')} (${u})`], ['insideMean', tt('stat.statInside', 'Mean inside')], ['pairs', tt('stat.statPairs', 'Pairs')], ['maintenances', tt('stat.statMaint', 'Maintenances')], ['fired', tt('stat.statFired', 'Fired')]]),
     table(tt('stats.flows', 'Sources and sinks'), ['source', 'sink'], [['arrivals', tt('stat.statArrivals', 'Arrivals')], ['out', tt('stat.statOut', 'Out')], ['cycleMean', `${tt('stat.statCycleMean', 'Cycle')} (${u})`], ['throughput', `${tt('stat.statThroughput', 'Throughput')} (/${u})`], ['lost', tt('stat.statLost', 'Lost')]]),
     table(tt('stats.handling', 'Handling and storage'), ['conveyor', 'road', 'transporter', 'rack', 'parking'], [['in', tt('stat.statIn', 'In')], ['out', tt('stat.statOut', 'Out')], ['contentsMean', tt('stat.statContentsMean', 'Mean contents')], ['utilization', tt('stat.statUtilization', 'Busy'), pct], ['fillMean', tt('stat.statFill', 'Fill'), pct], ['transitMean', `${tt('stat.statTransit', 'Transit')} (${u})`]]),
   ].join('');
@@ -395,13 +405,31 @@ export function logHtml(logs, model) {
   return `<div class="log-view"><table><tbody>${[...logs].reverse().slice(0, 400).map((l) => `<tr class="log-${e(l.kind)}"><td class="muted">${l.t != null ? `${fmtNum(l.t)} ${e(u)}` : e(l.at ?? '')}</td><td>${icon(l.kind === 'error' ? 'error' : l.kind === 'failure' ? 'warning' : l.kind === 'repair' ? 'check' : 'info')}</td><td>${e(l.block ?? '')}</td><td>${e(l.text ?? t(`log.${l.kind}`, l, l.kind))}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
-export function experimentsHtml(exp, model) {
-  if (!exp) return emptyBottom('experiment', tt('exp.empty', 'Experiments run the model many times: parameter variation, Monte Carlo replications and optimization. Simulation › Experiment…'));
+/** The experiments tab: the last experiment, then the saved scenarios side by side. */
+export function experimentsHtml(exp, model, scenarios = []) {
+  const scen = scenariosHtml(scenarios);
+  if (!exp) return scen ? `<div class="exp-view">${scen}</div>` : emptyBottom('experiment', tt('exp.empty', 'Experiments run the model many times: parameter variation, Monte Carlo replications and optimization. Simulation › Experiment…'));
+  const body = experimentHtml(exp, model);
+  return scen ? body.replace(/<\/div>$/, `${scen}</div>`) : body;
+}
+
+const EXP_GLYPH = { montecarlo: 'montecarlo', optimize: 'optimize', sensitivity: 'fTornado', multiopt: 'fMultiOpt' };
+
+function experimentHtml(exp, model) {
   const u = model.settings.timeUnit;
-  const head = `<div class="exp-head">${icon(exp.kind === 'montecarlo' ? 'montecarlo' : exp.kind === 'optimize' ? 'optimize' : 'experiment')}<b>${e(tt(`exp.kind.${exp.kind}`, exp.kind))}</b><span class="muted">${e(exp.objective)}${exp.parameter ? ` · ${e(exp.parameter)}` : ''} · ${exp.runs.length} ${e(tt('exp.runs', 'runs'))} · ${fmtNum(exp.seconds)} s</span><span class="grow"></span><button class="small-button" data-command="exportExperimentCsv">${icon('csvFile')}<span>CSV</span></button></div>`;
+  const head = `<div class="exp-head">${icon(EXP_GLYPH[exp.kind] ?? 'experiment')}<b>${e(tt(`exp.kind.${exp.kind}`, exp.kind))}</b><span class="muted">${e(exp.objective)}${exp.parameter ? ` · ${e(exp.parameter)}` : ''} · ${exp.runCount ?? exp.runs.length} ${e(tt('exp.runs', 'runs'))} · ${fmtNum(exp.seconds)} s</span><span class="grow"></span><button class="small-button" data-command="exportExperimentCsv">${icon('csvFile')}<span>CSV</span></button></div>`;
   if (exp.kind === 'montecarlo') {
     const v = exp.runs.map((r) => r.value);
     return `<div class="exp-view">${head}<div class="kpis"><div class="kpi">${icon('calculate')}<div><small>${e(tt('exp.mean', 'Mean'))}</small><b>${fmtNum(exp.mean, 3)}</b></div></div><div class="kpi">${icon('ruler')}<div><small>${e(tt('exp.ci', '95% interval'))}</small><b>±${fmtNum(exp.ci, 3)}</b></div></div><div class="kpi">${icon('minus')}<div><small>${e(tt('exp.min', 'Min'))}</small><b>${fmtNum(Math.min(...v), 3)}</b></div></div><div class="kpi">${icon('plus')}<div><small>${e(tt('exp.max', 'Max'))}</small><b>${fmtNum(Math.max(...v), 3)}</b></div></div></div>${histogramChart(v, { width: 640, height: 180, title: exp.objective })}</div>`;
+  }
+  if (exp.kind === 'sensitivity') return `<div class="exp-view">${head}<p class="exp-best">${icon('info')}<span>${e(t('exp.sensBase', { obj: exp.objective, v: fmtNum(exp.baseValue, 4), p: exp.percent }))}</span></p><div class="exp-columns">${tornadoChart(exp)}<table class="exp-table"><thead><tr><th>${e(tt('exp.parameter', 'Parameter'))}</th><th>${e(tt('exp.low', 'Low'))}</th><th>${e(tt('exp.high', 'High'))}</th><th>${e(tt('exp.swing', 'Swing'))}</th></tr></thead><tbody>${exp.rows.map((r) => `<tr><td>${e(r.label)}</td><td>${fmtNum(r.low, 4)} → ${fmtNum(r.lowValue, 4)}</td><td>${fmtNum(r.high, 4)} → ${fmtNum(r.highValue, 4)}</td><td><b>${fmtNum(r.swing, 4)}</b></td></tr>`).join('')}</tbody></table></div></div>`;
+  if (exp.kind === 'multiopt') {
+    const h = exp.history;
+    const chart = lineChart(h.map((_, i) => i + 1), [{ name: tt('exp.bestSoFar', 'Best so far'), values: h.map((x) => x.best) }, { name: exp.objective, values: h.map((x) => x.value) }], { width: 640, height: 200, xLabel: tt('exp.evaluation', 'Run'), legend: true });
+    const better = (a, b) => (exp.goal === 'minimize' ? a.value - b.value : b.value - a.value);
+    const top = [...h].filter((x) => Number.isFinite(x.value)).sort(better).slice(0, 10);
+    const bestText = exp.params.map((p, k) => `${p.label} = ${fmtNum(exp.best.values[k], 4)}`).join(' · ');
+    return `<div class="exp-view">${head}<p class="exp-best">${icon('star')}<span>${e(t('exp.multiBest', { params: bestText, obj: exp.objective, v: fmtNum(exp.best.value, 4), n: exp.evaluations, space: exp.space }))}</span></p><div class="exp-columns">${chart}<table class="exp-table"><thead><tr><th>#</th>${exp.params.map((p) => `<th>${e(p.label)}</th>`).join('')}<th>${e(exp.objective)}</th></tr></thead><tbody>${top.map((x, i) => `<tr class="${i === 0 ? 'best' : ''}"><td>${i + 1}</td>${x.values.map((v) => `<td>${fmtNum(v, 4)}</td>`).join('')}<td>${fmtNum(x.value, 4)}</td></tr>`).join('')}</tbody></table></div></div>`;
   }
   const xs = [...new Set(exp.runs.map((r) => r.x))];
   const means = xs.map((x) => { const vals = exp.runs.filter((r) => r.x === x).map((r) => r.value); return vals.reduce((a, b) => a + b, 0) / vals.length; });
@@ -409,6 +437,35 @@ export function experimentsHtml(exp, model) {
   const chart = lineChart(xs, [{ name: exp.objective, values: means }], { width: 640, height: 200, xLabel: exp.parameter, legend: false });
   const rows = xs.map((x, i) => `<tr class="${best && best.x === x ? 'best' : ''}"><td>${fmtNum(x, 4)}</td><td>${fmtNum(means[i], 4)}</td><td>${exp.runs.filter((r) => r.x === x).length}</td></tr>`).join('');
   return `<div class="exp-view">${head}${best ? `<p class="exp-best">${icon('star')}<span>${e(tt('exp.best', 'Best: {param} = {x} → {obj} = {v}').replace('{param}', exp.parameter).replace('{x}', fmtNum(best.x, 4)).replace('{obj}', exp.objective).replace('{v}', fmtNum(best.value, 4)))}</span></p>` : ''}<div class="exp-columns">${chart}<table class="exp-table"><thead><tr><th>${e(exp.parameter)}</th><th>${e(exp.objective)}</th><th>${e(tt('exp.runs', 'runs'))}</th></tr></thead><tbody>${rows}</tbody></table></div><p class="muted">${e(tt('exp.unit', 'Time unit: {u}').replace('{u}', u))}</p></div>`;
+}
+
+/** Tornado chart: per parameter, the objective at its low (blue) and high (orange) value around the base. */
+function tornadoChart(exp) {
+  const rows = exp.rows; const W = 640; const L = 220; const rowH = 26; const H = rows.length * rowH + 34;
+  const max = Math.max(1e-12, ...rows.flatMap((r) => [Math.abs(r.effectLow), Math.abs(r.effectHigh)]));
+  const mid = L + (W - L - 20) / 2; const half = (W - L - 20) / 2 - 4;
+  const x = (v) => mid + (v / max) * half;
+  const bars = rows.map((r, i) => {
+    const y = 8 + i * rowH;
+    const bar = (v, color) => { const a = x(0); const b = x(v); return `<rect x="${Math.min(a, b).toFixed(1)}" y="${y + 3}" width="${Math.max(1, Math.abs(b - a)).toFixed(1)}" height="${rowH - 8}" rx="3" fill="${color}"/>`; };
+    return `<text x="${L - 8}" y="${y + rowH / 2}" text-anchor="end" dominant-baseline="middle" class="chart-label">${e(r.label.length > 32 ? r.label.slice(0, 31) + '…' : r.label)}</text>${bar(r.effectLow, '#3b82f6')}${bar(r.effectHigh, '#f97316')}`;
+  }).join('');
+  const legend = `<g class="chart-label"><rect x="${L}" y="${H - 18}" width="10" height="10" fill="#3b82f6"/><text x="${L + 14}" y="${H - 9}">−${exp.percent}%</text><rect x="${L + 70}" y="${H - 18}" width="10" height="10" fill="#f97316"/><text x="${L + 84}" y="${H - 9}">+${exp.percent}%</text><text x="${W - 20}" y="${H - 9}" text-anchor="end">±${e(fmtNum(max, 3))}</text></g>`;
+  return `<svg class="chart tornado" viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px" preserveAspectRatio="xMinYMin meet" role="img" aria-label="${e(tt('exp.kind.sensitivity', 'Sensitivity'))}"><line x1="${mid}" y1="4" x2="${mid}" y2="${H - 26}" stroke="currentColor" stroke-opacity="0.4"/>${bars}${legend}</svg>`;
+}
+
+/** Saved scenarios (Simulation › Save scenario) side by side: KPIs with the best one marked, and what changed. */
+function scenariosHtml(list) {
+  if (!list?.length) return '';
+  const head = `<div class="exp-head scen-head">${icon('fCompare')}<b>${e(tt('scenario.title', 'Scenario comparison'))}</b><span class="muted">${list.length}</span><span class="grow"></span><button class="small-button" data-scenario-clear>${icon('trash')}<span>${e(tt('scenario.clear', 'Clear'))}</span></button></div>`;
+  const cols = list.map((s, i) => `<th>${e(s.name)} <button class="icon-button tiny" data-scenario-remove="${i}" title="${e(tt('scenario.remove', 'Remove'))}" aria-label="${e(tt('scenario.remove', 'Remove'))}">${icon('close')}</button></th>`).join('');
+  const rows = SCENARIO_KPIS.map(([key]) => {
+    const best = bestScenarioIndex(list, key);
+    return `<tr><th>${e(tt(`metric.${key}`, key))}</th>${list.map((s, i) => { const v = s.values[key]; const first = Number(list[0].values[key]); const d = i > 0 && Number.isFinite(first) && first !== 0 && Number.isFinite(Number(v)) ? ((Number(v) - first) / Math.abs(first)) * 100 : null; return `<td class="${i === best ? 'best' : ''}">${v == null ? '—' : key === 'bottleneckUtil' ? pct(v) : fmtNum(v, 3)}${d != null && Math.abs(d) >= 0.05 ? ` <small class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '+' : ''}${fmtNum(d, 1)}%</small>` : ''}</td>`; }).join('')}</tr>`;
+  }).join('');
+  const bn = `<tr><th>${e(tt('scenario.bottleneck', 'Bottleneck'))}</th>${list.map((s) => `<td>${e(s.bottleneck || '—')}</td>`).join('')}</tr>`;
+  const diff = `<tr><th>${e(tt('scenario.changes', 'Changes from the first'))}</th>${list.map((s, i) => { if (!i) return `<td class="muted">—</td>`; const d = scenarioDiff(list[0], s); return `<td class="scen-diff">${d.length ? d.slice(0, 6).map((x) => `<div>${e(x)}</div>`).join('') + (d.length > 6 ? `<div class="muted">+${d.length - 6}</div>` : '') : `<span class="muted">${e(tt('scenario.same', 'Same model'))}</span>`}</td>`; }).join('')}</tr>`;
+  return `<section class="scen-view">${head}<div class="scen-scroll"><table class="exp-table scen-table"><thead><tr><th></th>${cols}</tr></thead><tbody>${rows}${bn}${diff}</tbody></table></div></section>`;
 }
 
 /**

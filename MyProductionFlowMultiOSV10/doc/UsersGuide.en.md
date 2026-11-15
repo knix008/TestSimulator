@@ -4,30 +4,35 @@ MyProductionFlow builds the flow of factory production lines, warehouses, servic
 
 | Method | For | Blocks |
 |---|---|---|
-| **Discrete event** | Parts, customers, vehicles, trains or pedestrians passing steps one at a time | Process 21 · machines 21 · handling 18 · warehouse 12 · traffic 11 · rail 7 · pedestrians 10 |
+| **Discrete event** | Parts, customers, vehicles, trains or pedestrians passing steps one at a time | Process 22 · machines 21 · handling 18 · warehouse 12 · traffic 11 · rail 7 · pedestrians 10 |
 | **System dynamics (SD), fluids** | Amounts that accumulate and flow (inventory, population, money, liquids), feedback | SD 6 (stock, flow, variable, parameter, lookup table, smooth) · fluids 7 (tank, pipe, valve, pump …) |
 | **Agent-based (ABM)** | Things that move and change state (epidemics, word of mouth), cellular automata | Agent population · consumers · crowd · cell grid · Game of Life |
 
-In all: **136 blocks in 12 categories**, with 9 analysis displays and 9 layout items. After a run the **Analysis** tab lists the problems found and how to fix them.
+In all: **137 blocks in 12 categories**, with 9 analysis displays and 9 layout items. After a run the **Analysis** tab lists the problems found and how to fix them.
 
 ![Workspace](tutorial/images/en/04-workspace.jpg)
 
 ## 1. The window
 
-- **Menu bar** — Start · File · Edit · View · Model · Simulation · Help. The window buttons are at the right; drag the bar to move the window.
-- **Toolbar** — new, open, save; undo; the select, connect and pan tools; duplicate, rotate, delete; zoom; grid; 2D / side by side / 3D; run buttons; experiment, report, model check; panels; tutorial, theme, language, settings, about. In a narrow window the rest goes into the **»** menu.
+- **Menu bar** — Start · File · Edit · View · Model · Simulation · Help. At the right: the **left / bottom / right panel buttons** (off on the start page) and the window buttons (minimize, maximize, close); drag the bar to move the window.
+- **Toolbar** — new, open, save; undo; the select, connect and pan tools; duplicate, rotate, delete; zoom; grid; 2D / side by side / 3D; run buttons; **playback speed (− current speed +; click the speed for a list)**; experiment, report, model check; tutorial, theme, language, settings, about. In a narrow window the rest goes into the **»** menu.
 - **Library (left)** — every block by category, with a search box.
 - **Run bar (top centre)** — run, step, stop, run to the end; state; model time and clock; progress; events; speed; the 2D / both / 3D switch.
 - **2D editor and 3D view (centre)** — draw the model in 2D and see the same model in 3D. Drag the border between them to change the split.
+  - The 2D view has **rulers** (metres) along its top and left edges, with a **red line** on each at the mouse position (View › Show › Rulers).
+  - The **grid is 5 × 5** (a bold line every 5 thin ones) and keeps about the same size on screen while you zoom: it steps by 5× (0.2 m · 1 m · 5 m · 25 m …) and the thin lines fade in. The 3D floor grid follows the camera distance the same way.
 - **Model list and properties (right)** — the blocks by category above, the selected block's properties below. With nothing selected it shows the **model settings**.
-- **Bottom panel** — Statistics · Charts · Problems · Event log · Experiments.
+- **Bottom panel** — Analysis · Statistics · Charts · Problems · Event log · Experiments (with the scenario comparison).
+- The **side panels** start at the same width (280 px) and both narrow to 240 px. The fold button in a panel header (a panel with an arrow) folds it; the same button on the toolbar unfolds it.
+- Every **number field** is [− value unit +]: − / + step the value (hold to repeat) and the unit (min · m · pcs · /min · % …) is shown next to it.
+- The **theme button** (the palette on the right of the toolbar) switches to a **random** theme on each click. The **▾** on its right is a dropdown menu: system · light themes ▸ · dark themes ▸ · custom · theme settings….
 - **Status bar** — notices, selection, pointer position (m), zoom, model time, problem count, theme, language, clock.
 
 ## 2. Getting started
 
 ![Start page](tutorial/images/en/01-welcome.jpg)
 
-On the start page choose a **new model** (40 templates) or one of the 40 **sample models**. Samples run straight away with **F5**.
+On the start page choose a **new model** (40 templates) or one of the 60 **sample models** (10 in each of the 6 groups). Samples run straight away with **F5**.
 
 **40 templates** — empty model · basic process · two stations in series · parallel machines · assembly cell · batch oven · rework loop · operators · shifts · kanban (CONWIP) · time measurement · planned maintenance · split and match · machining cell · robot cell · conveyor line · sortation line · AGV transport · warehouse · AS/RS · crane bay · dock to dock · traffic light · toll road · bus line · rail line · metro gates · service desks · elevator lobby · tank fill and drain · valve cycle · system dynamics · demand forecast · SIR (SD) · agents · market adoption · crowd · forest fire · Game of Life · dashboard.
 
@@ -85,7 +90,7 @@ Selecting a block shows its properties at the bottom right. Changes go straight 
 
 | Category | Blocks |
 |---|---|
-| **Process (21)** | Source · sink · queue · process · resource pool · seize · release · select output · assemble · batch · unbatch · gate · assign · delay · **split** · **match** · **restricted area start / end** (CONWIP, kanban) · **time measure start / end** · **maintenance** |
+| **Process (21)** | Source · sink · queue · process · resource pool · seize · release · select output · assemble · batch · unbatch · gate · assign · delay · **split** · **match** · **restricted area start / end** (CONWIP, kanban) · **time measure start / end** · **maintenance** · **event** |
 | **Machines (21)** | CNC machine · lathe · milling machine · drill press · press · injection molder · oven · dryer · paint booth · welding robot · laser cutter · saw · grinder · 3D printer · assembly station · inspection station · test bench · labeler · packing machine · washing machine · kitting station |
 | **Material handling (18)** | Conveyor · roller conveyor · chute · transporter · forklift fleet · AGV fleet · tugger train · overhead crane · drone fleet · robot · vertical lift · turntable · sorter · diverter · **merge** · palletizer · depalletizer · accumulation buffer |
 | **Warehouse (12)** | Rack · dock · AS/RS · flow rack · floor storage · cold storage · receiving dock · shipping dock · pick station · pack station · staging lane · quality hold |
@@ -110,6 +115,7 @@ Main properties:
 | Split / match | Copies, copy type and colour / same type only, capacity |
 | Restricted area | Most entities inside (the end block names its start block) |
 | Maintenance | Machine, interval distribution, duration distribution, first time |
+| Event | Trigger (once · cyclic · when a condition becomes true), first time, repeat interval, most times, target block, property (`capacity`, `time.mean` …; empty for a parameter), new value expression (`current` is the value before) — e.g. CNC capacity `current + 1` at minute 240 (an extra machine), the arrival-rate parameter doubled every morning (rush hour) |
 | Conveyor, road, track, walkway | Path, speed, spacing, width, accumulating, lanes |
 | Transporter | AGV, forklift, cart, drone, crane or tugger; fleet; speed; load and unload; right-angle or straight; return home |
 | Rack, storage | Bays and levels, dwell, store and retrieve time, retrieval order |
@@ -132,7 +138,7 @@ Main properties:
 | `Rack1.fill`, `Gate1.open` | Rack fill, gate open (1 / 0) |
 | `Town.Infected`, `Town.count` | Agents by state |
 
-Functions: `min max abs sqrt exp ln log pow sin cos round floor ceil clamp if step(height, start) pulse ramp sinwave random() uniform(a,b) normal(m,s) exponential(m) triangular(a,c,b) poisson(m)`. A select condition and an assigned priority can also use the entity's `priority`, `age` and `size`.
+Functions: `min max abs sqrt exp ln log pow sin cos round floor ceil clamp if step(height, start) pulse ramp sinwave random() uniform(a,b) normal(m,s) exponential(m) triangular(a,c,b) poisson(m)`. A select condition and an assigned priority can also use the entity's `priority`, `age` and `size`. An event's new value can use `current` (the value before the change).
 
 ### 3.7 Model check
 
@@ -154,6 +160,8 @@ The model is checked as you edit and the **Problems** tab lists what it finds: u
 - **3D** — the same model as a factory, warehouse or road scene: boxes, pallets, vehicles and people; AGVs, forklifts and drones; workers (green vest when busy); status lamps, traffic lights, tanks (stock level) and screens. Left-drag orbits, right-drag pans, the wheel zooms; View › 3D views (isometric, top, front, side).
 - The structure cannot change while the model runs. **SD parameters** can be changed during the run with their sliders in the properties panel.
 - Select a block to see its **live statistics** (utilization, waiting, throughput, breakdowns …) above its properties.
+- **Record animation** (the red circle in the run bar · Simulation › Record animation) — records the visible 2D and 3D views, laid out as on screen, as a video (WebM). Press again to stop and choose where to save it (the shortest recording is 4 seconds). It also starts the run if the model is not running.
+- **Follow an entity in 3D** (the eye button in the run bar · View › 3D views) — the 3D camera follows one moving entity, keeping your viewing angle and distance; when it leaves, the camera moves on to the next one.
 
 ## 5. Analysis, statistics, charts and reports
 
@@ -186,7 +194,8 @@ The **Problems** tab (model check) also says how to fix each problem.
 - **Statistics** — cards for model time, completed, throughput, mean cycle time, mean WIP, the **bottleneck** (the busiest resource), lost and cost; **advice** (bottleneck, blocking, breakdowns, long queues, losses, reneging); busy / blocked / failed bars; tables for stations, queues, sources and sinks, handling and storage, SD and agents.
 - **Charts** — the model's charts, WIP and output, the **station state timeline** (Gantt) and the cycle time distribution. **Add chart…** plots any values (comma separated); the pencil edits, × deletes.
 - **Event log** — breakdowns, repairs, reneging, warm-up, errors and notices.
-- **Report (Ctrl+R)** — settings, results, advice, tables and charts on one page: print, save as HTML or CSV.
+- **Report (the Report button on the toolbar · Ctrl+R)** — choose what to include (overview, 2D layout picture, 3D picture, key figures, analysis, statistics tables, chart pictures, SD values, experiment), preview it and make a **Markdown · HTML · Word (.docx) · PDF** file. Pictures are in every format (inside the Markdown / HTML file, inside the Word document, and the PDF has the printed pages). CSV too.
+- **Print (the Print button right of Save · File › Print · Ctrl+P)** — a print window of its own: printer, copies, paper (A4 · A3 · Letter · Legal), orientation, margins, text size, colour or grayscale, header and footer, pages, what to include, paper size / page count / sheets, and a preview of the real pages on the right. **Print** sends the pages straight to the chosen printer (in the browser: the print dialog). **Save as PDF** saves the same pages.
 - **Export** — 2D / 3D pictures (PNG), statistics CSV, time series CSV, experiment CSV, report HTML.
 - **Warm-up** — after the warm-up time of the model settings the statistics restart (removing the empty-start effect).
 
@@ -201,8 +210,14 @@ The **Problems** tab (model check) also says how to fix each problem.
 | Parameter variation | Steps one block property or distribution parameter through a range (from, to, step), runs each value several times and compares the objective |
 | Monte Carlo | Runs N times with new seeds → mean, 95% confidence interval, min, max, distribution |
 | Optimization | Finds the value in the range that gives the best objective (maximize throughput, minimize cycle time …) |
+| Sensitivity analysis | Changes each chosen parameter ±% (20% by default) low and high and shows how much the objective moves as a **tornado chart** — which value matters most |
+| Multi-parameter optimization | Changes up to 4 parameters together (each from, to, step) and finds the best **combination**. It does not run every combination: a pattern search with random restarts within the run budget, with a convergence chart and the top 10 combinations |
 
-The results appear in the **Experiments** tab as a chart and a table, and **Apply the best value to the model** puts it in. Objectives: throughput, completed, mean cycle time, mean WIP, cost, lost, and every `Block.metric`, SD name and agent state.
+The results appear in the **Experiments** tab as a chart and a table, and **Apply the best value to the model** puts it in. Objectives: throughput, completed, mean cycle time, mean WIP, cost, lost, and every `Block.metric`, SD name and agent state. Results can be saved as **CSV**.
+
+### Scenario comparison
+
+After a run, **Simulation › Save as scenario** keeps that run's KPIs (throughput, completed, cycle time, WIP, cost, lost, bottleneck). Change the model, run again and save again: the scenarios appear side by side under the **Experiments** tab, with the best value of each KPI in green, the change against the first scenario (%), and the **properties that differ** from the first (e.g. `CNC.capacity: 1 → 2`). Scenarios are kept until the model is closed (12 at most).
 
 ## 7. System dynamics and agents
 
@@ -229,7 +244,7 @@ The results appear in the **Experiments** tab as a chart and a table, and **Appl
 
 ## 9. Settings
 
-**Settings (Ctrl+,)**: General (language, restore session, clock), Start page, Theme (20 dark · 20 light · custom), Font, Background, **Simulation** (default view, grid snap, showing the grid, ports, names and links, utilization heat map, automatic check, 3D shadows, name tags and quality, time unit of new models, default speed), Recent, Shortcuts.
+**Settings (Ctrl+,)**: General (language, restore session, clock), Start page (show the tutorial welcome window again — it only appears on the start page), Theme (20 dark · 20 light · custom), Font, Background (20 moving scenes: conveyors, assembly line, AGV paths, warehouse racks, road traffic, railway, pedestrian flow, process network, material flows, Gantt chart, gears, pipes and tanks, stocks and flows, supply chain, utilization heat map, queues, robot arms, container yard, live charts, agents spreading), **Simulation** (default view, grid snap, showing the grid, rulers, ports, names and links, utilization heat map, automatic check, 3D shadows, name tags and quality, time unit of new models, default speed), Recent, Shortcuts (all on one page). The user's guide, tutorial document and video windows switch language with the Korean and UK flag buttons.
 
 ## 10. Keyboard shortcuts
 

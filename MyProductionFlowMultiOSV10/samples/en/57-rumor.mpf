@@ -1,0 +1,92 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Rumour spreading",
+ "description": "Unaware → spreader → bored, passed on by contact",
+ "settings": {
+  "timeUnit": "day",
+  "duration": 60,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.1,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a911iv9r",
+   "type": "population",
+   "name": "Town",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "count": 500,
+    "speed": 5,
+    "shape": "person",
+    "states": [
+     {
+      "name": "Unaware",
+      "color": "#94a3b8"
+     },
+     {
+      "name": "Spreader",
+      "color": "#e11d48"
+     },
+     {
+      "name": "Bored",
+      "color": "#0ea5e9"
+     }
+    ],
+    "initial": "Unaware:495, Spreader:5",
+    "transitions": [
+     {
+      "from": "Unaware",
+      "to": "Spreader",
+      "kind": "contact",
+      "value": 1,
+      "trigger": "Spreader",
+      "radius": 1.2
+     },
+     {
+      "from": "Spreader",
+      "to": "Bored",
+      "kind": "contact",
+      "value": 0.3,
+      "trigger": "Bored",
+      "radius": 1.2
+     },
+     {
+      "from": "Spreader",
+      "to": "Bored",
+      "kind": "timeout",
+      "value": 10
+     }
+    ]
+   },
+   "w": 40,
+   "h": 26
+  }
+ ],
+ "links": [],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Rumour",
+   "kind": "line",
+   "series": [
+    "Town.Unaware",
+    "Town.Spreader",
+    "Town.Bored"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.397Z"
+}

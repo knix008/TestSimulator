@@ -190,8 +190,10 @@ export function referenceNames(model) {
     gate: ['open', 'count'], assign: ['count'], delay: ['contents', 'count'], conveyor: ['contents', 'count'], transporter: ['utilization', 'waiting', 'count'], robot: ['utilization', 'count'],
     rack: ['contents', 'count', 'fill'], dock: ['utilization', 'count'], road: ['contents', 'count'], signal: ['open', 'count'], parking: ['contents', 'count', 'fill'],
     display: ['value'], split: ['count'], match: ['count', 'contents'], restrictedStart: ['inside', 'count'], restrictedEnd: ['count'], timeStart: ['count'], timeEnd: ['time', 'count'],
-    maintenance: ['count'], merge: ['count'],
+    maintenance: ['count'], merge: ['count'], event: ['count', 'value'],
   };
+  // An event's new value may use `current` (the value before the change).
+  if (model.blocks.some((b) => baseOf(b.type) === 'event')) names.set('current', 'time');
   for (const b of model.blocks) {
     if (isSd(b.type)) { names.set(b.name, baseOf(b.type)); continue; }
     for (const m of metrics[baseOf(b.type)] ?? []) names.set(`${b.name}.${m}`, 'metric');
@@ -233,7 +235,7 @@ export function checkModel(model) {
     const spec = BLOCK_TYPES[b.type];
     const base = baseOf(b.type);
     const sd = isSd(b.type);
-    if (!sd && !['layout', 'agent', 'analysis'].includes(spec.cat) && base !== 'maintenance') {
+    if (!sd && !['layout', 'agent', 'analysis'].includes(spec.cat) && base !== 'maintenance' && base !== 'event') {
       const outs = portCount(b, 'out');
       for (let i = 0; i < outs; i++) {
         if (outgoing.get(`${b.id}:${i}`)) continue;
@@ -251,7 +253,15 @@ export function checkModel(model) {
       if (prop.type === 'pool' && v && !pools.has(v)) add('error', 'noPool', { name: b.name, pool: v }, { block: b.id });
       if (prop.type === 'ref') {
         const target = model.blocks.find((x) => x.name === v);
-        if (!v || !target || baseOf(target.type) !== prop.refBase) add('error', 'noRef', { name: b.name, field: prop.key, ref: v || '—' }, { block: b.id });
+        if (!v || !target || (prop.refBase !== '*' && baseOf(target.type) !== prop.refBase)) add('error', 'noRef', { name: b.name, field: prop.key, ref: v || '—' }, { block: b.id });
+        else if (base === 'event' && baseOf(target.type) !== 'parameter') {
+          // The property must be one of the target's numbers, a number inside a distribution ("processTime.mean"), or a gate's "open".
+          const [key, sub] = String(b.props.property ?? '').trim().split('.');
+          const spec2 = BLOCK_TYPES[target.type].props.find((x) => x.key === key);
+          const gateOpen = key === 'open' && baseOf(target.type) === 'gate';
+          const ok = gateOpen || (spec2 && (sub ? spec2.type === 'dist' : ['number', 'int', 'bool'].includes(spec2.type)));
+          if (!ok) add('error', 'eventProperty', { name: b.name, target: target.name, property: b.props.property || '—' }, { block: b.id });
+        }
       }
     }
     if (base === 'process' && b.props.pool === '' && b.props.units > 1) add('info', 'unitsNoPool', { name: b.name }, { block: b.id });

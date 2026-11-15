@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf36n9x72",
+   "id": "bmwhr4a799xu3",
    "type": "resourcePool",
    "name": "Doctors",
    "x": 2,
@@ -47,7 +47,7 @@
    }
   },
   {
-   "id": "bmwhnf36n9yeq",
+   "id": "bmwhr4a799yeq",
    "type": "source",
    "name": "Patients",
    "x": -20,
@@ -99,7 +99,7 @@
    }
   },
   {
-   "id": "bmwhnf36n9zhn",
+   "id": "bmwhr4a799zqy",
    "type": "process",
    "name": "Triage",
    "x": -14,
@@ -133,7 +133,7 @@
    }
   },
   {
-   "id": "bmwhnf36na0wa",
+   "id": "bmwhr4a79a0zb",
    "type": "assign",
    "name": "Set priority",
    "x": -8,
@@ -147,7 +147,7 @@
    }
   },
   {
-   "id": "bmwhnf36na1j",
+   "id": "bmwhr4a79a1ah",
    "type": "queue",
    "name": "Waiting room",
    "x": -2,
@@ -160,7 +160,7 @@
    }
   },
   {
-   "id": "bmwhnf36na2ht",
+   "id": "bmwhr4a79a2ah",
    "type": "seize",
    "name": "Get doctor",
    "x": 4,
@@ -172,7 +172,7 @@
    }
   },
   {
-   "id": "bmwhnf36na3yy",
+   "id": "bmwhr4a79a3iz",
    "type": "process",
    "name": "Treatment",
    "x": 9,
@@ -206,7 +206,7 @@
    }
   },
   {
-   "id": "bmwhnf36na4yq",
+   "id": "bmwhr4a79a483",
    "type": "release",
    "name": "Free doctor",
    "x": 14,
@@ -217,7 +217,7 @@
    }
   },
   {
-   "id": "bmwhnf36na5h5",
+   "id": "bmwhr4a79a5cv",
    "type": "select",
    "name": "Outcome",
    "x": 18,
@@ -232,7 +232,7 @@
    }
   },
   {
-   "id": "bmwhnf36na6jc",
+   "id": "bmwhr4a79a63o",
    "type": "delay",
    "name": "Ward",
    "x": 23,
@@ -249,7 +249,7 @@
    }
   },
   {
-   "id": "bmwhnf36na7ib",
+   "id": "bmwhr4a79a79l",
    "type": "sink",
    "name": "Discharged",
    "x": 28,
@@ -260,131 +260,131 @@
  ],
  "links": [
   {
-   "id": "lmwhnf36na87b",
+   "id": "lmwhr4a79a8gf",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36n9yeq",
+    "block": "bmwhr4a799yeq",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36n9zhn",
+    "block": "bmwhr4a799zqy",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36na9au",
+   "id": "lmwhr4a79a9fw",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36n9zhn",
+    "block": "bmwhr4a799zqy",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36na0wa",
+    "block": "bmwhr4a79a0zb",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36naa5e",
+   "id": "lmwhr4a79aavn",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36na0wa",
+    "block": "bmwhr4a79a0zb",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36na1j",
+    "block": "bmwhr4a79a1ah",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36nabh5",
+   "id": "lmwhr4a79ab5n",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36na1j",
+    "block": "bmwhr4a79a1ah",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36na2ht",
+    "block": "bmwhr4a79a2ah",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36nacaw",
+   "id": "lmwhr4a79acs9",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36na2ht",
+    "block": "bmwhr4a79a2ah",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36na3yy",
+    "block": "bmwhr4a79a3iz",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36nado4",
+   "id": "lmwhr4a79ad38",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36na3yy",
+    "block": "bmwhr4a79a3iz",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36na4yq",
+    "block": "bmwhr4a79a483",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36naewj",
+   "id": "lmwhr4a79aewh",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36na4yq",
+    "block": "bmwhr4a79a483",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36na5h5",
+    "block": "bmwhr4a79a5cv",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36nafyi",
+   "id": "lmwhr4a79afs9",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36na5h5",
+    "block": "bmwhr4a79a5cv",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36na6jc",
+    "block": "bmwhr4a79a63o",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36nag46",
+   "id": "lmwhr4a79agqw",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36na5h5",
+    "block": "bmwhr4a79a5cv",
     "port": 1
    },
    "to": {
-    "block": "bmwhnf36na7ib",
+    "block": "bmwhr4a79a79l",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36nahyo",
+   "id": "lmwhr4a79ahz5",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36na6jc",
+    "block": "bmwhr4a79a63o",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36na7ib",
+    "block": "bmwhr4a79a79l",
     "port": 0
    },
    "points": []
@@ -401,5 +401,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:04.991Z"
+ "savedAt": "2026-11-15T11:28:39.333Z"
 }

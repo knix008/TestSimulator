@@ -1,0 +1,85 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "도시 성장 (셀 자동자)",
+ "description": "건물이 이웃한 땅이 개발되고 공원은 남음",
+ "settings": {
+  "timeUnit": "day",
+  "duration": 60,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 1,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a911iw48",
+   "type": "cellGrid",
+   "name": "Region",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "cols": 80,
+    "rows": 50,
+    "neighborhood": "moore",
+    "wrap": true,
+    "states": [
+     {
+      "name": "Rural",
+      "color": "#84cc16"
+     },
+     {
+      "name": "Urban",
+      "color": "#64748b"
+     },
+     {
+      "name": "Park",
+      "color": "#15803d"
+     }
+    ],
+    "initial": "Rural:0.9, Urban:0.01, Park:0.09",
+    "transitions": [
+     {
+      "from": "Rural",
+      "to": "Urban",
+      "kind": "neighbors",
+      "value": 3,
+      "max": 8,
+      "trigger": "Urban"
+     },
+     {
+      "from": "Rural",
+      "to": "Urban",
+      "kind": "rate",
+      "value": 0.002
+     }
+    ]
+   },
+   "w": 40,
+   "h": 25
+  }
+ ],
+ "links": [],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Land use",
+   "kind": "line",
+   "series": [
+    "Region.Rural",
+    "Region.Urban",
+    "Region.Park"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.397Z"
+}

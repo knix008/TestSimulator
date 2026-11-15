@@ -1,0 +1,318 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Refinery (fluids)",
+ "description": "Crude tank → distillation → petrol and diesel tanks, shipping cycles",
+ "settings": {
+  "timeUnit": "h",
+  "duration": 168,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.1,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8z1i6au",
+   "type": "fluidSource",
+   "name": "Pipeline",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "100",
+    "unitLabel": "L",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8z1i792",
+   "type": "tank",
+   "name": "Crude",
+   "x": -10,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "3000",
+    "nonNegative": true,
+    "unitLabel": "L",
+    "capacity": 8000
+   }
+  },
+  {
+   "id": "bmwhr4a8z1i8r6",
+   "type": "pump",
+   "name": "Feed",
+   "x": -4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "min(Crude, 105)",
+    "unitLabel": "L",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8z1i9gp",
+   "type": "mixingTank",
+   "name": "Column",
+   "x": 2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "200",
+    "nonNegative": true,
+    "unitLabel": "L",
+    "capacity": 600
+   }
+  },
+  {
+   "id": "bmwhr4a8z1ia5g",
+   "type": "flow",
+   "name": "ToPetrol",
+   "x": 7,
+   "y": -5,
+   "rot": 0,
+   "props": {
+    "equation": "Column * 0.25",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8z1ibia",
+   "type": "flow",
+   "name": "ToDiesel",
+   "x": 7,
+   "y": 5,
+   "rot": 0,
+   "props": {
+    "equation": "Column * 0.25",
+    "unitLabel": "",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8z1icm1",
+   "type": "tank",
+   "name": "Petrol",
+   "x": 13,
+   "y": -5,
+   "rot": 0,
+   "props": {
+    "initial": "500",
+    "nonNegative": true,
+    "unitLabel": "L",
+    "capacity": 4000
+   }
+  },
+  {
+   "id": "bmwhr4a8z1id56",
+   "type": "tank",
+   "name": "Diesel",
+   "x": 13,
+   "y": 5,
+   "rot": 0,
+   "props": {
+    "initial": "500",
+    "nonNegative": true,
+    "unitLabel": "L",
+    "capacity": 4000
+   }
+  },
+  {
+   "id": "bmwhr4a8z1iezu",
+   "type": "valve",
+   "name": "ShipPetrol",
+   "x": 19,
+   "y": -5,
+   "rot": 0,
+   "props": {
+    "equation": "min(Petrol, 300)",
+    "unitLabel": "L",
+    "openTime": 4,
+    "closedTime": 20
+   }
+  },
+  {
+   "id": "bmwhr4a8z1ifwt",
+   "type": "valve",
+   "name": "ShipDiesel",
+   "x": 19,
+   "y": 5,
+   "rot": 0,
+   "props": {
+    "equation": "min(Diesel, 300)",
+    "unitLabel": "L",
+    "openTime": 4,
+    "closedTime": 20
+   }
+  },
+  {
+   "id": "bmwhr4a8z1igh6",
+   "type": "fluidSink",
+   "name": "Terminal",
+   "x": 25,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "ShipPetrol + ShipDiesel",
+    "unitLabel": "L",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8z1ihat",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8z1i6au",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8z1i792",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8z1iiz7",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8z1i792",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8z1i8r6",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8z1ij5d",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8z1i8r6",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8z1i9gp",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8z1ikcw",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8z1i9gp",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8z1ia5g",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8z1ilwb",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8z1i9gp",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8z1ibia",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8z1im1b",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8z1ia5g",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8z1icm1",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8z1inle",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8z1ibia",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8z1id56",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8z1iosy",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8z1icm1",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8z1iezu",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8z1ips",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8z1id56",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8z1ifwt",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Tanks",
+   "kind": "line",
+   "series": [
+    "Crude",
+    "Petrol",
+    "Diesel"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Column",
+   "kind": "line",
+   "series": [
+    "Column"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.395Z"
+}

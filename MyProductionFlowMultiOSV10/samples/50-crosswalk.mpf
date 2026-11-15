@@ -1,0 +1,377 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "횡단보도",
+ "description": "차량 신호와 보행 신호가 번갈아, 양쪽 대기",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 60,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 120,
+  "floorDepth": 80,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8s1cg6p",
+   "type": "carSource",
+   "name": "Cars",
+   "x": -55,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.12
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Car",
+      "color": "#2563eb",
+      "weight": 3
+     },
+     {
+      "name": "Car",
+      "color": "#dc2626",
+      "weight": 2
+     },
+     {
+      "name": "Car",
+      "color": "#e5e7eb",
+      "weight": 2
+     },
+     {
+      "name": "Truck",
+      "color": "#f59e0b",
+      "weight": 1
+     }
+    ],
+    "shape": "car",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a8s1ch1i",
+   "type": "road",
+   "name": "Approach",
+   "x": -53,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 800,
+    "lanes": 1,
+    "vehicleLength": 6
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     45,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhr4a8s1ci6k",
+   "type": "signal",
+   "name": "Car light",
+   "x": -6,
+   "y": 4,
+   "rot": 0,
+   "props": {
+    "green": 1,
+    "yellow": 0.08,
+    "red": 0.6,
+    "offset": 0,
+    "headway": 0.03
+   }
+  },
+  {
+   "id": "bmwhr4a8s1cj9",
+   "type": "road",
+   "name": "Beyond",
+   "x": -4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 800,
+    "lanes": 1,
+    "vehicleLength": 6
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     50,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhr4a8s1ckcd",
+   "type": "carSink",
+   "name": "Downtown",
+   "x": 48,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  },
+  {
+   "id": "bmwhr4a8s1clzv",
+   "type": "pedSource",
+   "name": "Walkers",
+   "x": 0,
+   "y": -30,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.08
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Visitor",
+      "color": "#8b5cf6",
+      "weight": 3
+     },
+     {
+      "name": "Staff",
+      "color": "#0ea5e9",
+      "weight": 1
+     }
+    ],
+    "shape": "person",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a8s1cmc5",
+   "type": "waitingArea",
+   "name": "Kerb",
+   "x": 0,
+   "y": -18,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8s1cn4q",
+   "type": "crosswalk",
+   "name": "Walk light",
+   "x": 0,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "green": 0.5,
+    "yellow": 0.08,
+    "red": 1.1,
+    "offset": 1.08,
+    "headway": 0.005
+   }
+  },
+  {
+   "id": "bmwhr4a8s1cous",
+   "type": "walkway",
+   "name": "Zebra",
+   "x": 0,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "speed": 70,
+    "spacing": 0.6,
+    "width": 2.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     20
+    ]
+   ]
+  },
+  {
+   "id": "bmwhr4a8s1cp5",
+   "type": "pedSink",
+   "name": "Other side",
+   "x": 0,
+   "y": 16,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8s1cqh3",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1cg6p",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1ch1i",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1cr6y",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1ch1i",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1ci6k",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1csqj",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1ci6k",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1cj9",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1cttz",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1cj9",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1ckcd",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1cuvp",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1clzv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1cmc5",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1cvcs",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1cmc5",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1cn4q",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1cwrl",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1cn4q",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1cous",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1cxqa",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1cous",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1cp5",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Waiting",
+   "kind": "line",
+   "series": [
+    "Approach.contents",
+    "Kerb.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.388Z"
+}

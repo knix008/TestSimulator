@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf36a4i15",
+   "id": "bmwhr4a704ibs",
    "type": "zone",
    "name": "Receiving area",
    "x": -22,
@@ -35,7 +35,7 @@
    "h": 24
   },
   {
-   "id": "bmwhnf36a4joz",
+   "id": "bmwhr4a704js2",
    "type": "zone",
    "name": "Storage",
    "x": 2,
@@ -50,7 +50,7 @@
    "h": 26
   },
   {
-   "id": "bmwhnf36a4kdf",
+   "id": "bmwhr4a704kzn",
    "type": "zone",
    "name": "Shipping area",
    "x": 24,
@@ -65,7 +65,7 @@
    "h": 24
   },
   {
-   "id": "bmwhnf36a4llj",
+   "id": "bmwhr4a704lcw",
    "type": "wall",
    "name": "Wall N",
    "x": -32,
@@ -87,7 +87,7 @@
    ]
   },
   {
-   "id": "bmwhnf36a4mgl",
+   "id": "bmwhr4a704m4i",
    "type": "source",
    "name": "Inbound trucks",
    "x": -28,
@@ -129,7 +129,7 @@
    }
   },
   {
-   "id": "bmwhnf36a4nvv",
+   "id": "bmwhr4a704nxa",
    "type": "dock",
    "name": "Dock doors",
    "x": -22,
@@ -146,7 +146,7 @@
    }
   },
   {
-   "id": "bmwhnf36a4o6s",
+   "id": "bmwhr4a704o32",
    "type": "transporter",
    "name": "Forklifts",
    "x": -15,
@@ -163,7 +163,7 @@
    }
   },
   {
-   "id": "bmwhnf36a4paf",
+   "id": "bmwhr4a704p1b",
    "type": "rack",
    "name": "Rack A",
    "x": 2,
@@ -182,7 +182,7 @@
    }
   },
   {
-   "id": "bmwhnf36a4q4j",
+   "id": "bmwhr4a704q77",
    "type": "rack",
    "name": "Rack B",
    "x": 2,
@@ -201,7 +201,7 @@
    }
   },
   {
-   "id": "bmwhnf36a4rjn",
+   "id": "bmwhr4a714ror",
    "type": "rack",
    "name": "Rack C",
    "x": 2,
@@ -220,7 +220,7 @@
    }
   },
   {
-   "id": "bmwhnf36a4sth",
+   "id": "bmwhr4a714spb",
    "type": "select",
    "name": "Slotting",
    "x": -9,
@@ -235,7 +235,7 @@
    }
   },
   {
-   "id": "bmwhnf36a4tmd",
+   "id": "bmwhr4a714t1f",
    "type": "transporter",
    "name": "Pickers",
    "x": 14,
@@ -252,7 +252,7 @@
    }
   },
   {
-   "id": "bmwhnf36a4uou",
+   "id": "bmwhr4a714uzu",
    "type": "process",
    "name": "Pack station",
    "x": 21,
@@ -286,7 +286,7 @@
    }
   },
   {
-   "id": "bmwhnf36a4vxl",
+   "id": "bmwhr4a714vkg",
    "type": "sink",
    "name": "Outbound",
    "x": 28,
@@ -297,144 +297,144 @@
  ],
  "links": [
   {
-   "id": "lmwhnf36a4wmg",
+   "id": "lmwhr4a714w9d",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36a4mgl",
+    "block": "bmwhr4a704m4i",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36a4nvv",
+    "block": "bmwhr4a704nxa",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36a4xhd",
+   "id": "lmwhr4a714xbr",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36a4nvv",
+    "block": "bmwhr4a704nxa",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36a4o6s",
+    "block": "bmwhr4a704o32",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36a4yvx",
+   "id": "lmwhr4a714ycq",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36a4o6s",
+    "block": "bmwhr4a704o32",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36a4sth",
+    "block": "bmwhr4a714spb",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36a4zl9",
+   "id": "lmwhr4a714zzb",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36a4sth",
+    "block": "bmwhr4a714spb",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36a4paf",
+    "block": "bmwhr4a704p1b",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36a504g",
+   "id": "lmwhr4a7150tu",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36a4sth",
+    "block": "bmwhr4a714spb",
     "port": 1
    },
    "to": {
-    "block": "bmwhnf36a4q4j",
+    "block": "bmwhr4a704q77",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36a51pt",
+   "id": "lmwhr4a7151k9",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36a4sth",
+    "block": "bmwhr4a714spb",
     "port": 2
    },
    "to": {
-    "block": "bmwhnf36a4rjn",
+    "block": "bmwhr4a714ror",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36a522b",
+   "id": "lmwhr4a7152qt",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36a4paf",
+    "block": "bmwhr4a704p1b",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36a4tmd",
+    "block": "bmwhr4a714t1f",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36a53r5",
+   "id": "lmwhr4a715384",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36a4q4j",
+    "block": "bmwhr4a704q77",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36a4tmd",
+    "block": "bmwhr4a714t1f",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36a54p5",
+   "id": "lmwhr4a71549x",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36a4rjn",
+    "block": "bmwhr4a714ror",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36a4tmd",
+    "block": "bmwhr4a714t1f",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36a55ao",
+   "id": "lmwhr4a7155ed",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36a4tmd",
+    "block": "bmwhr4a714t1f",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36a4uou",
+    "block": "bmwhr4a714uzu",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36a561z",
+   "id": "lmwhr4a715673",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36a4uou",
+    "block": "bmwhr4a714uzu",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36a4vxl",
+    "block": "bmwhr4a714vkg",
     "port": 0
    },
    "points": []
@@ -462,5 +462,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:04.978Z"
+ "savedAt": "2026-11-15T11:28:39.325Z"
 }

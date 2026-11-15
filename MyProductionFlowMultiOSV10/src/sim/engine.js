@@ -221,6 +221,7 @@ class SinkNode extends Node {
 
 class QueueNode extends Node {
   constructor(sim, block) { super(sim, block); this.items = []; this.wait = new Tally(); this.reneged = 0; this.cap = capOf(this.p.capacity); }
+  propChanged(prop) { if (prop === 'capacity') this.cap = capOf(this.p.capacity); }
   canAccept() { return this.items.length < this.cap; }
   accept(e) {
     this.enter(e);
@@ -299,6 +300,13 @@ class ProcessNode extends Node {
     const unlimited = base === 'delay' && !(num(this.p.capacity) > 0);
     this.cap = base === 'robot' ? 1 : base === 'dock' ? Math.max(1, Math.round(num(this.p.doors, 1))) : unlimited ? Infinity : Math.max(1, Math.round(num(this.p.capacity, 1)));
     this.servers = []; // { e, state: 'busy'|'blocked', end, ev, remaining, port }
+    // An event changed the capacity.
+    this.propChanged = (prop) => {
+      if (prop !== 'capacity' && prop !== 'doors') return;
+      const b2 = baseOf(this.type);
+      if (b2 === 'robot') return;
+      this.cap = b2 === 'dock' ? Math.max(1, Math.round(num(this.p.doors, 1))) : b2 === 'delay' && !(num(this.p.capacity) > 0) ? Infinity : Math.max(1, Math.round(num(this.p.capacity, 1)));
+    };
     this.busy = new TimeStat(0, 0); this.blocked = new TimeStat(0, 0); this.down = new TimeStat(0, 0); this.setupStat = new TimeStat(0, 0);
     this.failed = false; this.lastType = null; this.rejects = 0; this.failures = 0;
     this.time = new Tally();
@@ -444,6 +452,7 @@ class PoolNode extends Node {
     const bounds = rows.flatMap((r) => [num(r.start), num(r.end)]).map((b) => (b > phase + 1e-9 ? b - phase : b + period - phase)).filter((d) => d > 1e-9);
     this.sim.after(bounds.length ? Math.min(...bounds) : period, () => this.applyShift());
   }
+  propChanged(prop) { if (prop === 'capacity') this.setCapacity(Math.max(0, Math.round(num(this.p.capacity, 1)))); }
   setCapacity(c) {
     this.capacity = c;
     this.capStat.set(this.now, c);
@@ -587,6 +596,8 @@ class GateNode extends PassNode {
     }
   }
   poll() { this.setOpen(Boolean(this.sim.evalExpr(this.p.condition))); this.sim.after(this.sim.pollStep, () => this.poll()); }
+  /** An event sets `open` (1 = open, 0 = closed). */
+  propChanged(prop) { if (prop === 'open' && !this.signal) this.setOpen(Boolean(num(this.p.open))); }
   toggle() {
     this.setOpen(!this.isOpen);
     this.sim.after(num(this.isOpen ? this.p.openTime : this.p.closedTime, 30) || this.sim.pollStep, () => this.toggle());
@@ -1210,6 +1221,62 @@ class MaintenanceNode extends Node {
 /** Merge (junction): several inputs into one output. */
 class MergeNode extends PassNode {}
 
+/**
+ * Event (AnyLogic's Event): at a time, on a cycle or when a condition becomes true, sets a block property
+ * (capacity, a distribution's mean …) or an SD parameter to the value of an expression; `current` is the old value.
+ * The change is made on a copy of the block's properties (never on the model being edited).
+ */
+class EventNode extends Node {
+  constructor(sim, block) { super(sim, block); this.fired = 0; this.total = 0; this.lastValue = NaN; }
+  start() {
+    const max = Math.max(0, Math.round(num(this.p.maxTimes)));
+    const fire = () => { if (max > 0 && this.total >= max) return false; this.total += 1; this.fired += 1; this.apply(); return true; };
+    const first = Math.max(0, num(this.p.startAt));
+    if (this.p.trigger === 'condition') {
+      let was = false;
+      const poll = () => {
+        const now = Boolean(this.sim.evalExpr(this.p.condition));
+        if (now && !was && !fire()) return;
+        was = now;
+        this.sim.after(this.sim.pollStep, poll);
+      };
+      this.sim.at(first, poll);
+      return;
+    }
+    const go = () => { if (!fire()) return; if (this.p.trigger === 'cyclic') this.sim.after(Math.max(1e-6, this.sim.sample(this.p.every)), go); };
+    this.sim.at(first, go);
+  }
+  valueFrom(current) {
+    const c = compile(String(this.p.newValue ?? ''));
+    if (!c.ok) return NaN;
+    return Number(c.eval((n) => (n === 'current' ? current : this.sim.lookup(n)), { time: this.now, random: this.sim.random }));
+  }
+  apply() {
+    const name = this.p.targetBlock;
+    const param = this.sim.sd.params.get(name);
+    if (param) {
+      const v = this.valueFrom(param.value);
+      if (Number.isFinite(v)) { this.sim.setParameter(name, v); this.lastValue = v; this.sim.log(this, 'eventFired', { target: name, value: +v.toFixed(4) }); }
+      return;
+    }
+    const node = this.sim.byName.get(name);
+    const path = String(this.p.property ?? '').trim();
+    if (!node || !path) return;
+    const [prop, sub] = path.split('.');
+    const old = sub ? node.p[prop]?.[sub] : node.p[prop];
+    const v = this.valueFrom(Number(old ?? 0));
+    if (!Number.isFinite(v)) return;
+    node.p = { ...node.p, [prop]: sub ? { ...node.p[prop], [sub]: v } : v };
+    this.lastValue = v;
+    node.propChanged?.(prop);
+    node.notifyUp();
+    this.sim.log(this, 'eventFired', { target: name + "." + path, value: +v.toFixed(4) });
+  }
+  metric(name) { if (name === 'count') return this.fired; if (name === 'value') return this.lastValue; return super.metric(name); }
+  resetStats(now) { super.resetStats(now); this.fired = 0; }
+  summary() { return { fired: this.fired, lastValue: this.lastValue }; }
+}
+
 /** A cellular automaton: a grid of cells, each in a state, changing by its neighbours (forest fire, Game of Life). */
 class CellGridNode extends Node {
   constructor(sim, block) {
@@ -1278,7 +1345,7 @@ const NODE_CLASSES = {
   combine: CombineNode, batch: BatchNode, unbatch: UnbatchNode, conveyor: ConveyorNode, road: ConveyorNode, transporter: TransporterNode,
   rack: StoreNode, parking: StoreNode, population: PopulationNode,
   split: SplitNode, match: MatchNode, restrictedStart: RestrictedStartNode, restrictedEnd: RestrictedEndNode, timeStart: TimeStartNode, timeEnd: TimeEndNode,
-  maintenance: MaintenanceNode, merge: MergeNode, cellGrid: CellGridNode,
+  maintenance: MaintenanceNode, merge: MergeNode, cellGrid: CellGridNode, event: EventNode,
 };
 
 /** Linear interpolation in a table (SD lookup), flat beyond its ends. */

@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf36j8upr",
+   "id": "bmwhr4a778ucs",
    "type": "source",
    "name": "Customers",
    "x": -14,
@@ -62,7 +62,7 @@
    }
   },
   {
-   "id": "bmwhnf36j8vi9",
+   "id": "bmwhr4a778vtr",
    "type": "queue",
    "name": "Waiting line",
    "x": -7,
@@ -75,7 +75,7 @@
    }
   },
   {
-   "id": "bmwhnf36j8w2z",
+   "id": "bmwhr4a778w64",
    "type": "process",
    "name": "Tellers",
    "x": 1,
@@ -109,7 +109,7 @@
    }
   },
   {
-   "id": "bmwhnf36j8xgj",
+   "id": "bmwhr4a778xip",
    "type": "sink",
    "name": "Served",
    "x": 8,
@@ -118,7 +118,7 @@
    "props": {}
   },
   {
-   "id": "bmwhnf36j8y2f",
+   "id": "bmwhr4a778y9s",
    "type": "sink",
    "name": "Gave up",
    "x": -7,
@@ -129,53 +129,53 @@
  ],
  "links": [
   {
-   "id": "lmwhnf36j8zg5",
+   "id": "lmwhr4a778zzv",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36j8upr",
+    "block": "bmwhr4a778ucs",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36j8vi9",
+    "block": "bmwhr4a778vtr",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36j907c",
+   "id": "lmwhr4a77907o",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36j8vi9",
+    "block": "bmwhr4a778vtr",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36j8w2z",
+    "block": "bmwhr4a778w64",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36j91nt",
+   "id": "lmwhr4a7791ws",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36j8w2z",
+    "block": "bmwhr4a778w64",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36j8xgj",
+    "block": "bmwhr4a778xip",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36j92cw",
+   "id": "lmwhr4a779258",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36j8vi9",
+    "block": "bmwhr4a778vtr",
     "port": 1
    },
    "to": {
-    "block": "bmwhnf36j8y2f",
+    "block": "bmwhr4a778y9s",
     "port": 0
    },
    "points": []
@@ -192,5 +192,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:04.988Z"
+ "savedAt": "2026-11-15T11:28:39.331Z"
 }

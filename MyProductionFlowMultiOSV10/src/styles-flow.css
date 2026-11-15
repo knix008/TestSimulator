@@ -271,3 +271,173 @@ input[type="range"] { width: 100%; }
 .problem-fix { display: flex; align-items: center; gap: 4px; color: var(--muted); margin-top: 2px; }
 .tab-count.good { background: #22c55e; color: #fff; }
 .problem-row > span { display: flex; flex-direction: column; }
+
+/* Experiments: five kinds, sensitivity parameter list, multi-parameter rows, tornado, scenarios. */
+.exp-kinds { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.exp-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2px 12px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; max-height: 150px; overflow: auto; }
+.exp-checks > b { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; font-size: 0.9em; margin-bottom: 2px; }
+.exp-check { display: flex; gap: 6px; align-items: center; font-size: 0.88em; min-width: 0; }
+.exp-check span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exp-multi { display: flex; flex-direction: column; gap: 6px; }
+.exp-multi-row { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 96px) 34px auto; gap: 6px; align-items: end; }
+.exp-multi-row label { display: flex; flex-direction: column; gap: 2px; }
+.exp-multi-row input { width: 100%; }
+.exp-multi-row > small { text-align: center; padding-bottom: 6px; }
+.exp-multi > .button { align-self: flex-start; }
+.chart.tornado .chart-label { font-size: 11px; fill: currentColor; }
+.scen-view { margin-top: 14px; }
+.scen-scroll { overflow-x: auto; }
+.scen-table th:first-child { text-align: left; }
+.scen-table td small.up { color: #16a34a; }
+.scen-table td small.down { color: #dc2626; }
+.scen-table td.scen-diff { text-align: left; white-space: normal; font-size: 0.9em; vertical-align: top; min-width: 160px; }
+.scen-table thead th .icon-button { width: 18px; height: 18px; vertical-align: middle; }
+
+/* Run bar: record (red while recording) and follow buttons. */
+.run-controls .run-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; align-self: center; }
+.run-controls .tool-button.recording .icon { color: #dc2626; animation: rec-blink 1.2s steps(2, start) infinite; }
+@keyframes rec-blink { to { opacity: 0.35; } }
+
+/* Toolbar playback speed: − ×4 + */
+.tool-button.tool-speed { min-width: 52px; justify-content: center; font-variant-numeric: tabular-nums; font-weight: 700; }
+.tool-button.tool-speed span { font-size: 0.92em; }
+
+/* Number fields everywhere: [ − ] value unit [ + ] (src/ui/numbox.js). */
+.num-box { display: flex; align-items: stretch; width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); overflow: hidden; }
+.num-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.num-box .num-field { flex: 1; min-width: 0; gap: 2px; padding-right: 4px; }
+.num-box .num-field input { border: 0 !important; box-shadow: none !important; background: transparent; text-align: center; padding-left: 2px; padding-right: 2px; -moz-appearance: textfield; }
+.num-box .num-field input::-webkit-outer-spin-button, .num-box .num-field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.num-step { flex: none; width: 22px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: var(--hover); color: var(--muted); cursor: pointer; padding: 0; }
+.num-step .icon { width: 12px; height: 12px; }
+.num-step:hover:not(:disabled) { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.num-step:disabled { opacity: 0.45; cursor: default; }
+.dist-param .num-box input { font-size: 1.1em; }
+.list-row .num-box .num-step { width: 18px; }
+
+/* Theme dropdown: swatches in the menu, a palette + ▾ toolbar button. */
+.menu-icon .menu-swatch i { width: 6px; height: 14px; }
+.tool-button.tool-dropdown { width: auto; gap: 1px; padding: 0 4px; }
+.tool-button.tool-dropdown .icon.tiny { width: 11px; height: 11px; }
+
+/* Theme dropdown (popup "theme"): custom + settings, dark themes in 2 columns, light themes in 2 columns. */
+.theme-dropdown { display: flex; flex-direction: column; gap: 2px; width: 100%; max-width: none; min-width: 0; max-height: 100vh; box-sizing: border-box; overflow: auto; }
+.theme-dropdown .picker-top { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.theme-dropdown .picker-head { display: flex; align-items: center; gap: 6px; margin: 8px 4px 3px; font-size: 0.78em; color: var(--muted); font-weight: 700; }
+.theme-dropdown .picker-head .icon { width: 14px; height: 14px; }
+.theme-dropdown .picker-grid { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: row; gap: 1px 6px; }
+.theme-dropdown .picker-item { height: 27px; overflow: hidden; }
+.theme-dropdown .picker-item .theme-name { overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.theme-dropdown .picker-item .theme-swatch i { width: 7px; height: 14px; }
+
+/* Document windows: the language segments show the Korean and the UK flag. */
+.segment .flag { width: 20px; height: 14px; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); flex: none; }
+.segment:has(.flag) { gap: 6px; }
+
+/* Settings: explanations as full-width notes. */
+.row.settings-note { display: block; padding: 6px 4px; }
+.settings-note .note-text { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); font-size: 0.9em; line-height: 1.45; }
+.settings-note .note-text .icon { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--accent); }
+
+/* Settings › Shortcuts: one page, three columns, readable size. */
+.shortcut-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
+.shortcut-row { height: 31px; font-size: 1em; gap: 10px; }
+.shortcut-row kbd { font-size: 0.92em; min-width: 92px; padding: 3px 7px; text-align: center; }
+
+/* Report window: sections + formats on the left, the preview on the right. */
+.rp-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 14px; height: 100%; min-height: 0; }
+.popup-report .popup-body { overflow: hidden; }
+.rp-side { display: flex; flex-direction: column; gap: 6px; overflow: auto; padding-right: 4px; }
+.rp-side h3, .ps-label { display: flex; align-items: center; gap: 6px; margin: 6px 0 2px; font-size: 0.86em; color: var(--muted); font-weight: 700; }
+.rp-side h3 .icon, .ps-label .icon { width: 15px; height: 15px; }
+.rp-sections { display: grid; grid-template-columns: 1fr; gap: 2px; }
+.rp-check { display: flex; align-items: center; gap: 7px; min-height: 26px; font-size: 0.92em; cursor: pointer; }
+.rp-check .icon { width: 15px; height: 15px; color: var(--accent); }
+.rp-formats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rp-format { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; gap: 0 8px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); cursor: pointer; text-align: left; }
+.rp-format .icon { grid-row: span 2; width: 26px; height: 26px; color: var(--accent); }
+.rp-format small { color: var(--muted); }
+.rp-format:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.rp-hint { display: flex; gap: 6px; font-size: 0.82em; color: var(--muted); margin: 8px 0 0; }
+.rp-hint .icon { width: 14px; height: 14px; flex: none; }
+.rp-preview { width: 100%; height: 100%; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+
+/* Print window: setup on the left, the pages on the right. */
+.popup-print .popup-body { padding: 12px; overflow: hidden; }
+.ps-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 14px; height: 100%; min-height: 0; }
+.ps-side { display: flex; flex-direction: column; gap: 4px; overflow: auto; padding-right: 6px; }
+.ps-field { display: flex; flex-direction: column; gap: 3px; }
+.ps-field select { width: 100%; }
+.ps-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.ps-range .num-box { width: 130px; }
+.ps-info { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--hover); display: grid; gap: 3px; font-size: 0.9em; }
+.ps-info div { display: flex; justify-content: space-between; gap: 10px; }
+.ps-info span { color: var(--muted); }
+.ps-status { margin: 6px 0 0; font-size: 0.88em; }
+.ps-status.ok { color: #16a34a; } .ps-status.error { color: var(--danger, #dc2626); }
+.ps-preview { overflow: auto; background: color-mix(in srgb, var(--text) 14%, var(--bg)); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.ps-page { margin: 0; width: min(100%, 640px); position: relative; background: #fff; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3); }
+.ps-page img { display: block; width: 100%; height: 100%; }
+.ps-page figcaption { position: absolute; right: 8px; bottom: -20px; font-size: 0.8em; color: var(--muted); }
+.ps-page.skipped { opacity: 0.35; }
+.ps-wait { margin: auto; display: flex; gap: 8px; align-items: center; color: var(--muted); }
+#ps-print-sheets { display: none; }
+@media print {
+  html.popup-kind-print body > *:not(#ps-print-sheets) { display: none !important; }
+  html.popup-kind-print #ps-print-sheets { display: block !important; }
+  #ps-print-sheets img { display: block; break-after: page; page-break-after: always; }
+  #ps-print-sheets img:last-child { break-after: auto; page-break-after: auto; }
+}
+
+/* Panel buttons on the menu bar, left of minimize. */
+.menubar-panels { display: flex; align-items: center; gap: 2px; padding: 0 6px; flex: none; align-self: center; }
+.menubar-panels .tool-button { width: 30px; height: 26px; }
+.menubar-panels .tool-button .icon { width: 17px; height: 17px; }
+
+/* Print window: compact page setup without a scroll bar. */
+.ps-side { overflow: visible; gap: 6px; }
+.ps-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ps-pair .segmented { width: 100%; }
+.ps-pair .segmented .segment { flex: 1; justify-content: center; }
+.ps-sections .rp-sections { grid-template-columns: 1fr 1fr; gap: 0 8px; }
+.ps-sections .rp-check { min-height: 24px; font-size: 0.88em; }
+.ps-info { margin-top: 4px; }
+.ps-label { margin: 2px 0 1px; }
+
+/* Panels: readable label sizes (nothing under 11.5 px), steady widths, labels and fields in columns. */
+.lib-body, #properties, .explorer-tree { scrollbar-gutter: stable; }
+.lib-chip { font-size: max(12px, 0.92em); }
+.lib-chip small { font-size: max(11.5px, 0.88em); }
+.lib-hint { font-size: max(11.5px, 0.86em); }
+.lib-card b { font-size: max(12.5px, 0.95em); }
+.lib-card small { font-size: max(11.5px, 0.82em); }
+.tree-row small, .tree-row .muted { font-size: max(11.5px, 0.85em); }
+.num-field i { font-size: max(11.5px, 0.85em); }
+.prop-label { font-size: max(12px, 0.9em); }
+.prop-hint, .panel-hint { font-size: max(11.5px, 0.85em); }
+.model-badges { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 6px; }
+.model-badges .badge { font-size: max(11.5px, 0.85em); justify-content: flex-start; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.dist-params { grid-template-columns: 1fr; gap: 4px; }
+.dist-param { display: grid; grid-template-columns: 3.4em minmax(0, 1fr); align-items: center; gap: 6px; flex-direction: row; font-size: max(11.5px, 0.85em); }
+.dist-param > span { text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dist-range { font-size: max(11.5px, 0.85em); }
+
+/* Settings › Shortcuts: every key in the same column width, the descriptions lined up beside them. */
+.shortcut-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 18px; }
+.shortcut-row { display: grid; grid-template-columns: 134px minmax(0, 1fr); align-items: center; gap: 10px; height: 31px; font-size: 13px; }
+.shortcut-row kbd { min-width: 0; width: 100%; box-sizing: border-box; text-align: center; font-family: inherit; font-size: 12px; font-weight: 600; padding: 2px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shortcut-row span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* A distribution: its parameters as sub-rows lined up with the other properties, the preview under the boxes. */
+.dist-group { display: flex; flex-direction: column; }
+.prop-row.dist-sub .prop-label { padding-left: 19px; }
+.prop-row.dist-sub .prop-label::before { content: '└'; color: var(--border); margin-right: 4px; font-size: 0.9em; }
+.dist-preview-row { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 6px; padding: 2px 0 6px; }
+.dist-preview-row > .dist-preview { grid-column: 2; width: 100%; height: 34px; }
+.dist-preview-row > .dist-range { grid-column: 2; display: flex; justify-content: space-between; }
+
+/* Every popup's × (and the tutorial card's): red on hover, like the main window's close button. */
+.popup-head [data-action="close"], .tour-card [data-tour="stop"] { transition: background-color 0.12s, color 0.12s; }
+.popup-head [data-action="close"]:hover, .popup-head [data-action="close"]:focus-visible,
+.tour-card [data-tour="stop"]:hover, .tour-card [data-tour="stop"]:focus-visible { background: #e81123 !important; color: #fff !important; }
+.popup-head [data-action="close"]:hover .icon, .tour-card [data-tour="stop"]:hover .icon { color: #fff !important; stroke: currentColor; }

@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf37vt073",
+   "id": "bmwhr4a83t0i4",
    "type": "trainSource",
    "name": "Trains",
    "x": -150,
@@ -69,7 +69,7 @@
    }
   },
   {
-   "id": "bmwhnf37vt1ur",
+   "id": "bmwhr4a83t16j",
    "type": "railTrack",
    "name": "Main line",
    "x": -148,
@@ -93,7 +93,7 @@
    ]
   },
   {
-   "id": "bmwhnf37vt2vm",
+   "id": "bmwhr4a83t2s5",
    "type": "railSwitch",
    "name": "Junction",
    "x": -64,
@@ -108,7 +108,7 @@
    }
   },
   {
-   "id": "bmwhnf37vt3nh",
+   "id": "bmwhr4a83t3nk",
    "type": "railTrack",
    "name": "Passenger line",
    "x": -62,
@@ -136,7 +136,7 @@
    ]
   },
   {
-   "id": "bmwhnf37vt479",
+   "id": "bmwhr4a83t43n",
    "type": "railStation",
    "name": "Central station",
    "x": 10,
@@ -170,7 +170,7 @@
    }
   },
   {
-   "id": "bmwhnf37vt5f3",
+   "id": "bmwhr4a83t5i",
    "type": "railSignal",
    "name": "Exit signal",
    "x": 22,
@@ -185,7 +185,7 @@
    }
   },
   {
-   "id": "bmwhnf37vt6ii",
+   "id": "bmwhr4a83t6k8",
    "type": "railTrack",
    "name": "East line",
    "x": 24,
@@ -209,7 +209,7 @@
    ]
   },
   {
-   "id": "bmwhnf37vt7og",
+   "id": "bmwhr4a83t7at",
    "type": "trainSink",
    "name": "East",
    "x": 126,
@@ -218,7 +218,7 @@
    "props": {}
   },
   {
-   "id": "bmwhnf37vt8j5",
+   "id": "bmwhr4a83t83w",
    "type": "railTrack",
    "name": "Freight line",
    "x": -62,
@@ -246,7 +246,7 @@
    ]
   },
   {
-   "id": "bmwhnf37vt9tq",
+   "id": "bmwhr4a83t9e2",
    "type": "railYard",
    "name": "Freight yard",
    "x": 6,
@@ -267,7 +267,7 @@
    }
   },
   {
-   "id": "bmwhnf37vtarm",
+   "id": "bmwhr4a83taiy",
    "type": "railTrack",
    "name": "Yard exit",
    "x": 24,
@@ -291,7 +291,7 @@
    ]
   },
   {
-   "id": "bmwhnf37vtbdz",
+   "id": "bmwhr4a83tbr",
    "type": "trainSink",
    "name": "Port",
    "x": 126,
@@ -302,144 +302,144 @@
  ],
  "links": [
   {
-   "id": "lmwhnf37vtckw",
+   "id": "lmwhr4a83tcly",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37vt073",
+    "block": "bmwhr4a83t0i4",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37vt1ur",
+    "block": "bmwhr4a83t16j",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37vtd4v",
+   "id": "lmwhr4a83td9f",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37vt1ur",
+    "block": "bmwhr4a83t16j",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37vt2vm",
+    "block": "bmwhr4a83t2s5",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37vtecx",
+   "id": "lmwhr4a83te2p",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37vt2vm",
+    "block": "bmwhr4a83t2s5",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37vt3nh",
+    "block": "bmwhr4a83t3nk",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37vtf4",
+   "id": "lmwhr4a83tfz8",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37vt2vm",
+    "block": "bmwhr4a83t2s5",
     "port": 1
    },
    "to": {
-    "block": "bmwhnf37vt8j5",
+    "block": "bmwhr4a83t83w",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37vtg36",
+   "id": "lmwhr4a83tgqn",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37vt3nh",
+    "block": "bmwhr4a83t3nk",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37vt479",
+    "block": "bmwhr4a83t43n",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37vthkd",
+   "id": "lmwhr4a83thgs",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37vt479",
+    "block": "bmwhr4a83t43n",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37vt5f3",
+    "block": "bmwhr4a83t5i",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37vti35",
+   "id": "lmwhr4a83tiv1",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37vt5f3",
+    "block": "bmwhr4a83t5i",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37vt6ii",
+    "block": "bmwhr4a83t6k8",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37vtjk3",
+   "id": "lmwhr4a83tj7m",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37vt6ii",
+    "block": "bmwhr4a83t6k8",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37vt7og",
+    "block": "bmwhr4a83t7at",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37vtk8t",
+   "id": "lmwhr4a83tku0",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37vt8j5",
+    "block": "bmwhr4a83t83w",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37vt9tq",
+    "block": "bmwhr4a83t9e2",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37vtlxf",
+   "id": "lmwhr4a83tlsy",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37vt9tq",
+    "block": "bmwhr4a83t9e2",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37vtarm",
+    "block": "bmwhr4a83taiy",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37vtm40",
+   "id": "lmwhr4a83tmnw",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37vtarm",
+    "block": "bmwhr4a83taiy",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37vtbdz",
+    "block": "bmwhr4a83tbr",
     "port": 0
    },
    "points": []
@@ -457,5 +457,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:05.036Z"
+ "savedAt": "2026-11-15T11:28:39.363Z"
 }

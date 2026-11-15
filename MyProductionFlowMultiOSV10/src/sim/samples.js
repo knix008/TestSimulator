@@ -729,6 +729,193 @@ export const SAMPLE_PROJECTS = [
   S('lifeSample', 'agents', 'fLife', ['생명 게임', '콘웨이 규칙의 셀 자동자 패턴'], ['Game of Life', "Conway's rules on a cell grid"], () => build('Game of Life', { timeUnit: 's', duration: 300, agentDt: 1 }, (a) => {
     a.add('gameOfLife', 'Life', 0, 0, { cols: 90, rows: 56 }, { w: 45, h: 28 }); a.chart('Alive cells', ['Life.Alive']);
   })),
+  // ── more samples (10 in every group)
+  S('injectionMolding', 'manufacturing', 'fInjection', ['사출 성형 공장', '사출기 4대(유형 변경 준비·고장), 검사, 팔레타이징, 잔업 이벤트'], ['Injection moulding', '4 moulding machines (changeovers, breakdowns), inspection, palletizing, overtime event'], () => build('Injection moulding', { timeUnit: 'min', duration: 1440, warmup: 60 }, (a) => {
+    a.add('source', 'Resin orders', -24, 0, { interarrival: expo(1.1), shape: 'part', types: [{ name: 'Cap', color: '#2563eb', weight: 3 }, { name: 'Housing', color: '#16a34a', weight: 2 }, { name: 'Clip', color: '#f59e0b', weight: 1 }] });
+    a.add('queue', 'Order queue', -18, 0); a.add('select', 'Assign press', -13, 0, { outputs: 4, mode: 'shortest' });
+    for (let i = 0; i < 4; i++) a.add('injectionMolder', `Press ${i + 1}`, -6, -9 + i * 6, { time: tri(3, 3.8, 5), setup: 12, failures: true, mtbf: expo(600), mttr: tri(15, 25, 45) });
+    a.add('merge', 'Collect', 1, 0, { inputs: 4 }); a.add('inspectionStation', 'Vision check', 6, 0, { defectRate: 0.03 });
+    a.add('palletizer', 'Palletize', 11, 0, { size: 24, outType: 'Pallet', shape: 'pallet' }); a.add('sink', 'Warehouse', 17, 0); a.add('sink', 'Regrind', 6, 7);
+    a.add('event', 'Overtime', 11, -8, { trigger: 'once', startAt: 960, targetBlock: 'Vision check', property: 'capacity', newValue: 'current + 1' });
+    a.chain('Resin orders', 'Order queue', 'Assign press');
+    for (let i = 0; i < 4; i++) { a.link('Assign press', `Press ${i + 1}`, i); a.link(`Press ${i + 1}`, 'Collect', 0, i); }
+    a.chain('Collect', 'Vision check', 'Palletize', 'Warehouse'); a.link('Vision check', 'Regrind', 1);
+    a.chart('Presses', ['Press 1.utilization', 'Press 2.utilization', 'Press 3.utilization', 'Press 4.utilization']); a.chart('Order queue', ['Order queue.length']);
+  })),
+  S('coldChain', 'logistics', 'fCold', ['콜드체인 물류센터', '입고 → 품질 보류 → 냉장 창고 → 피킹 → 출고'], ['Cold-chain centre', 'Receiving → quality hold → cold storage → picking → shipping'], () => build('Cold-chain centre', { timeUnit: 'min', duration: 1440, floorWidth: 80 }, (a) => {
+    a.add('zone', 'Cold room', 2, 0, { fill: '#cffafe' }, { w: 22, h: 18 });
+    a.add('source', 'Reefer trucks', -28, 0, { interarrival: expo(2.5), shape: 'pallet', types: [{ name: 'Dairy', color: '#f8fafc', weight: 2 }, { name: 'Meat', color: '#dc2626', weight: 1 }, { name: 'Produce', color: '#16a34a', weight: 2 }] });
+    a.add('receivingDock', 'Receiving', -22, 0, { doors: 2, time: tri(1, 2, 4) }); a.add('qualityHold', 'Temp check', -15, 0, { time: tri(5, 10, 20), capacity: 20 });
+    a.add('forkliftFleet', 'Reach trucks', -9, 0, { fleet: 2, speed: 70 }); a.add('coldStorage', 'Cold store', 2, 0, { bays: 12, levels: 4, dwell: tri(120, 360, 900) });
+    a.add('pickStation', 'Order pick', 14, 0, { capacity: 2, time: tri(1.5, 2.5, 4) }); a.add('shippingDock', 'Dispatch', 20, 0, { doors: 2, time: tri(1, 1.5, 3) }); a.add('sink', 'Stores', 26, 0);
+    a.chain('Reefer trucks', 'Receiving', 'Temp check', 'Reach trucks', 'Cold store', 'Order pick', 'Dispatch', 'Stores');
+    a.chart('Cold store', ['Cold store.contents']); a.chart('Hold', ['Temp check.contents']);
+  })),
+  S('droneDelivery', 'logistics', 'fDrone', ['드론 배송 허브', '주문 포장 후 드론 무리가 배송, 충전 시간 포함'], ['Drone delivery hub', 'Orders packed, then a drone fleet delivers (with recharge time)'], () => build('Drone delivery hub', { timeUnit: 'min', duration: 720, floorWidth: 70 }, (a) => {
+    a.add('source', 'App orders', -24, 0, { arrivalMode: 'schedule', period: 720, schedule: [{ start: 0, end: 180, value: 0.5 }, { start: 180, end: 420, value: 1.2 }, { start: 420, end: 720, value: 0.8 }], shape: 'carton' });
+    a.add('queue', 'Order pool', -18, 0); a.add('packStation', 'Pack', -12, 0, { capacity: 2, time: tri(0.8, 1.2, 2) });
+    a.add('queue', 'Launch pad', -6, 0, { capacity: 20 }); a.add('droneFleet', 'Drones', 4, 0, { fleet: 6, speed: 300, loadTime: 0.5, unloadTime: 0.5 });
+    a.add('delay', 'Flight', 12, 0, { time: tri(8, 12, 18) }); a.add('sink', 'Delivered', 18, 0);
+    a.chain('App orders', 'Order pool', 'Pack', 'Launch pad', 'Drones', 'Flight', 'Delivered');
+    a.chart('Drones', ['Drones.utilization']); a.chart('Waiting', ['Order pool.length', 'Launch pad.length']);
+  })),
+  S('milkRun', 'logistics', 'fTugger', ['밀크런 부품 공급', '슈퍼마켓 → 6개씩 묶어 견인 열차 → 조립 셀 3곳'], ['Milk run', 'Supermarket → batches of 6 on a tugger train → 3 assembly cells'], () => build('Milk run', { timeUnit: 'min', duration: 960, floorWidth: 70 }, (a) => {
+    a.add('source', 'Parts', -26, 0, { interarrival: expo(1), shape: 'carton' }); a.add('floorStorage', 'Supermarket', -18, 0, { bays: 20, levels: 2, dwell: cst(5) });
+    a.add('batch', 'Load train', -10, 0, { size: 6, outType: 'Train load', shape: 'pallet' }); a.add('tuggerTrain', 'Tugger', -3, 0, { fleet: 1, speed: 60 });
+    a.add('unbatch', 'Unload', 4, 0); a.add('select', 'Line side', 8, 0, { outputs: 3, mode: 'roundRobin' });
+    for (let i = 0; i < 3; i++) a.add('assemblyStation', `Cell ${i + 1}`, 14, -6 + i * 6, { time: tri(2, 2.8, 4) });
+    a.add('merge', 'Done', 20, 0, { inputs: 3 }); a.add('sink', 'Finished', 25, 0);
+    a.chain('Parts', 'Supermarket', 'Load train', 'Tugger', 'Unload', 'Line side');
+    for (let i = 0; i < 3; i++) { a.link('Line side', `Cell ${i + 1}`, i); a.link(`Cell ${i + 1}`, 'Done', 0, i); } a.link('Done', 'Finished');
+    a.chart('Tugger', ['Tugger.utilization']); a.chart('Cells', ['Cell 1.utilization', 'Cell 2.utilization', 'Cell 3.utilization']);
+  })),
+  S('supermarket', 'services', 'fCounter', ['마트 계산대', '쇼핑 후 일반 계산대 4곳과 셀프 계산대 중 짧은 줄로'], ['Supermarket checkout', 'Shop, then the shortest of 4 tills or self-checkout'], () => build('Supermarket', { timeUnit: 'min', duration: 600 }, (a) => {
+    a.add('pedSource', 'Shoppers', -22, 0, { arrivalMode: 'schedule', period: 600, schedule: [{ start: 0, end: 180, value: 1.2 }, { start: 180, end: 420, value: 2.5 }, { start: 420, end: 600, value: 1.6 }] });
+    a.add('delay', 'Shopping', -15, 0, { time: tri(8, 18, 40), capacity: 0 }); a.add('select', 'Pick a line', -8, 0, { outputs: 5, mode: 'shortest' });
+    for (let i = 0; i < 4; i++) { a.add('queue', `Line ${i + 1}`, -2, -10 + i * 5, { capacity: 10 }); a.add('pedService', `Till ${i + 1}`, 4, -10 + i * 5, { look: 'checkout', time: tri(1, 2, 4) }); }
+    a.add('queue', 'Self line', -2, 10, { capacity: 10 }); a.add('pedService', 'Self-checkout', 4, 10, { look: 'checkout', capacity: 4, time: tri(1.5, 3, 6) });
+    a.add('merge', 'Exit', 10, 0, { inputs: 5 }); a.add('pedSink', 'Car park', 15, 0);
+    a.chain('Shoppers', 'Shopping', 'Pick a line');
+    for (let i = 0; i < 4; i++) { a.link('Pick a line', `Line ${i + 1}`, i); a.link(`Line ${i + 1}`, `Till ${i + 1}`); a.link(`Till ${i + 1}`, 'Exit', 0, i); }
+    a.link('Pick a line', 'Self line', 4); a.link('Self line', 'Self-checkout'); a.link('Self-checkout', 'Exit', 0, 4); a.link('Exit', 'Car park');
+    a.chart('Lines', ['Line 1.length', 'Line 2.length', 'Self line.length']);
+  })),
+  S('clinic', 'services', 'tplHospital', ['외래 진료소', '접수 → 의사 진료(자원 풀) → 검사 30% → 약국'], ['Outpatient clinic', 'Reception → doctor (pool) → lab for 30% → pharmacy'], () => build('Outpatient clinic', { timeUnit: 'min', duration: 540 }, (a) => {
+    a.add('resourcePool', 'Doctors', 0, -9, { capacity: 4, kind: 'worker' });
+    a.add('source', 'Patients', -24, 0, { arrivalMode: 'schedule', period: 540, schedule: [{ start: 0, end: 120, value: 0.6 }, { start: 120, end: 300, value: 0.35 }, { start: 300, end: 540, value: 0.5 }], shape: 'patient' });
+    a.add('process', 'Reception', -18, 0, { look: 'desk', capacity: 2, time: tri(1, 2, 4) }); a.add('queue', 'Waiting room', -12, 0);
+    a.add('seize', 'Call doctor', -6, 0, { pool: 'Doctors' }); a.add('process', 'Consultation', 0, 0, { look: 'bed', capacity: 4, time: tri(5, 9, 18) }); a.add('release', 'Doctor free', 5, 0, { pool: 'Doctors' });
+    a.add('select', 'Needs lab?', 9, 0, { outputs: 2, mode: 'probability', weights: '0.3, 0.7' }); a.add('process', 'Lab', 14, -5, { look: 'test', capacity: 2, time: tri(5, 10, 20) });
+    a.add('merge', 'To pharmacy', 18, 0, { inputs: 2 }); a.add('process', 'Pharmacy', 22, 0, { look: 'checkout', capacity: 2, time: tri(1, 3, 6) }); a.add('sink', 'Home', 27, 0);
+    a.chain('Patients', 'Reception', 'Waiting room', 'Call doctor', 'Consultation', 'Doctor free', 'Needs lab?');
+    a.link('Needs lab?', 'Lab', 0); a.link('Needs lab?', 'To pharmacy', 1, 1); a.link('Lab', 'To pharmacy', 0, 0); a.chain('To pharmacy', 'Pharmacy', 'Home');
+    a.chart('Waiting', ['Waiting room.length']); a.chart('Doctors', ['Doctors.utilization']);
+  })),
+  S('driveThru', 'services', 'fCar', ['드라이브 스루', '주문 창구 → 결제 → 픽업, 줄이 길면 그냥 지나감'], ['Drive-through', 'Order → pay → pick up; cars drive past when the lane is long'], () => build('Drive-through', { timeUnit: 'min', duration: 300 }, (a) => {
+    a.add('carSource', 'Cars', -22, 0, { arrivalMode: 'schedule', period: 300, schedule: [{ start: 0, end: 90, value: 0.6 }, { start: 90, end: 180, value: 1.4 }, { start: 180, end: 300, value: 0.8 }] });
+    a.add('queue', 'Lane', -15, 0, { capacity: 10, timeout: 8 }); a.add('process', 'Order window', -8, 0, { look: 'desk', time: tri(0.5, 0.9, 1.6) });
+    a.add('queue', 'Between', -3, 0, { capacity: 3 }); a.add('process', 'Pay window', 2, 0, { look: 'checkout', time: tri(0.3, 0.5, 0.9) });
+    a.add('queue', 'Wait food', 7, 0, { capacity: 2 }); a.add('process', 'Pickup', 12, 0, { look: 'desk', time: tri(0.4, 0.8, 1.8) }); a.add('carSink', 'Served', 18, 0); a.add('carSink', 'Drove past', -15, 6);
+    a.chain('Cars', 'Lane', 'Order window', 'Between', 'Pay window', 'Wait food', 'Pickup', 'Served'); a.link('Lane', 'Drove past', 1);
+    a.chart('Lane', ['Lane.length']); a.chart('Windows', ['Order window.utilization', 'Pickup.utilization']);
+  })),
+  S('hotelFrontDesk', 'services', 'fCounter', ['호텔 프런트', '체크인 저녁 몰림, 이벤트로 17~20시에 직원 2명 추가'], ['Hotel front desk', 'Evening check-in peak; events add 2 staff from 17:00 to 20:00'], () => build('Hotel front desk', { timeUnit: 'min', duration: 1440 }, (a) => {
+    a.add('pedSource', 'Guests', -16, 0, { arrivalMode: 'schedule', period: 1440, schedule: [{ start: 0, end: 840, value: 0.1 }, { start: 840, end: 1200, value: 0.6 }, { start: 1200, end: 1440, value: 0.15 }] });
+    a.add('queue', 'Lobby queue', -9, 0, { timeout: 30 }); a.add('process', 'Front desk', -2, 0, { look: 'desk', capacity: 2, time: tri(2, 4, 8) });
+    a.add('process', 'Bell desk', 5, 0, { look: 'desk', capacity: 2, time: tri(1, 2, 4) }); a.add('pedSink', 'Rooms', 11, 0); a.add('pedSink', 'Complaints', -9, 6);
+    a.add('event', 'Evening staff', -2, -8, { trigger: 'once', startAt: 1020, targetBlock: 'Front desk', property: 'capacity', newValue: 'current + 2' });
+    a.add('event', 'Staff off', 4, -8, { trigger: 'once', startAt: 1200, targetBlock: 'Front desk', property: 'capacity', newValue: '2' });
+    a.chain('Guests', 'Lobby queue', 'Front desk', 'Bell desk', 'Rooms'); a.link('Lobby queue', 'Complaints', 1);
+    a.chart('Lobby', ['Lobby queue.length']); a.chart('Desk', ['Front desk.utilization']);
+  })),
+  S('fuelStationSample', 'transport', 'fFuel', ['주유소', '도로에서 들어와 가장 짧은 줄의 주유기 4대로'], ['Fuel station', 'Cars come off the road to the shortest of 4 pumps'], () => build('Fuel station', { timeUnit: 'min', duration: 240, floorWidth: 120 }, (a) => {
+    a.add('carSource', 'Traffic', -50, 0, { interarrival: expo(0.9) }); a.add('road', 'Entry road', -48, 0, { lanes: 1 }, { points: [[0, 0], [30, 0]] });
+    a.add('select', 'Pick pump', -15, 0, { outputs: 4, mode: 'shortest' });
+    for (let i = 0; i < 4; i++) { a.add('queue', `Bay ${i + 1}`, -8, -9 + i * 6, { capacity: 3 }); a.add('fuelStation', `Pump ${i + 1}`, -1, -9 + i * 6, { time: tri(2, 3.5, 6) }); }
+    a.add('junction', 'Exit', 6, 0, { inputs: 4 }); a.add('road', 'Exit road', 8, 0, { lanes: 1 }, { points: [[0, 0], [36, 0]] }); a.add('carSink', 'Away', 48, 0);
+    a.chain('Traffic', 'Entry road', 'Pick pump');
+    for (let i = 0; i < 4; i++) { a.link('Pick pump', `Bay ${i + 1}`, i); a.link(`Bay ${i + 1}`, `Pump ${i + 1}`); a.link(`Pump ${i + 1}`, 'Exit', 0, i); } a.chain('Exit', 'Exit road', 'Away');
+    a.chart('Bays', ['Bay 1.length', 'Bay 2.length', 'Bay 3.length', 'Bay 4.length']);
+  })),
+  S('crosswalk', 'transport', 'fCrosswalk', ['횡단보도', '차량 신호와 보행 신호가 번갈아, 양쪽 대기'], ['Pedestrian crossing', 'Car and pedestrian lights alternate; both sides wait'], () => build('Pedestrian crossing', { timeUnit: 'min', duration: 60, floorWidth: 120, floorDepth: 80 }, (a) => {
+    a.add('carSource', 'Cars', -55, 0, { interarrival: expo(0.12) }); a.add('road', 'Approach', -53, 0, { lanes: 1 }, { points: [[0, 0], [45, 0]] });
+    a.add('signal', 'Car light', -6, 4, { green: 1, yellow: 0.08, red: 0.6, offset: 0, headway: 0.03 }); a.add('road', 'Beyond', -4, 0, { lanes: 1 }, { points: [[0, 0], [50, 0]] }); a.add('carSink', 'Downtown', 48, 0);
+    a.add('pedSource', 'Walkers', 0, -30, { interarrival: expo(0.08) }); a.add('waitingArea', 'Kerb', 0, -18, { capacity: 0 });
+    a.add('crosswalk', 'Walk light', 0, -10, { green: 0.5, yellow: 0.08, red: 1.1, offset: 1.08, headway: 0.005 }); a.add('walkway', 'Zebra', 0, -8, {}, { points: [[0, 0], [0, 20]] }); a.add('pedSink', 'Other side', 0, 16);
+    a.chain('Cars', 'Approach', 'Car light', 'Beyond', 'Downtown'); a.chain('Walkers', 'Kerb', 'Walk light', 'Zebra', 'Other side');
+    a.chart('Waiting', ['Approach.contents', 'Kerb.length']);
+  })),
+  S('commuterRail', 'transport', 'fTrainIn', ['통근 열차', '역 세 곳을 지나는 노선, 정차 시간과 신호'], ['Commuter rail', 'A line through three stations, dwell times and signals'], () => build('Commuter rail', { timeUnit: 'min', duration: 300, floorWidth: 340 }, (a) => {
+    a.add('trainSource', 'Depot', -160, 0, { interarrival: tri(8, 10, 14) });
+    let x = -158; let prev = 'Depot';
+    for (let i = 0; i < 3; i++) {
+      a.add('railTrack', `Track ${i + 1}`, x, 0, {}, { points: [[0, 0], [70, 0]] }); a.add('railStation', `Station ${String.fromCharCode(65 + i)}`, x + 76, 0, { capacity: 1, time: tri(1, 1.5, 3) }); a.add('railSignal', `Signal ${i + 1}`, x + 84, 0);
+      a.link(prev, `Track ${i + 1}`); a.chain(`Track ${i + 1}`, `Station ${String.fromCharCode(65 + i)}`, `Signal ${i + 1}`); prev = `Signal ${i + 1}`; x += 90;
+    }
+    a.add('railTrack', 'Track 4', x, 0, {}, { points: [[0, 0], [40, 0]] }); a.add('trainSink', 'Terminus', x + 44, 0); a.chain(prev, 'Track 4', 'Terminus');
+    a.chart('Tracks', ['Track 1.contents', 'Track 2.contents', 'Track 3.contents']);
+  })),
+  S('damReservoir', 'dynamics', 'fTank', ['댐 저수지 (유체)', '계절 유입, 발전 방류, 넘치면 여수로'], ['Dam reservoir (fluids)', 'Seasonal inflow, turbine release, spillway when full'], () => build('Dam reservoir', { timeUnit: 'day', duration: 365, sdDt: 0.25 }, (a) => {
+    a.add('lookup', 'Rainfall', -16, -8, { input: 't % 365', xs: '0, 90, 180, 210, 270, 365', ys: '40, 60, 260, 300, 90, 40' });
+    a.add('fluidSource', 'RiverIn', -12, 0, { equation: 'Rainfall' }); a.add('tank', 'Reservoir', -2, 0, { initial: '8000', capacity: 20000, unitLabel: 'k m³' });
+    a.add('pump', 'Turbines', 6, -4, { equation: 'min(Reservoir, 110)' }); a.add('valve', 'Spillway', 6, 4, { equation: 'if(Reservoir > 18000, (Reservoir - 18000) / 2, 0)' });
+    a.add('fluidSink', 'Downstream', 14, 0, { equation: 'Turbines + Spillway' }); a.add('variable', 'Power', 6, -10, { equation: 'Turbines * 0.9' });
+    a.link('RiverIn', 'Reservoir'); a.link('Reservoir', 'Turbines'); a.link('Reservoir', 'Spillway'); a.influence('Rainfall', 'RiverIn'); a.influence('Reservoir', 'Spillway'); a.influence('Turbines', 'Power');
+    a.chart('Storage', ['Reservoir']); a.chart('Flows', ['RiverIn', 'Turbines', 'Spillway']);
+  })),
+  S('projectRework', 'dynamics', 'fStock', ['프로젝트 재작업 순환 (SD)', '할 일 → 완료, 숨은 오류가 발견되어 다시 할 일로'], ['Project rework cycle (SD)', 'Work to do → done; hidden errors come back as rework'], () => build('Project rework', { timeUnit: 'day', duration: 300, sdDt: 0.25 }, (a) => {
+    a.add('stock', 'WorkToDo', -10, 0, { initial: '1000' }); a.add('stock', 'WorkDone', 10, -4, { initial: '0' }); a.add('stock', 'HiddenRework', 10, 4, { initial: '0' });
+    a.add('parameter', 'Staff', -10, -8, { value: 10, min: 1, max: 40 }); a.add('parameter', 'Quality', 0, -10, { value: 0.8, min: 0.3, max: 1 });
+    a.add('variable', 'Progress', 0, 0, { equation: 'min(WorkToDo, Staff * 0.5)' });
+    a.add('flow', 'CorrectWork', 3, -4, { equation: 'Progress * Quality' }); a.add('flow', 'FlawedWork', 3, 4, { equation: 'Progress * (1 - Quality)' }); a.add('flow', 'Discovery', 0, 9, { equation: 'HiddenRework / 20' });
+    a.link('WorkToDo', 'CorrectWork'); a.link('CorrectWork', 'WorkDone'); a.link('WorkToDo', 'FlawedWork'); a.link('FlawedWork', 'HiddenRework'); a.link('HiddenRework', 'Discovery'); a.link('Discovery', 'WorkToDo');
+    a.influence('Staff', 'Progress'); a.influence('Quality', 'CorrectWork'); a.influence('Quality', 'FlawedWork'); a.influence('Progress', 'CorrectWork'); a.influence('Progress', 'FlawedWork');
+    a.chart('Project', ['WorkToDo', 'WorkDone', 'HiddenRework']);
+  })),
+  S('startupCash', 'dynamics', 'fLookup', ['스타트업 현금 흐름 (SD)', '고객·매출·마케팅·고정비, 손익분기까지의 현금'], ['Start-up cash flow (SD)', 'Customers, revenue, marketing and fixed costs; cash until break-even'], () => build('Start-up cash flow', { timeUnit: 'day', duration: 720, sdDt: 1 }, (a) => {
+    a.add('stock', 'Cash', 0, 0, { initial: '500000', nonNegative: false }); a.add('stock', 'Customers', 0, -10, { initial: '100' });
+    a.add('parameter', 'Price', -14, -14, { value: 30, min: 5, max: 100 }); a.add('parameter', 'Marketing', -14, -6, { value: 1500, min: 0, max: 10000 }); a.add('parameter', 'FixedCost', 14, 6, { value: 1200, min: 0, max: 5000 });
+    a.add('flow', 'NewCustomers', -8, -10, { equation: 'Marketing / 60 + Customers * 0.004' }); a.add('flow', 'Churn', 8, -10, { equation: 'Customers * 0.01' });
+    a.add('flow', 'Revenue', -8, 0, { equation: 'Customers * Price / 30' }); a.add('flow', 'Spending', 8, 0, { equation: 'Marketing + FixedCost' });
+    a.link('NewCustomers', 'Customers'); a.link('Customers', 'Churn'); a.link('Revenue', 'Cash'); a.link('Cash', 'Spending');
+    a.influence('Marketing', 'NewCustomers'); a.influence('Customers', 'Revenue'); a.influence('Price', 'Revenue'); a.influence('Marketing', 'Spending'); a.influence('FixedCost', 'Spending');
+    a.add('display', 'Cash now', 0, 8, { expression: 'Cash', digits: 0 });
+    a.chart('Cash', ['Cash']); a.chart('Customers', ['Customers']);
+  })),
+  S('refinery', 'dynamics', 'fMixer', ['정유 공정 (유체)', '원유 탱크 → 증류 → 휘발유·경유 탱크, 출하 주기'], ['Refinery (fluids)', 'Crude tank → distillation → petrol and diesel tanks, shipping cycles'], () => build('Refinery', { timeUnit: 'h', duration: 168, sdDt: 0.1 }, (a) => {
+    a.add('fluidSource', 'Pipeline', -18, 0, { equation: '100' }); a.add('tank', 'Crude', -10, 0, { initial: '3000', capacity: 8000 });
+    a.add('pump', 'Feed', -4, 0, { equation: 'min(Crude, 105)' }); a.add('mixingTank', 'Column', 2, 0, { initial: '200', capacity: 600 });
+    a.add('flow', 'ToPetrol', 7, -5, { equation: 'Column * 0.25' }); a.add('flow', 'ToDiesel', 7, 5, { equation: 'Column * 0.25' });
+    a.add('tank', 'Petrol', 13, -5, { initial: '500', capacity: 4000 }); a.add('tank', 'Diesel', 13, 5, { initial: '500', capacity: 4000 });
+    a.add('valve', 'ShipPetrol', 19, -5, { equation: 'min(Petrol, 300)', openTime: 4, closedTime: 20 }); a.add('valve', 'ShipDiesel', 19, 5, { equation: 'min(Diesel, 300)', openTime: 4, closedTime: 20 });
+    a.add('fluidSink', 'Terminal', 25, 0, { equation: 'ShipPetrol + ShipDiesel' });
+    a.link('Pipeline', 'Crude'); a.link('Crude', 'Feed'); a.link('Feed', 'Column'); a.link('Column', 'ToPetrol'); a.link('Column', 'ToDiesel'); a.link('ToPetrol', 'Petrol'); a.link('ToDiesel', 'Diesel'); a.link('Petrol', 'ShipPetrol'); a.link('Diesel', 'ShipDiesel');
+    a.chart('Tanks', ['Crude', 'Petrol', 'Diesel']); a.chart('Column', ['Column']);
+  })),
+  S('evacuation', 'agents', 'fCrowd', ['건물 대피', '경보 후 사람들이 출구로 이동해 대피'], ['Building evacuation', 'After the alarm people head out and leave'], () => build('Building evacuation', { timeUnit: 'min', duration: 30, agentDt: 0.05 }, (a) => {
+    a.add('population', 'Occupants', 0, 0, { count: 500, speed: 40, states: [{ name: 'Working', color: '#64748b' }, { name: 'Alarmed', color: '#f59e0b' }, { name: 'Evacuated', color: '#22c55e' }], initial: 'Working:1', transitions: [
+      { from: 'Working', to: 'Alarmed', kind: 'condition', value: 'time > 5' },
+      { from: 'Alarmed', to: 'Evacuated', kind: 'rate', value: 0.4 },
+      { from: 'Working', to: 'Alarmed', kind: 'contact', value: 2, trigger: 'Alarmed', radius: 1.5 },
+    ] }, { w: 40, h: 26 });
+    a.add('display', 'Still inside', 0, -16, { expression: 'Occupants.Working + Occupants.Alarmed', digits: 0 });
+    a.chart('Evacuation', ['Occupants.Working', 'Occupants.Alarmed', 'Occupants.Evacuated']);
+  })),
+  S('rumor', 'agents', 'fAgents', ['소문 퍼짐', '모름 → 퍼뜨림 → 시들해짐, 접촉으로 전파'], ['Rumour spreading', 'Unaware → spreader → bored, passed on by contact'], () => build('Rumour spreading', { timeUnit: 'day', duration: 60, agentDt: 0.1 }, (a) => {
+    a.add('population', 'Town', 0, 0, { count: 500, speed: 5, states: [{ name: 'Unaware', color: '#94a3b8' }, { name: 'Spreader', color: '#e11d48' }, { name: 'Bored', color: '#0ea5e9' }], initial: 'Unaware:495, Spreader:5', transitions: [
+      { from: 'Unaware', to: 'Spreader', kind: 'contact', value: 1, trigger: 'Spreader', radius: 1.2 },
+      { from: 'Spreader', to: 'Bored', kind: 'contact', value: 0.3, trigger: 'Bored', radius: 1.2 },
+      { from: 'Spreader', to: 'Bored', kind: 'timeout', value: 10 },
+    ] }, { w: 40, h: 26 });
+    a.chart('Rumour', ['Town.Unaware', 'Town.Spreader', 'Town.Bored']);
+  })),
+  S('urbanGrowth', 'agents', 'fCells', ['도시 성장 (셀 자동자)', '건물이 이웃한 땅이 개발되고 공원은 남음'], ['Urban growth (cellular)', 'Land next to built-up cells gets developed; parks stay'], () => build('Urban growth', { timeUnit: 'day', duration: 60, agentDt: 1 }, (a) => {
+    a.add('cellGrid', 'Region', 0, 0, { cols: 80, rows: 50, states: [{ name: 'Rural', color: '#84cc16' }, { name: 'Urban', color: '#64748b' }, { name: 'Park', color: '#15803d' }], initial: 'Rural:0.9, Urban:0.01, Park:0.09', transitions: [
+      { from: 'Rural', to: 'Urban', kind: 'neighbors', value: 3, max: 8, trigger: 'Urban' },
+      { from: 'Rural', to: 'Urban', kind: 'rate', value: 0.002 },
+    ] }, { w: 40, h: 25 });
+    a.chart('Land use', ['Region.Rural', 'Region.Urban', 'Region.Park']);
+  })),
+  S('epidemicHospital', 'agents', 'tplHybrid', ['하이브리드: 감염병 → 병원', '에이전트 감염자 수가 병원 입원(이산 사건) 도착률을 정함'], ['Hybrid: epidemic → hospital', 'The agents\' infected count sets the hospital (discrete-event) admission rate'], () => build('Epidemic and hospital', { timeUnit: 'day', duration: 120, agentDt: 0.2 }, (a) => {
+    a.add('population', 'City', -14, 0, { count: 600, speed: 6, initial: 'Susceptible:594, Infected:6', transitions: [
+      { from: 'Susceptible', to: 'Infected', kind: 'contact', value: 0.9, trigger: 'Infected', radius: 1 },
+      { from: 'Infected', to: 'Recovered', kind: 'timeout', value: 12 },
+    ] }, { w: 26, h: 20 });
+    a.add('source', 'Admissions', 4, 0, { arrivalMode: 'rate', rate: 'City.Infected * 0.03', shape: 'patient' });
+    a.add('queue', 'Waiting beds', 9, 0); a.add('process', 'Ward', 14, 0, { look: 'bed', capacity: 8, time: tri(4, 7, 14) }); a.add('sink', 'Discharged', 19, 0);
+    a.chain('Admissions', 'Waiting beds', 'Ward', 'Discharged');
+    a.chart('Epidemic', ['City.Susceptible', 'City.Infected', 'City.Recovered']); a.chart('Hospital', ['Ward.contents', 'Waiting beds.length']);
+  })),
+  S('hybridWarehouse', 'agents', 'tplSupply', ['하이브리드: SD 수요 → 창고 출고', 'SD 주간 수요가 주문 도착률을 정하고 SD가 미출고 잔량을 계산'], ['Hybrid: SD demand → warehouse', 'Weekly SD demand sets order arrivals; SD tracks the shipping backlog'], () => build('Hybrid warehouse', { timeUnit: 'h', duration: 336, sdDt: 0.5 }, (a) => {
+    a.add('lookup', 'Weekday', -18, -10, { input: 't % 168', xs: '0, 24, 48, 72, 96, 120, 144, 168', ys: '6, 9, 8, 8, 10, 5, 2, 6' });
+    a.add('variable', 'OrderRate', -10, -10, { equation: 'Weekday' }); a.add('source', 'Orders', -18, 0, { arrivalMode: 'rate', rate: 'OrderRate', shape: 'carton' });
+    a.add('queue', 'Order pool', -12, 0); a.add('resourcePool', 'Pickers', -4, -8, { capacity: 4 }); a.add('pickStation', 'Pick', -4, 0, { capacity: 4, pool: 'Pickers', time: tri(0.2, 0.35, 0.6) });
+    a.add('packStation', 'Pack', 3, 0, { capacity: 2, time: tri(0.1, 0.2, 0.3) }); a.add('sink', 'Shipped', 9, 0);
+    a.add('stock', 'Backlog', 12, -10, { initial: '0' }); a.add('flow', 'Ordered', 6, -10, { equation: 'OrderRate' }); a.add('flow', 'Done', 18, -10, { equation: 'min(Backlog, Pack.busy / 0.2 + 0.0001)' });
+    a.chain('Orders', 'Order pool', 'Pick', 'Pack', 'Shipped'); a.link('Ordered', 'Backlog'); a.link('Backlog', 'Done');
+    a.influence('Weekday', 'OrderRate'); a.influence('OrderRate', 'Orders'); a.influence('OrderRate', 'Ordered');
+    a.chart('Demand', ['OrderRate', 'Order pool.length']); a.chart('Backlog', ['Backlog']);
+  })),
 ];
 
 export function buildSample(id) {

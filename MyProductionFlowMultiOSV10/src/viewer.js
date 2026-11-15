@@ -10,6 +10,7 @@
 // document language, find in page (Ctrl+F), print and "open in browser", in the
 // app's theme colours. Video: doc/video/MyProductionFlow-Tutorial.mp4 with play/pause,
 // seek, speed, full screen and chapter marks from the sidecar JSON.
+import { flagOf } from './flags.js';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { loadSettings, STORAGE_KEY } from './domain/settings.js';
@@ -74,8 +75,8 @@ function toHost(type, data) {
 function barHtml() {
   const L = state.lang;
   const languages = `<span class="segmented" role="radiogroup" title="${escapeHtml(t('reader.language'))}" aria-label="${escapeHtml(t('reader.language'))}">
-      <button class="segment ${L === 'ko' ? 'active' : ''}" data-viewer="lang" data-value="ko" role="radio" aria-checked="${L === 'ko'}" title="한국어">한국어</button>
-      <button class="segment ${L === 'en' ? 'active' : ''}" data-viewer="lang" data-value="en" role="radio" aria-checked="${L === 'en'}" title="English">English</button>
+      <button class="segment ${L === 'ko' ? 'active' : ''}" data-viewer="lang" data-value="ko" role="radio" aria-checked="${L === 'ko'}" title="한국어" aria-label="한국어">${flagOf('ko')}<span>한국어</span></button>
+      <button class="segment ${L === 'en' ? 'active' : ''}" data-viewer="lang" data-value="en" role="radio" aria-checked="${L === 'en'}" title="English" aria-label="English">${flagOf('en')}<span>English</span></button>
     </span>`;
   const close = inFrame ? `<button class="icon-button" data-viewer="close" title="${escapeHtml(t('common.close'))}" aria-label="${escapeHtml(t('common.close'))}">${icon('close')}</button>` : '';
   const title = `<h1 class="viewer-title">${icon(info.glyph)}<span>${escapeHtml(t(info.title))}</span></h1>`;

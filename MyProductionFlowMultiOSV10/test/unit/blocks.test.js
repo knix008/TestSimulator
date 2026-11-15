@@ -111,3 +111,36 @@ test('diagnosis: every sample gets at least one card, problems sorted by severit
     for (let i = 1; i < issues.length; i++) assert.ok(rank[issues[i - 1].severity] <= rank[issues[i].severity], id);
   }
 });
+
+test('event: raises a machine capacity at a time, sets an SD parameter, checks its property', () => {
+  const line = (withEvent) => {
+    const m = createModel(); m.settings.duration = 600; m.settings.warmup = 0;
+    const src = makeBlock(m, 'source', -10, 0, { props: { interarrival: { type: 'constant', value: 1 } } }); m.blocks.push(src);
+    const q = makeBlock(m, 'queue', -5, 0); m.blocks.push(q);
+    const pr = makeBlock(m, 'process', 0, 0, { props: { capacity: 1, time: { type: 'constant', value: 3 } } }); m.blocks.push(pr);
+    const sink = makeBlock(m, 'sink', 10, 0); m.blocks.push(sink);
+    addLink(m, { block: src.id, port: 0 }, { block: q.id, port: 0 });
+    addLink(m, { block: q.id, port: 0 }, { block: pr.id, port: 0 });
+    addLink(m, { block: pr.id, port: 0 }, { block: sink.id, port: 0 });
+    if (withEvent) { const ev = makeBlock(m, 'event', 0, 6, { props: { trigger: 'once', startAt: 300, targetBlock: pr.name, property: 'capacity', newValue: 'current + 2' } }); m.blocks.push(ev); }
+    return { m, pr };
+  };
+  const a = line(false); const b = line(true);
+  assert.deepEqual(checkModel(b.m).filter((p) => p.severity === 'error'), []);
+  const ra = runModel(a.m, { seed: 1 }).results; const rb = runModel(b.m, { seed: 1 }).results;
+  // One part per 3 time units (about 200), then three per 3 from t = 300 (about 100 + 300).
+  assert.ok(ra.kpi.completed < 210, String(ra.kpi.completed));
+  assert.ok(rb.kpi.completed > 350, String(rb.kpi.completed));
+  assert.equal(b.pr.props.capacity, 1, 'the model itself is not changed');
+  // A wrong property name is a model error.
+  b.m.blocks.find((x) => x.type === 'event').props.property = 'nope';
+  assert.ok(checkModel(b.m).some((p) => p.key === 'eventProperty'));
+  // Cyclic event on an SD parameter, at most 3 times.
+  const m = createModel(); m.settings.duration = 100; m.settings.warmup = 0;
+  const par = makeBlock(m, 'parameter', 0, 0, { name: 'Price', props: { value: 10 } }); m.blocks.push(par);
+  const ev = makeBlock(m, 'event', 0, 5, { props: { trigger: 'cyclic', startAt: 10, every: { type: 'constant', value: 10 }, maxTimes: 3, targetBlock: 'Price', property: '', newValue: 'current * 2' } }); m.blocks.push(ev);
+  assert.deepEqual(checkModel(m).filter((p) => p.severity === 'error'), []);
+  const r = runModel(m, { seed: 1 }).results;
+  assert.equal(resultValue(r, 'Price'), 80);
+  assert.equal(r.blocks[ev.name].fired, 3);
+});

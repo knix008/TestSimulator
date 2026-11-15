@@ -14,6 +14,7 @@ const blocks = B([
   ['timeStart', '시간 측정 시작', '여기를 지난 시각을 개체에 기록합니다', 'Time measure start', 'Stamps the time an entity passes'],
   ['timeEnd', '시간 측정 끝', '시작 블록부터 걸린 시간을 집계합니다', 'Time measure end', 'Collects the time since the start block'],
   ['maintenance', '정기 보전', '정한 간격마다 설비를 멈추고 보전합니다', 'Maintenance', 'Stops a machine for planned maintenance at intervals'],
+  ['event', '이벤트', '정한 시각·주기·조건에 블록 속성이나 매개변수를 바꿉니다 (러시아워, 설비 증설 …)', 'Event', 'At a time, on a cycle or on a condition, changes a block property or a parameter (rush hour, an extra machine …)'],
   ['merge', '합류', '여러 입구를 하나의 출구로 모읍니다', 'Merge', 'Joins several inputs into one output'],
   ['lookup', '조회 테이블', '입력값을 표(x→y)로 바꿉니다 (그래프 함수)', 'Lookup table', 'Maps an input through an x→y table (graphical function)'],
   ['smooth', '지수 평활', '입력을 1차 지연으로 따라갑니다 (SMOOTH)', 'Smooth', 'Follows its input with a first-order delay (SMOOTH)'],
@@ -132,6 +133,11 @@ export const ko = {
   'stat.statInside': "평균 안의 수", 'stat.statMaint': "보전 횟수", 'stat.statPairs': "짝", 'stat.statTimeMean': "평균 시간", 'stat.statTimeMax': "최대 시간", 'stats.measures': "시간 측정·구역·짝·보전",
   'trKind.neighbors': "이웃 수가 범위 안이면", 'trKind.neighborsOutside': "이웃 수가 범위 밖이면", 'trValue.neighbors': "최소 이웃 수 (최대는 옆 칸)", 'trValue.neighborsOutside': "최소 이웃 수 (최대는 옆 칸)", 'col.max': "최대",
   'log.maintenance': "정기 보전 시작", 'log.maintenanceDone': "정기 보전 끝",
+  'log.eventFired': "이벤트: {target} → {value}", 'check.eventProperty': "{name}: {target}에는 바꿀 수 있는 숫자 속성 '{property}'가 없습니다.",
+  'prop.trigger': "실행 조건", 'prop.startAt': "처음 실행 시각", 'prop.every': "반복 간격", 'prop.maxTimes': "최대 횟수", 'prop.targetBlock': "대상 블록", 'prop.property': "바꿀 속성", 'prop.newValue': "새 값",
+  'opt.trigger.once': "한 번", 'opt.trigger.cyclic': "주기마다", 'opt.trigger.condition': "조건이 참이 될 때",
+  'hint.eventProperty': "예: capacity, processTime.mean (매개변수 대상이면 비워 둠)", 'hint.eventValue': "식 — current는 바꾸기 전 값 (예: current + 1, 2, current * 0.8)",
+  'stat.statFired': "실행 횟수",
 };
 
 export const en = {
@@ -153,4 +159,9 @@ export const en = {
   'stat.statInside': "Mean inside", 'stat.statMaint': "Maintenances", 'stat.statPairs': "Pairs", 'stat.statTimeMean': "Mean time", 'stat.statTimeMax': "Max time", 'stats.measures': "Time measures, areas, pairs, maintenance",
   'trKind.neighbors': "Neighbours in range", 'trKind.neighborsOutside': "Neighbours out of range", 'trValue.neighbors': "Fewest neighbours (most: next field)", 'trValue.neighborsOutside': "Fewest neighbours (most: next field)", 'col.max': "max",
   'log.maintenance': "Maintenance started", 'log.maintenanceDone': "Maintenance done",
+  'log.eventFired': "Event: {target} → {value}", 'check.eventProperty': "{name}: {target} has no number property '{property}' to change.",
+  'prop.trigger': "Trigger", 'prop.startAt': "First at", 'prop.every': "Repeat every", 'prop.maxTimes': "Most times", 'prop.targetBlock': "Target block", 'prop.property': "Property", 'prop.newValue': "New value",
+  'opt.trigger.once': "Once", 'opt.trigger.cyclic': "Cyclic", 'opt.trigger.condition': "When a condition becomes true",
+  'hint.eventProperty': "e.g. capacity, processTime.mean (empty for a parameter)", 'hint.eventValue': "Expression — current is the value before (e.g. current + 1, 2, current * 0.8)",
+  'stat.statFired': "Fired",
 };

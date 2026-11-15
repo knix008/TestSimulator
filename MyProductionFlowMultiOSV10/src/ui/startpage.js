@@ -94,6 +94,7 @@ export function startPageHtml(app) {
       <div class="start-docs" role="group" aria-label="${escapeHtml(t('start.help'))}">
         <button class="button big doc-button" data-start="guide" title="${escapeHtml(t('tip.userGuide'))}">${icon('userGuide')}<span>${escapeHtml(t('action.userGuide'))}</span></button>
         <button class="button big doc-button" data-start="tutorial-doc" title="${escapeHtml(t('tip.tutorialDoc'))}">${icon('tutorialDoc')}<span>${escapeHtml(t('action.tutorialDoc'))}</span></button>
+        <button class="button big doc-button" data-start="tutorial-video" title="${escapeHtml(t('tip.tutorialVideo'))}">${icon('tutorialVideo')}<span>${escapeHtml(t('action.tutorialVideo'))}</span></button>
       </div>
       <button class="button big" data-start="help-menu" title="${escapeHtml(t('tip.startHelp'))}" aria-haspopup="true">${icon('question')}<span>${escapeHtml(t('menu.help'))}</span>${icon('chevronDown', 'icon tiny')}</button>
       <button class="button primary big" data-start="tutorial" title="${escapeHtml(t('start.tutorialStart'))}">${icon('tutorial')}<span>${escapeHtml(t('start.tutorialStart'))}</span></button>

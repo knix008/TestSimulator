@@ -14,7 +14,11 @@ import { BLOCK_TYPES, CATEGORIES, baseOf, isPathType, isSd, typesIn, blockBounds
 import { addLink, blockById, checkModel, clockText, cloneBlocks, countBySeverity, History, linkProblem, makeBlock, newId, normalizeModel, parseModel, referenceNames, removeBlocks, renameBlock, serializeModel, createModel } from './sim/model.js';
 import { Simulation, resultValue, runModel } from './sim/engine.js';
 import { compile } from './sim/expr.js';
-import { defaultDist, distMean, DISTRIBUTIONS } from './sim/random.js';
+import { createRandom, defaultDist, distMean, DISTRIBUTIONS } from './sim/random.js';
+import { gridValues, patternSearch, scenarioFrom, sensitivityPlan, tornadoRows } from './sim/experiments.js';
+import { AnimationRecorder, recordingSupported } from './ui/recorder.js';
+import { buildReport, pickSections, REPORT_SECTIONS } from './report/content.js';
+import { toDocx, toHtml, toMarkdown, toPdf } from './report/writers.js';
 import { TEMPLATES, buildTemplate, SAMPLE_GROUPS, SAMPLE_PROJECTS, buildSample } from './sim/samples.js';
 import { Canvas2D, fmt } from './editor/canvas2d.js';
 import { View3D } from './view3d/view3d.js';
@@ -26,7 +30,7 @@ import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
 import { PopupHost } from './platform/popups.js';
-import { applyFont, applyTheme, resolveTheme, themeName } from './themes.js';
+import { applyFont, applyTheme, CUSTOM, DARK_THEMES, LIGHT_THEMES, resolveTheme, SYSTEM, themeName } from './themes.js';
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { AnimatedBackground } from './ui/background.js';
 import { startPageHtml } from './ui/startpage.js';
@@ -531,6 +535,19 @@ function setSpeed(v) {
   state.speed = Math.max(0.01, Math.min(100000, Number(v) || 1));
   if (model()) model().settings.speed = state.speed;
   renderRunBar();
+  renderSpeedLabel();
+}
+/** The toolbar's current speed (between its − and + buttons). */
+function renderSpeedLabel() {
+  const el = root.querySelector('#toolbar [data-command="speedMenu"] [data-speed-label]');
+  if (el) el.textContent = speedText(state.speed);
+}
+const speedText = (v) => `×${+Number(v).toFixed(2)}`;
+/** Every speed in a menu below the toolbar's speed button. */
+function speedMenu(anchor) {
+  const handlers = {};
+  const items = SPEEDS.map((v) => { handlers[`custom:speed:${v}`] = () => setSpeed(v); return { id: `custom:speed:${v}`, label: speedText(v), icon: 'speed', checked: Math.abs(v - state.speed) < 1e-9 }; });
+  return showMenu(items, anchor ?? anchorBelow(root.querySelector('#toolbar [data-command="speedMenu"]') ?? root.querySelector('#toolbar')), 'context', { handlers, header: { icon: 'speed', title: t('action.speedMenu') } });
 }
 const SPEEDS = [0.1, 0.25, 0.5, 1, 2, 4, 10, 30, 100, 300, 1000, 5000];
 function speedStep(dir) { const i = SPEEDS.findIndex((s) => s >= state.speed - 1e-9); setSpeed(SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, (i < 0 ? SPEEDS.length - 1 : i) + dir))]); }
@@ -589,6 +606,8 @@ const simTimeText = () => {
 // ───────────────────────── experiments
 
 /** Numeric things an experiment can vary: block properties, distribution parameters, SD parameters, model settings. */
+/** A property unit (time, length …) as text in the model's time unit. */
+const unitOf = (unit, m) => ({ time: m.settings.timeUnit, length: 'm', speed: `m/${m.settings.timeUnit}`, perTime: `/${m.settings.timeUnit}` }[unit] ?? '');
 function experimentParameters() {
   const m = model();
   const out = [];
@@ -597,8 +616,8 @@ function experimentParameters() {
     for (const p of BLOCK_TYPES[b.type].props) {
       if (p.when && !p.when(b.props)) continue;
       if (['digits', 'priority', 'opacity', 'min', 'max', 'firstAt', 'maxArrivals', 'outputs', 'inputs', 'period'].includes(p.key)) continue;
-      if (p.type === 'number' || p.type === 'int') out.push({ key: `${b.id}|${p.key}`, label: `${b.name} · ${t(`prop.${p.key}`, null, p.key)}`, value: b.props[p.key], integer: p.type === 'int', min: p.min });
-      if (p.type === 'dist' && b.props[p.key]?.type !== 'expression') for (const k of DISTRIBUTIONS[b.props[p.key].type] ?? []) if (k !== 'values' && k !== 'weights') out.push({ key: `${b.id}|${p.key}.${k}`, label: `${b.name} · ${t(`prop.${p.key}`, null, p.key)} · ${t(`dist.${k}`, null, k)}`, value: b.props[p.key][k] });
+      if (p.type === 'number' || p.type === 'int') out.push({ key: `${b.id}|${p.key}`, label: `${b.name} · ${t(`prop.${p.key}`, null, p.key)}`, value: b.props[p.key], integer: p.type === 'int', min: p.min, unit: unitOf(p.unit, m) });
+      if (p.type === 'dist' && b.props[p.key]?.type !== 'expression') for (const k of DISTRIBUTIONS[b.props[p.key].type] ?? []) if (k !== 'values' && k !== 'weights') out.push({ key: `${b.id}|${p.key}.${k}`, label: `${b.name} · ${t(`prop.${p.key}`, null, p.key)} · ${t(`dist.${k}`, null, k)}`, value: b.props[p.key][k], unit: ['shape', 'k', 'alpha', 'beta'].includes(k) ? '' : unitOf(p.unit, m) });
     }
   }
   return out;
@@ -631,6 +650,7 @@ async function runExperiment(config) {
   const m = model();
   if (checkModel(m).some((p) => p.severity === 'error')) { notify('error', t('notice.modelErrors', { n: checkModel(m).filter((p) => p.severity === 'error').length })); return; }
   state.lastExperiment = config;
+  if (config.kind === 'sensitivity' || config.kind === 'multiopt') { await runSearchExperiment(config); return; }
   const base = JSON.stringify(m);
   const xs = [];
   if (config.kind !== 'montecarlo') for (let x = config.from; x <= config.to + 1e-9 && xs.length < 200; x += Math.max(1e-9, config.step || 1)) xs.push(+x.toFixed(6));
@@ -668,6 +688,128 @@ async function runExperiment(config) {
   notify('success', t('notice.experimentDone', { n: runs.length }));
 }
 
+/**
+ * Sensitivity analysis (each chosen parameter low/high by ±percent: a tornado of the objective) and
+ * multi-parameter optimization (pattern search over the grid of up to 4 parameters, within a run budget).
+ */
+async function runSearchExperiment(config) {
+  const base = JSON.stringify(model());
+  const params = experimentParameters();
+  const objLabel = experimentMetrics().find((x) => x.key === config.objective)?.label ?? config.objective;
+  const reps = Math.max(1, Math.round(Number(config.replications) || 1));
+  const started = performance.now();
+  let count = 0;
+  // Mean of the objective over the replications with the given parameter values.
+  const evaluate = (assign) => {
+    const vals = [];
+    for (let rep = 0; rep < reps; rep++) {
+      const mm = normalizeModel(JSON.parse(base));
+      for (const [key, v] of assign) setParam(mm, key, v);
+      const { results } = runModel(mm, { seed: (mm.settings.seed || 1) + rep * 7919 });
+      vals.push(resultValue(results, config.objective));
+      count += 1;
+    }
+    const fin = vals.filter(Number.isFinite);
+    return fin.length ? fin.reduce((a, b) => a + b, 0) / fin.length : NaN;
+  };
+  let exp = null;
+  const ok = await withProgress('progress.experiment', model().name || docName(), async (op, report, signal) => {
+    const tick = async (i, n) => { report({ fraction: i / n, text: t('progress.experimentText', { i, n }) }); await new Promise((resolve) => setTimeout(resolve, 0)); };
+    if (config.kind === 'sensitivity') {
+      const chosen = params.filter((p) => (config.sens ?? []).includes(p.key));
+      if (!chosen.length) return false;
+      const plan = sensitivityPlan(chosen, config.percent);
+      const n = 1 + plan.length * 2; let i = 0;
+      const baseValue = evaluate([]); await tick(++i, n);
+      const rows = [];
+      for (const r of plan) {
+        if (signal.cancelled) return false;
+        const lowValue = evaluate([[r.key, r.low]]); await tick(++i, n);
+        const highValue = evaluate([[r.key, r.high]]); await tick(++i, n);
+        rows.push({ ...r, lowValue, highValue });
+      }
+      exp = { kind: 'sensitivity', objective: objLabel, baseValue, percent: Number(config.percent) || 20, rows: tornadoRows(rows, baseValue) };
+      return true;
+    }
+    const chosen = (config.multi ?? []).filter((a) => params.some((p) => p.key === a.parameter));
+    if (!chosen.length) return false;
+    const axes = chosen.map((a) => gridValues(a));
+    const rnd = createRandom(model().settings.seed || 1);
+    const res = await patternSearch({
+      axes, goal: config.goal, budget: Math.max(2, Math.round(Number(config.budget) || 40)), random: () => rnd.next(),
+      evaluate: async (values) => { const v = evaluate(values.map((x, k) => [chosen[k].parameter, x])); await new Promise((resolve) => setTimeout(resolve, 0)); return v; },
+      onProgress: (i, n) => report({ fraction: i / n, text: t('progress.experimentText', { i, n }) }),
+      cancelled: () => signal.cancelled,
+    });
+    if (!res.best) return false;
+    exp = { kind: 'multiopt', objective: objLabel, goal: config.goal, params: chosen.map((a) => ({ key: a.parameter, label: params.find((p) => p.key === a.parameter)?.label ?? a.parameter })), best: res.best, history: res.history, evaluations: res.evaluations, space: res.space };
+    return !signal.cancelled || Boolean(exp);
+  }, { delay: 0, cancellable: true });
+  if (!ok || !exp) { notify('warning', t('notice.experimentCancelled')); return; }
+  state.experiment = { ...exp, runs: [], runCount: count, seconds: (performance.now() - started) / 1000 };
+  state.bottomTab = 'experiments';
+  if (!state.settings.showBottomPanel) updateSettings({ showBottomPanel: true }, { quiet: true });
+  renderAll();
+  notify('success', t('notice.experimentDone', { n: count }));
+}
+
+// ───────────────────────── recording and follow camera
+
+let recorder = null;
+/** Starts recording the visible views (2D and/or 3D, as laid out) or stops and saves the WebM video. */
+async function toggleRecording() {
+  if (recorder?.active) {
+    const seconds = recorder.seconds;
+    const blob = await recorder.stop();
+    recorder = null;
+    renderToolbarState(); renderRunBar();
+    root.classList.remove('recording');
+    if (!blob) { notify('warning', t('notice.recordEmpty')); return null; }
+    notify('info', t('notice.recordStopped', { s: fmtNum(seconds, 1) }));
+    await saveExport(`${safeName()}-animation.webm`, 'webm', new Uint8Array(await blob.arrayBuffer()), 'video/webm');
+    return blob;
+  }
+  if (!recordingSupported()) { notify('error', t('notice.recordUnsupported')); return null; }
+  const host = root.querySelector('#views');
+  recorder = new AnimationRecorder({
+    host,
+    background: getComputedStyle(document.body).backgroundColor || '#ffffff',
+    sources: () => {
+      const mode = state.settings.viewMode; const out = [];
+      if (mode !== '3d') out.push({ canvas: canvas.canvas, before: () => { if (canvas.dirty) canvas.render(state.sim); } });
+      if (mode !== '2d' && view3d) out.push({ canvas: view3d.canvas, before: () => view3d.render() });
+      return out;
+    },
+  });
+  recorder.start();
+  root.classList.add('recording');
+  renderToolbarState(); renderRunBar();
+  notify('info', t('notice.recordStarted'));
+  if (state.simStatus === 'idle' || state.simStatus === 'paused') runPause();
+  return true;
+}
+
+function toggleFollow() {
+  if (!view3d) return;
+  const on = view3d.setFollow(!view3d.follow);
+  if (on && state.settings.viewMode === '2d') setViewMode('split');
+  if (on && state.simStatus !== 'running') runPause();
+  renderToolbarState(); renderRunBar();
+  notify('info', t(on ? 'notice.followOn' : 'notice.followOff'));
+}
+
+/** Saves the finished run's KPIs as a scenario of this document (Simulation › Save scenario), to compare runs. */
+function saveScenario() {
+  const results = state.results;
+  if (!results || !doc()) return;
+  const list = (doc().scenarios ??= []);
+  if (list.length >= 12) list.shift();
+  const name = t('scenario.name', { n: (doc().scenarioCount = (doc().scenarioCount ?? 0) + 1) });
+  list.push(scenarioFrom(name, results, model()));
+  showBottom('experiments');
+  notify('success', t('notice.scenarioSaved', { name }));
+}
+
 /** A fix from the diagnosis tab: changes the block's property (one undo step); the user runs again to see the effect. */
 function applyFix(ref) {
   const [i, j] = ref.split(':').map(Number);
@@ -683,6 +825,11 @@ function applyFix(ref) {
 
 function applyBest() {
   const ex = state.experiment;
+  if (ex?.kind === 'multiopt' && ex.best) {
+    change('op.applyBest', (m) => ex.params.forEach((p, k) => setParam(m, p.key, ex.best.values[k])));
+    notify('success', t('notice.appliedBest', { param: ex.params.map((p) => p.label).join(', '), x: ex.best.values.map((v) => fmtNum(v, 4)).join(', ') }));
+    return;
+  }
   if (!ex?.best || !ex.parameterKey) return;
   change('op.applyBest', (m) => setParam(m, ex.parameterKey, ex.best.x));
   notify('success', t('notice.appliedBest', { param: ex.parameter, x: fmtNum(ex.best.x, 4) }));
@@ -712,10 +859,98 @@ function reportHtml() {
   return parts.join('');
 }
 
+// ───────────────────────── report generator and print window (src/report/)
+
+/** A picture of the 2D layout: the whole model fitted, without rulers or selection, on the canvas's paper colour. */
+function layoutPicture() {
+  if (!canvas) return null;
+  const sel = state.selection;
+  try { state.selection = []; return { src: canvas.capture(1600, 1000, state.sim, 'image/jpeg'), w: 1600, h: 1000 }; } catch { return null; } finally { state.selection = sel; }
+}
+function view3dPicture() {
+  if (!view3d) return null;
+  try { return { src: view3d.capture(1600, 1000, 'image/jpeg'), w: 1600, h: 1000 }; } catch { return null; }
+}
+/** A line chart of time series as a PNG (for the report). */
+function chartPicture(title, times, series) {
+  const W = 1100; const H = 420; const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+  const L = 70; const R = W - 20; const T = 40; const B = H - 60;
+  const all = series.flatMap((s) => s.values).filter(Number.isFinite);
+  if (!all.length || times.length < 2) return null;
+  let lo = Math.min(0, ...all); let hi = Math.max(...all); if (hi === lo) hi = lo + 1;
+  const t0 = times[0]; const t1 = times[times.length - 1] || 1;
+  const X = (v) => L + ((v - t0) / (t1 - t0 || 1)) * (R - L); const Y = (v) => B - ((v - lo) / (hi - lo)) * (B - T);
+  g.font = '600 18px system-ui, "Malgun Gothic", sans-serif'; g.fillStyle = '#111827'; g.fillText(title, L, 26);
+  g.font = '13px system-ui, sans-serif'; g.strokeStyle = '#e5e7eb'; g.fillStyle = '#6b7280';
+  for (let i = 0; i <= 4; i++) { const v = lo + ((hi - lo) * i) / 4; g.beginPath(); g.moveTo(L, Y(v)); g.lineTo(R, Y(v)); g.stroke(); g.fillText(fmtNum(v, 2), 8, Y(v) + 4); }
+  for (let i = 0; i <= 5; i++) { const v = t0 + ((t1 - t0) * i) / 5; g.fillText(fmtNum(v, 0), X(v) - 10, B + 18); }
+  const colors = ['#2563eb', '#dc2626', '#16a34a', '#f59e0b', '#7c3aed', '#0891b2', '#db2777'];
+  series.forEach((s, k) => {
+    g.strokeStyle = colors[k % colors.length]; g.lineWidth = 2.2; g.beginPath();
+    s.values.forEach((v, i) => { if (!Number.isFinite(v)) return; const x = X(times[i]); const y = Y(v); if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); });
+    g.stroke();
+    g.fillStyle = colors[k % colors.length]; g.fillRect(L + k * 180, H - 26, 14, 10); g.fillStyle = '#374151'; g.fillText(String(s.name).slice(0, 22), L + 20 + k * 180, H - 17);
+  });
+  g.fillStyle = '#6b7280'; g.fillText(model().settings.timeUnit, R - 30, B + 36);
+  return { title, src: c.toDataURL('image/png'), w: W, h: H };
+}
+/** The report model with its pictures (content.js). */
+function reportDocument() {
+  const m = model();
+  const results = state.results ?? state.sim?.results() ?? null;
+  const sim = state.sim;
+  const charts = [];
+  if (sim && sim.series.t.length > 1) {
+    const list = [...m.charts.map((c) => ({ title: c.title || c.series.join(', '), series: c.series })), ...(m.blocks.some((b) => b.type === 'sink') ? [{ title: t('charts.wip'), series: ['wip', 'completed'] }] : [])];
+    for (const c of list.slice(0, 8)) {
+      const pic = chartPicture(c.title, sim.series.t, c.series.map((k) => ({ name: k === 'wip' ? t('kpi.wip') : k === 'completed' ? t('kpi.completed') : k, values: sim.series.data.get(k) ?? [] })));
+      if (pic) charts.push(pic);
+    }
+  }
+  return buildReport({
+    model: m, results, issues: results ? state.issues ?? diagnose(m, results) : null, experiment: state.experiment,
+    images: { layout2d: layoutPicture(), view3d: view3dPicture() }, charts,
+    t: (key, params) => t(key, params), fmt: (v, d = 2) => (Number.isFinite(Number(v)) ? fmtNum(Number(v), d) : '—'),
+    docName: docName(), date: new Date().toLocaleString(),
+  });
+}
+
+/**
+ * The report for a window's opening parameters: pictures replaced by ids (img1, img2 …). Parameters travel through
+ * localStorage, which holds a few megabytes; the pictures go to the window as a message when it asks ('report-images').
+ */
+function reportParams(doc) {
+  const images = {}; let n = 0;
+  const blocks = doc.blocks.map((b) => { if (b.t !== 'image') return b; n += 1; images[`img${n}`] = b.src; return { ...b, src: `img${n}` }; });
+  state.reportImages = images;
+  return { ...doc, blocks };
+}
+
+/** Simulation › Report (Ctrl+R): the report window — sections, preview, and saving as Markdown / HTML / Word / PDF / CSV. */
 async function openReport() {
   if (!hasDoc()) return;
-  if (!state.results && !state.sim) { notify('info', t('notice.runFirst')); }
-  popups.open('report', { html: reportHtml(), name: m0name() });
+  if (!state.results && !state.sim) notify('info', t('notice.runFirst'));
+  state.reportDoc = reportDocument();
+  popups.open('report', { doc: reportParams(state.reportDoc), name: m0name(), sections: REPORT_SECTIONS });
+}
+/** Saves the report in a format: md | html | docx | pdf. */
+async function saveReport(format, sections) {
+  const doc = pickSections(state.reportDoc ?? reportDocument(), sections);
+  const base = `${safeName()}-report`;
+  try {
+    if (format === 'md') return saveExport(`${base}.md`, 'md', toMarkdown(doc), 'text/markdown');
+    if (format === 'html') return saveExport(`${base}.html`, 'html', toHtml(doc, lang()), 'text/html');
+    if (format === 'docx') return saveExport(`${base}.docx`, 'docx', toDocx(doc), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    if (format === 'pdf') return saveExport(`${base}.pdf`, 'pdf', await toPdf(doc, state.settings.printSetup ?? {}), 'application/pdf');
+  } catch (error) { showError('error.export', error, format); }
+  return false;
+}
+/** File › Print (Ctrl+P): the print window — its own window with the printer, paper, pages and a preview. */
+function openPrint() {
+  if (!hasDoc()) return;
+  state.reportDoc = reportDocument();
+  popups.open('print', { doc: reportParams(state.reportDoc), name: m0name(), sections: REPORT_SECTIONS, setup: state.settings.printSetup ?? null });
 }
 const m0name = () => model()?.name || docName();
 
@@ -745,6 +980,9 @@ function seriesCsv() {
 function experimentCsv() {
   const ex = state.experiment;
   if (!ex) return '';
+  const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  if (ex.kind === 'sensitivity') return [['parameter', 'base', 'low', 'high', 'objective at low', 'objective at high', 'swing'].join(','), ...ex.rows.map((r) => [q(r.label), r.base, r.low, r.high, r.lowValue, r.highValue, r.swing].join(','))].join('\n');
+  if (ex.kind === 'multiopt') return [[...ex.params.map((p) => q(p.label)), q(ex.objective), 'best so far'].join(','), ...ex.history.map((h) => [...h.values, h.value, h.best].join(','))].join('\n');
   return [['x', 'replication', 'value'].join(','), ...ex.runs.map((r) => [r.x ?? '', r.rep, r.value].join(','))].join('\n');
 }
 
@@ -956,7 +1194,7 @@ function mountViews() {
 function applyCanvasOptions() {
   if (!canvas) return;
   const s = state.settings;
-  Object.assign(canvas.options, { grid: s.showGrid, snap: s.snapStep, ports: s.showPorts, labels: s.showLabels, links: s.showLinks, heat: s.heatmap });
+  Object.assign(canvas.options, { grid: s.showGrid, rulers: s.showRulers, snap: s.snapStep, ports: s.showPorts, labels: s.showLabels, links: s.showLinks, heat: s.heatmap });
   canvas.readTheme();
   canvas.dirty = true;
 }
@@ -1013,7 +1251,7 @@ function canvasContextMenu(event, hit) {
     items.push(...menuItems(['straighten', 'delete']));
     return showMenu(items, anchor, 'context', { handlers, header: { icon: 'connectTool', title: t('props.link') } });
   }
-  if (!items.length) items.push(...menuItems(['paste', 'selectAll', '-', 'fit', 'zoomIn', 'zoomOut', '-', 'grid', 'heatmap']));
+  if (!items.length) items.push(...menuItems(['paste', 'selectAll', '-', 'fit', 'zoomIn', 'zoomOut', '-', 'grid', 'rulers', 'heatmap']));
   return showMenu(items, anchor, 'context', { handlers, header: { icon: 'fProcess', title: m0name() } });
 }
 
@@ -1050,7 +1288,7 @@ const commands = {
   exportExperimentCsv: { icon: 'csvFile', label: 'action.exportExperimentCsv', enabled: () => Boolean(state.experiment), run: () => saveExport(`${safeName()}-experiment.csv`, 'csv', experimentCsv(), 'text/csv') },
   exportReportHtml: { icon: 'htmlFile', label: 'action.exportReportHtml', enabled: hasDoc, run: () => saveExport(`${safeName()}-report.html`, 'html', standaloneReport(), 'text/html') },
   exportMenu: { icon: 'chevronDown', label: 'action.exportMenu', enabled: hasDoc, run: (c) => showMenu(menuItems(SUBMENUS.exportTo.items), c?.anchor ?? anchorFor('exportMenu'), 'context', { header: { icon: 'exportFile', title: t('submenu.exportTo') } }) },
-  print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: hasDoc, run: () => openReport() },
+  print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: hasDoc, run: () => openPrint() },
   closeProject: { icon: 'closeTab', label: 'action.closeProject', key: 'Ctrl+W', enabled: () => Boolean(state.doc), run: () => closeProject() },
   exitProject: { icon: 'exitProject', label: 'action.exitProject', enabled: () => Boolean(state.doc) && !state.showStart, run: () => closeProject() },
   exit: { icon: 'exit', label: 'action.exit', key: isMac ? 'Ctrl+Q' : 'Alt+F4', run: () => requestExit() },
@@ -1083,6 +1321,7 @@ const commands = {
   zoomOut: { icon: 'zoomOut', label: 'action.zoomOut', key: '-', enabled: hasDoc, run: () => canvas.zoomBy(0.8) },
   zoomSelection: { icon: 'zoomSelection', label: 'action.zoomSelection', enabled: sel, run: () => zoomToSelection() },
   grid: { icon: 'grid', label: 'action.grid', key: 'G', checked: () => state.settings.showGrid, run: toggleSetting('showGrid', () => { applyCanvasOptions(); applyViewOptions(); }) },
+  rulers: { icon: 'rulers', label: 'action.rulers', checked: () => state.settings.showRulers, run: toggleSetting('showRulers', applyCanvasOptions) },
   ports: { icon: 'connectionPoints', label: 'action.ports', checked: () => state.settings.showPorts, run: toggleSetting('showPorts') },
   labels: { icon: 'textTool', label: 'action.labels', checked: () => state.settings.showLabels, run: toggleSetting('showLabels', () => { applyCanvasOptions(); updateSettings({ view3dLabels: state.settings.showLabels }, { quiet: true }); applyViewOptions(); }) },
   links: { icon: 'polyline', label: 'action.links', checked: () => state.settings.showLinks, run: toggleSetting('showLinks') },
@@ -1090,12 +1329,13 @@ const commands = {
   snap: { icon: 'snap', label: 'action.snap', checked: () => state.settings.snapStep > 0, run: () => { updateSettings({ snapStep: state.settings.snapStep > 0 ? 0 : 0.5 }, { quiet: true }); applyCanvasOptions(); renderToolbarState(); } },
   shadows3d: { icon: 'shadow', label: 'action.shadows3d', checked: () => state.settings.view3dShadows, run: toggleSetting('view3dShadows', applyViewOptions) },
   ...Object.fromEntries(['iso', 'top', 'front', 'side'].map((v) => [`view3d:${v}`, { icon: { iso: 'viewIso', top: 'viewTop', front: 'viewFront', side: 'viewRight' }[v], label: `view3d.${v}`, enabled: () => hasDoc() && Boolean(view3d), run: () => { if (state.settings.viewMode === '2d') setViewMode('split'); view3d.setView(v); } }])),
-  leftPanel: { icon: 'panelLeft', label: 'action.leftPanel', checked: () => state.settings.showLeftPanel, run: () => { updateSettings({ showLeftPanel: !state.settings.showLeftPanel }); layoutViews(); } },
-  rightPanel: { icon: 'panelRight', label: 'action.rightPanel', checked: () => state.settings.showRightPanel, run: () => { updateSettings({ showRightPanel: !state.settings.showRightPanel }); layoutViews(); } },
-  bottomPanel: { icon: 'panelBottom', label: 'action.bottomPanel', key: 'Ctrl+J', checked: () => state.settings.showBottomPanel, run: () => { updateSettings({ showBottomPanel: !state.settings.showBottomPanel }); layoutViews(); } },
+  leftPanel: { get icon() { return state.settings.showLeftPanel ? 'foldLeft' : 'unfoldLeft'; }, label: 'action.leftPanel', enabled: () => panelsUsable(), checked: () => state.settings.showLeftPanel, run: () => { updateSettings({ showLeftPanel: !state.settings.showLeftPanel }); layoutViews(); } },
+  rightPanel: { get icon() { return state.settings.showRightPanel ? 'foldRight' : 'unfoldRight'; }, label: 'action.rightPanel', enabled: () => panelsUsable(), checked: () => state.settings.showRightPanel, run: () => { updateSettings({ showRightPanel: !state.settings.showRightPanel }); layoutViews(); } },
+  bottomPanel: { get icon() { return state.settings.showBottomPanel ? 'foldBottom' : 'unfoldBottom'; }, label: 'action.bottomPanel', enabled: () => panelsUsable(), key: 'Ctrl+J', checked: () => state.settings.showBottomPanel, run: () => { updateSettings({ showBottomPanel: !state.settings.showBottomPanel }); layoutViews(); } },
   statusBar: { icon: 'statusBar', label: 'action.statusBar', checked: () => state.settings.showStatusBar, run: () => updateSettings({ showStatusBar: !state.settings.showStatusBar }) },
   theme: { icon: 'palette', label: 'action.theme', run: () => { const order = ['light', 'dark']; updateSettings({ theme: resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark ? 'light' : 'dark' }); void order; } },
-  themeMenu: { icon: 'chevronDown', label: 'action.themeChoose', run: (c) => openThemePicker(c?.anchor) },
+  themeMenu: { icon: 'palette', label: 'action.themeChoose', run: (c) => openThemePicker(c?.anchor) },
+  themeRandom: { icon: 'palette', label: 'action.themeRandom', run: () => randomTheme() },
   language: { icon: 'globe', label: 'action.language', key: 'Ctrl+Shift+L', run: () => updateSettings({ language: getLanguage() === 'ko' ? 'en' : 'ko' }) },
   shuffleBackground: { icon: 'dice', label: 'action.shuffleBackground', run: () => shuffleBackground() },
   backgroundImage: { icon: 'imageBg', label: 'action.backgroundImage', run: () => chooseBackground() },
@@ -1108,6 +1348,7 @@ const commands = {
   restart: { icon: 'runReset', label: 'action.restart', enabled: hasDoc, run: () => { stopRun({ quiet: true }); runPause(); } },
   speedUp: { icon: 'speedUp', label: 'action.speedUp', key: ']', enabled: hasDoc, run: () => speedStep(1) },
   speedDown: { icon: 'speedDown', label: 'action.speedDown', key: '[', enabled: hasDoc, run: () => speedStep(-1) },
+  speedMenu: { icon: 'speed', label: 'action.speedMenu', enabled: hasDoc, run: (ctx) => speedMenu(ctx?.anchor) },
   experiment: { icon: 'experiment', label: 'action.experiment', key: 'Ctrl+Shift+X', enabled: () => hasDoc() && !runningOrPaused(), run: () => openExperiment() },
   applyBest: { icon: 'star', label: 'action.applyBest', enabled: () => Boolean(state.experiment?.best) && !running(), run: () => applyBest() },
   report: { icon: 'report', label: 'action.report', key: 'Ctrl+R', enabled: hasDoc, run: () => openReport() },
@@ -1117,10 +1358,16 @@ const commands = {
   showProblems: { icon: 'problems', label: 'bottom.problems', run: () => showBottom('problems') },
   showLog: { icon: 'trace', label: 'bottom.log', run: () => showBottom('log') },
   showExperiments: { icon: 'experiment', label: 'bottom.experiments', run: () => showBottom('experiments') },
+  recordVideo: { icon: 'fRecord', label: 'action.recordVideo', enabled: hasDoc, checked: () => Boolean(recorder?.active), run: () => toggleRecording() },
+  follow3d: { icon: 'fFollow', label: 'action.follow3d', enabled: () => hasDoc() && Boolean(view3d), checked: () => Boolean(view3d?.follow), run: () => toggleFollow() },
+  saveScenario: { icon: 'fScenario', label: 'action.saveScenario', enabled: () => Boolean(state.results) && hasDoc(), run: () => saveScenario() },
+  compareScenarios: { icon: 'fCompare', label: 'action.compareScenarios', enabled: () => (doc()?.scenarios?.length ?? 0) > 0, run: () => showBottom('experiments') },
   // help
-  welcome: { icon: 'bulb', label: 'action.welcome', run: () => openWelcome() },
+  // The welcome popup (it asks whether to run the tutorial) belongs to the start page: from elsewhere this goes there first.
+  welcome: { icon: 'bulb', label: 'action.welcome', run: () => { if (!state.showStart) showStartPage(true); return openWelcome(); } },
   tutorial: { icon: 'tutorial', label: 'action.tutorial', key: 'F11', run: () => startTutorial() },
   tutorialDoc: { icon: 'tutorialDoc', label: 'action.tutorialDoc', run: () => openDocWindow('tutorial') },
+  tutorialVideo: { icon: 'tutorialVideo', label: 'action.tutorialVideo', run: () => openDocWindow('video') },
   userGuide: { icon: 'userGuide', label: 'action.userGuide', run: () => openDocWindow('guide') },
   shortcuts: { icon: 'keyboard', label: 'action.shortcuts', run: () => popups.open('settings', { tab: 'shortcuts' }) },
   settings: { icon: 'gear', label: 'action.settings', key: 'Ctrl+,', run: () => popups.open('settings', { tab: 'general' }) },
@@ -1174,9 +1421,9 @@ const SUBMENUS = {
   exportTo: { icon: 'exportFile', items: ['exportImage', 'exportImage3d', '-', 'exportStatsCsv', 'exportSeriesCsv', 'exportExperimentCsv', '-', 'exportReportHtml'] },
   ...Object.fromEntries(CATEGORIES.map((c) => [`cat:${c.id}`, { icon: c.icon, items: typesIn(c.id).map((type) => `place:${type}`) }])),
   align: { icon: 'alignLeft', items: ['alignLeft', 'alignCenter', 'alignRight', '-', 'alignTop', 'alignMiddle', 'alignBottom', '-', 'distributeH', 'distributeV'] },
-  views3d: { icon: 'view3dBox', items: ['view3d:iso', 'view3d:top', 'view3d:front', 'view3d:side', '-', 'shadows3d'] },
-  show: { icon: 'eye', items: ['grid', 'snap', 'ports', 'labels', 'links', 'heatmap', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar'] },
-  appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
+  views3d: { icon: 'view3dBox', items: ['view3d:iso', 'view3d:top', 'view3d:front', 'view3d:side', '-', 'follow3d', 'shadows3d'] },
+  show: { icon: 'eye', items: ['grid', 'rulers', 'snap', 'ports', 'labels', 'links', 'heatmap', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar'] },
+  appearance: { icon: 'palette', items: ['theme', 'themeRandom', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
   bottom: { icon: 'panelBottom', items: ['showDiagnosis', 'showStats', 'showCharts', 'showProblems', 'showLog', 'showExperiments'] },
 };
 const sub = (key) => ({ sub: key });
@@ -1185,26 +1432,30 @@ const MENUS = {
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'selectAll', 'clearSelection', '-', 'rename', 'rotate90', 'straighten', sub('align')],
   view: ['viewMode:2d', 'viewMode:3d', 'viewMode:split', '-', 'fit', 'zoomIn', 'zoomOut', 'zoomSelection', '-', sub('views3d'), sub('show'), sub('bottom'), '-', sub('appearance')],
   model: ['tool:select', 'tool:connect', 'tool:pan', '-', ...CATEGORIES.map((c) => sub(`cat:${c.id}`)), '-', 'addChart', 'checkNow'],
-  simulation: ['runPause', 'step', 'stop', 'runToEnd', 'restart', '-', 'speedUp', 'speedDown', '-', 'showDiagnosis', 'experiment', 'applyBest', '-', 'report', 'exportStatsCsv'],
-  help: ['welcome', 'tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
+  simulation: ['runPause', 'step', 'stop', 'runToEnd', 'restart', '-', 'speedUp', 'speedDown', '-', 'showDiagnosis', 'experiment', 'applyBest', '-', 'saveScenario', 'compareScenarios', '-', 'recordVideo', 'follow3d', '-', 'report', 'exportStatsCsv'],
+  help: ['welcome', 'tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', model: 'fProcess', simulation: 'runPlay', help: 'question' };
 
 const TOOLBAR = [
-  ['new', 'open', 'save', 'exitProject', 'exportSplit'],
+  ['new', 'open', 'save', 'print', 'exitProject', 'exportSplit'],
   ['undo', 'redo'],
   ['tool:select', 'tool:connect', 'tool:pan'],
   ['duplicate', 'rotate90', 'delete'],
   ['fit', 'zoomIn', 'zoomOut', 'grid', 'snap', 'heatmap'],
   ['viewMode:2d', 'viewMode:3d', 'viewMode:split'],
   ['runPause', 'step', 'stop', 'runToEnd'],
+  ['speedDown', 'speedMenu', 'speedUp'],
   ['experiment', 'report', 'checkNow'],
-  ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
+/** Panel buttons: on the menu bar, left of the window buttons (minimize · maximize · close). */
+/** The side and bottom panels exist only with a model open (not on the start page). */
+const panelsUsable = () => hasDoc() && !state.showStart;
+const MENUBAR_PANELS = ['leftPanel', 'bottomPanel', 'rightPanel'];
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
 /** Toolbar buttons that show a name next to the icon. */
-const TOOLBAR_LABELS = { 'viewMode:2d': 'view.tool.2d', 'viewMode:3d': 'view.tool.3d', 'viewMode:split': 'view.tool.split' };
-const TOOLBAR_MAIN = { exportSplit: 'exportImage', themeSplit: 'theme' };
+const TOOLBAR_LABELS = { 'viewMode:2d': 'view.tool.2d', 'viewMode:3d': 'view.tool.3d', 'viewMode:split': 'view.tool.split', report: 'report.button' };
+const TOOLBAR_MAIN = { exportSplit: 'exportImage', themeSplit: 'themeRandom' };
 
 function renderShell() {
   root.innerHTML = `
@@ -1244,8 +1495,9 @@ function renderMenubar() {
   const brand = `<div class="app-brand" data-window-drag title="${escapeHtml(`MyProductionFlow v${VERSION}`)}"><img class="app-brand-icon" src="${APP_ICON}" alt="" data-window-drag /><span class="app-brand-name" data-window-drag>MyProductionFlow</span><span class="app-brand-version" data-window-drag>v${escapeHtml(VERSION)}</span></div>`;
   const button = (id, glyph, key) => `<button class="window-button ${id === 'close' ? 'close' : ''}" data-window="${id}" title="${escapeHtml(t(key))}" aria-label="${escapeHtml(t(key))}">${icon(glyph)}</button>`;
   const controls = desktop ? `<div class="window-controls">${button('minimize', 'winMinimize', 'window.minimize')}${state.maximized ? button('maximize', 'winRestore', 'window.restore') : button('maximize', 'winMaximize', 'window.maximize')}${button('close', 'winClose', 'window.close')}</div>` : '';
+  const panels = `<div class="menubar-panels" role="group">${MENUBAR_PANELS.map((id) => `<button class="tool-button menubar-panel ${commands[id].checked?.() ? 'active' : ''}" data-command="${id}" ${commandEnabled(id) ? '' : 'disabled'} title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(commands[id].label))}" aria-pressed="${Boolean(commands[id].checked?.())}">${icon(commands[id].icon)}</button>`).join('')}</div>`;
   const projectName = '<span class="menubar-project" data-window-drag><span class="app-brand-project-name" data-window-drag></span><span class="app-brand-dirty" data-window-drag>●</span></span>';
-  menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `<button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('') + projectName + `<div class="menubar-drag" data-window-drag></div>${controls}`;
+  menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `<button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('') + projectName + `<div class="menubar-drag" data-window-drag></div>${panels}${controls}`;
   renderTitleProject();
 }
 
@@ -1294,7 +1546,10 @@ function renderToolbar() {
   const split = (main, arrow, label) => `<span class="split-button">${plain(main)}<button class="tool-button split-arrow" data-command="${arrow}" title="${escapeHtml(commandTip(arrow))}" aria-label="${escapeHtml(t(label))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
   const button = (id) => {
     if (id === 'exportSplit') return split('exportImage', 'exportMenu', 'action.exportMenu');
-    if (id === 'themeSplit') return split('theme', 'themeMenu', 'action.themeChoose');
+    // Theme: the button picks a random theme; the ▾ on its right is the theme dropdown menu.
+    if (id === 'themeSplit') return split('themeRandom', 'themeMenu', 'action.themeChoose');
+    // The current speed between − and +; a click lists every speed.
+    if (id === 'speedMenu') return `<button class="tool-button tool-labeled tool-speed" data-command="speedMenu" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(commands[id].label))}" aria-haspopup="true"><span data-speed-label>${escapeHtml(speedText(state.speed))}</span></button>`;
     return plain(id, id === 'runPause' ? 'run-button' : '');
   };
   toolbar.innerHTML = `<div class="toolbar-inner">
@@ -1333,7 +1588,7 @@ function showToolbarMore(button) {
 }
 
 function renderToolbarState() {
-  for (const el of root.querySelectorAll('#toolbar [data-command], #run-bar [data-command], #properties [data-command]')) {
+  for (const el of root.querySelectorAll('#toolbar [data-command], #menubar [data-command], #run-bar [data-command], #properties [data-command]')) {
     const id = el.dataset.command;
     if (!commands[id]) continue;
     el.disabled = !commandEnabled(id);
@@ -1341,6 +1596,8 @@ function renderToolbarState() {
     el.classList.toggle('active', Boolean(checked));
     if (checked !== undefined) el.setAttribute('aria-pressed', String(Boolean(checked)));
   }
+  renderSpeedLabel();
+  for (const id of ['leftPanel', 'rightPanel', 'bottomPanel']) { const b = root.querySelector(`#menubar [data-command="${id}"]`); if (b && b.dataset.glyph !== commands[id].icon) { b.innerHTML = icon(commands[id].icon); b.dataset.glyph = commands[id].icon; } }
   const runBtn = root.querySelector('#toolbar [data-command="runPause"]');
   if (runBtn) { runBtn.innerHTML = icon(state.simStatus === 'running' ? 'runPause' : 'runPlay'); runBtn.title = commandTip('runPause'); }
 }
@@ -1352,7 +1609,7 @@ function updateMinimumWidth() {
   requestAnimationFrame(() => {
     const toolbar = root.querySelector('#toolbar');
     const style = getComputedStyle(toolbar);
-    const menus = [...root.querySelectorAll('.app-brand, .menubar-item, .window-controls')].reduce((sum, el) => sum + el.offsetWidth + 2, 48);
+    const menus = [...root.querySelectorAll('.app-brand, .menubar-item, .menubar-panels, .window-controls')].reduce((sum, el) => sum + el.offsetWidth + 2, 48);
     const folded = [...left.querySelectorAll('[data-group], [data-group-sep]')].filter((el) => el.hidden);
     const more = left.querySelector('[data-toolbar-more]');
     const moreHidden = more?.hidden;
@@ -1362,7 +1619,7 @@ function updateMinimumWidth() {
     for (const el of folded) el.hidden = true;
     if (more) more.hidden = moreHidden;
     const screenWidth = window.screen?.availWidth || Infinity;
-    const width = Math.ceil(Math.min(screenWidth, Math.max(menus, full)));
+    const width = Math.ceil(Math.min(screenWidth - 16, Math.max(menus, full)));
     if (Math.abs(width - state.minWidth) < 1) return;
     state.minWidth = width;
     document.documentElement.style.setProperty('--min-width', `${width}px`);
@@ -1380,16 +1637,16 @@ function renderRunBar() {
   const progress = sim ? Math.min(1, sim.now / sim.end) : state.simStatus === 'finished' ? 1 : 0;
   const statusKey = `run.${state.simStatus}`;
   const existing = bar.querySelector('.run-progress');
-  if (existing && bar.dataset.status === state.simStatus && bar.dataset.lang === getLanguage() && bar.dataset.mode === state.settings.viewMode && bar.dataset.speed === String(state.speed)) {
+  if (existing && bar.dataset.status === state.simStatus && bar.dataset.lang === getLanguage() && bar.dataset.mode === state.settings.viewMode && bar.dataset.speed === String(state.speed) && bar.dataset.rec === String(Boolean(recorder?.active)) && bar.dataset.follow === String(Boolean(view3d?.follow))) {
     existing.querySelector('i').style.width = `${progress * 100}%`;
     bar.querySelector('.run-time').textContent = simTimeText();
     bar.querySelector('.run-events').textContent = sim ? t('run.events', { n: sim.eventCount.toLocaleString(), wip: sim.entities.size - sim.hidden.size }) : '';
     return;
   }
-  Object.assign(bar.dataset, { status: state.simStatus, lang: getLanguage(), mode: state.settings.viewMode, speed: String(state.speed) });
+  Object.assign(bar.dataset, { status: state.simStatus, lang: getLanguage(), mode: state.settings.viewMode, speed: String(state.speed), rec: String(Boolean(recorder?.active)), follow: String(Boolean(view3d?.follow)) });
   const btn = (id, extra = '') => `<button class="tool-button ${extra}" data-command="${id}" title="${escapeHtml(commandTip(id))}">${icon(id === 'runPause' && state.simStatus === 'running' ? 'runPause' : commands[id].icon)}</button>`;
   const speeds = SPEEDS.includes(state.speed) ? SPEEDS : [...SPEEDS, state.speed].sort((a, b) => a - b);
-  bar.innerHTML = `<div class="run-controls">${btn('runPause', 'run-button')}${btn('step')}${btn('stop')}${btn('runToEnd')}</div>
+  bar.innerHTML = `<div class="run-controls">${btn('runPause', 'run-button')}${btn('step')}${btn('stop')}${btn('runToEnd')}<span class="run-sep"></span>${btn('recordVideo', recorder?.active ? 'active recording' : '')}${state.settings.viewMode !== '2d' ? btn('follow3d', view3d?.follow ? 'active' : '') : ''}</div>
     <span class="run-status status-${state.simStatus}">${icon(state.simStatus === 'running' ? 'runPlay' : state.simStatus === 'paused' ? 'runPause' : state.simStatus === 'finished' ? 'check' : 'runStop')}<span>${escapeHtml(t(statusKey))}</span></span>
     <span class="run-time" title="${escapeHtml(t('run.timeTip'))}">${escapeHtml(simTimeText())}</span>
     <span class="run-progress" title="${escapeHtml(t('run.progressTip'))}"><i style="width:${progress * 100}%"></i></span>
@@ -1463,7 +1720,7 @@ function renderBottom() {
     case 'charts': host.innerHTML = chartsHtml(state.sim, m); break;
     case 'problems': host.innerHTML = problemsHtml(state.problems, state); break;
     case 'log': host.innerHTML = logHtml(state.log, m); break;
-    case 'experiments': host.innerHTML = experimentsHtml(state.experiment, m) + (state.experiment?.best ? `<div class="exp-apply"><button class="button small" data-command="applyBest">${icon('star')}<span>${escapeHtml(t('action.applyBest'))}</span></button></div>` : ''); break;
+    case 'experiments': host.innerHTML = experimentsHtml(state.experiment, m, doc()?.scenarios ?? []) + (state.experiment?.best ? `<div class="exp-apply"><button class="button small" data-command="applyBest">${icon('star')}<span>${escapeHtml(t('action.applyBest'))}</span></button></div>` : ''); break;
     default: host.innerHTML = '';
   }
   host.scrollTop = scroll;
@@ -1544,6 +1801,8 @@ function showStartPage(show = true) {
   state.showStart = show;
   if (!state.doc) state.showStart = true;
   if (state.showStart && running()) setStatus('paused');
+  // Leaving the start page closes the welcome popup (it is shown only over the start page).
+  if (!state.showStart) popups.close('welcome');
   renderAll();
 }
 
@@ -1570,6 +1829,7 @@ async function onStartAction(target) {
     case 'tutorial': return startTutorial();
     case 'guide': return openDocWindow('guide');
     case 'tutorial-doc': return openDocWindow('tutorial');
+    case 'tutorial-video': return openDocWindow('video');
     case 'animation': updateSettings({ animation: value, backgroundKind: 'animated' }); return notify('info', t('notice.animation', { name: t(`animation.${value}`) }));
     case 'shuffle': return shuffleBackground();
     case 'background-image': return chooseBackground();
@@ -1672,6 +1932,39 @@ function applySettings(previous = {}) {
   applyViewOptions();
   renderAll();
   updateMinimumWidth();
+}
+
+/**
+ * The toolbar's theme button: a dropdown menu (not a window) — system, the light and the dark themes (each with
+ * its colour swatch, the current one checked), custom, and the theme settings.
+ */
+/** A random light or dark theme other than the current one. */
+function randomTheme() {
+  const list = [...LIGHT_THEMES, ...DARK_THEMES].filter((x) => x.id !== state.settings.theme);
+  const pick = list[Math.floor(Math.random() * list.length)];
+  if (pick) updateSettings({ theme: pick.id });
+  return pick?.id;
+}
+
+function showThemeDropdown(anchor) {
+  const handlers = {};
+  const current = state.settings.theme;
+  const item = (theme) => { handlers[`custom:theme:${theme.id}`] = () => updateSettings({ theme: theme.id }); return { id: `custom:theme:${theme.id}`, label: themeName(theme.id, lang()), swatch: theme.swatch, checked: current === theme.id }; };
+  const group = (key, glyph, list) => ({ id: `custom:group:${key}`, label: t(`theme.group.${key}`), icon: glyph, submenu: true, checked: list.some((x) => x.id === current), children: list.map(item) });
+  handlers[`custom:theme:${SYSTEM}`] = () => updateSettings({ theme: SYSTEM });
+  handlers[`custom:theme:${CUSTOM}`] = () => updateSettings({ theme: CUSTOM });
+  handlers['custom:theme:settings'] = () => popups.open('settings', { tab: 'theme' });
+  const items = [
+    { id: `custom:theme:${SYSTEM}`, label: themeName(SYSTEM, lang()), icon: 'fullscreen', checked: current === SYSTEM },
+    { separator: true },
+    group('light', 'sun', LIGHT_THEMES),
+    group('dark', 'moon', DARK_THEMES),
+    { id: `custom:theme:${CUSTOM}`, label: themeName(CUSTOM, lang()), icon: 'palette', checked: current === CUSTOM },
+    { separator: true },
+    { id: 'custom:theme:settings', label: t('theme.settings'), icon: 'gear' },
+  ];
+  const button = root.querySelector('#toolbar [data-command="themeMenu"]');
+  return showMenu(items, anchor ?? anchorBelow(button ?? root.querySelector('#toolbar')), 'context', { handlers, header: { icon: 'palette', title: t('action.themeChoose') } });
 }
 
 async function openThemePicker(anchor) {
@@ -1876,6 +2169,9 @@ function bindPanelEvents() {
     if (tab) { state.bottomTab = tab.dataset.bottomTab; updateSettings({ bottomTab: state.bottomTab }, { quiet: true }); renderBottom(); return; }
     const apply = event.target.closest('[data-apply]');
     if (apply && !apply.disabled) { applyFix(apply.dataset.apply); return; }
+    const scen = event.target.closest('[data-scenario-remove]');
+    if (scen) { doc()?.scenarios?.splice(Number(scen.dataset.scenarioRemove), 1); renderBottom(); return; }
+    if (event.target.closest('[data-scenario-clear]')) { if (doc()) doc().scenarios = []; renderBottom(); return; }
     const f = event.target.closest('[data-problem-filter]');
     if (f) { state.problemFilter = f.dataset.problemFilter; renderBottom(); return; }
     const pick = event.target.closest('[data-select-block]');
@@ -1903,7 +2199,7 @@ function bindEvents() {
     const command = target.closest('[data-command]');
     if (command && !command.disabled) {
       const id = command.dataset.command;
-      const anchored = ['themeMenu', 'exportMenu', 'recentFolders', 'newFromTemplate', 'openExample'].includes(id);
+      const anchored = ['themeMenu', 'exportMenu', 'recentFolders', 'newFromTemplate', 'openExample', 'speedMenu'].includes(id);
       return run(id, { anchor: anchored ? anchorBelow(command.closest('.split-button') ?? command) : undefined });
     }
     const windowControl = target.closest('[data-window]');
@@ -1977,7 +2273,7 @@ function bindEvents() {
     event.preventDefault();
     native.invoke('window_drag', { edge: 'SouthEast' }).catch(() => appWindow?.startResizeDragging('SouthEast').catch(() => {}));
   });
-  window.addEventListener('resize', frameThrottle(() => { fitToolbar(); layoutViews(); if (desktop && state.minWidth && window.innerWidth < state.minWidth - 1) native.setMinimumSize(state.minWidth, 640).catch(() => {}); }));
+  window.addEventListener('resize', frameThrottle(() => { fitToolbar(); layoutViews(); /* the OS keeps the minimum (setMinimumSize); resizing it here again fought the drag and shook the right edge */ }));
   document.addEventListener('keydown', onKeyDown, true);
   window.addEventListener('storage', (event) => {
     if (event.key === STORAGE_KEY) { const previous = state.settings; state.settings = loadSettings(globalThis.localStorage); applySettings(previous); }
@@ -2043,7 +2339,12 @@ function bindPopupActions() {
   popups.on('show-start', () => showStartPage(true));
   popups.on('progress-cancel', (data) => { popups.actions.get(`cancel:${data.op}`)?.(); });
   popups.on('raise-test-panic', () => native.invoke('raise_test_panic').catch((error) => showError('error.unexpected', error)));
-  popups.on('report-save-html', () => run('exportReportHtml'));
+  popups.on('report-save-html', () => saveReport('html'));
+  popups.on('report-save', (data) => saveReport(data.format, data.sections));
+  popups.on('open-print', () => openPrint());
+  popups.on('report-images', (data) => popups.post(data.kind, { type: 'report-images', images: state.reportImages ?? {} }));
+  popups.on('print-setup', (data) => updateSettings({ printSetup: data.setup }, { quiet: true }));
+  popups.on('print-save-pdf', async (data) => { state.settings.printSetup = data.setup; await saveReport('pdf', data.sections); });
   popups.on('report-save-csv', () => run('exportStatsCsv'));
 }
 
@@ -2116,6 +2417,11 @@ async function start() {
   state.showStart = !state.doc;
   renderAll();
   const welcome = state.settings.showWelcome && state.showStart && !globalThis.__MYPRODUCTIONFLOW_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome');
+  // The window opens at its minimum width (measured from the menu bar and the toolbar).
+  if (desktop) {
+    for (let i = 0; i < 30 && !state.minWidth; i++) await new Promise((resolve) => requestAnimationFrame(resolve));
+    if (state.minWidth) await native.startAtWidth(state.minWidth).catch(() => {});
+  }
   if (desktop) await appWindow.show();
   if (welcome) openWelcome();
   else if (welcomeLikely) popups.close('welcome');
@@ -2130,8 +2436,11 @@ async function start() {
 }
 
 async function openWelcome() {
+  // Only over the start page (never over a model or the tutorial).
+  if (!state.showStart || tutorial?.state().active) return;
   updateSettings({ tutorialOffered: true }, { quiet: true });
   const result = await popups.open('welcome', {});
+  if (!state.showStart) return;
   if (result?.choice === 'tutorial') startTutorial();
   else if (result?.choice === 'sample') openSampleAsk('line');
 }
@@ -2143,7 +2452,7 @@ window.__myproductionflow = {
   api: appApi,
   get canvas() { return canvas; },
   get view3d() { return view3d; },
-  actions: { newProject, openSampleAsk, openContent, saveDoc, closeProject, setSelection, change, undo, redo, setTool, startPlacing, placeBlock, connect, runPause, stopRun, runToEnd, stepOnce, setSpeed, runExperiment, showStartPage, updateSettings, setViewMode, deleteSelection, duplicateSelection, reportHtml, resultsCsv, seriesCsv },
+  actions: { newProject, openSampleAsk, openContent, saveDoc, closeProject, setSelection, change, undo, redo, setTool, startPlacing, placeBlock, connect, runPause, stopRun, runToEnd, stepOnce, setSpeed, runExperiment, experimentCsv, saveScenario, toggleRecording, toggleFollow, recorder: () => recorder, reportDocument, saveReport, showStartPage, updateSettings, setViewMode, deleteSelection, duplicateSelection, reportHtml, resultsCsv, seriesCsv },
   domain: { BLOCK_TYPES, SAMPLE_PROJECTS, TEMPLATES, tutorialSteps: () => TUTORIAL_STEPS.length },
   tutorial: () => tutorial,
 };

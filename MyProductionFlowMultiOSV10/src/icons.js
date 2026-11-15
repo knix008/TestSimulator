@@ -61,6 +61,13 @@ const base = {
   zoomReset: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/><text x="11" y="13.6" font-size="7" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif" font-weight="700">1:1</text>',
   panelLeft: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   panelRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
+  // Fold / unfold a side panel: the panel edge with an arrow that shows which way it goes.
+  foldBottom: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18"/><path d="M8 17.5h8" stroke-width="2.6"/><path d="M9 7.5l3 3 3-3"/>',
+  unfoldBottom: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18"/><path d="M9 10.5l3-3 3 3"/>',
+  foldLeft: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M5.5 8v8" stroke-width="2.6"/><path d="M16 9l-3 3 3 3"/>',
+  unfoldLeft: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M13 9l3 3-3 3"/>',
+  foldRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M18.5 8v8" stroke-width="2.6"/><path d="M8 9l3 3-3 3"/>',
+  unfoldRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M11 9l-3 3 3 3"/>',
   statusBar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16h18"/>',
   // Bottom panel (Problems): a window with a tall bottom part holding a warning mark.
   panelBottom: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12h18"/><path d="M12 14.2v2.4"/><circle cx="12" cy="18.2" r="0.4"/>',
@@ -386,6 +393,8 @@ const base = {
 /** The icon for a moving background kind (`blueprint` → `animBlueprint`). */
 export const animationIcon = (kind) => `anim${kind[0].toUpperCase()}${kind.slice(1)}`;
 const paths = { ...base, ...ICONS_3D, ...ICONS_FLOW, ...ICONS_FLOW2 };
+// The start page's background chips (anim + scene name) use the matching block icons.
+for (const [name, from] of Object.entries({ animConveyor: 'fConveyor', animAssembly: 'fCombine', animAgv: 'fAgv', animWarehouse: 'fRack', animTraffic: 'fCar', animRail: 'fTrack', animPedestrians: 'fPedIn', animNetwork: 'fProcess', animSankey: 'fSplit', animGantt: 'fChart', animGears: 'fMaintenance', animPipes: 'fTank', animStocks: 'fStock', animSupply: 'tplSupply', animHeatmap: 'heatmap', animQueues: 'fQueue', animRobots: 'fRobot', animContainers: 'fCrane', animCharts: 'fChart', animAgents: 'fAgents' })) paths[name] ??= paths[from];
 
 export const ICON_NAMES = Object.keys(paths);
 export const hasIcon = (name) => Object.hasOwn(paths, name);

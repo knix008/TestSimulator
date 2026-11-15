@@ -1,0 +1,574 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Fuel station",
+ "description": "Cars come off the road to the shortest of 4 pumps",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 240,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 120,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8r1bmla",
+   "type": "carSource",
+   "name": "Traffic",
+   "x": -50,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.9
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Car",
+      "color": "#2563eb",
+      "weight": 3
+     },
+     {
+      "name": "Car",
+      "color": "#dc2626",
+      "weight": 2
+     },
+     {
+      "name": "Car",
+      "color": "#e5e7eb",
+      "weight": 2
+     },
+     {
+      "name": "Truck",
+      "color": "#f59e0b",
+      "weight": 1
+     }
+    ],
+    "shape": "car",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a8s1bnu0",
+   "type": "road",
+   "name": "Entry road",
+   "x": -48,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 800,
+    "lanes": 1,
+    "vehicleLength": 6
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     30,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhr4a8s1borv",
+   "type": "select",
+   "name": "Pick pump",
+   "x": -15,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 4,
+    "mode": "shortest",
+    "weights": "1, 1",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhr4a8s1bpao",
+   "type": "queue",
+   "name": "Bay 1",
+   "x": -8,
+   "y": -9,
+   "rot": 0,
+   "props": {
+    "capacity": 3,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8s1bqpw",
+   "type": "fuelStation",
+   "name": "Pump 1",
+   "x": -1,
+   "y": -9,
+   "rot": 0,
+   "props": {
+    "look": "fuel",
+    "capacity": 4,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 3.5,
+     "max": 6
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8s1brd",
+   "type": "queue",
+   "name": "Bay 2",
+   "x": -8,
+   "y": -3,
+   "rot": 0,
+   "props": {
+    "capacity": 3,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8s1bssx",
+   "type": "fuelStation",
+   "name": "Pump 2",
+   "x": -1,
+   "y": -3,
+   "rot": 0,
+   "props": {
+    "look": "fuel",
+    "capacity": 4,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 3.5,
+     "max": 6
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8s1btd8",
+   "type": "queue",
+   "name": "Bay 3",
+   "x": -8,
+   "y": 3,
+   "rot": 0,
+   "props": {
+    "capacity": 3,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8s1bukz",
+   "type": "fuelStation",
+   "name": "Pump 3",
+   "x": -1,
+   "y": 3,
+   "rot": 0,
+   "props": {
+    "look": "fuel",
+    "capacity": 4,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 3.5,
+     "max": 6
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8s1bvq2",
+   "type": "queue",
+   "name": "Bay 4",
+   "x": -8,
+   "y": 9,
+   "rot": 0,
+   "props": {
+    "capacity": 3,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8s1bwgu",
+   "type": "fuelStation",
+   "name": "Pump 4",
+   "x": -1,
+   "y": 9,
+   "rot": 0,
+   "props": {
+    "look": "fuel",
+    "capacity": 4,
+    "time": {
+     "type": "triangular",
+     "min": 2,
+     "mode": 3.5,
+     "max": 6
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8s1bxkj",
+   "type": "junction",
+   "name": "Exit",
+   "x": 6,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "inputs": 4
+   }
+  },
+  {
+   "id": "bmwhr4a8s1byzz",
+   "type": "road",
+   "name": "Exit road",
+   "x": 8,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 800,
+    "lanes": 1,
+    "vehicleLength": 6
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     36,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhr4a8s1bzrl",
+   "type": "carSink",
+   "name": "Away",
+   "x": 48,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8s1c0kq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8r1bmla",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1bnu0",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1c1mn",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1bnu0",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1borv",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1c2a3",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1borv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1bpao",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1c3dq",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1bpao",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1bqpw",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1c4ww",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1bqpw",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1bxkj",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1c5uy",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1borv",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhr4a8s1brd",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1c6yu",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1brd",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1bssx",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1c7kr",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1bssx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1bxkj",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1c8gl",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1borv",
+    "port": 2
+   },
+   "to": {
+    "block": "bmwhr4a8s1btd8",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1c9zr",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1btd8",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1bukz",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1cafv",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1bukz",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1bxkj",
+    "port": 2
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1cb73",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1borv",
+    "port": 3
+   },
+   "to": {
+    "block": "bmwhr4a8s1bvq2",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1cc5b",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1bvq2",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1bwgu",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1cdgc",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1bwgu",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1bxkj",
+    "port": 3
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1ceyy",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1bxkj",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1byzz",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8s1cfwg",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8s1byzz",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8s1bzrl",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Bays",
+   "kind": "line",
+   "series": [
+    "Bay 1.length",
+    "Bay 2.length",
+    "Bay 3.length",
+    "Bay 4.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.388Z"
+}

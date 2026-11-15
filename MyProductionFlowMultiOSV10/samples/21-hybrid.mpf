@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf377gg5s",
+   "id": "bmwhr4a7lgggk",
    "type": "variable",
    "name": "Demand",
    "x": -14,
@@ -32,7 +32,7 @@
    }
   },
   {
-   "id": "bmwhnf377ghxa",
+   "id": "bmwhr4a7lgh32",
    "type": "source",
    "name": "Orders",
    "x": -16,
@@ -74,7 +74,7 @@
    }
   },
   {
-   "id": "bmwhnf378giwk",
+   "id": "bmwhr4a7lgikv",
    "type": "queue",
    "name": "Order book",
    "x": -10,
@@ -87,7 +87,7 @@
    }
   },
   {
-   "id": "bmwhnf378gjj6",
+   "id": "bmwhr4a7lgj1e",
    "type": "process",
    "name": "Production",
    "x": -3,
@@ -121,7 +121,7 @@
    }
   },
   {
-   "id": "bmwhnf378gkow",
+   "id": "bmwhr4a7lgk4m",
    "type": "sink",
    "name": "Made",
    "x": 4,
@@ -130,7 +130,7 @@
    "props": {}
   },
   {
-   "id": "bmwhnf378glfa",
+   "id": "bmwhr4a7lgl5v",
    "type": "stock",
    "name": "Stock",
    "x": 12,
@@ -144,7 +144,7 @@
    }
   },
   {
-   "id": "bmwhnf378gm6z",
+   "id": "bmwhr4a7lgmul",
    "type": "flow",
    "name": "Produced",
    "x": 6,
@@ -158,7 +158,7 @@
    }
   },
   {
-   "id": "bmwhnf378gnmi",
+   "id": "bmwhr4a7lgn6l",
    "type": "flow",
    "name": "Sold",
    "x": 18,
@@ -174,79 +174,79 @@
  ],
  "links": [
   {
-   "id": "lmwhnf378goiz",
+   "id": "lmwhr4a7lgod1",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf377ghxa",
+    "block": "bmwhr4a7lgh32",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf378giwk",
+    "block": "bmwhr4a7lgikv",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf378gp8x",
+   "id": "lmwhr4a7lgp1d",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf378giwk",
+    "block": "bmwhr4a7lgikv",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf378gjj6",
+    "block": "bmwhr4a7lgj1e",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf378gqsc",
+   "id": "lmwhr4a7lgqxs",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf378gjj6",
+    "block": "bmwhr4a7lgj1e",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf378gkow",
+    "block": "bmwhr4a7lgk4m",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf378gr3z",
+   "id": "lmwhr4a7lgrng",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf378gm6z",
+    "block": "bmwhr4a7lgmul",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf378glfa",
+    "block": "bmwhr4a7lgl5v",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf378gsww",
+   "id": "lmwhr4a7lgsj8",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf378glfa",
+    "block": "bmwhr4a7lgl5v",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf378gnmi",
+    "block": "bmwhr4a7lgn6l",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf378gt8r",
+   "id": "lmwhr4a7lgth0",
    "kind": "influence",
    "from": {
-    "block": "bmwhnf377gg5s",
+    "block": "bmwhr4a7lgggk",
     "port": -1
    },
    "to": {
-    "block": "bmwhnf377ghxa",
+    "block": "bmwhr4a7lgh32",
     "port": -1
    },
    "points": []
@@ -272,5 +272,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:05.012Z"
+ "savedAt": "2026-11-15T11:28:39.345Z"
 }

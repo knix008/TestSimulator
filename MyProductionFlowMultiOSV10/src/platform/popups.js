@@ -22,12 +22,13 @@ export const POPUPS = {
   progress: { width: 520, height: 220 },
   recent: { width: 800, height: 510 },
   menu: { width: 300, height: 200 },
-  theme: { width: 620, height: 680 },
+  theme: { width: 360, height: 668 },
   welcome: { width: 640, height: 470 },
   color: { width: 300, height: 300 },
   prompt: { width: 520, height: 230 },
-  experiment: { width: 900, height: 470 },
-  report: { width: 1100, height: 760 },
+  experiment: { width: 960, height: 600 },
+  report: { width: 1180, height: 800 },
+  print: { width: 1240, height: 900 },
 };
 
 export const popupKey = (kind) => `myproductionflow.popup.${kind}`;

@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf3611fwt",
+   "id": "bmwhr4a6u1fub",
    "type": "source",
    "name": "Bodies",
    "x": -20,
@@ -62,7 +62,7 @@
    }
   },
   {
-   "id": "bmwhnf3611g2q",
+   "id": "bmwhr4a6u1gw5",
    "type": "source",
    "name": "Wheels",
    "x": -20,
@@ -104,7 +104,7 @@
    }
   },
   {
-   "id": "bmwhnf3611hm8",
+   "id": "bmwhr4a6u1hns",
    "type": "queue",
    "name": "Body buffer",
    "x": -13,
@@ -117,7 +117,7 @@
    }
   },
   {
-   "id": "bmwhnf3611ik1",
+   "id": "bmwhr4a6u1i3a",
    "type": "queue",
    "name": "Wheel buffer",
    "x": -13,
@@ -130,7 +130,7 @@
    }
   },
   {
-   "id": "bmwhnf3611juf",
+   "id": "bmwhr4a6u1jm4",
    "type": "combine",
    "name": "Assembly",
    "x": -5,
@@ -150,7 +150,7 @@
    }
   },
   {
-   "id": "bmwhnf3611k1a",
+   "id": "bmwhr4a6u1ko4",
    "type": "process",
    "name": "Paint booth",
    "x": 2,
@@ -184,7 +184,7 @@
    }
   },
   {
-   "id": "bmwhnf3611l5h",
+   "id": "bmwhr4a6u1lcy",
    "type": "conveyor",
    "name": "Line conveyor",
    "x": 4,
@@ -212,7 +212,7 @@
    ]
   },
   {
-   "id": "bmwhnf3611mnj",
+   "id": "bmwhr4a6u1mz7",
    "type": "process",
    "name": "Final check",
    "x": 14,
@@ -246,7 +246,7 @@
    }
   },
   {
-   "id": "bmwhnf3611n8u",
+   "id": "bmwhr4a6u1nnk",
    "type": "sink",
    "name": "Yard",
    "x": 20,
@@ -257,105 +257,105 @@
  ],
  "links": [
   {
-   "id": "lmwhnf3611oxk",
+   "id": "lmwhr4a6u1o4r",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf3611fwt",
+    "block": "bmwhr4a6u1fub",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf3611hm8",
+    "block": "bmwhr4a6u1hns",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf3611pnm",
+   "id": "lmwhr4a6u1ppf",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf3611g2q",
+    "block": "bmwhr4a6u1gw5",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf3611ik1",
+    "block": "bmwhr4a6u1i3a",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf3611qr5",
+   "id": "lmwhr4a6u1qmj",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf3611hm8",
+    "block": "bmwhr4a6u1hns",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf3611juf",
+    "block": "bmwhr4a6u1jm4",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf3611r3i",
+   "id": "lmwhr4a6u1rra",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf3611ik1",
+    "block": "bmwhr4a6u1i3a",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf3611juf",
+    "block": "bmwhr4a6u1jm4",
     "port": 1
    },
    "points": []
   },
   {
-   "id": "lmwhnf3611se0",
+   "id": "lmwhr4a6u1sxf",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf3611juf",
+    "block": "bmwhr4a6u1jm4",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf3611k1a",
+    "block": "bmwhr4a6u1ko4",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf3611tvd",
+   "id": "lmwhr4a6u1t8y",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf3611k1a",
+    "block": "bmwhr4a6u1ko4",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf3611l5h",
+    "block": "bmwhr4a6u1lcy",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf3611u60",
+   "id": "lmwhr4a6u1uod",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf3611l5h",
+    "block": "bmwhr4a6u1lcy",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf3611mnj",
+    "block": "bmwhr4a6u1mz7",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf3611v37",
+   "id": "lmwhr4a6u1v9t",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf3611mnj",
+    "block": "bmwhr4a6u1mz7",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf3611n8u",
+    "block": "bmwhr4a6u1nnk",
     "port": 0
    },
    "points": []
@@ -373,5 +373,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:04.969Z"
+ "savedAt": "2026-11-15T11:28:39.319Z"
 }

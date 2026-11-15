@@ -97,6 +97,48 @@ export const CASES = [
     A.run('applyBest'); await T.frames(2);
     if (T.byName('CNC').props.capacity !== ex.best.x) throw new Error('not applied');
     return ex.best;`, 120000],
+  ['sensitivity analysis (tornado) and multi-parameter optimization; the experiment window shows both', `
+    await T.sample('line');
+    const cnc = T.byName('CNC'); const bufA = T.byName('Buffer A');
+    await A.actions.runExperiment({ kind: 'sensitivity', sens: [cnc.id + '|capacity', bufA.id + '|capacity'], percent: 50, replications: 1, objective: 'throughput' });
+    let ex = A.state.experiment;
+    if (ex.kind !== 'sensitivity' || ex.rows.length !== 2 || !document.querySelector('.chart.tornado')) throw new Error(JSON.stringify(ex));
+    if (ex.rows[0].label.indexOf('CNC') < 0) throw new Error('CNC capacity should move throughput the most: ' + ex.rows.map((r) => r.label + ' ' + r.swing));
+    await A.actions.runExperiment({ kind: 'multiopt', multi: [{ parameter: cnc.id + '|capacity', from: 1, to: 3, step: 1 }, { parameter: bufA.id + '|capacity', from: 2, to: 10, step: 4 }], budget: 9, replications: 1, objective: 'throughput', goal: 'maximize' });
+    ex = A.state.experiment;
+    if (ex.kind !== 'multiopt' || ex.evaluations > 9 || ex.best.values[0] < 2) throw new Error(JSON.stringify({ best: ex.best, n: ex.evaluations }));
+    A.run('applyBest'); await T.frames(2);
+    if (T.byName('CNC').props.capacity !== ex.best.values[0] || T.byName('Buffer A').props.capacity !== ex.best.values[1]) throw new Error('not applied');
+    if (!A.actions.experimentCsv().split('\\n')[0].includes('best so far')) throw new Error('csv');
+    // The window: five kinds, the parameter checklist and the parameter rows.
+    A.run('experiment'); await T.popupReady('experiment');
+    const doc = document.querySelector('.web-popup-experiment iframe').contentDocument;
+    if (doc.querySelectorAll('.exp-kind').length !== 5) throw new Error('kinds');
+    doc.querySelector('[data-value="sensitivity"]').click(); await T.frames(2);
+    const checks = doc.querySelectorAll('.exp-checks input[type=checkbox]').length;
+    doc.querySelector('[data-value="multiopt"]').click(); await T.frames(2);
+    const before = doc.querySelectorAll('.exp-multi-row').length;
+    doc.querySelector('[data-action="multi-add"]').click(); await T.frames(2);
+    const after = doc.querySelectorAll('.exp-multi-row').length;
+    await A.popups.close('experiment');
+    if (!checks || after !== before + 1) throw new Error(JSON.stringify({ checks, before, after }));
+    return { swing: ex.best, checks, rows: after };`, 180000],
+  ['scenarios: save two runs and compare them side by side', `
+    await T.sample('line'); await A.actions.runToEnd();
+    A.run('saveScenario'); await T.frames(2);
+    const cnc = T.byName('CNC'); A.actions.setSelection([cnc.id]);
+    A.actions.change('op.edit', (m) => { m.blocks.find((b) => b.id === cnc.id).props.capacity = 2; });
+    await A.actions.runToEnd(); A.run('saveScenario'); await T.frames(2);
+    if (A.state.bottomTab !== 'experiments') throw new Error('tab ' + A.state.bottomTab);
+    const table = document.querySelector('.scen-table');
+    if (!table || table.querySelectorAll('thead th').length !== 3) throw new Error('table');
+    if (!table.textContent.includes('CNC.capacity: 1 → 2')) throw new Error('diff ' + table.textContent.slice(0, 300));
+    if (!table.querySelector('td.best')) throw new Error('no best mark');
+    document.querySelector('[data-scenario-remove="0"]').click(); await T.frames(2);
+    const left = document.querySelectorAll('.scen-table thead th').length;
+    document.querySelector('[data-scenario-clear]').click(); await T.frames(2);
+    if (left !== 2 || document.querySelector('.scen-table')) throw new Error('remove/clear');
+    return 1;`, 120000],
   ['Monte Carlo replications give a confidence interval', `
     await T.sample('bank');
     await A.actions.runExperiment({ kind: 'montecarlo', runs: 8, objective: 'Tellers.utilization' });
@@ -150,6 +192,210 @@ export const CASES = [
     const before = T.byName('Tellers').props.capacity; btn.click(); await T.frames(2);
     if (T.byName('Tellers').props.capacity === before) throw new Error('not applied');
     return { cards, capacity: T.byName('Tellers').props.capacity };`],
+  ['2D rulers with a red mouse line; the 5 x 5 grid follows the zoom in 2D and 3D', `
+    await T.sample('line'); A.actions.setViewMode('2d'); await T.sleep(300);
+    const c = A.canvas; if (!c.options.rulers) throw new Error('rulers off by default');
+    const r = c.canvas.getBoundingClientRect();
+    const mx = Math.round(r.width * 0.6); const my = Math.round(r.height * 0.55);
+    c.canvas.dispatchEvent(new PointerEvent('pointermove', { clientX: r.left + mx, clientY: r.top + my, bubbles: true, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
+    c.render(); const g = c.ctx; const d = c.dpr;
+    const px = (x, y) => [...g.getImageData(Math.round(x * d), Math.round(y * d), 1, 1).data];
+    const red = (p) => p[0] > 190 && p[1] < 120 && p[2] < 120;
+    if (!red(px(mx, 10))) throw new Error('no red line on the top ruler ' + px(mx, 10));
+    if (!red(px(10, my))) throw new Error('no red line on the left ruler ' + px(10, my));
+    if (red(px(mx + 40, 10))) throw new Error('red elsewhere');
+    // 2D: zooming keeps the minor spacing on screen in 10…50 px, stepping 5x.
+    const seen2d = new Set();
+    for (const f of [0.1, 0.25, 1, 4, 10, 30]) { c.view.scale = 18 * f; c.render(); const L = c.gridLevel; if (L.minorPx < 10 || L.minorPx > 50) throw new Error('2D ' + JSON.stringify(L)); seen2d.add(L.minor); }
+    if (seen2d.size < 3) throw new Error('2D levels ' + [...seen2d]);
+    c.fit();
+    // Hidden rulers: no red.
+    A.run('rulers'); c.render(); const off = red(px(mx, 10)); A.run('rulers');
+    if (off) throw new Error('rulers still drawn when hidden');
+    // 3D: dolly the camera and the grid is rebuilt at another level.
+    A.actions.setViewMode('3d'); await T.sleep(400); const v = A.view3d; v.fit(); v.render();
+    const near = v.gridLevel.minor;
+    const dir = v.camera.position.clone().sub(v.controls.target);
+    v.camera.position.copy(v.controls.target).add(dir.multiplyScalar(12)); v.render();
+    const far = v.gridLevel.minor;
+    if (!(far > near)) throw new Error('3D grid did not change: ' + near + ' -> ' + far);
+    if (!v.grid || !v.grid.children[1].geometry.attributes.position.count) throw new Error('no 3D grid lines');
+    v.fit();
+    return { seen2d: [...seen2d], near, far };`],
+  ['record the animation as WebM, follow an entity in 3D, an event block changes capacity during the run', `
+    await T.sample('line'); A.actions.setViewMode('split'); A.actions.setSpeed(30); await T.sleep(300);
+    // Recording (the download goes to the test browser's own folder, not a save dialog).
+    const keep = window.showSaveFilePicker; window.showSaveFilePicker = undefined;
+    try {
+      await A.actions.toggleRecording();
+      if (!A.actions.recorder()?.active || A.state.simStatus !== 'running') throw new Error('not recording/running');
+      if (!document.querySelector('#run-bar [data-command="recordVideo"].recording')) throw new Error('no red record button');
+      for (let i = 0; i < 30; i++) { A.actions.recorder().frame(); await T.sleep(50); }
+      const blob = await A.actions.toggleRecording();
+      if (!blob || blob.size < 2000 || !blob.type.startsWith('video/webm')) throw new Error('video ' + (blob && blob.size) + ' ' + (blob && blob.type));
+      if (A.actions.recorder()) throw new Error('still recording');
+      var size = blob.size;
+    } finally { window.showSaveFilePicker = keep; }
+    // Follow camera: the 3D target moves towards the followed entity.
+    A.actions.toggleFollow(); await T.until(() => A.view3d.follow?.at, 10000, 'follow');
+    // On one simulation state, repeated steps bring the camera target onto the followed entity.
+    A.actions.runPause(); await T.frames(2);
+    for (let i = 0; i < 30; i++) A.view3d.update(A.state.sim);
+    const [fx, fy] = A.view3d.follow.at; const t1 = A.view3d.controls.target;
+    if (Math.hypot(t1.x - fx, t1.z - fy) > 0.05) throw new Error('target not following: ' + Math.hypot(t1.x - fx, t1.z - fy));
+    A.actions.runPause();
+    A.actions.toggleFollow(); if (A.view3d.follow) throw new Error('follow still on');
+    A.actions.stopRun({ quiet: true });
+    // Event block: CNC capacity 1 → 3 at t = 200, through the properties panel's ref list.
+    const cnc = T.byName('CNC');
+    A.actions.placeBlock('event', 0, 12); await T.sleep(300);
+    const ev = T.model().blocks.find((b) => b.type === 'event');
+    A.actions.setSelection([ev.id]); await T.frames(2);
+    const opts = [...document.querySelectorAll('#properties select[data-prop="targetBlock"] option')].map((o) => o.textContent);
+    if (!opts.includes('CNC')) throw new Error('target options ' + opts);
+    A.actions.change('op.edit', (m) => Object.assign(m.blocks.find((b) => b.id === ev.id).props, { startAt: 200, targetBlock: 'CNC', property: 'capacity', newValue: '3' }));
+    await T.until(() => !A.state.problems.some((p) => p.severity === 'error'), 5000, 'model check');
+    await A.actions.runToEnd();
+    const r = A.state.results.blocks;
+    if (r[ev.name].fired !== 1 || r.CNC.capacity !== 3) throw new Error(JSON.stringify({ ev: r[ev.name], cnc: r.CNC.capacity }));
+    if (T.byName('CNC').props.capacity !== cnc.props.capacity) throw new Error('model changed');
+    return { size, fired: r[ev.name].fired };`, 120000],
+  ['toolbar speed: − / current speed / + change the playback speed', `
+    await T.sample('line'); A.actions.setSpeed(4); await T.frames(2);
+    const tb = document.querySelector('#toolbar');
+    const label = () => tb.querySelector('[data-command="speedMenu"] [data-speed-label]').textContent;
+    if (label() !== '×4') throw new Error('label ' + label());
+    tb.querySelector('[data-command="speedUp"]').click(); await T.frames(2);
+    if (A.state.speed !== 10 || label() !== '×10') throw new Error('up ' + A.state.speed + ' ' + label());
+    tb.querySelector('[data-command="speedDown"]').click(); tb.querySelector('[data-command="speedDown"]').click(); await T.frames(2);
+    if (A.state.speed !== 2 || label() !== '×2') throw new Error('down ' + A.state.speed + ' ' + label());
+    // The run bar shows the same speed.
+    const sel = document.querySelector('#run-bar [data-run-speed]');
+    if (sel && Number(sel.value) !== 2) throw new Error('run bar ' + sel.value);
+    // Keyboard ] also updates the toolbar.
+    A.run('speedUp'); await T.frames(2);
+    if (label() !== '×4') throw new Error('key ' + label());
+    // The current-speed button opens a list of speeds.
+    tb.querySelector('[data-command="speedMenu"]').click(); await T.until(() => A.popups.isOpen('menu') || document.querySelector('.web-popup-menu'), 5000, 'speed menu');
+    await A.popups.closeAll();
+    return label();`],
+  ['side panels start equal with fold icons; number fields have − / + and units; the theme button is a dropdown', `
+    await T.sample('line'); await T.frames(3);
+    const lw = document.querySelector('#left-panel').getBoundingClientRect().width; const rw = document.querySelector('#right-panel').getBoundingClientRect().width;
+    if (Math.abs(lw - rw) > 1) throw new Error('panel widths ' + lw + ' / ' + rw);
+    if (A.commands.leftPanel.icon !== 'foldLeft' || A.commands.rightPanel.icon !== 'foldRight') throw new Error('fold icons');
+    A.run('leftPanel'); await T.frames(2);
+    if (A.commands.leftPanel.icon !== 'unfoldLeft') throw new Error('unfold icon');
+    A.run('leftPanel'); await T.frames(2);
+    // Every number field in the properties panel: [−] value unit [+].
+    const cnc = T.byName('CNC'); A.actions.setSelection([cnc.id]); await T.frames(3);
+    const inputs = [...document.querySelectorAll('#properties input[type="number"]')];
+    const bare = inputs.filter((i) => i.closest('.num-box')?.querySelectorAll('.num-step').length !== 2);
+    if (!inputs.length || bare.length) throw new Error('number fields without buttons: ' + bare.map((i) => i.outerHTML.slice(0, 60)).join(' | '));
+    const cap = document.querySelector('#properties input[data-prop="capacity"]');
+    if (!cap.closest('.num-box').textContent.includes(A.t('unit.count'))) throw new Error('no count unit');
+    const timeField = document.querySelector('#properties input[data-dist^="time:"]');
+    if (!timeField.closest('.num-box').textContent.includes('min')) throw new Error('no time unit');
+    const before = T.byName('CNC').props.capacity;
+    cap.closest('.num-box').querySelectorAll('.num-step')[1].click(); await T.frames(3);
+    if (T.byName('CNC').props.capacity !== before + 1) throw new Error('+ did not step: ' + T.byName('CNC').props.capacity);
+    document.querySelector('#properties input[data-prop="capacity"]').closest('.num-box').querySelectorAll('.num-step')[0].click(); await T.frames(3);
+    if (T.byName('CNC').props.capacity !== before) throw new Error('− did not step');
+    // Model settings too.
+    A.actions.setSelection([]); await T.frames(3);
+    const dur = document.querySelector('#properties input[data-model="duration"]');
+    if (!dur.closest('.num-box') || !dur.closest('.num-box').textContent.includes('min')) throw new Error('model settings field');
+    // Theme: the button picks a random theme; the ▾ next to it is a dropdown menu (light / dark groups), not the theme window.
+    const t0 = A.state.settings.theme;
+    document.querySelector('#toolbar [data-command="themeRandom"]').click(); await T.frames(2);
+    if (A.state.settings.theme === t0) throw new Error('random theme did not change ' + t0);
+    document.querySelector('#toolbar .split-button [data-command="themeMenu"]').click();
+    await T.until(() => document.querySelector('.web-popup-theme iframe')?.contentDocument?.querySelector('.theme-dropdown .picker-grid'), 5000, 'theme dropdown');
+    const dd = document.querySelector('.web-popup-theme iframe').contentDocument;
+    const grids = dd.querySelectorAll('.theme-dropdown .picker-grid');
+    if (grids.length !== 2 || grids[0].children.length !== 20 || grids[1].children.length !== 20) throw new Error('grids');
+    if (getComputedStyle(grids[0]).gridTemplateColumns.split(' ').length !== 2) throw new Error('not 2 columns');
+    if (dd.querySelector('.popup-head, .popup-title')) throw new Error('theme dropdown has a window title');
+    const pick = grids[0].children[3].dataset.pickTheme; grids[0].children[3].click();
+    await T.until(() => A.state.settings.theme === pick, 5000, 'picked');
+    await A.popups.closeAll();
+    A.actions.updateSettings({ theme: t0 });
+    return { lw, rw, fields: inputs.length };`],
+  ['the welcome popup (run the tutorial?) shows only over the start page', `
+    await T.sample('line'); await T.frames(2);
+    if (A.state.showStart) throw new Error('start page should be hidden');
+    // Help › Welcome from a model goes to the start page first.
+    A.run('welcome'); await T.until(() => document.querySelector('.web-popup-welcome') && getComputedStyle(document.querySelector('.web-popup-welcome')).visibility !== 'hidden', 8000, 'welcome');
+    if (!A.state.showStart) throw new Error('welcome over a model');
+    // Leaving the start page closes it.
+    A.actions.showStartPage(false); await T.frames(3); await T.sleep(300);
+    const left = document.querySelector('.web-popup-welcome');
+    if (left && getComputedStyle(left).visibility !== 'hidden') throw new Error('welcome still open over the model');
+    // "Show again" is in Settings › Start page.
+    A.actions.updateSettings({ showWelcome: false });
+    A.popups.open('settings', { tab: 'start' }); await T.popupReady('settings');
+    const sdoc = document.querySelector('.web-popup-settings iframe').contentDocument;
+    const box = sdoc.querySelector('input[data-toggle="showWelcome"]');
+    if (!box) throw new Error('no show-again option in Settings › Start page');
+    if (!box.closest('.row').textContent.includes(A.t('settings.showWelcome'))) throw new Error('label');
+    box.click(); await T.until(() => A.state.settings.showWelcome === true, 5000, 'turned on');
+    await A.popups.close('settings');
+    return 1;`],
+  ['print button after Save; report window (Markdown / HTML / Word / PDF with pictures); print window with pages', `
+    await T.sample('line'); await A.actions.runToEnd(); await T.frames(2);
+    const group = [...document.querySelector('#toolbar [data-group="0"]').querySelectorAll('[data-command]')].map((b) => b.dataset.command);
+    if (group.indexOf('print') !== group.indexOf('save') + 1) throw new Error('print not right of save: ' + group);
+    if (!A.menus.MENUS.file.includes('print')) throw new Error('no Print in the File menu');
+    // The report model has the pictures.
+    const doc = A.actions.reportDocument();
+    const pics = doc.blocks.filter((b) => b.t === 'image');
+    if (pics.length < 2 || !pics.every((b) => b.src.startsWith('data:image/png') || b.src.startsWith('data:image/jpeg'))) throw new Error('pictures ' + pics.length);
+    const W = await import('/src/report/writers.js');
+    const pdf = await W.toPdf(doc, { paper: 'A4' });
+    const head = new TextDecoder().decode(pdf.slice(0, 5));
+    const pages = (new TextDecoder('latin1').decode(pdf).match(/\\/Type \\/Page\\b/g) ?? []).length;
+    if (head !== '%PDF-' || pages < 2) throw new Error('pdf ' + head + ' ' + pages);
+    // Report window: four formats, sections, preview.
+    A.run('report'); await T.popupReady('report');
+    const rd = document.querySelector('.web-popup-report iframe').contentDocument;
+    const formats = [...rd.querySelectorAll('.rp-format')].map((b) => b.dataset.value);
+    if (formats.join() !== 'md,html,docx,pdf') throw new Error('formats ' + formats);
+    if (!rd.querySelector('iframe.rp-preview') || rd.querySelectorAll('[data-rp-section]').length < 5) throw new Error('report window');
+    await A.popups.close('report');
+    // Print window: printer, paper, the pages; landscape lays the pages out again.
+    A.run('print'); await T.popupReady('print');
+    const pd = () => document.querySelector('.web-popup-print iframe').contentDocument;
+    try { await T.until(() => pd().querySelectorAll('.ps-page img').length > 0, 20000, 'print pages'); } catch (e) { throw new Error('print pages: ' + (pd()?.body?.innerText ?? 'no frame').slice(0, 400)); }
+    const portrait = pd().querySelectorAll('.ps-page img').length;
+    if (!pd().querySelector('[data-ps="paper"]') || !pd().querySelector('[data-ps="copies"]')) throw new Error('setup fields');
+    const r0 = pd().querySelector('.ps-page').getBoundingClientRect();
+    pd().querySelector('[data-ps-seg="orientation"][data-value="landscape"]').click();
+    await T.until(() => { const r = pd().querySelector('.ps-page')?.getBoundingClientRect(); return r && r.width > r.height; }, 20000, 'landscape pages');
+    if (!(r0.height > r0.width)) throw new Error('portrait page not tall');
+    await A.popups.close('print');
+    return { pdfPages: pages, portrait, pics: pics.length };`, 180000],
+  ['panel buttons sit on the menu bar and do nothing on the start page', `
+    A.actions.showStartPage(true); await T.frames(3);
+    const bar = document.querySelector('#menubar .menubar-panels');
+    if (!bar || bar.querySelectorAll('[data-command]').length !== 3) throw new Error('no panel buttons on the menu bar');
+    if (document.querySelector('#toolbar [data-command="leftPanel"]')) throw new Error('panel buttons still on the toolbar');
+    const before = [A.state.settings.showLeftPanel, A.state.settings.showRightPanel, A.state.settings.showBottomPanel];
+    const start = document.querySelector('.start-scroll, #start-page, .start-page')?.getBoundingClientRect();
+    for (const b of bar.querySelectorAll('[data-command]')) { if (!b.disabled) throw new Error(b.dataset.command + ' enabled on the start page'); b.click(); }
+    A.run('leftPanel'); A.run('bottomPanel'); await T.frames(3);
+    const after = [A.state.settings.showLeftPanel, A.state.settings.showRightPanel, A.state.settings.showBottomPanel];
+    if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('panels changed on the start page');
+    const start2 = document.querySelector('.start-scroll, #start-page, .start-page')?.getBoundingClientRect();
+    if (start && start2 && (start.width !== start2.width || start.left !== start2.left)) throw new Error('start page moved');
+    // With a model they work.
+    await T.sample('line'); await T.frames(2);
+    if (bar.isConnected ? false : true) {}
+    const btn = document.querySelector('#menubar [data-command="leftPanel"]');
+    if (btn.disabled) throw new Error('disabled with a model');
+    btn.click(); await T.frames(2);
+    if (A.state.settings.showLeftPanel === before[0]) throw new Error('did not toggle');
+    A.run('leftPanel'); await T.frames(2);
+    return 1;`],
   ['every template builds, checks and runs', `
     const out = {};
     for (const [id] of A.domain.TEMPLATES) { await T.fresh(id); await A.actions.runToEnd(); if (A.state.problems.some((p) => p.severity === 'error')) throw new Error(id + ' has errors'); out[id] = A.state.simStatus; }

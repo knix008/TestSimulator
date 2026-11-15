@@ -23,6 +23,7 @@
     "build:debug": "tauri build --debug --no-bundle",
     "build:docs": "node scripts/build-docs.mjs",
     "tutorial:docs": "node scripts/tutorial-capture.mjs",
+    "tutorial:video": "node scripts/tutorial-video.mjs",
     "build:icons": "node scripts/render-icons.mjs",
     "samples": "node scripts/make-samples.mjs",
     "notices": "node scripts/make-notices.mjs",

@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf36we8cv",
+   "id": "bmwhr4a7fe8ds",
    "type": "stock",
    "name": "Potential",
    "x": -10,
@@ -34,7 +34,7 @@
    }
   },
   {
-   "id": "bmwhnf36we9hl",
+   "id": "bmwhr4a7fe98v",
    "type": "stock",
    "name": "Adopters",
    "x": 10,
@@ -48,7 +48,7 @@
    }
   },
   {
-   "id": "bmwhnf36weae1",
+   "id": "bmwhr4a7feaqs",
    "type": "flow",
    "name": "Adoption",
    "x": 0,
@@ -62,7 +62,7 @@
    }
   },
   {
-   "id": "bmwhnf36webgh",
+   "id": "bmwhr4a7febcs",
    "type": "parameter",
    "name": "Advertising",
    "x": -6,
@@ -76,7 +76,7 @@
    }
   },
   {
-   "id": "bmwhnf36wecdk",
+   "id": "bmwhr4a7fecxs",
    "type": "parameter",
    "name": "WordOfMouth",
    "x": 6,
@@ -92,66 +92,66 @@
  ],
  "links": [
   {
-   "id": "lmwhnf36wedh0",
+   "id": "lmwhr4a7fedi7",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36we8cv",
+    "block": "bmwhr4a7fe8ds",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36weae1",
+    "block": "bmwhr4a7feaqs",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36weemq",
+   "id": "lmwhr4a7feeso",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf36weae1",
+    "block": "bmwhr4a7feaqs",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf36we9hl",
+    "block": "bmwhr4a7fe98v",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf36wefpq",
+   "id": "lmwhr4a7feflb",
    "kind": "influence",
    "from": {
-    "block": "bmwhnf36webgh",
+    "block": "bmwhr4a7febcs",
     "port": -1
    },
    "to": {
-    "block": "bmwhnf36weae1",
+    "block": "bmwhr4a7feaqs",
     "port": -1
    },
    "points": []
   },
   {
-   "id": "lmwhnf36weg5q",
+   "id": "lmwhr4a7fegue",
    "kind": "influence",
    "from": {
-    "block": "bmwhnf36wecdk",
+    "block": "bmwhr4a7fecxs",
     "port": -1
    },
    "to": {
-    "block": "bmwhnf36weae1",
+    "block": "bmwhr4a7feaqs",
     "port": -1
    },
    "points": []
   },
   {
-   "id": "lmwhnf36wehin",
+   "id": "lmwhr4a7fehrd",
    "kind": "influence",
    "from": {
-    "block": "bmwhnf36we9hl",
+    "block": "bmwhr4a7fe98v",
     "port": -1
    },
    "to": {
-    "block": "bmwhnf36weae1",
+    "block": "bmwhr4a7feaqs",
     "port": -1
    },
    "points": []
@@ -177,5 +177,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:05.000Z"
+ "savedAt": "2026-11-15T11:28:39.339Z"
 }

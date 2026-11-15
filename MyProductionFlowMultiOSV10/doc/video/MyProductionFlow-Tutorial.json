@@ -1,0 +1,303 @@
+{
+  "video": "MyProductionFlow-Tutorial.mp4",
+  "language": "ko",
+  "width": 1600,
+  "height": 960,
+  "duration": 172.4,
+  "recorded": "2026-11-15T13:23:38.408Z",
+  "chapters": [
+    {
+      "id": "start",
+      "start": 1.3,
+      "title": {
+        "ko": "시작",
+        "en": "Start"
+      }
+    },
+    {
+      "id": "build",
+      "start": 16,
+      "title": {
+        "ko": "모델 만들기",
+        "en": "Building a model"
+      }
+    },
+    {
+      "id": "run",
+      "start": 58.9,
+      "title": {
+        "ko": "실행과 애니메이션",
+        "en": "Running and animation"
+      }
+    },
+    {
+      "id": "analyse",
+      "start": 90.8,
+      "title": {
+        "ko": "분석과 실험",
+        "en": "Analysis and experiments"
+      }
+    },
+    {
+      "id": "paradigms",
+      "start": 127.9,
+      "title": {
+        "ko": "SD·에이전트·교통",
+        "en": "SD, agents, traffic"
+      }
+    },
+    {
+      "id": "help",
+      "start": 158.2,
+      "title": {
+        "ko": "파일과 설정",
+        "en": "Files and settings"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "welcome",
+      "chapter": "start",
+      "start": 1.3,
+      "title": {
+        "ko": "MyProductionFlow에 오신 것을 환영합니다",
+        "en": "Welcome to MyProductionFlow"
+      }
+    },
+    {
+      "id": "templates",
+      "chapter": "start",
+      "start": 6.1,
+      "title": {
+        "ko": "템플릿",
+        "en": "Templates"
+      }
+    },
+    {
+      "id": "samples",
+      "chapter": "start",
+      "start": 10.9,
+      "title": {
+        "ko": "예제 모델",
+        "en": "Sample models"
+      }
+    },
+    {
+      "id": "workspace",
+      "chapter": "build",
+      "start": 16,
+      "title": {
+        "ko": "작업 화면",
+        "en": "The workspace"
+      }
+    },
+    {
+      "id": "library",
+      "chapter": "build",
+      "start": 22.4,
+      "title": {
+        "ko": "라이브러리",
+        "en": "Library"
+      }
+    },
+    {
+      "id": "place",
+      "chapter": "build",
+      "start": 28.9,
+      "title": {
+        "ko": "블록 놓기",
+        "en": "Placing blocks"
+      }
+    },
+    {
+      "id": "connect",
+      "chapter": "build",
+      "start": 35.4,
+      "title": {
+        "ko": "연결하기",
+        "en": "Connecting"
+      }
+    },
+    {
+      "id": "properties",
+      "chapter": "build",
+      "start": 41.9,
+      "title": {
+        "ko": "속성",
+        "en": "Properties"
+      }
+    },
+    {
+      "id": "explorer",
+      "chapter": "build",
+      "start": 49.5,
+      "title": {
+        "ko": "모델 목록",
+        "en": "Model list"
+      }
+    },
+    {
+      "id": "problems",
+      "chapter": "build",
+      "start": 54.2,
+      "title": {
+        "ko": "모델 검사",
+        "en": "Model check"
+      }
+    },
+    {
+      "id": "runbar",
+      "chapter": "run",
+      "start": 58.9,
+      "title": {
+        "ko": "실행 막대",
+        "en": "Run bar"
+      }
+    },
+    {
+      "id": "view2d",
+      "chapter": "run",
+      "start": 65.5,
+      "title": {
+        "ko": "2D 애니메이션",
+        "en": "2D animation"
+      }
+    },
+    {
+      "id": "view3d",
+      "chapter": "run",
+      "start": 72,
+      "title": {
+        "ko": "3D 애니메이션",
+        "en": "3D animation"
+      }
+    },
+    {
+      "id": "speed",
+      "chapter": "run",
+      "start": 79.5,
+      "title": {
+        "ko": "속도",
+        "en": "Speed"
+      }
+    },
+    {
+      "id": "live",
+      "chapter": "run",
+      "start": 84.2,
+      "title": {
+        "ko": "실시간 통계",
+        "en": "Live statistics"
+      }
+    },
+    {
+      "id": "stats",
+      "chapter": "analyse",
+      "start": 90.8,
+      "title": {
+        "ko": "통계",
+        "en": "Statistics"
+      }
+    },
+    {
+      "id": "diagnosis",
+      "chapter": "analyse",
+      "start": 98.6,
+      "title": {
+        "ko": "분석·개선",
+        "en": "Analysis"
+      }
+    },
+    {
+      "id": "charts",
+      "chapter": "analyse",
+      "start": 107.1,
+      "title": {
+        "ko": "차트",
+        "en": "Charts"
+      }
+    },
+    {
+      "id": "experiment",
+      "chapter": "analyse",
+      "start": 113.6,
+      "title": {
+        "ko": "실험",
+        "en": "Experiments"
+      }
+    },
+    {
+      "id": "report",
+      "chapter": "analyse",
+      "start": 121.2,
+      "title": {
+        "ko": "보고서",
+        "en": "Report"
+      }
+    },
+    {
+      "id": "sd",
+      "chapter": "paradigms",
+      "start": 127.9,
+      "title": {
+        "ko": "시스템 다이내믹스",
+        "en": "System dynamics"
+      }
+    },
+    {
+      "id": "agents",
+      "chapter": "paradigms",
+      "start": 135.5,
+      "title": {
+        "ko": "에이전트",
+        "en": "Agents"
+      }
+    },
+    {
+      "id": "hybrid",
+      "chapter": "paradigms",
+      "start": 143.1,
+      "title": {
+        "ko": "하이브리드",
+        "en": "Hybrid"
+      }
+    },
+    {
+      "id": "traffic",
+      "chapter": "paradigms",
+      "start": 150.6,
+      "title": {
+        "ko": "교통",
+        "en": "Traffic"
+      }
+    },
+    {
+      "id": "save",
+      "chapter": "help",
+      "start": 158.2,
+      "title": {
+        "ko": "저장",
+        "en": "Saving"
+      }
+    },
+    {
+      "id": "settings",
+      "chapter": "help",
+      "start": 163,
+      "title": {
+        "ko": "설정",
+        "en": "Settings"
+      }
+    },
+    {
+      "id": "finish",
+      "chapter": "help",
+      "start": 167.7,
+      "title": {
+        "ko": "끝",
+        "en": "Done"
+      }
+    }
+  ]
+}

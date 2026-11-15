@@ -1,0 +1,469 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "외래 진료소",
+ "description": "접수 → 의사 진료(자원 풀) → 검사 30% → 약국",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 540,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8m17ug4",
+   "type": "resourcePool",
+   "name": "Doctors",
+   "x": 0,
+   "y": -9,
+   "rot": 0,
+   "props": {
+    "capacity": 4,
+    "kind": "worker",
+    "shifts": false,
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 2
+     },
+     {
+      "start": 480,
+      "end": 1440,
+      "value": 1
+     }
+    ],
+    "period": 1440,
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8m17v88",
+   "type": "source",
+   "name": "Patients",
+   "x": -24,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "schedule",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 60
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 120,
+      "value": 0.6
+     },
+     {
+      "start": 120,
+      "end": 300,
+      "value": 0.35
+     },
+     {
+      "start": 300,
+      "end": 540,
+      "value": 0.5
+     }
+    ],
+    "period": 540,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Part",
+      "color": "#3b82f6",
+      "weight": 1
+     }
+    ],
+    "shape": "patient",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a8m17wur",
+   "type": "process",
+   "name": "Reception",
+   "x": -18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "desk",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 2,
+     "max": 4
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8m17xfv",
+   "type": "queue",
+   "name": "Waiting room",
+   "x": -12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8m17yd8",
+   "type": "seize",
+   "name": "Call doctor",
+   "x": -6,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "pool": "Doctors",
+    "units": 1
+   }
+  },
+  {
+   "id": "bmwhr4a8m17ze8",
+   "type": "process",
+   "name": "Consultation",
+   "x": 0,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "bed",
+    "capacity": 4,
+    "time": {
+     "type": "triangular",
+     "min": 5,
+     "mode": 9,
+     "max": 18
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8m180b1",
+   "type": "release",
+   "name": "Doctor free",
+   "x": 5,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "pool": "Doctors"
+   }
+  },
+  {
+   "id": "bmwhr4a8m181i5",
+   "type": "select",
+   "name": "Needs lab?",
+   "x": 9,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 2,
+    "mode": "probability",
+    "weights": "0.3, 0.7",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhr4a8m182e3",
+   "type": "process",
+   "name": "Lab",
+   "x": 14,
+   "y": -5,
+   "rot": 0,
+   "props": {
+    "look": "test",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 5,
+     "mode": 10,
+     "max": 20
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8m183sz",
+   "type": "merge",
+   "name": "To pharmacy",
+   "x": 18,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "inputs": 2
+   }
+  },
+  {
+   "id": "bmwhr4a8m184h4",
+   "type": "process",
+   "name": "Pharmacy",
+   "x": 22,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "checkout",
+    "capacity": 2,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 3,
+     "max": 6
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8m185uv",
+   "type": "sink",
+   "name": "Home",
+   "x": 27,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8m186kz",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8m17v88",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8m17wur",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8m187zr",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8m17wur",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8m17xfv",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8m188c6",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8m17xfv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8m17yd8",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8m189iy",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8m17yd8",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8m17ze8",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8m18avz",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8m17ze8",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8m180b1",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8m18bw5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8m180b1",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8m181i5",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8m18ct6",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8m181i5",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8m182e3",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8m18dg4",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8m181i5",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhr4a8m183sz",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8m18ewu",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8m182e3",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8m183sz",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8m18fcc",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8m183sz",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8m184h4",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8m18g7k",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8m184h4",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8m185uv",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Waiting",
+   "kind": "line",
+   "series": [
+    "Waiting room.length"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Doctors",
+   "kind": "line",
+   "series": [
+    "Doctors.utilization"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.383Z"
+}

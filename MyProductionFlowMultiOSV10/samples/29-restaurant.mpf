@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf37pq0tu",
+   "id": "bmwhr4a7yq0jz",
    "type": "resourcePool",
    "name": "Tables",
    "x": 0,
@@ -47,7 +47,7 @@
    }
   },
   {
-   "id": "bmwhnf37pq14a",
+   "id": "bmwhr4a7yq1h8",
    "type": "resourcePool",
    "name": "Waiters",
    "x": 6,
@@ -74,7 +74,7 @@
    }
   },
   {
-   "id": "bmwhnf37pq2mc",
+   "id": "bmwhr4a7yq282",
    "type": "pedSource",
    "name": "Guests",
    "x": -18,
@@ -131,7 +131,7 @@
    }
   },
   {
-   "id": "bmwhnf37pq3aj",
+   "id": "bmwhr4a7yq3z5",
    "type": "waitingArea",
    "name": "Entrance",
    "x": -12,
@@ -144,7 +144,7 @@
    }
   },
   {
-   "id": "bmwhnf37pq45z",
+   "id": "bmwhr4a7yq4ys",
    "type": "seize",
    "name": "Get table",
    "x": -7,
@@ -156,7 +156,7 @@
    }
   },
   {
-   "id": "bmwhnf37pq5fc",
+   "id": "bmwhr4a7yq51e",
    "type": "process",
    "name": "Order",
    "x": -2,
@@ -190,7 +190,7 @@
    }
   },
   {
-   "id": "bmwhnf37pq6nx",
+   "id": "bmwhr4a7yq6gr",
    "type": "delay",
    "name": "Eat",
    "x": 4,
@@ -207,7 +207,7 @@
    }
   },
   {
-   "id": "bmwhnf37pq79w",
+   "id": "bmwhr4a7yq7e9",
    "type": "pedService",
    "name": "Pay",
    "x": 10,
@@ -241,7 +241,7 @@
    }
   },
   {
-   "id": "bmwhnf37pq83y",
+   "id": "bmwhr4a7yq8xk",
    "type": "release",
    "name": "Free table",
    "x": 15,
@@ -252,7 +252,7 @@
    }
   },
   {
-   "id": "bmwhnf37pq9ce",
+   "id": "bmwhr4a7yq98t",
    "type": "pedSink",
    "name": "Leave",
    "x": 20,
@@ -261,7 +261,7 @@
    "props": {}
   },
   {
-   "id": "bmwhnf37pqa7e",
+   "id": "bmwhr4a7yqas2",
    "type": "pedSink",
    "name": "Walked away",
    "x": -12,
@@ -272,105 +272,105 @@
  ],
  "links": [
   {
-   "id": "lmwhnf37pqbko",
+   "id": "lmwhr4a7yqbxr",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37pq2mc",
+    "block": "bmwhr4a7yq282",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37pq3aj",
+    "block": "bmwhr4a7yq3z5",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37pqced",
+   "id": "lmwhr4a7yqcoj",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37pq3aj",
+    "block": "bmwhr4a7yq3z5",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37pq45z",
+    "block": "bmwhr4a7yq4ys",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37pqdu2",
+   "id": "lmwhr4a7yqdta",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37pq45z",
+    "block": "bmwhr4a7yq4ys",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37pq5fc",
+    "block": "bmwhr4a7yq51e",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37pqefb",
+   "id": "lmwhr4a7yqe9k",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37pq5fc",
+    "block": "bmwhr4a7yq51e",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37pq6nx",
+    "block": "bmwhr4a7yq6gr",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37pqfoq",
+   "id": "lmwhr4a7yqftw",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37pq6nx",
+    "block": "bmwhr4a7yq6gr",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37pq79w",
+    "block": "bmwhr4a7yq7e9",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37pqgfx",
+   "id": "lmwhr4a7yqgm",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37pq79w",
+    "block": "bmwhr4a7yq7e9",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37pq83y",
+    "block": "bmwhr4a7yq8xk",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37pqhtj",
+   "id": "lmwhr4a7yqhai",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37pq83y",
+    "block": "bmwhr4a7yq8xk",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf37pq9ce",
+    "block": "bmwhr4a7yq98t",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf37pqio9",
+   "id": "lmwhr4a7yqicj",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf37pq3aj",
+    "block": "bmwhr4a7yq3z5",
     "port": 1
    },
    "to": {
-    "block": "bmwhnf37pqa7e",
+    "block": "bmwhr4a7yqas2",
     "port": 0
    },
    "points": []
@@ -388,5 +388,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:05.029Z"
+ "savedAt": "2026-11-15T11:28:39.359Z"
 }

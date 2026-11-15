@@ -9,6 +9,10 @@
 // what the user did, and the app records it as an undoable change.
 import { BLOCK_TYPES, baseOf, blockBounds, isPathType, isSd, pathPoints, portsOf } from '../sim/blocks.js';
 import { icon } from '../icons.js';
+import { formatMetres, gridLevel } from './grid.js';
+
+/** Ruler thickness (px) along the top and left edges of the 2D view. */
+export const RULER = 20;
 
 const TAU = Math.PI * 2;
 const STATE_COLORS = { idle: '#eab308', busy: '#22c55e', blocked: '#f97316', failed: '#ef4444', setup: '#8b5cf6' };
@@ -67,7 +71,7 @@ export class Canvas2D {
     this.drag = null;
     this.hover = null;
     this.mouse = { x: 0, y: 0, wx: 0, wy: 0, inside: false };
-    this.options = { grid: true, snap: 0.5, ports: true, labels: true, heat: false, links: true };
+    this.options = { grid: true, rulers: true, snap: 0.5, ports: true, labels: true, heat: false, links: true };
     this.colors = {};
     this.dirty = true;
     this.spaceDown = false;
@@ -78,11 +82,31 @@ export class Canvas2D {
   }
 
   // ───────────── geometry
-  get dpr() { return window.devicePixelRatio || 1; }
+  get dpr() { return this.dprOverride ?? (window.devicePixelRatio || 1); }
   toScreen(x, y) { return [(x - this.view.cx) * this.view.scale + this.width / 2, (y - this.view.cy) * this.view.scale + this.height / 2]; }
   toWorld(sx, sy) { return [(sx - this.width / 2) / this.view.scale + this.view.cx, (sy - this.height / 2) / this.view.scale + this.view.cy]; }
   eventPoint(e) { const r = this.canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
   snap(v) { return this.options.snap > 0 && !this.altDown ? snapTo(v, this.options.snap) : v; }
+
+  /**
+   * A picture of the whole model at a fixed size (reports, printing): fitted, without rulers, the selection or
+   * the hover; the editor's own size and view are put back afterwards. Returns a PNG data URL.
+   */
+  capture(width = 1600, height = 1000, sim = null, type = 'image/png') {
+    const keep = { w: this.width, h: this.height, view: { ...this.view }, rulers: this.options.rulers, hover: this.hover };
+    try {
+      this.width = width; this.height = height; this.dprOverride = 1;
+      this.canvas.width = width; this.canvas.height = height;
+      this.options.rulers = false; this.hover = null;
+      this.fit(); this.render(sim);
+      return this.canvas.toDataURL(type, 0.92);
+    } finally {
+      Object.assign(this, { width: keep.w, height: keep.h, view: keep.view, hover: keep.hover }); this.dprOverride = undefined;
+      this.options.rulers = keep.rulers;
+      this.canvas.width = Math.round(keep.w * this.dpr); this.canvas.height = Math.round(keep.h * this.dpr);
+      this.dirty = true; this.render(sim);
+    }
+  }
 
   resize() {
     const r = this.host.getBoundingClientRect();
@@ -371,6 +395,7 @@ export class Canvas2D {
   onMove(e) {
     const [sx, sy] = this.eventPoint(e); const [wx, wy] = this.toWorld(sx, sy);
     Object.assign(this.mouse, { x: sx, y: sy, wx, wy, inside: true });
+    if (this.options.rulers) this.dirty = true; // the red mouse marks on the rulers
     this.api.onPointer?.(wx, wy);
     const d = this.drag;
     if (!d) {
@@ -517,6 +542,7 @@ export class Canvas2D {
     if (sim) this.drawDynamic(sim);
     this.drawOverlay(model, sel);
     ctx.restore();
+    if (this.options.rulers) this.drawRulers();
     this.dirty = false;
   }
 
@@ -531,12 +557,22 @@ export class Canvas2D {
     ctx.strokeStyle = this.colors.gridMajor; ctx.lineWidth = 1.2;
     ctx.strokeRect(fx, fy, fw * s, fd * s);
     if (!this.options.grid) return;
-    for (const [step, color] of [[1, this.colors.grid], [5, this.colors.gridMajor]]) {
-      if (step * s < 6) continue;
+    // 5 × 5 grid with a constant on-screen size: the spacing follows the zoom (src/editor/grid.js).
+    const level = gridLevel(s, 10);
+    this.gridLevel = level;
+    for (const [step, color, alpha] of [[level.minor, this.colors.grid, level.fade], [level.major, this.colors.gridMajor, 1]]) {
+      if (alpha <= 0.01) continue;
       ctx.beginPath();
-      for (let x = Math.floor(x0 / step) * step; x <= x1; x += step) { const [px] = this.toScreen(x, 0); ctx.moveTo(Math.round(px) + 0.5, 0); ctx.lineTo(Math.round(px) + 0.5, this.height); }
-      for (let y = Math.floor(y0 / step) * step; y <= y1; y += step) { const [, py] = this.toScreen(0, y); ctx.moveTo(0, Math.round(py) + 0.5); ctx.lineTo(this.width, Math.round(py) + 0.5); }
-      ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke();
+      // Lines by index (i · step), so small steps do not drift by adding up float errors.
+      for (let i = Math.floor(x0 / step), n = Math.ceil(x1 / step); i <= n; i++) {
+        if (step === level.minor && i % 5 === 0) continue; // drawn as a major line
+        const [px] = this.toScreen(i * step, 0); ctx.moveTo(Math.round(px) + 0.5, 0); ctx.lineTo(Math.round(px) + 0.5, this.height);
+      }
+      for (let i = Math.floor(y0 / step), n = Math.ceil(y1 / step); i <= n; i++) {
+        if (step === level.minor && i % 5 === 0) continue;
+        const [, py] = this.toScreen(0, i * step); ctx.moveTo(0, Math.round(py) + 0.5); ctx.lineTo(this.width, Math.round(py) + 0.5);
+      }
+      ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
     }
     // Origin axes.
     // The origin: a small x (red) / y (green) axis cross with a dot.
@@ -545,6 +581,62 @@ export class Canvas2D {
     ctx.strokeStyle = 'rgba(220,38,38,0.55)'; ctx.beginPath(); ctx.moveTo(ox - 6, oy); ctx.lineTo(ox + 22, oy); ctx.lineTo(ox + 17, oy - 3); ctx.moveTo(ox + 22, oy); ctx.lineTo(ox + 17, oy + 3); ctx.stroke();
     ctx.strokeStyle = 'rgba(22,163,74,0.55)'; ctx.beginPath(); ctx.moveTo(ox, oy - 6); ctx.lineTo(ox, oy + 22); ctx.lineTo(ox - 3, oy + 17); ctx.moveTo(ox, oy + 22); ctx.lineTo(ox + 3, oy + 17); ctx.stroke();
     ctx.fillStyle = 'rgba(100,116,139,0.7)'; ctx.beginPath(); ctx.arc(ox, oy, 2.5, 0, TAU); ctx.fill();
+  }
+
+  /**
+   * Rulers along the top (x) and left (y) edges in metres, with the same 5 × 5 spacing as the grid (labels at the
+   * major marks), and a red mark at the mouse position on each ruler.
+   */
+  drawRulers() {
+    const ctx = this.ctx; const c = this.colors; const W = this.width; const H = this.height; const R = RULER;
+    const level = this.gridLevel ?? gridLevel(this.view.scale, 10);
+    const [x0, y0] = this.toWorld(R, R); const [x1, y1] = this.toWorld(W, H);
+    ctx.save();
+    ctx.fillStyle = c.panel; ctx.fillRect(0, 0, W, R); ctx.fillRect(0, 0, R, H);
+    ctx.strokeStyle = c.border; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, R - 0.5); ctx.lineTo(W, R - 0.5); ctx.moveTo(R - 0.5, 0); ctx.lineTo(R - 0.5, H); ctx.stroke();
+    ctx.font = `500 10px ${getComputedStyle(document.body).fontFamily || 'sans-serif'}`;
+    ctx.fillStyle = c.muted; ctx.strokeStyle = c.muted;
+    // Minor marks every grid step (a half-length mark in the middle of each major step), labels at the majors.
+    const ticks = (from, to, place) => {
+      const step = level.minor;
+      ctx.beginPath();
+      for (let i = Math.floor(from / step), n = Math.ceil(to / step); i <= n; i++) {
+        const major = i % 5 === 0;
+        place(i * step, major ? R : (level.fade > 0.3 ? R * 0.3 : 0), major);
+      }
+      ctx.stroke();
+    };
+    // Top ruler (x).
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ticks(x0, x1, (x, len, major) => {
+      if (!len) return;
+      const px = Math.round(this.toScreen(x, 0)[0]) + 0.5;
+      if (px < R) return;
+      ctx.moveTo(px, R); ctx.lineTo(px, R - len);
+      if (major) ctx.fillText(formatMetres(x, level.minor), px + 3, 2);
+    });
+    // Left ruler (y), labels turned to read along it.
+    ticks(y0, y1, (y, len, major) => {
+      if (!len) return;
+      const py = Math.round(this.toScreen(0, y)[1]) + 0.5;
+      if (py < R) return;
+      ctx.moveTo(R, py); ctx.lineTo(R - len, py);
+      if (major) { ctx.save(); ctx.translate(2, py + 3); ctx.rotate(Math.PI / 2); ctx.textBaseline = 'bottom'; ctx.fillText(formatMetres(y, level.minor), 0, 0); ctx.restore(); }
+    });
+    // Corner: the unit.
+    ctx.fillStyle = c.panel; ctx.fillRect(0, 0, R - 1, R - 1);
+    ctx.fillStyle = c.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('m', R / 2, R / 2);
+    // The mouse position: a red line across each ruler.
+    if (this.mouse.inside) {
+      ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const mx = Math.round(this.mouse.x) + 0.5; const my = Math.round(this.mouse.y) + 0.5;
+      if (mx >= R) { ctx.moveTo(mx, 0); ctx.lineTo(mx, R); }
+      if (my >= R) { ctx.moveTo(0, my); ctx.lineTo(R, my); }
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   px(n) { return n / this.view.scale; }

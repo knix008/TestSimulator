@@ -1,0 +1,483 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "통근 열차",
+ "description": "역 세 곳을 지나는 노선, 정차 시간과 신호",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 300,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 340,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8t1dgul",
+   "type": "trainSource",
+   "name": "Depot",
+   "x": -160,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "interval",
+    "interarrival": {
+     "type": "triangular",
+     "min": 8,
+     "mode": 10,
+     "max": 14
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Train",
+      "color": "#1d4ed8",
+      "weight": 2
+     },
+     {
+      "name": "Freight",
+      "color": "#b45309",
+      "weight": 1
+     }
+    ],
+    "shape": "train",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a8t1dhnd",
+   "type": "railTrack",
+   "name": "Track 1",
+   "x": -158,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 1200,
+    "spacing": 120,
+    "width": 1.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     70,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhr4a8t1di55",
+   "type": "railStation",
+   "name": "Station A",
+   "x": -82,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "platform",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 1.5,
+     "max": 3
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8t1dj8t",
+   "type": "railSignal",
+   "name": "Signal 1",
+   "x": -74,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "green": 4,
+    "yellow": 0.5,
+    "red": 4,
+    "offset": 0,
+    "headway": 2
+   }
+  },
+  {
+   "id": "bmwhr4a8t1dnmi",
+   "type": "railTrack",
+   "name": "Track 2",
+   "x": -68,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 1200,
+    "spacing": 120,
+    "width": 1.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     70,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhr4a8t1dosa",
+   "type": "railStation",
+   "name": "Station B",
+   "x": 8,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "platform",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 1.5,
+     "max": 3
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8t1dpev",
+   "type": "railSignal",
+   "name": "Signal 2",
+   "x": 16,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "green": 4,
+    "yellow": 0.5,
+    "red": 4,
+    "offset": 0,
+    "headway": 2
+   }
+  },
+  {
+   "id": "bmwhr4a8t1dtk9",
+   "type": "railTrack",
+   "name": "Track 3",
+   "x": 22,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 1200,
+    "spacing": 120,
+    "width": 1.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     70,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhr4a8t1duuv",
+   "type": "railStation",
+   "name": "Station C",
+   "x": 98,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "platform",
+    "capacity": 1,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 1.5,
+     "max": 3
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8u1dv2w",
+   "type": "railSignal",
+   "name": "Signal 3",
+   "x": 106,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "green": 4,
+    "yellow": 0.5,
+    "red": 4,
+    "offset": 0,
+    "headway": 2
+   }
+  },
+  {
+   "id": "bmwhr4a8u1dznu",
+   "type": "railTrack",
+   "name": "Track 4",
+   "x": 112,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "speed": 1200,
+    "spacing": 120,
+    "width": 1.5,
+    "accumulating": true
+   },
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     40,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "bmwhr4a8u1e0gq",
+   "type": "trainSink",
+   "name": "Terminus",
+   "x": 156,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8t1dksr",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8t1dgul",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8t1dhnd",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8t1dl7a",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8t1dhnd",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8t1di55",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8t1dm77",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8t1di55",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8t1dj8t",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8t1dqtb",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8t1dj8t",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8t1dnmi",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8t1dris",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8t1dnmi",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8t1dosa",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8t1dsf4",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8t1dosa",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8t1dpev",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8u1dwfs",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8t1dpev",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8t1dtk9",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8u1dxsd",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8t1dtk9",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8t1duuv",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8u1dyms",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8t1duuv",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8u1dv2w",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8u1e17l",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8u1dv2w",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8u1dznu",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8u1e28u",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8u1dznu",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8u1e0gq",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Tracks",
+   "kind": "line",
+   "series": [
+    "Track 1.contents",
+    "Track 2.contents",
+    "Track 3.contents"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.390Z"
+}

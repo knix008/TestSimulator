@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf386zmjj",
+   "id": "bmwhr4a8azmt6",
    "type": "tank",
    "name": "IngredientA",
    "x": -12,
@@ -34,7 +34,7 @@
    }
   },
   {
-   "id": "bmwhnf386znwh",
+   "id": "bmwhr4a8aznax",
    "type": "tank",
    "name": "IngredientB",
    "x": -12,
@@ -48,7 +48,7 @@
    }
   },
   {
-   "id": "bmwhnf386zo67",
+   "id": "bmwhr4a8azo66",
    "type": "valve",
    "name": "DoseA",
    "x": -6,
@@ -62,7 +62,7 @@
    }
   },
   {
-   "id": "bmwhnf386zp64",
+   "id": "bmwhr4a8azp7t",
    "type": "valve",
    "name": "DoseB",
    "x": -6,
@@ -76,7 +76,7 @@
    }
   },
   {
-   "id": "bmwhnf386zqmu",
+   "id": "bmwhr4a8azq7n",
    "type": "mixingTank",
    "name": "Mixer",
    "x": 0,
@@ -90,7 +90,7 @@
    }
   },
   {
-   "id": "bmwhnf386zrat",
+   "id": "bmwhr4a8azrs9",
    "type": "pump",
    "name": "FillLine",
    "x": 6,
@@ -104,7 +104,7 @@
    }
   },
   {
-   "id": "bmwhnf386zsng",
+   "id": "bmwhr4a8azshn",
    "type": "tank",
    "name": "Product",
    "x": 12,
@@ -120,92 +120,92 @@
  ],
  "links": [
   {
-   "id": "lmwhnf386ztuc",
+   "id": "lmwhr4a8aztn7",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf386zmjj",
+    "block": "bmwhr4a8azmt6",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf386zo67",
+    "block": "bmwhr4a8azo66",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf386zuxh",
+   "id": "lmwhr4a8azulj",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf386zo67",
+    "block": "bmwhr4a8azo66",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf386zqmu",
+    "block": "bmwhr4a8azq7n",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf386zve1",
+   "id": "lmwhr4a8azv1q",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf386znwh",
+    "block": "bmwhr4a8aznax",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf386zp64",
+    "block": "bmwhr4a8azp7t",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf386zwck",
+   "id": "lmwhr4a8azwk1",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf386zp64",
+    "block": "bmwhr4a8azp7t",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf386zqmu",
+    "block": "bmwhr4a8azq7n",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf386zxjj",
+   "id": "lmwhr4a8azxeh",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf386zqmu",
+    "block": "bmwhr4a8azq7n",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf386zrat",
+    "block": "bmwhr4a8azrs9",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf386zy61",
+   "id": "lmwhr4a8azyd3",
    "kind": "flow",
    "from": {
-    "block": "bmwhnf386zrat",
+    "block": "bmwhr4a8azrs9",
     "port": 0
    },
    "to": {
-    "block": "bmwhnf386zsng",
+    "block": "bmwhr4a8azshn",
     "port": 0
    },
    "points": []
   },
   {
-   "id": "lmwhnf386zzyd",
+   "id": "lmwhr4a8azzf8",
    "kind": "influence",
    "from": {
-    "block": "bmwhnf386zqmu",
+    "block": "bmwhr4a8azq7n",
     "port": -1
    },
    "to": {
-    "block": "bmwhnf386zrat",
+    "block": "bmwhr4a8azrs9",
     "port": -1
    },
    "points": []
@@ -225,5 +225,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:05.046Z"
+ "savedAt": "2026-11-15T11:28:39.370Z"
 }

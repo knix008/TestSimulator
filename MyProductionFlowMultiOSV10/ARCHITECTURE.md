@@ -63,7 +63,7 @@ MySketchBook과 같은 셸: 메뉴는 팝업 OS 창(웹은 iframe), 설정·테�
 
 | 묶음 | 내용 |
 |---|---|
-| unit | 엔진(M/M/1·M/M/2·역압·RK4·SIR·시드 재현), 블록 136종 전부 실행, 새 동작(복제·짝·제한 구역·보전·탱크·밸브·조회·평활·셀 격자), 진단, 모델·식·분포, 템플릿·예제 40개씩 실행, 문구 |
+| unit | 엔진(M/M/1·M/M/2·역압·RK4·SIR·시드 재현), 블록 137종 전부 실행, 새 동작(복제·짝·제한 구역·보전·탱크·밸브·조회·평활·셀 격자), 진단, 모델·식·분포, 템플릿·예제 40개씩 실행, 문구 |
 | static | 아이콘, .mpf 등록(Windows·macOS·Linux), 설치 리소스, 팝업 종류, 명령, 예제 파일 |
 | web | 헤드리스 Edge에서 실제 앱: 클릭 배치·자동 연결·포트 끌기 연결·경로 그리기·이동/실행 취소·속성·실행·예제 21개 끝까지·3D 선택·검사·실험·몬테카를로·보고서·저장/열기·영어·튜토리얼 전체 |
 | desktop | 디버그 exe 창에서 web 묶음 일부 (격리된 프로필·데이터 폴더) |
@@ -72,4 +72,8 @@ MySketchBook과 같은 셸: 메뉴는 팝업 OS 창(웹은 iframe), 설정·테�
 
 - **기반 동작(base)**: `sim/blocks.js`의 프리셋은 `preset(base, …)`으로 만든 블록입니다(예: CNC 가공기 = 공정 + CNC 모양 + 기본값). 엔진(`NODE_CLASSES[baseOf(type)]`), 2D 그리기, 3D 모델(`BUILDERS[type] ?? BUILDERS[base]`), 모델 검사, 통계 표가 모두 `baseOf()`로 같은 동작을 찾습니다. 새 설비는 프리셋 한 줄과 아이콘·문구만 더하면 됩니다.
 - **새 동작**: 복제(Split) · 짝 맞추기(Match) · 제한 구역(CONWIP) · 시간 측정 · 정기 보전(`ProcessNode.forceDown`) · 합류 · 셀 격자(CellGridNode, 동기 갱신) · SD 조회 테이블(선형 보간)·평활(1차 지연) · 탱크 용량(적분 뒤 자르기)·밸브(열림/닫힘 주기).
+- **이벤트** (`EventNode`): 시각·주기·조건에 대상 블록의 `p`를 **복사본으로** 바꾸고(`node.p = { ...node.p, [prop]: v }`, 편집 중인 모델은 그대로) `propChanged(prop)`로 용량 등을 다시 계산한 뒤 `notifyUp()`; 매개변수 대상이면 `setParameter`.
+- **실험 확장** (`sim/experiments.js`, DOM 없음): `sensitivityPlan`·`tornadoRows`(민감도), `patternSearch`(여러 매개변수 격자의 패턴 탐색 + 무작위 재시작, 실행 예산), `scenarioFrom`·`scenarioDiff`(시나리오 비교, 문서에 보관).
+- **격자·눈금자** (`editor/grid.js` `gridLevel`): 가는 선 간격 = 5^k m, 화면에서 minPx…5·minPx 를 유지; 2D 격자·눈금자와 3D 바닥 격자(`View3D.updateGrid`, 카메라 거리 → 화소/미터)가 같이 씁니다.
+- **녹화·따라가기**: `ui/recorder.js`가 보이는 2D·3D 캔버스를 한 캔버스에 매 프레임 그려 MediaRecorder(WebM, timeslice 없음)로 저장; `View3D.setFollow`는 개체 위치로 target·카메라를 같이 옮깁니다.
 - **진단** (`sim/diagnose.js`): `diagnose(model, results)` → 문제 카드 `{ id, severity, block, params, evidence, fixes: [{ key, params, action?: { block, prop, value } }] }`. 문구는 `diag.<id>.title|cause`, `fix.<key>`, `ev.<key>`. 앱은 실행이 끝나면 분석·개선 탭을 열고, **적용**은 `action`을 한 번의 실행 취소 단계로 모델에 넣습니다. `checkFixes(problem)`은 모델 검사 문제의 해결 방법입니다.

@@ -1,0 +1,612 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "마트 계산대",
+ "description": "쇼핑 후 일반 계산대 4곳과 셀프 계산대 중 짧은 줄로",
+ "settings": {
+  "timeUnit": "min",
+  "duration": 600,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8l1604p",
+   "type": "pedSource",
+   "name": "Shoppers",
+   "x": -22,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "schedule",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 0.3
+    },
+    "rate": "1",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 180,
+      "value": 1.2
+     },
+     {
+      "start": 180,
+      "end": 420,
+      "value": 2.5
+     },
+     {
+      "start": 420,
+      "end": 600,
+      "value": 1.6
+     }
+    ],
+    "period": 600,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Visitor",
+      "color": "#8b5cf6",
+      "weight": 3
+     },
+     {
+      "name": "Staff",
+      "color": "#0ea5e9",
+      "weight": 1
+     }
+    ],
+    "shape": "person",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a8l161do",
+   "type": "delay",
+   "name": "Shopping",
+   "x": -15,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "time": {
+     "type": "triangular",
+     "min": 8,
+     "mode": 18,
+     "max": 40
+    },
+    "capacity": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8l162we",
+   "type": "select",
+   "name": "Pick a line",
+   "x": -8,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "outputs": 5,
+    "mode": "shortest",
+    "weights": "1, 1",
+    "typeMap": "",
+    "condition": "priority > 0"
+   }
+  },
+  {
+   "id": "bmwhr4a8l163u2",
+   "type": "queue",
+   "name": "Line 1",
+   "x": -2,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "capacity": 10,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8l164fp",
+   "type": "pedService",
+   "name": "Till 1",
+   "x": 4,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "look": "checkout",
+    "capacity": 3,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 2,
+     "max": 4
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8l1651b",
+   "type": "queue",
+   "name": "Line 2",
+   "x": -2,
+   "y": -5,
+   "rot": 0,
+   "props": {
+    "capacity": 10,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8l1668q",
+   "type": "pedService",
+   "name": "Till 2",
+   "x": 4,
+   "y": -5,
+   "rot": 0,
+   "props": {
+    "look": "checkout",
+    "capacity": 3,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 2,
+     "max": 4
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8l167c6",
+   "type": "queue",
+   "name": "Line 3",
+   "x": -2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 10,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8l168qa",
+   "type": "pedService",
+   "name": "Till 3",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "checkout",
+    "capacity": 3,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 2,
+     "max": 4
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8l169d8",
+   "type": "queue",
+   "name": "Line 4",
+   "x": -2,
+   "y": 5,
+   "rot": 0,
+   "props": {
+    "capacity": 10,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8l16agd",
+   "type": "pedService",
+   "name": "Till 4",
+   "x": 4,
+   "y": 5,
+   "rot": 0,
+   "props": {
+    "look": "checkout",
+    "capacity": 3,
+    "time": {
+     "type": "triangular",
+     "min": 1,
+     "mode": 2,
+     "max": 4
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8l16bb5",
+   "type": "queue",
+   "name": "Self line",
+   "x": -2,
+   "y": 10,
+   "rot": 0,
+   "props": {
+    "capacity": 10,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8l16c90",
+   "type": "pedService",
+   "name": "Self-checkout",
+   "x": 4,
+   "y": 10,
+   "rot": 0,
+   "props": {
+    "look": "checkout",
+    "capacity": 4,
+    "time": {
+     "type": "triangular",
+     "min": 1.5,
+     "mode": 3,
+     "max": 6
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8l16dm9",
+   "type": "merge",
+   "name": "Exit",
+   "x": 10,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "inputs": 5
+   }
+  },
+  {
+   "id": "bmwhr4a8l16ehl",
+   "type": "pedSink",
+   "name": "Car park",
+   "x": 15,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8l16fwd",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l1604p",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l161do",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16gb3",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l161do",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l162we",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16hn5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l162we",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l163u2",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16itt",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l163u2",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l164fp",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16jw0",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l164fp",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l16dm9",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16kq9",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l162we",
+    "port": 1
+   },
+   "to": {
+    "block": "bmwhr4a8l1651b",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16lkx",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l1651b",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l1668q",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16mur",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l1668q",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l16dm9",
+    "port": 1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16nj9",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l162we",
+    "port": 2
+   },
+   "to": {
+    "block": "bmwhr4a8l167c6",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16om2",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l167c6",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l168qa",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16p35",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l168qa",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l16dm9",
+    "port": 2
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16qua",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l162we",
+    "port": 3
+   },
+   "to": {
+    "block": "bmwhr4a8l169d8",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16rk2",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l169d8",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l16agd",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16sr1",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l16agd",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l16dm9",
+    "port": 3
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16t9m",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l162we",
+    "port": 4
+   },
+   "to": {
+    "block": "bmwhr4a8l16bb5",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16uoo",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l16bb5",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l16c90",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16v1s",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l16c90",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l16dm9",
+    "port": 4
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8l16wyb",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8l16dm9",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8l16ehl",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Lines",
+   "kind": "line",
+   "series": [
+    "Line 1.length",
+    "Line 2.length",
+    "Self line.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.381Z"
+}

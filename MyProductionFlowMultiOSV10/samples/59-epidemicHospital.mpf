@@ -1,0 +1,231 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "하이브리드: 감염병 → 병원",
+ "description": "에이전트 감염자 수가 병원 입원(이산 사건) 도착률을 정함",
+ "settings": {
+  "timeUnit": "day",
+  "duration": 120,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.2,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a921iypp",
+   "type": "population",
+   "name": "City",
+   "x": -14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "count": 600,
+    "speed": 6,
+    "shape": "person",
+    "states": [
+     {
+      "name": "Susceptible",
+      "color": "#3b82f6"
+     },
+     {
+      "name": "Infected",
+      "color": "#ef4444"
+     },
+     {
+      "name": "Recovered",
+      "color": "#22c55e"
+     }
+    ],
+    "initial": "Susceptible:594, Infected:6",
+    "transitions": [
+     {
+      "from": "Susceptible",
+      "to": "Infected",
+      "kind": "contact",
+      "value": 0.9,
+      "trigger": "Infected",
+      "radius": 1
+     },
+     {
+      "from": "Infected",
+      "to": "Recovered",
+      "kind": "timeout",
+      "value": 12
+     }
+    ]
+   },
+   "w": 26,
+   "h": 20
+  },
+  {
+   "id": "bmwhr4a921iztx",
+   "type": "source",
+   "name": "Admissions",
+   "x": 4,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "arrivalMode": "rate",
+    "interarrival": {
+     "type": "exponential",
+     "mean": 60
+    },
+    "rate": "City.Infected * 0.03",
+    "schedule": [
+     {
+      "start": 0,
+      "end": 480,
+      "value": 1
+     },
+     {
+      "start": 480,
+      "end": 960,
+      "value": 0.5
+     }
+    ],
+    "period": 1440,
+    "batchSize": 1,
+    "firstAt": 0,
+    "maxArrivals": 0,
+    "types": [
+     {
+      "name": "Part",
+      "color": "#3b82f6",
+      "weight": 1
+     }
+    ],
+    "shape": "patient",
+    "priority": 0,
+    "onBlocked": "wait"
+   }
+  },
+  {
+   "id": "bmwhr4a921j0ly",
+   "type": "queue",
+   "name": "Waiting beds",
+   "x": 9,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "capacity": 0,
+    "discipline": "fifo",
+    "timeout": 0
+   }
+  },
+  {
+   "id": "bmwhr4a921j1bz",
+   "type": "process",
+   "name": "Ward",
+   "x": 14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "look": "bed",
+    "capacity": 8,
+    "time": {
+     "type": "triangular",
+     "min": 4,
+     "mode": 7,
+     "max": 14
+    },
+    "pool": "",
+    "units": 1,
+    "setup": 0,
+    "defectRate": 0,
+    "failures": false,
+    "mtbf": {
+     "type": "exponential",
+     "mean": 480
+    },
+    "mttr": {
+     "type": "triangular",
+     "min": 21,
+     "mode": 30,
+     "max": 42
+    },
+    "cost": 0
+   }
+  },
+  {
+   "id": "bmwhr4a921j2r4",
+   "type": "sink",
+   "name": "Discharged",
+   "x": 19,
+   "y": 0,
+   "rot": 0,
+   "props": {}
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a921j3vn",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a921iztx",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a921j0ly",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a921j496",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a921j0ly",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a921j1bz",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a921j5p5",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a921j1bz",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a921j2r4",
+    "port": 0
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Epidemic",
+   "kind": "line",
+   "series": [
+    "City.Susceptible",
+    "City.Infected",
+    "City.Recovered"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Hospital",
+   "kind": "line",
+   "series": [
+    "Ward.contents",
+    "Waiting beds.length"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.398Z"
+}

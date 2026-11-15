@@ -1,0 +1,221 @@
+{
+ "format": "myproductionflow",
+ "version": 1,
+ "name": "Dam reservoir (fluids)",
+ "description": "Seasonal inflow, turbine release, spillway when full",
+ "settings": {
+  "timeUnit": "day",
+  "duration": 365,
+  "warmup": 0,
+  "seed": 1,
+  "randomSeed": false,
+  "sdDt": 0.25,
+  "sdMethod": "euler",
+  "agentDt": 0.25,
+  "sampleInterval": 0,
+  "speed": 4,
+  "floorWidth": 60,
+  "floorDepth": 40,
+  "costPerEntity": 0
+ },
+ "blocks": [
+  {
+   "id": "bmwhr4a8v1f3de",
+   "type": "lookup",
+   "name": "Rainfall",
+   "x": -16,
+   "y": -8,
+   "rot": 0,
+   "props": {
+    "input": "t % 365",
+    "xs": "0, 90, 180, 210, 270, 365",
+    "ys": "40, 60, 260, 300, 90, 40",
+    "unitLabel": ""
+   }
+  },
+  {
+   "id": "bmwhr4a8v1f4og",
+   "type": "fluidSource",
+   "name": "RiverIn",
+   "x": -12,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "Rainfall",
+    "unitLabel": "L",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8v1f5k9",
+   "type": "tank",
+   "name": "Reservoir",
+   "x": -2,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "initial": "8000",
+    "nonNegative": true,
+    "unitLabel": "k m³",
+    "capacity": 20000
+   }
+  },
+  {
+   "id": "bmwhr4a8v1f62w",
+   "type": "pump",
+   "name": "Turbines",
+   "x": 6,
+   "y": -4,
+   "rot": 0,
+   "props": {
+    "equation": "min(Reservoir, 110)",
+    "unitLabel": "L",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8v1f76k",
+   "type": "valve",
+   "name": "Spillway",
+   "x": 6,
+   "y": 4,
+   "rot": 0,
+   "props": {
+    "equation": "if(Reservoir > 18000, (Reservoir - 18000) / 2, 0)",
+    "unitLabel": "L",
+    "openTime": 30,
+    "closedTime": 30
+   }
+  },
+  {
+   "id": "bmwhr4a8v1f8i8",
+   "type": "fluidSink",
+   "name": "Downstream",
+   "x": 14,
+   "y": 0,
+   "rot": 0,
+   "props": {
+    "equation": "Turbines + Spillway",
+    "unitLabel": "L",
+    "openTime": 0,
+    "closedTime": 0
+   }
+  },
+  {
+   "id": "bmwhr4a8v1f9s0",
+   "type": "variable",
+   "name": "Power",
+   "x": 6,
+   "y": -10,
+   "rot": 0,
+   "props": {
+    "equation": "Turbines * 0.9",
+    "unitLabel": ""
+   }
+  }
+ ],
+ "links": [
+  {
+   "id": "lmwhr4a8v1fa39",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8v1f4og",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8v1f5k9",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8v1fbl3",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8v1f5k9",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8v1f62w",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8v1fc71",
+   "kind": "flow",
+   "from": {
+    "block": "bmwhr4a8v1f5k9",
+    "port": 0
+   },
+   "to": {
+    "block": "bmwhr4a8v1f76k",
+    "port": 0
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8v1fd5f",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8v1f3de",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8v1f4og",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8v1fe69",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8v1f5k9",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8v1f76k",
+    "port": -1
+   },
+   "points": []
+  },
+  {
+   "id": "lmwhr4a8v1ffai",
+   "kind": "influence",
+   "from": {
+    "block": "bmwhr4a8v1f62w",
+    "port": -1
+   },
+   "to": {
+    "block": "bmwhr4a8v1f9s0",
+    "port": -1
+   },
+   "points": []
+  }
+ ],
+ "charts": [
+  {
+   "id": "c1",
+   "title": "Storage",
+   "kind": "line",
+   "series": [
+    "Reservoir"
+   ]
+  },
+  {
+   "id": "c2",
+   "title": "Flows",
+   "kind": "line",
+   "series": [
+    "RiverIn",
+    "Turbines",
+    "Spillway"
+   ]
+  }
+ ],
+ "experiments": [],
+ "savedAt": "2026-11-15T11:28:39.391Z"
+}

@@ -20,7 +20,7 @@
  },
  "blocks": [
   {
-   "id": "bmwhnf375gcqq",
+   "id": "bmwhr4a7jgcyo",
    "type": "population",
    "name": "Town",
    "x": 0,
@@ -72,7 +72,7 @@
    "h": 26
   },
   {
-   "id": "bmwhnf375gdz3",
+   "id": "bmwhr4a7jgdb8",
    "type": "display",
    "name": "Infected now",
    "x": 0,
@@ -102,5 +102,5 @@
   }
  ],
  "experiments": [],
- "savedAt": "2026-11-15T09:45:05.009Z"
+ "savedAt": "2026-11-15T11:28:39.343Z"
 }
