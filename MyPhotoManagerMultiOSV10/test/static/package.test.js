@@ -12,9 +12,12 @@ const pkg = json('package.json');
 const conf = json('src-tauri/tauri.conf.json');
 
 // features: APP-INSTALL
-test('npm scripts: build:win / build:mac / build:linux / build:webapp / build:all and tests', () => {
-  for (const name of ['build:win', 'build:mac', 'build:linux', 'build:webapp', 'build:all', 'build:web', 'test', 'start', 'build:icons', 'fixtures']) assert.ok(pkg.scripts[name], name);
+test('npm scripts: build:win / build:mac / build:linux / build:webapp / build:all, clean / clean:all and tests', () => {
+  for (const name of ['build:win', 'build:mac', 'build:linux', 'build:webapp', 'build:all', 'build:web', 'test', 'start', 'build:icons', 'fixtures', 'clean', 'clean:all']) assert.ok(pkg.scripts[name], name);
   assert.match(pkg.scripts['build:win'], /build\.mjs win/);
+  assert.match(pkg.scripts.clean, /clean\.mjs/);
+  assert.match(pkg.scripts['clean:all'], /clean\.mjs all/);
+  assert.ok(fs.existsSync(path.join(root, 'scripts', 'clean.mjs')));
 });
 
 test('versions agree: package.json, Cargo.toml, tauri.conf.json', () => {
@@ -134,4 +137,20 @@ test('web app: manifest, service worker, sample photos', () => {
 test('ignored build output and installers', () => {
   const ignore = read('.gitignore');
   for (const entry of ['node_modules/', 'dist/', 'src-tauri/target/', 'release/', '/MyPhotoManager-*.exe', '/MyPhotoManager-*.zip', 'test-results/']) assert.ok(ignore.includes(entry), entry);
+});
+
+test('clean script removes dist and optionally release/target/vendor', () => {
+  const script = read('scripts/clean.mjs');
+  for (const name of ['dist', 'test-results', 'release', 'src-tauri', 'target', 'public/models', 'public/vendor', 'public/doc/img']) {
+    assert.ok(script.includes(name.replace(/\//g, `', '`)) || script.includes(name) || script.includes(name.split('/').join("', '")), name);
+  }
+  assert.match(script, /MyPhotoManager-.*\\\.\(exe/);
+});
+
+test('resize supports percent in the editor, batch resize and actions', () => {
+  assert.match(read('src/ui/editor.js'), /resizeMode.*percent|'\['percent'/);
+  assert.match(read('src/ui/editor.js'), /fromPercent|resize\.percent/);
+  assert.match(read('src/ui/batch.js'), /\['percent',\s*t\('resize\.percent'\)\]/);
+  assert.match(read('src/ui/actions.js'), /mode === 'percent'/);
+  assert.match(read('src/ui/actions.js'), /step\.percent/);
 });

@@ -29,7 +29,7 @@ const DEFAULT_STEP = {
   autoLevels: () => ({ kind: 'autoLevels' }),
   watermark: () => ({ kind: 'watermark', text: `© ${new Date().getFullYear()}`, size: 4, opacity: 70 }),
   rotate: () => ({ kind: 'rotate', degrees: 90 }),
-  resize: () => ({ kind: 'resize', long: 1920 }),
+  resize: () => ({ kind: 'resize', mode: 'long', long: 1920, percent: 100 }),
   rating: () => ({ kind: 'rating', value: 5 }),
   keywords: () => ({ kind: 'keywords', words: [] }),
   format: () => ({ kind: 'format', format: 'jpeg', quality: 90 }),
@@ -44,7 +44,9 @@ export function stepLabel(step) {
     case 'edit': return `${t('actions.step.edit')}${step.name ? `: ${step.name}` : ''}`;
     case 'watermark': return `${t('actions.step.watermark')}: ${step.text}`;
     case 'rotate': return `${t('actions.step.rotate')}: ${step.degrees}°`;
-    case 'resize': return `${t('actions.step.resize')}: ${step.long} px`;
+    case 'resize': return step.mode === 'percent'
+      ? `${t('actions.step.resize')}: ${Number(step.percent) || 100}%`
+      : `${t('actions.step.resize')}: ${Number(step.long) || 0} px`;
     case 'rating': return `${t('actions.step.rating')}: ${'★'.repeat(step.value) || '0'}`;
     case 'keywords': return `${t('actions.step.keywords')}: ${step.words.join(', ')}`;
     case 'format': return `${t('actions.step.format')}: ${OUTPUT_FORMATS.find((f) => f.id === step.format)?.label ?? step.format}`;
@@ -83,7 +85,7 @@ export async function runActionOn(action, path, { suffix = '_action', overwrite 
   let edit = defaultEdit();
   let format = outputFormatFor(baseName(path)) ?? OUTPUT_FORMATS[0];
   let quality = app.settings.jpegQuality / 100;
-  let long = 0;
+  let resize = null;
   const catalogSteps = [];
   for (const step of action.steps) {
     if (step.kind === 'edit') edit = applyPreset(edit, step.preset);
@@ -93,13 +95,31 @@ export async function runActionOn(action, path, { suffix = '_action', overwrite 
     } else if (step.kind === 'watermark') {
       edit.overlay.texts = [...edit.overlay.texts, { text: step.text, x: 0.97, y: 0.94, align: 'right', size: step.size ?? 4, opacity: step.opacity ?? 70, color: '#ffffff', bold: true, shadow: true, font: 'sans-serif' }];
     } else if (step.kind === 'rotate') edit.geometry.rotate = (((edit.geometry.rotate + Number(step.degrees)) % 360) + 360) % 360;
-    else if (step.kind === 'resize') long = Number(step.long) || 0;
-    else if (step.kind === 'format') { format = OUTPUT_FORMATS.find((f) => f.id === step.format) ?? format; quality = (Number(step.quality) || 90) / 100; }
+    else if (step.kind === 'resize') {
+      resize = step.mode === 'percent'
+        ? { mode: 'percent', percent: Math.min(1000, Math.max(1, Number(step.percent) || 100)) }
+        : { mode: 'long', long: Number(step.long) || 0 };
+    } else if (step.kind === 'format') { format = OUTPUT_FORMATS.find((f) => f.id === step.format) ?? format; quality = (Number(step.quality) || 90) / 100; }
     else catalogSteps.push(step);
   }
   await prepareEdit(edit);
   let canvas = render(decoded.source, edit, { scale: 1 });
-  if (long && Math.max(canvas.width, canvas.height) !== long) {
+  if (resize?.mode === 'percent') {
+    const size = {
+      width: Math.max(1, Math.round((canvas.width * resize.percent) / 100)),
+      height: Math.max(1, Math.round((canvas.height * resize.percent) / 100)),
+    };
+    if (size.width !== canvas.width || size.height !== canvas.height) {
+      if (size.width < canvas.width) canvas = scaledCanvas(canvas, canvas.width, canvas.height, Math.max(size.width, size.height));
+      else {
+        const up = document.createElement('canvas');
+        up.width = size.width; up.height = size.height;
+        const g = up.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(canvas, 0, 0, size.width, size.height);
+        canvas = up;
+      }
+    }
+  } else if (resize?.long && Math.max(canvas.width, canvas.height) !== resize.long) {
+    const long = resize.long;
     const size = fitSize(canvas.width, canvas.height, long, long, true);
     if (size.width < canvas.width) canvas = scaledCanvas(canvas, canvas.width, canvas.height, long);
     else {
@@ -162,7 +182,17 @@ export async function actionsDialog(paths = targetPaths({ filesOnly: true })) {
     switch (step.kind) {
       case 'watermark': return h('div.step-fields', input('text', 'text'), input('size', 'number', { min: 1, max: 30 }), input('opacity', 'number', { min: 5, max: 100 }));
       case 'rotate': return h('div.step-fields', choose('degrees', [[90, '90°'], [180, '180°'], [270, '270°']]));
-      case 'resize': return h('div.step-fields', input('long', 'number', { min: 16, max: 20000 }), h('span.hint', t('resize.pixels')));
+      case 'resize': {
+        if (!step.mode) step.mode = 'long';
+        if (step.percent == null) step.percent = 100;
+        const byPercent = step.mode === 'percent';
+        const mode = selectEl([['long', t('resize.longSide')], ['percent', t('resize.percent')]], step.mode, (v) => { step.mode = v; drawSteps(); });
+        mode.dataset.step = `${i}-mode`;
+        return h('div.step-fields',
+          mode,
+          byPercent ? input('percent', 'number', { min: 1, max: 1000 }) : input('long', 'number', { min: 16, max: 20000 }),
+          h('span.hint', byPercent ? '%' : t('resize.pixels')));
+      }
       case 'rating': return h('div.step-fields', choose('value', [0, 1, 2, 3, 4, 5].map((n) => [n, n ? '★'.repeat(n) : '0'])));
       case 'keywords': return h('div.step-fields', input('words', 'text', { placeholder: 'a, b, c' }));
       case 'format': return h('div.step-fields', choose('format', OUTPUT_FORMATS.map((f) => [f.id, f.label])), input('quality', 'number', { min: 10, max: 100 }));
