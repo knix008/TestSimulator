@@ -1,0 +1,192 @@
+[
+ {
+  "file": "apt74-brochure.png",
+  "title": [
+   "74㎡ 아파트 · 분양 홍보 컬러",
+   "74 m² apartment · colour brochure"
+  ],
+  "note": [
+   "바닥 색, 가구, 치수, 방위 (PNG)",
+   "Floor colours, furniture, dimensions, compass (PNG)"
+  ],
+  "pxPerMetre": 64,
+  "widthMetres": 14,
+  "counts": {
+   "walls": 10,
+   "doors": 6,
+   "windows": 7,
+   "rooms": 6
+  }
+ },
+ {
+  "file": "apt84-cad-print.png",
+  "title": [
+   "84㎡ 아파트 · CAD 출력(해치)",
+   "84 m² apartment · CAD print (hatched)"
+  ],
+  "note": [
+   "두 줄 벽과 빗금, 치수선 (PNG)",
+   "Double-line walls with hatching, dimension lines (PNG)"
+  ],
+  "pxPerMetre": 56,
+  "widthMetres": 14.61,
+  "counts": {
+   "walls": 10,
+   "doors": 7,
+   "windows": 7,
+   "rooms": 7
+  }
+ },
+ {
+  "file": "apt104-blueprint.png",
+  "title": [
+   "104㎡ 아파트 · 청사진",
+   "104 m² apartment · blueprint"
+  ],
+  "note": [
+   "파란 바탕에 흰 선 (PNG)",
+   "White lines on blue (PNG)"
+  ],
+  "pxPerMetre": 52,
+  "widthMetres": 15.81,
+  "counts": {
+   "walls": 11,
+   "doors": 7,
+   "windows": 7,
+   "rooms": 7
+  }
+ },
+ {
+  "file": "apt74-tower-cad.png",
+  "title": [
+   "74㎡ 타워형 · 영문 CAD 도면",
+   "74 m² tower type · CAD print in English"
+  ],
+  "note": [
+   "영문 방 이름, 두 줄 벽과 빗금 (PNG)",
+   "English room names, hatched double-line walls (PNG)"
+  ],
+  "pxPerMetre": 58,
+  "widthMetres": 14,
+  "counts": {
+   "walls": 13,
+   "doors": 6,
+   "windows": 6,
+   "rooms": 5
+  }
+ },
+ {
+  "file": "cafe-blueprint.png",
+  "title": [
+   "카페 · 청사진",
+   "Café · blueprint"
+  ],
+  "note": [
+   "매장·창고·화장실, 파란 바탕에 흰 선 (PNG)",
+   "Sales floor, storage and WC in white on blue (PNG)"
+  ],
+  "pxPerMetre": 60,
+  "widthMetres": 12.2,
+  "counts": {
+   "walls": 7,
+   "doors": 3,
+   "windows": 2,
+   "rooms": 3
+  }
+ },
+ {
+  "file": "apt59-interior.png",
+  "title": [
+   "59㎡ 아파트 · 인테리어 컬러 평면",
+   "59 m² apartment · interior colour plan"
+  ],
+  "note": [
+   "가구·바닥재가 보이는 위에서 본 평면, 그림자 (PNG)",
+   "Furniture and floors seen from above, with shadows (PNG)"
+  ],
+  "pxPerMetre": 72,
+  "widthMetres": 12.81,
+  "counts": {
+   "walls": 8,
+   "doors": 4,
+   "windows": 5,
+   "rooms": 4
+  }
+ },
+ {
+  "file": "apt74-furniture-lines.png",
+  "title": [
+   "74㎡ 아파트 · 가구 배치 도면",
+   "74 m² apartment · furniture layout drawing"
+  ],
+  "note": [
+   "흑백 선으로 그린 가구와 벽 (PNG)",
+   "Furniture and walls in black lines (PNG)"
+  ],
+  "pxPerMetre": 64,
+  "widthMetres": 14,
+  "counts": {
+   "walls": 10,
+   "doors": 6,
+   "windows": 7,
+   "rooms": 6
+  }
+ },
+ {
+  "file": "villa-interior.png",
+  "title": [
+   "빌라 투룸 · 인테리어 컬러 평면",
+   "Villa, two rooms · interior colour plan"
+  ],
+  "note": [
+   "가구와 바닥재가 보이는 빌라, 그림자 (PNG)",
+   "A furnished villa, floors and shadows (PNG)"
+  ],
+  "pxPerMetre": 80,
+  "widthMetres": 10.7,
+  "counts": {
+   "walls": 10,
+   "doors": 5,
+   "windows": 5,
+   "rooms": 5
+  }
+ },
+ {
+  "file": "apt104-furniture-lines-en.png",
+  "title": [
+   "104㎡ 아파트 · 영문 가구 도면",
+   "104 m² apartment · furniture drawing in English"
+  ],
+  "note": [
+   "방 넷의 가구 배치, 영문 방 이름, 흑백 선 (PNG)",
+   "Four furnished bedrooms, English room names, black lines (PNG)"
+  ],
+  "pxPerMetre": 64,
+  "widthMetres": 15.8,
+  "counts": {
+   "walls": 11,
+   "doors": 7,
+   "windows": 7,
+   "rooms": 7
+  }
+ },
+ {
+  "file": "loft-furniture-lines.png",
+  "title": [
+   "복층 1층 · 가구 선 도면",
+   "Loft ground floor · furniture line plan"
+  ],
+  "note": [
+   "층고 높은 거실과 욕실, 흑백 선 (PNG)",
+   "A tall living room and bath in black lines (PNG)"
+  ],
+  "pxPerMetre": 64,
+  "widthMetres": 10.2,
+  "counts": {
+   "walls": 7,
+   "doors": 3,
+   "windows": 3,
+   "rooms": 2
+  }
+ }
+]

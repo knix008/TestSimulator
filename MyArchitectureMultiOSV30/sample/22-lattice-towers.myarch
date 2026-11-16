@@ -1,0 +1,9710 @@
+{
+ "format": "myarch",
+ "version": 1,
+ "meta": {
+  "title": "Lattice towers",
+  "author": "SHKWON",
+  "company": "MyArchitecture",
+  "client": "Sample",
+  "address": "Gangwon",
+  "rev": "A",
+  "date": "2026-11-08",
+  "comment": "",
+  "scale": 100,
+  "north": 0,
+  "latitude": 37.57,
+  "longitude": 126.98,
+  "timezone": 9
+ },
+ "defaults": {
+  "wallThickness": 200,
+  "wallHeight": 2800,
+  "doorWidth": 900,
+  "doorHeight": 2100,
+  "windowWidth": 1200,
+  "windowHeight": 1200,
+  "windowSill": 900,
+  "slab": 200,
+  "columnSize": 400,
+  "stairWidth": 1000,
+  "textSize": 300
+ },
+ "levels": [
+  {
+   "id": "lvbtc3n06r19f",
+   "name": "1F",
+   "elevation": 0,
+   "height": 3000,
+   "slab": 200
+  }
+ ],
+ "wallTypes": [
+  {
+   "id": "ext-brick-300",
+   "name": "Exterior brick cavity 300",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "brick",
+     "thickness": 100,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 80,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 100,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-render-250",
+   "name": "Exterior rendered 250",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 60,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-wood-200",
+   "name": "Exterior timber frame 200",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "wood-cladding",
+     "thickness": 25,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 25,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-block-150",
+   "name": "Interior block 150",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    },
+    {
+     "material": "concrete",
+     "thickness": 120,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-drywall-100",
+   "name": "Interior drywall 100",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 74,
+     "function": "structure"
+    },
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "concrete-200",
+   "name": "Concrete 200",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "concrete",
+     "thickness": 200,
+     "function": "structure"
+    }
+   ]
+  }
+ ],
+ "grids": [],
+ "costs": {
+  "currency": "KRW",
+  "wall": 120000,
+  "floor": 80000,
+  "roof": 150000,
+  "door": 450000,
+  "window": 380000,
+  "opening": 100000,
+  "stair": 2500000,
+  "column": 300000,
+  "furniture": 0,
+  "slab": 90000,
+  "ceiling": 45000,
+  "beam": 180000,
+  "railing": 150000,
+  "ramp": 2000000,
+  "curtainWall": 650000,
+  "member": 4500000
+ },
+ "layers": [
+  {
+   "id": "0",
+   "name": "0",
+   "color": "#9aa4b5",
+   "visible": true
+  }
+ ],
+ "walls": [
+  {
+   "id": "wbtc3n06r229",
+   "level": "lvbtc3n06r19f",
+   "x1": 16000,
+   "y1": -3000,
+   "x2": 22000,
+   "y2": -3000,
+   "thickness": 200,
+   "height": null,
+   "material": "concrete-block",
+   "phase": "new"
+  },
+  {
+   "id": "wbtc3n06r3sa",
+   "level": "lvbtc3n06r19f",
+   "x1": 22000,
+   "y1": -3000,
+   "x2": 22000,
+   "y2": 1000,
+   "thickness": 200,
+   "height": null,
+   "material": "concrete-block",
+   "phase": "new"
+  },
+  {
+   "id": "wbtc3n06r4jt",
+   "level": "lvbtc3n06r19f",
+   "x1": 22000,
+   "y1": 1000,
+   "x2": 16000,
+   "y2": 1000,
+   "thickness": 200,
+   "height": null,
+   "material": "concrete-block",
+   "phase": "new"
+  },
+  {
+   "id": "wbtc3n06r5af",
+   "level": "lvbtc3n06r19f",
+   "x1": 16000,
+   "y1": 1000,
+   "x2": 16000,
+   "y2": -3000,
+   "thickness": 200,
+   "height": null,
+   "material": "concrete-block",
+   "phase": "new"
+  }
+ ],
+ "openings": [
+  {
+   "id": "obtc3n06r6ha",
+   "wall": "wbtc3n06r4jt",
+   "kind": "door",
+   "type": "single",
+   "at": 1500,
+   "width": 1000,
+   "height": 2100,
+   "sill": 0,
+   "side": -1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "obtc3n06r7q9",
+   "wall": "wbtc3n06r4jt",
+   "kind": "window",
+   "type": "casement",
+   "at": 4200,
+   "width": 900,
+   "height": 600,
+   "sill": 1200,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  }
+ ],
+ "rooms": [
+  {
+   "id": "rbtc3n06r8eb",
+   "level": "lvbtc3n06r19f",
+   "name": "Equipment room",
+   "pts": [
+    [
+     16100,
+     -2900
+    ],
+    [
+     21900,
+     -2900
+    ],
+    [
+     21900,
+     900
+    ],
+    [
+     16100,
+     900
+    ]
+   ],
+   "floor": "concrete-polished",
+   "phase": "new"
+  }
+ ],
+ "columns": [],
+ "stairs": [],
+ "furniture": [
+  {
+   "id": "ubtc3n06r9zb",
+   "level": "lvbtc3n06r19f",
+   "kind": "serverRack",
+   "x": 17000,
+   "y": -2350,
+   "rot": 0,
+   "w": 600,
+   "d": 1000,
+   "h": 2000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "ubtc3n06ra4n",
+   "level": "lvbtc3n06r19f",
+   "kind": "serverRack",
+   "x": 17700,
+   "y": -2350,
+   "rot": 0,
+   "w": 600,
+   "d": 1000,
+   "h": 2000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "ubtc3n06rbnx",
+   "level": "lvbtc3n06r19f",
+   "kind": "filing",
+   "x": 21500,
+   "y": -2000,
+   "rot": 270,
+   "w": 500,
+   "d": 600,
+   "h": 1300,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "ubtc3n06rcyr",
+   "level": "lvbtc3n06r19f",
+   "kind": "ceilingLight",
+   "x": 19000,
+   "y": -1000,
+   "rot": 0,
+   "w": 500,
+   "d": 500,
+   "h": 120,
+   "elevation": 2880,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 2000,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  }
+ ],
+ "roofs": [
+  {
+   "id": "fbtc3n06rdlc",
+   "level": "lvbtc3n06r19f",
+   "pts": [
+    [
+     22100,
+     -3100
+    ],
+    [
+     15900,
+     -3100
+    ],
+    [
+     15900,
+     1100
+    ],
+    [
+     22100,
+     1100
+    ]
+   ],
+   "kind": "flat",
+   "pitch": 0,
+   "overhang": 300,
+   "thickness": 200,
+   "material": "concrete",
+   "phase": "new"
+  }
+ ],
+ "dimensions": [],
+ "texts": [],
+ "drawings": [],
+ "underlays": [],
+ "slabs": [],
+ "ceilings": [],
+ "beams": [],
+ "railings": [],
+ "ramps": [],
+ "shafts": [],
+ "members": [
+  {
+   "role": "column",
+   "pts": [
+    [
+     6000,
+     5999.999999999999,
+     0
+    ],
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "tube",
+   "w": 400,
+   "t": 16,
+   "material": "galvanised",
+   "name": "Leg 1",
+   "id": "twbtc3n06reyi-0",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "h": 400,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     -5999.999999999999,
+     6000,
+     0
+    ],
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ],
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ],
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ],
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ],
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ],
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ],
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ],
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ],
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ],
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ],
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ],
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ],
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ],
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ]
+   ],
+   "profile": "tube",
+   "w": 400,
+   "t": 16,
+   "material": "galvanised",
+   "name": "Leg 2",
+   "id": "twbtc3n06reyi-1",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "h": 400,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     -6000.000000000001,
+     -5999.999999999999,
+     0
+    ],
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "tube",
+   "w": 400,
+   "t": 16,
+   "material": "galvanised",
+   "name": "Leg 3",
+   "id": "twbtc3n06reyi-2",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "h": 400,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     5999.999999999998,
+     -6000.000000000001,
+     0
+    ],
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ],
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ],
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ],
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ],
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ],
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ],
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ],
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ],
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ],
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ],
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ],
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ],
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ],
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ]
+   ],
+   "profile": "tube",
+   "w": 400,
+   "t": 16,
+   "material": "galvanised",
+   "name": "Leg 4",
+   "id": "twbtc3n06reyi-3",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "h": 400,
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-4",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ],
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-5",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-6",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ],
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-7",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-8",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ],
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-9",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-10",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ],
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-11",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-12",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ],
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-13",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-14",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ],
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-15",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-16",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ],
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-17",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-18",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ],
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-19",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-20",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ],
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-21",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-22",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ],
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-23",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-24",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ],
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-25",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-26",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ],
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-27",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-28",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ],
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-29",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-30",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ],
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-31",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-32",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ],
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-33",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-34",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ],
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-35",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-36",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ],
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-37",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-38",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ],
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-39",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-40",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ],
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-41",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-42",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ],
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-43",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-44",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ],
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-45",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-46",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ],
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-47",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-48",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ],
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-49",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-50",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ],
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-51",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-52",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ],
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-53",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-54",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ],
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-55",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ],
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-56",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ],
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-57",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ],
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-58",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ],
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-59",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     6000,
+     5999.999999999999,
+     0
+    ],
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-60",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -5999.999999999999,
+     6000,
+     0
+    ],
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-61",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -5999.999999999999,
+     6000,
+     0
+    ],
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-62",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -6000.000000000001,
+     -5999.999999999999,
+     0
+    ],
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-63",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -6000.000000000001,
+     -5999.999999999999,
+     0
+    ],
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-64",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     5999.999999999998,
+     -6000.000000000001,
+     0
+    ],
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-65",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     5999.999999999998,
+     -6000.000000000001,
+     0
+    ],
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-66",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     6000,
+     5999.999999999999,
+     0
+    ],
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-67",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-68",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ],
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-69",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ],
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-70",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-71",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-72",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ],
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-73",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ],
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-74",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-75",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-76",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ],
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-77",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ],
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-78",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-79",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-80",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ],
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-81",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ],
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-82",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-83",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-84",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ],
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-85",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ],
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-86",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-87",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-88",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ],
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-89",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ],
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-90",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-91",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-92",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ],
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-93",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ],
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-94",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-95",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-96",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ],
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-97",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ],
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-98",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-99",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-100",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ],
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-101",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ],
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-102",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-103",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-104",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ],
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-105",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ],
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-106",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-107",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-108",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ],
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-109",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ],
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-110",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-111",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-112",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ],
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-113",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ],
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-114",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-115",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-116",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ],
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-117",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ],
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-118",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-119",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-120",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ],
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-121",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ],
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-122",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-123",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-124",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ],
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-125",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ],
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-126",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-127",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-128",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ],
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-129",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ],
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-130",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-131",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-132",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ],
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-133",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ],
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-134",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-135",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-136",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ],
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-137",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ],
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-138",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-139",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-140",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ],
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-141",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ],
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-142",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-143",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-144",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ],
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-145",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ],
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-146",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-147",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-148",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ],
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-149",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ],
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-150",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-151",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-152",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ],
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-153",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ],
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-154",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-155",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-156",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ],
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-157",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ],
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-158",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-159",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-160",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ],
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-161",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ],
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-162",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-163",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-164",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ],
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-165",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ],
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-166",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-167",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-168",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ],
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-169",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ],
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-170",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-171",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twbtc3n06reyi-172",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ],
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twbtc3n06reyi-173",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twbtc3n06reyi-174",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ],
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twbtc3n06reyi-175",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ],
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twbtc3n06reyi-176",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ],
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twbtc3n06reyi-177",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ],
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twbtc3n06reyi-178",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ],
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twbtc3n06reyi-179",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     0,
+     0,
+     72000
+    ],
+    [
+     0,
+     0,
+     81000
+    ]
+   ],
+   "profile": "tube",
+   "w": 240,
+   "t": 10,
+   "material": "galvanised",
+   "name": "Mast",
+   "id": "twbtc3n06reyi-180",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "h": 240,
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1250,
+     1249.9999999999998,
+     72000
+    ],
+    [
+     0,
+     0,
+     72000
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-181",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1249.9999999999998,
+     1250,
+     72000
+    ],
+    [
+     0,
+     0,
+     72000
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-182",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1250.0000000000002,
+     -1249.9999999999998,
+     72000
+    ],
+    [
+     0,
+     0,
+     72000
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-183",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1249.9999999999995,
+     -1250.0000000000002,
+     72000
+    ],
+    [
+     0,
+     0,
+     72000
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twbtc3n06reyi-184",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3n06reyi",
+   "group": "twbtc3n06reyi",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     37000,
+     13196.152422706631,
+     0
+    ],
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ],
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ],
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ],
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ],
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ],
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ],
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ],
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ],
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ]
+   ],
+   "profile": "tube",
+   "w": 250,
+   "t": 10,
+   "material": "steel-red",
+   "name": "Leg 1",
+   "id": "twbtc3p06rfrd-0",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "h": 250,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     28000,
+     8000.000000000001,
+     0
+    ],
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ],
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ],
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ],
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ],
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ],
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ],
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ],
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ],
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ]
+   ],
+   "profile": "tube",
+   "w": 250,
+   "t": 10,
+   "material": "steel-red",
+   "name": "Leg 2",
+   "id": "twbtc3p06rfrd-1",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "h": 250,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     36999.99999999999,
+     2803.847577293366,
+     0
+    ],
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ],
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ],
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ],
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ],
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ],
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ],
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ],
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ],
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ]
+   ],
+   "profile": "tube",
+   "w": 250,
+   "t": 10,
+   "material": "steel-red",
+   "name": "Leg 3",
+   "id": "twbtc3p06rfrd-2",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "h": 250,
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ],
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-3",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ],
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-4",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ],
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-5",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ],
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-6",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ],
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-7",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ],
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-8",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ],
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-9",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ],
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-10",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ],
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-11",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ],
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-12",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ],
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-13",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ],
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-14",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ],
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-15",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ],
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-16",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ],
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-17",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ],
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-18",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ],
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-19",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ],
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-20",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ],
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-21",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ],
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-22",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ],
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-23",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ],
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-24",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ],
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-25",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ],
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-26",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ],
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-27",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ],
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-28",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ],
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-29",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     37000,
+     13196.152422706631,
+     0
+    ],
+    [
+     32607.067012860196,
+     10412.630705264826,
+     3426.144411526252
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-30",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     28000,
+     8000.000000000001,
+     0
+    ],
+    [
+     32607.067012860196,
+     10412.630705264826,
+     3426.144411526252
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-31",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32607.067012860196,
+     10412.630705264826,
+     3426.144411526252
+    ],
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-32",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32607.067012860196,
+     10412.630705264826,
+     3426.144411526252
+    ],
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-33",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     28000,
+     8000.000000000001,
+     0
+    ],
+    [
+     32607.067012860192,
+     5587.369294735172,
+     3426.144411526252
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-34",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36999.99999999999,
+     2803.847577293366,
+     0
+    ],
+    [
+     32607.067012860192,
+     5587.369294735172,
+     3426.144411526252
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-35",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32607.067012860192,
+     5587.369294735172,
+     3426.144411526252
+    ],
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-36",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32607.067012860192,
+     5587.369294735172,
+     3426.144411526252
+    ],
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-37",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36999.99999999999,
+     2803.847577293366,
+     0
+    ],
+    [
+     36785.86597427961,
+     7999.999999999999,
+     3426.144411526252
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-38",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     37000,
+     13196.152422706631,
+     0
+    ],
+    [
+     36785.86597427961,
+     7999.999999999999,
+     3426.144411526252
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-39",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36785.86597427961,
+     7999.999999999999,
+     3426.144411526252
+    ],
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-40",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36785.86597427961,
+     7999.999999999999,
+     3426.144411526252
+    ],
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-41",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ],
+    [
+     32805.916578256845,
+     10068.213154934838,
+     9789.330504219066
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-42",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ],
+    [
+     32805.916578256845,
+     10068.213154934838,
+     9789.330504219066
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-43",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32805.916578256845,
+     10068.213154934838,
+     9789.330504219066
+    ],
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-44",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32805.916578256845,
+     10068.213154934838,
+     9789.330504219066
+    ],
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-45",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ],
+    [
+     32805.916578256845,
+     5931.786845065161,
+     9789.330504219066
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-46",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ],
+    [
+     32805.916578256845,
+     5931.786845065161,
+     9789.330504219066
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-47",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32805.916578256845,
+     5931.786845065161,
+     9789.330504219066
+    ],
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-48",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32805.916578256845,
+     5931.786845065161,
+     9789.330504219066
+    ],
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-49",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ],
+    [
+     36388.1668434863,
+     7999.999999999999,
+     9789.330504219066
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-50",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ],
+    [
+     36388.1668434863,
+     7999.999999999999,
+     9789.330504219066
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-51",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36388.1668434863,
+     7999.999999999999,
+     9789.330504219066
+    ],
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-52",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36388.1668434863,
+     7999.999999999999,
+     9789.330504219066
+    ],
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-53",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ],
+    [
+     32976.37917168607,
+     9772.96328232546,
+     15244.133493954338
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-54",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ],
+    [
+     32976.37917168607,
+     9772.96328232546,
+     15244.133493954338
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-55",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32976.37917168607,
+     9772.96328232546,
+     15244.133493954338
+    ],
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-56",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32976.37917168607,
+     9772.96328232546,
+     15244.133493954338
+    ],
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-57",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ],
+    [
+     32976.37917168607,
+     6227.03671767454,
+     15244.133493954338
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-58",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ],
+    [
+     32976.37917168607,
+     6227.03671767454,
+     15244.133493954338
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-59",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32976.37917168607,
+     6227.03671767454,
+     15244.133493954338
+    ],
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-60",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32976.37917168607,
+     6227.03671767454,
+     15244.133493954338
+    ],
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-61",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ],
+    [
+     36047.241656627855,
+     7999.999999999999,
+     15244.133493954338
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-62",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ],
+    [
+     36047.241656627855,
+     7999.999999999999,
+     15244.133493954338
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-63",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36047.241656627855,
+     7999.999999999999,
+     15244.133493954338
+    ],
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-64",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36047.241656627855,
+     7999.999999999999,
+     15244.133493954338
+    ],
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-65",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ],
+    [
+     33122.507204204805,
+     9519.862105592934,
+     19920.230534553848
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-66",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ],
+    [
+     33122.507204204805,
+     9519.862105592934,
+     19920.230534553848
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-67",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33122.507204204805,
+     9519.862105592934,
+     19920.230534553848
+    ],
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-68",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33122.507204204805,
+     9519.862105592934,
+     19920.230534553848
+    ],
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-69",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ],
+    [
+     33122.50720420481,
+     6480.137894407066,
+     19920.230534553848
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-70",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ],
+    [
+     33122.50720420481,
+     6480.137894407066,
+     19920.230534553848
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-71",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33122.50720420481,
+     6480.137894407066,
+     19920.230534553848
+    ],
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-72",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33122.50720420481,
+     6480.137894407066,
+     19920.230534553848
+    ],
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-73",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ],
+    [
+     35754.98559159038,
+     7999.999999999999,
+     19920.230534553848
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-74",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ],
+    [
+     35754.98559159038,
+     7999.999999999999,
+     19920.230534553848
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-75",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35754.98559159038,
+     7999.999999999999,
+     19920.230534553848
+    ],
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-76",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35754.98559159038,
+     7999.999999999999,
+     19920.230534553848
+    ],
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-77",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ],
+    [
+     33247.77458080765,
+     9302.892644785945,
+     23928.786585844842
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-78",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ],
+    [
+     33247.77458080765,
+     9302.892644785945,
+     23928.786585844842
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-79",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33247.77458080765,
+     9302.892644785945,
+     23928.786585844842
+    ],
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-80",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33247.77458080765,
+     9302.892644785945,
+     23928.786585844842
+    ],
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-81",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ],
+    [
+     33247.77458080765,
+     6697.107355214055,
+     23928.786585844842
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-82",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ],
+    [
+     33247.77458080765,
+     6697.107355214055,
+     23928.786585844842
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-83",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33247.77458080765,
+     6697.107355214055,
+     23928.786585844842
+    ],
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-84",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33247.77458080765,
+     6697.107355214055,
+     23928.786585844842
+    ],
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-85",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ],
+    [
+     35504.4508383847,
+     8000,
+     23928.786585844842
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-86",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ],
+    [
+     35504.4508383847,
+     8000,
+     23928.786585844842
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-87",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35504.4508383847,
+     8000,
+     23928.786585844842
+    ],
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-88",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35504.4508383847,
+     8000,
+     23928.786585844842
+    ],
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-89",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ],
+    [
+     33355.15928564823,
+     9116.896880046277,
+     27365.097140743317
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-90",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ],
+    [
+     33355.15928564823,
+     9116.896880046277,
+     27365.097140743317
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-91",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33355.15928564823,
+     9116.896880046277,
+     27365.097140743317
+    ],
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-92",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33355.15928564823,
+     9116.896880046277,
+     27365.097140743317
+    ],
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-93",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ],
+    [
+     33355.15928564823,
+     6883.103119953723,
+     27365.097140743317
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-94",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ],
+    [
+     33355.15928564823,
+     6883.103119953723,
+     27365.097140743317
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-95",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33355.15928564823,
+     6883.103119953723,
+     27365.097140743317
+    ],
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-96",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33355.15928564823,
+     6883.103119953723,
+     27365.097140743317
+    ],
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-97",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ],
+    [
+     35289.68142870354,
+     8000,
+     27365.097140743317
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-98",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ],
+    [
+     35289.68142870354,
+     8000,
+     27365.097140743317
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-99",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35289.68142870354,
+     8000,
+     27365.097140743317
+    ],
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-100",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35289.68142870354,
+     8000,
+     27365.097140743317
+    ],
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-101",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ],
+    [
+     33447.21417772327,
+     8957.45312988704,
+     30310.853687144543
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-102",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ],
+    [
+     33447.21417772327,
+     8957.45312988704,
+     30310.853687144543
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-103",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33447.21417772327,
+     8957.45312988704,
+     30310.853687144543
+    ],
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-104",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33447.21417772327,
+     8957.45312988704,
+     30310.853687144543
+    ],
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-105",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ],
+    [
+     33447.21417772327,
+     7042.5468701129585,
+     30310.853687144543
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-106",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ],
+    [
+     33447.21417772327,
+     7042.5468701129585,
+     30310.853687144543
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-107",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33447.21417772327,
+     7042.5468701129585,
+     30310.853687144543
+    ],
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-108",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33447.21417772327,
+     7042.5468701129585,
+     30310.853687144543
+    ],
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-109",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ],
+    [
+     35105.57164455347,
+     8000,
+     30310.853687144543
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-110",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ],
+    [
+     35105.57164455347,
+     8000,
+     30310.853687144543
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-111",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35105.57164455347,
+     8000,
+     30310.853687144543
+    ],
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-112",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35105.57164455347,
+     8000,
+     30310.853687144543
+    ],
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-113",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ],
+    [
+     33526.12768004679,
+     8820.770934459508,
+     32836.085761497045
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-114",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ],
+    [
+     33526.12768004679,
+     8820.770934459508,
+     32836.085761497045
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-115",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33526.12768004679,
+     8820.770934459508,
+     32836.085761497045
+    ],
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-116",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33526.12768004679,
+     8820.770934459508,
+     32836.085761497045
+    ],
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-117",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ],
+    [
+     33526.12768004678,
+     7179.229065540492,
+     32836.085761497045
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-118",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ],
+    [
+     33526.12768004678,
+     7179.229065540492,
+     32836.085761497045
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-119",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33526.12768004678,
+     7179.229065540492,
+     32836.085761497045
+    ],
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-120",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33526.12768004678,
+     7179.229065540492,
+     32836.085761497045
+    ],
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-121",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ],
+    [
+     34947.744639906436,
+     8000,
+     32836.085761497045
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-122",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ],
+    [
+     34947.744639906436,
+     8000,
+     32836.085761497045
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-123",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34947.744639906436,
+     8000,
+     32836.085761497045
+    ],
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-124",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34947.744639906436,
+     8000,
+     32836.085761497045
+    ],
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-125",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ],
+    [
+     33593.77580507948,
+     8703.600944866106,
+     35000.8257625433
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-126",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ],
+    [
+     33593.77580507948,
+     8703.600944866106,
+     35000.8257625433
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-127",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33593.77580507948,
+     8703.600944866106,
+     35000.8257625433
+    ],
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-128",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33593.77580507948,
+     8703.600944866106,
+     35000.8257625433
+    ],
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-129",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ],
+    [
+     33593.77580507948,
+     7296.399055133894,
+     35000.8257625433
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-130",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ],
+    [
+     33593.77580507948,
+     7296.399055133894,
+     35000.8257625433
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-131",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33593.77580507948,
+     7296.399055133894,
+     35000.8257625433
+    ],
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-132",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33593.77580507948,
+     7296.399055133894,
+     35000.8257625433
+    ],
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-133",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ],
+    [
+     34812.44838984104,
+     8000,
+     35000.8257625433
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-134",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ],
+    [
+     34812.44838984104,
+     8000,
+     35000.8257625433
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-135",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34812.44838984104,
+     8000,
+     35000.8257625433
+    ],
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-136",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34812.44838984104,
+     8000,
+     35000.8257625433
+    ],
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-137",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ],
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twbtc3p06rfrd-138",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ],
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twbtc3p06rfrd-139",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ],
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twbtc3p06rfrd-140",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     34000,
+     8000,
+     36000
+    ],
+    [
+     34000,
+     8000,
+     40000
+    ]
+   ],
+   "profile": "tube",
+   "w": 150,
+   "t": 10,
+   "material": "steel-red",
+   "name": "Mast",
+   "id": "twbtc3p06rfrd-141",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "h": 150,
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34750,
+     9299.038105676658,
+     36000
+    ],
+    [
+     34000,
+     8000,
+     36000
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-142",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32500,
+     8000,
+     36000
+    ],
+    [
+     34000,
+     8000,
+     36000
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-143",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34750,
+     6700.961894323342,
+     36000
+    ],
+    [
+     34000,
+     8000,
+     36000
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twbtc3p06rfrd-144",
+   "level": "lvbtc3n06r19f",
+   "structure": "twbtc3p06rfrd",
+   "group": "twbtc3p06rfrd",
+   "phase": "new",
+   "roll": 0
+  }
+ ],
+ "models": [],
+ "solids": [
+  {
+   "id": "vbtc3p06rgqz",
+   "level": "lvbtc3n06r19f",
+   "name": "Gravel yard",
+   "pts": [
+    [
+     -14000,
+     -14000
+    ],
+    [
+     40000,
+     -14000
+    ],
+    [
+     40000,
+     18000
+    ],
+    [
+     -14000,
+     18000
+    ]
+   ],
+   "z0": -60,
+   "height": 50,
+   "taper": 1,
+   "material": "gravel",
+   "phase": "new"
+  }
+ ],
+ "scenes": [
+  {
+   "id": "scbtc3p06rhvo",
+   "name": "Overview",
+   "camera": {
+    "pos": [
+     61.247958188795465,
+     54.278952962394904,
+     62.309947735994335
+    ],
+    "target": [
+     13,
+     2,
+     2
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  },
+  {
+   "id": "scbtc3p06ribg",
+   "name": "Looking up",
+   "camera": {
+    "pos": [
+     9,
+     1.7,
+     9
+    ],
+    "target": [
+     0,
+     40,
+     0
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  }
+ ],
+ "view": {
+  "level": "lvbtc3n06r19f"
+ },
+ "structures": [
+  {
+   "id": "twbtc3n06reyi",
+   "kind": "tower",
+   "level": "lvbtc3n06r19f",
+   "name": "Main tower",
+   "params": {
+    "height": 72000,
+    "baseWidth": 12000,
+    "topWidth": 2500,
+    "panels": 14,
+    "sides": 4,
+    "bracing": "X",
+    "leg": {
+     "profile": "tube",
+     "w": 400,
+     "t": 16
+    },
+    "brace": {
+     "profile": "L",
+     "w": 150,
+     "h": 150,
+     "t": 12
+    },
+    "strut": {
+     "profile": "L",
+     "w": 120,
+     "h": 120,
+     "t": 10
+    },
+    "platforms": [
+     0.5,
+     1
+    ],
+    "mast": 9000,
+    "material": "galvanised",
+    "x": 0,
+    "y": 0,
+    "rot": 0
+   }
+  },
+  {
+   "id": "twbtc3p06rfrd",
+   "kind": "tower",
+   "level": "lvbtc3n06r19f",
+   "name": "Relay tower",
+   "params": {
+    "height": 36000,
+    "baseWidth": 6000,
+    "topWidth": 1500,
+    "panels": 9,
+    "sides": 3,
+    "bracing": "K",
+    "leg": {
+     "profile": "tube",
+     "w": 250,
+     "t": 10
+    },
+    "brace": {
+     "profile": "L",
+     "w": 100,
+     "h": 100,
+     "t": 8
+    },
+    "strut": {
+     "profile": "L",
+     "w": 90,
+     "h": 90,
+     "t": 8
+    },
+    "platforms": [
+     1
+    ],
+    "mast": 4000,
+    "material": "steel-red",
+    "x": 34000,
+    "y": 8000,
+    "rot": 0
+   }
+  }
+ ],
+ "libraryItems": [],
+ "slabTypes": [],
+ "types": [],
+ "designOptions": [],
+ "views": [],
+ "sheets": [
+  {
+   "id": "shbtc3q06rokt",
+   "number": "A101",
+   "name": "Floor plan — 1F",
+   "paper": "A3",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "",
+    "status": ""
+   },
+   "viewports": [
+    {
+     "id": "vpbtc3q06rpic",
+     "view": "pl-lvbtc3n06r19f",
+     "x": 0,
+     "y": 0,
+     "fit": true
+    }
+   ],
+   "revisions": [],
+   "auto": true
+  }
+ ],
+ "annotations": [],
+ "revisions": [],
+ "publishSets": [],
+ "viewTemplates": [
+  {
+   "id": "vt-plan-100",
+   "name": "Architectural plan 1:100",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": []
+  },
+  {
+   "id": "vt-furn-50",
+   "name": "Furniture plan 1:50",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "new",
+   "hidden": [
+    "dimensions"
+   ]
+  },
+  {
+   "id": "vt-section-50",
+   "name": "Construction section 1:50",
+   "kinds": [
+    "section",
+    "detail"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "all",
+   "hidden": [
+    "furniture",
+    "lights"
+   ]
+  },
+  {
+   "id": "vt-elev-100",
+   "name": "Presentation elevation 1:100",
+   "kinds": [
+    "elevation"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "new",
+   "hidden": [
+    "furniture"
+   ]
+  }
+ ],
+ "lineStyles": [
+  {
+   "id": "thin",
+   "name": "Thin lines",
+   "weight": 0.13,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "medium",
+   "name": "Medium lines",
+   "weight": 0.25,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "wide",
+   "name": "Wide lines",
+   "weight": 0.5,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "hidden",
+   "name": "Hidden lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dash"
+  },
+  {
+   "id": "centre",
+   "name": "Centre lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dashdot"
+  },
+  {
+   "id": "overhead",
+   "name": "Overhead lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dot"
+  },
+  {
+   "id": "demolished",
+   "name": "Demolished",
+   "weight": 0.25,
+   "color": "#c62828",
+   "pattern": "dash"
+  },
+  {
+   "id": "red",
+   "name": "Red lines",
+   "weight": 0.25,
+   "color": "#d32f2f",
+   "pattern": "solid"
+  }
+ ],
+ "components": [],
+ "materials": [],
+ "sections": [],
+ "guides": [],
+ "dims3d": [],
+ "texts3d": [],
+ "style3d": {
+  "edges": false,
+  "edgeColor": "#1d2128",
+  "profiles": false,
+  "profileWidth": 3,
+  "colorByTag": false,
+  "background": "",
+  "sky": "",
+  "horizon": "",
+  "ground": "",
+  "groundOn": true,
+  "watermark": "",
+  "watermarkPos": "br",
+  "sectionFill": "#3b4250",
+  "fogDensity": 1
+ }
+}
