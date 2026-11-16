@@ -49,6 +49,8 @@ module.exports = {
       assertIncludes(html, '<div id="batch-overlay" class="dialog-overlay"', 'dialog in index.html');
       assert(html.indexOf('js/batch.js') > html.indexOf('js/editTools.js') && html.indexOf('js/batch.js') < html.indexOf('js/app.js'), 'script order');
       assertIncludes(batch, 'if (k >= 1) return canvas;', 'never enlarges');
+      assertIncludes(html, 'id="batch-percent"', 'percent field');
+      assertIncludes(batch, "o.resizeMode === 'percent' ? _byPercent(c, o.percent)", 'percent shrink');
       assertIncludes(batch, "const name = n === 1 ? `${stem}.${ext}` : `${stem} (${n}).${ext}`;", 'a free name, never replacing');
       assertIncludes(batch, 'dataUrl = await ctx.withPhotoInfo(dataUrl, { w: c.width, h: c.height }, src);', 'photo info from each original');
       assertIncludes(batch, "fc.fillStyle = '#ffffff';", 'JPEG on white');
@@ -57,6 +59,65 @@ module.exports = {
       assertIncludes(app, "action: () => _openBatch(printables) },", 'thumbnail right-click');
       for (const m of html.matchAll(/data-i18n="(batch\.[\w.]+)"/g)) assert(ko[m[1]] && en[m[1]], m[1]);
       for (const m of batch.matchAll(/t\('(batch\.[\w.]+)'/g)) assert(ko[m[1]] && en[m[1]], m[1]);
+    });
+
+    test('Percent shrinks both sides, and neither the editor nor batch enlarges', () => {
+      const appSrc = h.read('src/js/app.js');
+      const resizeStart = appSrc.indexOf('function _resizeMode()');
+      const resizeEnd = appSrc.indexOf('function _resizeSyncLockedField');
+      assert(resizeStart > 0 && resizeEnd > resizeStart, 'resize size formula');
+      const resizeTo = new Function('document', '_resizeCtx', '_RESIZE_MAX',
+        `${appSrc.slice(resizeStart, resizeEnd)}\nreturn _resizeComputeTarget();`);
+      const editorSize = (mode, values, srcW, srcH) => resizeTo({
+        querySelector: () => ({ value: mode }),
+        getElementById: (id) => (values[id] == null ? null : { value: values[id] }),
+      }, { srcW, srcH }, 16384);
+      assert(JSON.stringify(editorSize('percent', { 'resize-percent': 50 }, 800, 600)) === '{"w":400,"h":300}', 'editor 50%');
+      assert(JSON.stringify(editorSize('percent', { 'resize-percent': 25 }, 800, 600)) === '{"w":200,"h":150}', 'editor 25%');
+      assert(JSON.stringify(editorSize('percent', { 'resize-percent': 100 }, 800, 600)) === '{"w":800,"h":600}', 'editor 100% stays');
+      assert(JSON.stringify(editorSize('percent', {}, 800, 600)) === '{"w":800,"h":600}', 'a blank percent is 100%');
+
+      const scaleStart = batch.indexOf('function _resample(canvas, k)');
+      const scaleEnd = batch.indexOf('function _encode');
+      assert(scaleStart > 0 && scaleEnd > scaleStart, 'batch scale functions');
+      const scale = new Function('document', `${batch.slice(scaleStart, scaleEnd)}\nreturn { _fit, _byPercent };`)({
+        createElement: () => ({ width: 0, height: 0, getContext: () => ({ imageSmoothingQuality: '', drawImage() {} }) }),
+      });
+      const picture = { width: 400, height: 200 };
+      const half = scale._byPercent(picture, 50);
+      assert(half.width === 200 && half.height === 100, `batch 50% is ${half.width}x${half.height}`);
+      assert(scale._byPercent(picture, 100) === picture && scale._byPercent(picture, 200) === picture, 'batch percent never enlarges');
+      const fitted = scale._fit(picture, 100);
+      assert(fitted.width === 100 && fitted.height === 50, `longest side 100 is ${fitted.width}x${fitted.height}`);
+      assert(scale._fit(picture, 1000) === picture, 'a longer limit leaves the picture');
+      assert(html.includes('value="percent"') && html.includes('id="batch-percent"'), 'batch offers a percent choice');
+      const between = (id) => {
+        const down = html.indexOf(`id="${id}-down"`);
+        const field = html.indexOf(`id="${id}"`);
+        const up = html.indexOf(`id="${id}-up"`);
+        assert(down > 0 && field > down && up > field, `${id} sits between decrease and increase`);
+        const tag = html.slice(html.lastIndexOf('<input', field), html.indexOf('>', field));
+        assert(tag.includes('type="number"'), `${id} can be typed`);
+      };
+      between('resize-percent');
+      between('batch-percent');
+      between('batch-longest');
+      const unitBeforeIncrease = (id, unit) => {
+        const field = html.indexOf(`id="${id}"`);
+        const up = html.indexOf(`id="${id}-up"`);
+        assert(field > 0 && up > field && html.slice(field, up).includes(unit), `${unit} sits left of the ${id} increase button`);
+      };
+      unitBeforeIncrease('resize-percent', '>%</span>');
+      unitBeforeIncrease('batch-percent', '>%</span>');
+      unitBeforeIncrease('batch-longest', '>px</span>');
+      const step = h.read('src/js/numStep.js');
+      assert(step.indexOf("unit.textContent = '%'") < step.indexOf('wrap.append(plus)'), 'quality % is left of increase');
+      assertIncludes(step, "input.id === 'mc-seek' || input.id === 'dcm-frame'", 'playback bars keep their own controls');
+      assertIncludes(h.read('src/styles/main.css'), '.resize-fields[hidden] { display: none !important; }', 'only the chosen resize method is shown');
+      assertIncludes(app, "document.getElementById('resize-percent-down')", 'editor step buttons');
+      assertIncludes(batch, "el['batch-percent-down'].addEventListener('click'", 'batch step buttons');
+      assert(ko['resize.mode.percent'] === '퍼센트' && en['resize.mode.percent'] === 'Percent', 'the method is named percent');
+      assert(ko['batch.resize'] && en['batch.resize'], 'batch size label');
     });
 
     test('Batch shows a progress popup: true percent (no creep), time left, Stop', () => {

@@ -441,7 +441,7 @@ window.Browse = (() => {
   function _syncSizeChrome() {
     if (!_root) return;
     const val = _root.querySelector('#browse-size-val');
-    if (val) val.textContent = `${_view.size}`;
+    if (val) val.textContent = `${_view.size} px`;
     const dec = _root.querySelector('#browse-size-dec');
     const inc = _root.querySelector('#browse-size-inc');
     if (dec) dec.disabled = _view.size <= MIN_SIZE;

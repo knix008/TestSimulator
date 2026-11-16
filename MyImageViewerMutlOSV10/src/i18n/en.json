@@ -1245,7 +1245,7 @@
   "batch.selected": "Selected",
   "batch.folder": "Every picture in this folder",
   "batch.do": "Do",
-  "batch.resize": "Longest side at most",
+  "batch.resize": "Reduce size",
   "batch.keepFormat": "Same as the original",
   "batch.wmHint": "The watermark uses the size, colour and position last set in Image › Watermark.",
   "batch.suffix": "Add to the name",

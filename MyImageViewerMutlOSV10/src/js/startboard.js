@@ -7,10 +7,10 @@ window.StartBoard = (() => {
   const ROW = 20;
   const GAP = 14;
   // Raised when the default arrangement changes: an older saved one starts over once.
-  const LAYOUT_VERSION = 1;
+  const LAYOUT_VERSION = 3;
   const STORE_KEY = 'startLayout';
-  /** Columns each card takes in the default arrangement. */
-  const SPAN = { hero: 3, begin: 1, tasks: 2, recent: 1, scenes: 2 };
+  /** Auto arrange puts one section on each row, across the whole width. */
+  const SPAN = { hero: 3, begin: 3, tasks: 3, recent: 3, scenes: 3 };
 
   /** Move handle: three horizontal lines. */
   const HANDLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg>';
@@ -42,21 +42,37 @@ window.StartBoard = (() => {
     return { col: clamp(Math.round(Number(c.col) || 0), 0, COLS - w), row: Math.max(0, Math.round(Number(c.row) || 0)), w, h: Math.max(2, Math.round(Number(c.h) || 2)), fit: c.fit !== false };
   }
 
-  /** The cards in order, each put in the columns where it can start highest. */
+  /** Default arrangement: one section on each row, full width, only as tall as its own content. */
   function pack(order, widthOf, heightOf) {
-    const top = new Array(COLS).fill(0);
+    const ids = [...order];
     const out = {};
-    for (const id of order) {
-      const w = clamp(Math.round(widthOf(id) || 1), 1, COLS);
-      let best = 0;
-      let bestRow = Infinity;
-      for (let c = 0; c + w <= COLS; c += 1) {
-        const row = Math.max(...top.slice(c, c + w));
-        if (row < bestRow) { bestRow = row; best = c; }
-      }
-      out[id] = { col: best, row: bestRow, w, h: heightOf(id), fit: true };
-      for (let c = best; c < best + w; c += 1) top[c] = bestRow + out[id].h;
+    let row = 0;
+    if (ids.includes('hero')) {
+      const h = Math.max(2, Math.round(Number(heightOf('hero')) || 2));
+      out.hero = { col: 0, row: 0, w: COLS, h, fit: true };
+      row = h;
     }
+    let col = 0;
+    let shelf = [];
+    const close = () => {
+      if (!shelf.length) return;
+      const h = Math.max(...shelf.map((id) => out[id].h));
+      for (const id of shelf) out[id].h = h;
+      row += h;
+      col = 0;
+      shelf = [];
+    };
+    for (const id of ids) {
+      if (id === 'hero') continue;
+      const w = clamp(Math.round(widthOf(id) || 1), 1, COLS);
+      const h = Math.max(2, Math.round(Number(heightOf(id)) || 2));
+      if (col > 0 && col + w > COLS) close();
+      out[id] = { col, row, w, h, fit: true };
+      shelf.push(id);
+      col += w;
+      if (col >= COLS) close();
+    }
+    close();
     return out;
   }
 
@@ -98,18 +114,19 @@ window.StartBoard = (() => {
   /** The board from the saved layout (or the default); fit cards take their measured heights. */
   function cardsOf(saved, ids, measured = {}, fallbackRows = 8) {
     const rows = (id) => measured[id] || fallbackRows;
-    let cards;
-    if (saved && typeof saved === 'object' && saved.version === LAYOUT_VERSION && saved.cards && typeof saved.cards === 'object') {
-      cards = {};
-      for (const id of ids) if (saved.cards[id]) cards[id] = id === 'hero' ? pinHero(clampCell(saved.cards[id])) : clampCell(saved.cards[id]);
-      let bottom = Math.max(0, ...Object.values(cards).map((c) => c.row + c.h));
-      for (const id of ids) {
-        if (cards[id]) continue;
-        cards[id] = { col: 0, row: bottom, w: clamp(SPAN[id] || 1, 1, COLS), h: rows(id), fit: true };
-        bottom += cards[id].h;
-      }
-    } else {
-      cards = pack([...ids], (id) => SPAN[id] || 1, rows);
+    const fresh = () => pack([...ids], (id) => SPAN[id] || 1, rows);
+    // Horizontal is the default. A saved horizontal arrangement is packed again from the
+    // measured heights, so a shorter card cannot slide up beside a taller one.
+    if (!(saved && typeof saved === 'object' && saved.version === LAYOUT_VERSION && saved.flow !== 'horizontal' && saved.cards && typeof saved.cards === 'object')) {
+      return fresh();
+    }
+    const cards = {};
+    for (const id of ids) if (saved.cards[id]) cards[id] = id === 'hero' ? pinHero(clampCell(saved.cards[id])) : clampCell(saved.cards[id]);
+    let bottom = Math.max(0, ...Object.values(cards).map((c) => c.row + c.h));
+    for (const id of ids) {
+      if (cards[id]) continue;
+      cards[id] = { col: 0, row: bottom, w: clamp(SPAN[id] || 1, 1, COLS), h: rows(id), fit: true };
+      bottom += cards[id].h;
     }
     for (const id of Object.keys(cards)) if (cards[id].fit && measured[id]) cards[id] = { ...cards[id], h: measured[id] };
     return compact(resolve(cards, null));
@@ -118,10 +135,10 @@ window.StartBoard = (() => {
   const place = (cards, id, target) => compact(resolve({ ...cards, [id]: { ...cards[id], ...target } }, id));
   const autoArrange = (ids, measured = {}, fallbackRows = 8) => compact(pack([...ids], (id) => SPAN[id] || 1, (id) => measured[id] || fallbackRows));
 
-  function layoutValue(cards) {
+  function layoutValue(cards, flow = 'custom') {
     const out = {};
     for (const [id, c] of Object.entries(cards)) out[id] = { col: c.col, row: c.row, w: c.w, h: c.h, fit: c.fit };
-    return { version: LAYOUT_VERSION, cards: out };
+    return { version: LAYOUT_VERSION, flow, cards: out };
   }
 
   function loadLayout() {
@@ -233,11 +250,27 @@ window.StartBoard = (() => {
       rects = now;
     }
 
-    /** Fit cards take the height of their content, measured in rows. */
+    /** Fit cards take the height of their content, measured in rows. The card box may be
+        taller than its content when a row is aligned, so the content is measured, not the box. */
+    function contentPx(el) {
+      const head = el.querySelector(':scope > h2');
+      const body = el.querySelector(':scope > .card-body');
+      const cs = getComputedStyle(el);
+      let px = (el.offsetHeight - el.clientHeight) + (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      if (head) px += head.offsetHeight + (parseFloat(getComputedStyle(head).marginBottom) || 0);
+      if (body) {
+        const kids = [...body.children];
+        for (const kid of kids) px += kid.offsetHeight;
+        const gap = parseFloat(getComputedStyle(body).rowGap) || parseFloat(getComputedStyle(body).gap) || 0;
+        if (kids.length > 1) px += gap * (kids.length - 1);
+      }
+      return px;
+    }
+
     function measure() {
       if (!host.isConnected || !host.offsetParent) return;
       const next = {};
-      for (const el of host.querySelectorAll(':scope > .start-card.fit')) next[el.dataset.card] = rowsFor(el.offsetHeight);
+      for (const el of host.querySelectorAll(':scope > .start-card.fit')) next[el.dataset.card] = rowsFor(contentPx(el));
       // Growing always applies; shrinking by a single row does not, so a card whose height
       // depends on where compaction put it cannot flip between two heights.
       const time = performance.now();
@@ -251,7 +284,13 @@ window.StartBoard = (() => {
       measure();
     }
 
-    const save = (cards) => { layout = layoutValue(compact(cards)); pending = null; paint(true); measure(); saveLayout(layout); };
+    const save = (cards, flow = 'custom') => {
+      layout = layoutValue(flow === 'horizontal' ? cards : compact(cards), flow);
+      pending = null;
+      paint(true);
+      measure();
+      saveLayout(layout);
+    };
 
     const columnWidth = () => (host.getBoundingClientRect().width - GAP * (COLS - 1)) / COLS;
     const cellAt = (x, y, w) => {
@@ -393,7 +432,7 @@ window.StartBoard = (() => {
 
     return {
       /** Puts every card back in the default arrangement. */
-      arrange() { save(autoArrange(ids, measured)); },
+      arrange() { save(autoArrange(ids, measured), 'horizontal'); },
       destroy() {
         observer?.disconnect();
         host.removeEventListener('pointerdown', onPointerDown);

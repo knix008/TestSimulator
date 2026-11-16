@@ -107,6 +107,12 @@ module.exports = {
       assert(stuck.hero.col === 0 && stuck.hero.row === 0 && stuck.hero.w === 3 && stuck.hero.fit === true, 'a move of the name card is ignored');
       const arranged = SB.autoArrange(ids, measured);
       assert(arranged.hero.col === 0 && arranged.hero.row === 0 && arranged.hero.w === 3, 'auto arrange keeps the name card on top');
+      const band = SB.autoArrange(ids, { hero: 4, begin: 20, tasks: 8, recent: 6, scenes: 10 });
+      for (const id of ['begin', 'tasks', 'recent', 'scenes']) assert(band[id].col === 0 && band[id].w === 3, `${id} takes the whole row`);
+      assert(band.begin.row === band.hero.h && band.tasks.row === band.begin.row + 20, 'sections stack one per row');
+      assert(band.recent.row === band.tasks.row + 8 && band.scenes.row === band.recent.row + 6, 'each row is only as tall as that section');
+      const again = SB.cardsOf({ version: SB.LAYOUT_VERSION, flow: 'horizontal', cards: band }, ids, { hero: 4, begin: 20, tasks: 8, recent: 6, scenes: 10 });
+      assert(again.tasks.w === 3 && again.tasks.row === again.begin.row + again.begin.h, 'auto arrange keeps one section per row');
       const shifted = SB.place(cells, 'begin', { col: 2, row: 0 });
       assert(shifted.begin.row >= shifted.hero.h, 'a card dropped on the name card lands under it');
       assert(shifted.hero.row === 0 && shifted.hero.w === 3, 'the name card did not move aside');

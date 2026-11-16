@@ -7422,6 +7422,28 @@
     if (wrap) wrap.style.visibility = (fmt === 'jpg' || fmt === 'webp') ? 'visible' : 'hidden';
   }
 
+  function _nudgePercent(dir) {
+    const el = document.getElementById('resize-percent');
+    if (!el || el.disabled) return;
+    const min = Number(el.min), max = Number(el.max);
+    const cur = Number(el.value);
+    const next = Math.max(min, Math.min(max, Math.round((Number.isFinite(cur) ? cur : min) + dir)));
+    el.value = String(next);
+    _syncPercentEnds();
+    _resizeUpdatePreview();
+  }
+
+  function _syncPercentEnds() {
+    const el = document.getElementById('resize-percent');
+    const down = document.getElementById('resize-percent-down');
+    const up = document.getElementById('resize-percent-up');
+    if (!el || !down || !up) return;
+    const v = Number(el.value);
+    const known = Number.isFinite(v);
+    down.disabled = el.disabled || (known && v <= Number(el.min));
+    up.disabled = el.disabled || (known && v >= Number(el.max));
+  }
+
   function _resizeUpdatePreview() {
     const { w, h } = _resizeComputeTarget();
     const { srcW, srcH } = _resizeCtx;
@@ -7484,6 +7506,7 @@
     const lockWrap = document.getElementById('resize-lock-wrap');
     if (lockWrap) lockWrap.style.display = mode === 'pixels' ? '' : 'none';
     _resizeRenderPresets();
+    _syncPercentEnds();
     _resizeUpdatePreview();
   }
 
@@ -7564,7 +7587,9 @@
     document.querySelectorAll('input[name="resize-mode"]').forEach(r =>
       r.addEventListener('change', _resizeRefreshFields));
     const bindInput = (id, fn) => { document.getElementById(id)?.addEventListener('input', fn); };
-    bindInput('resize-percent', _resizeUpdatePreview);
+    bindInput('resize-percent', () => { _syncPercentEnds(); _resizeUpdatePreview(); });
+    document.getElementById('resize-percent-down')?.addEventListener('click', () => _nudgePercent(-1));
+    document.getElementById('resize-percent-up')?.addEventListener('click', () => _nudgePercent(1));
     bindInput('resize-longest', _resizeUpdatePreview);
     bindInput('resize-max-w', _resizeUpdatePreview);
     bindInput('resize-max-h', _resizeUpdatePreview);

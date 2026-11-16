@@ -347,11 +347,11 @@ module.exports = {
       assertIncludes(app, '_startBoard = StartBoard.start(board, { reduced });', 'board started');
       assertIncludes(app, "StartBoard.card('hero', { body: hero, bare: true, locked: true })", 'name card cannot be moved or resized');
       assertIncludes(app, "arrange.addEventListener('click', () => _startBoard?.arrange());", 'auto arrange');
-      // Default layout: hero across the top, then Start | What you can do, Places | Background
+      // Default layout: the name card, then one section on each following row
       const ids = ['hero', 'begin', 'tasks', 'recent', 'scenes'];
       const cells = SB.cardsOf(null, ids, { hero: 6, begin: 14, tasks: 14, recent: 12, scenes: 12 });
       assert(cells.hero.row === 0 && cells.hero.w === 3, 'hero spans the top');
-      assert(cells.begin.col === 0 && cells.tasks.col === 1 && cells.tasks.w === 2, 'begin | tasks');
+      assert(cells.begin.w === 3 && cells.tasks.w === 3 && cells.tasks.row === cells.begin.row + cells.begin.h, 'one section per row');
       for (const a of ids) for (const b of ids) if (a < b) assert(!SB.overlaps(cells[a], cells[b]), `${a} / ${b} overlap`);
       // Moving a card pushes the others aside, never on top of each other
       const moved = SB.place(cells, 'scenes', { col: 0, row: 0 });

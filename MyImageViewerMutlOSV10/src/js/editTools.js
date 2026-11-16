@@ -239,7 +239,7 @@ window.EditTools = (() => {
     range.addEventListener('input', () => set(+range.value));
     minus.addEventListener('click', () => set(+range.value - step));
     plus.addEventListener('click', () => set(+range.value + step));
-    wrap.append(s, minus, range, plus, out);
+    wrap.append(s, minus, range, out, plus);
     wrap._set = set;
     return wrap;
   }

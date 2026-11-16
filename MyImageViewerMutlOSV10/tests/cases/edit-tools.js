@@ -119,6 +119,7 @@ module.exports = {
       const tools = h.read('src/js/editTools.js');
       assertIncludes(tools, 'EditOps.previewEnhance(ai.thumb, _aiFx(row.key))', 'a thumb per setting');
       assertIncludes(tools, "line.append(label, minus, input, output, plus)", 'decrease, slider, value, increase');
+      assertIncludes(tools, 'wrap.append(s, minus, range, out, plus)', 'the value and its unit sit left of increase');
       assertIncludes(tools, 'AI_KIND_ICON', 'an icon on every scene tab');
       assertIncludes(css, '.dialog-box.auto-improve-box > .dialog-body { overflow: hidden; }', 'the settings window does not scroll');
       assert(ko['effects.autoDown'] && en['effects.autoUp'], 'stepper labels');

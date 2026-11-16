@@ -1196,9 +1196,11 @@ Do you want to save before closing?</p>
           <div class="resize-fields" id="resize-fields-percent">
             <label class="resize-field">
               <span data-i18n="resize.percent">Scale</span>
-              <span class="resize-field-inline">
+              <span class="resize-field-inline pct-step">
+                <button type="button" class="ai-step" id="resize-percent-down" data-i18n-title="effects.autoDown" title="Decrease">−</button>
                 <input id="resize-percent" type="number" min="1" max="400" step="1" value="50">
                 <span>%</span>
+                <button type="button" class="ai-step" id="resize-percent-up" data-i18n-title="effects.autoUp" title="Increase">+</button>
               </span>
             </label>
           </div>
@@ -1702,8 +1704,25 @@ Do you want to save before closing?</p>
         <label class="dlg-row"><span class="dlg-label"></span><span class="dlg-check"><input type="radio" name="batch-target" value="selected"> <span data-i18n="batch.selected">Selected</span> (<span id="batch-count-selected">0</span>)</span></label>
         <label class="dlg-row"><span class="dlg-label"></span><span class="dlg-check"><input type="radio" name="batch-target" value="folder" checked> <span data-i18n="batch.folder">Every picture in this folder</span> (<span id="batch-count-folder">0</span>)</span></label>
         <div class="dlg-section" data-i18n="batch.do">Do</div>
-        <div class="dlg-row"><label class="dlg-label dlg-check"><input type="checkbox" id="batch-resize" checked> <span data-i18n="batch.resize">Longest side at most</span></label>
-          <input type="number" id="batch-longest" min="16" max="20000" step="1" value="1920"><span class="dlg-unit" data-i18n="resize.px">px</span></div>
+        <div class="dlg-row"><label class="dlg-label dlg-check"><input type="checkbox" id="batch-resize" checked> <span data-i18n="batch.resize">Reduce size</span></label>
+          <span class="dlg-ctl batch-size-ctl">
+            <select id="batch-resize-mode">
+              <option value="longest" data-i18n="resize.mode.longest">Longest side</option>
+              <option value="percent" data-i18n="resize.mode.percent">Percent</option>
+            </select>
+            <span class="pct-step" id="batch-longest-step">
+              <button type="button" class="ai-step" id="batch-longest-down" data-i18n-title="effects.autoDown" title="Decrease">−</button>
+              <input type="number" id="batch-longest" min="16" max="20000" step="1" value="1920">
+              <span class="dlg-unit" id="batch-resize-unit" data-i18n="resize.px">px</span>
+              <button type="button" class="ai-step" id="batch-longest-up" data-i18n-title="effects.autoUp" title="Increase">+</button>
+            </span>
+            <span class="pct-step" id="batch-percent-step" hidden>
+              <button type="button" class="ai-step" id="batch-percent-down" data-i18n-title="effects.autoDown" title="Decrease">−</button>
+              <input type="number" id="batch-percent" min="1" max="100" step="1" value="50">
+              <span class="dlg-unit">%</span>
+              <button type="button" class="ai-step" id="batch-percent-up" data-i18n-title="effects.autoUp" title="Increase">+</button>
+            </span>
+          </span></div>
         <label class="dlg-row"><span class="dlg-label" data-i18n="resize.format">Format</span>
           <select id="batch-format">
             <option value="jpg">JPEG</option>
@@ -1740,8 +1759,7 @@ Do you want to save before closing?</p>
       </div>
       <div class="dialog-body dlg-form amount-body">
         <div class="dlg-row"><span class="dlg-label" id="amount-label"></span>
-          <span class="dlg-ctl"><input type="range" id="amount-range" min="1" max="100" step="1" value="10"><input type="number" id="amount-number" min="1" max="100" step="1" value="10"></span>
-          <span class="dlg-unit" data-i18n="resize.px">px</span></div>
+          <span class="dlg-ctl amount-ctl"><input type="range" id="amount-range" min="1" max="100" step="1" value="10"><input type="number" id="amount-number" min="1" max="100" step="1" value="10"><span class="dlg-unit" data-i18n="resize.px">px</span></span></div>
       </div>
       <div class="dialog-footer">
         <button type="button" id="amount-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
@@ -1759,6 +1777,7 @@ Do you want to save before closing?</p>
     // Web mode: the Tauri bridge did not install electronAPI → load the browser shim
     window.__IS_WEB__ = typeof window.electronAPI === 'undefined';
   </script>
+  <script src="./js/numStep.js"></script>
   <script src="./js/icons.js"></script>
   <script src="./js/themes.js"></script>
   <script src="./js/i18n.js"></script>
