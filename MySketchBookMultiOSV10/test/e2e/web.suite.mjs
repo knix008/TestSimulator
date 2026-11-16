@@ -31,6 +31,30 @@ export const cases = [
         assert.match(r.title, /^MySketchBook v\d+\.\d+\.\d+/);
       },
     },
+    {
+      name: '시작 화면에서 2D 도면 → 2D 정리 → 3D로 변환: 열린 프로젝트에 들어가고 시작 화면이 닫혀 3D 가 보임',
+      async run(app) {
+        const r = await app.run(`
+          await T.reset();
+          const levels = A.state.doc.project.levels.length;
+          A.actions.showStartPage(true);
+          await T.frames(3);
+          const bytes = new Uint8Array(await (await fetch('./plan-samples/apartment-59.dxf')).arrayBuffer());
+          const job = A.planImport.importPlan('apartment-59.dxf', bytes, { refine: true, target: 'level' });
+          const end = Date.now() + 30000;
+          while (!(A.planImport.studio.isOpen && document.querySelector('[data-ps="convert"]')) && Date.now() < end) await T.sleep(100);
+          const opened = A.planImport.studio.isOpen;
+          document.querySelector('[data-ps="convert"]')?.click();
+          const out = await job;
+          await T.frames(3);
+          const shown = (sel) => { const el = document.querySelector(sel); if (!el || el.hidden) return false; const b = el.getBoundingClientRect(); return b.width > 2 && b.height > 2; };
+          return { opened, walls: out?.applied?.walls ?? 0, levels: A.state.doc.project.levels.length - levels, start: A.state.showStart, startShown: shown('#start-page'), view: shown('#view-host') };`, 90000);
+        assert.ok(r.opened, 'the 2D workbench opened');
+        assert.ok(r.walls >= 6, `walls converted (${r.walls})`);
+        assert.equal(r.levels, 1, 'the plan went into the open project as a new level');
+        assert.deepEqual({ start: r.start, startShown: r.startShown, view: r.view }, { start: false, startShown: false, view: true }, 'the start page is closed and the 3D view shows the result');
+      },
+    },
   ]),
 
   ...group('템플릿', [

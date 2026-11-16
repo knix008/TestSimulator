@@ -2708,9 +2708,11 @@ const planImport = createPlanImport({
   overlay: () => overlay,
   planView: () => state.planView,
   levelMode: (p) => builder?.levelMode?.(p) ?? 'all',
-  afterImport: () => { syncScene(); viewport?.zoomExtents(); renderAll(); },
+  // An import started from the start page (a 2D sample, a drop) while a project was open goes into that project:
+  // the start page is closed so the result is seen (it otherwise stayed in front, and the conversion looked lost).
+  afterImport: () => { if (state.showStart && state.doc) showStartPage(false); syncScene(); viewport?.zoomExtents(); renderAll(); },
   showProblems: () => run('showProblems'),
-  focusUnderlay: () => { clearSelection(); syncScene(); renderRight(); },
+  focusUnderlay: () => { if (state.showStart && state.doc) showStartPage(false); clearSelection(); syncScene(); renderRight(); },
   // Furniture of IFC / Sweet Home 3D files that has no library item: its own model in My objects.
   modelIo: () => Object.values(ioImport)[0]?.(),
   addUserObject,
