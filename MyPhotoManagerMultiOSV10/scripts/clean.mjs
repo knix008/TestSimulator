@@ -1,7 +1,7 @@
 // Removes build and test leftovers.
 //
 //   node scripts/clean.mjs        → dist/, test-results/, root logs and installers
-//   node scripts/clean.mjs all    → also release/, Rust target/gen, vendored public assets
+//   node scripts/clean.mjs all    → also release/, Rust target/gen, vendored public assets, node_modules/
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,6 +47,7 @@ if (all) {
   rm(path.join('public', 'models'));
   rm(path.join('public', 'vendor'));
   rm(path.join('public', 'doc', 'img'));
+  rm('node_modules');
 }
 
 if (removed.length) {
