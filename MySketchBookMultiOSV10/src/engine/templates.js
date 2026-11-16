@@ -108,8 +108,8 @@ const PLANS = {
   apt104: [{ rects: [['bedroom', 0, 0, 4.2, 4.8], ['living', 4.2, 0, 9, 4.8], ['bedroom3', 9, 0, 12.6, 3.9], ['bath', 9, 3.9, 12.6, 5.7], ['bedroom4', 9, 5.7, 12.6, 8.7], ['bedroom2', 0, 4.8, 3.6, 8.7], ['hall', 3.6, 4.8, 5.4, 8.7], ['kitchen', 5.4, 4.8, 9, 8.7]], open: [['living', 'kitchen']], entrance: 'hall' }],
   house: [{ rects: [['living', 0, 0, 5.5, 4.5], ['kitchen', 5.5, 0, 10, 4.5], ['bedroom', 0, 4.5, 4, 8], ['hall', 4, 4.5, 6, 8], ['bedroom2', 6, 4.5, 10, 6.5], ['bath', 6, 6.5, 10, 8]], open: [['living', 'kitchen']], entrance: 'hall' }],
   duplex: [
-    { name: '1F', rects: [['living', 0, 0, 6, 4.5], ['kitchen', 6, 0, 10, 4.5], ['hall', 0, 4.5, 3, 8.5], ['bath', 3, 4.5, 5, 8.5], ['office', 5, 4.5, 10, 8.5]], open: [['living', 'kitchen'], ['hall', 'living']], entrance: 'hall', stairs: { room: 'hall' } },
-    { name: '2F', rects: [['bedroom', 0, 0, 5, 4.5], ['bedroom2', 5, 0, 10, 4.5], ['hall', 0, 4.5, 3, 8.5], ['bath2', 3, 4.5, 6, 8.5], ['dressing', 6, 4.5, 10, 8.5]], open: [], stairwell: 'hall' },
+    { name: '1F', rects: [['living', 0, 0, 6, 3.2], ['kitchen', 6, 0, 10, 3.2], ['hall', 0, 3.2, 3, 8.5], ['bath', 3, 3.2, 5, 8.5], ['office', 5, 3.2, 10, 8.5]], open: [['living', 'kitchen'], ['hall', 'living']], entrance: 'hall', stairs: { room: 'hall' } },
+    { name: '2F', rects: [['bedroom', 0, 0, 5, 3.2], ['bedroom2', 5, 0, 10, 3.2], ['hall', 0, 3.2, 3, 8.5], ['bath2', 3, 3.2, 6, 8.5], ['dressing', 6, 3.2, 10, 8.5]], open: [], stairwell: 'hall' },
   ],
   // Three-storey detached house: a switchback (U) stair with a half landing in the stacked stair hall;
   // the upper halls keep their floor round the stairwell opening (room.holes, stairs.js).
@@ -131,8 +131,8 @@ const PLANS = {
   shop: [{ rects: [['hall2', 0, 0, 9, 6], ['counter', 0, 6, 5, 8.5], ['storage', 5, 6, 7.5, 8.5], ['toilet', 7.5, 6, 9, 8.5]], open: [['hall2', 'counter']], entrance: 'hall2' }],
   // Loft studio: living-kitchen below, a sleeping loft over the back half reached by stairs.
   loft: [
-    { name: '1F', rects: [['living', 0, 0, 7, 4.5], ['kitchen', 0, 4.5, 3.5, 8], ['hall', 3.5, 4.5, 5.5, 8], ['bath', 5.5, 4.5, 7, 8]], open: [['living', 'kitchen'], ['hall', 'living']], entrance: 'living', stairs: { room: 'hall' } },
-    { name: '2F', rects: [['bedroom', 0, 4.5, 3.5, 8], ['hall', 3.5, 4.5, 5.5, 8], ['dressing', 5.5, 4.5, 7, 8]], open: [], stairwell: 'hall' },
+    { name: '1F', rects: [['living', 0, 0, 7, 3.3], ['kitchen', 0, 3.3, 3.5, 8], ['hall', 3.5, 3.3, 5.5, 8], ['bath', 5.5, 3.3, 7, 8]], open: [['living', 'kitchen'], ['hall', 'living']], entrance: 'living', stairs: { room: 'hall' } },
+    { name: '2F', rects: [['bedroom', 0, 3.3, 3.5, 8], ['hall', 3.5, 3.3, 5.5, 8], ['dressing', 5.5, 3.3, 7, 8]], open: [], stairwell: 'hall' },
   ],
   // Five-storey office building: lobby, then open-plan floors; meeting room, stair core and toilets on every floor.
   // The core has a switchback (U) stair with a half landing on every floor, stacked; each floor landing
@@ -285,8 +285,9 @@ function buildRects(project, level, spec, names) {
     else opening(mid, Math.min(L - 0.8, 1.8), 1.4, 0.9, 'window-casement');
   }
   // 5. Rooms (open plans share one room: the first key found there names it).
+  // A stairwell keeps its floor: the flight below cuts only its own opening (syncStairwells). The rest is the
+  // landing the doors open onto, so a door never drops straight into the storey below.
   for (const r of rects) {
-    if (spec.stairwell && r.key === spec.stairwell) continue; // the stairwell is open to the floor below
     const points = detectRoom(project.walls, [(r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2], level);
     if (!points) continue;
     const shape = points.map(([x, z]) => `${x.toFixed(3)},${z.toFixed(3)}`).sort().join(';');
@@ -315,6 +316,11 @@ function buildRects(project, level, spec, names) {
       shiftDoorsToLanding(project, r);
     }
   }
+  // The floor above keeps the same hall. Its doors move to the far landing, where this flight arrives.
+  if (spec.stairwell) {
+    const r = rects.find((x) => x.key === spec.stairwell);
+    if (r) shiftDoorsToLanding(project, { ...r, level }, 'far');
+  }
   // 8. Structural columns (their centres are wall nodes, so walls stay joined to them).
   for (const [x, z, size = 0.4, shape = 'square'] of spec.columns ?? []) {
     project.objects.push({ id: newId('ob'), level, item: 'column', params: { shape, size, depth: size, fitLevel: true, height: project.levels.find((l) => l.id === level)?.height ?? 2.4, trim: false, material: 'wall-paint-white' }, position: [x, 0, z], rotation: [0, 0, 0], scale: [1, 1, 1], materials: {}, tag: 'untagged', name: '' });
@@ -328,8 +334,9 @@ function buildRects(project, level, spec, names) {
  * far wall. Stacked halls get the same stair on every floor, so the flights sit over each other.
  */
 /**
- * A straight flight in a stair hall. The top finishes at the far wall; at least a metre stays clear at the
- * near end (the landing the doors use). The going shrinks, down to 150 mm, so the flight fits that length.
+ * A straight flight in a stair hall. A landing stays at each end: the near one for the doors below, the far
+ * one where the flight arrives so the doors above open onto floor. The going shrinks to 150 mm, and the
+ * rise may steepen to 220 mm, before those landings are shortened.
  */
 function fittedStraight(r, level, rise) {
   const alongZ = r.z1 - r.z0 >= r.x1 - r.x0;
@@ -337,48 +344,63 @@ function fittedStraight(r, level, rise) {
   const span = (alongZ ? r.z1 - r.z0 : r.x1 - r.x0) - 2 * inset;
   const across = (alongZ ? r.x1 - r.x0 : r.z1 - r.z0) - 2 * inset;
   const width = Math.round(Math.min(1.0, Math.max(0.7, across - 0.1)) * 100) / 100;
-  const n = riserCount(rise, 0.19);
-  const landing = Math.min(1.15, Math.max(0.85, span * 0.28));
-  const run = Math.round(Math.min(0.27, Math.max(0.15, (span - landing) / (n - 1))) * 1000) / 1000;
-  const params = { type: 'straight', rise: Math.round(rise * 1000) / 1000, width, run, maxRiser: 0.19, rail: 'baluster', tread: 'wood-oak', riser: 'paint-white-matte' };
+  const TOP = 1.15;
+  const BOTTOM = 1.05;
+  let maxRiser = 0.19;
+  let n = riserCount(rise, maxRiser);
+  let run = (span - TOP - BOTTOM) / Math.max(1, n - 1);
+  while (run < 0.15 && maxRiser < 0.22) {
+    maxRiser = Math.round((maxRiser + 0.005) * 1000) / 1000;
+    n = riserCount(rise, maxRiser);
+    run = (span - TOP - BOTTOM) / Math.max(1, n - 1);
+  }
+  run = Math.round(Math.min(0.27, Math.max(0.15, run)) * 1000) / 1000;
+  const params = { type: 'straight', rise: Math.round(rise * 1000) / 1000, width, run, maxRiser, rail: 'baluster', tread: 'wood-oak', riser: 'paint-white-matte' };
   const len = stairLayout(params).size[2];
-  const far = (alongZ ? r.z1 : r.x1) - inset;
+  let top = TOP;
+  const share = span - len;
+  if (share < TOP + BOTTOM) top = Math.min(TOP, Math.max(0.9, share * 0.55));
+  const farInner = (alongZ ? r.z1 : r.x1) - inset;
+  const arrival = farInner - top;
   const mid = alongZ ? (r.x0 + r.x1) / 2 : (r.z0 + r.z1) / 2;
-  const c = alongZ ? [mid, far - len / 2] : [far - len / 2, mid];
-  // Local −Z climbs; turn it toward the far wall.
+  const along = arrival - len / 2;
+  const c = alongZ ? [mid, along] : [along, mid];
+  // Local −Z climbs; turn it toward the far wall, so the top landing is the floor you step onto.
   const rotation = rotationFor(alongZ ? [0, 1] : [1, 0]);
   return { id: newId('ob'), level, item: 'stairs', params, position: [c[0], 0, c[1]], rotation: [0, rotation, 0], scale: [1, 1, 1], materials: {}, tag: 'untagged', name: '' };
 }
 
-/** Doors of a stair hall move to the near end (the landing), clear of the flight against the far wall. */
-function shiftDoorsToLanding(project, r) {
+/** Doors of a stair hall move to one landing: `near` (the start, downstairs) or `far` (the arrival, upstairs). */
+function shiftDoorsToLanding(project, r, end = 'near') {
   const alongZ = r.z1 - r.z0 >= r.x1 - r.x0;
   const near = alongZ ? r.z0 : r.x0;
   const far = alongZ ? r.z1 : r.x1;
+  const target = end === 'far' ? far : near;
+  const skipEnd = end === 'far' ? near : far;
   for (const w of project.walls) {
     if (w.level !== r.level) continue;
     const horiz = Math.abs(w.a[1] - w.b[1]) < 0.02;
     const vert = Math.abs(w.a[0] - w.b[0]) < 0.02;
     if (!horiz && !vert) continue;
     // Only the stretch of the wall that is this hall's edge (a merged wall continues into the next room).
-    let edgeLo; let edgeHi; let onFar;
+    let edgeLo; let edgeHi;
     if (horiz) {
       if (Math.abs(w.a[1] - r.z0) > 0.03 && Math.abs(w.a[1] - r.z1) > 0.03) continue;
-      onFar = Math.abs(w.a[1] - far) < 0.03;
       edgeLo = Math.max(r.x0, Math.min(w.a[0], w.b[0]));
       edgeHi = Math.min(r.x1, Math.max(w.a[0], w.b[0]));
     } else {
       if (Math.abs(w.a[0] - r.x0) > 0.03 && Math.abs(w.a[0] - r.x1) > 0.03) continue;
-      onFar = Math.abs(w.a[0] - far) < 0.03;
       edgeLo = Math.max(r.z0, Math.min(w.a[1], w.b[1]));
       edgeHi = Math.min(r.z1, Math.max(w.a[1], w.b[1]));
     }
-    if (onFar || edgeHi - edgeLo < 0.95) continue;
+    // The wall across the chosen landing stays: its door already opens onto that floor.
+    const onSkip = alongZ ? horiz && Math.abs(w.a[1] - skipEnd) < 0.03 : vert && Math.abs(w.a[0] - skipEnd) < 0.03;
+    if (onSkip || edgeHi - edgeLo < 0.95) continue;
     const L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]) || 1;
     const dx = (w.b[0] - w.a[0]) / L; const dz = (w.b[1] - w.a[1]) / L;
     const worldOf = (t) => (horiz ? w.a[0] + dx * t : w.a[1] + dz * t);
     const offsetOf = (world) => (horiz ? (world - w.a[0]) / (dx || 1) : (world - w.a[1]) / (dz || 1));
-    const landing = Math.abs(edgeLo - near) <= Math.abs(edgeHi - near) ? edgeLo : edgeHi;
+    const landing = Math.abs(edgeLo - target) <= Math.abs(edgeHi - target) ? edgeLo : edgeHi;
     for (const o of project.openings) {
       if (o.wall !== w.id || (o.sill ?? 0) > 0.2 || o.height < 1.6) continue;
       const c = worldOf(o.offset);

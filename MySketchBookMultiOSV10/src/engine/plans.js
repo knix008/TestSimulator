@@ -99,8 +99,8 @@ export const PLANS = {
     ko: ['단독주택 (2층)', '1층 거실·주방·서재, 2층 침실 3 · 계단'],
     en: ['Detached house (two storeys)', 'Ground: living, kitchen, study; upper: 3 bedrooms; stairs'],
     plan: [
-      { name: '1F', rects: [['living', 0, 0, 5.4, 4.8], ['kitchen', 5.4, 0, 9.6, 4.8], ['hall', 0, 4.8, 3.0, 8.1], ['bath', 3.0, 4.8, 5.1, 8.1], ['office', 5.1, 4.8, 9.6, 8.1]], open: [['living', 'kitchen'], ['hall', 'living']], entrance: 'hall', stairs: { room: 'hall' } },
-      { name: '2F', rects: [['bedroom', 0, 0, 4.8, 4.8], ['bedroom2', 4.8, 0, 9.6, 4.8], ['hall', 0, 4.8, 3.0, 8.1], ['bath2', 3.0, 4.8, 5.1, 8.1], ['bedroom3', 5.1, 4.8, 9.6, 8.1]], open: [], stairwell: 'hall' },
+      { name: '1F', rects: [['living', 0, 0, 5.4, 3.4], ['kitchen', 5.4, 0, 9.6, 3.4], ['hall', 0, 3.4, 3.0, 8.1], ['bath', 3.0, 3.4, 5.1, 8.1], ['office', 5.1, 3.4, 9.6, 8.1]], open: [['living', 'kitchen'], ['hall', 'living']], entrance: 'hall', stairs: { room: 'hall' } },
+      { name: '2F', rects: [['bedroom', 0, 0, 4.8, 3.4], ['bedroom2', 4.8, 0, 9.6, 3.4], ['hall', 0, 3.4, 3.0, 8.1], ['bath2', 3.0, 3.4, 5.1, 8.1], ['bedroom3', 5.1, 3.4, 9.6, 8.1]], open: [], stairwell: 'hall' },
     ],
   },
   'small-office': {

@@ -6,7 +6,7 @@
 // TourPlayer drives a viewport (engine/viewport.js calls its step() from the render loop).
 import * as THREE from 'three';
 import { pointInPolygon } from './walls.js';
-import { isStairs, stairLayout, toWorld } from './stairs.js';
+import { holePolygons, isStairs, stairLayout, toWorld } from './stairs.js';
 
 export const EYE_HEIGHT = 1.6;
 /** Walking speed (m/s) at speed 1, and the time of the look round in a room (s). */
@@ -337,8 +337,10 @@ export function planTour(project, { levels = null, start = null } = {}) {
       // onto the floor above so the tour walks on through its doors instead of gliding in.
       const upperRooms = next ? project.rooms.filter((r) => r.level === next.id && r.points?.length >= 3) : [];
       const rects = (project.rects ?? []).filter((r) => r.level === next.id);
-      const onFloor = (p) => upperRooms.some((r) => pointInPolygon(p, r.points))
-        || rects.some((r) => p[0] > r.x0 + 0.4 && p[0] < r.x1 - 0.4 && p[1] > r.z0 + 0.4 && p[1] < r.z1 - 0.4);
+      // The opening the flight cuts is not a place to stand: keep walking back until the landing, where the doors are.
+      const inHole = (p) => upperRooms.some((r) => holePolygons(r.holes).some((h) => pointInPolygon(p, h)));
+      const onFloor = (p) => !inHole(p) && (upperRooms.some((r) => pointInPolygon(p, r.points))
+        || rects.some((r) => p[0] > r.x0 + 0.4 && p[0] < r.x1 - 0.4 && p[1] > r.z0 + 0.4 && p[1] < r.z1 - 0.4));
       if (!onFloor(climb.to)) {
         const last = climb.steps.at(-1);
         const anchor = last ? [last[0], last[2]] : climb.from;

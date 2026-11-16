@@ -9,6 +9,8 @@ import { newId } from './document.js';
 import { PARAMETRIC_ITEMS } from '../library/parametric/index.js';
 import { doorSwings, doorBlockers } from './checks.js';
 import { overlapDepth, wallQuad } from './doorswing.js';
+import { pointInPolygon } from './walls.js';
+import { holePolygons } from './stairs.js';
 
 const ITEMS = new Map(PARAMETRIC_ITEMS.map((i) => [i.id, i]));
 
@@ -718,6 +720,8 @@ function clearDoors(p, rects) {
           for (const b of blockers) { if (hitsAny(d.zones, b.quad, 0.01)) score += 3 * b.weight; else if (hitsAny(d.ways, b.quad, 0.02)) score += b.weight; }
           for (const w of p.walls) if (w.id !== o.wall && w.level === wall.level && hitsAny(d.sectors, wallQuad(w), 0.02)) score += 60;
           for (const e of done) if (e.wall.level === wall.level && d.sectors.some((s) => hitsAny(e.sectors, s, 0.02))) score += 60;
+          // A step through this door must meet a floor, not the opening the stairs cut.
+          if (overHole(offset, width)) score += 200;
           // Into the room (the private one between two rooms); entrance doors open outwards.
           const l = d.leaves[0];
           const cx = d.leaves.reduce((s, x) => s + x.hinge[0], 0) / d.leaves.length; const cz = d.leaves.reduce((s, x) => s + x.hinge[1], 0) / d.leaves.length;
@@ -732,8 +736,21 @@ function clearDoors(p, rects) {
       }
       return best;
     };
+    const overHole = (t, width = o.width) => {
+      for (const along of [-width / 2, 0, width / 2]) {
+        for (const s of [1, -1]) for (const dist of [0.35, 0.7]) {
+          const at = t + along;
+          const pt = [wall.a[0] + ((wall.b[0] - wall.a[0]) * at) / L + n[0] * s * dist, wall.a[1] + ((wall.b[1] - wall.a[1]) * at) / L + n[1] * s * dist];
+          for (const room of p.rooms) {
+            if (room.level !== wall.level || !pointInPolygon(pt, room.points)) continue;
+            if (holePolygons(room.holes).some((h) => pointInPolygon(pt, h))) return true;
+          }
+        }
+      }
+      return false;
+    };
     let best = orient(o.offset);
-    // Still in the way of something: try the door elsewhere on its wall (between the same rooms,
+    // Still in the way of something, or standing over the stair opening: try the door elsewhere on its wall (between the same rooms,
     // clear of the other openings); moving it costs a little, so it stays put when nothing gains.
     // A door that still meets the stairs may also get a little narrower (down to 0.85 m).
     if (best.score >= 1) {

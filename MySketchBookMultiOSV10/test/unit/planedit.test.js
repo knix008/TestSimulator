@@ -192,8 +192,8 @@ test('every sample floor plan builds: rooms detected, no overlapping walls, colu
       assert.ok(walls.length >= 4, `${id}: walls`);
       assert.ok(rooms.length >= 1, `${id}: rooms`);
       assert.deepEqual(overlappingWalls(walls), [], `${id} ${p.levels[i].name}: overlapping walls`);
-      // Each room rectangle's centre lies in a detected room (except the open stairwell).
-      for (const r of p.rects.filter((x) => x.level === level && x.key !== levelSpec.stairwell)) {
+      // Each room rectangle's centre lies in a detected room. A stair hall keeps its floor; the flight only cuts a hole in it.
+      for (const r of p.rects.filter((x) => x.level === level)) {
         const c = [(r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2];
         // …in exactly one room: rooms do not overlap.
         assert.equal(rooms.filter((room) => pointInPolygon(c, room.points)).length, 1, `${id}: ${r.key} has one room`);

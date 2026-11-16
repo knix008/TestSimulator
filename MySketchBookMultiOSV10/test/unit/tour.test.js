@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { SAMPLE_PROJECTS, buildSampleProject } from '../../src/engine/samples.js';
 import { planTour, levelObstacles, clearPath, roomStandPoint, isPassable, doorsCrossed, TourPlayer, EYE_HEIGHT } from '../../src/engine/tour.js';
 import { pointInPolygon } from '../../src/engine/walls.js';
+import { holePolygons } from '../../src/engine/stairs.js';
 
 const projects = SAMPLE_PROJECTS.map((s) => [s.id, buildSampleProject(s.id, 'ko')]).filter(([, p]) => p);
 
@@ -68,6 +69,11 @@ test('tour: the stairs of multi-storey samples are climbed, ending on the next f
       assert.equal(m.points[0][1], 0);
       assert.ok(Math.abs(m.points.at(-1)[1] - (to.elevation - from.elevation)) < 1e-6, `${id}: does not end on the floor above`);
       for (let i = 1; i < m.points.length; i++) assert.ok(m.points[i][1] >= m.points[i - 1][1] - 1e-6, `${id}: goes down on the way up`);
+      // The last step is the landing you walk onto, not the opening the flight cuts.
+      const at = [m.points.at(-1)[0], m.points.at(-1)[2]];
+      const room = p.rooms.find((r) => r.level === m.to && pointInPolygon(at, r.points));
+      assert.ok(room, `${id}: the stair arrives outside every room`);
+      assert.equal(holePolygons(room.holes).some((h) => pointInPolygon(at, h)), false, `${id}: the stair arrives in the opening`);
     }
   }
   assert.ok(climbs >= 5, `climbs: ${climbs}`);
